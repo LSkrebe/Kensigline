@@ -1,0 +1,12 @@
+.page {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  background: #000;
+}
+
+.logo {
+  width: min(560px, 92vw);
+  height: auto;
+  display: block;
+}
