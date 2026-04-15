@@ -1,12 +1,480 @@
-.page {
-  min-height: 100svh;
-  display: grid;
-  place-items: center;
-  background: #000;
+:root {
+  --bg: #06070a;
+  --panel: #070a0f;
+  --grid: rgba(140, 255, 195, 0.14);
+  --text: rgba(216, 255, 235, 0.86);
+  --dim: rgba(216, 255, 235, 0.55);
+  --hi: rgba(80, 255, 190, 0.92);
+  --cyan: rgba(90, 220, 255, 0.92);
+  --warn: rgba(255, 212, 92, 0.95);
+  --bad: rgba(255, 88, 108, 0.95);
 }
 
+.terminal {
+  height: 100dvh;
+  width: 100vw;
+  background: var(--bg);
+  color: var(--text);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  border: 1px solid var(--grid);
+  box-sizing: border-box;
+}
+
+.panel {
+  background: var(--panel);
+  border-right: 1px solid var(--grid);
+  border-bottom: 1px solid var(--grid);
+  padding: 10px 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+  min-height: 0;
+  min-width: 0;
+}
+
+.panelHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--grid);
+}
+
+.panelTitle {
+  letter-spacing: 0.06em;
+  color: var(--hi);
+  font-size: 12px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panelMeta {
+  color: var(--dim);
+  font-size: 11px;
+  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dim {
+  color: var(--dim);
+}
+
+.mono {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- GRID PLACEMENT (4x4 ONLY) ---- */
+.structure {
+  grid-column: 1 / span 1;
+  grid-row: 1 / span 3;
+}
+.feed {
+  grid-column: 2 / span 3;
+  grid-row: 1 / span 3;
+}
+.graph {
+  grid-column: 1 / span 3;
+  grid-row: 4 / span 1;
+}
 .logo {
-  width: min(560px, 92vw);
+  grid-column: 4 / span 1;
+  grid-row: 4 / span 1;
+}
+
+/* ---- LOGO PANEL ---- */
+.logo {
+  perspective: 900px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  align-items: center;
+}
+
+.logo .panelHeader {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.logo .panelMeta {
+  justify-self: end;
+  text-align: right;
+  white-space: normal;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.logoOrb {
+  width: clamp(96px, 10vw, 220px);
   height: auto;
   display: block;
+  margin: 0;
+  justify-self: center;
+  align-self: center;
+  transform-style: preserve-3d;
+  animation: spinEarth 14s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(90, 220, 255, 0.18))
+    drop-shadow(0 0 16px rgba(80, 255, 190, 0.12));
+}
+
+@keyframes flicker {
+  0%,
+  96%,
+  100% {
+    opacity: 1;
+  }
+  97% {
+    opacity: 0.45;
+  }
+  98% {
+    opacity: 0.9;
+  }
+  99% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes spinEarth {
+  0% {
+    transform: rotateX(18deg) rotateY(0deg);
+  }
+  100% {
+    transform: rotateX(18deg) rotateY(360deg);
+  }
+}
+
+/* ---- TRIAL STRUCTURE ---- */
+.structure {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.structureBody {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 10px;
+  min-height: 0;
+}
+
+.structureBadges {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  gap: 6px;
+  align-items: center;
+  overflow: hidden;
+}
+
+.badge {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border: 1px solid rgba(140, 255, 195, 0.18);
+  color: rgba(240, 255, 248, 0.9);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.badge-cyan {
+  border-color: rgba(90, 220, 255, 0.55);
+  color: rgba(90, 220, 255, 0.92);
+}
+
+.badge-event {
+  border-color: rgba(90, 220, 255, 0.35);
+  color: rgba(90, 220, 255, 0.92);
+}
+
+.badge-event.type-ENDPOINTMISS {
+  border-color: rgba(255, 88, 108, 0.55);
+  color: var(--bad);
+}
+
+.badge-event.type-DELAY {
+  border-color: rgba(255, 212, 92, 0.55);
+  color: var(--warn);
+}
+
+.badge-event.type-READOUT {
+  border-color: rgba(80, 255, 190, 0.55);
+  color: var(--hi);
+}
+
+.badge-event.type-FDAUPDATE {
+  border-color: rgba(90, 220, 255, 0.55);
+  color: var(--cyan);
+}
+
+.badge-dim {
+  border-color: rgba(140, 255, 195, 0.12);
+  color: rgba(216, 255, 235, 0.55);
+}
+
+.structureCard {
+  border: 1px solid rgba(140, 255, 195, 0.12);
+  padding: 8px 8px;
+  overflow: hidden;
+}
+
+.kvTable {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 6px 10px;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.kvTable .kvVal {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(216, 255, 235, 0.82);
+}
+
+.structureSection {
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 4px;
+}
+
+.structureSectionTitle {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--cyan);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Dense audit-tape notes (replaces spaced bullets) */
+.noteList {
+  overflow: auto;
+  border: 1px solid rgba(140, 255, 195, 0.12);
+}
+
+.noteRow {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  padding: 5px 6px;
+  border-bottom: 1px solid rgba(140, 255, 195, 0.08);
+  font-size: 11px;
+  line-height: 1.15;
+  color: rgba(216, 255, 235, 0.82);
+  align-items: start;
+}
+
+.noteRow:last-child {
+  border-bottom: none;
+}
+
+.noteIdx {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  color: rgba(216, 255, 235, 0.5);
+}
+
+.noteText {
+  min-width: 0;
+  white-space: normal;
+  min-height: calc(2 * 1.15em);
+}
+
+/* ---- EVENT FEED ---- */
+.feed {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.feed .panelHeader {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.feed .panelMeta {
+  justify-self: end;
+  text-align: right;
+}
+
+.feedList {
+  height: 100%;
+  overflow: auto;
+  padding-right: 6px;
+  display: grid;
+  grid-auto-rows: min-content;
+  gap: 6px;
+  min-height: 0;
+}
+
+.feedItem {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid rgba(140, 255, 195, 0.12);
+  color: var(--text);
+  padding: 8px 10px;
+  cursor: pointer;
+  font: inherit;
+  display: grid;
+  gap: 6px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.feedItem:hover {
+  border-color: rgba(90, 220, 255, 0.35);
+}
+
+.feedItem.isActive {
+  border-color: rgba(80, 255, 190, 0.65);
+  box-shadow: 0 0 0 1px rgba(80, 255, 190, 0.12) inset;
+}
+
+.feedRow1,
+.feedRow2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.feedRow2 {
+  grid-template-columns: minmax(0, 1fr) 170px;
+}
+
+.feedTrial {
+  font-size: 13px;
+  color: rgba(240, 255, 248, 0.95);
+}
+
+.feedDrug {
+  font-size: 12px;
+  color: var(--dim);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feedTs {
+  font-size: 11px;
+  color: rgba(216, 255, 235, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: right;
+}
+
+.feedType {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: rgba(90, 220, 255, 0.9);
+}
+
+.type-ENDPOINTMISS {
+  color: var(--bad);
+}
+.type-DELAY {
+  color: var(--warn);
+}
+.type-READOUT {
+  color: var(--hi);
+}
+.type-FDAUPDATE {
+  color: var(--cyan);
+}
+
+/* ---- BULLET PANELS ---- */
+.bullets {
+  margin: 0;
+  padding-left: 14px;
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.25;
+  color: rgba(216, 255, 235, 0.8);
+}
+
+.bullets-tight {
+  gap: 2px;
+  font-size: 11px;
+  line-height: 1.18;
+}
+
+/* ---- DAILY GRAPH ---- */
+.graph {
+  padding: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+}
+
+.graph .panelHeader {
+  padding: 10px 0 8px;
+  margin: 0 12px;
+}
+
+.graph .panelMeta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.graphWrap {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.graphSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.graphGrid {
+  stroke: rgba(140, 255, 195, 0.12);
+  stroke-width: 1;
+  fill: none;
+}
+
+.graphPath {
+  stroke: rgba(90, 220, 255, 0.92);
+  stroke-width: 2;
+  fill: none;
+}
+
+.axes {
+  pointer-events: none;
+}
+
+.axisLine {
+  stroke: rgba(140, 255, 195, 0.22);
+  stroke-width: 1;
+  fill: none;
+}
+
+.axisLabel {
+  fill: rgba(216, 255, 235, 0.55);
+  font-size: 6px;
+}
+
+.axisLabel.y {
+  text-anchor: start;
+}
+
+.axisLabel.x {
+  fill: rgba(216, 255, 235, 0.45);
 }
