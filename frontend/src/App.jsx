@@ -5,121 +5,198 @@ const MOCK_EVENTS = [
   {
     id: 'ONC-441-P2-READOUT',
     trial: 'ONC-441 Phase II (mCRC)',
-    drug: 'ONC-441 (CD47xEGFR)',
+    drug: 'ONC-441',
+    mechanism: 'CD47×EGFR bispecific',
+    phase: 'Phase II',
+    indication: 'metastatic colorectal cancer (mCRC)',
+    sponsor: 'OncoNadir Therapeutics',
+    intervention: 'ONC-441 IV q2w + SOC',
     eventType: 'READOUT',
     ts: '2026-04-14 09:31:12Z',
-    what: 'Interim ORR signal printed above street; DCR stable, OS immature.',
-    expectation: 'Street expected noisy ORR with fragile duration; buy-side expected miss vs SOC.',
-    change: 'Model shifts response durability up; endpoint risk down modestly; pricing dislocation likely.',
-    trialQuality: [
-      'Primary: ORR (RECIST v1.1); Secondary: DOR, PFS, safety',
-      'N=124; enrichment: EGFR-high; stratification partially balanced',
-      'Control arm: external SOC benchmark; no randomized comparator',
-      'Weakness: imaging cadence variability; cross-site reader drift risk',
-    ],
-    statIntegrity: [
-      { label: 'p-value', value: 'Nominal p=0.041 (non-adjusted interim)', level: 'warn' },
-      { label: 'effect size', value: 'ORR delta plausible; DOR tail uncertain', level: 'ok' },
-      { label: 'subgroup risk', value: 'EGFR-high post-hoc boundary drift possible', level: 'warn' },
-      { label: 'data quality', value: 'Dropouts low; AE reporting consistent', level: 'ok' },
-    ],
-    expectationGap: { market: 62, model: 74, gapScore: +12 },
-    signal: {
-      verdict: 'LONG (rare)',
-      confidence: 0.66,
-      reasons: ['Durability > expected', 'Narrative reversal vs skeptical tape', 'Low near-term FDA friction'],
-      invalidations: ['DOR collapses on next scan', 'Safety signal emerges in expansion cohort'],
+    trialSnapshot: {
+      drug: 'ONC-441',
+      mechanism: 'CD47×EGFR bispecific',
+      phase: 'Phase II',
+      indication: 'mCRC',
+      sponsor: 'OncoNadir Therapeutics',
+      intervention: 'ONC-441 IV q2w + SOC',
     },
+    studyDesign: {
+      arms: '2 (Dose A / Dose B)',
+      randomization: 'Non-randomized',
+      control: 'External SOC benchmark',
+      masking: 'Open-label',
+      sampleSize: 'N=124',
+    },
+    population: {
+      condition: 'mCRC (2L+)',
+      biomarkers: 'EGFR-high enriched cohort',
+      lineOfTherapy: '2L+',
+    },
+    endpointsResults: {
+      endpoints: ['Primary: ORR (RECIST v1.1)', 'Secondary: DOR, PFS, OS, Safety'],
+      results: [
+        { endpoint: 'ORR', value: '28.2%' },
+        { endpoint: 'DCR', value: '71.0%' },
+        { endpoint: 'Median DOR', value: '5.6 mo (immature)' },
+      ],
+    },
+    timelineDetails: {
+      studyStart: '2025-02-18',
+      primaryCompletion: '2026-08-30 (est.)',
+      studyCompletion: '2027-01-15 (est.)',
+      status: 'Active, not recruiting',
+      eventSource: 'Company release',
+      eventSubtype: 'Interim efficacy update',
+    },
+    safety: [
+      { term: 'Grade ≥3 TRAE', value: '9%' },
+      { term: 'IRR', value: '12% (mostly Grade 1–2)' },
+      { term: 'Treatment discontinuation (AE)', value: '3%' },
+    ],
     daily: [94, 96, 92, 90, 91, 93, 95, 99, 101, 98, 102, 106, 103, 108, 112, 109, 113],
   },
   {
     id: 'NRX-118-FDA-UPDATE',
     trial: 'NRX-118 Phase I/II (RARE-NEURO)',
-    drug: 'NRX-118 (intrathecal ASO)',
+    drug: 'NRX-118',
+    mechanism: 'Intrathecal ASO',
+    phase: 'Phase I/II',
+    indication: 'rare neurodegenerative disease',
+    sponsor: 'NeuroRex Bio',
+    intervention: 'NRX-118 IT q4w',
     eventType: 'FDA UPDATE',
     ts: '2026-04-14 10:04:51Z',
-    what: 'FDA asks for CMC comparability package; clinical hold not issued.',
-    expectation: 'Market priced an imminent hold after supplier transition rumor.',
-    change: 'Timeline slips 6–10 weeks; probability of full stop reduced.',
-    trialQuality: [
-      'Primary: biomarker knockdown; Secondary: functional scale (exploratory)',
-      'N=38 planned; adaptive dose escalation with sentinel dosing',
-      'Control: none; historical comparator for functional endpoints',
-      'Weakness: endpoint surrogate acceptance uncertain; small N volatility',
-    ],
-    statIntegrity: [
-      { label: 'p-value', value: 'Not applicable (dose-finding)', level: 'neutral' },
-      { label: 'effect size', value: 'Biomarker effect robust but clinical link unproven', level: 'warn' },
-      { label: 'subgroup risk', value: 'Responder definition may drift with dosing', level: 'warn' },
-      { label: 'data quality', value: 'Missingness moderate (LP schedule)', level: 'warn' },
-    ],
-    expectationGap: { market: 41, model: 46, gapScore: +5 },
-    signal: {
-      verdict: 'AVOID',
-      confidence: 0.58,
-      reasons: ['CMC overhang persists', 'Surrogate-to-clinical bridge weak'],
-      invalidations: ['FDA clears comparability cleanly', 'Functional trend aligns with biomarker'],
+    trialSnapshot: {
+      drug: 'NRX-118',
+      mechanism: 'Intrathecal ASO',
+      phase: 'Phase I/II',
+      indication: 'RARE-NEURO',
+      sponsor: 'NeuroRex Bio',
+      intervention: 'NRX-118 IT q4w',
+    },
+    studyDesign: {
+      arms: '1 (dose escalation + expansion)',
+      randomization: 'Not applicable (dose-finding)',
+      control: 'None',
+      masking: 'Open-label',
+      sampleSize: 'N=38 planned',
+    },
+    population: {
+      condition: 'RARE-NEURO',
+      biomarkers: 'Target RNA baseline required',
+      lineOfTherapy: 'Any',
+    },
+    endpointsResults: {
+      endpoints: ['Primary: Biomarker knockdown', 'Secondary: Functional scale (exploratory)', 'Safety'],
+      results: [],
+    },
+    timelineDetails: {
+      studyStart: '2025-09-03',
+      primaryCompletion: '2027-03-20 (est.)',
+      studyCompletion: '2027-06-01 (est.)',
+      status: 'Recruiting',
+      eventSource: 'Regulatory correspondence',
+      eventSubtype: 'CMC request (comparability)',
     },
     daily: [52, 51, 49, 48, 49, 50, 51, 50, 52, 53, 52, 54, 55, 54, 53, 52, 53],
   },
   {
     id: 'KLM-210-TRIAL-DELAY',
     trial: 'KLM-210 Phase III (NASH)',
-    drug: 'KLM-210 (FXR agonist)',
+    drug: 'KLM-210',
+    mechanism: 'FXR agonist',
+    phase: 'Phase III',
+    indication: 'NASH',
+    sponsor: 'KaleidoMetrix',
+    intervention: 'KLM-210 PO daily',
     eventType: 'DELAY',
     ts: '2026-04-14 11:22:03Z',
-    what: 'Enrollment pause due to site compliance audit; restart expected after remediation.',
-    expectation: 'Street expected steady enrollment; no compliance flags.',
-    change: 'Power timeline extends; competitive readouts compress window.',
-    trialQuality: [
-      'Primary: fibrosis improvement without worsening NASH',
-      'N=1,200; global sites; heterogeneity risk high',
-      'Control: placebo; background therapy variable across regions',
-      'Weakness: endpoint adjudication complexity; protocol deviations likely',
-    ],
-    statIntegrity: [
-      { label: 'p-value', value: 'Interim not disclosed', level: 'neutral' },
-      { label: 'effect size', value: 'FXR class historically modest', level: 'warn' },
-      { label: 'subgroup risk', value: 'Region/site effects could dominate', level: 'warn' },
-      { label: 'data quality', value: 'Protocol deviations elevated', level: 'bad' },
-    ],
-    expectationGap: { market: 55, model: 43, gapScore: -12 },
-    signal: {
-      verdict: 'SHORT',
-      confidence: 0.71,
-      reasons: ['Execution slippage', 'Class effect skepticism', 'Crowded catalyst window'],
-      invalidations: ['Audit resolves with no material findings', 'Enrollment re-accelerates immediately'],
+    trialSnapshot: {
+      drug: 'KLM-210',
+      mechanism: 'FXR agonist',
+      phase: 'Phase III',
+      indication: 'NASH',
+      sponsor: 'KaleidoMetrix',
+      intervention: 'KLM-210 PO daily',
+    },
+    studyDesign: {
+      arms: '2 (active / placebo)',
+      randomization: 'Randomized 1:1',
+      control: 'Placebo',
+      masking: 'Double-blind',
+      sampleSize: 'N=1,200',
+    },
+    population: {
+      condition: 'NASH with fibrosis (F2–F3)',
+      biomarkers: 'Baseline liver biopsy required',
+      lineOfTherapy: 'Not applicable',
+    },
+    endpointsResults: {
+      endpoints: ['Primary: fibrosis improvement w/o worsening NASH', 'Secondary: NASH resolution, safety'],
+      results: [],
+    },
+    timelineDetails: {
+      studyStart: '2024-11-11',
+      primaryCompletion: '2026-12-10 (est.)',
+      studyCompletion: '2027-04-08 (est.)',
+      status: 'Active, not recruiting',
+      eventSource: 'Site audit notice',
+      eventSubtype: 'Enrollment pause',
     },
     daily: [77, 78, 76, 74, 73, 72, 70, 71, 69, 68, 66, 65, 64, 63, 62, 61, 60],
   },
   {
     id: 'BETA-AMYLOID-FAIL',
     trial: 'BA-19 Phase II (Early AD)',
-    drug: 'BA-19 (beta-amyloid mAb)',
+    drug: 'BA-19',
+    mechanism: 'Beta-amyloid mAb',
+    phase: 'Phase II',
+    indication: 'Early Alzheimer’s disease',
+    sponsor: 'BlueArc Biologics',
+    intervention: 'BA-19 IV monthly',
     eventType: 'ENDPOINT MISS',
     ts: '2026-04-14 12:09:44Z',
-    what: 'Primary cognitive endpoint missed; biomarker cleared but clinical separation absent.',
-    expectation: 'Market expected marginal win with heavy statistical “massaging”.',
-    change: 'Probability of Phase III drops sharply; valuation floor uncertain.',
-    trialQuality: [
-      'Primary: cognitive composite at 18 months; Secondary: PET amyloid, safety',
-      'N=312; mild AD; background standard-of-care uneven',
-      'Control: placebo; blinding intact; dropout rises late',
-      'Weakness: endpoint sensitivity; learning effects; site variability',
-    ],
-    statIntegrity: [
-      { label: 'p-value', value: 'p=0.27 (primary); secondary multiplicity not met', level: 'bad' },
-      { label: 'effect size', value: 'Biomarker-clinical decoupling persists', level: 'bad' },
-      { label: 'subgroup risk', value: 'APOE subgroup fishing likely', level: 'warn' },
-      { label: 'data quality', value: 'Dropouts high; missing data imputation heavy', level: 'bad' },
-    ],
-    expectationGap: { market: 48, model: 28, gapScore: -20 },
-    signal: {
-      verdict: 'SHORT',
-      confidence: 0.79,
-      reasons: ['Primary miss definitive', 'Imputation reliance', 'Crowded space, no differentiation'],
-      invalidations: ['Unexpected FDA pathway signal', 'Replicated cognitive effect in extension'],
+    trialSnapshot: {
+      drug: 'BA-19',
+      mechanism: 'Beta-amyloid mAb',
+      phase: 'Phase II',
+      indication: 'Early AD',
+      sponsor: 'BlueArc Biologics',
+      intervention: 'BA-19 IV monthly',
     },
+    studyDesign: {
+      arms: '2 (active / placebo)',
+      randomization: 'Randomized 1:1',
+      control: 'Placebo',
+      masking: 'Double-blind',
+      sampleSize: 'N=312',
+    },
+    population: {
+      condition: 'Early Alzheimer’s disease',
+      biomarkers: 'Amyloid PET positive required',
+      lineOfTherapy: 'Not applicable',
+    },
+    endpointsResults: {
+      endpoints: ['Primary: cognitive composite (18 mo)', 'Secondary: PET amyloid, safety'],
+      results: [
+        { endpoint: 'Primary cognitive composite', value: 'Not met' },
+        { endpoint: 'Amyloid PET', value: 'Reduced vs baseline' },
+      ],
+    },
+    timelineDetails: {
+      studyStart: '2024-06-22',
+      primaryCompletion: '2026-03-15',
+      studyCompletion: '2026-07-30 (est.)',
+      status: 'Completed',
+      eventSource: 'Topline release',
+      eventSubtype: 'Primary endpoint result',
+    },
+    safety: [
+      { term: 'ARIA-E', value: '8.1%' },
+      { term: 'Serious AE', value: '6.4%' },
+      { term: 'Discontinuation (AE)', value: '4.5%' },
+    ],
     daily: [120, 118, 116, 112, 108, 104, 101, 97, 94, 90, 88, 85, 84, 82, 81, 80, 79],
   },
 ]
@@ -161,6 +238,7 @@ function toPath(values, w, h, inset) {
 function App() {
   const [selectedId, setSelectedId] = useState(MOCK_EVENTS[0]?.id ?? '')
   const selected = MOCK_EVENTS.find((e) => e.id === selectedId) ?? MOCK_EVENTS[0]
+  const hasSafety = Array.isArray(selected?.safety) && selected.safety.length > 0
 
   const daily = selected?.daily ?? []
   const dailyMin = daily.length ? Math.min(...daily) : 0
@@ -195,50 +273,10 @@ function App() {
 
   return (
     <main className="terminal" aria-label="KENSIGLINE terminal grid">
-      <section className="panel structure" aria-label="Trial structure panel">
-        <header className="panelHeader">
-          <div className="panelTitle">TRIAL STRUCTURE</div>
-          <div className="panelMeta">{selected?.trial ?? '—'}</div>
-        </header>
-        <div className="structureBody">
-          <div className="structureBadges" aria-label="Trial badges">
-            <span className={`badge badge-event type-${(selected?.eventType ?? '').replace(/\s/g, '')}`}>
-              {selected?.eventType ?? '—'}
-            </span>
-            <span className="badge badge-dim">{selected?.ts ?? '—'}</span>
-          </div>
-
-          <div className="structureCard" aria-label="Key fields">
-            <div className="kvTable">
-              <div className="kvKey dim">DRUG</div>
-              <div className="kvVal mono">{selected?.drug ?? '—'}</div>
-
-              <div className="kvKey dim">TRIAL</div>
-              <div className="kvVal">{selected?.trial ?? '—'}</div>
-
-              <div className="kvKey dim">EVENT</div>
-              <div className="kvVal mono">{selected?.eventType ?? '—'}</div>
-            </div>
-          </div>
-
-          <div className="structureSection">
-            <div className="structureSectionTitle">DESIGN NOTES</div>
-            <div className="noteList" role="list" aria-label="Design notes">
-              {(selected?.trialQuality ?? []).map((t, idx) => (
-                <div key={t} className="noteRow" role="listitem">
-                  <span className="noteIdx">{String(idx + 1).padStart(2, '0')}</span>
-                  <span className="noteText">{t}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section className="panel feed" aria-label="Event feed">
         <header className="panelHeader">
           <div className="panelTitle">EVENT FEED</div>
-          <div className="panelMeta">CATALYST TAPE · CLICK TO ROUTE</div>
+          <div className="panelMeta">CATALYST TAPE</div>
         </header>
         <div className="feedList" role="list">
           {MOCK_EVENTS.map((ev) => {
@@ -266,6 +304,172 @@ function App() {
           })}
         </div>
       </section>
+
+      <section className="panel snapshot" aria-label="Trial snapshot">
+        <header className="panelHeader">
+          <div className="panelTitle">TRIAL SNAPSHOT</div>
+          <div className="panelMeta">{selected?.id ?? '—'}</div>
+        </header>
+        <div className="fieldGrid">
+          <div className="field">
+            <div className="fieldKey">DRUG</div>
+            <div className="fieldVal mono">{selected?.trialSnapshot?.drug ?? '—'}</div>
+          </div>
+          <div className="field">
+            <div className="fieldKey">MECH</div>
+            <div className="fieldVal">{selected?.trialSnapshot?.mechanism ?? '—'}</div>
+          </div>
+          <div className="field">
+            <div className="fieldKey">PHASE</div>
+            <div className="fieldVal mono">{selected?.trialSnapshot?.phase ?? '—'}</div>
+          </div>
+          <div className="field">
+            <div className="fieldKey">IND</div>
+            <div className="fieldVal">{selected?.trialSnapshot?.indication ?? '—'}</div>
+          </div>
+          <div className="field">
+            <div className="fieldKey">SPONSOR</div>
+            <div className="fieldVal">{selected?.trialSnapshot?.sponsor ?? '—'}</div>
+          </div>
+          <div className="field">
+            <div className="fieldKey">INTV</div>
+            <div className="fieldVal">{selected?.trialSnapshot?.intervention ?? '—'}</div>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel design" aria-label="Study design">
+        <header className="panelHeader">
+          <div className="panelTitle">STUDY DESIGN</div>
+          <div className="panelMeta">
+            <span className={`pill type-${(selected?.eventType ?? '').replace(/\s/g, '')}`}>
+              {selected?.eventType ?? '—'}
+            </span>
+          </div>
+        </header>
+        <div className="kvStack">
+          <div className="kvLine">
+            <span className="kvK dim">ARMS</span>
+            <span className="kvV">{selected?.studyDesign?.arms ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">RAND</span>
+            <span className="kvV">{selected?.studyDesign?.randomization ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">CTRL</span>
+            <span className="kvV">{selected?.studyDesign?.control ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">MASK</span>
+            <span className="kvV">{selected?.studyDesign?.masking ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">N</span>
+            <span className="kvV mono">{selected?.studyDesign?.sampleSize ?? '—'}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel population" aria-label="Population">
+        <header className="panelHeader">
+          <div className="panelTitle">POPULATION</div>
+          <div className="panelMeta">{selected?.population?.condition ?? '—'}</div>
+        </header>
+        <div className="kvStack">
+          <div className="kvLine">
+            <span className="kvK dim">COND</span>
+            <span className="kvV">{selected?.population?.condition ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">BIO</span>
+            <span className="kvV">{selected?.population?.biomarkers ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">LOT</span>
+            <span className="kvV mono">{selected?.population?.lineOfTherapy ?? '—'}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel endpoints" aria-label="Endpoints and results">
+        <header className="panelHeader">
+          <div className="panelTitle">ENDPOINTS & RESULTS</div>
+          <div className="panelMeta">
+            {(selected?.endpointsResults?.results?.length ?? 0) > 0 ? 'RESULTS' : 'NO RESULTS'}
+          </div>
+        </header>
+        <div className="endpointsBody">
+          <div className="subTitle">ENDPOINTS</div>
+          <ul className="compactList">
+            {(selected?.endpointsResults?.endpoints ?? []).map((e) => (
+              <li key={e}>{e}</li>
+            ))}
+          </ul>
+          <div className="subTitle">RESULTS</div>
+          <div className="resultGrid" role="list">
+            {(selected?.endpointsResults?.results ?? []).length === 0 ? (
+              <div className="dim">—</div>
+            ) : (
+              (selected?.endpointsResults?.results ?? []).map((r) => (
+                <div key={r.endpoint} className="resultRow" role="listitem">
+                  <span className="resultK">{r.endpoint}</span>
+                  <span className="resultV mono">{r.value}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section
+        className={`panel timeline ${hasSafety ? 'withSafety' : ''}`}
+        aria-label="Timeline and event details"
+      >
+        <header className="panelHeader">
+          <div className="panelTitle">TIMELINE / EVENT DETAILS</div>
+          <div className="panelMeta">{selected?.timelineDetails?.status ?? '—'}</div>
+        </header>
+        <div className="kvStack">
+          <div className="kvLine">
+            <span className="kvK dim">START</span>
+            <span className="kvV mono">{selected?.timelineDetails?.studyStart ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">PRI COMP</span>
+            <span className="kvV mono">{selected?.timelineDetails?.primaryCompletion ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">STUDY COMP</span>
+            <span className="kvV mono">{selected?.timelineDetails?.studyCompletion ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">SOURCE</span>
+            <span className="kvV">{selected?.timelineDetails?.eventSource ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">DETAIL</span>
+            <span className="kvV">{selected?.timelineDetails?.eventSubtype ?? '—'}</span>
+          </div>
+        </div>
+      </section>
+
+      {hasSafety ? (
+        <section className="panel safety" aria-label="Safety">
+          <header className="panelHeader">
+            <div className="panelTitle">SAFETY</div>
+            <div className="panelMeta">AVAILABLE</div>
+          </header>
+          <div className="resultGrid" role="list">
+            {selected.safety.map((s) => (
+              <div key={s.term} className="resultRow" role="listitem">
+                <span className="resultK">{s.term}</span>
+                <span className="resultV mono">{s.value}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="panel graph" aria-label="Daily graph">
         <header className="panelHeader">

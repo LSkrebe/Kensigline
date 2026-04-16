@@ -72,13 +72,36 @@
 }
 
 /* ---- GRID PLACEMENT (4x4 ONLY) ---- */
-.structure {
+.feed {
   grid-column: 1 / span 1;
   grid-row: 1 / span 3;
 }
-.feed {
+.snapshot {
   grid-column: 2 / span 3;
-  grid-row: 1 / span 3;
+  grid-row: 1 / span 1;
+}
+.design {
+  grid-column: 2 / span 1;
+  grid-row: 2 / span 1;
+}
+.population {
+  grid-column: 3 / span 1;
+  grid-row: 2 / span 1;
+}
+.endpoints {
+  grid-column: 4 / span 1;
+  grid-row: 2 / span 1;
+}
+.timeline {
+  grid-column: 2 / span 3;
+  grid-row: 3 / span 1;
+}
+.timeline.withSafety {
+  grid-column: 2 / span 2;
+}
+.safety {
+  grid-column: 4 / span 1;
+  grid-row: 3 / span 1;
 }
 .graph {
   grid-column: 1 / span 3;
@@ -150,152 +173,13 @@
   }
 }
 
-/* ---- TRIAL STRUCTURE ---- */
-.structure {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.structureBody {
-  height: 100%;
-  display: grid;
-  grid-template-rows: auto auto 1fr;
-  gap: 10px;
-  min-height: 0;
-}
-
-.structureBadges {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: max-content;
-  gap: 6px;
-  align-items: center;
-  overflow: hidden;
-}
-
-.badge {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  padding: 2px 6px;
-  border: 1px solid rgba(140, 255, 195, 0.18);
-  color: rgba(240, 255, 248, 0.9);
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.badge-cyan {
-  border-color: rgba(90, 220, 255, 0.55);
-  color: rgba(90, 220, 255, 0.92);
-}
-
-.badge-event {
-  border-color: rgba(90, 220, 255, 0.35);
-  color: rgba(90, 220, 255, 0.92);
-}
-
-.badge-event.type-ENDPOINTMISS {
-  border-color: rgba(255, 88, 108, 0.55);
-  color: var(--bad);
-}
-
-.badge-event.type-DELAY {
-  border-color: rgba(255, 212, 92, 0.55);
-  color: var(--warn);
-}
-
-.badge-event.type-READOUT {
-  border-color: rgba(80, 255, 190, 0.55);
-  color: var(--hi);
-}
-
-.badge-event.type-FDAUPDATE {
-  border-color: rgba(90, 220, 255, 0.55);
-  color: var(--cyan);
-}
-
-.badge-dim {
-  border-color: rgba(140, 255, 195, 0.12);
-  color: rgba(216, 255, 235, 0.55);
-}
-
-.structureCard {
-  border: 1px solid rgba(140, 255, 195, 0.12);
-  padding: 8px 8px;
-  overflow: hidden;
-}
-
-.kvTable {
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
-  gap: 6px 10px;
-  font-size: 12px;
-  line-height: 1.25;
-}
-
-.kvTable .kvVal {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: rgba(216, 255, 235, 0.82);
-}
-
-.structureSection {
-  overflow: hidden;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  gap: 4px;
-}
-
-.structureSectionTitle {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--cyan);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Dense audit-tape notes (replaces spaced bullets) */
-.noteList {
-  overflow: auto;
-  border: 1px solid rgba(140, 255, 195, 0.12);
-}
-
-.noteRow {
-  display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 8px;
-  padding: 5px 6px;
-  border-bottom: 1px solid rgba(140, 255, 195, 0.08);
-  font-size: 11px;
-  line-height: 1.15;
-  color: rgba(216, 255, 235, 0.82);
-  align-items: start;
-}
-
-.noteRow:last-child {
-  border-bottom: none;
-}
-
-.noteIdx {
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.12em;
-  color: rgba(216, 255, 235, 0.5);
-}
-
-.noteText {
-  min-width: 0;
-  white-space: normal;
-  min-height: calc(2 * 1.15em);
-}
-
 /* ---- EVENT FEED ---- */
 .feed {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
 }
 
+/* ---- EVENT FEED ---- */
 .feed .panelHeader {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
@@ -394,21 +278,156 @@
   color: var(--cyan);
 }
 
-/* ---- BULLET PANELS ---- */
-.bullets {
-  margin: 0;
-  padding-left: 14px;
-  display: grid;
-  gap: 6px;
-  font-size: 12px;
-  line-height: 1.25;
-  color: rgba(216, 255, 235, 0.8);
+.pill.type-ENDPOINTMISS {
+  border-color: rgba(255, 88, 108, 0.55);
+  color: var(--bad);
+}
+.pill.type-DELAY {
+  border-color: rgba(255, 212, 92, 0.55);
+  color: var(--warn);
+}
+.pill.type-READOUT {
+  border-color: rgba(80, 255, 190, 0.55);
+  color: var(--hi);
+}
+.pill.type-FDAUPDATE {
+  border-color: rgba(90, 220, 255, 0.55);
+  color: var(--cyan);
 }
 
-.bullets-tight {
+/* ---- STRUCTURED PANELS (right side) ---- */
+.snapshot,
+.design,
+.population,
+.endpoints,
+.timeline,
+.safety {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 10px;
+  min-height: 0;
+}
+
+.field {
+  overflow: hidden;
+}
+
+.fieldKey {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: rgba(216, 255, 235, 0.55);
+  margin-bottom: 3px;
+  white-space: nowrap;
+}
+
+.fieldVal {
+  font-size: 12px;
+  color: rgba(240, 255, 248, 0.92);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kvStack {
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+}
+
+.kvLine {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  font-size: 12px;
+}
+
+.kvK {
+  letter-spacing: 0.08em;
+  font-size: 10px;
+}
+
+.kvV {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(216, 255, 235, 0.82);
+}
+
+.pill {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  border: 1px solid rgba(140, 255, 195, 0.18);
+  color: rgba(240, 255, 248, 0.92);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.subTitle {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: rgba(90, 220, 255, 0.9);
+  margin: 0 0 4px;
+}
+
+.compactList {
+  margin: 0 0 8px;
+  padding-left: 14px;
+  display: grid;
   gap: 2px;
   font-size: 11px;
-  line-height: 1.18;
+  line-height: 1.15;
+  color: rgba(216, 255, 235, 0.8);
+  min-height: 0;
+}
+
+.endpointsBody {
+  min-height: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.resultGrid {
+  display: grid;
+  gap: 4px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.resultRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 4px 6px;
+  border: 1px solid rgba(140, 255, 195, 0.12);
+  font-size: 11px;
+  align-items: baseline;
+}
+
+.resultK {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(216, 255, 235, 0.78);
+}
+
+.resultV {
+  color: rgba(240, 255, 248, 0.92);
+  white-space: nowrap;
 }
 
 /* ---- DAILY GRAPH ---- */
