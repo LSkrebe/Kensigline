@@ -367,6 +367,8 @@ function App() {
         </div>
       </section>
 
+      <section className="panel voidTR" aria-label="Empty panel" />
+
       <section className="panel design" aria-label="Study design">
         <header className="panelHeader">
           <div className="panelTitle">STUDY DESIGN</div>
