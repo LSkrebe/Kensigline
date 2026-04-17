@@ -310,30 +310,59 @@ function App() {
           <div className="panelTitle">TRIAL SNAPSHOT</div>
           <div className="panelMeta">{selected?.id ?? '—'}</div>
         </header>
-        <div className="fieldGrid">
-          <div className="field">
-            <div className="fieldKey">DRUG</div>
-            <div className="fieldVal mono">{selected?.trialSnapshot?.drug ?? '—'}</div>
+        <div className="kvStack">
+          <div className="kvLine">
+            <span className="kvK dim">DRUG</span>
+            <span className="kvV mono">{selected?.trialSnapshot?.drug ?? '—'}</span>
           </div>
-          <div className="field">
-            <div className="fieldKey">MECH</div>
-            <div className="fieldVal">{selected?.trialSnapshot?.mechanism ?? '—'}</div>
+          <div className="kvLine">
+            <span className="kvK dim">MECH</span>
+            <span className="kvV">{selected?.trialSnapshot?.mechanism ?? '—'}</span>
           </div>
-          <div className="field">
-            <div className="fieldKey">PHASE</div>
-            <div className="fieldVal mono">{selected?.trialSnapshot?.phase ?? '—'}</div>
+          <div className="kvLine">
+            <span className="kvK dim">PHASE</span>
+            <span className="kvV mono">{selected?.trialSnapshot?.phase ?? '—'}</span>
           </div>
-          <div className="field">
-            <div className="fieldKey">IND</div>
-            <div className="fieldVal">{selected?.trialSnapshot?.indication ?? '—'}</div>
+          <div className="kvLine">
+            <span className="kvK dim">IND</span>
+            <span className="kvV">{selected?.trialSnapshot?.indication ?? '—'}</span>
           </div>
-          <div className="field">
-            <div className="fieldKey">SPONSOR</div>
-            <div className="fieldVal">{selected?.trialSnapshot?.sponsor ?? '—'}</div>
+          <div className="kvLine">
+            <span className="kvK dim">SPONSOR</span>
+            <span className="kvV">{selected?.trialSnapshot?.sponsor ?? '—'}</span>
           </div>
-          <div className="field">
-            <div className="fieldKey">INTV</div>
-            <div className="fieldVal">{selected?.trialSnapshot?.intervention ?? '—'}</div>
+          <div className="kvLine">
+            <span className="kvK dim">INTV</span>
+            <span className="kvV">{selected?.trialSnapshot?.intervention ?? '—'}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="panel file" aria-label="Trial file">
+        <header className="panelHeader">
+          <div className="panelTitle">TRIAL FILE</div>
+          <div className="panelMeta">{selected?.timelineDetails?.status ?? '—'}</div>
+        </header>
+        <div className="kvStack">
+          <div className="kvLine">
+            <span className="kvK dim">START</span>
+            <span className="kvV mono">{selected?.timelineDetails?.studyStart ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">PRI COMP</span>
+            <span className="kvV mono">{selected?.timelineDetails?.primaryCompletion ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">STUDY COMP</span>
+            <span className="kvV mono">{selected?.timelineDetails?.studyCompletion ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">SOURCE</span>
+            <span className="kvV">{selected?.timelineDetails?.eventSource ?? '—'}</span>
+          </div>
+          <div className="kvLine">
+            <span className="kvK dim">DETAIL</span>
+            <span className="kvV">{selected?.timelineDetails?.eventSubtype ?? '—'}</span>
           </div>
         </div>
       </section>
@@ -341,11 +370,7 @@ function App() {
       <section className="panel design" aria-label="Study design">
         <header className="panelHeader">
           <div className="panelTitle">STUDY DESIGN</div>
-          <div className="panelMeta">
-            <span className={`pill type-${(selected?.eventType ?? '').replace(/\s/g, '')}`}>
-              {selected?.eventType ?? '—'}
-            </span>
-          </div>
+          <div className="panelMeta">{selected?.eventType ?? '—'}</div>
         </header>
         <div className="kvStack">
           <div className="kvLine">
@@ -379,11 +404,11 @@ function App() {
         <div className="kvStack">
           <div className="kvLine">
             <span className="kvK dim">COND</span>
-            <span className="kvV">{selected?.population?.condition ?? '—'}</span>
+            <span className="kvV kvVWrap">{selected?.population?.condition ?? '—'}</span>
           </div>
           <div className="kvLine">
             <span className="kvK dim">BIO</span>
-            <span className="kvV">{selected?.population?.biomarkers ?? '—'}</span>
+            <span className="kvV kvVWrap">{selected?.population?.biomarkers ?? '—'}</span>
           </div>
           <div className="kvLine">
             <span className="kvK dim">LOT</span>
@@ -392,65 +417,47 @@ function App() {
         </div>
       </section>
 
-      <section className="panel endpoints" aria-label="Endpoints and results">
+      <section className="panel endpoints" aria-label="Endpoints">
         <header className="panelHeader">
-          <div className="panelTitle">ENDPOINTS & RESULTS</div>
-          <div className="panelMeta">
-            {(selected?.endpointsResults?.results?.length ?? 0) > 0 ? 'RESULTS' : 'NO RESULTS'}
-          </div>
+          <div className="panelTitle">ENDPOINTS</div>
+          <div className="panelMeta">{(selected?.endpointsResults?.endpoints ?? []).length}</div>
         </header>
-        <div className="endpointsBody">
-          <div className="subTitle">ENDPOINTS</div>
-          <ul className="compactList">
-            {(selected?.endpointsResults?.endpoints ?? []).map((e) => (
-              <li key={e}>{e}</li>
-            ))}
-          </ul>
-          <div className="subTitle">RESULTS</div>
-          <div className="resultGrid" role="list">
-            {(selected?.endpointsResults?.results ?? []).length === 0 ? (
-              <div className="dim">—</div>
-            ) : (
-              (selected?.endpointsResults?.results ?? []).map((r) => (
-                <div key={r.endpoint} className="resultRow" role="listitem">
-                  <span className="resultK">{r.endpoint}</span>
-                  <span className="resultV mono">{r.value}</span>
-                </div>
-              ))
-            )}
-          </div>
+        <div className="kvStack">
+          {(selected?.endpointsResults?.endpoints ?? []).length === 0 ? (
+            <div className="dim">—</div>
+          ) : (
+            (selected?.endpointsResults?.endpoints ?? []).map((e, idx) => (
+              <div key={e} className="kvLine">
+                <span className="kvK dim">EP{String(idx + 1).padStart(2, '0')}</span>
+                <span className="kvV kvVWrap">{e}</span>
+              </div>
+            ))
+          )}
         </div>
       </section>
 
-      <section
-        className={`panel timeline ${hasSafety ? 'withSafety' : ''}`}
-        aria-label="Timeline and event details"
-      >
+      <section className="panel results" aria-label="Results">
         <header className="panelHeader">
-          <div className="panelTitle">TIMELINE / EVENT DETAILS</div>
-          <div className="panelMeta">{selected?.timelineDetails?.status ?? '—'}</div>
+          <div className="panelTitle">RESULTS</div>
+          <div className="panelMeta">
+            {(selected?.endpointsResults?.results ?? []).length > 0 ? 'AVAILABLE' : 'NONE'}
+          </div>
         </header>
-        <div className="kvStack">
-          <div className="kvLine">
-            <span className="kvK dim">START</span>
-            <span className="kvV mono">{selected?.timelineDetails?.studyStart ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">PRI COMP</span>
-            <span className="kvV mono">{selected?.timelineDetails?.primaryCompletion ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">STUDY COMP</span>
-            <span className="kvV mono">{selected?.timelineDetails?.studyCompletion ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">SOURCE</span>
-            <span className="kvV">{selected?.timelineDetails?.eventSource ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">DETAIL</span>
-            <span className="kvV">{selected?.timelineDetails?.eventSubtype ?? '—'}</span>
-          </div>
+        <div className="kvStack" role="list" aria-label="Results table">
+          {(selected?.endpointsResults?.results ?? []).length === 0 ? (
+            <div className="dim">—</div>
+          ) : (
+            (selected?.endpointsResults?.results ?? []).map((r, idx) => (
+              <div key={r.endpoint} className="kvLine" role="listitem">
+                <span className="kvK dim">R{String(idx + 1).padStart(2, '0')}</span>
+                <span className="kvV kvVWrap">
+                  <span className="mono">{r.endpoint}</span>
+                  {' = '}
+                  <span className="mono">{r.value}</span>
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </section>
 
@@ -460,11 +467,15 @@ function App() {
             <div className="panelTitle">SAFETY</div>
             <div className="panelMeta">AVAILABLE</div>
           </header>
-          <div className="resultGrid" role="list">
-            {selected.safety.map((s) => (
-              <div key={s.term} className="resultRow" role="listitem">
-                <span className="resultK">{s.term}</span>
-                <span className="resultV mono">{s.value}</span>
+          <div className="kvStack" role="list">
+            {selected.safety.map((s, idx) => (
+              <div key={s.term} className="kvLine" role="listitem">
+                <span className="kvK dim">S{String(idx + 1).padStart(2, '0')}</span>
+                <span className="kvV kvVWrap">
+                  <span className="mono">{s.term}</span>
+                  {' = '}
+                  <span className="mono">{s.value}</span>
+                </span>
               </div>
             ))}
           </div>
