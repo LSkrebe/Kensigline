@@ -341,10 +341,7 @@
   box-sizing: border-box;
   /* Same horizontal rhythm as feeds: `.kvLine` uses row padding like `.feedRowCompact`. */
   padding: 0 0 4px;
-  /*
-   * JS `WorksheetRhythmWrap`: body line-height + kvLine block padding define row stride:
-   * KV_BODY_LH = 1.28; gap between stacked rows = 2 × 0.12em ⇒ KV_LINE_GAP_UNITLESS = 0.24
-   */
+  /* `KvLine` in App.jsx gives each row a height of N feed-style text slots when content wraps. */
   overflow-x: hidden;
   overflow-y: auto;
   column-count: 2;
@@ -356,23 +353,56 @@
   line-height: 1.28;
 }
 
-/* Match feed row rhythm; no visible row boxes or dividers */
+/*
+ * Same vertical slot as `.feedRowCompact`: padding + one line box + bottom rule.
+ * Transparent border keeps cumulative height aligned with feeds (otherwise rows drift upward).
+ */
 .worksheet .kvLine {
   display: grid;
   grid-template-columns: minmax(48px, 0.34fr) minmax(0, 1fr);
   gap: clamp(5px, 1.5cqmin, 12px);
   align-items: center;
+  box-sizing: border-box;
   padding: 0.12em 8px;
   margin: 0;
   border: none;
+  border-bottom: 1px solid transparent;
   box-shadow: none;
   background: transparent;
   font-size: inherit;
   line-height: inherit;
   color: rgba(240, 255, 248, 0.94);
+  /* min-height: N text slots from `KvLine` in App.jsx (one slot ≈ 1.28em + 0.24em gap) */
   break-inside: avoid;
   page-break-inside: avoid;
   -webkit-column-break-inside: avoid;
+}
+
+/* Issuer legal name in header can wrap; default `.feedCompactMeta` is nowrap */
+.worksheet.worksheet--insider .feedCompactHeader .feedCompactMeta {
+  white-space: normal;
+  max-width: min(100%, 58%);
+  text-align: right;
+  line-height: 1.25;
+  justify-content: flex-end;
+}
+
+/* Insider filing worksheet: wider key column, narrower value column (inverse of trial sheet) */
+.worksheet.worksheet--insider .kvLine {
+  grid-template-columns: minmax(96px, 1fr) minmax(52px, 0.34fr);
+}
+
+/* Breathable gap between filing meta and transaction lines */
+.worksheet.worksheet--insider .kvLine.kvSpacer .kvK,
+.worksheet.worksheet--insider .kvLine.kvSpacer .kvV {
+  opacity: 0;
+}
+
+/* Issuer / long keys still wrap via `.kvVWrap`; compact money + meta stay one line */
+.worksheet.worksheet--insider .kvLine .kvV.mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .worksheet .kvK {

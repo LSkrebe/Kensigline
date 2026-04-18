@@ -203,6 +203,56 @@ const MOCK_EVENTS = [
     ],
     daily: [120, 118, 116, 112, 108, 104, 101, 97, 94, 90, 88, 85, 84, 82, 81, 80, 79],
   },
+  {
+    id: 'RXQ-701-PH3-START',
+    trial: 'RXQ-701 Phase III (IgAN)',
+    drug: 'RXQ-701',
+    mechanism: 'Endothelin antagonist',
+    phase: 'Phase III',
+    indication: 'IgA nephropathy',
+    sponsor: 'Renexus Pharma',
+    intervention: 'RXQ-701 PO qd',
+    eventType: 'SITE START',
+    ts: '2026-04-13 08:15:00Z',
+    trialSnapshot: {
+      drug: 'RXQ-701',
+      mechanism: 'Endothelin antagonist',
+      phase: 'Phase III',
+      indication: 'IgAN',
+      sponsor: 'Renexus Pharma',
+      intervention: 'RXQ-701 PO qd',
+    },
+    studyDesign: {
+      arms: '2 (active / placebo)',
+      randomization: 'Randomized 2:1',
+      control: 'Placebo',
+      masking: 'Double-blind',
+      sampleSize: 'N=980',
+    },
+    population: {
+      condition: 'Primary IgAN (biopsy-confirmed)',
+      biomarkers: 'UPCR ≤3.5 g/g at screening',
+      lineOfTherapy: 'Standard-of-care RAS blockade allowed',
+    },
+    endpointsResults: {
+      endpoints: ['Primary: eGFR slope (wk 104)', 'Secondary: UPCR, composite renal, safety'],
+      results: [{ endpoint: 'Enrollment', value: '412 / 980 (42%)' }],
+    },
+    timelineDetails: {
+      studyStart: '2026-02-02',
+      primaryCompletion: '2029-03-31 (est.)',
+      studyCompletion: '2029-11-01 (est.)',
+      status: 'Recruiting',
+      eventSource: 'Trial registry',
+      eventSubtype: 'First China site activated',
+    },
+    safety: [
+      { term: 'Hypotension', value: '7%' },
+      { term: 'Hyperkalemia', value: '4%' },
+      { term: 'Acute kidney injury', value: '<1%' },
+    ],
+    daily: [63, 64, 62, 65, 67, 66, 68, 70, 69, 71, 73, 72, 74, 76, 75, 77, 78],
+  },
 ]
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -241,7 +291,67 @@ const INSIDER_KINDS = ['Insider Buy', 'Insider Sell', 'Insider Buys', 'Contract 
 /** Realistic issuer tickers only (no counts in this column). */
 const INSIDER_TICKERS = ['PRIM', 'HG', 'SPRU', 'VRA', 'FFIN']
 
-const INSIDER_FEED_ROWS = Array.from({ length: 42 }, (_, i) => {
+/** Keys shown as document / transaction rows in the insider case worksheet */
+const INSIDER_DOC_KEYS = [
+  'Direction Insider Buy',
+  'CEO Insider Sell',
+  'Acquisition',
+  'CFO Open Market Buy',
+  'Derivative Exercise · Sell',
+  'President 10b5-1 Sale',
+  'Chief Medical Officer Insider Buy',
+  'Chair Gift / Charity',
+  'CEO Insider Short (Synthetic)',
+  'EVP Cluster Purchase',
+]
+
+const INSIDER_ISSUERS = [
+  'Horizon Grain Co.',
+  'SilverSpruce Therapeutics',
+  'Arrival Labs',
+  'Northern Harbor REIT',
+  'VeraBio Holding Co.',
+]
+
+const FORM_TYPES_INSIDER = ['Form 4', 'Form 8-K', 'Form 4', 'Schedule 13D', 'Form 424B5', 'Press release']
+
+/** Deterministic pseudo-random in [0, max) */
+function seededJitter(seed, max) {
+  const x = Math.sin(seed * 12.9898 + max * 78.233) * 43758.5453
+  return Math.abs(x - Math.floor(x)) * max
+}
+
+function formatUsdCompact(n) {
+  const x = Number(n)
+  if (!Number.isFinite(x) || x <= 0) return ''
+  if (x >= 1e9) return `$${(x / 1e9).toFixed(2)}B`
+  if (x >= 1e6) return `$${(x / 1e6).toFixed(2)}M`
+  if (x >= 1e3) return `$${(x / 1e3).toFixed(1)}K`
+  return `$${Math.round(x)}`
+}
+
+/** Insider worksheet: `18 Apr` (same rhythm as feed date stamps, without year). */
+function insiderTxnDateShort(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+}
+
+function buildInsiderDailySeries(seed, len = 20) {
+  let v = 48 + (seed % 31)
+  const out = []
+  for (let j = 0; j < len; j++) {
+    const step = Math.round((seededJitter(seed + j * 17, 7) - 3) * 1.4)
+    v = clamp(v + step, 22, 158)
+    out.push(v)
+  }
+  return out
+}
+
+/**
+ * Per-feed-row insider filing + worksheet payload. Values are filled only when formType === 'Form 4'.
+ */
+function insiderCaseForRowIndex(i) {
   const n = (i % 5) + 1
   const label = `${n} ${INSIDER_KINDS[i % INSIDER_KINDS.length]}`
   const ticker = INSIDER_TICKERS[i % INSIDER_TICKERS.length]
@@ -261,8 +371,47 @@ const INSIDER_FEED_ROWS = Array.from({ length: 42 }, (_, i) => {
   } else {
     at = new Date(2024, 6, 19, 11, 0).toISOString()
   }
-  return { id: `ins-${i}`, label, ticker, at }
-})
+
+  const formType = FORM_TYPES_INSIDER[i % FORM_TYPES_INSIDER.length]
+  const isForm4 = formType === 'Form 4'
+  const issuer = INSIDER_ISSUERS[i % INSIDER_ISSUERS.length]
+  const filingId = `${ticker}-${String(220000 + (i * 7919) % 879000)}`
+
+  const rowCount = 4 + (i % 5)
+  const rows = []
+  for (let k = 0; k < rowCount; k++) {
+    const si = (i * 11 + k * 5) % INSIDER_DOC_KEYS.length
+    const key = INSIDER_DOC_KEYS[si]
+    const ts = new Date(at)
+    ts.setHours(9 + ((i + k) % 8), ((i * k * 13) % 55) + 5, 0, 0)
+    const rowIso = ts.toISOString()
+    let amountUsd = null
+    if (isForm4) {
+      const base = 2400 + seededJitter(i * 101 + k * 17, 920000)
+      amountUsd = Math.round(base + (k % 3) * 12000)
+    }
+    rows.push({ key, amountUsd, ts: rowIso })
+  }
+
+  return {
+    id: `ins-${i}`,
+    label,
+    ticker,
+    at,
+    daily: buildInsiderDailySeries(i + 31),
+    caseSheet: {
+      filingId,
+      formType,
+      issuer,
+      ticker,
+      isForm4,
+      filedAt: at,
+      rows,
+    },
+  }
+}
+
+const INSIDER_FEED_ROWS = Array.from({ length: 42 }, (_, i) => insiderCaseForRowIndex(i))
 
 function buildPharmaFeedRows() {
   const fromTrials = MOCK_EVENTS.map((ev) => ({
@@ -302,7 +451,7 @@ function buildPharmaFeedRows() {
       label: PHARMA_FILLER_LABELS[i % PHARMA_FILLER_LABELS.length],
       ticker: fillerTickers[i % fillerTickers.length],
       at: t.toISOString(),
-      trialEventId: i % 6 === 0 ? MOCK_EVENTS[i % MOCK_EVENTS.length].id : null,
+      trialEventId: MOCK_EVENTS[i % MOCK_EVENTS.length].id,
     }
   })
   return [...fromTrials, ...filler]
@@ -351,16 +500,16 @@ function endpointRowLabel(idx) {
   return ord ? `${ord} endpoint` : `Endpoint ${idx + 1}`
 }
 
-/** Matches `.worksheetBody { line-height: 1.28 }` and `.kvLine { padding-block: 0.12em }`. */
-const KV_BODY_LH = 1.28
-/** Two stacked `.kvLine`s touch with 0.12em + 0.12em vertical padding between text lines */
-const KV_LINE_GAP_UNITLESS = 0.24
+/** Long text in key/value cells (row height comes from `KvLine`). */
+function WorksheetRhythmWrap({ className = '', children }) {
+  return <span className={className}>{children}</span>
+}
 
 /**
- * Wrapped text gets a tuned unitless line-height so N lines consume the same height as N
- * consecutive single-line worksheet rows (keeps alignment with feed row rhythm).
+ * Each visual row snaps to N “feed row” slots: one slot ≈ line-height + inter-line gap
+ * matching stacked `.feedRowCompact` rows (padding + border counted once per `.kvLine`).
  */
-function WorksheetRhythmWrap({ className = '', children }) {
+function KvLine({ className = '', children, ...rest }) {
   const ref = useRef(null)
 
   useLayoutEffect(() => {
@@ -368,27 +517,30 @@ function WorksheetRhythmWrap({ className = '', children }) {
     if (!el) return
 
     function sync() {
-      el.style.lineHeight = ''
+      el.style.minHeight = ''
       void el.offsetHeight
 
       const cs = getComputedStyle(el)
+      const pt = parseFloat(cs.paddingTop) || 0
+      const pb = parseFloat(cs.paddingBottom) || 0
+      const bb = parseFloat(cs.borderBottomWidth) || 1
       const fs = parseFloat(cs.fontSize)
-      let lhPx = parseFloat(cs.lineHeight)
-      if (!Number.isFinite(fs) || fs <= 0) return
-      if (!Number.isFinite(lhPx) || lhPx <= 0 || cs.lineHeight === 'normal') {
-        lhPx = fs * KV_BODY_LH
+      let lh = parseFloat(cs.lineHeight)
+      if (!Number.isFinite(lh) || lh <= 0 || cs.lineHeight === 'normal') {
+        lh = fs * 1.28
       }
+      const gapPx = 0.24 * fs
 
-      const rawLines = el.scrollHeight / lhPx
-      const lines = Math.min(48, Math.max(1, Math.round(rawLines)))
+      const natural = el.scrollHeight
+      const innerNatural = Math.max(0, natural - pt - pb - bb)
 
-      if (lines <= 1) {
-        el.style.lineHeight = ''
-        return
-      }
+      let lines = Math.max(1, Math.ceil((innerNatural + gapPx) / (lh + gapPx) - 1e-6))
+      lines = Math.min(lines, 48)
 
-      const L = KV_BODY_LH + ((lines - 1) / lines) * KV_LINE_GAP_UNITLESS
-      el.style.lineHeight = String(L)
+      const innerTarget = lines * lh + (lines - 1) * gapPx
+      const totalH = pt + pb + bb + innerTarget
+
+      el.style.minHeight = `${Math.max(totalH, natural)}px`
     }
 
     const ro = new ResizeObserver(() => {
@@ -398,14 +550,18 @@ function WorksheetRhythmWrap({ className = '', children }) {
     sync()
     return () => {
       ro.disconnect()
-      if (ref.current) ref.current.style.lineHeight = ''
+      if (ref.current) ref.current.style.minHeight = ''
     }
   }, [children])
 
   return (
-    <span ref={ref} className={className}>
+    <div
+      ref={ref}
+      className={className.trim() ? `kvLine ${className}` : 'kvLine'}
+      {...rest}
+    >
       {children}
-    </span>
+    </div>
   )
 }
 
@@ -432,117 +588,166 @@ function endpointDisplayValue(raw, idx) {
   return out || '—'
 }
 
+/** Insider case worksheet: keys are document / transaction descriptors; Form 4 rows get "$ · day". */
+function buildInsiderWorksheetRows(caseSheet) {
+  if (!caseSheet) {
+    return [
+      <KvLine key="empty">
+        <span className="kvK dim">Case</span>
+        <span className="kvV dim">No filing linked</span>
+      </KvLine>,
+    ]
+  }
+
+  const rows = []
+  rows.push(
+    <KvLine key="issuer">
+      <span className="kvK dim">Issuer</span>
+      <span className="kvV mono">{caseSheet.ticker ?? '—'}</span>
+    </KvLine>,
+    <KvLine key="form">
+      <span className="kvK dim">Form</span>
+      <span className="kvV mono">{caseSheet.formType ?? '—'}</span>
+    </KvLine>,
+    <KvLine key="fno">
+      <span className="kvK dim">Accession</span>
+      <span className="kvV mono">{caseSheet.filingId ?? '—'}</span>
+    </KvLine>,
+    <KvLine key="after-filing-meta" className="kvSpacer" aria-hidden="true">
+      <span className="kvK">&nbsp;</span>
+      <span className="kvV">&nbsp;</span>
+    </KvLine>,
+  )
+
+  const showMoney = Boolean(caseSheet.isForm4)
+
+  ;(caseSheet.rows ?? []).forEach((r, idx) => {
+    const val =
+      showMoney && r.amountUsd != null && Number(r.amountUsd) > 0
+        ? `${formatUsdCompact(r.amountUsd)} · ${insiderTxnDateShort(r.ts)}`
+        : ''
+    rows.push(
+      <KvLine key={`txn-${idx}-${r.key}`}>
+        <WorksheetRhythmWrap className="kvK dim kvLong">{r.key}</WorksheetRhythmWrap>
+        <span className={`kvV mono ${val ? '' : 'dim'}`}>{val}</span>
+      </KvLine>,
+    )
+  })
+
+  return rows
+}
+
 function buildWorksheetRows(selected, hasSafety) {
   const rows = []
 
   rows.push(
-    <div key="drug" className="kvLine">
+    <KvLine key="drug">
       <span className="kvK dim">DRUG</span>
       <span className="kvV mono">{selected?.trialSnapshot?.drug ?? '—'}</span>
-    </div>,
-    <div key="mech" className="kvLine">
+    </KvLine>,
+    <KvLine key="mech">
       <span className="kvK dim">MECH</span>
       <span className="kvV">{selected?.trialSnapshot?.mechanism ?? '—'}</span>
-    </div>,
-    <div key="phase" className="kvLine">
+    </KvLine>,
+    <KvLine key="phase">
       <span className="kvK dim">PHASE</span>
       <span className="kvV mono">{selected?.trialSnapshot?.phase ?? '—'}</span>
-    </div>,
-    <div key="ind" className="kvLine">
+    </KvLine>,
+    <KvLine key="ind">
       <span className="kvK dim">IND</span>
       <span className="kvV">{selected?.trialSnapshot?.indication ?? '—'}</span>
-    </div>,
-    <div key="sponsor" className="kvLine">
+    </KvLine>,
+    <KvLine key="sponsor">
       <span className="kvK dim">SPONSOR</span>
       <span className="kvV">{selected?.trialSnapshot?.sponsor ?? '—'}</span>
-    </div>,
-    <div key="intv" className="kvLine">
+    </KvLine>,
+    <KvLine key="intv">
       <span className="kvK dim">INTV</span>
       <span className="kvV">{selected?.trialSnapshot?.intervention ?? '—'}</span>
-    </div>,
-    <div key="status" className="kvLine">
+    </KvLine>,
+    <KvLine key="status">
       <span className="kvK dim">STATUS</span>
       <span className="kvV">{selected?.timelineDetails?.status ?? '—'}</span>
-    </div>,
-    <div key="start" className="kvLine">
+    </KvLine>,
+    <KvLine key="start">
       <span className="kvK dim">START</span>
       <span className="kvV mono">{selected?.timelineDetails?.studyStart ?? '—'}</span>
-    </div>,
-    <div key="priComp" className="kvLine">
+    </KvLine>,
+    <KvLine key="priComp">
       <span className="kvK dim">PRI COMP</span>
       <span className="kvV mono">{selected?.timelineDetails?.primaryCompletion ?? '—'}</span>
-    </div>,
-    <div key="studyComp" className="kvLine">
+    </KvLine>,
+    <KvLine key="studyComp">
       <span className="kvK dim">STUDY COMP</span>
       <span className="kvV mono">{selected?.timelineDetails?.studyCompletion ?? '—'}</span>
-    </div>,
-    <div key="source" className="kvLine">
+    </KvLine>,
+    <KvLine key="source">
       <span className="kvK dim">SOURCE</span>
       <span className="kvV">{selected?.timelineDetails?.eventSource ?? '—'}</span>
-    </div>,
-    <div key="detail" className="kvLine">
+    </KvLine>,
+    <KvLine key="detail">
       <span className="kvK dim">DETAIL</span>
       <span className="kvV">{selected?.timelineDetails?.eventSubtype ?? '—'}</span>
-    </div>,
-    <div key="evt" className="kvLine">
+    </KvLine>,
+    <KvLine key="evt">
       <span className="kvK dim">EVT</span>
       <span className="kvV">{selected?.eventType ?? '—'}</span>
-    </div>,
-    <div key="arms" className="kvLine">
+    </KvLine>,
+    <KvLine key="arms">
       <span className="kvK dim">ARMS</span>
       <span className="kvV">{selected?.studyDesign?.arms ?? '—'}</span>
-    </div>,
-    <div key="rand" className="kvLine">
+    </KvLine>,
+    <KvLine key="rand">
       <span className="kvK dim">RAND</span>
       <span className="kvV">{selected?.studyDesign?.randomization ?? '—'}</span>
-    </div>,
-    <div key="ctrl" className="kvLine">
+    </KvLine>,
+    <KvLine key="ctrl">
       <span className="kvK dim">CTRL</span>
       <span className="kvV">{selected?.studyDesign?.control ?? '—'}</span>
-    </div>,
-    <div key="mask" className="kvLine">
+    </KvLine>,
+    <KvLine key="mask">
       <span className="kvK dim">MASK</span>
       <span className="kvV">{selected?.studyDesign?.masking ?? '—'}</span>
-    </div>,
-    <div key="n" className="kvLine">
+    </KvLine>,
+    <KvLine key="n">
       <span className="kvK dim">N</span>
       <span className="kvV mono">{selected?.studyDesign?.sampleSize ?? '—'}</span>
-    </div>,
-    <div key="cond" className="kvLine">
+    </KvLine>,
+    <KvLine key="cond">
       <span className="kvK dim">COND</span>
       <WorksheetRhythmWrap className="kvV kvVWrap">
         {selected?.population?.condition ?? '—'}
       </WorksheetRhythmWrap>
-    </div>,
-    <div key="bio" className="kvLine">
+    </KvLine>,
+    <KvLine key="bio">
       <span className="kvK dim">BIO</span>
       <WorksheetRhythmWrap className="kvV kvVWrap">
         {selected?.population?.biomarkers ?? '—'}
       </WorksheetRhythmWrap>
-    </div>,
-    <div key="lot" className="kvLine">
+    </KvLine>,
+    <KvLine key="lot">
       <span className="kvK dim">LOT</span>
       <span className="kvV mono">{selected?.population?.lineOfTherapy ?? '—'}</span>
-    </div>,
+    </KvLine>,
   )
 
   const eps = selected?.endpointsResults?.endpoints ?? []
   if (eps.length === 0) {
     rows.push(
-      <div key="ep-empty" className="kvLine">
+      <KvLine key="ep-empty">
         <span className="kvK dim">Endpoints</span>
         <span className="kvV dim">—</span>
-      </div>,
+      </KvLine>,
     )
   } else {
     eps.forEach((e, idx) => {
       rows.push(
-        <div key={`ep-${idx}-${e}`} className="kvLine">
+        <KvLine key={`ep-${idx}-${e}`}>
           <span className="kvK dim">{endpointRowLabel(idx)}</span>
           <WorksheetRhythmWrap className="kvV kvVWrap">
             {endpointDisplayValue(e, idx)}
           </WorksheetRhythmWrap>
-        </div>,
+        </KvLine>,
       )
     })
   }
@@ -550,36 +755,36 @@ function buildWorksheetRows(selected, hasSafety) {
   const res = selected?.endpointsResults?.results ?? []
   if (res.length === 0) {
     rows.push(
-      <div key="res-empty" className="kvLine">
+      <KvLine key="res-empty">
         <span className="kvK dim">Results</span>
         <span className="kvV dim">—</span>
-      </div>,
+      </KvLine>,
     )
   } else {
     res.forEach((r, idx) => {
       rows.push(
-        <div key={`res-${idx}-${r.endpoint}`} className="kvLine">
+        <KvLine key={`res-${idx}-${r.endpoint}`}>
           <WorksheetRhythmWrap className="kvK dim kvLong">{r.endpoint}</WorksheetRhythmWrap>
           <span className="kvV mono">{r.value}</span>
-        </div>,
+        </KvLine>,
       )
     })
   }
 
   if (!hasSafety) {
     rows.push(
-      <div key="safe-empty" className="kvLine">
+      <KvLine key="safe-empty">
         <span className="kvK dim">Safety</span>
         <span className="kvV dim">—</span>
-      </div>,
+      </KvLine>,
     )
   } else {
     selected.safety.forEach((s, idx) => {
       rows.push(
-        <div key={`safe-${idx}-${s.term}`} className="kvLine">
+        <KvLine key={`safe-${idx}-${s.term}`}>
           <WorksheetRhythmWrap className="kvK dim kvLong">{s.term}</WorksheetRhythmWrap>
           <span className="kvV mono">{s.value}</span>
-        </div>,
+        </KvLine>,
       )
     })
   }
@@ -663,19 +868,35 @@ function App() {
   const [insiderIdx, setInsiderIdx] = useState(0)
   const [pharmaIdx, setPharmaIdx] = useState(0)
 
-  const selected = useMemo(() => {
+  const insiderSelected = INSIDER_FEED_ROWS[insiderIdx]
+
+  const pharmaSelected = useMemo(() => {
     const row = PHARMA_FEED_ROWS[pharmaIdx]
-    const id = row?.trialEventId ?? MOCK_EVENTS[0]?.id
+    const fallbackId = MOCK_EVENTS[pharmaIdx % MOCK_EVENTS.length]?.id
+    const id = row?.trialEventId ?? fallbackId
     return MOCK_EVENTS.find((e) => e.id === id) ?? MOCK_EVENTS[0]
   }, [pharmaIdx])
-  const hasSafety = Array.isArray(selected?.safety) && selected.safety.length > 0
 
-  const daily = selected?.daily ?? []
+  const hasSafety =
+    Array.isArray(pharmaSelected?.safety) && pharmaSelected.safety.length > 0
+
+  const worksheetRows =
+    focusFeed === 'insider'
+      ? buildInsiderWorksheetRows(insiderSelected?.caseSheet)
+      : buildWorksheetRows(pharmaSelected, hasSafety)
+
+  const daily =
+    focusFeed === 'insider'
+      ? insiderSelected?.daily ?? []
+      : pharmaSelected?.daily ?? []
   const dailyMin = daily.length ? Math.min(...daily) : 0
   const dailyMax = daily.length ? Math.max(...daily) : 0
   const dailyLast = daily.length ? daily[daily.length - 1] : 0
 
-  const worksheetRows = buildWorksheetRows(selected, hasSafety)
+  const worksheetMetaId =
+    focusFeed === 'insider'
+      ? insiderSelected?.caseSheet?.issuer ?? insiderSelected?.id ?? '—'
+      : pharmaSelected?.id ?? '—'
 
   /* Inner padding inside SVG viewBox (stroke clearance); outer gutter is CSS .graphWrap */
   const plotInset = { left: 8, right: 8, top: 8, bottom: 8 }
@@ -738,11 +959,14 @@ function App() {
         }}
       />
 
-      <section className="panel worksheet" aria-label="Trial worksheet">
+      <section
+        className={`panel worksheet ${focusFeed === 'insider' ? 'worksheet--insider' : ''}`}
+        aria-label={focusFeed === 'insider' ? 'Insider filing worksheet' : 'Trial worksheet'}
+      >
         <header className="feedCompactHeader">
           <div className="panelTitle feedCompactTitle">CASE WORKSHEET</div>
           <div className="feedCompactMeta">
-            <span>{selected?.id ?? '—'}</span>
+            <span>{worksheetMetaId}</span>
           </div>
         </header>
 
@@ -754,7 +978,9 @@ function App() {
 
       <section className="panel graph" aria-label="Daily graph">
         <header className="panelHeader">
-          <div className="panelTitle">DAILY GRAPH</div>
+          <div className="panelTitle">
+            DAILY GRAPH
+          </div>
           <div className="panelMeta">
             L {dailyLast} · R {dailyMin}–{dailyMax}
           </div>
