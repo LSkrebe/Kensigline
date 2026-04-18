@@ -115,6 +115,8 @@
 .graph,
 .logo,
 .blankTile,
+.historicalOutcomes,
+.distribution,
 .feed.feedCompact {
   container-type: size;
 }
@@ -162,6 +164,31 @@
   padding: 0;
   min-height: 0;
   min-width: 0;
+}
+
+/* ---- HISTORICAL OUTCOMES (tile 3,3 left; rows match case `.worksheet`) ---- */
+/* Narrow stats tiles (Historical outcomes | Distribution): same shell + KV rhythm */
+.historicalOutcomes,
+.distribution {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  padding: 0;
+}
+
+.historicalOutcomes {
+  container-name: historical;
+}
+
+.distribution {
+  container-name: distribution;
+}
+
+/* Same as case sheet body but single column (narrow tile). */
+.historicalOutcomes .worksheetBody.historicalOutcomesBody,
+.distribution .worksheetBody.historicalOutcomesBody {
+  column-count: 1;
+  column-gap: 0;
 }
 
 /* ---- LOGO PANEL ---- */
@@ -357,7 +384,9 @@
  * Same vertical slot as `.feedRowCompact`: padding + one line box + bottom rule.
  * Transparent border keeps cumulative height aligned with feeds (otherwise rows drift upward).
  */
-.worksheet .kvLine {
+.worksheet .kvLine,
+.historicalOutcomes .kvLine,
+.distribution .kvLine {
   display: grid;
   grid-template-columns: minmax(48px, 0.34fr) minmax(0, 1fr);
   gap: clamp(5px, 1.5cqmin, 12px);
@@ -376,6 +405,12 @@
   break-inside: avoid;
   page-break-inside: avoid;
   -webkit-column-break-inside: avoid;
+}
+
+/* Historical outcomes / distribution: 50/50 key | value columns */
+.historicalOutcomes .kvLine,
+.distribution .kvLine {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 /* Issuer legal name in header can wrap; default `.feedCompactMeta` is nowrap */
@@ -399,25 +434,33 @@
 }
 
 /* Issuer / long keys still wrap via `.kvVWrap`; compact money + meta stay one line */
-.worksheet.worksheet--insider .kvLine .kvV.mono {
+.worksheet.worksheet--insider .kvLine .kvV.mono,
+.historicalOutcomes .kvLine .kvV.mono,
+.distribution .kvLine .kvV.mono {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.worksheet .kvK {
+.worksheet .kvK,
+.historicalOutcomes .kvK,
+.distribution .kvK {
   letter-spacing: 0.06em;
   font-size: 0.95em;
   color: rgba(216, 255, 235, 0.55);
 }
 
-.worksheet .kvK.kvLong {
+.worksheet .kvK.kvLong,
+.historicalOutcomes .kvK.kvLong,
+.distribution .kvK.kvLong {
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.worksheet .kvV {
+.worksheet .kvV,
+.historicalOutcomes .kvV,
+.distribution .kvV {
   min-width: 0;
   color: rgba(216, 255, 235, 0.84);
   white-space: normal;
@@ -427,15 +470,23 @@
 
 /* Wrapped keys/values: top-align so multi-line rhythm matches stacked single-line rows */
 .worksheet .kvLine:has(.kvVWrap),
-.worksheet .kvLine:has(.kvLong) {
+.worksheet .kvLine:has(.kvLong),
+.historicalOutcomes .kvLine:has(.kvVWrap),
+.historicalOutcomes .kvLine:has(.kvLong),
+.distribution .kvLine:has(.kvVWrap),
+.distribution .kvLine:has(.kvLong) {
   align-items: start;
 }
 
-.worksheet .kvV .mono {
+.worksheet .kvV .mono,
+.historicalOutcomes .kvV .mono,
+.distribution .kvV .mono {
   font-variant-numeric: tabular-nums;
 }
 
-.worksheet .kvVWrap {
+.worksheet .kvVWrap,
+.historicalOutcomes .kvVWrap,
+.distribution .kvVWrap {
   display: block;
   white-space: normal;
 }

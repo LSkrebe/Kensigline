@@ -297,7 +297,7 @@ const INSIDER_DOC_KEYS = [
   'CEO Insider Sell',
   'Acquisition',
   'CFO Open Market Buy',
-  'Derivative Exercise · Sell',
+  'Derivative Exercise | Sell',
   'President 10b5-1 Sale',
   'Chief Medical Officer Insider Buy',
   'Chair Gift / Charity',
@@ -416,7 +416,7 @@ const INSIDER_FEED_ROWS = Array.from({ length: 42 }, (_, i) => insiderCaseForRow
 function buildPharmaFeedRows() {
   const fromTrials = MOCK_EVENTS.map((ev) => ({
     id: `ph-${ev.id}`,
-    label: `${ev.phase} · ${ev.eventType}`,
+    label: `${ev.phase} | ${ev.eventType}`,
     ticker: tickerFromDrug(ev.drug),
     at: parseMockTs(ev.ts).toISOString(),
     trialEventId: ev.id,
@@ -462,6 +462,44 @@ const PHARMA_FEED_ROWS = buildPharmaFeedRows()
 /** Mock headline counts for “x TODAY” */
 const MOCK_INSIDER_TODAY = 12
 const MOCK_PHARMA_TODAY = 7
+
+/** Historical Outcomes tile (blankTile--a): mock aggregates + conditioning facets */
+const MOCK_HISTORICAL_INSIDER = {
+  avgReturn21d63d252d: '+0.42% / +1.08% / +2.34%',
+  medianReturn: '+0.61%',
+  winRate: '54%',
+  sampleSize: '12,480',
+  conditioningRole: 'CEO | director',
+  conditioningTxn: 'Buy | sell',
+  conditioningSizePct: 'P40–P90',
+}
+
+const MOCK_HISTORICAL_TRIALS = {
+  avgAfterPh3Failure: '−18.2%',
+  avgAfterPh2Miss: '−11.4%',
+  medianReturn: '−14.0%',
+  pctLargeDropsOver30: '23%',
+  sampleSize: '3,940',
+  conditioningIndication: `Alzheimer's | oncology`,
+  conditioningCoSize: 'Mid-cap | large-cap',
+}
+
+/** Distribution tile (blankTile--b): percentile returns vs sample */
+const MOCK_DISTRIBUTION_INSIDER = {
+  p10: '−2.1%',
+  p25: '+0.08%',
+  median: '+0.61%',
+  p75: '+1.15%',
+  p90: '+2.84%',
+}
+
+const MOCK_DISTRIBUTION_TRIALS = {
+  p10: '−85%',
+  p25: '−60%',
+  median: '−42%',
+  p75: '−25%',
+  p90: '−10%',
+}
 
 function toPath(values, w, h, inset) {
   if (!values?.length) return ''
@@ -588,7 +626,7 @@ function endpointDisplayValue(raw, idx) {
   return out || '—'
 }
 
-/** Insider case worksheet: keys are document / transaction descriptors; Form 4 rows get "$ · day". */
+/** Insider case worksheet: keys are document / transaction descriptors; Form 4 rows get "$ | day". */
 function buildInsiderWorksheetRows(caseSheet) {
   if (!caseSheet) {
     return [
@@ -624,7 +662,7 @@ function buildInsiderWorksheetRows(caseSheet) {
   ;(caseSheet.rows ?? []).forEach((r, idx) => {
     const val =
       showMoney && r.amountUsd != null && Number(r.amountUsd) > 0
-        ? `${formatUsdCompact(r.amountUsd)} · ${insiderTxnDateShort(r.ts)}`
+        ? `${formatUsdCompact(r.amountUsd)} | ${insiderTxnDateShort(r.ts)}`
         : ''
     rows.push(
       <KvLine key={`txn-${idx}-${r.key}`}>
@@ -790,6 +828,118 @@ function buildWorksheetRows(selected, hasSafety) {
   }
 
   return rows
+}
+
+function HistoricalOutcomesPanel({ mode }) {
+  const insider = mode === 'insider'
+
+  return (
+    <section className="panel historicalOutcomes blankTile--a" aria-label="Historical outcomes">
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">HISTORICAL OUTCOMES</div>
+      </header>
+      <div className="worksheetBody historicalOutcomesBody">
+        {insider ? (
+          <>
+            <KvLine key="ho-ins-avg">
+              <span className="kvK dim">Avg ret (21d/63d/252d)</span>
+              <span className="kvV mono">{MOCK_HISTORICAL_INSIDER.avgReturn21d63d252d}</span>
+            </KvLine>
+            <KvLine key="ho-ins-med">
+              <span className="kvK dim">Median return</span>
+              <span className="kvV mono">{MOCK_HISTORICAL_INSIDER.medianReturn}</span>
+            </KvLine>
+            <KvLine key="ho-ins-win">
+              <span className="kvK dim">Win rate</span>
+              <span className="kvV mono">{MOCK_HISTORICAL_INSIDER.winRate}</span>
+            </KvLine>
+            <KvLine key="ho-ins-n">
+              <span className="kvK dim">Sample size</span>
+              <span className="kvV mono">{MOCK_HISTORICAL_INSIDER.sampleSize}</span>
+            </KvLine>
+            <KvLine key="ho-ins-role">
+              <span className="kvK dim">Role</span>
+              <span className="kvV">{MOCK_HISTORICAL_INSIDER.conditioningRole}</span>
+            </KvLine>
+            <KvLine key="ho-ins-txn">
+              <span className="kvK dim">Transaction type</span>
+              <span className="kvV">{MOCK_HISTORICAL_INSIDER.conditioningTxn}</span>
+            </KvLine>
+            <KvLine key="ho-ins-pct">
+              <span className="kvK dim">Size percentile</span>
+              <span className="kvV mono">{MOCK_HISTORICAL_INSIDER.conditioningSizePct}</span>
+            </KvLine>
+          </>
+        ) : (
+          <>
+            <KvLine key="ho-ph-p3">
+              <span className="kvK dim">Phase 3 failure</span>
+              <span className="kvV mono">{MOCK_HISTORICAL_TRIALS.avgAfterPh3Failure}</span>
+            </KvLine>
+            <KvLine key="ho-ph-p2">
+              <span className="kvK dim">Phase 2 miss</span>
+              <span className="kvV mono">{MOCK_HISTORICAL_TRIALS.avgAfterPh2Miss}</span>
+            </KvLine>
+            <KvLine key="ho-ph-med">
+              <span className="kvK dim">Median return</span>
+              <span className="kvV mono">{MOCK_HISTORICAL_TRIALS.medianReturn}</span>
+            </KvLine>
+            <KvLine key="ho-ph-drop">
+              <span className="kvK dim">{'% large drops (>30%)'}</span>
+              <span className="kvV mono">{MOCK_HISTORICAL_TRIALS.pctLargeDropsOver30}</span>
+            </KvLine>
+            <KvLine key="ho-ph-n">
+              <span className="kvK dim">Sample size</span>
+              <span className="kvV mono">{MOCK_HISTORICAL_TRIALS.sampleSize}</span>
+            </KvLine>
+            <KvLine key="ho-ph-ind">
+              <span className="kvK dim">Indication</span>
+              <span className="kvV">{MOCK_HISTORICAL_TRIALS.conditioningIndication}</span>
+            </KvLine>
+            <KvLine key="ho-ph-co">
+              <span className="kvK dim">Company size bucket</span>
+              <span className="kvV">{MOCK_HISTORICAL_TRIALS.conditioningCoSize}</span>
+            </KvLine>
+          </>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function DistributionPanel({ mode }) {
+  const insider = mode === 'insider'
+  const d = insider ? MOCK_DISTRIBUTION_INSIDER : MOCK_DISTRIBUTION_TRIALS
+
+  return (
+    <section className="panel distribution blankTile--b" aria-label="Distribution">
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">DISTRIBUTION</div>
+      </header>
+      <div className="worksheetBody historicalOutcomesBody">
+        <KvLine key="dist-p10">
+          <span className="kvK dim">10th percentile return</span>
+          <span className="kvV mono">{d.p10}</span>
+        </KvLine>
+        <KvLine key="dist-p25">
+          <span className="kvK dim">25th percentile return</span>
+          <span className="kvV mono">{d.p25}</span>
+        </KvLine>
+        <KvLine key="dist-p50">
+          <span className="kvK dim">Median return</span>
+          <span className="kvV mono">{d.median}</span>
+        </KvLine>
+        <KvLine key="dist-p75">
+          <span className="kvK dim">75th percentile return</span>
+          <span className="kvV mono">{d.p75}</span>
+        </KvLine>
+        <KvLine key="dist-p90">
+          <span className="kvK dim">90th percentile return</span>
+          <span className="kvV mono">{d.p90}</span>
+        </KvLine>
+      </div>
+    </section>
+  )
 }
 
 function CompactFeed({ placement, title, todayCount, items, selectedIndex, focused, onSelectIndex }) {
@@ -973,8 +1123,8 @@ function App() {
         <div className="worksheetBody">{worksheetRows}</div>
       </section>
 
-      <section className="panel blankTile blankTile--a" aria-label="Reserved panel (left)" />
-      <section className="panel blankTile blankTile--b" aria-label="Reserved panel (right)" />
+      <HistoricalOutcomesPanel mode={focusFeed} />
+      <DistributionPanel mode={focusFeed} />
 
       <section className="panel graph" aria-label="Daily graph">
         <header className="panelHeader">
@@ -982,7 +1132,7 @@ function App() {
             DAILY GRAPH
           </div>
           <div className="panelMeta">
-            L {dailyLast} · R {dailyMin}–{dailyMax}
+            L {dailyLast} | R {dailyMin}–{dailyMax}
           </div>
         </header>
         <div className="graphWrap" aria-label="Mock daily price graph">
