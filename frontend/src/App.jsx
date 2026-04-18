@@ -1,5 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+
+function clamp(n, lo, hi) {
+  return Math.max(lo, Math.min(hi, n))
+}
 
 const MOCK_EVENTS = [
   {
@@ -201,9 +205,114 @@ const MOCK_EVENTS = [
   },
 ]
 
-function clamp01(n) {
-  return Math.max(0, Math.min(1, n))
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** ISO or Date → time if local day is today; else day of month + month (never year). */
+function formatFeedDate(at) {
+  const d = at instanceof Date ? at : new Date(at)
+  if (Number.isNaN(d.getTime())) return '—'
+  const now = new Date()
+  const sameLocalDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  if (sameLocalDay) {
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
 }
+
+function parseMockTs(iso) {
+  const m = String(iso ?? '').match(/^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2})/)
+  if (!m) return new Date(iso)
+  return new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00Z`)
+}
+
+/** Drug name → short symbol for ticker column (letters prefix before dose/dash). */
+function tickerFromDrug(drug) {
+  const s = String(drug ?? '')
+  const prefix = s.match(/^([A-Za-z]{2,6})/)
+  if (prefix) return prefix[1].toUpperCase()
+  const letters = s.replace(/[^A-Za-z]/g, '')
+  return letters.slice(0, 4).toUpperCase() || 'DRUG'
+}
+
+const INSIDER_KINDS = ['Insider Buy', 'Insider Sell', 'Insider Buys', 'Contract Award', 'Acquisition']
+/** Realistic issuer tickers only (no counts in this column). */
+const INSIDER_TICKERS = ['PRIM', 'HG', 'SPRU', 'VRA', 'FFIN']
+
+const INSIDER_FEED_ROWS = Array.from({ length: 42 }, (_, i) => {
+  const n = (i % 5) + 1
+  const label = `${n} ${INSIDER_KINDS[i % INSIDER_KINDS.length]}`
+  const ticker = INSIDER_TICKERS[i % INSIDER_TICKERS.length]
+  const thisYear = new Date().getFullYear()
+  let at
+  if (i < 10) {
+    const t = new Date()
+    t.setMinutes(t.getMinutes() - i * 17 - i * i)
+    at = t.toISOString()
+  } else if (i < 24) {
+    const t = new Date()
+    t.setDate(t.getDate() - 1 - (i % 5))
+    t.setHours(14, 20 + (i % 30), 0, 0)
+    at = t.toISOString()
+  } else if (i < 36) {
+    at = new Date(thisYear, 1, 8 + (i % 12), 9, 15).toISOString()
+  } else {
+    at = new Date(2024, 6, 19, 11, 0).toISOString()
+  }
+  return { id: `ins-${i}`, label, ticker, at }
+})
+
+function buildPharmaFeedRows() {
+  const fromTrials = MOCK_EVENTS.map((ev) => ({
+    id: `ph-${ev.id}`,
+    label: `${ev.phase} · ${ev.eventType}`,
+    ticker: tickerFromDrug(ev.drug),
+    at: parseMockTs(ev.ts).toISOString(),
+    trialEventId: ev.id,
+  }))
+  const PHARMA_FILLER_LABELS = [
+    'Enrollment pause',
+    'Primary endpoint',
+    'IND cleared',
+    'Orphan designation',
+    'Fast track',
+    'Breakthrough',
+    'SAP update',
+    'DSMB review',
+    'Site activation',
+    'Label expansion',
+    'Completion forecast',
+  ]
+  const fillerTickers = ['BLUE', 'ALNY', 'ROG', 'GILD', 'MRNA', 'NBIX']
+  const filler = Array.from({ length: 30 }, (_, i) => {
+    const t = new Date()
+    if (i % 9 === 0) {
+      t.setMinutes(t.getMinutes() - i * 3 - 11)
+    } else if (i % 9 < 5) {
+      t.setDate(t.getDate() - 2 - (i % 4))
+      t.setHours(10 + (i % 8), (i * 5) % 60, 0, 0)
+    } else {
+      t.setFullYear(t.getFullYear() - 1 - (i % 2))
+      t.setMonth((i % 12) + 1, 5 + (i % 20))
+    }
+    return {
+      id: `ph-f-${i}`,
+      label: PHARMA_FILLER_LABELS[i % PHARMA_FILLER_LABELS.length],
+      ticker: fillerTickers[i % fillerTickers.length],
+      at: t.toISOString(),
+      trialEventId: i % 6 === 0 ? MOCK_EVENTS[i % MOCK_EVENTS.length].id : null,
+    }
+  })
+  return [...fromTrials, ...filler]
+}
+
+const PHARMA_FEED_ROWS = buildPharmaFeedRows()
+
+/** Mock headline counts for “x TODAY” */
+const MOCK_INSIDER_TODAY = 12
+const MOCK_PHARMA_TODAY = 7
 
 function toPath(values, w, h, inset) {
   if (!values?.length) return ''
@@ -240,6 +349,64 @@ function endpointRowLabel(idx) {
   if (idx === 1) return 'Secondary endpoint'
   const ord = ENDPOINT_ORDINAL[idx]
   return ord ? `${ord} endpoint` : `Endpoint ${idx + 1}`
+}
+
+/** Matches `.worksheetBody { line-height: 1.28 }` and `.kvLine { padding-block: 0.12em }`. */
+const KV_BODY_LH = 1.28
+/** Two stacked `.kvLine`s touch with 0.12em + 0.12em vertical padding between text lines */
+const KV_LINE_GAP_UNITLESS = 0.24
+
+/**
+ * Wrapped text gets a tuned unitless line-height so N lines consume the same height as N
+ * consecutive single-line worksheet rows (keeps alignment with feed row rhythm).
+ */
+function WorksheetRhythmWrap({ className = '', children }) {
+  const ref = useRef(null)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    function sync() {
+      el.style.lineHeight = ''
+      void el.offsetHeight
+
+      const cs = getComputedStyle(el)
+      const fs = parseFloat(cs.fontSize)
+      let lhPx = parseFloat(cs.lineHeight)
+      if (!Number.isFinite(fs) || fs <= 0) return
+      if (!Number.isFinite(lhPx) || lhPx <= 0 || cs.lineHeight === 'normal') {
+        lhPx = fs * KV_BODY_LH
+      }
+
+      const rawLines = el.scrollHeight / lhPx
+      const lines = Math.min(48, Math.max(1, Math.round(rawLines)))
+
+      if (lines <= 1) {
+        el.style.lineHeight = ''
+        return
+      }
+
+      const L = KV_BODY_LH + ((lines - 1) / lines) * KV_LINE_GAP_UNITLESS
+      el.style.lineHeight = String(L)
+    }
+
+    const ro = new ResizeObserver(() => {
+      requestAnimationFrame(sync)
+    })
+    ro.observe(el)
+    sync()
+    return () => {
+      ro.disconnect()
+      if (ref.current) ref.current.style.lineHeight = ''
+    }
+  }, [children])
+
+  return (
+    <span ref={ref} className={className}>
+      {children}
+    </span>
+  )
 }
 
 /** Strip role tags from the copy when the row label already states primary / secondary / …. */
@@ -343,11 +510,15 @@ function buildWorksheetRows(selected, hasSafety) {
     </div>,
     <div key="cond" className="kvLine">
       <span className="kvK dim">COND</span>
-      <span className="kvV kvVWrap">{selected?.population?.condition ?? '—'}</span>
+      <WorksheetRhythmWrap className="kvV kvVWrap">
+        {selected?.population?.condition ?? '—'}
+      </WorksheetRhythmWrap>
     </div>,
     <div key="bio" className="kvLine">
       <span className="kvK dim">BIO</span>
-      <span className="kvV kvVWrap">{selected?.population?.biomarkers ?? '—'}</span>
+      <WorksheetRhythmWrap className="kvV kvVWrap">
+        {selected?.population?.biomarkers ?? '—'}
+      </WorksheetRhythmWrap>
     </div>,
     <div key="lot" className="kvLine">
       <span className="kvK dim">LOT</span>
@@ -368,7 +539,9 @@ function buildWorksheetRows(selected, hasSafety) {
       rows.push(
         <div key={`ep-${idx}-${e}`} className="kvLine">
           <span className="kvK dim">{endpointRowLabel(idx)}</span>
-          <span className="kvV kvVWrap">{endpointDisplayValue(e, idx)}</span>
+          <WorksheetRhythmWrap className="kvV kvVWrap">
+            {endpointDisplayValue(e, idx)}
+          </WorksheetRhythmWrap>
         </div>,
       )
     })
@@ -386,7 +559,7 @@ function buildWorksheetRows(selected, hasSafety) {
     res.forEach((r, idx) => {
       rows.push(
         <div key={`res-${idx}-${r.endpoint}`} className="kvLine">
-          <span className="kvK dim kvLong">{r.endpoint}</span>
+          <WorksheetRhythmWrap className="kvK dim kvLong">{r.endpoint}</WorksheetRhythmWrap>
           <span className="kvV mono">{r.value}</span>
         </div>,
       )
@@ -404,7 +577,7 @@ function buildWorksheetRows(selected, hasSafety) {
     selected.safety.forEach((s, idx) => {
       rows.push(
         <div key={`safe-${idx}-${s.term}`} className="kvLine">
-          <span className="kvK dim kvLong">{s.term}</span>
+          <WorksheetRhythmWrap className="kvK dim kvLong">{s.term}</WorksheetRhythmWrap>
           <span className="kvV mono">{s.value}</span>
         </div>,
       )
@@ -414,35 +587,69 @@ function buildWorksheetRows(selected, hasSafety) {
   return rows
 }
 
-function EventFeedPanel({ selectedId, onSelectId, placement }) {
-  const label = placement === 'left' ? 'Event feed' : 'Event feed mirror'
+function CompactFeed({ placement, title, todayCount, items, selectedIndex, focused, onSelectIndex }) {
+  const listRef = useRef(null)
+  const [rowsPerPage, setRowsPerPage] = useState(16)
+
+  useLayoutEffect(() => {
+    const list = listRef.current
+    if (!list) return
+
+    function measure() {
+      const avail = list.clientHeight
+      if (avail <= 0) return
+      const btn = list.querySelector('.feedRowCompact')
+      const rowH = btn?.getBoundingClientRect().height ?? 17
+      const n = Math.max(1, Math.floor(avail / Math.max(rowH, 10)))
+      setRowsPerPage((prev) => (prev !== n ? n : prev))
+    }
+
+    const ro = new ResizeObserver(() => {
+      requestAnimationFrame(measure)
+    })
+    ro.observe(list)
+    measure()
+    return () => ro.disconnect()
+  }, [items.length, placement, rowsPerPage])
+
+  const pageSize = Math.max(1, rowsPerPage)
+  const total = items.length
+  const totalPages = Math.max(1, Math.ceil(Math.max(1, total) / pageSize))
+  const page = total ? clamp(Math.floor(selectedIndex / pageSize), 0, totalPages - 1) : 0
+  const pageStart = page * pageSize
+  const pageItems = total ? items.slice(pageStart, pageStart + pageSize) : []
+
   return (
-    <section className={`panel feed feed--${placement}`} aria-label={label}>
-      <header className="panelHeader">
-        <div className="panelTitle">EVENT FEED</div>
-        <div className="panelMeta">CATALYST TAPE</div>
+    <section
+      className={`panel feed feedCompact feed--${placement} ${focused ? 'isFocused' : ''}`}
+      aria-label={title}
+    >
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">{title}</div>
+        <div className="feedCompactMeta">
+          <span>
+            {todayCount} TODAY
+          </span>
+          <span className="feedPageInd">
+            {total ? `${page + 1}/${totalPages}` : '0/0'}
+          </span>
+        </div>
       </header>
-      <div className="feedList" role="list">
-        {MOCK_EVENTS.map((ev) => {
-          const active = ev.id === selectedId
+      <div ref={listRef} className="feedCompactList" role="list">
+        {pageItems.map((row, i) => {
+          const globalIdx = pageStart + i
+          const active = globalIdx === selectedIndex
           return (
             <button
-              key={ev.id}
+              key={row.id}
               type="button"
-              className={`feedItem ${active ? 'isActive' : ''}`}
-              onClick={() => onSelectId(ev.id)}
               role="listitem"
+              className={`feedRowCompact ${active ? 'isActive' : ''}`}
+              onClick={() => onSelectIndex(globalIdx)}
             >
-              <div className="feedRow1">
-                <span className="feedTrial">{ev.trial}</span>
-                <span className={`feedType type-${ev.eventType.replace(/\s/g, '')}`}>
-                  {ev.eventType}
-                </span>
-              </div>
-              <div className="feedRow2">
-                <span className="feedDrug">{ev.drug}</span>
-                <span className="feedTs">{ev.ts}</span>
-              </div>
+              <span className="feedCell feedCellLabel kvFeedMain">{row.label}</span>
+              <span className="feedCell feedCellTicker mono kvFeedDim">{row.ticker}</span>
+              <span className="feedCell feedCellWhen mono kvFeedDim">{formatFeedDate(row.at)}</span>
             </button>
           )
         })}
@@ -452,8 +659,15 @@ function EventFeedPanel({ selectedId, onSelectId, placement }) {
 }
 
 function App() {
-  const [selectedId, setSelectedId] = useState(MOCK_EVENTS[0]?.id ?? '')
-  const selected = MOCK_EVENTS.find((e) => e.id === selectedId) ?? MOCK_EVENTS[0]
+  const [focusFeed, setFocusFeed] = useState('insider')
+  const [insiderIdx, setInsiderIdx] = useState(0)
+  const [pharmaIdx, setPharmaIdx] = useState(0)
+
+  const selected = useMemo(() => {
+    const row = PHARMA_FEED_ROWS[pharmaIdx]
+    const id = row?.trialEventId ?? MOCK_EVENTS[0]?.id
+    return MOCK_EVENTS.find((e) => e.id === id) ?? MOCK_EVENTS[0]
+  }, [pharmaIdx])
   const hasSafety = Array.isArray(selected?.safety) && selected.safety.length > 0
 
   const daily = selected?.daily ?? []
@@ -466,25 +680,83 @@ function App() {
   /* Inner padding inside SVG viewBox (stroke clearance); outer gutter is CSS .graphWrap */
   const plotInset = { left: 8, right: 8, top: 8, bottom: 8 }
 
+  useEffect(() => {
+    function onKey(e) {
+      const el = e.target
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
+        return
+      }
+      const k = e.key
+      const left = k === 'ArrowLeft' || k === 'a' || k === 'A'
+      const right = k === 'ArrowRight' || k === 'd' || k === 'D'
+      const up = k === 'ArrowUp' || k === 'w' || k === 'W'
+      const down = k === 'ArrowDown' || k === 's' || k === 'S'
+      if (!left && !right && !up && !down) return
+      e.preventDefault()
+      if (left) {
+        setFocusFeed('insider')
+        return
+      }
+      if (right) {
+        setFocusFeed('pharma')
+        return
+      }
+      if (focusFeed === 'insider') {
+        setInsiderIdx((i) => clamp(i + (down ? 1 : -1), 0, INSIDER_FEED_ROWS.length - 1))
+      } else {
+        setPharmaIdx((i) => clamp(i + (down ? 1 : -1), 0, PHARMA_FEED_ROWS.length - 1))
+      }
+    }
+    window.addEventListener('keydown', onKey, { capture: true })
+    return () => window.removeEventListener('keydown', onKey, { capture: true })
+  }, [focusFeed])
+
   return (
     <main className="terminal" aria-label="KENSIGLINE terminal grid">
-      <EventFeedPanel selectedId={selectedId} onSelectId={setSelectedId} placement="left" />
-      <EventFeedPanel selectedId={selectedId} onSelectId={setSelectedId} placement="right" />
+      <CompactFeed
+        placement="left"
+        title="INSIDER FEED"
+        todayCount={MOCK_INSIDER_TODAY}
+        items={INSIDER_FEED_ROWS}
+        selectedIndex={insiderIdx}
+        focused={focusFeed === 'insider'}
+        onSelectIndex={(idx) => {
+          setInsiderIdx(idx)
+          setFocusFeed('insider')
+        }}
+      />
+      <CompactFeed
+        placement="right"
+        title="PHARMA FEED"
+        todayCount={MOCK_PHARMA_TODAY}
+        items={PHARMA_FEED_ROWS}
+        selectedIndex={pharmaIdx}
+        focused={focusFeed === 'pharma'}
+        onSelectIndex={(idx) => {
+          setPharmaIdx(idx)
+          setFocusFeed('pharma')
+        }}
+      />
 
       <section className="panel worksheet" aria-label="Trial worksheet">
-        <header className="panelHeader">
-          <div className="panelTitle">CASE WORKSHEET</div>
-          <div className="panelMeta">{selected?.id ?? '—'}</div>
+        <header className="feedCompactHeader">
+          <div className="panelTitle feedCompactTitle">CASE WORKSHEET</div>
+          <div className="feedCompactMeta">
+            <span>{selected?.id ?? '—'}</span>
+          </div>
         </header>
 
         <div className="worksheetBody">{worksheetRows}</div>
       </section>
 
+      <section className="panel blankTile blankTile--a" aria-label="Reserved panel (left)" />
+      <section className="panel blankTile blankTile--b" aria-label="Reserved panel (right)" />
+
       <section className="panel graph" aria-label="Daily graph">
         <header className="panelHeader">
           <div className="panelTitle">DAILY GRAPH</div>
           <div className="panelMeta">
-            {selected?.id ?? '—'} · L {dailyLast} · R {dailyMin}–{dailyMax}
+            L {dailyLast} · R {dailyMin}–{dailyMax}
           </div>
         </header>
         <div className="graphWrap" aria-label="Mock daily price graph">

@@ -21,6 +21,13 @@
   gap: 0;
   border: 1px solid var(--grid);
   box-sizing: border-box;
+  /*
+   * One scale for the whole terminal so narrow feed columns and the wide
+   * worksheet don’t compute different cqmin-based type (that misaligned rows).
+   */
+  --fs-title: clamp(6px, 1.75vmin, 11px);
+  --fs-meta: clamp(6px, 1.65vmin, 10px);
+  --fs-body: clamp(6px, 1.8vmin, 11px);
 }
 
 .panel {
@@ -94,6 +101,68 @@
   grid-column: 4 / span 1;
   grid-row: 4 / span 1;
 }
+.blankTile--a {
+  grid-column: 3 / span 1;
+  grid-row: 3 / span 1;
+}
+.blankTile--b {
+  grid-column: 4 / span 1;
+  grid-row: 3 / span 1;
+}
+
+/* ---- Container tiles (per-panel cqmin still used for gaps / graph / logo) ---- */
+.worksheet,
+.graph,
+.logo,
+.blankTile,
+.feed.feedCompact {
+  container-type: size;
+}
+
+/* ---- Shared scaled titles / meta (same rhythm as feed panels) ---- */
+.feedCompactTitle,
+.graph .panelTitle,
+.logo .panelTitle {
+  font-size: var(--fs-title);
+  letter-spacing: 0.06em;
+}
+
+.feedCompactMeta,
+.graph .panelMeta,
+.logo .panelMeta {
+  font-size: var(--fs-meta);
+}
+
+.panel.graph,
+.panel.logo {
+  padding: 0;
+}
+
+/* Match `.panel.feed.feedCompact` (no outer padding) so headers + row baselines line up */
+.panel.worksheet {
+  padding: 0;
+}
+
+.graph .panelHeader,
+.logo .panelHeader {
+  grid-template-columns: max-content minmax(0, 1fr);
+  padding: 6px 8px 5px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--grid);
+}
+
+.graph .panelTitle,
+.logo .panelTitle {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* ---- BLANK TILES (1×1 placeholders) ---- */
+.blankTile {
+  padding: 0;
+  min-height: 0;
+  min-width: 0;
+}
 
 /* ---- LOGO PANEL ---- */
 .logo {
@@ -112,7 +181,7 @@
 }
 
 .logoOrb {
-  width: clamp(96px, 10vw, 220px);
+  width: clamp(48px, max(42cqmin, 28vmin), 220px);
   height: auto;
   display: block;
   margin: 0;
@@ -150,113 +219,119 @@
   }
 }
 
-/* ---- EVENT FEED ---- */
+/* ---- EVENT FEEDS (compact columns, paged) ---- */
 .feed {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-}
-
-.feedList {
-  height: 100%;
-  overflow: auto;
-  padding-right: 6px;
-  display: grid;
-  grid-auto-rows: min-content;
-  gap: 6px;
   min-height: 0;
 }
 
-.feedItem {
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: 1px solid rgba(140, 255, 195, 0.12);
-  color: var(--text);
-  padding: 8px 10px;
-  cursor: pointer;
-  font: inherit;
-  display: grid;
-  gap: 6px;
-  box-sizing: border-box;
-  overflow: hidden;
+.panel.feed.feedCompact {
+  padding: 0;
 }
 
-.feedItem:hover {
-  border-color: rgba(90, 220, 255, 0.35);
+.feed.feedCompact {
+  container-name: feedpane;
 }
 
-.feedItem.isActive {
-  border-color: rgba(80, 255, 190, 0.65);
-  box-shadow: 0 0 0 1px rgba(80, 255, 190, 0.12) inset;
+.feed.feedCompact.isFocused {
+  box-shadow: inset 0 0 0 1px rgba(90, 220, 255, 0.35);
 }
 
-.feedRow1,
-.feedRow2 {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+.feedCompactHeader {
+  display: flex;
   align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 6px 8px 5px;
+  border-bottom: 1px solid var(--grid);
 }
 
-.feedRow2 {
-  grid-template-columns: minmax(0, 1fr) 170px;
-}
-
-.feedTrial {
-  font-size: 13px;
-  color: rgba(240, 255, 248, 0.95);
-}
-
-.feedDrug {
-  font-size: 12px;
+.feedCompactMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
   color: var(--dim);
+  white-space: nowrap;
+}
+
+.feedPageInd {
+  color: var(--dim);
+}
+
+.feedCompactList {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-size: var(--fs-body);
+  line-height: 1.28;
+}
+
+.feedRowCompact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: clamp(5px, 1.5cqmin, 12px);
+  align-items: center;
+  padding: 0.12em 8px;
+  margin: 0;
+  border: none;
+  border-bottom: 1px solid rgba(140, 255, 195, 0.06);
+  background: transparent;
+  color: rgba(240, 255, 248, 0.94);
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.feedRowCompact:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.feedRowCompact.isActive {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.feedCellLabel {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.feedTs {
-  font-size: 11px;
-  color: rgba(216, 255, 235, 0.45);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+.kvFeedMain {
+  color: rgba(216, 255, 235, 0.84);
+}
+
+.kvFeedDim {
+  letter-spacing: 0.06em;
+  font-size: 0.95em;
+  color: rgba(216, 255, 235, 0.55);
+}
+
+.feedCellTicker,
+.feedCellWhen {
   text-align: right;
 }
 
-.feedType {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: rgba(90, 220, 255, 0.9);
+.feedCellTicker {
+  min-width: 3.25rem;
 }
 
-.type-ENDPOINTMISS {
-  color: var(--bad);
-}
-.type-DELAY {
-  color: var(--warn);
-}
-.type-READOUT {
-  color: var(--hi);
-}
-.type-FDAUPDATE {
-  color: var(--cyan);
+.feedCellWhen {
+  min-width: 4.25rem;
 }
 
 /* ---- CASE WORKSHEET (flat key–value table) ---- */
 .worksheet {
-  container-type: size;
   container-name: worksheet;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
-}
-
-.worksheet .panelHeader {
-  padding-bottom: 6px;
-  margin-bottom: 4px;
 }
 
 .worksheetBody {
@@ -264,23 +339,37 @@
   min-height: 0;
   height: 100%;
   box-sizing: border-box;
+  /* Same horizontal rhythm as feeds: `.kvLine` uses row padding like `.feedRowCompact`. */
+  padding: 0 0 4px;
+  /*
+   * JS `WorksheetRhythmWrap`: body line-height + kvLine block padding define row stride:
+   * KV_BODY_LH = 1.28; gap between stacked rows = 2 × 0.12em ⇒ KV_LINE_GAP_UNITLESS = 0.24
+   */
   overflow-x: hidden;
   overflow-y: auto;
   column-count: 2;
   column-fill: auto;
   -webkit-column-fill: auto;
-  column-gap: clamp(8px, 2cqmin, 14px);
-  font-size: clamp(6px, 2.75cqmin, 11px);
+  column-gap: clamp(8px, max(2cqmin, 1.5vmin), 14px);
+  column-rule: none;
+  font-size: var(--fs-body);
   line-height: 1.28;
 }
 
+/* Match feed row rhythm; no visible row boxes or dividers */
 .worksheet .kvLine {
   display: grid;
-  grid-template-columns: minmax(72px, 0.46fr) minmax(0, 1fr);
+  grid-template-columns: minmax(48px, 0.34fr) minmax(0, 1fr);
   gap: clamp(5px, 1.5cqmin, 12px);
-  align-items: start;
-  padding: 0.12em 0;
+  align-items: center;
+  padding: 0.12em 8px;
+  margin: 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
   font-size: inherit;
+  line-height: inherit;
+  color: rgba(240, 255, 248, 0.94);
   break-inside: avoid;
   page-break-inside: avoid;
   -webkit-column-break-inside: avoid;
@@ -289,6 +378,7 @@
 .worksheet .kvK {
   letter-spacing: 0.06em;
   font-size: 0.95em;
+  color: rgba(216, 255, 235, 0.55);
 }
 
 .worksheet .kvK.kvLong {
@@ -303,6 +393,12 @@
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+/* Wrapped keys/values: top-align so multi-line rhythm matches stacked single-line rows */
+.worksheet .kvLine:has(.kvVWrap),
+.worksheet .kvLine:has(.kvLong) {
+  align-items: start;
 }
 
 .worksheet .kvV .mono {
@@ -344,16 +440,11 @@
 
 /* ---- DAILY GRAPH ---- */
 .graph {
-  --graph-gutter: 12px;
+  --graph-gutter: clamp(6px, max(2cqmin, 1.5vmin), 12px);
   padding: 0;
   display: grid;
   grid-template-rows: auto 1fr;
   min-height: 0;
-}
-
-.graph .panelHeader {
-  padding: 10px 0 8px;
-  margin: 0 var(--graph-gutter);
 }
 
 .graph .panelMeta {
@@ -380,7 +471,7 @@
 
 .graphPath {
   stroke: rgba(90, 220, 255, 0.92);
-  stroke-width: 2;
+  stroke-width: clamp(1.25px, max(0.35cqmin, 0.22vmin), 2.25px);
   fill: none;
 }
 
