@@ -257,19 +257,60 @@ const MOCK_EVENTS = [
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+function isSameLocalCalendarDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+/** Event timestamp falls on today’s calendar day in local time (matches feed date stamps). */
+function isAtLocalToday(at) {
+  const d = at instanceof Date ? at : new Date(at)
+  if (Number.isNaN(d.getTime())) return false
+  return isSameLocalCalendarDay(d, new Date())
+}
+
 /** ISO or Date → time if local day is today; else day of month + month (never year). */
 function formatFeedDate(at) {
   const d = at instanceof Date ? at : new Date(at)
   if (Number.isNaN(d.getTime())) return '—'
   const now = new Date()
-  const sameLocalDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  if (sameLocalDay) {
+  if (isSameLocalCalendarDay(d, now)) {
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   }
   return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+}
+
+/** Newest events first (by `at`). */
+function sortFeedRowsByAtDesc(rows) {
+  return [...rows].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+}
+
+function countFeedRowsLocalToday(rows) {
+  let n = 0
+  for (const r of rows) {
+    if (isAtLocalToday(r.at)) n += 1
+  }
+  return n
+}
+
+/** Rows for compact feed UI: inserts a “TODAY” divider between local-today events and older (newest-first lists). */
+function buildFeedDisplayRows(items) {
+  const out = []
+  for (let i = 0; i < items.length; i++) {
+    const row = items[i]
+    if (
+      i > 0 &&
+      !isAtLocalToday(row.at) &&
+      isAtLocalToday(items[i - 1].at)
+    ) {
+      out.push({ type: 'sep', key: `today-sep-before-${row.id}` })
+    }
+    out.push({ type: 'item', row, idx: i })
+  }
+  return out
 }
 
 function parseMockTs(iso) {
@@ -411,7 +452,9 @@ function insiderCaseForRowIndex(i) {
   }
 }
 
-const INSIDER_FEED_ROWS = Array.from({ length: 42 }, (_, i) => insiderCaseForRowIndex(i))
+const INSIDER_FEED_ROWS = sortFeedRowsByAtDesc(
+  Array.from({ length: 42 }, (_, i) => insiderCaseForRowIndex(i)),
+)
 
 function buildPharmaFeedRows() {
   const fromTrials = MOCK_EVENTS.map((ev) => ({
@@ -457,11 +500,10 @@ function buildPharmaFeedRows() {
   return [...fromTrials, ...filler]
 }
 
-const PHARMA_FEED_ROWS = buildPharmaFeedRows()
+const PHARMA_FEED_ROWS = sortFeedRowsByAtDesc(buildPharmaFeedRows())
 
-/** Mock headline counts for “x TODAY” */
-const MOCK_INSIDER_TODAY = 12
-const MOCK_PHARMA_TODAY = 7
+const INSIDER_FEED_TODAY_COUNT = countFeedRowsLocalToday(INSIDER_FEED_ROWS)
+const PHARMA_FEED_TODAY_COUNT = countFeedRowsLocalToday(PHARMA_FEED_ROWS)
 
 /** Historical Outcomes tile (blankTile--a): mock aggregates + conditioning facets */
 const MOCK_HISTORICAL_INSIDER = {
@@ -507,6 +549,9 @@ const MOCK_COMPANY = {
   country: 'US',
   mcap: '$8.46M USD',
   earnings: '5 Aug',
+  /** Shown only when pharma feed is focused */
+  pharmaPrograms: '1×P3 | 1×P2 | 1×P1',
+  pharmaLead: `DrugX (P3 – Alzheimer's)`,
 }
 
 function toPath(values, w, h, inset) {
@@ -950,8 +995,9 @@ function DistributionPanel({ mode }) {
   )
 }
 
-function CompanyPanel() {
+function CompanyPanel({ mode }) {
   const c = MOCK_COMPANY
+  const pharma = mode === 'pharma'
 
   return (
     <section className="panel companyTile" aria-label="Company">
@@ -975,6 +1021,18 @@ function CompanyPanel() {
           <span className="kvK dim">EARNINGS</span>
           <span className="kvV">{c.earnings}</span>
         </KvLine>
+        {pharma ? (
+          <>
+            <KvLine key="co-programs">
+              <span className="kvK dim">PROGRAMS</span>
+              <span className="kvV">{c.pharmaPrograms}</span>
+            </KvLine>
+            <KvLine key="co-lead">
+              <span className="kvK dim">LEAD</span>
+              <span className="kvV">{c.pharmaLead}</span>
+            </KvLine>
+          </>
+        ) : null}
       </div>
     </section>
   )
@@ -983,6 +1041,8 @@ function CompanyPanel() {
 function CompactFeed({ placement, title, todayCount, items, selectedIndex, focused, onSelectIndex }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
+
+  const displayRows = useMemo(() => buildFeedDisplayRows(items), [items])
 
   useLayoutEffect(() => {
     const list = listRef.current
@@ -1003,14 +1063,24 @@ function CompactFeed({ placement, title, todayCount, items, selectedIndex, focus
     ro.observe(list)
     measure()
     return () => ro.disconnect()
-  }, [items.length, placement, rowsPerPage])
+  }, [items.length, displayRows.length, placement, rowsPerPage])
 
   const pageSize = Math.max(1, rowsPerPage)
   const total = items.length
-  const totalPages = Math.max(1, Math.ceil(Math.max(1, total) / pageSize))
-  const page = total ? clamp(Math.floor(selectedIndex / pageSize), 0, totalPages - 1) : 0
+  const displayLen = displayRows.length
+  const selectedDisplayIdx = useMemo(() => {
+    const di = displayRows.findIndex((e) => e.type === 'item' && e.idx === selectedIndex)
+    return di >= 0 ? di : 0
+  }, [displayRows, selectedIndex])
+
+  const totalPages = Math.max(1, Math.ceil(Math.max(1, displayLen || total) / pageSize))
+  const page =
+    displayLen && total
+      ? clamp(Math.floor(selectedDisplayIdx / pageSize), 0, totalPages - 1)
+      : 0
   const pageStart = page * pageSize
-  const pageItems = total ? items.slice(pageStart, pageStart + pageSize) : []
+  const pageSlice =
+    displayLen && total ? displayRows.slice(pageStart, pageStart + pageSize) : []
 
   return (
     <section
@@ -1029,16 +1099,28 @@ function CompactFeed({ placement, title, todayCount, items, selectedIndex, focus
         </div>
       </header>
       <div ref={listRef} className="feedCompactList" role="list">
-        {pageItems.map((row, i) => {
+        {pageSlice.map((entry, i) => {
           const globalIdx = pageStart + i
-          const active = globalIdx === selectedIndex
+          if (entry.type === 'sep') {
+            return (
+              <div
+                key={`${placement}-${entry.key}-${globalIdx}`}
+                className="feedRowTodaySep"
+                role="presentation"
+              >
+                TODAY
+              </div>
+            )
+          }
+          const { row, idx } = entry
+          const active = idx === selectedIndex
           return (
             <button
               key={row.id}
               type="button"
               role="listitem"
               className={`feedRowCompact ${active ? 'isActive' : ''}`}
-              onClick={() => onSelectIndex(globalIdx)}
+              onClick={() => onSelectIndex(idx)}
             >
               <span className="feedCell feedCellLabel kvFeedMain">{row.label}</span>
               <span className="feedCell feedCellTicker mono kvFeedDim">{row.ticker}</span>
@@ -1125,7 +1207,7 @@ function App() {
       <CompactFeed
         placement="left"
         title="INSIDER FEED"
-        todayCount={MOCK_INSIDER_TODAY}
+        todayCount={INSIDER_FEED_TODAY_COUNT}
         items={INSIDER_FEED_ROWS}
         selectedIndex={insiderIdx}
         focused={focusFeed === 'insider'}
@@ -1137,7 +1219,7 @@ function App() {
       <CompactFeed
         placement="right"
         title="PHARMA FEED"
-        todayCount={MOCK_PHARMA_TODAY}
+        todayCount={PHARMA_FEED_TODAY_COUNT}
         items={PHARMA_FEED_ROWS}
         selectedIndex={pharmaIdx}
         focused={focusFeed === 'pharma'}
@@ -1186,7 +1268,7 @@ function App() {
         </div>
       </section>
 
-      <CompanyPanel />
+      <CompanyPanel mode={focusFeed} />
     </main>
   )
 }
