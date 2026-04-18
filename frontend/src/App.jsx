@@ -501,6 +501,14 @@ const MOCK_DISTRIBUTION_TRIALS = {
   p90: '−10%',
 }
 
+/** Company tile (bottom-right): issuer profile */
+const MOCK_COMPANY = {
+  industry: 'Pharmaceuticals',
+  country: 'US',
+  mcap: '$8.46M USD',
+  earnings: '5 Aug',
+}
+
 function toPath(values, w, h, inset) {
   if (!values?.length) return ''
   const { left = 0, right = 0, top = 0, bottom = 0 } = inset ?? {}
@@ -942,6 +950,36 @@ function DistributionPanel({ mode }) {
   )
 }
 
+function CompanyPanel() {
+  const c = MOCK_COMPANY
+
+  return (
+    <section className="panel companyTile" aria-label="Company">
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">COMPANY</div>
+      </header>
+      <div className="worksheetBody historicalOutcomesBody">
+        <KvLine key="co-industry">
+          <span className="kvK dim">INDUSTRY</span>
+          <span className="kvV">{c.industry}</span>
+        </KvLine>
+        <KvLine key="co-country">
+          <span className="kvK dim">COUNTRY</span>
+          <span className="kvV">{c.country}</span>
+        </KvLine>
+        <KvLine key="co-mcap">
+          <span className="kvK dim">MCAP</span>
+          <span className="kvV mono">{c.mcap}</span>
+        </KvLine>
+        <KvLine key="co-earnings">
+          <span className="kvK dim">EARNINGS</span>
+          <span className="kvV">{c.earnings}</span>
+        </KvLine>
+      </div>
+    </section>
+  )
+}
+
 function CompactFeed({ placement, title, todayCount, items, selectedIndex, focused, onSelectIndex }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
@@ -1148,13 +1186,7 @@ function App() {
         </div>
       </section>
 
-      <section className="panel logo" aria-label="Logo panel">
-        <header className="panelHeader">
-          <div className="panelTitle">KENSIGLINE</div>
-          <div className="panelMeta">BIO INTEL</div>
-        </header>
-        <img className="logoOrb" src="/kensigline_logo_transparent.png" alt="Kensigline logo" />
-      </section>
+      <CompanyPanel />
     </main>
   )
 }
