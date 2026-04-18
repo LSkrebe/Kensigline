@@ -74,46 +74,20 @@
 }
 
 /* ---- GRID PLACEMENT (4x4 ONLY) ---- */
-.feed {
+.feed--left {
   grid-column: 1 / span 1;
   grid-row: 1 / span 4;
 }
-.snapshot {
+.feed--right {
   grid-column: 2 / span 1;
-  grid-row: 1 / span 1;
+  grid-row: 1 / span 4;
 }
-.file {
-  grid-column: 3 / span 1;
-  grid-row: 1 / span 1;
-}
-.voidTR {
-  grid-column: 4 / span 1;
+.worksheet {
+  grid-column: 3 / span 2;
   grid-row: 1 / span 2;
-  padding: 0;
-  background: var(--panel);
-}
-.design {
-  grid-column: 2 / span 1;
-  grid-row: 2 / span 1;
-}
-.population {
-  grid-column: 2 / span 1;
-  grid-row: 3 / span 1;
-}
-.endpoints {
-  grid-column: 3 / span 1;
-  grid-row: 2 / span 1;
-}
-.safety {
-  grid-column: 3 / span 1;
-  grid-row: 3 / span 1;
-}
-.results {
-  grid-column: 4 / span 1;
-  grid-row: 3 / span 1;
 }
 .graph {
-  grid-column: 2 / span 2;
+  grid-column: 3 / span 1;
   grid-row: 4 / span 1;
 }
 .logo {
@@ -271,16 +245,73 @@
   color: var(--cyan);
 }
 
-/* ---- STRUCTURED PANELS (right side) ---- */
-.snapshot,
-.file,
-.design,
-.population,
-.endpoints,
-.results,
-.safety {
+/* ---- CASE WORKSHEET (flat key–value table) ---- */
+.worksheet {
+  container-type: size;
+  container-name: worksheet;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.worksheet .panelHeader {
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+}
+
+.worksheetBody {
+  /* Fill column 1 to panel height, then flow into column 2 (not a 50/50 row split). */
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  column-count: 2;
+  column-fill: auto;
+  -webkit-column-fill: auto;
+  column-gap: clamp(8px, 2cqmin, 14px);
+  font-size: clamp(6px, 2.75cqmin, 11px);
+  line-height: 1.28;
+}
+
+.worksheet .kvLine {
+  display: grid;
+  grid-template-columns: minmax(72px, 0.46fr) minmax(0, 1fr);
+  gap: clamp(5px, 1.5cqmin, 12px);
+  align-items: start;
+  padding: 0.12em 0;
+  font-size: inherit;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+}
+
+.worksheet .kvK {
+  letter-spacing: 0.06em;
+  font-size: 0.95em;
+}
+
+.worksheet .kvK.kvLong {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.worksheet .kvV {
+  min-width: 0;
+  color: rgba(216, 255, 235, 0.84);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.worksheet .kvV .mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.worksheet .kvVWrap {
+  display: block;
+  white-space: normal;
 }
 
 .fieldGrid {
@@ -311,52 +342,9 @@
   white-space: nowrap;
 }
 
-.kvStack {
-  display: grid;
-  gap: 6px;
-  min-height: 0;
-}
-
-.kvLine {
-  display: grid;
-  grid-template-columns: 68px minmax(0, 1fr);
-  gap: 10px;
-  align-items: baseline;
-  font-size: 12px;
-}
-
-.kvK {
-  letter-spacing: 0.08em;
-  font-size: 10px;
-}
-
-.kvV {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: rgba(216, 255, 235, 0.82);
-}
-
-.kvVWrap {
-  white-space: normal;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-}
-
-.subTitle {
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  color: rgba(90, 220, 255, 0.9);
-  margin: 0 0 4px;
-}
-
-/* (endpoints/results/safety now use kvStack/kvLine for consistency) */
-
 /* ---- DAILY GRAPH ---- */
 .graph {
+  --graph-gutter: 12px;
   padding: 0;
   display: grid;
   grid-template-rows: auto 1fr;
@@ -365,7 +353,7 @@
 
 .graph .panelHeader {
   padding: 10px 0 8px;
-  margin: 0 12px;
+  margin: 0 var(--graph-gutter);
 }
 
 .graph .panelMeta {
@@ -380,6 +368,8 @@
   width: 100%;
   overflow: hidden;
   min-height: 0;
+  padding: var(--graph-gutter);
+  box-sizing: border-box;
 }
 
 .graphSvg {
@@ -388,37 +378,9 @@
   display: block;
 }
 
-.graphGrid {
-  stroke: rgba(140, 255, 195, 0.12);
-  stroke-width: 1;
-  fill: none;
-}
-
 .graphPath {
   stroke: rgba(90, 220, 255, 0.92);
   stroke-width: 2;
   fill: none;
 }
 
-.axes {
-  pointer-events: none;
-}
-
-.axisLine {
-  stroke: rgba(140, 255, 195, 0.22);
-  stroke-width: 1;
-  fill: none;
-}
-
-.axisLabel {
-  fill: rgba(216, 255, 235, 0.55);
-  font-size: 6px;
-}
-
-.axisLabel.y {
-  text-anchor: start;
-}
-
-.axisLabel.x {
-  fill: rgba(216, 255, 235, 0.45);
-}

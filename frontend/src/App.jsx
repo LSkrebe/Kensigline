@@ -205,19 +205,6 @@ function clamp01(n) {
   return Math.max(0, Math.min(1, n))
 }
 
-function parseDay(ts) {
-  const m = String(ts ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (!m) return null
-  const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`)
-  return Number.isNaN(d.getTime()) ? null : d
-}
-
-function fmtDay(d) {
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(d.getUTCDate()).padStart(2, '0')
-  return `${mm}/${dd}`
-}
-
 function toPath(values, w, h, inset) {
   if (!values?.length) return ''
   const { left = 0, right = 0, top = 0, bottom = 0 } = inset ?? {}
@@ -235,6 +222,235 @@ function toPath(values, w, h, inset) {
     .join(' ')
 }
 
+const ENDPOINT_ORDINAL = [
+  'First',
+  'Second',
+  'Third',
+  'Fourth',
+  'Fifth',
+  'Sixth',
+  'Seventh',
+  'Eighth',
+  'Ninth',
+  'Tenth',
+]
+
+function endpointRowLabel(idx) {
+  if (idx === 0) return 'Primary endpoint'
+  if (idx === 1) return 'Secondary endpoint'
+  const ord = ENDPOINT_ORDINAL[idx]
+  return ord ? `${ord} endpoint` : `Endpoint ${idx + 1}`
+}
+
+/** Strip role tags from the copy when the row label already states primary / secondary / …. */
+function endpointDisplayValue(raw, idx) {
+  const s = String(raw ?? '').trim()
+  if (!s) return '—'
+
+  let out = s
+
+  if (idx === 0) {
+    out = out.replace(/^\s*Primary\s*:\s*/i, '').trim()
+    return out || '—'
+  }
+
+  out = out.replace(/^\s*Secondary\s*:\s*/i, '').trim()
+
+  const extraRoles = ['Tertiary', 'Quaternary', 'Quinary', 'Senary']
+  if (idx >= 2 && idx - 2 < extraRoles.length) {
+    const re = new RegExp(`^\\s*${extraRoles[idx - 2]}\\s*:\\s*`, 'i')
+    out = out.replace(re, '').trim()
+  }
+
+  return out || '—'
+}
+
+function buildWorksheetRows(selected, hasSafety) {
+  const rows = []
+
+  rows.push(
+    <div key="drug" className="kvLine">
+      <span className="kvK dim">DRUG</span>
+      <span className="kvV mono">{selected?.trialSnapshot?.drug ?? '—'}</span>
+    </div>,
+    <div key="mech" className="kvLine">
+      <span className="kvK dim">MECH</span>
+      <span className="kvV">{selected?.trialSnapshot?.mechanism ?? '—'}</span>
+    </div>,
+    <div key="phase" className="kvLine">
+      <span className="kvK dim">PHASE</span>
+      <span className="kvV mono">{selected?.trialSnapshot?.phase ?? '—'}</span>
+    </div>,
+    <div key="ind" className="kvLine">
+      <span className="kvK dim">IND</span>
+      <span className="kvV">{selected?.trialSnapshot?.indication ?? '—'}</span>
+    </div>,
+    <div key="sponsor" className="kvLine">
+      <span className="kvK dim">SPONSOR</span>
+      <span className="kvV">{selected?.trialSnapshot?.sponsor ?? '—'}</span>
+    </div>,
+    <div key="intv" className="kvLine">
+      <span className="kvK dim">INTV</span>
+      <span className="kvV">{selected?.trialSnapshot?.intervention ?? '—'}</span>
+    </div>,
+    <div key="status" className="kvLine">
+      <span className="kvK dim">STATUS</span>
+      <span className="kvV">{selected?.timelineDetails?.status ?? '—'}</span>
+    </div>,
+    <div key="start" className="kvLine">
+      <span className="kvK dim">START</span>
+      <span className="kvV mono">{selected?.timelineDetails?.studyStart ?? '—'}</span>
+    </div>,
+    <div key="priComp" className="kvLine">
+      <span className="kvK dim">PRI COMP</span>
+      <span className="kvV mono">{selected?.timelineDetails?.primaryCompletion ?? '—'}</span>
+    </div>,
+    <div key="studyComp" className="kvLine">
+      <span className="kvK dim">STUDY COMP</span>
+      <span className="kvV mono">{selected?.timelineDetails?.studyCompletion ?? '—'}</span>
+    </div>,
+    <div key="source" className="kvLine">
+      <span className="kvK dim">SOURCE</span>
+      <span className="kvV">{selected?.timelineDetails?.eventSource ?? '—'}</span>
+    </div>,
+    <div key="detail" className="kvLine">
+      <span className="kvK dim">DETAIL</span>
+      <span className="kvV">{selected?.timelineDetails?.eventSubtype ?? '—'}</span>
+    </div>,
+    <div key="evt" className="kvLine">
+      <span className="kvK dim">EVT</span>
+      <span className="kvV">{selected?.eventType ?? '—'}</span>
+    </div>,
+    <div key="arms" className="kvLine">
+      <span className="kvK dim">ARMS</span>
+      <span className="kvV">{selected?.studyDesign?.arms ?? '—'}</span>
+    </div>,
+    <div key="rand" className="kvLine">
+      <span className="kvK dim">RAND</span>
+      <span className="kvV">{selected?.studyDesign?.randomization ?? '—'}</span>
+    </div>,
+    <div key="ctrl" className="kvLine">
+      <span className="kvK dim">CTRL</span>
+      <span className="kvV">{selected?.studyDesign?.control ?? '—'}</span>
+    </div>,
+    <div key="mask" className="kvLine">
+      <span className="kvK dim">MASK</span>
+      <span className="kvV">{selected?.studyDesign?.masking ?? '—'}</span>
+    </div>,
+    <div key="n" className="kvLine">
+      <span className="kvK dim">N</span>
+      <span className="kvV mono">{selected?.studyDesign?.sampleSize ?? '—'}</span>
+    </div>,
+    <div key="cond" className="kvLine">
+      <span className="kvK dim">COND</span>
+      <span className="kvV kvVWrap">{selected?.population?.condition ?? '—'}</span>
+    </div>,
+    <div key="bio" className="kvLine">
+      <span className="kvK dim">BIO</span>
+      <span className="kvV kvVWrap">{selected?.population?.biomarkers ?? '—'}</span>
+    </div>,
+    <div key="lot" className="kvLine">
+      <span className="kvK dim">LOT</span>
+      <span className="kvV mono">{selected?.population?.lineOfTherapy ?? '—'}</span>
+    </div>,
+  )
+
+  const eps = selected?.endpointsResults?.endpoints ?? []
+  if (eps.length === 0) {
+    rows.push(
+      <div key="ep-empty" className="kvLine">
+        <span className="kvK dim">Endpoints</span>
+        <span className="kvV dim">—</span>
+      </div>,
+    )
+  } else {
+    eps.forEach((e, idx) => {
+      rows.push(
+        <div key={`ep-${idx}-${e}`} className="kvLine">
+          <span className="kvK dim">{endpointRowLabel(idx)}</span>
+          <span className="kvV kvVWrap">{endpointDisplayValue(e, idx)}</span>
+        </div>,
+      )
+    })
+  }
+
+  const res = selected?.endpointsResults?.results ?? []
+  if (res.length === 0) {
+    rows.push(
+      <div key="res-empty" className="kvLine">
+        <span className="kvK dim">Results</span>
+        <span className="kvV dim">—</span>
+      </div>,
+    )
+  } else {
+    res.forEach((r, idx) => {
+      rows.push(
+        <div key={`res-${idx}-${r.endpoint}`} className="kvLine">
+          <span className="kvK dim kvLong">{r.endpoint}</span>
+          <span className="kvV mono">{r.value}</span>
+        </div>,
+      )
+    })
+  }
+
+  if (!hasSafety) {
+    rows.push(
+      <div key="safe-empty" className="kvLine">
+        <span className="kvK dim">Safety</span>
+        <span className="kvV dim">—</span>
+      </div>,
+    )
+  } else {
+    selected.safety.forEach((s, idx) => {
+      rows.push(
+        <div key={`safe-${idx}-${s.term}`} className="kvLine">
+          <span className="kvK dim kvLong">{s.term}</span>
+          <span className="kvV mono">{s.value}</span>
+        </div>,
+      )
+    })
+  }
+
+  return rows
+}
+
+function EventFeedPanel({ selectedId, onSelectId, placement }) {
+  const label = placement === 'left' ? 'Event feed' : 'Event feed mirror'
+  return (
+    <section className={`panel feed feed--${placement}`} aria-label={label}>
+      <header className="panelHeader">
+        <div className="panelTitle">EVENT FEED</div>
+        <div className="panelMeta">CATALYST TAPE</div>
+      </header>
+      <div className="feedList" role="list">
+        {MOCK_EVENTS.map((ev) => {
+          const active = ev.id === selectedId
+          return (
+            <button
+              key={ev.id}
+              type="button"
+              className={`feedItem ${active ? 'isActive' : ''}`}
+              onClick={() => onSelectId(ev.id)}
+              role="listitem"
+            >
+              <div className="feedRow1">
+                <span className="feedTrial">{ev.trial}</span>
+                <span className={`feedType type-${ev.eventType.replace(/\s/g, '')}`}>
+                  {ev.eventType}
+                </span>
+              </div>
+              <div className="feedRow2">
+                <span className="feedDrug">{ev.drug}</span>
+                <span className="feedTs">{ev.ts}</span>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function App() {
   const [selectedId, setSelectedId] = useState(MOCK_EVENTS[0]?.id ?? '')
   const selected = MOCK_EVENTS.find((e) => e.id === selectedId) ?? MOCK_EVENTS[0]
@@ -244,245 +460,25 @@ function App() {
   const dailyMin = daily.length ? Math.min(...daily) : 0
   const dailyMax = daily.length ? Math.max(...daily) : 0
   const dailyLast = daily.length ? daily[daily.length - 1] : 0
-  const dailyMid = Math.round((dailyMin + dailyMax) / 2)
 
-  const baseDay = parseDay(selected?.ts) ?? new Date()
+  const worksheetRows = buildWorksheetRows(selected, hasSafety)
 
-  // Reserve margins for axis labels; draw plot inside this area.
-  const plotInset = { left: 28, right: 10, top: 10, bottom: 22 }
-  const plotLeft = plotInset.left
-  const plotRight = 900 - plotInset.right
-  const plotTop = plotInset.top
-  const plotBottom = 140 - plotInset.bottom
-
-  const xTickCount = 5
-  const xTicks = Array.from({ length: xTickCount }, (_, i) => {
-    const frac = i / (xTickCount - 1)
-    const x = plotLeft + frac * (plotRight - plotLeft)
-    const daysBack = (xTickCount - 1) - i
-    return { x, d: new Date(baseDay.getTime() - daysBack * 86400000) }
-  })
-
-  const yTickCount = 5
-  const yTicks = Array.from({ length: yTickCount }, (_, i) => {
-    const frac = i / (yTickCount - 1)
-    const y = plotTop + frac * (plotBottom - plotTop)
-    const v = Math.round(dailyMax - frac * (dailyMax - dailyMin))
-    return { y, v }
-  })
+  /* Inner padding inside SVG viewBox (stroke clearance); outer gutter is CSS .graphWrap */
+  const plotInset = { left: 8, right: 8, top: 8, bottom: 8 }
 
   return (
     <main className="terminal" aria-label="KENSIGLINE terminal grid">
-      <section className="panel feed" aria-label="Event feed">
-        <header className="panelHeader">
-          <div className="panelTitle">EVENT FEED</div>
-          <div className="panelMeta">CATALYST TAPE</div>
-        </header>
-        <div className="feedList" role="list">
-          {MOCK_EVENTS.map((ev) => {
-            const active = ev.id === selectedId
-            return (
-              <button
-                key={ev.id}
-                type="button"
-                className={`feedItem ${active ? 'isActive' : ''}`}
-                onClick={() => setSelectedId(ev.id)}
-                role="listitem"
-              >
-                <div className="feedRow1">
-                  <span className="feedTrial">{ev.trial}</span>
-                  <span className={`feedType type-${ev.eventType.replace(/\s/g, '')}`}>
-                    {ev.eventType}
-                  </span>
-                </div>
-                <div className="feedRow2">
-                  <span className="feedDrug">{ev.drug}</span>
-                  <span className="feedTs">{ev.ts}</span>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </section>
+      <EventFeedPanel selectedId={selectedId} onSelectId={setSelectedId} placement="left" />
+      <EventFeedPanel selectedId={selectedId} onSelectId={setSelectedId} placement="right" />
 
-      <section className="panel snapshot" aria-label="Trial snapshot">
+      <section className="panel worksheet" aria-label="Trial worksheet">
         <header className="panelHeader">
-          <div className="panelTitle">TRIAL SNAPSHOT</div>
+          <div className="panelTitle">CASE WORKSHEET</div>
           <div className="panelMeta">{selected?.id ?? '—'}</div>
         </header>
-        <div className="kvStack">
-          <div className="kvLine">
-            <span className="kvK dim">DRUG</span>
-            <span className="kvV mono">{selected?.trialSnapshot?.drug ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">MECH</span>
-            <span className="kvV">{selected?.trialSnapshot?.mechanism ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">PHASE</span>
-            <span className="kvV mono">{selected?.trialSnapshot?.phase ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">IND</span>
-            <span className="kvV">{selected?.trialSnapshot?.indication ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">SPONSOR</span>
-            <span className="kvV">{selected?.trialSnapshot?.sponsor ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">INTV</span>
-            <span className="kvV">{selected?.trialSnapshot?.intervention ?? '—'}</span>
-          </div>
-        </div>
+
+        <div className="worksheetBody">{worksheetRows}</div>
       </section>
-
-      <section className="panel file" aria-label="Trial file">
-        <header className="panelHeader">
-          <div className="panelTitle">TRIAL FILE</div>
-          <div className="panelMeta">{selected?.timelineDetails?.status ?? '—'}</div>
-        </header>
-        <div className="kvStack">
-          <div className="kvLine">
-            <span className="kvK dim">START</span>
-            <span className="kvV mono">{selected?.timelineDetails?.studyStart ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">PRI COMP</span>
-            <span className="kvV mono">{selected?.timelineDetails?.primaryCompletion ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">STUDY COMP</span>
-            <span className="kvV mono">{selected?.timelineDetails?.studyCompletion ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">SOURCE</span>
-            <span className="kvV">{selected?.timelineDetails?.eventSource ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">DETAIL</span>
-            <span className="kvV">{selected?.timelineDetails?.eventSubtype ?? '—'}</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel voidTR" aria-label="Empty panel" />
-
-      <section className="panel design" aria-label="Study design">
-        <header className="panelHeader">
-          <div className="panelTitle">STUDY DESIGN</div>
-          <div className="panelMeta">{selected?.eventType ?? '—'}</div>
-        </header>
-        <div className="kvStack">
-          <div className="kvLine">
-            <span className="kvK dim">ARMS</span>
-            <span className="kvV">{selected?.studyDesign?.arms ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">RAND</span>
-            <span className="kvV">{selected?.studyDesign?.randomization ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">CTRL</span>
-            <span className="kvV">{selected?.studyDesign?.control ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">MASK</span>
-            <span className="kvV">{selected?.studyDesign?.masking ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">N</span>
-            <span className="kvV mono">{selected?.studyDesign?.sampleSize ?? '—'}</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel population" aria-label="Population">
-        <header className="panelHeader">
-          <div className="panelTitle">POPULATION</div>
-          <div className="panelMeta">{selected?.population?.condition ?? '—'}</div>
-        </header>
-        <div className="kvStack">
-          <div className="kvLine">
-            <span className="kvK dim">COND</span>
-            <span className="kvV kvVWrap">{selected?.population?.condition ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">BIO</span>
-            <span className="kvV kvVWrap">{selected?.population?.biomarkers ?? '—'}</span>
-          </div>
-          <div className="kvLine">
-            <span className="kvK dim">LOT</span>
-            <span className="kvV mono">{selected?.population?.lineOfTherapy ?? '—'}</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="panel endpoints" aria-label="Endpoints">
-        <header className="panelHeader">
-          <div className="panelTitle">ENDPOINTS</div>
-          <div className="panelMeta">{(selected?.endpointsResults?.endpoints ?? []).length}</div>
-        </header>
-        <div className="kvStack">
-          {(selected?.endpointsResults?.endpoints ?? []).length === 0 ? (
-            <div className="dim">—</div>
-          ) : (
-            (selected?.endpointsResults?.endpoints ?? []).map((e, idx) => (
-              <div key={e} className="kvLine">
-                <span className="kvK dim">EP{String(idx + 1).padStart(2, '0')}</span>
-                <span className="kvV kvVWrap">{e}</span>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="panel results" aria-label="Results">
-        <header className="panelHeader">
-          <div className="panelTitle">RESULTS</div>
-          <div className="panelMeta">
-            {(selected?.endpointsResults?.results ?? []).length > 0 ? 'AVAILABLE' : 'NONE'}
-          </div>
-        </header>
-        <div className="kvStack" role="list" aria-label="Results table">
-          {(selected?.endpointsResults?.results ?? []).length === 0 ? (
-            <div className="dim">—</div>
-          ) : (
-            (selected?.endpointsResults?.results ?? []).map((r, idx) => (
-              <div key={r.endpoint} className="kvLine" role="listitem">
-                <span className="kvK dim">R{String(idx + 1).padStart(2, '0')}</span>
-                <span className="kvV kvVWrap">
-                  <span className="mono">{r.endpoint}</span>
-                  {' = '}
-                  <span className="mono">{r.value}</span>
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      {hasSafety ? (
-        <section className="panel safety" aria-label="Safety">
-          <header className="panelHeader">
-            <div className="panelTitle">SAFETY</div>
-            <div className="panelMeta">AVAILABLE</div>
-          </header>
-          <div className="kvStack" role="list">
-            {selected.safety.map((s, idx) => (
-              <div key={s.term} className="kvLine" role="listitem">
-                <span className="kvK dim">S{String(idx + 1).padStart(2, '0')}</span>
-                <span className="kvV kvVWrap">
-                  <span className="mono">{s.term}</span>
-                  {' = '}
-                  <span className="mono">{s.value}</span>
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       <section className="panel graph" aria-label="Daily graph">
         <header className="panelHeader">
@@ -500,43 +496,6 @@ function App() {
             aria-label="Sparkline"
           >
             <path className="graphPath" d={toPath(daily, 900, 140, plotInset)} />
-            <g className="axes" aria-hidden="true">
-              <path
-                className="axisLine"
-                d={`M ${plotLeft} ${plotTop} L ${plotLeft} ${plotBottom} M ${plotLeft} ${plotBottom} L ${plotRight} ${plotBottom}`}
-              />
-              {/* Y labels */}
-              {yTicks.map((t, idx) => (
-                <text
-                  key={`${t.y}-${t.v}`}
-                  className="axisLabel y"
-                  x={plotLeft - 20}
-                  y={t.y}
-                  textAnchor="end"
-                  dominantBaseline={idx === 0 ? 'hanging' : idx === yTicks.length - 1 ? 'ideographic' : 'middle'}
-                >
-                  {t.v}
-                </text>
-              ))}
-
-              {/* X labels */}
-              {xTicks.map((t, idx) => {
-                const x = idx === 0 ? plotLeft : idx === xTicks.length - 1 ? plotRight : t.x
-                const anchor = idx === 0 ? 'start' : idx === xTicks.length - 1 ? 'end' : 'middle'
-                return (
-                  <text
-                    key={`${idx}-${t.x}`}
-                    className="axisLabel x"
-                    x={x}
-                    y={plotBottom + 14}
-                    textAnchor={anchor}
-                    dominantBaseline="ideographic"
-                  >
-                    {fmtDay(t.d)}
-                  </text>
-                )
-              })}
-            </g>
           </svg>
         </div>
       </section>
