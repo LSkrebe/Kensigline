@@ -133,7 +133,7 @@
 .companyTile,
 .blankTile,
 .historicalOutcomes,
-.distribution,
+.contextPanel,
 .feed.feedCompact {
   container-type: size;
 }
@@ -180,9 +180,9 @@
 }
 
 /* ---- HISTORICAL OUTCOMES (tile 3,3 left; rows match case `.worksheet`) ---- */
-/* Narrow stats tiles (Historical outcomes | Distribution | Company): same shell + KV rhythm */
+/* Narrow stats tiles (Historical outcomes | Context | Company): same shell + KV rhythm */
 .historicalOutcomes,
-.distribution,
+.contextPanel,
 .companyTile {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -194,17 +194,36 @@
   container-name: historical;
 }
 
-.distribution {
-  container-name: distribution;
+.contextPanel {
+  container-name: context;
 }
 
 .companyTile {
   container-name: company;
 }
 
+.contextPanelBody {
+  min-height: 0;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 6px 10px 8px;
+  box-sizing: border-box;
+  font-size: var(--fs-body);
+  line-height: 1.42;
+  color: rgba(240, 255, 248, 0.9);
+}
+
+.contextSentence {
+  margin: 0 0 0.72em;
+}
+
+.contextSentence:last-child {
+  margin-bottom: 0;
+}
+
 /* Same as case sheet body but single column (narrow tile). */
 .historicalOutcomes .worksheetBody.historicalOutcomesBody,
-.distribution .worksheetBody.historicalOutcomesBody,
 .companyTile .worksheetBody.historicalOutcomesBody {
   column-count: 1;
   column-gap: 0;
@@ -441,7 +460,6 @@
  */
 .worksheet .kvLine,
 .historicalOutcomes .kvLine,
-.distribution .kvLine,
 .companyTile .kvLine {
   display: grid;
   grid-template-columns: minmax(48px, 0.34fr) minmax(0, 1fr);
@@ -463,9 +481,8 @@
   -webkit-column-break-inside: avoid;
 }
 
-/* Historical outcomes / distribution / company: 50/50 key | value columns */
+/* Historical outcomes / company: 50/50 key | value columns */
 .historicalOutcomes .kvLine,
-.distribution .kvLine,
 .companyTile .kvLine {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
@@ -493,7 +510,6 @@
 /* Issuer / long keys still wrap via `.kvVWrap`; compact money + meta stay one line */
 .worksheet.worksheet--insider .kvLine .kvV.mono,
 .historicalOutcomes .kvLine .kvV.mono,
-.distribution .kvLine .kvV.mono,
 .companyTile .kvLine .kvV.mono {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -502,7 +518,6 @@
 
 .worksheet .kvK,
 .historicalOutcomes .kvK,
-.distribution .kvK,
 .companyTile .kvK {
   letter-spacing: 0.06em;
   font-size: 0.95em;
@@ -511,7 +526,6 @@
 
 .worksheet .kvK.kvLong,
 .historicalOutcomes .kvK.kvLong,
-.distribution .kvK.kvLong,
 .companyTile .kvK.kvLong {
   white-space: normal;
   overflow-wrap: anywhere;
@@ -520,7 +534,6 @@
 
 .worksheet .kvV,
 .historicalOutcomes .kvV,
-.distribution .kvV,
 .companyTile .kvV {
   min-width: 0;
   color: rgba(216, 255, 235, 0.84);
@@ -534,8 +547,6 @@
 .worksheet .kvLine:has(.kvLong),
 .historicalOutcomes .kvLine:has(.kvVWrap),
 .historicalOutcomes .kvLine:has(.kvLong),
-.distribution .kvLine:has(.kvVWrap),
-.distribution .kvLine:has(.kvLong),
 .companyTile .kvLine:has(.kvVWrap),
 .companyTile .kvLine:has(.kvLong) {
   align-items: start;
@@ -543,14 +554,12 @@
 
 .worksheet .kvV .mono,
 .historicalOutcomes .kvV .mono,
-.distribution .kvV .mono,
 .companyTile .kvV .mono {
   font-variant-numeric: tabular-nums;
 }
 
 .worksheet .kvVWrap,
 .historicalOutcomes .kvVWrap,
-.distribution .kvVWrap,
 .companyTile .kvVWrap {
   display: block;
   white-space: normal;

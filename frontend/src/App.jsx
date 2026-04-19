@@ -582,23 +582,6 @@ const MOCK_HISTORICAL_TRIALS = {
   conditioningCoSize: 'Mid-cap | large-cap',
 }
 
-/** Distribution tile (blankTile--b): percentile returns vs sample */
-const MOCK_DISTRIBUTION_INSIDER = {
-  p10: '−2.1%',
-  p25: '+0.08%',
-  median: '+0.61%',
-  p75: '+1.15%',
-  p90: '+2.84%',
-}
-
-const MOCK_DISTRIBUTION_TRIALS = {
-  p10: '−85%',
-  p25: '−60%',
-  median: '−42%',
-  p75: '−25%',
-  p90: '−10%',
-}
-
 /** Company tile (bottom-right): issuer profile */
 const MOCK_COMPANY = {
   industry: 'Pharmaceuticals',
@@ -1021,36 +1004,323 @@ function HistoricalOutcomesPanel({ mode }) {
   )
 }
 
-function DistributionPanel({ mode }) {
-  const insider = mode === 'insider'
-  const d = insider ? MOCK_DISTRIBUTION_INSIDER : MOCK_DISTRIBUTION_TRIALS
+function stripPrimaryLabel(s) {
+  return String(s ?? '')
+    .replace(/^Primary:\s*/i, '')
+    .replace(/^Secondary:\s*/i, '')
+    .trim()
+}
+
+/** Readable mechanism chip (drops unexplained abbreviations where we can). */
+function plainMechanismSnippet(mech) {
+  let m = String(mech ?? '').trim()
+  if (!m) return ''
+  m = m.replace(/\bmAb\b/gi, 'monoclonal antibody')
+  m = m.replace(/\bASO\b/g, 'antisense oligonucleotide')
+  return m
+}
+
+/**
+ * Turn coded intervention strings into one plain sentence (route + schedule + SOC),
+ * so "BA-19 IV monthly" reads as human dosing, not jargon alone.
+ */
+function describeTrialDosingPlain(drug, intervention, mech) {
+  const raw = String(intervention ?? '').trim()
+  const drugName = String(drug ?? 'The drug').trim() || 'The drug'
+
+  if (!raw) {
+    const pm = plainMechanismSnippet(mech)
+    return pm
+      ? `Mechanism is ${pm.toLowerCase()}; schedule is whatever the protocol specifies for this trial.`
+      : 'Dosing follows the trial protocol.'
+  }
+
+  const hasSOC = /(?:\+\s*|\b)SOC\b/i.test(raw)
+  const soc = hasSOC ? ', together with usual standard-of-care drugs for this disease' : ''
+
+  const iv = /\bIV\b/i.test(raw)
+  const po = /\bPO\b/i.test(raw)
+  const itRoute = /\bIT\b/i.test(raw)
+
+  if (iv && /monthly/i.test(raw)) {
+    return `${drugName} is given by intravenous infusion—into a vein—about once a month${soc}.`
+  }
+  if (iv && /q2w/i.test(raw)) {
+    return `${drugName} is given by intravenous infusion every two weeks${soc}.`
+  }
+  if (po && (/\bqd\b/i.test(raw) || /\bdaily\b/i.test(raw))) {
+    return `${drugName} is taken by mouth (a pill), once per day${soc}.`
+  }
+  if (itRoute && /q4w/i.test(raw)) {
+    return `${drugName} is injected into the spinal fluid (intrathecal), every four weeks${soc}.`
+  }
+  if (iv && /q4w/i.test(raw)) {
+    return `${drugName} is given by intravenous infusion every four weeks${soc}.`
+  }
+
+  const expanded = raw
+    .replace(/\bIV\b/gi, 'intravenous infusion')
+    .replace(/\bPO\b/gi, 'oral (by mouth)')
+    .replace(/\bIT\b/gi, 'intrathecal (spinal injection)')
+    .replace(/\bq2w\b/gi, 'every 2 weeks')
+    .replace(/\bq4w\b/gi, 'every 4 weeks')
+    .replace(/\bqd\b/gi, 'once daily')
+    .replace(/\bSOC\b/gi, 'standard-of-care therapy')
+    .replace(/\s*\+\s*/g, ' plus ')
+    .replace(/\bmonthly\b/gi, 'once monthly')
+
+  return `${drugName}: ${expanded}.`
+}
+
+/** Three short sentences for the selected clinical program. */
+function buildPharmaContextSentences(ev) {
+  if (!ev) return ['Select a pharma row first.']
+  const snap = ev.trialSnapshot ?? {}
+  const drug = snap.drug ?? ev.drug ?? 'This drug'
+  const ind = ev.population?.condition ?? snap.indication ?? ev.indication ?? 'this indication'
+  const mech = snap.mechanism ?? ev.mechanism ?? ''
+  const phase = snap.phase ?? ev.phase ?? ''
+  const intervention = snap.intervention ?? ev.intervention ?? ''
+  const control = ev.studyDesign?.control ?? ''
+  const primary =
+    stripPrimaryLabel(ev.endpointsResults?.endpoints?.[0] ?? '') || 'the main endpoints'
+  const hook = (ev.timelineDetails?.eventSubtype ?? ev.eventType ?? '').trim()
+
+  const pm = plainMechanismSnippet(mech)
+  const s1 =
+    phase && pm
+      ? `${drug} (${phase}) targets ${ind}; ${pm}.`
+      : phase
+        ? `${drug} (${phase}) targets ${ind}.`
+        : `${drug} targets ${ind}.`
+
+  const s2 = describeTrialDosingPlain(drug, intervention, mech)
+
+  let cmp = ''
+  if (control && !/^none$/i.test(control) && !/not applicable/i.test(control)) {
+    cmp = ` vs ${control.toLowerCase()}`
+  }
+  const s3 = hook
+    ? `They measure ${primary}${cmp}. Latest note: ${hook}.`
+    : `They measure ${primary}${cmp}.`
+
+  return [s1, s2, s3]
+}
+
+/** Buy / sell / other from worksheet key text (same rows as the case cluster). */
+function insiderKeyDirection(key) {
+  const k = String(key ?? '').toLowerCase()
+  const iBuy = k.search(/\bbuy\b|purchase|cluster purchase|acquisition\b/)
+  const iSell = k.search(/\bsell\b|\bsale\b|short/)
+  if (iBuy >= 0 && iSell >= 0) return iSell < iBuy ? 'sell' : 'buy'
+  if (iSell >= 0) return 'sell'
+  if (iBuy >= 0) return 'buy'
+  if (/gift|charity/.test(k)) return 'gift'
+  if (/exercise/.test(k)) return 'exercise'
+  return 'other'
+}
+
+function insiderKeyExecRole(key) {
+  const k = String(key ?? '')
+  if (/\bCEO\b/i.test(k)) return 'CEO'
+  if (/\bCFO\b/i.test(k)) return 'CFO'
+  if (/President/i.test(k)) return 'President'
+  if (/Chief Medical Officer/i.test(k)) return 'CMO'
+  if (/\bChair\b/i.test(k)) return 'Chair'
+  if (/\bEVP\b/i.test(k)) return 'EVP'
+  return null
+}
+
+function insiderKeyTradeFlavor(key) {
+  const k = String(key ?? '')
+  if (/open market/i.test(k)) return 'open-market purchases'
+  if (/10b5-1/i.test(k)) return 'planned Rule 10b5-1 trades'
+  if (/gift|charity/i.test(k)) return 'gifts / charity'
+  if (/derivative|exercise/i.test(k)) return 'option exercise flows'
+  if (/award|contract/i.test(k)) return 'compensation-style awards'
+  return 'reported insider trades'
+}
+
+/** Human list: ["CEO","CFO"] → "CEO and CFO"; three+ uses commas. */
+function joinActorPhrases(names) {
+  const u = [...new Set(names)].filter(Boolean)
+  if (u.length === 0) return ''
+  if (u.length === 1) return u[0]
+  if (u.length === 2) return `${u[0]} and ${u[1]}`
+  return `${u.slice(0, -1).join(', ')}, and ${u[u.length - 1]}`
+}
+
+/** Three sentences summarizing the selected insider cluster (who, concentration, timing). */
+function buildInsiderContextSentences(row) {
+  if (!row?.caseSheet) {
+    return ['Select an insider row first.']
+  }
+  const cs = row.caseSheet
+  const rows = cs.rows ?? []
+  const n = rows.length
+  if (n === 0) {
+    return ['No worksheet lines on this filing.', 'Pick another insider row.', '']
+  }
+
+  const tsList = rows
+    .map((r) => new Date(r.ts).getTime())
+    .filter((t) => Number.isFinite(t))
+  const tMin = tsList.length ? Math.min(...tsList) : NaN
+  const tMax = tsList.length ? Math.max(...tsList) : NaN
+  const spanDays =
+    Number.isFinite(tMin) && Number.isFinite(tMax)
+      ? Math.max(1, Math.round((tMax - tMin) / 86400000))
+      : null
+  const daysSinceLast =
+    Number.isFinite(tMax) ? Math.max(0, Math.round((Date.now() - tMax) / 86400000)) : null
+
+  let buyUsd = 0
+  let sellUsd = 0
+  const buyRoles = []
+  let otherBuyLines = 0
+  const flavorWeights = {}
+
+  for (const r of rows) {
+    const dir = insiderKeyDirection(r.key)
+    const amt = cs.isForm4 ? Number(r.amountUsd) || 0 : 0
+    if (dir === 'buy') {
+      if (amt > 0) buyUsd += amt
+      const role = insiderKeyExecRole(r.key)
+      if (role) buyRoles.push(role)
+      else otherBuyLines += 1
+      const f = insiderKeyTradeFlavor(r.key)
+      flavorWeights[f] = (flavorWeights[f] || 0) + (amt > 0 ? amt : 1)
+    } else if (dir === 'sell') {
+      if (amt > 0) sellUsd += amt
+    }
+  }
+
+  const roleSpend = {}
+  for (const r of rows) {
+    if (insiderKeyDirection(r.key) !== 'buy') continue
+    const amt = cs.isForm4 ? Number(r.amountUsd) || 0 : 0
+    const role = insiderKeyExecRole(r.key) ?? 'Other insiders'
+    roleSpend[role] = (roleSpend[role] || 0) + (amt || 0)
+  }
+
+  const distinctExec = [...new Set(buyRoles)]
+  const execPhrase = joinActorPhrases(distinctExec)
+  let actorLead = ''
+  if (distinctExec.length && otherBuyLines > 0) {
+    actorLead = `${execPhrase} and ${otherBuyLines} other insider${otherBuyLines === 1 ? '' : 's'}`
+  } else if (distinctExec.length) {
+    actorLead = execPhrase
+  } else if (otherBuyLines > 0 || buyUsd > 0 || rows.some((r) => insiderKeyDirection(r.key) === 'buy')) {
+    actorLead = `${Math.max(otherBuyLines, 1)} insider${otherBuyLines === 1 ? '' : 's'}`
+  }
+
+  const buyCount = rows.filter((r) => insiderKeyDirection(r.key) === 'buy').length
+  const sellCount = rows.filter((r) => insiderKeyDirection(r.key) === 'sell').length
+
+  let netUsd = buyUsd - sellUsd
+  const absNet = Math.abs(netUsd)
+  const moneyKnown = cs.isForm4 && (buyUsd > 0 || sellUsd > 0)
+
+  let windowPhrase = ''
+  if (spanDays != null && spanDays <= 45) {
+    windowPhrase = `the last ~${spanDays} day${spanDays === 1 ? '' : 's'}`
+  } else if (spanDays != null) {
+    windowPhrase = `~${spanDays} calendar days`
+  }
+
+  let s1 = ''
+  if (buyCount && !sellCount) {
+    const who = actorLead ? `${actorLead} bought shares` : 'Reported insider buys'
+    const when = windowPhrase ? ` ${windowPhrase}` : ''
+    if (moneyKnown) {
+      s1 = `${who}${when}, total net buying ~${formatUsdCompact(absNet)}, no insider selling in this cluster.`
+    } else {
+      s1 = `${who}${when}; dollar sizes are not itemized line-by-line on this filing type.`
+    }
+    s1 = s1.replace(/\s+/g, ' ').trim()
+  } else if (sellCount && !buyCount) {
+    const amtBit = moneyKnown ? ` (~${formatUsdCompact(sellUsd)} gross sales)` : ''
+    const when = windowPhrase ? ` across ${windowPhrase}` : ''
+    s1 = `Selling-only lines in this bundle${amtBit}${when}; no buys here.`
+  } else if (buyCount && sellCount) {
+    const netWord = netUsd >= 0 ? 'buying' : 'selling'
+    const amtPart = moneyKnown
+      ? `~${formatUsdCompact(absNet)} net ${netWord}`
+      : 'mixed buys and sells without full dollar detail'
+    const actorBit = actorLead ? `${actorLead}: ` : ''
+    const over = windowPhrase ? `Over ${windowPhrase}, ` : ''
+    s1 = `${actorBit}${over}${amtPart}.`.replace(/\s+/g, ' ').trim()
+  } else {
+    s1 = `Cluster has ${n} linked lines (${cs.formType ?? 'filing'}); mostly non-trade rows.`
+  }
+
+  let s2 = ''
+  const spendEntries = Object.entries(roleSpend).filter(([, v]) => v > 0)
+  const totalRoleSpend = spendEntries.reduce((a, [, v]) => a + v, 0)
+  if (spendEntries.length && totalRoleSpend > 0) {
+    spendEntries.sort((a, b) => b[1] - a[1])
+    const [topRole, topAmt] = spendEntries[0]
+    const pct = Math.round((topAmt / totalRoleSpend) * 100)
+    const flavors = Object.entries(flavorWeights).sort((a, b) => b[1] - a[1])
+    const topFlavor = flavors[0]?.[0] ?? 'reported insider trades'
+    s2 = `${topRole} accounts for ~${pct}% of buy-side dollars here, mostly ${topFlavor}.`
+  } else if (buyCount) {
+    const flavors = Object.entries(flavorWeights).sort((a, b) => b[1] - a[1])
+    const topFlavor = flavors[0]?.[0] ?? 'reported insider trades'
+    s2 =
+      distinctExec.length > 0
+        ? `Pattern skews to ${distinctExec.join(', ')}; trades read as mostly ${topFlavor}.`
+        : `Activity reads as mostly ${topFlavor}.`
+  } else {
+    s2 = 'No buy-side lines stand out in this scrape—sales or non-trade rows drive the bundle.'
+  }
+
+  let s3 = ''
+  const clustered = spanDays != null && spanDays <= 14
+  const recent = daysSinceLast != null && daysSinceLast <= 7
+  const offsetting = sellCount > 0 && buyCount > 0
+  const parts = []
+  if (recent && clustered) {
+    parts.push('Activity looks recent and clustered.')
+  } else if (recent) {
+    parts.push('Activity looks recent.')
+  } else if (clustered) {
+    parts.push('Trades land in a tight window.')
+  } else if (spanDays != null && spanDays > 21) {
+    parts.push('Dates are spread out.')
+  }
+  if (daysSinceLast != null && recent) {
+    parts.push(
+      daysSinceLast === 0
+        ? 'Last line is basically today.'
+        : `Last line within ${daysSinceLast} day${daysSinceLast === 1 ? '' : 's'}.`,
+    )
+  } else if (daysSinceLast != null) {
+    parts.push(`Last activity about ${daysSinceLast} days ago.`)
+  }
+  if (!sellCount && buyCount) parts.push('No offsetting sales in this scrape.')
+  else if (sellCount && !buyCount) parts.push('Sales-only bundle.')
+  else if (offsetting) parts.push('Buys and sells both appear—check net.')
+  s3 = parts.join(' ')
+
+  return [s1, s2, s3]
+}
+
+function ContextPanel({ mode, pharmaEvent, insiderRow }) {
+  const pharma = mode === 'pharma'
+  const sentences = pharma ? buildPharmaContextSentences(pharmaEvent) : buildInsiderContextSentences(insiderRow)
 
   return (
-    <section className="panel distribution blankTile--b" aria-label="Distribution">
+    <section className="panel contextPanel blankTile--b" aria-label="Context">
       <header className="feedCompactHeader">
-        <div className="panelTitle feedCompactTitle">DISTRIBUTION</div>
+        <div className="panelTitle feedCompactTitle">CONTEXT</div>
       </header>
-      <div className="worksheetBody historicalOutcomesBody">
-        <KvLine key="dist-p10">
-          <span className="kvK dim">10th percentile return</span>
-          <span className="kvV mono">{d.p10}</span>
-        </KvLine>
-        <KvLine key="dist-p25">
-          <span className="kvK dim">25th percentile return</span>
-          <span className="kvV mono">{d.p25}</span>
-        </KvLine>
-        <KvLine key="dist-p50">
-          <span className="kvK dim">Median return</span>
-          <span className="kvV mono">{d.median}</span>
-        </KvLine>
-        <KvLine key="dist-p75">
-          <span className="kvK dim">75th percentile return</span>
-          <span className="kvV mono">{d.p75}</span>
-        </KvLine>
-        <KvLine key="dist-p90">
-          <span className="kvK dim">90th percentile return</span>
-          <span className="kvV mono">{d.p90}</span>
-        </KvLine>
+      <div className="contextPanelBody">
+        {sentences.map((text, i) => (
+          <p key={i} className="contextSentence">
+            {text}
+          </p>
+        ))}
       </div>
     </section>
   )
@@ -1435,7 +1705,7 @@ function App() {
       </section>
 
       <HistoricalOutcomesPanel mode={focusFeed} />
-      <DistributionPanel mode={focusFeed} />
+      <ContextPanel mode={focusFeed} pharmaEvent={pharmaSelected} insiderRow={insiderSelected} />
 
       <section className="panel graph" aria-label="Daily graph">
         <header className="panelHeader">
