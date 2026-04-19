@@ -16,7 +16,17 @@
   background: var(--bg);
   color: var(--text);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /*
+   * Cols 1–2: insider + pharma (1fr + 1fr).
+   * Col 3: PROGRAMS rail (slightly wider; a bit taken from cols 4–5).
+   * Cols 4–5: case sheet + right stack.
+   */
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(52px, 0.33fr)
+    minmax(0, 1.185fr)
+    minmax(0, 1.185fr);
   grid-template-rows: repeat(4, minmax(0, 1fr));
   gap: 0;
   border: 1px solid var(--grid);
@@ -80,7 +90,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- GRID PLACEMENT (4x4 ONLY) ---- */
+/* ---- GRID PLACEMENT (5×4) ---- */
 .feed--left {
   grid-column: 1 / span 1;
   grid-row: 1 / span 4;
@@ -89,24 +99,31 @@
   grid-column: 2 / span 1;
   grid-row: 1 / span 4;
 }
+.blankFeedRail {
+  grid-column: 3 / span 1;
+  grid-row: 1 / span 4;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+}
 .worksheet {
-  grid-column: 3 / span 2;
+  grid-column: 4 / span 2;
   grid-row: 1 / span 2;
 }
 .graph {
-  grid-column: 4 / span 1;
+  grid-column: 5 / span 1;
   grid-row: 4 / span 1;
 }
 .companyTile {
-  grid-column: 3 / span 1;
+  grid-column: 4 / span 1;
   grid-row: 4 / span 1;
 }
 .blankTile--a {
-  grid-column: 3 / span 1;
+  grid-column: 4 / span 1;
   grid-row: 3 / span 1;
 }
 .blankTile--b {
-  grid-column: 4 / span 1;
+  grid-column: 5 / span 1;
   grid-row: 3 / span 1;
 }
 
@@ -117,7 +134,6 @@
 .blankTile,
 .historicalOutcomes,
 .distribution,
-.companyTile,
 .feed.feedCompact {
   container-type: size;
 }
@@ -252,6 +268,11 @@
   color: var(--dim);
 }
 
+/* Feed headers: page indicator only (“1/2”) */
+.feedCompactMeta--paginationOnly {
+  justify-content: flex-end;
+}
+
 .feedCompactList {
   flex: 1;
   min-height: 0;
@@ -260,6 +281,18 @@
   flex-direction: column;
   font-size: var(--fs-body);
   line-height: 1.28;
+  /*
+   * Shared vertical rhythm for all feeds: pad + one line box + rule.
+   * PROGRAMS splits one “event” across three contiguous slots so rules line up across columns.
+   */
+  --feed-row-slot: calc(0.24em + 1.28em + 1px);
+}
+
+/* Invisible duplicate meta for layout parity when needed */
+.feedCompactMeta--ghost {
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
 }
 
 .feedRowCompact {
@@ -267,6 +300,8 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: clamp(5px, 1.5cqmin, 12px);
   align-items: center;
+  box-sizing: border-box;
+  min-height: var(--feed-row-slot);
   padding: 0.12em 8px;
   margin: 0;
   border: none;
@@ -280,6 +315,38 @@
   text-align: left;
 }
 
+/*
+ * PROGRAMS rail: three stacked slots (drug | indication | phase); no rules inside an entry.
+ * Only the outer `.feedRowCompact` bottom border separates programs (aligns with other feeds).
+ */
+.feedRowCompact--programs {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  gap: 0;
+  grid-template-columns: unset;
+  min-height: calc(3 * var(--feed-row-slot));
+}
+
+.feedProgramsLine {
+  box-sizing: border-box;
+  flex: 0 0 var(--feed-row-slot);
+  min-height: var(--feed-row-slot);
+  max-height: var(--feed-row-slot);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 0.12em 8px;
+  margin: 0;
+  border: none;
+  line-height: 1.28;
+  font-size: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .feedRowCompact:hover {
   background: rgba(255, 255, 255, 0.03);
 }
@@ -291,7 +358,11 @@
 /* Non-selectable row between “today” and older events (see `buildFeedDisplayRows` in App.jsx) */
 .feedRowTodaySep {
   flex-shrink: 0;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: var(--feed-row-slot);
   text-align: center;
   padding: 0.12em 8px;
   margin: 0;
@@ -408,9 +479,9 @@
   justify-content: flex-end;
 }
 
-/* Insider filing worksheet: wider key column, narrower value column (inverse of trial sheet) */
+/* Insider filing worksheet: keys slightly narrower vs values than trial default */
 .worksheet.worksheet--insider .kvLine {
-  grid-template-columns: minmax(96px, 1fr) minmax(52px, 0.34fr);
+  grid-template-columns: minmax(84px, 0.88fr) minmax(52px, 0.52fr);
 }
 
 /* Breathable gap between filing meta and transaction lines */

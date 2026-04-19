@@ -24,6 +24,7 @@ const MOCK_EVENTS = [
       indication: 'mCRC',
       sponsor: 'OncoNadir Therapeutics',
       intervention: 'ONC-441 IV q2w + SOC',
+      assetOrigin: 'In-house bispecific platform',
     },
     studyDesign: {
       arms: '2 (Dose A / Dose B)',
@@ -78,6 +79,7 @@ const MOCK_EVENTS = [
       indication: 'RARE-NEURO',
       sponsor: 'NeuroRex Bio',
       intervention: 'NRX-118 IT q4w',
+      assetOrigin: 'University partnership (preclinical in-licensed)',
     },
     studyDesign: {
       arms: '1 (dose escalation + expansion)',
@@ -123,6 +125,7 @@ const MOCK_EVENTS = [
       indication: 'NASH',
       sponsor: 'KaleidoMetrix',
       intervention: 'KLM-210 PO daily',
+      assetOrigin: 'Acquired program (2019)',
     },
     studyDesign: {
       arms: '2 (active / placebo)',
@@ -168,6 +171,7 @@ const MOCK_EVENTS = [
       indication: 'Early AD',
       sponsor: 'BlueArc Biologics',
       intervention: 'BA-19 IV monthly',
+      assetOrigin: 'Internal antibody discovery',
     },
     studyDesign: {
       arms: '2 (active / placebo)',
@@ -221,6 +225,7 @@ const MOCK_EVENTS = [
       indication: 'IgAN',
       sponsor: 'Renexus Pharma',
       intervention: 'RXQ-701 PO qd',
+      assetOrigin: 'In-licensed (JP origin asset)',
     },
     studyDesign: {
       arms: '2 (active / placebo)',
@@ -252,6 +257,53 @@ const MOCK_EVENTS = [
       { term: 'Acute kidney injury', value: '<1%' },
     ],
     daily: [63, 64, 62, 65, 67, 66, 68, 70, 69, 71, 73, 72, 74, 76, 75, 77, 78],
+  },
+  /** Same sponsor as ONC-441 row — second program for PROGRAMS rail demo */
+  {
+    id: 'ONC-992-P1-START',
+    trial: 'ONC-992 Phase I (mCRC)',
+    drug: 'ONC-992',
+    mechanism: 'CD47×EGFR bispecific',
+    phase: 'Phase I',
+    indication: 'metastatic colorectal cancer (mCRC)',
+    sponsor: 'OncoNadir Therapeutics',
+    intervention: 'ONC-992 IV q3w',
+    eventType: 'SITE START',
+    ts: '2026-03-02 14:30:00Z',
+    trialSnapshot: {
+      drug: 'ONC-992',
+      mechanism: 'CD47×EGFR bispecific',
+      phase: 'Phase I',
+      indication: 'mCRC',
+      sponsor: 'OncoNadir Therapeutics',
+      intervention: 'ONC-992 IV q3w',
+      assetOrigin: 'In-house bispecific platform',
+    },
+    studyDesign: {
+      arms: '3 (dose levels)',
+      randomization: 'Not applicable',
+      control: 'None',
+      masking: 'Open-label',
+      sampleSize: 'N=54',
+    },
+    population: {
+      condition: 'mCRC (1L)',
+      biomarkers: 'EGFR-high',
+      lineOfTherapy: '1L',
+    },
+    endpointsResults: {
+      endpoints: ['Primary: MTD / RP2D', 'Secondary: preliminary ORR', 'Safety'],
+      results: [],
+    },
+    timelineDetails: {
+      studyStart: '2025-11-01',
+      primaryCompletion: '2027-06-01 (est.)',
+      studyCompletion: '2027-12-01 (est.)',
+      status: 'Recruiting',
+      eventSource: 'Company release',
+      eventSubtype: 'First site activated',
+    },
+    daily: [58, 59, 58, 60, 61, 60, 62, 63, 62, 64, 63, 65, 66, 65, 67, 68, 69],
   },
 ]
 
@@ -288,14 +340,6 @@ function sortFeedRowsByAtDesc(rows) {
   return [...rows].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
 }
 
-function countFeedRowsLocalToday(rows) {
-  let n = 0
-  for (const r of rows) {
-    if (isAtLocalToday(r.at)) n += 1
-  }
-  return n
-}
-
 /** Rows for compact feed UI: inserts a “TODAY” divider between local-today events and older (newest-first lists). */
 function buildFeedDisplayRows(items) {
   const out = []
@@ -317,6 +361,21 @@ function parseMockTs(iso) {
   const m = String(iso ?? '').match(/^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2})/)
   if (!m) return new Date(iso)
   return new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00Z`)
+}
+
+/** Feed rows for PROGRAMS rail: one row per distinct trial program (MOCK_EVENTS) for a sponsor. */
+function buildProgramFeedItemsForSponsor(sponsor) {
+  if (!sponsor) return []
+  const evs = MOCK_EVENTS.filter((e) => e.sponsor === sponsor)
+  evs.sort((a, b) => a.drug.localeCompare(b.drug))
+  return evs.map((ev) => ({
+    id: `prog-${ev.id}`,
+    label: ev.drug,
+    indication: ev.trialSnapshot?.indication ?? ev.indication ?? '—',
+    phase: ev.trialSnapshot?.phase ?? ev.phase ?? '—',
+    at: parseMockTs(ev.ts).toISOString(),
+    trialEventId: ev.id,
+  }))
 }
 
 /** Drug name → short symbol for ticker column (letters prefix before dose/dash). */
@@ -502,9 +561,6 @@ function buildPharmaFeedRows() {
 
 const PHARMA_FEED_ROWS = sortFeedRowsByAtDesc(buildPharmaFeedRows())
 
-const INSIDER_FEED_TODAY_COUNT = countFeedRowsLocalToday(INSIDER_FEED_ROWS)
-const PHARMA_FEED_TODAY_COUNT = countFeedRowsLocalToday(PHARMA_FEED_ROWS)
-
 /** Historical Outcomes tile (blankTile--a): mock aggregates + conditioning facets */
 const MOCK_HISTORICAL_INSIDER = {
   avgReturn21d63d252d: '+0.42% / +1.08% / +2.34%',
@@ -548,6 +604,7 @@ const MOCK_COMPANY = {
   industry: 'Pharmaceuticals',
   country: 'US',
   mcap: '$8.46M USD',
+  ev: '$9.20M USD',
   earnings: '5 Aug',
   /** Shown only when pharma feed is focused */
   pharmaPrograms: '1×P3 | 1×P2 | 1×P1',
@@ -751,6 +808,10 @@ function buildWorksheetRows(selected, hasSafety) {
     <KvLine key="sponsor">
       <span className="kvK dim">SPONSOR</span>
       <span className="kvV">{selected?.trialSnapshot?.sponsor ?? '—'}</span>
+    </KvLine>,
+    <KvLine key="origin">
+      <span className="kvK dim">ORIGIN</span>
+      <span className="kvV">{selected?.trialSnapshot?.assetOrigin ?? '—'}</span>
     </KvLine>,
     <KvLine key="intv">
       <span className="kvK dim">INTV</span>
@@ -1017,6 +1078,10 @@ function CompanyPanel({ mode }) {
           <span className="kvK dim">MCAP</span>
           <span className="kvV mono">{c.mcap}</span>
         </KvLine>
+        <KvLine key="co-ev">
+          <span className="kvK dim">EV</span>
+          <span className="kvV mono">{c.ev}</span>
+        </KvLine>
         <KvLine key="co-earnings">
           <span className="kvK dim">EARNINGS</span>
           <span className="kvV">{c.earnings}</span>
@@ -1038,7 +1103,19 @@ function CompanyPanel({ mode }) {
   )
 }
 
-function CompactFeed({ placement, title, todayCount, items, selectedIndex, focused, onSelectIndex }) {
+function CompactFeed({
+  placement,
+  title,
+  items,
+  selectedIndex,
+  focused,
+  onSelectIndex,
+  panelClassName = '',
+  /** Header right: page indicator | invisible ghost (layout) | pagination-only rail styling. */
+  headerMetaMode = 'full',
+  /** Drug / indication / phase stacked; row height uses triple `--feed-row-slot`. */
+  programsStackedRows = false,
+}) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
 
@@ -1084,19 +1161,34 @@ function CompactFeed({ placement, title, todayCount, items, selectedIndex, focus
 
   return (
     <section
-      className={`panel feed feedCompact feed--${placement} ${focused ? 'isFocused' : ''}`}
+      className={['panel', 'feed', 'feedCompact', `feed--${placement}`, panelClassName, focused ? 'isFocused' : '']
+        .filter(Boolean)
+        .join(' ')}
       aria-label={title}
     >
-      <header className="feedCompactHeader">
+      <header
+        className="feedCompactHeader"
+      >
         <div className="panelTitle feedCompactTitle">{title}</div>
-        <div className="feedCompactMeta">
-          <span>
-            {todayCount} TODAY
-          </span>
-          <span className="feedPageInd">
-            {total ? `${page + 1}/${totalPages}` : '0/0'}
-          </span>
-        </div>
+        {headerMetaMode === 'full' ? (
+          <div className="feedCompactMeta feedCompactMeta--paginationOnly">
+            <span className="feedPageInd">
+              {total ? `${page + 1}/${totalPages}` : '0/0'}
+            </span>
+          </div>
+        ) : null}
+        {headerMetaMode === 'ghost' ? (
+          <div className="feedCompactMeta feedCompactMeta--ghost" aria-hidden="true">
+            <span className="feedPageInd">
+              {total ? `${page + 1}/${totalPages}` : '0/0'}
+            </span>
+          </div>
+        ) : null}
+        {headerMetaMode === 'paginationOnly' ? (
+          <div className="feedCompactMeta feedCompactMeta--paginationOnly">
+            <span className="feedPageInd">{total ? `${page + 1}/${totalPages}` : '0/0'}</span>
+          </div>
+        ) : null}
       </header>
       <div ref={listRef} className="feedCompactList" role="list">
         {pageSlice.map((entry, i) => {
@@ -1119,12 +1211,28 @@ function CompactFeed({ placement, title, todayCount, items, selectedIndex, focus
               key={row.id}
               type="button"
               role="listitem"
-              className={`feedRowCompact ${active ? 'isActive' : ''}`}
+              className={[
+                'feedRowCompact',
+                active ? 'isActive' : '',
+                programsStackedRows ? 'feedRowCompact--programs' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
               onClick={() => onSelectIndex(idx)}
             >
-              <span className="feedCell feedCellLabel kvFeedMain">{row.label}</span>
-              <span className="feedCell feedCellTicker mono kvFeedDim">{row.ticker}</span>
-              <span className="feedCell feedCellWhen mono kvFeedDim">{formatFeedDate(row.at)}</span>
+              {programsStackedRows ? (
+                <>
+                  <span className="feedProgramsLine feedProgramsLine--drug kvFeedMain">{row.label}</span>
+                  <span className="feedProgramsLine kvFeedDim">{row.indication ?? '—'}</span>
+                  <span className="feedProgramsLine mono kvFeedDim">{row.phase ?? '—'}</span>
+                </>
+              ) : (
+                <>
+                  <span className="feedCell feedCellLabel kvFeedMain">{row.label}</span>
+                  <span className="feedCell feedCellTicker mono kvFeedDim">{row.ticker}</span>
+                  <span className="feedCell feedCellWhen mono kvFeedDim">{formatFeedDate(row.at)}</span>
+                </>
+              )}
             </button>
           )
         })}
@@ -1135,17 +1243,56 @@ function CompactFeed({ placement, title, todayCount, items, selectedIndex, focus
 
 function App() {
   const [focusFeed, setFocusFeed] = useState('insider')
+  /** Which feed column receives arrow up/down: insider | pharma | programs (rail). */
+  const [feedPaneFocus, setFeedPaneFocus] = useState('insider')
   const [insiderIdx, setInsiderIdx] = useState(0)
   const [pharmaIdx, setPharmaIdx] = useState(0)
+  /** When set, case sheet + graph follow this trial; cleared when pharma feed row or sponsor context changes */
+  const [programRailEventId, setProgramRailEventId] = useState(null)
 
   const insiderSelected = INSIDER_FEED_ROWS[insiderIdx]
 
-  const pharmaSelected = useMemo(() => {
+  const pharmaFeedEventId = useMemo(() => {
     const row = PHARMA_FEED_ROWS[pharmaIdx]
     const fallbackId = MOCK_EVENTS[pharmaIdx % MOCK_EVENTS.length]?.id
-    const id = row?.trialEventId ?? fallbackId
-    return MOCK_EVENTS.find((e) => e.id === id) ?? MOCK_EVENTS[0]
+    return row?.trialEventId ?? fallbackId ?? MOCK_EVENTS[0]?.id
   }, [pharmaIdx])
+
+  const sponsorFromPharmaFeed = useMemo(() => {
+    const ev = MOCK_EVENTS.find((e) => e.id === pharmaFeedEventId)
+    return ev?.sponsor ?? null
+  }, [pharmaFeedEventId])
+
+  const programFeedItems = useMemo(
+    () => buildProgramFeedItemsForSponsor(sponsorFromPharmaFeed),
+    [sponsorFromPharmaFeed],
+  )
+
+  const pharmaSelected = useMemo(() => {
+    const id =
+      focusFeed === 'pharma' && programRailEventId != null
+        ? programRailEventId
+        : pharmaFeedEventId
+    return MOCK_EVENTS.find((e) => e.id === id) ?? MOCK_EVENTS[0]
+  }, [focusFeed, programRailEventId, pharmaFeedEventId])
+
+  const programSelectedIdx = useMemo(() => {
+    if (focusFeed !== 'pharma' || programFeedItems.length === 0) return 0
+    const want = programRailEventId ?? pharmaFeedEventId
+    const i = programFeedItems.findIndex((p) => p.trialEventId === want)
+    return i >= 0 ? i : 0
+  }, [focusFeed, programFeedItems, programRailEventId, pharmaFeedEventId])
+
+  useEffect(() => {
+    setProgramRailEventId(null)
+  }, [pharmaIdx])
+
+  useEffect(() => {
+    if (focusFeed === 'insider') {
+      setProgramRailEventId(null)
+      setFeedPaneFocus('insider')
+    }
+  }, [focusFeed])
 
   const hasSafety =
     Array.isArray(pharmaSelected?.safety) && pharmaSelected.safety.length > 0
@@ -1185,47 +1332,91 @@ function App() {
       if (!left && !right && !up && !down) return
       e.preventDefault()
       if (left) {
-        setFocusFeed('insider')
+        if (feedPaneFocus === 'programs') {
+          setFeedPaneFocus('pharma')
+          setFocusFeed('pharma')
+        } else if (feedPaneFocus === 'pharma') {
+          setFeedPaneFocus('insider')
+          setFocusFeed('insider')
+        }
         return
       }
       if (right) {
-        setFocusFeed('pharma')
+        if (feedPaneFocus === 'insider') {
+          setFeedPaneFocus('pharma')
+          setFocusFeed('pharma')
+        } else if (feedPaneFocus === 'pharma') {
+          setFeedPaneFocus('programs')
+          setFocusFeed('pharma')
+        }
         return
       }
-      if (focusFeed === 'insider') {
+      if (feedPaneFocus === 'insider') {
         setInsiderIdx((i) => clamp(i + (down ? 1 : -1), 0, INSIDER_FEED_ROWS.length - 1))
-      } else {
+      } else if (feedPaneFocus === 'pharma') {
         setPharmaIdx((i) => clamp(i + (down ? 1 : -1), 0, PHARMA_FEED_ROWS.length - 1))
+      } else if (feedPaneFocus === 'programs' && focusFeed === 'pharma') {
+        const items = programFeedItems
+        if (items.length === 0) return
+        let cur = items.findIndex((p) => p.trialEventId === programRailEventId)
+        if (cur < 0) cur = items.findIndex((p) => p.trialEventId === pharmaFeedEventId)
+        if (cur < 0) cur = 0
+        const next = clamp(cur + (down ? 1 : -1), 0, items.length - 1)
+        setProgramRailEventId(items[next].trialEventId)
       }
     }
     window.addEventListener('keydown', onKey, { capture: true })
     return () => window.removeEventListener('keydown', onKey, { capture: true })
-  }, [focusFeed])
+  }, [
+    feedPaneFocus,
+    focusFeed,
+    programFeedItems,
+    pharmaFeedEventId,
+    programRailEventId,
+  ])
 
   return (
     <main className="terminal" aria-label="KENSIGLINE terminal grid">
       <CompactFeed
         placement="left"
         title="INSIDER FEED"
-        todayCount={INSIDER_FEED_TODAY_COUNT}
         items={INSIDER_FEED_ROWS}
         selectedIndex={insiderIdx}
-        focused={focusFeed === 'insider'}
+        focused={feedPaneFocus === 'insider'}
         onSelectIndex={(idx) => {
           setInsiderIdx(idx)
           setFocusFeed('insider')
+          setFeedPaneFocus('insider')
         }}
       />
       <CompactFeed
         placement="right"
         title="PHARMA FEED"
-        todayCount={PHARMA_FEED_TODAY_COUNT}
         items={PHARMA_FEED_ROWS}
         selectedIndex={pharmaIdx}
-        focused={focusFeed === 'pharma'}
+        focused={feedPaneFocus === 'pharma'}
         onSelectIndex={(idx) => {
           setPharmaIdx(idx)
           setFocusFeed('pharma')
+          setFeedPaneFocus('pharma')
+        }}
+      />
+
+      <CompactFeed
+        placement="rail"
+        panelClassName="blankFeedRail"
+        title="PROGRAMS"
+        headerMetaMode="paginationOnly"
+        programsStackedRows
+        items={focusFeed === 'pharma' ? programFeedItems : []}
+        selectedIndex={programSelectedIdx}
+        focused={feedPaneFocus === 'programs'}
+        onSelectIndex={(idx) => {
+          const row = programFeedItems[idx]
+          if (!row?.trialEventId) return
+          setProgramRailEventId(row.trialEventId)
+          setFocusFeed('pharma')
+          setFeedPaneFocus('programs')
         }}
       />
 
