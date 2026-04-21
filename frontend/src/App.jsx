@@ -324,15 +324,31 @@ function isAtLocalToday(at) {
   return isSameLocalCalendarDay(d, new Date())
 }
 
-/** ISO or Date → time if local day is today; else day of month + month (never year). */
+function formatMmDd(d) {
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${mm}-${dd}`
+}
+
+function formatYyyyMmDd(d) {
+  const yyyy = String(d.getFullYear())
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+function formatYyMmDd(d) {
+  const yy = String(d.getFullYear()).slice(-2)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yy}-${mm}-${dd}`
+}
+
+/** ISO or Date → numeric date (YY-MM-DD). */
 function formatFeedDate(at) {
   const d = at instanceof Date ? at : new Date(at)
   if (Number.isNaN(d.getTime())) return '—'
-  const now = new Date()
-  if (isSameLocalCalendarDay(d, now)) {
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  }
-  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+  return formatYyMmDd(d)
 }
 
 /** Newest events first (by `at`). */
@@ -357,25 +373,107 @@ function buildFeedDisplayRows(items) {
   return out
 }
 
+function buildProgramGroupedDisplayRows(items) {
+  const out = []
+  let lastGroup = null
+  for (let i = 0; i < items.length; i++) {
+    const row = items[i]
+    const g = row?.group ?? null
+    if (g && g !== lastGroup) {
+      out.push({ type: 'sep', key: `prog-${g}-${i}`, label: g })
+      lastGroup = g
+    }
+    out.push({ type: 'item', row, idx: i })
+  }
+  return out
+}
+
 function parseMockTs(iso) {
   const m = String(iso ?? '').match(/^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2})/)
   if (!m) return new Date(iso)
   return new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00Z`)
 }
 
-/** Feed rows for PROGRAMS rail: one row per distinct trial program (MOCK_EVENTS) for a sponsor. */
+function isoDayToDate(isoDay) {
+  const m = String(isoDay ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  return new Date(`${m[1]}-${m[2]}-${m[3]}T12:00:00Z`)
+}
+
+function addDays(d, n) {
+  const x = new Date(d)
+  x.setUTCDate(x.getUTCDate() + n)
+  return x
+}
+
+function formatProgramTimelineDate(at) {
+  const d = at instanceof Date ? at : new Date(at)
+  if (Number.isNaN(d.getTime())) return '—'
+  // Timeline should be explicit (no time-of-day).
+  return formatYyMmDd(d)
+}
+
+function buildProgramTimelineForEvent(ev) {
+  const start = isoDayToDate(ev?.timelineDetails?.studyStart) ?? isoDayToDate(ev?.timelineDetails?.primaryCompletion)
+  const primary = isoDayToDate(ev?.timelineDetails?.primaryCompletion)
+  const ts = parseMockTs(ev?.ts).toISOString()
+  const sponsor = ev?.sponsor ?? null
+  const drug = ev?.trialSnapshot?.drug ?? ev?.drug ?? '—'
+  const phase = ev?.trialSnapshot?.phase ?? ev?.phase ?? ''
+  const ind = ev?.trialSnapshot?.indication ?? ev?.indication ?? ''
+
+  const out = []
+  const reg = start ? addDays(start, -45) : new Date(new Date(ts).getTime() - 120 * 86400000)
+  out.push({ at: reg.toISOString(), label: 'Trial registered' })
+  if (start) out.push({ at: addDays(start, 30).toISOString(), label: 'First patient dosed' })
+  if (start) out.push({ at: addDays(start, 90).toISOString(), label: 'Site activated' })
+  if (start) out.push({ at: addDays(start, 170).toISOString(), label: 'Enrollment ongoing' })
+  if (start) out.push({ at: addDays(start, 220).toISOString(), label: 'Protocol amended' })
+  out.push({
+    at: ts,
+    label:
+      String(ev?.eventType ?? '').toUpperCase() === 'READOUT'
+        ? 'Interim data released'
+        : String(ev?.eventType ?? '').toUpperCase() === 'ENDPOINT MISS'
+          ? 'Interim data released'
+          : 'Company update released',
+  })
+  if (primary) out.push({ at: primary.toISOString(), label: 'Primary completion (est.)' })
+
+  out.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
+
+  return {
+    sponsor,
+    drug,
+    meta: [phase, ind].filter(Boolean).join(' | '),
+    milestones: out,
+  }
+}
+
+/** PROGRAMS rail: timeline rows per program for a sponsor (grouped by drug name). */
 function buildProgramFeedItemsForSponsor(sponsor) {
   if (!sponsor) return []
   const evs = MOCK_EVENTS.filter((e) => e.sponsor === sponsor)
   evs.sort((a, b) => a.drug.localeCompare(b.drug))
-  return evs.map((ev) => ({
-    id: `prog-${ev.id}`,
-    label: ev.drug,
-    indication: ev.trialSnapshot?.indication ?? ev.indication ?? '—',
-    phase: ev.trialSnapshot?.phase ?? ev.phase ?? '—',
-    at: parseMockTs(ev.ts).toISOString(),
-    trialEventId: ev.id,
-  }))
+  const out = []
+  for (const ev of evs) {
+    const tl = buildProgramTimelineForEvent(ev)
+    for (let i = 0; i < tl.milestones.length; i++) {
+      const m = tl.milestones[i]
+      out.push({
+        id: `prog-${ev.id}-${i}`,
+        group: tl.drug,
+        label: m.label,
+        ticker: '',
+        at: m.at,
+        programMeta: tl.meta,
+        trialEventId: ev.id,
+        milestoneLabel: m.label,
+        milestoneAt: m.at,
+      })
+    }
+  }
+  return out
 }
 
 /** Drug name → short symbol for ticker column (letters prefix before dose/dash). */
@@ -447,7 +545,8 @@ function buildInsiderDailySeries(seed, len = 20) {
  * Per-feed-row insider filing + worksheet payload. Values are filled only when formType === 'Form 4'.
  */
 function insiderCaseForRowIndex(i) {
-  const n = (i % 5) + 1
+  // Mix in some double-digit clusters to stress the count/ticker layout.
+  const n = i % 11 === 0 ? 12 : i % 13 === 0 ? 18 : (i % 5) + 1
   const count = n
   const ticker = INSIDER_TICKERS[i % INSIDER_TICKERS.length]
   const thisYear = new Date().getFullYear()
@@ -530,11 +629,20 @@ function buildPharmaFeedRows() {
     return 'Progress'
   }
 
+  function pharmaPhaseNumeral(phase) {
+    const p = String(phase ?? '')
+    if (/III/i.test(p) || /\b3\b/.test(p)) return 'III'
+    if (/II/i.test(p) || /\b2\b/.test(p)) return 'II'
+    if (/I/i.test(p) || /\b1\b/.test(p)) return 'I'
+    return ''
+  }
+
   function pharmaFeedLabel(ev) {
     const phase = ev?.phase ?? ev?.trialSnapshot?.phase ?? 'Phase'
     const imp = pharmaImportanceLabel(phase)
     const prog = pharmaProgressLabel(ev?.eventType)
-    return `${imp} ${phase} ${prog}`
+    const numeral = pharmaPhaseNumeral(phase)
+    return `${imp} ${numeral || phase} ${prog}`.replace(/\bPhase\s*/i, '').trim()
   }
 
   const fromTrials = MOCK_EVENTS.map((ev) => ({
@@ -773,6 +881,14 @@ function buildInsiderWorksheetRows(caseSheet) {
 
   const showMoney = Boolean(caseSheet.isForm4)
 
+  function roleFromKey(key) {
+    const k = String(key ?? '').trim()
+    const m = k.match(/^(CEO|Director|CFO|Officer)\b/i)
+    if (m) return m[1].toUpperCase()
+    const first = k.split(/\s+/)[0]
+    return first ? first.toUpperCase() : '—'
+  }
+
   ;(caseSheet.rows ?? []).forEach((r, idx) => {
     const val =
       showMoney && r.amountUsd != null && Number(r.amountUsd) > 0
@@ -780,7 +896,7 @@ function buildInsiderWorksheetRows(caseSheet) {
         : ''
     rows.push(
       <KvLine key={`txn-${idx}-${r.key}`}>
-        <WorksheetRhythmWrap className="kvK dim kvLong">{r.key}</WorksheetRhythmWrap>
+        <WorksheetRhythmWrap className="kvK dim">{roleFromKey(r.key)}</WorksheetRhythmWrap>
         <span className={`kvV mono ${val ? '' : 'dim'}`}>{val}</span>
       </KvLine>,
     )
@@ -1406,11 +1522,16 @@ function CompactFeed({
   headerMetaMode = 'full',
   /** Drug / indication / phase stacked; row height uses triple `--feed-row-slot`. */
   programsStackedRows = false,
+  /** PROGRAMS rail: show grouped timeline rows (separators per program). */
+  programsTimeline = false,
 }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
 
-  const displayRows = useMemo(() => buildFeedDisplayRows(items), [items])
+  const displayRows = useMemo(
+    () => (programsTimeline ? buildProgramGroupedDisplayRows(items) : buildFeedDisplayRows(items)),
+    [items, programsTimeline],
+  )
 
   useLayoutEffect(() => {
     const list = listRef.current
@@ -1491,7 +1612,7 @@ function CompactFeed({
                 className="feedRowTodaySep"
                   role="presentation"
               >
-                TODAY
+                {programsTimeline ? entry.label : 'TODAY'}
               </div>
             )
           }
@@ -1506,6 +1627,7 @@ function CompactFeed({
                 'feedRowCompact',
                 active ? 'isActive' : '',
                 programsStackedRows ? 'feedRowCompact--programs' : '',
+                programsTimeline ? 'feedRowCompact--timeline' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -1520,17 +1642,21 @@ function CompactFeed({
               ) : (
                 <>
                   <span className="feedCell feedCellLabel kvFeedMain">{row.label}</span>
-                  <span className="feedCell feedCellTicker mono kvFeedDim">
-                    {placement === 'left' ? (
-                      <>
-                        {row.ticker}
-                        <span className="feedCountTag">{row.count ?? ''}</span>
-                      </>
-                    ) : (
-                      row.ticker
-                    )}
+                  {!programsTimeline ? (
+                    <span className="feedCell feedCellTicker mono kvFeedDim">
+                      {placement === 'left' ? (
+                        <>
+                          {row.ticker}
+                          <span className="feedCountTag">{row.count ?? ''}</span>
+                        </>
+                      ) : (
+                        row.ticker
+                      )}
+                    </span>
+                  ) : null}
+                  <span className="feedCell feedCellWhen mono kvFeedDim">
+                    {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
                   </span>
-                  <span className="feedCell feedCellWhen mono kvFeedDim">{formatFeedDate(row.at)}</span>
                 </>
               )}
             </button>
@@ -1549,6 +1675,8 @@ function App() {
   const [pharmaIdx, setPharmaIdx] = useState(0)
   /** When set, case sheet + graph follow this trial; cleared when pharma feed row or sponsor context changes */
   const [programRailEventId, setProgramRailEventId] = useState(null)
+  const [programRailIdx, setProgramRailIdx] = useState(0)
+  const [programRailMilestone, setProgramRailMilestone] = useState(null)
 
   const insiderSelected = INSIDER_FEED_ROWS[insiderIdx]
 
@@ -1568,23 +1696,52 @@ function App() {
     [sponsorFromPharmaFeed],
   )
 
+  useEffect(() => {
+    // When sponsor context changes, reset rail selection.
+    setProgramRailIdx(0)
+    setProgramRailMilestone(null)
+    setProgramRailEventId(null)
+  }, [sponsorFromPharmaFeed])
+
+  function synthesizeEventForMilestone(base, milestone) {
+    if (!base || !milestone) return base
+    const ts = milestone.milestoneAt ?? base.ts
+    const label = milestone.milestoneLabel ?? base.eventType ?? 'UPDATE'
+    return {
+      ...base,
+      ts,
+      eventType: String(label).toUpperCase(),
+      timelineDetails: {
+        ...(base.timelineDetails ?? {}),
+        eventSource: (base.timelineDetails?.eventSource ?? 'Company release'),
+        eventSubtype: String(label),
+      },
+    }
+  }
+
   const pharmaSelected = useMemo(() => {
     const id =
       focusFeed === 'pharma' && programRailEventId != null
         ? programRailEventId
         : pharmaFeedEventId
-    return MOCK_EVENTS.find((e) => e.id === id) ?? MOCK_EVENTS[0]
-  }, [focusFeed, programRailEventId, pharmaFeedEventId])
+    const base = MOCK_EVENTS.find((e) => e.id === id) ?? MOCK_EVENTS[0]
+    // When navigating the PROGRAMS rail, use the selected timeline row as the "current event"
+    // so the case worksheet changes per row.
+    if (feedPaneFocus === 'programs' && focusFeed === 'pharma' && programRailMilestone) {
+      return synthesizeEventForMilestone(base, programRailMilestone)
+    }
+    return base
+  }, [feedPaneFocus, focusFeed, programRailEventId, pharmaFeedEventId, programRailMilestone])
 
   const programSelectedIdx = useMemo(() => {
     if (focusFeed !== 'pharma' || programFeedItems.length === 0) return 0
-    const want = programRailEventId ?? pharmaFeedEventId
-    const i = programFeedItems.findIndex((p) => p.trialEventId === want)
-    return i >= 0 ? i : 0
-  }, [focusFeed, programFeedItems, programRailEventId, pharmaFeedEventId])
+    return clamp(programRailIdx, 0, programFeedItems.length - 1)
+  }, [focusFeed, programFeedItems.length, programRailIdx])
 
   useEffect(() => {
     setProgramRailEventId(null)
+    setProgramRailIdx(0)
+    setProgramRailMilestone(null)
   }, [pharmaIdx])
 
   useEffect(() => {
@@ -1658,11 +1815,13 @@ function App() {
       } else if (feedPaneFocus === 'programs' && focusFeed === 'pharma') {
         const items = programFeedItems
         if (items.length === 0) return
-        let cur = items.findIndex((p) => p.trialEventId === programRailEventId)
-        if (cur < 0) cur = items.findIndex((p) => p.trialEventId === pharmaFeedEventId)
-        if (cur < 0) cur = 0
-        const next = clamp(cur + (down ? 1 : -1), 0, items.length - 1)
-        setProgramRailEventId(items[next].trialEventId)
+        setProgramRailIdx((cur) => {
+          const next = clamp(cur + (down ? 1 : -1), 0, items.length - 1)
+          const row = items[next]
+          if (row?.trialEventId) setProgramRailEventId(row.trialEventId)
+          setProgramRailMilestone(row ?? null)
+          return next
+        })
       }
     }
     window.addEventListener('keydown', onKey, { capture: true })
@@ -1673,6 +1832,8 @@ function App() {
     programFeedItems,
     pharmaFeedEventId,
     programRailEventId,
+    programRailIdx,
+    programRailMilestone,
   ])
 
   return (
@@ -1707,14 +1868,15 @@ function App() {
         panelClassName="blankFeedRail"
         title="PROGRAMS"
         headerMetaMode="paginationOnly"
-        programsStackedRows
+        programsTimeline
         items={focusFeed === 'pharma' ? programFeedItems : []}
         selectedIndex={programSelectedIdx}
         focused={feedPaneFocus === 'programs'}
         onSelectIndex={(idx) => {
+          setProgramRailIdx(idx)
           const row = programFeedItems[idx]
-          if (!row?.trialEventId) return
-          setProgramRailEventId(row.trialEventId)
+          if (row?.trialEventId) setProgramRailEventId(row.trialEventId)
+          setProgramRailMilestone(row ?? null)
           setFocusFeed('pharma')
           setFeedPaneFocus('programs')
         }}
