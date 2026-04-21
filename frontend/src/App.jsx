@@ -626,7 +626,10 @@ function buildPharmaFeedRows() {
   function pharmaProgressLabel(eventType) {
     const t = String(eventType ?? '').toUpperCase()
     if (t === 'READOUT' || t === 'ENDPOINT MISS') return 'Result'
-    return 'Progress'
+    if (t === 'SITE START') return 'Active'
+    if (t === 'FDA UPDATE') return 'Ongoing'
+    if (t === 'DELAY') return 'Ongoing'
+    return 'Active'
   }
 
   function pharmaPhaseNumeral(phase) {
@@ -640,9 +643,20 @@ function buildPharmaFeedRows() {
   function pharmaFeedLabel(ev) {
     const phase = ev?.phase ?? ev?.trialSnapshot?.phase ?? 'Phase'
     const imp = pharmaImportanceLabel(phase)
-    const prog = pharmaProgressLabel(ev?.eventType)
+    const status = String(ev?.timelineDetails?.status ?? '').toLowerCase()
+    const typeState = pharmaProgressLabel(ev?.eventType)
+    const state =
+      status.includes('completed')
+        ? 'Completed'
+        : status.includes('recruiting')
+          ? 'Ongoing'
+          : status.includes('active')
+            ? 'Active'
+            : status.includes('not recruiting')
+              ? 'Near Completion'
+              : typeState
     const numeral = pharmaPhaseNumeral(phase)
-    return `${imp} ${numeral || phase} ${prog}`.replace(/\bPhase\s*/i, '').trim()
+    return `${imp} ${numeral || phase} ${state}`.replace(/\bPhase\s*/i, '').trim()
   }
 
   const fromTrials = MOCK_EVENTS.map((ev) => ({
@@ -719,8 +733,8 @@ const MOCK_COMPANY = {
   ev: '$9.20M USD',
   earnings: '5 Aug',
   /** Shown only when pharma feed is focused */
-  pharmaPrograms: '1×P3 | 1×P2 | 1×P1',
-  pharmaLead: `DrugX (P3 – Alzheimer's)`,
+  pharmaPrograms: '1×III | 1×II | 1×I',
+  pharmaLead: `DrugX (III – Alzheimer's)`,
 }
 
 function toPath(values, w, h, inset) {
