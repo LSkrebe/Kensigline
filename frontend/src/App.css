@@ -17,14 +17,15 @@
   color: var(--text);
   display: grid;
   /*
-   * Cols 1–2: insider + pharma (1fr + 1fr).
-   * Col 3: PROGRAMS rail (slightly wider; a bit taken from cols 4–5).
+   * Col 1: insider (slightly slimmer).
+   * Col 2: pharma.
+   * Col 3: PROGRAMS rail (a bit wider; taken from col 1).
    * Cols 4–5: case sheet + right stack.
    */
   grid-template-columns:
+    minmax(60px, 0.665fr)
     minmax(0, 1fr)
-    minmax(0, 1fr)
-    minmax(52px, 0.33fr)
+    minmax(60px, 0.665fr)
     minmax(0, 1.185fr)
     minmax(0, 1.185fr);
   grid-template-rows: repeat(4, minmax(0, 1fr));
@@ -386,13 +387,14 @@
   padding: 0.12em 8px;
   margin: 0;
   border: none;
-  border-bottom: 1px solid rgba(140, 255, 195, 0.06);
+  border-top: 1px solid rgba(140, 255, 195, 0.18);
+  border-bottom: 1px solid rgba(140, 255, 195, 0.18);
   background: transparent;
   font: inherit;
-  font-size: 0.95em;
+  font-size: 0.98em;
   line-height: inherit;
-  letter-spacing: 0.1em;
-  color: var(--dim);
+  letter-spacing: 0.14em;
+  color: rgba(140, 255, 195, 0.55);
   user-select: none;
   pointer-events: none;
 }
@@ -402,6 +404,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* INSIDER: count sits next to ticker in the same dim lane */
+.feedCountTag {
+  margin-left: 8px;
 }
 
 .kvFeedMain {

@@ -387,22 +387,16 @@ function tickerFromDrug(drug) {
   return letters.slice(0, 4).toUpperCase() || 'DRUG'
 }
 
-const INSIDER_KINDS = ['Insider Buy', 'Insider Sell', 'Insider Buys', 'Contract Award', 'Acquisition']
+const INSIDER_KINDS = ['P Purchase']
 /** Realistic issuer tickers only (no counts in this column). */
 const INSIDER_TICKERS = ['PRIM', 'HG', 'SPRU', 'VRA', 'FFIN']
 
 /** Keys shown as document / transaction rows in the insider case worksheet */
 const INSIDER_DOC_KEYS = [
-  'Direction Insider Buy',
-  'CEO Insider Sell',
-  'Acquisition',
-  'CFO Open Market Buy',
-  'Derivative Exercise | Sell',
-  'President 10b5-1 Sale',
-  'Chief Medical Officer Insider Buy',
-  'Chair Gift / Charity',
-  'CEO Insider Short (Synthetic)',
-  'EVP Cluster Purchase',
+  'CEO Code P purchase (open market)',
+  'Director Code P purchase (open market)',
+  'CFO Code P purchase (open market)',
+  'Officer Code P purchase (open market)',
 ]
 
 const INSIDER_ISSUERS = [
@@ -413,7 +407,8 @@ const INSIDER_ISSUERS = [
   'VeraBio Holding Co.',
 ]
 
-const FORM_TYPES_INSIDER = ['Form 4', 'Form 8-K', 'Form 4', 'Schedule 13D', 'Form 424B5', 'Press release']
+// Insider pipeline target: Form 4 only (Code P purchases).
+const FORM_TYPES_INSIDER = ['Form 4']
 
 /** Deterministic pseudo-random in [0, max) */
 function seededJitter(seed, max) {
@@ -453,7 +448,7 @@ function buildInsiderDailySeries(seed, len = 20) {
  */
 function insiderCaseForRowIndex(i) {
   const n = (i % 5) + 1
-  const label = `${n} ${INSIDER_KINDS[i % INSIDER_KINDS.length]}`
+  const count = n
   const ticker = INSIDER_TICKERS[i % INSIDER_TICKERS.length]
   const thisYear = new Date().getFullYear()
   let at
@@ -477,7 +472,8 @@ function insiderCaseForRowIndex(i) {
   const issuer = INSIDER_ISSUERS[i % INSIDER_ISSUERS.length]
   const filingId = `${ticker}-${String(220000 + (i * 7919) % 879000)}`
 
-  const rowCount = 4 + (i % 5)
+  // Keep rows aligned with "count" and represent actual purchase transactions.
+  const rowCount = count
   const rows = []
   for (let k = 0; k < rowCount; k++) {
     const si = (i * 11 + k * 5) % INSIDER_DOC_KEYS.length
@@ -487,15 +483,20 @@ function insiderCaseForRowIndex(i) {
     const rowIso = ts.toISOString()
     let amountUsd = null
     if (isForm4) {
-      const base = 2400 + seededJitter(i * 101 + k * 17, 920000)
-      amountUsd = Math.round(base + (k % 3) * 12000)
+      // Mock Code P purchases: non-trivial dollar amounts, always positive.
+      const base = 25_000 + seededJitter(i * 101 + k * 17, 2_400_000)
+      amountUsd = Math.round(base)
     }
     rows.push({ key, amountUsd, ts: rowIso })
   }
 
+  const totalUsd = isForm4 ? rows.reduce((a, r) => a + (Number(r.amountUsd) || 0), 0) : 0
+  const label = totalUsd > 0 ? formatUsdCompact(totalUsd) : '—'
+
   return {
     id: `ins-${i}`,
     label,
+    count,
     ticker,
     at,
     daily: buildInsiderDailySeries(i + 31),
@@ -516,9 +517,29 @@ const INSIDER_FEED_ROWS = sortFeedRowsByAtDesc(
 )
 
 function buildPharmaFeedRows() {
+  function pharmaImportanceLabel(phase) {
+    const p = String(phase ?? '')
+    if (/III/i.test(p)) return 'Lead'
+    if (/II/i.test(p)) return 'Core'
+    return 'Early'
+  }
+
+  function pharmaProgressLabel(eventType) {
+    const t = String(eventType ?? '').toUpperCase()
+    if (t === 'READOUT' || t === 'ENDPOINT MISS') return 'Result'
+    return 'Progress'
+  }
+
+  function pharmaFeedLabel(ev) {
+    const phase = ev?.phase ?? ev?.trialSnapshot?.phase ?? 'Phase'
+    const imp = pharmaImportanceLabel(phase)
+    const prog = pharmaProgressLabel(ev?.eventType)
+    return `${imp} ${phase} ${prog}`
+  }
+
   const fromTrials = MOCK_EVENTS.map((ev) => ({
     id: `ph-${ev.id}`,
-    label: `${ev.phase} | ${ev.eventType}`,
+    label: pharmaFeedLabel(ev),
     ticker: tickerFromDrug(ev.drug),
     at: parseMockTs(ev.ts).toISOString(),
     trialEventId: ev.id,
@@ -550,7 +571,7 @@ function buildPharmaFeedRows() {
     }
     return {
       id: `ph-f-${i}`,
-      label: PHARMA_FILLER_LABELS[i % PHARMA_FILLER_LABELS.length],
+      label: pharmaFeedLabel(MOCK_EVENTS[i % MOCK_EVENTS.length]),
       ticker: fillerTickers[i % fillerTickers.length],
       at: t.toISOString(),
       trialEventId: MOCK_EVENTS[i % MOCK_EVENTS.length].id,
@@ -999,7 +1020,7 @@ function HistoricalOutcomesPanel({ mode }) {
             </KvLine>
           </>
         )}
-      </div>
+        </div>
     </section>
   )
 }
@@ -1321,8 +1342,8 @@ function ContextPanel({ mode, pharmaEvent, insiderRow }) {
             {text}
           </p>
         ))}
-      </div>
-    </section>
+        </div>
+      </section>
   )
 }
 
@@ -1368,7 +1389,7 @@ function CompanyPanel({ mode }) {
             </KvLine>
           </>
         ) : null}
-      </div>
+        </div>
     </section>
   )
 }
@@ -1468,7 +1489,7 @@ function CompactFeed({
               <div
                 key={`${placement}-${entry.key}-${globalIdx}`}
                 className="feedRowTodaySep"
-                role="presentation"
+                  role="presentation"
               >
                 TODAY
               </div>
@@ -1499,7 +1520,16 @@ function CompactFeed({
               ) : (
                 <>
                   <span className="feedCell feedCellLabel kvFeedMain">{row.label}</span>
-                  <span className="feedCell feedCellTicker mono kvFeedDim">{row.ticker}</span>
+                  <span className="feedCell feedCellTicker mono kvFeedDim">
+                    {placement === 'left' ? (
+                      <>
+                        {row.ticker}
+                        <span className="feedCountTag">{row.count ?? ''}</span>
+                      </>
+                    ) : (
+                      row.ticker
+                    )}
+                  </span>
                   <span className="feedCell feedCellWhen mono kvFeedDim">{formatFeedDate(row.at)}</span>
                 </>
               )}
@@ -1725,7 +1755,7 @@ function App() {
             aria-label="Sparkline"
           >
             <path className="graphPath" d={toPath(daily, 900, 140, plotInset)} />
-          </svg>
+                </svg>
         </div>
       </section>
 
