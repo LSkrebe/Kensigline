@@ -6,13 +6,22 @@ type ChatOptions = {
 };
 
 function getProvider() {
-  return String(process.env.LLM_PROVIDER ?? "ollama").trim().toLowerCase();
+  return String(process.env.LLM_PROVIDER ?? "openai").trim().toLowerCase();
 }
 
 function mustEnv(name: string) {
   const v = String(process.env[name] ?? "").trim();
   if (!v) throw new Error(`${name} is required`);
   return v;
+}
+
+function getApiKey() {
+  // Support a few common names so env setup is forgiving.
+  return (
+    String(process.env.LLM_API_KEY ?? "").trim() ||
+    String(process.env.OPENAI_API_KEY ?? "").trim() ||
+    String(process.env.OPENAPI_SECRET_KEY ?? "").trim()
+  );
 }
 
 async function chatOllama(messages: ChatMessage[], opts: ChatOptions) {
@@ -42,9 +51,10 @@ async function chatOllama(messages: ChatMessage[], opts: ChatOptions) {
 }
 
 async function chatOpenAICompatible(messages: ChatMessage[], opts: ChatOptions) {
-  const baseUrl = mustEnv("LLM_BASE_URL"); // e.g. http://localhost:8000/v1
-  const apiKey = String(process.env.LLM_API_KEY ?? "").trim();
-  const model = mustEnv("LLM_MODEL");
+  const baseUrl = String(process.env.LLM_BASE_URL ?? "https://api.openai.com/v1").trim(); // e.g. http://localhost:8000/v1
+  const apiKey = getApiKey();
+  const model = String(process.env.LLM_MODEL ?? "gpt-4o-mini").trim();
+  if (!apiKey) throw new Error("LLM_API_KEY (or OPENAI_API_KEY / OPENAPI_SECRET_KEY) is required");
 
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (apiKey) headers.authorization = `Bearer ${apiKey}`;

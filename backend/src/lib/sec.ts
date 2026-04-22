@@ -446,6 +446,29 @@ export async function fetchForm4Text(url: string): Promise<string> {
     return await secFetchText(`${base}/${pick}`);
   }
 
+  // If we queued an Archives "filing documents" page, parse it and grab the XML.
+  // Example:
+  // https://www.sec.gov/Archives/edgar/data/<cik>/<accessionNoDash>/<accession>-index.htm
+  if (/-index\.html?$/i.test(url) && url.includes("/Archives/edgar/data/")) {
+    const html = await secFetchText(url);
+    const hrefs = Array.from(html.matchAll(/href="([^"]+)"/gi))
+      .map((m) => m?.[1])
+      .filter((h): h is string => Boolean(h));
+
+    const xmlLinks = hrefs
+      .filter((h) => /\.xml(\?|$)/i.test(h))
+      .map((h) => absoluteSecUrl(h));
+
+    const pick =
+      xmlLinks.find((h) => /form4/i.test(h) && /\.xml(\?|$)/i.test(h)) ??
+      xmlLinks.find((h) => /f345/i.test(h) && /\.xml(\?|$)/i.test(h)) ??
+      xmlLinks[0] ??
+      null;
+
+    if (!pick) throw new Error("form4_xml_not_found_in_archives_index");
+    return await secFetchText(pick);
+  }
+
   // If we queued a filing detail page (browse-edgar HTML), resolve form4.xml from it.
   if (url.includes("/cgi-bin/browse-edgar")) {
     const html = await secFetchText(url);
