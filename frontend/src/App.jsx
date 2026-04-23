@@ -730,7 +730,6 @@ const MOCK_COMPANY = {
   industry: 'Pharmaceuticals',
   country: 'US',
   mcap: '$8.46M USD',
-  ev: '$9.20M USD',
   earnings: '5 Aug',
   /** Shown only when pharma feed is focused */
   pharmaPrograms: '1×III | 1×II | 1×I',
@@ -1498,10 +1497,6 @@ function CompanyPanel({ mode }) {
         <KvLine key="co-mcap">
           <span className="kvK dim">MCAP</span>
           <span className="kvV mono">{c.mcap}</span>
-        </KvLine>
-        <KvLine key="co-ev">
-          <span className="kvK dim">EV</span>
-          <span className="kvV mono">{c.ev}</span>
         </KvLine>
         <KvLine key="co-earnings">
           <span className="kvK dim">EARNINGS</span>
