@@ -342,7 +342,7 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
         $11,
         $12
       )
-      ON CONFLICT (content_sha256)
+      ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
       DO UPDATE SET parsed_at = now()
       RETURNING id
       `,
