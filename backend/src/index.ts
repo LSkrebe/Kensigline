@@ -6,9 +6,14 @@ import { db } from "./lib/db.js";
 import { enqueueLatestForm4ForTicker } from "./lib/sec.js";
 import { parseNextInsiderQueueItem } from "./lib/insider.js";
 import { startInsiderWorker } from "./lib/worker.js";
+import { getDailyCloseBars } from "./lib/bars.js";
+import { getCompanyPanelData } from "./lib/company.js";
+import { getLatestOutcomes, recomputeInsiderOutcomes } from "./lib/outcomes.js";
+import { startOutcomesWorker } from "./lib/outcomes-worker.js";
 
 const port = Number(process.env.PORT ?? "3001");
 const worker = startInsiderWorker();
+const outcomesWorker = startOutcomesWorker();
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -39,6 +44,67 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/health") {
       sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    // ---- Bars (daily close only) ----
+    if (route(req, url, "GET", "/api/bars")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
+      const days = clampInt(url.searchParams.get("days"), 5, 3650, 365);
+      if (!ticker) {
+        sendJson(res, 400, { ok: false, error: "ticker_required" });
+        return;
+      }
+      const now = new Date();
+      const toDay = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(
+        2,
+        "0",
+      )}`;
+      const from = new Date(now);
+      from.setUTCDate(from.getUTCDate() - days);
+      const fromDay = `${from.getUTCFullYear()}-${String(from.getUTCMonth() + 1).padStart(2, "0")}-${String(from.getUTCDate()).padStart(
+        2,
+        "0",
+      )}`;
+      const out = await getDailyCloseBars({ ticker, fromDay, toDay });
+      sendJson(res, 200, out);
+      return;
+    }
+
+    // ---- Company (Company panel) ----
+    if (route(req, url, "GET", "/api/company")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
+      if (!ticker) {
+        sendJson(res, 400, { ok: false, error: "ticker_required" });
+        return;
+      }
+      const out = await getCompanyPanelData({ ticker });
+      sendJson(res, 200, out);
+      return;
+    }
+
+    // ---- Outcomes (Historical outcomes) ----
+    if (route(req, url, "GET", "/api/outcomes")) {
+      const mode = String(url.searchParams.get("mode") ?? "insider").trim().toLowerCase();
+      const row = await getLatestOutcomes(mode);
+      if (!row) {
+        sendJson(res, 200, { ok: true, mode, empty: true });
+        return;
+      }
+      sendJson(res, 200, { ok: true, mode, ...row });
+      return;
+    }
+
+    // Manual recompute trigger (useful for dev)
+    if (route(req, url, "POST", "/api/outcomes/recompute")) {
+      const body = await json(req);
+      const mode = String(body?.mode ?? "insider").trim().toLowerCase();
+      if (mode !== "insider") {
+        sendJson(res, 400, { ok: false, error: "mode_not_supported_yet" });
+        return;
+      }
+      const out = await recomputeInsiderOutcomes();
+      sendJson(res, 200, out);
       return;
     }
 
@@ -321,9 +387,11 @@ server.listen(port, () => {
 
 process.on("SIGINT", () => {
   worker.stop();
+  outcomesWorker.stop();
   server.close(() => process.exit(0));
 });
 process.on("SIGTERM", () => {
   worker.stop();
+  outcomesWorker.stop();
   server.close(() => process.exit(0));
 });

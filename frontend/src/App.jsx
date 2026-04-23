@@ -1079,6 +1079,35 @@ function buildWorksheetRows(selected, hasSafety) {
 
 function HistoricalOutcomesPanel({ mode }) {
   const insider = mode === 'insider'
+  const [live, setLive] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!insider) {
+        if (alive) setLive(null)
+        return
+      }
+      try {
+        const res = await fetch('http://localhost:3001/api/outcomes?mode=insider')
+        const json = await res.json()
+        const data = json?.data ?? null
+        if (!alive) return
+        setLive(data && typeof data === 'object' ? data : null)
+      } catch {
+        if (!alive) return
+        setLive(null)
+      }
+    }
+    run()
+    const t = setInterval(run, 30_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [insider])
+
+  const ins = live ?? MOCK_HISTORICAL_INSIDER
 
   return (
     <section className="panel historicalOutcomes blankTile--a" aria-label="Historical outcomes">
@@ -1090,31 +1119,31 @@ function HistoricalOutcomesPanel({ mode }) {
           <>
             <KvLine key="ho-ins-avg">
               <span className="kvK dim">Avg ret (21d/63d/252d)</span>
-              <span className="kvV mono">{MOCK_HISTORICAL_INSIDER.avgReturn21d63d252d}</span>
+              <span className="kvV mono">{ins.avgReturn21d63d252d}</span>
             </KvLine>
             <KvLine key="ho-ins-med">
               <span className="kvK dim">Median return</span>
-              <span className="kvV mono">{MOCK_HISTORICAL_INSIDER.medianReturn}</span>
+              <span className="kvV mono">{ins.medianReturn}</span>
             </KvLine>
             <KvLine key="ho-ins-win">
               <span className="kvK dim">Win rate</span>
-              <span className="kvV mono">{MOCK_HISTORICAL_INSIDER.winRate}</span>
+              <span className="kvV mono">{ins.winRate}</span>
             </KvLine>
             <KvLine key="ho-ins-n">
               <span className="kvK dim">Sample size</span>
-              <span className="kvV mono">{MOCK_HISTORICAL_INSIDER.sampleSize}</span>
+              <span className="kvV mono">{ins.sampleSize}</span>
             </KvLine>
             <KvLine key="ho-ins-role">
               <span className="kvK dim">Role</span>
-              <span className="kvV">{MOCK_HISTORICAL_INSIDER.conditioningRole}</span>
+              <span className="kvV">{ins.conditioningRole}</span>
             </KvLine>
             <KvLine key="ho-ins-txn">
               <span className="kvK dim">Transaction type</span>
-              <span className="kvV">{MOCK_HISTORICAL_INSIDER.conditioningTxn}</span>
+              <span className="kvV">{ins.conditioningTxn}</span>
             </KvLine>
             <KvLine key="ho-ins-pct">
               <span className="kvK dim">Size percentile</span>
-              <span className="kvV mono">{MOCK_HISTORICAL_INSIDER.conditioningSizePct}</span>
+              <span className="kvV mono">{ins.conditioningSizePct}</span>
             </KvLine>
           </>
         ) : (
@@ -1772,6 +1801,7 @@ function App() {
     focusFeed === 'insider'
       ? insiderSelected?.daily ?? []
       : pharmaSelected?.daily ?? []
+
   const dailyMin = daily.length ? Math.min(...daily) : 0
   const dailyMax = daily.length ? Math.max(...daily) : 0
   const dailyLast = daily.length ? daily[daily.length - 1] : 0

@@ -104,6 +104,15 @@ async function secFetchText(url: string) {
   return txt;
 }
 
+// Expose the hardened SEC fetchers for other modules (company facts, etc.).
+export async function fetchSecJson(url: string) {
+  return await secFetchJson(url);
+}
+
+export async function fetchSecText(url: string) {
+  return await secFetchText(url);
+}
+
 function absoluteSecUrl(href: string) {
   if (href.startsWith("http://") || href.startsWith("https://")) return href;
   if (href.startsWith("/")) return `https://www.sec.gov${href}`;
