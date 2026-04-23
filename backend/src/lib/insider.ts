@@ -1,6 +1,7 @@
 import { db } from "./db.js";
 import { fetchForm4Text } from "./sec.js";
 import { llmChat } from "./llm.js";
+import { createHash } from "node:crypto";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }
@@ -46,10 +47,20 @@ type Form4PTransaction = {
 };
 
 function firstXmlTagText(xml: string, tag: string): string | null {
-  const re = new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i");
+  // Handle optional namespace prefixes and attributes:
+  // <transactionCode> P </transactionCode>
+  // <ns1:transactionCode xmlns:ns1="...">P</ns1:transactionCode>
+  // <transactionCode someAttr="x">P</transactionCode>
+  const re = new RegExp(`<((?:[A-Za-z_][\\w.-]*:)?)${tag}\\b[^>]*>([\\s\\S]*?)<\\/\\1${tag}>`, "i");
   const m = xml.match(re);
   if (!m) return null;
-  return String(m[1] ?? "").replace(/\s+/g, " ").trim() || null;
+  const inner = String(m[2] ?? "");
+  // Many Form 4 fields are wrapped as <tag><value>...</value></tag>.
+  const mv = inner.match(/<((?:[A-Za-z_][\w.-]*:)?)value\b[^>]*>([\s\S]*?)<\/\1value>/i);
+  const picked = mv ? String(mv[2] ?? "") : inner;
+  // Strip any remaining tags (defensive; we only need plain text/numbers).
+  const text = picked.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return text || null;
 }
 
 function parseNumberLoose(s: string | null): number | null {
@@ -61,10 +72,14 @@ function parseNumberLoose(s: string | null): number | null {
 
 function extractForm4PTransactions(xml: string): Form4PTransaction[] {
   const out: Form4PTransaction[] = [];
-  const blocks = xml.match(/<nonDerivativeTransaction>[\s\S]*?<\/nonDerivativeTransaction>/gi) ?? [];
+  // Handle optional namespace prefixes and attributes.
+  const blocks =
+    xml.match(
+      /<(?:(?:[A-Za-z_][\w.-]*):)?nonDerivativeTransaction\b[^>]*>[\s\S]*?<\/(?:(?:[A-Za-z_][\w.-]*):)?nonDerivativeTransaction>/gi,
+    ) ?? [];
   for (const b of blocks) {
     const code = firstXmlTagText(b, "transactionCode");
-    if (String(code ?? "").trim().toUpperCase() !== "P") continue;
+    if (String(code ?? "").replace(/\s+/g, "").trim().toUpperCase() !== "P") continue;
 
     const dt = firstXmlTagText(b, "transactionDate");
     const shares = parseNumberLoose(firstXmlTagText(b, "transactionShares"));
@@ -231,6 +246,7 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
 
   try {
     const xml = await fetchForm4Text(url);
+    const contentSha256 = createHash("sha256").update(xml, "utf8").digest("hex");
 
     const issuerName = firstXmlTagText(xml, "issuerName");
     const issuerTicker = firstXmlTagText(xml, "issuerTradingSymbol");
@@ -308,6 +324,7 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
         published_at,
         model,
         prompt_version,
+        content_sha256,
         data
       )
       VALUES (
@@ -322,8 +339,11 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
         $8,
         $9,
         $10,
-        $11
+        $11,
+        $12
       )
+      ON CONFLICT (content_sha256)
+      DO UPDATE SET parsed_at = now()
       RETURNING id
       `,
       [
@@ -337,6 +357,7 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
         feedAt,
         model,
         "insider_form4_v1",
+        contentSha256,
         out,
       ],
     );

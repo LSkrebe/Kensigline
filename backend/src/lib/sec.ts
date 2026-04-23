@@ -127,6 +127,14 @@ function parseAtomEntries(atomXml: string) {
   return out;
 }
 
+function accessionKeyFromArchivesIndexUrl(u: string) {
+  // Example:
+  // https://www.sec.gov/Archives/edgar/data/65433/000151028126000158/0001510281-26-000158-index.htm
+  const m = u.match(/\/Archives\/edgar\/data\/\d+\/(\d{10}\d{2}\d{6})\/(\d{10}-\d{2}-\d{6})-index\.html?$/i);
+  if (!m) return null;
+  return { accessionNoDash: m[1]!, accession: m[2]! };
+}
+
 /**
  * Enqueue Form 4 filings from SEC "current filings" Atom feed.
  * This is much less bursty than crawling index.json at scale.
@@ -152,15 +160,32 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
       found += 1;
       const filingUrl = it.href;
 
-      const existing = await db.one<{ id: string }>(
-        `
-        SELECT id FROM document_queue WHERE url = $1
-        UNION ALL
-        SELECT id FROM document_parsed WHERE url = $1
-        LIMIT 1
-        `,
-        [filingUrl],
-      );
+      // Hard dedupe: the SEC sometimes presents the same accession under different /data/<cik>/ paths.
+      // We dedupe by accession folder + accession number when possible.
+      const acc = accessionKeyFromArchivesIndexUrl(filingUrl);
+      const existing = acc
+        ? await db.one<{ id: string }>(
+            `
+            SELECT id FROM document_queue
+            WHERE url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
+               OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%'
+            UNION ALL
+            SELECT id FROM document_parsed
+            WHERE url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
+               OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%'
+            LIMIT 1
+            `,
+            [acc.accessionNoDash, acc.accession],
+          )
+        : await db.one<{ id: string }>(
+            `
+            SELECT id FROM document_queue WHERE url = $1
+            UNION ALL
+            SELECT id FROM document_parsed WHERE url = $1
+            LIMIT 1
+            `,
+            [filingUrl],
+          );
       if (existing) {
         skipped_existing += 1;
         continue;
@@ -459,14 +484,45 @@ export async function fetchForm4Text(url: string): Promise<string> {
       .filter((h) => /\.xml(\?|$)/i.test(h))
       .map((h) => absoluteSecUrl(h));
 
-    const pick =
-      xmlLinks.find((h) => /form4/i.test(h) && /\.xml(\?|$)/i.test(h)) ??
-      xmlLinks.find((h) => /f345/i.test(h) && /\.xml(\?|$)/i.test(h)) ??
-      xmlLinks[0] ??
-      null;
+    // Prefer the actual filing XML (not the XSL-rendered variant).
+    // Many index pages include both:
+    //   .../xslF345X06/primary_doc.xml  (rendering helper)
+    //   .../primary_doc.xml            (raw filing)
+    const nonXsl = xmlLinks.filter((h) => !/\/xsl/i.test(h));
+    const pool = nonXsl.length ? nonXsl : xmlLinks;
 
-    if (!pick) throw new Error("form4_xml_not_found_in_archives_index");
-    return await secFetchText(pick);
+    const ordered = [
+      ...pool.filter((h) => /form4\.xml(\?|$)/i.test(h)),
+      ...pool.filter((h) => /primary_doc\.xml(\?|$)/i.test(h)),
+      ...pool.filter((h) => /ownership\.xml(\?|$)/i.test(h)),
+      ...pool.filter((h) => /form4/i.test(h) && /\.xml(\?|$)/i.test(h)),
+      ...pool.filter((h) => /f345/i.test(h) && /\.xml(\?|$)/i.test(h)),
+      ...pool,
+    ].filter((h, i, a) => a.indexOf(h) === i);
+
+    if (!ordered.length) throw new Error("form4_xml_not_found_in_archives_index");
+
+    // Fallback strategy: some filings include "rendering helper" XMLs that may be missing
+    // transaction blocks. Try a few candidates and pick the first that looks like a real
+    // ownership document with transaction tags.
+    const looksLikeOwnershipDoc = (xml: string) =>
+      /<\s*ownershipDocument\b/i.test(xml) &&
+      (/<(?:[A-Za-z_][\w.-]*:)?transactionCode\b/i.test(xml) ||
+        /<(?:[A-Za-z_][\w.-]*:)?nonDerivativeTransaction\b/i.test(xml) ||
+        /<(?:[A-Za-z_][\w.-]*:)?derivativeTransaction\b/i.test(xml));
+
+    const maxTries = Math.min(6, ordered.length);
+    let firstXml: string | null = null;
+    for (let i = 0; i < maxTries; i++) {
+      const candidate = ordered[i]!;
+      const xml = await secFetchText(candidate);
+      if (!firstXml) firstXml = xml;
+      if (looksLikeOwnershipDoc(xml)) return xml;
+    }
+
+    // If none "look right", return the first successfully fetched XML.
+    // (Some filings legitimately omit transaction blocks.)
+    return firstXml ?? (await secFetchText(ordered[0]!));
   }
 
   // If we queued a filing detail page (browse-edgar HTML), resolve form4.xml from it.
