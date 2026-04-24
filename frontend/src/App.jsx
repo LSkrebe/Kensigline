@@ -1746,13 +1746,18 @@ function App() {
   const [programRailMilestone, setProgramRailMilestone] = useState(null)
 
   const [backendUp, setBackendUp] = useState(false)
+  const [backendLastOkAt, setBackendLastOkAt] = useState(0)
 
   useEffect(() => {
     let alive = true
     async function ping() {
-      const r = await fetchJsonSafe('/health', { timeoutMs: 1200 })
+      const r = await fetchJsonSafe('/health', { timeoutMs: 3500 })
       if (!alive) return
-      setBackendUp(Boolean(r.ok && r.data?.ok))
+      if (r.ok && r.data?.ok) {
+        const now = Date.now()
+        setBackendLastOkAt(now)
+        setBackendUp(true)
+      }
     }
     ping()
     const t = setInterval(ping, 4000)
@@ -1761,6 +1766,16 @@ function App() {
       clearInterval(t)
     }
   }, [])
+
+  // Hysteresis: only drop to MOCK if backend hasn't responded in a while.
+  useEffect(() => {
+    if (!backendLastOkAt) return
+    const t = setInterval(() => {
+      const staleMs = Date.now() - backendLastOkAt
+      if (staleMs > 15_000) setBackendUp(false)
+    }, 1000)
+    return () => clearInterval(t)
+  }, [backendLastOkAt])
 
   const [insiderFeedLive, setInsiderFeedLive] = useState(null)
   const [insiderClusterLive, setInsiderClusterLive] = useState(null)
@@ -1774,10 +1789,7 @@ function App() {
   useEffect(() => {
     let alive = true
     async function run() {
-      if (!backendUp) {
-        if (alive) setInsiderFeedLive(null)
-        return
-      }
+      if (!backendUp) return
       const r = await fetchJsonSafe('/api/insider/feed?mode=company&limit=120&days=30')
       if (!alive) return
       const items = Array.isArray(r.data?.items) ? r.data.items : []
@@ -1801,7 +1813,7 @@ function App() {
           }
         })
         .filter((x) => x.id && x.ticker && x.at)
-      setInsiderFeedLive(mapped.length ? mapped : [])
+      if (r.ok) setInsiderFeedLive(mapped.length ? mapped : [])
     }
     run()
     const t = setInterval(run, 20_000)
@@ -1818,8 +1830,9 @@ function App() {
     let alive = true
     async function run() {
       try {
-        const res = await fetch(`${getBackendBase()}/api/pharma/feed?limit=120&days=180`)
-        const json = await res.json()
+        if (!backendUp) return
+        const r = await fetchJsonSafe('/api/pharma/feed?limit=120&days=180', { timeoutMs: 5000 })
+        const json = r.data
         const items = Array.isArray(json?.items) ? json.items : []
         if (!alive) return
         const mapped = items
@@ -1831,10 +1844,10 @@ function App() {
             trialEventId: String(r.id),
           }))
           .filter((r) => r.id && r.ticker && r.at)
-        setPharmaFeedLive(mapped.length ? mapped : null)
+        if (r.ok) setPharmaFeedLive(mapped.length ? mapped : null)
       } catch {
         if (!alive) return
-        setPharmaFeedLive(null)
+        // Keep last-good feed instead of flapping.
       }
     }
     run()
@@ -1843,7 +1856,7 @@ function App() {
       alive = false
       clearInterval(t)
     }
-  }, [])
+  }, [backendUp])
 
   const pharmaFeedRows = backendUp && pharmaFeedLive ? pharmaFeedLive : PHARMA_FEED_ROWS
 
@@ -1861,13 +1874,13 @@ function App() {
   useEffect(() => {
     let alive = true
     async function run() {
-      if (!backendUp || !pharmaTicker) {
-        if (alive) setProgramFeedLive(null)
-        return
-      }
+      if (!backendUp || !pharmaTicker) return
       try {
-        const res = await fetch(`${getBackendBase()}/api/pharma/programs?ticker=${encodeURIComponent(pharmaTicker)}&days=3650`)
-        const json = await res.json()
+        const r = await fetchJsonSafe(
+          `/api/pharma/programs?ticker=${encodeURIComponent(pharmaTicker)}&days=3650`,
+          { timeoutMs: 6000 },
+        )
+        const json = r.data
         const items = Array.isArray(json?.items) ? json.items : []
         if (!alive) return
         const mapped = items
@@ -1882,10 +1895,10 @@ function App() {
             milestoneAt: String(r.at ?? ''),
           }))
           .filter((r) => r.id && r.at)
-        setProgramFeedLive(mapped.length ? mapped : null)
+        if (r.ok) setProgramFeedLive(mapped.length ? mapped : null)
       } catch {
         if (!alive) return
-        setProgramFeedLive(null)
+        // Keep last-good instead of flapping.
       }
     }
     run()
@@ -2043,16 +2056,13 @@ function App() {
   useEffect(() => {
     let alive = true
     async function run() {
-      if (!backendUp || !selectedTicker) {
-        if (alive) setBarsLive(null)
-        return
-      }
+      if (!backendUp || !selectedTicker) return
       const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(selectedTicker)}&days=365`, { timeoutMs: 6000 })
       if (!alive) return
       const closes = Array.isArray(r.data?.items)
         ? r.data.items.map((x) => Number(x?.close)).filter((n) => Number.isFinite(n))
         : []
-      setBarsLive(closes.length ? closes : null)
+      if (r.ok) setBarsLive(closes.length ? closes : null)
     }
     run()
     const t = setInterval(run, 60_000)
@@ -2065,13 +2075,10 @@ function App() {
   useEffect(() => {
     let alive = true
     async function run() {
-      if (!backendUp || !selectedTicker) {
-        if (alive) setCompanyLive(null)
-        return
-      }
+      if (!backendUp || !selectedTicker) return
       const r = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(selectedTicker)}`, { timeoutMs: 6000 })
       if (!alive) return
-      setCompanyLive(r.ok ? r.data : null)
+      if (r.ok) setCompanyLive(r.data)
     }
     run()
     return () => {
@@ -2083,22 +2090,20 @@ function App() {
     let alive = true
     async function run() {
       if (focusFeed !== 'pharma') {
-        if (alive) setPharmaEventLive(null)
         return
       }
       const id = pharmaFeedEventId
       if (!backendUp || !id || !pharmaFeedLive) {
-        if (alive) setPharmaEventLive(null)
         return
       }
       try {
-        const res = await fetch(`${getBackendBase()}/api/pharma/event/${encodeURIComponent(id)}`)
-        const json = await res.json()
+        const r = await fetchJsonSafe(`/api/pharma/event/${encodeURIComponent(id)}`, { timeoutMs: 6000 })
+        const json = r.data
         if (!alive) return
-        setPharmaEventLive(json?.data ?? null)
+        if (r.ok) setPharmaEventLive(json?.data ?? null)
       } catch {
         if (!alive) return
-        setPharmaEventLive(null)
+        // Keep last-good instead of flapping.
       }
     }
     run()
