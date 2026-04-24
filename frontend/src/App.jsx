@@ -2015,13 +2015,8 @@ function App() {
   }, [focusFeed])
 
   const isRealView = useMemo(() => {
-    if (!backendUp) return false
-    const anyFeedHasItems = Boolean(
-      (Array.isArray(insiderFeedLive) && insiderFeedLive.length) ||
-        (Array.isArray(pharmaFeedLive) && pharmaFeedLive.length),
-    )
-    return anyFeedHasItems
-  }, [backendUp, insiderFeedLive, pharmaFeedLive])
+    return Boolean(backendUp)
+  }, [backendUp])
 
   // Insider cluster: case worksheet + context
   useEffect(() => {
