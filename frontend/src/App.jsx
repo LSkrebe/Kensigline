@@ -26,6 +26,8 @@ async function fetchJsonSafe(path, { timeoutMs = 4500 } = {}) {
   }
 }
 
+const EMPTY = '-'
+
 const MOCK_EVENTS = [
   {
     id: 'ONC-441-P2-READOUT',
@@ -368,7 +370,7 @@ function formatYyMmDd(d) {
 /** ISO or Date → numeric date (YY-MM-DD). */
 function formatFeedDate(at) {
   const d = at instanceof Date ? at : new Date(at)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return EMPTY
   return formatYyMmDd(d)
 }
 
@@ -429,7 +431,7 @@ function addDays(d, n) {
 
 function formatProgramTimelineDate(at) {
   const d = at instanceof Date ? at : new Date(at)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return EMPTY
   // Timeline should be explicit (no time-of-day).
   return formatYyMmDd(d)
 }
@@ -547,7 +549,7 @@ function formatUsdCompact(n) {
 /** Insider worksheet: `18 Apr` (same rhythm as feed date stamps, without year). */
 function insiderTxnDateShort(iso) {
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return '—'
+  if (Number.isNaN(d.getTime())) return EMPTY
   return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
 }
 
@@ -862,13 +864,13 @@ function KvLine({ className = '', children, ...rest }) {
 /** Strip role tags from the copy when the row label already states primary / secondary / …. */
 function endpointDisplayValue(raw, idx) {
   const s = String(raw ?? '').trim()
-  if (!s) return '—'
+  if (!s) return EMPTY
 
   let out = s
 
   if (idx === 0) {
     out = out.replace(/^\s*Primary\s*:\s*/i, '').trim()
-    return out || '—'
+    return out || EMPTY
   }
 
   out = out.replace(/^\s*Secondary\s*:\s*/i, '').trim()
@@ -879,7 +881,7 @@ function endpointDisplayValue(raw, idx) {
     out = out.replace(re, '').trim()
   }
 
-  return out || '—'
+  return out || EMPTY
 }
 
 /** Insider case worksheet: keys are document / transaction descriptors; Form 4 rows get "$ | day". */
@@ -888,7 +890,7 @@ function buildInsiderWorksheetRows(caseSheet) {
     return [
       <KvLine key="empty">
         <span className="kvK dim">Case</span>
-        <span className="kvV dim">No filing linked</span>
+        <span className="kvV dim">{EMPTY}</span>
       </KvLine>,
     ]
   }
@@ -945,7 +947,7 @@ function buildWorksheetRows(selected, hasSafety) {
     rows.push(
       <KvLine key="empty">
         <span className="kvK dim">Case</span>
-        <span className="kvV dim">—</span>
+        <span className="kvV dim">{EMPTY}</span>
       </KvLine>,
     )
     return rows
@@ -1284,7 +1286,7 @@ function describeTrialDosingPlain(drug, intervention, mech) {
 
 /** Three short sentences for the selected clinical program. */
 function buildPharmaContextSentences(ev) {
-  if (!ev) return ['Select a pharma row first.']
+  if (!ev) return [EMPTY]
   if (Array.isArray(ev.__context_sentences) && ev.__context_sentences.some(Boolean)) {
     return ev.__context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 3)
   }
@@ -1365,18 +1367,14 @@ function joinActorPhrases(names) {
 
 /** Three sentences summarizing the selected insider cluster (who, concentration, timing). */
 function buildInsiderContextSentences(row) {
-  if (!row?.caseSheet) {
-    return ['Select an insider row first.']
-  }
+  if (!row?.caseSheet) return [EMPTY]
   if (Array.isArray(row.__context_sentences) && row.__context_sentences.some(Boolean)) {
     return row.__context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 3)
   }
   const cs = row.caseSheet
   const rows = cs.rows ?? []
   const n = rows.length
-  if (n === 0) {
-    return ['No worksheet lines on this filing.', 'Pick another insider row.', '']
-  }
+  if (n === 0) return [EMPTY]
 
   const tsList = rows
     .map((r) => new Date(r.ts).getTime())
@@ -1526,7 +1524,7 @@ function ContextPanel({ mode, pharmaEvent, insiderRow, backendUp }) {
   const pharma = mode === 'pharma'
   const sentencesRaw = pharma ? buildPharmaContextSentences(pharmaEvent) : buildInsiderContextSentences(insiderRow)
   const sentences = backendUp ? (sentencesRaw?.filter((s) => String(s ?? '').trim()).slice(0, 3) ?? []) : sentencesRaw
-  const display = backendUp ? (sentences.length ? sentences : ['—']) : sentences
+  const display = backendUp ? (sentences.length ? sentences : [EMPTY]) : sentences
 
   return (
     <section className="panel contextPanel blankTile--b" aria-label="Context">
@@ -1551,7 +1549,7 @@ function CompanyPanel({ mode, company, backendUp }) {
   const earnings =
     c?.earnings_date && typeof c.earnings_date === 'string'
       ? c.earnings_date
-      : c?.earnings ?? '—'
+      : c?.earnings ?? EMPTY
 
   return (
     <section className="panel companyTile" aria-label="Company">
@@ -1561,15 +1559,15 @@ function CompanyPanel({ mode, company, backendUp }) {
       <div className="worksheetBody historicalOutcomesBody">
         <KvLine key="co-industry">
           <span className="kvK dim">INDUSTRY</span>
-          <span className="kvV">{c?.industry ?? '—'}</span>
+          <span className="kvV">{c?.industry ?? EMPTY}</span>
         </KvLine>
         <KvLine key="co-country">
           <span className="kvK dim">COUNTRY</span>
-          <span className="kvV">{c?.country ?? '—'}</span>
+          <span className="kvV">{c?.country ?? EMPTY}</span>
         </KvLine>
         <KvLine key="co-mcap">
           <span className="kvK dim">MCAP</span>
-          <span className="kvV mono">{c?.mcap ?? '—'}</span>
+          <span className="kvV mono">{c?.mcap ?? EMPTY}</span>
         </KvLine>
         <KvLine key="co-earnings">
           <span className="kvK dim">EARNINGS</span>
@@ -1579,11 +1577,11 @@ function CompanyPanel({ mode, company, backendUp }) {
           <>
             <KvLine key="co-programs">
               <span className="kvK dim">PROGRAMS</span>
-              <span className="kvV">{c?.pharmaPrograms ?? '—'}</span>
+              <span className="kvV">{c?.pharmaPrograms ?? EMPTY}</span>
             </KvLine>
             <KvLine key="co-lead">
               <span className="kvK dim">LEAD</span>
-              <span className="kvV">{c?.pharmaLead ?? '—'}</span>
+              <span className="kvV">{c?.pharmaLead ?? EMPTY}</span>
             </KvLine>
           </>
         ) : null}
