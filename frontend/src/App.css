@@ -8,11 +8,78 @@
   --cyan: rgba(90, 220, 255, 0.92);
   --warn: rgba(255, 212, 92, 0.95);
   --bad: rgba(255, 88, 108, 0.95);
+  --topbar-h: 26px;
+}
+
+.topTabsBar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--topbar-h);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  background: rgba(6, 7, 10, 0.96);
+  border-bottom: 1px solid var(--grid);
+  backdrop-filter: blur(6px);
+}
+
+.topTabsLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.topTab {
+  display: inline-flex;
+  align-items: center;
+  height: calc(var(--topbar-h) - 8px);
+  padding: 0 8px;
+  border: 1px solid rgba(140, 255, 195, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(216, 255, 235, 0.82);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  max-width: min(62vw, 520px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topTabsRight {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.sourceBadge {
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+.sourceBadge.isReal {
+  color: var(--hi);
+}
+.sourceBadge.isMock {
+  color: var(--warn);
 }
 
 .terminal {
-  height: 100dvh;
+  height: calc(100dvh - var(--topbar-h));
   width: 100vw;
+  margin-top: var(--topbar-h);
   background: var(--bg);
   color: var(--text);
   display: grid;

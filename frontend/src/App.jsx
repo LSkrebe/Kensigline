@@ -1996,6 +1996,18 @@ function App() {
     }
   }, [backendUp, focusFeed, insiderSelected, insiderClusterLive])
 
+  const viewLabel = useMemo(() => {
+    const base = focusFeed === 'insider' ? 'Insider terminal' : 'Pharma terminal'
+    return base
+  }, [focusFeed])
+
+  const isRealView = useMemo(() => {
+    if (!backendUp) return false
+    if (focusFeed === 'insider') return Boolean(insiderFeedLive && insiderFeedLive.length)
+    if (focusFeed === 'pharma') return Boolean(pharmaFeedLive && pharmaFeedLive.length)
+    return false
+  }, [backendUp, focusFeed, insiderFeedLive, pharmaFeedLive])
+
   // Insider cluster: case worksheet + context
   useEffect(() => {
     let alive = true
@@ -2200,7 +2212,20 @@ function App() {
   ])
 
   return (
-    <main className="terminal" aria-label="KENSIGLINE terminal grid">
+    <>
+      <header className="topTabsBar" aria-label="Views">
+        <div className="topTabsLeft">
+          <div className="topTab" aria-current="page">
+            {viewLabel}
+          </div>
+        </div>
+        <div className="topTabsRight">
+          <span className={`sourceBadge ${isRealView ? 'isReal' : 'isMock'}`}>
+            {isRealView ? 'REAL' : 'MOCK'}
+          </span>
+        </div>
+      </header>
+      <main className="terminal" aria-label="KENSIGLINE terminal grid">
       <CompactFeed
         placement="left"
         title="INSIDER FEED"
@@ -2285,7 +2310,8 @@ function App() {
       </section>
 
       <CompanyPanel mode={focusFeed} company={backendUp ? companyLive : null} />
-    </main>
+      </main>
+    </>
   )
 }
 
