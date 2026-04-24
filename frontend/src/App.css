@@ -76,6 +76,17 @@
   color: var(--warn);
 }
 
+.topStatChip {
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+.topStatChip.isUp {
+  color: var(--hi);
+}
+.topStatChip.isDown {
+  color: var(--bad);
+}
+
 .terminal {
   height: calc(100dvh - var(--topbar-h));
   width: 100vw;

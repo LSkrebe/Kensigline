@@ -1764,6 +1764,7 @@ function App() {
 
   const [backendUp, setBackendUp] = useState(false)
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
+  const [backendStats, setBackendStats] = useState(null)
 
   useEffect(() => {
     let alive = true
@@ -1793,6 +1794,22 @@ function App() {
     }, 1000)
     return () => clearInterval(t)
   }, [backendLastOkAt])
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!backendUp) return
+      const r = await fetchJsonSafe('/api/stats', { timeoutMs: 3500 })
+      if (!alive) return
+      if (r.ok && r.data?.ok) setBackendStats(r.data)
+    }
+    run()
+    const t = setInterval(run, 4000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [backendUp])
 
   const [insiderFeedLive, setInsiderFeedLive] = useState(null)
   const [insiderClusterLive, setInsiderClusterLive] = useState(null)
@@ -2253,8 +2270,13 @@ function App() {
           </div>
         </div>
         <div className="topTabsRight">
-          <span className={`sourceBadge ${isRealView ? 'isReal' : 'isMock'}`}>
-            {isRealView ? 'REAL' : 'MOCK'}
+          <span className={`topStatChip ${backendUp ? 'isUp' : 'isDown'}`}>{backendUp ? 'UP' : 'DOWN'}</span>
+          <span className="topStatChip mono">{backendUp ? `PING ${(Math.max(0, Date.now() - backendLastOkAt) / 1000).toFixed(0)}s` : 'PING -'}</span>
+          <span className="topStatChip mono">
+            Q {backendStats?.queue?.queued ?? 0}/{backendStats?.queue?.ready_to_parse ?? 0}/{backendStats?.queue?.parsing ?? 0}
+          </span>
+          <span className="topStatChip mono">
+            PARSED I {backendStats?.parsed?.insider?.count ?? 0} · P {backendStats?.parsed?.pharma?.count ?? 0}
           </span>
         </div>
       </header>
