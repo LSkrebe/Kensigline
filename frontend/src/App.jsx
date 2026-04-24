@@ -1142,6 +1142,23 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
       ? live ?? MOCK_HISTORICAL_INSIDER
       : live ?? MOCK_HISTORICAL_TRIALS
 
+  const emptyIfZero = (v) => {
+    if (v == null) return EMPTY
+    const s = String(v).trim()
+    if (!s) return EMPTY
+    if (s === '0' || s === '0.0' || s === '0%' || s === '0.00%') return EMPTY
+    return v
+  }
+
+  const sampleSizeNum = (() => {
+    if (!ins) return null
+    const raw = ins.sampleSize
+    const n = typeof raw === 'number' ? raw : Number(String(raw ?? '').replace(/[^\d.-]/g, ''))
+    return Number.isFinite(n) ? n : null
+  })()
+
+  const hasDataset = sampleSizeNum != null ? sampleSizeNum > 0 : Boolean(ins && ins.sampleSize)
+
   return (
     <section className="panel historicalOutcomes blankTile--a" aria-label="Historical outcomes">
       <header className="feedCompactHeader">
@@ -1164,19 +1181,19 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
             </KvLine>
             <KvLine key="ho-ins-n">
               <span className="kvK dim">Sample size</span>
-              <span className="kvV mono">{ins?.sampleSize ?? EMPTY}</span>
+              <span className="kvV mono">{hasDataset ? (ins?.sampleSize ?? EMPTY) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-role">
               <span className="kvK dim">Role</span>
-              <span className="kvV">{ins?.conditioningRole ?? EMPTY}</span>
+              <span className="kvV">{hasDataset ? (ins?.conditioningRole ?? EMPTY) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-txn">
               <span className="kvK dim">Transaction type</span>
-              <span className="kvV">{ins?.conditioningTxn ?? EMPTY}</span>
+              <span className="kvV">{hasDataset ? (ins?.conditioningTxn ?? EMPTY) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-pct">
               <span className="kvK dim">Size percentile</span>
-              <span className="kvV mono">{ins?.conditioningSizePct ?? EMPTY}</span>
+              <span className="kvV mono">{hasDataset ? (ins?.conditioningSizePct ?? EMPTY) : EMPTY}</span>
             </KvLine>
           </>
         ) : (
@@ -1199,15 +1216,15 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
             </KvLine>
             <KvLine key="ho-ph-n">
               <span className="kvK dim">Sample size</span>
-              <span className="kvV mono">{ins?.sampleSize ?? EMPTY}</span>
+              <span className="kvV mono">{hasDataset ? (ins?.sampleSize ?? EMPTY) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-ind">
               <span className="kvK dim">Indication</span>
-              <span className="kvV">{ins?.conditioningIndication ?? EMPTY}</span>
+              <span className="kvV">{hasDataset ? (ins?.conditioningIndication ?? EMPTY) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-co">
               <span className="kvK dim">Company size bucket</span>
-              <span className="kvV">{ins?.conditioningCoSize ?? EMPTY}</span>
+              <span className="kvV">{hasDataset ? (ins?.conditioningCoSize ?? EMPTY) : EMPTY}</span>
             </KvLine>
           </>
         )}
