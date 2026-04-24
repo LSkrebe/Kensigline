@@ -886,14 +886,7 @@ function endpointDisplayValue(raw, idx) {
 
 /** Insider case worksheet: keys are document / transaction descriptors; Form 4 rows get "$ | day". */
 function buildInsiderWorksheetRows(caseSheet) {
-  if (!caseSheet) {
-    return [
-      <KvLine key="empty">
-        <span className="kvK dim">Case</span>
-        <span className="kvV dim">{EMPTY}</span>
-      </KvLine>,
-    ]
-  }
+  if (!caseSheet) return []
 
   const rows = []
   rows.push(
@@ -943,15 +936,7 @@ function buildInsiderWorksheetRows(caseSheet) {
 
 function buildWorksheetRows(selected, hasSafety) {
   const rows = []
-  if (!selected) {
-    rows.push(
-      <KvLine key="empty">
-        <span className="kvK dim">Case</span>
-        <span className="kvV dim">{EMPTY}</span>
-      </KvLine>,
-    )
-    return rows
-  }
+  if (!selected) return []
 
   rows.push(
     <KvLine key="drug">
