@@ -3,6 +3,9 @@ import type http from "node:http";
 export function sendJson(res: http.ServerResponse, status: number, body: unknown) {
   const json = JSON.stringify(body);
   res.writeHead(status, {
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-headers": "content-type,authorization",
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
   });
