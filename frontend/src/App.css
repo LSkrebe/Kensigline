@@ -33,7 +33,7 @@
 .topTabsLeft {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
   min-width: 0;
 }
 
@@ -41,7 +41,7 @@
   display: inline-flex;
   align-items: center;
   height: calc(var(--topbar-h) - 8px);
-  padding: 0 2px;
+  padding: 0 10px;
   border: none;
   border-radius: 0;
   background: transparent;
@@ -53,6 +53,10 @@
   max-width: min(62vw, 520px);
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.topTab + .topTab {
+  border-left: 1px solid var(--grid);
 }
 
 .topTabsRight {
