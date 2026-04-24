@@ -941,6 +941,15 @@ function buildInsiderWorksheetRows(caseSheet) {
 
 function buildWorksheetRows(selected, hasSafety) {
   const rows = []
+  if (!selected) {
+    rows.push(
+      <KvLine key="empty">
+        <span className="kvK dim">Case</span>
+        <span className="kvV dim">—</span>
+      </KvLine>,
+    )
+    return rows
+  }
 
   rows.push(
     <KvLine key="drug">
@@ -1098,7 +1107,7 @@ function buildWorksheetRows(selected, hasSafety) {
   return rows
 }
 
-function HistoricalOutcomesPanel({ mode }) {
+function HistoricalOutcomesPanel({ mode, backendUp }) {
   const insider = mode === 'insider'
   const [live, setLive] = useState(null)
 
@@ -1125,7 +1134,11 @@ function HistoricalOutcomesPanel({ mode }) {
     }
   }, [insider])
 
-  const ins = insider ? live ?? MOCK_HISTORICAL_INSIDER : live ?? MOCK_HISTORICAL_TRIALS
+  const ins = backendUp
+    ? live
+    : insider
+      ? live ?? MOCK_HISTORICAL_INSIDER
+      : live ?? MOCK_HISTORICAL_TRIALS
 
   return (
     <section className="panel historicalOutcomes blankTile--a" aria-label="Historical outcomes">
@@ -1137,62 +1150,62 @@ function HistoricalOutcomesPanel({ mode }) {
           <>
             <KvLine key="ho-ins-avg">
               <span className="kvK dim">Avg ret (21d/63d/252d)</span>
-              <span className="kvV mono">{ins.avgReturn21d63d252d}</span>
+              <span className="kvV mono">{ins?.avgReturn21d63d252d ?? '—'}</span>
             </KvLine>
             <KvLine key="ho-ins-med">
               <span className="kvK dim">Median return</span>
-              <span className="kvV mono">{ins.medianReturn}</span>
+              <span className="kvV mono">{ins?.medianReturn ?? '—'}</span>
             </KvLine>
             <KvLine key="ho-ins-win">
               <span className="kvK dim">Win rate</span>
-              <span className="kvV mono">{ins.winRate}</span>
+              <span className="kvV mono">{ins?.winRate ?? '—'}</span>
             </KvLine>
             <KvLine key="ho-ins-n">
               <span className="kvK dim">Sample size</span>
-              <span className="kvV mono">{ins.sampleSize}</span>
+              <span className="kvV mono">{ins?.sampleSize ?? '—'}</span>
             </KvLine>
             <KvLine key="ho-ins-role">
               <span className="kvK dim">Role</span>
-              <span className="kvV">{ins.conditioningRole}</span>
+              <span className="kvV">{ins?.conditioningRole ?? '—'}</span>
             </KvLine>
             <KvLine key="ho-ins-txn">
               <span className="kvK dim">Transaction type</span>
-              <span className="kvV">{ins.conditioningTxn}</span>
+              <span className="kvV">{ins?.conditioningTxn ?? '—'}</span>
             </KvLine>
             <KvLine key="ho-ins-pct">
               <span className="kvK dim">Size percentile</span>
-              <span className="kvV mono">{ins.conditioningSizePct}</span>
+              <span className="kvV mono">{ins?.conditioningSizePct ?? '—'}</span>
             </KvLine>
           </>
         ) : (
           <>
             <KvLine key="ho-ph-p3">
               <span className="kvK dim">Phase 3 failure</span>
-              <span className="kvV mono">{ins.avgAfterPh3Failure}</span>
+              <span className="kvV mono">{ins?.avgAfterPh3Failure ?? '—'}</span>
             </KvLine>
             <KvLine key="ho-ph-p2">
               <span className="kvK dim">Phase 2 miss</span>
-              <span className="kvV mono">{ins.avgAfterPh2Miss}</span>
+              <span className="kvV mono">{ins?.avgAfterPh2Miss ?? '—'}</span>
             </KvLine>
             <KvLine key="ho-ph-med">
               <span className="kvK dim">Median return</span>
-              <span className="kvV mono">{ins.medianReturn}</span>
+              <span className="kvV mono">{ins?.medianReturn ?? '—'}</span>
             </KvLine>
             <KvLine key="ho-ph-drop">
               <span className="kvK dim">{'% large drops (>30%)'}</span>
-              <span className="kvV mono">{ins.pctLargeDropsOver30}</span>
+              <span className="kvV mono">{ins?.pctLargeDropsOver30 ?? '—'}</span>
             </KvLine>
             <KvLine key="ho-ph-n">
               <span className="kvK dim">Sample size</span>
-              <span className="kvV mono">{ins.sampleSize}</span>
+              <span className="kvV mono">{ins?.sampleSize ?? '—'}</span>
             </KvLine>
             <KvLine key="ho-ph-ind">
               <span className="kvK dim">Indication</span>
-              <span className="kvV">{ins.conditioningIndication}</span>
+              <span className="kvV">{ins?.conditioningIndication ?? '—'}</span>
             </KvLine>
             <KvLine key="ho-ph-co">
               <span className="kvK dim">Company size bucket</span>
-              <span className="kvV">{ins.conditioningCoSize}</span>
+              <span className="kvV">{ins?.conditioningCoSize ?? '—'}</span>
             </KvLine>
           </>
         )}
@@ -1509,9 +1522,11 @@ function buildInsiderContextSentences(row) {
   return [s1, s2, s3]
 }
 
-function ContextPanel({ mode, pharmaEvent, insiderRow }) {
+function ContextPanel({ mode, pharmaEvent, insiderRow, backendUp }) {
   const pharma = mode === 'pharma'
-  const sentences = pharma ? buildPharmaContextSentences(pharmaEvent) : buildInsiderContextSentences(insiderRow)
+  const sentencesRaw = pharma ? buildPharmaContextSentences(pharmaEvent) : buildInsiderContextSentences(insiderRow)
+  const sentences = backendUp ? (sentencesRaw?.filter((s) => String(s ?? '').trim()).slice(0, 3) ?? []) : sentencesRaw
+  const display = backendUp ? (sentences.length ? sentences : ['—']) : sentences
 
   return (
     <section className="panel contextPanel blankTile--b" aria-label="Context">
@@ -1519,7 +1534,7 @@ function ContextPanel({ mode, pharmaEvent, insiderRow }) {
         <div className="panelTitle feedCompactTitle">CONTEXT</div>
       </header>
       <div className="contextPanelBody">
-        {sentences.map((text, i) => (
+        {display.map((text, i) => (
           <p key={i} className="contextSentence">
             {text}
           </p>
@@ -1824,7 +1839,8 @@ function App() {
   }, [backendUp])
 
   const insiderFeedRows = backendUp && insiderFeedLive != null ? insiderFeedLive : INSIDER_FEED_ROWS
-  const insiderSelected = insiderFeedRows[clamp(insiderIdx, 0, insiderFeedRows.length - 1)]
+  const insiderSelected =
+    insiderFeedRows.length > 0 ? insiderFeedRows[clamp(insiderIdx, 0, Math.max(0, insiderFeedRows.length - 1))] : null
 
   useEffect(() => {
     let alive = true
@@ -1862,6 +1878,7 @@ function App() {
 
   const pharmaFeedEventId = useMemo(() => {
     const row = pharmaFeedRows[pharmaIdx]
+    if (backendUp) return row?.trialEventId ?? null
     const fallbackId = MOCK_EVENTS[pharmaIdx % MOCK_EVENTS.length]?.id
     return row?.trialEventId ?? fallbackId ?? MOCK_EVENTS[0]?.id
   }, [pharmaFeedRows, pharmaIdx])
@@ -1915,6 +1932,7 @@ function App() {
 
   const programFeedItems = useMemo(() => {
     if (backendUp && programFeedLive != null) return programFeedLive
+    if (backendUp) return []
     const ev = MOCK_EVENTS.find((e) => e.id === pharmaFeedEventId)
     return buildProgramFeedItemsForSponsor(ev?.sponsor ?? null)
   }, [backendUp, programFeedLive, pharmaFeedEventId])
@@ -1943,6 +1961,7 @@ function App() {
   }
 
   const pharmaSelected = useMemo(() => {
+    if (backendUp) return null
     const id =
       focusFeed === 'pharma' && programRailEventId != null
         ? programRailEventId
@@ -1957,6 +1976,8 @@ function App() {
   }, [feedPaneFocus, focusFeed, programRailEventId, pharmaFeedEventId, programRailMilestone])
 
   const pharmaSelectedResolved = useMemo(() => {
+    if (backendUp && focusFeed !== 'pharma') return null
+    if (backendUp && !pharmaEventLive) return null
     if (!pharmaEventLive || focusFeed !== 'pharma') return pharmaSelected
     const ws = pharmaEventLive?.worksheet ?? {}
     const snap = {
@@ -2142,9 +2163,11 @@ function App() {
       : buildWorksheetRows(pharmaSelectedResolved, hasSafety)
 
   const daily =
-    focusFeed === 'insider'
-      ? (barsLive ?? insiderSelectedResolved?.daily ?? [])
-      : pharmaSelectedResolved?.daily ?? []
+    backendUp
+      ? barsLive ?? []
+      : focusFeed === 'insider'
+        ? (barsLive ?? insiderSelectedResolved?.daily ?? [])
+        : pharmaSelectedResolved?.daily ?? []
 
   const dailyMin = daily.length ? Math.min(...daily) : 0
   const dailyMax = daily.length ? Math.max(...daily) : 0
@@ -2292,8 +2315,8 @@ function App() {
         <div className="worksheetBody">{worksheetRows}</div>
       </section>
 
-      <HistoricalOutcomesPanel mode={focusFeed} />
-      <ContextPanel mode={focusFeed} pharmaEvent={pharmaSelectedResolved} insiderRow={insiderSelected} />
+      <HistoricalOutcomesPanel mode={focusFeed} backendUp={backendUp} />
+      <ContextPanel mode={focusFeed} pharmaEvent={pharmaSelectedResolved} insiderRow={insiderSelectedResolved} backendUp={backendUp} />
 
       <section className="panel graph" aria-label="Daily graph">
         <header className="panelHeader">
