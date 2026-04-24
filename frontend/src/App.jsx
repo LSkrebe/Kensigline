@@ -2271,13 +2271,14 @@ function App() {
         </div>
         <div className="topTabsRight">
           <span className={`topStatChip ${backendUp ? 'isUp' : 'isDown'}`}>{backendUp ? 'UP' : 'DOWN'}</span>
-          <span className="topStatChip mono">{backendUp ? `PING ${(Math.max(0, Date.now() - backendLastOkAt) / 1000).toFixed(0)}s` : 'PING -'}</span>
           <span className="topStatChip mono">
-            Q {backendStats?.queue?.queued ?? 0}/{backendStats?.queue?.ready_to_parse ?? 0}/{backendStats?.queue?.parsing ?? 0}
+            {backendUp ? `${(Math.max(0, Date.now() - backendLastOkAt) / 1000).toFixed(0)}s` : '-'}
           </span>
-          <span className="topStatChip mono">
-            PARSED I {backendStats?.parsed?.insider?.count ?? 0} · P {backendStats?.parsed?.pharma?.count ?? 0}
-          </span>
+          <span className="topStatChip mono">Q{backendStats?.queue?.queued ?? 0}</span>
+          <span className="topStatChip mono">R{backendStats?.queue?.ready_to_parse ?? 0}</span>
+          <span className="topStatChip mono">P{backendStats?.queue?.parsing ?? 0}</span>
+          <span className="topStatChip mono">I{backendStats?.parsed?.insider?.count ?? 0}</span>
+          <span className="topStatChip mono">PH{backendStats?.parsed?.pharma?.count ?? 0}</span>
         </div>
       </header>
       <main className="terminal" aria-label="KENSIGLINE terminal grid">
