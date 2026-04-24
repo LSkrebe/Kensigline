@@ -1142,12 +1142,14 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
       ? live ?? MOCK_HISTORICAL_INSIDER
       : live ?? MOCK_HISTORICAL_TRIALS
 
-  const emptyIfZero = (v) => {
+  const norm = (v) => {
     if (v == null) return EMPTY
-    const s = String(v).trim()
+    let s = String(v)
+    // Avoid mixed dash glyphs in UI.
+    s = s.replace(/—/g, '-').trim()
     if (!s) return EMPTY
     if (s === '0' || s === '0.0' || s === '0%' || s === '0.00%') return EMPTY
-    return v
+    return s
   }
 
   const sampleSizeNum = (() => {
@@ -1169,15 +1171,15 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
           <>
             <KvLine key="ho-ins-avg">
               <span className="kvK dim">Avg ret (21d/63d/252d)</span>
-              <span className="kvV mono">{ins?.avgReturn21d63d252d ?? EMPTY}</span>
+              <span className="kvV mono">{hasDataset ? norm(ins?.avgReturn21d63d252d) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-med">
               <span className="kvK dim">Median return</span>
-              <span className="kvV mono">{ins?.medianReturn ?? EMPTY}</span>
+              <span className="kvV mono">{hasDataset ? norm(ins?.medianReturn) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-win">
               <span className="kvK dim">Win rate</span>
-              <span className="kvV mono">{ins?.winRate ?? EMPTY}</span>
+              <span className="kvV mono">{hasDataset ? norm(ins?.winRate) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-n">
               <span className="kvK dim">Sample size</span>
@@ -1185,34 +1187,34 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
             </KvLine>
             <KvLine key="ho-ins-role">
               <span className="kvK dim">Role</span>
-              <span className="kvV">{hasDataset ? (ins?.conditioningRole ?? EMPTY) : EMPTY}</span>
+              <span className="kvV">{hasDataset ? norm(ins?.conditioningRole) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-txn">
               <span className="kvK dim">Transaction type</span>
-              <span className="kvV">{hasDataset ? (ins?.conditioningTxn ?? EMPTY) : EMPTY}</span>
+              <span className="kvV">{hasDataset ? norm(ins?.conditioningTxn) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-pct">
               <span className="kvK dim">Size percentile</span>
-              <span className="kvV mono">{hasDataset ? (ins?.conditioningSizePct ?? EMPTY) : EMPTY}</span>
+              <span className="kvV mono">{hasDataset ? norm(ins?.conditioningSizePct) : EMPTY}</span>
             </KvLine>
           </>
         ) : (
           <>
             <KvLine key="ho-ph-p3">
               <span className="kvK dim">Phase 3 failure</span>
-              <span className="kvV mono">{ins?.avgAfterPh3Failure ?? EMPTY}</span>
+              <span className="kvV mono">{hasDataset ? norm(ins?.avgAfterPh3Failure) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-p2">
               <span className="kvK dim">Phase 2 miss</span>
-              <span className="kvV mono">{ins?.avgAfterPh2Miss ?? EMPTY}</span>
+              <span className="kvV mono">{hasDataset ? norm(ins?.avgAfterPh2Miss) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-med">
               <span className="kvK dim">Median return</span>
-              <span className="kvV mono">{ins?.medianReturn ?? EMPTY}</span>
+              <span className="kvV mono">{hasDataset ? norm(ins?.medianReturn) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-drop">
               <span className="kvK dim">{'% large drops (>30%)'}</span>
-              <span className="kvV mono">{ins?.pctLargeDropsOver30 ?? EMPTY}</span>
+              <span className="kvV mono">{hasDataset ? norm(ins?.pctLargeDropsOver30) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-n">
               <span className="kvK dim">Sample size</span>
@@ -1220,11 +1222,11 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
             </KvLine>
             <KvLine key="ho-ph-ind">
               <span className="kvK dim">Indication</span>
-              <span className="kvV">{hasDataset ? (ins?.conditioningIndication ?? EMPTY) : EMPTY}</span>
+              <span className="kvV">{hasDataset ? norm(ins?.conditioningIndication) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-co">
               <span className="kvK dim">Company size bucket</span>
-              <span className="kvV">{hasDataset ? (ins?.conditioningCoSize ?? EMPTY) : EMPTY}</span>
+              <span className="kvV">{hasDataset ? norm(ins?.conditioningCoSize) : EMPTY}</span>
             </KvLine>
           </>
         )}
