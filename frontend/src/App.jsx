@@ -1813,7 +1813,7 @@ function App() {
           }
         })
         .filter((x) => x.id && x.ticker && x.at)
-      if (r.ok) setInsiderFeedLive(mapped.length ? mapped : [])
+      if (r.ok) setInsiderFeedLive(mapped)
     }
     run()
     const t = setInterval(run, 20_000)
@@ -1823,7 +1823,7 @@ function App() {
     }
   }, [backendUp])
 
-  const insiderFeedRows = insiderFeedLive && insiderFeedLive.length ? insiderFeedLive : INSIDER_FEED_ROWS
+  const insiderFeedRows = backendUp && insiderFeedLive != null ? insiderFeedLive : INSIDER_FEED_ROWS
   const insiderSelected = insiderFeedRows[clamp(insiderIdx, 0, insiderFeedRows.length - 1)]
 
   useEffect(() => {
@@ -1844,7 +1844,7 @@ function App() {
             trialEventId: String(r.id),
           }))
           .filter((r) => r.id && r.ticker && r.at)
-        if (r.ok) setPharmaFeedLive(mapped.length ? mapped : null)
+        if (r.ok) setPharmaFeedLive(mapped)
       } catch {
         if (!alive) return
         // Keep last-good feed instead of flapping.
@@ -1858,7 +1858,7 @@ function App() {
     }
   }, [backendUp])
 
-  const pharmaFeedRows = backendUp && pharmaFeedLive ? pharmaFeedLive : PHARMA_FEED_ROWS
+  const pharmaFeedRows = backendUp && pharmaFeedLive != null ? pharmaFeedLive : PHARMA_FEED_ROWS
 
   const pharmaFeedEventId = useMemo(() => {
     const row = pharmaFeedRows[pharmaIdx]
@@ -1908,10 +1908,10 @@ function App() {
   }, [backendUp, pharmaTicker])
 
   const programFeedItems = useMemo(() => {
-    if (programFeedLive) return programFeedLive
+    if (backendUp && programFeedLive != null) return programFeedLive
     const ev = MOCK_EVENTS.find((e) => e.id === pharmaFeedEventId)
     return buildProgramFeedItemsForSponsor(ev?.sponsor ?? null)
-  }, [programFeedLive, pharmaFeedEventId])
+  }, [backendUp, programFeedLive, pharmaFeedEventId])
 
   useEffect(() => {
     // When sponsor context changes, reset rail selection.
@@ -2016,10 +2016,12 @@ function App() {
 
   const isRealView = useMemo(() => {
     if (!backendUp) return false
-    if (focusFeed === 'insider') return Boolean(insiderFeedLive && insiderFeedLive.length)
-    if (focusFeed === 'pharma') return Boolean(pharmaFeedLive && pharmaFeedLive.length)
-    return false
-  }, [backendUp, focusFeed, insiderFeedLive, pharmaFeedLive])
+    const anyFeedHasItems = Boolean(
+      (Array.isArray(insiderFeedLive) && insiderFeedLive.length) ||
+        (Array.isArray(pharmaFeedLive) && pharmaFeedLive.length),
+    )
+    return anyFeedHasItems
+  }, [backendUp, insiderFeedLive, pharmaFeedLive])
 
   // Insider cluster: case worksheet + context
   useEffect(() => {
