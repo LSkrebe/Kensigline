@@ -9,6 +9,16 @@ type EnqueueResult = {
   queue_ids: string[];
 };
 
+type EnqueueLatestFilingsResult = {
+  ticker: string;
+  cik: string;
+  forms: string[];
+  found: number;
+  enqueued: number;
+  skipped_existing: number;
+  queue_ids: string[];
+};
+
 type EnqueueGlobalResult = {
   days_back: number;
   found: number;
@@ -144,6 +154,18 @@ function accessionKeyFromArchivesIndexUrl(u: string) {
   return { accessionNoDash: m[1]!, accession: m[2]! };
 }
 
+function indexJsonFromArchivesIndexUrl(u: string) {
+  // https://www.sec.gov/Archives/edgar/data/<cik>/<accNoDash>/<acc>-index.htm
+  // -> https://www.sec.gov/Archives/edgar/data/<cik>/<accNoDash>/index.json
+  const m = String(u ?? "").match(
+    /^(?:https?:\/\/www\.sec\.gov)?\/Archives\/edgar\/data\/(\d+)\/(\d{10}\d{2}\d{6})\/\d{10}-\d{2}-\d{6}-index\.html?$/i,
+  );
+  if (!m) return null;
+  const cik = m[1]!;
+  const accNoDash = m[2]!;
+  return `https://www.sec.gov/Archives/edgar/data/${cik}/${accNoDash}/index.json`;
+}
+
 /**
  * Enqueue Form 4 filings from SEC "current filings" Atom feed.
  * This is much less bursty than crawling index.json at scale.
@@ -167,7 +189,7 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
     const entries = parseAtomEntries(atom);
     for (const it of entries) {
       found += 1;
-      const filingUrl = it.href;
+      const filingUrl = indexJsonFromArchivesIndexUrl(it.href) ?? it.href;
 
       // Hard dedupe: the SEC sometimes presents the same accession under different /data/<cik>/ paths.
       // We dedupe by accession folder + accession number when possible.
@@ -207,6 +229,88 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
         RETURNING id
         `,
         [filingUrl, "sec_form4"],
+      );
+      if (r?.id) {
+        queue_ids.push(r.id);
+        enqueued += 1;
+      }
+    }
+  }
+
+  return { pages, found, enqueued, skipped_existing, queue_ids };
+}
+
+/**
+ * Enqueue filings from SEC "current filings" Atom feed for a given form type.
+ * Example types: "8-K", "10-Q", "10-K", "4"
+ */
+export async function enqueueCurrentFilingFeed(opts: {
+  formType: string;
+  pages: number;
+  pageSize?: number;
+  sourceType: string;
+  priority?: number;
+}): Promise<EnqueueCurrentFeedResult> {
+  const pageSize = Number.isFinite(opts.pageSize) ? Math.max(20, Math.min(100, opts.pageSize!)) : 100;
+  const pages = Math.max(1, Math.min(20, opts.pages));
+  const formType = String(opts.formType ?? "").trim();
+  const sourceType = String(opts.sourceType ?? "").trim() || "sec_filing";
+  const priority = Number.isFinite(opts.priority) ? Math.max(0, Math.min(100, Number(opts.priority))) : 5;
+
+  if (!formType) throw new Error("form_type_required");
+
+  const queue_ids: string[] = [];
+  let found = 0;
+  let enqueued = 0;
+  let skipped_existing = 0;
+
+  for (let p = 0; p < pages; p++) {
+    const start = p * pageSize;
+    const url = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=${encodeURIComponent(
+      formType,
+    )}&count=${pageSize}&output=atom&start=${start}`;
+    const atom = await secFetchText(url);
+    const entries = parseAtomEntries(atom);
+    for (const it of entries) {
+      found += 1;
+      const filingUrl = indexJsonFromArchivesIndexUrl(it.href) ?? it.href;
+
+      const acc = accessionKeyFromArchivesIndexUrl(filingUrl);
+      const existing = acc
+        ? await db.one<{ id: string }>(
+            `
+            SELECT id FROM document_queue
+            WHERE url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
+               OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%'
+            UNION ALL
+            SELECT id FROM document_parsed
+            WHERE url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
+               OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%'
+            LIMIT 1
+            `,
+            [acc.accessionNoDash, acc.accession],
+          )
+        : await db.one<{ id: string }>(
+            `
+            SELECT id FROM document_queue WHERE url = $1
+            UNION ALL
+            SELECT id FROM document_parsed WHERE url = $1
+            LIMIT 1
+            `,
+            [filingUrl],
+          );
+      if (existing) {
+        skipped_existing += 1;
+        continue;
+      }
+
+      const r = await db.one<{ id: string }>(
+        `
+        INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)
+        VALUES ($1, $2, 'ready_to_parse', $3, 0, now())
+        RETURNING id
+        `,
+        [filingUrl, sourceType, priority],
       );
       if (r?.id) {
         queue_ids.push(r.id);
@@ -462,6 +566,111 @@ export async function enqueueLatestForm4ForTicker(opts: { ticker: string; limit?
   }
 
   return { ticker, cik, found, enqueued, skipped_existing, queue_ids };
+}
+
+/**
+ * Enqueue latest filings for a ticker (by form types) using submissions.
+ * Queue items are filing directory `index.json` URLs (stable + lets us resolve the primary doc).
+ */
+export async function enqueueLatestFilingsForTicker(opts: {
+  ticker: string;
+  forms: string[];
+  limit?: number;
+  sourceType?: string;
+}): Promise<EnqueueLatestFilingsResult> {
+  const ticker = normalizeTicker(opts.ticker);
+  const formsWanted = (opts.forms ?? []).map((s) => String(s).trim()).filter(Boolean);
+  const limit = Number.isFinite(opts.limit) ? Math.max(1, Math.min(100, opts.limit!)) : 25;
+  const sourceType = String(opts.sourceType ?? "sec_filing").trim() || "sec_filing";
+
+  const { cik, title } = await resolveCikForTicker(ticker);
+  let companyId: string | null = null;
+  if (title) {
+    const row = await db.one<{ id: string }>(
+      `
+      INSERT INTO companies (name, ticker, updated_at)
+      VALUES ($1, $2, now())
+      ON CONFLICT (name) DO UPDATE SET ticker = EXCLUDED.ticker, updated_at = now()
+      RETURNING id
+      `,
+      [title, ticker],
+    );
+    companyId = row?.id ?? null;
+  }
+  const subs = (await secFetchJson(`https://data.sec.gov/submissions/CIK${cik}.json`)) as Submissions;
+  const recent = subs.filings?.recent;
+  const forms = recent?.form ?? [];
+  const accs = recent?.accessionNumber ?? [];
+
+  const queue_ids: string[] = [];
+  let found = 0;
+  let enqueued = 0;
+  let skipped_existing = 0;
+
+  for (let i = 0; i < forms.length; i++) {
+    const f = String(forms[i] ?? "");
+    if (!formsWanted.includes(f)) continue;
+    const accession = accs[i];
+    if (!accession) continue;
+    found += 1;
+    if (found > limit) break;
+
+    const indexUrl = accessionToIndexJsonUrl(cik, accession);
+    const existing = await db.one<{ id: string }>(
+      `
+      SELECT id FROM document_queue WHERE url = $1
+      UNION ALL
+      SELECT id FROM document_parsed WHERE url = $1
+      LIMIT 1
+      `,
+      [indexUrl],
+    );
+    if (existing) {
+      skipped_existing += 1;
+      continue;
+    }
+
+    const r = await db.one<{ id: string }>(
+      `
+      INSERT INTO document_queue (url, source_type, company_id, status, priority, attempts, next_attempt_at)
+      VALUES ($1, $2, $3, 'ready_to_parse', 5, 0, now())
+      RETURNING id
+      `,
+      [indexUrl, sourceType, companyId],
+    );
+    if (r?.id) {
+      queue_ids.push(r.id);
+      enqueued += 1;
+    }
+  }
+
+  return { ticker, cik, forms: formsWanted, found, enqueued, skipped_existing, queue_ids };
+}
+
+export async function fetchFilingPrimaryText(indexJsonUrl: string): Promise<{ url: string; text: string }> {
+  if (!indexJsonUrl.endsWith("/index.json")) {
+    const txt = await secFetchText(indexJsonUrl);
+    return { url: indexJsonUrl, text: txt };
+  }
+
+  const idx = (await secFetchJson(indexJsonUrl)) as any;
+  const items: Array<{ name?: string; size?: number }> = idx?.directory?.item ?? [];
+  const rows = items
+    .map((it) => ({ name: String(it?.name ?? ""), size: Number(it?.size ?? 0) }))
+    .filter((it) => it.name);
+
+  // Prefer the main HTML/TXT filing doc; avoid the index page itself.
+  const candidates = rows
+    .filter((it) => !/-index\.html?$/i.test(it.name))
+    .filter((it) => /\.(html?|txt)$/i.test(it.name))
+    .sort((a, b) => (b.size || 0) - (a.size || 0));
+
+  const pick = candidates[0]?.name ?? rows.find((it) => /\.txt$/i.test(it.name))?.name ?? null;
+  if (!pick) throw new Error("filing_primary_doc_not_found_in_index");
+  const base = indexJsonUrl.replace(/\/index\.json$/, "");
+  const url = `${base}/${pick}`;
+  const text = await secFetchText(url);
+  return { url, text };
 }
 
 export async function fetchForm4Text(url: string): Promise<string> {

@@ -8,12 +8,14 @@ import { parseNextInsiderQueueItem } from "./lib/insider.js";
 import { startInsiderWorker } from "./lib/worker.js";
 import { getDailyCloseBars } from "./lib/bars.js";
 import { getCompanyPanelData } from "./lib/company.js";
-import { getLatestOutcomes, recomputeInsiderOutcomes } from "./lib/outcomes.js";
+import { getLatestOutcomes, recomputeInsiderOutcomes, recomputePharmaOutcomes } from "./lib/outcomes.js";
 import { startOutcomesWorker } from "./lib/outcomes-worker.js";
+import { startPharmaWorker } from "./lib/pharma-worker.js";
 
 const port = Number(process.env.PORT ?? "3001");
 const worker = startInsiderWorker();
 const outcomesWorker = startOutcomesWorker();
+const pharmaWorker = startPharmaWorker();
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -99,11 +101,11 @@ const server = http.createServer(async (req, res) => {
     if (route(req, url, "POST", "/api/outcomes/recompute")) {
       const body = await json(req);
       const mode = String(body?.mode ?? "insider").trim().toLowerCase();
-      if (mode !== "insider") {
+      if (mode !== "insider" && mode !== "pharma") {
         sendJson(res, 400, { ok: false, error: "mode_not_supported_yet" });
         return;
       }
-      const out = await recomputeInsiderOutcomes();
+      const out = mode === "pharma" ? await recomputePharmaOutcomes() : await recomputeInsiderOutcomes();
       sendJson(res, 200, out);
       return;
     }
@@ -374,6 +376,93 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ---- Pharma: feed ----
+    if (route(req, url, "GET", "/api/pharma/feed")) {
+      const limit = clampInt(url.searchParams.get("limit"), 1, 200, 60);
+      const days = clampInt(url.searchParams.get("days"), 1, 365, 30);
+      const rows = await db.query<{
+        id: string;
+        feed_at: string | null;
+        feed_label: string | null;
+        ticker: string | null;
+      }>(
+        `
+        SELECT id, feed_at, feed_label, ticker
+        FROM document_parsed
+        WHERE feed_kind = 'pharma'
+          AND feed_at IS NOT NULL
+          AND feed_at >= now() - ($2 || ' days')::interval
+        ORDER BY feed_at DESC NULLS LAST, parsed_at DESC
+        LIMIT $1
+        `,
+        [limit, String(days)],
+      );
+      sendJson(res, 200, { items: rows, days });
+      return;
+    }
+
+    // ---- Pharma: event ----
+    if (req.method === "GET" && url.pathname.startsWith("/api/pharma/event/")) {
+      const id = url.pathname.split("/").at(-1) ?? "";
+      const row = await db.one<{ id: string; data: unknown; schema_type: string; schema_version: string }>(
+        `
+        SELECT id, data, schema_type, schema_version
+        FROM document_parsed
+        WHERE id = $1 AND feed_kind='pharma'
+        LIMIT 1
+        `,
+        [id],
+      );
+      if (!row) {
+        notFound(res);
+        return;
+      }
+      sendJson(res, 200, row);
+      return;
+    }
+
+    // ---- Pharma: programs timeline ----
+    if (route(req, url, "GET", "/api/pharma/programs")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
+      const limit = clampInt(url.searchParams.get("limit"), 1, 5000, 2000);
+      const days = clampInt(url.searchParams.get("days"), 1, 3650, 365);
+      if (!ticker) {
+        sendJson(res, 400, { ok: false, error: "ticker_required" });
+        return;
+      }
+      const rows = await db.query<{
+        id: string;
+        feed_at: string | null;
+        feed_label: string | null;
+        program_drug: string | null;
+        program_indication: string | null;
+        program_phase: string | null;
+      }>(
+        `
+        SELECT id, feed_at, feed_label, program_drug, program_indication, program_phase
+        FROM document_parsed
+        WHERE feed_kind='pharma'
+          AND ticker = $1
+          AND feed_at IS NOT NULL
+          AND feed_at >= now() - ($3 || ' days')::interval
+        ORDER BY program_drug ASC NULLS LAST, feed_at ASC
+        LIMIT $2
+        `,
+        [ticker, limit, String(days)],
+      );
+      // Group by drug for the Programs rail.
+      const items = rows.map((r) => ({
+        id: r.id,
+        at: r.feed_at,
+        label: r.feed_label,
+        drug: r.program_drug,
+        indication: r.program_indication,
+        phase: r.program_phase,
+      }));
+      sendJson(res, 200, { ticker, items });
+      return;
+    }
+
     notFound(res);
   } catch (err) {
     console.error(err);
@@ -388,10 +477,12 @@ server.listen(port, () => {
 process.on("SIGINT", () => {
   worker.stop();
   outcomesWorker.stop();
+  pharmaWorker.stop();
   server.close(() => process.exit(0));
 });
 process.on("SIGTERM", () => {
   worker.stop();
   outcomesWorker.stop();
+  pharmaWorker.stop();
   server.close(() => process.exit(0));
 });

@@ -222,7 +222,7 @@ export async function recomputeInsiderOutcomes(opts?: { lookbackDays?: number; m
 
 export async function getLatestOutcomes(mode: string) {
   const m = String(mode ?? "").trim().toLowerCase();
-  if (m !== "insider") throw new Error("mode_not_supported_yet");
+  if (m !== "insider" && m !== "pharma") throw new Error("mode_not_supported_yet");
   const globalCompanyId = await getOrCreateGlobalCompanyId();
   const row = await db.one<{ as_of_date: string; data: any }>(
     `
@@ -235,5 +235,94 @@ export async function getLatestOutcomes(mode: string) {
     [globalCompanyId, m],
   );
   return row ?? null;
+}
+
+export async function recomputePharmaOutcomes(opts?: { lookbackDays?: number; maxTickers?: number }) {
+  const lookbackDays = clampInt(opts?.lookbackDays, 30, 730, 365);
+  const maxTickers = clampInt(opts?.maxTickers, 10, 5000, 500);
+  const asOf = isoDayUTC(new Date());
+
+  const events = await db.query<{ ticker: string; day: string; program_phase: string | null; data: any }>(
+    `
+    SELECT ticker,
+           date_trunc('day', feed_at)::date::text as day,
+           program_phase,
+           data
+    FROM document_parsed
+    WHERE feed_kind='pharma'
+      AND ticker IS NOT NULL
+      AND feed_at IS NOT NULL
+      AND feed_at >= now() - ($1 || ' days')::interval
+    ORDER BY feed_at DESC
+    LIMIT 5000
+    `,
+    [String(lookbackDays)],
+  );
+
+  const byTicker = new Map<string, Array<{ day: string; phase: string | null; eventType: string }>>();
+  for (const e of events) {
+    const t = String(e.ticker ?? "").trim().toUpperCase();
+    if (!t) continue;
+    const eventType = String(e.data?.event_type ?? e.data?.eventType ?? "").trim().toUpperCase();
+    const phase = e.program_phase ? String(e.program_phase) : null;
+    const day = String(e.day ?? "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    const arr = byTicker.get(t) ?? [];
+    arr.push({ day, phase, eventType });
+    byTicker.set(t, arr);
+  }
+
+  const ph2: number[] = [];
+  const ph3: number[] = [];
+  const all21: number[] = [];
+
+  for (const [ticker, evs] of byTicker.entries()) {
+    const days = evs.map((e) => e.day);
+    await ensureBarsForEventWindows(ticker, days, 63);
+    const bars = await loadBarsMap(ticker);
+    if (bars.days.length < 80) continue;
+
+    for (const ev of evs) {
+      const baseIdx = nextTradingIndex(bars.days, ev.day);
+      if (baseIdx < 0) continue;
+      const r21 = computeForwardReturn(bars.closes, baseIdx, 21);
+      if (r21 == null) continue;
+      all21.push(r21);
+      const p = String(ev.phase ?? "").toUpperCase();
+      const isResult = ev.eventType === "RESULT" || ev.eventType === "READOUT" || ev.eventType === "ENDPOINT MISS";
+      if (isResult && p.includes("III")) ph3.push(r21);
+      if (isResult && (p.includes("II") || p.includes("I/II") || p.includes("II/III"))) ph2.push(r21);
+    }
+  }
+
+  const avgPh3 = mean(ph3);
+  const avgPh2 = mean(ph2);
+  const med = median(all21);
+  const largeDrops = all21.length ? all21.filter((x) => x <= -0.3).length / all21.length : null;
+
+  const data = {
+    mode: "pharma",
+    as_of_date: asOf,
+    avgAfterPh3Failure: fmtRet(avgPh3),
+    avgAfterPh2Miss: fmtRet(avgPh2),
+    medianReturn: fmtRet(med),
+    pctLargeDropsOver30: largeDrops == null ? "—" : pct(largeDrops),
+    sampleSize: String(all21.length),
+    conditioningIndication: "—",
+    conditioningCoSize: "—",
+  };
+
+  const globalCompanyId = await getOrCreateGlobalCompanyId();
+  await db.query(
+    `
+    INSERT INTO outcomes (company_id, mode, as_of_date, data)
+    VALUES ($1, $2, $3::date, $4::jsonb)
+    ON CONFLICT (company_id, mode, as_of_date)
+    DO UPDATE SET data = EXCLUDED.data, created_at = now()
+    `,
+    [globalCompanyId, "pharma", asOf, data],
+  );
+
+  return { ok: true, as_of_date: asOf, samples: all21.length };
 }
 

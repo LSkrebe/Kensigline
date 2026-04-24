@@ -1,4 +1,4 @@
-import { recomputeInsiderOutcomes } from "./outcomes.js";
+import { recomputeInsiderOutcomes, recomputePharmaOutcomes } from "./outcomes.js";
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -16,6 +16,7 @@ export function startOutcomesWorker() {
         running = true;
         try {
           await recomputeInsiderOutcomes();
+          await recomputePharmaOutcomes();
         } catch (e) {
           // Keep the worker alive; outcomes are best-effort.
           console.error("[outcomes-worker]", e);

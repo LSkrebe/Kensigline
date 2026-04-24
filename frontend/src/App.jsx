@@ -5,6 +5,27 @@ function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n))
 }
 
+function getBackendBase() {
+  const fromEnv = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_BACKEND_URL : null
+  return String(fromEnv || 'http://localhost:3001').replace(/\/$/, '')
+}
+
+async function fetchJsonSafe(path, { timeoutMs = 4500 } = {}) {
+  const base = getBackendBase()
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(`${base}${path}`, { signal: ctrl.signal })
+    if (!res.ok) return { ok: false, status: res.status, data: null }
+    const data = await res.json()
+    return { ok: true, status: res.status, data }
+  } catch {
+    return { ok: false, status: 0, data: null }
+  } finally {
+    clearTimeout(t)
+  }
+}
+
 const MOCK_EVENTS = [
   {
     id: 'ONC-441-P2-READOUT',
@@ -1084,13 +1105,10 @@ function HistoricalOutcomesPanel({ mode }) {
   useEffect(() => {
     let alive = true
     async function run() {
-      if (!insider) {
-        if (alive) setLive(null)
-        return
-      }
       try {
-        const res = await fetch('http://localhost:3001/api/outcomes?mode=insider')
-        const json = await res.json()
+        const m = insider ? 'insider' : 'pharma'
+        const r = await fetchJsonSafe(`/api/outcomes?mode=${encodeURIComponent(m)}`, { timeoutMs: 2500 })
+        const json = r.data
         const data = json?.data ?? null
         if (!alive) return
         setLive(data && typeof data === 'object' ? data : null)
@@ -1107,7 +1125,7 @@ function HistoricalOutcomesPanel({ mode }) {
     }
   }, [insider])
 
-  const ins = live ?? MOCK_HISTORICAL_INSIDER
+  const ins = insider ? live ?? MOCK_HISTORICAL_INSIDER : live ?? MOCK_HISTORICAL_TRIALS
 
   return (
     <section className="panel historicalOutcomes blankTile--a" aria-label="Historical outcomes">
@@ -1150,31 +1168,31 @@ function HistoricalOutcomesPanel({ mode }) {
           <>
             <KvLine key="ho-ph-p3">
               <span className="kvK dim">Phase 3 failure</span>
-              <span className="kvV mono">{MOCK_HISTORICAL_TRIALS.avgAfterPh3Failure}</span>
+              <span className="kvV mono">{ins.avgAfterPh3Failure}</span>
             </KvLine>
             <KvLine key="ho-ph-p2">
               <span className="kvK dim">Phase 2 miss</span>
-              <span className="kvV mono">{MOCK_HISTORICAL_TRIALS.avgAfterPh2Miss}</span>
+              <span className="kvV mono">{ins.avgAfterPh2Miss}</span>
             </KvLine>
             <KvLine key="ho-ph-med">
               <span className="kvK dim">Median return</span>
-              <span className="kvV mono">{MOCK_HISTORICAL_TRIALS.medianReturn}</span>
+              <span className="kvV mono">{ins.medianReturn}</span>
             </KvLine>
             <KvLine key="ho-ph-drop">
               <span className="kvK dim">{'% large drops (>30%)'}</span>
-              <span className="kvV mono">{MOCK_HISTORICAL_TRIALS.pctLargeDropsOver30}</span>
+              <span className="kvV mono">{ins.pctLargeDropsOver30}</span>
             </KvLine>
             <KvLine key="ho-ph-n">
               <span className="kvK dim">Sample size</span>
-              <span className="kvV mono">{MOCK_HISTORICAL_TRIALS.sampleSize}</span>
+              <span className="kvV mono">{ins.sampleSize}</span>
             </KvLine>
             <KvLine key="ho-ph-ind">
               <span className="kvK dim">Indication</span>
-              <span className="kvV">{MOCK_HISTORICAL_TRIALS.conditioningIndication}</span>
+              <span className="kvV">{ins.conditioningIndication}</span>
             </KvLine>
             <KvLine key="ho-ph-co">
               <span className="kvK dim">Company size bucket</span>
-              <span className="kvV">{MOCK_HISTORICAL_TRIALS.conditioningCoSize}</span>
+              <span className="kvV">{ins.conditioningCoSize}</span>
             </KvLine>
           </>
         )}
@@ -1254,6 +1272,9 @@ function describeTrialDosingPlain(drug, intervention, mech) {
 /** Three short sentences for the selected clinical program. */
 function buildPharmaContextSentences(ev) {
   if (!ev) return ['Select a pharma row first.']
+  if (Array.isArray(ev.__context_sentences) && ev.__context_sentences.some(Boolean)) {
+    return ev.__context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 3)
+  }
   const snap = ev.trialSnapshot ?? {}
   const drug = snap.drug ?? ev.drug ?? 'This drug'
   const ind = ev.population?.condition ?? snap.indication ?? ev.indication ?? 'this indication'
@@ -1333,6 +1354,9 @@ function joinActorPhrases(names) {
 function buildInsiderContextSentences(row) {
   if (!row?.caseSheet) {
     return ['Select an insider row first.']
+  }
+  if (Array.isArray(row.__context_sentences) && row.__context_sentences.some(Boolean)) {
+    return row.__context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 3)
   }
   const cs = row.caseSheet
   const rows = cs.rows ?? []
@@ -1505,9 +1529,14 @@ function ContextPanel({ mode, pharmaEvent, insiderRow }) {
   )
 }
 
-function CompanyPanel({ mode }) {
-  const c = MOCK_COMPANY
+function CompanyPanel({ mode, company }) {
+  const c = company ?? MOCK_COMPANY
   const pharma = mode === 'pharma'
+
+  const earnings =
+    c?.earnings_date && typeof c.earnings_date === 'string'
+      ? c.earnings_date
+      : c?.earnings ?? '—'
 
   return (
     <section className="panel companyTile" aria-label="Company">
@@ -1517,29 +1546,29 @@ function CompanyPanel({ mode }) {
       <div className="worksheetBody historicalOutcomesBody">
         <KvLine key="co-industry">
           <span className="kvK dim">INDUSTRY</span>
-          <span className="kvV">{c.industry}</span>
+          <span className="kvV">{c?.industry ?? '—'}</span>
         </KvLine>
         <KvLine key="co-country">
           <span className="kvK dim">COUNTRY</span>
-          <span className="kvV">{c.country}</span>
+          <span className="kvV">{c?.country ?? '—'}</span>
         </KvLine>
         <KvLine key="co-mcap">
           <span className="kvK dim">MCAP</span>
-          <span className="kvV mono">{c.mcap}</span>
+          <span className="kvV mono">{c?.mcap ?? '—'}</span>
         </KvLine>
         <KvLine key="co-earnings">
           <span className="kvK dim">EARNINGS</span>
-          <span className="kvV">{c.earnings}</span>
+          <span className="kvV">{earnings}</span>
         </KvLine>
         {pharma ? (
           <>
             <KvLine key="co-programs">
               <span className="kvK dim">PROGRAMS</span>
-              <span className="kvV">{c.pharmaPrograms}</span>
+              <span className="kvV">{c?.pharmaPrograms ?? '—'}</span>
             </KvLine>
             <KvLine key="co-lead">
               <span className="kvK dim">LEAD</span>
-              <span className="kvV">{c.pharmaLead}</span>
+              <span className="kvV">{c?.pharmaLead ?? '—'}</span>
             </KvLine>
           </>
         ) : null}
@@ -1716,30 +1745,167 @@ function App() {
   const [programRailIdx, setProgramRailIdx] = useState(0)
   const [programRailMilestone, setProgramRailMilestone] = useState(null)
 
-  const insiderSelected = INSIDER_FEED_ROWS[insiderIdx]
+  const [backendUp, setBackendUp] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    async function ping() {
+      const r = await fetchJsonSafe('/health', { timeoutMs: 1200 })
+      if (!alive) return
+      setBackendUp(Boolean(r.ok && r.data?.ok))
+    }
+    ping()
+    const t = setInterval(ping, 4000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [])
+
+  const [insiderFeedLive, setInsiderFeedLive] = useState(null)
+  const [insiderClusterLive, setInsiderClusterLive] = useState(null)
+  const [barsLive, setBarsLive] = useState(null)
+  const [companyLive, setCompanyLive] = useState(null)
+
+  const [pharmaFeedLive, setPharmaFeedLive] = useState(null)
+  const [pharmaEventLive, setPharmaEventLive] = useState(null)
+  const [programFeedLive, setProgramFeedLive] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!backendUp) {
+        if (alive) setInsiderFeedLive(null)
+        return
+      }
+      const r = await fetchJsonSafe('/api/insider/feed?mode=company&limit=120&days=30')
+      if (!alive) return
+      const items = Array.isArray(r.data?.items) ? r.data.items : []
+      const mapped = items
+        .map((it) => {
+          const ticker = String(it.ticker ?? '').trim().toUpperCase()
+          const at = String(it.feed_at ?? '')
+          const id = String(it.id ?? '')
+          const raw = String(it.feed_label ?? '')
+          const m = raw.match(/^\s*([^()]+?)\s*\(\s*(\d+)\s*\)\s*$/)
+          const label = (m ? m[1] : raw).trim() || '—'
+          const count = m ? Number(m[2]) : null
+          return {
+            id,
+            label,
+            count,
+            ticker,
+            at,
+            daily: [],
+            __backend_id: id,
+          }
+        })
+        .filter((x) => x.id && x.ticker && x.at)
+      setInsiderFeedLive(mapped.length ? mapped : [])
+    }
+    run()
+    const t = setInterval(run, 20_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [backendUp])
+
+  const insiderFeedRows = insiderFeedLive && insiderFeedLive.length ? insiderFeedLive : INSIDER_FEED_ROWS
+  const insiderSelected = insiderFeedRows[clamp(insiderIdx, 0, insiderFeedRows.length - 1)]
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      try {
+        const res = await fetch(`${getBackendBase()}/api/pharma/feed?limit=120&days=180`)
+        const json = await res.json()
+        const items = Array.isArray(json?.items) ? json.items : []
+        if (!alive) return
+        const mapped = items
+          .map((r) => ({
+            id: String(r.id),
+            label: String(r.feed_label ?? 'Pharma update'),
+            ticker: String(r.ticker ?? '').toUpperCase(),
+            at: String(r.feed_at ?? ''),
+            trialEventId: String(r.id),
+          }))
+          .filter((r) => r.id && r.ticker && r.at)
+        setPharmaFeedLive(mapped.length ? mapped : null)
+      } catch {
+        if (!alive) return
+        setPharmaFeedLive(null)
+      }
+    }
+    run()
+    const t = setInterval(run, 60_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [])
+
+  const pharmaFeedRows = backendUp && pharmaFeedLive ? pharmaFeedLive : PHARMA_FEED_ROWS
 
   const pharmaFeedEventId = useMemo(() => {
-    const row = PHARMA_FEED_ROWS[pharmaIdx]
+    const row = pharmaFeedRows[pharmaIdx]
     const fallbackId = MOCK_EVENTS[pharmaIdx % MOCK_EVENTS.length]?.id
     return row?.trialEventId ?? fallbackId ?? MOCK_EVENTS[0]?.id
-  }, [pharmaIdx])
+  }, [pharmaFeedRows, pharmaIdx])
 
-  const sponsorFromPharmaFeed = useMemo(() => {
+  const pharmaTicker = useMemo(() => {
+    const row = pharmaFeedRows[pharmaIdx]
+    return row?.ticker ? String(row.ticker).toUpperCase() : null
+  }, [pharmaFeedRows, pharmaIdx])
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!backendUp || !pharmaTicker) {
+        if (alive) setProgramFeedLive(null)
+        return
+      }
+      try {
+        const res = await fetch(`${getBackendBase()}/api/pharma/programs?ticker=${encodeURIComponent(pharmaTicker)}&days=3650`)
+        const json = await res.json()
+        const items = Array.isArray(json?.items) ? json.items : []
+        if (!alive) return
+        const mapped = items
+          .map((r) => ({
+            id: String(r.id),
+            group: String(r.drug ?? '').trim() || null,
+            label: String(r.label ?? 'Update'),
+            at: String(r.at ?? ''),
+            ticker: '',
+            trialEventId: String(r.id),
+            milestoneLabel: String(r.label ?? 'Update'),
+            milestoneAt: String(r.at ?? ''),
+          }))
+          .filter((r) => r.id && r.at)
+        setProgramFeedLive(mapped.length ? mapped : null)
+      } catch {
+        if (!alive) return
+        setProgramFeedLive(null)
+      }
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, pharmaTicker])
+
+  const programFeedItems = useMemo(() => {
+    if (programFeedLive) return programFeedLive
     const ev = MOCK_EVENTS.find((e) => e.id === pharmaFeedEventId)
-    return ev?.sponsor ?? null
-  }, [pharmaFeedEventId])
-
-  const programFeedItems = useMemo(
-    () => buildProgramFeedItemsForSponsor(sponsorFromPharmaFeed),
-    [sponsorFromPharmaFeed],
-  )
+    return buildProgramFeedItemsForSponsor(ev?.sponsor ?? null)
+  }, [programFeedLive, pharmaFeedEventId])
 
   useEffect(() => {
     // When sponsor context changes, reset rail selection.
     setProgramRailIdx(0)
     setProgramRailMilestone(null)
     setProgramRailEventId(null)
-  }, [sponsorFromPharmaFeed])
+  }, [pharmaTicker])
 
   function synthesizeEventForMilestone(base, milestone) {
     if (!base || !milestone) return base
@@ -1771,6 +1937,164 @@ function App() {
     return base
   }, [feedPaneFocus, focusFeed, programRailEventId, pharmaFeedEventId, programRailMilestone])
 
+  const pharmaSelectedResolved = useMemo(() => {
+    if (!pharmaEventLive || focusFeed !== 'pharma') return pharmaSelected
+    const ws = pharmaEventLive?.worksheet ?? {}
+    const snap = {
+      drug: ws.drug ?? pharmaEventLive?.drug ?? null,
+      mechanism: ws.mechanism ?? null,
+      phase: ws.phase ?? pharmaEventLive?.phase ?? null,
+      indication: ws.indication ?? pharmaEventLive?.indication ?? null,
+      sponsor: ws.sponsor ?? pharmaEventLive?.company_name ?? null,
+      intervention: ws.intervention ?? null,
+      assetOrigin: ws.origin ?? null,
+    }
+    return {
+      id: pharmaFeedEventId,
+      ts: pharmaEventLive?.event_at ?? pharmaEventLive?.eventAt ?? pharmaEventLive?.event_at ?? new Date().toISOString(),
+      eventType: pharmaEventLive?.event_type ?? pharmaEventLive?.eventType ?? 'UPDATE',
+      trialSnapshot: snap,
+      timelineDetails: {
+        status: ws.status ?? null,
+        studyStart: ws.study_start ?? null,
+        primaryCompletion: ws.primary_completion ?? null,
+        studyCompletion: ws.study_completion ?? null,
+        eventSource: ws.source ?? 'SEC filing',
+        eventSubtype: ws.detail ?? pharmaEventLive?.feed_label ?? 'Update',
+      },
+      endpointsResults: {
+        endpoints: Array.isArray(ws.endpoints) ? ws.endpoints : [],
+        results: Array.isArray(ws.results) ? ws.results : [],
+      },
+      safety: Array.isArray(ws.safety) ? ws.safety : [],
+      __context_sentences: Array.isArray(pharmaEventLive?.context_sentences) ? pharmaEventLive.context_sentences : null,
+      daily: pharmaSelected?.daily ?? [],
+    }
+  }, [pharmaEventLive, focusFeed, pharmaSelected, pharmaFeedEventId])
+
+  const insiderSelectedResolved = useMemo(() => {
+    if (!backendUp || focusFeed !== 'insider' || !insiderClusterLive) return insiderSelected
+    const rows = insiderClusterLive?.cluster?.worksheet_rows
+    const wsRows = Array.isArray(rows) ? rows : []
+    const caseSheet = {
+      filingId: insiderClusterLive?.filing?.accession_no ?? insiderSelected?.id ?? insiderSelected?.ticker ?? '—',
+      formType: insiderClusterLive?.filing?.form_type ?? 'Form 4',
+      issuer: insiderClusterLive?.issuer?.name ?? insiderSelected?.ticker ?? '—',
+      ticker: insiderClusterLive?.issuer?.ticker ?? insiderSelected?.ticker ?? '—',
+      isForm4: true,
+      filedAt: insiderClusterLive?.filing?.filed_at ?? insiderSelected?.at ?? null,
+      rows: wsRows.map((r) => ({
+        key: String(r?.key ?? '').trim() || 'Insider',
+        amountUsd: r?.amount_usd != null ? Number(r.amount_usd) : null,
+        ts: r?.ts != null ? String(r.ts) : null,
+      })),
+    }
+    return {
+      ...insiderSelected,
+      caseSheet,
+      __context_sentences: insiderClusterLive?.cluster?.context_sentences ?? null,
+    }
+  }, [backendUp, focusFeed, insiderSelected, insiderClusterLive])
+
+  // Insider cluster: case worksheet + context
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!backendUp || focusFeed !== 'insider') {
+        if (alive) setInsiderClusterLive(null)
+        return
+      }
+      const id = insiderSelected?.__backend_id ?? null
+      const ticker = insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
+      const useId = id || (ticker ? `company:${ticker}` : null)
+      if (!useId) {
+        if (alive) setInsiderClusterLive(null)
+        return
+      }
+      const r = await fetchJsonSafe(`/api/insider/cluster/${encodeURIComponent(useId)}?days=30`)
+      if (!alive) return
+      const data = r.ok ? r.data?.data ?? null : null
+      setInsiderClusterLive(data && typeof data === 'object' ? data : null)
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, focusFeed, insiderSelected?.ticker, insiderSelected?.__backend_id])
+
+  // Bars (Daily Graph) + Company panel: use selected ticker in either mode
+  const selectedTicker = useMemo(() => {
+    if (focusFeed === 'insider') return insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
+    return pharmaTicker ? String(pharmaTicker).toUpperCase() : null
+  }, [focusFeed, insiderSelected?.ticker, pharmaTicker])
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!backendUp || !selectedTicker) {
+        if (alive) setBarsLive(null)
+        return
+      }
+      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(selectedTicker)}&days=365`, { timeoutMs: 6000 })
+      if (!alive) return
+      const closes = Array.isArray(r.data?.items)
+        ? r.data.items.map((x) => Number(x?.close)).filter((n) => Number.isFinite(n))
+        : []
+      setBarsLive(closes.length ? closes : null)
+    }
+    run()
+    const t = setInterval(run, 60_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [backendUp, selectedTicker])
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!backendUp || !selectedTicker) {
+        if (alive) setCompanyLive(null)
+        return
+      }
+      const r = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(selectedTicker)}`, { timeoutMs: 6000 })
+      if (!alive) return
+      setCompanyLive(r.ok ? r.data : null)
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, selectedTicker])
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (focusFeed !== 'pharma') {
+        if (alive) setPharmaEventLive(null)
+        return
+      }
+      const id = pharmaFeedEventId
+      if (!backendUp || !id || !pharmaFeedLive) {
+        if (alive) setPharmaEventLive(null)
+        return
+      }
+      try {
+        const res = await fetch(`${getBackendBase()}/api/pharma/event/${encodeURIComponent(id)}`)
+        const json = await res.json()
+        if (!alive) return
+        setPharmaEventLive(json?.data ?? null)
+      } catch {
+        if (!alive) return
+        setPharmaEventLive(null)
+      }
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, focusFeed, pharmaFeedEventId, pharmaFeedLive])
+
   const programSelectedIdx = useMemo(() => {
     if (focusFeed !== 'pharma' || programFeedItems.length === 0) return 0
     return clamp(programRailIdx, 0, programFeedItems.length - 1)
@@ -1790,17 +2114,17 @@ function App() {
   }, [focusFeed])
 
   const hasSafety =
-    Array.isArray(pharmaSelected?.safety) && pharmaSelected.safety.length > 0
+    Array.isArray(pharmaSelectedResolved?.safety) && pharmaSelectedResolved.safety.length > 0
 
   const worksheetRows =
     focusFeed === 'insider'
-      ? buildInsiderWorksheetRows(insiderSelected?.caseSheet)
-      : buildWorksheetRows(pharmaSelected, hasSafety)
+      ? buildInsiderWorksheetRows(insiderSelectedResolved?.caseSheet)
+      : buildWorksheetRows(pharmaSelectedResolved, hasSafety)
 
   const daily =
     focusFeed === 'insider'
-      ? insiderSelected?.daily ?? []
-      : pharmaSelected?.daily ?? []
+      ? (barsLive ?? insiderSelectedResolved?.daily ?? [])
+      : pharmaSelectedResolved?.daily ?? []
 
   const dailyMin = daily.length ? Math.min(...daily) : 0
   const dailyMax = daily.length ? Math.max(...daily) : 0
@@ -1808,8 +2132,8 @@ function App() {
 
   const worksheetMetaId =
     focusFeed === 'insider'
-      ? insiderSelected?.caseSheet?.issuer ?? insiderSelected?.id ?? '—'
-      : pharmaSelected?.id ?? '—'
+      ? insiderSelectedResolved?.caseSheet?.issuer ?? insiderSelectedResolved?.id ?? '—'
+      : pharmaSelectedResolved?.id ?? '—'
 
   /* Inner padding inside SVG viewBox (stroke clearance); outer gutter is CSS .graphWrap */
   const plotInset = { left: 8, right: 8, top: 8, bottom: 8 }
@@ -1848,9 +2172,9 @@ function App() {
         return
       }
       if (feedPaneFocus === 'insider') {
-        setInsiderIdx((i) => clamp(i + (down ? 1 : -1), 0, INSIDER_FEED_ROWS.length - 1))
+        setInsiderIdx((i) => clamp(i + (down ? 1 : -1), 0, insiderFeedRows.length - 1))
       } else if (feedPaneFocus === 'pharma') {
-        setPharmaIdx((i) => clamp(i + (down ? 1 : -1), 0, PHARMA_FEED_ROWS.length - 1))
+        setPharmaIdx((i) => clamp(i + (down ? 1 : -1), 0, pharmaFeedRows.length - 1))
       } else if (feedPaneFocus === 'programs' && focusFeed === 'pharma') {
         const items = programFeedItems
         if (items.length === 0) return
@@ -1880,7 +2204,7 @@ function App() {
       <CompactFeed
         placement="left"
         title="INSIDER FEED"
-        items={INSIDER_FEED_ROWS}
+        items={insiderFeedRows}
         selectedIndex={insiderIdx}
         focused={feedPaneFocus === 'insider'}
         onSelectIndex={(idx) => {
@@ -1892,7 +2216,7 @@ function App() {
       <CompactFeed
         placement="right"
         title="PHARMA FEED"
-        items={PHARMA_FEED_ROWS}
+        items={pharmaFeedRows}
         selectedIndex={pharmaIdx}
         focused={feedPaneFocus === 'pharma'}
         onSelectIndex={(idx) => {
@@ -1936,7 +2260,7 @@ function App() {
       </section>
 
       <HistoricalOutcomesPanel mode={focusFeed} />
-      <ContextPanel mode={focusFeed} pharmaEvent={pharmaSelected} insiderRow={insiderSelected} />
+      <ContextPanel mode={focusFeed} pharmaEvent={pharmaSelectedResolved} insiderRow={insiderSelected} />
 
       <section className="panel graph" aria-label="Daily graph">
         <header className="panelHeader">
@@ -1960,7 +2284,7 @@ function App() {
         </div>
       </section>
 
-      <CompanyPanel mode={focusFeed} />
+      <CompanyPanel mode={focusFeed} company={backendUp ? companyLive : null} />
     </main>
   )
 }
