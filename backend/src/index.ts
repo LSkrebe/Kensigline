@@ -403,6 +403,7 @@ const server = http.createServer(async (req, res) => {
         FROM document_parsed
         WHERE feed_kind = 'pharma'
           AND feed_at IS NOT NULL
+          AND (feed_label IS NULL OR feed_label <> 'Pipeline update')
           AND feed_at >= now() - ($2 || ' days')::interval
         ORDER BY feed_at DESC NULLS LAST, parsed_at DESC
         LIMIT $1
