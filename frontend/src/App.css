@@ -25,7 +25,8 @@
   padding: 0 10px;
   box-sizing: border-box;
   background: rgba(6, 7, 10, 0.96);
-  border-bottom: 1px solid var(--grid);
+  /* Avoid double-stacking with `.terminal` border */
+  border-bottom: none;
   backdrop-filter: blur(6px);
 }
 
@@ -40,13 +41,13 @@
   display: inline-flex;
   align-items: center;
   height: calc(var(--topbar-h) - 8px);
-  padding: 0 8px;
-  border: 1px solid rgba(140, 255, 195, 0.16);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(216, 255, 235, 0.82);
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  padding: 0 2px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--hi);
+  font-size: 12px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
   max-width: min(62vw, 520px);
