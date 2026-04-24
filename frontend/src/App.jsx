@@ -1528,7 +1528,7 @@ function ContextPanel({ mode, pharmaEvent, insiderRow, backendUp }) {
   const pharma = mode === 'pharma'
   const sentencesRaw = pharma ? buildPharmaContextSentences(pharmaEvent) : buildInsiderContextSentences(insiderRow)
   const sentences = backendUp ? (sentencesRaw?.filter((s) => String(s ?? '').trim()).slice(0, 3) ?? []) : sentencesRaw
-  const display = backendUp ? (sentences.length ? sentences : [EMPTY]) : sentences
+  const display = backendUp ? sentences : sentences
 
   return (
     <section className="panel contextPanel blankTile--b" aria-label="Context">
