@@ -1529,8 +1529,8 @@ function ContextPanel({ mode, pharmaEvent, insiderRow }) {
   )
 }
 
-function CompanyPanel({ mode, company }) {
-  const c = company ?? MOCK_COMPANY
+function CompanyPanel({ mode, company, backendUp }) {
+  const c = backendUp ? (company ?? {}) : MOCK_COMPANY
   const pharma = mode === 'pharma'
 
   const earnings =
@@ -1874,7 +1874,13 @@ function App() {
   useEffect(() => {
     let alive = true
     async function run() {
-      if (!backendUp || !pharmaTicker) return
+      if (!backendUp) return
+      if (!pharmaTicker) {
+        // Backend is up but no pharma ticker is selected (or feed is empty).
+        // Keep the PROGRAMS rail consistent with other feeds: live-empty, not mock.
+        setProgramFeedLive([])
+        return
+      }
       try {
         const r = await fetchJsonSafe(
           `/api/pharma/programs?ticker=${encodeURIComponent(pharmaTicker)}&days=3650`,
@@ -2311,7 +2317,7 @@ function App() {
         </div>
       </section>
 
-      <CompanyPanel mode={focusFeed} company={backendUp ? companyLive : null} />
+      <CompanyPanel mode={focusFeed} company={companyLive} backendUp={backendUp} />
       </main>
     </>
   )
