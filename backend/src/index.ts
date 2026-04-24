@@ -61,6 +61,37 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ---- Backend stats (top bar) ----
+    if (route(req, url, "GET", "/api/stats")) {
+      const uptime_s = Math.round(process.uptime());
+
+      const queueRows = await db.query<{ status: string; count: string }>(
+        `
+        SELECT status::text AS status, COUNT(*)::text AS count
+        FROM document_queue
+        GROUP BY status
+        `,
+      );
+      const queue: Record<string, number> = {};
+      for (const r of queueRows) queue[String(r.status)] = Number(r.count) || 0;
+
+      const parsedRows = await db.query<{ feed_kind: string | null; count: string; last_parsed_at: string | null }>(
+        `
+        SELECT feed_kind, COUNT(*)::text AS count, MAX(parsed_at)::timestamptz AS last_parsed_at
+        FROM document_parsed
+        GROUP BY feed_kind
+        `,
+      );
+      const parsed: Record<string, { count: number; last_parsed_at: string | null }> = {};
+      for (const r of parsedRows) {
+        const k = String(r.feed_kind ?? "unknown");
+        parsed[k] = { count: Number(r.count) || 0, last_parsed_at: r.last_parsed_at ? String(r.last_parsed_at) : null };
+      }
+
+      sendJson(res, 200, { ok: true, uptime_s, queue, parsed });
+      return;
+    }
+
     // ---- Bars (daily close only) ----
     if (route(req, url, "GET", "/api/bars")) {
       const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
