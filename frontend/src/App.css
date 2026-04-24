@@ -61,10 +61,29 @@
   max-width: min(62vw, 520px);
   overflow: hidden;
   text-overflow: ellipsis;
+  position: relative;
 }
 
 .topTab + .topTab {
   border-left: 1px solid var(--grid);
+}
+
+/* Each tab has visible vertical rails (left + right). */
+.topTab::before,
+.topTab::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--grid);
+  pointer-events: none;
+}
+.topTab::before {
+  left: 0;
+}
+.topTab::after {
+  right: 0;
 }
 
 .topTabsRight {
