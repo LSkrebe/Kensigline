@@ -97,6 +97,16 @@ async function secFetchJson(url: string) {
       secBlockedUntil = Math.max(secBlockedUntil, Date.now() + 120_000);
       throw new Error("sec_blocked_undeclared_automated_tool");
     }
+    // SEC sometimes mislabels JSON responses (e.g. `text/html`) even when the body is JSON.
+    // Be tolerant: if the payload parses as JSON, treat it as JSON.
+    const trimmed = txt.trimStart();
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        return JSON.parse(txt);
+      } catch {
+        // fall through to error below
+      }
+    }
     if (ctype.includes("text/html")) {
       secBlockedUntil = Math.max(secBlockedUntil, Date.now() + 60_000);
     }
