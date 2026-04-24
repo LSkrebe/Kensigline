@@ -8,7 +8,12 @@
   --cyan: rgba(90, 220, 255, 0.92);
   --warn: rgba(255, 212, 92, 0.95);
   --bad: rgba(255, 88, 108, 0.95);
-  --topbar-h: 26px;
+  /* One scale for the whole terminal (also used by the top bar) */
+  --fs-title: clamp(6px, 1.75vmin, 11px);
+  --fs-meta: clamp(6px, 1.65vmin, 10px);
+  --fs-body: clamp(6px, 1.8vmin, 11px);
+  /* Match `.feedCompactHeader` vertical rhythm: text + padding + border */
+  --topbar-h: calc(var(--fs-title) + 14px);
 }
 
 .topTabsBar {
@@ -121,13 +126,6 @@
   gap: 0;
   border: 1px solid var(--grid);
   box-sizing: border-box;
-  /*
-   * One scale for the whole terminal so narrow feed columns and the wide
-   * worksheet don’t compute different cqmin-based type (that misaligned rows).
-   */
-  --fs-title: clamp(6px, 1.75vmin, 11px);
-  --fs-meta: clamp(6px, 1.65vmin, 10px);
-  --fs-body: clamp(6px, 1.8vmin, 11px);
 }
 
 .panel {
