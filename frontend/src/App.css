@@ -30,8 +30,9 @@
   padding: 0;
   box-sizing: border-box;
   background: rgba(6, 7, 10, 0.96);
-  /* Avoid double-stacking with `.terminal` border */
-  border-bottom: none;
+  /* Single outer frame for the whole top bar (no inner boxes). */
+  border: 1px solid var(--grid);
+  border-bottom: none; /* avoid double-stacking with `.terminal` border */
   backdrop-filter: blur(6px);
 }
 
@@ -41,10 +42,7 @@
   gap: 0;
   min-width: 0;
   height: 100%;
-  /* Visible container like panel headers */
-  border: 1px solid var(--grid);
-  border-bottom: none;
-  background: rgba(7, 10, 15, 0.92);
+  background: transparent;
 }
 
 .topTab {
