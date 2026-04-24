@@ -46,14 +46,16 @@ function requireSecUserAgent() {
 }
 
 let lastSecRequestAt = 0;
+let secBlockedUntil = 0;
 async function secRateLimit() {
   // Be conservative by default to avoid SEC anti-bot blocks.
   // Configure via SEC_MIN_INTERVAL_MS if you need to tune.
   const minMs = Math.max(250, Number(process.env.SEC_MIN_INTERVAL_MS ?? 1500));
   const now = Date.now();
+  const blockedWait = secBlockedUntil ? secBlockedUntil - now : 0;
   const baseWait = lastSecRequestAt ? minMs - (now - lastSecRequestAt) : 0;
   const jitter = Math.floor(Math.random() * Math.min(500, Math.max(50, Math.floor(minMs / 3))));
-  const wait = Math.max(0, baseWait) + jitter;
+  const wait = Math.max(0, blockedWait, baseWait) + jitter;
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   lastSecRequestAt = Date.now();
 }
@@ -84,11 +86,20 @@ async function secFetchJson(url: string) {
   const ctype = String(res.headers.get("content-type") ?? "").toLowerCase();
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
+    if (res.status === 403 || res.status === 429 || res.status >= 500) {
+      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + 60_000);
+    }
     throw new Error(`sec_fetch_failed ${res.status} ${url} ${txt.slice(0, 200)}`);
   }
   if (!ctype.includes("application/json")) {
     const txt = await res.text().catch(() => "");
-    if (looksLikeSecBotBlock(txt)) throw new Error("sec_blocked_undeclared_automated_tool");
+    if (looksLikeSecBotBlock(txt)) {
+      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + 120_000);
+      throw new Error("sec_blocked_undeclared_automated_tool");
+    }
+    if (ctype.includes("text/html")) {
+      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + 60_000);
+    }
     throw new Error(`sec_expected_json_got_${ctype || "unknown"}`);
   }
   return await res.json();
@@ -107,10 +118,16 @@ async function secFetchText(url: string) {
   });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
+    if (res.status === 403 || res.status === 429 || res.status >= 500) {
+      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + 60_000);
+    }
     throw new Error(`sec_fetch_failed ${res.status} ${url} ${txt.slice(0, 200)}`);
   }
   const txt = await res.text();
-  if (looksLikeSecBotBlock(txt)) throw new Error("sec_blocked_undeclared_automated_tool");
+  if (looksLikeSecBotBlock(txt)) {
+    secBlockedUntil = Math.max(secBlockedUntil, Date.now() + 120_000);
+    throw new Error("sec_blocked_undeclared_automated_tool");
+  }
   return txt;
 }
 
