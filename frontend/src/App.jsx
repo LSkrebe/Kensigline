@@ -1895,7 +1895,7 @@ function App() {
             milestoneAt: String(r.at ?? ''),
           }))
           .filter((r) => r.id && r.at)
-        if (r.ok) setProgramFeedLive(mapped.length ? mapped : null)
+        if (r.ok) setProgramFeedLive(mapped)
       } catch {
         if (!alive) return
         // Keep last-good instead of flapping.
