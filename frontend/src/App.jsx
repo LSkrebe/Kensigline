@@ -1152,62 +1152,62 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
           <>
             <KvLine key="ho-ins-avg">
               <span className="kvK dim">Avg ret (21d/63d/252d)</span>
-              <span className="kvV mono">{ins?.avgReturn21d63d252d ?? '—'}</span>
+              <span className="kvV mono">{ins?.avgReturn21d63d252d ?? EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-med">
               <span className="kvK dim">Median return</span>
-              <span className="kvV mono">{ins?.medianReturn ?? '—'}</span>
+              <span className="kvV mono">{ins?.medianReturn ?? EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-win">
               <span className="kvK dim">Win rate</span>
-              <span className="kvV mono">{ins?.winRate ?? '—'}</span>
+              <span className="kvV mono">{ins?.winRate ?? EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-n">
               <span className="kvK dim">Sample size</span>
-              <span className="kvV mono">{ins?.sampleSize ?? '—'}</span>
+              <span className="kvV mono">{ins?.sampleSize ?? EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-role">
               <span className="kvK dim">Role</span>
-              <span className="kvV">{ins?.conditioningRole ?? '—'}</span>
+              <span className="kvV">{ins?.conditioningRole ?? EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-txn">
               <span className="kvK dim">Transaction type</span>
-              <span className="kvV">{ins?.conditioningTxn ?? '—'}</span>
+              <span className="kvV">{ins?.conditioningTxn ?? EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-pct">
               <span className="kvK dim">Size percentile</span>
-              <span className="kvV mono">{ins?.conditioningSizePct ?? '—'}</span>
+              <span className="kvV mono">{ins?.conditioningSizePct ?? EMPTY}</span>
             </KvLine>
           </>
         ) : (
           <>
             <KvLine key="ho-ph-p3">
               <span className="kvK dim">Phase 3 failure</span>
-              <span className="kvV mono">{ins?.avgAfterPh3Failure ?? '—'}</span>
+              <span className="kvV mono">{ins?.avgAfterPh3Failure ?? EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-p2">
               <span className="kvK dim">Phase 2 miss</span>
-              <span className="kvV mono">{ins?.avgAfterPh2Miss ?? '—'}</span>
+              <span className="kvV mono">{ins?.avgAfterPh2Miss ?? EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-med">
               <span className="kvK dim">Median return</span>
-              <span className="kvV mono">{ins?.medianReturn ?? '—'}</span>
+              <span className="kvV mono">{ins?.medianReturn ?? EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-drop">
               <span className="kvK dim">{'% large drops (>30%)'}</span>
-              <span className="kvV mono">{ins?.pctLargeDropsOver30 ?? '—'}</span>
+              <span className="kvV mono">{ins?.pctLargeDropsOver30 ?? EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-n">
               <span className="kvK dim">Sample size</span>
-              <span className="kvV mono">{ins?.sampleSize ?? '—'}</span>
+              <span className="kvV mono">{ins?.sampleSize ?? EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-ind">
               <span className="kvK dim">Indication</span>
-              <span className="kvV">{ins?.conditioningIndication ?? '—'}</span>
+              <span className="kvV">{ins?.conditioningIndication ?? EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ph-co">
               <span className="kvK dim">Company size bucket</span>
-              <span className="kvV">{ins?.conditioningCoSize ?? '—'}</span>
+              <span className="kvV">{ins?.conditioningCoSize ?? EMPTY}</span>
             </KvLine>
           </>
         )}
