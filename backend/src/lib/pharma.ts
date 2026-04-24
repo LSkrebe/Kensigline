@@ -52,6 +52,34 @@ function isTrialEvent(x: any) {
   );
 }
 
+function normalizeEventType(t: any): string {
+  const s = String(t ?? "").trim().toUpperCase();
+  if (!s) return "PROGRESS";
+  if (s === "RESULT" || s === "READOUT" || s === "ENDPOINT MISS") return "RESULT";
+  if (s === "REGULATORY") return "REGULATORY";
+  if (s === "SAFETY") return "SAFETY";
+  if (s === "FINANCING") return "FINANCING";
+  if (s === "PARTNERING") return "PARTNERING";
+  return s;
+}
+
+function importanceFromPhase(phase: string | null) {
+  const p = String(phase ?? "").toUpperCase();
+  if (p.includes("III")) return "Lead";
+  if (p.includes("II")) return "Core";
+  if (p.includes("I")) return "Early";
+  return "Early";
+}
+
+function pharmaFeedLabelFrom(phase: string | null, eventType: string) {
+  const p = normalizePhase(phase);
+  if (!p) return null;
+  const imp = importanceFromPhase(p);
+  const et = normalizeEventType(eventType);
+  const state = et === "RESULT" ? "Result" : "Progress";
+  return `${imp} ${p} ${state}`;
+}
+
 function buildPharmaExtractionPrompt(args: { ticker: string; companyName?: string | null; filingText: string }) {
   const { ticker, companyName, filingText } = args;
   return [
@@ -63,8 +91,8 @@ function buildPharmaExtractionPrompt(args: { ticker: string; companyName?: strin
         "If unknown, use null. Do not invent facts.",
         "Keep `context_sentences` short and plain English (3 sentences).",
         "Only output events that are likely to matter (trial results, FDA/regulatory updates, trial start/stop/delay, key enrollment milestones, major safety signals, major partnerships, major financing).",
-        "IMPORTANT: If the filing text contains any clinical/regulatory/pipeline signals, you MUST output at least 1 event (even if the details are sparse).",
-        "If you cannot find a drug name, set it null and write a generic `feed_label` like 'Pipeline update'.",
+        "IMPORTANT: Only output an event if you can identify at least a trial PHASE (I/II/III) and a concrete update type (RESULT vs PROGRESS).",
+        "Do NOT output generic filler like 'Pipeline update'. If you can't extract phase, output zero events.",
       ].join("\n"),
     },
     {
@@ -281,7 +309,6 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
       const e = events[i];
       if (!isTrialEvent(e)) continue;
       const ticker = String(e.ticker ?? "").trim().toUpperCase() || (meta?.ticker ?? hintedTicker ?? null);
-      const feedLabel = String(e.feed_label ?? "").trim() || "Pharma update";
       const eventAt = iso(e.event_at) ?? filingNow;
 
       const ws = e.worksheet ?? {};
@@ -289,8 +316,13 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
       const indication =
         e.indication != null ? String(e.indication) : ws?.indication != null ? String(ws.indication) : null;
       const phase = normalizePhase(e.phase ?? ws?.phase ?? null);
+      const eventType = normalizeEventType(e.event_type ?? e.eventType ?? ws?.event_type ?? ws?.eventType ?? null);
+      const feedLabel = pharmaFeedLabelFrom(phase, eventType);
       const companyName =
         e.company_name != null ? String(e.company_name) : ws?.sponsor != null ? String(ws.sponsor) : nameForPrompt;
+
+      // If we couldn't derive a real label (no phase), skip inserting this event.
+      if (!feedLabel) continue;
 
       const perEventSha = createHash("sha256")
         .update(contentSha + ":" + String(i) + ":" + JSON.stringify(e).slice(0, 2000), "utf8")
@@ -354,7 +386,7 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
           model,
           "pharma_sec_v1",
           perEventSha,
-          e,
+          { ...e, event_type: eventType },
         ],
       );
       if (r?.id) {
