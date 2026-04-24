@@ -47,17 +47,31 @@ function requireSecUserAgent() {
 
 let lastSecRequestAt = 0;
 let secBlockedUntil = 0;
+const secRecentReqAt: number[] = [];
 async function secRateLimit() {
   // Be conservative by default to avoid SEC anti-bot blocks.
   // Configure via SEC_MIN_INTERVAL_MS if you need to tune.
-  const minMs = Math.max(250, Number(process.env.SEC_MIN_INTERVAL_MS ?? 1500));
+  const minMs = Math.max(0, Number(process.env.SEC_MIN_INTERVAL_MS ?? 1500));
+  const maxRps = Math.max(1, Math.min(10, Number(process.env.SEC_MAX_RPS ?? 10)));
+
   const now = Date.now();
   const blockedWait = secBlockedUntil ? secBlockedUntil - now : 0;
   const baseWait = lastSecRequestAt ? minMs - (now - lastSecRequestAt) : 0;
-  const jitter = Math.floor(Math.random() * Math.min(500, Math.max(50, Math.floor(minMs / 3))));
-  const wait = Math.max(0, blockedWait, baseWait) + jitter;
+
+  // Hard cap: never exceed maxRps in any rolling 1s window.
+  // Keep the last N request timestamps and wait until one falls out of the window.
+  const windowMs = 1000;
+  const cutoff = now - windowMs;
+  while (secRecentReqAt.length && (secRecentReqAt[0] ?? 0) <= cutoff) secRecentReqAt.shift();
+  const rpsWait =
+    secRecentReqAt.length >= maxRps ? (secRecentReqAt[0] ?? now) + windowMs - now : 0;
+
+  const wait = Math.max(0, blockedWait, baseWait, rpsWait);
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-  lastSecRequestAt = Date.now();
+
+  const at = Date.now();
+  secRecentReqAt.push(at);
+  lastSecRequestAt = at;
 }
 
 function looksLikeSecBotBlock(body: string) {
