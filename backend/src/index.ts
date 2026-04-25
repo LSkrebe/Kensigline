@@ -367,9 +367,9 @@ const server = http.createServer(async (req, res) => {
         });
 
         const context_sentences: string[] = Array.isArray(latest?.cluster?.context_sentences)
-          ? latest.cluster.context_sentences.map((s: any) => String(s)).filter(Boolean).slice(0, 3)
+          ? latest.cluster.context_sentences.map((s: any) => String(s)).filter(Boolean).slice(0, 4)
           : [];
-        while (context_sentences.length < 3) context_sentences.push("");
+        while (context_sentences.length < 4) context_sentences.push("");
 
         const feed_label =
           totalUsd > 0

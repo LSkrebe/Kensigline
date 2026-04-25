@@ -347,6 +347,12 @@ function isAtLocalToday(at) {
   return isSameLocalCalendarDay(d, new Date())
 }
 
+function isAtLocalThisYear(at) {
+  const d = at instanceof Date ? at : new Date(at)
+  if (Number.isNaN(d.getTime())) return false
+  return d.getFullYear() === new Date().getFullYear()
+}
+
 function formatMmDd(d) {
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
@@ -384,8 +390,8 @@ function formatFeedDate(at) {
   if (Number.isNaN(d.getTime())) return EMPTY
   const now = new Date()
   if (isSameLocalCalendarDay(d, now)) return formatHhMmLocal(d)
-  if (d.getFullYear() === now.getFullYear()) return formatMmDd(d)
-  return formatYyMmDd(d)
+  // Never show year in feeds; MM-DD is enough.
+  return formatMmDd(d)
 }
 
 /** Newest events first (by `at`). */
@@ -393,18 +399,29 @@ function sortFeedRowsByAtDesc(rows) {
   return [...rows].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
 }
 
-/** Rows for compact feed UI: inserts a “TODAY” divider between local-today events and older (newest-first lists). */
-function buildFeedDisplayRows(items) {
+/** Rows for compact feed UI: inserts separators for timeline groups (newest-first lists). */
+function buildFeedDisplayRows(items, opts = {}) {
+  const sepMode = opts?.sepMode ?? 'today' // today | year | today+years
   const out = []
   for (let i = 0; i < items.length; i++) {
     const row = items[i]
-    if (
-      i > 0 &&
-      !isAtLocalToday(row.at) &&
-      isAtLocalToday(items[i - 1].at)
-    ) {
-      out.push({ type: 'sep', key: `today-sep-before-${row.id}` })
+    const prev = i > 0 ? items[i - 1] : null
+
+    const wantTodaySep = sepMode === 'today' || sepMode === 'today+years'
+    if (wantTodaySep && prev && !isAtLocalToday(row.at) && isAtLocalToday(prev.at)) {
+      out.push({ type: 'sep', key: `today-sep-before-${row.id}`, label: 'TODAY' })
     }
+
+    const wantYearSeps = sepMode === 'year' || sepMode === 'today+years'
+    if (wantYearSeps && prev) {
+      const y0 = new Date(prev.at).getFullYear()
+      const y1 = new Date(row.at).getFullYear()
+      if (Number.isFinite(y0) && Number.isFinite(y1) && y1 !== y0) {
+        // Insert the year of the rows that follow (older group).
+        out.push({ type: 'sep', key: `year-${y1}-sep-before-${row.id}`, label: String(y1) })
+      }
+    }
+
     out.push({ type: 'item', row, idx: i })
   }
   return out
@@ -632,6 +649,55 @@ function insiderCaseForRowIndex(i) {
   const totalUsd = isForm4 ? rows.reduce((a, r) => a + (Number(r.amountUsd) || 0), 0) : 0
   const label = totalUsd > 0 ? formatUsdCompact(totalUsd) : '—'
 
+  const roleFromKey = (k) => (/\bCEO\b/i.test(k) ? 'CEO' : /\bCFO\b/i.test(k) ? 'CFO' : /\bDirector\b/i.test(k) ? 'Director' : 'Officer')
+  const roleCounts = {}
+  for (const r of rows) roleCounts[roleFromKey(r.key)] = (roleCounts[roleFromKey(r.key)] || 0) + 1
+  const rolesSorted = Object.entries(roleCounts).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+  const topRole = rolesSorted[0]?.[0] ?? 'Insider'
+  const rolesPhrase =
+    rolesSorted.length >= 2
+      ? `${topRole} and ${rolesSorted[1][0]}`
+      : topRole
+
+  const daysSinceLast = Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 86400000))
+  const spanDays =
+    rows.length > 1
+      ? Math.max(
+          1,
+          Math.round(
+            (Math.max(...rows.map((r) => new Date(r.ts).getTime())) -
+              Math.min(...rows.map((r) => new Date(r.ts).getTime()))) /
+              86400000,
+          ),
+        )
+      : 1
+  const caveat =
+    totalUsd < 75_000
+      ? 'The dollar amount is small, so this may not be a high-conviction signal.'
+      : totalUsd < 300_000
+        ? 'The dollar amount is moderate, so it is worth monitoring rather than over-weighting.'
+        : 'The dollar amount is meaningful, so it is more likely to be intentional signaling.'
+  const companyBit =
+    ticker === 'HG'
+      ? 'Horizon Grain Co. is a grain handling and agricultural logistics business.'
+      : ticker === 'SPRU'
+        ? 'SilverSpruce Therapeutics is a clinical-stage biotech developing small-molecule therapies.'
+        : ticker === 'VRA'
+          ? 'VeraBio Holding Co. is a biotech focused on immunology and inflammation programs.'
+          : ticker === 'FFIN'
+            ? 'FFIN is a community bank and financial services provider in the United States.'
+            : `${issuer} is a public company.`
+
+  const distinctDays = new Set(
+    rows
+      .map((r) => {
+        const d = new Date(r.ts)
+        if (Number.isNaN(d.getTime())) return null
+        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+      })
+      .filter(Boolean),
+  ).size
+
   return {
     id: `ins-${i}`,
     label,
@@ -639,6 +705,12 @@ function insiderCaseForRowIndex(i) {
     ticker,
     at,
     daily: buildInsiderDailySeries(i + 31),
+    __context_sentences: [
+      companyBit,
+      `${count} Code P open-market purchase${count === 1 ? '' : 's'} were reported over about ${spanDays} days, led by the ${topRole}.`,
+      `The buying adds up to about ${formatUsdCompact(totalUsd)} across ${distinctDays || 1} trading day${(distinctDays || 1) === 1 ? '' : 's'}, with activity coming from ${rolesPhrase}.`,
+      `The most recent purchase was about ${daysSinceLast} day${daysSinceLast === 1 ? '' : 's'} ago. ${caveat}`,
+    ],
     caseSheet: {
       filingId,
       formType,
@@ -1551,7 +1623,7 @@ function describeTrialDosingPlain(drug, intervention, mech) {
 function buildPharmaContextSentences(ev) {
   if (!ev) return [EMPTY]
   if (Array.isArray(ev.__context_sentences) && ev.__context_sentences.some(Boolean)) {
-    return ev.__context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 3)
+    return ev.__context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 4)
   }
   const snap = ev.trialSnapshot ?? {}
   const drug = snap.drug ?? ev.drug ?? 'This drug'
@@ -1632,7 +1704,7 @@ function joinActorPhrases(names) {
 function buildInsiderContextSentences(row) {
   if (!row?.caseSheet) return [EMPTY]
   if (Array.isArray(row.__context_sentences) && row.__context_sentences.some(Boolean)) {
-    return row.__context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 3)
+    return row.__context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 4)
   }
   const cs = row.caseSheet
   const rows = cs.rows ?? []
@@ -1871,10 +1943,12 @@ function CompactFeed({
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
 
-  const displayRows = useMemo(
-    () => (programsTimeline ? buildProgramGroupedDisplayRows(items) : buildFeedDisplayRows(items)),
-    [items, programsTimeline],
-  )
+  const displayRows = useMemo(() => {
+    if (programsTimeline) return buildProgramGroupedDisplayRows(items)
+    // Insider feed: keep TODAY + also show separators at every year boundary.
+    const sepMode = title === 'INSIDER FEED' ? 'today+years' : 'today'
+    return buildFeedDisplayRows(items, { sepMode })
+  }, [items, programsTimeline, title])
 
   useLayoutEffect(() => {
     const list = listRef.current
@@ -1955,7 +2029,7 @@ function CompactFeed({
                 className="feedRowTodaySep"
                   role="presentation"
               >
-                {programsTimeline ? entry.label : 'TODAY'}
+                {programsTimeline ? entry.label : entry.label ?? 'TODAY'}
               </div>
             )
           }

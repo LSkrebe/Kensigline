@@ -582,7 +582,7 @@
 .feedCellWhen {
   /* Fixed width to avoid shifting between HH:MM / MM-DD / YY-MM-DD */
   /* Extra room for letter-spacing on `.kvFeedDim` */
-  min-width: 10ch;
+  min-width: 7ch;
 }
 
 /* ---- CASE WORKSHEET (flat key–value table) ---- */
