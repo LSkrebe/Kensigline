@@ -367,10 +367,24 @@ function formatYyMmDd(d) {
   return `${yy}-${mm}-${dd}`
 }
 
-/** ISO or Date → numeric date (YY-MM-DD). */
+function formatHhMmLocal(d) {
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${hh}:${mm}`
+}
+
+/**
+ * ISO or Date → feed date label:
+ * - today (local): HH:MM
+ * - this year: MM-DD
+ * - else: YY-MM-DD
+ */
 function formatFeedDate(at) {
   const d = at instanceof Date ? at : new Date(at)
   if (Number.isNaN(d.getTime())) return EMPTY
+  const now = new Date()
+  if (isSameLocalCalendarDay(d, now)) return formatHhMmLocal(d)
+  if (d.getFullYear() === now.getFullYear()) return formatMmDd(d)
   return formatYyMmDd(d)
 }
 
@@ -432,8 +446,7 @@ function addDays(d, n) {
 function formatProgramTimelineDate(at) {
   const d = at instanceof Date ? at : new Date(at)
   if (Number.isNaN(d.getTime())) return EMPTY
-  // Timeline should be explicit (no time-of-day).
-  return formatYyMmDd(d)
+  return formatFeedDate(d)
 }
 
 function buildProgramTimelineForEvent(ev) {
@@ -601,6 +614,10 @@ function insiderCaseForRowIndex(i) {
     const si = (i * 11 + k * 5) % INSIDER_DOC_KEYS.length
     const key = INSIDER_DOC_KEYS[si]
     const ts = new Date(at)
+    // Spread transaction timestamps across a wider window so graph markers vary by date.
+    // Keep within ~30 days for "cluster" feel, but not all on the same day.
+    const dayJitter = Math.floor(seededJitter(i * 97 + k * 19, 28)) // 0..27 days
+    ts.setDate(ts.getDate() - dayJitter)
     ts.setHours(9 + ((i + k) % 8), ((i * k * 13) % 55) + 5, 0, 0)
     const rowIso = ts.toISOString()
     let amountUsd = null
@@ -774,6 +791,230 @@ function toPath(values, w, h, inset) {
       return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
     })
     .join(' ')
+}
+
+function clamp01(x) {
+  return Math.max(0, Math.min(1, x))
+}
+
+function priceTicks(min, max, n = 4) {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return []
+  if (min === max) return [min]
+  const out = []
+  for (let i = 0; i < n; i++) out.push(min + (i / (n - 1)) * (max - min))
+  return out
+}
+
+function formatPriceTick(v) {
+  const x = Number(v)
+  if (!Number.isFinite(x)) return EMPTY
+  if (x >= 100) return String(Math.round(x))
+  if (x >= 10) return x.toFixed(1)
+  return x.toFixed(2)
+}
+
+function buildMockDailySeries(seed = 42, len = 160) {
+  let v = 42 + (seed % 29)
+  const out = []
+  for (let i = 0; i < len; i++) {
+    const step = Math.round((seededJitter(seed + i * 13, 9) - 4) * 1.15)
+    v = clamp(v + step, 8, 220)
+    out.push(v)
+  }
+  return out
+}
+
+function buildEvenlySpacedDates(count) {
+  const n = Math.max(0, Number(count) || 0)
+  if (n <= 0) return []
+  const now = new Date()
+  const out = []
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    out.push(d)
+  }
+  return out
+}
+
+function GraphPanel({ title, series, dates, markers = [], selectedMarker = null }) {
+  const wrapRef = useRef(null)
+  const [size, setSize] = useState({ w: 900, h: 220 })
+
+  useLayoutEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    function sync() {
+      const r = el.getBoundingClientRect()
+      const w = Math.max(280, Math.floor(r.width))
+      const h = Math.max(140, Math.floor(r.height))
+      setSize((s) => (s.w === w && s.h === h ? s : { w, h }))
+    }
+    const ro = new ResizeObserver(() => requestAnimationFrame(sync))
+    ro.observe(el)
+    sync()
+    return () => ro.disconnect()
+  }, [])
+
+  const w = size.w
+  const h = size.h
+
+  // Inner margins (in SVG px). Keep these tight so the plot fills the large panel.
+  const margin = { l: 26, r: 6, t: 8, b: 18 }
+  const innerW = Math.max(1, w - margin.l - margin.r)
+  const innerH = Math.max(1, h - margin.t - margin.b)
+
+  const vals = Array.isArray(series) ? series : []
+  const ds = Array.isArray(dates) ? dates : []
+
+  const min = vals.length ? Math.min(...vals) : 0
+  const max = vals.length ? Math.max(...vals) : 1
+  const span = max - min || 1
+
+  function xAt(i) {
+    return margin.l + (i / Math.max(1, vals.length - 1)) * innerW
+  }
+  function yAt(v) {
+    return margin.t + (1 - (v - min) / span) * innerH
+  }
+
+  const path = useMemo(() => {
+    if (!vals.length) return ''
+    let d = ''
+    for (let i = 0; i < vals.length; i++) {
+      const x = xAt(i)
+      const y = yAt(vals[i])
+      d += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)} `
+    }
+    return d.trim()
+  }, [vals, w, h])
+
+  const yTicks = useMemo(() => priceTicks(min, max, 4), [min, max])
+  const xTickIdx = useMemo(() => {
+    const n = Math.max(0, ds.length)
+    if (n <= 1) return []
+    return [0.08, 0.32, 0.56, 0.8].map((p) => Math.round(clamp01(p) * (n - 1)))
+  }, [ds.length])
+
+  const markerX = useMemo(() => {
+    const n = Math.max(0, ds.length)
+    if (n <= 1) return []
+    const now = new Date()
+    const dayKey = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const dayToIdx = new Map()
+    for (let i = 0; i < ds.length; i++) {
+      const d = ds[i]
+      if (!(d instanceof Date) || Number.isNaN(d.getTime())) continue
+      dayToIdx.set(dayKey(d), i)
+    }
+    const seen = new Set()
+    const xs = []
+    for (const m of markers ?? []) {
+      const d = m instanceof Date ? m : new Date(m)
+      if (Number.isNaN(d.getTime())) continue
+      const key = dayKey(d)
+      if (seen.has(key)) continue
+      seen.add(key)
+      const idxFromSeries = dayToIdx.get(key)
+      const idx =
+        typeof idxFromSeries === 'number'
+          ? idxFromSeries
+          : (() => {
+              const daysAgo = Math.floor((now.getTime() - d.getTime()) / 86400000)
+              return clamp(n - 1 - daysAgo, 0, n - 1)
+            })()
+      xs.push(xAt(idx))
+    }
+    return xs
+  }, [markers, ds.length, w, h])
+
+  const selectedMarkerX = useMemo(() => {
+    const n = Math.max(0, ds.length)
+    if (n <= 1 || !selectedMarker) return null
+    const d = selectedMarker instanceof Date ? selectedMarker : new Date(selectedMarker)
+    if (Number.isNaN(d.getTime())) return null
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    for (let i = 0; i < ds.length; i++) {
+      const x = ds[i]
+      if (!(x instanceof Date) || Number.isNaN(x.getTime())) continue
+      const k = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
+      if (k === key) return xAt(i)
+    }
+    const now = new Date()
+    const daysAgo = Math.floor((now.getTime() - d.getTime()) / 86400000)
+    const idx = clamp(n - 1 - daysAgo, 0, n - 1)
+    return xAt(idx)
+  }, [selectedMarker, ds, w, h])
+
+  return (
+    <section className="panel graph" aria-label="Daily graph">
+      <header className="panelHeader">
+        <div className="panelTitle">{title}</div>
+        <div className="panelMeta">
+          L {vals.length ? vals[vals.length - 1] : 0} | R {min}–{max}
+        </div>
+      </header>
+      <div ref={wrapRef} className="graphWrap" aria-label="Daily price graph">
+        <svg className="graphSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
+          {/* axes */}
+          <path
+            className="graphAxis"
+            d={`M ${margin.l} ${margin.t} L ${margin.l} ${h - margin.b} L ${w - margin.r} ${h - margin.b}`}
+          />
+
+          {/* y ticks */}
+          {yTicks.map((v, i) => {
+            const y = yAt(v)
+            return (
+              <g key={`yt-${i}`}>
+                <text className="graphTick graphTick--y" x={margin.l - 6} y={y + 4}>
+                  {formatPriceTick(v)}
+                </text>
+                <path className="graphTickLine" d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
+              </g>
+            )
+          })}
+
+          {/* x ticks */}
+          {xTickIdx.map((idx, i) => {
+            const x = xAt(idx)
+            const d = ds[idx]
+            const label = d ? MONTHS_SHORT[d.getMonth()] : EMPTY
+            return (
+              <g key={`xt-${i}`}>
+                <path className="graphTickLine" d={`M ${x} ${h - margin.b} L ${x} ${h - margin.b - 6}`} />
+                <text className="graphTick graphTick--x" x={x} y={h - 4}>
+                  {label}
+                </text>
+              </g>
+            )
+          })}
+
+          {/* line */}
+          <path className="graphPath" d={path} vectorEffect="non-scaling-stroke" />
+
+          {/* transaction markers (drawn over line) */}
+          {markerX.map((x, i) => (
+            <path
+              key={`m-${i}`}
+              className="graphMarker"
+              d={`M ${x.toFixed(2)} ${margin.t} L ${x.toFixed(2)} ${(h - margin.b).toFixed(2)}`}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+
+          {selectedMarkerX != null ? (
+            <path
+              className="graphMarker graphMarker--selected"
+              d={`M ${selectedMarkerX.toFixed(2)} ${margin.t} L ${selectedMarkerX.toFixed(2)} ${(h - margin.b).toFixed(2)}`}
+              vectorEffect="non-scaling-stroke"
+            />
+          ) : null}
+        </svg>
+      </div>
+    </section>
+  )
 }
 
 const ENDPOINT_ORDINAL = [
@@ -1154,10 +1395,32 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
       <div className="worksheetBody historicalOutcomesBody">
         {insider ? (
           <>
-            <KvLine key="ho-ins-avg">
-              <span className="kvK dim">Avg ret (21d/63d/252d)</span>
-              <span className="kvV mono">{hasDataset ? norm(ins?.avgReturn21d63d252d) : EMPTY}</span>
-            </KvLine>
+            {(() => {
+              const raw = hasDataset ? norm(ins?.avgReturn21d63d252d) : EMPTY
+              const parts = String(raw ?? '')
+                .split('/')
+                .map((s) => s.trim())
+                .filter(Boolean)
+              const v21 = parts[0] ?? EMPTY
+              const v63 = parts[1] ?? EMPTY
+              const v252 = parts[2] ?? EMPTY
+              return (
+                <>
+                  <KvLine key="ho-ins-avg-21">
+                    <span className="kvK dim">Avg return 21d</span>
+                    <span className="kvV mono">{v21}</span>
+                  </KvLine>
+                  <KvLine key="ho-ins-avg-63">
+                    <span className="kvK dim">Avg return 63d</span>
+                    <span className="kvV mono">{v63}</span>
+                  </KvLine>
+                  <KvLine key="ho-ins-avg-252">
+                    <span className="kvK dim">Avg return 252d</span>
+                    <span className="kvV mono">{v252}</span>
+                  </KvLine>
+                </>
+              )
+            })()}
             <KvLine key="ho-ins-med">
               <span className="kvK dim">Median return</span>
               <span className="kvV mono">{hasDataset ? norm(ins?.medianReturn) : EMPTY}</span>
@@ -1173,10 +1436,6 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
             <KvLine key="ho-ins-role">
               <span className="kvK dim">Role</span>
               <span className="kvV">{hasDataset ? norm(ins?.conditioningRole) : EMPTY}</span>
-            </KvLine>
-            <KvLine key="ho-ins-txn">
-              <span className="kvK dim">Transaction type</span>
-              <span className="kvV">{hasDataset ? norm(ins?.conditioningTxn) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-pct">
               <span className="kvK dim">Size percentile</span>
@@ -1751,11 +2010,92 @@ function CompactFeed({
   )
 }
 
+function CaseKvFeed({
+  title,
+  rows,
+  placement = 'right',
+  focused = false,
+  selectedTradeRowIndex = -1,
+  onSelectTradeRowIndex,
+}) {
+  const listRef = useRef(null)
+  const [rowsPerPage, setRowsPerPage] = useState(16)
+
+  useLayoutEffect(() => {
+    const list = listRef.current
+    if (!list) return
+
+    function measure() {
+      const avail = list.clientHeight
+      if (avail <= 0) return
+      const btn = list.querySelector('.feedRowCompact')
+      const rowH = btn?.getBoundingClientRect().height ?? 17
+      const n = Math.max(1, Math.floor(avail / Math.max(rowH, 10)))
+      setRowsPerPage((prev) => (prev !== n ? n : prev))
+    }
+
+    const ro = new ResizeObserver(() => {
+      requestAnimationFrame(measure)
+    })
+    ro.observe(list)
+    measure()
+    return () => ro.disconnect()
+  }, [rows.length, placement])
+
+  const pageSize = Math.max(1, rowsPerPage)
+  const total = rows.length
+  const totalPages = Math.max(1, Math.ceil(Math.max(1, total) / pageSize))
+  const page = total ? clamp(Math.floor(Math.max(0, selectedTradeRowIndex) / pageSize), 0, totalPages - 1) : 0
+  const pageStart = page * pageSize
+  const pageSlice = total ? rows.slice(pageStart, pageStart + pageSize) : []
+
+  return (
+    <section
+      className={['panel', 'feed', 'feedCompact', `feed--${placement}`, focused ? 'isFocused' : '']
+        .filter(Boolean)
+        .join(' ')}
+      aria-label={title}
+    >
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">{title}</div>
+        <div className="feedCompactMeta feedCompactMeta--paginationOnly">
+          <span className="feedPageInd">{total ? `${page + 1}/${totalPages}` : '0/0'}</span>
+        </div>
+      </header>
+      <div ref={listRef} className="feedCompactList" role="list">
+        {pageSlice.map((r, j) => {
+          const i = pageStart + j
+          return r?.type === 'blank' ? (
+            <div key={`blank-${i}`} className="feedRowCompact feedRowCompact--blank" role="presentation" />
+          ) : (
+            <div
+              key={`${r.k}-${i}`}
+              className={[
+                'feedRowCompact',
+                'feedRowCompact--kv',
+                r?.type === 'trade' && i === selectedTradeRowIndex ? 'isActive' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              role="listitem"
+              onClick={r?.type === 'trade' ? () => onSelectTradeRowIndex?.(i) : undefined}
+            >
+              <span className="feedCell feedCellLabel kvFeedMain dim">{r.k}</span>
+              <span className="feedCell feedCellWhen mono kvFeedDim">{r.v}</span>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function App() {
-  const [focusFeed, setFocusFeed] = useState('insider')
+  const [activeTab, setActiveTab] = useState('insider') // insider | pharma
   /** Which feed column receives arrow up/down: insider | pharma | programs (rail). */
   const [feedPaneFocus, setFeedPaneFocus] = useState('insider')
   const [insiderIdx, setInsiderIdx] = useState(0)
+  const [insiderCaseTradeIdx, setInsiderCaseTradeIdx] = useState(0)
   const [pharmaIdx, setPharmaIdx] = useState(0)
   /** When set, case sheet + graph follow this trial; cleared when pharma feed row or sponsor context changes */
   const [programRailEventId, setProgramRailEventId] = useState(null)
@@ -1982,22 +2322,22 @@ function App() {
   const pharmaSelected = useMemo(() => {
     if (backendUp) return null
     const id =
-      focusFeed === 'pharma' && programRailEventId != null
+      activeTab === 'pharma' && programRailEventId != null
         ? programRailEventId
         : pharmaFeedEventId
     const base = MOCK_EVENTS.find((e) => e.id === id) ?? MOCK_EVENTS[0]
     // When navigating the PROGRAMS rail, use the selected timeline row as the "current event"
     // so the case worksheet changes per row.
-    if (feedPaneFocus === 'programs' && focusFeed === 'pharma' && programRailMilestone) {
+    if (feedPaneFocus === 'programs' && activeTab === 'pharma' && programRailMilestone) {
       return synthesizeEventForMilestone(base, programRailMilestone)
     }
     return base
-  }, [feedPaneFocus, focusFeed, programRailEventId, pharmaFeedEventId, programRailMilestone])
+  }, [backendUp, activeTab, feedPaneFocus, programRailEventId, pharmaFeedEventId, programRailMilestone])
 
   const pharmaSelectedResolved = useMemo(() => {
-    if (backendUp && focusFeed !== 'pharma') return null
+    if (backendUp && activeTab !== 'pharma') return null
     if (backendUp && !pharmaEventLive) return null
-    if (!pharmaEventLive || focusFeed !== 'pharma') return pharmaSelected
+    if (!pharmaEventLive || activeTab !== 'pharma') return pharmaSelected
     const ws = pharmaEventLive?.worksheet ?? {}
     const snap = {
       drug: ws.drug ?? pharmaEventLive?.drug ?? null,
@@ -2029,10 +2369,10 @@ function App() {
       __context_sentences: Array.isArray(pharmaEventLive?.context_sentences) ? pharmaEventLive.context_sentences : null,
       daily: pharmaSelected?.daily ?? [],
     }
-  }, [pharmaEventLive, focusFeed, pharmaSelected, pharmaFeedEventId])
+  }, [backendUp, activeTab, pharmaEventLive, pharmaSelected, pharmaFeedEventId])
 
   const insiderSelectedResolved = useMemo(() => {
-    if (!backendUp || focusFeed !== 'insider' || !insiderClusterLive) return insiderSelected
+    if (!backendUp || activeTab !== 'insider' || !insiderClusterLive) return insiderSelected
     const rows = insiderClusterLive?.cluster?.worksheet_rows
     const wsRows = Array.isArray(rows) ? rows : []
     const caseSheet = {
@@ -2053,12 +2393,7 @@ function App() {
       caseSheet,
       __context_sentences: insiderClusterLive?.cluster?.context_sentences ?? null,
     }
-  }, [backendUp, focusFeed, insiderSelected, insiderClusterLive])
-
-  const viewLabel = useMemo(() => {
-    const base = focusFeed === 'insider' ? 'Insider terminal' : 'Pharma terminal'
-    return base
-  }, [focusFeed])
+  }, [backendUp, activeTab, insiderSelected, insiderClusterLive])
 
   const isRealView = useMemo(() => {
     return Boolean(backendUp)
@@ -2068,7 +2403,7 @@ function App() {
   useEffect(() => {
     let alive = true
     async function run() {
-      if (!backendUp || focusFeed !== 'insider') {
+      if (!backendUp || activeTab !== 'insider') {
         if (alive) setInsiderClusterLive(null)
         return
       }
@@ -2088,13 +2423,13 @@ function App() {
     return () => {
       alive = false
     }
-  }, [backendUp, focusFeed, insiderSelected?.ticker, insiderSelected?.__backend_id])
+  }, [backendUp, activeTab, insiderSelected?.ticker, insiderSelected?.__backend_id])
 
   // Bars (Daily Graph) + Company panel: use selected ticker in either mode
   const selectedTicker = useMemo(() => {
-    if (focusFeed === 'insider') return insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
+    if (activeTab === 'insider') return insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
     return pharmaTicker ? String(pharmaTicker).toUpperCase() : null
-  }, [focusFeed, insiderSelected?.ticker, pharmaTicker])
+  }, [activeTab, insiderSelected?.ticker, pharmaTicker])
 
   useEffect(() => {
     let alive = true
@@ -2132,7 +2467,7 @@ function App() {
   useEffect(() => {
     let alive = true
     async function run() {
-      if (focusFeed !== 'pharma') {
+      if (activeTab !== 'pharma') {
         return
       }
       const id = pharmaFeedEventId
@@ -2153,12 +2488,12 @@ function App() {
     return () => {
       alive = false
     }
-  }, [backendUp, focusFeed, pharmaFeedEventId, pharmaFeedLive])
+  }, [backendUp, activeTab, pharmaFeedEventId, pharmaFeedLive])
 
   const programSelectedIdx = useMemo(() => {
-    if (focusFeed !== 'pharma' || programFeedItems.length === 0) return 0
+    if (activeTab !== 'pharma' || programFeedItems.length === 0) return 0
     return clamp(programRailIdx, 0, programFeedItems.length - 1)
-  }, [focusFeed, programFeedItems.length, programRailIdx])
+  }, [activeTab, programFeedItems.length, programRailIdx])
 
   useEffect(() => {
     setProgramRailEventId(null)
@@ -2167,38 +2502,129 @@ function App() {
   }, [pharmaIdx])
 
   useEffect(() => {
-    if (focusFeed === 'insider') {
-      setProgramRailEventId(null)
+    // When switching tabs, reset which pane gets arrows.
+    if (activeTab === 'insider') {
       setFeedPaneFocus('insider')
+      setProgramRailEventId(null)
+      return
     }
-  }, [focusFeed])
+    if (activeTab === 'pharma') {
+      setFeedPaneFocus('pharma')
+      return
+    }
+  }, [activeTab])
 
   const hasSafety =
     Array.isArray(pharmaSelectedResolved?.safety) && pharmaSelectedResolved.safety.length > 0
 
   const worksheetRows =
-    focusFeed === 'insider'
+    activeTab === 'insider'
       ? buildInsiderWorksheetRows(insiderSelectedResolved?.caseSheet)
       : buildWorksheetRows(pharmaSelectedResolved, hasSafety)
 
   const daily =
     backendUp
       ? barsLive ?? []
-      : focusFeed === 'insider'
+      : activeTab === 'insider'
         ? (barsLive ?? insiderSelectedResolved?.daily ?? [])
         : pharmaSelectedResolved?.daily ?? []
 
-  const dailyMin = daily.length ? Math.min(...daily) : 0
-  const dailyMax = daily.length ? Math.max(...daily) : 0
-  const dailyLast = daily.length ? daily[daily.length - 1] : 0
+  const dailySeries = useMemo(() => {
+    if (daily && daily.length >= 40) return daily
+    return buildMockDailySeries(activeTab === 'insider' ? 71 : 133, 160)
+  }, [daily, activeTab])
+
+  const dailyDates = useMemo(() => buildEvenlySpacedDates(dailySeries.length), [dailySeries.length])
+  const insiderTradeMarkers = useMemo(() => {
+    if (activeTab !== 'insider') return []
+    const cs = insiderSelectedResolved?.caseSheet
+    if (!cs?.isForm4) return []
+    const out = []
+    for (const r of cs.rows ?? []) {
+      const amt = Number(r?.amountUsd ?? 0)
+      if (!(Number.isFinite(amt) && amt > 0)) continue
+      const d = new Date(r.ts)
+      if (Number.isNaN(d.getTime())) continue
+      out.push(d)
+    }
+    return out
+  }, [activeTab, insiderSelectedResolved?.caseSheet])
+
+
+  const dailyMin = dailySeries.length ? Math.min(...dailySeries) : 0
+  const dailyMax = dailySeries.length ? Math.max(...dailySeries) : 0
+  const dailyLast = dailySeries.length ? dailySeries[dailySeries.length - 1] : 0
 
   const worksheetMetaId =
-    focusFeed === 'insider'
+    activeTab === 'insider'
       ? insiderSelectedResolved?.caseSheet?.issuer ?? insiderSelectedResolved?.id ?? '—'
       : pharmaSelectedResolved?.id ?? '—'
 
+  const insiderCaseFeedRows = useMemo(() => {
+    const cs = insiderSelectedResolved?.caseSheet
+    if (!cs) return []
+    const meta = []
+    if (cs.ticker) meta.push({ k: 'ISSUER', v: String(cs.ticker) })
+    if (cs.formType) meta.push({ k: 'FORM', v: String(cs.formType) })
+    if (cs.filingId) meta.push({ k: 'ACCESSION', v: String(cs.filingId) })
+
+    function roleFromKey(key) {
+      const k = String(key ?? '').trim()
+      const m = k.match(/^(CEO|Director|CFO|Officer)\b/i)
+      if (m) return m[1].toUpperCase()
+      const first = k.split(/\s+/)[0]
+      return first ? first.toUpperCase() : '-'
+    }
+
+    const showMoney = Boolean(cs.isForm4)
+    let totalUsd = 0
+    const trades = []
+    for (const r of cs.rows ?? []) {
+      const amt = showMoney && r.amountUsd != null ? Number(r.amountUsd) : 0
+      if (Number.isFinite(amt) && amt > 0) totalUsd += amt
+      const val =
+        showMoney && r.amountUsd != null && Number(r.amountUsd) > 0
+          ? `${formatUsdCompact(r.amountUsd)} ${formatFeedDate(r.ts)}`
+          : ''
+      if (!val) continue
+      trades.push({ type: 'trade', k: roleFromKey(r.key), v: val, ts: r.ts })
+    }
+
+    const totalRow = { type: 'total', k: 'TOTAL', v: totalUsd > 0 ? formatUsdCompact(totalUsd) : '-' }
+
+    // Ordering: meta, TOTAL, blank separator, then trades. No trailing blank.
+    return [...meta, totalRow, { type: 'blank' }, ...trades]
+  }, [insiderSelectedResolved?.caseSheet])
+
+  const insiderCaseTradeRowIndices = useMemo(() => {
+    const idxs = []
+    for (let i = 0; i < insiderCaseFeedRows.length; i++) {
+      if (insiderCaseFeedRows[i]?.type === 'trade') idxs.push(i)
+    }
+    return idxs
+  }, [insiderCaseFeedRows])
+
+  const insiderCaseSelectedRowIndex =
+    insiderCaseTradeRowIndices.length > 0
+      ? insiderCaseTradeRowIndices[clamp(insiderCaseTradeIdx, 0, insiderCaseTradeRowIndices.length - 1)]
+      : -1
+
+  const selectedInsiderTradeMarker = useMemo(() => {
+    if (activeTab !== 'insider') return null
+    const rowIndex = insiderCaseSelectedRowIndex
+    const row = rowIndex >= 0 ? insiderCaseFeedRows[rowIndex] : null
+    if (!row || row.type !== 'trade' || !row.ts) return null
+    const d = new Date(row.ts)
+    return Number.isNaN(d.getTime()) ? null : d
+  }, [activeTab, insiderCaseSelectedRowIndex, insiderCaseFeedRows])
+
+  useEffect(() => {
+    // Reset case selection when the cluster changes.
+    setInsiderCaseTradeIdx(0)
+  }, [insiderSelected?.id, insiderSelected?.ticker])
+
   /* Inner padding inside SVG viewBox (stroke clearance); outer gutter is CSS .graphWrap */
-  const plotInset = { left: 8, right: 8, top: 8, bottom: 8 }
+  const plotInset = { left: 34, right: 8, top: 8, bottom: 18 }
 
   useEffect(() => {
     function onKey(e) {
@@ -2207,6 +2633,11 @@ function App() {
         return
       }
       const k = e.key
+      if (k === 'Tab') {
+        e.preventDefault()
+        setActiveTab((t) => (t === 'insider' ? 'pharma' : 'insider'))
+        return
+      }
       const left = k === 'ArrowLeft' || k === 'a' || k === 'A'
       const right = k === 'ArrowRight' || k === 'd' || k === 'D'
       const up = k === 'ArrowUp' || k === 'w' || k === 'W'
@@ -2214,30 +2645,36 @@ function App() {
       if (!left && !right && !up && !down) return
       e.preventDefault()
       if (left) {
-        if (feedPaneFocus === 'programs') {
-          setFeedPaneFocus('pharma')
-          setFocusFeed('pharma')
-        } else if (feedPaneFocus === 'pharma') {
-          setFeedPaneFocus('insider')
-          setFocusFeed('insider')
+        if (activeTab === 'pharma') {
+          if (feedPaneFocus === 'programs') setFeedPaneFocus('pharma')
+          return
+        }
+        if (activeTab === 'insider') {
+          if (feedPaneFocus === 'case') setFeedPaneFocus('insider')
+          return
         }
         return
       }
       if (right) {
-        if (feedPaneFocus === 'insider') {
-          setFeedPaneFocus('pharma')
-          setFocusFeed('pharma')
-        } else if (feedPaneFocus === 'pharma') {
-          setFeedPaneFocus('programs')
-          setFocusFeed('pharma')
+        if (activeTab === 'pharma') {
+          if (feedPaneFocus === 'pharma') setFeedPaneFocus('programs')
+          return
+        }
+        if (activeTab === 'insider') {
+          if (feedPaneFocus === 'insider') setFeedPaneFocus('case')
+          return
         }
         return
       }
       if (feedPaneFocus === 'insider') {
         setInsiderIdx((i) => clamp(i + (down ? 1 : -1), 0, insiderFeedRows.length - 1))
+      } else if (feedPaneFocus === 'case' && activeTab === 'insider') {
+        const n = insiderCaseTradeRowIndices.length
+        if (n <= 0) return
+        setInsiderCaseTradeIdx((i) => clamp(i + (down ? 1 : -1), 0, n - 1))
       } else if (feedPaneFocus === 'pharma') {
         setPharmaIdx((i) => clamp(i + (down ? 1 : -1), 0, pharmaFeedRows.length - 1))
-      } else if (feedPaneFocus === 'programs' && focusFeed === 'pharma') {
+      } else if (feedPaneFocus === 'programs' && activeTab === 'pharma') {
         const items = programFeedItems
         if (items.length === 0) return
         setProgramRailIdx((cur) => {
@@ -2252,8 +2689,9 @@ function App() {
     window.addEventListener('keydown', onKey, { capture: true })
     return () => window.removeEventListener('keydown', onKey, { capture: true })
   }, [
+    activeTab,
     feedPaneFocus,
-    focusFeed,
+    insiderCaseTradeRowIndices,
     programFeedItems,
     pharmaFeedEventId,
     programRailEventId,
@@ -2265,9 +2703,22 @@ function App() {
     <>
       <header className="topTabsBar" aria-label="Views">
         <div className="topTabsLeft">
-          <div className="topTab" aria-current="page">
-            {viewLabel}
-          </div>
+          <button
+            type="button"
+            className={activeTab === 'insider' ? 'topTab isActive' : 'topTab'}
+            aria-current={activeTab === 'insider' ? 'page' : undefined}
+            onClick={() => setActiveTab('insider')}
+          >
+            INSIDER
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'pharma' ? 'topTab isActive' : 'topTab'}
+            aria-current={activeTab === 'pharma' ? 'page' : undefined}
+            onClick={() => setActiveTab('pharma')}
+          >
+            PHARMA
+          </button>
         </div>
         <div className="topTabsRight">
           <span className={`topStatChip ${backendUp ? 'isUp' : 'isDown'}`}>{backendUp ? 'UP' : 'DOWN'}</span>
@@ -2281,91 +2732,95 @@ function App() {
           <span className="topStatChip mono">PH{backendStats?.parsed?.pharma?.count ?? 0}</span>
         </div>
       </header>
-      <main className="terminal" aria-label="KENSIGLINE terminal grid">
-      <CompactFeed
-        placement="left"
-        title="INSIDER FEED"
-        items={insiderFeedRows}
-        selectedIndex={insiderIdx}
-        focused={feedPaneFocus === 'insider'}
-        onSelectIndex={(idx) => {
-          setInsiderIdx(idx)
-          setFocusFeed('insider')
-          setFeedPaneFocus('insider')
-        }}
+      <main className={`terminal terminal--${activeTab}`} aria-label="KENSIGLINE terminal grid">
+      {activeTab === 'insider' ? (
+        <>
+          <CompactFeed
+            placement="left"
+            title="INSIDER FEED"
+            items={insiderFeedRows}
+            selectedIndex={insiderIdx}
+            focused={feedPaneFocus === 'insider'}
+            onSelectIndex={(idx) => {
+              setInsiderIdx(idx)
+              setFeedPaneFocus('insider')
+            }}
+          />
+          <CaseKvFeed
+            title="CASE"
+            rows={insiderCaseFeedRows}
+            placement="right"
+            focused={feedPaneFocus === 'case'}
+            selectedTradeRowIndex={insiderCaseSelectedRowIndex}
+            onSelectTradeRowIndex={(rowIndex) => {
+              const pos = insiderCaseTradeRowIndices.indexOf(rowIndex)
+              if (pos >= 0) {
+                setInsiderCaseTradeIdx(pos)
+                setFeedPaneFocus('case')
+              }
+            }}
+          />
+        </>
+      ) : null}
+
+      {activeTab === 'pharma' ? (
+        <>
+          <CompactFeed
+            placement="right"
+            title="PHARMA FEED"
+            items={pharmaFeedRows}
+            selectedIndex={pharmaIdx}
+            focused={feedPaneFocus === 'pharma'}
+            onSelectIndex={(idx) => {
+              setPharmaIdx(idx)
+              setFeedPaneFocus('pharma')
+            }}
+          />
+          <CompactFeed
+            placement="rail"
+            panelClassName="blankFeedRail"
+            title="PROGRAMS"
+            headerMetaMode="paginationOnly"
+            programsTimeline
+            items={programFeedItems}
+            selectedIndex={programSelectedIdx}
+            focused={feedPaneFocus === 'programs'}
+            onSelectIndex={(idx) => {
+              setProgramRailIdx(idx)
+              const row = programFeedItems[idx]
+              if (row?.trialEventId) setProgramRailEventId(row.trialEventId)
+              setProgramRailMilestone(row ?? null)
+              setFeedPaneFocus('programs')
+            }}
+          />
+        </>
+      ) : null}
+
+      {activeTab === 'pharma' ? (
+        <section className="panel worksheet" aria-label="Trial worksheet">
+          <header className="feedCompactHeader">
+            <div className="panelTitle feedCompactTitle">CASE WORKSHEET</div>
+            <div className="feedCompactMeta">
+              <span>{worksheetMetaId}</span>
+            </div>
+          </header>
+
+          <div className="worksheetBody">{worksheetRows}</div>
+        </section>
+      ) : null}
+
+      <HistoricalOutcomesPanel mode={activeTab} backendUp={backendUp} />
+      <ContextPanel mode={activeTab} pharmaEvent={pharmaSelectedResolved} insiderRow={insiderSelectedResolved} backendUp={backendUp} />
+
+      <GraphPanel
+        title="DAILY GRAPH"
+        series={dailySeries}
+        dates={dailyDates}
+        markers={insiderTradeMarkers}
+        selectedMarker={selectedInsiderTradeMarker}
       />
-      <CompactFeed
-        placement="right"
-        title="PHARMA FEED"
-        items={pharmaFeedRows}
-        selectedIndex={pharmaIdx}
-        focused={feedPaneFocus === 'pharma'}
-        onSelectIndex={(idx) => {
-          setPharmaIdx(idx)
-          setFocusFeed('pharma')
-          setFeedPaneFocus('pharma')
-        }}
-      />
 
-      <CompactFeed
-        placement="rail"
-        panelClassName="blankFeedRail"
-        title="PROGRAMS"
-        headerMetaMode="paginationOnly"
-        programsTimeline
-        items={focusFeed === 'pharma' ? programFeedItems : []}
-        selectedIndex={programSelectedIdx}
-        focused={feedPaneFocus === 'programs'}
-        onSelectIndex={(idx) => {
-          setProgramRailIdx(idx)
-          const row = programFeedItems[idx]
-          if (row?.trialEventId) setProgramRailEventId(row.trialEventId)
-          setProgramRailMilestone(row ?? null)
-          setFocusFeed('pharma')
-          setFeedPaneFocus('programs')
-        }}
-      />
-
-      <section
-        className={`panel worksheet ${focusFeed === 'insider' ? 'worksheet--insider' : ''}`}
-        aria-label={focusFeed === 'insider' ? 'Insider filing worksheet' : 'Trial worksheet'}
-      >
-        <header className="feedCompactHeader">
-          <div className="panelTitle feedCompactTitle">CASE WORKSHEET</div>
-          <div className="feedCompactMeta">
-            <span>{worksheetMetaId}</span>
-          </div>
-        </header>
-
-        <div className="worksheetBody">{worksheetRows}</div>
-      </section>
-
-      <HistoricalOutcomesPanel mode={focusFeed} backendUp={backendUp} />
-      <ContextPanel mode={focusFeed} pharmaEvent={pharmaSelectedResolved} insiderRow={insiderSelectedResolved} backendUp={backendUp} />
-
-      <section className="panel graph" aria-label="Daily graph">
-        <header className="panelHeader">
-          <div className="panelTitle">
-            DAILY GRAPH
-          </div>
-          <div className="panelMeta">
-            L {dailyLast} | R {dailyMin}–{dailyMax}
-          </div>
-        </header>
-        <div className="graphWrap" aria-label="Mock daily price graph">
-          <svg
-            className="graphSvg"
-            viewBox="0 0 900 140"
-            preserveAspectRatio="none"
-            role="img"
-            aria-label="Sparkline"
-          >
-            <path className="graphPath" d={toPath(daily, 900, 140, plotInset)} />
-                </svg>
-        </div>
-      </section>
-
-      <CompanyPanel mode={focusFeed} company={companyLive} backendUp={backendUp} />
+      <CompanyPanel mode={activeTab} company={companyLive} backendUp={backendUp} />
       </main>
     </>
   )

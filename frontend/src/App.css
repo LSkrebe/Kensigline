@@ -61,30 +61,16 @@
   max-width: min(62vw, 520px);
   overflow: hidden;
   text-overflow: ellipsis;
-  position: relative;
+  cursor: pointer;
+  /* Single separator between adjacent tabs */
+  border-right: 1px solid var(--grid);
 }
 
-.topTab + .topTab {
-  border-left: 1px solid var(--grid);
+.topTab.isActive {
+  background: rgba(255, 255, 255, 0.04);
 }
 
-/* Each tab has visible vertical rails (left + right). */
-.topTab::before,
-.topTab::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--grid);
-  pointer-events: none;
-}
-.topTab::before {
-  left: 0;
-}
-.topTab::after {
-  right: 0;
-}
+/* Keep right rail even on last tab for a clear end-cap. */
 
 .topTabsRight {
   display: inline-flex;
@@ -143,6 +129,18 @@
   gap: 0;
   border: 1px solid var(--grid);
   box-sizing: border-box;
+}
+
+/* Insider tab: make INSIDER + CASE equal width; right-side 3 columns equal width */
+.terminal.terminal--insider {
+  grid-template-columns:
+    minmax(60px, 0.9fr)
+    minmax(60px, 0.9fr)
+    minmax(0, 0.95fr)
+    minmax(0, 0.95fr)
+    minmax(0, 0.95fr);
+  /* Give the bottom-right stats row a bit more height */
+  grid-template-rows: 0.95fr 0.95fr 0.95fr 1.4fr;
 }
 
 .panel {
@@ -230,6 +228,33 @@
 .blankTile--b {
   grid-column: 5 / span 1;
   grid-row: 3 / span 1;
+}
+
+/* ---- TAB-SPECIFIC LAYOUT (INSIDER) ---- */
+.terminal--insider .graph {
+  grid-column: 3 / span 3;
+  grid-row: 1 / span 3;
+}
+
+/* CASE panel shorter (free up bottom cell) */
+.terminal--insider .feed--right {
+  grid-row: 1 / span 3;
+}
+
+.terminal--insider .historicalOutcomes {
+  grid-column: 4 / span 1;
+  grid-row: 4 / span 1;
+}
+
+.terminal--insider .companyTile {
+  grid-column: 5 / span 1;
+  grid-row: 4 / span 1;
+}
+
+.terminal--insider .contextPanel {
+  /* Bottom row, span two columns to cover the empty spot */
+  grid-column: 2 / span 2;
+  grid-row: 4 / span 1;
 }
 
 /* ---- Container tiles (per-panel cqmin still used for gaps / graph / stats tiles) ---- */
@@ -444,6 +469,17 @@
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+/* CASE (insider tab): compact key/value feed look */
+.feedRowCompact--kv {
+  grid-template-columns: minmax(0, 0.55fr) minmax(0, 1fr);
+}
+
+.feedRowCompact--blank {
+  pointer-events: none;
+  user-select: none;
+  background: transparent;
+}
+
 /*
  * PROGRAMS rail: three stacked slots (drug | indication | phase); no rules inside an entry.
  * Only the outer `.feedRowCompact` bottom border separates programs (aligns with other feeds).
@@ -544,7 +580,9 @@
 }
 
 .feedCellWhen {
-  min-width: 4.5rem;
+  /* Fixed width to avoid shifting between HH:MM / MM-DD / YY-MM-DD */
+  /* Extra room for letter-spacing on `.kvFeedDim` */
+  min-width: 10ch;
 }
 
 /* ---- CASE WORKSHEET (flat key–value table) ---- */
@@ -738,15 +776,58 @@
   box-sizing: border-box;
 }
 
+/* Big insider graph: tighter, even padding */
+.terminal--insider .graphWrap {
+  --graph-gutter: 8px;
+}
+
 .graphSvg {
   width: 100%;
   height: 100%;
   display: block;
 }
 
+.graphAxis {
+  stroke: rgba(140, 255, 195, 0.16);
+  stroke-width: 0.75px;
+  fill: none;
+}
+
+.graphTick {
+  fill: rgba(216, 255, 235, 0.42);
+  font-size: var(--fs-body);
+  letter-spacing: 0.06em;
+}
+
+.graphTick--y {
+  text-anchor: end;
+}
+
+.graphTick--x {
+  text-anchor: middle;
+}
+
+.graphTickLine {
+  stroke: rgba(140, 255, 195, 0.12);
+  stroke-width: 1px;
+  fill: none;
+}
+
+.graphMarker {
+  stroke: rgba(140, 255, 195, 0.16);
+  stroke-width: 0.75px;
+  fill: none;
+}
+
+.graphMarker--selected {
+  /* Match the TODAY separator accent */
+  stroke: rgba(140, 255, 195, 0.55);
+  stroke-width: 0.75px;
+}
+
 .graphPath {
   stroke: rgba(90, 220, 255, 0.92);
-  stroke-width: clamp(1.25px, max(0.35cqmin, 0.22vmin), 2.25px);
+  stroke-width: 2px;
   fill: none;
 }
 
