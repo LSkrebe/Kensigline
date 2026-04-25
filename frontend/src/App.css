@@ -59,7 +59,7 @@
   color: var(--hi);
   font-family: inherit;
   font-weight: inherit;
-  font-size: 12px;
+  font-size: var(--fs-title);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
