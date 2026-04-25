@@ -13,7 +13,7 @@
   --fs-meta: clamp(6px, 1.65vmin, 10px);
   --fs-body: clamp(6px, 1.8vmin, 11px);
   /* Match `.feedCompactHeader` vertical rhythm: text + padding + border */
-  --topbar-h: calc(var(--fs-title) + 14px);
+  --topbar-h: calc(12px + 6px + 5px + 1px);
 }
 
 .topTabsBar {
@@ -24,7 +24,7 @@
   height: var(--topbar-h);
   z-index: 50;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: space-between;
   gap: 10px;
   padding: 0;
@@ -49,11 +49,16 @@
   display: inline-flex;
   align-items: center;
   height: 100%;
-  padding: 0 12px;
+  /* Match `.feedCompactHeader` padding */
+  padding: 6px 8px 5px;
   border: none;
   border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
   background: transparent;
   color: var(--hi);
+  font-family: inherit;
+  font-weight: inherit;
   font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -76,7 +81,8 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 0 10px;
+  /* Match `.feedCompactHeader` padding */
+  padding: 6px 8px 5px;
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
