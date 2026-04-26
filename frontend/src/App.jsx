@@ -1623,7 +1623,7 @@ function describeTrialDosingPlain(drug, intervention, mech) {
 function buildPharmaContextSentences(ev) {
   if (!ev) return [EMPTY]
   if (Array.isArray(ev.__context_sentences) && ev.__context_sentences.some(Boolean)) {
-    return ev.__context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 4)
+    return ev.__context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 3)
   }
   const snap = ev.trialSnapshot ?? {}
   const drug = snap.drug ?? ev.drug ?? 'This drug'
@@ -1639,10 +1639,10 @@ function buildPharmaContextSentences(ev) {
   const pm = plainMechanismSnippet(mech)
   const s1 =
     phase && pm
-      ? `${drug} (${phase}) targets ${ind}; ${pm}.`
+      ? `${drug} is in ${phase} for ${ind} and works via ${pm.toLowerCase()}.`
       : phase
-        ? `${drug} (${phase}) targets ${ind}.`
-        : `${drug} targets ${ind}.`
+        ? `${drug} is in ${phase} for ${ind}.`
+        : `${drug} is being tested for ${ind}.`
 
   const s2 = describeTrialDosingPlain(drug, intervention, mech)
 
@@ -1939,16 +1939,16 @@ function CompactFeed({
   programsStackedRows = false,
   /** PROGRAMS rail: show grouped timeline rows (separators per program). */
   programsTimeline = false,
+  /** Feed separators: today | year | today+years */
+  sepMode = 'today',
 }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
 
   const displayRows = useMemo(() => {
     if (programsTimeline) return buildProgramGroupedDisplayRows(items)
-    // Insider feed: keep TODAY + also show separators at every year boundary.
-    const sepMode = title === 'INSIDER FEED' ? 'today+years' : 'today'
     return buildFeedDisplayRows(items, { sepMode })
-  }, [items, programsTimeline, title])
+  }, [items, programsTimeline, sepMode])
 
   useLayoutEffect(() => {
     const list = listRef.current
@@ -2811,10 +2811,11 @@ function App() {
         <>
           <CompactFeed
             placement="left"
-            title="INSIDER FEED"
+            title="FEED"
             items={insiderFeedRows}
             selectedIndex={insiderIdx}
             focused={feedPaneFocus === 'insider'}
+            sepMode="today+years"
             onSelectIndex={(idx) => {
               setInsiderIdx(idx)
               setFeedPaneFocus('insider')
@@ -2841,10 +2842,11 @@ function App() {
         <>
           <CompactFeed
             placement="right"
-            title="PHARMA FEED"
+            title="FEED"
             items={pharmaFeedRows}
             selectedIndex={pharmaIdx}
             focused={feedPaneFocus === 'pharma'}
+            sepMode="today+years"
             onSelectIndex={(idx) => {
               setPharmaIdx(idx)
               setFeedPaneFocus('pharma')
