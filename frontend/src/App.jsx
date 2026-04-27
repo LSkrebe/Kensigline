@@ -561,6 +561,16 @@ const INSIDER_ISSUERS = [
 // Insider pipeline target: Form 4 only (Code P purchases).
 const FORM_TYPES_INSIDER = ['Form 4']
 
+// Politicians: mock names used in CASE key column (in place of insider roles).
+const POLITICIAN_NAMES = [
+  'Nancy Pelosi',
+  'Dan Crenshaw',
+  'Josh Gottheimer',
+  'Ro Khanna',
+  'Tommy Tuberville',
+  'Michael McCaul',
+]
+
 /** Deterministic pseudo-random in [0, max) */
 function seededJitter(seed, max) {
   const x = Math.sin(seed * 12.9898 + max * 78.233) * 43758.5453
@@ -726,6 +736,69 @@ function insiderCaseForRowIndex(i) {
 const INSIDER_FEED_ROWS = sortFeedRowsByAtDesc(
   Array.from({ length: 42 }, (_, i) => insiderCaseForRowIndex(i)),
 )
+
+function lastName(name) {
+  const parts = String(name ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  return (parts.at(-1) ?? '').replace(/[^A-Za-z]/g, '') || String(name ?? '').trim() || '—'
+}
+
+function politicianCaseForRowIndex(i) {
+  const base = insiderCaseForRowIndex(i)
+  const nPeople = 1 + (i % 3)
+  const people = Array.from({ length: nPeople }, (_, j) => POLITICIAN_NAMES[(i + j) % POLITICIAN_NAMES.length])
+  const rows = (base?.caseSheet?.rows ?? []).map((r, idx) => {
+    const who = people[idx % people.length]
+    return { ...r, key: lastName(who).toUpperCase() }
+  })
+  return {
+    ...base,
+    id: `pol-${i}`,
+    politicians: people,
+    caseSheet: {
+      ...(base.caseSheet ?? {}),
+      issuer: people[0] ?? '—',
+      rows,
+    },
+  }
+}
+
+const POLITICIAN_FEED_ROWS = sortFeedRowsByAtDesc(
+  Array.from({ length: 240 }, (_, i) => politicianCaseForRowIndex(i)),
+)
+
+function PoliticiansFilterPanel({ activeName, items, onSelect }) {
+  return (
+    <section className="panel filterTile" aria-label="Filter">
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">FILTER</div>
+      </header>
+      <div className="filterList scrollThin" role="list">
+        <div
+          className={['filterRow', !activeName ? 'isActive' : ''].filter(Boolean).join(' ')}
+          role="listitem"
+          onClick={() => onSelect(null)}
+        >
+          <span className="filterRowName dim">ALL</span>
+          <span className="filterRowCount mono">{items?.length ?? 0}</span>
+        </div>
+        {(items ?? []).map((it) => (
+          <div
+            key={it.name}
+            className={['filterRow', activeName === it.name ? 'isActive' : ''].filter(Boolean).join(' ')}
+            role="listitem"
+            onClick={() => onSelect(it.name)}
+          >
+            <span className="filterRowName">{it.name}</span>
+            <span className="filterRowCount mono">{it.count}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
 
 function buildPharmaFeedRows() {
   function pharmaImportanceLabel(phase) {
@@ -1941,9 +2014,12 @@ function CompactFeed({
   programsTimeline = false,
   /** Feed separators: today | year | today+years */
   sepMode = 'today',
+  /** Replace pagination with scroll-to-load. */
+  scrollMode = false,
 }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
+  const [renderLimit, setRenderLimit] = useState(80)
 
   const displayRows = useMemo(() => {
     if (programsTimeline) return buildProgramGroupedDisplayRows(items)
@@ -1979,6 +2055,19 @@ function CompactFeed({
     return di >= 0 ? di : 0
   }, [displayRows, selectedIndex])
 
+  useEffect(() => {
+    if (!scrollMode) return
+    setRenderLimit((prev) => Math.max(prev, selectedDisplayIdx + pageSize * 2))
+  }, [scrollMode, selectedDisplayIdx, pageSize])
+
+  useLayoutEffect(() => {
+    if (!scrollMode) return
+    const list = listRef.current
+    if (!list) return
+    const el = list.querySelector(`[data-item-idx="${selectedIndex}"]`)
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' })
+  }, [scrollMode, selectedIndex])
+
   const totalPages = Math.max(1, Math.ceil(Math.max(1, displayLen || total) / pageSize))
   const page =
     displayLen && total
@@ -1987,6 +2076,19 @@ function CompactFeed({
   const pageStart = page * pageSize
   const pageSlice =
     displayLen && total ? displayRows.slice(pageStart, pageStart + pageSize) : []
+
+  const visibleRows = scrollMode
+    ? displayRows.slice(0, Math.min(displayLen, Math.max(pageSize, renderLimit)))
+    : pageSlice
+
+  function onScrollLoadMore() {
+    if (!scrollMode) return
+    const list = listRef.current
+    if (!list) return
+    const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 60
+    if (!nearBottom) return
+    setRenderLimit((prev) => Math.min(displayLen, prev + pageSize * 2))
+  }
 
   return (
     <section
@@ -1999,29 +2101,34 @@ function CompactFeed({
         className="feedCompactHeader"
       >
         <div className="panelTitle feedCompactTitle">{title}</div>
-        {headerMetaMode === 'full' ? (
+        {!scrollMode && headerMetaMode === 'full' ? (
           <div className="feedCompactMeta feedCompactMeta--paginationOnly">
             <span className="feedPageInd">
               {total ? `${page + 1}/${totalPages}` : '0/0'}
             </span>
           </div>
         ) : null}
-        {headerMetaMode === 'ghost' ? (
+        {!scrollMode && headerMetaMode === 'ghost' ? (
           <div className="feedCompactMeta feedCompactMeta--ghost" aria-hidden="true">
             <span className="feedPageInd">
               {total ? `${page + 1}/${totalPages}` : '0/0'}
             </span>
           </div>
         ) : null}
-        {headerMetaMode === 'paginationOnly' ? (
+        {!scrollMode && headerMetaMode === 'paginationOnly' ? (
           <div className="feedCompactMeta feedCompactMeta--paginationOnly">
             <span className="feedPageInd">{total ? `${page + 1}/${totalPages}` : '0/0'}</span>
           </div>
         ) : null}
       </header>
-      <div ref={listRef} className="feedCompactList" role="list">
-        {pageSlice.map((entry, i) => {
-          const globalIdx = pageStart + i
+      <div
+        ref={listRef}
+        className={['feedCompactList', scrollMode ? 'feedCompactList--scroll' : ''].filter(Boolean).join(' ')}
+        role="list"
+        onScroll={scrollMode ? onScrollLoadMore : undefined}
+      >
+        {visibleRows.map((entry, i) => {
+          const globalIdx = scrollMode ? i : pageStart + i
           if (entry.type === 'sep') {
             return (
               <div
@@ -2049,6 +2156,7 @@ function CompactFeed({
                 .filter(Boolean)
                 .join(' ')}
               onClick={() => onSelectIndex(idx)}
+              data-item-idx={idx}
             >
               {programsStackedRows ? (
                 <>
@@ -2091,9 +2199,11 @@ function CaseKvFeed({
   focused = false,
   selectedTradeRowIndex = -1,
   onSelectTradeRowIndex,
+  scrollMode = false,
 }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
+  const [renderLimit, setRenderLimit] = useState(80)
 
   useLayoutEffect(() => {
     const list = listRef.current
@@ -2122,6 +2232,29 @@ function CaseKvFeed({
   const page = total ? clamp(Math.floor(Math.max(0, selectedTradeRowIndex) / pageSize), 0, totalPages - 1) : 0
   const pageStart = page * pageSize
   const pageSlice = total ? rows.slice(pageStart, pageStart + pageSize) : []
+  const visibleRows = scrollMode ? rows.slice(0, Math.min(total, Math.max(pageSize, renderLimit))) : pageSlice
+
+  useEffect(() => {
+    if (!scrollMode) return
+    setRenderLimit((prev) => Math.max(prev, selectedTradeRowIndex + pageSize * 2))
+  }, [scrollMode, selectedTradeRowIndex, pageSize])
+
+  useLayoutEffect(() => {
+    if (!scrollMode) return
+    const list = listRef.current
+    if (!list) return
+    const el = list.querySelector(`[data-row-idx="${selectedTradeRowIndex}"]`)
+    if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' })
+  }, [scrollMode, selectedTradeRowIndex])
+
+  function onScrollLoadMore() {
+    if (!scrollMode) return
+    const list = listRef.current
+    if (!list) return
+    const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 60
+    if (!nearBottom) return
+    setRenderLimit((prev) => Math.min(total, prev + pageSize * 2))
+  }
 
   return (
     <section
@@ -2132,13 +2265,20 @@ function CaseKvFeed({
     >
       <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">{title}</div>
-        <div className="feedCompactMeta feedCompactMeta--paginationOnly">
-          <span className="feedPageInd">{total ? `${page + 1}/${totalPages}` : '0/0'}</span>
-        </div>
+        {!scrollMode ? (
+          <div className="feedCompactMeta feedCompactMeta--paginationOnly">
+            <span className="feedPageInd">{total ? `${page + 1}/${totalPages}` : '0/0'}</span>
+          </div>
+        ) : null}
       </header>
-      <div ref={listRef} className="feedCompactList" role="list">
-        {pageSlice.map((r, j) => {
-          const i = pageStart + j
+      <div
+        ref={listRef}
+        className={['feedCompactList', scrollMode ? 'feedCompactList--scroll' : ''].filter(Boolean).join(' ')}
+        role="list"
+        onScroll={scrollMode ? onScrollLoadMore : undefined}
+      >
+        {visibleRows.map((r, j) => {
+          const i = scrollMode ? j : pageStart + j
           return r?.type === 'blank' ? (
             <div key={`blank-${i}`} className="feedRowCompact feedRowCompact--blank" role="presentation" />
           ) : (
@@ -2153,6 +2293,7 @@ function CaseKvFeed({
                 .join(' ')}
               role="listitem"
               onClick={r?.type === 'trade' ? () => onSelectTradeRowIndex?.(i) : undefined}
+              data-row-idx={i}
             >
               <span className="feedCell feedCellLabel kvFeedMain dim">{r.k}</span>
               <span className="feedCell feedCellWhen mono kvFeedDim">{r.v}</span>
@@ -2165,11 +2306,14 @@ function CaseKvFeed({
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState('insider') // insider | pharma
+  const [activeTab, setActiveTab] = useState('insider') // insider | pharma | politicians
   /** Which feed column receives arrow up/down: insider | pharma | programs (rail). */
   const [feedPaneFocus, setFeedPaneFocus] = useState('insider')
   const [insiderIdx, setInsiderIdx] = useState(0)
   const [insiderCaseTradeIdx, setInsiderCaseTradeIdx] = useState(0)
+  const [politiciansIdx, setPoliticiansIdx] = useState(0)
+  const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
+  const [politiciansFilter, setPoliticiansFilter] = useState(null)
   const [pharmaIdx, setPharmaIdx] = useState(0)
   /** When set, case sheet + graph follow this trial; cleared when pharma feed row or sponsor context changes */
   const [programRailEventId, setProgramRailEventId] = useState(null)
@@ -2274,6 +2418,34 @@ function App() {
   const insiderFeedRows = backendUp && insiderFeedLive != null ? insiderFeedLive : INSIDER_FEED_ROWS
   const insiderSelected =
     insiderFeedRows.length > 0 ? insiderFeedRows[clamp(insiderIdx, 0, Math.max(0, insiderFeedRows.length - 1))] : null
+
+  const politicianFilterItems = useMemo(() => {
+    const counts = new Map()
+    for (const r of POLITICIAN_FEED_ROWS) {
+      const people = Array.isArray(r?.politicians) ? r.politicians : []
+      for (const p of people) {
+        const k = String(p ?? '').trim()
+        if (!k) continue
+        counts.set(k, (counts.get(k) ?? 0) + 1)
+      }
+    }
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+  }, [])
+
+  const politiciansFeedRows = useMemo(() => {
+    if (!politiciansFilter) return POLITICIAN_FEED_ROWS
+    return POLITICIAN_FEED_ROWS.filter((r) => (r?.politicians ?? []).includes(politiciansFilter))
+  }, [politiciansFilter])
+
+  useEffect(() => {
+    setPoliticiansIdx(0)
+    setPoliticiansCaseTradeIdx(0)
+  }, [politiciansFilter])
+
+  const politiciansSelected =
+    politiciansFeedRows.length > 0 ? politiciansFeedRows[clamp(politiciansIdx, 0, politiciansFeedRows.length - 1)] : null
 
   useEffect(() => {
     let alive = true
@@ -2469,6 +2641,11 @@ function App() {
     }
   }, [backendUp, activeTab, insiderSelected, insiderClusterLive])
 
+  const politiciansSelectedResolved = useMemo(() => {
+    // Mock-only for now.
+    return politiciansSelected ?? null
+  }, [politiciansSelected])
+
   const isRealView = useMemo(() => {
     return Boolean(backendUp)
   }, [backendUp])
@@ -2502,8 +2679,9 @@ function App() {
   // Bars (Daily Graph) + Company panel: use selected ticker in either mode
   const selectedTicker = useMemo(() => {
     if (activeTab === 'insider') return insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
+    if (activeTab === 'politicians') return politiciansSelected?.ticker ? String(politiciansSelected.ticker).toUpperCase() : null
     return pharmaTicker ? String(pharmaTicker).toUpperCase() : null
-  }, [activeTab, insiderSelected?.ticker, pharmaTicker])
+  }, [activeTab, insiderSelected?.ticker, politiciansSelected?.ticker, pharmaTicker])
 
   useEffect(() => {
     let alive = true
@@ -2601,7 +2779,9 @@ function App() {
       ? barsLive ?? []
       : activeTab === 'insider'
         ? (barsLive ?? insiderSelectedResolved?.daily ?? [])
-        : pharmaSelectedResolved?.daily ?? []
+        : activeTab === 'politicians'
+          ? (politiciansSelectedResolved?.daily ?? [])
+          : pharmaSelectedResolved?.daily ?? []
 
   const dailySeries = useMemo(() => {
     if (daily && daily.length >= 40) return daily
@@ -2610,8 +2790,8 @@ function App() {
 
   const dailyDates = useMemo(() => buildEvenlySpacedDates(dailySeries.length), [dailySeries.length])
   const insiderTradeMarkers = useMemo(() => {
-    if (activeTab !== 'insider') return []
-    const cs = insiderSelectedResolved?.caseSheet
+    if (!(activeTab === 'insider' || activeTab === 'politicians')) return []
+    const cs = activeTab === 'politicians' ? politiciansSelectedResolved?.caseSheet : insiderSelectedResolved?.caseSheet
     if (!cs?.isForm4) return []
     const out = []
     for (const r of cs.rows ?? []) {
@@ -2622,7 +2802,7 @@ function App() {
       out.push(d)
     }
     return out
-  }, [activeTab, insiderSelectedResolved?.caseSheet])
+  }, [activeTab, insiderSelectedResolved?.caseSheet, politiciansSelectedResolved?.caseSheet])
 
 
   const dailyMin = dailySeries.length ? Math.min(...dailySeries) : 0
@@ -2632,7 +2812,9 @@ function App() {
   const worksheetMetaId =
     activeTab === 'insider'
       ? insiderSelectedResolved?.caseSheet?.issuer ?? insiderSelectedResolved?.id ?? '—'
-      : pharmaSelectedResolved?.id ?? '—'
+      : activeTab === 'politicians'
+        ? politiciansSelectedResolved?.caseSheet?.issuer ?? politiciansSelectedResolved?.id ?? '—'
+        : pharmaSelectedResolved?.id ?? '—'
 
   const insiderCaseFeedRows = useMemo(() => {
     const cs = insiderSelectedResolved?.caseSheet
@@ -2670,6 +2852,46 @@ function App() {
     return [...meta, totalRow, { type: 'blank' }, ...trades]
   }, [insiderSelectedResolved?.caseSheet])
 
+  const politiciansCaseFeedRows = useMemo(() => {
+    const cs = politiciansSelectedResolved?.caseSheet
+    if (!cs) return []
+    const meta = []
+    if (cs.ticker) meta.push({ k: 'ISSUER', v: String(cs.ticker) })
+    if (cs.formType) meta.push({ k: 'FORM', v: String(cs.formType) })
+    if (cs.filingId) meta.push({ k: 'ACCESSION', v: String(cs.filingId) })
+
+    const showMoney = Boolean(cs.isForm4)
+    let totalUsd = 0
+    const trades = []
+    for (const r of cs.rows ?? []) {
+      const amt = showMoney && r.amountUsd != null ? Number(r.amountUsd) : 0
+      if (Number.isFinite(amt) && amt > 0) totalUsd += amt
+      const val =
+        showMoney && r.amountUsd != null && Number(r.amountUsd) > 0
+          ? `${formatUsdCompact(r.amountUsd)} ${formatFeedDate(r.ts)}`
+          : ''
+      if (!val) continue
+      const k = String(r.key ?? '').trim()
+      const first = k.split(/\s+/)[0]
+      trades.push({ type: 'trade', k: first ? first.toUpperCase() : '-', v: val, ts: r.ts })
+    }
+    const totalRow = { type: 'total', k: 'TOTAL', v: totalUsd > 0 ? formatUsdCompact(totalUsd) : '-' }
+    return [...meta, totalRow, { type: 'blank' }, ...trades]
+  }, [politiciansSelectedResolved?.caseSheet])
+
+  const politiciansCaseTradeRowIndices = useMemo(() => {
+    const idxs = []
+    for (let i = 0; i < politiciansCaseFeedRows.length; i++) {
+      if (politiciansCaseFeedRows[i]?.type === 'trade') idxs.push(i)
+    }
+    return idxs
+  }, [politiciansCaseFeedRows])
+
+  const politiciansCaseSelectedRowIndex =
+    politiciansCaseTradeRowIndices.length > 0
+      ? politiciansCaseTradeRowIndices[clamp(politiciansCaseTradeIdx, 0, politiciansCaseTradeRowIndices.length - 1)]
+      : -1
+
   const insiderCaseTradeRowIndices = useMemo(() => {
     const idxs = []
     for (let i = 0; i < insiderCaseFeedRows.length; i++) {
@@ -2684,13 +2906,14 @@ function App() {
       : -1
 
   const selectedInsiderTradeMarker = useMemo(() => {
-    if (activeTab !== 'insider') return null
-    const rowIndex = insiderCaseSelectedRowIndex
-    const row = rowIndex >= 0 ? insiderCaseFeedRows[rowIndex] : null
+    if (!(activeTab === 'insider' || activeTab === 'politicians')) return null
+    const rowIndex = activeTab === 'politicians' ? politiciansCaseSelectedRowIndex : insiderCaseSelectedRowIndex
+    const rows = activeTab === 'politicians' ? politiciansCaseFeedRows : insiderCaseFeedRows
+    const row = rowIndex >= 0 ? rows[rowIndex] : null
     if (!row || row.type !== 'trade' || !row.ts) return null
     const d = new Date(row.ts)
     return Number.isNaN(d.getTime()) ? null : d
-  }, [activeTab, insiderCaseSelectedRowIndex, insiderCaseFeedRows])
+  }, [activeTab, insiderCaseSelectedRowIndex, insiderCaseFeedRows, politiciansCaseSelectedRowIndex, politiciansCaseFeedRows])
 
   useEffect(() => {
     // Reset case selection when the cluster changes.
@@ -2709,7 +2932,7 @@ function App() {
       const k = e.key
       if (k === 'Tab') {
         e.preventDefault()
-        setActiveTab((t) => (t === 'insider' ? 'pharma' : 'insider'))
+        setActiveTab((t) => (t === 'insider' ? 'pharma' : t === 'pharma' ? 'politicians' : 'insider'))
         return
       }
       const left = k === 'ArrowLeft' || k === 'a' || k === 'A'
@@ -2727,6 +2950,10 @@ function App() {
           if (feedPaneFocus === 'case') setFeedPaneFocus('insider')
           return
         }
+        if (activeTab === 'politicians') {
+          if (feedPaneFocus === 'case') setFeedPaneFocus('insider')
+          return
+        }
         return
       }
       if (right) {
@@ -2738,14 +2965,24 @@ function App() {
           if (feedPaneFocus === 'insider') setFeedPaneFocus('case')
           return
         }
+        if (activeTab === 'politicians') {
+          if (feedPaneFocus === 'insider') setFeedPaneFocus('case')
+          return
+        }
         return
       }
-      if (feedPaneFocus === 'insider') {
+      if (feedPaneFocus === 'insider' && activeTab === 'insider') {
         setInsiderIdx((i) => clamp(i + (down ? 1 : -1), 0, insiderFeedRows.length - 1))
+      } else if (feedPaneFocus === 'insider' && activeTab === 'politicians') {
+        setPoliticiansIdx((i) => clamp(i + (down ? 1 : -1), 0, politiciansFeedRows.length - 1))
       } else if (feedPaneFocus === 'case' && activeTab === 'insider') {
         const n = insiderCaseTradeRowIndices.length
         if (n <= 0) return
         setInsiderCaseTradeIdx((i) => clamp(i + (down ? 1 : -1), 0, n - 1))
+      } else if (feedPaneFocus === 'case' && activeTab === 'politicians') {
+        const n = politiciansCaseTradeRowIndices.length
+        if (n <= 0) return
+        setPoliticiansCaseTradeIdx((i) => clamp(i + (down ? 1 : -1), 0, n - 1))
       } else if (feedPaneFocus === 'pharma') {
         setPharmaIdx((i) => clamp(i + (down ? 1 : -1), 0, pharmaFeedRows.length - 1))
       } else if (feedPaneFocus === 'programs' && activeTab === 'pharma') {
@@ -2783,7 +3020,7 @@ function App() {
             aria-current={activeTab === 'insider' ? 'page' : undefined}
             onClick={() => setActiveTab('insider')}
           >
-            INSIDER
+            INSIDERS
           </button>
           <button
             type="button"
@@ -2792,6 +3029,14 @@ function App() {
             onClick={() => setActiveTab('pharma')}
           >
             PHARMA
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'politicians' ? 'topTab isActive' : 'topTab'}
+            aria-current={activeTab === 'politicians' ? 'page' : undefined}
+            onClick={() => setActiveTab('politicians')}
+          >
+            POLITICIANS
           </button>
         </div>
         <div className="topTabsRight">
@@ -2816,6 +3061,7 @@ function App() {
             selectedIndex={insiderIdx}
             focused={feedPaneFocus === 'insider'}
             sepMode="today+years"
+            scrollMode
             onSelectIndex={(idx) => {
               setInsiderIdx(idx)
               setFeedPaneFocus('insider')
@@ -2827,6 +3073,7 @@ function App() {
             placement="right"
             focused={feedPaneFocus === 'case'}
             selectedTradeRowIndex={insiderCaseSelectedRowIndex}
+            scrollMode
             onSelectTradeRowIndex={(rowIndex) => {
               const pos = insiderCaseTradeRowIndices.indexOf(rowIndex)
               if (pos >= 0) {
@@ -2847,6 +3094,7 @@ function App() {
             selectedIndex={pharmaIdx}
             focused={feedPaneFocus === 'pharma'}
             sepMode="today+years"
+            scrollMode
             onSelectIndex={(idx) => {
               setPharmaIdx(idx)
               setFeedPaneFocus('pharma')
@@ -2856,17 +3104,55 @@ function App() {
             placement="rail"
             panelClassName="blankFeedRail"
             title="PROGRAMS"
-            headerMetaMode="paginationOnly"
             programsTimeline
             items={programFeedItems}
             selectedIndex={programSelectedIdx}
             focused={feedPaneFocus === 'programs'}
+            scrollMode
             onSelectIndex={(idx) => {
               setProgramRailIdx(idx)
               const row = programFeedItems[idx]
               if (row?.trialEventId) setProgramRailEventId(row.trialEventId)
               setProgramRailMilestone(row ?? null)
               setFeedPaneFocus('programs')
+            }}
+          />
+        </>
+      ) : null}
+
+      {activeTab === 'politicians' ? (
+        <>
+          <PoliticiansFilterPanel
+            activeName={politiciansFilter}
+            items={politicianFilterItems}
+            onSelect={(name) => setPoliticiansFilter(name)}
+          />
+          <CompactFeed
+            placement="left"
+            title="FEED"
+            items={politiciansFeedRows}
+            selectedIndex={politiciansIdx}
+            focused={feedPaneFocus === 'insider'}
+            sepMode="today+years"
+            scrollMode
+            onSelectIndex={(idx) => {
+              setPoliticiansIdx(idx)
+              setFeedPaneFocus('insider')
+            }}
+          />
+          <CaseKvFeed
+            title="CASE"
+            rows={politiciansCaseFeedRows}
+            placement="right"
+            focused={feedPaneFocus === 'case'}
+            selectedTradeRowIndex={politiciansCaseSelectedRowIndex}
+            scrollMode
+            onSelectTradeRowIndex={(rowIndex) => {
+              const pos = politiciansCaseTradeRowIndices.indexOf(rowIndex)
+              if (pos >= 0) {
+                setPoliticiansCaseTradeIdx(pos)
+                setFeedPaneFocus('case')
+              }
             }}
           />
         </>
@@ -2885,8 +3171,13 @@ function App() {
         </section>
       ) : null}
 
-      <HistoricalOutcomesPanel mode={activeTab} backendUp={backendUp} />
-      <ContextPanel mode={activeTab} pharmaEvent={pharmaSelectedResolved} insiderRow={insiderSelectedResolved} backendUp={backendUp} />
+      <HistoricalOutcomesPanel mode={activeTab === 'politicians' ? 'insider' : activeTab} backendUp={backendUp} />
+      <ContextPanel
+        mode={activeTab === 'politicians' ? 'insider' : activeTab}
+        pharmaEvent={pharmaSelectedResolved}
+        insiderRow={activeTab === 'politicians' ? politiciansSelectedResolved : insiderSelectedResolved}
+        backendUp={backendUp}
+      />
 
       <GraphPanel
         title="DAILY GRAPH"
@@ -2896,7 +3187,7 @@ function App() {
         selectedMarker={selectedInsiderTradeMarker}
       />
 
-      <CompanyPanel mode={activeTab} company={companyLive} backendUp={backendUp} />
+      <CompanyPanel mode={activeTab === 'politicians' ? 'insider' : activeTab} company={companyLive} backendUp={backendUp} />
       </main>
     </>
   )
