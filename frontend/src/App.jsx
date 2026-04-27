@@ -1928,10 +1928,12 @@ function buildInsiderContextSentences(row) {
   return [s1, s2, s3]
 }
 
-function ContextPanel({ mode, pharmaEvent, insiderRow, backendUp }) {
+function ContextPanel({ mode, pharmaEvent, insiderRow, backendUp, maxSentences = 3 }) {
   const pharma = mode === 'pharma'
   const sentencesRaw = pharma ? buildPharmaContextSentences(pharmaEvent) : buildInsiderContextSentences(insiderRow)
-  const sentences = backendUp ? (sentencesRaw?.filter((s) => String(s ?? '').trim()).slice(0, 3) ?? []) : sentencesRaw
+  const sentences = backendUp
+    ? (sentencesRaw?.filter((s) => String(s ?? '').trim()).slice(0, maxSentences) ?? [])
+    : (sentencesRaw?.slice(0, maxSentences) ?? [])
   const display = backendUp ? sentences : sentences
 
   return (
@@ -3177,6 +3179,7 @@ function App() {
         pharmaEvent={pharmaSelectedResolved}
         insiderRow={activeTab === 'politicians' ? politiciansSelectedResolved : insiderSelectedResolved}
         backendUp={backendUp}
+        maxSentences={activeTab === 'insider' ? 4 : 3}
       />
 
       <GraphPanel
