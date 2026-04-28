@@ -322,10 +322,7 @@
 
 .filterList {
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
+  /* uses the same scrolling + sizing tokens as `.feedCompactList` */
 }
 
 html,
@@ -389,11 +386,7 @@ body {
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* Keep old selectors safe (used in older markup). */
-.filterRowName,
-.filterRowCount {
-  display: none;
-}
+/* (old selectors were removed; filter now uses feed row cell classes) */
 
 /* ---- TAB-SPECIFIC LAYOUT (PHARMA) ---- */
 /* Match the two tall left panels layout from INSIDER (feed + case). */

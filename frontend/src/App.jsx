@@ -775,30 +775,30 @@ function PoliticiansFilterPanel({ activeName, items, onSelect }) {
       <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">FILTER</div>
       </header>
-      <div className="filterList scrollThin" role="list">
+      <div className="feedCompactList feedCompactList--scroll scrollThin filterList" role="list">
         <button
           type="button"
-          className={['feedRowCompact', 'feedRowCompact--timeline', 'filterRow', !activeName ? 'isActive' : '']
-            .filter(Boolean)
-            .join(' ')}
+          className={['feedRowCompact', 'filterRow', !activeName ? 'isActive' : ''].filter(Boolean).join(' ')}
           role="listitem"
           onClick={() => onSelect(null)}
         >
           <span className="feedCell feedCellLabel kvFeedMain dim">ALL</span>
-          <span className="feedCell feedCellWhen mono kvFeedDim">{items?.length ?? 0}</span>
+          <span className="feedCell feedCellTicker mono kvFeedDim">{items?.length ?? 0}</span>
+          <span className="feedCell feedCellWhen mono kvFeedDim" />
         </button>
         {(items ?? []).map((it) => (
           <button
             type="button"
             key={it.name}
-            className={['feedRowCompact', 'feedRowCompact--timeline', 'filterRow', activeName === it.name ? 'isActive' : '']
+            className={['feedRowCompact', 'filterRow', activeName === it.name ? 'isActive' : '']
               .filter(Boolean)
               .join(' ')}
             role="listitem"
             onClick={() => onSelect(it.name)}
           >
             <span className="feedCell feedCellLabel kvFeedMain">{it.name}</span>
-            <span className="feedCell feedCellWhen mono kvFeedDim">{it.count}</span>
+            <span className="feedCell feedCellTicker mono kvFeedDim">{it.count}</span>
+            <span className="feedCell feedCellWhen mono kvFeedDim" />
           </button>
         ))}
       </div>
@@ -2294,7 +2294,6 @@ function CaseKvFeed({
               key={`${r.k}-${i}`}
               className={[
                 'feedRowCompact',
-                'feedRowCompact--kv',
                 r?.type === 'trade' && i === selectedTradeRowIndex ? 'isActive' : '',
               ]
                 .filter(Boolean)
@@ -2304,7 +2303,8 @@ function CaseKvFeed({
               data-row-idx={i}
             >
               <span className="feedCell feedCellLabel kvFeedMain dim">{r.k}</span>
-              <span className="feedCell feedCellWhen mono kvFeedDim">{r.v}</span>
+              <span className="feedCell feedCellTicker mono kvFeedDim">{r.v}</span>
+              <span className="feedCell feedCellWhen mono kvFeedDim">{r.when ?? ''}</span>
             </div>
           )
         })}
@@ -2939,15 +2939,13 @@ function App() {
     for (const r of cs.rows ?? []) {
       const amt = showMoney && r.amountUsd != null ? Number(r.amountUsd) : 0
       if (Number.isFinite(amt) && amt > 0) totalUsd += amt
-      const val =
-        showMoney && r.amountUsd != null && Number(r.amountUsd) > 0
-          ? `${formatUsdCompact(r.amountUsd)} ${formatFeedDate(r.ts)}`
-          : ''
-      if (!val) continue
-      trades.push({ type: 'trade', k: roleFromKey(r.key), v: val, ts: r.ts })
+      const v = showMoney && r.amountUsd != null && Number(r.amountUsd) > 0 ? formatUsdCompact(r.amountUsd) : ''
+      const when = showMoney && r.amountUsd != null && Number(r.amountUsd) > 0 ? formatFeedDate(r.ts) : ''
+      if (!v) continue
+      trades.push({ type: 'trade', k: roleFromKey(r.key), v, when, ts: r.ts })
     }
 
-    const totalRow = { type: 'total', k: 'TOTAL', v: totalUsd > 0 ? formatUsdCompact(totalUsd) : '-' }
+    const totalRow = { type: 'total', k: 'TOTAL', v: totalUsd > 0 ? formatUsdCompact(totalUsd) : '-', when: '' }
 
     // Ordering: meta, TOTAL, blank separator, then trades. No trailing blank.
     return [...meta, totalRow, { type: 'blank' }, ...trades]
@@ -2967,16 +2965,14 @@ function App() {
     for (const r of cs.rows ?? []) {
       const amt = showMoney && r.amountUsd != null ? Number(r.amountUsd) : 0
       if (Number.isFinite(amt) && amt > 0) totalUsd += amt
-      const val =
-        showMoney && r.amountUsd != null && Number(r.amountUsd) > 0
-          ? `${formatUsdCompact(r.amountUsd)} ${formatFeedDate(r.ts)}`
-          : ''
-      if (!val) continue
+      const v = showMoney && r.amountUsd != null && Number(r.amountUsd) > 0 ? formatUsdCompact(r.amountUsd) : ''
+      const when = showMoney && r.amountUsd != null && Number(r.amountUsd) > 0 ? formatFeedDate(r.ts) : ''
+      if (!v) continue
       const k = String(r.key ?? '').trim()
       const first = k.split(/\s+/)[0]
-      trades.push({ type: 'trade', k: first ? first.toUpperCase() : '-', v: val, ts: r.ts })
+      trades.push({ type: 'trade', k: first ? first.toUpperCase() : '-', v, when, ts: r.ts })
     }
-    const totalRow = { type: 'total', k: 'TOTAL', v: totalUsd > 0 ? formatUsdCompact(totalUsd) : '-' }
+    const totalRow = { type: 'total', k: 'TOTAL', v: totalUsd > 0 ? formatUsdCompact(totalUsd) : '-', when: '' }
     return [...meta, totalRow, { type: 'blank' }, ...trades]
   }, [politiciansSelectedResolved?.caseSheet])
 
