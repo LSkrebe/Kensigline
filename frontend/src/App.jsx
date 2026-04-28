@@ -776,24 +776,30 @@ function PoliticiansFilterPanel({ activeName, items, onSelect }) {
         <div className="panelTitle feedCompactTitle">FILTER</div>
       </header>
       <div className="filterList scrollThin" role="list">
-        <div
-          className={['filterRow', !activeName ? 'isActive' : ''].filter(Boolean).join(' ')}
+        <button
+          type="button"
+          className={['feedRowCompact', 'feedRowCompact--timeline', 'filterRow', !activeName ? 'isActive' : '']
+            .filter(Boolean)
+            .join(' ')}
           role="listitem"
           onClick={() => onSelect(null)}
         >
-          <span className="filterRowName dim">ALL</span>
-          <span className="filterRowCount mono">{items?.length ?? 0}</span>
-        </div>
+          <span className="feedCell feedCellLabel kvFeedMain dim">ALL</span>
+          <span className="feedCell feedCellWhen mono kvFeedDim">{items?.length ?? 0}</span>
+        </button>
         {(items ?? []).map((it) => (
-          <div
+          <button
+            type="button"
             key={it.name}
-            className={['filterRow', activeName === it.name ? 'isActive' : ''].filter(Boolean).join(' ')}
+            className={['feedRowCompact', 'feedRowCompact--timeline', 'filterRow', activeName === it.name ? 'isActive' : '']
+              .filter(Boolean)
+              .join(' ')}
             role="listitem"
             onClick={() => onSelect(it.name)}
           >
-            <span className="filterRowName">{it.name}</span>
-            <span className="filterRowCount mono">{it.count}</span>
-          </div>
+            <span className="feedCell feedCellLabel kvFeedMain">{it.name}</span>
+            <span className="feedCell feedCellWhen mono kvFeedDim">{it.count}</span>
+          </button>
         ))}
       </div>
     </section>
@@ -2376,6 +2382,9 @@ function App() {
   const [barsLive, setBarsLive] = useState(null)
   const [companyLive, setCompanyLive] = useState(null)
 
+  const [politiciansFeedLive, setPoliticiansFeedLive] = useState(null)
+  const [politiciansClusterLive, setPoliticiansClusterLive] = useState(null)
+
   const [pharmaFeedLive, setPharmaFeedLive] = useState(null)
   const [pharmaEventLive, setPharmaEventLive] = useState(null)
   const [programFeedLive, setProgramFeedLive] = useState(null)
@@ -2421,9 +2430,50 @@ function App() {
   const insiderSelected =
     insiderFeedRows.length > 0 ? insiderFeedRows[clamp(insiderIdx, 0, Math.max(0, insiderFeedRows.length - 1))] : null
 
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!backendUp) return
+      const r = await fetchJsonSafe('/api/politicians/feed?limit=120&days=120', { timeoutMs: 5000 })
+      if (!alive) return
+      const items = Array.isArray(r.data?.items) ? r.data.items : []
+      const mapped = items
+        .map((it) => {
+          const ticker = String(it.ticker ?? '').trim().toUpperCase()
+          const at = String(it.feed_at ?? '')
+          const id = String(it.id ?? '')
+          const raw = String(it.feed_label ?? '')
+          const m = raw.match(/^\s*([^()]+?)\s*\(\s*(\d+)\s*\)\s*$/)
+          const label = (m ? m[1] : raw).trim() || '—'
+          const count = m ? Number(m[2]) : null
+          const politicians = Array.isArray(it.politicians) ? it.politicians.map((x) => String(x)) : []
+          return {
+            id,
+            label,
+            count,
+            ticker,
+            at,
+            politicians,
+            daily: [],
+            __backend_id: id,
+          }
+        })
+        .filter((x) => x.id && x.ticker && x.at)
+      if (r.ok) setPoliticiansFeedLive(mapped)
+    }
+    run()
+    const t = setInterval(run, 30_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [backendUp])
+
+  const politiciansBaseRows = backendUp && politiciansFeedLive != null ? politiciansFeedLive : POLITICIAN_FEED_ROWS
+
   const politicianFilterItems = useMemo(() => {
     const counts = new Map()
-    for (const r of POLITICIAN_FEED_ROWS) {
+    for (const r of politiciansBaseRows) {
       const people = Array.isArray(r?.politicians) ? r.politicians : []
       for (const p of people) {
         const k = String(p ?? '').trim()
@@ -2434,12 +2484,12 @@ function App() {
     return Array.from(counts.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-  }, [])
+  }, [politiciansBaseRows])
 
   const politiciansFeedRows = useMemo(() => {
-    if (!politiciansFilter) return POLITICIAN_FEED_ROWS
-    return POLITICIAN_FEED_ROWS.filter((r) => (r?.politicians ?? []).includes(politiciansFilter))
-  }, [politiciansFilter])
+    if (!politiciansFilter) return politiciansBaseRows
+    return politiciansBaseRows.filter((r) => (r?.politicians ?? []).includes(politiciansFilter))
+  }, [politiciansBaseRows, politiciansFilter])
 
   useEffect(() => {
     setPoliticiansIdx(0)
@@ -2644,9 +2694,32 @@ function App() {
   }, [backendUp, activeTab, insiderSelected, insiderClusterLive])
 
   const politiciansSelectedResolved = useMemo(() => {
-    // Mock-only for now.
-    return politiciansSelected ?? null
-  }, [politiciansSelected])
+    if (!backendUp || activeTab !== 'politicians' || !politiciansClusterLive) return politiciansSelected ?? null
+    const rows = politiciansClusterLive?.cluster?.worksheet_rows
+    const wsRows = Array.isArray(rows) ? rows : []
+    const who =
+      Array.isArray(politiciansClusterLive?.cluster?.politicians) && politiciansClusterLive.cluster.politicians.length
+        ? String(politiciansClusterLive.cluster.politicians[0])
+        : (politiciansSelected?.politicians?.[0] ?? '—')
+    const caseSheet = {
+      filingId: politiciansClusterLive?.filing?.accession_no ?? politiciansSelected?.id ?? politiciansSelected?.ticker ?? '—',
+      formType: politiciansClusterLive?.filing?.form_type ?? 'PTR',
+      issuer: who,
+      ticker: politiciansClusterLive?.issuer?.ticker ?? politiciansSelected?.ticker ?? '—',
+      isForm4: true,
+      filedAt: politiciansClusterLive?.filing?.filed_at ?? politiciansSelected?.at ?? null,
+      rows: wsRows.map((r) => ({
+        key: String(r?.key ?? '').trim() || 'POLITICIAN',
+        amountUsd: r?.amount_usd != null ? Number(r.amount_usd) : null,
+        ts: r?.ts != null ? String(r.ts) : null,
+      })),
+    }
+    return {
+      ...politiciansSelected,
+      caseSheet,
+      __context_sentences: politiciansClusterLive?.cluster?.context_sentences ?? null,
+    }
+  }, [backendUp, activeTab, politiciansSelected, politiciansClusterLive])
 
   const isRealView = useMemo(() => {
     return Boolean(backendUp)
@@ -2678,12 +2751,38 @@ function App() {
     }
   }, [backendUp, activeTab, insiderSelected?.ticker, insiderSelected?.__backend_id])
 
+  // Politicians cluster: case worksheet + context
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!backendUp || activeTab !== 'politicians') {
+        if (alive) setPoliticiansClusterLive(null)
+        return
+      }
+      const ticker = politiciansSelected?.ticker ? String(politiciansSelected.ticker).toUpperCase() : null
+      const useId = ticker ? `ticker:${ticker}` : null
+      if (!useId) {
+        if (alive) setPoliticiansClusterLive(null)
+        return
+      }
+      const r = await fetchJsonSafe(`/api/politicians/cluster/${encodeURIComponent(useId)}?days=120`, { timeoutMs: 7000 })
+      if (!alive) return
+      const data = r.ok ? r.data?.data ?? null : null
+      setPoliticiansClusterLive(data && typeof data === 'object' ? data : null)
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, activeTab, politiciansSelected?.ticker])
+
   // Bars (Daily Graph) + Company panel: use selected ticker in either mode
   const selectedTicker = useMemo(() => {
     if (activeTab === 'insider') return insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
-    if (activeTab === 'politicians') return politiciansSelected?.ticker ? String(politiciansSelected.ticker).toUpperCase() : null
+    if (activeTab === 'politicians')
+      return politiciansSelectedResolved?.ticker ? String(politiciansSelectedResolved.ticker).toUpperCase() : null
     return pharmaTicker ? String(pharmaTicker).toUpperCase() : null
-  }, [activeTab, insiderSelected?.ticker, politiciansSelected?.ticker, pharmaTicker])
+  }, [activeTab, insiderSelected?.ticker, politiciansSelectedResolved?.ticker, pharmaTicker])
 
   useEffect(() => {
     let alive = true

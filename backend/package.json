@@ -13,8 +13,13 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.100",
     "dotenv": "^17.4.2",
-    "pg": "^8.20.0"
+    "jsonrepair": "^3.14.0",
+    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.7.284",
+    "pg": "^8.20.0",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

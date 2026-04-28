@@ -11,11 +11,13 @@ import { getCompanyPanelData } from "./lib/company.js";
 import { getLatestOutcomes, recomputeInsiderOutcomes, recomputePharmaOutcomes } from "./lib/outcomes.js";
 import { startOutcomesWorker } from "./lib/outcomes-worker.js";
 import { startPharmaWorker } from "./lib/pharma-worker.js";
+import { startPoliticiansWorker } from "./lib/politicians-worker.js";
 
 const port = Number(process.env.PORT ?? "3001");
 const worker = startInsiderWorker();
 const outcomesWorker = startOutcomesWorker();
 const pharmaWorker = startPharmaWorker();
+const politiciansWorker = startPoliticiansWorker();
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -294,6 +296,175 @@ const server = http.createServer(async (req, res) => {
         });
 
       sendJson(res, 200, { items, days, mode: "company" });
+      return;
+    }
+
+    // ---- Politicians: feed ----
+    if (route(req, url, "GET", "/api/politicians/feed")) {
+      const limit = clampInt(url.searchParams.get("limit"), 1, 500, 120);
+      const days = clampInt(url.searchParams.get("days"), 1, 365, 30);
+      const rows = await db.query<{
+        id: string;
+        feed_at: string | null;
+        feed_label: string | null;
+        ticker: string | null;
+        data: any;
+      }>(
+        `
+        SELECT id, feed_at, feed_label, ticker, data
+        FROM document_parsed
+        WHERE feed_kind='politicians'
+          AND feed_at IS NOT NULL
+          AND feed_at >= now() - ($2 || ' days')::interval
+        ORDER BY feed_at DESC NULLS LAST, parsed_at DESC
+        LIMIT $1
+        `,
+        [limit, String(days)],
+      );
+
+      // Aggregate to one row per ticker (merged across filings in window).
+      const byTicker = new Map<
+        string,
+        { ticker: string; latestFeedAt: string; totalMid: number; totalCount: number; politicians: Set<string> }
+      >();
+      for (const r of rows) {
+        const t = String(r.ticker ?? "").trim().toUpperCase();
+        if (!t) continue;
+        const at = String(r.feed_at ?? "");
+        const cur =
+          byTicker.get(t) ??
+          {
+            ticker: t,
+            latestFeedAt: at,
+            totalMid: 0,
+            totalCount: 0,
+            politicians: new Set<string>(),
+          };
+        if (at && (!cur.latestFeedAt || at > cur.latestFeedAt)) cur.latestFeedAt = at;
+        const ws = (r.data as any)?.cluster?.worksheet_rows;
+        if (Array.isArray(ws)) {
+          for (const w of ws) {
+            const mid = Number(w?.amount_usd_mid ?? 0);
+            if (Number.isFinite(mid) && mid > 0) cur.totalMid += mid;
+            cur.totalCount += 1;
+            const who = String(w?.key ?? "").trim();
+            if (who) cur.politicians.add(who);
+          }
+        }
+        const ps = (r.data as any)?.cluster?.politicians;
+        if (Array.isArray(ps)) for (const p of ps) if (p) cur.politicians.add(String(p));
+        byTicker.set(t, cur);
+      }
+
+      const items = Array.from(byTicker.values())
+        .sort((a, b) => (a.latestFeedAt < b.latestFeedAt ? 1 : a.latestFeedAt > b.latestFeedAt ? -1 : 0))
+        .slice(0, limit)
+        .map((c) => {
+          const usd = c.totalMid > 0 ? formatUsdCompact(c.totalMid) : "—";
+          const label = c.totalCount > 0 ? `${usd} (${c.totalCount})` : "—";
+          const feedAtIso = (() => {
+            const d = new Date(c.latestFeedAt);
+            return Number.isNaN(d.getTime()) ? c.latestFeedAt : d.toISOString();
+          })();
+          return {
+            id: `ticker:${c.ticker}`,
+            feed_at: feedAtIso,
+            feed_label: label,
+            ticker: c.ticker,
+            politicians: Array.from(c.politicians).slice(0, 20),
+          };
+        });
+
+      sendJson(res, 200, { items, days, mode: "ticker" });
+      return;
+    }
+
+    // ---- Politicians: cluster ----
+    if (req.method === "GET" && url.pathname.startsWith("/api/politicians/cluster/")) {
+      const idRaw = url.pathname.split("/").at(-1) ?? "";
+      const id = decodeURIComponent(idRaw);
+      const days = clampInt(url.searchParams.get("days"), 1, 365, 30);
+      const ticker = id.startsWith("ticker:") ? id.slice("ticker:".length).trim().toUpperCase() : "";
+      if (!ticker) {
+        notFound(res);
+        return;
+      }
+
+      const docs = await db.query<{ id: string; feed_at: string | null; ticker: string | null; data: any }>(
+        `
+        SELECT id, feed_at, ticker, data
+        FROM document_parsed
+        WHERE feed_kind='politicians'
+          AND ticker = $1
+          AND feed_at IS NOT NULL
+          AND feed_at >= now() - ($2 || ' days')::interval
+        ORDER BY feed_at DESC, parsed_at DESC
+        LIMIT 5000
+        `,
+        [ticker, String(days)],
+      );
+
+      if (!docs.length) {
+        notFound(res);
+        return;
+      }
+
+      let minAt: string | null = null;
+      let maxAt: string | null = null;
+      const worksheet_rows: Array<{ key: string; ts: string | null; amount_usd: number | null }> = [];
+      const politicians = new Set<string>();
+      let latest: any = null;
+
+      for (const d of docs) {
+        const at = d.feed_at ? String(d.feed_at) : null;
+        if (at) {
+          if (!minAt || at < minAt) minAt = at;
+          if (!maxAt || at > maxAt) maxAt = at;
+        }
+        if (!latest) latest = d.data;
+        const rows = (d.data as any)?.cluster?.worksheet_rows;
+        if (Array.isArray(rows)) {
+          for (const r of rows) {
+            const key = String(r?.key ?? "").trim() || "POLITICIAN";
+            politicians.add(key);
+            worksheet_rows.push({
+              key,
+              ts: r?.ts != null ? String(r.ts) : null,
+              amount_usd: r?.amount_usd_mid != null ? Number(r.amount_usd_mid) : null,
+            });
+          }
+        }
+      }
+
+      worksheet_rows.sort((a, b) => String(b.ts ?? "").localeCompare(String(a.ts ?? "")));
+      const context_sentences: string[] = Array.isArray(latest?.cluster?.context_sentences)
+        ? latest.cluster.context_sentences.map((s: any) => String(s)).filter(Boolean).slice(0, 3)
+        : [];
+
+      const out = {
+        schema_type: "politician_cluster",
+        schema_version: "v1",
+        issuer: {
+          name: null,
+          ticker,
+          cik: null,
+        },
+        filing: {
+          form_type: "PTR",
+          accession_no: null,
+          filed_at: maxAt,
+        },
+        cluster: {
+          cluster_start_at: minAt,
+          cluster_end_at: maxAt,
+          feed_label: `Politician purchases (${worksheet_rows.length})`,
+          politicians: Array.from(politicians),
+          context_sentences,
+          worksheet_rows,
+        },
+      };
+
+      sendJson(res, 200, { id, schema_type: "politician_cluster", schema_version: "v1", data: out });
       return;
     }
 

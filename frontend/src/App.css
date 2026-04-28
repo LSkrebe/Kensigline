@@ -381,32 +381,18 @@ body {
 }
 
 .filterRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 0.06em 8px;
-  border-bottom: 1px solid rgba(140, 255, 195, 0.08);
-  cursor: pointer;
-  user-select: none;
-  font-size: var(--fs-body);
-  line-height: 1.18;
+  /* Align with feed rows (same grid, padding, gaps, and baseline). */
+  width: 100%;
 }
 
 .filterRow.isActive {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.filterRowName {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
+/* Keep old selectors safe (used in older markup). */
+.filterRowName,
 .filterRowCount {
-  color: var(--dim);
-  font-variant-numeric: tabular-nums;
+  display: none;
 }
 
 /* ---- TAB-SPECIFIC LAYOUT (PHARMA) ---- */

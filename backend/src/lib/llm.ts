@@ -3,6 +3,7 @@ type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 type ChatOptions = {
   temperature?: number;
   max_tokens?: number;
+  response_format?: "json_object";
 };
 
 function getProvider() {
@@ -67,6 +68,7 @@ async function chatOpenAICompatible(messages: ChatMessage[], opts: ChatOptions) 
       temperature: opts.temperature ?? 0,
       max_tokens: opts.max_tokens ?? 1400,
       messages,
+      ...(opts.response_format ? { response_format: { type: opts.response_format } } : {}),
     }),
   });
   if (!res.ok) {

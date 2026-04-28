@@ -8,6 +8,9 @@ build/
 # env
 .env
 
+# OCR / tesseract assets
+*.traineddata
+
 # logs
 *.log
 npm-debug.log*
