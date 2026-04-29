@@ -792,6 +792,11 @@ body {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+/* Two-column rows: label + right value */
+.feedRowCompact--two {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 /* CASE (insider tab): compact key/value feed look */
 .feedRowCompact--kv {
   grid-template-columns: minmax(0, 0.55fr) minmax(0, 1fr);

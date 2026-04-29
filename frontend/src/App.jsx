@@ -868,19 +868,20 @@ function PoliticiansFilterPanel({ activeName, items, onSelect }) {
       <div className="feedCompactList feedCompactList--scroll scrollThin filterList" role="list">
         <button
           type="button"
-          className={['feedRowCompact', 'filterRow', !activeName ? 'isActive' : ''].filter(Boolean).join(' ')}
+          className={['feedRowCompact', 'feedRowCompact--two', 'filterRow', !activeName ? 'isActive' : '']
+            .filter(Boolean)
+            .join(' ')}
           role="listitem"
           onClick={() => onSelect(null)}
         >
           <span className="feedCell feedCellLabel kvFeedMain dim">ALL</span>
           <span className="feedCell feedCellTicker mono kvFeedDim">{items?.length ?? 0}</span>
-          <span className="feedCell feedCellWhen mono kvFeedDim" />
         </button>
         {(items ?? []).map((it) => (
           <button
             type="button"
             key={it.name}
-            className={['feedRowCompact', 'filterRow', activeName === it.name ? 'isActive' : '']
+            className={['feedRowCompact', 'feedRowCompact--two', 'filterRow', activeName === it.name ? 'isActive' : '']
               .filter(Boolean)
               .join(' ')}
             role="listitem"
@@ -888,7 +889,6 @@ function PoliticiansFilterPanel({ activeName, items, onSelect }) {
           >
             <span className="feedCell feedCellLabel kvFeedMain">{it.name}</span>
             <span className="feedCell feedCellTicker mono kvFeedDim">{it.count}</span>
-            <span className="feedCell feedCellWhen mono kvFeedDim" />
           </button>
         ))}
       </div>
@@ -900,19 +900,19 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker }) {
   const [q, setQ] = useState('')
   const items = useMemo(
     () => [
-      'XBI',
-      'IBB',
-      'ARKG',
-      'LABU',
-      'SRPT',
-      'MRNA',
-      'REGN',
-      'VRTX',
-      'BNTX',
-      'NVS',
-      'PFE',
-      'LLY',
-      'AMGN',
+      { ticker: 'XBI', name: 'SPDR S&P Biotech ETF' },
+      { ticker: 'IBB', name: 'iShares Biotechnology ETF' },
+      { ticker: 'ARKG', name: 'ARK Genomic Revolution ETF' },
+      { ticker: 'LABU', name: 'Direxion Daily S&P Biotech Bull 3X Shares' },
+      { ticker: 'MRNA', name: 'Moderna, Inc.' },
+      { ticker: 'REGN', name: 'Regeneron Pharmaceuticals, Inc.' },
+      { ticker: 'VRTX', name: 'Vertex Pharmaceuticals Incorporated' },
+      { ticker: 'BNTX', name: 'BioNTech SE' },
+      { ticker: 'AMGN', name: 'Amgen Inc.' },
+      { ticker: 'LLY', name: 'Eli Lilly and Company' },
+      { ticker: 'PFE', name: 'Pfizer Inc.' },
+      { ticker: 'NVS', name: 'Novartis AG' },
+      { ticker: 'SRPT', name: 'Sarepta Therapeutics, Inc.' },
     ],
     [],
   )
@@ -920,7 +920,11 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker }) {
   const filtered = useMemo(() => {
     const s = String(q ?? '').trim().toUpperCase()
     if (!s) return items
-    return items.filter((t) => String(t).toUpperCase().includes(s))
+    return items.filter((it) => {
+      const t = String(it?.ticker ?? '').toUpperCase()
+      const n = String(it?.name ?? '').toUpperCase()
+      return t.includes(s) || n.includes(s)
+    })
   }, [items, q])
 
   return (
@@ -932,7 +936,7 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker }) {
         </div>
       </header>
       <div className="feedCompactList feedCompactList--scroll scrollThin" role="list">
-        <div className="feedRowCompact boshaTickerSearchRow" role="listitem">
+        <div className="feedRowCompact feedRowCompact--two boshaTickerSearchRow" role="listitem">
           <input
             className="boshaTickerSearchInput"
             value={q}
@@ -946,17 +950,18 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker }) {
           />
         </div>
         <div className="feedRowCompact feedRowCompact--blank" role="presentation" />
-        {filtered.map((t) => (
+        {filtered.map((it) => (
           <button
-            key={t}
+            key={it.ticker}
             type="button"
             role="listitem"
-            className={['feedRowCompact', t === selectedTicker ? 'isActive' : ''].filter(Boolean).join(' ')}
-            onClick={() => onSelectTicker(t)}
+            className={['feedRowCompact', 'feedRowCompact--two', it.ticker === selectedTicker ? 'isActive' : '']
+              .filter(Boolean)
+              .join(' ')}
+            onClick={() => onSelectTicker(it.ticker)}
           >
-            <span className="feedCell feedCellLabel kvFeedMain">{t}</span>
-            <span className="feedCell feedCellTicker mono kvFeedDim" />
-            <span className="feedCell feedCellWhen mono kvFeedDim" />
+            <span className="feedCell feedCellLabel kvFeedMain">{it.name}</span>
+            <span className="feedCell feedCellTicker mono kvFeedDim">{it.ticker}</span>
           </button>
         ))}
       </div>
@@ -2763,6 +2768,16 @@ function CaseKvFeed({
           const i = scrollMode ? j : pageStart + j
           return r?.type === 'blank' ? (
             <div key={`blank-${i}`} className="feedRowCompact feedRowCompact--blank" role="presentation" />
+          ) : r?.layout === 'two' ? (
+            <div
+              key={`${r.k}-${i}`}
+              className={['feedRowCompact', 'feedRowCompact--two'].filter(Boolean).join(' ')}
+              role="listitem"
+              data-row-idx={i}
+            >
+              <span className="feedCell feedCellLabel kvFeedMain dim">{r.k}</span>
+              <span className="feedCell feedCellTicker mono kvFeedDim">{r.v}</span>
+            </div>
           ) : (
             <div
               key={`${r.k}-${i}`}
@@ -3431,9 +3446,9 @@ function App() {
     const cs = politiciansSelectedResolved?.caseSheet
     if (!cs) return []
     const meta = []
-    if (cs.ticker) meta.push({ k: 'ISSUER', v: String(cs.ticker) })
-    if (cs.formType) meta.push({ k: 'FORM', v: String(cs.formType) })
-    if (cs.filingId) meta.push({ k: 'ACCESSION', v: String(cs.filingId) })
+    if (cs.ticker) meta.push({ layout: 'two', k: 'ISSUER', v: String(cs.ticker) })
+    if (cs.formType) meta.push({ layout: 'two', k: 'FORM', v: String(cs.formType) })
+    if (cs.filingId) meta.push({ layout: 'two', k: 'ACCESSION', v: String(cs.filingId) })
 
     const showMoney = Boolean(cs.isForm4)
     let totalUsd = 0
@@ -3448,7 +3463,7 @@ function App() {
       const first = k.split(/\s+/)[0]
       trades.push({ type: 'trade', k: first ? first.toUpperCase() : '-', v, when, ts: r.ts })
     }
-    const totalRow = { type: 'total', k: 'TOTAL', v: totalUsd > 0 ? formatUsdCompact(totalUsd) : '-', when: '' }
+    const totalRow = { type: 'total', layout: 'two', k: 'TOTAL', v: totalUsd > 0 ? formatUsdCompact(totalUsd) : '-' }
     return [...meta, totalRow, { type: 'blank' }, ...trades]
   }, [politiciansSelectedResolved?.caseSheet])
 
