@@ -897,6 +897,7 @@ function PoliticiansFilterPanel({ activeName, items, onSelect }) {
 }
 
 function BoshaTickerPanel({ selectedTicker, onSelectTicker }) {
+  const [q, setQ] = useState('')
   const items = useMemo(
     () => [
       'XBI',
@@ -915,16 +916,37 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker }) {
     ],
     [],
   )
+
+  const filtered = useMemo(() => {
+    const s = String(q ?? '').trim().toUpperCase()
+    if (!s) return items
+    return items.filter((t) => String(t).toUpperCase().includes(s))
+  }, [items, q])
+
   return (
     <section className="panel boshaTicker" aria-label="Ticker selector">
       <header className="feedCompactHeader">
-        <div className="panelTitle feedCompactTitle">TICKER</div>
+        <div className="panelTitle feedCompactTitle">FEED</div>
         <div className="feedCompactMeta feedCompactMeta--ghost" aria-hidden="true">
           <span className="feedPageInd">0/0</span>
         </div>
       </header>
       <div className="feedCompactList feedCompactList--scroll scrollThin" role="list">
-        {items.map((t) => (
+        <div className="feedRowCompact boshaTickerSearchRow" role="listitem">
+          <input
+            className="boshaTickerSearchInput"
+            value={q}
+            placeholder="Search"
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setQ('')
+            }}
+            aria-label="Search tickers"
+            spellCheck={false}
+          />
+        </div>
+        <div className="feedRowCompact feedRowCompact--blank" role="presentation" />
+        {filtered.map((t) => (
           <button
             key={t}
             type="button"
