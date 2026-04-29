@@ -896,42 +896,25 @@ function PoliticiansFilterPanel({ activeName, items, onSelect }) {
   )
 }
 
-function BoshaTimelinePanel({ events, selectedId, onSelectEventId }) {
-  const sorted = useMemo(() => {
-    return [...(events ?? [])].sort((a, b) => String(b.date).localeCompare(String(a.date)))
-  }, [events])
-  return (
-    <section className="panel boshaTimeline" aria-label="Event timeline">
-      <header className="feedCompactHeader">
-        <div className="panelTitle feedCompactTitle">TIMELINE</div>
-        <div className="feedCompactMeta feedCompactMeta--ghost" aria-hidden="true">
-          <span className="feedPageInd">0/0</span>
-        </div>
-      </header>
-      <div className="feedCompactList feedCompactList--scroll scrollThin" role="list">
-        {sorted.map((ev) => {
-          const active = ev.id === selectedId
-          return (
-            <button
-              key={ev.id}
-              type="button"
-              role="listitem"
-              className={['feedRowCompact', active ? 'isActive' : ''].filter(Boolean).join(' ')}
-              onClick={() => onSelectEventId(ev.id)}
-            >
-              <span className="feedCell feedCellLabel kvFeedMain">{ev.title}</span>
-              <span className="feedCell feedCellTicker mono kvFeedDim">{String(ev.type ?? '').toUpperCase()}</span>
-              <span className="feedCell feedCellWhen mono kvFeedDim">{boshaFormatTimelineDay(ev.date)}</span>
-            </button>
-          )
-        })}
-      </div>
-    </section>
-  )
-}
-
 function BoshaTickerPanel({ selectedTicker, onSelectTicker }) {
-  const items = useMemo(() => ['XBI'], [])
+  const items = useMemo(
+    () => [
+      'XBI',
+      'IBB',
+      'ARKG',
+      'LABU',
+      'SRPT',
+      'MRNA',
+      'REGN',
+      'VRTX',
+      'BNTX',
+      'NVS',
+      'PFE',
+      'LLY',
+      'AMGN',
+    ],
+    [],
+  )
   return (
     <section className="panel boshaTicker" aria-label="Ticker selector">
       <header className="feedCompactHeader">
@@ -950,7 +933,7 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker }) {
             onClick={() => onSelectTicker(t)}
           >
             <span className="feedCell feedCellLabel kvFeedMain">{t}</span>
-            <span className="feedCell feedCellTicker mono kvFeedDim">ANCHOR</span>
+            <span className="feedCell feedCellTicker mono kvFeedDim" />
             <span className="feedCell feedCellWhen mono kvFeedDim" />
           </button>
         ))}
@@ -1193,9 +1176,8 @@ function BoshaPaperPanel({ ticker, entities, events, edges, selectedId, onSelect
   return (
     <section className="panel boshaPaper" aria-label="Bosha research paper">
       <header className="feedCompactHeader">
-        <div className="panelTitle feedCompactTitle">BOSHA — COGNITIVE CAUSAL GRAPH</div>
+        <div className="panelTitle feedCompactTitle">{`${String(ticker ?? '—').toUpperCase()} — CASE STUDY`}</div>
         <div className="feedCompactMeta">
-          <span className="mono kvFeedDim">{ticker}</span>
           <span className="mono kvFeedDim">{selectedId ? selectedId.toUpperCase() : '—'}</span>
         </div>
       </header>
@@ -2792,6 +2774,7 @@ function App() {
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
   const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
   const [politiciansFilter, setPoliticiansFilter] = useState(null)
+  const [boshaTicker, setBoshaTicker] = useState(BOSHA_TICKER)
   const [boshaSelectedId, setBoshaSelectedId] = useState('e4')
   const [pharmaIdx, setPharmaIdx] = useState(0)
   /** When set, case sheet + graph follow this trial; cleared when pharma feed row or sponsor context changes */
@@ -3747,10 +3730,9 @@ function App() {
 
       {activeTab === 'explore' ? (
         <>
-          <BoshaTickerPanel selectedTicker={BOSHA_TICKER} onSelectTicker={() => {}} />
-          <BoshaTimelinePanel events={BOSHA_EVENTS} selectedId={boshaSelectedId} onSelectEventId={setBoshaSelectedId} />
+          <BoshaTickerPanel selectedTicker={boshaTicker} onSelectTicker={setBoshaTicker} />
           <BoshaPaperPanel
-            ticker={BOSHA_TICKER}
+            ticker={boshaTicker}
             entities={BOSHA_ENTITIES}
             events={BOSHA_EVENTS}
             edges={BOSHA_EDGES}
