@@ -571,6 +571,96 @@ const POLITICIAN_NAMES = [
   'Michael McCaul',
 ]
 
+// ------------------------------------------------------------
+// BOSHA (Explore tab) — mock causal graph system (XBI)
+// ------------------------------------------------------------
+const BOSHA_TICKER = 'XBI'
+
+const BOSHA_ENTITIES = [
+  { id: 'c1', type: 'company', name: 'XBI ETF' },
+  { id: 'p1', type: 'politician', name: 'Sen. Mark Reynolds' },
+  { id: 'i1', type: 'insider', name: 'Dr. Sarah Klein (Ex-Amgen)' },
+  { id: 'd1', type: 'drug', name: 'AMG-301' },
+  { id: 'f1', type: 'institution', name: 'FDA' },
+]
+
+const BOSHA_EVENTS = [
+  {
+    id: 'e1',
+    type: 'fda_meeting',
+    title: 'FDA advisory meeting scheduled for AMG-301',
+    date: '2026-04-18',
+    entities: ['d1', 'f1'],
+    sentiment: 'neutral',
+    impact: 'high',
+  },
+  {
+    id: 'e2',
+    type: 'insider_buy',
+    title: 'Insider purchase of biotech exposure ETF',
+    date: '2026-04-20',
+    entities: ['i1', 'c1'],
+    sentiment: 'bullish',
+    impact: 'medium',
+  },
+  {
+    id: 'e3',
+    type: 'politician_trade',
+    title: 'Senator Reynolds discloses biotech ETF position',
+    date: '2026-04-21',
+    entities: ['p1', 'c1'],
+    sentiment: 'bullish',
+    impact: 'medium',
+  },
+  {
+    id: 'e4',
+    type: 'trial_result_rumor',
+    title: 'Leak: AMG-301 Phase 2 data stronger than expected',
+    date: '2026-04-22',
+    entities: ['d1'],
+    sentiment: 'bullish',
+    impact: 'high',
+  },
+]
+
+const BOSHA_EDGES = [
+  { from: 'e1', to: 'd1', type: 'affects' },
+  { from: 'e1', to: 'c1', type: 'indirect_risk' },
+  { from: 'e2', to: 'c1', type: 'insider_activity' },
+  { from: 'e2', to: 'i1', type: 'initiated_by' },
+  { from: 'e3', to: 'c1', type: 'political_exposure' },
+  { from: 'e3', to: 'p1', type: 'initiated_by' },
+  { from: 'e4', to: 'd1', type: 'catalyst' },
+  { from: 'e4', to: 'e1', type: 'timing_link' },
+]
+
+function boshaImpactScore(impact) {
+  const x = String(impact ?? '').toLowerCase()
+  if (x === 'high') return 3
+  if (x === 'medium') return 2
+  return 1
+}
+
+function boshaSentimentColor(sentiment) {
+  const s = String(sentiment ?? '').toLowerCase()
+  if (s === 'bullish') return 'rgba(80, 255, 190, 0.92)'
+  if (s === 'bearish') return 'rgba(255, 88, 108, 0.95)'
+  return 'rgba(216, 255, 235, 0.35)'
+}
+
+function boshaParseDay(yyyyMmDd) {
+  const d = new Date(`${yyyyMmDd}T00:00:00Z`)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function boshaFormatTimelineDay(yyyyMmDd) {
+  const d = boshaParseDay(yyyyMmDd)
+  if (!d) return '—'
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  return `${mm}-${dd}`
+}
+
 /** Deterministic pseudo-random in [0, max) */
 function seededJitter(seed, max) {
   const x = Math.sin(seed * 12.9898 + max * 78.233) * 43758.5453
@@ -801,6 +891,502 @@ function PoliticiansFilterPanel({ activeName, items, onSelect }) {
             <span className="feedCell feedCellWhen mono kvFeedDim" />
           </button>
         ))}
+      </div>
+    </section>
+  )
+}
+
+function BoshaTimelinePanel({ events, selectedId, onSelectEventId }) {
+  const sorted = useMemo(() => {
+    return [...(events ?? [])].sort((a, b) => String(b.date).localeCompare(String(a.date)))
+  }, [events])
+  return (
+    <section className="panel boshaTimeline" aria-label="Event timeline">
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">TIMELINE</div>
+        <div className="feedCompactMeta feedCompactMeta--ghost" aria-hidden="true">
+          <span className="feedPageInd">0/0</span>
+        </div>
+      </header>
+      <div className="feedCompactList feedCompactList--scroll scrollThin" role="list">
+        {sorted.map((ev) => {
+          const active = ev.id === selectedId
+          return (
+            <button
+              key={ev.id}
+              type="button"
+              role="listitem"
+              className={['feedRowCompact', active ? 'isActive' : ''].filter(Boolean).join(' ')}
+              onClick={() => onSelectEventId(ev.id)}
+            >
+              <span className="feedCell feedCellLabel kvFeedMain">{ev.title}</span>
+              <span className="feedCell feedCellTicker mono kvFeedDim">{String(ev.type ?? '').toUpperCase()}</span>
+              <span className="feedCell feedCellWhen mono kvFeedDim">{boshaFormatTimelineDay(ev.date)}</span>
+            </button>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+function BoshaBriefPanel({ ticker }) {
+  return (
+    <section className="panel boshaBrief" aria-label="Causal intelligence brief">
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">BOSHA BRIEF</div>
+        <div className="feedCompactMeta">
+          <span className="mono kvFeedDim">{ticker}</span>
+        </div>
+      </header>
+      <div className="boshaBriefBody scrollThin">
+        <div className="boshaBriefTitle mono dim">BOSHA CAUSAL ANALYSIS</div>
+        <ul className="boshaBriefList">
+          <li>FDA advisory meeting introduces regulatory uncertainty around AMG-301.</li>
+          <li>Early leak of Phase 2 data precedes positioning behavior across exposure proxies.</li>
+          <li>Insider accumulation occurs prior to broader political exposure signals.</li>
+          <li>Political disclosure follows early informational leakage and consolidates narrative risk.</li>
+        </ul>
+        <div className="boshaBriefTitle mono dim">STRUCTURAL INTERPRETATION</div>
+        <div className="boshaBriefText">
+          This pattern resembles biotech pre-runup structures where early non-public signals precede capital positioning
+          and eventual volatility expansion.
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function BoshaInspectorPanel({ selected, entitiesById, eventsById, edges }) {
+  const isEvent = selected?.kind === 'event'
+  const isEntity = selected?.kind === 'entity'
+  const node = selected?.node ?? null
+
+  const connectedEdges = useMemo(() => {
+    if (!node) return []
+    return (edges ?? []).filter((e) => e.from === node.id || e.to === node.id)
+  }, [edges, node])
+
+  const entityHistory = useMemo(() => {
+    if (!isEntity || !node) return []
+    const out = []
+    for (const e of Object.values(eventsById ?? {})) {
+      if (Array.isArray(e?.entities) && e.entities.includes(node.id)) out.push(e)
+    }
+    return out.sort((a, b) => String(b.date).localeCompare(String(a.date)))
+  }, [eventsById, isEntity, node])
+
+  const exposure = useMemo(() => {
+    if (!isEntity) return null
+    let bull = 0
+    let bear = 0
+    let neutral = 0
+    for (const e of entityHistory) {
+      const s = String(e?.sentiment ?? '').toLowerCase()
+      if (s === 'bullish') bull++
+      else if (s === 'bearish') bear++
+      else neutral++
+    }
+    return { bull, bear, neutral }
+  }, [entityHistory, isEntity])
+
+  return (
+    <section className="panel boshaInspector" aria-label="Node inspector">
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">INSPECTOR</div>
+        <div className="feedCompactMeta">
+          <span className="mono kvFeedDim">{selected ? (isEvent ? 'EVENT' : 'ENTITY') : '—'}</span>
+        </div>
+      </header>
+      <div className="boshaInspectorBody scrollThin">
+        {!selected ? (
+          <div className="dim">Select a node.</div>
+        ) : isEvent ? (
+          <div className="boshaInspectorGrid">
+            <div className="boshaK dim">TITLE</div>
+            <div className="boshaV">{node.title}</div>
+            <div className="boshaK dim">DATE</div>
+            <div className="boshaV mono">{boshaFormatTimelineDay(node.date)}</div>
+            <div className="boshaK dim">TYPE</div>
+            <div className="boshaV mono">{String(node.type ?? '').toUpperCase()}</div>
+            <div className="boshaK dim">SENTIMENT</div>
+            <div className="boshaV mono">{String(node.sentiment ?? '').toUpperCase()}</div>
+            <div className="boshaK dim">IMPACT</div>
+            <div className="boshaV mono">{String(node.impact ?? '').toUpperCase()}</div>
+            <div className="boshaK dim">ENTITIES</div>
+            <div className="boshaV">
+              {(node.entities ?? [])
+                .map((id) => entitiesById?.[id]?.name ?? id)
+                .filter(Boolean)
+                .join(' • ') || '—'}
+            </div>
+            <div className="boshaK dim">EDGES</div>
+            <div className="boshaV mono">
+              {connectedEdges.map((e) => e.type).slice(0, 14).join(' • ') || '—'}
+            </div>
+          </div>
+        ) : isEntity ? (
+          <div className="boshaInspectorGrid">
+            <div className="boshaK dim">NAME</div>
+            <div className="boshaV">{node.name}</div>
+            <div className="boshaK dim">TYPE</div>
+            <div className="boshaV mono">{String(node.type ?? '').toUpperCase()}</div>
+            <div className="boshaK dim">EXPOSURE</div>
+            <div className="boshaV mono">
+              {exposure ? `B${exposure.bull} / N${exposure.neutral} / R${exposure.bear}` : '—'}
+            </div>
+            <div className="boshaK dim">EVENTS</div>
+            <div className="boshaV">
+              {entityHistory
+                .slice(0, 6)
+                .map((e) => `${boshaFormatTimelineDay(e.date)} ${e.title}`)
+                .join(' • ') || '—'}
+            </div>
+            <div className="boshaK dim">EDGES</div>
+            <div className="boshaV mono">
+              {connectedEdges.map((e) => e.type).slice(0, 14).join(' • ') || '—'}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
+function BoshaGraphPanel({ entities, events, edges, selectedId, onSelectId }) {
+  const wrapRef = useRef(null)
+  const rafRef = useRef(0)
+  const draggingRef = useRef(null)
+  const [hover, setHover] = useState(null)
+  const [expanded, setExpanded] = useState(() => new Set())
+  const [, bump] = useState(0)
+
+  const entitiesById = useMemo(() => Object.fromEntries((entities ?? []).map((e) => [e.id, e])), [entities])
+  const eventsById = useMemo(() => Object.fromEntries((events ?? []).map((e) => [e.id, e])), [events])
+
+  const visibleEdges = useMemo(() => {
+    const base = (edges ?? []).filter((e) => e.type !== 'timing_link')
+    const extra = (edges ?? []).filter((e) => e.type === 'timing_link' && expanded.has(e.from))
+    return [...base, ...extra]
+  }, [edges, expanded])
+
+  const nodes = useMemo(() => {
+    const out = []
+    for (const e of events ?? []) out.push({ kind: 'event', id: e.id, ...e })
+    for (const en of entities ?? []) out.push({ kind: 'entity', id: en.id, ...en })
+    return out
+  }, [entities, events])
+
+  const nodeMapRef = useRef(new Map())
+  const edgesRef = useRef([])
+
+  useEffect(() => {
+    // initialize node state for simulation
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const rect = wrap.getBoundingClientRect()
+    const w = Math.max(320, rect.width)
+    const h = Math.max(220, rect.height)
+
+    const ds = (events ?? [])
+      .map((e) => ({ id: e.id, d: boshaParseDay(e.date) }))
+      .filter((x) => x.d)
+      .sort((a, b) => a.d - b.d)
+    const min = ds[0]?.d?.getTime?.() ?? Date.now()
+    const max = ds.at(-1)?.d?.getTime?.() ?? Date.now()
+    const span = Math.max(1, max - min)
+
+    function targetXForEvent(eid) {
+      const d = boshaParseDay(eventsById?.[eid]?.date)
+      if (!d) return w * 0.55
+      const t = (d.getTime() - min) / span
+      return w * (0.18 + 0.64 * clamp(t, 0, 1))
+    }
+
+    const m = new Map()
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i]
+      const isEv = n.kind === 'event'
+      const x = isEv ? targetXForEvent(n.id) : w * (0.25 + 0.5 * (i / Math.max(1, nodes.length - 1)))
+      const y = h * (0.22 + 0.56 * ((i * 17) % 13) / 13)
+      m.set(n.id, {
+        ...n,
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        fx: null,
+        fy: null,
+        tx: isEv ? targetXForEvent(n.id) : null,
+      })
+    }
+    nodeMapRef.current = m
+    edgesRef.current = visibleEdges
+  }, [nodes, events, eventsById, visibleEdges])
+
+  useEffect(() => {
+    edgesRef.current = visibleEdges
+  }, [visibleEdges])
+
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    let alive = true
+    function step() {
+      if (!alive) return
+      const rect = wrap.getBoundingClientRect()
+      const w = Math.max(320, rect.width)
+      const h = Math.max(220, rect.height)
+      const m = nodeMapRef.current
+      const ids = Array.from(m.keys())
+
+      // forces
+      const repulse = 1600
+      const springK = 0.012
+      const springLen = 90
+      const centerK = 0.0028
+      const damp = 0.86
+
+      // repulsion
+      for (let a = 0; a < ids.length; a++) {
+        const na = m.get(ids[a])
+        for (let b = a + 1; b < ids.length; b++) {
+          const nb = m.get(ids[b])
+          const dx = na.x - nb.x
+          const dy = na.y - nb.y
+          const r2 = Math.max(60, dx * dx + dy * dy)
+          const f = repulse / r2
+          const fx = (dx / Math.sqrt(r2)) * f
+          const fy = (dy / Math.sqrt(r2)) * f
+          na.vx += fx
+          na.vy += fy
+          nb.vx -= fx
+          nb.vy -= fy
+        }
+      }
+
+      // springs
+      for (const e of edgesRef.current ?? []) {
+        const a = m.get(e.from)
+        const b = m.get(e.to)
+        if (!a || !b) continue
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy))
+        const delta = dist - springLen
+        const f = springK * delta
+        const fx = (dx / dist) * f
+        const fy = (dy / dist) * f
+        a.vx += fx
+        a.vy += fy
+        b.vx -= fx
+        b.vy -= fy
+      }
+
+      // center + event temporal x-force
+      const cx = w * 0.5
+      const cy = h * 0.5
+      for (const id of ids) {
+        const n = m.get(id)
+        if (n.fx != null && n.fy != null) {
+          n.x = n.fx
+          n.y = n.fy
+          n.vx = 0
+          n.vy = 0
+          continue
+        }
+        n.vx += (cx - n.x) * centerK
+        n.vy += (cy - n.y) * centerK
+        if (n.kind === 'event' && typeof n.tx === 'number') {
+          n.vx += (n.tx - n.x) * 0.0105
+        }
+        n.vx *= damp
+        n.vy *= damp
+        n.x = clamp(n.x + n.vx, 14, w - 14)
+        n.y = clamp(n.y + n.vy, 14, h - 14)
+      }
+
+      bump((x) => (x + 1) % 1000000)
+      rafRef.current = requestAnimationFrame(step)
+    }
+    rafRef.current = requestAnimationFrame(step)
+    return () => {
+      alive = false
+      cancelAnimationFrame(rafRef.current)
+    }
+  }, [])
+
+  const renderNodes = useMemo(() => Array.from(nodeMapRef.current.values()), [nodes, selectedId])
+
+  const highlight = useMemo(() => {
+    if (!selectedId) return { nodes: null, edges: null }
+    const nset = new Set([selectedId])
+    const eset = new Set()
+    for (const e of visibleEdges) {
+      if (e.from === selectedId || e.to === selectedId) {
+        nset.add(e.from)
+        nset.add(e.to)
+        eset.add(`${e.from}->${e.to}:${e.type}`)
+      }
+    }
+    return { nodes: nset, edges: eset }
+  }, [selectedId, visibleEdges])
+
+  function hitTest(clientX, clientY) {
+    const wrap = wrapRef.current
+    if (!wrap) return null
+    const rect = wrap.getBoundingClientRect()
+    const x = clientX - rect.left
+    const y = clientY - rect.top
+    let best = null
+    let bestD2 = 1e9
+    for (const n of nodeMapRef.current.values()) {
+      const r = n.kind === 'event' ? 10 + 3 * boshaImpactScore(n.impact) : 10
+      const dx = x - n.x
+      const dy = y - n.y
+      const d2 = dx * dx + dy * dy
+      if (d2 < r * r && d2 < bestD2) {
+        best = n
+        bestD2 = d2
+      }
+    }
+    return best
+  }
+
+  function onMouseMove(e) {
+    const n = draggingRef.current?.id ? nodeMapRef.current.get(draggingRef.current.id) : null
+    if (n && draggingRef.current?.dragging) {
+      const wrap = wrapRef.current
+      const rect = wrap.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      n.fx = x
+      n.fy = y
+      bump((x2) => (x2 + 1) % 1000000)
+      return
+    }
+    const hit = hitTest(e.clientX, e.clientY)
+    if (!hit) {
+      if (hover) setHover(null)
+      return
+    }
+    setHover({ id: hit.id, kind: hit.kind, title: hit.kind === 'event' ? hit.title : hit.name, x: e.clientX, y: e.clientY })
+  }
+
+  function onMouseDown(e) {
+    const hit = hitTest(e.clientX, e.clientY)
+    if (!hit) return
+    draggingRef.current = { id: hit.id, dragging: true }
+    onSelectId(hit.id)
+  }
+
+  function onMouseUp() {
+    const d = draggingRef.current
+    if (!d?.id) return
+    const n = nodeMapRef.current.get(d.id)
+    if (n) {
+      n.fx = null
+      n.fy = null
+    }
+    draggingRef.current = null
+  }
+
+  function onDoubleClick() {
+    const h = hover?.id ? nodeMapRef.current.get(hover.id) : null
+    if (!h || h.kind !== 'event') return
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(h.id)) next.delete(h.id)
+      else next.add(h.id)
+      return next
+    })
+  }
+
+  return (
+    <section className="panel boshaGraph" aria-label="Bosha graph">
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">CAUSAL GRAPH</div>
+        <div className="feedCompactMeta">
+          <span className="mono kvFeedDim">{BOSHA_TICKER}</span>
+          <span className="mono kvFeedDim">{selectedId ? selectedId.toUpperCase() : '—'}</span>
+        </div>
+      </header>
+      <div
+        ref={wrapRef}
+        className="boshaGraphWrap"
+        onMouseMove={onMouseMove}
+        onMouseDown={onMouseDown}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        onDoubleClick={onDoubleClick}
+        role="application"
+        aria-label="Causal graph canvas"
+      >
+        <svg className="boshaGraphSvg" width="100%" height="100%">
+          {(edgesRef.current ?? []).map((e) => {
+            const a = nodeMapRef.current.get(e.from)
+            const b = nodeMapRef.current.get(e.to)
+            if (!a || !b) return null
+            const k = `${e.from}->${e.to}:${e.type}`
+            const on = !highlight.nodes || (highlight.nodes.has(a.id) && highlight.nodes.has(b.id))
+            const strong = highlight.edges?.has(k) || false
+            return (
+              <g key={k}>
+                <line
+                  x1={a.x}
+                  y1={a.y}
+                  x2={b.x}
+                  y2={b.y}
+                  className="boshaEdge"
+                  opacity={on ? (strong ? 0.65 : 0.22) : 0.08}
+                />
+              </g>
+            )
+          })}
+
+          {renderNodes.map((n) => {
+            const isEv = n.kind === 'event'
+            const isSelected = n.id === selectedId
+            const on = !highlight.nodes || highlight.nodes.has(n.id)
+            const fill = isEv ? boshaSentimentColor(n.sentiment) : 'rgba(90, 220, 255, 0.42)'
+            const stroke = isSelected ? 'rgba(140, 255, 195, 0.55)' : 'rgba(140, 255, 195, 0.16)'
+            const r = isEv ? 9 + 3 * boshaImpactScore(n.impact) : 9
+            return isEv ? (
+              <g key={n.id} opacity={on ? 1 : 0.28}>
+                <rect
+                  x={n.x - r}
+                  y={n.y - r}
+                  width={r * 2}
+                  height={r * 2}
+                  rx="2"
+                  fill={fill}
+                  stroke={stroke}
+                  strokeWidth="1"
+                  className="boshaNode"
+                />
+              </g>
+            ) : (
+              <g key={n.id} opacity={on ? 1 : 0.28}>
+                <circle
+                  cx={n.x}
+                  cy={n.y}
+                  r={r}
+                  fill={fill}
+                  stroke={stroke}
+                  strokeWidth="1"
+                  className="boshaNode"
+                />
+              </g>
+            )
+          })}
+        </svg>
+
+        {hover ? (
+          <div className="boshaTooltip" style={{ left: hover.x + 10, top: hover.y + 10 }}>
+            <div className="mono dim">{hover.kind === 'event' ? 'EVENT' : 'ENTITY'}</div>
+            <div>{hover.title}</div>
+          </div>
+        ) : null}
       </div>
     </section>
   )
@@ -2314,7 +2900,7 @@ function CaseKvFeed({
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState('insider') // insider | pharma | politicians
+  const [activeTab, setActiveTab] = useState('insider') // insider | pharma | politicians | explore
   /** Which feed column receives arrow up/down: insider | pharma | programs (rail). */
   const [feedPaneFocus, setFeedPaneFocus] = useState('insider')
   const [insiderIdx, setInsiderIdx] = useState(0)
@@ -2322,6 +2908,7 @@ function App() {
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
   const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
   const [politiciansFilter, setPoliticiansFilter] = useState(null)
+  const [boshaSelectedId, setBoshaSelectedId] = useState('e4')
   const [pharmaIdx, setPharmaIdx] = useState(0)
   /** When set, case sheet + graph follow this trial; cleared when pharma feed row or sponsor context changes */
   const [programRailEventId, setProgramRailEventId] = useState(null)
@@ -3029,7 +3616,9 @@ function App() {
       const k = e.key
       if (k === 'Tab') {
         e.preventDefault()
-        setActiveTab((t) => (t === 'insider' ? 'pharma' : t === 'pharma' ? 'politicians' : 'insider'))
+        setActiveTab((t) =>
+          t === 'insider' ? 'pharma' : t === 'pharma' ? 'politicians' : t === 'politicians' ? 'explore' : 'insider',
+        )
         return
       }
       const left = k === 'ArrowLeft' || k === 'a' || k === 'A'
@@ -3051,6 +3640,9 @@ function App() {
           if (feedPaneFocus === 'case') setFeedPaneFocus('insider')
           return
         }
+        if (activeTab === 'explore') {
+          return
+        }
         return
       }
       if (right) {
@@ -3064,6 +3656,9 @@ function App() {
         }
         if (activeTab === 'politicians') {
           if (feedPaneFocus === 'insider') setFeedPaneFocus('case')
+          return
+        }
+        if (activeTab === 'explore') {
           return
         }
         return
@@ -3080,6 +3675,9 @@ function App() {
         const n = politiciansCaseTradeRowIndices.length
         if (n <= 0) return
         setPoliticiansCaseTradeIdx((i) => clamp(i + (down ? 1 : -1), 0, n - 1))
+      } else if (activeTab === 'explore') {
+        // Explore tab uses mouse interaction primarily; keep arrows no-op for now.
+        return
       } else if (feedPaneFocus === 'pharma') {
         setPharmaIdx((i) => clamp(i + (down ? 1 : -1), 0, pharmaFeedRows.length - 1))
       } else if (feedPaneFocus === 'programs' && activeTab === 'pharma') {
@@ -3134,6 +3732,14 @@ function App() {
             onClick={() => setActiveTab('politicians')}
           >
             POLITICIANS
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'explore' ? 'topTab isActive' : 'topTab'}
+            aria-current={activeTab === 'explore' ? 'page' : undefined}
+            onClick={() => setActiveTab('explore')}
+          >
+            EXPLORE
           </button>
         </div>
         <div className="topTabsRight">
@@ -3255,6 +3861,34 @@ function App() {
         </>
       ) : null}
 
+      {activeTab === 'explore' ? (
+        <>
+          <BoshaTimelinePanel events={BOSHA_EVENTS} selectedId={boshaSelectedId} onSelectEventId={setBoshaSelectedId} />
+          <BoshaGraphPanel
+            entities={BOSHA_ENTITIES}
+            events={BOSHA_EVENTS}
+            edges={BOSHA_EDGES}
+            selectedId={boshaSelectedId}
+            onSelectId={setBoshaSelectedId}
+          />
+          <BoshaBriefPanel ticker={BOSHA_TICKER} />
+          <BoshaInspectorPanel
+            selected={
+              (() => {
+                const ev = BOSHA_EVENTS.find((e) => e.id === boshaSelectedId)
+                if (ev) return { kind: 'event', node: ev }
+                const en = BOSHA_ENTITIES.find((e) => e.id === boshaSelectedId)
+                if (en) return { kind: 'entity', node: en }
+                return null
+              })()
+            }
+            entitiesById={Object.fromEntries(BOSHA_ENTITIES.map((e) => [e.id, e]))}
+            eventsById={Object.fromEntries(BOSHA_EVENTS.map((e) => [e.id, e]))}
+            edges={BOSHA_EDGES}
+          />
+        </>
+      ) : null}
+
       {activeTab === 'pharma' ? (
         <section className="panel worksheet" aria-label="Trial worksheet">
           <header className="feedCompactHeader">
@@ -3268,24 +3902,28 @@ function App() {
         </section>
       ) : null}
 
-      <HistoricalOutcomesPanel mode={activeTab === 'politicians' ? 'insider' : activeTab} backendUp={backendUp} />
-      <ContextPanel
-        mode={activeTab === 'politicians' ? 'insider' : activeTab}
-        pharmaEvent={pharmaSelectedResolved}
-        insiderRow={activeTab === 'politicians' ? politiciansSelectedResolved : insiderSelectedResolved}
-        backendUp={backendUp}
-        maxSentences={activeTab === 'insider' ? 4 : 3}
-      />
+      {activeTab !== 'explore' ? (
+        <>
+          <HistoricalOutcomesPanel mode={activeTab === 'politicians' ? 'insider' : activeTab} backendUp={backendUp} />
+          <ContextPanel
+            mode={activeTab === 'politicians' ? 'insider' : activeTab}
+            pharmaEvent={pharmaSelectedResolved}
+            insiderRow={activeTab === 'politicians' ? politiciansSelectedResolved : insiderSelectedResolved}
+            backendUp={backendUp}
+            maxSentences={activeTab === 'insider' ? 4 : 3}
+          />
 
-      <GraphPanel
-        title="DAILY GRAPH"
-        series={dailySeries}
-        dates={dailyDates}
-        markers={insiderTradeMarkers}
-        selectedMarker={selectedInsiderTradeMarker}
-      />
+          <GraphPanel
+            title="DAILY GRAPH"
+            series={dailySeries}
+            dates={dailyDates}
+            markers={insiderTradeMarkers}
+            selectedMarker={selectedInsiderTradeMarker}
+          />
 
-      <CompanyPanel mode={activeTab === 'politicians' ? 'insider' : activeTab} company={companyLive} backendUp={backendUp} />
+          <CompanyPanel mode={activeTab === 'politicians' ? 'insider' : activeTab} company={companyLive} backendUp={backendUp} />
+        </>
+      ) : null}
       </main>
     </>
   )

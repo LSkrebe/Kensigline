@@ -160,6 +160,141 @@
   grid-template-rows: 0.95fr 0.95fr 0.95fr 1.4fr;
 }
 
+/* Explore tab (BOSHA): investigation board layout */
+.terminal.terminal--explore {
+  grid-template-columns:
+    minmax(60px, 0.9fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr)
+    minmax(60px, 1.05fr);
+  grid-template-rows: 0.95fr 0.95fr 0.95fr 1.4fr;
+}
+
+.terminal--explore .boshaTimeline {
+  grid-column: 1 / span 1;
+  grid-row: 1 / span 3;
+  padding: 0;
+}
+
+.terminal--explore .boshaGraph {
+  grid-column: 2 / span 3;
+  grid-row: 1 / span 3;
+  padding: 0;
+}
+
+.terminal--explore .boshaBrief {
+  grid-column: 5 / span 1;
+  grid-row: 1 / span 3;
+  padding: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.terminal--explore .boshaInspector {
+  grid-column: 1 / span 5;
+  grid-row: 4 / span 1;
+  padding: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.boshaGraphWrap {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.boshaGraphSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.boshaEdge {
+  stroke: rgba(140, 255, 195, 0.18);
+  stroke-width: 0.75px;
+}
+
+.boshaNode {
+  cursor: grab;
+}
+
+.boshaTooltip {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  background: rgba(7, 10, 15, 0.92);
+  border: 1px solid rgba(140, 255, 195, 0.18);
+  padding: 6px 8px 7px;
+  max-width: 340px;
+  font-size: var(--fs-body);
+  line-height: 1.2;
+  color: rgba(240, 255, 248, 0.92);
+}
+
+.boshaBriefBody {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 10px 10px;
+  box-sizing: border-box;
+  font-size: var(--fs-body);
+  line-height: 1.42;
+}
+
+.boshaBriefTitle {
+  letter-spacing: 0.12em;
+  margin: 2px 0 8px;
+}
+
+.boshaBriefList {
+  margin: 0 0 10px;
+  padding-left: 14px;
+  color: rgba(240, 255, 248, 0.88);
+}
+
+.boshaBriefList li {
+  margin: 0 0 6px;
+}
+
+.boshaBriefText {
+  color: rgba(240, 255, 248, 0.88);
+}
+
+.boshaInspectorBody {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 10px 10px;
+  box-sizing: border-box;
+  font-size: var(--fs-body);
+  line-height: 1.25;
+}
+
+.boshaInspectorGrid {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.22fr) minmax(0, 1fr);
+  gap: 6px 14px;
+  align-items: start;
+}
+
+.boshaK {
+  letter-spacing: 0.1em;
+  font-size: 0.95em;
+  white-space: nowrap;
+}
+
+.boshaV {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* Pharma tab: match INSIDER column widths so PHARMA FEED + PROGRAMS align. */
 .terminal.terminal--pharma {
   /* Reference layout: 4×4 for pharma mode */
