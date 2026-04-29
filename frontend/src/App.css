@@ -164,8 +164,7 @@
 .terminal.terminal--explore {
   grid-template-columns:
     minmax(60px, 0.6fr)   /* ticker selector */
-    minmax(60px, 0.95fr)  /* timeline */
-    minmax(0, 3.45fr)     /* paper panel */
+    minmax(0, 3.95fr)     /* paper panel */
     minmax(0, 0fr)
     minmax(0, 0fr);
   grid-template-rows: repeat(4, minmax(0, 1fr));
@@ -177,14 +176,8 @@
   padding: 0;
 }
 
-.terminal--explore .boshaTimeline {
-  grid-column: 2 / span 1;
-  grid-row: 1 / span 4;
-  padding: 0;
-}
-
 .terminal--explore .boshaPaper {
-  grid-column: 3 / span 3;
+  grid-column: 2 / span 4;
   grid-row: 1 / span 4;
   padding: 0;
   display: grid;
