@@ -163,49 +163,54 @@
 /* Explore tab (BOSHA): investigation board layout */
 .terminal.terminal--explore {
   grid-template-columns:
-    minmax(60px, 0.9fr)
-    minmax(0, 1fr)
-    minmax(0, 1fr)
-    minmax(0, 1fr)
-    minmax(60px, 1.05fr);
-  grid-template-rows: 0.95fr 0.95fr 0.95fr 1.4fr;
+    minmax(60px, 0.6fr)   /* ticker selector */
+    minmax(60px, 0.95fr)  /* timeline */
+    minmax(0, 3.45fr)     /* paper panel */
+    minmax(0, 0fr)
+    minmax(0, 0fr);
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+}
+
+.terminal--explore .boshaTicker {
+  grid-column: 1 / span 1;
+  grid-row: 1 / span 4;
+  padding: 0;
 }
 
 .terminal--explore .boshaTimeline {
-  grid-column: 1 / span 1;
-  grid-row: 1 / span 3;
+  grid-column: 2 / span 1;
+  grid-row: 1 / span 4;
   padding: 0;
 }
 
-.terminal--explore .boshaGraph {
-  grid-column: 2 / span 3;
-  grid-row: 1 / span 3;
-  padding: 0;
-}
-
-.terminal--explore .boshaBrief {
-  grid-column: 5 / span 1;
-  grid-row: 1 / span 3;
+.terminal--explore .boshaPaper {
+  grid-column: 3 / span 3;
+  grid-row: 1 / span 4;
   padding: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
 }
 
-.terminal--explore .boshaInspector {
-  grid-column: 1 / span 5;
-  grid-row: 4 / span 1;
-  padding: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+.boshaPaperBody {
   min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 12px 14px;
+  box-sizing: border-box;
+  font-size: var(--fs-body);
+  line-height: 1.55;
+  color: rgba(240, 255, 248, 0.9);
 }
 
-.boshaGraphWrap {
+.boshaGraphFigureWrap {
   position: relative;
-  height: 100%;
   width: 100%;
-  min-height: 0;
+  aspect-ratio: 16 / 6;
+  min-height: 160px;
+  max-height: 360px;
+  border: 1px solid rgba(140, 255, 195, 0.12);
+  background: rgba(6, 7, 10, 0.35);
   overflow: hidden;
 }
 
@@ -221,7 +226,7 @@
 }
 
 .boshaNode {
-  cursor: grab;
+  cursor: default;
 }
 
 .boshaTooltip {
@@ -237,19 +242,23 @@
   color: rgba(240, 255, 248, 0.92);
 }
 
-.boshaBriefBody {
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 6px 10px 10px;
-  box-sizing: border-box;
-  font-size: var(--fs-body);
-  line-height: 1.42;
+.boshaFigureCaption {
+  margin-top: 8px;
+  letter-spacing: 0.06em;
+  color: rgba(216, 255, 235, 0.55);
+  font-size: var(--fs-meta);
+  line-height: 1.25;
 }
 
-.boshaBriefTitle {
+.boshaPaperH {
   letter-spacing: 0.12em;
-  margin: 2px 0 8px;
+  margin: 14px 0 8px;
+  color: rgba(216, 255, 235, 0.65);
+  font-size: var(--fs-meta);
+}
+
+.boshaPaperP {
+  margin: 0 0 10px;
 }
 
 .boshaBriefList {
@@ -266,14 +275,10 @@
   color: rgba(240, 255, 248, 0.88);
 }
 
-.boshaInspectorBody {
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 6px 10px 10px;
-  box-sizing: border-box;
-  font-size: var(--fs-body);
-  line-height: 1.25;
+.boshaPaperFoot {
+  margin-top: 14px;
+  color: rgba(216, 255, 235, 0.45);
+  letter-spacing: 0.08em;
 }
 
 .boshaInspectorGrid {
