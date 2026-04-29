@@ -163,8 +163,8 @@
 /* Explore tab (BOSHA): investigation board layout */
 .terminal.terminal--explore {
   grid-template-columns:
-    minmax(60px, 0.9fr)   /* feed rail (match other tabs) */
-    minmax(0, 3.65fr)     /* paper panel */
+    minmax(60px, 0.876fr) /* feed rail (match other tabs visually) */
+    minmax(0, 3.674fr)    /* paper panel */
     minmax(0, 0fr)
     minmax(0, 0fr);
   grid-template-rows: repeat(4, minmax(0, 1fr));
