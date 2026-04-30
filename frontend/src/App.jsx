@@ -859,9 +859,13 @@ const POLITICIAN_FEED_ROWS = sortFeedRowsByAtDesc(
   Array.from({ length: 240 }, (_, i) => politicianCaseForRowIndex(i)),
 )
 
-function PoliticiansFilterPanel({ activeName, items, onSelect }) {
+function PoliticiansFilterPanel({ activeName, items, onSelect, focused, onFocus }) {
   return (
-    <section className="panel filterTile" aria-label="Filter">
+    <section
+      className={['panel', 'feed', 'feedCompact', 'filterTile', focused ? 'isFocused' : ''].filter(Boolean).join(' ')}
+      aria-label="Filter"
+      onMouseDown={() => onFocus?.()}
+    >
       <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">FILTER</div>
       </header>
@@ -885,7 +889,10 @@ function PoliticiansFilterPanel({ activeName, items, onSelect }) {
               .filter(Boolean)
               .join(' ')}
             role="listitem"
-            onClick={() => onSelect(it.name)}
+            onClick={() => {
+              onFocus?.()
+              onSelect(it.name)
+            }}
           >
             <span className="feedCell feedCellLabel kvFeedMain">{it.name}</span>
             <span className="feedCell feedCellTicker mono kvFeedDim">{it.count}</span>
@@ -896,39 +903,15 @@ function PoliticiansFilterPanel({ activeName, items, onSelect }) {
   )
 }
 
-function BoshaTickerPanel({ selectedTicker, onSelectTicker }) {
-  const [q, setQ] = useState('')
-  const items = useMemo(
-    () => [
-      { ticker: 'XBI', name: 'SPDR S&P Biotech ETF' },
-      { ticker: 'IBB', name: 'iShares Biotechnology ETF' },
-      { ticker: 'ARKG', name: 'ARK Genomic Revolution ETF' },
-      { ticker: 'LABU', name: 'Direxion Daily S&P Biotech Bull 3X Shares' },
-      { ticker: 'MRNA', name: 'Moderna, Inc.' },
-      { ticker: 'REGN', name: 'Regeneron Pharmaceuticals, Inc.' },
-      { ticker: 'VRTX', name: 'Vertex Pharmaceuticals Incorporated' },
-      { ticker: 'BNTX', name: 'BioNTech SE' },
-      { ticker: 'AMGN', name: 'Amgen Inc.' },
-      { ticker: 'LLY', name: 'Eli Lilly and Company' },
-      { ticker: 'PFE', name: 'Pfizer Inc.' },
-      { ticker: 'NVS', name: 'Novartis AG' },
-      { ticker: 'SRPT', name: 'Sarepta Therapeutics, Inc.' },
-    ],
-    [],
-  )
-
-  const filtered = useMemo(() => {
-    const s = String(q ?? '').trim().toUpperCase()
-    if (!s) return items
-    return items.filter((it) => {
-      const t = String(it?.ticker ?? '').toUpperCase()
-      const n = String(it?.name ?? '').toUpperCase()
-      return t.includes(s) || n.includes(s)
-    })
-  }, [items, q])
-
+function BoshaTickerPanel({ selectedTicker, onSelectTicker, focused, onFocus, q, onQuery, items, filtered }) {
   return (
-    <section className="panel boshaTicker" aria-label="Ticker selector">
+    <section
+      className={['panel', 'feed', 'feedCompact', 'feed--left', 'boshaTicker', focused ? 'isFocused' : '']
+        .filter(Boolean)
+        .join(' ')}
+      aria-label="Ticker selector"
+      onMouseDown={() => onFocus?.()}
+    >
       <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">FEED</div>
         <div className="feedCompactMeta feedCompactMeta--ghost" aria-hidden="true">
@@ -939,14 +922,15 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker }) {
         <div className="feedRowCompact feedRowCompact--two boshaTickerSearchRow" role="listitem">
           <input
             className="boshaTickerSearchInput"
-            value={q}
+            value={q ?? ''}
             placeholder="Search"
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => onQuery?.(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') setQ('')
+              if (e.key === 'Escape') onQuery?.('')
             }}
             aria-label="Search tickers"
             spellCheck={false}
+            onFocus={() => onFocus?.()}
           />
         </div>
         <div className="feedRowCompact feedRowCompact--blank" role="presentation" />
@@ -958,7 +942,10 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker }) {
             className={['feedRowCompact', 'feedRowCompact--two', it.ticker === selectedTicker ? 'isActive' : '']
               .filter(Boolean)
               .join(' ')}
-            onClick={() => onSelectTicker(it.ticker)}
+            onClick={() => {
+              onFocus?.()
+              onSelectTicker(it.ticker)
+            }}
           >
             <span className="feedCell feedCellLabel kvFeedMain">{it.name}</span>
             <span className="feedCell feedCellTicker mono kvFeedDim">{it.ticker}</span>
@@ -2811,8 +2798,46 @@ function App() {
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
   const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
   const [politiciansFilter, setPoliticiansFilter] = useState(null)
+  const BOSHA_FEED_ITEMS = useMemo(
+    () => [
+      { ticker: 'XBI', name: 'SPDR S&P Biotech ETF' },
+      { ticker: 'IBB', name: 'iShares Biotechnology ETF' },
+      { ticker: 'ARKG', name: 'ARK Genomic Revolution ETF' },
+      { ticker: 'LABU', name: 'Direxion Daily S&P Biotech Bull 3X Shares' },
+      { ticker: 'MRNA', name: 'Moderna, Inc.' },
+      { ticker: 'REGN', name: 'Regeneron Pharmaceuticals, Inc.' },
+      { ticker: 'VRTX', name: 'Vertex Pharmaceuticals Incorporated' },
+      { ticker: 'BNTX', name: 'BioNTech SE' },
+      { ticker: 'AMGN', name: 'Amgen Inc.' },
+      { ticker: 'LLY', name: 'Eli Lilly and Company' },
+      { ticker: 'PFE', name: 'Pfizer Inc.' },
+      { ticker: 'NVS', name: 'Novartis AG' },
+      { ticker: 'SRPT', name: 'Sarepta Therapeutics, Inc.' },
+    ],
+    [],
+  )
+
   const [boshaTicker, setBoshaTicker] = useState(BOSHA_TICKER)
+  const [boshaQuery, setBoshaQuery] = useState('')
   const [boshaSelectedId, setBoshaSelectedId] = useState('e4')
+  const boshaFilteredFeed = useMemo(() => {
+    const s = String(boshaQuery ?? '').trim().toUpperCase()
+    if (!s) return BOSHA_FEED_ITEMS
+    return BOSHA_FEED_ITEMS.filter((it) => {
+      const t = String(it?.ticker ?? '').toUpperCase()
+      const n = String(it?.name ?? '').toUpperCase()
+      return t.includes(s) || n.includes(s)
+    })
+  }, [BOSHA_FEED_ITEMS, boshaQuery])
+
+  useEffect(() => {
+    // If the current selection falls out of the filter, snap to the first match.
+    if (activeTab !== 'explore') return
+    if (!boshaFilteredFeed.length) return
+    const ok = boshaFilteredFeed.some((x) => x.ticker === boshaTicker)
+    if (!ok) setBoshaTicker(boshaFilteredFeed[0].ticker)
+  }, [activeTab, boshaFilteredFeed, boshaTicker])
+
   const [pharmaIdx, setPharmaIdx] = useState(0)
   /** When set, case sheet + graph follow this trial; cleared when pharma feed row or sponsor context changes */
   const [programRailEventId, setProgramRailEventId] = useState(null)
@@ -3356,6 +3381,14 @@ function App() {
       setFeedPaneFocus('pharma')
       return
     }
+    if (activeTab === 'politicians') {
+      setFeedPaneFocus('insider')
+      return
+    }
+    if (activeTab === 'explore') {
+      setFeedPaneFocus('explore')
+      return
+    }
   }, [activeTab])
 
   const hasSafety =
@@ -3412,9 +3445,9 @@ function App() {
     const cs = insiderSelectedResolved?.caseSheet
     if (!cs) return []
     const meta = []
-    if (cs.ticker) meta.push({ k: 'ISSUER', v: String(cs.ticker) })
-    if (cs.formType) meta.push({ k: 'FORM', v: String(cs.formType) })
-    if (cs.filingId) meta.push({ k: 'ACCESSION', v: String(cs.filingId) })
+    if (cs.ticker) meta.push({ layout: 'two', k: 'ISSUER', v: String(cs.ticker) })
+    if (cs.formType) meta.push({ layout: 'two', k: 'FORM', v: String(cs.formType) })
+    if (cs.filingId) meta.push({ layout: 'two', k: 'ACCESSION', v: String(cs.filingId) })
 
     function roleFromKey(key) {
       const k = String(key ?? '').trim()
@@ -3436,7 +3469,7 @@ function App() {
       trades.push({ type: 'trade', k: roleFromKey(r.key), v, when, ts: r.ts })
     }
 
-    const totalRow = { type: 'total', k: 'TOTAL', v: totalUsd > 0 ? formatUsdCompact(totalUsd) : '-', when: '' }
+    const totalRow = { type: 'total', layout: 'two', k: 'TOTAL', v: totalUsd > 0 ? formatUsdCompact(totalUsd) : '-' }
 
     // Ordering: meta, TOTAL, blank separator, then trades. No trailing blank.
     return [...meta, totalRow, { type: 'blank' }, ...trades]
@@ -3571,6 +3604,13 @@ function App() {
         setInsiderIdx((i) => clamp(i + (down ? 1 : -1), 0, insiderFeedRows.length - 1))
       } else if (feedPaneFocus === 'insider' && activeTab === 'politicians') {
         setPoliticiansIdx((i) => clamp(i + (down ? 1 : -1), 0, politiciansFeedRows.length - 1))
+      } else if (feedPaneFocus === 'explore' && activeTab === 'explore') {
+        const list = boshaFilteredFeed
+        if (!list.length) return
+        const cur = list.findIndex((x) => x.ticker === boshaTicker)
+        const idx = cur >= 0 ? cur : 0
+        const next = clamp(idx + (down ? 1 : -1), 0, list.length - 1)
+        setBoshaTicker(list[next].ticker)
       } else if (feedPaneFocus === 'case' && activeTab === 'insider') {
         const n = insiderCaseTradeRowIndices.length
         if (n <= 0) return
@@ -3579,9 +3619,6 @@ function App() {
         const n = politiciansCaseTradeRowIndices.length
         if (n <= 0) return
         setPoliticiansCaseTradeIdx((i) => clamp(i + (down ? 1 : -1), 0, n - 1))
-      } else if (activeTab === 'explore') {
-        // Explore tab uses mouse interaction primarily; keep arrows no-op for now.
-        return
       } else if (feedPaneFocus === 'pharma') {
         setPharmaIdx((i) => clamp(i + (down ? 1 : -1), 0, pharmaFeedRows.length - 1))
       } else if (feedPaneFocus === 'programs' && activeTab === 'pharma') {
@@ -3601,7 +3638,13 @@ function App() {
   }, [
     activeTab,
     feedPaneFocus,
+    boshaTicker,
+    boshaFilteredFeed,
+    insiderFeedRows.length,
+    politiciansFeedRows.length,
+    pharmaFeedRows.length,
     insiderCaseTradeRowIndices,
+    politiciansCaseTradeRowIndices,
     programFeedItems,
     pharmaFeedEventId,
     programRailEventId,
@@ -3733,6 +3776,8 @@ function App() {
             activeName={politiciansFilter}
             items={politicianFilterItems}
             onSelect={(name) => setPoliticiansFilter(name)}
+            focused={feedPaneFocus === 'filter'}
+            onFocus={() => setFeedPaneFocus('filter')}
           />
           <CompactFeed
             placement="left"
@@ -3767,7 +3812,16 @@ function App() {
 
       {activeTab === 'explore' ? (
         <>
-          <BoshaTickerPanel selectedTicker={boshaTicker} onSelectTicker={setBoshaTicker} />
+          <BoshaTickerPanel
+            selectedTicker={boshaTicker}
+            onSelectTicker={setBoshaTicker}
+            focused={feedPaneFocus === 'explore'}
+            onFocus={() => setFeedPaneFocus('explore')}
+            q={boshaQuery}
+            onQuery={setBoshaQuery}
+            items={BOSHA_FEED_ITEMS}
+            filtered={boshaFilteredFeed}
+          />
           <BoshaPaperPanel
             ticker={boshaTicker}
             entities={BOSHA_ENTITIES}
