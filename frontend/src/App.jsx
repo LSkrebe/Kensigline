@@ -626,6 +626,14 @@ function boshaExplainerForTicker(ticker) {
 }
 
 const BOSHA_DATASETS = {
+  ASML: {
+    entities: [{ id: 'c1', type: 'company', name: 'ASML Holding N.V.' }],
+    events: [
+      { id: 'e1', type: 'capacity_signal', title: 'EUV throughput remains the gating function', date: '2026-05-02', entities: ['c1'], sentiment: 'bullish', impact: 'high' },
+    ],
+    edges: [],
+    price: boshaMockPriceSeries(712, 140),
+  },
   XBI: {
     constituents: ['SRPT', 'IONS', 'RARE', 'BMRN', 'EXAS', 'CRSP'],
     entities: [
@@ -1506,6 +1514,8 @@ function boshaDateStamp() {
 function BoshaCausalDiagram({ ticker }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 720, h: 150 })
+  const tUpper = String(ticker ?? '').toUpperCase()
+  const isAsmlSupply = tUpper === 'ASML'
 
   useEffect(() => {
     const el = wrapRef.current
@@ -1513,24 +1523,61 @@ function BoshaCausalDiagram({ ticker }) {
     function sync() {
       const r = el.getBoundingClientRect()
       const w = Math.max(360, Math.floor(r.width))
-      const h = Math.max(130, Math.floor(r.height))
+      const h = Math.max(isAsmlSupply ? 250 : 130, Math.floor(r.height))
       setSize((s) => (s.w === w && s.h === h ? s : { w, h }))
     }
     const ro = new ResizeObserver(() => requestAnimationFrame(sync))
     ro.observe(el)
     sync()
     return () => ro.disconnect()
-  }, [])
+  }, [isAsmlSupply])
 
   const w = size.w
   const h = size.h
 
   const nodes = useMemo(() => {
     const t = String(ticker ?? '').toUpperCase()
+    if (t === 'ASML') {
+      const pad = 8
+      const rh = 34
+      /* Wide row gap so fork/merge elbows have room; thin gaps make arrows look stacked and messy. */
+      const rg = 30
+      const innerW = Math.max(0, w - pad * 2)
+
+      const topW = Math.min(240, innerW)
+      const xTop = pad + (innerW - topW) / 2
+      const y0 = pad
+
+      const pairGap = Math.min(24, Math.max(10, Math.floor(innerW * 0.04)))
+      const midW = Math.max(100, Math.floor((innerW - pairGap) / 2))
+      const midTotal = midW * 2 + pairGap
+      const xMidL = pad + (innerW - midTotal) / 2
+      const xMidR = xMidL + midW + pairGap
+      const y1 = y0 + rh + rg
+
+      const mergeW = Math.min(216, innerW)
+      const xMerge = pad + (innerW - mergeW) / 2
+      const y2 = y1 + rh + rg
+
+      const botW = Math.min(160, innerW)
+      const xBot = pad + (innerW - botW) / 2
+      const y3 = y2 + rh + rg
+
+      return [
+        { id: 'a0', label: 'Hyperscaler AI demand', x: xTop, y: y0, w: topW, h: rh },
+        { id: 'a1', label: 'GPU demand', x: xMidL, y: y1, w: midW, h: rh },
+        { id: 'a2', label: 'Leading-edge fab ramp', x: xMidR, y: y1, w: midW, h: rh },
+        { id: 'a3', label: 'EUV slot / allocation', x: xMerge, y: y2, w: mergeW, h: rh },
+        { id: 'a4', label: 'ASML EUV supply', x: xBot, y: y3, w: botW, h: rh },
+      ]
+    }
+
     const a = boshaIsEtf(t)
       ? ['Signal leak / schedule', 'Vol bid rises', 'Constituents gap']
       : ['Process signal', 'Positioning shifts', 'Dated catalyst']
-    const b = boshaIsEtf(t) ? ['Flow chase', 'ETF reprices', 'Distribution resets'] : ['Headline confirms', 'Flows re-rate', 'Repricing']
+    const b = boshaIsEtf(t)
+      ? ['Flow chase', 'ETF reprices', 'Distribution resets']
+      : ['Headline confirms', 'Flows re-rate', 'Repricing']
 
     const padX = 1
     const padY = 10
@@ -1550,19 +1597,41 @@ function BoshaCausalDiagram({ ticker }) {
 
   const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes])
 
+  const asmlVbH = useMemo(() => {
+    const t = String(ticker ?? '').toUpperCase()
+    if (t !== 'ASML' || !nodes.length) return h
+    const pad = 10
+    const bottom = Math.max(...nodes.map((n) => n.y + n.h))
+    return Math.ceil(bottom + pad)
+  }, [ticker, nodes, h])
+
+  const vbH = isAsmlSupply ? asmlVbH : h
+
   const edges = useMemo(() => {
+    const t = String(ticker ?? '').toUpperCase()
+    if (t === 'ASML') {
+      return [
+        ['a0', 'a1'],
+        ['a0', 'a2'],
+        ['a1', 'a3'],
+        ['a2', 'a3'],
+        ['a3', 'a4'],
+      ]
+        .map(([from, to]) => ({ from, to, a: byId[from], b: byId[to], kind: 'main' }))
+        .filter((x) => x.a && x.b)
+    }
     const e = [
       ['t0', 't1'],
       ['t1', 't2'],
       ['t2', 'b0'],
       ['b0', 'b1'],
       ['b1', 'b2'],
-      ['b2', 't1'], // feedback loop: flows → vol bid
+      ['b2', 't1'], // feedback loop (generic)
     ]
     return e
       .map(([from, to]) => ({ from, to, a: byId[from], b: byId[to], kind: from === 'b2' && to === 't1' ? 'loop' : 'main' }))
       .filter((x) => x.a && x.b)
-  }, [byId])
+  }, [byId, ticker])
 
   function routedPath(a, b) {
     const axR = a.x + a.w
@@ -1576,6 +1645,32 @@ function BoshaCausalDiagram({ ticker }) {
     const byC = b.y + b.h / 2
     const byT = b.y
     const byB = b.y + b.h
+
+    const scx = axL + a.w / 2
+    const ecx = bxL + b.w / 2
+
+    // Down: target sits below source (tree branches, merges, stacks)
+    if (byT >= ayB - 2) {
+      const sy = ayB
+      const ey = byT
+      const span = Math.max(0, ey - sy)
+      /* Center the horizontal bus in the gap so vertical legs are equal and elbows read clearly. */
+      const midY = sy + span / 2
+      return `M ${scx.toFixed(1)} ${sy.toFixed(1)} L ${scx.toFixed(1)} ${midY.toFixed(1)} L ${ecx.toFixed(1)} ${midY.toFixed(
+        1,
+      )} L ${ecx.toFixed(1)} ${ey.toFixed(1)}`
+    }
+
+    // Up: feedback / loop (source below target on screen)
+    if (ayT >= byB - 2) {
+      const sy = ayT
+      const ey = byB
+      const span = Math.max(0, sy - ey)
+      const midY = sy - span / 2
+      return `M ${scx.toFixed(1)} ${sy.toFixed(1)} L ${scx.toFixed(1)} ${midY.toFixed(1)} L ${ecx.toFixed(1)} ${midY.toFixed(
+        1,
+      )} L ${ecx.toFixed(1)} ${ey.toFixed(1)}`
+    }
 
     const dx = (bxL + b.w / 2) - (axL + a.w / 2)
     const dy = (byT + b.h / 2) - (ayT + a.h / 2)
@@ -1608,10 +1703,23 @@ function BoshaCausalDiagram({ ticker }) {
   }
 
   return (
-    <div ref={wrapRef} className="boshaCausalWrap" aria-label="Causal chain diagram" role="img">
-      <svg className="boshaCausalSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet">
+    <div
+      ref={wrapRef}
+      className={['boshaCausalWrap', isAsmlSupply ? 'boshaCausalWrap--supply' : ''].filter(Boolean).join(' ')}
+      aria-label={isAsmlSupply ? 'Supply chain diagram' : 'Causal chain diagram'}
+      role="img"
+    >
+      <svg className="boshaCausalSvg" viewBox={`0 0 ${w} ${vbH}`} preserveAspectRatio="xMidYMid meet">
         <defs>
-          <marker id="boshaArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <marker
+            id="boshaArrow"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto"
+          >
             <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(216, 255, 235, 0.42)" />
           </marker>
         </defs>
@@ -1624,6 +1732,8 @@ function BoshaCausalDiagram({ ticker }) {
               d={d}
               className={['boshaCausalEdge', e.kind === 'loop' ? 'boshaCausalEdge--loop' : ''].filter(Boolean).join(' ')}
               vectorEffect="non-scaling-stroke"
+              strokeLinecap="round"
+              strokeLinejoin="round"
               markerEnd="url(#boshaArrow)"
             />
           )
@@ -1632,7 +1742,7 @@ function BoshaCausalDiagram({ ticker }) {
         {nodes.map((n) => (
           <g key={n.id}>
             <rect
-              className={['boshaCausalNode', n.id === 't1' ? 'boshaCausalNode--edge' : ''].filter(Boolean).join(' ')}
+              className={['boshaCausalNode', n.id === 't1' || n.id === 'a4' ? 'boshaCausalNode--edge' : ''].filter(Boolean).join(' ')}
               x={n.x + 0.5}
               y={n.y + 0.5}
               width={n.w - 1}
@@ -1733,6 +1843,23 @@ function boshaThesisMemo({ ticker, companyName, events, priceSeries, constituent
   return { created, title, openingA, openingB, priceRef, chartX, core, causalChain, final }
 }
 
+function boshaAsmlText() {
+  return {
+    title: 'Leading-edge capacity remains EUV-gated; equity attention still clusters on downstream AI hardware',
+    subtitle: 'ASML · May 2026',
+    intro:
+      'Extreme ultraviolet lithography is the binding step for adding leading-edge wafer supply, and ASML is the systems supplier the industry depends on for that step. Output at the most advanced nodes therefore scales with EUV delivery and installation, not with the near-term pace of demand headlines. Market attention and flows still concentrate on accelerators and hyperscale operators because those markets are liquid, well covered, and map cleanly to a simple growth narrative, while lithography capacity is technical and slow to adjust. The result is often a lag between how downstream AI semiconductors reprice and how the upstream tool chain is valued, even when both sit in the same end-use story. The view here is that this lag can persist until allocation pressure in EUV is reflected more fully in ASML’s relative performance.',
+    priceCaption:
+      'ASML only. Use it with a broad GPU or AI-semiconductor complex in mind: wide relative strength there versus little movement here implies demand is being discounted ahead of lithography constraint.',
+    middle:
+      'Constraint should show up first in order books, delivery timing, and pricing for EUV tools, then propagate into how foundries allocate leading-edge capacity, and only later into the equity prices of the most visible downstream names. That sequencing is what produces the pattern this note targets: downstream beta can extend on expectations while the tool layer is still clearing physical limits. When downstream multiples compress or stabilize while EUV timing stays tight, or when ASML begins to outperform while GPU-heavy semiconductors stall, the original dispersion has largely normalized and the setup described above has largely played through.',
+    diagramCaption:
+      'Hyperscaler AI demand branches into GPU-led spending and fab ramps; both bind on finite EUV allocation before reaching ASML-supplied EUV capacity.',
+    action:
+      'The obvious side is buy ASML when GPU-heavy semis have ripped and ASML still looks flat against them. You are paying for the lithography choke point while the crowd pays for the louder downstream story, and that mismatch is what this note is about. When ASML later jumps ahead while those names stall, take profits instead of chasing more. Sell only if people start acting like EUV tools are easy to get again or fabs seriously pull back on cutting-edge builds, because then the scarcity story falls apart.',
+  }
+}
+
 function BoshaPaperPanel({ ticker, companyName, entities, events, edges, priceSeries }) {
   const priceHeadline = useMemo(() => {
     const vals = Array.isArray(priceSeries) ? priceSeries : []
@@ -1766,30 +1893,66 @@ function BoshaPaperPanel({ ticker, companyName, entities, events, edges, priceSe
       </header>
       <div className="boshaPaperBody scrollThin">
         <div className="boshaPaperDoc">
-          <div className="boshaPaperTitleBlock">
-            <div className="boshaPaperTitle boshaThesisTitle">{memo.title}</div>
-            <div className="boshaPaperSubtitle mono dim">{String(ticker ?? '').toUpperCase()} — {memo.created}</div>
-          </div>
+          {String(ticker ?? '').toUpperCase() === 'ASML' ? (
+            (() => {
+              const asml = boshaAsmlText()
+              return (
+                <>
+                  <div className="boshaPaperTitleBlock">
+                    <div className="boshaPaperTitle boshaThesisTitle">{asml.title}</div>
+                    <div className="boshaPaperSubtitle mono dim">{asml.subtitle}</div>
+                  </div>
 
-          <div className="boshaThesisBody">
-            <p className="boshaThesisP">{memo.openingA}</p>
-            <p className="boshaThesisP">{memo.openingB}</p>
-            <p className="boshaThesisP">{memo.priceRef}</p>
+                  <div className="boshaThesisBody">
+                    <p className="boshaThesisP">{asml.intro}</p>
 
-            <BoshaMiniPrice series={priceSeries} label={String(ticker ?? 'PRICE').toUpperCase()} showMeta={false} />
-            <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
-              Price chart shows {memo.chartX}.
-            </div>
+                    <BoshaMiniPrice series={priceSeries} label={String(ticker ?? 'PRICE').toUpperCase()} showMeta={false} />
+                    <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
+                      {asml.priceCaption}
+                    </div>
 
-            <p className="boshaThesisP">{memo.core}</p>
+                    <p className="boshaThesisP">{asml.middle}</p>
 
-            <BoshaCausalDiagram ticker={ticker} />
-            <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
-              Diagram summarizes how early process signals turn into positioning, a dated catalyst, and eventual repricing.
-            </div>
+                    <BoshaCausalDiagram ticker={ticker} />
+                    <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
+                      {asml.diagramCaption}
+                    </div>
 
-            <p className="boshaThesisP">{memo.final}</p>
-          </div>
+                    <p className="boshaThesisP">{asml.action}</p>
+                  </div>
+                </>
+              )
+            })()
+          ) : (
+            <>
+              <div className="boshaPaperTitleBlock">
+                <div className="boshaPaperTitle boshaThesisTitle">{memo.title}</div>
+                <div className="boshaPaperSubtitle mono dim">
+                  {String(ticker ?? '').toUpperCase()} — {memo.created}
+                </div>
+              </div>
+
+              <div className="boshaThesisBody">
+                <p className="boshaThesisP">{memo.openingA}</p>
+                <p className="boshaThesisP">{memo.openingB}</p>
+                <p className="boshaThesisP">{memo.priceRef}</p>
+
+                <BoshaMiniPrice series={priceSeries} label={String(ticker ?? 'PRICE').toUpperCase()} showMeta={false} />
+                <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
+                  Price chart shows {memo.chartX}.
+                </div>
+
+                <p className="boshaThesisP">{memo.core}</p>
+
+                <BoshaCausalDiagram ticker={ticker} />
+                <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
+                  Diagram summarizes how early process signals turn into positioning, a dated catalyst, and eventual repricing.
+                </div>
+
+                <p className="boshaThesisP">{memo.final}</p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </section>
@@ -3324,19 +3487,8 @@ function App() {
   const [politiciansFilter, setPoliticiansFilter] = useState(null)
   const BOSHA_FEED_ITEMS = useMemo(
     () => [
-      { ticker: 'XBI', name: 'SPDR S&P Biotech ETF' },
-      { ticker: 'IBB', name: 'iShares Biotechnology ETF' },
-      { ticker: 'ARKG', name: 'ARK Genomic Revolution ETF' },
-      { ticker: 'LABU', name: 'Direxion Daily S&P Biotech Bull 3X Shares' },
-      { ticker: 'MRNA', name: 'Moderna, Inc.' },
-      { ticker: 'REGN', name: 'Regeneron Pharmaceuticals, Inc.' },
-      { ticker: 'VRTX', name: 'Vertex Pharmaceuticals Incorporated' },
-      { ticker: 'BNTX', name: 'BioNTech SE' },
-      { ticker: 'AMGN', name: 'Amgen Inc.' },
-      { ticker: 'LLY', name: 'Eli Lilly and Company' },
-      { ticker: 'PFE', name: 'Pfizer Inc.' },
-      { ticker: 'NVS', name: 'Novartis AG' },
-      { ticker: 'SRPT', name: 'Sarepta Therapeutics, Inc.' },
+      { ticker: 'ASML', name: 'ASML Holding N.V.' }, // non‑pharma
+      { ticker: 'XBI', name: 'SPDR S&P Biotech ETF' }, // pharma-related
     ],
     [],
   )
