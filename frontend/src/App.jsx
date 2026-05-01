@@ -627,14 +627,26 @@ function boshaExplainerForTicker(ticker) {
 
 const BOSHA_DATASETS = {
   XBI: {
+    constituents: ['SRPT', 'IONS', 'RARE', 'BMRN', 'EXAS', 'CRSP'],
     entities: [
       { id: 'c1', type: 'company', name: 'SPDR S&P Biotech ETF' },
       { id: 'p1', type: 'politician', name: 'Sen. Mark Reynolds' },
       { id: 'i1', type: 'insider', name: 'Dr. Sarah Klein (Ex-Amgen)' },
       { id: 'd1', type: 'drug', name: 'AMG-301' },
       { id: 'f1', type: 'institution', name: 'FDA' },
+      { id: 'x1', type: 'company', name: 'Sarepta Therapeutics (SRPT)' },
+      { id: 'x2', type: 'company', name: 'Ionis Pharmaceuticals (IONS)' },
     ],
     events: [
+      {
+        id: 'e0',
+        type: 'trial_result_rumor',
+        title: 'Leak: AMG-301 Phase 2 chatter appears in sell-side notes',
+        date: '2026-04-12',
+        entities: ['d1'],
+        sentiment: 'bullish',
+        impact: 'high',
+      },
       {
         id: 'e1',
         type: 'fda_meeting',
@@ -671,8 +683,18 @@ const BOSHA_DATASETS = {
         sentiment: 'bullish',
         impact: 'high',
       },
+      {
+        id: 'e5',
+        type: 'hiring_signal',
+        title: 'Two mid-cap constituents add BD/commercial roles within 10 days',
+        date: '2026-04-24',
+        entities: ['x1', 'x2'],
+        sentiment: 'bullish',
+        impact: 'medium',
+      },
     ],
     edges: [
+      { from: 'e0', to: 'd1', type: 'catalyst' },
       { from: 'e1', to: 'd1', type: 'affects' },
       { from: 'e1', to: 'c1', type: 'indirect_risk' },
       { from: 'e2', to: 'c1', type: 'insider_activity' },
@@ -681,6 +703,7 @@ const BOSHA_DATASETS = {
       { from: 'e3', to: 'p1', type: 'initiated_by' },
       { from: 'e4', to: 'd1', type: 'catalyst' },
       { from: 'e4', to: 'e1', type: 'timing_link' },
+      { from: 'e5', to: 'c1', type: 'indirect_risk' },
     ],
     price: boshaMockPriceSeries(119),
   },
@@ -1534,9 +1557,10 @@ function BoshaCausalDiagram({ ticker }) {
       ['t2', 'b0'],
       ['b0', 'b1'],
       ['b1', 'b2'],
+      ['b2', 't1'], // feedback loop: flows → vol bid
     ]
     return e
-      .map(([from, to]) => ({ from, to, a: byId[from], b: byId[to] }))
+      .map(([from, to]) => ({ from, to, a: byId[from], b: byId[to], kind: from === 'b2' && to === 't1' ? 'loop' : 'main' }))
       .filter((x) => x.a && x.b)
   }, [byId])
 
@@ -1598,7 +1622,7 @@ function BoshaCausalDiagram({ ticker }) {
             <path
               key={`e-${i}`}
               d={d}
-              className="boshaCausalEdge"
+              className={['boshaCausalEdge', e.kind === 'loop' ? 'boshaCausalEdge--loop' : ''].filter(Boolean).join(' ')}
               vectorEffect="non-scaling-stroke"
               markerEnd="url(#boshaArrow)"
             />
@@ -1607,7 +1631,14 @@ function BoshaCausalDiagram({ ticker }) {
 
         {nodes.map((n) => (
           <g key={n.id}>
-            <rect className="boshaCausalNode" x={n.x + 0.5} y={n.y + 0.5} width={n.w - 1} height={n.h - 1} rx="6" />
+            <rect
+              className={['boshaCausalNode', n.id === 't1' ? 'boshaCausalNode--edge' : ''].filter(Boolean).join(' ')}
+              x={n.x + 0.5}
+              y={n.y + 0.5}
+              width={n.w - 1}
+              height={n.h - 1}
+              rx="6"
+            />
             <text className="boshaCausalText" x={n.x + n.w / 2} y={n.y + n.h / 2 + 4}>
               {n.label}
             </text>
@@ -1618,13 +1649,49 @@ function BoshaCausalDiagram({ ticker }) {
   )
 }
 
-function boshaThesisMemo({ ticker, companyName, events }) {
+function boshaFmtDate(d) {
+  const x = boshaParseDay(d)
+  if (!x) return '—'
+  return `${MONTHS_SHORT[x.getMonth()]} ${String(x.getDate()).padStart(2, '0')}`
+}
+
+function boshaVolPct(series, n) {
+  const xs = Array.isArray(series) ? series : []
+  if (xs.length < Math.max(4, n + 2)) return null
+  const slice = xs.slice(-n)
+  const rets = []
+  for (let i = 1; i < slice.length; i++) {
+    const a = slice[i - 1]
+    const b = slice[i]
+    if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0) continue
+    rets.push(Math.log(b / a))
+  }
+  if (rets.length < 3) return null
+  const m = rets.reduce((p, q) => p + q, 0) / rets.length
+  const v = rets.reduce((p, q) => p + (q - m) * (q - m), 0) / Math.max(1, rets.length - 1)
+  const sd = Math.sqrt(Math.max(0, v))
+  // simple annualization proxy; we only need a believable datapoint
+  const ann = sd * Math.sqrt(252)
+  return ann * 100
+}
+
+function boshaThesisMemo({ ticker, companyName, events, priceSeries, constituents = [] }) {
   const t = String(ticker ?? '').toUpperCase()
   const name = String(companyName ?? '').trim() || t
   const es = (events ?? []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)))
   const top = es[0] ?? null
   const hi = es.find((e) => String(e?.impact ?? '').toLowerCase() === 'high') ?? top
   const bits = boshaMockSignalBits(t)
+
+  const rv14 = boshaVolPct(priceSeries, 14)
+  const rv60 = boshaVolPct(priceSeries, 60)
+  const rvPhrase =
+    rv14 != null && rv60 != null
+      ? `Realized vol is ~${rv14.toFixed(0)}% annualized vs ~${rv60.toFixed(0)}% on the last ~3 months, which is the market paying up for timing before it pays up for price.`
+      : `Vol is firming before price, which is what you see when timing compresses before confirmation hits the tape.`
+
+  const cNames = (constituents ?? []).filter(Boolean).slice(0, 4)
+  const cPhrase = cNames.length ? `${cNames.join(', ')}` : 'mid-cap constituents'
 
   const chartX = boshaIsEtf(t) ? 'lagging despite a tightening catalyst window' : 'muted reaction to accumulating pre-catalyst signals'
 
@@ -1633,23 +1700,25 @@ function boshaThesisMemo({ ticker, companyName, events }) {
     : `${t}: The market is underpricing a near-term catalyst window implied by behavior and language shifts`
 
   const openingA = boshaIsEtf(t)
-    ? `${name} is seeing a clean regime shift: the “date risk” in the underlying ecosystem is compressing into a narrower window, while positioning signals are showing up ahead of the headline. That matters because ETF moves are usually blamed on broad tape, but the current skew is micro-driven—more about who is front-running catalyst timing than about index beta.`
+    ? `${name} is seeing a clean regime shift: the “date risk” in the underlying ecosystem is compressing into a narrower window, while positioning signals are showing up ahead of the headline. The edge is not “biotech will go up”; the edge is that timing is tightening while the tape still prices it as background noise.`
     : `${name} is entering a new positioning regime where the timing signal is getting louder than the narrative. The market is still pricing it as “normal drift,” but the evidence trail looks like pre-catalyst behavior: a dated regulatory window, reinforcement from smart-activity proxies, and language that suggests the next update will change probability, not just timing.`
 
   const openingB = boshaIsEtf(t)
-    ? `The key point is not whether a single rumor is right; it’s that multiple independent channels are converging on the same window, and price has not fully repriced that convergence yet. The thesis is simply that the next move will be driven by timing compression, and the current tape is offering optionality at a discount.`
+    ? `This matters because dispersion is what drives ETF repricing: the highest-beta names move first, the basket follows, and the lag creates a window where vol is bid but spot is not. If you’re early, you get paid twice—first when the market admits the window exists, then when confirmation forces flows.`
     : `This matters because once the next “known date” is clear, liquidity shifts from patient holders to fast money and the repricing happens in days, not quarters. If you wait for the formal update, you typically pay for the same probability shift that is already being hinted at in behavior and process signals.`
 
   const priceRef = `Price is still behaving like ${chartX}; that mismatch is the setup, not the conclusion.`
 
   const core = (() => {
-    const evA = hi?.title ? `A dated catalyst signal is explicit in “${hi.title},”` : 'A dated catalyst signal is explicit,'
-    const evB = top?.title && top?.id !== hi?.id ? ` and it is reinforced by “${top.title}.”` : '.'
+    const dHi = hi?.date ? boshaFmtDate(hi.date) : '—'
+    const dTop = top?.date ? boshaFmtDate(top.date) : '—'
+    const evA = hi?.title ? `The trigger is already dated: ${dHi} — “${hi.title},”` : 'The trigger is already dated,'
+    const evB = top?.title && top?.id !== hi?.id ? ` reinforced by ${dTop} — “${top.title}.”` : '.'
     const mech = boshaIsEtf(t)
-      ? ` When ${bits.funding} and ${bits.hiring} show up across constituents, it usually means the basket’s probability-weighted outcomes are shifting even before the press release, because teams don’t hire and scale into failure.`
-      : ` When you see ${bits.hiring} alongside ${bits.partnership} and a ${bits.funding}, it implies internal confidence that the next milestone unlocks a commercial step-change, not just another data point.`
+      ? ` What makes this actionable now is that the “soft” signals are not soft anymore: ${rvPhrase} On the fundamental side, you can point to concrete behavior—${cPhrase} are the kind of names that lead early when windows tighten, and we already have process-like signals showing up as ${bits.hiring} plus ${bits.funding} rather than post-hoc narratives.`
+      : ` What makes this actionable now is that the signals have become concrete: ${rvPhrase} When you see ${bits.hiring} alongside ${bits.partnership} and a ${bits.funding}, it implies internal confidence that the next milestone unlocks a commercial step-change, not just another data point.`
     const chain = boshaIsEtf(t)
-      ? ` The causal chain is: pre-catalyst signal leakage tightens timing → volatility bid rises → basket constituents gap on confirmation → flows chase momentum → ETF reprices to the new implied distribution.`
+      ? ` The second-order edge is dispersion: leaders gap first, laggards follow, and the ETF reprices last. If you want the tradeable asymmetry, you’re not “long biotech,” you’re long the window: signal leakage tightens timing → vol bid rises → leaders gap → flows chase → ETF reprices.`
       : ` The causal chain is: pre-catalyst signals imply improving probability → positioning shifts ahead of the dated window → confirmation changes guidance language → counterparties/partners commit → revenue expectations expand and the multiple follows.`
     return `${evA}${evB}${mech}${chain}`
   })()
@@ -1657,7 +1726,7 @@ function boshaThesisMemo({ ticker, companyName, events }) {
   const causalChain = `Process signal → positioning shifts → dated catalyst → confirmation headline → flows re-rate → repricing`
 
   const final = boshaIsEtf(t)
-    ? `Next, you want confirmation that timing is truly compressing: more explicit scheduling language, tighter sequencing of updates, and any “risk-on” flow pattern in the highest-beta constituents. The thesis is confirmed if the next two weeks show a step-up in catalyst-related language and a broader vol bid across the basket, while price still lags; it fails if the window pushes out and flow reverts to pure beta without micro-driven gaps.`
+    ? `Best expression is to be long the window, not the story: long ${t} vol into the next 4–8 weeks while selectively leaning into leaders (${cPhrase}) versus the basket if dispersion picks up. Confirmation is concrete: scheduling language tightens again, realized vol stays elevated while spot lags, and the first gaps appear in the high-beta names before the ETF follows. Invalidation is also concrete: the window pushes out, vol mean-reverts, and moves revert to pure beta with no micro-driven gaps.`
     : `Next, watch for concrete confirmation that the market’s probability is too low: earnings language that moves from “monitoring” to “preparing,” a partnership/contract that pulls timelines forward, or disclosure that clarifies endpoints and dates. The thesis is confirmed when guidance language or counterparties shift in a way that forces revenue expectations higher; it fails if the next dated update is delayed or softened and behavior signals unwind without replacement.`
 
   const created = boshaDateStamp()
@@ -1677,9 +1746,16 @@ function BoshaPaperPanel({ ticker, companyName, entities, events, edges, priceSe
 
   const titleText = String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
   const memo = useMemo(
-    () => boshaThesisMemo({ ticker, companyName: titleText, events }),
+    () =>
+      boshaThesisMemo({
+        ticker,
+        companyName: titleText,
+        events,
+        priceSeries,
+        constituents: boshaIsEtf(ticker) ? boshaDatasetForTicker(ticker)?.constituents ?? [] : [],
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ticker, titleText, events],
+    [ticker, titleText, events, priceSeries],
   )
 
   return (
