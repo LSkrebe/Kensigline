@@ -576,63 +576,224 @@ const POLITICIAN_NAMES = [
 // ------------------------------------------------------------
 const BOSHA_TICKER = 'XBI'
 
-const BOSHA_ENTITIES = [
-  { id: 'c1', type: 'company', name: 'XBI ETF' },
-  { id: 'p1', type: 'politician', name: 'Sen. Mark Reynolds' },
-  { id: 'i1', type: 'insider', name: 'Dr. Sarah Klein (Ex-Amgen)' },
-  { id: 'd1', type: 'drug', name: 'AMG-301' },
-  { id: 'f1', type: 'institution', name: 'FDA' },
-]
+const BOSHA_ALLOWED_EDGE_TYPES = new Set([
+  'catalyst',
+  'timing_link',
+  'insider_activity',
+  'political_exposure',
+  'indirect_risk',
+  'initiated_by',
+  'affects',
+])
 
-const BOSHA_EVENTS = [
-  {
-    id: 'e1',
-    type: 'fda_meeting',
-    title: 'FDA advisory meeting scheduled for AMG-301',
-    date: '2026-04-18',
-    entities: ['d1', 'f1'],
-    sentiment: 'neutral',
-    impact: 'high',
-  },
-  {
-    id: 'e2',
-    type: 'insider_buy',
-    title: 'Insider purchase of biotech exposure ETF',
-    date: '2026-04-20',
-    entities: ['i1', 'c1'],
-    sentiment: 'bullish',
-    impact: 'medium',
-  },
-  {
-    id: 'e3',
-    type: 'politician_trade',
-    title: 'Senator Reynolds discloses biotech ETF position',
-    date: '2026-04-21',
-    entities: ['p1', 'c1'],
-    sentiment: 'bullish',
-    impact: 'medium',
-  },
-  {
-    id: 'e4',
-    type: 'trial_result_rumor',
-    title: 'Leak: AMG-301 Phase 2 data stronger than expected',
-    date: '2026-04-22',
-    entities: ['d1'],
-    sentiment: 'bullish',
-    impact: 'high',
-  },
-]
+function boshaMockPriceSeries(seed, n = 110) {
+  let v = 80 + (seed % 23)
+  const out = []
+  for (let i = 0; i < n; i++) {
+    const drift = 0.08 + ((seed % 7) - 3) * 0.012
+    const noise = (seededJitter(seed + i * 29, 10) - 5) * 0.22
+    v = Math.max(12, v + drift + noise)
+    out.push(Math.round(v * 100) / 100)
+  }
+  return out
+}
 
-const BOSHA_EDGES = [
-  { from: 'e1', to: 'd1', type: 'affects' },
-  { from: 'e1', to: 'c1', type: 'indirect_risk' },
-  { from: 'e2', to: 'c1', type: 'insider_activity' },
-  { from: 'e2', to: 'i1', type: 'initiated_by' },
-  { from: 'e3', to: 'c1', type: 'political_exposure' },
-  { from: 'e3', to: 'p1', type: 'initiated_by' },
-  { from: 'e4', to: 'd1', type: 'catalyst' },
-  { from: 'e4', to: 'e1', type: 'timing_link' },
-]
+function boshaExplainerForTicker(ticker) {
+  const t = String(ticker ?? '').toUpperCase()
+  if (t === 'XBI')
+    return [
+      'XBI is a diversified biotech ETF where price is often driven by a few high-impact clinical readouts and FDA decisions across the basket.',
+      'Moves can start before the headline when information is leaking through channels like meeting schedules, trial updates, and unusual positioning behavior.',
+      'In this case, treat the timeline as an evidence trail: what changed, who reacted, and how close we are to the next dated catalyst.',
+    ]
+  if (t === 'MRNA')
+    return [
+      'MRNA is a large-cap biotech where regulatory milestones and trial readouts can dominate flows before the market fully reprices expectations.',
+      'Short-horizon price moves tend to cluster around scheduled updates, endpoint language, and shifts in perceived probability of approval.',
+      'For this case, prioritize dated events and disclosures that change the approval narrative or timing window.',
+    ]
+  if (t === 'SRPT')
+    return [
+      'SRPT is a clinical-stage biotech with high sensitivity to FDA communications, trial data quality, and disclosure timing.',
+      'When regulatory language shifts, the implied approval probability can change quickly, which often drives volatility and risk hedging behavior.',
+      'For this case, focus on what the regulator asked for, what data claims were implied, and whether actions cluster before a formal update.',
+    ]
+  return [
+    `${t} is a biotech-linked asset where event timing and information flow can dominate short-horizon price discovery.`,
+    'The highest-signal windows are scheduled catalysts (readouts, meetings, filings) and any behavior that clusters right before those dates.',
+    'Use this paper to track what changed first, what followed, and what the next “known date” is.',
+  ]
+}
+
+const BOSHA_DATASETS = {
+  XBI: {
+    entities: [
+      { id: 'c1', type: 'company', name: 'SPDR S&P Biotech ETF' },
+      { id: 'p1', type: 'politician', name: 'Sen. Mark Reynolds' },
+      { id: 'i1', type: 'insider', name: 'Dr. Sarah Klein (Ex-Amgen)' },
+      { id: 'd1', type: 'drug', name: 'AMG-301' },
+      { id: 'f1', type: 'institution', name: 'FDA' },
+    ],
+    events: [
+      {
+        id: 'e1',
+        type: 'fda_meeting',
+        title: 'FDA advisory meeting scheduled for AMG-301',
+        date: '2026-04-18',
+        entities: ['d1', 'f1'],
+        sentiment: 'neutral',
+        impact: 'high',
+      },
+      {
+        id: 'e2',
+        type: 'insider_buy',
+        title: 'Insider purchase of biotech exposure ETF',
+        date: '2026-04-20',
+        entities: ['i1', 'c1'],
+        sentiment: 'bullish',
+        impact: 'medium',
+      },
+      {
+        id: 'e3',
+        type: 'politician_trade',
+        title: 'Senator Reynolds discloses biotech ETF position',
+        date: '2026-04-21',
+        entities: ['p1', 'c1'],
+        sentiment: 'bullish',
+        impact: 'medium',
+      },
+      {
+        id: 'e4',
+        type: 'trial_result_rumor',
+        title: 'Leak: AMG-301 Phase 2 data stronger than expected',
+        date: '2026-04-22',
+        entities: ['d1'],
+        sentiment: 'bullish',
+        impact: 'high',
+      },
+    ],
+    edges: [
+      { from: 'e1', to: 'd1', type: 'affects' },
+      { from: 'e1', to: 'c1', type: 'indirect_risk' },
+      { from: 'e2', to: 'c1', type: 'insider_activity' },
+      { from: 'e2', to: 'i1', type: 'initiated_by' },
+      { from: 'e3', to: 'c1', type: 'political_exposure' },
+      { from: 'e3', to: 'p1', type: 'initiated_by' },
+      { from: 'e4', to: 'd1', type: 'catalyst' },
+      { from: 'e4', to: 'e1', type: 'timing_link' },
+    ],
+    price: boshaMockPriceSeries(119),
+  },
+  MRNA: {
+    entities: [
+      { id: 'c1', type: 'company', name: 'Moderna, Inc.' },
+      { id: 'd1', type: 'drug', name: 'mRNA-1647' },
+      { id: 'f1', type: 'institution', name: 'FDA' },
+      { id: 'i1', type: 'insider', name: 'CFO (Issuer insider)' },
+      { id: 'p1', type: 'politician', name: 'Rep. Jordan Collins' },
+    ],
+    events: [
+      {
+        id: 'e1',
+        type: 'fda_meeting',
+        title: 'FDA meeting set to discuss endpoint alignment for mRNA-1647',
+        date: '2026-03-11',
+        entities: ['d1', 'f1'],
+        sentiment: 'neutral',
+        impact: 'high',
+      },
+      {
+        id: 'e2',
+        type: 'insider_buy',
+        title: 'Issuer CFO adds shares ahead of data window',
+        date: '2026-03-18',
+        entities: ['i1', 'c1'],
+        sentiment: 'bullish',
+        impact: 'medium',
+      },
+      {
+        id: 'e3',
+        type: 'trial_result_rumor',
+        title: 'Channel checks imply strong immunogenicity readout',
+        date: '2026-03-21',
+        entities: ['d1'],
+        sentiment: 'bullish',
+        impact: 'high',
+      },
+      {
+        id: 'e4',
+        type: 'politician_trade',
+        title: 'Disclosure: House member reports position in issuer',
+        date: '2026-03-28',
+        entities: ['p1', 'c1'],
+        sentiment: 'neutral',
+        impact: 'medium',
+      },
+    ],
+    edges: [
+      { from: 'e1', to: 'd1', type: 'affects' },
+      { from: 'e1', to: 'c1', type: 'indirect_risk' },
+      { from: 'e2', to: 'c1', type: 'insider_activity' },
+      { from: 'e2', to: 'i1', type: 'initiated_by' },
+      { from: 'e3', to: 'd1', type: 'catalyst' },
+      { from: 'e3', to: 'e1', type: 'timing_link' },
+      { from: 'e4', to: 'c1', type: 'political_exposure' },
+      { from: 'e4', to: 'p1', type: 'initiated_by' },
+    ],
+    price: boshaMockPriceSeries(331),
+  },
+  SRPT: {
+    entities: [
+      { id: 'c1', type: 'company', name: 'Sarepta Therapeutics, Inc.' },
+      { id: 'd1', type: 'drug', name: 'SRP-9001' },
+      { id: 'f1', type: 'institution', name: 'FDA' },
+      { id: 'i1', type: 'insider', name: 'Director (Issuer insider)' },
+    ],
+    events: [
+      {
+        id: 'e1',
+        type: 'fda_meeting',
+        title: 'FDA requests additional analyses for SRP-9001 submission',
+        date: '2026-02-06',
+        entities: ['d1', 'f1'],
+        sentiment: 'bearish',
+        impact: 'high',
+      },
+      {
+        id: 'e2',
+        type: 'trial_result_rumor',
+        title: 'Rumor: dataset re-cut improves responder narrative',
+        date: '2026-02-10',
+        entities: ['d1'],
+        sentiment: 'bullish',
+        impact: 'medium',
+      },
+      {
+        id: 'e3',
+        type: 'insider_buy',
+        title: 'Director purchase disclosed after regulatory headline',
+        date: '2026-02-14',
+        entities: ['i1', 'c1'],
+        sentiment: 'bullish',
+        impact: 'medium',
+      },
+    ],
+    edges: [
+      { from: 'e1', to: 'd1', type: 'affects' },
+      { from: 'e1', to: 'c1', type: 'indirect_risk' },
+      { from: 'e2', to: 'd1', type: 'catalyst' },
+      { from: 'e2', to: 'e1', type: 'timing_link' },
+      { from: 'e3', to: 'c1', type: 'insider_activity' },
+      { from: 'e3', to: 'i1', type: 'initiated_by' },
+    ],
+    price: boshaMockPriceSeries(907),
+  },
+}
+
+function boshaDatasetForTicker(ticker) {
+  const t = String(ticker ?? '').toUpperCase()
+  return BOSHA_DATASETS[t] ?? BOSHA_DATASETS.XBI
+}
 
 function boshaImpactScore(impact) {
   const x = String(impact ?? '').toLowerCase()
@@ -956,20 +1117,19 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker, focused, onFocus, q,
   )
 }
 
-function BoshaGraphFigure({ entities, events, edges, selectedId, onSelectId }) {
+function BoshaGraphFigure({ entities, events, edges }) {
   const wrapRef = useRef(null)
-  const [hover, setHover] = useState(null)
-  const [expanded, setExpanded] = useState(() => new Set())
   const [size, setSize] = useState({ w: 640, h: 320 })
 
   const entitiesById = useMemo(() => Object.fromEntries((entities ?? []).map((e) => [e.id, e])), [entities])
   const eventsById = useMemo(() => Object.fromEntries((events ?? []).map((e) => [e.id, e])), [events])
 
   const visibleEdges = useMemo(() => {
-    const base = (edges ?? []).filter((e) => e.type !== 'timing_link')
-    const extra = (edges ?? []).filter((e) => e.type === 'timing_link' && expanded.has(e.from))
-    return [...base, ...extra]
-  }, [edges, expanded])
+    const cleaned = (edges ?? [])
+      .filter((e) => BOSHA_ALLOWED_EDGE_TYPES.has(String(e?.type ?? '')))
+      .map((e) => ({ from: String(e.from), to: String(e.to), type: String(e.type) }))
+    return cleaned.filter((e) => e.type !== 'timing_link')
+  }, [edges])
 
   useEffect(() => {
     const wrap = wrapRef.current
@@ -1027,74 +1187,11 @@ function BoshaGraphFigure({ entities, events, edges, selectedId, onSelectId }) {
     return m
   }, [entities, events, eventsById, size.h, size.w])
 
-  const highlight = useMemo(() => {
-    if (!selectedId) return { nodes: null, edges: null }
-    const nset = new Set([selectedId])
-    const eset = new Set()
-    for (const e of visibleEdges) {
-      if (e.from === selectedId || e.to === selectedId) {
-        nset.add(e.from)
-        nset.add(e.to)
-        eset.add(`${e.from}->${e.to}:${e.type}`)
-      }
-    }
-    return { nodes: nset, edges: eset }
-  }, [selectedId, visibleEdges])
-
-  function hitTest(clientX, clientY) {
-    const wrap = wrapRef.current
-    if (!wrap) return null
-    const rect = wrap.getBoundingClientRect()
-    const x = clientX - rect.left
-    const y = clientY - rect.top
-    let best = null
-    let bestD2 = 1e9
-    for (const n of layout.values()) {
-      const r = n.kind === 'event' ? 10 + 3 * boshaImpactScore(n.impact) : 10
-      const dx = x - n.x
-      const dy = y - n.y
-      const d2 = dx * dx + dy * dy
-      if (d2 < r * r && d2 < bestD2) {
-        best = n
-        bestD2 = d2
-      }
-    }
-    return best
-  }
-
-  function onMouseMove(e) {
-    const hit = hitTest(e.clientX, e.clientY)
-    if (!hit) {
-      if (hover) setHover(null)
-      return
-    }
-    setHover({ id: hit.id, kind: hit.kind, title: hit.kind === 'event' ? hit.title : hit.name, x: e.clientX, y: e.clientY })
-  }
-
-  function onClick(e) {
-    const hit = hitTest(e.clientX, e.clientY)
-    if (hit) onSelectId(hit.id)
-  }
-
-  function onDoubleClick() {
-    const h = hover?.id ? layout.get(hover.id) : null
-    if (!h || h.kind !== 'event') return
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(h.id)) next.delete(h.id)
-      else next.add(h.id)
-      return next
-    })
-  }
-
   return (
     <div className="boshaGraphFigure" aria-label="Causal graph figure">
       <div
         ref={wrapRef}
         className="boshaGraphFigureWrap"
-        onMouseMove={onMouseMove}
-        onClick={onClick}
-        onDoubleClick={onDoubleClick}
         role="img"
         aria-label="Causal graph"
       >
@@ -1104,8 +1201,6 @@ function BoshaGraphFigure({ entities, events, edges, selectedId, onSelectId }) {
             const b = layout.get(e.to)
             if (!a || !b) return null
             const k = `${e.from}->${e.to}:${e.type}`
-            const on = !highlight.nodes || (highlight.nodes.has(a.id) && highlight.nodes.has(b.id))
-            const strong = highlight.edges?.has(k) || false
             return (
               <g key={k}>
                 <line
@@ -1114,7 +1209,7 @@ function BoshaGraphFigure({ entities, events, edges, selectedId, onSelectId }) {
                   x2={b.x}
                   y2={b.y}
                   className="boshaEdge"
-                  opacity={on ? (strong ? 0.65 : 0.22) : 0.08}
+                  opacity={0.22}
                 />
               </g>
             )
@@ -1122,151 +1217,504 @@ function BoshaGraphFigure({ entities, events, edges, selectedId, onSelectId }) {
 
           {Array.from(layout.values()).map((n) => {
             const isEv = n.kind === 'event'
-            const isSelected = n.id === selectedId
-            const on = !highlight.nodes || highlight.nodes.has(n.id)
             const fill = isEv ? boshaSentimentColor(n.sentiment) : 'rgba(90, 220, 255, 0.42)'
-            const stroke = isSelected ? 'rgba(140, 255, 195, 0.55)' : 'rgba(140, 255, 195, 0.16)'
+            const stroke = 'rgba(140, 255, 195, 0.16)'
             const r = isEv ? 9 + 3 * boshaImpactScore(n.impact) : 9
             return isEv ? (
-              <g key={n.id} opacity={on ? 1 : 0.28}>
+              <g key={n.id} opacity={1}>
                 <rect x={n.x - r} y={n.y - r} width={r * 2} height={r * 2} rx="2" fill={fill} stroke={stroke} strokeWidth="1" />
               </g>
             ) : (
-              <g key={n.id} opacity={on ? 1 : 0.28}>
+              <g key={n.id} opacity={1}>
                 <circle cx={n.x} cy={n.y} r={r} fill={fill} stroke={stroke} strokeWidth="1" />
               </g>
             )
           })}
         </svg>
-        {hover ? (
-          <div className="boshaTooltip" style={{ left: hover.x + 10, top: hover.y + 10 }}>
-            <div className="mono dim">{hover.kind === 'event' ? 'EVENT' : 'ENTITY'}</div>
-            <div>{hover.title}</div>
-          </div>
-        ) : null}
       </div>
       <div className="boshaFigureCaption mono dim">
-        Figure 1. Causal cluster around {BOSHA_TICKER}. Squares are events (impact-sized), circles are entities.
-        Double-click an event to toggle hidden timing links.
+        Evidence graph: squares are events (impact-sized), circles are entities.
       </div>
     </div>
   )
 }
 
-function BoshaPaperPanel({ ticker, entities, events, edges, selectedId, onSelectId }) {
-  const entitiesById = useMemo(() => Object.fromEntries((entities ?? []).map((e) => [e.id, e])), [entities])
-  const eventsById = useMemo(() => Object.fromEntries((events ?? []).map((e) => [e.id, e])), [events])
-  const selectedEvent = useMemo(() => (events ?? []).find((e) => e.id === selectedId) ?? null, [events, selectedId])
-  const selectedEntity = useMemo(() => (entities ?? []).find((e) => e.id === selectedId) ?? null, [entities, selectedId])
+function BoshaMiniPrice({ series, label, showMeta = true }) {
+  const wrapRef = useRef(null)
+  const [size, setSize] = useState({ w: 360, h: 192 })
 
-  const connectedEdges = useMemo(() => {
-    if (!selectedId) return []
-    return (edges ?? []).filter((e) => e.from === selectedId || e.to === selectedId)
-  }, [edges, selectedId])
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    function measure() {
+      const rect = wrap.getBoundingClientRect()
+      const w = Math.max(240, rect.width)
+      const h = Math.max(64, rect.height)
+      setSize((prev) => (prev.w !== w || prev.h !== h ? { w, h } : prev))
+    }
+    const ro = new ResizeObserver(() => requestAnimationFrame(measure))
+    ro.observe(wrap)
+    measure()
+    return () => ro.disconnect()
+  }, [])
 
-  const entityHistory = useMemo(() => {
-    if (!selectedEntity) return []
+  const w = size.w
+  const h = size.h
+  // Keep the plot flush with the paper text column while still allowing
+  // Y-axis labels to render to the *left* of the axis line.
+  const viewPadL = 36
+  const margin = { l: 0, r: 6, t: 8, b: 18 }
+  const innerW = Math.max(1, w - margin.l - margin.r)
+  const innerH = Math.max(1, h - margin.t - margin.b)
+
+  const vals = Array.isArray(series) ? series : []
+  const min = vals.length ? Math.min(...vals) : 0
+  const max = vals.length ? Math.max(...vals) : 1
+  const span = max - min || 1
+
+  function xAt(i) {
+    return margin.l + (i / Math.max(1, vals.length - 1)) * innerW
+  }
+  function yAt(v) {
+    return margin.t + (1 - (v - min) / span) * innerH
+  }
+
+  const path = useMemo(() => {
+    if (!vals.length) return ''
+    let d = ''
+    for (let i = 0; i < vals.length; i++) {
+      const x = xAt(i)
+      const y = yAt(vals[i])
+      d += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)} `
+    }
+    return d.trim()
+  }, [vals, w, h])
+
+  const yTicks = useMemo(() => priceTicks(min, max, 4), [min, max])
+  const xTickIdx = useMemo(() => {
+    const n = Math.max(0, vals.length)
+    if (n <= 1) return []
+    return [0.08, 0.32, 0.56, 0.8].map((p) => Math.round(clamp01(p) * (n - 1)))
+  }, [vals.length])
+
+  const dates = useMemo(() => {
+    const n = Math.max(0, vals.length)
+    if (!n) return []
+    const now = new Date()
     const out = []
-    for (const e of events ?? []) {
-      if (Array.isArray(e.entities) && e.entities.includes(selectedEntity.id)) out.push(e)
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      out.push(d)
     }
-    return out.sort((a, b) => String(b.date).localeCompare(String(a.date)))
-  }, [events, selectedEntity])
+    return out
+  }, [vals.length])
 
-  const exposure = useMemo(() => {
-    if (!selectedEntity) return null
-    let bull = 0
-    let bear = 0
-    let neutral = 0
-    for (const e of entityHistory) {
-      const s = String(e?.sentiment ?? '').toLowerCase()
-      if (s === 'bullish') bull++
-      else if (s === 'bearish') bear++
-      else neutral++
-    }
-    return { bull, bear, neutral }
-  }, [entityHistory, selectedEntity])
+  const last = Array.isArray(series) && series.length ? series.at(-1) : null
+  const prev = Array.isArray(series) && series.length > 1 ? series.at(-2) : null
+  const ch = last != null && prev != null ? last - prev : null
+  const chPct = last != null && prev ? ((last - prev) / Math.max(1e-6, prev)) * 100 : null
+  const up = ch != null ? ch >= 0 : true
 
   return (
-    <section className="panel boshaPaper" aria-label="Bosha research paper">
-      <header className="feedCompactHeader">
-        <div className="panelTitle feedCompactTitle">{`${String(ticker ?? '—').toUpperCase()} — CASE STUDY`}</div>
-        <div className="feedCompactMeta">
-          <span className="mono kvFeedDim">{selectedId ? selectedId.toUpperCase() : '—'}</span>
+    <div
+      className={['boshaMiniPrice', showMeta ? '' : 'boshaMiniPrice--chartOnly'].filter(Boolean).join(' ')}
+      aria-label="Price chart"
+    >
+      {showMeta ? (
+        <div className="boshaMiniPriceMeta">
+          <div className="mono dim">{label ?? 'PRICE'}</div>
+          <div className="mono">{last != null ? `$${Number(last).toFixed(2)}` : '—'}</div>
+          <div className={['mono', 'boshaMiniDelta', up ? 'isUp' : 'isDown'].filter(Boolean).join(' ')}>
+            {ch != null && chPct != null ? `${up ? '+' : ''}${ch.toFixed(2)} (${up ? '+' : ''}${chPct.toFixed(2)}%)` : '—'}
+          </div>
         </div>
+      ) : null}
+      <div ref={wrapRef} className="boshaMiniPriceWrap" role="img" aria-label="Mini price sparkline">
+        <svg className="graphSvg" viewBox={`${-viewPadL} 0 ${w + viewPadL} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
+          <path
+            className="graphAxis"
+            d={`M ${margin.l} ${margin.t} L ${margin.l} ${h - margin.b} L ${w - margin.r} ${h - margin.b}`}
+          />
+
+          {yTicks.map((v, i) => {
+            const y = yAt(v)
+            return (
+              <g key={`yt-${i}`}>
+                <text className="graphTick graphTick--y" x={margin.l - 6} y={y + 4}>
+                  {formatPriceTick(v)}
+                </text>
+                <path className="graphTickLine" d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
+              </g>
+            )
+          })}
+
+          {xTickIdx.map((idx, i) => {
+            const x = xAt(idx)
+            const d = dates[idx]
+            const m = d instanceof Date && !Number.isNaN(d.getTime()) ? MONTHS_SHORT[d.getMonth()] : EMPTY
+            return (
+              <g key={`xt-${i}`}>
+                <path className="graphTickLine" d={`M ${x} ${h - margin.b} L ${x} ${h - margin.b - 6}`} />
+                <text className="graphTick graphTick--x" x={x} y={h - 4}>
+                  {m}
+                </text>
+              </g>
+            )
+          })}
+
+          <path className="graphPath" d={path} vectorEffect="non-scaling-stroke" />
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+function boshaSignalForEvent(ev) {
+  const t = String(ev?.type ?? '').toUpperCase()
+  const s = String(ev?.sentiment ?? '').toLowerCase()
+  const imp = String(ev?.impact ?? '').toLowerCase()
+  if (t.includes('TRIAL') || t.includes('READOUT') || t.includes('FDA') || t.includes('MEETING'))
+    return imp === 'high' ? 'Catalyst risk is high; price can gap on headline.' : 'Catalyst risk exists; watch headline timing.'
+  if (t.includes('INSIDER'))
+    return s === 'bullish'
+      ? 'Insider buys can indicate confidence when clustered and near a known window.'
+      : 'Insider activity adds signal; interpret against upcoming catalysts.'
+  if (t.includes('POLITICIAN'))
+    return 'Political PTR disclosures are delayed; treat as exposure confirmation, not necessarily timing alpha.'
+  return 'Event contributes evidence; weight depends on proximity to catalysts.'
+}
+
+function boshaWhatWhyForEvent(ev) {
+  const t = String(ev?.type ?? '').toLowerCase()
+  const title = String(ev?.title ?? '')
+  if (t === 'fda_meeting')
+    return {
+      what: title,
+      why:
+        'Regulatory discussions reshape the probability of approval and can change timelines, endpoints, or labeling expectations.',
+    }
+  if (t === 'trial_result_rumor')
+    return {
+      what: title,
+      why: 'Pre-readout information leakage often pulls forward price moves and increases volatility into the formal update.',
+    }
+  if (t === 'insider_buy')
+    return {
+      what: title,
+      why: 'Purchases clustered near known windows can signal belief that risk/reward is skewed, even if timing is imperfect.',
+    }
+  if (t === 'politician_trade')
+    return {
+      what: title,
+      why: 'PTR trades can validate exposure narratives; treat timing cautiously because disclosures lag the trade date.',
+    }
+  return { what: title, why: 'It changes the information set and can alter the implied probability of the next catalyst outcome.' }
+}
+
+function boshaStructuralInterpretation(events) {
+  const es = Array.isArray(events) ? events : []
+  const hi = es.filter((e) => String(e?.impact ?? '').toLowerCase() === 'high').length
+  const bull = es.filter((e) => String(e?.sentiment ?? '').toLowerCase() === 'bullish').length
+  const bear = es.filter((e) => String(e?.sentiment ?? '').toLowerCase() === 'bearish').length
+  if (hi >= 2 && bull > bear) return 'Structure resembles “positive leak → positioning → catalyst window” with elevated gap risk.'
+  if (hi >= 1 && bear >= bull) return 'Structure resembles “regulatory overhang → narrative counter-signal → repricing window.”'
+  return 'Structure looks like mixed evidence with moderate timing risk; prioritize the next dated catalyst.'
+}
+
+function boshaSeedFromTicker(ticker) {
+  const t = String(ticker ?? '').toUpperCase()
+  let s = 7
+  for (let i = 0; i < t.length; i++) s = (s * 31 + t.charCodeAt(i)) % 10_000
+  return s
+}
+
+function boshaIsEtf(ticker) {
+  const t = String(ticker ?? '').toUpperCase()
+  return ['XBI', 'IBB', 'ARKG', 'LABU'].includes(t)
+}
+
+function boshaMockSignalBits(ticker) {
+  const seed = boshaSeedFromTicker(ticker)
+  const a = Math.floor(seededJitter(seed + 11, 9))
+  const b = Math.floor(seededJitter(seed + 29, 9))
+  const c = Math.floor(seededJitter(seed + 47, 9))
+  const funding = [
+    'non-dilutive grant',
+    'strategic financing',
+    'accelerated spend',
+    'partner-funded study',
+    'manufacturing scale signal',
+    'guidance language shift',
+    'backlog / demand pull',
+    'new reimbursement signal',
+    'pipeline reprioritization',
+  ][a]
+  const hiring = [
+    'clinical ops hiring',
+    'regulatory affairs hiring',
+    'commercial build-out hiring',
+    'CMC / manufacturing hiring',
+    'BD partnership hires',
+    'quality systems expansion',
+    'medical affairs expansion',
+    'field team build hints',
+    'enterprise sales hiring',
+  ][b]
+  const partnership = [
+    'distribution partner',
+    'co-dev partner',
+    'data-sharing agreement',
+    'supply chain contract',
+    'payer / provider partnership',
+    'defense / gov contract rumor',
+    'major platform integration',
+    'site network expansion',
+    'KOL / investigator network',
+  ][c]
+  return { funding, hiring, partnership }
+}
+
+function boshaDateStamp() {
+  const d = new Date()
+  return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
+}
+
+function BoshaCausalDiagram({ ticker }) {
+  const wrapRef = useRef(null)
+  const [size, setSize] = useState({ w: 720, h: 150 })
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    function sync() {
+      const r = el.getBoundingClientRect()
+      const w = Math.max(360, Math.floor(r.width))
+      const h = Math.max(130, Math.floor(r.height))
+      setSize((s) => (s.w === w && s.h === h ? s : { w, h }))
+    }
+    const ro = new ResizeObserver(() => requestAnimationFrame(sync))
+    ro.observe(el)
+    sync()
+    return () => ro.disconnect()
+  }, [])
+
+  const w = size.w
+  const h = size.h
+
+  const nodes = useMemo(() => {
+    const t = String(ticker ?? '').toUpperCase()
+    const a = boshaIsEtf(t)
+      ? ['Signal leak / schedule', 'Vol bid rises', 'Constituents gap']
+      : ['Process signal', 'Positioning shifts', 'Dated catalyst']
+    const b = boshaIsEtf(t) ? ['Flow chase', 'ETF reprices', 'Distribution resets'] : ['Headline confirms', 'Flows re-rate', 'Repricing']
+
+    const padX = 1
+    const padY = 10
+    const colGap = 26
+    const rowGap = 26
+    const boxW = Math.max(170, Math.floor((w - padX * 2 - colGap * 2) / 3))
+    const boxH = 42
+    const x0 = padX
+    const y0 = padY
+    const y1 = y0 + boxH + rowGap
+    const xs = [x0, x0 + boxW + colGap, x0 + (boxW + colGap) * 2]
+
+    const top = a.map((label, i) => ({ id: `t${i}`, label, x: xs[i], y: y0, w: boxW, h: boxH }))
+    const bot = b.map((label, i) => ({ id: `b${i}`, label, x: xs[2 - i], y: y1, w: boxW, h: boxH }))
+    return [...top, ...bot]
+  }, [ticker, w])
+
+  const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes])
+
+  const edges = useMemo(() => {
+    const e = [
+      ['t0', 't1'],
+      ['t1', 't2'],
+      ['t2', 'b0'],
+      ['b0', 'b1'],
+      ['b1', 'b2'],
+    ]
+    return e
+      .map(([from, to]) => ({ from, to, a: byId[from], b: byId[to] }))
+      .filter((x) => x.a && x.b)
+  }, [byId])
+
+  function routedPath(a, b) {
+    const axR = a.x + a.w
+    const axL = a.x
+    const ayC = a.y + a.h / 2
+    const ayB = a.y + a.h
+    const ayT = a.y
+
+    const bxL = b.x
+    const bxR = b.x + b.w
+    const byC = b.y + b.h / 2
+    const byT = b.y
+    const byB = b.y + b.h
+
+    const dx = (bxL + b.w / 2) - (axL + a.w / 2)
+    const dy = (byT + b.h / 2) - (ayT + a.h / 2)
+
+    // Mostly vertical transition (top row → bottom row same column-ish)
+    if (Math.abs(dx) < 48 && dy > 0) {
+      const x = axL + a.w / 2
+      const y0 = ayB
+      const y1 = byT
+      return `M ${x.toFixed(1)} ${y0.toFixed(1)} L ${x.toFixed(1)} ${(y0 + (y1 - y0) * 0.55).toFixed(1)} L ${x.toFixed(
+        1,
+      )} ${y1.toFixed(1)}`
+    }
+
+    // Horizontal/zig transitions: elbow route in whitespace
+    const startOnRight = dx >= 0
+    const sx = startOnRight ? axR : axL
+    const ex = startOnRight ? bxL : bxR
+    const sy = ayC
+    const ey = byC
+    const out = startOnRight ? 16 : -16
+    const inw = startOnRight ? -16 : 16
+    const midY = (sy + ey) / 2
+    return `M ${sx.toFixed(1)} ${sy.toFixed(1)}
+      L ${(sx + out).toFixed(1)} ${sy.toFixed(1)}
+      L ${(sx + out).toFixed(1)} ${midY.toFixed(1)}
+      L ${(ex + inw).toFixed(1)} ${midY.toFixed(1)}
+      L ${(ex + inw).toFixed(1)} ${ey.toFixed(1)}
+      L ${ex.toFixed(1)} ${ey.toFixed(1)}`.replace(/\s+/g, ' ')
+  }
+
+  return (
+    <div ref={wrapRef} className="boshaCausalWrap" aria-label="Causal chain diagram" role="img">
+      <svg className="boshaCausalSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <marker id="boshaArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(216, 255, 235, 0.42)" />
+          </marker>
+        </defs>
+
+        {edges.map((e, i) => {
+          const d = routedPath(e.a, e.b)
+          return (
+            <path
+              key={`e-${i}`}
+              d={d}
+              className="boshaCausalEdge"
+              vectorEffect="non-scaling-stroke"
+              markerEnd="url(#boshaArrow)"
+            />
+          )
+        })}
+
+        {nodes.map((n) => (
+          <g key={n.id}>
+            <rect className="boshaCausalNode" x={n.x + 0.5} y={n.y + 0.5} width={n.w - 1} height={n.h - 1} rx="6" />
+            <text className="boshaCausalText" x={n.x + n.w / 2} y={n.y + n.h / 2 + 4}>
+              {n.label}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  )
+}
+
+function boshaThesisMemo({ ticker, companyName, events }) {
+  const t = String(ticker ?? '').toUpperCase()
+  const name = String(companyName ?? '').trim() || t
+  const es = (events ?? []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)))
+  const top = es[0] ?? null
+  const hi = es.find((e) => String(e?.impact ?? '').toLowerCase() === 'high') ?? top
+  const bits = boshaMockSignalBits(t)
+
+  const chartX = boshaIsEtf(t) ? 'lagging despite a tightening catalyst window' : 'muted reaction to accumulating pre-catalyst signals'
+
+  const title = boshaIsEtf(t)
+    ? `${t}: Biotech catalyst risk is compressing, but price is still treating it as noise`
+    : `${t}: The market is underpricing a near-term catalyst window implied by behavior and language shifts`
+
+  const openingA = boshaIsEtf(t)
+    ? `${name} is seeing a clean regime shift: the “date risk” in the underlying ecosystem is compressing into a narrower window, while positioning signals are showing up ahead of the headline. That matters because ETF moves are usually blamed on broad tape, but the current skew is micro-driven—more about who is front-running catalyst timing than about index beta.`
+    : `${name} is entering a new positioning regime where the timing signal is getting louder than the narrative. The market is still pricing it as “normal drift,” but the evidence trail looks like pre-catalyst behavior: a dated regulatory window, reinforcement from smart-activity proxies, and language that suggests the next update will change probability, not just timing.`
+
+  const openingB = boshaIsEtf(t)
+    ? `The key point is not whether a single rumor is right; it’s that multiple independent channels are converging on the same window, and price has not fully repriced that convergence yet. The thesis is simply that the next move will be driven by timing compression, and the current tape is offering optionality at a discount.`
+    : `This matters because once the next “known date” is clear, liquidity shifts from patient holders to fast money and the repricing happens in days, not quarters. If you wait for the formal update, you typically pay for the same probability shift that is already being hinted at in behavior and process signals.`
+
+  const priceRef = `Price is still behaving like ${chartX}; that mismatch is the setup, not the conclusion.`
+
+  const core = (() => {
+    const evA = hi?.title ? `A dated catalyst signal is explicit in “${hi.title},”` : 'A dated catalyst signal is explicit,'
+    const evB = top?.title && top?.id !== hi?.id ? ` and it is reinforced by “${top.title}.”` : '.'
+    const mech = boshaIsEtf(t)
+      ? ` When ${bits.funding} and ${bits.hiring} show up across constituents, it usually means the basket’s probability-weighted outcomes are shifting even before the press release, because teams don’t hire and scale into failure.`
+      : ` When you see ${bits.hiring} alongside ${bits.partnership} and a ${bits.funding}, it implies internal confidence that the next milestone unlocks a commercial step-change, not just another data point.`
+    const chain = boshaIsEtf(t)
+      ? ` The causal chain is: pre-catalyst signal leakage tightens timing → volatility bid rises → basket constituents gap on confirmation → flows chase momentum → ETF reprices to the new implied distribution.`
+      : ` The causal chain is: pre-catalyst signals imply improving probability → positioning shifts ahead of the dated window → confirmation changes guidance language → counterparties/partners commit → revenue expectations expand and the multiple follows.`
+    return `${evA}${evB}${mech}${chain}`
+  })()
+
+  const causalChain = `Process signal → positioning shifts → dated catalyst → confirmation headline → flows re-rate → repricing`
+
+  const final = boshaIsEtf(t)
+    ? `Next, you want confirmation that timing is truly compressing: more explicit scheduling language, tighter sequencing of updates, and any “risk-on” flow pattern in the highest-beta constituents. The thesis is confirmed if the next two weeks show a step-up in catalyst-related language and a broader vol bid across the basket, while price still lags; it fails if the window pushes out and flow reverts to pure beta without micro-driven gaps.`
+    : `Next, watch for concrete confirmation that the market’s probability is too low: earnings language that moves from “monitoring” to “preparing,” a partnership/contract that pulls timelines forward, or disclosure that clarifies endpoints and dates. The thesis is confirmed when guidance language or counterparties shift in a way that forces revenue expectations higher; it fails if the next dated update is delayed or softened and behavior signals unwind without replacement.`
+
+  const created = boshaDateStamp()
+  return { created, title, openingA, openingB, priceRef, chartX, core, causalChain, final }
+}
+
+function BoshaPaperPanel({ ticker, companyName, entities, events, edges, priceSeries }) {
+  const priceHeadline = useMemo(() => {
+    const vals = Array.isArray(priceSeries) ? priceSeries : []
+    const last = vals.length ? vals.at(-1) : null
+    const prev = vals.length > 1 ? vals.at(-2) : null
+    const ch = last != null && prev != null ? last - prev : null
+    const chPct = last != null && prev ? ((last - prev) / Math.max(1e-6, prev)) * 100 : null
+    const up = ch != null ? ch >= 0 : true
+    return { last, ch, chPct, up }
+  }, [priceSeries])
+
+  const titleText = String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
+  const memo = useMemo(
+    () => boshaThesisMemo({ ticker, companyName: titleText, events }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ticker, titleText, events],
+  )
+
+  return (
+    <section className="panel boshaPaper" aria-label={titleText}>
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">{titleText}</div>
+        <div className="feedCompactMeta" aria-hidden="true" />
       </header>
       <div className="boshaPaperBody scrollThin">
-        <div className="boshaPaperH mono">ABSTRACT</div>
-        <div className="boshaPaperP">
-          Bosha reconstructs time-ordered causal chains across heterogeneous signals (regulatory events, insider behavior,
-          and political disclosures) to support investigation-style reasoning around the anchor ticker.
-        </div>
-
-        <div className="boshaPaperH mono">FIGURE</div>
-        <BoshaGraphFigure entities={entities} events={events} edges={edges} selectedId={selectedId} onSelectId={onSelectId} />
-
-        <div className="boshaPaperH mono">CAUSAL INTELLIGENCE BRIEF</div>
-        <ul className="boshaBriefList">
-          <li>FDA advisory meeting introduces regulatory uncertainty around AMG-301.</li>
-          <li>Early leak of Phase 2 data precedes positioning behavior across exposure proxies.</li>
-          <li>Insider accumulation occurs prior to broader political exposure signals.</li>
-          <li>Political disclosure follows early informational leakage and consolidates narrative risk.</li>
-        </ul>
-        <div className="boshaBriefText">
-          Structural interpretation: this resembles biotech pre-runup structures where early non-public signals precede
-          capital positioning and eventual volatility expansion.
-        </div>
-
-        <div className="boshaPaperH mono">NODE INSPECTOR</div>
-        <div className="boshaInspectorGrid">
-          <div className="boshaK dim">KIND</div>
-          <div className="boshaV mono">
-            {selectedEvent ? 'EVENT' : selectedEntity ? 'ENTITY' : '—'}
+        <div className="boshaPaperDoc">
+          <div className="boshaPaperTitleBlock">
+            <div className="boshaPaperTitle boshaThesisTitle">{memo.title}</div>
+            <div className="boshaPaperSubtitle mono dim">{String(ticker ?? '').toUpperCase()} — {memo.created}</div>
           </div>
 
-          <div className="boshaK dim">TITLE / NAME</div>
-          <div className="boshaV">{selectedEvent?.title ?? selectedEntity?.name ?? '—'}</div>
+          <div className="boshaThesisBody">
+            <p className="boshaThesisP">{memo.openingA}</p>
+            <p className="boshaThesisP">{memo.openingB}</p>
+            <p className="boshaThesisP">{memo.priceRef}</p>
 
-          <div className="boshaK dim">DATE</div>
-          <div className="boshaV mono">{selectedEvent ? boshaFormatTimelineDay(selectedEvent.date) : '—'}</div>
+            <BoshaMiniPrice series={priceSeries} label={String(ticker ?? 'PRICE').toUpperCase()} showMeta={false} />
+            <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
+              Price chart shows {memo.chartX}.
+            </div>
 
-          <div className="boshaK dim">TYPE</div>
-          <div className="boshaV mono">{String(selectedEvent?.type ?? selectedEntity?.type ?? '—').toUpperCase()}</div>
+            <p className="boshaThesisP">{memo.core}</p>
 
-          <div className="boshaK dim">SENTIMENT</div>
-          <div className="boshaV mono">{selectedEvent ? String(selectedEvent.sentiment ?? '—').toUpperCase() : '—'}</div>
+            <BoshaCausalDiagram ticker={ticker} />
+            <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
+              Diagram summarizes how early process signals turn into positioning, a dated catalyst, and eventual repricing.
+            </div>
 
-          <div className="boshaK dim">IMPACT</div>
-          <div className="boshaV mono">{selectedEvent ? String(selectedEvent.impact ?? '—').toUpperCase() : '—'}</div>
-
-          <div className="boshaK dim">ENTITIES</div>
-          <div className="boshaV">
-            {selectedEvent
-              ? (selectedEvent.entities ?? [])
-                  .map((id) => entitiesById?.[id]?.name ?? id)
-                  .filter(Boolean)
-                  .join(' • ') || '—'
-              : '—'}
-          </div>
-
-          <div className="boshaK dim">EXPOSURE</div>
-          <div className="boshaV mono">
-            {exposure ? `B${exposure.bull} / N${exposure.neutral} / R${exposure.bear}` : '—'}
-          </div>
-
-          <div className="boshaK dim">EDGES</div>
-          <div className="boshaV mono">{connectedEdges.map((e) => e.type).slice(0, 18).join(' • ') || '—'}</div>
-
-          <div className="boshaK dim">HISTORY</div>
-          <div className="boshaV">
-            {entityHistory
-              .slice(0, 8)
-              .map((e) => `${boshaFormatTimelineDay(e.date)} ${e.title}`)
-              .join(' • ') || '—'}
+            <p className="boshaThesisP">{memo.final}</p>
           </div>
         </div>
-
-        <div className="boshaPaperFoot mono dim">Bosha is an investigation board, not a generic graph UI.</div>
       </div>
     </section>
   )
@@ -2819,7 +3267,14 @@ function App() {
 
   const [boshaTicker, setBoshaTicker] = useState(BOSHA_TICKER)
   const [boshaQuery, setBoshaQuery] = useState('')
-  const [boshaSelectedId, setBoshaSelectedId] = useState('e4')
+  const boshaDataset = useMemo(() => boshaDatasetForTicker(boshaTicker), [boshaTicker])
+  const boshaCompanyName = useMemo(() => {
+    const t = String(boshaTicker ?? '').toUpperCase()
+    const fromFeed = BOSHA_FEED_ITEMS.find((x) => String(x.ticker ?? '').toUpperCase() === t)?.name
+    if (fromFeed) return fromFeed
+    const companyEnt = boshaDataset.entities?.find((e) => String(e?.type ?? '').toLowerCase() === 'company')
+    return companyEnt?.name ?? t
+  }, [BOSHA_FEED_ITEMS, boshaDataset.entities, boshaTicker])
   const boshaFilteredFeed = useMemo(() => {
     const s = String(boshaQuery ?? '').trim().toUpperCase()
     if (!s) return BOSHA_FEED_ITEMS
@@ -2829,6 +3284,16 @@ function App() {
       return t.includes(s) || n.includes(s)
     })
   }, [BOSHA_FEED_ITEMS, boshaQuery])
+
+  // Keep key navigation stable (avoid stale closures).
+  const boshaFilteredRef = useRef(boshaFilteredFeed)
+  const boshaTickerRef = useRef(boshaTicker)
+  useEffect(() => {
+    boshaFilteredRef.current = boshaFilteredFeed
+  }, [boshaFilteredFeed])
+  useEffect(() => {
+    boshaTickerRef.current = boshaTicker
+  }, [boshaTicker])
 
   useEffect(() => {
     // If the current selection falls out of the filter, snap to the first match.
@@ -3391,6 +3856,25 @@ function App() {
     }
   }, [activeTab])
 
+  // Ensure there is always a valid focused/glowing panel per tab.
+  useEffect(() => {
+    if (activeTab === 'insider') {
+      if (feedPaneFocus !== 'insider' && feedPaneFocus !== 'case') setFeedPaneFocus('insider')
+      return
+    }
+    if (activeTab === 'pharma') {
+      if (feedPaneFocus !== 'pharma' && feedPaneFocus !== 'programs') setFeedPaneFocus('pharma')
+      return
+    }
+    if (activeTab === 'politicians') {
+      if (feedPaneFocus !== 'insider' && feedPaneFocus !== 'case' && feedPaneFocus !== 'filter') setFeedPaneFocus('insider')
+      return
+    }
+    if (activeTab === 'explore') {
+      if (feedPaneFocus !== 'explore') setFeedPaneFocus('explore')
+    }
+  }, [activeTab, feedPaneFocus])
+
   const hasSafety =
     Array.isArray(pharmaSelectedResolved?.safety) && pharmaSelectedResolved.safety.length > 0
 
@@ -3605,9 +4089,9 @@ function App() {
       } else if (feedPaneFocus === 'insider' && activeTab === 'politicians') {
         setPoliticiansIdx((i) => clamp(i + (down ? 1 : -1), 0, politiciansFeedRows.length - 1))
       } else if (feedPaneFocus === 'explore' && activeTab === 'explore') {
-        const list = boshaFilteredFeed
+        const list = boshaFilteredRef.current ?? []
         if (!list.length) return
-        const cur = list.findIndex((x) => x.ticker === boshaTicker)
+        const cur = list.findIndex((x) => x.ticker === boshaTickerRef.current)
         const idx = cur >= 0 ? cur : 0
         const next = clamp(idx + (down ? 1 : -1), 0, list.length - 1)
         setBoshaTicker(list[next].ticker)
@@ -3638,8 +4122,6 @@ function App() {
   }, [
     activeTab,
     feedPaneFocus,
-    boshaTicker,
-    boshaFilteredFeed,
     insiderFeedRows.length,
     politiciansFeedRows.length,
     pharmaFeedRows.length,
@@ -3824,11 +4306,11 @@ function App() {
           />
           <BoshaPaperPanel
             ticker={boshaTicker}
-            entities={BOSHA_ENTITIES}
-            events={BOSHA_EVENTS}
-            edges={BOSHA_EDGES}
-            selectedId={boshaSelectedId}
-            onSelectId={setBoshaSelectedId}
+            companyName={boshaCompanyName}
+            entities={boshaDataset.entities}
+            events={boshaDataset.events}
+            edges={boshaDataset.edges}
+            priceSeries={boshaDataset.price}
           />
         </>
       ) : null}
