@@ -15,6 +15,8 @@ import { startBoshaWorker } from "./bosha/worker.js";
 import {
   boshaLimitFromSearchParams,
   handleBoshaEvents,
+  handleBoshaExplore,
+  handleBoshaFeed,
   handleBoshaPaper,
   handleBoshaRefreshScore,
   handleBoshaRelationships,
@@ -707,6 +709,16 @@ const server = http.createServer(async (req, res) => {
     if (route(req, url, "GET", "/api/bosha/paper")) {
       const ticker = String(url.searchParams.get("ticker") ?? "").trim();
       await handleBoshaPaper(res, ticker);
+      return;
+    }
+    if (route(req, url, "GET", "/api/bosha/explore")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim();
+      await handleBoshaExplore(res, ticker);
+      return;
+    }
+    if (route(req, url, "GET", "/api/bosha/feed")) {
+      const limit = clampInt(url.searchParams.get("limit"), 1, 120, 60);
+      await handleBoshaFeed(res, limit);
       return;
     }
     if (route(req, url, "POST", "/api/bosha/refresh-score")) {

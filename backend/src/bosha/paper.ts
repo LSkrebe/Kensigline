@@ -1,4 +1,5 @@
 import { db } from "../core/db.js";
+import { buildExplorePresentation } from "./explore-presentation.js";
 
 const threshold = () => Number(process.env.BOSHA_PAPER_SCORE_MIN ?? 48);
 const spikeDelta = () => Number(process.env.BOSHA_PAPER_SPIKE_DELTA ?? 12);
@@ -113,6 +114,7 @@ export async function maybeEmitPaper(ticker: string, newScore: number) {
   }
 
   const body = await buildStructuredPaper(t);
+  const presentation = await buildExplorePresentation(t);
   const trigger =
     crossed && spiked
       ? "threshold_and_spike"
@@ -122,10 +124,10 @@ export async function maybeEmitPaper(ticker: string, newScore: number) {
 
   await db.query(
     `
-    INSERT INTO bosha_papers (ticker, title, thesis, key_points, score, trigger_reason)
-    VALUES ($1, $2, $3, $4::jsonb, $5, $6)
+    INSERT INTO bosha_papers (ticker, title, thesis, key_points, presentation, score, trigger_reason)
+    VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7)
     `,
-    [t, body.title, body.thesis, JSON.stringify(body.key_points), body.score, trigger],
+    [t, body.title, body.thesis, JSON.stringify(body.key_points), JSON.stringify(presentation), body.score, trigger],
   );
 
   return { emitted: true as const, trigger };

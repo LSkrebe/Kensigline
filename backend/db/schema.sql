@@ -221,10 +221,13 @@ CREATE TABLE IF NOT EXISTS bosha_papers (
   title text NOT NULL,
   thesis text NOT NULL,
   key_points jsonb NOT NULL DEFAULT '[]'::jsonb,
+  presentation jsonb NOT NULL DEFAULT '{}'::jsonb,
   score double precision NOT NULL DEFAULT 0,
   trigger_reason text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE bosha_papers ADD COLUMN IF NOT EXISTS presentation jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE INDEX IF NOT EXISTS bosha_papers_ticker_created_idx ON bosha_papers (ticker, created_at DESC);
 

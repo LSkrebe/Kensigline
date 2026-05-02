@@ -1149,7 +1149,7 @@ function PoliticiansFilterPanel({ activeName, items, onSelect, focused, onFocus 
   )
 }
 
-function BoshaTickerPanel({ selectedTicker, onSelectTicker, focused, onFocus, q, onQuery, items, filtered }) {
+function BoshaTickerPanel({ selectedTicker, onSelectTicker, focused, onFocus, q, onQuery, filtered }) {
   return (
     <section
       className={['panel', 'feed', 'feedCompact', 'feed--left', 'boshaTicker', focused ? 'isFocused' : '']
@@ -1182,7 +1182,7 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker, focused, onFocus, q,
         <div className="feedRowCompact feedRowCompact--blank" role="presentation" />
         {filtered.map((it) => (
           <button
-            key={it.ticker}
+            key={it.rowKey ?? it.ticker}
             type="button"
             role="listitem"
             className={['feedRowCompact', 'feedRowCompact--two', it.ticker === selectedTicker ? 'isActive' : '']
@@ -1565,11 +1565,12 @@ function boshaDateStamp() {
   return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
 }
 
-function BoshaCausalDiagram({ ticker }) {
+function BoshaCausalDiagram({ ticker, diagramSpec }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 720, h: 150 })
   const tUpper = String(ticker ?? '').toUpperCase()
-  const isForkMergeDiagram = tUpper === 'ASML' || tUpper === 'ATYR'
+  const isForkMergeDiagram =
+    diagramSpec?.layout === 'fork_merge' || tUpper === 'ASML' || tUpper === 'ATYR'
 
   useEffect(() => {
     const el = wrapRef.current
@@ -1591,6 +1592,75 @@ function BoshaCausalDiagram({ ticker }) {
 
   const nodes = useMemo(() => {
     const t = String(ticker ?? '').toUpperCase()
+    const ds = diagramSpec
+
+    function forkMergePositionsFromPack(pack) {
+      const pad = 8
+      const rh = 34
+      const rg = 30
+      const innerW = Math.max(0, w - pad * 2)
+      const topW = Math.min(240, innerW)
+      const xTop = pad + (innerW - topW) / 2
+      const y0 = pad
+      const pairGap = Math.min(24, Math.max(10, Math.floor(innerW * 0.04)))
+      const midW = Math.max(100, Math.floor((innerW - pairGap) / 2))
+      const midTotal = midW * 2 + pairGap
+      const xMidL = pad + (innerW - midTotal) / 2
+      const xMidR = xMidL + midW + pairGap
+      const y1 = y0 + rh + rg
+      const mergeW = Math.min(216, innerW)
+      const xMerge = pad + (innerW - mergeW) / 2
+      const y2 = y1 + rh + rg
+      const botW = Math.min(160, innerW)
+      const xBot = pad + (innerW - botW) / 2
+      const y3 = y2 + rh + rg
+      return [
+        { id: pack[0][0], label: pack[0][1], x: xTop, y: y0, w: topW, h: rh },
+        { id: pack[1][0], label: pack[1][1], x: xMidL, y: y1, w: midW, h: rh },
+        { id: pack[2][0], label: pack[2][1], x: xMidR, y: y1, w: midW, h: rh },
+        { id: pack[3][0], label: pack[3][1], x: xMerge, y: y2, w: mergeW, h: rh },
+        { id: pack[4][0], label: pack[4][1], x: xBot, y: y3, w: botW, h: rh },
+      ]
+    }
+
+    if (ds?.layout === 'fork_merge' && Array.isArray(ds.nodes) && ds.nodes.length === 5) {
+      const pack = ds.nodes.map((n) => [n.id, n.label])
+      return forkMergePositionsFromPack(pack)
+    }
+
+    if (ds?.layout === 'causal_loop' && Array.isArray(ds.nodes) && ds.nodes.length === 6) {
+      const byLabel = Object.fromEntries(ds.nodes.map((n) => [n.id, n.label]))
+      const padX = 1
+      const padY = 10
+      const colGap = 26
+      const rowGap = 26
+      const boxW = Math.max(170, Math.floor((w - padX * 2 - colGap * 2) / 3))
+      const boxH = 42
+      const x0 = padX
+      const y0 = padY
+      const y1 = y0 + boxH + rowGap
+      const xs = [x0, x0 + boxW + colGap, x0 + (boxW + colGap) * 2]
+      const topIds = ['t0', 't1', 't2']
+      const botIds = ['b0', 'b1', 'b2']
+      const top = topIds.map((id, i) => ({
+        id,
+        label: byLabel[id] || id,
+        x: xs[i],
+        y: y0,
+        w: boxW,
+        h: boxH,
+      }))
+      const bot = botIds.map((id, i) => ({
+        id,
+        label: byLabel[id] || id,
+        x: xs[2 - i],
+        y: y1,
+        w: boxW,
+        h: boxH,
+      }))
+      return [...top, ...bot]
+    }
+
     if (t === 'ASML' || t === 'ATYR') {
       const pad = 8
       const rh = 34
@@ -1664,22 +1734,29 @@ function BoshaCausalDiagram({ ticker }) {
     const top = a.map((label, i) => ({ id: `t${i}`, label, x: xs[i], y: y0, w: boxW, h: boxH }))
     const bot = b.map((label, i) => ({ id: `b${i}`, label, x: xs[2 - i], y: y1, w: boxW, h: boxH }))
     return [...top, ...bot]
-  }, [ticker, w])
+  }, [ticker, w, diagramSpec])
 
   const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes])
 
   const forkMergeVbH = useMemo(() => {
     const t = String(ticker ?? '').toUpperCase()
-    if ((t !== 'ASML' && t !== 'ATYR') || !nodes.length) return h
+    if (diagramSpec?.layout !== 'fork_merge' && t !== 'ASML' && t !== 'ATYR') return h
+    if (!nodes.length) return h
     const pad = 10
     const bottom = Math.max(...nodes.map((n) => n.y + n.h))
     return Math.ceil(bottom + pad)
-  }, [ticker, nodes, h])
+  }, [ticker, nodes, h, diagramSpec])
 
   const vbH = isForkMergeDiagram ? forkMergeVbH : h
 
   const edges = useMemo(() => {
     const t = String(ticker ?? '').toUpperCase()
+    const ds = diagramSpec
+    if (ds?.edges?.length) {
+      return ds.edges
+        .map(({ from, to }) => ({ from, to, a: byId[from], b: byId[to], kind: 'main' }))
+        .filter((x) => x.a && x.b)
+    }
     if (t === 'ASML') {
       return [
         ['a0', 'a1'],
@@ -1713,7 +1790,7 @@ function BoshaCausalDiagram({ ticker }) {
     return e
       .map(([from, to]) => ({ from, to, a: byId[from], b: byId[to], kind: from === 'b2' && to === 't1' ? 'loop' : 'main' }))
       .filter((x) => x.a && x.b)
-  }, [byId, ticker])
+  }, [byId, ticker, diagramSpec])
 
   function routedPath(a, b) {
     const axR = a.x + a.w
@@ -1785,7 +1862,13 @@ function BoshaCausalDiagram({ ticker }) {
   }
 
   const forkAria =
-    tUpper === 'ASML' ? 'Supply chain diagram' : tUpper === 'ATYR' ? 'Clinical catalyst chain diagram' : 'Causal chain diagram'
+    diagramSpec?.layout === 'fork_merge'
+      ? 'Evidence chain diagram'
+      : tUpper === 'ASML'
+        ? 'Supply chain diagram'
+        : tUpper === 'ATYR'
+          ? 'Clinical catalyst chain diagram'
+          : 'Causal chain diagram'
 
   return (
     <div
@@ -1963,7 +2046,17 @@ function boshaAtyrText() {
   }
 }
 
-function BoshaPaperPanel({ ticker, companyName, entities, events, edges, priceSeries }) {
+function BoshaPaperPanel({
+  ticker,
+  companyName,
+  entities,
+  events,
+  edges,
+  priceSeries,
+  livePresentation,
+  liveCompanyName,
+  backendUp,
+}) {
   const priceHeadline = useMemo(() => {
     const vals = Array.isArray(priceSeries) ? priceSeries : []
     const last = vals.length ? vals.at(-1) : null
@@ -1974,7 +2067,10 @@ function BoshaPaperPanel({ ticker, companyName, entities, events, edges, priceSe
     return { last, ch, chPct, up }
   }, [priceSeries])
 
-  const titleText = String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
+  const titleText =
+    backendUp && livePresentation?.title && String(liveCompanyName ?? '').trim()
+      ? String(liveCompanyName ?? '').trim()
+      : String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
   const memo = useMemo(
     () =>
       boshaThesisMemo({
@@ -1998,6 +2094,63 @@ function BoshaPaperPanel({ ticker, companyName, entities, events, edges, priceSe
         <div className="boshaPaperDoc">
           {(() => {
             const u = String(ticker ?? '').toUpperCase()
+            if (backendUp && livePresentation?.title) {
+              const pres = livePresentation
+              const sub = pres.subtitle || ''
+              return (
+                <>
+                  <div className="boshaPaperTitleBlock">
+                    <div className="boshaPaperTitle boshaThesisTitle">{pres.title}</div>
+                    <div className="boshaPaperSubtitle mono dim">{sub}</div>
+                  </div>
+                  <div className="boshaThesisBody">
+                    {(pres.blocks || []).map((b, i) => {
+                      if (b.type === 'paragraph') {
+                        return (
+                          <p className="boshaThesisP" key={`bp-${i}`}>
+                            {b.text}
+                          </p>
+                        )
+                      }
+                      if (b.type === 'price') {
+                        return (
+                          <div key={`bpr-${i}`}>
+                            <BoshaMiniPrice
+                              series={priceSeries}
+                              label={String(ticker ?? 'PRICE').toUpperCase()}
+                              showMeta={false}
+                            />
+                            <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
+                              {b.caption}
+                            </div>
+                          </div>
+                        )
+                      }
+                      if (b.type === 'diagram') {
+                        return (
+                          <div key={`bdg-${i}`}>
+                            <BoshaCausalDiagram ticker={ticker} diagramSpec={pres.diagram} />
+                            <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
+                              {b.caption}
+                            </div>
+                          </div>
+                        )
+                      }
+                      return null
+                    })}
+                    {Array.isArray(pres.explainer) && pres.explainer.length ? (
+                      <ul className="boshaExplainerList" style={{ margin: '0.75rem 0 0', paddingLeft: '1.1rem' }}>
+                        {pres.explainer.map((line, j) => (
+                          <li className="boshaThesisP" key={`ex-${j}`} style={{ marginBottom: '0.35rem' }}>
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                </>
+              )
+            }
             if (u === 'ASML') {
               const asml = boshaAsmlText()
               return (
@@ -3619,33 +3772,63 @@ function App() {
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
   const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
   const [politiciansFilter, setPoliticiansFilter] = useState(null)
-  const BOSHA_FEED_ITEMS = useMemo(
+  const BOSHA_FEED_FALLBACK = useMemo(
     () => [
-      { ticker: 'ASML', name: 'ASML Holding N.V.' }, // non‑pharma
-      { ticker: 'ATYR', name: 'aTyr Pharma, Inc.' }, // pharma — clinical ILD / efzofitimod (mock)
+      { rowKey: 'fb-ASML', ticker: 'ASML', name: 'ASML Holding N.V.' },
+      { rowKey: 'fb-ATYR', ticker: 'ATYR', name: 'aTyr Pharma, Inc.' },
     ],
     [],
   )
 
+  const [boshaFeedLive, setBoshaFeedLive] = useState(null)
+  const [boshaExploreLive, setBoshaExploreLive] = useState(null)
+  const [boshaBarsSeries, setBoshaBarsSeries] = useState(null)
+
   const [boshaTicker, setBoshaTicker] = useState(BOSHA_TICKER)
   const [boshaQuery, setBoshaQuery] = useState('')
   const boshaDataset = useMemo(() => boshaDatasetForTicker(boshaTicker), [boshaTicker])
+
+  const boshaFeedItems = useMemo(() => {
+    if (Array.isArray(boshaFeedLive) && boshaFeedLive.length) {
+      return boshaFeedLive.map((x) => ({
+        rowKey:
+          x.kind === 'paper' && x.id ? String(x.id) : `sig-${String(x.ticker ?? '').toUpperCase()}`,
+        ticker: String(x.ticker ?? '').toUpperCase(),
+        name: String(x.name ?? x.company_name ?? x.ticker ?? ''),
+      }))
+    }
+    return BOSHA_FEED_FALLBACK
+  }, [boshaFeedLive, BOSHA_FEED_FALLBACK])
+
   const boshaCompanyName = useMemo(() => {
     const t = String(boshaTicker ?? '').toUpperCase()
-    const fromFeed = BOSHA_FEED_ITEMS.find((x) => String(x.ticker ?? '').toUpperCase() === t)?.name
+    if (
+      boshaExploreLive &&
+      String(boshaExploreLive.ticker ?? '').toUpperCase() === t &&
+      String(boshaExploreLive.company_name ?? '').trim()
+    ) {
+      return String(boshaExploreLive.company_name).trim()
+    }
+    const fromFeed = boshaFeedItems.find((x) => String(x.ticker ?? '').toUpperCase() === t)?.name
     if (fromFeed) return fromFeed
     const companyEnt = boshaDataset.entities?.find((e) => String(e?.type ?? '').toLowerCase() === 'company')
     return companyEnt?.name ?? t
-  }, [BOSHA_FEED_ITEMS, boshaDataset.entities, boshaTicker])
+  }, [boshaFeedItems, boshaDataset.entities, boshaTicker, boshaExploreLive])
+
+  const boshaPriceSeries = useMemo(() => {
+    if (Array.isArray(boshaBarsSeries) && boshaBarsSeries.length) return boshaBarsSeries
+    return boshaDataset.price
+  }, [boshaBarsSeries, boshaDataset.price])
+
   const boshaFilteredFeed = useMemo(() => {
     const s = String(boshaQuery ?? '').trim().toUpperCase()
-    if (!s) return BOSHA_FEED_ITEMS
-    return BOSHA_FEED_ITEMS.filter((it) => {
+    if (!s) return boshaFeedItems
+    return boshaFeedItems.filter((it) => {
       const t = String(it?.ticker ?? '').toUpperCase()
       const n = String(it?.name ?? '').toUpperCase()
       return t.includes(s) || n.includes(s)
     })
-  }, [BOSHA_FEED_ITEMS, boshaQuery])
+  }, [boshaFeedItems, boshaQuery])
 
   // Keep key navigation stable (avoid stale closures).
   const boshaFilteredRef = useRef(boshaFilteredFeed)
@@ -3731,6 +3914,58 @@ function App() {
   const [pharmaFeedLive, setPharmaFeedLive] = useState(null)
   const [pharmaEventLive, setPharmaEventLive] = useState(null)
   const [programFeedLive, setProgramFeedLive] = useState(null)
+
+  useEffect(() => {
+    if (backendUp) return
+    setBoshaFeedLive(null)
+    setBoshaExploreLive(null)
+    setBoshaBarsSeries(null)
+  }, [backendUp])
+
+  useEffect(() => {
+    if (!backendUp || activeTab !== 'explore') return
+    let cancelled = false
+    ;(async () => {
+      const r = await fetchJsonSafe('/api/bosha/feed?limit=80', { timeoutMs: 8000 })
+      if (cancelled || !r.ok || !r.data?.ok || !Array.isArray(r.data.items)) return
+      setBoshaFeedLive(r.data.items)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [backendUp, activeTab])
+
+  useEffect(() => {
+    if (!backendUp || activeTab !== 'explore') return
+    const tick = String(boshaTicker ?? '')
+      .trim()
+      .toUpperCase()
+    if (!tick) return
+    let cancelled = false
+    ;(async () => {
+      const enc = encodeURIComponent(tick)
+      const [ex, br] = await Promise.all([
+        fetchJsonSafe(`/api/bosha/explore?ticker=${enc}`, { timeoutMs: 12_000 }),
+        fetchJsonSafe(`/api/bars?ticker=${enc}&days=400`, { timeoutMs: 12_000 }),
+      ])
+      if (cancelled) return
+      if (ex.ok && ex.data?.ok && String(ex.data.ticker ?? '').toUpperCase() === tick) {
+        setBoshaExploreLive(ex.data)
+      } else if (!cancelled) {
+        setBoshaExploreLive(null)
+      }
+      if (cancelled) return
+      if (br.ok && Array.isArray(br.data?.items) && br.data.items.length) {
+        const closes = br.data.items.map((row) => Number(row.close)).filter((n) => Number.isFinite(n))
+        setBoshaBarsSeries(closes.length ? closes : null)
+      } else {
+        setBoshaBarsSeries(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [backendUp, activeTab, boshaTicker])
 
   useEffect(() => {
     let alive = true
@@ -4663,7 +4898,6 @@ function App() {
             onFocus={() => setFeedPaneFocus('explore')}
             q={boshaQuery}
             onQuery={setBoshaQuery}
-            items={BOSHA_FEED_ITEMS}
             filtered={boshaFilteredFeed}
           />
           <BoshaPaperPanel
@@ -4672,7 +4906,10 @@ function App() {
             entities={boshaDataset.entities}
             events={boshaDataset.events}
             edges={boshaDataset.edges}
-            priceSeries={boshaDataset.price}
+            priceSeries={boshaPriceSeries}
+            backendUp={backendUp}
+            livePresentation={boshaExploreLive?.presentation}
+            liveCompanyName={boshaExploreLive?.company_name}
           />
         </>
       ) : null}
