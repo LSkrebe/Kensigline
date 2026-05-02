@@ -136,3 +136,16 @@ export function guessTickerFromText(title: string | null, bodySample: string): s
   if (m2?.[1] && m2[1].length >= 2 && m2[1].length <= 5) return m2[1]!;
   return null;
 }
+
+/** Yahoo Finance headline RSS for a symbol (used for dynamic per-ticker feeds). */
+export function yahooHeadlineFeedUrl(ticker: string): string {
+  const s = encodeURIComponent(ticker.trim().toUpperCase());
+  return `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${s}&region=US&lang=en-US`;
+}
+
+/** Google News RSS search aimed at earnings-call / transcript coverage for a symbol. */
+export function googleNewsTranscriptFeedUrl(ticker: string): string {
+  const t = ticker.trim().toUpperCase();
+  const q = `${t} stock earnings call OR transcript OR quarterly results`;
+  return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`;
+}

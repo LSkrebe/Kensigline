@@ -4,7 +4,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractLinksFromFeedXml, stripHtmlToText } from "./feeds.js";
+import { extractLinksFromFeedXml, googleNewsTranscriptFeedUrl, stripHtmlToText, yahooHeadlineFeedUrl } from "./feeds.js";
 
 test("stripHtmlToText removes tags", () => {
   assert.equal(stripHtmlToText("<p>Hello <b>world</b></p>"), "Hello world");
@@ -18,6 +18,14 @@ test("RSS 2.0 link extraction", () => {
   const links = extractLinksFromFeedXml(xml, "https://feeds.example.com/news.xml");
   assert.equal(links.length, 2);
   assert.equal(links[0]!.url, "https://example.com/a");
+});
+
+test("dynamic Yahoo / Google feed URL shapes", () => {
+  assert.ok(yahooHeadlineFeedUrl("AAPL").includes("AAPL"));
+  assert.ok(yahooHeadlineFeedUrl("aapl").includes("AAPL"));
+  const g = googleNewsTranscriptFeedUrl("MSFT");
+  assert.ok(g.includes("news.google.com"));
+  assert.ok(decodeURIComponent(g).includes("MSFT"));
 });
 
 test("Atom link extraction", () => {

@@ -1,6 +1,6 @@
 import { enqueueCurrentFilingFeed } from "../core/sec.js";
-import { db } from "../core/db.js";
-import { extractLinksFromFeedXml, fetchFeedXml } from "./feeds.js";
+import { enqueueBoshaRssFeeds } from "./rss-queue.js";
+import { enqueueBoshaDynamicTickerFeeds } from "./dynamic-feeds.js";
 
 /**
  * Pull fresh SEC filings into the Bosha pipeline (parallel to pharma / insider queues).
@@ -33,62 +33,29 @@ function parseEnvUrlList(key: string): string[] {
     .filter((u) => u.startsWith("http"));
 }
 
-export async function enqueueBoshaRssFeeds(opts: {
-  feedUrls: string[];
-  sourceType: string;
-  priority: number;
-  maxLinksPerFeed: number;
-}) {
-  const summary: Array<{ feedUrl: string; enqueued: number; links_seen: number; error?: string }> = [];
-  for (const feedUrl of opts.feedUrls) {
-    try {
-      const xml = await fetchFeedXml(feedUrl);
-      const links = extractLinksFromFeedXml(xml, feedUrl).slice(0, opts.maxLinksPerFeed);
-      let enq = 0;
-      for (const { url } of links) {
-        const r = await db.one<{ id: string }>(
-          `
-          INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)
-          VALUES ($1, $2, 'ready_to_parse', $3, 0, now())
-          ON CONFLICT (url, source_type) DO NOTHING
-          RETURNING id
-          `,
-          [url, opts.sourceType, opts.priority],
-        );
-        if (r?.id) enq += 1;
-      }
-      summary.push({ feedUrl, enqueued: enq, links_seen: links.length });
-    } catch (e: any) {
-      summary.push({
-        feedUrl,
-        enqueued: 0,
-        links_seen: 0,
-        error: String(e?.message ?? e).slice(0, 500),
-      });
-    }
-  }
-  return summary;
-}
+export { enqueueBoshaRssFeeds } from "./rss-queue.js";
 
 /**
- * Press releases + earnings-call transcripts via configurable RSS/Atom URLs.
+ * Web feeds for Bosha:
  *
- * Env:
- * - `BOSHA_PRESS_RSS_URLS` — comma-separated feed URLs (PR / IR wires).
- * - `BOSHA_TRANSCRIPT_RSS_URLS` — comma-separated feeds that link to call transcripts.
- * - `BOSHA_RSS_MAX_LINKS_PER_FEED` — cap items queued per feed per run (default 30).
- * - `BOSHA_HTTP_USER_AGENT` — UA string for RSS/article fetches.
+ * 1. **Dynamic (default)** — no URLs to configure. Uses tickers from `companies` and
+ *    `document_parsed` to fetch Yahoo headline RSS + Google News RSS search per rotating batch.
+ *    Override batch size with `BOSHA_DYNAMIC_TICKER_BATCH`, or set `BOSHA_DYNAMIC_DISABLE=1` to turn off.
+ *
+ * 2. **Optional extras** — `BOSHA_PRESS_RSS_URLS` / `BOSHA_TRANSCRIPT_RSS_URLS` add more feeds.
+ *
+ * Other: `BOSHA_RSS_MAX_LINKS_PER_FEED`, `BOSHA_HTTP_USER_AGENT`.
  */
 export async function enqueueBoshaWebFeeds() {
   const maxLinks = Math.max(5, Math.min(150, Number(process.env.BOSHA_RSS_MAX_LINKS_PER_FEED ?? 30)));
   const pressUrls = parseEnvUrlList("BOSHA_PRESS_RSS_URLS");
   const transcriptUrls = parseEnvUrlList("BOSHA_TRANSCRIPT_RSS_URLS");
 
-  let press: Awaited<ReturnType<typeof enqueueBoshaRssFeeds>> | null = null;
-  let transcript: Awaited<ReturnType<typeof enqueueBoshaRssFeeds>> | null = null;
+  let pressExtra: Awaited<ReturnType<typeof enqueueBoshaRssFeeds>> | null = null;
+  let transcriptExtra: Awaited<ReturnType<typeof enqueueBoshaRssFeeds>> | null = null;
 
   if (pressUrls.length) {
-    press = await enqueueBoshaRssFeeds({
+    pressExtra = await enqueueBoshaRssFeeds({
       feedUrls: pressUrls,
       sourceType: "bosha_press_rss",
       priority: 3,
@@ -96,7 +63,7 @@ export async function enqueueBoshaWebFeeds() {
     });
   }
   if (transcriptUrls.length) {
-    transcript = await enqueueBoshaRssFeeds({
+    transcriptExtra = await enqueueBoshaRssFeeds({
       feedUrls: transcriptUrls,
       sourceType: "bosha_transcript_rss",
       priority: 3,
@@ -104,5 +71,13 @@ export async function enqueueBoshaWebFeeds() {
     });
   }
 
-  return { press, transcript, pressUrls: pressUrls.length, transcriptUrls: transcriptUrls.length };
+  const dynamic = await enqueueBoshaDynamicTickerFeeds();
+
+  return {
+    dynamic,
+    pressExtra,
+    transcriptExtra,
+    extraPressFeeds: pressUrls.length,
+    extraTranscriptFeeds: transcriptUrls.length,
+  };
 }
