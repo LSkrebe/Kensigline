@@ -63,8 +63,9 @@ CREATE TABLE IF NOT EXISTS document_queue (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Avoid accidental duplicate work. (If you truly need duplicates, drop this index later.)
-CREATE UNIQUE INDEX IF NOT EXISTS document_queue_url_unique ON document_queue (url);
+-- Same SEC URL can be queued for different pipelines (e.g. pharma vs Bosha) with different source_type.
+DROP INDEX IF EXISTS document_queue_url_unique;
+CREATE UNIQUE INDEX IF NOT EXISTS document_queue_url_sourcetype_unique ON document_queue (url, source_type);
 
 CREATE INDEX IF NOT EXISTS document_queue_status_priority_idx
   ON document_queue (status, priority DESC, created_at ASC);
@@ -138,6 +139,94 @@ CREATE TABLE IF NOT EXISTS bars (
 );
 
 CREATE INDEX IF NOT EXISTS bars_ticker_day_idx ON bars (ticker, day DESC);
+
+-- --- Bosha (Explore): structured company intel (no raw document bodies) ---
+CREATE TABLE IF NOT EXISTS bosha_entities (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticker text,
+  name text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS bosha_entities_ticker_unique
+  ON bosha_entities (ticker)
+  WHERE ticker IS NOT NULL AND length(btrim(ticker)) > 0;
+
+CREATE INDEX IF NOT EXISTS bosha_entities_name_idx ON bosha_entities (name);
+
+CREATE TABLE IF NOT EXISTS bosha_documents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  queue_id uuid REFERENCES document_queue(id) ON DELETE SET NULL,
+  content_sha256 text NOT NULL,
+  source_type text NOT NULL,
+  url text,
+  title text,
+  published_at timestamptz,
+  primary_ticker text,
+  model text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS bosha_documents_sha_unique ON bosha_documents (content_sha256);
+
+CREATE TABLE IF NOT EXISTS bosha_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  document_id uuid NOT NULL REFERENCES bosha_documents(id) ON DELETE CASCADE,
+  ticker text NOT NULL,
+  kind text NOT NULL DEFAULT 'other',
+  summary text NOT NULL,
+  event_at timestamptz,
+  magnitude double precision NOT NULL DEFAULT 0,
+  novelty double precision NOT NULL DEFAULT 0,
+  sentiment double precision NOT NULL DEFAULT 0,
+  data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS bosha_events_ticker_idx ON bosha_events (ticker, created_at DESC);
+CREATE INDEX IF NOT EXISTS bosha_events_doc_idx ON bosha_events (document_id);
+
+CREATE TABLE IF NOT EXISTS bosha_relationships (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  from_entity_id uuid NOT NULL REFERENCES bosha_entities(id) ON DELETE CASCADE,
+  to_entity_id uuid NOT NULL REFERENCES bosha_entities(id) ON DELETE CASCADE,
+  rel_type text NOT NULL,
+  confidence double precision NOT NULL DEFAULT 0.5,
+  document_id uuid REFERENCES bosha_documents(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS bosha_rel_from_idx ON bosha_relationships (from_entity_id);
+CREATE INDEX IF NOT EXISTS bosha_rel_to_idx ON bosha_relationships (to_entity_id);
+
+CREATE TABLE IF NOT EXISTS bosha_ticker_state (
+  ticker text PRIMARY KEY,
+  score double precision NOT NULL DEFAULT 0,
+  components jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS bosha_score_log (
+  id bigserial PRIMARY KEY,
+  ticker text NOT NULL,
+  score double precision NOT NULL,
+  recorded_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS bosha_score_log_ticker_time_idx ON bosha_score_log (ticker, recorded_at DESC);
+
+CREATE TABLE IF NOT EXISTS bosha_papers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticker text NOT NULL,
+  title text NOT NULL,
+  thesis text NOT NULL,
+  key_points jsonb NOT NULL DEFAULT '[]'::jsonb,
+  score double precision NOT NULL DEFAULT 0,
+  trigger_reason text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS bosha_papers_ticker_created_idx ON bosha_papers (ticker, created_at DESC);
 
 -- --- Outcomes (Historical outcomes panel) ---
 CREATE TABLE IF NOT EXISTS outcomes (

@@ -1,4 +1,4 @@
-import { enqueueCurrentFilingFeed } from "./sec.js";
+import { enqueueCurrentFilingFeed } from "../core/sec.js";
 import { parseNextPharmaQueueItem } from "./pharma.js";
 
 function sleep(ms: number) {

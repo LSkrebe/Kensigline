@@ -239,8 +239,9 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
         ? await db.one<{ id: string }>(
             `
             SELECT id FROM document_queue
-            WHERE url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
-               OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%'
+            WHERE (url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
+               OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%')
+              AND source_type = 'sec_form4'
             UNION ALL
             SELECT id FROM document_parsed
             WHERE url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
@@ -251,7 +252,7 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
           )
         : await db.one<{ id: string }>(
             `
-            SELECT id FROM document_queue WHERE url = $1
+            SELECT id FROM document_queue WHERE url = $1 AND source_type = 'sec_form4'
             UNION ALL
             SELECT id FROM document_parsed WHERE url = $1
             LIMIT 1
@@ -321,24 +322,19 @@ export async function enqueueCurrentFilingFeed(opts: {
         ? await db.one<{ id: string }>(
             `
             SELECT id FROM document_queue
-            WHERE url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
-               OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%'
-            UNION ALL
-            SELECT id FROM document_parsed
-            WHERE url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
-               OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%'
+            WHERE (url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
+               OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%')
+              AND source_type = $3
             LIMIT 1
             `,
-            [acc.accessionNoDash, acc.accession],
+            [acc.accessionNoDash, acc.accession, sourceType],
           )
         : await db.one<{ id: string }>(
             `
-            SELECT id FROM document_queue WHERE url = $1
-            UNION ALL
-            SELECT id FROM document_parsed WHERE url = $1
+            SELECT id FROM document_queue WHERE url = $1 AND source_type = $2
             LIMIT 1
             `,
-            [filingUrl],
+            [filingUrl, sourceType],
           );
       if (existing) {
         skipped_existing += 1;
@@ -486,7 +482,7 @@ export async function enqueueRecentForm4Global(opts?: { daysBack?: number; limit
 
       const existing = await db.one<{ id: string }>(
         `
-        SELECT id FROM document_queue WHERE url = $1
+        SELECT id FROM document_queue WHERE url = $1 AND source_type = 'sec_form4'
         UNION ALL
         SELECT id FROM document_parsed WHERE url = $1
         LIMIT 1
@@ -567,7 +563,7 @@ export async function enqueueLatestForm4ForTicker(opts: { ticker: string; limit?
     // If it already exists in queue or parsed, skip.
     const existing = await db.one<{ id: string }>(
       `
-      SELECT id FROM document_queue WHERE url = $1
+      SELECT id FROM document_queue WHERE url = $1 AND source_type = 'sec_form4'
       UNION ALL
       SELECT id FROM document_parsed WHERE url = $1
       LIMIT 1
@@ -659,12 +655,12 @@ export async function enqueueLatestFilingsForTicker(opts: {
     const indexUrl = accessionToIndexJsonUrl(cik, accession);
     const existing = await db.one<{ id: string }>(
       `
-      SELECT id FROM document_queue WHERE url = $1
+      SELECT id FROM document_queue WHERE url = $1 AND source_type = $2
       UNION ALL
       SELECT id FROM document_parsed WHERE url = $1
       LIMIT 1
       `,
-      [indexUrl],
+      [indexUrl, sourceType],
     );
     if (existing) {
       skipped_existing += 1;

@@ -1,5 +1,5 @@
-import { db } from "./db.js";
-import { listHousePtrPdfsWithRetry } from "./house.js";
+import { db } from "../core/db.js";
+import { listHousePtrPdfsWithRetry } from "../core/house.js";
 import { parseNextPoliticiansQueueItem } from "./politicians.js";
 
 function sleep(ms: number) {

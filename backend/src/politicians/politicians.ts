@@ -1,7 +1,7 @@
-import { db } from "./db.js";
-import { llmChat } from "./llm.js";
+import { db } from "../core/db.js";
+import { llmChat } from "../core/llm.js";
 import { createHash } from "node:crypto";
-import { extractPdfTextWithFallback } from "./pdf.js";
+import { extractPdfTextWithFallback } from "../core/pdf.js";
 import { createRequire } from "node:module";
 
 type ParseNextResult =

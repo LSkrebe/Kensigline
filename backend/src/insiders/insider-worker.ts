@@ -1,4 +1,4 @@
-import { enqueueCurrentForm4Feed } from "./sec.js";
+import { enqueueCurrentForm4Feed } from "../core/sec.js";
 import { parseNextInsiderQueueItem } from "./insider.js";
 
 function sleep(ms: number) {

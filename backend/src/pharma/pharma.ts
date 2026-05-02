@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { db } from "./db.js";
-import { llmChat } from "./llm.js";
-import { fetchFilingPrimaryText } from "./sec.js";
-import { fetchSecJson } from "./sec.js";
+import { db } from "../core/db.js";
+import { llmChat } from "../core/llm.js";
+import { fetchFilingPrimaryText } from "../core/sec.js";
+import { fetchSecJson } from "../core/sec.js";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }

@@ -1,6 +1,6 @@
-import { db } from "./db.js";
-import { fetchForm4Text } from "./sec.js";
-import { llmChat } from "./llm.js";
+import { db } from "../core/db.js";
+import { fetchForm4Text } from "../core/sec.js";
+import { llmChat } from "../core/llm.js";
 import { createHash } from "node:crypto";
 
 type ParseNextResult =
@@ -233,6 +233,7 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
       SELECT id
       FROM document_queue
       WHERE status IN ('ready_to_parse', 'queued', 'failed')
+        AND source_type = 'sec_form4'
         AND (next_attempt_at IS NULL OR next_attempt_at <= now())
       ORDER BY priority DESC, created_at ASC
       LIMIT 1

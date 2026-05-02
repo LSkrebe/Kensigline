@@ -1,4 +1,4 @@
-declare module "./lib/db.js" {
+declare module "./core/db.js" {
   export const pool: unknown;
   export const db: {
     query<T = any>(text: string, params?: any[]): Promise<T[]>;
@@ -6,7 +6,7 @@ declare module "./lib/db.js" {
   };
 }
 
-declare module "./lib/sec.js" {
+declare module "./core/sec.js" {
   export function enqueueLatestForm4ForTicker(opts: {
     ticker: string;
     limit?: number;
@@ -20,15 +20,14 @@ declare module "./lib/sec.js" {
   }>;
 }
 
-declare module "./lib/insider.js" {
+declare module "./insiders/insider.js" {
   export function parseNextInsiderQueueItem(): Promise<any>;
 }
 
-declare module "./lib/http.js" {
+declare module "./core/http.js" {
   import type http from "node:http";
   export function sendJson(res: http.ServerResponse, status: number, body: unknown): void;
   export function notFound(res: http.ServerResponse): void;
   export function route(req: http.IncomingMessage, url: URL, method: string, pathname: string): boolean;
   export function json(req: http.IncomingMessage): Promise<any>;
 }
-

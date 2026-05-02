@@ -1,23 +1,32 @@
 import "dotenv/config";
 import http from "node:http";
 import { URL } from "node:url";
-import { json, notFound, route, sendJson } from "./lib/http.js";
-import { db } from "./lib/db.js";
-import { enqueueLatestForm4ForTicker } from "./lib/sec.js";
-import { parseNextInsiderQueueItem } from "./lib/insider.js";
-import { startInsiderWorker } from "./lib/worker.js";
-import { getDailyCloseBars } from "./lib/bars.js";
-import { getCompanyPanelData } from "./lib/company.js";
-import { getLatestOutcomes, recomputeInsiderOutcomes, recomputePharmaOutcomes } from "./lib/outcomes.js";
-import { startOutcomesWorker } from "./lib/outcomes-worker.js";
-import { startPharmaWorker } from "./lib/pharma-worker.js";
-import { startPoliticiansWorker } from "./lib/politicians-worker.js";
+import { json, notFound, route, sendJson } from "./core/http.js";
+import { db } from "./core/db.js";
+import { enqueueLatestForm4ForTicker } from "./core/sec.js";
+import { startInsiderWorker } from "./insiders/insider-worker.js";
+import { getDailyCloseBars } from "./core/bars.js";
+import { getCompanyPanelData } from "./core/company.js";
+import { getLatestOutcomes, recomputeInsiderOutcomes, recomputePharmaOutcomes } from "./core/outcomes.js";
+import { startOutcomesWorker } from "./core/outcomes-worker.js";
+import { startPharmaWorker } from "./pharma/pharma-worker.js";
+import { startPoliticiansWorker } from "./politicians/politicians-worker.js";
+import { startBoshaWorker } from "./bosha/worker.js";
+import {
+  boshaLimitFromSearchParams,
+  handleBoshaEvents,
+  handleBoshaPaper,
+  handleBoshaRefreshScore,
+  handleBoshaRelationships,
+  handleBoshaState,
+} from "./bosha/api.js";
 
 const port = Number(process.env.PORT ?? "3001");
 const worker = startInsiderWorker();
 const outcomesWorker = startOutcomesWorker();
 const pharmaWorker = startPharmaWorker();
 const politiciansWorker = startPoliticiansWorker();
+const boshaWorker = startBoshaWorker();
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -678,6 +687,35 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ---- Bosha (Explore): structured company intel ----
+    if (route(req, url, "GET", "/api/bosha/state")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim();
+      await handleBoshaState(res, ticker);
+      return;
+    }
+    if (route(req, url, "GET", "/api/bosha/events")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim();
+      const limit = boshaLimitFromSearchParams(url.searchParams);
+      await handleBoshaEvents(res, ticker, limit);
+      return;
+    }
+    if (route(req, url, "GET", "/api/bosha/relationships")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim();
+      await handleBoshaRelationships(res, ticker);
+      return;
+    }
+    if (route(req, url, "GET", "/api/bosha/paper")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim();
+      await handleBoshaPaper(res, ticker);
+      return;
+    }
+    if (route(req, url, "POST", "/api/bosha/refresh-score")) {
+      const body = await json(req);
+      const ticker = String(body?.ticker ?? "").trim();
+      await handleBoshaRefreshScore(res, ticker);
+      return;
+    }
+
     notFound(res);
   } catch (err) {
     console.error(err);
@@ -693,11 +731,15 @@ process.on("SIGINT", () => {
   worker.stop();
   outcomesWorker.stop();
   pharmaWorker.stop();
+  politiciansWorker.stop();
+  boshaWorker.stop();
   server.close(() => process.exit(0));
 });
 process.on("SIGTERM", () => {
   worker.stop();
   outcomesWorker.stop();
   pharmaWorker.stop();
+  politiciansWorker.stop();
+  boshaWorker.stop();
   server.close(() => process.exit(0));
 });
