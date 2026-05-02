@@ -572,9 +572,9 @@ const POLITICIAN_NAMES = [
 ]
 
 // ------------------------------------------------------------
-// BOSHA (Explore tab) — mock causal graph system (XBI)
+// BOSHA (Explore tab) — mock causal graph system
 // ------------------------------------------------------------
-const BOSHA_TICKER = 'XBI'
+const BOSHA_TICKER = 'ATYR'
 
 const BOSHA_ALLOWED_EDGE_TYPES = new Set([
   'catalyst',
@@ -600,11 +600,11 @@ function boshaMockPriceSeries(seed, n = 110) {
 
 function boshaExplainerForTicker(ticker) {
   const t = String(ticker ?? '').toUpperCase()
-  if (t === 'XBI')
+  if (t === 'ATYR')
     return [
-      'XBI is a diversified biotech ETF where price is often driven by a few high-impact clinical readouts and FDA decisions across the basket.',
-      'Moves can start before the headline when information is leaking through channels like meeting schedules, trial updates, and unusual positioning behavior.',
-      'In this case, treat the timeline as an evidence trail: what changed, who reacted, and how close we are to the next dated catalyst.',
+      'EFZO-FIT is NCT05415137, 268 people, three arms with placebo, and the primary is mean daily OCS change at week 48. Trust the SAP more than the press release.',
+      'EFZO-CONNECT is NCT05892614 with about 25 patients. It is a mechanism check, not something that saves Phase 3 if the big study misses.',
+      'Treat this like trial forensics. Stack the protocol and filings and ignore the story until the numbers in the SAP actually print.',
     ]
   if (t === 'MRNA')
     return [
@@ -715,6 +715,60 @@ const BOSHA_DATASETS = {
     ],
     price: boshaMockPriceSeries(119),
   },
+  ATYR: {
+    entities: [
+      { id: 'c1', type: 'company', name: 'aTyr Pharma, Inc.' },
+      { id: 'd1', type: 'drug', name: 'Efzofitimod (ILD)' },
+      { id: 'f1', type: 'institution', name: 'FDA' },
+      { id: 'i1', type: 'insider', name: 'Chief Medical Officer (issuer)' },
+    ],
+    events: [
+      {
+        id: 'e1',
+        type: 'trial_update',
+        title: 'Efzofitimod ILD studies: enrollment pacing and site mix disclosed',
+        date: '2026-04-05',
+        entities: ['d1', 'c1'],
+        sentiment: 'neutral',
+        impact: 'medium',
+      },
+      {
+        id: 'e2',
+        type: 'fda_meeting',
+        title: 'Regulatory correspondence on pulmonary endpoints and safety follow-up',
+        date: '2026-04-22',
+        entities: ['d1', 'f1'],
+        sentiment: 'neutral',
+        impact: 'high',
+      },
+      {
+        id: 'e3',
+        type: 'catalyst',
+        title: 'Medical meeting abstract window: efzofitimod ILD data expected',
+        date: '2026-05-14',
+        entities: ['d1', 'c1'],
+        sentiment: 'bullish',
+        impact: 'high',
+      },
+      {
+        id: 'e4',
+        type: 'insider_buy',
+        title: 'Open-market purchases by issuer officer cluster ahead of data window',
+        date: '2026-04-28',
+        entities: ['i1', 'c1'],
+        sentiment: 'bullish',
+        impact: 'medium',
+      },
+    ],
+    edges: [
+      { from: 'e1', to: 'd1', type: 'catalyst' },
+      { from: 'e2', to: 'd1', type: 'affects' },
+      { from: 'e2', to: 'c1', type: 'indirect_risk' },
+      { from: 'e3', to: 'd1', type: 'catalyst' },
+      { from: 'e4', to: 'c1', type: 'insider_activity' },
+    ],
+    price: boshaMockPriceSeries(401, 130).map((x) => Math.round((x / 100) * 100) / 100),
+  },
   MRNA: {
     entities: [
       { id: 'c1', type: 'company', name: 'Moderna, Inc.' },
@@ -823,7 +877,7 @@ const BOSHA_DATASETS = {
 
 function boshaDatasetForTicker(ticker) {
   const t = String(ticker ?? '').toUpperCase()
-  return BOSHA_DATASETS[t] ?? BOSHA_DATASETS.XBI
+  return BOSHA_DATASETS[t] ?? BOSHA_DATASETS.ATYR
 }
 
 function boshaImpactScore(impact) {
@@ -1515,7 +1569,7 @@ function BoshaCausalDiagram({ ticker }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 720, h: 150 })
   const tUpper = String(ticker ?? '').toUpperCase()
-  const isAsmlSupply = tUpper === 'ASML'
+  const isForkMergeDiagram = tUpper === 'ASML' || tUpper === 'ATYR'
 
   useEffect(() => {
     const el = wrapRef.current
@@ -1523,21 +1577,21 @@ function BoshaCausalDiagram({ ticker }) {
     function sync() {
       const r = el.getBoundingClientRect()
       const w = Math.max(360, Math.floor(r.width))
-      const h = Math.max(isAsmlSupply ? 250 : 130, Math.floor(r.height))
+      const h = Math.max(isForkMergeDiagram ? 250 : 130, Math.floor(r.height))
       setSize((s) => (s.w === w && s.h === h ? s : { w, h }))
     }
     const ro = new ResizeObserver(() => requestAnimationFrame(sync))
     ro.observe(el)
     sync()
     return () => ro.disconnect()
-  }, [isAsmlSupply])
+  }, [isForkMergeDiagram])
 
   const w = size.w
   const h = size.h
 
   const nodes = useMemo(() => {
     const t = String(ticker ?? '').toUpperCase()
-    if (t === 'ASML') {
+    if (t === 'ASML' || t === 'ATYR') {
       const pad = 8
       const rh = 34
       /* Wide row gap so fork/merge elbows have room; thin gaps make arrows look stacked and messy. */
@@ -1563,12 +1617,29 @@ function BoshaCausalDiagram({ ticker }) {
       const xBot = pad + (innerW - botW) / 2
       const y3 = y2 + rh + rg
 
+      const pack =
+        t === 'ASML'
+          ? [
+              ['a0', 'Hyperscaler AI demand'],
+              ['a1', 'GPU demand'],
+              ['a2', 'Leading-edge fab ramp'],
+              ['a3', 'EUV slot / allocation'],
+              ['a4', 'ASML EUV supply'],
+            ]
+          : [
+              ['p0', 'SEC / CT.gov disclosures'],
+              ['p1', 'EFZO-FIT Ph3 (N=268)'],
+              ['p2', 'EFZO-CONNECT Ph2 PoC'],
+              ['p3', 'FDA / commercial read'],
+              ['p4', 'ATYR repricing'],
+            ]
+
       return [
-        { id: 'a0', label: 'Hyperscaler AI demand', x: xTop, y: y0, w: topW, h: rh },
-        { id: 'a1', label: 'GPU demand', x: xMidL, y: y1, w: midW, h: rh },
-        { id: 'a2', label: 'Leading-edge fab ramp', x: xMidR, y: y1, w: midW, h: rh },
-        { id: 'a3', label: 'EUV slot / allocation', x: xMerge, y: y2, w: mergeW, h: rh },
-        { id: 'a4', label: 'ASML EUV supply', x: xBot, y: y3, w: botW, h: rh },
+        { id: pack[0][0], label: pack[0][1], x: xTop, y: y0, w: topW, h: rh },
+        { id: pack[1][0], label: pack[1][1], x: xMidL, y: y1, w: midW, h: rh },
+        { id: pack[2][0], label: pack[2][1], x: xMidR, y: y1, w: midW, h: rh },
+        { id: pack[3][0], label: pack[3][1], x: xMerge, y: y2, w: mergeW, h: rh },
+        { id: pack[4][0], label: pack[4][1], x: xBot, y: y3, w: botW, h: rh },
       ]
     }
 
@@ -1597,15 +1668,15 @@ function BoshaCausalDiagram({ ticker }) {
 
   const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes])
 
-  const asmlVbH = useMemo(() => {
+  const forkMergeVbH = useMemo(() => {
     const t = String(ticker ?? '').toUpperCase()
-    if (t !== 'ASML' || !nodes.length) return h
+    if ((t !== 'ASML' && t !== 'ATYR') || !nodes.length) return h
     const pad = 10
     const bottom = Math.max(...nodes.map((n) => n.y + n.h))
     return Math.ceil(bottom + pad)
   }, [ticker, nodes, h])
 
-  const vbH = isAsmlSupply ? asmlVbH : h
+  const vbH = isForkMergeDiagram ? forkMergeVbH : h
 
   const edges = useMemo(() => {
     const t = String(ticker ?? '').toUpperCase()
@@ -1616,6 +1687,17 @@ function BoshaCausalDiagram({ ticker }) {
         ['a1', 'a3'],
         ['a2', 'a3'],
         ['a3', 'a4'],
+      ]
+        .map(([from, to]) => ({ from, to, a: byId[from], b: byId[to], kind: 'main' }))
+        .filter((x) => x.a && x.b)
+    }
+    if (t === 'ATYR') {
+      return [
+        ['p0', 'p1'],
+        ['p0', 'p2'],
+        ['p1', 'p3'],
+        ['p2', 'p3'],
+        ['p3', 'p4'],
       ]
         .map(([from, to]) => ({ from, to, a: byId[from], b: byId[to], kind: 'main' }))
         .filter((x) => x.a && x.b)
@@ -1702,11 +1784,14 @@ function BoshaCausalDiagram({ ticker }) {
       L ${ex.toFixed(1)} ${ey.toFixed(1)}`.replace(/\s+/g, ' ')
   }
 
+  const forkAria =
+    tUpper === 'ASML' ? 'Supply chain diagram' : tUpper === 'ATYR' ? 'Clinical catalyst chain diagram' : 'Causal chain diagram'
+
   return (
     <div
       ref={wrapRef}
-      className={['boshaCausalWrap', isAsmlSupply ? 'boshaCausalWrap--supply' : ''].filter(Boolean).join(' ')}
-      aria-label={isAsmlSupply ? 'Supply chain diagram' : 'Causal chain diagram'}
+      className={['boshaCausalWrap', isForkMergeDiagram ? 'boshaCausalWrap--supply' : ''].filter(Boolean).join(' ')}
+      aria-label={forkAria}
       role="img"
     >
       <svg className="boshaCausalSvg" viewBox={`0 0 ${w} ${vbH}`} preserveAspectRatio="xMidYMid meet">
@@ -1742,7 +1827,7 @@ function BoshaCausalDiagram({ ticker }) {
         {nodes.map((n) => (
           <g key={n.id}>
             <rect
-              className={['boshaCausalNode', n.id === 't1' || n.id === 'a4' ? 'boshaCausalNode--edge' : ''].filter(Boolean).join(' ')}
+              className={['boshaCausalNode', n.id === 't1' || n.id === 'a4' || n.id === 'p4' ? 'boshaCausalNode--edge' : ''].filter(Boolean).join(' ')}
               x={n.x + 0.5}
               y={n.y + 0.5}
               width={n.w - 1}
@@ -1860,6 +1945,24 @@ function boshaAsmlText() {
   }
 }
 
+function boshaAtyrText() {
+  return {
+    title:
+      'EFZO-FIT finished enrollment while still blinded. The protocol and SAP lean hard on a mean-OCS primary that is messy statistically, so the stock is basically a catalyst flip until real tables drop.',
+    subtitle: 'aTyr Pharma, ticker ATRY, May 2026. Blinded dossier only (mock).',
+    intro:
+      'This note pulls only from documents. ClinicalTrials.gov, enrollment updates, what the company says about clinical risk, blinded safety tables. You cannot defend an efficacy claim until topline. EFZO-FIT (NCT05415137) is sarcoidosis with three arms at 5 mg per kg, 3 mg per kg, and placebo. Enrollment hit 268 against a 264 target. Placebo is real and the N matters. The SAP emphasizes absolute change from baseline in mean daily oral steroid dose at week 48. That is what regulators stare at first. Everything else is narrative until you see milligrams per day with spread. EFZO-CONNECT (NCT05892614) is a separate SSc-ILD proof-of-concept with about 25 patients and placebo. It can reveal a monster effect if one exists. It cannot statistically rescue Phase 3 if the pivotal mean-OCS line fails.',
+    priceCaption:
+      'ATYR only. Price is mostly enthusiasm minus hard facts. If the stock rips before anyone has deltas and confidence intervals, that is guessing.',
+    middle:
+      'Beating the enrollment target helps operations. It does not tighten the error bars on a mean steroid taper when placebo arms also step down on the same visit cadence baked into the protocol. A hit on the week-48 OCS primary can still be a coin toss unless the drug separation is huge. Patients miss doses and titrate differently, which can chew through several mg per day at the cohort level. Blinded safety updates so far have not screamed a toxicity spiral, which is the one qualitative cushion for holders into the print. Connect is small, tens of patients. If Phase 3 misses, that PoC does not prove you get approval. It only shows biology at a scale too tiny to fix power. Off documents alone, odds on clearing the written primary look low to middling. Steroid-free rate and lung numbers could still move how people trade if the separation is clean, because doctors care about those even when the headline mean-dose fight is noisy.',
+    diagramCaption:
+      'Filings and trial registries link EFZO-FIT and EFZO-CONNECT. The FDA still wants both paths to tell one approvable story before the name reprices.',
+    action:
+      'Blinded-file view says do not add fresh equity before unblinding. A long here is mostly variance on a mean-OCS endpoint that fights clean stats. Trim or hedge into any pre-data rally. If someone wants to gamble the print, use structures where downside is capped, like options. Buying more common into a binary FDA-style read without tables is how retail accounts vaporize. After topline, focus on what actually prints. Mean change in daily oral steroids with confidence intervals, steroid-free rates, FVC and the other pulmonary rows. Until then the protocol stack is the whole thesis.',
+  }
+}
+
 function BoshaPaperPanel({ ticker, companyName, entities, events, edges, priceSeries }) {
   const priceHeadline = useMemo(() => {
     const vals = Array.isArray(priceSeries) ? priceSeries : []
@@ -1893,8 +1996,9 @@ function BoshaPaperPanel({ ticker, companyName, entities, events, edges, priceSe
       </header>
       <div className="boshaPaperBody scrollThin">
         <div className="boshaPaperDoc">
-          {String(ticker ?? '').toUpperCase() === 'ASML' ? (
-            (() => {
+          {(() => {
+            const u = String(ticker ?? '').toUpperCase()
+            if (u === 'ASML') {
               const asml = boshaAsmlText()
               return (
                 <>
@@ -1922,37 +2026,67 @@ function BoshaPaperPanel({ ticker, companyName, entities, events, edges, priceSe
                   </div>
                 </>
               )
-            })()
-          ) : (
-            <>
-              <div className="boshaPaperTitleBlock">
-                <div className="boshaPaperTitle boshaThesisTitle">{memo.title}</div>
-                <div className="boshaPaperSubtitle mono dim">
-                  {String(ticker ?? '').toUpperCase()} — {memo.created}
+            }
+            if (u === 'ATYR') {
+              const ph = boshaAtyrText()
+              return (
+                <>
+                  <div className="boshaPaperTitleBlock">
+                    <div className="boshaPaperTitle boshaThesisTitle">{ph.title}</div>
+                    <div className="boshaPaperSubtitle mono dim">{ph.subtitle}</div>
+                  </div>
+
+                  <div className="boshaThesisBody">
+                    <p className="boshaThesisP">{ph.intro}</p>
+
+                    <BoshaMiniPrice series={priceSeries} label={String(ticker ?? 'PRICE').toUpperCase()} showMeta={false} />
+                    <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
+                      {ph.priceCaption}
+                    </div>
+
+                    <p className="boshaThesisP">{ph.middle}</p>
+
+                    <BoshaCausalDiagram ticker={ticker} />
+                    <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
+                      {ph.diagramCaption}
+                    </div>
+
+                    <p className="boshaThesisP">{ph.action}</p>
+                  </div>
+                </>
+              )
+            }
+            return (
+              <>
+                <div className="boshaPaperTitleBlock">
+                  <div className="boshaPaperTitle boshaThesisTitle">{memo.title}</div>
+                  <div className="boshaPaperSubtitle mono dim">
+                    {String(ticker ?? '').toUpperCase()} — {memo.created}
+                  </div>
                 </div>
-              </div>
 
-              <div className="boshaThesisBody">
-                <p className="boshaThesisP">{memo.openingA}</p>
-                <p className="boshaThesisP">{memo.openingB}</p>
-                <p className="boshaThesisP">{memo.priceRef}</p>
+                <div className="boshaThesisBody">
+                  <p className="boshaThesisP">{memo.openingA}</p>
+                  <p className="boshaThesisP">{memo.openingB}</p>
+                  <p className="boshaThesisP">{memo.priceRef}</p>
 
-                <BoshaMiniPrice series={priceSeries} label={String(ticker ?? 'PRICE').toUpperCase()} showMeta={false} />
-                <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
-                  Price chart shows {memo.chartX}.
+                  <BoshaMiniPrice series={priceSeries} label={String(ticker ?? 'PRICE').toUpperCase()} showMeta={false} />
+                  <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
+                    Price chart shows {memo.chartX}.
+                  </div>
+
+                  <p className="boshaThesisP">{memo.core}</p>
+
+                  <BoshaCausalDiagram ticker={ticker} />
+                  <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
+                    Diagram summarizes how early process signals turn into positioning, a dated catalyst, and eventual repricing.
+                  </div>
+
+                  <p className="boshaThesisP">{memo.final}</p>
                 </div>
-
-                <p className="boshaThesisP">{memo.core}</p>
-
-                <BoshaCausalDiagram ticker={ticker} />
-                <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
-                  Diagram summarizes how early process signals turn into positioning, a dated catalyst, and eventual repricing.
-                </div>
-
-                <p className="boshaThesisP">{memo.final}</p>
-              </div>
-            </>
-          )}
+              </>
+            )
+          })()}
         </div>
       </div>
     </section>
@@ -3488,7 +3622,7 @@ function App() {
   const BOSHA_FEED_ITEMS = useMemo(
     () => [
       { ticker: 'ASML', name: 'ASML Holding N.V.' }, // non‑pharma
-      { ticker: 'XBI', name: 'SPDR S&P Biotech ETF' }, // pharma-related
+      { ticker: 'ATYR', name: 'aTyr Pharma, Inc.' }, // pharma — clinical ILD / efzofitimod (mock)
     ],
     [],
   )
