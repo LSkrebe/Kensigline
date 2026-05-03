@@ -5,6 +5,101 @@ function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n))
 }
 
+/** Stable [0, 1) — same lane always maps to same “random” value (no flicker on resize). */
+function mainHubHash01(laneIdx, salt) {
+  const x = Math.sin(laneIdx * 12.9898 + salt * 78.233 + 2.241) * 43758.5453
+  return x - Math.floor(x)
+}
+
+/** Jittered start near hub center (each wire leaves from a slightly different point). */
+function mainHubStartPoint(hx, hy, laneIdx, cw, ch) {
+  const q = (n) => Math.round(n * 10) / 10
+  const base = Math.min(cw, ch)
+  const spread = Math.max(8, Math.min(32, base * 0.021))
+  const rx = (mainHubHash01(laneIdx, 41) - 0.5) * 2 * spread
+  const ry = (mainHubHash01(laneIdx, 42) - 0.5) * 2 * spread
+  return { hox: q(hx + rx), hoy: q(hy + ry) }
+}
+
+/** Sorted-edge index: 0 nearest … 3 farthest. Mixed ranks avoid uniform curved hub arms (reads less “radial”). */
+function mainHubEdgeRank(laneIdx) {
+  if (laneIdx === 0 || laneIdx === 3) return 0
+  if (laneIdx === 1) return 3
+  return 1
+}
+
+/**
+ * Attach along panel edge by distance rank + jitter. PHARMA uses farthest side so one wire
+ * wraps differently and the diagram stays asymmetric (not four arms off one hub).
+ */
+function mainHubPanelAnchorJittered(px, py, pw, ph, hubX, hubY, laneIdx) {
+  const pcx = px + pw / 2
+  const pcy = py + ph / 2
+  const mids = [
+    { edge: 'L', x: px, y: pcy },
+    { edge: 'R', x: px + pw, y: pcy },
+    { edge: 'T', x: pcx, y: py },
+    { edge: 'B', x: pcx, y: py + ph },
+  ].map((c) => ({
+    ...c,
+    d2: (hubX - c.x) ** 2 + (hubY - c.y) ** 2,
+  }))
+  mids.sort((a, b) => a.d2 - b.d2 || a.edge.localeCompare(b.edge))
+  const rnk = mainHubEdgeRank(laneIdx)
+  const pick = mids[Math.min(rnk, mids.length - 1)] ?? mids[0]
+  const margin = Math.max(6, Math.min(pw, ph) * 0.09)
+  const r = mainHubHash01(laneIdx, 73)
+  if (pick.edge === 'L' || pick.edge === 'R') {
+    const span = Math.max(0, ph - 2 * margin)
+    const yy = py + margin + r * span
+    return { x: pick.edge === 'L' ? px : px + pw, y: yy }
+  }
+  const span = Math.max(0, pw - 2 * margin)
+  const xx = px + margin + r * span
+  return { x: xx, y: pick.edge === 'T' ? py : py + ph }
+}
+
+/**
+ * Multi-segment 90° path from jittered start (hox,hoy); lane offsets use geometric hub (hx,hy).
+ */
+function mainHubRoutedPath(hox, hoy, hx, hy, ax, ay, laneIdx, cw, ch, px, py, pw, ph) {
+  const q = (n) => Math.round(n * 10) / 10
+  const base = Math.min(cw, ch)
+  const s = Math.max(16, Math.min(48, base * 0.036))
+  const lanes = [
+    { xm: -3.4, ym: -4.5 },
+    { xm: 3.8, ym: -2.1 },
+    { xm: -3.1, ym: 3 },
+    { xm: 3.5, ym: 4.8 },
+  ]
+  const { xm, ym } = lanes[laneIdx] ?? lanes[0]
+  hox = q(hox)
+  hoy = q(hoy)
+  hx = q(hx)
+  hy = q(hy)
+  ax = q(ax)
+  ay = q(ay)
+  const x1 = q(hx + xm * s)
+  const y2 = q(hy + ym * s)
+
+  const tol = Math.max(4, Math.min(pw, ph) * 0.06)
+  const onVertEdge = Math.abs(ax - px) <= tol || Math.abs(ax - (px + pw)) <= tol
+  const onHoriEdge = Math.abs(ay - py) <= tol || Math.abs(ay - (py + ph)) <= tol
+
+  if (Math.abs(ax - hox) < 0.5 && Math.abs(ay - hoy) < 0.5) return ''
+
+  if (onVertEdge) {
+    return `M ${hox} ${hoy} L ${x1} ${hoy} L ${x1} ${ay} L ${ax} ${ay}`
+  }
+  if (onHoriEdge) {
+    return `M ${hox} ${hoy} L ${hox} ${y2} L ${ax} ${y2} L ${ax} ${ay}`
+  }
+  if (Math.abs(ax - hx) >= Math.abs(ay - hy)) {
+    return `M ${hox} ${hoy} L ${ax} ${hoy} L ${ax} ${ay}`
+  }
+  return `M ${hox} ${hoy} L ${hox} ${ay} L ${ax} ${ay}`
+}
+
 function getBackendBase() {
   const fromEnv = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_BACKEND_URL : null
   return String(fromEnv || 'http://localhost:3001').replace(/\/$/, '')
@@ -3764,7 +3859,7 @@ function CaseKvFeed({
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState('insider') // insider | pharma | politicians | explore
+  const [activeTab, setActiveTab] = useState('main') // main | insider | pharma | politicians | explore
   /** Which feed column receives arrow up/down: insider | pharma | programs (rail). */
   const [feedPaneFocus, setFeedPaneFocus] = useState('insider')
   const [insiderIdx, setInsiderIdx] = useState(0)
@@ -3857,6 +3952,15 @@ function App() {
   const [backendUp, setBackendUp] = useState(false)
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
+
+  const mainHubCanvasRef = useRef(null)
+  const mainHubHubRef = useRef(null)
+  const mainHubNodeInsiderRef = useRef(null)
+  const mainHubNodePharmaRef = useRef(null)
+  const mainHubNodePoliticiansRef = useRef(null)
+  const mainHubNodeExploreRef = useRef(null)
+  const [mainHubGeom, setMainHubGeom] = useState(null)
+  const [mainHubLayoutTick, setMainHubLayoutTick] = useState(0)
 
   useEffect(() => {
     let alive = true
@@ -4434,6 +4538,7 @@ function App() {
 
   useEffect(() => {
     // When switching tabs, reset which pane gets arrows.
+    if (activeTab === 'main') return
     if (activeTab === 'insider') {
       setFeedPaneFocus('insider')
       setProgramRailEventId(null)
@@ -4635,7 +4740,15 @@ function App() {
       if (k === 'Tab') {
         e.preventDefault()
         setActiveTab((t) =>
-          t === 'insider' ? 'pharma' : t === 'pharma' ? 'politicians' : t === 'politicians' ? 'explore' : 'insider',
+          t === 'main'
+            ? 'insider'
+            : t === 'insider'
+              ? 'pharma'
+              : t === 'pharma'
+                ? 'politicians'
+                : t === 'politicians'
+                  ? 'explore'
+                  : 'main',
         )
         return
       }
@@ -4731,55 +4844,104 @@ function App() {
     programRailMilestone,
   ])
 
+  useLayoutEffect(() => {
+    if (activeTab !== 'main') {
+      setMainHubGeom(null)
+      return
+    }
+    const canvas = mainHubCanvasRef.current
+    const hubEl = mainHubHubRef.current
+    const nodeRefs = [
+      mainHubNodeInsiderRef,
+      mainHubNodePharmaRef,
+      mainHubNodePoliticiansRef,
+      mainHubNodeExploreRef,
+    ]
+
+    function measure() {
+      if (!canvas || !hubEl) return
+      const cr = canvas.getBoundingClientRect()
+      const w = Math.max(1, cr.width)
+      const h = Math.max(1, cr.height)
+      const hr = hubEl.getBoundingClientRect()
+      const hx = hr.left - cr.left + hr.width / 2
+      const hy = hr.top - cr.top + hr.height / 2
+      const paths = []
+      nodeRefs.forEach((ref, i) => {
+        const el = ref.current
+        if (!el) {
+          paths.push('')
+          return
+        }
+        const pr = el.getBoundingClientRect()
+        const px = pr.left - cr.left
+        const py = pr.top - cr.top
+        const { hox, hoy } = mainHubStartPoint(hx, hy, i, w, h)
+        const a = mainHubPanelAnchorJittered(px, py, pr.width, pr.height, hx, hy, i)
+        paths.push(mainHubRoutedPath(hox, hoy, hx, hy, a.x, a.y, i, w, h, px, py, pr.width, pr.height))
+      })
+      setMainHubGeom({ w, h, hx, hy, paths })
+    }
+
+    const ro = new ResizeObserver(() => requestAnimationFrame(measure))
+    if (canvas) ro.observe(canvas)
+    if (hubEl) ro.observe(hubEl)
+    nodeRefs.forEach((r) => {
+      if (r.current) ro.observe(r.current)
+    })
+    window.addEventListener('resize', measure)
+    requestAnimationFrame(() => requestAnimationFrame(measure))
+
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [activeTab, mainHubLayoutTick])
+
   return (
     <>
-      <header className="topTabsBar" aria-label="Views">
-        <div className="topTabsLeft">
-          <button
-            type="button"
-            className={activeTab === 'insider' ? 'topTab isActive' : 'topTab'}
-            aria-current={activeTab === 'insider' ? 'page' : undefined}
-            onClick={() => setActiveTab('insider')}
-          >
-            INSIDERS
-          </button>
-          <button
-            type="button"
-            className={activeTab === 'pharma' ? 'topTab isActive' : 'topTab'}
-            aria-current={activeTab === 'pharma' ? 'page' : undefined}
-            onClick={() => setActiveTab('pharma')}
-          >
-            PHARMA
-          </button>
-          <button
-            type="button"
-            className={activeTab === 'politicians' ? 'topTab isActive' : 'topTab'}
-            aria-current={activeTab === 'politicians' ? 'page' : undefined}
-            onClick={() => setActiveTab('politicians')}
-          >
-            POLITICIANS
-          </button>
-          <button
-            type="button"
-            className={activeTab === 'explore' ? 'topTab isActive' : 'topTab'}
-            aria-current={activeTab === 'explore' ? 'page' : undefined}
-            onClick={() => setActiveTab('explore')}
-          >
-            EXPLORE
-          </button>
-        </div>
-        <div className="topTabsRight">
-          <span className={`topStatChip ${backendUp ? 'isUp' : 'isDown'}`}>{backendUp ? 'UP' : 'DOWN'}</span>
-          <span className="topStatChip mono">
-            {backendUp ? `${(Math.max(0, Date.now() - backendLastOkAt) / 1000).toFixed(0)}s` : '-'}
-          </span>
-          <span className="topStatChip mono">Q{backendStats?.queue?.queued ?? 0}</span>
-          <span className="topStatChip mono">R{backendStats?.queue?.ready_to_parse ?? 0}</span>
-          <span className="topStatChip mono">P{backendStats?.queue?.parsing ?? 0}</span>
-          <span className="topStatChip mono">I{backendStats?.parsed?.insider?.count ?? 0}</span>
-          <span className="topStatChip mono">PH{backendStats?.parsed?.pharma?.count ?? 0}</span>
-        </div>
-      </header>
+      <nav className="sideTabsRail" aria-label="Views">
+        <button
+          type="button"
+          className={activeTab === 'main' ? 'sideTab isActive' : 'sideTab'}
+          aria-current={activeTab === 'main' ? 'page' : undefined}
+          onClick={() => setActiveTab('main')}
+        >
+          <span className="sideTabLabel">MAIN</span>
+        </button>
+        <button
+          type="button"
+          className={activeTab === 'insider' ? 'sideTab isActive' : 'sideTab'}
+          aria-current={activeTab === 'insider' ? 'page' : undefined}
+          onClick={() => setActiveTab('insider')}
+        >
+          <span className="sideTabLabel">INSIDERS</span>
+        </button>
+        <button
+          type="button"
+          className={activeTab === 'pharma' ? 'sideTab isActive' : 'sideTab'}
+          aria-current={activeTab === 'pharma' ? 'page' : undefined}
+          onClick={() => setActiveTab('pharma')}
+        >
+          <span className="sideTabLabel">PHARMA</span>
+        </button>
+        <button
+          type="button"
+          className={activeTab === 'politicians' ? 'sideTab isActive' : 'sideTab'}
+          aria-current={activeTab === 'politicians' ? 'page' : undefined}
+          onClick={() => setActiveTab('politicians')}
+        >
+          <span className="sideTabLabel">POLITICIANS</span>
+        </button>
+        <button
+          type="button"
+          className={activeTab === 'explore' ? 'sideTab isActive' : 'sideTab'}
+          aria-current={activeTab === 'explore' ? 'page' : undefined}
+          onClick={() => setActiveTab('explore')}
+        >
+          <span className="sideTabLabel">EXPLORE</span>
+        </button>
+      </nav>
       <main className={`terminal terminal--${activeTab}`} aria-label="KENSIGLINE terminal grid">
       {activeTab === 'insider' ? (
         <>
@@ -4889,6 +5051,138 @@ function App() {
         </>
       ) : null}
 
+      {activeTab === 'main' ? (
+        <section className="panel mainDash" aria-label="Mercerline hub">
+          <div ref={mainHubCanvasRef} className="mainHubCanvas">
+            <svg
+              className="mainHubChains"
+              width="100%"
+              height="100%"
+              viewBox={mainHubGeom ? `0 0 ${mainHubGeom.w} ${mainHubGeom.h}` : '0 0 1 1'}
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              {mainHubGeom?.paths?.map(
+                (d, i) =>
+                  d ? (
+                    <path key={i} className="mainHubChainPath" d={d} />
+                  ) : null,
+              )}
+              {mainHubGeom ? (
+                <circle className="mainHubChainDot" cx={mainHubGeom.hx} cy={mainHubGeom.hy} r="2.5" />
+              ) : null}
+            </svg>
+
+            <div ref={mainHubHubRef} className="mainHubCenter">
+              <img
+                className="mainDashLogo"
+                src="/mercerline_logo_transparent.png"
+                alt="Mercerline"
+                decoding="async"
+                onLoad={() => setMainHubLayoutTick((n) => n + 1)}
+              />
+            </div>
+
+            <button
+              type="button"
+              ref={mainHubNodeInsiderRef}
+              className="mainHubNode mainHubNode--insider"
+              aria-label="Open Insiders"
+              onClick={() => setActiveTab('insider')}
+            >
+              <span className="mainHubPreview">
+                <header className="mainHubPreviewHd">
+                  <span className="mainHubPreviewTit">INSIDERS</span>
+                </header>
+                <div className="mainHubPreviewRows">
+                  <span className="mainHubPreviewRow" />
+                  <span className="mainHubPreviewRow mainHubPreviewRow--dim" />
+                  <span className="mainHubPreviewRow mainHubPreviewRow--short" />
+                </div>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              ref={mainHubNodePharmaRef}
+              className="mainHubNode mainHubNode--pharma"
+              aria-label="Open Pharma"
+              onClick={() => setActiveTab('pharma')}
+            >
+              <span className="mainHubPreview">
+                <header className="mainHubPreviewHd">
+                  <span className="mainHubPreviewTit">PHARMA</span>
+                </header>
+                <div className="mainHubPreviewPharma">
+                  <div className="mainHubPreviewRail" />
+                  <div className="mainHubPreviewProg">
+                    <span className="mainHubPreviewProgLine" />
+                    <span className="mainHubPreviewProgLine mainHubPreviewProgLine--dim" />
+                  </div>
+                </div>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              ref={mainHubNodePoliticiansRef}
+              className="mainHubNode mainHubNode--politicians"
+              aria-label="Open Politicians"
+              onClick={() => setActiveTab('politicians')}
+            >
+              <span className="mainHubPreview">
+                <header className="mainHubPreviewHd">
+                  <span className="mainHubPreviewTit">POLITICIANS</span>
+                </header>
+                <div className="mainHubPreviewFilters">
+                  <span className="mainHubPreviewChip" />
+                  <span className="mainHubPreviewChip mainHubPreviewChip--dim" />
+                </div>
+                <div className="mainHubPreviewRows mainHubPreviewRows--tight">
+                  <span className="mainHubPreviewRow" />
+                  <span className="mainHubPreviewRow mainHubPreviewRow--dim" />
+                </div>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              ref={mainHubNodeExploreRef}
+              className="mainHubNode mainHubNode--explore"
+              aria-label="Open Explore"
+              onClick={() => setActiveTab('explore')}
+            >
+              <span className="mainHubPreview">
+                <header className="mainHubPreviewHd">
+                  <span className="mainHubPreviewTit">EXPLORE</span>
+                </header>
+                <svg className="mainHubMiniGraph" viewBox="0 0 80 36" aria-hidden="true">
+                  <circle cx="12" cy="22" r="3.2" fill="rgba(90, 220, 255, 0.35)" />
+                  <circle cx="38" cy="10" r="3.5" fill="rgba(80, 255, 190, 0.4)" />
+                  <circle cx="66" cy="18" r="3.2" fill="rgba(90, 220, 255, 0.35)" />
+                  <path
+                    className="mainHubMiniGraphEdge"
+                    d="M 12 22 L 38 22 L 38 10 M 38 10 L 66 10 L 66 18"
+                    fill="none"
+                  />
+                </svg>
+              </span>
+            </button>
+          </div>
+          <div className="mainDashChips">
+            <span className={`topStatChip ${backendUp ? 'isUp' : 'isDown'}`}>{backendUp ? 'UP' : 'DOWN'}</span>
+            <span className="topStatChip mono">
+              {backendUp ? `${(Math.max(0, Date.now() - backendLastOkAt) / 1000).toFixed(0)}s` : '-'}
+            </span>
+            <span className="topStatChip mono">Q{backendStats?.queue?.queued ?? 0}</span>
+            <span className="topStatChip mono">R{backendStats?.queue?.ready_to_parse ?? 0}</span>
+            <span className="topStatChip mono">P{backendStats?.queue?.parsing ?? 0}</span>
+            <span className="topStatChip mono">I{backendStats?.parsed?.insider?.count ?? 0}</span>
+            <span className="topStatChip mono">PH{backendStats?.parsed?.pharma?.count ?? 0}</span>
+          </div>
+        </section>
+      ) : null}
+
       {activeTab === 'explore' ? (
         <>
           <BoshaTickerPanel
@@ -4927,7 +5221,7 @@ function App() {
         </section>
       ) : null}
 
-      {activeTab !== 'explore' ? (
+      {activeTab !== 'explore' && activeTab !== 'main' ? (
         <>
           <HistoricalOutcomesPanel mode={activeTab === 'politicians' ? 'insider' : activeTab} backendUp={backendUp} />
           <ContextPanel

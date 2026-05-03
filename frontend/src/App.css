@@ -8,86 +8,83 @@
   --cyan: rgba(90, 220, 255, 0.92);
   --warn: rgba(255, 212, 92, 0.95);
   --bad: rgba(255, 88, 108, 0.95);
-  /* One scale for the whole terminal (also used by the top bar) */
+  /* One scale for the whole terminal */
   --fs-title: clamp(6px, 1.75vmin, 11px);
   --fs-meta: clamp(6px, 1.65vmin, 10px);
   --fs-body: clamp(6px, 1.8vmin, 11px);
-  /* Match `.feedCompactHeader` vertical rhythm: text + padding + border */
-  --topbar-h: calc(12px + 6px + 5px + 1px);
+  /* Slim vertical tab rail (fixed left); labels are horizontal words rotated −90° */
+  --tabrail-w: clamp(26px, 3.2vmin, 38px);
 }
 
-.topTabsBar {
+.sideTabsRail {
   position: fixed;
   top: 0;
   left: 0;
-  right: 0;
-  height: var(--topbar-h);
+  bottom: 0;
   z-index: 50;
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 0;
   box-sizing: border-box;
+  width: var(--tabrail-w);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  margin: 0;
   background: rgba(6, 7, 10, 0.96);
-  /* Single outer frame for the whole top bar (no inner boxes). */
   border: 1px solid var(--grid);
-  border-bottom: none; /* avoid double-stacking with `.terminal` border */
+  border-right: none;
   backdrop-filter: blur(6px);
+  min-height: 0;
 }
 
-.topTabsLeft {
+.sideTab {
+  flex: 1 1 0;
   display: flex;
   align-items: center;
-  gap: 0;
-  min-width: 0;
-  height: 100%;
-  background: transparent;
-}
-
-.topTab {
-  display: inline-flex;
-  align-items: center;
-  height: 100%;
-  /* Match `.feedCompactHeader` padding */
-  padding: 6px 8px 5px;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 1px 2px;
   border: none;
+  border-bottom: 1px solid var(--grid);
   border-radius: 0;
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
   color: var(--hi);
   font-family: inherit;
-  font-weight: inherit;
-  font-size: var(--fs-title);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  max-width: min(62vw, 520px);
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 600;
+  line-height: 1;
   cursor: pointer;
-  /* Single separator between adjacent tabs */
-  border-right: 1px solid var(--grid);
+  overflow: visible;
 }
 
-.topTab.isActive {
-  background: rgba(255, 255, 255, 0.04);
+.sideTab:last-child {
+  border-bottom: none;
 }
 
-/* Keep right rail even on last tab for a clear end-cap. */
-
-.topTabsRight {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  /* Match `.feedCompactHeader` padding */
-  padding: 6px 8px 5px;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--dim);
+.sideTabLabel {
+  display: inline-block;
   white-space: nowrap;
+  transform: rotate(-90deg);
+  transform-origin: center center;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  /*
+   * After rotation, the word’s normal width runs along the tab’s vertical space.
+   * POLITICIANS (~11 chars) must fit in one-fifth of the viewport height; cap size
+   * so the line box also fits the slim rail width before rotation.
+   */
+  font-size: min(
+    calc(var(--tabrail-w) / 1.28),
+    clamp(5px, calc((100dvh - 52px) / 5 / 6.45), 11px)
+  );
+}
+
+.sideTab.isActive {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--cyan);
 }
 
 .sourceBadge {
@@ -113,9 +110,10 @@
 }
 
 .terminal {
-  height: calc(100dvh - var(--topbar-h));
-  width: 100vw;
-  margin-top: var(--topbar-h);
+  height: 100dvh;
+  width: calc(100vw - var(--tabrail-w));
+  margin-top: 0;
+  margin-left: var(--tabrail-w);
   background: var(--bg);
   color: var(--text);
   display: grid;
@@ -168,6 +166,279 @@
     minmax(0, 0fr)
     minmax(0, 0fr);
   grid-template-rows: repeat(4, minmax(0, 1fr));
+}
+
+/* Main tab: backend health + queue stats */
+.terminal.terminal--main {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.panel.mainDash {
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+  min-height: 0;
+  padding: 0;
+}
+
+/* ---- Main hub: logo + SVG chains + satellite previews ---- */
+.mainHubCanvas {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: min(62vh, 580px);
+  min-width: 0;
+  box-sizing: border-box;
+  padding: clamp(10px, 2.2vmin, 22px);
+}
+
+.mainHubChains {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: visible;
+}
+
+/* Match `.boshaCausalEdge`: pale grid lines, orthogonal joints */
+.mainHubChainPath {
+  fill: none;
+  stroke: rgba(216, 255, 235, 0.48);
+  stroke-width: 1.25px;
+  opacity: 0.94;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.mainHubChainDot {
+  fill: rgba(216, 255, 235, 0.62);
+  vector-effect: non-scaling-stroke;
+}
+
+.mainHubMiniGraphEdge {
+  stroke: rgba(216, 255, 235, 0.38);
+  stroke-width: 1.15px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.mainHubCenter {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  max-width: min(92%, 96vw);
+}
+
+.mainHubCenter .mainDashLogo {
+  width: auto;
+  height: auto;
+  max-width: min(92vmin, 100%);
+  max-height: min(68vmin, calc(100vh - 160px));
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 0 28px rgba(80, 255, 190, 0.08));
+}
+
+.mainHubNode {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  width: clamp(196px, 28vw, 300px);
+  transition:
+    transform 0.18s ease,
+    filter 0.18s ease;
+}
+
+.mainHubNode:hover {
+  transform: scale(1.03);
+  filter: brightness(1.06);
+}
+
+.mainHubNode:focus-visible {
+  outline: 1px solid rgba(90, 220, 255, 0.55);
+  outline-offset: 3px;
+}
+
+/* Closer to hub than screen corners; still intentionally uneven */
+.mainHubNode--insider {
+  left: clamp(28px, 11vw, 22%);
+  top: clamp(44px, 11vh, 18%);
+}
+
+.mainHubNode--pharma {
+  right: clamp(22px, 9vw, 18%);
+  top: clamp(18px, 5vh, 11%);
+  left: auto;
+}
+
+.mainHubNode--politicians {
+  left: clamp(36px, 13vw, 26%);
+  bottom: clamp(28px, 11vh, 14%);
+  top: auto;
+}
+
+.mainHubNode--explore {
+  right: clamp(18px, 8vw, 15%);
+  bottom: clamp(36px, 12vh, 15%);
+  top: auto;
+  left: auto;
+}
+
+.mainHubPreview {
+  display: block;
+  background: rgba(7, 10, 15, 0.92);
+  border: 1px solid var(--grid);
+  box-sizing: border-box;
+  padding: 10px 11px 12px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+.mainHubPreviewHd {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 0;
+  padding-bottom: 7px;
+  margin-bottom: 7px;
+  border-bottom: 1px solid var(--grid);
+}
+
+.mainHubPreviewTit {
+  font-size: clamp(9px, 1.85vmin, 13px);
+  letter-spacing: 0.08em;
+  color: var(--hi);
+  text-transform: uppercase;
+}
+
+.mainHubPreviewRows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mainHubPreviewRows--tight {
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.mainHubPreviewRow {
+  display: block;
+  height: 6px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, rgba(80, 255, 190, 0.35), rgba(90, 220, 255, 0.15));
+  opacity: 0.9;
+}
+
+.mainHubPreviewRow--dim {
+  opacity: 0.45;
+  width: 78%;
+}
+
+.mainHubPreviewRow--short {
+  width: 56%;
+  opacity: 0.55;
+}
+
+.mainHubPreviewPharma {
+  display: grid;
+  grid-template-columns: 0.38fr 1fr;
+  gap: 8px;
+  min-height: 66px;
+  align-items: stretch;
+}
+
+.mainHubPreviewRail {
+  background: rgba(255, 255, 255, 0.04);
+  border-right: 1px solid rgba(140, 255, 195, 0.12);
+}
+
+.mainHubPreviewProg {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+}
+
+.mainHubPreviewProgLine {
+  height: 4px;
+  border-radius: 1px;
+  background: rgba(90, 220, 255, 0.28);
+}
+
+.mainHubPreviewProgLine--dim {
+  width: 72%;
+  opacity: 0.5;
+}
+
+.mainHubPreviewFilters {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.mainHubPreviewChip {
+  display: inline-block;
+  height: 12px;
+  width: 34%;
+  min-width: 32px;
+  border-radius: 2px;
+  background: rgba(80, 255, 190, 0.18);
+  border: 1px solid rgba(140, 255, 195, 0.15);
+}
+
+.mainHubPreviewChip--dim {
+  width: 42%;
+  opacity: 0.55;
+}
+
+.mainHubMiniGraph {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-top: 5px;
+}
+
+.mainDashChips {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 0 12px 14px;
+  box-sizing: border-box;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .terminal--explore .boshaTicker {
