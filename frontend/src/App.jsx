@@ -1,103 +1,8 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n))
-}
-
-/** Stable [0, 1) — same lane always maps to same “random” value (no flicker on resize). */
-function mainHubHash01(laneIdx, salt) {
-  const x = Math.sin(laneIdx * 12.9898 + salt * 78.233 + 2.241) * 43758.5453
-  return x - Math.floor(x)
-}
-
-/** Jittered start near hub center (each wire leaves from a slightly different point). */
-function mainHubStartPoint(hx, hy, laneIdx, cw, ch) {
-  const q = (n) => Math.round(n * 10) / 10
-  const base = Math.min(cw, ch)
-  const spread = Math.max(8, Math.min(32, base * 0.021))
-  const rx = (mainHubHash01(laneIdx, 41) - 0.5) * 2 * spread
-  const ry = (mainHubHash01(laneIdx, 42) - 0.5) * 2 * spread
-  return { hox: q(hx + rx), hoy: q(hy + ry) }
-}
-
-/** Sorted-edge index: 0 nearest … 3 farthest. Mixed ranks avoid uniform curved hub arms (reads less “radial”). */
-function mainHubEdgeRank(laneIdx) {
-  if (laneIdx === 0 || laneIdx === 3) return 0
-  if (laneIdx === 1) return 3
-  return 1
-}
-
-/**
- * Attach along panel edge by distance rank + jitter. PHARMA uses farthest side so one wire
- * wraps differently and the diagram stays asymmetric (not four arms off one hub).
- */
-function mainHubPanelAnchorJittered(px, py, pw, ph, hubX, hubY, laneIdx) {
-  const pcx = px + pw / 2
-  const pcy = py + ph / 2
-  const mids = [
-    { edge: 'L', x: px, y: pcy },
-    { edge: 'R', x: px + pw, y: pcy },
-    { edge: 'T', x: pcx, y: py },
-    { edge: 'B', x: pcx, y: py + ph },
-  ].map((c) => ({
-    ...c,
-    d2: (hubX - c.x) ** 2 + (hubY - c.y) ** 2,
-  }))
-  mids.sort((a, b) => a.d2 - b.d2 || a.edge.localeCompare(b.edge))
-  const rnk = mainHubEdgeRank(laneIdx)
-  const pick = mids[Math.min(rnk, mids.length - 1)] ?? mids[0]
-  const margin = Math.max(6, Math.min(pw, ph) * 0.09)
-  const r = mainHubHash01(laneIdx, 73)
-  if (pick.edge === 'L' || pick.edge === 'R') {
-    const span = Math.max(0, ph - 2 * margin)
-    const yy = py + margin + r * span
-    return { x: pick.edge === 'L' ? px : px + pw, y: yy }
-  }
-  const span = Math.max(0, pw - 2 * margin)
-  const xx = px + margin + r * span
-  return { x: xx, y: pick.edge === 'T' ? py : py + ph }
-}
-
-/**
- * Multi-segment 90° path from jittered start (hox,hoy); lane offsets use geometric hub (hx,hy).
- */
-function mainHubRoutedPath(hox, hoy, hx, hy, ax, ay, laneIdx, cw, ch, px, py, pw, ph) {
-  const q = (n) => Math.round(n * 10) / 10
-  const base = Math.min(cw, ch)
-  const s = Math.max(16, Math.min(48, base * 0.036))
-  const lanes = [
-    { xm: -3.4, ym: -4.5 },
-    { xm: 3.8, ym: -2.1 },
-    { xm: -3.1, ym: 3 },
-    { xm: 3.5, ym: 4.8 },
-  ]
-  const { xm, ym } = lanes[laneIdx] ?? lanes[0]
-  hox = q(hox)
-  hoy = q(hoy)
-  hx = q(hx)
-  hy = q(hy)
-  ax = q(ax)
-  ay = q(ay)
-  const x1 = q(hx + xm * s)
-  const y2 = q(hy + ym * s)
-
-  const tol = Math.max(4, Math.min(pw, ph) * 0.06)
-  const onVertEdge = Math.abs(ax - px) <= tol || Math.abs(ax - (px + pw)) <= tol
-  const onHoriEdge = Math.abs(ay - py) <= tol || Math.abs(ay - (py + ph)) <= tol
-
-  if (Math.abs(ax - hox) < 0.5 && Math.abs(ay - hoy) < 0.5) return ''
-
-  if (onVertEdge) {
-    return `M ${hox} ${hoy} L ${x1} ${hoy} L ${x1} ${ay} L ${ax} ${ay}`
-  }
-  if (onHoriEdge) {
-    return `M ${hox} ${hoy} L ${hox} ${y2} L ${ax} ${y2} L ${ax} ${ay}`
-  }
-  if (Math.abs(ax - hx) >= Math.abs(ay - hy)) {
-    return `M ${hox} ${hoy} L ${ax} ${hoy} L ${ax} ${ay}`
-  }
-  return `M ${hox} ${hoy} L ${hox} ${ay} L ${ax} ${ay}`
 }
 
 function getBackendBase() {
@@ -2523,6 +2428,439 @@ function buildEvenlySpacedDates(count) {
   return out
 }
 
+/** Demo data until a top-picks API exists; `pct` is period return (%). */
+const MAIN_TOP_PICKS_DEMO = [
+  { ticker: 'NVDA', pct: 12.2 },
+  { ticker: 'AMD', pct: 5.4 },
+  { ticker: 'LLY', pct: 3.8 },
+  { ticker: 'META', pct: -1.6 },
+  { ticker: 'DELL', pct: 7.9 },
+  { ticker: 'AAPL', pct: 2.3 },
+  { ticker: 'MSFT', pct: 4.1 },
+  { ticker: 'AVGO', pct: 8.6 },
+  { ticker: 'TSLA', pct: -3.2 },
+  { ticker: 'COIN', pct: 6.5 },
+  { ticker: 'MU', pct: -0.8 },
+  { ticker: 'AMZN', pct: 1.9 },
+]
+
+/** Mock “opportunity board” sourced from BOSHA-style papers; size = opportunity score (0–100). */
+const MAIN_OPPORTUNITY_MOCK = [
+  { sector: 'Pharma', ticker: 'LLY', score: 92, note: 'Catalyst window tightening; flows lagging the setup.' },
+  { sector: 'Pharma', ticker: 'VRTX', score: 74, note: 'Program readouts compressing; sentiment still stale.' },
+  { sector: 'Pharma', ticker: 'REGN', score: 63, note: 'Quiet accumulation ahead of timeline inflection.' },
+  { sector: 'Pharma', ticker: 'MRK', score: 71, note: 'Readout density rising; positioning stale.' },
+  { sector: 'Pharma', ticker: 'PFE', score: 55, note: 'Narrative crowded; asymmetric dates nearby.' },
+  { sector: 'Biotech', ticker: 'MRNA', score: 68, note: 'Pipeline milestones clustering; vol mispriced.' },
+  { sector: 'Biotech', ticker: 'BNTX', score: 59, note: 'Partner headlines lagging underlying signal.' },
+  { sector: 'Biotech', ticker: 'SGEN', score: 48, note: 'Quiet tape; catalyst window widening.' },
+  { sector: 'MedTech', ticker: 'ISRG', score: 66, note: 'Procedure volumes vs headline fear mismatch.' },
+  { sector: 'MedTech', ticker: 'SYK', score: 57, note: 'Stable cashflow; event risk under-modeled.' },
+  { sector: 'Energy', ticker: 'XOM', score: 81, note: 'Refining margins + supply narrative mismatch.' },
+  { sector: 'Energy', ticker: 'OXY', score: 69, note: 'Positioning skew; asymmetric reaction profile.' },
+  { sector: 'Energy', ticker: 'SLB', score: 58, note: 'Capex cycle underpriced vs forward bookings.' },
+  { sector: 'Energy', ticker: 'CVX', score: 73, note: 'Macro repricing lag; flows concentrated.' },
+  { sector: 'Energy', ticker: 'COP', score: 62, note: 'Balance sheet strength vs sentiment gap.' },
+  { sector: 'Renewables', ticker: 'NEE', score: 54, note: 'Rate sensitivity; policy dates stack.' },
+  { sector: 'Renewables', ticker: 'ENPH', score: 61, note: 'Inventory cycle noise; demand signal intact.' },
+  { sector: 'Materials', ticker: 'FCX', score: 64, note: 'China impulse vs USD regime mismatch.' },
+  { sector: 'Materials', ticker: 'NEM', score: 52, note: 'Real yields vs gold beta divergence.' },
+  { sector: 'Industrials', ticker: 'CAT', score: 70, note: 'Backlog strength vs cyclical fear.' },
+  { sector: 'Industrials', ticker: 'DE', score: 58, note: 'Ag cycle lag; dealer positioning one-sided.' },
+  { sector: 'Transports', ticker: 'UNP', score: 56, note: 'Volume inflection; margin narrative stale.' },
+  { sector: 'Transports', ticker: 'FDX', score: 63, note: 'Network effects vs headline misses.' },
+  { sector: 'Banks', ticker: 'JPM', score: 72, note: 'NII path vs credit fear asymmetry.' },
+  { sector: 'Banks', ticker: 'BAC', score: 60, note: 'Deposit beta lag; catalyst calendar dense.' },
+  { sector: 'Banks', ticker: 'GS', score: 67, note: 'Vol surface vs positioning mismatch.' },
+  { sector: 'Real Estate', ticker: 'PLD', score: 49, note: 'Cap rates vs rent growth cross-currents.' },
+  { sector: 'Real Estate', ticker: 'EQIX', score: 58, note: 'AI demand tail; rate sensitivity elevated.' },
+  { sector: 'Staples', ticker: 'KO', score: 51, note: 'Defensive bid; micro-catalysts ignored.' },
+  { sector: 'Staples', ticker: 'PG', score: 47, note: 'Slow tape; dispersion rising.' },
+  { sector: 'Discretionary', ticker: 'AMZN', score: 78, note: 'Retail vs AWS narrative split widening.' },
+  { sector: 'Discretionary', ticker: 'TSLA', score: 66, note: 'Event vol vs fundamentals drift.' },
+  { sector: 'Discretionary', ticker: 'HD', score: 55, note: 'Housing beta; sentiment overshoot.' },
+  { sector: 'Semis', ticker: 'NVDA', score: 88, note: 'Downstream repriced first; upstream still catching.' },
+  { sector: 'Semis', ticker: 'AVGO', score: 77, note: 'Causal chain intact; market attention elsewhere.' },
+  { sector: 'Semis', ticker: 'AMD', score: 61, note: 'Muted reaction; signal density rising.' },
+  { sector: 'Semis', ticker: 'INTC', score: 53, note: 'Turnaround narrative vs timing risk.' },
+  { sector: 'Semis', ticker: 'QCOM', score: 59, note: 'Handset cycle vs auto edge mix.' },
+  { sector: 'Software', ticker: 'META', score: 72, note: 'Narrative drift; catalysts stack quietly.' },
+  { sector: 'Software', ticker: 'MSFT', score: 67, note: 'Latency between product signal and repricing.' },
+  { sector: 'Software', ticker: 'CRM', score: 54, note: 'Coverage crowded; contrarian setup forming.' },
+  { sector: 'Software', ticker: 'NOW', score: 69, note: 'Enterprise spend signal vs multiple compression.' },
+  { sector: 'Software', ticker: 'SNOW', score: 57, note: 'Consumption model vs headline growth.' },
+  { sector: 'Comms', ticker: 'GOOGL', score: 75, note: 'Search + AI capex story splitting flows.' },
+  { sector: 'Comms', ticker: 'NFLX', score: 62, note: 'Engagement vs pricing power debate.' },
+  { sector: 'Comms', ticker: 'DIS', score: 50, note: 'Parks vs streaming mix noise.' },
+  { sector: 'Rates/Macro', ticker: 'TLT', score: 76, note: 'Macro driver dominant; reactions lag signal.' },
+  { sector: 'Rates/Macro', ticker: 'DXY', score: 52, note: 'Cross-asset mismatch; watch catalyst dates.' },
+  { sector: 'Rates/Macro', ticker: 'HYG', score: 58, note: 'Credit impulse vs equity complacency.' },
+  { sector: 'FX', ticker: 'EURUSD', score: 45, note: 'Policy divergence; vol cheap vs risks.' },
+  { sector: 'FX', ticker: 'USDJPY', score: 56, note: 'Intervention tail; positioning stretched.' },
+  { sector: 'Crypto', ticker: 'COIN', score: 83, note: 'Flow regime shift; still under-modeled.' },
+  { sector: 'Crypto', ticker: 'MSTR', score: 64, note: 'Volatility premium mispriced vs chain.' },
+  { sector: 'Crypto', ticker: 'MARA', score: 49, note: 'Hashprice vs equity beta mismatch.' },
+]
+
+function stringHash01(s, salt = 0) {
+  const str = String(s ?? '')
+  let h = 2166136261 ^ salt
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  // [0,1)
+  return ((h >>> 0) % 1000000) / 1000000
+}
+
+function oppSignedPct(ticker, score) {
+  const s = Math.max(0, Math.min(100, Number(score) || 0))
+  const dir = stringHash01(ticker, 17) < 0.76 ? 1 : -1
+  const mag = 1.5 + (s / 100) * 18
+  const jitter = (stringHash01(ticker, 91) - 0.5) * 3.5
+  const pct = dir * (mag + jitter)
+  return Math.round(pct * 10) / 10
+}
+
+function shuffleStable(xs, salt = 0) {
+  const arr = xs.slice()
+  arr.sort((a, b) => stringHash01(a?.ticker, salt) - stringHash01(b?.ticker, salt))
+  return arr
+}
+
+function treemapBinary(items, x, y, w, h) {
+  // items: [{ key, area }] — returns rects filling the container with boxy splits (no stripes).
+  const xs = items.filter((it) => (Number(it?.area) || 0) > 0)
+  const rects = []
+  const eps = 0.00001
+
+  function sumArea(list) {
+    let s = 0
+    for (const it of list) s += Number(it?.area) || 0
+    return s
+  }
+
+  function split(list) {
+    // Greedy balance split (list is expected sorted by area desc).
+    const a = []
+    const b = []
+    let sa = 0
+    let sb = 0
+    for (const it of list) {
+      if (sa <= sb) {
+        a.push(it)
+        sa += it.area
+      } else {
+        b.push(it)
+        sb += it.area
+      }
+    }
+    return [a, b]
+  }
+
+  function rec(list, rx, ry, rw, rh) {
+    if (!list.length || rw <= eps || rh <= eps) return
+    if (list.length === 1) {
+      rects.push({ key: list[0].key, x: rx, y: ry, w: rw, h: rh })
+      return
+    }
+    const total = sumArea(list) || 1
+    const [a, b] = split(list)
+    const sa = sumArea(a)
+    const ratio = Math.max(0.05, Math.min(0.95, sa / total))
+
+    if (rw >= rh) {
+      const wA = rw * ratio
+      rec(a, rx, ry, wA, rh)
+      rec(b, rx + wA, ry, rw - wA, rh)
+    } else {
+      const hA = rh * ratio
+      rec(a, rx, ry, rw, hA)
+      rec(b, rx, ry + hA, rw, rh - hA)
+    }
+  }
+
+  rec(xs, x, y, w, h)
+  return rects
+}
+
+const MainOpportunityBoard = memo(function MainOpportunityBoard({ items = MAIN_OPPORTUNITY_MOCK }) {
+  const wrapRef = useRef(null)
+  const [size, setSize] = useState({ w: 800, h: 360 })
+
+  useLayoutEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    function sync() {
+      const r = el.getBoundingClientRect()
+      const w = Math.max(260, Math.round(r.width))
+      const h = Math.max(160, Math.round(r.height))
+      setSize((s) => {
+        if (Math.abs(s.w - w) <= 1 && Math.abs(s.h - h) <= 1) return s
+        return { w, h }
+      })
+    }
+    const ro = new ResizeObserver(() => requestAnimationFrame(sync))
+    ro.observe(el)
+    sync()
+    return () => ro.disconnect()
+  }, [])
+
+  const bySector = useMemo(() => {
+    const m = new Map()
+    for (const it of items ?? []) {
+      const sector = String(it?.sector ?? 'Other')
+      if (!m.has(sector)) m.set(sector, [])
+      m.get(sector).push(it)
+    }
+    return Array.from(m.entries()).map(([sector, list]) => ({ sector, list }))
+  }, [items])
+
+  const layout = useMemo(() => {
+    const W = Math.max(1, size.w)
+    const H = Math.max(1, size.h)
+    const headerH = Math.max(18, Math.min(28, Math.round(H * 0.06)))
+
+    const sectorRaw = bySector
+      .map(({ sector, list }) => {
+        const xs = Array.isArray(list) ? list : []
+        let sumW = 0
+        for (const it of xs) {
+          const s = Math.max(0, Math.min(100, Number(it?.score) || 0))
+          sumW += Math.pow(s / 100, 1.25) + 0.02
+        }
+        return { sector, list: xs, weight: sumW || 0.01 }
+      })
+      .filter((x) => x.list.length)
+
+    // Order affects binary splits; keep it stable but not “all biggest in one corner”.
+    sectorRaw.sort(
+      (a, b) =>
+        b.weight - a.weight ||
+        stringHash01(a.sector, 501) - stringHash01(b.sector, 501) ||
+        a.sector.localeCompare(b.sector),
+    )
+
+    const secSum = sectorRaw.reduce((a, b) => a + b.weight, 0) || 1
+    const secAreas = sectorRaw.map((s) => ({ key: s.sector, area: (s.weight / secSum) * W * H }))
+    const secRects = treemapBinary(secAreas, 0, 0, W, H)
+    const secRectBy = new Map(secRects.map((r) => [r.key, r]))
+
+    const out = []
+    for (const sec of sectorRaw) {
+      const r = secRectBy.get(sec.sector)
+      if (!r) continue
+      const innerH = Math.max(1, r.h - headerH)
+      const inner = { x: r.x, y: r.y + headerH, w: r.w, h: innerH }
+
+      // Per-sector stable “random-ish” ordering, still weighted by score.
+      const raw = sec.list
+        .map((it) => {
+          const ticker = String(it?.ticker ?? '—')
+          const score = Math.max(0, Math.min(100, Number(it?.score) || 0))
+          const weight = Math.pow(score / 100, 1.25) + 0.02
+          return { key: `${sec.sector}:${ticker}`, ticker, score, weight }
+        })
+        .filter((x) => x.ticker && Number.isFinite(x.weight))
+
+      raw.sort(
+        (a, b) =>
+          b.weight - a.weight || stringHash01(a.ticker, 207) - stringHash01(b.ticker, 207) || a.ticker.localeCompare(b.ticker),
+      )
+
+      const sum = raw.reduce((a, b) => a + b.weight, 0) || 1
+      const itemsWithArea = raw.map((it) => ({ ...it, area: (it.weight / sum) * inner.w * inner.h }))
+      const rects = treemapBinary(itemsWithArea, inner.x, inner.y, inner.w, inner.h)
+      const byKey = new Map(rects.map((rr) => [rr.key, rr]))
+
+      out.push({ type: 'sector', sector: sec.sector, rect: r, headerH })
+      for (const it of raw) {
+        const rr = byKey.get(it.key)
+        if (!rr) continue
+        const pct = oppSignedPct(it.ticker, it.score)
+        out.push({ type: 'tile', sector: sec.sector, ticker: it.ticker, score: it.score, pct, rect: rr })
+      }
+    }
+    return out
+  }, [bySector, size.w, size.h])
+
+  return (
+    <div ref={wrapRef} className="oppGrid oppGrid--main" aria-label="Opportunity board" role="list">
+      {layout.map((it) => {
+        const r = it.rect
+        const left = (r.x / size.w) * 100
+        const top = (r.y / size.h) * 100
+        const width = (r.w / size.w) * 100
+        const height = (r.h / size.h) * 100
+
+        if (it.type === 'sector') {
+          return (
+            <div
+              key={`sec-${it.sector}`}
+              className="oppSectorBox"
+              style={{
+                left: `${left.toFixed(3)}%`,
+                top: `${top.toFixed(3)}%`,
+                width: `${width.toFixed(3)}%`,
+                height: `${height.toFixed(3)}%`,
+              }}
+              aria-label={`${it.sector} sector`}
+            >
+              <div className="oppSectorHeader">
+                <div className="panelTitle feedCompactTitle">{String(it.sector).toUpperCase()}</div>
+              </div>
+            </div>
+          )
+        }
+
+        const pos = it.pct >= 0
+        return (
+          <div
+            key={`${it.sector}:${it.ticker}`}
+            className={pos ? 'oppTile oppTile--pos' : 'oppTile oppTile--neg'}
+            style={{
+              left: `${left.toFixed(3)}%`,
+              top: `${top.toFixed(3)}%`,
+              width: `${width.toFixed(3)}%`,
+              height: `${height.toFixed(3)}%`,
+            }}
+            role="listitem"
+          >
+            <div className="oppTileTop">
+              <div className="oppTicker mono">{it.ticker}</div>
+              <div className="oppScore mono">
+                {it.pct >= 0 ? '+' : ''}
+                {it.pct.toFixed(1)}%
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+})
+
+function pctAxisTicks(yMin, yMax, n = 4) {
+  if (!Number.isFinite(yMin) || !Number.isFinite(yMax)) return []
+  if (yMin === yMax) return [yMin]
+  const out = []
+  for (let i = 0; i < n; i++) out.push(yMin + (i / (n - 1)) * (yMax - yMin))
+  return out.map((v) => Math.round(v * 10) / 10)
+}
+
+function formatPctAxis(v) {
+  const x = Number(v)
+  if (!Number.isFinite(x)) return EMPTY
+  const s = x.toFixed(1)
+  return `${s}%`
+}
+
+const MainTopPicksBarChart = memo(function MainTopPicksBarChart({ bars = MAIN_TOP_PICKS_DEMO }) {
+  const wrapRef = useRef(null)
+  const [size, setSize] = useState({ w: 320, h: 160 })
+
+  useLayoutEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    function sync() {
+      const r = el.getBoundingClientRect()
+      const w = Math.max(220, Math.round(r.width))
+      const h = Math.max(100, Math.round(r.height))
+      setSize((s) => {
+        if (Math.abs(s.w - w) <= 1 && Math.abs(s.h - h) <= 1) return s
+        return { w, h }
+      })
+    }
+    const ro = new ResizeObserver(() => requestAnimationFrame(sync))
+    ro.observe(el)
+    sync()
+    return () => ro.disconnect()
+  }, [])
+
+  const w = size.w
+  const h = size.h
+  const margin = { l: 38, r: 8, t: 8, b: 30 }
+  const innerW = Math.max(1, w - margin.l - margin.r)
+  const innerH = Math.max(1, h - margin.t - margin.b)
+  const list = Array.isArray(bars) && bars.length ? bars : MAIN_TOP_PICKS_DEMO
+  const pcts = list.map((b) => b.pct)
+  const rawMin = Math.min(0, ...pcts)
+  const rawMax = Math.max(0, ...pcts)
+  const span0 = rawMax - rawMin || 1
+  const pad = Math.max(span0 * 0.1, 0.5)
+  let yMin = rawMin - pad
+  let yMax = rawMax + pad
+  if (yMax - yMin < 3) {
+    const mid = (yMin + yMax) / 2
+    yMin = mid - 1.5
+    yMax = mid + 1.5
+  }
+  const ySpan = yMax - yMin || 1
+
+  function yAt(v) {
+    return margin.t + (1 - (v - yMin) / ySpan) * innerH
+  }
+
+  const y0 = yAt(0)
+  const yTicks = useMemo(() => pctAxisTicks(yMin, yMax, 4), [yMin, yMax])
+  const n = list.length
+  const slot = innerW / Math.max(1, n)
+  const barW = Math.max(4, slot * 0.46)
+
+  return (
+    <div ref={wrapRef} className="graphWrap" aria-label="Top picks ticker performance">
+      <svg className="graphSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
+        <path
+          className="graphAxis"
+          d={`M ${margin.l} ${margin.t} L ${margin.l} ${h - margin.b} L ${w - margin.r} ${h - margin.b}`}
+        />
+        {yTicks.map((v, i) => {
+          const y = yAt(v)
+          return (
+            <g key={`yt-${i}`}>
+              <text className="graphTick graphTick--y" x={margin.l - 6} y={y + 4}>
+                {formatPctAxis(v)}
+              </text>
+              <path className="graphTickLine" d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
+            </g>
+          )
+        })}
+        {yMin < 0 && yMax > 0 ? (
+          <path
+            className="barChartZeroLine"
+            d={`M ${margin.l} ${y0} L ${w - margin.r} ${y0}`}
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : null}
+        {list.map((b, i) => {
+          const cx = margin.l + (i + 0.5) * slot
+          const x = cx - barW / 2
+          const yPct = yAt(b.pct)
+          const top = Math.min(y0, yPct)
+          const barH = Math.max(1, Math.abs(yPct - y0))
+          const neg = b.pct < 0
+          return (
+            <g key={b.ticker}>
+              <rect
+                className={neg ? 'barChartBar barChartBar--neg' : 'barChartBar'}
+                x={x}
+                y={top}
+                width={barW}
+                height={barH}
+                rx="1"
+                vectorEffect="non-scaling-stroke"
+              />
+              <text className="graphTick graphTick--x barChartTicker" x={cx} y={h - margin.b + 14}>
+                {b.ticker}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+})
+
 function GraphPanel({ title, series, dates, markers = [], selectedMarker = null }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 900, h: 220 })
@@ -3953,15 +4291,6 @@ function App() {
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
 
-  const mainHubCanvasRef = useRef(null)
-  const mainHubHubRef = useRef(null)
-  const mainHubNodeInsiderRef = useRef(null)
-  const mainHubNodePharmaRef = useRef(null)
-  const mainHubNodePoliticiansRef = useRef(null)
-  const mainHubNodeExploreRef = useRef(null)
-  const [mainHubGeom, setMainHubGeom] = useState(null)
-  const [mainHubLayoutTick, setMainHubLayoutTick] = useState(0)
-
   useEffect(() => {
     let alive = true
     async function ping() {
@@ -4844,60 +5173,6 @@ function App() {
     programRailMilestone,
   ])
 
-  useLayoutEffect(() => {
-    if (activeTab !== 'main') {
-      setMainHubGeom(null)
-      return
-    }
-    const canvas = mainHubCanvasRef.current
-    const hubEl = mainHubHubRef.current
-    const nodeRefs = [
-      mainHubNodeInsiderRef,
-      mainHubNodePharmaRef,
-      mainHubNodePoliticiansRef,
-      mainHubNodeExploreRef,
-    ]
-
-    function measure() {
-      if (!canvas || !hubEl) return
-      const cr = canvas.getBoundingClientRect()
-      const w = Math.max(1, cr.width)
-      const h = Math.max(1, cr.height)
-      const hr = hubEl.getBoundingClientRect()
-      const hx = hr.left - cr.left + hr.width / 2
-      const hy = hr.top - cr.top + hr.height / 2
-      const paths = []
-      nodeRefs.forEach((ref, i) => {
-        const el = ref.current
-        if (!el) {
-          paths.push('')
-          return
-        }
-        const pr = el.getBoundingClientRect()
-        const px = pr.left - cr.left
-        const py = pr.top - cr.top
-        const { hox, hoy } = mainHubStartPoint(hx, hy, i, w, h)
-        const a = mainHubPanelAnchorJittered(px, py, pr.width, pr.height, hx, hy, i)
-        paths.push(mainHubRoutedPath(hox, hoy, hx, hy, a.x, a.y, i, w, h, px, py, pr.width, pr.height))
-      })
-      setMainHubGeom({ w, h, hx, hy, paths })
-    }
-
-    const ro = new ResizeObserver(() => requestAnimationFrame(measure))
-    if (canvas) ro.observe(canvas)
-    if (hubEl) ro.observe(hubEl)
-    nodeRefs.forEach((r) => {
-      if (r.current) ro.observe(r.current)
-    })
-    window.addEventListener('resize', measure)
-    requestAnimationFrame(() => requestAnimationFrame(measure))
-
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', measure)
-    }
-  }, [activeTab, mainHubLayoutTick])
-
   return (
     <>
       <nav className="sideTabsRail" aria-label="Views">
@@ -5052,135 +5327,47 @@ function App() {
       ) : null}
 
       {activeTab === 'main' ? (
-        <section className="panel mainDash" aria-label="Mercerline hub">
-          <div ref={mainHubCanvasRef} className="mainHubCanvas">
-            <svg
-              className="mainHubChains"
-              width="100%"
-              height="100%"
-              viewBox={mainHubGeom ? `0 0 ${mainHubGeom.w} ${mainHubGeom.h}` : '0 0 1 1'}
-              preserveAspectRatio="none"
-              aria-hidden="true"
-            >
-              {mainHubGeom?.paths?.map(
-                (d, i) =>
-                  d ? (
-                    <path key={i} className="mainHubChainPath" d={d} />
-                  ) : null,
-              )}
-              {mainHubGeom ? (
-                <circle className="mainHubChainDot" cx={mainHubGeom.hx} cy={mainHubGeom.hy} r="2.5" />
-              ) : null}
-            </svg>
-
-            <div ref={mainHubHubRef} className="mainHubCenter">
-              <img
-                className="mainDashLogo"
-                src="/mercerline_logo_transparent.png"
-                alt="Mercerline"
-                decoding="async"
-                onLoad={() => setMainHubLayoutTick((n) => n + 1)}
-              />
+        <>
+          <section className="panel mainTopPanel" aria-label="Main workspace">
+            <div className="mainTopPanelBody">
+              <MainOpportunityBoard />
             </div>
-
-            <button
-              type="button"
-              ref={mainHubNodeInsiderRef}
-              className="mainHubNode mainHubNode--insider"
-              aria-label="Open Insiders"
-              onClick={() => setActiveTab('insider')}
-            >
-              <span className="mainHubPreview">
-                <header className="mainHubPreviewHd">
-                  <span className="mainHubPreviewTit">INSIDERS</span>
-                </header>
-                <div className="mainHubPreviewRows">
-                  <span className="mainHubPreviewRow" />
-                  <span className="mainHubPreviewRow mainHubPreviewRow--dim" />
-                  <span className="mainHubPreviewRow mainHubPreviewRow--short" />
+          </section>
+          <section className="panel mainTopPicksPanel graph" aria-label="Top picks">
+            <header className="feedCompactHeader">
+              <div className="panelTitle feedCompactTitle">TOP PICKS</div>
+            </header>
+            <MainTopPicksBarChart />
+          </section>
+          <section className="panel mainLogoPanel" aria-label="Mercerline">
+            <header className="feedCompactHeader">
+              <div className="panelTitle feedCompactTitle">MERCERLINE</div>
+            </header>
+            <div className="mainLogoPanelInner">
+              <div className="mainLogoPanelBrand">
+                <img
+                  className="mainLogoPanelImg"
+                  src="/mercerline_logo_transparent.png"
+                  alt="Mercerline"
+                  decoding="async"
+                />
+              </div>
+              <div className="mainLogoPanelStats" aria-label="Backend status">
+                <div className="mainDashChips mainDashChips--inLogo">
+                  <span className={`topStatChip ${backendUp ? 'isUp' : 'isDown'}`}>{backendUp ? 'UP' : 'DOWN'}</span>
+                  <span className="topStatChip mono">
+                    {backendUp ? `${(Math.max(0, Date.now() - backendLastOkAt) / 1000).toFixed(0)}s` : '-'}
+                  </span>
+                  <span className="topStatChip mono">Q{backendStats?.queue?.queued ?? 0}</span>
+                  <span className="topStatChip mono">R{backendStats?.queue?.ready_to_parse ?? 0}</span>
+                  <span className="topStatChip mono">P{backendStats?.queue?.parsing ?? 0}</span>
+                  <span className="topStatChip mono">I{backendStats?.parsed?.insider?.count ?? 0}</span>
+                  <span className="topStatChip mono">PH{backendStats?.parsed?.pharma?.count ?? 0}</span>
                 </div>
-              </span>
-            </button>
-
-            <button
-              type="button"
-              ref={mainHubNodePharmaRef}
-              className="mainHubNode mainHubNode--pharma"
-              aria-label="Open Pharma"
-              onClick={() => setActiveTab('pharma')}
-            >
-              <span className="mainHubPreview">
-                <header className="mainHubPreviewHd">
-                  <span className="mainHubPreviewTit">PHARMA</span>
-                </header>
-                <div className="mainHubPreviewPharma">
-                  <div className="mainHubPreviewRail" />
-                  <div className="mainHubPreviewProg">
-                    <span className="mainHubPreviewProgLine" />
-                    <span className="mainHubPreviewProgLine mainHubPreviewProgLine--dim" />
-                  </div>
-                </div>
-              </span>
-            </button>
-
-            <button
-              type="button"
-              ref={mainHubNodePoliticiansRef}
-              className="mainHubNode mainHubNode--politicians"
-              aria-label="Open Politicians"
-              onClick={() => setActiveTab('politicians')}
-            >
-              <span className="mainHubPreview">
-                <header className="mainHubPreviewHd">
-                  <span className="mainHubPreviewTit">POLITICIANS</span>
-                </header>
-                <div className="mainHubPreviewFilters">
-                  <span className="mainHubPreviewChip" />
-                  <span className="mainHubPreviewChip mainHubPreviewChip--dim" />
-                </div>
-                <div className="mainHubPreviewRows mainHubPreviewRows--tight">
-                  <span className="mainHubPreviewRow" />
-                  <span className="mainHubPreviewRow mainHubPreviewRow--dim" />
-                </div>
-              </span>
-            </button>
-
-            <button
-              type="button"
-              ref={mainHubNodeExploreRef}
-              className="mainHubNode mainHubNode--explore"
-              aria-label="Open Explore"
-              onClick={() => setActiveTab('explore')}
-            >
-              <span className="mainHubPreview">
-                <header className="mainHubPreviewHd">
-                  <span className="mainHubPreviewTit">EXPLORE</span>
-                </header>
-                <svg className="mainHubMiniGraph" viewBox="0 0 80 36" aria-hidden="true">
-                  <circle cx="12" cy="22" r="3.2" fill="rgba(90, 220, 255, 0.35)" />
-                  <circle cx="38" cy="10" r="3.5" fill="rgba(80, 255, 190, 0.4)" />
-                  <circle cx="66" cy="18" r="3.2" fill="rgba(90, 220, 255, 0.35)" />
-                  <path
-                    className="mainHubMiniGraphEdge"
-                    d="M 12 22 L 38 22 L 38 10 M 38 10 L 66 10 L 66 18"
-                    fill="none"
-                  />
-                </svg>
-              </span>
-            </button>
-          </div>
-          <div className="mainDashChips">
-            <span className={`topStatChip ${backendUp ? 'isUp' : 'isDown'}`}>{backendUp ? 'UP' : 'DOWN'}</span>
-            <span className="topStatChip mono">
-              {backendUp ? `${(Math.max(0, Date.now() - backendLastOkAt) / 1000).toFixed(0)}s` : '-'}
-            </span>
-            <span className="topStatChip mono">Q{backendStats?.queue?.queued ?? 0}</span>
-            <span className="topStatChip mono">R{backendStats?.queue?.ready_to_parse ?? 0}</span>
-            <span className="topStatChip mono">P{backendStats?.queue?.parsing ?? 0}</span>
-            <span className="topStatChip mono">I{backendStats?.parsed?.insider?.count ?? 0}</span>
-            <span className="topStatChip mono">PH{backendStats?.parsed?.pharma?.count ?? 0}</span>
-          </div>
-        </section>
+              </div>
+            </div>
+          </section>
+        </>
       ) : null}
 
       {activeTab === 'explore' ? (

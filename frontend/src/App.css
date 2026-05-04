@@ -168,277 +168,217 @@
   grid-template-rows: repeat(4, minmax(0, 1fr));
 }
 
-/* Main tab: backend health + queue stats */
+/*
+ * Main tab: same stability pattern as other tabs — only fixed fr / minmax tracks (no `auto`
+ * columns), so nested charts + ResizeObserver cannot fight the grid for width.
+ */
 .terminal.terminal--main {
-  grid-template-columns: 1fr;
-  grid-template-rows: 1fr;
+  grid-template-columns: minmax(0, 1fr) clamp(220px, 40dvh, 560px);
+  grid-template-rows: 7fr 3fr;
 }
 
-.panel.mainDash {
-  grid-column: 1 / -1;
-  grid-row: 1 / -1;
+.terminal--main .mainTopPanel {
+  grid-column: 1 / span 2;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  align-items: stretch;
   min-height: 0;
   padding: 0;
 }
 
-/* ---- Main hub: logo + SVG chains + satellite previews ---- */
-.mainHubCanvas {
-  position: relative;
+/* ---- Main: opportunity board (single edge-to-edge tile field) ---- */
+.terminal--main .mainTopPanelBody {
   flex: 1 1 auto;
-  width: 100%;
-  min-height: min(62vh, 580px);
-  min-width: 0;
-  box-sizing: border-box;
-  padding: clamp(10px, 2.2vmin, 22px);
+  min-height: 0;
+  overflow: hidden;
 }
 
-.mainHubChains {
-  position: absolute;
-  inset: 0;
-  width: 100%;
+.oppGrid.oppGrid--main {
   height: 100%;
-  pointer-events: none;
-  z-index: 0;
-  overflow: visible;
+  width: 100%;
+  min-height: 0;
+  position: relative;
+  display: block;
+  /* Use half-strength grid lines so shared edges don't look double-thick */
+  --heat-grid: rgba(140, 255, 195, 0.07);
+  /* Strong outer frame (so sector edges can stay 1px without losing the perimeter) */
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.92);
+  padding: 0;
+  box-sizing: border-box;
 }
 
-/* Match `.boshaCausalEdge`: pale grid lines, orthogonal joints */
-.mainHubChainPath {
-  fill: none;
-  stroke: rgba(216, 255, 235, 0.48);
-  stroke-width: 1.25px;
-  opacity: 0.94;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.mainHubChainDot {
-  fill: rgba(216, 255, 235, 0.62);
-  vector-effect: non-scaling-stroke;
-}
-
-.mainHubMiniGraphEdge {
-  stroke: rgba(216, 255, 235, 0.38);
-  stroke-width: 1.15px;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
-
-.mainHubCenter {
+.oppSectorBox {
   position: absolute;
-  left: 50%;
-  top: 44%;
-  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+  /* Dark sector boundary for clear grouping */
+  border: 1px solid rgba(0, 0, 0, 0.92);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.oppSectorHeader {
+  height: 0;
+}
+
+.oppSectorBox .oppSectorHeader {
+  height: auto;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px 5px;
+  border-bottom: none;
+  background: rgba(6, 7, 10, 0.55);
+  backdrop-filter: blur(4px);
+  /* Keep header separators light so adjacent headers don't “merge” */
+  box-shadow: inset 0 0 0 1px var(--heat-grid);
+}
+
+.oppTile {
+  position: absolute;
+  inset: auto;
+  min-width: 0;
+  min-height: 0;
+  /* Match panel border style (same token + 1px solid) */
+  border: 1px solid var(--heat-grid);
+  box-shadow: none;
   z-index: 2;
+  padding: 7px 8px 7px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.oppTile--pos {
+  background: rgba(80, 255, 190, 0.22);
+}
+
+.oppTile--neg {
+  background: rgba(255, 88, 108, 0.22);
+}
+
+.oppTileTop {
+  min-width: 0;
+}
+
+.oppTicker {
+  position: absolute;
+  left: 8px;
+  top: 7px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(216, 255, 235, 0.88);
+}
+
+.oppScore {
+  position: absolute;
+  right: 8px;
+  bottom: 7px;
+  color: rgba(216, 255, 235, 0.72);
+}
+
+.terminal--main .mainTopPicksPanel {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+}
+
+.terminal--main .mainTopPicksPanel .graphWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  --graph-gutter: 6px;
+}
+
+.terminal--main .mainLogoPanel {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.terminal--main .mainLogoPanelInner {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.terminal--main .mainLogoPanelBrand {
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
-  max-width: min(92%, 96vw);
+  min-height: 0;
+  box-sizing: border-box;
 }
 
-.mainHubCenter .mainDashLogo {
-  width: auto;
-  height: auto;
-  max-width: min(92vmin, 100%);
-  max-height: min(68vmin, calc(100vh - 160px));
+.terminal--main .mainLogoPanelImg {
+  width: 100%;
+  height: 100%;
+  max-width: 106%;
+  max-height: 106%;
   object-fit: contain;
-  pointer-events: none;
   user-select: none;
+  pointer-events: none;
   filter: drop-shadow(0 0 28px rgba(80, 255, 190, 0.08));
 }
 
-.mainHubNode {
-  position: absolute;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  width: clamp(196px, 28vw, 300px);
-  transition:
-    transform 0.18s ease,
-    filter 0.18s ease;
-}
-
-.mainHubNode:hover {
-  transform: scale(1.03);
-  filter: brightness(1.06);
-}
-
-.mainHubNode:focus-visible {
-  outline: 1px solid rgba(90, 220, 255, 0.55);
-  outline-offset: 3px;
-}
-
-/* Closer to hub than screen corners; still intentionally uneven */
-.mainHubNode--insider {
-  left: clamp(28px, 11vw, 22%);
-  top: clamp(44px, 11vh, 18%);
-}
-
-.mainHubNode--pharma {
-  right: clamp(22px, 9vw, 18%);
-  top: clamp(18px, 5vh, 11%);
-  left: auto;
-}
-
-.mainHubNode--politicians {
-  left: clamp(36px, 13vw, 26%);
-  bottom: clamp(28px, 11vh, 14%);
-  top: auto;
-}
-
-.mainHubNode--explore {
-  right: clamp(18px, 8vw, 15%);
-  bottom: clamp(36px, 12vh, 15%);
-  top: auto;
-  left: auto;
-}
-
-.mainHubPreview {
-  display: block;
-  background: rgba(7, 10, 15, 0.92);
-  border: 1px solid var(--grid);
-  box-sizing: border-box;
-  padding: 10px 11px 12px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-}
-
-.mainHubPreviewHd {
-  display: flex;
-  align-items: baseline;
-  justify-content: flex-start;
-  gap: 0;
-  padding-bottom: 7px;
-  margin-bottom: 7px;
-  border-bottom: 1px solid var(--grid);
-}
-
-.mainHubPreviewTit {
-  font-size: clamp(9px, 1.85vmin, 13px);
-  letter-spacing: 0.08em;
-  color: var(--hi);
-  text-transform: uppercase;
-}
-
-.mainHubPreviewRows {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.mainHubPreviewRows--tight {
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.mainHubPreviewRow {
-  display: block;
-  height: 6px;
-  border-radius: 1px;
-  background: linear-gradient(90deg, rgba(80, 255, 190, 0.35), rgba(90, 220, 255, 0.15));
-  opacity: 0.9;
-}
-
-.mainHubPreviewRow--dim {
-  opacity: 0.45;
-  width: 78%;
-}
-
-.mainHubPreviewRow--short {
-  width: 56%;
-  opacity: 0.55;
-}
-
-.mainHubPreviewPharma {
-  display: grid;
-  grid-template-columns: 0.38fr 1fr;
-  gap: 8px;
-  min-height: 66px;
-  align-items: stretch;
-}
-
-.mainHubPreviewRail {
-  background: rgba(255, 255, 255, 0.04);
-  border-right: 1px solid rgba(140, 255, 195, 0.12);
-}
-
-.mainHubPreviewProg {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  justify-content: center;
-}
-
-.mainHubPreviewProgLine {
-  height: 4px;
-  border-radius: 1px;
-  background: rgba(90, 220, 255, 0.28);
-}
-
-.mainHubPreviewProgLine--dim {
-  width: 72%;
-  opacity: 0.5;
-}
-
-.mainHubPreviewFilters {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.mainHubPreviewChip {
-  display: inline-block;
-  height: 12px;
-  width: 34%;
-  min-width: 32px;
-  border-radius: 2px;
-  background: rgba(80, 255, 190, 0.18);
-  border: 1px solid rgba(140, 255, 195, 0.15);
-}
-
-.mainHubPreviewChip--dim {
-  width: 42%;
-  opacity: 0.55;
-}
-
-.mainHubMiniGraph {
-  width: 100%;
-  height: auto;
-  display: block;
-  margin-top: 5px;
-}
-
-.mainDashChips {
+.terminal--main .mainLogoPanelStats {
   flex: 0 0 auto;
+}
+
+.terminal--main .mainDashChips {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   gap: 10px 14px;
-  padding: 0 12px 14px;
+  padding: 8px 12px 12px;
   box-sizing: border-box;
   font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.terminal--main .mainDashChips--inLogo {
+  gap: 6px 10px;
+  padding: 6px 8px 8px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.barChartBar {
+  fill: rgba(90, 220, 255, 0.78);
+  stroke: rgba(140, 255, 195, 0.22);
+  stroke-width: 0.75px;
+}
+
+.barChartBar--neg {
+  fill: rgba(255, 130, 150, 0.55);
+  stroke: rgba(255, 180, 190, 0.28);
+  stroke-width: 0.75px;
+}
+
+.barChartZeroLine {
+  stroke: rgba(216, 255, 235, 0.45);
+  stroke-width: 1px;
+  fill: none;
+}
+
+.barChartTicker {
+  font-size: clamp(8px, 2.1cqmin, 11px);
+  letter-spacing: 0.04em;
 }
 
 .terminal--explore .boshaTicker {
