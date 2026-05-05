@@ -4197,7 +4197,7 @@ function CaseKvFeed({
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState('main') // main | insider | pharma | politicians | explore
+  const [activeTab, setActiveTab] = useState('main') // main | insider | pharma | politicians | explore | settings
   /** Which feed column receives arrow up/down: insider | pharma | programs (rail). */
   const [feedPaneFocus, setFeedPaneFocus] = useState('insider')
   const [insiderIdx, setInsiderIdx] = useState(0)
@@ -5216,8 +5216,65 @@ function App() {
         >
           <span className="sideTabLabel">EXPLORE</span>
         </button>
+        <button
+          type="button"
+          className={activeTab === 'settings' ? 'sideTab sideTab--settings isActive' : 'sideTab sideTab--settings'}
+          aria-current={activeTab === 'settings' ? 'page' : undefined}
+          aria-label="Settings"
+          onClick={() => setActiveTab('settings')}
+        >
+          <span className="sideTabIcon" aria-hidden="true">
+            ⚙
+          </span>
+        </button>
       </nav>
       <main className={`terminal terminal--${activeTab}`} aria-label="KENSIGLINE terminal grid">
+      {activeTab === 'settings' ? (
+        <section className="panel settingsTile settingsTile--single" aria-label="Settings">
+          <header className="feedCompactHeader">
+            <div className="panelTitle feedCompactTitle">SETTINGS</div>
+          </header>
+          <div className="settingsTileBody">
+            <div className="settingsKv">
+              <div className="settingsKvRow">
+                <div className="settingsKvK">Email</div>
+                <div className="settingsKvV mono">you@company.com</div>
+              </div>
+              <div className="settingsKvRow">
+                <div className="settingsKvK">Auth</div>
+                <div className="settingsKvV">Magic link</div>
+              </div>
+              <div className="settingsKvRow">
+                <div className="settingsKvK">Plan</div>
+                <div className="settingsKvV mono">PRO</div>
+              </div>
+              <div className="settingsKvRow">
+                <div className="settingsKvK">Renewal</div>
+                <div className="settingsKvV mono">2026-06-01</div>
+              </div>
+              <div className="settingsKvRow">
+                <div className="settingsKvK">Payment</div>
+                <div className="settingsKvV mono">VISA •••• 1842</div>
+              </div>
+              <div className="settingsKvRow">
+                <div className="settingsKvK">Invoices</div>
+                <div className="settingsKvV">Available</div>
+              </div>
+            </div>
+            <div className="settingsActions">
+              <button type="button" className="settingsBtn settingsBtn--primary">
+                Manage billing
+              </button>
+              <button type="button" className="settingsBtn">
+                Download invoices
+              </button>
+              <button type="button" className="settingsBtn">
+                Sign out
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
       {activeTab === 'insider' ? (
         <>
           <CompactFeed

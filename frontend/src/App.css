@@ -64,6 +64,23 @@
   border-bottom: none;
 }
 
+.sideTab--settings {
+  flex: 0 0 auto;
+  height: clamp(28px, 6.5vmin, 44px);
+  padding: 0;
+}
+
+.sideTabIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: clamp(12px, calc(var(--tabrail-w) * 0.62), 18px);
+  line-height: 1;
+  color: currentColor;
+}
+
 .sideTabLabel {
   display: inline-block;
   white-space: nowrap;
@@ -176,6 +193,120 @@
   grid-template-columns: minmax(0, 1fr) clamp(220px, 40dvh, 560px);
   grid-template-rows: 7fr 3fr;
 }
+
+/* Settings tab: single full-panel tile */
+.terminal.terminal--settings {
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.terminal--settings .settingsTile {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  padding: 0;
+}
+
+.terminal--settings .settingsTile--single {
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+}
+
+.terminal--settings .settingsTileBody {
+  min-height: 0;
+  overflow: auto;
+  /* Match other panel bodies (tight, grid-like) */
+  padding: 6px 10px 8px;
+  box-sizing: border-box;
+}
+
+.settingsKv {
+  padding: 0 0 8px;
+  box-sizing: border-box;
+  display: grid;
+  gap: 4px;
+}
+
+.settingsKvRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.33fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(140, 255, 195, 0.08);
+}
+
+.settingsKvRow:last-child {
+  border-bottom: none;
+}
+
+.settingsKvK {
+  letter-spacing: 0.06em;
+  color: rgba(216, 255, 235, 0.62);
+  text-transform: uppercase;
+  font-size: var(--fs-meta);
+}
+
+.settingsKvV {
+  color: rgba(216, 255, 235, 0.86);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settingsActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 0 0;
+  box-sizing: border-box;
+}
+
+.settingsBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid rgba(80, 255, 190, 0.32);
+  background: transparent;
+  color: var(--hi);
+  font-size: var(--fs-meta);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+}
+
+.settingsBtn:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--cyan);
+  border-color: rgba(90, 220, 255, 0.42);
+}
+
+.settingsBtn:focus-visible {
+  outline: 1px solid rgba(90, 220, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.settingsBtn--primary {
+  border-color: rgba(80, 255, 190, 0.32);
+  color: var(--hi);
+}
+
+.settingsBtn--warn {
+  border-color: rgba(80, 255, 190, 0.32);
+  color: var(--hi);
+}
+
+.settingsBtn--danger {
+  border-color: rgba(80, 255, 190, 0.32);
+  color: var(--hi);
+}
+
 
 .terminal--main .mainTopPanel {
   grid-column: 1 / span 2;
