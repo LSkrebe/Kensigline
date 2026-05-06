@@ -1149,10 +1149,10 @@ function PoliticiansFilterPanel({ activeName, items, onSelect, focused, onFocus 
   )
 }
 
-function BoshaTickerPanel({ selectedTicker, onSelectTicker, focused, onFocus, q, onQuery, filtered }) {
+function BoshaTickerPanel({ selectedTicker, onSelectTicker, focused, onFocus, q, onQuery, filtered, panelClassName = '' }) {
   return (
     <section
-      className={['panel', 'feed', 'feedCompact', 'feed--left', 'boshaTicker', focused ? 'isFocused' : '']
+      className={['panel', 'feed', 'feedCompact', 'feed--left', 'boshaTicker', panelClassName, focused ? 'isFocused' : '']
         .filter(Boolean)
         .join(' ')}
       aria-label="Ticker selector"
@@ -2056,6 +2056,7 @@ function BoshaPaperPanel({
   livePresentation,
   liveCompanyName,
   backendUp,
+  panelClassName = '',
 }) {
   const priceHeadline = useMemo(() => {
     const vals = Array.isArray(priceSeries) ? priceSeries : []
@@ -2085,7 +2086,7 @@ function BoshaPaperPanel({
   )
 
   return (
-    <section className="panel boshaPaper" aria-label={titleText}>
+    <section className={['panel', 'boshaPaper', panelClassName].filter(Boolean).join(' ')} aria-label={titleText}>
       <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">{titleText}</div>
         <div className="feedCompactMeta" aria-hidden="true" />
@@ -2858,7 +2859,7 @@ const MainTopPicksBarChart = memo(function MainTopPicksBarChart({ bars = MAIN_TO
   )
 })
 
-function GraphPanel({ title, series, dates, markers = [], selectedMarker = null }) {
+function GraphPanel({ title, series, dates, markers = [], selectedMarker = null, panelClassName = '' }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 900, h: 220 })
 
@@ -2969,7 +2970,7 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null 
   }, [selectedMarker, ds, w, h])
 
   return (
-    <section className="panel graph" aria-label="Daily graph">
+    <section className={['panel', 'graph', panelClassName].filter(Boolean).join(' ')} aria-label="Daily graph">
       <header className="panelHeader">
         <div className="panelTitle">{title}</div>
         <div className="panelMeta">
@@ -4194,7 +4195,7 @@ function CaseKvFeed({
 }
 
 function App() {
-  const [activeTab, setActiveTab] = useState('main') // main | insider | pharma | politicians | explore | settings
+  const [activeTab, setActiveTab] = useState('main') // main | insider | pharma | politicians | settings
   /** Which feed column receives arrow up/down: insider | pharma | programs (rail). */
   const [feedPaneFocus, setFeedPaneFocus] = useState('insider')
   const [insiderIdx, setInsiderIdx] = useState(0)
@@ -4217,6 +4218,7 @@ function App() {
   const [boshaTicker, setBoshaTicker] = useState(BOSHA_TICKER)
   const [boshaQuery, setBoshaQuery] = useState('')
   const boshaDataset = useMemo(() => boshaDatasetForTicker(boshaTicker), [boshaTicker])
+  const [mainBoshaIdx, setMainBoshaIdx] = useState(0)
 
   const boshaFeedItems = useMemo(() => {
     if (Array.isArray(boshaFeedLive) && boshaFeedLive.length) {
@@ -4260,6 +4262,27 @@ function App() {
     })
   }, [boshaFeedItems, boshaQuery])
 
+  const mainBoshaPickRows = useMemo(() => {
+    const now = new Date().toISOString()
+    return (boshaFeedItems ?? []).map((it) => ({
+      id: it.rowKey ?? `pick-${it.ticker}`,
+      at: now,
+      label: String(it.name ?? it.ticker ?? '').trim() || '—',
+      ticker: String(it.ticker ?? '').toUpperCase(),
+    }))
+  }, [boshaFeedItems])
+
+  const mainInsidersSeries = useMemo(() => buildMockDailySeries(71, 160), [])
+  const mainPoliticiansSeries = useMemo(() => buildMockDailySeries(133, 160), [])
+  const mainResearchSeries = useMemo(() => {
+    const s = Array.isArray(boshaPriceSeries) ? boshaPriceSeries : []
+    if (s.length >= 80) return s.slice(-160)
+    return buildMockDailySeries(401, 160)
+  }, [boshaPriceSeries])
+  const mainInsidersDates = useMemo(() => buildEvenlySpacedDates(mainInsidersSeries.length), [mainInsidersSeries.length])
+  const mainPoliticiansDates = useMemo(() => buildEvenlySpacedDates(mainPoliticiansSeries.length), [mainPoliticiansSeries.length])
+  const mainResearchDates = useMemo(() => buildEvenlySpacedDates(mainResearchSeries.length), [mainResearchSeries.length])
+
   // Keep key navigation stable (avoid stale closures).
   const boshaFilteredRef = useRef(boshaFilteredFeed)
   const boshaTickerRef = useRef(boshaTicker)
@@ -4272,7 +4295,7 @@ function App() {
 
   useEffect(() => {
     // If the current selection falls out of the filter, snap to the first match.
-    if (activeTab !== 'explore') return
+    if (activeTab !== 'main') return
     if (!boshaFilteredFeed.length) return
     const ok = boshaFilteredFeed.some((x) => x.ticker === boshaTicker)
     if (!ok) setBoshaTicker(boshaFilteredFeed[0].ticker)
@@ -4353,7 +4376,7 @@ function App() {
   }, [backendUp])
 
   useEffect(() => {
-    if (!backendUp || activeTab !== 'explore') return
+    if (!backendUp || activeTab !== 'main') return
     let cancelled = false
     ;(async () => {
       const r = await fetchJsonSafe('/api/bosha/feed?limit=80', { timeoutMs: 8000 })
@@ -4366,7 +4389,7 @@ function App() {
   }, [backendUp, activeTab])
 
   useEffect(() => {
-    if (!backendUp || activeTab !== 'explore') return
+    if (!backendUp || activeTab !== 'main') return
     const tick = String(boshaTicker ?? '')
       .trim()
       .toUpperCase()
@@ -4878,10 +4901,7 @@ function App() {
       setFeedPaneFocus('insider')
       return
     }
-    if (activeTab === 'explore') {
-      setFeedPaneFocus('explore')
-      return
-    }
+    // explore tab removed
   }, [activeTab])
 
   // Ensure there is always a valid focused/glowing panel per tab.
@@ -4898,9 +4918,7 @@ function App() {
       if (feedPaneFocus !== 'insider' && feedPaneFocus !== 'case' && feedPaneFocus !== 'filter') setFeedPaneFocus('insider')
       return
     }
-    if (activeTab === 'explore') {
-      if (feedPaneFocus !== 'explore') setFeedPaneFocus('explore')
-    }
+    // explore tab removed
   }, [activeTab, feedPaneFocus])
 
   const hasSafety =
@@ -5072,9 +5090,7 @@ function App() {
               ? 'pharma'
               : t === 'pharma'
                 ? 'politicians'
-                : t === 'politicians'
-                  ? 'explore'
-                  : 'main',
+                : 'main',
         )
         return
       }
@@ -5097,9 +5113,7 @@ function App() {
           if (feedPaneFocus === 'case') setFeedPaneFocus('insider')
           return
         }
-        if (activeTab === 'explore') {
-          return
-        }
+        // explore tab removed
         return
       }
       if (right) {
@@ -5115,16 +5129,14 @@ function App() {
           if (feedPaneFocus === 'insider') setFeedPaneFocus('case')
           return
         }
-        if (activeTab === 'explore') {
-          return
-        }
+        // explore tab removed
         return
       }
       if (feedPaneFocus === 'insider' && activeTab === 'insider') {
         setInsiderIdx((i) => clamp(i + (down ? 1 : -1), 0, insiderFeedRows.length - 1))
       } else if (feedPaneFocus === 'insider' && activeTab === 'politicians') {
         setPoliticiansIdx((i) => clamp(i + (down ? 1 : -1), 0, politiciansFeedRows.length - 1))
-      } else if (feedPaneFocus === 'explore' && activeTab === 'explore') {
+      } else if (feedPaneFocus === 'explore' && activeTab === 'main') {
         const list = boshaFilteredRef.current ?? []
         if (!list.length) return
         const cur = list.findIndex((x) => x.ticker === boshaTickerRef.current)
@@ -5204,14 +5216,6 @@ function App() {
           onClick={() => setActiveTab('politicians')}
         >
           <span className="sideTabLabel">POLITICIANS</span>
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'explore' ? 'sideTab isActive' : 'sideTab'}
-          aria-current={activeTab === 'explore' ? 'page' : undefined}
-          onClick={() => setActiveTab('explore')}
-        >
-          <span className="sideTabLabel">EXPLORE</span>
         </button>
         <button
           type="button"
@@ -5382,17 +5386,54 @@ function App() {
 
       {activeTab === 'main' ? (
         <>
-          <section className="panel mainTopPanel" aria-label="Main workspace">
-            <div className="mainTopPanelBody">
-              <MainOpportunityBoard />
-            </div>
-          </section>
-          <section className="panel mainTopPicksPanel graph" aria-label="Top picks">
-            <header className="feedCompactHeader">
-              <div className="panelTitle feedCompactTitle">TOP PICKS</div>
-            </header>
-            <MainTopPicksBarChart />
-          </section>
+          <BoshaTickerPanel
+            selectedTicker={boshaTicker}
+            onSelectTicker={setBoshaTicker}
+            focused={feedPaneFocus === 'explore'}
+            onFocus={() => setFeedPaneFocus('explore')}
+            q={boshaQuery}
+            onQuery={setBoshaQuery}
+            filtered={boshaFilteredFeed}
+            panelClassName="mainBoshaPicks"
+          />
+
+          <BoshaPaperPanel
+            ticker={boshaTicker}
+            companyName={boshaCompanyName}
+            entities={boshaDataset.entities}
+            events={boshaDataset.events}
+            edges={boshaDataset.edges}
+            priceSeries={boshaPriceSeries}
+            backendUp={backendUp}
+            livePresentation={boshaExploreLive?.presentation}
+            liveCompanyName={boshaExploreLive?.company_name}
+            panelClassName="mainMainBlank"
+          />
+
+          <GraphPanel
+            title="INSIDERS TREND"
+            series={mainInsidersSeries}
+            dates={mainInsidersDates}
+            markers={[]}
+            panelClassName="mainGraph mainGraph--insiders"
+          />
+
+          <GraphPanel
+            title="POLITICIANS TREND"
+            series={mainPoliticiansSeries}
+            dates={mainPoliticiansDates}
+            markers={[]}
+            panelClassName="mainGraph mainGraph--politicians"
+          />
+
+          <GraphPanel
+            title="RESEARCH TREND"
+            series={mainResearchSeries}
+            dates={mainResearchDates}
+            markers={[]}
+            panelClassName="mainGraph mainGraph--research"
+          />
+
           <section className="panel mainLogoPanel" aria-label="Mercerline">
             <header className="feedCompactHeader">
               <div className="panelTitle feedCompactTitle">MERCERLINE</div>
@@ -5424,30 +5465,7 @@ function App() {
         </>
       ) : null}
 
-      {activeTab === 'explore' ? (
-        <>
-          <BoshaTickerPanel
-            selectedTicker={boshaTicker}
-            onSelectTicker={setBoshaTicker}
-            focused={feedPaneFocus === 'explore'}
-            onFocus={() => setFeedPaneFocus('explore')}
-            q={boshaQuery}
-            onQuery={setBoshaQuery}
-            filtered={boshaFilteredFeed}
-          />
-          <BoshaPaperPanel
-            ticker={boshaTicker}
-            companyName={boshaCompanyName}
-            entities={boshaDataset.entities}
-            events={boshaDataset.events}
-            edges={boshaDataset.edges}
-            priceSeries={boshaPriceSeries}
-            backendUp={backendUp}
-            livePresentation={boshaExploreLive?.presentation}
-            liveCompanyName={boshaExploreLive?.company_name}
-          />
-        </>
-      ) : null}
+      {/* Explore tab removed; BOSHA panels live inside MAIN now. */}
 
       {activeTab === 'pharma' ? (
         <section className="panel worksheet" aria-label="Trial worksheet">
@@ -5462,7 +5480,7 @@ function App() {
         </section>
       ) : null}
 
-      {activeTab !== 'explore' && activeTab !== 'main' ? (
+      {activeTab !== 'main' ? (
         <>
           <HistoricalOutcomesPanel mode={activeTab === 'politicians' ? 'insider' : activeTab} backendUp={backendUp} />
           <ContextPanel
