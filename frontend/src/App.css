@@ -357,12 +357,18 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 8px 5px;
-  border-bottom: none;
+  padding: 3px 6px 3px;
+  /* Give the header the same separation from tiles as from the top edge */
+  border-bottom: 1px solid var(--heat-grid);
   background: rgba(6, 7, 10, 0.55);
   backdrop-filter: blur(4px);
-  /* Keep header separators light so adjacent headers don't “merge” */
-  box-shadow: inset 0 0 0 1px var(--heat-grid);
+}
+
+/* Sector titles should be subtle (match other dim labels) */
+.oppSectorBox .oppSectorHeader .panelTitle {
+  color: var(--dim);
+  font-size: var(--fs-meta);
+  letter-spacing: 0.12em;
 }
 
 .oppTile {

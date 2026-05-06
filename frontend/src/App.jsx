@@ -2541,20 +2541,23 @@ function treemapBinary(items, x, y, w, h) {
   }
 
   function split(list) {
-    // Greedy balance split (list is expected sorted by area desc).
+    // Deterministic split: keep larger items earlier so the first region (top/left) stays “heavier”.
+    const total = sumArea(list) || 1
+    const target = total / 2
     const a = []
     const b = []
     let sa = 0
-    let sb = 0
     for (const it of list) {
-      if (sa <= sb) {
+      if (a.length === 0 || sa + it.area <= target) {
         a.push(it)
         sa += it.area
       } else {
         b.push(it)
-        sb += it.area
       }
     }
+    // Ensure both sides are non-empty.
+    if (!b.length && a.length > 1) b.push(a.pop())
+    if (!a.length && b.length > 1) a.push(b.shift())
     return [a, b]
   }
 
@@ -2619,7 +2622,8 @@ const MainOpportunityBoard = memo(function MainOpportunityBoard({ items = MAIN_O
   const layout = useMemo(() => {
     const W = Math.max(1, size.w)
     const H = Math.max(1, size.h)
-    const headerH = Math.max(18, Math.min(28, Math.round(H * 0.06)))
+    // Keep sector title strips slim; CSS padding is tight so reserve less vertical space.
+    const headerH = Math.max(14, Math.min(18, Math.round(H * 0.035)))
 
     const sectorRaw = bySector
       .map(({ sector, list }) => {
@@ -2633,11 +2637,10 @@ const MainOpportunityBoard = memo(function MainOpportunityBoard({ items = MAIN_O
       })
       .filter((x) => x.list.length)
 
-    // Order affects binary splits; keep it stable but not “all biggest in one corner”.
+    // Order affects binary splits; put biggest sectors toward top-left.
     sectorRaw.sort(
       (a, b) =>
         b.weight - a.weight ||
-        stringHash01(a.sector, 501) - stringHash01(b.sector, 501) ||
         a.sector.localeCompare(b.sector),
     )
 
@@ -2663,10 +2666,8 @@ const MainOpportunityBoard = memo(function MainOpportunityBoard({ items = MAIN_O
         })
         .filter((x) => x.ticker && Number.isFinite(x.weight))
 
-      raw.sort(
-        (a, b) =>
-          b.weight - a.weight || stringHash01(a.ticker, 207) - stringHash01(b.ticker, 207) || a.ticker.localeCompare(b.ticker),
-      )
+      // Put biggest tickers toward top-left within the sector.
+      raw.sort((a, b) => b.weight - a.weight || a.ticker.localeCompare(b.ticker))
 
       const sum = raw.reduce((a, b) => a + b.weight, 0) || 1
       const itemsWithArea = raw.map((it) => ({ ...it, area: (it.weight / sum) * inner.w * inner.h }))
@@ -2728,10 +2729,6 @@ const MainOpportunityBoard = memo(function MainOpportunityBoard({ items = MAIN_O
           >
             <div className="oppTileTop">
               <div className="oppTicker mono">{it.ticker}</div>
-              <div className="oppScore mono">
-                {it.pct >= 0 ? '+' : ''}
-                {it.pct.toFixed(1)}%
-              </div>
             </div>
           </div>
         )
