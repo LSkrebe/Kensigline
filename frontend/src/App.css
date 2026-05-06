@@ -205,17 +205,17 @@
 }
 
 .terminal--main .mainGraph--insiders {
-  grid-column: 1 / span 1;
-  grid-row: 4 / span 1;
-}
-
-.terminal--main .mainGraph--politicians {
   grid-column: 2 / span 1;
   grid-row: 4 / span 1;
 }
 
-.terminal--main .mainGraph--research {
+.terminal--main .mainGraph--politicians {
   grid-column: 3 / span 1;
+  grid-row: 4 / span 1;
+}
+
+.terminal--main .mainGraph--research {
+  grid-column: 4 / span 1;
   grid-row: 4 / span 1;
 }
 
@@ -486,7 +486,7 @@
 }
 
 .terminal--main .mainLogoPanel {
-  grid-column: 4;
+  grid-column: 1;
   grid-row: 4;
   display: flex;
   flex-direction: column;
