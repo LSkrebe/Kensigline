@@ -7,7 +7,7 @@ import { enqueueLatestForm4ForTicker } from "./core/sec.js";
 import { startInsiderWorker } from "./insiders/insider-worker.js";
 import { getDailyCloseBars } from "./core/bars.js";
 import { getCompanyPanelData } from "./core/company.js";
-import { getLatestOutcomes, recomputeInsiderOutcomes, recomputePharmaOutcomes } from "./core/outcomes.js";
+import { getLatestOutcomes, recomputeBoshaOutcomes, recomputeInsiderOutcomes, recomputePharmaOutcomes, recomputePoliticiansOutcomes } from "./core/outcomes.js";
 import { startOutcomesWorker } from "./core/outcomes-worker.js";
 import { startPharmaWorker } from "./pharma/pharma-worker.js";
 import { startPoliticiansWorker } from "./politicians/politicians-worker.js";
@@ -157,11 +157,18 @@ const server = http.createServer(async (req, res) => {
     if (route(req, url, "POST", "/api/outcomes/recompute")) {
       const body = await json(req);
       const mode = String(body?.mode ?? "insider").trim().toLowerCase();
-      if (mode !== "insider" && mode !== "pharma") {
+      if (mode !== "insider" && mode !== "pharma" && mode !== "politicians" && mode !== "bosha") {
         sendJson(res, 400, { ok: false, error: "mode_not_supported_yet" });
         return;
       }
-      const out = mode === "pharma" ? await recomputePharmaOutcomes() : await recomputeInsiderOutcomes();
+      const out =
+        mode === "pharma"
+          ? await recomputePharmaOutcomes()
+          : mode === "politicians"
+            ? await recomputePoliticiansOutcomes()
+            : mode === "bosha"
+              ? await recomputeBoshaOutcomes()
+              : await recomputeInsiderOutcomes();
       sendJson(res, 200, out);
       return;
     }
@@ -725,6 +732,63 @@ const server = http.createServer(async (req, res) => {
       const body = await json(req);
       const ticker = String(body?.ticker ?? "").trim();
       await handleBoshaRefreshScore(res, ticker);
+      return;
+    }
+
+    // ---- Main: trend series (for Main bottom-row charts) ----
+    if (route(req, url, "GET", "/api/main/trends")) {
+      const days = clampInt(url.searchParams.get("days"), 30, 3650, 365);
+      const global = await db.one<{ id: string }>(`SELECT id FROM companies WHERE name = '__GLOBAL__' LIMIT 1`);
+      if (!global?.id) {
+        sendJson(res, 200, { ok: true, days, empty: true, insiders: [], politicians: [], research: [] });
+        return;
+      }
+
+      async function series(mode: string) {
+        const rows = await db.query<{ day: string; data: any }>(
+          `
+          SELECT as_of_date::text AS day, data
+          FROM outcomes
+          WHERE company_id = $1
+            AND mode = $2
+            AND as_of_date >= (now() - ($3 || ' days')::interval)::date
+          ORDER BY as_of_date ASC
+          `,
+          [global?.id ?? "", mode, String(days)],
+        );
+        return rows.map((r) => {
+          const v = Number(r.data?.avgReturn21);
+          return { day: r.day, v: Number.isFinite(v) ? v : 0 };
+        });
+      }
+
+      const [insiders, politicians, research] = await Promise.all([series("insider"), series("politicians"), series("bosha")]);
+      sendJson(res, 200, { ok: true, days, metric: "avgReturn21", insiders, politicians, research });
+      return;
+    }
+
+    // ---- Bosha: score history series (for Main research trend) ----
+    if (route(req, url, "GET", "/api/bosha/score-series")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
+      const days = clampInt(url.searchParams.get("days"), 30, 3650, 365);
+      if (!ticker) {
+        sendJson(res, 400, { ok: false, error: "ticker_required" });
+        return;
+      }
+      const rows = await db.query<{ day: string; s: string }>(
+        `
+        SELECT date_trunc('day', recorded_at)::date::text AS day,
+               AVG(score)::text AS s
+        FROM bosha_score_log
+        WHERE ticker = $1
+          AND recorded_at >= now() - ($2 || ' days')::interval
+        GROUP BY 1
+        ORDER BY 1 ASC
+        `,
+        [ticker, String(days)],
+      );
+      const items = rows.map((r) => ({ day: r.day, score: Number(r.s) || 0 }));
+      sendJson(res, 200, { ok: true, ticker, days, items });
       return;
     }
 

@@ -2343,6 +2343,7 @@ const MOCK_HISTORICAL_INSIDER = {
   winRate: '54%',
   sampleSize: '12,480',
   conditioningRole: 'CEO | director',
+  conditioningPolitician: 'Pelosi | Tuberville',
   conditioningTxn: 'Buy | sell',
   conditioningSizePct: 'P40–P90',
 }
@@ -2859,7 +2860,7 @@ const MainTopPicksBarChart = memo(function MainTopPicksBarChart({ bars = MAIN_TO
   )
 })
 
-function GraphPanel({ title, series, dates, markers = [], selectedMarker = null, panelClassName = '' }) {
+function GraphPanel({ title, series, dates, markers = [], selectedMarker = null, panelClassName = '', metaMode = 'range' }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 900, h: 220 })
 
@@ -2892,6 +2893,27 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
   const min = vals.length ? Math.min(...vals) : 0
   const max = vals.length ? Math.max(...vals) : 1
   const span = max - min || 1
+
+  const perfMeta = useMemo(() => {
+    if (metaMode !== 'perf') return null
+    if (!vals.length) return { wr: null, ytd: null }
+    let wins = 0
+    let moves = 0
+    for (let i = 1; i < vals.length; i++) {
+      const a = Number(vals[i - 1])
+      const b = Number(vals[i])
+      if (!Number.isFinite(a) || !Number.isFinite(b)) continue
+      const d = b - a
+      if (d === 0) continue
+      moves += 1
+      if (d > 0) wins += 1
+    }
+    const wr = moves ? Math.round((wins / moves) * 100) : null
+    const first = Number(vals[0])
+    const last = Number(vals[vals.length - 1])
+    const ytd = Number.isFinite(first) && Number.isFinite(last) && first !== 0 ? ((last - first) / first) * 100 : null
+    return { wr, ytd }
+  }, [metaMode, vals])
 
   function xAt(i) {
     return margin.l + (i / Math.max(1, vals.length - 1)) * innerW
@@ -2974,7 +2996,16 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
       <header className="panelHeader">
         <div className="panelTitle">{title}</div>
         <div className="panelMeta">
-          L {vals.length ? vals[vals.length - 1] : 0} | R {min}–{max}
+          {metaMode === 'perf' ? (
+            <>
+              WR {perfMeta?.wr != null ? `${perfMeta.wr}%` : '—'} | YTD{' '}
+              {perfMeta?.ytd != null ? `${perfMeta.ytd >= 0 ? '+' : ''}${perfMeta.ytd.toFixed(0)}%` : '—'}
+            </>
+          ) : (
+            <>
+              L {vals.length ? vals[vals.length - 1] : 0} | R {min}–{max}
+            </>
+          )}
         </div>
       </header>
       <div ref={wrapRef} className="graphWrap" aria-label="Daily price graph">
@@ -3358,14 +3389,14 @@ function buildWorksheetRows(selected, hasSafety) {
 }
 
 function HistoricalOutcomesPanel({ mode, backendUp }) {
-  const insider = mode === 'insider'
+  const insider = mode === 'insider' || mode === 'politicians'
   const [live, setLive] = useState(null)
 
   useEffect(() => {
     let alive = true
     async function run() {
       try {
-        const m = insider ? 'insider' : 'pharma'
+        const m = mode === 'pharma' ? 'pharma' : mode === 'politicians' ? 'politicians' : 'insider'
         const r = await fetchJsonSafe(`/api/outcomes?mode=${encodeURIComponent(m)}`, { timeoutMs: 2500 })
         const json = r.data
         const data = json?.data ?? null
@@ -3456,8 +3487,16 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
               <span className="kvV mono">{hasDataset ? (ins?.sampleSize ?? EMPTY) : EMPTY}</span>
             </KvLine>
             <KvLine key="ho-ins-role">
-              <span className="kvK dim">Role</span>
-              <span className="kvV">{hasDataset ? norm(ins?.conditioningRole) : EMPTY}</span>
+              <span className="kvK dim">{mode === 'politicians' ? 'Politician' : 'Role'}</span>
+              <span className="kvV">
+                {hasDataset
+                  ? (() => {
+                      const v = norm(mode === 'politicians' ? ins?.conditioningPolitician : ins?.conditioningRole)
+                      const first = String(v ?? '').split('|')[0]?.trim()
+                      return first || EMPTY
+                    })()
+                  : EMPTY}
+              </span>
             </KvLine>
             <KvLine key="ho-ins-pct">
               <span className="kvK dim">Size percentile</span>
@@ -3488,11 +3527,23 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
             </KvLine>
             <KvLine key="ho-ph-ind">
               <span className="kvK dim">Indication</span>
-              <span className="kvV">{hasDataset ? norm(ins?.conditioningIndication) : EMPTY}</span>
+              <span className="kvV">
+                {hasDataset ? (() => {
+                  const v = norm(ins?.conditioningIndication)
+                  const first = String(v ?? '').split('|')[0]?.trim()
+                  return first || EMPTY
+                })() : EMPTY}
+              </span>
             </KvLine>
             <KvLine key="ho-ph-co">
               <span className="kvK dim">Company size bucket</span>
-              <span className="kvV">{hasDataset ? norm(ins?.conditioningCoSize) : EMPTY}</span>
+              <span className="kvV">
+                {hasDataset ? (() => {
+                  const v = norm(ins?.conditioningCoSize)
+                  const first = String(v ?? '').split('|')[0]?.trim()
+                  return first || EMPTY
+                })() : EMPTY}
+              </span>
             </KvLine>
           </>
         )}
@@ -4272,17 +4323,6 @@ function App() {
     }))
   }, [boshaFeedItems])
 
-  const mainInsidersSeries = useMemo(() => buildMockDailySeries(71, 160), [])
-  const mainPoliticiansSeries = useMemo(() => buildMockDailySeries(133, 160), [])
-  const mainResearchSeries = useMemo(() => {
-    const s = Array.isArray(boshaPriceSeries) ? boshaPriceSeries : []
-    if (s.length >= 80) return s.slice(-160)
-    return buildMockDailySeries(401, 160)
-  }, [boshaPriceSeries])
-  const mainInsidersDates = useMemo(() => buildEvenlySpacedDates(mainInsidersSeries.length), [mainInsidersSeries.length])
-  const mainPoliticiansDates = useMemo(() => buildEvenlySpacedDates(mainPoliticiansSeries.length), [mainPoliticiansSeries.length])
-  const mainResearchDates = useMemo(() => buildEvenlySpacedDates(mainResearchSeries.length), [mainResearchSeries.length])
-
   // Keep key navigation stable (avoid stale closures).
   const boshaFilteredRef = useRef(boshaFilteredFeed)
   const boshaTickerRef = useRef(boshaTicker)
@@ -4310,6 +4350,44 @@ function App() {
   const [backendUp, setBackendUp] = useState(false)
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
+
+  const [mainTrendsLive, setMainTrendsLive] = useState(null)
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!backendUp || activeTab !== 'main') return
+      const r = await fetchJsonSafe('/api/main/trends?days=365', { timeoutMs: 6000 })
+      if (!alive) return
+      if (r.ok && r.data?.ok) setMainTrendsLive(r.data)
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, activeTab])
+
+  const mainInsidersSeries = useMemo(() => {
+    const rows = mainTrendsLive?.insiders
+    if (Array.isArray(rows) && rows.length) return rows.map((x) => Number(x?.v) || 0)
+    return buildMockDailySeries(71, 160)
+  }, [mainTrendsLive?.insiders])
+
+  const mainPoliticiansSeries = useMemo(() => {
+    const rows = mainTrendsLive?.politicians
+    if (Array.isArray(rows) && rows.length) return rows.map((x) => Number(x?.v) || 0)
+    return buildMockDailySeries(133, 160)
+  }, [mainTrendsLive?.politicians])
+
+  const mainResearchSeries = useMemo(() => {
+    const rows = mainTrendsLive?.research
+    if (Array.isArray(rows) && rows.length) return rows.map((x) => Number(x?.v) || 0)
+    return buildMockDailySeries(401, 160)
+  }, [mainTrendsLive?.research])
+
+  const mainInsidersDates = useMemo(() => buildEvenlySpacedDates(mainInsidersSeries.length), [mainInsidersSeries.length])
+  const mainPoliticiansDates = useMemo(() => buildEvenlySpacedDates(mainPoliticiansSeries.length), [mainPoliticiansSeries.length])
+  const mainResearchDates = useMemo(() => buildEvenlySpacedDates(mainResearchSeries.length), [mainResearchSeries.length])
 
   useEffect(() => {
     let alive = true
@@ -5191,7 +5269,7 @@ function App() {
           aria-current={activeTab === 'main' ? 'page' : undefined}
           onClick={() => setActiveTab('main')}
         >
-          <span className="sideTabLabel">MAIN</span>
+          <span className="sideTabLabel">RESEARCH</span>
         </button>
         <button
           type="button"
@@ -5416,6 +5494,7 @@ function App() {
             dates={mainInsidersDates}
             markers={[]}
             panelClassName="mainGraph mainGraph--insiders"
+            metaMode="perf"
           />
 
           <GraphPanel
@@ -5424,6 +5503,7 @@ function App() {
             dates={mainPoliticiansDates}
             markers={[]}
             panelClassName="mainGraph mainGraph--politicians"
+            metaMode="perf"
           />
 
           <GraphPanel
@@ -5432,6 +5512,7 @@ function App() {
             dates={mainResearchDates}
             markers={[]}
             panelClassName="mainGraph mainGraph--research"
+            metaMode="perf"
           />
 
           <section className="panel mainLogoPanel" aria-label="Mercerline">
@@ -5482,7 +5563,7 @@ function App() {
 
       {activeTab !== 'main' ? (
         <>
-          <HistoricalOutcomesPanel mode={activeTab === 'politicians' ? 'insider' : activeTab} backendUp={backendUp} />
+          <HistoricalOutcomesPanel mode={activeTab === 'politicians' ? 'politicians' : activeTab} backendUp={backendUp} />
           <ContextPanel
             mode={activeTab === 'politicians' ? 'insider' : activeTab}
             pharmaEvent={pharmaSelectedResolved}

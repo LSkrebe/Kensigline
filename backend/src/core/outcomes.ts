@@ -196,6 +196,10 @@ export async function recomputeInsiderOutcomes(opts?: { lookbackDays?: number; m
   const data = {
     mode: "insider",
     as_of_date: asOf,
+    avgReturn21: avg21,
+    avgReturn63: avg63,
+    avgReturn252: avg252,
+    winRate21,
     avgReturn21d63d252d: `${fmtRet(avg21)} / ${fmtRet(avg63)} / ${fmtRet(avg252)}`,
     medianReturn: fmtRet(med21),
     winRate: winRate21 == null ? "—" : pct(winRate21),
@@ -222,7 +226,7 @@ export async function recomputeInsiderOutcomes(opts?: { lookbackDays?: number; m
 
 export async function getLatestOutcomes(mode: string) {
   const m = String(mode ?? "").trim().toLowerCase();
-  if (m !== "insider" && m !== "pharma") throw new Error("mode_not_supported_yet");
+  if (m !== "insider" && m !== "pharma" && m !== "politicians" && m !== "bosha") throw new Error("mode_not_supported_yet");
   const globalCompanyId = await getOrCreateGlobalCompanyId();
   const row = await db.one<{ as_of_date: string; data: any }>(
     `
@@ -299,10 +303,14 @@ export async function recomputePharmaOutcomes(opts?: { lookbackDays?: number; ma
   const avgPh2 = mean(ph2);
   const med = median(all21);
   const largeDrops = all21.length ? all21.filter((x) => x <= -0.3).length / all21.length : null;
+  const avg21 = mean(all21);
+  const winRate21 = all21.length ? all21.filter((x) => x > 0).length / all21.length : null;
 
   const data = {
     mode: "pharma",
     as_of_date: asOf,
+    avgReturn21: avg21,
+    winRate21,
     avgAfterPh3Failure: fmtRet(avgPh3),
     avgAfterPh2Miss: fmtRet(avgPh2),
     medianReturn: fmtRet(med),
@@ -324,5 +332,191 @@ export async function recomputePharmaOutcomes(opts?: { lookbackDays?: number; ma
   );
 
   return { ok: true, as_of_date: asOf, samples: all21.length };
+}
+
+export async function recomputePoliticiansOutcomes(opts?: { lookbackDays?: number; maxTickers?: number }) {
+  const lookbackDays = clampInt(opts?.lookbackDays, 30, 730, 365);
+  const maxTickers = clampInt(opts?.maxTickers, 10, 5000, 500);
+  const asOf = isoDayUTC(new Date());
+
+  const tickers = await db.query<{ ticker: string }>(
+    `
+    SELECT DISTINCT ticker
+    FROM document_parsed
+    WHERE feed_kind = 'politicians'
+      AND ticker IS NOT NULL
+      AND feed_at IS NOT NULL
+      AND feed_at >= now() - ($1 || ' days')::interval
+    ORDER BY ticker ASC
+    LIMIT $2
+    `,
+    [String(lookbackDays), maxTickers],
+  );
+
+  const r21: number[] = [];
+  const r63: number[] = [];
+  const r252: number[] = [];
+  let samples = 0;
+
+  for (const t0 of tickers) {
+    const ticker = String(t0.ticker ?? "").trim().toUpperCase();
+    if (!ticker) continue;
+
+    const events = await db.query<{ day: string }>(
+      `
+      SELECT DISTINCT date_trunc('day', feed_at)::date::text as day
+      FROM document_parsed
+      WHERE feed_kind='politicians'
+        AND ticker = $1
+        AND feed_at IS NOT NULL
+        AND feed_at >= now() - ($2 || ' days')::interval
+      ORDER BY day ASC
+      `,
+      [ticker, String(lookbackDays)],
+    );
+    const eventDays = events.map((e) => String(e.day)).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+    if (!eventDays.length) continue;
+
+    await ensureBarsForEventWindows(ticker, eventDays, 252);
+    const bars = await loadBarsMap(ticker);
+    if (bars.days.length < 260) continue;
+
+    for (const day of eventDays) {
+      const baseIdx = nextTradingIndex(bars.days, day);
+      if (baseIdx < 0) continue;
+      const a = computeForwardReturn(bars.closes, baseIdx, 21);
+      const b = computeForwardReturn(bars.closes, baseIdx, 63);
+      const c = computeForwardReturn(bars.closes, baseIdx, 252);
+      if (a == null || b == null || c == null) continue;
+      r21.push(a);
+      r63.push(b);
+      r252.push(c);
+      samples += 1;
+    }
+  }
+
+  const avg21 = mean(r21);
+  const avg63 = mean(r63);
+  const avg252 = mean(r252);
+  const med21 = median(r21);
+  const winRate21 = r21.length ? r21.filter((x) => x > 0).length / r21.length : null;
+
+  const data = {
+    mode: "politicians",
+    as_of_date: asOf,
+    avgReturn21: avg21,
+    avgReturn63: avg63,
+    avgReturn252: avg252,
+    winRate21,
+    avgReturn21d63d252d: `${fmtRet(avg21)} / ${fmtRet(avg63)} / ${fmtRet(avg252)}`,
+    medianReturn: fmtRet(med21),
+    winRate: winRate21 == null ? "—" : pct(winRate21),
+    sampleSize: String(samples),
+    conditioningPolitician: "—",
+    conditioningTxn: "—",
+  };
+
+  const globalCompanyId = await getOrCreateGlobalCompanyId();
+  await db.query(
+    `
+    INSERT INTO outcomes (company_id, mode, as_of_date, data)
+    VALUES ($1, $2, $3::date, $4::jsonb)
+    ON CONFLICT (company_id, mode, as_of_date)
+    DO UPDATE SET data = EXCLUDED.data, created_at = now()
+    `,
+    [globalCompanyId, "politicians", asOf, data],
+  );
+
+  return { ok: true, as_of_date: asOf, samples };
+}
+
+export async function recomputeBoshaOutcomes(opts?: { lookbackDays?: number; maxTickers?: number }) {
+  const lookbackDays = clampInt(opts?.lookbackDays, 30, 730, 365);
+  const maxTickers = clampInt(opts?.maxTickers, 10, 5000, 500);
+  const asOf = isoDayUTC(new Date());
+
+  const tickers = await db.query<{ ticker: string }>(
+    `
+    SELECT DISTINCT ticker
+    FROM bosha_events
+    WHERE ticker IS NOT NULL
+      AND created_at >= now() - ($1 || ' days')::interval
+    ORDER BY ticker ASC
+    LIMIT $2
+    `,
+    [String(lookbackDays), maxTickers],
+  );
+
+  const r21: number[] = [];
+  const r63: number[] = [];
+  const r252: number[] = [];
+  let samples = 0;
+
+  for (const t0 of tickers) {
+    const ticker = String(t0.ticker ?? "").trim().toUpperCase();
+    if (!ticker) continue;
+
+    const events = await db.query<{ day: string }>(
+      `
+      SELECT DISTINCT date_trunc('day', COALESCE(event_at, created_at))::date::text as day
+      FROM bosha_events
+      WHERE ticker = $1
+        AND created_at >= now() - ($2 || ' days')::interval
+      ORDER BY day ASC
+      `,
+      [ticker, String(lookbackDays)],
+    );
+    const eventDays = events.map((e) => String(e.day)).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
+    if (!eventDays.length) continue;
+
+    await ensureBarsForEventWindows(ticker, eventDays, 252);
+    const bars = await loadBarsMap(ticker);
+    if (bars.days.length < 260) continue;
+
+    for (const day of eventDays) {
+      const baseIdx = nextTradingIndex(bars.days, day);
+      if (baseIdx < 0) continue;
+      const a = computeForwardReturn(bars.closes, baseIdx, 21);
+      const b = computeForwardReturn(bars.closes, baseIdx, 63);
+      const c = computeForwardReturn(bars.closes, baseIdx, 252);
+      if (a == null || b == null || c == null) continue;
+      r21.push(a);
+      r63.push(b);
+      r252.push(c);
+      samples += 1;
+    }
+  }
+
+  const avg21 = mean(r21);
+  const avg63 = mean(r63);
+  const avg252 = mean(r252);
+  const med21 = median(r21);
+  const winRate21 = r21.length ? r21.filter((x) => x > 0).length / r21.length : null;
+
+  const data = {
+    mode: "bosha",
+    as_of_date: asOf,
+    avgReturn21: avg21,
+    avgReturn63: avg63,
+    avgReturn252: avg252,
+    winRate21,
+    avgReturn21d63d252d: `${fmtRet(avg21)} / ${fmtRet(avg63)} / ${fmtRet(avg252)}`,
+    medianReturn: fmtRet(med21),
+    winRate: winRate21 == null ? "—" : pct(winRate21),
+    sampleSize: String(samples),
+  };
+
+  const globalCompanyId = await getOrCreateGlobalCompanyId();
+  await db.query(
+    `
+    INSERT INTO outcomes (company_id, mode, as_of_date, data)
+    VALUES ($1, $2, $3::date, $4::jsonb)
+    ON CONFLICT (company_id, mode, as_of_date)
+    DO UPDATE SET data = EXCLUDED.data, created_at = now()
+    `,
+    [globalCompanyId, "bosha", asOf, data],
+  );
+
+  return { ok: true, as_of_date: asOf, samples };
 }
 
