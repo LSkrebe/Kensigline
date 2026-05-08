@@ -5019,7 +5019,10 @@ function App() {
 
   useEffect(() => {
     // When switching tabs, reset which pane gets arrows.
-    if (activeTab === 'main') return
+    if (activeTab === 'main') {
+      setFeedPaneFocus('explore')
+      return
+    }
     if (activeTab === 'insider') {
       setFeedPaneFocus('insider')
       setProgramRailEventId(null)
@@ -5038,6 +5041,10 @@ function App() {
 
   // Ensure there is always a valid focused/glowing panel per tab.
   useEffect(() => {
+    if (activeTab === 'main') {
+      if (feedPaneFocus !== 'explore') setFeedPaneFocus('explore')
+      return
+    }
     if (activeTab === 'insider') {
       if (feedPaneFocus !== 'insider' && feedPaneFocus !== 'case') setFeedPaneFocus('insider')
       return
