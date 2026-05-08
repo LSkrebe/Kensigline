@@ -1,11 +1,12 @@
 :root {
-  --bg: #06070a;
-  --panel: #070a0f;
-  --grid: rgba(140, 255, 195, 0.14);
-  --text: rgba(216, 255, 235, 0.86);
-  --dim: rgba(216, 255, 235, 0.55);
-  --hi: rgba(80, 255, 190, 0.92);
-  --cyan: rgba(90, 220, 255, 0.92);
+  /* Mercerline “moonlight” palette (global). */
+  --bg: #050607;
+  --panel: rgba(10, 11, 13, 0.86);
+  --grid: rgba(255, 255, 255, 0.09);
+  --text: rgba(255, 255, 255, 0.86);
+  --dim: rgba(255, 255, 255, 0.56);
+  --hi: rgba(255, 255, 255, 0.92);
+  --cyan: rgba(168, 196, 255, 0.9);
   --warn: rgba(255, 212, 92, 0.95);
   --bad: rgba(255, 88, 108, 0.95);
   /* One scale for the whole terminal */
@@ -14,6 +15,37 @@
   --fs-body: clamp(6px, 1.8vmin, 11px);
   /* Slim vertical tab rail (fixed left); labels are horizontal words rotated −90° */
   --tabrail-w: clamp(26px, 3.2vmin, 38px);
+}
+
+/* Global background + subtle texture (logo-inspired). */
+.terminal {
+  background:
+    radial-gradient(1200px 700px at 20% 28%, rgba(255, 255, 255, 0.06), transparent 60%),
+    radial-gradient(900px 520px at 76% 65%, rgba(168, 196, 255, 0.045), transparent 62%),
+    radial-gradient(800px 520px at 52% 110%, rgba(255, 255, 255, 0.035), transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0) 28%),
+    var(--bg);
+  position: relative; /* for texture overlay */
+}
+
+.terminal::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 4px),
+    radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.02), transparent 42%),
+    radial-gradient(circle at 80% 60%, rgba(168, 196, 255, 0.014), transparent 46%);
+  opacity: 0.55;
+  mix-blend-mode: overlay;
+}
+
+.terminal > * {
+  position: relative;
+  z-index: 1;
 }
 
 .sideTabsRail {
@@ -29,7 +61,7 @@
   align-items: stretch;
   padding: 0;
   margin: 0;
-  background: rgba(6, 7, 10, 0.96);
+  background: rgba(5, 6, 7, 0.96);
   border: 1px solid var(--grid);
   border-right: none;
   backdrop-filter: blur(6px);
@@ -100,8 +132,10 @@
 }
 
 .sideTab.isActive {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--cyan);
+  background: rgba(168, 196, 255, 0.14);
+  color: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .sourceBadge {
@@ -270,15 +304,18 @@
   min-height: 0;
   overflow: auto;
   /* Match other panel bodies (tight, grid-like) */
-  padding: 6px 10px 8px;
+  padding: 10px 12px 12px;
   box-sizing: border-box;
 }
 
 .settingsKv {
-  padding: 0 0 8px;
   box-sizing: border-box;
   display: grid;
-  gap: 4px;
+  gap: 0;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .settingsKvRow {
@@ -286,35 +323,57 @@
   grid-template-columns: minmax(120px, 0.33fr) minmax(0, 1fr);
   gap: 12px;
   align-items: center;
-  padding: 3px 0;
-  border-bottom: 1px solid rgba(140, 255, 195, 0.08);
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .settingsKvRow:last-child {
   border-bottom: none;
 }
 
+.settingsKvRow:last-child:hover {
+  /* Make the last row feel “finished” without affecting actions below */
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+}
+
+.settingsKvRow:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .settingsKvK {
   letter-spacing: 0.06em;
-  color: rgba(216, 255, 235, 0.62);
+  color: rgba(255, 255, 255, 0.58);
   text-transform: uppercase;
   font-size: var(--fs-meta);
 }
 
 .settingsKvV {
-  color: rgba(216, 255, 235, 0.86);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 0.02em;
+}
+
+.feedRowCompact--programs .feedProgramsLine + .feedProgramsLine {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.feedRowCompact--programs:hover .feedProgramsLine {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.feedRowCompact--programs.isActive .feedProgramsLine {
+  color: rgba(255, 255, 255, 0.86);
 }
 
 .settingsActions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 6px;
-  padding: 8px 0 0;
+  gap: 8px;
+  padding: 10px 0 0;
   box-sizing: border-box;
 }
 
@@ -323,11 +382,11 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 26px;
-  padding: 0 10px;
-  border: 1px solid rgba(80, 255, 190, 0.32);
-  background: transparent;
-  color: var(--hi);
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.82);
   font-size: var(--fs-meta);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -336,29 +395,30 @@
 }
 
 .settingsBtn:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--cyan);
-  border-color: rgba(90, 220, 255, 0.42);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(168, 196, 255, 0.35);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .settingsBtn:focus-visible {
-  outline: 1px solid rgba(90, 220, 255, 0.55);
+  outline: 1px solid rgba(168, 196, 255, 0.55);
   outline-offset: 2px;
 }
 
 .settingsBtn--primary {
-  border-color: rgba(80, 255, 190, 0.32);
-  color: var(--hi);
+  background: rgba(168, 196, 255, 0.14);
+  border-color: rgba(168, 196, 255, 0.35);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .settingsBtn--warn {
-  border-color: rgba(80, 255, 190, 0.32);
-  color: var(--hi);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .settingsBtn--danger {
-  border-color: rgba(80, 255, 190, 0.32);
-  color: var(--hi);
+  border-color: rgba(255, 120, 160, 0.32);
+  color: rgba(255, 255, 255, 0.86);
 }
 
 
@@ -385,9 +445,9 @@
   position: relative;
   display: block;
   /* Use half-strength grid lines so shared edges don't look double-thick */
-  --heat-grid: rgba(140, 255, 195, 0.07);
+  --heat-grid: rgba(255, 255, 255, 0.07);
   /* Strong outer frame (so sector edges can stay 1px without losing the perimeter) */
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.92);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.06);
   padding: 0;
   box-sizing: border-box;
 }
@@ -396,7 +456,7 @@
   position: absolute;
   box-sizing: border-box;
   /* Dark sector boundary for clear grouping */
-  border: 1px solid rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   z-index: 4;
   pointer-events: none;
 }
@@ -414,7 +474,7 @@
   padding: 3px 6px 3px;
   /* Give the header the same separation from tiles as from the top edge */
   border-bottom: 1px solid var(--heat-grid);
-  background: rgba(6, 7, 10, 0.55);
+  background: rgba(5, 6, 7, 0.55);
   backdrop-filter: blur(4px);
 }
 
@@ -442,11 +502,11 @@
 }
 
 .oppTile--pos {
-  background: rgba(80, 255, 190, 0.22);
+  background: rgba(168, 196, 255, 0.12);
 }
 
 .oppTile--neg {
-  background: rgba(255, 88, 108, 0.22);
+  background: rgba(255, 120, 160, 0.14);
 }
 
 .oppTileTop {
@@ -459,7 +519,7 @@
   top: 7px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: rgba(216, 255, 235, 0.88);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .oppScore {
@@ -522,7 +582,7 @@
   object-fit: contain;
   user-select: none;
   pointer-events: none;
-  filter: drop-shadow(0 0 28px rgba(80, 255, 190, 0.08));
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.55));
 }
 
 .terminal--main .mainLogoPanelStats {
@@ -1088,6 +1148,9 @@
   overflow: hidden;
   min-height: 0;
   min-width: 0;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 26px rgba(0, 0, 0, 0.32);
 }
 
 .panelHeader {
@@ -1102,7 +1165,7 @@
 
 .panelTitle {
   letter-spacing: 0.06em;
-  color: var(--hi);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 12px;
   min-width: 0;
   overflow: hidden;
@@ -1111,7 +1174,7 @@
 }
 
 .panelMeta {
-  color: var(--dim);
+  color: rgba(255, 255, 255, 0.56);
   font-size: 11px;
   white-space: nowrap;
   min-width: 0;
@@ -1122,7 +1185,7 @@
 }
 
 .dim {
-  color: var(--dim);
+  color: rgba(255, 255, 255, 0.56);
 }
 
 .mono {
@@ -1239,7 +1302,7 @@ body {
 
 .scrollThin {
   scrollbar-width: thin; /* Firefox */
-  scrollbar-color: rgba(80, 255, 190, 0.7) transparent;
+  scrollbar-color: rgba(168, 196, 255, 0.6) transparent;
 }
 .scrollThin::-webkit-scrollbar {
   width: 6px;
@@ -1248,11 +1311,11 @@ body {
   background: transparent;
 }
 .scrollThin::-webkit-scrollbar-thumb {
-  background: rgba(80, 255, 190, 0.55);
+  background: rgba(168, 196, 255, 0.35);
   border-radius: 8px;
 }
 .scrollThin::-webkit-scrollbar-thumb:hover {
-  background: rgba(80, 255, 190, 0.7);
+  background: rgba(168, 196, 255, 0.5);
 }
 
 .feedCompactList.feedCompactList--scroll::-webkit-scrollbar {
@@ -1262,11 +1325,11 @@ body {
   background: transparent;
 }
 .feedCompactList.feedCompactList--scroll::-webkit-scrollbar-thumb {
-  background: rgba(80, 255, 190, 0.55);
+  background: rgba(168, 196, 255, 0.35);
   border-radius: 8px;
 }
 .feedCompactList.feedCompactList--scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(80, 255, 190, 0.7);
+  background: rgba(168, 196, 255, 0.5);
 }
 
 .feedCompactList.feedCompactList--scroll {
@@ -1280,7 +1343,7 @@ body {
   -webkit-overflow-scrolling: touch;
   /* thin scrollbar (match panel title color) */
   scrollbar-width: thin; /* Firefox */
-  scrollbar-color: rgba(80, 255, 190, 0.7) transparent;
+  scrollbar-color: rgba(168, 196, 255, 0.6) transparent;
 }
 
 .filterRow {
@@ -1289,7 +1352,10 @@ body {
 }
 
 .filterRow.isActive {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(168, 196, 255, 0.12);
+  box-shadow:
+    inset 2px 0 0 rgba(168, 196, 255, 0.75),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 /* (old selectors were removed; filter now uses feed row cell classes) */
@@ -1463,7 +1529,7 @@ body {
 }
 
 .feed.feedCompact.isFocused {
-  box-shadow: inset 0 0 0 1px rgba(90, 220, 255, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(168, 196, 255, 0.32);
 }
 
 .feedCompactHeader {
@@ -1586,6 +1652,8 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 0.06em;
 }
 
 .feedRowCompact:hover {
@@ -1593,7 +1661,10 @@ body {
 }
 
 .feedRowCompact.isActive {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(168, 196, 255, 0.14);
+  box-shadow:
+    inset 2px 0 0 rgba(168, 196, 255, 0.8),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 /* Non-selectable row between “today” and older events (see `buildFeedDisplayRows` in App.jsx) */
@@ -1608,14 +1679,15 @@ body {
   padding: 0.06em 8px;
   margin: 0;
   border: none;
-  border-top: 1px solid rgba(140, 255, 195, 0.18);
-  border-bottom: 1px solid rgba(140, 255, 195, 0.18);
-  background: transparent;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
   font: inherit;
   font-size: 0.98em;
   line-height: inherit;
   letter-spacing: 0.14em;
-  color: rgba(140, 255, 195, 0.55);
+  color: rgba(255, 255, 255, 0.5);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
   user-select: none;
   pointer-events: none;
 }
