@@ -1375,6 +1375,26 @@ function BoshaMiniPrice({ series, label, showMeta = true }) {
     return d.trim()
   }, [vals, w, h])
 
+  const areaPath = useMemo(() => {
+    if (!vals.length) return ''
+    const yBase = h - margin.b
+    let d = `M ${xAt(0).toFixed(2)} ${yBase.toFixed(2)} `
+    for (let i = 0; i < vals.length; i++) {
+      const x = xAt(i)
+      const y = yAt(vals[i])
+      d += `L ${x.toFixed(2)} ${y.toFixed(2)} `
+    }
+    d += `L ${xAt(vals.length - 1).toFixed(2)} ${yBase.toFixed(2)} Z`
+    return d.trim()
+  }, [vals, w, h])
+
+  const gradId = useMemo(() => {
+    const s = String(label ?? 'PRICE')
+    let h0 = 2166136261
+    for (let i = 0; i < s.length; i++) h0 = Math.imul(h0 ^ s.charCodeAt(i), 16777619)
+    return `miniFill-${(h0 >>> 0).toString(16)}`
+  }, [label])
+
   const yTicks = useMemo(() => priceTicks(min, max, 4), [min, max])
   const xTickIdx = useMemo(() => {
     const n = Math.max(0, vals.length)
@@ -1417,6 +1437,12 @@ function BoshaMiniPrice({ series, label, showMeta = true }) {
       ) : null}
       <div ref={wrapRef} className="boshaMiniPriceWrap" role="img" aria-label="Mini price sparkline">
         <svg className="graphSvg" viewBox={`${-viewPadL} 0 ${w + viewPadL} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--hi)" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="var(--hi)" stopOpacity="0.00" />
+            </linearGradient>
+          </defs>
           <path
             className="graphAxis"
             d={`M ${margin.l} ${margin.t} L ${margin.l} ${h - margin.b} L ${w - margin.r} ${h - margin.b}`}
@@ -1448,6 +1474,7 @@ function BoshaMiniPrice({ series, label, showMeta = true }) {
             )
           })}
 
+          {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
           <path className="graphPath" d={path} vectorEffect="non-scaling-stroke" />
         </svg>
       </div>
@@ -2933,6 +2960,26 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
     return d.trim()
   }, [vals, w, h])
 
+  const areaPath = useMemo(() => {
+    if (!vals.length) return ''
+    const yBase = h - margin.b
+    let d = `M ${xAt(0).toFixed(2)} ${yBase.toFixed(2)} `
+    for (let i = 0; i < vals.length; i++) {
+      const x = xAt(i)
+      const y = yAt(vals[i])
+      d += `L ${x.toFixed(2)} ${y.toFixed(2)} `
+    }
+    d += `L ${xAt(vals.length - 1).toFixed(2)} ${yBase.toFixed(2)} Z`
+    return d.trim()
+  }, [vals, w, h])
+
+  const gradId = useMemo(() => {
+    const s = String(title ?? 'graph')
+    let h0 = 2166136261
+    for (let i = 0; i < s.length; i++) h0 = Math.imul(h0 ^ s.charCodeAt(i), 16777619)
+    return `graphFill-${(h0 >>> 0).toString(16)}`
+  }, [title])
+
   const yTicks = useMemo(() => priceTicks(min, max, 4), [min, max])
   const xTickIdx = useMemo(() => {
     const n = Math.max(0, ds.length)
@@ -3010,6 +3057,12 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
       </header>
       <div ref={wrapRef} className="graphWrap" aria-label="Daily price graph">
         <svg className="graphSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--hi)" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="var(--hi)" stopOpacity="0.00" />
+            </linearGradient>
+          </defs>
           {/* axes */}
           <path
             className="graphAxis"
@@ -3044,7 +3097,8 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
             )
           })}
 
-          {/* line */}
+          {/* fill + line */}
+          {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
           <path className="graphPath" d={path} vectorEffect="non-scaling-stroke" />
 
           {/* transaction markers (drawn over line) */}

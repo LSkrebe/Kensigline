@@ -1907,6 +1907,10 @@ body {
   stroke-width: 0.75px;
 }
 
+.graphArea {
+  pointer-events: none;
+}
+
 .graphPath {
   stroke: rgba(90, 220, 255, 0.92);
   stroke-width: 2px;
