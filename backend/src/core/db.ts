@@ -23,7 +23,12 @@ function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | und
       host.endsWith("pooler.supabase.com") ||
       host.endsWith(".supabase.com")
     ) {
-      return { rejectUnauthorized: true };
+      const rejectUnauthorized =
+        process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "0" ||
+        process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
+          ? false
+          : true;
+      return { rejectUnauthorized };
     }
   } catch {
     // ignore malformed URL
