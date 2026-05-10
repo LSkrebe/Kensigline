@@ -1,9 +1,8 @@
 -- Kensigline (minimal) Postgres schema
 -- Goal: keep ingestion/parsing simple (JSONB), but still queryable for feeds/panels.
 --
--- Apply manually:
---   cd backend && npm run db:apply-schema
--- Or paste this file into the Supabase SQL Editor (Dashboard → SQL).
+-- Apply manually (psql, GUI client, or Supabase Dashboard → SQL Editor):
+--   psql "$DATABASE_URL" -f backend/db/schema.sql
 --
 -- Notes:
 -- - This schema is intentionally small and flexible.
