@@ -14,7 +14,6 @@ class ErrorBoundary extends React.Component {
     return { hasError: true, err }
   }
   componentDidCatch(err) {
-    // eslint-disable-next-line no-console
     console.error('[kensigline] render error', err)
   }
   render() {

@@ -23,7 +23,15 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Components use PascalCase; unused placeholders use leading underscore.
+      'no-unused-vars': ['error', { varsIgnorePattern: '^(_|[A-Z])', argsIgnorePattern: '^_' }],
+      // React Compiler extra rules (v7): strict but noisy without full compiler migration.
+      'react-hooks/preserve-manual-memoization': 'off',
+      'react-hooks/purity': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      // Prefer fixing deps over suppressing; warnings keep CI readable.
+      'react-hooks/exhaustive-deps': 'warn',
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
 ])

@@ -347,30 +347,10 @@ function isAtLocalToday(at) {
   return isSameLocalCalendarDay(d, new Date())
 }
 
-function isAtLocalThisYear(at) {
-  const d = at instanceof Date ? at : new Date(at)
-  if (Number.isNaN(d.getTime())) return false
-  return d.getFullYear() === new Date().getFullYear()
-}
-
 function formatMmDd(d) {
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
   return `${mm}-${dd}`
-}
-
-function formatYyyyMmDd(d) {
-  const yyyy = String(d.getFullYear())
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
-
-function formatYyMmDd(d) {
-  const yy = String(d.getFullYear()).slice(-2)
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${yy}-${mm}-${dd}`
 }
 
 function formatHhMmLocal(d) {
@@ -598,7 +578,7 @@ function boshaMockPriceSeries(seed, n = 110) {
   return out
 }
 
-function boshaExplainerForTicker(ticker) {
+function _boshaExplainerForTicker(ticker) {
   const t = String(ticker ?? '').toUpperCase()
   if (t === 'ATYR')
     return [
@@ -899,7 +879,7 @@ function boshaParseDay(yyyyMmDd) {
   return Number.isNaN(d.getTime()) ? null : d
 }
 
-function boshaFormatTimelineDay(yyyyMmDd) {
+function _boshaFormatTimelineDay(yyyyMmDd) {
   const d = boshaParseDay(yyyyMmDd)
   if (!d) return '—'
   const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
@@ -1206,7 +1186,6 @@ function BoshaGraphFigure({ entities, events, edges }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 640, h: 320 })
 
-  const entitiesById = useMemo(() => Object.fromEntries((entities ?? []).map((e) => [e.id, e])), [entities])
   const eventsById = useMemo(() => Object.fromEntries((events ?? []).map((e) => [e.id, e])), [events])
 
   const visibleEdges = useMemo(() => {
@@ -1238,8 +1217,8 @@ function BoshaGraphFigure({ entities, events, edges }) {
       .map((e) => ({ id: e.id, d: boshaParseDay(e.date) }))
       .filter((x) => x.d)
       .sort((a, b) => a.d - b.d)
-    const min = ds[0]?.d?.getTime?.() ?? Date.now()
-    const max = ds.at(-1)?.d?.getTime?.() ?? Date.now()
+    const min = ds[0]?.d?.getTime?.() ?? 0
+    const max = ds.at(-1)?.d?.getTime?.() ?? Math.max(1, min + 1)
     const span = Math.max(1, max - min)
     const x0 = w * 0.06
     const x1 = w * 0.94
@@ -1482,7 +1461,7 @@ function BoshaMiniPrice({ series, label, showMeta = true }) {
   )
 }
 
-function boshaSignalForEvent(ev) {
+function _boshaSignalForEvent(ev) {
   const t = String(ev?.type ?? '').toUpperCase()
   const s = String(ev?.sentiment ?? '').toLowerCase()
   const imp = String(ev?.impact ?? '').toLowerCase()
@@ -1497,7 +1476,7 @@ function boshaSignalForEvent(ev) {
   return 'Event contributes evidence; weight depends on proximity to catalysts.'
 }
 
-function boshaWhatWhyForEvent(ev) {
+function _boshaWhatWhyForEvent(ev) {
   const t = String(ev?.type ?? '').toLowerCase()
   const title = String(ev?.title ?? '')
   if (t === 'fda_meeting')
@@ -1524,7 +1503,7 @@ function boshaWhatWhyForEvent(ev) {
   return { what: title, why: 'It changes the information set and can alter the implied probability of the next catalyst outcome.' }
 }
 
-function boshaStructuralInterpretation(events) {
+function _boshaStructuralInterpretation(events) {
   const es = Array.isArray(events) ? events : []
   const hi = es.filter((e) => String(e?.impact ?? '').toLowerCase() === 'high').length
   const bull = es.filter((e) => String(e?.sentiment ?? '').toLowerCase() === 'bullish').length
@@ -2076,25 +2055,15 @@ function boshaAtyrText() {
 function BoshaPaperPanel({
   ticker,
   companyName,
-  entities,
+  entities: _entities,
   events,
-  edges,
+  edges: _edges,
   priceSeries,
   livePresentation,
   liveCompanyName,
   backendUp,
   panelClassName = '',
 }) {
-  const priceHeadline = useMemo(() => {
-    const vals = Array.isArray(priceSeries) ? priceSeries : []
-    const last = vals.length ? vals.at(-1) : null
-    const prev = vals.length > 1 ? vals.at(-2) : null
-    const ch = last != null && prev != null ? last - prev : null
-    const chPct = last != null && prev ? ((last - prev) / Math.max(1e-6, prev)) * 100 : null
-    const up = ch != null ? ch >= 0 : true
-    return { last, ch, chPct, up }
-  }, [priceSeries])
-
   const titleText =
     backendUp && livePresentation?.title && String(liveCompanyName ?? '').trim()
       ? String(liveCompanyName ?? '').trim()
@@ -2108,7 +2077,6 @@ function BoshaPaperPanel({
         priceSeries,
         constituents: boshaIsEtf(ticker) ? boshaDatasetForTicker(ticker)?.constituents ?? [] : [],
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [ticker, titleText, events, priceSeries],
   )
 
@@ -2396,23 +2364,6 @@ const MOCK_COMPANY = {
   pharmaLead: `DrugX (III – Alzheimer's)`,
 }
 
-function toPath(values, w, h, inset) {
-  if (!values?.length) return ''
-  const { left = 0, right = 0, top = 0, bottom = 0 } = inset ?? {}
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const span = max - min || 1
-  const innerW = Math.max(1, w - left - right)
-  const innerH = Math.max(1, h - top - bottom)
-  return values
-    .map((v, i) => {
-      const x = left + (i / (values.length - 1)) * innerW
-      const y = top + (1 - (v - min) / span) * innerH
-      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
-    })
-    .join(' ')
-}
-
 function clamp01(x) {
   return Math.max(0, Math.min(1, x))
 }
@@ -2549,12 +2500,6 @@ function oppSignedPct(ticker, score) {
   const jitter = (stringHash01(ticker, 91) - 0.5) * 3.5
   const pct = dir * (mag + jitter)
   return Math.round(pct * 10) / 10
-}
-
-function shuffleStable(xs, salt = 0) {
-  const arr = xs.slice()
-  arr.sort((a, b) => stringHash01(a?.ticker, salt) - stringHash01(b?.ticker, salt))
-  return arr
 }
 
 function treemapBinary(items, x, y, w, h) {
@@ -4323,8 +4268,6 @@ function App() {
   const [boshaTicker, setBoshaTicker] = useState(BOSHA_TICKER)
   const [boshaQuery, setBoshaQuery] = useState('')
   const boshaDataset = useMemo(() => boshaDatasetForTicker(boshaTicker), [boshaTicker])
-  const [mainBoshaIdx, setMainBoshaIdx] = useState(0)
-
   const boshaFeedItems = useMemo(() => {
     if (Array.isArray(boshaFeedLive) && boshaFeedLive.length) {
       return boshaFeedLive.map((x) => ({
@@ -4366,16 +4309,6 @@ function App() {
       return t.includes(s) || n.includes(s)
     })
   }, [boshaFeedItems, boshaQuery])
-
-  const mainBoshaPickRows = useMemo(() => {
-    const now = new Date().toISOString()
-    return (boshaFeedItems ?? []).map((it) => ({
-      id: it.rowKey ?? `pick-${it.ticker}`,
-      at: now,
-      label: String(it.name ?? it.ticker ?? '').trim() || '—',
-      ticker: String(it.ticker ?? '').toUpperCase(),
-    }))
-  }, [boshaFeedItems])
 
   // Keep key navigation stable (avoid stale closures).
   const boshaFilteredRef = useRef(boshaFilteredFeed)
@@ -4884,10 +4817,6 @@ function App() {
     }
   }, [backendUp, activeTab, politiciansSelected, politiciansClusterLive])
 
-  const isRealView = useMemo(() => {
-    return Boolean(backendUp)
-  }, [backendUp])
-
   // Insider cluster: case worksheet + context
   useEffect(() => {
     let alive = true
@@ -5099,10 +5028,6 @@ function App() {
   }, [activeTab, insiderSelectedResolved?.caseSheet, politiciansSelectedResolved?.caseSheet])
 
 
-  const dailyMin = dailySeries.length ? Math.min(...dailySeries) : 0
-  const dailyMax = dailySeries.length ? Math.max(...dailySeries) : 0
-  const dailyLast = dailySeries.length ? dailySeries[dailySeries.length - 1] : 0
-
   const worksheetMetaId =
     activeTab === 'insider'
       ? insiderSelectedResolved?.caseSheet?.issuer ?? insiderSelectedResolved?.id ?? '—'
@@ -5209,9 +5134,6 @@ function App() {
     // Reset case selection when the cluster changes.
     setInsiderCaseTradeIdx(0)
   }, [insiderSelected?.id, insiderSelected?.ticker])
-
-  /* Inner padding inside SVG viewBox (stroke clearance); outer gutter is CSS .graphWrap */
-  const plotInset = { left: 34, right: 8, top: 8, bottom: 18 }
 
   useEffect(() => {
     function onKey(e) {
