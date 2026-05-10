@@ -2,7 +2,9 @@
 -- Goal: keep ingestion/parsing simple (JSONB), but still queryable for feeds/panels.
 --
 -- Apply manually:
+--   cd backend && npm run db:apply-schema
 --   psql "$DATABASE_URL" -f backend/db/schema.sql
+-- Or paste this file into the Supabase SQL Editor (Dashboard → SQL).
 --
 -- Notes:
 -- - This schema is intentionally small and flexible.

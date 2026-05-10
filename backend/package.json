@@ -7,7 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "npm run build && tsx src/bosha/bosha-smoke.ts"
+    "test": "npm run build && tsx src/bosha/bosha-smoke.ts",
+    "db:apply-schema": "node scripts/apply-schema.mjs"
   },
   "keywords": [],
   "author": "",
