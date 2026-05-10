@@ -17,7 +17,12 @@ function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | und
     const normalized = url.replace(/^postgres:/i, "postgresql:");
     const u = new URL(normalized);
     const host = u.hostname.toLowerCase();
-    if (host.includes("supabase.co")) {
+    // Direct: db.<ref>.supabase.co — Pooler: *.pooler.supabase.com (regional AWS hosts)
+    if (
+      host.includes("supabase.co") ||
+      host.endsWith("pooler.supabase.com") ||
+      host.endsWith(".supabase.com")
+    ) {
       return { rejectUnauthorized: true };
     }
   } catch {
