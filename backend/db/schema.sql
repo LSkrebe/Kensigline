@@ -3,7 +3,6 @@
 --
 -- Apply manually:
 --   cd backend && npm run db:apply-schema
---   psql "$DATABASE_URL" -f backend/db/schema.sql
 -- Or paste this file into the Supabase SQL Editor (Dashboard → SQL).
 --
 -- Notes:

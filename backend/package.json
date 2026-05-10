@@ -8,7 +8,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "npm run build && tsx src/bosha/bosha-smoke.ts",
-    "db:apply-schema": "node scripts/apply-schema.mjs"
+    "db:apply-schema": "tsx scripts/apply-schema.ts",
+    "db:verify": "tsx scripts/verify-db.ts",
+    "db:migrate-local-data": "node scripts/migrate-local-data.mjs"
   },
   "keywords": [],
   "author": "",

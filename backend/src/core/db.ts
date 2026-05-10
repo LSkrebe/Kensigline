@@ -6,7 +6,7 @@ if (!databaseUrl) {
 }
 
 /** TLS for Supabase (and optional DATABASE_SSL=1). Local Postgres stays non-SSL unless forced. */
-function sslOption(): boolean | { rejectUnauthorized: boolean } | undefined {
+function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | undefined {
   if (process.env.DATABASE_SSL === "0" || process.env.DATABASE_SSL === "false") {
     return undefined;
   }
@@ -14,7 +14,7 @@ function sslOption(): boolean | { rejectUnauthorized: boolean } | undefined {
     return { rejectUnauthorized: true };
   }
   try {
-    const normalized = databaseUrl.replace(/^postgres:/i, "postgresql:");
+    const normalized = url.replace(/^postgres:/i, "postgresql:");
     const u = new URL(normalized);
     const host = u.hostname.toLowerCase();
     if (host.includes("supabase.co")) {
@@ -28,7 +28,7 @@ function sslOption(): boolean | { rejectUnauthorized: boolean } | undefined {
 
 export const pool = new Pool({
   connectionString: databaseUrl,
-  ssl: sslOption(),
+  ssl: sslOption(databaseUrl),
 });
 
 export const db = {
