@@ -5,6 +5,12 @@ node_modules/
 dist/
 build/
 
+# backend/scripts run via tsx — ignore stray tsc emit in scripts/
+backend/scripts/*.js
+backend/scripts/*.js.map
+backend/scripts/*.d.ts
+backend/scripts/*.d.ts.map
+
 # env
 .env
 
