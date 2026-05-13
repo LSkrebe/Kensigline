@@ -1,4 +1,5 @@
 import { llmChat } from "../core/llm.js";
+import { BOSHA_EDGE_TYPES, type BoshaEdgeType } from "./engine-spec.js";
 
 /**
  * "MiroShark" structured extraction: one JSON blob per document.
@@ -20,7 +21,7 @@ export type MiroSharkRelationship = {
   from_name: string | null;
   to_ticker: string | null;
   to_name: string | null;
-  type: "supplier" | "partner" | "competitor" | "customer" | "other";
+  type: BoshaEdgeType;
   confidence: number;
 };
 
@@ -54,15 +55,17 @@ function buildPrompt(args: { text: string; url: string; hintedTicker: string | n
     {
       role: "system" as const,
       content: [
-        "You are a document-to-signals extractor for public market research.",
+        "You are Bosha, a graph-based market intelligence extractor. Do not summarize the document.",
+        "Extract only economically meaningful, forward-looking or structural signals tied to supply, demand, capacity, pricing, or risk.",
         "Read the text and return ONLY valid JSON (no markdown).",
         "Do not invent tickers. If uncertain, use null.",
-        "magnitude, novelty: numbers between 0 and 1 (2 decimals).",
-        "sentiment: -1 bearish to +1 bullish.",
-        "events: at most 6 high-signal items; each has a short label (under 120 chars).",
-        "companies: key mentioned issuers or peers (name + optional ticker).",
-        "relationships: at most 8 edges between those companies; type must be one of supplier, partner, competitor, customer, other.",
-        "confidence: 0 to 1 for each relationship.",
+        "magnitude, novelty: numbers between 0 and 1 (two decimals) reflecting evidence strength and incremental information.",
+        "sentiment: always 0 (no sentiment scoring).",
+        "events: at most 6 items; each label is a concise structural claim (under 120 chars), not a narrative recap.",
+        "companies: key entities (name + optional ticker) relevant to supply chain, demand, or infrastructure.",
+        `relationships: at most 8 directed edges; type must be one of: ${BOSHA_EDGE_TYPES.join(", ")}.`,
+        "Map dependencies: supplier→supplies; OEM buying→depends_on; collaboration→partners_with; rivalry→competes_with; loose reference→mentions.",
+        "confidence: 0 to 1 per edge, grounded in the text.",
       ].join("\n"),
     },
     {
@@ -91,7 +94,7 @@ function buildPrompt(args: { text: string; url: string; hintedTicker: string | n
               from_name: "string|null",
               to_ticker: "string|null",
               to_name: "string|null",
-              type: "partner",
+              type: "mentions",
               confidence: 0.6,
             },
           ],
@@ -119,7 +122,7 @@ function normalizeExtraction(raw: any): MiroSharkV1 {
     event_at: e?.event_at != null ? String(e.event_at) : null,
     magnitude: clamp(Number(e?.magnitude ?? 0.3), 0, 1),
     novelty: clamp(Number(e?.novelty ?? 0.3), 0, 1),
-    sentiment: clamp(Number(e?.sentiment ?? 0), -1, 1),
+    sentiment: 0,
   }));
 
   const co = companies
@@ -130,10 +133,33 @@ function normalizeExtraction(raw: any): MiroSharkV1 {
     }))
     .filter((c) => c.name.length > 0);
 
-  const allowed = new Set(["supplier", "partner", "competitor", "customer", "other"]);
+  const allowed = new Set<string>(BOSHA_EDGE_TYPES);
+  const legacyMap: Record<string, BoshaEdgeType> = {
+    supplier: "supplies",
+    supplies: "supplies",
+    partner: "partners_with",
+    partners: "partners_with",
+    competitor: "competes_with",
+    competitors: "competes_with",
+    customer: "depends_on",
+    clients: "depends_on",
+    other: "mentions",
+    uses: "uses",
+    use: "uses",
+    depends: "depends_on",
+    depends_on: "depends_on",
+    dependency: "depends_on",
+    competes: "competes_with",
+    competes_with: "competes_with",
+    partners_with: "partners_with",
+    mention: "mentions",
+    mentions: "mentions",
+  };
   const rs = rels.slice(0, 12).map((r) => {
-    const t = String(r?.type ?? "other").toLowerCase();
-    const type = (allowed.has(t) ? t : "other") as MiroSharkRelationship["type"];
+    const rawT = String(r?.type ?? "mentions").toLowerCase().replace(/\s+/g, "_");
+    const type: BoshaEdgeType = allowed.has(rawT)
+      ? (rawT as BoshaEdgeType)
+      : legacyMap[rawT] ?? "mentions";
     return {
       from_ticker: r?.from_ticker != null ? String(r.from_ticker).toUpperCase().replace(/[^A-Z]/g, "").slice(0, 5) || null : null,
       from_name: r?.from_name != null ? String(r.from_name).trim().slice(0, 200) : null,

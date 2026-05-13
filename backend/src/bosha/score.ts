@@ -165,8 +165,11 @@ export async function computeScoreForTicker(ticker: string): Promise<{ score: nu
   try {
     const llm = await llmScoreForTicker(t, baseline);
     if (llm.llm_ok && llm.llm_score != null) {
-      score = Math.round(llm.llm_score * 10) / 10;
-      components.llm_score = score;
+      // Keep production thresholds meaningful: do not let the overlay erase a strong
+      // Bosha + cross-dataset baseline (otherwise papers rarely emit despite rich graph rows).
+      score = Math.round(Math.max(baseline, llm.llm_score) * 10) / 10;
+      components.llm_score = llm.llm_score;
+      components.score_final = score;
     }
     components.llm_ok = llm.llm_ok;
     components.llm_model = llm.llm_model;

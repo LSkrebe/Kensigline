@@ -1,5 +1,6 @@
 import { db } from "../core/db.js";
 import { buildExplorePresentation } from "./explore-presentation.js";
+import { BOSHA_OUTPUT_PRINCIPLE } from "./engine-spec.js";
 
 const threshold = () => Number(process.env.BOSHA_PAPER_SCORE_MIN ?? 48);
 const spikeDelta = () => Number(process.env.BOSHA_PAPER_SPIKE_DELTA ?? 12);
@@ -51,22 +52,43 @@ export async function buildStructuredPaper(ticker: string) {
     [t],
   );
 
+  const claims = await db.query<{ claim_type: string; confidence: string; evidence_snippet: string | null }>(
+    `
+    SELECT claim_type, confidence::text, evidence_snippet
+    FROM bosha_claims
+    WHERE ticker = $1
+    ORDER BY created_at DESC
+    LIMIT 10
+    `,
+    [t],
+  );
+
   const title =
-    events.length > 0
-      ? `${t}: ${events[0]!.summary.slice(0, 80)}${events[0]!.summary.length > 80 ? "…" : ""}`
-      : `${t}: Bosha signal refresh`;
+    claims[0]?.evidence_snippet?.trim()
+      ? `${t}: [${claims[0]!.claim_type}] ${claims[0]!.evidence_snippet!.slice(0, 72)}${claims[0]!.evidence_snippet!.length > 72 ? "…" : ""}`
+      : events.length > 0
+        ? `${t}: [${events[0]!.kind}] ${events[0]!.summary.slice(0, 72)}${events[0]!.summary.length > 72 ? "…" : ""}`
+        : `${t}: causal graph refresh`;
 
   const thesisParts: string[] = [];
-  if (events.length) {
+  thesisParts.push(BOSHA_OUTPUT_PRINCIPLE);
+  if (claims.length) {
     thesisParts.push(
-      `Latest structured signals (${events.length} items) center on ${events[0]!.kind}: ${events[0]!.summary}.`,
+      `Stored claims (${claims.length}) bias toward ${claims[0]!.claim_type} with mean confidence ${(
+        claims.reduce((a, c) => a + Number(c.confidence), 0) / claims.length
+      ).toFixed(2)}.`,
     );
+  } else if (events.length) {
+    thesisParts.push(`Latest extractions (${events.length}) tag ${events[0]!.kind} as the dominant signal class.`);
   } else {
-    thesisParts.push(`No Bosha-extracted events are on file yet for ${t}; score reflects cross-dataset and graph hints.`);
+    thesisParts.push(`No Bosha claims or events on file for ${t}; composite score still blends cross-dataset inputs.`);
   }
-  thesisParts.push(`Composite score ${score.toFixed(1)} combines recent Bosha extractions with insider, pharma, and politician feeds.`);
+  thesisParts.push(`Composite score ${score.toFixed(1)} (0–100) aggregates graph extractions with insider, pharma, and politician feeds.`);
 
   const key_points: string[] = [];
+  for (const c of claims.slice(0, 5)) {
+    key_points.push(`[${c.claim_type} ${Number(c.confidence).toFixed(2)}] ${c.evidence_snippet ?? ""}`);
+  }
   for (const e of events.slice(0, 5)) {
     key_points.push(`[${e.kind}] ${e.summary}`);
   }

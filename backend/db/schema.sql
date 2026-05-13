@@ -231,6 +231,34 @@ ALTER TABLE bosha_papers ADD COLUMN IF NOT EXISTS presentation jsonb NOT NULL DE
 
 CREATE INDEX IF NOT EXISTS bosha_papers_ticker_created_idx ON bosha_papers (ticker, created_at DESC);
 
+-- --- Bosha: structured claims + exploration queue (graph engine) ---
+CREATE TABLE IF NOT EXISTS bosha_claims (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticker text NOT NULL,
+  document_id uuid REFERENCES bosha_documents(id) ON DELETE SET NULL,
+  claim_type text NOT NULL,
+  confidence double precision NOT NULL DEFAULT 0.5,
+  entities jsonb NOT NULL DEFAULT '[]'::jsonb,
+  evidence_snippet text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS bosha_claims_ticker_idx ON bosha_claims (ticker, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS bosha_exploration_queue (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  anchor_ticker text NOT NULL,
+  entity_name text NOT NULL,
+  depth int NOT NULL DEFAULT 1,
+  status text NOT NULL DEFAULT 'queued',
+  source_hint text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS bosha_exploration_queue_anchor_status_idx
+  ON bosha_exploration_queue (anchor_ticker, status);
+
 -- --- Outcomes (Historical outcomes panel) ---
 CREATE TABLE IF NOT EXISTS outcomes (
   company_id uuid REFERENCES companies(id) ON DELETE CASCADE,

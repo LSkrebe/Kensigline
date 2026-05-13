@@ -8,7 +8,7 @@ import { startInsiderWorker } from "./insiders/insider-worker.js";
 import { getDailyCloseBars } from "./core/bars.js";
 import { getCompanyPanelData } from "./core/company.js";
 import { getLatestOutcomes, recomputeBoshaOutcomes, recomputeInsiderOutcomes, recomputePharmaOutcomes, recomputePoliticiansOutcomes } from "./core/outcomes.js";
-import { startOutcomesWorker } from "./core/outcomes-worker.js";
+import { runOutcomesRecomputeOnce, startOutcomesWorker } from "./core/outcomes-worker.js";
 import { startPharmaWorker } from "./pharma/pharma-worker.js";
 import { startPoliticiansWorker } from "./politicians/politicians-worker.js";
 import { startBoshaWorker } from "./bosha/worker.js";
@@ -26,6 +26,9 @@ import {
 const port = Number(process.env.PORT ?? "3001");
 const worker = startInsiderWorker();
 const outcomesWorker = startOutcomesWorker();
+if (String(process.env.OUTCOMES_RECOMPUTE_ON_START ?? "1").trim() !== "0") {
+  void runOutcomesRecomputeOnce().catch((err) => console.error("[outcomes] startup recompute", err));
+}
 const pharmaWorker = startPharmaWorker();
 const politiciansWorker = startPoliticiansWorker();
 const boshaWorker = startBoshaWorker();
@@ -738,9 +741,21 @@ const server = http.createServer(async (req, res) => {
     // ---- Main: trend series (for Main bottom-row charts) ----
     if (route(req, url, "GET", "/api/main/trends")) {
       const days = clampInt(url.searchParams.get("days"), 30, 3650, 365);
+      const metricRaw = String(url.searchParams.get("metric") ?? "21").trim();
+      const metricKey = metricRaw === "63" ? "63" : metricRaw === "252" ? "252" : "21";
+      const metricField = metricKey === "63" ? "avgReturn63" : metricKey === "252" ? "avgReturn252" : "avgReturn21";
       const global = await db.one<{ id: string }>(`SELECT id FROM companies WHERE name = '__GLOBAL__' LIMIT 1`);
       if (!global?.id) {
-        sendJson(res, 200, { ok: true, days, empty: true, insiders: [], politicians: [], research: [] });
+        sendJson(res, 200, {
+          ok: true,
+          days,
+          metricKey,
+          metricField,
+          empty: true,
+          insiders: [],
+          politicians: [],
+          research: [],
+        });
         return;
       }
 
@@ -757,13 +772,23 @@ const server = http.createServer(async (req, res) => {
           [global?.id ?? "", mode, String(days)],
         );
         return rows.map((r) => {
-          const v = Number(r.data?.avgReturn21);
-          return { day: r.day, v: Number.isFinite(v) ? v : 0 };
+          const raw = r.data?.[metricField];
+          const v = raw === null || raw === undefined || raw === "" ? null : Number(raw);
+          return { day: r.day, v: Number.isFinite(v as number) ? (v as number) : null };
         });
       }
 
       const [insiders, politicians, research] = await Promise.all([series("insider"), series("politicians"), series("bosha")]);
-      sendJson(res, 200, { ok: true, days, metric: "avgReturn21", insiders, politicians, research });
+      sendJson(res, 200, {
+        ok: true,
+        days,
+        metricKey,
+        metricField,
+        description: "Rolling cohort: mean forward total return after feed/Bosha signal days (trading days)",
+        insiders,
+        politicians,
+        research,
+      });
       return;
     }
 

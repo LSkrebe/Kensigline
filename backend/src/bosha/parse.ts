@@ -6,6 +6,7 @@ import { insertBoshaDocument, persistMiroSharkExtraction, resolveSubjectTicker }
 import { computeScoreForTicker, saveTickerState } from "./score.js";
 import { maybeEmitPaper } from "./paper.js";
 import { fetchArticleHtml, guessTickerFromText, stripHtmlToText } from "./feeds.js";
+import { isUrlAllowedForBoshaHttpIngest } from "./engine-spec.js";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }
@@ -259,6 +260,18 @@ async function parseHttpDocument(
   documentSourceType: "bosha_press_rss" | "bosha_transcript_rss",
   relevance: (text: string) => boolean,
 ): Promise<ParseNextResult> {
+  if (!isUrlAllowedForBoshaHttpIngest(pageUrl)) {
+    await db.query(
+      `
+      UPDATE document_queue
+      SET status = 'dead', last_error = 'bosha_disallowed_http_host', next_attempt_at = NULL, updated_at = now()
+      WHERE id = $1
+      `,
+      [queueId],
+    );
+    return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "disallowed_host" };
+  }
+
   const html = await fetchArticleHtml(pageUrl);
   const text = stripHtmlToText(html);
   const contentSha = createHash("sha256").update(text, "utf8").digest("hex");

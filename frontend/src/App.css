@@ -282,6 +282,18 @@
   min-height: 0;
 }
 
+/* Image export: drop the 1fr row cap so the paper body can grow to full scroll height for capture */
+.terminal--main .boshaPaper.mainMainBlank.boshaPaper--capturing {
+  overflow: visible !important;
+  align-self: start;
+  grid-template-rows: auto min-content !important;
+  min-height: min-content !important;
+}
+
+.panel.boshaPaper.boshaPaper--capturing {
+  overflow: visible !important;
+}
+
 /* Settings tab: single full-panel tile */
 .terminal.terminal--settings {
   grid-template-columns: 1fr;
@@ -647,6 +659,21 @@
   min-height: 0;
 }
 
+/* Full-paper export: let the scroll pane expand so capture uses full scrollHeight.
+   Opaque fill matches PAPER_EXPORT_BG in App.jsx so WebKit snapshot is not “light text on white”. */
+.boshaPaperBody.boshaPaperBody--capturing {
+  overflow: visible !important;
+  max-height: none !important;
+  background-color: #0a0b0d !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* html-to-image: SVG url(#gradient) fills often rasterize black; force flat fill only during capture. */
+.boshaPaperBody.boshaPaperBody--capturing path.graphArea {
+  fill: rgba(90, 220, 255, 0.16) !important;
+}
+
 .boshaPaperBody {
   min-height: 0;
   overflow-y: auto;
@@ -655,7 +682,39 @@
   box-sizing: border-box;
   font-size: var(--fs-body);
   line-height: 1.7;
-  color: rgba(240, 255, 248, 0.9);
+  color: var(--bosha-paper-fg, rgba(237, 237, 237, 0.94));
+  text-rendering: optimizeLegibility;
+}
+
+/* Match `.feedCompactHeader` horizontal padding (8px) so paper kicker/title/body align with the panel title row. */
+.boshaPaper .boshaPaperBody {
+  padding-left: 8px;
+  padding-right: 8px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Captions + price frame: less tracked type, neutral chrome (still dark panel / light type) */
+.boshaPaper .boshaFigureCaption {
+  letter-spacing: 0.02em;
+  color: var(--bosha-paper-fg-soft, rgba(205, 205, 205, 0.82));
+  line-height: 1.45;
+}
+
+.boshaPaper .boshaGraphFigureWrap {
+  border-color: var(--bosha-paper-rule, rgba(255, 255, 255, 0.1));
+}
+
+.boshaPaper .boshaCausalText {
+  fill: rgba(232, 232, 232, 0.92);
+}
+
+.boshaPaper .boshaCausalEdge {
+  stroke: rgba(255, 255, 255, 0.38);
+}
+
+.boshaPaper .boshaCausalEdge--loop {
+  stroke: rgba(255, 255, 255, 0.28);
 }
 
 .boshaPaperDoc {
@@ -671,7 +730,7 @@
 .boshaPaperTitle {
   font-size: 16px;
   letter-spacing: 0.02em;
-  color: rgba(240, 255, 248, 0.94);
+  color: var(--bosha-paper-fg-bright, rgba(246, 246, 246, 0.97));
 }
 
 .boshaThesisTitle {
@@ -686,12 +745,180 @@
 }
 
 .boshaPaper {
-  --bosha-break: 18px;
+  /* Long-form reading tokens (neutral grayscale on same dark panel) */
+  --bosha-break: 1.125rem;
+  --bosha-paper-fg: rgba(236, 236, 236, 0.94);
+  --bosha-paper-fg-bright: rgba(248, 248, 248, 0.98);
+  --bosha-paper-fg-soft: rgba(205, 205, 205, 0.82);
+  --bosha-paper-fg-dim: rgba(168, 168, 168, 0.72);
+  --bosha-paper-section: rgba(198, 198, 198, 0.88);
+  --bosha-paper-rule: rgba(255, 255, 255, 0.1);
+  --bosha-paper-link: rgba(235, 235, 235, 0.95);
+  --bosha-paper-link-line: rgba(255, 255, 255, 0.32);
 }
 
 .boshaThesisP {
   margin: 0 0 var(--bosha-break);
-  color: rgba(240, 255, 248, 0.9);
+  color: var(--bosha-paper-fg, rgba(236, 236, 236, 0.94));
+}
+
+.boshaPaperTitleBlock--live {
+  text-align: left;
+  margin: 0 0 28px;
+  border-bottom: 1px solid var(--bosha-paper-rule, rgba(255, 255, 255, 0.1));
+  padding-bottom: 22px;
+}
+
+.boshaPaperTitleBlock--live .boshaThesisTitle {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  font-size: 17px;
+  line-height: 1.35;
+  color: var(--bosha-paper-fg-bright, rgba(248, 248, 248, 0.98));
+}
+
+.boshaPaperTitleBlock--live .boshaPaperSubtitle {
+  text-align: left;
+  margin-top: 12px;
+  line-height: 1.55;
+  max-width: none;
+  color: var(--bosha-paper-fg-soft, rgba(205, 205, 205, 0.82));
+}
+
+.boshaPaperKicker {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--bosha-paper-fg-dim, rgba(168, 168, 168, 0.72));
+  margin-bottom: 10px;
+}
+
+.boshaThesisBody--live {
+  /* Match title block width inside .boshaPaperDoc — avoid a narrower column than the kicker/title. */
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  width: 100%;
+}
+
+.boshaPaperSectionTitle {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bosha-paper-section, rgba(198, 198, 198, 0.88));
+  margin: 28px 0 10px;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.boshaThesisBody--live .boshaPaperSectionTitle:first-of-type {
+  margin-top: 0;
+}
+
+.boshaThesisP--live {
+  margin: 0 0 1.125rem;
+  color: var(--bosha-paper-fg, rgba(236, 236, 236, 0.94));
+  font-size: clamp(13.5px, 1.85vmin, 15.5px);
+  line-height: 1.82;
+  letter-spacing: 0;
+}
+
+.boshaPaperFigure {
+  margin: 12px 0 1.5rem;
+}
+
+/* Paper column: chart tick type is easy to lose on pure black; bump contrast + size vs global --fs-meta. */
+.boshaPaperFigure .graphTick {
+  fill: rgba(230, 255, 245, 0.82);
+  font-size: clamp(9px, 1.55vmin, 11px);
+}
+
+.boshaPaperFigure .graphTickLine {
+  stroke: rgba(160, 255, 210, 0.38);
+}
+
+.boshaPaperFigure .graphAxis {
+  stroke: rgba(160, 255, 210, 0.34);
+}
+
+.boshaPaperSources {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--bosha-paper-rule, rgba(255, 255, 255, 0.1));
+}
+
+.boshaPaperSourcesTitle {
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bosha-paper-fg-soft, rgba(205, 205, 205, 0.82));
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+.boshaPaperSourcesGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: baseline;
+}
+
+.boshaPaperSourceLink {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--bosha-paper-link, rgba(235, 235, 235, 0.95));
+  text-decoration: none;
+  border-bottom: 1px solid var(--bosha-paper-link-line, rgba(255, 255, 255, 0.32));
+  padding-bottom: 1px;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.boshaPaperSourceLink:hover {
+  color: var(--bosha-paper-fg-bright, rgba(248, 248, 248, 0.98));
+  border-bottom-color: rgba(255, 255, 255, 0.48);
+}
+
+/* Header: icon-only copy (stacked sheets), inherits paper link tone */
+button.boshaPaperCopyIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--bosha-paper-link, rgba(235, 235, 235, 0.95));
+  cursor: pointer;
+  border-radius: 4px;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+button.boshaPaperCopyIcon .boshaPaperCopyIconSvg {
+  display: block;
+}
+
+button.boshaPaperCopyIcon:hover:not(:disabled) {
+  color: var(--bosha-paper-fg-bright, rgba(248, 248, 248, 0.98));
+}
+
+button.boshaPaperCopyIcon:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+
+button.boshaPaperCopyIcon:focus-visible {
+  outline: 1px solid rgba(130, 170, 255, 0.55);
+  outline-offset: 3px;
+}
+
+.boshaPaperSourcesEmpty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--bosha-paper-fg-soft, rgba(205, 205, 205, 0.82));
+  line-height: 1.62;
 }
 
 .boshaInsert {

@@ -1,5 +1,79 @@
-import type { MiroSharkV1 } from "./miroshark.js";
+import type { MiroSharkRelationship, MiroSharkV1 } from "./miroshark.js";
 import { db } from "../core/db.js";
+import { BOSHA_MAX_EXPANSIONS_PER_ENTITY } from "./engine-spec.js";
+
+function mapEventKindToClaimType(kind: string): string {
+  const k = String(kind ?? "").toLowerCase();
+  if (/supply|supplier|chain|component|foundry|wafer|subcon/i.test(k)) return "supply_chain";
+  if (/demand|order|backlog|book|ship|volume/i.test(k)) return "demand";
+  if (/capacity|fab|expand|build|lead time|constraint/i.test(k)) return "capacity";
+  if (/risk|litigation|recall|delay|miss|warning|downgrade/i.test(k)) return "risk";
+  if (/price|pricing|margin|tariff|cost|inflation/i.test(k)) return "pricing";
+  return "risk";
+}
+
+async function insertClaimsFromEvents(args: {
+  documentId: string;
+  subjectTicker: string;
+  events: MiroSharkV1["events"];
+}) {
+  const { documentId, subjectTicker, events } = args;
+  const t = subjectTicker.trim().toUpperCase();
+  for (const e of events.slice(0, BOSHA_MAX_EXPANSIONS_PER_ENTITY)) {
+    const claimType = mapEventKindToClaimType(e.kind);
+    const conf = Math.max(0, Math.min(1, (e.magnitude + e.novelty) / 2));
+    const entities = JSON.stringify([{ role: "anchor", ticker: t }, { role: "signal", kind: e.kind }]);
+    await db.query(
+      `
+      INSERT INTO bosha_claims (ticker, document_id, claim_type, confidence, entities, evidence_snippet)
+      VALUES ($1, $2, $3, $4, $5::jsonb, $6)
+      `,
+      [t, documentId, claimType, conf, entities, e.label.slice(0, 2000)],
+    );
+  }
+}
+
+async function enqueueExplorationFromRelationships(args: {
+  anchorTicker: string;
+  documentId: string;
+  relationships: MiroSharkRelationship[];
+}) {
+  const anchor = args.anchorTicker.trim().toUpperCase();
+  let added = 0;
+  const hintBase = `doc:${args.documentId}`.slice(0, 80);
+  for (const r of args.relationships) {
+    if (r.confidence < 0.45) continue;
+    const fromT = r.from_ticker?.trim().toUpperCase() ?? "";
+    const toT = r.to_ticker?.trim().toUpperCase() ?? "";
+    const counterName =
+      fromT && fromT === anchor
+        ? r.to_name ?? r.to_ticker ?? ""
+        : toT && toT === anchor
+          ? r.from_name ?? r.from_ticker ?? ""
+          : "";
+    const label = String(counterName ?? "").trim();
+    if (!label || label.toUpperCase() === anchor) continue;
+
+    const dup = await db.one<{ n: string }>(
+      `
+      SELECT COUNT(*)::text AS n FROM bosha_exploration_queue
+      WHERE anchor_ticker = $1 AND lower(entity_name) = lower($2) AND status = 'queued'
+      `,
+      [anchor, label],
+    );
+    if (dup && Number(dup.n) > 0) continue;
+
+    await db.query(
+      `
+      INSERT INTO bosha_exploration_queue (anchor_ticker, entity_name, depth, status, source_hint)
+      VALUES ($1, $2, $3, 'queued', $4)
+      `,
+      [anchor, label.slice(0, 400), 1, `${hintBase};rel:${r.type}`.slice(0, 240)],
+    );
+    added++;
+    if (added >= BOSHA_MAX_EXPANSIONS_PER_ENTITY) break;
+  }
+}
 
 async function ensureEntity(ticker: string | null, name: string | null): Promise<string> {
   const n = String(name ?? "").trim() || "Unknown";
@@ -102,9 +176,18 @@ export async function persistMiroSharkExtraction(args: {
         e.magnitude,
         e.novelty,
         e.sentiment,
-        JSON.stringify({ label: e.label, kind: e.kind }),
+        JSON.stringify({
+          label: e.label,
+          kind: e.kind,
+          engine: "bosha_graph_v1",
+          claim_hint: mapEventKindToClaimType(e.kind),
+        }),
       ],
     );
+  }
+
+  if (subject) {
+    await insertClaimsFromEvents({ documentId, subjectTicker: subject, events: out.events });
   }
 
   for (const r of out.relationships) {
@@ -120,6 +203,14 @@ export async function persistMiroSharkExtraction(args: {
     );
     if (r.from_ticker) tickers.add(r.from_ticker);
     if (r.to_ticker) tickers.add(r.to_ticker);
+  }
+
+  if (subject) {
+    await enqueueExplorationFromRelationships({
+      anchorTicker: subject,
+      documentId,
+      relationships: out.relationships,
+    });
   }
 
   return { tickersTouched: Array.from(tickers).filter(Boolean) };

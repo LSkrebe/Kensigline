@@ -1,4 +1,5 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { toPng } from 'html-to-image'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 function clamp(n, lo, hi) {
@@ -27,6 +28,41 @@ async function fetchJsonSafe(path, { timeoutMs = 4500 } = {}) {
 }
 
 const EMPTY = '-'
+
+/* Chart area fill under line: literal stops (not `var()`), for SVG. During paper image capture,
+ * `.boshaPaperBody--capturing` overrides `path.graphArea` with a flat fill so html-to-image works. */
+const CHART_AREA_GRAD_TOP = 'rgba(90, 220, 255, 0.26)'
+const CHART_AREA_GRAD_BOTTOM = 'rgba(90, 220, 255, 0)'
+
+/** Inline SVG paint: avoids WebKit/CSS cascade quirks on <text> and export rasterizers. */
+const GRAPH_SVG_FONT =
+  'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+const GRAPH_SVG_TICK = { fill: 'rgba(232, 255, 246, 0.92)', fontSize: 11, fontFamily: GRAPH_SVG_FONT }
+const GRAPH_SVG_TICK_LINE = { stroke: 'rgba(155, 255, 210, 0.52)', strokeWidth: 1, fill: 'none' }
+const GRAPH_SVG_AXIS = { stroke: 'rgba(155, 255, 210, 0.48)', strokeWidth: 0.85, fill: 'none' }
+const GRAPH_SVG_PATH = { stroke: 'rgba(90, 220, 255, 0.94)', strokeWidth: 2, fill: 'none' }
+const GRAPH_SVG_MARKER = { stroke: 'rgba(140, 255, 195, 0.35)', strokeWidth: 0.85, fill: 'none' }
+const GRAPH_SVG_MARKER_SEL = { stroke: 'rgba(140, 255, 195, 0.62)', strokeWidth: 0.85, fill: 'none' }
+
+/**
+ * Drop a leading run of closes equal to the first bar (within tolerance). Some `/api/bars` payloads
+ * repeat the same close for a long prefix; plotting that wastes the whole X span on a flat line.
+ */
+function trimLeadingFlatSeries(arr, { minRemain = 32, maxTrimFraction = 0.9 } = {}) {
+  if (!Array.isArray(arr) || arr.length < minRemain + 2) return arr
+  const n = arr.length
+  for (let k = 0; k < n; k++) if (!Number.isFinite(arr[k])) return arr
+  const lo = Math.min(...arr)
+  const hi = Math.max(...arr)
+  const span = hi - lo || 1
+  const tol = Math.max(span * 1e-10, 1e-12)
+  let i = 0
+  while (i < n - 1 && Math.abs(arr[i + 1] - arr[0]) <= tol) i++
+  if (i <= 0) return arr
+  if (i / n > maxTrimFraction) return arr
+  const sliced = arr.slice(i)
+  return sliced.length >= minRemain ? sliced : arr
+}
 
 const MOCK_EVENTS = [
   {
@@ -1303,7 +1339,7 @@ function BoshaGraphFigure({ entities, events, edges }) {
   )
 }
 
-function BoshaMiniPrice({ series, label, showMeta = true }) {
+function BoshaMiniPrice({ series, label, showMeta = true, trimLeadingPlateau = false }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 360, h: 192 })
 
@@ -1326,12 +1362,18 @@ function BoshaMiniPrice({ series, label, showMeta = true }) {
   const h = size.h
   // Keep the plot flush with the paper text column while still allowing
   // Y-axis labels to render to the *left* of the axis line.
-  const viewPadL = 36
+  // Left padding in SVG user units: must fit widest y tick (end-anchored left of x = margin.l).
+  const viewPadL = 50
   const margin = { l: 0, r: 6, t: 8, b: 18 }
   const innerW = Math.max(1, w - margin.l - margin.r)
   const innerH = Math.max(1, h - margin.t - margin.b)
 
-  const vals = Array.isArray(series) ? series : []
+  const vals = useMemo(() => {
+    const base = Array.isArray(series) ? series : []
+    if (!trimLeadingPlateau || base.length < 8) return base
+    const t = trimLeadingFlatSeries(base)
+    return t.length >= 2 ? t : base
+  }, [series, trimLeadingPlateau])
   const min = vals.length ? Math.min(...vals) : 0
   const max = vals.length ? Math.max(...vals) : 1
   const span = max - min || 1
@@ -1418,12 +1460,14 @@ function BoshaMiniPrice({ series, label, showMeta = true }) {
         <svg className="graphSvg" viewBox={`${-viewPadL} 0 ${w + viewPadL} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
           <defs>
             <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--hi)" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="var(--hi)" stopOpacity="0.00" />
+              <stop offset="0%" stopColor={CHART_AREA_GRAD_TOP} stopOpacity="1" />
+              <stop offset="100%" stopColor={CHART_AREA_GRAD_BOTTOM} stopOpacity="1" />
             </linearGradient>
           </defs>
+          {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
           <path
             className="graphAxis"
+            style={GRAPH_SVG_AXIS}
             d={`M ${margin.l} ${margin.t} L ${margin.l} ${h - margin.b} L ${w - margin.r} ${h - margin.b}`}
           />
 
@@ -1431,10 +1475,17 @@ function BoshaMiniPrice({ series, label, showMeta = true }) {
             const y = yAt(v)
             return (
               <g key={`yt-${i}`}>
-                <text className="graphTick graphTick--y" x={margin.l - 6} y={y + 4}>
+                <text
+                  className="graphTick graphTick--y"
+                  style={GRAPH_SVG_TICK}
+                  textAnchor="end"
+                  dominantBaseline="middle"
+                  x={margin.l - 8}
+                  y={y}
+                >
                   {formatPriceTick(v)}
                 </text>
-                <path className="graphTickLine" d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
+                <path className="graphTickLine" style={GRAPH_SVG_TICK_LINE} d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
               </g>
             )
           })}
@@ -1445,16 +1496,19 @@ function BoshaMiniPrice({ series, label, showMeta = true }) {
             const m = d instanceof Date && !Number.isNaN(d.getTime()) ? MONTHS_SHORT[d.getMonth()] : EMPTY
             return (
               <g key={`xt-${i}`}>
-                <path className="graphTickLine" d={`M ${x} ${h - margin.b} L ${x} ${h - margin.b - 6}`} />
-                <text className="graphTick graphTick--x" x={x} y={h - 4}>
+                <path
+                  className="graphTickLine"
+                  style={GRAPH_SVG_TICK_LINE}
+                  d={`M ${x} ${h - margin.b} L ${x} ${h - margin.b - 6}`}
+                />
+                <text className="graphTick graphTick--x" style={GRAPH_SVG_TICK} x={x} y={h - 4}>
                   {m}
                 </text>
               </g>
             )
           })}
 
-          {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
-          <path className="graphPath" d={path} vectorEffect="non-scaling-stroke" />
+          <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
         </svg>
       </div>
     </div>
@@ -1876,6 +1930,13 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
           ? 'Clinical catalyst chain diagram'
           : 'Causal chain diagram'
 
+  const arrowMarkerId = useMemo(() => {
+    const s = `bosha-arrow-${String(ticker ?? 'tk')}-${String(diagramSpec?.layout ?? 'x')}`
+    let h0 = 2166136261
+    for (let i = 0; i < s.length; i++) h0 = Math.imul(h0 ^ s.charCodeAt(i), 16777619)
+    return `boshaArrow-${(h0 >>> 0).toString(16)}`
+  }, [ticker, diagramSpec?.layout])
+
   return (
     <div
       ref={wrapRef}
@@ -1886,7 +1947,7 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
       <svg className="boshaCausalSvg" viewBox={`0 0 ${w} ${vbH}`} preserveAspectRatio="xMidYMid meet">
         <defs>
           <marker
-            id="boshaArrow"
+            id={arrowMarkerId}
             viewBox="0 0 10 10"
             refX="9"
             refY="5"
@@ -1900,34 +1961,49 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
 
         {edges.map((e, i) => {
           const d = routedPath(e.a, e.b)
+          const loop = e.kind === 'loop'
           return (
             <path
               key={`e-${i}`}
               d={d}
-              className={['boshaCausalEdge', e.kind === 'loop' ? 'boshaCausalEdge--loop' : ''].filter(Boolean).join(' ')}
-              vectorEffect="non-scaling-stroke"
+              fill="none"
+              stroke={loop ? 'rgba(216, 255, 235, 0.34)' : 'rgba(216, 255, 235, 0.48)'}
+              strokeWidth="1.25"
               strokeLinecap="round"
               strokeLinejoin="round"
-              markerEnd="url(#boshaArrow)"
+              strokeDasharray={loop ? '4 4' : undefined}
+              markerEnd={`url(#${arrowMarkerId})`}
             />
           )
         })}
 
-        {nodes.map((n) => (
-          <g key={n.id}>
-            <rect
-              className={['boshaCausalNode', n.id === 't1' || n.id === 'a4' || n.id === 'p4' ? 'boshaCausalNode--edge' : ''].filter(Boolean).join(' ')}
-              x={n.x + 0.5}
-              y={n.y + 0.5}
-              width={n.w - 1}
-              height={n.h - 1}
-              rx="6"
-            />
-            <text className="boshaCausalText" x={n.x + n.w / 2} y={n.y + n.h / 2 + 4}>
-              {n.label}
-            </text>
-          </g>
-        ))}
+        {nodes.map((n) => {
+          const edgeNode = n.id === 't1' || n.id === 'a4' || n.id === 'p4'
+          return (
+            <g key={n.id}>
+              <rect
+                className={['boshaCausalNode', edgeNode ? 'boshaCausalNode--edge' : ''].filter(Boolean).join(' ')}
+                x={n.x + 0.5}
+                y={n.y + 0.5}
+                width={n.w - 1}
+                height={n.h - 1}
+                rx="6"
+                fill="rgba(6, 7, 10, 0.22)"
+                stroke={edgeNode ? 'rgba(90, 220, 255, 0.45)' : 'rgba(140, 255, 195, 0.12)'}
+                strokeWidth="1"
+              />
+              <text
+                className="boshaCausalText"
+                x={n.x + n.w / 2}
+                y={n.y + n.h / 2 + 4}
+                fill="rgba(232, 232, 232, 0.92)"
+                textAnchor="middle"
+              >
+                {n.label}
+              </text>
+            </g>
+          )
+        })}
       </svg>
     </div>
   )
@@ -2017,39 +2093,220 @@ function boshaThesisMemo({ ticker, companyName, events, priceSeries, constituent
   return { created, title, openingA, openingB, priceRef, chartX, core, causalChain, final }
 }
 
-function boshaAsmlText() {
+function boshaAsmlPresentation() {
+  const intro =
+    'Extreme ultraviolet lithography is the binding step for adding leading-edge wafer supply, and ASML is the systems supplier the industry depends on for that step. Output at the most advanced nodes therefore scales with EUV delivery and installation, not with the near-term pace of demand headlines. Market attention and flows still concentrate on accelerators and hyperscale operators because those markets are liquid, well covered, and map cleanly to a simple growth narrative, while lithography capacity is technical and slow to adjust. The result is often a lag between how downstream AI semiconductors reprice and how the upstream tool chain is valued, even when both sit in the same end-use story. The view here is that this lag can persist until allocation pressure in EUV is reflected more fully in ASML’s relative performance.'
+  const priceCaption =
+    'ASML only. Use it with a broad GPU or AI-semiconductor complex in mind: wide relative strength there versus little movement here implies demand is being discounted ahead of lithography constraint.'
+  const middle =
+    'Constraint should show up first in order books, delivery timing, and pricing for EUV tools, then propagate into how foundries allocate leading-edge capacity, and only later into the equity prices of the most visible downstream names. That sequencing is what produces the pattern this note targets: downstream beta can extend on expectations while the tool layer is still clearing physical limits. When downstream multiples compress or stabilize while EUV timing stays tight, or when ASML begins to outperform while GPU-heavy semiconductors stall, the original dispersion has largely normalized and the setup described above has largely played through.'
+  const diagramCaption =
+    'Hyperscaler AI demand branches into GPU-led spending and fab ramps; both bind on finite EUV allocation before reaching ASML-supplied EUV capacity.'
+  const action =
+    'The obvious side is buy ASML when GPU-heavy semis have ripped and ASML still looks flat against them. You are paying for the lithography choke point while the crowd pays for the louder downstream story, and that mismatch is what this note is about. When ASML later jumps ahead while those names stall, take profits instead of chasing more. Sell only if people start acting like EUV tools are easy to get again or fabs seriously pull back on cutting-edge builds, because then the scarcity story falls apart.'
   return {
     title: 'Leading-edge capacity remains EUV-gated; equity attention still clusters on downstream AI hardware',
-    subtitle: 'ASML · May 2026',
-    intro:
-      'Extreme ultraviolet lithography is the binding step for adding leading-edge wafer supply, and ASML is the systems supplier the industry depends on for that step. Output at the most advanced nodes therefore scales with EUV delivery and installation, not with the near-term pace of demand headlines. Market attention and flows still concentrate on accelerators and hyperscale operators because those markets are liquid, well covered, and map cleanly to a simple growth narrative, while lithography capacity is technical and slow to adjust. The result is often a lag between how downstream AI semiconductors reprice and how the upstream tool chain is valued, even when both sit in the same end-use story. The view here is that this lag can persist until allocation pressure in EUV is reflected more fully in ASML’s relative performance.',
-    priceCaption:
-      'ASML only. Use it with a broad GPU or AI-semiconductor complex in mind: wide relative strength there versus little movement here implies demand is being discounted ahead of lithography constraint.',
-    middle:
-      'Constraint should show up first in order books, delivery timing, and pricing for EUV tools, then propagate into how foundries allocate leading-edge capacity, and only later into the equity prices of the most visible downstream names. That sequencing is what produces the pattern this note targets: downstream beta can extend on expectations while the tool layer is still clearing physical limits. When downstream multiples compress or stabilize while EUV timing stays tight, or when ASML begins to outperform while GPU-heavy semiconductors stall, the original dispersion has largely normalized and the setup described above has largely played through.',
-    diagramCaption:
-      'Hyperscaler AI demand branches into GPU-led spending and fab ramps; both bind on finite EUV allocation before reaching ASML-supplied EUV capacity.',
-    action:
-      'The obvious side is buy ASML when GPU-heavy semis have ripped and ASML still looks flat against them. You are paying for the lithography choke point while the crowd pays for the louder downstream story, and that mismatch is what this note is about. When ASML later jumps ahead while those names stall, take profits instead of chasing more. Sell only if people start acting like EUV tools are easy to get again or fabs seriously pull back on cutting-edge builds, because then the scarcity story falls apart.',
+    subtitle: 'ASML Holding N.V. · ASML · offline sample · not investment advice',
+    blocks: [
+      { type: 'heading', text: 'Company focus' },
+      { type: 'paragraph', text: intro },
+      { type: 'heading', text: 'Price' },
+      { type: 'price', caption: priceCaption },
+      { type: 'heading', text: 'Structural signals' },
+      { type: 'paragraph', text: middle },
+      { type: 'heading', text: 'Entity map' },
+      { type: 'diagram', caption: diagramCaption },
+      { type: 'heading', text: 'Implementation angle' },
+      { type: 'paragraph', text: action },
+    ],
+    diagram: undefined,
+    sources: [
+      { label: 'ASML — Investor relations', url: 'https://www.asml.com/en/investors' },
+      { label: 'SEC EDGAR search', url: 'https://www.sec.gov/edgar/search/' },
+      { label: 'EU regulation — company filings (mock)', url: 'https://www.sec.gov/edgar/search/' },
+    ],
   }
 }
 
-function boshaAtyrText() {
+function boshaAtyrPresentation() {
+  const intro =
+    'This note pulls only from documents. ClinicalTrials.gov, enrollment updates, what the company says about clinical risk, blinded safety tables. You cannot defend an efficacy claim until topline. EFZO-FIT (NCT05415137) is sarcoidosis with three arms at 5 mg per kg, 3 mg per kg, and placebo. Enrollment hit 268 against a 264 target. Placebo is real and the N matters. The SAP emphasizes absolute change from baseline in mean daily oral steroid dose at week 48. That is what regulators stare at first. Everything else is narrative until you see milligrams per day with spread. EFZO-CONNECT (NCT05892614) is a separate SSc-ILD proof-of-concept with about 25 patients and placebo. It can reveal a monster effect if one exists. It cannot statistically rescue Phase 3 if the pivotal mean-OCS line fails.'
+  const priceCaption =
+    'ATYR only. Price is mostly enthusiasm minus hard facts. If the stock rips before anyone has deltas and confidence intervals, that is guessing.'
+  const middle =
+    'Beating the enrollment target helps operations. It does not tighten the error bars on a mean steroid taper when placebo arms also step down on the same visit cadence baked into the protocol. A hit on the week-48 OCS primary can still be a coin toss unless the drug separation is huge. Patients miss doses and titrate differently, which can chew through several mg per day at the cohort level. Blinded safety updates so far have not screamed a toxicity spiral, which is the one qualitative cushion for holders into the print. Connect is small, tens of patients. If Phase 3 misses, that PoC does not prove you get approval. It only shows biology at a scale too tiny to fix power. Off documents alone, odds on clearing the written primary look low to middling. Steroid-free rate and lung numbers could still move how people trade if the separation is clean, because doctors care about those even when the headline mean-dose fight is noisy.'
+  const diagramCaption =
+    'Filings and trial registries link EFZO-FIT and EFZO-CONNECT. The FDA still wants both paths to tell one approvable story before the name reprices.'
+  const action =
+    'Blinded-file view says do not add fresh equity before unblinding. A long here is mostly variance on a mean-OCS endpoint that fights clean stats. Trim or hedge into any pre-data rally. If someone wants to gamble the print, use structures where downside is capped, like options. Buying more common into a binary FDA-style read without tables is how retail accounts vaporize. After topline, focus on what actually prints. Mean change in daily oral steroids with confidence intervals, steroid-free rates, FVC and the other pulmonary rows. Until then the protocol stack is the whole thesis.'
   return {
     title:
       'EFZO-FIT finished enrollment while still blinded. The protocol and SAP lean hard on a mean-OCS primary that is messy statistically, so the stock is basically a catalyst flip until real tables drop.',
-    subtitle: 'aTyr Pharma, ticker ATRY, May 2026. Blinded dossier only (mock).',
-    intro:
-      'This note pulls only from documents. ClinicalTrials.gov, enrollment updates, what the company says about clinical risk, blinded safety tables. You cannot defend an efficacy claim until topline. EFZO-FIT (NCT05415137) is sarcoidosis with three arms at 5 mg per kg, 3 mg per kg, and placebo. Enrollment hit 268 against a 264 target. Placebo is real and the N matters. The SAP emphasizes absolute change from baseline in mean daily oral steroid dose at week 48. That is what regulators stare at first. Everything else is narrative until you see milligrams per day with spread. EFZO-CONNECT (NCT05892614) is a separate SSc-ILD proof-of-concept with about 25 patients and placebo. It can reveal a monster effect if one exists. It cannot statistically rescue Phase 3 if the pivotal mean-OCS line fails.',
-    priceCaption:
-      'ATYR only. Price is mostly enthusiasm minus hard facts. If the stock rips before anyone has deltas and confidence intervals, that is guessing.',
-    middle:
-      'Beating the enrollment target helps operations. It does not tighten the error bars on a mean steroid taper when placebo arms also step down on the same visit cadence baked into the protocol. A hit on the week-48 OCS primary can still be a coin toss unless the drug separation is huge. Patients miss doses and titrate differently, which can chew through several mg per day at the cohort level. Blinded safety updates so far have not screamed a toxicity spiral, which is the one qualitative cushion for holders into the print. Connect is small, tens of patients. If Phase 3 misses, that PoC does not prove you get approval. It only shows biology at a scale too tiny to fix power. Off documents alone, odds on clearing the written primary look low to middling. Steroid-free rate and lung numbers could still move how people trade if the separation is clean, because doctors care about those even when the headline mean-dose fight is noisy.',
-    diagramCaption:
-      'Filings and trial registries link EFZO-FIT and EFZO-CONNECT. The FDA still wants both paths to tell one approvable story before the name reprices.',
-    action:
-      'Blinded-file view says do not add fresh equity before unblinding. A long here is mostly variance on a mean-OCS endpoint that fights clean stats. Trim or hedge into any pre-data rally. If someone wants to gamble the print, use structures where downside is capped, like options. Buying more common into a binary FDA-style read without tables is how retail accounts vaporize. After topline, focus on what actually prints. Mean change in daily oral steroids with confidence intervals, steroid-free rates, FVC and the other pulmonary rows. Until then the protocol stack is the whole thesis.',
+    subtitle: 'aTyr Pharma, Inc. · ATRY · offline sample · not investment advice',
+    blocks: [
+      { type: 'heading', text: 'Company focus' },
+      { type: 'paragraph', text: intro },
+      { type: 'heading', text: 'Price' },
+      { type: 'price', caption: priceCaption },
+      { type: 'heading', text: 'Structural signals' },
+      { type: 'paragraph', text: middle },
+      { type: 'heading', text: 'Entity map' },
+      { type: 'diagram', caption: diagramCaption },
+      { type: 'heading', text: 'Implementation angle' },
+      { type: 'paragraph', text: action },
+    ],
+    diagram: undefined,
+    sources: [
+      { label: 'ClinicalTrials.gov — EFZO-FIT (NCT05415137)', url: 'https://clinicaltrials.gov/study/NCT05415137' },
+      { label: 'ClinicalTrials.gov — EFZO-CONNECT (NCT05892614)', url: 'https://clinicaltrials.gov/study/NCT05892614' },
+      { label: 'SEC EDGAR search', url: 'https://www.sec.gov/edgar/search/' },
+    ],
   }
+}
+
+function boshaGenericOfflinePresentation(memo, titleText, ticker) {
+  const t = String(ticker ?? '').toUpperCase()
+  const priceCaption = `${memo.priceRef} Chart regime: ${memo.chartX}.`
+  const diagramCaption = `Causal sketch: ${memo.causalChain}`
+  return {
+    title: memo.title,
+    subtitle: `${String(titleText ?? '').trim() || t} · ${t} · offline sample · not investment advice`,
+    blocks: [
+      { type: 'heading', text: 'Company focus' },
+      { type: 'paragraph', text: memo.openingA },
+      { type: 'paragraph', text: memo.openingB },
+      { type: 'heading', text: 'Price' },
+      { type: 'price', caption: priceCaption },
+      { type: 'heading', text: 'Structural signals' },
+      { type: 'paragraph', text: memo.core },
+      { type: 'heading', text: 'Entity map' },
+      { type: 'diagram', caption: diagramCaption },
+      { type: 'heading', text: 'Implementation angle' },
+      { type: 'paragraph', text: memo.final },
+      {
+        type: 'paragraph',
+        text: 'Confidence scores and source links are illustrative in offline mode; connect the backend for live exploration output.',
+      },
+    ],
+    diagram: undefined,
+    sources: [
+      { label: 'SEC EDGAR search', url: 'https://www.sec.gov/edgar/search/' },
+      { label: 'Company investor materials (mock)', url: 'https://www.sec.gov/edgar/search/' },
+    ],
+  }
+}
+
+function BoshaPaperStructuredView({ ticker, priceSeries, presentation: pres }) {
+  const sub = pres.subtitle || ''
+  const sources = Array.isArray(pres.sources) ? pres.sources : []
+  return (
+    <>
+      <div className="boshaPaperTitleBlock boshaPaperTitleBlock--live">
+        <div className="boshaPaperKicker mono dim">{String(ticker ?? '').toUpperCase()}</div>
+        <div className="boshaPaperTitle boshaThesisTitle">{pres.title}</div>
+        <div className="boshaPaperSubtitle mono dim">{sub}</div>
+      </div>
+      <div className="boshaThesisBody boshaThesisBody--live">
+        {(pres.blocks || []).map((b, i) => {
+          if (b.type === 'heading') {
+            return (
+              <h3 className="boshaPaperSectionTitle" key={`bh-${i}`}>
+                {b.text}
+              </h3>
+            )
+          }
+          if (b.type === 'paragraph') {
+            return (
+              <p className="boshaThesisP boshaThesisP--live" key={`bp-${i}`}>
+                {b.text}
+              </p>
+            )
+          }
+          if (b.type === 'price') {
+            return (
+              <div className="boshaPaperFigure" key={`bpr-${i}`}>
+                <BoshaMiniPrice
+                  series={priceSeries}
+                  label={String(ticker ?? 'PRICE').toUpperCase()}
+                  showMeta={false}
+                  trimLeadingPlateau
+                />
+                <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">{b.caption}</div>
+              </div>
+            )
+          }
+          if (b.type === 'diagram') {
+            return (
+              <div className="boshaPaperFigure" key={`bdg-${i}`}>
+                <BoshaCausalDiagram ticker={ticker} diagramSpec={pres.diagram} />
+                <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">{b.caption}</div>
+              </div>
+            )
+          }
+          return null
+        })}
+        <footer className="boshaPaperSources" aria-label="Sources">
+          <div className="boshaPaperSourcesTitle">Sources</div>
+          {sources.length ? (
+            <div className="boshaPaperSourcesGrid">
+              {sources.map((s, j) => (
+                <a key={`src-${j}-${s.url}`} className="boshaPaperSourceLink" href={s.url} target="_blank" rel="noopener noreferrer">
+                  {s.label}
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="boshaPaperSourcesEmpty mono dim">
+              Source links appear when ingested documents include URLs (SEC, transcripts, allowlisted press).
+            </p>
+          )}
+        </footer>
+      </div>
+    </>
+  )
+}
+
+async function whenDocumentFontsReady() {
+  try {
+    const f = document.fonts
+    if (f?.ready) await f.ready
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Opaque panel-like fill so html-to-image / WebKit foreignObject does not assume a white backing behind transparent paper chrome. */
+const PAPER_EXPORT_BG = '#0a0b0d'
+
+/** Rasterize `el` (paper body) using full content height. */
+async function rasterizePaperElementToPngDataUrl(el, { pixelRatio: prIn = 2 } = {}) {
+  const doc = el.querySelector('.boshaPaperDoc')
+  const w = Math.max(
+    1,
+    Math.ceil(Math.max(el.scrollWidth, el.offsetWidth, doc?.scrollWidth ?? 0, doc?.offsetWidth ?? 0)),
+  )
+  const h = Math.max(
+    1,
+    Math.ceil(Math.max(el.scrollHeight, el.offsetHeight, doc?.scrollHeight ?? 0, doc?.offsetHeight ?? 0)),
+  )
+
+  const pr = h > 5600 ? 1 : h > 3600 ? 1.25 : prIn
+
+  return toPng(el, {
+    width: w,
+    height: h,
+    pixelRatio: pr,
+    cacheBust: true,
+    backgroundColor: PAPER_EXPORT_BG,
+    style: {
+      backgroundColor: PAPER_EXPORT_BG,
+      printColorAdjust: 'exact',
+    },
+    filter: (node) => {
+      if (node.nodeType !== Node.ELEMENT_NODE) return true
+      return node.tagName !== 'SCRIPT'
+    },
+  })
 }
 
 function BoshaPaperPanel({
@@ -2064,6 +2321,9 @@ function BoshaPaperPanel({
   backendUp,
   panelClassName = '',
 }) {
+  const paperCaptureRef = useRef(null)
+  const [exportBusy, setExportBusy] = useState(false)
+
   const titleText =
     backendUp && livePresentation?.title && String(liveCompanyName ?? '').trim()
       ? String(liveCompanyName ?? '').trim()
@@ -2080,161 +2340,96 @@ function BoshaPaperPanel({
     [ticker, titleText, events, priceSeries],
   )
 
+  const onCopyPaperImage = useCallback(() => {
+    const el = paperCaptureRef.current
+    if (!el || exportBusy) return
+    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+      window.alert(
+        'Copying the paper as an image is not supported in this browser. Try Chrome or Edge, or take a screenshot.',
+      )
+      return
+    }
+
+    setExportBusy(true)
+    el.classList.add('boshaPaperBody--capturing')
+    const paperRoot = el.closest('section.boshaPaper')
+    paperRoot?.classList.add('boshaPaper--capturing')
+
+    /* Safari: clipboard.write must run in the same turn as the user gesture. Pass a Promise<Blob>
+     * into ClipboardItem so write() is synchronous while rasterization stays async. */
+    const pngPromise = (async () => {
+      try {
+        await whenDocumentFontsReady()
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+        void el.offsetHeight
+        const dataUrl = await rasterizePaperElementToPngDataUrl(el)
+        return (await fetch(dataUrl)).blob()
+      } finally {
+        el.classList.remove('boshaPaperBody--capturing')
+        paperRoot?.classList.remove('boshaPaper--capturing')
+      }
+    })()
+
+    navigator.clipboard
+      .write([new ClipboardItem({ 'image/png': pngPromise })])
+      .then(() => setExportBusy(false))
+      .catch((e) => {
+        console.error(e)
+        window.alert(
+          'Could not copy the paper image. Wait until the paper has fully loaded, then try again. On iPhone, image clipboard support is limited—use a screenshot if needed.',
+        )
+        setExportBusy(false)
+        el.classList.remove('boshaPaperBody--capturing')
+        paperRoot?.classList.remove('boshaPaper--capturing')
+      })
+  }, [exportBusy])
+
   return (
     <section className={['panel', 'boshaPaper', panelClassName].filter(Boolean).join(' ')} aria-label={titleText}>
       <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">{titleText}</div>
-        <div className="feedCompactMeta" aria-hidden="true" />
+        <div className="feedCompactMeta" aria-label="Paper actions">
+          <button
+            type="button"
+            className="boshaPaperCopyIcon"
+            disabled={exportBusy}
+            onClick={onCopyPaperImage}
+            aria-label="Copy paper as image"
+            title="Copy paper as image"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" className="boshaPaperCopyIconSvg">
+              <rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
+              <rect x="4" y="4" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
+            </svg>
+          </button>
+        </div>
       </header>
-      <div className="boshaPaperBody scrollThin">
+      <div ref={paperCaptureRef} className="boshaPaperBody scrollThin">
         <div className="boshaPaperDoc">
           {(() => {
             const u = String(ticker ?? '').toUpperCase()
             if (backendUp && livePresentation?.title) {
-              const pres = livePresentation
-              const sub = pres.subtitle || ''
               return (
-                <>
-                  <div className="boshaPaperTitleBlock">
-                    <div className="boshaPaperTitle boshaThesisTitle">{pres.title}</div>
-                    <div className="boshaPaperSubtitle mono dim">{sub}</div>
-                  </div>
-                  <div className="boshaThesisBody">
-                    {(pres.blocks || []).map((b, i) => {
-                      if (b.type === 'paragraph') {
-                        return (
-                          <p className="boshaThesisP" key={`bp-${i}`}>
-                            {b.text}
-                          </p>
-                        )
-                      }
-                      if (b.type === 'price') {
-                        return (
-                          <div key={`bpr-${i}`}>
-                            <BoshaMiniPrice
-                              series={priceSeries}
-                              label={String(ticker ?? 'PRICE').toUpperCase()}
-                              showMeta={false}
-                            />
-                            <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
-                              {b.caption}
-                            </div>
-                          </div>
-                        )
-                      }
-                      if (b.type === 'diagram') {
-                        return (
-                          <div key={`bdg-${i}`}>
-                            <BoshaCausalDiagram ticker={ticker} diagramSpec={pres.diagram} />
-                            <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
-                              {b.caption}
-                            </div>
-                          </div>
-                        )
-                      }
-                      return null
-                    })}
-                    {Array.isArray(pres.explainer) && pres.explainer.length ? (
-                      <ul className="boshaExplainerList" style={{ margin: '0.75rem 0 0', paddingLeft: '1.1rem' }}>
-                        {pres.explainer.map((line, j) => (
-                          <li className="boshaThesisP" key={`ex-${j}`} style={{ marginBottom: '0.35rem' }}>
-                            {line}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
-                </>
+                <BoshaPaperStructuredView ticker={ticker} priceSeries={priceSeries} presentation={livePresentation} />
               )
             }
-            if (u === 'ASML') {
-              const asml = boshaAsmlText()
+            if (backendUp) {
               return (
-                <>
-                  <div className="boshaPaperTitleBlock">
-                    <div className="boshaPaperTitle boshaThesisTitle">{asml.title}</div>
-                    <div className="boshaPaperSubtitle mono dim">{asml.subtitle}</div>
-                  </div>
-
-                  <div className="boshaThesisBody">
-                    <p className="boshaThesisP">{asml.intro}</p>
-
-                    <BoshaMiniPrice series={priceSeries} label={String(ticker ?? 'PRICE').toUpperCase()} showMeta={false} />
-                    <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
-                      {asml.priceCaption}
-                    </div>
-
-                    <p className="boshaThesisP">{asml.middle}</p>
-
-                    <BoshaCausalDiagram ticker={ticker} />
-                    <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
-                      {asml.diagramCaption}
-                    </div>
-
-                    <p className="boshaThesisP">{asml.action}</p>
-                  </div>
-                </>
-              )
-            }
-            if (u === 'ATYR') {
-              const ph = boshaAtyrText()
-              return (
-                <>
-                  <div className="boshaPaperTitleBlock">
-                    <div className="boshaPaperTitle boshaThesisTitle">{ph.title}</div>
-                    <div className="boshaPaperSubtitle mono dim">{ph.subtitle}</div>
-                  </div>
-
-                  <div className="boshaThesisBody">
-                    <p className="boshaThesisP">{ph.intro}</p>
-
-                    <BoshaMiniPrice series={priceSeries} label={String(ticker ?? 'PRICE').toUpperCase()} showMeta={false} />
-                    <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
-                      {ph.priceCaption}
-                    </div>
-
-                    <p className="boshaThesisP">{ph.middle}</p>
-
-                    <BoshaCausalDiagram ticker={ticker} />
-                    <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
-                      {ph.diagramCaption}
-                    </div>
-
-                    <p className="boshaThesisP">{ph.action}</p>
-                  </div>
-                </>
-              )
-            }
-            return (
-              <>
-                <div className="boshaPaperTitleBlock">
-                  <div className="boshaPaperTitle boshaThesisTitle">{memo.title}</div>
-                  <div className="boshaPaperSubtitle mono dim">
-                    {String(ticker ?? '').toUpperCase()} — {memo.created}
-                  </div>
+                <div className="boshaThesisBody boshaThesisBody--live">
+                  <p className="boshaThesisP boshaThesisP--live mono dim">
+                    Bosha explore data is not available yet for this view (API error or empty response). Check that the
+                    backend is running and the database has been ingested.
+                  </p>
                 </div>
-
-                <div className="boshaThesisBody">
-                  <p className="boshaThesisP">{memo.openingA}</p>
-                  <p className="boshaThesisP">{memo.openingB}</p>
-                  <p className="boshaThesisP">{memo.priceRef}</p>
-
-                  <BoshaMiniPrice series={priceSeries} label={String(ticker ?? 'PRICE').toUpperCase()} showMeta={false} />
-                  <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
-                    Price chart shows {memo.chartX}.
-                  </div>
-
-                  <p className="boshaThesisP">{memo.core}</p>
-
-                  <BoshaCausalDiagram ticker={ticker} />
-                  <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">
-                    Diagram summarizes how early process signals turn into positioning, a dated catalyst, and eventual repricing.
-                  </div>
-
-                  <p className="boshaThesisP">{memo.final}</p>
-                </div>
-              </>
-            )
+              )
+            }
+            const pres =
+              u === 'ASML'
+                ? boshaAsmlPresentation()
+                : u === 'ATYR'
+                  ? boshaAtyrPresentation()
+                  : boshaGenericOfflinePresentation(memo, titleText, ticker)
+            return <BoshaPaperStructuredView ticker={ticker} priceSeries={priceSeries} presentation={pres} />
           })()}
         </div>
       </div>
@@ -2376,6 +2571,19 @@ function priceTicks(min, max, n = 4) {
   return out
 }
 
+/** Y-axis ticks for forward-return charts: linearly spaced on [minFr, maxFr] (even pixel gaps on a linear scale). */
+function returnTicks(minFr, maxFr, n = 4) {
+  if (!Number.isFinite(minFr) || !Number.isFinite(maxFr)) return []
+  if (minFr === maxFr) return [minFr]
+  if (n <= 1) return [minFr]
+  const span = maxFr - minFr
+  const out = []
+  for (let i = 0; i < n; i++) {
+    out.push(minFr + (i / (n - 1)) * span)
+  }
+  return out
+}
+
 function formatPriceTick(v) {
   const x = Number(v)
   if (!Number.isFinite(x)) return EMPTY
@@ -2384,12 +2592,34 @@ function formatPriceTick(v) {
   return x.toFixed(2)
 }
 
+/** Forward return fraction → Y-axis label (integer %, compact; no grouping commas). */
+function formatReturnTick(v) {
+  const x = Number(v)
+  if (!Number.isFinite(x)) return EMPTY
+  const p = Math.round(x * 100)
+  if (p === 0) return '0%'
+  if (p > 0) return `+${p}%`
+  return `${p}%`
+}
+
 function buildMockDailySeries(seed = 42, len = 160) {
   let v = 42 + (seed % 29)
   const out = []
   for (let i = 0; i < len; i++) {
     const step = Math.round((seededJitter(seed + i * 13, 9) - 4) * 1.15)
     v = clamp(v + step, 8, 220)
+    out.push(v)
+  }
+  return out
+}
+
+/** Mock mean forward return (fraction). Main trend panels use this when offline — not price-scale mocks. */
+function buildMockForwardReturnSeries(seed = 42, len = 140) {
+  let v = ((seed % 23) / 500 - 0.05) * 1.2
+  const out = []
+  for (let i = 0; i < len; i++) {
+    const step = (seededJitter(seed + i * 11, 9) - 4) * 0.0011
+    v = clamp(v + step, -0.2, 0.22)
     out.push(v)
   }
   return out
@@ -2408,21 +2638,38 @@ function buildEvenlySpacedDates(count) {
   return out
 }
 
-/** Demo data until a top-picks API exists; `pct` is period return (%). */
-const MAIN_TOP_PICKS_DEMO = [
-  { ticker: 'NVDA', pct: 12.2 },
-  { ticker: 'AMD', pct: 5.4 },
-  { ticker: 'LLY', pct: 3.8 },
-  { ticker: 'META', pct: -1.6 },
-  { ticker: 'DELL', pct: 7.9 },
-  { ticker: 'AAPL', pct: 2.3 },
-  { ticker: 'MSFT', pct: 4.1 },
-  { ticker: 'AVGO', pct: 8.6 },
-  { ticker: 'TSLA', pct: -3.2 },
-  { ticker: 'COIN', pct: 6.5 },
-  { ticker: 'MU', pct: -0.8 },
-  { ticker: 'AMZN', pct: 1.9 },
-]
+/** Parse `YYYY-MM-DD` as a stable UTC calendar day (noon) for chart axes. */
+function parseIsoDayUtc(iso) {
+  const s = String(iso ?? '').trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null
+  return new Date(`${s}T12:00:00.000Z`)
+}
+
+/**
+ * Main tab trend API: `{ day, v }[]` where `v` is mean forward return (fraction, e.g. 0.042 = +4.2%).
+ * Uses real calendar days when the backend is up; otherwise mock series + synthetic dates.
+ */
+function mainTrendsChartFromRows(rows, backendUp, mockSeed) {
+  if (!backendUp || !Array.isArray(rows) || !rows.length) {
+    const series = buildMockForwardReturnSeries(mockSeed, 140)
+    return { series, dates: buildEvenlySpacedDates(series.length) }
+  }
+  const sorted = [...rows].sort((a, b) => String(a?.day ?? '').localeCompare(String(b?.day ?? '')))
+  const out = []
+  for (const r of sorted) {
+    const raw = r?.v
+    const num = raw === null || raw === undefined ? NaN : Number(raw)
+    if (!Number.isFinite(num)) continue
+    const d = parseIsoDayUtc(r?.day)
+    if (!d) continue
+    out.push({ v: num, d })
+  }
+  if (!out.length) return { series: [], dates: [] }
+  return {
+    series: out.map((x) => x.v),
+    dates: out.map((x) => x.d),
+  }
+}
 
 /** Mock “opportunity board” sourced from BOSHA-style papers; size = opportunity score (0–100). */
 const MAIN_OPPORTUNITY_MOCK = [
@@ -2726,7 +2973,7 @@ function formatPctAxis(v) {
   return `${s}%`
 }
 
-const MainTopPicksBarChart = memo(function MainTopPicksBarChart({ bars = MAIN_TOP_PICKS_DEMO }) {
+const MainTopPicksBarChart = memo(function MainTopPicksBarChart({ bars = [] }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 320, h: 160 })
 
@@ -2753,15 +3000,15 @@ const MainTopPicksBarChart = memo(function MainTopPicksBarChart({ bars = MAIN_TO
   const margin = { l: 38, r: 8, t: 8, b: 30 }
   const innerW = Math.max(1, w - margin.l - margin.r)
   const innerH = Math.max(1, h - margin.t - margin.b)
-  const list = Array.isArray(bars) && bars.length ? bars : MAIN_TOP_PICKS_DEMO
-  const pcts = list.map((b) => b.pct)
-  const rawMin = Math.min(0, ...pcts)
-  const rawMax = Math.max(0, ...pcts)
+  const list = Array.isArray(bars) && bars.length ? bars : []
+  const pcts = list.length ? list.map((b) => b.pct) : [0]
+  const rawMin = list.length ? Math.min(0, ...pcts) : 0
+  const rawMax = list.length ? Math.max(0, ...pcts) : 0
   const span0 = rawMax - rawMin || 1
   const pad = Math.max(span0 * 0.1, 0.5)
   let yMin = rawMin - pad
   let yMax = rawMax + pad
-  if (yMax - yMin < 3) {
+  if (list.length && yMax - yMin < 3) {
     const mid = (yMin + yMax) / 2
     yMin = mid - 1.5
     yMax = mid + 1.5
@@ -2773,14 +3020,19 @@ const MainTopPicksBarChart = memo(function MainTopPicksBarChart({ bars = MAIN_TO
   }
 
   const y0 = yAt(0)
-  const yTicks = useMemo(() => pctAxisTicks(yMin, yMax, 4), [yMin, yMax])
+  const yTicks = useMemo(() => (list.length ? pctAxisTicks(yMin, yMax, 4) : []), [list.length, yMin, yMax])
   const n = list.length
   const slot = innerW / Math.max(1, n)
   const barW = Math.max(4, slot * 0.46)
 
   return (
     <div ref={wrapRef} className="graphWrap" aria-label="Top picks ticker performance">
-      <svg className="graphSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
+      {!list.length ? (
+        <div className="mono dim" style={{ padding: '12px 10px', fontSize: 12 }}>
+          No top picks data from the API yet.
+        </div>
+      ) : (
+        <svg className="graphSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
         <path
           className="graphAxis"
           d={`M ${margin.l} ${margin.t} L ${margin.l} ${h - margin.b} L ${w - margin.r} ${h - margin.b}`}
@@ -2789,7 +3041,7 @@ const MainTopPicksBarChart = memo(function MainTopPicksBarChart({ bars = MAIN_TO
           const y = yAt(v)
           return (
             <g key={`yt-${i}`}>
-              <text className="graphTick graphTick--y" x={margin.l - 6} y={y + 4}>
+              <text className="graphTick graphTick--y" textAnchor="end" x={margin.l - 8} y={y + 4}>
                 {formatPctAxis(v)}
               </text>
               <path className="graphTickLine" d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
@@ -2828,11 +3080,21 @@ const MainTopPicksBarChart = memo(function MainTopPicksBarChart({ bars = MAIN_TO
           )
         })}
       </svg>
+      )}
     </div>
   )
 })
 
-function GraphPanel({ title, series, dates, markers = [], selectedMarker = null, panelClassName = '', metaMode = 'range' }) {
+function GraphPanel({
+  title,
+  series,
+  dates,
+  markers = [],
+  selectedMarker = null,
+  panelClassName = '',
+  metaMode = 'range',
+  yTickFormat = 'price',
+}) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 900, h: 220 })
 
@@ -2854,21 +3116,35 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
   const w = size.w
   const h = size.h
 
-  // Inner margins (in SVG px). Keep these tight so the plot fills the large panel.
-  const margin = { l: 26, r: 6, t: 8, b: 18 }
+  const isRet = yTickFormat === 'return'
+  /* Plain axes: Y scale runs plotTop→axisY (min sits on the x-axis). Left gutter + bottom room for month labels. */
+  const margin = { l: isRet ? 28 : 26, r: 6, t: isRet ? 10 : 8, b: isRet ? 22 : 20 }
+  const marginL = margin.l
+  const plotTop = margin.t
+  const axisY = h - margin.b
   const innerW = Math.max(1, w - margin.l - margin.r)
-  const innerH = Math.max(1, h - margin.t - margin.b)
 
   const vals = Array.isArray(series) ? series : []
   const ds = Array.isArray(dates) ? dates : []
 
-  const min = vals.length ? Math.min(...vals) : 0
-  const max = vals.length ? Math.max(...vals) : 1
+  const rawMin = vals.length ? Math.min(...vals) : 0
+  const rawMax = vals.length ? Math.max(...vals) : 1
+  /* Forward-return charts: Y scale must match `returnTicks` (integer % bounds). Otherwise a tick
+   * like −5% can sit below the x-axis while the scale floor is the raw min (e.g. −4.8%). */
+  let min = rawMin
+  let max = rawMax
+  if (isRet && vals.length) {
+    let loP = Math.floor(rawMin * 100)
+    let hiP = Math.ceil(rawMax * 100)
+    if (hiP <= loP) hiP = loP + 1
+    min = loP / 100
+    max = hiP / 100
+  }
   const span = max - min || 1
 
   const perfMeta = useMemo(() => {
     if (metaMode !== 'perf') return null
-    if (!vals.length) return { wr: null, ytd: null }
+    if (!vals.length) return { wr: null, ytd: null, ytdPp: null }
     let wins = 0
     let moves = 0
     for (let i = 1; i < vals.length; i++) {
@@ -2883,15 +3159,19 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
     const wr = moves ? Math.round((wins / moves) * 100) : null
     const first = Number(vals[0])
     const last = Number(vals[vals.length - 1])
-    const ytd = Number.isFinite(first) && Number.isFinite(last) && first !== 0 ? ((last - first) / first) * 100 : null
-    return { wr, ytd }
+    /* Forward-return series: YTD = start→end change of the plotted metric (same units as axis). */
+    const ytd =
+      Number.isFinite(first) && Number.isFinite(last) && first !== 0 ? ((last - first) / first) * 100 : null
+    const ytdPp = Number.isFinite(first) && Number.isFinite(last) ? (last - first) * 100 : null
+    return { wr, ytd, ytdPp }
   }, [metaMode, vals])
 
   function xAt(i) {
     return margin.l + (i / Math.max(1, vals.length - 1)) * innerW
   }
   function yAt(v) {
-    return margin.t + (1 - (v - min) / span) * innerH
+    const band = Math.max(1, axisY - plotTop)
+    return plotTop + (1 - (v - min) / span) * band
   }
 
   const path = useMemo(() => {
@@ -2903,11 +3183,11 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
       d += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)} `
     }
     return d.trim()
-  }, [vals, w, h])
+  }, [vals, w, h, marginL, margin.t, margin.b, plotTop, axisY])
 
   const areaPath = useMemo(() => {
     if (!vals.length) return ''
-    const yBase = h - margin.b
+    const yBase = axisY
     let d = `M ${xAt(0).toFixed(2)} ${yBase.toFixed(2)} `
     for (let i = 0; i < vals.length; i++) {
       const x = xAt(i)
@@ -2916,7 +3196,7 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
     }
     d += `L ${xAt(vals.length - 1).toFixed(2)} ${yBase.toFixed(2)} Z`
     return d.trim()
-  }, [vals, w, h])
+  }, [vals, w, h, marginL, margin.t, margin.b, plotTop, axisY])
 
   const gradId = useMemo(() => {
     const s = String(title ?? 'graph')
@@ -2925,7 +3205,10 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
     return `graphFill-${(h0 >>> 0).toString(16)}`
   }, [title])
 
-  const yTicks = useMemo(() => priceTicks(min, max, 4), [min, max])
+  const yTicks = useMemo(() => {
+    if (yTickFormat === 'return') return returnTicks(min, max, 4)
+    return priceTicks(min, max, 4)
+  }, [min, max, yTickFormat])
   const xTickIdx = useMemo(() => {
     const n = Math.max(0, ds.length)
     if (n <= 1) return []
@@ -2963,7 +3246,7 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
       xs.push(xAt(idx))
     }
     return xs
-  }, [markers, ds.length, w, h])
+  }, [markers, ds.length, w, h, marginL, plotTop, axisY])
 
   const selectedMarkerX = useMemo(() => {
     const n = Math.max(0, ds.length)
@@ -2981,17 +3264,30 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
     const daysAgo = Math.floor((now.getTime() - d.getTime()) / 86400000)
     const idx = clamp(n - 1 - daysAgo, 0, n - 1)
     return xAt(idx)
-  }, [selectedMarker, ds, w, h])
+  }, [selectedMarker, ds, w, h, marginL, plotTop, axisY])
 
   return (
-    <section className={['panel', 'graph', panelClassName].filter(Boolean).join(' ')} aria-label="Daily graph">
+    <section
+      className={['panel', 'graph', panelClassName].filter(Boolean).join(' ')}
+      aria-label={yTickFormat === 'return' ? 'Forward return trend' : 'Daily graph'}
+    >
       <header className="panelHeader">
         <div className="panelTitle">{title}</div>
         <div className="panelMeta">
           {metaMode === 'perf' ? (
             <>
               WR {perfMeta?.wr != null ? `${perfMeta.wr}%` : '—'} | YTD{' '}
-              {perfMeta?.ytd != null ? `${perfMeta.ytd >= 0 ? '+' : ''}${perfMeta.ytd.toFixed(0)}%` : '—'}
+              {yTickFormat === 'return'
+                ? perfMeta?.ytdPp != null && Number.isFinite(perfMeta.ytdPp)
+                  ? (() => {
+                      const r = Math.round(perfMeta.ytdPp)
+                      if (r === 0) return '0%'
+                      return r > 0 ? `+${r}%` : `${r}%`
+                    })()
+                  : '—'
+                : perfMeta?.ytd != null && Number.isFinite(perfMeta.ytd)
+                  ? `${perfMeta.ytd >= 0 ? '+' : ''}${Math.round(perfMeta.ytd)}%`
+                  : '—'}
             </>
           ) : (
             <>
@@ -3000,58 +3296,73 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
           )}
         </div>
       </header>
-      <div ref={wrapRef} className="graphWrap" aria-label="Daily price graph">
+      <div
+        ref={wrapRef}
+        className="graphWrap"
+        aria-label={yTickFormat === 'return' ? 'Forward return trend' : 'Daily price graph'}
+      >
         <svg className="graphSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
           <defs>
             <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--hi)" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="var(--hi)" stopOpacity="0.00" />
+              <stop offset="0%" stopColor={CHART_AREA_GRAD_TOP} stopOpacity="1" />
+              <stop offset="100%" stopColor={CHART_AREA_GRAD_BOTTOM} stopOpacity="1" />
             </linearGradient>
           </defs>
-          {/* axes */}
+          {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
           <path
             className="graphAxis"
-            d={`M ${margin.l} ${margin.t} L ${margin.l} ${h - margin.b} L ${w - margin.r} ${h - margin.b}`}
+            style={GRAPH_SVG_AXIS}
+            d={`M ${margin.l} ${plotTop} L ${margin.l} ${axisY} L ${w - margin.r} ${axisY}`}
           />
 
-          {/* y ticks */}
           {yTicks.map((v, i) => {
             const y = yAt(v)
+            const nT = yTicks.length
+            const onFloor = nT === 1 ? false : i === 0
+            const onCeil = nT === 1 ? false : i === nT - 1
+            const ty = onFloor ? axisY : y
+            const baseline = onFloor ? 'alphabetic' : onCeil ? 'hanging' : 'middle'
+            const tyAdj = onCeil ? plotTop + 1 : ty
             return (
               <g key={`yt-${i}`}>
-                <text className="graphTick graphTick--y" x={margin.l - 6} y={y + 4}>
-                  {formatPriceTick(v)}
+                <text
+                  className="graphTick graphTick--y"
+                  style={GRAPH_SVG_TICK}
+                  textAnchor="end"
+                  dominantBaseline={baseline}
+                  x={margin.l - 8}
+                  y={tyAdj}
+                >
+                  {yTickFormat === 'return' ? formatReturnTick(v) : formatPriceTick(v)}
                 </text>
-                <path className="graphTickLine" d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
+                <path className="graphTickLine" style={GRAPH_SVG_TICK_LINE} d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
               </g>
             )
           })}
 
-          {/* x ticks */}
           {xTickIdx.map((idx, i) => {
             const x = xAt(idx)
             const d = ds[idx]
             const label = d ? MONTHS_SHORT[d.getMonth()] : EMPTY
             return (
               <g key={`xt-${i}`}>
-                <path className="graphTickLine" d={`M ${x} ${h - margin.b} L ${x} ${h - margin.b - 6}`} />
-                <text className="graphTick graphTick--x" x={x} y={h - 4}>
+                <path className="graphTickLine" style={GRAPH_SVG_TICK_LINE} d={`M ${x} ${axisY} L ${x} ${axisY - 6}`} />
+                <text className="graphTick graphTick--x" style={GRAPH_SVG_TICK} x={x} y={axisY + 10} dominantBaseline="hanging">
                   {label}
                 </text>
               </g>
             )
           })}
 
-          {/* fill + line */}
-          {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
-          <path className="graphPath" d={path} vectorEffect="non-scaling-stroke" />
+          <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
 
           {/* transaction markers (drawn over line) */}
           {markerX.map((x, i) => (
             <path
               key={`m-${i}`}
               className="graphMarker"
-              d={`M ${x.toFixed(2)} ${margin.t} L ${x.toFixed(2)} ${(h - margin.b).toFixed(2)}`}
+              style={GRAPH_SVG_MARKER}
+              d={`M ${x.toFixed(2)} ${plotTop} L ${x.toFixed(2)} ${axisY.toFixed(2)}`}
               vectorEffect="non-scaling-stroke"
             />
           ))}
@@ -3059,7 +3370,8 @@ function GraphPanel({ title, series, dates, markers = [], selectedMarker = null,
           {selectedMarkerX != null ? (
             <path
               className="graphMarker graphMarker--selected"
-              d={`M ${selectedMarkerX.toFixed(2)} ${margin.t} L ${selectedMarkerX.toFixed(2)} ${(h - margin.b).toFixed(2)}`}
+              style={GRAPH_SVG_MARKER_SEL}
+              d={`M ${selectedMarkerX.toFixed(2)} ${plotTop} L ${selectedMarkerX.toFixed(2)} ${axisY.toFixed(2)}`}
               vectorEffect="non-scaling-stroke"
             />
           ) : null}
@@ -3417,8 +3729,8 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
   const ins = backendUp
     ? live
     : insider
-      ? live ?? MOCK_HISTORICAL_INSIDER
-      : live ?? MOCK_HISTORICAL_TRIALS
+      ? (live ?? MOCK_HISTORICAL_INSIDER)
+      : (live ?? MOCK_HISTORICAL_TRIALS)
 
   const norm = (v) => {
     if (v == null) return EMPTY
@@ -4267,18 +4579,23 @@ function App() {
 
   const [boshaTicker, setBoshaTicker] = useState(BOSHA_TICKER)
   const [boshaQuery, setBoshaQuery] = useState('')
+  const [backendUp, setBackendUp] = useState(false)
+  const [backendLastOkAt, setBackendLastOkAt] = useState(0)
+  const [backendStats, setBackendStats] = useState(null)
+  const [mainTrendsLive, setMainTrendsLive] = useState(null)
+
   const boshaDataset = useMemo(() => boshaDatasetForTicker(boshaTicker), [boshaTicker])
   const boshaFeedItems = useMemo(() => {
-    if (Array.isArray(boshaFeedLive) && boshaFeedLive.length) {
-      return boshaFeedLive.map((x) => ({
-        rowKey:
-          x.kind === 'paper' && x.id ? String(x.id) : `sig-${String(x.ticker ?? '').toUpperCase()}`,
-        ticker: String(x.ticker ?? '').toUpperCase(),
-        name: String(x.name ?? x.company_name ?? x.ticker ?? ''),
-      }))
-    }
-    return BOSHA_FEED_FALLBACK
-  }, [boshaFeedLive, BOSHA_FEED_FALLBACK])
+    if (!backendUp) return BOSHA_FEED_FALLBACK
+    if (!Array.isArray(boshaFeedLive)) return []
+    if (!boshaFeedLive.length) return []
+    return boshaFeedLive.map((x) => ({
+      rowKey:
+        x.kind === 'paper' && x.id ? String(x.id) : `sig-${String(x.ticker ?? '').toUpperCase()}`,
+      ticker: String(x.ticker ?? '').toUpperCase(),
+      name: String(x.name ?? x.company_name ?? x.ticker ?? ''),
+    }))
+  }, [backendUp, boshaFeedLive, BOSHA_FEED_FALLBACK])
 
   const boshaCompanyName = useMemo(() => {
     const t = String(boshaTicker ?? '').toUpperCase()
@@ -4297,8 +4614,9 @@ function App() {
 
   const boshaPriceSeries = useMemo(() => {
     if (Array.isArray(boshaBarsSeries) && boshaBarsSeries.length) return boshaBarsSeries
+    if (backendUp) return []
     return boshaDataset.price
-  }, [boshaBarsSeries, boshaDataset.price])
+  }, [boshaBarsSeries, boshaDataset.price, backendUp])
 
   const boshaFilteredFeed = useMemo(() => {
     const s = String(boshaQuery ?? '').trim().toUpperCase()
@@ -4334,17 +4652,11 @@ function App() {
   const [programRailIdx, setProgramRailIdx] = useState(0)
   const [programRailMilestone, setProgramRailMilestone] = useState(null)
 
-  const [backendUp, setBackendUp] = useState(false)
-  const [backendLastOkAt, setBackendLastOkAt] = useState(0)
-  const [backendStats, setBackendStats] = useState(null)
-
-  const [mainTrendsLive, setMainTrendsLive] = useState(null)
-
   useEffect(() => {
     let alive = true
     async function run() {
       if (!backendUp || activeTab !== 'main') return
-      const r = await fetchJsonSafe('/api/main/trends?days=365', { timeoutMs: 6000 })
+      const r = await fetchJsonSafe('/api/main/trends?days=365&metric=21', { timeoutMs: 6000 })
       if (!alive) return
       if (r.ok && r.data?.ok) setMainTrendsLive(r.data)
     }
@@ -4354,27 +4666,26 @@ function App() {
     }
   }, [backendUp, activeTab])
 
-  const mainInsidersSeries = useMemo(() => {
-    const rows = mainTrendsLive?.insiders
-    if (Array.isArray(rows) && rows.length) return rows.map((x) => Number(x?.v) || 0)
-    return buildMockDailySeries(71, 160)
-  }, [mainTrendsLive?.insiders])
+  const insidersChart = useMemo(
+    () => mainTrendsChartFromRows(mainTrendsLive?.insiders, backendUp, 71),
+    [backendUp, mainTrendsLive?.insiders],
+  )
+  const politiciansChart = useMemo(
+    () => mainTrendsChartFromRows(mainTrendsLive?.politicians, backendUp, 133),
+    [backendUp, mainTrendsLive?.politicians],
+  )
+  const researchChart = useMemo(
+    () => mainTrendsChartFromRows(mainTrendsLive?.research, backendUp, 401),
+    [backendUp, mainTrendsLive?.research],
+  )
 
-  const mainPoliticiansSeries = useMemo(() => {
-    const rows = mainTrendsLive?.politicians
-    if (Array.isArray(rows) && rows.length) return rows.map((x) => Number(x?.v) || 0)
-    return buildMockDailySeries(133, 160)
-  }, [mainTrendsLive?.politicians])
+  const mainInsidersSeries = insidersChart.series
+  const mainPoliticiansSeries = politiciansChart.series
+  const mainResearchSeries = researchChart.series
 
-  const mainResearchSeries = useMemo(() => {
-    const rows = mainTrendsLive?.research
-    if (Array.isArray(rows) && rows.length) return rows.map((x) => Number(x?.v) || 0)
-    return buildMockDailySeries(401, 160)
-  }, [mainTrendsLive?.research])
-
-  const mainInsidersDates = useMemo(() => buildEvenlySpacedDates(mainInsidersSeries.length), [mainInsidersSeries.length])
-  const mainPoliticiansDates = useMemo(() => buildEvenlySpacedDates(mainPoliticiansSeries.length), [mainPoliticiansSeries.length])
-  const mainResearchDates = useMemo(() => buildEvenlySpacedDates(mainResearchSeries.length), [mainResearchSeries.length])
+  const mainInsidersDates = insidersChart.dates
+  const mainPoliticiansDates = politiciansChart.dates
+  const mainResearchDates = researchChart.dates
 
   useEffect(() => {
     let alive = true
@@ -4522,7 +4833,7 @@ function App() {
     }
   }, [backendUp])
 
-  const insiderFeedRows = backendUp && insiderFeedLive != null ? insiderFeedLive : INSIDER_FEED_ROWS
+  const insiderFeedRows = !backendUp ? INSIDER_FEED_ROWS : (insiderFeedLive ?? [])
   const insiderSelected =
     insiderFeedRows.length > 0 ? insiderFeedRows[clamp(insiderIdx, 0, Math.max(0, insiderFeedRows.length - 1))] : null
 
@@ -4565,7 +4876,7 @@ function App() {
     }
   }, [backendUp])
 
-  const politiciansBaseRows = backendUp && politiciansFeedLive != null ? politiciansFeedLive : POLITICIAN_FEED_ROWS
+  const politiciansBaseRows = !backendUp ? POLITICIAN_FEED_ROWS : (politiciansFeedLive ?? [])
 
   const politicianFilterItems = useMemo(() => {
     const counts = new Map()
@@ -4627,14 +4938,14 @@ function App() {
     }
   }, [backendUp])
 
-  const pharmaFeedRows = backendUp && pharmaFeedLive != null ? pharmaFeedLive : PHARMA_FEED_ROWS
+  const pharmaFeedRows = !backendUp ? PHARMA_FEED_ROWS : (pharmaFeedLive ?? [])
 
   const pharmaFeedEventId = useMemo(() => {
     const row = pharmaFeedRows[pharmaIdx]
     if (backendUp) return row?.trialEventId ?? null
     const fallbackId = MOCK_EVENTS[pharmaIdx % MOCK_EVENTS.length]?.id
     return row?.trialEventId ?? fallbackId ?? MOCK_EVENTS[0]?.id
-  }, [pharmaFeedRows, pharmaIdx])
+  }, [pharmaFeedRows, pharmaIdx, backendUp])
 
   const pharmaTicker = useMemo(() => {
     const row = pharmaFeedRows[pharmaIdx]
@@ -5478,6 +5789,7 @@ function App() {
             markers={[]}
             panelClassName="mainGraph mainGraph--insiders"
             metaMode="perf"
+            yTickFormat="return"
           />
 
           <GraphPanel
@@ -5487,6 +5799,7 @@ function App() {
             markers={[]}
             panelClassName="mainGraph mainGraph--politicians"
             metaMode="perf"
+            yTickFormat="return"
           />
 
           <GraphPanel
@@ -5496,6 +5809,7 @@ function App() {
             markers={[]}
             panelClassName="mainGraph mainGraph--research"
             metaMode="perf"
+            yTickFormat="return"
           />
 
           <section className="panel mainLogoPanel" aria-label="Mercerline">

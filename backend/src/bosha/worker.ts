@@ -18,6 +18,15 @@ export function startBoshaWorker() {
 
   let stopped = false;
 
+  void (async () => {
+    try {
+      await enqueueBoshaSecFilings({ pages });
+      await enqueueBoshaWebFeeds();
+    } catch (e) {
+      console.error("bosha_bootstrap_enqueue_failed", e);
+    }
+  })();
+
   const enqueueTimer = setInterval(() => {
     if (stopped) return;
     (async () => {
