@@ -16,6 +16,7 @@
   "dependencies": {
     "@napi-rs/canvas": "^0.1.100",
     "dotenv": "^17.4.2",
+    "jose": "^6.2.3",
     "jsonrepair": "^3.14.0",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.7.284",

@@ -1,30 +1,11 @@
 import { toPng } from 'html-to-image'
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { fetchJsonSafe } from './api.js'
+import { SettingsAuth } from './SettingsAuth.jsx'
 import './App.css'
 
 function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n))
-}
-
-function getBackendBase() {
-  const fromEnv = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_BACKEND_URL : null
-  return String(fromEnv || 'http://localhost:3001').replace(/\/$/, '')
-}
-
-async function fetchJsonSafe(path, { timeoutMs = 4500 } = {}) {
-  const base = getBackendBase()
-  const ctrl = new AbortController()
-  const t = setTimeout(() => ctrl.abort(), timeoutMs)
-  try {
-    const res = await fetch(`${base}${path}`, { signal: ctrl.signal })
-    if (!res.ok) return { ok: false, status: res.status, data: null }
-    const data = await res.json()
-    return { ok: true, status: res.status, data }
-  } catch {
-    return { ok: false, status: 0, data: null }
-  } finally {
-    clearTimeout(t)
-  }
 }
 
 const EMPTY = '-'
@@ -5608,43 +5589,8 @@ function App() {
             <div className="panelTitle feedCompactTitle">SETTINGS</div>
           </header>
           <div className="settingsTileBody">
-            <div className="settingsKv">
-              <div className="settingsKvRow">
-                <div className="settingsKvK">Email</div>
-                <div className="settingsKvV mono">you@company.com</div>
-              </div>
-              <div className="settingsKvRow">
-                <div className="settingsKvK">Auth</div>
-                <div className="settingsKvV">Magic link</div>
-              </div>
-              <div className="settingsKvRow">
-                <div className="settingsKvK">Plan</div>
-                <div className="settingsKvV mono">PRO</div>
-              </div>
-              <div className="settingsKvRow">
-                <div className="settingsKvK">Renewal</div>
-                <div className="settingsKvV mono">2026-06-01</div>
-              </div>
-              <div className="settingsKvRow">
-                <div className="settingsKvK">Payment</div>
-                <div className="settingsKvV mono">VISA •••• 1842</div>
-              </div>
-              <div className="settingsKvRow">
-                <div className="settingsKvK">Invoices</div>
-                <div className="settingsKvV">Available</div>
-              </div>
-            </div>
-            <div className="settingsActions">
-              <button type="button" className="settingsBtn settingsBtn--primary">
-                Manage billing
-              </button>
-              <button type="button" className="settingsBtn">
-                Download invoices
-              </button>
-              <button type="button" className="settingsBtn">
-                Sign out
-              </button>
-            </div>
+            <SettingsAuth />
+            <p className="settingsAuthFootnote mono dim">Billing and invoices are not wired yet.</p>
           </div>
         </section>
       ) : null}

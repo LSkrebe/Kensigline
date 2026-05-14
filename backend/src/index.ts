@@ -1,4 +1,12 @@
-import "dotenv/config";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, "../..");
+dotenv.config({ path: path.join(repoRoot, ".env") });
+dotenv.config({ path: path.join(repoRoot, "backend", ".env") });
+
 import http from "node:http";
 import { URL } from "node:url";
 import { json, notFound, route, sendJson } from "./core/http.js";
@@ -12,6 +20,7 @@ import { runOutcomesRecomputeOnce, startOutcomesWorker } from "./core/outcomes-w
 import { startPharmaWorker } from "./pharma/pharma-worker.js";
 import { startPoliticiansWorker } from "./politicians/politicians-worker.js";
 import { startBoshaWorker } from "./bosha/worker.js";
+import { bearerToken, supabaseAuthConfigured, verifySupabaseAccessToken } from "./core/supabase-auth.js";
 import {
   boshaLimitFromSearchParams,
   handleBoshaEvents,
@@ -74,6 +83,25 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/health") {
       sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (route(req, url, "GET", "/api/auth/me")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      const tok = bearerToken(req);
+      if (!tok) {
+        sendJson(res, 401, { ok: false, error: "missing_bearer" });
+        return;
+      }
+      const user = await verifySupabaseAccessToken(tok);
+      if (!user) {
+        sendJson(res, 401, { ok: false, error: "invalid_token" });
+        return;
+      }
+      sendJson(res, 200, { ok: true, user });
       return;
     }
 

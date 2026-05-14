@@ -1,0 +1,83 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { supabase } from './supabaseClient.js'
+
+const AuthContext = createContext(undefined)
+
+export function AuthProvider({ children }) {
+  const configured = Boolean(supabase)
+  const [session, setSession] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!supabase) {
+      setSession(null)
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) {
+        setSession(data.session ?? null)
+        setLoading(false)
+      }
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next ?? null)
+    })
+    return () => {
+      cancelled = true
+      sub.subscription.unsubscribe()
+    }
+  }, [])
+
+  const signInWithPassword = useCallback(async (email, password) => {
+    if (!supabase) return { data: null, error: new Error('supabase_not_configured') }
+    return supabase.auth.signInWithPassword({ email: email.trim(), password })
+  }, [])
+
+  const signUpWithPassword = useCallback(async (email, password) => {
+    if (!supabase) return { data: null, error: new Error('supabase_not_configured') }
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/` : undefined
+    return supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
+    })
+  }, [])
+
+  const signInWithOtp = useCallback(async (email) => {
+    if (!supabase) return { data: null, error: new Error('supabase_not_configured') }
+    const emailRedirectTo = typeof window !== 'undefined' ? `${window.location.origin}/` : undefined
+    return supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: emailRedirectTo ? { emailRedirectTo } : undefined,
+    })
+  }, [])
+
+  const signOut = useCallback(async () => {
+    if (!supabase) return { error: new Error('supabase_not_configured') }
+    return supabase.auth.signOut()
+  }, [])
+
+  const value = useMemo(
+    () => ({
+      configured,
+      loading,
+      session,
+      user: session?.user ?? null,
+      signInWithPassword,
+      signUpWithPassword,
+      signInWithOtp,
+      signOut,
+    }),
+    [configured, loading, session, signInWithPassword, signUpWithPassword, signInWithOtp, signOut],
+  )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext)
+  if (ctx === undefined) throw new Error('useAuth must be used within AuthProvider')
+  return ctx
+}
