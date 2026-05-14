@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const repoRoot = path.resolve(__dirname, '..')
-  const env = { ...loadEnv(mode, repoRoot, ''), ...loadEnv(mode, __dirname, '') }
+  const env = loadEnv(mode, repoRoot, '')
 
   const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_URL || ''
   const supabaseAnon = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || ''

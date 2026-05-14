@@ -11,9 +11,13 @@ export async function fetchJsonSafe(path, { timeoutMs = 4500, headers: extraHead
   const base = getBackendBase()
   const headers = new Headers(extraHeaders ?? undefined)
   if (supabase) {
-    const { data } = await supabase.auth.getSession()
-    const tok = data.session?.access_token
-    if (tok) headers.set('Authorization', `Bearer ${tok}`)
+    try {
+      const { data } = await supabase.auth.getSession()
+      const tok = data.session?.access_token
+      if (tok) headers.set('Authorization', `Bearer ${tok}`)
+    } catch {
+      /* never block API calls (e.g. /health) if auth client errors */
+    }
   }
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), timeoutMs)

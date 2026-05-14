@@ -16,7 +16,7 @@ export function SettingsAuth() {
     if (!r.ok) {
       setApiUser(null)
       if (r.status === 401) setMsg('API: not signed in or token rejected.')
-      else if (r.status === 503) setMsg('API: server auth not configured (set SUPABASE_URL in backend .env).')
+      else if (r.status === 503) setMsg('API: set SUPABASE_URL in the repo root .env for JWT verification.')
       else setMsg(`API: error (${r.status}).`)
       return
     }
@@ -28,8 +28,8 @@ export function SettingsAuth() {
     return (
       <div className="settingsAuthNote mono dim">
         Supabase auth is not configured. Add <span className="mono">SUPABASE_URL</span> and{' '}
-        <span className="mono">SUPABASE_ANON_KEY</span> to <span className="mono">frontend/.env</span> or the repo root{' '}
-        <span className="mono">.env</span> (see <span className="mono">vite.config.js</span>), then restart Vite. Keys: Project
+        <span className="mono">SUPABASE_ANON_KEY</span> to the repository root <span className="mono">.env</span> (copy from{' '}
+        <span className="mono">.env.example</span>), then restart <span className="mono">npm run dev</span>. Keys: Project
         Settings → API.
       </div>
     )
