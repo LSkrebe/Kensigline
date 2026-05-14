@@ -28,7 +28,7 @@ export function SettingsAuth() {
     return (
       <div className="settingsAuthNote mono dim">
         Supabase auth is not configured. Add <span className="mono">SUPABASE_URL</span> and{' '}
-        <span className="mono">SUPABASE_ANON_KEY</span> to the repository root <span className="mono">.env</span> (copy from{' '}
+        <span className="mono">SUPABASE_ANON_KEY</span> to the repository root <span className="mono">.env</span> (see root{' '}
         <span className="mono">.env.example</span>), then restart <span className="mono">npm run dev</span>. Keys: Project
         Settings → API.
       </div>
