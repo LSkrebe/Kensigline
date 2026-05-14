@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
-const url = typeof import.meta !== 'undefined' ? import.meta.env?.SUPABASE_URL : null
-const anon = typeof import.meta !== 'undefined' ? import.meta.env?.SUPABASE_ANON_KEY : null
+/* Direct `import.meta.env.*` so Vite `define` replaces from repo root `.env`. */
+const url = import.meta.env.SUPABASE_URL
+const anon = import.meta.env.SUPABASE_ANON_KEY
 
 /** Null when env vars are missing — app still runs; auth UI explains what to set. */
 export const supabase =

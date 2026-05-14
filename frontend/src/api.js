@@ -1,9 +1,12 @@
 import { supabase } from './supabaseClient.js'
 
 export function getBackendBase() {
-  const env = typeof import.meta !== 'undefined' ? import.meta.env : {}
+  /* Must use direct `import.meta.env.*` so Vite `define` injects root `.env` values (not only VITE_). */
   return String(
-    env?.API_BASE_URL || env?.VITE_BACKEND_URL || env?.VITE_API_BASE_URL || 'http://localhost:3001',
+    import.meta.env.API_BASE_URL ||
+      import.meta.env.VITE_BACKEND_URL ||
+      import.meta.env.VITE_API_BASE_URL ||
+      'http://localhost:3001',
   ).replace(/\/$/, '')
 }
 
