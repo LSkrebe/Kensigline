@@ -1438,59 +1438,65 @@ function BoshaMiniPrice({ series, label, showMeta = true, trimLeadingPlateau = f
         </div>
       ) : null}
       <div ref={wrapRef} className="boshaMiniPriceWrap" role="img" aria-label="Mini price sparkline">
-        <svg className="graphSvg" viewBox={`${-viewPadL} 0 ${w + viewPadL} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
-          <defs>
-            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={CHART_AREA_GRAD_TOP} stopOpacity="1" />
-              <stop offset="100%" stopColor={CHART_AREA_GRAD_BOTTOM} stopOpacity="1" />
-            </linearGradient>
-          </defs>
-          {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
-          <path
-            className="graphAxis"
-            style={GRAPH_SVG_AXIS}
-            d={`M ${margin.l} ${margin.t} L ${margin.l} ${h - margin.b} L ${w - margin.r} ${h - margin.b}`}
-          />
+        {!vals.length ? (
+          <div className="graphEmpty mono dim" role="status">
+            No price data.
+          </div>
+        ) : (
+          <svg className="graphSvg" viewBox={`${-viewPadL} 0 ${w + viewPadL} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
+            <defs>
+              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={CHART_AREA_GRAD_TOP} stopOpacity="1" />
+                <stop offset="100%" stopColor={CHART_AREA_GRAD_BOTTOM} stopOpacity="1" />
+              </linearGradient>
+            </defs>
+            {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
+            <path
+              className="graphAxis"
+              style={GRAPH_SVG_AXIS}
+              d={`M ${margin.l} ${margin.t} L ${margin.l} ${h - margin.b} L ${w - margin.r} ${h - margin.b}`}
+            />
 
-          {yTicks.map((v, i) => {
-            const y = yAt(v)
-            return (
-              <g key={`yt-${i}`}>
-                <text
-                  className="graphTick graphTick--y"
-                  style={GRAPH_SVG_TICK}
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                  x={margin.l - 8}
-                  y={y}
-                >
-                  {formatPriceTick(v)}
-                </text>
-                <path className="graphTickLine" style={GRAPH_SVG_TICK_LINE} d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
-              </g>
-            )
-          })}
+            {yTicks.map((v, i) => {
+              const y = yAt(v)
+              return (
+                <g key={`yt-${i}`}>
+                  <text
+                    className="graphTick graphTick--y"
+                    style={GRAPH_SVG_TICK}
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                    x={margin.l - 8}
+                    y={y}
+                  >
+                    {formatPriceTick(v)}
+                  </text>
+                  <path className="graphTickLine" style={GRAPH_SVG_TICK_LINE} d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
+                </g>
+              )
+            })}
 
-          {xTickIdx.map((idx, i) => {
-            const x = xAt(idx)
-            const d = dates[idx]
-            const m = d instanceof Date && !Number.isNaN(d.getTime()) ? MONTHS_SHORT[d.getMonth()] : EMPTY
-            return (
-              <g key={`xt-${i}`}>
-                <path
-                  className="graphTickLine"
-                  style={GRAPH_SVG_TICK_LINE}
-                  d={`M ${x} ${h - margin.b} L ${x} ${h - margin.b - 6}`}
-                />
-                <text className="graphTick graphTick--x" style={GRAPH_SVG_TICK} x={x} y={h - 4}>
-                  {m}
-                </text>
-              </g>
-            )
-          })}
+            {xTickIdx.map((idx, i) => {
+              const x = xAt(idx)
+              const d = dates[idx]
+              const m = d instanceof Date && !Number.isNaN(d.getTime()) ? MONTHS_SHORT[d.getMonth()] : EMPTY
+              return (
+                <g key={`xt-${i}`}>
+                  <path
+                    className="graphTickLine"
+                    style={GRAPH_SVG_TICK_LINE}
+                    d={`M ${x} ${h - margin.b} L ${x} ${h - margin.b - 6}`}
+                  />
+                  <text className="graphTick graphTick--x" style={GRAPH_SVG_TICK} x={x} y={h - 4}>
+                    {m}
+                  </text>
+                </g>
+              )
+            })}
 
-          <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
-        </svg>
+            <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
+          </svg>
+        )}
       </div>
     </div>
   )
@@ -2583,29 +2589,6 @@ function formatReturnTick(v) {
   return `${p}%`
 }
 
-function buildMockDailySeries(seed = 42, len = 160) {
-  let v = 42 + (seed % 29)
-  const out = []
-  for (let i = 0; i < len; i++) {
-    const step = Math.round((seededJitter(seed + i * 13, 9) - 4) * 1.15)
-    v = clamp(v + step, 8, 220)
-    out.push(v)
-  }
-  return out
-}
-
-/** Mock mean forward return (fraction). Main trend panels use this when offline — not price-scale mocks. */
-function buildMockForwardReturnSeries(seed = 42, len = 140) {
-  let v = ((seed % 23) / 500 - 0.05) * 1.2
-  const out = []
-  for (let i = 0; i < len; i++) {
-    const step = (seededJitter(seed + i * 11, 9) - 4) * 0.0011
-    v = clamp(v + step, -0.2, 0.22)
-    out.push(v)
-  }
-  return out
-}
-
 function buildEvenlySpacedDates(count) {
   const n = Math.max(0, Number(count) || 0)
   if (n <= 0) return []
@@ -2628,12 +2611,11 @@ function parseIsoDayUtc(iso) {
 
 /**
  * Main tab trend API: `{ day, v }[]` where `v` is mean forward return (fraction, e.g. 0.042 = +4.2%).
- * Uses real calendar days when the backend is up; otherwise mock series + synthetic dates.
+ * Empty series when the backend is down or returns no rows (no placeholder chart).
  */
-function mainTrendsChartFromRows(rows, backendUp, mockSeed) {
+function mainTrendsChartFromRows(rows, backendUp) {
   if (!backendUp || !Array.isArray(rows) || !rows.length) {
-    const series = buildMockForwardReturnSeries(mockSeed, 140)
-    return { series, dates: buildEvenlySpacedDates(series.length) }
+    return { series: [], dates: [] }
   }
   const sorted = [...rows].sort((a, b) => String(a?.day ?? '').localeCompare(String(b?.day ?? '')))
   const out = []
@@ -3282,81 +3264,87 @@ function GraphPanel({
         className="graphWrap"
         aria-label={yTickFormat === 'return' ? 'Forward return trend' : 'Daily price graph'}
       >
-        <svg className="graphSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
-          <defs>
-            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={CHART_AREA_GRAD_TOP} stopOpacity="1" />
-              <stop offset="100%" stopColor={CHART_AREA_GRAD_BOTTOM} stopOpacity="1" />
-            </linearGradient>
-          </defs>
-          {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
-          <path
-            className="graphAxis"
-            style={GRAPH_SVG_AXIS}
-            d={`M ${margin.l} ${plotTop} L ${margin.l} ${axisY} L ${w - margin.r} ${axisY}`}
-          />
-
-          {yTicks.map((v, i) => {
-            const y = yAt(v)
-            const nT = yTicks.length
-            const onFloor = nT === 1 ? false : i === 0
-            const onCeil = nT === 1 ? false : i === nT - 1
-            const ty = onFloor ? axisY : y
-            const baseline = onFloor ? 'alphabetic' : onCeil ? 'hanging' : 'middle'
-            const tyAdj = onCeil ? plotTop + 1 : ty
-            return (
-              <g key={`yt-${i}`}>
-                <text
-                  className="graphTick graphTick--y"
-                  style={GRAPH_SVG_TICK}
-                  textAnchor="end"
-                  dominantBaseline={baseline}
-                  x={margin.l - 8}
-                  y={tyAdj}
-                >
-                  {yTickFormat === 'return' ? formatReturnTick(v) : formatPriceTick(v)}
-                </text>
-                <path className="graphTickLine" style={GRAPH_SVG_TICK_LINE} d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
-              </g>
-            )
-          })}
-
-          {xTickIdx.map((idx, i) => {
-            const x = xAt(idx)
-            const d = ds[idx]
-            const label = d ? MONTHS_SHORT[d.getMonth()] : EMPTY
-            return (
-              <g key={`xt-${i}`}>
-                <path className="graphTickLine" style={GRAPH_SVG_TICK_LINE} d={`M ${x} ${axisY} L ${x} ${axisY - 6}`} />
-                <text className="graphTick graphTick--x" style={GRAPH_SVG_TICK} x={x} y={axisY + 10} dominantBaseline="hanging">
-                  {label}
-                </text>
-              </g>
-            )
-          })}
-
-          <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
-
-          {/* transaction markers (drawn over line) */}
-          {markerX.map((x, i) => (
+        {!vals.length ? (
+          <div className="graphEmpty mono dim" role="status">
+            No chart data.
+          </div>
+        ) : (
+          <svg className="graphSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
+            <defs>
+              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={CHART_AREA_GRAD_TOP} stopOpacity="1" />
+                <stop offset="100%" stopColor={CHART_AREA_GRAD_BOTTOM} stopOpacity="1" />
+              </linearGradient>
+            </defs>
+            {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
             <path
-              key={`m-${i}`}
-              className="graphMarker"
-              style={GRAPH_SVG_MARKER}
-              d={`M ${x.toFixed(2)} ${plotTop} L ${x.toFixed(2)} ${axisY.toFixed(2)}`}
-              vectorEffect="non-scaling-stroke"
+              className="graphAxis"
+              style={GRAPH_SVG_AXIS}
+              d={`M ${margin.l} ${plotTop} L ${margin.l} ${axisY} L ${w - margin.r} ${axisY}`}
             />
-          ))}
 
-          {selectedMarkerX != null ? (
-            <path
-              className="graphMarker graphMarker--selected"
-              style={GRAPH_SVG_MARKER_SEL}
-              d={`M ${selectedMarkerX.toFixed(2)} ${plotTop} L ${selectedMarkerX.toFixed(2)} ${axisY.toFixed(2)}`}
-              vectorEffect="non-scaling-stroke"
-            />
-          ) : null}
-        </svg>
+            {yTicks.map((v, i) => {
+              const y = yAt(v)
+              const nT = yTicks.length
+              const onFloor = nT === 1 ? false : i === 0
+              const onCeil = nT === 1 ? false : i === nT - 1
+              const ty = onFloor ? axisY : y
+              const baseline = onFloor ? 'alphabetic' : onCeil ? 'hanging' : 'middle'
+              const tyAdj = onCeil ? plotTop + 1 : ty
+              return (
+                <g key={`yt-${i}`}>
+                  <text
+                    className="graphTick graphTick--y"
+                    style={GRAPH_SVG_TICK}
+                    textAnchor="end"
+                    dominantBaseline={baseline}
+                    x={margin.l - 8}
+                    y={tyAdj}
+                  >
+                    {yTickFormat === 'return' ? formatReturnTick(v) : formatPriceTick(v)}
+                  </text>
+                  <path className="graphTickLine" style={GRAPH_SVG_TICK_LINE} d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
+                </g>
+              )
+            })}
+
+            {xTickIdx.map((idx, i) => {
+              const x = xAt(idx)
+              const d = ds[idx]
+              const label = d ? MONTHS_SHORT[d.getMonth()] : EMPTY
+              return (
+                <g key={`xt-${i}`}>
+                  <path className="graphTickLine" style={GRAPH_SVG_TICK_LINE} d={`M ${x} ${axisY} L ${x} ${axisY - 6}`} />
+                  <text className="graphTick graphTick--x" style={GRAPH_SVG_TICK} x={x} y={axisY + 10} dominantBaseline="hanging">
+                    {label}
+                  </text>
+                </g>
+              )
+            })}
+
+            <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
+
+            {/* transaction markers (drawn over line) */}
+            {markerX.map((x, i) => (
+              <path
+                key={`m-${i}`}
+                className="graphMarker"
+                style={GRAPH_SVG_MARKER}
+                d={`M ${x.toFixed(2)} ${plotTop} L ${x.toFixed(2)} ${axisY.toFixed(2)}`}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+
+            {selectedMarkerX != null ? (
+              <path
+                className="graphMarker graphMarker--selected"
+                style={GRAPH_SVG_MARKER_SEL}
+                d={`M ${selectedMarkerX.toFixed(2)} ${plotTop} L ${selectedMarkerX.toFixed(2)} ${axisY.toFixed(2)}`}
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : null}
+          </svg>
+        )}
       </div>
     </section>
   )
@@ -4595,9 +4583,8 @@ function App() {
 
   const boshaPriceSeries = useMemo(() => {
     if (Array.isArray(boshaBarsSeries) && boshaBarsSeries.length) return boshaBarsSeries
-    if (backendUp) return []
-    return boshaDataset.price
-  }, [boshaBarsSeries, boshaDataset.price, backendUp])
+    return []
+  }, [boshaBarsSeries])
 
   const boshaFilteredFeed = useMemo(() => {
     const s = String(boshaQuery ?? '').trim().toUpperCase()
@@ -4648,15 +4635,15 @@ function App() {
   }, [backendUp, activeTab])
 
   const insidersChart = useMemo(
-    () => mainTrendsChartFromRows(mainTrendsLive?.insiders, backendUp, 71),
+    () => mainTrendsChartFromRows(mainTrendsLive?.insiders, backendUp),
     [backendUp, mainTrendsLive?.insiders],
   )
   const politiciansChart = useMemo(
-    () => mainTrendsChartFromRows(mainTrendsLive?.politicians, backendUp, 133),
+    () => mainTrendsChartFromRows(mainTrendsLive?.politicians, backendUp),
     [backendUp, mainTrendsLive?.politicians],
   )
   const researchChart = useMemo(
-    () => mainTrendsChartFromRows(mainTrendsLive?.research, backendUp, 401),
+    () => mainTrendsChartFromRows(mainTrendsLive?.research, backendUp),
     [backendUp, mainTrendsLive?.research],
   )
 
@@ -5299,9 +5286,9 @@ function App() {
           : pharmaSelectedResolved?.daily ?? []
 
   const dailySeries = useMemo(() => {
-    if (daily && daily.length >= 40) return daily
-    return buildMockDailySeries(activeTab === 'insider' ? 71 : 133, 160)
-  }, [daily, activeTab])
+    if (Array.isArray(daily) && daily.length >= 40) return daily
+    return []
+  }, [daily])
 
   const dailyDates = useMemo(() => buildEvenlySpacedDates(dailySeries.length), [dailySeries.length])
   const insiderTradeMarkers = useMemo(() => {
