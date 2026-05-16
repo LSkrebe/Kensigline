@@ -1,14 +1,12 @@
 import { useCallback, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
+import { AuthSignIn } from './AuthSignIn.jsx'
 import { fetchJsonSafe } from './api.js'
 
 export function SettingsAuth() {
-  const { configured, loading, user, signInWithPassword, signUpWithPassword, signInWithOtp, signOut } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState('')
+  const { configured, loading, user, signOut } = useAuth()
   const [apiUser, setApiUser] = useState(null)
+  const [msg, setMsg] = useState('')
 
   const probeApi = useCallback(async () => {
     setMsg('')
@@ -25,14 +23,7 @@ export function SettingsAuth() {
   }, [])
 
   if (!configured) {
-    return (
-      <div className="settingsAuthNote mono dim">
-        Supabase auth is not configured. Add <span className="mono">SUPABASE_URL</span> and{' '}
-        <span className="mono">SUPABASE_ANON_KEY</span> to the repository root <span className="mono">.env</span> (see root{' '}
-        <span className="mono">.env.example</span>), then restart <span className="mono">npm run dev</span>. Keys: Project
-        Settings → API.
-      </div>
-    )
+    return <AuthSignIn variant="settings" />
   }
 
   if (loading) {
@@ -43,12 +34,16 @@ export function SettingsAuth() {
     )
   }
 
+  if (!user) {
+    return <AuthSignIn variant="settings" onSuccess={probeApi} />
+  }
+
   return (
     <div className="settingsAuthBlock">
       <div className="settingsKv">
         <div className="settingsKvRow">
           <div className="settingsKvK">Signed in</div>
-          <div className="settingsKvV mono">{user?.email ?? '—'}</div>
+          <div className="settingsKvV mono">{user.email ?? '—'}</div>
         </div>
         {apiUser ? (
           <div className="settingsKvRow">
@@ -57,100 +52,22 @@ export function SettingsAuth() {
           </div>
         ) : null}
       </div>
-
-      {user ? (
-        <div className="settingsAuthActions">
-          <button type="button" className="settingsBtn" disabled={busy} onClick={() => void probeApi()}>
-            Verify API session
-          </button>
-          <button
-            type="button"
-            className="settingsBtn"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true)
-              setMsg('')
-              await signOut()
-              setApiUser(null)
-              setBusy(false)
-            }}
-          >
-            Sign out
-          </button>
-        </div>
-      ) : (
-        <form
-          className="settingsAuthForm"
-          onSubmit={async (e) => {
-            e.preventDefault()
-            setBusy(true)
+      <div className="settingsAuthActions">
+        <button type="button" className="settingsBtn" onClick={() => void probeApi()}>
+          Verify API session
+        </button>
+        <button
+          type="button"
+          className="settingsBtn"
+          onClick={async () => {
             setMsg('')
-            const { error } = await signInWithPassword(email, password)
-            setBusy(false)
-            if (error) setMsg(error.message || String(error))
-            else void probeApi()
+            await signOut()
+            setApiUser(null)
           }}
         >
-          <label className="settingsAuthLabel">
-            <span className="mono dim">Email</span>
-            <input
-              className="settingsAuthInput mono"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </label>
-          <label className="settingsAuthLabel">
-            <span className="mono dim">Password</span>
-            <input
-              className="settingsAuthInput mono"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </label>
-          <div className="settingsAuthActions">
-            <button type="submit" className="settingsBtn settingsBtn--primary" disabled={busy}>
-              Sign in
-            </button>
-            <button
-              type="button"
-              className="settingsBtn"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true)
-                setMsg('')
-                const { error } = await signUpWithPassword(email, password)
-                setBusy(false)
-                if (error) setMsg(error.message || String(error))
-                else setMsg('Check your email to confirm the account if required, then sign in.')
-              }}
-            >
-              Create account
-            </button>
-            <button
-              type="button"
-              className="settingsBtn"
-              disabled={busy || !email.trim()}
-              onClick={async () => {
-                setBusy(true)
-                setMsg('')
-                const { error } = await signInWithOtp(email)
-                setBusy(false)
-                if (error) setMsg(error.message || String(error))
-                else setMsg('Magic link sent — check your inbox.')
-              }}
-            >
-              Email magic link
-            </button>
-          </div>
-        </form>
-      )}
-
+          Sign out
+        </button>
+      </div>
       {msg ? (
         <p className="settingsAuthMsg mono dim" role="status">
           {msg}

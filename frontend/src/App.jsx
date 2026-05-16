@@ -1,6 +1,8 @@
 import { toPng } from 'html-to-image'
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
+import { useAuth } from './AuthContext.jsx'
+import { IntroPage } from './IntroPage.jsx'
 import { SettingsAuth } from './SettingsAuth.jsx'
 import './App.css'
 
@@ -2589,6 +2591,29 @@ function formatReturnTick(v) {
   return `${p}%`
 }
 
+function buildMockDailySeries(seed = 42, len = 160) {
+  let v = 42 + (seed % 29)
+  const out = []
+  for (let i = 0; i < len; i++) {
+    const step = Math.round((seededJitter(seed + i * 13, 9) - 4) * 1.15)
+    v = clamp(v + step, 8, 220)
+    out.push(v)
+  }
+  return out
+}
+
+/** Mock mean forward return (fraction). Shown on main trend panels when the API is offline. */
+function buildMockForwardReturnSeries(seed = 42, len = 140) {
+  let v = ((seed % 23) / 500 - 0.05) * 1.2
+  const out = []
+  for (let i = 0; i < len; i++) {
+    const step = (seededJitter(seed + i * 11, 9) - 4) * 0.0011
+    v = clamp(v + step, -0.2, 0.22)
+    out.push(v)
+  }
+  return out
+}
+
 function buildEvenlySpacedDates(count) {
   const n = Math.max(0, Number(count) || 0)
   if (n <= 0) return []
@@ -2611,10 +2636,14 @@ function parseIsoDayUtc(iso) {
 
 /**
  * Main tab trend API: `{ day, v }[]` where `v` is mean forward return (fraction, e.g. 0.042 = +4.2%).
- * Empty series when the backend is down or returns no rows (no placeholder chart).
+ * Offline: mock series. Online with no rows: empty (no placeholder chart).
  */
-function mainTrendsChartFromRows(rows, backendUp) {
-  if (!backendUp || !Array.isArray(rows) || !rows.length) {
+function mainTrendsChartFromRows(rows, backendUp, mockSeed) {
+  if (!backendUp) {
+    const series = buildMockForwardReturnSeries(mockSeed, 140)
+    return { series, dates: buildEvenlySpacedDates(series.length) }
+  }
+  if (!Array.isArray(rows) || !rows.length) {
     return { series: [], dates: [] }
   }
   const sorted = [...rows].sort((a, b) => String(a?.day ?? '').localeCompare(String(b?.day ?? '')))
@@ -4525,7 +4554,7 @@ function CaseKvFeed({
   )
 }
 
-function App() {
+function KensiglineTerminal() {
   const [activeTab, setActiveTab] = useState('main') // main | insider | pharma | politicians | settings
   /** Which feed column receives arrow up/down: insider | pharma | programs (rail). */
   const [feedPaneFocus, setFeedPaneFocus] = useState('insider')
@@ -4583,8 +4612,9 @@ function App() {
 
   const boshaPriceSeries = useMemo(() => {
     if (Array.isArray(boshaBarsSeries) && boshaBarsSeries.length) return boshaBarsSeries
-    return []
-  }, [boshaBarsSeries])
+    if (backendUp) return []
+    return boshaDataset.price
+  }, [boshaBarsSeries, boshaDataset.price, backendUp])
 
   const boshaFilteredFeed = useMemo(() => {
     const s = String(boshaQuery ?? '').trim().toUpperCase()
@@ -4635,15 +4665,15 @@ function App() {
   }, [backendUp, activeTab])
 
   const insidersChart = useMemo(
-    () => mainTrendsChartFromRows(mainTrendsLive?.insiders, backendUp),
+    () => mainTrendsChartFromRows(mainTrendsLive?.insiders, backendUp, 71),
     [backendUp, mainTrendsLive?.insiders],
   )
   const politiciansChart = useMemo(
-    () => mainTrendsChartFromRows(mainTrendsLive?.politicians, backendUp),
+    () => mainTrendsChartFromRows(mainTrendsLive?.politicians, backendUp, 133),
     [backendUp, mainTrendsLive?.politicians],
   )
   const researchChart = useMemo(
-    () => mainTrendsChartFromRows(mainTrendsLive?.research, backendUp),
+    () => mainTrendsChartFromRows(mainTrendsLive?.research, backendUp, 401),
     [backendUp, mainTrendsLive?.research],
   )
 
@@ -5287,8 +5317,9 @@ function App() {
 
   const dailySeries = useMemo(() => {
     if (Array.isArray(daily) && daily.length >= 40) return daily
+    if (!backendUp) return buildMockDailySeries(activeTab === 'insider' ? 71 : 133, 160)
     return []
-  }, [daily])
+  }, [daily, backendUp, activeTab])
 
   const dailyDates = useMemo(() => buildEvenlySpacedDates(dailySeries.length), [dailySeries.length])
   const insiderTradeMarkers = useMemo(() => {
@@ -5569,7 +5600,7 @@ function App() {
           </span>
         </button>
       </nav>
-      <main className={`terminal terminal--${activeTab}`} aria-label="KENSIGLINE terminal grid">
+      <main className={`terminal terminal--${activeTab}`} aria-label="MERCERLINE terminal grid">
       {activeTab === 'settings' ? (
         <section className="panel settingsTile settingsTile--single" aria-label="Settings">
           <header className="feedCompactHeader">
@@ -5818,4 +5849,17 @@ function App() {
   )
 }
 
-export default App
+function AuthBootScreen() {
+  return (
+    <div className="authBoot mono" aria-live="polite">
+      Mercerline
+    </div>
+  )
+}
+
+export default function App() {
+  const { configured, loading, user } = useAuth()
+  if (configured && loading) return <AuthBootScreen />
+  if (configured && !user) return <IntroPage />
+  return <KensiglineTerminal />
+}

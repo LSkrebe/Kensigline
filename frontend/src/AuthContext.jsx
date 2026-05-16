@@ -45,15 +45,6 @@ export function AuthProvider({ children }) {
     })
   }, [])
 
-  const signInWithOtp = useCallback(async (email) => {
-    if (!supabase) return { data: null, error: new Error('supabase_not_configured') }
-    const emailRedirectTo = typeof window !== 'undefined' ? `${window.location.origin}/` : undefined
-    return supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: emailRedirectTo ? { emailRedirectTo } : undefined,
-    })
-  }, [])
-
   const signOut = useCallback(async () => {
     if (!supabase) return { error: new Error('supabase_not_configured') }
     return supabase.auth.signOut()
@@ -67,10 +58,9 @@ export function AuthProvider({ children }) {
       user: session?.user ?? null,
       signInWithPassword,
       signUpWithPassword,
-      signInWithOtp,
       signOut,
     }),
-    [configured, loading, session, signInWithPassword, signUpWithPassword, signInWithOtp, signOut],
+    [configured, loading, session, signInWithPassword, signUpWithPassword, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

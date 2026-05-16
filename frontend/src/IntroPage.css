@@ -1,0 +1,1051 @@
+.introPage {
+  box-sizing: border-box;
+  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scroll-padding-bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(900px 480px at 12% -8%, rgba(90, 220, 255, 0.09), transparent 55%),
+    radial-gradient(700px 400px at 88% 20%, rgba(168, 196, 255, 0.06), transparent 50%),
+    #06070a;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.introNav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(6, 7, 10, 0.82);
+  backdrop-filter: blur(10px);
+}
+
+.introNavInner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.introBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.introBrandLogo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  opacity: 0.95;
+}
+
+.introBrandName {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  font-weight: 600;
+}
+
+.introNavCta {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid rgba(90, 220, 255, 0.35);
+  background: rgba(90, 220, 255, 0.1);
+  color: rgba(240, 255, 252, 0.95);
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.introNavLinks {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-left: auto;
+  margin-right: 12px;
+}
+
+.introNavLinks a {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: rgba(180, 195, 210, 0.72);
+}
+
+.introNavLinks a:hover {
+  color: rgba(220, 235, 245, 0.95);
+}
+
+.introNavCta:hover {
+  background: rgba(90, 220, 255, 0.18);
+  border-color: rgba(90, 220, 255, 0.5);
+}
+
+@media (max-width: 640px) {
+  .introNavLinks {
+    display: none;
+  }
+}
+
+.introMain {
+  flex: 0 0 auto;
+  max-width: 1080px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 22px clamp(140px, 18vh, 180px);
+  box-sizing: border-box;
+}
+
+.introHero {
+  width: 100%;
+  padding: 56px 0 8px;
+  box-sizing: border-box;
+}
+
+.introHeroRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px 20px;
+  width: 100%;
+}
+
+.introHeroContent {
+  max-width: 720px;
+}
+
+.introHero--enter {
+  animation: introHeroIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes introHeroIn {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.introEyebrow {
+  margin: 0 0 16px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(90, 220, 255, 0.75);
+}
+
+.introHeadline {
+  margin: 0 0 20px;
+  font-size: clamp(2rem, 5.5vw, 3.15rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+.introHeadlineAccent {
+  color: rgba(200, 230, 255, 0.92);
+}
+
+.introLead {
+  margin: 0 0 28px;
+  max-width: 52ch;
+  font-size: clamp(14px, 1.9vw, 16px);
+  line-height: 1.65;
+  color: rgba(210, 218, 228, 0.82);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.introHeroActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.introBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 20px;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+}
+
+.introBtn--primary {
+  background: rgba(90, 220, 255, 0.2);
+  border-color: rgba(90, 220, 255, 0.45);
+  color: rgba(248, 255, 255, 0.98);
+}
+
+.introBtn--primary:hover {
+  background: rgba(90, 220, 255, 0.3);
+}
+
+.introBtn--ghost {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(220, 228, 235, 0.88);
+}
+
+.introBtn--ghost:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.introHeroRailsLabel {
+  margin: 0;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(170, 185, 195, 0.55);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .introHeroRailsLabel {
+    width: 100%;
+    text-align: right;
+    white-space: normal;
+  }
+}
+
+.introSection {
+  margin-bottom: 0;
+  padding-top: clamp(88px, 14vh, 132px);
+  padding-bottom: clamp(24px, 4vh, 40px);
+  scroll-margin-top: 88px;
+}
+
+.introProblem {
+  padding-top: clamp(72px, 12vh, 112px);
+}
+
+.introReveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition:
+    opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.introReveal--in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .introPage {
+    scroll-behavior: auto;
+  }
+
+  .introHero--enter {
+    animation: none;
+  }
+
+  .introReveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+.introSectionKicker {
+  margin: 0 0 10px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(90, 220, 255, 0.65);
+}
+
+.introSectionTitle {
+  margin: 0 0 12px;
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.introSectionHead {
+  margin-bottom: 40px;
+}
+
+.introSectionLead {
+  margin: 0;
+  max-width: 48ch;
+  line-height: 1.55;
+  color: rgba(200, 208, 218, 0.78);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
+}
+
+.introSectionLead--wide {
+  max-width: none;
+  margin-top: 8px;
+}
+
+.introSectionTitle--inline {
+  margin-bottom: 20px;
+}
+
+.introProblemBand {
+  margin: 0 -22px;
+  padding: 32px 22px 36px;
+  border-block: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(180deg, rgba(90, 220, 255, 0.04), transparent 42%),
+    rgba(8, 10, 14, 0.55);
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 32px 48px;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .introProblemBand {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+
+.introProblemHead {
+  margin-bottom: 0;
+}
+
+.introProblemList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.introProblemItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.introProblemItem:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.introProblemTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(230, 238, 245, 0.94);
+}
+
+.introProblemBody {
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(185, 195, 205, 0.78);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.introFeatureGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.introFeatureCard {
+  padding: 20px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(10, 12, 16, 0.55);
+  border-radius: 2px;
+}
+
+.introFeatureTag {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(90, 220, 255, 0.8);
+}
+
+.introFeatureTitle {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.introFeatureBody {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(190, 200, 210, 0.78);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.introBenefitMatrix {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(6, 8, 12, 0.45);
+}
+
+.introBenefitCell {
+  position: relative;
+  padding: 26px 28px 28px;
+  overflow: hidden;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.introBenefitCell:nth-child(2n) {
+  border-right: none;
+}
+
+.introBenefitCell:nth-child(n + 3) {
+  border-bottom: none;
+}
+
+.introBenefitCell::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle at 0% 0%, rgba(90, 220, 255, 0.12), transparent 70%);
+  pointer-events: none;
+}
+
+.introBenefitCode {
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: rgba(90, 220, 255, 0.9);
+  border: 1px solid rgba(90, 220, 255, 0.25);
+  background: rgba(90, 220, 255, 0.06);
+}
+
+.introBenefitTitle {
+  position: relative;
+  margin: 0 0 10px;
+  font-size: clamp(15px, 2vw, 17px);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.introBenefitBody {
+  position: relative;
+  margin: 0;
+  max-width: 34ch;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(185, 195, 205, 0.78);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@media (max-width: 640px) {
+  .introBenefitMatrix {
+    grid-template-columns: 1fr;
+  }
+
+  .introBenefitCell {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .introBenefitCell:nth-child(2n) {
+    border-right: none;
+  }
+
+  .introBenefitCell:last-child {
+    border-bottom: none;
+  }
+}
+
+.introSteps {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px 36px;
+  position: relative;
+}
+
+.introSteps::before {
+  content: '';
+  position: absolute;
+  top: 28px;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(90, 220, 255, 0.28) 20%, rgba(90, 220, 255, 0.28) 80%, transparent);
+  pointer-events: none;
+}
+
+@media (max-width: 720px) {
+  .introSteps {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .introSteps::before {
+    display: none;
+  }
+}
+
+.introStep {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+@media (max-width: 720px) {
+  .introStep {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 20px;
+  }
+}
+
+.introStepMarker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(90, 220, 255, 0.4);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(90, 220, 255, 0.18), transparent 55%),
+    rgba(8, 10, 14, 0.85);
+  box-shadow:
+    0 0 0 4px rgba(90, 220, 255, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(200, 245, 255, 0.95);
+  position: relative;
+  z-index: 1;
+}
+
+.introStepTitle {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.introStepText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(190, 200, 210, 0.78);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.introPersonaStack {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(6, 8, 12, 0.45);
+}
+
+.introPersonaRail {
+  display: flex;
+  align-items: stretch;
+  gap: 24px;
+  padding: 22px 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.introPersonaRail:last-child {
+  border-bottom: none;
+}
+
+.introPersonaRailTrack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  padding-top: 2px;
+}
+
+.introPersonaRailLine {
+  flex: 1;
+  width: 1px;
+  min-height: 20px;
+  margin-top: 10px;
+  background: linear-gradient(180deg, rgba(90, 220, 255, 0.35), rgba(90, 220, 255, 0.08));
+}
+
+.introPersonaCode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: rgba(90, 220, 255, 0.9);
+  border: 1px solid rgba(90, 220, 255, 0.25);
+  background: rgba(90, 220, 255, 0.06);
+  border-radius: 2px;
+}
+
+.introPersonaRailCopy {
+  flex: 1;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.introPersonaTitle {
+  margin: 0 0 8px;
+  font-size: clamp(15px, 2vw, 17px);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.introPersonaBody {
+  margin: 0;
+  max-width: 56ch;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(185, 195, 205, 0.78);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+@media (max-width: 560px) {
+  .introPersonaRail {
+    gap: 16px;
+    padding: 18px 20px;
+  }
+
+  .introPersonaRailTrack {
+    width: 40px;
+  }
+
+  .introPersonaCode {
+    width: 40px;
+    height: 40px;
+    font-size: 9px;
+  }
+}
+
+.introPitch .introQuote {
+  margin: 0;
+  padding: 28px 24px;
+  border-left: 2px solid rgba(90, 220, 255, 0.4);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.introQuote {
+  font-size: clamp(15px, 2vw, 17px);
+  line-height: 1.65;
+  color: rgba(220, 228, 235, 0.88);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-style: normal;
+}
+
+.introFaqMatrix {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(6, 8, 12, 0.45);
+}
+
+.introFaqCell {
+  position: relative;
+  padding: 26px 28px 28px;
+  overflow: hidden;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.introFaqCell:nth-child(2n) {
+  border-right: none;
+}
+
+.introFaqCell:nth-child(n + 3) {
+  border-bottom: none;
+}
+
+.introFaqCell::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle at 0% 0%, rgba(90, 220, 255, 0.12), transparent 70%);
+  pointer-events: none;
+}
+
+.introFaqCode {
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: rgba(90, 220, 255, 0.9);
+  border: 1px solid rgba(90, 220, 255, 0.25);
+  background: rgba(90, 220, 255, 0.06);
+}
+
+.introFaqQ {
+  position: relative;
+  margin: 0 0 10px;
+  font-size: clamp(15px, 2vw, 16px);
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgba(230, 238, 245, 0.94);
+  letter-spacing: -0.01em;
+}
+
+.introFaqA {
+  position: relative;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(185, 195, 205, 0.78);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  max-width: 40ch;
+}
+
+@media (max-width: 640px) {
+  .introFaqMatrix {
+    grid-template-columns: 1fr;
+  }
+
+  .introFaqCell {
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .introFaqCell:nth-child(2n) {
+    border-right: none;
+  }
+
+  .introFaqCell:nth-child(n + 3) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  }
+
+  .introFaqCell:last-child {
+    border-bottom: none;
+  }
+}
+
+.introCtaBand {
+  display: flex;
+  justify-content: center;
+  text-align: center;
+}
+
+.introSection.introCtaBand {
+  margin-top: clamp(56px, 9vh, 88px);
+  padding: clamp(28px, 5vh, 44px) 0 clamp(12px, 2vh, 20px);
+}
+
+.introCtaInner {
+  width: min(100%, 920px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.introCtaRule {
+  width: 100%;
+  height: 1px;
+  margin: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(90, 220, 255, 0.18) 12%,
+    rgba(90, 220, 255, 0.34) 50%,
+    rgba(90, 220, 255, 0.18) 88%,
+    transparent
+  );
+}
+
+.introCtaRule:first-child {
+  margin-bottom: clamp(22px, 3.5vh, 30px);
+}
+
+.introCtaRule:last-child {
+  margin-top: clamp(26px, 4vh, 34px);
+}
+
+.introCtaCopy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
+
+.introCtaTitle {
+  margin: 0 0 10px;
+  font-size: clamp(1.5rem, 3.6vw, 2rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.introCtaTitleAccent {
+  color: rgba(200, 230, 255, 0.92);
+}
+
+.introCtaRails {
+  margin: 0 0 clamp(20px, 3vh, 26px);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(170, 185, 195, 0.55);
+  white-space: nowrap;
+}
+
+.introCtaBtn {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .introCtaTitle,
+  .introCtaRails {
+    white-space: normal;
+  }
+}
+
+.introPage--modalOpen {
+  overflow: hidden;
+}
+
+.introModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  background: rgba(2, 4, 8, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.introModal {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  max-height: min(90dvh, 640px);
+  overflow-y: auto;
+  padding: 28px 24px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 10, 14, 0.96);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55);
+}
+
+.introModalClose {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(220, 228, 235, 0.85);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.introModalClose:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.introModalTitle {
+  margin: 0 32px 8px 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.introModalLead {
+  margin: 0 0 22px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.introFoot {
+  padding: 20px 22px 28px;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.introFootSep {
+  margin: 0 8px;
+  opacity: 0.5;
+}
+
+/* Shared auth form (intro + settings) */
+.authSignIn--intro .authSignInForm {
+  gap: 14px;
+}
+
+.authSignInForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.authSignInLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.authSignInLabelText {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(180, 190, 200, 0.75);
+}
+
+.authSignInInput {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.authSignInInput:focus {
+  outline: 1px solid rgba(90, 220, 255, 0.45);
+  outline-offset: 1px;
+  border-color: rgba(90, 220, 255, 0.35);
+}
+
+.authSignInActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.authSignInBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.88);
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.authSignInBtn:hover:not(:disabled) {
+  border-color: rgba(168, 196, 255, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.authSignInBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.authSignInBtn--primary {
+  background: rgba(90, 220, 255, 0.16);
+  border-color: rgba(90, 220, 255, 0.4);
+  color: rgba(248, 255, 255, 0.98);
+}
+
+.authSignInBtn--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: rgba(180, 195, 210, 0.8);
+}
+
+.authSignInMsg {
+  margin: 12px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 212, 120, 0.9);
+}
+
+.authSignInNote {
+  font-size: 12px;
+  line-height: 1.55;
+  max-width: 42ch;
+}
+
+.authBoot {
+  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #06070a;
+  color: rgba(160, 200, 190, 0.7);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
