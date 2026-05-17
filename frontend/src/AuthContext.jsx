@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { completeAuthFromUrl } from './authCallback.js'
 import { supabase } from './supabaseClient.js'
 
 const AuthContext = createContext(undefined)
@@ -15,15 +16,25 @@ export function AuthProvider({ children }) {
       return
     }
     let cancelled = false
-    supabase.auth.getSession().then(({ data }) => {
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      if (!cancelled) setSession(next ?? null)
+      setLoading(false)
+    })
+
+    ;(async () => {
+      try {
+        await completeAuthFromUrl(supabase)
+      } catch (e) {
+        console.warn('[auth] redirect handling failed', e)
+      }
+      const { data } = await supabase.auth.getSession()
       if (!cancelled) {
         setSession(data.session ?? null)
         setLoading(false)
       }
-    })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next ?? null)
-    })
+    })()
+
     return () => {
       cancelled = true
       sub.subscription.unsubscribe()

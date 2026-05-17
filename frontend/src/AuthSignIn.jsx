@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
+import { supabase } from './supabaseClient.js'
 import './IntroPage.css'
 
 /**
@@ -35,8 +36,10 @@ export function AuthSignIn({ variant = 'settings', onSuccess }) {
           setMsg('')
           const { error } = await signInWithPassword(email, password)
           setBusy(false)
-          if (error) setMsg(error.message || String(error))
-          else onSuccess?.()
+          if (error) {
+            const m = error.message || String(error)
+            setMsg(/not confirmed/i.test(m) ? `${m} — open the latest confirmation link, or resend below.` : m)
+          } else onSuccess?.()
         }}
       >
         <label className="authSignInLabel">
@@ -81,6 +84,27 @@ export function AuthSignIn({ variant = 'settings', onSuccess }) {
             }}
           >
             Create account
+          </button>
+          <button
+            type="button"
+            className="authSignInBtn authSignInBtn--ghost"
+            disabled={busy || !email.trim()}
+            onClick={async () => {
+              if (!supabase) return
+              setBusy(true)
+              setMsg('')
+              const redirectTo = `${window.location.origin}/`
+              const { error } = await supabase.auth.resend({
+                type: 'signup',
+                email: email.trim(),
+                options: { emailRedirectTo: redirectTo },
+              })
+              setBusy(false)
+              if (error) setMsg(error.message || String(error))
+              else setMsg('Confirmation email sent — open the new link, then sign in.')
+            }}
+          >
+            Resend confirmation
           </button>
         </div>
       </form>

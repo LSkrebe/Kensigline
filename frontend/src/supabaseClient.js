@@ -7,5 +7,13 @@ const anon = import.meta.env.SUPABASE_ANON_KEY
 /** Null when env vars are missing — app still runs; auth UI explains what to set. */
 export const supabase =
   url && anon && String(url).trim() && String(anon).trim()
-    ? createClient(String(url).trim(), String(anon).trim())
+    ? createClient(String(url).trim(), String(anon).trim(), {
+        auth: {
+          // Implicit: email confirm links work without PKCE code_verifier (same browser not required).
+          flowType: 'implicit',
+          detectSessionInUrl: true,
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      })
     : null
