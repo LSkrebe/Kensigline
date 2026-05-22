@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { IntroPage } from './IntroPage.jsx'
-import { SettingsAuth } from './SettingsAuth.jsx'
+import { SettingsPanel } from './SettingsPanel.jsx'
 import './App.css'
 
 function clamp(n, lo, hi) {
@@ -5601,17 +5601,7 @@ function KensiglineTerminal() {
         </button>
       </nav>
       <main className={`terminal terminal--${activeTab}`} aria-label="MERCERLINE terminal grid">
-      {activeTab === 'settings' ? (
-        <section className="panel settingsTile settingsTile--single" aria-label="Settings">
-          <header className="feedCompactHeader">
-            <div className="panelTitle feedCompactTitle">SETTINGS</div>
-          </header>
-          <div className="settingsTileBody">
-            <SettingsAuth />
-            <p className="settingsAuthFootnote mono dim">Billing and invoices are not wired yet.</p>
-          </div>
-        </section>
-      ) : null}
+      {activeTab === 'settings' ? <SettingsPanel /> : null}
       {activeTab === 'insider' ? (
         <>
           <CompactFeed
@@ -5822,7 +5812,7 @@ function KensiglineTerminal() {
         </section>
       ) : null}
 
-      {activeTab !== 'main' ? (
+      {activeTab !== 'main' && activeTab !== 'settings' ? (
         <>
           <HistoricalOutcomesPanel mode={activeTab === 'politicians' ? 'politicians' : activeTab} backendUp={backendUp} />
           <ContextPanel
