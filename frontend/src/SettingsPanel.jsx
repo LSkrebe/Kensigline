@@ -1,3 +1,5 @@
+import { useCallback, useState } from 'react'
+import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { AuthSignIn } from './AuthSignIn.jsx'
 
@@ -56,6 +58,17 @@ function SettingsLogoPanel() {
 
 export function SettingsPanel() {
   const { configured, loading, user, signOut } = useAuth()
+  const [portalBusy, setPortalBusy] = useState(false)
+
+  const onManageBilling = useCallback(async () => {
+    setPortalBusy(true)
+    const res = await fetchJsonSafe('/api/billing/portal', { method: 'POST', timeoutMs: 20000 })
+    setPortalBusy(false)
+    if (res.ok && res.data?.url) {
+      window.location.href = res.data.url
+      return
+    }
+  }, [])
 
   if (!configured || loading || !user) {
     return (
@@ -113,8 +126,13 @@ export function SettingsPanel() {
           </SettingsKvBody>
         </div>
         <footer className="settingsPanelFooter">
-          <button type="button" className="settingsBtn settingsBtn--accent" disabled title="Stripe — coming soon">
-            Manage billing
+          <button
+            type="button"
+            className="settingsBtn settingsBtn--accent"
+            disabled={portalBusy}
+            onClick={() => void onManageBilling()}
+          >
+            {portalBusy ? 'Opening…' : 'Manage billing'}
           </button>
         </footer>
         </section>

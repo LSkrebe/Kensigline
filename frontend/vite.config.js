@@ -17,6 +17,12 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    server: {
+      proxy: {
+        '/api': { target: apiBase, changeOrigin: true },
+        '/health': { target: apiBase, changeOrigin: true },
+      },
+    },
     define: {
       'import.meta.env.SUPABASE_URL': JSON.stringify(supabaseUrl),
       'import.meta.env.SUPABASE_ANON_KEY': JSON.stringify(supabaseAnon),

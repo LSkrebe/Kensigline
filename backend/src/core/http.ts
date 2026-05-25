@@ -20,12 +20,16 @@ export function route(req: http.IncomingMessage, url: URL, method: string, pathn
   return req.method === method && url.pathname === pathname;
 }
 
-export async function json(req: http.IncomingMessage): Promise<any> {
+export async function readRawBody(req: http.IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
-  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  return Buffer.concat(chunks);
+}
+
+export async function json(req: http.IncomingMessage): Promise<any> {
+  const raw = (await readRawBody(req)).toString("utf8").trim();
   if (!raw) return null;
   try {
     return JSON.parse(raw);

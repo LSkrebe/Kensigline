@@ -269,5 +269,23 @@ CREATE TABLE IF NOT EXISTS outcomes (
   PRIMARY KEY (company_id, mode, as_of_date)
 );
 
+-- --- Billing (Stripe subscriptions; see also backend/db/billing.sql) ---
+CREATE TABLE IF NOT EXISTS billing_accounts (
+  user_id text PRIMARY KEY,
+  email text,
+  stripe_customer_id text UNIQUE,
+  stripe_subscription_id text,
+  status text NOT NULL DEFAULT 'none',
+  plan text,
+  price_id text,
+  current_period_end timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS billing_accounts_customer_idx
+  ON billing_accounts (stripe_customer_id)
+  WHERE stripe_customer_id IS NOT NULL;
+
 COMMIT;
 

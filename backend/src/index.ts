@@ -1,7 +1,7 @@
 import "./load-env.js";
 import http from "node:http";
 import { URL } from "node:url";
-import { json, notFound, route, sendJson } from "./core/http.js";
+import { json, notFound, readRawBody, route, sendJson } from "./core/http.js";
 import { db } from "./core/db.js";
 import { enqueueLatestForm4ForTicker } from "./core/sec.js";
 import { startInsiderWorker } from "./insiders/insider-worker.js";
@@ -13,6 +13,14 @@ import { startPharmaWorker } from "./pharma/pharma-worker.js";
 import { startPoliticiansWorker } from "./politicians/politicians-worker.js";
 import { startBoshaWorker } from "./bosha/worker.js";
 import { bearerToken, supabaseAuthConfigured, verifySupabaseAccessToken } from "./core/supabase-auth.js";
+import {
+  handleBillingCheckout,
+  handleBillingPortal,
+  handleBillingRefresh,
+  handleBillingStatus,
+  handleBillingWebhook,
+} from "./billing/api.js";
+import { stripeConfigured, stripeMode } from "./billing/config.js";
 import {
   boshaLimitFromSearchParams,
   handleBoshaEvents,
@@ -75,6 +83,48 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/health") {
       sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (route(req, url, "POST", "/api/billing/webhook")) {
+      const raw = await readRawBody(req);
+      await handleBillingWebhook(req, res, raw);
+      return;
+    }
+
+    if (route(req, url, "GET", "/api/billing/status")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleBillingStatus(req, res);
+      return;
+    }
+
+    if (route(req, url, "POST", "/api/billing/checkout")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleBillingCheckout(req, res);
+      return;
+    }
+
+    if (route(req, url, "POST", "/api/billing/portal")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleBillingPortal(req, res);
+      return;
+    }
+
+    if (route(req, url, "POST", "/api/billing/refresh")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleBillingRefresh(req, res);
       return;
     }
 
@@ -846,6 +896,9 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, () => {
   console.log(`Backend listening on http://localhost:${port}`);
+  if (stripeConfigured()) {
+    console.log(`[billing] Stripe mode: ${stripeMode()}`);
+  }
 });
 
 process.on("SIGINT", () => {

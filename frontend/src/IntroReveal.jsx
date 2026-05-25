@@ -16,7 +16,7 @@ export function IntroReveal({ as: Tag = 'div', children, className = '', delay =
       return
     }
 
-    const scrollRoot = el.closest('.introPage')
+    const scrollRoot = el.closest('.introPage') ?? el.closest('.subscribePage')
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {

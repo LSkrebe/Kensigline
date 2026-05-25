@@ -3,6 +3,8 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { IntroPage } from './IntroPage.jsx'
+import { SubscribePage } from './SubscribePage.jsx'
+import { useSubscription } from './useSubscription.js'
 import { SettingsPanel } from './SettingsPanel.jsx'
 import './App.css'
 
@@ -5849,7 +5851,26 @@ function AuthBootScreen() {
 
 export default function App() {
   const { configured, loading, user } = useAuth()
+  const { loading: subLoading, active: subActive, refresh: refreshSubscription } = useSubscription()
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('checkout') !== 'success') return
+    void (async () => {
+      await fetchJsonSafe('/api/billing/refresh', { method: 'POST', timeoutMs: 15000 })
+      await refreshSubscription()
+    })().finally(() => {
+      const u = new URL(window.location.href)
+      u.searchParams.delete('checkout')
+      window.history.replaceState({}, '', `${u.pathname}${u.search}${u.hash}`)
+    })
+  }, [refreshSubscription])
+
   if (configured && loading) return <AuthBootScreen />
   if (configured && !user) return <IntroPage />
+  if (configured && user && subLoading) return <AuthBootScreen />
+  if (configured && user && !subActive) return <SubscribePage />
+
   return <KensiglineTerminal />
 }

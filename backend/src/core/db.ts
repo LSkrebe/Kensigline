@@ -5,6 +5,23 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL is required");
 }
 
+/** Strict TLS for Supabase in production; relaxed in local dev (macOS pooler cert chain). */
+function supabaseRejectUnauthorized(): boolean {
+  if (
+    process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "0" ||
+    process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
+  ) {
+    return false;
+  }
+  if (
+    process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "1" ||
+    process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "true"
+  ) {
+    return true;
+  }
+  return process.env.NODE_ENV === "production";
+}
+
 /** TLS for Supabase (and optional DATABASE_SSL=1). Local Postgres stays non-SSL unless forced. */
 function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | undefined {
   if (process.env.DATABASE_SSL === "0" || process.env.DATABASE_SSL === "false") {
@@ -23,11 +40,7 @@ function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | und
       host.endsWith("pooler.supabase.com") ||
       host.endsWith(".supabase.com")
     ) {
-      const rejectUnauthorized =
-        process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "0" ||
-        process.env.DATABASE_SSL_REJECT_UNAUTHORIZED === "false"
-          ? false
-          : true;
+      const rejectUnauthorized = supabaseRejectUnauthorized();
       return { rejectUnauthorized };
     }
   } catch {
