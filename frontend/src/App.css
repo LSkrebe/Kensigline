@@ -1,5 +1,7 @@
 :root {
   /* Mercerline “moonlight” palette (global). */
+  --terminal-topbar-h: 34px;
+  --terminal-topbar-icon-size: 22px;
   --bg: #050607;
   --panel: rgba(10, 11, 13, 0.86);
   --grid: rgba(255, 255, 255, 0.09);
@@ -9,6 +11,34 @@
   --cyan: rgba(168, 196, 255, 0.9);
   --warn: rgba(255, 212, 92, 0.95);
   --bad: rgba(255, 88, 108, 0.95);
+  /* Research intel accents (market = blue; clinical overrides below) */
+  --intel-accent: rgba(168, 196, 255, 0.9);
+  --intel-accent-hi: rgba(90, 220, 255, 0.95);
+  --intel-accent-border: rgba(168, 196, 255, 0.35);
+  --intel-accent-border-subtle: rgba(168, 196, 255, 0.16);
+  --intel-accent-surface: rgba(168, 196, 255, 0.14);
+  --intel-accent-surface-strong: rgba(168, 196, 255, 0.12);
+  --intel-accent-tint: rgba(168, 196, 255, 0.085);
+  --intel-accent-tint-soft: rgba(168, 196, 255, 0.05);
+  --intel-accent-glow: rgba(168, 196, 255, 0.045);
+  --intel-accent-glow-subtle: rgba(168, 196, 255, 0.014);
+  --intel-accent-fill: rgba(90, 220, 255, 0.16);
+  --intel-accent-fill-strong: rgba(90, 220, 255, 0.78);
+  --intel-accent-stroke: rgba(90, 220, 255, 0.45);
+  --intel-accent-stroke-strong: rgba(90, 220, 255, 0.92);
+  --intel-accent-focus: rgba(168, 196, 255, 0.55);
+  --intel-accent-focus-alt: rgba(90, 220, 255, 0.55);
+  --intel-accent-chip: rgba(90, 220, 255, 0.1);
+  --intel-accent-indicator: rgba(90, 220, 255, 0.75);
+  --intel-accent-scrollbar: rgba(168, 196, 255, 0.6);
+  --intel-accent-scrollbar-thumb: rgba(168, 196, 255, 0.35);
+  --intel-accent-scrollbar-thumb-hover: rgba(168, 196, 255, 0.5);
+  --intel-accent-inset: rgba(168, 196, 255, 0.75);
+  --intel-accent-inset-strong: rgba(90, 220, 255, 0.8);
+  --intel-accent-ring: rgba(168, 196, 255, 0.32);
+  --intel-accent-marker: rgba(168, 196, 255, 0.42);
+  --intel-accent-area-top: rgba(90, 220, 255, 0.26);
+  --intel-accent-area-bottom: rgba(90, 220, 255, 0);
   /* One scale for the whole terminal */
   --fs-title: clamp(6px, 1.75vmin, 11px);
   --fs-meta: clamp(6px, 1.65vmin, 10px);
@@ -21,7 +51,7 @@
 .terminal {
   background:
     radial-gradient(1200px 700px at 20% 28%, rgba(255, 255, 255, 0.06), transparent 60%),
-    radial-gradient(900px 520px at 76% 65%, rgba(168, 196, 255, 0.045), transparent 62%),
+    radial-gradient(900px 520px at 76% 65%, var(--intel-accent-glow), transparent 62%),
     radial-gradient(800px 520px at 52% 110%, rgba(255, 255, 255, 0.035), transparent 70%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0) 28%),
     var(--bg);
@@ -38,7 +68,7 @@
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 4px),
     radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.02), transparent 42%),
-    radial-gradient(circle at 80% 60%, rgba(168, 196, 255, 0.014), transparent 46%);
+    radial-gradient(circle at 80% 60%, var(--intel-accent-glow-subtle), transparent 46%);
   opacity: 0.55;
   mix-blend-mode: overlay;
 }
@@ -48,11 +78,260 @@
   z-index: 1;
 }
 
+.terminalShell {
+  height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+.terminalTopBar {
+  flex: 0 0 auto;
+  height: var(--terminal-topbar-h);
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+  padding: 0 12px 0 10px;
+  background: rgba(5, 6, 7, 0.94);
+  backdrop-filter: blur(8px);
+  z-index: 60;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.terminalTopBarStart,
+.terminalTopBarCenter,
+.terminalTopBarEnd {
+  display: flex;
+  align-items: center;
+  min-height: 0;
+  min-width: 0;
+}
+
+.terminalTopBarStart {
+  justify-content: flex-start;
+}
+
+.terminalTopBarCenter {
+  justify-content: center;
+}
+
+.terminalTopBarEnd {
+  justify-content: flex-end;
+}
+
+.terminalTopBarBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.terminalIntelSwitch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  height: 100%;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.terminalIntelSwitchBtn {
+  margin: 0;
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: color 0.15s ease;
+}
+
+.terminalIntelSwitchBtn:hover {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.terminalIntelSwitch--market .terminalIntelSwitchBtn.isActive {
+  color: var(--intel-accent-hi);
+}
+
+.terminalIntelSwitch--clinical .terminalIntelSwitchBtn.isActive {
+  color: var(--intel-accent-hi);
+}
+
+/* Clinical intelligence — rose/red accents (same weights as market blue) */
+.terminalShell--intel-clinical,
+.terminal--intel-clinical {
+  --cyan: rgba(255, 155, 168, 0.9);
+  --intel-accent: rgba(255, 155, 168, 0.9);
+  --intel-accent-hi: rgba(255, 88, 108, 0.95);
+  --intel-accent-border: rgba(255, 155, 168, 0.35);
+  --intel-accent-border-subtle: rgba(255, 155, 168, 0.16);
+  --intel-accent-surface: rgba(255, 155, 168, 0.14);
+  --intel-accent-surface-strong: rgba(255, 155, 168, 0.12);
+  --intel-accent-tint: rgba(255, 155, 168, 0.085);
+  --intel-accent-tint-soft: rgba(255, 155, 168, 0.05);
+  --intel-accent-glow: rgba(255, 155, 168, 0.045);
+  --intel-accent-glow-subtle: rgba(255, 155, 168, 0.014);
+  --intel-accent-fill: rgba(255, 88, 108, 0.16);
+  --intel-accent-fill-strong: rgba(255, 88, 108, 0.78);
+  --intel-accent-stroke: rgba(255, 88, 108, 0.45);
+  --intel-accent-stroke-strong: rgba(255, 88, 108, 0.92);
+  --intel-accent-focus: rgba(255, 155, 168, 0.55);
+  --intel-accent-focus-alt: rgba(255, 88, 108, 0.55);
+  --intel-accent-chip: rgba(255, 88, 108, 0.1);
+  --intel-accent-indicator: rgba(255, 88, 108, 0.75);
+  --intel-accent-scrollbar: rgba(255, 155, 168, 0.6);
+  --intel-accent-scrollbar-thumb: rgba(255, 155, 168, 0.35);
+  --intel-accent-scrollbar-thumb-hover: rgba(255, 155, 168, 0.5);
+  --intel-accent-inset: rgba(255, 155, 168, 0.75);
+  --intel-accent-inset-strong: rgba(255, 88, 108, 0.8);
+  --intel-accent-ring: rgba(255, 155, 168, 0.32);
+  --intel-accent-marker: rgba(255, 155, 168, 0.42);
+  --intel-accent-area-top: rgba(255, 88, 108, 0.26);
+  --intel-accent-area-bottom: rgba(255, 88, 108, 0);
+}
+
+.terminalShell--intel-clinical .terminal--intel-clinical .contextPoliticianCard .contextFlowCardFace {
+  background:
+    radial-gradient(240px 140px at 18% 20%, var(--intel-accent-tint), transparent 62%),
+    rgba(10, 11, 13, 0.62);
+}
+
+.terminalIntelSwitchSep {
+  padding: 0 4px;
+  color: rgba(255, 255, 255, 0.22);
+  font-size: 8px;
+  font-weight: 400;
+  line-height: 1;
+  user-select: none;
+}
+
+.terminalTopBarLogo {
+  display: block;
+  width: var(--terminal-topbar-icon-size);
+  height: var(--terminal-topbar-icon-size);
+  object-fit: contain;
+  object-position: center;
+  opacity: 0.95;
+  transform: translateX(4px);
+  flex-shrink: 0;
+}
+
+.terminalTopBarName {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  font-weight: 600;
+  color: var(--hi);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.terminalTopBarHealth {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.terminalTopBarHealth.isUp {
+  background: rgba(120, 220, 160, 0.95);
+  box-shadow: 0 0 6px rgba(120, 220, 160, 0.45);
+}
+
+.terminalTopBarHealth.isDown {
+  background: var(--bad);
+  box-shadow: 0 0 6px rgba(255, 88, 108, 0.35);
+}
+
+.terminalTopBarActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.terminalTopBarEmail {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: var(--dim);
+  max-width: min(42vw, 280px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminalTopBarSettings {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--terminal-topbar-icon-size);
+  height: var(--terminal-topbar-icon-size);
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  opacity: 0.95;
+  line-height: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.terminalTopBarSettings:hover {
+  color: var(--hi);
+  opacity: 1;
+}
+
+.terminalTopBarSettings.isActive {
+  color: var(--hi);
+  opacity: 1;
+}
+
+.terminalTopBarSettingsIcon {
+  display: block;
+  width: var(--terminal-topbar-icon-size);
+  height: var(--terminal-topbar-icon-size);
+  flex-shrink: 0;
+  /* Gear glyph fills the viewBox; logo asset has inset — match optical size */
+  transform: scale(0.82);
+}
+
+.terminalTopBarSettings.isClose .terminalTopBarSettingsIcon {
+  transform: scale(0.72);
+}
+
+.terminalWorkspace {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+}
+
 .sideTabsRail {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
+  position: relative;
+  flex: 0 0 var(--tabrail-w);
   z-index: 50;
   box-sizing: border-box;
   width: var(--tabrail-w);
@@ -64,6 +343,7 @@
   background: rgba(5, 6, 7, 0.96);
   border: 1px solid var(--grid);
   border-right: none;
+  border-top: none;
   backdrop-filter: blur(6px);
   min-height: 0;
 }
@@ -96,23 +376,6 @@
   border-bottom: none;
 }
 
-.sideTab--settings {
-  flex: 0 0 auto;
-  height: clamp(28px, 6.5vmin, 44px);
-  padding: 0;
-}
-
-.sideTabIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  font-size: clamp(12px, calc(var(--tabrail-w) * 0.62), 18px);
-  line-height: 1;
-  color: currentColor;
-}
-
 .sideTabLabel {
   display: inline-block;
   white-space: nowrap;
@@ -127,12 +390,12 @@
    */
   font-size: min(
     calc(var(--tabrail-w) / 1.28),
-    clamp(5px, calc((100dvh - 52px) / 5 / 6.45), 11px)
+    clamp(5px, calc((100dvh - var(--terminal-topbar-h) - 8px) / 4 / 6.45), 11px)
   );
 }
 
 .sideTab.isActive {
-  background: rgba(168, 196, 255, 0.14);
+  background: var(--intel-accent-surface);
   color: rgba(255, 255, 255, 0.92);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.06);
@@ -161,10 +424,12 @@
 }
 
 .terminal {
-  height: 100dvh;
-  width: calc(100vw - var(--tabrail-w));
-  margin-top: 0;
-  margin-left: var(--tabrail-w);
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  width: auto;
+  margin: 0;
   background: var(--bg);
   color: var(--text);
   display: grid;
@@ -224,66 +489,505 @@
  * columns), so nested charts + ResizeObserver cannot fight the grid for width.
  */
 .terminal.terminal--main {
+  /* Research: feed | paper | context — 20% / 60% / 20% */
   grid-template-columns:
-    minmax(60px, 0.9fr)
-    minmax(60px, 0.9fr)
-    minmax(0, 0.95fr)
-    minmax(0, 0.95fr);
+    minmax(44px, 20fr)
+    minmax(0, 60fr)
+    minmax(48px, 20fr);
   grid-template-rows: repeat(4, minmax(0, 1fr));
 }
 
-/* Main tab: layout */
-.terminal--main .mainBoshaPicks {
-  grid-column: 1 / span 1;
-  grid-row: 1 / span 3;
-}
-
-.terminal--main .mainGraph--insiders {
-  grid-column: 2 / span 1;
-  grid-row: 4 / span 1;
-}
-
-.terminal--main .mainGraph--politicians {
-  grid-column: 3 / span 1;
-  grid-row: 4 / span 1;
-}
-
-.terminal--main .mainGraph--research {
-  grid-column: 4 / span 1;
-  grid-row: 4 / span 1;
-}
-
-.terminal--main .mainGraph .graphWrap {
-  /* Match Pharma’s 1×1 graph spacing */
-  --graph-gutter: 6px;
-}
-
-.terminal--main .mainMainBlank {
-  grid-column: 2 / span 3;
-  grid-row: 1 / span 3;
+/* Main tab: slim feed | paper (center) | context */
+.terminal--main .mainBoshaPicks,
+.terminal--main .boshaTicker.mainBoshaPicks,
+.terminal--main .mainMainBlank,
+.terminal--main .boshaPaper.mainMainBlank,
+.terminal--main .mainContextPanel {
   padding: 0;
+  min-width: 0;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal--main .mainBoshaPicks,
+.terminal--main .boshaTicker.mainBoshaPicks {
+  grid-column: 1;
+  grid-row: 1 / span 4;
+}
+
+.terminal--main .mainMainBlank,
+.terminal--main .boshaPaper.mainMainBlank {
+  grid-column: 2;
+  grid-row: 1 / span 4;
+}
+
+.terminal--main .mainContextPanel {
+  grid-column: 3;
+  grid-row: 1 / span 4;
+}
+
+/* One shared title-bar height across feed | paper | context */
+.terminal--main .feedCompactHeader {
+  box-sizing: border-box;
+  flex: 0 0 27px;
+  height: 27px;
+  min-height: 27px;
+  max-height: 27px;
+  padding: 0 8px;
+  align-items: center;
+}
+
+.terminal--main .boshaPaper .boshaPaperCopyIcon {
+  padding: 2px;
+}
+
+.terminal--main .boshaPaper .boshaPaperCopyIcon .boshaPaperCopyIconSvg {
+  width: 12px;
+  height: 12px;
+}
+
+.mainContextPanelBody {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px;
+}
+
+.contextCompanyCard {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 2px 0 10px;
+}
+
+.contextCompanyTopRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.contextCompanyTicker {
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  color: var(--hi);
+  line-height: 1.05;
+}
+
+.contextCompanyPrice {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  color: var(--hi);
+}
+
+.contextCompanyMeta {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+}
+
+.contextCompanyEarnings {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 7px 8px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background:
+    radial-gradient(220px 140px at 18% 25%, var(--intel-accent-tint-soft), transparent 62%),
+    rgba(10, 11, 13, 0.46);
+}
+
+.contextCompanyEarningsK {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.contextCompanyEarningsV {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-align: right;
+  line-height: 1.2;
+  color: var(--hi);
   min-width: 0;
 }
 
-/* Make BOSHA panels place correctly inside MAIN */
-.terminal--main .boshaTicker.mainBoshaPicks {
-  grid-column: 1 / span 1;
-  grid-row: 1 / span 3;
+.contextCompanyEarnings--soon .contextCompanyEarningsV {
+  color: var(--intel-accent-hi);
+}
+
+.contextDivider {
+  height: 0;
+  border-top: 1px solid var(--bosha-paper-rule, rgba(255, 255, 255, 0.1));
+  margin: 10px 0 12px;
+  opacity: 0.9;
+}
+
+.contextSection {
+  margin-top: 14px;
+}
+
+.contextProgramsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.contextProgramCard {
+  width: 100%;
+  text-align: left;
+  box-sizing: border-box;
+  border: 1px solid var(--intel-accent-border-subtle);
+  border-radius: 12px;
+  padding: 10px 10px 9px;
+  background:
+    radial-gradient(240px 140px at 18% 20%, var(--intel-accent-tint-soft), transparent 62%),
+    rgba(10, 11, 13, 0.44);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.contextProgramCard:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px var(--intel-accent-focus),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.03);
+}
+
+.contextProgramCard:hover {
+  border-color: var(--intel-accent-border);
+}
+
+.contextProgramCard.isActive {
+  border-color: var(--intel-accent-stroke);
+  box-shadow: inset 0 0 0 1px var(--intel-accent-ring);
+  background:
+    radial-gradient(240px 140px at 18% 20%, var(--intel-accent-tint), transparent 62%),
+    rgba(10, 11, 13, 0.5);
+}
+
+.contextProgramTop {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+}
+
+.contextProgramTopRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.contextProgramKey {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--hi);
+  line-height: 1.15;
+}
+
+.contextProgramPhase {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  text-align: right;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.contextProgramMeta {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.contextProgramMilestones {
+  margin-top: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.contextProgramMilestoneRow {
+  color: inherit;
+  text-decoration: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
   padding: 0;
 }
 
-.terminal--main .boshaPaper.mainMainBlank {
-  grid-column: 2 / span 3;
-  grid-row: 1 / span 3;
+.contextProgramMilestoneRow--link {
+  cursor: pointer;
+}
+
+.contextProgramMilestoneRow--link:hover .contextProgramMilestoneAt {
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.contextProgramMilestoneRow--link:hover .contextProgramMilestoneLabel {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.contextProgramMilestoneAt {
+  text-align: right;
+  white-space: nowrap;
+  letter-spacing: 0.10em;
+  font-size: 9px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.15;
+}
+
+.contextProgramMilestoneLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* PROGRAMS rows: “designed” look without extra borders/containers */
+.contextProgramCard.isActive .contextProgramMilestones {
+  gap: 4px;
+}
+
+.contextProgramCard.isActive .contextProgramMilestoneRow {
+  padding: 5px 6px;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, var(--intel-accent-chip), transparent 72%),
+    rgba(255, 255, 255, 0.012);
+  transition: background 0.15s ease;
+}
+
+.contextProgramMilestoneRow {
+  align-items: center;
+}
+
+.contextProgramCard.isActive .contextProgramMilestoneRow:hover {
+  background:
+    linear-gradient(90deg, var(--intel-accent-fill), transparent 70%),
+    rgba(255, 255, 255, 0.02);
+}
+
+.contextProgramCard.isActive .contextProgramMilestoneLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.15;
+}
+
+.contextProgramCard.isActive .contextProgramMilestoneLabel::before {
+  content: '';
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--intel-accent-indicator);
+  opacity: 0.75;
+}
+
+.contextSectionTitle {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.contextSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+
+.contextSectionToggle {
+  margin: 0;
   padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--dim);
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  line-height: 1;
+}
+
+.contextSectionToggle:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.contextInsidersList {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.contextFlowCard {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.contextFlowCardFace {
+  grid-area: 1 / 1;
+  padding: 7px 10px 6px;
+  transition: transform 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.contextFlowCardFace--outcomes {
+  transform: translateX(100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+}
+
+@media (hover: hover) {
+  .contextFlowCard:hover .contextFlowCardFace--primary {
+    transform: translateX(-100%);
+  }
+
+  .contextFlowCard:hover .contextFlowCardFace--outcomes {
+    transform: translateX(0);
+  }
+
+  .contextFlowCard:hover {
+    border-color: var(--intel-accent-border-subtle);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contextFlowCardFace {
+    transition: none;
+  }
+}
+
+.contextInsiderCard {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.contextInsiderCard .contextFlowCardFace {
+  background:
+    radial-gradient(240px 140px at 18% 20%, var(--intel-accent-tint), transparent 62%),
+    rgba(10, 11, 13, 0.62);
+}
+
+.contextPoliticianCard {
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.contextPoliticianCard .contextFlowCardFace {
+  background:
+    radial-gradient(240px 140px at 18% 20%, rgba(255, 212, 92, 0.06), transparent 62%),
+    rgba(10, 11, 13, 0.62);
+}
+
+.contextInsiderTopRow {
+  margin-bottom: 4px;
+}
+
+.contextInsiderKey {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--hi);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+}
+
+.contextPoliticianName {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--hi);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contextInsiderBottomRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.contextCardOutcomeRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.contextCardOutcomeK {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.contextCardOutcomeV {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--hi);
+}
+
+.contextCardOutcomeV--pos {
+  color: rgba(140, 255, 195, 0.92);
+}
+
+.contextCardOutcomeV--neg {
+  color: rgba(255, 120, 120, 0.92);
+}
+
+.contextInsiderDate {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.contextInsiderAmt {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: rgba(140, 255, 195, 0.9);
+  white-space: nowrap;
+}
+
+.terminal--main .boshaPaperBody {
+  flex: 1 1 auto;
   min-height: 0;
 }
 
 /* Image export: drop the 1fr row cap so the paper body can grow to full scroll height for capture */
 .terminal--main .boshaPaper.mainMainBlank.boshaPaper--capturing {
+  display: grid !important;
   overflow: visible !important;
   align-self: start;
   grid-template-rows: auto min-content !important;
@@ -529,29 +1233,29 @@
 
 .settingsBtn:hover {
   background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(168, 196, 255, 0.35);
+  border-color: var(--intel-accent-border);
   color: rgba(255, 255, 255, 0.92);
 }
 
 .settingsBtn:focus-visible {
-  outline: 1px solid rgba(168, 196, 255, 0.55);
+  outline: 1px solid var(--intel-accent-focus);
   outline-offset: 2px;
 }
 
 .settingsBtn--primary {
-  background: rgba(168, 196, 255, 0.14);
-  border-color: rgba(168, 196, 255, 0.35);
+  background: var(--intel-accent-surface);
+  border-color: var(--intel-accent-border);
   color: rgba(255, 255, 255, 0.92);
 }
 
 .settingsBtn--accent {
-  border-color: rgba(90, 220, 255, 0.45);
+  border-color: var(--intel-accent-stroke);
   color: rgba(230, 252, 255, 0.95);
 }
 
 .settingsBtn--accent:hover:not(:disabled) {
-  background: rgba(90, 220, 255, 0.1);
-  border-color: rgba(90, 220, 255, 0.55);
+  background: var(--intel-accent-chip);
+  border-color: var(--intel-accent-focus-alt);
   color: rgba(255, 255, 255, 0.98);
 }
 
@@ -629,7 +1333,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: rgba(90, 220, 255, 0.75);
+  background: var(--intel-accent-indicator);
   flex-shrink: 0;
 }
 
@@ -750,12 +1454,12 @@
 
 .settingsInvoiceDownload:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(168, 196, 255, 0.35);
+  border-color: var(--intel-accent-border);
   color: rgba(255, 255, 255, 0.92);
 }
 
 .settingsInvoiceDownload:focus-visible {
-  outline: 1px solid rgba(168, 196, 255, 0.55);
+  outline: 1px solid var(--intel-accent-focus);
   outline-offset: 2px;
 }
 
@@ -821,7 +1525,7 @@
 }
 
 .settingsAuthInput:focus {
-  outline: 1px solid rgba(168, 196, 255, 0.45);
+  outline: 1px solid var(--intel-accent-stroke);
   outline-offset: 1px;
 }
 
@@ -922,7 +1626,7 @@
 }
 
 .oppTile--pos {
-  background: rgba(168, 196, 255, 0.12);
+  background: var(--intel-accent-surface-strong);
 }
 
 .oppTile--neg {
@@ -965,72 +1669,8 @@
   --graph-gutter: 6px;
 }
 
-.terminal--main .mainLogoPanel {
-  grid-column: 1;
-  grid-row: 4;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  min-height: 0;
-  min-width: 0;
-  padding: 0;
-}
-
-.terminal--main .mainLogoPanelInner {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-.terminal--main .mainLogoPanelBrand {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  box-sizing: border-box;
-}
-
-.terminal--main .mainLogoPanelImg {
-  width: 100%;
-  height: 100%;
-  max-width: 106%;
-  max-height: 106%;
-  object-fit: contain;
-  user-select: none;
-  pointer-events: none;
-  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.55));
-}
-
-.terminal--main .mainLogoPanelStats {
-  flex: 0 0 auto;
-}
-
-.terminal--main .mainDashChips {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: center;
-  gap: 10px 14px;
-  padding: 8px 12px 12px;
-  box-sizing: border-box;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.terminal--main .mainDashChips--inLogo {
-  gap: 6px 10px;
-  padding: 6px 8px 8px;
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
-
 .barChartBar {
-  fill: rgba(90, 220, 255, 0.78);
+  fill: var(--intel-accent-fill-strong);
   stroke: rgba(140, 255, 195, 0.22);
   stroke-width: 0.75px;
 }
@@ -1079,14 +1719,14 @@
 
 /* html-to-image: SVG url(#gradient) fills often rasterize black; force flat fill only during capture. */
 .boshaPaperBody.boshaPaperBody--capturing path.graphArea {
-  fill: rgba(90, 220, 255, 0.16) !important;
+  fill: var(--intel-accent-fill) !important;
 }
 
 .boshaPaperBody {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 18px 18px 24px;
+  padding: 20px 24px 28px;
   box-sizing: border-box;
   font-size: var(--fs-body);
   line-height: 1.7;
@@ -1094,12 +1734,15 @@
   text-rendering: optimizeLegibility;
 }
 
-/* Match `.feedCompactHeader` horizontal padding (8px) so paper kicker/title/body align with the panel title row. */
 .boshaPaper .boshaPaperBody {
-  padding-left: 8px;
-  padding-right: 8px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Research tab: extra side inset so long-form text breathes in the wide paper column */
+.terminal--main .boshaPaper .boshaPaperBody {
+  padding-left: 36px;
+  padding-right: 36px;
 }
 
 /* Captions + price frame: less tracked type, neutral chrome (still dark panel / light type) */
@@ -1365,7 +2008,7 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .boshaCausalNode--edge {
-  stroke: rgba(90, 220, 255, 0.45);
+  stroke: var(--intel-accent-stroke);
   box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
 }
 
@@ -1530,6 +2173,12 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .boshaNode {
   cursor: default;
+}
+
+.boshaGraphEntity {
+  fill: var(--intel-accent-marker);
+  stroke: rgba(140, 255, 195, 0.16);
+  stroke-width: 1px;
 }
 
 .boshaTooltip {
@@ -1876,18 +2525,12 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .historicalOutcomes {
-  grid-column: 4 / span 1;
+  grid-column: 2 / span 2;
   grid-row: 4 / span 1;
 }
 
 .terminal--insider .companyTile {
-  grid-column: 5 / span 1;
-  grid-row: 4 / span 1;
-}
-
-.terminal--insider .contextPanel {
-  /* Bottom row, span two columns to cover the empty spot */
-  grid-column: 2 / span 2;
+  grid-column: 4 / span 2;
   grid-row: 4 / span 1;
 }
 
@@ -1901,16 +2544,11 @@ button.boshaPaperCopyIcon:focus-visible {
   grid-row: 2 / span 3;
 }
 .terminal--politicians .historicalOutcomes {
-  grid-column: 4 / span 1;
+  grid-column: 3 / span 2;
   grid-row: 4 / span 1;
 }
 .terminal--politicians .companyTile {
   grid-column: 5 / span 1;
-  grid-row: 4 / span 1;
-}
-.terminal--politicians .contextPanel {
-  /* Make CONTEXT a 1×1 tile on the bottom row. */
-  grid-column: 3 / span 1;
   grid-row: 4 / span 1;
 }
 
@@ -1937,7 +2575,7 @@ body {
 
 .scrollThin {
   scrollbar-width: thin; /* Firefox */
-  scrollbar-color: rgba(168, 196, 255, 0.6) transparent;
+  scrollbar-color: var(--intel-accent-scrollbar) transparent;
 }
 .scrollThin::-webkit-scrollbar {
   width: 6px;
@@ -1946,11 +2584,11 @@ body {
   background: transparent;
 }
 .scrollThin::-webkit-scrollbar-thumb {
-  background: rgba(168, 196, 255, 0.35);
+  background: var(--intel-accent-scrollbar-thumb);
   border-radius: 8px;
 }
 .scrollThin::-webkit-scrollbar-thumb:hover {
-  background: rgba(168, 196, 255, 0.5);
+  background: var(--intel-accent-scrollbar-thumb-hover);
 }
 
 .feedCompactList.feedCompactList--scroll::-webkit-scrollbar {
@@ -1960,11 +2598,11 @@ body {
   background: transparent;
 }
 .feedCompactList.feedCompactList--scroll::-webkit-scrollbar-thumb {
-  background: rgba(168, 196, 255, 0.35);
+  background: var(--intel-accent-scrollbar-thumb);
   border-radius: 8px;
 }
 .feedCompactList.feedCompactList--scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(168, 196, 255, 0.5);
+  background: var(--intel-accent-scrollbar-thumb-hover);
 }
 
 .feedCompactList.feedCompactList--scroll {
@@ -1978,7 +2616,7 @@ body {
   -webkit-overflow-scrolling: touch;
   /* thin scrollbar (match panel title color) */
   scrollbar-width: thin; /* Firefox */
-  scrollbar-color: rgba(168, 196, 255, 0.6) transparent;
+  scrollbar-color: var(--intel-accent-scrollbar) transparent;
 }
 
 .filterRow {
@@ -1987,9 +2625,9 @@ body {
 }
 
 .filterRow.isActive {
-  background: rgba(168, 196, 255, 0.12);
+  background: var(--intel-accent-surface-strong);
   box-shadow:
-    inset 2px 0 0 rgba(168, 196, 255, 0.75),
+    inset 2px 0 0 var(--intel-accent-inset),
     inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
@@ -2012,12 +2650,8 @@ body {
 }
 
 /* Bottom-right 2×2: fill the empty space with equal 1×1 tiles. */
-.terminal--pharma .contextPanel {
-  grid-column: 3 / span 1;
-  grid-row: 3 / span 1;
-}
 .terminal--pharma .historicalOutcomes {
-  grid-column: 4 / span 1;
+  grid-column: 3 / span 2;
   grid-row: 3 / span 1;
 }
 .terminal--pharma .companyTile {
@@ -2035,7 +2669,6 @@ body {
 .companyTile,
 .blankTile,
 .historicalOutcomes,
-.contextPanel,
 .feed.feedCompact {
   container-type: size;
 }
@@ -2082,9 +2715,8 @@ body {
 }
 
 /* ---- HISTORICAL OUTCOMES (tile 3,3 left; rows match case `.worksheet`) ---- */
-/* Narrow stats tiles (Historical outcomes | Context | Company): same shell + KV rhythm */
+/* Narrow stats tiles (Historical outcomes | Company): same shell + KV rhythm */
 .historicalOutcomes,
-.contextPanel,
 .companyTile {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -2096,32 +2728,8 @@ body {
   container-name: historical;
 }
 
-.contextPanel {
-  container-name: context;
-}
-
 .companyTile {
   container-name: company;
-}
-
-.contextPanelBody {
-  min-height: 0;
-  height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  padding: 6px 10px 8px;
-  box-sizing: border-box;
-  font-size: var(--fs-body);
-  line-height: 1.42;
-  color: rgba(240, 255, 248, 0.9);
-}
-
-.contextSentence {
-  margin: 0 0 0.72em;
-}
-
-.contextSentence:last-child {
-  margin-bottom: 0;
 }
 
 /* Same as case sheet body but single column (narrow tile). */
@@ -2164,7 +2772,7 @@ body {
 }
 
 .feed.feedCompact.isFocused {
-  box-shadow: inset 0 0 0 1px rgba(168, 196, 255, 0.32);
+  box-shadow: inset 0 0 0 1px var(--intel-accent-ring);
 }
 
 .feedCompactHeader {
@@ -2296,9 +2904,9 @@ body {
 }
 
 .feedRowCompact.isActive {
-  background: rgba(168, 196, 255, 0.14);
+  background: var(--intel-accent-surface);
   box-shadow:
-    inset 2px 0 0 rgba(168, 196, 255, 0.8),
+    inset 2px 0 0 var(--intel-accent-inset-strong),
     inset 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
@@ -2633,12 +3241,26 @@ body {
   stroke-width: 0.75px;
 }
 
+.miniGraphMarker {
+  stroke-width: 0.75px;
+  fill: none;
+  stroke-linecap: round;
+}
+
+.miniGraphMarker--insider {
+  stroke: var(--intel-accent-marker);
+}
+
+.miniGraphMarker--politician {
+  stroke: rgba(255, 212, 92, 0.32);
+}
+
 .graphArea {
   pointer-events: none;
 }
 
 .graphPath {
-  stroke: rgba(90, 220, 255, 0.92);
+  stroke: var(--intel-accent-stroke-strong);
   stroke-width: 2px;
   fill: none;
 }

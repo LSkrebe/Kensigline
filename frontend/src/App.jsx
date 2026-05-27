@@ -3,8 +3,6 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { IntroPage } from './IntroPage.jsx'
-import { SubscribePage } from './SubscribePage.jsx'
-import { useSubscription } from './useSubscription.js'
 import { SettingsPanel } from './SettingsPanel.jsx'
 import './App.css'
 
@@ -14,10 +12,10 @@ function clamp(n, lo, hi) {
 
 const EMPTY = '-'
 
-/* Chart area fill under line: literal stops (not `var()`), for SVG. During paper image capture,
- * `.boshaPaperBody--capturing` overrides `path.graphArea` with a flat fill so html-to-image works. */
-const CHART_AREA_GRAD_TOP = 'rgba(90, 220, 255, 0.26)'
-const CHART_AREA_GRAD_BOTTOM = 'rgba(90, 220, 255, 0)'
+/* Chart area fill under line — CSS vars follow market/clinical intel theme.
+ * During paper image capture, `.boshaPaperBody--capturing` overrides `path.graphArea` with a flat fill. */
+const CHART_AREA_GRAD_TOP = 'var(--intel-accent-area-top)'
+const CHART_AREA_GRAD_BOTTOM = 'var(--intel-accent-area-bottom)'
 
 /** Inline SVG paint: avoids WebKit/CSS cascade quirks on <text> and export rasterizers. */
 const GRAPH_SVG_FONT =
@@ -25,7 +23,7 @@ const GRAPH_SVG_FONT =
 const GRAPH_SVG_TICK = { fill: 'rgba(232, 255, 246, 0.92)', fontSize: 11, fontFamily: GRAPH_SVG_FONT }
 const GRAPH_SVG_TICK_LINE = { stroke: 'rgba(155, 255, 210, 0.52)', strokeWidth: 1, fill: 'none' }
 const GRAPH_SVG_AXIS = { stroke: 'rgba(155, 255, 210, 0.48)', strokeWidth: 0.85, fill: 'none' }
-const GRAPH_SVG_PATH = { stroke: 'rgba(90, 220, 255, 0.94)', strokeWidth: 2, fill: 'none' }
+const GRAPH_SVG_PATH = { stroke: 'var(--intel-accent-stroke-strong)', strokeWidth: 2, fill: 'none' }
 const GRAPH_SVG_MARKER = { stroke: 'rgba(140, 255, 195, 0.35)', strokeWidth: 0.85, fill: 'none' }
 const GRAPH_SVG_MARKER_SEL = { stroke: 'rgba(140, 255, 195, 0.62)', strokeWidth: 0.85, fill: 'none' }
 
@@ -575,7 +573,20 @@ const POLITICIAN_NAMES = [
 // ------------------------------------------------------------
 // BOSHA (Explore tab) — mock causal graph system
 // ------------------------------------------------------------
-const BOSHA_TICKER = 'ATYR'
+const BOSHA_TICKER_MARKET = 'ASML'
+const BOSHA_TICKER_CLINICAL = 'ATYR'
+
+/** Research feed + offline papers per top-bar intelligence mode. */
+const RESEARCH_FEED_BY_INTEL = {
+  market: [{ rowKey: 'fb-ASML', ticker: 'ASML', name: 'ASML Holding N.V.' }],
+  clinical: [{ rowKey: 'fb-ATYR', ticker: 'ATYR', name: 'aTyr Pharma, Inc.' }],
+}
+
+function researchTickersForIntelMode(intelMode) {
+  return (RESEARCH_FEED_BY_INTEL[intelMode === 'clinical' ? 'clinical' : 'market'] ?? RESEARCH_FEED_BY_INTEL.market).map(
+    (x) => String(x.ticker).toUpperCase(),
+  )
+}
 
 const BOSHA_ALLOWED_EDGE_TYPES = new Set([
   'catalyst',
@@ -881,6 +892,164 @@ function boshaDatasetForTicker(ticker) {
   return BOSHA_DATASETS[t] ?? BOSHA_DATASETS.ATYR
 }
 
+/** Research CONTEXT panel mock profiles (offline); keyed to feed/paper tickers ASML + ATYR. */
+const CONTEXT_MOCK_PROFILES = {
+  ASML: {
+    sector: 'Semiconductor equipment',
+    mcap: '€350B',
+    earningsDaysAhead: 18,
+    insiders: [
+      { key: 'CEO', daysAgo: 6, amount: '$8.2M' },
+      { key: 'CFO', daysAgo: 14, amount: '$2.1M' },
+      { key: 'Director', daysAgo: 21, amount: '$1.4M' },
+    ],
+    politicians: [
+      { name: 'Pelosi', daysAgo: 9, amount: '$420K' },
+      { name: 'Crenshaw', daysAgo: 18, amount: '$180K' },
+    ],
+  },
+  ATYR: {
+    sector: 'Biotechnology',
+    mcap: '$320M',
+    earningsDaysAhead: 5,
+    leadDrug: {
+      name: 'Efzofitimod',
+      indication: 'ILD',
+      stage: 'Phase 3',
+      next: '2026-07-18',
+    },
+    programs: [
+      {
+        key: 'Efzofitimod',
+        indication: 'ILD',
+        stage: 'Phase 3',
+        milestones: [
+          { at: '2026-02-11', label: 'Enrollment update', url: 'https://clinicaltrials.gov/study/NCT05415137' },
+          { at: '2026-04-09', label: 'Interim safety', url: 'https://www.sec.gov/edgar/search/' },
+          { at: '2026-07-18', label: 'Topline readout', url: 'https://clinicaltrials.gov/study/NCT05415137' },
+        ],
+      },
+      {
+        key: 'Efzofitimod',
+        indication: 'Sarcoidosis',
+        stage: 'Phase 2',
+        milestones: [
+          { at: '2026-03-03', label: 'Dose selection', url: 'https://clinicaltrials.gov/study/NCT05415137' },
+          { at: '2026-06-06', label: 'Biomarker update', url: 'https://www.sec.gov/edgar/search/' },
+        ],
+      },
+      {
+        key: 'ATYR-2810',
+        indication: 'Solid tumors',
+        stage: 'Phase 1',
+        milestones: [
+          { at: '2026-01-17', label: 'Escalation ongoing', url: 'https://www.sec.gov/edgar/search/' },
+          { at: '2026-05-22', label: 'Initial response signal', url: 'https://www.sec.gov/edgar/search/' },
+        ],
+      },
+    ],
+    insiders: [
+      { key: 'CMO', daysAgo: 3, amount: '$240K' },
+      { key: 'CEO', daysAgo: 11, amount: '$890K' },
+      { key: 'Director', daysAgo: 19, amount: '$125K' },
+    ],
+    politicians: [
+      { name: 'Tuberville', daysAgo: 7, amount: '$65K' },
+      { name: 'Kelly', daysAgo: 16, amount: '$42K' },
+    ],
+  },
+}
+
+function contextMockForTicker(ticker, priceSeries) {
+  const t = String(ticker ?? 'ATYR').toUpperCase()
+  const base = CONTEXT_MOCK_PROFILES[t] ?? CONTEXT_MOCK_PROFILES.ATYR
+  const dateDaysAgo = (daysAgo) => {
+    const d = new Date()
+    d.setDate(d.getDate() - daysAgo)
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+  const offlinePrice = boshaDatasetForTicker(t).price
+  const price =
+    Array.isArray(priceSeries) && priceSeries.length
+      ? Number(priceSeries[priceSeries.length - 1])
+      : Array.isArray(offlinePrice) && offlinePrice.length
+        ? Number(offlinePrice[offlinePrice.length - 1])
+        : 0
+
+  const earningsDay = new Date()
+  earningsDay.setDate(earningsDay.getDate() + (base.earningsDaysAhead ?? 30))
+  earningsDay.setHours(0, 0, 0, 0)
+
+  return {
+    ticker: t,
+    price: Number.isFinite(price) ? price : 0,
+    sector: base.sector,
+    mcap: base.mcap,
+    earnings: contextEarningsFromDate(earningsDay),
+    leadDrug: base.leadDrug ?? null,
+    programs: Array.isArray(base.programs) ? base.programs : [],
+    insiders: base.insiders.map((row) => ({
+      key: row.key,
+      date: dateDaysAgo(row.daysAgo),
+      amount: row.amount,
+    })),
+    politicians: base.politicians.map((row) => ({
+      name: row.name,
+      date: dateDaysAgo(row.daysAgo),
+      amount: row.amount,
+    })),
+  }
+}
+
+function contextLeadDrugFromEntities(entities) {
+  if (!Array.isArray(entities)) return null
+  const drug = entities.find((e) => String(e?.type ?? '').toLowerCase() === 'drug')
+  const raw = String(drug?.name ?? '').trim()
+  if (!raw) return null
+  // Common pattern: "Name (Indication)". Keep both so the card can show a concise label.
+  const m = raw.match(/^(.+?)\s*\((.+?)\)\s*$/)
+  return m ? { name: m[1].trim(), indication: m[2].trim() } : { name: raw, indication: null }
+}
+
+function shortPhaseLabel(stage) {
+  const s = String(stage ?? '').trim()
+  if (!s) return null
+  const m = s.match(/phase\s*([0-9]+[a-zA-Z]?)/i)
+  if (m) return `P${String(m[1]).toUpperCase()}`
+  return s.length > 8 ? s.slice(0, 8) : s
+}
+
+function groupPrograms(programs) {
+  const rows = Array.isArray(programs) ? programs : []
+  const byKey = new Map()
+  for (const p of rows) {
+    const key = String(p?.key ?? '').trim()
+    if (!key) continue
+    const prev = byKey.get(key) ?? { key, variants: [] }
+    const milestonesRaw = Array.isArray(p?.milestones) ? p.milestones : []
+    const milestones = milestonesRaw
+      .map((m) => {
+        if (typeof m === 'string') return { at: null, label: m }
+        return { at: m?.at ?? null, label: m?.label ?? null, url: m?.url ?? null }
+      })
+      .map((m) => ({
+        at: m.at ? parseDayOnly(m.at)?.toISOString?.() ?? String(m.at) : null,
+        label: String(m.label ?? '').trim() || null,
+        url: m.url ? String(m.url) : null,
+      }))
+      .filter((m) => m.label)
+
+    prev.variants.push({
+      indication: String(p?.indication ?? '').trim() || null,
+      stage: String(p?.stage ?? '').trim() || null,
+      milestones,
+    })
+    byKey.set(key, prev)
+  }
+  return Array.from(byKey.values())
+}
+
 function boshaImpactScore(impact) {
   const x = String(impact ?? '').toLowerCase()
   if (x === 'high') return 3
@@ -925,9 +1094,115 @@ function formatUsdCompact(n) {
 
 /** Insider worksheet: `18 Apr` (same rhythm as feed date stamps, without year). */
 function insiderTxnDateShort(iso) {
-  const d = new Date(iso)
+  const d = parseDayOnly(iso)
   if (Number.isNaN(d.getTime())) return EMPTY
   return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+}
+
+/** Calendar day from `YYYY-MM-DD` or Date without UTC drift. */
+function parseDayOnly(iso) {
+  if (iso instanceof Date) return iso
+  const m = String(iso ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return new Date(iso)
+}
+
+/** CONTEXT snapshot: next earnings label + optional countdown. */
+function contextEarningsFromDate(iso) {
+  const d = parseDayOnly(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  d.setHours(0, 0, 0, 0)
+  const daysUntil = Math.round((d.getTime() - today.getTime()) / 86_400_000)
+  let countdown = null
+  if (daysUntil === 0) countdown = 'today'
+  else if (daysUntil === 1) countdown = 'tomorrow'
+  else if (daysUntil > 1) countdown = `${daysUntil}d`
+  return {
+    label: insiderTxnDateShort(d),
+    daysUntil,
+    countdown,
+    soon: daysUntil >= 0 && daysUntil <= 21,
+  }
+}
+
+function historicalOutcomeNorm(v) {
+  if (v == null) return EMPTY
+  let s = String(v).replace(/—/g, '-').trim()
+  if (!s || s === '0' || s === '0.0' || s === '0%' || s === '0.00%') return EMPTY
+  return s
+}
+
+function historicalOutcomeHasDataset(ins) {
+  if (!ins) return false
+  const raw = ins.sampleSize
+  const n = typeof raw === 'number' ? raw : Number(String(raw ?? '').replace(/[^\d.-]/g, ''))
+  return Number.isFinite(n) ? n > 0 : Boolean(ins.sampleSize)
+}
+
+/** Avg return 1M + win rate from HISTORICAL OUTCOMES (context insider / politician cards). */
+function historicalOutcomeHoverRows(ins) {
+  if (!historicalOutcomeHasDataset(ins)) return []
+  const norm = historicalOutcomeNorm
+  const parts = String(norm(ins?.avgReturn21d63d252d) ?? '')
+    .split('/')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return [
+    { k: 'Avg return 1M', v: parts[0] ?? EMPTY },
+    { k: 'Win rate', v: norm(ins?.winRate) },
+  ]
+}
+
+function parseOutcomePercent(v) {
+  const s = String(v ?? '').trim()
+  if (!s || s === EMPTY || s === '—' || s === '-') return null
+  const n = Number(s.replace(/[^\d.-]/g, ''))
+  return Number.isFinite(n) ? n : null
+}
+
+function contextOutcomeValueClass(label, value) {
+  const n = parseOutcomePercent(value)
+  if (n == null) return ''
+  const k = String(label ?? '').toLowerCase()
+  if (k.includes('win rate')) {
+    return n > 50 ? 'contextCardOutcomeV--pos' : 'contextCardOutcomeV--neg'
+  }
+  if (k.includes('return')) {
+    if (n > 0) return 'contextCardOutcomeV--pos'
+    if (n < 0) return 'contextCardOutcomeV--neg'
+  }
+  return ''
+}
+
+function ContextFlowCard({ className, outcomeRows, children }) {
+  return (
+    <div className={['contextFlowCard', className].filter(Boolean).join(' ')} role="listitem">
+      <div className="contextFlowCardFace contextFlowCardFace--primary">{children}</div>
+      <div className="contextFlowCardFace contextFlowCardFace--outcomes">
+        {outcomeRows.length ? (
+          outcomeRows.map((row) => (
+            <div key={row.k} className="contextCardOutcomeRow">
+              <span className="contextCardOutcomeK dim">{row.k}</span>
+              <span
+                className={['contextCardOutcomeV', 'mono', contextOutcomeValueClass(row.k, row.v)]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {row.v}
+              </span>
+            </div>
+          ))
+        ) : (
+          <div className="contextCardOutcomeRow">
+            <span className="contextCardOutcomeK dim">Outcomes</span>
+            <span className="contextCardOutcomeV mono dim">{EMPTY}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function buildInsiderDailySeries(seed, len = 20) {
@@ -996,55 +1271,6 @@ function insiderCaseForRowIndex(i) {
   const totalUsd = isForm4 ? rows.reduce((a, r) => a + (Number(r.amountUsd) || 0), 0) : 0
   const label = totalUsd > 0 ? formatUsdCompact(totalUsd) : '—'
 
-  const roleFromKey = (k) => (/\bCEO\b/i.test(k) ? 'CEO' : /\bCFO\b/i.test(k) ? 'CFO' : /\bDirector\b/i.test(k) ? 'Director' : 'Officer')
-  const roleCounts = {}
-  for (const r of rows) roleCounts[roleFromKey(r.key)] = (roleCounts[roleFromKey(r.key)] || 0) + 1
-  const rolesSorted = Object.entries(roleCounts).sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
-  const topRole = rolesSorted[0]?.[0] ?? 'Insider'
-  const rolesPhrase =
-    rolesSorted.length >= 2
-      ? `${topRole} and ${rolesSorted[1][0]}`
-      : topRole
-
-  const daysSinceLast = Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 86400000))
-  const spanDays =
-    rows.length > 1
-      ? Math.max(
-          1,
-          Math.round(
-            (Math.max(...rows.map((r) => new Date(r.ts).getTime())) -
-              Math.min(...rows.map((r) => new Date(r.ts).getTime()))) /
-              86400000,
-          ),
-        )
-      : 1
-  const caveat =
-    totalUsd < 75_000
-      ? 'The dollar amount is small, so this may not be a high-conviction signal.'
-      : totalUsd < 300_000
-        ? 'The dollar amount is moderate, so it is worth monitoring rather than over-weighting.'
-        : 'The dollar amount is meaningful, so it is more likely to be intentional signaling.'
-  const companyBit =
-    ticker === 'HG'
-      ? 'Horizon Grain Co. is a grain handling and agricultural logistics business.'
-      : ticker === 'SPRU'
-        ? 'SilverSpruce Therapeutics is a clinical-stage biotech developing small-molecule therapies.'
-        : ticker === 'VRA'
-          ? 'VeraBio Holding Co. is a biotech focused on immunology and inflammation programs.'
-          : ticker === 'FFIN'
-            ? 'FFIN is a community bank and financial services provider in the United States.'
-            : `${issuer} is a public company.`
-
-  const distinctDays = new Set(
-    rows
-      .map((r) => {
-        const d = new Date(r.ts)
-        if (Number.isNaN(d.getTime())) return null
-        return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-      })
-      .filter(Boolean),
-  ).size
-
   return {
     id: `ins-${i}`,
     label,
@@ -1052,12 +1278,6 @@ function insiderCaseForRowIndex(i) {
     ticker,
     at,
     daily: buildInsiderDailySeries(i + 31),
-    __context_sentences: [
-      companyBit,
-      `${count} Code P open-market purchase${count === 1 ? '' : 's'} were reported over about ${spanDays} days, led by the ${topRole}.`,
-      `The buying adds up to about ${formatUsdCompact(totalUsd)} across ${distinctDays || 1} trading day${(distinctDays || 1) === 1 ? '' : 's'}, with activity coming from ${rolesPhrase}.`,
-      `The most recent purchase was about ${daysSinceLast} day${daysSinceLast === 1 ? '' : 's'} ago. ${caveat}`,
-    ],
     caseSheet: {
       filingId,
       formType,
@@ -1145,6 +1365,234 @@ function PoliticiansFilterPanel({ activeName, items, onSelect, focused, onFocus 
             <span className="feedCell feedCellTicker mono kvFeedDim">{it.count}</span>
           </button>
         ))}
+      </div>
+    </section>
+  )
+}
+
+function MainContextPanel({
+  intelMode = 'market',
+  ticker,
+  price,
+  sector,
+  mcap,
+  earnings = null,
+  leadDrug = null,
+  programs = [],
+  selectedProgramKey = null,
+  onSelectProgramKey,
+  insiders,
+  politicians,
+  insiderOutcomes = null,
+  politicianOutcomes = null,
+  insidersOpen,
+  onToggleInsiders,
+  politiciansOpen,
+  onTogglePoliticians,
+}) {
+  const insiderOutcomeRows = useMemo(
+    () => historicalOutcomeHoverRows(insiderOutcomes),
+    [insiderOutcomes],
+  )
+  const politicianOutcomeRows = useMemo(
+    () => historicalOutcomeHoverRows(politicianOutcomes),
+    [politicianOutcomes],
+  )
+  const showFlows = intelMode !== 'clinical'
+  const programGroups = useMemo(() => groupPrograms(programs), [programs])
+
+  return (
+    <section className="panel feed feedCompact mainContextPanel" aria-label="Context">
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">CONTEXT</div>
+      </header>
+      <div className="mainContextPanelBody scrollThin">
+        <div className="contextCompanyCard" aria-label="Company snapshot">
+          <div className="contextCompanyTopRow">
+            <div className="contextCompanyTicker mono">{ticker}</div>
+            <div className="contextCompanyPrice mono">${price.toFixed(2)}</div>
+          </div>
+          <div className="contextCompanyMeta dim">{sector}</div>
+          <div className="contextCompanyMeta dim">{mcap} MCAP</div>
+          {earnings ? (
+            <div
+              className={[
+                'contextCompanyEarnings',
+                earnings.soon ? 'contextCompanyEarnings--soon' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <span className="contextCompanyEarningsK dim">EARNINGS</span>
+              <span className="contextCompanyEarningsV mono">
+                {earnings.label}
+              </span>
+            </div>
+          ) : null}
+          {leadDrug ? (
+            <div className="contextCompanyEarnings">
+              <span className="contextCompanyEarningsK dim">LEAD</span>
+              <span className="contextCompanyEarningsV mono">
+                {leadDrug.name}
+                {leadDrug.stage ? ` • ${shortPhaseLabel(leadDrug.stage)}` : ''}
+              </span>
+            </div>
+          ) : null}
+        </div>
+
+        {!showFlows ? (
+          <>
+            <div className="contextDivider" aria-hidden="true" />
+            <div className="contextSection" aria-label="Programs">
+              <div className="contextSectionHeader">
+                <div className="contextSectionTitle dim">PROGRAMS</div>
+              </div>
+              <div className="contextProgramsGrid" role="list">
+                {programGroups.map((pg) => {
+                  const active = selectedProgramKey ? selectedProgramKey === pg.key : false
+                  const first = pg.variants?.[0] ?? {}
+                  const phase = first?.stage ? shortPhaseLabel(first.stage) : null
+                  const ind = first?.indication ?? null
+                  const showMilestones = active || (!selectedProgramKey && programGroups.length === 1)
+                  const allMilestones = (pg.variants ?? [])
+                    .flatMap((v) => v.milestones ?? [])
+                    .slice()
+                    .sort((a, b) => {
+                      const ta = a?.at ? new Date(a.at).getTime() : 0
+                      const tb = b?.at ? new Date(b.at).getTime() : 0
+                      return ta - tb
+                    })
+                  const visibleMilestones = showMilestones ? allMilestones.slice(0, 8) : []
+                  return (
+                    <div
+                      key={pg.key}
+                      className={['contextProgramCard', active ? 'isActive' : ''].filter(Boolean).join(' ')}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onSelectProgramKey?.(pg.key)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') onSelectProgramKey?.(pg.key)
+                      }}
+                    >
+                      <div className="contextProgramTop">
+                        <div className="contextProgramTopRow">
+                          <div className="contextProgramKey mono">{pg.key}</div>
+                          {phase ? (
+                            <div className="contextProgramPhase mono dim">{phase}</div>
+                          ) : (
+                            <div className="contextProgramPhase mono dim">—</div>
+                          )}
+                        </div>
+                        <div className="contextProgramMeta mono dim">{ind || '—'}</div>
+                      </div>
+                      {visibleMilestones.length ? (
+                        <div className="contextProgramMilestones dim">
+                          {visibleMilestones.map((m, idx) => (
+                            <a
+                              key={`${pg.key}-${idx}`}
+                              className={[
+                                'contextProgramMilestoneRow',
+                                m?.url ? 'contextProgramMilestoneRow--link' : '',
+                              ]
+                                .filter(Boolean)
+                                .join(' ')}
+                              href={m?.url || undefined}
+                              target={m?.url ? '_blank' : undefined}
+                              rel={m?.url ? 'noopener noreferrer' : undefined}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (!m?.url) e.preventDefault()
+                              }}
+                            >
+                              <div className="contextProgramMilestoneLabel">{m?.label ?? '—'}</div>
+                              <div className="contextProgramMilestoneAt mono dim">
+                                {m?.at ? formatProgramTimelineDate(m.at) : '—'}
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        {showFlows ? <div className="contextDivider" aria-hidden="true" /> : null}
+
+        {showFlows ? (
+          <>
+            <div className="contextSection" aria-label="Insiders">
+              <div className="contextSectionHeader">
+                <div className="contextSectionTitle dim">INSIDERS</div>
+                <button
+                  type="button"
+                  className="contextSectionToggle"
+                  onClick={onToggleInsiders}
+                  aria-expanded={insidersOpen}
+                  aria-label={insidersOpen ? 'Collapse insiders' : 'Expand insiders'}
+                >
+                  {insidersOpen ? '-' : '+'}
+                </button>
+              </div>
+              {insidersOpen ? (
+                <div className="contextInsidersList" role="list">
+                  {insiders.map((it, idx) => (
+                    <ContextFlowCard
+                      key={`${it.key}-${idx}`}
+                      className="contextInsiderCard"
+                      outcomeRows={insiderOutcomeRows}
+                    >
+                      <div className="contextInsiderTopRow">
+                        <div className="contextInsiderKey">{it.key}</div>
+                      </div>
+                      <div className="contextInsiderBottomRow">
+                        <div className="contextInsiderDate mono dim">{insiderTxnDateShort(it.date)}</div>
+                        <div className="contextInsiderAmt mono">{it.amount}</div>
+                      </div>
+                    </ContextFlowCard>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="contextSection" aria-label="Politicians">
+              <div className="contextSectionHeader">
+                <div className="contextSectionTitle dim">POLITICIANS</div>
+                <button
+                  type="button"
+                  className="contextSectionToggle"
+                  onClick={onTogglePoliticians}
+                  aria-expanded={politiciansOpen}
+                  aria-label={politiciansOpen ? 'Collapse politicians' : 'Expand politicians'}
+                >
+                  {politiciansOpen ? '-' : '+'}
+                </button>
+              </div>
+              {politiciansOpen ? (
+                <div className="contextInsidersList" role="list">
+                  {politicians.map((it, idx) => (
+                    <ContextFlowCard
+                      key={`${it.name}-${idx}`}
+                      className="contextPoliticianCard"
+                      outcomeRows={politicianOutcomeRows}
+                    >
+                      <div className="contextInsiderTopRow">
+                        <div className="contextPoliticianName">{it.name}</div>
+                      </div>
+                      <div className="contextInsiderBottomRow">
+                        <div className="contextInsiderDate mono dim">{insiderTxnDateShort(it.date)}</div>
+                        <div className="contextInsiderAmt mono">{it.amount}</div>
+                      </div>
+                    </ContextFlowCard>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : null}
       </div>
     </section>
   )
@@ -1302,16 +1750,15 @@ function BoshaGraphFigure({ entities, events, edges }) {
 
           {Array.from(layout.values()).map((n) => {
             const isEv = n.kind === 'event'
-            const fill = isEv ? boshaSentimentColor(n.sentiment) : 'rgba(90, 220, 255, 0.42)'
-            const stroke = 'rgba(140, 255, 195, 0.16)'
+            const fill = isEv ? boshaSentimentColor(n.sentiment) : undefined
             const r = isEv ? 9 + 3 * boshaImpactScore(n.impact) : 9
             return isEv ? (
               <g key={n.id} opacity={1}>
-                <rect x={n.x - r} y={n.y - r} width={r * 2} height={r * 2} rx="2" fill={fill} stroke={stroke} strokeWidth="1" />
+                <rect x={n.x - r} y={n.y - r} width={r * 2} height={r * 2} rx="2" fill={fill} stroke="rgba(140, 255, 195, 0.16)" strokeWidth="1" />
               </g>
             ) : (
-              <g key={n.id} opacity={1}>
-                <circle cx={n.x} cy={n.y} r={r} fill={fill} stroke={stroke} strokeWidth="1" />
+              <g key={n.id} className="boshaGraphEntity" opacity={1}>
+                <circle cx={n.x} cy={n.y} r={r} />
               </g>
             )
           })}
@@ -1324,7 +1771,14 @@ function BoshaGraphFigure({ entities, events, edges }) {
   )
 }
 
-function BoshaMiniPrice({ series, label, showMeta = true, trimLeadingPlateau = false }) {
+function BoshaMiniPrice({
+  series,
+  label,
+  showMeta = true,
+  trimLeadingPlateau = false,
+  insiderMarkers = [],
+  politicianMarkers = [],
+}) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 360, h: 192 })
 
@@ -1421,6 +1875,51 @@ function BoshaMiniPrice({ series, label, showMeta = true, trimLeadingPlateau = f
     return out
   }, [vals.length])
 
+  function dayKey(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  function markerXsFor(markerDates) {
+    const n = Math.max(0, vals.length)
+    if (n <= 1 || !Array.isArray(markerDates) || markerDates.length === 0) return []
+    const dayToIdx = new Map()
+    for (let i = 0; i < dates.length; i++) {
+      const d = dates[i]
+      if (!(d instanceof Date) || Number.isNaN(d.getTime())) continue
+      dayToIdx.set(dayKey(d), i)
+    }
+
+    const nowApprox = dates.at(-1) ?? new Date()
+    const xs = []
+    const seen = new Set()
+
+    for (const m of markerDates) {
+      const d = m instanceof Date ? m : new Date(m)
+      if (Number.isNaN(d.getTime())) continue
+      const key = dayKey(d)
+      if (seen.has(key)) continue
+      seen.add(key)
+
+      const idxFromSeries = dayToIdx.get(key)
+      const idx =
+        typeof idxFromSeries === 'number'
+          ? idxFromSeries
+          : (() => {
+              const daysAgo = Math.floor((nowApprox.getTime() - d.getTime()) / 86400000)
+              return clamp(n - 1 - daysAgo, 0, n - 1)
+            })()
+
+      xs.push(xAt(idx))
+    }
+    return xs
+  }
+
+  const insiderMarkerX = useMemo(() => markerXsFor(insiderMarkers), [insiderMarkers, vals.length, w, h, innerW, dates])
+  const politicianMarkerX = useMemo(
+    () => markerXsFor(politicianMarkers),
+    [politicianMarkers, vals.length, w, h, innerW, dates],
+  )
+
   const last = Array.isArray(series) && series.length ? series.at(-1) : null
   const prev = Array.isArray(series) && series.length > 1 ? series.at(-2) : null
   const ch = last != null && prev != null ? last - prev : null
@@ -1499,6 +1998,23 @@ function BoshaMiniPrice({ series, label, showMeta = true, trimLeadingPlateau = f
             })}
 
             <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
+
+            {insiderMarkerX.map((x, i) => (
+              <path
+                key={`mini-in-${i}`}
+                className="miniGraphMarker miniGraphMarker--insider"
+                d={`M ${x.toFixed(2)} ${margin.t} L ${x.toFixed(2)} ${h - margin.b}`}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+            {politicianMarkerX.map((x, i) => (
+              <path
+                key={`mini-pol-${i}`}
+                className="miniGraphMarker miniGraphMarker--politician"
+                d={`M ${x.toFixed(2)} ${margin.t} L ${x.toFixed(2)} ${h - margin.b}`}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
           </svg>
         )}
       </div>
@@ -1980,7 +2496,6 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
                 height={n.h - 1}
                 rx="6"
                 fill="rgba(6, 7, 10, 0.22)"
-                stroke={edgeNode ? 'rgba(90, 220, 255, 0.45)' : 'rgba(140, 255, 195, 0.12)'}
                 strokeWidth="1"
               />
               <text
@@ -2174,10 +2689,6 @@ function boshaGenericOfflinePresentation(memo, titleText, ticker) {
       { type: 'diagram', caption: diagramCaption },
       { type: 'heading', text: 'Implementation angle' },
       { type: 'paragraph', text: memo.final },
-      {
-        type: 'paragraph',
-        text: 'Confidence scores and source links are illustrative in offline mode; connect the backend for live exploration output.',
-      },
     ],
     diagram: undefined,
     sources: [
@@ -2187,9 +2698,24 @@ function boshaGenericOfflinePresentation(memo, titleText, ticker) {
   }
 }
 
-function BoshaPaperStructuredView({ ticker, priceSeries, presentation: pres }) {
+function resolveBoshaPresentation({ ticker, titleText, backendUp, livePresentation, memo, intelMode = 'market' }) {
+  const u = String(ticker ?? '').toUpperCase()
+  const clinical = intelMode === 'clinical'
+  if (backendUp && livePresentation?.title) return livePresentation
+  if (backendUp) return null
+  if (clinical && u === 'ATYR') return boshaAtyrPresentation()
+  if (!clinical && u === 'ASML') return boshaAsmlPresentation()
+  return boshaGenericOfflinePresentation(memo, titleText, ticker)
+}
+
+function BoshaPaperStructuredView({
+  ticker,
+  priceSeries,
+  presentation: pres,
+  insiderPriceMarkers = [],
+  politicianPriceMarkers = [],
+}) {
   const sub = pres.subtitle || ''
-  const sources = Array.isArray(pres.sources) ? pres.sources : []
   return (
     <>
       <div className="boshaPaperTitleBlock boshaPaperTitleBlock--live">
@@ -2221,6 +2747,8 @@ function BoshaPaperStructuredView({ ticker, priceSeries, presentation: pres }) {
                   label={String(ticker ?? 'PRICE').toUpperCase()}
                   showMeta={false}
                   trimLeadingPlateau
+                  insiderMarkers={insiderPriceMarkers}
+                  politicianMarkers={politicianPriceMarkers}
                 />
                 <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">{b.caption}</div>
               </div>
@@ -2236,22 +2764,6 @@ function BoshaPaperStructuredView({ ticker, priceSeries, presentation: pres }) {
           }
           return null
         })}
-        <footer className="boshaPaperSources" aria-label="Sources">
-          <div className="boshaPaperSourcesTitle">Sources</div>
-          {sources.length ? (
-            <div className="boshaPaperSourcesGrid">
-              {sources.map((s, j) => (
-                <a key={`src-${j}-${s.url}`} className="boshaPaperSourceLink" href={s.url} target="_blank" rel="noopener noreferrer">
-                  {s.label}
-                </a>
-              ))}
-            </div>
-          ) : (
-            <p className="boshaPaperSourcesEmpty mono dim">
-              Source links appear when ingested documents include URLs (SEC, transcripts, allowlisted press).
-            </p>
-          )}
-        </footer>
       </div>
     </>
   )
@@ -2307,29 +2819,21 @@ function BoshaPaperPanel({
   events,
   edges: _edges,
   priceSeries,
-  livePresentation,
+  presentation,
+  sources = [],
   liveCompanyName,
   backendUp,
+  insiderPriceMarkers = [],
+  politicianPriceMarkers = [],
   panelClassName = '',
 }) {
   const paperCaptureRef = useRef(null)
   const [exportBusy, setExportBusy] = useState(false)
 
   const titleText =
-    backendUp && livePresentation?.title && String(liveCompanyName ?? '').trim()
+    backendUp && presentation?.title && String(liveCompanyName ?? '').trim()
       ? String(liveCompanyName ?? '').trim()
       : String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
-  const memo = useMemo(
-    () =>
-      boshaThesisMemo({
-        ticker,
-        companyName: titleText,
-        events,
-        priceSeries,
-        constituents: boshaIsEtf(ticker) ? boshaDatasetForTicker(ticker)?.constituents ?? [] : [],
-      }),
-    [ticker, titleText, events, priceSeries],
-  )
 
   const onCopyPaperImage = useCallback(() => {
     const el = paperCaptureRef.current
@@ -2388,7 +2892,7 @@ function BoshaPaperPanel({
             aria-label="Copy paper as image"
             title="Copy paper as image"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true" className="boshaPaperCopyIconSvg">
+            <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" className="boshaPaperCopyIconSvg">
               <rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
               <rect x="4" y="4" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
             </svg>
@@ -2397,31 +2901,42 @@ function BoshaPaperPanel({
       </header>
       <div ref={paperCaptureRef} className="boshaPaperBody scrollThin">
         <div className="boshaPaperDoc">
-          {(() => {
-            const u = String(ticker ?? '').toUpperCase()
-            if (backendUp && livePresentation?.title) {
-              return (
-                <BoshaPaperStructuredView ticker={ticker} priceSeries={priceSeries} presentation={livePresentation} />
-              )
-            }
-            if (backendUp) {
-              return (
-                <div className="boshaThesisBody boshaThesisBody--live">
-                  <p className="boshaThesisP boshaThesisP--live mono dim">
-                    Bosha explore data is not available yet for this view (API error or empty response). Check that the
-                    backend is running and the database has been ingested.
-                  </p>
+          {presentation?.title ? (
+            <>
+              <BoshaPaperStructuredView
+                ticker={ticker}
+                priceSeries={priceSeries}
+                presentation={presentation}
+                insiderPriceMarkers={insiderPriceMarkers}
+                politicianPriceMarkers={politicianPriceMarkers}
+              />
+              {(Array.isArray(sources) ? sources : []).length ? (
+                <div className="boshaPaperSources" aria-label="Sources">
+                  <div className="boshaPaperSourcesTitle">Sources</div>
+                  <div className="boshaPaperSourcesGrid">
+                    {sources.map((s, j) => (
+                      <a
+                        key={`paper-src-${j}-${s.url}`}
+                        className="boshaPaperSourceLink"
+                        href={s.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {s.label}
+                      </a>
+                    ))}
+                  </div>
                 </div>
-              )
-            }
-            const pres =
-              u === 'ASML'
-                ? boshaAsmlPresentation()
-                : u === 'ATYR'
-                  ? boshaAtyrPresentation()
-                  : boshaGenericOfflinePresentation(memo, titleText, ticker)
-            return <BoshaPaperStructuredView ticker={ticker} priceSeries={priceSeries} presentation={pres} />
-          })()}
+              ) : null}
+            </>
+          ) : backendUp ? (
+            <div className="boshaThesisBody boshaThesisBody--live">
+              <p className="boshaThesisP boshaThesisP--live mono dim">
+                Bosha explore data is not available yet for this view (API error or empty response). Check that the
+                backend is running and the database has been ingested.
+              </p>
+            </div>
+          ) : null}
         </div>
       </div>
     </section>
@@ -2604,18 +3119,6 @@ function buildMockDailySeries(seed = 42, len = 160) {
   return out
 }
 
-/** Mock mean forward return (fraction). Shown on main trend panels when the API is offline. */
-function buildMockForwardReturnSeries(seed = 42, len = 140) {
-  let v = ((seed % 23) / 500 - 0.05) * 1.2
-  const out = []
-  for (let i = 0; i < len; i++) {
-    const step = (seededJitter(seed + i * 11, 9) - 4) * 0.0011
-    v = clamp(v + step, -0.2, 0.22)
-    out.push(v)
-  }
-  return out
-}
-
 function buildEvenlySpacedDates(count) {
   const n = Math.max(0, Number(count) || 0)
   if (n <= 0) return []
@@ -2627,42 +3130,6 @@ function buildEvenlySpacedDates(count) {
     out.push(d)
   }
   return out
-}
-
-/** Parse `YYYY-MM-DD` as a stable UTC calendar day (noon) for chart axes. */
-function parseIsoDayUtc(iso) {
-  const s = String(iso ?? '').trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null
-  return new Date(`${s}T12:00:00.000Z`)
-}
-
-/**
- * Main tab trend API: `{ day, v }[]` where `v` is mean forward return (fraction, e.g. 0.042 = +4.2%).
- * Offline: mock series. Online with no rows: empty (no placeholder chart).
- */
-function mainTrendsChartFromRows(rows, backendUp, mockSeed) {
-  if (!backendUp) {
-    const series = buildMockForwardReturnSeries(mockSeed, 140)
-    return { series, dates: buildEvenlySpacedDates(series.length) }
-  }
-  if (!Array.isArray(rows) || !rows.length) {
-    return { series: [], dates: [] }
-  }
-  const sorted = [...rows].sort((a, b) => String(a?.day ?? '').localeCompare(String(b?.day ?? '')))
-  const out = []
-  for (const r of sorted) {
-    const raw = r?.v
-    const num = raw === null || raw === undefined ? NaN : Number(raw)
-    if (!Number.isFinite(num)) continue
-    const d = parseIsoDayUtc(r?.day)
-    if (!d) continue
-    out.push({ v: num, d })
-  }
-  if (!out.length) return { series: [], dates: [] }
-  return {
-    series: out.map((x) => x.v),
-    dates: out.map((x) => x.d),
-  }
 }
 
 /** Mock “opportunity board” sourced from BOSHA-style papers; size = opportunity score (0–100). */
@@ -3863,334 +4330,6 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
   )
 }
 
-function stripPrimaryLabel(s) {
-  return String(s ?? '')
-    .replace(/^Primary:\s*/i, '')
-    .replace(/^Secondary:\s*/i, '')
-    .trim()
-}
-
-/** Readable mechanism chip (drops unexplained abbreviations where we can). */
-function plainMechanismSnippet(mech) {
-  let m = String(mech ?? '').trim()
-  if (!m) return ''
-  m = m.replace(/\bmAb\b/gi, 'monoclonal antibody')
-  m = m.replace(/\bASO\b/g, 'antisense oligonucleotide')
-  return m
-}
-
-/**
- * Turn coded intervention strings into one plain sentence (route + schedule + SOC),
- * so "BA-19 IV monthly" reads as human dosing, not jargon alone.
- */
-function describeTrialDosingPlain(drug, intervention, mech) {
-  const raw = String(intervention ?? '').trim()
-  const drugName = String(drug ?? 'The drug').trim() || 'The drug'
-
-  if (!raw) {
-    const pm = plainMechanismSnippet(mech)
-    return pm
-      ? `Mechanism is ${pm.toLowerCase()}; schedule is whatever the protocol specifies for this trial.`
-      : 'Dosing follows the trial protocol.'
-  }
-
-  const hasSOC = /(?:\+\s*|\b)SOC\b/i.test(raw)
-  const soc = hasSOC ? ', together with usual standard-of-care drugs for this disease' : ''
-
-  const iv = /\bIV\b/i.test(raw)
-  const po = /\bPO\b/i.test(raw)
-  const itRoute = /\bIT\b/i.test(raw)
-
-  if (iv && /monthly/i.test(raw)) {
-    return `${drugName} is given by intravenous infusion—into a vein—about once a month${soc}.`
-  }
-  if (iv && /q2w/i.test(raw)) {
-    return `${drugName} is given by intravenous infusion every two weeks${soc}.`
-  }
-  if (po && (/\bqd\b/i.test(raw) || /\bdaily\b/i.test(raw))) {
-    return `${drugName} is taken by mouth (a pill), once per day${soc}.`
-  }
-  if (itRoute && /q4w/i.test(raw)) {
-    return `${drugName} is injected into the spinal fluid (intrathecal), every four weeks${soc}.`
-  }
-  if (iv && /q4w/i.test(raw)) {
-    return `${drugName} is given by intravenous infusion every four weeks${soc}.`
-  }
-
-  const expanded = raw
-    .replace(/\bIV\b/gi, 'intravenous infusion')
-    .replace(/\bPO\b/gi, 'oral (by mouth)')
-    .replace(/\bIT\b/gi, 'intrathecal (spinal injection)')
-    .replace(/\bq2w\b/gi, 'every 2 weeks')
-    .replace(/\bq4w\b/gi, 'every 4 weeks')
-    .replace(/\bqd\b/gi, 'once daily')
-    .replace(/\bSOC\b/gi, 'standard-of-care therapy')
-    .replace(/\s*\+\s*/g, ' plus ')
-    .replace(/\bmonthly\b/gi, 'once monthly')
-
-  return `${drugName}: ${expanded}.`
-}
-
-/** Three short sentences for the selected clinical program. */
-function buildPharmaContextSentences(ev) {
-  if (!ev) return [EMPTY]
-  if (Array.isArray(ev.__context_sentences) && ev.__context_sentences.some(Boolean)) {
-    return ev.__context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 3)
-  }
-  const snap = ev.trialSnapshot ?? {}
-  const drug = snap.drug ?? ev.drug ?? 'This drug'
-  const ind = ev.population?.condition ?? snap.indication ?? ev.indication ?? 'this indication'
-  const mech = snap.mechanism ?? ev.mechanism ?? ''
-  const phase = snap.phase ?? ev.phase ?? ''
-  const intervention = snap.intervention ?? ev.intervention ?? ''
-  const control = ev.studyDesign?.control ?? ''
-  const primary =
-    stripPrimaryLabel(ev.endpointsResults?.endpoints?.[0] ?? '') || 'the main endpoints'
-  const hook = (ev.timelineDetails?.eventSubtype ?? ev.eventType ?? '').trim()
-
-  const pm = plainMechanismSnippet(mech)
-  const s1 =
-    phase && pm
-      ? `${drug} is in ${phase} for ${ind} and works via ${pm.toLowerCase()}.`
-      : phase
-        ? `${drug} is in ${phase} for ${ind}.`
-        : `${drug} is being tested for ${ind}.`
-
-  const s2 = describeTrialDosingPlain(drug, intervention, mech)
-
-  let cmp = ''
-  if (control && !/^none$/i.test(control) && !/not applicable/i.test(control)) {
-    cmp = ` vs ${control.toLowerCase()}`
-  }
-  const s3 = hook
-    ? `They measure ${primary}${cmp}. Latest note: ${hook}.`
-    : `They measure ${primary}${cmp}.`
-
-  return [s1, s2, s3]
-}
-
-/** Buy / sell / other from worksheet key text (same rows as the case cluster). */
-function insiderKeyDirection(key) {
-  const k = String(key ?? '').toLowerCase()
-  const iBuy = k.search(/\bbuy\b|purchase|cluster purchase|acquisition\b/)
-  const iSell = k.search(/\bsell\b|\bsale\b|short/)
-  if (iBuy >= 0 && iSell >= 0) return iSell < iBuy ? 'sell' : 'buy'
-  if (iSell >= 0) return 'sell'
-  if (iBuy >= 0) return 'buy'
-  if (/gift|charity/.test(k)) return 'gift'
-  if (/exercise/.test(k)) return 'exercise'
-  return 'other'
-}
-
-function insiderKeyExecRole(key) {
-  const k = String(key ?? '')
-  if (/\bCEO\b/i.test(k)) return 'CEO'
-  if (/\bCFO\b/i.test(k)) return 'CFO'
-  if (/President/i.test(k)) return 'President'
-  if (/Chief Medical Officer/i.test(k)) return 'CMO'
-  if (/\bChair\b/i.test(k)) return 'Chair'
-  if (/\bEVP\b/i.test(k)) return 'EVP'
-  return null
-}
-
-function insiderKeyTradeFlavor(key) {
-  const k = String(key ?? '')
-  if (/open market/i.test(k)) return 'open-market purchases'
-  if (/10b5-1/i.test(k)) return 'planned Rule 10b5-1 trades'
-  if (/gift|charity/i.test(k)) return 'gifts / charity'
-  if (/derivative|exercise/i.test(k)) return 'option exercise flows'
-  if (/award|contract/i.test(k)) return 'compensation-style awards'
-  return 'reported insider trades'
-}
-
-/** Human list: ["CEO","CFO"] → "CEO and CFO"; three+ uses commas. */
-function joinActorPhrases(names) {
-  const u = [...new Set(names)].filter(Boolean)
-  if (u.length === 0) return ''
-  if (u.length === 1) return u[0]
-  if (u.length === 2) return `${u[0]} and ${u[1]}`
-  return `${u.slice(0, -1).join(', ')}, and ${u[u.length - 1]}`
-}
-
-/** Three sentences summarizing the selected insider cluster (who, concentration, timing). */
-function buildInsiderContextSentences(row) {
-  if (!row?.caseSheet) return [EMPTY]
-  if (Array.isArray(row.__context_sentences) && row.__context_sentences.some(Boolean)) {
-    return row.__context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 4)
-  }
-  const cs = row.caseSheet
-  const rows = cs.rows ?? []
-  const n = rows.length
-  if (n === 0) return [EMPTY]
-
-  const tsList = rows
-    .map((r) => new Date(r.ts).getTime())
-    .filter((t) => Number.isFinite(t))
-  const tMin = tsList.length ? Math.min(...tsList) : NaN
-  const tMax = tsList.length ? Math.max(...tsList) : NaN
-  const spanDays =
-    Number.isFinite(tMin) && Number.isFinite(tMax)
-      ? Math.max(1, Math.round((tMax - tMin) / 86400000))
-      : null
-  const daysSinceLast =
-    Number.isFinite(tMax) ? Math.max(0, Math.round((Date.now() - tMax) / 86400000)) : null
-
-  let buyUsd = 0
-  let sellUsd = 0
-  const buyRoles = []
-  let otherBuyLines = 0
-  const flavorWeights = {}
-
-  for (const r of rows) {
-    const dir = insiderKeyDirection(r.key)
-    const amt = cs.isForm4 ? Number(r.amountUsd) || 0 : 0
-    if (dir === 'buy') {
-      if (amt > 0) buyUsd += amt
-      const role = insiderKeyExecRole(r.key)
-      if (role) buyRoles.push(role)
-      else otherBuyLines += 1
-      const f = insiderKeyTradeFlavor(r.key)
-      flavorWeights[f] = (flavorWeights[f] || 0) + (amt > 0 ? amt : 1)
-    } else if (dir === 'sell') {
-      if (amt > 0) sellUsd += amt
-    }
-  }
-
-  const roleSpend = {}
-  for (const r of rows) {
-    if (insiderKeyDirection(r.key) !== 'buy') continue
-    const amt = cs.isForm4 ? Number(r.amountUsd) || 0 : 0
-    const role = insiderKeyExecRole(r.key) ?? 'Other insiders'
-    roleSpend[role] = (roleSpend[role] || 0) + (amt || 0)
-  }
-
-  const distinctExec = [...new Set(buyRoles)]
-  const execPhrase = joinActorPhrases(distinctExec)
-  let actorLead = ''
-  if (distinctExec.length && otherBuyLines > 0) {
-    actorLead = `${execPhrase} and ${otherBuyLines} other insider${otherBuyLines === 1 ? '' : 's'}`
-  } else if (distinctExec.length) {
-    actorLead = execPhrase
-  } else if (otherBuyLines > 0 || buyUsd > 0 || rows.some((r) => insiderKeyDirection(r.key) === 'buy')) {
-    actorLead = `${Math.max(otherBuyLines, 1)} insider${otherBuyLines === 1 ? '' : 's'}`
-  }
-
-  const buyCount = rows.filter((r) => insiderKeyDirection(r.key) === 'buy').length
-  const sellCount = rows.filter((r) => insiderKeyDirection(r.key) === 'sell').length
-
-  let netUsd = buyUsd - sellUsd
-  const absNet = Math.abs(netUsd)
-  const moneyKnown = cs.isForm4 && (buyUsd > 0 || sellUsd > 0)
-
-  let windowPhrase = ''
-  if (spanDays != null && spanDays <= 45) {
-    windowPhrase = `the last ~${spanDays} day${spanDays === 1 ? '' : 's'}`
-  } else if (spanDays != null) {
-    windowPhrase = `~${spanDays} calendar days`
-  }
-
-  let s1 = ''
-  if (buyCount && !sellCount) {
-    const who = actorLead ? `${actorLead} bought shares` : 'Reported insider buys'
-    const when = windowPhrase ? ` ${windowPhrase}` : ''
-    if (moneyKnown) {
-      s1 = `${who}${when}, total net buying ~${formatUsdCompact(absNet)}, no insider selling in this cluster.`
-    } else {
-      s1 = `${who}${when}; dollar sizes are not itemized line-by-line on this filing type.`
-    }
-    s1 = s1.replace(/\s+/g, ' ').trim()
-  } else if (sellCount && !buyCount) {
-    const amtBit = moneyKnown ? ` (~${formatUsdCompact(sellUsd)} gross sales)` : ''
-    const when = windowPhrase ? ` across ${windowPhrase}` : ''
-    s1 = `Selling-only lines in this bundle${amtBit}${when}; no buys here.`
-  } else if (buyCount && sellCount) {
-    const netWord = netUsd >= 0 ? 'buying' : 'selling'
-    const amtPart = moneyKnown
-      ? `~${formatUsdCompact(absNet)} net ${netWord}`
-      : 'mixed buys and sells without full dollar detail'
-    const actorBit = actorLead ? `${actorLead}: ` : ''
-    const over = windowPhrase ? `Over ${windowPhrase}, ` : ''
-    s1 = `${actorBit}${over}${amtPart}.`.replace(/\s+/g, ' ').trim()
-  } else {
-    s1 = `Cluster has ${n} linked lines (${cs.formType ?? 'filing'}); mostly non-trade rows.`
-  }
-
-  let s2 = ''
-  const spendEntries = Object.entries(roleSpend).filter(([, v]) => v > 0)
-  const totalRoleSpend = spendEntries.reduce((a, [, v]) => a + v, 0)
-  if (spendEntries.length && totalRoleSpend > 0) {
-    spendEntries.sort((a, b) => b[1] - a[1])
-    const [topRole, topAmt] = spendEntries[0]
-    const pct = Math.round((topAmt / totalRoleSpend) * 100)
-    const flavors = Object.entries(flavorWeights).sort((a, b) => b[1] - a[1])
-    const topFlavor = flavors[0]?.[0] ?? 'reported insider trades'
-    s2 = `${topRole} accounts for ~${pct}% of buy-side dollars here, mostly ${topFlavor}.`
-  } else if (buyCount) {
-    const flavors = Object.entries(flavorWeights).sort((a, b) => b[1] - a[1])
-    const topFlavor = flavors[0]?.[0] ?? 'reported insider trades'
-    s2 =
-      distinctExec.length > 0
-        ? `Pattern skews to ${distinctExec.join(', ')}; trades read as mostly ${topFlavor}.`
-        : `Activity reads as mostly ${topFlavor}.`
-  } else {
-    s2 = 'No buy-side lines stand out in this scrape—sales or non-trade rows drive the bundle.'
-  }
-
-  let s3 = ''
-  const clustered = spanDays != null && spanDays <= 14
-  const recent = daysSinceLast != null && daysSinceLast <= 7
-  const offsetting = sellCount > 0 && buyCount > 0
-  const parts = []
-  if (recent && clustered) {
-    parts.push('Activity looks recent and clustered.')
-  } else if (recent) {
-    parts.push('Activity looks recent.')
-  } else if (clustered) {
-    parts.push('Trades land in a tight window.')
-  } else if (spanDays != null && spanDays > 21) {
-    parts.push('Dates are spread out.')
-  }
-  if (daysSinceLast != null && recent) {
-    parts.push(
-      daysSinceLast === 0
-        ? 'Last line is basically today.'
-        : `Last line within ${daysSinceLast} day${daysSinceLast === 1 ? '' : 's'}.`,
-    )
-  } else if (daysSinceLast != null) {
-    parts.push(`Last activity about ${daysSinceLast} days ago.`)
-  }
-  if (!sellCount && buyCount) parts.push('No offsetting sales in this scrape.')
-  else if (sellCount && !buyCount) parts.push('Sales-only bundle.')
-  else if (offsetting) parts.push('Buys and sells both appear—check net.')
-  s3 = parts.join(' ')
-
-  return [s1, s2, s3]
-}
-
-function ContextPanel({ mode, pharmaEvent, insiderRow, backendUp, maxSentences = 3 }) {
-  const pharma = mode === 'pharma'
-  const sentencesRaw = pharma ? buildPharmaContextSentences(pharmaEvent) : buildInsiderContextSentences(insiderRow)
-  const sentences = backendUp
-    ? (sentencesRaw?.filter((s) => String(s ?? '').trim()).slice(0, maxSentences) ?? [])
-    : (sentencesRaw?.slice(0, maxSentences) ?? [])
-  const display = backendUp ? sentences : sentences
-
-  return (
-    <section className="panel contextPanel blankTile--b" aria-label="Context">
-      <header className="feedCompactHeader">
-        <div className="panelTitle feedCompactTitle">CONTEXT</div>
-      </header>
-      <div className="contextPanelBody">
-        {display.map((text, i) => (
-          <p key={i} className="contextSentence">
-            {text}
-          </p>
-        ))}
-        </div>
-      </section>
-  )
-}
-
 function CompanyPanel({ mode, company, backendUp }) {
   const c = backendUp ? (company ?? {}) : MOCK_COMPANY
   const pharma = mode === 'pharma'
@@ -4556,8 +4695,113 @@ function CaseKvFeed({
   )
 }
 
+function TerminalTopBar({
+  email,
+  settingsActive,
+  onSettingsClick,
+  backendUp,
+  intelMode,
+  onIntelModeChange,
+}) {
+  return (
+    <header className="terminalTopBar" aria-label="Mercerline">
+      <div className="terminalTopBarStart">
+        <div className="terminalTopBarBrand">
+          <img
+            className="terminalTopBarLogo"
+            src="/mercerline_logo_transparent.png"
+            alt=""
+            width={22}
+            height={22}
+            decoding="async"
+          />
+          <span className="terminalTopBarName">MERCERLINE</span>
+          <span
+            className={backendUp ? 'terminalTopBarHealth isUp' : 'terminalTopBarHealth isDown'}
+            title={backendUp ? 'API connected' : 'API offline'}
+            aria-label={backendUp ? 'Backend up' : 'Backend down'}
+          />
+        </div>
+      </div>
+
+      <div className="terminalTopBarCenter">
+        <div
+          className={`terminalIntelSwitch terminalIntelSwitch--${intelMode}`}
+          role="tablist"
+          aria-label="Intelligence mode"
+        >
+          <button
+            type="button"
+            role="tab"
+            className={intelMode === 'market' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
+            aria-selected={intelMode === 'market'}
+            onClick={() => onIntelModeChange('market')}
+          >
+            Market intelligence
+          </button>
+          <span className="terminalIntelSwitchSep" aria-hidden="true">
+            |
+          </span>
+          <button
+            type="button"
+            role="tab"
+            className={intelMode === 'clinical' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
+            aria-selected={intelMode === 'clinical'}
+            onClick={() => onIntelModeChange('clinical')}
+          >
+            Clinical intelligence
+          </button>
+        </div>
+      </div>
+
+      <div className="terminalTopBarEnd">
+        <div className="terminalTopBarActions">
+          {email ? (
+            <span className="terminalTopBarEmail mono" title={email}>
+              {email}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            className={
+              settingsActive
+                ? 'terminalTopBarSettings isActive isClose'
+                : 'terminalTopBarSettings'
+            }
+            aria-label={settingsActive ? 'Close settings' : 'Settings'}
+            aria-current={settingsActive ? 'page' : undefined}
+            onClick={onSettingsClick}
+          >
+            {settingsActive ? (
+              <svg className="terminalTopBarSettingsIcon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7A1 1 0 0 0 5.7 7.11L10.59 12l-4.89 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.89a1 1 0 0 0 1.42-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.42z"
+                />
+              </svg>
+            ) : (
+              <svg className="terminalTopBarSettingsIcon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.12.57-1.62.94l-2.39-.96a.488.488 0 0 0-.59.22L2.74 8.81a.49.49 0 0 0 .12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.13.22.39.3.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.12-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"
+                />
+              </svg>
+            )}
+          </button>
+        </div>
+      </div>
+    </header>
+  )
+}
+
 function KensiglineTerminal() {
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('main') // main | insider | pharma | politicians | settings
+  const [intelMode, setIntelMode] = useState('market') // market | clinical
+  const tabBeforeSettingsRef = useRef('main')
+  const [contextInsidersOpen, setContextInsidersOpen] = useState(true)
+  const [contextPoliticiansOpen, setContextPoliticiansOpen] = useState(true)
+
   /** Which feed column receives arrow up/down: insider | pharma | programs (rail). */
   const [feedPaneFocus, setFeedPaneFocus] = useState('insider')
   const [insiderIdx, setInsiderIdx] = useState(0)
@@ -4565,37 +4809,36 @@ function KensiglineTerminal() {
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
   const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
   const [politiciansFilter, setPoliticiansFilter] = useState(null)
-  const BOSHA_FEED_FALLBACK = useMemo(
-    () => [
-      { rowKey: 'fb-ASML', ticker: 'ASML', name: 'ASML Holding N.V.' },
-      { rowKey: 'fb-ATYR', ticker: 'ATYR', name: 'aTyr Pharma, Inc.' },
-    ],
-    [],
-  )
-
   const [boshaFeedLive, setBoshaFeedLive] = useState(null)
   const [boshaExploreLive, setBoshaExploreLive] = useState(null)
+  const [boshaCompanyLive, setBoshaCompanyLive] = useState(null)
   const [boshaBarsSeries, setBoshaBarsSeries] = useState(null)
+  const [contextOutcomesLive, setContextOutcomesLive] = useState(null)
 
-  const [boshaTicker, setBoshaTicker] = useState(BOSHA_TICKER)
+  const [boshaTicker, setBoshaTicker] = useState(BOSHA_TICKER_MARKET)
+  const intelModePrevRef = useRef(intelMode)
   const [boshaQuery, setBoshaQuery] = useState('')
   const [backendUp, setBackendUp] = useState(false)
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
-  const [mainTrendsLive, setMainTrendsLive] = useState(null)
-
   const boshaDataset = useMemo(() => boshaDatasetForTicker(boshaTicker), [boshaTicker])
   const boshaFeedItems = useMemo(() => {
-    if (!backendUp) return BOSHA_FEED_FALLBACK
+    const mode = intelMode === 'clinical' ? 'clinical' : 'market'
+    const fallback = RESEARCH_FEED_BY_INTEL[mode]
+    const allowed = new Set(researchTickersForIntelMode(intelMode))
+    if (!backendUp) return fallback
     if (!Array.isArray(boshaFeedLive)) return []
     if (!boshaFeedLive.length) return []
-    return boshaFeedLive.map((x) => ({
-      rowKey:
-        x.kind === 'paper' && x.id ? String(x.id) : `sig-${String(x.ticker ?? '').toUpperCase()}`,
-      ticker: String(x.ticker ?? '').toUpperCase(),
-      name: String(x.name ?? x.company_name ?? x.ticker ?? ''),
-    }))
-  }, [backendUp, boshaFeedLive, BOSHA_FEED_FALLBACK])
+    const mapped = boshaFeedLive
+      .map((x) => ({
+        rowKey:
+          x.kind === 'paper' && x.id ? String(x.id) : `sig-${String(x.ticker ?? '').toUpperCase()}`,
+        ticker: String(x.ticker ?? '').toUpperCase(),
+        name: String(x.name ?? x.company_name ?? x.ticker ?? ''),
+      }))
+      .filter((x) => allowed.has(x.ticker))
+    return mapped.length ? mapped : fallback
+  }, [backendUp, boshaFeedLive, intelMode])
 
   const boshaCompanyName = useMemo(() => {
     const t = String(boshaTicker ?? '').toUpperCase()
@@ -4617,6 +4860,108 @@ function KensiglineTerminal() {
     if (backendUp) return []
     return boshaDataset.price
   }, [boshaBarsSeries, boshaDataset.price, backendUp])
+
+  const contextMock = useMemo(
+    () => contextMockForTicker(boshaTicker, boshaPriceSeries),
+    [boshaTicker, boshaPriceSeries],
+  )
+
+  const contextEarnings = useMemo(() => {
+    if (backendUp && boshaCompanyLive?.earnings_date) {
+      return contextEarningsFromDate(boshaCompanyLive.earnings_date) ?? contextMock.earnings
+    }
+    return contextMock.earnings
+  }, [backendUp, boshaCompanyLive, contextMock.earnings])
+
+  const contextLeadDrug = useMemo(() => {
+    if (intelMode !== 'clinical') return null
+    const fromEntities = contextLeadDrugFromEntities(boshaDataset.entities)
+    if (fromEntities) {
+      // Keep the "real selection" (drug entity), and mock the rest for now.
+      return {
+        ...contextMock.leadDrug,
+        ...fromEntities,
+      }
+    }
+    return contextMock.leadDrug ?? null
+  }, [boshaDataset.entities, contextMock.leadDrug, intelMode])
+
+  const [contextProgramKey, setContextProgramKey] = useState(null)
+  const contextProgramDefaultKey = useMemo(() => {
+    const groups = groupPrograms(contextMock.programs)
+    return groups[0]?.key ?? null
+  }, [contextMock.programs])
+  useEffect(() => {
+    if (intelMode === 'clinical') setContextProgramKey(contextProgramDefaultKey)
+    else setContextProgramKey(null)
+  }, [intelMode, boshaTicker, contextProgramDefaultKey])
+  useEffect(() => {
+    if (intelMode !== 'clinical') return
+    if (!contextProgramDefaultKey) return
+    if (!contextProgramKey) {
+      setContextProgramKey(contextProgramDefaultKey)
+      return
+    }
+    const allowed = new Set(groupPrograms(contextMock.programs).map((g) => g.key))
+    if (!allowed.has(contextProgramKey)) setContextProgramKey(contextProgramDefaultKey)
+  }, [contextMock.programs, contextProgramDefaultKey, contextProgramKey, intelMode])
+
+  const contextInsiderOutcomes = useMemo(() => {
+    if (backendUp && contextOutcomesLive?.insider) return contextOutcomesLive.insider
+    return MOCK_HISTORICAL_INSIDER
+  }, [backendUp, contextOutcomesLive])
+
+  const contextPoliticianOutcomes = useMemo(() => {
+    if (backendUp && contextOutcomesLive?.politicians) return contextOutcomesLive.politicians
+    return MOCK_HISTORICAL_INSIDER
+  }, [backendUp, contextOutcomesLive])
+
+  const boshaPaperMemo = useMemo(
+    () =>
+      boshaThesisMemo({
+        ticker: boshaTicker,
+        companyName: boshaCompanyName,
+        events: boshaDataset.events,
+        priceSeries: boshaPriceSeries,
+        constituents: boshaIsEtf(boshaTicker) ? boshaDatasetForTicker(boshaTicker)?.constituents ?? [] : [],
+      }),
+    [boshaTicker, boshaCompanyName, boshaDataset.events, boshaPriceSeries],
+  )
+
+  const boshaPresentation = useMemo(
+    () =>
+      resolveBoshaPresentation({
+        ticker: boshaTicker,
+        titleText: boshaCompanyName,
+        backendUp,
+        livePresentation: boshaExploreLive?.presentation,
+        memo: boshaPaperMemo,
+        intelMode,
+      }),
+    [boshaTicker, boshaCompanyName, backendUp, boshaExploreLive?.presentation, boshaPaperMemo, intelMode],
+  )
+
+  useEffect(() => {
+    if (activeTab !== 'main') return
+    if (intelModePrevRef.current === intelMode) return
+    intelModePrevRef.current = intelMode
+    setBoshaTicker(intelMode === 'clinical' ? BOSHA_TICKER_CLINICAL : BOSHA_TICKER_MARKET)
+    setBoshaQuery('')
+  }, [intelMode, activeTab])
+
+  const paperSources = useMemo(
+    () => (Array.isArray(boshaPresentation?.sources) ? boshaPresentation.sources : []),
+    [boshaPresentation],
+  )
+
+  const insiderPriceMarkers = useMemo(
+    () => (contextInsidersOpen ? contextMock.insiders.map((x) => x.date) : []),
+    [contextInsidersOpen, contextMock],
+  )
+  const politicianPriceMarkers = useMemo(
+    () => (contextPoliticiansOpen ? contextMock.politicians.map((x) => x.date) : []),
+    [contextPoliticiansOpen, contextMock],
+  )
 
   const boshaFilteredFeed = useMemo(() => {
     const s = String(boshaQuery ?? '').trim().toUpperCase()
@@ -4651,41 +4996,6 @@ function KensiglineTerminal() {
   const [programRailEventId, setProgramRailEventId] = useState(null)
   const [programRailIdx, setProgramRailIdx] = useState(0)
   const [programRailMilestone, setProgramRailMilestone] = useState(null)
-
-  useEffect(() => {
-    let alive = true
-    async function run() {
-      if (!backendUp || activeTab !== 'main') return
-      const r = await fetchJsonSafe('/api/main/trends?days=365&metric=21', { timeoutMs: 6000 })
-      if (!alive) return
-      if (r.ok && r.data?.ok) setMainTrendsLive(r.data)
-    }
-    run()
-    return () => {
-      alive = false
-    }
-  }, [backendUp, activeTab])
-
-  const insidersChart = useMemo(
-    () => mainTrendsChartFromRows(mainTrendsLive?.insiders, backendUp, 71),
-    [backendUp, mainTrendsLive?.insiders],
-  )
-  const politiciansChart = useMemo(
-    () => mainTrendsChartFromRows(mainTrendsLive?.politicians, backendUp, 133),
-    [backendUp, mainTrendsLive?.politicians],
-  )
-  const researchChart = useMemo(
-    () => mainTrendsChartFromRows(mainTrendsLive?.research, backendUp, 401),
-    [backendUp, mainTrendsLive?.research],
-  )
-
-  const mainInsidersSeries = insidersChart.series
-  const mainPoliticiansSeries = politiciansChart.series
-  const mainResearchSeries = researchChart.series
-
-  const mainInsidersDates = insidersChart.dates
-  const mainPoliticiansDates = politiciansChart.dates
-  const mainResearchDates = researchChart.dates
 
   useEffect(() => {
     let alive = true
@@ -4773,15 +5083,20 @@ function KensiglineTerminal() {
     let cancelled = false
     ;(async () => {
       const enc = encodeURIComponent(tick)
-      const [ex, br] = await Promise.all([
+      const [ex, br, co] = await Promise.all([
         fetchJsonSafe(`/api/bosha/explore?ticker=${enc}`, { timeoutMs: 12_000 }),
         fetchJsonSafe(`/api/bars?ticker=${enc}&days=400`, { timeoutMs: 12_000 }),
+        fetchJsonSafe(`/api/company?ticker=${enc}`, { timeoutMs: 12_000 }),
       ])
       if (cancelled) return
       if (ex.ok && ex.data?.ok && String(ex.data.ticker ?? '').toUpperCase() === tick) {
         setBoshaExploreLive(ex.data)
       } else if (!cancelled) {
         setBoshaExploreLive(null)
+      }
+      if (!cancelled) {
+        if (co.ok && co.data?.earnings_date) setBoshaCompanyLive(co.data)
+        else setBoshaCompanyLive(null)
       }
       if (cancelled) return
       if (br.ok && Array.isArray(br.data?.items) && br.data.items.length) {
@@ -4795,6 +5110,32 @@ function KensiglineTerminal() {
       cancelled = true
     }
   }, [backendUp, activeTab, boshaTicker])
+
+  useEffect(() => {
+    if (!backendUp || activeTab !== 'main') return
+    let alive = true
+    async function run() {
+      try {
+        const [ins, pol] = await Promise.all([
+          fetchJsonSafe('/api/outcomes?mode=insider', { timeoutMs: 2500 }),
+          fetchJsonSafe('/api/outcomes?mode=politicians', { timeoutMs: 2500 }),
+        ])
+        if (!alive) return
+        const iData = ins.data?.data ?? null
+        const pData = pol.data?.data ?? null
+        setContextOutcomesLive({ insider: iData, politicians: pData })
+      } catch {
+        if (!alive) return
+        setContextOutcomesLive(null)
+      }
+    }
+    run()
+    const t = setInterval(run, 60_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [backendUp, activeTab])
 
   useEffect(() => {
     let alive = true
@@ -5071,7 +5412,6 @@ function KensiglineTerminal() {
         results: Array.isArray(ws.results) ? ws.results : [],
       },
       safety: Array.isArray(ws.safety) ? ws.safety : [],
-      __context_sentences: Array.isArray(pharmaEventLive?.context_sentences) ? pharmaEventLive.context_sentences : null,
       daily: pharmaSelected?.daily ?? [],
     }
   }, [backendUp, activeTab, pharmaEventLive, pharmaSelected, pharmaFeedEventId])
@@ -5096,7 +5436,6 @@ function KensiglineTerminal() {
     return {
       ...insiderSelected,
       caseSheet,
-      __context_sentences: insiderClusterLive?.cluster?.context_sentences ?? null,
     }
   }, [backendUp, activeTab, insiderSelected, insiderClusterLive])
 
@@ -5124,7 +5463,6 @@ function KensiglineTerminal() {
     return {
       ...politiciansSelected,
       caseSheet,
-      __context_sentences: politiciansClusterLive?.cluster?.context_sentences ?? null,
     }
   }, [backendUp, activeTab, politiciansSelected, politiciansClusterLive])
 
@@ -5555,8 +5893,35 @@ function KensiglineTerminal() {
     programRailMilestone,
   ])
 
+  const userEmail = user?.email ?? ''
+
+  const onSettingsClick = useCallback(() => {
+    if (activeTab === 'settings') {
+      setActiveTab(tabBeforeSettingsRef.current)
+      return
+    }
+    tabBeforeSettingsRef.current = activeTab
+    setActiveTab('settings')
+  }, [activeTab])
+
   return (
-    <>
+    <div
+      className={[
+        'terminalShell',
+        activeTab === 'main' ? `terminalShell--intel-${intelMode}` : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <TerminalTopBar
+        email={userEmail}
+        settingsActive={activeTab === 'settings'}
+        onSettingsClick={onSettingsClick}
+        backendUp={backendUp}
+        intelMode={intelMode}
+        onIntelModeChange={setIntelMode}
+      />
+      <div className="terminalWorkspace">
       <nav className="sideTabsRail" aria-label="Views">
         <button
           type="button"
@@ -5590,19 +5955,17 @@ function KensiglineTerminal() {
         >
           <span className="sideTabLabel">POLITICIANS</span>
         </button>
-        <button
-          type="button"
-          className={activeTab === 'settings' ? 'sideTab sideTab--settings isActive' : 'sideTab sideTab--settings'}
-          aria-current={activeTab === 'settings' ? 'page' : undefined}
-          aria-label="Settings"
-          onClick={() => setActiveTab('settings')}
-        >
-          <span className="sideTabIcon" aria-hidden="true">
-            ⚙
-          </span>
-        </button>
       </nav>
-      <main className={`terminal terminal--${activeTab}`} aria-label="MERCERLINE terminal grid">
+      <main
+        className={[
+          'terminal',
+          `terminal--${activeTab}`,
+          activeTab === 'main' ? `terminal--intel-${intelMode}` : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-label="MERCERLINE terminal grid"
+      >
       {activeTab === 'settings' ? <SettingsPanel /> : null}
       {activeTab === 'insider' ? (
         <>
@@ -5733,69 +6096,34 @@ function KensiglineTerminal() {
             edges={boshaDataset.edges}
             priceSeries={boshaPriceSeries}
             backendUp={backendUp}
-            livePresentation={boshaExploreLive?.presentation}
+            presentation={boshaPresentation}
+            sources={intelMode === 'clinical' ? [] : paperSources}
             liveCompanyName={boshaExploreLive?.company_name}
+            insiderPriceMarkers={insiderPriceMarkers}
+            politicianPriceMarkers={politicianPriceMarkers}
             panelClassName="mainMainBlank"
           />
 
-          <GraphPanel
-            title="INSIDERS TREND"
-            series={mainInsidersSeries}
-            dates={mainInsidersDates}
-            markers={[]}
-            panelClassName="mainGraph mainGraph--insiders"
-            metaMode="perf"
-            yTickFormat="return"
+          <MainContextPanel
+            intelMode={intelMode}
+            ticker={contextMock.ticker}
+            price={contextMock.price}
+            sector={contextMock.sector}
+            mcap={contextMock.mcap}
+            earnings={contextEarnings}
+            leadDrug={contextLeadDrug}
+            programs={contextMock.programs}
+            selectedProgramKey={contextProgramKey}
+            onSelectProgramKey={setContextProgramKey}
+            insiders={contextMock.insiders}
+            politicians={contextMock.politicians}
+            insiderOutcomes={contextInsiderOutcomes}
+            politicianOutcomes={contextPoliticianOutcomes}
+            insidersOpen={contextInsidersOpen}
+            onToggleInsiders={() => setContextInsidersOpen((v) => !v)}
+            politiciansOpen={contextPoliticiansOpen}
+            onTogglePoliticians={() => setContextPoliticiansOpen((v) => !v)}
           />
-
-          <GraphPanel
-            title="POLITICIANS TREND"
-            series={mainPoliticiansSeries}
-            dates={mainPoliticiansDates}
-            markers={[]}
-            panelClassName="mainGraph mainGraph--politicians"
-            metaMode="perf"
-            yTickFormat="return"
-          />
-
-          <GraphPanel
-            title="RESEARCH TREND"
-            series={mainResearchSeries}
-            dates={mainResearchDates}
-            markers={[]}
-            panelClassName="mainGraph mainGraph--research"
-            metaMode="perf"
-            yTickFormat="return"
-          />
-
-          <section className="panel mainLogoPanel" aria-label="Mercerline">
-            <header className="feedCompactHeader">
-              <div className="panelTitle feedCompactTitle">MERCERLINE</div>
-            </header>
-            <div className="mainLogoPanelInner">
-              <div className="mainLogoPanelBrand">
-                <img
-                  className="mainLogoPanelImg"
-                  src="/mercerline_logo_transparent.png"
-                  alt="Mercerline"
-                  decoding="async"
-                />
-              </div>
-              <div className="mainLogoPanelStats" aria-label="Backend status">
-                <div className="mainDashChips mainDashChips--inLogo">
-                  <span className={`topStatChip ${backendUp ? 'isUp' : 'isDown'}`}>{backendUp ? 'UP' : 'DOWN'}</span>
-                  <span className="topStatChip mono">
-                    {backendUp ? `${(Math.max(0, Date.now() - backendLastOkAt) / 1000).toFixed(0)}s` : '-'}
-                  </span>
-                  <span className="topStatChip mono">Q{backendStats?.queue?.queued ?? 0}</span>
-                  <span className="topStatChip mono">R{backendStats?.queue?.ready_to_parse ?? 0}</span>
-                  <span className="topStatChip mono">P{backendStats?.queue?.parsing ?? 0}</span>
-                  <span className="topStatChip mono">I{backendStats?.parsed?.insider?.count ?? 0}</span>
-                  <span className="topStatChip mono">PH{backendStats?.parsed?.pharma?.count ?? 0}</span>
-                </div>
-              </div>
-            </div>
-          </section>
         </>
       ) : null}
 
@@ -5817,13 +6145,6 @@ function KensiglineTerminal() {
       {activeTab !== 'main' && activeTab !== 'settings' ? (
         <>
           <HistoricalOutcomesPanel mode={activeTab === 'politicians' ? 'politicians' : activeTab} backendUp={backendUp} />
-          <ContextPanel
-            mode={activeTab === 'politicians' ? 'insider' : activeTab}
-            pharmaEvent={pharmaSelectedResolved}
-            insiderRow={activeTab === 'politicians' ? politiciansSelectedResolved : insiderSelectedResolved}
-            backendUp={backendUp}
-            maxSentences={activeTab === 'insider' ? 4 : 3}
-          />
 
           <GraphPanel
             title="DAILY GRAPH"
@@ -5837,7 +6158,8 @@ function KensiglineTerminal() {
         </>
       ) : null}
       </main>
-    </>
+      </div>
+    </div>
   )
 }
 
@@ -5851,26 +6173,11 @@ function AuthBootScreen() {
 
 export default function App() {
   const { configured, loading, user } = useAuth()
-  const { loading: subLoading, active: subActive, refresh: refreshSubscription } = useSubscription()
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('checkout') !== 'success') return
-    void (async () => {
-      await fetchJsonSafe('/api/billing/refresh', { method: 'POST', timeoutMs: 15000 })
-      await refreshSubscription()
-    })().finally(() => {
-      const u = new URL(window.location.href)
-      u.searchParams.delete('checkout')
-      window.history.replaceState({}, '', `${u.pathname}${u.search}${u.hash}`)
-    })
-  }, [refreshSubscription])
+  // Subscription gate disabled temporarily — re-enable SubscribePage + useSubscription when billing goes live.
 
   if (configured && loading) return <AuthBootScreen />
   if (configured && !user) return <IntroPage />
-  if (configured && user && subLoading) return <AuthBootScreen />
-  if (configured && user && !subActive) return <SubscribePage />
 
   return <KensiglineTerminal />
 }
