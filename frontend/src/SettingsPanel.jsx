@@ -38,7 +38,7 @@ function SettingsKvBody({ children }) {
 
 function SettingsLogoPanel() {
   return (
-    <section className="panel feed feedCompact isFocused settingsLogoPanel" aria-label="Mercerline">
+    <section className="panel feed feedCompact settingsLogoPanel" aria-label="Mercerline">
       <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">MERCERLINE</div>
       </header>

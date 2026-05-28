@@ -20,12 +20,22 @@ const CHART_AREA_GRAD_BOTTOM = 'var(--intel-accent-area-bottom)'
 /** Inline SVG paint: avoids WebKit/CSS cascade quirks on <text> and export rasterizers. */
 const GRAPH_SVG_FONT =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
-const GRAPH_SVG_TICK = { fill: 'rgba(232, 255, 246, 0.92)', fontSize: 11, fontFamily: GRAPH_SVG_FONT }
-const GRAPH_SVG_TICK_LINE = { stroke: 'rgba(155, 255, 210, 0.52)', strokeWidth: 1, fill: 'none' }
-const GRAPH_SVG_AXIS = { stroke: 'rgba(155, 255, 210, 0.48)', strokeWidth: 0.85, fill: 'none' }
+const GRAPH_SVG_TICK = { fill: 'rgba(255, 255, 255, 0.42)', fontSize: 11, fontFamily: GRAPH_SVG_FONT }
+const GRAPH_SVG_TICK_LINE = { stroke: 'rgba(255, 255, 255, 0.16)', strokeWidth: 1, fill: 'none' }
+const GRAPH_SVG_AXIS = { stroke: 'rgba(255, 255, 255, 0.16)', strokeWidth: 0.85, fill: 'none' }
 const GRAPH_SVG_PATH = { stroke: 'var(--intel-accent-stroke-strong)', strokeWidth: 2, fill: 'none' }
-const GRAPH_SVG_MARKER = { stroke: 'rgba(140, 255, 195, 0.35)', strokeWidth: 0.85, fill: 'none' }
-const GRAPH_SVG_MARKER_SEL = { stroke: 'rgba(140, 255, 195, 0.62)', strokeWidth: 0.85, fill: 'none' }
+const GRAPH_SVG_MARKER = { stroke: 'rgba(255, 255, 255, 0.2)', strokeWidth: 0.85, fill: 'none' }
+const GRAPH_SVG_MARKER_SEL = { stroke: 'rgba(255, 255, 255, 0.42)', strokeWidth: 0.85, fill: 'none' }
+
+const DIAGRAM_EDGE_STROKE = 'rgba(255, 255, 255, 0.38)'
+const DIAGRAM_EDGE_LOOP_STROKE = 'rgba(255, 255, 255, 0.24)'
+const DIAGRAM_ARROW_FILL = 'rgba(255, 255, 255, 0.38)'
+/** Same base as context EARNINGS / `--context-surface-inset` */
+const DIAGRAM_NODE_SURFACE = 'var(--diagram-node-surface)'
+const DIAGRAM_NODE_RIM = 'rgba(0, 0, 0, 0.32)'
+/** Match price chart area fill (`--intel-accent-area-top` / `--intel-accent-tint`) */
+const DIAGRAM_NODE_WASH_A = 'rgba(255, 255, 255, 0.14)'
+const DIAGRAM_NODE_WASH_B = 'rgba(255, 255, 255, 0.04)'
 
 /**
  * Drop a leading run of closes equal to the first bar (within tolerance). Some `/api/bars` payloads
@@ -897,15 +907,15 @@ const CONTEXT_MOCK_PROFILES = {
   ASML: {
     sector: 'Semiconductor equipment',
     mcap: '€350B',
-    earningsDaysAhead: 18,
+    earningsDaysAhead: 17,
     insiders: [
-      { key: 'CEO', daysAgo: 6, amount: '$8.2M' },
-      { key: 'CFO', daysAgo: 14, amount: '$2.1M' },
-      { key: 'Director', daysAgo: 21, amount: '$1.4M' },
+      { key: 'CEO', daysAgo: 7, amount: '$8.2M' },
+      { key: 'CFO', daysAgo: 15, amount: '$2.1M' },
+      { key: 'Director', daysAgo: 22, amount: '$1.4M' },
     ],
     politicians: [
-      { name: 'Pelosi', daysAgo: 9, amount: '$420K' },
-      { name: 'Crenshaw', daysAgo: 18, amount: '$180K' },
+      { name: 'Pelosi', daysAgo: 10, amount: '$420K' },
+      { name: 'Crenshaw', daysAgo: 19, amount: '$180K' },
     ],
   },
   ATYR: {
@@ -1326,13 +1336,9 @@ const POLITICIAN_FEED_ROWS = sortFeedRowsByAtDesc(
   Array.from({ length: 240 }, (_, i) => politicianCaseForRowIndex(i)),
 )
 
-function PoliticiansFilterPanel({ activeName, items, onSelect, focused, onFocus }) {
+function PoliticiansFilterPanel({ activeName, items, onSelect }) {
   return (
-    <section
-      className={['panel', 'feed', 'feedCompact', 'filterTile', focused ? 'isFocused' : ''].filter(Boolean).join(' ')}
-      aria-label="Filter"
-      onMouseDown={() => onFocus?.()}
-    >
+    <section className="panel feed feedCompact filterTile" aria-label="Filter">
       <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">FILTER</div>
       </header>
@@ -1356,10 +1362,7 @@ function PoliticiansFilterPanel({ activeName, items, onSelect, focused, onFocus 
               .filter(Boolean)
               .join(' ')}
             role="listitem"
-            onClick={() => {
-              onFocus?.()
-              onSelect(it.name)
-            }}
+            onClick={() => onSelect(it.name)}
           >
             <span className="feedCell feedCellLabel kvFeedMain">{it.name}</span>
             <span className="feedCell feedCellTicker mono kvFeedDim">{it.count}</span>
@@ -1383,37 +1386,38 @@ function MainContextPanel({
   onSelectProgramKey,
   insiders,
   politicians,
-  insiderOutcomes = null,
-  politicianOutcomes = null,
   insidersOpen,
   onToggleInsiders,
   politiciansOpen,
   onTogglePoliticians,
 }) {
-  const insiderOutcomeRows = useMemo(
-    () => historicalOutcomeHoverRows(insiderOutcomes),
-    [insiderOutcomes],
-  )
-  const politicianOutcomeRows = useMemo(
-    () => historicalOutcomeHoverRows(politicianOutcomes),
-    [politicianOutcomes],
-  )
   const showFlows = intelMode !== 'clinical'
   const programGroups = useMemo(() => groupPrograms(programs), [programs])
 
   return (
-    <section className="panel feed feedCompact mainContextPanel" aria-label="Context">
-      <header className="feedCompactHeader">
+    <section
+      className={[
+        'panel',
+        'feed',
+        'feedCompact',
+        'mainContextPanel',
+        showFlows ? 'mainContextPanel--market' : 'mainContextPanel--clinical',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-label="Context"
+    >
+      <header className="feedCompactHeader researchContextHeader">
         <div className="panelTitle feedCompactTitle">CONTEXT</div>
       </header>
       <div className="mainContextPanelBody scrollThin">
         <div className="contextCompanyCard" aria-label="Company snapshot">
           <div className="contextCompanyTopRow">
-            <div className="contextCompanyTicker mono">{ticker}</div>
-            <div className="contextCompanyPrice mono">${price.toFixed(2)}</div>
+            <div className="contextCompanyTicker">{ticker}</div>
+            <div className="contextCompanyPrice">${price.toFixed(2)}</div>
           </div>
-          <div className="contextCompanyMeta dim">{sector}</div>
-          <div className="contextCompanyMeta dim">{mcap} MCAP</div>
+          <div className="contextCompanyMeta">{sector}</div>
+          <div className="contextCompanyMeta">{mcap} MCAP</div>
           {earnings ? (
             <div
               className={[
@@ -1423,16 +1427,14 @@ function MainContextPanel({
                 .filter(Boolean)
                 .join(' ')}
             >
-              <span className="contextCompanyEarningsK dim">EARNINGS</span>
-              <span className="contextCompanyEarningsV mono">
-                {earnings.label}
-              </span>
+              <span className="contextCompanyEarningsK">EARNINGS</span>
+              <span className="contextCompanyEarningsV">{earnings.label}</span>
             </div>
           ) : null}
           {leadDrug ? (
             <div className="contextCompanyEarnings">
-              <span className="contextCompanyEarningsK dim">LEAD</span>
-              <span className="contextCompanyEarningsV mono">
+              <span className="contextCompanyEarningsK">LEAD</span>
+              <span className="contextCompanyEarningsV">
                 {leadDrug.name}
                 {leadDrug.stage ? ` • ${shortPhaseLabel(leadDrug.stage)}` : ''}
               </span>
@@ -1520,39 +1522,30 @@ function MainContextPanel({
           </>
         ) : null}
 
-        {showFlows ? <div className="contextDivider" aria-hidden="true" /> : null}
-
         {showFlows ? (
           <>
             <div className="contextSection" aria-label="Insiders">
               <div className="contextSectionHeader">
-                <div className="contextSectionTitle dim">INSIDERS</div>
+                <div className="contextSectionTitle">INSIDERS</div>
                 <button
                   type="button"
-                  className="contextSectionToggle"
+                  className="contextSectionViewAll"
                   onClick={onToggleInsiders}
                   aria-expanded={insidersOpen}
-                  aria-label={insidersOpen ? 'Collapse insiders' : 'Expand insiders'}
                 >
-                  {insidersOpen ? '-' : '+'}
+                  {insidersOpen ? 'SHOW LESS' : 'VIEW ALL'}
                 </button>
               </div>
               {insidersOpen ? (
-                <div className="contextInsidersList" role="list">
+                <div className="contextFlowList" role="list">
                   {insiders.map((it, idx) => (
-                    <ContextFlowCard
-                      key={`${it.key}-${idx}`}
-                      className="contextInsiderCard"
-                      outcomeRows={insiderOutcomeRows}
-                    >
-                      <div className="contextInsiderTopRow">
-                        <div className="contextInsiderKey">{it.key}</div>
+                    <div key={`${it.key}-${idx}`} className="contextFlowRow" role="listitem">
+                      <div className="contextFlowRowMain">
+                        <div className="contextFlowRowKey">{it.key}</div>
+                        <div className="contextFlowRowDate">{insiderTxnDateShort(it.date)}</div>
                       </div>
-                      <div className="contextInsiderBottomRow">
-                        <div className="contextInsiderDate mono dim">{insiderTxnDateShort(it.date)}</div>
-                        <div className="contextInsiderAmt mono">{it.amount}</div>
-                      </div>
-                    </ContextFlowCard>
+                      <div className="contextFlowRowAmt">{it.amount}</div>
+                    </div>
                   ))}
                 </div>
               ) : null}
@@ -1560,33 +1553,26 @@ function MainContextPanel({
 
             <div className="contextSection" aria-label="Politicians">
               <div className="contextSectionHeader">
-                <div className="contextSectionTitle dim">POLITICIANS</div>
+                <div className="contextSectionTitle">POLITICIANS</div>
                 <button
                   type="button"
-                  className="contextSectionToggle"
+                  className="contextSectionViewAll"
                   onClick={onTogglePoliticians}
                   aria-expanded={politiciansOpen}
-                  aria-label={politiciansOpen ? 'Collapse politicians' : 'Expand politicians'}
                 >
-                  {politiciansOpen ? '-' : '+'}
+                  {politiciansOpen ? 'SHOW LESS' : 'VIEW ALL'}
                 </button>
               </div>
               {politiciansOpen ? (
-                <div className="contextInsidersList" role="list">
+                <div className="contextFlowList" role="list">
                   {politicians.map((it, idx) => (
-                    <ContextFlowCard
-                      key={`${it.name}-${idx}`}
-                      className="contextPoliticianCard"
-                      outcomeRows={politicianOutcomeRows}
-                    >
-                      <div className="contextInsiderTopRow">
-                        <div className="contextPoliticianName">{it.name}</div>
+                    <div key={`${it.name}-${idx}`} className="contextFlowRow" role="listitem">
+                      <div className="contextFlowRowMain">
+                        <div className="contextFlowRowKey contextFlowRowKey--name">{it.name}</div>
+                        <div className="contextFlowRowDate">{insiderTxnDateShort(it.date)}</div>
                       </div>
-                      <div className="contextInsiderBottomRow">
-                        <div className="contextInsiderDate mono dim">{insiderTxnDateShort(it.date)}</div>
-                        <div className="contextInsiderAmt mono">{it.amount}</div>
-                      </div>
-                    </ContextFlowCard>
+                      <div className="contextFlowRowAmt">{it.amount}</div>
+                    </div>
                   ))}
                 </div>
               ) : null}
@@ -1598,25 +1584,29 @@ function MainContextPanel({
   )
 }
 
-function BoshaTickerPanel({ selectedTicker, onSelectTicker, focused, onFocus, q, onQuery, filtered, panelClassName = '' }) {
+function BoshaTickerPanel({ selectedTicker, onSelectTicker, q, onQuery, filtered, panelClassName = '' }) {
   return (
     <section
-      className={['panel', 'feed', 'feedCompact', 'feed--left', 'boshaTicker', panelClassName, focused ? 'isFocused' : '']
+      className={[
+        'panel',
+        'feed',
+        'feedCompact',
+        'feed--left',
+        'boshaTicker',
+        'researchFeedPanel',
+        panelClassName,
+      ]
         .filter(Boolean)
         .join(' ')}
       aria-label="Ticker selector"
-      onMouseDown={() => onFocus?.()}
     >
-      <header className="feedCompactHeader">
+      <header className="feedCompactHeader researchFeedHeader">
         <div className="panelTitle feedCompactTitle">FEED</div>
-        <div className="feedCompactMeta feedCompactMeta--ghost" aria-hidden="true">
-          <span className="feedPageInd">0/0</span>
-        </div>
       </header>
-      <div className="feedCompactList feedCompactList--scroll scrollThin" role="list">
-        <div className="feedRowCompact feedRowCompact--two boshaTickerSearchRow" role="listitem">
+      <div className="researchFeedBody scrollThin">
+        <label className="researchFeedSearch">
           <input
-            className="boshaTickerSearchInput"
+            className="researchFeedSearchInput"
             value={q ?? ''}
             placeholder="Search"
             onChange={(e) => onQuery?.(e.target.value)}
@@ -1625,27 +1615,26 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker, focused, onFocus, q,
             }}
             aria-label="Search tickers"
             spellCheck={false}
-            onFocus={() => onFocus?.()}
           />
+          <svg className="researchFeedSearchIcon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+            <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+          </svg>
+        </label>
+        <div className="researchFeedList" role="list">
+          {filtered.map((it) => (
+            <button
+              key={it.rowKey ?? it.ticker}
+              type="button"
+              role="listitem"
+              className={['researchFeedRow', it.ticker === selectedTicker ? 'isActive' : ''].filter(Boolean).join(' ')}
+              onClick={() => onSelectTicker(it.ticker)}
+            >
+              <span className="researchFeedRowName">{it.name}</span>
+              <span className="researchFeedRowTicker mono">{it.ticker}</span>
+            </button>
+          ))}
         </div>
-        <div className="feedRowCompact feedRowCompact--blank" role="presentation" />
-        {filtered.map((it) => (
-          <button
-            key={it.rowKey ?? it.ticker}
-            type="button"
-            role="listitem"
-            className={['feedRowCompact', 'feedRowCompact--two', it.ticker === selectedTicker ? 'isActive' : '']
-              .filter(Boolean)
-              .join(' ')}
-            onClick={() => {
-              onFocus?.()
-              onSelectTicker(it.ticker)
-            }}
-          >
-            <span className="feedCell feedCellLabel kvFeedMain">{it.name}</span>
-            <span className="feedCell feedCellTicker mono kvFeedDim">{it.ticker}</span>
-          </button>
-        ))}
       </div>
     </section>
   )
@@ -1754,7 +1743,7 @@ function BoshaGraphFigure({ entities, events, edges }) {
             const r = isEv ? 9 + 3 * boshaImpactScore(n.impact) : 9
             return isEv ? (
               <g key={n.id} opacity={1}>
-                <rect x={n.x - r} y={n.y - r} width={r * 2} height={r * 2} rx="2" fill={fill} stroke="rgba(140, 255, 195, 0.16)" strokeWidth="1" />
+                <rect x={n.x - r} y={n.y - r} width={r * 2} height={r * 2} rx="2" fill={fill} stroke="rgba(255, 255, 255, 0.18)" strokeWidth="1" />
               </g>
             ) : (
               <g key={n.id} className="boshaGraphEntity" opacity={1}>
@@ -1771,16 +1760,32 @@ function BoshaGraphFigure({ entities, events, edges }) {
   )
 }
 
+const PRICE_RANGE_OPTS = ['1M', '3M', '6M', '1Y', 'ALL']
+const PRICE_RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, ALL: null }
+
+function slicePriceSeriesByRange(series, range) {
+  const arr = Array.isArray(series) ? series : []
+  const days = PRICE_RANGE_DAYS[range]
+  if (!days || arr.length <= days) return arr
+  return arr.slice(-days)
+}
+
 function BoshaMiniPrice({
   series,
   label,
   showMeta = true,
   trimLeadingPlateau = false,
+  showRangeSelector = false,
+  chartRange: chartRangeProp,
+  onChartRangeChange,
   insiderMarkers = [],
   politicianMarkers = [],
 }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 360, h: 192 })
+  const [internalRange, setInternalRange] = useState('6M')
+  const priceRange = chartRangeProp ?? internalRange
+  const setPriceRange = onChartRangeChange ?? setInternalRange
 
   useEffect(() => {
     const wrap = wrapRef.current
@@ -1808,11 +1813,12 @@ function BoshaMiniPrice({
   const innerH = Math.max(1, h - margin.t - margin.b)
 
   const vals = useMemo(() => {
-    const base = Array.isArray(series) ? series : []
+    let base = Array.isArray(series) ? series : []
+    if (chartRangeProp != null || showRangeSelector) base = slicePriceSeriesByRange(base, priceRange)
     if (!trimLeadingPlateau || base.length < 8) return base
     const t = trimLeadingFlatSeries(base)
     return t.length >= 2 ? t : base
-  }, [series, trimLeadingPlateau])
+  }, [series, trimLeadingPlateau, showRangeSelector, chartRangeProp, priceRange])
   const min = vals.length ? Math.min(...vals) : 0
   const max = vals.length ? Math.max(...vals) : 1
   const span = max - min || 1
@@ -1931,6 +1937,21 @@ function BoshaMiniPrice({
       className={['boshaMiniPrice', showMeta ? '' : 'boshaMiniPrice--chartOnly'].filter(Boolean).join(' ')}
       aria-label="Price chart"
     >
+      {showRangeSelector ? (
+        <div className="boshaPriceRange" role="group" aria-label="Chart range">
+          {PRICE_RANGE_OPTS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              className={['boshaPriceRangeBtn', priceRange === r ? 'isActive' : ''].filter(Boolean).join(' ')}
+              onClick={() => setPriceRange(r)}
+              aria-pressed={priceRange === r}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {showMeta ? (
         <div className="boshaMiniPriceMeta">
           <div className="mono dim">{label ?? 'PRICE'}</div>
@@ -2130,6 +2151,28 @@ function boshaMockSignalBits(ticker) {
 function boshaDateStamp() {
   const d = new Date()
   return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
+}
+
+function formatPaperDateLabel(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return boshaDateStamp()
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const d = new Date(`${s}T12:00:00`)
+    if (!Number.isNaN(d.getTime())) {
+      return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
+    }
+  }
+  return s
+}
+
+/** Paper hero subtitle: "Issuer · TICKER · May 28, 2026" */
+function boshaPaperSubtitle(companyName, ticker, paperDate) {
+  const name = String(companyName ?? '').trim()
+  const t = String(ticker ?? '').toUpperCase()
+  const date = formatPaperDateLabel(paperDate)
+  const parts = [name, t].filter(Boolean)
+  if (!parts.length) return date
+  return `${parts.join(' · ')} · ${date}`
 }
 
 function BoshaCausalDiagram({ ticker, diagramSpec }) {
@@ -2444,6 +2487,14 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
     return `boshaArrow-${(h0 >>> 0).toString(16)}`
   }, [ticker, diagramSpec?.layout])
 
+  const nodeWashIds = useMemo(() => {
+    const s = `bosha-node-wash-${String(ticker ?? 'tk')}-${String(diagramSpec?.layout ?? 'x')}`
+    let h0 = 2166136261
+    for (let i = 0; i < s.length; i++) h0 = Math.imul(h0 ^ s.charCodeAt(i), 16777619)
+    const hex = (h0 >>> 0).toString(16)
+    return { a: `boshaNodeWashA-${hex}`, b: `boshaNodeWashB-${hex}` }
+  }, [ticker, diagramSpec?.layout])
+
   return (
     <div
       ref={wrapRef}
@@ -2453,6 +2504,14 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
     >
       <svg className="boshaCausalSvg" viewBox={`0 0 ${w} ${vbH}`} preserveAspectRatio="xMidYMid meet">
         <defs>
+          <radialGradient id={nodeWashIds.a} gradientUnits="objectBoundingBox" cx="0" cy="0" r="1.75">
+            <stop offset="0%" stopColor={DIAGRAM_NODE_WASH_A} />
+            <stop offset="58%" stopColor="rgba(255, 255, 255, 0)" />
+          </radialGradient>
+          <radialGradient id={nodeWashIds.b} gradientUnits="objectBoundingBox" cx="1" cy="1" r="1.55">
+            <stop offset="0%" stopColor={DIAGRAM_NODE_WASH_B} />
+            <stop offset="54%" stopColor="rgba(255, 255, 255, 0)" />
+          </radialGradient>
           <marker
             id={arrowMarkerId}
             viewBox="0 0 10 10"
@@ -2462,7 +2521,7 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
             markerHeight="7"
             orient="auto"
           >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="rgba(216, 255, 235, 0.42)" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill={DIAGRAM_ARROW_FILL} />
           </marker>
         </defs>
 
@@ -2474,7 +2533,7 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
               key={`e-${i}`}
               d={d}
               fill="none"
-              stroke={loop ? 'rgba(216, 255, 235, 0.34)' : 'rgba(216, 255, 235, 0.48)'}
+              stroke={loop ? DIAGRAM_EDGE_LOOP_STROKE : DIAGRAM_EDGE_STROKE}
               strokeWidth="1.25"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -2486,23 +2545,41 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
 
         {nodes.map((n) => {
           const edgeNode = n.id === 't1' || n.id === 'a4' || n.id === 'p4'
+          const nx = n.x + 0.5
+          const ny = n.y + 0.5
+          const nw = n.w - 1
+          const nh = n.h - 1
           return (
             <g key={n.id}>
+              <rect x={nx} y={ny} width={nw} height={nh} rx="6" fill={DIAGRAM_NODE_SURFACE} />
+              <rect x={nx} y={ny} width={nw} height={nh} rx="6" fill={`url(#${nodeWashIds.a})`} />
+              <rect x={nx} y={ny} width={nw} height={nh} rx="6" fill={`url(#${nodeWashIds.b})`} />
+              <rect
+                className="boshaCausalNodeRim"
+                x={nx - 0.5}
+                y={ny - 0.5}
+                width={nw + 1}
+                height={nh + 1}
+                rx="6.5"
+                fill="none"
+                stroke={DIAGRAM_NODE_RIM}
+                strokeWidth="1"
+                opacity="0.42"
+              />
               <rect
                 className={['boshaCausalNode', edgeNode ? 'boshaCausalNode--edge' : ''].filter(Boolean).join(' ')}
-                x={n.x + 0.5}
-                y={n.y + 0.5}
-                width={n.w - 1}
-                height={n.h - 1}
+                x={nx}
+                y={ny}
+                width={nw}
+                height={nh}
                 rx="6"
-                fill="rgba(6, 7, 10, 0.22)"
-                strokeWidth="1"
+                fill="none"
+                strokeWidth="1.25"
               />
               <text
                 className="boshaCausalText"
                 x={n.x + n.w / 2}
                 y={n.y + n.h / 2 + 4}
-                fill="rgba(232, 232, 232, 0.92)"
                 textAnchor="middle"
               >
                 {n.label}
@@ -2612,7 +2689,8 @@ function boshaAsmlPresentation() {
     'The obvious side is buy ASML when GPU-heavy semis have ripped and ASML still looks flat against them. You are paying for the lithography choke point while the crowd pays for the louder downstream story, and that mismatch is what this note is about. When ASML later jumps ahead while those names stall, take profits instead of chasing more. Sell only if people start acting like EUV tools are easy to get again or fabs seriously pull back on cutting-edge builds, because then the scarcity story falls apart.'
   return {
     title: 'Leading-edge capacity remains EUV-gated; equity attention still clusters on downstream AI hardware',
-    subtitle: 'ASML Holding N.V. · ASML · offline sample · not investment advice',
+    subtitle: boshaPaperSubtitle('ASML Holding N.V.', 'ASML'),
+    paperDate: boshaDateStamp(),
     blocks: [
       { type: 'heading', text: 'Company focus' },
       { type: 'paragraph', text: intro },
@@ -2648,7 +2726,8 @@ function boshaAtyrPresentation() {
   return {
     title:
       'EFZO-FIT finished enrollment while still blinded. The protocol and SAP lean hard on a mean-OCS primary that is messy statistically, so the stock is basically a catalyst flip until real tables drop.',
-    subtitle: 'aTyr Pharma, Inc. · ATRY · offline sample · not investment advice',
+    subtitle: boshaPaperSubtitle('aTyr Pharma, Inc.', 'ATYR'),
+    paperDate: boshaDateStamp(),
     blocks: [
       { type: 'heading', text: 'Company focus' },
       { type: 'paragraph', text: intro },
@@ -2676,7 +2755,8 @@ function boshaGenericOfflinePresentation(memo, titleText, ticker) {
   const diagramCaption = `Causal sketch: ${memo.causalChain}`
   return {
     title: memo.title,
-    subtitle: `${String(titleText ?? '').trim() || t} · ${t} · offline sample · not investment advice`,
+    subtitle: boshaPaperSubtitle(String(titleText ?? '').trim() || t, t, memo.created),
+    paperDate: memo.created,
     blocks: [
       { type: 'heading', text: 'Company focus' },
       { type: 'paragraph', text: memo.openingA },
@@ -2710,55 +2790,86 @@ function resolveBoshaPresentation({ ticker, titleText, backendUp, livePresentati
 
 function BoshaPaperStructuredView({
   ticker,
+  companyName = '',
   priceSeries,
   presentation: pres,
   insiderPriceMarkers = [],
   politicianPriceMarkers = [],
 }) {
-  const sub = pres.subtitle || ''
+  const t = String(ticker ?? '').toUpperCase()
+  const sub = boshaPaperSubtitle(companyName, t, pres.paperDate ?? pres.created ?? pres.asOf)
+  const blocks = pres.blocks || []
+  const [priceRange, setPriceRange] = useState('6M')
   return (
     <>
-      <div className="boshaPaperTitleBlock boshaPaperTitleBlock--live">
-        <div className="boshaPaperKicker mono dim">{String(ticker ?? '').toUpperCase()}</div>
-        <div className="boshaPaperTitle boshaThesisTitle">{pres.title}</div>
-        <div className="boshaPaperSubtitle mono dim">{sub}</div>
-      </div>
-      <div className="boshaThesisBody boshaThesisBody--live">
-        {(pres.blocks || []).map((b, i) => {
+      <header className="researchPaperHero">
+        <h1 className="researchPaperHeadline">{pres.title}</h1>
+        {sub ? <p className="researchPaperMeta">{sub}</p> : null}
+        <div className="researchPaperHeroRule" aria-hidden="true" />
+      </header>
+      <div className="researchPaperBody">
+        {blocks.map((b, i) => {
+          if (b.type === 'heading' && (blocks[i + 1]?.type === 'price' || blocks[i + 1]?.type === 'diagram')) {
+            return null
+          }
           if (b.type === 'heading') {
             return (
-              <h3 className="boshaPaperSectionTitle" key={`bh-${i}`}>
+              <h2 className="researchPaperSectionTitle" key={`bh-${i}`}>
                 {b.text}
-              </h3>
+              </h2>
             )
           }
           if (b.type === 'paragraph') {
             return (
-              <p className="boshaThesisP boshaThesisP--live" key={`bp-${i}`}>
+              <p className="researchPaperProse" key={`bp-${i}`}>
                 {b.text}
               </p>
             )
           }
           if (b.type === 'price') {
+            const priceHeading = blocks[i - 1]?.type === 'heading' ? blocks[i - 1].text : 'Price'
             return (
-              <div className="boshaPaperFigure" key={`bpr-${i}`}>
+              <div className="researchPaperChart" key={`bpr-${i}`}>
+                <div className="researchPaperChartHead">
+                  <h2 className="researchPaperSectionTitle researchPaperSectionTitle--inline">{priceHeading}</h2>
+                  <div className="boshaPriceRange researchPaperRange" role="group" aria-label="Chart range">
+                    {PRICE_RANGE_OPTS.map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        className={['boshaPriceRangeBtn', priceRange === r ? 'isActive' : ''].filter(Boolean).join(' ')}
+                        onClick={() => setPriceRange(r)}
+                        aria-pressed={priceRange === r}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <BoshaMiniPrice
                   series={priceSeries}
-                  label={String(ticker ?? 'PRICE').toUpperCase()}
+                  label={t || 'PRICE'}
                   showMeta={false}
+                  chartRange={priceRange}
                   trimLeadingPlateau
                   insiderMarkers={insiderPriceMarkers}
-                  politicianMarkers={politicianPriceMarkers}
+                  politicianPriceMarkers={politicianPriceMarkers}
                 />
-                <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">{b.caption}</div>
+                {b.caption ? <p className="researchPaperChartCaption">{b.caption}</p> : null}
               </div>
             )
           }
           if (b.type === 'diagram') {
+            const diagramHeading = blocks[i - 1]?.type === 'heading' ? blocks[i - 1].text : 'Entity map'
             return (
-              <div className="boshaPaperFigure" key={`bdg-${i}`}>
-                <BoshaCausalDiagram ticker={ticker} diagramSpec={pres.diagram} />
-                <div className="boshaFigureCaption boshaFigureCaption--tight boshaFigureCaption--break mono dim">{b.caption}</div>
+              <div className="researchPaperChart researchPaperChart--diagram" key={`bdg-${i}`}>
+                <div className="researchPaperChartHead">
+                  <h2 className="researchPaperSectionTitle researchPaperSectionTitle--inline">{diagramHeading}</h2>
+                </div>
+                <div className="researchPaperDiagramWrap">
+                  <BoshaCausalDiagram ticker={ticker} diagramSpec={pres.diagram} />
+                </div>
+                {b.caption ? <p className="researchPaperChartCaption">{b.caption}</p> : null}
               </div>
             )
           }
@@ -2880,9 +2991,12 @@ function BoshaPaperPanel({
   }, [exportBusy])
 
   return (
-    <section className={['panel', 'boshaPaper', panelClassName].filter(Boolean).join(' ')} aria-label={titleText}>
-      <header className="feedCompactHeader">
-        <div className="panelTitle feedCompactTitle">{titleText}</div>
+    <section
+      className={['panel', 'boshaPaper', 'researchPaperPanel', panelClassName].filter(Boolean).join(' ')}
+      aria-label={titleText}
+    >
+      <header className="feedCompactHeader researchPaperPanelHeader">
+        <div className="researchPaperPanelTicker mono">{String(ticker ?? '—').toUpperCase()}</div>
         <div className="feedCompactMeta" aria-label="Paper actions">
           <button
             type="button"
@@ -2905,6 +3019,7 @@ function BoshaPaperPanel({
             <>
               <BoshaPaperStructuredView
                 ticker={ticker}
+                companyName={titleText}
                 priceSeries={priceSeries}
                 presentation={presentation}
                 insiderPriceMarkers={insiderPriceMarkers}
@@ -4383,7 +4498,6 @@ function CompactFeed({
   title,
   items,
   selectedIndex,
-  focused,
   onSelectIndex,
   panelClassName = '',
   /** Header right: page indicator | invisible ghost (layout) | pagination-only rail styling. */
@@ -4472,7 +4586,7 @@ function CompactFeed({
 
   return (
     <section
-      className={['panel', 'feed', 'feedCompact', `feed--${placement}`, panelClassName, focused ? 'isFocused' : '']
+      className={['panel', 'feed', 'feedCompact', `feed--${placement}`, panelClassName]
         .filter(Boolean)
         .join(' ')}
       aria-label={title}
@@ -4576,7 +4690,6 @@ function CaseKvFeed({
   title,
   rows,
   placement = 'right',
-  focused = false,
   selectedTradeRowIndex = -1,
   onSelectTradeRowIndex,
   scrollMode = false,
@@ -4638,7 +4751,7 @@ function CaseKvFeed({
 
   return (
     <section
-      className={['panel', 'feed', 'feedCompact', `feed--${placement}`, focused ? 'isFocused' : '']
+      className={['panel', 'feed', 'feedCompact', `feed--${placement}`]
         .filter(Boolean)
         .join(' ')}
       aria-label={title}
@@ -4702,6 +4815,7 @@ function TerminalTopBar({
   backendUp,
   intelMode,
   onIntelModeChange,
+  showIntelSwitch = false,
 }) {
   return (
     <header className="terminalTopBar" aria-label="Mercerline">
@@ -4725,33 +4839,35 @@ function TerminalTopBar({
       </div>
 
       <div className="terminalTopBarCenter">
-        <div
-          className={`terminalIntelSwitch terminalIntelSwitch--${intelMode}`}
-          role="tablist"
-          aria-label="Intelligence mode"
-        >
-          <button
-            type="button"
-            role="tab"
-            className={intelMode === 'market' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
-            aria-selected={intelMode === 'market'}
-            onClick={() => onIntelModeChange('market')}
+        {showIntelSwitch ? (
+          <div
+            className={`terminalIntelSwitch terminalIntelSwitch--${intelMode}`}
+            role="tablist"
+            aria-label="Intelligence mode"
           >
-            Market intelligence
-          </button>
-          <span className="terminalIntelSwitchSep" aria-hidden="true">
-            |
-          </span>
-          <button
-            type="button"
-            role="tab"
-            className={intelMode === 'clinical' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
-            aria-selected={intelMode === 'clinical'}
-            onClick={() => onIntelModeChange('clinical')}
-          >
-            Clinical intelligence
-          </button>
-        </div>
+            <button
+              type="button"
+              role="tab"
+              className={intelMode === 'market' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
+              aria-selected={intelMode === 'market'}
+              onClick={() => onIntelModeChange('market')}
+            >
+              Market intelligence
+            </button>
+            <span className="terminalIntelSwitchSep" aria-hidden="true">
+              |
+            </span>
+            <button
+              type="button"
+              role="tab"
+              className={intelMode === 'clinical' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
+              aria-selected={intelMode === 'clinical'}
+              onClick={() => onIntelModeChange('clinical')}
+            >
+              Clinical intelligence
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="terminalTopBarEnd">
@@ -4803,7 +4919,6 @@ function KensiglineTerminal() {
   const [contextPoliticiansOpen, setContextPoliticiansOpen] = useState(true)
 
   /** Which feed column receives arrow up/down: insider | pharma | programs (rail). */
-  const [feedPaneFocus, setFeedPaneFocus] = useState('insider')
   const [insiderIdx, setInsiderIdx] = useState(0)
   const [insiderCaseTradeIdx, setInsiderCaseTradeIdx] = useState(0)
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
@@ -4972,16 +5087,6 @@ function KensiglineTerminal() {
       return t.includes(s) || n.includes(s)
     })
   }, [boshaFeedItems, boshaQuery])
-
-  // Keep key navigation stable (avoid stale closures).
-  const boshaFilteredRef = useRef(boshaFilteredFeed)
-  const boshaTickerRef = useRef(boshaTicker)
-  useEffect(() => {
-    boshaFilteredRef.current = boshaFilteredFeed
-  }, [boshaFilteredFeed])
-  useEffect(() => {
-    boshaTickerRef.current = boshaTicker
-  }, [boshaTicker])
 
   useEffect(() => {
     // If the current selection falls out of the filter, snap to the first match.
@@ -5374,11 +5479,11 @@ function KensiglineTerminal() {
     const base = MOCK_EVENTS.find((e) => e.id === id) ?? MOCK_EVENTS[0]
     // When navigating the PROGRAMS rail, use the selected timeline row as the "current event"
     // so the case worksheet changes per row.
-    if (feedPaneFocus === 'programs' && activeTab === 'pharma' && programRailMilestone) {
+    if (activeTab === 'pharma' && programRailMilestone && programRailEventId != null) {
       return synthesizeEventForMilestone(base, programRailMilestone)
     }
     return base
-  }, [backendUp, activeTab, feedPaneFocus, programRailEventId, pharmaFeedEventId, programRailMilestone])
+  }, [backendUp, activeTab, programRailEventId, pharmaFeedEventId, programRailMilestone])
 
   const pharmaSelectedResolved = useMemo(() => {
     if (backendUp && activeTab !== 'pharma') return null
@@ -5595,49 +5700,6 @@ function KensiglineTerminal() {
     setProgramRailMilestone(null)
   }, [pharmaIdx])
 
-  useEffect(() => {
-    // When switching tabs, reset which pane gets arrows.
-    if (activeTab === 'main') {
-      setFeedPaneFocus('explore')
-      return
-    }
-    if (activeTab === 'insider') {
-      setFeedPaneFocus('insider')
-      setProgramRailEventId(null)
-      return
-    }
-    if (activeTab === 'pharma') {
-      setFeedPaneFocus('pharma')
-      return
-    }
-    if (activeTab === 'politicians') {
-      setFeedPaneFocus('insider')
-      return
-    }
-    // explore tab removed
-  }, [activeTab])
-
-  // Ensure there is always a valid focused/glowing panel per tab.
-  useEffect(() => {
-    if (activeTab === 'main') {
-      if (feedPaneFocus !== 'explore') setFeedPaneFocus('explore')
-      return
-    }
-    if (activeTab === 'insider') {
-      if (feedPaneFocus !== 'insider' && feedPaneFocus !== 'case') setFeedPaneFocus('insider')
-      return
-    }
-    if (activeTab === 'pharma') {
-      if (feedPaneFocus !== 'pharma' && feedPaneFocus !== 'programs') setFeedPaneFocus('pharma')
-      return
-    }
-    if (activeTab === 'politicians') {
-      if (feedPaneFocus !== 'insider' && feedPaneFocus !== 'case' && feedPaneFocus !== 'filter') setFeedPaneFocus('insider')
-      return
-    }
-    // explore tab removed
-  }, [activeTab, feedPaneFocus])
-
   const hasSafety =
     Array.isArray(pharmaSelectedResolved?.safety) && pharmaSelectedResolved.safety.length > 0
 
@@ -5785,114 +5847,6 @@ function KensiglineTerminal() {
     setInsiderCaseTradeIdx(0)
   }, [insiderSelected?.id, insiderSelected?.ticker])
 
-  useEffect(() => {
-    function onKey(e) {
-      const el = e.target
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
-        return
-      }
-      const k = e.key
-      if (k === 'Tab') {
-        e.preventDefault()
-        setActiveTab((t) =>
-          t === 'main'
-            ? 'insider'
-            : t === 'insider'
-              ? 'pharma'
-              : t === 'pharma'
-                ? 'politicians'
-                : 'main',
-        )
-        return
-      }
-      const left = k === 'ArrowLeft' || k === 'a' || k === 'A'
-      const right = k === 'ArrowRight' || k === 'd' || k === 'D'
-      const up = k === 'ArrowUp' || k === 'w' || k === 'W'
-      const down = k === 'ArrowDown' || k === 's' || k === 'S'
-      if (!left && !right && !up && !down) return
-      e.preventDefault()
-      if (left) {
-        if (activeTab === 'pharma') {
-          if (feedPaneFocus === 'programs') setFeedPaneFocus('pharma')
-          return
-        }
-        if (activeTab === 'insider') {
-          if (feedPaneFocus === 'case') setFeedPaneFocus('insider')
-          return
-        }
-        if (activeTab === 'politicians') {
-          if (feedPaneFocus === 'case') setFeedPaneFocus('insider')
-          return
-        }
-        // explore tab removed
-        return
-      }
-      if (right) {
-        if (activeTab === 'pharma') {
-          if (feedPaneFocus === 'pharma') setFeedPaneFocus('programs')
-          return
-        }
-        if (activeTab === 'insider') {
-          if (feedPaneFocus === 'insider') setFeedPaneFocus('case')
-          return
-        }
-        if (activeTab === 'politicians') {
-          if (feedPaneFocus === 'insider') setFeedPaneFocus('case')
-          return
-        }
-        // explore tab removed
-        return
-      }
-      if (feedPaneFocus === 'insider' && activeTab === 'insider') {
-        setInsiderIdx((i) => clamp(i + (down ? 1 : -1), 0, insiderFeedRows.length - 1))
-      } else if (feedPaneFocus === 'insider' && activeTab === 'politicians') {
-        setPoliticiansIdx((i) => clamp(i + (down ? 1 : -1), 0, politiciansFeedRows.length - 1))
-      } else if (feedPaneFocus === 'explore' && activeTab === 'main') {
-        const list = boshaFilteredRef.current ?? []
-        if (!list.length) return
-        const cur = list.findIndex((x) => x.ticker === boshaTickerRef.current)
-        const idx = cur >= 0 ? cur : 0
-        const next = clamp(idx + (down ? 1 : -1), 0, list.length - 1)
-        setBoshaTicker(list[next].ticker)
-      } else if (feedPaneFocus === 'case' && activeTab === 'insider') {
-        const n = insiderCaseTradeRowIndices.length
-        if (n <= 0) return
-        setInsiderCaseTradeIdx((i) => clamp(i + (down ? 1 : -1), 0, n - 1))
-      } else if (feedPaneFocus === 'case' && activeTab === 'politicians') {
-        const n = politiciansCaseTradeRowIndices.length
-        if (n <= 0) return
-        setPoliticiansCaseTradeIdx((i) => clamp(i + (down ? 1 : -1), 0, n - 1))
-      } else if (feedPaneFocus === 'pharma') {
-        setPharmaIdx((i) => clamp(i + (down ? 1 : -1), 0, pharmaFeedRows.length - 1))
-      } else if (feedPaneFocus === 'programs' && activeTab === 'pharma') {
-        const items = programFeedItems
-        if (items.length === 0) return
-        setProgramRailIdx((cur) => {
-          const next = clamp(cur + (down ? 1 : -1), 0, items.length - 1)
-          const row = items[next]
-          if (row?.trialEventId) setProgramRailEventId(row.trialEventId)
-          setProgramRailMilestone(row ?? null)
-          return next
-        })
-      }
-    }
-    window.addEventListener('keydown', onKey, { capture: true })
-    return () => window.removeEventListener('keydown', onKey, { capture: true })
-  }, [
-    activeTab,
-    feedPaneFocus,
-    insiderFeedRows.length,
-    politiciansFeedRows.length,
-    pharmaFeedRows.length,
-    insiderCaseTradeRowIndices,
-    politiciansCaseTradeRowIndices,
-    programFeedItems,
-    pharmaFeedEventId,
-    programRailEventId,
-    programRailIdx,
-    programRailMilestone,
-  ])
-
   const userEmail = user?.email ?? ''
 
   const onSettingsClick = useCallback(() => {
@@ -5920,6 +5874,7 @@ function KensiglineTerminal() {
         backendUp={backendUp}
         intelMode={intelMode}
         onIntelModeChange={setIntelMode}
+        showIntelSwitch={activeTab === 'main'}
       />
       <div className="terminalWorkspace">
       <nav className="sideTabsRail" aria-label="Views">
@@ -5974,27 +5929,19 @@ function KensiglineTerminal() {
             title="FEED"
             items={insiderFeedRows}
             selectedIndex={insiderIdx}
-            focused={feedPaneFocus === 'insider'}
             sepMode="today+years"
             scrollMode
-            onSelectIndex={(idx) => {
-              setInsiderIdx(idx)
-              setFeedPaneFocus('insider')
-            }}
+            onSelectIndex={setInsiderIdx}
           />
           <CaseKvFeed
             title="CASE"
             rows={insiderCaseFeedRows}
             placement="right"
-            focused={feedPaneFocus === 'case'}
             selectedTradeRowIndex={insiderCaseSelectedRowIndex}
             scrollMode
             onSelectTradeRowIndex={(rowIndex) => {
               const pos = insiderCaseTradeRowIndices.indexOf(rowIndex)
-              if (pos >= 0) {
-                setInsiderCaseTradeIdx(pos)
-                setFeedPaneFocus('case')
-              }
+              if (pos >= 0) setInsiderCaseTradeIdx(pos)
             }}
           />
         </>
@@ -6007,13 +5954,9 @@ function KensiglineTerminal() {
             title="FEED"
             items={pharmaFeedRows}
             selectedIndex={pharmaIdx}
-            focused={feedPaneFocus === 'pharma'}
             sepMode="today+years"
             scrollMode
-            onSelectIndex={(idx) => {
-              setPharmaIdx(idx)
-              setFeedPaneFocus('pharma')
-            }}
+            onSelectIndex={setPharmaIdx}
           />
           <CompactFeed
             placement="rail"
@@ -6022,14 +5965,12 @@ function KensiglineTerminal() {
             programsTimeline
             items={programFeedItems}
             selectedIndex={programSelectedIdx}
-            focused={feedPaneFocus === 'programs'}
             scrollMode
             onSelectIndex={(idx) => {
               setProgramRailIdx(idx)
               const row = programFeedItems[idx]
               if (row?.trialEventId) setProgramRailEventId(row.trialEventId)
               setProgramRailMilestone(row ?? null)
-              setFeedPaneFocus('programs')
             }}
           />
         </>
@@ -6041,35 +5982,25 @@ function KensiglineTerminal() {
             activeName={politiciansFilter}
             items={politicianFilterItems}
             onSelect={(name) => setPoliticiansFilter(name)}
-            focused={feedPaneFocus === 'filter'}
-            onFocus={() => setFeedPaneFocus('filter')}
           />
           <CompactFeed
             placement="left"
             title="FEED"
             items={politiciansFeedRows}
             selectedIndex={politiciansIdx}
-            focused={feedPaneFocus === 'insider'}
             sepMode="today+years"
             scrollMode
-            onSelectIndex={(idx) => {
-              setPoliticiansIdx(idx)
-              setFeedPaneFocus('insider')
-            }}
+            onSelectIndex={setPoliticiansIdx}
           />
           <CaseKvFeed
             title="CASE"
             rows={politiciansCaseFeedRows}
             placement="right"
-            focused={feedPaneFocus === 'case'}
             selectedTradeRowIndex={politiciansCaseSelectedRowIndex}
             scrollMode
             onSelectTradeRowIndex={(rowIndex) => {
               const pos = politiciansCaseTradeRowIndices.indexOf(rowIndex)
-              if (pos >= 0) {
-                setPoliticiansCaseTradeIdx(pos)
-                setFeedPaneFocus('case')
-              }
+              if (pos >= 0) setPoliticiansCaseTradeIdx(pos)
             }}
           />
         </>
@@ -6080,8 +6011,6 @@ function KensiglineTerminal() {
           <BoshaTickerPanel
             selectedTicker={boshaTicker}
             onSelectTicker={setBoshaTicker}
-            focused={feedPaneFocus === 'explore'}
-            onFocus={() => setFeedPaneFocus('explore')}
             q={boshaQuery}
             onQuery={setBoshaQuery}
             filtered={boshaFilteredFeed}
@@ -6117,8 +6046,6 @@ function KensiglineTerminal() {
             onSelectProgramKey={setContextProgramKey}
             insiders={contextMock.insiders}
             politicians={contextMock.politicians}
-            insiderOutcomes={contextInsiderOutcomes}
-            politicianOutcomes={contextPoliticianOutcomes}
             insidersOpen={contextInsidersOpen}
             onToggleInsiders={() => setContextInsidersOpen((v) => !v)}
             politiciansOpen={contextPoliticiansOpen}
@@ -6132,7 +6059,7 @@ function KensiglineTerminal() {
       {activeTab === 'pharma' ? (
         <section className="panel worksheet" aria-label="Trial worksheet">
           <header className="feedCompactHeader">
-            <div className="panelTitle feedCompactTitle">CASE WORKSHEET</div>
+            <div className="panelTitle feedCompactTitle">CASE</div>
             <div className="feedCompactMeta">
               <span>{worksheetMetaId}</span>
             </div>
@@ -6147,7 +6074,7 @@ function KensiglineTerminal() {
           <HistoricalOutcomesPanel mode={activeTab === 'politicians' ? 'politicians' : activeTab} backendUp={backendUp} />
 
           <GraphPanel
-            title="DAILY GRAPH"
+            title="PRICE"
             series={dailySeries}
             dates={dailyDates}
             markers={insiderTradeMarkers}

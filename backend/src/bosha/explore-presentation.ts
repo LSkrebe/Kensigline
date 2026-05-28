@@ -271,7 +271,7 @@ export async function buildExplorePresentation(ticker: string): Promise<ExploreP
       ? `${t} — ${trunc(events[0]!.summary, 110)}`
       : `${t} — graph-backed structural read`;
 
-  const subtitle = `${name} · ${t} · as of ${isoDate(new Date())} · synthesis confidence about ${reportConfidence.toFixed(2)} · not investment advice`;
+  const subtitle = `${name} · ${t} · ${isoDate(new Date())}`;
 
   const highRels = rels.filter((r) => Number(r.confidence) >= 0.55);
   const counterpartyProse =

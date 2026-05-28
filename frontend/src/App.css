@@ -11,34 +11,49 @@
   --cyan: rgba(168, 196, 255, 0.9);
   --warn: rgba(255, 212, 92, 0.95);
   --bad: rgba(255, 88, 108, 0.95);
-  /* Research intel accents (market = blue; clinical overrides below) */
-  --intel-accent: rgba(168, 196, 255, 0.9);
-  --intel-accent-hi: rgba(90, 220, 255, 0.95);
-  --intel-accent-border: rgba(168, 196, 255, 0.35);
-  --intel-accent-border-subtle: rgba(168, 196, 255, 0.16);
-  --intel-accent-surface: rgba(168, 196, 255, 0.14);
-  --intel-accent-surface-strong: rgba(168, 196, 255, 0.12);
-  --intel-accent-tint: rgba(168, 196, 255, 0.085);
-  --intel-accent-tint-soft: rgba(168, 196, 255, 0.05);
-  --intel-accent-glow: rgba(168, 196, 255, 0.045);
-  --intel-accent-glow-subtle: rgba(168, 196, 255, 0.014);
-  --intel-accent-fill: rgba(90, 220, 255, 0.16);
-  --intel-accent-fill-strong: rgba(90, 220, 255, 0.78);
-  --intel-accent-stroke: rgba(90, 220, 255, 0.45);
-  --intel-accent-stroke-strong: rgba(90, 220, 255, 0.92);
-  --intel-accent-focus: rgba(168, 196, 255, 0.55);
-  --intel-accent-focus-alt: rgba(90, 220, 255, 0.55);
-  --intel-accent-chip: rgba(90, 220, 255, 0.1);
-  --intel-accent-indicator: rgba(90, 220, 255, 0.75);
-  --intel-accent-scrollbar: rgba(168, 196, 255, 0.6);
-  --intel-accent-scrollbar-thumb: rgba(168, 196, 255, 0.35);
-  --intel-accent-scrollbar-thumb-hover: rgba(168, 196, 255, 0.5);
-  --intel-accent-inset: rgba(168, 196, 255, 0.75);
-  --intel-accent-inset-strong: rgba(90, 220, 255, 0.8);
-  --intel-accent-ring: rgba(168, 196, 255, 0.32);
-  --intel-accent-marker: rgba(168, 196, 255, 0.42);
-  --intel-accent-area-top: rgba(90, 220, 255, 0.26);
-  --intel-accent-area-bottom: rgba(90, 220, 255, 0);
+  /* Research intel accents — neutral moonlight (market + clinical) */
+  --intel-accent: rgba(255, 255, 255, 0.72);
+  --intel-accent-hi: rgba(255, 255, 255, 0.92);
+  --intel-accent-border: rgba(255, 255, 255, 0.22);
+  --intel-accent-border-subtle: rgba(255, 255, 255, 0.12);
+  --intel-accent-surface: rgba(255, 255, 255, 0.06);
+  --intel-accent-surface-strong: rgba(255, 255, 255, 0.05);
+  --intel-accent-tint: rgba(255, 255, 255, 0.04);
+  --intel-accent-tint-soft: rgba(255, 255, 255, 0.025);
+  --intel-accent-glow: rgba(255, 255, 255, 0.035);
+  --intel-accent-glow-subtle: rgba(255, 255, 255, 0.012);
+  --intel-accent-fill: rgba(255, 255, 255, 0.1);
+  --intel-accent-fill-strong: rgba(255, 255, 255, 0.72);
+  --intel-accent-stroke: rgba(255, 255, 255, 0.38);
+  --intel-accent-stroke-strong: rgba(255, 255, 255, 0.88);
+  --intel-accent-focus: rgba(255, 255, 255, 0.45);
+  --intel-accent-focus-alt: rgba(255, 255, 255, 0.38);
+  --intel-accent-chip: rgba(255, 255, 255, 0.06);
+  --intel-accent-indicator: rgba(255, 255, 255, 0.55);
+  --intel-accent-scrollbar: rgba(255, 255, 255, 0.45);
+  --intel-accent-scrollbar-thumb: rgba(255, 255, 255, 0.28);
+  --intel-accent-scrollbar-thumb-hover: rgba(255, 255, 255, 0.4);
+  --intel-accent-inset: rgba(255, 255, 255, 0.55);
+  --intel-accent-inset-strong: rgba(255, 255, 255, 0.72);
+  --intel-accent-ring: rgba(255, 255, 255, 0.2);
+  --intel-accent-marker: rgba(255, 255, 255, 0.38);
+  --intel-accent-area-top: rgba(255, 255, 255, 0.14);
+  --intel-accent-area-bottom: rgba(255, 255, 255, 0);
+  /* Soft corner washes — same white family as price chart area fill */
+  --panel-corner-wash-a: radial-gradient(420px 240px at -8% -12%, var(--intel-accent-area-top), transparent 58%);
+  --panel-corner-wash-b: radial-gradient(280px 160px at 108% 108%, var(--intel-accent-tint), transparent 54%);
+  --panel-corner-wash-compact-a: radial-gradient(140px 80px at 8% 18%, var(--intel-accent-area-top), transparent 58%);
+  --panel-corner-wash-compact-b: radial-gradient(120px 72px at 92% 82%, var(--intel-accent-tint), transparent 54%);
+  /* Program milestone rows — wider falloff than compact earnings/lead */
+  --panel-corner-wash-program-a: radial-gradient(240px 130px at 4% 28%, var(--intel-accent-area-top), transparent 76%);
+  --panel-corner-wash-program-b: radial-gradient(220px 118px at 96% 72%, var(--intel-accent-tint), transparent 72%);
+  --context-surface-inset: rgba(10, 11, 13, 0.88);
+  /* Research chart/diagram outer shell (ENTITY MAP, price chart card) */
+  --chart-panel-surface: rgba(255, 255, 255, 0.02);
+  --chart-panel-border: rgba(255, 255, 255, 0.1);
+  --diagram-node-surface: rgba(12, 13, 17, 0.94);
+  --diagram-node-border: rgba(255, 255, 255, 0.13);
+  --diagram-node-border-edge: rgba(255, 255, 255, 0.17);
   /* One scale for the whole terminal */
   --fs-title: clamp(6px, 1.75vmin, 11px);
   --fs-meta: clamp(6px, 1.65vmin, 10px);
@@ -167,52 +182,9 @@
   color: rgba(255, 255, 255, 0.78);
 }
 
-.terminalIntelSwitch--market .terminalIntelSwitchBtn.isActive {
-  color: var(--intel-accent-hi);
-}
-
-.terminalIntelSwitch--clinical .terminalIntelSwitchBtn.isActive {
-  color: var(--intel-accent-hi);
-}
-
-/* Clinical intelligence — rose/red accents (same weights as market blue) */
-.terminalShell--intel-clinical,
-.terminal--intel-clinical {
-  /* Calmer clinical accent: steel-gray (neutral, not anxiety-inducing) */
-  --cyan: rgba(196, 206, 220, 0.9);
-  --intel-accent: rgba(196, 206, 220, 0.9);
-  --intel-accent-hi: rgba(224, 232, 242, 0.9);
-  --intel-accent-border: rgba(196, 206, 220, 0.35);
-  --intel-accent-border-subtle: rgba(196, 206, 220, 0.16);
-  --intel-accent-surface: rgba(196, 206, 220, 0.14);
-  --intel-accent-surface-strong: rgba(196, 206, 220, 0.12);
-  --intel-accent-tint: rgba(196, 206, 220, 0.085);
-  --intel-accent-tint-soft: rgba(196, 206, 220, 0.05);
-  --intel-accent-glow: rgba(196, 206, 220, 0.04);
-  --intel-accent-glow-subtle: rgba(196, 206, 220, 0.013);
-  --intel-accent-fill: rgba(224, 232, 242, 0.14);
-  --intel-accent-fill-strong: rgba(224, 232, 242, 0.72);
-  --intel-accent-stroke: rgba(224, 232, 242, 0.42);
-  --intel-accent-stroke-strong: rgba(224, 232, 242, 0.86);
-  --intel-accent-focus: rgba(196, 206, 220, 0.5);
-  --intel-accent-focus-alt: rgba(224, 232, 242, 0.5);
-  --intel-accent-chip: rgba(224, 232, 242, 0.085);
-  --intel-accent-indicator: rgba(224, 232, 242, 0.62);
-  --intel-accent-scrollbar: rgba(196, 206, 220, 0.55);
-  --intel-accent-scrollbar-thumb: rgba(196, 206, 220, 0.35);
-  --intel-accent-scrollbar-thumb-hover: rgba(196, 206, 220, 0.48);
-  --intel-accent-inset: rgba(196, 206, 220, 0.7);
-  --intel-accent-inset-strong: rgba(224, 232, 242, 0.72);
-  --intel-accent-ring: rgba(196, 206, 220, 0.28);
-  --intel-accent-marker: rgba(196, 206, 220, 0.4);
-  --intel-accent-area-top: rgba(224, 232, 242, 0.22);
-  --intel-accent-area-bottom: rgba(224, 232, 242, 0);
-}
-
-.terminalShell--intel-clinical .terminal--intel-clinical .contextPoliticianCard .contextFlowCardFace {
-  background:
-    radial-gradient(240px 140px at 18% 20%, var(--intel-accent-tint), transparent 62%),
-    rgba(10, 11, 13, 0.62);
+.terminalIntelSwitchBtn.isActive {
+  color: var(--hi);
+  box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.88);
 }
 
 .terminalIntelSwitchSep {
@@ -548,6 +520,387 @@
   height: 12px;
 }
 
+/* Research paper panel (market + clinical) */
+.terminal--main .researchPaperPanel .researchPaperPanelHeader {
+  border-bottom: none;
+  justify-content: space-between;
+}
+
+.terminal--main .researchPaperPanel .researchPaperPanelTicker {
+  color: var(--hi);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  min-width: 0;
+}
+
+.terminal--main .researchPaperPanel.boshaPaper {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Intro-style corner wash (fixed to panel; scrolls with content via body pseudo) */
+.terminal--main .researchPaperPanel .boshaPaperBody {
+  padding: 16px 28px 32px;
+  position: relative;
+  isolation: isolate;
+}
+
+.terminal--main .researchPaperPanel .boshaPaperBody::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(820px 460px at -6% -8%, rgba(90, 220, 255, 0.08), transparent 58%),
+    radial-gradient(640px 380px at 108% 6%, rgba(168, 196, 255, 0.05), transparent 54%);
+  /* Large panel keeps slightly wider secondary wash than --panel-corner-wash-b */
+}
+
+.terminal--main .researchPaperPanel .feedCompactHeader {
+  position: relative;
+  z-index: 1;
+}
+
+.terminal--main .researchPaperPanel .boshaPaperDoc {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+}
+
+.terminal--main .researchPaperPanel .researchPaperHero,
+.terminal--main .researchPaperPanel .researchPaperBody,
+.terminal--main .researchPaperPanel .researchPaperHeadline,
+.terminal--main .researchPaperPanel .researchPaperMeta,
+.terminal--main .researchPaperPanel .researchPaperProse,
+.terminal--main .researchPaperPanel .researchPaperChartCaption {
+  max-width: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.researchPaperHero {
+  margin: 0 0 32px;
+  padding: 0;
+  border: none;
+}
+
+.researchPaperHeroRule {
+  height: 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 14px 0 0;
+}
+
+.researchPaperHeadline {
+  margin: 0;
+  font-size: clamp(1.28rem, 2.15vw, 1.62rem);
+  font-weight: 600;
+  line-height: 1.32;
+  letter-spacing: -0.015em;
+  color: rgba(255, 255, 255, 0.98);
+}
+
+.researchPaperMeta {
+  margin: 12px 0 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.42);
+  letter-spacing: 0.01em;
+}
+
+.researchPaperBody {
+  width: 100%;
+}
+
+.researchPaperSectionTitle {
+  margin: 0 0 12px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.researchPaperBody > .researchPaperSectionTitle:first-child {
+  margin-top: 0;
+}
+
+.researchPaperBody > .researchPaperSectionTitle:not(:first-child) {
+  margin-top: 32px;
+}
+
+.researchPaperSectionTitle--inline {
+  margin: 0;
+}
+
+.researchPaperProse {
+  margin: 0 0 28px;
+  font-size: clamp(13px, 1.7vmin, 14.5px);
+  line-height: 1.78;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.01em;
+}
+
+.researchPaperChart {
+  margin: 8px 0 0;
+  padding: 14px 16px 12px;
+  border: 1px solid var(--chart-panel-border);
+  border-radius: 10px;
+  background: var(--chart-panel-surface);
+  box-sizing: border-box;
+}
+
+.researchPaperChartCaption {
+  margin: 12px 0 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.42);
+  letter-spacing: 0.01em;
+}
+
+.researchPaperChart--diagram {
+  margin-bottom: 28px;
+}
+
+.researchPaperChart--diagram .researchPaperDiagramWrap {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  overflow: hidden;
+  min-height: 200px;
+  margin: 0;
+  padding: 0;
+}
+
+.researchPaperChart--diagram .researchPaperDiagramWrap .boshaGraphFigureWrap {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  min-height: 200px;
+  max-height: none;
+  aspect-ratio: auto;
+}
+
+.terminal--main .researchPaperChart--diagram .boshaCausalNode {
+  stroke: var(--diagram-node-border);
+  stroke-width: 1.25px;
+  vector-effect: non-scaling-stroke;
+  paint-order: stroke fill;
+}
+
+.terminal--main .researchPaperChart--diagram .boshaCausalNode--edge {
+  stroke: var(--diagram-node-border-edge);
+}
+
+.terminal--main .researchPaperChart--diagram .boshaCausalNodeRim {
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.terminal--main .researchPaperChart--diagram .boshaCausalText {
+  fill: rgba(255, 255, 255, 0.86);
+  font-weight: 500;
+}
+
+.terminal--main .researchPaperChart--diagram .boshaCausalEdge {
+  stroke: rgba(255, 255, 255, 0.38);
+}
+
+.terminal--main .researchPaperChart--diagram .boshaCausalEdge--loop {
+  stroke: rgba(255, 255, 255, 0.24);
+}
+
+.researchPaperChartHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+
+.researchPaperChart .boshaMiniPrice--chartOnly {
+  margin: 0;
+}
+
+.researchPaperChart .boshaMiniPriceWrap {
+  height: clamp(148px, 22vh, 200px);
+  min-height: 148px;
+}
+
+.terminal--main .researchPaperChart .graphPath {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 1.25px;
+}
+
+.terminal--main .researchPaperChart .graphTick {
+  fill: rgba(255, 255, 255, 0.38);
+  font-size: 10px;
+}
+
+.terminal--main .researchPaperChart .graphTickLine {
+  stroke: rgba(255, 255, 255, 0.14);
+}
+
+.terminal--main .researchPaperChart .graphAxis {
+  stroke: rgba(255, 255, 255, 0.16);
+}
+
+.terminal--main .researchPaperChart .miniGraphMarker {
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-dasharray: 3 4;
+}
+
+.terminal--main .researchPaperRange .boshaPriceRangeBtn {
+  padding: 4px 8px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.terminal--main .researchPaperRange .boshaPriceRangeBtn.isActive {
+  background: #fff;
+  color: #0a0b0d;
+}
+
+.terminal--main .researchPaperRange .boshaPriceRangeBtn:hover:not(.isActive) {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.terminal--main .researchPaperPanel .boshaPaperSources {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Research feed panel (market + clinical) */
+.terminal--main .researchFeedPanel .researchFeedHeader {
+  border-bottom: none;
+  padding: 10px 14px 8px;
+}
+
+.terminal--main .researchFeedPanel .feedCompactTitle {
+  color: var(--hi);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+}
+
+.terminal--main .researchFeedBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 12px 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.terminal--main .researchFeedSearch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: text;
+}
+
+.terminal--main .researchFeedSearchInput {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+.terminal--main .researchFeedSearchInput::placeholder {
+  color: rgba(255, 255, 255, 0.38);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.terminal--main .researchFeedSearchIcon {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.38);
+  pointer-events: none;
+}
+
+.terminal--main .researchFeedList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.terminal--main .researchFeedRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.terminal--main .researchFeedRow:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.terminal--main .researchFeedRow.isActive {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: none;
+}
+
+.terminal--main .researchFeedRowName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.82);
+  letter-spacing: 0.02em;
+}
+
+.terminal--main .researchFeedRowTicker {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
 .mainContextPanelBody {
   flex: 1;
   min-height: 0;
@@ -557,6 +910,298 @@
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   padding: 8px;
+}
+
+/* Research context panel — company snapshot (market + clinical) */
+.terminal--main .mainContextPanel--market,
+.terminal--main .mainContextPanel--clinical {
+  --context-surface: var(--context-surface-inset);
+  --context-surface-border: rgba(255, 255, 255, 0.09);
+}
+
+.terminal--main .mainContextPanel--market .researchContextHeader,
+.terminal--main .mainContextPanel--clinical .researchContextHeader {
+  border-bottom: none;
+  padding: 10px 12px 8px;
+}
+
+.terminal--main .mainContextPanel--market .feedCompactTitle,
+.terminal--main .mainContextPanel--clinical .feedCompactTitle {
+  color: var(--hi);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+}
+
+.terminal--main .mainContextPanel--market .mainContextPanelBody,
+.terminal--main .mainContextPanel--clinical .mainContextPanelBody {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyCard,
+.terminal--main .mainContextPanel--clinical .contextCompanyCard {
+  margin: 0;
+  padding: 12px 12px 10px;
+  border: 1px solid var(--context-surface-border);
+  border-radius: 10px;
+  background: var(--context-surface);
+  box-sizing: border-box;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyTopRow,
+.terminal--main .mainContextPanel--clinical .contextCompanyTopRow {
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyTicker,
+.terminal--main .mainContextPanel--clinical .contextCompanyTicker {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--hi);
+  line-height: 1.1;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyPrice,
+.terminal--main .mainContextPanel--clinical .contextCompanyPrice {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--hi);
+  line-height: 1.1;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyMeta,
+.terminal--main .mainContextPanel--clinical .contextCompanyMeta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.35;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyEarnings,
+.terminal--main .mainContextPanel--clinical .contextCompanyEarnings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  grid-template-columns: unset;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: var(--panel-corner-wash-compact-a), var(--panel-corner-wash-compact-b), var(--context-surface-inset);
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyEarningsK,
+.terminal--main .mainContextPanel--market .contextCompanyEarningsV,
+.terminal--main .mainContextPanel--clinical .contextCompanyEarningsK,
+.terminal--main .mainContextPanel--clinical .contextCompanyEarningsV {
+  position: relative;
+  z-index: 1;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyEarningsK,
+.terminal--main .mainContextPanel--clinical .contextCompanyEarningsK {
+  color: var(--hi);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyEarningsV,
+.terminal--main .mainContextPanel--clinical .contextCompanyEarningsV {
+  color: var(--hi);
+  text-align: right;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Research context panel — market intel (flows) */
+.terminal--main .mainContextPanel--market .contextSection {
+  margin-top: 0;
+}
+
+.terminal--main .mainContextPanel--market .contextSectionHeader {
+  margin-bottom: 8px;
+}
+
+.terminal--main .mainContextPanel--market .contextSectionTitle {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+}
+
+.terminal--main .mainContextPanel--market .contextSectionViewAll {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.terminal--main .mainContextPanel--market .contextSectionViewAll:hover {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.terminal--main .mainContextPanel--market .contextFlowList {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
+  padding: 2px 12px;
+  box-sizing: border-box;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  z-index: 1;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowRow:last-child {
+  border-bottom: none;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowRowMain {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowRowKey {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hi);
+}
+
+.terminal--main .mainContextPanel--market .contextFlowRowKey--name {
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowRowDate {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.terminal--main .mainContextPanel--market .contextFlowRowAmt {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+  color: var(--hi);
+}
+
+.terminal--main .mainContextPanel--clinical .contextSection {
+  margin-top: 0;
+}
+
+.terminal--main .mainContextPanel--clinical .contextSectionHeader {
+  margin-bottom: 8px;
+}
+
+.terminal--main .mainContextPanel--clinical .contextSectionTitle {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+}
+
+.terminal--main .mainContextPanel--clinical .contextDivider {
+  display: none;
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramsGrid {
+  gap: 10px;
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramCard {
+  border: 1px solid var(--context-surface-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--context-surface);
+  box-shadow: none;
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramCard:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: var(--context-surface);
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramCard.isActive {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: var(--context-surface);
+  box-shadow: none;
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramKey {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramPhase {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramMeta {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramMilestones {
+  margin-top: 8px;
+  gap: 4px;
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramCard.isActive .contextProgramMilestoneRow {
+  padding: 5px 6px;
+  border: none;
+  border-radius: 8px;
+  background: var(--panel-corner-wash-program-a), var(--panel-corner-wash-program-b), var(--context-surface-inset);
+  transition: background 0.15s ease;
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramCard.isActive .contextProgramMilestoneRow:hover {
+  background: var(--panel-corner-wash-program-a), var(--panel-corner-wash-program-b), rgba(14, 15, 18, 0.92);
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramMilestoneLabel,
+.terminal--main .mainContextPanel--clinical .contextProgramMilestoneAt {
+  position: relative;
+  z-index: 1;
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramMilestoneAt {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramMilestoneLabel {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.terminal--main .mainContextPanel--clinical .contextProgramCard.isActive .contextProgramMilestoneLabel::before {
+  background: rgba(255, 255, 255, 0.38);
 }
 
 .contextCompanyCard {
@@ -602,11 +1247,9 @@
   gap: 10px;
   margin-top: 8px;
   padding: 7px 8px 7px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
-  background:
-    radial-gradient(220px 140px at 18% 25%, var(--intel-accent-tint-soft), transparent 62%),
-    rgba(10, 11, 13, 0.46);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .contextCompanyEarningsK {
@@ -626,7 +1269,7 @@
 }
 
 .contextCompanyEarnings--soon .contextCompanyEarningsV {
-  color: var(--intel-accent-hi);
+  color: var(--hi);
 }
 
 .contextDivider {
@@ -650,12 +1293,10 @@
   width: 100%;
   text-align: left;
   box-sizing: border-box;
-  border: 1px solid var(--intel-accent-border-subtle);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   padding: 10px 10px 9px;
-  background:
-    radial-gradient(240px 140px at 18% 20%, var(--intel-accent-tint-soft), transparent 62%),
-    rgba(10, 11, 13, 0.44);
+  background: rgba(255, 255, 255, 0.025);
   color: var(--text);
   cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
@@ -673,11 +1314,9 @@
 }
 
 .contextProgramCard.isActive {
-  border-color: var(--intel-accent-stroke);
-  box-shadow: inset 0 0 0 1px var(--intel-accent-ring);
-  background:
-    radial-gradient(240px 140px at 18% 20%, var(--intel-accent-tint), transparent 62%),
-    rgba(10, 11, 13, 0.5);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .contextProgramTop {
@@ -773,9 +1412,7 @@
 .contextProgramCard.isActive .contextProgramMilestoneRow {
   padding: 5px 6px;
   border-radius: 8px;
-  background:
-    linear-gradient(90deg, var(--intel-accent-chip), transparent 72%),
-    rgba(255, 255, 255, 0.012);
+  background: rgba(255, 255, 255, 0.03);
   transition: background 0.15s ease;
 }
 
@@ -784,9 +1421,7 @@
 }
 
 .contextProgramCard.isActive .contextProgramMilestoneRow:hover {
-  background:
-    linear-gradient(90deg, var(--intel-accent-fill), transparent 70%),
-    rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .contextProgramCard.isActive .contextProgramMilestoneLabel {
@@ -802,8 +1437,8 @@
   width: 5px;
   height: 5px;
   border-radius: 999px;
-  background: var(--intel-accent-indicator);
-  opacity: 0.75;
+  background: rgba(255, 255, 255, 0.45);
+  opacity: 0.85;
 }
 
 .contextSectionTitle {
@@ -840,6 +1475,66 @@
 
 .contextSectionToggle:hover {
   color: rgba(255, 255, 255, 0.9);
+}
+
+.contextSectionViewAll {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.42);
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  line-height: 1;
+}
+
+.contextSectionViewAll:hover {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.contextFlowRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.contextFlowRow:last-child {
+  border-bottom: none;
+}
+
+.contextFlowRowKey {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--hi);
+  text-transform: uppercase;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contextFlowRowDate {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.contextFlowRowAmt {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--hi);
 }
 
 .contextInsidersList {
@@ -1758,7 +2453,7 @@
 }
 
 .boshaPaper .boshaCausalText {
-  fill: rgba(232, 232, 232, 0.92);
+  fill: rgba(255, 255, 255, 0.9);
 }
 
 .boshaPaper .boshaCausalEdge {
@@ -1766,7 +2461,11 @@
 }
 
 .boshaPaper .boshaCausalEdge--loop {
-  stroke: rgba(255, 255, 255, 0.28);
+  stroke: rgba(255, 255, 255, 0.24);
+}
+
+.boshaPaper .boshaCausalNode {
+  stroke: var(--diagram-node-border);
 }
 
 .boshaPaperDoc {
@@ -1830,6 +2529,91 @@
   color: var(--bosha-paper-fg-bright, rgba(248, 248, 248, 0.98));
 }
 
+.boshaPaperTitleTicker {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.boshaPaperTitleSep {
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 400;
+  padding: 0 0.35em;
+}
+
+.boshaPaperFigure--price {
+  margin-top: 28px;
+}
+
+.boshaPaperFigureHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px;
+}
+
+.boshaPaperFigureHead .boshaPaperSectionTitle {
+  margin: 0;
+}
+
+.boshaPriceRange {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.boshaPriceRangeBtn {
+  margin: 0;
+  padding: 3px 7px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.42);
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  line-height: 1;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.boshaPriceRangeBtn:hover {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.boshaPriceRangeBtn.isActive {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.terminal--main .boshaThesisP--live {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: clamp(12.5px, 1.75vmin, 14.5px);
+  line-height: 1.75;
+}
+
+.terminal--main .graphPath {
+  stroke: rgba(255, 255, 255, 0.88);
+}
+
+.terminal--main .graphTickLine {
+  stroke: rgba(255, 255, 255, 0.12);
+}
+
+.terminal--main .graphTick {
+  fill: rgba(255, 255, 255, 0.45);
+}
+
+
+.terminal--main .boshaMiniPrice--chartOnly .boshaMiniPriceWrap {
+  min-height: 140px;
+}
+
 .boshaPaperTitleBlock--live .boshaPaperSubtitle {
   text-align: left;
   margin-top: 12px;
@@ -1882,16 +2666,16 @@
 
 /* Paper column: chart tick type is easy to lose on pure black; bump contrast + size vs global --fs-meta. */
 .boshaPaperFigure .graphTick {
-  fill: rgba(230, 255, 245, 0.82);
+  fill: rgba(255, 255, 255, 0.42);
   font-size: clamp(9px, 1.55vmin, 11px);
 }
 
 .boshaPaperFigure .graphTickLine {
-  stroke: rgba(160, 255, 210, 0.38);
+  stroke: rgba(255, 255, 255, 0.16);
 }
 
 .boshaPaperFigure .graphAxis {
-  stroke: rgba(160, 255, 210, 0.34);
+  stroke: rgba(255, 255, 255, 0.16);
 }
 
 .boshaPaperSources {
@@ -1981,7 +2765,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .boshaCausalLine {
   margin: 6px 0 14px;
   letter-spacing: 0.02em;
-  color: rgba(240, 255, 248, 0.88);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .boshaCausalWrap {
@@ -2003,19 +2787,19 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .boshaCausalNode {
-  fill: rgba(6, 7, 10, 0.22);
-  stroke: rgba(140, 255, 195, 0.12);
-  stroke-width: 1px;
+  stroke: var(--diagram-node-border);
+  stroke-width: 1.25px;
+  vector-effect: non-scaling-stroke;
+  paint-order: stroke fill;
 }
 
 .boshaCausalNode--edge {
-  stroke: var(--intel-accent-stroke);
-  box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+  stroke: var(--diagram-node-border-edge);
 }
 
 .boshaCausalEdge {
   fill: none;
-  stroke: rgba(216, 255, 235, 0.5);
+  stroke: rgba(255, 255, 255, 0.38);
   stroke-width: 1.25px;
   opacity: 0.95;
   stroke-linecap: round;
@@ -2028,7 +2812,7 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .boshaCausalText {
-  fill: rgba(240, 255, 248, 0.9);
+  fill: rgba(255, 255, 255, 0.9);
   font-size: var(--fs-meta);
   letter-spacing: 0.06em;
   text-anchor: middle;
@@ -2094,7 +2878,7 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .boshaMiniDelta.isUp {
-  color: rgba(140, 255, 195, 0.9);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .boshaMiniDelta.isDown {
@@ -2131,7 +2915,7 @@ button.boshaPaperCopyIcon:focus-visible {
   aspect-ratio: 16 / 6;
   min-height: 160px;
   max-height: 360px;
-  border: 1px solid rgba(140, 255, 195, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(6, 7, 10, 0.35);
   overflow: hidden;
 }
@@ -2145,7 +2929,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .boshaTickerSearchRow {
   cursor: text;
   background: rgba(255, 255, 255, 0.025);
-  border-bottom: 1px solid rgba(140, 255, 195, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .boshaTickerSearchInput {
@@ -2154,7 +2938,7 @@ button.boshaPaperCopyIcon:focus-visible {
   background: transparent;
   border: none;
   outline: none;
-  color: rgba(240, 255, 248, 0.92);
+  color: rgba(255, 255, 255, 0.92);
   font: inherit;
   font-size: inherit;
   line-height: inherit;
@@ -2162,13 +2946,13 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .boshaTickerSearchInput::placeholder {
-  color: rgba(216, 255, 235, 0.45);
+  color: rgba(255, 255, 255, 0.38);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .boshaEdge {
-  stroke: rgba(140, 255, 195, 0.18);
+  stroke: rgba(255, 255, 255, 0.2);
   stroke-width: 0.75px;
 }
 
@@ -2178,7 +2962,7 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .boshaGraphEntity {
   fill: var(--intel-accent-marker);
-  stroke: rgba(140, 255, 195, 0.16);
+  stroke: rgba(255, 255, 255, 0.18);
   stroke-width: 1px;
 }
 
@@ -2187,12 +2971,12 @@ button.boshaPaperCopyIcon:focus-visible {
   z-index: 80;
   pointer-events: none;
   background: rgba(7, 10, 15, 0.92);
-  border: 1px solid rgba(140, 255, 195, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   padding: 6px 8px 7px;
   max-width: 340px;
   font-size: var(--fs-body);
   line-height: 1.2;
-  color: rgba(240, 255, 248, 0.92);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .boshaFigureCaption {
@@ -2535,6 +3319,277 @@ button.boshaPaperCopyIcon:focus-visible {
   grid-row: 4 / span 1;
 }
 
+/* Insider, Pharma, Politicians — research-aligned panels */
+.terminal--insider .feed.feedCompact,
+.terminal--insider .panel.graph,
+.terminal--insider .historicalOutcomes,
+.terminal--insider .companyTile,
+.terminal--pharma .feed.feedCompact,
+.terminal--pharma .panel.graph,
+.terminal--pharma .panel.worksheet,
+.terminal--pharma .historicalOutcomes,
+.terminal--pharma .companyTile,
+.terminal--politicians .feed.feedCompact,
+.terminal--politicians .panel.graph,
+.terminal--politicians .historicalOutcomes,
+.terminal--politicians .companyTile {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.terminal--insider .feed.feedCompact,
+.terminal--pharma .feed.feedCompact,
+.terminal--politicians .feed.feedCompact {
+  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
+}
+
+.terminal--pharma .panel.worksheet {
+  background: transparent;
+}
+
+.terminal--insider .feedCompactHeader,
+.terminal--insider .graph .panelHeader,
+.terminal--insider .historicalOutcomes .feedCompactHeader,
+.terminal--insider .companyTile .feedCompactHeader,
+.terminal--pharma .feedCompactHeader,
+.terminal--pharma .graph .panelHeader,
+.terminal--pharma .historicalOutcomes .feedCompactHeader,
+.terminal--pharma .companyTile .feedCompactHeader,
+.terminal--politicians .feedCompactHeader,
+.terminal--politicians .graph .panelHeader,
+.terminal--politicians .historicalOutcomes .feedCompactHeader,
+.terminal--politicians .companyTile .feedCompactHeader {
+  box-sizing: border-box;
+  flex: 0 0 27px;
+  height: 27px;
+  min-height: 27px;
+  max-height: 27px;
+  padding: 0 12px;
+  align-items: center;
+  border-bottom: none;
+}
+
+.terminal--insider .feedCompactTitle,
+.terminal--insider .graph .panelTitle,
+.terminal--pharma .feedCompactTitle,
+.terminal--pharma .graph .panelTitle,
+.terminal--politicians .feedCompactTitle,
+.terminal--politicians .graph .panelTitle {
+  color: var(--hi);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+}
+
+.terminal--insider .graph .panelMeta,
+.terminal--pharma .graph .panelMeta,
+.terminal--politicians .graph .panelMeta {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.terminal--insider .feedCompactMeta,
+.terminal--insider .feedPageInd,
+.terminal--pharma .feedCompactMeta,
+.terminal--pharma .feedPageInd,
+.terminal--politicians .feedCompactMeta,
+.terminal--politicians .feedPageInd {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.terminal--insider .feedCompactList,
+.terminal--pharma .feedCompactList,
+.terminal--politicians .feedCompactList {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0 12px 12px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.terminal--insider .feedCompactList.feedCompactList--scroll,
+.terminal--pharma .feedCompactList.feedCompactList--scroll,
+.terminal--politicians .feedCompactList.feedCompactList--scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.terminal--insider .feedRowCompact,
+.terminal--pharma .feedRowCompact,
+.terminal--politicians .feedRowCompact {
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.terminal--insider .kvFeedMain,
+.terminal--pharma .kvFeedMain,
+.terminal--politicians .kvFeedMain {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.terminal--insider .kvFeedDim,
+.terminal--pharma .kvFeedDim,
+.terminal--politicians .kvFeedDim {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.terminal--insider .feedRowCompact:hover,
+.terminal--pharma .feedRowCompact:hover,
+.terminal--politicians .feedRowCompact:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.terminal--insider .feedRowCompact.isActive,
+.terminal--pharma .feedRowCompact.isActive,
+.terminal--politicians .feedRowCompact.isActive {
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+  border-radius: 8px;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.terminal--insider .feedRowTodaySep,
+.terminal--pharma .feedRowTodaySep,
+.terminal--politicians .feedRowTodaySep {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.42);
+  text-shadow: none;
+}
+
+.terminal--insider .graph .graphWrap,
+.terminal--pharma .graph .graphWrap,
+.terminal--politicians .graph .graphWrap {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+  margin: 0 12px 12px;
+  padding: 10px 10px 8px;
+  border: 1px solid var(--chart-panel-border);
+  border-radius: 10px;
+  background: var(--chart-panel-surface);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.terminal--insider .graph .graphPath,
+.terminal--pharma .graph .graphPath,
+.terminal--politicians .graph .graphPath {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 1.25px;
+}
+
+.terminal--insider .graph .graphTick,
+.terminal--pharma .graph .graphTick,
+.terminal--politicians .graph .graphTick {
+  fill: rgba(255, 255, 255, 0.38);
+}
+
+.terminal--insider .graph .graphTickLine,
+.terminal--pharma .graph .graphTickLine,
+.terminal--politicians .graph .graphTickLine {
+  stroke: rgba(255, 255, 255, 0.14);
+}
+
+.terminal--insider .graph .graphMarker,
+.terminal--pharma .graph .graphMarker,
+.terminal--politicians .graph .graphMarker {
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-dasharray: 3 4;
+}
+
+.terminal--insider .graph .graphMarker--selected,
+.terminal--pharma .graph .graphMarker--selected,
+.terminal--politicians .graph .graphMarker--selected {
+  stroke: rgba(255, 255, 255, 0.48);
+}
+
+.terminal--insider .historicalOutcomes .worksheetBody,
+.terminal--insider .companyTile .worksheetBody,
+.terminal--pharma .panel.worksheet .worksheetBody,
+.terminal--pharma .historicalOutcomes .worksheetBody,
+.terminal--pharma .companyTile .worksheetBody,
+.terminal--politicians .historicalOutcomes .worksheetBody,
+.terminal--politicians .companyTile .worksheetBody {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+  margin: 0 12px 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--chart-panel-border);
+  border-radius: 10px;
+  background: var(--chart-panel-surface);
+  box-sizing: border-box;
+}
+
+.terminal--pharma .panel.worksheet .worksheetBody {
+  column-count: 2;
+  column-gap: clamp(8px, max(2cqmin, 1.5vmin), 14px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.terminal--insider .historicalOutcomes .kvLine,
+.terminal--insider .companyTile .kvLine,
+.terminal--pharma .panel.worksheet .kvLine,
+.terminal--pharma .historicalOutcomes .kvLine,
+.terminal--pharma .companyTile .kvLine,
+.terminal--politicians .historicalOutcomes .kvLine,
+.terminal--politicians .companyTile .kvLine {
+  color: rgba(255, 255, 255, 0.88);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.terminal--insider .historicalOutcomes .kvK,
+.terminal--insider .companyTile .kvK,
+.terminal--pharma .panel.worksheet .kvK,
+.terminal--pharma .historicalOutcomes .kvK,
+.terminal--pharma .companyTile .kvK,
+.terminal--politicians .historicalOutcomes .kvK,
+.terminal--politicians .companyTile .kvK {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.terminal--insider .historicalOutcomes .kvV,
+.terminal--insider .companyTile .kvV,
+.terminal--pharma .panel.worksheet .kvV,
+.terminal--pharma .historicalOutcomes .kvV,
+.terminal--pharma .companyTile .kvV,
+.terminal--politicians .historicalOutcomes .kvV,
+.terminal--politicians .companyTile .kvV {
+  color: var(--hi);
+}
+
+.terminal--pharma .panel.worksheet .feedCompactHeader .feedCompactMeta {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: min(100%, 52%);
+  text-align: right;
+  line-height: 1.2;
+}
+
 /* Politicians tab: same placement overrides as INSIDER. */
 .terminal--politicians .graph {
   grid-column: 3 / span 3;
@@ -2553,14 +3608,10 @@ button.boshaPaperCopyIcon:focus-visible {
   grid-row: 4 / span 1;
 }
 
-/* New Politicians-only tile above CASE */
+/* Politicians FILTER tile (above CASE) */
 .terminal--politicians .filterTile {
   grid-column: 2 / span 1;
   grid-row: 1 / span 1;
-  padding: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: 0;
 }
 
 .filterList {
@@ -2772,10 +3823,6 @@ body {
   container-name: feedpane;
 }
 
-.feed.feedCompact.isFocused {
-  box-shadow: inset 0 0 0 1px var(--intel-accent-ring);
-}
-
 .feedCompactHeader {
   display: flex;
   align-items: baseline;
@@ -2905,10 +3952,9 @@ body {
 }
 
 .feedRowCompact.isActive {
-  background: var(--intel-accent-surface);
-  box-shadow:
-    inset 2px 0 0 var(--intel-accent-inset-strong),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
 }
 
 /* Non-selectable row between “today” and older events (see `buildFeedDisplayRows` in App.jsx) */
@@ -3204,13 +4250,13 @@ body {
 }
 
 .graphAxis {
-  stroke: rgba(140, 255, 195, 0.16);
+  stroke: rgba(255, 255, 255, 0.16);
   stroke-width: 0.75px;
   fill: none;
 }
 
 .graphTick {
-  fill: rgba(216, 255, 235, 0.42);
+  fill: rgba(255, 255, 255, 0.42);
   /* Smaller tick labels for 1×1 graph (pharma) and overall tighter look */
   font-size: var(--fs-meta);
   letter-spacing: 0.06em;
@@ -3225,20 +4271,19 @@ body {
 }
 
 .graphTickLine {
-  stroke: rgba(140, 255, 195, 0.12);
+  stroke: rgba(255, 255, 255, 0.14);
   stroke-width: 1px;
   fill: none;
 }
 
 .graphMarker {
-  stroke: rgba(140, 255, 195, 0.16);
+  stroke: rgba(255, 255, 255, 0.18);
   stroke-width: 0.75px;
   fill: none;
 }
 
 .graphMarker--selected {
-  /* Match the TODAY separator accent */
-  stroke: rgba(140, 255, 195, 0.55);
+  stroke: rgba(255, 255, 255, 0.48);
   stroke-width: 0.75px;
 }
 
