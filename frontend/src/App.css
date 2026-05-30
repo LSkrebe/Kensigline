@@ -2594,9 +2594,9 @@
   height: 22px;
   margin: 0;
   padding: 0;
-  border: 1px solid var(--chart-panel-border);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
+  border: none;
+  border-radius: 0;
+  background: transparent;
   color: rgba(255, 255, 255, 0.45);
   cursor: pointer;
   user-select: none;
@@ -2605,8 +2605,7 @@
 }
 
 .settingsInvoiceDownload:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: transparent;
   color: var(--hi);
 }
 
@@ -2621,8 +2620,7 @@
 }
 
 .settingsInvoiceDownload:disabled:hover {
-  background: rgba(255, 255, 255, 0.02);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: transparent;
   color: rgba(255, 255, 255, 0.56);
 }
 
