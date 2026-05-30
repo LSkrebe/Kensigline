@@ -459,7 +459,6 @@
   display: grid;
   /*
    * Col 1: insider (slightly slimmer).
-   * Col 2: pharma.
    * Col 3: PROGRAMS rail (a bit wider; taken from col 1).
    * Cols 4–5: case sheet + right stack.
    */
@@ -3124,7 +3123,6 @@
 }
 
 
-
 .terminal--main .mainTopPanel {
   grid-column: 1 / span 2;
   grid-row: 1;
@@ -4078,19 +4076,6 @@ button.boshaPaperCopyIcon:focus-visible {
   word-break: break-word;
 }
 
-/* Pharma tab: match INSIDER column widths so PHARMA FEED + PROGRAMS align. */
-.terminal.terminal--pharma {
-  /* Reference layout: 4×4 for pharma mode */
-  grid-template-columns:
-    /* Match INSIDER rails pixel width (same proportion of total grid). */
-    minmax(60px, 0.6fr)
-    minmax(60px, 0.6fr)
-    minmax(0, 0.95fr)
-    minmax(0, 0.95fr);
-  /* Make bottom-right 2×2 tiles equal height (rows 3 and 4 match). */
-  grid-template-rows: 0.95fr 0.95fr 1fr 1fr;
-}
-
 .panel {
   background: var(--panel);
   border-right: 1px solid var(--grid);
@@ -4207,11 +4192,8 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .panel.graph,
 .terminal--insider .historicalOutcomes,
 .terminal--insider .companyTile,
-.terminal--pharma .feed.feedCompact,
-.terminal--pharma .panel.graph,
-.terminal--pharma .panel.worksheet,
-.terminal--pharma .historicalOutcomes,
-.terminal--pharma .companyTile,
+
+
 .terminal--politicians .feed.feedCompact,
 .terminal--politicians .panel.graph,
 .terminal--politicians .historicalOutcomes,
@@ -4224,8 +4206,8 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .feed.feedCompact,
-.terminal--pharma .feed.feedCompact,
-.terminal--pharma .panel.worksheet,
+
+
 .terminal--politicians .feed.feedCompact {
   background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
 }
@@ -4234,11 +4216,8 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .graph .panelHeader,
 .terminal--insider .historicalOutcomes .feedCompactHeader,
 .terminal--insider .companyTile .feedCompactHeader,
-.terminal--pharma .feedCompactHeader,
-.terminal--pharma .panel.worksheet .feedCompactHeader,
-.terminal--pharma .graph .panelHeader,
-.terminal--pharma .historicalOutcomes .feedCompactHeader,
-.terminal--pharma .companyTile .feedCompactHeader,
+
+
 .terminal--politicians .feedCompactHeader,
 .terminal--politicians .graph .panelHeader,
 .terminal--politicians .historicalOutcomes .feedCompactHeader,
@@ -4255,8 +4234,8 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feedCompactTitle,
 .terminal--insider .graph .panelTitle,
-.terminal--pharma .feedCompactTitle,
-.terminal--pharma .graph .panelTitle,
+
+
 .terminal--politicians .feedCompactTitle,
 .terminal--politicians .graph .panelTitle {
   color: var(--hi);
@@ -4266,7 +4245,7 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .graph .panelMeta,
-.terminal--pharma .graph .panelMeta,
+
 .terminal--politicians .graph .panelMeta {
   color: rgba(255, 255, 255, 0.45);
   font-size: 9px;
@@ -4275,8 +4254,8 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feedCompactMeta,
 .terminal--insider .feedPageInd,
-.terminal--pharma .feedCompactMeta,
-.terminal--pharma .feedPageInd,
+
+
 .terminal--politicians .feedCompactMeta,
 .terminal--politicians .feedPageInd {
   color: rgba(255, 255, 255, 0.45);
@@ -4285,7 +4264,7 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .feedCompactList,
-.terminal--pharma .feedCompactList,
+
 .terminal--politicians .feedCompactList {
   flex: 1;
   min-height: 0;
@@ -4298,7 +4277,7 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .feedCompactList.feedCompactList--scroll,
-.terminal--pharma .feedCompactList.feedCompactList--scroll,
+
 .terminal--politicians .feedCompactList.feedCompactList--scroll {
   overflow-y: auto;
   overflow-x: hidden;
@@ -4306,7 +4285,7 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .feedRowCompact,
-.terminal--pharma .feedRowCompact,
+
 .terminal--politicians .feedRowCompact {
   box-sizing: border-box;
   border: 1px solid transparent;
@@ -4315,25 +4294,25 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .kvFeedMain,
-.terminal--pharma .kvFeedMain,
+
 .terminal--politicians .kvFeedMain {
   color: rgba(255, 255, 255, 0.82);
 }
 
 .terminal--insider .kvFeedDim,
-.terminal--pharma .kvFeedDim,
+
 .terminal--politicians .kvFeedDim {
   color: rgba(255, 255, 255, 0.45);
 }
 
 .terminal--insider .feedRowCompact:hover,
-.terminal--pharma .feedRowCompact:hover,
+
 .terminal--politicians .feedRowCompact:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
 .terminal--insider .feedRowCompact.isActive,
-.terminal--pharma .feedRowCompact.isActive,
+
 .terminal--politicians .feedRowCompact.isActive {
   background: rgba(255, 255, 255, 0.04);
   box-shadow: none;
@@ -4342,7 +4321,7 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .feedRowTodaySep,
-.terminal--pharma .feedRowTodaySep,
+
 .terminal--politicians .feedRowTodaySep {
   border-top-color: rgba(255, 255, 255, 0.08);
   border-bottom-color: rgba(255, 255, 255, 0.08);
@@ -4352,7 +4331,7 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .graph .graphWrap,
-.terminal--pharma .graph .graphWrap,
+
 .terminal--politicians .graph .graphWrap {
   flex: 1 1 auto;
   align-self: stretch;
@@ -4370,42 +4349,41 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .graph .graphPath,
-.terminal--pharma .graph .graphPath,
+
 .terminal--politicians .graph .graphPath {
   stroke: rgba(255, 255, 255, 0.9);
   stroke-width: 1.25px;
 }
 
 .terminal--insider .graph .graphTick,
-.terminal--pharma .graph .graphTick,
+
 .terminal--politicians .graph .graphTick {
   fill: rgba(255, 255, 255, 0.38);
 }
 
 .terminal--insider .graph .graphTickLine,
-.terminal--pharma .graph .graphTickLine,
+
 .terminal--politicians .graph .graphTickLine {
   stroke: rgba(255, 255, 255, 0.14);
 }
 
 .terminal--insider .graph .graphMarker,
-.terminal--pharma .graph .graphMarker,
+
 .terminal--politicians .graph .graphMarker {
   stroke: rgba(255, 255, 255, 0.16);
   stroke-dasharray: 3 4;
 }
 
 .terminal--insider .graph .graphMarker--selected,
-.terminal--pharma .graph .graphMarker--selected,
+
 .terminal--politicians .graph .graphMarker--selected {
   stroke: rgba(255, 255, 255, 0.48);
 }
 
 .terminal--insider .historicalOutcomes .worksheetBody,
 .terminal--insider .companyTile .worksheetBody,
-.terminal--pharma .panel.worksheet .worksheetBody,
-.terminal--pharma .historicalOutcomes .worksheetBody,
-.terminal--pharma .companyTile .worksheetBody,
+
+
 .terminal--politicians .historicalOutcomes .worksheetBody,
 .terminal--politicians .companyTile .worksheetBody {
   flex: 1 1 auto;
@@ -4422,34 +4400,10 @@ button.boshaPaperCopyIcon:focus-visible {
   box-sizing: border-box;
 }
 
-.terminal--pharma .panel.worksheet .worksheetBody {
-  column-count: 2;
-  column-gap: clamp(8px, max(2cqmin, 1.5vmin), 14px);
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-.terminal--pharma .panel.worksheet .worksheetBody--analysis {
-  column-count: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 12px 14px 14px;
-}
-
-.terminal--pharma .panel.worksheet .pharmaCaseProse {
-  margin: 0 0 18px;
-}
-
-.terminal--pharma .panel.worksheet .pharmaCaseProse:last-child {
-  margin-bottom: 0;
-}
-
 .terminal--insider .historicalOutcomes .kvLine,
 .terminal--insider .companyTile .kvLine,
-.terminal--pharma .panel.worksheet .kvLine,
-.terminal--pharma .historicalOutcomes .kvLine,
-.terminal--pharma .companyTile .kvLine,
+
+
 .terminal--politicians .historicalOutcomes .kvLine,
 .terminal--politicians .companyTile .kvLine {
   color: rgba(255, 255, 255, 0.88);
@@ -4458,9 +4412,8 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .historicalOutcomes .kvK,
 .terminal--insider .companyTile .kvK,
-.terminal--pharma .panel.worksheet .kvK,
-.terminal--pharma .historicalOutcomes .kvK,
-.terminal--pharma .companyTile .kvK,
+
+
 .terminal--politicians .historicalOutcomes .kvK,
 .terminal--politicians .companyTile .kvK {
   color: rgba(255, 255, 255, 0.45);
@@ -4470,21 +4423,11 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .historicalOutcomes .kvV,
 .terminal--insider .companyTile .kvV,
-.terminal--pharma .panel.worksheet .kvV,
-.terminal--pharma .historicalOutcomes .kvV,
-.terminal--pharma .companyTile .kvV,
+
+
 .terminal--politicians .historicalOutcomes .kvV,
 .terminal--politicians .companyTile .kvV {
   color: var(--hi);
-}
-
-.terminal--pharma .panel.worksheet .feedCompactHeader .feedCompactMeta {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: min(100%, 52%);
-  text-align: right;
-  line-height: 1.2;
 }
 
 /* Politicians tab: same placement overrides as INSIDER. */
@@ -4582,36 +4525,6 @@ body {
 
 /* (old selectors were removed; filter now uses feed row cell classes) */
 
-/* ---- TAB-SPECIFIC LAYOUT (PHARMA) ---- */
-/* Match the two tall left panels layout from INSIDER (feed + case). */
-.terminal--pharma .feed--right {
-  grid-column: 1 / span 1; /* PHARMA FEED */
-  grid-row: 1 / span 4;
-}
-.terminal--pharma .blankFeedRail {
-  grid-column: 2 / span 1; /* PROGRAMS */
-  grid-row: 1 / span 3;
-}
-/* Use the freed column for the worksheet on the right side. */
-.terminal--pharma .worksheet {
-  grid-column: 3 / span 2;
-  grid-row: 1 / span 2;
-}
-
-/* Bottom row: outcomes under PROGRAMS + old company slot; company one row up. */
-.terminal--pharma .historicalOutcomes {
-  grid-column: 2 / span 2;
-  grid-row: 4 / span 1;
-}
-.terminal--pharma .companyTile {
-  grid-column: 3 / span 1;
-  grid-row: 3 / span 1;
-}
-.terminal--pharma .graph {
-  grid-column: 4 / span 1;
-  grid-row: 3 / span 2;
-}
-
 /* ---- Container tiles (per-panel cqmin still used for gaps / graph / stats tiles) ---- */
 .worksheet,
 .graph,
@@ -4673,7 +4586,7 @@ body {
 }
 
 .terminal--insider .graph .graphPriceRange .boshaPriceRangeBtn,
-.terminal--pharma .graph .graphPriceRange .boshaPriceRangeBtn,
+
 .terminal--politicians .graph .graphPriceRange .boshaPriceRangeBtn {
   padding: 4px 8px;
   font-size: 9px;
@@ -4682,14 +4595,14 @@ body {
 }
 
 .terminal--insider .graph .graphPriceRange .boshaPriceRangeBtn.isActive,
-.terminal--pharma .graph .graphPriceRange .boshaPriceRangeBtn.isActive,
+
 .terminal--politicians .graph .graphPriceRange .boshaPriceRangeBtn.isActive {
   background: #fff;
   color: #0a0b0d;
 }
 
 .terminal--insider .graph .graphPriceRange .boshaPriceRangeBtn:hover:not(.isActive),
-.terminal--pharma .graph .graphPriceRange .boshaPriceRangeBtn:hover:not(.isActive),
+
 .terminal--politicians .graph .graphPriceRange .boshaPriceRangeBtn:hover:not(.isActive) {
   color: rgba(255, 255, 255, 0.62);
 }
@@ -5176,11 +5089,6 @@ body {
 /* Big insider graph: tighter, even padding */
 .terminal--insider .graphWrap {
   --graph-gutter: 8px;
-}
-
-/* Pharma graph is only 1×1: reduce surrounding gutter */
-.terminal--pharma .graphWrap {
-  --graph-gutter: 6px;
 }
 
 .graphSvg {

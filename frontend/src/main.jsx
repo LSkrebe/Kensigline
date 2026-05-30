@@ -19,10 +19,26 @@ class ErrorBoundary extends React.Component {
   }
   render() {
     if (!this.state.hasError) return this.props.children
+    const errMsg = this.state.err?.message ? String(this.state.err.message) : null
     return (
       <div style={{ padding: 18, color: 'rgba(160,255,200,0.9)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}>
         <div style={{ marginBottom: 8, letterSpacing: 0.5 }}>MERCERLINE</div>
         <div style={{ opacity: 0.8, marginBottom: 14 }}>UI crashed. Reload to recover.</div>
+        {errMsg ? (
+          <pre
+            style={{
+              opacity: 0.75,
+              marginBottom: 14,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              fontSize: 11,
+              maxHeight: 180,
+              overflow: 'auto',
+            }}
+          >
+            {errMsg}
+          </pre>
+        ) : null}
         <button
           onClick={() => location.reload()}
           style={{

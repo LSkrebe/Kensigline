@@ -55,357 +55,6 @@ function trimLeadingFlatSeries(arr, { minRemain = 32, maxTrimFraction = 0.9 } = 
   return sliced.length >= minRemain ? sliced : arr
 }
 
-const MOCK_EVENTS = [
-  {
-    id: 'ONC-441-P2-READOUT',
-    trial: 'ONC-441 Phase II (mCRC)',
-    drug: 'ONC-441',
-    mechanism: 'CD47×EGFR bispecific',
-    phase: 'Phase II',
-    indication: 'metastatic colorectal cancer (mCRC)',
-    sponsor: 'OncoNadir Therapeutics',
-    intervention: 'ONC-441 IV q2w + SOC',
-    eventType: 'READOUT',
-    ts: '2026-04-14 09:31:12Z',
-    trialSnapshot: {
-      drug: 'ONC-441',
-      mechanism: 'CD47×EGFR bispecific',
-      phase: 'Phase II',
-      indication: 'mCRC',
-      sponsor: 'OncoNadir Therapeutics',
-      intervention: 'ONC-441 IV q2w + SOC',
-      assetOrigin: 'In-house bispecific platform',
-    },
-    studyDesign: {
-      arms: '2 (Dose A / Dose B)',
-      randomization: 'Non-randomized',
-      control: 'External SOC benchmark',
-      masking: 'Open-label',
-      sampleSize: 'N=124',
-    },
-    population: {
-      condition: 'mCRC (2L+)',
-      biomarkers: 'EGFR-high enriched cohort',
-      lineOfTherapy: '2L+',
-    },
-    endpointsResults: {
-      endpoints: ['Primary: ORR (RECIST v1.1)', 'Secondary: DOR, PFS, OS, Safety'],
-      results: [
-        { endpoint: 'ORR', value: '28.2%' },
-        { endpoint: 'DCR', value: '71.0%' },
-        { endpoint: 'Median DOR', value: '5.6 mo (immature)' },
-      ],
-    },
-    timelineDetails: {
-      studyStart: '2025-02-18',
-      primaryCompletion: '2026-08-30 (est.)',
-      studyCompletion: '2027-01-15 (est.)',
-      status: 'Active, not recruiting',
-      eventSource: 'Company release',
-      eventSubtype: 'Interim efficacy update',
-    },
-    safety: [
-      { term: 'Grade ≥3 TRAE', value: '9%' },
-      { term: 'IRR', value: '12% (mostly Grade 1–2)' },
-      { term: 'Treatment discontinuation (AE)', value: '3%' },
-    ],
-    daily: [94, 96, 92, 90, 91, 93, 95, 99, 101, 98, 102, 106, 103, 108, 112, 109, 113],
-  },
-  {
-    id: 'NRX-118-FDA-UPDATE',
-    trial: 'NRX-118 Phase I/II (RARE-NEURO)',
-    drug: 'NRX-118',
-    mechanism: 'Intrathecal ASO',
-    phase: 'Phase I/II',
-    indication: 'rare neurodegenerative disease',
-    sponsor: 'NeuroRex Bio',
-    intervention: 'NRX-118 IT q4w',
-    eventType: 'FDA UPDATE',
-    ts: '2026-04-14 10:04:51Z',
-    trialSnapshot: {
-      drug: 'NRX-118',
-      mechanism: 'Intrathecal ASO',
-      phase: 'Phase I/II',
-      indication: 'RARE-NEURO',
-      sponsor: 'NeuroRex Bio',
-      intervention: 'NRX-118 IT q4w',
-      assetOrigin: 'University partnership (preclinical in-licensed)',
-    },
-    studyDesign: {
-      arms: '1 (dose escalation + expansion)',
-      randomization: 'Not applicable (dose-finding)',
-      control: 'None',
-      masking: 'Open-label',
-      sampleSize: 'N=38 planned',
-    },
-    population: {
-      condition: 'RARE-NEURO',
-      biomarkers: 'Target RNA baseline required',
-      lineOfTherapy: 'Any',
-    },
-    endpointsResults: {
-      endpoints: ['Primary: Biomarker knockdown', 'Secondary: Functional scale (exploratory)', 'Safety'],
-      results: [],
-    },
-    timelineDetails: {
-      studyStart: '2025-09-03',
-      primaryCompletion: '2027-03-20 (est.)',
-      studyCompletion: '2027-06-01 (est.)',
-      status: 'Recruiting',
-      eventSource: 'Regulatory correspondence',
-      eventSubtype: 'CMC request (comparability)',
-    },
-    daily: [52, 51, 49, 48, 49, 50, 51, 50, 52, 53, 52, 54, 55, 54, 53, 52, 53],
-  },
-  {
-    id: 'KLM-210-TRIAL-DELAY',
-    trial: 'KLM-210 Phase III (NASH)',
-    drug: 'KLM-210',
-    mechanism: 'FXR agonist',
-    phase: 'Phase III',
-    indication: 'NASH',
-    sponsor: 'KaleidoMetrix',
-    intervention: 'KLM-210 PO daily',
-    eventType: 'DELAY',
-    ts: '2026-04-14 11:22:03Z',
-    trialSnapshot: {
-      drug: 'KLM-210',
-      mechanism: 'FXR agonist',
-      phase: 'Phase III',
-      indication: 'NASH',
-      sponsor: 'KaleidoMetrix',
-      intervention: 'KLM-210 PO daily',
-      assetOrigin: 'Acquired program (2019)',
-    },
-    studyDesign: {
-      arms: '2 (active / placebo)',
-      randomization: 'Randomized 1:1',
-      control: 'Placebo',
-      masking: 'Double-blind',
-      sampleSize: 'N=1,200',
-    },
-    population: {
-      condition: 'NASH with fibrosis (F2–F3)',
-      biomarkers: 'Baseline liver biopsy required',
-      lineOfTherapy: 'Not applicable',
-    },
-    endpointsResults: {
-      endpoints: ['Primary: fibrosis improvement w/o worsening NASH', 'Secondary: NASH resolution, safety'],
-      results: [],
-    },
-    timelineDetails: {
-      studyStart: '2024-11-11',
-      primaryCompletion: '2026-12-10 (est.)',
-      studyCompletion: '2027-04-08 (est.)',
-      status: 'Active, not recruiting',
-      eventSource: 'Site audit notice',
-      eventSubtype: 'Enrollment pause',
-    },
-    daily: [77, 78, 76, 74, 73, 72, 70, 71, 69, 68, 66, 65, 64, 63, 62, 61, 60],
-  },
-  {
-    id: 'BETA-AMYLOID-FAIL',
-    trial: 'BA-19 Phase II (Early AD)',
-    drug: 'BA-19',
-    mechanism: 'Beta-amyloid mAb',
-    phase: 'Phase II',
-    indication: 'Early Alzheimer’s disease',
-    sponsor: 'BlueArc Biologics',
-    intervention: 'BA-19 IV monthly',
-    eventType: 'ENDPOINT MISS',
-    ts: '2026-04-14 12:09:44Z',
-    trialSnapshot: {
-      drug: 'BA-19',
-      mechanism: 'Beta-amyloid mAb',
-      phase: 'Phase II',
-      indication: 'Early AD',
-      sponsor: 'BlueArc Biologics',
-      intervention: 'BA-19 IV monthly',
-      assetOrigin: 'Internal antibody discovery',
-    },
-    studyDesign: {
-      arms: '2 (active / placebo)',
-      randomization: 'Randomized 1:1',
-      control: 'Placebo',
-      masking: 'Double-blind',
-      sampleSize: 'N=312',
-    },
-    population: {
-      condition: 'Early Alzheimer’s disease',
-      biomarkers: 'Amyloid PET positive required',
-      lineOfTherapy: 'Not applicable',
-    },
-    endpointsResults: {
-      endpoints: ['Primary: cognitive composite (18 mo)', 'Secondary: PET amyloid, safety'],
-      results: [
-        { endpoint: 'Primary cognitive composite', value: 'Not met' },
-        { endpoint: 'Amyloid PET', value: 'Reduced vs baseline' },
-      ],
-    },
-    timelineDetails: {
-      studyStart: '2024-06-22',
-      primaryCompletion: '2026-03-15',
-      studyCompletion: '2026-07-30 (est.)',
-      status: 'Completed',
-      eventSource: 'Topline release',
-      eventSubtype: 'Primary endpoint result',
-    },
-    safety: [
-      { term: 'ARIA-E', value: '8.1%' },
-      { term: 'Serious AE', value: '6.4%' },
-      { term: 'Discontinuation (AE)', value: '4.5%' },
-    ],
-    daily: [120, 118, 116, 112, 108, 104, 101, 97, 94, 90, 88, 85, 84, 82, 81, 80, 79],
-  },
-  {
-    id: 'RXQ-701-PH3-START',
-    trial: 'RXQ-701 Phase III (IgAN)',
-    drug: 'RXQ-701',
-    mechanism: 'Endothelin antagonist',
-    phase: 'Phase III',
-    indication: 'IgA nephropathy',
-    sponsor: 'Renexus Pharma',
-    intervention: 'RXQ-701 PO qd',
-    eventType: 'SITE START',
-    ts: '2026-04-13 08:15:00Z',
-    trialSnapshot: {
-      drug: 'RXQ-701',
-      mechanism: 'Endothelin antagonist',
-      phase: 'Phase III',
-      indication: 'IgAN',
-      sponsor: 'Renexus Pharma',
-      intervention: 'RXQ-701 PO qd',
-      assetOrigin: 'In-licensed (JP origin asset)',
-    },
-    studyDesign: {
-      arms: '2 (active / placebo)',
-      randomization: 'Randomized 2:1',
-      control: 'Placebo',
-      masking: 'Double-blind',
-      sampleSize: 'N=980',
-    },
-    population: {
-      condition: 'Primary IgAN (biopsy-confirmed)',
-      biomarkers: 'UPCR ≤3.5 g/g at screening',
-      lineOfTherapy: 'Standard-of-care RAS blockade allowed',
-    },
-    endpointsResults: {
-      endpoints: ['Primary: eGFR slope (wk 104)', 'Secondary: UPCR, composite renal, safety'],
-      results: [{ endpoint: 'Enrollment', value: '412 / 980 (42%)' }],
-    },
-    timelineDetails: {
-      studyStart: '2026-02-02',
-      primaryCompletion: '2029-03-31 (est.)',
-      studyCompletion: '2029-11-01 (est.)',
-      status: 'Recruiting',
-      eventSource: 'Trial registry',
-      eventSubtype: 'First China site activated',
-    },
-    safety: [
-      { term: 'Hypotension', value: '7%' },
-      { term: 'Hyperkalemia', value: '4%' },
-      { term: 'Acute kidney injury', value: '<1%' },
-    ],
-    daily: [63, 64, 62, 65, 67, 66, 68, 70, 69, 71, 73, 72, 74, 76, 75, 77, 78],
-  },
-  /** Same sponsor as ONC-441 row — second program for PROGRAMS rail demo */
-  {
-    id: 'ONC-992-P1-START',
-    trial: 'ONC-992 Phase I (mCRC)',
-    drug: 'ONC-992',
-    mechanism: 'CD47×EGFR bispecific',
-    phase: 'Phase I',
-    indication: 'metastatic colorectal cancer (mCRC)',
-    sponsor: 'OncoNadir Therapeutics',
-    intervention: 'ONC-992 IV q3w',
-    eventType: 'SITE START',
-    ts: '2026-03-02 14:30:00Z',
-    trialSnapshot: {
-      drug: 'ONC-992',
-      mechanism: 'CD47×EGFR bispecific',
-      phase: 'Phase I',
-      indication: 'mCRC',
-      sponsor: 'OncoNadir Therapeutics',
-      intervention: 'ONC-992 IV q3w',
-      assetOrigin: 'In-house bispecific platform',
-    },
-    studyDesign: {
-      arms: '3 (dose levels)',
-      randomization: 'Not applicable',
-      control: 'None',
-      masking: 'Open-label',
-      sampleSize: 'N=54',
-    },
-    population: {
-      condition: 'mCRC (1L)',
-      biomarkers: 'EGFR-high',
-      lineOfTherapy: '1L',
-    },
-    endpointsResults: {
-      endpoints: ['Primary: MTD / RP2D', 'Secondary: preliminary ORR', 'Safety'],
-      results: [],
-    },
-    timelineDetails: {
-      studyStart: '2025-11-01',
-      primaryCompletion: '2027-06-01 (est.)',
-      studyCompletion: '2027-12-01 (est.)',
-      status: 'Recruiting',
-      eventSource: 'Company release',
-      eventSubtype: 'First site activated',
-    },
-    daily: [58, 59, 58, 60, 61, 60, 62, 63, 62, 64, 63, 65, 66, 65, 67, 68, 69],
-  },
-]
-
-/** Mock CASE panel copy — narrative analysis per trial event (replaces KV worksheet). */
-const MOCK_PHARMA_ANALYSIS = {
-  'ONC-441-P2-READOUT':
-    'OncoNadir disclosed an interim Phase II efficacy update for ONC-441, a CD47×EGFR bispecific in second-line metastatic colorectal cancer. The company-reported readout showed an objective response rate of 28.2% and disease control rate of 71.0% in an EGFR-high enriched cohort (N=124), with median duration of response still immature at 5.6 months.\n\nSafety remained manageable relative to prior bispecific concerns: grade ≥3 treatment-related adverse events were 9%, infusion-related reactions 12% (mostly grade 1–2), and treatment discontinuation due to adverse events 3%. The study remains active but not recruiting, with primary completion estimated August 2026.\n\nInvestors will weigh whether the ORR/DCR profile is competitive versus SOC benchmarks in 2L+ mCRC and whether durability matures favorably ahead of a registrational path.',
-  'NRX-118-FDA-UPDATE':
-    'NeuroRex filed an 8-K noting FDA feedback on NRX-118, an intrathecal antisense oligonucleotide in a Phase I/II rare neurodegenerative program. The correspondence centered on chemistry, manufacturing, and controls—specifically a comparability request—rather than a clinical hold or trial stop.\n\nThe program remains recruiting (N=38 planned) with primary focus on target RNA knockdown and exploratory functional endpoints. No efficacy data were disclosed in this filing.\n\nFor holders, the update signals regulatory scrutiny on CMC scale-up rather than a fundamental efficacy setback; timeline risk hinges on how quickly comparability packages satisfy the agency.',
-  'KLM-210-TRIAL-DELAY':
-    'KaleidoMetrix reported a Phase III NASH enrollment pause tied to a site audit notice for KLM-210, an oral FXR agonist. The double-blind placebo-controlled study (N≈1,200) targets fibrosis improvement without worsening of NASH; the filing did not revise primary completion guidance (December 2026 estimate).\n\nManagement framed the pause as operational—audit-driven—without citing new safety signals in the release excerpt. The trial status remains active, not recruiting, during the pause window.\n\nThe delay extends time-to-data for a crowded NASH landscape and may pressure near-term sentiment until enrollment restarts and audit findings are cleared.',
-  'BETA-AMYLOID-FAIL':
-    'BlueArc Biologics announced topline Phase II results for BA-19, a beta-amyloid monoclonal antibody in early Alzheimer’s disease. The primary cognitive composite at 18 months was not met despite amyloid PET reduction versus baseline, marking an endpoint miss on the clinical outcome investors track most closely.\n\nSafety included ARIA-E at 8.1%, serious adverse events 6.4%, and discontinuation for adverse events 4.5%. The study is completed from an enrollment standpoint with primary completion in March 2026.\n\nThe readout challenges the program’s commercial thesis: biomarker engagement alone did not translate into functional benefit, raising questions on dose, population enrichment, or competitive positioning versus approved amyloid therapies.',
-  'RXQ-701-PH3-START':
-    'Renexus Pharma activated the first China site in the global Phase III IgA nephropathy trial of RXQ-701, an endothelin antagonist given once daily. The registrational program (N=980, 2:1 randomization) uses eGFR slope at week 104 as the primary endpoint, with UPCR and composite renal outcomes as key secondaries.\n\nEnrollment stood at 412 of 980 patients (42%) at the time of disclosure; standard-of-care RAS blockade is permitted. Early safety monitoring highlighted hypotension (7%), hyperkalemia (4%), and acute kidney injury under 1%.\n\nSite activation in China broadens geographic recruitment capacity and de-risks timeline slippage if US/EU sites were pacing behind plan.',
-  'ONC-992-P1-START':
-    'OncoNadir announced first-site activation for ONC-992, a Phase I dose-escalation study of the same CD47×EGFR bispecific platform in first-line mCRC. The open-label design (three dose levels, N=54) seeks MTD/RP2D with preliminary ORR and safety as secondary readouts.\n\nThis program sits alongside the Phase II ONC-441 readout and shares sponsor and mechanism class, but targets an earlier line of therapy. No efficacy data are expected near term.\n\nFor the sponsor, parallel Phase I and Phase II assets demonstrate platform breadth; investors should monitor dose-limiting toxicities and any overlap with ONC-441 safety learnings.',
-}
-
-function resolvePharmaAnalysis(liveEvent, mockEvent) {
-  const ws = liveEvent?.worksheet
-  if (typeof ws?.analysis === 'string' && ws.analysis.trim()) return ws.analysis.trim()
-  if (typeof liveEvent?.analysis === 'string' && liveEvent.analysis.trim()) return liveEvent.analysis.trim()
-  const ctx = liveEvent?.context_sentences
-  if (Array.isArray(ctx) && ctx.length > 0) {
-    return ctx
-      .map((s) => String(s ?? '').trim())
-      .filter(Boolean)
-      .join('\n\n')
-  }
-  const mockId = mockEvent?.id
-  if (mockId && MOCK_PHARMA_ANALYSIS[mockId]) return MOCK_PHARMA_ANALYSIS[mockId]
-  if (typeof mockEvent?.analysis === 'string' && mockEvent.analysis.trim()) return mockEvent.analysis.trim()
-  return null
-}
-
-function PharmaCaseAnalysis({ text }) {
-  const body = String(text ?? '').trim()
-  if (!body) {
-    return <p className="researchPaperProse pharmaCaseProse dim">No analysis available for this event.</p>
-  }
-  const paras = body.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
-  if (paras.length === 0) {
-    return <p className="researchPaperProse pharmaCaseProse">{body}</p>
-  }
-  return paras.map((p, i) => (
-    <p className="researchPaperProse pharmaCaseProse" key={`pharma-case-p-${i}`}>
-      {p}
-    </p>
-  ))
-}
-
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 function isSameLocalCalendarDay(a, b) {
@@ -498,100 +147,10 @@ function buildProgramGroupedDisplayRows(items) {
   return out
 }
 
-function parseMockTs(iso) {
-  const m = String(iso ?? '').match(/^(\d{4})-(\d{2})-(\d{2})[\sT](\d{2}):(\d{2})/)
-  if (!m) return new Date(iso)
-  return new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00Z`)
-}
-
-function isoDayToDate(isoDay) {
-  const m = String(isoDay ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/)
-  if (!m) return null
-  return new Date(`${m[1]}-${m[2]}-${m[3]}T12:00:00Z`)
-}
-
-function addDays(d, n) {
-  const x = new Date(d)
-  x.setUTCDate(x.getUTCDate() + n)
-  return x
-}
-
 function formatProgramTimelineDate(at) {
   const d = at instanceof Date ? at : new Date(at)
   if (Number.isNaN(d.getTime())) return EMPTY
   return formatFeedDate(d)
-}
-
-function buildProgramTimelineForEvent(ev) {
-  const start = isoDayToDate(ev?.timelineDetails?.studyStart) ?? isoDayToDate(ev?.timelineDetails?.primaryCompletion)
-  const primary = isoDayToDate(ev?.timelineDetails?.primaryCompletion)
-  const ts = parseMockTs(ev?.ts).toISOString()
-  const sponsor = ev?.sponsor ?? null
-  const drug = ev?.trialSnapshot?.drug ?? ev?.drug ?? '—'
-  const phase = ev?.trialSnapshot?.phase ?? ev?.phase ?? ''
-  const ind = ev?.trialSnapshot?.indication ?? ev?.indication ?? ''
-
-  const out = []
-  const reg = start ? addDays(start, -45) : new Date(new Date(ts).getTime() - 120 * 86400000)
-  out.push({ at: reg.toISOString(), label: 'Trial registered' })
-  if (start) out.push({ at: addDays(start, 30).toISOString(), label: 'First patient dosed' })
-  if (start) out.push({ at: addDays(start, 90).toISOString(), label: 'Site activated' })
-  if (start) out.push({ at: addDays(start, 170).toISOString(), label: 'Enrollment ongoing' })
-  if (start) out.push({ at: addDays(start, 220).toISOString(), label: 'Protocol amended' })
-  out.push({
-    at: ts,
-    label:
-      String(ev?.eventType ?? '').toUpperCase() === 'READOUT'
-        ? 'Interim data released'
-        : String(ev?.eventType ?? '').toUpperCase() === 'ENDPOINT MISS'
-          ? 'Interim data released'
-          : 'Company update released',
-  })
-  if (primary) out.push({ at: primary.toISOString(), label: 'Primary completion (est.)' })
-
-  out.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
-
-  return {
-    sponsor,
-    drug,
-    meta: [phase, ind].filter(Boolean).join(' | '),
-    milestones: out,
-  }
-}
-
-/** PROGRAMS rail: timeline rows per program for a sponsor (grouped by drug name). */
-function buildProgramFeedItemsForSponsor(sponsor) {
-  if (!sponsor) return []
-  const evs = MOCK_EVENTS.filter((e) => e.sponsor === sponsor)
-  evs.sort((a, b) => a.drug.localeCompare(b.drug))
-  const out = []
-  for (const ev of evs) {
-    const tl = buildProgramTimelineForEvent(ev)
-    for (let i = 0; i < tl.milestones.length; i++) {
-      const m = tl.milestones[i]
-      out.push({
-        id: `prog-${ev.id}-${i}`,
-        group: tl.drug,
-        label: m.label,
-        ticker: '',
-        at: m.at,
-        programMeta: tl.meta,
-        trialEventId: ev.id,
-        milestoneLabel: m.label,
-        milestoneAt: m.at,
-      })
-    }
-  }
-  return out
-}
-
-/** Drug name → short symbol for ticker column (letters prefix before dose/dash). */
-function tickerFromDrug(drug) {
-  const s = String(drug ?? '')
-  const prefix = s.match(/^([A-Za-z]{2,6})/)
-  if (prefix) return prefix[1].toUpperCase()
-  const letters = s.replace(/[^A-Za-z]/g, '')
-  return letters.slice(0, 4).toUpperCase() || 'DRUG'
 }
 
 const INSIDER_KINDS = ['P Purchase']
@@ -4063,95 +3622,6 @@ function BoshaPaperPanel({
   )
 }
 
-function buildPharmaFeedRows() {
-  function pharmaImportanceLabel(phase) {
-    const p = String(phase ?? '')
-    if (/III/i.test(p)) return 'Lead'
-    if (/II/i.test(p)) return 'Core'
-    return 'Early'
-  }
-
-  function pharmaProgressLabel(eventType) {
-    const t = String(eventType ?? '').toUpperCase()
-    if (t === 'READOUT' || t === 'ENDPOINT MISS') return 'Result'
-    if (t === 'SITE START') return 'Active'
-    if (t === 'FDA UPDATE') return 'Ongoing'
-    if (t === 'DELAY') return 'Ongoing'
-    return 'Active'
-  }
-
-  function pharmaPhaseNumeral(phase) {
-    const p = String(phase ?? '')
-    if (/III/i.test(p) || /\b3\b/.test(p)) return 'III'
-    if (/II/i.test(p) || /\b2\b/.test(p)) return 'II'
-    if (/I/i.test(p) || /\b1\b/.test(p)) return 'I'
-    return ''
-  }
-
-  function pharmaFeedLabel(ev) {
-    const phase = ev?.phase ?? ev?.trialSnapshot?.phase ?? 'Phase'
-    const imp = pharmaImportanceLabel(phase)
-    const status = String(ev?.timelineDetails?.status ?? '').toLowerCase()
-    const typeState = pharmaProgressLabel(ev?.eventType)
-    const state =
-      status.includes('completed')
-        ? 'Completed'
-        : status.includes('recruiting')
-          ? 'Ongoing'
-          : status.includes('active')
-            ? 'Active'
-            : status.includes('not recruiting')
-              ? 'Near Completion'
-              : typeState
-    const numeral = pharmaPhaseNumeral(phase)
-    return `${imp} ${numeral || phase} ${state}`.replace(/\bPhase\s*/i, '').trim()
-  }
-
-  const fromTrials = MOCK_EVENTS.map((ev) => ({
-    id: `ph-${ev.id}`,
-    label: pharmaFeedLabel(ev),
-    ticker: tickerFromDrug(ev.drug),
-    at: parseMockTs(ev.ts).toISOString(),
-    trialEventId: ev.id,
-  }))
-  const PHARMA_FILLER_LABELS = [
-    'Enrollment pause',
-    'Primary endpoint',
-    'IND cleared',
-    'Orphan designation',
-    'Fast track',
-    'Breakthrough',
-    'SAP update',
-    'DSMB review',
-    'Site activation',
-    'Label expansion',
-    'Completion forecast',
-  ]
-  const fillerTickers = ['BLUE', 'ALNY', 'ROG', 'GILD', 'MRNA', 'NBIX']
-  const filler = Array.from({ length: 30 }, (_, i) => {
-    const t = new Date()
-    if (i % 9 === 0) {
-      t.setMinutes(t.getMinutes() - i * 3 - 11)
-    } else if (i % 9 < 5) {
-      t.setDate(t.getDate() - 2 - (i % 4))
-      t.setHours(10 + (i % 8), (i * 5) % 60, 0, 0)
-    } else {
-      t.setFullYear(t.getFullYear() - 1 - (i % 2))
-      t.setMonth((i % 12) + 1, 5 + (i % 20))
-    }
-    return {
-      id: `ph-f-${i}`,
-      label: pharmaFeedLabel(MOCK_EVENTS[i % MOCK_EVENTS.length]),
-      ticker: fillerTickers[i % fillerTickers.length],
-      at: t.toISOString(),
-      trialEventId: MOCK_EVENTS[i % MOCK_EVENTS.length].id,
-    }
-  })
-  return [...fromTrials, ...filler]
-}
-
-const PHARMA_FEED_ROWS = sortFeedRowsByAtDesc(buildPharmaFeedRows())
-
 /** Historical Outcomes tile (blankTile--a): mock aggregates + conditioning facets */
 const MOCK_HISTORICAL_INSIDER = {
   avgReturn21d63d252d: '+0.42% / +1.08% / +2.34%',
@@ -4180,9 +3650,6 @@ const MOCK_COMPANY = {
   country: 'US',
   mcap: '$8.46M USD',
   earnings: '5 Aug',
-  /** Shown only when pharma feed is focused */
-  pharmaPrograms: '1×III | 1×II | 1×I',
-  pharmaLead: `DrugX (III – Alzheimer's)`,
 }
 
 function clamp01(x) {
@@ -4930,31 +4397,6 @@ function GraphPanel({
   )
 }
 
-const ENDPOINT_ORDINAL = [
-  'First',
-  'Second',
-  'Third',
-  'Fourth',
-  'Fifth',
-  'Sixth',
-  'Seventh',
-  'Eighth',
-  'Ninth',
-  'Tenth',
-]
-
-function endpointRowLabel(idx) {
-  if (idx === 0) return 'Primary endpoint'
-  if (idx === 1) return 'Secondary endpoint'
-  const ord = ENDPOINT_ORDINAL[idx]
-  return ord ? `${ord} endpoint` : `Endpoint ${idx + 1}`
-}
-
-/** Long text in key/value cells (row height comes from `KvLine`). */
-function WorksheetRhythmWrap({ className = '', children }) {
-  return <span className={className}>{children}</span>
-}
-
 /**
  * Each visual row snaps to N “feed row” slots: one slot ≈ line-height + inter-line gap
  * matching stacked `.feedRowCompact` rows (padding + border counted once per `.kvLine`).
@@ -5015,239 +4457,6 @@ function KvLine({ className = '', children, ...rest }) {
   )
 }
 
-/** Strip role tags from the copy when the row label already states primary / secondary / …. */
-function endpointDisplayValue(raw, idx) {
-  const s = String(raw ?? '').trim()
-  if (!s) return EMPTY
-
-  let out = s
-
-  if (idx === 0) {
-    out = out.replace(/^\s*Primary\s*:\s*/i, '').trim()
-    return out || EMPTY
-  }
-
-  out = out.replace(/^\s*Secondary\s*:\s*/i, '').trim()
-
-  const extraRoles = ['Tertiary', 'Quaternary', 'Quinary', 'Senary']
-  if (idx >= 2 && idx - 2 < extraRoles.length) {
-    const re = new RegExp(`^\\s*${extraRoles[idx - 2]}\\s*:\\s*`, 'i')
-    out = out.replace(re, '').trim()
-  }
-
-  return out || EMPTY
-}
-
-/** Insider case worksheet: keys are document / transaction descriptors; Form 4 rows get "$ | day". */
-function buildInsiderWorksheetRows(caseSheet) {
-  if (!caseSheet) return []
-
-  const rows = []
-  rows.push(
-    <KvLine key="issuer">
-      <span className="kvK dim">Issuer</span>
-      <span className="kvV mono">{caseSheet.ticker ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="form">
-      <span className="kvK dim">Form</span>
-      <span className="kvV mono">{caseSheet.formType ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="fno">
-      <span className="kvK dim">Accession</span>
-      <span className="kvV mono">{caseSheet.filingId ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="after-filing-meta" className="kvSpacer" aria-hidden="true">
-      <span className="kvK">&nbsp;</span>
-      <span className="kvV">&nbsp;</span>
-    </KvLine>,
-  )
-
-  const showMoney = Boolean(caseSheet.isForm4)
-
-  function roleFromKey(key) {
-    const k = String(key ?? '').trim()
-    const m = k.match(/^(CEO|Director|CFO|Officer)\b/i)
-    if (m) return m[1].toUpperCase()
-    const first = k.split(/\s+/)[0]
-    return first ? first.toUpperCase() : '—'
-  }
-
-  ;(caseSheet.rows ?? []).forEach((r, idx) => {
-    const val =
-      showMoney && r.amountUsd != null && Number(r.amountUsd) > 0
-        ? `${formatUsdCompact(r.amountUsd)} | ${insiderTxnDateShort(r.ts)}`
-        : ''
-    rows.push(
-      <KvLine key={`txn-${idx}-${r.key}`}>
-        <WorksheetRhythmWrap className="kvK dim">{roleFromKey(r.key)}</WorksheetRhythmWrap>
-        <span className={`kvV mono ${val ? '' : 'dim'}`}>{val}</span>
-      </KvLine>,
-    )
-  })
-
-  return rows
-}
-
-function buildWorksheetRows(selected, hasSafety) {
-  const rows = []
-  if (!selected) return []
-
-  rows.push(
-    <KvLine key="drug">
-      <span className="kvK dim">DRUG</span>
-      <span className="kvV mono">{selected?.trialSnapshot?.drug ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="mech">
-      <span className="kvK dim">MECH</span>
-      <span className="kvV">{selected?.trialSnapshot?.mechanism ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="phase">
-      <span className="kvK dim">PHASE</span>
-      <span className="kvV mono">{selected?.trialSnapshot?.phase ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="ind">
-      <span className="kvK dim">IND</span>
-      <span className="kvV">{selected?.trialSnapshot?.indication ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="sponsor">
-      <span className="kvK dim">SPONSOR</span>
-      <span className="kvV">{selected?.trialSnapshot?.sponsor ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="origin">
-      <span className="kvK dim">ORIGIN</span>
-      <span className="kvV">{selected?.trialSnapshot?.assetOrigin ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="intv">
-      <span className="kvK dim">INTV</span>
-      <span className="kvV">{selected?.trialSnapshot?.intervention ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="status">
-      <span className="kvK dim">STATUS</span>
-      <span className="kvV">{selected?.timelineDetails?.status ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="start">
-      <span className="kvK dim">START</span>
-      <span className="kvV mono">{selected?.timelineDetails?.studyStart ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="priComp">
-      <span className="kvK dim">PRI COMP</span>
-      <span className="kvV mono">{selected?.timelineDetails?.primaryCompletion ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="studyComp">
-      <span className="kvK dim">STUDY COMP</span>
-      <span className="kvV mono">{selected?.timelineDetails?.studyCompletion ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="source">
-      <span className="kvK dim">SOURCE</span>
-      <span className="kvV">{selected?.timelineDetails?.eventSource ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="detail">
-      <span className="kvK dim">DETAIL</span>
-      <span className="kvV">{selected?.timelineDetails?.eventSubtype ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="evt">
-      <span className="kvK dim">EVT</span>
-      <span className="kvV">{selected?.eventType ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="arms">
-      <span className="kvK dim">ARMS</span>
-      <span className="kvV">{selected?.studyDesign?.arms ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="rand">
-      <span className="kvK dim">RAND</span>
-      <span className="kvV">{selected?.studyDesign?.randomization ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="ctrl">
-      <span className="kvK dim">CTRL</span>
-      <span className="kvV">{selected?.studyDesign?.control ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="mask">
-      <span className="kvK dim">MASK</span>
-      <span className="kvV">{selected?.studyDesign?.masking ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="n">
-      <span className="kvK dim">N</span>
-      <span className="kvV mono">{selected?.studyDesign?.sampleSize ?? '—'}</span>
-    </KvLine>,
-    <KvLine key="cond">
-      <span className="kvK dim">COND</span>
-      <WorksheetRhythmWrap className="kvV kvVWrap">
-        {selected?.population?.condition ?? '—'}
-      </WorksheetRhythmWrap>
-    </KvLine>,
-    <KvLine key="bio">
-      <span className="kvK dim">BIO</span>
-      <WorksheetRhythmWrap className="kvV kvVWrap">
-        {selected?.population?.biomarkers ?? '—'}
-      </WorksheetRhythmWrap>
-    </KvLine>,
-    <KvLine key="lot">
-      <span className="kvK dim">LOT</span>
-      <span className="kvV mono">{selected?.population?.lineOfTherapy ?? '—'}</span>
-    </KvLine>,
-  )
-
-  const eps = selected?.endpointsResults?.endpoints ?? []
-  if (eps.length === 0) {
-    rows.push(
-      <KvLine key="ep-empty">
-        <span className="kvK dim">Endpoints</span>
-        <span className="kvV dim">—</span>
-      </KvLine>,
-    )
-  } else {
-    eps.forEach((e, idx) => {
-      rows.push(
-        <KvLine key={`ep-${idx}-${e}`}>
-          <span className="kvK dim">{endpointRowLabel(idx)}</span>
-          <WorksheetRhythmWrap className="kvV kvVWrap">
-            {endpointDisplayValue(e, idx)}
-          </WorksheetRhythmWrap>
-        </KvLine>,
-      )
-    })
-  }
-
-  const res = selected?.endpointsResults?.results ?? []
-  if (res.length === 0) {
-    rows.push(
-      <KvLine key="res-empty">
-        <span className="kvK dim">Results</span>
-        <span className="kvV dim">—</span>
-      </KvLine>,
-    )
-  } else {
-    res.forEach((r, idx) => {
-      rows.push(
-        <KvLine key={`res-${idx}-${r.endpoint}`}>
-          <WorksheetRhythmWrap className="kvK dim kvLong">{r.endpoint}</WorksheetRhythmWrap>
-          <span className="kvV mono">{r.value}</span>
-        </KvLine>,
-      )
-    })
-  }
-
-  if (!hasSafety) {
-    rows.push(
-      <KvLine key="safe-empty">
-        <span className="kvK dim">Safety</span>
-        <span className="kvV dim">—</span>
-      </KvLine>,
-    )
-  } else {
-    selected.safety.forEach((s, idx) => {
-      rows.push(
-        <KvLine key={`safe-${idx}-${s.term}`}>
-          <WorksheetRhythmWrap className="kvK dim kvLong">{s.term}</WorksheetRhythmWrap>
-          <span className="kvV mono">{s.value}</span>
-        </KvLine>,
-      )
-    })
-  }
-
-  return rows
-}
-
 function HistoricalOutcomesPanel({ mode, backendUp }) {
   const insider = mode === 'insider' || mode === 'politicians'
   const [live, setLive] = useState(null)
@@ -5256,7 +4465,7 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
     let alive = true
     async function run() {
       try {
-        const m = mode === 'pharma' ? 'pharma' : mode === 'politicians' ? 'politicians' : 'insider'
+        const m = mode === 'politicians' ? 'politicians' : 'insider'
         const r = await fetchJsonSafe(`/api/outcomes?mode=${encodeURIComponent(m)}`, { timeoutMs: 2500 })
         const json = r.data
         const data = json?.data ?? null
@@ -5273,7 +4482,7 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
       alive = false
       clearInterval(t)
     }
-  }, [insider])
+  }, [mode])
 
   const ins = backendUp
     ? live
@@ -5414,8 +4623,6 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
 
 function CompanyPanel({ mode, company, backendUp }) {
   const c = backendUp ? (company ?? {}) : MOCK_COMPANY
-  const pharma = mode === 'pharma'
-
   const earnings =
     c?.earnings_date && typeof c.earnings_date === 'string'
       ? c.earnings_date
@@ -5443,18 +4650,6 @@ function CompanyPanel({ mode, company, backendUp }) {
           <span className="kvK dim">EARNINGS</span>
           <span className="kvV">{earnings}</span>
         </KvLine>
-        {pharma ? (
-          <>
-            <KvLine key="co-programs">
-              <span className="kvK dim">PROGRAMS</span>
-              <span className="kvV">{c?.pharmaPrograms ?? EMPTY}</span>
-            </KvLine>
-            <KvLine key="co-lead">
-              <span className="kvK dim">LEAD</span>
-              <span className="kvV">{c?.pharmaLead ?? EMPTY}</span>
-            </KvLine>
-          </>
-        ) : null}
         </div>
     </section>
   )
@@ -5932,11 +5127,10 @@ function TerminalTopBar({
 
 function KensiglineTerminal() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState('main') // main | insider | pharma | politicians | settings
+  const [activeTab, setActiveTab] = useState('main') // main | insider | politicians | settings
   const [intelMode, setIntelMode] = useState('market') // market | clinical
   const tabBeforeSettingsRef = useRef('main')
 
-  /** Which feed column receives arrow up/down: insider | pharma | programs (rail). */
   const [insiderIdx, setInsiderIdx] = useState(0)
   const [insiderCaseTradeIdx, setInsiderCaseTradeIdx] = useState(0)
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
@@ -5956,6 +5150,13 @@ function KensiglineTerminal() {
   const [backendUp, setBackendUp] = useState(false)
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
+  const [contextProgramKey, setContextProgramKey] = useState(null)
+  const [insiderFeedLive, setInsiderFeedLive] = useState(null)
+  const [insiderClusterLive, setInsiderClusterLive] = useState(null)
+  const [barsLive, setBarsLive] = useState(null)
+  const [companyLive, setCompanyLive] = useState(null)
+  const [politiciansFeedLive, setPoliticiansFeedLive] = useState(null)
+  const [politiciansClusterLive, setPoliticiansClusterLive] = useState(null)
   const boshaDataset = useMemo(() => boshaDatasetForTicker(boshaTicker), [boshaTicker])
   const boshaFeedItems = useMemo(() => {
     const mode = intelMode === 'clinical' ? 'clinical' : 'market'
@@ -6037,7 +5238,6 @@ function KensiglineTerminal() {
     return contextMock.leadDrug ?? null
   }, [backendUp, boshaDataset.entities, contextClinicalMapped, contextMock.leadDrug, intelMode])
 
-  const [contextProgramKey, setContextProgramKey] = useState(null)
   useEffect(() => {
     if (intelMode === 'clinical') setContextProgramKey(CLINICAL_PROGRAM_ALL)
     else setContextProgramKey(null)
@@ -6087,6 +5287,10 @@ function KensiglineTerminal() {
     setBoshaQuery('')
   }, [intelMode, activeTab])
 
+  useEffect(() => {
+    if (activeTab === 'pharma') setActiveTab('main')
+  }, [activeTab])
+
   const insiderPriceMarkers = useMemo(
     () => contextMock.insiders.map((x) => x.date),
     [contextMock],
@@ -6113,12 +5317,6 @@ function KensiglineTerminal() {
     const ok = boshaFilteredFeed.some((x) => x.ticker === boshaTicker)
     if (!ok) setBoshaTicker(boshaFilteredFeed[0].ticker)
   }, [activeTab, boshaFilteredFeed, boshaTicker])
-
-  const [pharmaIdx, setPharmaIdx] = useState(0)
-  /** When set, case sheet + graph follow this trial; cleared when pharma feed row or sponsor context changes */
-  const [programRailEventId, setProgramRailEventId] = useState(null)
-  const [programRailIdx, setProgramRailIdx] = useState(0)
-  const [programRailMilestone, setProgramRailMilestone] = useState(null)
 
   useEffect(() => {
     let alive = true
@@ -6164,18 +5362,6 @@ function KensiglineTerminal() {
       clearInterval(t)
     }
   }, [backendUp])
-
-  const [insiderFeedLive, setInsiderFeedLive] = useState(null)
-  const [insiderClusterLive, setInsiderClusterLive] = useState(null)
-  const [barsLive, setBarsLive] = useState(null)
-  const [companyLive, setCompanyLive] = useState(null)
-
-  const [politiciansFeedLive, setPoliticiansFeedLive] = useState(null)
-  const [politiciansClusterLive, setPoliticiansClusterLive] = useState(null)
-
-  const [pharmaFeedLive, setPharmaFeedLive] = useState(null)
-  const [pharmaEventLive, setPharmaEventLive] = useState(null)
-  const [programFeedLive, setProgramFeedLive] = useState(null)
 
   useEffect(() => {
     if (backendUp) return
@@ -6405,169 +5591,6 @@ function KensiglineTerminal() {
   const politiciansSelected =
     politiciansFeedRows.length > 0 ? politiciansFeedRows[clamp(politiciansIdx, 0, politiciansFeedRows.length - 1)] : null
 
-  useEffect(() => {
-    let alive = true
-    async function run() {
-      try {
-        if (!backendUp) return
-        const r = await fetchJsonSafe('/api/pharma/feed?limit=120&days=180', { timeoutMs: 5000 })
-        const json = r.data
-        const items = Array.isArray(json?.items) ? json.items : []
-        if (!alive) return
-        const mapped = items
-          .map((r) => ({
-            id: String(r.id),
-            label: String(r.feed_label ?? 'Pharma update'),
-            ticker: String(r.ticker ?? '').toUpperCase(),
-            at: String(r.feed_at ?? ''),
-            trialEventId: String(r.id),
-          }))
-          .filter((r) => r.id && r.ticker && r.at)
-        if (r.ok) setPharmaFeedLive(mapped)
-      } catch {
-        if (!alive) return
-        // Keep last-good feed instead of flapping.
-      }
-    }
-    run()
-    const t = setInterval(run, 60_000)
-    return () => {
-      alive = false
-      clearInterval(t)
-    }
-  }, [backendUp])
-
-  const pharmaFeedRows = !backendUp ? PHARMA_FEED_ROWS : (pharmaFeedLive ?? [])
-
-  const pharmaFeedEventId = useMemo(() => {
-    const row = pharmaFeedRows[pharmaIdx]
-    if (backendUp) return row?.trialEventId ?? null
-    const fallbackId = MOCK_EVENTS[pharmaIdx % MOCK_EVENTS.length]?.id
-    return row?.trialEventId ?? fallbackId ?? MOCK_EVENTS[0]?.id
-  }, [pharmaFeedRows, pharmaIdx, backendUp])
-
-  const pharmaTicker = useMemo(() => {
-    const row = pharmaFeedRows[pharmaIdx]
-    return row?.ticker ? String(row.ticker).toUpperCase() : null
-  }, [pharmaFeedRows, pharmaIdx])
-
-  useEffect(() => {
-    let alive = true
-    async function run() {
-      if (!backendUp) return
-      if (!pharmaTicker) {
-        // Backend is up but no pharma ticker is selected (or feed is empty).
-        // Keep the PROGRAMS rail consistent with other feeds: live-empty, not mock.
-        setProgramFeedLive([])
-        return
-      }
-      try {
-        const r = await fetchJsonSafe(
-          `/api/pharma/programs?ticker=${encodeURIComponent(pharmaTicker)}&days=3650`,
-          { timeoutMs: 6000 },
-        )
-        const json = r.data
-        const items = Array.isArray(json?.items) ? json.items : []
-        if (!alive) return
-        const mapped = items
-          .map((r) => ({
-            id: String(r.id),
-            group: String(r.drug ?? '').trim() || null,
-            label: String(r.label ?? 'Update'),
-            at: String(r.at ?? ''),
-            ticker: '',
-            trialEventId: String(r.id),
-            milestoneLabel: String(r.label ?? 'Update'),
-            milestoneAt: String(r.at ?? ''),
-          }))
-          .filter((r) => r.id && r.at)
-        if (r.ok) setProgramFeedLive(mapped)
-      } catch {
-        if (!alive) return
-        // Keep last-good instead of flapping.
-      }
-    }
-    run()
-    return () => {
-      alive = false
-    }
-  }, [backendUp, pharmaTicker])
-
-  const programFeedItems = useMemo(() => {
-    if (backendUp && programFeedLive != null) return programFeedLive
-    if (backendUp) return []
-    const ev = MOCK_EVENTS.find((e) => e.id === pharmaFeedEventId)
-    return buildProgramFeedItemsForSponsor(ev?.sponsor ?? null)
-  }, [backendUp, programFeedLive, pharmaFeedEventId])
-
-  useEffect(() => {
-    // When sponsor context changes, reset rail selection.
-    setProgramRailIdx(0)
-    setProgramRailMilestone(null)
-    setProgramRailEventId(null)
-  }, [pharmaTicker])
-
-  function synthesizeEventForMilestone(base, milestone) {
-    if (!base || !milestone) return base
-    const ts = milestone.milestoneAt ?? base.ts
-    const label = milestone.milestoneLabel ?? base.eventType ?? 'UPDATE'
-    const baseAnalysis = resolvePharmaAnalysis(null, base) ?? ''
-    const milestoneNote = `Program timeline: ${String(label)} (${formatFeedDate(ts)}).`
-    const analysis = baseAnalysis
-      ? `${baseAnalysis}\n\n${milestoneNote}`
-      : milestoneNote
-    return {
-      ...base,
-      ts,
-      eventType: String(label).toUpperCase(),
-      analysis,
-      timelineDetails: {
-        ...(base.timelineDetails ?? {}),
-        eventSource: (base.timelineDetails?.eventSource ?? 'Company release'),
-        eventSubtype: String(label),
-      },
-    }
-  }
-
-  const pharmaSelected = useMemo(() => {
-    if (backendUp) return null
-    const id =
-      activeTab === 'pharma' && programRailEventId != null
-        ? programRailEventId
-        : pharmaFeedEventId
-    const base = MOCK_EVENTS.find((e) => e.id === id) ?? MOCK_EVENTS[0]
-    // When navigating the PROGRAMS rail, use the selected timeline row as the "current event"
-    // so the case worksheet changes per row.
-    if (activeTab === 'pharma' && programRailMilestone && programRailEventId != null) {
-      return synthesizeEventForMilestone(base, programRailMilestone)
-    }
-    return base
-  }, [backendUp, activeTab, programRailEventId, pharmaFeedEventId, programRailMilestone])
-
-  const pharmaSelectedResolved = useMemo(() => {
-    if (backendUp && activeTab !== 'pharma') return null
-    if (backendUp && !pharmaEventLive) return null
-    if (!pharmaEventLive || activeTab !== 'pharma') {
-      if (!pharmaSelected) return null
-      return {
-        ...pharmaSelected,
-        analysis: pharmaSelected.analysis ?? resolvePharmaAnalysis(null, pharmaSelected),
-      }
-    }
-    const drug = pharmaEventLive?.drug ?? null
-    const phase = pharmaEventLive?.phase ?? null
-    return {
-      id: pharmaFeedEventId,
-      drug,
-      phase,
-      ts: pharmaEventLive?.event_at ?? pharmaEventLive?.eventAt ?? new Date().toISOString(),
-      eventType: pharmaEventLive?.event_type ?? pharmaEventLive?.eventType ?? 'UPDATE',
-      feedLabel: pharmaEventLive?.feed_label ?? null,
-      analysis: resolvePharmaAnalysis(pharmaEventLive, pharmaSelected),
-      daily: pharmaSelected?.daily ?? [],
-    }
-  }, [backendUp, activeTab, pharmaEventLive, pharmaSelected, pharmaFeedEventId])
-
   const insiderSelectedResolved = useMemo(() => {
     if (!backendUp || activeTab !== 'insider' || !insiderClusterLive) return insiderSelected
     const rows = insiderClusterLive?.cluster?.worksheet_rows
@@ -6674,8 +5697,8 @@ function KensiglineTerminal() {
     if (activeTab === 'insider') return insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
     if (activeTab === 'politicians')
       return politiciansSelectedResolved?.ticker ? String(politiciansSelectedResolved.ticker).toUpperCase() : null
-    return pharmaTicker ? String(pharmaTicker).toUpperCase() : null
-  }, [activeTab, insiderSelected?.ticker, politiciansSelectedResolved?.ticker, pharmaTicker])
+    return null
+  }, [activeTab, insiderSelected?.ticker, politiciansSelectedResolved?.ticker])
 
   useEffect(() => {
     let alive = true
@@ -6710,48 +5733,6 @@ function KensiglineTerminal() {
     }
   }, [backendUp, selectedTicker])
 
-  useEffect(() => {
-    let alive = true
-    async function run() {
-      if (activeTab !== 'pharma') {
-        return
-      }
-      const id = pharmaFeedEventId
-      if (!backendUp || !id || !pharmaFeedLive) {
-        return
-      }
-      try {
-        const r = await fetchJsonSafe(`/api/pharma/event/${encodeURIComponent(id)}`, { timeoutMs: 6000 })
-        const json = r.data
-        if (!alive) return
-        if (r.ok) setPharmaEventLive(json?.data ?? null)
-      } catch {
-        if (!alive) return
-        // Keep last-good instead of flapping.
-      }
-    }
-    run()
-    return () => {
-      alive = false
-    }
-  }, [backendUp, activeTab, pharmaFeedEventId, pharmaFeedLive])
-
-  const programSelectedIdx = useMemo(() => {
-    if (activeTab !== 'pharma' || programFeedItems.length === 0) return 0
-    return clamp(programRailIdx, 0, programFeedItems.length - 1)
-  }, [activeTab, programFeedItems.length, programRailIdx])
-
-  useEffect(() => {
-    setProgramRailEventId(null)
-    setProgramRailIdx(0)
-    setProgramRailMilestone(null)
-  }, [pharmaIdx])
-
-  const pharmaCaseAnalysisText = useMemo(() => {
-    if (activeTab !== 'pharma') return null
-    return pharmaSelectedResolved?.analysis ?? resolvePharmaAnalysis(pharmaEventLive, pharmaSelected) ?? null
-  }, [activeTab, pharmaSelectedResolved, pharmaEventLive, pharmaSelected])
-
   const daily =
     backendUp
       ? barsLive ?? []
@@ -6759,11 +5740,11 @@ function KensiglineTerminal() {
         ? (barsLive ?? insiderSelectedResolved?.daily ?? [])
         : activeTab === 'politicians'
           ? (politiciansSelectedResolved?.daily ?? [])
-          : pharmaSelectedResolved?.daily ?? []
+          : []
 
   const dailySeries = useMemo(() => {
     if (Array.isArray(daily) && daily.length >= 40) return daily
-    if (!backendUp) return buildMockDailySeries(activeTab === 'insider' ? 71 : 133, 160)
+    if (!backendUp) return buildMockDailySeries(71, 160)
     return []
   }, [daily, backendUp, activeTab])
 
@@ -6783,20 +5764,6 @@ function KensiglineTerminal() {
     return out
   }, [activeTab, insiderSelectedResolved?.caseSheet, politiciansSelectedResolved?.caseSheet])
 
-
-  const worksheetMetaId =
-    activeTab === 'insider'
-      ? insiderSelectedResolved?.caseSheet?.issuer ?? insiderSelectedResolved?.id ?? '—'
-      : activeTab === 'politicians'
-        ? politiciansSelectedResolved?.caseSheet?.issuer ?? politiciansSelectedResolved?.id ?? '—'
-        : (() => {
-            const p = pharmaSelectedResolved
-            if (!p) return '—'
-            const bits = [p.drug ?? p.trialSnapshot?.drug, p.phase ?? p.trialSnapshot?.phase, p.eventType]
-              .map((x) => String(x ?? '').trim())
-              .filter(Boolean)
-            return bits.length ? bits.join(' · ') : (p.id ?? '—')
-          })()
 
   const insiderCaseFeedRows = useMemo(() => {
     const cs = insiderSelectedResolved?.caseSheet
@@ -6926,13 +5893,7 @@ function KensiglineTerminal() {
         intelMode={intelMode}
         onIntelModeChange={setIntelMode}
         showIntelSwitch={activeTab === 'main'}
-        singleModeLabel={
-          activeTab === 'insider'
-            ? 'Insider intelligence'
-            : activeTab === 'pharma'
-              ? 'Pharma intelligence'
-              : null
-        }
+        singleModeLabel={activeTab === 'insider' ? 'Insider intelligence' : null}
         showPoliticianChamberSwitch={activeTab === 'politicians'}
         politicianChamber={politiciansChamber}
         onPoliticianChamberChange={setPoliticiansChamber}
@@ -6954,14 +5915,6 @@ function KensiglineTerminal() {
           onClick={() => setActiveTab('insider')}
         >
           <span className="sideTabLabel">INSIDERS</span>
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'pharma' ? 'sideTab isActive' : 'sideTab'}
-          aria-current={activeTab === 'pharma' ? 'page' : undefined}
-          onClick={() => setActiveTab('pharma')}
-        >
-          <span className="sideTabLabel">PHARMA</span>
         </button>
         <button
           type="button"
@@ -7003,35 +5956,6 @@ function KensiglineTerminal() {
             onSelectTradeRowIndex={(rowIndex) => {
               const pos = insiderCaseTradeRowIndices.indexOf(rowIndex)
               if (pos >= 0) setInsiderCaseTradeIdx(pos)
-            }}
-          />
-        </>
-      ) : null}
-
-      {activeTab === 'pharma' ? (
-        <>
-          <CompactFeed
-            placement="right"
-            title="FEED"
-            items={pharmaFeedRows}
-            selectedIndex={pharmaIdx}
-            sepMode="today+years"
-            scrollMode
-            onSelectIndex={setPharmaIdx}
-          />
-          <CompactFeed
-            placement="rail"
-            panelClassName="blankFeedRail"
-            title="PROGRAMS"
-            programsTimeline
-            items={programFeedItems}
-            selectedIndex={programSelectedIdx}
-            scrollMode
-            onSelectIndex={(idx) => {
-              setProgramRailIdx(idx)
-              const row = programFeedItems[idx]
-              if (row?.trialEventId) setProgramRailEventId(row.trialEventId)
-              setProgramRailMilestone(row ?? null)
             }}
           />
         </>
@@ -7119,21 +6043,6 @@ function KensiglineTerminal() {
       ) : null}
 
       {/* Explore tab removed; BOSHA panels live inside MAIN now. */}
-
-      {activeTab === 'pharma' ? (
-        <section className="panel worksheet" aria-label="Trial case analysis">
-          <header className="feedCompactHeader">
-            <div className="panelTitle feedCompactTitle">CASE</div>
-            <div className="feedCompactMeta">
-              <span>{worksheetMetaId}</span>
-            </div>
-          </header>
-
-          <div className="worksheetBody worksheetBody--analysis scrollThin pharmaCaseAnalysis">
-            <PharmaCaseAnalysis text={pharmaCaseAnalysisText} />
-          </div>
-        </section>
-      ) : null}
 
       {activeTab !== 'main' && activeTab !== 'settings' ? (
         <>
