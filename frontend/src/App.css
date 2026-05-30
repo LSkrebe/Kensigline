@@ -767,11 +767,18 @@
 
 .researchPaperDocCard {
   position: relative;
+  isolation: isolate;
+  overflow: hidden;
   padding: 14px 16px 36px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--paper-doc-radius);
-  background: rgba(255, 255, 255, 0.018);
+  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
   box-sizing: border-box;
+}
+
+.researchPaperDocCard > * {
+  position: relative;
+  z-index: 1;
 }
 
 .researchPaperDocOpen {
@@ -907,8 +914,8 @@
 }
 
 .terminal--main .researchPaperPanel .researchPaperDocCard {
-  background: rgba(255, 255, 255, 0.022);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .terminal--main .researchPaperPanel .researchPaperDocCardAnalysis {
@@ -1417,8 +1424,16 @@
   margin-top: 0;
 }
 
-.terminal--main .mainContextPanel--market .contextSectionHeader {
+.terminal--main .mainContextPanel--market .contextSectionHeader,
+.terminal--main .mainContextPanel--clinical .contextSectionHeader {
   margin-bottom: 8px;
+}
+
+.terminal--main .mainContextPanel .contextFlowEmpty {
+  margin: 0;
+  padding: 8px 0 10px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
 }
 
 .terminal--main .mainContextPanel--market .contextSectionTitle {
@@ -1442,8 +1457,98 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
   background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
-  padding: 2px 12px;
+  padding: 8px 12px 10px;
   box-sizing: border-box;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowChartLabel {
+  padding: 2px 0 8px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+  position: relative;
+  z-index: 1;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowTotalsMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0 4px;
+  margin-top: 12px;
+  position: relative;
+  z-index: 1;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowTotalsMetaL,
+.terminal--main .mainContextPanel--market .contextFlowTotalsMetaR {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.terminal--main .mainContextPanel--market .contextFlowTotalsMetaR {
+  text-align: right;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowList--empty .contextFlowEmpty {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.terminal--main .mainContextPanel--market .contextFlowOutcomeChart {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 112px;
+  height: clamp(112px, 16vh, 160px);
+  margin: 0 0 6px;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowOutcomeSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 112px;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowOutcomePath {
+  fill: none;
+  stroke-width: 1.25px;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowOutcomeChart .graphTick--x {
+  font-size: 10px;
+  fill: rgba(255, 255, 255, 0.38);
+}
+
+.terminal--main .mainContextPanel--market .contextFlowOutcomeChart .graphTick--y {
+  font-size: 10px;
+  fill: rgba(255, 255, 255, 0.38);
+}
+
+.terminal--main .mainContextPanel--market .contextFlowRowKeyWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowRowLine {
+  flex-shrink: 0;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowRowKeyWrap .contextFlowRowKey {
+  min-width: 0;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRow {
@@ -1532,9 +1637,9 @@
 }
 
 .terminal--main .mainContextPanel--clinical .contextProgramCard.isActive {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: var(--context-surface);
-  box-shadow: none;
+  border-color: var(--intel-accent-focus);
+  background: var(--intel-accent-tint-soft);
+  box-shadow: inset 0 0 0 1px var(--intel-accent-border);
 }
 
 .terminal--main .mainContextPanel--clinical .contextProgramKey {
@@ -1599,6 +1704,180 @@
   font-weight: 500;
   letter-spacing: 0.03em;
   color: rgba(255, 255, 255, 0.82);
+}
+
+/* Context — signal, outcomes, catalyst (research) */
+.terminal--main .mainContextPanel .contextSignalCard,
+.terminal--main .mainContextPanel .contextCatalystCard,
+.terminal--main .mainContextPanel .contextOutcomesCard {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
+  box-sizing: border-box;
+}
+
+.terminal--main .mainContextPanel .contextSignalCard {
+  padding: 4px 12px;
+}
+
+.terminal--main .mainContextPanel .contextSignalRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.terminal--main .mainContextPanel .contextSignalRow:last-child {
+  border-bottom: none;
+}
+
+.terminal--main .mainContextPanel .contextSignalK {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.terminal--main .mainContextPanel .contextSignalV {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: right;
+}
+
+.terminal--main .mainContextPanel .contextSignalRow--accent .contextSignalV {
+  color: var(--hi);
+}
+
+.terminal--main .mainContextPanel .contextOutcomesStack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.terminal--main .mainContextPanel .contextOutcomesCard {
+  padding: 8px 10px 10px;
+}
+
+.terminal--main .mainContextPanel .contextOutcomesCardLabel {
+  margin: 0 0 8px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.terminal--main .mainContextPanel .contextOutcomesGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+}
+
+.terminal--main .mainContextPanel .contextOutcomesKv {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.terminal--main .mainContextPanel .contextOutcomesK {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.terminal--main .mainContextPanel .contextOutcomesV {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-align: right;
+  color: var(--hi);
+}
+
+.terminal--main .mainContextPanel .contextOutcomesV--text {
+  font-family: inherit;
+  letter-spacing: 0.02em;
+}
+
+.terminal--main .mainContextPanel .contextCardOutcomeV--pos,
+.terminal--main .mainContextPanel .contextOutcomesV.contextCardOutcomeV--pos {
+  color: rgba(120, 220, 160, 0.95);
+}
+
+.terminal--main .mainContextPanel .contextCardOutcomeV--neg,
+.terminal--main .mainContextPanel .contextOutcomesV.contextCardOutcomeV--neg {
+  color: rgba(255, 120, 160, 0.92);
+}
+
+.terminal--main .mainContextPanel .contextCatalystCard {
+  padding: 2px 12px;
+}
+
+.terminal--main .mainContextPanel .contextCatalystCard--empty {
+  padding: 10px 12px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.terminal--main .mainContextPanel .contextCatalystRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: inherit;
+  text-decoration: none;
+}
+
+.terminal--main .mainContextPanel .contextCatalystRow--link:hover .contextCatalystLabel {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.terminal--main .mainContextPanel .contextCatalystRow:last-child {
+  border-bottom: none;
+}
+
+.terminal--main .mainContextPanel .contextCatalystProgram {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--hi);
+}
+
+.terminal--main .mainContextPanel .contextCatalystLabel {
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.78);
+  letter-spacing: 0.02em;
+}
+
+.terminal--main .mainContextPanel .contextCatalystPhase {
+  margin-top: 2px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.terminal--main .mainContextPanel .contextCatalystWhen {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+  padding-top: 2px;
+}
+
+.terminal--main .mainContextPanel .contextCompanyCard + .contextSection {
+  margin-top: 10px;
+}
+
+.terminal--main .mainContextPanel--market .contextSection + .contextSection,
+.terminal--main .mainContextPanel--clinical .contextSection + .contextSection {
+  margin-top: 14px;
 }
 
 .terminal--main .mainContextPanel--clinical .contextProgramCard.isActive .contextProgramMilestoneLabel::before {

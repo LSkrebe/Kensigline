@@ -9,6 +9,7 @@ import { getDailyCloseBars } from "./core/bars.js";
 import { getCompanyPanelData } from "./core/company.js";
 import { getLatestOutcomes, recomputeBoshaOutcomes, recomputeInsiderOutcomes, recomputePharmaOutcomes, recomputePoliticiansOutcomes } from "./core/outcomes.js";
 import { runOutcomesRecomputeOnce, startOutcomesWorker } from "./core/outcomes-worker.js";
+import { getPharmaClinicalContext } from "./pharma/clinical-context.js";
 import { startPharmaWorker } from "./pharma/pharma-worker.js";
 import { startPoliticiansWorker } from "./politicians/politicians-worker.js";
 import { startBoshaWorker } from "./bosha/worker.js";
@@ -766,6 +767,24 @@ const server = http.createServer(async (req, res) => {
         phase: r.program_phase,
       }));
       sendJson(res, 200, { ticker, items });
+      return;
+    }
+
+    // ---- Pharma: ClinicalTrials.gov programs + catalyst clock (earnings merged) ----
+    if (route(req, url, "GET", "/api/pharma/clinical-context")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
+      const catalystLimit = clampInt(url.searchParams.get("catalyst_limit"), 1, 20, 6);
+      if (!ticker) {
+        sendJson(res, 400, { ok: false, error: "ticker_required" });
+        return;
+      }
+      try {
+        const ctx = await getPharmaClinicalContext({ ticker, catalystLimit });
+        sendJson(res, 200, ctx);
+      } catch (e) {
+        console.error("pharma_clinical_context_failed", ticker, e);
+        sendJson(res, 502, { ok: false, error: "clinical_context_failed" });
+      }
       return;
     }
 

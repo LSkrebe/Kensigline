@@ -1007,12 +1007,15 @@ const CONTEXT_MOCK_PROFILES = {
     earningsDaysAhead: 17,
     insiders: [
       { key: 'CEO', person: 'Christophe Borel', at: 'today', amount: '$8.2M' },
+      { key: 'CEO', person: 'Christophe Borel', at: '2026-05-10', amount: '$1.1M' },
       { key: 'CFO', person: 'Roger Dassen', at: '2026-03-25', amount: '$2.1M' },
+      { key: 'CFO', person: 'Roger Dassen', at: '2026-05-18', amount: '$640K' },
       { key: 'CTO', person: 'Frederic Schneider-Maunoury', at: '2026-02-20', amount: '$960K' },
       { key: 'Director', person: 'Sophie van der Meer', at: '2026-01-14', amount: '$1.4M' },
     ],
     politicians: [
       { name: 'Nancy Pelosi', chamber: 'house', at: '2026-05-02', amount: '$420K' },
+      { name: 'Nancy Pelosi', chamber: 'house', at: '2026-05-20', amount: '$95K' },
       { name: 'Dan Crenshaw', chamber: 'house', at: '2026-03-01', amount: '$180K' },
       { name: 'John Thune', chamber: 'senate', at: '2026-02-08', amount: '$210K' },
       { name: 'Gina Raimondo', chamber: 'executive', at: '2026-01-12', amount: '$95K' },
@@ -1130,6 +1133,458 @@ function contextMockForTicker(ticker, priceSeries) {
       amount: row.amount,
     })),
   }
+}
+
+const CONTEXT_FLOW_MONTH_DAYS = 30
+
+/** Matches backend `Horizon` in outcomes.ts — trading days after event, not calendar weeks. */
+const OUTCOME_HORIZON_DAYS = [21, 63, 252]
+const OUTCOME_HORIZON_LABELS = ['21d', '63d', '252d']
+
+/** Baseline avg forward returns (fractions) from global insider outcomes mock / API shape. */
+const OUTCOME_BASE_INSIDER_RETURNS = [0.0042, 0.0108, 0.0234]
+const OUTCOME_BASE_POLITICIAN_RETURNS = [0.0018, 0.0052, 0.0112]
+
+const CONTEXT_OUTCOME_LINE_COLORS = [
+  'rgba(255, 255, 255, 0.9)',
+  'rgba(168, 196, 255, 0.82)',
+  'rgba(255, 212, 92, 0.78)',
+  'rgba(120, 220, 160, 0.76)',
+  'rgba(255, 160, 200, 0.74)',
+  'rgba(200, 180, 255, 0.72)',
+]
+
+function mockOutcomeReturnsForKey(key, baseReturns, ticker) {
+  const seed = boshaSeedFromTicker(`${ticker}-${key}`)
+  return baseReturns.map((b, i) => {
+    const jitter = (seededJitter(seed + i * 13, 7) - 3.5) * 0.0008
+    return b + jitter
+  })
+}
+
+function buildMockInsiderOutcomeLines(pastMonthRows, ticker) {
+  const roles = [...new Set((pastMonthRows ?? []).map((r) => String(r.roleKey ?? r.id.split('|')[0] ?? '').trim()).filter(Boolean))]
+  return roles.map((roleKey, i) => ({
+    id: roleKey,
+    label: roleKey,
+    returns: mockOutcomeReturnsForKey(roleKey, OUTCOME_BASE_INSIDER_RETURNS, ticker),
+    color: CONTEXT_OUTCOME_LINE_COLORS[i % CONTEXT_OUTCOME_LINE_COLORS.length],
+  }))
+}
+
+function buildMockPoliticianOutcomeLines(pastMonthRows, ticker) {
+  return (pastMonthRows ?? []).map((row, i) => {
+    const shortName = String(row.label ?? '').includes(',')
+      ? String(row.label).split(',').slice(1).join(',').trim()
+      : row.label
+    return {
+      id: row.id,
+      label: shortName || row.label,
+      returns: mockOutcomeReturnsForKey(row.id, OUTCOME_BASE_POLITICIAN_RETURNS, ticker),
+      color: CONTEXT_OUTCOME_LINE_COLORS[i % CONTEXT_OUTCOME_LINE_COLORS.length],
+    }
+  })
+}
+
+function parseTxnAmountUsd(amount) {
+  const s = String(amount ?? '').trim().replace(/,/g, '')
+  const m = s.match(/[€$]?\s*([\d.]+)\s*([KMB])?/i)
+  if (!m) return 0
+  let n = Number(m[1])
+  if (!Number.isFinite(n)) return 0
+  const u = String(m[2] ?? '').toUpperCase()
+  if (u === 'K') n *= 1e3
+  else if (u === 'M') n *= 1e6
+  else if (u === 'B') n *= 1e9
+  return n
+}
+
+function formatTxnAmountUsd(n) {
+  const x = Number(n)
+  if (!Number.isFinite(x) || x <= 0) return EMPTY
+  if (x >= 1e9) return `$${(x / 1e9).toFixed(2)}B`
+  if (x >= 1e6) return `$${(x / 1e6).toFixed(1)}M`
+  if (x >= 1e3) return `$${Math.round(x / 1e3)}K`
+  return `$${Math.round(x)}`
+}
+
+function isWithinPastDays(date, days = CONTEXT_FLOW_MONTH_DAYS) {
+  const t = date instanceof Date ? date.getTime() : new Date(date).getTime()
+  if (!Number.isFinite(t)) return false
+  return t >= Date.now() - days * 86400000
+}
+
+function aggregateContextInsiders(rows, days = CONTEXT_FLOW_MONTH_DAYS) {
+  const map = new Map()
+  for (const row of rows ?? []) {
+    if (!isWithinPastDays(row.date, days)) continue
+    const id = `${row.key}|${row.person ?? ''}`
+    const usd = parseTxnAmountUsd(row.amount)
+    if (usd <= 0) continue
+    const prev = map.get(id) ?? { key: row.key, person: row.person, totalUsd: 0 }
+    prev.totalUsd += usd
+    map.set(id, prev)
+  }
+  return [...map.values()]
+    .map((x) => ({
+      id: `${x.key}|${x.person ?? ''}`,
+      roleKey: x.key,
+      label: paperInsiderTxnLabel(x.key, x.person),
+      nameStyle: 'insider',
+      total: formatTxnAmountUsd(x.totalUsd),
+      totalUsd: x.totalUsd,
+    }))
+    .sort((a, b) => b.totalUsd - a.totalUsd)
+}
+
+function aggregateContextPoliticians(rows, days = CONTEXT_FLOW_MONTH_DAYS) {
+  const map = new Map()
+  for (const row of rows ?? []) {
+    if (!isWithinPastDays(row.date, days)) continue
+    const id = String(row.name ?? '')
+    const usd = parseTxnAmountUsd(row.amount)
+    if (usd <= 0) continue
+    const prev = map.get(id) ?? {
+      name: row.name,
+      chamber: row.chamber,
+      totalUsd: 0,
+    }
+    prev.totalUsd += usd
+    map.set(id, prev)
+  }
+  return [...map.values()]
+    .map((x) => ({
+      id: x.name,
+      label: paperPoliticianTxnLabel(x.chamber, x.name),
+      nameStyle: 'politician',
+      total: formatTxnAmountUsd(x.totalUsd),
+      totalUsd: x.totalUsd,
+    }))
+    .sort((a, b) => b.totalUsd - a.totalUsd)
+}
+
+function buildContextCatalystItems(programs, limit = 4) {
+  const rows = []
+  for (const p of programs ?? []) {
+    for (const m of p.milestones ?? []) {
+      rows.push({
+        id: `${p.key}-${m.at}-${m.label}`,
+        programKey: p.key,
+        phase: p.stage ?? null,
+        label: m.label,
+        at: m.at,
+        url: m.url ?? null,
+        kind: 'trial',
+      })
+    }
+  }
+  const now = Date.now()
+  return rows
+    .filter((r) => {
+      const t = new Date(`${String(r.at).trim()}T12:00:00`).getTime()
+      return Number.isFinite(t) && t >= now - 86400000 * 2
+    })
+    .sort((a, b) => new Date(`${a.at}T12:00:00`) - new Date(`${b.at}T12:00:00`))
+    .slice(0, limit)
+}
+
+function mapClinicalContextFromApi(data) {
+  if (!data || typeof data !== 'object') return null
+  const programs = (Array.isArray(data.programs) ? data.programs : []).map((p) => ({
+    key: String(p?.key ?? '').trim(),
+    indication: p?.indication != null ? String(p.indication) : null,
+    stage: p?.stage != null ? String(p.stage) : null,
+    milestones: (Array.isArray(p?.milestones) ? p.milestones : [])
+      .map((m) => ({
+        at: m?.at != null ? String(m.at).slice(0, 10) : null,
+        label: m?.label != null ? String(m.label) : null,
+        url: m?.url != null ? String(m.url) : null,
+      }))
+      .filter((m) => m.label),
+  })).filter((p) => p.key)
+
+  const catalysts = (Array.isArray(data.catalysts) ? data.catalysts : []).map((c) => ({
+    id: String(c?.id ?? ''),
+    programKey: String(c?.programKey ?? '').trim() || '—',
+    label: String(c?.label ?? '').trim() || '—',
+    at: c?.at != null ? String(c.at).slice(0, 10) : null,
+    url: c?.url != null ? String(c.url) : null,
+    phase: c?.phase != null ? String(c.phase) : null,
+    kind: c?.kind === 'earnings' ? 'earnings' : 'trial',
+  })).filter((c) => c.id)
+
+  const lead = data.lead
+    ? {
+        name: String(data.lead.name ?? '').trim(),
+        indication: data.lead.indication != null ? String(data.lead.indication) : null,
+        stage: data.lead.stage != null ? String(data.lead.stage) : null,
+        next: data.lead.next != null ? String(data.lead.next).slice(0, 10) : null,
+      }
+    : null
+
+  return { programs, catalysts, lead }
+}
+
+function contextCatalystCountdown(at) {
+  if (at == null || String(at).trim() === '') return 'Active'
+  const d = new Date(`${String(at ?? '').trim()}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return EMPTY
+  const days = Math.ceil((d.getTime() - Date.now()) / 86400000)
+  if (days < 0) return 'Past'
+  if (days === 0) return 'Today'
+  if (days <= 90) return `${days}d`
+  return formatProgramTimelineDate(at)
+}
+
+function ContextSection({ title, ariaLabel, children }) {
+  return (
+    <div className="contextSection" aria-label={ariaLabel ?? title}>
+      <div className="contextSectionHeader">
+        <div className="contextSectionTitle">{title}</div>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function ContextFlowOutcomeChart({ lines = [], ariaLabel = 'Historical outcome returns' }) {
+  const wrapRef = useRef(null)
+  const [size, setSize] = useState({ w: 280, h: 112 })
+
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+    function measure() {
+      const rect = wrap.getBoundingClientRect()
+      const w = Math.max(160, rect.width)
+      const h = Math.max(112, rect.height)
+      setSize((prev) => (prev.w !== w || prev.h !== h ? { w, h } : prev))
+    }
+    const ro = new ResizeObserver(() => requestAnimationFrame(measure))
+    ro.observe(wrap)
+    measure()
+    return () => ro.disconnect()
+  }, [])
+
+  const w = size.w
+  const h = size.h
+  const n = OUTCOME_HORIZON_LABELS.length
+  const margin = { l: 0, r: 0, t: 10, b: 22 }
+  const yTickGap = 8
+  const innerW = Math.max(1, w - margin.l - margin.r)
+  const plotTop = margin.t
+  const axisY = h - margin.b
+  const innerH = Math.max(1, axisY - plotTop)
+
+  const allVals = lines.flatMap((l) => (Array.isArray(l.returns) ? l.returns : []))
+  const rawMin = allVals.length ? Math.min(...allVals, 0) : 0
+  const rawMax = allVals.length ? Math.max(...allVals, 0) : 0.01
+  let loP = Math.floor(rawMin * 100)
+  let hiP = Math.ceil(rawMax * 100)
+  if (hiP <= loP) hiP = loP + 1
+  const min = loP / 100
+  const max = hiP / 100
+  const span = max - min || 1
+
+  function xAt(i) {
+    return margin.l + (i / Math.max(1, n - 1)) * innerW
+  }
+  function yAt(v) {
+    return plotTop + (1 - (v - min) / span) * innerH
+  }
+
+  const yTicks = useMemo(() => returnTicks(min, max, 3), [min, max])
+  const viewPadL = useMemo(() => {
+    const maxLen = yTicks.reduce((m, v) => Math.max(m, formatReturnTick(v).length), 3)
+    return Math.min(40, Math.max(28, Math.ceil(maxLen * 6.5) + yTickGap + 4))
+  }, [yTicks])
+  const yTickLabelX = margin.l - yTickGap
+
+  const paths = useMemo(() => {
+    return lines.map((line) => {
+      const vals = Array.isArray(line.returns) ? line.returns : []
+      if (vals.length < 2) return { id: line.id, d: '', color: line.color }
+      let d = ''
+      for (let i = 0; i < Math.min(n, vals.length); i++) {
+        const x = xAt(i)
+        const y = yAt(vals[i])
+        d += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)} `
+      }
+      return { id: line.id, d: d.trim(), color: line.color }
+    })
+  }, [lines, w, h, min, max])
+
+  const zeroY =
+    min < 0 && max > 0 ? yAt(0) : null
+
+  if (!lines.length) return null
+
+  return (
+    <div className="contextFlowOutcomeChart" ref={wrapRef} role="img" aria-label={ariaLabel}>
+      <svg
+        className="contextFlowOutcomeSvg"
+        viewBox={`${-viewPadL} 0 ${w + viewPadL} ${h}`}
+        preserveAspectRatio="xMinYMid meet"
+        role="img"
+      >
+        <path
+          className="graphAxis"
+          style={GRAPH_SVG_AXIS}
+          d={`M ${margin.l} ${plotTop} L ${margin.l} ${axisY} L ${w - margin.r} ${axisY}`}
+        />
+        {zeroY != null ? (
+          <path
+            className="graphTickLine"
+            style={GRAPH_SVG_TICK_LINE}
+            d={`M ${margin.l} ${zeroY.toFixed(2)} L ${w - margin.r} ${zeroY.toFixed(2)}`}
+          />
+        ) : null}
+        {yTicks.map((v, i) => (
+          <g key={`oy-${i}`}>
+            <text
+              className="graphTick graphTick--y"
+              style={GRAPH_SVG_TICK}
+              textAnchor="end"
+              dominantBaseline="middle"
+              x={yTickLabelX}
+              y={yAt(v)}
+            >
+              {formatReturnTick(v)}
+            </text>
+          </g>
+        ))}
+        {OUTCOME_HORIZON_LABELS.map((lab, i) => (
+          <text
+            key={`ox-${lab}`}
+            className="graphTick graphTick--x"
+            style={GRAPH_SVG_TICK}
+            textAnchor="middle"
+            x={xAt(i)}
+            y={h - 4}
+          >
+            {lab}
+          </text>
+        ))}
+        {paths.map((p) =>
+          p.d ? (
+            <path
+              key={p.id}
+              className="contextFlowOutcomePath"
+              d={p.d}
+              stroke={p.color}
+              vectorEffect="non-scaling-stroke"
+            />
+          ) : null,
+        )}
+      </svg>
+    </div>
+  )
+}
+
+function attachOutcomeLineColors(rows, outcomeLines, lineIdForRow) {
+  const colorById = new Map((outcomeLines ?? []).map((l) => [l.id, l.color]))
+  return (rows ?? []).map((row) => ({
+    ...row,
+    lineColor: colorById.get(lineIdForRow(row)) ?? null,
+  }))
+}
+
+function ContextFlowTotalsList({ rows = [], outcomeLines = [], emptyLabel = 'None in the past 30 days.' }) {
+  const totalsHead = (
+    <div className="contextFlowTotalsMeta" aria-hidden="true">
+      <span className="contextFlowTotalsMetaL mono dim">Past 30 days</span>
+      <span className="contextFlowTotalsMetaR mono dim">Total</span>
+    </div>
+  )
+  const outcomeChart =
+    rows.length && outcomeLines.length ? (
+      <>
+        <div className="contextFlowChartLabel mono dim">Historical outcomes</div>
+        <ContextFlowOutcomeChart
+          lines={outcomeLines}
+          ariaLabel="Average forward returns by horizon (21, 63, 252 trading days)"
+        />
+      </>
+    ) : null
+  if (!rows.length) {
+    return (
+      <div className="contextFlowList contextFlowList--empty">
+        <p className="contextFlowEmpty mono dim">{emptyLabel}</p>
+      </div>
+    )
+  }
+  return (
+    <div className="contextFlowList" role="list">
+      {outcomeChart}
+      {totalsHead}
+      {rows.map((row) => (
+        <div key={row.id} className="contextFlowRow" role="listitem">
+          <div className="contextFlowRowMain">
+            <div className="contextFlowRowKeyWrap">
+              {row.lineColor ? (
+                <span
+                  className="contextFlowRowLine"
+                  style={{ background: row.lineColor }}
+                  aria-hidden="true"
+                />
+              ) : null}
+              <div
+                className={[
+                  'contextFlowRowKey',
+                  row.nameStyle === 'politician' ? 'contextFlowRowKey--name' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {row.label}
+              </div>
+            </div>
+          </div>
+          <div className="contextFlowRowAmt mono">{row.total}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ContextCatalystCard({ items = [] }) {
+  if (!items.length) {
+    return <div className="contextCatalystCard contextCatalystCard--empty dim">No upcoming catalysts</div>
+  }
+  return (
+    <div className="contextCatalystCard">
+      {items.map((it) => {
+        const rowInner = (
+          <>
+            <div className="contextCatalystMain">
+              <div className="contextCatalystProgram mono">{it.programKey}</div>
+              <div className="contextCatalystLabel">{it.label}</div>
+              {it.phase ? <div className="contextCatalystPhase mono dim">{displayPhaseLabel(it.phase)}</div> : null}
+            </div>
+            <div className="contextCatalystWhen mono">{contextCatalystCountdown(it.at)}</div>
+          </>
+        )
+        if (it.url) {
+          return (
+            <a
+              key={it.id}
+              className="contextCatalystRow contextCatalystRow--link"
+              href={it.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {rowInner}
+            </a>
+          )
+        }
+        return (
+          <div key={it.id} className="contextCatalystRow">
+            {rowInner}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function contextLeadDrugFromEntities(entities) {
@@ -1543,17 +1998,26 @@ function MainContextPanel({
   programs = [],
   selectedProgramKey = null,
   onSelectProgramKey,
-  insiders,
-  politicians,
-  insidersOpen,
-  onToggleInsiders,
-  politiciansOpen,
-  onTogglePoliticians,
+  insiders = [],
+  politicians = [],
+  catalystItems = [],
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const [priceRange, setPriceRange] = useState('6M')
   const showFlows = intelMode !== 'clinical'
   const programGroups = useMemo(() => groupPrograms(programs), [programs])
+  const insidersFlow = useMemo(() => {
+    const pastMonth = aggregateContextInsiders(insiders)
+    const outcomeLines = buildMockInsiderOutcomeLines(pastMonth, t)
+    const rows = attachOutcomeLineColors(pastMonth, outcomeLines, (row) => row.roleKey)
+    return { rows, outcomeLines }
+  }, [insiders, t])
+  const politiciansFlow = useMemo(() => {
+    const pastMonth = aggregateContextPoliticians(politicians)
+    const outcomeLines = buildMockPoliticianOutcomeLines(pastMonth, t)
+    const rows = attachOutcomeLineColors(pastMonth, outcomeLines, (row) => row.id)
+    return { rows, outcomeLines }
+  }, [politicians, t])
 
   return (
     <section
@@ -1594,7 +2058,7 @@ function MainContextPanel({
               politicianMarkers={politicianPriceMarkers}
             />
           </div>
-          {earnings ? (
+          {earnings && showFlows ? (
             <div
               className={[
                 'contextCompanyEarnings',
@@ -1617,7 +2081,9 @@ function MainContextPanel({
 
         {!showFlows ? (
           <>
-            <div className="contextDivider" aria-hidden="true" />
+            <ContextSection title="CATALYST CLOCK" ariaLabel="Upcoming catalysts">
+              <ContextCatalystCard items={catalystItems} />
+            </ContextSection>
             <div className="contextSection" aria-label="Programs">
               <div className="contextSectionHeader">
                 <div className="contextSectionTitle dim">PROGRAMS</div>
@@ -1704,61 +2170,20 @@ function MainContextPanel({
 
         {showFlows ? (
           <>
-            <div className="contextSection" aria-label="Insiders">
-              <div className="contextSectionHeader">
-                <div className="contextSectionTitle">INSIDERS</div>
-                <button
-                  type="button"
-                  className="contextSectionViewAll"
-                  onClick={onToggleInsiders}
-                  aria-expanded={insidersOpen}
-                >
-                  {insidersOpen ? 'SHOW LESS' : 'VIEW ALL'}
-                </button>
-              </div>
-              {insidersOpen ? (
-                <div className="contextFlowList" role="list">
-                  {insiders.map((it, idx) => (
-                    <div key={`${it.key}-${idx}`} className="contextFlowRow" role="listitem">
-                      <div className="contextFlowRowMain">
-                        <div className="contextFlowRowKey">{paperInsiderTxnLabel(it.key, it.person)}</div>
-                        <div className="contextFlowRowDate">{insiderTxnDateShort(it.date)}</div>
-                      </div>
-                      <div className="contextFlowRowAmt">{it.amount}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="contextSection" aria-label="Politicians">
-              <div className="contextSectionHeader">
-                <div className="contextSectionTitle">POLITICIANS</div>
-                <button
-                  type="button"
-                  className="contextSectionViewAll"
-                  onClick={onTogglePoliticians}
-                  aria-expanded={politiciansOpen}
-                >
-                  {politiciansOpen ? 'SHOW LESS' : 'VIEW ALL'}
-                </button>
-              </div>
-              {politiciansOpen ? (
-                <div className="contextFlowList" role="list">
-                  {politicians.map((it, idx) => (
-                    <div key={`${it.name}-${idx}`} className="contextFlowRow" role="listitem">
-                      <div className="contextFlowRowMain">
-                        <div className="contextFlowRowKey contextFlowRowKey--name">
-                          {paperPoliticianTxnLabel(it.chamber, it.name)}
-                        </div>
-                        <div className="contextFlowRowDate">{insiderTxnDateShort(it.date)}</div>
-                      </div>
-                      <div className="contextFlowRowAmt">{it.amount}</div>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+            <ContextSection title="INSIDERS" ariaLabel="Insiders past month">
+              <ContextFlowTotalsList
+                rows={insidersFlow.rows}
+                outcomeLines={insidersFlow.outcomeLines}
+                emptyLabel="No insider filings in the past 30 days."
+              />
+            </ContextSection>
+            <ContextSection title="POLITICIANS" ariaLabel="Politicians past month">
+              <ContextFlowTotalsList
+                rows={politiciansFlow.rows}
+                outcomeLines={politiciansFlow.outcomeLines}
+                emptyLabel="No PTR disclosures in the past 30 days."
+              />
+            </ContextSection>
           </>
         ) : null}
       </div>
@@ -5218,8 +5643,6 @@ function KensiglineTerminal() {
   const [activeTab, setActiveTab] = useState('main') // main | insider | pharma | politicians | settings
   const [intelMode, setIntelMode] = useState('market') // market | clinical
   const tabBeforeSettingsRef = useRef('main')
-  const [contextInsidersOpen, setContextInsidersOpen] = useState(true)
-  const [contextPoliticiansOpen, setContextPoliticiansOpen] = useState(true)
 
   /** Which feed column receives arrow up/down: insider | pharma | programs (rail). */
   const [insiderIdx, setInsiderIdx] = useState(0)
@@ -5231,6 +5654,7 @@ function KensiglineTerminal() {
   const [boshaFeedLive, setBoshaFeedLive] = useState(null)
   const [boshaExploreLive, setBoshaExploreLive] = useState(null)
   const [boshaCompanyLive, setBoshaCompanyLive] = useState(null)
+  const [contextClinicalLive, setContextClinicalLive] = useState(null)
   const [boshaBarsSeries, setBoshaBarsSeries] = useState(null)
   const [contextOutcomesLive, setContextOutcomesLive] = useState(null)
 
@@ -5292,24 +5716,37 @@ function KensiglineTerminal() {
     return contextMock.earnings
   }, [backendUp, boshaCompanyLive, contextMock.earnings])
 
+  const contextClinicalMapped = useMemo(
+    () => mapClinicalContextFromApi(contextClinicalLive),
+    [contextClinicalLive],
+  )
+
+  const contextPrograms = useMemo(() => {
+    if (intelMode !== 'clinical') return []
+    if (backendUp && contextClinicalMapped) return contextClinicalMapped.programs
+    return contextMock.programs
+  }, [backendUp, contextClinicalMapped, contextMock.programs, intelMode])
+
   const contextLeadDrug = useMemo(() => {
     if (intelMode !== 'clinical') return null
+    if (backendUp && contextClinicalMapped?.lead?.name) {
+      return contextClinicalMapped.lead
+    }
     const fromEntities = contextLeadDrugFromEntities(boshaDataset.entities)
     if (fromEntities) {
-      // Keep the "real selection" (drug entity), and mock the rest for now.
       return {
         ...contextMock.leadDrug,
         ...fromEntities,
       }
     }
     return contextMock.leadDrug ?? null
-  }, [boshaDataset.entities, contextMock.leadDrug, intelMode])
+  }, [backendUp, boshaDataset.entities, contextClinicalMapped, contextMock.leadDrug, intelMode])
 
   const [contextProgramKey, setContextProgramKey] = useState(null)
   const contextProgramDefaultKey = useMemo(() => {
-    const groups = groupPrograms(contextMock.programs)
+    const groups = groupPrograms(contextPrograms)
     return groups[0]?.key ?? null
-  }, [contextMock.programs])
+  }, [contextPrograms])
   useEffect(() => {
     if (intelMode === 'clinical') setContextProgramKey(contextProgramDefaultKey)
     else setContextProgramKey(null)
@@ -5321,19 +5758,15 @@ function KensiglineTerminal() {
       setContextProgramKey(contextProgramDefaultKey)
       return
     }
-    const allowed = new Set(groupPrograms(contextMock.programs).map((g) => g.key))
+    const allowed = new Set(groupPrograms(contextPrograms).map((g) => g.key))
     if (!allowed.has(contextProgramKey)) setContextProgramKey(contextProgramDefaultKey)
-  }, [contextMock.programs, contextProgramDefaultKey, contextProgramKey, intelMode])
+  }, [contextPrograms, contextProgramDefaultKey, contextProgramKey, intelMode])
 
-  const contextInsiderOutcomes = useMemo(() => {
-    if (backendUp && contextOutcomesLive?.insider) return contextOutcomesLive.insider
-    return MOCK_HISTORICAL_INSIDER
-  }, [backendUp, contextOutcomesLive])
-
-  const contextPoliticianOutcomes = useMemo(() => {
-    if (backendUp && contextOutcomesLive?.politicians) return contextOutcomesLive.politicians
-    return MOCK_HISTORICAL_INSIDER
-  }, [backendUp, contextOutcomesLive])
+  const contextCatalystItems = useMemo(() => {
+    if (intelMode !== 'clinical') return []
+    if (backendUp && contextClinicalMapped) return contextClinicalMapped.catalysts
+    return buildContextCatalystItems(contextMock.programs, 6)
+  }, [backendUp, contextClinicalMapped, contextMock.programs, intelMode])
 
   const boshaPaperMemo = useMemo(
     () =>
@@ -5369,12 +5802,12 @@ function KensiglineTerminal() {
   }, [intelMode, activeTab])
 
   const insiderPriceMarkers = useMemo(
-    () => (contextInsidersOpen ? contextMock.insiders.map((x) => x.date) : []),
-    [contextInsidersOpen, contextMock],
+    () => contextMock.insiders.map((x) => x.date),
+    [contextMock],
   )
   const politicianPriceMarkers = useMemo(
-    () => (contextPoliticiansOpen ? contextMock.politicians.map((x) => x.date) : []),
-    [contextPoliticiansOpen, contextMock],
+    () => contextMock.politicians.map((x) => x.date),
+    [contextMock],
   )
 
   const boshaFilteredFeed = useMemo(() => {
@@ -5514,6 +5947,32 @@ function KensiglineTerminal() {
       cancelled = true
     }
   }, [backendUp, activeTab, boshaTicker])
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!backendUp || intelMode !== 'clinical' || activeTab !== 'main') {
+        if (alive) setContextClinicalLive(null)
+        return
+      }
+      const tick = String(boshaTicker ?? '').trim().toUpperCase()
+      if (!tick) {
+        if (alive) setContextClinicalLive(null)
+        return
+      }
+      const r = await fetchJsonSafe(
+        `/api/pharma/clinical-context?ticker=${encodeURIComponent(tick)}&catalyst_limit=6`,
+        { timeoutMs: 14_000 },
+      )
+      if (!alive) return
+      if (r.ok && r.data?.ticker) setContextClinicalLive(r.data)
+      else setContextClinicalLive(null)
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, intelMode, activeTab, boshaTicker])
 
   useEffect(() => {
     if (!backendUp || activeTab !== 'main') return
@@ -6358,15 +6817,12 @@ function KensiglineTerminal() {
             politicianPriceMarkers={politicianPriceMarkers}
             earnings={contextEarnings}
             leadDrug={contextLeadDrug}
-            programs={contextMock.programs}
+            programs={contextPrograms}
             selectedProgramKey={contextProgramKey}
             onSelectProgramKey={setContextProgramKey}
             insiders={contextMock.insiders}
             politicians={contextMock.politicians}
-            insidersOpen={contextInsidersOpen}
-            onToggleInsiders={() => setContextInsidersOpen((v) => !v)}
-            politiciansOpen={contextPoliticiansOpen}
-            onTogglePoliticians={() => setContextPoliticiansOpen((v) => !v)}
+            catalystItems={contextCatalystItems}
           />
         </>
       ) : null}
