@@ -635,10 +635,46 @@ const BOSHA_TICKER_CLINICAL = 'ATYR'
 /** Programs feed + paper filter: show every filing for the company. */
 const CLINICAL_PROGRAM_ALL = '__ALL__'
 
-/** Research feed + offline papers per top-bar intelligence mode. */
+/**
+ * Research feed rows (no papers) — staggered `at` so TODAY / year separators are visible offline.
+ * ASML / ATYR still own full offline presentations; other tickers use generic memo only.
+ */
 const RESEARCH_FEED_BY_INTEL = {
-  market: [{ rowKey: 'fb-ASML', ticker: 'ASML', name: 'ASML Holding N.V.' }],
-  clinical: [{ rowKey: 'fb-ATYR', ticker: 'ATYR', name: 'aTyr Pharma, Inc.' }],
+  market: [
+    { rowKey: 'fb-ASML', ticker: 'ASML', name: 'ASML Holding N.V.', at: '2026-05-28T18:10:00.000Z' },
+    { rowKey: 'fb-NVDA', ticker: 'NVDA', name: 'NVIDIA Corporation', at: '2026-05-28T16:45:00.000Z' },
+    { rowKey: 'fb-TSM', ticker: 'TSM', name: 'Taiwan Semiconductor · score 7.9', at: '2026-05-28T14:20:00.000Z' },
+    { rowKey: 'fb-LRCX', ticker: 'LRCX', name: 'Lam Research Corporation', at: '2026-05-15T09:00:00.000Z' },
+    { rowKey: 'fb-AMAT', ticker: 'AMAT', name: 'Applied Materials, Inc.', at: '2026-03-22T11:30:00.000Z' },
+    { rowKey: 'fb-AMD', ticker: 'AMD', name: 'Advanced Micro Devices', at: '2026-01-08T08:15:00.000Z' },
+    { rowKey: 'fb-INTC', ticker: 'INTC', name: 'Intel Corporation', at: '2025-11-12T13:00:00.000Z' },
+    { rowKey: 'fb-QCOM', ticker: 'QCOM', name: 'Qualcomm Incorporated', at: '2025-06-03T10:45:00.000Z' },
+    { rowKey: 'fb-MU', ticker: 'MU', name: 'Micron Technology, Inc.', at: '2025-02-18T07:20:00.000Z' },
+    { rowKey: 'fb-AVGO', ticker: 'AVGO', name: 'Broadcom Inc.', at: '2024-09-24T15:00:00.000Z' },
+    { rowKey: 'fb-KLAC', ticker: 'KLAC', name: 'KLA Corporation', at: '2024-04-10T12:00:00.000Z' },
+  ],
+  clinical: [
+    { rowKey: 'fb-ATYR', ticker: 'ATYR', name: 'aTyr Pharma, Inc.', at: '2026-05-28T17:30:00.000Z' },
+    { rowKey: 'fb-MRNA', ticker: 'MRNA', name: 'Moderna, Inc.', at: '2026-05-28T13:10:00.000Z' },
+    { rowKey: 'fb-SRPT', ticker: 'SRPT', name: 'Sarepta Therapeutics · score 6.8', at: '2026-05-28T10:00:00.000Z' },
+    { rowKey: 'fb-BIIB', ticker: 'BIIB', name: 'Biogen Inc.', at: '2026-05-14T09:30:00.000Z' },
+    { rowKey: 'fb-REGN', ticker: 'REGN', name: 'Regeneron Pharmaceuticals', at: '2026-03-05T14:00:00.000Z' },
+    { rowKey: 'fb-VRTX', ticker: 'VRTX', name: 'Vertex Pharmaceuticals', at: '2026-01-21T11:00:00.000Z' },
+    { rowKey: 'fb-GILD', ticker: 'GILD', name: 'Gilead Sciences, Inc.', at: '2025-10-30T08:45:00.000Z' },
+    { rowKey: 'fb-AMGN', ticker: 'AMGN', name: 'Amgen Inc.', at: '2025-05-17T16:20:00.000Z' },
+    { rowKey: 'fb-BMY', ticker: 'BMY', name: 'Bristol-Myers Squibb', at: '2025-01-09T10:00:00.000Z' },
+    { rowKey: 'fb-PFE', ticker: 'PFE', name: 'Pfizer Inc.', at: '2024-08-02T12:30:00.000Z' },
+    { rowKey: 'fb-ABBV', ticker: 'ABBV', name: 'AbbVie Inc.', at: '2024-03-14T09:00:00.000Z' },
+  ],
+}
+
+/** Pad live Bosha feed with demo rows (feed-only) so timeline separators stay visible. */
+function mergeResearchFeedDemoRows(liveRows, intelMode) {
+  const mode = intelMode === 'clinical' ? 'clinical' : 'market'
+  const fallback = RESEARCH_FEED_BY_INTEL[mode] ?? RESEARCH_FEED_BY_INTEL.market
+  const seen = new Set((liveRows ?? []).map((x) => String(x.ticker ?? '').toUpperCase()))
+  const extra = fallback.filter((x) => !seen.has(String(x.ticker ?? '').toUpperCase()))
+  return sortFeedRowsByAtDesc([...(liveRows ?? []), ...extra])
 }
 
 function researchTickersForIntelMode(intelMode) {
@@ -2283,6 +2319,25 @@ function MainContextPanel({
 }
 
 function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, filtered }) {
+  const displayRows = useMemo(() => {
+    const items = (filtered ?? []).map((it) => ({
+      ...it,
+      id: it.rowKey ?? String(it.ticker ?? ''),
+      at: it.at ?? it.feed_at ?? null,
+    }))
+    const dated = items.filter((it) => {
+      const t = new Date(it.at).getTime()
+      return it.at && Number.isFinite(t)
+    })
+    const undated = items.filter((it) => {
+      const t = new Date(it.at).getTime()
+      return !it.at || !Number.isFinite(t)
+    })
+    const sorted = [...sortFeedRowsByAtDesc(dated), ...undated]
+    if (!sorted.length) return []
+    return buildFeedDisplayRows(sorted, { sepMode: 'today+years' })
+  }, [filtered])
+
   return (
     <>
       <label className="researchFeedSearch">
@@ -2303,18 +2358,32 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
         </svg>
       </label>
       <div className="researchFeedList scrollThin" role="list">
-        {filtered.map((it) => (
-          <button
-            key={it.rowKey ?? it.ticker}
-            type="button"
-            role="listitem"
-            className={['researchFeedRow', it.ticker === selectedTicker ? 'isActive' : ''].filter(Boolean).join(' ')}
-            onClick={() => onSelectTicker(it.ticker)}
-          >
-            <span className="researchFeedRowName">{it.name}</span>
-            <span className="researchFeedRowTicker mono">{it.ticker}</span>
-          </button>
-        ))}
+        {displayRows.map((entry, i) => {
+          if (entry.type === 'sep') {
+            return (
+              <div
+                key={`research-sep-${entry.key}-${i}`}
+                className="feedRowTodaySep"
+                role="presentation"
+              >
+                {entry.label}
+              </div>
+            )
+          }
+          const it = entry.row
+          return (
+            <button
+              key={it.rowKey ?? it.ticker}
+              type="button"
+              role="listitem"
+              className={['researchFeedRow', it.ticker === selectedTicker ? 'isActive' : ''].filter(Boolean).join(' ')}
+              onClick={() => onSelectTicker(it.ticker)}
+            >
+              <span className="researchFeedRowName">{it.name}</span>
+              <span className="researchFeedRowTicker mono">{it.ticker}</span>
+            </button>
+          )
+        })}
       </div>
     </>
   )
@@ -5893,17 +5962,20 @@ function KensiglineTerminal() {
     const fallback = RESEARCH_FEED_BY_INTEL[mode]
     const allowed = new Set(researchTickersForIntelMode(intelMode))
     if (!backendUp) return fallback
-    if (!Array.isArray(boshaFeedLive)) return []
-    if (!boshaFeedLive.length) return []
-    const mapped = boshaFeedLive
-      .map((x) => ({
-        rowKey:
-          x.kind === 'paper' && x.id ? String(x.id) : `sig-${String(x.ticker ?? '').toUpperCase()}`,
-        ticker: String(x.ticker ?? '').toUpperCase(),
-        name: String(x.name ?? x.company_name ?? x.ticker ?? ''),
-      }))
-      .filter((x) => allowed.has(x.ticker))
-    return mapped.length ? mapped : fallback
+    if (!Array.isArray(boshaFeedLive) || !boshaFeedLive.length) return fallback
+    const mapped = sortFeedRowsByAtDesc(
+      boshaFeedLive
+        .map((x) => ({
+          rowKey:
+            x.kind === 'paper' && x.id ? String(x.id) : `sig-${String(x.ticker ?? '').toUpperCase()}`,
+          ticker: String(x.ticker ?? '').toUpperCase(),
+          name: String(x.name ?? x.company_name ?? x.ticker ?? ''),
+          at: x.feed_at ? String(x.feed_at) : null,
+        }))
+        .filter((x) => allowed.has(x.ticker)),
+    )
+    if (!mapped.length) return fallback
+    return mergeResearchFeedDemoRows(mapped, intelMode)
   }, [backendUp, boshaFeedLive, intelMode])
 
   const boshaCompanyName = useMemo(() => {
