@@ -14,6 +14,31 @@ const MOCK_INVOICES = [
   { id: 'inv_000', date: '17 Mar 2026', amount: '$0.00', status: 'Paid', note: 'Account opened' },
 ]
 
+/** @returns {'good' | 'bad' | 'neutral'} */
+function settingsStatusTone(status) {
+  const s = String(status ?? '').trim().toLowerCase()
+  if (!s) return 'neutral'
+  const good = new Set(['paid', 'succeeded', 'complete', 'completed', 'active', 'trialing', 'trial'])
+  const bad = new Set([
+    'failed',
+    'unpaid',
+    'overdue',
+    'void',
+    'declined',
+    'past_due',
+    'past due',
+    'canceled',
+    'cancelled',
+    'open',
+    'uncollectible',
+    'inactive',
+    'expired',
+  ])
+  if (good.has(s)) return 'good'
+  if (bad.has(s)) return 'bad'
+  return 'neutral'
+}
+
 function SettingsPanelHeader({ title, children }) {
   return (
     <header className="feedCompactHeader">
@@ -34,26 +59,6 @@ function SettingsRow({ label, children, valueClassName = 'kvV mono' }) {
 
 function SettingsKvBody({ children }) {
   return <div className="settingsKvBody">{children}</div>
-}
-
-function SettingsLogoPanel() {
-  return (
-    <section className="panel feed feedCompact settingsLogoPanel" aria-label="Mercerline">
-      <header className="feedCompactHeader">
-        <div className="panelTitle feedCompactTitle">MERCERLINE</div>
-      </header>
-      <div className="settingsLogoPanelInner">
-        <div className="settingsLogoPanelBrand">
-          <img
-            className="settingsLogoPanelImg"
-            src="/mercerline_logo_transparent.png"
-            alt="Mercerline"
-            decoding="async"
-          />
-        </div>
-      </div>
-    </section>
-  )
 }
 
 export function SettingsPanel() {
@@ -88,12 +93,12 @@ export function SettingsPanel() {
   }
 
   const email = user.email ?? '—'
+  const sessionActive = Boolean(user)
+  const sessionTone = sessionActive ? 'good' : 'bad'
 
   return (
     <>
       <div className="settingsTopRow">
-        <SettingsLogoPanel />
-
         <section className="panel settingsAccountPanel" aria-label="Account">
         <SettingsPanelHeader title="ACCOUNT" />
         <div className="settingsPanelBody">
@@ -101,9 +106,12 @@ export function SettingsPanel() {
             <SettingsRow label="EMAIL" valueClassName="kvV mono">
               <span title={email}>{email}</span>
             </SettingsRow>
-            <SettingsRow label="SESSION" valueClassName="kvV mono settingsSessionV">
-              <span className="settingsStatusDot" aria-hidden="true" />
-              Active
+            <SettingsRow
+              label="SESSION"
+              valueClassName={['kvV', 'mono', 'settingsSessionV', `settingsSessionV--${sessionTone}`].join(' ')}
+            >
+              <span className={['settingsStatusDot', `settingsStatusDot--${sessionTone}`].join(' ')} aria-hidden="true" />
+              {sessionActive ? 'Active' : 'Inactive'}
             </SettingsRow>
           </SettingsKvBody>
         </div>
@@ -153,7 +161,15 @@ export function SettingsPanel() {
               <div key={inv.id} className="settingsInvoiceRow">
                 <span className="settingsInvoiceCell settingsInvoiceCol--date mono">{inv.date}</span>
                 <span className="settingsInvoiceCell settingsInvoiceCol--amount mono">{inv.amount}</span>
-                <span className="settingsInvoiceCell settingsInvoiceCol--status mono settingsInvoiceStatus--paid">
+                <span
+                  className={[
+                    'settingsInvoiceCell',
+                    'settingsInvoiceCol--status',
+                    'mono',
+                    'settingsInvoiceStatus',
+                    `settingsInvoiceStatus--${settingsStatusTone(inv.status)}`,
+                  ].join(' ')}
+                >
                   {inv.status}
                 </span>
                 <span className="settingsInvoiceCell settingsInvoiceCol--note settingsInvoiceNote">{inv.note}</span>

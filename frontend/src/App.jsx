@@ -1,5 +1,5 @@
 import { toPng } from 'html-to-image'
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { IntroPage } from './IntroPage.jsx'
@@ -358,6 +358,55 @@ const MOCK_EVENTS = [
     daily: [58, 59, 58, 60, 61, 60, 62, 63, 62, 64, 63, 65, 66, 65, 67, 68, 69],
   },
 ]
+
+/** Mock CASE panel copy — narrative analysis per trial event (replaces KV worksheet). */
+const MOCK_PHARMA_ANALYSIS = {
+  'ONC-441-P2-READOUT':
+    'OncoNadir disclosed an interim Phase II efficacy update for ONC-441, a CD47×EGFR bispecific in second-line metastatic colorectal cancer. The company-reported readout showed an objective response rate of 28.2% and disease control rate of 71.0% in an EGFR-high enriched cohort (N=124), with median duration of response still immature at 5.6 months.\n\nSafety remained manageable relative to prior bispecific concerns: grade ≥3 treatment-related adverse events were 9%, infusion-related reactions 12% (mostly grade 1–2), and treatment discontinuation due to adverse events 3%. The study remains active but not recruiting, with primary completion estimated August 2026.\n\nInvestors will weigh whether the ORR/DCR profile is competitive versus SOC benchmarks in 2L+ mCRC and whether durability matures favorably ahead of a registrational path.',
+  'NRX-118-FDA-UPDATE':
+    'NeuroRex filed an 8-K noting FDA feedback on NRX-118, an intrathecal antisense oligonucleotide in a Phase I/II rare neurodegenerative program. The correspondence centered on chemistry, manufacturing, and controls—specifically a comparability request—rather than a clinical hold or trial stop.\n\nThe program remains recruiting (N=38 planned) with primary focus on target RNA knockdown and exploratory functional endpoints. No efficacy data were disclosed in this filing.\n\nFor holders, the update signals regulatory scrutiny on CMC scale-up rather than a fundamental efficacy setback; timeline risk hinges on how quickly comparability packages satisfy the agency.',
+  'KLM-210-TRIAL-DELAY':
+    'KaleidoMetrix reported a Phase III NASH enrollment pause tied to a site audit notice for KLM-210, an oral FXR agonist. The double-blind placebo-controlled study (N≈1,200) targets fibrosis improvement without worsening of NASH; the filing did not revise primary completion guidance (December 2026 estimate).\n\nManagement framed the pause as operational—audit-driven—without citing new safety signals in the release excerpt. The trial status remains active, not recruiting, during the pause window.\n\nThe delay extends time-to-data for a crowded NASH landscape and may pressure near-term sentiment until enrollment restarts and audit findings are cleared.',
+  'BETA-AMYLOID-FAIL':
+    'BlueArc Biologics announced topline Phase II results for BA-19, a beta-amyloid monoclonal antibody in early Alzheimer’s disease. The primary cognitive composite at 18 months was not met despite amyloid PET reduction versus baseline, marking an endpoint miss on the clinical outcome investors track most closely.\n\nSafety included ARIA-E at 8.1%, serious adverse events 6.4%, and discontinuation for adverse events 4.5%. The study is completed from an enrollment standpoint with primary completion in March 2026.\n\nThe readout challenges the program’s commercial thesis: biomarker engagement alone did not translate into functional benefit, raising questions on dose, population enrichment, or competitive positioning versus approved amyloid therapies.',
+  'RXQ-701-PH3-START':
+    'Renexus Pharma activated the first China site in the global Phase III IgA nephropathy trial of RXQ-701, an endothelin antagonist given once daily. The registrational program (N=980, 2:1 randomization) uses eGFR slope at week 104 as the primary endpoint, with UPCR and composite renal outcomes as key secondaries.\n\nEnrollment stood at 412 of 980 patients (42%) at the time of disclosure; standard-of-care RAS blockade is permitted. Early safety monitoring highlighted hypotension (7%), hyperkalemia (4%), and acute kidney injury under 1%.\n\nSite activation in China broadens geographic recruitment capacity and de-risks timeline slippage if US/EU sites were pacing behind plan.',
+  'ONC-992-P1-START':
+    'OncoNadir announced first-site activation for ONC-992, a Phase I dose-escalation study of the same CD47×EGFR bispecific platform in first-line mCRC. The open-label design (three dose levels, N=54) seeks MTD/RP2D with preliminary ORR and safety as secondary readouts.\n\nThis program sits alongside the Phase II ONC-441 readout and shares sponsor and mechanism class, but targets an earlier line of therapy. No efficacy data are expected near term.\n\nFor the sponsor, parallel Phase I and Phase II assets demonstrate platform breadth; investors should monitor dose-limiting toxicities and any overlap with ONC-441 safety learnings.',
+}
+
+function resolvePharmaAnalysis(liveEvent, mockEvent) {
+  const ws = liveEvent?.worksheet
+  if (typeof ws?.analysis === 'string' && ws.analysis.trim()) return ws.analysis.trim()
+  if (typeof liveEvent?.analysis === 'string' && liveEvent.analysis.trim()) return liveEvent.analysis.trim()
+  const ctx = liveEvent?.context_sentences
+  if (Array.isArray(ctx) && ctx.length > 0) {
+    return ctx
+      .map((s) => String(s ?? '').trim())
+      .filter(Boolean)
+      .join('\n\n')
+  }
+  const mockId = mockEvent?.id
+  if (mockId && MOCK_PHARMA_ANALYSIS[mockId]) return MOCK_PHARMA_ANALYSIS[mockId]
+  if (typeof mockEvent?.analysis === 'string' && mockEvent.analysis.trim()) return mockEvent.analysis.trim()
+  return null
+}
+
+function PharmaCaseAnalysis({ text }) {
+  const body = String(text ?? '').trim()
+  if (!body) {
+    return <p className="researchPaperProse pharmaCaseProse dim">No analysis available for this event.</p>
+  }
+  const paras = body.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
+  if (paras.length === 0) {
+    return <p className="researchPaperProse pharmaCaseProse">{body}</p>
+  }
+  return paras.map((p, i) => (
+    <p className="researchPaperProse pharmaCaseProse" key={`pharma-case-p-${i}`}>
+      {p}
+    </p>
+  ))
+}
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -1030,6 +1079,15 @@ function shortPhaseLabel(stage) {
   return s.length > 8 ? s.slice(0, 8) : s
 }
 
+/** Full phase copy for context program cards (e.g. Phase 3). */
+function displayPhaseLabel(stage) {
+  const s = String(stage ?? '').trim()
+  if (!s) return null
+  const m = s.match(/phase\s*([0-9]+[a-zA-Z]?)/i)
+  if (m) return `Phase ${m[1]}`
+  return s
+}
+
 function groupPrograms(programs) {
   const rows = Array.isArray(programs) ? programs : []
   const byKey = new Map()
@@ -1058,6 +1116,31 @@ function groupPrograms(programs) {
     byKey.set(key, prev)
   }
   return Array.from(byKey.values())
+}
+
+function programVariantMatchesLead(variant, leadDrug) {
+  if (!variant || !leadDrug) return false
+  const leadInd = String(leadDrug.indication ?? '').trim().toLowerCase()
+  const leadStage = String(leadDrug.stage ?? '').trim().toLowerCase()
+  const varInd = String(variant.indication ?? '').trim().toLowerCase()
+  const varStage = String(variant.stage ?? '').trim().toLowerCase()
+  const indOk = !leadInd || !varInd || leadInd === varInd
+  const stageOk =
+    !leadStage ||
+    !varStage ||
+    leadStage === varStage ||
+    shortPhaseLabel(leadStage) === shortPhaseLabel(varStage)
+  return indOk && stageOk
+}
+
+function leadProgramVariantForGroup(pg, leadDrug) {
+  if (!pg || !leadDrug) return null
+  const leadName = String(leadDrug.name ?? '').trim().toLowerCase()
+  const pgKey = String(pg.key ?? '').trim().toLowerCase()
+  if (!leadName || leadName !== pgKey) return null
+  const variants = Array.isArray(pg.variants) ? pg.variants : []
+  const exact = variants.find((v) => programVariantMatchesLead(v, leadDrug))
+  return exact ?? variants[0] ?? null
 }
 
 function boshaImpactScore(impact) {
@@ -1323,6 +1406,7 @@ function politicianCaseForRowIndex(i) {
   return {
     ...base,
     id: `pol-${i}`,
+    chamber: 'house',
     politicians: people,
     caseSheet: {
       ...(base.caseSheet ?? {}),
@@ -1434,10 +1518,7 @@ function MainContextPanel({
           {leadDrug ? (
             <div className="contextCompanyEarnings">
               <span className="contextCompanyEarningsK">LEAD</span>
-              <span className="contextCompanyEarningsV">
-                {leadDrug.name}
-                {leadDrug.stage ? ` • ${shortPhaseLabel(leadDrug.stage)}` : ''}
-              </span>
+              <span className="contextCompanyEarningsV">{leadDrug.name}</span>
             </div>
           ) : null}
         </div>
@@ -1452,9 +1533,11 @@ function MainContextPanel({
               <div className="contextProgramsGrid" role="list">
                 {programGroups.map((pg) => {
                   const active = selectedProgramKey ? selectedProgramKey === pg.key : false
-                  const first = pg.variants?.[0] ?? {}
-                  const phase = first?.stage ? shortPhaseLabel(first.stage) : null
-                  const ind = first?.indication ?? null
+                  const leadVariant = leadProgramVariantForGroup(pg, leadDrug)
+                  const isLeadProgram = Boolean(leadVariant)
+                  const displayVariant = leadVariant ?? pg.variants?.[0] ?? {}
+                  const phase = displayVariant?.stage ? displayPhaseLabel(displayVariant.stage) : null
+                  const ind = displayVariant?.indication ?? null
                   const showMilestones = active || (!selectedProgramKey && programGroups.length === 1)
                   const allMilestones = (pg.variants ?? [])
                     .flatMap((v) => v.milestones ?? [])
@@ -1477,15 +1560,20 @@ function MainContextPanel({
                       }}
                     >
                       <div className="contextProgramTop">
-                        <div className="contextProgramTopRow">
+                        <div className="contextProgramTopMain">
                           <div className="contextProgramKey mono">{pg.key}</div>
+                          <div className="contextProgramMeta mono dim">{ind || '—'}</div>
+                        </div>
+                        <div className="contextProgramTopRight">
                           {phase ? (
                             <div className="contextProgramPhase mono dim">{phase}</div>
                           ) : (
                             <div className="contextProgramPhase mono dim">—</div>
                           )}
+                          {isLeadProgram ? (
+                            <span className="contextProgramLeadBadge mono dim">LEAD</span>
+                          ) : null}
                         </div>
-                        <div className="contextProgramMeta mono dim">{ind || '—'}</div>
                       </div>
                       {visibleMilestones.length ? (
                         <div className="contextProgramMilestones dim">
@@ -1760,6 +1848,14 @@ function BoshaGraphFigure({ entities, events, edges }) {
   )
 }
 
+const POLITICIAN_CHAMBER_OPTS = [
+  { id: 'all', label: 'ALL' },
+  { id: 'house', label: 'HOUSE' },
+  { id: 'senate', label: 'SENATE' },
+  { id: 'executive', label: 'EXECUTIVE' },
+]
+const POLITICIAN_CHAMBER_ENABLED = new Set(['all', 'house'])
+
 const PRICE_RANGE_OPTS = ['1M', '3M', '6M', '1Y', 'ALL']
 const PRICE_RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, ALL: null }
 
@@ -1768,6 +1864,19 @@ function slicePriceSeriesByRange(series, range) {
   const days = PRICE_RANGE_DAYS[range]
   if (!days || arr.length <= days) return arr
   return arr.slice(-days)
+}
+
+function slicePriceDataByRange(series, dates, range) {
+  const s = Array.isArray(series) ? series : []
+  const d = Array.isArray(dates) ? dates : []
+  const n = s.length
+  if (!n) return { series: [], dates: [] }
+  const days = PRICE_RANGE_DAYS[range]
+  const take = typeof days === 'number' && n > days ? days : n
+  const sliced = s.slice(-take)
+  if (d.length >= n) return { series: sliced, dates: d.slice(-take) }
+  if (d.length === sliced.length) return { series: sliced, dates: d }
+  return { series: sliced, dates: buildEvenlySpacedDates(sliced.length) }
 }
 
 function BoshaMiniPrice({
@@ -3670,9 +3779,15 @@ function GraphPanel({
   panelClassName = '',
   metaMode = 'range',
   yTickFormat = 'price',
+  showRangeSelector = true,
+  chartRange: chartRangeProp,
+  onChartRangeChange,
 }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 900, h: 220 })
+  const [internalRange, setInternalRange] = useState('6M')
+  const priceRange = chartRangeProp ?? internalRange
+  const setPriceRange = onChartRangeChange ?? setInternalRange
 
   useLayoutEffect(() => {
     const el = wrapRef.current
@@ -3700,8 +3815,16 @@ function GraphPanel({
   const axisY = h - margin.b
   const innerW = Math.max(1, w - margin.l - margin.r)
 
-  const vals = Array.isArray(series) ? series : []
-  const ds = Array.isArray(dates) ? dates : []
+  const { series: vals, dates: ds } = useMemo(() => {
+    if (!showRangeSelector || metaMode !== 'range') {
+      return {
+        series: Array.isArray(series) ? series : [],
+        dates: Array.isArray(dates) ? dates : [],
+      }
+    }
+    const r = PRICE_RANGE_OPTS.includes(priceRange) ? priceRange : '6M'
+    return slicePriceDataByRange(series, dates, r)
+  }, [series, dates, showRangeSelector, metaMode, priceRange])
 
   const rawMin = vals.length ? Math.min(...vals) : 0
   const rawMax = vals.length ? Math.max(...vals) : 1
@@ -3847,30 +3970,50 @@ function GraphPanel({
       className={['panel', 'graph', panelClassName].filter(Boolean).join(' ')}
       aria-label={yTickFormat === 'return' ? 'Forward return trend' : 'Daily graph'}
     >
-      <header className="panelHeader">
+      <header
+        className={['panelHeader', showRangeSelector && metaMode === 'range' ? 'graphPanelHeader--range' : '']
+          .filter(Boolean)
+          .join(' ')}
+      >
         <div className="panelTitle">{title}</div>
-        <div className="panelMeta">
-          {metaMode === 'perf' ? (
-            <>
-              WR {perfMeta?.wr != null ? `${perfMeta.wr}%` : '—'} | YTD{' '}
-              {yTickFormat === 'return'
-                ? perfMeta?.ytdPp != null && Number.isFinite(perfMeta.ytdPp)
-                  ? (() => {
-                      const r = Math.round(perfMeta.ytdPp)
-                      if (r === 0) return '0%'
-                      return r > 0 ? `+${r}%` : `${r}%`
-                    })()
-                  : '—'
-                : perfMeta?.ytd != null && Number.isFinite(perfMeta.ytd)
-                  ? `${perfMeta.ytd >= 0 ? '+' : ''}${Math.round(perfMeta.ytd)}%`
-                  : '—'}
-            </>
-          ) : (
-            <>
-              L {vals.length ? vals[vals.length - 1] : 0} | R {min}–{max}
-            </>
-          )}
-        </div>
+        {showRangeSelector && metaMode === 'range' ? (
+          <div className="boshaPriceRange graphPriceRange" role="group" aria-label="Chart range">
+            {PRICE_RANGE_OPTS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                className={['boshaPriceRangeBtn', priceRange === r ? 'isActive' : ''].filter(Boolean).join(' ')}
+                onClick={() => setPriceRange(r)}
+                aria-pressed={priceRange === r}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="panelMeta">
+            {metaMode === 'perf' ? (
+              <>
+                WR {perfMeta?.wr != null ? `${perfMeta.wr}%` : '—'} | YTD{' '}
+                {yTickFormat === 'return'
+                  ? perfMeta?.ytdPp != null && Number.isFinite(perfMeta.ytdPp)
+                    ? (() => {
+                        const r = Math.round(perfMeta.ytdPp)
+                        if (r === 0) return '0%'
+                        return r > 0 ? `+${r}%` : `${r}%`
+                      })()
+                    : '—'
+                  : perfMeta?.ytd != null && Number.isFinite(perfMeta.ytd)
+                    ? `${perfMeta.ytd >= 0 ? '+' : ''}${Math.round(perfMeta.ytd)}%`
+                    : '—'}
+              </>
+            ) : (
+              <>
+                L {vals.length ? vals[vals.length - 1] : 0} | R {min}–{max}
+              </>
+            )}
+          </div>
+        )}
       </header>
       <div
         ref={wrapRef}
@@ -4816,6 +4959,10 @@ function TerminalTopBar({
   intelMode,
   onIntelModeChange,
   showIntelSwitch = false,
+  singleModeLabel = null,
+  showPoliticianChamberSwitch = false,
+  politicianChamber = 'all',
+  onPoliticianChamberChange,
 }) {
   return (
     <header className="terminalTopBar" aria-label="Mercerline">
@@ -4865,6 +5012,55 @@ function TerminalTopBar({
               onClick={() => onIntelModeChange('clinical')}
             >
               Clinical intelligence
+            </button>
+          </div>
+        ) : showPoliticianChamberSwitch ? (
+          <div
+            className={`terminalIntelSwitch terminalIntelSwitch--politicians terminalIntelSwitch--${politicianChamber}`}
+            role="tablist"
+            aria-label="Disclosure chamber"
+          >
+            {POLITICIAN_CHAMBER_OPTS.map((opt) => {
+              const enabled = POLITICIAN_CHAMBER_ENABLED.has(opt.id)
+              return (
+                <Fragment key={opt.id}>
+                  {opt.id === 'house' ? (
+                    <span className="terminalIntelSwitchSep" aria-hidden="true">
+                      |
+                    </span>
+                  ) : null}
+                  {opt.id === 'senate' ? <span className="terminalIntelSwitchBranchGap" aria-hidden="true" /> : null}
+                  <button
+                    type="button"
+                    role="tab"
+                    className={[
+                      'terminalIntelSwitchBtn',
+                      politicianChamber === opt.id ? 'isActive' : '',
+                      enabled ? '' : 'isUnavailable',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    aria-selected={politicianChamber === opt.id}
+                    disabled={!enabled}
+                    title={enabled ? undefined : 'Not available yet'}
+                    onClick={() => enabled && onPoliticianChamberChange?.(opt.id)}
+                  >
+                    {opt.label}
+                  </button>
+                </Fragment>
+              )
+            })}
+          </div>
+        ) : singleModeLabel ? (
+          <div className="terminalIntelSwitch terminalIntelSwitch--single" role="tablist" aria-label="View mode">
+            <button
+              type="button"
+              role="tab"
+              className="terminalIntelSwitchBtn isActive"
+              aria-selected
+              onClick={() => {}}
+            >
+              {singleModeLabel}
             </button>
           </div>
         ) : null}
@@ -4924,6 +5120,7 @@ function KensiglineTerminal() {
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
   const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
   const [politiciansFilter, setPoliticiansFilter] = useState(null)
+  const [politiciansChamber, setPoliticiansChamber] = useState('all')
   const [boshaFeedLive, setBoshaFeedLive] = useState(null)
   const [boshaExploreLive, setBoshaExploreLive] = useState(null)
   const [boshaCompanyLive, setBoshaCompanyLive] = useState(null)
@@ -5307,6 +5504,7 @@ function KensiglineTerminal() {
             ticker,
             at,
             politicians,
+            chamber: 'house',
             daily: [],
             __backend_id: id,
           }
@@ -5324,9 +5522,17 @@ function KensiglineTerminal() {
 
   const politiciansBaseRows = !backendUp ? POLITICIAN_FEED_ROWS : (politiciansFeedLive ?? [])
 
+  const politiciansChamberRows = useMemo(() => {
+    if (politiciansChamber === 'all') return politiciansBaseRows
+    if (politiciansChamber === 'house') {
+      return politiciansBaseRows.filter((r) => (r?.chamber ?? 'house') === 'house')
+    }
+    return []
+  }, [politiciansBaseRows, politiciansChamber])
+
   const politicianFilterItems = useMemo(() => {
     const counts = new Map()
-    for (const r of politiciansBaseRows) {
+    for (const r of politiciansChamberRows) {
       const people = Array.isArray(r?.politicians) ? r.politicians : []
       for (const p of people) {
         const k = String(p ?? '').trim()
@@ -5337,17 +5543,17 @@ function KensiglineTerminal() {
     return Array.from(counts.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-  }, [politiciansBaseRows])
+  }, [politiciansChamberRows])
 
   const politiciansFeedRows = useMemo(() => {
-    if (!politiciansFilter) return politiciansBaseRows
-    return politiciansBaseRows.filter((r) => (r?.politicians ?? []).includes(politiciansFilter))
-  }, [politiciansBaseRows, politiciansFilter])
+    if (!politiciansFilter) return politiciansChamberRows
+    return politiciansChamberRows.filter((r) => (r?.politicians ?? []).includes(politiciansFilter))
+  }, [politiciansChamberRows, politiciansFilter])
 
   useEffect(() => {
     setPoliticiansIdx(0)
     setPoliticiansCaseTradeIdx(0)
-  }, [politiciansFilter])
+  }, [politiciansFilter, politiciansChamber])
 
   const politiciansSelected =
     politiciansFeedRows.length > 0 ? politiciansFeedRows[clamp(politiciansIdx, 0, politiciansFeedRows.length - 1)] : null
@@ -5458,10 +5664,16 @@ function KensiglineTerminal() {
     if (!base || !milestone) return base
     const ts = milestone.milestoneAt ?? base.ts
     const label = milestone.milestoneLabel ?? base.eventType ?? 'UPDATE'
+    const baseAnalysis = resolvePharmaAnalysis(null, base) ?? ''
+    const milestoneNote = `Program timeline: ${String(label)} (${formatFeedDate(ts)}).`
+    const analysis = baseAnalysis
+      ? `${baseAnalysis}\n\n${milestoneNote}`
+      : milestoneNote
     return {
       ...base,
       ts,
       eventType: String(label).toUpperCase(),
+      analysis,
       timelineDetails: {
         ...(base.timelineDetails ?? {}),
         eventSource: (base.timelineDetails?.eventSource ?? 'Company release'),
@@ -5488,35 +5700,23 @@ function KensiglineTerminal() {
   const pharmaSelectedResolved = useMemo(() => {
     if (backendUp && activeTab !== 'pharma') return null
     if (backendUp && !pharmaEventLive) return null
-    if (!pharmaEventLive || activeTab !== 'pharma') return pharmaSelected
-    const ws = pharmaEventLive?.worksheet ?? {}
-    const snap = {
-      drug: ws.drug ?? pharmaEventLive?.drug ?? null,
-      mechanism: ws.mechanism ?? null,
-      phase: ws.phase ?? pharmaEventLive?.phase ?? null,
-      indication: ws.indication ?? pharmaEventLive?.indication ?? null,
-      sponsor: ws.sponsor ?? pharmaEventLive?.company_name ?? null,
-      intervention: ws.intervention ?? null,
-      assetOrigin: ws.origin ?? null,
+    if (!pharmaEventLive || activeTab !== 'pharma') {
+      if (!pharmaSelected) return null
+      return {
+        ...pharmaSelected,
+        analysis: pharmaSelected.analysis ?? resolvePharmaAnalysis(null, pharmaSelected),
+      }
     }
+    const drug = pharmaEventLive?.drug ?? null
+    const phase = pharmaEventLive?.phase ?? null
     return {
       id: pharmaFeedEventId,
-      ts: pharmaEventLive?.event_at ?? pharmaEventLive?.eventAt ?? pharmaEventLive?.event_at ?? new Date().toISOString(),
+      drug,
+      phase,
+      ts: pharmaEventLive?.event_at ?? pharmaEventLive?.eventAt ?? new Date().toISOString(),
       eventType: pharmaEventLive?.event_type ?? pharmaEventLive?.eventType ?? 'UPDATE',
-      trialSnapshot: snap,
-      timelineDetails: {
-        status: ws.status ?? null,
-        studyStart: ws.study_start ?? null,
-        primaryCompletion: ws.primary_completion ?? null,
-        studyCompletion: ws.study_completion ?? null,
-        eventSource: ws.source ?? 'SEC filing',
-        eventSubtype: ws.detail ?? pharmaEventLive?.feed_label ?? 'Update',
-      },
-      endpointsResults: {
-        endpoints: Array.isArray(ws.endpoints) ? ws.endpoints : [],
-        results: Array.isArray(ws.results) ? ws.results : [],
-      },
-      safety: Array.isArray(ws.safety) ? ws.safety : [],
+      feedLabel: pharmaEventLive?.feed_label ?? null,
+      analysis: resolvePharmaAnalysis(pharmaEventLive, pharmaSelected),
       daily: pharmaSelected?.daily ?? [],
     }
   }, [backendUp, activeTab, pharmaEventLive, pharmaSelected, pharmaFeedEventId])
@@ -5700,13 +5900,10 @@ function KensiglineTerminal() {
     setProgramRailMilestone(null)
   }, [pharmaIdx])
 
-  const hasSafety =
-    Array.isArray(pharmaSelectedResolved?.safety) && pharmaSelectedResolved.safety.length > 0
-
-  const worksheetRows =
-    activeTab === 'insider'
-      ? buildInsiderWorksheetRows(insiderSelectedResolved?.caseSheet)
-      : buildWorksheetRows(pharmaSelectedResolved, hasSafety)
+  const pharmaCaseAnalysisText = useMemo(() => {
+    if (activeTab !== 'pharma') return null
+    return pharmaSelectedResolved?.analysis ?? resolvePharmaAnalysis(pharmaEventLive, pharmaSelected) ?? null
+  }, [activeTab, pharmaSelectedResolved, pharmaEventLive, pharmaSelected])
 
   const daily =
     backendUp
@@ -5745,7 +5942,14 @@ function KensiglineTerminal() {
       ? insiderSelectedResolved?.caseSheet?.issuer ?? insiderSelectedResolved?.id ?? '—'
       : activeTab === 'politicians'
         ? politiciansSelectedResolved?.caseSheet?.issuer ?? politiciansSelectedResolved?.id ?? '—'
-        : pharmaSelectedResolved?.id ?? '—'
+        : (() => {
+            const p = pharmaSelectedResolved
+            if (!p) return '—'
+            const bits = [p.drug ?? p.trialSnapshot?.drug, p.phase ?? p.trialSnapshot?.phase, p.eventType]
+              .map((x) => String(x ?? '').trim())
+              .filter(Boolean)
+            return bits.length ? bits.join(' · ') : (p.id ?? '—')
+          })()
 
   const insiderCaseFeedRows = useMemo(() => {
     const cs = insiderSelectedResolved?.caseSheet
@@ -5875,6 +6079,16 @@ function KensiglineTerminal() {
         intelMode={intelMode}
         onIntelModeChange={setIntelMode}
         showIntelSwitch={activeTab === 'main'}
+        singleModeLabel={
+          activeTab === 'insider'
+            ? 'Insider intelligence'
+            : activeTab === 'pharma'
+              ? 'Pharma intelligence'
+              : null
+        }
+        showPoliticianChamberSwitch={activeTab === 'politicians'}
+        politicianChamber={politiciansChamber}
+        onPoliticianChamberChange={setPoliticiansChamber}
       />
       <div className="terminalWorkspace">
       <nav className="sideTabsRail" aria-label="Views">
@@ -6057,7 +6271,7 @@ function KensiglineTerminal() {
       {/* Explore tab removed; BOSHA panels live inside MAIN now. */}
 
       {activeTab === 'pharma' ? (
-        <section className="panel worksheet" aria-label="Trial worksheet">
+        <section className="panel worksheet" aria-label="Trial case analysis">
           <header className="feedCompactHeader">
             <div className="panelTitle feedCompactTitle">CASE</div>
             <div className="feedCompactMeta">
@@ -6065,7 +6279,9 @@ function KensiglineTerminal() {
             </div>
           </header>
 
-          <div className="worksheetBody">{worksheetRows}</div>
+          <div className="worksheetBody worksheetBody--analysis scrollThin pharmaCaseAnalysis">
+            <PharmaCaseAnalysis text={pharmaCaseAnalysisText} />
+          </div>
         </section>
       ) : null}
 

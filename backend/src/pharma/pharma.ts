@@ -90,6 +90,8 @@ function buildPharmaExtractionPrompt(args: { ticker: string; companyName?: strin
         "Return ONLY valid JSON. No markdown. No extra keys beyond the schema.",
         "If unknown, use null. Do not invent facts.",
         "Keep `context_sentences` short and plain English (3 sentences).",
+        "`worksheet.analysis` must be plain-English narrative prose (2–4 short paragraphs), not key-value fields.",
+        "Focus analysis on what changed in this filing, the program (drug, phase, indication), material efficacy/safety/regulatory numbers if stated, timing, and why it matters.",
         "Only output events that are likely to matter (trial results, FDA/regulatory updates, trial start/stop/delay, key enrollment milestones, major safety signals, major partnerships, major financing).",
         "IMPORTANT: Only output an event if you can identify at least a trial PHASE (I/II/III) and a concrete update type (RESULT vs PROGRESS).",
         "Do NOT output generic filler like 'Pipeline update'. If you can't extract phase, output zero events.",
@@ -101,12 +103,12 @@ function buildPharmaExtractionPrompt(args: { ticker: string; companyName?: strin
         "OUTPUT SCHEMA (return exactly this shape):",
         "{",
         '  "schema_type": "trial_event_batch",',
-        '  "schema_version": "v1",',
+        '  "schema_version": "v2",',
         '  "ticker": string,',
         '  "company_name": string|null,',
         '  "events": Array<{',
         '    "schema_type": "trial_event",',
-        '    "schema_version": "v1",',
+        '    "schema_version": "v2",',
         '    "ticker": string,',
         '    "company_name": string|null,',
         '    "drug": string|null,',
@@ -116,14 +118,7 @@ function buildPharmaExtractionPrompt(args: { ticker: string; companyName?: strin
         '    "event_at": string|null,',
         '    "feed_label": string,',
         '    "context_sentences": string[],',
-        '    "worksheet": {',
-        '      "drug": string|null, "mechanism": string|null, "phase": string|null, "indication": string|null,',
-        '      "sponsor": string|null, "origin": string|null, "intervention": string|null, "status": string|null,',
-        '      "study_start": string|null, "primary_completion": string|null, "study_completion": string|null,',
-        '      "source": string|null, "detail": string|null,',
-        '      "endpoints": string[], "results": Array<{ "endpoint": string, "value": string }>,',
-        '      "safety": Array<{ "term": string, "value": string }>',
-        "    }",
+        '    "worksheet": { "analysis": string }',
         "  }>",
         "}",
         "",
@@ -312,14 +307,20 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
       const eventAt = iso(e.event_at) ?? filingNow;
 
       const ws = e.worksheet ?? {};
-      const drug = e.drug != null ? String(e.drug) : ws?.drug != null ? String(ws.drug) : null;
-      const indication =
-        e.indication != null ? String(e.indication) : ws?.indication != null ? String(ws.indication) : null;
-      const phase = normalizePhase(e.phase ?? ws?.phase ?? null);
-      const eventType = normalizeEventType(e.event_type ?? e.eventType ?? ws?.event_type ?? ws?.eventType ?? null);
+      const drug = e.drug != null ? String(e.drug) : null;
+      const indication = e.indication != null ? String(e.indication) : null;
+      const phase = normalizePhase(e.phase ?? null);
+      const eventType = normalizeEventType(e.event_type ?? e.eventType ?? null);
+      let analysis = typeof ws?.analysis === "string" ? ws.analysis.trim() : "";
+      if (!analysis && Array.isArray(e.context_sentences)) {
+        analysis = e.context_sentences
+          .map((s: unknown) => String(s ?? "").trim())
+          .filter(Boolean)
+          .join("\n\n");
+      }
+      if (!analysis) continue;
       const feedLabel = pharmaFeedLabelFrom(phase, eventType);
-      const companyName =
-        e.company_name != null ? String(e.company_name) : ws?.sponsor != null ? String(ws.sponsor) : nameForPrompt;
+      const companyName = e.company_name != null ? String(e.company_name) : nameForPrompt;
 
       // If we couldn't derive a real label (no phase), skip inserting this event.
       if (!feedLabel) continue;
@@ -352,7 +353,7 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
         VALUES (
           $1,
           'trial_event',
-          'v1',
+          'v2',
           $2,
           'pharma',
           $3,
@@ -384,9 +385,13 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
           primaryUrl,
           eventAt,
           model,
-          "pharma_sec_v1",
+          "pharma_sec_v2",
           perEventSha,
-          { ...e, event_type: eventType },
+          {
+            ...e,
+            event_type: eventType,
+            worksheet: { analysis },
+          },
         ],
       );
       if (r?.id) {
