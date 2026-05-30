@@ -1,4 +1,3 @@
-import { toPng } from 'html-to-image'
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
@@ -12,8 +11,7 @@ function clamp(n, lo, hi) {
 
 const EMPTY = '-'
 
-/* Chart area fill under line — CSS vars follow market/clinical intel theme.
- * During paper image capture, `.boshaPaperBody--capturing` overrides `path.graphArea` with a flat fill. */
+/* Chart area fill under line — CSS vars follow market/clinical intel theme. */
 const CHART_AREA_GRAD_TOP = 'var(--intel-accent-area-top)'
 const CHART_AREA_GRAD_BOTTOM = 'var(--intel-accent-area-bottom)'
 
@@ -951,24 +949,78 @@ function boshaDatasetForTicker(ticker) {
   return BOSHA_DATASETS[t] ?? BOSHA_DATASETS.ATYR
 }
 
+const POLITICIAN_CHAMBER_LABELS = {
+  house: 'House',
+  senate: 'Senate',
+  executive: 'Executive',
+}
+
+function paperPoliticianChamberLabel(chamber) {
+  const k = String(chamber ?? 'house').trim().toLowerCase()
+  return POLITICIAN_CHAMBER_LABELS[k] ?? 'House'
+}
+
+/** Form 4 paper/context row: role then reporting owner name. */
+function paperInsiderTxnLabel(role, personName) {
+  const r = String(role ?? '').trim()
+  const p = String(personName ?? '').trim()
+  if (r && p) return `${r}, ${p}`
+  return r || p || '—'
+}
+
+/** PTR paper/context row: chamber then member name. */
+function paperPoliticianTxnLabel(chamber, name) {
+  const prefix = paperPoliticianChamberLabel(chamber)
+  const n = String(name ?? '').trim()
+  if (!n) return prefix
+  return `${prefix}, ${n}`
+}
+
 /** Research CONTEXT panel mock profiles (offline); keyed to feed/paper tickers ASML + ATYR. */
+function contextCountryLabel(country) {
+  const raw = String(country ?? '').trim()
+  if (!raw) return null
+  const names = {
+    US: 'United States',
+    USA: 'United States',
+    NL: 'Netherlands',
+    UK: 'United Kingdom',
+    GB: 'United Kingdom',
+    DE: 'Germany',
+    FR: 'France',
+    CH: 'Switzerland',
+    IE: 'Ireland',
+    CA: 'Canada',
+    JP: 'Japan',
+  }
+  const key = raw.toUpperCase()
+  if (names[key]) return names[key]
+  const cleaned = raw.replace(/-based$/i, '').trim()
+  return cleaned || null
+}
+
 const CONTEXT_MOCK_PROFILES = {
   ASML: {
     sector: 'Semiconductor equipment',
+    country: 'NL',
     mcap: '€350B',
     earningsDaysAhead: 17,
     insiders: [
-      { key: 'CEO', daysAgo: 7, amount: '$8.2M' },
-      { key: 'CFO', daysAgo: 15, amount: '$2.1M' },
-      { key: 'Director', daysAgo: 22, amount: '$1.4M' },
+      { key: 'CEO', person: 'Christophe Borel', at: 'today', amount: '$8.2M' },
+      { key: 'CFO', person: 'Roger Dassen', at: '2026-03-25', amount: '$2.1M' },
+      { key: 'CTO', person: 'Frederic Schneider-Maunoury', at: '2026-02-20', amount: '$960K' },
+      { key: 'Director', person: 'Sophie van der Meer', at: '2026-01-14', amount: '$1.4M' },
     ],
     politicians: [
-      { name: 'Pelosi', daysAgo: 10, amount: '$420K' },
-      { name: 'Crenshaw', daysAgo: 19, amount: '$180K' },
+      { name: 'Nancy Pelosi', chamber: 'house', at: '2026-05-02', amount: '$420K' },
+      { name: 'Dan Crenshaw', chamber: 'house', at: '2026-03-01', amount: '$180K' },
+      { name: 'John Thune', chamber: 'senate', at: '2026-02-08', amount: '$210K' },
+      { name: 'Gina Raimondo', chamber: 'executive', at: '2026-01-12', amount: '$95K' },
     ],
   },
   ATYR: {
     sector: 'Biotechnology',
+    country: 'US',
     mcap: '$320M',
     earningsDaysAhead: 5,
     leadDrug: {
@@ -1008,15 +1060,31 @@ const CONTEXT_MOCK_PROFILES = {
       },
     ],
     insiders: [
-      { key: 'CMO', daysAgo: 3, amount: '$240K' },
-      { key: 'CEO', daysAgo: 11, amount: '$890K' },
-      { key: 'Director', daysAgo: 19, amount: '$125K' },
+      { key: 'CMO', person: 'Sanjay S. Shukla', at: '2026-05-20', amount: '$240K' },
+      { key: 'CEO', person: 'John Mendlein', at: '2026-04-02', amount: '$890K' },
+      { key: 'Director', person: 'Jill Bates', at: '2026-03-05', amount: '$125K' },
+      { key: 'CFO', person: 'Stephen A. Hall', at: '2026-01-30', amount: '$310K' },
     ],
     politicians: [
-      { name: 'Tuberville', daysAgo: 7, amount: '$65K' },
-      { name: 'Kelly', daysAgo: 16, amount: '$42K' },
+      { name: 'Tommy Tuberville', chamber: 'senate', at: '2026-04-24', amount: '$65K' },
+      { name: 'Mark Kelly', chamber: 'senate', at: '2026-03-28', amount: '$42K' },
+      { name: 'Ro Khanna', chamber: 'house', at: '2026-02-20', amount: '$28K' },
     ],
   },
+}
+
+function contextMockFlowDate(row, dateDaysAgo) {
+  if (String(row?.at ?? '').trim().toLowerCase() === 'today') {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    return d
+  }
+  if (row?.at) {
+    const d = new Date(`${String(row.at).trim()}T00:00:00.000Z`)
+    if (Number.isFinite(d.getTime())) return d
+  }
+  if (row?.daysAgo != null) return dateDaysAgo(row.daysAgo)
+  return dateDaysAgo(0)
 }
 
 function contextMockForTicker(ticker, priceSeries) {
@@ -1044,18 +1112,21 @@ function contextMockForTicker(ticker, priceSeries) {
     ticker: t,
     price: Number.isFinite(price) ? price : 0,
     sector: base.sector,
+    domicile: contextCountryLabel(base.country),
     mcap: base.mcap,
     earnings: contextEarningsFromDate(earningsDay),
     leadDrug: base.leadDrug ?? null,
     programs: Array.isArray(base.programs) ? base.programs : [],
     insiders: base.insiders.map((row) => ({
       key: row.key,
-      date: dateDaysAgo(row.daysAgo),
+      person: row.person ?? null,
+      date: contextMockFlowDate(row, dateDaysAgo),
       amount: row.amount,
     })),
     politicians: base.politicians.map((row) => ({
       name: row.name,
-      date: dateDaysAgo(row.daysAgo),
+      chamber: row.chamber ?? 'house',
+      date: contextMockFlowDate(row, dateDaysAgo),
       amount: row.amount,
     })),
   }
@@ -1462,7 +1533,11 @@ function MainContextPanel({
   ticker,
   price,
   sector,
+  domicile = null,
   mcap,
+  priceSeries = [],
+  insiderPriceMarkers = [],
+  politicianPriceMarkers = [],
   earnings = null,
   leadDrug = null,
   programs = [],
@@ -1475,6 +1550,8 @@ function MainContextPanel({
   politiciansOpen,
   onTogglePoliticians,
 }) {
+  const t = String(ticker ?? '').toUpperCase()
+  const [priceRange, setPriceRange] = useState('6M')
   const showFlows = intelMode !== 'clinical'
   const programGroups = useMemo(() => groupPrograms(programs), [programs])
 
@@ -1501,7 +1578,22 @@ function MainContextPanel({
             <div className="contextCompanyPrice">${price.toFixed(2)}</div>
           </div>
           <div className="contextCompanyMeta">{sector}</div>
+          {domicile ? <div className="contextCompanyMeta contextCompanyMeta--domicile">{domicile}</div> : null}
           <div className="contextCompanyMeta">{mcap} MCAP</div>
+          <div className="contextCompanyChart" aria-label="Price chart">
+            <BoshaMiniPrice
+              series={priceSeries}
+              label={t || 'PRICE'}
+              showMeta={false}
+              showRangeSelector
+              chartAlign="context"
+              chartRange={priceRange}
+              onChartRangeChange={setPriceRange}
+              trimLeadingPlateau
+              insiderMarkers={insiderPriceMarkers}
+              politicianMarkers={politicianPriceMarkers}
+            />
+          </div>
           {earnings ? (
             <div
               className={[
@@ -1629,7 +1721,7 @@ function MainContextPanel({
                   {insiders.map((it, idx) => (
                     <div key={`${it.key}-${idx}`} className="contextFlowRow" role="listitem">
                       <div className="contextFlowRowMain">
-                        <div className="contextFlowRowKey">{it.key}</div>
+                        <div className="contextFlowRowKey">{paperInsiderTxnLabel(it.key, it.person)}</div>
                         <div className="contextFlowRowDate">{insiderTxnDateShort(it.date)}</div>
                       </div>
                       <div className="contextFlowRowAmt">{it.amount}</div>
@@ -1656,7 +1748,9 @@ function MainContextPanel({
                   {politicians.map((it, idx) => (
                     <div key={`${it.name}-${idx}`} className="contextFlowRow" role="listitem">
                       <div className="contextFlowRowMain">
-                        <div className="contextFlowRowKey contextFlowRowKey--name">{it.name}</div>
+                        <div className="contextFlowRowKey contextFlowRowKey--name">
+                          {paperPoliticianTxnLabel(it.chamber, it.name)}
+                        </div>
                         <div className="contextFlowRowDate">{insiderTxnDateShort(it.date)}</div>
                       </div>
                       <div className="contextFlowRowAmt">{it.amount}</div>
@@ -1691,7 +1785,7 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker, q, onQuery, filtered
       <header className="feedCompactHeader researchFeedHeader">
         <div className="panelTitle feedCompactTitle">FEED</div>
       </header>
-      <div className="researchFeedBody scrollThin">
+      <div className="researchFeedBody">
         <label className="researchFeedSearch">
           <input
             className="researchFeedSearchInput"
@@ -1709,7 +1803,7 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker, q, onQuery, filtered
             <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
           </svg>
         </label>
-        <div className="researchFeedList" role="list">
+        <div className="researchFeedList scrollThin" role="list">
           {filtered.map((it) => (
             <button
               key={it.rowKey ?? it.ticker}
@@ -1887,6 +1981,7 @@ function BoshaMiniPrice({
   showRangeSelector = false,
   chartRange: chartRangeProp,
   onChartRangeChange,
+  chartAlign = 'default',
   insiderMarkers = [],
   politicianMarkers = [],
 }) {
@@ -1913,11 +2008,9 @@ function BoshaMiniPrice({
 
   const w = size.w
   const h = size.h
-  // Keep the plot flush with the paper text column while still allowing
-  // Y-axis labels to render to the *left* of the axis line.
-  // Left padding in SVG user units: must fit widest y tick (end-anchored left of x = margin.l).
-  const viewPadL = 50
-  const margin = { l: 0, r: 6, t: 8, b: 18 }
+  const margin =
+    chartAlign === 'context' ? { l: 0, r: 0, t: 8, b: 18 } : { l: 0, r: 6, t: 8, b: 18 }
+  const svgPreserveAspect = chartAlign === 'context' ? 'xMinYMid meet' : 'xMidYMid meet'
   const innerW = Math.max(1, w - margin.l - margin.r)
   const innerH = Math.max(1, h - margin.t - margin.b)
 
@@ -1971,6 +2064,14 @@ function BoshaMiniPrice({
   }, [label])
 
   const yTicks = useMemo(() => priceTicks(min, max, 4), [min, max])
+  // Left viewBox gutter: fit widest y tick (end-anchored 8px left of axis). Context uses a tighter gutter.
+  const yTickGap = 8
+  const viewPadL = useMemo(() => {
+    if (chartAlign !== 'context') return 50
+    const maxLen = yTicks.reduce((m, v) => Math.max(m, formatPriceTick(v).length), 3)
+    return Math.min(40, Math.max(28, Math.ceil(maxLen * 6.5) + yTickGap + 4))
+  }, [chartAlign, yTicks])
+  const yTickLabelX = margin.l - yTickGap
   const xTickIdx = useMemo(() => {
     const n = Math.max(0, vals.length)
     if (n <= 1) return []
@@ -1989,51 +2090,6 @@ function BoshaMiniPrice({
     }
     return out
   }, [vals.length])
-
-  function dayKey(d) {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  }
-
-  function markerXsFor(markerDates) {
-    const n = Math.max(0, vals.length)
-    if (n <= 1 || !Array.isArray(markerDates) || markerDates.length === 0) return []
-    const dayToIdx = new Map()
-    for (let i = 0; i < dates.length; i++) {
-      const d = dates[i]
-      if (!(d instanceof Date) || Number.isNaN(d.getTime())) continue
-      dayToIdx.set(dayKey(d), i)
-    }
-
-    const nowApprox = dates.at(-1) ?? new Date()
-    const xs = []
-    const seen = new Set()
-
-    for (const m of markerDates) {
-      const d = m instanceof Date ? m : new Date(m)
-      if (Number.isNaN(d.getTime())) continue
-      const key = dayKey(d)
-      if (seen.has(key)) continue
-      seen.add(key)
-
-      const idxFromSeries = dayToIdx.get(key)
-      const idx =
-        typeof idxFromSeries === 'number'
-          ? idxFromSeries
-          : (() => {
-              const daysAgo = Math.floor((nowApprox.getTime() - d.getTime()) / 86400000)
-              return clamp(n - 1 - daysAgo, 0, n - 1)
-            })()
-
-      xs.push(xAt(idx))
-    }
-    return xs
-  }
-
-  const insiderMarkerX = useMemo(() => markerXsFor(insiderMarkers), [insiderMarkers, vals.length, w, h, innerW, dates])
-  const politicianMarkerX = useMemo(
-    () => markerXsFor(politicianMarkers),
-    [politicianMarkers, vals.length, w, h, innerW, dates],
-  )
 
   const last = Array.isArray(series) && series.length ? series.at(-1) : null
   const prev = Array.isArray(series) && series.length > 1 ? series.at(-2) : null
@@ -2076,7 +2132,12 @@ function BoshaMiniPrice({
             No price data.
           </div>
         ) : (
-          <svg className="graphSvg" viewBox={`${-viewPadL} 0 ${w + viewPadL} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
+          <svg
+            className="graphSvg"
+            viewBox={`${-viewPadL} 0 ${w + viewPadL} ${h}`}
+            preserveAspectRatio={svgPreserveAspect}
+            role="img"
+          >
             <defs>
               <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={CHART_AREA_GRAD_TOP} stopOpacity="1" />
@@ -2099,12 +2160,16 @@ function BoshaMiniPrice({
                     style={GRAPH_SVG_TICK}
                     textAnchor="end"
                     dominantBaseline="middle"
-                    x={margin.l - 8}
+                    x={yTickLabelX}
                     y={y}
                   >
                     {formatPriceTick(v)}
                   </text>
-                  <path className="graphTickLine" style={GRAPH_SVG_TICK_LINE} d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
+                  <path
+                    className="graphTickLine"
+                    style={GRAPH_SVG_TICK_LINE}
+                    d={`M ${margin.l} ${y} L ${margin.l + (chartAlign === 'context' ? 4 : 6)} ${y}`}
+                  />
                 </g>
               )
             })}
@@ -2115,11 +2180,6 @@ function BoshaMiniPrice({
               const m = d instanceof Date && !Number.isNaN(d.getTime()) ? MONTHS_SHORT[d.getMonth()] : EMPTY
               return (
                 <g key={`xt-${i}`}>
-                  <path
-                    className="graphTickLine"
-                    style={GRAPH_SVG_TICK_LINE}
-                    d={`M ${x} ${h - margin.b} L ${x} ${h - margin.b - 6}`}
-                  />
                   <text className="graphTick graphTick--x" style={GRAPH_SVG_TICK} x={x} y={h - 4}>
                     {m}
                   </text>
@@ -2128,23 +2188,6 @@ function BoshaMiniPrice({
             })}
 
             <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
-
-            {insiderMarkerX.map((x, i) => (
-              <path
-                key={`mini-in-${i}`}
-                className="miniGraphMarker miniGraphMarker--insider"
-                d={`M ${x.toFixed(2)} ${margin.t} L ${x.toFixed(2)} ${h - margin.b}`}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-            {politicianMarkerX.map((x, i) => (
-              <path
-                key={`mini-pol-${i}`}
-                className="miniGraphMarker miniGraphMarker--politician"
-                d={`M ${x.toFixed(2)} ${margin.t} L ${x.toFixed(2)} ${h - margin.b}`}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
           </svg>
         )}
       </div>
@@ -2785,6 +2828,192 @@ function boshaThesisMemo({ ticker, companyName, events, priceSeries, constituent
   return { created, title, openingA, openingB, priceRef, chartX, core, causalChain, final }
 }
 
+function mockPaperFiledAtToday() {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.toISOString()
+}
+
+/** Per-filing AI summaries shown under the paper price chart (newest first). */
+const MOCK_PAPER_DOCUMENTS_ATYR = [
+  {
+    id: 'atyr-doc-8k-today',
+    source: '8-K',
+    filedAt: mockPaperFiledAtToday(),
+    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    analysis:
+      'Same-day 8-K: no material clinical update, routine disclosure ahead of the week-48 readout window. Useful as a timestamp anchor; does not change the binary mean-OCS setup.',
+  },
+  {
+    id: 'atyr-doc-8k-cash',
+    source: '8-K',
+    filedAt: '2026-05-08T00:00:00.000Z',
+    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    analysis:
+      'Management updated cash runway guidance and reiterated that EFZO-FIT remains fully enrolled with no change to the week-48 mean oral-steroid primary. The filing is operational, not efficacy-bearing, but it narrows financing overhang ahead of the binary readout.',
+  },
+  {
+    id: 'atyr-doc-8k-safety',
+    source: '8-K',
+    filedAt: '2026-04-09T00:00:00.000Z',
+    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    analysis:
+      'The company filed an interim blinded safety update without unblinded efficacy tables. Management reiterated that blinded review has not shown a toxicity spiral ahead of topline. The disclosure is supportive for holders into the print but does not change the statistical fight on the mean oral-steroid primary.',
+  },
+  {
+    id: 'atyr-doc-10q-risk',
+    source: '10-Q',
+    filedAt: '2026-03-18T00:00:00.000Z',
+    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    analysis:
+      'Risk factors again stress that EFZO-FIT success depends on demonstrating steroid reduction with acceptable variability across sites. The filing cautions that enrollment completion does not tighten confidence intervals on a mean-dose endpoint when placebo arms follow the same visit cadence. Language stays consistent with a binary catalyst rather than a de-risked fundamental story.',
+  },
+  {
+    id: 'atyr-doc-enrollment',
+    source: 'ClinicalTrials.gov',
+    filedAt: '2026-02-11T00:00:00.000Z',
+    url: 'https://clinicaltrials.gov/study/NCT05415137',
+    analysis:
+      'EFZO-FIT (NCT05415137) lists enrollment at 268 participants versus a 264 target for the sarcoidosis program. The trial remains three-arm with 5 mg/kg, 3 mg/kg, and placebo. The registry still frames the primary endpoint as absolute change from baseline in mean daily oral steroid dose at week 48, which is the regulatory line investors should track before any efficacy narrative hardens.',
+  },
+  {
+    id: 'atyr-doc-connect',
+    source: 'ClinicalTrials.gov',
+    filedAt: '2026-01-22T00:00:00.000Z',
+    url: 'https://clinicaltrials.gov/study/NCT05892614',
+    analysis:
+      'EFZO-CONNECT (NCT05892614) remains a separate SSc-ILD proof-of-concept with roughly 25 patients and placebo control. The registry update does not alter EFZO-FIT power. A strong PoC read could help sentiment after Phase 3 tables, but it cannot statistically rescue a failed pivotal mean-OCS outcome.',
+  },
+  {
+    id: 'atyr-doc-10k-prior',
+    source: '10-K',
+    filedAt: '2025-03-04T00:00:00.000Z',
+    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    analysis:
+      'Prior-year 10-K language already framed EFZO-FIT as a mean oral-steroid primary with placebo-driven taper noise. Useful baseline if you are comparing how risk disclosure evolved into the current Phase 3 window.',
+  },
+]
+
+const MOCK_PAPER_DOCUMENTS_ASML = [
+  {
+    id: 'asml-doc-q1',
+    source: '8-K',
+    filedAt: '2026-04-18T00:00:00.000Z',
+    url: 'https://www.sec.gov/edgar/search/#/q=ASML',
+    analysis:
+      'Q1 commentary highlights backlog stability and longer EUV lead times rather than a cancellation wave. Management frames demand as capacity-constrained at the leading edge, which keeps pricing power on high-NA slots intact even when downstream GPU names wobble.',
+  },
+  {
+    id: 'asml-doc-orders',
+    source: '8-K',
+    filedAt: '2026-03-14T00:00:00.000Z',
+    url: 'https://www.sec.gov/edgar/search/#/q=ASML',
+    analysis:
+      'Management commentary points to extended EUV delivery timelines and continued tightness in high-NA tool allocation. Customers are prioritizing leading-edge slots even as downstream AI demand headlines dominate equity flows. The filing reinforces scarcity in lithography rather than a demand air pocket for the tools themselves.',
+  },
+  {
+    id: 'asml-doc-annual',
+    source: 'Annual report',
+    filedAt: '2026-02-06T00:00:00.000Z',
+    url: 'https://www.asml.com/en/investors/financial-results',
+    analysis:
+      'The annual report reiterates that advanced-node wafer output scales with EUV installs, not short-cycle GPU order headlines. Order book language emphasizes multi-year visibility on systems while foundry utilization commentary stays measured. Investors still appear to price downstream AI semiconductors ahead of the upstream constraint chain.',
+  },
+  {
+    id: 'asml-doc-investor-day',
+    source: 'Investor presentation',
+    filedAt: '2026-01-08T00:00:00.000Z',
+    url: 'https://www.asml.com/en/investors',
+    analysis:
+      'Investor day slides walk through EUV install cadence and high-NA mix shift without changing the core scarcity thesis. The deck is useful for framing where bottlenecks sit in the stack, but it does not by itself resolve timing on when downstream AI demand reprices back into ASML.',
+  },
+  {
+    id: 'asml-doc-prior-annual',
+    source: 'Annual report',
+    filedAt: '2025-02-14T00:00:00.000Z',
+    url: 'https://www.asml.com/en/investors/financial-results',
+    analysis:
+      'Prior-year annual framing already emphasized EUV as the binding step for leading-edge supply. The language is consistent with the current scarcity thesis, which makes timing shifts in orders and backlog the live variable rather than the structural story.',
+  },
+]
+
+function paperDocumentOpenUrl(doc, ticker) {
+  const direct = String(doc?.url ?? '').trim()
+  if (direct) return direct
+  const id = String(doc?.id ?? '')
+  const source = String(doc?.source ?? '').toLowerCase()
+  const t = String(ticker ?? '').trim().toUpperCase()
+  if (id.includes('connect') || source.includes('connect')) {
+    return 'https://clinicaltrials.gov/study/NCT05892614'
+  }
+  if (source.includes('clinicaltrials') || id.includes('enrollment') || id.includes('fit')) {
+    return 'https://clinicaltrials.gov/study/NCT05415137'
+  }
+  if (source.includes('investor') && t === 'ASML') {
+    return 'https://www.asml.com/en/investors'
+  }
+  if (t) return `https://www.sec.gov/edgar/search/#/q=${encodeURIComponent(t)}`
+  return 'https://www.sec.gov/edgar/search/'
+}
+
+function ResearchPaperDocOpenIcon() {
+  return (
+    <svg className="researchPaperDocOpenIconSvg" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M14 4h6v6M10 20 20 10M20 10h-6M20 10v6M4 14V4h10"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+      />
+    </svg>
+  )
+}
+
+function ResearchPaperDocCard({ doc, ticker }) {
+  const source = doc?.source ?? 'Filing'
+  const url = paperDocumentOpenUrl(doc, ticker)
+  const openLabel = `Open ${source}`
+  return (
+    <article className="researchPaperDocCard">
+      <header className="researchPaperDocCardMeta mono dim">
+        <span className="researchPaperDocCardSource">{source}</span>
+        <time className="researchPaperDocCardDate" dateTime={doc?.filedAt ?? undefined}>
+          {doc?.filedAt ? formatFeedDate(doc.filedAt) : '—'}
+        </time>
+      </header>
+      <ResearchPaperDocAnalysis text={doc?.analysis} />
+      {url ? (
+        <a
+          className="researchPaperDocOpen"
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={openLabel}
+          title={openLabel}
+        >
+          <ResearchPaperDocOpenIcon />
+        </a>
+      ) : null}
+    </article>
+  )
+}
+
+function ResearchPaperDocAnalysis({ text }) {
+  const body = String(text ?? '').trim()
+  if (!body) return null
+  const paras = body.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
+  if (paras.length === 0) {
+    return <p className="researchPaperDocCardAnalysis">{body}</p>
+  }
+  return paras.map((p, i) => (
+    <p className="researchPaperDocCardAnalysis" key={`paper-doc-p-${i}`}>
+      {p}
+    </p>
+  ))
+}
+
 function boshaAsmlPresentation() {
   const intro =
     'Extreme ultraviolet lithography is the binding step for adding leading-edge wafer supply, and ASML is the systems supplier the industry depends on for that step. Output at the most advanced nodes therefore scales with EUV delivery and installation, not with the near-term pace of demand headlines. Market attention and flows still concentrate on accelerators and hyperscale operators because those markets are liquid, well covered, and map cleanly to a simple growth narrative, while lithography capacity is technical and slow to adjust. The result is often a lag between how downstream AI semiconductors reprice and how the upstream tool chain is valued, even when both sit in the same end-use story. The view here is that this lag can persist until allocation pressure in EUV is reflected more fully in ASML’s relative performance.'
@@ -2813,6 +3042,7 @@ function boshaAsmlPresentation() {
       { type: 'paragraph', text: action },
     ],
     diagram: undefined,
+    documents: MOCK_PAPER_DOCUMENTS_ASML,
     sources: [
       { label: 'ASML — Investor relations', url: 'https://www.asml.com/en/investors' },
       { label: 'SEC EDGAR search', url: 'https://www.sec.gov/edgar/search/' },
@@ -2850,6 +3080,7 @@ function boshaAtyrPresentation() {
       { type: 'paragraph', text: action },
     ],
     diagram: undefined,
+    documents: MOCK_PAPER_DOCUMENTS_ATYR,
     sources: [
       { label: 'ClinicalTrials.gov — EFZO-FIT (NCT05415137)', url: 'https://clinicaltrials.gov/study/NCT05415137' },
       { label: 'ClinicalTrials.gov — EFZO-CONNECT (NCT05892614)', url: 'https://clinicaltrials.gov/study/NCT05892614' },
@@ -2880,11 +3111,99 @@ function boshaGenericOfflinePresentation(memo, titleText, ticker) {
       { type: 'paragraph', text: memo.final },
     ],
     diagram: undefined,
+    documents: [],
     sources: [
       { label: 'SEC EDGAR search', url: 'https://www.sec.gov/edgar/search/' },
       { label: 'Company investor materials (mock)', url: 'https://www.sec.gov/edgar/search/' },
     ],
   }
+}
+
+function paperDocumentsFromPresentation(presentation) {
+  const rows = Array.isArray(presentation?.documents) ? presentation.documents : []
+  return [...rows].sort((a, b) => {
+    const ta = new Date(a?.filedAt ?? 0).getTime()
+    const tb = new Date(b?.filedAt ?? 0).getTime()
+    return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0)
+  })
+}
+
+function paperTimelineAtMs(at) {
+  const t = new Date(at ?? 0).getTime()
+  return Number.isFinite(t) ? t : 0
+}
+
+function paperTimelineItemAt(item) {
+  if (!item) return null
+  const raw = item.kind === 'document' ? item.document?.filedAt ?? item.at : item.at
+  if (!raw) return null
+  const d = raw instanceof Date ? raw : new Date(raw)
+  return Number.isFinite(d.getTime()) ? d : null
+}
+
+function isPaperTimelineItemToday(item) {
+  const d = paperTimelineItemAt(item)
+  if (!d) return false
+  return isSameLocalCalendarDay(d, new Date())
+}
+
+function isPaperTimelineItemThisMonth(item) {
+  const d = paperTimelineItemAt(item)
+  if (!d) return false
+  const now = new Date()
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+}
+
+function paperTimelineMonthGapLabel() {
+  return 'THIS MONTH'
+}
+
+function isPaperTimelineItemThisYear(item) {
+  const d = paperTimelineItemAt(item)
+  if (!d) return false
+  return d.getFullYear() === new Date().getFullYear()
+}
+
+function paperTimelineYearGapLabel() {
+  return 'THIS YEAR'
+}
+
+/** Filings + insider / politician trades for the paper timeline (newest first). */
+function buildPaperTimelineItems({ documents = [], insiders = [], politicians = [] }) {
+  const items = []
+  for (const doc of paperDocumentsFromPresentation({ documents })) {
+    if (!doc?.id) continue
+    items.push({ kind: 'document', id: String(doc.id), at: doc.filedAt, document: doc })
+  }
+  for (const row of insiders) {
+    const role = String(row?.key ?? '').trim()
+    const person = String(row?.person ?? '').trim()
+    const label = paperInsiderTxnLabel(role, person)
+    if (label === '—') continue
+    items.push({
+      kind: 'insider',
+      id: `insider-${role}-${person}-${paperTimelineAtMs(row?.date)}`,
+      at: row?.date,
+      source: 'Form 4',
+      name: label,
+      amount: row?.amount,
+    })
+  }
+  for (const row of politicians) {
+    const member = String(row?.name ?? '').trim()
+    const label = paperPoliticianTxnLabel(row?.chamber, member)
+    if (label === paperPoliticianChamberLabel(row?.chamber) && !member) continue
+    if (!member) continue
+    items.push({
+      kind: 'politician',
+      id: `politician-${member}-${paperTimelineAtMs(row?.date)}`,
+      at: row?.date,
+      source: 'PTR',
+      name: label,
+      amount: row?.amount,
+    })
+  }
+  return items.sort((a, b) => paperTimelineAtMs(b?.at) - paperTimelineAtMs(a?.at))
 }
 
 function resolveBoshaPresentation({ ticker, titleText, backendUp, livePresentation, memo, intelMode = 'market' }) {
@@ -2897,139 +3216,87 @@ function resolveBoshaPresentation({ ticker, titleText, backendUp, livePresentati
   return boshaGenericOfflinePresentation(memo, titleText, ticker)
 }
 
-function BoshaPaperStructuredView({
-  ticker,
-  companyName = '',
-  priceSeries,
-  presentation: pres,
-  insiderPriceMarkers = [],
-  politicianPriceMarkers = [],
-}) {
-  const t = String(ticker ?? '').toUpperCase()
-  const sub = boshaPaperSubtitle(companyName, t, pres.paperDate ?? pres.created ?? pres.asOf)
-  const blocks = pres.blocks || []
-  const [priceRange, setPriceRange] = useState('6M')
+function ResearchPaperTimelineGap({ label }) {
+  const text = String(label ?? '').trim()
+  if (!text) return null
   return (
-    <>
-      <header className="researchPaperHero">
-        <h1 className="researchPaperHeadline">{pres.title}</h1>
-        {sub ? <p className="researchPaperMeta">{sub}</p> : null}
-        <div className="researchPaperHeroRule" aria-hidden="true" />
-      </header>
-      <div className="researchPaperBody">
-        {blocks.map((b, i) => {
-          if (b.type === 'heading' && (blocks[i + 1]?.type === 'price' || blocks[i + 1]?.type === 'diagram')) {
-            return null
-          }
-          if (b.type === 'heading') {
-            return (
-              <h2 className="researchPaperSectionTitle" key={`bh-${i}`}>
-                {b.text}
-              </h2>
-            )
-          }
-          if (b.type === 'paragraph') {
-            return (
-              <p className="researchPaperProse" key={`bp-${i}`}>
-                {b.text}
-              </p>
-            )
-          }
-          if (b.type === 'price') {
-            const priceHeading = blocks[i - 1]?.type === 'heading' ? blocks[i - 1].text : 'Price'
-            return (
-              <div className="researchPaperChart" key={`bpr-${i}`}>
-                <div className="researchPaperChartHead">
-                  <h2 className="researchPaperSectionTitle researchPaperSectionTitle--inline">{priceHeading}</h2>
-                  <div className="boshaPriceRange researchPaperRange" role="group" aria-label="Chart range">
-                    {PRICE_RANGE_OPTS.map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        className={['boshaPriceRangeBtn', priceRange === r ? 'isActive' : ''].filter(Boolean).join(' ')}
-                        onClick={() => setPriceRange(r)}
-                        aria-pressed={priceRange === r}
-                      >
-                        {r}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <BoshaMiniPrice
-                  series={priceSeries}
-                  label={t || 'PRICE'}
-                  showMeta={false}
-                  chartRange={priceRange}
-                  trimLeadingPlateau
-                  insiderMarkers={insiderPriceMarkers}
-                  politicianPriceMarkers={politicianPriceMarkers}
-                />
-                {b.caption ? <p className="researchPaperChartCaption">{b.caption}</p> : null}
-              </div>
-            )
-          }
-          if (b.type === 'diagram') {
-            const diagramHeading = blocks[i - 1]?.type === 'heading' ? blocks[i - 1].text : 'Entity map'
-            return (
-              <div className="researchPaperChart researchPaperChart--diagram" key={`bdg-${i}`}>
-                <div className="researchPaperChartHead">
-                  <h2 className="researchPaperSectionTitle researchPaperSectionTitle--inline">{diagramHeading}</h2>
-                </div>
-                <div className="researchPaperDiagramWrap">
-                  <BoshaCausalDiagram ticker={ticker} diagramSpec={pres.diagram} />
-                </div>
-                {b.caption ? <p className="researchPaperChartCaption">{b.caption}</p> : null}
-              </div>
-            )
-          }
-          return null
-        })}
+    <div className="researchPaperTodayGap" aria-hidden="true">
+      <div className="researchPaperTodayGapRow">
+        <span className="researchPaperTodayGapRule" />
+        <span className="researchPaperTodayGapLabel mono">{text}</span>
       </div>
-    </>
+    </div>
   )
 }
 
-async function whenDocumentFontsReady() {
-  try {
-    const f = document.fonts
-    if (f?.ready) await f.ready
-  } catch {
-    /* ignore */
-  }
+function ResearchPaperTxnCard({ source, filedAt, name, amount }) {
+  const label = String(name ?? '').trim()
+  const amt = String(amount ?? '').trim()
+  if (!label && !amt) return null
+  return (
+    <article className="researchPaperTxnCard">
+      <header className="researchPaperDocCardMeta mono dim">
+        <span className="researchPaperDocCardSource">{source ?? 'Filing'}</span>
+        <time className="researchPaperDocCardDate" dateTime={filedAt ?? undefined}>
+          {filedAt ? formatFeedDate(filedAt) : '—'}
+        </time>
+      </header>
+      <div className="researchPaperTxnCardRow">
+        <span className="researchPaperTxnCardName">{label || '—'}</span>
+        <span className="researchPaperTxnCardAmt mono">{amt || '—'}</span>
+      </div>
+    </article>
+  )
 }
 
-/** Opaque panel-like fill so html-to-image / WebKit foreignObject does not assume a white backing behind transparent paper chrome. */
-const PAPER_EXPORT_BG = '#0a0b0d'
-
-/** Rasterize `el` (paper body) using full content height. */
-async function rasterizePaperElementToPngDataUrl(el, { pixelRatio: prIn = 2 } = {}) {
-  const doc = el.querySelector('.boshaPaperDoc')
-  const w = Math.max(
-    1,
-    Math.ceil(Math.max(el.scrollWidth, el.offsetWidth, doc?.scrollWidth ?? 0, doc?.offsetWidth ?? 0)),
+function BoshaPaperStructuredView({ documents = [], insiders = [], politicians = [], ticker = '' }) {
+  const t = String(ticker ?? '').toUpperCase()
+  const timelineRows = useMemo(
+    () => buildPaperTimelineItems({ documents, insiders, politicians }),
+    [documents, insiders, politicians],
   )
-  const h = Math.max(
-    1,
-    Math.ceil(Math.max(el.scrollHeight, el.offsetHeight, doc?.scrollHeight ?? 0, doc?.offsetHeight ?? 0)),
+  return (
+    <div className="researchPaperBody researchPaperBody--documentsOnly">
+      {timelineRows.length ? (
+        <div className="researchPaperDocuments" aria-label="Filings and transactions">
+          {timelineRows.map((item, idx) => {
+            const prev = idx > 0 ? timelineRows[idx - 1] : null
+            const showTodayGap = prev && isPaperTimelineItemToday(prev) && !isPaperTimelineItemToday(item)
+            const showMonthGap =
+              prev &&
+              isPaperTimelineItemThisMonth(prev) &&
+              !isPaperTimelineItemThisMonth(item) &&
+              !showTodayGap
+            const showYearGap =
+              prev &&
+              isPaperTimelineItemThisYear(prev) &&
+              !isPaperTimelineItemThisYear(item) &&
+              !showTodayGap &&
+              !showMonthGap
+            const showTimelineGap = showTodayGap || showMonthGap || showYearGap
+            return (
+            <Fragment key={item.id}>
+              {idx > 0 && !showTimelineGap ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
+              {showTodayGap ? <ResearchPaperTimelineGap label="TODAY" /> : null}
+              {showMonthGap ? <ResearchPaperTimelineGap label={paperTimelineMonthGapLabel()} /> : null}
+              {showYearGap ? <ResearchPaperTimelineGap label={paperTimelineYearGapLabel()} /> : null}
+              {item.kind === 'document' ? (
+                <ResearchPaperDocCard doc={item.document} ticker={t} />
+              ) : (
+                <ResearchPaperTxnCard
+                  source={item.source}
+                  filedAt={item.at}
+                  name={item.name}
+                  amount={item.amount}
+                />
+              )}
+            </Fragment>
+            )
+          })}
+        </div>
+      ) : null}
+    </div>
   )
-
-  const pr = h > 5600 ? 1 : h > 3600 ? 1.25 : prIn
-
-  return toPng(el, {
-    width: w,
-    height: h,
-    pixelRatio: pr,
-    cacheBust: true,
-    backgroundColor: PAPER_EXPORT_BG,
-    style: {
-      backgroundColor: PAPER_EXPORT_BG,
-      printColorAdjust: 'exact',
-    },
-    filter: (node) => {
-      if (node.nodeType !== Node.ELEMENT_NODE) return true
-      return node.tagName !== 'SCRIPT'
-    },
-  })
 }
 
 function BoshaPaperPanel({
@@ -3038,120 +3305,32 @@ function BoshaPaperPanel({
   entities: _entities,
   events,
   edges: _edges,
-  priceSeries,
   presentation,
-  sources = [],
-  liveCompanyName,
   backendUp,
-  insiderPriceMarkers = [],
-  politicianPriceMarkers = [],
+  insiders = [],
+  politicians = [],
   panelClassName = '',
 }) {
-  const paperCaptureRef = useRef(null)
-  const [exportBusy, setExportBusy] = useState(false)
-
-  const titleText =
-    backendUp && presentation?.title && String(liveCompanyName ?? '').trim()
-      ? String(liveCompanyName ?? '').trim()
-      : String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
-
-  const onCopyPaperImage = useCallback(() => {
-    const el = paperCaptureRef.current
-    if (!el || exportBusy) return
-    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
-      window.alert(
-        'Copying the paper as an image is not supported in this browser. Try Chrome or Edge, or take a screenshot.',
-      )
-      return
-    }
-
-    setExportBusy(true)
-    el.classList.add('boshaPaperBody--capturing')
-    const paperRoot = el.closest('section.boshaPaper')
-    paperRoot?.classList.add('boshaPaper--capturing')
-
-    /* Safari: clipboard.write must run in the same turn as the user gesture. Pass a Promise<Blob>
-     * into ClipboardItem so write() is synchronous while rasterization stays async. */
-    const pngPromise = (async () => {
-      try {
-        await whenDocumentFontsReady()
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
-        void el.offsetHeight
-        const dataUrl = await rasterizePaperElementToPngDataUrl(el)
-        return (await fetch(dataUrl)).blob()
-      } finally {
-        el.classList.remove('boshaPaperBody--capturing')
-        paperRoot?.classList.remove('boshaPaper--capturing')
-      }
-    })()
-
-    navigator.clipboard
-      .write([new ClipboardItem({ 'image/png': pngPromise })])
-      .then(() => setExportBusy(false))
-      .catch((e) => {
-        console.error(e)
-        window.alert(
-          'Could not copy the paper image. Wait until the paper has fully loaded, then try again. On iPhone, image clipboard support is limited—use a screenshot if needed.',
-        )
-        setExportBusy(false)
-        el.classList.remove('boshaPaperBody--capturing')
-        paperRoot?.classList.remove('boshaPaper--capturing')
-      })
-  }, [exportBusy])
+  const fullName = String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
 
   return (
     <section
       className={['panel', 'boshaPaper', 'researchPaperPanel', panelClassName].filter(Boolean).join(' ')}
-      aria-label={titleText}
+      aria-label={fullName}
     >
       <header className="feedCompactHeader researchPaperPanelHeader">
-        <div className="researchPaperPanelTicker mono">{String(ticker ?? '—').toUpperCase()}</div>
-        <div className="feedCompactMeta" aria-label="Paper actions">
-          <button
-            type="button"
-            className="boshaPaperCopyIcon"
-            disabled={exportBusy}
-            onClick={onCopyPaperImage}
-            aria-label="Copy paper as image"
-            title="Copy paper as image"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true" className="boshaPaperCopyIconSvg">
-              <rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
-              <rect x="4" y="4" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="2" />
-            </svg>
-          </button>
-        </div>
+        <div className="researchPaperPanelName">{fullName}</div>
       </header>
-      <div ref={paperCaptureRef} className="boshaPaperBody scrollThin">
+      <div className="boshaPaperBody scrollThin">
         <div className="boshaPaperDoc">
           {presentation?.title ? (
             <>
               <BoshaPaperStructuredView
                 ticker={ticker}
-                companyName={titleText}
-                priceSeries={priceSeries}
-                presentation={presentation}
-                insiderPriceMarkers={insiderPriceMarkers}
-                politicianPriceMarkers={politicianPriceMarkers}
+                documents={presentation?.documents}
+                insiders={insiders}
+                politicians={politicians}
               />
-              {(Array.isArray(sources) ? sources : []).length ? (
-                <div className="boshaPaperSources" aria-label="Sources">
-                  <div className="boshaPaperSourcesTitle">Sources</div>
-                  <div className="boshaPaperSourcesGrid">
-                    {sources.map((s, j) => (
-                      <a
-                        key={`paper-src-${j}-${s.url}`}
-                        className="boshaPaperSourceLink"
-                        href={s.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {s.label}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
             </>
           ) : backendUp ? (
             <div className="boshaThesisBody boshaThesisBody--live">
@@ -3914,57 +4093,6 @@ function GraphPanel({
     return [0.08, 0.32, 0.56, 0.8].map((p) => Math.round(clamp01(p) * (n - 1)))
   }, [ds.length])
 
-  const markerX = useMemo(() => {
-    const n = Math.max(0, ds.length)
-    if (n <= 1) return []
-    const now = new Date()
-    const dayKey = (d) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    const dayToIdx = new Map()
-    for (let i = 0; i < ds.length; i++) {
-      const d = ds[i]
-      if (!(d instanceof Date) || Number.isNaN(d.getTime())) continue
-      dayToIdx.set(dayKey(d), i)
-    }
-    const seen = new Set()
-    const xs = []
-    for (const m of markers ?? []) {
-      const d = m instanceof Date ? m : new Date(m)
-      if (Number.isNaN(d.getTime())) continue
-      const key = dayKey(d)
-      if (seen.has(key)) continue
-      seen.add(key)
-      const idxFromSeries = dayToIdx.get(key)
-      const idx =
-        typeof idxFromSeries === 'number'
-          ? idxFromSeries
-          : (() => {
-              const daysAgo = Math.floor((now.getTime() - d.getTime()) / 86400000)
-              return clamp(n - 1 - daysAgo, 0, n - 1)
-            })()
-      xs.push(xAt(idx))
-    }
-    return xs
-  }, [markers, ds.length, w, h, marginL, plotTop, axisY])
-
-  const selectedMarkerX = useMemo(() => {
-    const n = Math.max(0, ds.length)
-    if (n <= 1 || !selectedMarker) return null
-    const d = selectedMarker instanceof Date ? selectedMarker : new Date(selectedMarker)
-    if (Number.isNaN(d.getTime())) return null
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    for (let i = 0; i < ds.length; i++) {
-      const x = ds[i]
-      if (!(x instanceof Date) || Number.isNaN(x.getTime())) continue
-      const k = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
-      if (k === key) return xAt(i)
-    }
-    const now = new Date()
-    const daysAgo = Math.floor((now.getTime() - d.getTime()) / 86400000)
-    const idx = clamp(n - 1 - daysAgo, 0, n - 1)
-    return xAt(idx)
-  }, [selectedMarker, ds, w, h, marginL, plotTop, axisY])
-
   return (
     <section
       className={['panel', 'graph', panelClassName].filter(Boolean).join(' ')}
@@ -4070,7 +4198,6 @@ function GraphPanel({
               const label = d ? MONTHS_SHORT[d.getMonth()] : EMPTY
               return (
                 <g key={`xt-${i}`}>
-                  <path className="graphTickLine" style={GRAPH_SVG_TICK_LINE} d={`M ${x} ${axisY} L ${x} ${axisY - 6}`} />
                   <text className="graphTick graphTick--x" style={GRAPH_SVG_TICK} x={x} y={axisY + 10} dominantBaseline="hanging">
                     {label}
                   </text>
@@ -4079,26 +4206,6 @@ function GraphPanel({
             })}
 
             <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
-
-            {/* transaction markers (drawn over line) */}
-            {markerX.map((x, i) => (
-              <path
-                key={`m-${i}`}
-                className="graphMarker"
-                style={GRAPH_SVG_MARKER}
-                d={`M ${x.toFixed(2)} ${plotTop} L ${x.toFixed(2)} ${axisY.toFixed(2)}`}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-
-            {selectedMarkerX != null ? (
-              <path
-                className="graphMarker graphMarker--selected"
-                style={GRAPH_SVG_MARKER_SEL}
-                d={`M ${selectedMarkerX.toFixed(2)} ${plotTop} L ${selectedMarkerX.toFixed(2)} ${axisY.toFixed(2)}`}
-                vectorEffect="non-scaling-stroke"
-              />
-            ) : null}
           </svg>
         )}
       </div>
@@ -5261,11 +5368,6 @@ function KensiglineTerminal() {
     setBoshaQuery('')
   }, [intelMode, activeTab])
 
-  const paperSources = useMemo(
-    () => (Array.isArray(boshaPresentation?.sources) ? boshaPresentation.sources : []),
-    [boshaPresentation],
-  )
-
   const insiderPriceMarkers = useMemo(
     () => (contextInsidersOpen ? contextMock.insiders.map((x) => x.date) : []),
     [contextInsidersOpen, contextMock],
@@ -6237,13 +6339,10 @@ function KensiglineTerminal() {
             entities={boshaDataset.entities}
             events={boshaDataset.events}
             edges={boshaDataset.edges}
-            priceSeries={boshaPriceSeries}
             backendUp={backendUp}
             presentation={boshaPresentation}
-            sources={intelMode === 'clinical' ? [] : paperSources}
-            liveCompanyName={boshaExploreLive?.company_name}
-            insiderPriceMarkers={insiderPriceMarkers}
-            politicianPriceMarkers={politicianPriceMarkers}
+            insiders={contextMock.insiders}
+            politicians={contextMock.politicians}
             panelClassName="mainMainBlank"
           />
 
@@ -6252,7 +6351,11 @@ function KensiglineTerminal() {
             ticker={contextMock.ticker}
             price={contextMock.price}
             sector={contextMock.sector}
+            domicile={contextMock.domicile}
             mcap={contextMock.mcap}
+            priceSeries={boshaPriceSeries}
+            insiderPriceMarkers={insiderPriceMarkers}
+            politicianPriceMarkers={politicianPriceMarkers}
             earnings={contextEarnings}
             leadDrug={contextLeadDrug}
             programs={contextMock.programs}

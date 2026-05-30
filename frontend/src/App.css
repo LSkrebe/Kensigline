@@ -51,6 +51,14 @@
   /* Research chart/diagram outer shell (ENTITY MAP, price chart card) */
   --chart-panel-surface: rgba(255, 255, 255, 0.02);
   --chart-panel-border: rgba(255, 255, 255, 0.1);
+  /* Wide paper txn rows — very subtle lateral wash */
+  --paper-txn-surface: rgba(255, 255, 255, 0.02);
+  --paper-txn-wash: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.012) 14%,
+    transparent 48%
+  );
   --diagram-node-surface: rgba(12, 13, 17, 0.94);
   --diagram-node-border: rgba(255, 255, 255, 0.13);
   --diagram-node-border-edge: rgba(255, 255, 255, 0.17);
@@ -505,11 +513,11 @@
  * columns), so nested charts + ResizeObserver cannot fight the grid for width.
  */
 .terminal.terminal--main {
-  /* Research: feed | paper | context — 20% / 60% / 20% */
+  /* Research: feed | paper | context — 20fr / 40fr / 40fr (20% / 40% / 40%) */
   grid-template-columns:
     minmax(44px, 20fr)
-    minmax(0, 60fr)
-    minmax(48px, 20fr);
+    minmax(0, 40fr)
+    minmax(48px, 40fr);
   grid-template-rows: repeat(4, minmax(0, 1fr));
 }
 
@@ -524,6 +532,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .terminal--main .mainBoshaPicks,
@@ -569,37 +578,47 @@
   justify-content: space-between;
 }
 
-.terminal--main .researchPaperPanel .researchPaperPanelTicker {
-  color: var(--hi);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  line-height: 1;
+.terminal--main .researchPaperPanel .researchPaperPanelName {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--hi);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 
 .terminal--main .researchPaperPanel.boshaPaper {
   position: relative;
   isolation: isolate;
+  background: rgba(8, 9, 11, 0.92);
 }
 
-/* Intro-style corner wash (fixed to panel; scrolls with content via body pseudo) */
-.terminal--main .researchPaperPanel .boshaPaperBody {
-  padding: 16px 28px 32px;
-  position: relative;
-  isolation: isolate;
-}
-
-.terminal--main .researchPaperPanel .boshaPaperBody::before {
+/* Static wash on panel shell — does not move while the body scrolls (reduces scroll shimmer) */
+.terminal--main .researchPaperPanel.boshaPaper::after {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: 27px 0 0;
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(820px 460px at -6% -8%, rgba(90, 220, 255, 0.08), transparent 58%),
-    radial-gradient(640px 380px at 108% 6%, rgba(168, 196, 255, 0.05), transparent 54%);
-  /* Large panel keeps slightly wider secondary wash than --panel-corner-wash-b */
+    radial-gradient(720px 420px at 12% 0%, rgba(255, 255, 255, 0.035), transparent 62%),
+    radial-gradient(520px 320px at 88% 18%, rgba(255, 255, 255, 0.02), transparent 58%);
+}
+
+.terminal--main .researchPaperPanel .boshaPaperBody {
+  padding: 16px 28px 40px;
+  position: relative;
+  isolation: isolate;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: transparent;
+}
+
+.terminal--main .researchPaperPanel .boshaPaperBody::before {
+  content: none;
 }
 
 .terminal--main .researchPaperPanel .feedCompactHeader {
@@ -640,6 +659,12 @@
   margin: 14px 0 0;
 }
 
+.researchPaperRule {
+  height: 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .researchPaperHeadline {
   margin: 0;
   font-size: clamp(1.28rem, 2.15vw, 1.62rem);
@@ -659,6 +684,249 @@
 
 .researchPaperBody {
   width: 100%;
+}
+
+.researchPaperBody--documentsOnly {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.researchPaperBody--documentsOnly .researchPaperDocuments {
+  margin-top: 0;
+}
+
+.researchPaperDocuments {
+  --paper-doc-radius: 10px;
+  --paper-card-gap: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.researchPaperDocConnector {
+  align-self: flex-start;
+  margin-left: var(--paper-doc-radius);
+  width: 1px;
+  height: var(--paper-card-gap);
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.researchPaperTodayGap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: stretch;
+  min-height: 44px;
+  margin: 0;
+  padding: 16px 0;
+  box-sizing: border-box;
+}
+
+.researchPaperTodayGap::before {
+  content: '';
+  position: absolute;
+  left: var(--paper-doc-radius);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+.researchPaperTodayGapRow {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 16px;
+}
+
+.researchPaperTodayGapRule {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 50%;
+  margin-right: 10px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.researchPaperTodayGapLabel {
+  flex: 0 0 auto;
+  padding-right: 2px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--cyan);
+  line-height: 1;
+}
+
+.researchPaperDocCard {
+  position: relative;
+  padding: 14px 16px 36px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--paper-doc-radius);
+  background: rgba(255, 255, 255, 0.018);
+  box-sizing: border-box;
+}
+
+.researchPaperDocOpen {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  color: rgba(255, 255, 255, 0.48);
+  background: transparent;
+  text-decoration: none;
+  line-height: 0;
+  transition: color 0.15s ease;
+}
+
+.researchPaperDocOpen:hover {
+  color: var(--cyan);
+}
+
+.researchPaperDocOpen:focus-visible {
+  outline: 1px solid rgba(168, 196, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.researchPaperDocOpenIconSvg {
+  display: block;
+}
+
+.researchPaperDocCardMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  min-height: 14px;
+}
+
+.researchPaperDocCardSource {
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.researchPaperDocCardDate {
+  color: rgba(255, 255, 255, 0.38);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.researchPaperDocCardAnalysis {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.78;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.015em;
+  max-width: 68ch;
+}
+
+.researchPaperDocCardAnalysis:last-child {
+  margin-bottom: 0;
+}
+
+.researchPaperTxnCard {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--paper-doc-radius);
+  background: var(--paper-txn-surface);
+  box-sizing: border-box;
+}
+
+.researchPaperTxnCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: var(--paper-txn-wash);
+}
+
+.researchPaperTxnCard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.researchPaperTxnCard .researchPaperDocCardMeta {
+  margin-bottom: 8px;
+}
+
+.researchPaperTxnCardRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 18px;
+}
+
+.researchPaperTxnCardName {
+  font-size: clamp(12px, 1.45vmin, 13px);
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
+  letter-spacing: 0.01em;
+  min-width: 0;
+}
+
+.researchPaperTxnCardAmt {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocConnector {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.terminal--main .researchPaperPanel .researchPaperTodayGap::before,
+.terminal--main .researchPaperPanel .researchPaperTodayGapRule {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.terminal--main .researchPaperPanel .researchPaperTodayGapLabel {
+  color: var(--cyan);
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocCard {
+  background: rgba(255, 255, 255, 0.022);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocCardAnalysis {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocOpen:hover {
+  color: var(--cyan);
+}
+
+.terminal--main .researchPaperPanel .researchPaperTxnCard {
+  border-color: var(--chart-panel-border);
+  background: var(--paper-txn-surface);
+}
+
+.terminal--main .researchPaperPanel .researchPaperTxnCardName,
+.terminal--main .researchPaperPanel .researchPaperTxnCardAmt {
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .researchPaperSectionTitle {
@@ -835,14 +1103,13 @@
 }
 
 .terminal--main .researchFeedBody {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 0 12px 12px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   overscroll-behavior: contain;
 }
 
@@ -887,10 +1154,15 @@
 }
 
 .terminal--main .researchFeedList {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .terminal--main .researchFeedRow {
@@ -978,10 +1250,16 @@
 
 .terminal--main .mainContextPanel--market .mainContextPanelBody,
 .terminal--main .mainContextPanel--clinical .mainContextPanelBody {
+  flex: 1 1 auto;
+  min-height: 0;
   padding: 0 12px 12px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .terminal--main .mainContextPanel--market .contextCompanyCard,
@@ -1023,6 +1301,76 @@
   font-size: 11px;
   color: rgba(255, 255, 255, 0.45);
   line-height: 1.35;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyChart,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart {
+  margin-top: 10px;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyChart .boshaMiniPrice--chartOnly,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .boshaMiniPrice--chartOnly {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0;
+  gap: 8px;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyChart .boshaPriceRange,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .boshaPriceRange {
+  display: flex;
+  width: 100%;
+  justify-content: flex-end;
+  margin-left: 0;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyChart .boshaPriceRangeBtn,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .boshaPriceRangeBtn {
+  padding: 4px 8px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyChart .boshaPriceRangeBtn.isActive,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .boshaPriceRangeBtn.isActive {
+  background: #fff;
+  color: #0a0b0d;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyChart .boshaMiniPriceWrap,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .boshaMiniPriceWrap {
+  height: clamp(112px, 16vh, 160px);
+  min-height: 112px;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyChart .graphPath,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .graphPath {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 1.25px;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyChart .graphTick,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .graphTick {
+  fill: rgba(255, 255, 255, 0.38);
+  font-size: 10px;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyChart .graphTickLine,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .graphTickLine {
+  stroke: rgba(255, 255, 255, 0.14);
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyChart .graphAxis,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .graphAxis {
+  stroke: rgba(255, 255, 255, 0.16);
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyChart .miniGraphMarker,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .miniGraphMarker {
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-dasharray: 3 4;
 }
 
 .terminal--main .mainContextPanel--market .contextCompanyEarnings,
