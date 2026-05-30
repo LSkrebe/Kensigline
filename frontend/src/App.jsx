@@ -632,6 +632,8 @@ const POLITICIAN_NAMES = [
 // ------------------------------------------------------------
 const BOSHA_TICKER_MARKET = 'ASML'
 const BOSHA_TICKER_CLINICAL = 'ATYR'
+/** Programs feed + paper filter: show every filing for the company. */
+const CLINICAL_PROGRAM_ALL = '__ALL__'
 
 /** Research feed + offline papers per top-bar intelligence mode. */
 const RESEARCH_FEED_BY_INTEL = {
@@ -1145,6 +1147,13 @@ const OUTCOME_HORIZON_LABELS = ['21d', '63d', '252d']
 const OUTCOME_BASE_INSIDER_RETURNS = [0.0042, 0.0108, 0.0234]
 const OUTCOME_BASE_POLITICIAN_RETURNS = [0.0018, 0.0052, 0.0112]
 
+/** Mock forward-return curves (21d / 63d / 252d) for clinical context chart. */
+const MOCK_PHARMA_OUTCOME_BUCKETS = [
+  { id: 'ph3', label: 'Phase 3 readout', baseReturns: [-0.182, -0.158, -0.121] },
+  { id: 'ph2', label: 'Phase 2 miss', baseReturns: [-0.114, -0.092, -0.074] },
+  { id: 'all', label: 'All trial events', baseReturns: [-0.14, -0.118, -0.095] },
+]
+
 const CONTEXT_OUTCOME_LINE_COLORS = [
   'rgba(255, 255, 255, 0.9)',
   'rgba(168, 196, 255, 0.82)',
@@ -1184,6 +1193,29 @@ function buildMockPoliticianOutcomeLines(pastMonthRows, ticker) {
       color: CONTEXT_OUTCOME_LINE_COLORS[i % CONTEXT_OUTCOME_LINE_COLORS.length],
     }
   })
+}
+
+function buildMockPharmaOutcomeLines(ticker) {
+  return MOCK_PHARMA_OUTCOME_BUCKETS.map((row, i) => ({
+    id: row.id,
+    label: row.label,
+    returns: mockOutcomeReturnsForKey(row.id, row.baseReturns, ticker),
+    color: CONTEXT_OUTCOME_LINE_COLORS[i % CONTEXT_OUTCOME_LINE_COLORS.length],
+  }))
+}
+
+function buildMockPharmaOutcomeRows(outcomeLines, stats = MOCK_HISTORICAL_TRIALS) {
+  const statById = {
+    ph3: stats?.avgAfterPh3Failure ?? EMPTY,
+    ph2: stats?.avgAfterPh2Miss ?? EMPTY,
+    all: stats?.medianReturn ?? EMPTY,
+  }
+  return (outcomeLines ?? []).map((line) => ({
+    id: line.id,
+    label: line.label,
+    total: statById[line.id] ?? EMPTY,
+    lineColor: line.color ?? null,
+  }))
 }
 
 function parseTxnAmountUsd(amount) {
@@ -1547,6 +1579,46 @@ function ContextFlowTotalsList({ rows = [], outcomeLines = [], emptyLabel = 'Non
   )
 }
 
+function contextOutcomesSampleLabel(sampleSize) {
+  const s = String(sampleSize ?? '').trim()
+  if (!s || s === EMPTY) return '—'
+  const count = s.replace(/^N\s*=\s*/i, '').trim()
+  return count ? `${count} events` : s
+}
+
+function ContextClinicalOutcomesList({ outcomeLines = [], sampleSize = EMPTY }) {
+  const rows = buildMockPharmaOutcomeRows(outcomeLines)
+  return (
+    <div className="contextFlowList" role="list">
+      <ContextFlowOutcomeChart
+        lines={outcomeLines}
+        ariaLabel="Average forward returns after trial events (21, 63, 252 trading days)"
+      />
+      <div className="contextFlowTotalsMeta" aria-hidden="true">
+        <span className="contextFlowTotalsMetaL mono dim">Global sample</span>
+        <span className="contextFlowTotalsMetaR mono dim">{contextOutcomesSampleLabel(sampleSize)}</span>
+      </div>
+      {rows.map((row) => (
+        <div key={row.id} className="contextFlowRow" role="listitem">
+          <div className="contextFlowRowMain">
+            <div className="contextFlowRowKeyWrap">
+              {row.lineColor ? (
+                <span
+                  className="contextFlowRowLine"
+                  style={{ background: row.lineColor }}
+                  aria-hidden="true"
+                />
+              ) : null}
+              <div className="contextFlowRowKey">{row.label}</div>
+            </div>
+          </div>
+          <div className="contextFlowRowAmt mono">{row.total}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function ContextCatalystCard({ items = [] }) {
   if (!items.length) {
     return <div className="contextCatalystCard contextCatalystCard--empty dim">No upcoming catalysts</div>
@@ -1612,6 +1684,22 @@ function displayPhaseLabel(stage) {
   const m = s.match(/phase\s*([0-9]+[a-zA-Z]?)/i)
   if (m) return `Phase ${m[1]}`
   return s
+}
+
+function phaseLabelSortRank(stage) {
+  const s = String(stage ?? '').toLowerCase()
+  if (s.includes('3')) return 3
+  if (s.includes('2')) return 2
+  if (s.includes('1')) return 1
+  if (s.includes('4')) return 4
+  return 0
+}
+
+function feedProgramPhaseForGroup(pg) {
+  const stages = (pg?.variants ?? []).map((v) => v?.stage).filter(Boolean)
+  if (!stages.length) return '—'
+  const best = stages.sort((a, b) => phaseLabelSortRank(b) - phaseLabelSortRank(a))[0]
+  return displayPhaseLabel(best) ?? '—'
 }
 
 function groupPrograms(programs) {
@@ -1997,7 +2085,6 @@ function MainContextPanel({
   leadDrug = null,
   programs = [],
   selectedProgramKey = null,
-  onSelectProgramKey,
   insiders = [],
   politicians = [],
   catalystItems = [],
@@ -2006,6 +2093,11 @@ function MainContextPanel({
   const [priceRange, setPriceRange] = useState('6M')
   const showFlows = intelMode !== 'clinical'
   const programGroups = useMemo(() => groupPrograms(programs), [programs])
+  const selectedProgramGroup = useMemo(() => {
+    if (!programGroups.length) return null
+    if (!selectedProgramKey || selectedProgramKey === CLINICAL_PROGRAM_ALL) return null
+    return programGroups.find((pg) => pg.key === selectedProgramKey) ?? null
+  }, [programGroups, selectedProgramKey])
   const insidersFlow = useMemo(() => {
     const pastMonth = aggregateContextInsiders(insiders)
     const outcomeLines = buildMockInsiderOutcomeLines(pastMonth, t)
@@ -2018,6 +2110,14 @@ function MainContextPanel({
     const rows = attachOutcomeLineColors(pastMonth, outcomeLines, (row) => row.id)
     return { rows, outcomeLines }
   }, [politicians, t])
+
+  const clinicalOutcomes = useMemo(() => {
+    const outcomeLines = buildMockPharmaOutcomeLines(t)
+    return {
+      outcomeLines,
+      sampleSize: MOCK_HISTORICAL_TRIALS.sampleSize ?? EMPTY,
+    }
+  }, [t])
 
   return (
     <section
@@ -2081,23 +2181,17 @@ function MainContextPanel({
 
         {!showFlows ? (
           <>
-            <ContextSection title="CATALYST CLOCK" ariaLabel="Upcoming catalysts">
-              <ContextCatalystCard items={catalystItems} />
-            </ContextSection>
-            <div className="contextSection" aria-label="Programs">
-              <div className="contextSectionHeader">
-                <div className="contextSectionTitle dim">PROGRAMS</div>
-              </div>
-              <div className="contextProgramsGrid" role="list">
-                {programGroups.map((pg) => {
-                  const active = selectedProgramKey ? selectedProgramKey === pg.key : false
+            {selectedProgramGroup ? (
+              <ContextSection title="PROGRAM" ariaLabel={`Program ${selectedProgramGroup.key}`}>
+                {(() => {
+                  const pg = selectedProgramGroup
                   const leadVariant = leadProgramVariantForGroup(pg, leadDrug)
                   const isLeadProgram = Boolean(leadVariant)
                   const displayVariant = leadVariant ?? pg.variants?.[0] ?? {}
-                  const phase = displayVariant?.stage ? displayPhaseLabel(displayVariant.stage) : null
+                  const phase =
+                    displayVariant?.stage ? displayPhaseLabel(displayVariant.stage) : feedProgramPhaseForGroup(pg)
                   const ind = displayVariant?.indication ?? null
-                  const showMilestones = active || (!selectedProgramKey && programGroups.length === 1)
-                  const allMilestones = (pg.variants ?? [])
+                  const visibleMilestones = (pg.variants ?? [])
                     .flatMap((v) => v.milestones ?? [])
                     .slice()
                     .sort((a, b) => {
@@ -2105,29 +2199,16 @@ function MainContextPanel({
                       const tb = b?.at ? new Date(b.at).getTime() : 0
                       return ta - tb
                     })
-                  const visibleMilestones = showMilestones ? allMilestones.slice(0, 8) : []
+                    .slice(0, 12)
                   return (
-                    <div
-                      key={pg.key}
-                      className={['contextProgramCard', active ? 'isActive' : ''].filter(Boolean).join(' ')}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => onSelectProgramKey?.(pg.key)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') onSelectProgramKey?.(pg.key)
-                      }}
-                    >
+                    <div className="contextProgramCard contextProgramCard--plain" aria-label={pg.key}>
                       <div className="contextProgramTop">
                         <div className="contextProgramTopMain">
                           <div className="contextProgramKey mono">{pg.key}</div>
                           <div className="contextProgramMeta mono dim">{ind || '—'}</div>
                         </div>
                         <div className="contextProgramTopRight">
-                          {phase ? (
-                            <div className="contextProgramPhase mono dim">{phase}</div>
-                          ) : (
-                            <div className="contextProgramPhase mono dim">—</div>
-                          )}
+                          <div className="contextProgramPhase mono dim">{phase || '—'}</div>
                           {isLeadProgram ? (
                             <span className="contextProgramLeadBadge mono dim">LEAD</span>
                           ) : null}
@@ -2148,7 +2229,6 @@ function MainContextPanel({
                               target={m?.url ? '_blank' : undefined}
                               rel={m?.url ? 'noopener noreferrer' : undefined}
                               onClick={(e) => {
-                                e.stopPropagation()
                                 if (!m?.url) e.preventDefault()
                               }}
                             >
@@ -2159,12 +2239,23 @@ function MainContextPanel({
                             </a>
                           ))}
                         </div>
-                      ) : null}
+                      ) : (
+                        <p className="contextProgramMilestonesEmpty mono dim">No milestones</p>
+                      )}
                     </div>
                   )
-                })}
-              </div>
-            </div>
+                })()}
+              </ContextSection>
+            ) : null}
+            <ContextSection title="CATALYST CLOCK" ariaLabel="Upcoming catalysts">
+              <ContextCatalystCard items={catalystItems} />
+            </ContextSection>
+            <ContextSection title="HISTORICAL OUTCOMES" ariaLabel="Historical trial outcomes">
+              <ContextClinicalOutcomesList
+                outcomeLines={clinicalOutcomes.outcomeLines}
+                sampleSize={clinicalOutcomes.sampleSize}
+              />
+            </ContextSection>
           </>
         ) : null}
 
@@ -2191,7 +2282,59 @@ function MainContextPanel({
   )
 }
 
-function BoshaTickerPanel({ selectedTicker, onSelectTicker, q, onQuery, filtered, panelClassName = '' }) {
+function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, filtered }) {
+  return (
+    <>
+      <label className="researchFeedSearch">
+        <input
+          className="researchFeedSearchInput"
+          value={q ?? ''}
+          placeholder="Search"
+          onChange={(e) => onQuery?.(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onQuery?.('')
+          }}
+          aria-label="Search tickers"
+          spellCheck={false}
+        />
+        <svg className="researchFeedSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+          <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+        </svg>
+      </label>
+      <div className="researchFeedList scrollThin" role="list">
+        {filtered.map((it) => (
+          <button
+            key={it.rowKey ?? it.ticker}
+            type="button"
+            role="listitem"
+            className={['researchFeedRow', it.ticker === selectedTicker ? 'isActive' : ''].filter(Boolean).join(' ')}
+            onClick={() => onSelectTicker(it.ticker)}
+          >
+            <span className="researchFeedRowName">{it.name}</span>
+            <span className="researchFeedRowTicker mono">{it.ticker}</span>
+          </button>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function BoshaTickerPanel({
+  intelMode = 'market',
+  selectedTicker,
+  onSelectTicker,
+  q,
+  onQuery,
+  filtered,
+  programs = [],
+  selectedProgramKey = null,
+  onSelectProgramKey,
+  panelClassName = '',
+}) {
+  const clinicalSplit = intelMode === 'clinical'
+  const programGroups = useMemo(() => groupPrograms(programs), [programs])
+
   return (
     <section
       className={[
@@ -2201,48 +2344,90 @@ function BoshaTickerPanel({ selectedTicker, onSelectTicker, q, onQuery, filtered
         'feed--left',
         'boshaTicker',
         'researchFeedPanel',
+        clinicalSplit ? 'researchFeedPanel--clinicalSplit' : '',
         panelClassName,
       ]
         .filter(Boolean)
         .join(' ')}
-      aria-label="Ticker selector"
+      aria-label={clinicalSplit ? 'Feed and programs' : 'Ticker selector'}
     >
-      <header className="feedCompactHeader researchFeedHeader">
-        <div className="panelTitle feedCompactTitle">FEED</div>
-      </header>
-      <div className="researchFeedBody">
-        <label className="researchFeedSearch">
-          <input
-            className="researchFeedSearchInput"
-            value={q ?? ''}
-            placeholder="Search"
-            onChange={(e) => onQuery?.(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') onQuery?.('')
-            }}
-            aria-label="Search tickers"
-            spellCheck={false}
-          />
-          <svg className="researchFeedSearchIcon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
-            <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-          </svg>
-        </label>
-        <div className="researchFeedList scrollThin" role="list">
-          {filtered.map((it) => (
-            <button
-              key={it.rowKey ?? it.ticker}
-              type="button"
-              role="listitem"
-              className={['researchFeedRow', it.ticker === selectedTicker ? 'isActive' : ''].filter(Boolean).join(' ')}
-              onClick={() => onSelectTicker(it.ticker)}
-            >
-              <span className="researchFeedRowName">{it.name}</span>
-              <span className="researchFeedRowTicker mono">{it.ticker}</span>
-            </button>
-          ))}
+      {clinicalSplit ? (
+        <div className="researchFeedSplit">
+          <div className="researchFeedSplitPane researchFeedSplitPane--feed">
+            <header className="feedCompactHeader researchFeedHeader">
+              <div className="panelTitle feedCompactTitle">FEED</div>
+            </header>
+            <div className="researchFeedBody researchFeedBody--split">
+              <ResearchFeedTickerList
+                selectedTicker={selectedTicker}
+                onSelectTicker={onSelectTicker}
+                q={q}
+                onQuery={onQuery}
+                filtered={filtered}
+              />
+            </div>
+          </div>
+          <div className="researchFeedSplitPane researchFeedSplitPane--programs">
+            <header className="feedCompactHeader researchFeedHeader">
+              <div className="panelTitle feedCompactTitle">PROGRAMS</div>
+            </header>
+            <div className="researchFeedProgramsList scrollThin" role="list">
+              <button
+                type="button"
+                role="listitem"
+                className={[
+                  'researchFeedRow',
+                  'researchFeedRow--program',
+                  !selectedProgramKey || selectedProgramKey === CLINICAL_PROGRAM_ALL ? 'isActive' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                onClick={() => onSelectProgramKey?.(CLINICAL_PROGRAM_ALL)}
+              >
+                <span className="researchFeedRowName">ALL</span>
+                <span className="researchFeedRowPhase mono dim">Company</span>
+              </button>
+              {programGroups.length ? (
+                programGroups.map((pg) => (
+                  <button
+                    key={pg.key}
+                    type="button"
+                    role="listitem"
+                    className={[
+                      'researchFeedRow',
+                      'researchFeedRow--program',
+                      selectedProgramKey === pg.key ? 'isActive' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={() => onSelectProgramKey?.(pg.key)}
+                  >
+                    <span className="researchFeedRowName">{pg.key}</span>
+                    <span className="researchFeedRowPhase mono dim">{feedProgramPhaseForGroup(pg)}</span>
+                  </button>
+                ))
+              ) : (
+                <p className="researchFeedProgramsEmpty mono dim">No programs</p>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <>
+          <header className="feedCompactHeader researchFeedHeader">
+            <div className="panelTitle feedCompactTitle">FEED</div>
+          </header>
+          <div className="researchFeedBody">
+            <ResearchFeedTickerList
+              selectedTicker={selectedTicker}
+              onSelectTicker={onSelectTicker}
+              q={q}
+              onQuery={onQuery}
+              filtered={filtered}
+            />
+          </div>
+        </>
+      )}
     </section>
   )
 }
@@ -3263,6 +3448,7 @@ function mockPaperFiledAtToday() {
 const MOCK_PAPER_DOCUMENTS_ATYR = [
   {
     id: 'atyr-doc-8k-today',
+    programKeys: ['Efzofitimod'],
     source: '8-K',
     filedAt: mockPaperFiledAtToday(),
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
@@ -3271,6 +3457,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
   },
   {
     id: 'atyr-doc-8k-cash',
+    programKeys: ['Efzofitimod'],
     source: '8-K',
     filedAt: '2026-05-08T00:00:00.000Z',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
@@ -3279,6 +3466,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
   },
   {
     id: 'atyr-doc-8k-safety',
+    programKeys: ['Efzofitimod'],
     source: '8-K',
     filedAt: '2026-04-09T00:00:00.000Z',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
@@ -3287,6 +3475,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
   },
   {
     id: 'atyr-doc-10q-risk',
+    programKeys: ['Efzofitimod'],
     source: '10-Q',
     filedAt: '2026-03-18T00:00:00.000Z',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
@@ -3295,6 +3484,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
   },
   {
     id: 'atyr-doc-enrollment',
+    programKeys: ['Efzofitimod'],
     source: 'ClinicalTrials.gov',
     filedAt: '2026-02-11T00:00:00.000Z',
     url: 'https://clinicaltrials.gov/study/NCT05415137',
@@ -3303,6 +3493,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
   },
   {
     id: 'atyr-doc-connect',
+    programKeys: ['Efzofitimod'],
     source: 'ClinicalTrials.gov',
     filedAt: '2026-01-22T00:00:00.000Z',
     url: 'https://clinicaltrials.gov/study/NCT05892614',
@@ -3311,6 +3502,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
   },
   {
     id: 'atyr-doc-10k-prior',
+    programKeys: ['Efzofitimod'],
     source: '10-K',
     filedAt: '2025-03-04T00:00:00.000Z',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
@@ -3544,6 +3736,25 @@ function boshaGenericOfflinePresentation(memo, titleText, ticker) {
   }
 }
 
+function paperDocProgramKeys(doc) {
+  const tagged = Array.isArray(doc?.programKeys) ? doc.programKeys : []
+  if (tagged.length) return tagged.map((k) => String(k).trim()).filter(Boolean)
+  const id = String(doc?.id ?? '').toLowerCase()
+  const blob = `${id} ${String(doc?.analysis ?? '').toLowerCase()}`
+  const keys = []
+  if (/efzo|efzofitimod|nct05415137|nct05892614|sarcoid|week-48|mean-ocs|fit/.test(blob)) keys.push('Efzofitimod')
+  if (/atyr-2810|2810|solid tumor/.test(blob)) keys.push('ATYR-2810')
+  return keys
+}
+
+function filterPaperDocumentsByProgram(documents, programKey) {
+  const rows = Array.isArray(documents) ? documents : []
+  const sel = String(programKey ?? '').trim()
+  if (!sel || sel === CLINICAL_PROGRAM_ALL) return rows
+  const want = sel.toLowerCase()
+  return rows.filter((doc) => paperDocProgramKeys(doc).some((k) => k.toLowerCase() === want))
+}
+
 function paperDocumentsFromPresentation(presentation) {
   const rows = Array.isArray(presentation?.documents) ? presentation.documents : []
   return [...rows].sort((a, b) => {
@@ -3732,11 +3943,23 @@ function BoshaPaperPanel({
   edges: _edges,
   presentation,
   backendUp,
+  intelMode = 'market',
+  selectedProgramKey = null,
   insiders = [],
   politicians = [],
   panelClassName = '',
 }) {
   const fullName = String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
+  const paperDocuments = useMemo(() => {
+    const docs = paperDocumentsFromPresentation(presentation)
+    if (intelMode !== 'clinical') return docs
+    return filterPaperDocumentsByProgram(docs, selectedProgramKey)
+  }, [presentation, intelMode, selectedProgramKey])
+
+  const showPaperInsiderPoliticianFlows =
+    intelMode !== 'clinical' ||
+    !selectedProgramKey ||
+    selectedProgramKey === CLINICAL_PROGRAM_ALL
 
   return (
     <section
@@ -3752,9 +3975,9 @@ function BoshaPaperPanel({
             <>
               <BoshaPaperStructuredView
                 ticker={ticker}
-                documents={presentation?.documents}
-                insiders={insiders}
-                politicians={politicians}
+                documents={paperDocuments}
+                insiders={showPaperInsiderPoliticianFlows ? insiders : []}
+                politicians={showPaperInsiderPoliticianFlows ? politicians : []}
               />
             </>
           ) : backendUp ? (
@@ -5743,24 +5966,15 @@ function KensiglineTerminal() {
   }, [backendUp, boshaDataset.entities, contextClinicalMapped, contextMock.leadDrug, intelMode])
 
   const [contextProgramKey, setContextProgramKey] = useState(null)
-  const contextProgramDefaultKey = useMemo(() => {
-    const groups = groupPrograms(contextPrograms)
-    return groups[0]?.key ?? null
-  }, [contextPrograms])
   useEffect(() => {
-    if (intelMode === 'clinical') setContextProgramKey(contextProgramDefaultKey)
+    if (intelMode === 'clinical') setContextProgramKey(CLINICAL_PROGRAM_ALL)
     else setContextProgramKey(null)
-  }, [intelMode, boshaTicker, contextProgramDefaultKey])
+  }, [intelMode, boshaTicker])
   useEffect(() => {
     if (intelMode !== 'clinical') return
-    if (!contextProgramDefaultKey) return
-    if (!contextProgramKey) {
-      setContextProgramKey(contextProgramDefaultKey)
-      return
-    }
-    const allowed = new Set(groupPrograms(contextPrograms).map((g) => g.key))
-    if (!allowed.has(contextProgramKey)) setContextProgramKey(contextProgramDefaultKey)
-  }, [contextPrograms, contextProgramDefaultKey, contextProgramKey, intelMode])
+    const allowed = new Set([CLINICAL_PROGRAM_ALL, ...groupPrograms(contextPrograms).map((g) => g.key)])
+    if (!contextProgramKey || !allowed.has(contextProgramKey)) setContextProgramKey(CLINICAL_PROGRAM_ALL)
+  }, [contextPrograms, contextProgramKey, intelMode])
 
   const contextCatalystItems = useMemo(() => {
     if (intelMode !== 'clinical') return []
@@ -6784,11 +6998,15 @@ function KensiglineTerminal() {
       {activeTab === 'main' ? (
         <>
           <BoshaTickerPanel
+            intelMode={intelMode}
             selectedTicker={boshaTicker}
             onSelectTicker={setBoshaTicker}
             q={boshaQuery}
             onQuery={setBoshaQuery}
             filtered={boshaFilteredFeed}
+            programs={contextPrograms}
+            selectedProgramKey={contextProgramKey}
+            onSelectProgramKey={setContextProgramKey}
             panelClassName="mainBoshaPicks"
           />
 
@@ -6800,6 +7018,8 @@ function KensiglineTerminal() {
             edges={boshaDataset.edges}
             backendUp={backendUp}
             presentation={boshaPresentation}
+            intelMode={intelMode}
+            selectedProgramKey={contextProgramKey}
             insiders={contextMock.insiders}
             politicians={contextMock.politicians}
             panelClassName="mainMainBlank"
@@ -6819,7 +7039,6 @@ function KensiglineTerminal() {
             leadDrug={contextLeadDrug}
             programs={contextPrograms}
             selectedProgramKey={contextProgramKey}
-            onSelectProgramKey={setContextProgramKey}
             insiders={contextMock.insiders}
             politicians={contextMock.politicians}
             catalystItems={contextCatalystItems}
