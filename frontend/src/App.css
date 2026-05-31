@@ -1730,7 +1730,19 @@
   color: rgba(255, 255, 255, 0.42);
 }
 
-.terminal--main .mainContextPanel--market .contextFlowOutcomeChart,
+.terminal--main .mainContextPanel--market .contextFlowList--marketFlows .contextFlowOutcomeChart {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 112px;
+  height: clamp(112px, 14vh, 148px);
+  max-height: none;
+  margin: 0 0 6px;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 .terminal--main .mainContextPanel--clinical .contextFlowOutcomeChart {
   position: relative;
   z-index: 1;
@@ -4884,6 +4896,44 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .historicalOutcomes .historicalOutcomesPersonDetail,
 .terminal--politicians .historicalOutcomes .historicalOutcomesPersonDetail {
+  color: var(--hi);
+  text-align: right;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+/* Research CONTEXT — insider / politician blocks (match Investigate HO layout + color lines) */
+.terminal--main .mainContextPanel--market .contextFlowList--marketFlows {
+  gap: 8px;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowPersonStrip.contextCompanyEarnings.historicalOutcomesPerson {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: var(--panel-corner-wash-compact-a), var(--panel-corner-wash-compact-b), var(--context-surface-inset);
+  position: relative;
+  z-index: 1;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowPersonStrip .historicalOutcomesPersonName {
+  color: var(--hi);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  min-width: 0;
+}
+
+.terminal--main .mainContextPanel--market .contextFlowPersonStrip .historicalOutcomesPersonDetail {
   color: var(--hi);
   text-align: right;
   font-size: 11px;

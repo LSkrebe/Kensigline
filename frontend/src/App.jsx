@@ -1271,14 +1271,20 @@ function aggregateContextInsiders(rows, days = CONTEXT_FLOW_MONTH_DAYS) {
     map.set(id, prev)
   }
   return [...map.values()]
-    .map((x) => ({
-      id: `${x.key}|${x.person ?? ''}`,
-      roleKey: x.key,
-      label: paperInsiderTxnLabel(x.key, x.person),
-      nameStyle: 'insider',
-      total: formatTxnAmountUsd(x.totalUsd),
-      totalUsd: x.totalUsd,
-    }))
+    .map((x) => {
+      const role = String(x.key ?? '').trim().toUpperCase() || '—'
+      const personName = String(x.person ?? '').trim() || role
+      return {
+        id: `${x.key}|${x.person ?? ''}`,
+        roleKey: x.key,
+        label: paperInsiderTxnLabel(x.key, x.person),
+        personName,
+        personDetail: role,
+        nameStyle: 'insider',
+        total: formatTxnAmountUsd(x.totalUsd),
+        totalUsd: x.totalUsd,
+      }
+    })
     .sort((a, b) => b.totalUsd - a.totalUsd)
 }
 
@@ -1301,6 +1307,8 @@ function aggregateContextPoliticians(rows, days = CONTEXT_FLOW_MONTH_DAYS) {
     .map((x) => ({
       id: x.name,
       label: paperPoliticianTxnLabel(x.chamber, x.name),
+      personName: String(x.name ?? '').trim() || '—',
+      personDetail: paperPoliticianChamberLabel(x.chamber),
       nameStyle: 'politician',
       total: formatTxnAmountUsd(x.totalUsd),
       totalUsd: x.totalUsd,
@@ -1543,23 +1551,7 @@ function attachOutcomeLineColors(rows, outcomeLines, lineIdForRow) {
 }
 
 function ContextFlowTotalsList({ rows = [], outcomeLines = [], emptyLabel = 'None in the past 30 days.' }) {
-  const totalsHead = (
-    <div className="contextFlowTotalsMeta" aria-hidden="true">
-      <span className="contextFlowTotalsMetaL mono dim">Past 30 days</span>
-      <span className="contextFlowTotalsMetaR mono dim">Total</span>
-    </div>
-  )
-  const outcomeChart =
-    rows.length && outcomeLines.length ? (
-      <>
-        <div className="contextFlowChartLabel mono dim">Historical outcomes</div>
-        <ContextFlowOutcomeChart
-          lines={outcomeLines}
-          ariaLabel="Average forward returns by horizon (21, 63, 252 trading days)"
-        />
-      </>
-    ) : null
-  if (!rows.length) {
+  if (!rows.length && !outcomeLines.length) {
     return (
       <div className="contextFlowList contextFlowList--empty">
         <p className="contextFlowEmpty mono dim">{emptyLabel}</p>
@@ -1567,33 +1559,46 @@ function ContextFlowTotalsList({ rows = [], outcomeLines = [], emptyLabel = 'Non
     )
   }
   return (
-    <div className="contextFlowList" role="list">
-      {outcomeChart}
-      {totalsHead}
+    <div className="contextFlowList contextFlowList--marketFlows" role="list">
+      {outcomeLines.length ? (
+        <>
+          <div className="contextFlowChartLabel mono dim">Historical outcomes</div>
+          <ContextFlowOutcomeChart
+            lines={outcomeLines}
+            xLabels={OUTCOME_HORIZON_CHART_LABELS}
+            ariaLabel="Average forward returns by horizon (1 month, 3 months, 1 year)"
+          />
+        </>
+      ) : null}
       {rows.map((row) => (
-        <div key={row.id} className="contextFlowRow" role="listitem">
-          <div className="contextFlowRowMain">
-            <div className="contextFlowRowKeyWrap">
-              {row.lineColor ? (
-                <span
-                  className="contextFlowRowLine"
-                  style={{ background: row.lineColor }}
-                  aria-hidden="true"
-                />
-              ) : null}
-              <div
-                className={[
-                  'contextFlowRowKey',
-                  row.nameStyle === 'politician' ? 'contextFlowRowKey--name' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                {row.label}
-              </div>
-            </div>
+        <div
+          key={row.id}
+          className="contextCompanyEarnings historicalOutcomesPerson contextFlowPersonStrip"
+          role="listitem"
+        >
+          <div className="contextFlowRowKeyWrap">
+            {row.lineColor ? (
+              <span
+                className="contextFlowRowLine"
+                style={{ background: row.lineColor }}
+                aria-hidden="true"
+              />
+            ) : null}
+            <span
+              className={[
+                'contextCompanyEarningsK',
+                'historicalOutcomesPersonName',
+                row.nameStyle === 'politician' ? 'contextFlowRowKey--name' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {row.personName ?? row.label}
+            </span>
           </div>
-          <div className="contextFlowRowAmt mono">{row.total}</div>
+          {row.personDetail ? (
+            <span className="contextCompanyEarningsV historicalOutcomesPersonDetail">{row.personDetail}</span>
+          ) : null}
         </div>
       ))}
     </div>
