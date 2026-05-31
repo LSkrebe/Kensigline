@@ -4665,6 +4665,11 @@ button.boshaPaperCopyIcon:focus-visible {
   gap: 4px;
 }
 
+.terminal--insider .feed--left .feedRowCompact--company.feedRowCompact--noCount,
+.terminal--politicians .feed--left .feedRowCompact--company.feedRowCompact--noCount {
+  grid-template-columns: 5ch minmax(0, 1fr) max-content;
+}
+
 .terminal--insider .feed--left .feedRowCompact--company .feedCellSymbol,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellSymbol {
   min-width: 0;
@@ -5719,6 +5724,19 @@ body {
 /* Cancel flex `gap` above/below separators in scroll feeds */
 .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep {
   margin-block: -3px;
+}
+
+/* Investigate FEED (left): same as research — sep spacing + full active border above TODAY */
+.terminal--insider .feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep,
+.terminal--politicians .feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep {
+  margin-block: 0;
+}
+
+.terminal--insider .feed--left .feedCompactList > .feedRowCompact.isActive:has(+ .feedRowTodaySep),
+.terminal--insider .feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep),
+.terminal--politicians .feed--left .feedCompactList > .feedRowCompact.isActive:has(+ .feedRowTodaySep),
+.terminal--politicians .feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep) {
+  border-bottom-color: rgba(255, 255, 255, 0.22) !important;
 }
 
 .feedCellLabel {

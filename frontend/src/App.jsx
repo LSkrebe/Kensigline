@@ -96,6 +96,180 @@ function isAtLocalToday(at) {
   return isSameLocalCalendarDay(d, new Date())
 }
 
+/** Feed count column: worksheet/CASE events for this company on today’s local calendar day only. */
+function countCompanyFeedEventsToday(row) {
+  const cs = row?.caseSheet
+  const sheetRows = cs?.rows
+  const isPtr =
+    String(cs?.formType ?? '')
+      .trim()
+      .toUpperCase() === 'PTR' || Boolean(row?.politicians?.length)
+  const isForm4 = Boolean(cs?.isForm4)
+  if (Array.isArray(sheetRows) && sheetRows.length) {
+    let n = 0
+    for (const r of sheetRows) {
+      if (!r?.ts || !isAtLocalToday(r.ts)) continue
+      if (isPtr) {
+        if (!politicianCaseRowHasTxn(r)) continue
+      } else if (!isForm4) {
+        continue
+      } else {
+        const code = String(r?.transactionCode ?? '').trim()
+        const usd = Number(r?.amountUsd ?? 0)
+        if (!code && !(Number.isFinite(usd) && usd > 0)) continue
+      }
+      n += 1
+    }
+    return n
+  }
+  return 0
+}
+
+/** Newest worksheet/CASE txn timestamp for a company feed row (matches CASE panel top row). */
+function feedRowLastEventAt(row) {
+  let best = null
+  let bestT = -Infinity
+  for (const r of row?.caseSheet?.rows ?? []) {
+    const ts = r?.ts
+    if (!ts) continue
+    const t = new Date(ts).getTime()
+    if (Number.isFinite(t) && t > bestT) {
+      bestT = t
+      best = ts
+    }
+  }
+  if (best) return best
+  const fallback = row?.at ?? row?.feed_at ?? null
+  return fallback != null ? String(fallback) : null
+}
+
+function feedRowTodayEventCount(row) {
+  if (row?.caseSheet?.rows?.length) return countCompanyFeedEventsToday(row)
+  const api = Number(row?.count)
+  if (Number.isFinite(api) && api >= 0) return api
+  return countCompanyFeedEventsToday(row)
+}
+
+/** Count label when the company has at least one event today; else hidden. */
+function feedRowDisplayCount(row) {
+  const n = feedRowTodayEventCount(row)
+  return n > 0 ? n : null
+}
+
+function normalizeFeedRowActivity(row) {
+  const lastAt = feedRowLastEventAt(row)
+  const base = lastAt ? { ...row, at: lastAt } : row
+  const cs = base.caseSheet
+  const caseSheet = cs && lastAt ? { ...cs, filedAt: lastAt } : cs
+  return { ...base, caseSheet, count: feedRowDisplayCount(base) }
+}
+
+function applyFeedTodayEventCounts(rows) {
+  return rows.map((r) => normalizeFeedRowActivity(r))
+}
+
+function insiderCaseSheetFromClusterLive(cluster, fallback) {
+  const wsRows = Array.isArray(cluster?.cluster?.worksheet_rows) ? cluster.cluster.worksheet_rows : []
+  return {
+    filingId: cluster?.filing?.accession_no ?? fallback?.id ?? fallback?.ticker ?? '—',
+    formType: cluster?.filing?.form_type ?? 'Form 4',
+    issuer: cluster?.issuer?.name ?? fallback?.company ?? fallback?.ticker ?? '—',
+    ticker: cluster?.issuer?.ticker ?? fallback?.ticker ?? '—',
+    isForm4: true,
+    filedAt: cluster?.filing?.filed_at ?? fallback?.at ?? null,
+    rows: wsRows.map((r) => ({
+      key: String(r?.key ?? '').trim() || 'Insider',
+      role: r?.role != null ? String(r.role) : insiderRoleFromKey(r?.key),
+      insider_name: r?.insider_name != null ? String(r.insider_name) : null,
+      surname:
+        r?.surname != null
+          ? String(r.surname)
+          : r?.insider_name != null
+            ? lastName(r.insider_name)
+            : insiderSurnameFromKey(r?.key),
+      transactionCode:
+        r?.transaction_code != null ? String(r.transaction_code) : r?.code != null ? String(r.code) : 'P',
+      acquiredDisposed: r?.acquired_disposed != null ? String(r.acquired_disposed) : 'A',
+      amountUsd: r?.amount_usd != null ? Number(r.amount_usd) : null,
+      shares: r?.shares != null ? Number(r.shares) : null,
+      isDerivative: Boolean(r?.is_derivative ?? r?.derivative),
+      ts: r?.ts != null ? String(r.ts) : null,
+    })),
+  }
+}
+
+function politiciansCaseSheetFromClusterLive(cluster, fallback) {
+  const wsRows = Array.isArray(cluster?.cluster?.worksheet_rows) ? cluster.cluster.worksheet_rows : []
+  const chamber = fallback?.chamber ?? 'house'
+  const companyName =
+    String(cluster?.issuer?.name ?? '').trim() ||
+    String(fallback?.company ?? '').trim() ||
+    fallback?.ticker ||
+    '—'
+  return {
+    filingId: cluster?.filing?.accession_no ?? fallback?.id ?? fallback?.ticker ?? '—',
+    formType: cluster?.filing?.form_type ?? 'PTR',
+    issuer: companyName,
+    ticker: cluster?.issuer?.ticker ?? fallback?.ticker ?? '—',
+    isForm4: true,
+    filedAt: cluster?.filing?.filed_at ?? fallback?.at ?? null,
+    rows: wsRows.map((r) => ({
+      key: String(r?.key ?? '').trim() || 'POLITICIAN',
+      surname: lastName(r?.key),
+      chamber,
+      transactionType:
+        r?.transaction_type != null
+          ? String(r.transaction_type)
+          : r?.description != null
+            ? String(r.description)
+            : null,
+      assetTicker: r?.ticker != null ? String(r.ticker) : fallback?.ticker ?? null,
+      assetName: r?.asset_name != null ? String(r.asset_name) : null,
+      amountRange: r?.amount_range != null ? String(r.amount_range) : null,
+      amountUsd:
+        r?.amount_usd_mid != null
+          ? Number(r.amount_usd_mid)
+          : r?.amount_usd != null
+            ? Number(r.amount_usd)
+            : null,
+      acquiredDisposed: 'A',
+      ts: r?.ts != null ? String(r.ts) : null,
+    })),
+  }
+}
+
+function patchInvestigateFeedRowFromCluster(rows, ticker, cluster, buildCaseSheet) {
+  if (!ticker || !cluster) return rows
+  const tick = String(ticker).toUpperCase()
+  return rows.map((r) => {
+    if (String(r.ticker ?? '').toUpperCase() !== tick) return r
+    const caseSheet = buildCaseSheet(cluster, r)
+    if (!Array.isArray(caseSheet?.rows) || !caseSheet.rows.length) return r
+    return normalizeFeedRowActivity({ ...r, caseSheet })
+  })
+}
+
+function feedCountVisible(count) {
+  const n = Number(count)
+  return Number.isFinite(n) && n > 0
+}
+
+function feedRowHasTodayEvents(row) {
+  return feedCountVisible(row?.count)
+}
+
+/** Investigate FEED: rows with today’s events first, then the rest (newest `at` within each band). */
+function sortFeedRowsTodayEventsFirst(rows) {
+  const today = []
+  const rest = []
+  for (const r of rows) {
+    if (feedRowHasTodayEvents(r)) today.push(r)
+    else rest.push(r)
+  }
+  const byAt = (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()
+  return [...today.sort(byAt), ...rest.sort(byAt)]
+}
+
 /** Event timestamp falls in the current calendar month (local time). */
 function isAtLocalThisMonth(at, ref = new Date()) {
   const d = at instanceof Date ? at : new Date(at)
@@ -131,6 +305,16 @@ function formatFeedDate(at) {
   return formatMmDd(d)
 }
 
+/** When a row sits below the TODAY band, stamp time as MM-DD even if `at` is calendar-today. */
+function formatFeedDateForRow(at, { belowTodayBand = false } = {}) {
+  if (belowTodayBand) {
+    const d = at instanceof Date ? at : new Date(at)
+    if (Number.isNaN(d.getTime())) return EMPTY
+    return formatMmDd(d)
+  }
+  return formatFeedDate(at)
+}
+
 /** Newest events first (by `at`). */
 function sortFeedRowsByAtDesc(rows) {
   return [...rows].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
@@ -139,6 +323,7 @@ function sortFeedRowsByAtDesc(rows) {
 /** Rows for compact feed UI: inserts separators for timeline groups (newest-first lists). */
 function buildFeedDisplayRows(items, opts = {}) {
   const sepMode = opts?.sepMode ?? 'today' // today | year | today+years
+  const isTodayRow = opts?.isTodayRow ?? ((row) => isAtLocalToday(row?.at))
   const out = []
   const wantTodaySep = sepMode === 'today' || sepMode === 'today+years'
   const wantMonthSep = wantTodaySep || sepMode === 'year' || sepMode === 'today+years'
@@ -149,7 +334,7 @@ function buildFeedDisplayRows(items, opts = {}) {
     const prev = i > 0 ? items[i - 1] : null
 
     const gapCandidates = []
-    if (wantTodaySep && prev && isAtLocalToday(prev.at) && !isAtLocalToday(row.at)) {
+    if (wantTodaySep && prev && isTodayRow(prev) && !isTodayRow(row)) {
       gapCandidates.push({ rank: 0, key: `today-sep-before-${row.id}`, label: 'TODAY' })
     }
     if (wantMonthSep && prev && isAtLocalThisMonth(prev.at) && !isAtLocalThisMonth(row.at)) {
@@ -2329,13 +2514,22 @@ function insiderCaseForRowIndex(i) {
     ),
   ]
 
-  return {
+  let lastEventAt = at
+  let bestT = -Infinity
+  for (const r of rows) {
+    const t = new Date(r.ts).getTime()
+    if (Number.isFinite(t) && t > bestT) {
+      bestT = t
+      lastEventAt = r.ts
+    }
+  }
+
+  const item = {
     id: `ins-${i}`,
     label,
-    count: rowCount,
     company: issuer,
     ticker,
-    at,
+    at: lastEventAt,
     insiders,
     daily: buildInsiderDailySeries(i + 31),
     caseSheet: {
@@ -2344,14 +2538,15 @@ function insiderCaseForRowIndex(i) {
       issuer,
       ticker,
       isForm4,
-      filedAt: at,
+      filedAt: lastEventAt,
       rows,
     },
   }
+  return item
 }
 
 const INSIDER_FEED_ROWS = sortFeedRowsByAtDesc(
-  Array.from({ length: 42 }, (_, i) => insiderCaseForRowIndex(i)),
+  Array.from({ length: 42 }, (_, i) => normalizeFeedRowActivity(insiderCaseForRowIndex(i))),
 )
 
 function lastName(name) {
@@ -2402,7 +2597,7 @@ function politicianCaseForRowIndex(i) {
 }
 
 const POLITICIAN_FEED_ROWS = sortFeedRowsByAtDesc(
-  Array.from({ length: 42 }, (_, i) => politicianCaseForRowIndex(i)),
+  Array.from({ length: 42 }, (_, i) => normalizeFeedRowActivity(politicianCaseForRowIndex(i))),
 )
 
 function MainContextPanel({
@@ -5415,6 +5610,8 @@ function CompactFeed({
   programsTimeline = false,
   /** Feed separators: today | this month | year (`today+years` = all three) */
   sepMode = 'today',
+  /** TODAY band = rows with today event count; sort those above the separator. */
+  todayGroupByEvents = false,
   /** Replace pagination with scroll-to-load. */
   scrollMode = false,
   /** `ticker`: main label is ticker; `company`: main label is company name (insider feed). */
@@ -5439,10 +5636,26 @@ function CompactFeed({
   const [rowsPerPage, setRowsPerPage] = useState(16)
   const [renderLimit, setRenderLimit] = useState(80)
 
+  const feedItems = useMemo(() => {
+    if (programsTimeline || !todayGroupByEvents) return items
+    return sortFeedRowsTodayEventsFirst(items)
+  }, [items, programsTimeline, todayGroupByEvents])
+
   const displayRows = useMemo(() => {
     if (programsTimeline) return buildProgramGroupedDisplayRows(items)
-    return buildFeedDisplayRows(items, { sepMode })
-  }, [items, programsTimeline, sepMode])
+    return buildFeedDisplayRows(feedItems, {
+      sepMode,
+      exclusiveSeps: todayGroupByEvents,
+      isTodayRow: todayGroupByEvents ? feedRowHasTodayEvents : undefined,
+    })
+  }, [feedItems, programsTimeline, sepMode, todayGroupByEvents])
+
+  const feedWhenLabel = (row) =>
+    programsTimeline
+      ? formatProgramTimelineDate(row.at)
+      : formatFeedDateForRow(row.at, {
+          belowTodayBand: todayGroupByEvents && !feedRowHasTodayEvents(row),
+        })
 
   useLayoutEffect(() => {
     const list = listRef.current
@@ -5630,17 +5843,19 @@ function CompactFeed({
                     active ? 'isActive' : '',
                     programsStackedRows ? 'feedRowCompact--programs' : '',
                     programsTimeline ? 'feedRowCompact--timeline' : '',
-                    rowPrimary === 'company' ? 'feedRowCompact--company' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  onClick={() => onSelectIndex(idx)}
-                  data-item-idx={idx}
-                >
-                  {programsStackedRows ? (
-                    <>
-                      <span className="feedProgramsLine feedProgramsLine--drug kvFeedMain">{row.label}</span>
-                      <span className="feedProgramsLine kvFeedDim">{row.indication ?? '—'}</span>
+                  rowPrimary === 'company' ? 'feedRowCompact--company' : '',
+                  rowPrimary === 'company' && !feedCountVisible(row.count) ? 'feedRowCompact--noCount' : '',
+                  rowPrimary === 'company' && !feedCountVisible(row.count) ? 'feedRowCompact--noCount' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                onClick={() => onSelectIndex(idx)}
+                data-item-idx={idx}
+              >
+                {programsStackedRows ? (
+                  <>
+                    <span className="feedProgramsLine feedProgramsLine--drug kvFeedMain">{row.label}</span>
+                    <span className="feedProgramsLine kvFeedDim">{row.indication ?? '—'}</span>
                       <span className="feedProgramsLine mono kvFeedDim">{row.phase ?? '—'}</span>
                     </>
                   ) : rowPrimary === 'ticker' ? (
@@ -5648,13 +5863,13 @@ function CompactFeed({
                       <span className="feedCell feedCellLabel kvFeedMain mono">{row.ticker}</span>
                       {!programsTimeline ? (
                         <span className="feedCell feedCellTicker mono kvFeedDim">
-                          {row.count != null && row.count !== '' ? (
+                          {feedCountVisible(row.count) ? (
                             <span className="feedCountTag">{row.count}</span>
                           ) : null}
                         </span>
                       ) : null}
                       <span className="feedCell feedCellWhen mono kvFeedDim">
-                        {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
+                        {feedWhenLabel(row)}
                       </span>
                     </>
                   ) : rowPrimary === 'company' ? (
@@ -5665,15 +5880,13 @@ function CompactFeed({
                       <span className="feedCell feedCellCompany kvFeedMain">
                         {String(row.company ?? row.issuer ?? '').trim() || '—'}
                       </span>
-                      {!programsTimeline ? (
+                      {!programsTimeline && feedCountVisible(row.count) ? (
                         <span className="feedCell feedCellCount mono kvFeedDim">
-                          {row.count != null && row.count !== '' ? (
-                            <span className="feedCountTag">{row.count}</span>
-                          ) : null}
+                          <span className="feedCountTag">{row.count}</span>
                         </span>
                       ) : null}
                       <span className="feedCell feedCellWhen mono kvFeedDim">
-                        {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
+                        {feedWhenLabel(row)}
                       </span>
                     </>
                   ) : (
@@ -5684,7 +5897,9 @@ function CompactFeed({
                           {placement === 'left' ? (
                             <>
                               {row.ticker}
-                              <span className="feedCountTag">{row.count ?? ''}</span>
+                              {feedCountVisible(row.count) ? (
+                                <span className="feedCountTag">{row.count}</span>
+                              ) : null}
                             </>
                           ) : (
                             row.ticker
@@ -5692,7 +5907,7 @@ function CompactFeed({
                         </span>
                       ) : null}
                       <span className="feedCell feedCellWhen mono kvFeedDim">
-                        {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
+                        {feedWhenLabel(row)}
                       </span>
                     </>
                   )}
@@ -5734,6 +5949,8 @@ function CompactFeed({
                   programsStackedRows ? 'feedRowCompact--programs' : '',
                   programsTimeline ? 'feedRowCompact--timeline' : '',
                   rowPrimary === 'company' ? 'feedRowCompact--company' : '',
+                  rowPrimary === 'company' && !feedCountVisible(row.count) ? 'feedRowCompact--noCount' : '',
+                  rowPrimary === 'company' && !feedCountVisible(row.count) ? 'feedRowCompact--noCount' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -5751,13 +5968,13 @@ function CompactFeed({
                     <span className="feedCell feedCellLabel kvFeedMain mono">{row.ticker}</span>
                     {!programsTimeline ? (
                       <span className="feedCell feedCellTicker mono kvFeedDim">
-                        {row.count != null && row.count !== '' ? (
+                        {feedCountVisible(row.count) ? (
                           <span className="feedCountTag">{row.count}</span>
                         ) : null}
                       </span>
                     ) : null}
                     <span className="feedCell feedCellWhen mono kvFeedDim">
-                      {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
+                      {feedWhenLabel(row)}
                     </span>
                   </>
                 ) : rowPrimary === 'company' ? (
@@ -5768,15 +5985,13 @@ function CompactFeed({
                     <span className="feedCell feedCellCompany kvFeedMain">
                       {String(row.company ?? row.issuer ?? '').trim() || '—'}
                     </span>
-                    {!programsTimeline ? (
+                    {!programsTimeline && feedCountVisible(row.count) ? (
                       <span className="feedCell feedCellCount mono kvFeedDim">
-                        {row.count != null && row.count !== '' ? (
-                          <span className="feedCountTag">{row.count}</span>
-                        ) : null}
+                        <span className="feedCountTag">{row.count}</span>
                       </span>
                     ) : null}
                     <span className="feedCell feedCellWhen mono kvFeedDim">
-                      {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
+                      {feedWhenLabel(row)}
                     </span>
                   </>
                 ) : (
@@ -5787,7 +6002,9 @@ function CompactFeed({
                         {placement === 'left' ? (
                           <>
                             {row.ticker}
-                            <span className="feedCountTag">{row.count ?? ''}</span>
+                            {feedCountVisible(row.count) ? (
+                              <span className="feedCountTag">{row.count}</span>
+                            ) : null}
                           </>
                         ) : (
                           row.ticker
@@ -5795,7 +6012,7 @@ function CompactFeed({
                       </span>
                     ) : null}
                     <span className="feedCell feedCellWhen mono kvFeedDim">
-                      {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
+                      {feedWhenLabel(row)}
                     </span>
                   </>
                 )}
@@ -6534,7 +6751,9 @@ function KensiglineTerminal() {
           const raw = String(it.feed_label ?? '')
           const m = raw.match(/^\s*([^()]+?)\s*\(\s*(\d+)\s*\)\s*$/)
           const label = (m ? m[1] : raw).trim() || '—'
-          const count = m ? Number(m[2]) : null
+          const countFromLabel = m ? Number(m[2]) : null
+          const todayCount = Number(it.today_count)
+          const count = Number.isFinite(todayCount) ? todayCount : countFromLabel
           const company = String(it.company_name ?? it.company ?? '').trim()
           const insiders = Array.isArray(it.insiders) ? it.insiders.map((x) => String(x)) : []
           return {
@@ -6560,17 +6779,23 @@ function KensiglineTerminal() {
     }
   }, [backendUp])
 
-  const insiderFeedRows = !backendUp ? INSIDER_FEED_ROWS : (insiderFeedLive ?? [])
+  const insiderFeedRowsBase = useMemo(
+    () => applyFeedTodayEventCounts(!backendUp ? INSIDER_FEED_ROWS : insiderFeedLive ?? []),
+    [backendUp, insiderFeedLive],
+  )
 
   const insiderFilteredFeed = useMemo(() => {
     const companyQ = String(insiderCompanyQuery ?? '').trim()
     const personQ = String(insiderPersonQuery ?? '').trim()
-    if (!companyQ && !personQ) return insiderFeedRows
-    return insiderFeedRows.filter(
-      (r) =>
-        insiderFeedRowMatchesCompanyQuery(r, companyQ) && insiderFeedRowMatchesPersonQuery(r, personQ),
-    )
-  }, [insiderFeedRows, insiderCompanyQuery, insiderPersonQuery])
+    let rows = insiderFeedRowsBase
+    if (companyQ || personQ) {
+      rows = rows.filter(
+        (r) =>
+          insiderFeedRowMatchesCompanyQuery(r, companyQ) && insiderFeedRowMatchesPersonQuery(r, personQ),
+      )
+    }
+    return sortFeedRowsByAtDesc(rows)
+  }, [insiderFeedRowsBase, insiderCompanyQuery, insiderPersonQuery])
 
   useEffect(() => {
     if (activeTab !== 'investigate' || investigateMode !== 'insider') return
@@ -6581,6 +6806,16 @@ function KensiglineTerminal() {
     insiderFilteredFeed.length > 0
       ? insiderFilteredFeed[clamp(insiderIdx, 0, Math.max(0, insiderFilteredFeed.length - 1))]
       : null
+
+  const insiderFeedDisplay = useMemo(() => {
+    if (!backendUp || !insiderClusterLive || !insiderSelected?.ticker) return insiderFilteredFeed
+    return patchInvestigateFeedRowFromCluster(
+      insiderFilteredFeed,
+      insiderSelected.ticker,
+      insiderClusterLive,
+      insiderCaseSheetFromClusterLive,
+    )
+  }, [backendUp, insiderFilteredFeed, insiderClusterLive, insiderSelected?.ticker])
 
   useEffect(() => {
     let alive = true
@@ -6597,7 +6832,9 @@ function KensiglineTerminal() {
           const raw = String(it.feed_label ?? '')
           const m = raw.match(/^\s*([^()]+?)\s*\(\s*(\d+)\s*\)\s*$/)
           const label = (m ? m[1] : raw).trim() || '—'
-          const count = m ? Number(m[2]) : null
+          const countFromLabel = m ? Number(m[2]) : null
+          const todayCount = Number(it.today_count)
+          const count = Number.isFinite(todayCount) ? todayCount : countFromLabel
           const politicians = Array.isArray(it.politicians) ? it.politicians.map((x) => String(x)) : []
           const company = String(it.company_name ?? it.company ?? '').trim()
           return {
@@ -6624,18 +6861,24 @@ function KensiglineTerminal() {
     }
   }, [backendUp])
 
-  const politiciansFeedRows = !backendUp ? POLITICIAN_FEED_ROWS : (politiciansFeedLive ?? [])
+  const politiciansFeedRowsBase = useMemo(
+    () => applyFeedTodayEventCounts(!backendUp ? POLITICIAN_FEED_ROWS : politiciansFeedLive ?? []),
+    [backendUp, politiciansFeedLive],
+  )
 
   const politiciansFilteredFeed = useMemo(() => {
     const companyQ = String(politiciansCompanyQuery ?? '').trim()
     const politicianQ = String(politiciansPoliticianQuery ?? '').trim()
-    if (!companyQ && !politicianQ) return politiciansFeedRows
-    return politiciansFeedRows.filter(
-      (r) =>
-        politicianFeedRowMatchesCompanyQuery(r, companyQ) &&
-        politicianFeedRowMatchesPoliticianQuery(r, politicianQ),
-    )
-  }, [politiciansFeedRows, politiciansCompanyQuery, politiciansPoliticianQuery])
+    let rows = politiciansFeedRowsBase
+    if (companyQ || politicianQ) {
+      rows = rows.filter(
+        (r) =>
+          politicianFeedRowMatchesCompanyQuery(r, companyQ) &&
+          politicianFeedRowMatchesPoliticianQuery(r, politicianQ),
+      )
+    }
+    return sortFeedRowsByAtDesc(rows)
+  }, [politiciansFeedRowsBase, politiciansCompanyQuery, politiciansPoliticianQuery])
 
   useEffect(() => {
     if (activeTab !== 'investigate' || investigateMode !== 'politicians') return
@@ -6647,87 +6890,32 @@ function KensiglineTerminal() {
       ? politiciansFilteredFeed[clamp(politiciansIdx, 0, Math.max(0, politiciansFilteredFeed.length - 1))]
       : null
 
+  const politiciansFeedDisplay = useMemo(() => {
+    if (!backendUp || !politiciansClusterLive || !politiciansSelected?.ticker) return politiciansFilteredFeed
+    return patchInvestigateFeedRowFromCluster(
+      politiciansFilteredFeed,
+      politiciansSelected.ticker,
+      politiciansClusterLive,
+      politiciansCaseSheetFromClusterLive,
+    )
+  }, [backendUp, politiciansFilteredFeed, politiciansClusterLive, politiciansSelected?.ticker])
+
   const insiderSelectedResolved = useMemo(() => {
     if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'insider' || !insiderClusterLive) return insiderSelected
-    const rows = insiderClusterLive?.cluster?.worksheet_rows
-    const wsRows = Array.isArray(rows) ? rows : []
-    const caseSheet = {
-      filingId: insiderClusterLive?.filing?.accession_no ?? insiderSelected?.id ?? insiderSelected?.ticker ?? '—',
-      formType: insiderClusterLive?.filing?.form_type ?? 'Form 4',
-      issuer: insiderClusterLive?.issuer?.name ?? insiderSelected?.ticker ?? '—',
-      ticker: insiderClusterLive?.issuer?.ticker ?? insiderSelected?.ticker ?? '—',
-      isForm4: true,
-      filedAt: insiderClusterLive?.filing?.filed_at ?? insiderSelected?.at ?? null,
-      rows: wsRows.map((r) => ({
-        key: String(r?.key ?? '').trim() || 'Insider',
-        role: r?.role != null ? String(r.role) : insiderRoleFromKey(r?.key),
-        insider_name: r?.insider_name != null ? String(r.insider_name) : null,
-        surname:
-          r?.surname != null
-            ? String(r.surname)
-            : r?.insider_name != null
-              ? lastName(r.insider_name)
-              : insiderSurnameFromKey(r?.key),
-        transactionCode: r?.transaction_code != null ? String(r.transaction_code) : r?.code != null ? String(r.code) : 'P',
-        acquiredDisposed: r?.acquired_disposed != null ? String(r.acquired_disposed) : 'A',
-        amountUsd: r?.amount_usd != null ? Number(r.amount_usd) : null,
-        shares: r?.shares != null ? Number(r.shares) : null,
-        isDerivative: Boolean(r?.is_derivative ?? r?.derivative),
-        ts: r?.ts != null ? String(r.ts) : null,
-      })),
-    }
-    return {
-      ...insiderSelected,
-      caseSheet,
-    }
+    const caseSheet = insiderCaseSheetFromClusterLive(insiderClusterLive, insiderSelected)
+    return normalizeFeedRowActivity({ ...insiderSelected, caseSheet })
   }, [backendUp, activeTab, insiderSelected, insiderClusterLive])
 
   const politiciansSelectedResolved = useMemo(() => {
     if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'politicians' || !politiciansClusterLive)
       return politiciansSelected ?? null
-    const rows = politiciansClusterLive?.cluster?.worksheet_rows
-    const wsRows = Array.isArray(rows) ? rows : []
-    const chamber = politiciansSelected?.chamber ?? 'house'
     const companyName =
       String(politiciansClusterLive?.issuer?.name ?? '').trim() ||
       String(politiciansSelected?.company ?? '').trim() ||
       politiciansSelected?.ticker ||
       '—'
-    const caseSheet = {
-      filingId: politiciansClusterLive?.filing?.accession_no ?? politiciansSelected?.id ?? politiciansSelected?.ticker ?? '—',
-      formType: politiciansClusterLive?.filing?.form_type ?? 'PTR',
-      issuer: companyName,
-      ticker: politiciansClusterLive?.issuer?.ticker ?? politiciansSelected?.ticker ?? '—',
-      isForm4: true,
-      filedAt: politiciansClusterLive?.filing?.filed_at ?? politiciansSelected?.at ?? null,
-      rows: wsRows.map((r) => ({
-        key: String(r?.key ?? '').trim() || 'POLITICIAN',
-        surname: lastName(r?.key),
-        chamber,
-        transactionType:
-          r?.transaction_type != null
-            ? String(r.transaction_type)
-            : r?.description != null
-              ? String(r.description)
-              : null,
-        assetTicker: r?.ticker != null ? String(r.ticker) : politiciansSelected?.ticker ?? null,
-        assetName: r?.asset_name != null ? String(r.asset_name) : null,
-        amountRange: r?.amount_range != null ? String(r.amount_range) : null,
-        amountUsd:
-          r?.amount_usd_mid != null
-            ? Number(r.amount_usd_mid)
-            : r?.amount_usd != null
-              ? Number(r.amount_usd)
-              : null,
-        acquiredDisposed: 'A',
-        ts: r?.ts != null ? String(r.ts) : null,
-      })),
-    }
-    return {
-      ...politiciansSelected,
-      company: companyName,
-      caseSheet,
-    }
+    const caseSheet = politiciansCaseSheetFromClusterLive(politiciansClusterLive, politiciansSelected)
+    return normalizeFeedRowActivity({ ...politiciansSelected, company: companyName, caseSheet })
   }, [backendUp, activeTab, politiciansSelected, politiciansClusterLive])
 
   // Insider cluster: case worksheet + context
@@ -7078,9 +7266,10 @@ function KensiglineTerminal() {
           <CompactFeed
             placement="left"
             title="FEED"
-            items={investigateIsInsider ? insiderFilteredFeed : politiciansFilteredFeed}
+            items={investigateIsInsider ? insiderFeedDisplay : politiciansFeedDisplay}
             selectedIndex={investigateIsInsider ? insiderIdx : politiciansIdx}
             sepMode="today+years"
+            todayGroupByEvents
             scrollMode
             rowPrimary="company"
             showFeedSearch

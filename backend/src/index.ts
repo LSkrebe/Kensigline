@@ -49,6 +49,68 @@ function clampInt(n: unknown, min: number, max: number, fallback: number) {
   return Math.max(min, Math.min(max, Math.floor(x)));
 }
 
+function isLocalCalendarToday(iso: string): boolean {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+function politicianWorksheetRowHasTxn(r: Record<string, unknown>): boolean {
+  const range = String(r?.amountRange ?? r?.amount_range ?? "").trim();
+  if (range) return true;
+  const amt = Number(r?.amount_usd ?? r?.amountUsd ?? 0);
+  return Number.isFinite(amt) && amt > 0;
+}
+
+/** Events in a filing cluster that fall on the server's local calendar day (matches feed UI). */
+function parseEventTimeMs(iso: string): number {
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) ? t : Number.NEGATIVE_INFINITY;
+}
+
+/** Latest txn `ts` in a filing cluster, else document `feed_at`. */
+function latestEventAtFromDoc(rows: unknown, docFeedAt: string): string {
+  let best = docFeedAt;
+  let bestT = parseEventTimeMs(docFeedAt);
+  if (Array.isArray(rows)) {
+    for (const raw of rows) {
+      const ts = String((raw as Record<string, unknown>)?.ts ?? "").trim();
+      if (!ts) continue;
+      const t = parseEventTimeMs(ts);
+      if (t > bestT) {
+        bestT = t;
+        best = ts;
+      }
+    }
+  }
+  return best;
+}
+
+function countWorksheetEventsToday(
+  rows: unknown,
+  docFeedAt: string,
+  kind: "insider" | "politicians",
+): number {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return isLocalCalendarToday(docFeedAt) ? 1 : 0;
+  }
+  let n = 0;
+  for (const raw of rows) {
+    const r = raw as Record<string, unknown>;
+    const ts = String(r?.ts ?? "").trim();
+    const when = ts || docFeedAt;
+    if (!isLocalCalendarToday(when)) continue;
+    if (kind === "politicians" && !politicianWorksheetRowHasTxn(r)) continue;
+    n += 1;
+  }
+  return n;
+}
+
 function formatUsdCompact(n: number) {
   const abs = Math.abs(n);
   const sign = n < 0 ? "-" : "";
@@ -330,6 +392,7 @@ const server = http.createServer(async (req, res) => {
           latestDoc: typeof docs[number];
           totalUsd: number;
           totalCount: number;
+          todayCount: number;
           insiders: Set<string>;
         }
       >();
@@ -349,6 +412,9 @@ const server = http.createServer(async (req, res) => {
             cnt += 1;
           }
         }
+        const todayDelta = countWorksheetEventsToday(rows, feedAt, "insider");
+        const eventAt = latestEventAtFromDoc(rows, feedAt);
+        const eventT = parseEventTimeMs(eventAt);
 
         const cur = byTicker.get(t);
         if (!cur) {
@@ -366,22 +432,23 @@ const server = http.createServer(async (req, res) => {
           byTicker.set(t, {
             ticker: t,
             company_id: d.company_id ?? null,
-            latestFeedAt: feedAt,
+            latestFeedAt: eventAt,
             latestDoc: d,
             totalUsd: sum,
             totalCount: cnt,
+            todayCount: todayDelta,
             insiders,
           });
           continue;
         }
 
-        // docs already ordered newest->oldest, but keep it explicit
-        if (feedAt > cur.latestFeedAt) {
-          cur.latestFeedAt = feedAt;
+        if (eventT > parseEventTimeMs(cur.latestFeedAt)) {
+          cur.latestFeedAt = eventAt;
           cur.latestDoc = d;
         }
         cur.totalUsd += sum;
         cur.totalCount += cnt;
+        cur.todayCount += todayDelta;
         if (Array.isArray(rows)) {
           for (const r of rows) {
             const sn = String(r?.surname ?? "").trim();
@@ -399,8 +466,13 @@ const server = http.createServer(async (req, res) => {
         .slice(0, limit)
         .map((c) => {
           const usd = c.totalUsd > 0 ? formatUsdCompact(c.totalUsd) : "—";
+          const todayCount = c.todayCount;
           const label =
-            c.totalCount > 0 ? `${usd} (${c.totalCount})` : (c.latestDoc.feed_label ?? "Insider activity");
+            todayCount > 0
+              ? `${usd} (${todayCount})`
+              : c.totalCount > 0
+                ? usd
+                : (c.latestDoc.feed_label ?? "Insider activity");
           const data = c.latestDoc.data as { issuer?: { name?: string | null } } | null;
           const companyName = String(data?.issuer?.name ?? "").trim() || c.ticker;
           return {
@@ -410,6 +482,7 @@ const server = http.createServer(async (req, res) => {
             ticker: c.ticker,
             company_name: companyName,
             company_id: c.company_id,
+            today_count: todayCount,
             insiders: Array.from(c.insiders).slice(0, 20),
           };
         });
@@ -450,6 +523,7 @@ const server = http.createServer(async (req, res) => {
           latestDoc: (typeof rows)[number];
           totalMid: number;
           totalCount: number;
+          todayCount: number;
           politicians: Set<string>;
         }
       >();
@@ -457,21 +531,26 @@ const server = http.createServer(async (req, res) => {
         const t = String(r.ticker ?? "").trim().toUpperCase();
         if (!t) continue;
         const at = String(r.feed_at ?? "");
+        const ws = (r.data as any)?.cluster?.worksheet_rows;
+        const todayDelta = countWorksheetEventsToday(ws, at, "politicians");
+        const eventAt = latestEventAtFromDoc(ws, at);
+        const eventT = parseEventTimeMs(eventAt);
         const cur =
           byTicker.get(t) ??
           {
             ticker: t,
-            latestFeedAt: at,
+            latestFeedAt: eventAt,
             latestDoc: r,
             totalMid: 0,
             totalCount: 0,
+            todayCount: 0,
             politicians: new Set<string>(),
           };
-        if (at && (!cur.latestFeedAt || at > cur.latestFeedAt)) {
-          cur.latestFeedAt = at;
+        if (eventT > parseEventTimeMs(cur.latestFeedAt)) {
+          cur.latestFeedAt = eventAt;
           cur.latestDoc = r;
         }
-        const ws = (r.data as any)?.cluster?.worksheet_rows;
+        cur.todayCount += todayDelta;
         if (Array.isArray(ws)) {
           for (const w of ws) {
             const mid = Number(w?.amount_usd_mid ?? 0);
@@ -491,7 +570,8 @@ const server = http.createServer(async (req, res) => {
         .slice(0, limit)
         .map((c) => {
           const usd = c.totalMid > 0 ? formatUsdCompact(c.totalMid) : "—";
-          const label = c.totalCount > 0 ? `${usd} (${c.totalCount})` : "—";
+          const todayCount = c.todayCount;
+          const label = todayCount > 0 ? `${usd} (${todayCount})` : usd;
           const feedAtIso = (() => {
             const d = new Date(c.latestFeedAt);
             return Number.isNaN(d.getTime()) ? c.latestFeedAt : d.toISOString();
@@ -504,6 +584,7 @@ const server = http.createServer(async (req, res) => {
             feed_label: label,
             ticker: c.ticker,
             company_name: companyName,
+            today_count: todayCount,
             politicians: Array.from(c.politicians).slice(0, 20),
           };
         });
