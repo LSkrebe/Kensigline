@@ -512,11 +512,11 @@
  * columns), so nested charts + ResizeObserver cannot fight the grid for width.
  */
 .terminal.terminal--main {
-  /* Research: feed | paper | context — 20fr / 40fr / 40fr (20% / 40% / 40%) */
+  /* Research: feed | paper | context — 20fr / 50fr / 30fr (20% / 50% / 30%) */
   grid-template-columns:
     minmax(44px, 20fr)
-    minmax(0, 40fr)
-    minmax(48px, 40fr);
+    minmax(0, 50fr)
+    minmax(48px, 30fr);
   grid-template-rows: repeat(4, minmax(0, 1fr));
 }
 
