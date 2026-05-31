@@ -330,6 +330,7 @@ const server = http.createServer(async (req, res) => {
           latestDoc: typeof docs[number];
           totalUsd: number;
           totalCount: number;
+          insiders: Set<string>;
         }
       >();
 
@@ -351,6 +352,17 @@ const server = http.createServer(async (req, res) => {
 
         const cur = byTicker.get(t);
         if (!cur) {
+          const insiders = new Set<string>();
+          if (Array.isArray(rows)) {
+            for (const r of rows) {
+              const sn = String(r?.surname ?? "").trim();
+              if (sn) insiders.add(sn);
+              const nm = String(r?.insider_name ?? "").trim();
+              if (nm) insiders.add(nm);
+              const k = String(r?.key ?? "").trim();
+              if (k && k !== "Insider") insiders.add(k);
+            }
+          }
           byTicker.set(t, {
             ticker: t,
             company_id: d.company_id ?? null,
@@ -358,6 +370,7 @@ const server = http.createServer(async (req, res) => {
             latestDoc: d,
             totalUsd: sum,
             totalCount: cnt,
+            insiders,
           });
           continue;
         }
@@ -369,6 +382,16 @@ const server = http.createServer(async (req, res) => {
         }
         cur.totalUsd += sum;
         cur.totalCount += cnt;
+        if (Array.isArray(rows)) {
+          for (const r of rows) {
+            const sn = String(r?.surname ?? "").trim();
+            if (sn) cur.insiders.add(sn);
+            const nm = String(r?.insider_name ?? "").trim();
+            if (nm) cur.insiders.add(nm);
+            const k = String(r?.key ?? "").trim();
+            if (k && k !== "Insider") cur.insiders.add(k);
+          }
+        }
       }
 
       const items = Array.from(byTicker.values())
@@ -387,6 +410,7 @@ const server = http.createServer(async (req, res) => {
             ticker: c.ticker,
             company_name: companyName,
             company_id: c.company_id,
+            insiders: Array.from(c.insiders).slice(0, 20),
           };
         });
 

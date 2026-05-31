@@ -409,12 +409,19 @@
   letter-spacing: 0.06em;
   /*
    * After rotation, the word’s normal width runs along the tab’s vertical space.
-   * POLITICIANS (~11 chars) must fit in one-fifth of the viewport height; cap size
+   * INVESTIGATE (~11 chars) must fit in one-fifth of the viewport height; cap size
    * so the line box also fits the slim rail width before rotation.
    */
   font-size: min(
     calc(var(--tabrail-w) / 1.28),
     clamp(5px, calc((100dvh - var(--terminal-topbar-h) - 8px) / 4 / 6.45), 11px)
+  );
+}
+
+.sideTabLabel--investigate {
+  font-size: min(
+    calc(var(--tabrail-w) / 1.38),
+    clamp(4px, calc((100dvh - var(--terminal-topbar-h) - 8px) / 4 / 9.5), 10px)
   );
 }
 
@@ -475,25 +482,27 @@
 }
 
 /*
- * Insider tab (4 cols): FEED | CASE | chart (2 cols × 3 rows) | bottom: HO | Company (50/50).
+ * Investigate tab (4 cols): FEED | CASE | chart (2 cols × 3 rows) | bottom: HO | Company (50/50).
+ * Mode class terminal--insider | terminal--politicians follows headline switch.
  */
+.terminal.terminal--investigate.terminal--insider,
 .terminal.terminal--insider {
   grid-template-columns:
     minmax(56px, 1fr)
     minmax(64px, 1.15fr)
     minmax(0, 1fr)
     minmax(0, 1fr);
-  grid-template-rows: 0.95fr 0.95fr 0.95fr 1.4fr;
+  grid-template-rows: 0.93fr 0.93fr 0.93fr 1.47fr;
 }
 
-/* Politicians: same 4-col shell as Insider; wider CASE like Insider. */
+.terminal.terminal--investigate.terminal--politicians,
 .terminal.terminal--politicians {
   grid-template-columns:
     minmax(56px, 1fr)
     minmax(64px, 1.15fr)
     minmax(0, 1fr)
     minmax(0, 1fr);
-  grid-template-rows: 0.95fr 0.95fr 0.95fr 1.4fr;
+  grid-template-rows: 0.93fr 0.93fr 0.93fr 1.47fr;
 }
 
 /* Explore tab (BOSHA): investigation board layout */
@@ -1507,6 +1516,110 @@
   letter-spacing: 0.02em;
 }
 
+/* Insider / Politicians company tile — snapshot fills panel (no header) */
+.terminal--insider .companyTile .companyTileBody,
+.terminal--politicians .companyTile .companyTileBody {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+  margin: 12px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.terminal--insider .companyTile .contextCompanyCard,
+.terminal--politicians .companyTile .contextCompanyCard {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  padding: 12px 12px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  background: var(--context-surface-inset);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal--insider .companyTile .contextCompanyTopRow,
+.terminal--politicians .companyTile .contextCompanyTopRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.terminal--insider .companyTile .contextCompanyTopRow--tickerOnly,
+.terminal--politicians .companyTile .contextCompanyTopRow--tickerOnly {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.terminal--insider .companyTile .contextCompanyTicker,
+.terminal--politicians .companyTile .contextCompanyTicker {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--hi);
+  line-height: 1.1;
+}
+
+.terminal--insider .companyTile .contextCompanyPrice,
+.terminal--politicians .companyTile .contextCompanyPrice {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--hi);
+  line-height: 1.1;
+}
+
+.terminal--insider .companyTile .contextCompanyMeta,
+.terminal--politicians .companyTile .contextCompanyMeta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.35;
+}
+
+.terminal--insider .companyTile .contextCompanyEarnings,
+.terminal--politicians .companyTile .contextCompanyEarnings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: var(--panel-corner-wash-compact-a), var(--panel-corner-wash-compact-b), var(--context-surface-inset);
+}
+
+.terminal--insider .companyTile .contextCompanyEarningsK,
+.terminal--politicians .companyTile .contextCompanyEarningsK {
+  color: var(--hi);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+.terminal--insider .companyTile .contextCompanyEarningsV,
+.terminal--politicians .companyTile .contextCompanyEarningsV {
+  color: var(--hi);
+  text-align: right;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
 /* Research context panel — market intel (flows) */
 .terminal--main .mainContextPanel--market .contextSection {
   margin-top: 0;
@@ -1517,7 +1630,9 @@
   margin-bottom: 8px;
 }
 
-.terminal--main .mainContextPanel .contextFlowEmpty {
+.terminal--main .mainContextPanel .contextFlowEmpty,
+.terminal--insider .historicalOutcomes .contextFlowEmpty,
+.terminal--politicians .historicalOutcomes .contextFlowEmpty {
   margin: 0;
   padding: 8px 0 10px;
   font-size: 10px;
@@ -1542,16 +1657,26 @@
 }
 
 .terminal--main .mainContextPanel--market .contextFlowList,
-.terminal--main .mainContextPanel--clinical .contextFlowList {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.terminal--main .mainContextPanel--clinical .contextFlowList,
+.terminal--insider .historicalOutcomes .contextFlowList,
+.terminal--politicians .historicalOutcomes .contextFlowList {
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 10px;
-  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
+  background: var(--context-surface-inset);
   padding: 8px 12px 10px;
   box-sizing: border-box;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowChartLabel,
-.terminal--main .mainContextPanel--clinical .contextFlowChartLabel {
+.terminal--main .mainContextPanel--clinical .contextFlowChartLabel,
+.terminal--insider .historicalOutcomes .contextFlowChartLabel,
+.terminal--politicians .historicalOutcomes .contextFlowChartLabel {
+  flex: 0 0 auto;
   padding: 2px 0 8px;
   font-size: 9px;
   font-weight: 600;
@@ -1563,7 +1688,9 @@
 }
 
 .terminal--main .mainContextPanel--market .contextFlowTotalsMeta,
-.terminal--main .mainContextPanel--clinical .contextFlowTotalsMeta {
+.terminal--main .mainContextPanel--clinical .contextFlowTotalsMeta,
+.terminal--insider .historicalOutcomes .contextFlowTotalsMeta,
+.terminal--politicians .historicalOutcomes .contextFlowTotalsMeta {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1577,7 +1704,11 @@
 .terminal--main .mainContextPanel--market .contextFlowTotalsMetaL,
 .terminal--main .mainContextPanel--clinical .contextFlowTotalsMetaL,
 .terminal--main .mainContextPanel--market .contextFlowTotalsMetaR,
-.terminal--main .mainContextPanel--clinical .contextFlowTotalsMetaR {
+.terminal--main .mainContextPanel--clinical .contextFlowTotalsMetaR,
+.terminal--insider .historicalOutcomes .contextFlowTotalsMetaL,
+.terminal--politicians .historicalOutcomes .contextFlowTotalsMetaL,
+.terminal--insider .historicalOutcomes .contextFlowTotalsMetaR,
+.terminal--politicians .historicalOutcomes .contextFlowTotalsMetaR {
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -1586,12 +1717,16 @@
 }
 
 .terminal--main .mainContextPanel--market .contextFlowTotalsMetaR,
-.terminal--main .mainContextPanel--clinical .contextFlowTotalsMetaR {
+.terminal--main .mainContextPanel--clinical .contextFlowTotalsMetaR,
+.terminal--insider .historicalOutcomes .contextFlowTotalsMetaR,
+.terminal--politicians .historicalOutcomes .contextFlowTotalsMetaR {
   text-align: right;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowList--empty .contextFlowEmpty,
-.terminal--main .mainContextPanel--clinical .contextFlowList--empty .contextFlowEmpty {
+.terminal--main .mainContextPanel--clinical .contextFlowList--empty .contextFlowEmpty,
+.terminal--insider .historicalOutcomes .contextFlowList--empty .contextFlowEmpty,
+.terminal--politicians .historicalOutcomes .contextFlowList--empty .contextFlowEmpty {
   color: rgba(255, 255, 255, 0.42);
 }
 
@@ -1615,26 +1750,56 @@
   min-height: 112px;
 }
 
+.terminal--insider .historicalOutcomes .contextFlowOutcomeChart,
+.terminal--politicians .historicalOutcomes .contextFlowOutcomeChart {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  margin: 0 0 6px;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.terminal--insider .historicalOutcomes .contextFlowOutcomeSvg,
+.terminal--politicians .historicalOutcomes .contextFlowOutcomeSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
 .terminal--main .mainContextPanel--market .contextFlowOutcomePath,
-.terminal--main .mainContextPanel--clinical .contextFlowOutcomePath {
+.terminal--main .mainContextPanel--clinical .contextFlowOutcomePath,
+.terminal--insider .historicalOutcomes .contextFlowOutcomePath,
+.terminal--politicians .historicalOutcomes .contextFlowOutcomePath {
   fill: none;
   stroke-width: 1.25px;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowOutcomeChart .graphTick--x,
-.terminal--main .mainContextPanel--clinical .contextFlowOutcomeChart .graphTick--x {
+.terminal--main .mainContextPanel--clinical .contextFlowOutcomeChart .graphTick--x,
+.terminal--insider .historicalOutcomes .contextFlowOutcomeChart .graphTick--x,
+.terminal--politicians .historicalOutcomes .contextFlowOutcomeChart .graphTick--x {
   font-size: 10px;
   fill: rgba(255, 255, 255, 0.38);
 }
 
 .terminal--main .mainContextPanel--market .contextFlowOutcomeChart .graphTick--y,
-.terminal--main .mainContextPanel--clinical .contextFlowOutcomeChart .graphTick--y {
+.terminal--main .mainContextPanel--clinical .contextFlowOutcomeChart .graphTick--y,
+.terminal--insider .historicalOutcomes .contextFlowOutcomeChart .graphTick--y,
+.terminal--politicians .historicalOutcomes .contextFlowOutcomeChart .graphTick--y {
   font-size: 10px;
   fill: rgba(255, 255, 255, 0.38);
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRowKeyWrap,
-.terminal--main .mainContextPanel--clinical .contextFlowRowKeyWrap {
+.terminal--main .mainContextPanel--clinical .contextFlowRowKeyWrap,
+.terminal--insider .historicalOutcomes .contextFlowRowKeyWrap,
+.terminal--politicians .historicalOutcomes .contextFlowRowKeyWrap {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1642,7 +1807,9 @@
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRowLine,
-.terminal--main .mainContextPanel--clinical .contextFlowRowLine {
+.terminal--main .mainContextPanel--clinical .contextFlowRowLine,
+.terminal--insider .historicalOutcomes .contextFlowRowLine,
+.terminal--politicians .historicalOutcomes .contextFlowRowLine {
   flex-shrink: 0;
   width: 14px;
   height: 2px;
@@ -1650,12 +1817,16 @@
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRowKeyWrap .contextFlowRowKey,
-.terminal--main .mainContextPanel--clinical .contextFlowRowKeyWrap .contextFlowRowKey {
+.terminal--main .mainContextPanel--clinical .contextFlowRowKeyWrap .contextFlowRowKey,
+.terminal--insider .historicalOutcomes .contextFlowRowKeyWrap .contextFlowRowKey,
+.terminal--politicians .historicalOutcomes .contextFlowRowKeyWrap .contextFlowRowKey {
   min-width: 0;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRow,
-.terminal--main .mainContextPanel--clinical .contextFlowRow {
+.terminal--main .mainContextPanel--clinical .contextFlowRow,
+.terminal--insider .historicalOutcomes .contextFlowRow,
+.terminal--politicians .historicalOutcomes .contextFlowRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1667,12 +1838,16 @@
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRow:last-child,
-.terminal--main .mainContextPanel--clinical .contextFlowRow:last-child {
+.terminal--main .mainContextPanel--clinical .contextFlowRow:last-child,
+.terminal--insider .historicalOutcomes .contextFlowRow:last-child,
+.terminal--politicians .historicalOutcomes .contextFlowRow:last-child {
   border-bottom: none;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRowMain,
-.terminal--main .mainContextPanel--clinical .contextFlowRowMain {
+.terminal--main .mainContextPanel--clinical .contextFlowRowMain,
+.terminal--insider .historicalOutcomes .contextFlowRowMain,
+.terminal--politicians .historicalOutcomes .contextFlowRowMain {
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1680,7 +1855,9 @@
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRowKey,
-.terminal--main .mainContextPanel--clinical .contextFlowRowKey {
+.terminal--main .mainContextPanel--clinical .contextFlowRowKey,
+.terminal--insider .historicalOutcomes .contextFlowRowKey,
+.terminal--politicians .historicalOutcomes .contextFlowRowKey {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -1689,20 +1866,26 @@
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRowKey--name,
-.terminal--main .mainContextPanel--clinical .contextFlowRowKey--name {
+.terminal--main .mainContextPanel--clinical .contextFlowRowKey--name,
+.terminal--insider .historicalOutcomes .contextFlowRowKey--name,
+.terminal--politicians .historicalOutcomes .contextFlowRowKey--name {
   text-transform: none;
   letter-spacing: 0.01em;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRowDate,
-.terminal--main .mainContextPanel--clinical .contextFlowRowDate {
+.terminal--main .mainContextPanel--clinical .contextFlowRowDate,
+.terminal--insider .historicalOutcomes .contextFlowRowDate,
+.terminal--politicians .historicalOutcomes .contextFlowRowDate {
   font-size: 10px;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.45);
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRowAmt,
-.terminal--main .mainContextPanel--clinical .contextFlowRowAmt {
+.terminal--main .mainContextPanel--clinical .contextFlowRowAmt,
+.terminal--insider .historicalOutcomes .contextFlowRowAmt,
+.terminal--politicians .historicalOutcomes .contextFlowRowAmt {
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -2043,6 +2226,10 @@
   align-items: start;
   gap: 10px;
   margin-bottom: 4px;
+}
+
+.contextCompanyTopRow--tickerOnly {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .contextCompanyTicker {
@@ -4329,6 +4516,65 @@ button.boshaPaperCopyIcon:focus-visible {
   cursor: text;
 }
 
+.terminal--insider .feed--left .researchFeedSearchStack,
+.terminal--politicians .feed--left .researchFeedSearchStack {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: calc((0.08em + 1.08em + 10px) * 2 + 1px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.terminal--insider .feed--left .researchFeedSearchStackIconWrap,
+.terminal--politicians .feed--left .researchFeedSearchStackIconWrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.34);
+  pointer-events: none;
+}
+
+.terminal--insider .feed--left .researchFeedSearchStackIcon,
+.terminal--politicians .feed--left .researchFeedSearchStackIcon {
+  display: block;
+  width: 13px;
+  height: 13px;
+}
+
+.terminal--insider .feed--left .researchFeedSearchStackFields,
+.terminal--politicians .feed--left .researchFeedSearchStackFields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal--insider .feed--left .researchFeedSearchRow,
+.terminal--politicians .feed--left .researchFeedSearchRow {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-height: calc(0.08em + 1.08em + 10px);
+  margin: 0;
+  padding: 5px 8px;
+  border: none;
+  background: transparent;
+  cursor: text;
+  box-sizing: border-box;
+}
+
+.terminal--insider .feed--left .researchFeedSearchRow + .researchFeedSearchRow,
+.terminal--politicians .feed--left .researchFeedSearchRow + .researchFeedSearchRow {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .terminal--insider .feed--left .researchFeedSearchInput,
 .terminal--politicians .feed--left .researchFeedSearchInput {
   flex: 1;
@@ -4582,11 +4828,7 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .historicalOutcomes .worksheetBody,
-.terminal--insider .companyTile .worksheetBody,
-
-
-.terminal--politicians .historicalOutcomes .worksheetBody,
-.terminal--politicians .companyTile .worksheetBody {
+.terminal--politicians .historicalOutcomes .worksheetBody {
   flex: 1 1 auto;
   align-self: stretch;
   min-height: 0;
@@ -4594,40 +4836,72 @@ button.boshaPaperCopyIcon:focus-visible {
   width: auto;
   max-width: 100%;
   margin: 0 12px 12px;
-  padding: 8px 10px;
-  border: 1px solid var(--chart-panel-border);
-  border-radius: 10px;
-  background: var(--chart-panel-surface);
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.terminal--insider .historicalOutcomes--market .worksheetBody,
+.terminal--politicians .historicalOutcomes--market .worksheetBody {
+  margin: 12px;
+}
+
+.terminal--insider .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson,
+.terminal--politicians .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: var(--panel-corner-wash-compact-a), var(--panel-corner-wash-compact-b), var(--context-surface-inset);
+  position: relative;
+  z-index: 1;
+}
+
+.terminal--insider .historicalOutcomes .historicalOutcomesPersonName,
+.terminal--politicians .historicalOutcomes .historicalOutcomesPersonName {
+  color: var(--hi);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  min-width: 0;
+}
+
+.terminal--insider .historicalOutcomes .historicalOutcomesPersonDetail,
+.terminal--politicians .historicalOutcomes .historicalOutcomesPersonDetail {
+  color: var(--hi);
+  text-align: right;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
 }
 
 .terminal--insider .historicalOutcomes .kvLine,
-.terminal--insider .companyTile .kvLine,
-
-
-.terminal--politicians .historicalOutcomes .kvLine,
-.terminal--politicians .companyTile .kvLine {
+.terminal--politicians .historicalOutcomes .kvLine {
   color: rgba(255, 255, 255, 0.88);
   border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
 .terminal--insider .historicalOutcomes .kvK,
-.terminal--insider .companyTile .kvK,
-
-
-.terminal--politicians .historicalOutcomes .kvK,
-.terminal--politicians .companyTile .kvK {
+.terminal--politicians .historicalOutcomes .kvK {
   color: rgba(255, 255, 255, 0.45);
   font-size: 10px;
   letter-spacing: 0.04em;
 }
 
 .terminal--insider .historicalOutcomes .kvV,
-.terminal--insider .companyTile .kvV,
-
-
-.terminal--politicians .historicalOutcomes .kvV,
-.terminal--politicians .companyTile .kvV {
+.terminal--politicians .historicalOutcomes .kvV {
   color: var(--hi);
 }
 
@@ -5096,6 +5370,13 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+.terminal--insider .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable,
+.terminal--politicians .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable {
+  /* Room for selected-row ring so rounded ends are not clipped */
+  padding: 0 1px;
+  box-sizing: border-box;
+}
+
 /* CASE panel: interior grid lines only (no outer box) */
 .terminal--insider .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable,
 .terminal--politicians .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable,
@@ -5133,9 +5414,9 @@ body {
   grid-template-columns: 4.5em minmax(6em, 10em) 2.2em minmax(10ch, 1fr) auto;
 }
 
-/* Politicians PTR: chamber | member | txn | amount | date */
+/* CASE txn rows: table grid + same row height as FEED (left) */
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn,
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician {
-  grid-template-columns: 4.5em minmax(6em, 10em) 2.2em minmax(10ch, 1fr) auto;
   gap: 0;
   padding: 0;
   margin: 0;
@@ -5146,6 +5427,10 @@ body {
   border: none;
   border-bottom: 1px solid var(--case-table-line);
   border-radius: 0;
+}
+
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician {
+  grid-template-columns: 4.5em minmax(6em, 10em) 2.2em minmax(10ch, 1fr) auto;
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedCellValue,
@@ -5176,6 +5461,11 @@ body {
   padding-right: 10px;
 }
 
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn .feedCellSurname--match,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician .feedCellSurname--match {
+  color: rgba(255, 255, 255, 0.88);
+}
+
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCellWhen,
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCellWhen,
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCellWhen {
@@ -5203,7 +5493,7 @@ body {
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCell {
   box-sizing: border-box;
   min-height: calc(10px * 1.15 + 10px);
-  padding: 5px 6px;
+  padding: 5px 8px;
   border: none;
   border-right: 1px solid var(--case-table-line);
   display: flex;
@@ -5241,8 +5531,15 @@ body {
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn.isActive,
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician.isActive {
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  position: relative;
+  z-index: 1;
+  border: none;
+  /* Keep same 1px bottom slot as unselected rows so height does not shift on select */
+  border-bottom: 1px solid transparent;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  overflow: hidden;
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact:has(+ .feedRowTodaySep),

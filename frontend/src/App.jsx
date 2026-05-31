@@ -148,20 +148,27 @@ function buildFeedDisplayRows(items, opts = {}) {
     const row = items[i]
     const prev = i > 0 ? items[i - 1] : null
 
+    const gapCandidates = []
     if (wantTodaySep && prev && isAtLocalToday(prev.at) && !isAtLocalToday(row.at)) {
-      out.push({ type: 'sep', key: `today-sep-before-${row.id}`, label: 'TODAY' })
+      gapCandidates.push({ rank: 0, key: `today-sep-before-${row.id}`, label: 'TODAY' })
     }
-
     if (wantMonthSep && prev && isAtLocalThisMonth(prev.at) && !isAtLocalThisMonth(row.at)) {
-      out.push({ type: 'sep', key: `month-sep-before-${row.id}`, label: 'THIS MONTH' })
+      gapCandidates.push({ rank: 1, key: `month-sep-before-${row.id}`, label: 'THIS MONTH' })
     }
-
     if (wantYearSeps && prev) {
       const y0 = new Date(prev.at).getFullYear()
       const y1 = new Date(row.at).getFullYear()
       if (Number.isFinite(y0) && Number.isFinite(y1) && y1 !== y0) {
-        // Insert the year of the rows that follow (older group).
-        out.push({ type: 'sep', key: `year-${y1}-sep-before-${row.id}`, label: String(y1) })
+        gapCandidates.push({ rank: 2, key: `year-${y1}-sep-before-${row.id}`, label: String(y1) })
+      }
+    }
+    if (gapCandidates.length) {
+      if (opts.exclusiveSeps) {
+        gapCandidates.sort((a, b) => a.rank - b.rank)
+        const g = gapCandidates[0]
+        out.push({ type: 'sep', key: g.key, label: g.label })
+      } else {
+        for (const g of gapCandidates) out.push({ type: 'sep', key: g.key, label: g.label })
       }
     }
 
@@ -300,6 +307,14 @@ function politicianChamberCode(chamber) {
   return 'PTR'
 }
 
+function politicianChamberLabelFromCode(code) {
+  const c = String(code ?? '').trim().toUpperCase()
+  if (c === 'SEN') return 'Senate'
+  if (c === 'EXE') return 'Executive'
+  if (c === 'HSE') return 'House'
+  return 'House'
+}
+
 /** Match politician names (full, partial, or last name) against a feed search query. */
 function politicianNamesMatchQuery(names, query) {
   const tokens = String(query ?? '')
@@ -328,14 +343,7 @@ function politicianNamesMatchQuery(names, query) {
   return false
 }
 
-/** Politicians FEED: show companies (tickers) where the query matches a disclosed politician or company. */
-function politicianFeedRowMatchesQuery(row, queryRaw) {
-  const s = String(queryRaw ?? '').trim().toUpperCase()
-  if (!s) return true
-  const ticker = String(row?.ticker ?? '').toUpperCase()
-  const company = String(row?.company ?? '').toUpperCase()
-  if (ticker.includes(s) || company.includes(s)) return true
-
+function politicianFeedRowNames(row) {
   const names = new Set()
   for (const p of row?.politicians ?? []) {
     const v = String(p ?? '').trim()
@@ -346,7 +354,67 @@ function politicianFeedRowMatchesQuery(row, queryRaw) {
     const fromKey = lastName(r?.key)
     if (fromKey && fromKey !== '—') names.add(fromKey)
   }
-  return politicianNamesMatchQuery([...names], s)
+  return [...names]
+}
+
+function politicianFeedRowMatchesCompanyQuery(row, queryRaw) {
+  const s = String(queryRaw ?? '').trim().toUpperCase()
+  if (!s) return true
+  const ticker = String(row?.ticker ?? '').toUpperCase()
+  const company = String(row?.company ?? '').toUpperCase()
+  return ticker.includes(s) || company.includes(s)
+}
+
+/** Politicians FEED: companies where a disclosed politician matches the query. */
+function politicianFeedRowMatchesPoliticianQuery(row, queryRaw) {
+  const s = String(queryRaw ?? '').trim()
+  if (!s) return true
+  return politicianNamesMatchQuery(politicianFeedRowNames(row), s)
+}
+
+function caseTxnPersonNameMatchesQuery(row, queryRaw) {
+  const s = String(queryRaw ?? '').trim()
+  if (!s) return false
+  const names = Array.isArray(row?.matchNames)
+    ? row.matchNames.map((x) => String(x))
+    : row?.whoName
+      ? [String(row.whoName)]
+      : []
+  return politicianNamesMatchQuery(names, s)
+}
+
+function insiderFeedRowPersonNames(row) {
+  const names = new Set()
+  for (const p of row?.insiders ?? []) {
+    const raw = String(p ?? '').trim()
+    if (!raw) continue
+    const s = insiderSurnameFromKey(raw) || lastName(raw)
+    if (s && s !== '—') names.add(s)
+  }
+  for (const r of row?.caseSheet?.rows ?? []) {
+    if (r?.surname) names.add(String(r.surname))
+    const fromKey = insiderSurnameFromKey(r?.key)
+    if (fromKey) names.add(fromKey)
+    if (r?.insider_name) {
+      const n = lastName(r.insider_name)
+      if (n && n !== '—') names.add(n)
+    }
+  }
+  return [...names]
+}
+
+function insiderFeedRowMatchesCompanyQuery(row, queryRaw) {
+  const s = String(queryRaw ?? '').trim().toUpperCase()
+  if (!s) return true
+  const ticker = String(row?.ticker ?? '').toUpperCase()
+  const company = String(row?.company ?? '').toUpperCase()
+  return ticker.includes(s) || company.includes(s)
+}
+
+function insiderFeedRowMatchesPersonQuery(row, queryRaw) {
+  const s = String(queryRaw ?? '').trim()
+  if (!s) return true
+  return politicianNamesMatchQuery(insiderFeedRowPersonNames(row), s)
 }
 
 // ------------------------------------------------------------
@@ -900,6 +968,8 @@ const CONTEXT_FLOW_MONTH_DAYS = 30
 /** Matches backend `Horizon` in outcomes.ts — trading days after event, not calendar weeks. */
 const OUTCOME_HORIZON_DAYS = [21, 63, 252]
 const OUTCOME_HORIZON_LABELS = ['21d', '63d', '252d']
+/** Chart axis labels (21 / 63 / 252 trading days ≈ 1M / 3M / 1Y). */
+const OUTCOME_HORIZON_CHART_LABELS = ['1M', '3M', '1Y']
 
 /** Baseline avg forward returns (fractions) from global insider outcomes mock / API shape. */
 const OUTCOME_BASE_INSIDER_RETURNS = [0.0042, 0.0108, 0.0234]
@@ -1137,7 +1207,11 @@ function ContextSection({ title, ariaLabel, children }) {
   )
 }
 
-function ContextFlowOutcomeChart({ lines = [], ariaLabel = 'Historical outcome returns' }) {
+function ContextFlowOutcomeChart({
+  lines = [],
+  ariaLabel = 'Historical outcome returns',
+  xLabels = OUTCOME_HORIZON_LABELS,
+}) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 280, h: 112 })
 
@@ -1158,7 +1232,7 @@ function ContextFlowOutcomeChart({ lines = [], ariaLabel = 'Historical outcome r
 
   const w = size.w
   const h = size.h
-  const n = OUTCOME_HORIZON_LABELS.length
+  const n = Math.max(1, xLabels.length)
   const margin = { l: 0, r: 0, t: 10, b: 22 }
   const yTickGap = 8
   const innerW = Math.max(1, w - margin.l - margin.r)
@@ -1213,7 +1287,7 @@ function ContextFlowOutcomeChart({ lines = [], ariaLabel = 'Historical outcome r
     <div className="contextFlowOutcomeChart" ref={wrapRef} role="img" aria-label={ariaLabel}>
       <svg
         className="contextFlowOutcomeSvg"
-        viewBox={`${-viewPadL} 0 ${w + viewPadL} ${h}`}
+        viewBox={`${-viewPadL} 0 ${w + viewPadL + 4} ${h}`}
         preserveAspectRatio="xMinYMid meet"
         role="img"
       >
@@ -1243,18 +1317,22 @@ function ContextFlowOutcomeChart({ lines = [], ariaLabel = 'Historical outcome r
             </text>
           </g>
         ))}
-        {OUTCOME_HORIZON_LABELS.map((lab, i) => (
-          <text
-            key={`ox-${lab}`}
-            className="graphTick graphTick--x"
-            style={GRAPH_SVG_TICK}
-            textAnchor="middle"
-            x={xAt(i)}
-            y={h - 4}
-          >
-            {lab}
-          </text>
-        ))}
+        {xLabels.map((lab, i) => {
+          const isLast = i === xLabels.length - 1
+          const isFirst = i === 0
+          return (
+            <text
+              key={`ox-${lab}`}
+              className="graphTick graphTick--x"
+              style={GRAPH_SVG_TICK}
+              textAnchor={isLast ? 'end' : isFirst ? 'start' : 'middle'}
+              x={isLast ? w - 2 : isFirst ? margin.l + 1 : xAt(i)}
+              y={h - 4}
+            >
+              {lab}
+            </text>
+          )
+        })}
         {paths.map((p) =>
           p.d ? (
             <path
@@ -1585,19 +1663,60 @@ function mockInsiderSurname(seedA, seedB) {
 
 /** Last name from worksheet `key` when backend embeds a person name. */
 function insiderSurnameFromKey(key) {
-  const k = String(key ?? '').trim()
-  if (!k || k === 'Insider' || k === '—') return ''
-  const afterRole = k.match(/^(?:CEO|CFO|Director|Officer|DIR|OFF|TRUST)\s+(.+)/i)
-  if (afterRole) return lastName(afterRole[1])
-  const stripped = k
-    .replace(/\bCode\s+[A-Z]{1,2}\b.*$/i, '')
-    .replace(/\(.*\)/g, '')
-    .replace(/·.*$/, '')
-    .trim()
-  if (/\s/.test(stripped) && !/^(CEO|CFO|Director|Officer)\b/i.test(stripped)) {
-    return lastName(stripped)
+  const full = insiderReportingOwnerName({ key })
+  return full ? lastName(full) : ''
+}
+
+/** Reporting owner display name (no role / txn code from worksheet `key`). */
+function insiderReportingOwnerName(r) {
+  const direct = String(r?.insider_name ?? r?.person ?? '').trim()
+  if (direct) return direct
+
+  const key = String(r?.key ?? '').trim()
+  if (key && key !== 'Insider' && key !== '—') {
+    let name = key
+      .replace(/\bCode\s+[A-Z]{1,2}\b.*$/i, '')
+      .replace(/\(.*\)/g, '')
+      .replace(/·.*$/, '')
+      .trim()
+    const afterRole = name.match(
+      /^(?:CEO|CFO|CTO|CMO|COO|Director|DIR|OFF|TRUST|Officer)\s+(.+)$/i,
+    )
+    if (afterRole) name = afterRole[1].trim()
+    if (name && !/^(CEO|CFO|CTO|CMO|COO|Director|Officer|DIR|OFF|TRUST)$/i.test(name)) return name
   }
-  return ''
+
+  const surname = String(r?.surname ?? '').trim()
+  return surname || ''
+}
+
+const MOCK_INSIDER_GIVEN = [
+  'Robert',
+  'Jennifer',
+  'David',
+  'Anika',
+  'Thomas',
+  'Yuki',
+  'Laura',
+  'Min-jun',
+  'Carlos',
+  'Emily',
+  'Kenji',
+  'Sofia',
+  'Daniel',
+  'Priya',
+  'Marcus',
+  'Helena',
+  'Andre',
+  'Nina',
+]
+
+function mockInsiderPersonName(surname, seed = 0) {
+  const s = String(surname ?? '').trim()
+  if (!s) return ''
+  const idx = INSIDER_MOCK_SURNAMES.indexOf(s)
+  const given = MOCK_INSIDER_GIVEN[(idx >= 0 ? idx : seed) % MOCK_INSIDER_GIVEN.length]
+  return `${given} ${s}`
 }
 
 function insiderTxnCodeTone(code, ad) {
@@ -1627,10 +1746,14 @@ function insiderCaseRowFromSpec(spec, tsIso) {
   const role = String(spec?.role ?? 'OFF').toUpperCase()
   const code = String(spec?.code ?? 'P').toUpperCase()
   const surname = String(spec?.surname ?? '').trim() || insiderSurnameFromKey(spec?.key)
+  const person =
+    String(spec?.person ?? '').trim() || mockInsiderPersonName(surname, code.charCodeAt(0) + role.length)
   return {
     key: surname ? `${role} ${surname} · ${code}` : `${role} · ${code}`,
     role,
     surname,
+    person,
+    insider_name: person,
     transactionCode: code,
     acquiredDisposed: String(spec?.ad ?? 'A').toUpperCase() === 'D' ? 'D' : 'A',
     amountUsd: spec?.amountUsd != null ? Number(spec.amountUsd) : null,
@@ -1680,8 +1803,46 @@ function mockTxnSpecForCluster(i, k) {
   return { role, surname, code, amountUsd, ad, isDerivative: isDeriv && code !== 'D' }
 }
 
+const CASE_RANGE_FLOOR_ID = '__case_range_floor__'
+
+/**
+ * Case txn timeline rows + separators (newest first).
+ * With a chart range, appends a virtual floor at the range start so a trailing separator
+ * (e.g. THIS MONTH) can appear at the bottom when older rows were clipped.
+ */
+function buildCaseTxnDisplayRows(items, { sepMode = 'today+years', priceRange } = {}) {
+  const rows = Array.isArray(items) ? [...items] : []
+  if (!rows.length) return []
+
+  const rangeKey = PRICE_RANGE_OPTS.includes(priceRange) ? priceRange : null
+  const rangeStart = rangeKey && rangeKey !== 'ALL' ? priceRangeWindowStart(rangeKey) : null
+  if (rangeStart) {
+    const oldest = rows[rows.length - 1]
+    const oldestAt = oldest?.at != null ? new Date(oldest.at) : null
+    if (oldestAt && !Number.isNaN(oldestAt.getTime()) && oldestAt.getTime() > rangeStart.getTime()) {
+      rows.push({ id: CASE_RANGE_FLOOR_ID, at: rangeStart })
+    }
+  }
+
+  const display = []
+  let lastSepLabel = null
+  for (const entry of buildFeedDisplayRows(rows, { sepMode, exclusiveSeps: true })) {
+    if (entry.type === 'sep') {
+      if (entry.label === lastSepLabel) continue
+      lastSepLabel = entry.label
+      display.push({ type: 'sep', key: entry.key, label: entry.label })
+      continue
+    }
+    const row = entry.row
+    if (!row || row.id === CASE_RANGE_FLOOR_ID) continue
+    lastSepLabel = null
+    display.push(row)
+  }
+  return display
+}
+
 /** Insert TODAY / year separators between case txn rows (newest first). */
-function appendCaseTxnTimeline(out, trades, sepMode = 'today+years') {
+function appendCaseTxnTimeline(out, trades, sepMode = 'today+years', opts = {}) {
   if (!trades.length) return out
   const sorted = [...trades].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
   const items = sorted.map((row, idx) => ({
@@ -1689,9 +1850,9 @@ function appendCaseTxnTimeline(out, trades, sepMode = 'today+years') {
     at: row.ts,
     id: row.id ?? `txn-${row.who}-${row.code}-${idx}`,
   }))
-  for (const entry of buildFeedDisplayRows(items, { sepMode })) {
+  for (const entry of buildCaseTxnDisplayRows(items, { sepMode, priceRange: opts?.priceRange })) {
     if (entry.type === 'sep') out.push({ type: 'sep', key: entry.key, label: entry.label })
-    else out.push(entry.row)
+    else out.push(entry)
   }
   return out
 }
@@ -1740,6 +1901,8 @@ function caseSheetRowToPoliticianTxnFeedRow(r, { showMoney }) {
   const whoName = String(r?.surname ?? lastName(r?.key) ?? '')
     .trim()
     .toUpperCase()
+  const whoFullName = String(r?.key ?? '').trim() || whoName
+  const matchNames = [...new Set([whoName, whoFullName, lastName(whoFullName)].filter(Boolean))]
   const code = politicianTxnCodeFromRaw(r?.transactionType ?? r?.transactionCode)
   const when = r?.ts ? formatFeedDate(r.ts) : ''
   return {
@@ -1748,6 +1911,9 @@ function caseSheetRowToPoliticianTxnFeedRow(r, { showMoney }) {
     who: whoName ? `${whoRole} ${whoName}` : whoRole,
     whoRole,
     whoName,
+    whoFullName,
+    whoDetail: politicianChamberLabelFromCode(whoRole),
+    matchNames,
     code,
     value: formatPoliticianTxnValue(r),
     when,
@@ -1762,6 +1928,10 @@ function caseSheetRowToTxnFeedRow(r, { showMoney }) {
   const whoName = String(r?.surname ?? insiderSurnameFromKey(r?.key) ?? '')
     .trim()
     .toUpperCase()
+  const whoFullName = insiderReportingOwnerName(r) || whoName
+  const matchNames = [
+    ...new Set([whoName, whoFullName, lastName(whoFullName)].filter(Boolean)),
+  ]
   const code = String(r?.transactionCode ?? '').trim().toUpperCase() || '—'
   const when = r?.ts ? formatFeedDate(r.ts) : ''
   return {
@@ -1770,6 +1940,9 @@ function caseSheetRowToTxnFeedRow(r, { showMoney }) {
     who: whoName ? `${whoRole} ${whoName}` : whoRole,
     whoRole,
     whoName,
+    whoFullName,
+    whoDetail: whoRole,
+    matchNames,
     code,
     value: formatInsiderTxnValue(r),
     when,
@@ -1814,6 +1987,94 @@ function contextEarningsFromDate(iso) {
   }
 }
 
+function formatCompanySnapshotMcap(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return '—'
+  if (/MCAP/i.test(s)) return s
+  return `${s} MCAP`
+}
+
+function resolveCompanySnapshot({ ticker, company, backendUp, price = null }) {
+  const t = String(ticker ?? '').trim().toUpperCase() || '—'
+  const mock = contextMockForTicker(t, [])
+  const c = backendUp && company && typeof company === 'object' ? company : null
+
+  const sector = String(c?.industry ?? mock.sector ?? MOCK_COMPANY.industry ?? '').trim() || '—'
+  const domicile = contextCountryLabel(c?.country) ?? mock.domicile ?? contextCountryLabel(MOCK_COMPANY.country)
+  const mcap = formatCompanySnapshotMcap(c?.mcap ?? mock.mcap ?? MOCK_COMPANY.mcap)
+
+  let resolvedPrice = Number(price)
+  if (!(Number.isFinite(resolvedPrice) && resolvedPrice > 0)) {
+    const fromApi = Number(c?.latest_close)
+    if (Number.isFinite(fromApi) && fromApi > 0) resolvedPrice = fromApi
+    else if (Number.isFinite(Number(mock.price)) && mock.price > 0) resolvedPrice = Number(mock.price)
+    else resolvedPrice = null
+  }
+
+  let earnings = mock.earnings ?? null
+  if (c?.earnings_date) {
+    earnings = contextEarningsFromDate(c.earnings_date) ?? earnings
+  } else if (!backendUp && MOCK_COMPANY.earnings) {
+    const d = new Date()
+    d.setDate(d.getDate() + 30)
+    earnings = contextEarningsFromDate(d)
+  }
+
+  return {
+    ticker: t,
+    price: resolvedPrice,
+    sector,
+    domicile,
+    mcap,
+    earnings,
+  }
+}
+
+/** Research CONTEXT + Insider/Politicians company tile (optional price + chart slot). */
+function CompanySnapshotCard({
+  ticker,
+  price = null,
+  sector,
+  domicile = null,
+  mcap,
+  earnings = null,
+  children = null,
+}) {
+  const showPrice = price != null && Number.isFinite(Number(price))
+  return (
+    <div className="contextCompanyCard" aria-label="Company snapshot">
+      <div
+        className={[
+          'contextCompanyTopRow',
+          showPrice ? '' : 'contextCompanyTopRow--tickerOnly',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <div className="contextCompanyTicker">{ticker}</div>
+        {showPrice ? <div className="contextCompanyPrice">${Number(price).toFixed(2)}</div> : null}
+      </div>
+      {sector ? <div className="contextCompanyMeta">{sector}</div> : null}
+      {domicile ? <div className="contextCompanyMeta contextCompanyMeta--domicile">{domicile}</div> : null}
+      {mcap ? <div className="contextCompanyMeta">{mcap}</div> : null}
+      {children}
+      {earnings ? (
+        <div
+          className={[
+            'contextCompanyEarnings',
+            earnings.soon ? 'contextCompanyEarnings--soon' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <span className="contextCompanyEarningsK">EARNINGS</span>
+          <span className="contextCompanyEarningsV">{earnings.label}</span>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function historicalOutcomeNorm(v) {
   if (v == null) return EMPTY
   let s = String(v).replace(/—/g, '-').trim()
@@ -1840,6 +2101,104 @@ function historicalOutcomeHoverRows(ins) {
     { k: 'Avg return 1M', v: parts[0] ?? EMPTY },
     { k: 'Win rate', v: norm(ins?.winRate) },
   ]
+}
+
+function parseAvgReturnHorizonPercents(raw) {
+  const norm = historicalOutcomeNorm(raw)
+  if (norm === EMPTY) return OUTCOME_HORIZON_LABELS.map(() => null)
+  const parts = String(norm)
+    .split('/')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  return OUTCOME_HORIZON_LABELS.map((_, i) => parseOutcomePercent(parts[i]))
+}
+
+function historicalOutcomeHasAvgReturns(ins) {
+  return parseAvgReturnHorizonPercents(ins?.avgReturn21d63d252d).some((p) => p != null)
+}
+
+function historicalOutcomeLinesFromIns(ins, mode, personDisplay) {
+  const percents = parseAvgReturnHorizonPercents(ins?.avgReturn21d63d252d)
+  const base = mode === 'politicians' ? OUTCOME_BASE_POLITICIAN_RETURNS : OUTCOME_BASE_INSIDER_RETURNS
+  const returns = percents.map((p, i) => (p != null ? p / 100 : base[i]))
+  if (!returns.some((r) => Number.isFinite(r))) return []
+  const label =
+    String(personDisplay?.fullName ?? '').trim() || (mode === 'politicians' ? 'Politician' : 'Insider')
+  return [
+    {
+      id: 'aggregate',
+      label,
+      returns,
+      color: CONTEXT_OUTCOME_LINE_COLORS[0],
+    },
+  ]
+}
+
+function caseFeedSelectedPersonDisplay(rows, selectedRowIndex, personQuery, mode) {
+  const pick = (r) => {
+    if (r?.type !== 'trade') return null
+    const fullName = String(r.whoFullName ?? r.whoName ?? '').trim()
+    if (!fullName) return null
+    const detail =
+      mode === 'politicians'
+        ? String(r.whoDetail ?? politicianChamberLabelFromCode(r.whoRole)).trim()
+        : String(r.whoDetail ?? r.whoRole ?? '').trim()
+    return { fullName, detail: detail || EMPTY }
+  }
+
+  const row = selectedRowIndex >= 0 ? rows[selectedRowIndex] : null
+  const fromRow = row ? pick(row) : null
+  if (fromRow) return fromRow
+
+  const q = String(personQuery ?? '').trim()
+  if (q) return { fullName: q, detail: EMPTY }
+
+  for (const r of rows) {
+    const d = pick(r)
+    if (d) return d
+  }
+  return null
+}
+
+function HistoricalMarketOutcomesView({ ins, mode, personDisplay = null }) {
+  const hasDataset = historicalOutcomeHasAvgReturns(ins)
+  const outcomeLines = useMemo(
+    () => historicalOutcomeLinesFromIns(ins, mode, personDisplay),
+    [ins, mode, personDisplay],
+  )
+  const personLabel = String(personDisplay?.fullName ?? '').trim()
+  const personDetail = String(personDisplay?.detail ?? '').trim()
+
+  if (!hasDataset) {
+    return (
+      <div className="contextFlowList contextFlowList--empty">
+        <p className="contextFlowEmpty mono dim">No historical outcome data yet.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="contextFlowList" role="list">
+      {outcomeLines.length ? (
+        <>
+          <div className="contextFlowChartLabel mono dim">Historical outcomes</div>
+          <ContextFlowOutcomeChart
+            lines={outcomeLines}
+            xLabels={OUTCOME_HORIZON_CHART_LABELS}
+            ariaLabel="Average forward returns by horizon (1 month, 3 months, 1 year)"
+          />
+        </>
+      ) : null}
+      {personLabel ? (
+        <div className="contextCompanyEarnings historicalOutcomesPerson" role="listitem">
+          <span className="contextCompanyEarningsK historicalOutcomesPersonName">{personLabel}</span>
+          {personDetail ? (
+            <span className="contextCompanyEarningsV historicalOutcomesPersonDetail">{personDetail}</span>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 function parseOutcomePercent(v) {
@@ -1962,6 +2321,13 @@ function insiderCaseForRowIndex(i) {
       }, 0)
     : 0
   const label = totalUsd > 0 ? formatUsdCompact(totalUsd) : '—'
+  const insiders = [
+    ...new Set(
+      rows
+        .map((r) => String(r?.surname ?? insiderSurnameFromKey(r?.key) ?? '').trim())
+        .filter(Boolean),
+    ),
+  ]
 
   return {
     id: `ins-${i}`,
@@ -1970,6 +2336,7 @@ function insiderCaseForRowIndex(i) {
     company: issuer,
     ticker,
     at,
+    insiders,
     daily: buildInsiderDailySeries(i + 31),
     caseSheet: {
       filingId,
@@ -2103,14 +2470,14 @@ function MainContextPanel({
         <div className="panelTitle feedCompactTitle">CONTEXT</div>
       </header>
       <div className="mainContextPanelBody scrollThin">
-        <div className="contextCompanyCard" aria-label="Company snapshot">
-          <div className="contextCompanyTopRow">
-            <div className="contextCompanyTicker">{ticker}</div>
-            <div className="contextCompanyPrice">${price.toFixed(2)}</div>
-          </div>
-          <div className="contextCompanyMeta">{sector}</div>
-          {domicile ? <div className="contextCompanyMeta contextCompanyMeta--domicile">{domicile}</div> : null}
-          <div className="contextCompanyMeta">{mcap} MCAP</div>
+        <CompanySnapshotCard
+          ticker={ticker}
+          price={price}
+          sector={sector}
+          domicile={domicile}
+          mcap={mcap}
+          earnings={earnings && showFlows ? earnings : null}
+        >
           <div className="contextCompanyChart" aria-label="Price chart">
             <BoshaMiniPrice
               series={priceSeries}
@@ -2125,26 +2492,13 @@ function MainContextPanel({
               politicianMarkers={politicianPriceMarkers}
             />
           </div>
-          {earnings && showFlows ? (
-            <div
-              className={[
-                'contextCompanyEarnings',
-                earnings.soon ? 'contextCompanyEarnings--soon' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-            >
-              <span className="contextCompanyEarningsK">EARNINGS</span>
-              <span className="contextCompanyEarningsV">{earnings.label}</span>
-            </div>
-          ) : null}
-          {leadDrug ? (
-            <div className="contextCompanyEarnings">
-              <span className="contextCompanyEarningsK">LEAD</span>
-              <span className="contextCompanyEarningsV">{leadDrug.name}</span>
-            </div>
-          ) : null}
-        </div>
+        </CompanySnapshotCard>
+        {leadDrug ? (
+          <div className="contextCompanyEarnings">
+            <span className="contextCompanyEarningsK">LEAD</span>
+            <span className="contextCompanyEarningsV">{leadDrug.name}</span>
+          </div>
+        ) : null}
 
         {!showFlows ? (
           <>
@@ -2595,6 +2949,14 @@ function filterMarkersForPriceRange(markers, range) {
     if (d.getTime() >= start.getTime()) out.push(d)
   }
   return out
+}
+
+/** Case txn rows (with `ts`) visible for the same window as chart markers. */
+function filterCaseTradesForPriceRange(trades, range) {
+  if (!Array.isArray(trades) || !trades.length) return []
+  const start = priceRangeWindowStart(range)
+  if (!start) return trades
+  return trades.filter((t) => t?.ts != null && markerWithinPriceRange(t.ts, range))
 }
 
 function markerWithinPriceRange(marker, range) {
@@ -4080,16 +4442,6 @@ function formatPriceTick(v) {
   return x.toFixed(2)
 }
 
-/** Last close for chart panel header (with $). */
-function formatChartHeaderPrice(v) {
-  const x = Number(v)
-  if (!Number.isFinite(x)) return null
-  if (x >= 1000) return `$${x.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-  if (x >= 100) return `$${x.toFixed(2)}`
-  if (x >= 1) return `$${x.toFixed(2)}`
-  return `$${x.toFixed(3)}`
-}
-
 /** Forward return fraction → Y-axis label (integer %, compact; no grouping commas). */
 function formatReturnTick(v) {
   const x = Number(v)
@@ -4540,7 +4892,6 @@ const MainTopPicksBarChart = memo(function MainTopPicksBarChart({ bars = [] }) {
 
 function GraphPanel({
   title,
-  lastPrice = null,
   series,
   dates,
   markers = [],
@@ -4712,8 +5063,6 @@ function GraphPanel({
     return xAt(graphIndexForTradeDate(ds, d))
   }, [selectedMarker, ds, vals.length, w, h, margin.l, innerW, rangeKey, showRangeSelector, metaMode])
 
-  const lastPriceLabel = formatChartHeaderPrice(lastPrice)
-
   return (
     <section
       className={['panel', 'graph', panelClassName].filter(Boolean).join(' ')}
@@ -4726,11 +5075,6 @@ function GraphPanel({
       >
         <div className="graphPanelTitleWrap">
           <div className="panelTitle">{title}</div>
-          {lastPriceLabel ? (
-            <div className="graphPanelLastPrice mono" aria-label="Last price">
-              {lastPriceLabel}
-            </div>
-          ) : null}
         </div>
         {showRangeSelector && metaMode === 'range' ? (
           <div className="boshaPriceRange graphPriceRange" role="group" aria-label="Chart range">
@@ -4920,7 +5264,7 @@ function KvLine({ className = '', children, ...rest }) {
   )
 }
 
-function HistoricalOutcomesPanel({ mode, backendUp }) {
+function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
   const insider = mode === 'insider' || mode === 'politicians'
   const [live, setLive] = useState(null)
 
@@ -4973,68 +5317,25 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
   const hasDataset = sampleSizeNum != null ? sampleSizeNum > 0 : Boolean(ins && ins.sampleSize)
 
   return (
-    <section className="panel historicalOutcomes blankTile--a" aria-label="Historical outcomes">
-      <header className="feedCompactHeader">
-        <div className="panelTitle feedCompactTitle">HISTORICAL OUTCOMES</div>
-      </header>
-      <div className="worksheetBody historicalOutcomesBody">
+    <section
+      className={[
+        'panel',
+        'historicalOutcomes',
+        'blankTile--a',
+        insider ? 'historicalOutcomes--market' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-label="Historical outcomes"
+    >
+      {!insider ? (
+        <header className="feedCompactHeader">
+          <div className="panelTitle feedCompactTitle">HISTORICAL OUTCOMES</div>
+        </header>
+      ) : null}
+      <div className="worksheetBody historicalOutcomesBody scrollThin">
         {insider ? (
-          <>
-            {(() => {
-              const raw = hasDataset ? norm(ins?.avgReturn21d63d252d) : EMPTY
-              const parts = String(raw ?? '')
-                .split('/')
-                .map((s) => s.trim())
-                .filter(Boolean)
-              const v21 = parts[0] ?? EMPTY
-              const v63 = parts[1] ?? EMPTY
-              const v252 = parts[2] ?? EMPTY
-              return (
-                <>
-                  <KvLine key="ho-ins-avg-21">
-                    <span className="kvK dim">Avg return 21d</span>
-                    <span className="kvV mono">{v21}</span>
-                  </KvLine>
-                  <KvLine key="ho-ins-avg-63">
-                    <span className="kvK dim">Avg return 63d</span>
-                    <span className="kvV mono">{v63}</span>
-                  </KvLine>
-                  <KvLine key="ho-ins-avg-252">
-                    <span className="kvK dim">Avg return 252d</span>
-                    <span className="kvV mono">{v252}</span>
-                  </KvLine>
-                </>
-              )
-            })()}
-            <KvLine key="ho-ins-med">
-              <span className="kvK dim">Median return</span>
-              <span className="kvV mono">{hasDataset ? norm(ins?.medianReturn) : EMPTY}</span>
-            </KvLine>
-            <KvLine key="ho-ins-win">
-              <span className="kvK dim">Win rate</span>
-              <span className="kvV mono">{hasDataset ? norm(ins?.winRate) : EMPTY}</span>
-            </KvLine>
-            <KvLine key="ho-ins-n">
-              <span className="kvK dim">Sample size</span>
-              <span className="kvV mono">{hasDataset ? (ins?.sampleSize ?? EMPTY) : EMPTY}</span>
-            </KvLine>
-            <KvLine key="ho-ins-role">
-              <span className="kvK dim">{mode === 'politicians' ? 'Politician' : 'Role'}</span>
-              <span className="kvV">
-                {hasDataset
-                  ? (() => {
-                      const v = norm(mode === 'politicians' ? ins?.conditioningPolitician : ins?.conditioningRole)
-                      const first = String(v ?? '').split('|')[0]?.trim()
-                      return first || EMPTY
-                    })()
-                  : EMPTY}
-              </span>
-            </KvLine>
-            <KvLine key="ho-ins-pct">
-              <span className="kvK dim">Size percentile</span>
-              <span className="kvV mono">{hasDataset ? norm(ins?.conditioningSizePct) : EMPTY}</span>
-            </KvLine>
-          </>
+          <HistoricalMarketOutcomesView ins={ins} mode={mode} personDisplay={personDisplay} />
         ) : (
           <>
             <KvLine key="ho-ph-p3">
@@ -5084,36 +5385,17 @@ function HistoricalOutcomesPanel({ mode, backendUp }) {
   )
 }
 
-function CompanyPanel({ mode, company, backendUp }) {
-  const c = backendUp ? (company ?? {}) : MOCK_COMPANY
-  const earnings =
-    c?.earnings_date && typeof c.earnings_date === 'string'
-      ? c.earnings_date
-      : c?.earnings ?? EMPTY
+function CompanyPanel({ company, ticker, backendUp, price = null }) {
+  const snapshot = useMemo(
+    () => resolveCompanySnapshot({ ticker, company, backendUp, price }),
+    [ticker, company, backendUp, price],
+  )
 
   return (
     <section className="panel companyTile" aria-label="Company">
-      <header className="feedCompactHeader">
-        <div className="panelTitle feedCompactTitle">COMPANY</div>
-      </header>
-      <div className="worksheetBody historicalOutcomesBody">
-        <KvLine key="co-industry">
-          <span className="kvK dim">INDUSTRY</span>
-          <span className="kvV">{c?.industry ?? EMPTY}</span>
-        </KvLine>
-        <KvLine key="co-country">
-          <span className="kvK dim">COUNTRY</span>
-          <span className="kvV">{c?.country ?? EMPTY}</span>
-        </KvLine>
-        <KvLine key="co-mcap">
-          <span className="kvK dim">MCAP</span>
-          <span className="kvV mono">{c?.mcap ?? EMPTY}</span>
-        </KvLine>
-        <KvLine key="co-earnings">
-          <span className="kvK dim">EARNINGS</span>
-          <span className="kvV">{earnings}</span>
-        </KvLine>
-        </div>
+      <div className="companyTileBody">
+        <CompanySnapshotCard {...snapshot} />
+      </div>
     </section>
   )
 }
@@ -5139,10 +5421,19 @@ function CompactFeed({
   rowPrimary = 'label',
   /** Optional ticker search (research-style) above the list. */
   showFeedSearch = false,
+  feedSearchDual = false,
   feedQuery = '',
+  feedCompanyQuery = '',
+  feedPersonQuery = '',
   feedSearchPlaceholder = 'Search',
+  feedCompanySearchPlaceholder = 'Search by company',
+  feedPersonSearchPlaceholder = 'Search by politician',
   feedSearchAriaLabel = 'Search tickers',
+  feedCompanySearchAriaLabel = 'Search by company or ticker',
+  feedPersonSearchAriaLabel = 'Search by politician',
   onFeedQuery,
+  onFeedCompanyQuery,
+  onFeedPersonQuery,
 }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
@@ -5250,23 +5541,62 @@ function CompactFeed({
       </header>
       {showFeedSearch ? (
         <div className="feedCompactBody">
-          <label className="researchFeedSearch">
-            <input
-              className="researchFeedSearchInput"
-              value={feedQuery ?? ''}
-              placeholder={feedSearchPlaceholder}
-              onChange={(e) => onFeedQuery?.(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') onFeedQuery?.('')
-              }}
-              aria-label={feedSearchAriaLabel}
-              spellCheck={false}
-            />
-            <svg className="researchFeedSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
-              <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-            </svg>
-          </label>
+          {feedSearchDual ? (
+            <div className="researchFeedSearchStack">
+              <div className="researchFeedSearchStackFields">
+                <label className="researchFeedSearchRow">
+                  <input
+                    className="researchFeedSearchInput"
+                    value={feedCompanyQuery ?? ''}
+                    placeholder={feedCompanySearchPlaceholder}
+                    onChange={(e) => onFeedCompanyQuery?.(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') onFeedCompanyQuery?.('')
+                    }}
+                    aria-label={feedCompanySearchAriaLabel}
+                    spellCheck={false}
+                  />
+                </label>
+                <label className="researchFeedSearchRow">
+                  <input
+                    className="researchFeedSearchInput"
+                    value={feedPersonQuery ?? ''}
+                    placeholder={feedPersonSearchPlaceholder}
+                    onChange={(e) => onFeedPersonQuery?.(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') onFeedPersonQuery?.('')
+                    }}
+                    aria-label={feedPersonSearchAriaLabel}
+                    spellCheck={false}
+                  />
+                </label>
+              </div>
+              <div className="researchFeedSearchStackIconWrap" aria-hidden="true">
+                <svg className="researchFeedSearchStackIcon" width="13" height="13" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+                  <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+                </svg>
+              </div>
+            </div>
+          ) : (
+            <label className="researchFeedSearch">
+              <input
+                className="researchFeedSearchInput"
+                value={feedQuery ?? ''}
+                placeholder={feedSearchPlaceholder}
+                onChange={(e) => onFeedQuery?.(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') onFeedQuery?.('')
+                }}
+                aria-label={feedSearchAriaLabel}
+                spellCheck={false}
+              />
+              <svg className="researchFeedSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+                <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+              </svg>
+            </label>
+          )}
           <div
             ref={listRef}
             className={['feedCompactList', 'scrollThin', scrollMode ? 'feedCompactList--scroll' : '']
@@ -5485,6 +5815,8 @@ function CaseKvFeed({
   selectedTradeRowIndex = -1,
   onSelectTradeRowIndex,
   scrollMode = false,
+  /** When set, matching politician CASE surname cells use main (white) text. */
+  highlightPersonQuery = '',
 }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
@@ -5567,6 +5899,9 @@ function CaseKvFeed({
     if (r?.layout === 'txn' || r?.layout === 'txnPolitician') {
       const isTrade = r?.type === 'trade'
       const isPoliticianTxn = r?.layout === 'txnPolitician'
+      const highlightPerson =
+        Boolean(String(highlightPersonQuery ?? '').trim()) &&
+        caseTxnPersonNameMatchesQuery(r, highlightPersonQuery)
       return (
         <div
           key={`txn-${r.whoRole ?? r.who}-${r.whoName ?? ''}-${r.code ?? 'x'}-${i}`}
@@ -5583,7 +5918,18 @@ function CaseKvFeed({
           data-row-idx={i}
         >
           <span className="feedCell feedCellRole mono kvFeedMain">{r.whoRole ?? r.who ?? '—'}</span>
-          <span className="feedCell feedCellSurname mono kvFeedDim">{r.whoName ?? ''}</span>
+          <span
+            className={[
+              'feedCell',
+              'feedCellSurname',
+              'mono',
+              highlightPerson ? 'kvFeedMain feedCellSurname--match' : 'kvFeedDim',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {r.whoName ?? ''}
+          </span>
           <span
             className={[
               'feedCell',
@@ -5692,7 +6038,9 @@ function TerminalTopBar({
   intelMode,
   onIntelModeChange,
   showIntelSwitch = false,
-  singleModeLabel = null,
+  showInvestigateSwitch = false,
+  investigateMode = 'insider',
+  onInvestigateModeChange,
 }) {
   return (
     <header className="terminalTopBar" aria-label="Mercerline">
@@ -5744,16 +6092,36 @@ function TerminalTopBar({
               Clinical intelligence
             </button>
           </div>
-        ) : singleModeLabel ? (
-          <div className="terminalIntelSwitch terminalIntelSwitch--single" role="tablist" aria-label="View mode">
+        ) : showInvestigateSwitch ? (
+          <div
+            className={`terminalIntelSwitch terminalIntelSwitch--${investigateMode}`}
+            role="tablist"
+            aria-label="Investigate mode"
+          >
             <button
               type="button"
               role="tab"
-              className="terminalIntelSwitchBtn isActive"
-              aria-selected
-              onClick={() => {}}
+              className={
+                investigateMode === 'insider' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'
+              }
+              aria-selected={investigateMode === 'insider'}
+              onClick={() => onInvestigateModeChange('insider')}
             >
-              {singleModeLabel}
+              Insider intelligence
+            </button>
+            <span className="terminalIntelSwitchSep" aria-hidden="true">
+              |
+            </span>
+            <button
+              type="button"
+              role="tab"
+              className={
+                investigateMode === 'politicians' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'
+              }
+              aria-selected={investigateMode === 'politicians'}
+              onClick={() => onInvestigateModeChange('politicians')}
+            >
+              Politician intelligence
             </button>
           </div>
         ) : null}
@@ -5801,16 +6169,19 @@ function TerminalTopBar({
 
 function KensiglineTerminal() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState('main') // main | insider | politicians | settings
+  const [activeTab, setActiveTab] = useState('main') // main | investigate | settings
   const [intelMode, setIntelMode] = useState('market') // market | clinical
+  const [investigateMode, setInvestigateMode] = useState('insider') // insider | politicians
   const tabBeforeSettingsRef = useRef('main')
 
   const [insiderIdx, setInsiderIdx] = useState(0)
-  const [insiderQuery, setInsiderQuery] = useState('')
+  const [insiderCompanyQuery, setInsiderCompanyQuery] = useState('')
+  const [insiderPersonQuery, setInsiderPersonQuery] = useState('')
   const [insiderCaseTradeIdx, setInsiderCaseTradeIdx] = useState(0)
   const [insiderChartRange, setInsiderChartRange] = useState('1M')
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
-  const [politiciansQuery, setPoliticiansQuery] = useState('')
+  const [politiciansCompanyQuery, setPoliticiansCompanyQuery] = useState('')
+  const [politiciansPoliticianQuery, setPoliticiansPoliticianQuery] = useState('')
   const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
   const [politiciansChartRange, setPoliticiansChartRange] = useState('1M')
   const [boshaFeedLive, setBoshaFeedLive] = useState(null)
@@ -6165,6 +6536,7 @@ function KensiglineTerminal() {
           const label = (m ? m[1] : raw).trim() || '—'
           const count = m ? Number(m[2]) : null
           const company = String(it.company_name ?? it.company ?? '').trim()
+          const insiders = Array.isArray(it.insiders) ? it.insiders.map((x) => String(x)) : []
           return {
             id,
             label,
@@ -6172,6 +6544,7 @@ function KensiglineTerminal() {
             company: company || ticker,
             ticker,
             at,
+            insiders,
             daily: [],
             __backend_id: id,
           }
@@ -6190,19 +6563,19 @@ function KensiglineTerminal() {
   const insiderFeedRows = !backendUp ? INSIDER_FEED_ROWS : (insiderFeedLive ?? [])
 
   const insiderFilteredFeed = useMemo(() => {
-    const s = String(insiderQuery ?? '').trim().toUpperCase()
-    if (!s) return insiderFeedRows
-    return insiderFeedRows.filter((r) => {
-      const t = String(r?.ticker ?? '').toUpperCase()
-      const c = String(r?.company ?? '').toUpperCase()
-      return t.includes(s) || c.includes(s)
-    })
-  }, [insiderFeedRows, insiderQuery])
+    const companyQ = String(insiderCompanyQuery ?? '').trim()
+    const personQ = String(insiderPersonQuery ?? '').trim()
+    if (!companyQ && !personQ) return insiderFeedRows
+    return insiderFeedRows.filter(
+      (r) =>
+        insiderFeedRowMatchesCompanyQuery(r, companyQ) && insiderFeedRowMatchesPersonQuery(r, personQ),
+    )
+  }, [insiderFeedRows, insiderCompanyQuery, insiderPersonQuery])
 
   useEffect(() => {
-    if (activeTab !== 'insider') return
+    if (activeTab !== 'investigate' || investigateMode !== 'insider') return
     setInsiderIdx(0)
-  }, [insiderQuery, activeTab])
+  }, [insiderCompanyQuery, insiderPersonQuery, activeTab])
 
   const insiderSelected =
     insiderFilteredFeed.length > 0
@@ -6254,15 +6627,20 @@ function KensiglineTerminal() {
   const politiciansFeedRows = !backendUp ? POLITICIAN_FEED_ROWS : (politiciansFeedLive ?? [])
 
   const politiciansFilteredFeed = useMemo(() => {
-    const q = String(politiciansQuery ?? '').trim()
-    if (!q) return politiciansFeedRows
-    return politiciansFeedRows.filter((r) => politicianFeedRowMatchesQuery(r, q))
-  }, [politiciansFeedRows, politiciansQuery])
+    const companyQ = String(politiciansCompanyQuery ?? '').trim()
+    const politicianQ = String(politiciansPoliticianQuery ?? '').trim()
+    if (!companyQ && !politicianQ) return politiciansFeedRows
+    return politiciansFeedRows.filter(
+      (r) =>
+        politicianFeedRowMatchesCompanyQuery(r, companyQ) &&
+        politicianFeedRowMatchesPoliticianQuery(r, politicianQ),
+    )
+  }, [politiciansFeedRows, politiciansCompanyQuery, politiciansPoliticianQuery])
 
   useEffect(() => {
-    if (activeTab !== 'politicians') return
+    if (activeTab !== 'investigate' || investigateMode !== 'politicians') return
     setPoliticiansIdx(0)
-  }, [politiciansQuery, activeTab])
+  }, [politiciansCompanyQuery, politiciansPoliticianQuery, activeTab])
 
   const politiciansSelected =
     politiciansFilteredFeed.length > 0
@@ -6270,7 +6648,7 @@ function KensiglineTerminal() {
       : null
 
   const insiderSelectedResolved = useMemo(() => {
-    if (!backendUp || activeTab !== 'insider' || !insiderClusterLive) return insiderSelected
+    if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'insider' || !insiderClusterLive) return insiderSelected
     const rows = insiderClusterLive?.cluster?.worksheet_rows
     const wsRows = Array.isArray(rows) ? rows : []
     const caseSheet = {
@@ -6283,6 +6661,7 @@ function KensiglineTerminal() {
       rows: wsRows.map((r) => ({
         key: String(r?.key ?? '').trim() || 'Insider',
         role: r?.role != null ? String(r.role) : insiderRoleFromKey(r?.key),
+        insider_name: r?.insider_name != null ? String(r.insider_name) : null,
         surname:
           r?.surname != null
             ? String(r.surname)
@@ -6304,7 +6683,8 @@ function KensiglineTerminal() {
   }, [backendUp, activeTab, insiderSelected, insiderClusterLive])
 
   const politiciansSelectedResolved = useMemo(() => {
-    if (!backendUp || activeTab !== 'politicians' || !politiciansClusterLive) return politiciansSelected ?? null
+    if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'politicians' || !politiciansClusterLive)
+      return politiciansSelected ?? null
     const rows = politiciansClusterLive?.cluster?.worksheet_rows
     const wsRows = Array.isArray(rows) ? rows : []
     const chamber = politiciansSelected?.chamber ?? 'house'
@@ -6354,7 +6734,7 @@ function KensiglineTerminal() {
   useEffect(() => {
     let alive = true
     async function run() {
-      if (!backendUp || activeTab !== 'insider') {
+      if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'insider') {
         if (alive) setInsiderClusterLive(null)
         return
       }
@@ -6380,7 +6760,7 @@ function KensiglineTerminal() {
   useEffect(() => {
     let alive = true
     async function run() {
-      if (!backendUp || activeTab !== 'politicians') {
+      if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'politicians') {
         if (alive) setPoliticiansClusterLive(null)
         return
       }
@@ -6402,22 +6782,26 @@ function KensiglineTerminal() {
   }, [backendUp, activeTab, politiciansSelected?.ticker])
 
   // Bars (Daily Graph) + Company panel: use selected ticker in either mode
+  const investigateOpen = activeTab === 'investigate'
+  const investigateIsInsider = investigateOpen && investigateMode === 'insider'
+  const investigateIsPoliticians = investigateOpen && investigateMode === 'politicians'
+
   const selectedTicker = useMemo(() => {
-    if (activeTab === 'insider') return insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
-    if (activeTab === 'politicians')
+    if (investigateIsInsider) return insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
+    if (investigateIsPoliticians)
       return politiciansSelectedResolved?.ticker ? String(politiciansSelectedResolved.ticker).toUpperCase() : null
     return null
-  }, [activeTab, insiderSelected?.ticker, politiciansSelectedResolved?.ticker])
+  }, [investigateIsInsider, investigateIsPoliticians, insiderSelected?.ticker, politiciansSelectedResolved?.ticker])
 
   const chartPanelTitle = useMemo(() => {
-    if (activeTab === 'insider') {
+    if (investigateIsInsider) {
       const fromApi = backendUp && companyLive?.name ? String(companyLive.name).trim() : ''
       const fromFeed = String(insiderSelected?.company ?? '').trim()
       const fromCase = String(insiderSelectedResolved?.caseSheet?.issuer ?? '').trim()
       const ticker = String(insiderSelected?.ticker ?? '').trim().toUpperCase()
       return fromApi || fromFeed || fromCase || ticker || '—'
     }
-    if (activeTab === 'politicians') {
+    if (investigateIsPoliticians) {
       const fromApi = backendUp && companyLive?.name ? String(companyLive.name).trim() : ''
       const fromFeed = String(politiciansSelected?.company ?? politiciansSelectedResolved?.company ?? '').trim()
       const fromCase = String(politiciansSelectedResolved?.caseSheet?.issuer ?? '').trim()
@@ -6426,13 +6810,16 @@ function KensiglineTerminal() {
     }
     return 'PRICE'
   }, [
-    activeTab,
+    investigateIsInsider,
+    investigateIsPoliticians,
     backendUp,
     companyLive?.name,
     insiderSelected?.company,
     insiderSelected?.ticker,
     insiderSelectedResolved?.caseSheet?.issuer,
     politiciansSelected?.company,
+    politiciansSelectedResolved?.company,
+    politiciansSelectedResolved?.caseSheet?.issuer,
     politiciansSelectedResolved?.ticker,
   ])
 
@@ -6478,9 +6865,9 @@ function KensiglineTerminal() {
   const daily =
     backendUp
       ? barsLive ?? []
-      : activeTab === 'insider'
+      : investigateIsInsider
         ? (barsLive ?? insiderSelectedResolved?.daily ?? [])
-        : activeTab === 'politicians'
+        : investigateIsPoliticians
           ? (politiciansSelectedResolved?.daily ?? [])
           : []
 
@@ -6501,18 +6888,23 @@ function KensiglineTerminal() {
   }, [companyLive?.latest_close, dailySeries])
 
   const insiderTradeMarkers = useMemo(() => {
-    if (!(activeTab === 'insider' || activeTab === 'politicians')) return []
-    const cs = activeTab === 'politicians' ? politiciansSelectedResolved?.caseSheet : insiderSelectedResolved?.caseSheet
+    if (!investigateOpen) return []
+    const cs = investigateIsPoliticians ? politiciansSelectedResolved?.caseSheet : insiderSelectedResolved?.caseSheet
     if (!cs?.isForm4) return []
     const out = []
     for (const r of cs.rows ?? []) {
-      if (!politicianCaseRowHasTxn(r)) continue
+      if (investigateIsPoliticians && !politicianCaseRowHasTxn(r)) continue
       const d = new Date(r.ts)
       if (Number.isNaN(d.getTime())) continue
       out.push(d)
     }
     return out
-  }, [activeTab, insiderSelectedResolved?.caseSheet, politiciansSelectedResolved?.caseSheet])
+  }, [
+    investigateOpen,
+    investigateIsPoliticians,
+    insiderSelectedResolved?.caseSheet,
+    politiciansSelectedResolved?.caseSheet,
+  ])
 
 
   const insiderCaseFeedRows = useMemo(() => {
@@ -6525,8 +6917,10 @@ function KensiglineTerminal() {
       if (row) trades.push(row)
     }
 
-    return appendCaseTxnTimeline([], trades)
-  }, [insiderSelectedResolved?.caseSheet])
+    return appendCaseTxnTimeline([], filterCaseTradesForPriceRange(trades, insiderChartRange), 'today+years', {
+      priceRange: insiderChartRange,
+    })
+  }, [insiderSelectedResolved?.caseSheet, insiderChartRange])
 
   const politiciansCaseFeedRows = useMemo(() => {
     const cs = politiciansSelectedResolved?.caseSheet
@@ -6537,8 +6931,10 @@ function KensiglineTerminal() {
       const row = caseSheetRowToPoliticianTxnFeedRow(r, { showMoney })
       if (row) trades.push(row)
     }
-    return appendCaseTxnTimeline([], trades)
-  }, [politiciansSelectedResolved?.caseSheet])
+    return appendCaseTxnTimeline([], filterCaseTradesForPriceRange(trades, politiciansChartRange), 'today+years', {
+      priceRange: politiciansChartRange,
+    })
+  }, [politiciansSelectedResolved?.caseSheet, politiciansChartRange])
 
   const politiciansCaseTradeRowIndices = useMemo(() => {
     const idxs = []
@@ -6567,22 +6963,51 @@ function KensiglineTerminal() {
       : -1
 
   const selectedInsiderTradeMarker = useMemo(() => {
-    if (!(activeTab === 'insider' || activeTab === 'politicians')) return null
-    const rowIndex = activeTab === 'politicians' ? politiciansCaseSelectedRowIndex : insiderCaseSelectedRowIndex
-    const rows = activeTab === 'politicians' ? politiciansCaseFeedRows : insiderCaseFeedRows
+    if (!investigateOpen) return null
+    const rowIndex = investigateIsPoliticians ? politiciansCaseSelectedRowIndex : insiderCaseSelectedRowIndex
+    const rows = investigateIsPoliticians ? politiciansCaseFeedRows : insiderCaseFeedRows
     const row = rowIndex >= 0 ? rows[rowIndex] : null
     if (!row || row.type !== 'trade' || !row.ts) return null
     const d = new Date(row.ts)
     return Number.isNaN(d.getTime()) ? null : d
-  }, [activeTab, insiderCaseSelectedRowIndex, insiderCaseFeedRows, politiciansCaseSelectedRowIndex, politiciansCaseFeedRows])
+  }, [investigateOpen, insiderCaseSelectedRowIndex, insiderCaseFeedRows, politiciansCaseSelectedRowIndex, politiciansCaseFeedRows])
+
+  const historicalOutcomesPerson = useMemo(() => {
+    if (investigateIsPoliticians) {
+      return caseFeedSelectedPersonDisplay(
+        politiciansCaseFeedRows,
+        politiciansCaseSelectedRowIndex,
+        politiciansPoliticianQuery,
+        'politicians',
+      )
+    }
+    if (investigateIsInsider) {
+      return caseFeedSelectedPersonDisplay(
+        insiderCaseFeedRows,
+        insiderCaseSelectedRowIndex,
+        insiderPersonQuery,
+        'insider',
+      )
+    }
+    return null
+  }, [
+    investigateIsInsider,
+    investigateIsPoliticians,
+    insiderCaseFeedRows,
+    insiderCaseSelectedRowIndex,
+    insiderPersonQuery,
+    politiciansCaseFeedRows,
+    politiciansCaseSelectedRowIndex,
+    politiciansPoliticianQuery,
+  ])
 
   useEffect(() => {
     setInsiderCaseTradeIdx(0)
-  }, [insiderSelected?.id, insiderSelected?.ticker])
+  }, [insiderSelected?.id, insiderSelected?.ticker, insiderChartRange])
 
   useEffect(() => {
     setPoliticiansCaseTradeIdx(0)
-  }, [politiciansSelected?.id, politiciansSelected?.ticker])
+  }, [politiciansSelected?.id, politiciansSelected?.ticker, politiciansChartRange])
 
   const userEmail = user?.email ?? ''
 
@@ -6612,13 +7037,9 @@ function KensiglineTerminal() {
         intelMode={intelMode}
         onIntelModeChange={setIntelMode}
         showIntelSwitch={activeTab === 'main'}
-        singleModeLabel={
-          activeTab === 'insider'
-            ? 'Insider intelligence'
-            : activeTab === 'politicians'
-              ? 'Politician intelligence'
-              : null
-        }
+        showInvestigateSwitch={activeTab === 'investigate'}
+        investigateMode={investigateMode}
+        onInvestigateModeChange={setInvestigateMode}
       />
       <div className="terminalWorkspace">
       <nav className="sideTabsRail" aria-label="Views">
@@ -6632,25 +7053,19 @@ function KensiglineTerminal() {
         </button>
         <button
           type="button"
-          className={activeTab === 'insider' ? 'sideTab isActive' : 'sideTab'}
-          aria-current={activeTab === 'insider' ? 'page' : undefined}
-          onClick={() => setActiveTab('insider')}
+          className={activeTab === 'investigate' ? 'sideTab isActive' : 'sideTab'}
+          aria-current={activeTab === 'investigate' ? 'page' : undefined}
+          onClick={() => setActiveTab('investigate')}
         >
-          <span className="sideTabLabel">INSIDERS</span>
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'politicians' ? 'sideTab isActive' : 'sideTab'}
-          aria-current={activeTab === 'politicians' ? 'page' : undefined}
-          onClick={() => setActiveTab('politicians')}
-        >
-          <span className="sideTabLabel">POLITICIANS</span>
+          <span className="sideTabLabel sideTabLabel--investigate">INVESTIGATE</span>
         </button>
       </nav>
       <main
         className={[
           'terminal',
-          `terminal--${activeTab}`,
+          activeTab === 'investigate'
+            ? `terminal--investigate terminal--${investigateMode}`
+            : `terminal--${activeTab}`,
           activeTab === 'main' ? `terminal--intel-${intelMode}` : '',
         ]
           .filter(Boolean)
@@ -6658,59 +7073,47 @@ function KensiglineTerminal() {
         aria-label="MERCERLINE terminal grid"
       >
       {activeTab === 'settings' ? <SettingsPanel /> : null}
-      {activeTab === 'insider' ? (
+      {investigateOpen ? (
         <>
           <CompactFeed
             placement="left"
             title="FEED"
-            items={insiderFilteredFeed}
-            selectedIndex={insiderIdx}
+            items={investigateIsInsider ? insiderFilteredFeed : politiciansFilteredFeed}
+            selectedIndex={investigateIsInsider ? insiderIdx : politiciansIdx}
             sepMode="today+years"
             scrollMode
             rowPrimary="company"
             showFeedSearch
-            feedQuery={insiderQuery}
-            onFeedQuery={setInsiderQuery}
-            onSelectIndex={setInsiderIdx}
+            feedSearchDual
+            feedCompanyQuery={investigateIsInsider ? insiderCompanyQuery : politiciansCompanyQuery}
+            feedPersonQuery={investigateIsInsider ? insiderPersonQuery : politiciansPoliticianQuery}
+            feedPersonSearchPlaceholder={
+              investigateIsInsider ? 'Search by insider' : 'Search by politician'
+            }
+            feedPersonSearchAriaLabel={
+              investigateIsInsider ? 'Search by insider' : 'Search by politician'
+            }
+            onFeedCompanyQuery={investigateIsInsider ? setInsiderCompanyQuery : setPoliticiansCompanyQuery}
+            onFeedPersonQuery={investigateIsInsider ? setInsiderPersonQuery : setPoliticiansPoliticianQuery}
+            onSelectIndex={investigateIsInsider ? setInsiderIdx : setPoliticiansIdx}
           />
           <CaseKvFeed
             title="CASE"
-            rows={insiderCaseFeedRows}
+            rows={investigateIsInsider ? insiderCaseFeedRows : politiciansCaseFeedRows}
             placement="right"
-            selectedTradeRowIndex={insiderCaseSelectedRowIndex}
+            selectedTradeRowIndex={
+              investigateIsInsider ? insiderCaseSelectedRowIndex : politiciansCaseSelectedRowIndex
+            }
+            highlightPersonQuery={investigateIsInsider ? insiderPersonQuery : politiciansPoliticianQuery}
             scrollMode
             onSelectTradeRowIndex={(rowIndex) => {
-              const pos = insiderCaseTradeRowIndices.indexOf(rowIndex)
-              if (pos >= 0) setInsiderCaseTradeIdx(pos)
-            }}
-          />
-        </>
-      ) : null}
-
-      {activeTab === 'politicians' ? (
-        <>
-          <CompactFeed
-            placement="left"
-            title="FEED"
-            items={politiciansFilteredFeed}
-            selectedIndex={politiciansIdx}
-            sepMode="today+years"
-            scrollMode
-            rowPrimary="company"
-            showFeedSearch
-            feedQuery={politiciansQuery}
-            onFeedQuery={setPoliticiansQuery}
-            onSelectIndex={setPoliticiansIdx}
-          />
-          <CaseKvFeed
-            title="CASE"
-            rows={politiciansCaseFeedRows}
-            placement="right"
-            selectedTradeRowIndex={politiciansCaseSelectedRowIndex}
-            scrollMode
-            onSelectTradeRowIndex={(rowIndex) => {
-              const pos = politiciansCaseTradeRowIndices.indexOf(rowIndex)
-              if (pos >= 0) setPoliticiansCaseTradeIdx(pos)
+              if (investigateIsInsider) {
+                const pos = insiderCaseTradeRowIndices.indexOf(rowIndex)
+                if (pos >= 0) setInsiderCaseTradeIdx(pos)
+              } else {
+                const pos = politiciansCaseTradeRowIndices.indexOf(rowIndex)
+                if (pos >= 0) setPoliticiansCaseTradeIdx(pos)
+              }
             }}
           />
         </>
@@ -6769,24 +7172,30 @@ function KensiglineTerminal() {
 
       {/* Explore tab removed; BOSHA panels live inside MAIN now. */}
 
-      {activeTab !== 'main' && activeTab !== 'settings' ? (
+      {investigateOpen ? (
         <>
-          <HistoricalOutcomesPanel mode={activeTab === 'politicians' ? 'politicians' : activeTab} backendUp={backendUp} />
+          <HistoricalOutcomesPanel
+            mode={investigateMode}
+            backendUp={backendUp}
+            personDisplay={historicalOutcomesPerson}
+          />
 
           <GraphPanel
             title={chartPanelTitle}
-            lastPrice={chartLastPrice}
             series={dailySeries}
             dates={dailyDates}
             markers={insiderTradeMarkers}
             selectedMarker={selectedInsiderTradeMarker}
-            chartRange={activeTab === 'politicians' ? politiciansChartRange : insiderChartRange}
-            onChartRangeChange={
-              activeTab === 'politicians' ? setPoliticiansChartRange : setInsiderChartRange
-            }
+            chartRange={investigateIsPoliticians ? politiciansChartRange : insiderChartRange}
+            onChartRangeChange={investigateIsPoliticians ? setPoliticiansChartRange : setInsiderChartRange}
           />
 
-          <CompanyPanel mode={activeTab === 'politicians' ? 'politicians' : activeTab} company={companyLive} backendUp={backendUp} />
+          <CompanyPanel
+            company={companyLive}
+            ticker={selectedTicker}
+            backendUp={backendUp}
+            price={chartLastPrice}
+          />
         </>
       ) : null}
       </main>
