@@ -291,6 +291,64 @@ const POLITICIAN_NAMES = [
   'Michael McCaul',
 ]
 
+/** CASE chamber column (House / Senate / Executive). */
+function politicianChamberCode(chamber) {
+  const k = String(chamber ?? 'house').trim().toLowerCase()
+  if (k === 'senate') return 'SEN'
+  if (k === 'executive') return 'EXE'
+  if (k === 'house') return 'HSE'
+  return 'PTR'
+}
+
+/** Match politician names (full, partial, or last name) against a feed search query. */
+function politicianNamesMatchQuery(names, query) {
+  const tokens = String(query ?? '')
+    .trim()
+    .toUpperCase()
+    .split(/[\s,]+/)
+    .filter(Boolean)
+  if (!tokens.length) return false
+  for (const raw of names) {
+    const n = String(raw ?? '').trim().toUpperCase()
+    if (!n) continue
+    const parts = n.split(/\s+/).filter(Boolean)
+    const last = parts.at(-1) ?? ''
+    if (
+      tokens.every(
+        (tok) =>
+          n.includes(tok) ||
+          last === tok ||
+          last.startsWith(tok) ||
+          parts.some((p) => p === tok || p.startsWith(tok)),
+      )
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+/** Politicians FEED: show companies (tickers) where the query matches a disclosed politician or company. */
+function politicianFeedRowMatchesQuery(row, queryRaw) {
+  const s = String(queryRaw ?? '').trim().toUpperCase()
+  if (!s) return true
+  const ticker = String(row?.ticker ?? '').toUpperCase()
+  const company = String(row?.company ?? '').toUpperCase()
+  if (ticker.includes(s) || company.includes(s)) return true
+
+  const names = new Set()
+  for (const p of row?.politicians ?? []) {
+    const v = String(p ?? '').trim()
+    if (v) names.add(v)
+  }
+  for (const r of row?.caseSheet?.rows ?? []) {
+    if (r?.surname) names.add(String(r.surname))
+    const fromKey = lastName(r?.key)
+    if (fromKey && fromKey !== '—') names.add(fromKey)
+  }
+  return politicianNamesMatchQuery([...names], s)
+}
+
 // ------------------------------------------------------------
 // BOSHA (Explore tab) — mock causal graph system
 // ------------------------------------------------------------
@@ -1638,6 +1696,66 @@ function appendCaseTxnTimeline(out, trades, sepMode = 'today+years') {
   return out
 }
 
+const PTR_TXN_CODES_CYCLE = ['P', 'S', 'E']
+const PTR_AMOUNT_RANGES_MOCK = [
+  '$1,001 – $15,000',
+  '$15,001 – $50,000',
+  '$50,001 – $100,000',
+  '$100,001 – $250,000',
+]
+
+function politicianTxnCodeFromRaw(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return '—'
+  const u = s.toUpperCase()
+  if (u.length === 1) return u
+  if (u.startsWith('PURCH')) return 'P'
+  if (u.startsWith('SAL')) return 'S'
+  if (u.startsWith('EXCH')) return 'E'
+  return u.charAt(0)
+}
+
+function politicianCaseRowHasTxn(r) {
+  const range = String(r?.amountRange ?? '').trim()
+  if (range) return true
+  const amt = Number(r?.amountUsd ?? 0)
+  return Number.isFinite(amt) && amt > 0
+}
+
+function formatPoliticianTxnValue(r) {
+  const range = String(r?.amountRange ?? '').trim()
+  if (range) return range
+  const amt = Number(r?.amountUsd ?? 0)
+  if (!(Number.isFinite(amt) && amt > 0)) return '—'
+  const code = politicianTxnCodeFromRaw(r?.transactionType ?? r?.transactionCode)
+  const compact = formatUsdCompact(amt)
+  if (!compact) return '—'
+  const sign = code === 'S' ? '−' : code === 'P' ? '+' : ''
+  return `${sign}${compact}`
+}
+
+function caseSheetRowToPoliticianTxnFeedRow(r, { showMoney }) {
+  if (!showMoney || !politicianCaseRowHasTxn(r)) return null
+  const whoRole = politicianChamberCode(r?.chamber)
+  const whoName = String(r?.surname ?? lastName(r?.key) ?? '')
+    .trim()
+    .toUpperCase()
+  const code = politicianTxnCodeFromRaw(r?.transactionType ?? r?.transactionCode)
+  const when = r?.ts ? formatFeedDate(r.ts) : ''
+  return {
+    type: 'trade',
+    layout: 'txnPolitician',
+    who: whoName ? `${whoRole} ${whoName}` : whoRole,
+    whoRole,
+    whoName,
+    code,
+    value: formatPoliticianTxnValue(r),
+    when,
+    codeTone: insiderTxnCodeTone(code, code === 'S' ? 'D' : 'A'),
+    ts: r?.ts ?? null,
+  }
+}
+
 function caseSheetRowToTxnFeedRow(r, { showMoney }) {
   if (!showMoney) return null
   const whoRole = r?.role ? String(r.role).toUpperCase() : insiderRoleFromKey(r?.key)
@@ -1881,25 +1999,43 @@ function politicianCaseForRowIndex(i) {
   const base = insiderCaseForRowIndex(i)
   const nPeople = 1 + (i % 3)
   const people = Array.from({ length: nPeople }, (_, j) => POLITICIAN_NAMES[(i + j) % POLITICIAN_NAMES.length])
+  const chamber = i % 5 === 0 ? 'senate' : i % 7 === 0 ? 'executive' : 'house'
   const rows = (base?.caseSheet?.rows ?? []).map((r, idx) => {
     const who = people[idx % people.length]
-    return { ...r, key: lastName(who).toUpperCase() }
+    const surname = lastName(who)
+    const transactionType = PTR_TXN_CODES_CYCLE[(i + idx) % PTR_TXN_CODES_CYCLE.length]
+    const amountRange = PTR_AMOUNT_RANGES_MOCK[(i + idx * 2) % PTR_AMOUNT_RANGES_MOCK.length]
+    const amountUsd = Number(r?.amountUsd ?? 0)
+    return {
+      ...r,
+      key: surname.toUpperCase(),
+      surname,
+      chamber,
+      transactionType,
+      assetTicker: base.ticker,
+      assetName: base.company ?? base.caseSheet?.issuer,
+      amountRange: amountUsd > 0 ? amountRange : null,
+      acquiredDisposed: transactionType === 'S' ? 'D' : 'A',
+    }
   })
   return {
     ...base,
     id: `pol-${i}`,
-    chamber: 'house',
+    company: base.company ?? base.caseSheet?.issuer,
+    chamber,
     politicians: people,
     caseSheet: {
       ...(base.caseSheet ?? {}),
-      issuer: people[0] ?? '—',
+      formType: 'PTR',
+      isForm4: true,
+      issuer: base.company ?? base.caseSheet?.issuer,
       rows,
     },
   }
 }
 
 const POLITICIAN_FEED_ROWS = sortFeedRowsByAtDesc(
-  Array.from({ length: 240 }, (_, i) => politicianCaseForRowIndex(i)),
+  Array.from({ length: 42 }, (_, i) => politicianCaseForRowIndex(i)),
 )
 
 function MainContextPanel({
@@ -5004,6 +5140,8 @@ function CompactFeed({
   /** Optional ticker search (research-style) above the list. */
   showFeedSearch = false,
   feedQuery = '',
+  feedSearchPlaceholder = 'Search',
+  feedSearchAriaLabel = 'Search tickers',
   onFeedQuery,
 }) {
   const listRef = useRef(null)
@@ -5116,12 +5254,12 @@ function CompactFeed({
             <input
               className="researchFeedSearchInput"
               value={feedQuery ?? ''}
-              placeholder="Search"
+              placeholder={feedSearchPlaceholder}
               onChange={(e) => onFeedQuery?.(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') onFeedQuery?.('')
               }}
-              aria-label="Search tickers"
+              aria-label={feedSearchAriaLabel}
               spellCheck={false}
             />
             <svg className="researchFeedSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
@@ -5426,14 +5564,16 @@ function CaseKvFeed({
         </div>
       )
     }
-    if (r?.layout === 'txn') {
+    if (r?.layout === 'txn' || r?.layout === 'txnPolitician') {
       const isTrade = r?.type === 'trade'
+      const isPoliticianTxn = r?.layout === 'txnPolitician'
       return (
         <div
-          key={`txn-${r.who}-${r.code}-${i}`}
+          key={`txn-${r.whoRole ?? r.who}-${r.whoName ?? ''}-${r.code ?? 'x'}-${i}`}
           className={[
             'feedRowCompact',
             'feedRowCompact--txn',
+            isPoliticianTxn ? 'feedRowCompact--txnPolitician' : '',
             isTrade && i === selectedTradeRowIndex ? 'isActive' : '',
           ]
             .filter(Boolean)
@@ -5456,7 +5596,7 @@ function CaseKvFeed({
               .join(' ')}
           >
             {r.code ?? '—'}
-            {r.isDerivative ? <span className="feedTxnDeriv">D</span> : null}
+            {!isPoliticianTxn && r.isDerivative ? <span className="feedTxnDeriv">D</span> : null}
           </span>
           <span
             className={[
@@ -5670,6 +5810,7 @@ function KensiglineTerminal() {
   const [insiderCaseTradeIdx, setInsiderCaseTradeIdx] = useState(0)
   const [insiderChartRange, setInsiderChartRange] = useState('1M')
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
+  const [politiciansQuery, setPoliticiansQuery] = useState('')
   const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
   const [politiciansChartRange, setPoliticiansChartRange] = useState('1M')
   const [boshaFeedLive, setBoshaFeedLive] = useState(null)
@@ -6085,14 +6226,16 @@ function KensiglineTerminal() {
           const label = (m ? m[1] : raw).trim() || '—'
           const count = m ? Number(m[2]) : null
           const politicians = Array.isArray(it.politicians) ? it.politicians.map((x) => String(x)) : []
+          const company = String(it.company_name ?? it.company ?? '').trim()
           return {
             id,
             label,
             count,
+            company: company || ticker,
             ticker,
             at,
             politicians,
-            chamber: 'house',
+            chamber: String(it.chamber ?? 'house').trim().toLowerCase() || 'house',
             daily: [],
             __backend_id: id,
           }
@@ -6108,12 +6251,23 @@ function KensiglineTerminal() {
     }
   }, [backendUp])
 
-  const politiciansBaseRows = !backendUp ? POLITICIAN_FEED_ROWS : (politiciansFeedLive ?? [])
+  const politiciansFeedRows = !backendUp ? POLITICIAN_FEED_ROWS : (politiciansFeedLive ?? [])
 
-  const politiciansFeedRows = politiciansBaseRows
+  const politiciansFilteredFeed = useMemo(() => {
+    const q = String(politiciansQuery ?? '').trim()
+    if (!q) return politiciansFeedRows
+    return politiciansFeedRows.filter((r) => politicianFeedRowMatchesQuery(r, q))
+  }, [politiciansFeedRows, politiciansQuery])
+
+  useEffect(() => {
+    if (activeTab !== 'politicians') return
+    setPoliticiansIdx(0)
+  }, [politiciansQuery, activeTab])
 
   const politiciansSelected =
-    politiciansFeedRows.length > 0 ? politiciansFeedRows[clamp(politiciansIdx, 0, politiciansFeedRows.length - 1)] : null
+    politiciansFilteredFeed.length > 0
+      ? politiciansFilteredFeed[clamp(politiciansIdx, 0, Math.max(0, politiciansFilteredFeed.length - 1))]
+      : null
 
   const insiderSelectedResolved = useMemo(() => {
     if (!backendUp || activeTab !== 'insider' || !insiderClusterLive) return insiderSelected
@@ -6153,25 +6307,45 @@ function KensiglineTerminal() {
     if (!backendUp || activeTab !== 'politicians' || !politiciansClusterLive) return politiciansSelected ?? null
     const rows = politiciansClusterLive?.cluster?.worksheet_rows
     const wsRows = Array.isArray(rows) ? rows : []
-    const who =
-      Array.isArray(politiciansClusterLive?.cluster?.politicians) && politiciansClusterLive.cluster.politicians.length
-        ? String(politiciansClusterLive.cluster.politicians[0])
-        : (politiciansSelected?.politicians?.[0] ?? '—')
+    const chamber = politiciansSelected?.chamber ?? 'house'
+    const companyName =
+      String(politiciansClusterLive?.issuer?.name ?? '').trim() ||
+      String(politiciansSelected?.company ?? '').trim() ||
+      politiciansSelected?.ticker ||
+      '—'
     const caseSheet = {
       filingId: politiciansClusterLive?.filing?.accession_no ?? politiciansSelected?.id ?? politiciansSelected?.ticker ?? '—',
       formType: politiciansClusterLive?.filing?.form_type ?? 'PTR',
-      issuer: who,
+      issuer: companyName,
       ticker: politiciansClusterLive?.issuer?.ticker ?? politiciansSelected?.ticker ?? '—',
       isForm4: true,
       filedAt: politiciansClusterLive?.filing?.filed_at ?? politiciansSelected?.at ?? null,
       rows: wsRows.map((r) => ({
         key: String(r?.key ?? '').trim() || 'POLITICIAN',
-        amountUsd: r?.amount_usd != null ? Number(r.amount_usd) : null,
+        surname: lastName(r?.key),
+        chamber,
+        transactionType:
+          r?.transaction_type != null
+            ? String(r.transaction_type)
+            : r?.description != null
+              ? String(r.description)
+              : null,
+        assetTicker: r?.ticker != null ? String(r.ticker) : politiciansSelected?.ticker ?? null,
+        assetName: r?.asset_name != null ? String(r.asset_name) : null,
+        amountRange: r?.amount_range != null ? String(r.amount_range) : null,
+        amountUsd:
+          r?.amount_usd_mid != null
+            ? Number(r.amount_usd_mid)
+            : r?.amount_usd != null
+              ? Number(r.amount_usd)
+              : null,
+        acquiredDisposed: 'A',
         ts: r?.ts != null ? String(r.ts) : null,
       })),
     }
     return {
       ...politiciansSelected,
+      company: companyName,
       caseSheet,
     }
   }, [backendUp, activeTab, politiciansSelected, politiciansClusterLive])
@@ -6245,9 +6419,10 @@ function KensiglineTerminal() {
     }
     if (activeTab === 'politicians') {
       const fromApi = backendUp && companyLive?.name ? String(companyLive.name).trim() : ''
-      const fromFeed = String(politiciansSelected?.company ?? '').trim()
+      const fromFeed = String(politiciansSelected?.company ?? politiciansSelectedResolved?.company ?? '').trim()
+      const fromCase = String(politiciansSelectedResolved?.caseSheet?.issuer ?? '').trim()
       const ticker = String(politiciansSelectedResolved?.ticker ?? '').trim().toUpperCase()
-      return fromApi || fromFeed || ticker || '—'
+      return fromApi || fromFeed || fromCase || ticker || '—'
     }
     return 'PRICE'
   }, [
@@ -6331,8 +6506,7 @@ function KensiglineTerminal() {
     if (!cs?.isForm4) return []
     const out = []
     for (const r of cs.rows ?? []) {
-      const amt = Number(r?.amountUsd ?? 0)
-      if (!(Number.isFinite(amt) && amt > 0)) continue
+      if (!politicianCaseRowHasTxn(r)) continue
       const d = new Date(r.ts)
       if (Number.isNaN(d.getTime())) continue
       out.push(d)
@@ -6360,21 +6534,8 @@ function KensiglineTerminal() {
     const showMoney = Boolean(cs.isForm4)
     const trades = []
     for (const r of cs.rows ?? []) {
-      const v = showMoney && r.amountUsd != null && Number(r.amountUsd) > 0 ? formatUsdCompact(r.amountUsd) : ''
-      if (!v) continue
-      const k = String(r.key ?? '').trim()
-      const first = k.split(/\s+/)[0]
-      const who = first ? first.toUpperCase() : '—'
-      trades.push({
-        type: 'trade',
-        layout: 'txn',
-        who,
-        code: 'PTR',
-        value: v,
-        when: r?.ts ? formatFeedDate(r.ts) : '',
-        codeTone: 'neutral',
-        ts: r?.ts ?? null,
-      })
+      const row = caseSheetRowToPoliticianTxnFeedRow(r, { showMoney })
+      if (row) trades.push(row)
     }
     return appendCaseTxnTimeline([], trades)
   }, [politiciansSelectedResolved?.caseSheet])
@@ -6416,9 +6577,12 @@ function KensiglineTerminal() {
   }, [activeTab, insiderCaseSelectedRowIndex, insiderCaseFeedRows, politiciansCaseSelectedRowIndex, politiciansCaseFeedRows])
 
   useEffect(() => {
-    // Reset case selection when the cluster changes.
     setInsiderCaseTradeIdx(0)
   }, [insiderSelected?.id, insiderSelected?.ticker])
+
+  useEffect(() => {
+    setPoliticiansCaseTradeIdx(0)
+  }, [politiciansSelected?.id, politiciansSelected?.ticker])
 
   const userEmail = user?.email ?? ''
 
@@ -6528,10 +6692,14 @@ function KensiglineTerminal() {
           <CompactFeed
             placement="left"
             title="FEED"
-            items={politiciansFeedRows}
+            items={politiciansFilteredFeed}
             selectedIndex={politiciansIdx}
             sepMode="today+years"
             scrollMode
+            rowPrimary="company"
+            showFeedSearch
+            feedQuery={politiciansQuery}
+            onFeedQuery={setPoliticiansQuery}
             onSelectIndex={setPoliticiansIdx}
           />
           <CaseKvFeed
@@ -6618,7 +6786,7 @@ function KensiglineTerminal() {
             }
           />
 
-          <CompanyPanel mode={activeTab === 'politicians' ? 'insider' : activeTab} company={companyLive} backendUp={backendUp} />
+          <CompanyPanel mode={activeTab === 'politicians' ? 'politicians' : activeTab} company={companyLive} backendUp={backendUp} />
         </>
       ) : null}
       </main>

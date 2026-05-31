@@ -241,6 +241,8 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
           key: String(out?.filer?.name ?? "").trim() || "POLITICIAN",
           ts: formatIso(t?.transaction_date) ?? formatIso(t?.notification_date),
           reported_at: formatIso(t?.notification_date),
+          transaction_type: t?.transaction_type ?? null,
+          owner: t?.owner ?? null,
           amount_range: amt.raw,
           amount_usd_mid: amt.mid,
           amount_usd_low: amt.low,

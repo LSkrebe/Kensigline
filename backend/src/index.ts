@@ -420,7 +420,14 @@ const server = http.createServer(async (req, res) => {
       // Aggregate to one row per ticker (merged across filings in window).
       const byTicker = new Map<
         string,
-        { ticker: string; latestFeedAt: string; totalMid: number; totalCount: number; politicians: Set<string> }
+        {
+          ticker: string;
+          latestFeedAt: string;
+          latestDoc: (typeof rows)[number];
+          totalMid: number;
+          totalCount: number;
+          politicians: Set<string>;
+        }
       >();
       for (const r of rows) {
         const t = String(r.ticker ?? "").trim().toUpperCase();
@@ -431,11 +438,15 @@ const server = http.createServer(async (req, res) => {
           {
             ticker: t,
             latestFeedAt: at,
+            latestDoc: r,
             totalMid: 0,
             totalCount: 0,
             politicians: new Set<string>(),
           };
-        if (at && (!cur.latestFeedAt || at > cur.latestFeedAt)) cur.latestFeedAt = at;
+        if (at && (!cur.latestFeedAt || at > cur.latestFeedAt)) {
+          cur.latestFeedAt = at;
+          cur.latestDoc = r;
+        }
         const ws = (r.data as any)?.cluster?.worksheet_rows;
         if (Array.isArray(ws)) {
           for (const w of ws) {
@@ -461,11 +472,14 @@ const server = http.createServer(async (req, res) => {
             const d = new Date(c.latestFeedAt);
             return Number.isNaN(d.getTime()) ? c.latestFeedAt : d.toISOString();
           })();
+          const data = c.latestDoc.data as { issuer?: { name?: string | null } } | null;
+          const companyName = String(data?.issuer?.name ?? "").trim() || c.ticker;
           return {
             id: `ticker:${c.ticker}`,
             feed_at: feedAtIso,
             feed_label: label,
             ticker: c.ticker,
+            company_name: companyName,
             politicians: Array.from(c.politicians).slice(0, 20),
           };
         });
