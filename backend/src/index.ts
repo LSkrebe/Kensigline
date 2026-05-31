@@ -378,11 +378,14 @@ const server = http.createServer(async (req, res) => {
           const usd = c.totalUsd > 0 ? formatUsdCompact(c.totalUsd) : "—";
           const label =
             c.totalCount > 0 ? `${usd} (${c.totalCount})` : (c.latestDoc.feed_label ?? "Insider activity");
+          const data = c.latestDoc.data as { issuer?: { name?: string | null } } | null;
+          const companyName = String(data?.issuer?.name ?? "").trim() || c.ticker;
           return {
             id: `company:${c.ticker}`,
             feed_at: c.latestFeedAt,
             feed_label: label,
             ticker: c.ticker,
+            company_name: companyName,
             company_id: c.company_id,
           };
         });

@@ -65,11 +65,43 @@ function isSameLocalCalendarDay(a, b) {
   )
 }
 
+function graphCalendarDayKey(d) {
+  const x = d instanceof Date ? d : new Date(d)
+  if (Number.isNaN(x.getTime())) return null
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
+}
+
+/** Map a trade timestamp onto the chart series index (by calendar day, else days-ago from now). */
+function graphIndexForTradeDate(dates, tradeDate, { now = new Date() } = {}) {
+  const n = Math.max(0, dates?.length ?? 0)
+  if (n <= 1) return 0
+  const d = tradeDate instanceof Date ? tradeDate : new Date(tradeDate)
+  if (Number.isNaN(d.getTime())) return 0
+  const key = graphCalendarDayKey(d)
+  if (key) {
+    for (let i = 0; i < n; i++) {
+      const x = dates[i]
+      if (!(x instanceof Date) || Number.isNaN(x.getTime())) continue
+      if (graphCalendarDayKey(x) === key) return i
+    }
+  }
+  const daysAgo = Math.floor((now.getTime() - d.getTime()) / 86400000)
+  return clamp(n - 1 - daysAgo, 0, n - 1)
+}
+
 /** Event timestamp falls on today’s calendar day in local time (matches feed date stamps). */
 function isAtLocalToday(at) {
   const d = at instanceof Date ? at : new Date(at)
   if (Number.isNaN(d.getTime())) return false
   return isSameLocalCalendarDay(d, new Date())
+}
+
+/** Event timestamp falls in the current calendar month (local time). */
+function isAtLocalThisMonth(at, ref = new Date()) {
+  const d = at instanceof Date ? at : new Date(at)
+  const r = ref instanceof Date ? ref : new Date(ref)
+  if (Number.isNaN(d.getTime()) || Number.isNaN(r.getTime())) return false
+  return d.getFullYear() === r.getFullYear() && d.getMonth() === r.getMonth()
 }
 
 function formatMmDd(d) {
@@ -108,16 +140,22 @@ function sortFeedRowsByAtDesc(rows) {
 function buildFeedDisplayRows(items, opts = {}) {
   const sepMode = opts?.sepMode ?? 'today' // today | year | today+years
   const out = []
+  const wantTodaySep = sepMode === 'today' || sepMode === 'today+years'
+  const wantMonthSep = wantTodaySep || sepMode === 'year' || sepMode === 'today+years'
+  const wantYearSeps = sepMode === 'year' || sepMode === 'today+years'
+
   for (let i = 0; i < items.length; i++) {
     const row = items[i]
     const prev = i > 0 ? items[i - 1] : null
 
-    const wantTodaySep = sepMode === 'today' || sepMode === 'today+years'
-    if (wantTodaySep && prev && !isAtLocalToday(row.at) && isAtLocalToday(prev.at)) {
+    if (wantTodaySep && prev && isAtLocalToday(prev.at) && !isAtLocalToday(row.at)) {
       out.push({ type: 'sep', key: `today-sep-before-${row.id}`, label: 'TODAY' })
     }
 
-    const wantYearSeps = sepMode === 'year' || sepMode === 'today+years'
+    if (wantMonthSep && prev && isAtLocalThisMonth(prev.at) && !isAtLocalThisMonth(row.at)) {
+      out.push({ type: 'sep', key: `month-sep-before-${row.id}`, label: 'THIS MONTH' })
+    }
+
     if (wantYearSeps && prev) {
       const y0 = new Date(prev.at).getFullYear()
       const y1 = new Date(row.at).getFullYear()
@@ -157,13 +195,80 @@ const INSIDER_KINDS = ['P Purchase']
 /** Realistic issuer tickers only (no counts in this column). */
 const INSIDER_TICKERS = ['PRIM', 'HG', 'SPRU', 'VRA', 'FFIN']
 
-/** Keys shown as document / transaction rows in the insider case worksheet */
-const INSIDER_DOC_KEYS = [
-  'CEO Code P purchase (open market)',
-  'Director Code P purchase (open market)',
-  'CFO Code P purchase (open market)',
-  'Officer Code P purchase (open market)',
+/** Insider roles for CASE txn rows (WHO column). */
+const INSIDER_TXN_ROLES = ['CEO', 'DIR', 'CFO', 'OFF', 'TRUST']
+
+/** Mock surnames (Form 4 reporting owners). */
+const INSIDER_MOCK_SURNAMES = [
+  'Chen',
+  'Walsh',
+  'Nguyen',
+  'Patel',
+  'Brooks',
+  'Sato',
+  'Miller',
+  'Kim',
+  'Torres',
+  'Reed',
+  'Foster',
+  'Hayes',
+  'Diaz',
+  'Cole',
+  'Grant',
 ]
+
+/**
+ * Showcase cluster (feed row 0): every Form 4 code / value shape from Option C mocks.
+ * `ad`: A = acquired, D = disposed (for signed $ display).
+ */
+const FORM4_TXN_MOCK_SAMPLES = [
+  { role: 'CEO', code: 'P', amountUsd: 12_400_000, ad: 'A' },
+  { role: 'CEO', code: 'P', amountUsd: 1_200_000, ad: 'A' },
+  { role: 'CEO', code: 'P', amountUsd: 890_000, ad: 'A' },
+  { role: 'CEO', code: 'P', amountUsd: 12_400, ad: 'A' },
+  { role: 'CEO', code: 'P', amountUsd: 999, ad: 'A' },
+  { role: 'CEO', code: 'S', amountUsd: 12_400_000, ad: 'D' },
+  { role: 'CEO', code: 'S', amountUsd: 1_200_000, ad: 'D' },
+  { role: 'CEO', code: 'S', amountUsd: 890_000, ad: 'D' },
+  { role: 'CEO', code: 'S', amountUsd: 12_400, ad: 'D' },
+  { role: 'CEO', code: 'S', amountUsd: 999, ad: 'D' },
+  { role: 'DIR', code: 'V', amountUsd: 1_200_000, ad: 'A' },
+  { role: 'DIR', code: 'V', amountUsd: 890_000, ad: 'D' },
+  { role: 'DIR', code: 'V', ad: 'A' },
+  { role: 'CFO', code: 'A', amountUsd: 0, ad: 'A' },
+  { role: 'CFO', code: 'A', ad: 'A' },
+  { role: 'CFO', code: 'A', shares: 45_000, ad: 'A' },
+  { role: 'CFO', code: 'A', shares: 1_200_000, ad: 'A' },
+  { role: 'CEO', code: 'D', amountUsd: 1_200_000, ad: 'D', isDerivative: true },
+  { role: 'CEO', code: 'D', ad: 'D', isDerivative: true },
+  { role: 'CEO', code: 'D', shares: 8_000, ad: 'D', isDerivative: true },
+  { role: 'OFF', code: 'F', ad: 'D' },
+  { role: 'OFF', code: 'F', shares: 2_100, ad: 'D' },
+  { role: 'OFF', code: 'F', amountUsd: 0, ad: 'D' },
+  { role: 'TRUST', code: 'I', amountUsd: 500_000, ad: 'A' },
+  { role: 'TRUST', code: 'I', amountUsd: 200_000, ad: 'D' },
+  { role: 'TRUST', code: 'I', ad: 'A' },
+  { role: 'CFO', code: 'M', shares: 12_400, ad: 'A' },
+  { role: 'CFO', code: 'M', amountUsd: 850_000, ad: 'A' },
+  { role: 'CEO', code: 'G', shares: 5_000, ad: 'A' },
+  { role: 'CEO', code: 'G', ad: 'D' },
+  { role: 'DIR', code: 'C', shares: 1_000, ad: 'A' },
+  { role: 'CEO', code: 'E', shares: 3_200, ad: 'D' },
+  { role: 'OFF', code: 'H', ad: 'A' },
+  { role: 'CEO', code: 'J', shares: 500, ad: 'A' },
+  { role: 'DIR', code: 'K', ad: 'D' },
+  { role: 'CFO', code: 'L', amountUsd: 120_000, ad: 'A' },
+  { role: 'CEO', code: 'O', ad: 'A' },
+  { role: 'CEO', code: 'U', shares: 2_000, ad: 'D' },
+  { role: 'CEO', code: 'W', shares: 10_000, ad: 'A' },
+  { role: 'DIR', code: 'Z', ad: 'D' },
+  { role: 'CEO', code: 'P', amountUsd: 50_000, ad: 'A', isDerivative: true },
+  { role: 'CEO', code: 'S', amountUsd: 25_000, ad: 'D', isDerivative: true },
+  { role: 'CFO', code: 'X', ad: 'A' },
+  { role: 'OFF', code: 'P', amountUsd: 340_000, ad: 'A' },
+]
+
+const FORM4_TXN_CODES_CYCLE = ['P', 'S', 'A', 'M', 'F', 'G', 'D', 'V', 'I', 'C', 'E', 'H', 'J', 'K', 'L', 'O', 'U', 'W', 'Z', 'X']
 
 const INSIDER_ISSUERS = [
   'Horizon Grain Co.',
@@ -1394,6 +1499,168 @@ function formatUsdCompact(n) {
   return `$${Math.round(x)}`
 }
 
+function formatSharesCompact(n) {
+  const x = Math.abs(Number(n))
+  if (!Number.isFinite(x) || x <= 0) return ''
+  if (x >= 1e6) return `${(x / 1e6).toFixed(1)}M sh`
+  if (x >= 1e3) return `${(x / 1e3).toFixed(1)}K sh`
+  if (x >= 100) return `${x.toFixed(1)} sh`
+  return `${Math.round(x)} sh`
+}
+
+function insiderRoleFromKey(key) {
+  const k = String(key ?? '').trim()
+  const m = k.match(/^(CEO|Director|CFO|Officer|DIR|OFF|TRUST)\b/i)
+  if (m) {
+    const r = m[1].toUpperCase()
+    if (r === 'DIRECTOR') return 'DIR'
+    if (r === 'OFFICER') return 'OFF'
+    return r
+  }
+  const first = k.split(/\s+/)[0]
+  return first ? first.toUpperCase().slice(0, 5) : '—'
+}
+
+function mockInsiderSurname(seedA, seedB) {
+  return INSIDER_MOCK_SURNAMES[(seedA * 7 + seedB * 3) % INSIDER_MOCK_SURNAMES.length]
+}
+
+/** Last name from worksheet `key` when backend embeds a person name. */
+function insiderSurnameFromKey(key) {
+  const k = String(key ?? '').trim()
+  if (!k || k === 'Insider' || k === '—') return ''
+  const afterRole = k.match(/^(?:CEO|CFO|Director|Officer|DIR|OFF|TRUST)\s+(.+)/i)
+  if (afterRole) return lastName(afterRole[1])
+  const stripped = k
+    .replace(/\bCode\s+[A-Z]{1,2}\b.*$/i, '')
+    .replace(/\(.*\)/g, '')
+    .replace(/·.*$/, '')
+    .trim()
+  if (/\s/.test(stripped) && !/^(CEO|CFO|Director|Officer)\b/i.test(stripped)) {
+    return lastName(stripped)
+  }
+  return ''
+}
+
+function insiderTxnCodeTone(code, ad) {
+  const c = String(code ?? '').toUpperCase()
+  const side = String(ad ?? '').toUpperCase()
+  if (c === 'S' || c === 'F' || (c === 'D' && side === 'D') || c === 'E' || c === 'K' || c === 'U' || c === 'Z')
+    return 'sell'
+  if (c === 'P' || c === 'A' || c === 'M' || c === 'V' || (c === 'I' && side === 'A')) return 'buy'
+  return 'neutral'
+}
+
+/** Option C value column: `+$1.2M`, `−$890K`, `12.4K sh`, `—`. */
+function formatInsiderTxnValue(row) {
+  if (row?.amountUsd != null && Number.isFinite(Number(row.amountUsd))) {
+    const x = Number(row.amountUsd)
+    if (x === 0) return String(row.acquiredDisposed ?? '').toUpperCase() === 'D' ? '−$0' : '—'
+    const compact = formatUsdCompact(Math.abs(x))
+    if (!compact) return '—'
+    const sign = String(row.acquiredDisposed ?? '').toUpperCase() === 'D' ? '−' : '+'
+    return `${sign}${compact}`
+  }
+  const sh = formatSharesCompact(row?.shares)
+  return sh || '—'
+}
+
+function insiderCaseRowFromSpec(spec, tsIso) {
+  const role = String(spec?.role ?? 'OFF').toUpperCase()
+  const code = String(spec?.code ?? 'P').toUpperCase()
+  const surname = String(spec?.surname ?? '').trim() || insiderSurnameFromKey(spec?.key)
+  return {
+    key: surname ? `${role} ${surname} · ${code}` : `${role} · ${code}`,
+    role,
+    surname,
+    transactionCode: code,
+    acquiredDisposed: String(spec?.ad ?? 'A').toUpperCase() === 'D' ? 'D' : 'A',
+    amountUsd: spec?.amountUsd != null ? Number(spec.amountUsd) : null,
+    shares: spec?.shares != null ? Number(spec.shares) : null,
+    isDerivative: Boolean(spec?.isDerivative),
+    ts: tsIso,
+  }
+}
+
+function mockTxnSpecForCluster(i, k) {
+  const code = FORM4_TXN_CODES_CYCLE[(i * 5 + k * 3) % FORM4_TXN_CODES_CYCLE.length]
+  const role = INSIDER_TXN_ROLES[(i + k) % INSIDER_TXN_ROLES.length]
+  const surname = mockInsiderSurname(i, k)
+  const seed = i * 131 + k * 37
+  const isDeriv = code === 'D' || (code === 'P' && k % 7 === 0) || (code === 'S' && k % 9 === 0)
+  const ad =
+    code === 'S' || code === 'F' || code === 'E' || code === 'K' || code === 'U' || code === 'Z' || (code === 'D' && !isDeriv)
+      ? 'D'
+      : 'A'
+
+  if (code === 'A' && k % 4 === 0) return { role, surname, code, amountUsd: 0, ad }
+  if (code === 'A' && k % 4 === 1) return { role, surname, code, ad }
+  if (code === 'A') return { role, surname, code, shares: Math.round(2_000 + seededJitter(seed, 80_000)), ad }
+
+  if (code === 'F' || code === 'H' || code === 'O' || code === 'X') {
+    if (k % 3 === 0) return { role, surname, code, ad }
+    if (k % 3 === 1) return { role, surname, code, shares: Math.round(500 + seededJitter(seed, 4_000)), ad }
+    return { role, surname, code, amountUsd: 0, ad }
+  }
+
+  if (code === 'M' && k % 2 === 0) {
+    return { role, surname, code, shares: Math.round(1_000 + seededJitter(seed, 40_000)), ad }
+  }
+
+  if (code === 'G' || code === 'C' || code === 'J' || code === 'W') {
+    return { role, surname, code, shares: Math.round(200 + seededJitter(seed, 12_000)), ad }
+  }
+
+  if (code === 'D' || isDeriv) {
+    if (k % 3 === 0)
+      return { role, surname, code, amountUsd: Math.round(50_000 + seededJitter(seed, 2_500_000)), ad, isDerivative: true }
+    if (k % 3 === 1) return { role, surname, code, ad, isDerivative: true }
+    return { role, surname, code, shares: Math.round(500 + seededJitter(seed, 15_000)), ad, isDerivative: true }
+  }
+
+  const amountUsd = Math.round(5_000 + seededJitter(seed, code === 'S' ? 3_000_000 : 2_400_000))
+  return { role, surname, code, amountUsd, ad, isDerivative: isDeriv && code !== 'D' }
+}
+
+/** Insert TODAY / year separators between case txn rows (newest first). */
+function appendCaseTxnTimeline(out, trades, sepMode = 'today+years') {
+  if (!trades.length) return out
+  const sorted = [...trades].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+  const items = sorted.map((row, idx) => ({
+    ...row,
+    at: row.ts,
+    id: row.id ?? `txn-${row.who}-${row.code}-${idx}`,
+  }))
+  for (const entry of buildFeedDisplayRows(items, { sepMode })) {
+    if (entry.type === 'sep') out.push({ type: 'sep', key: entry.key, label: entry.label })
+    else out.push(entry.row)
+  }
+  return out
+}
+
+function caseSheetRowToTxnFeedRow(r, { showMoney }) {
+  if (!showMoney) return null
+  const whoRole = r?.role ? String(r.role).toUpperCase() : insiderRoleFromKey(r?.key)
+  const whoName = String(r?.surname ?? insiderSurnameFromKey(r?.key) ?? '')
+    .trim()
+    .toUpperCase()
+  const code = String(r?.transactionCode ?? '').trim().toUpperCase() || '—'
+  const when = r?.ts ? formatFeedDate(r.ts) : ''
+  return {
+    type: 'trade',
+    layout: 'txn',
+    who: whoName ? `${whoRole} ${whoName}` : whoRole,
+    whoRole,
+    whoName,
+    code,
+    value: formatInsiderTxnValue(r),
+    when,
+    isDerivative: Boolean(r?.isDerivative),
+    codeTone: insiderTxnCodeTone(code, r?.acquiredDisposed),
+    ts: r?.ts ?? null,
+  }
+}
+
 /** Insider worksheet: `18 Apr` (same rhythm as feed date stamps, without year). */
 function insiderTxnDateShort(iso) {
   const d = parseDayOnly(iso)
@@ -1548,35 +1815,41 @@ function insiderCaseForRowIndex(i) {
   const issuer = INSIDER_ISSUERS[i % INSIDER_ISSUERS.length]
   const filingId = `${ticker}-${String(220000 + (i * 7919) % 879000)}`
 
-  // Keep rows aligned with "count" and represent actual purchase transactions.
-  const rowCount = count
+  const showcaseAllCodes = i === 0 && isForm4
+  const rowCount = showcaseAllCodes ? FORM4_TXN_MOCK_SAMPLES.length : count
   const rows = []
   for (let k = 0; k < rowCount; k++) {
-    const si = (i * 11 + k * 5) % INSIDER_DOC_KEYS.length
-    const key = INSIDER_DOC_KEYS[si]
     const ts = new Date(at)
-    // Spread transaction timestamps across a wider window so graph markers vary by date.
-    // Keep within ~30 days for "cluster" feel, but not all on the same day.
-    const dayJitter = Math.floor(seededJitter(i * 97 + k * 19, 28)) // 0..27 days
+    const dayJitter = Math.floor(seededJitter(i * 97 + k * 19, 28))
     ts.setDate(ts.getDate() - dayJitter)
     ts.setHours(9 + ((i + k) % 8), ((i * k * 13) % 55) + 5, 0, 0)
     const rowIso = ts.toISOString()
-    let amountUsd = null
-    if (isForm4) {
-      // Mock Code P purchases: non-trivial dollar amounts, always positive.
-      const base = 25_000 + seededJitter(i * 101 + k * 17, 2_400_000)
-      amountUsd = Math.round(base)
+    if (!isForm4) {
+      rows.push({ key: '—', amountUsd: null, ts: rowIso })
+      continue
     }
-    rows.push({ key, amountUsd, ts: rowIso })
+    const rawSpec = showcaseAllCodes ? FORM4_TXN_MOCK_SAMPLES[k] : mockTxnSpecForCluster(i, k)
+    const spec = showcaseAllCodes
+      ? { ...rawSpec, surname: rawSpec.surname ?? mockInsiderSurname(i, k) }
+      : rawSpec
+    rows.push(insiderCaseRowFromSpec(spec, rowIso))
   }
 
-  const totalUsd = isForm4 ? rows.reduce((a, r) => a + (Number(r.amountUsd) || 0), 0) : 0
+  const totalUsd = isForm4
+    ? rows.reduce((a, r) => {
+        const code = String(r?.transactionCode ?? '').toUpperCase()
+        const usd = Number(r?.amountUsd)
+        if (code === 'P' && r?.acquiredDisposed === 'A' && Number.isFinite(usd) && usd > 0) return a + usd
+        return a
+      }, 0)
+    : 0
   const label = totalUsd > 0 ? formatUsdCompact(totalUsd) : '—'
 
   return {
     id: `ins-${i}`,
     label,
-    count,
+    count: rowCount,
+    company: issuer,
     ticker,
     at,
     daily: buildInsiderDailySeries(i + 31),
@@ -1628,43 +1901,6 @@ function politicianCaseForRowIndex(i) {
 const POLITICIAN_FEED_ROWS = sortFeedRowsByAtDesc(
   Array.from({ length: 240 }, (_, i) => politicianCaseForRowIndex(i)),
 )
-
-function PoliticiansFilterPanel({ activeName, items, onSelect }) {
-  return (
-    <section className="panel feed feedCompact filterTile" aria-label="Filter">
-      <header className="feedCompactHeader">
-        <div className="panelTitle feedCompactTitle">FILTER</div>
-      </header>
-      <div className="feedCompactList feedCompactList--scroll scrollThin filterList" role="list">
-        <button
-          type="button"
-          className={['feedRowCompact', 'feedRowCompact--two', 'filterRow', !activeName ? 'isActive' : '']
-            .filter(Boolean)
-            .join(' ')}
-          role="listitem"
-          onClick={() => onSelect(null)}
-        >
-          <span className="feedCell feedCellLabel kvFeedMain dim">ALL</span>
-          <span className="feedCell feedCellTicker mono kvFeedDim">{items?.length ?? 0}</span>
-        </button>
-        {(items ?? []).map((it) => (
-          <button
-            type="button"
-            key={it.name}
-            className={['feedRowCompact', 'feedRowCompact--two', 'filterRow', activeName === it.name ? 'isActive' : '']
-              .filter(Boolean)
-              .join(' ')}
-            role="listitem"
-            onClick={() => onSelect(it.name)}
-          >
-            <span className="feedCell feedCellLabel kvFeedMain">{it.name}</span>
-            <span className="feedCell feedCellTicker mono kvFeedDim">{it.count}</span>
-          </button>
-        ))}
-      </div>
-    </section>
-  )
-}
 
 function MainContextPanel({
   intelMode = 'market',
@@ -2180,14 +2416,6 @@ function BoshaGraphFigure({ entities, events, edges }) {
   )
 }
 
-const POLITICIAN_CHAMBER_OPTS = [
-  { id: 'all', label: 'ALL' },
-  { id: 'house', label: 'HOUSE' },
-  { id: 'senate', label: 'SENATE' },
-  { id: 'executive', label: 'EXECUTIVE' },
-]
-const POLITICIAN_CHAMBER_ENABLED = new Set(['all', 'house'])
-
 const PRICE_RANGE_OPTS = ['1M', '3M', '6M', '1Y', 'ALL']
 const PRICE_RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, ALL: null }
 
@@ -2209,6 +2437,37 @@ function slicePriceDataByRange(series, dates, range) {
   if (d.length >= n) return { series: sliced, dates: d.slice(-take) }
   if (d.length === sliced.length) return { series: sliced, dates: d }
   return { series: sliced, dates: buildEvenlySpacedDates(sliced.length) }
+}
+
+/** Start of calendar window for chart range (local midnight, inclusive). */
+function priceRangeWindowStart(range, ref = new Date()) {
+  const days = PRICE_RANGE_DAYS[range]
+  if (days == null) return null
+  const start = new Date(ref)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - days)
+  return start
+}
+
+function filterMarkersForPriceRange(markers, range) {
+  const start = priceRangeWindowStart(range)
+  if (!start) return Array.isArray(markers) ? markers : []
+  const out = []
+  for (const m of markers ?? []) {
+    const d = m instanceof Date ? m : new Date(m)
+    if (Number.isNaN(d.getTime())) continue
+    if (d.getTime() >= start.getTime()) out.push(d)
+  }
+  return out
+}
+
+function markerWithinPriceRange(marker, range) {
+  if (!marker) return false
+  const start = priceRangeWindowStart(range)
+  if (!start) return true
+  const d = marker instanceof Date ? marker : new Date(marker)
+  if (Number.isNaN(d.getTime())) return false
+  return d.getTime() >= start.getTime()
 }
 
 function BoshaMiniPrice({
@@ -3685,6 +3944,16 @@ function formatPriceTick(v) {
   return x.toFixed(2)
 }
 
+/** Last close for chart panel header (with $). */
+function formatChartHeaderPrice(v) {
+  const x = Number(v)
+  if (!Number.isFinite(x)) return null
+  if (x >= 1000) return `$${x.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+  if (x >= 100) return `$${x.toFixed(2)}`
+  if (x >= 1) return `$${x.toFixed(2)}`
+  return `$${x.toFixed(3)}`
+}
+
 /** Forward return fraction → Y-axis label (integer %, compact; no grouping commas). */
 function formatReturnTick(v) {
   const x = Number(v)
@@ -4135,6 +4404,7 @@ const MainTopPicksBarChart = memo(function MainTopPicksBarChart({ bars = [] }) {
 
 function GraphPanel({
   title,
+  lastPrice = null,
   series,
   dates,
   markers = [],
@@ -4148,7 +4418,7 @@ function GraphPanel({
 }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 900, h: 220 })
-  const [internalRange, setInternalRange] = useState('6M')
+  const [internalRange, setInternalRange] = useState('1M')
   const priceRange = chartRangeProp ?? internalRange
   const setPriceRange = onChartRangeChange ?? setInternalRange
 
@@ -4170,6 +4440,12 @@ function GraphPanel({
   const w = size.w
   const h = size.h
 
+  const rangeKey = PRICE_RANGE_OPTS.includes(priceRange) ? priceRange : '1M'
+  const markersForRange = useMemo(() => {
+    if (!showRangeSelector || metaMode !== 'range') return markers ?? []
+    return filterMarkersForPriceRange(markers, rangeKey)
+  }, [markers, rangeKey, showRangeSelector, metaMode])
+
   const isRet = yTickFormat === 'return'
   /* Plain axes: Y scale runs plotTop→axisY (min sits on the x-axis). Left gutter + bottom room for month labels. */
   const margin = { l: isRet ? 28 : 26, r: 6, t: isRet ? 10 : 8, b: isRet ? 22 : 20 }
@@ -4185,9 +4461,8 @@ function GraphPanel({
         dates: Array.isArray(dates) ? dates : [],
       }
     }
-    const r = PRICE_RANGE_OPTS.includes(priceRange) ? priceRange : '6M'
-    return slicePriceDataByRange(series, dates, r)
-  }, [series, dates, showRangeSelector, metaMode, priceRange])
+    return slicePriceDataByRange(series, dates, rangeKey)
+  }, [series, dates, showRangeSelector, metaMode, rangeKey])
 
   const rawMin = vals.length ? Math.min(...vals) : 0
   const rawMax = vals.length ? Math.max(...vals) : 1
@@ -4277,6 +4552,32 @@ function GraphPanel({
     return [0.08, 0.32, 0.56, 0.8].map((p) => Math.round(clamp01(p) * (n - 1)))
   }, [ds.length])
 
+  const markerX = useMemo(() => {
+    const n = ds.length
+    if (n <= 1) return []
+    const seen = new Set()
+    const xs = []
+    for (const m of markersForRange) {
+      const key = graphCalendarDayKey(m)
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      xs.push(xAt(graphIndexForTradeDate(ds, m)))
+    }
+    return xs
+  }, [markersForRange, ds, vals.length, w, h, margin.l, innerW, rangeKey])
+
+  const selectedMarkerX = useMemo(() => {
+    if (!selectedMarker || ds.length <= 1) return null
+    if (showRangeSelector && metaMode === 'range' && !markerWithinPriceRange(selectedMarker, rangeKey)) {
+      return null
+    }
+    const d = selectedMarker instanceof Date ? selectedMarker : new Date(selectedMarker)
+    if (Number.isNaN(d.getTime())) return null
+    return xAt(graphIndexForTradeDate(ds, d))
+  }, [selectedMarker, ds, vals.length, w, h, margin.l, innerW, rangeKey, showRangeSelector, metaMode])
+
+  const lastPriceLabel = formatChartHeaderPrice(lastPrice)
+
   return (
     <section
       className={['panel', 'graph', panelClassName].filter(Boolean).join(' ')}
@@ -4287,7 +4588,14 @@ function GraphPanel({
           .filter(Boolean)
           .join(' ')}
       >
-        <div className="panelTitle">{title}</div>
+        <div className="graphPanelTitleWrap">
+          <div className="panelTitle">{title}</div>
+          {lastPriceLabel ? (
+            <div className="graphPanelLastPrice mono" aria-label="Last price">
+              {lastPriceLabel}
+            </div>
+          ) : null}
+        </div>
         {showRangeSelector && metaMode === 'range' ? (
           <div className="boshaPriceRange graphPriceRange" role="group" aria-label="Chart range">
             {PRICE_RANGE_OPTS.map((r) => (
@@ -4390,6 +4698,25 @@ function GraphPanel({
             })}
 
             <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
+
+            {markerX.map((x, i) => (
+              <path
+                key={`m-${i}`}
+                className="graphMarker"
+                style={GRAPH_SVG_MARKER}
+                d={`M ${x.toFixed(2)} ${plotTop} L ${x.toFixed(2)} ${axisY.toFixed(2)}`}
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+
+            {selectedMarkerX != null ? (
+              <path
+                className="graphMarker graphMarker--selected"
+                style={GRAPH_SVG_MARKER_SEL}
+                d={`M ${selectedMarkerX.toFixed(2)} ${plotTop} L ${selectedMarkerX.toFixed(2)} ${axisY.toFixed(2)}`}
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : null}
           </svg>
         )}
       </div>
@@ -4668,10 +4995,16 @@ function CompactFeed({
   programsStackedRows = false,
   /** PROGRAMS rail: show grouped timeline rows (separators per program). */
   programsTimeline = false,
-  /** Feed separators: today | year | today+years */
+  /** Feed separators: today | this month | year (`today+years` = all three) */
   sepMode = 'today',
   /** Replace pagination with scroll-to-load. */
   scrollMode = false,
+  /** `ticker`: main label is ticker; `company`: main label is company name (insider feed). */
+  rowPrimary = 'label',
+  /** Optional ticker search (research-style) above the list. */
+  showFeedSearch = false,
+  feedQuery = '',
+  onFeedQuery,
 }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
@@ -4777,73 +5110,232 @@ function CompactFeed({
           </div>
         ) : null}
       </header>
-      <div
-        ref={listRef}
-        className={['feedCompactList', scrollMode ? 'feedCompactList--scroll' : ''].filter(Boolean).join(' ')}
-        role="list"
-        onScroll={scrollMode ? onScrollLoadMore : undefined}
-      >
-        {visibleRows.map((entry, i) => {
-          const globalIdx = scrollMode ? i : pageStart + i
-          if (entry.type === 'sep') {
-            return (
-              <div
-                key={`${placement}-${entry.key}-${globalIdx}`}
-                className="feedRowTodaySep"
+      {showFeedSearch ? (
+        <div className="feedCompactBody">
+          <label className="researchFeedSearch">
+            <input
+              className="researchFeedSearchInput"
+              value={feedQuery ?? ''}
+              placeholder="Search"
+              onChange={(e) => onFeedQuery?.(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') onFeedQuery?.('')
+              }}
+              aria-label="Search tickers"
+              spellCheck={false}
+            />
+            <svg className="researchFeedSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+              <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+            </svg>
+          </label>
+          <div
+            ref={listRef}
+            className={['feedCompactList', 'scrollThin', scrollMode ? 'feedCompactList--scroll' : '']
+              .filter(Boolean)
+              .join(' ')}
+            role="list"
+            onScroll={scrollMode ? onScrollLoadMore : undefined}
+          >
+            {visibleRows.map((entry, i) => {
+              const globalIdx = scrollMode ? i : pageStart + i
+              if (entry.type === 'sep') {
+                return (
+                  <div
+                    key={`${placement}-${entry.key}-${globalIdx}`}
+                    className="feedRowTodaySep"
+                    role="presentation"
+                  >
+                    {programsTimeline ? entry.label : entry.label ?? 'TODAY'}
+                  </div>
+                )
+              }
+              const { row, idx } = entry
+              const active = idx === selectedIndex
+              return (
+                <button
+                  key={row.id}
+                  type="button"
+                  role="listitem"
+                  className={[
+                    'feedRowCompact',
+                    active ? 'isActive' : '',
+                    programsStackedRows ? 'feedRowCompact--programs' : '',
+                    programsTimeline ? 'feedRowCompact--timeline' : '',
+                    rowPrimary === 'company' ? 'feedRowCompact--company' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => onSelectIndex(idx)}
+                  data-item-idx={idx}
+                >
+                  {programsStackedRows ? (
+                    <>
+                      <span className="feedProgramsLine feedProgramsLine--drug kvFeedMain">{row.label}</span>
+                      <span className="feedProgramsLine kvFeedDim">{row.indication ?? '—'}</span>
+                      <span className="feedProgramsLine mono kvFeedDim">{row.phase ?? '—'}</span>
+                    </>
+                  ) : rowPrimary === 'ticker' ? (
+                    <>
+                      <span className="feedCell feedCellLabel kvFeedMain mono">{row.ticker}</span>
+                      {!programsTimeline ? (
+                        <span className="feedCell feedCellTicker mono kvFeedDim">
+                          {row.count != null && row.count !== '' ? (
+                            <span className="feedCountTag">{row.count}</span>
+                          ) : null}
+                        </span>
+                      ) : null}
+                      <span className="feedCell feedCellWhen mono kvFeedDim">
+                        {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
+                      </span>
+                    </>
+                  ) : rowPrimary === 'company' ? (
+                    <>
+                      <span className="feedCell feedCellSymbol mono kvFeedDim">
+                        {String(row.ticker ?? '').trim().toUpperCase() || '—'}
+                      </span>
+                      <span className="feedCell feedCellCompany kvFeedMain">
+                        {String(row.company ?? row.issuer ?? '').trim() || '—'}
+                      </span>
+                      {!programsTimeline ? (
+                        <span className="feedCell feedCellCount mono kvFeedDim">
+                          {row.count != null && row.count !== '' ? (
+                            <span className="feedCountTag">{row.count}</span>
+                          ) : null}
+                        </span>
+                      ) : null}
+                      <span className="feedCell feedCellWhen mono kvFeedDim">
+                        {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="feedCell feedCellLabel kvFeedMain">{row.label}</span>
+                      {!programsTimeline ? (
+                        <span className="feedCell feedCellTicker mono kvFeedDim">
+                          {placement === 'left' ? (
+                            <>
+                              {row.ticker}
+                              <span className="feedCountTag">{row.count ?? ''}</span>
+                            </>
+                          ) : (
+                            row.ticker
+                          )}
+                        </span>
+                      ) : null}
+                      <span className="feedCell feedCellWhen mono kvFeedDim">
+                        {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
+                      </span>
+                    </>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+        <div
+          ref={listRef}
+          className={['feedCompactList', scrollMode ? 'feedCompactList--scroll' : ''].filter(Boolean).join(' ')}
+          role="list"
+          onScroll={scrollMode ? onScrollLoadMore : undefined}
+        >
+          {visibleRows.map((entry, i) => {
+            const globalIdx = scrollMode ? i : pageStart + i
+            if (entry.type === 'sep') {
+              return (
+                <div
+                  key={`${placement}-${entry.key}-${globalIdx}`}
+                  className="feedRowTodaySep"
                   role="presentation"
+                >
+                  {programsTimeline ? entry.label : entry.label ?? 'TODAY'}
+                </div>
+              )
+            }
+            const { row, idx } = entry
+            const active = idx === selectedIndex
+            return (
+              <button
+                key={row.id}
+                type="button"
+                role="listitem"
+                className={[
+                  'feedRowCompact',
+                  active ? 'isActive' : '',
+                  programsStackedRows ? 'feedRowCompact--programs' : '',
+                  programsTimeline ? 'feedRowCompact--timeline' : '',
+                  rowPrimary === 'company' ? 'feedRowCompact--company' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                onClick={() => onSelectIndex(idx)}
+                data-item-idx={idx}
               >
-                {programsTimeline ? entry.label : entry.label ?? 'TODAY'}
-              </div>
-            )
-          }
-          const { row, idx } = entry
-          const active = idx === selectedIndex
-          return (
-            <button
-              key={row.id}
-              type="button"
-              role="listitem"
-              className={[
-                'feedRowCompact',
-                active ? 'isActive' : '',
-                programsStackedRows ? 'feedRowCompact--programs' : '',
-                programsTimeline ? 'feedRowCompact--timeline' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              onClick={() => onSelectIndex(idx)}
-              data-item-idx={idx}
-            >
-              {programsStackedRows ? (
-                <>
-                  <span className="feedProgramsLine feedProgramsLine--drug kvFeedMain">{row.label}</span>
-                  <span className="feedProgramsLine kvFeedDim">{row.indication ?? '—'}</span>
-                  <span className="feedProgramsLine mono kvFeedDim">{row.phase ?? '—'}</span>
-                </>
-              ) : (
-                <>
-                  <span className="feedCell feedCellLabel kvFeedMain">{row.label}</span>
-                  {!programsTimeline ? (
-                    <span className="feedCell feedCellTicker mono kvFeedDim">
-                      {placement === 'left' ? (
-                        <>
-                          {row.ticker}
-                          <span className="feedCountTag">{row.count ?? ''}</span>
-                        </>
-                      ) : (
-                        row.ticker
-                      )}
+                {programsStackedRows ? (
+                  <>
+                    <span className="feedProgramsLine feedProgramsLine--drug kvFeedMain">{row.label}</span>
+                    <span className="feedProgramsLine kvFeedDim">{row.indication ?? '—'}</span>
+                    <span className="feedProgramsLine mono kvFeedDim">{row.phase ?? '—'}</span>
+                  </>
+                ) : rowPrimary === 'ticker' ? (
+                  <>
+                    <span className="feedCell feedCellLabel kvFeedMain mono">{row.ticker}</span>
+                    {!programsTimeline ? (
+                      <span className="feedCell feedCellTicker mono kvFeedDim">
+                        {row.count != null && row.count !== '' ? (
+                          <span className="feedCountTag">{row.count}</span>
+                        ) : null}
+                      </span>
+                    ) : null}
+                    <span className="feedCell feedCellWhen mono kvFeedDim">
+                      {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
                     </span>
-                  ) : null}
-                  <span className="feedCell feedCellWhen mono kvFeedDim">
-                    {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
-                  </span>
-                </>
-              )}
-            </button>
-          )
-        })}
-      </div>
+                  </>
+                ) : rowPrimary === 'company' ? (
+                  <>
+                    <span className="feedCell feedCellSymbol mono kvFeedDim">
+                      {String(row.ticker ?? '').trim().toUpperCase() || '—'}
+                    </span>
+                    <span className="feedCell feedCellCompany kvFeedMain">
+                      {String(row.company ?? row.issuer ?? '').trim() || '—'}
+                    </span>
+                    {!programsTimeline ? (
+                      <span className="feedCell feedCellCount mono kvFeedDim">
+                        {row.count != null && row.count !== '' ? (
+                          <span className="feedCountTag">{row.count}</span>
+                        ) : null}
+                      </span>
+                    ) : null}
+                    <span className="feedCell feedCellWhen mono kvFeedDim">
+                      {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="feedCell feedCellLabel kvFeedMain">{row.label}</span>
+                    {!programsTimeline ? (
+                      <span className="feedCell feedCellTicker mono kvFeedDim">
+                        {placement === 'left' ? (
+                          <>
+                            {row.ticker}
+                            <span className="feedCountTag">{row.count ?? ''}</span>
+                          </>
+                        ) : (
+                          row.ticker
+                        )}
+                      </span>
+                    ) : null}
+                    <span className="feedCell feedCellWhen mono kvFeedDim">
+                      {programsTimeline ? formatProgramTimelineDate(row.at) : formatFeedDate(row.at)}
+                    </span>
+                  </>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </section>
   )
 }
@@ -4869,7 +5361,8 @@ function CaseKvFeed({
       if (avail <= 0) return
       const btn = list.querySelector('.feedRowCompact')
       const rowH = btn?.getBoundingClientRect().height ?? 17
-      const n = Math.max(1, Math.floor(avail / Math.max(rowH, 10)))
+      const minRowH = scrollMode ? 18 : 10
+      const n = Math.max(1, Math.floor(avail / Math.max(rowH, minRowH)))
       setRowsPerPage((prev) => (prev !== n ? n : prev))
     }
 
@@ -4879,7 +5372,7 @@ function CaseKvFeed({
     ro.observe(list)
     measure()
     return () => ro.disconnect()
-  }, [rows.length, placement])
+  }, [rows.length, placement, scrollMode])
 
   const pageSize = Math.max(1, rowsPerPage)
   const total = rows.length
@@ -4887,12 +5380,12 @@ function CaseKvFeed({
   const page = total ? clamp(Math.floor(Math.max(0, selectedTradeRowIndex) / pageSize), 0, totalPages - 1) : 0
   const pageStart = page * pageSize
   const pageSlice = total ? rows.slice(pageStart, pageStart + pageSize) : []
-  const visibleRows = scrollMode ? rows.slice(0, Math.min(total, Math.max(pageSize, renderLimit))) : pageSlice
+  const visibleRows = scrollMode ? rows : pageSlice
 
   useEffect(() => {
     if (!scrollMode) return
-    setRenderLimit((prev) => Math.max(prev, selectedTradeRowIndex + pageSize * 2))
-  }, [scrollMode, selectedTradeRowIndex, pageSize])
+    setRenderLimit(total)
+  }, [scrollMode, total])
 
   useLayoutEffect(() => {
     if (!scrollMode) return
@@ -4902,13 +5395,102 @@ function CaseKvFeed({
     if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' })
   }, [scrollMode, selectedTradeRowIndex])
 
-  function onScrollLoadMore() {
-    if (!scrollMode) return
-    const list = listRef.current
-    if (!list) return
-    const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 60
-    if (!nearBottom) return
-    setRenderLimit((prev) => Math.min(total, prev + pageSize * 2))
+  const caseTableList = placement === 'right'
+
+  function renderCaseRow(r, i) {
+    if (r?.type === 'sep') {
+      return (
+        <div key={`${r.key ?? 'sep'}-${i}`} className="feedRowTodaySep" role="presentation">
+          {r.label ?? 'TODAY'}
+        </div>
+      )
+    }
+    if (r?.layout === 'two') {
+      const isMeta = r?.type === 'meta'
+      return (
+        <div
+          key={`${r.k}-${i}`}
+          className={['feedRowCompact', 'feedRowCompact--two', isMeta ? 'feedRowCompact--meta' : '']
+            .filter(Boolean)
+            .join(' ')}
+          role="listitem"
+          data-row-idx={i}
+        >
+          <span className="feedCell feedCellLabel kvFeedMain dim">{r.k}</span>
+          <span className={['feedCell', 'feedCellTicker', 'mono', isMeta ? 'kvFeedMain' : 'kvFeedDim']
+            .filter(Boolean)
+            .join(' ')}
+          >
+            {r.v}
+          </span>
+        </div>
+      )
+    }
+    if (r?.layout === 'txn') {
+      const isTrade = r?.type === 'trade'
+      return (
+        <div
+          key={`txn-${r.who}-${r.code}-${i}`}
+          className={[
+            'feedRowCompact',
+            'feedRowCompact--txn',
+            isTrade && i === selectedTradeRowIndex ? 'isActive' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          role="listitem"
+          onClick={isTrade ? () => onSelectTradeRowIndex?.(i) : undefined}
+          data-row-idx={i}
+        >
+          <span className="feedCell feedCellRole mono kvFeedMain">{r.whoRole ?? r.who ?? '—'}</span>
+          <span className="feedCell feedCellSurname mono kvFeedDim">{r.whoName ?? ''}</span>
+          <span
+            className={[
+              'feedCell',
+              'feedCellCode',
+              'mono',
+              'feedTxnCode',
+              r?.codeTone ? `feedTxnCode--${r.codeTone}` : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {r.code ?? '—'}
+            {r.isDerivative ? <span className="feedTxnDeriv">D</span> : null}
+          </span>
+          <span
+            className={[
+              'feedCell',
+              'feedCellValue',
+              'mono',
+              'kvFeedDim',
+              r?.value?.startsWith('+') ? 'feedTxnVal--pos' : '',
+              r?.value?.startsWith('−') ? 'feedTxnVal--neg' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {r.value ?? '—'}
+          </span>
+          <span className="feedCell feedCellWhen mono kvFeedDim">{r.when ?? ''}</span>
+        </div>
+      )
+    }
+    return (
+      <div
+        key={`${r.k}-${i}`}
+        className={['feedRowCompact', r?.type === 'trade' && i === selectedTradeRowIndex ? 'isActive' : '']
+          .filter(Boolean)
+          .join(' ')}
+        role="listitem"
+        onClick={r?.type === 'trade' ? () => onSelectTradeRowIndex?.(i) : undefined}
+        data-row-idx={i}
+      >
+        <span className="feedCell feedCellLabel kvFeedMain dim">{r.k}</span>
+        <span className="feedCell feedCellTicker mono kvFeedDim">{r.v}</span>
+        <span className="feedCell feedCellWhen mono kvFeedDim">{r.when ?? ''}</span>
+      </div>
+    )
   }
 
   return (
@@ -4926,46 +5508,38 @@ function CaseKvFeed({
           </div>
         ) : null}
       </header>
-      <div
-        ref={listRef}
-        className={['feedCompactList', scrollMode ? 'feedCompactList--scroll' : ''].filter(Boolean).join(' ')}
-        role="list"
-        onScroll={scrollMode ? onScrollLoadMore : undefined}
-      >
-        {visibleRows.map((r, j) => {
-          const i = scrollMode ? j : pageStart + j
-          return r?.type === 'blank' ? (
-            <div key={`blank-${i}`} className="feedRowCompact feedRowCompact--blank" role="presentation" />
-          ) : r?.layout === 'two' ? (
-            <div
-              key={`${r.k}-${i}`}
-              className={['feedRowCompact', 'feedRowCompact--two'].filter(Boolean).join(' ')}
-              role="listitem"
-              data-row-idx={i}
-            >
-              <span className="feedCell feedCellLabel kvFeedMain dim">{r.k}</span>
-              <span className="feedCell feedCellTicker mono kvFeedDim">{r.v}</span>
-            </div>
-          ) : (
-            <div
-              key={`${r.k}-${i}`}
-              className={[
-                'feedRowCompact',
-                r?.type === 'trade' && i === selectedTradeRowIndex ? 'isActive' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              role="listitem"
-              onClick={r?.type === 'trade' ? () => onSelectTradeRowIndex?.(i) : undefined}
-              data-row-idx={i}
-            >
-              <span className="feedCell feedCellLabel kvFeedMain dim">{r.k}</span>
-              <span className="feedCell feedCellTicker mono kvFeedDim">{r.v}</span>
-              <span className="feedCell feedCellWhen mono kvFeedDim">{r.when ?? ''}</span>
-            </div>
-          )
-        })}
-      </div>
+      {scrollMode ? (
+        <div className="feedCompactBody">
+          <div
+            ref={listRef}
+            className={[
+              'feedCompactList',
+              'feedCompactList--scroll',
+              'scrollThin',
+              caseTableList ? 'feedCompactList--caseTable' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            role="list"
+          >
+            {visibleRows.map((r, j) => {
+              const i = j
+              return renderCaseRow(r, i)
+            })}
+          </div>
+        </div>
+      ) : (
+        <div
+          ref={listRef}
+          className={['feedCompactList', caseTableList ? 'feedCompactList--caseTable' : ''].filter(Boolean).join(' ')}
+          role="list"
+        >
+          {visibleRows.map((r, j) => {
+            const i = pageStart + j
+            return renderCaseRow(r, i)
+          })}
+        </div>
+      )}
     </section>
   )
 }
@@ -4979,9 +5553,6 @@ function TerminalTopBar({
   onIntelModeChange,
   showIntelSwitch = false,
   singleModeLabel = null,
-  showPoliticianChamberSwitch = false,
-  politicianChamber = 'all',
-  onPoliticianChamberChange,
 }) {
   return (
     <header className="terminalTopBar" aria-label="Mercerline">
@@ -5032,43 +5603,6 @@ function TerminalTopBar({
             >
               Clinical intelligence
             </button>
-          </div>
-        ) : showPoliticianChamberSwitch ? (
-          <div
-            className={`terminalIntelSwitch terminalIntelSwitch--politicians terminalIntelSwitch--${politicianChamber}`}
-            role="tablist"
-            aria-label="Disclosure chamber"
-          >
-            {POLITICIAN_CHAMBER_OPTS.map((opt) => {
-              const enabled = POLITICIAN_CHAMBER_ENABLED.has(opt.id)
-              return (
-                <Fragment key={opt.id}>
-                  {opt.id === 'house' ? (
-                    <span className="terminalIntelSwitchSep" aria-hidden="true">
-                      |
-                    </span>
-                  ) : null}
-                  {opt.id === 'senate' ? <span className="terminalIntelSwitchBranchGap" aria-hidden="true" /> : null}
-                  <button
-                    type="button"
-                    role="tab"
-                    className={[
-                      'terminalIntelSwitchBtn',
-                      politicianChamber === opt.id ? 'isActive' : '',
-                      enabled ? '' : 'isUnavailable',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    aria-selected={politicianChamber === opt.id}
-                    disabled={!enabled}
-                    title={enabled ? undefined : 'Not available yet'}
-                    onClick={() => enabled && onPoliticianChamberChange?.(opt.id)}
-                  >
-                    {opt.label}
-                  </button>
-                </Fragment>
-              )
-            })}
           </div>
         ) : singleModeLabel ? (
           <div className="terminalIntelSwitch terminalIntelSwitch--single" role="tablist" aria-label="View mode">
@@ -5132,11 +5666,12 @@ function KensiglineTerminal() {
   const tabBeforeSettingsRef = useRef('main')
 
   const [insiderIdx, setInsiderIdx] = useState(0)
+  const [insiderQuery, setInsiderQuery] = useState('')
   const [insiderCaseTradeIdx, setInsiderCaseTradeIdx] = useState(0)
+  const [insiderChartRange, setInsiderChartRange] = useState('1M')
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
   const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
-  const [politiciansFilter, setPoliticiansFilter] = useState(null)
-  const [politiciansChamber, setPoliticiansChamber] = useState('all')
+  const [politiciansChartRange, setPoliticiansChartRange] = useState('1M')
   const [boshaFeedLive, setBoshaFeedLive] = useState(null)
   const [boshaExploreLive, setBoshaExploreLive] = useState(null)
   const [boshaCompanyLive, setBoshaCompanyLive] = useState(null)
@@ -5488,10 +6023,12 @@ function KensiglineTerminal() {
           const m = raw.match(/^\s*([^()]+?)\s*\(\s*(\d+)\s*\)\s*$/)
           const label = (m ? m[1] : raw).trim() || '—'
           const count = m ? Number(m[2]) : null
+          const company = String(it.company_name ?? it.company ?? '').trim()
           return {
             id,
             label,
             count,
+            company: company || ticker,
             ticker,
             at,
             daily: [],
@@ -5510,8 +6047,26 @@ function KensiglineTerminal() {
   }, [backendUp])
 
   const insiderFeedRows = !backendUp ? INSIDER_FEED_ROWS : (insiderFeedLive ?? [])
+
+  const insiderFilteredFeed = useMemo(() => {
+    const s = String(insiderQuery ?? '').trim().toUpperCase()
+    if (!s) return insiderFeedRows
+    return insiderFeedRows.filter((r) => {
+      const t = String(r?.ticker ?? '').toUpperCase()
+      const c = String(r?.company ?? '').toUpperCase()
+      return t.includes(s) || c.includes(s)
+    })
+  }, [insiderFeedRows, insiderQuery])
+
+  useEffect(() => {
+    if (activeTab !== 'insider') return
+    setInsiderIdx(0)
+  }, [insiderQuery, activeTab])
+
   const insiderSelected =
-    insiderFeedRows.length > 0 ? insiderFeedRows[clamp(insiderIdx, 0, Math.max(0, insiderFeedRows.length - 1))] : null
+    insiderFilteredFeed.length > 0
+      ? insiderFilteredFeed[clamp(insiderIdx, 0, Math.max(0, insiderFilteredFeed.length - 1))]
+      : null
 
   useEffect(() => {
     let alive = true
@@ -5555,38 +6110,7 @@ function KensiglineTerminal() {
 
   const politiciansBaseRows = !backendUp ? POLITICIAN_FEED_ROWS : (politiciansFeedLive ?? [])
 
-  const politiciansChamberRows = useMemo(() => {
-    if (politiciansChamber === 'all') return politiciansBaseRows
-    if (politiciansChamber === 'house') {
-      return politiciansBaseRows.filter((r) => (r?.chamber ?? 'house') === 'house')
-    }
-    return []
-  }, [politiciansBaseRows, politiciansChamber])
-
-  const politicianFilterItems = useMemo(() => {
-    const counts = new Map()
-    for (const r of politiciansChamberRows) {
-      const people = Array.isArray(r?.politicians) ? r.politicians : []
-      for (const p of people) {
-        const k = String(p ?? '').trim()
-        if (!k) continue
-        counts.set(k, (counts.get(k) ?? 0) + 1)
-      }
-    }
-    return Array.from(counts.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-  }, [politiciansChamberRows])
-
-  const politiciansFeedRows = useMemo(() => {
-    if (!politiciansFilter) return politiciansChamberRows
-    return politiciansChamberRows.filter((r) => (r?.politicians ?? []).includes(politiciansFilter))
-  }, [politiciansChamberRows, politiciansFilter])
-
-  useEffect(() => {
-    setPoliticiansIdx(0)
-    setPoliticiansCaseTradeIdx(0)
-  }, [politiciansFilter, politiciansChamber])
+  const politiciansFeedRows = politiciansBaseRows
 
   const politiciansSelected =
     politiciansFeedRows.length > 0 ? politiciansFeedRows[clamp(politiciansIdx, 0, politiciansFeedRows.length - 1)] : null
@@ -5604,7 +6128,18 @@ function KensiglineTerminal() {
       filedAt: insiderClusterLive?.filing?.filed_at ?? insiderSelected?.at ?? null,
       rows: wsRows.map((r) => ({
         key: String(r?.key ?? '').trim() || 'Insider',
+        role: r?.role != null ? String(r.role) : insiderRoleFromKey(r?.key),
+        surname:
+          r?.surname != null
+            ? String(r.surname)
+            : r?.insider_name != null
+              ? lastName(r.insider_name)
+              : insiderSurnameFromKey(r?.key),
+        transactionCode: r?.transaction_code != null ? String(r.transaction_code) : r?.code != null ? String(r.code) : 'P',
+        acquiredDisposed: r?.acquired_disposed != null ? String(r.acquired_disposed) : 'A',
         amountUsd: r?.amount_usd != null ? Number(r.amount_usd) : null,
+        shares: r?.shares != null ? Number(r.shares) : null,
+        isDerivative: Boolean(r?.is_derivative ?? r?.derivative),
         ts: r?.ts != null ? String(r.ts) : null,
       })),
     }
@@ -5700,6 +6235,32 @@ function KensiglineTerminal() {
     return null
   }, [activeTab, insiderSelected?.ticker, politiciansSelectedResolved?.ticker])
 
+  const chartPanelTitle = useMemo(() => {
+    if (activeTab === 'insider') {
+      const fromApi = backendUp && companyLive?.name ? String(companyLive.name).trim() : ''
+      const fromFeed = String(insiderSelected?.company ?? '').trim()
+      const fromCase = String(insiderSelectedResolved?.caseSheet?.issuer ?? '').trim()
+      const ticker = String(insiderSelected?.ticker ?? '').trim().toUpperCase()
+      return fromApi || fromFeed || fromCase || ticker || '—'
+    }
+    if (activeTab === 'politicians') {
+      const fromApi = backendUp && companyLive?.name ? String(companyLive.name).trim() : ''
+      const fromFeed = String(politiciansSelected?.company ?? '').trim()
+      const ticker = String(politiciansSelectedResolved?.ticker ?? '').trim().toUpperCase()
+      return fromApi || fromFeed || ticker || '—'
+    }
+    return 'PRICE'
+  }, [
+    activeTab,
+    backendUp,
+    companyLive?.name,
+    insiderSelected?.company,
+    insiderSelected?.ticker,
+    insiderSelectedResolved?.caseSheet?.issuer,
+    politiciansSelected?.company,
+    politiciansSelectedResolved?.ticker,
+  ])
+
   useEffect(() => {
     let alive = true
     async function run() {
@@ -5721,8 +6282,14 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     let alive = true
+    if (!backendUp || !selectedTicker) {
+      setCompanyLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    setCompanyLive(null)
     async function run() {
-      if (!backendUp || !selectedTicker) return
       const r = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(selectedTicker)}`, { timeoutMs: 6000 })
       if (!alive) return
       if (r.ok) setCompanyLive(r.data)
@@ -5749,6 +6316,15 @@ function KensiglineTerminal() {
   }, [daily, backendUp, activeTab])
 
   const dailyDates = useMemo(() => buildEvenlySpacedDates(dailySeries.length), [dailySeries.length])
+
+  const chartLastPrice = useMemo(() => {
+    const fromApi = Number(companyLive?.latest_close)
+    if (Number.isFinite(fromApi) && fromApi > 0) return fromApi
+    if (!Array.isArray(dailySeries) || !dailySeries.length) return null
+    const last = Number(dailySeries[dailySeries.length - 1])
+    return Number.isFinite(last) ? last : null
+  }, [companyLive?.latest_close, dailySeries])
+
   const insiderTradeMarkers = useMemo(() => {
     if (!(activeTab === 'insider' || activeTab === 'politicians')) return []
     const cs = activeTab === 'politicians' ? politiciansSelectedResolved?.caseSheet : insiderSelectedResolved?.caseSheet
@@ -5768,60 +6344,39 @@ function KensiglineTerminal() {
   const insiderCaseFeedRows = useMemo(() => {
     const cs = insiderSelectedResolved?.caseSheet
     if (!cs) return []
-    const meta = []
-    if (cs.ticker) meta.push({ layout: 'two', k: 'ISSUER', v: String(cs.ticker) })
-    if (cs.formType) meta.push({ layout: 'two', k: 'FORM', v: String(cs.formType) })
-    if (cs.filingId) meta.push({ layout: 'two', k: 'ACCESSION', v: String(cs.filingId) })
-
-    function roleFromKey(key) {
-      const k = String(key ?? '').trim()
-      const m = k.match(/^(CEO|Director|CFO|Officer)\b/i)
-      if (m) return m[1].toUpperCase()
-      const first = k.split(/\s+/)[0]
-      return first ? first.toUpperCase() : '-'
-    }
-
     const showMoney = Boolean(cs.isForm4)
-    let totalUsd = 0
     const trades = []
     for (const r of cs.rows ?? []) {
-      const amt = showMoney && r.amountUsd != null ? Number(r.amountUsd) : 0
-      if (Number.isFinite(amt) && amt > 0) totalUsd += amt
-      const v = showMoney && r.amountUsd != null && Number(r.amountUsd) > 0 ? formatUsdCompact(r.amountUsd) : ''
-      const when = showMoney && r.amountUsd != null && Number(r.amountUsd) > 0 ? formatFeedDate(r.ts) : ''
-      if (!v) continue
-      trades.push({ type: 'trade', k: roleFromKey(r.key), v, when, ts: r.ts })
+      const row = caseSheetRowToTxnFeedRow(r, { showMoney })
+      if (row) trades.push(row)
     }
 
-    const totalRow = { type: 'total', layout: 'two', k: 'TOTAL', v: totalUsd > 0 ? formatUsdCompact(totalUsd) : '-' }
-
-    // Ordering: meta, TOTAL, blank separator, then trades. No trailing blank.
-    return [...meta, totalRow, { type: 'blank' }, ...trades]
+    return appendCaseTxnTimeline([], trades)
   }, [insiderSelectedResolved?.caseSheet])
 
   const politiciansCaseFeedRows = useMemo(() => {
     const cs = politiciansSelectedResolved?.caseSheet
     if (!cs) return []
-    const meta = []
-    if (cs.ticker) meta.push({ layout: 'two', k: 'ISSUER', v: String(cs.ticker) })
-    if (cs.formType) meta.push({ layout: 'two', k: 'FORM', v: String(cs.formType) })
-    if (cs.filingId) meta.push({ layout: 'two', k: 'ACCESSION', v: String(cs.filingId) })
-
     const showMoney = Boolean(cs.isForm4)
-    let totalUsd = 0
     const trades = []
     for (const r of cs.rows ?? []) {
-      const amt = showMoney && r.amountUsd != null ? Number(r.amountUsd) : 0
-      if (Number.isFinite(amt) && amt > 0) totalUsd += amt
       const v = showMoney && r.amountUsd != null && Number(r.amountUsd) > 0 ? formatUsdCompact(r.amountUsd) : ''
-      const when = showMoney && r.amountUsd != null && Number(r.amountUsd) > 0 ? formatFeedDate(r.ts) : ''
       if (!v) continue
       const k = String(r.key ?? '').trim()
       const first = k.split(/\s+/)[0]
-      trades.push({ type: 'trade', k: first ? first.toUpperCase() : '-', v, when, ts: r.ts })
+      const who = first ? first.toUpperCase() : '—'
+      trades.push({
+        type: 'trade',
+        layout: 'txn',
+        who,
+        code: 'PTR',
+        value: v,
+        when: r?.ts ? formatFeedDate(r.ts) : '',
+        codeTone: 'neutral',
+        ts: r?.ts ?? null,
+      })
     }
-    const totalRow = { type: 'total', layout: 'two', k: 'TOTAL', v: totalUsd > 0 ? formatUsdCompact(totalUsd) : '-' }
-    return [...meta, totalRow, { type: 'blank' }, ...trades]
+    return appendCaseTxnTimeline([], trades)
   }, [politiciansSelectedResolved?.caseSheet])
 
   const politiciansCaseTradeRowIndices = useMemo(() => {
@@ -5893,10 +6448,13 @@ function KensiglineTerminal() {
         intelMode={intelMode}
         onIntelModeChange={setIntelMode}
         showIntelSwitch={activeTab === 'main'}
-        singleModeLabel={activeTab === 'insider' ? 'Insider intelligence' : null}
-        showPoliticianChamberSwitch={activeTab === 'politicians'}
-        politicianChamber={politiciansChamber}
-        onPoliticianChamberChange={setPoliticiansChamber}
+        singleModeLabel={
+          activeTab === 'insider'
+            ? 'Insider intelligence'
+            : activeTab === 'politicians'
+              ? 'Politician intelligence'
+              : null
+        }
       />
       <div className="terminalWorkspace">
       <nav className="sideTabsRail" aria-label="Views">
@@ -5941,10 +6499,14 @@ function KensiglineTerminal() {
           <CompactFeed
             placement="left"
             title="FEED"
-            items={insiderFeedRows}
+            items={insiderFilteredFeed}
             selectedIndex={insiderIdx}
             sepMode="today+years"
             scrollMode
+            rowPrimary="company"
+            showFeedSearch
+            feedQuery={insiderQuery}
+            onFeedQuery={setInsiderQuery}
             onSelectIndex={setInsiderIdx}
           />
           <CaseKvFeed
@@ -5963,11 +6525,6 @@ function KensiglineTerminal() {
 
       {activeTab === 'politicians' ? (
         <>
-          <PoliticiansFilterPanel
-            activeName={politiciansFilter}
-            items={politicianFilterItems}
-            onSelect={(name) => setPoliticiansFilter(name)}
-          />
           <CompactFeed
             placement="left"
             title="FEED"
@@ -6049,11 +6606,16 @@ function KensiglineTerminal() {
           <HistoricalOutcomesPanel mode={activeTab === 'politicians' ? 'politicians' : activeTab} backendUp={backendUp} />
 
           <GraphPanel
-            title="PRICE"
+            title={chartPanelTitle}
+            lastPrice={chartLastPrice}
             series={dailySeries}
             dates={dailyDates}
             markers={insiderTradeMarkers}
             selectedMarker={selectedInsiderTradeMarker}
+            chartRange={activeTab === 'politicians' ? politiciansChartRange : insiderChartRange}
+            onChartRangeChange={
+              activeTab === 'politicians' ? setPoliticiansChartRange : setInsiderChartRange
+            }
           />
 
           <CompanyPanel mode={activeTab === 'politicians' ? 'insider' : activeTab} company={companyLive} backendUp={backendUp} />

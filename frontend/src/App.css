@@ -474,26 +474,25 @@
   box-sizing: border-box;
 }
 
-/* Insider tab: make INSIDER + CASE equal width; right-side 3 columns equal width */
+/*
+ * Insider tab (4 cols): FEED | CASE | chart (2 cols × 3 rows) | bottom: HO | Company (50/50).
+ */
 .terminal.terminal--insider {
   grid-template-columns:
-    minmax(60px, 0.9fr)
-    minmax(60px, 0.9fr)
-    minmax(0, 0.95fr)
-    minmax(0, 0.95fr)
-    minmax(0, 0.95fr);
-  /* Give the bottom-right stats row a bit more height */
+    minmax(56px, 1fr)
+    minmax(64px, 1.15fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr);
   grid-template-rows: 0.95fr 0.95fr 0.95fr 1.4fr;
 }
 
-/* Politicians tab: same layout as INSIDER. */
+/* Politicians: same 4-col shell as Insider; equal FEED / CASE. */
 .terminal.terminal--politicians {
   grid-template-columns:
-    minmax(60px, 0.9fr)
-    minmax(60px, 0.9fr)
-    minmax(0, 0.95fr)
-    minmax(0, 0.95fr)
-    minmax(0, 0.95fr);
+    minmax(56px, 1fr)
+    minmax(56px, 1fr)
+    minmax(0, 1fr)
+    minmax(0, 1fr);
   grid-template-rows: 0.95fr 0.95fr 0.95fr 1.4fr;
 }
 
@@ -1291,6 +1290,8 @@
 
 .terminal--main .researchFeedPanel .feedRowTodaySep {
   min-height: calc(10px * 1.15 + 10px);
+  margin: 0;
+  padding: 0;
   font-size: 9px;
   letter-spacing: 0.12em;
   border-top-color: rgba(255, 255, 255, 0.08);
@@ -4168,22 +4169,21 @@ button.boshaPaperCopyIcon:focus-visible {
 
 /* ---- TAB-SPECIFIC LAYOUT (INSIDER) ---- */
 .terminal--insider .graph {
-  grid-column: 3 / span 3;
+  grid-column: 3 / span 2;
   grid-row: 1 / span 3;
 }
 
-/* CASE panel shorter (free up bottom cell) */
 .terminal--insider .feed--right {
-  grid-row: 1 / span 3;
+  grid-row: 1 / span 4;
 }
 
 .terminal--insider .historicalOutcomes {
-  grid-column: 2 / span 2;
+  grid-column: 3 / span 1;
   grid-row: 4 / span 1;
 }
 
 .terminal--insider .companyTile {
-  grid-column: 4 / span 2;
+  grid-column: 4 / span 1;
   grid-row: 4 / span 1;
 }
 
@@ -4284,6 +4284,175 @@ button.boshaPaperCopyIcon:focus-visible {
   overscroll-behavior: contain;
 }
 
+/* Insider FEED (left): search + research-style row rhythm */
+.terminal--insider .feed--left.feedCompact {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.terminal--insider .feed--left .feedCompactBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 10px 10px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.terminal--insider .feed--left .researchFeedSearch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-height: calc(0.08em + 1.08em + 10px);
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: text;
+}
+
+.terminal--insider .feed--left .researchFeedSearchInput {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.88);
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+}
+
+.terminal--insider .feed--left .researchFeedSearchInput::placeholder {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.terminal--insider .feed--left .researchFeedSearchIcon {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  color: rgba(255, 255, 255, 0.38);
+  pointer-events: none;
+}
+
+.terminal--insider .feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.terminal--insider .feed--left .feedCompactList.feedCompactList--scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 10px 10px;
+}
+
+.terminal--insider .feed--left .feedRowCompact {
+  min-height: calc(10px * 1.15 + 10px);
+  padding: 5px 8px;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  border-bottom-color: transparent;
+  font-size: 10px;
+  line-height: 1.15;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.terminal--insider .feed--left .feedRowCompact:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.terminal--insider .feed--left .feedRowCompact.isActive {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.terminal--insider .feed--left .feedCellLabel.kvFeedMain {
+  color: rgba(255, 255, 255, 0.88);
+  letter-spacing: 0.02em;
+}
+
+/* Insider FEED: ticker | company | count | time */
+.terminal--insider .feed--left .feedRowCompact--company {
+  grid-template-columns: 5ch minmax(0, 1fr) 4ch max-content;
+  gap: 4px;
+}
+
+.terminal--insider .feed--left .feedRowCompact--company .feedCellSymbol {
+  min-width: 0;
+  width: 5ch;
+  max-width: 5ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.52);
+  letter-spacing: 0.06em;
+}
+
+.terminal--insider .feed--left .feedRowCompact--company .feedCellCompany {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal--insider .feed--left .feedRowCompact--company .feedCellCount {
+  min-width: 0;
+  width: 4ch;
+  max-width: 4ch;
+  padding: 0;
+  box-sizing: content-box;
+}
+
+.terminal--insider .feed--left .feedRowCompact--company .feedCountTag {
+  display: block;
+  min-width: 4ch;
+  width: 4ch;
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.terminal--insider .feed--left .feedRowCompact--company .feedCellWhen {
+  min-width: 0;
+}
+
+.terminal--insider .feed--left .feedCellWhen {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.terminal--insider .feed--left .feedRowTodaySep {
+  min-height: calc(10px * 1.15 + 10px);
+  margin: 0;
+  padding: 0;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  border-top-color: rgba(255, 255, 255, 0.08);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.42);
+  text-shadow: none;
+}
+
 .terminal--insider .feedRowCompact,
 
 .terminal--politicians .feedRowCompact {
@@ -4323,6 +4492,8 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feedRowTodaySep,
 
 .terminal--politicians .feedRowTodaySep {
+  margin: 0;
+  padding: 0;
   border-top-color: rgba(255, 255, 255, 0.08);
   border-bottom-color: rgba(255, 255, 255, 0.08);
   background: transparent;
@@ -4430,33 +4601,21 @@ button.boshaPaperCopyIcon:focus-visible {
   color: var(--hi);
 }
 
-/* Politicians tab: same placement overrides as INSIDER. */
+/* Politicians tab: same 4-col placement as INSIDER. */
 .terminal--politicians .graph {
-  grid-column: 3 / span 3;
+  grid-column: 3 / span 2;
   grid-row: 1 / span 3;
 }
 .terminal--politicians .feed--right {
-  /* Move CASE down one row to make room for FILTER panel above. */
-  grid-row: 2 / span 3;
+  grid-row: 1 / span 4;
 }
 .terminal--politicians .historicalOutcomes {
-  grid-column: 3 / span 2;
+  grid-column: 3 / span 1;
   grid-row: 4 / span 1;
 }
 .terminal--politicians .companyTile {
-  grid-column: 5 / span 1;
+  grid-column: 4 / span 1;
   grid-row: 4 / span 1;
-}
-
-/* Politicians FILTER tile (above CASE) */
-.terminal--politicians .filterTile {
-  grid-column: 2 / span 1;
-  grid-row: 1 / span 1;
-}
-
-.filterList {
-  min-height: 0;
-  /* uses the same scrolling + sizing tokens as `.feedCompactList` */
 }
 
 html,
@@ -4510,20 +4669,6 @@ body {
   scrollbar-width: thin; /* Firefox */
   scrollbar-color: var(--intel-accent-scrollbar) transparent;
 }
-
-.filterRow {
-  /* Align with feed rows (same grid, padding, gaps, and baseline). */
-  width: 100%;
-}
-
-.filterRow.isActive {
-  background: var(--intel-accent-surface-strong);
-  box-shadow:
-    inset 2px 0 0 var(--intel-accent-inset),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
-}
-
-/* (old selectors were removed; filter now uses feed row cell classes) */
 
 /* ---- Container tiles (per-panel cqmin still used for gaps / graph / stats tiles) ---- */
 .worksheet,
@@ -4610,6 +4755,37 @@ body {
 .graph .panelTitle {
   overflow: visible;
   text-overflow: clip;
+}
+
+.graphPanelTitleWrap {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.graphPanelTitleWrap .panelTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graphPanelLastPrice {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.72);
+  font-variant-numeric: tabular-nums;
+}
+
+.terminal--insider .graph .graphPanelLastPrice,
+.terminal--politicians .graph .graphPanelLastPrice {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.58);
 }
 
 /* ---- BLANK TILES (1×1 placeholders) ---- */
@@ -4755,6 +4931,348 @@ body {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+/* Insider CASE txn rows: ROLE · SURNAME · CODE · VALUE · DATE */
+.feedRowCompact--txn {
+  grid-template-columns: 4.5em minmax(6em, 10em) 2.2em minmax(10ch, 1fr) auto;
+  gap: clamp(4px, 0.8cqmin, 8px);
+}
+
+/* ISSUER / FORM: full-width two-column rows (label left, value right) */
+.feedRowCompact--two.feedRowCompact--meta {
+  cursor: default;
+  pointer-events: none;
+}
+
+.feedRowCompact--two.feedRowCompact--meta:hover,
+.feedRowCompact--two.feedRowCompact--meta.isActive {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.feedRowCompact--two.feedRowCompact--meta .feedCellLabel {
+  flex-shrink: 0;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.feedRowCompact--two.feedRowCompact--meta .feedCellTicker {
+  color: rgba(255, 255, 255, 0.88);
+  letter-spacing: 0.04em;
+}
+
+.feedCellRole {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+
+.feedCellSurname {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.06em;
+  text-align: left;
+}
+
+.terminal--insider .feed--right .feedCellSurname,
+.terminal--politicians .feed--right .feedCellSurname {
+  max-width: none;
+}
+
+.feedCellCode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-width: 1.6em;
+  font-size: 0.9em;
+  letter-spacing: 0.08em;
+}
+
+.feedTxnCode--buy {
+  color: rgba(80, 255, 190, 0.88);
+}
+
+.feedTxnCode--sell {
+  color: rgba(255, 108, 120, 0.9);
+}
+
+.feedTxnCode--neutral {
+  color: rgba(200, 220, 210, 0.55);
+}
+
+.feedTxnDeriv {
+  margin-left: 1px;
+  font-size: 0.72em;
+  letter-spacing: 0.06em;
+  color: rgba(160, 200, 255, 0.65);
+}
+
+.feedCellValue {
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feedTxnVal--pos {
+  color: rgba(80, 255, 190, 0.82);
+}
+
+.feedTxnVal--neg {
+  color: rgba(255, 108, 120, 0.88);
+}
+
+/* Scroll feeds: never squash rows to fit the viewport — list scrolls instead */
+.feedCompactList.feedCompactList--scroll > .feedRowCompact,
+.feedCompactList.feedCompactList--scroll > .feedRowTodaySep {
+  flex-shrink: 0;
+}
+
+/* Insider CASE (right): header + scrollable body (same grid shell as other feeds) */
+.terminal--insider .feed--right.feedCompact,
+.terminal--politicians .feed--right.feedCompact {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.terminal--insider .feed--right .feedCompactBody,
+.terminal--politicians .feed--right .feedCompactBody {
+  grid-row: 2;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0 10px 10px;
+  box-sizing: border-box;
+}
+
+.terminal--insider .feed--right .feedCompactList.feedCompactList--scroll,
+.terminal--politicians .feed--right .feedCompactList.feedCompactList--scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* CASE panel: interior grid lines only (no outer box) */
+.terminal--insider .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable,
+.terminal--politicians .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable,
+.terminal--insider .feed--right .feedCompactList--caseTable,
+.terminal--politicians .feed--right .feedCompactList--caseTable {
+  --case-table-line: rgba(255, 255, 255, 0.09);
+  gap: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable > *:first-child,
+.terminal--politicians .feed--right .feedCompactList--caseTable > *:first-child {
+  border-top: none;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable > *:last-child,
+.terminal--politicians .feed--right .feedCompactList--caseTable > *:last-child {
+  border-bottom: none;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable > *:last-child.feedRowTodaySep,
+.terminal--politicians .feed--right .feedCompactList--caseTable > *:last-child.feedRowTodaySep {
+  border-bottom: none;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txn,
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta {
+  grid-template-columns: 4.5em minmax(6em, 10em) 2.2em minmax(10ch, 1fr) auto;
+  gap: 0;
+  padding: 0;
+  margin: 0;
+  min-height: calc(10px * 1.15 + 10px);
+  font-size: 10px;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  border: none;
+  border-bottom: 1px solid var(--case-table-line);
+  border-radius: 0;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedCellValue,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedCellValue {
+  min-width: 0;
+  padding-left: 14px;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCellCode,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCellCode {
+  padding-right: 10px;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCellWhen,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCellWhen {
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
+  justify-self: end;
+  padding-left: 4px;
+  padding-right: 6px;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellLabel {
+  grid-column: 1 / 5;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellTicker,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellTicker {
+  grid-column: 5;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCell,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCell,
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCell,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCell {
+  box-sizing: border-box;
+  min-height: calc(10px * 1.15 + 10px);
+  padding: 5px 6px;
+  border: none;
+  border-right: 1px solid var(--case-table-line);
+  display: flex;
+  align-items: center;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCell:first-child,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCell:first-child {
+  border-left: none;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCell:last-child,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCell:last-child,
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCellTicker,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCellTicker {
+  border-right: none;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedCellCode,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedCellCode {
+  justify-content: center;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedCellValue,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedCellValue,
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellTicker,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellTicker {
+  justify-content: flex-end;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn:hover,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txn:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn.isActive,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txn.isActive {
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact:has(+ .feedRowTodaySep),
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact:has(+ .feedRowTodaySep) {
+  border-bottom: none;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowTodaySep,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowTodaySep {
+  min-height: calc(10px * 1.15 + 10px);
+  margin: 0;
+  padding: 0;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  border: none;
+  border-top: 1px solid var(--case-table-line);
+  border-bottom: 1px solid var(--case-table-line);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.42);
+  text-shadow: none;
+  box-sizing: border-box;
+}
+
+/* Non-table CASE rows (fallback if class omitted) */
+.terminal--insider .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--two,
+.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--two {
+  grid-template-columns: minmax(4.5em, auto) minmax(0, 1fr);
+  min-height: calc(10px * 1.15 + 10px);
+  padding: 5px 8px;
+  gap: 10px;
+  font-size: 10px;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+  border-bottom-color: transparent;
+  border-radius: 6px;
+}
+
+.terminal--insider .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txn,
+.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txn {
+  grid-template-columns: 4.5em minmax(6em, 10em) 2.2em minmax(10ch, 1fr) auto;
+  min-height: calc(10px * 1.15 + 10px);
+  padding: 5px 8px;
+  gap: 6px;
+  font-size: 10px;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+  border-bottom-color: transparent;
+  border-radius: 6px;
+}
+
+.terminal--insider .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txn:hover,
+.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txn:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.terminal--insider .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txn.isActive,
+.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txn.isActive {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: none;
+}
+
+.terminal--insider .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowTodaySep,
+.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowTodaySep {
+  min-height: calc(10px * 1.15 + 10px);
+  margin: 0;
+  padding: 0;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+
+.terminal--insider .feed--right .feedCellRole,
+.terminal--insider .feed--right .feedCellSurname,
+.terminal--insider .feed--right .feedCellCode,
+.terminal--insider .feed--right .feedCellValue {
+  font-size: inherit;
+}
+
+.terminal--insider .feed--right .feedCellWhen,
+.terminal--politicians .feed--right .feedCellWhen {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
 /* CASE (insider tab): compact key/value feed look */
 .feedRowCompact--kv {
   grid-template-columns: minmax(0, 0.55fr) minmax(0, 1fr);
@@ -4810,7 +5328,7 @@ body {
   border-radius: 8px;
 }
 
-/* Non-selectable row between “today” and older events (see `buildFeedDisplayRows` in App.jsx) */
+/* Timeline band rows: TODAY, THIS MONTH, year (see `buildFeedDisplayRows` in App.jsx) */
 .feedRowTodaySep {
   flex-shrink: 0;
   display: flex;
@@ -4818,21 +5336,32 @@ body {
   justify-content: center;
   box-sizing: border-box;
   min-height: var(--feed-row-slot);
-  text-align: center;
-  padding: 0.06em 8px;
+  padding: 0;
   margin: 0;
   border: none;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+  background: transparent;
   font: inherit;
   font-size: 0.98em;
-  line-height: inherit;
+  line-height: 1;
   letter-spacing: 0.14em;
+  text-align: center;
   color: rgba(255, 255, 255, 0.5);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  text-shadow: none;
   user-select: none;
   pointer-events: none;
+}
+
+/* One rule between a feed row and a separator (no row bottom + sep top double line) */
+.feedCompactList > .feedRowCompact:has(+ .feedRowTodaySep),
+.feedCompactList > button.feedRowCompact:has(+ .feedRowTodaySep) {
+  border-bottom-color: transparent !important;
+}
+
+/* Cancel flex `gap` above/below separators in scroll feeds */
+.feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep {
+  margin-block: -3px;
 }
 
 .feedCellLabel {
