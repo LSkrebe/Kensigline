@@ -1148,6 +1148,11 @@
   letter-spacing: 0.04em;
 }
 
+.terminal--main .researchFeedRow--program {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
 .terminal--main .researchFeedRow--program .researchFeedRowName {
   font-weight: 600;
 }
@@ -1239,9 +1244,9 @@
 
 .terminal--main .researchFeedRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 5ch minmax(0, 1fr);
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
   box-sizing: border-box;
   margin: 0;
@@ -1272,20 +1277,25 @@
   box-shadow: none;
 }
 
+.terminal--main .researchFeedRowTicker {
+  min-width: 0;
+  width: 5ch;
+  max-width: 5ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
 .terminal--main .researchFeedRowName {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.88);
   letter-spacing: 0.02em;
-}
-
-.terminal--main .researchFeedRowTicker {
-  flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.45);
-  font-size: 9px;
-  letter-spacing: 0.06em;
 }
 
 .terminal--main .researchFeedPanel .feedRowTodaySep {

@@ -2310,8 +2310,8 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
               className={['researchFeedRow', it.ticker === selectedTicker ? 'isActive' : ''].filter(Boolean).join(' ')}
               onClick={() => onSelectTicker(it.ticker)}
             >
-              <span className="researchFeedRowName">{it.name}</span>
               <span className="researchFeedRowTicker mono">{it.ticker}</span>
+              <span className="researchFeedRowName">{it.name}</span>
             </button>
           )
         })}
@@ -3817,14 +3817,11 @@ function paperTimelineMonthGapLabel() {
   return 'THIS MONTH'
 }
 
-function isPaperTimelineItemThisYear(item) {
+/** Year separator label for the row group below the gap (matches FEED `buildFeedDisplayRows`). */
+function paperTimelineYearGapLabel(item) {
   const d = paperTimelineItemAt(item)
-  if (!d) return false
-  return d.getFullYear() === new Date().getFullYear()
-}
-
-function paperTimelineYearGapLabel() {
-  return 'THIS YEAR'
+  if (!d) return ''
+  return String(d.getFullYear())
 }
 
 /** Filings + insider / politician trades for the paper timeline (newest first). */
@@ -3926,10 +3923,13 @@ function BoshaPaperStructuredView({ documents = [], insiders = [], politicians =
               isPaperTimelineItemThisMonth(prev) &&
               !isPaperTimelineItemThisMonth(item) &&
               !showTodayGap
+            const prevAt = paperTimelineItemAt(prev)
+            const itemAt = paperTimelineItemAt(item)
             const showYearGap =
               prev &&
-              isPaperTimelineItemThisYear(prev) &&
-              !isPaperTimelineItemThisYear(item) &&
+              prevAt &&
+              itemAt &&
+              prevAt.getFullYear() !== itemAt.getFullYear() &&
               !showTodayGap &&
               !showMonthGap
             const showTimelineGap = showTodayGap || showMonthGap || showYearGap
@@ -3938,7 +3938,7 @@ function BoshaPaperStructuredView({ documents = [], insiders = [], politicians =
               {idx > 0 && !showTimelineGap ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
               {showTodayGap ? <ResearchPaperTimelineGap label="TODAY" /> : null}
               {showMonthGap ? <ResearchPaperTimelineGap label={paperTimelineMonthGapLabel()} /> : null}
-              {showYearGap ? <ResearchPaperTimelineGap label={paperTimelineYearGapLabel()} /> : null}
+              {showYearGap ? <ResearchPaperTimelineGap label={paperTimelineYearGapLabel(item)} /> : null}
               {item.kind === 'document' ? (
                 <ResearchPaperDocCard doc={item.document} ticker={t} />
               ) : (
