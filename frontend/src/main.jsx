@@ -21,38 +21,25 @@ class ErrorBoundary extends React.Component {
     if (!this.state.hasError) return this.props.children
     const errMsg = this.state.err?.message ? String(this.state.err.message) : null
     return (
-      <div style={{ padding: 18, color: 'rgba(160,255,200,0.9)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace' }}>
-        <div style={{ marginBottom: 8, letterSpacing: 0.5 }}>MERCERLINE</div>
-        <div style={{ opacity: 0.8, marginBottom: 14 }}>UI crashed. Reload to recover.</div>
-        {errMsg ? (
-          <pre
-            style={{
-              opacity: 0.75,
-              marginBottom: 14,
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-              fontSize: 11,
-              maxHeight: 180,
-              overflow: 'auto',
-            }}
-          >
-            {errMsg}
-          </pre>
-        ) : null}
-        <button
-          onClick={() => location.reload()}
-          style={{
-            height: 28,
-            padding: '0 10px',
-            borderRadius: 6,
-            border: '1px solid rgba(80,255,190,0.32)',
-            background: 'transparent',
-            color: 'rgba(160,255,200,0.9)',
-            cursor: 'pointer',
-          }}
-        >
-          Reload
-        </button>
+      <div className="appShellScreen">
+        <div className="appShellCard" role="alert">
+          <div className="appShellBrand" aria-label="Mercerline">
+            <img
+              className="appShellBrandLogo"
+              src="/mercerline_logo_transparent.png"
+              alt=""
+              width={28}
+              height={28}
+              decoding="async"
+            />
+            <span className="appShellBrandName">MERCERLINE</span>
+          </div>
+          <p className="appShellMessage">UI crashed. Reload to recover.</p>
+          {errMsg ? <pre className="appShellError">{errMsg}</pre> : null}
+          <button type="button" className="appShellBtn" onClick={() => location.reload()}>
+            Reload
+          </button>
+        </div>
       </div>
     )
   }

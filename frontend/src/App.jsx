@@ -8219,8 +8219,8 @@ function KensiglineTerminal() {
 
 function AuthBootScreen() {
   return (
-    <div className="authBoot mono" aria-live="polite">
-      Mercerline
+    <div className="appShellScreen appShellBoot" aria-live="polite" aria-busy="true">
+      <span className="appShellBootName">MERCERLINE</span>
     </div>
   )
 }

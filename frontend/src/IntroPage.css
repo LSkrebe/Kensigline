@@ -1047,16 +1047,3 @@
   max-width: 42ch;
 }
 
-.authBoot {
-  min-height: 100dvh;
-  height: 100dvh;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #06070a;
-  color: rgba(160, 200, 190, 0.7);
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-}
