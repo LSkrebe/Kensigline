@@ -2953,7 +2953,7 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
           <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
         </svg>
       </label>
-      <div className="researchFeedList scrollThin" role="list">
+      <div className="feedCompactList feedCompactList--scroll scrollThin" role="list">
         {displayRows.map((entry, i) => {
           if (entry.type === 'sep') {
             return (
@@ -2972,11 +2972,18 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
               key={it.rowKey ?? it.ticker}
               type="button"
               role="listitem"
-              className={['researchFeedRow', it.ticker === selectedTicker ? 'isActive' : ''].filter(Boolean).join(' ')}
+              className={[
+                'feedRowCompact',
+                'feedRowCompact--company',
+                'feedRowCompact--noCount',
+                it.ticker === selectedTicker ? 'isActive' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
               onClick={() => onSelectTicker(it.ticker)}
             >
-              <span className="researchFeedRowTicker mono">{it.ticker}</span>
-              <span className="researchFeedRowName">{it.name}</span>
+              <span className="feedCell feedCellSymbol mono kvFeedDim">{it.ticker}</span>
+              <span className="feedCell feedCellCompany kvFeedMain">{it.name}</span>
             </button>
           )
         })}
@@ -3135,7 +3142,7 @@ function BoshaTickerPanel({
             .join(' ')}
         >
           <div className="researchFeedSplitPane researchFeedSplitPane--feed">
-            <header className="feedCompactHeader researchFeedHeader">
+            <header className="feedCompactHeader">
               <div className="panelTitle feedCompactTitle">FEED</div>
               <div className="feedCompactHeaderEnd">{feedFilterBtn}</div>
             </header>
@@ -3145,7 +3152,7 @@ function BoshaTickerPanel({
           </div>
           {feedFilterOpen ? null : (
             <div className="researchFeedSplitPane researchFeedSplitPane--programs">
-              <header className="feedCompactHeader researchFeedHeader">
+              <header className="feedCompactHeader">
                 <div className="panelTitle feedCompactTitle">PROGRAMS</div>
               </header>
               <div className="researchFeedBody researchFeedBody--split researchFeedBody--programs">
@@ -3162,7 +3169,7 @@ function BoshaTickerPanel({
         </div>
       ) : (
         <>
-          <header className="feedCompactHeader researchFeedHeader">
+          <header className="feedCompactHeader">
             <div className="panelTitle feedCompactTitle">FEED</div>
             <div className="feedCompactHeaderEnd">{feedFilterBtn}</div>
           </header>
@@ -4881,9 +4888,10 @@ function ResearchFeedPaneShell({ filterOpen, filterPicker, children, split = fal
   return (
     <div
       className={[
+        'feedCompactBody',
         'researchFeedBody',
         split ? 'researchFeedBody--split' : '',
-        filterOpen ? 'researchFeedBody--filterOpen' : '',
+        filterOpen ? 'feedCompactBody--filterOpen researchFeedBody--filterOpen' : '',
       ]
         .filter(Boolean)
         .join(' ')}
