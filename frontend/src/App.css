@@ -4484,6 +4484,129 @@ button.boshaPaperCopyIcon:focus-visible {
   letter-spacing: 0.08em;
 }
 
+.terminal--investigate .feed--left .feedCompactHeaderEnd {
+  align-items: center;
+  height: 100%;
+}
+
+.terminal--investigate .feed--left .feedCompactFilterBtn {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.terminal--investigate .feed--left .feedCompactFilterBtn:hover {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.terminal--investigate .feed--left .feedCompactFilterBtn.isActive {
+  color: var(--cyan);
+}
+
+.terminal--investigate .feed--left .feedCompactBody--filterOpen {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.terminal--investigate .feed--left .feedCompactMain {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.terminal--investigate .feed--left .feedCompactBody--filterOpen .feedCompactMain {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.terminal--investigate .feed--left .feedCompactBody--filterOpen .feedCompactFilterPicker {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 10px 10px;
+  box-sizing: border-box;
+  background: inherit;
+}
+
+.feedFilterTypeRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.feedFilterTypeRow input {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  accent-color: var(--cyan);
+  cursor: pointer;
+}
+
+.feedFilterTypeLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feedFilterTypeCode {
+  flex-shrink: 0;
+  justify-self: end;
+  min-width: 1.25em;
+  text-align: right;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+/* Match investigate FEED list row rhythm (see `.feedRowCompact` on feed--left) */
+.terminal--insider .feed--left .feedFilterTypeRow,
+.terminal--politicians .feed--left .feedFilterTypeRow {
+  gap: 6px;
+  min-height: calc(10px * 1.15 + 10px);
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 10px;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+}
+
+.terminal--insider .feed--left .feedFilterTypeRow:hover,
+.terminal--politicians .feed--left .feedFilterTypeRow:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.terminal--insider .feed--left .feedFilterTypeLabel,
+.terminal--politicians .feed--left .feedFilterTypeLabel {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.terminal--insider .feed--left .feedFilterTypeCode,
+.terminal--politicians .feed--left .feedFilterTypeCode {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.52);
+}
+
 .terminal--insider .feedCompactList,
 
 .terminal--politicians .feedCompactList {
@@ -5231,6 +5354,46 @@ body {
   flex-shrink: 0;
   padding: 6px 8px 5px;
   border-bottom: 1px solid var(--grid);
+}
+
+.feedCompactHeaderEnd {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.feedCompactFilterBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  line-height: 0;
+  transition: color 0.15s ease;
+}
+
+.feedCompactFilterBtn:hover {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.feedCompactFilterBtn.isActive {
+  color: var(--cyan);
+}
+
+.feedCompactFilterBtn:focus-visible {
+  outline: 1px solid rgba(168, 196, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.feedCompactFilterIcon {
+  display: block;
 }
 
 .feedCompactMeta {

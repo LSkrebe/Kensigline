@@ -462,6 +462,40 @@ const FORM4_TXN_MOCK_SAMPLES = [
 
 const FORM4_TXN_CODES_CYCLE = ['P', 'S', 'A', 'M', 'F', 'G', 'D', 'V', 'I', 'C', 'E', 'H', 'J', 'K', 'L', 'O', 'U', 'W', 'Z', 'X']
 
+const FORM4_TXN_LABELS = {
+  P: 'Purchase',
+  S: 'Sale',
+  A: 'Award / grant',
+  M: 'Option exercise',
+  F: 'Tax withholding',
+  G: 'Gift',
+  D: 'Disposition to issuer',
+  V: 'Voluntary',
+  I: 'Discretionary',
+  C: 'Conversion',
+  E: 'Expiration',
+  H: 'Expiration (short)',
+  J: 'Other',
+  K: 'Equity swap',
+  L: 'Small acquisition',
+  O: 'Exercise out-of-the-money',
+  U: 'Tender',
+  W: 'Will / inheritance',
+  Z: 'Voting trust',
+  X: 'Exercise in-the-money',
+}
+
+const INVESTIGATE_INSIDER_TXN_TYPES = FORM4_TXN_CODES_CYCLE.map((id) => ({
+  id,
+  label: FORM4_TXN_LABELS[id] ?? 'Transaction',
+}))
+
+const INVESTIGATE_POLITICIAN_TXN_TYPES = [
+  { id: 'P', label: 'Purchase' },
+  { id: 'S', label: 'Sale' },
+  { id: 'E', label: 'Exchange' },
+]
+
 const INSIDER_ISSUERS = [
   'Horizon Grain Co.',
   'SilverSpruce Therapeutics',
@@ -2071,6 +2105,57 @@ function politicianCaseRowHasTxn(r) {
   if (range) return true
   const amt = Number(r?.amountUsd ?? 0)
   return Number.isFinite(amt) && amt > 0
+}
+
+function investigateCaseRowTxnCode(r, isPolitician) {
+  if (isPolitician) {
+    if (!politicianCaseRowHasTxn(r)) return null
+    const code = politicianTxnCodeFromRaw(r?.transactionType ?? r?.transactionCode)
+    return code === '—' ? null : code
+  }
+  const code = String(r?.transactionCode ?? '').trim().toUpperCase()
+  const usd = Number(r?.amountUsd ?? 0)
+  if (!code && !(Number.isFinite(usd) && usd > 0)) return null
+  return code || null
+}
+
+function investigateCaseRowPassesTxnFilter(r, enabledCodes, isPolitician) {
+  if (!enabledCodes?.size) return false
+  const code = investigateCaseRowTxnCode(r, isPolitician)
+  if (!code) return false
+  return enabledCodes.has(code)
+}
+
+function filterInvestigateCaseSheetRows(caseSheet, enabledCodes, isPolitician) {
+  if (!caseSheet || !enabledCodes?.size) return caseSheet
+  const rows = (caseSheet.rows ?? []).filter((r) => investigateCaseRowPassesTxnFilter(r, enabledCodes, isPolitician))
+  return { ...caseSheet, rows }
+}
+
+/** Drop companies with no matching worksheet rows; recompute feed `at` + today counts. */
+function applyInvestigateFeedTxnFilter(rows, enabledCodes, isPolitician) {
+  if (!enabledCodes?.size) return []
+  const out = []
+  for (const row of rows ?? []) {
+    const cs = row?.caseSheet
+    if (!Array.isArray(cs?.rows) || !cs.rows.length) {
+      out.push(row)
+      continue
+    }
+    const filtered = filterInvestigateCaseSheetRows(cs, enabledCodes, isPolitician)
+    if (!filtered.rows.length) continue
+    out.push(normalizeFeedRowActivity({ ...row, caseSheet: filtered }))
+  }
+  return out
+}
+
+function applyInvestigateTxnFilterToFeedRow(row, enabledCodes, isPolitician) {
+  if (!row) return row
+  const cs = row?.caseSheet
+  if (!Array.isArray(cs?.rows) || !cs.rows.length) return row
+  const filtered = filterInvestigateCaseSheetRows(cs, enabledCodes, isPolitician)
+  if (!filtered.rows.length) return { ...row, caseSheet: filtered }
+  return normalizeFeedRowActivity({ ...row, caseSheet: filtered })
 }
 
 function formatPoliticianTxnValue(r) {
@@ -4418,28 +4503,23 @@ function paperTimelineItemAt(item) {
   return Number.isFinite(d.getTime()) ? d : null
 }
 
-function isPaperTimelineItemToday(item) {
-  const d = paperTimelineItemAt(item)
-  if (!d) return false
-  return isSameLocalCalendarDay(d, new Date())
-}
-
-function isPaperTimelineItemThisMonth(item) {
-  const d = paperTimelineItemAt(item)
-  if (!d) return false
-  const now = new Date()
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
-}
-
-function paperTimelineMonthGapLabel() {
-  return 'THIS MONTH'
-}
-
-/** Year separator label for the row group below the gap (matches FEED `buildFeedDisplayRows`). */
-function paperTimelineYearGapLabel(item) {
-  const d = paperTimelineItemAt(item)
-  if (!d) return ''
-  return String(d.getFullYear())
+/** Paper timeline rows + separators (same rules as research FEED: `buildFeedDisplayRows`). */
+function buildPaperDisplayRows(timelineRows) {
+  const items = (timelineRows ?? []).map((item) => {
+    const at = paperTimelineItemAt(item)
+    return { id: item.id, at: at ?? item.at ?? null, item }
+  })
+  const dated = items.filter((it) => {
+    const t = new Date(it.at).getTime()
+    return it.at != null && Number.isFinite(t)
+  })
+  const undated = items.filter((it) => {
+    const t = new Date(it.at).getTime()
+    return it.at == null || !Number.isFinite(t)
+  })
+  const sorted = [...sortFeedRowsByAtDesc(dated), ...undated]
+  if (!sorted.length) return []
+  return buildFeedDisplayRows(sorted, { sepMode: 'today+years', exclusiveSeps: true })
 }
 
 /** Filings + insider / politician trades for the paper timeline (newest first). */
@@ -4529,47 +4609,35 @@ function BoshaPaperStructuredView({ documents = [], insiders = [], politicians =
     () => buildPaperTimelineItems({ documents, insiders, politicians }),
     [documents, insiders, politicians],
   )
+  const displayRows = useMemo(() => buildPaperDisplayRows(timelineRows), [timelineRows])
   return (
     <div className="researchPaperBody researchPaperBody--documentsOnly">
-      {timelineRows.length ? (
+      {displayRows.length ? (
         <div className="researchPaperDocuments" aria-label="Filings and transactions">
-          {timelineRows.map((item, idx) => {
-            const prev = idx > 0 ? timelineRows[idx - 1] : null
-            const showTodayGap = prev && isPaperTimelineItemToday(prev) && !isPaperTimelineItemToday(item)
-            const showMonthGap =
-              prev &&
-              isPaperTimelineItemThisMonth(prev) &&
-              !isPaperTimelineItemThisMonth(item) &&
-              !showTodayGap
-            const prevAt = paperTimelineItemAt(prev)
-            const itemAt = paperTimelineItemAt(item)
-            const showYearGap =
-              prev &&
-              prevAt &&
-              itemAt &&
-              prevAt.getFullYear() !== itemAt.getFullYear() &&
-              !showTodayGap &&
-              !showMonthGap
-            const showTimelineGap = showTodayGap || showMonthGap || showYearGap
+          {displayRows.map((entry, idx) => {
+            if (entry.type === 'sep') {
+              return (
+                <Fragment key={entry.key}>
+                  {idx > 0 ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
+                  <ResearchPaperTimelineGap label={entry.label} />
+                </Fragment>
+              )
+            }
+            const item = entry.row.item
             return (
-            <Fragment key={item.id}>
-              {idx > 0 && showTimelineGap ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
-              {showTodayGap ? <ResearchPaperTimelineGap label="TODAY" /> : null}
-              {showMonthGap ? <ResearchPaperTimelineGap label={paperTimelineMonthGapLabel()} /> : null}
-              {showYearGap ? <ResearchPaperTimelineGap label={paperTimelineYearGapLabel(item)} /> : null}
-              {idx > 0 && showTimelineGap ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
-              {idx > 0 && !showTimelineGap ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
-              {item.kind === 'document' ? (
-                <ResearchPaperDocCard doc={item.document} ticker={t} />
-              ) : (
-                <ResearchPaperTxnCard
-                  source={item.source}
-                  filedAt={item.at}
-                  name={item.name}
-                  amount={item.amount}
-                />
-              )}
-            </Fragment>
+              <Fragment key={item.id}>
+                {idx > 0 ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
+                {item.kind === 'document' ? (
+                  <ResearchPaperDocCard doc={item.document} ticker={t} />
+                ) : (
+                  <ResearchPaperTxnCard
+                    source={item.source}
+                    filedAt={item.at}
+                    name={item.name}
+                    amount={item.amount}
+                  />
+                )}
+              </Fragment>
             )
           })}
         </div>
@@ -5658,6 +5726,20 @@ function CompanyPanel({ company, ticker, backendUp, price = null }) {
   )
 }
 
+function FeedFilterIcon() {
+  return (
+    <svg className="feedCompactFilterIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M4 6h16l-6 7v5l-4 2v-7L4 6z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 function CompactFeed({
   placement,
   title,
@@ -5667,6 +5749,14 @@ function CompactFeed({
   panelClassName = '',
   /** Header right: page indicator | invisible ghost (layout) | pagination-only rail styling. */
   headerMetaMode = 'full',
+  /** Investigate FEED: borderless filter control beside the title row. */
+  showFeedFilter = false,
+  onFeedFilterClick,
+  feedFilterActive = false,
+  feedFilterOpen = false,
+  feedFilterTypes = [],
+  feedFilterEnabled = null,
+  onFeedFilterToggle,
   /** Drug / indication / phase stacked; row height uses triple `--feed-row-slot`. */
   programsStackedRows = false,
   /** PROGRAMS rail: show grouped timeline rows (separators per program). */
@@ -5791,33 +5881,50 @@ function CompactFeed({
         .join(' ')}
       aria-label={title}
     >
-      <header
-        className="feedCompactHeader"
-      >
+      <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">{title}</div>
-        {!scrollMode && headerMetaMode === 'full' ? (
-          <div className="feedCompactMeta feedCompactMeta--paginationOnly">
-            <span className="feedPageInd">
-              {total ? `${page + 1}/${totalPages}` : '0/0'}
-            </span>
-          </div>
-        ) : null}
-        {!scrollMode && headerMetaMode === 'ghost' ? (
-          <div className="feedCompactMeta feedCompactMeta--ghost" aria-hidden="true">
-            <span className="feedPageInd">
-              {total ? `${page + 1}/${totalPages}` : '0/0'}
-            </span>
-          </div>
-        ) : null}
-        {!scrollMode && headerMetaMode === 'paginationOnly' ? (
-          <div className="feedCompactMeta feedCompactMeta--paginationOnly">
-            <span className="feedPageInd">{total ? `${page + 1}/${totalPages}` : '0/0'}</span>
-          </div>
-        ) : null}
+        <div className="feedCompactHeaderEnd">
+          {showFeedFilter ? (
+            <button
+              type="button"
+              className={['feedCompactFilterBtn', feedFilterActive ? 'isActive' : ''].filter(Boolean).join(' ')}
+              aria-label="Filter feed"
+              title="Filter"
+              aria-pressed={feedFilterActive || undefined}
+              onClick={() => onFeedFilterClick?.()}
+            >
+              <FeedFilterIcon />
+            </button>
+          ) : null}
+          {!scrollMode && headerMetaMode === 'full' ? (
+            <div className="feedCompactMeta feedCompactMeta--paginationOnly">
+              <span className="feedPageInd">
+                {total ? `${page + 1}/${totalPages}` : '0/0'}
+              </span>
+            </div>
+          ) : null}
+          {!scrollMode && headerMetaMode === 'ghost' ? (
+            <div className="feedCompactMeta feedCompactMeta--ghost" aria-hidden="true">
+              <span className="feedPageInd">
+                {total ? `${page + 1}/${totalPages}` : '0/0'}
+              </span>
+            </div>
+          ) : null}
+          {!scrollMode && headerMetaMode === 'paginationOnly' ? (
+            <div className="feedCompactMeta feedCompactMeta--paginationOnly">
+              <span className="feedPageInd">{total ? `${page + 1}/${totalPages}` : '0/0'}</span>
+            </div>
+          ) : null}
+        </div>
       </header>
       {showFeedSearch ? (
-        <div className="feedCompactBody">
-          {feedSearchDual ? (
+        <div
+          className={['feedCompactBody', feedFilterOpen ? 'feedCompactBody--filterOpen' : '']
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <div className="feedCompactMain" aria-hidden={feedFilterOpen || undefined}>
+            {feedSearchDual ? (
             <div className="researchFeedSearchStack">
               <div className="researchFeedSearchStackFields">
                 <label className="researchFeedSearchRow">
@@ -5873,14 +5980,14 @@ function CompactFeed({
               </svg>
             </label>
           )}
-          <div
-            ref={listRef}
-            className={['feedCompactList', 'scrollThin', scrollMode ? 'feedCompactList--scroll' : '']
-              .filter(Boolean)
-              .join(' ')}
-            role="list"
-            onScroll={scrollMode ? onScrollLoadMore : undefined}
-          >
+            <div
+              ref={listRef}
+              className={['feedCompactList', 'scrollThin', scrollMode ? 'feedCompactList--scroll' : '']
+                .filter(Boolean)
+                .join(' ')}
+              role="list"
+              onScroll={scrollMode ? onScrollLoadMore : undefined}
+            >
             {visibleRows.map((entry, i) => {
               const globalIdx = scrollMode ? i : pageStart + i
               if (entry.type === 'sep') {
@@ -5977,7 +6084,27 @@ function CompactFeed({
                 </button>
               )
             })}
+            </div>
           </div>
+          {feedFilterOpen && feedFilterTypes.length ? (
+            <div
+              className="feedCompactFilterPicker scrollThin"
+              role="group"
+              aria-label="Filter transaction types"
+            >
+              {feedFilterTypes.map(({ id, label }) => (
+                <label key={id} className="feedFilterTypeRow">
+                  <input
+                    type="checkbox"
+                    checked={feedFilterEnabled?.has(id) ?? false}
+                    onChange={() => onFeedFilterToggle?.(id)}
+                  />
+                  <span className="feedFilterTypeLabel">{label}</span>
+                  <span className="feedFilterTypeCode mono">{id}</span>
+                </label>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : (
         <div
@@ -6452,6 +6579,15 @@ function KensiglineTerminal() {
   const [activeTab, setActiveTab] = useState('main') // main | investigate | settings
   const [intelMode, setIntelMode] = useState('market') // market | clinical
   const [investigateMode, setInvestigateMode] = useState('insider') // insider | politicians
+  const [investigateFeedFilterOpen, setInvestigateFeedFilterOpen] = useState(false)
+  const [investigateInsiderTxnFilters, setInvestigateInsiderTxnFilters] = useState(
+    () => new Set(FORM4_TXN_CODES_CYCLE),
+  )
+  const [investigatePoliticianTxnFilters, setInvestigatePoliticianTxnFilters] = useState(
+    () => new Set(PTR_TXN_CODES_CYCLE),
+  )
+  const [investigateInsiderTxnFiltersDraft, setInvestigateInsiderTxnFiltersDraft] = useState(null)
+  const [investigatePoliticianTxnFiltersDraft, setInvestigatePoliticianTxnFiltersDraft] = useState(null)
   const tabBeforeSettingsRef = useRef('main')
 
   const [insiderIdx, setInsiderIdx] = useState(0)
@@ -6849,10 +6985,15 @@ function KensiglineTerminal() {
     [backendUp, insiderFeedLive],
   )
 
+  const insiderFeedRowsTxnFiltered = useMemo(
+    () => applyInvestigateFeedTxnFilter(insiderFeedRowsBase, investigateInsiderTxnFilters, false),
+    [insiderFeedRowsBase, investigateInsiderTxnFilters],
+  )
+
   const insiderFilteredFeed = useMemo(() => {
     const companyQ = String(insiderCompanyQuery ?? '').trim()
     const personQ = String(insiderPersonQuery ?? '').trim()
-    let rows = insiderFeedRowsBase
+    let rows = insiderFeedRowsTxnFiltered
     if (companyQ || personQ) {
       rows = rows.filter(
         (r) =>
@@ -6860,12 +7001,12 @@ function KensiglineTerminal() {
       )
     }
     return sortFeedRowsByAtDesc(rows)
-  }, [insiderFeedRowsBase, insiderCompanyQuery, insiderPersonQuery])
+  }, [insiderFeedRowsTxnFiltered, insiderCompanyQuery, insiderPersonQuery])
 
   useEffect(() => {
     if (activeTab !== 'investigate' || investigateMode !== 'insider') return
     setInsiderIdx(0)
-  }, [insiderCompanyQuery, insiderPersonQuery, activeTab])
+  }, [insiderCompanyQuery, insiderPersonQuery, activeTab, investigateInsiderTxnFilters, investigateMode])
 
   const insiderSelected =
     insiderFilteredFeed.length > 0
@@ -6873,14 +7014,17 @@ function KensiglineTerminal() {
       : null
 
   const insiderFeedDisplay = useMemo(() => {
-    if (!backendUp || !insiderClusterLive || !insiderSelected?.ticker) return insiderFilteredFeed
-    return patchInvestigateFeedRowFromCluster(
-      insiderFilteredFeed,
-      insiderSelected.ticker,
-      insiderClusterLive,
-      insiderCaseSheetFromClusterLive,
-    )
-  }, [backendUp, insiderFilteredFeed, insiderClusterLive, insiderSelected?.ticker])
+    let rows = insiderFilteredFeed
+    if (backendUp && insiderClusterLive && insiderSelected?.ticker) {
+      rows = patchInvestigateFeedRowFromCluster(
+        insiderFilteredFeed,
+        insiderSelected.ticker,
+        insiderClusterLive,
+        insiderCaseSheetFromClusterLive,
+      )
+    }
+    return applyInvestigateFeedTxnFilter(rows, investigateInsiderTxnFilters, false)
+  }, [backendUp, insiderFilteredFeed, insiderClusterLive, insiderSelected?.ticker, investigateInsiderTxnFilters])
 
   useEffect(() => {
     let alive = true
@@ -6931,10 +7075,15 @@ function KensiglineTerminal() {
     [backendUp, politiciansFeedLive],
   )
 
+  const politiciansFeedRowsTxnFiltered = useMemo(
+    () => applyInvestigateFeedTxnFilter(politiciansFeedRowsBase, investigatePoliticianTxnFilters, true),
+    [politiciansFeedRowsBase, investigatePoliticianTxnFilters],
+  )
+
   const politiciansFilteredFeed = useMemo(() => {
     const companyQ = String(politiciansCompanyQuery ?? '').trim()
     const politicianQ = String(politiciansPoliticianQuery ?? '').trim()
-    let rows = politiciansFeedRowsBase
+    let rows = politiciansFeedRowsTxnFiltered
     if (companyQ || politicianQ) {
       rows = rows.filter(
         (r) =>
@@ -6943,12 +7092,12 @@ function KensiglineTerminal() {
       )
     }
     return sortFeedRowsByAtDesc(rows)
-  }, [politiciansFeedRowsBase, politiciansCompanyQuery, politiciansPoliticianQuery])
+  }, [politiciansFeedRowsTxnFiltered, politiciansCompanyQuery, politiciansPoliticianQuery])
 
   useEffect(() => {
     if (activeTab !== 'investigate' || investigateMode !== 'politicians') return
     setPoliticiansIdx(0)
-  }, [politiciansCompanyQuery, politiciansPoliticianQuery, activeTab])
+  }, [politiciansCompanyQuery, politiciansPoliticianQuery, activeTab, investigatePoliticianTxnFilters, investigateMode])
 
   const politiciansSelected =
     politiciansFilteredFeed.length > 0
@@ -6956,32 +7105,53 @@ function KensiglineTerminal() {
       : null
 
   const politiciansFeedDisplay = useMemo(() => {
-    if (!backendUp || !politiciansClusterLive || !politiciansSelected?.ticker) return politiciansFilteredFeed
-    return patchInvestigateFeedRowFromCluster(
-      politiciansFilteredFeed,
-      politiciansSelected.ticker,
-      politiciansClusterLive,
-      politiciansCaseSheetFromClusterLive,
-    )
-  }, [backendUp, politiciansFilteredFeed, politiciansClusterLive, politiciansSelected?.ticker])
+    let rows = politiciansFilteredFeed
+    if (backendUp && politiciansClusterLive && politiciansSelected?.ticker) {
+      rows = patchInvestigateFeedRowFromCluster(
+        politiciansFilteredFeed,
+        politiciansSelected.ticker,
+        politiciansClusterLive,
+        politiciansCaseSheetFromClusterLive,
+      )
+    }
+    return applyInvestigateFeedTxnFilter(rows, investigatePoliticianTxnFilters, true)
+  }, [
+    backendUp,
+    politiciansFilteredFeed,
+    politiciansClusterLive,
+    politiciansSelected?.ticker,
+    investigatePoliticianTxnFilters,
+  ])
 
   const insiderSelectedResolved = useMemo(() => {
-    if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'insider' || !insiderClusterLive) return insiderSelected
-    const caseSheet = insiderCaseSheetFromClusterLive(insiderClusterLive, insiderSelected)
-    return normalizeFeedRowActivity({ ...insiderSelected, caseSheet })
-  }, [backendUp, activeTab, insiderSelected, insiderClusterLive])
+    let base = insiderSelected
+    if (backendUp && activeTab === 'investigate' && investigateMode === 'insider' && insiderClusterLive) {
+      const caseSheet = insiderCaseSheetFromClusterLive(insiderClusterLive, insiderSelected)
+      base = normalizeFeedRowActivity({ ...insiderSelected, caseSheet })
+    }
+    return applyInvestigateTxnFilterToFeedRow(base, investigateInsiderTxnFilters, false)
+  }, [backendUp, activeTab, investigateMode, insiderSelected, insiderClusterLive, investigateInsiderTxnFilters])
 
   const politiciansSelectedResolved = useMemo(() => {
-    if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'politicians' || !politiciansClusterLive)
-      return politiciansSelected ?? null
-    const companyName =
-      String(politiciansClusterLive?.issuer?.name ?? '').trim() ||
-      String(politiciansSelected?.company ?? '').trim() ||
-      politiciansSelected?.ticker ||
-      '—'
-    const caseSheet = politiciansCaseSheetFromClusterLive(politiciansClusterLive, politiciansSelected)
-    return normalizeFeedRowActivity({ ...politiciansSelected, company: companyName, caseSheet })
-  }, [backendUp, activeTab, politiciansSelected, politiciansClusterLive])
+    let base = politiciansSelected ?? null
+    if (backendUp && activeTab === 'investigate' && investigateMode === 'politicians' && politiciansClusterLive) {
+      const companyName =
+        String(politiciansClusterLive?.issuer?.name ?? '').trim() ||
+        String(politiciansSelected?.company ?? '').trim() ||
+        politiciansSelected?.ticker ||
+        '—'
+      const caseSheet = politiciansCaseSheetFromClusterLive(politiciansClusterLive, politiciansSelected)
+      base = normalizeFeedRowActivity({ ...politiciansSelected, company: companyName, caseSheet })
+    }
+    return applyInvestigateTxnFilterToFeedRow(base, investigatePoliticianTxnFilters, true)
+  }, [
+    backendUp,
+    activeTab,
+    investigateMode,
+    politiciansSelected,
+    politiciansClusterLive,
+    investigatePoliticianTxnFilters,
+  ])
 
   // Insider cluster: case worksheet + context
   useEffect(() => {
@@ -7038,6 +7208,67 @@ function KensiglineTerminal() {
   const investigateOpen = activeTab === 'investigate'
   const investigateIsInsider = investigateOpen && investigateMode === 'insider'
   const investigateIsPoliticians = investigateOpen && investigateMode === 'politicians'
+
+  const investigateTxnFilterEnabled = investigateIsInsider
+    ? investigateInsiderTxnFilters
+    : investigatePoliticianTxnFilters
+
+  const investigateTxnFilterDraft = investigateIsInsider
+    ? investigateInsiderTxnFiltersDraft
+    : investigatePoliticianTxnFiltersDraft
+
+  const investigateTxnFilterPickerEnabled =
+    investigateFeedFilterOpen && investigateTxnFilterDraft ? investigateTxnFilterDraft : investigateTxnFilterEnabled
+
+  const openInvestigateFeedFilter = useCallback(() => {
+    if (investigateIsInsider) {
+      setInvestigateInsiderTxnFiltersDraft(new Set(investigateInsiderTxnFilters))
+      setInvestigatePoliticianTxnFiltersDraft(null)
+    } else {
+      setInvestigatePoliticianTxnFiltersDraft(new Set(investigatePoliticianTxnFilters))
+      setInvestigateInsiderTxnFiltersDraft(null)
+    }
+    setInvestigateFeedFilterOpen(true)
+  }, [investigateIsInsider, investigateInsiderTxnFilters, investigatePoliticianTxnFilters])
+
+  const closeInvestigateFeedFilter = useCallback(() => {
+    if (investigateInsiderTxnFiltersDraft) {
+      setInvestigateInsiderTxnFilters(new Set(investigateInsiderTxnFiltersDraft))
+    }
+    if (investigatePoliticianTxnFiltersDraft) {
+      setInvestigatePoliticianTxnFilters(new Set(investigatePoliticianTxnFiltersDraft))
+    }
+    setInvestigateInsiderTxnFiltersDraft(null)
+    setInvestigatePoliticianTxnFiltersDraft(null)
+    setInvestigateFeedFilterOpen(false)
+  }, [investigateInsiderTxnFiltersDraft, investigatePoliticianTxnFiltersDraft])
+
+  const onInvestigateFeedFilterClick = useCallback(() => {
+    if (investigateFeedFilterOpen) closeInvestigateFeedFilter()
+    else openInvestigateFeedFilter()
+  }, [investigateFeedFilterOpen, closeInvestigateFeedFilter, openInvestigateFeedFilter])
+
+  const toggleInvestigateTxnFilter = useCallback(
+    (id) => {
+      const code = String(id ?? '').trim().toUpperCase()
+      if (!code) return
+      const patch = (prev) => {
+        const base = prev ?? new Set()
+        const next = new Set(base)
+        if (next.has(code)) next.delete(code)
+        else next.add(code)
+        return next
+      }
+      if (investigateFeedFilterOpen) {
+        if (investigateIsInsider) setInvestigateInsiderTxnFiltersDraft(patch)
+        else setInvestigatePoliticianTxnFiltersDraft(patch)
+        return
+      }
+      if (investigateIsInsider) setInvestigateInsiderTxnFilters(patch)
+      else setInvestigatePoliticianTxnFilters(patch)
+    },
+    [investigateFeedFilterOpen, investigateIsInsider],
+  )
 
   const selectedTicker = useMemo(() => {
     if (investigateIsInsider) return insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
@@ -7144,9 +7375,11 @@ function KensiglineTerminal() {
     if (!investigateOpen) return []
     const cs = investigateIsPoliticians ? politiciansSelectedResolved?.caseSheet : insiderSelectedResolved?.caseSheet
     if (!cs?.isForm4) return []
+    const enabled = investigateIsPoliticians ? investigatePoliticianTxnFilters : investigateInsiderTxnFilters
     const out = []
     for (const r of cs.rows ?? []) {
       if (investigateIsPoliticians && !politicianCaseRowHasTxn(r)) continue
+      if (!investigateCaseRowPassesTxnFilter(r, enabled, investigateIsPoliticians)) continue
       const d = new Date(r.ts)
       if (Number.isNaN(d.getTime())) continue
       out.push(d)
@@ -7157,6 +7390,8 @@ function KensiglineTerminal() {
     investigateIsPoliticians,
     insiderSelectedResolved?.caseSheet,
     politiciansSelectedResolved?.caseSheet,
+    investigateInsiderTxnFilters,
+    investigatePoliticianTxnFilters,
   ])
 
 
@@ -7166,6 +7401,7 @@ function KensiglineTerminal() {
     const showMoney = Boolean(cs.isForm4)
     const trades = []
     for (const r of cs.rows ?? []) {
+      if (!investigateCaseRowPassesTxnFilter(r, investigateInsiderTxnFilters, false)) continue
       const row = caseSheetRowToTxnFeedRow(r, { showMoney })
       if (row) trades.push(row)
     }
@@ -7173,7 +7409,7 @@ function KensiglineTerminal() {
     return appendCaseTxnTimeline([], filterCaseTradesForPriceRange(trades, insiderChartRange), 'today+years', {
       priceRange: insiderChartRange,
     })
-  }, [insiderSelectedResolved?.caseSheet, insiderChartRange])
+  }, [insiderSelectedResolved?.caseSheet, insiderChartRange, investigateInsiderTxnFilters])
 
   const politiciansCaseFeedRows = useMemo(() => {
     const cs = politiciansSelectedResolved?.caseSheet
@@ -7181,13 +7417,14 @@ function KensiglineTerminal() {
     const showMoney = Boolean(cs.isForm4)
     const trades = []
     for (const r of cs.rows ?? []) {
+      if (!investigateCaseRowPassesTxnFilter(r, investigatePoliticianTxnFilters, true)) continue
       const row = caseSheetRowToPoliticianTxnFeedRow(r, { showMoney })
       if (row) trades.push(row)
     }
     return appendCaseTxnTimeline([], filterCaseTradesForPriceRange(trades, politiciansChartRange), 'today+years', {
       priceRange: politiciansChartRange,
     })
-  }, [politiciansSelectedResolved?.caseSheet, politiciansChartRange])
+  }, [politiciansSelectedResolved?.caseSheet, politiciansChartRange, investigatePoliticianTxnFilters])
 
   const politiciansCaseTradeRowIndices = useMemo(() => {
     const idxs = []
@@ -7337,6 +7574,15 @@ function KensiglineTerminal() {
             todayGroupByEvents
             scrollMode
             rowPrimary="company"
+            showFeedFilter
+            feedFilterActive={investigateFeedFilterOpen}
+            onFeedFilterClick={onInvestigateFeedFilterClick}
+            feedFilterOpen={investigateFeedFilterOpen}
+            feedFilterTypes={
+              investigateIsInsider ? INVESTIGATE_INSIDER_TXN_TYPES : INVESTIGATE_POLITICIAN_TXN_TYPES
+            }
+            feedFilterEnabled={investigateTxnFilterPickerEnabled}
+            onFeedFilterToggle={toggleInvestigateTxnFilter}
             showFeedSearch
             feedSearchDual
             feedCompanyQuery={investigateIsInsider ? insiderCompanyQuery : politiciansCompanyQuery}
