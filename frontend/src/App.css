@@ -1222,10 +1222,18 @@
   --context-surface-border: rgba(255, 255, 255, 0.09);
 }
 
+.terminal--main .mainContextPanel.feed.feedCompact {
+  position: relative;
+  isolation: isolate;
+  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
+}
+
 .terminal--main .mainContextPanel--market .researchContextHeader,
 .terminal--main .mainContextPanel--clinical .researchContextHeader {
   border-bottom: none;
   padding: 0 12px;
+  position: relative;
+  z-index: 1;
 }
 
 .terminal--main .mainContextPanel--market .feedCompactTitle,
@@ -1248,6 +1256,9 @@
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  position: relative;
+  z-index: 1;
+  background: transparent;
 }
 
 .terminal--main .mainContextPanel--market .contextCompanyCard,
@@ -4478,10 +4489,9 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedFilterTypeCode,
 .terminal--politicians .feed--left .feedFilterTypeCode,
 .terminal--main .boshaTicker.feed--left .feedFilterTypeCode {
-  min-width: 1.25em;
-  max-width: 2.5em;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 2.5ch;
+  max-width: none;
+  overflow: visible;
   font-size: 10px;
   color: rgba(255, 255, 255, 0.52);
 }
@@ -4670,11 +4680,10 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--main .boshaTicker .feedFilterTypeCode {
-  min-width: 2.75em;
-  max-width: 4.5em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 9px;
+  min-width: 2.5ch;
+  max-width: none;
+  overflow: visible;
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.52);
 }
 
