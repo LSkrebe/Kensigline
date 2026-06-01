@@ -777,10 +777,19 @@
   isolation: isolate;
   overflow: hidden;
   padding: 7px 10px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--paper-doc-radius);
-  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
+  background: var(--paper-txn-surface);
   box-sizing: border-box;
+}
+
+.researchPaperDocCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: var(--paper-txn-wash);
 }
 
 .researchPaperDocCard > * {
@@ -924,8 +933,8 @@
 }
 
 .terminal--main .researchPaperPanel .researchPaperDocCard {
-  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--paper-txn-surface);
+  border-color: var(--chart-panel-border);
 }
 
 .terminal--main .researchPaperPanel .researchPaperDocCardAnalysis {
