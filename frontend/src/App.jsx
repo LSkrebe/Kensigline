@@ -2228,6 +2228,7 @@ function CompanySnapshotCard({
   domicile = null,
   mcap,
   earnings = null,
+  lead = null,
   children = null,
 }) {
   const showPrice = price != null && Number.isFinite(Number(price))
@@ -2248,6 +2249,12 @@ function CompanySnapshotCard({
       {domicile ? <div className="contextCompanyMeta contextCompanyMeta--domicile">{domicile}</div> : null}
       {mcap ? <div className="contextCompanyMeta">{mcap}</div> : null}
       {children}
+      {lead ? (
+        <div className="contextCompanyEarnings">
+          <span className="contextCompanyEarningsK">LEAD</span>
+          <span className="contextCompanyEarningsV">{lead.label ?? lead.name ?? EMPTY}</span>
+        </div>
+      ) : null}
       {earnings ? (
         <div
           className={[
@@ -2677,6 +2684,7 @@ function MainContextPanel({
           domicile={domicile}
           mcap={mcap}
           earnings={earnings && showFlows ? earnings : null}
+          lead={!showFlows && leadDrug ? { label: leadDrug.name } : null}
         >
           <div className="contextCompanyChart" aria-label="Price chart">
             <BoshaMiniPrice
@@ -2693,12 +2701,6 @@ function MainContextPanel({
             />
           </div>
         </CompanySnapshotCard>
-        {leadDrug ? (
-          <div className="contextCompanyEarnings">
-            <span className="contextCompanyEarningsK">LEAD</span>
-            <span className="contextCompanyEarningsV">{leadDrug.name}</span>
-          </div>
-        ) : null}
 
         {!showFlows ? (
           <>
@@ -2829,12 +2831,12 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
         <input
           className="researchFeedSearchInput"
           value={q ?? ''}
-          placeholder="Search"
+          placeholder="Search by company"
           onChange={(e) => onQuery?.(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Escape') onQuery?.('')
           }}
-          aria-label="Search tickers"
+          aria-label="Search by company or ticker"
           spellCheck={false}
         />
         <svg className="researchFeedSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
@@ -2874,6 +2876,88 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
   )
 }
 
+function programGroupMatchesQuery(pg, queryRaw) {
+  const s = String(queryRaw ?? '').trim().toUpperCase()
+  if (!s) return true
+  if (String(pg?.key ?? '').toUpperCase().includes(s)) return true
+  if (feedProgramPhaseForGroup(pg).toUpperCase().includes(s)) return true
+  for (const v of pg?.variants ?? []) {
+    if (String(v?.indication ?? '').toUpperCase().includes(s)) return true
+    if (String(v?.stage ?? '').toUpperCase().includes(s)) return true
+  }
+  return false
+}
+
+function ResearchFeedProgramsList({ programGroups, selectedProgramKey, onSelectProgramKey, q, onQuery }) {
+  const filteredGroups = useMemo(
+    () => (programGroups ?? []).filter((pg) => programGroupMatchesQuery(pg, q)),
+    [programGroups, q],
+  )
+
+  return (
+    <>
+      <label className="researchFeedSearch">
+        <input
+          className="researchFeedSearchInput"
+          value={q ?? ''}
+          placeholder="Search by program"
+          onChange={(e) => onQuery?.(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') onQuery?.('')
+          }}
+          aria-label="Search by program"
+          spellCheck={false}
+        />
+        <svg className="researchFeedSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+          <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+        </svg>
+      </label>
+      <div className="researchFeedProgramsList scrollThin" role="list">
+        <button
+          type="button"
+          role="listitem"
+          className={[
+            'researchFeedRow',
+            'researchFeedRow--program',
+            !selectedProgramKey || selectedProgramKey === CLINICAL_PROGRAM_ALL ? 'isActive' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          onClick={() => onSelectProgramKey?.(CLINICAL_PROGRAM_ALL)}
+        >
+          <span className="researchFeedRowName">ALL</span>
+          <span className="researchFeedRowPhase mono dim">Company</span>
+        </button>
+        {filteredGroups.length ? (
+          filteredGroups.map((pg) => (
+            <button
+              key={pg.key}
+              type="button"
+              role="listitem"
+              className={[
+                'researchFeedRow',
+                'researchFeedRow--program',
+                selectedProgramKey === pg.key ? 'isActive' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={() => onSelectProgramKey?.(pg.key)}
+            >
+              <span className="researchFeedRowName">{pg.key}</span>
+              <span className="researchFeedRowPhase mono dim">{feedProgramPhaseForGroup(pg)}</span>
+            </button>
+          ))
+        ) : programGroups.length ? (
+          <p className="researchFeedProgramsEmpty mono dim">No matching programs</p>
+        ) : (
+          <p className="researchFeedProgramsEmpty mono dim">No programs</p>
+        )}
+      </div>
+    </>
+  )
+}
+
 function BoshaTickerPanel({
   intelMode = 'market',
   selectedTicker,
@@ -2884,6 +2968,8 @@ function BoshaTickerPanel({
   programs = [],
   selectedProgramKey = null,
   onSelectProgramKey,
+  programQuery = '',
+  onProgramQuery,
   panelClassName = '',
 }) {
   const clinicalSplit = intelMode === 'clinical'
@@ -2925,44 +3011,14 @@ function BoshaTickerPanel({
             <header className="feedCompactHeader researchFeedHeader">
               <div className="panelTitle feedCompactTitle">PROGRAMS</div>
             </header>
-            <div className="researchFeedProgramsList scrollThin" role="list">
-              <button
-                type="button"
-                role="listitem"
-                className={[
-                  'researchFeedRow',
-                  'researchFeedRow--program',
-                  !selectedProgramKey || selectedProgramKey === CLINICAL_PROGRAM_ALL ? 'isActive' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                onClick={() => onSelectProgramKey?.(CLINICAL_PROGRAM_ALL)}
-              >
-                <span className="researchFeedRowName">ALL</span>
-                <span className="researchFeedRowPhase mono dim">Company</span>
-              </button>
-              {programGroups.length ? (
-                programGroups.map((pg) => (
-                  <button
-                    key={pg.key}
-                    type="button"
-                    role="listitem"
-                    className={[
-                      'researchFeedRow',
-                      'researchFeedRow--program',
-                      selectedProgramKey === pg.key ? 'isActive' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => onSelectProgramKey?.(pg.key)}
-                  >
-                    <span className="researchFeedRowName">{pg.key}</span>
-                    <span className="researchFeedRowPhase mono dim">{feedProgramPhaseForGroup(pg)}</span>
-                  </button>
-                ))
-              ) : (
-                <p className="researchFeedProgramsEmpty mono dim">No programs</p>
-              )}
+            <div className="researchFeedBody researchFeedBody--split researchFeedBody--programs">
+              <ResearchFeedProgramsList
+                programGroups={programGroups}
+                selectedProgramKey={selectedProgramKey}
+                onSelectProgramKey={onSelectProgramKey}
+                q={programQuery}
+                onQuery={onProgramQuery}
+              />
             </div>
           </div>
         </div>
@@ -4160,7 +4216,7 @@ function paperDocumentOpenUrl(doc, ticker) {
 
 function ResearchPaperDocOpenIcon() {
   return (
-    <svg className="researchPaperDocOpenIconSvg" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="researchPaperDocOpenIconSvg" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
       <path
         d="M14 4h6v6M10 20 20 10M20 10h-6M20 10v6M4 14V4h10"
         fill="none"
@@ -4497,10 +4553,12 @@ function BoshaPaperStructuredView({ documents = [], insiders = [], politicians =
             const showTimelineGap = showTodayGap || showMonthGap || showYearGap
             return (
             <Fragment key={item.id}>
-              {idx > 0 && !showTimelineGap ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
+              {idx > 0 && showTimelineGap ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
               {showTodayGap ? <ResearchPaperTimelineGap label="TODAY" /> : null}
               {showMonthGap ? <ResearchPaperTimelineGap label={paperTimelineMonthGapLabel()} /> : null}
               {showYearGap ? <ResearchPaperTimelineGap label={paperTimelineYearGapLabel(item)} /> : null}
+              {idx > 0 && showTimelineGap ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
+              {idx > 0 && !showTimelineGap ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
               {item.kind === 'document' ? (
                 <ResearchPaperDocCard doc={item.document} ticker={t} />
               ) : (
@@ -6416,6 +6474,7 @@ function KensiglineTerminal() {
   const [boshaTicker, setBoshaTicker] = useState(BOSHA_TICKER_MARKET)
   const intelModePrevRef = useRef(intelMode)
   const [boshaQuery, setBoshaQuery] = useState('')
+  const [boshaProgramQuery, setBoshaProgramQuery] = useState('')
   const [backendUp, setBackendUp] = useState(false)
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
@@ -6554,6 +6613,7 @@ function KensiglineTerminal() {
     intelModePrevRef.current = intelMode
     setBoshaTicker(intelMode === 'clinical' ? BOSHA_TICKER_CLINICAL : BOSHA_TICKER_MARKET)
     setBoshaQuery('')
+    setBoshaProgramQuery('')
   }, [intelMode, activeTab])
 
   useEffect(() => {
@@ -7325,6 +7385,8 @@ function KensiglineTerminal() {
             programs={contextPrograms}
             selectedProgramKey={contextProgramKey}
             onSelectProgramKey={setContextProgramKey}
+            programQuery={boshaProgramQuery}
+            onProgramQuery={setBoshaProgramQuery}
             panelClassName="mainBoshaPicks"
           />
 
