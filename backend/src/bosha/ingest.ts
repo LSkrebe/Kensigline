@@ -8,7 +8,7 @@ import { enqueueBoshaDynamicTickerFeeds } from "./dynamic-feeds.js";
  */
 export async function enqueueBoshaSecFilings(opts?: { pages?: number }) {
   const pages = Math.max(1, Math.min(20, Number(opts?.pages ?? process.env.BOSHA_FEED_PAGES ?? 3)));
-  const forms = String(process.env.BOSHA_SEC_FORMS ?? "8-K,10-Q")
+  const forms = String(process.env.BOSHA_SEC_FORMS ?? "8-K,10-Q,10-K,6-K,20-F")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);

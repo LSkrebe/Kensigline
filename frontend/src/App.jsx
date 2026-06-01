@@ -485,9 +485,33 @@ const FORM4_TXN_LABELS = {
   X: 'Exercise in-the-money',
 }
 
+/** Shorter FEED filter labels — code letter is shown in the right column. */
+const FORM4_TXN_FILTER_LABELS = {
+  P: 'Purchase',
+  S: 'Sale',
+  A: 'Award / grant',
+  M: 'Option exercise',
+  F: 'Withholding',
+  G: 'Gift',
+  D: 'To issuer',
+  V: 'Voluntary',
+  I: 'Discretionary',
+  C: 'Conversion',
+  E: 'Expiration',
+  H: 'Short expiry',
+  J: 'Other',
+  K: 'Swap',
+  L: 'Small buy',
+  O: 'OTM exercise',
+  U: 'Tender',
+  W: 'Inheritance',
+  Z: 'Trust',
+  X: 'ITM exercise',
+}
+
 const INVESTIGATE_INSIDER_TXN_TYPES = FORM4_TXN_CODES_CYCLE.map((id) => ({
   id,
-  label: FORM4_TXN_LABELS[id] ?? 'Transaction',
+  label: FORM4_TXN_FILTER_LABELS[id] ?? FORM4_TXN_LABELS[id] ?? 'Other',
 }))
 
 const INVESTIGATE_POLITICIAN_TXN_TYPES = [
@@ -2907,7 +2931,7 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
     })
     const sorted = [...sortFeedRowsByAtDesc(dated), ...undated]
     if (!sorted.length) return []
-    return buildFeedDisplayRows(sorted, { sepMode: 'today+years' })
+    return buildFeedDisplayRows(sorted, { sepMode: 'today+years', exclusiveSeps: true })
   }, [filtered])
 
   return (
@@ -3055,10 +3079,38 @@ function BoshaTickerPanel({
   onSelectProgramKey,
   programQuery = '',
   onProgramQuery,
+  showFeedFilter = false,
+  feedFilterActive = false,
+  feedFilterOpen = false,
+  onFeedFilterClick,
+  feedFilterPicker = null,
   panelClassName = '',
 }) {
   const clinicalSplit = intelMode === 'clinical'
   const programGroups = useMemo(() => groupPrograms(programs), [programs])
+
+  const feedFilterBtn = showFeedFilter ? (
+    <button
+      type="button"
+      className={['feedCompactFilterBtn', feedFilterActive ? 'isActive' : ''].filter(Boolean).join(' ')}
+      aria-label="Filter feed and timeline"
+      title="Filter"
+      aria-pressed={feedFilterActive || undefined}
+      onClick={() => onFeedFilterClick?.()}
+    >
+      <FeedFilterIcon />
+    </button>
+  ) : null
+
+  const tickerList = (
+    <ResearchFeedTickerList
+      selectedTicker={selectedTicker}
+      onSelectTicker={onSelectTicker}
+      q={q}
+      onQuery={onQuery}
+      filtered={filtered}
+    />
+  )
 
   return (
     <section
@@ -3077,50 +3129,46 @@ function BoshaTickerPanel({
       aria-label={clinicalSplit ? 'Feed and programs' : 'Ticker selector'}
     >
       {clinicalSplit ? (
-        <div className="researchFeedSplit">
+        <div
+          className={['researchFeedSplit', feedFilterOpen ? 'researchFeedSplit--filterOpen' : '']
+            .filter(Boolean)
+            .join(' ')}
+        >
           <div className="researchFeedSplitPane researchFeedSplitPane--feed">
             <header className="feedCompactHeader researchFeedHeader">
               <div className="panelTitle feedCompactTitle">FEED</div>
+              <div className="feedCompactHeaderEnd">{feedFilterBtn}</div>
             </header>
-            <div className="researchFeedBody researchFeedBody--split">
-              <ResearchFeedTickerList
-                selectedTicker={selectedTicker}
-                onSelectTicker={onSelectTicker}
-                q={q}
-                onQuery={onQuery}
-                filtered={filtered}
-              />
-            </div>
+            <ResearchFeedPaneShell filterOpen={feedFilterOpen} filterPicker={feedFilterPicker} split>
+              {tickerList}
+            </ResearchFeedPaneShell>
           </div>
-          <div className="researchFeedSplitPane researchFeedSplitPane--programs">
-            <header className="feedCompactHeader researchFeedHeader">
-              <div className="panelTitle feedCompactTitle">PROGRAMS</div>
-            </header>
-            <div className="researchFeedBody researchFeedBody--split researchFeedBody--programs">
-              <ResearchFeedProgramsList
-                programGroups={programGroups}
-                selectedProgramKey={selectedProgramKey}
-                onSelectProgramKey={onSelectProgramKey}
-                q={programQuery}
-                onQuery={onProgramQuery}
-              />
+          {feedFilterOpen ? null : (
+            <div className="researchFeedSplitPane researchFeedSplitPane--programs">
+              <header className="feedCompactHeader researchFeedHeader">
+                <div className="panelTitle feedCompactTitle">PROGRAMS</div>
+              </header>
+              <div className="researchFeedBody researchFeedBody--split researchFeedBody--programs">
+                <ResearchFeedProgramsList
+                  programGroups={programGroups}
+                  selectedProgramKey={selectedProgramKey}
+                  onSelectProgramKey={onSelectProgramKey}
+                  q={programQuery}
+                  onQuery={onProgramQuery}
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       ) : (
         <>
           <header className="feedCompactHeader researchFeedHeader">
             <div className="panelTitle feedCompactTitle">FEED</div>
+            <div className="feedCompactHeaderEnd">{feedFilterBtn}</div>
           </header>
-          <div className="researchFeedBody">
-            <ResearchFeedTickerList
-              selectedTicker={selectedTicker}
-              onSelectTicker={onSelectTicker}
-              q={q}
-              onQuery={onQuery}
-              filtered={filtered}
-            />
-          </div>
+          <ResearchFeedPaneShell filterOpen={feedFilterOpen} filterPicker={feedFilterPicker}>
+            {tickerList}
+          </ResearchFeedPaneShell>
         </>
       )}
     </section>
@@ -4570,6 +4618,284 @@ function resolveBoshaPresentation({ ticker, titleText, backendUp, livePresentati
   return boshaGenericOfflinePresentation(memo, titleText, ticker)
 }
 
+function normalizeSecFilingFormKey(raw) {
+  let s = String(raw ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+  if (!s) return null
+  s = s.replace(/\/A$/, '')
+  if (s.startsWith('424B')) return '424B'
+  if (s === 'DEF14A') return 'DEF 14A'
+  if (s.startsWith('SC 13D') || s === 'SC13D') return 'SC 13D'
+  if (s.startsWith('SC 13G') || s === 'SC13G') return 'SC 13G'
+  const known = ['8-K', '10-K', '10-Q', '6-K', '20-F', 'S-1', 'S-3', 'S-4', 'DEF 14A']
+  return known.includes(s) ? s : null
+}
+
+/** Map document / queue source strings to filter checkbox ids. */
+function normalizeResearchPaperSourceKey(source) {
+  const raw = String(source ?? '').trim()
+  if (!raw) return 'Other'
+  const low = raw.toLowerCase()
+
+  if (/clinicaltrials/i.test(raw)) return 'ClinicalTrials.gov'
+  if (low === 'bosha_press_rss' || /\bpress\s*release\b/i.test(raw)) return 'Press release'
+  if (
+    low === 'bosha_transcript_rss' ||
+    /\bearnings\s*(call\s*)?transcript\b/i.test(raw) ||
+    /\bconference\s*call\s*transcript\b/i.test(raw)
+  ) {
+    return 'Earnings transcript'
+  }
+  if (low === 'sec_form4' || /^form\s*4$/i.test(raw)) return 'Form 4'
+  if (/^form\s*3$/i.test(raw)) return 'Form 3'
+  if (/^form\s*5$/i.test(raw)) return 'Form 5'
+  if (low === 'house_ptr' || /^ptr$/i.test(raw) || /\bperiodic\s*transaction\b/i.test(raw)) return 'PTR'
+  if (/\binvestor\s*presentation\b/i.test(raw)) return 'Investor presentation'
+  if (/\bannual\s*report\b/i.test(raw) && !/\b10-k\b/i.test(raw)) return 'Annual report'
+
+  const secDirect = normalizeSecFilingFormKey(raw)
+  if (secDirect) return secDirect
+
+  const secInText = raw.match(/\b(8-K|10-K|10-Q|6-K|20-F|S-1|S-3|S-4|DEF\s*14A|424B\d*|SC\s*13[DG])\b/i)
+  if (secInText) {
+    const mapped = normalizeSecFilingFormKey(secInText[1])
+    if (mapped) return mapped
+  }
+
+  return raw
+}
+
+/** Filter catalog — ids match `normalizeResearchPaperSourceKey`; `code` is the compact right column. */
+const RESEARCH_PAPER_SOURCE_CATALOG = [
+  { id: '8-K', label: 'Current report', code: '8-K', modes: ['market', 'clinical'] },
+  { id: '10-Q', label: 'Quarterly report', code: '10-Q', modes: ['market', 'clinical'] },
+  { id: '10-K', label: 'Annual filing', code: '10-K', modes: ['market', 'clinical'] },
+  { id: '6-K', label: 'Foreign current', code: '6-K', modes: ['market', 'clinical'] },
+  { id: '20-F', label: 'Foreign annual', code: '20-F', modes: ['market', 'clinical'] },
+  { id: 'S-1', label: 'Registration', code: 'S-1', modes: ['market', 'clinical'] },
+  { id: 'S-3', label: 'Shelf registration', code: 'S-3', modes: ['market', 'clinical'] },
+  { id: 'S-4', label: 'Business combination', code: 'S-4', modes: ['market', 'clinical'] },
+  { id: 'DEF 14A', label: 'Proxy statement', code: '14A', modes: ['market', 'clinical'] },
+  { id: '424B', label: 'Prospectus supplement', code: '424B', modes: ['market', 'clinical'] },
+  { id: 'SC 13D', label: 'Active ownership', code: '13D', modes: ['market', 'clinical'] },
+  { id: 'SC 13G', label: 'Passive ownership', code: '13G', modes: ['market', 'clinical'] },
+  { id: 'Press release', label: 'Company release', code: 'PR', modes: ['market', 'clinical'] },
+  { id: 'Earnings transcript', label: 'Earnings call', code: 'Call', modes: ['market', 'clinical'] },
+  { id: 'Investor presentation', label: 'Investor deck', code: 'Deck', modes: ['market'] },
+  { id: 'Annual report', label: 'IR annual report', code: 'AR', modes: ['market'] },
+  { id: 'ClinicalTrials.gov', label: 'Trial registry', code: 'CT.gov', modes: ['clinical'] },
+  { id: 'Form 4', label: 'Insider transaction', code: 'F4', modes: ['market', 'clinical'] },
+  { id: 'Form 3', label: 'Initial insider holding', code: 'F3', modes: ['market', 'clinical'] },
+  { id: 'Form 5', label: 'Annual insider change', code: 'F5', modes: ['market', 'clinical'] },
+  { id: 'PTR', label: 'Politician trade', code: 'PTR', modes: ['market', 'clinical'] },
+]
+
+function researchPaperSourceTypesForIntel(intelMode) {
+  const mode = intelMode === 'clinical' ? 'clinical' : 'market'
+  return RESEARCH_PAPER_SOURCE_CATALOG.filter((t) => t.modes.includes(mode))
+}
+
+function researchPaperSourceIdsForIntel(intelMode) {
+  return researchPaperSourceTypesForIntel(intelMode).map((t) => t.id)
+}
+
+function paperTimelineItemSourceKey(item) {
+  if (!item) return null
+  if (item.kind === 'document') return normalizeResearchPaperSourceKey(item.document?.source)
+  if (item.kind === 'insider') return 'Form 4'
+  if (item.kind === 'politician') return 'PTR'
+  return null
+}
+
+function paperTimelineItemPassesSourceFilter(item, enabledSources) {
+  if (!enabledSources?.size) return false
+  const key = paperTimelineItemSourceKey(item)
+  if (!key) return false
+  return enabledSources.has(key)
+}
+
+function filterPaperTimelineBySources(items, enabledSources) {
+  if (!enabledSources?.size) return []
+  return (items ?? []).filter((item) => paperTimelineItemPassesSourceFilter(item, enabledSources))
+}
+
+function filterPaperDocumentsBySources(documents, enabledSources) {
+  if (!enabledSources?.size) return []
+  return (documents ?? []).filter((doc) => {
+    const key = normalizeResearchPaperSourceKey(doc?.source)
+    return enabledSources.has(key)
+  })
+}
+
+function researchFeedNameForTicker(ticker, intelMode) {
+  const u = String(ticker ?? '').toUpperCase()
+  const mode = intelMode === 'clinical' ? 'clinical' : 'market'
+  const row = (RESEARCH_FEED_BY_INTEL[mode] ?? []).find((x) => String(x.ticker).toUpperCase() === u)
+  return row?.name ?? u
+}
+
+function researchOfflinePresentationForTicker({ ticker, intelMode, memo }) {
+  const u = String(ticker ?? '').toUpperCase()
+  const clinical = intelMode === 'clinical'
+  const titleText = researchFeedNameForTicker(u, intelMode)
+  if (clinical && u === 'ATYR') return boshaAtyrPresentation()
+  if (!clinical && u === 'ASML') return boshaAsmlPresentation()
+  return boshaGenericOfflinePresentation(memo, titleText, ticker)
+}
+
+function buildResearchPaperTimelineForTicker({
+  ticker,
+  intelMode,
+  programKey,
+  livePresentation = null,
+  selectedTicker = null,
+  backendUp = false,
+}) {
+  const t = String(ticker ?? '').toUpperCase()
+  const memo = boshaThesisMemo({
+    ticker: t,
+    companyName: researchFeedNameForTicker(t, intelMode),
+    events: boshaDatasetForTicker(t).events,
+    priceSeries: boshaDatasetForTicker(t).price,
+    constituents: boshaIsEtf(t) ? boshaDatasetForTicker(t)?.constituents ?? [] : [],
+  })
+  const sel = String(selectedTicker ?? '').toUpperCase()
+  const pres =
+    backendUp && livePresentation?.title && t === sel
+      ? livePresentation
+      : researchOfflinePresentationForTicker({ ticker: t, intelMode, memo })
+  if (!pres?.title) return []
+  let docs = paperDocumentsFromPresentation(pres)
+  if (intelMode === 'clinical') docs = filterPaperDocumentsByProgram(docs, programKey)
+  const mock = contextMockForTicker(t, [])
+  const showFlows =
+    intelMode !== 'clinical' || !programKey || programKey === CLINICAL_PROGRAM_ALL
+  return buildPaperTimelineItems({
+    documents: docs,
+    insiders: showFlows ? mock.insiders : [],
+    politicians: showFlows ? mock.politicians : [],
+  })
+}
+
+function researchFeedAtFromTimeline(items) {
+  let best = null
+  let bestT = -Infinity
+  for (const item of items ?? []) {
+    const d = paperTimelineItemAt(item)
+    if (!d) continue
+    const t = d.getTime()
+    if (Number.isFinite(t) && t > bestT) {
+      bestT = t
+      best = d.toISOString()
+    }
+  }
+  return best
+}
+
+function ResearchFeedFilterPicker({
+  sourceTypes,
+  feedEnabled,
+  timelineEnabled,
+  filtersLinked,
+  onToggleFeed,
+  onToggleTimeline,
+  onFiltersLinkedChange,
+}) {
+  const feedTypesEnabled = filtersLinked ? timelineEnabled : feedEnabled
+  const onToggleFeedType = filtersLinked ? onToggleTimeline : onToggleFeed
+
+  return (
+    <div className="feedCompactFilterPicker scrollThin researchFeedFilterPicker" role="group" aria-label="Research filters">
+      <div className="feedFilterSection">
+        <div className="feedFilterSectionTitle mono">Feed list</div>
+        {sourceTypes.map(({ id, label, code }) => (
+          <label key={`feed-${id}`} className="feedFilterTypeRow">
+            <input
+              type="checkbox"
+              checked={feedTypesEnabled?.has(id) ?? false}
+              onChange={() => onToggleFeedType?.(id)}
+            />
+            <span className="feedFilterTypeLabel">{label}</span>
+            <span className="feedFilterTypeCode mono" title={id}>
+              {code ?? id}
+            </span>
+          </label>
+        ))}
+      </div>
+      <div className="feedFilterSection">
+        <div className="feedFilterSectionHead">
+          <div className="feedFilterSectionTitle mono">Timeline list</div>
+          <div className="feedFilterLinkSwitch mono" role="group" aria-label="Timeline link to feed list">
+            <button
+              type="button"
+              className={
+                filtersLinked ? 'feedFilterLinkSwitchBtn isActive' : 'feedFilterLinkSwitchBtn'
+              }
+              aria-pressed={filtersLinked}
+              onClick={() => onFiltersLinkedChange?.(true)}
+            >
+              Linked
+            </button>
+            <span className="feedFilterLinkSwitchSep" aria-hidden="true">
+              |
+            </span>
+            <button
+              type="button"
+              className={
+                !filtersLinked ? 'feedFilterLinkSwitchBtn isActive' : 'feedFilterLinkSwitchBtn'
+              }
+              aria-pressed={!filtersLinked}
+              onClick={() => onFiltersLinkedChange?.(false)}
+            >
+              Separate
+            </button>
+          </div>
+        </div>
+        {filtersLinked ? (
+          <p className="feedFilterLinkedHint mono dim">
+            Feed list and timeline panel both follow the checkboxes above.
+          </p>
+        ) : (
+          sourceTypes.map(({ id, label, code }) => (
+            <label key={`timeline-${id}`} className="feedFilterTypeRow">
+              <input
+                type="checkbox"
+                checked={timelineEnabled?.has(id) ?? false}
+                onChange={() => onToggleTimeline?.(id)}
+              />
+              <span className="feedFilterTypeLabel">{label}</span>
+              <span className="feedFilterTypeCode mono" title={id}>
+                {code ?? id}
+              </span>
+            </label>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ResearchFeedPaneShell({ filterOpen, filterPicker, children, split = false }) {
+  return (
+    <div
+      className={[
+        'researchFeedBody',
+        split ? 'researchFeedBody--split' : '',
+        filterOpen ? 'researchFeedBody--filterOpen' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <div className="feedCompactMain" aria-hidden={filterOpen || undefined}>
+        {children}
+      </div>
+      {filterOpen ? filterPicker : null}
+    </div>
+  )
+}
+
 function ResearchPaperTimelineGap({ label }) {
   const text = String(label ?? '').trim()
   if (!text) return null
@@ -4603,12 +4929,19 @@ function ResearchPaperTxnCard({ source, filedAt, name, amount }) {
   )
 }
 
-function BoshaPaperStructuredView({ documents = [], insiders = [], politicians = [], ticker = '' }) {
+function BoshaPaperStructuredView({
+  documents = [],
+  insiders = [],
+  politicians = [],
+  ticker = '',
+  paperSourceFilters = null,
+}) {
   const t = String(ticker ?? '').toUpperCase()
-  const timelineRows = useMemo(
-    () => buildPaperTimelineItems({ documents, insiders, politicians }),
-    [documents, insiders, politicians],
-  )
+  const timelineRows = useMemo(() => {
+    const raw = buildPaperTimelineItems({ documents, insiders, politicians })
+    if (!paperSourceFilters) return raw
+    return filterPaperTimelineBySources(raw, paperSourceFilters)
+  }, [documents, insiders, politicians, paperSourceFilters])
   const displayRows = useMemo(() => buildPaperDisplayRows(timelineRows), [timelineRows])
   return (
     <div className="researchPaperBody researchPaperBody--documentsOnly">
@@ -4658,14 +4991,16 @@ function BoshaPaperPanel({
   selectedProgramKey = null,
   insiders = [],
   politicians = [],
+  paperSourceFilters = null,
   panelClassName = '',
 }) {
   const fullName = String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
   const paperDocuments = useMemo(() => {
     const docs = paperDocumentsFromPresentation(presentation)
-    if (intelMode !== 'clinical') return docs
-    return filterPaperDocumentsByProgram(docs, selectedProgramKey)
-  }, [presentation, intelMode, selectedProgramKey])
+    let rows = intelMode !== 'clinical' ? docs : filterPaperDocumentsByProgram(docs, selectedProgramKey)
+    if (paperSourceFilters) rows = filterPaperDocumentsBySources(rows, paperSourceFilters)
+    return rows
+  }, [presentation, intelMode, selectedProgramKey, paperSourceFilters])
 
   const showPaperInsiderPoliticianFlows =
     intelMode !== 'clinical' ||
@@ -4689,6 +5024,7 @@ function BoshaPaperPanel({
                 documents={paperDocuments}
                 insiders={showPaperInsiderPoliticianFlows ? insiders : []}
                 politicians={showPaperInsiderPoliticianFlows ? politicians : []}
+                paperSourceFilters={paperSourceFilters}
               />
             </>
           ) : backendUp ? (
@@ -6092,7 +6428,7 @@ function CompactFeed({
               role="group"
               aria-label="Filter transaction types"
             >
-              {feedFilterTypes.map(({ id, label }) => (
+              {feedFilterTypes.map(({ id, label, code }) => (
                 <label key={id} className="feedFilterTypeRow">
                   <input
                     type="checkbox"
@@ -6100,7 +6436,9 @@ function CompactFeed({
                     onChange={() => onFeedFilterToggle?.(id)}
                   />
                   <span className="feedFilterTypeLabel">{label}</span>
-                  <span className="feedFilterTypeCode mono">{id}</span>
+                  <span className="feedFilterTypeCode mono" title={id}>
+                    {code ?? id}
+                  </span>
                 </label>
               ))}
             </div>
@@ -6611,6 +6949,17 @@ function KensiglineTerminal() {
   const intelModePrevRef = useRef(intelMode)
   const [boshaQuery, setBoshaQuery] = useState('')
   const [boshaProgramQuery, setBoshaProgramQuery] = useState('')
+  const [researchFeedFilterOpen, setResearchFeedFilterOpen] = useState(false)
+  const [researchFeedFiltersLinked, setResearchFeedFiltersLinked] = useState(true)
+  const [researchPaperSourceFilters, setResearchPaperSourceFilters] = useState(
+    () => new Set(researchPaperSourceIdsForIntel('market')),
+  )
+  const [researchFeedSourceFilters, setResearchFeedSourceFilters] = useState(
+    () => new Set(researchPaperSourceIdsForIntel('market')),
+  )
+  const [researchPaperSourceFiltersDraft, setResearchPaperSourceFiltersDraft] = useState(null)
+  const [researchFeedSourceFiltersDraft, setResearchFeedSourceFiltersDraft] = useState(null)
+  const [researchFeedFiltersLinkedDraft, setResearchFeedFiltersLinkedDraft] = useState(true)
   const [backendUp, setBackendUp] = useState(false)
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
@@ -6706,6 +7055,17 @@ function KensiglineTerminal() {
     if (intelMode === 'clinical') setContextProgramKey(CLINICAL_PROGRAM_ALL)
     else setContextProgramKey(null)
   }, [intelMode, boshaTicker])
+
+  useEffect(() => {
+    const ids = researchPaperSourceIdsForIntel(intelMode)
+    setResearchPaperSourceFilters(new Set(ids))
+    setResearchFeedSourceFilters(new Set(ids))
+    setResearchFeedFiltersLinked(true)
+    setResearchFeedFilterOpen(false)
+    setResearchPaperSourceFiltersDraft(null)
+    setResearchFeedSourceFiltersDraft(null)
+    setResearchFeedFiltersLinkedDraft(true)
+  }, [intelMode])
   useEffect(() => {
     if (intelMode !== 'clinical') return
     const allowed = new Set([CLINICAL_PROGRAM_ALL, ...groupPrograms(contextPrograms).map((g) => g.key)])
@@ -6775,13 +7135,150 @@ function KensiglineTerminal() {
     })
   }, [boshaFeedItems, boshaQuery])
 
+  const researchPaperSourceTypeDefs = useMemo(
+    () => researchPaperSourceTypesForIntel(intelMode),
+    [intelMode],
+  )
+
+  const researchFeedSourceFiltersApplied = researchFeedFiltersLinked
+    ? researchPaperSourceFilters
+    : researchFeedSourceFilters
+
+  const boshaFeedAfterSourceFilter = useMemo(() => {
+    const enabled = researchFeedSourceFiltersApplied
+    if (!enabled?.size) return []
+    return boshaFilteredFeed
+      .map((row) => {
+        const ticker = String(row?.ticker ?? '').toUpperCase()
+        if (!ticker) return null
+        const timeline = buildResearchPaperTimelineForTicker({
+          ticker,
+          intelMode,
+          programKey: contextProgramKey,
+          livePresentation: boshaPresentation,
+          selectedTicker: boshaTicker,
+          backendUp,
+        })
+        const visible = filterPaperTimelineBySources(timeline, enabled)
+        if (!visible.length) return null
+        const at = researchFeedAtFromTimeline(visible) ?? row.at
+        return { ...row, at }
+      })
+      .filter(Boolean)
+  }, [
+    boshaFilteredFeed,
+    researchFeedSourceFiltersApplied,
+    intelMode,
+    contextProgramKey,
+    boshaPresentation,
+    boshaTicker,
+    backendUp,
+  ])
+
+  const researchPaperSourceFiltersPicker = researchFeedFilterOpen
+    ? researchPaperSourceFiltersDraft
+    : null
+  const researchFeedSourceFiltersPicker = researchFeedFilterOpen ? researchFeedSourceFiltersDraft : null
+  const researchFeedFiltersLinkedPicker = researchFeedFilterOpen
+    ? researchFeedFiltersLinkedDraft
+    : researchFeedFiltersLinked
+
+  const openResearchFeedFilter = useCallback(() => {
+    setResearchPaperSourceFiltersDraft(new Set(researchPaperSourceFilters))
+    setResearchFeedSourceFiltersDraft(new Set(researchFeedSourceFilters))
+    setResearchFeedFiltersLinkedDraft(researchFeedFiltersLinked)
+    setResearchFeedFilterOpen(true)
+  }, [researchPaperSourceFilters, researchFeedSourceFilters, researchFeedFiltersLinked])
+
+  const closeResearchFeedFilter = useCallback(() => {
+    if (researchPaperSourceFiltersDraft) {
+      setResearchPaperSourceFilters(new Set(researchPaperSourceFiltersDraft))
+    }
+    if (researchFeedSourceFiltersDraft) {
+      setResearchFeedSourceFilters(new Set(researchFeedSourceFiltersDraft))
+    }
+    setResearchFeedFiltersLinked(researchFeedFiltersLinkedDraft)
+    setResearchPaperSourceFiltersDraft(null)
+    setResearchFeedSourceFiltersDraft(null)
+    setResearchFeedFilterOpen(false)
+  }, [
+    researchPaperSourceFiltersDraft,
+    researchFeedSourceFiltersDraft,
+    researchFeedFiltersLinkedDraft,
+  ])
+
+  const onResearchFeedFilterClick = useCallback(() => {
+    if (researchFeedFilterOpen) closeResearchFeedFilter()
+    else openResearchFeedFilter()
+  }, [researchFeedFilterOpen, closeResearchFeedFilter, openResearchFeedFilter])
+
+  const toggleResearchPaperSourceFilter = useCallback((id) => {
+    const key = normalizeResearchPaperSourceKey(id)
+    if (!key) return
+    const patch = (prev) => {
+      const base = prev ?? new Set()
+      const next = new Set(base)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    }
+    if (researchFeedFilterOpen) {
+      setResearchPaperSourceFiltersDraft(patch)
+      if (researchFeedFiltersLinkedDraft) setResearchFeedSourceFiltersDraft(patch)
+      return
+    }
+    setResearchPaperSourceFilters(patch)
+    if (researchFeedFiltersLinked) setResearchFeedSourceFilters(patch)
+  }, [researchFeedFilterOpen, researchFeedFiltersLinkedDraft, researchFeedFiltersLinked])
+
+  const toggleResearchFeedSourceFilter = useCallback((id) => {
+    const key = normalizeResearchPaperSourceKey(id)
+    if (!key) return
+    const patch = (prev) => {
+      const base = prev ?? new Set()
+      const next = new Set(base)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    }
+    if (researchFeedFilterOpen) setResearchFeedSourceFiltersDraft(patch)
+    else setResearchFeedSourceFilters(patch)
+  }, [researchFeedFilterOpen])
+
+  const onResearchFeedFiltersLinkedChange = useCallback(
+    (linked) => {
+      if (researchFeedFilterOpen) {
+        setResearchFeedFiltersLinkedDraft(linked)
+        if (linked && researchFeedSourceFiltersDraft) {
+          setResearchPaperSourceFiltersDraft(new Set(researchFeedSourceFiltersDraft))
+        }
+        return
+      }
+      setResearchFeedFiltersLinked(linked)
+      if (linked) setResearchPaperSourceFilters(new Set(researchFeedSourceFilters))
+    },
+    [researchFeedFilterOpen, researchPaperSourceFiltersDraft, researchPaperSourceFilters],
+  )
+
+  const researchFeedFilterPickerEl = (
+    <ResearchFeedFilterPicker
+      sourceTypes={researchPaperSourceTypeDefs}
+      feedEnabled={researchFeedSourceFiltersPicker ?? researchFeedSourceFilters}
+      timelineEnabled={researchPaperSourceFiltersPicker ?? researchPaperSourceFilters}
+      filtersLinked={researchFeedFiltersLinkedPicker}
+      onToggleFeed={toggleResearchFeedSourceFilter}
+      onToggleTimeline={toggleResearchPaperSourceFilter}
+      onFiltersLinkedChange={onResearchFeedFiltersLinkedChange}
+    />
+  )
+
   useEffect(() => {
     // If the current selection falls out of the filter, snap to the first match.
     if (activeTab !== 'main') return
-    if (!boshaFilteredFeed.length) return
-    const ok = boshaFilteredFeed.some((x) => x.ticker === boshaTicker)
-    if (!ok) setBoshaTicker(boshaFilteredFeed[0].ticker)
-  }, [activeTab, boshaFilteredFeed, boshaTicker])
+    if (!boshaFeedAfterSourceFilter.length) return
+    const ok = boshaFeedAfterSourceFilter.some((x) => x.ticker === boshaTicker)
+    if (!ok) setBoshaTicker(boshaFeedAfterSourceFilter[0].ticker)
+  }, [activeTab, boshaFeedAfterSourceFilter, boshaTicker])
 
   useEffect(() => {
     let alive = true
@@ -7627,12 +8124,17 @@ function KensiglineTerminal() {
             onSelectTicker={setBoshaTicker}
             q={boshaQuery}
             onQuery={setBoshaQuery}
-            filtered={boshaFilteredFeed}
+            filtered={boshaFeedAfterSourceFilter}
             programs={contextPrograms}
             selectedProgramKey={contextProgramKey}
             onSelectProgramKey={setContextProgramKey}
             programQuery={boshaProgramQuery}
             onProgramQuery={setBoshaProgramQuery}
+            showFeedFilter
+            feedFilterActive={researchFeedFilterOpen}
+            feedFilterOpen={researchFeedFilterOpen}
+            onFeedFilterClick={onResearchFeedFilterClick}
+            feedFilterPicker={researchFeedFilterPickerEl}
             panelClassName="mainBoshaPicks"
           />
 
@@ -7648,6 +8150,7 @@ function KensiglineTerminal() {
             selectedProgramKey={contextProgramKey}
             insiders={contextMock.insiders}
             politicians={contextMock.politicians}
+            paperSourceFilters={researchPaperSourceFilters}
             panelClassName="mainMainBlank"
           />
 

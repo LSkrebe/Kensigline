@@ -1132,6 +1132,16 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.terminal--main .researchFeedSplit--filterOpen {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.terminal--main .researchFeedSplit--filterOpen .researchFeedSplitPane--feed {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .terminal--main .researchFeedPanel--clinicalSplit .researchFeedBody--split {
   flex: 1 1 auto;
   min-height: 0;
@@ -4603,7 +4613,190 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .feedFilterTypeCode,
 .terminal--politicians .feed--left .feedFilterTypeCode {
+  min-width: 1.25em;
+  max-width: 2.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 10px;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+/* Research tab: FEED filter (paper + feed scopes) */
+.terminal--main .boshaTicker .feedCompactHeader {
+  justify-content: space-between;
+}
+
+.terminal--main .boshaTicker .feedCompactHeaderEnd {
+  align-items: center;
+  height: 100%;
+}
+
+.terminal--main .boshaTicker .feedCompactFilterBtn {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.terminal--main .boshaTicker .feedCompactFilterBtn:hover {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.terminal--main .boshaTicker .feedCompactFilterBtn.isActive {
+  color: var(--cyan);
+}
+
+.terminal--main .researchFeedBody .feedCompactMain {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.terminal--main .researchFeedBody--filterOpen {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.terminal--main .researchFeedBody--filterOpen .feedCompactMain[aria-hidden='true'] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.terminal--main .researchFeedBody--filterOpen .feedCompactFilterPicker {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 10px 10px;
+  box-sizing: border-box;
+  background: inherit;
+  -webkit-overflow-scrolling: touch;
+}
+
+.terminal--main .researchFeedFilterPicker .feedFilterSection + .feedFilterSection {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.feedFilterSectionTitle {
+  margin: 0 0 6px;
+  padding: 0 2px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.feedFilterSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+
+.feedFilterSectionHead .feedFilterSectionTitle {
+  margin: 0;
+}
+
+/* Matches terminalIntelSwitch — segmented link mode for timeline vs feed */
+.feedFilterLinkSwitch {
+  display: inline-flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  gap: 0;
+  height: 20px;
+  white-space: nowrap;
+}
+
+.feedFilterLinkSwitchBtn {
+  margin: 0;
+  padding: 0 5px;
+  border: none;
+  background: transparent;
+  color: var(--dim);
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: color 0.15s ease;
+}
+
+.feedFilterLinkSwitchBtn:hover {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.feedFilterLinkSwitchBtn.isActive {
+  color: var(--hi);
+  box-shadow: inset 0 -2px 0 rgba(255, 255, 255, 0.88);
+}
+
+.feedFilterLinkSwitchBtn:focus-visible {
+  outline: 1px solid var(--intel-accent-focus);
+  outline-offset: 2px;
+}
+
+.feedFilterLinkSwitchSep {
+  align-self: center;
+  padding: 0 3px;
+  color: rgba(255, 255, 255, 0.22);
+  font-size: 8px;
+  font-weight: 400;
+  line-height: 1;
+  user-select: none;
+}
+
+.feedFilterLinkedHint {
+  margin: 0 0 4px;
+  padding: 4px 2px 6px;
+  font-size: 9px;
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+}
+
+.terminal--main .boshaTicker .feedFilterTypeRow {
+  gap: 6px;
+  min-height: calc(10px * 1.15 + 10px);
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 10px;
+  line-height: 1.15;
+}
+
+.terminal--main .boshaTicker .feedFilterTypeRow:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.terminal--main .boshaTicker .feedFilterTypeLabel {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.terminal--main .boshaTicker .feedFilterTypeCode {
+  min-width: 2.75em;
+  max-width: 4.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 9px;
   color: rgba(255, 255, 255, 0.52);
 }
 
