@@ -213,28 +213,32 @@ function politiciansCaseSheetFromClusterLive(cluster, fallback) {
     ticker: cluster?.issuer?.ticker ?? fallback?.ticker ?? '—',
     isForm4: true,
     filedAt: cluster?.filing?.filed_at ?? fallback?.at ?? null,
-    rows: wsRows.map((r) => ({
-      key: String(r?.key ?? '').trim() || 'POLITICIAN',
-      surname: lastName(r?.key),
-      chamber,
-      transactionType:
-        r?.transaction_type != null
-          ? String(r.transaction_type)
-          : r?.description != null
-            ? String(r.description)
-            : null,
-      assetTicker: r?.ticker != null ? String(r.ticker) : fallback?.ticker ?? null,
-      assetName: r?.asset_name != null ? String(r.asset_name) : null,
-      amountRange: r?.amount_range != null ? String(r.amount_range) : null,
-      amountUsd:
-        r?.amount_usd_mid != null
-          ? Number(r.amount_usd_mid)
-          : r?.amount_usd != null
-            ? Number(r.amount_usd)
-            : null,
-      acquiredDisposed: 'A',
-      ts: r?.ts != null ? String(r.ts) : null,
-    })),
+    rows: wsRows.map((r) => {
+      const fullName = String(r?.key ?? '').trim() || 'Politician'
+      return {
+        key: fullName,
+        politician_name: fullName,
+        surname: lastName(fullName),
+        chamber,
+        transactionType:
+          r?.transaction_type != null
+            ? String(r.transaction_type)
+            : r?.description != null
+              ? String(r.description)
+              : null,
+        assetTicker: r?.ticker != null ? String(r.ticker) : fallback?.ticker ?? null,
+        assetName: r?.asset_name != null ? String(r.asset_name) : null,
+        amountRange: r?.amount_range != null ? String(r.amount_range) : null,
+        amountUsd:
+          r?.amount_usd_mid != null
+            ? Number(r.amount_usd_mid)
+            : r?.amount_usd != null
+              ? Number(r.amount_usd)
+              : null,
+        acquiredDisposed: 'A',
+        ts: r?.ts != null ? String(r.ts) : null,
+      }
+    }),
   }
 }
 
@@ -390,24 +394,44 @@ const INSIDER_TICKERS = ['PRIM', 'HG', 'SPRU', 'VRA', 'FFIN']
 /** Insider roles for CASE txn rows (WHO column). */
 const INSIDER_TXN_ROLES = ['CEO', 'DIR', 'CFO', 'OFF', 'TRUST']
 
-/** Mock surnames (Form 4 reporting owners). */
-const INSIDER_MOCK_SURNAMES = [
-  'Chen',
-  'Walsh',
-  'Nguyen',
-  'Patel',
-  'Brooks',
-  'Sato',
-  'Miller',
-  'Kim',
-  'Torres',
-  'Reed',
-  'Foster',
-  'Hayes',
-  'Diaz',
-  'Cole',
-  'Grant',
+/** Mock insiders (Form 4) — full names + public-domain headshots for CASE profile UI. */
+/** Commons redirect URL (direct upload.wikimedia thumb paths often 400/404). */
+function wikimediaPortraitUrl(fileName, width = 220) {
+  const file = String(fileName ?? '').trim()
+  if (!file) return null
+  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(file)}?width=${width}`
+}
+
+const INSIDER_MOCK_PEOPLE = [
+  { fullName: 'Tim Cook', photoFile: 'Tim_Cook_2009_cropped.jpg' },
+  { fullName: 'Satya Nadella', photoFile: 'Satya_Nadella.jpg' },
+  { fullName: 'Jamie Dimon', photoFile: 'Jamie_Dimon,_CEO_of_JPMorgan_Chase.jpg' },
+  { fullName: 'Mary Barra', photoFile: 'Mary_Barra,_Chairman_and_CEO,_General_Motors.jpg' },
+  { fullName: 'Sundar Pichai', photoFile: 'Sundar_pichai.png' },
+  { fullName: 'Jensen Huang', photoFile: 'Jensen_Huang_-_CEATEC_2017.jpg' },
+  { fullName: 'Lisa Su', photoFile: 'Lisa_Su_at_Computex_2024.jpg' },
+  { fullName: 'Ruth Porat', photoFile: 'Ruth_Porat_2015.jpg' },
+  { fullName: 'Brian Moynihan', photoFile: 'Brian_Moynihan.jpg' },
+  { fullName: 'Arvind Krishna', photoFile: 'Arvind_Krishna_(cropped).jpg' },
+  { fullName: 'Indra Nooyi', photoFile: 'Indra_Nooyi_(cropped).jpg' },
+  { fullName: 'Marc Benioff', photoFile: 'Marc_Benioff_2010.jpg' },
+  { fullName: 'Pat Gelsinger', photoFile: 'Pat_Gelsinger_(cropped).jpg' },
+  { fullName: 'Safra Catz', photoFile: 'Safra_Catz_2019.jpg' },
+  { fullName: 'Andy Jassy', photoFile: 'Andy_Jassy_(cropped).jpg' },
 ]
+
+const INSIDER_PHOTO_BY_NAME_KEY = Object.fromEntries(
+  INSIDER_MOCK_PEOPLE.map((p) => [
+    normalizePoliticianNameKey(p.fullName),
+    wikimediaPortraitUrl(p.photoFile),
+  ]),
+)
+const INSIDER_PHOTO_BY_LAST_KEY = Object.fromEntries(
+  INSIDER_MOCK_PEOPLE.map((p) => {
+    const last = normalizePoliticianNameKey(lastName(p.fullName))
+    return last ? [last, wikimediaPortraitUrl(p.photoFile)] : null
+  }).filter(Boolean),
+)
 
 /**
  * Showcase cluster (feed row 0): every Form 4 code / value shape from Option C mocks.
@@ -539,6 +563,12 @@ const POLITICIAN_NAMES = [
   'Ro Khanna',
   'Tommy Tuberville',
   'Michael McCaul',
+  'John Thune',
+  'Mark Kelly',
+  'Gina Raimondo',
+  'Bernie Sanders',
+  'Ted Cruz',
+  'Marco Rubio',
 ]
 
 /** CASE chamber column (House / Senate / Executive). */
@@ -593,6 +623,8 @@ function politicianFeedRowNames(row) {
     if (v) names.add(v)
   }
   for (const r of row?.caseSheet?.rows ?? []) {
+    const full = String(r?.politician_name ?? r?.key ?? '').trim()
+    if (full) names.add(full)
     if (r?.surname) names.add(String(r.surname))
     const fromKey = lastName(r?.key)
     if (fromKey && fromKey !== '—') names.add(fromKey)
@@ -635,6 +667,8 @@ function insiderFeedRowPersonNames(row) {
     if (s && s !== '—') names.add(s)
   }
   for (const r of row?.caseSheet?.rows ?? []) {
+    const full = String(r?.insider_name ?? r?.person ?? insiderReportingOwnerName(r) ?? '').trim()
+    if (full) names.add(full)
     if (r?.surname) names.add(String(r.surname))
     const fromKey = insiderSurnameFromKey(r?.key)
     if (fromKey) names.add(fromKey)
@@ -1905,8 +1939,12 @@ function insiderRoleFromKey(key) {
   return first ? first.toUpperCase().slice(0, 5) : '—'
 }
 
+function mockInsiderPerson(seedA, seedB) {
+  return INSIDER_MOCK_PEOPLE[(seedA * 7 + seedB * 3) % INSIDER_MOCK_PEOPLE.length]
+}
+
 function mockInsiderSurname(seedA, seedB) {
-  return INSIDER_MOCK_SURNAMES[(seedA * 7 + seedB * 3) % INSIDER_MOCK_SURNAMES.length]
+  return lastName(mockInsiderPerson(seedA, seedB).fullName)
 }
 
 /** Last name from worksheet `key` when backend embeds a person name. */
@@ -1938,35 +1976,6 @@ function insiderReportingOwnerName(r) {
   return surname || ''
 }
 
-const MOCK_INSIDER_GIVEN = [
-  'Robert',
-  'Jennifer',
-  'David',
-  'Anika',
-  'Thomas',
-  'Yuki',
-  'Laura',
-  'Min-jun',
-  'Carlos',
-  'Emily',
-  'Kenji',
-  'Sofia',
-  'Daniel',
-  'Priya',
-  'Marcus',
-  'Helena',
-  'Andre',
-  'Nina',
-]
-
-function mockInsiderPersonName(surname, seed = 0) {
-  const s = String(surname ?? '').trim()
-  if (!s) return ''
-  const idx = INSIDER_MOCK_SURNAMES.indexOf(s)
-  const given = MOCK_INSIDER_GIVEN[(idx >= 0 ? idx : seed) % MOCK_INSIDER_GIVEN.length]
-  return `${given} ${s}`
-}
-
 function insiderTxnCodeTone(code, ad) {
   const c = String(code ?? '').toUpperCase()
   const side = String(ad ?? '').toUpperCase()
@@ -1990,14 +1999,13 @@ function formatInsiderTxnValue(row) {
   return sh || '—'
 }
 
-function insiderCaseRowFromSpec(spec, tsIso) {
+function insiderCaseRowFromSpec(spec, tsIso, seedI = 0, seedK = 0) {
   const role = String(spec?.role ?? 'OFF').toUpperCase()
   const code = String(spec?.code ?? 'P').toUpperCase()
-  const surname = String(spec?.surname ?? '').trim() || insiderSurnameFromKey(spec?.key)
-  const person =
-    String(spec?.person ?? '').trim() || mockInsiderPersonName(surname, code.charCodeAt(0) + role.length)
+  const person = String(spec?.person ?? mockInsiderPerson(seedI, seedK).fullName).trim()
+  const surname = lastName(person)
   return {
-    key: surname ? `${role} ${surname} · ${code}` : `${role} · ${code}`,
+    key: person,
     role,
     surname,
     person,
@@ -2014,7 +2022,7 @@ function insiderCaseRowFromSpec(spec, tsIso) {
 function mockTxnSpecForCluster(i, k) {
   const code = FORM4_TXN_CODES_CYCLE[(i * 5 + k * 3) % FORM4_TXN_CODES_CYCLE.length]
   const role = INSIDER_TXN_ROLES[(i + k) % INSIDER_TXN_ROLES.length]
-  const surname = mockInsiderSurname(i, k)
+  const person = mockInsiderPerson(i, k).fullName
   const seed = i * 131 + k * 37
   const isDeriv = code === 'D' || (code === 'P' && k % 7 === 0) || (code === 'S' && k % 9 === 0)
   const ad =
@@ -2022,33 +2030,33 @@ function mockTxnSpecForCluster(i, k) {
       ? 'D'
       : 'A'
 
-  if (code === 'A' && k % 4 === 0) return { role, surname, code, amountUsd: 0, ad }
-  if (code === 'A' && k % 4 === 1) return { role, surname, code, ad }
-  if (code === 'A') return { role, surname, code, shares: Math.round(2_000 + seededJitter(seed, 80_000)), ad }
+  if (code === 'A' && k % 4 === 0) return { role, person, code, amountUsd: 0, ad }
+  if (code === 'A' && k % 4 === 1) return { role, person, code, ad }
+  if (code === 'A') return { role, person, code, shares: Math.round(2_000 + seededJitter(seed, 80_000)), ad }
 
   if (code === 'F' || code === 'H' || code === 'O' || code === 'X') {
-    if (k % 3 === 0) return { role, surname, code, ad }
-    if (k % 3 === 1) return { role, surname, code, shares: Math.round(500 + seededJitter(seed, 4_000)), ad }
-    return { role, surname, code, amountUsd: 0, ad }
+    if (k % 3 === 0) return { role, person, code, ad }
+    if (k % 3 === 1) return { role, person, code, shares: Math.round(500 + seededJitter(seed, 4_000)), ad }
+    return { role, person, code, amountUsd: 0, ad }
   }
 
   if (code === 'M' && k % 2 === 0) {
-    return { role, surname, code, shares: Math.round(1_000 + seededJitter(seed, 40_000)), ad }
+    return { role, person, code, shares: Math.round(1_000 + seededJitter(seed, 40_000)), ad }
   }
 
   if (code === 'G' || code === 'C' || code === 'J' || code === 'W') {
-    return { role, surname, code, shares: Math.round(200 + seededJitter(seed, 12_000)), ad }
+    return { role, person, code, shares: Math.round(200 + seededJitter(seed, 12_000)), ad }
   }
 
   if (code === 'D' || isDeriv) {
     if (k % 3 === 0)
-      return { role, surname, code, amountUsd: Math.round(50_000 + seededJitter(seed, 2_500_000)), ad, isDerivative: true }
-    if (k % 3 === 1) return { role, surname, code, ad, isDerivative: true }
-    return { role, surname, code, shares: Math.round(500 + seededJitter(seed, 15_000)), ad, isDerivative: true }
+      return { role, person, code, amountUsd: Math.round(50_000 + seededJitter(seed, 2_500_000)), ad, isDerivative: true }
+    if (k % 3 === 1) return { role, person, code, ad, isDerivative: true }
+    return { role, person, code, shares: Math.round(500 + seededJitter(seed, 15_000)), ad, isDerivative: true }
   }
 
   const amountUsd = Math.round(5_000 + seededJitter(seed, code === 'S' ? 3_000_000 : 2_400_000))
-  return { role, surname, code, amountUsd, ad, isDerivative: isDeriv && code !== 'D' }
+  return { role, person, code, amountUsd, ad, isDerivative: isDeriv && code !== 'D' }
 }
 
 const CASE_RANGE_FLOOR_ID = '__case_range_floor__'
@@ -2197,10 +2205,8 @@ function formatPoliticianTxnValue(r) {
 function caseSheetRowToPoliticianTxnFeedRow(r, { showMoney }) {
   if (!showMoney || !politicianCaseRowHasTxn(r)) return null
   const whoRole = politicianChamberCode(r?.chamber)
-  const whoName = String(r?.surname ?? lastName(r?.key) ?? '')
-    .trim()
-    .toUpperCase()
-  const whoFullName = String(r?.key ?? '').trim() || whoName
+  const whoFullName = String(r?.politician_name ?? r?.person ?? r?.key ?? '').trim()
+  const whoName = whoFullName ? lastName(whoFullName).toUpperCase() : ''
   const matchNames = [...new Set([whoName, whoFullName, lastName(whoFullName)].filter(Boolean))]
   const code = politicianTxnCodeFromRaw(r?.transactionType ?? r?.transactionCode)
   const when = r?.ts ? formatFeedDate(r.ts) : ''
@@ -2440,10 +2446,234 @@ function historicalOutcomeLinesFromIns(ins, mode, personDisplay) {
   ]
 }
 
+/** Congress bioguide IDs for politician profile photos (unitedstates/congress-photos). */
+const POLITICIAN_CONGRESS_PHOTO_ID = {
+  'nancy pelosi': 'P000197',
+  'dan crenshaw': 'C001120',
+  'josh gottheimer': 'G000583',
+  'ro khanna': 'K000389',
+  'tommy tuberville': 'T000278',
+  'michael mccaul': 'M001157',
+  'john thune': 'T000250',
+  'mark kelly': 'K000377',
+  'tom cotton': 'C001095',
+  'ted cruz': 'C001098',
+  'marco rubio': 'R000595',
+  'bernie sanders': 'S000033',
+  'mitch mcconnell': 'M000355',
+  'chuck schumer': 'S000148',
+  'gina raimondo': null,
+}
+
+/** Non-Congress officials / executives (Wikimedia via Commons FilePath). */
+const POLITICIAN_EXECUTIVE_PHOTO_FILE = {
+  'gina raimondo': 'Gina_Raimondo_2021.jpg',
+}
+
+function normalizePoliticianNameKey(name) {
+  return String(name ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/^(sen\.|rep\.|hon\.|mr\.|mrs\.|ms\.|dr\.)\s+/i, '')
+    .replace(/^(senate|house|executive|hse|sen|exe)\s*,?\s*/i, '')
+    .replace(/,/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function politicianDisplayNameFromRow(r) {
+  const full = String(r?.whoFullName ?? '').trim()
+  if (full.includes(',')) {
+    const after = full.split(',').pop()?.trim()
+    if (after) return after
+  }
+  return full
+}
+
+function insiderPhotoUrlForName(fullName) {
+  const tryKey = (name) => {
+    const key = normalizePoliticianNameKey(name)
+    if (key && INSIDER_PHOTO_BY_NAME_KEY[key]) return INSIDER_PHOTO_BY_NAME_KEY[key]
+    const last = normalizePoliticianNameKey(lastName(name))
+    if (last && INSIDER_PHOTO_BY_LAST_KEY[last]) return INSIDER_PHOTO_BY_LAST_KEY[last]
+    return null
+  }
+
+  const direct = tryKey(fullName)
+  if (direct) return direct
+
+  const raw = String(fullName ?? '').trim()
+  if (raw.includes(',')) {
+    const [lastPart, ...rest] = raw.split(',')
+    const flipped = `${rest.join(',').trim()} ${lastPart.trim()}`.trim()
+    if (flipped) return tryKey(flipped)
+  }
+  return null
+}
+
+function casePersonPhotoUrl(fullName, mode) {
+  const key = normalizePoliticianNameKey(fullName)
+  if (!key) return null
+  if (mode === 'politicians') {
+    const id = POLITICIAN_CONGRESS_PHOTO_ID[key]
+    if (id) return `https://unitedstates.github.io/images/congress/225x275/${id}.jpg`
+    const execFile = POLITICIAN_EXECUTIVE_PHOTO_FILE[key]
+    if (execFile) return wikimediaPortraitUrl(execFile)
+    return null
+  }
+  return insiderPhotoUrlForName(fullName)
+}
+
+function casePersonInitials(fullName) {
+  const parts = String(fullName ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  if (!parts.length) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase()
+}
+
+function formatCasePersonDisplayName(name) {
+  const s = String(name ?? '').trim()
+  if (!s) return ''
+  if (s !== s.toUpperCase()) return s
+  return s
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+function PersonAvatar({
+  fullName,
+  mode = 'insider',
+  className = 'casePersonHeaderAvatar',
+  photoClassName = 'casePersonHeaderPhoto',
+  initialsClassName = 'casePersonHeaderInitials mono',
+  loadedPhotoClassName = 'isLoaded',
+}) {
+  const photoUrl = useMemo(() => casePersonPhotoUrl(fullName, mode), [fullName, mode])
+  const initials = casePersonInitials(fullName)
+  const [loadedSrc, setLoadedSrc] = useState(null)
+  const failedUrlsRef = useRef(new Set())
+
+  useEffect(() => {
+    setLoadedSrc(null)
+    if (!photoUrl || failedUrlsRef.current.has(photoUrl)) return undefined
+
+    let active = true
+    const probe = new Image()
+    probe.referrerPolicy = 'no-referrer'
+    probe.decoding = 'async'
+    probe.onload = () => {
+      if (active) setLoadedSrc(photoUrl)
+    }
+    probe.onerror = () => {
+      failedUrlsRef.current.add(photoUrl)
+      if (active) setLoadedSrc(null)
+    }
+    probe.src = photoUrl
+
+    return () => {
+      active = false
+    }
+  }, [photoUrl])
+
+  const showPhoto = loadedSrc === photoUrl
+
+  return (
+    <div className={className} aria-hidden="true">
+      <span className={initialsClassName}>{initials}</span>
+      {showPhoto ? (
+        <img
+          className={[photoClassName, loadedPhotoClassName].filter(Boolean).join(' ')}
+          src={loadedSrc}
+          alt=""
+          decoding="async"
+          referrerPolicy="no-referrer"
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function CasePersonAvatar({ fullName, mode }) {
+  return <PersonAvatar fullName={fullName} mode={mode} />
+}
+
+/** Paper txn portrait column — full-bleed left rail when photo loads. */
+function ResearchPaperTxnThumb({ fullName, mode, onActiveChange }) {
+  const photoUrl = useMemo(() => casePersonPhotoUrl(fullName, mode), [fullName, mode])
+  const [loadedSrc, setLoadedSrc] = useState(null)
+  const failedUrlsRef = useRef(new Set())
+
+  useEffect(() => {
+    setLoadedSrc(null)
+    if (!photoUrl || failedUrlsRef.current.has(photoUrl)) return undefined
+
+    let active = true
+    const probe = new Image()
+    probe.referrerPolicy = 'no-referrer'
+    probe.decoding = 'async'
+    probe.onload = () => {
+      if (active) setLoadedSrc(photoUrl)
+    }
+    probe.onerror = () => {
+      failedUrlsRef.current.add(photoUrl)
+      if (active) setLoadedSrc(null)
+    }
+    probe.src = photoUrl
+
+    return () => {
+      active = false
+    }
+  }, [photoUrl])
+
+  useEffect(() => {
+    onActiveChange?.(Boolean(loadedSrc))
+  }, [loadedSrc, onActiveChange])
+
+  if (!loadedSrc) return null
+
+  return (
+    <img
+      className="researchPaperTxnThumb"
+      src={loadedSrc}
+      alt=""
+      decoding="async"
+      referrerPolicy="no-referrer"
+    />
+  )
+}
+
+function CasePersonHeader({ person, mode = 'insider' }) {
+  const rawName = String(person?.fullName ?? '').trim()
+  if (!rawName) return null
+  const name = formatCasePersonDisplayName(rawName)
+  const detail = String(person?.detail ?? '').trim()
+  const roleLine = detail && detail !== EMPTY ? detail : null
+  const modeLabel = mode === 'politicians' ? 'politician' : 'insider'
+
+  return (
+    <div className="casePersonHeader" aria-label={`Selected ${modeLabel}: ${name}`}>
+      <CasePersonAvatar fullName={rawName} mode={mode} />
+      <div className="casePersonHeaderText">
+        {roleLine ? <div className="casePersonHeaderDetail mono">{roleLine}</div> : null}
+        <div className="casePersonHeaderName">{name}</div>
+      </div>
+    </div>
+  )
+}
+
 function caseFeedSelectedPersonDisplay(rows, selectedRowIndex, personQuery, mode) {
   const pick = (r) => {
     if (r?.type !== 'trade') return null
-    const fullName = String(r.whoFullName ?? r.whoName ?? '').trim()
+    const fullName =
+      mode === 'politicians'
+        ? String(r.whoFullName ?? politicianDisplayNameFromRow(r) ?? r.whoName ?? '').trim()
+        : String(r.whoFullName ?? r.whoName ?? '').trim()
     if (!fullName) return null
     const detail =
       mode === 'politicians'
@@ -2613,9 +2843,9 @@ function insiderCaseForRowIndex(i) {
     }
     const rawSpec = showcaseAllCodes ? FORM4_TXN_MOCK_SAMPLES[k] : mockTxnSpecForCluster(i, k)
     const spec = showcaseAllCodes
-      ? { ...rawSpec, surname: rawSpec.surname ?? mockInsiderSurname(i, k) }
+      ? { ...rawSpec, person: rawSpec.person ?? mockInsiderPerson(i, k).fullName }
       : rawSpec
-    rows.push(insiderCaseRowFromSpec(spec, rowIso))
+    rows.push(insiderCaseRowFromSpec(spec, rowIso, i, k))
   }
 
   const totalUsd = isForm4
@@ -2630,7 +2860,7 @@ function insiderCaseForRowIndex(i) {
   const insiders = [
     ...new Set(
       rows
-        .map((r) => String(r?.surname ?? insiderSurnameFromKey(r?.key) ?? '').trim())
+        .map((r) => String(r?.insider_name ?? r?.person ?? insiderReportingOwnerName(r) ?? '').trim())
         .filter(Boolean),
     ),
   ]
@@ -2691,7 +2921,8 @@ function politicianCaseForRowIndex(i) {
     const amountUsd = Number(r?.amountUsd ?? 0)
     return {
       ...r,
-      key: surname.toUpperCase(),
+      key: who,
+      politician_name: who,
       surname,
       chamber,
       transactionType,
@@ -4374,26 +4605,33 @@ function ResearchPaperDocCard({ doc, ticker }) {
   const url = paperDocumentOpenUrl(doc, ticker)
   const openLabel = `Open ${source}`
   return (
-    <article className="researchPaperDocCard">
-      <header className="researchPaperDocCardMeta mono dim">
-        <span className="researchPaperDocCardSource">{source}</span>
-        <time className="researchPaperDocCardDate" dateTime={doc?.filedAt ?? undefined}>
-          {doc?.filedAt ? formatFeedDate(doc.filedAt) : '—'}
-        </time>
-      </header>
-      <ResearchPaperDocAnalysis text={doc?.analysis} />
-      {url ? (
-        <a
-          className="researchPaperDocOpen"
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={openLabel}
-          title={openLabel}
-        >
-          <ResearchPaperDocOpenIcon />
-        </a>
-      ) : null}
+    <article className="researchPaperRailCard researchPaperDocCard">
+      <div className="researchPaperRailCardRail" aria-hidden="true" />
+      <div className="researchPaperRailCardMain">
+        <div className="researchPaperRailCardGrid">
+          <div className="researchPaperRailCardCol">
+            <span className="researchPaperDocCardSource mono dim">{source}</span>
+          </div>
+          <div className="researchPaperRailCardCol researchPaperRailCardCol--end">
+            <time className="researchPaperDocCardDate mono dim" dateTime={doc?.filedAt ?? undefined}>
+              {doc?.filedAt ? formatFeedDate(doc.filedAt) : '—'}
+            </time>
+          </div>
+        </div>
+        <ResearchPaperDocAnalysis text={doc?.analysis} />
+        {url ? (
+          <a
+            className="researchPaperDocOpen"
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={openLabel}
+            title={openLabel}
+          >
+            <ResearchPaperDocOpenIcon />
+          </a>
+        ) : null}
+      </div>
     </article>
   )
 }
@@ -4596,6 +4834,8 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       source: 'Form 4',
       name: label,
       amount: row?.amount,
+      personFullName: person,
+      personMode: 'insider',
     })
   }
   for (const row of politicians) {
@@ -4610,6 +4850,8 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       source: 'PTR',
       name: label,
       amount: row?.amount,
+      personFullName: member,
+      personMode: 'politicians',
     })
   }
   return items.sort((a, b) => paperTimelineAtMs(b?.at) - paperTimelineAtMs(a?.at))
@@ -4917,21 +5159,53 @@ function ResearchPaperTimelineGap({ label }) {
   )
 }
 
-function ResearchPaperTxnCard({ source, filedAt, name, amount }) {
+function ResearchPaperTxnCard({ source, filedAt, name, amount, personFullName, personMode }) {
   const label = String(name ?? '').trim()
   const amt = String(amount ?? '').trim()
+  const personName = String(personFullName ?? '').trim()
+  const photoMode = personMode === 'politicians' ? 'politicians' : 'insider'
+  const [portraitActive, setPortraitActive] = useState(false)
   if (!label && !amt) return null
   return (
-    <article className="researchPaperTxnCard">
-      <header className="researchPaperDocCardMeta mono dim">
-        <span className="researchPaperDocCardSource">{source ?? 'Filing'}</span>
-        <time className="researchPaperDocCardDate" dateTime={filedAt ?? undefined}>
-          {filedAt ? formatFeedDate(filedAt) : '—'}
-        </time>
-      </header>
-      <div className="researchPaperTxnCardRow">
-        <span className="researchPaperTxnCardName">{label || '—'}</span>
-        <span className="researchPaperTxnCardAmt mono">{amt || '—'}</span>
+    <article
+      className={[
+        'researchPaperRailCard',
+        'researchPaperTxnCard',
+        portraitActive ? 'researchPaperTxnCard--hasPortrait' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <div
+        className={[
+          'researchPaperRailCardRail',
+          portraitActive ? 'researchPaperRailCardRail--photo' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-hidden={!portraitActive || undefined}
+      >
+        {personName ? (
+          <ResearchPaperTxnThumb
+            fullName={personName}
+            mode={photoMode}
+            onActiveChange={setPortraitActive}
+          />
+        ) : null}
+      </div>
+      <div className="researchPaperRailCardMain">
+        <div className="researchPaperRailCardGrid">
+          <div className="researchPaperRailCardCol">
+            <span className="researchPaperDocCardSource mono dim">{source ?? 'Filing'}</span>
+            <span className="researchPaperTxnCardName">{label || '—'}</span>
+          </div>
+          <div className="researchPaperRailCardCol researchPaperRailCardCol--end">
+            <time className="researchPaperDocCardDate mono dim" dateTime={filedAt ?? undefined}>
+              {filedAt ? formatFeedDate(filedAt) : '—'}
+            </time>
+            <span className="researchPaperTxnCardAmt mono">{amt || '—'}</span>
+          </div>
+        </div>
       </div>
     </article>
   )
@@ -4976,6 +5250,8 @@ function BoshaPaperStructuredView({
                     filedAt={item.at}
                     name={item.name}
                     amount={item.amount}
+                    personFullName={item.personFullName}
+                    personMode={item.personMode}
                   />
                 )}
               </Fragment>
@@ -6570,6 +6846,8 @@ function CaseKvFeed({
   scrollMode = false,
   /** When set, matching politician CASE surname cells use main (white) text. */
   highlightPersonQuery = '',
+  personDisplay = null,
+  personMode = 'insider',
 }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
@@ -6595,7 +6873,7 @@ function CaseKvFeed({
     ro.observe(list)
     measure()
     return () => ro.disconnect()
-  }, [rows.length, placement, scrollMode])
+  }, [rows.length, placement, scrollMode, personDisplay?.fullName])
 
   const pageSize = Math.max(1, rowsPerPage)
   const total = rows.length
@@ -6748,7 +7026,10 @@ function CaseKvFeed({
         ) : null}
       </header>
       {scrollMode ? (
-        <div className="feedCompactBody">
+        <div className="feedCompactBody feedCompactBody--case">
+          {personDisplay?.fullName ? (
+            <CasePersonHeader person={personDisplay} mode={personMode} />
+          ) : null}
           <div
             ref={listRef}
             className={[
@@ -8110,6 +8391,8 @@ function KensiglineTerminal() {
               investigateIsInsider ? insiderCaseSelectedRowIndex : politiciansCaseSelectedRowIndex
             }
             highlightPersonQuery={investigateIsInsider ? insiderPersonQuery : politiciansPoliticianQuery}
+            personDisplay={historicalOutcomesPerson}
+            personMode={investigateIsPoliticians ? 'politicians' : 'insider'}
             scrollMode
             onSelectTradeRowIndex={(rowIndex) => {
               if (investigateIsInsider) {
