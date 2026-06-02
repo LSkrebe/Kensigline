@@ -2546,6 +2546,15 @@ function formatCasePersonDisplayName(name) {
     .join(' ')
 }
 
+const PERSON_AVATAR_FAILED_URLS = new Set()
+const PERSON_AVATAR_LOADED_URLS = new Set()
+
+function personAvatarDisplayForUrl(photoUrl) {
+  if (!photoUrl || PERSON_AVATAR_FAILED_URLS.has(photoUrl)) return 'initials'
+  if (PERSON_AVATAR_LOADED_URLS.has(photoUrl)) return 'photo'
+  return 'initials'
+}
+
 function PersonAvatar({
   fullName,
   mode = 'insider',
@@ -2556,44 +2565,54 @@ function PersonAvatar({
 }) {
   const photoUrl = useMemo(() => casePersonPhotoUrl(fullName, mode), [fullName, mode])
   const initials = casePersonInitials(fullName)
-  const [loadedSrc, setLoadedSrc] = useState(null)
-  const failedUrlsRef = useRef(new Set())
+  const [display, setDisplay] = useState(() => personAvatarDisplayForUrl(photoUrl))
 
-  useEffect(() => {
-    setLoadedSrc(null)
-    if (!photoUrl || failedUrlsRef.current.has(photoUrl)) return undefined
+  useLayoutEffect(() => {
+    setDisplay(personAvatarDisplayForUrl(photoUrl))
+    if (!photoUrl || PERSON_AVATAR_FAILED_URLS.has(photoUrl) || PERSON_AVATAR_LOADED_URLS.has(photoUrl)) {
+      return undefined
+    }
 
     let active = true
+    const fail = () => {
+      PERSON_AVATAR_FAILED_URLS.add(photoUrl)
+      if (active) setDisplay('initials')
+    }
+    const timeoutId = window.setTimeout(fail, 600)
+
     const probe = new Image()
     probe.referrerPolicy = 'no-referrer'
     probe.decoding = 'async'
     probe.onload = () => {
-      if (active) setLoadedSrc(photoUrl)
+      window.clearTimeout(timeoutId)
+      PERSON_AVATAR_LOADED_URLS.add(photoUrl)
+      if (active) setDisplay('photo')
     }
     probe.onerror = () => {
-      failedUrlsRef.current.add(photoUrl)
-      if (active) setLoadedSrc(null)
+      window.clearTimeout(timeoutId)
+      fail()
     }
     probe.src = photoUrl
 
     return () => {
       active = false
+      window.clearTimeout(timeoutId)
     }
   }, [photoUrl])
 
-  const showPhoto = loadedSrc === photoUrl
-
   return (
     <div className={className} aria-hidden="true">
-      <span className={initialsClassName}>{initials}</span>
-      {showPhoto ? (
+      {display === 'photo' && photoUrl ? (
         <img
           className={[photoClassName, loadedPhotoClassName].filter(Boolean).join(' ')}
-          src={loadedSrc}
+          src={photoUrl}
           alt=""
           decoding="async"
           referrerPolicy="no-referrer"
         />
+      ) : null}
+      {display === 'initials' ? (
+        <span className={initialsClassName}>{initials}</span>
       ) : null}
     </div>
   )
