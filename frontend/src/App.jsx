@@ -1482,12 +1482,29 @@ function contextCatalystCountdown(at) {
 }
 
 function ContextSection({ title, ariaLabel, children }) {
+  const sectionLabel = ariaLabel ?? title
   return (
-    <div className="contextSection" aria-label={ariaLabel ?? title}>
-      <div className="contextSectionHeader">
-        <div className="contextSectionTitle">{title}</div>
-      </div>
+    <div
+      className={['contextSection', title ? '' : 'contextSection--headless'].filter(Boolean).join(' ')}
+      aria-label={sectionLabel}
+    >
+      {title ? (
+        <div className="contextSectionHeader">
+          <div className="contextSectionTitle">{title}</div>
+        </div>
+      ) : null}
       {children}
+    </div>
+  )
+}
+
+function ContextFlowChartHeader({ title, sample = null }) {
+  return (
+    <div className="contextFlowChartHeader">
+      <div className="contextFlowChartLabel mono dim">{title}</div>
+      {sample != null && String(sample).trim() ? (
+        <span className="contextFlowChartSample mono dim">{sample}</span>
+      ) : null}
     </div>
   )
 }
@@ -1642,7 +1659,12 @@ function attachOutcomeLineColors(rows, outcomeLines, lineIdForRow) {
   }))
 }
 
-function ContextFlowTotalsList({ rows = [], outcomeLines = [], emptyLabel = 'None in the past 30 days.' }) {
+function ContextFlowTotalsList({
+  rows = [],
+  outcomeLines = [],
+  emptyLabel = 'None in the past 30 days.',
+  chartTitle = 'Historical outcomes',
+}) {
   if (!rows.length && !outcomeLines.length) {
     return (
       <div className="contextFlowList contextFlowList--empty">
@@ -1654,7 +1676,7 @@ function ContextFlowTotalsList({ rows = [], outcomeLines = [], emptyLabel = 'Non
     <div className="contextFlowList contextFlowList--marketFlows" role="list">
       {outcomeLines.length ? (
         <>
-          <div className="contextFlowChartLabel mono dim">Historical outcomes</div>
+          <ContextFlowChartHeader title={chartTitle} />
           <ContextFlowOutcomeChart
             lines={outcomeLines}
             xLabels={OUTCOME_HORIZON_CHART_LABELS}
@@ -1704,46 +1726,68 @@ function contextOutcomesSampleLabel(sampleSize) {
   return count ? `${count} events` : s
 }
 
-function ContextClinicalOutcomesList({ outcomeLines = [], sampleSize = EMPTY }) {
-  const rows = buildMockPharmaOutcomeRows(outcomeLines)
+function ContextClinicalOutcomesList({
+  outcomeLines = [],
+  sampleSize = EMPTY,
+  stats = MOCK_HISTORICAL_TRIALS,
+  chartTitle = 'Trial historical outcomes',
+}) {
+  const rows = buildMockPharmaOutcomeRows(outcomeLines, stats)
   return (
-    <div className="contextFlowList" role="list">
-      <ContextFlowOutcomeChart
-        lines={outcomeLines}
-        ariaLabel="Average forward returns after trial events (21, 63, 252 trading days)"
-      />
-      <div className="contextFlowTotalsMeta" aria-hidden="true">
-        <span className="contextFlowTotalsMetaL mono dim">Global sample</span>
-        <span className="contextFlowTotalsMetaR mono dim">{contextOutcomesSampleLabel(sampleSize)}</span>
-      </div>
+    <div className="contextFlowList contextFlowList--marketFlows" role="list">
+      {outcomeLines.length ? (
+        <>
+          <ContextFlowChartHeader
+            title={chartTitle}
+            sample={contextOutcomesSampleLabel(sampleSize)}
+          />
+          <ContextFlowOutcomeChart
+            lines={outcomeLines}
+            xLabels={OUTCOME_HORIZON_CHART_LABELS}
+            ariaLabel="Average forward returns after trial events (21, 63, 252 trading days)"
+          />
+        </>
+      ) : null}
       {rows.map((row) => (
-        <div key={row.id} className="contextFlowRow" role="listitem">
-          <div className="contextFlowRowMain">
-            <div className="contextFlowRowKeyWrap">
-              {row.lineColor ? (
-                <span
-                  className="contextFlowRowLine"
-                  style={{ background: row.lineColor }}
-                  aria-hidden="true"
-                />
-              ) : null}
-              <div className="contextFlowRowKey">{row.label}</div>
-            </div>
+        <div
+          key={row.id}
+          className="contextCompanyEarnings historicalOutcomesPerson contextFlowPersonStrip"
+          role="listitem"
+        >
+          <div className="contextFlowRowKeyWrap">
+            {row.lineColor ? (
+              <span
+                className="contextFlowRowLine"
+                style={{ background: row.lineColor }}
+                aria-hidden="true"
+              />
+            ) : null}
+            <span className="contextCompanyEarningsK historicalOutcomesPersonName">{row.label}</span>
           </div>
-          <div className="contextFlowRowAmt mono">{row.total}</div>
+          <span className="contextCompanyEarningsV historicalOutcomesPersonDetail mono">{row.total}</span>
         </div>
       ))}
     </div>
   )
 }
 
-function ContextCatalystCard({ items = [] }) {
-  if (!items.length) {
-    return <div className="contextCatalystCard contextCatalystCard--empty dim">No upcoming catalysts</div>
-  }
+function ContextCatalystCard({ items = [], title = 'Catalyst clock' }) {
+  const count = items.length
+  const meta = count ? `${count} upcoming` : null
+
   return (
-    <div className="contextCatalystCard">
-      {items.map((it) => {
+    <div
+      className={['contextCatalystCard', !count ? 'contextCatalystCard--empty' : ''].filter(Boolean).join(' ')}
+      aria-label={title}
+    >
+      <div className="contextCatalystCardHeader">
+        <div className="contextCatalystCardTitle mono dim">{title}</div>
+        {meta ? <span className="contextCatalystCardMeta mono dim">{meta}</span> : null}
+      </div>
+      {!count ? (
+        <p className="contextCatalystCardEmpty mono dim">No upcoming catalysts</p>
+      ) : (
+        items.map((it) => {
         const rowInner = (
           <>
             <div className="contextCatalystMain">
@@ -1772,7 +1816,8 @@ function ContextCatalystCard({ items = [] }) {
             {rowInner}
           </div>
         )
-      })}
+      })
+      )}
     </div>
   )
 }
@@ -2723,6 +2768,8 @@ function HistoricalMarketOutcomesView({ ins, mode, personDisplay = null }) {
   )
   const personLabel = String(personDisplay?.fullName ?? '').trim()
   const personDetail = String(personDisplay?.detail ?? '').trim()
+  const chartTitle =
+    mode === 'politicians' ? 'Politician historical outcomes' : 'Insider historical outcomes'
 
   if (!hasDataset) {
     return (
@@ -2736,7 +2783,7 @@ function HistoricalMarketOutcomesView({ ins, mode, personDisplay = null }) {
     <div className="contextFlowList" role="list">
       {outcomeLines.length ? (
         <>
-          <div className="contextFlowChartLabel mono dim">Historical outcomes</div>
+          <ContextFlowChartHeader title={chartTitle} />
           <ContextFlowOutcomeChart
             lines={outcomeLines}
             xLabels={OUTCOME_HORIZON_CHART_LABELS}
@@ -3129,13 +3176,14 @@ function MainContextPanel({
                 })()}
               </ContextSection>
             ) : null}
-            <ContextSection title="CATALYST CLOCK" ariaLabel="Upcoming catalysts">
-              <ContextCatalystCard items={catalystItems} />
+            <ContextSection ariaLabel="Catalyst clock">
+              <ContextCatalystCard items={catalystItems} title="Catalyst clock" />
             </ContextSection>
-            <ContextSection title="HISTORICAL OUTCOMES" ariaLabel="Historical trial outcomes">
+            <ContextSection ariaLabel="Trial historical outcomes">
               <ContextClinicalOutcomesList
                 outcomeLines={clinicalOutcomes.outcomeLines}
                 sampleSize={clinicalOutcomes.sampleSize}
+                chartTitle="Trial historical outcomes"
               />
             </ContextSection>
           </>
@@ -3143,18 +3191,20 @@ function MainContextPanel({
 
         {showFlows ? (
           <>
-            <ContextSection title="INSIDERS" ariaLabel="Insiders past month">
+            <ContextSection ariaLabel="Insider historical outcomes">
               <ContextFlowTotalsList
                 rows={insidersFlow.rows}
                 outcomeLines={insidersFlow.outcomeLines}
                 emptyLabel="No insider filings in the past 30 days."
+                chartTitle="Insider historical outcomes"
               />
             </ContextSection>
-            <ContextSection title="POLITICIANS" ariaLabel="Politicians past month">
+            <ContextSection ariaLabel="Politician historical outcomes">
               <ContextFlowTotalsList
                 rows={politiciansFlow.rows}
                 outcomeLines={politiciansFlow.outcomeLines}
                 emptyLabel="No PTR disclosures in the past 30 days."
+                chartTitle="Politician historical outcomes"
               />
             </ContextSection>
           </>
@@ -3260,6 +3310,11 @@ function ResearchFeedProgramsList({ programGroups, selectedProgramKey, onSelectP
     [programGroups, q],
   )
 
+  const selectProgram = (key) => (e) => {
+    onSelectProgramKey?.(key)
+    e.currentTarget.blur()
+  }
+
   return (
     <>
       <label className="researchFeedSearch">
@@ -3290,7 +3345,7 @@ function ResearchFeedProgramsList({ programGroups, selectedProgramKey, onSelectP
           ]
             .filter(Boolean)
             .join(' ')}
-          onClick={() => onSelectProgramKey?.(CLINICAL_PROGRAM_ALL)}
+          onClick={selectProgram(CLINICAL_PROGRAM_ALL)}
         >
           <span className="researchFeedRowName">ALL</span>
           <span className="researchFeedRowPhase mono dim">Company</span>
@@ -3308,7 +3363,7 @@ function ResearchFeedProgramsList({ programGroups, selectedProgramKey, onSelectP
               ]
                 .filter(Boolean)
                 .join(' ')}
-              onClick={() => onSelectProgramKey?.(pg.key)}
+              onClick={selectProgram(pg.key)}
             >
               <span className="researchFeedRowName">{pg.key}</span>
               <span className="researchFeedRowPhase mono dim">{feedProgramPhaseForGroup(pg)}</span>
@@ -6262,16 +6317,6 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
       ? (live ?? MOCK_HISTORICAL_INSIDER)
       : (live ?? MOCK_HISTORICAL_TRIALS)
 
-  const norm = (v) => {
-    if (v == null) return EMPTY
-    let s = String(v)
-    // Avoid mixed dash glyphs in UI.
-    s = s.replace(/—/g, '-').trim()
-    if (!s) return EMPTY
-    if (s === '0' || s === '0.0' || s === '0%' || s === '0.00%') return EMPTY
-    return s
-  }
-
   const sampleSizeNum = (() => {
     if (!ins) return null
     const raw = ins.sampleSize
@@ -6280,6 +6325,10 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
   })()
 
   const hasDataset = sampleSizeNum != null ? sampleSizeNum > 0 : Boolean(ins && ins.sampleSize)
+  const clinicalOutcomeLines = useMemo(
+    () => (hasDataset ? buildMockPharmaOutcomeLines('') : []),
+    [hasDataset],
+  )
 
   return (
     <section
@@ -6287,65 +6336,28 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
         'panel',
         'historicalOutcomes',
         'blankTile--a',
-        insider ? 'historicalOutcomes--market' : '',
+        'historicalOutcomes--market',
       ]
         .filter(Boolean)
         .join(' ')}
       aria-label="Historical outcomes"
     >
-      {!insider ? (
-        <header className="feedCompactHeader">
-          <div className="panelTitle feedCompactTitle">HISTORICAL OUTCOMES</div>
-        </header>
-      ) : null}
       <div className="worksheetBody historicalOutcomesBody scrollThin">
         {insider ? (
           <HistoricalMarketOutcomesView ins={ins} mode={mode} personDisplay={personDisplay} />
+        ) : hasDataset ? (
+          <ContextClinicalOutcomesList
+            outcomeLines={clinicalOutcomeLines}
+            sampleSize={ins?.sampleSize ?? EMPTY}
+            stats={ins ?? MOCK_HISTORICAL_TRIALS}
+            chartTitle="Trial historical outcomes"
+          />
         ) : (
-          <>
-            <KvLine key="ho-ph-p3">
-              <span className="kvK dim">Phase 3 failure</span>
-              <span className="kvV mono">{hasDataset ? norm(ins?.avgAfterPh3Failure) : EMPTY}</span>
-            </KvLine>
-            <KvLine key="ho-ph-p2">
-              <span className="kvK dim">Phase 2 miss</span>
-              <span className="kvV mono">{hasDataset ? norm(ins?.avgAfterPh2Miss) : EMPTY}</span>
-            </KvLine>
-            <KvLine key="ho-ph-med">
-              <span className="kvK dim">Median return</span>
-              <span className="kvV mono">{hasDataset ? norm(ins?.medianReturn) : EMPTY}</span>
-            </KvLine>
-            <KvLine key="ho-ph-drop">
-              <span className="kvK dim">{'% large drops (>30%)'}</span>
-              <span className="kvV mono">{hasDataset ? norm(ins?.pctLargeDropsOver30) : EMPTY}</span>
-            </KvLine>
-            <KvLine key="ho-ph-n">
-              <span className="kvK dim">Sample size</span>
-              <span className="kvV mono">{hasDataset ? (ins?.sampleSize ?? EMPTY) : EMPTY}</span>
-            </KvLine>
-            <KvLine key="ho-ph-ind">
-              <span className="kvK dim">Indication</span>
-              <span className="kvV">
-                {hasDataset ? (() => {
-                  const v = norm(ins?.conditioningIndication)
-                  const first = String(v ?? '').split('|')[0]?.trim()
-                  return first || EMPTY
-                })() : EMPTY}
-              </span>
-            </KvLine>
-            <KvLine key="ho-ph-co">
-              <span className="kvK dim">Company size bucket</span>
-              <span className="kvV">
-                {hasDataset ? (() => {
-                  const v = norm(ins?.conditioningCoSize)
-                  const first = String(v ?? '').split('|')[0]?.trim()
-                  return first || EMPTY
-                })() : EMPTY}
-              </span>
-            </KvLine>
-          </>
+          <div className="contextFlowList contextFlowList--empty">
+            <p className="contextFlowEmpty mono dim">No historical outcome data yet.</p>
+          </div>
         )}
-        </div>
+      </div>
     </section>
   )
 }
