@@ -1073,6 +1073,35 @@ function paperInsiderTxnLabel(role, personName) {
   return r || p || '—'
 }
 
+/** 13F paper row: filer name only. */
+function paper13fTxnLabel(filer) {
+  const f = String(filer ?? '').trim()
+  return f || '—'
+}
+
+function form4TxnActionLabel(code) {
+  const c = String(code ?? '').trim().toUpperCase()
+  if (!c) return ''
+  return FORM4_TXN_FILTER_LABELS[c] ?? FORM4_TXN_LABELS[c] ?? c
+}
+
+function politicianTxnActionLabel(raw) {
+  const code = politicianTxnCodeFromRaw(raw)
+  if (!code || code === '—') return ''
+  const entry = INVESTIGATE_POLITICIAN_TXN_TYPES.find((t) => t.id === code)
+  return entry?.label ?? code
+}
+
+/** Paper txn card source chip: filing type + action (e.g. Form 4 · Purchase). */
+function paperTxnSourceLabel(docType, actionRaw, kind) {
+  const base = String(docType ?? '').trim() || 'Filing'
+  let action = ''
+  if (kind === 'insider') action = form4TxnActionLabel(actionRaw)
+  else if (kind === 'politician') action = politicianTxnActionLabel(actionRaw)
+  else if (kind === '13f') action = String(actionRaw ?? '').trim()
+  return action ? `${base} · ${action}` : base
+}
+
 /** PTR paper/context row: chamber then member name. */
 function paperPoliticianTxnLabel(chamber, name) {
   const prefix = paperPoliticianChamberLabel(chamber)
@@ -1111,19 +1140,24 @@ const CONTEXT_MOCK_PROFILES = {
     mcap: '€350B',
     earningsDaysAhead: 17,
     insiders: [
-      { key: 'CEO', person: 'Christophe Borel', at: 'today', amount: '$8.2M' },
-      { key: 'CEO', person: 'Christophe Borel', at: '2026-05-10', amount: '$1.1M' },
-      { key: 'CFO', person: 'Roger Dassen', at: '2026-03-25', amount: '$2.1M' },
-      { key: 'CFO', person: 'Roger Dassen', at: '2026-05-18', amount: '$640K' },
-      { key: 'CTO', person: 'Frederic Schneider-Maunoury', at: '2026-02-20', amount: '$960K' },
-      { key: 'Director', person: 'Sophie van der Meer', at: '2026-01-14', amount: '$1.4M' },
+      { key: 'CEO', person: 'Christophe Borel', at: 'today', amount: '$8.2M', transactionCode: 'P' },
+      { key: 'CEO', person: 'Christophe Borel', at: '2026-05-10', amount: '$1.1M', transactionCode: 'S' },
+      { key: 'CFO', person: 'Roger Dassen', at: '2026-03-25', amount: '$2.1M', transactionCode: 'P' },
+      { key: 'CFO', person: 'Roger Dassen', at: '2026-05-18', amount: '$640K', transactionCode: 'M' },
+      { key: 'CTO', person: 'Frederic Schneider-Maunoury', at: '2026-02-20', amount: '$960K', transactionCode: 'P' },
+      { key: 'Director', person: 'Sophie van der Meer', at: '2026-01-14', amount: '$1.4M', transactionCode: 'S' },
     ],
     politicians: [
-      { name: 'Nancy Pelosi', chamber: 'house', at: '2026-05-02', amount: '$420K' },
-      { name: 'Nancy Pelosi', chamber: 'house', at: '2026-05-20', amount: '$95K' },
-      { name: 'Dan Crenshaw', chamber: 'house', at: '2026-03-01', amount: '$180K' },
-      { name: 'John Thune', chamber: 'senate', at: '2026-02-08', amount: '$210K' },
-      { name: 'Gina Raimondo', chamber: 'executive', at: '2026-01-12', amount: '$95K' },
+      { name: 'Nancy Pelosi', chamber: 'house', at: '2026-05-02', amount: '$420K', transactionType: 'P' },
+      { name: 'Nancy Pelosi', chamber: 'house', at: '2026-05-20', amount: '$95K', transactionType: 'S' },
+      { name: 'Dan Crenshaw', chamber: 'house', at: '2026-03-01', amount: '$180K', transactionType: 'P' },
+      { name: 'John Thune', chamber: 'senate', at: '2026-02-08', amount: '$210K', transactionType: 'S' },
+      { name: 'Gina Raimondo', chamber: 'executive', at: '2026-01-12', amount: '$95K', transactionType: 'E' },
+    ],
+    filings13f: [
+      { filer: 'Vanguard Group', activity: 'Increased stake', at: '2026-05-01', amount: '$84M' },
+      { filer: 'BlackRock', activity: 'New position', at: '2026-03-12', amount: '$42M' },
+      { filer: 'Capital Group', activity: 'Reduced stake', at: '2026-02-05', amount: '$18M' },
     ],
   },
   ATYR: {
@@ -1168,15 +1202,20 @@ const CONTEXT_MOCK_PROFILES = {
       },
     ],
     insiders: [
-      { key: 'CMO', person: 'Sanjay S. Shukla', at: '2026-05-20', amount: '$240K' },
-      { key: 'CEO', person: 'John Mendlein', at: '2026-04-02', amount: '$890K' },
-      { key: 'Director', person: 'Jill Bates', at: '2026-03-05', amount: '$125K' },
-      { key: 'CFO', person: 'Stephen A. Hall', at: '2026-01-30', amount: '$310K' },
+      { key: 'CMO', person: 'Sanjay S. Shukla', at: '2026-05-20', amount: '$240K', transactionCode: 'P' },
+      { key: 'CEO', person: 'John Mendlein', at: '2026-04-02', amount: '$890K', transactionCode: 'P' },
+      { key: 'Director', person: 'Jill Bates', at: '2026-03-05', amount: '$125K', transactionCode: 'S' },
+      { key: 'CFO', person: 'Stephen A. Hall', at: '2026-01-30', amount: '$310K', transactionCode: 'M' },
     ],
     politicians: [
-      { name: 'Tommy Tuberville', chamber: 'senate', at: '2026-04-24', amount: '$65K' },
-      { name: 'Mark Kelly', chamber: 'senate', at: '2026-03-28', amount: '$42K' },
-      { name: 'Ro Khanna', chamber: 'house', at: '2026-02-20', amount: '$28K' },
+      { name: 'Tommy Tuberville', chamber: 'senate', at: '2026-04-24', amount: '$65K', transactionType: 'P' },
+      { name: 'Mark Kelly', chamber: 'senate', at: '2026-03-28', amount: '$42K', transactionType: 'S' },
+      { name: 'Ro Khanna', chamber: 'house', at: '2026-02-20', amount: '$28K', transactionType: 'P' },
+    ],
+    filings13f: [
+      { filer: 'Perceptive Advisors', activity: 'New position', at: '2026-04-18', amount: '$6.2M' },
+      { filer: 'Ra Capital', activity: 'Increased stake', at: '2026-03-08', amount: '$3.1M' },
+      { filer: 'EcoR1 Capital', activity: 'New position', at: '2026-01-22', amount: '$1.8M' },
     ],
   },
 }
@@ -1230,10 +1269,18 @@ function contextMockForTicker(ticker, priceSeries) {
       person: row.person ?? null,
       date: contextMockFlowDate(row, dateDaysAgo),
       amount: row.amount,
+      transactionCode: row.transactionCode ?? null,
     })),
     politicians: base.politicians.map((row) => ({
       name: row.name,
       chamber: row.chamber ?? 'house',
+      date: contextMockFlowDate(row, dateDaysAgo),
+      amount: row.amount,
+      transactionType: row.transactionType ?? null,
+    })),
+    filings13f: (base.filings13f ?? []).map((row) => ({
+      filer: row.filer,
+      activity: row.activity ?? null,
       date: contextMockFlowDate(row, dateDaysAgo),
       amount: row.amount,
     })),
@@ -3204,11 +3251,12 @@ function MainContextPanel({
 }
 
 function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, filtered }) {
-  const displayRows = useMemo(() => {
+  const feedItems = useMemo(() => {
     const items = (filtered ?? []).map((it) => ({
       ...it,
-      id: it.rowKey ?? String(it.ticker ?? ''),
+      id: it.id ?? it.rowKey ?? String(it.ticker ?? ''),
       at: it.at ?? it.feed_at ?? null,
+      company: String(it.company ?? it.name ?? '').trim() || String(it.ticker ?? '').toUpperCase(),
     }))
     const dated = items.filter((it) => {
       const t = new Date(it.at).getTime()
@@ -3218,10 +3266,23 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
       const t = new Date(it.at).getTime()
       return !it.at || !Number.isFinite(t)
     })
-    const sorted = [...sortFeedRowsByAtDesc(dated), ...undated]
-    if (!sorted.length) return []
-    return buildFeedDisplayRows(sorted, { sepMode: 'today+years', exclusiveSeps: true })
+    return sortFeedRowsTodayEventsFirst([...sortFeedRowsByAtDesc(dated), ...undated])
   }, [filtered])
+
+  const displayRows = useMemo(
+    () =>
+      buildFeedDisplayRows(feedItems, {
+        sepMode: 'today+years',
+        exclusiveSeps: true,
+        isTodayRow: feedRowHasTodayEvents,
+      }),
+    [feedItems],
+  )
+
+  const feedWhenLabel = (row) =>
+    formatFeedDateForRow(row?.at, {
+      belowTodayBand: !feedRowHasTodayEvents(row),
+    })
 
   return (
     <>
@@ -3258,21 +3319,29 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
           const it = entry.row
           return (
             <button
-              key={it.rowKey ?? it.ticker}
+              key={it.id ?? it.rowKey ?? it.ticker}
               type="button"
               role="listitem"
               className={[
                 'feedRowCompact',
                 'feedRowCompact--company',
-                'feedRowCompact--noCount',
+                !feedCountVisible(it.count) ? 'feedRowCompact--noCount' : '',
                 it.ticker === selectedTicker ? 'isActive' : '',
               ]
                 .filter(Boolean)
                 .join(' ')}
               onClick={() => onSelectTicker(it.ticker)}
             >
-              <span className="feedCell feedCellSymbol mono kvFeedDim">{it.ticker}</span>
-              <span className="feedCell feedCellCompany kvFeedMain">{it.name}</span>
+              <span className="feedCell feedCellSymbol mono kvFeedDim">
+                {String(it.ticker ?? '').trim().toUpperCase() || '—'}
+              </span>
+              <span className="feedCell feedCellCompany kvFeedMain">{it.company ?? '—'}</span>
+              {feedCountVisible(it.count) ? (
+                <span className="feedCell feedCellCount mono kvFeedDim">
+                  <span className="feedCountTag">{it.count}</span>
+                </span>
+              ) : null}
+              <span className="feedCell feedCellWhen mono kvFeedDim">{feedWhenLabel(it)}</span>
             </button>
           )
         })}
@@ -4878,8 +4947,8 @@ function buildPaperDisplayRows(timelineRows) {
   return buildFeedDisplayRows(sorted, { sepMode: 'today+years', exclusiveSeps: true })
 }
 
-/** Filings + insider / politician trades for the paper timeline (newest first). */
-function buildPaperTimelineItems({ documents = [], insiders = [], politicians = [] }) {
+/** Filings + insider / politician / 13F trades for the paper timeline (newest first). */
+function buildPaperTimelineItems({ documents = [], insiders = [], politicians = [], filings13f = [] }) {
   const items = []
   for (const doc of paperDocumentsFromPresentation({ documents })) {
     if (!doc?.id) continue
@@ -4894,7 +4963,7 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       kind: 'insider',
       id: `insider-${role}-${person}-${paperTimelineAtMs(row?.date)}`,
       at: row?.date,
-      source: 'Form 4',
+      source: paperTxnSourceLabel('Form 4', row?.transactionCode, 'insider'),
       name: label,
       amount: row?.amount,
       personFullName: person,
@@ -4910,11 +4979,24 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       kind: 'politician',
       id: `politician-${member}-${paperTimelineAtMs(row?.date)}`,
       at: row?.date,
-      source: 'PTR',
+      source: paperTxnSourceLabel('PTR', row?.transactionType, 'politician'),
       name: label,
       amount: row?.amount,
       personFullName: member,
       personMode: 'politicians',
+    })
+  }
+  for (const row of filings13f) {
+    const filer = String(row?.filer ?? '').trim()
+    const label = paper13fTxnLabel(filer)
+    if (label === '—') continue
+    items.push({
+      kind: '13f',
+      id: `13f-${filer}-${paperTimelineAtMs(row?.date)}`,
+      at: row?.date,
+      source: paperTxnSourceLabel('13F', row?.activity, '13f'),
+      name: label,
+      amount: row?.amount,
     })
   }
   return items.sort((a, b) => paperTimelineAtMs(b?.at) - paperTimelineAtMs(a?.at))
@@ -4961,6 +5043,7 @@ function normalizeResearchPaperSourceKey(source) {
     return 'Earnings transcript'
   }
   if (low === 'sec_form4' || /^form\s*4$/i.test(raw)) return 'Form 4'
+  if (low === 'sec_13f' || /^form\s*13f$/i.test(raw) || raw === '13F') return '13F'
   if (/^form\s*3$/i.test(raw)) return 'Form 3'
   if (/^form\s*5$/i.test(raw)) return 'Form 5'
   if (low === 'house_ptr' || /^ptr$/i.test(raw) || /\bperiodic\s*transaction\b/i.test(raw)) return 'PTR'
@@ -5001,6 +5084,7 @@ const RESEARCH_PAPER_SOURCE_CATALOG = [
   { id: 'Form 4', label: 'Insider transaction', code: 'F4', modes: ['market', 'clinical'] },
   { id: 'Form 3', label: 'Initial insider holding', code: 'F3', modes: ['market', 'clinical'] },
   { id: 'Form 5', label: 'Annual insider change', code: 'F5', modes: ['market', 'clinical'] },
+  { id: '13F', label: 'Institutional holdings', code: '13F', modes: ['market', 'clinical'] },
   { id: 'PTR', label: 'Politician trade', code: 'PTR', modes: ['market', 'clinical'] },
 ]
 
@@ -5018,6 +5102,7 @@ function paperTimelineItemSourceKey(item) {
   if (item.kind === 'document') return normalizeResearchPaperSourceKey(item.document?.source)
   if (item.kind === 'insider') return 'Form 4'
   if (item.kind === 'politician') return 'PTR'
+  if (item.kind === '13f') return '13F'
   return null
 }
 
@@ -5088,6 +5173,7 @@ function buildResearchPaperTimelineForTicker({
     documents: docs,
     insiders: showFlows ? mock.insiders : [],
     politicians: showFlows ? mock.politicians : [],
+    filings13f: showFlows ? mock.filings13f : [],
   })
 }
 
@@ -5104,6 +5190,28 @@ function researchFeedAtFromTimeline(items) {
     }
   }
   return best
+}
+
+function countResearchFeedEventsToday(timelineItems) {
+  let n = 0
+  for (const item of timelineItems ?? []) {
+    const d = paperTimelineItemAt(item)
+    if (d && isAtLocalToday(d)) n += 1
+  }
+  return n
+}
+
+function normalizeResearchFeedRow(row, timelineItems) {
+  const at = researchFeedAtFromTimeline(timelineItems) ?? row?.at ?? null
+  const todayCount = countResearchFeedEventsToday(timelineItems)
+  const ticker = String(row?.ticker ?? '').trim().toUpperCase()
+  return {
+    ...row,
+    id: row?.rowKey ?? ticker,
+    company: String(row?.name ?? row?.company ?? '').trim() || ticker,
+    at,
+    count: todayCount > 0 ? todayCount : null,
+  }
 }
 
 function ResearchFeedFilterPicker({
@@ -5260,14 +5368,16 @@ function ResearchPaperTxnCard({ source, filedAt, name, amount, personFullName, p
         <div className="researchPaperRailCardGrid">
           <div className="researchPaperRailCardCol">
             <span className="researchPaperDocCardSource mono dim">{source ?? 'Filing'}</span>
-            <span className="researchPaperTxnCardName">{label || '—'}</span>
           </div>
           <div className="researchPaperRailCardCol researchPaperRailCardCol--end">
             <time className="researchPaperDocCardDate mono dim" dateTime={filedAt ?? undefined}>
               {filedAt ? formatFeedDate(filedAt) : '—'}
             </time>
-            <span className="researchPaperTxnCardAmt mono">{amt || '—'}</span>
           </div>
+        </div>
+        <div className="researchPaperTxnCardRow">
+          <span className="researchPaperTxnCardName">{label || '—'}</span>
+          <span className="researchPaperTxnCardAmt mono">{amt || '—'}</span>
         </div>
       </div>
     </article>
@@ -5278,15 +5388,16 @@ function BoshaPaperStructuredView({
   documents = [],
   insiders = [],
   politicians = [],
+  filings13f = [],
   ticker = '',
   paperSourceFilters = null,
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const timelineRows = useMemo(() => {
-    const raw = buildPaperTimelineItems({ documents, insiders, politicians })
+    const raw = buildPaperTimelineItems({ documents, insiders, politicians, filings13f })
     if (!paperSourceFilters) return raw
     return filterPaperTimelineBySources(raw, paperSourceFilters)
-  }, [documents, insiders, politicians, paperSourceFilters])
+  }, [documents, insiders, politicians, filings13f, paperSourceFilters])
   const displayRows = useMemo(() => buildPaperDisplayRows(timelineRows), [timelineRows])
   return (
     <div className="researchPaperBody researchPaperBody--documentsOnly">
@@ -5338,6 +5449,7 @@ function BoshaPaperPanel({
   selectedProgramKey = null,
   insiders = [],
   politicians = [],
+  filings13f = [],
   paperSourceFilters = null,
   panelClassName = '',
 }) {
@@ -5371,6 +5483,7 @@ function BoshaPaperPanel({
                 documents={paperDocuments}
                 insiders={showPaperInsiderPoliticianFlows ? insiders : []}
                 politicians={showPaperInsiderPoliticianFlows ? politicians : []}
+                filings13f={showPaperInsiderPoliticianFlows ? filings13f : []}
                 paperSourceFilters={paperSourceFilters}
               />
             </>
@@ -7470,8 +7583,7 @@ function KensiglineTerminal() {
         })
         const visible = filterPaperTimelineBySources(timeline, enabled)
         if (!visible.length) return null
-        const at = researchFeedAtFromTimeline(visible) ?? row.at
-        return { ...row, at }
+        return normalizeResearchFeedRow(row, visible)
       })
       .filter(Boolean)
   }, [
@@ -8461,6 +8573,7 @@ function KensiglineTerminal() {
             selectedProgramKey={contextProgramKey}
             insiders={contextMock.insiders}
             politicians={contextMock.politicians}
+            filings13f={contextMock.filings13f}
             paperSourceFilters={researchPaperSourceFilters}
             panelClassName="mainMainBlank"
           />

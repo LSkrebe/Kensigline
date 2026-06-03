@@ -455,6 +455,8 @@
 }
 
 .terminal {
+  /* Shared feed rail — investigate col 1 and research col 1 must stay pixel-identical on tab switch */
+  --terminal-feed-track: minmax(56px, 1fr);
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
@@ -488,7 +490,7 @@
 .terminal.terminal--investigate.terminal--insider,
 .terminal.terminal--insider {
   grid-template-columns:
-    minmax(56px, 1fr)
+    var(--terminal-feed-track)
     minmax(64px, 1.15fr)
     minmax(0, 1fr)
     minmax(0, 1fr);
@@ -498,7 +500,7 @@
 .terminal.terminal--investigate.terminal--politicians,
 .terminal.terminal--politicians {
   grid-template-columns:
-    minmax(56px, 1fr)
+    var(--terminal-feed-track)
     minmax(64px, 1.15fr)
     minmax(0, 1fr)
     minmax(0, 1fr);
@@ -527,11 +529,15 @@
  * columns), so nested charts + ResizeObserver cannot fight the grid for width.
  */
 .terminal.terminal--main {
-  /* Research: feed | paper | context — 20fr / 50fr / 30fr (20% / 50% / 30%) */
+  /*
+   * Research: feed | paper | context.
+   * Feed track + fr sum (4.15) match investigate exactly: 1 + 1.15 + 1 + 1.
+   * Paper/context split the remaining 3.15fr (≈46% / 30%).
+   */
   grid-template-columns:
-    minmax(44px, 20fr)
-    minmax(0, 50fr)
-    minmax(48px, 30fr);
+    var(--terminal-feed-track)
+    minmax(0, 1.905fr)
+    minmax(48px, 1.245fr);
   grid-template-rows: repeat(4, minmax(0, 1fr));
 }
 
@@ -836,8 +842,31 @@
   box-sizing: border-box;
 }
 
+.researchPaperTxnCard {
+  min-height: 54px;
+}
+
+.researchPaperTxnCard--hasPortrait {
+  min-height: max(54px, var(--research-paper-txn-portrait-w, 44px));
+}
+
 .researchPaperDocCard .researchPaperRailCardMain {
-  padding-bottom: 18px;
+  padding: 5px 10px 18px 8px;
+}
+
+.researchPaperTxnCardRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 10px;
+  align-items: baseline;
+  margin: 4px 0 5px;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.researchPaperTxnCardRow:last-child {
+  margin-bottom: 0;
 }
 
 .researchPaperRailCardGrid {
@@ -941,19 +970,20 @@
 }
 
 .researchPaperTxnCardName {
-  font-size: clamp(10.5px, 1.25vmin, 11.5px);
+  font-size: 11.5px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.8);
-  letter-spacing: 0.008em;
-  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.88);
+  letter-spacing: 0.01em;
+  line-height: 1.5;
   min-width: 0;
 }
 
 .researchPaperTxnCardAmt {
-  font-size: 8px;
-  letter-spacing: 0.05em;
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.88);
   white-space: nowrap;
 }
 
