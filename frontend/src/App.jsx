@@ -1664,6 +1664,7 @@ function ContextFlowTotalsList({
   outcomeLines = [],
   emptyLabel = 'None in the past 30 days.',
   chartTitle = 'Historical outcomes',
+  rowsLabel = 'Past 30 days',
 }) {
   if (!rows.length && !outcomeLines.length) {
     return (
@@ -1683,6 +1684,9 @@ function ContextFlowTotalsList({
             ariaLabel="Average forward returns by horizon (1 month, 3 months, 1 year)"
           />
         </>
+      ) : null}
+      {rows.length && rowsLabel ? (
+        <div className="contextFlowRowsLabel mono dim">{rowsLabel}</div>
       ) : null}
       {rows.map((row) => (
         <div

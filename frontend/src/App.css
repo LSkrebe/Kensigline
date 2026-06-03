@@ -5366,6 +5366,16 @@ button.boshaPaperCopyIcon:focus-visible {
   gap: 8px;
 }
 
+.terminal--main .mainContextPanel--market .contextFlowRowsLabel {
+  flex: 0 0 auto;
+  padding: 4px 0 0;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
 .terminal--main .mainContextPanel--market .contextFlowPersonStrip.contextCompanyEarnings.historicalOutcomesPerson,
 .terminal--main .mainContextPanel--clinical .contextFlowPersonStrip.contextCompanyEarnings.historicalOutcomesPerson {
   display: flex;
