@@ -4811,10 +4811,71 @@ button.boshaPaperCopyIcon:focus-visible {
   -webkit-overflow-scrolling: touch;
 }
 
-.terminal--main .researchFeedFilterPicker .feedFilterSection + .feedFilterSection {
+.researchFeedFilterPicker .feedFilterTypeRow + .feedFilterGroup {
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.terminal--main .researchFeedFilterPicker .feedFilterGroup + .feedFilterGroup,
+.terminal--main .researchFeedFilterPicker .feedFilterGroup + .feedFilterTypeRow {
+  margin-top: 3px;
+}
+
+.feedFilterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.feedFilterGroupHead {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+}
+
+.feedFilterGroupExpand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.38);
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.feedFilterGroupExpand:hover {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.feedFilterGroupExpand.isOpen {
+  transform: rotate(90deg);
+}
+
+.feedFilterGroupExpand:focus-visible {
+  outline: 1px solid var(--intel-accent-focus);
+  outline-offset: 1px;
+}
+
+.feedFilterGroupHead .feedFilterTypeRow--groupHead {
+  min-width: 0;
+}
+
+.feedFilterGroupBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 18px;
+  padding-left: 6px;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.feedFilterTypeRow--nested {
+  padding-left: 2px;
 }
 
 .feedFilterSectionTitle {

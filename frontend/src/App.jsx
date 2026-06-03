@@ -4968,6 +4968,7 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       amount: row?.amount,
       personFullName: person,
       personMode: 'insider',
+      transactionCode: String(row?.transactionCode ?? '').trim().toUpperCase() || null,
     })
   }
   for (const row of politicians) {
@@ -4984,6 +4985,7 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       amount: row?.amount,
       personFullName: member,
       personMode: 'politicians',
+      transactionType: row?.transactionType ?? null,
     })
   }
   for (const row of filings13f) {
@@ -4997,6 +4999,7 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       source: paperTxnSourceLabel('13F', row?.activity, '13f'),
       name: label,
       amount: row?.amount,
+      activity: String(row?.activity ?? '').trim() || null,
     })
   }
   return items.sort((a, b) => paperTimelineAtMs(b?.at) - paperTimelineAtMs(a?.at))
@@ -5097,6 +5100,60 @@ function researchPaperSourceIdsForIntel(intelMode) {
   return researchPaperSourceTypesForIntel(intelMode).map((t) => t.id)
 }
 
+/** Transaction / activity sub-filters for expandable source groups in the Research feed picker. */
+const RESEARCH_SOURCE_SUBTYPE_GROUPS = {
+  'Form 4': INVESTIGATE_INSIDER_TXN_TYPES,
+  PTR: INVESTIGATE_POLITICIAN_TXN_TYPES,
+  '13F': [
+    { id: 'Increased stake', label: 'Increased stake', code: '+' },
+    { id: 'New position', label: 'New position', code: 'NEW' },
+    { id: 'Reduced stake', label: 'Reduced stake', code: '−' },
+  ],
+}
+
+function researchSourceHasSubtypes(sourceId) {
+  return Boolean(RESEARCH_SOURCE_SUBTYPE_GROUPS[sourceId]?.length)
+}
+
+function researchSourceSubtypeKey(sourceId, subtypeId) {
+  return `${sourceId}::${String(subtypeId ?? '').trim()}`
+}
+
+function researchSourceFilterKeysForIntel(intelMode) {
+  const keys = new Set()
+  for (const t of researchPaperSourceTypesForIntel(intelMode)) {
+    const subs = RESEARCH_SOURCE_SUBTYPE_GROUPS[t.id]
+    if (subs?.length) {
+      for (const sub of subs) keys.add(researchSourceSubtypeKey(t.id, sub.id))
+    } else {
+      keys.add(t.id)
+    }
+  }
+  return keys
+}
+
+function researchSourceSubtypeKeysForSource(sourceId) {
+  const subs = RESEARCH_SOURCE_SUBTYPE_GROUPS[sourceId]
+  if (!subs?.length) return []
+  return subs.map((sub) => researchSourceSubtypeKey(sourceId, sub.id))
+}
+
+function paperTimelineItemSubtypeKey(item) {
+  if (item?.kind === 'insider') {
+    const code = String(item.transactionCode ?? '').trim().toUpperCase()
+    return code ? researchSourceSubtypeKey('Form 4', code) : null
+  }
+  if (item?.kind === 'politician') {
+    const code = politicianTxnCodeFromRaw(item.transactionType)
+    return code && code !== '—' ? researchSourceSubtypeKey('PTR', code) : null
+  }
+  if (item?.kind === '13f') {
+    const activity = String(item.activity ?? '').trim()
+    return activity ? researchSourceSubtypeKey('13F', activity) : null
+  }
+  return null
+}
+
 function paperTimelineItemSourceKey(item) {
   if (!item) return null
   if (item.kind === 'document') return normalizeResearchPaperSourceKey(item.document?.source)
@@ -5108,9 +5165,17 @@ function paperTimelineItemSourceKey(item) {
 
 function paperTimelineItemPassesSourceFilter(item, enabledSources) {
   if (!enabledSources?.size) return false
-  const key = paperTimelineItemSourceKey(item)
-  if (!key) return false
-  return enabledSources.has(key)
+  if (item?.kind === 'document') {
+    const key = normalizeResearchPaperSourceKey(item.document?.source)
+    return key ? enabledSources.has(key) : false
+  }
+  const subtypeKey = paperTimelineItemSubtypeKey(item)
+  if (subtypeKey) return enabledSources.has(subtypeKey)
+  const sourceKey = paperTimelineItemSourceKey(item)
+  if (sourceKey && researchSourceHasSubtypes(sourceKey)) {
+    return researchSourceSubtypeKeysForSource(sourceKey).some((k) => enabledSources.has(k))
+  }
+  return sourceKey ? enabledSources.has(sourceKey) : false
 }
 
 function filterPaperTimelineBySources(items, enabledSources) {
@@ -5214,85 +5279,128 @@ function normalizeResearchFeedRow(row, timelineItems) {
   }
 }
 
-function ResearchFeedFilterPicker({
-  sourceTypes,
-  feedEnabled,
-  timelineEnabled,
-  filtersLinked,
-  onToggleFeed,
-  onToggleTimeline,
-  onFiltersLinkedChange,
-}) {
-  const feedTypesEnabled = filtersLinked ? timelineEnabled : feedEnabled
-  const onToggleFeedType = filtersLinked ? onToggleTimeline : onToggleFeed
+function ResearchFeedFilterGroupHead({ sourceId, label, code, subtypeKeys, enabled, onToggleGroup }) {
+  const inputRef = useRef(null)
+  const enabledCount = subtypeKeys.filter((k) => enabled?.has(k)).length
+  const allOn = subtypeKeys.length > 0 && enabledCount === subtypeKeys.length
+  const someOn = enabledCount > 0 && !allOn
+
+  useEffect(() => {
+    if (inputRef.current) inputRef.current.indeterminate = someOn
+  }, [someOn])
+
+  return (
+    <label className="feedFilterTypeRow feedFilterTypeRow--groupHead">
+      <input
+        ref={inputRef}
+        type="checkbox"
+        checked={allOn}
+        onChange={() => onToggleGroup?.(sourceId, !allOn)}
+      />
+      <span className="feedFilterTypeLabel">{label}</span>
+      <span className="feedFilterTypeCode mono" title={sourceId}>
+        {code ?? sourceId}
+      </span>
+    </label>
+  )
+}
+
+function ResearchFeedFilterPicker({ sourceTypes, enabled, onToggle, onToggleGroup }) {
+  const [expanded, setExpanded] = useState(() => new Set())
+
+  const orderedSourceTypes = useMemo(() => {
+    const flat = []
+    const grouped = []
+    for (const t of sourceTypes ?? []) {
+      if (RESEARCH_SOURCE_SUBTYPE_GROUPS[t.id]?.length) grouped.push(t)
+      else flat.push(t)
+    }
+    return [...flat, ...grouped]
+  }, [sourceTypes])
+
+  const toggleExpanded = (sourceId) => {
+    setExpanded((prev) => {
+      const next = new Set(prev)
+      if (next.has(sourceId)) next.delete(sourceId)
+      else next.add(sourceId)
+      return next
+    })
+  }
 
   return (
     <div className="feedCompactFilterPicker scrollThin researchFeedFilterPicker" role="group" aria-label="Research filters">
-      <div className="feedFilterSection">
-        <div className="feedFilterSectionTitle mono">Feed list</div>
-        {sourceTypes.map(({ id, label, code }) => (
-          <label key={`feed-${id}`} className="feedFilterTypeRow">
+      {orderedSourceTypes.map(({ id, label, code }) => {
+        const subtypes = RESEARCH_SOURCE_SUBTYPE_GROUPS[id]
+        if (subtypes?.length) {
+          const subtypeKeys = researchSourceSubtypeKeysForSource(id)
+          const isOpen = expanded.has(id)
+          return (
+            <div key={id} className="feedFilterGroup">
+              <div className="feedFilterGroupHead">
+                <button
+                  type="button"
+                  className={['feedFilterGroupExpand', isOpen ? 'isOpen' : ''].filter(Boolean).join(' ')}
+                  aria-expanded={isOpen}
+                  aria-label={isOpen ? `Collapse ${label}` : `Expand ${label}`}
+                  onClick={() => toggleExpanded(id)}
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M9 6l6 6-6 6"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+                <ResearchFeedFilterGroupHead
+                  sourceId={id}
+                  label={label}
+                  code={code}
+                  subtypeKeys={subtypeKeys}
+                  enabled={enabled}
+                  onToggleGroup={onToggleGroup}
+                />
+              </div>
+              {isOpen ? (
+                <div className="feedFilterGroupBody">
+                  {subtypes.map((sub) => {
+                    const key = researchSourceSubtypeKey(id, sub.id)
+                    return (
+                      <label key={key} className="feedFilterTypeRow feedFilterTypeRow--nested">
+                        <input
+                          type="checkbox"
+                          checked={enabled?.has(key) ?? false}
+                          onChange={() => onToggle?.(key)}
+                        />
+                        <span className="feedFilterTypeLabel">{sub.label}</span>
+                        <span className="feedFilterTypeCode mono" title={sub.id}>
+                          {sub.code ?? sub.id}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              ) : null}
+            </div>
+          )
+        }
+        return (
+          <label key={id} className="feedFilterTypeRow">
             <input
               type="checkbox"
-              checked={feedTypesEnabled?.has(id) ?? false}
-              onChange={() => onToggleFeedType?.(id)}
+              checked={enabled?.has(id) ?? false}
+              onChange={() => onToggle?.(id)}
             />
             <span className="feedFilterTypeLabel">{label}</span>
             <span className="feedFilterTypeCode mono" title={id}>
               {code ?? id}
             </span>
           </label>
-        ))}
-      </div>
-      <div className="feedFilterSection">
-        <div className="feedFilterSectionHead">
-          <div className="feedFilterSectionTitle mono">Timeline list</div>
-          <div className="feedFilterLinkSwitch mono" role="group" aria-label="Timeline link to feed list">
-            <button
-              type="button"
-              className={
-                filtersLinked ? 'feedFilterLinkSwitchBtn isActive' : 'feedFilterLinkSwitchBtn'
-              }
-              aria-pressed={filtersLinked}
-              onClick={() => onFiltersLinkedChange?.(true)}
-            >
-              Linked
-            </button>
-            <span className="feedFilterLinkSwitchSep" aria-hidden="true">
-              |
-            </span>
-            <button
-              type="button"
-              className={
-                !filtersLinked ? 'feedFilterLinkSwitchBtn isActive' : 'feedFilterLinkSwitchBtn'
-              }
-              aria-pressed={!filtersLinked}
-              onClick={() => onFiltersLinkedChange?.(false)}
-            >
-              Separate
-            </button>
-          </div>
-        </div>
-        {filtersLinked ? (
-          <p className="feedFilterLinkedHint mono dim">
-            Feed list and timeline panel both follow the checkboxes above.
-          </p>
-        ) : (
-          sourceTypes.map(({ id, label, code }) => (
-            <label key={`timeline-${id}`} className="feedFilterTypeRow">
-              <input
-                type="checkbox"
-                checked={timelineEnabled?.has(id) ?? false}
-                onChange={() => onToggleTimeline?.(id)}
-              />
-              <span className="feedFilterTypeLabel">{label}</span>
-              <span className="feedFilterTypeCode mono" title={id}>
-                {code ?? id}
-              </span>
-            </label>
-          ))
-        )}
-      </div>
+        )
+      })}
     </div>
   )
 }
@@ -7372,16 +7480,10 @@ function KensiglineTerminal() {
   const [boshaQuery, setBoshaQuery] = useState('')
   const [boshaProgramQuery, setBoshaProgramQuery] = useState('')
   const [researchFeedFilterOpen, setResearchFeedFilterOpen] = useState(false)
-  const [researchFeedFiltersLinked, setResearchFeedFiltersLinked] = useState(true)
   const [researchPaperSourceFilters, setResearchPaperSourceFilters] = useState(
-    () => new Set(researchPaperSourceIdsForIntel('market')),
-  )
-  const [researchFeedSourceFilters, setResearchFeedSourceFilters] = useState(
-    () => new Set(researchPaperSourceIdsForIntel('market')),
+    () => new Set(researchSourceFilterKeysForIntel('market')),
   )
   const [researchPaperSourceFiltersDraft, setResearchPaperSourceFiltersDraft] = useState(null)
-  const [researchFeedSourceFiltersDraft, setResearchFeedSourceFiltersDraft] = useState(null)
-  const [researchFeedFiltersLinkedDraft, setResearchFeedFiltersLinkedDraft] = useState(true)
   const [backendUp, setBackendUp] = useState(false)
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
@@ -7479,14 +7581,9 @@ function KensiglineTerminal() {
   }, [intelMode, boshaTicker])
 
   useEffect(() => {
-    const ids = researchPaperSourceIdsForIntel(intelMode)
-    setResearchPaperSourceFilters(new Set(ids))
-    setResearchFeedSourceFilters(new Set(ids))
-    setResearchFeedFiltersLinked(true)
+    setResearchPaperSourceFilters(new Set(researchSourceFilterKeysForIntel(intelMode)))
     setResearchFeedFilterOpen(false)
     setResearchPaperSourceFiltersDraft(null)
-    setResearchFeedSourceFiltersDraft(null)
-    setResearchFeedFiltersLinkedDraft(true)
   }, [intelMode])
   useEffect(() => {
     if (intelMode !== 'clinical') return
@@ -7562,12 +7659,8 @@ function KensiglineTerminal() {
     [intelMode],
   )
 
-  const researchFeedSourceFiltersApplied = researchFeedFiltersLinked
-    ? researchPaperSourceFilters
-    : researchFeedSourceFilters
-
   const boshaFeedAfterSourceFilter = useMemo(() => {
-    const enabled = researchFeedSourceFiltersApplied
+    const enabled = researchPaperSourceFilters
     if (!enabled?.size) return []
     return boshaFilteredFeed
       .map((row) => {
@@ -7588,7 +7681,7 @@ function KensiglineTerminal() {
       .filter(Boolean)
   }, [
     boshaFilteredFeed,
-    researchFeedSourceFiltersApplied,
+    researchPaperSourceFilters,
     intelMode,
     contextProgramKey,
     boshaPresentation,
@@ -7599,97 +7692,72 @@ function KensiglineTerminal() {
   const researchPaperSourceFiltersPicker = researchFeedFilterOpen
     ? researchPaperSourceFiltersDraft
     : null
-  const researchFeedSourceFiltersPicker = researchFeedFilterOpen ? researchFeedSourceFiltersDraft : null
-  const researchFeedFiltersLinkedPicker = researchFeedFilterOpen
-    ? researchFeedFiltersLinkedDraft
-    : researchFeedFiltersLinked
 
   const openResearchFeedFilter = useCallback(() => {
     setResearchPaperSourceFiltersDraft(new Set(researchPaperSourceFilters))
-    setResearchFeedSourceFiltersDraft(new Set(researchFeedSourceFilters))
-    setResearchFeedFiltersLinkedDraft(researchFeedFiltersLinked)
     setResearchFeedFilterOpen(true)
-  }, [researchPaperSourceFilters, researchFeedSourceFilters, researchFeedFiltersLinked])
+  }, [researchPaperSourceFilters])
 
   const closeResearchFeedFilter = useCallback(() => {
     if (researchPaperSourceFiltersDraft) {
       setResearchPaperSourceFilters(new Set(researchPaperSourceFiltersDraft))
     }
-    if (researchFeedSourceFiltersDraft) {
-      setResearchFeedSourceFilters(new Set(researchFeedSourceFiltersDraft))
-    }
-    setResearchFeedFiltersLinked(researchFeedFiltersLinkedDraft)
     setResearchPaperSourceFiltersDraft(null)
-    setResearchFeedSourceFiltersDraft(null)
     setResearchFeedFilterOpen(false)
-  }, [
-    researchPaperSourceFiltersDraft,
-    researchFeedSourceFiltersDraft,
-    researchFeedFiltersLinkedDraft,
-  ])
+  }, [researchPaperSourceFiltersDraft])
 
   const onResearchFeedFilterClick = useCallback(() => {
     if (researchFeedFilterOpen) closeResearchFeedFilter()
     else openResearchFeedFilter()
   }, [researchFeedFilterOpen, closeResearchFeedFilter, openResearchFeedFilter])
 
-  const toggleResearchPaperSourceFilter = useCallback((id) => {
-    const key = normalizeResearchPaperSourceKey(id)
-    if (!key) return
-    const patch = (prev) => {
-      const base = prev ?? new Set()
-      const next = new Set(base)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    }
+  const patchResearchSourceFilters = useCallback((patch) => {
     if (researchFeedFilterOpen) {
       setResearchPaperSourceFiltersDraft(patch)
-      if (researchFeedFiltersLinkedDraft) setResearchFeedSourceFiltersDraft(patch)
       return
     }
     setResearchPaperSourceFilters(patch)
-    if (researchFeedFiltersLinked) setResearchFeedSourceFilters(patch)
-  }, [researchFeedFilterOpen, researchFeedFiltersLinkedDraft, researchFeedFiltersLinked])
-
-  const toggleResearchFeedSourceFilter = useCallback((id) => {
-    const key = normalizeResearchPaperSourceKey(id)
-    if (!key) return
-    const patch = (prev) => {
-      const base = prev ?? new Set()
-      const next = new Set(base)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    }
-    if (researchFeedFilterOpen) setResearchFeedSourceFiltersDraft(patch)
-    else setResearchFeedSourceFilters(patch)
   }, [researchFeedFilterOpen])
 
-  const onResearchFeedFiltersLinkedChange = useCallback(
-    (linked) => {
-      if (researchFeedFilterOpen) {
-        setResearchFeedFiltersLinkedDraft(linked)
-        if (linked && researchFeedSourceFiltersDraft) {
-          setResearchPaperSourceFiltersDraft(new Set(researchFeedSourceFiltersDraft))
-        }
-        return
-      }
-      setResearchFeedFiltersLinked(linked)
-      if (linked) setResearchPaperSourceFilters(new Set(researchFeedSourceFilters))
+  const toggleResearchSourceFilter = useCallback(
+    (filterKey) => {
+      const key = String(filterKey ?? '').includes('::')
+        ? String(filterKey)
+        : normalizeResearchPaperSourceKey(filterKey)
+      if (!key) return
+      patchResearchSourceFilters((prev) => {
+        const base = prev ?? new Set()
+        const next = new Set(base)
+        if (next.has(key)) next.delete(key)
+        else next.add(key)
+        return next
+      })
     },
-    [researchFeedFilterOpen, researchPaperSourceFiltersDraft, researchPaperSourceFilters],
+    [patchResearchSourceFilters],
+  )
+
+  const toggleResearchSourceFilterGroup = useCallback(
+    (sourceId, enableAll) => {
+      const keys = researchSourceSubtypeKeysForSource(sourceId)
+      if (!keys.length) return
+      patchResearchSourceFilters((prev) => {
+        const next = new Set(prev ?? [])
+        for (const key of keys) {
+          if (enableAll) next.add(key)
+          else next.delete(key)
+        }
+        return next
+      })
+    },
+    [patchResearchSourceFilters],
   )
 
   const researchFeedFilterPickerEl = (
     <ResearchFeedFilterPicker
       sourceTypes={researchPaperSourceTypeDefs}
-      feedEnabled={researchFeedSourceFiltersPicker ?? researchFeedSourceFilters}
-      timelineEnabled={researchPaperSourceFiltersPicker ?? researchPaperSourceFilters}
-      filtersLinked={researchFeedFiltersLinkedPicker}
-      onToggleFeed={toggleResearchFeedSourceFilter}
-      onToggleTimeline={toggleResearchPaperSourceFilter}
-      onFiltersLinkedChange={onResearchFeedFiltersLinkedChange}
+      enabled={researchPaperSourceFiltersPicker ?? researchPaperSourceFilters}
+      onToggle={toggleResearchSourceFilter}
+      onToggleGroup={toggleResearchSourceFilterGroup}
     />
   )
 
