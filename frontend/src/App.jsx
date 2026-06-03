@@ -2569,16 +2569,6 @@ function casePersonPhotoUrl(fullName, mode) {
   return insiderPhotoUrlForName(fullName)
 }
 
-function casePersonInitials(fullName) {
-  const parts = String(fullName ?? '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-  if (!parts.length) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase()
-}
-
 function formatCasePersonDisplayName(name) {
   const s = String(name ?? '').trim()
   if (!s) return ''
@@ -2595,9 +2585,9 @@ const PERSON_AVATAR_FAILED_URLS = new Set()
 const PERSON_AVATAR_LOADED_URLS = new Set()
 
 function personAvatarDisplayForUrl(photoUrl) {
-  if (!photoUrl || PERSON_AVATAR_FAILED_URLS.has(photoUrl)) return 'initials'
+  if (!photoUrl || PERSON_AVATAR_FAILED_URLS.has(photoUrl)) return 'blank'
   if (PERSON_AVATAR_LOADED_URLS.has(photoUrl)) return 'photo'
-  return 'initials'
+  return 'blank'
 }
 
 function PersonAvatar({
@@ -2605,11 +2595,9 @@ function PersonAvatar({
   mode = 'insider',
   className = 'casePersonHeaderAvatar',
   photoClassName = 'casePersonHeaderPhoto',
-  initialsClassName = 'casePersonHeaderInitials mono',
   loadedPhotoClassName = 'isLoaded',
 }) {
   const photoUrl = useMemo(() => casePersonPhotoUrl(fullName, mode), [fullName, mode])
-  const initials = casePersonInitials(fullName)
   const [display, setDisplay] = useState(() => personAvatarDisplayForUrl(photoUrl))
 
   useLayoutEffect(() => {
@@ -2621,7 +2609,7 @@ function PersonAvatar({
     let active = true
     const fail = () => {
       PERSON_AVATAR_FAILED_URLS.add(photoUrl)
-      if (active) setDisplay('initials')
+      if (active) setDisplay('blank')
     }
     const timeoutId = window.setTimeout(fail, 600)
 
@@ -2655,9 +2643,6 @@ function PersonAvatar({
           decoding="async"
           referrerPolicy="no-referrer"
         />
-      ) : null}
-      {display === 'initials' ? (
-        <span className={initialsClassName}>{initials}</span>
       ) : null}
     </div>
   )
