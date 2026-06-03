@@ -1,4 +1,5 @@
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { toPng } from 'html-to-image'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { IntroPage } from './IntroPage.jsx'
@@ -4732,13 +4733,219 @@ function ResearchPaperDocOpenIcon() {
   )
 }
 
-function ResearchPaperDocCard({ doc, ticker }) {
+function BoshaPaperScreenshotIcon() {
+  return (
+    <svg className="boshaPaperScreenshotIconSvg" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4" y="4" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.75" />
+      <rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.75" />
+    </svg>
+  )
+}
+
+async function whenDocumentFontsReady() {
+  try {
+    const f = document.fonts
+    if (f?.ready) await f.ready
+  } catch {
+    /* ignore */
+  }
+}
+
+const PAPER_EXPORT_BG = '#0a0b0d'
+
+async function rasterizePaperElementToPngDataUrl(el, { pixelRatio: prIn = 2 } = {}) {
+  const w = Math.max(1, Math.ceil(Math.max(el.scrollWidth, el.offsetWidth)))
+  const h = Math.max(1, Math.ceil(Math.max(el.scrollHeight, el.offsetHeight)))
+  const pr = h > 5600 ? 1 : h > 3600 ? 1.25 : prIn
+  return toPng(el, {
+    width: w,
+    height: h,
+    pixelRatio: pr,
+    cacheBust: true,
+    useCORS: true,
+    backgroundColor: PAPER_EXPORT_BG,
+    style: {
+      backgroundColor: PAPER_EXPORT_BG,
+      printColorAdjust: 'exact',
+    },
+    filter: (node) => {
+      if (node.nodeType !== Node.ELEMENT_NODE) return true
+      return node.tagName !== 'SCRIPT'
+    },
+  })
+}
+
+async function waitForCaptureImages(root) {
+  const imgs = [...(root?.querySelectorAll('img') ?? [])]
+  if (!imgs.length) return
+  await Promise.all(
+    imgs.map(
+      (img) =>
+        new Promise((resolve) => {
+          if (img.complete && img.naturalWidth > 0) {
+            resolve()
+            return
+          }
+          const done = () => resolve()
+          img.addEventListener('load', done, { once: true })
+          img.addEventListener('error', done, { once: true })
+        }),
+    ),
+  )
+}
+
+/** Load a remote portrait with CORS and return a canvas-safe data URL for export. */
+async function imageUrlToDataUrl(url) {
+  const raw = String(url ?? '').trim()
+  if (!raw) return null
+  if (raw.startsWith('data:') || raw.startsWith('blob:')) return raw
+
+  return new Promise((resolve) => {
+    const probe = new Image()
+    probe.crossOrigin = 'anonymous'
+    probe.referrerPolicy = 'no-referrer'
+    probe.decoding = 'async'
+    const finish = (result) => {
+      probe.onload = null
+      probe.onerror = null
+      resolve(result)
+    }
+    probe.onload = () => {
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = probe.naturalWidth
+        canvas.height = probe.naturalHeight
+        const ctx = canvas.getContext('2d')
+        if (!ctx || canvas.width < 1 || canvas.height < 1) {
+          finish(null)
+          return
+        }
+        ctx.drawImage(probe, 0, 0)
+        finish(canvas.toDataURL('image/jpeg', 0.92))
+      } catch {
+        finish(null)
+      }
+    }
+    probe.onerror = () => finish(null)
+    probe.src = raw
+  })
+}
+
+/** html-to-image cannot paint cross-origin <img> tags; inline them before rasterizing. */
+async function inlineCaptureImages(root) {
+  const imgs = [...(root?.querySelectorAll('img') ?? [])]
+  if (!imgs.length) return
+  await Promise.all(
+    imgs.map(async (img) => {
+      const url = img.currentSrc || img.src
+      const dataUrl = await imageUrlToDataUrl(url)
+      if (!dataUrl) return
+      img.crossOrigin = 'anonymous'
+      img.referrerPolicy = 'no-referrer'
+      img.src = dataUrl
+      await new Promise((resolve) => {
+        if (img.complete && img.naturalWidth > 0) {
+          resolve()
+          return
+        }
+        const done = () => resolve()
+        img.addEventListener('load', done, { once: true })
+        img.addEventListener('error', done, { once: true })
+      })
+    }),
+  )
+}
+
+function finalizePaperCaptureClone(sourceEl, clone, portraitMeta) {
+  clone.querySelectorAll('.researchPaperCaptureCheck').forEach((node) => node.remove())
+  clone.classList.remove(
+    'researchPaperRailCard--screenshotSelected',
+    'researchPaperRailCard--screenshotUnselected',
+  )
+  const rail = clone.querySelector('.researchPaperRailCardRail')
+  if (rail) {
+    rail.classList.remove('researchPaperRailCardRail--capture')
+    const origImg = sourceEl.querySelector('.researchPaperTxnThumb')
+    let cloneImg = clone.querySelector('.researchPaperTxnThumb')
+    const photoUrl =
+      origImg?.currentSrc ||
+      origImg?.src ||
+      (portraitMeta?.personFullName
+        ? casePersonPhotoUrl(
+            portraitMeta.personFullName,
+            portraitMeta.personMode === 'politicians' ? 'politicians' : 'insider',
+          )
+        : null)
+    if (photoUrl) {
+      if (!cloneImg) {
+        cloneImg = document.createElement('img')
+        cloneImg.className = 'researchPaperTxnThumb'
+        cloneImg.alt = ''
+        cloneImg.decoding = 'async'
+        rail.prepend(cloneImg)
+      }
+      cloneImg.crossOrigin = 'anonymous'
+      cloneImg.referrerPolicy = 'no-referrer'
+      cloneImg.src = photoUrl
+    }
+    if (clone.querySelector('.researchPaperTxnThumb')) {
+      rail.classList.add('researchPaperRailCardRail--photo')
+      if (clone.classList.contains('researchPaperTxnCard')) {
+        clone.classList.add('researchPaperTxnCard--hasPortrait')
+      }
+    }
+  }
+}
+
+function ResearchPaperRailCaptureSelect({ captureId, selected, onToggle }) {
+  return (
+    <label
+      className="researchPaperCaptureCheck"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={() => onToggle?.(captureId)}
+        aria-label="Include in screenshot"
+      />
+    </label>
+  )
+}
+
+function ResearchPaperDocCard({ doc, ticker, captureId, screenshotSelectMode = false, screenshotSelected = false, onScreenshotToggle }) {
   const source = doc?.source ?? 'Filing'
   const url = paperDocumentOpenUrl(doc, ticker)
   const openLabel = `Open ${source}`
   return (
-    <article className="researchPaperRailCard researchPaperDocCard">
-      <div className="researchPaperRailCardRail" aria-hidden="true" />
+    <article
+      data-paper-capture-id={captureId}
+      className={[
+        'researchPaperRailCard',
+        'researchPaperDocCard',
+        screenshotSelectMode && screenshotSelected ? 'researchPaperRailCard--screenshotSelected' : '',
+        screenshotSelectMode && !screenshotSelected ? 'researchPaperRailCard--screenshotUnselected' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <div
+        className={[
+          'researchPaperRailCardRail',
+          screenshotSelectMode ? 'researchPaperRailCardRail--capture' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {screenshotSelectMode ? (
+          <ResearchPaperRailCaptureSelect
+            captureId={captureId}
+            selected={screenshotSelected}
+            onToggle={onScreenshotToggle}
+          />
+        ) : null}
+      </div>
       <div className="researchPaperRailCardMain">
         <div className="researchPaperRailCardGrid">
           <div className="researchPaperRailCardCol">
@@ -5438,7 +5645,18 @@ function ResearchPaperTimelineGap({ label }) {
   )
 }
 
-function ResearchPaperTxnCard({ source, filedAt, name, amount, personFullName, personMode }) {
+function ResearchPaperTxnCard({
+  captureId,
+  source,
+  filedAt,
+  name,
+  amount,
+  personFullName,
+  personMode,
+  screenshotSelectMode = false,
+  screenshotSelected = false,
+  onScreenshotToggle,
+}) {
   const label = String(name ?? '').trim()
   const amt = String(amount ?? '').trim()
   const personName = String(personFullName ?? '').trim()
@@ -5447,10 +5665,13 @@ function ResearchPaperTxnCard({ source, filedAt, name, amount, personFullName, p
   if (!label && !amt) return null
   return (
     <article
+      data-paper-capture-id={captureId}
       className={[
         'researchPaperRailCard',
         'researchPaperTxnCard',
         portraitActive ? 'researchPaperTxnCard--hasPortrait' : '',
+        screenshotSelectMode && screenshotSelected ? 'researchPaperRailCard--screenshotSelected' : '',
+        screenshotSelectMode && !screenshotSelected ? 'researchPaperRailCard--screenshotUnselected' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -5458,17 +5679,25 @@ function ResearchPaperTxnCard({ source, filedAt, name, amount, personFullName, p
       <div
         className={[
           'researchPaperRailCardRail',
+          screenshotSelectMode ? 'researchPaperRailCardRail--capture' : '',
           portraitActive ? 'researchPaperRailCardRail--photo' : '',
         ]
           .filter(Boolean)
           .join(' ')}
-        aria-hidden={!portraitActive || undefined}
+        aria-hidden={!portraitActive && !screenshotSelectMode ? true : undefined}
       >
         {personName ? (
           <ResearchPaperTxnThumb
             fullName={personName}
             mode={photoMode}
             onActiveChange={setPortraitActive}
+          />
+        ) : null}
+        {screenshotSelectMode ? (
+          <ResearchPaperRailCaptureSelect
+            captureId={captureId}
+            selected={screenshotSelected}
+            onToggle={onScreenshotToggle}
           />
         ) : null}
       </div>
@@ -5499,6 +5728,9 @@ function BoshaPaperStructuredView({
   filings13f = [],
   ticker = '',
   paperSourceFilters = null,
+  screenshotSelectMode = false,
+  screenshotSelected = null,
+  onScreenshotToggle,
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const timelineRows = useMemo(() => {
@@ -5507,10 +5739,27 @@ function BoshaPaperStructuredView({
     return filterPaperTimelineBySources(raw, paperSourceFilters)
   }, [documents, insiders, politicians, filings13f, paperSourceFilters])
   const displayRows = useMemo(() => buildPaperDisplayRows(timelineRows), [timelineRows])
+  const selectedSet = screenshotSelected ?? new Set()
   return (
-    <div className="researchPaperBody researchPaperBody--documentsOnly">
+    <div
+      className={[
+        'researchPaperBody',
+        'researchPaperBody--documentsOnly',
+        screenshotSelectMode ? 'researchPaperBody--screenshotSelect' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       {displayRows.length ? (
-        <div className="researchPaperDocuments" aria-label="Filings and transactions">
+        <div
+          className={[
+            'researchPaperDocuments',
+            screenshotSelectMode ? 'researchPaperDocuments--screenshotSelect' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          aria-label="Filings and transactions"
+        >
           {displayRows.map((entry, idx) => {
             if (entry.type === 'sep') {
               return (
@@ -5521,19 +5770,31 @@ function BoshaPaperStructuredView({
               )
             }
             const item = entry.row.item
+            const selected = selectedSet.has(item.id)
             return (
               <Fragment key={item.id}>
                 {idx > 0 ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
                 {item.kind === 'document' ? (
-                  <ResearchPaperDocCard doc={item.document} ticker={t} />
+                  <ResearchPaperDocCard
+                    doc={item.document}
+                    ticker={t}
+                    captureId={item.id}
+                    screenshotSelectMode={screenshotSelectMode}
+                    screenshotSelected={selected}
+                    onScreenshotToggle={onScreenshotToggle}
+                  />
                 ) : (
                   <ResearchPaperTxnCard
+                    captureId={item.id}
                     source={item.source}
                     filedAt={item.at}
                     name={item.name}
                     amount={item.amount}
                     personFullName={item.personFullName}
                     personMode={item.personMode}
+                    screenshotSelectMode={screenshotSelectMode}
+                    screenshotSelected={selected}
+                    onScreenshotToggle={onScreenshotToggle}
                   />
                 )}
               </Fragment>
@@ -5562,6 +5823,12 @@ function BoshaPaperPanel({
   panelClassName = '',
 }) {
   const fullName = String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
+  const paperBodyRef = useRef(null)
+  const captureMountRef = useRef(null)
+  const [screenshotSelectMode, setScreenshotSelectMode] = useState(false)
+  const [screenshotSelected, setScreenshotSelected] = useState(() => new Set())
+  const [screenshotBusy, setScreenshotBusy] = useState(false)
+
   const paperDocuments = useMemo(() => {
     const docs = paperDocumentsFromPresentation(presentation)
     let rows = intelMode !== 'clinical' ? docs : filterPaperDocumentsByProgram(docs, selectedProgramKey)
@@ -5574,27 +5841,203 @@ function BoshaPaperPanel({
     !selectedProgramKey ||
     selectedProgramKey === CLINICAL_PROGRAM_ALL
 
+  const paperCaptureIds = useMemo(() => {
+    const timeline = buildPaperTimelineItems({
+      documents: paperDocuments,
+      insiders: showPaperInsiderPoliticianFlows ? insiders : [],
+      politicians: showPaperInsiderPoliticianFlows ? politicians : [],
+      filings13f: showPaperInsiderPoliticianFlows ? filings13f : [],
+    })
+    const filtered = paperSourceFilters
+      ? filterPaperTimelineBySources(timeline, paperSourceFilters)
+      : timeline
+    return filtered.map((item) => item.id)
+  }, [
+    paperDocuments,
+    insiders,
+    politicians,
+    filings13f,
+    paperSourceFilters,
+    showPaperInsiderPoliticianFlows,
+  ])
+
+  const paperCapturePortraitById = useMemo(() => {
+    const timeline = buildPaperTimelineItems({
+      documents: paperDocuments,
+      insiders: showPaperInsiderPoliticianFlows ? insiders : [],
+      politicians: showPaperInsiderPoliticianFlows ? politicians : [],
+      filings13f: showPaperInsiderPoliticianFlows ? filings13f : [],
+    })
+    const filtered = paperSourceFilters
+      ? filterPaperTimelineBySources(timeline, paperSourceFilters)
+      : timeline
+    const map = new Map()
+    for (const item of filtered) {
+      if (!item?.personFullName) continue
+      map.set(item.id, {
+        personFullName: item.personFullName,
+        personMode: item.personMode,
+      })
+    }
+    return map
+  }, [
+    paperDocuments,
+    insiders,
+    politicians,
+    filings13f,
+    paperSourceFilters,
+    showPaperInsiderPoliticianFlows,
+  ])
+
+  const cancelScreenshotSelect = useCallback(() => {
+    setScreenshotSelectMode(false)
+    setScreenshotSelected(new Set())
+  }, [])
+
+  const startScreenshotSelect = useCallback(() => {
+    if (!paperCaptureIds.length) {
+      window.alert('Nothing on the timeline to capture yet.')
+      return
+    }
+    setScreenshotSelected(new Set())
+    setScreenshotSelectMode(true)
+  }, [paperCaptureIds])
+
+  const toggleScreenshotSelection = useCallback((captureId) => {
+    const id = String(captureId ?? '').trim()
+    if (!id) return
+    setScreenshotSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const confirmScreenshotCopy = useCallback(() => {
+    const body = paperBodyRef.current
+    const mount = captureMountRef.current
+    if (!body || !mount || screenshotBusy) return
+    if (!screenshotSelected.size) {
+      window.alert('Select at least one item to copy.')
+      return
+    }
+    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+      window.alert(
+        'Copying the paper as an image is not supported in this browser. Try Chrome or Edge, or take a screenshot.',
+      )
+      return
+    }
+
+    setScreenshotBusy(true)
+    const paperRoot = body.closest('section.boshaPaper')
+    body.classList.add('boshaPaperBody--capturing')
+    paperRoot?.classList.add('boshaPaper--capturing')
+
+    const orderedIds = paperCaptureIds.filter((id) => screenshotSelected.has(id))
+    mount.replaceChildren()
+    const exportWrap = document.createElement('div')
+    exportWrap.className = 'researchPaperCaptureExport'
+    for (const id of orderedIds) {
+      const el = body.querySelector(`[data-paper-capture-id="${CSS.escape(id)}"]`)
+      if (!el) continue
+      const clone = el.cloneNode(true)
+      finalizePaperCaptureClone(el, clone, paperCapturePortraitById.get(id))
+      exportWrap.appendChild(clone)
+    }
+    mount.appendChild(exportWrap)
+
+    const pngPromise = (async () => {
+      try {
+        await whenDocumentFontsReady()
+        await waitForCaptureImages(exportWrap)
+        await inlineCaptureImages(exportWrap)
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+        void exportWrap.offsetHeight
+        const dataUrl = await rasterizePaperElementToPngDataUrl(exportWrap)
+        return (await fetch(dataUrl)).blob()
+      } finally {
+        mount.replaceChildren()
+        body.classList.remove('boshaPaperBody--capturing')
+        paperRoot?.classList.remove('boshaPaper--capturing')
+        setScreenshotBusy(false)
+        setScreenshotSelectMode(false)
+        setScreenshotSelected(new Set())
+      }
+    })()
+
+    navigator.clipboard
+      .write([new ClipboardItem({ 'image/png': pngPromise })])
+      .catch((e) => {
+        console.error(e)
+        window.alert(
+          'Could not copy the paper image. Wait until the timeline has fully loaded, then try again.',
+        )
+      })
+  }, [paperCaptureIds, paperCapturePortraitById, screenshotBusy, screenshotSelected])
+
   return (
     <section
-      className={['panel', 'boshaPaper', 'researchPaperPanel', panelClassName].filter(Boolean).join(' ')}
+      className={[
+        'panel',
+        'boshaPaper',
+        'researchPaperPanel',
+        screenshotSelectMode ? 'researchPaperPanel--screenshotSelect' : '',
+        panelClassName,
+      ]
+        .filter(Boolean)
+        .join(' ')}
       aria-label={fullName}
     >
       <header className="feedCompactHeader researchPaperPanelHeader">
         <div className="researchPaperPanelName">{fullName}</div>
+        <div className="feedCompactHeaderEnd">
+          {screenshotSelectMode ? (
+            <>
+              <button
+                type="button"
+                className="researchPaperCaptureAction"
+                disabled={screenshotBusy}
+                onClick={cancelScreenshotSelect}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="researchPaperCaptureAction researchPaperCaptureAction--primary"
+                disabled={screenshotBusy || !screenshotSelected.size}
+                onClick={confirmScreenshotCopy}
+              >
+                {screenshotBusy ? 'Copying…' : 'Copy image'}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="boshaPaperScreenshotIcon"
+              aria-label="Screenshot paper"
+              title="Screenshot paper"
+              onClick={startScreenshotSelect}
+            >
+              <BoshaPaperScreenshotIcon />
+            </button>
+          )}
+        </div>
       </header>
-      <div className="boshaPaperBody scrollThin">
+      <div ref={paperBodyRef} className="boshaPaperBody scrollThin">
         <div className="boshaPaperDoc">
           {presentation?.title ? (
-            <>
-              <BoshaPaperStructuredView
-                ticker={ticker}
-                documents={paperDocuments}
-                insiders={showPaperInsiderPoliticianFlows ? insiders : []}
-                politicians={showPaperInsiderPoliticianFlows ? politicians : []}
-                filings13f={showPaperInsiderPoliticianFlows ? filings13f : []}
-                paperSourceFilters={paperSourceFilters}
-              />
-            </>
+            <BoshaPaperStructuredView
+              ticker={ticker}
+              documents={paperDocuments}
+              insiders={showPaperInsiderPoliticianFlows ? insiders : []}
+              politicians={showPaperInsiderPoliticianFlows ? politicians : []}
+              filings13f={showPaperInsiderPoliticianFlows ? filings13f : []}
+              paperSourceFilters={paperSourceFilters}
+              screenshotSelectMode={screenshotSelectMode}
+              screenshotSelected={screenshotSelected}
+              onScreenshotToggle={toggleScreenshotSelection}
+            />
           ) : backendUp ? (
             <div className="boshaThesisBody boshaThesisBody--live">
               <p className="boshaThesisP boshaThesisP--live mono dim">
@@ -5605,6 +6048,7 @@ function BoshaPaperPanel({
           ) : null}
         </div>
       </div>
+      <div ref={captureMountRef} className="researchPaperCaptureMount" aria-hidden="true" />
     </section>
   )
 }

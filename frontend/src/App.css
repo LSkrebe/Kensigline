@@ -596,6 +596,7 @@
 .terminal--main .researchPaperPanel .researchPaperPanelHeader {
   border-bottom: none;
   justify-content: space-between;
+  align-items: center;
 }
 
 .terminal--main .researchPaperPanel .researchPaperPanelName {
@@ -608,6 +609,142 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1.2;
+}
+
+.terminal--main .researchPaperPanel .feedCompactHeaderEnd {
+  align-items: center;
+  height: 100%;
+}
+
+.terminal--main .researchPaperPanel .boshaPaperScreenshotIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--hi);
+  cursor: pointer;
+  border-radius: 4px;
+  line-height: 0;
+}
+
+.terminal--main .researchPaperPanel .boshaPaperScreenshotIcon:hover:not(:disabled) {
+  color: var(--hi);
+}
+
+.terminal--main .researchPaperPanel .boshaPaperScreenshotIcon:focus-visible {
+  outline: 1px solid rgba(168, 196, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.terminal--main .researchPaperPanel .boshaPaperScreenshotIconSvg {
+  display: block;
+}
+
+.terminal--main .researchPaperPanel .researchPaperCaptureAction {
+  margin: 0;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.52);
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.terminal--main .researchPaperPanel .researchPaperCaptureAction--primary {
+  color: var(--hi);
+}
+
+.terminal--main .researchPaperPanel .researchPaperCaptureAction:hover:not(:disabled) {
+  color: var(--hi);
+}
+
+.terminal--main .researchPaperPanel .researchPaperCaptureAction:disabled {
+  opacity: 0.45;
+  cursor: wait;
+}
+
+.terminal--main .researchPaperPanel .researchPaperCaptureAction:focus-visible {
+  outline: 1px solid rgba(168, 196, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.researchPaperRailCardRail--capture {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.researchPaperRailCardRail--capture .researchPaperTxnThumb {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.researchPaperCaptureCheck {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 44px;
+  margin: 0;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.researchPaperCaptureCheck input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--hi);
+  cursor: pointer;
+}
+
+.researchPaperRailCard--screenshotSelected {
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.researchPaperRailCard--screenshotUnselected {
+  opacity: 0.38;
+}
+
+.researchPaperDocuments--screenshotSelect .researchPaperDocConnector,
+.researchPaperDocuments--screenshotSelect .researchPaperTodayGap {
+  opacity: 0.35;
+}
+
+.researchPaperCaptureMount {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  z-index: -1;
+  width: 900px;
+  max-width: 900px;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.researchPaperCaptureExport {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: max(320px, 100%);
+  max-width: 900px;
+  padding: 12px;
+  box-sizing: border-box;
+  background: #0a0b0d;
 }
 
 .terminal--main .researchPaperPanel.boshaPaper {
