@@ -4868,6 +4868,14 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
 
 const MOCK_PAPER_DOCUMENTS_ASML = [
   {
+    id: 'asml-doc-gov-dod-euv',
+    source: 'Gov contract',
+    filedAt: '2026-05-20T00:00:00.000Z',
+    url: 'https://sam.gov/search/?index=opp&page=1&sort=-relevance&keywords=ASML',
+    analysis:
+      'DoD IDIQ modification ($18.4M) names ASML US, Inc. as awardee for EUV lithography sustainment and field engineering at a domestic high-volume fab. Award text ties delivery to existing high-NA install base rather than a new platform buy. Supports the scarcity thesis: defense-side spend is maintaining installed EUV, not signaling a cancellation wave.',
+  },
+  {
     id: 'asml-doc-q1',
     source: '8-K',
     filedAt: '2026-04-18T00:00:00.000Z',
@@ -4882,6 +4890,14 @@ const MOCK_PAPER_DOCUMENTS_ASML = [
     url: 'https://www.sec.gov/edgar/search/#/q=ASML',
     analysis:
       'Management commentary points to extended EUV delivery timelines and continued tightness in high-NA tool allocation. Customers are prioritizing leading-edge slots even as downstream AI demand headlines dominate equity flows. The filing reinforces scarcity in lithography rather than a demand air pocket for the tools themselves.',
+  },
+  {
+    id: 'asml-doc-gov-chips',
+    source: 'Gov contract',
+    filedAt: '2026-02-28T00:00:00.000Z',
+    url: 'https://sam.gov/search/?index=opp&page=1&sort=-relevance&keywords=ASML%20CHIPS',
+    analysis:
+      'CHIPS Program Office task order lists ASML Holding N.V. (US operating unit) for advanced-node lithography workforce training and metrology support tied to a domestic EUV line. Dollar value is modest versus systems revenue but extends the policy linkage between US fab incentives and EUV allocation. No new tool count disclosed.',
   },
   {
     id: 'asml-doc-annual',
@@ -4907,6 +4923,14 @@ const MOCK_PAPER_DOCUMENTS_ASML = [
     analysis:
       'Prior-year annual framing already emphasized EUV as the binding step for leading-edge supply. The language is consistent with the current scarcity thesis, which makes timing shifts in orders and backlog the live variable rather than the structural story.',
   },
+  {
+    id: 'asml-doc-gov-darpa',
+    source: 'Gov contract',
+    filedAt: '2025-11-06T00:00:00.000Z',
+    url: 'https://sam.gov/search/?index=opp&page=1&sort=-relevance&keywords=ASML%20EUV',
+    analysis:
+      'DARPA advanced-packaging prototype names ASML as subcontractor for EUV patterning modules in a heterogeneous-integration demo. Prime is a US research university; ASML role is tooling and process support, not a volume systems PO. Useful as a policy/tech footnote, not a backlog driver on its own.',
+  },
 ]
 
 function paperDocumentOpenUrl(doc, ticker) {
@@ -4923,6 +4947,11 @@ function paperDocumentOpenUrl(doc, ticker) {
   }
   if (source.includes('investor') && t === 'ASML') {
     return 'https://www.asml.com/en/investors'
+  }
+  if (source.includes('gov contract') || id.includes('gov') || source.includes('sam.gov')) {
+    if (direct) return direct
+    const q = t || 'federal contract award'
+    return `https://sam.gov/search/?index=opp&page=1&sort=-relevance&keywords=${encodeURIComponent(q)}`
   }
   if (t) return `https://www.sec.gov/edgar/search/#/q=${encodeURIComponent(t)}`
   return 'https://www.sec.gov/edgar/search/'
@@ -5230,6 +5259,7 @@ function boshaAsmlPresentation() {
     documents: MOCK_PAPER_DOCUMENTS_ASML,
     sources: [
       { label: 'ASML — Investor relations', url: 'https://www.asml.com/en/investors' },
+      { label: 'SAM.gov — contract awards (mock)', url: 'https://sam.gov/' },
       { label: 'SEC EDGAR search', url: 'https://www.sec.gov/edgar/search/' },
       { label: 'EU regulation — company filings (mock)', url: 'https://www.sec.gov/edgar/search/' },
     ],
@@ -5469,6 +5499,14 @@ function normalizeResearchPaperSourceKey(source) {
   if (low === 'house_ptr' || /^ptr$/i.test(raw) || /\bperiodic\s*transaction\b/i.test(raw)) return 'PTR'
   if (/\binvestor\s*presentation\b/i.test(raw)) return 'Investor presentation'
   if (/\bannual\s*report\b/i.test(raw) && !/\b10-k\b/i.test(raw)) return 'Annual report'
+  if (
+    /\bgov(ernment)?\s*contract\b/i.test(raw) ||
+    /\bfederal\s*award\b/i.test(raw) ||
+    /\bsam\.gov\b/i.test(raw) ||
+    low === 'bosha_gov_contract'
+  ) {
+    return 'Gov contract'
+  }
 
   const secDirect = normalizeSecFilingFormKey(raw)
   if (secDirect) return secDirect
@@ -5500,6 +5538,7 @@ const RESEARCH_PAPER_SOURCE_CATALOG = [
   { id: 'Earnings transcript', label: 'Earnings call', code: 'Call', modes: ['market', 'clinical'] },
   { id: 'Investor presentation', label: 'Investor deck', code: 'Deck', modes: ['market'] },
   { id: 'Annual report', label: 'IR annual report', code: 'AR', modes: ['market'] },
+  { id: 'Gov contract', label: 'Federal award', code: 'SAM', modes: ['market'] },
   { id: 'ClinicalTrials.gov', label: 'Trial registry', code: 'CT.gov', modes: ['clinical'] },
   { id: 'Form 4', label: 'Insider transaction', code: 'F4', modes: ['market', 'clinical'] },
   { id: 'Form 3', label: 'Initial insider holding', code: 'F3', modes: ['market', 'clinical'] },
