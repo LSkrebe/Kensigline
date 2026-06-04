@@ -1301,9 +1301,21 @@ function contextMockFlowDate(row, dateDaysAgo) {
   return dateDaysAgo(0)
 }
 
+const CONTEXT_MOCK_PROFILE_DEFAULT = {
+  sector: 'Biotechnology',
+  country: 'US',
+  mcap: '—',
+  earningsDaysAhead: 30,
+  leadDrug: null,
+  programs: [],
+  insiders: [],
+  politicians: [],
+  filings13f: [],
+}
+
 function contextMockForTicker(ticker, priceSeries) {
   const t = String(ticker ?? 'ATYR').toUpperCase()
-  const base = CONTEXT_MOCK_PROFILES[t] ?? CONTEXT_MOCK_PROFILES.ATYR
+  const base = CONTEXT_MOCK_PROFILES[t] ?? CONTEXT_MOCK_PROFILE_DEFAULT
   const dateDaysAgo = (daysAgo) => {
     const d = new Date()
     d.setDate(d.getDate() - daysAgo)
@@ -1906,36 +1918,16 @@ function ContextCatalystCard({ items = [], title = 'Catalyst clock' }) {
       {!count ? (
         <p className="contextCatalystCardEmpty mono dim">No upcoming catalysts</p>
       ) : (
-        items.map((it) => {
-        const rowInner = (
-          <>
+        items.map((it) => (
+          <div key={it.id} className="contextCatalystRow">
             <div className="contextCatalystMain">
               <div className="contextCatalystProgram mono">{it.programKey}</div>
               <div className="contextCatalystLabel">{it.label}</div>
               {it.phase ? <div className="contextCatalystPhase mono dim">{displayPhaseLabel(it.phase)}</div> : null}
             </div>
             <div className="contextCatalystWhen mono">{contextCatalystCountdown(it.at)}</div>
-          </>
-        )
-        if (it.url) {
-          return (
-            <a
-              key={it.id}
-              className="contextCatalystRow contextCatalystRow--link"
-              href={it.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {rowInner}
-            </a>
-          )
-        }
-        return (
-          <div key={it.id} className="contextCatalystRow">
-            {rowInner}
           </div>
-        )
-      })
+        ))
       )}
     </div>
   )
@@ -2874,7 +2866,10 @@ function ResearchPaperTxnThumb({ fullName, mode, onActiveChange }) {
     probe.referrerPolicy = 'no-referrer'
     probe.decoding = 'async'
     probe.onload = () => {
-      if (active) setLoadedSrc(photoUrl)
+      if (active) {
+        setLoadedSrc(photoUrl)
+        void cachePortraitDataUrlForExport(photoUrl)
+      }
     }
     probe.onerror = () => {
       failedUrlsRef.current.add(photoUrl)
@@ -5033,11 +5028,44 @@ async function waitForCaptureImages(root) {
   )
 }
 
-/** Load a remote portrait with CORS and return a canvas-safe data URL for export. */
-async function imageUrlToDataUrl(url) {
+function blobToDataUrl(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+    reader.onerror = () => resolve(null)
+    reader.readAsDataURL(blob)
+  })
+}
+
+function absoluteAssetUrl(url) {
   const raw = String(url ?? '').trim()
   if (!raw) return null
-  if (raw.startsWith('data:') || raw.startsWith('blob:')) return raw
+  if (/^https?:\/\//i.test(raw)) return raw
+  try {
+    return new URL(raw, window.location.origin).href
+  } catch {
+    return raw
+  }
+}
+
+/** Load a remote image as a canvas-safe data URL (fetch first — works with congress CDN redirects). */
+async function imageUrlToDataUrl(url) {
+  const absolute = absoluteAssetUrl(url)
+  if (!absolute) return null
+  if (absolute.startsWith('data:') || absolute.startsWith('blob:')) return absolute
+
+  try {
+    const res = await fetch(absolute, { mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer' })
+    if (res.ok) {
+      const blob = await res.blob()
+      if (blob.size > 0 && (blob.type.startsWith('image/') || blob.type === '')) {
+        const dataUrl = await blobToDataUrl(blob)
+        if (dataUrl) return dataUrl
+      }
+    }
+  } catch {
+    /* fall through to canvas probe */
+  }
 
   return new Promise((resolve) => {
     const probe = new Image()
@@ -5066,8 +5094,72 @@ async function imageUrlToDataUrl(url) {
       }
     }
     probe.onerror = () => finish(null)
-    probe.src = raw
+    probe.src = absolute
   })
+}
+
+const PAPER_CAPTURE_BRAND_LOGO = '/mercerline_logo_transparent.png'
+const PAPER_CAPTURE_BRAND_NAME = 'MERCERLINE.COM'
+
+/** Pre-inlined portrait blobs for paper screenshot export (key = absolute photo URL). */
+const PAPER_PORTRAIT_DATA_URL_CACHE = new Map()
+
+async function cachePortraitDataUrlForExport(url) {
+  const absolute = absoluteAssetUrl(url)
+  if (!absolute || PAPER_PORTRAIT_DATA_URL_CACHE.has(absolute)) return
+  const dataUrl = await imageUrlToDataUrl(absolute)
+  if (dataUrl) PAPER_PORTRAIT_DATA_URL_CACHE.set(absolute, dataUrl)
+}
+
+async function resolveCaptureImageDataUrl(url) {
+  const absolute = absoluteAssetUrl(url)
+  if (!absolute) return null
+  if (absolute.startsWith('data:') || absolute.startsWith('blob:')) return absolute
+  const cached = PAPER_PORTRAIT_DATA_URL_CACHE.get(absolute)
+  if (cached) return cached
+  const dataUrl = await imageUrlToDataUrl(absolute)
+  if (dataUrl) PAPER_PORTRAIT_DATA_URL_CACHE.set(absolute, dataUrl)
+  return dataUrl
+}
+
+/** Paint portrait on rail via data URL (img + background — html-to-image is flaky on <img> alone). */
+function setRailPortraitFromDataUrl(rail, card, dataUrl) {
+  if (!rail || !dataUrl) return
+  rail.classList.add('researchPaperRailCardRail--photo')
+  card?.classList.add('researchPaperTxnCard--hasPortrait')
+  let img = rail.querySelector('.researchPaperTxnThumb')
+  if (!img) {
+    img = document.createElement('img')
+    img.className = 'researchPaperTxnThumb'
+    img.alt = ''
+    img.decoding = 'async'
+    rail.prepend(img)
+  }
+  img.crossOrigin = 'anonymous'
+  img.referrerPolicy = 'no-referrer'
+  img.src = dataUrl
+  rail.style.backgroundImage = `url("${dataUrl}")`
+  rail.style.backgroundSize = 'cover'
+  rail.style.backgroundPosition = 'center 22%'
+  rail.style.backgroundRepeat = 'no-repeat'
+}
+
+async function applyCapturePortraitRails(exportRoot) {
+  const cards = [...(exportRoot?.querySelectorAll('.researchPaperTxnCard') ?? [])]
+  await Promise.all(
+    cards.map(async (card) => {
+      const rail = card.querySelector('.researchPaperRailCardRail')
+      if (!rail) return
+      const raw =
+        card.getAttribute('data-capture-photo-url') ||
+        rail.querySelector('.researchPaperTxnThumb')?.currentSrc ||
+        rail.querySelector('.researchPaperTxnThumb')?.src
+      const dataUrl = await resolveCaptureImageDataUrl(raw)
+      if (!dataUrl) return
+      setRailPortraitFromDataUrl(rail, card, dataUrl)
+      await waitForImgElement(rail.querySelector('.researchPaperTxnThumb'))
+    }),
+  )
 }
 
 /** html-to-image cannot paint cross-origin <img> tags; inline them before rasterizing. */
@@ -5077,24 +5169,73 @@ async function inlineCaptureImages(root) {
   await Promise.all(
     imgs.map(async (img) => {
       const url = img.currentSrc || img.src
-      const dataUrl = await imageUrlToDataUrl(url)
+      const dataUrl = await resolveCaptureImageDataUrl(url)
       if (!dataUrl) return
+      const rail = img.closest('.researchPaperRailCardRail')
+      if (img.classList.contains('researchPaperTxnThumb') && rail) {
+        const card = img.closest('.researchPaperTxnCard')
+        setRailPortraitFromDataUrl(rail, card, dataUrl)
+        await waitForImgElement(img)
+        return
+      }
       img.crossOrigin = 'anonymous'
       img.referrerPolicy = 'no-referrer'
       img.src = dataUrl
-      await new Promise((resolve) => {
-        if (img.complete && img.naturalWidth > 0) {
-          resolve()
-          return
-        }
-        const done = () => resolve()
-        img.addEventListener('load', done, { once: true })
-        img.addEventListener('error', done, { once: true })
-      })
+      await waitForImgElement(img)
     }),
   )
 }
 
+async function waitForImgElement(img) {
+  if (!img) return
+  await new Promise((resolve) => {
+    if (img.complete && img.naturalWidth > 0) {
+      resolve()
+      return
+    }
+    const done = () => resolve()
+    img.addEventListener('load', done, { once: true })
+    img.addEventListener('error', done, { once: true })
+  })
+}
+
+async function appendPaperCaptureBrandFooter(parent) {
+  const footer = document.createElement('div')
+  footer.className = 'researchPaperCaptureBrand'
+  const img = document.createElement('img')
+  img.className = 'researchPaperCaptureBrandLogo'
+  img.alt = ''
+  img.width = 22
+  img.height = 22
+  img.decoding = 'async'
+  img.crossOrigin = 'anonymous'
+  img.referrerPolicy = 'no-referrer'
+  const inlinedLogo = await imageUrlToDataUrl(PAPER_CAPTURE_BRAND_LOGO)
+  img.src = inlinedLogo || PAPER_CAPTURE_BRAND_LOGO
+  await waitForImgElement(img)
+  const name = document.createElement('span')
+  name.className = 'researchPaperCaptureBrandName mono'
+  name.textContent = PAPER_CAPTURE_BRAND_NAME
+  footer.append(img, name)
+  parent.appendChild(footer)
+}
+
+/** Prime off-screen chart layout, then clone only the chart card (not the hidden wrapper). */
+async function buildPaperCaptureChartClone(chartSourceEl) {
+  const chart = chartSourceEl?.querySelector('.researchPaperCaptureChart')
+  if (!chart) return null
+  chartSourceEl.classList.add('researchPaperCaptureChartSource--primed')
+  try {
+    void chart.offsetHeight
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+    await waitForCaptureImages(chartSourceEl)
+    return chart.cloneNode(true)
+  } finally {
+    chartSourceEl.classList.remove('researchPaperCaptureChartSource--primed')
+  }
+}
+
+/** Sync clone prep — portraits are inlined in `inlineCaptureImages` before rasterize (see ae5a9a9). */
 function finalizePaperCaptureClone(sourceEl, clone, portraitMeta) {
   clone.querySelectorAll('.researchPaperCaptureCheck').forEach((node) => node.remove())
   clone.classList.remove(
@@ -5102,36 +5243,38 @@ function finalizePaperCaptureClone(sourceEl, clone, portraitMeta) {
     'researchPaperRailCard--screenshotUnselected',
   )
   const rail = clone.querySelector('.researchPaperRailCardRail')
-  if (rail) {
-    rail.classList.remove('researchPaperRailCardRail--capture')
-    const origImg = sourceEl.querySelector('.researchPaperTxnThumb')
-    let cloneImg = clone.querySelector('.researchPaperTxnThumb')
-    const photoUrl =
-      origImg?.currentSrc ||
-      origImg?.src ||
-      (portraitMeta?.personFullName
-        ? casePersonPhotoUrl(
-            portraitMeta.personFullName,
-            portraitMeta.personMode === 'politicians' ? 'politicians' : 'insider',
-          )
-        : null)
-    if (photoUrl) {
-      if (!cloneImg) {
-        cloneImg = document.createElement('img')
-        cloneImg.className = 'researchPaperTxnThumb'
-        cloneImg.alt = ''
-        cloneImg.decoding = 'async'
-        rail.prepend(cloneImg)
-      }
+  if (!rail) return
+  rail.classList.remove('researchPaperRailCardRail--capture')
+  const origImg = sourceEl.querySelector('.researchPaperTxnThumb')
+  let cloneImg = clone.querySelector('.researchPaperTxnThumb')
+  const photoUrl =
+    origImg?.currentSrc ||
+    origImg?.src ||
+    (portraitMeta?.personFullName
+      ? casePersonPhotoUrl(
+          portraitMeta.personFullName,
+          portraitMeta.personMode === 'politicians' ? 'politicians' : 'insider',
+        )
+      : null)
+  if (photoUrl) {
+    const absolute = absoluteAssetUrl(photoUrl)
+    if (absolute) clone.setAttribute('data-capture-photo-url', absolute)
+    if (!cloneImg) {
+      cloneImg = document.createElement('img')
+      cloneImg.className = 'researchPaperTxnThumb'
+      cloneImg.alt = ''
+      cloneImg.decoding = 'async'
+      rail.prepend(cloneImg)
+    }
+    const cached = absolute ? PAPER_PORTRAIT_DATA_URL_CACHE.get(absolute) : null
+    if (cached) {
+      setRailPortraitFromDataUrl(rail, clone.classList.contains('researchPaperTxnCard') ? clone : null, cached)
+    } else {
       cloneImg.crossOrigin = 'anonymous'
       cloneImg.referrerPolicy = 'no-referrer'
       cloneImg.src = photoUrl
-    }
-    if (clone.querySelector('.researchPaperTxnThumb')) {
       rail.classList.add('researchPaperRailCardRail--photo')
-      if (clone.classList.contains('researchPaperTxnCard')) {
-        clone.classList.add('researchPaperTxnCard--hasPortrait')
-      }
+      clone.classList.add('researchPaperTxnCard--hasPortrait')
     }
   }
 }
@@ -6069,14 +6212,28 @@ function BoshaPaperPanel({
   politicians = [],
   filings13f = [],
   paperSourceFilters = null,
+  priceSeries = [],
+  insiderPriceMarkers = [],
+  politicianPriceMarkers = [],
   panelClassName = '',
 }) {
   const fullName = String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
+  const t = String(ticker ?? '').toUpperCase()
   const paperBodyRef = useRef(null)
   const captureMountRef = useRef(null)
+  const chartCaptureRef = useRef(null)
   const [screenshotSelectMode, setScreenshotSelectMode] = useState(false)
   const [screenshotSelected, setScreenshotSelected] = useState(() => new Set())
+  const [screenshotIncludeChart, setScreenshotIncludeChart] = useState(false)
   const [screenshotBusy, setScreenshotBusy] = useState(false)
+  const showChartFlowMarkers = intelMode !== 'clinical'
+
+  const captureChartLatestPrice = useMemo(() => {
+    const rows = Array.isArray(priceSeries) ? priceSeries : []
+    if (!rows.length) return null
+    const last = Number(rows.at(-1))
+    return Number.isFinite(last) ? last : null
+  }, [priceSeries])
 
   const paperDocuments = useMemo(() => {
     const docs = paperDocumentsFromPresentation(presentation)
@@ -6141,6 +6298,7 @@ function BoshaPaperPanel({
   const cancelScreenshotSelect = useCallback(() => {
     setScreenshotSelectMode(false)
     setScreenshotSelected(new Set())
+    setScreenshotIncludeChart(false)
   }, [])
 
   const startScreenshotSelect = useCallback(() => {
@@ -6149,8 +6307,16 @@ function BoshaPaperPanel({
       return
     }
     setScreenshotSelected(new Set())
+    setScreenshotIncludeChart(true)
     setScreenshotSelectMode(true)
-  }, [paperCaptureIds])
+    for (const meta of paperCapturePortraitById.values()) {
+      const url = casePersonPhotoUrl(
+        meta.personFullName,
+        meta.personMode === 'politicians' ? 'politicians' : 'insider',
+      )
+      if (url) void cachePortraitDataUrlForExport(url)
+    }
+  }, [paperCaptureIds, paperCapturePortraitById])
 
   const toggleScreenshotSelection = useCallback((captureId) => {
     const id = String(captureId ?? '').trim()
@@ -6184,34 +6350,61 @@ function BoshaPaperPanel({
     paperRoot?.classList.add('boshaPaper--capturing')
 
     const orderedIds = paperCaptureIds.filter((id) => screenshotSelected.has(id))
-    mount.replaceChildren()
-    const exportWrap = document.createElement('div')
-    exportWrap.className = 'researchPaperCaptureExport'
-    for (const id of orderedIds) {
-      const el = body.querySelector(`[data-paper-capture-id="${CSS.escape(id)}"]`)
-      if (!el) continue
-      const clone = el.cloneNode(true)
-      finalizePaperCaptureClone(el, clone, paperCapturePortraitById.get(id))
-      exportWrap.appendChild(clone)
-    }
-    mount.appendChild(exportWrap)
+    const includeChart = screenshotIncludeChart
+    const chartSource = chartCaptureRef.current
 
     const pngPromise = (async () => {
       try {
+        mount.replaceChildren()
+        mount.classList.add('researchPaperCaptureMount--exporting')
+        const exportWrap = document.createElement('div')
+        exportWrap.className = 'researchPaperCaptureExport'
+
+        if (includeChart && chartSource) {
+          const chartNode = await buildPaperCaptureChartClone(chartSource)
+          if (chartNode) exportWrap.appendChild(chartNode)
+        }
+
+        for (const id of orderedIds) {
+          const el = body.querySelector(`[data-paper-capture-id="${CSS.escape(id)}"]`)
+          if (!el) continue
+          const meta = paperCapturePortraitById.get(id)
+          const liveThumb = el.querySelector('.researchPaperTxnThumb')
+          if (liveThumb?.currentSrc || liveThumb?.src) {
+            await cachePortraitDataUrlForExport(liveThumb.currentSrc || liveThumb.src)
+          }
+          if (meta?.personFullName) {
+            const portraitUrl = casePersonPhotoUrl(
+              meta.personFullName,
+              meta.personMode === 'politicians' ? 'politicians' : 'insider',
+            )
+            if (portraitUrl) await cachePortraitDataUrlForExport(portraitUrl)
+          }
+          const clone = el.cloneNode(true)
+          finalizePaperCaptureClone(el, clone, meta)
+          exportWrap.appendChild(clone)
+        }
+
+        await appendPaperCaptureBrandFooter(exportWrap)
+        mount.appendChild(exportWrap)
+
         await whenDocumentFontsReady()
         await waitForCaptureImages(exportWrap)
+        await applyCapturePortraitRails(exportWrap)
         await inlineCaptureImages(exportWrap)
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
         void exportWrap.offsetHeight
         const dataUrl = await rasterizePaperElementToPngDataUrl(exportWrap)
         return (await fetch(dataUrl)).blob()
       } finally {
+        mount.classList.remove('researchPaperCaptureMount--exporting')
         mount.replaceChildren()
         body.classList.remove('boshaPaperBody--capturing')
         paperRoot?.classList.remove('boshaPaper--capturing')
         setScreenshotBusy(false)
         setScreenshotSelectMode(false)
         setScreenshotSelected(new Set())
+        setScreenshotIncludeChart(false)
       }
     })()
 
@@ -6223,7 +6416,13 @@ function BoshaPaperPanel({
           'Could not copy the paper image. Wait until the timeline has fully loaded, then try again.',
         )
       })
-  }, [paperCaptureIds, paperCapturePortraitById, screenshotBusy, screenshotSelected])
+  }, [
+    paperCaptureIds,
+    paperCapturePortraitById,
+    screenshotBusy,
+    screenshotSelected,
+    screenshotIncludeChart,
+  ])
 
   return (
     <section
@@ -6250,6 +6449,20 @@ function BoshaPaperPanel({
                 onClick={cancelScreenshotSelect}
               >
                 Cancel
+              </button>
+              <button
+                type="button"
+                className={[
+                  'researchPaperCaptureAction',
+                  screenshotIncludeChart ? 'isActive' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                disabled={screenshotBusy}
+                aria-pressed={screenshotIncludeChart}
+                onClick={() => setScreenshotIncludeChart((on) => !on)}
+              >
+                Include chart
               </button>
               <button
                 type="button"
@@ -6298,6 +6511,29 @@ function BoshaPaperPanel({
         </div>
       </div>
       <div ref={captureMountRef} className="researchPaperCaptureMount" aria-hidden="true" />
+      <div ref={chartCaptureRef} className="researchPaperCaptureChartSource" aria-hidden="true">
+        <div className="researchPaperCaptureChart">
+          <div className="researchPaperCaptureChartHead">
+            <div className="researchPaperCaptureChartHeadLeft">
+              <span className="researchPaperCaptureChartTicker mono">{t || '—'}</span>
+              <span className="researchPaperCaptureChartName">{fullName}</span>
+            </div>
+            <span className="researchPaperCaptureChartPrice mono">
+              {captureChartLatestPrice != null ? `$${captureChartLatestPrice.toFixed(2)}` : '—'}
+            </span>
+          </div>
+          <BoshaMiniPrice
+            series={priceSeries}
+            label={t || 'PRICE'}
+            showMeta={false}
+            chartAlign="context"
+            chartRange="6M"
+            trimLeadingPlateau
+            insiderMarkers={showChartFlowMarkers ? insiderPriceMarkers : []}
+            politicianMarkers={showChartFlowMarkers ? politicianPriceMarkers : []}
+          />
+        </div>
+      </div>
     </section>
   )
 }
@@ -8389,7 +8625,8 @@ function KensiglineTerminal() {
         const timeline = buildResearchPaperTimelineForTicker({
           ticker,
           intelMode,
-          programKey: contextProgramKey,
+          programKey:
+            intelMode === 'clinical' && ticker === boshaTicker ? contextProgramKey : CLINICAL_PROGRAM_ALL,
           livePresentation: boshaPresentation,
           selectedTicker: boshaTicker,
           backendUp,
@@ -9628,6 +9865,9 @@ function KensiglineTerminal() {
             politicians={contextMock.politicians}
             filings13f={contextMock.filings13f}
             paperSourceFilters={researchPaperSourceFilters}
+            priceSeries={boshaPriceSeries}
+            insiderPriceMarkers={insiderPriceMarkers}
+            politicianPriceMarkers={politicianPriceMarkers}
             panelClassName="mainMainBlank"
           />
 
