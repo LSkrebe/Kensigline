@@ -228,6 +228,20 @@
   line-height: 1;
 }
 
+.terminalIntelSwitch--institutions {
+  max-width: none;
+  width: max-content;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0;
+}
+
+.terminalIntelSwitch--institutions .terminalIntelSwitchBtn {
+  padding: 0 5px;
+  font-size: 7.5px;
+  letter-spacing: 0.1em;
+}
+
 .terminalIntelSwitchBranchGap {
   display: inline-block;
   width: 14px;
@@ -485,7 +499,7 @@
 
 /*
  * Investigate tab (4 cols): FEED | CASE | chart (2 cols × 3 rows) | bottom: HO | Company (50/50).
- * Mode class terminal--insider | terminal--politicians follows headline switch.
+ * Mode class terminal--insider | terminal--politicians | terminal--institutions follows headline switch.
  */
 .terminal.terminal--investigate.terminal--insider,
 .terminal.terminal--insider {
@@ -498,7 +512,10 @@
 }
 
 .terminal.terminal--investigate.terminal--politicians,
-.terminal.terminal--politicians {
+.terminal.terminal--investigate.terminal--institutions,
+.terminal.terminal--politicians,
+.terminal.terminal--institutions
+{
   grid-template-columns:
     var(--terminal-feed-track)
     minmax(64px, 1.15fr)
@@ -1729,7 +1746,9 @@
 
 /* Insider / Politicians company tile — snapshot fills panel (no header) */
 .terminal--insider .companyTile .companyTileBody,
-.terminal--politicians .companyTile .companyTileBody {
+.terminal--politicians .companyTile .companyTileBody,
+.terminal--institutions .companyTile .companyTileBody
+{
   flex: 1 1 auto;
   align-self: stretch;
   min-height: 0;
@@ -1748,7 +1767,9 @@
 }
 
 .terminal--insider .companyTile .contextCompanyCard,
-.terminal--politicians .companyTile .contextCompanyCard {
+.terminal--politicians .companyTile .contextCompanyCard,
+.terminal--institutions .companyTile .contextCompanyCard
+{
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
@@ -1763,7 +1784,9 @@
 }
 
 .terminal--insider .companyTile .contextCompanyTopRow,
-.terminal--politicians .companyTile .contextCompanyTopRow {
+.terminal--politicians .companyTile .contextCompanyTopRow,
+.terminal--institutions .companyTile .contextCompanyTopRow
+{
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
@@ -1772,12 +1795,16 @@
 }
 
 .terminal--insider .companyTile .contextCompanyTopRow--tickerOnly,
-.terminal--politicians .companyTile .contextCompanyTopRow--tickerOnly {
+.terminal--politicians .companyTile .contextCompanyTopRow--tickerOnly,
+.terminal--institutions .companyTile .contextCompanyTopRow--tickerOnly
+{
   grid-template-columns: minmax(0, 1fr);
 }
 
 .terminal--insider .companyTile .contextCompanyTicker,
-.terminal--politicians .companyTile .contextCompanyTicker {
+.terminal--politicians .companyTile .contextCompanyTicker,
+.terminal--institutions .companyTile .contextCompanyTicker
+{
   font-size: 20px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -1786,7 +1813,9 @@
 }
 
 .terminal--insider .companyTile .contextCompanyPrice,
-.terminal--politicians .companyTile .contextCompanyPrice {
+.terminal--politicians .companyTile .contextCompanyPrice,
+.terminal--institutions .companyTile .contextCompanyPrice
+{
   font-size: 15px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -1795,14 +1824,18 @@
 }
 
 .terminal--insider .companyTile .contextCompanyMeta,
-.terminal--politicians .companyTile .contextCompanyMeta {
+.terminal--politicians .companyTile .contextCompanyMeta,
+.terminal--institutions .companyTile .contextCompanyMeta
+{
   font-size: 11px;
   color: rgba(255, 255, 255, 0.45);
   line-height: 1.35;
 }
 
 .terminal--insider .companyTile .contextCompanyEarnings,
-.terminal--politicians .companyTile .contextCompanyEarnings {
+.terminal--politicians .companyTile .contextCompanyEarnings,
+.terminal--institutions .companyTile .contextCompanyEarnings
+{
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1815,7 +1848,9 @@
 }
 
 .terminal--insider .companyTile .contextCompanyEarningsK,
-.terminal--politicians .companyTile .contextCompanyEarningsK {
+.terminal--politicians .companyTile .contextCompanyEarningsK,
+.terminal--institutions .companyTile .contextCompanyEarningsK
+{
   color: var(--hi);
   font-size: 9px;
   font-weight: 600;
@@ -1823,7 +1858,9 @@
 }
 
 .terminal--insider .companyTile .contextCompanyEarningsV,
-.terminal--politicians .companyTile .contextCompanyEarningsV {
+.terminal--politicians .companyTile .contextCompanyEarningsV,
+.terminal--institutions .companyTile .contextCompanyEarningsV
+{
   color: var(--hi);
   text-align: right;
   font-size: 11px;
@@ -1843,7 +1880,9 @@
 
 .terminal--main .mainContextPanel .contextFlowEmpty,
 .terminal--insider .historicalOutcomes .contextFlowEmpty,
-.terminal--politicians .historicalOutcomes .contextFlowEmpty {
+.terminal--politicians .historicalOutcomes .contextFlowEmpty,
+.terminal--institutions .historicalOutcomes .contextFlowEmpty
+{
   margin: 0;
   padding: 8px 0 10px;
   font-size: 10px;
@@ -1870,7 +1909,9 @@
 .terminal--main .mainContextPanel--market .contextFlowList,
 .terminal--main .mainContextPanel--clinical .contextFlowList,
 .terminal--insider .historicalOutcomes .contextFlowList,
-.terminal--politicians .historicalOutcomes .contextFlowList {
+.terminal--politicians .historicalOutcomes .contextFlowList,
+.terminal--institutions .historicalOutcomes .contextFlowList
+{
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 10px;
   background: var(--context-surface-inset);
@@ -1886,7 +1927,9 @@
 .terminal--main .mainContextPanel--market .contextFlowChartHeader,
 .terminal--main .mainContextPanel--clinical .contextFlowChartHeader,
 .terminal--insider .historicalOutcomes .contextFlowChartHeader,
-.terminal--politicians .historicalOutcomes .contextFlowChartHeader {
+.terminal--politicians .historicalOutcomes .contextFlowChartHeader,
+.terminal--institutions .historicalOutcomes .contextFlowChartHeader
+{
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -1900,7 +1943,9 @@
 .terminal--main .mainContextPanel--market .contextFlowChartLabel,
 .terminal--main .mainContextPanel--clinical .contextFlowChartLabel,
 .terminal--insider .historicalOutcomes .contextFlowChartLabel,
-.terminal--politicians .historicalOutcomes .contextFlowChartLabel {
+.terminal--politicians .historicalOutcomes .contextFlowChartLabel,
+.terminal--institutions .historicalOutcomes .contextFlowChartLabel
+{
   flex: 1 1 auto;
   min-width: 0;
   padding: 0;
@@ -1915,7 +1960,9 @@
 .terminal--main .mainContextPanel--market .contextFlowChartSample,
 .terminal--main .mainContextPanel--clinical .contextFlowChartSample,
 .terminal--insider .historicalOutcomes .contextFlowChartSample,
-.terminal--politicians .historicalOutcomes .contextFlowChartSample {
+.terminal--politicians .historicalOutcomes .contextFlowChartSample,
+.terminal--institutions .historicalOutcomes .contextFlowChartSample
+{
   flex-shrink: 0;
   font-size: 9px;
   font-weight: 600;
@@ -1928,7 +1975,9 @@
 .terminal--main .mainContextPanel--market .contextFlowTotalsMeta,
 .terminal--main .mainContextPanel--clinical .contextFlowTotalsMeta,
 .terminal--insider .historicalOutcomes .contextFlowTotalsMeta,
-.terminal--politicians .historicalOutcomes .contextFlowTotalsMeta {
+.terminal--politicians .historicalOutcomes .contextFlowTotalsMeta,
+.terminal--institutions .historicalOutcomes .contextFlowTotalsMeta
+{
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1945,8 +1994,11 @@
 .terminal--main .mainContextPanel--clinical .contextFlowTotalsMetaR,
 .terminal--insider .historicalOutcomes .contextFlowTotalsMetaL,
 .terminal--politicians .historicalOutcomes .contextFlowTotalsMetaL,
+.terminal--institutions .historicalOutcomes .contextFlowTotalsMetaL,
 .terminal--insider .historicalOutcomes .contextFlowTotalsMetaR,
-.terminal--politicians .historicalOutcomes .contextFlowTotalsMetaR {
+.terminal--politicians .historicalOutcomes .contextFlowTotalsMetaR,
+.terminal--institutions .historicalOutcomes .contextFlowTotalsMetaR
+{
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -1957,14 +2009,18 @@
 .terminal--main .mainContextPanel--market .contextFlowTotalsMetaR,
 .terminal--main .mainContextPanel--clinical .contextFlowTotalsMetaR,
 .terminal--insider .historicalOutcomes .contextFlowTotalsMetaR,
-.terminal--politicians .historicalOutcomes .contextFlowTotalsMetaR {
+.terminal--politicians .historicalOutcomes .contextFlowTotalsMetaR,
+.terminal--institutions .historicalOutcomes .contextFlowTotalsMetaR
+{
   text-align: right;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowList--empty .contextFlowEmpty,
 .terminal--main .mainContextPanel--clinical .contextFlowList--empty .contextFlowEmpty,
 .terminal--insider .historicalOutcomes .contextFlowList--empty .contextFlowEmpty,
-.terminal--politicians .historicalOutcomes .contextFlowList--empty .contextFlowEmpty {
+.terminal--politicians .historicalOutcomes .contextFlowList--empty .contextFlowEmpty,
+.terminal--institutions .historicalOutcomes .contextFlowList--empty .contextFlowEmpty
+{
   color: rgba(255, 255, 255, 0.42);
 }
 
@@ -1991,7 +2047,9 @@
 }
 
 .terminal--insider .historicalOutcomes .contextFlowOutcomeChart,
-.terminal--politicians .historicalOutcomes .contextFlowOutcomeChart {
+.terminal--politicians .historicalOutcomes .contextFlowOutcomeChart,
+.terminal--institutions .historicalOutcomes .contextFlowOutcomeChart
+{
   position: relative;
   z-index: 1;
   flex: 1 1 auto;
@@ -2005,7 +2063,9 @@
 }
 
 .terminal--insider .historicalOutcomes .contextFlowOutcomeSvg,
-.terminal--politicians .historicalOutcomes .contextFlowOutcomeSvg {
+.terminal--politicians .historicalOutcomes .contextFlowOutcomeSvg,
+.terminal--institutions .historicalOutcomes .contextFlowOutcomeSvg
+{
   display: block;
   width: 100%;
   height: 100%;
@@ -2015,7 +2075,9 @@
 .terminal--main .mainContextPanel--market .contextFlowOutcomePath,
 .terminal--main .mainContextPanel--clinical .contextFlowOutcomePath,
 .terminal--insider .historicalOutcomes .contextFlowOutcomePath,
-.terminal--politicians .historicalOutcomes .contextFlowOutcomePath {
+.terminal--politicians .historicalOutcomes .contextFlowOutcomePath,
+.terminal--institutions .historicalOutcomes .contextFlowOutcomePath
+{
   fill: none;
   stroke-width: 1.25px;
 }
@@ -2023,7 +2085,9 @@
 .terminal--main .mainContextPanel--market .contextFlowOutcomeChart .graphTick--x,
 .terminal--main .mainContextPanel--clinical .contextFlowOutcomeChart .graphTick--x,
 .terminal--insider .historicalOutcomes .contextFlowOutcomeChart .graphTick--x,
-.terminal--politicians .historicalOutcomes .contextFlowOutcomeChart .graphTick--x {
+.terminal--politicians .historicalOutcomes .contextFlowOutcomeChart .graphTick--x,
+.terminal--institutions .historicalOutcomes .contextFlowOutcomeChart .graphTick--x
+{
   font-size: 10px;
   fill: rgba(255, 255, 255, 0.38);
 }
@@ -2031,7 +2095,9 @@
 .terminal--main .mainContextPanel--market .contextFlowOutcomeChart .graphTick--y,
 .terminal--main .mainContextPanel--clinical .contextFlowOutcomeChart .graphTick--y,
 .terminal--insider .historicalOutcomes .contextFlowOutcomeChart .graphTick--y,
-.terminal--politicians .historicalOutcomes .contextFlowOutcomeChart .graphTick--y {
+.terminal--politicians .historicalOutcomes .contextFlowOutcomeChart .graphTick--y,
+.terminal--institutions .historicalOutcomes .contextFlowOutcomeChart .graphTick--y
+{
   font-size: 10px;
   fill: rgba(255, 255, 255, 0.38);
 }
@@ -2039,7 +2105,9 @@
 .terminal--main .mainContextPanel--market .contextFlowRowKeyWrap,
 .terminal--main .mainContextPanel--clinical .contextFlowRowKeyWrap,
 .terminal--insider .historicalOutcomes .contextFlowRowKeyWrap,
-.terminal--politicians .historicalOutcomes .contextFlowRowKeyWrap {
+.terminal--politicians .historicalOutcomes .contextFlowRowKeyWrap,
+.terminal--institutions .historicalOutcomes .contextFlowRowKeyWrap
+{
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2049,7 +2117,9 @@
 .terminal--main .mainContextPanel--market .contextFlowRowLine,
 .terminal--main .mainContextPanel--clinical .contextFlowRowLine,
 .terminal--insider .historicalOutcomes .contextFlowRowLine,
-.terminal--politicians .historicalOutcomes .contextFlowRowLine {
+.terminal--politicians .historicalOutcomes .contextFlowRowLine,
+.terminal--institutions .historicalOutcomes .contextFlowRowLine
+{
   flex-shrink: 0;
   width: 14px;
   height: 2px;
@@ -2059,14 +2129,18 @@
 .terminal--main .mainContextPanel--market .contextFlowRowKeyWrap .contextFlowRowKey,
 .terminal--main .mainContextPanel--clinical .contextFlowRowKeyWrap .contextFlowRowKey,
 .terminal--insider .historicalOutcomes .contextFlowRowKeyWrap .contextFlowRowKey,
-.terminal--politicians .historicalOutcomes .contextFlowRowKeyWrap .contextFlowRowKey {
+.terminal--politicians .historicalOutcomes .contextFlowRowKeyWrap .contextFlowRowKey,
+.terminal--institutions .historicalOutcomes .contextFlowRowKeyWrap .contextFlowRowKey
+{
   min-width: 0;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRow,
 .terminal--main .mainContextPanel--clinical .contextFlowRow,
 .terminal--insider .historicalOutcomes .contextFlowRow,
-.terminal--politicians .historicalOutcomes .contextFlowRow {
+.terminal--politicians .historicalOutcomes .contextFlowRow,
+.terminal--institutions .historicalOutcomes .contextFlowRow
+{
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2080,14 +2154,18 @@
 .terminal--main .mainContextPanel--market .contextFlowRow:last-child,
 .terminal--main .mainContextPanel--clinical .contextFlowRow:last-child,
 .terminal--insider .historicalOutcomes .contextFlowRow:last-child,
-.terminal--politicians .historicalOutcomes .contextFlowRow:last-child {
+.terminal--politicians .historicalOutcomes .contextFlowRow:last-child,
+.terminal--institutions .historicalOutcomes .contextFlowRow:last-child
+{
   border-bottom: none;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowRowMain,
 .terminal--main .mainContextPanel--clinical .contextFlowRowMain,
 .terminal--insider .historicalOutcomes .contextFlowRowMain,
-.terminal--politicians .historicalOutcomes .contextFlowRowMain {
+.terminal--politicians .historicalOutcomes .contextFlowRowMain,
+.terminal--institutions .historicalOutcomes .contextFlowRowMain
+{
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -2097,7 +2175,9 @@
 .terminal--main .mainContextPanel--market .contextFlowRowKey,
 .terminal--main .mainContextPanel--clinical .contextFlowRowKey,
 .terminal--insider .historicalOutcomes .contextFlowRowKey,
-.terminal--politicians .historicalOutcomes .contextFlowRowKey {
+.terminal--politicians .historicalOutcomes .contextFlowRowKey,
+.terminal--institutions .historicalOutcomes .contextFlowRowKey
+{
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -2108,7 +2188,9 @@
 .terminal--main .mainContextPanel--market .contextFlowRowKey--name,
 .terminal--main .mainContextPanel--clinical .contextFlowRowKey--name,
 .terminal--insider .historicalOutcomes .contextFlowRowKey--name,
-.terminal--politicians .historicalOutcomes .contextFlowRowKey--name {
+.terminal--politicians .historicalOutcomes .contextFlowRowKey--name,
+.terminal--institutions .historicalOutcomes .contextFlowRowKey--name
+{
   text-transform: none;
   letter-spacing: 0.01em;
 }
@@ -2116,7 +2198,9 @@
 .terminal--main .mainContextPanel--market .contextFlowRowDate,
 .terminal--main .mainContextPanel--clinical .contextFlowRowDate,
 .terminal--insider .historicalOutcomes .contextFlowRowDate,
-.terminal--politicians .historicalOutcomes .contextFlowRowDate {
+.terminal--politicians .historicalOutcomes .contextFlowRowDate,
+.terminal--institutions .historicalOutcomes .contextFlowRowDate
+{
   font-size: 10px;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.45);
@@ -2125,7 +2209,9 @@
 .terminal--main .mainContextPanel--market .contextFlowRowAmt,
 .terminal--main .mainContextPanel--clinical .contextFlowRowAmt,
 .terminal--insider .historicalOutcomes .contextFlowRowAmt,
-.terminal--politicians .historicalOutcomes .contextFlowRowAmt {
+.terminal--politicians .historicalOutcomes .contextFlowRowAmt,
+.terminal--institutions .historicalOutcomes .contextFlowRowAmt
+{
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -4678,9 +4764,14 @@ button.boshaPaperCopyIcon:focus-visible {
 
 
 .terminal--politicians .feed.feedCompact,
+.terminal--institutions .feed.feedCompact,
 .terminal--politicians .panel.graph,
+.terminal--institutions .panel.graph,
 .terminal--politicians .historicalOutcomes,
-.terminal--politicians .companyTile {
+.terminal--institutions .historicalOutcomes,
+.terminal--politicians .companyTile,
+.terminal--institutions .companyTile
+{
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -4690,7 +4781,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed.feedCompact,
 .terminal--politicians .feed.feedCompact,
-.terminal--main .boshaTicker.feed.feedCompact {
+.terminal--institutions .feed.feedCompact,
+.terminal--main .boshaTicker.feed.feedCompact
+{
   background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
 }
 
@@ -4701,9 +4794,14 @@ button.boshaPaperCopyIcon:focus-visible {
 
 
 .terminal--politicians .feedCompactHeader,
+.terminal--institutions .feedCompactHeader,
 .terminal--politicians .graph .panelHeader,
+.terminal--institutions .graph .panelHeader,
 .terminal--politicians .historicalOutcomes .feedCompactHeader,
-.terminal--politicians .companyTile .feedCompactHeader {
+.terminal--institutions .historicalOutcomes .feedCompactHeader,
+.terminal--politicians .companyTile .feedCompactHeader,
+.terminal--institutions .companyTile .feedCompactHeader
+{
   box-sizing: border-box;
   flex: 0 0 27px;
   height: 27px;
@@ -4719,7 +4817,10 @@ button.boshaPaperCopyIcon:focus-visible {
 
 
 .terminal--politicians .feedCompactTitle,
-.terminal--politicians .graph .panelTitle {
+.terminal--institutions .feedCompactTitle,
+.terminal--politicians .graph .panelTitle,
+.terminal--institutions .graph .panelTitle
+{
   color: var(--hi);
   font-size: 10px;
   letter-spacing: 0.16em;
@@ -4728,7 +4829,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .graph .panelMeta,
 
-.terminal--politicians .graph .panelMeta {
+.terminal--politicians .graph .panelMeta,
+.terminal--institutions .graph .panelMeta
+{
   color: rgba(255, 255, 255, 0.45);
   font-size: 9px;
   letter-spacing: 0.06em;
@@ -4739,7 +4842,10 @@ button.boshaPaperCopyIcon:focus-visible {
 
 
 .terminal--politicians .feedCompactMeta,
-.terminal--politicians .feedPageInd {
+.terminal--institutions .feedCompactMeta,
+.terminal--politicians .feedPageInd,
+.terminal--institutions .feedPageInd
+{
   color: rgba(255, 255, 255, 0.45);
   font-size: 9px;
   letter-spacing: 0.08em;
@@ -4841,7 +4947,9 @@ button.boshaPaperCopyIcon:focus-visible {
 /* Match investigate FEED list row rhythm (see `.feedRowCompact` on feed--left) */
 .terminal--insider .feed--left .feedFilterTypeRow,
 .terminal--politicians .feed--left .feedFilterTypeRow,
-.terminal--main .boshaTicker.feed--left .feedFilterTypeRow {
+.terminal--institutions .feed--left .feedFilterTypeRow,
+.terminal--main .boshaTicker.feed--left .feedFilterTypeRow
+{
   gap: 6px;
   min-height: calc(10px * 1.15 + 10px);
   padding: 5px 8px;
@@ -4855,19 +4963,25 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .feedFilterTypeRow:hover,
 .terminal--politicians .feed--left .feedFilterTypeRow:hover,
-.terminal--main .boshaTicker.feed--left .feedFilterTypeRow:hover {
+.terminal--institutions .feed--left .feedFilterTypeRow:hover,
+.terminal--main .boshaTicker.feed--left .feedFilterTypeRow:hover
+{
   background: rgba(255, 255, 255, 0.03);
 }
 
 .terminal--insider .feed--left .feedFilterTypeLabel,
 .terminal--politicians .feed--left .feedFilterTypeLabel,
-.terminal--main .boshaTicker.feed--left .feedFilterTypeLabel {
+.terminal--institutions .feed--left .feedFilterTypeLabel,
+.terminal--main .boshaTicker.feed--left .feedFilterTypeLabel
+{
   color: rgba(255, 255, 255, 0.88);
 }
 
 .terminal--insider .feed--left .feedFilterTypeCode,
 .terminal--politicians .feed--left .feedFilterTypeCode,
-.terminal--main .boshaTicker.feed--left .feedFilterTypeCode {
+.terminal--institutions .feed--left .feedFilterTypeCode,
+.terminal--main .boshaTicker.feed--left .feedFilterTypeCode
+{
   min-width: 2.5ch;
   max-width: none;
   overflow: visible;
@@ -5129,7 +5243,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feedCompactList,
 
-.terminal--politicians .feedCompactList {
+.terminal--politicians .feedCompactList,
+.terminal--institutions .feedCompactList
+{
   flex: 1;
   min-height: 0;
   margin: 0;
@@ -5142,7 +5258,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feedCompactList.feedCompactList--scroll,
 
-.terminal--politicians .feedCompactList.feedCompactList--scroll {
+.terminal--politicians .feedCompactList.feedCompactList--scroll,
+.terminal--institutions .feedCompactList.feedCompactList--scroll
+{
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -5151,7 +5269,9 @@ button.boshaPaperCopyIcon:focus-visible {
 /* Insider / Politicians FEED (left): search + ticker | company rows */
 .terminal--insider .feed--left.feedCompact,
 .terminal--politicians .feed--left.feedCompact,
-.terminal--main .boshaTicker.feed--left.feedCompact {
+.terminal--institutions .feed--left.feedCompact,
+.terminal--main .boshaTicker.feed--left.feedCompact
+{
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -5159,7 +5279,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .feedCompactBody,
 .terminal--politicians .feed--left .feedCompactBody,
-.terminal--main .boshaTicker.feed--left .feedCompactBody {
+.terminal--institutions .feed--left .feedCompactBody,
+.terminal--main .boshaTicker.feed--left .feedCompactBody
+{
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -5172,7 +5294,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .researchFeedSearch,
 .terminal--politicians .feed--left .researchFeedSearch,
-.terminal--main .boshaTicker.feed--left .researchFeedSearch {
+.terminal--institutions .feed--left .researchFeedSearch,
+.terminal--main .boshaTicker.feed--left .researchFeedSearch
+{
   display: flex;
   align-items: center;
   gap: 6px;
@@ -5188,7 +5312,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .researchFeedSearchStack,
 .terminal--politicians .feed--left .researchFeedSearchStack,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchStack {
+.terminal--institutions .feed--left .researchFeedSearchStack,
+.terminal--main .boshaTicker.feed--left .researchFeedSearchStack
+{
   flex-shrink: 0;
   display: flex;
   flex-direction: row;
@@ -5202,7 +5328,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .researchFeedSearchStackIconWrap,
 .terminal--politicians .feed--left .researchFeedSearchStackIconWrap,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchStackIconWrap {
+.terminal--institutions .feed--left .researchFeedSearchStackIconWrap,
+.terminal--main .boshaTicker.feed--left .researchFeedSearchStackIconWrap
+{
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -5215,7 +5343,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .researchFeedSearchStackIcon,
 .terminal--politicians .feed--left .researchFeedSearchStackIcon,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchStackIcon {
+.terminal--institutions .feed--left .researchFeedSearchStackIcon,
+.terminal--main .boshaTicker.feed--left .researchFeedSearchStackIcon
+{
   display: block;
   width: 13px;
   height: 13px;
@@ -5223,7 +5353,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .researchFeedSearchStackFields,
 .terminal--politicians .feed--left .researchFeedSearchStackFields,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchStackFields {
+.terminal--institutions .feed--left .researchFeedSearchStackFields,
+.terminal--main .boshaTicker.feed--left .researchFeedSearchStackFields
+{
   flex: 1;
   min-width: 0;
   display: flex;
@@ -5232,7 +5364,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .researchFeedSearchRow,
 .terminal--politicians .feed--left .researchFeedSearchRow,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchRow {
+.terminal--institutions .feed--left .researchFeedSearchRow,
+.terminal--main .boshaTicker.feed--left .researchFeedSearchRow
+{
   display: flex;
   align-items: center;
   flex: 1;
@@ -5247,13 +5381,17 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .researchFeedSearchRow + .researchFeedSearchRow,
 .terminal--politicians .feed--left .researchFeedSearchRow + .researchFeedSearchRow,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchRow + .researchFeedSearchRow {
+.terminal--institutions .feed--left .researchFeedSearchRow + .researchFeedSearchRow,
+.terminal--main .boshaTicker.feed--left .researchFeedSearchRow + .researchFeedSearchRow
+{
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .terminal--insider .feed--left .researchFeedSearchInput,
 .terminal--politicians .feed--left .researchFeedSearchInput,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchInput {
+.terminal--institutions .feed--left .researchFeedSearchInput,
+.terminal--main .boshaTicker.feed--left .researchFeedSearchInput
+{
   flex: 1;
   min-width: 0;
   margin: 0;
@@ -5270,13 +5408,17 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .researchFeedSearchInput::placeholder,
 .terminal--politicians .feed--left .researchFeedSearchInput::placeholder,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchInput::placeholder {
+.terminal--institutions .feed--left .researchFeedSearchInput::placeholder,
+.terminal--main .boshaTicker.feed--left .researchFeedSearchInput::placeholder
+{
   color: rgba(255, 255, 255, 0.38);
 }
 
 .terminal--insider .feed--left .researchFeedSearchIcon,
 .terminal--politicians .feed--left .researchFeedSearchIcon,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchIcon {
+.terminal--institutions .feed--left .researchFeedSearchIcon,
+.terminal--main .boshaTicker.feed--left .researchFeedSearchIcon
+{
   flex-shrink: 0;
   width: 12px;
   height: 12px;
@@ -5286,7 +5428,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll,
 .terminal--politicians .feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll,
-.terminal--main .boshaTicker.feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll {
+.terminal--institutions .feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll,
+.terminal--main .boshaTicker.feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll
+{
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -5298,7 +5442,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .feedCompactList.feedCompactList--scroll,
 .terminal--politicians .feed--left .feedCompactList.feedCompactList--scroll,
-.terminal--main .boshaTicker.feed--left .feedCompactList.feedCompactList--scroll {
+.terminal--institutions .feed--left .feedCompactList.feedCompactList--scroll,
+.terminal--main .boshaTicker.feed--left .feedCompactList.feedCompactList--scroll
+{
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -5307,7 +5453,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .feedRowCompact,
 .terminal--politicians .feed--left .feedRowCompact,
-.terminal--main .boshaTicker.feed--left .feedRowCompact {
+.terminal--institutions .feed--left .feedRowCompact,
+.terminal--main .boshaTicker.feed--left .feedRowCompact
+{
   min-height: calc(10px * 1.15 + 10px);
   padding: 5px 8px;
   gap: 6px;
@@ -5323,13 +5471,17 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .feedRowCompact:hover,
 .terminal--politicians .feed--left .feedRowCompact:hover,
-.terminal--main .boshaTicker.feed--left .feedRowCompact:hover {
+.terminal--institutions .feed--left .feedRowCompact:hover,
+.terminal--main .boshaTicker.feed--left .feedRowCompact:hover
+{
   background: rgba(255, 255, 255, 0.03);
 }
 
 .terminal--insider .feed--left .feedRowCompact.isActive,
 .terminal--politicians .feed--left .feedRowCompact.isActive,
-.terminal--main .boshaTicker.feed--left .feedRowCompact.isActive {
+.terminal--institutions .feed--left .feedRowCompact.isActive,
+.terminal--main .boshaTicker.feed--left .feedRowCompact.isActive
+{
   border-color: rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.03);
   border-radius: 6px;
@@ -5338,7 +5490,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .feedCellLabel.kvFeedMain,
 .terminal--politicians .feed--left .feedCellLabel.kvFeedMain,
-.terminal--main .boshaTicker.feed--left .feedCellLabel.kvFeedMain {
+.terminal--institutions .feed--left .feedCellLabel.kvFeedMain,
+.terminal--main .boshaTicker.feed--left .feedCellLabel.kvFeedMain
+{
   color: rgba(255, 255, 255, 0.88);
   letter-spacing: 0.02em;
 }
@@ -5346,20 +5500,26 @@ button.boshaPaperCopyIcon:focus-visible {
 /* FEED: ticker | company | count | time */
 .terminal--insider .feed--left .feedRowCompact--company,
 .terminal--politicians .feed--left .feedRowCompact--company,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company {
+.terminal--institutions .feed--left .feedRowCompact--company,
+.terminal--main .boshaTicker.feed--left .feedRowCompact--company
+{
   grid-template-columns: 5ch minmax(0, 1fr) 4ch max-content;
   gap: 4px;
 }
 
 .terminal--insider .feed--left .feedRowCompact--company.feedRowCompact--noCount,
 .terminal--politicians .feed--left .feedRowCompact--company.feedRowCompact--noCount,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company.feedRowCompact--noCount {
+.terminal--institutions .feed--left .feedRowCompact--company.feedRowCompact--noCount,
+.terminal--main .boshaTicker.feed--left .feedRowCompact--company.feedRowCompact--noCount
+{
   grid-template-columns: 5ch minmax(0, 1fr) max-content;
 }
 
 .terminal--insider .feed--left .feedRowCompact--company .feedCellSymbol,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellSymbol,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCellSymbol {
+.terminal--institutions .feed--left .feedRowCompact--company .feedCellSymbol,
+.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCellSymbol
+{
   min-width: 0;
   width: 5ch;
   max-width: 5ch;
@@ -5372,7 +5532,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .feedRowCompact--company .feedCellCompany,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellCompany,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCellCompany {
+.terminal--institutions .feed--left .feedRowCompact--company .feedCellCompany,
+.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCellCompany
+{
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5381,7 +5543,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .feedRowCompact--company .feedCellCount,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellCount,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCellCount {
+.terminal--institutions .feed--left .feedRowCompact--company .feedCellCount,
+.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCellCount
+{
   min-width: 0;
   width: 4ch;
   max-width: 4ch;
@@ -5391,7 +5555,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .feedRowCompact--company .feedCountTag,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCountTag,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCountTag {
+.terminal--institutions .feed--left .feedRowCompact--company .feedCountTag,
+.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCountTag
+{
   display: block;
   min-width: 4ch;
   width: 4ch;
@@ -5402,20 +5568,26 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feed--left .feedRowCompact--company .feedCellWhen,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellWhen,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCellWhen {
+.terminal--institutions .feed--left .feedRowCompact--company .feedCellWhen,
+.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCellWhen
+{
   min-width: 0;
 }
 
 .terminal--insider .feed--left .feedCellWhen,
 .terminal--politicians .feed--left .feedCellWhen,
-.terminal--main .boshaTicker.feed--left .feedCellWhen {
+.terminal--institutions .feed--left .feedCellWhen,
+.terminal--main .boshaTicker.feed--left .feedCellWhen
+{
   font-size: 9px;
   letter-spacing: 0.06em;
 }
 
 .terminal--insider .feed--left .feedRowTodaySep,
 .terminal--politicians .feed--left .feedRowTodaySep,
-.terminal--main .boshaTicker.feed--left .feedRowTodaySep {
+.terminal--institutions .feed--left .feedRowTodaySep,
+.terminal--main .boshaTicker.feed--left .feedRowTodaySep
+{
   min-height: calc(10px * 1.15 + 10px);
   margin: 0;
   padding: 0;
@@ -5430,7 +5602,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feedRowCompact,
 
-.terminal--politicians .feedRowCompact {
+.terminal--politicians .feedRowCompact,
+.terminal--institutions .feedRowCompact
+{
   box-sizing: border-box;
   border: 1px solid transparent;
   border-bottom-color: rgba(255, 255, 255, 0.06);
@@ -5440,26 +5614,34 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .kvFeedMain,
 
 .terminal--politicians .kvFeedMain,
-.terminal--main .boshaTicker.feed--left .kvFeedMain {
+.terminal--institutions .kvFeedMain,
+.terminal--main .boshaTicker.feed--left .kvFeedMain
+{
   color: rgba(255, 255, 255, 0.82);
 }
 
 .terminal--insider .kvFeedDim,
 
 .terminal--politicians .kvFeedDim,
-.terminal--main .boshaTicker.feed--left .kvFeedDim {
+.terminal--institutions .kvFeedDim,
+.terminal--main .boshaTicker.feed--left .kvFeedDim
+{
   color: rgba(255, 255, 255, 0.45);
 }
 
 .terminal--insider .feedRowCompact:hover,
 
-.terminal--politicians .feedRowCompact:hover {
+.terminal--politicians .feedRowCompact:hover,
+.terminal--institutions .feedRowCompact:hover
+{
   background: rgba(255, 255, 255, 0.03);
 }
 
 .terminal--insider .feedRowCompact.isActive,
 
-.terminal--politicians .feedRowCompact.isActive {
+.terminal--politicians .feedRowCompact.isActive,
+.terminal--institutions .feedRowCompact.isActive
+{
   background: rgba(255, 255, 255, 0.04);
   box-shadow: none;
   border-radius: 8px;
@@ -5468,7 +5650,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .feedRowTodaySep,
 
-.terminal--politicians .feedRowTodaySep {
+.terminal--politicians .feedRowTodaySep,
+.terminal--institutions .feedRowTodaySep
+{
   margin: 0;
   padding: 0;
   border-top-color: rgba(255, 255, 255, 0.08);
@@ -5480,7 +5664,9 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .graph .graphWrap,
 
-.terminal--politicians .graph .graphWrap {
+.terminal--politicians .graph .graphWrap,
+.terminal--institutions .graph .graphWrap
+{
   flex: 1 1 auto;
   align-self: stretch;
   min-height: 0;
@@ -5498,38 +5684,50 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--insider .graph .graphPath,
 
-.terminal--politicians .graph .graphPath {
+.terminal--politicians .graph .graphPath,
+.terminal--institutions .graph .graphPath
+{
   stroke: rgba(255, 255, 255, 0.9);
   stroke-width: 1.25px;
 }
 
 .terminal--insider .graph .graphTick,
 
-.terminal--politicians .graph .graphTick {
+.terminal--politicians .graph .graphTick,
+.terminal--institutions .graph .graphTick
+{
   fill: rgba(255, 255, 255, 0.38);
 }
 
 .terminal--insider .graph .graphTickLine,
 
-.terminal--politicians .graph .graphTickLine {
+.terminal--politicians .graph .graphTickLine,
+.terminal--institutions .graph .graphTickLine
+{
   stroke: rgba(255, 255, 255, 0.14);
 }
 
 .terminal--insider .graph .graphMarker,
 
-.terminal--politicians .graph .graphMarker {
+.terminal--politicians .graph .graphMarker,
+.terminal--institutions .graph .graphMarker
+{
   stroke: rgba(255, 255, 255, 0.16);
   stroke-dasharray: 3 4;
 }
 
 .terminal--insider .graph .graphMarker--selected,
 
-.terminal--politicians .graph .graphMarker--selected {
+.terminal--politicians .graph .graphMarker--selected,
+.terminal--institutions .graph .graphMarker--selected
+{
   stroke: rgba(255, 255, 255, 0.48);
 }
 
 .terminal--insider .historicalOutcomes .worksheetBody,
-.terminal--politicians .historicalOutcomes .worksheetBody {
+.terminal--politicians .historicalOutcomes .worksheetBody,
+.terminal--institutions .historicalOutcomes .worksheetBody
+{
   flex: 1 1 auto;
   align-self: stretch;
   min-height: 0;
@@ -5548,12 +5746,16 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .historicalOutcomes--market .worksheetBody,
-.terminal--politicians .historicalOutcomes--market .worksheetBody {
+.terminal--politicians .historicalOutcomes--market .worksheetBody,
+.terminal--institutions .historicalOutcomes--market .worksheetBody
+{
   margin: 12px;
 }
 
 .terminal--insider .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson,
-.terminal--politicians .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson {
+.terminal--politicians .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson,
+.terminal--institutions .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson
+{
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -5569,7 +5771,9 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .historicalOutcomes .historicalOutcomesPersonName,
-.terminal--politicians .historicalOutcomes .historicalOutcomesPersonName {
+.terminal--politicians .historicalOutcomes .historicalOutcomesPersonName,
+.terminal--institutions .historicalOutcomes .historicalOutcomesPersonName
+{
   color: var(--hi);
   font-size: 11px;
   font-weight: 500;
@@ -5579,7 +5783,9 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .historicalOutcomes .historicalOutcomesPersonDetail,
-.terminal--politicians .historicalOutcomes .historicalOutcomesPersonDetail {
+.terminal--politicians .historicalOutcomes .historicalOutcomesPersonDetail,
+.terminal--institutions .historicalOutcomes .historicalOutcomesPersonDetail
+{
   color: var(--hi);
   text-align: right;
   font-size: 11px;
@@ -5641,36 +5847,50 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .historicalOutcomes .kvLine,
-.terminal--politicians .historicalOutcomes .kvLine {
+.terminal--politicians .historicalOutcomes .kvLine,
+.terminal--institutions .historicalOutcomes .kvLine
+{
   color: rgba(255, 255, 255, 0.88);
   border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
 .terminal--insider .historicalOutcomes .kvK,
-.terminal--politicians .historicalOutcomes .kvK {
+.terminal--politicians .historicalOutcomes .kvK,
+.terminal--institutions .historicalOutcomes .kvK
+{
   color: rgba(255, 255, 255, 0.45);
   font-size: 10px;
   letter-spacing: 0.04em;
 }
 
 .terminal--insider .historicalOutcomes .kvV,
-.terminal--politicians .historicalOutcomes .kvV {
+.terminal--politicians .historicalOutcomes .kvV,
+.terminal--institutions .historicalOutcomes .kvV
+{
   color: var(--hi);
 }
 
 /* Politicians tab: same 4-col placement as INSIDER. */
-.terminal--politicians .graph {
+.terminal--politicians .graph,
+.terminal--institutions .graph
+{
   grid-column: 3 / span 2;
   grid-row: 1 / span 3;
 }
-.terminal--politicians .feed--right {
+.terminal--politicians .feed--right,
+.terminal--institutions .feed--right
+{
   grid-row: 1 / span 4;
 }
-.terminal--politicians .historicalOutcomes {
+.terminal--politicians .historicalOutcomes,
+.terminal--institutions .historicalOutcomes
+{
   grid-column: 3 / span 1;
   grid-row: 4 / span 1;
 }
-.terminal--politicians .companyTile {
+.terminal--politicians .companyTile,
+.terminal--institutions .companyTile
+{
   grid-column: 4 / span 1;
   grid-row: 4 / span 1;
 }
@@ -5789,7 +6009,9 @@ body {
 
 .terminal--insider .graph .graphPriceRange .boshaPriceRangeBtn,
 
-.terminal--politicians .graph .graphPriceRange .boshaPriceRangeBtn {
+.terminal--politicians .graph .graphPriceRange .boshaPriceRangeBtn,
+.terminal--institutions .graph .graphPriceRange .boshaPriceRangeBtn
+{
   padding: 4px 8px;
   font-size: 9px;
   letter-spacing: 0.08em;
@@ -5798,14 +6020,18 @@ body {
 
 .terminal--insider .graph .graphPriceRange .boshaPriceRangeBtn.isActive,
 
-.terminal--politicians .graph .graphPriceRange .boshaPriceRangeBtn.isActive {
+.terminal--politicians .graph .graphPriceRange .boshaPriceRangeBtn.isActive,
+.terminal--institutions .graph .graphPriceRange .boshaPriceRangeBtn.isActive
+{
   background: #fff;
   color: #0a0b0d;
 }
 
 .terminal--insider .graph .graphPriceRange .boshaPriceRangeBtn:hover:not(.isActive),
 
-.terminal--politicians .graph .graphPriceRange .boshaPriceRangeBtn:hover:not(.isActive) {
+.terminal--politicians .graph .graphPriceRange .boshaPriceRangeBtn:hover:not(.isActive),
+.terminal--institutions .graph .graphPriceRange .boshaPriceRangeBtn:hover:not(.isActive)
+{
   color: rgba(255, 255, 255, 0.62);
 }
 
@@ -5839,7 +6065,9 @@ body {
 }
 
 .terminal--insider .graph .graphPanelLastPrice,
-.terminal--politicians .graph .graphPanelLastPrice {
+.terminal--politicians .graph .graphPanelLastPrice,
+.terminal--institutions .graph .graphPanelLastPrice
+{
   font-size: 10px;
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.58);
@@ -6076,7 +6304,9 @@ body {
 }
 
 .terminal--insider .feed--right .feedCellSurname,
-.terminal--politicians .feed--right .feedCellSurname {
+.terminal--politicians .feed--right .feedCellSurname,
+.terminal--institutions .feed--right .feedCellSurname
+{
   max-width: none;
 }
 
@@ -6100,6 +6330,19 @@ body {
 
 .feedTxnCode--neutral {
   color: rgba(200, 220, 210, 0.55);
+}
+
+/* 13F institution activity codes (CASE panel) */
+.feedTxnCode--instInc {
+  color: rgba(72, 220, 160, 0.95);
+}
+
+.feedTxnCode--instNew {
+  color: rgba(130, 198, 255, 0.95);
+}
+
+.feedTxnCode--instRed {
+  color: rgba(255, 108, 120, 0.92);
 }
 
 .feedTxnDeriv {
@@ -6132,14 +6375,18 @@ body {
 
 /* Insider CASE (right): header + scrollable body (same grid shell as other feeds) */
 .terminal--insider .feed--right.feedCompact,
-.terminal--politicians .feed--right.feedCompact {
+.terminal--politicians .feed--right.feedCompact,
+.terminal--institutions .feed--right.feedCompact
+{
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
 }
 
 .terminal--insider .feed--right .feedCompactBody,
-.terminal--politicians .feed--right .feedCompactBody {
+.terminal--politicians .feed--right .feedCompactBody,
+.terminal--institutions .feed--right .feedCompactBody
+{
   grid-row: 2;
   min-height: 0;
   display: flex;
@@ -6150,7 +6397,9 @@ body {
 }
 
 .terminal--insider .feed--right .feedCompactBody--case,
-.terminal--politicians .feed--right .feedCompactBody--case {
+.terminal--politicians .feed--right .feedCompactBody--case,
+.terminal--institutions .feed--right .feedCompactBody--case
+{
   gap: 0;
 }
 
@@ -6277,7 +6526,9 @@ body {
 }
 
 .terminal--insider .feed--right .feedCompactList.feedCompactList--scroll,
-.terminal--politicians .feed--right .feedCompactList.feedCompactList--scroll {
+.terminal--politicians .feed--right .feedCompactList.feedCompactList--scroll,
+.terminal--institutions .feed--right .feedCompactList.feedCompactList--scroll
+{
   flex: 1 1 auto;
   min-height: 0;
   padding: 0;
@@ -6291,7 +6542,9 @@ body {
 }
 
 .terminal--insider .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable,
-.terminal--politicians .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable {
+.terminal--politicians .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable,
+.terminal--institutions .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable
+{
   /* Room for selected-row ring so rounded ends are not clipped */
   padding: 0 1px;
   box-sizing: border-box;
@@ -6300,8 +6553,11 @@ body {
 /* CASE panel: interior grid lines only (no outer box) */
 .terminal--insider .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable,
 .terminal--politicians .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable,
+.terminal--institutions .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable,
 .terminal--insider .feed--right .feedCompactList--caseTable,
-.terminal--politicians .feed--right .feedCompactList--caseTable {
+.terminal--politicians .feed--right .feedCompactList--caseTable,
+.terminal--institutions .feed--right .feedCompactList--caseTable
+{
   --case-table-line: rgba(255, 255, 255, 0.09);
   gap: 0;
   border: none;
@@ -6310,17 +6566,23 @@ body {
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable > *:first-child,
-.terminal--politicians .feed--right .feedCompactList--caseTable > *:first-child {
+.terminal--politicians .feed--right .feedCompactList--caseTable > *:first-child,
+.terminal--institutions .feed--right .feedCompactList--caseTable > *:first-child
+{
   border-top: none;
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable > *:last-child,
-.terminal--politicians .feed--right .feedCompactList--caseTable > *:last-child {
+.terminal--politicians .feed--right .feedCompactList--caseTable > *:last-child,
+.terminal--institutions .feed--right .feedCompactList--caseTable > *:last-child
+{
   border-bottom: none;
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable > *:last-child.feedRowTodaySep,
-.terminal--politicians .feed--right .feedCompactList--caseTable > *:last-child.feedRowTodaySep {
+.terminal--politicians .feed--right .feedCompactList--caseTable > *:last-child.feedRowTodaySep,
+.terminal--institutions .feed--right .feedCompactList--caseTable > *:last-child.feedRowTodaySep
+{
   border-bottom: none;
 }
 
@@ -6330,13 +6592,18 @@ body {
 }
 
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta {
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta
+{
   grid-template-columns: 4.5em minmax(6em, 10em) 2.2em minmax(10ch, 1fr) auto;
 }
 
 /* CASE txn rows: table grid + same row height as FEED (left) */
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician
+{
   gap: 0;
   padding: 0;
   margin: 0;
@@ -6349,12 +6616,16 @@ body {
   border-radius: 0;
 }
 
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician
+{
   grid-template-columns: 4.5em minmax(6em, 10em) 2.2em minmax(10ch, 1fr) auto;
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedCellValue,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedCellValue {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedCellValue,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedCellValue
+{
   min-width: 0;
 }
 
@@ -6362,33 +6633,51 @@ body {
   padding-left: 14px;
 }
 
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician .feedCellValue {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician .feedCellValue,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician .feedCellValue
+{
   padding-left: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician .feedCellCode {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician .feedCellCode,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician .feedCellCode
+{
   justify-content: center;
+}
+
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician .feedCellCode {
+  min-width: 2.35em;
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCellCode {
   padding-right: 10px;
 }
 
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCellSurname {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCellSurname,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCellSurname
+{
   padding-right: 10px;
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn .feedCellSurname--match,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician .feedCellSurname--match {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician .feedCellSurname--match,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician .feedCellSurname--match
+{
   color: rgba(255, 255, 255, 0.88);
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCellWhen,
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCellWhen,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCellWhen {
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCellWhen,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCellWhen,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCellWhen
+{
   width: max-content;
   max-width: 100%;
   min-width: 0;
@@ -6398,19 +6687,26 @@ body {
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellLabel,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellLabel {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellLabel,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellLabel
+{
   grid-column: 1 / 5;
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellTicker,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellTicker {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellTicker,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellTicker
+{
   grid-column: 5;
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCell,
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCell,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCell,
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCell,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCell {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCell,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCell
+{
   box-sizing: border-box;
   min-height: calc(10px * 1.15 + 10px);
   padding: 5px 8px;
@@ -6421,15 +6717,21 @@ body {
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCell:first-child,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCell:first-child {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCell:first-child,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCell:first-child
+{
   border-left: none;
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCell:last-child,
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCell:last-child,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txn > .feedCell:last-child,
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCell:last-child,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician > .feedCell:last-child,
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCellTicker,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCellTicker {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCellTicker,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta > .feedCellTicker
+{
   border-right: none;
 }
 
@@ -6439,18 +6741,25 @@ body {
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedCellValue,
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedCellValue,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedCellValue,
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellTicker,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellTicker {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellTicker,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta .feedCellTicker
+{
   justify-content: flex-end;
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn:hover,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician:hover {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician:hover,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician:hover
+{
   background: rgba(255, 255, 255, 0.04);
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn.isActive,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician.isActive {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician.isActive,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician.isActive
+{
   position: relative;
   z-index: 1;
   border: none;
@@ -6463,12 +6772,16 @@ body {
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact:has(+ .feedRowTodaySep),
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact:has(+ .feedRowTodaySep) {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact:has(+ .feedRowTodaySep),
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact:has(+ .feedRowTodaySep)
+{
   border-bottom: none;
 }
 
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowTodaySep,
-.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowTodaySep {
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowTodaySep,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowTodaySep
+{
   min-height: calc(10px * 1.15 + 10px);
   margin: 0;
   padding: 0;
@@ -6485,7 +6798,9 @@ body {
 
 /* Non-table CASE rows (fallback if class omitted) */
 .terminal--insider .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--two,
-.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--two {
+.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--two,
+.terminal--institutions .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--two
+{
   grid-template-columns: minmax(4.5em, auto) minmax(0, 1fr);
   min-height: calc(10px * 1.15 + 10px);
   padding: 5px 8px;
@@ -6502,7 +6817,9 @@ body {
   grid-template-columns: 4.5em minmax(6em, 10em) 2.2em minmax(10ch, 1fr) auto;
 }
 
-.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txnPolitician {
+.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txnPolitician,
+.terminal--institutions .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txnPolitician
+{
   grid-template-columns: 4.5em minmax(6em, 10em) 2.2em minmax(10ch, 1fr) auto;
   min-height: calc(10px * 1.15 + 10px);
   padding: 5px 8px;
@@ -6516,19 +6833,25 @@ body {
 }
 
 .terminal--insider .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txn:hover,
-.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txnPolitician:hover {
+.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txnPolitician:hover,
+.terminal--institutions .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txnPolitician:hover
+{
   background: rgba(255, 255, 255, 0.03);
 }
 
 .terminal--insider .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txn.isActive,
-.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txnPolitician.isActive {
+.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txnPolitician.isActive,
+.terminal--institutions .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowCompact.feedRowCompact--txnPolitician.isActive
+{
   border-color: rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.03);
   box-shadow: none;
 }
 
 .terminal--insider .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowTodaySep,
-.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowTodaySep {
+.terminal--politicians .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowTodaySep,
+.terminal--institutions .feed--right .feedCompactList:not(.feedCompactList--caseTable) .feedRowTodaySep
+{
   min-height: calc(10px * 1.15 + 10px);
   margin: 0;
   padding: 0;
@@ -6544,7 +6867,9 @@ body {
 }
 
 .terminal--insider .feed--right .feedCellWhen,
-.terminal--politicians .feed--right .feedCellWhen {
+.terminal--politicians .feed--right .feedCellWhen,
+.terminal--institutions .feed--right .feedCellWhen
+{
   font-size: 9px;
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.45);
@@ -6644,16 +6969,21 @@ body {
 /* Investigate FEED (left): same as research — sep spacing + full active border above TODAY */
 .terminal--insider .feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep,
 .terminal--politicians .feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep,
-.terminal--main .boshaTicker.feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep {
+.terminal--institutions .feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep,
+.terminal--main .boshaTicker.feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep
+{
   margin-block: 0;
 }
 
 .terminal--insider .feed--left .feedCompactList > .feedRowCompact.isActive:has(+ .feedRowTodaySep),
 .terminal--insider .feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep),
 .terminal--politicians .feed--left .feedCompactList > .feedRowCompact.isActive:has(+ .feedRowTodaySep),
+.terminal--institutions .feed--left .feedCompactList > .feedRowCompact.isActive:has(+ .feedRowTodaySep),
 .terminal--politicians .feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep),
+.terminal--institutions .feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep),
 .terminal--main .boshaTicker.feed--left .feedCompactList > .feedRowCompact.isActive:has(+ .feedRowTodaySep),
-.terminal--main .boshaTicker.feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep) {
+.terminal--main .boshaTicker.feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep)
+{
   border-bottom-color: rgba(255, 255, 255, 0.22) !important;
 }
 

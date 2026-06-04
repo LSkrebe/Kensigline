@@ -545,6 +545,52 @@ const INVESTIGATE_POLITICIAN_TXN_TYPES = [
   { id: 'E', label: 'Exchange' },
 ]
 
+const INVESTIGATE_INSTITUTION_TXN_TYPES = [
+  { id: 'Increased stake', label: 'Increased stake' },
+  { id: 'New position', label: 'New position' },
+  { id: 'Reduced stake', label: 'Reduced stake' },
+]
+
+const INSTITUTION_ACTIVITY_CYCLE = ['Increased stake', 'New position', 'Reduced stake']
+
+/** 13F activity display in CASE — letter codes + tones (aligned with Form 4 / PTR). */
+const INSTITUTION_ACTIVITY_META = {
+  'Increased stake': { code: 'INC', tone: 'instInc', label: 'Increased stake' },
+  'New position': { code: 'NEW', tone: 'instNew', label: 'New position' },
+  'Reduced stake': { code: 'RED', tone: 'instRed', label: 'Reduced stake' },
+}
+
+function institutionTxnFromActivity(activity) {
+  const key = String(activity ?? '').trim()
+  return (
+    INSTITUTION_ACTIVITY_META[key] ?? {
+      code: key ? key.slice(0, 3).toUpperCase() : '—',
+      tone: 'neutral',
+      label: key || '13F filing',
+    }
+  )
+}
+
+/** Mock 13F filers for Investigate institutions mode. */
+const INSTITUTION_FILERS = [
+  'Vanguard Group',
+  'BlackRock',
+  'Capital Group',
+  'State Street Global Advisors',
+  'Fidelity Management',
+  'T. Rowe Price',
+  'Goldman Sachs',
+  'Morgan Stanley',
+  'JPMorgan Chase',
+  'Citadel Advisors',
+  'Renaissance Technologies',
+  'Perceptive Advisors',
+  'Ra Capital',
+  'EcoR1 Capital',
+  'Wellington Management',
+  'Invesco',
+]
+
 const INSIDER_ISSUERS = [
   'Horizon Grain Co.',
   'SilverSpruce Therapeutics',
@@ -646,6 +692,26 @@ function politicianFeedRowMatchesPoliticianQuery(row, queryRaw) {
   const s = String(queryRaw ?? '').trim()
   if (!s) return true
   return politicianNamesMatchQuery(politicianFeedRowNames(row), s)
+}
+
+function institutionFeedRowNames(row) {
+  const names = new Set()
+  for (const p of row?.institutions ?? []) {
+    const v = String(p ?? '').trim()
+    if (v) names.add(v)
+  }
+  for (const r of row?.caseSheet?.rows ?? []) {
+    const full = String(r?.institution_name ?? r?.key ?? '').trim()
+    if (full) names.add(full)
+    if (r?.surname) names.add(String(r.surname))
+  }
+  return [...names]
+}
+
+function institutionFeedRowMatchesInstitutionQuery(row, queryRaw) {
+  const s = String(queryRaw ?? '').trim()
+  if (!s) return true
+  return politicianNamesMatchQuery(institutionFeedRowNames(row), s)
 }
 
 function caseTxnPersonNameMatchesQuery(row, queryRaw) {
@@ -1299,6 +1365,7 @@ const OUTCOME_HORIZON_CHART_LABELS = ['1M', '3M', '1Y']
 /** Baseline avg forward returns (fractions) from global insider outcomes mock / API shape. */
 const OUTCOME_BASE_INSIDER_RETURNS = [0.0042, 0.0108, 0.0234]
 const OUTCOME_BASE_POLITICIAN_RETURNS = [0.0018, 0.0052, 0.0112]
+const OUTCOME_BASE_INSTITUTION_RETURNS = [0.0022, 0.0064, 0.0138]
 
 /** Mock forward-return curves (21d / 63d / 252d) for clinical context chart. */
 const MOCK_PHARMA_OUTCOME_BUCKETS = [
@@ -2236,8 +2303,23 @@ function politicianCaseRowHasTxn(r) {
   return Number.isFinite(amt) && amt > 0
 }
 
-function investigateCaseRowTxnCode(r, isPolitician) {
-  if (isPolitician) {
+function institutionCaseRowHasTxn(r) {
+  const activity = String(r?.activity ?? '').trim()
+  if (activity) return true
+  const amt = Number(r?.amountUsd ?? 0)
+  return Number.isFinite(amt) && amt > 0
+}
+
+function institutionActivityCode(activity) {
+  return institutionTxnFromActivity(activity).code
+}
+
+function investigateCaseRowTxnCode(r, mode) {
+  if (mode === 'institutions') {
+    if (!institutionCaseRowHasTxn(r)) return null
+    return String(r?.activity ?? '').trim() || null
+  }
+  if (mode === 'politicians') {
     if (!politicianCaseRowHasTxn(r)) return null
     const code = politicianTxnCodeFromRaw(r?.transactionType ?? r?.transactionCode)
     return code === '—' ? null : code
@@ -2248,21 +2330,21 @@ function investigateCaseRowTxnCode(r, isPolitician) {
   return code || null
 }
 
-function investigateCaseRowPassesTxnFilter(r, enabledCodes, isPolitician) {
+function investigateCaseRowPassesTxnFilter(r, enabledCodes, mode) {
   if (!enabledCodes?.size) return false
-  const code = investigateCaseRowTxnCode(r, isPolitician)
+  const code = investigateCaseRowTxnCode(r, mode)
   if (!code) return false
   return enabledCodes.has(code)
 }
 
-function filterInvestigateCaseSheetRows(caseSheet, enabledCodes, isPolitician) {
+function filterInvestigateCaseSheetRows(caseSheet, enabledCodes, mode) {
   if (!caseSheet || !enabledCodes?.size) return caseSheet
-  const rows = (caseSheet.rows ?? []).filter((r) => investigateCaseRowPassesTxnFilter(r, enabledCodes, isPolitician))
+  const rows = (caseSheet.rows ?? []).filter((r) => investigateCaseRowPassesTxnFilter(r, enabledCodes, mode))
   return { ...caseSheet, rows }
 }
 
 /** Drop companies with no matching worksheet rows; recompute feed `at` + today counts. */
-function applyInvestigateFeedTxnFilter(rows, enabledCodes, isPolitician) {
+function applyInvestigateFeedTxnFilter(rows, enabledCodes, mode) {
   if (!enabledCodes?.size) return []
   const out = []
   for (const row of rows ?? []) {
@@ -2271,18 +2353,18 @@ function applyInvestigateFeedTxnFilter(rows, enabledCodes, isPolitician) {
       out.push(row)
       continue
     }
-    const filtered = filterInvestigateCaseSheetRows(cs, enabledCodes, isPolitician)
+    const filtered = filterInvestigateCaseSheetRows(cs, enabledCodes, mode)
     if (!filtered.rows.length) continue
     out.push(normalizeFeedRowActivity({ ...row, caseSheet: filtered }))
   }
   return out
 }
 
-function applyInvestigateTxnFilterToFeedRow(row, enabledCodes, isPolitician) {
+function applyInvestigateTxnFilterToFeedRow(row, enabledCodes, mode) {
   if (!row) return row
   const cs = row?.caseSheet
   if (!Array.isArray(cs?.rows) || !cs.rows.length) return row
-  const filtered = filterInvestigateCaseSheetRows(cs, enabledCodes, isPolitician)
+  const filtered = filterInvestigateCaseSheetRows(cs, enabledCodes, mode)
   if (!filtered.rows.length) return { ...row, caseSheet: filtered }
   return normalizeFeedRowActivity({ ...row, caseSheet: filtered })
 }
@@ -2297,6 +2379,72 @@ function formatPoliticianTxnValue(r) {
   if (!compact) return '—'
   const sign = code === 'S' ? '−' : code === 'P' ? '+' : ''
   return `${sign}${compact}`
+}
+
+function formatInstitutionTxnValue(r) {
+  const amt = Number(r?.amountUsd ?? 0)
+  if (!(Number.isFinite(amt) && amt > 0)) return '—'
+  const compact = formatUsdCompact(amt)
+  if (!compact) return '—'
+  const activity = String(r?.activity ?? '').trim()
+  const sign =
+    activity === 'Reduced stake' ? '−' : activity === 'Increased stake' || activity === 'New position' ? '+' : ''
+  return `${sign}${compact}`
+}
+
+function institutionDisplayShortName(fullName) {
+  const raw = String(fullName ?? '').trim()
+  if (!raw) return ''
+  const stripped = raw.replace(/\b(group|inc|llc|l\.?p\.?|corp|corporation|advisors|management|capital)\b/gi, '').trim()
+  const parts = stripped.split(/\s+/).filter(Boolean)
+  if (!parts.length) return raw
+  if (parts.length === 1) return parts[0]
+  return parts[0]
+}
+
+/**
+ * Profile chip for 13F filers — from the filing only (no external taxonomy).
+ * Uses legal-entity suffix on the manager name as filed (LLC, LP, …), else SEC form capacity.
+ */
+function institutionFilerLabelFromFilingName(fullName) {
+  const raw = String(fullName ?? '').trim()
+  if (!raw) return 'Investment manager'
+  const u = raw.toUpperCase()
+  if (/\bL\.?\s*P\.?\b/.test(u) || /\bLP\b/.test(u)) return 'Limited partnership'
+  if (/\bLLC\b/.test(u)) return 'LLC'
+  if (/\b(TRUST|TR\.)\b/.test(u)) return 'Trust'
+  if (/\b(CORP|CORPORATION)\b/.test(u)) return 'Corporation'
+  if (/\bINC\b/.test(u) || /\bINCORPORATED\b/.test(u)) return 'Corporation'
+  if (/\bGROUP\b/.test(u)) return 'Group'
+  if (/\b(BANK|BANCORP|BANKING)\b/.test(u)) return 'Bank'
+  if (/\b(ADVISORS|ADVISERS|ADVISORY|MANAGEMENT|CAPITAL)\b/.test(u)) return 'Adviser'
+  return 'Investment manager'
+}
+
+function caseSheetRowToInstitutionTxnFeedRow(r, { showMoney }) {
+  if (!showMoney || !institutionCaseRowHasTxn(r)) return null
+  const whoRole = '13F'
+  const whoFullName = String(r?.institution_name ?? r?.key ?? '').trim()
+  const whoName = institutionDisplayShortName(whoFullName).toUpperCase() || whoFullName
+  const matchNames = [...new Set([whoName, whoFullName, institutionDisplayShortName(whoFullName)].filter(Boolean))]
+  const txn = institutionTxnFromActivity(r?.activity)
+  const when = r?.ts ? formatFeedDate(r.ts) : ''
+  return {
+    type: 'trade',
+    layout: 'txnPolitician',
+    who: whoName ? `${whoRole} ${whoName}` : whoRole,
+    whoRole,
+    whoName,
+    whoFullName,
+    whoDetail: institutionFilerLabelFromFilingName(whoFullName),
+    matchNames,
+    code: txn.code,
+    codeTitle: txn.label,
+    value: formatInstitutionTxnValue(r),
+    when,
+    codeTone: txn.tone,
+    ts: r?.ts ?? null,
+  }
 }
 
 function caseSheetRowToPoliticianTxnFeedRow(r, { showMoney }) {
@@ -2528,11 +2676,17 @@ function historicalOutcomeHasAvgReturns(ins) {
 
 function historicalOutcomeLinesFromIns(ins, mode, personDisplay) {
   const percents = parseAvgReturnHorizonPercents(ins?.avgReturn21d63d252d)
-  const base = mode === 'politicians' ? OUTCOME_BASE_POLITICIAN_RETURNS : OUTCOME_BASE_INSIDER_RETURNS
+  const base =
+    mode === 'politicians'
+      ? OUTCOME_BASE_POLITICIAN_RETURNS
+      : mode === 'institutions'
+        ? OUTCOME_BASE_INSTITUTION_RETURNS
+        : OUTCOME_BASE_INSIDER_RETURNS
   const returns = percents.map((p, i) => (p != null ? p / 100 : base[i]))
   if (!returns.some((r) => Number.isFinite(r))) return []
   const label =
-    String(personDisplay?.fullName ?? '').trim() || (mode === 'politicians' ? 'Politician' : 'Insider')
+    String(personDisplay?.fullName ?? '').trim() ||
+    (mode === 'politicians' ? 'Politician' : mode === 'institutions' ? 'Institution' : 'Insider')
   return [
     {
       id: 'aggregate',
@@ -2611,6 +2765,7 @@ function insiderPhotoUrlForName(fullName) {
 function casePersonPhotoUrl(fullName, mode) {
   const key = normalizePoliticianNameKey(fullName)
   if (!key) return null
+  if (mode === 'institutions') return null
   if (mode === 'politicians') {
     const id = POLITICIAN_CONGRESS_PHOTO_ID[key]
     if (id) return `https://unitedstates.github.io/images/congress/225x275/${id}.jpg`
@@ -2755,7 +2910,8 @@ function CasePersonHeader({ person, mode = 'insider' }) {
   const name = formatCasePersonDisplayName(rawName)
   const detail = String(person?.detail ?? '').trim()
   const roleLine = detail && detail !== EMPTY ? detail : null
-  const modeLabel = mode === 'politicians' ? 'politician' : 'insider'
+  const modeLabel =
+    mode === 'politicians' ? 'politician' : mode === 'institutions' ? 'institution' : 'insider'
 
   return (
     <div className="casePersonHeader" aria-label={`Selected ${modeLabel}: ${name}`}>
@@ -2779,7 +2935,9 @@ function caseFeedSelectedPersonDisplay(rows, selectedRowIndex, personQuery, mode
     const detail =
       mode === 'politicians'
         ? String(r.whoDetail ?? politicianChamberLabelFromCode(r.whoRole)).trim()
-        : String(r.whoDetail ?? r.whoRole ?? '').trim()
+        : mode === 'institutions'
+          ? String(r.whoDetail ?? institutionFilerLabelFromFilingName(r.whoFullName ?? r.whoName)).trim()
+          : String(r.whoDetail ?? r.whoRole ?? '').trim()
     return { fullName, detail: detail || EMPTY }
   }
 
@@ -2806,7 +2964,11 @@ function HistoricalMarketOutcomesView({ ins, mode, personDisplay = null }) {
   const personLabel = String(personDisplay?.fullName ?? '').trim()
   const personDetail = String(personDisplay?.detail ?? '').trim()
   const chartTitle =
-    mode === 'politicians' ? 'Politician historical outcomes' : 'Insider historical outcomes'
+    mode === 'politicians'
+      ? 'Politician historical outcomes'
+      : mode === 'institutions'
+        ? 'Institutional historical outcomes'
+        : 'Insider historical outcomes'
 
   if (!hasDataset) {
     return (
@@ -3053,6 +3215,54 @@ function politicianCaseForRowIndex(i) {
 
 const POLITICIAN_FEED_ROWS = sortFeedRowsByAtDesc(
   Array.from({ length: 42 }, (_, i) => normalizeFeedRowActivity(politicianCaseForRowIndex(i))),
+)
+
+function institutionCaseForRowIndex(i) {
+  const base = insiderCaseForRowIndex(i)
+  const nFilers = 1 + (i % 3)
+  const filers = Array.from(
+    { length: nFilers },
+    (_, j) => INSTITUTION_FILERS[(i + j) % INSTITUTION_FILERS.length],
+  )
+  const rows = (base?.caseSheet?.rows ?? []).map((r, idx) => {
+    const filer = filers[idx % filers.length]
+    const activity = INSTITUTION_ACTIVITY_CYCLE[(i + idx) % INSTITUTION_ACTIVITY_CYCLE.length]
+    const seed = i * 97 + idx * 41
+    const amountUsd =
+      Number(r?.amountUsd) > 0
+        ? Number(r.amountUsd)
+        : Math.round(500_000 + seededJitter(seed, 90_000_000))
+    return {
+      key: filer,
+      institution_name: filer,
+      surname: filer,
+      activity,
+      amountUsd,
+      ts: r.ts,
+    }
+  })
+  const totalUsd = rows.reduce((a, r) => {
+    const usd = Number(r?.amountUsd ?? 0)
+    return Number.isFinite(usd) && usd > 0 ? a + usd : a
+  }, 0)
+  const label = totalUsd > 0 ? formatUsdCompact(totalUsd) : '—'
+  return {
+    ...base,
+    id: `inst-${i}`,
+    label,
+    institutions: filers,
+    caseSheet: {
+      ...(base.caseSheet ?? {}),
+      formType: '13F',
+      isForm4: true,
+      issuer: base.company ?? base.caseSheet?.issuer,
+      rows,
+    },
+  }
+}
+
+const INSTITUTION_FEED_ROWS = sortFeedRowsByAtDesc(
+  Array.from({ length: 42 }, (_, i) => normalizeFeedRowActivity(institutionCaseForRowIndex(i))),
 )
 
 function MainContextPanel({
@@ -5312,9 +5522,9 @@ const RESEARCH_SOURCE_SUBTYPE_GROUPS = {
   'Form 4': INVESTIGATE_INSIDER_TXN_TYPES,
   PTR: INVESTIGATE_POLITICIAN_TXN_TYPES,
   '13F': [
-    { id: 'Increased stake', label: 'Increased stake', code: '+' },
+    { id: 'Increased stake', label: 'Increased stake', code: 'INC' },
     { id: 'New position', label: 'New position', code: 'NEW' },
-    { id: 'Reduced stake', label: 'Reduced stake', code: '−' },
+    { id: 'Reduced stake', label: 'Reduced stake', code: 'RED' },
   ],
 }
 
@@ -6939,14 +7149,15 @@ function KvLine({ className = '', children, ...rest }) {
 }
 
 function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
-  const insider = mode === 'insider' || mode === 'politicians'
+  const insider = mode === 'insider' || mode === 'politicians' || mode === 'institutions'
   const [live, setLive] = useState(null)
 
   useEffect(() => {
     let alive = true
     async function run() {
       try {
-        const m = mode === 'politicians' ? 'politicians' : 'insider'
+        const m =
+          mode === 'politicians' ? 'politicians' : mode === 'institutions' ? 'institutions' : 'insider'
         const r = await fetchJsonSafe(`/api/outcomes?mode=${encodeURIComponent(m)}`, { timeoutMs: 2500 })
         const json = r.data
         const data = json?.data ?? null
@@ -7656,6 +7867,7 @@ function CaseKvFeed({
             ]
               .filter(Boolean)
               .join(' ')}
+            title={r?.codeTitle ?? undefined}
           >
             {r.code ?? '—'}
             {!isPoliticianTxn && r.isDerivative ? <span className="feedTxnDeriv">D</span> : null}
@@ -7842,6 +8054,22 @@ function TerminalTopBar({
             >
               Politician intelligence
             </button>
+            <span className="terminalIntelSwitchSep" aria-hidden="true">
+              |
+            </span>
+            <button
+              type="button"
+              role="tab"
+              className={
+                investigateMode === 'institutions'
+                  ? 'terminalIntelSwitchBtn isActive'
+                  : 'terminalIntelSwitchBtn'
+              }
+              aria-selected={investigateMode === 'institutions'}
+              onClick={() => onInvestigateModeChange('institutions')}
+            >
+              Institutional intelligence
+            </button>
           </div>
         ) : null}
       </div>
@@ -7890,7 +8118,7 @@ function KensiglineTerminal() {
   const { user } = useAuth()
   const [activeTab, setActiveTab] = useState('main') // main | investigate | settings
   const [intelMode, setIntelMode] = useState('market') // market | clinical
-  const [investigateMode, setInvestigateMode] = useState('insider') // insider | politicians
+  const [investigateMode, setInvestigateMode] = useState('insider') // insider | politicians | institutions
   const [investigateFeedFilterOpen, setInvestigateFeedFilterOpen] = useState(false)
   const [investigateInsiderTxnFilters, setInvestigateInsiderTxnFilters] = useState(
     () => new Set(FORM4_TXN_CODES_CYCLE),
@@ -7898,8 +8126,12 @@ function KensiglineTerminal() {
   const [investigatePoliticianTxnFilters, setInvestigatePoliticianTxnFilters] = useState(
     () => new Set(PTR_TXN_CODES_CYCLE),
   )
+  const [investigateInstitutionTxnFilters, setInvestigateInstitutionTxnFilters] = useState(
+    () => new Set(INSTITUTION_ACTIVITY_CYCLE),
+  )
   const [investigateInsiderTxnFiltersDraft, setInvestigateInsiderTxnFiltersDraft] = useState(null)
   const [investigatePoliticianTxnFiltersDraft, setInvestigatePoliticianTxnFiltersDraft] = useState(null)
+  const [investigateInstitutionTxnFiltersDraft, setInvestigateInstitutionTxnFiltersDraft] = useState(null)
   const tabBeforeSettingsRef = useRef('main')
 
   const [insiderIdx, setInsiderIdx] = useState(0)
@@ -7912,6 +8144,11 @@ function KensiglineTerminal() {
   const [politiciansPoliticianQuery, setPoliticiansPoliticianQuery] = useState('')
   const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
   const [politiciansChartRange, setPoliticiansChartRange] = useState('1M')
+  const [institutionsIdx, setInstitutionsIdx] = useState(0)
+  const [institutionsCompanyQuery, setInstitutionsCompanyQuery] = useState('')
+  const [institutionsInstitutionQuery, setInstitutionsInstitutionQuery] = useState('')
+  const [institutionsCaseTradeIdx, setInstitutionsCaseTradeIdx] = useState(0)
+  const [institutionsChartRange, setInstitutionsChartRange] = useState('1M')
   const [boshaFeedLive, setBoshaFeedLive] = useState(null)
   const [boshaExploreLive, setBoshaExploreLive] = useState(null)
   const [boshaCompanyLive, setBoshaCompanyLive] = useState(null)
@@ -8416,7 +8653,7 @@ function KensiglineTerminal() {
   )
 
   const insiderFeedRowsTxnFiltered = useMemo(
-    () => applyInvestigateFeedTxnFilter(insiderFeedRowsBase, investigateInsiderTxnFilters, false),
+    () => applyInvestigateFeedTxnFilter(insiderFeedRowsBase, investigateInsiderTxnFilters, 'insider'),
     [insiderFeedRowsBase, investigateInsiderTxnFilters],
   )
 
@@ -8453,7 +8690,7 @@ function KensiglineTerminal() {
         insiderCaseSheetFromClusterLive,
       )
     }
-    return applyInvestigateFeedTxnFilter(rows, investigateInsiderTxnFilters, false)
+    return applyInvestigateFeedTxnFilter(rows, investigateInsiderTxnFilters, 'insider')
   }, [backendUp, insiderFilteredFeed, insiderClusterLive, insiderSelected?.ticker, investigateInsiderTxnFilters])
 
   useEffect(() => {
@@ -8506,7 +8743,7 @@ function KensiglineTerminal() {
   )
 
   const politiciansFeedRowsTxnFiltered = useMemo(
-    () => applyInvestigateFeedTxnFilter(politiciansFeedRowsBase, investigatePoliticianTxnFilters, true),
+    () => applyInvestigateFeedTxnFilter(politiciansFeedRowsBase, investigatePoliticianTxnFilters, 'politicians'),
     [politiciansFeedRowsBase, investigatePoliticianTxnFilters],
   )
 
@@ -8544,7 +8781,7 @@ function KensiglineTerminal() {
         politiciansCaseSheetFromClusterLive,
       )
     }
-    return applyInvestigateFeedTxnFilter(rows, investigatePoliticianTxnFilters, true)
+    return applyInvestigateFeedTxnFilter(rows, investigatePoliticianTxnFilters, 'politicians')
   }, [
     backendUp,
     politiciansFilteredFeed,
@@ -8553,13 +8790,63 @@ function KensiglineTerminal() {
     investigatePoliticianTxnFilters,
   ])
 
+  const institutionsFeedRowsBase = useMemo(
+    () => applyFeedTodayEventCounts(INSTITUTION_FEED_ROWS),
+    [],
+  )
+
+  const institutionsFeedRowsTxnFiltered = useMemo(
+    () => applyInvestigateFeedTxnFilter(institutionsFeedRowsBase, investigateInstitutionTxnFilters, 'institutions'),
+    [institutionsFeedRowsBase, investigateInstitutionTxnFilters],
+  )
+
+  const institutionsFilteredFeed = useMemo(() => {
+    const companyQ = String(institutionsCompanyQuery ?? '').trim()
+    const institutionQ = String(institutionsInstitutionQuery ?? '').trim()
+    let rows = institutionsFeedRowsTxnFiltered
+    if (companyQ || institutionQ) {
+      rows = rows.filter(
+        (r) =>
+          politicianFeedRowMatchesCompanyQuery(r, companyQ) &&
+          institutionFeedRowMatchesInstitutionQuery(r, institutionQ),
+      )
+    }
+    return sortFeedRowsByAtDesc(rows)
+  }, [institutionsFeedRowsTxnFiltered, institutionsCompanyQuery, institutionsInstitutionQuery])
+
+  useEffect(() => {
+    if (activeTab !== 'investigate' || investigateMode !== 'institutions') return
+    setInstitutionsIdx(0)
+  }, [
+    institutionsCompanyQuery,
+    institutionsInstitutionQuery,
+    activeTab,
+    investigateInstitutionTxnFilters,
+    investigateMode,
+  ])
+
+  const institutionsSelected =
+    institutionsFilteredFeed.length > 0
+      ? institutionsFilteredFeed[clamp(institutionsIdx, 0, Math.max(0, institutionsFilteredFeed.length - 1))]
+      : null
+
+  const institutionsFeedDisplay = useMemo(
+    () => applyInvestigateFeedTxnFilter(institutionsFilteredFeed, investigateInstitutionTxnFilters, 'institutions'),
+    [institutionsFilteredFeed, investigateInstitutionTxnFilters],
+  )
+
+  const institutionsSelectedResolved = useMemo(
+    () => applyInvestigateTxnFilterToFeedRow(institutionsSelected, investigateInstitutionTxnFilters, 'institutions'),
+    [institutionsSelected, investigateInstitutionTxnFilters],
+  )
+
   const insiderSelectedResolved = useMemo(() => {
     let base = insiderSelected
     if (backendUp && activeTab === 'investigate' && investigateMode === 'insider' && insiderClusterLive) {
       const caseSheet = insiderCaseSheetFromClusterLive(insiderClusterLive, insiderSelected)
       base = normalizeFeedRowActivity({ ...insiderSelected, caseSheet })
     }
-    return applyInvestigateTxnFilterToFeedRow(base, investigateInsiderTxnFilters, false)
+    return applyInvestigateTxnFilterToFeedRow(base, investigateInsiderTxnFilters, 'insider')
   }, [backendUp, activeTab, investigateMode, insiderSelected, insiderClusterLive, investigateInsiderTxnFilters])
 
   const politiciansSelectedResolved = useMemo(() => {
@@ -8573,7 +8860,7 @@ function KensiglineTerminal() {
       const caseSheet = politiciansCaseSheetFromClusterLive(politiciansClusterLive, politiciansSelected)
       base = normalizeFeedRowActivity({ ...politiciansSelected, company: companyName, caseSheet })
     }
-    return applyInvestigateTxnFilterToFeedRow(base, investigatePoliticianTxnFilters, true)
+    return applyInvestigateTxnFilterToFeedRow(base, investigatePoliticianTxnFilters, 'politicians')
   }, [
     backendUp,
     activeTab,
@@ -8638,14 +8925,19 @@ function KensiglineTerminal() {
   const investigateOpen = activeTab === 'investigate'
   const investigateIsInsider = investigateOpen && investigateMode === 'insider'
   const investigateIsPoliticians = investigateOpen && investigateMode === 'politicians'
+  const investigateIsInstitutions = investigateOpen && investigateMode === 'institutions'
 
   const investigateTxnFilterEnabled = investigateIsInsider
     ? investigateInsiderTxnFilters
-    : investigatePoliticianTxnFilters
+    : investigateIsPoliticians
+      ? investigatePoliticianTxnFilters
+      : investigateInstitutionTxnFilters
 
   const investigateTxnFilterDraft = investigateIsInsider
     ? investigateInsiderTxnFiltersDraft
-    : investigatePoliticianTxnFiltersDraft
+    : investigateIsPoliticians
+      ? investigatePoliticianTxnFiltersDraft
+      : investigateInstitutionTxnFiltersDraft
 
   const investigateTxnFilterPickerEnabled =
     investigateFeedFilterOpen && investigateTxnFilterDraft ? investigateTxnFilterDraft : investigateTxnFilterEnabled
@@ -8654,12 +8946,24 @@ function KensiglineTerminal() {
     if (investigateIsInsider) {
       setInvestigateInsiderTxnFiltersDraft(new Set(investigateInsiderTxnFilters))
       setInvestigatePoliticianTxnFiltersDraft(null)
-    } else {
+      setInvestigateInstitutionTxnFiltersDraft(null)
+    } else if (investigateIsPoliticians) {
       setInvestigatePoliticianTxnFiltersDraft(new Set(investigatePoliticianTxnFilters))
       setInvestigateInsiderTxnFiltersDraft(null)
+      setInvestigateInstitutionTxnFiltersDraft(null)
+    } else {
+      setInvestigateInstitutionTxnFiltersDraft(new Set(investigateInstitutionTxnFilters))
+      setInvestigateInsiderTxnFiltersDraft(null)
+      setInvestigatePoliticianTxnFiltersDraft(null)
     }
     setInvestigateFeedFilterOpen(true)
-  }, [investigateIsInsider, investigateInsiderTxnFilters, investigatePoliticianTxnFilters])
+  }, [
+    investigateIsInsider,
+    investigateIsPoliticians,
+    investigateInsiderTxnFilters,
+    investigatePoliticianTxnFilters,
+    investigateInstitutionTxnFilters,
+  ])
 
   const closeInvestigateFeedFilter = useCallback(() => {
     if (investigateInsiderTxnFiltersDraft) {
@@ -8668,10 +8972,18 @@ function KensiglineTerminal() {
     if (investigatePoliticianTxnFiltersDraft) {
       setInvestigatePoliticianTxnFilters(new Set(investigatePoliticianTxnFiltersDraft))
     }
+    if (investigateInstitutionTxnFiltersDraft) {
+      setInvestigateInstitutionTxnFilters(new Set(investigateInstitutionTxnFiltersDraft))
+    }
     setInvestigateInsiderTxnFiltersDraft(null)
     setInvestigatePoliticianTxnFiltersDraft(null)
+    setInvestigateInstitutionTxnFiltersDraft(null)
     setInvestigateFeedFilterOpen(false)
-  }, [investigateInsiderTxnFiltersDraft, investigatePoliticianTxnFiltersDraft])
+  }, [
+    investigateInsiderTxnFiltersDraft,
+    investigatePoliticianTxnFiltersDraft,
+    investigateInstitutionTxnFiltersDraft,
+  ])
 
   const onInvestigateFeedFilterClick = useCallback(() => {
     if (investigateFeedFilterOpen) closeInvestigateFeedFilter()
@@ -8680,7 +8992,9 @@ function KensiglineTerminal() {
 
   const toggleInvestigateTxnFilter = useCallback(
     (id) => {
-      const code = String(id ?? '').trim().toUpperCase()
+      const code = investigateIsInstitutions
+        ? String(id ?? '').trim()
+        : String(id ?? '').trim().toUpperCase()
       if (!code) return
       const patch = (prev) => {
         const base = prev ?? new Set()
@@ -8691,21 +9005,34 @@ function KensiglineTerminal() {
       }
       if (investigateFeedFilterOpen) {
         if (investigateIsInsider) setInvestigateInsiderTxnFiltersDraft(patch)
-        else setInvestigatePoliticianTxnFiltersDraft(patch)
+        else if (investigateIsPoliticians) setInvestigatePoliticianTxnFiltersDraft(patch)
+        else setInvestigateInstitutionTxnFiltersDraft(patch)
         return
       }
       if (investigateIsInsider) setInvestigateInsiderTxnFilters(patch)
-      else setInvestigatePoliticianTxnFilters(patch)
+      else if (investigateIsPoliticians) setInvestigatePoliticianTxnFilters(patch)
+      else setInvestigateInstitutionTxnFilters(patch)
     },
-    [investigateFeedFilterOpen, investigateIsInsider],
+    [investigateFeedFilterOpen, investigateIsInsider, investigateIsPoliticians, investigateIsInstitutions],
   )
 
   const selectedTicker = useMemo(() => {
     if (investigateIsInsider) return insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
     if (investigateIsPoliticians)
       return politiciansSelectedResolved?.ticker ? String(politiciansSelectedResolved.ticker).toUpperCase() : null
+    if (investigateIsInstitutions)
+      return institutionsSelectedResolved?.ticker
+        ? String(institutionsSelectedResolved.ticker).toUpperCase()
+        : null
     return null
-  }, [investigateIsInsider, investigateIsPoliticians, insiderSelected?.ticker, politiciansSelectedResolved?.ticker])
+  }, [
+    investigateIsInsider,
+    investigateIsPoliticians,
+    investigateIsInstitutions,
+    insiderSelected?.ticker,
+    politiciansSelectedResolved?.ticker,
+    institutionsSelectedResolved?.ticker,
+  ])
 
   const chartPanelTitle = useMemo(() => {
     if (investigateIsInsider) {
@@ -8722,10 +9049,18 @@ function KensiglineTerminal() {
       const ticker = String(politiciansSelectedResolved?.ticker ?? '').trim().toUpperCase()
       return fromApi || fromFeed || fromCase || ticker || '—'
     }
+    if (investigateIsInstitutions) {
+      const fromApi = backendUp && companyLive?.name ? String(companyLive.name).trim() : ''
+      const fromFeed = String(institutionsSelected?.company ?? institutionsSelectedResolved?.company ?? '').trim()
+      const fromCase = String(institutionsSelectedResolved?.caseSheet?.issuer ?? '').trim()
+      const ticker = String(institutionsSelectedResolved?.ticker ?? '').trim().toUpperCase()
+      return fromApi || fromFeed || fromCase || ticker || '—'
+    }
     return 'PRICE'
   }, [
     investigateIsInsider,
     investigateIsPoliticians,
+    investigateIsInstitutions,
     backendUp,
     companyLive?.name,
     insiderSelected?.company,
@@ -8735,6 +9070,10 @@ function KensiglineTerminal() {
     politiciansSelectedResolved?.company,
     politiciansSelectedResolved?.caseSheet?.issuer,
     politiciansSelectedResolved?.ticker,
+    institutionsSelected?.company,
+    institutionsSelectedResolved?.company,
+    institutionsSelectedResolved?.caseSheet?.issuer,
+    institutionsSelectedResolved?.ticker,
   ])
 
   useEffect(() => {
@@ -8783,7 +9122,9 @@ function KensiglineTerminal() {
         ? (barsLive ?? insiderSelectedResolved?.daily ?? [])
         : investigateIsPoliticians
           ? (politiciansSelectedResolved?.daily ?? [])
-          : []
+          : investigateIsInstitutions
+            ? (institutionsSelectedResolved?.daily ?? [])
+            : []
 
   const dailySeries = useMemo(() => {
     if (Array.isArray(daily) && daily.length >= 40) return daily
@@ -8803,13 +9144,28 @@ function KensiglineTerminal() {
 
   const insiderTradeMarkers = useMemo(() => {
     if (!investigateOpen) return []
-    const cs = investigateIsPoliticians ? politiciansSelectedResolved?.caseSheet : insiderSelectedResolved?.caseSheet
+    const cs = investigateIsPoliticians
+      ? politiciansSelectedResolved?.caseSheet
+      : investigateIsInstitutions
+        ? institutionsSelectedResolved?.caseSheet
+        : insiderSelectedResolved?.caseSheet
     if (!cs?.isForm4) return []
-    const enabled = investigateIsPoliticians ? investigatePoliticianTxnFilters : investigateInsiderTxnFilters
+    const mode = investigateIsPoliticians
+      ? 'politicians'
+      : investigateIsInstitutions
+        ? 'institutions'
+        : 'insider'
+    const enabled =
+      mode === 'politicians'
+        ? investigatePoliticianTxnFilters
+        : mode === 'institutions'
+          ? investigateInstitutionTxnFilters
+          : investigateInsiderTxnFilters
     const out = []
     for (const r of cs.rows ?? []) {
-      if (investigateIsPoliticians && !politicianCaseRowHasTxn(r)) continue
-      if (!investigateCaseRowPassesTxnFilter(r, enabled, investigateIsPoliticians)) continue
+      if (mode === 'politicians' && !politicianCaseRowHasTxn(r)) continue
+      if (mode === 'institutions' && !institutionCaseRowHasTxn(r)) continue
+      if (!investigateCaseRowPassesTxnFilter(r, enabled, mode)) continue
       const d = new Date(r.ts)
       if (Number.isNaN(d.getTime())) continue
       out.push(d)
@@ -8818,10 +9174,13 @@ function KensiglineTerminal() {
   }, [
     investigateOpen,
     investigateIsPoliticians,
+    investigateIsInstitutions,
     insiderSelectedResolved?.caseSheet,
     politiciansSelectedResolved?.caseSheet,
+    institutionsSelectedResolved?.caseSheet,
     investigateInsiderTxnFilters,
     investigatePoliticianTxnFilters,
+    investigateInstitutionTxnFilters,
   ])
 
 
@@ -8831,7 +9190,7 @@ function KensiglineTerminal() {
     const showMoney = Boolean(cs.isForm4)
     const trades = []
     for (const r of cs.rows ?? []) {
-      if (!investigateCaseRowPassesTxnFilter(r, investigateInsiderTxnFilters, false)) continue
+      if (!investigateCaseRowPassesTxnFilter(r, investigateInsiderTxnFilters, 'insider')) continue
       const row = caseSheetRowToTxnFeedRow(r, { showMoney })
       if (row) trades.push(row)
     }
@@ -8847,7 +9206,7 @@ function KensiglineTerminal() {
     const showMoney = Boolean(cs.isForm4)
     const trades = []
     for (const r of cs.rows ?? []) {
-      if (!investigateCaseRowPassesTxnFilter(r, investigatePoliticianTxnFilters, true)) continue
+      if (!investigateCaseRowPassesTxnFilter(r, investigatePoliticianTxnFilters, 'politicians')) continue
       const row = caseSheetRowToPoliticianTxnFeedRow(r, { showMoney })
       if (row) trades.push(row)
     }
@@ -8855,6 +9214,21 @@ function KensiglineTerminal() {
       priceRange: politiciansChartRange,
     })
   }, [politiciansSelectedResolved?.caseSheet, politiciansChartRange, investigatePoliticianTxnFilters])
+
+  const institutionsCaseFeedRows = useMemo(() => {
+    const cs = institutionsSelectedResolved?.caseSheet
+    if (!cs) return []
+    const showMoney = Boolean(cs.isForm4)
+    const trades = []
+    for (const r of cs.rows ?? []) {
+      if (!investigateCaseRowPassesTxnFilter(r, investigateInstitutionTxnFilters, 'institutions')) continue
+      const row = caseSheetRowToInstitutionTxnFeedRow(r, { showMoney })
+      if (row) trades.push(row)
+    }
+    return appendCaseTxnTimeline([], filterCaseTradesForPriceRange(trades, institutionsChartRange), 'today+years', {
+      priceRange: institutionsChartRange,
+    })
+  }, [institutionsSelectedResolved?.caseSheet, institutionsChartRange, investigateInstitutionTxnFilters])
 
   const politiciansCaseTradeRowIndices = useMemo(() => {
     const idxs = []
@@ -8867,6 +9241,21 @@ function KensiglineTerminal() {
   const politiciansCaseSelectedRowIndex =
     politiciansCaseTradeRowIndices.length > 0
       ? politiciansCaseTradeRowIndices[clamp(politiciansCaseTradeIdx, 0, politiciansCaseTradeRowIndices.length - 1)]
+      : -1
+
+  const institutionsCaseTradeRowIndices = useMemo(() => {
+    const idxs = []
+    for (let i = 0; i < institutionsCaseFeedRows.length; i++) {
+      if (institutionsCaseFeedRows[i]?.type === 'trade') idxs.push(i)
+    }
+    return idxs
+  }, [institutionsCaseFeedRows])
+
+  const institutionsCaseSelectedRowIndex =
+    institutionsCaseTradeRowIndices.length > 0
+      ? institutionsCaseTradeRowIndices[
+          clamp(institutionsCaseTradeIdx, 0, institutionsCaseTradeRowIndices.length - 1)
+        ]
       : -1
 
   const insiderCaseTradeRowIndices = useMemo(() => {
@@ -8884,13 +9273,31 @@ function KensiglineTerminal() {
 
   const selectedInsiderTradeMarker = useMemo(() => {
     if (!investigateOpen) return null
-    const rowIndex = investigateIsPoliticians ? politiciansCaseSelectedRowIndex : insiderCaseSelectedRowIndex
-    const rows = investigateIsPoliticians ? politiciansCaseFeedRows : insiderCaseFeedRows
+    const rowIndex = investigateIsPoliticians
+      ? politiciansCaseSelectedRowIndex
+      : investigateIsInstitutions
+        ? institutionsCaseSelectedRowIndex
+        : insiderCaseSelectedRowIndex
+    const rows = investigateIsPoliticians
+      ? politiciansCaseFeedRows
+      : investigateIsInstitutions
+        ? institutionsCaseFeedRows
+        : insiderCaseFeedRows
     const row = rowIndex >= 0 ? rows[rowIndex] : null
     if (!row || row.type !== 'trade' || !row.ts) return null
     const d = new Date(row.ts)
     return Number.isNaN(d.getTime()) ? null : d
-  }, [investigateOpen, insiderCaseSelectedRowIndex, insiderCaseFeedRows, politiciansCaseSelectedRowIndex, politiciansCaseFeedRows])
+  }, [
+    investigateOpen,
+    investigateIsPoliticians,
+    investigateIsInstitutions,
+    insiderCaseSelectedRowIndex,
+    insiderCaseFeedRows,
+    politiciansCaseSelectedRowIndex,
+    politiciansCaseFeedRows,
+    institutionsCaseSelectedRowIndex,
+    institutionsCaseFeedRows,
+  ])
 
   const historicalOutcomesPerson = useMemo(() => {
     if (investigateIsPoliticians) {
@@ -8899,6 +9306,14 @@ function KensiglineTerminal() {
         politiciansCaseSelectedRowIndex,
         politiciansPoliticianQuery,
         'politicians',
+      )
+    }
+    if (investigateIsInstitutions) {
+      return caseFeedSelectedPersonDisplay(
+        institutionsCaseFeedRows,
+        institutionsCaseSelectedRowIndex,
+        institutionsInstitutionQuery,
+        'institutions',
       )
     }
     if (investigateIsInsider) {
@@ -8913,12 +9328,16 @@ function KensiglineTerminal() {
   }, [
     investigateIsInsider,
     investigateIsPoliticians,
+    investigateIsInstitutions,
     insiderCaseFeedRows,
     insiderCaseSelectedRowIndex,
     insiderPersonQuery,
     politiciansCaseFeedRows,
     politiciansCaseSelectedRowIndex,
     politiciansPoliticianQuery,
+    institutionsCaseFeedRows,
+    institutionsCaseSelectedRowIndex,
+    institutionsInstitutionQuery,
   ])
 
   useEffect(() => {
@@ -8928,6 +9347,10 @@ function KensiglineTerminal() {
   useEffect(() => {
     setPoliticiansCaseTradeIdx(0)
   }, [politiciansSelected?.id, politiciansSelected?.ticker, politiciansChartRange])
+
+  useEffect(() => {
+    setInstitutionsCaseTradeIdx(0)
+  }, [institutionsSelected?.id, institutionsSelected?.ticker, institutionsChartRange])
 
   const userEmail = user?.email ?? ''
 
@@ -8998,8 +9421,20 @@ function KensiglineTerminal() {
           <CompactFeed
             placement="left"
             title="FEED"
-            items={investigateIsInsider ? insiderFeedDisplay : politiciansFeedDisplay}
-            selectedIndex={investigateIsInsider ? insiderIdx : politiciansIdx}
+            items={
+              investigateIsInsider
+                ? insiderFeedDisplay
+                : investigateIsPoliticians
+                  ? politiciansFeedDisplay
+                  : institutionsFeedDisplay
+            }
+            selectedIndex={
+              investigateIsInsider
+                ? insiderIdx
+                : investigateIsPoliticians
+                  ? politiciansIdx
+                  : institutionsIdx
+            }
             sepMode="today+years"
             todayGroupByEvents
             scrollMode
@@ -9009,42 +9444,109 @@ function KensiglineTerminal() {
             onFeedFilterClick={onInvestigateFeedFilterClick}
             feedFilterOpen={investigateFeedFilterOpen}
             feedFilterTypes={
-              investigateIsInsider ? INVESTIGATE_INSIDER_TXN_TYPES : INVESTIGATE_POLITICIAN_TXN_TYPES
+              investigateIsInsider
+                ? INVESTIGATE_INSIDER_TXN_TYPES
+                : investigateIsPoliticians
+                  ? INVESTIGATE_POLITICIAN_TXN_TYPES
+                  : INVESTIGATE_INSTITUTION_TXN_TYPES
             }
             feedFilterEnabled={investigateTxnFilterPickerEnabled}
             onFeedFilterToggle={toggleInvestigateTxnFilter}
             showFeedSearch
             feedSearchDual
-            feedCompanyQuery={investigateIsInsider ? insiderCompanyQuery : politiciansCompanyQuery}
-            feedPersonQuery={investigateIsInsider ? insiderPersonQuery : politiciansPoliticianQuery}
+            feedCompanyQuery={
+              investigateIsInsider
+                ? insiderCompanyQuery
+                : investigateIsPoliticians
+                  ? politiciansCompanyQuery
+                  : institutionsCompanyQuery
+            }
+            feedPersonQuery={
+              investigateIsInsider
+                ? insiderPersonQuery
+                : investigateIsPoliticians
+                  ? politiciansPoliticianQuery
+                  : institutionsInstitutionQuery
+            }
             feedPersonSearchPlaceholder={
-              investigateIsInsider ? 'Search by insider' : 'Search by politician'
+              investigateIsInsider
+                ? 'Search by insider'
+                : investigateIsPoliticians
+                  ? 'Search by politician'
+                  : 'Search by institution'
             }
             feedPersonSearchAriaLabel={
-              investigateIsInsider ? 'Search by insider' : 'Search by politician'
+              investigateIsInsider
+                ? 'Search by insider'
+                : investigateIsPoliticians
+                  ? 'Search by politician'
+                  : 'Search by institution'
             }
-            onFeedCompanyQuery={investigateIsInsider ? setInsiderCompanyQuery : setPoliticiansCompanyQuery}
-            onFeedPersonQuery={investigateIsInsider ? setInsiderPersonQuery : setPoliticiansPoliticianQuery}
-            onSelectIndex={investigateIsInsider ? setInsiderIdx : setPoliticiansIdx}
+            onFeedCompanyQuery={
+              investigateIsInsider
+                ? setInsiderCompanyQuery
+                : investigateIsPoliticians
+                  ? setPoliticiansCompanyQuery
+                  : setInstitutionsCompanyQuery
+            }
+            onFeedPersonQuery={
+              investigateIsInsider
+                ? setInsiderPersonQuery
+                : investigateIsPoliticians
+                  ? setPoliticiansPoliticianQuery
+                  : setInstitutionsInstitutionQuery
+            }
+            onSelectIndex={
+              investigateIsInsider
+                ? setInsiderIdx
+                : investigateIsPoliticians
+                  ? setPoliticiansIdx
+                  : setInstitutionsIdx
+            }
           />
           <CaseKvFeed
             title="CASE"
-            rows={investigateIsInsider ? insiderCaseFeedRows : politiciansCaseFeedRows}
+            rows={
+              investigateIsInsider
+                ? insiderCaseFeedRows
+                : investigateIsPoliticians
+                  ? politiciansCaseFeedRows
+                  : institutionsCaseFeedRows
+            }
             placement="right"
             selectedTradeRowIndex={
-              investigateIsInsider ? insiderCaseSelectedRowIndex : politiciansCaseSelectedRowIndex
+              investigateIsInsider
+                ? insiderCaseSelectedRowIndex
+                : investigateIsPoliticians
+                  ? politiciansCaseSelectedRowIndex
+                  : institutionsCaseSelectedRowIndex
             }
-            highlightPersonQuery={investigateIsInsider ? insiderPersonQuery : politiciansPoliticianQuery}
+            highlightPersonQuery={
+              investigateIsInsider
+                ? insiderPersonQuery
+                : investigateIsPoliticians
+                  ? politiciansPoliticianQuery
+                  : institutionsInstitutionQuery
+            }
             personDisplay={historicalOutcomesPerson}
-            personMode={investigateIsPoliticians ? 'politicians' : 'insider'}
+            personMode={
+              investigateIsPoliticians
+                ? 'politicians'
+                : investigateIsInstitutions
+                  ? 'institutions'
+                  : 'insider'
+            }
             scrollMode
             onSelectTradeRowIndex={(rowIndex) => {
               if (investigateIsInsider) {
                 const pos = insiderCaseTradeRowIndices.indexOf(rowIndex)
                 if (pos >= 0) setInsiderCaseTradeIdx(pos)
-              } else {
+              } else if (investigateIsPoliticians) {
                 const pos = politiciansCaseTradeRowIndices.indexOf(rowIndex)
                 if (pos >= 0) setPoliticiansCaseTradeIdx(pos)
+              } else {
+                const pos = institutionsCaseTradeRowIndices.indexOf(rowIndex)
+                if (pos >= 0) setInstitutionsCaseTradeIdx(pos)
               }
             }}
           />
@@ -9127,8 +9629,20 @@ function KensiglineTerminal() {
             dates={dailyDates}
             markers={insiderTradeMarkers}
             selectedMarker={selectedInsiderTradeMarker}
-            chartRange={investigateIsPoliticians ? politiciansChartRange : insiderChartRange}
-            onChartRangeChange={investigateIsPoliticians ? setPoliticiansChartRange : setInsiderChartRange}
+            chartRange={
+              investigateIsPoliticians
+                ? politiciansChartRange
+                : investigateIsInstitutions
+                  ? institutionsChartRange
+                  : insiderChartRange
+            }
+            onChartRangeChange={
+              investigateIsPoliticians
+                ? setPoliticiansChartRange
+                : investigateIsInstitutions
+                  ? setInstitutionsChartRange
+                  : setInsiderChartRange
+            }
           />
 
           <CompanyPanel
