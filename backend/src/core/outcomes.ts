@@ -131,11 +131,11 @@ export async function recomputeInsiderOutcomes(opts?: { lookbackDays?: number; m
   const tickers = await db.query<{ ticker: string }>(
     `
     SELECT DISTINCT ticker
-    FROM document_parsed
+    FROM documents
     WHERE feed_kind = 'insider'
       AND ticker IS NOT NULL
-      AND feed_at IS NOT NULL
-      AND feed_at >= now() - ($1 || ' days')::interval
+      AND event_at IS NOT NULL
+      AND event_at >= now() - ($1 || ' days')::interval
     ORDER BY ticker ASC
     LIMIT $2
     `,
@@ -154,12 +154,12 @@ export async function recomputeInsiderOutcomes(opts?: { lookbackDays?: number; m
 
     const events = await db.query<{ day: string }>(
       `
-      SELECT DISTINCT date_trunc('day', feed_at)::date::text as day
-      FROM document_parsed
+      SELECT DISTINCT date_trunc('day', event_at)::date::text as day
+      FROM documents
       WHERE feed_kind='insider'
         AND ticker = $1
-        AND feed_at IS NOT NULL
-        AND feed_at >= now() - ($2 || ' days')::interval
+        AND event_at IS NOT NULL
+        AND event_at >= now() - ($2 || ' days')::interval
       ORDER BY day ASC
       `,
       [ticker, String(lookbackDays)],
@@ -226,7 +226,8 @@ export async function recomputeInsiderOutcomes(opts?: { lookbackDays?: number; m
 
 export async function getLatestOutcomes(mode: string) {
   const m = String(mode ?? "").trim().toLowerCase();
-  if (m !== "insider" && m !== "pharma" && m !== "politicians" && m !== "bosha") throw new Error("mode_not_supported_yet");
+  if (m !== "insider" && m !== "pharma" && m !== "politicians" && m !== "research" && m !== "bosha") throw new Error("mode_not_supported_yet");
+  const modeKey = m === "bosha" ? "research" : m;
   const globalCompanyId = await getOrCreateGlobalCompanyId();
   const row = await db.one<{ as_of_date: string; data: any }>(
     `
@@ -236,7 +237,7 @@ export async function getLatestOutcomes(mode: string) {
     ORDER BY as_of_date DESC
     LIMIT 1
     `,
-    [globalCompanyId, m],
+    [globalCompanyId, modeKey],
   );
   return row ?? null;
 }
@@ -249,15 +250,15 @@ export async function recomputePharmaOutcomes(opts?: { lookbackDays?: number; ma
   const events = await db.query<{ ticker: string; day: string; program_phase: string | null; data: any }>(
     `
     SELECT ticker,
-           date_trunc('day', feed_at)::date::text as day,
+           date_trunc('day', event_at)::date::text as day,
            program_phase,
            data
-    FROM document_parsed
+    FROM documents
     WHERE feed_kind='pharma'
       AND ticker IS NOT NULL
-      AND feed_at IS NOT NULL
-      AND feed_at >= now() - ($1 || ' days')::interval
-    ORDER BY feed_at DESC
+      AND event_at IS NOT NULL
+      AND event_at >= now() - ($1 || ' days')::interval
+    ORDER BY event_at DESC
     LIMIT 5000
     `,
     [String(lookbackDays)],
@@ -342,11 +343,11 @@ export async function recomputePoliticiansOutcomes(opts?: { lookbackDays?: numbe
   const tickers = await db.query<{ ticker: string }>(
     `
     SELECT DISTINCT ticker
-    FROM document_parsed
+    FROM documents
     WHERE feed_kind = 'politicians'
       AND ticker IS NOT NULL
-      AND feed_at IS NOT NULL
-      AND feed_at >= now() - ($1 || ' days')::interval
+      AND event_at IS NOT NULL
+      AND event_at >= now() - ($1 || ' days')::interval
     ORDER BY ticker ASC
     LIMIT $2
     `,
@@ -364,12 +365,12 @@ export async function recomputePoliticiansOutcomes(opts?: { lookbackDays?: numbe
 
     const events = await db.query<{ day: string }>(
       `
-      SELECT DISTINCT date_trunc('day', feed_at)::date::text as day
-      FROM document_parsed
+      SELECT DISTINCT date_trunc('day', event_at)::date::text as day
+      FROM documents
       WHERE feed_kind='politicians'
         AND ticker = $1
-        AND feed_at IS NOT NULL
-        AND feed_at >= now() - ($2 || ' days')::interval
+        AND event_at IS NOT NULL
+        AND event_at >= now() - ($2 || ' days')::interval
       ORDER BY day ASC
       `,
       [ticker, String(lookbackDays)],
@@ -430,7 +431,7 @@ export async function recomputePoliticiansOutcomes(opts?: { lookbackDays?: numbe
   return { ok: true, as_of_date: asOf, samples };
 }
 
-export async function recomputeBoshaOutcomes(opts?: { lookbackDays?: number; maxTickers?: number }) {
+export async function recomputeResearchOutcomes(opts?: { lookbackDays?: number; maxTickers?: number }) {
   const lookbackDays = clampInt(opts?.lookbackDays, 30, 730, 365);
   const maxTickers = clampInt(opts?.maxTickers, 10, 5000, 500);
   const asOf = isoDayUTC(new Date());
@@ -438,9 +439,11 @@ export async function recomputeBoshaOutcomes(opts?: { lookbackDays?: number; max
   const tickers = await db.query<{ ticker: string }>(
     `
     SELECT DISTINCT ticker
-    FROM bosha_events
+    FROM documents
     WHERE ticker IS NOT NULL
-      AND created_at >= now() - ($1 || ' days')::interval
+      AND feed_kind = 'research'
+      AND event_at IS NOT NULL
+      AND event_at >= now() - ($1 || ' days')::interval
     ORDER BY ticker ASC
     LIMIT $2
     `,
@@ -458,10 +461,12 @@ export async function recomputeBoshaOutcomes(opts?: { lookbackDays?: number; max
 
     const events = await db.query<{ day: string }>(
       `
-      SELECT DISTINCT date_trunc('day', COALESCE(event_at, created_at))::date::text as day
-      FROM bosha_events
-      WHERE ticker = $1
-        AND created_at >= now() - ($2 || ' days')::interval
+      SELECT DISTINCT date_trunc('day', event_at)::date::text as day
+      FROM documents
+      WHERE upper(trim(ticker)) = $1
+        AND feed_kind = 'research'
+        AND event_at IS NOT NULL
+        AND event_at >= now() - ($2 || ' days')::interval
       ORDER BY day ASC
       `,
       [ticker, String(lookbackDays)],
@@ -494,7 +499,7 @@ export async function recomputeBoshaOutcomes(opts?: { lookbackDays?: number; max
   const winRate21 = r21.length ? r21.filter((x) => x > 0).length / r21.length : null;
 
   const data = {
-    mode: "bosha",
+    mode: "research",
     as_of_date: asOf,
     avgReturn21: avg21,
     avgReturn63: avg63,
@@ -514,7 +519,7 @@ export async function recomputeBoshaOutcomes(opts?: { lookbackDays?: number; max
     ON CONFLICT (company_id, mode, as_of_date)
     DO UPDATE SET data = EXCLUDED.data, created_at = now()
     `,
-    [globalCompanyId, "bosha", asOf, data],
+    [globalCompanyId, "research", asOf, data],
   );
 
   return { ok: true, as_of_date: asOf, samples };

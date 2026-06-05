@@ -243,7 +243,7 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
                OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%')
               AND source_type = 'sec_form4'
             UNION ALL
-            SELECT id FROM document_parsed
+            SELECT id FROM documents
             WHERE url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
                OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%'
             LIMIT 1
@@ -254,7 +254,7 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
             `
             SELECT id FROM document_queue WHERE url = $1 AND source_type = 'sec_form4'
             UNION ALL
-            SELECT id FROM document_parsed WHERE url = $1
+            SELECT id FROM documents WHERE url = $1
             LIMIT 1
             `,
             [filingUrl],
@@ -484,7 +484,7 @@ export async function enqueueRecentForm4Global(opts?: { daysBack?: number; limit
         `
         SELECT id FROM document_queue WHERE url = $1 AND source_type = 'sec_form4'
         UNION ALL
-        SELECT id FROM document_parsed WHERE url = $1
+        SELECT id FROM documents WHERE url = $1
         LIMIT 1
         `,
         [indexUrl],
@@ -565,7 +565,7 @@ export async function enqueueLatestForm4ForTicker(opts: { ticker: string; limit?
       `
       SELECT id FROM document_queue WHERE url = $1 AND source_type = 'sec_form4'
       UNION ALL
-      SELECT id FROM document_parsed WHERE url = $1
+      SELECT id FROM documents WHERE url = $1
       LIMIT 1
       `,
       [docUrl],
@@ -657,7 +657,7 @@ export async function enqueueLatestFilingsForTicker(opts: {
       `
       SELECT id FROM document_queue WHERE url = $1 AND source_type = $2
       UNION ALL
-      SELECT id FROM document_parsed WHERE url = $1
+      SELECT id FROM documents WHERE url = $1
       LIMIT 1
       `,
       [indexUrl, sourceType],

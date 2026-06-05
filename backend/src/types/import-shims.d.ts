@@ -20,10 +20,6 @@ declare module "./core/sec.js" {
   }>;
 }
 
-declare module "./insiders/insider.js" {
-  export function parseNextInsiderQueueItem(): Promise<any>;
-}
-
 declare module "./core/http.js" {
   import type http from "node:http";
   export function sendJson(res: http.ServerResponse, status: number, body: unknown): void;

@@ -531,7 +531,7 @@
   --case-person-header-min-h: calc(var(--feed-search-row-min-h) * 3 + 2px + 12px);
 }
 
-/* Explore tab (BOSHA): investigation board layout */
+/* Research tab layout: investigation board layout */
 .terminal.terminal--explore {
   grid-template-columns:
     minmax(60px, 0.876fr) /* feed rail (match other tabs visually) */
@@ -559,10 +559,10 @@
 }
 
 /* Main tab: slim feed | paper (center) | context */
-.terminal--main .mainBoshaPicks,
-.terminal--main .boshaTicker.mainBoshaPicks,
+.terminal--main .researchFeedSlot,
+.terminal--main .researchTicker.researchFeedSlot,
 .terminal--main .mainMainBlank,
-.terminal--main .boshaPaper.mainMainBlank,
+.terminal--main .researchPaper.mainMainBlank,
 .terminal--main .mainContextPanel {
   padding: 0;
   min-width: 0;
@@ -572,14 +572,14 @@
   overflow: hidden;
 }
 
-.terminal--main .mainBoshaPicks,
-.terminal--main .boshaTicker.mainBoshaPicks {
+.terminal--main .researchFeedSlot,
+.terminal--main .researchTicker.researchFeedSlot {
   grid-column: 1;
   grid-row: 1 / span 4;
 }
 
 .terminal--main .mainMainBlank,
-.terminal--main .boshaPaper.mainMainBlank {
+.terminal--main .researchPaper.mainMainBlank {
   grid-column: 2;
   grid-row: 1 / span 4;
 }
@@ -600,11 +600,11 @@
   align-items: center;
 }
 
-.terminal--main .boshaPaper .boshaPaperCopyIcon {
+.terminal--main .researchPaper .researchPaperCopyIcon {
   padding: 2px;
 }
 
-.terminal--main .boshaPaper .boshaPaperCopyIcon .boshaPaperCopyIconSvg {
+.terminal--main .researchPaper .researchPaperCopyIcon .researchPaperCopyIconSvg {
   width: 12px;
   height: 12px;
 }
@@ -635,7 +635,7 @@
   height: 100%;
 }
 
-.terminal--main .researchPaperPanel .boshaPaperScreenshotIcon {
+.terminal--main .researchPaperPanel .researchPaperScreenshotIcon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -649,16 +649,16 @@
   line-height: 0;
 }
 
-.terminal--main .researchPaperPanel .boshaPaperScreenshotIcon:hover:not(:disabled) {
+.terminal--main .researchPaperPanel .researchPaperScreenshotIcon:hover:not(:disabled) {
   color: var(--hi);
 }
 
-.terminal--main .researchPaperPanel .boshaPaperScreenshotIcon:focus-visible {
+.terminal--main .researchPaperPanel .researchPaperScreenshotIcon:focus-visible {
   outline: 1px solid rgba(168, 196, 255, 0.55);
   outline-offset: 2px;
 }
 
-.terminal--main .researchPaperPanel .boshaPaperScreenshotIconSvg {
+.terminal--main .researchPaperPanel .researchPaperScreenshotIconSvg {
   display: block;
 }
 
@@ -832,7 +832,7 @@
   opacity: 1;
 }
 
-.researchPaperCaptureChartSource .researchPaperCaptureChart .boshaMiniPriceWrap {
+.researchPaperCaptureChartSource .researchPaperCaptureChart .researchMiniPriceWrap {
   width: 100%;
   min-width: 320px;
   height: 168px;
@@ -888,7 +888,7 @@
   line-height: 1.3;
 }
 
-.researchPaperCaptureExport .researchPaperCaptureChart .boshaMiniPriceWrap {
+.researchPaperCaptureExport .researchPaperCaptureChart .researchMiniPriceWrap {
   height: 168px;
   min-height: 168px;
 }
@@ -918,7 +918,7 @@
   color: rgba(255, 255, 255, 0.72);
 }
 
-.terminal--main .researchPaperPanel.boshaPaper {
+.terminal--main .researchPaperPanel.researchPaper {
   position: relative;
   isolation: isolate;
   background: rgba(8, 9, 11, 0.92);
@@ -926,7 +926,7 @@
 }
 
 /* Static wash on panel shell — does not move while the body scrolls (reduces scroll shimmer) */
-.terminal--main .researchPaperPanel.boshaPaper::after {
+.terminal--main .researchPaperPanel.researchPaper::after {
   content: '';
   position: absolute;
   inset: 27px 0 0;
@@ -937,7 +937,7 @@
     radial-gradient(520px 320px at 88% 18%, rgba(255, 255, 255, 0.02), transparent 58%);
 }
 
-.terminal--main .researchPaperPanel .boshaPaperBody {
+.terminal--main .researchPaperPanel .researchPaperBody {
   padding: 8px 16px 20px;
   position: relative;
   isolation: isolate;
@@ -946,7 +946,7 @@
   background: transparent;
 }
 
-.terminal--main .researchPaperPanel .boshaPaperBody::before {
+.terminal--main .researchPaperPanel .researchPaperBody::before {
   content: none;
 }
 
@@ -955,7 +955,7 @@
   z-index: 1;
 }
 
-.terminal--main .researchPaperPanel .boshaPaperDoc {
+.terminal--main .researchPaperPanel .researchPaperDoc {
   max-width: none;
   width: 100%;
   margin: 0;
@@ -1391,7 +1391,7 @@
   padding: 0;
 }
 
-.researchPaperChart--diagram .researchPaperDiagramWrap .boshaGraphFigureWrap {
+.researchPaperChart--diagram .researchPaperDiagramWrap .researchGraphFigureWrap {
   border: none;
   border-radius: 0;
   background: transparent;
@@ -1400,32 +1400,32 @@
   aspect-ratio: auto;
 }
 
-.terminal--main .researchPaperChart--diagram .boshaCausalNode {
+.terminal--main .researchPaperChart--diagram .researchCausalNode {
   stroke: var(--diagram-node-border);
   stroke-width: 1.25px;
   vector-effect: non-scaling-stroke;
   paint-order: stroke fill;
 }
 
-.terminal--main .researchPaperChart--diagram .boshaCausalNode--edge {
+.terminal--main .researchPaperChart--diagram .researchCausalNode--edge {
   stroke: var(--diagram-node-border-edge);
 }
 
-.terminal--main .researchPaperChart--diagram .boshaCausalNodeRim {
+.terminal--main .researchPaperChart--diagram .researchCausalNodeRim {
   vector-effect: non-scaling-stroke;
   pointer-events: none;
 }
 
-.terminal--main .researchPaperChart--diagram .boshaCausalText {
+.terminal--main .researchPaperChart--diagram .researchCausalText {
   fill: rgba(255, 255, 255, 0.86);
   font-weight: 500;
 }
 
-.terminal--main .researchPaperChart--diagram .boshaCausalEdge {
+.terminal--main .researchPaperChart--diagram .researchCausalEdge {
   stroke: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--main .researchPaperChart--diagram .boshaCausalEdge--loop {
+.terminal--main .researchPaperChart--diagram .researchCausalEdge--loop {
   stroke: rgba(255, 255, 255, 0.24);
 }
 
@@ -1437,11 +1437,11 @@
   margin: 0 0 10px;
 }
 
-.researchPaperChart .boshaMiniPrice--chartOnly {
+.researchPaperChart .researchMiniPrice--chartOnly {
   margin: 0;
 }
 
-.researchPaperChart .boshaMiniPriceWrap {
+.researchPaperChart .researchMiniPriceWrap {
   height: clamp(148px, 22vh, 200px);
   min-height: 148px;
 }
@@ -1469,23 +1469,23 @@
   stroke-dasharray: 3 4;
 }
 
-.terminal--main .researchPaperRange .boshaPriceRangeBtn {
+.terminal--main .researchPaperRange .researchPriceRangeBtn {
   padding: 4px 8px;
   font-size: 9px;
   letter-spacing: 0.08em;
   color: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--main .researchPaperRange .boshaPriceRangeBtn.isActive {
+.terminal--main .researchPaperRange .researchPriceRangeBtn.isActive {
   background: #fff;
   color: #0a0b0d;
 }
 
-.terminal--main .researchPaperRange .boshaPriceRangeBtn:hover:not(.isActive) {
+.terminal--main .researchPaperRange .researchPriceRangeBtn:hover:not(.isActive) {
   color: rgba(255, 255, 255, 0.62);
 }
 
-.terminal--main .researchPaperPanel .boshaPaperSources {
+.terminal--main .researchPaperPanel .researchPaperSources {
   margin-top: 32px;
   padding-top: 20px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -1794,8 +1794,8 @@
   margin-top: 10px;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .boshaMiniPrice--chartOnly,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .boshaMiniPrice--chartOnly {
+.terminal--main .mainContextPanel--market .contextCompanyChart .researchMiniPrice--chartOnly,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .researchMiniPrice--chartOnly {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1803,30 +1803,30 @@
   gap: 8px;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .boshaPriceRange,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .boshaPriceRange {
+.terminal--main .mainContextPanel--market .contextCompanyChart .researchPriceRange,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .researchPriceRange {
   display: flex;
   width: 100%;
   justify-content: flex-end;
   margin-left: 0;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .boshaPriceRangeBtn,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .boshaPriceRangeBtn {
+.terminal--main .mainContextPanel--market .contextCompanyChart .researchPriceRangeBtn,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .researchPriceRangeBtn {
   padding: 4px 8px;
   font-size: 9px;
   letter-spacing: 0.08em;
   color: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .boshaPriceRangeBtn.isActive,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .boshaPriceRangeBtn.isActive {
+.terminal--main .mainContextPanel--market .contextCompanyChart .researchPriceRangeBtn.isActive,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .researchPriceRangeBtn.isActive {
   background: #fff;
   color: #0a0b0d;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .boshaMiniPriceWrap,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .boshaMiniPriceWrap {
+.terminal--main .mainContextPanel--market .contextCompanyChart .researchMiniPriceWrap,
+.terminal--main .mainContextPanel--clinical .contextCompanyChart .researchMiniPriceWrap {
   height: clamp(112px, 16vh, 160px);
   min-height: 112px;
 }
@@ -2807,7 +2807,7 @@
 
 .contextDivider {
   height: 0;
-  border-top: 1px solid var(--bosha-paper-rule, rgba(255, 255, 255, 0.1));
+  border-top: 1px solid var(--paper-paper-rule, rgba(255, 255, 255, 0.1));
   margin: 10px 0 12px;
   opacity: 0.9;
 }
@@ -3227,13 +3227,13 @@
   white-space: nowrap;
 }
 
-.terminal--main .boshaPaperBody {
+.terminal--main .researchPaperBody {
   flex: 1 1 auto;
   min-height: 0;
 }
 
 /* Image export: drop the 1fr row cap so the paper body can grow to full scroll height for capture */
-.terminal--main .boshaPaper.mainMainBlank.boshaPaper--capturing {
+.terminal--main .researchPaper.mainMainBlank.researchPaper--capturing {
   display: grid !important;
   overflow: visible !important;
   align-self: start;
@@ -3241,7 +3241,7 @@
   min-height: min-content !important;
 }
 
-.panel.boshaPaper.boshaPaper--capturing {
+.panel.researchPaper.researchPaper--capturing {
   overflow: visible !important;
 }
 
@@ -3988,13 +3988,13 @@
   letter-spacing: 0.04em;
 }
 
-.terminal--explore .boshaTicker {
+.terminal--explore .researchTicker {
   grid-column: 1 / span 1;
   grid-row: 1 / span 4;
   padding: 0;
 }
 
-.terminal--explore .boshaPaper {
+.terminal--explore .researchPaper {
   grid-column: 2 / span 4;
   grid-row: 1 / span 4;
   padding: 0;
@@ -4005,7 +4005,7 @@
 
 /* Full-paper export: let the scroll pane expand so capture uses full scrollHeight.
    Opaque fill matches PAPER_EXPORT_BG in App.jsx so WebKit snapshot is not “light text on white”. */
-.boshaPaperBody.boshaPaperBody--capturing {
+.researchPaperBody.researchPaperBody--capturing {
   overflow: visible !important;
   max-height: none !important;
   background-color: #0a0b0d !important;
@@ -4014,11 +4014,11 @@
 }
 
 /* html-to-image: SVG url(#gradient) fills often rasterize black; force flat fill only during capture. */
-.boshaPaperBody.boshaPaperBody--capturing path.graphArea {
+.researchPaperBody.researchPaperBody--capturing path.graphArea {
   fill: var(--intel-accent-fill) !important;
 }
 
-.boshaPaperBody {
+.researchPaperBody {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -4026,126 +4026,126 @@
   box-sizing: border-box;
   font-size: var(--fs-body);
   line-height: 1.7;
-  color: var(--bosha-paper-fg, rgba(237, 237, 237, 0.94));
+  color: var(--paper-paper-fg, rgba(237, 237, 237, 0.94));
   text-rendering: optimizeLegibility;
 }
 
-.boshaPaper .boshaPaperBody {
+.researchPaper .researchPaperBody {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* Research tab: extra side inset so long-form text breathes in the wide paper column */
-.terminal--main .boshaPaper .boshaPaperBody {
+.terminal--main .researchPaper .researchPaperBody {
   padding-left: 36px;
   padding-right: 36px;
 }
 
 /* Captions + price frame: less tracked type, neutral chrome (still dark panel / light type) */
-.boshaPaper .boshaFigureCaption {
+.researchPaper .researchFigureCaption {
   letter-spacing: 0.02em;
-  color: var(--bosha-paper-fg-soft, rgba(205, 205, 205, 0.82));
+  color: var(--paper-paper-fg-soft, rgba(205, 205, 205, 0.82));
   line-height: 1.45;
 }
 
-.boshaPaper .boshaGraphFigureWrap {
-  border-color: var(--bosha-paper-rule, rgba(255, 255, 255, 0.1));
+.researchPaper .researchGraphFigureWrap {
+  border-color: var(--paper-paper-rule, rgba(255, 255, 255, 0.1));
 }
 
-.boshaPaper .boshaCausalText {
+.researchPaper .researchCausalText {
   fill: rgba(255, 255, 255, 0.9);
 }
 
-.boshaPaper .boshaCausalEdge {
+.researchPaper .researchCausalEdge {
   stroke: rgba(255, 255, 255, 0.38);
 }
 
-.boshaPaper .boshaCausalEdge--loop {
+.researchPaper .researchCausalEdge--loop {
   stroke: rgba(255, 255, 255, 0.24);
 }
 
-.boshaPaper .boshaCausalNode {
+.researchPaper .researchCausalNode {
   stroke: var(--diagram-node-border);
 }
 
-.boshaPaperDoc {
+.researchPaperDoc {
   max-width: 900px;
   margin: 0 auto;
 }
 
-.boshaPaperTitleBlock {
+.researchPaperTitleBlock {
   text-align: center;
   margin: 8px 0 36px;
 }
 
-.boshaPaperTitle {
+.researchPaperTitle {
   font-size: 16px;
   letter-spacing: 0.02em;
-  color: var(--bosha-paper-fg-bright, rgba(246, 246, 246, 0.97));
+  color: var(--paper-paper-fg-bright, rgba(246, 246, 246, 0.97));
 }
 
-.boshaThesisTitle {
+.researchThesisTitle {
   line-height: 1.25;
   max-width: 620px;
   margin-left: auto;
   margin-right: auto;
 }
 
-.boshaThesisBody {
+.researchThesisBody {
   margin-top: 10px;
 }
 
-.boshaPaper {
+.researchPaper {
   /* Long-form reading tokens (neutral grayscale on same dark panel) */
-  --bosha-break: 1.125rem;
-  --bosha-paper-fg: rgba(236, 236, 236, 0.94);
-  --bosha-paper-fg-bright: rgba(248, 248, 248, 0.98);
-  --bosha-paper-fg-soft: rgba(205, 205, 205, 0.82);
-  --bosha-paper-fg-dim: rgba(168, 168, 168, 0.72);
-  --bosha-paper-section: rgba(198, 198, 198, 0.88);
-  --bosha-paper-rule: rgba(255, 255, 255, 0.1);
-  --bosha-paper-link: rgba(235, 235, 235, 0.95);
-  --bosha-paper-link-line: rgba(255, 255, 255, 0.32);
+  --paper-break: 1.125rem;
+  --paper-paper-fg: rgba(236, 236, 236, 0.94);
+  --paper-paper-fg-bright: rgba(248, 248, 248, 0.98);
+  --paper-paper-fg-soft: rgba(205, 205, 205, 0.82);
+  --paper-paper-fg-dim: rgba(168, 168, 168, 0.72);
+  --paper-paper-section: rgba(198, 198, 198, 0.88);
+  --paper-paper-rule: rgba(255, 255, 255, 0.1);
+  --paper-paper-link: rgba(235, 235, 235, 0.95);
+  --paper-paper-link-line: rgba(255, 255, 255, 0.32);
 }
 
-.boshaThesisP {
-  margin: 0 0 var(--bosha-break);
-  color: var(--bosha-paper-fg, rgba(236, 236, 236, 0.94));
+.researchThesisP {
+  margin: 0 0 var(--paper-break);
+  color: var(--paper-paper-fg, rgba(236, 236, 236, 0.94));
 }
 
-.boshaPaperTitleBlock--live {
+.researchPaperTitleBlock--live {
   text-align: left;
   margin: 0 0 28px;
-  border-bottom: 1px solid var(--bosha-paper-rule, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--paper-paper-rule, rgba(255, 255, 255, 0.1));
   padding-bottom: 22px;
 }
 
-.boshaPaperTitleBlock--live .boshaThesisTitle {
+.researchPaperTitleBlock--live .researchThesisTitle {
   max-width: none;
   margin-left: 0;
   margin-right: 0;
   font-size: 17px;
   line-height: 1.35;
-  color: var(--bosha-paper-fg-bright, rgba(248, 248, 248, 0.98));
+  color: var(--paper-paper-fg-bright, rgba(248, 248, 248, 0.98));
 }
 
-.boshaPaperTitleTicker {
+.researchPaperTitleTicker {
   font-weight: 600;
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.55);
 }
 
-.boshaPaperTitleSep {
+.researchPaperTitleSep {
   color: rgba(255, 255, 255, 0.35);
   font-weight: 400;
   padding: 0 0.35em;
 }
 
-.boshaPaperFigure--price {
+.researchPaperFigure--price {
   margin-top: 28px;
 }
 
-.boshaPaperFigureHead {
+.researchPaperFigureHead {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -4153,18 +4153,18 @@
   margin: 0 0 8px;
 }
 
-.boshaPaperFigureHead .boshaPaperSectionTitle {
+.researchPaperFigureHead .researchPaperSectionTitle {
   margin: 0;
 }
 
-.boshaPriceRange {
+.researchPriceRange {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
 }
 
-.boshaPriceRangeBtn {
+.researchPriceRangeBtn {
   margin: 0;
   padding: 3px 7px;
   border: none;
@@ -4182,16 +4182,16 @@
   appearance: none;
 }
 
-.boshaPriceRangeBtn:hover {
+.researchPriceRangeBtn:hover {
   color: rgba(255, 255, 255, 0.72);
 }
 
-.boshaPriceRangeBtn.isActive {
+.researchPriceRangeBtn.isActive {
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.88);
 }
 
-.terminal--main .boshaThesisP--live {
+.terminal--main .researchThesisP--live {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   font-size: clamp(12.5px, 1.75vmin, 14.5px);
   line-height: 1.75;
@@ -4210,114 +4210,114 @@
 }
 
 
-.terminal--main .boshaMiniPrice--chartOnly .boshaMiniPriceWrap {
+.terminal--main .researchMiniPrice--chartOnly .researchMiniPriceWrap {
   min-height: 140px;
 }
 
-.boshaPaperTitleBlock--live .boshaPaperSubtitle {
+.researchPaperTitleBlock--live .researchPaperSubtitle {
   text-align: left;
   margin-top: 12px;
   line-height: 1.55;
   max-width: none;
-  color: var(--bosha-paper-fg-soft, rgba(205, 205, 205, 0.82));
+  color: var(--paper-paper-fg-soft, rgba(205, 205, 205, 0.82));
 }
 
-.boshaPaperKicker {
+.researchPaperKicker {
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--bosha-paper-fg-dim, rgba(168, 168, 168, 0.72));
+  color: var(--paper-paper-fg-dim, rgba(168, 168, 168, 0.72));
   margin-bottom: 10px;
 }
 
-.boshaThesisBody--live {
-  /* Match title block width inside .boshaPaperDoc — avoid a narrower column than the kicker/title. */
+.researchThesisBody--live {
+  /* Match title block width inside .researchPaperDoc — avoid a narrower column than the kicker/title. */
   max-width: none;
   margin-left: 0;
   margin-right: 0;
   width: 100%;
 }
 
-.boshaPaperSectionTitle {
+.researchPaperSectionTitle {
   font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--bosha-paper-section, rgba(198, 198, 198, 0.88));
+  color: var(--paper-paper-section, rgba(198, 198, 198, 0.88));
   margin: 28px 0 10px;
   font-weight: 600;
   font-family: inherit;
 }
 
-.boshaThesisBody--live .boshaPaperSectionTitle:first-of-type {
+.researchThesisBody--live .researchPaperSectionTitle:first-of-type {
   margin-top: 0;
 }
 
-.boshaThesisP--live {
+.researchThesisP--live {
   margin: 0 0 1.125rem;
-  color: var(--bosha-paper-fg, rgba(236, 236, 236, 0.94));
+  color: var(--paper-paper-fg, rgba(236, 236, 236, 0.94));
   font-size: clamp(13.5px, 1.85vmin, 15.5px);
   line-height: 1.82;
   letter-spacing: 0;
 }
 
-.boshaPaperFigure {
+.researchPaperFigure {
   margin: 12px 0 1.5rem;
 }
 
 /* Paper column: chart tick type is easy to lose on pure black; bump contrast + size vs global --fs-meta. */
-.boshaPaperFigure .graphTick {
+.researchPaperFigure .graphTick {
   fill: rgba(255, 255, 255, 0.42);
   font-size: clamp(9px, 1.55vmin, 11px);
 }
 
-.boshaPaperFigure .graphTickLine {
+.researchPaperFigure .graphTickLine {
   stroke: rgba(255, 255, 255, 0.16);
 }
 
-.boshaPaperFigure .graphAxis {
+.researchPaperFigure .graphAxis {
   stroke: rgba(255, 255, 255, 0.16);
 }
 
-.boshaPaperSources {
+.researchPaperSources {
   margin-top: 36px;
   padding-top: 20px;
-  border-top: 1px solid var(--bosha-paper-rule, rgba(255, 255, 255, 0.1));
+  border-top: 1px solid var(--paper-paper-rule, rgba(255, 255, 255, 0.1));
 }
 
-.boshaPaperSourcesTitle {
+.researchPaperSourcesTitle {
   font-size: 10.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--bosha-paper-fg-soft, rgba(205, 205, 205, 0.82));
+  color: var(--paper-paper-fg-soft, rgba(205, 205, 205, 0.82));
   margin: 0 0 12px;
   font-weight: 600;
 }
 
-.boshaPaperSourcesGrid {
+.researchPaperSourcesGrid {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 18px;
   align-items: baseline;
 }
 
-.boshaPaperSourceLink {
+.researchPaperSourceLink {
   font-size: 12px;
   line-height: 1.5;
-  color: var(--bosha-paper-link, rgba(235, 235, 235, 0.95));
+  color: var(--paper-paper-link, rgba(235, 235, 235, 0.95));
   text-decoration: none;
-  border-bottom: 1px solid var(--bosha-paper-link-line, rgba(255, 255, 255, 0.32));
+  border-bottom: 1px solid var(--paper-paper-link-line, rgba(255, 255, 255, 0.32));
   padding-bottom: 1px;
   max-width: 100%;
   word-break: break-word;
 }
 
-.boshaPaperSourceLink:hover {
-  color: var(--bosha-paper-fg-bright, rgba(248, 248, 248, 0.98));
+.researchPaperSourceLink:hover {
+  color: var(--paper-paper-fg-bright, rgba(248, 248, 248, 0.98));
   border-bottom-color: rgba(255, 255, 255, 0.48);
 }
 
 /* Header: icon-only copy (stacked sheets), inherits paper link tone */
-button.boshaPaperCopyIcon {
+button.researchPaperCopyIcon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4325,79 +4325,79 @@ button.boshaPaperCopyIcon {
   margin: 0;
   border: none;
   background: transparent;
-  color: var(--bosha-paper-link, rgba(235, 235, 235, 0.95));
+  color: var(--paper-paper-link, rgba(235, 235, 235, 0.95));
   cursor: pointer;
   border-radius: 4px;
   line-height: 0;
   vertical-align: middle;
 }
 
-button.boshaPaperCopyIcon .boshaPaperCopyIconSvg {
+button.researchPaperCopyIcon .researchPaperCopyIconSvg {
   display: block;
 }
 
-button.boshaPaperCopyIcon:hover:not(:disabled) {
-  color: var(--bosha-paper-fg-bright, rgba(248, 248, 248, 0.98));
+button.researchPaperCopyIcon:hover:not(:disabled) {
+  color: var(--paper-paper-fg-bright, rgba(248, 248, 248, 0.98));
 }
 
-button.boshaPaperCopyIcon:disabled {
+button.researchPaperCopyIcon:disabled {
   opacity: 0.45;
   cursor: wait;
 }
 
-button.boshaPaperCopyIcon:focus-visible {
+button.researchPaperCopyIcon:focus-visible {
   outline: 1px solid rgba(130, 170, 255, 0.55);
   outline-offset: 3px;
 }
 
-.boshaPaperSourcesEmpty {
+.researchPaperSourcesEmpty {
   margin: 0;
   font-size: 12px;
-  color: var(--bosha-paper-fg-soft, rgba(205, 205, 205, 0.82));
+  color: var(--paper-paper-fg-soft, rgba(205, 205, 205, 0.82));
   line-height: 1.62;
 }
 
-.boshaInsert {
+.researchInsert {
   margin: 14px 0 8px;
   letter-spacing: 0.08em;
 }
 
-.boshaCausalLine {
+.researchCausalLine {
   margin: 6px 0 14px;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.88);
 }
 
-.boshaCausalWrap {
+.researchCausalWrap {
   width: 100%;
   height: 150px;
   margin: 6px 0 0;
   overflow: hidden;
 }
 
-.boshaCausalWrap--supply {
+.researchCausalWrap--supply {
   height: 248px;
   min-height: 248px;
 }
 
-.boshaCausalSvg {
+.researchCausalSvg {
   width: 100%;
   height: 100%;
   display: block;
 }
 
-.boshaCausalNode {
+.researchCausalNode {
   stroke: var(--diagram-node-border);
   stroke-width: 1.25px;
   vector-effect: non-scaling-stroke;
   paint-order: stroke fill;
 }
 
-.boshaCausalNode--edge {
+.researchCausalNode--edge {
   stroke: var(--diagram-node-border-edge);
 }
 
-.boshaCausalEdge {
+.researchCausalEdge {
   fill: none;
   stroke: rgba(255, 255, 255, 0.38);
   stroke-width: 1.25px;
@@ -4406,46 +4406,46 @@ button.boshaPaperCopyIcon:focus-visible {
   stroke-linejoin: round;
 }
 
-.boshaCausalEdge--loop {
+.researchCausalEdge--loop {
   stroke-dasharray: 4 4;
   opacity: 0.65;
 }
 
-.boshaCausalText {
+.researchCausalText {
   fill: rgba(255, 255, 255, 0.9);
   font-size: var(--fs-meta);
   letter-spacing: 0.06em;
   text-anchor: middle;
 }
 
-.boshaPaperSubtitle {
+.researchPaperSubtitle {
   margin-top: 6px;
   letter-spacing: 0.12em;
 }
 
-.boshaResearchHeader {
+.researchResearchHeader {
   display: block;
   padding: 8px 0 10px;
   margin: 0 0 10px;
 }
 
-.boshaResearchIntro {
+.researchResearchIntro {
   min-width: 0;
   padding: 8px 0 0;
 }
 
-.boshaResearchOneL {
+.researchResearchOneL {
   color: rgba(240, 255, 248, 0.92);
   line-height: 1.42;
   margin: 0;
 }
 
-.boshaResearchFocus {
+.researchResearchFocus {
   margin-top: 6px;
   letter-spacing: 0.08em;
 }
 
-.boshaMiniPrice {
+.researchMiniPrice {
   display: grid;
   grid-template-rows: auto minmax(64px, 1fr);
   gap: 6px;
@@ -4455,17 +4455,17 @@ button.boshaPaperCopyIcon:focus-visible {
   border-bottom: none;
 }
 
-.boshaMiniPrice--chartOnly {
+.researchMiniPrice--chartOnly {
   display: block;
   grid-template-rows: unset;
 }
 
-.boshaMiniPrice.boshaMiniPrice--chartOnly {
+.researchMiniPrice.researchMiniPrice--chartOnly {
   margin-bottom: 2px;
   padding-bottom: 0;
 }
 
-.boshaMiniPriceMeta {
+.researchMiniPriceMeta {
   display: flex;
   align-items: baseline;
   gap: 10px;
@@ -4473,19 +4473,19 @@ button.boshaPaperCopyIcon:focus-visible {
   min-width: 0;
 }
 
-.boshaMiniDelta {
+.researchMiniDelta {
   opacity: 0.9;
 }
 
-.boshaMiniDelta.isUp {
+.researchMiniDelta.isUp {
   color: rgba(255, 255, 255, 0.72);
 }
 
-.boshaMiniDelta.isDown {
+.researchMiniDelta.isDown {
   color: rgba(255, 120, 160, 0.9);
 }
 
-.boshaMiniPriceWrap {
+.researchMiniPriceWrap {
   width: 100%;
   height: 192px;
   border: none;
@@ -4496,20 +4496,20 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 
-.boshaMiniPriceSvg {
+.researchMiniPriceSvg {
   width: 100%;
   height: 100%;
   display: block;
 }
 
-.boshaMiniPriceSvg,
-.boshaMiniPrice .graphSvg {
+.researchMiniPriceSvg,
+.researchMiniPrice .graphSvg {
   width: 100%;
   height: 100%;
   display: block;
 }
 
-.boshaGraphFigureWrap {
+.researchGraphFigureWrap {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 6;
@@ -4520,19 +4520,19 @@ button.boshaPaperCopyIcon:focus-visible {
   overflow: hidden;
 }
 
-.boshaGraphSvg {
+.researchGraphSvg {
   width: 100%;
   height: 100%;
   display: block;
 }
 
-.boshaTickerSearchRow {
+.researchTickerSearchRow {
   cursor: text;
   background: rgba(255, 255, 255, 0.025);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.boshaTickerSearchInput {
+.researchTickerSearchInput {
   min-width: 0;
   width: 100%;
   background: transparent;
@@ -4545,28 +4545,28 @@ button.boshaPaperCopyIcon:focus-visible {
   padding: 0;
 }
 
-.boshaTickerSearchInput::placeholder {
+.researchTickerSearchInput::placeholder {
   color: rgba(255, 255, 255, 0.38);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.boshaEdge {
+.researchEdge {
   stroke: rgba(255, 255, 255, 0.2);
   stroke-width: 0.75px;
 }
 
-.boshaNode {
+.researchNode {
   cursor: default;
 }
 
-.boshaGraphEntity {
+.researchGraphEntity {
   fill: var(--intel-accent-marker);
   stroke: rgba(255, 255, 255, 0.18);
   stroke-width: 1px;
 }
 
-.boshaTooltip {
+.researchTooltip {
   position: fixed;
   z-index: 80;
   pointer-events: none;
@@ -4579,7 +4579,7 @@ button.boshaPaperCopyIcon:focus-visible {
   color: rgba(255, 255, 255, 0.92);
 }
 
-.boshaFigureCaption {
+.researchFigureCaption {
   margin-top: 8px;
   letter-spacing: 0.06em;
   color: rgba(216, 255, 235, 0.55);
@@ -4587,47 +4587,47 @@ button.boshaPaperCopyIcon:focus-visible {
   line-height: 1.25;
 }
 
-.boshaFigureCaption--tight {
+.researchFigureCaption--tight {
   margin-top: 4px;
 }
 
-.boshaCausalWrap + .boshaFigureCaption {
+.researchCausalWrap + .researchFigureCaption {
   margin-top: 2px;
 }
 
-.boshaFigureCaption--break {
-  margin-bottom: var(--bosha-break);
+.researchFigureCaption--break {
+  margin-bottom: var(--paper-break);
 }
 
-.boshaPaperH {
+.researchPaperH {
   letter-spacing: 0.12em;
   margin: 14px 0 8px;
   color: rgba(216, 255, 235, 0.65);
   font-size: var(--fs-meta);
 }
 
-.boshaLayerH {
+.researchLayerH {
   letter-spacing: 0.12em;
   margin: 22px 0 12px;
   color: rgba(216, 255, 235, 0.65);
   font-size: var(--fs-meta);
 }
 
-.boshaSummary {
+.researchSummary {
   padding: 0;
 }
 
-.boshaSummaryText {
+.researchSummaryText {
   color: rgba(240, 255, 248, 0.92);
   margin-bottom: 8px;
 }
 
-.boshaSummaryList {
+.researchSummaryList {
   display: grid;
   gap: 4px;
 }
 
-.boshaSummaryRow {
+.researchSummaryRow {
   text-align: left;
   width: 100%;
   display: grid;
@@ -4640,18 +4640,18 @@ button.boshaPaperCopyIcon:focus-visible {
   cursor: default;
 }
 
-.boshaSummaryRow:hover {
+.researchSummaryRow:hover {
   border-color: transparent;
 }
 
-.boshaSummaryDate {
+.researchSummaryDate {
   grid-column: 1;
   grid-row: 1 / span 2;
   align-self: start;
   padding-top: 1px;
 }
 
-.boshaSummaryTitle {
+.researchSummaryTitle {
   grid-column: 2;
   grid-row: 1;
   min-width: 0;
@@ -4661,24 +4661,24 @@ button.boshaPaperCopyIcon:focus-visible {
   color: rgba(240, 255, 248, 0.92);
 }
 
-.boshaSummaryMeta {
+.researchSummaryMeta {
   grid-column: 2;
   grid-row: 2;
 }
 
-.boshaCards {
+.researchCards {
   display: grid;
   gap: 22px;
 }
 
-.boshaCard {
+.researchCard {
   border: none;
   background: transparent;
   padding: 0;
 }
 
 
-.boshaCardTop {
+.researchCardTop {
   display: grid;
   grid-template-columns: 64px minmax(0, 1fr);
   grid-template-rows: auto auto;
@@ -4686,19 +4686,19 @@ button.boshaPaperCopyIcon:focus-visible {
   margin-bottom: 6px;
 }
 
-.boshaCardDate {
+.researchCardDate {
   grid-column: 1;
   grid-row: 1 / span 2;
   padding-top: 1px;
 }
 
-.boshaCardTitle {
+.researchCardTitle {
   grid-column: 2;
   grid-row: 1;
   color: rgba(240, 255, 248, 0.94);
 }
 
-.boshaCardChips {
+.researchCardChips {
   grid-column: 2;
   grid-row: 2;
   display: flex;
@@ -4706,90 +4706,90 @@ button.boshaPaperCopyIcon:focus-visible {
   flex-wrap: wrap;
 }
 
-.boshaChip {
+.researchChip {
   letter-spacing: 0.08em;
 }
 
-.boshaCardGrid {
+.researchCardGrid {
   display: grid;
   grid-template-columns: minmax(120px, 0.22fr) minmax(0, 1fr);
   gap: 6px 14px;
   align-items: start;
 }
 
-.boshaCardK {
+.researchCardK {
   letter-spacing: 0.1em;
   font-size: 0.95em;
   white-space: nowrap;
 }
 
-.boshaCardV {
+.researchCardV {
   min-width: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.boshaInspector {
+.researchInspector {
   border: none;
   background: transparent;
   padding: 0;
 }
 
-.boshaInspectorTitle {
+.researchInspectorTitle {
   color: rgba(240, 255, 248, 0.94);
   margin-bottom: 3px;
 }
 
-.boshaInspectorMeta {
+.researchInspectorMeta {
   letter-spacing: 0.08em;
   margin-bottom: 10px;
 }
 
-.boshaInspectorGrid2 {
+.researchInspectorGrid2 {
   display: grid;
   grid-template-columns: minmax(120px, 0.22fr) minmax(0, 1fr);
   gap: 6px 14px;
   align-items: start;
 }
 
-.boshaPaperP {
+.researchPaperP {
   margin: 0 0 14px;
 }
 
-.boshaBriefList {
+.researchBriefList {
   margin: 0 0 16px;
   padding-left: 14px;
   color: rgba(240, 255, 248, 0.88);
 }
 
-.boshaBriefList li {
+.researchBriefList li {
   margin: 0 0 6px;
 }
 
-.boshaBriefText {
+.researchBriefText {
   color: rgba(240, 255, 248, 0.88);
 }
 
-.boshaPaperFoot {
+.researchPaperFoot {
   margin-top: 14px;
   color: rgba(216, 255, 235, 0.45);
   letter-spacing: 0.08em;
 }
 
-.boshaInspectorGrid {
+.researchInspectorGrid {
   display: grid;
   grid-template-columns: minmax(120px, 0.22fr) minmax(0, 1fr);
   gap: 6px 14px;
   align-items: start;
 }
 
-.boshaK {
+.researchK {
   letter-spacing: 0.1em;
   font-size: 0.95em;
   white-space: nowrap;
 }
 
-.boshaV {
+.researchV {
   min-width: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -4931,7 +4931,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed.feedCompact,
 .terminal--politicians .feed.feedCompact,
 .terminal--institutions .feed.feedCompact,
-.terminal--main .boshaTicker.feed.feedCompact
+.terminal--main .researchTicker.feed.feedCompact
 {
   background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
 }
@@ -5097,7 +5097,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedFilterTypeRow,
 .terminal--politicians .feed--left .feedFilterTypeRow,
 .terminal--institutions .feed--left .feedFilterTypeRow,
-.terminal--main .boshaTicker.feed--left .feedFilterTypeRow
+.terminal--main .researchTicker.feed--left .feedFilterTypeRow
 {
   gap: 6px;
   min-height: calc(10px * 1.15 + 10px);
@@ -5113,7 +5113,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedFilterTypeRow:hover,
 .terminal--politicians .feed--left .feedFilterTypeRow:hover,
 .terminal--institutions .feed--left .feedFilterTypeRow:hover,
-.terminal--main .boshaTicker.feed--left .feedFilterTypeRow:hover
+.terminal--main .researchTicker.feed--left .feedFilterTypeRow:hover
 {
   background: rgba(255, 255, 255, 0.03);
 }
@@ -5121,7 +5121,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedFilterTypeLabel,
 .terminal--politicians .feed--left .feedFilterTypeLabel,
 .terminal--institutions .feed--left .feedFilterTypeLabel,
-.terminal--main .boshaTicker.feed--left .feedFilterTypeLabel
+.terminal--main .researchTicker.feed--left .feedFilterTypeLabel
 {
   color: rgba(255, 255, 255, 0.88);
 }
@@ -5129,7 +5129,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedFilterTypeCode,
 .terminal--politicians .feed--left .feedFilterTypeCode,
 .terminal--institutions .feed--left .feedFilterTypeCode,
-.terminal--main .boshaTicker.feed--left .feedFilterTypeCode
+.terminal--main .researchTicker.feed--left .feedFilterTypeCode
 {
   min-width: 2.5ch;
   max-width: none;
@@ -5139,38 +5139,38 @@ button.boshaPaperCopyIcon:focus-visible {
 }
 
 /* Research tab: FEED filter (paper + feed scopes) */
-.terminal--main .boshaTicker .feedCompactTitle {
+.terminal--main .researchTicker .feedCompactTitle {
   color: var(--hi);
   font-size: 10px;
   letter-spacing: 0.16em;
   font-weight: 600;
 }
 
-.terminal--main .boshaTicker .feedCompactHeader {
+.terminal--main .researchTicker .feedCompactHeader {
   justify-content: space-between;
   padding: 0 12px;
   border-bottom: none;
 }
 
-.terminal--main .boshaTicker .feedCompactHeaderEnd {
+.terminal--main .researchTicker .feedCompactHeaderEnd {
   align-items: center;
   height: 100%;
 }
 
-.terminal--main .boshaTicker .feedCompactFilterBtn {
+.terminal--main .researchTicker .feedCompactFilterBtn {
   color: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--main .boshaTicker .feedCompactFilterBtn:hover {
+.terminal--main .researchTicker .feedCompactFilterBtn:hover {
   color: rgba(255, 255, 255, 0.68);
 }
 
-.terminal--main .boshaTicker .feedCompactFilterBtn.isActive {
+.terminal--main .researchTicker .feedCompactFilterBtn.isActive {
   color: var(--cyan);
 }
 
-.terminal--main .boshaTicker.feed--left .feedCompactBody .feedCompactMain,
-.terminal--main .boshaTicker.feed--left .researchFeedBody .feedCompactMain {
+.terminal--main .researchTicker.feed--left .feedCompactBody .feedCompactMain,
+.terminal--main .researchTicker.feed--left .researchFeedBody .feedCompactMain {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -5179,21 +5179,21 @@ button.boshaPaperCopyIcon:focus-visible {
   overflow: hidden;
 }
 
-.terminal--main .boshaTicker.feed--left .feedCompactBody--filterOpen,
-.terminal--main .boshaTicker.feed--left .researchFeedBody--filterOpen {
+.terminal--main .researchTicker.feed--left .feedCompactBody--filterOpen,
+.terminal--main .researchTicker.feed--left .researchFeedBody--filterOpen {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
 }
 
-.terminal--main .boshaTicker.feed--left .feedCompactBody--filterOpen .feedCompactMain[aria-hidden='true'],
-.terminal--main .boshaTicker.feed--left .researchFeedBody--filterOpen .feedCompactMain[aria-hidden='true'] {
+.terminal--main .researchTicker.feed--left .feedCompactBody--filterOpen .feedCompactMain[aria-hidden='true'],
+.terminal--main .researchTicker.feed--left .researchFeedBody--filterOpen .feedCompactMain[aria-hidden='true'] {
   visibility: hidden;
   pointer-events: none;
 }
 
-.terminal--main .boshaTicker.feed--left .feedCompactBody--filterOpen .feedCompactFilterPicker,
-.terminal--main .boshaTicker.feed--left .researchFeedBody--filterOpen .feedCompactFilterPicker {
+.terminal--main .researchTicker.feed--left .feedCompactBody--filterOpen .feedCompactFilterPicker,
+.terminal--main .researchTicker.feed--left .researchFeedBody--filterOpen .feedCompactFilterPicker {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -5364,7 +5364,7 @@ button.boshaPaperCopyIcon:focus-visible {
   letter-spacing: 0.02em;
 }
 
-.terminal--main .boshaTicker .feedFilterTypeRow {
+.terminal--main .researchTicker .feedFilterTypeRow {
   gap: 6px;
   min-height: calc(10px * 1.15 + 10px);
   padding: 5px 8px;
@@ -5374,15 +5374,15 @@ button.boshaPaperCopyIcon:focus-visible {
   line-height: 1.15;
 }
 
-.terminal--main .boshaTicker .feedFilterTypeRow:hover {
+.terminal--main .researchTicker .feedFilterTypeRow:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.terminal--main .boshaTicker .feedFilterTypeLabel {
+.terminal--main .researchTicker .feedFilterTypeLabel {
   color: rgba(255, 255, 255, 0.88);
 }
 
-.terminal--main .boshaTicker .feedFilterTypeCode {
+.terminal--main .researchTicker .feedFilterTypeCode {
   min-width: 2.5ch;
   max-width: none;
   overflow: visible;
@@ -5419,7 +5419,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left.feedCompact,
 .terminal--politicians .feed--left.feedCompact,
 .terminal--institutions .feed--left.feedCompact,
-.terminal--main .boshaTicker.feed--left.feedCompact
+.terminal--main .researchTicker.feed--left.feedCompact
 {
   display: flex;
   flex-direction: column;
@@ -5429,7 +5429,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedCompactBody,
 .terminal--politicians .feed--left .feedCompactBody,
 .terminal--institutions .feed--left .feedCompactBody,
-.terminal--main .boshaTicker.feed--left .feedCompactBody
+.terminal--main .researchTicker.feed--left .feedCompactBody
 {
   flex: 1 1 auto;
   min-height: 0;
@@ -5444,7 +5444,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearch,
 .terminal--politicians .feed--left .researchFeedSearch,
 .terminal--institutions .feed--left .researchFeedSearch,
-.terminal--main .boshaTicker.feed--left .researchFeedSearch
+.terminal--main .researchTicker.feed--left .researchFeedSearch
 {
   display: flex;
   align-items: center;
@@ -5462,7 +5462,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchStack,
 .terminal--politicians .feed--left .researchFeedSearchStack,
 .terminal--institutions .feed--left .researchFeedSearchStack,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchStack
+.terminal--main .researchTicker.feed--left .researchFeedSearchStack
 {
   flex-shrink: 0;
   display: flex;
@@ -5478,7 +5478,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchStackIconWrap,
 .terminal--politicians .feed--left .researchFeedSearchStackIconWrap,
 .terminal--institutions .feed--left .researchFeedSearchStackIconWrap,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchStackIconWrap
+.terminal--main .researchTicker.feed--left .researchFeedSearchStackIconWrap
 {
   flex-shrink: 0;
   display: flex;
@@ -5493,7 +5493,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchStackIcon,
 .terminal--politicians .feed--left .researchFeedSearchStackIcon,
 .terminal--institutions .feed--left .researchFeedSearchStackIcon,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchStackIcon
+.terminal--main .researchTicker.feed--left .researchFeedSearchStackIcon
 {
   display: block;
   width: 13px;
@@ -5503,7 +5503,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchStackFields,
 .terminal--politicians .feed--left .researchFeedSearchStackFields,
 .terminal--institutions .feed--left .researchFeedSearchStackFields,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchStackFields
+.terminal--main .researchTicker.feed--left .researchFeedSearchStackFields
 {
   flex: 1;
   min-width: 0;
@@ -5514,7 +5514,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchRow,
 .terminal--politicians .feed--left .researchFeedSearchRow,
 .terminal--institutions .feed--left .researchFeedSearchRow,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchRow
+.terminal--main .researchTicker.feed--left .researchFeedSearchRow
 {
   display: flex;
   align-items: center;
@@ -5531,7 +5531,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchRow + .researchFeedSearchRow,
 .terminal--politicians .feed--left .researchFeedSearchRow + .researchFeedSearchRow,
 .terminal--institutions .feed--left .researchFeedSearchRow + .researchFeedSearchRow,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchRow + .researchFeedSearchRow
+.terminal--main .researchTicker.feed--left .researchFeedSearchRow + .researchFeedSearchRow
 {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -5539,7 +5539,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchInput,
 .terminal--politicians .feed--left .researchFeedSearchInput,
 .terminal--institutions .feed--left .researchFeedSearchInput,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchInput
+.terminal--main .researchTicker.feed--left .researchFeedSearchInput
 {
   flex: 1;
   min-width: 0;
@@ -5558,7 +5558,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchInput::placeholder,
 .terminal--politicians .feed--left .researchFeedSearchInput::placeholder,
 .terminal--institutions .feed--left .researchFeedSearchInput::placeholder,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchInput::placeholder
+.terminal--main .researchTicker.feed--left .researchFeedSearchInput::placeholder
 {
   color: rgba(255, 255, 255, 0.38);
 }
@@ -5566,7 +5566,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchIcon,
 .terminal--politicians .feed--left .researchFeedSearchIcon,
 .terminal--institutions .feed--left .researchFeedSearchIcon,
-.terminal--main .boshaTicker.feed--left .researchFeedSearchIcon
+.terminal--main .researchTicker.feed--left .researchFeedSearchIcon
 {
   flex-shrink: 0;
   width: 12px;
@@ -5578,7 +5578,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll,
 .terminal--politicians .feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll,
 .terminal--institutions .feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll,
-.terminal--main .boshaTicker.feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll
+.terminal--main .researchTicker.feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll
 {
   display: flex;
   flex-direction: column;
@@ -5592,7 +5592,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedCompactList.feedCompactList--scroll,
 .terminal--politicians .feed--left .feedCompactList.feedCompactList--scroll,
 .terminal--institutions .feed--left .feedCompactList.feedCompactList--scroll,
-.terminal--main .boshaTicker.feed--left .feedCompactList.feedCompactList--scroll
+.terminal--main .researchTicker.feed--left .feedCompactList.feedCompactList--scroll
 {
   display: flex;
   flex-direction: column;
@@ -5603,7 +5603,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact,
 .terminal--politicians .feed--left .feedRowCompact,
 .terminal--institutions .feed--left .feedRowCompact,
-.terminal--main .boshaTicker.feed--left .feedRowCompact
+.terminal--main .researchTicker.feed--left .feedRowCompact
 {
   min-height: calc(10px * 1.15 + 10px);
   padding: 5px 8px;
@@ -5621,7 +5621,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact:hover,
 .terminal--politicians .feed--left .feedRowCompact:hover,
 .terminal--institutions .feed--left .feedRowCompact:hover,
-.terminal--main .boshaTicker.feed--left .feedRowCompact:hover
+.terminal--main .researchTicker.feed--left .feedRowCompact:hover
 {
   background: rgba(255, 255, 255, 0.03);
 }
@@ -5629,7 +5629,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact.isActive,
 .terminal--politicians .feed--left .feedRowCompact.isActive,
 .terminal--institutions .feed--left .feedRowCompact.isActive,
-.terminal--main .boshaTicker.feed--left .feedRowCompact.isActive
+.terminal--main .researchTicker.feed--left .feedRowCompact.isActive
 {
   border-color: rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.03);
@@ -5640,7 +5640,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedCellLabel.kvFeedMain,
 .terminal--politicians .feed--left .feedCellLabel.kvFeedMain,
 .terminal--institutions .feed--left .feedCellLabel.kvFeedMain,
-.terminal--main .boshaTicker.feed--left .feedCellLabel.kvFeedMain
+.terminal--main .researchTicker.feed--left .feedCellLabel.kvFeedMain
 {
   color: rgba(255, 255, 255, 0.88);
   letter-spacing: 0.02em;
@@ -5650,7 +5650,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company,
 .terminal--politicians .feed--left .feedRowCompact--company,
 .terminal--institutions .feed--left .feedRowCompact--company,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company
+.terminal--main .researchTicker.feed--left .feedRowCompact--company
 {
   grid-template-columns: 5ch minmax(0, 1fr) 4ch max-content;
   gap: 4px;
@@ -5659,7 +5659,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company.feedRowCompact--noCount,
 .terminal--politicians .feed--left .feedRowCompact--company.feedRowCompact--noCount,
 .terminal--institutions .feed--left .feedRowCompact--company.feedRowCompact--noCount,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company.feedRowCompact--noCount
+.terminal--main .researchTicker.feed--left .feedRowCompact--company.feedRowCompact--noCount
 {
   grid-template-columns: 5ch minmax(0, 1fr) max-content;
 }
@@ -5667,7 +5667,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCellSymbol,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellSymbol,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCellSymbol,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCellSymbol
+.terminal--main .researchTicker.feed--left .feedRowCompact--company .feedCellSymbol
 {
   min-width: 0;
   width: 5ch;
@@ -5682,7 +5682,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCellCompany,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellCompany,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCellCompany,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCellCompany
+.terminal--main .researchTicker.feed--left .feedRowCompact--company .feedCellCompany
 {
   min-width: 0;
   overflow: hidden;
@@ -5693,7 +5693,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCellCount,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellCount,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCellCount,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCellCount
+.terminal--main .researchTicker.feed--left .feedRowCompact--company .feedCellCount
 {
   min-width: 0;
   width: 4ch;
@@ -5705,7 +5705,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCountTag,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCountTag,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCountTag,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCountTag
+.terminal--main .researchTicker.feed--left .feedRowCompact--company .feedCountTag
 {
   display: block;
   min-width: 4ch;
@@ -5718,7 +5718,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCellWhen,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellWhen,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCellWhen,
-.terminal--main .boshaTicker.feed--left .feedRowCompact--company .feedCellWhen
+.terminal--main .researchTicker.feed--left .feedRowCompact--company .feedCellWhen
 {
   min-width: 0;
 }
@@ -5726,7 +5726,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedCellWhen,
 .terminal--politicians .feed--left .feedCellWhen,
 .terminal--institutions .feed--left .feedCellWhen,
-.terminal--main .boshaTicker.feed--left .feedCellWhen
+.terminal--main .researchTicker.feed--left .feedCellWhen
 {
   font-size: 9px;
   letter-spacing: 0.06em;
@@ -5735,7 +5735,7 @@ button.boshaPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowTodaySep,
 .terminal--politicians .feed--left .feedRowTodaySep,
 .terminal--institutions .feed--left .feedRowTodaySep,
-.terminal--main .boshaTicker.feed--left .feedRowTodaySep
+.terminal--main .researchTicker.feed--left .feedRowTodaySep
 {
   min-height: calc(10px * 1.15 + 10px);
   margin: 0;
@@ -5764,7 +5764,7 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--politicians .kvFeedMain,
 .terminal--institutions .kvFeedMain,
-.terminal--main .boshaTicker.feed--left .kvFeedMain
+.terminal--main .researchTicker.feed--left .kvFeedMain
 {
   color: rgba(255, 255, 255, 0.82);
 }
@@ -5773,7 +5773,7 @@ button.boshaPaperCopyIcon:focus-visible {
 
 .terminal--politicians .kvFeedDim,
 .terminal--institutions .kvFeedDim,
-.terminal--main .boshaTicker.feed--left .kvFeedDim
+.terminal--main .researchTicker.feed--left .kvFeedDim
 {
   color: rgba(255, 255, 255, 0.45);
 }
@@ -6156,10 +6156,10 @@ body {
   flex-shrink: 0;
 }
 
-.terminal--insider .graph .graphPriceRange .boshaPriceRangeBtn,
+.terminal--insider .graph .graphPriceRange .researchPriceRangeBtn,
 
-.terminal--politicians .graph .graphPriceRange .boshaPriceRangeBtn,
-.terminal--institutions .graph .graphPriceRange .boshaPriceRangeBtn
+.terminal--politicians .graph .graphPriceRange .researchPriceRangeBtn,
+.terminal--institutions .graph .graphPriceRange .researchPriceRangeBtn
 {
   padding: 4px 8px;
   font-size: 9px;
@@ -6167,19 +6167,19 @@ body {
   color: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--insider .graph .graphPriceRange .boshaPriceRangeBtn.isActive,
+.terminal--insider .graph .graphPriceRange .researchPriceRangeBtn.isActive,
 
-.terminal--politicians .graph .graphPriceRange .boshaPriceRangeBtn.isActive,
-.terminal--institutions .graph .graphPriceRange .boshaPriceRangeBtn.isActive
+.terminal--politicians .graph .graphPriceRange .researchPriceRangeBtn.isActive,
+.terminal--institutions .graph .graphPriceRange .researchPriceRangeBtn.isActive
 {
   background: #fff;
   color: #0a0b0d;
 }
 
-.terminal--insider .graph .graphPriceRange .boshaPriceRangeBtn:hover:not(.isActive),
+.terminal--insider .graph .graphPriceRange .researchPriceRangeBtn:hover:not(.isActive),
 
-.terminal--politicians .graph .graphPriceRange .boshaPriceRangeBtn:hover:not(.isActive),
-.terminal--institutions .graph .graphPriceRange .boshaPriceRangeBtn:hover:not(.isActive)
+.terminal--politicians .graph .graphPriceRange .researchPriceRangeBtn:hover:not(.isActive),
+.terminal--institutions .graph .graphPriceRange .researchPriceRangeBtn:hover:not(.isActive)
 {
   color: rgba(255, 255, 255, 0.62);
 }
@@ -7119,7 +7119,7 @@ body {
 .terminal--insider .feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep,
 .terminal--politicians .feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep,
 .terminal--institutions .feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep,
-.terminal--main .boshaTicker.feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep
+.terminal--main .researchTicker.feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep
 {
   margin-block: 0;
 }
@@ -7130,8 +7130,8 @@ body {
 .terminal--institutions .feed--left .feedCompactList > .feedRowCompact.isActive:has(+ .feedRowTodaySep),
 .terminal--politicians .feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep),
 .terminal--institutions .feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep),
-.terminal--main .boshaTicker.feed--left .feedCompactList > .feedRowCompact.isActive:has(+ .feedRowTodaySep),
-.terminal--main .boshaTicker.feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep)
+.terminal--main .researchTicker.feed--left .feedCompactList > .feedRowCompact.isActive:has(+ .feedRowTodaySep),
+.terminal--main .researchTicker.feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep)
 {
   border-bottom-color: rgba(255, 255, 255, 0.22) !important;
 }
@@ -7383,7 +7383,7 @@ body {
   letter-spacing: 0.04em;
 }
 
-.boshaMiniPriceWrap .graphEmpty {
+.researchMiniPriceWrap .graphEmpty {
   min-height: 160px;
 }
 

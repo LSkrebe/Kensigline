@@ -1,0 +1,31 @@
+import { startClinicalWorker } from "../research/clinical/worker.js";
+import { startResearchWorker } from "../research/worker.js";
+import { startInsiderWorker } from "../investigate/insider/worker.js";
+import { startPoliticiansWorker } from "../investigate/politicians/worker.js";
+import { startInstitutionsWorker } from "../investigate/institutions/worker.js";
+import { startOutcomesWorker } from "../core/outcomes-worker.js";
+import { runOutcomesRecomputeOnce } from "../core/outcomes-worker.js";
+
+export type Stoppable = { stop(): void };
+
+/** All background workers — add new pipelines here. */
+export function startAllWorkers(): Stoppable[] {
+  const workers: Stoppable[] = [
+    startInsiderWorker(),
+    startOutcomesWorker(),
+    startClinicalWorker(),
+    startPoliticiansWorker(),
+    startInstitutionsWorker(),
+    startResearchWorker(),
+  ];
+
+  if (String(process.env.OUTCOMES_RECOMPUTE_ON_START ?? "1").trim() !== "0") {
+    void runOutcomesRecomputeOnce().catch((err) => console.error("[outcomes] startup recompute", err));
+  }
+
+  return workers;
+}
+
+export function stopAllWorkers(workers: Stoppable[]) {
+  for (const w of workers) w.stop();
+}

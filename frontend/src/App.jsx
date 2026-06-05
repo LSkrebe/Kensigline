@@ -243,6 +243,34 @@ function politiciansCaseSheetFromClusterLive(cluster, fallback) {
   }
 }
 
+function institutionCaseSheetFromClusterLive(cluster, fallback) {
+  const wsRows = Array.isArray(cluster?.cluster?.worksheet_rows) ? cluster.cluster.worksheet_rows : []
+  const companyName =
+    String(cluster?.issuer?.name ?? '').trim() ||
+    String(fallback?.company ?? '').trim() ||
+    fallback?.ticker ||
+    '—'
+  return {
+    filingId: cluster?.filing?.accession_no ?? fallback?.id ?? fallback?.ticker ?? '—',
+    formType: cluster?.filing?.form_type ?? '13F',
+    issuer: companyName,
+    ticker: cluster?.issuer?.ticker ?? fallback?.ticker ?? '—',
+    isForm4: true,
+    filedAt: cluster?.filing?.filed_at ?? fallback?.at ?? null,
+    rows: wsRows.map((r) => {
+      const filer = String(r?.institution_name ?? r?.key ?? '').trim() || 'Institution'
+      return {
+        key: filer,
+        institution_name: filer,
+        surname: filer,
+        activity: r?.activity != null ? String(r.activity) : null,
+        amountUsd: r?.amount_usd != null ? Number(r.amount_usd) : null,
+        ts: r?.ts != null ? String(r.ts) : null,
+      }
+    }),
+  }
+}
+
 function patchInvestigateFeedRowFromCluster(rows, ticker, cluster, buildCaseSheet) {
   if (!ticker || !cluster) return rows
   const tick = String(ticker).toUpperCase()
@@ -762,10 +790,10 @@ function insiderFeedRowMatchesPersonQuery(row, queryRaw) {
 }
 
 // ------------------------------------------------------------
-// BOSHA (Explore tab) — mock causal graph system
+// Research tab — mock causal graph system
 // ------------------------------------------------------------
-const BOSHA_TICKER_MARKET = 'ASML'
-const BOSHA_TICKER_CLINICAL = 'ATYR'
+const RESEARCH_TICKER_MARKET = 'ASML'
+const RESEARCH_TICKER_CLINICAL = 'ATYR'
 /** Programs feed + paper filter: show every filing for the company. */
 const CLINICAL_PROGRAM_ALL = '__ALL__'
 
@@ -802,7 +830,7 @@ const RESEARCH_FEED_BY_INTEL = {
   ],
 }
 
-/** Pad live Bosha feed with demo rows (feed-only) so timeline separators stay visible. */
+/** Pad live research feed with demo rows (feed-only) so timeline separators stay visible. */
 function mergeResearchFeedDemoRows(liveRows, intelMode) {
   const mode = intelMode === 'clinical' ? 'clinical' : 'market'
   const fallback = RESEARCH_FEED_BY_INTEL[mode] ?? RESEARCH_FEED_BY_INTEL.market
@@ -817,7 +845,7 @@ function researchTickersForIntelMode(intelMode) {
   )
 }
 
-const BOSHA_ALLOWED_EDGE_TYPES = new Set([
+const RESEARCH_ALLOWED_EDGE_TYPES = new Set([
   'catalyst',
   'timing_link',
   'insider_activity',
@@ -827,7 +855,7 @@ const BOSHA_ALLOWED_EDGE_TYPES = new Set([
   'affects',
 ])
 
-function boshaMockPriceSeries(seed, n = 110) {
+function mockPriceSeries(seed, n = 110) {
   let v = 80 + (seed % 23)
   const out = []
   for (let i = 0; i < n; i++) {
@@ -839,7 +867,7 @@ function boshaMockPriceSeries(seed, n = 110) {
   return out
 }
 
-function _boshaExplainerForTicker(ticker) {
+function _explainerForTicker(ticker) {
   const t = String(ticker ?? '').toUpperCase()
   if (t === 'ATYR')
     return [
@@ -866,14 +894,14 @@ function _boshaExplainerForTicker(ticker) {
   ]
 }
 
-const BOSHA_DATASETS = {
+const MOCK_RESEARCH_DATASETS = {
   ASML: {
     entities: [{ id: 'c1', type: 'company', name: 'ASML Holding N.V.' }],
     events: [
       { id: 'e1', type: 'capacity_signal', title: 'EUV throughput remains the gating function', date: '2026-05-02', entities: ['c1'], sentiment: 'bullish', impact: 'high' },
     ],
     edges: [],
-    price: boshaMockPriceSeries(712, 140),
+    price: mockPriceSeries(712, 140),
   },
   XBI: {
     constituents: ['SRPT', 'IONS', 'RARE', 'BMRN', 'EXAS', 'CRSP'],
@@ -954,7 +982,7 @@ const BOSHA_DATASETS = {
       { from: 'e4', to: 'e1', type: 'timing_link' },
       { from: 'e5', to: 'c1', type: 'indirect_risk' },
     ],
-    price: boshaMockPriceSeries(119),
+    price: mockPriceSeries(119),
   },
   ATYR: {
     entities: [
@@ -1008,7 +1036,7 @@ const BOSHA_DATASETS = {
       { from: 'e3', to: 'd1', type: 'catalyst' },
       { from: 'e4', to: 'c1', type: 'insider_activity' },
     ],
-    price: boshaMockPriceSeries(401, 130).map((x) => Math.round((x / 100) * 100) / 100),
+    price: mockPriceSeries(401, 130).map((x) => Math.round((x / 100) * 100) / 100),
   },
   MRNA: {
     entities: [
@@ -1066,7 +1094,7 @@ const BOSHA_DATASETS = {
       { from: 'e4', to: 'c1', type: 'political_exposure' },
       { from: 'e4', to: 'p1', type: 'initiated_by' },
     ],
-    price: boshaMockPriceSeries(331),
+    price: mockPriceSeries(331),
   },
   SRPT: {
     entities: [
@@ -1112,13 +1140,13 @@ const BOSHA_DATASETS = {
       { from: 'e3', to: 'c1', type: 'insider_activity' },
       { from: 'e3', to: 'i1', type: 'initiated_by' },
     ],
-    price: boshaMockPriceSeries(907),
+    price: mockPriceSeries(907),
   },
 }
 
-function boshaDatasetForTicker(ticker) {
+function mockDatasetForTicker(ticker) {
   const t = String(ticker ?? '').toUpperCase()
-  return BOSHA_DATASETS[t] ?? BOSHA_DATASETS.ATYR
+  return MOCK_RESEARCH_DATASETS[t] ?? MOCK_RESEARCH_DATASETS.ATYR
 }
 
 const POLITICIAN_CHAMBER_LABELS = {
@@ -1322,7 +1350,7 @@ function contextMockForTicker(ticker, priceSeries) {
     d.setHours(0, 0, 0, 0)
     return d
   }
-  const offlinePrice = boshaDatasetForTicker(t).price
+  const offlinePrice = mockDatasetForTicker(t).price
   const price =
     Array.isArray(priceSeries) && priceSeries.length
       ? Number(priceSeries[priceSeries.length - 1])
@@ -1396,7 +1424,7 @@ const CONTEXT_OUTCOME_LINE_COLORS = [
 ]
 
 function mockOutcomeReturnsForKey(key, baseReturns, ticker) {
-  const seed = boshaSeedFromTicker(`${ticker}-${key}`)
+  const seed = seedFromTicker(`${ticker}-${key}`)
   return baseReturns.map((b, i) => {
     const jitter = (seededJitter(seed + i * 13, 7) - 3.5) * 0.0008
     return b + jitter
@@ -2031,27 +2059,27 @@ function leadProgramVariantForGroup(pg, leadDrug) {
   return exact ?? variants[0] ?? null
 }
 
-function boshaImpactScore(impact) {
+function impactScore(impact) {
   const x = String(impact ?? '').toLowerCase()
   if (x === 'high') return 3
   if (x === 'medium') return 2
   return 1
 }
 
-function boshaSentimentColor(sentiment) {
+function sentimentColor(sentiment) {
   const s = String(sentiment ?? '').toLowerCase()
   if (s === 'bullish') return 'rgba(80, 255, 190, 0.92)'
   if (s === 'bearish') return 'rgba(255, 88, 108, 0.95)'
   return 'rgba(216, 255, 235, 0.35)'
 }
 
-function boshaParseDay(yyyyMmDd) {
+function parseDay(yyyyMmDd) {
   const d = new Date(`${yyyyMmDd}T00:00:00Z`)
   return Number.isNaN(d.getTime()) ? null : d
 }
 
-function _boshaFormatTimelineDay(yyyyMmDd) {
-  const d = boshaParseDay(yyyyMmDd)
+function _formatTimelineDay(yyyyMmDd) {
+  const d = parseDay(yyyyMmDd)
   if (!d) return '—'
   const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
   const dd = String(d.getUTCDate()).padStart(2, '0')
@@ -3335,7 +3363,7 @@ function MainContextPanel({
           lead={!showFlows && leadDrug ? { label: leadDrug.name } : null}
         >
           <div className="contextCompanyChart" aria-label="Price chart">
-            <BoshaMiniPrice
+            <MiniPriceChart
               series={priceSeries}
               label={t || 'PRICE'}
               showMeta={false}
@@ -3643,7 +3671,7 @@ function ResearchFeedProgramsList({ programGroups, selectedProgramKey, onSelectP
   )
 }
 
-function BoshaTickerPanel({
+function ResearchTickerPanel({
   intelMode = 'market',
   selectedTicker,
   onSelectTicker,
@@ -3695,7 +3723,7 @@ function BoshaTickerPanel({
         'feed',
         'feedCompact',
         'feed--left',
-        'boshaTicker',
+        'researchTicker',
         'researchFeedPanel',
         clinicalSplit ? 'researchFeedPanel--clinicalSplit' : '',
         panelClassName,
@@ -3751,7 +3779,7 @@ function BoshaTickerPanel({
   )
 }
 
-function BoshaGraphFigure({ entities, events, edges }) {
+function CausalGraphFigure({ entities, events, edges }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 640, h: 320 })
 
@@ -3759,7 +3787,7 @@ function BoshaGraphFigure({ entities, events, edges }) {
 
   const visibleEdges = useMemo(() => {
     const cleaned = (edges ?? [])
-      .filter((e) => BOSHA_ALLOWED_EDGE_TYPES.has(String(e?.type ?? '')))
+      .filter((e) => RESEARCH_ALLOWED_EDGE_TYPES.has(String(e?.type ?? '')))
       .map((e) => ({ from: String(e.from), to: String(e.to), type: String(e.type) }))
     return cleaned.filter((e) => e.type !== 'timing_link')
   }, [edges])
@@ -3783,7 +3811,7 @@ function BoshaGraphFigure({ entities, events, edges }) {
     const w = size.w
     const h = size.h
     const ds = (events ?? [])
-      .map((e) => ({ id: e.id, d: boshaParseDay(e.date) }))
+      .map((e) => ({ id: e.id, d: parseDay(e.date) }))
       .filter((x) => x.d)
       .sort((a, b) => a.d - b.d)
     const min = ds[0]?.d?.getTime?.() ?? 0
@@ -3793,7 +3821,7 @@ function BoshaGraphFigure({ entities, events, edges }) {
     const x1 = w * 0.94
 
     function xForEvent(eid) {
-      const d = boshaParseDay(eventsById?.[eid]?.date)
+      const d = parseDay(eventsById?.[eid]?.date)
       if (!d) return w * 0.5
       const t = (d.getTime() - min) / span
       return x0 + (x1 - x0) * clamp(t, 0, 1)
@@ -3821,14 +3849,14 @@ function BoshaGraphFigure({ entities, events, edges }) {
   }, [entities, events, eventsById, size.h, size.w])
 
   return (
-    <div className="boshaGraphFigure" aria-label="Causal graph figure">
+    <div className="researchGraphFigure" aria-label="Causal graph figure">
       <div
         ref={wrapRef}
-        className="boshaGraphFigureWrap"
+        className="researchGraphFigureWrap"
         role="img"
         aria-label="Causal graph"
       >
-        <svg className="boshaGraphSvg" width="100%" height="100%">
+        <svg className="researchGraphSvg" width="100%" height="100%">
           {visibleEdges.map((e) => {
             const a = layout.get(e.from)
             const b = layout.get(e.to)
@@ -3841,7 +3869,7 @@ function BoshaGraphFigure({ entities, events, edges }) {
                   y1={a.y}
                   x2={b.x}
                   y2={b.y}
-                  className="boshaEdge"
+                  className="researchEdge"
                   opacity={0.22}
                 />
               </g>
@@ -3850,21 +3878,21 @@ function BoshaGraphFigure({ entities, events, edges }) {
 
           {Array.from(layout.values()).map((n) => {
             const isEv = n.kind === 'event'
-            const fill = isEv ? boshaSentimentColor(n.sentiment) : undefined
-            const r = isEv ? 9 + 3 * boshaImpactScore(n.impact) : 9
+            const fill = isEv ? sentimentColor(n.sentiment) : undefined
+            const r = isEv ? 9 + 3 * impactScore(n.impact) : 9
             return isEv ? (
               <g key={n.id} opacity={1}>
                 <rect x={n.x - r} y={n.y - r} width={r * 2} height={r * 2} rx="2" fill={fill} stroke="rgba(255, 255, 255, 0.18)" strokeWidth="1" />
               </g>
             ) : (
-              <g key={n.id} className="boshaGraphEntity" opacity={1}>
+              <g key={n.id} className="researchGraphEntity" opacity={1}>
                 <circle cx={n.x} cy={n.y} r={r} />
               </g>
             )
           })}
         </svg>
       </div>
-      <div className="boshaFigureCaption mono dim">
+      <div className="researchFigureCaption mono dim">
         Evidence graph: squares are events (impact-sized), circles are entities.
       </div>
     </div>
@@ -3933,7 +3961,7 @@ function markerWithinPriceRange(marker, range) {
   return d.getTime() >= start.getTime()
 }
 
-function BoshaMiniPrice({
+function MiniPriceChart({
   series,
   label,
   showMeta = true,
@@ -4059,16 +4087,16 @@ function BoshaMiniPrice({
 
   return (
     <div
-      className={['boshaMiniPrice', showMeta ? '' : 'boshaMiniPrice--chartOnly'].filter(Boolean).join(' ')}
+      className={['researchMiniPrice', showMeta ? '' : 'researchMiniPrice--chartOnly'].filter(Boolean).join(' ')}
       aria-label="Price chart"
     >
       {showRangeSelector ? (
-        <div className="boshaPriceRange" role="group" aria-label="Chart range">
+        <div className="researchPriceRange" role="group" aria-label="Chart range">
           {PRICE_RANGE_OPTS.map((r) => (
             <button
               key={r}
               type="button"
-              className={['boshaPriceRangeBtn', priceRange === r ? 'isActive' : ''].filter(Boolean).join(' ')}
+              className={['researchPriceRangeBtn', priceRange === r ? 'isActive' : ''].filter(Boolean).join(' ')}
               onClick={() => setPriceRange(r)}
               aria-pressed={priceRange === r}
             >
@@ -4078,15 +4106,15 @@ function BoshaMiniPrice({
         </div>
       ) : null}
       {showMeta ? (
-        <div className="boshaMiniPriceMeta">
+        <div className="researchMiniPriceMeta">
           <div className="mono dim">{label ?? 'PRICE'}</div>
           <div className="mono">{last != null ? `$${Number(last).toFixed(2)}` : '—'}</div>
-          <div className={['mono', 'boshaMiniDelta', up ? 'isUp' : 'isDown'].filter(Boolean).join(' ')}>
+          <div className={['mono', 'researchMiniDelta', up ? 'isUp' : 'isDown'].filter(Boolean).join(' ')}>
             {ch != null && chPct != null ? `${up ? '+' : ''}${ch.toFixed(2)} (${up ? '+' : ''}${chPct.toFixed(2)}%)` : '—'}
           </div>
         </div>
       ) : null}
-      <div ref={wrapRef} className="boshaMiniPriceWrap" role="img" aria-label="Mini price sparkline">
+      <div ref={wrapRef} className="researchMiniPriceWrap" role="img" aria-label="Mini price sparkline">
         {!vals.length ? (
           <div className="graphEmpty mono dim" role="status">
             No price data.
@@ -4155,7 +4183,7 @@ function BoshaMiniPrice({
   )
 }
 
-function _boshaSignalForEvent(ev) {
+function _signalForEvent(ev) {
   const t = String(ev?.type ?? '').toUpperCase()
   const s = String(ev?.sentiment ?? '').toLowerCase()
   const imp = String(ev?.impact ?? '').toLowerCase()
@@ -4170,7 +4198,7 @@ function _boshaSignalForEvent(ev) {
   return 'Event contributes evidence; weight depends on proximity to catalysts.'
 }
 
-function _boshaWhatWhyForEvent(ev) {
+function _whatWhyForEvent(ev) {
   const t = String(ev?.type ?? '').toLowerCase()
   const title = String(ev?.title ?? '')
   if (t === 'fda_meeting')
@@ -4197,7 +4225,7 @@ function _boshaWhatWhyForEvent(ev) {
   return { what: title, why: 'It changes the information set and can alter the implied probability of the next catalyst outcome.' }
 }
 
-function _boshaStructuralInterpretation(events) {
+function _structuralInterpretation(events) {
   const es = Array.isArray(events) ? events : []
   const hi = es.filter((e) => String(e?.impact ?? '').toLowerCase() === 'high').length
   const bull = es.filter((e) => String(e?.sentiment ?? '').toLowerCase() === 'bullish').length
@@ -4207,20 +4235,20 @@ function _boshaStructuralInterpretation(events) {
   return 'Structure looks like mixed evidence with moderate timing risk; prioritize the next dated catalyst.'
 }
 
-function boshaSeedFromTicker(ticker) {
+function seedFromTicker(ticker) {
   const t = String(ticker ?? '').toUpperCase()
   let s = 7
   for (let i = 0; i < t.length; i++) s = (s * 31 + t.charCodeAt(i)) % 10_000
   return s
 }
 
-function boshaIsEtf(ticker) {
+function isEtfTicker(ticker) {
   const t = String(ticker ?? '').toUpperCase()
   return ['XBI', 'IBB', 'ARKG', 'LABU'].includes(t)
 }
 
-function boshaMockSignalBits(ticker) {
-  const seed = boshaSeedFromTicker(ticker)
+function mockSignalBits(ticker) {
+  const seed = seedFromTicker(ticker)
   const a = Math.floor(seededJitter(seed + 11, 9))
   const b = Math.floor(seededJitter(seed + 29, 9))
   const c = Math.floor(seededJitter(seed + 47, 9))
@@ -4260,14 +4288,14 @@ function boshaMockSignalBits(ticker) {
   return { funding, hiring, partnership }
 }
 
-function boshaDateStamp() {
+function todayDateStamp() {
   const d = new Date()
   return `${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
 }
 
 function formatPaperDateLabel(raw) {
   const s = String(raw ?? '').trim()
-  if (!s) return boshaDateStamp()
+  if (!s) return todayDateStamp()
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
     const d = new Date(`${s}T12:00:00`)
     if (!Number.isNaN(d.getTime())) {
@@ -4278,7 +4306,7 @@ function formatPaperDateLabel(raw) {
 }
 
 /** Paper hero subtitle: "Issuer · TICKER · May 28, 2026" */
-function boshaPaperSubtitle(companyName, ticker, paperDate) {
+function paperSubtitle(companyName, ticker, paperDate) {
   const name = String(companyName ?? '').trim()
   const t = String(ticker ?? '').toUpperCase()
   const date = formatPaperDateLabel(paperDate)
@@ -4287,7 +4315,7 @@ function boshaPaperSubtitle(companyName, ticker, paperDate) {
   return `${parts.join(' · ')} · ${date}`
 }
 
-function BoshaCausalDiagram({ ticker, diagramSpec }) {
+function CausalDiagram({ ticker, diagramSpec }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 720, h: 150 })
   const tUpper = String(ticker ?? '').toUpperCase()
@@ -4435,10 +4463,10 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
       ]
     }
 
-    const a = boshaIsEtf(t)
+    const a = isEtfTicker(t)
       ? ['Signal leak / schedule', 'Vol bid rises', 'Constituents gap']
       : ['Process signal', 'Positioning shifts', 'Dated catalyst']
-    const b = boshaIsEtf(t)
+    const b = isEtfTicker(t)
       ? ['Flow chase', 'ETF reprices', 'Distribution resets']
       : ['Headline confirms', 'Flows re-rate', 'Repricing']
 
@@ -4593,28 +4621,28 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
           : 'Causal chain diagram'
 
   const arrowMarkerId = useMemo(() => {
-    const s = `bosha-arrow-${String(ticker ?? 'tk')}-${String(diagramSpec?.layout ?? 'x')}`
+    const s = `research-arrow-${String(ticker ?? 'tk')}-${String(diagramSpec?.layout ?? 'x')}`
     let h0 = 2166136261
     for (let i = 0; i < s.length; i++) h0 = Math.imul(h0 ^ s.charCodeAt(i), 16777619)
-    return `boshaArrow-${(h0 >>> 0).toString(16)}`
+    return `researchArrow-${(h0 >>> 0).toString(16)}`
   }, [ticker, diagramSpec?.layout])
 
   const nodeWashIds = useMemo(() => {
-    const s = `bosha-node-wash-${String(ticker ?? 'tk')}-${String(diagramSpec?.layout ?? 'x')}`
+    const s = `research-node-wash-${String(ticker ?? 'tk')}-${String(diagramSpec?.layout ?? 'x')}`
     let h0 = 2166136261
     for (let i = 0; i < s.length; i++) h0 = Math.imul(h0 ^ s.charCodeAt(i), 16777619)
     const hex = (h0 >>> 0).toString(16)
-    return { a: `boshaNodeWashA-${hex}`, b: `boshaNodeWashB-${hex}` }
+    return { a: `researchNodeWashA-${hex}`, b: `researchNodeWashB-${hex}` }
   }, [ticker, diagramSpec?.layout])
 
   return (
     <div
       ref={wrapRef}
-      className={['boshaCausalWrap', isForkMergeDiagram ? 'boshaCausalWrap--supply' : ''].filter(Boolean).join(' ')}
+      className={['researchCausalWrap', isForkMergeDiagram ? 'researchCausalWrap--supply' : ''].filter(Boolean).join(' ')}
       aria-label={forkAria}
       role="img"
     >
-      <svg className="boshaCausalSvg" viewBox={`0 0 ${w} ${vbH}`} preserveAspectRatio="xMidYMid meet">
+      <svg className="researchCausalSvg" viewBox={`0 0 ${w} ${vbH}`} preserveAspectRatio="xMidYMid meet">
         <defs>
           <radialGradient id={nodeWashIds.a} gradientUnits="objectBoundingBox" cx="0" cy="0" r="1.75">
             <stop offset="0%" stopColor={DIAGRAM_NODE_WASH_A} />
@@ -4667,7 +4695,7 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
               <rect x={nx} y={ny} width={nw} height={nh} rx="6" fill={`url(#${nodeWashIds.a})`} />
               <rect x={nx} y={ny} width={nw} height={nh} rx="6" fill={`url(#${nodeWashIds.b})`} />
               <rect
-                className="boshaCausalNodeRim"
+                className="researchCausalNodeRim"
                 x={nx - 0.5}
                 y={ny - 0.5}
                 width={nw + 1}
@@ -4679,7 +4707,7 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
                 opacity="0.42"
               />
               <rect
-                className={['boshaCausalNode', edgeNode ? 'boshaCausalNode--edge' : ''].filter(Boolean).join(' ')}
+                className={['researchCausalNode', edgeNode ? 'researchCausalNode--edge' : ''].filter(Boolean).join(' ')}
                 x={nx}
                 y={ny}
                 width={nw}
@@ -4689,7 +4717,7 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
                 strokeWidth="1.25"
               />
               <text
-                className="boshaCausalText"
+                className="researchCausalText"
                 x={n.x + n.w / 2}
                 y={n.y + n.h / 2 + 4}
                 textAnchor="middle"
@@ -4704,13 +4732,13 @@ function BoshaCausalDiagram({ ticker, diagramSpec }) {
   )
 }
 
-function boshaFmtDate(d) {
-  const x = boshaParseDay(d)
+function fmtDay(d) {
+  const x = parseDay(d)
   if (!x) return '—'
   return `${MONTHS_SHORT[x.getMonth()]} ${String(x.getDate()).padStart(2, '0')}`
 }
 
-function boshaVolPct(series, n) {
+function volPct(series, n) {
   const xs = Array.isArray(series) ? series : []
   if (xs.length < Math.max(4, n + 2)) return null
   const slice = xs.slice(-n)
@@ -4730,16 +4758,16 @@ function boshaVolPct(series, n) {
   return ann * 100
 }
 
-function boshaThesisMemo({ ticker, companyName, events, priceSeries, constituents = [] }) {
+function buildThesisMemo({ ticker, companyName, events, priceSeries, constituents = [] }) {
   const t = String(ticker ?? '').toUpperCase()
   const name = String(companyName ?? '').trim() || t
   const es = (events ?? []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)))
   const top = es[0] ?? null
   const hi = es.find((e) => String(e?.impact ?? '').toLowerCase() === 'high') ?? top
-  const bits = boshaMockSignalBits(t)
+  const bits = mockSignalBits(t)
 
-  const rv14 = boshaVolPct(priceSeries, 14)
-  const rv60 = boshaVolPct(priceSeries, 60)
+  const rv14 = volPct(priceSeries, 14)
+  const rv60 = volPct(priceSeries, 60)
   const rvPhrase =
     rv14 != null && rv60 != null
       ? `Realized vol is ~${rv14.toFixed(0)}% annualized vs ~${rv60.toFixed(0)}% on the last ~3 months, which is the market paying up for timing before it pays up for price.`
@@ -4748,31 +4776,31 @@ function boshaThesisMemo({ ticker, companyName, events, priceSeries, constituent
   const cNames = (constituents ?? []).filter(Boolean).slice(0, 4)
   const cPhrase = cNames.length ? `${cNames.join(', ')}` : 'mid-cap constituents'
 
-  const chartX = boshaIsEtf(t) ? 'lagging despite a tightening catalyst window' : 'muted reaction to accumulating pre-catalyst signals'
+  const chartX = isEtfTicker(t) ? 'lagging despite a tightening catalyst window' : 'muted reaction to accumulating pre-catalyst signals'
 
-  const title = boshaIsEtf(t)
+  const title = isEtfTicker(t)
     ? `${t}: Biotech catalyst risk is compressing, but price is still treating it as noise`
     : `${t}: The market is underpricing a near-term catalyst window implied by behavior and language shifts`
 
-  const openingA = boshaIsEtf(t)
+  const openingA = isEtfTicker(t)
     ? `${name} is seeing a clean regime shift: the “date risk” in the underlying ecosystem is compressing into a narrower window, while positioning signals are showing up ahead of the headline. The edge is not “biotech will go up”; the edge is that timing is tightening while the tape still prices it as background noise.`
     : `${name} is entering a new positioning regime where the timing signal is getting louder than the narrative. The market is still pricing it as “normal drift,” but the evidence trail looks like pre-catalyst behavior: a dated regulatory window, reinforcement from smart-activity proxies, and language that suggests the next update will change probability, not just timing.`
 
-  const openingB = boshaIsEtf(t)
+  const openingB = isEtfTicker(t)
     ? `This matters because dispersion is what drives ETF repricing: the highest-beta names move first, the basket follows, and the lag creates a window where vol is bid but spot is not. If you’re early, you get paid twice—first when the market admits the window exists, then when confirmation forces flows.`
     : `This matters because once the next “known date” is clear, liquidity shifts from patient holders to fast money and the repricing happens in days, not quarters. If you wait for the formal update, you typically pay for the same probability shift that is already being hinted at in behavior and process signals.`
 
   const priceRef = `Price is still behaving like ${chartX}; that mismatch is the setup, not the conclusion.`
 
   const core = (() => {
-    const dHi = hi?.date ? boshaFmtDate(hi.date) : '—'
-    const dTop = top?.date ? boshaFmtDate(top.date) : '—'
+    const dHi = hi?.date ? fmtDay(hi.date) : '—'
+    const dTop = top?.date ? fmtDay(top.date) : '—'
     const evA = hi?.title ? `The trigger is already dated: ${dHi} — “${hi.title},”` : 'The trigger is already dated,'
     const evB = top?.title && top?.id !== hi?.id ? ` reinforced by ${dTop} — “${top.title}.”` : '.'
-    const mech = boshaIsEtf(t)
+    const mech = isEtfTicker(t)
       ? ` What makes this actionable now is that the “soft” signals are not soft anymore: ${rvPhrase} On the fundamental side, you can point to concrete behavior—${cPhrase} are the kind of names that lead early when windows tighten, and we already have process-like signals showing up as ${bits.hiring} plus ${bits.funding} rather than post-hoc narratives.`
       : ` What makes this actionable now is that the signals have become concrete: ${rvPhrase} When you see ${bits.hiring} alongside ${bits.partnership} and a ${bits.funding}, it implies internal confidence that the next milestone unlocks a commercial step-change, not just another data point.`
-    const chain = boshaIsEtf(t)
+    const chain = isEtfTicker(t)
       ? ` The second-order edge is dispersion: leaders gap first, laggards follow, and the ETF reprices last. If you want the tradeable asymmetry, you’re not “long biotech,” you’re long the window: signal leakage tightens timing → vol bid rises → leaders gap → flows chase → ETF reprices.`
       : ` The causal chain is: pre-catalyst signals imply improving probability → positioning shifts ahead of the dated window → confirmation changes guidance language → counterparties/partners commit → revenue expectations expand and the multiple follows.`
     return `${evA}${evB}${mech}${chain}`
@@ -4780,11 +4808,11 @@ function boshaThesisMemo({ ticker, companyName, events, priceSeries, constituent
 
   const causalChain = `Process signal → positioning shifts → dated catalyst → confirmation headline → flows re-rate → repricing`
 
-  const final = boshaIsEtf(t)
+  const final = isEtfTicker(t)
     ? `Best expression is to be long the window, not the story: long ${t} vol into the next 4–8 weeks while selectively leaning into leaders (${cPhrase}) versus the basket if dispersion picks up. Confirmation is concrete: scheduling language tightens again, realized vol stays elevated while spot lags, and the first gaps appear in the high-beta names before the ETF follows. Invalidation is also concrete: the window pushes out, vol mean-reverts, and moves revert to pure beta with no micro-driven gaps.`
     : `Next, watch for concrete confirmation that the market’s probability is too low: earnings language that moves from “monitoring” to “preparing,” a partnership/contract that pulls timelines forward, or disclosure that clarifies endpoints and dates. The thesis is confirmed when guidance language or counterparties shift in a way that forces revenue expectations higher; it fails if the next dated update is delayed or softened and behavior signals unwind without replacement.`
 
-  const created = boshaDateStamp()
+  const created = todayDateStamp()
   return { created, title, openingA, openingB, priceRef, chartX, core, causalChain, final }
 }
 
@@ -4967,9 +4995,9 @@ function ResearchPaperDocOpenIcon() {
   )
 }
 
-function BoshaPaperScreenshotIcon() {
+function ResearchPaperScreenshotIcon() {
   return (
-    <svg className="boshaPaperScreenshotIconSvg" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="researchPaperScreenshotIconSvg" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
       <rect x="4" y="4" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.75" />
       <rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.75" />
     </svg>
@@ -5371,7 +5399,7 @@ function ResearchPaperDocAnalysis({ text }) {
   ))
 }
 
-function boshaAsmlPresentation() {
+function mockAsmlPresentation() {
   const intro =
     'Extreme ultraviolet lithography is the binding step for adding leading-edge wafer supply, and ASML is the systems supplier the industry depends on for that step. Output at the most advanced nodes therefore scales with EUV delivery and installation, not with the near-term pace of demand headlines. Market attention and flows still concentrate on accelerators and hyperscale operators because those markets are liquid, well covered, and map cleanly to a simple growth narrative, while lithography capacity is technical and slow to adjust. The result is often a lag between how downstream AI semiconductors reprice and how the upstream tool chain is valued, even when both sit in the same end-use story. The view here is that this lag can persist until allocation pressure in EUV is reflected more fully in ASML’s relative performance.'
   const priceCaption =
@@ -5384,8 +5412,8 @@ function boshaAsmlPresentation() {
     'The obvious side is buy ASML when GPU-heavy semis have ripped and ASML still looks flat against them. You are paying for the lithography choke point while the crowd pays for the louder downstream story, and that mismatch is what this note is about. When ASML later jumps ahead while those names stall, take profits instead of chasing more. Sell only if people start acting like EUV tools are easy to get again or fabs seriously pull back on cutting-edge builds, because then the scarcity story falls apart.'
   return {
     title: 'Leading-edge capacity remains EUV-gated; equity attention still clusters on downstream AI hardware',
-    subtitle: boshaPaperSubtitle('ASML Holding N.V.', 'ASML'),
-    paperDate: boshaDateStamp(),
+    subtitle: paperSubtitle('ASML Holding N.V.', 'ASML'),
+    paperDate: todayDateStamp(),
     blocks: [
       { type: 'heading', text: 'Company focus' },
       { type: 'paragraph', text: intro },
@@ -5409,7 +5437,7 @@ function boshaAsmlPresentation() {
   }
 }
 
-function boshaAtyrPresentation() {
+function mockAtyrPresentation() {
   const intro =
     'This note pulls only from documents. ClinicalTrials.gov, enrollment updates, what the company says about clinical risk, blinded safety tables. You cannot defend an efficacy claim until topline. EFZO-FIT (NCT05415137) is sarcoidosis with three arms at 5 mg per kg, 3 mg per kg, and placebo. Enrollment hit 268 against a 264 target. Placebo is real and the N matters. The SAP emphasizes absolute change from baseline in mean daily oral steroid dose at week 48. That is what regulators stare at first. Everything else is narrative until you see milligrams per day with spread. EFZO-CONNECT (NCT05892614) is a separate SSc-ILD proof-of-concept with about 25 patients and placebo. It can reveal a monster effect if one exists. It cannot statistically rescue Phase 3 if the pivotal mean-OCS line fails.'
   const priceCaption =
@@ -5423,8 +5451,8 @@ function boshaAtyrPresentation() {
   return {
     title:
       'EFZO-FIT finished enrollment while still blinded. The protocol and SAP lean hard on a mean-OCS primary that is messy statistically, so the stock is basically a catalyst flip until real tables drop.',
-    subtitle: boshaPaperSubtitle('aTyr Pharma, Inc.', 'ATYR'),
-    paperDate: boshaDateStamp(),
+    subtitle: paperSubtitle('aTyr Pharma, Inc.', 'ATYR'),
+    paperDate: todayDateStamp(),
     blocks: [
       { type: 'heading', text: 'Company focus' },
       { type: 'paragraph', text: intro },
@@ -5447,13 +5475,13 @@ function boshaAtyrPresentation() {
   }
 }
 
-function boshaGenericOfflinePresentation(memo, titleText, ticker) {
+function mockOfflinePresentation(memo, titleText, ticker) {
   const t = String(ticker ?? '').toUpperCase()
   const priceCaption = `${memo.priceRef} Chart regime: ${memo.chartX}.`
   const diagramCaption = `Causal sketch: ${memo.causalChain}`
   return {
     title: memo.title,
-    subtitle: boshaPaperSubtitle(String(titleText ?? '').trim() || t, t, memo.created),
+    subtitle: paperSubtitle(String(titleText ?? '').trim() || t, t, memo.created),
     paperDate: memo.created,
     blocks: [
       { type: 'heading', text: 'Company focus' },
@@ -5595,14 +5623,14 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
   return items.sort((a, b) => paperTimelineAtMs(b?.at) - paperTimelineAtMs(a?.at))
 }
 
-function resolveBoshaPresentation({ ticker, titleText, backendUp, livePresentation, memo, intelMode = 'market' }) {
+function resolveResearchPresentation({ ticker, titleText, backendUp, livePresentation, memo, intelMode = 'market' }) {
   const u = String(ticker ?? '').toUpperCase()
   const clinical = intelMode === 'clinical'
   if (backendUp && livePresentation?.title) return livePresentation
   if (backendUp) return null
-  if (clinical && u === 'ATYR') return boshaAtyrPresentation()
-  if (!clinical && u === 'ASML') return boshaAsmlPresentation()
-  return boshaGenericOfflinePresentation(memo, titleText, ticker)
+  if (clinical && u === 'ATYR') return mockAtyrPresentation()
+  if (!clinical && u === 'ASML') return mockAsmlPresentation()
+  return mockOfflinePresentation(memo, titleText, ticker)
 }
 
 function normalizeSecFilingFormKey(raw) {
@@ -5627,9 +5655,9 @@ function normalizeResearchPaperSourceKey(source) {
   const low = raw.toLowerCase()
 
   if (/clinicaltrials/i.test(raw)) return 'ClinicalTrials.gov'
-  if (low === 'bosha_press_rss' || /\bpress\s*release\b/i.test(raw)) return 'Press release'
+  if (low === 'research_press_rss' || /\bpress\s*release\b/i.test(raw)) return 'Press release'
   if (
-    low === 'bosha_transcript_rss' ||
+    low === 'research_transcript_rss' ||
     /\bearnings\s*(call\s*)?transcript\b/i.test(raw) ||
     /\bconference\s*call\s*transcript\b/i.test(raw)
   ) {
@@ -5646,7 +5674,7 @@ function normalizeResearchPaperSourceKey(source) {
     /\bgov(ernment)?\s*contract\b/i.test(raw) ||
     /\bfederal\s*award\b/i.test(raw) ||
     /\bsam\.gov\b/i.test(raw) ||
-    low === 'bosha_gov_contract'
+    low === 'research_gov_contract'
   ) {
     return 'Gov contract'
   }
@@ -5801,9 +5829,9 @@ function researchOfflinePresentationForTicker({ ticker, intelMode, memo }) {
   const u = String(ticker ?? '').toUpperCase()
   const clinical = intelMode === 'clinical'
   const titleText = researchFeedNameForTicker(u, intelMode)
-  if (clinical && u === 'ATYR') return boshaAtyrPresentation()
-  if (!clinical && u === 'ASML') return boshaAsmlPresentation()
-  return boshaGenericOfflinePresentation(memo, titleText, ticker)
+  if (clinical && u === 'ATYR') return mockAtyrPresentation()
+  if (!clinical && u === 'ASML') return mockAsmlPresentation()
+  return mockOfflinePresentation(memo, titleText, ticker)
 }
 
 function buildResearchPaperTimelineForTicker({
@@ -5815,12 +5843,12 @@ function buildResearchPaperTimelineForTicker({
   backendUp = false,
 }) {
   const t = String(ticker ?? '').toUpperCase()
-  const memo = boshaThesisMemo({
+  const memo = buildThesisMemo({
     ticker: t,
     companyName: researchFeedNameForTicker(t, intelMode),
-    events: boshaDatasetForTicker(t).events,
-    priceSeries: boshaDatasetForTicker(t).price,
-    constituents: boshaIsEtf(t) ? boshaDatasetForTicker(t)?.constituents ?? [] : [],
+    events: mockDatasetForTicker(t).events,
+    priceSeries: mockDatasetForTicker(t).price,
+    constituents: isEtfTicker(t) ? mockDatasetForTicker(t)?.constituents ?? [] : [],
   })
   const sel = String(selectedTicker ?? '').toUpperCase()
   const pres =
@@ -6113,7 +6141,7 @@ function ResearchPaperTxnCard({
   )
 }
 
-function BoshaPaperStructuredView({
+function ResearchPaperStructuredView({
   documents = [],
   insiders = [],
   politicians = [],
@@ -6198,7 +6226,7 @@ function BoshaPaperStructuredView({
   )
 }
 
-function BoshaPaperPanel({
+function ResearchPaperPanel({
   ticker,
   companyName,
   entities: _entities,
@@ -6345,9 +6373,9 @@ function BoshaPaperPanel({
     }
 
     setScreenshotBusy(true)
-    const paperRoot = body.closest('section.boshaPaper')
-    body.classList.add('boshaPaperBody--capturing')
-    paperRoot?.classList.add('boshaPaper--capturing')
+    const paperRoot = body.closest('section.researchPaper')
+    body.classList.add('researchPaperBody--capturing')
+    paperRoot?.classList.add('researchPaper--capturing')
 
     const orderedIds = paperCaptureIds.filter((id) => screenshotSelected.has(id))
     const includeChart = screenshotIncludeChart
@@ -6399,8 +6427,8 @@ function BoshaPaperPanel({
       } finally {
         mount.classList.remove('researchPaperCaptureMount--exporting')
         mount.replaceChildren()
-        body.classList.remove('boshaPaperBody--capturing')
-        paperRoot?.classList.remove('boshaPaper--capturing')
+        body.classList.remove('researchPaperBody--capturing')
+        paperRoot?.classList.remove('researchPaper--capturing')
         setScreenshotBusy(false)
         setScreenshotSelectMode(false)
         setScreenshotSelected(new Set())
@@ -6428,7 +6456,7 @@ function BoshaPaperPanel({
     <section
       className={[
         'panel',
-        'boshaPaper',
+        'researchPaper',
         'researchPaperPanel',
         screenshotSelectMode ? 'researchPaperPanel--screenshotSelect' : '',
         panelClassName,
@@ -6476,20 +6504,20 @@ function BoshaPaperPanel({
           ) : (
             <button
               type="button"
-              className="boshaPaperScreenshotIcon"
+              className="researchPaperScreenshotIcon"
               aria-label="Screenshot paper"
               title="Screenshot paper"
               onClick={startScreenshotSelect}
             >
-              <BoshaPaperScreenshotIcon />
+              <ResearchPaperScreenshotIcon />
             </button>
           )}
         </div>
       </header>
-      <div ref={paperBodyRef} className="boshaPaperBody scrollThin">
-        <div className="boshaPaperDoc">
+      <div ref={paperBodyRef} className="researchPaperBody scrollThin">
+        <div className="researchPaperDoc">
           {presentation?.title ? (
-            <BoshaPaperStructuredView
+            <ResearchPaperStructuredView
               ticker={ticker}
               documents={paperDocuments}
               insiders={showPaperInsiderPoliticianFlows ? insiders : []}
@@ -6501,9 +6529,9 @@ function BoshaPaperPanel({
               onScreenshotToggle={toggleScreenshotSelection}
             />
           ) : backendUp ? (
-            <div className="boshaThesisBody boshaThesisBody--live">
-              <p className="boshaThesisP boshaThesisP--live mono dim">
-                Bosha explore data is not available yet for this view (API error or empty response). Check that the
+            <div className="researchThesisBody researchThesisBody--live">
+              <p className="researchThesisP researchThesisP--live mono dim">
+                Research explore data is not available yet for this view (API error or empty response). Check that the
                 backend is running and the database has been ingested.
               </p>
             </div>
@@ -6522,7 +6550,7 @@ function BoshaPaperPanel({
               {captureChartLatestPrice != null ? `$${captureChartLatestPrice.toFixed(2)}` : '—'}
             </span>
           </div>
-          <BoshaMiniPrice
+          <MiniPriceChart
             series={priceSeries}
             label={t || 'PRICE'}
             showMeta={false}
@@ -6635,7 +6663,7 @@ function buildEvenlySpacedDates(count) {
   return out
 }
 
-/** Mock “opportunity board” sourced from BOSHA-style papers; size = opportunity score (0–100). */
+/** Mock “opportunity board” sourced from research-style papers; size = opportunity score (0–100). */
 const MAIN_OPPORTUNITY_MOCK = [
   { sector: 'Pharma', ticker: 'LLY', score: 92, note: 'Catalyst window tightening; flows lagging the setup.' },
   { sector: 'Pharma', ticker: 'VRTX', score: 74, note: 'Program readouts compressing; sentiment still stale.' },
@@ -7236,12 +7264,12 @@ function GraphPanel({
           <div className="panelTitle">{title}</div>
         </div>
         {showRangeSelector && metaMode === 'range' ? (
-          <div className="boshaPriceRange graphPriceRange" role="group" aria-label="Chart range">
+          <div className="researchPriceRange graphPriceRange" role="group" aria-label="Chart range">
             {PRICE_RANGE_OPTS.map((r) => (
               <button
                 key={r}
                 type="button"
-                className={['boshaPriceRangeBtn', priceRange === r ? 'isActive' : ''].filter(Boolean).join(' ')}
+                className={['researchPriceRangeBtn', priceRange === r ? 'isActive' : ''].filter(Boolean).join(' ')}
                 onClick={() => setPriceRange(r)}
                 aria-pressed={priceRange === r}
               >
@@ -8424,17 +8452,17 @@ function KensiglineTerminal() {
   const [institutionsInstitutionQuery, setInstitutionsInstitutionQuery] = useState('')
   const [institutionsCaseTradeIdx, setInstitutionsCaseTradeIdx] = useState(0)
   const [institutionsChartRange, setInstitutionsChartRange] = useState('1M')
-  const [boshaFeedLive, setBoshaFeedLive] = useState(null)
-  const [boshaExploreLive, setBoshaExploreLive] = useState(null)
-  const [boshaCompanyLive, setBoshaCompanyLive] = useState(null)
+  const [researchFeedLive, setResearchFeedLive] = useState(null)
+  const [researchExploreLive, setResearchExploreLive] = useState(null)
+  const [researchCompanyLive, setResearchCompanyLive] = useState(null)
   const [contextClinicalLive, setContextClinicalLive] = useState(null)
-  const [boshaBarsSeries, setBoshaBarsSeries] = useState(null)
+  const [researchBarsSeries, setResearchBarsSeries] = useState(null)
   const [contextOutcomesLive, setContextOutcomesLive] = useState(null)
 
-  const [boshaTicker, setBoshaTicker] = useState(BOSHA_TICKER_MARKET)
+  const [researchTicker, setResearchTicker] = useState(RESEARCH_TICKER_MARKET)
   const intelModePrevRef = useRef(intelMode)
-  const [boshaQuery, setBoshaQuery] = useState('')
-  const [boshaProgramQuery, setBoshaProgramQuery] = useState('')
+  const [researchQuery, setResearchQuery] = useState('')
+  const [researchProgramQuery, setResearchProgramQuery] = useState('')
   const [researchFeedFilterOpen, setResearchFeedFilterOpen] = useState(false)
   const [researchPaperSourceFilters, setResearchPaperSourceFilters] = useState(
     () => new Set(researchSourceFilterKeysForIntel('market')),
@@ -8450,15 +8478,17 @@ function KensiglineTerminal() {
   const [companyLive, setCompanyLive] = useState(null)
   const [politiciansFeedLive, setPoliticiansFeedLive] = useState(null)
   const [politiciansClusterLive, setPoliticiansClusterLive] = useState(null)
-  const boshaDataset = useMemo(() => boshaDatasetForTicker(boshaTicker), [boshaTicker])
-  const boshaFeedItems = useMemo(() => {
+  const [institutionsFeedLive, setInstitutionsFeedLive] = useState(null)
+  const [institutionsClusterLive, setInstitutionsClusterLive] = useState(null)
+  const researchDataset = useMemo(() => mockDatasetForTicker(researchTicker), [researchTicker])
+  const researchFeedItems = useMemo(() => {
     const mode = intelMode === 'clinical' ? 'clinical' : 'market'
     const fallback = RESEARCH_FEED_BY_INTEL[mode]
     const allowed = new Set(researchTickersForIntelMode(intelMode))
     if (!backendUp) return fallback
-    if (!Array.isArray(boshaFeedLive) || !boshaFeedLive.length) return fallback
+    if (!Array.isArray(researchFeedLive) || !researchFeedLive.length) return fallback
     const mapped = sortFeedRowsByAtDesc(
-      boshaFeedLive
+      researchFeedLive
         .map((x) => ({
           rowKey:
             x.kind === 'paper' && x.id ? String(x.id) : `sig-${String(x.ticker ?? '').toUpperCase()}`,
@@ -8470,40 +8500,40 @@ function KensiglineTerminal() {
     )
     if (!mapped.length) return fallback
     return mergeResearchFeedDemoRows(mapped, intelMode)
-  }, [backendUp, boshaFeedLive, intelMode])
+  }, [backendUp, researchFeedLive, intelMode])
 
-  const boshaCompanyName = useMemo(() => {
-    const t = String(boshaTicker ?? '').toUpperCase()
+  const researchCompanyName = useMemo(() => {
+    const t = String(researchTicker ?? '').toUpperCase()
     if (
-      boshaExploreLive &&
-      String(boshaExploreLive.ticker ?? '').toUpperCase() === t &&
-      String(boshaExploreLive.company_name ?? '').trim()
+      researchExploreLive &&
+      String(researchExploreLive.ticker ?? '').toUpperCase() === t &&
+      String(researchExploreLive.company_name ?? '').trim()
     ) {
-      return String(boshaExploreLive.company_name).trim()
+      return String(researchExploreLive.company_name).trim()
     }
-    const fromFeed = boshaFeedItems.find((x) => String(x.ticker ?? '').toUpperCase() === t)?.name
+    const fromFeed = researchFeedItems.find((x) => String(x.ticker ?? '').toUpperCase() === t)?.name
     if (fromFeed) return fromFeed
-    const companyEnt = boshaDataset.entities?.find((e) => String(e?.type ?? '').toLowerCase() === 'company')
+    const companyEnt = researchDataset.entities?.find((e) => String(e?.type ?? '').toLowerCase() === 'company')
     return companyEnt?.name ?? t
-  }, [boshaFeedItems, boshaDataset.entities, boshaTicker, boshaExploreLive])
+  }, [researchFeedItems, researchDataset.entities, researchTicker, researchExploreLive])
 
-  const boshaPriceSeries = useMemo(() => {
-    if (Array.isArray(boshaBarsSeries) && boshaBarsSeries.length) return boshaBarsSeries
+  const researchPriceSeries = useMemo(() => {
+    if (Array.isArray(researchBarsSeries) && researchBarsSeries.length) return researchBarsSeries
     if (backendUp) return []
-    return boshaDataset.price
-  }, [boshaBarsSeries, boshaDataset.price, backendUp])
+    return researchDataset.price
+  }, [researchBarsSeries, researchDataset.price, backendUp])
 
   const contextMock = useMemo(
-    () => contextMockForTicker(boshaTicker, boshaPriceSeries),
-    [boshaTicker, boshaPriceSeries],
+    () => contextMockForTicker(researchTicker, researchPriceSeries),
+    [researchTicker, researchPriceSeries],
   )
 
   const contextEarnings = useMemo(() => {
-    if (backendUp && boshaCompanyLive?.earnings_date) {
-      return contextEarningsFromDate(boshaCompanyLive.earnings_date) ?? contextMock.earnings
+    if (backendUp && researchCompanyLive?.earnings_date) {
+      return contextEarningsFromDate(researchCompanyLive.earnings_date) ?? contextMock.earnings
     }
     return contextMock.earnings
-  }, [backendUp, boshaCompanyLive, contextMock.earnings])
+  }, [backendUp, researchCompanyLive, contextMock.earnings])
 
   const contextClinicalMapped = useMemo(
     () => mapClinicalContextFromApi(contextClinicalLive),
@@ -8521,7 +8551,7 @@ function KensiglineTerminal() {
     if (backendUp && contextClinicalMapped?.lead?.name) {
       return contextClinicalMapped.lead
     }
-    const fromEntities = contextLeadDrugFromEntities(boshaDataset.entities)
+    const fromEntities = contextLeadDrugFromEntities(researchDataset.entities)
     if (fromEntities) {
       return {
         ...contextMock.leadDrug,
@@ -8529,12 +8559,12 @@ function KensiglineTerminal() {
       }
     }
     return contextMock.leadDrug ?? null
-  }, [backendUp, boshaDataset.entities, contextClinicalMapped, contextMock.leadDrug, intelMode])
+  }, [backendUp, researchDataset.entities, contextClinicalMapped, contextMock.leadDrug, intelMode])
 
   useEffect(() => {
     if (intelMode === 'clinical') setContextProgramKey(CLINICAL_PROGRAM_ALL)
     else setContextProgramKey(null)
-  }, [intelMode, boshaTicker])
+  }, [intelMode, researchTicker])
 
   useEffect(() => {
     setResearchPaperSourceFilters(new Set(researchSourceFilterKeysForIntel(intelMode)))
@@ -8553,72 +8583,102 @@ function KensiglineTerminal() {
     return buildContextCatalystItems(contextMock.programs, 6)
   }, [backendUp, contextClinicalMapped, contextMock.programs, intelMode])
 
-  const boshaPaperMemo = useMemo(
+  const researchPaperMemo = useMemo(
     () =>
-      boshaThesisMemo({
-        ticker: boshaTicker,
-        companyName: boshaCompanyName,
-        events: boshaDataset.events,
-        priceSeries: boshaPriceSeries,
-        constituents: boshaIsEtf(boshaTicker) ? boshaDatasetForTicker(boshaTicker)?.constituents ?? [] : [],
+      buildThesisMemo({
+        ticker: researchTicker,
+        companyName: researchCompanyName,
+        events: researchDataset.events,
+        priceSeries: researchPriceSeries,
+        constituents: isEtfTicker(researchTicker) ? mockDatasetForTicker(researchTicker)?.constituents ?? [] : [],
       }),
-    [boshaTicker, boshaCompanyName, boshaDataset.events, boshaPriceSeries],
+    [researchTicker, researchCompanyName, researchDataset.events, researchPriceSeries],
   )
 
-  const boshaPresentation = useMemo(
+  const researchPresentation = useMemo(
     () =>
-      resolveBoshaPresentation({
-        ticker: boshaTicker,
-        titleText: boshaCompanyName,
+      resolveResearchPresentation({
+        ticker: researchTicker,
+        titleText: researchCompanyName,
         backendUp,
-        livePresentation: boshaExploreLive?.presentation,
-        memo: boshaPaperMemo,
+        livePresentation: researchExploreLive?.presentation,
+        memo: researchPaperMemo,
         intelMode,
       }),
-    [boshaTicker, boshaCompanyName, backendUp, boshaExploreLive?.presentation, boshaPaperMemo, intelMode],
+    [researchTicker, researchCompanyName, backendUp, researchExploreLive?.presentation, researchPaperMemo, intelMode],
   )
 
   useEffect(() => {
     if (activeTab !== 'main') return
     if (intelModePrevRef.current === intelMode) return
     intelModePrevRef.current = intelMode
-    setBoshaTicker(intelMode === 'clinical' ? BOSHA_TICKER_CLINICAL : BOSHA_TICKER_MARKET)
-    setBoshaQuery('')
-    setBoshaProgramQuery('')
+    setResearchTicker(intelMode === 'clinical' ? RESEARCH_TICKER_CLINICAL : RESEARCH_TICKER_MARKET)
+    setResearchQuery('')
+    setResearchProgramQuery('')
   }, [intelMode, activeTab])
 
   useEffect(() => {
     if (activeTab === 'pharma') setActiveTab('main')
   }, [activeTab])
 
+  const contextFlowRows = useMemo(() => {
+    const parseFlowDate = (raw) => {
+      if (raw instanceof Date) return raw
+      const d = new Date(raw ?? 0)
+      return Number.isFinite(d.getTime()) ? d : new Date()
+    }
+    const live = backendUp ? researchExploreLive?.flows : null
+    if (live && typeof live === 'object') {
+      return {
+        insiders: (Array.isArray(live.insiders) ? live.insiders : []).map((row) => ({
+          ...row,
+          date: parseFlowDate(row?.date),
+        })),
+        politicians: (Array.isArray(live.politicians) ? live.politicians : []).map((row) => ({
+          ...row,
+          date: parseFlowDate(row?.date),
+        })),
+        filings13f: (Array.isArray(live.filings13f) ? live.filings13f : []).map((row) => ({
+          ...row,
+          date: parseFlowDate(row?.date),
+        })),
+      }
+    }
+    return {
+      insiders: contextMock.insiders,
+      politicians: contextMock.politicians,
+      filings13f: contextMock.filings13f,
+    }
+  }, [backendUp, researchExploreLive?.flows, contextMock])
+
   const insiderPriceMarkers = useMemo(
-    () => contextMock.insiders.map((x) => x.date),
-    [contextMock],
+    () => contextFlowRows.insiders.map((x) => x.date),
+    [contextFlowRows],
   )
   const politicianPriceMarkers = useMemo(
-    () => contextMock.politicians.map((x) => x.date),
-    [contextMock],
+    () => contextFlowRows.politicians.map((x) => x.date),
+    [contextFlowRows],
   )
 
-  const boshaFilteredFeed = useMemo(() => {
-    const s = String(boshaQuery ?? '').trim().toUpperCase()
-    if (!s) return boshaFeedItems
-    return boshaFeedItems.filter((it) => {
+  const researchFilteredFeed = useMemo(() => {
+    const s = String(researchQuery ?? '').trim().toUpperCase()
+    if (!s) return researchFeedItems
+    return researchFeedItems.filter((it) => {
       const t = String(it?.ticker ?? '').toUpperCase()
       const n = String(it?.name ?? '').toUpperCase()
       return t.includes(s) || n.includes(s)
     })
-  }, [boshaFeedItems, boshaQuery])
+  }, [researchFeedItems, researchQuery])
 
   const researchPaperSourceTypeDefs = useMemo(
     () => researchPaperSourceTypesForIntel(intelMode),
     [intelMode],
   )
 
-  const boshaFeedAfterSourceFilter = useMemo(() => {
+  const researchFeedAfterSourceFilter = useMemo(() => {
     const enabled = researchPaperSourceFilters
     if (!enabled?.size) return []
-    return boshaFilteredFeed
+    return researchFilteredFeed
       .map((row) => {
         const ticker = String(row?.ticker ?? '').toUpperCase()
         if (!ticker) return null
@@ -8626,9 +8686,9 @@ function KensiglineTerminal() {
           ticker,
           intelMode,
           programKey:
-            intelMode === 'clinical' && ticker === boshaTicker ? contextProgramKey : CLINICAL_PROGRAM_ALL,
-          livePresentation: boshaPresentation,
-          selectedTicker: boshaTicker,
+            intelMode === 'clinical' && ticker === researchTicker ? contextProgramKey : CLINICAL_PROGRAM_ALL,
+          livePresentation: researchPresentation,
+          selectedTicker: researchTicker,
           backendUp,
         })
         const visible = filterPaperTimelineBySources(timeline, enabled)
@@ -8637,12 +8697,12 @@ function KensiglineTerminal() {
       })
       .filter(Boolean)
   }, [
-    boshaFilteredFeed,
+    researchFilteredFeed,
     researchPaperSourceFilters,
     intelMode,
     contextProgramKey,
-    boshaPresentation,
-    boshaTicker,
+    researchPresentation,
+    researchTicker,
     backendUp,
   ])
 
@@ -8721,10 +8781,10 @@ function KensiglineTerminal() {
   useEffect(() => {
     // If the current selection falls out of the filter, snap to the first match.
     if (activeTab !== 'main') return
-    if (!boshaFeedAfterSourceFilter.length) return
-    const ok = boshaFeedAfterSourceFilter.some((x) => x.ticker === boshaTicker)
-    if (!ok) setBoshaTicker(boshaFeedAfterSourceFilter[0].ticker)
-  }, [activeTab, boshaFeedAfterSourceFilter, boshaTicker])
+    if (!researchFeedAfterSourceFilter.length) return
+    const ok = researchFeedAfterSourceFilter.some((x) => x.ticker === researchTicker)
+    if (!ok) setResearchTicker(researchFeedAfterSourceFilter[0].ticker)
+  }, [activeTab, researchFeedAfterSourceFilter, researchTicker])
 
   useEffect(() => {
     let alive = true
@@ -8773,18 +8833,18 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (backendUp) return
-    setBoshaFeedLive(null)
-    setBoshaExploreLive(null)
-    setBoshaBarsSeries(null)
+    setResearchFeedLive(null)
+    setResearchExploreLive(null)
+    setResearchBarsSeries(null)
   }, [backendUp])
 
   useEffect(() => {
     if (!backendUp || activeTab !== 'main') return
     let cancelled = false
     ;(async () => {
-      const r = await fetchJsonSafe('/api/bosha/feed?limit=80', { timeoutMs: 8000 })
+      const r = await fetchJsonSafe('/api/research/feed?limit=80', { timeoutMs: 8000 })
       if (cancelled || !r.ok || !r.data?.ok || !Array.isArray(r.data.items)) return
-      setBoshaFeedLive(r.data.items)
+      setResearchFeedLive(r.data.items)
     })()
     return () => {
       cancelled = true
@@ -8793,7 +8853,7 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp || activeTab !== 'main') return
-    const tick = String(boshaTicker ?? '')
+    const tick = String(researchTicker ?? '')
       .trim()
       .toUpperCase()
     if (!tick) return
@@ -8801,32 +8861,32 @@ function KensiglineTerminal() {
     ;(async () => {
       const enc = encodeURIComponent(tick)
       const [ex, br, co] = await Promise.all([
-        fetchJsonSafe(`/api/bosha/explore?ticker=${enc}`, { timeoutMs: 12_000 }),
+        fetchJsonSafe(`/api/research/explore?ticker=${enc}`, { timeoutMs: 12_000 }),
         fetchJsonSafe(`/api/bars?ticker=${enc}&days=400`, { timeoutMs: 12_000 }),
         fetchJsonSafe(`/api/company?ticker=${enc}`, { timeoutMs: 12_000 }),
       ])
       if (cancelled) return
       if (ex.ok && ex.data?.ok && String(ex.data.ticker ?? '').toUpperCase() === tick) {
-        setBoshaExploreLive(ex.data)
+        setResearchExploreLive(ex.data)
       } else if (!cancelled) {
-        setBoshaExploreLive(null)
+        setResearchExploreLive(null)
       }
       if (!cancelled) {
-        if (co.ok && co.data?.earnings_date) setBoshaCompanyLive(co.data)
-        else setBoshaCompanyLive(null)
+        if (co.ok && co.data?.earnings_date) setResearchCompanyLive(co.data)
+        else setResearchCompanyLive(null)
       }
       if (cancelled) return
       if (br.ok && Array.isArray(br.data?.items) && br.data.items.length) {
         const closes = br.data.items.map((row) => Number(row.close)).filter((n) => Number.isFinite(n))
-        setBoshaBarsSeries(closes.length ? closes : null)
+        setResearchBarsSeries(closes.length ? closes : null)
       } else {
-        setBoshaBarsSeries(null)
+        setResearchBarsSeries(null)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [backendUp, activeTab, boshaTicker])
+  }, [backendUp, activeTab, researchTicker])
 
   useEffect(() => {
     let alive = true
@@ -8835,7 +8895,7 @@ function KensiglineTerminal() {
         if (alive) setContextClinicalLive(null)
         return
       }
-      const tick = String(boshaTicker ?? '').trim().toUpperCase()
+      const tick = String(researchTicker ?? '').trim().toUpperCase()
       if (!tick) {
         if (alive) setContextClinicalLive(null)
         return
@@ -8852,7 +8912,7 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, intelMode, activeTab, boshaTicker])
+  }, [backendUp, intelMode, activeTab, researchTicker])
 
   useEffect(() => {
     if (!backendUp || activeTab !== 'main') return
@@ -8917,6 +8977,49 @@ function KensiglineTerminal() {
     }
     run()
     const t = setInterval(run, 20_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [backendUp])
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!backendUp) return
+      const r = await fetchJsonSafe('/api/institutions/feed?limit=120&days=120', { timeoutMs: 5000 })
+      if (!alive) return
+      const items = Array.isArray(r.data?.items) ? r.data.items : []
+      const mapped = items
+        .map((it) => {
+          const ticker = String(it.ticker ?? '').trim().toUpperCase()
+          const at = String(it.feed_at ?? '')
+          const id = String(it.id ?? '')
+          const raw = String(it.feed_label ?? '')
+          const m = raw.match(/^\s*([^()]+?)\s*\(\s*(\d+)\s*\)\s*$/)
+          const label = (m ? m[1] : raw).trim() || '—'
+          const countFromLabel = m ? Number(m[2]) : null
+          const todayCount = Number(it.today_count)
+          const count = Number.isFinite(todayCount) ? todayCount : countFromLabel
+          const institutions = Array.isArray(it.institutions) ? it.institutions.map((x) => String(x)) : []
+          const company = String(it.company_name ?? it.company ?? '').trim()
+          return {
+            id,
+            label,
+            count,
+            company: company || ticker,
+            ticker,
+            at,
+            institutions,
+            daily: [],
+            __backend_id: id,
+          }
+        })
+        .filter((x) => x.id && x.ticker && x.at)
+      if (r.ok) setInstitutionsFeedLive(mapped)
+    }
+    run()
+    const t = setInterval(run, 30_000)
     return () => {
       alive = false
       clearInterval(t)
@@ -9067,8 +9170,8 @@ function KensiglineTerminal() {
   ])
 
   const institutionsFeedRowsBase = useMemo(
-    () => applyFeedTodayEventCounts(INSTITUTION_FEED_ROWS),
-    [],
+    () => applyFeedTodayEventCounts(!backendUp ? INSTITUTION_FEED_ROWS : institutionsFeedLive ?? []),
+    [backendUp, institutionsFeedLive],
   )
 
   const institutionsFeedRowsTxnFiltered = useMemo(
@@ -9106,15 +9209,45 @@ function KensiglineTerminal() {
       ? institutionsFilteredFeed[clamp(institutionsIdx, 0, Math.max(0, institutionsFilteredFeed.length - 1))]
       : null
 
-  const institutionsFeedDisplay = useMemo(
-    () => applyInvestigateFeedTxnFilter(institutionsFilteredFeed, investigateInstitutionTxnFilters, 'institutions'),
-    [institutionsFilteredFeed, investigateInstitutionTxnFilters],
-  )
+  const institutionsFeedDisplay = useMemo(() => {
+    let rows = institutionsFilteredFeed
+    if (backendUp && institutionsClusterLive && institutionsSelected?.ticker) {
+      rows = patchInvestigateFeedRowFromCluster(
+        institutionsFilteredFeed,
+        institutionsSelected.ticker,
+        institutionsClusterLive,
+        institutionCaseSheetFromClusterLive,
+      )
+    }
+    return applyInvestigateFeedTxnFilter(rows, investigateInstitutionTxnFilters, 'institutions')
+  }, [
+    backendUp,
+    institutionsFilteredFeed,
+    institutionsClusterLive,
+    institutionsSelected?.ticker,
+    investigateInstitutionTxnFilters,
+  ])
 
-  const institutionsSelectedResolved = useMemo(
-    () => applyInvestigateTxnFilterToFeedRow(institutionsSelected, investigateInstitutionTxnFilters, 'institutions'),
-    [institutionsSelected, investigateInstitutionTxnFilters],
-  )
+  const institutionsSelectedResolved = useMemo(() => {
+    let base = institutionsSelected
+    if (backendUp && activeTab === 'investigate' && investigateMode === 'institutions' && institutionsClusterLive) {
+      const companyName =
+        String(institutionsClusterLive?.issuer?.name ?? '').trim() ||
+        String(institutionsSelected?.company ?? '').trim() ||
+        institutionsSelected?.ticker ||
+        '—'
+      const caseSheet = institutionCaseSheetFromClusterLive(institutionsClusterLive, institutionsSelected)
+      base = normalizeFeedRowActivity({ ...institutionsSelected, company: companyName, caseSheet })
+    }
+    return applyInvestigateTxnFilterToFeedRow(base, investigateInstitutionTxnFilters, 'institutions')
+  }, [
+    backendUp,
+    activeTab,
+    investigateMode,
+    institutionsSelected,
+    institutionsClusterLive,
+    investigateInstitutionTxnFilters,
+  ])
 
   const insiderSelectedResolved = useMemo(() => {
     let base = insiderSelected
@@ -9196,6 +9329,32 @@ function KensiglineTerminal() {
       alive = false
     }
   }, [backendUp, activeTab, politiciansSelected?.ticker])
+
+  useEffect(() => {
+    let alive = true
+    async function run() {
+      if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'institutions') {
+        if (alive) setInstitutionsClusterLive(null)
+        return
+      }
+      const ticker = institutionsSelected?.ticker ? String(institutionsSelected.ticker).toUpperCase() : null
+      const useId = ticker ? `ticker:${ticker}` : null
+      if (!useId) {
+        if (alive) setInstitutionsClusterLive(null)
+        return
+      }
+      const r = await fetchJsonSafe(`/api/institutions/cluster/${encodeURIComponent(useId)}?days=120`, {
+        timeoutMs: 7000,
+      })
+      if (!alive) return
+      const data = r.ok ? r.data?.data ?? null : null
+      setInstitutionsClusterLive(data && typeof data === 'object' ? data : null)
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, activeTab, investigateMode, institutionsSelected?.ticker])
 
   // Bars (Daily Graph) + Company panel: use selected ticker in either mode
   const investigateOpen = activeTab === 'investigate'
@@ -9831,41 +9990,41 @@ function KensiglineTerminal() {
 
       {activeTab === 'main' ? (
         <>
-          <BoshaTickerPanel
+          <ResearchTickerPanel
             intelMode={intelMode}
-            selectedTicker={boshaTicker}
-            onSelectTicker={setBoshaTicker}
-            q={boshaQuery}
-            onQuery={setBoshaQuery}
-            filtered={boshaFeedAfterSourceFilter}
+            selectedTicker={researchTicker}
+            onSelectTicker={setResearchTicker}
+            q={researchQuery}
+            onQuery={setResearchQuery}
+            filtered={researchFeedAfterSourceFilter}
             programs={contextPrograms}
             selectedProgramKey={contextProgramKey}
             onSelectProgramKey={setContextProgramKey}
-            programQuery={boshaProgramQuery}
-            onProgramQuery={setBoshaProgramQuery}
+            programQuery={researchProgramQuery}
+            onProgramQuery={setResearchProgramQuery}
             showFeedFilter
             feedFilterActive={researchFeedFilterOpen}
             feedFilterOpen={researchFeedFilterOpen}
             onFeedFilterClick={onResearchFeedFilterClick}
             feedFilterPicker={researchFeedFilterPickerEl}
-            panelClassName="mainBoshaPicks"
+            panelClassName="researchFeedSlot"
           />
 
-          <BoshaPaperPanel
-            ticker={boshaTicker}
-            companyName={boshaCompanyName}
-            entities={boshaDataset.entities}
-            events={boshaDataset.events}
-            edges={boshaDataset.edges}
+          <ResearchPaperPanel
+            ticker={researchTicker}
+            companyName={researchCompanyName}
+            entities={researchDataset.entities}
+            events={researchDataset.events}
+            edges={researchDataset.edges}
             backendUp={backendUp}
-            presentation={boshaPresentation}
+            presentation={researchPresentation}
             intelMode={intelMode}
             selectedProgramKey={contextProgramKey}
-            insiders={contextMock.insiders}
-            politicians={contextMock.politicians}
-            filings13f={contextMock.filings13f}
+            insiders={contextFlowRows.insiders}
+            politicians={contextFlowRows.politicians}
+            filings13f={contextFlowRows.filings13f}
             paperSourceFilters={researchPaperSourceFilters}
-            priceSeries={boshaPriceSeries}
+            priceSeries={researchPriceSeries}
             insiderPriceMarkers={insiderPriceMarkers}
             politicianPriceMarkers={politicianPriceMarkers}
             panelClassName="mainMainBlank"
@@ -9878,21 +10037,21 @@ function KensiglineTerminal() {
             sector={contextMock.sector}
             domicile={contextMock.domicile}
             mcap={contextMock.mcap}
-            priceSeries={boshaPriceSeries}
+            priceSeries={researchPriceSeries}
             insiderPriceMarkers={insiderPriceMarkers}
             politicianPriceMarkers={politicianPriceMarkers}
             earnings={contextEarnings}
             leadDrug={contextLeadDrug}
             programs={contextPrograms}
             selectedProgramKey={contextProgramKey}
-            insiders={contextMock.insiders}
-            politicians={contextMock.politicians}
+            insiders={contextFlowRows.insiders}
+            politicians={contextFlowRows.politicians}
             catalystItems={contextCatalystItems}
           />
         </>
       ) : null}
 
-      {/* Explore tab removed; BOSHA panels live inside MAIN now. */}
+      {/* Explore tab removed; Research panels live inside MAIN now. */}
 
       {investigateOpen ? (
         <>

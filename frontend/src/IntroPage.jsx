@@ -48,7 +48,7 @@ const FEATURES = [
 const BENEFITS = [
   { code: 'OUT', title: 'Historical outcomes', body: 'Win rates and return windows on similar setups — no export.' },
   { code: 'TRD', title: 'Trend panels', body: 'Forward-return views per rail when your API is live.' },
-  { code: 'PPR', title: 'Bosha papers', body: 'Long-form theses you copy or share — not chat scraps.' },
+  { code: 'PPR', title: 'Research papers', body: 'Long-form theses you copy or share — not chat scraps.' },
   { code: 'UX', title: 'Terminal UX', body: 'Dense grid and keyboard flow for full-day screens.' },
 ]
 

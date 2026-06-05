@@ -8,7 +8,7 @@ import './SubscribePage.css'
 
 const INCLUDED = [
   'Research, Insiders, Pharma & Politicians rails',
-  'Bosha catalyst papers & case worksheets',
+  'Research catalyst papers & case worksheets',
   'Historical outcomes on similar setups',
   'Insider clusters with filing context',
   'Exportable research — built for event-driven names',
@@ -109,7 +109,7 @@ export function SubscribePage() {
             <span className="introHeadlineAccent">full terminal</span>
           </h1>
           <p className="introLead subscribeLead">
-            You are in. Choose a plan to access Research, Insiders, Pharma, Politicians, outcomes, and Bosha papers in
+            You are in. Choose a plan to access Research, Insiders, Pharma, Politicians, outcomes, and research papers in
             one grid.
           </p>
         </section>

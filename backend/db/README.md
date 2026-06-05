@@ -1,27 +1,31 @@
-## Database schema (local)
+## Database schema
 
-This folder contains the current **minimal Postgres schema** used by Kensigline.
+Single source of truth: **`schema.sql`**. Full reset — drops all app tables and recreates them empty. No migration files.
 
-### Apply schema
-
-Start Postgres (repo provides a compose file):
+### Local (Docker)
 
 ```bash
 cd backend
 docker compose up -d
+psql "postgres://postgres:postgres@localhost:5432/postgres" -f db/schema.sql
 ```
 
-Apply the schema:
+### Supabase
 
 ```bash
 psql "$DATABASE_URL" -f backend/db/schema.sql
 ```
 
-### Tables (high level)
+Use pooler URL from `.env`. If TLS fails locally, set `PGSSLMODE=require` or use Supabase SQL Editor and paste `schema.sql`.
 
-- **`document_queue`**: URL ingestion queue + retry/status tracking.
-- **`document_parsed`**: parsed output from Qwen as a single `jsonb` blob (`data`) plus a few helper columns for feed/program queries.
-- **`companies`**: data for the Company panel and joins/grouping.
-- **`bars`**: close-only daily time series (sparkline input).
-- **`outcomes`**: Historical Outcomes panel payloads.
+### Tables
 
+| Layer | Tables |
+|--------|--------|
+| Core | `companies`, `bars`, `billing_accounts`, `outcomes` |
+| Ingest | `document_queue` |
+| Paper | `documents` |
+| Flows | `insider_transactions`, `politician_transactions`, `institution_filings_13f` |
+| Clinical | `clinical_programs`, `clinical_milestones`, `clinical_catalysts` |
+| Gov | `gov_contract_awards`, `gov_contract_ticker_links` |
+| Research | `ticker_feed_state`, `research_memos` |
