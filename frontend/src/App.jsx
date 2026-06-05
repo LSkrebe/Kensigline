@@ -171,6 +171,7 @@ function applyFeedTodayEventCounts(rows) {
 
 function insiderCaseSheetFromClusterLive(cluster, fallback) {
   const wsRows = Array.isArray(cluster?.cluster?.worksheet_rows) ? cluster.cluster.worksheet_rows : []
+  const fallbackName = insiderFallbackNameFromFeed(fallback)
   return {
     filingId: cluster?.filing?.accession_no ?? fallback?.id ?? fallback?.ticker ?? '—',
     formType: cluster?.filing?.form_type ?? 'Form 4',
@@ -178,24 +179,36 @@ function insiderCaseSheetFromClusterLive(cluster, fallback) {
     ticker: cluster?.issuer?.ticker ?? fallback?.ticker ?? '—',
     isForm4: true,
     filedAt: cluster?.filing?.filed_at ?? fallback?.at ?? null,
-    rows: wsRows.map((r) => ({
-      key: String(r?.key ?? '').trim() || 'Insider',
-      role: r?.role != null ? String(r.role) : insiderRoleFromKey(r?.key),
-      insider_name: r?.insider_name != null ? String(r.insider_name) : null,
-      surname:
-        r?.surname != null
-          ? String(r.surname)
-          : r?.insider_name != null
-            ? lastName(r.insider_name)
-            : insiderSurnameFromKey(r?.key),
-      transactionCode:
-        r?.transaction_code != null ? String(r.transaction_code) : r?.code != null ? String(r.code) : 'P',
-      acquiredDisposed: r?.acquired_disposed != null ? String(r.acquired_disposed) : 'A',
-      amountUsd: r?.amount_usd != null ? Number(r.amount_usd) : null,
-      shares: r?.shares != null ? Number(r.shares) : null,
-      isDerivative: Boolean(r?.is_derivative ?? r?.derivative),
-      ts: r?.ts != null ? String(r.ts) : null,
-    })),
+    rows: wsRows.map((r) => {
+      const key = String(r?.key ?? '').trim() || 'Insider'
+      const bogusKey = isBogusInsiderWorksheetKey(key)
+      const insider_name =
+        r?.insider_name != null
+          ? String(r.insider_name)
+          : bogusKey && fallbackName
+            ? fallbackName
+            : null
+      return {
+        key: bogusKey && insider_name ? `${r?.role ?? 'OFF'} ${insider_name}` : key,
+        role: r?.role != null ? String(r.role) : insiderRoleFromKey(key),
+        insider_name,
+        surname:
+          r?.surname != null
+            ? String(r.surname)
+            : insider_name
+              ? lastName(insider_name)
+              : r?.insider_name != null
+                ? lastName(r.insider_name)
+                : insiderSurnameFromKey(key),
+        transactionCode:
+          r?.transaction_code != null ? String(r.transaction_code) : r?.code != null ? String(r.code) : 'P',
+        acquiredDisposed: r?.acquired_disposed != null ? String(r.acquired_disposed) : 'A',
+        amountUsd: r?.amount_usd != null ? Number(r.amount_usd) : null,
+        shares: r?.shares != null ? Number(r.shares) : null,
+        isDerivative: Boolean(r?.is_derivative ?? r?.derivative),
+        ts: r?.ts != null ? String(r.ts) : null,
+      }
+    }),
   }
 }
 
@@ -2110,7 +2123,26 @@ function formatSharesCompact(n) {
   return `${Math.round(x)} sh`
 }
 
+function isBogusInsiderWorksheetKey(key) {
+  const k = String(key ?? '').trim()
+  if (!k || k === 'Insider' || k === '—') return true
+  if (/^P-?\d+$/i.test(k)) return true
+  if (/^purchase\s+\d+$/i.test(k)) return true
+  return false
+}
+
+function insiderFallbackNameFromFeed(fallback) {
+  for (const raw of fallback?.insiders ?? []) {
+    const name = String(raw ?? '').trim()
+    if (!name || isBogusInsiderWorksheetKey(name)) continue
+    if (/^(CEO|CFO|CTO|CMO|COO|DIR|OFF|TRUST)\b/i.test(name)) continue
+    return name
+  }
+  return null
+}
+
 function insiderRoleFromKey(key) {
+  if (isBogusInsiderWorksheetKey(key)) return 'OFF'
   const k = String(key ?? '').trim()
   const m = k.match(/^(CEO|Director|CFO|Officer|DIR|OFF|TRUST)\b/i)
   if (m) {
@@ -2143,7 +2175,7 @@ function insiderReportingOwnerName(r) {
   if (direct) return direct
 
   const key = String(r?.key ?? '').trim()
-  if (key && key !== 'Insider' && key !== '—') {
+  if (key && key !== 'Insider' && key !== '—' && !isBogusInsiderWorksheetKey(key)) {
     let name = key
       .replace(/\bCode\s+[A-Z]{1,2}\b.*$/i, '')
       .replace(/\(.*\)/g, '')

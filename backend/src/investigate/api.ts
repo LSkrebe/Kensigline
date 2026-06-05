@@ -13,6 +13,7 @@ import {
   tickerFromClusterId,
   tickerFromCompanyClusterId,
 } from "../shared/feed-helpers.js";
+import { normalizeInsiderWorksheetRow } from "./worksheet.js";
 
 /** Returns true if a route handled the request. */
 export async function tryInvestigateRoutes(
@@ -488,7 +489,7 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
 
     let minAt: string | null = null;
     let maxAt: string | null = null;
-    const worksheet_rows: Array<{ key: string; ts: string | null; amount_usd: number | null }> = [];
+    const worksheet_rows: ReturnType<typeof normalizeInsiderWorksheetRow>[] = [];
     let totalUsd = 0;
     let latest: any = null;
 
@@ -502,12 +503,9 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
       const rows = (d.data as any)?.cluster?.worksheet_rows;
       if (Array.isArray(rows)) {
         for (const r of rows) {
-          worksheet_rows.push({
-            key: String(r?.key ?? "").trim() || "Insider",
-            ts: r?.ts != null ? String(r.ts) : null,
-            amount_usd: r?.amount_usd != null ? Number(r.amount_usd) : null,
-          });
-          const v = Number(r?.amount_usd ?? 0);
+          const normalized = normalizeInsiderWorksheetRow(r);
+          worksheet_rows.push(normalized);
+          const v = Number(normalized.amount_usd ?? 0);
           if (Number.isFinite(v) && v > 0) totalUsd += v;
         }
       }

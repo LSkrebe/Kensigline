@@ -204,7 +204,9 @@
   user-select: none;
 }
 
-.terminalIntelSwitch--politicians {
+.terminalIntelSwitch--insider,
+.terminalIntelSwitch--politicians,
+.terminalIntelSwitch--institutions {
   max-width: none;
   width: max-content;
   flex-shrink: 0;
@@ -212,7 +214,9 @@
   gap: 0;
 }
 
-.terminalIntelSwitch--politicians .terminalIntelSwitchBtn {
+.terminalIntelSwitch--insider .terminalIntelSwitchBtn,
+.terminalIntelSwitch--politicians .terminalIntelSwitchBtn,
+.terminalIntelSwitch--institutions .terminalIntelSwitchBtn {
   padding: 0 6px;
   font-size: 8px;
   font-weight: 600;
@@ -222,24 +226,12 @@
   align-self: center;
 }
 
-.terminalIntelSwitch--politicians .terminalIntelSwitchSep {
+.terminalIntelSwitch--insider .terminalIntelSwitchSep,
+.terminalIntelSwitch--politicians .terminalIntelSwitchSep,
+.terminalIntelSwitch--institutions .terminalIntelSwitchSep {
   align-self: center;
   padding: 0 4px;
   line-height: 1;
-}
-
-.terminalIntelSwitch--institutions {
-  max-width: none;
-  width: max-content;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 0;
-}
-
-.terminalIntelSwitch--institutions .terminalIntelSwitchBtn {
-  padding: 0 5px;
-  font-size: 7.5px;
-  letter-spacing: 0.1em;
 }
 
 .terminalIntelSwitchBranchGap {
@@ -470,7 +462,7 @@
 
 .terminal {
   /* Shared feed rail — investigate col 1 and research col 1 must stay pixel-identical on tab switch */
-  --terminal-feed-track: minmax(56px, 1fr);
+  --terminal-feed-track: minmax(62px, 1fr);
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
@@ -5652,7 +5644,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--institutions .feed--left .feedRowCompact--company,
 .terminal--main .researchTicker.feed--left .feedRowCompact--company
 {
-  grid-template-columns: 5ch minmax(0, 1fr) 4ch max-content;
+  grid-template-columns: 6ch minmax(0, 1fr) 4ch max-content;
   gap: 4px;
 }
 
@@ -5661,7 +5653,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--institutions .feed--left .feedRowCompact--company.feedRowCompact--noCount,
 .terminal--main .researchTicker.feed--left .feedRowCompact--company.feedRowCompact--noCount
 {
-  grid-template-columns: 5ch minmax(0, 1fr) max-content;
+  grid-template-columns: 6ch minmax(0, 1fr) max-content;
 }
 
 .terminal--insider .feed--left .feedRowCompact--company .feedCellSymbol,
@@ -5669,9 +5661,10 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--institutions .feed--left .feedRowCompact--company .feedCellSymbol,
 .terminal--main .researchTicker.feed--left .feedRowCompact--company .feedCellSymbol
 {
-  min-width: 0;
-  width: 5ch;
-  max-width: 5ch;
+  flex-shrink: 0;
+  min-width: 6ch;
+  width: 6ch;
+  max-width: 6ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

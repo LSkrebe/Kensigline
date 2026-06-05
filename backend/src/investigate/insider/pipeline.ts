@@ -3,6 +3,11 @@ import { fetchForm4Text } from "../../core/sec.js";
 import { llmChat } from "../../core/llm.js";
 import { syncInsiderTransactionsFromDocument } from "../../documents/store.js";
 import { createHash } from "node:crypto";
+import {
+  isBogusInsiderWorksheetKey,
+  ownerSurname,
+  type InsiderWorksheetRow,
+} from "../worksheet.js";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }
@@ -98,6 +103,109 @@ function extractForm4PTransactions(xml: string): Form4PTransaction[] {
     });
   }
   return out;
+}
+
+function extractForm4ReportingOwner(xml: string): { name: string | null; role: string } {
+  const name = firstXmlTagText(xml, "rptOwnerName");
+  const title = firstXmlTagText(xml, "officerTitle");
+  const isDirector = String(firstXmlTagText(xml, "isDirector") ?? "")
+    .replace(/\s+/g, "")
+    .toUpperCase();
+  const isOfficer = String(firstXmlTagText(xml, "isOfficer") ?? "")
+    .replace(/\s+/g, "")
+    .toUpperCase();
+
+  let role = "OFF";
+  if (title) {
+    if (/CEO|CHIEF\s*EXECUTIVE/i.test(title)) role = "CEO";
+    else if (/CFO|CHIEF\s*FINANCIAL/i.test(title)) role = "CFO";
+    else if (/COO|CHIEF\s*OPERATING/i.test(title)) role = "COO";
+    else if (/CTO|CHIEF\s*TECH/i.test(title)) role = "CTO";
+    else if (/CMO|CHIEF\s*MEDICAL/i.test(title)) role = "CMO";
+    else if (/DIRECTOR/i.test(title)) role = "DIR";
+    else role = "OFF";
+  } else if (isDirector === "1" || isDirector === "TRUE" || isDirector === "Y" || isDirector === "YES") {
+    role = "DIR";
+  } else if (isOfficer === "1" || isOfficer === "TRUE" || isOfficer === "Y" || isOfficer === "YES") {
+    role = "OFF";
+  }
+
+  return { name: name?.trim() || null, role };
+}
+
+function parseForm4TransactionDate(raw: string | null): string | null {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return formatIso(`${iso[1]}-${iso[2]}-${iso[3]}T12:00:00.000Z`);
+  const us = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (us) {
+    const mm = String(us[1]).padStart(2, "0");
+    const dd = String(us[2]).padStart(2, "0");
+    return formatIso(`${us[3]}-${mm}-${dd}T12:00:00.000Z`);
+  }
+  return formatIso(s);
+}
+
+function enrichInsiderWorksheetRows(
+  llmRows: unknown[],
+  pTxns: Form4PTransaction[],
+  xml: string,
+): InsiderWorksheetRow[] {
+  const owner = extractForm4ReportingOwner(xml);
+  const surname = ownerSurname(owner.name);
+  const role = owner.role ?? "OFF";
+  const rows = Array.isArray(llmRows) ? llmRows : [];
+
+  const llmLooksBogus =
+    !rows.length || rows.every((r) => isBogusInsiderWorksheetKey(String((r as any)?.key ?? "")));
+
+  if (llmLooksBogus && pTxns.length) {
+    return pTxns.map((p, i) => ({
+      key: owner.name ? `${role} ${owner.name}` : `Purchase ${i + 1}`,
+      insider_name: owner.name,
+      surname,
+      role,
+      transaction_code: "P",
+      acquired_disposed: "A",
+      amount_usd: p.amount_usd,
+      shares: p.shares,
+      ts: parseForm4TransactionDate(p.transaction_date),
+    }));
+  }
+
+  return rows.map((raw, i) => {
+    const r = raw as Record<string, unknown>;
+    const p = pTxns[i] ?? pTxns[pTxns.length - 1];
+    const key = String(r?.key ?? "").trim();
+    const bogus = isBogusInsiderWorksheetKey(key);
+    const insider_name =
+      r?.insider_name != null ? String(r.insider_name).trim() : owner.name;
+    const resolvedRole = r?.role != null ? String(r.role).trim() : role;
+    const resolvedSurname =
+      r?.surname != null ? String(r.surname).trim() : ownerSurname(String(insider_name ?? "")) ?? surname;
+    return {
+      key: bogus && insider_name ? `${resolvedRole} ${insider_name}` : key || "Insider",
+      insider_name,
+      surname: resolvedSurname,
+      role: resolvedRole,
+      transaction_code:
+        r?.transaction_code != null
+          ? String(r.transaction_code)
+          : r?.code != null
+            ? String(r.code)
+            : "P",
+      acquired_disposed: r?.acquired_disposed != null ? String(r.acquired_disposed) : "A",
+      amount_usd:
+        r?.amount_usd != null ? Number(r.amount_usd) : p?.amount_usd != null ? p.amount_usd : null,
+      shares: r?.shares != null ? Number(r.shares) : p?.shares != null ? p.shares : null,
+      is_derivative: Boolean(r?.is_derivative ?? r?.derivative),
+      ts:
+        r?.ts != null
+          ? String(r.ts)
+          : parseForm4TransactionDate(p?.transaction_date ?? null),
+    };
+  });
 }
 
 function isDesiredInsiderSchema(out: any): out is {
@@ -216,6 +324,7 @@ function buildInsiderExtractionPrompt(args: {
           "  - IMPORTANT: Do NOT say 'no selling' or similar. This dataset only includes Code P purchases, so that would be misleading.",
           "  - Avoid empty adjectives like 'clustered' unless you immediately quantify them (e.g. 'spread over 2 dates' or 'all on one day').",
           "- `worksheet_rows`: one row per P transaction (include all of them).",
+          "- Each worksheet `key` must be `ROLE Full Name` (e.g. `CEO Jane Smith`), not `P-1` / transaction ids.",
           "",
           "FORM 4 XML (for context if needed):",
           form4Xml.slice(0, 80_000),
@@ -295,6 +404,12 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
     if (!isDesiredInsiderSchema(out)) {
       throw new Error("llm_output_schema_mismatch");
     }
+
+    out.cluster.worksheet_rows = enrichInsiderWorksheetRows(
+      out.cluster.worksheet_rows ?? [],
+      pTxns,
+      xml,
+    ) as any;
 
     if (!requirePOnly && !out.cluster.worksheet_rows?.length) {
       const filed = formatIso(out?.filing?.filed_at) ?? new Date().toISOString();
