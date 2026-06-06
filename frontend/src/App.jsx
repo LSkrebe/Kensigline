@@ -8641,6 +8641,19 @@ function KensiglineTerminal() {
     [researchTicker, researchPriceSeries],
   )
 
+  const contextFundamentals = useMemo(() => {
+    if (backendUp && researchCompanyLive?.fundamentals) {
+      const f = researchCompanyLive.fundamentals
+      return {
+        revenueGrowth: f.revenueGrowth ?? null,
+        netMargin: f.netMargin ?? null,
+        fcfMargin: f.fcfMargin ?? null,
+        forwardRevenueGrowth: f.forwardRevenueGrowth ?? null,
+      }
+    }
+    return contextMock.fundamentals
+  }, [backendUp, researchCompanyLive?.fundamentals, contextMock.fundamentals])
+
   const contextEarnings = useMemo(() => {
     if (backendUp && researchCompanyLive?.earnings_date) {
       return contextEarningsFromDate(researchCompanyLive.earnings_date) ?? contextMock.earnings
@@ -10160,7 +10173,7 @@ function KensiglineTerminal() {
             insiders={contextFlowRows.insiders}
             politicians={contextFlowRows.politicians}
             catalystItems={contextCatalystItems}
-            fundamentals={contextMock.fundamentals}
+            fundamentals={contextFundamentals}
           />
         </>
       ) : null}

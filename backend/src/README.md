@@ -11,6 +11,8 @@ Mirrors the frontend terminal tabs and mode switches.
 | **Settings** tab | `billing/` + `core/supabase-auth.ts` | `/api/billing/*`, `/api/auth/*` |
 | Shared platform | `core/` | `/api/bars`, `/api/company`, `/api/outcomes`, `/api/stats` |
 
+`/api/company?ticker=` includes `fundamentals` for the Research CONTEXT panel (SEC Company Facts + document guidance via `research/market/fundamentals.ts`).
+
 ## Cross-cutting modules
 
 | Path | Role |

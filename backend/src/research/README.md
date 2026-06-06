@@ -17,4 +17,9 @@ Frontend: **RESEARCH** side tab (`activeTab=main`).
 | `../documents/store.ts` | `documents` table + flow sync (insiders, politicians, 13F) |
 | `../documents/extract.ts` | LLM document extraction |
 | `../documents/presentation.ts` | Explore/paper presentation payload |
-| `../documents/spec.ts` | Env + HTTP allowlist |
+| `market/fundamentals.ts` | CONTEXT fundamentals — SEC Company Facts + document guidance |
+| `market/guidance-parse.ts` | Forward revenue growth regex (pure, testable) |
+| `market/guidance.ts` | Forward revenue growth from stored research documents |
+| `../core/fundamentals.ts` | SEC XBRL historical revenue / margin math |
+
+Fundamentals for the Research CONTEXT panel ship on `GET /api/company?ticker=` as `fundamentals` (historical from SEC Company Facts; forward revenue growth from recent research documents).

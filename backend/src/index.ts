@@ -5,6 +5,7 @@ import { json, notFound, readRawBody, route, sendJson } from "./core/http.js";
 import { db } from "./core/db.js";
 import { getDailyCloseBars } from "./core/bars.js";
 import { getCompanyPanelData } from "./core/company.js";
+import { getMarketFundamentalsForTicker } from "./research/market/fundamentals.js";
 import { getLatestOutcomes, recomputeResearchOutcomes, recomputeInsiderOutcomes, recomputePharmaOutcomes, recomputePoliticiansOutcomes } from "./core/outcomes.js";
 import { getPharmaClinicalContext } from "./research/clinical/context.js";
 import { bearerToken, supabaseAuthConfigured, verifySupabaseAccessToken } from "./core/supabase-auth.js";
@@ -178,7 +179,13 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const out = await getCompanyPanelData({ ticker });
-      sendJson(res, 200, out);
+      let fundamentals = null;
+      try {
+        fundamentals = await getMarketFundamentalsForTicker({ ticker });
+      } catch {
+        fundamentals = null;
+      }
+      sendJson(res, 200, { ...out, fundamentals });
       return;
     }
 

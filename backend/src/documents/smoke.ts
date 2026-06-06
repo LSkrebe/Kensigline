@@ -4,6 +4,8 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
+import { historicalFundamentalsFromCompanyFacts } from "../core/fundamentals.js";
+import { parseForwardRevenueGrowthFromText } from "../research/market/guidance-parse.js";
 import { extractLinksFromFeedXml, googleNewsTranscriptFeedUrl, stripHtmlToText, yahooHeadlineFeedUrl } from "../research/market/feeds.js";
 
 test("stripHtmlToText removes tags", () => {
@@ -39,4 +41,48 @@ test("Atom link extraction", () => {
   const links = extractLinksFromFeedXml(xml, "https://example.com/atom.xml");
   assert.equal(links.length, 1);
   assert.ok(links[0]!.url.includes("cdn.example.com"));
+});
+
+test("historicalFundamentalsFromCompanyFacts YoY revenue and margins", () => {
+  const mockFacts = {
+    facts: {
+      "us-gaap": {
+        Revenues: {
+          units: {
+            USD: [
+              { val: 1100, end: "2024-03-31", filed: "2024-05-01", fy: 2024, fp: "Q1", form: "10-Q" },
+              { val: 1000, end: "2023-03-31", filed: "2023-05-01", fy: 2023, fp: "Q1", form: "10-Q" },
+            ],
+          },
+        },
+        NetIncomeLoss: {
+          units: {
+            USD: [{ val: 220, end: "2024-03-31", filed: "2024-05-01", fy: 2024, fp: "Q1", form: "10-Q" }],
+          },
+        },
+        NetCashProvidedByUsedInOperatingActivities: {
+          units: {
+            USD: [{ val: 300, end: "2024-03-31", filed: "2024-05-01", fy: 2024, fp: "Q1", form: "10-Q" }],
+          },
+        },
+        PaymentsToAcquirePropertyPlantAndEquipment: {
+          units: {
+            USD: [{ val: 50, end: "2024-03-31", filed: "2024-05-01", fy: 2024, fp: "Q1", form: "10-Q" }],
+          },
+        },
+      },
+    },
+  };
+  const out = historicalFundamentalsFromCompanyFacts(mockFacts);
+  assert.equal(out.revenueGrowth, 10);
+  assert.equal(out.netMargin, 20);
+  assert.equal(out.fcfMargin, 22.7);
+});
+
+test("parseForwardRevenueGrowthFromText finds guidance percent", () => {
+  assert.equal(
+    parseForwardRevenueGrowthFromText("Management expects full-year revenue growth of 12.5% driven by AI demand."),
+    12.5,
+  );
+  assert.equal(parseForwardRevenueGrowthFromText("No numeric guidance in this filing."), null);
 });
