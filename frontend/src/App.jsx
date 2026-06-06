@@ -2901,6 +2901,30 @@ function historicalOutcomeHasAvgReturns(ins) {
   return parseAvgReturnHorizonPercents(ins?.avgReturn21d63d252d).some((p) => p != null)
 }
 
+function parseOutcomesSampleSize(ins) {
+  if (!ins) return null
+  const raw = ins.sampleSize
+  const n = typeof raw === 'number' ? raw : Number(String(raw ?? '').replace(/[^\d.-]/g, ''))
+  return Number.isFinite(n) ? n : null
+}
+
+function historicalOutcomesHasDataset(ins) {
+  const sampleSizeNum = parseOutcomesSampleSize(ins)
+  if (sampleSizeNum != null) return sampleSizeNum > 0
+  return Boolean(ins && ins.sampleSize)
+}
+
+function contextClinicalOutcomesFromLive(livePharma, ticker, backendUp) {
+  const hasDataset = backendUp && historicalOutcomesHasDataset(livePharma)
+  const stats = hasDataset ? livePharma : MOCK_HISTORICAL_TRIALS
+  return {
+    outcomeLines: buildMockPharmaOutcomeLines(ticker),
+    sampleSize: stats?.sampleSize ?? EMPTY,
+    stats,
+    hasDataset,
+  }
+}
+
 function historicalOutcomeLinesFromIns(ins, mode, personDisplay) {
   const percents = parseAvgReturnHorizonPercents(ins?.avgReturn21d63d252d)
   const base =
@@ -3514,6 +3538,8 @@ function MainContextPanel({
   catalystItems = [],
   fundamentals = null,
   runway = null,
+  backendUp = false,
+  contextOutcomesLive = null,
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const [priceRange, setPriceRange] = useState('6M')
@@ -3526,24 +3552,29 @@ function MainContextPanel({
   }, [programGroups, selectedProgramKey])
   const insidersFlow = useMemo(() => {
     const pastMonth = aggregateContextInsiders(insiders)
-    const outcomeLines = buildMockInsiderOutcomeLines(pastMonth, t)
+    const liveIns = backendUp ? contextOutcomesLive?.insider : null
+    const outcomeLines =
+      liveIns && historicalOutcomeHasAvgReturns(liveIns)
+        ? historicalOutcomeLinesFromIns(liveIns, 'insider', null)
+        : buildMockInsiderOutcomeLines(pastMonth, t)
     const rows = attachOutcomeLineColors(pastMonth, outcomeLines, (row) => row.roleKey)
     return { rows, outcomeLines }
-  }, [insiders, t])
+  }, [insiders, t, backendUp, contextOutcomesLive?.insider])
   const politiciansFlow = useMemo(() => {
     const pastMonth = aggregateContextPoliticians(politicians)
-    const outcomeLines = buildMockPoliticianOutcomeLines(pastMonth, t)
+    const livePol = backendUp ? contextOutcomesLive?.politicians : null
+    const outcomeLines =
+      livePol && historicalOutcomeHasAvgReturns(livePol)
+        ? historicalOutcomeLinesFromIns(livePol, 'politicians', null)
+        : buildMockPoliticianOutcomeLines(pastMonth, t)
     const rows = attachOutcomeLineColors(pastMonth, outcomeLines, (row) => row.id)
     return { rows, outcomeLines }
-  }, [politicians, t])
+  }, [politicians, t, backendUp, contextOutcomesLive?.politicians])
 
-  const clinicalOutcomes = useMemo(() => {
-    const outcomeLines = buildMockPharmaOutcomeLines(t)
-    return {
-      outcomeLines,
-      sampleSize: MOCK_HISTORICAL_TRIALS.sampleSize ?? EMPTY,
-    }
-  }, [t])
+  const clinicalOutcomes = useMemo(
+    () => contextClinicalOutcomesFromLive(contextOutcomesLive?.pharma, t, backendUp),
+    [t, backendUp, contextOutcomesLive?.pharma],
+  )
 
   return (
     <section
@@ -3665,6 +3696,7 @@ function MainContextPanel({
               <ContextClinicalOutcomesList
                 outcomeLines={clinicalOutcomes.outcomeLines}
                 sampleSize={clinicalOutcomes.sampleSize}
+                stats={clinicalOutcomes.stats}
                 chartTitle="Trial historical outcomes"
               />
             </ContextSection>
@@ -8743,6 +8775,25 @@ function KensiglineTerminal() {
     [researchTicker, researchPriceSeries],
   )
 
+  const contextLivePrice = useMemo(() => {
+    if (Array.isArray(researchPriceSeries) && researchPriceSeries.length) {
+      const n = Number(researchPriceSeries[researchPriceSeries.length - 1])
+      if (Number.isFinite(n) && n > 0) return n
+    }
+    return null
+  }, [researchPriceSeries])
+
+  const contextCompanySnapshot = useMemo(
+    () =>
+      resolveCompanySnapshot({
+        ticker: researchTicker,
+        company: researchCompanyLive,
+        backendUp,
+        price: contextLivePrice,
+      }),
+    [researchTicker, researchCompanyLive, backendUp, contextLivePrice],
+  )
+
   const contextFundamentals = useMemo(() => {
     if (backendUp && researchCompanyLive?.fundamentals) {
       const f = researchCompanyLive.fundamentals
@@ -9105,8 +9156,11 @@ function KensiglineTerminal() {
         setResearchExploreLive(null)
       }
       if (!cancelled) {
-        if (co.ok && co.data?.earnings_date) setResearchCompanyLive(co.data)
-        else setResearchCompanyLive(null)
+        if (co.ok && String(co.data?.ticker ?? '').toUpperCase() === tick) {
+          setResearchCompanyLive(co.data)
+        } else {
+          setResearchCompanyLive(null)
+        }
       }
       if (cancelled) return
       if (br.ok && Array.isArray(br.data?.items) && br.data.items.length) {
@@ -9152,14 +9206,16 @@ function KensiglineTerminal() {
     let alive = true
     async function run() {
       try {
-        const [ins, pol] = await Promise.all([
+        const [ins, pol, ph] = await Promise.all([
           fetchJsonSafe('/api/outcomes?mode=insider', { timeoutMs: 2500 }),
           fetchJsonSafe('/api/outcomes?mode=politicians', { timeoutMs: 2500 }),
+          fetchJsonSafe('/api/outcomes?mode=pharma', { timeoutMs: 2500 }),
         ])
         if (!alive) return
         const iData = ins.data?.data ?? null
         const pData = pol.data?.data ?? null
-        setContextOutcomesLive({ insider: iData, politicians: pData })
+        const phData = ph.data?.data ?? null
+        setContextOutcomesLive({ insider: iData, politicians: pData, pharma: phData })
       } catch {
         if (!alive) return
         setContextOutcomesLive(null)
@@ -10265,11 +10321,11 @@ function KensiglineTerminal() {
 
           <MainContextPanel
             intelMode={intelMode}
-            ticker={contextMock.ticker}
-            price={contextMock.price}
-            sector={contextMock.sector}
-            domicile={contextMock.domicile}
-            mcap={contextMock.mcap}
+            ticker={contextCompanySnapshot.ticker}
+            price={contextCompanySnapshot.price}
+            sector={contextCompanySnapshot.sector}
+            domicile={contextCompanySnapshot.domicile}
+            mcap={contextCompanySnapshot.mcap}
             priceSeries={researchPriceSeries}
             insiderPriceMarkers={insiderPriceMarkers}
             politicianPriceMarkers={politicianPriceMarkers}
@@ -10282,6 +10338,8 @@ function KensiglineTerminal() {
             catalystItems={contextCatalystItems}
             fundamentals={contextFundamentals}
             runway={contextRunway}
+            backendUp={backendUp}
+            contextOutcomesLive={contextOutcomesLive}
           />
         </>
       ) : null}
