@@ -1331,6 +1331,11 @@ const CONTEXT_MOCK_PROFILES = {
       { filer: 'Ra Capital', activity: 'Increased stake', at: '2026-03-08', amount: '$3.1M' },
       { filer: 'EcoR1 Capital', activity: 'New position', at: '2026-01-22', amount: '$1.8M' },
     ],
+    runway: {
+      cashUsd: 182_000_000,
+      quarterlyBurnUsd: 35_500_000,
+      runwayQuarters: 5.1,
+    },
   },
 }
 
@@ -1371,6 +1376,44 @@ function contextMockFundamentalsForTicker(ticker, profileFundamentals = null) {
   const fcfMargin = Math.round(Math.max(3, netMargin - 1.5 - (seed % 9)) * 10) / 10
   const forwardRevenueGrowth = Math.round((revenueGrowth - 1.5 + (seed % 14) / 2) * 10) / 10
   return { revenueGrowth, netMargin, fcfMargin, forwardRevenueGrowth }
+}
+
+function contextMockRunwayForTicker(ticker, profileRunway = null) {
+  if (profileRunway && typeof profileRunway === 'object') {
+    return { ...profileRunway }
+  }
+  const seed = seedFromTicker(String(ticker ?? 'TICK'))
+  const cashUsd = Math.round((80 + (seed % 420)) * 1_000_000)
+  const quarterlyBurnUsd = Math.round((18 + (seed % 55)) * 1_000_000)
+  const runwayQuarters = Math.round((cashUsd / quarterlyBurnUsd) * 10) / 10
+  return { cashUsd, quarterlyBurnUsd, runwayQuarters }
+}
+
+function formatContextRunwayUsd(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return '—'
+  return formatUsdCompact(n)
+}
+
+function formatContextRunwayQuarters(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return '—'
+  if (n >= 8) return '>8 qtrs'
+  return `${n.toFixed(1)} qtrs`
+}
+
+function contextRunwayValueTone(key, value) {
+  if (key === 'quarterlyBurnUsd') {
+    const n = Number(value)
+    return Number.isFinite(n) && n > 0 ? 'neg' : null
+  }
+  if (key === 'runwayQuarters') {
+    const n = Number(value)
+    if (!Number.isFinite(n) || n <= 0) return null
+    if (n < 4) return 'neg'
+    if (n >= 8) return 'pos'
+  }
+  return null
 }
 
 function formatContextFundamentalPct(value, { signed = false } = {}) {
@@ -1441,6 +1484,7 @@ function contextMockForTicker(ticker, priceSeries) {
       amount: row.amount,
     })),
     fundamentals: contextMockFundamentalsForTicker(t, base.fundamentals),
+    runway: contextMockRunwayForTicker(t, base.runway),
   }
 }
 
@@ -1672,7 +1716,16 @@ function mapClinicalContextFromApi(data) {
       }
     : null
 
-  return { programs, catalysts, lead }
+  return { programs, catalysts, lead, runway: mapClinicalRunwayFromApi(data.runway) }
+}
+
+function mapClinicalRunwayFromApi(runway) {
+  if (!runway || typeof runway !== 'object') return null
+  return {
+    cashUsd: runway.cashUsd != null ? Number(runway.cashUsd) : null,
+    quarterlyBurnUsd: runway.quarterlyBurnUsd != null ? Number(runway.quarterlyBurnUsd) : null,
+    runwayQuarters: runway.runwayQuarters != null ? Number(runway.runwayQuarters) : null,
+  }
 }
 
 function contextCatalystCountdown(at) {
@@ -1734,6 +1787,51 @@ function ContextFundamentalsCard({ fundamentals }) {
                   .join(' ')}
               >
                 {formatContextFundamentalPct(raw, { signed: row.signed })}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+const CONTEXT_RUNWAY_ROWS = [
+  { key: 'cashUsd', label: 'Cash & equivalents', format: 'usd' },
+  { key: 'quarterlyBurnUsd', label: 'Quarterly burn', format: 'burn' },
+  { key: 'runwayQuarters', label: 'Runway', format: 'quarters' },
+]
+
+function ContextRunwayCard({ runway }) {
+  return (
+    <div className="contextCatalystCard" aria-label="Financial runway">
+      <div className="contextCatalystCardHeader">
+        <div className="contextCatalystCardTitle mono dim">Financial runway</div>
+      </div>
+      <div className="contextOutcomesStack">
+        {CONTEXT_RUNWAY_ROWS.map((row) => {
+          const raw = runway?.[row.key]
+          const tone = contextRunwayValueTone(row.key, raw)
+          let display = '—'
+          if (row.format === 'usd') display = formatContextRunwayUsd(raw)
+          else if (row.format === 'burn') {
+            const n = Number(raw)
+            display = Number.isFinite(n) && n > 0 ? `${formatUsdCompact(n)} / qtr` : '—'
+          } else if (row.format === 'quarters') display = formatContextRunwayQuarters(raw)
+          return (
+            <div key={row.key} className="contextCardOutcomeRow" role="listitem">
+              <span className="contextCardOutcomeK dim">{row.label}</span>
+              <span
+                className={[
+                  'contextCardOutcomeV',
+                  'mono',
+                  tone === 'pos' ? 'contextCardOutcomeV--pos' : '',
+                  tone === 'neg' ? 'contextCardOutcomeV--neg' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {display}
               </span>
             </div>
           )
@@ -3415,6 +3513,7 @@ function MainContextPanel({
   politicians = [],
   catalystItems = [],
   fundamentals = null,
+  runway = null,
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const [priceRange, setPriceRange] = useState('6M')
@@ -3558,6 +3657,9 @@ function MainContextPanel({
             ) : null}
             <ContextSection ariaLabel="Catalyst clock">
               <ContextCatalystCard items={catalystItems} title="Catalyst clock" />
+            </ContextSection>
+            <ContextSection ariaLabel="Financial runway">
+              <ContextRunwayCard runway={runway} />
             </ContextSection>
             <ContextSection ariaLabel="Trial historical outcomes">
               <ContextClinicalOutcomesList
@@ -8666,6 +8768,11 @@ function KensiglineTerminal() {
     [contextClinicalLive],
   )
 
+  const contextRunway = useMemo(() => {
+    if (backendUp && contextClinicalMapped?.runway) return contextClinicalMapped.runway
+    return contextMock.runway
+  }, [backendUp, contextClinicalMapped?.runway, contextMock.runway])
+
   const contextPrograms = useMemo(() => {
     if (intelMode !== 'clinical') return []
     if (backendUp && contextClinicalMapped) return contextClinicalMapped.programs
@@ -10174,6 +10281,7 @@ function KensiglineTerminal() {
             politicians={contextFlowRows.politicians}
             catalystItems={contextCatalystItems}
             fundamentals={contextFundamentals}
+            runway={contextRunway}
           />
         </>
       ) : null}

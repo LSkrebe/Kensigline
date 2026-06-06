@@ -13,6 +13,8 @@ Mirrors the frontend terminal tabs and mode switches.
 
 `/api/company?ticker=` includes `fundamentals` for the Research CONTEXT panel (SEC Company Facts + document guidance via `research/market/fundamentals.ts`).
 
+`/api/pharma/clinical-context?ticker=` includes `runway` for the clinical CONTEXT panel (cash, burn, runway from SEC Company Facts).
+
 ## Cross-cutting modules
 
 | Path | Role |

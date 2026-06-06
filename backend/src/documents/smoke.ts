@@ -5,6 +5,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { historicalFundamentalsFromCompanyFacts } from "../core/fundamentals.js";
+import { historicalRunwayFromCompanyFacts } from "../core/runway.js";
 import { parseForwardRevenueGrowthFromText } from "../research/market/guidance-parse.js";
 import { extractLinksFromFeedXml, googleNewsTranscriptFeedUrl, stripHtmlToText, yahooHeadlineFeedUrl } from "../research/market/feeds.js";
 
@@ -85,4 +86,27 @@ test("parseForwardRevenueGrowthFromText finds guidance percent", () => {
     12.5,
   );
   assert.equal(parseForwardRevenueGrowthFromText("No numeric guidance in this filing."), null);
+});
+
+test("historicalRunwayFromCompanyFacts cash burn and runway quarters", () => {
+  const mockFacts = {
+    facts: {
+      "us-gaap": {
+        CashAndCashEquivalentsAtCarryingValue: {
+          units: {
+            USD: [{ val: 180_000_000, end: "2024-03-31", filed: "2024-05-01", fy: 2024, fp: "Q1", form: "10-Q" }],
+          },
+        },
+        NetCashProvidedByUsedInOperatingActivities: {
+          units: {
+            USD: [{ val: -35_000_000, end: "2024-03-31", filed: "2024-05-01", fy: 2024, fp: "Q1", form: "10-Q" }],
+          },
+        },
+      },
+    },
+  };
+  const out = historicalRunwayFromCompanyFacts(mockFacts);
+  assert.equal(out.cashUsd, 180_000_000);
+  assert.equal(out.quarterlyBurnUsd, 35_000_000);
+  assert.equal(out.runwayQuarters, 5.1);
 });

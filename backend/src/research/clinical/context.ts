@@ -1,5 +1,6 @@
 import { db } from "../../core/db.js";
 import { getCompanyPanelData } from "../../core/company.js";
+import { getClinicalRunwayForTicker, type ClinicalRunway } from "./runway.js";
 import {
   buildCatalystsFromStudies,
   buildProgramsFromStudies,
@@ -69,6 +70,7 @@ export async function getPharmaClinicalContext(opts: {
   catalysts: ClinicalCatalystItem[];
   programs: ClinicalProgram[];
   trials_count: number;
+  runway: ClinicalRunway;
 }> {
   const ticker = String(opts.ticker ?? "").trim().toUpperCase();
   if (!ticker) throw new Error("ticker_required");
@@ -114,6 +116,27 @@ export async function getPharmaClinicalContext(opts: {
   });
   const lead = pickLeadProgram(programs, catalysts);
 
+  let runway: ClinicalRunway = {
+    cashUsd: null,
+    quarterlyBurnUsd: null,
+    runwayQuarters: null,
+    periodEnd: null,
+    fiscalPeriod: null,
+    source: null,
+  };
+  try {
+    runway = await getClinicalRunwayForTicker({ ticker });
+  } catch {
+    runway = {
+      cashUsd: null,
+      quarterlyBurnUsd: null,
+      runwayQuarters: null,
+      periodEnd: null,
+      fiscalPeriod: null,
+      source: null,
+    };
+  }
+
   return {
     ticker,
     company_name: companyName,
@@ -122,5 +145,6 @@ export async function getPharmaClinicalContext(opts: {
     catalysts,
     programs,
     trials_count: studies.length,
+    runway,
   };
 }
