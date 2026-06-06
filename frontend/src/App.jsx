@@ -1267,6 +1267,12 @@ const CONTEXT_MOCK_PROFILES = {
       { filer: 'BlackRock', activity: 'New position', at: '2026-03-12', amount: '$42M' },
       { filer: 'Capital Group', activity: 'Reduced stake', at: '2026-02-05', amount: '$18M' },
     ],
+    fundamentals: {
+      revenueGrowth: 15.2,
+      netMargin: 28.4,
+      fcfMargin: 24.1,
+      forwardRevenueGrowth: 12.8,
+    },
   },
   ATYR: {
     sector: 'Biotechnology',
@@ -1352,6 +1358,36 @@ const CONTEXT_MOCK_PROFILE_DEFAULT = {
   insiders: [],
   politicians: [],
   filings13f: [],
+  fundamentals: null,
+}
+
+function contextMockFundamentalsForTicker(ticker, profileFundamentals = null) {
+  if (profileFundamentals && typeof profileFundamentals === 'object') {
+    return { ...profileFundamentals }
+  }
+  const seed = seedFromTicker(String(ticker ?? 'TICK'))
+  const revenueGrowth = Math.round((6 + (seed % 260) / 10) * 10) / 10
+  const netMargin = Math.round((10 + ((seed * 7) % 320) / 10) * 10) / 10
+  const fcfMargin = Math.round(Math.max(3, netMargin - 1.5 - (seed % 9)) * 10) / 10
+  const forwardRevenueGrowth = Math.round((revenueGrowth - 1.5 + (seed % 14) / 2) * 10) / 10
+  return { revenueGrowth, netMargin, fcfMargin, forwardRevenueGrowth }
+}
+
+function formatContextFundamentalPct(value, { signed = false } = {}) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '—'
+  const abs = Math.abs(n).toFixed(1)
+  if (!signed) return `${abs}%`
+  if (n > 0) return `+${abs}%`
+  if (n < 0) return `−${abs}%`
+  return `${abs}%`
+}
+
+function contextFundamentalValueTone(key, value) {
+  if (key !== 'revenueGrowth' && key !== 'forwardRevenueGrowth') return null
+  const n = Number(value)
+  if (!Number.isFinite(n) || n === 0) return null
+  return n > 0 ? 'pos' : 'neg'
 }
 
 function contextMockForTicker(ticker, priceSeries) {
@@ -1404,6 +1440,7 @@ function contextMockForTicker(ticker, priceSeries) {
       date: contextMockFlowDate(row, dateDaysAgo),
       amount: row.amount,
     })),
+    fundamentals: contextMockFundamentalsForTicker(t, base.fundamentals),
   }
 }
 
@@ -1662,6 +1699,46 @@ function ContextSection({ title, ariaLabel, children }) {
         </div>
       ) : null}
       {children}
+    </div>
+  )
+}
+
+const CONTEXT_FUNDAMENTAL_ROWS = [
+  { key: 'revenueGrowth', label: 'Revenue growth', signed: true },
+  { key: 'forwardRevenueGrowth', label: 'Forward revenue growth', signed: true },
+  { key: 'netMargin', label: 'Net margin', signed: false },
+  { key: 'fcfMargin', label: 'FCF margin', signed: false },
+]
+
+function ContextFundamentalsCard({ fundamentals }) {
+  return (
+    <div className="contextCatalystCard" aria-label="Fundamentals">
+      <div className="contextCatalystCardHeader">
+        <div className="contextCatalystCardTitle mono dim">Fundamentals</div>
+      </div>
+      <div className="contextOutcomesStack">
+        {CONTEXT_FUNDAMENTAL_ROWS.map((row) => {
+          const raw = fundamentals?.[row.key]
+          const tone = contextFundamentalValueTone(row.key, raw)
+          return (
+            <div key={row.key} className="contextCardOutcomeRow" role="listitem">
+              <span className="contextCardOutcomeK dim">{row.label}</span>
+              <span
+                className={[
+                  'contextCardOutcomeV',
+                  'mono',
+                  tone === 'pos' ? 'contextCardOutcomeV--pos' : '',
+                  tone === 'neg' ? 'contextCardOutcomeV--neg' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {formatContextFundamentalPct(raw, { signed: row.signed })}
+              </span>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -3337,6 +3414,7 @@ function MainContextPanel({
   insiders = [],
   politicians = [],
   catalystItems = [],
+  fundamentals = null,
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const [priceRange, setPriceRange] = useState('6M')
@@ -3493,6 +3571,9 @@ function MainContextPanel({
 
         {showFlows ? (
           <>
+            <ContextSection ariaLabel="Fundamentals">
+              <ContextFundamentalsCard fundamentals={fundamentals} />
+            </ContextSection>
             <ContextSection ariaLabel="Insider historical outcomes">
               <ContextFlowTotalsList
                 rows={insidersFlow.rows}
@@ -10079,6 +10160,7 @@ function KensiglineTerminal() {
             insiders={contextFlowRows.insiders}
             politicians={contextFlowRows.politicians}
             catalystItems={contextCatalystItems}
+            fundamentals={contextMock.fundamentals}
           />
         </>
       ) : null}

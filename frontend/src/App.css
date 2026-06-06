@@ -2571,6 +2571,14 @@
   gap: 8px;
 }
 
+.terminal--main .mainContextPanel .contextCatalystCard .contextOutcomesStack {
+  padding: 8px 0 6px;
+}
+
+.terminal--main .mainContextPanel .contextCatalystCard .contextCardOutcomeRow {
+  padding: 2px 0;
+}
+
 .terminal--main .mainContextPanel .contextOutcomesCard {
   padding: 8px 10px 10px;
 }
