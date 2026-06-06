@@ -15,7 +15,7 @@ export const QUEUE_SOURCES = {
   ],
   researchClinical: ["sec_pharma_filing", "sec_filing"],
   investigateInsider: ["sec_form4", "sec_form3", "sec_form5"],
-  investigatePoliticians: ["house_ptr"],
+  investigatePoliticians: ["house_ptr", "senate_ptr"],
   investigateInstitutions: ["sec_13f"],
 } as const;
 

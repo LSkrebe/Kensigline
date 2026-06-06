@@ -342,7 +342,13 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
 
   let minAt: string | null = null;
   let maxAt: string | null = null;
-  const worksheet_rows: Array<{ key: string; ts: string | null; amount_usd: number | null }> = [];
+  const worksheet_rows: Array<{
+    key: string;
+    ts: string | null;
+    amount_usd: number | null;
+    chamber: string | null;
+    transaction_type: string | null;
+  }> = [];
   const politicians = new Set<string>();
   let latest: any = null;
 
@@ -362,6 +368,8 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
           key,
           ts: r?.ts != null ? String(r.ts) : null,
           amount_usd: r?.amount_usd_mid != null ? Number(r.amount_usd_mid) : null,
+          chamber: r?.chamber != null ? String(r.chamber) : null,
+          transaction_type: r?.transaction_type != null ? String(r.transaction_type) : null,
         });
       }
     }

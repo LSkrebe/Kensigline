@@ -1,15 +1,46 @@
 import { db } from "../../core/db.js";
 import { llmChat } from "../../core/llm.js";
+import {
+  fetchSenatePtrHtml,
+  openSenateSession,
+  parseSenatePtrHtml,
+  type ParsedSenatePtr,
+} from "../../core/senate.js";
 import { syncPoliticianTransactionsFromDocument } from "../../documents/store.js";
 import { createHash } from "node:crypto";
 import { extractPdfTextWithFallback } from "../../core/pdf.js";
 import { createRequire } from "node:module";
+
+type PoliticianPtrSource = "house_ptr" | "senate_ptr";
+type Chamber = "house" | "senate";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }
   | { processed: false; reason: "busy"; queue_id: string }
   | { processed: false; reason: "skipped"; queue_id: string; skip_reason: string }
   | { processed: true; queue_id: string; parsed_ids: string[]; ticker_count: number };
+
+type PoliticianTxn = {
+  owner: string | null;
+  asset_name: string | null;
+  ticker: string | null;
+  asset_type: string | null;
+  transaction_type: string | null;
+  transaction_date: string | null;
+  notification_date: string | null;
+  amount_range: string | null;
+  description: string | null;
+};
+
+type PoliticianFiling = {
+  filer: { name: string | null; office: string | null; state_district: string | null };
+  filing_id: string | null;
+  filed_at: string | null;
+  source: PoliticianPtrSource;
+  pdf_url: string | null;
+  transactions: PoliticianTxn[];
+  context_sentences: string[];
+};
 
 function extractJsonObject(text: string): any {
   const require = createRequire(import.meta.url);
@@ -19,7 +50,6 @@ function extractJsonObject(text: string): any {
   try {
     return JSON.parse(raw);
   } catch {
-    // Try to salvage a JSON object substring.
     const start = raw.indexOf("{");
     const end = raw.lastIndexOf("}");
     if (start >= 0 && end > start) {
@@ -27,8 +57,6 @@ function extractJsonObject(text: string): any {
       try {
         return JSON.parse(sub);
       } catch {
-        // Repair common JSON issues from LLMs (missing quotes, trailing commas, etc.)
-        // while keeping output as strict JSON.
         const { jsonrepair } = require("jsonrepair");
         const repaired = String(jsonrepair(sub)).replace(/\u0000/g, "");
         return JSON.parse(repaired);
@@ -58,22 +86,12 @@ function parseUsdAmountRange(s: string | null): { low: number | null; high: numb
   return { low: lo, high: hi, mid, raw: cleaned };
 }
 
-function isPoliticianSchema(out: any): out is {
+function isPoliticianSchema(out: any, source: PoliticianPtrSource): out is {
   schema_type: "politician_filing";
   schema_version: "v1";
   filer: { name: string | null; office: string | null; state_district: string | null };
-  filing: { filing_id: string | null; filed_at: string | null; source: "house_ptr"; pdf_url: string | null };
-  transactions: Array<{
-    owner: string | null;
-    asset_name: string | null;
-    ticker: string | null;
-    asset_type: string | null;
-    transaction_type: string | null;
-    transaction_date: string | null;
-    notification_date: string | null;
-    amount_range: string | null;
-    description: string | null;
-  }>;
+  filing: { filing_id: string | null; filed_at: string | null; source: PoliticianPtrSource; pdf_url: string | null };
+  transactions: PoliticianTxn[];
   context_sentences: string[];
 } {
   return (
@@ -82,11 +100,12 @@ function isPoliticianSchema(out: any): out is {
     out.schema_type === "politician_filing" &&
     out.schema_version &&
     Array.isArray(out.transactions) &&
-    Array.isArray(out.context_sentences)
+    Array.isArray(out.context_sentences) &&
+    String(out?.filing?.source ?? source) === source
   );
 }
 
-function buildPoliticiansExtractionPrompt(args: { pdfText: string; pdfUrl: string; filingId: string | null }) {
+function buildHouseExtractionPrompt(args: { pdfText: string; pdfUrl: string; filingId: string | null }) {
   const { pdfText, pdfUrl, filingId } = args;
   return [
     {
@@ -127,11 +146,6 @@ function buildPoliticiansExtractionPrompt(args: { pdfText: string; pdfUrl: strin
         "- `amount_range` should be copied exactly like \"$1,001 - $15,000\" when present.",
         "- `context_sentences`: write exactly 3 sentences summarizing the filing at a high level (who + what tickers + approximate sizes + reporting lag).",
         "",
-        "CRITICAL JSON RULES:",
-        "- Return ONLY JSON, starting with '{' and ending with '}'.",
-        "- Do NOT include trailing commas.",
-        "- Do NOT include unescaped newlines inside strings.",
-        "",
         "KNOWN METADATA:",
         JSON.stringify({ pdf_url: pdfUrl, filing_id: filingId, source: "house_ptr" }),
         "",
@@ -151,8 +165,181 @@ async function fetchPdfBytes(url: string): Promise<Buffer> {
   return Buffer.from(ab);
 }
 
+function filterPurchaseStockTransactions(txAll: PoliticianTxn[]) {
+  const txP0 = txAll.filter((t) => String(t?.transaction_type ?? "").trim().toUpperCase() === "P");
+  return txP0.filter((t) => {
+    const at = String(t?.asset_type ?? "").trim().toUpperCase();
+    return !at || at.includes("ST") || /\bCOMMON STOCK\b/i.test(String(t?.asset_name ?? ""));
+  });
+}
+
+function filingFromParsed(parsed: PoliticianFiling): PoliticianFiling {
+  return parsed;
+}
+
+function filingFromSenate(parsed: ParsedSenatePtr, viewUrl: string): PoliticianFiling {
+  return {
+    filer: parsed.filer,
+    filing_id: parsed.filing_id,
+    filed_at: parsed.filed_at,
+    source: "senate_ptr",
+    pdf_url: viewUrl,
+    transactions: parsed.transactions,
+    context_sentences: parsed.context_sentences,
+  };
+}
+
+async function loadHouseFiling(url: string): Promise<{ filing: PoliticianFiling; contentSha256: string; model: string | null }> {
+  const pdf = await fetchPdfBytes(url);
+  const contentSha256 = createHash("sha256").update(pdf).digest("hex");
+  const filingId = (url.match(/\/(\d+)\.pdf$/i) ?? [])[1] ?? null;
+  const { text: pdfText } = await extractPdfTextWithFallback(pdf);
+  const messages = buildHouseExtractionPrompt({ pdfText, pdfUrl: url, filingId });
+  const { content, model } = await llmChat(messages, { temperature: 0, max_tokens: 3200, response_format: "json_object" });
+  const out = extractJsonObject(content);
+  if (!isPoliticianSchema(out, "house_ptr")) throw new Error("llm_output_schema_mismatch");
+  return {
+    contentSha256,
+    model: model ?? null,
+    filing: {
+      filer: out.filer,
+      filing_id: out.filing?.filing_id ?? filingId,
+      filed_at: out.filing?.filed_at ?? null,
+      source: "house_ptr",
+      pdf_url: url,
+      transactions: out.transactions,
+      context_sentences: out.context_sentences,
+    },
+  };
+}
+
+async function loadSenateFiling(url: string): Promise<{ filing: PoliticianFiling; contentSha256: string; model: string | null }> {
+  const session = await openSenateSession();
+  const html = await fetchSenatePtrHtml(url, session);
+  const contentSha256 = createHash("sha256").update(html).digest("hex");
+  const parsed = parseSenatePtrHtml(html, url);
+  return { contentSha256, model: null, filing: filingFromSenate(parsed, url) };
+}
+
+async function persistPoliticianFiling(opts: {
+  queueId: string;
+  url: string;
+  chamber: Chamber;
+  source: PoliticianPtrSource;
+  promptVersion: string;
+  model: string | null;
+  contentSha256: string;
+  filing: PoliticianFiling;
+}): Promise<string[]> {
+  const { queueId, url, chamber, source, promptVersion, model, contentSha256, filing } = opts;
+  const txP = filterPurchaseStockTransactions(filing.transactions);
+  if (!txP.length) return [];
+
+  const byTicker = new Map<string, PoliticianTxn[]>();
+  for (const t of txP) {
+    const ticker = String(t?.ticker ?? "").trim().toUpperCase();
+    if (!ticker) continue;
+    const arr = byTicker.get(ticker) ?? [];
+    arr.push(t);
+    byTicker.set(ticker, arr);
+  }
+  if (!byTicker.size) return [];
+
+  const parsedIds: string[] = [];
+  const filerName = String(filing.filer?.name ?? "").trim() || "POLITICIAN";
+
+  for (const [ticker, txs] of byTicker.entries()) {
+    const docSha = `${contentSha256}:${ticker}`;
+    txs.sort((a, b) => String(b?.notification_date ?? "").localeCompare(String(a?.notification_date ?? "")));
+
+    const worksheet_rows = txs.map((t) => {
+      const amt = parseUsdAmountRange(t?.amount_range ?? null);
+      return {
+        key: filerName,
+        chamber,
+        ts: formatIso(t?.transaction_date) ?? formatIso(t?.notification_date),
+        reported_at: formatIso(t?.notification_date),
+        transaction_type: t?.transaction_type ?? null,
+        owner: t?.owner ?? null,
+        amount_range: amt.raw,
+        amount_usd_mid: amt.mid,
+        amount_usd_low: amt.low,
+        amount_usd_high: amt.high,
+        asset_name: t?.asset_name ?? null,
+        ticker,
+        description: t?.description ?? null,
+      };
+    });
+
+    const sumMid = worksheet_rows.reduce((a: number, r: any) => a + (Number(r?.amount_usd_mid ?? 0) || 0), 0);
+    const feedLabel = sumMid > 0 ? `${Math.round(sumMid)} (${worksheet_rows.length})` : `(${worksheet_rows.length})`;
+    const feedAt =
+      formatIso(txs[0]?.notification_date) ??
+      formatIso(txs[0]?.transaction_date) ??
+      formatIso(filing.filed_at) ??
+      new Date().toISOString();
+
+    const data = {
+      schema_type: "politician_cluster",
+      schema_version: "v1",
+      issuer: { name: null, ticker, cik: null },
+      filing: {
+        form_type: "PTR",
+        accession_no: filing.filing_id,
+        filed_at: formatIso(filing.filed_at) ?? feedAt,
+        source,
+        pdf_url: url,
+        chamber,
+      },
+      cluster: {
+        feed_label: feedLabel,
+        cluster_start_at: worksheet_rows.at(-1)?.ts ?? null,
+        cluster_end_at: worksheet_rows[0]?.ts ?? null,
+        politicians: [filerName],
+        context_sentences: Array.isArray(filing.context_sentences)
+          ? filing.context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 3)
+          : [],
+        worksheet_rows,
+      },
+    };
+
+    const inserted = await db.one<{ id: string }>(
+      `
+      INSERT INTO documents (
+        queue_id, doc_kind, schema_version, ticker, feed_kind, source_key, event_at,
+        feed_label, url, published_at, model, prompt_version, content_sha256, data
+      )
+      VALUES ($1, $2, $3, $4, 'politicians', 'PTR', $5, $6, $7, $8, $9, $10, $11, $12)
+      ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
+      DO UPDATE SET parsed_at = now()
+      RETURNING id
+      `,
+      [
+        queueId,
+        "politician_cluster",
+        "v1",
+        ticker,
+        feedAt,
+        feedLabel,
+        url,
+        feedAt,
+        model,
+        promptVersion,
+        docSha,
+        data,
+      ],
+    );
+    if (inserted?.id) {
+      parsedIds.push(inserted.id);
+      await syncPoliticianTransactionsFromDocument(inserted.id, ticker, data);
+    }
+  }
+
+  return parsedIds;
+}
+
 export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> {
-  const next = await db.one<{ id: string; url: string }>(
+  const next = await db.one<{ id: string; url: string; source_type: string }>(
     `
     UPDATE document_queue
     SET status = 'parsing', updated_at = now()
@@ -160,13 +347,13 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
       SELECT id
       FROM document_queue
       WHERE status IN ('ready_to_parse', 'queued', 'failed')
-        AND source_type = 'house_ptr'
+        AND source_type IN ('house_ptr', 'senate_ptr')
         AND (next_attempt_at IS NULL OR next_attempt_at <= now())
       ORDER BY priority DESC, created_at ASC
       LIMIT 1
       FOR UPDATE SKIP LOCKED
     )
-    RETURNING id, url
+    RETURNING id, url, source_type
     `,
     [],
   );
@@ -174,38 +361,25 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
 
   const queueId = next.id;
   const url = next.url;
+  const source = String(next.source_type ?? "").trim() as PoliticianPtrSource;
+  const chamber: Chamber = source === "senate_ptr" ? "senate" : "house";
 
   try {
-    const pdf = await fetchPdfBytes(url);
-    const baseSha256 = createHash("sha256").update(pdf).digest("hex");
+    const loaded =
+      source === "senate_ptr" ? await loadSenateFiling(url) : await loadHouseFiling(url);
+    const { contentSha256, filing, model } = loaded;
 
-    // If we've already parsed this exact PDF content, mark parsed and exit.
     const existing = await db.one<{ id: string }>(
       `SELECT id FROM documents WHERE feed_kind='politicians' AND content_sha256 LIKE ($1 || ':%') LIMIT 1`,
-      [baseSha256],
+      [contentSha256],
     );
     if (existing?.id) {
       await db.query(`UPDATE document_queue SET status='parsed', updated_at=now(), last_error=NULL WHERE id=$1`, [queueId]);
       return { processed: true, queue_id: queueId, parsed_ids: [existing.id], ticker_count: 1 };
     }
 
-    const filingId = (url.match(/\/(\d+)\.pdf$/i) ?? [])[1] ?? null;
-    const { text: pdfText } = await extractPdfTextWithFallback(pdf);
-
-    const messages = buildPoliticiansExtractionPrompt({ pdfText, pdfUrl: url, filingId });
-    const { content, model } = await llmChat(messages, { temperature: 0, max_tokens: 3200, response_format: "json_object" });
-    const out = extractJsonObject(content);
-    if (!isPoliticianSchema(out)) throw new Error("llm_output_schema_mismatch");
-
-    // Filter: only Purchases (P). Default to stock-like rows (asset_type often [ST]).
-    const txAll = Array.isArray(out.transactions) ? out.transactions : [];
-    const txP0 = txAll.filter((t) => String(t?.transaction_type ?? "").trim().toUpperCase() === "P");
-    const txP = txP0.filter((t) => {
-      const at = String(t?.asset_type ?? "").trim().toUpperCase();
-      // Keep common stock rows; if asset_type is missing, keep it (LLM sometimes omits).
-      return !at || at.includes("ST") || /\bCOMMON STOCK\b/i.test(String(t?.asset_name ?? ""));
-    });
-    if (txP.length === 0) {
+    const txP = filterPurchaseStockTransactions(filing.transactions);
+    if (!txP.length) {
       await db.query(
         `UPDATE document_queue SET status='dead', last_error='skipped_no_P_transactions', next_attempt_at=NULL, updated_at=now() WHERE id=$1`,
         [queueId],
@@ -213,136 +387,23 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_P_transactions" };
     }
 
-    // Group P transactions by ticker (best-effort).
-    const byTicker = new Map<string, any[]>();
-    for (const t of txP) {
-      const ticker = String(t?.ticker ?? "").trim().toUpperCase();
-      if (!ticker) continue;
-      const arr = byTicker.get(ticker) ?? [];
-      arr.push(t);
-      byTicker.set(ticker, arr);
-    }
-    if (byTicker.size === 0) {
+    const parsedIds = await persistPoliticianFiling({
+      queueId,
+      url,
+      chamber,
+      source,
+      promptVersion: source === "senate_ptr" ? "senate_ptr_v1" : "house_ptr_v1",
+      model,
+      contentSha256,
+      filing: filingFromParsed(filing),
+    });
+
+    if (!parsedIds.length) {
       await db.query(
         `UPDATE document_queue SET status='dead', last_error='skipped_missing_tickers', next_attempt_at=NULL, updated_at=now() WHERE id=$1`,
         [queueId],
       );
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "missing_tickers" };
-    }
-
-    const parsedIds: string[] = [];
-    for (const [ticker, txs] of byTicker.entries()) {
-      const contentSha256 = `${baseSha256}:${ticker}`;
-      // Sort newest-first by notification date then transaction date.
-      txs.sort((a, b) => String(b?.notification_date ?? "").localeCompare(String(a?.notification_date ?? "")));
-      const politicians = [String(out?.filer?.name ?? "").trim()].filter(Boolean);
-      const worksheet_rows = txs.map((t) => {
-        const amt = parseUsdAmountRange(t?.amount_range ?? null);
-        return {
-          key: String(out?.filer?.name ?? "").trim() || "POLITICIAN",
-          ts: formatIso(t?.transaction_date) ?? formatIso(t?.notification_date),
-          reported_at: formatIso(t?.notification_date),
-          transaction_type: t?.transaction_type ?? null,
-          owner: t?.owner ?? null,
-          amount_range: amt.raw,
-          amount_usd_mid: amt.mid,
-          amount_usd_low: amt.low,
-          amount_usd_high: amt.high,
-          asset_name: t?.asset_name ?? null,
-          ticker,
-          description: t?.description ?? null,
-        };
-      });
-
-      const sumMid = worksheet_rows.reduce((a: number, r: any) => a + (Number(r?.amount_usd_mid ?? 0) || 0), 0);
-      const feedLabel = sumMid > 0 ? `${Math.round(sumMid)} (${worksheet_rows.length})` : `(${worksheet_rows.length})`;
-
-      const feedAt =
-        formatIso(txs[0]?.notification_date) ??
-        formatIso(txs[0]?.transaction_date) ??
-        formatIso(out?.filing?.filed_at) ??
-        new Date().toISOString();
-
-      const data = {
-        schema_type: "politician_cluster",
-        schema_version: "v1",
-        issuer: { name: null, ticker, cik: null },
-        filing: {
-          form_type: "PTR",
-          accession_no: filingId,
-          filed_at: formatIso(out?.filing?.filed_at) ?? feedAt,
-          source: "house_ptr",
-          pdf_url: url,
-        },
-        cluster: {
-          feed_label: feedLabel,
-          cluster_start_at: worksheet_rows.at(-1)?.ts ?? null,
-          cluster_end_at: worksheet_rows[0]?.ts ?? null,
-          politicians,
-          context_sentences: Array.isArray(out.context_sentences)
-            ? out.context_sentences.map((s: any) => String(s)).filter(Boolean).slice(0, 3)
-            : [],
-          worksheet_rows,
-        },
-      };
-
-      const inserted = await db.one<{ id: string }>(
-        `
-        INSERT INTO documents (
-          queue_id,
-          doc_kind,
-          schema_version,
-          ticker,
-          feed_kind,
-          source_key,
-          event_at,
-          feed_label,
-          url,
-          published_at,
-          model,
-          prompt_version,
-          content_sha256,
-          data
-        )
-        VALUES (
-          $1,
-          $2,
-          $3,
-          $4,
-          'politicians',
-          'PTR',
-          $5,
-          $6,
-          $7,
-          $8,
-          $9,
-          $10,
-          $11,
-          $12
-        )
-        ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
-        DO UPDATE SET parsed_at = now()
-        RETURNING id
-        `,
-        [
-          queueId,
-          "politician_cluster",
-          "v1",
-          ticker,
-          feedAt,
-          feedLabel,
-          url,
-          feedAt,
-          model,
-          "house_ptr_v1",
-          contentSha256,
-          data,
-        ],
-      );
-      if (inserted?.id) {
-        parsedIds.push(inserted.id);
-        if (ticker) await syncPoliticianTransactionsFromDocument(inserted.id, ticker, data);
-      }
     }
 
     await db.query(`UPDATE document_queue SET status='parsed', updated_at=now(), last_error=NULL WHERE id=$1`, [queueId]);
@@ -370,4 +431,3 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
     return { processed: false, reason: "busy", queue_id: queueId };
   }
 }
-

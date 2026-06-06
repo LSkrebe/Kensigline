@@ -214,7 +214,8 @@ function insiderCaseSheetFromClusterLive(cluster, fallback) {
 
 function politiciansCaseSheetFromClusterLive(cluster, fallback) {
   const wsRows = Array.isArray(cluster?.cluster?.worksheet_rows) ? cluster.cluster.worksheet_rows : []
-  const chamber = fallback?.chamber ?? 'house'
+  const chamberFromRow = wsRows.map((r) => String(r?.chamber ?? '').trim().toLowerCase()).find(Boolean)
+  const chamber = chamberFromRow || fallback?.chamber || 'house'
   const companyName =
     String(cluster?.issuer?.name ?? '').trim() ||
     String(fallback?.company ?? '').trim() ||
@@ -233,7 +234,7 @@ function politiciansCaseSheetFromClusterLive(cluster, fallback) {
         key: fullName,
         politician_name: fullName,
         surname: lastName(fullName),
-        chamber,
+        chamber: String(r?.chamber ?? chamber).trim().toLowerCase() || chamber,
         transactionType:
           r?.transaction_type != null
             ? String(r.transaction_type)

@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { historicalFundamentalsFromCompanyFacts } from "../core/fundamentals.js";
 import { historicalRunwayFromCompanyFacts } from "../core/runway.js";
+import { parseSenatePtrHtml } from "../core/senate.js";
 import { parseForwardRevenueGrowthFromText } from "../research/market/guidance-parse.js";
 import { extractLinksFromFeedXml, googleNewsTranscriptFeedUrl, stripHtmlToText, yahooHeadlineFeedUrl } from "../research/market/feeds.js";
 
@@ -86,6 +87,32 @@ test("parseForwardRevenueGrowthFromText finds guidance percent", () => {
     12.5,
   );
   assert.equal(parseForwardRevenueGrowthFromText("No numeric guidance in this filing."), null);
+});
+
+test("parseSenatePtrHtml extracts senator stock purchases", () => {
+  const html = `
+    <h2>The Honorable David H McCormick (McCormick, David H.)</h2>
+    <p>Filed 12/26/2025 @ 12:36 PM</p>
+    <table>
+      <tr>
+        <td>8</td><td>11/28/2025</td><td>Self</td>
+        <td><a href="https://finance.yahoo.com/quote/BITB">BITB</a></td>
+        <td>Bitwise Bitcoin ETF</td><td>Stock</td><td>Purchase</td><td>$50,001 - $100,000</td><td>--</td>
+      </tr>
+      <tr>
+        <td>1</td><td>06/03/2025</td><td>Spouse</td>
+        <td><a href="https://finance.yahoo.com/quote/PFE">PFE</a></td>
+        <td>Pfizer, Inc. Common Stock</td><td>Stock</td><td>Sale (Full)</td><td>$1,001 - $15,000</td><td>--</td>
+      </tr>
+    </table>
+  `;
+  const url = "https://efdsearch.senate.gov/search/view/ptr/e337e1b4-ff0a-4b83-8a58-1d25a81ea26f/";
+  const out = parseSenatePtrHtml(html, url);
+  assert.equal(out.filing_id, "e337e1b4-ff0a-4b83-8a58-1d25a81ea26f");
+  assert.ok(out.filer.name?.includes("McCormick"));
+  const purchases = out.transactions.filter((t) => t.transaction_type === "P" && t.ticker);
+  assert.equal(purchases.length, 1);
+  assert.equal(purchases[0]!.ticker, "BITB");
 });
 
 test("historicalRunwayFromCompanyFacts cash burn and runway quarters", () => {
