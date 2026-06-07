@@ -3828,30 +3828,30 @@
   color: var(--hi);
 }
 
-.terminal--discover .discoverEventCard.researchPaperRailCard {
+.terminal--discover .discoverEventCard:not(.discoverEventCard--ahead).researchPaperRailCard {
   transition:
     border-color 0.15s ease,
     background 0.15s ease;
 }
 
-.terminal--discover .discoverEventCard.researchPaperRailCard::before {
+.terminal--discover .discoverEventCard:not(.discoverEventCard--ahead).researchPaperRailCard::before {
   transition: background 0.15s ease;
 }
 
-.terminal--discover .discoverEventCard .researchPaperRailCardRail {
+.terminal--discover .discoverEventCard:not(.discoverEventCard--ahead) .researchPaperRailCardRail {
   transition: background 0.15s ease;
 }
 
-.terminal--discover .discoverEventCard.researchPaperRailCard:hover {
+.terminal--discover .discoverEventCard:not(.discoverEventCard--ahead).researchPaperRailCard:hover {
   border-color: rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.05);
 }
 
-.terminal--discover .discoverEventCard.researchPaperRailCard:hover::before {
+.terminal--discover .discoverEventCard:not(.discoverEventCard--ahead).researchPaperRailCard:hover::before {
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent 52%);
 }
 
-.terminal--discover .discoverEventCard.researchPaperRailCard:hover .researchPaperRailCardRail {
+.terminal--discover .discoverEventCard:not(.discoverEventCard--ahead).researchPaperRailCard:hover .researchPaperRailCardRail {
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -3863,6 +3863,10 @@
 
 .terminal--discover .discoverEventCard.researchPaperDocCard .researchPaperRailCardMain {
   padding: 5px 6px 14px 5px;
+}
+
+.terminal--discover .discoverEventCard--ahead.researchPaperDocCard .researchPaperRailCardMain {
+  padding: 5px 6px 5px 5px;
 }
 
 .terminal--discover .discoverEventCard .researchPaperDocCardAnalysis {
@@ -3896,6 +3900,9 @@
 
 .eventBriefMentionedCurrent {
   color: rgba(255, 255, 255, 0.55);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: rgba(255, 255, 255, 0.42);
 }
 
 .discoverAgendaRow--recent.discoverAgendaRow--hasSummary {

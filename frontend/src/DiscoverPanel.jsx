@@ -42,15 +42,15 @@ function DiscoverFilterPicker({ enabled, onToggle }) {
   )
 }
 
-function DiscoverEventCard({ event, onResearch }) {
-  const mentioned = getEventMentioned(event.briefKey)
+function DiscoverEventCard({ event, onResearch, showMentioned = false, interactive = false }) {
+  const mentioned = showMentioned ? getEventMentioned(event.briefKey) : null
   const source = event.source ?? 'Filing'
   const dateTime = event.at?.includes('T') ? event.at : `${event.at}T12:00:00`
   const body = String(event.summary ?? event.title ?? '').trim()
 
   return (
     <EventBriefDocCard
-      className="discoverEventCard"
+      className={['discoverEventCard', interactive ? '' : 'discoverEventCard--ahead'].filter(Boolean).join(' ')}
       railTicker={event.ticker}
       ticker={event.ticker}
       source={source}
@@ -58,9 +58,13 @@ function DiscoverEventCard({ event, onResearch }) {
       dateLabel={formatEventCardDate(event.at)}
       analysis={body}
       mentioned={mentioned}
-      url={event.url}
-      openLabel={`Open ${source}`}
-      onCardClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode })}
+      url={interactive ? event.url : undefined}
+      openLabel={interactive ? `Open ${source}` : undefined}
+      onCardClick={
+        interactive
+          ? () => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode })
+          : undefined
+      }
     />
   )
 }
@@ -83,7 +87,12 @@ function DiscoverEventList({ events, variant, onResearch }) {
           {entry.type === 'sep' ? (
             <DiscoverTimelineGap label={entry.label} />
           ) : (
-            <DiscoverEventCard event={entry.event} onResearch={onResearch} />
+            <DiscoverEventCard
+              event={entry.event}
+              onResearch={onResearch}
+              showMentioned={variant === 'recent'}
+              interactive={variant === 'recent'}
+            />
           )}
         </Fragment>
       ))}
