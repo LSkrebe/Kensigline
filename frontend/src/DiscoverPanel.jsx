@@ -1,86 +1,150 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useCallback, useMemo, useState } from 'react'
+import { DiscoverTimelineGap, EventBriefDocCard, formatEventCardDate } from './EventBrief.jsx'
 import {
+  buildDiscoverCardDisplayRows,
   buildDiscoverTimeline,
-  discoverEventRelativeLabel,
-  formatDiscoverDayHead,
-  groupEventsByDay,
-  truncateDiscoverSummary,
+  DISCOVER_DOCUMENT_FILTER_TYPES,
+  DISCOVER_FILTER_DEFAULT,
+  getEventMentioned,
 } from './discoverEvents.js'
 
-function DiscoverAheadRow({ event, showDate, dateLabel, onResearch }) {
+function DiscoverFilterIcon() {
   return (
-    <button
-      type="button"
-      className={['discoverAgendaRow', 'discoverAgendaRow--ahead', event.impact === 'high' ? 'discoverAgendaRow--key' : '']
-        .filter(Boolean)
-        .join(' ')}
-      onClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode })}
-    >
-      <span className="discoverAgendaDate mono dim">{showDate ? dateLabel : ''}</span>
-      <span className="discoverAgendaTicker mono">{event.ticker}</span>
-      <span className="discoverAgendaTitle">{event.title}</span>
-      <span className="discoverAgendaWhen mono">{discoverEventRelativeLabel(event.at)}</span>
-    </button>
+    <svg className="feedCompactFilterIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M4 6h16l-6 7v5l-4 2v-7L4 6z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }
 
-function DiscoverRecentRow({ event, showDate, dateLabel, onResearch }) {
-  const summary = truncateDiscoverSummary(event.summary)
-
+function DiscoverFilterPicker({ enabled, onToggle }) {
   return (
-    <button
-      type="button"
-      className={['discoverAgendaRow', 'discoverAgendaRow--recent', summary ? 'discoverAgendaRow--hasSummary' : '']
-        .filter(Boolean)
-        .join(' ')}
-      onClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode })}
-    >
-      <span className="discoverAgendaDate mono dim">{showDate ? dateLabel : ''}</span>
-      <span className="discoverAgendaTicker mono">{event.ticker}</span>
-      <span className="discoverAgendaTitle">{event.title}</span>
-      {summary ? <span className="discoverAgendaSummary">{summary}</span> : null}
-    </button>
+    <div className="feedCompactFilterPicker scrollThin discoverFeedFilterPicker" role="group" aria-label="Discover filters">
+      {DISCOVER_DOCUMENT_FILTER_TYPES.map(({ id, label, code }) => (
+        <label key={id} className="feedFilterTypeRow">
+          <input
+            type="checkbox"
+            checked={enabled?.has(id) ?? false}
+            onChange={() => onToggle?.(id)}
+          />
+          <span className="feedFilterTypeLabel">{label}</span>
+          <span className="feedFilterTypeCode mono" title={id}>
+            {code}
+          </span>
+        </label>
+      ))}
+    </div>
   )
 }
 
-function DiscoverAgendaColumn({ label, emptyLabel, variant, dayGroups, onResearch, Row, columnExtra }) {
+function DiscoverEventCard({ event, onResearch }) {
+  const mentioned = getEventMentioned(event.briefKey)
+  const source = event.source ?? 'Filing'
+  const dateTime = event.at?.includes('T') ? event.at : `${event.at}T12:00:00`
+  const body = String(event.summary ?? event.title ?? '').trim()
+
+  return (
+    <EventBriefDocCard
+      className="discoverEventCard"
+      railTicker={event.ticker}
+      ticker={event.ticker}
+      source={source}
+      dateTime={dateTime}
+      dateLabel={formatEventCardDate(event.at)}
+      analysis={body}
+      mentioned={mentioned}
+      url={event.url}
+      openLabel={`Open ${source}`}
+      onCardClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode })}
+    />
+  )
+}
+
+function DiscoverEventList({ events, variant, onResearch }) {
+  const displayRows = useMemo(
+    () => buildDiscoverCardDisplayRows(events, variant === 'recent' ? 'past' : 'upcoming'),
+    [events, variant],
+  )
+
+  if (!displayRows.length) {
+    return <p className="discoverColEmpty mono dim">No matching events.</p>
+  }
+
+  return (
+    <div className="discoverEventList researchPaperDocuments">
+      {displayRows.map((entry, idx) => (
+        <Fragment key={entry.key}>
+          {idx > 0 ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
+          {entry.type === 'sep' ? (
+            <DiscoverTimelineGap label={entry.label} />
+          ) : (
+            <DiscoverEventCard event={entry.event} onResearch={onResearch} />
+          )}
+        </Fragment>
+      ))}
+    </div>
+  )
+}
+
+function DiscoverAgendaColumn({ label, emptyLabel, variant, events, onResearch, headerEnd, columnExtra }) {
   return (
     <div className={`discoverCol discoverCol--${variant}`}>
-      <div className="discoverColHead mono dim">{label}</div>
+      <header className="discoverColHead discoverColHeadBar">
+        <span className="discoverColHeadLabel mono dim">{label}</span>
+        {headerEnd}
+      </header>
       {columnExtra}
       <div className="discoverColScroll scrollThin">
-        {!dayGroups.length ? (
+        {!events.length ? (
           <p className="discoverColEmpty mono dim">{emptyLabel}</p>
         ) : (
-          <div className="discoverAgenda">
-            {dayGroups.map((group) =>
-              group.events.map((event, idx) => (
-                <Row
-                  key={event.id}
-                  event={event}
-                  showDate={idx === 0}
-                  dateLabel={formatDiscoverDayHead(group.date)}
-                  onResearch={onResearch}
-                />
-              )),
-            )}
-          </div>
+          <DiscoverEventList events={events} variant={variant} onResearch={onResearch} />
         )}
       </div>
     </div>
   )
 }
 
-export function DiscoverPanel({ onOpenResearch, scope = 'all' }) {
+export function DiscoverPanel({ onOpenResearch }) {
   const [query, setQuery] = useState('')
+  const [filterOpen, setFilterOpen] = useState(false)
+  const [enabledFilters, setEnabledFilters] = useState(() => new Set(DISCOVER_FILTER_DEFAULT))
 
   const { upcoming, past } = useMemo(
-    () => buildDiscoverTimeline({ filter: scope, query }),
-    [scope, query],
+    () => buildDiscoverTimeline({ query, enabledFilters }),
+    [query, enabledFilters],
   )
 
-  const aheadGroups = useMemo(() => groupEventsByDay(upcoming, 'upcoming'), [upcoming])
-  const recentGroups = useMemo(() => groupEventsByDay(past, 'past'), [past])
+  const toggleFilter = useCallback((id) => {
+    setEnabledFilters((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const onFilterClick = useCallback(() => {
+    setFilterOpen((open) => !open)
+  }, [])
+
+  const filterBtn = (
+    <button
+      type="button"
+      className={['feedCompactFilterBtn', filterOpen ? 'isActive' : ''].filter(Boolean).join(' ')}
+      aria-label="Filter events"
+      title="Filter"
+      aria-pressed={filterOpen || undefined}
+      onClick={onFilterClick}
+    >
+      <DiscoverFilterIcon />
+    </button>
+  )
 
   const discoverSearch = (
     <div className="discoverColSearch">
@@ -109,24 +173,35 @@ export function DiscoverPanel({ onOpenResearch, scope = 'all' }) {
   return (
     <section className="panel discoverPanel" aria-label="Discover">
       <div className="discoverPanelBody">
-        <div className="discoverSplit">
-          <DiscoverAgendaColumn
-            label="Ahead"
-            emptyLabel="No upcoming events."
-            variant="ahead"
-            dayGroups={aheadGroups}
-            onResearch={onOpenResearch}
-            Row={DiscoverAheadRow}
-            columnExtra={discoverSearch}
-          />
+        <div className={['discoverSplit', filterOpen ? 'discoverSplit--filterOpen' : ''].filter(Boolean).join(' ')}>
+          {filterOpen ? (
+            <div className="discoverCol discoverCol--filter">
+              <header className="discoverColHead discoverColHeadBar">
+                <span className="discoverColHeadLabel mono dim">Filter</span>
+                {filterBtn}
+              </header>
+              <div className="feedCompactBody feedCompactBody--filterOpen">
+                <DiscoverFilterPicker enabled={enabledFilters} onToggle={toggleFilter} />
+              </div>
+            </div>
+          ) : (
+            <DiscoverAgendaColumn
+              label="Ahead"
+              emptyLabel="No upcoming events."
+              variant="ahead"
+              events={upcoming}
+              onResearch={onOpenResearch}
+              headerEnd={filterBtn}
+              columnExtra={discoverSearch}
+            />
+          )}
           <div className="discoverSplitRule" aria-hidden="true" />
           <DiscoverAgendaColumn
             label="Recent"
             emptyLabel="No recent events."
             variant="recent"
-            dayGroups={recentGroups}
+            events={past}
             onResearch={onOpenResearch}
-            Row={DiscoverRecentRow}
           />
         </div>
       </div>

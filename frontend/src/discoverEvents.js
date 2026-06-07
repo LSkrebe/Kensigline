@@ -1,5 +1,14 @@
 /** Discover tab — curated market + clinical calendar (mock until live ingest). */
 
+import { eventMentionedSearchText, getEventMentioned } from './eventBriefs.js'
+import {
+  DISCOVER_DOCUMENT_FILTER_TYPES,
+  DISCOVER_FILTER_DEFAULT,
+  normalizeResearchPaperSourceKey,
+} from './researchPaperSources.js'
+
+export { DISCOVER_DOCUMENT_FILTER_TYPES, DISCOVER_FILTER_DEFAULT }
+
 const DISCOVER_COMPANIES = {
   ASML: { name: 'ASML Holding N.V.', intelMode: 'market' },
   NVDA: { name: 'NVIDIA Corporation', intelMode: 'market' },
@@ -29,6 +38,7 @@ const DISCOVER_COMPANIES = {
  * @property {string} [phase]
  * @property {string} [programKey]
  * @property {string} [summary] past events — paper-style analysis
+ * @property {string} [briefKey] links mock mentioned-name sets in eventBriefs.js
  * @property {string} [url]
  * @property {'high' | 'medium' | 'low'} [impact]
  */
@@ -48,6 +58,7 @@ const DISCOVER_EVENTS = [
     phase: 'Phase 3',
     programKey: 'Efzofitimod',
     impact: 'high',
+    briefKey: 'atyr-topline',
     url: 'https://clinicaltrials.gov/study/NCT05415137',
   },
   {
@@ -60,6 +71,7 @@ const DISCOVER_EVENTS = [
     kind: 'earnings',
     source: '8-K',
     impact: 'high',
+    briefKey: 'asml-earnings',
   },
   {
     id: 'disc-atyr-biomarker',
@@ -73,6 +85,7 @@ const DISCOVER_EVENTS = [
     phase: 'Phase 2',
     programKey: 'Efzofitimod',
     impact: 'medium',
+    briefKey: 'atyr-biomarker',
   },
   {
     id: 'disc-atyr-2810',
@@ -82,7 +95,7 @@ const DISCOVER_EVENTS = [
     at: '2026-05-22',
     title: 'Initial response signal — ATYR-2810 escalation',
     kind: 'trial',
-    source: 'SEC filing',
+    source: '8-K',
     phase: 'Phase 1',
     programKey: 'ATYR-2810',
     impact: 'medium',
@@ -99,6 +112,7 @@ const DISCOVER_EVENTS = [
     phase: 'Phase 3',
     programKey: 'mRNA-1345',
     impact: 'high',
+    briefKey: 'mrna-rsv',
   },
   {
     id: 'disc-srpt-fda',
@@ -112,6 +126,7 @@ const DISCOVER_EVENTS = [
     phase: 'Phase 3',
     programKey: 'SRP-9001',
     impact: 'high',
+    briefKey: 'srpt-fda',
   },
   {
     id: 'disc-nvda-computex',
@@ -123,6 +138,7 @@ const DISCOVER_EVENTS = [
     kind: 'catalyst',
     source: 'Press release',
     impact: 'high',
+    briefKey: 'nvda-computex',
   },
   {
     id: 'disc-tsm-cmd',
@@ -134,6 +150,7 @@ const DISCOVER_EVENTS = [
     kind: 'earnings',
     source: 'Investor presentation',
     impact: 'medium',
+    briefKey: 'tsm-cmd',
   },
   {
     id: 'disc-biib-adu',
@@ -143,10 +160,11 @@ const DISCOVER_EVENTS = [
     at: '2026-05-30',
     title: 'Leqembi subcutaneous formulation PDUFA target',
     kind: 'regulatory',
-    source: 'FDA calendar',
+    source: 'Press release',
     phase: 'Approved',
     programKey: 'Leqembi',
     impact: 'medium',
+    briefKey: 'biib-adu',
   },
   {
     id: 'disc-lrcx-analyst',
@@ -158,6 +176,7 @@ const DISCOVER_EVENTS = [
     kind: 'catalyst',
     source: 'Investor presentation',
     impact: 'medium',
+    briefKey: 'lrcx-analyst',
   },
   // —— Past (with paper-style summaries) ——
   {
@@ -171,6 +190,7 @@ const DISCOVER_EVENTS = [
     source: '8-K',
     programKey: 'Efzofitimod',
     impact: 'low',
+    briefKey: 'atyr-8k-today',
     summary:
       'Same-day 8-K: no material clinical update, routine disclosure ahead of the week-48 readout window. Useful as a timestamp anchor; does not change the binary mean-OCS setup.',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
@@ -185,6 +205,7 @@ const DISCOVER_EVENTS = [
     kind: 'filing',
     source: 'Gov contract',
     impact: 'medium',
+    briefKey: 'asml-gov-dod',
     summary:
       'DoD IDIQ modification ($18.4M) names ASML US, Inc. as awardee for EUV lithography sustainment and field engineering at a domestic high-volume fab. Award text ties delivery to existing high-NA install base rather than a new platform buy. Supports the scarcity thesis: defense-side spend is maintaining installed EUV, not signaling a cancellation wave.',
     url: 'https://sam.gov/',
@@ -200,6 +221,7 @@ const DISCOVER_EVENTS = [
     source: '8-K',
     programKey: 'Efzofitimod',
     impact: 'medium',
+    briefKey: 'atyr-8k-cash',
     summary:
       'Management updated cash runway guidance and reiterated that EFZO-FIT remains fully enrolled with no change to the week-48 mean oral-steroid primary. The filing is operational, not efficacy-bearing, but it narrows financing overhang ahead of the binary readout.',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
@@ -216,6 +238,7 @@ const DISCOVER_EVENTS = [
     phase: 'Phase 3',
     programKey: 'Efzofitimod',
     impact: 'medium',
+    briefKey: 'atyr-8k-safety',
     summary:
       'The company filed an interim blinded safety update without unblinded efficacy tables. Management reiterated that blinded review has not shown a toxicity spiral ahead of topline. The disclosure is supportive for holders into the print but does not change the statistical fight on the mean oral-steroid primary.',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
@@ -230,6 +253,7 @@ const DISCOVER_EVENTS = [
     kind: 'filing',
     source: '8-K',
     impact: 'high',
+    briefKey: 'asml-q1',
     summary:
       'Q1 commentary highlights backlog stability and longer EUV lead times rather than a cancellation wave. Management frames demand as capacity-constrained at the leading edge, which keeps pricing power on high-NA slots intact even when downstream GPU names wobble.',
     url: 'https://www.sec.gov/edgar/search/#/q=ASML',
@@ -246,6 +270,7 @@ const DISCOVER_EVENTS = [
     phase: 'Phase 3',
     programKey: 'Efzofitimod',
     impact: 'medium',
+    briefKey: 'atyr-10q-risk',
     summary:
       'Risk factors again stress that EFZO-FIT success depends on demonstrating steroid reduction with acceptable variability across sites. The filing cautions that enrollment completion does not tighten confidence intervals on a mean-dose endpoint when placebo arms follow the same visit cadence. Language stays consistent with a binary catalyst rather than a de-risked fundamental story.',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
@@ -262,6 +287,7 @@ const DISCOVER_EVENTS = [
     phase: 'Phase 3',
     programKey: 'Efzofitimod',
     impact: 'high',
+    briefKey: 'atyr-enrollment',
     summary:
       'EFZO-FIT (NCT05415137) lists enrollment at 268 participants versus a 264 target for the sarcoidosis program. The trial remains three-arm with 5 mg/kg, 3 mg/kg, and placebo. The registry still frames the primary endpoint as absolute change from baseline in mean daily oral steroid dose at week 48, which is the regulatory line investors should track before any efficacy narrative hardens.',
     url: 'https://clinicaltrials.gov/study/NCT05415137',
@@ -278,6 +304,7 @@ const DISCOVER_EVENTS = [
     phase: 'Phase 3',
     programKey: 'SRP-9001',
     impact: 'high',
+    briefKey: 'srpt-fda-req',
     summary:
       'Regulatory correspondence asks for supplemental functional analyses on the gene-therapy dataset. Management framed the request as clarifying rather than a complete response letter, but the timeline pushes commercial assumptions out another quarter and raises the bar for how cleanly responder narratives must read.',
     url: 'https://www.sec.gov/edgar/search/#/q=SRPT',
@@ -292,6 +319,7 @@ const DISCOVER_EVENTS = [
     kind: 'filing',
     source: '8-K',
     impact: 'high',
+    briefKey: 'asml-orders',
     summary:
       'Management commentary points to extended EUV delivery timelines and continued tightness in high-NA tool allocation. Customers are prioritizing leading-edge slots even as downstream AI demand headlines dominate equity flows. The filing reinforces scarcity in lithography rather than a demand air pocket for the tools themselves.',
     url: 'https://www.sec.gov/edgar/search/#/q=ASML',
@@ -308,6 +336,7 @@ const DISCOVER_EVENTS = [
     phase: 'Phase 2',
     programKey: 'mRNA-1647',
     impact: 'medium',
+    briefKey: 'mrna-phase2',
     summary:
       'Interim immunogenicity met pre-specified thresholds versus a licensed comparator in the CMV program. The update supports progression talk but does not substitute for Phase 3 event-driven efficacy; investors still need infection-rate separation at scale.',
     url: 'https://clinicaltrials.gov/',
@@ -324,9 +353,25 @@ const DISCOVER_EVENTS = [
     phase: 'Phase 2',
     programKey: 'Efzofitimod',
     impact: 'low',
+    briefKey: 'atyr-connect',
     summary:
       'EFZO-CONNECT (NCT05892614) remains a separate SSc-ILD proof-of-concept with roughly 25 patients and placebo control. The registry update does not alter EFZO-FIT power. A strong PoC read could help sentiment after Phase 3 tables, but it cannot statistically rescue a failed pivotal mean-OCS outcome.',
     url: 'https://clinicaltrials.gov/study/NCT05892614',
+  },
+  {
+    id: 'disc-nvda-earnings',
+    ticker: 'NVDA',
+    companyName: DISCOVER_COMPANIES.NVDA.name,
+    intelMode: 'market',
+    at: '2026-05-15',
+    title: 'Q1 earnings — data-center revenue & supply commentary',
+    kind: 'earnings',
+    source: '8-K',
+    impact: 'high',
+    briefKey: 'nvda-q1-earnings',
+    summary:
+      'Q1 beat on data-center revenue with management citing continued accelerator demand and tight advanced-packaging supply. Commentary again frames growth as supply-constrained at the foundry and memory layer rather than purely demand-limited, keeping second-order read-through names in focus.',
+    url: 'https://www.sec.gov/edgar/search/#/q=NVDA',
   },
 ]
 
@@ -341,6 +386,13 @@ const KIND_LABEL = {
 
 export function discoverKindLabel(kind) {
   return KIND_LABEL[kind] ?? 'Event'
+}
+
+/** @param {DiscoverEvent} event @param {Set<string> | null | undefined} enabled */
+export function discoverEventPassesFilters(event, enabled) {
+  if (!enabled?.size) return false
+  const sourceKey = normalizeResearchPaperSourceKey(event.source)
+  return enabled.has(sourceKey)
 }
 
 function eventDayStartMs(at) {
@@ -382,13 +434,81 @@ export function formatDiscoverDate(at) {
   return yr === thisYear ? `${mo}-${day}` : `${mo}-${day}-${yr}`
 }
 
-/** Day heading for grouped timeline (e.g. "Jul 18"). */
 export function formatDiscoverDayHead(at) {
   const raw = String(at ?? '').trim()
   if (!raw) return '—'
   const d = new Date(raw.includes('T') ? raw : `${raw}T12:00:00`)
   if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function isSameLocalCalendarDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  )
+}
+
+function isAtLocalToday(at) {
+  const d = at instanceof Date ? at : new Date(at)
+  if (Number.isNaN(d.getTime())) return false
+  return isSameLocalCalendarDay(d, new Date())
+}
+
+function isAtLocalThisMonth(at, ref = new Date()) {
+  const d = at instanceof Date ? at : new Date(at)
+  const r = ref instanceof Date ? ref : new Date(ref)
+  if (Number.isNaN(d.getTime()) || Number.isNaN(r.getTime())) return false
+  return d.getFullYear() === r.getFullYear() && d.getMonth() === r.getMonth()
+}
+
+function discoverEventAtIso(event) {
+  const raw = String(event?.at ?? '').trim()
+  return raw.includes('T') ? raw : `${raw}T12:00:00`
+}
+
+/**
+ * Paper-style timeline rows: TODAY (past only) / THIS MONTH / year gaps.
+ * @param {DiscoverEvent[]} events
+ * @param {'upcoming' | 'past'} variant
+ */
+export function buildDiscoverCardDisplayRows(events, variant) {
+  /** @type {Array<{ type: 'sep'; key: string; label: string } | { type: 'event'; key: string; event: DiscoverEvent }>} */
+  const out = []
+  const items = (events ?? []).map((event) => ({
+    id: event.id,
+    at: discoverEventAtIso(event),
+    event,
+  }))
+  if (!items.length) return out
+
+  for (let i = 0; i < items.length; i++) {
+    const row = items[i]
+    const prev = i > 0 ? items[i - 1] : null
+    const gapCandidates = []
+
+    if (variant === 'past' && prev && isAtLocalToday(prev.at) && !isAtLocalToday(row.at)) {
+      gapCandidates.push({ rank: 0, key: `today-sep-${row.id}`, label: 'TODAY' })
+    }
+    if (prev && isAtLocalThisMonth(prev.at) && !isAtLocalThisMonth(row.at)) {
+      gapCandidates.push({ rank: 1, key: `month-sep-${row.id}`, label: 'THIS MONTH' })
+    }
+    if (prev) {
+      const y0 = new Date(prev.at).getFullYear()
+      const y1 = new Date(row.at).getFullYear()
+      if (Number.isFinite(y0) && Number.isFinite(y1) && y1 !== y0) {
+        gapCandidates.push({ rank: 2, key: `year-${y1}-sep-${row.id}`, label: String(y1) })
+      }
+    }
+    if (gapCandidates.length) {
+      gapCandidates.sort((a, b) => a.rank - b.rank)
+      out.push({ type: 'sep', key: gapCandidates[0].key, label: gapCandidates[0].label })
+    }
+    out.push({ type: 'event', key: row.id, event: row.event })
+  }
+
+  return out
 }
 
 /**
@@ -443,6 +563,8 @@ export function groupEventsByDay(events, variant) {
   return groups
 }
 
+export { getEventMentioned } from './eventBriefs.js'
+
 export function truncateDiscoverSummary(text, max = 160) {
   const t = String(text ?? '').trim().replace(/\s+/g, ' ')
   if (!t) return ''
@@ -451,21 +573,22 @@ export function truncateDiscoverSummary(text, max = 160) {
 }
 
 /**
- * @param {{ filter?: 'all' | DiscoverIntelMode; query?: string }} [opts]
+ * @param {{ query?: string; enabledFilters?: Set<string> }} [opts]
  * @returns {{ upcoming: DiscoverEvent[]; past: DiscoverEvent[] }}
  */
 export function buildDiscoverTimeline(opts = {}) {
-  const filter = opts.filter ?? 'all'
   const q = String(opts.query ?? '')
     .trim()
     .toLowerCase()
+  const enabledFilters = opts.enabledFilters ?? DISCOVER_FILTER_DEFAULT
   const today = todayStartMs()
 
-  let rows = DISCOVER_EVENTS.filter((e) => filter === 'all' || e.intelMode === filter)
+  let rows = DISCOVER_EVENTS.filter((e) => discoverEventPassesFilters(e, enabledFilters))
 
   if (q) {
     rows = rows.filter((e) => {
-      const hay = `${e.ticker} ${e.companyName} ${e.title} ${e.programKey ?? ''} ${e.source ?? ''}`.toLowerCase()
+      const mentioned = eventMentionedSearchText(e.ticker, getEventMentioned(e.briefKey))
+      const hay = `${e.ticker} ${e.companyName} ${e.title} ${e.programKey ?? ''} ${e.source ?? ''} ${e.summary ?? ''} ${mentioned}`.toLowerCase()
       return hay.includes(q)
     })
   }

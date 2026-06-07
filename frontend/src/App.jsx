@@ -5,6 +5,12 @@ import { useAuth } from './AuthContext.jsx'
 import { IntroPage } from './IntroPage.jsx'
 import { SettingsPanel } from './SettingsPanel.jsx'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
+import { EventBriefDocCard } from './EventBrief.jsx'
+import { getEventMentioned } from './eventBriefs.js'
+import {
+  normalizeResearchPaperSourceKey,
+  researchPaperSourceTypesForIntel,
+} from './researchPaperSources.js'
 import './App.css'
 
 function clamp(n, lo, hi) {
@@ -5651,6 +5657,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
     source: '8-K',
     filedAt: mockPaperFiledAtToday(),
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    briefKey: 'atyr-8k-today',
     analysis:
       'Same-day 8-K: no material clinical update, routine disclosure ahead of the week-48 readout window. Useful as a timestamp anchor; does not change the binary mean-OCS setup.',
   },
@@ -5660,6 +5667,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
     source: '8-K',
     filedAt: '2026-05-08T00:00:00.000Z',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    briefKey: 'atyr-8k-cash',
     analysis:
       'Management updated cash runway guidance and reiterated that EFZO-FIT remains fully enrolled with no change to the week-48 mean oral-steroid primary. The filing is operational, not efficacy-bearing, but it narrows financing overhang ahead of the binary readout.',
   },
@@ -5669,6 +5677,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
     source: '8-K',
     filedAt: '2026-04-09T00:00:00.000Z',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    briefKey: 'atyr-8k-safety',
     analysis:
       'The company filed an interim blinded safety update without unblinded efficacy tables. Management reiterated that blinded review has not shown a toxicity spiral ahead of topline. The disclosure is supportive for holders into the print but does not change the statistical fight on the mean oral-steroid primary.',
   },
@@ -5678,6 +5687,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
     source: '10-Q',
     filedAt: '2026-03-18T00:00:00.000Z',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    briefKey: 'atyr-10q-risk',
     analysis:
       'Risk factors again stress that EFZO-FIT success depends on demonstrating steroid reduction with acceptable variability across sites. The filing cautions that enrollment completion does not tighten confidence intervals on a mean-dose endpoint when placebo arms follow the same visit cadence. Language stays consistent with a binary catalyst rather than a de-risked fundamental story.',
   },
@@ -5687,6 +5697,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
     source: 'ClinicalTrials.gov',
     filedAt: '2026-02-11T00:00:00.000Z',
     url: 'https://clinicaltrials.gov/study/NCT05415137',
+    briefKey: 'atyr-enrollment',
     analysis:
       'EFZO-FIT (NCT05415137) lists enrollment at 268 participants versus a 264 target for the sarcoidosis program. The trial remains three-arm with 5 mg/kg, 3 mg/kg, and placebo. The registry still frames the primary endpoint as absolute change from baseline in mean daily oral steroid dose at week 48, which is the regulatory line investors should track before any efficacy narrative hardens.',
   },
@@ -5696,6 +5707,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
     source: 'ClinicalTrials.gov',
     filedAt: '2026-01-22T00:00:00.000Z',
     url: 'https://clinicaltrials.gov/study/NCT05892614',
+    briefKey: 'atyr-connect',
     analysis:
       'EFZO-CONNECT (NCT05892614) remains a separate SSc-ILD proof-of-concept with roughly 25 patients and placebo control. The registry update does not alter EFZO-FIT power. A strong PoC read could help sentiment after Phase 3 tables, but it cannot statistically rescue a failed pivotal mean-OCS outcome.',
   },
@@ -5716,6 +5728,7 @@ const MOCK_PAPER_DOCUMENTS_ASML = [
     source: 'Gov contract',
     filedAt: '2026-05-20T00:00:00.000Z',
     url: 'https://sam.gov/search/?index=opp&page=1&sort=-relevance&keywords=ASML',
+    briefKey: 'asml-gov-dod',
     analysis:
       'DoD IDIQ modification ($18.4M) names ASML US, Inc. as awardee for EUV lithography sustainment and field engineering at a domestic high-volume fab. Award text ties delivery to existing high-NA install base rather than a new platform buy. Supports the scarcity thesis: defense-side spend is maintaining installed EUV, not signaling a cancellation wave.',
   },
@@ -5724,6 +5737,7 @@ const MOCK_PAPER_DOCUMENTS_ASML = [
     source: '8-K',
     filedAt: '2026-04-18T00:00:00.000Z',
     url: 'https://www.sec.gov/edgar/search/#/q=ASML',
+    briefKey: 'asml-q1',
     analysis:
       'Q1 commentary highlights backlog stability and longer EUV lead times rather than a cancellation wave. Management frames demand as capacity-constrained at the leading edge, which keeps pricing power on high-NA slots intact even when downstream GPU names wobble.',
   },
@@ -5732,6 +5746,7 @@ const MOCK_PAPER_DOCUMENTS_ASML = [
     source: '8-K',
     filedAt: '2026-03-14T00:00:00.000Z',
     url: 'https://www.sec.gov/edgar/search/#/q=ASML',
+    briefKey: 'asml-orders',
     analysis:
       'Management commentary points to extended EUV delivery timelines and continued tightness in high-NA tool allocation. Customers are prioritizing leading-edge slots even as downstream AI demand headlines dominate equity flows. The filing reinforces scarcity in lithography rather than a demand air pocket for the tools themselves.',
   },
@@ -5799,21 +5814,6 @@ function paperDocumentOpenUrl(doc, ticker) {
   }
   if (t) return `https://www.sec.gov/edgar/search/#/q=${encodeURIComponent(t)}`
   return 'https://www.sec.gov/edgar/search/'
-}
-
-function ResearchPaperDocOpenIcon() {
-  return (
-    <svg className="researchPaperDocOpenIconSvg" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d="M14 4h6v6M10 20 20 10M20 10h-6M20 10v6M4 14V4h10"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
-      />
-    </svg>
-  )
 }
 
 function ResearchPaperScreenshotIcon() {
@@ -6147,77 +6147,34 @@ function ResearchPaperRailCaptureSelect({ captureId, selected, onToggle }) {
 
 function ResearchPaperDocCard({ doc, ticker, captureId, screenshotSelectMode = false, screenshotSelected = false, onScreenshotToggle }) {
   const source = doc?.source ?? 'Filing'
-  const url = paperDocumentOpenUrl(doc, ticker)
-  const openLabel = `Open ${source}`
   return (
-    <article
-      data-paper-capture-id={captureId}
-      className={[
-        'researchPaperRailCard',
-        'researchPaperDocCard',
-        screenshotSelectMode && screenshotSelected ? 'researchPaperRailCard--screenshotSelected' : '',
-        screenshotSelectMode && !screenshotSelected ? 'researchPaperRailCard--screenshotUnselected' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
-      <div
-        className={[
-          'researchPaperRailCardRail',
-          screenshotSelectMode ? 'researchPaperRailCardRail--capture' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        {screenshotSelectMode ? (
+    <EventBriefDocCard
+      captureId={captureId}
+      ticker={ticker}
+      source={source}
+      dateTime={doc?.filedAt ?? undefined}
+      dateLabel={doc?.filedAt ? formatFeedDate(doc.filedAt) : '—'}
+      analysis={doc?.analysis}
+      mentioned={getEventMentioned(doc?.briefKey)}
+      url={paperDocumentOpenUrl(doc, ticker)}
+      openLabel={`Open ${source}`}
+      railContent={
+        screenshotSelectMode ? (
           <ResearchPaperRailCaptureSelect
             captureId={captureId}
             selected={screenshotSelected}
             onToggle={onScreenshotToggle}
           />
-        ) : null}
-      </div>
-      <div className="researchPaperRailCardMain">
-        <div className="researchPaperRailCardGrid">
-          <div className="researchPaperRailCardCol">
-            <span className="researchPaperDocCardSource mono dim">{source}</span>
-          </div>
-          <div className="researchPaperRailCardCol researchPaperRailCardCol--end">
-            <time className="researchPaperDocCardDate mono dim" dateTime={doc?.filedAt ?? undefined}>
-              {doc?.filedAt ? formatFeedDate(doc.filedAt) : '—'}
-            </time>
-          </div>
-        </div>
-        <ResearchPaperDocAnalysis text={doc?.analysis} />
-        {url ? (
-          <a
-            className="researchPaperDocOpen"
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={openLabel}
-            title={openLabel}
-          >
-            <ResearchPaperDocOpenIcon />
-          </a>
-        ) : null}
-      </div>
-    </article>
+        ) : null
+      }
+      className={[
+        screenshotSelectMode && screenshotSelected ? 'researchPaperRailCard--screenshotSelected' : '',
+        screenshotSelectMode && !screenshotSelected ? 'researchPaperRailCard--screenshotUnselected' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    />
   )
-}
-
-function ResearchPaperDocAnalysis({ text }) {
-  const body = String(text ?? '').trim()
-  if (!body) return null
-  const paras = body.split(/\n\n+/).map((p) => p.trim()).filter(Boolean)
-  if (paras.length === 0) {
-    return <p className="researchPaperDocCardAnalysis">{body}</p>
-  }
-  return paras.map((p, i) => (
-    <p className="researchPaperDocCardAnalysis" key={`paper-doc-p-${i}`}>
-      {p}
-    </p>
-  ))
 }
 
 function mockAsmlPresentation() {
@@ -6452,100 +6409,6 @@ function resolveResearchPresentation({ ticker, titleText, backendUp, livePresent
   if (clinical && u === 'ATYR') return mockAtyrPresentation()
   if (!clinical && u === 'ASML') return mockAsmlPresentation()
   return mockOfflinePresentation(memo, titleText, ticker)
-}
-
-function normalizeSecFilingFormKey(raw) {
-  let s = String(raw ?? '')
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, ' ')
-  if (!s) return null
-  s = s.replace(/\/A$/, '')
-  if (s.startsWith('424B')) return '424B'
-  if (s === 'DEF14A') return 'DEF 14A'
-  if (s.startsWith('SC 13D') || s === 'SC13D') return 'SC 13D'
-  if (s.startsWith('SC 13G') || s === 'SC13G') return 'SC 13G'
-  const known = ['8-K', '10-K', '10-Q', '6-K', '20-F', 'S-1', 'S-3', 'S-4', 'DEF 14A']
-  return known.includes(s) ? s : null
-}
-
-/** Map document / queue source strings to filter checkbox ids. */
-function normalizeResearchPaperSourceKey(source) {
-  const raw = String(source ?? '').trim()
-  if (!raw) return 'Other'
-  const low = raw.toLowerCase()
-
-  if (/clinicaltrials/i.test(raw)) return 'ClinicalTrials.gov'
-  if (low === 'research_press_rss' || /\bpress\s*release\b/i.test(raw)) return 'Press release'
-  if (
-    low === 'research_transcript_rss' ||
-    /\bearnings\s*(call\s*)?transcript\b/i.test(raw) ||
-    /\bconference\s*call\s*transcript\b/i.test(raw)
-  ) {
-    return 'Earnings transcript'
-  }
-  if (low === 'sec_form4' || /^form\s*4$/i.test(raw)) return 'Form 4'
-  if (low === 'sec_13f' || /^form\s*13f$/i.test(raw) || raw === '13F') return '13F'
-  if (/^form\s*3$/i.test(raw)) return 'Form 3'
-  if (/^form\s*5$/i.test(raw)) return 'Form 5'
-  if (low === 'house_ptr' || /^ptr$/i.test(raw) || /\bperiodic\s*transaction\b/i.test(raw)) return 'PTR'
-  if (/\binvestor\s*presentation\b/i.test(raw)) return 'Investor presentation'
-  if (/\bannual\s*report\b/i.test(raw) && !/\b10-k\b/i.test(raw)) return 'Annual report'
-  if (
-    /\bgov(ernment)?\s*contract\b/i.test(raw) ||
-    /\bfederal\s*award\b/i.test(raw) ||
-    /\bsam\.gov\b/i.test(raw) ||
-    low === 'research_gov_contract'
-  ) {
-    return 'Gov contract'
-  }
-
-  const secDirect = normalizeSecFilingFormKey(raw)
-  if (secDirect) return secDirect
-
-  const secInText = raw.match(/\b(8-K|10-K|10-Q|6-K|20-F|S-1|S-3|S-4|DEF\s*14A|424B\d*|SC\s*13[DG])\b/i)
-  if (secInText) {
-    const mapped = normalizeSecFilingFormKey(secInText[1])
-    if (mapped) return mapped
-  }
-
-  return raw
-}
-
-/** Filter catalog — ids match `normalizeResearchPaperSourceKey`; `code` is the compact right column. */
-const RESEARCH_PAPER_SOURCE_CATALOG = [
-  { id: '8-K', label: 'Current report', code: '8-K', modes: ['market', 'clinical'] },
-  { id: '10-Q', label: 'Quarterly report', code: '10-Q', modes: ['market', 'clinical'] },
-  { id: '10-K', label: 'Annual filing', code: '10-K', modes: ['market', 'clinical'] },
-  { id: '6-K', label: 'Foreign current', code: '6-K', modes: ['market', 'clinical'] },
-  { id: '20-F', label: 'Foreign annual', code: '20-F', modes: ['market', 'clinical'] },
-  { id: 'S-1', label: 'Registration', code: 'S-1', modes: ['market', 'clinical'] },
-  { id: 'S-3', label: 'Shelf registration', code: 'S-3', modes: ['market', 'clinical'] },
-  { id: 'S-4', label: 'Business combination', code: 'S-4', modes: ['market', 'clinical'] },
-  { id: 'DEF 14A', label: 'Proxy statement', code: '14A', modes: ['market', 'clinical'] },
-  { id: '424B', label: 'Prospectus supplement', code: '424B', modes: ['market', 'clinical'] },
-  { id: 'SC 13D', label: 'Active ownership', code: '13D', modes: ['market', 'clinical'] },
-  { id: 'SC 13G', label: 'Passive ownership', code: '13G', modes: ['market', 'clinical'] },
-  { id: 'Press release', label: 'Company release', code: 'PR', modes: ['market', 'clinical'] },
-  { id: 'Earnings transcript', label: 'Earnings call', code: 'Call', modes: ['market', 'clinical'] },
-  { id: 'Investor presentation', label: 'Investor deck', code: 'Deck', modes: ['market'] },
-  { id: 'Annual report', label: 'IR annual report', code: 'AR', modes: ['market'] },
-  { id: 'Gov contract', label: 'Federal award', code: 'SAM', modes: ['market'] },
-  { id: 'ClinicalTrials.gov', label: 'Trial registry', code: 'CT.gov', modes: ['clinical'] },
-  { id: 'Form 4', label: 'Insider transaction', code: 'F4', modes: ['market', 'clinical'] },
-  { id: 'Form 3', label: 'Initial insider holding', code: 'F3', modes: ['market', 'clinical'] },
-  { id: 'Form 5', label: 'Annual insider change', code: 'F5', modes: ['market', 'clinical'] },
-  { id: '13F', label: 'Institutional holdings', code: '13F', modes: ['market', 'clinical'] },
-  { id: 'PTR', label: 'Politician trade', code: 'PTR', modes: ['market', 'clinical'] },
-]
-
-function researchPaperSourceTypesForIntel(intelMode) {
-  const mode = intelMode === 'clinical' ? 'clinical' : 'market'
-  return RESEARCH_PAPER_SOURCE_CATALOG.filter((t) => t.modes.includes(mode))
-}
-
-function researchPaperSourceIdsForIntel(intelMode) {
-  return researchPaperSourceTypesForIntel(intelMode).map((t) => t.id)
 }
 
 /** Transaction / activity sub-filters for expandable source groups in the Research feed picker. */
@@ -9095,9 +8958,6 @@ function TerminalTopBar({
   showInvestigateSwitch = false,
   investigateMode = 'insider',
   onInvestigateModeChange,
-  showDiscoverSwitch = false,
-  discoverScope = 'all',
-  onDiscoverScopeChange,
 }) {
   return (
     <header className="terminalTopBar" aria-label="Mercerline">
@@ -9197,46 +9057,6 @@ function TerminalTopBar({
               Institutional intelligence
             </button>
           </div>
-        ) : showDiscoverSwitch ? (
-          <div
-            className={`terminalIntelSwitch terminalIntelSwitch--discover terminalIntelSwitch--${discoverScope}`}
-            role="tablist"
-            aria-label="Discover scope"
-          >
-            <button
-              type="button"
-              role="tab"
-              className={discoverScope === 'all' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
-              aria-selected={discoverScope === 'all'}
-              onClick={() => onDiscoverScopeChange?.('all')}
-            >
-              All events
-            </button>
-            <span className="terminalIntelSwitchSep" aria-hidden="true">
-              |
-            </span>
-            <button
-              type="button"
-              role="tab"
-              className={discoverScope === 'market' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
-              aria-selected={discoverScope === 'market'}
-              onClick={() => onDiscoverScopeChange?.('market')}
-            >
-              Market events
-            </button>
-            <span className="terminalIntelSwitchSep" aria-hidden="true">
-              |
-            </span>
-            <button
-              type="button"
-              role="tab"
-              className={discoverScope === 'clinical' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
-              aria-selected={discoverScope === 'clinical'}
-              onClick={() => onDiscoverScopeChange?.('clinical')}
-            >
-              Clinical events
-            </button>
-          </div>
         ) : null}
       </div>
 
@@ -9277,9 +9097,8 @@ function TerminalTopBar({
 
 function KensiglineTerminal() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState('main') // discover | main | investigate | settings
+  const [activeTab, setActiveTab] = useState('discover') // discover | main | investigate | settings
   const [intelMode, setIntelMode] = useState('market') // market | clinical
-  const [discoverScope, setDiscoverScope] = useState('all') // all | market | clinical
   const [investigateMode, setInvestigateMode] = useState('insider') // insider | politicians | institutions
   const [investigateFeedFilterOpen, setInvestigateFeedFilterOpen] = useState(false)
   const [investigateInsiderTxnFilters, setInvestigateInsiderTxnFilters] = useState(
@@ -9294,7 +9113,7 @@ function KensiglineTerminal() {
   const [investigateInsiderTxnFiltersDraft, setInvestigateInsiderTxnFiltersDraft] = useState(null)
   const [investigatePoliticianTxnFiltersDraft, setInvestigatePoliticianTxnFiltersDraft] = useState(null)
   const [investigateInstitutionTxnFiltersDraft, setInvestigateInstitutionTxnFiltersDraft] = useState(null)
-  const tabBeforeSettingsRef = useRef('main')
+  const tabBeforeSettingsRef = useRef('discover')
 
   const [insiderIdx, setInsiderIdx] = useState(0)
   const [insiderCompanyQuery, setInsiderCompanyQuery] = useState('')
@@ -10715,9 +10534,6 @@ function KensiglineTerminal() {
         onIntelModeChange={setIntelMode}
         showIntelSwitch={activeTab === 'main'}
         showInvestigateSwitch={activeTab === 'investigate'}
-        showDiscoverSwitch={activeTab === 'discover'}
-        discoverScope={discoverScope}
-        onDiscoverScopeChange={setDiscoverScope}
         investigateMode={investigateMode}
         onInvestigateModeChange={setInvestigateMode}
       />
@@ -10763,7 +10579,6 @@ function KensiglineTerminal() {
       {activeTab === 'settings' ? <SettingsPanel /> : null}
       {activeTab === 'discover' ? (
         <DiscoverPanel
-          scope={discoverScope}
           onOpenResearch={({ ticker, intelMode }) => {
             const t = String(ticker ?? '').trim().toUpperCase()
             if (!t) return
