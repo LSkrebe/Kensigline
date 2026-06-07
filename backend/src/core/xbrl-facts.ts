@@ -110,6 +110,40 @@ export function fiscalPeriodLabel(row: FactRow | null): string | null {
   return row.fp && row.fy ? `${row.fp} FY${row.fy}` : row.form || null;
 }
 
+export function fyShortLabel(fy: number): string {
+  const yy = fy % 100;
+  return `FY${String(yy).padStart(2, "0")}`;
+}
+
+/** Annual 10-K / FY rows, one per fiscal year, oldest → newest. */
+export function pickAnnualFyRows(rows: FactRow[], count: number): FactRow[] {
+  if (!rows.length || count <= 0) return [];
+
+  const annual = rows.filter((r) => r.fp === "FY" || r.form === "10-K");
+  const pool = annual.length ? annual : rows.filter((r) => r.fp === "Q4" || r.fp.endsWith("Q4"));
+
+  const byFy = new Map<number, FactRow>();
+  for (const r of pool) {
+    const fy = r.fy > 0 ? r.fy : Number(String(r.end).slice(0, 4));
+    if (!Number.isFinite(fy) || fy <= 0) continue;
+    const cur = byFy.get(fy);
+    if (!cur || r.end > cur.end || (r.end === cur.end && r.filed > cur.filed)) byFy.set(fy, { ...r, fy });
+  }
+
+  return Array.from(byFy.values())
+    .sort((a, b) => a.fy - b.fy)
+    .slice(-count);
+}
+
+export function nearestRowOnOrBefore(rows: FactRow[], isoDate: string): FactRow | null {
+  if (!rows.length || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return null;
+  let best: FactRow | null = null;
+  for (const r of rows) {
+    if (r.end <= isoDate && (!best || r.end > best.end)) best = r;
+  }
+  return best;
+}
+
 export function roundOneDecimal(n: number) {
   return Math.round(n * 10) / 10;
 }

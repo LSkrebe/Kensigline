@@ -6,6 +6,7 @@ import { db } from "./core/db.js";
 import { getDailyCloseBars } from "./core/bars.js";
 import { getCompanyPanelData } from "./core/company.js";
 import { getMarketFundamentalsForTicker } from "./research/market/fundamentals.js";
+import { getMarketOwnershipForTicker } from "./research/market/ownership.js";
 import { getLatestOutcomes, recomputeResearchOutcomes, recomputeInsiderOutcomes, recomputePharmaOutcomes, recomputePoliticiansOutcomes } from "./core/outcomes.js";
 import { getPharmaClinicalContext } from "./research/clinical/context.js";
 import { bearerToken, supabaseAuthConfigured, verifySupabaseAccessToken } from "./core/supabase-auth.js";
@@ -180,12 +181,18 @@ const server = http.createServer(async (req, res) => {
       }
       const out = await getCompanyPanelData({ ticker });
       let fundamentals = null;
+      let ownership = null;
       try {
         fundamentals = await getMarketFundamentalsForTicker({ ticker });
       } catch {
         fundamentals = null;
       }
-      sendJson(res, 200, { ...out, fundamentals });
+      try {
+        ownership = await getMarketOwnershipForTicker({ ticker });
+      } catch {
+        ownership = null;
+      }
+      sendJson(res, 200, { ...out, fundamentals, ownership });
       return;
     }
 

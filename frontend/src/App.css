@@ -540,13 +540,13 @@
 .terminal.terminal--main {
   /*
    * Research: feed | paper | context.
-   * Feed track + fr sum (4.15) match investigate exactly: 1 + 1.15 + 1 + 1.
-   * Paper/context split the remaining 3.15fr (≈46% / 30%).
+   * Feed track unchanged (--terminal-feed-track = 1fr).
+   * Total ≈ 24% feed | 43% paper | 33% context (was ≈ 24% | 46% | 30%).
    */
   grid-template-columns:
     var(--terminal-feed-track)
-    minmax(0, 1.905fr)
-    minmax(48px, 1.245fr);
+    minmax(0, 1.8fr)
+    minmax(48px, 1.35fr);
   grid-template-rows: repeat(4, minmax(0, 1fr));
 }
 
@@ -930,7 +930,6 @@
 }
 
 .terminal--main .researchPaperPanel .researchPaperBody {
-  padding: 8px 16px 20px;
   position: relative;
   isolation: isolate;
   overscroll-behavior: contain;
@@ -2680,6 +2679,24 @@
   color: rgba(255, 255, 255, 0.42);
 }
 
+.terminal--main .mainContextPanel .contextFundamentalsCard {
+  padding: 0 8px 8px;
+  background: var(--context-surface-inset);
+}
+
+.terminal--main .mainContextPanel .contextFundamentalsGrid {
+  grid-template-columns: minmax(0, 86px) repeat(4, minmax(52px, 1fr));
+  column-gap: 6px;
+}
+
+.terminal--main .mainContextPanel .contextFundamentalsGrid--head {
+  padding: 8px 0 6px;
+}
+
+.terminal--main .mainContextPanel .contextFundamentalsTable {
+  padding-bottom: 2px;
+}
+
 .terminal--main .mainContextPanel .contextCatalystRow {
   display: flex;
   align-items: flex-start;
@@ -3212,6 +3229,91 @@
 }
 
 .contextCardOutcomeV--neg {
+  color: rgba(255, 120, 120, 0.92);
+}
+
+.contextFundamentalsCard {
+  padding: 0 8px 8px;
+  background: var(--context-surface-inset);
+}
+
+.contextFundamentalsTable {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-top: 0;
+}
+
+.contextFundamentalsGrid {
+  --context-fundamentals-label-size: 7.5px;
+  --context-fundamentals-label-lh: 1.25;
+  display: grid;
+  grid-template-columns: minmax(0, 82px) repeat(4, minmax(52px, 1fr));
+  column-gap: 6px;
+  row-gap: 0;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.contextFundamentalsGrid:last-child {
+  border-bottom: none;
+  padding-bottom: 2px;
+}
+
+.contextFundamentalsGrid--head {
+  padding: 8px 0 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.contextFundamentalsSeqLabel {
+  font-size: var(--context-fundamentals-label-size, 7.5px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: var(--context-fundamentals-label-lh, 1.25);
+  padding-right: 0;
+  white-space: normal;
+  min-height: calc(2 * var(--context-fundamentals-label-size, 7.5px) * var(--context-fundamentals-label-lh, 1.25));
+  display: flex;
+  align-items: center;
+}
+
+.contextFundamentalsSeqHead {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.contextFundamentalsSeqCell {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.52);
+  padding: 1px 0;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.contextFundamentalsSeqCell--empty {
+  color: rgba(255, 255, 255, 0.18);
+}
+
+.contextFundamentalsSeqCell--latest {
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.contextFundamentalsSeqCell--pos {
+  color: rgba(140, 255, 195, 0.95);
+}
+
+.contextFundamentalsSeqCell--neg {
   color: rgba(255, 120, 120, 0.92);
 }
 
@@ -4035,10 +4137,29 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Research tab: extra side inset so long-form text breathes in the wide paper column */
-.terminal--main .researchPaper .researchPaperBody {
-  padding-left: 36px;
-  padding-right: 36px;
+/* Research tab paper panel: modest side inset; nested timeline body must not double-pad. */
+.terminal--main .researchPaper.researchPaperPanel > .researchPaperBody {
+  padding: 8px 32px 20px;
+}
+
+.terminal--main .researchPaper.researchPaperPanel .researchPaperBody--documentsOnly {
+  padding: 0;
+}
+
+.terminal--main .researchPaper.researchPaperPanel .researchPaperChart {
+  padding: 12px 8px 10px;
+}
+
+.terminal--main .researchPaper.researchPaperPanel .researchPaperRailCardMain {
+  padding: 5px 6px 5px 5px;
+}
+
+.terminal--main .researchPaper.researchPaperPanel .researchPaperDocCard .researchPaperRailCardMain {
+  padding: 5px 6px 14px 5px;
+}
+
+.terminal--main .researchPaper.researchPaperPanel .researchPaperDocCardAnalysis {
+  padding-right: 6px;
 }
 
 /* Captions + price frame: less tracked type, neutral chrome (still dark panel / light type) */

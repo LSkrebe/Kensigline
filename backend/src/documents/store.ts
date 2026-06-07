@@ -309,3 +309,90 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
     programKeys: Array.isArray(r.program_keys) ? r.program_keys : [],
   }));
 }
+
+export type InstitutionShareSnapshot = {
+  filer: string;
+  shares: number;
+  asOf: string;
+};
+
+export async function loadInstitutionShareSnapshotsForTicker(
+  ticker: string,
+  limit = 400,
+): Promise<InstitutionShareSnapshot[]> {
+  const t = ticker.trim().toUpperCase();
+  const rows = await db.query<{ data: unknown; event_at: string | null }>(
+    `
+    SELECT data, event_at::text
+    FROM documents
+    WHERE ticker = $1 AND feed_kind = 'institutions'
+    ORDER BY event_at DESC NULLS LAST
+    LIMIT $2
+    `,
+    [t, limit],
+  );
+
+  const out: InstitutionShareSnapshot[] = [];
+  for (const row of rows) {
+    const data = row.data as {
+      cluster?: { worksheet_rows?: Array<Record<string, unknown>> };
+    } | null;
+    const worksheet = data?.cluster?.worksheet_rows;
+    if (!Array.isArray(worksheet) || !worksheet.length) continue;
+
+    const filer = String(worksheet[0]?.institution_name ?? worksheet[0]?.key ?? "Institution").trim();
+    let shares = 0;
+    let anyShares = false;
+    for (const r of worksheet) {
+      const n = r?.shares != null ? Number(r.shares) : null;
+      if (n != null && Number.isFinite(n) && n > 0) {
+        shares += n;
+        anyShares = true;
+      }
+    }
+    if (!anyShares) continue;
+
+    const rowTs = worksheet
+      .map((r) => String(r?.ts ?? "").trim())
+      .filter(Boolean)
+      .sort()
+      .at(-1);
+    const asOf = rowTs ?? row.event_at ?? new Date().toISOString();
+    out.push({ filer, shares, asOf });
+  }
+  return out;
+}
+
+export type InsiderOwnershipFiling = {
+  url: string;
+  eventAt: string;
+  sourceKey: string;
+};
+
+export async function loadInsiderOwnershipFilingsForTicker(
+  ticker: string,
+  limit = 120,
+): Promise<InsiderOwnershipFiling[]> {
+  const t = ticker.trim().toUpperCase();
+  const rows = await db.query<{ url: string | null; event_at: string | null; source_key: string | null }>(
+    `
+    SELECT url, event_at::text, source_key
+    FROM documents
+    WHERE ticker = $1
+      AND feed_kind = 'insider'
+      AND source_key IN ('Form 3', 'Form 5')
+      AND url IS NOT NULL
+    ORDER BY event_at DESC NULLS LAST
+    LIMIT $2
+    `,
+    [t, limit],
+  );
+
+  return rows
+    .filter((r): r is { url: string; event_at: string | null; source_key: string | null } => Boolean(r.url))
+    .map((r) => ({
+      url: r.url,
+      eventAt: r.event_at ?? new Date().toISOString(),
+      sourceKey: String(r.source_key ?? "Form 3"),
+    }));
+}

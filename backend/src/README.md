@@ -11,7 +11,7 @@ Mirrors the frontend terminal tabs and mode switches.
 | **Settings** tab | `billing/` + `core/supabase-auth.ts` | `/api/billing/*`, `/api/auth/*` |
 | Shared platform | `core/` | `/api/bars`, `/api/company`, `/api/outcomes`, `/api/stats` |
 
-`/api/company?ticker=` includes `fundamentals` for the Research CONTEXT panel (SEC Company Facts + document guidance via `research/market/fundamentals.ts`).
+`/api/company?ticker=` includes `fundamentals` (4-period SEC XBRL series + document guidance via `research/market/fundamentals.ts`) and `ownership` (13F + Form 3/5 via `research/market/ownership.ts`).
 
 `/api/pharma/clinical-context?ticker=` includes `runway` for the clinical CONTEXT panel (cash, burn, runway from SEC Company Facts).
 

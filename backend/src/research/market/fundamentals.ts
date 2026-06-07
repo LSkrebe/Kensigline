@@ -1,51 +1,67 @@
 import { fetchSecJson, resolveCikForTicker } from "../../core/sec.js";
-import { historicalFundamentalsFromCompanyFacts } from "../../core/fundamentals.js";
+import { fundamentalsSeriesFromCompanyFacts } from "../../core/fundamentals.js";
 import { forwardRevenueGrowthFromDocuments } from "./guidance.js";
 
 export type MarketFundamentals = {
-  revenueGrowth: number | null;
-  netMargin: number | null;
-  fcfMargin: number | null;
+  periodLabels: string[];
+  revenueGrowth: (number | null)[];
+  grossMargin: (number | null)[];
+  netMargin: (number | null)[];
+  fcfMargin: (number | null)[];
+  netIncomeGrowth: (number | null)[];
+  fcfGrowth: (number | null)[];
+  netCash: (number | null)[];
+  sharesOutstanding: (number | null)[];
   forwardRevenueGrowth: number | null;
-  periodEnd: string | null;
-  fiscalPeriod: string | null;
   sources: {
     historical: "sec_companyfacts" | null;
     forward: "documents" | null;
   };
 };
 
+const EMPTY: MarketFundamentals = {
+  periodLabels: [],
+  revenueGrowth: [null, null, null, null],
+  grossMargin: [null, null, null, null],
+  netMargin: [null, null, null, null],
+  fcfMargin: [null, null, null, null],
+  netIncomeGrowth: [null, null, null, null],
+  fcfGrowth: [null, null, null, null],
+  netCash: [null, null, null, null],
+  sharesOutstanding: [null, null, null, null],
+  forwardRevenueGrowth: null,
+  sources: { historical: null, forward: null },
+};
+
+function padSeries(values: (number | null)[], count: number): (number | null)[] {
+  if (values.length >= count) return values.slice(-count);
+  return [...Array.from({ length: count - values.length }, () => null), ...values];
+}
+
 /** Research CONTEXT panel fundamentals — SEC XBRL history + document guidance. */
 export async function getMarketFundamentalsForTicker(opts: {
   ticker: string;
 }): Promise<MarketFundamentals> {
   const ticker = String(opts.ticker ?? "").trim().toUpperCase();
-  const empty: MarketFundamentals = {
-    revenueGrowth: null,
-    netMargin: null,
-    fcfMargin: null,
-    forwardRevenueGrowth: null,
-    periodEnd: null,
-    fiscalPeriod: null,
-    sources: { historical: null, forward: null },
-  };
+  if (!ticker) return { ...EMPTY };
 
-  if (!ticker) return empty;
-
-  let historical = empty;
+  let series = EMPTY;
   try {
     const { cik } = await resolveCikForTicker(ticker);
     const facts = await fetchSecJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`);
-    const h = historicalFundamentalsFromCompanyFacts(facts);
-    const hasHistorical =
-      h.revenueGrowth != null || h.netMargin != null || h.fcfMargin != null;
-    historical = {
-      ...empty,
-      revenueGrowth: h.revenueGrowth,
-      netMargin: h.netMargin,
-      fcfMargin: h.fcfMargin,
-      periodEnd: h.periodEnd,
-      fiscalPeriod: h.fiscalPeriod,
+    const s = fundamentalsSeriesFromCompanyFacts(facts, { periods: 4 });
+    const hasHistorical = s.periodLabels.length > 0 && s.revenueGrowth.some((v) => v != null);
+    series = {
+      periodLabels: s.periodLabels,
+      revenueGrowth: padSeries(s.revenueGrowth, 4),
+      grossMargin: padSeries(s.grossMargin, 4),
+      netMargin: padSeries(s.netMargin, 4),
+      fcfMargin: padSeries(s.fcfMargin, 4),
+      netIncomeGrowth: padSeries(s.netIncomeGrowth, 4),
+      fcfGrowth: padSeries(s.fcfGrowth, 4),
+      netCash: padSeries(s.netCash, 4),
+      sharesOutstanding: padSeries(s.sharesOutstanding, 4),
+      forwardRevenueGrowth: null,
       sources: { historical: hasHistorical ? "sec_companyfacts" : null, forward: null },
     };
   } catch {
@@ -60,10 +76,10 @@ export async function getMarketFundamentalsForTicker(opts: {
   }
 
   return {
-    ...historical,
+    ...series,
     forwardRevenueGrowth,
     sources: {
-      historical: historical.sources.historical,
+      historical: series.sources.historical,
       forward: forwardRevenueGrowth != null ? "documents" : null,
     },
   };

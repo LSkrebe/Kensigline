@@ -4,7 +4,7 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { historicalFundamentalsFromCompanyFacts } from "../core/fundamentals.js";
+import { historicalFundamentalsFromCompanyFacts, fundamentalsSeriesFromCompanyFacts } from "../core/fundamentals.js";
 import { historicalRunwayFromCompanyFacts } from "../core/runway.js";
 import { parseSenatePtrHtml } from "../core/senate.js";
 import { parseForwardRevenueGrowthFromText } from "../research/market/guidance-parse.js";
@@ -79,6 +79,49 @@ test("historicalFundamentalsFromCompanyFacts YoY revenue and margins", () => {
   assert.equal(out.revenueGrowth, 10);
   assert.equal(out.netMargin, 20);
   assert.equal(out.fcfMargin, 22.7);
+});
+
+test("fundamentalsSeriesFromCompanyFacts builds annual FY series", () => {
+  const mockFacts = {
+    facts: {
+      "us-gaap": {
+        Revenues: {
+          units: {
+            USD: [
+              { val: 500, end: "2021-12-31", filed: "2022-02-01", fy: 2021, fp: "FY", form: "10-K" },
+              { val: 600, end: "2022-12-31", filed: "2023-02-01", fy: 2022, fp: "FY", form: "10-K" },
+              { val: 720, end: "2023-12-31", filed: "2024-02-01", fy: 2023, fp: "FY", form: "10-K" },
+              { val: 900, end: "2024-12-31", filed: "2025-02-01", fy: 2024, fp: "FY", form: "10-K" },
+            ],
+          },
+        },
+        GrossProfit: {
+          units: {
+            USD: [
+              { val: 200, end: "2024-12-31", filed: "2025-02-01", fy: 2024, fp: "FY", form: "10-K" },
+            ],
+          },
+        },
+        NetIncomeLoss: {
+          units: {
+            USD: [{ val: 90, end: "2024-12-31", filed: "2025-02-01", fy: 2024, fp: "FY", form: "10-K" }],
+          },
+        },
+        WeightedAverageNumberOfSharesOutstandingBasic: {
+          units: {
+            shares: [{ val: 100_000_000, end: "2024-12-31", filed: "2025-02-01", fy: 2024, fp: "FY", form: "10-K" }],
+          },
+        },
+      },
+    },
+  };
+  const out = fundamentalsSeriesFromCompanyFacts(mockFacts, { periods: 4 });
+  assert.equal(out.periodLabels.length, 4);
+  assert.equal(out.periodLabels.at(-1), "FY24");
+  assert.equal(out.revenueGrowth.at(-1), 25);
+  assert.equal(out.grossMargin.at(-1), 22.2);
+  assert.equal(out.netMargin.at(-1), 10);
+  assert.equal(out.sharesOutstanding.at(-1), 100_000_000);
 });
 
 test("parseForwardRevenueGrowthFromText finds guidance percent", () => {

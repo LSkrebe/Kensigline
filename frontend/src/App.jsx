@@ -1269,10 +1269,15 @@ const CONTEXT_MOCK_PROFILES = {
       { filer: 'Capital Group', activity: 'Reduced stake', at: '2026-02-05', amount: '$18M' },
     ],
     fundamentals: {
-      revenueGrowth: 15.2,
-      netMargin: 28.4,
-      fcfMargin: 24.1,
-      forwardRevenueGrowth: 12.8,
+      forwardRevenueGrowth: 58,
+      revenueGrowth: [12, 18, 24, 31],
+      grossMargin: [52, 54, 55, 56],
+      netMargin: [24, 26, 27, 28],
+      fcfMargin: [20, 22, 23, 24],
+      netIncomeGrowth: [14, 22, 28, 35],
+      fcfGrowth: [12, 18, 24, 30],
+      netCash: [8_200_000_000, 9_100_000_000, 10_400_000_000, 11_800_000_000],
+      sharesOutstanding: [392_000_000, 388_000_000, 385_000_000, 380_000_000],
     },
   },
   ATYR: {
@@ -1365,18 +1370,160 @@ const CONTEXT_MOCK_PROFILE_DEFAULT = {
   politicians: [],
   filings13f: [],
   fundamentals: null,
+  ownership: null,
+}
+
+const CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE = {
+  forwardRevenueGrowth: 65,
+  revenueGrowth: [31, 44, 55, 72],
+  grossMargin: [42, 44, 46, 48],
+  netMargin: [15, 19, 24, 29],
+  fcfMargin: [10, 14, 18, 24],
+  netIncomeGrowth: [22, 35, 61, 110],
+  fcfGrowth: [18, 29, 53, 95],
+  netCash: [90_000_000, 140_000_000, 240_000_000, 340_000_000],
+  sharesOutstanding: [120_000_000, 115_000_000, 108_000_000, 92_000_000],
+}
+
+const CONTEXT_OWNERSHIP_MOCK_TEMPLATE = {
+  insiders: [12, 14, 17, 20],
+  institutions: [40, 42, 45, 47],
+  politicians: [0.1, 0.2, 0.3, 0.4],
+}
+
+function contextMockOwnershipForTicker(ticker, profileOwnership = null) {
+  if (profileOwnership && typeof profileOwnership === 'object') {
+    return { ...CONTEXT_OWNERSHIP_MOCK_TEMPLATE, ...profileOwnership }
+  }
+  const seed = seedFromTicker(String(ticker ?? 'TICK'))
+  const factor = 0.9 + (seed % 20) / 100
+  return {
+    insiders: scaleFundamentalSequence(CONTEXT_OWNERSHIP_MOCK_TEMPLATE.insiders, factor),
+    institutions: scaleFundamentalSequence(
+      CONTEXT_OWNERSHIP_MOCK_TEMPLATE.institutions,
+      0.98 + (seed % 5) / 100,
+    ),
+    politicians: CONTEXT_OWNERSHIP_MOCK_TEMPLATE.politicians.map(
+      (v) => Math.round(v * factor * 10) / 10,
+    ),
+  }
+}
+
+function contextOwnershipQuarterLabel(year, quarter) {
+  const yy = String(year % 100).padStart(2, '0')
+  return `${yy}Q${quarter}`
+}
+
+/** Trailing calendar quarters ending at the current quarter, oldest → newest. */
+function contextOwnershipTrailingQuarterLabels(count = 4, asOf = new Date()) {
+  let year = asOf.getFullYear()
+  let quarter = Math.floor(asOf.getMonth() / 3) + 1
+  const out = []
+  for (let i = 0; i < count; i++) {
+    out.unshift(contextOwnershipQuarterLabel(year, quarter))
+    quarter -= 1
+    if (quarter < 1) {
+      quarter = 4
+      year -= 1
+    }
+  }
+  return out
+}
+
+function scaleFundamentalSequence(values, factor, { round = true } = {}) {
+  if (!Array.isArray(values)) return values
+  return values.map((v) => {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return v
+    const out = n * factor
+    return round ? Math.round(out) : Math.round(out * 10) / 10
+  })
 }
 
 function contextMockFundamentalsForTicker(ticker, profileFundamentals = null) {
   if (profileFundamentals && typeof profileFundamentals === 'object') {
-    return { ...profileFundamentals }
+    return { ...CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE, ...profileFundamentals }
   }
   const seed = seedFromTicker(String(ticker ?? 'TICK'))
-  const revenueGrowth = Math.round((6 + (seed % 260) / 10) * 10) / 10
-  const netMargin = Math.round((10 + ((seed * 7) % 320) / 10) * 10) / 10
-  const fcfMargin = Math.round(Math.max(3, netMargin - 1.5 - (seed % 9)) * 10) / 10
-  const forwardRevenueGrowth = Math.round((revenueGrowth - 1.5 + (seed % 14) / 2) * 10) / 10
-  return { revenueGrowth, netMargin, fcfMargin, forwardRevenueGrowth }
+  const factor = 0.88 + (seed % 24) / 100
+  return {
+    forwardRevenueGrowth: Math.round(CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE.forwardRevenueGrowth * factor),
+    revenueGrowth: scaleFundamentalSequence(CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE.revenueGrowth, factor),
+    grossMargin: scaleFundamentalSequence(CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE.grossMargin, 0.96 + (seed % 8) / 100),
+    netMargin: scaleFundamentalSequence(CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE.netMargin, factor),
+    fcfMargin: scaleFundamentalSequence(CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE.fcfMargin, factor),
+    netIncomeGrowth: scaleFundamentalSequence(CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE.netIncomeGrowth, factor),
+    fcfGrowth: scaleFundamentalSequence(CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE.fcfGrowth, factor),
+    netCash: scaleFundamentalSequence(CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE.netCash, factor, { round: false }),
+    sharesOutstanding: CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE.sharesOutstanding.map((v, i) =>
+      Math.round(v * (1 - (seed % 7) / 200) * (1 - i * 0.02)),
+    ),
+  }
+}
+
+function formatContextFundamentalUsdCompact(n) {
+  const x = Number(n)
+  if (!Number.isFinite(x) || x <= 0) return '—'
+  const trim = (s) => s.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '')
+  if (x >= 1e9) {
+    const v = x / 1e9
+    const body = v >= 100 ? String(Math.round(v)) : v >= 10 ? trim(v.toFixed(1)) : trim(v.toFixed(2))
+    return `$${body}B`
+  }
+  if (x >= 1e6) {
+    const v = x / 1e6
+    const body = v >= 100 ? String(Math.round(v)) : v >= 10 ? String(Math.round(v)) : trim(v.toFixed(1))
+    return `$${body}M`
+  }
+  if (x >= 1e3) {
+    const v = x / 1e3
+    const body = v >= 10 ? String(Math.round(v)) : trim(v.toFixed(1))
+    return `$${body}K`
+  }
+  return `$${Math.round(x)}`
+}
+
+function formatContextFundamentalSharesCompact(n) {
+  const x = Math.abs(Number(n))
+  if (!Number.isFinite(x) || x <= 0) return '—'
+  if (x >= 1e9) return `${(x / 1e9).toFixed(2)}B`
+  if (x >= 1e6) return `${Math.round(x / 1e6)}M`
+  if (x >= 1e3) return `${Math.round(x / 1e3)}K`
+  return String(Math.round(x))
+}
+
+function formatContextFundamentalPctValue(n, { signed = false } = {}) {
+  const v = Number(n)
+  if (!Number.isFinite(v)) return '—'
+  const abs = Math.abs(v)
+  let body
+  if (abs < 1) body = abs.toFixed(1)
+  else if (Number.isInteger(abs)) body = String(abs)
+  else body = abs.toFixed(1)
+  if (!signed) return `${body}%`
+  if (v > 0) return `+${body}%`
+  if (v < 0) return `−${body}%`
+  return `${body}%`
+}
+
+function formatContextFundamentalSequenceCells(values, format, { signed = false } = {}) {
+  if (!Array.isArray(values) || !values.length) return ['—']
+  return values.map((v) => {
+    if (format === 'usd') return formatContextFundamentalUsdCompact(v)
+    if (format === 'shares') return formatContextFundamentalSharesCompact(v)
+    return formatContextFundamentalPctValue(v, { signed })
+  })
+}
+
+function formatContextFundamentalDisplay(fundamentals, row) {
+  const raw = fundamentals?.[row.key]
+  if (raw == null) return '—'
+  if (row.kind === 'sequence' || Array.isArray(raw)) {
+    return formatContextFundamentalSequenceCells(raw, row.format, { signed: row.signed }).join(' → ')
+  }
+  if (row.format === 'usd') return formatContextFundamentalUsdCompact(raw)
+  if (row.format === 'shares') return formatContextFundamentalSharesCompact(raw)
+  return formatContextFundamentalPctValue(raw, { signed: row.signed })
 }
 
 function contextMockRunwayForTicker(ticker, profileRunway = null) {
@@ -1415,23 +1562,6 @@ function contextRunwayValueTone(key, value) {
     if (n >= 8) return 'pos'
   }
   return null
-}
-
-function formatContextFundamentalPct(value, { signed = false } = {}) {
-  const n = Number(value)
-  if (!Number.isFinite(n)) return '—'
-  const abs = Math.abs(n).toFixed(1)
-  if (!signed) return `${abs}%`
-  if (n > 0) return `+${abs}%`
-  if (n < 0) return `−${abs}%`
-  return `${abs}%`
-}
-
-function contextFundamentalValueTone(key, value) {
-  if (key !== 'revenueGrowth' && key !== 'forwardRevenueGrowth') return null
-  const n = Number(value)
-  if (!Number.isFinite(n) || n === 0) return null
-  return n > 0 ? 'pos' : 'neg'
 }
 
 function contextMockForTicker(ticker, priceSeries) {
@@ -1485,6 +1615,7 @@ function contextMockForTicker(ticker, priceSeries) {
       amount: row.amount,
     })),
     fundamentals: contextMockFundamentalsForTicker(t, base.fundamentals),
+    ownership: contextMockOwnershipForTicker(t, base.ownership),
     runway: contextMockRunwayForTicker(t, base.runway),
   }
 }
@@ -1729,6 +1860,64 @@ function mapClinicalRunwayFromApi(runway) {
   }
 }
 
+function mapFundamentalsFromApi(fundamentals) {
+  if (!fundamentals || typeof fundamentals !== 'object') return null
+  const pickArray = (key) => {
+    const v = fundamentals[key]
+    if (!Array.isArray(v)) return null
+    return v.map((x) => (x != null && Number.isFinite(Number(x)) ? Number(x) : null))
+  }
+  const periodLabels =
+    Array.isArray(fundamentals.periodLabels) && fundamentals.periodLabels.length
+      ? fundamentals.periodLabels.map((l) => String(l))
+      : null
+  const mapped = {
+    periodLabels,
+    forwardRevenueGrowth:
+      fundamentals.forwardRevenueGrowth != null && Number.isFinite(Number(fundamentals.forwardRevenueGrowth))
+        ? Number(fundamentals.forwardRevenueGrowth)
+        : null,
+    revenueGrowth: pickArray('revenueGrowth'),
+    grossMargin: pickArray('grossMargin'),
+    netMargin: pickArray('netMargin'),
+    fcfMargin: pickArray('fcfMargin'),
+    netIncomeGrowth: pickArray('netIncomeGrowth'),
+    fcfGrowth: pickArray('fcfGrowth'),
+    netCash: pickArray('netCash'),
+    sharesOutstanding: pickArray('sharesOutstanding'),
+  }
+  const hasHistorical = [
+    mapped.revenueGrowth,
+    mapped.grossMargin,
+    mapped.netMargin,
+    mapped.fcfMargin,
+    mapped.netIncomeGrowth,
+    mapped.fcfGrowth,
+    mapped.netCash,
+    mapped.sharesOutstanding,
+  ].some((arr) => arr?.some((v) => v != null))
+  if (!hasHistorical && mapped.forwardRevenueGrowth == null) return null
+  return mapped
+}
+
+function mapOwnershipFromApi(ownership) {
+  if (!ownership || typeof ownership !== 'object') return null
+  const pickArray = (key) => {
+    const v = ownership[key]
+    if (!Array.isArray(v)) return null
+    return v.map((x) => (x != null && Number.isFinite(Number(x)) ? Number(x) : null))
+  }
+  const mapped = {
+    insiders: pickArray('insiders'),
+    institutions: pickArray('institutions'),
+    politicians: pickArray('politicians'),
+  }
+  const hasAny = [mapped.insiders, mapped.institutions, mapped.politicians].some((arr) =>
+    arr?.some((v) => v != null),
+  )
+  return hasAny ? mapped : null
+}
+
 function contextCatalystCountdown(at) {
   if (at == null || String(at).trim() === '') return 'Active'
   const d = new Date(`${String(at ?? '').trim()}T12:00:00`)
@@ -1757,43 +1946,125 @@ function ContextSection({ title, ariaLabel, children }) {
   )
 }
 
+const CONTEXT_FUNDAMENTAL_PERIOD_LABELS = ['FY24', 'FY25', 'FY26', 'FY27']
+
 const CONTEXT_FUNDAMENTAL_ROWS = [
-  { key: 'revenueGrowth', label: 'Revenue growth', signed: true },
-  { key: 'forwardRevenueGrowth', label: 'Forward revenue growth', signed: true },
-  { key: 'netMargin', label: 'Net margin', signed: false },
-  { key: 'fcfMargin', label: 'FCF margin', signed: false },
+  { key: 'forwardRevenueGrowth', label: 'Forward rev growth', kind: 'single', format: 'pct', signed: false },
+  { key: 'revenueGrowth', label: 'Revenue growth', kind: 'sequence', format: 'pct', signed: false },
+  { key: 'grossMargin', label: 'Gross margin', kind: 'sequence', format: 'pct', signed: false },
+  { key: 'netMargin', label: 'Net margin', kind: 'sequence', format: 'pct', signed: false },
+  { key: 'fcfMargin', label: 'FCF margin', kind: 'sequence', format: 'pct', signed: false },
+  { key: 'netIncomeGrowth', label: 'Net income growth', kind: 'sequence', format: 'pct', signed: false },
+  { key: 'fcfGrowth', label: 'FCF growth', kind: 'sequence', format: 'pct', signed: false },
+  { key: 'netCash', label: 'Net cash', kind: 'sequence', format: 'usd', signed: false },
+  { key: 'sharesOutstanding', label: 'Shares outstanding', kind: 'sequence', format: 'shares', signed: false },
 ]
 
-function ContextFundamentalsCard({ fundamentals }) {
+const CONTEXT_OWNERSHIP_ROWS = [
+  { key: 'insiders', label: 'Insiders', kind: 'sequence', format: 'pct', signed: false },
+  { key: 'institutions', label: 'Institutions', kind: 'sequence', format: 'pct', signed: false },
+  { key: 'politicians', label: 'Politicians', kind: 'sequence', format: 'pct', signed: false },
+]
+
+function contextMetricsRowCells(data, row, periodCount) {
+  const raw = data?.[row.key]
+  if (row.kind === 'single') {
+    const cells = Array.from({ length: periodCount }, () => '—')
+    if (raw != null) {
+      cells[periodCount - 1] = formatContextFundamentalPctValue(raw, { signed: row.signed })
+    }
+    return cells
+  }
+  const cells = formatContextFundamentalSequenceCells(raw, row.format, { signed: row.signed })
+  if (cells.length >= periodCount) return cells.slice(-periodCount)
+  return [...Array.from({ length: periodCount - cells.length }, () => '—'), ...cells]
+}
+
+function ContextMetricsTableRow({ row, data, periodLabels, periodCount }) {
+  const cells = contextMetricsRowCells(data, row, periodCount)
+  const latestIndex = periodCount - 1
+
   return (
-    <div className="contextCatalystCard" aria-label="Fundamentals">
-      <div className="contextCatalystCardHeader">
-        <div className="contextCatalystCardTitle mono dim">Fundamentals</div>
-      </div>
-      <div className="contextOutcomesStack">
-        {CONTEXT_FUNDAMENTAL_ROWS.map((row) => {
-          const raw = fundamentals?.[row.key]
-          const tone = contextFundamentalValueTone(row.key, raw)
-          return (
-            <div key={row.key} className="contextCardOutcomeRow" role="listitem">
-              <span className="contextCardOutcomeK dim">{row.label}</span>
-              <span
-                className={[
-                  'contextCardOutcomeV',
-                  'mono',
-                  tone === 'pos' ? 'contextCardOutcomeV--pos' : '',
-                  tone === 'neg' ? 'contextCardOutcomeV--neg' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                {formatContextFundamentalPct(raw, { signed: row.signed })}
-              </span>
-            </div>
-          )
-        })}
+    <div className="contextFundamentalsGrid" role="listitem" aria-label={row.label}>
+      <span className="contextFundamentalsSeqLabel dim">{row.label}</span>
+      {cells.map((cell, i) => (
+        <span
+          key={`${row.key}-${i}`}
+          className={[
+            'contextFundamentalsSeqCell',
+            'mono',
+            cell === '—' ? 'contextFundamentalsSeqCell--empty' : '',
+            i === latestIndex ? 'contextFundamentalsSeqCell--latest' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          title={periodLabels[i] ? `${periodLabels[i]}: ${cell}` : cell}
+        >
+          {cell}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function ContextMetricsCard({ title, ariaLabel, periodLabels, rows, data }) {
+  const periodCount = periodLabels.length
+
+  return (
+    <div className="contextCatalystCard contextFundamentalsCard" aria-label={ariaLabel ?? title}>
+      <div className="contextFundamentalsTable" role="list">
+        <div className="contextFundamentalsGrid contextFundamentalsGrid--head mono">
+          <span className="contextFlowChartLabel mono dim">{title}</span>
+          {periodLabels.map((label) => (
+            <span key={label} className="contextFundamentalsSeqHead">
+              {label}
+            </span>
+          ))}
+        </div>
+        {rows.map((row) => (
+          <ContextMetricsTableRow
+            key={row.key}
+            row={row}
+            data={data}
+            periodLabels={periodLabels}
+            periodCount={periodCount}
+          />
+        ))}
       </div>
     </div>
+  )
+}
+
+function ContextFundamentalsCard({ fundamentals }) {
+  const periodLabels = useMemo(() => {
+    if (Array.isArray(fundamentals?.periodLabels) && fundamentals.periodLabels.length >= 4) {
+      return fundamentals.periodLabels.slice(-4)
+    }
+    return CONTEXT_FUNDAMENTAL_PERIOD_LABELS
+  }, [fundamentals?.periodLabels])
+
+  return (
+    <ContextMetricsCard
+      title="Fundamentals"
+      ariaLabel="Fundamentals"
+      periodLabels={periodLabels}
+      rows={CONTEXT_FUNDAMENTAL_ROWS}
+      data={fundamentals}
+    />
+  )
+}
+
+function ContextOwnershipCard({ ownership }) {
+  const periodLabels = useMemo(() => contextOwnershipTrailingQuarterLabels(4), [])
+
+  return (
+    <ContextMetricsCard
+      title="Ownership"
+      ariaLabel="Ownership"
+      periodLabels={periodLabels}
+      rows={CONTEXT_OWNERSHIP_ROWS}
+      data={ownership}
+    />
   )
 }
 
@@ -3538,6 +3809,7 @@ function MainContextPanel({
   politicians = [],
   catalystItems = [],
   fundamentals = null,
+  ownership = null,
   runway = null,
   backendUp = false,
   contextOutcomesLive = null,
@@ -3693,6 +3965,9 @@ function MainContextPanel({
             <ContextSection ariaLabel="Financial runway">
               <ContextRunwayCard runway={runway} />
             </ContextSection>
+            <ContextSection ariaLabel="Ownership">
+              <ContextOwnershipCard ownership={ownership} />
+            </ContextSection>
             <ContextSection ariaLabel="Trial historical outcomes">
               <ContextClinicalOutcomesList
                 outcomeLines={clinicalOutcomes.outcomeLines}
@@ -3708,6 +3983,9 @@ function MainContextPanel({
           <>
             <ContextSection ariaLabel="Fundamentals">
               <ContextFundamentalsCard fundamentals={fundamentals} />
+            </ContextSection>
+            <ContextSection ariaLabel="Ownership">
+              <ContextOwnershipCard ownership={ownership} />
             </ContextSection>
             <ContextSection ariaLabel="Insider historical outcomes">
               <ContextFlowTotalsList
@@ -8797,16 +9075,17 @@ function KensiglineTerminal() {
 
   const contextFundamentals = useMemo(() => {
     if (backendUp && researchCompanyLive?.fundamentals) {
-      const f = researchCompanyLive.fundamentals
-      return {
-        revenueGrowth: f.revenueGrowth ?? null,
-        netMargin: f.netMargin ?? null,
-        fcfMargin: f.fcfMargin ?? null,
-        forwardRevenueGrowth: f.forwardRevenueGrowth ?? null,
-      }
+      return mapFundamentalsFromApi(researchCompanyLive.fundamentals) ?? contextMock.fundamentals
     }
     return contextMock.fundamentals
   }, [backendUp, researchCompanyLive?.fundamentals, contextMock.fundamentals])
+
+  const contextOwnership = useMemo(() => {
+    if (backendUp && researchCompanyLive?.ownership) {
+      return mapOwnershipFromApi(researchCompanyLive.ownership) ?? contextMock.ownership
+    }
+    return contextMock.ownership
+  }, [backendUp, researchCompanyLive?.ownership, contextMock.ownership])
 
   const contextEarnings = useMemo(() => {
     if (backendUp && researchCompanyLive?.earnings_date) {
@@ -10338,6 +10617,7 @@ function KensiglineTerminal() {
             politicians={contextFlowRows.politicians}
             catalystItems={contextCatalystItems}
             fundamentals={contextFundamentals}
+            ownership={contextOwnership}
             runway={contextRunway}
             backendUp={backendUp}
             contextOutcomesLive={contextOutcomesLive}
