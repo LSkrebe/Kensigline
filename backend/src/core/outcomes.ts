@@ -277,13 +277,24 @@ export async function recomputePharmaOutcomes(opts?: { lookbackDays?: number; ma
     byTicker.set(t, arr);
   }
 
-  const ph2: number[] = [];
-  const ph3: number[] = [];
-  const all21: number[] = [];
+  type HorizonAcc = { r21: number[]; r63: number[]; r252: number[] };
+  const emptyAcc = (): HorizonAcc => ({ r21: [], r63: [], r252: [] });
+  const acc = {
+    ph3: emptyAcc(),
+    ph2: emptyAcc(),
+    all: emptyAcc(),
+  };
+
+  const pushHorizon = (bucket: HorizonAcc, r21: number | null, r63: number | null, r252: number | null) => {
+    if (r21 == null || r63 == null || r252 == null) return;
+    bucket.r21.push(r21);
+    bucket.r63.push(r63);
+    bucket.r252.push(r252);
+  };
 
   for (const [ticker, evs] of byTicker.entries()) {
     const days = evs.map((e) => e.day);
-    await ensureBarsForEventWindows(ticker, days, 63);
+    await ensureBarsForEventWindows(ticker, days, 252);
     const bars = await loadBarsMap(ticker);
     if (bars.days.length < 80) continue;
 
@@ -291,17 +302,37 @@ export async function recomputePharmaOutcomes(opts?: { lookbackDays?: number; ma
       const baseIdx = nextTradingIndex(bars.days, ev.day);
       if (baseIdx < 0) continue;
       const r21 = computeForwardReturn(bars.closes, baseIdx, 21);
+      const r63 = computeForwardReturn(bars.closes, baseIdx, 63);
+      const r252 = computeForwardReturn(bars.closes, baseIdx, 252);
       if (r21 == null) continue;
-      all21.push(r21);
+
+      pushHorizon(acc.all, r21, r63, r252);
+
       const p = String(ev.phase ?? "").toUpperCase();
-      const isResult = ev.eventType === "RESULT" || ev.eventType === "READOUT" || ev.eventType === "ENDPOINT MISS";
-      if (isResult && p.includes("III")) ph3.push(r21);
-      if (isResult && (p.includes("II") || p.includes("I/II") || p.includes("II/III"))) ph2.push(r21);
+      const isResult =
+        ev.eventType === "RESULT" || ev.eventType === "READOUT" || ev.eventType === "ENDPOINT MISS";
+      if (isResult && p.includes("III")) pushHorizon(acc.ph3, r21, r63, r252);
+      if (isResult && (p.includes("II") || p.includes("I/II") || p.includes("II/III"))) {
+        pushHorizon(acc.ph2, r21, r63, r252);
+      }
     }
   }
 
-  const avgPh3 = mean(ph3);
-  const avgPh2 = mean(ph2);
+  const bucketReturns = (b: HorizonAcc): [number | null, number | null, number | null] => [
+    b.r21.length ? mean(b.r21) : null,
+    b.r63.length ? mean(b.r63) : null,
+    b.r252.length ? mean(b.r252) : null,
+  ];
+
+  const buckets = [
+    { id: "ph3", label: "Phase 3 readout", returns: bucketReturns(acc.ph3) },
+    { id: "ph2", label: "Phase 2 miss", returns: bucketReturns(acc.ph2) },
+    { id: "all", label: "All trial events", returns: bucketReturns(acc.all) },
+  ];
+
+  const all21 = acc.all.r21;
+  const avgPh3 = mean(acc.ph3.r21);
+  const avgPh2 = mean(acc.ph2.r21);
   const med = median(all21);
   const largeDrops = all21.length ? all21.filter((x) => x <= -0.3).length / all21.length : null;
   const avg21 = mean(all21);
@@ -319,6 +350,7 @@ export async function recomputePharmaOutcomes(opts?: { lookbackDays?: number; ma
     sampleSize: String(all21.length),
     conditioningIndication: "—",
     conditioningCoSize: "—",
+    buckets,
   };
 
   const globalCompanyId = await getOrCreateGlobalCompanyId();

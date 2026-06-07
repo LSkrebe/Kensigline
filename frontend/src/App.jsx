@@ -1719,11 +1719,13 @@ function parseTxnAmountUsd(amount) {
 
 function formatTxnAmountUsd(n) {
   const x = Number(n)
-  if (!Number.isFinite(x) || x <= 0) return EMPTY
-  if (x >= 1e9) return `$${(x / 1e9).toFixed(2)}B`
-  if (x >= 1e6) return `$${(x / 1e6).toFixed(1)}M`
-  if (x >= 1e3) return `$${Math.round(x / 1e3)}K`
-  return `$${Math.round(x)}`
+  if (!Number.isFinite(x) || x === 0) return EMPTY
+  const sign = x < 0 ? '-' : ''
+  const abs = Math.abs(x)
+  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`
+  if (abs >= 1e3) return `${sign}$${Math.round(abs / 1e3)}K`
+  return `${sign}$${Math.round(abs)}`
 }
 
 function isWithinPastDays(date, days = CONTEXT_FLOW_MONTH_DAYS) {
@@ -1737,6 +1739,35 @@ function flowRowDateMs(date) {
   return Number.isFinite(t) ? t : 0
 }
 
+function insiderFlowSign(row) {
+  const c = String(row?.transactionCode ?? row?.code ?? '').trim().toUpperCase()
+  if (c === 'S' || c === 'D') return -1
+  if (c === 'P' || c === 'A' || c === 'M' || c === 'G' || c === 'W') return 1
+  return 0
+}
+
+function politicianFlowSign(row) {
+  const t = String(row?.transactionType ?? row?.type ?? '').trim().toUpperCase()
+  if (t === 'S' || t.startsWith('SALE') || t.includes('SELL')) return -1
+  if (t === 'P' || t.startsWith('PURCHASE') || t.includes('BUY')) return 1
+  return 0
+}
+
+function institutionFlowSign(row) {
+  const a = String(row?.activity ?? '').trim().toLowerCase()
+  if (/reduc|decreas|sold|exit|closed|trimmed/.test(a)) return -1
+  if (/increas|new|added|initiated|opened|raised/.test(a)) return 1
+  return 0
+}
+
+function signedFlowUsd(row, signFn) {
+  const sign = signFn(row)
+  if (!sign) return 0
+  const usd = parseTxnAmountUsd(row?.amount)
+  if (usd <= 0) return 0
+  return sign * usd
+}
+
 function formatTrackedInvestorDate(atMs) {
   if (!atMs) return '—'
   return formatProgramTimelineDate(new Date(atMs))
@@ -1747,8 +1778,8 @@ function aggregateContextInsiders(rows, days = null) {
   for (const row of rows ?? []) {
     if (days != null && !isWithinPastDays(row.date, days)) continue
     const id = `${row.key}|${row.person ?? ''}`
-    const usd = parseTxnAmountUsd(row.amount)
-    if (usd <= 0) continue
+    const usd = signedFlowUsd(row, insiderFlowSign)
+    if (usd === 0) continue
     const at = flowRowDateMs(row.date)
     const prev = map.get(id) ?? { key: row.key, person: row.person, totalUsd: 0, latestAt: 0 }
     prev.totalUsd += usd
@@ -1771,7 +1802,7 @@ function aggregateContextInsiders(rows, days = null) {
         latestAt: x.latestAt,
       }
     })
-    .sort((a, b) => b.totalUsd - a.totalUsd)
+    .sort((a, b) => Math.abs(b.totalUsd) - Math.abs(a.totalUsd))
 }
 
 function aggregateContextPoliticians(rows, days = null) {
@@ -1779,8 +1810,8 @@ function aggregateContextPoliticians(rows, days = null) {
   for (const row of rows ?? []) {
     if (days != null && !isWithinPastDays(row.date, days)) continue
     const id = String(row.name ?? '')
-    const usd = parseTxnAmountUsd(row.amount)
-    if (usd <= 0) continue
+    const usd = signedFlowUsd(row, politicianFlowSign)
+    if (usd === 0) continue
     const at = flowRowDateMs(row.date)
     const prev = map.get(id) ?? {
       name: row.name,
@@ -1802,7 +1833,7 @@ function aggregateContextPoliticians(rows, days = null) {
       totalUsd: x.totalUsd,
       latestAt: x.latestAt,
     }))
-    .sort((a, b) => b.totalUsd - a.totalUsd)
+    .sort((a, b) => Math.abs(b.totalUsd) - Math.abs(a.totalUsd))
 }
 
 function aggregateContextInstitutions(rows, days = null) {
@@ -1810,8 +1841,8 @@ function aggregateContextInstitutions(rows, days = null) {
   for (const row of rows ?? []) {
     if (days != null && !isWithinPastDays(row.date, days)) continue
     const id = String(row.filer ?? 'Institution')
-    const usd = parseTxnAmountUsd(row.amount)
-    if (usd <= 0) continue
+    const usd = signedFlowUsd(row, institutionFlowSign)
+    if (usd === 0) continue
     const at = flowRowDateMs(row.date)
     const prev = map.get(id) ?? { filer: row.filer, totalUsd: 0, latestAt: 0 }
     prev.totalUsd += usd
@@ -1828,11 +1859,34 @@ function aggregateContextInstitutions(rows, days = null) {
       totalUsd: x.totalUsd,
       latestAt: x.latestAt,
     }))
-    .sort((a, b) => b.totalUsd - a.totalUsd)
+    .sort((a, b) => Math.abs(b.totalUsd) - Math.abs(a.totalUsd))
+}
+
+function mapTrackedInvestorsFromApi(rows) {
+  if (!Array.isArray(rows)) return null
+  return rows.map((r) => {
+    const latestAt = r.latestAt ?? r.latest_at
+    const dateAt = latestAt ? new Date(latestAt).getTime() : 0
+    const typeKey = r.type ?? r.typeKey ?? 'insider'
+    return {
+      id: r.id ?? `${typeKey}|${r.name}`,
+      name: String(r.name ?? '—').trim() || '—',
+      type: r.typeLabel ?? r.type_label ?? typeKey,
+      typeKey,
+      amount: r.amount ?? formatTxnAmountUsd(r.amountUsd ?? r.amount_usd),
+      totalUsd: Number(r.amountUsd ?? r.amount_usd ?? 0),
+      dateAt,
+      date: formatTrackedInvestorDate(dateAt),
+    }
+  })
 }
 
 /** All tracked flows we have for this ticker (insider, politician, 13F). */
-function buildContextTrackedInvestors({ insiders = [], politicians = [], filings13f = [], days = null }) {
+function buildContextTrackedInvestors({ insiders = [], politicians = [], filings13f = [], days = null, apiRows = null }) {
+  const fromApi = mapTrackedInvestorsFromApi(apiRows)
+  if (fromApi) {
+    return fromApi.sort((a, b) => (b.dateAt ?? 0) - (a.dateAt ?? 0))
+  }
   const insiderRows = aggregateContextInsiders(insiders, days).map((x) => ({
     id: `insider|${x.id}`,
     name: x.personName ?? x.label,
@@ -3431,11 +3485,24 @@ function historicalOutcomesHasDataset(ins) {
   return Boolean(ins && ins.sampleSize)
 }
 
+function pharmaOutcomeLinesFromLiveBuckets(buckets, ticker) {
+  if (!Array.isArray(buckets) || !buckets.length) return null
+  const hasData = buckets.some((b) => (b.returns ?? []).some((r) => r != null && Number.isFinite(Number(r))))
+  if (!hasData) return null
+  return buckets.map((b, i) => ({
+    id: b.id,
+    label: b.label,
+    returns: (b.returns ?? []).map((r) => (r != null && Number.isFinite(Number(r)) ? Number(r) : null)),
+    color: CONTEXT_OUTCOME_LINE_COLORS[i % CONTEXT_OUTCOME_LINE_COLORS.length],
+  }))
+}
+
 function contextClinicalOutcomesFromLive(livePharma, ticker, backendUp) {
   const hasDataset = backendUp && historicalOutcomesHasDataset(livePharma)
   const stats = hasDataset ? livePharma : MOCK_HISTORICAL_TRIALS
+  const liveLines = hasDataset ? pharmaOutcomeLinesFromLiveBuckets(livePharma?.buckets, ticker) : null
   return {
-    outcomeLines: buildMockPharmaOutcomeLines(ticker),
+    outcomeLines: liveLines ?? buildMockPharmaOutcomeLines(ticker),
     sampleSize: stats?.sampleSize ?? EMPTY,
     stats,
     hasDataset,
@@ -4053,6 +4120,7 @@ function MainContextPanel({
   insiders = [],
   politicians = [],
   filings13f = [],
+  trackedInvestorsApi = null,
   catalystItems = [],
   fundamentals = null,
   ownership = null,
@@ -4070,8 +4138,14 @@ function MainContextPanel({
     return programGroups.find((pg) => pg.key === selectedProgramKey) ?? null
   }, [programGroups, selectedProgramKey])
   const trackedInvestors = useMemo(
-    () => buildContextTrackedInvestors({ insiders, politicians, filings13f }),
-    [insiders, politicians, filings13f],
+    () =>
+      buildContextTrackedInvestors({
+        insiders,
+        politicians,
+        filings13f,
+        apiRows: trackedInvestorsApi,
+      }),
+    [insiders, politicians, filings13f, trackedInvestorsApi],
   )
 
   const clinicalOutcomes = useMemo(
@@ -10827,6 +10901,11 @@ function KensiglineTerminal() {
             insiders={contextFlowRows.insiders}
             politicians={contextFlowRows.politicians}
             filings13f={contextFlowRows.filings13f}
+            trackedInvestorsApi={
+              backendUp && researchExploreLive?.tracked_investors != null
+                ? researchExploreLive.tracked_investors
+                : null
+            }
             catalystItems={contextCatalystItems}
             fundamentals={contextFundamentals}
             ownership={contextOwnership}

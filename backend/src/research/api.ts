@@ -9,6 +9,7 @@ import {
   loadInsiderFlowsForTicker,
   loadPoliticianFlowsForTicker,
 } from "../documents/store.js";
+import { getTrackedInvestorsForTicker } from "./market/tracked-investors.js";
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -161,10 +162,11 @@ export async function handleResearchExplore(res: http.ServerResponse, ticker: st
     [t],
   );
   const presentation = await buildResearchPresentation(t);
-  const [insiders, politicians, filings13f] = await Promise.all([
+  const [insiders, politicians, filings13f, tracked_investors] = await Promise.all([
     loadInsiderFlowsForTicker(t),
     loadPoliticianFlowsForTicker(t),
     loadFilings13fForTicker(t),
+    getTrackedInvestorsForTicker(t),
   ]);
   sendJson(res, 200, {
     ok: true,
@@ -175,6 +177,7 @@ export async function handleResearchExplore(res: http.ServerResponse, ticker: st
     state_updated_at: st?.updated_at ?? null,
     presentation,
     flows: { insiders, politicians, filings13f },
+    tracked_investors,
     latest_paper: latestPaper
       ? {
           id: latestPaper.id,

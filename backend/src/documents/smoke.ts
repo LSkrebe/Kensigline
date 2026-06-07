@@ -180,3 +180,17 @@ test("historicalRunwayFromCompanyFacts cash burn and runway quarters", () => {
   assert.equal(out.quarterlyBurnUsd, 35_000_000);
   assert.equal(out.runwayQuarters, 5.1);
 });
+
+test("tracked investor sign helpers", async () => {
+  const { insiderTxnSign, politicianTxnSign, institutionActivitySign } = await import(
+    "../research/market/tracked-investors-sign.js"
+  );
+  assert.equal(insiderTxnSign("P"), 1);
+  assert.equal(insiderTxnSign("S"), -1);
+  assert.equal(insiderTxnSign("X"), 0);
+  assert.equal(politicianTxnSign("P"), 1);
+  assert.equal(politicianTxnSign("SALE (FULL)"), -1);
+  assert.equal(institutionActivitySign("Increased stake"), 1);
+  assert.equal(institutionActivitySign("Reduced stake"), -1);
+  assert.equal(institutionActivitySign("Maintained"), 0);
+});

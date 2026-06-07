@@ -19,6 +19,7 @@ Frontend: **RESEARCH** side tab (`activeTab=main`).
 | `../documents/presentation.ts` | Explore/paper presentation payload |
 | `market/fundamentals.ts` | CONTEXT fundamentals — SEC Company Facts + document guidance |
 | `market/ownership.ts` | CONTEXT ownership — 13F institutions + Form 3/5 insiders |
+| `market/tracked-investors.ts` | CONTEXT tracked investors — net signed USD by insider / politician / 13F filer |
 | `market/guidance-parse.ts` | Forward revenue growth regex (pure, testable) |
 | `market/guidance.ts` | Forward revenue growth from stored research documents |
 | `../core/fundamentals.ts` | SEC XBRL historical revenue / margin / cash series |
@@ -30,4 +31,8 @@ Fundamentals for the Research CONTEXT panel ship on `GET /api/company?ticker=` a
 
 Ownership (institutional + insider % of float, trailing 4 quarters) ships on the same endpoint as `ownership`. Politicians are not available from filings and return null until a defensible source exists.
 
+Tracked investors (net signed USD exposure per entity, sorted by latest activity) ship on `GET /api/research/explore?ticker=` as `tracked_investors`.
+
 Clinical runway (cash, quarterly burn, runway quarters) ships on `GET /api/pharma/clinical-context?ticker=` as `runway`.
+
+Pharma trial historical outcomes (`GET /api/outcomes?mode=pharma`) include `buckets` with 21d / 63d / 252d forward-return series for Phase 3, Phase 2, and all events — consumed by the clinical CONTEXT panel chart after `POST /api/outcomes/recompute`.
