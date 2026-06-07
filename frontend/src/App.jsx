@@ -1966,6 +1966,122 @@ const CONTEXT_OWNERSHIP_ROWS = [
   { key: 'politicians', label: 'Politicians', kind: 'sequence', format: 'pct', signed: false },
 ]
 
+const CONTEXT_OWNERSHIP_DONUT_COLORS = {
+  insiders: 'rgba(140, 255, 195, 0.9)',
+  institutions: 'rgba(120, 180, 255, 0.9)',
+  politicians: 'rgba(255, 200, 120, 0.9)',
+  retail: 'rgba(255, 255, 255, 0.3)',
+}
+
+/** Latest quarter column only — retail is the remainder to 100%. */
+function contextOwnershipLatestBreakdown(ownership) {
+  const pickLatest = (arr) => {
+    if (!Array.isArray(arr) || !arr.length) return 0
+    const v = arr[arr.length - 1]
+    const n = Number(v)
+    return v != null && Number.isFinite(n) ? Math.max(0, n) : 0
+  }
+
+  const insiders = pickLatest(ownership?.insiders)
+  const institutions = pickLatest(ownership?.institutions)
+  const politicians = pickLatest(ownership?.politicians)
+  const known = insiders + institutions + politicians
+  const retail = Math.max(0, 100 - known)
+
+  return [
+    { key: 'insiders', label: 'Insiders', pct: insiders, color: CONTEXT_OWNERSHIP_DONUT_COLORS.insiders },
+    {
+      key: 'institutions',
+      label: 'Institutions',
+      pct: institutions,
+      color: CONTEXT_OWNERSHIP_DONUT_COLORS.institutions,
+    },
+    {
+      key: 'politicians',
+      label: 'Politicians',
+      pct: politicians,
+      color: CONTEXT_OWNERSHIP_DONUT_COLORS.politicians,
+    },
+    { key: 'retail', label: 'Retail', pct: retail, color: CONTEXT_OWNERSHIP_DONUT_COLORS.retail },
+  ]
+}
+
+function ContextOwnershipDonut({ segments, size = 160, stroke = 25, gapDeg = 1.2 }) {
+  const radius = (size - stroke) / 2
+  const center = size / 2
+  const circumference = 2 * Math.PI * radius
+  const gapLen = (gapDeg / 360) * circumference
+  let offset = 0
+
+  const visible = segments.filter((s) => s.pct > 0)
+
+  return (
+    <svg
+      className="contextOwnershipDonutSvg"
+      viewBox={`0 0 ${size} ${size}`}
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+    >
+      <circle
+        cx={center}
+        cy={center}
+        r={radius}
+        fill="none"
+        stroke="rgba(255, 255, 255, 0.07)"
+        strokeWidth={stroke}
+      />
+      {visible.map((seg) => {
+        const rawLen = (seg.pct / 100) * circumference
+        const dash = Math.max(0, rawLen - gapLen)
+        const el = (
+          <circle
+            key={seg.key}
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="none"
+            stroke={seg.color}
+            strokeWidth={stroke}
+            strokeLinecap="butt"
+            strokeDasharray={`${dash} ${circumference - dash}`}
+            strokeDashoffset={-offset}
+            transform={`rotate(-90 ${center} ${center})`}
+          />
+        )
+        offset += rawLen
+        return el
+      })}
+    </svg>
+  )
+}
+
+function ContextOwnershipChart({ ownership, periodLabel }) {
+  const segments = useMemo(() => contextOwnershipLatestBreakdown(ownership), [ownership])
+  const summary = segments.map((s) => `${s.label} ${formatContextFundamentalPctValue(s.pct)}`).join(', ')
+
+  return (
+    <div className="contextOwnershipChart" aria-label={`Ownership breakdown for ${periodLabel}: ${summary}`}>
+      <div className="contextOwnershipDonutWrap">
+        <ContextOwnershipDonut segments={segments} />
+        <div className="contextOwnershipDonutCenter mono" aria-hidden="true">
+          {periodLabel}
+        </div>
+      </div>
+      <ul className="contextOwnershipLegend" aria-hidden="true">
+        {segments.map((seg) => (
+          <li key={seg.key} className="contextOwnershipLegendRow">
+            <span className="contextOwnershipLegendSwatch" style={{ background: seg.color }} />
+            <span className="contextOwnershipLegendLabel dim">{seg.label}</span>
+            <span className="contextOwnershipLegendValue mono">
+              {formatContextFundamentalPctValue(seg.pct)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function contextMetricsRowCells(data, row, periodCount) {
   const raw = data?.[row.key]
   if (row.kind === 'single') {
@@ -2056,15 +2172,32 @@ function ContextFundamentalsCard({ fundamentals }) {
 
 function ContextOwnershipCard({ ownership }) {
   const periodLabels = useMemo(() => contextOwnershipTrailingQuarterLabels(4), [])
+  const latestPeriodLabel = periodLabels[periodLabels.length - 1] ?? '—'
+  const periodCount = periodLabels.length
 
   return (
-    <ContextMetricsCard
-      title="Ownership"
-      ariaLabel="Ownership"
-      periodLabels={periodLabels}
-      rows={CONTEXT_OWNERSHIP_ROWS}
-      data={ownership}
-    />
+    <div className="contextCatalystCard contextFundamentalsCard contextOwnershipCard" aria-label="Ownership">
+      <ContextOwnershipChart ownership={ownership} periodLabel={latestPeriodLabel} />
+      <div className="contextFundamentalsTable" role="list">
+        <div className="contextFundamentalsGrid contextFundamentalsGrid--head mono">
+          <span className="contextFlowChartLabel mono dim">Ownership</span>
+          {periodLabels.map((label) => (
+            <span key={label} className="contextFundamentalsSeqHead">
+              {label}
+            </span>
+          ))}
+        </div>
+        {CONTEXT_OWNERSHIP_ROWS.map((row) => (
+          <ContextMetricsTableRow
+            key={row.key}
+            row={row}
+            data={ownership}
+            periodLabels={periodLabels}
+            periodCount={periodCount}
+          />
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -8791,7 +8924,6 @@ function CaseKvFeed({
 }
 
 function TerminalTopBar({
-  email,
   settingsActive,
   onSettingsClick,
   backendUp,
@@ -8905,11 +9037,6 @@ function TerminalTopBar({
 
       <div className="terminalTopBarEnd">
         <div className="terminalTopBarActions">
-          {email ? (
-            <span className="terminalTopBarEmail mono" title={email}>
-              {email}
-            </span>
-          ) : null}
           <button
             type="button"
             className={
@@ -10356,8 +10483,6 @@ function KensiglineTerminal() {
     setInstitutionsCaseTradeIdx(0)
   }, [institutionsSelected?.id, institutionsSelected?.ticker, institutionsChartRange])
 
-  const userEmail = user?.email ?? ''
-
   const onSettingsClick = useCallback(() => {
     if (activeTab === 'settings') {
       setActiveTab(tabBeforeSettingsRef.current)
@@ -10377,7 +10502,6 @@ function KensiglineTerminal() {
         .join(' ')}
     >
       <TerminalTopBar
-        email={userEmail}
         settingsActive={activeTab === 'settings'}
         onSettingsClick={onSettingsClick}
         backendUp={backendUp}

@@ -299,17 +299,6 @@
   min-width: 0;
 }
 
-.terminalTopBarEmail {
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  color: var(--dim);
-  max-width: min(42vw, 280px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .terminalTopBarSettings {
   flex: 0 0 auto;
   display: flex;
@@ -3315,6 +3304,92 @@
 
 .contextFundamentalsSeqCell--neg {
   color: rgba(255, 120, 120, 0.92);
+}
+
+.contextOwnershipCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.contextOwnershipChart {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.contextOwnershipDonutWrap {
+  position: relative;
+  flex: 0 0 auto;
+  width: 126px;
+  height: 126px;
+}
+
+.contextOwnershipDonutSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.contextOwnershipDonutCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+  pointer-events: none;
+}
+
+.contextOwnershipLegend {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.contextOwnershipLegendRow {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.contextOwnershipLegendSwatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.contextOwnershipLegendLabel {
+  font-size: 7.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.contextOwnershipLegendValue {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.72);
+  white-space: nowrap;
 }
 
 .contextInsiderDate {
