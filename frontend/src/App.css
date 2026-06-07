@@ -206,7 +206,8 @@
 
 .terminalIntelSwitch--insider,
 .terminalIntelSwitch--politicians,
-.terminalIntelSwitch--institutions {
+.terminalIntelSwitch--institutions,
+.terminalIntelSwitch--discover {
   max-width: none;
   width: max-content;
   flex-shrink: 0;
@@ -216,7 +217,8 @@
 
 .terminalIntelSwitch--insider .terminalIntelSwitchBtn,
 .terminalIntelSwitch--politicians .terminalIntelSwitchBtn,
-.terminalIntelSwitch--institutions .terminalIntelSwitchBtn {
+.terminalIntelSwitch--institutions .terminalIntelSwitchBtn,
+.terminalIntelSwitch--discover .terminalIntelSwitchBtn {
   padding: 0 6px;
   font-size: 8px;
   font-weight: 600;
@@ -228,7 +230,8 @@
 
 .terminalIntelSwitch--insider .terminalIntelSwitchSep,
 .terminalIntelSwitch--politicians .terminalIntelSwitchSep,
-.terminalIntelSwitch--institutions .terminalIntelSwitchSep {
+.terminalIntelSwitch--institutions .terminalIntelSwitchSep,
+.terminalIntelSwitch--discover .terminalIntelSwitchSep {
   align-self: center;
   padding: 0 4px;
   line-height: 1;
@@ -404,19 +407,18 @@
   letter-spacing: 0.06em;
   /*
    * After rotation, the word’s normal width runs along the tab’s vertical space.
-   * INVESTIGATE (~11 chars) must fit in one-fifth of the viewport height; cap size
-   * so the line box also fits the slim rail width before rotation.
+   * Three rail tabs share viewport height; cap size so labels fit the slim rail.
    */
   font-size: min(
     calc(var(--tabrail-w) / 1.28),
-    clamp(5px, calc((100dvh - var(--terminal-topbar-h) - 8px) / 4 / 6.45), 11px)
+    clamp(5px, calc((100dvh - var(--terminal-topbar-h) - 8px) / 3 / 6.45), 11px)
   );
 }
 
 .sideTabLabel--investigate {
   font-size: min(
     calc(var(--tabrail-w) / 1.38),
-    clamp(4px, calc((100dvh - var(--terminal-topbar-h) - 8px) / 4 / 9.5), 10px)
+    clamp(4px, calc((100dvh - var(--terminal-topbar-h) - 8px) / 3 / 9.5), 10px)
   );
 }
 
@@ -3532,6 +3534,183 @@
   overflow: visible !important;
 }
 
+/* Discover tab — placeholder shell */
+.terminal.terminal--discover {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.terminal--discover .discoverPanel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
+}
+
+.terminal--discover .discoverPanelBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.terminal--discover .discoverColSearch {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.terminal--discover .discoverCol--ahead .discoverSearch {
+  width: 100%;
+  max-width: none;
+}
+
+.terminal--discover .discoverSplit {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.discoverSplitRule {
+  background: rgba(255, 255, 255, 0.08);
+  min-height: 0;
+}
+
+.discoverCol {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.discoverColHead {
+  flex: 0 0 auto;
+  padding: 8px 14px 6px;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.discoverColScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 4px 10px 14px;
+}
+
+.discoverColEmpty {
+  margin: 0;
+  padding: 10px 4px;
+  font-size: 11px;
+}
+
+.discoverAgenda {
+  display: flex;
+  flex-direction: column;
+}
+
+.discoverAgendaRow {
+  display: grid;
+  width: 100%;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: background 0.15s ease;
+}
+
+.discoverAgendaRow:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.discoverAgendaRow:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.discoverAgendaRow--ahead {
+  grid-template-columns: 54px 46px minmax(0, 1fr) 58px;
+  gap: 8px;
+  align-items: center;
+}
+
+.discoverAgendaRow--ahead.discoverAgendaRow--key .discoverAgendaWhen {
+  color: rgba(255, 212, 92, 0.82);
+}
+
+.discoverAgendaRow--recent {
+  grid-template-columns: 54px 46px minmax(0, 1fr);
+  gap: 4px 8px;
+  align-items: start;
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+.discoverAgendaRow--recent.discoverAgendaRow--hasSummary {
+  padding-bottom: 8px;
+}
+
+.discoverAgendaDate {
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  padding-top: 1px;
+}
+
+.discoverAgendaTicker {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--hi);
+}
+
+.discoverAgendaTitle {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.discoverAgendaWhen {
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-align: right;
+  color: rgba(120, 196, 255, 0.82);
+}
+
+.discoverAgendaSummary {
+  grid-column: 3;
+  font-size: 11px;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.55);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.discoverEmpty {
+  margin: 0;
+  padding: 12px 14px;
+  font-size: 11px;
+}
+
 /* Settings tab: account + subscription top row; invoices below */
 .terminal.terminal--settings {
   --settings-row-slot: calc(0.34em + 1.65em + 1px);
@@ -5750,7 +5929,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearch,
 .terminal--politicians .feed--left .researchFeedSearch,
 .terminal--institutions .feed--left .researchFeedSearch,
-.terminal--main .researchTicker.feed--left .researchFeedSearch
+.terminal--main .researchTicker.feed--left .researchFeedSearch,
+.terminal--discover .discoverSearch
 {
   display: flex;
   align-items: center;
@@ -5845,7 +6025,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchInput,
 .terminal--politicians .feed--left .researchFeedSearchInput,
 .terminal--institutions .feed--left .researchFeedSearchInput,
-.terminal--main .researchTicker.feed--left .researchFeedSearchInput
+.terminal--main .researchTicker.feed--left .researchFeedSearchInput,
+.terminal--discover .discoverSearch .researchFeedSearchInput
 {
   flex: 1;
   min-width: 0;
@@ -5864,7 +6045,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchInput::placeholder,
 .terminal--politicians .feed--left .researchFeedSearchInput::placeholder,
 .terminal--institutions .feed--left .researchFeedSearchInput::placeholder,
-.terminal--main .researchTicker.feed--left .researchFeedSearchInput::placeholder
+.terminal--main .researchTicker.feed--left .researchFeedSearchInput::placeholder,
+.terminal--discover .discoverSearch .researchFeedSearchInput::placeholder
 {
   color: rgba(255, 255, 255, 0.38);
 }
@@ -5872,7 +6054,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchIcon,
 .terminal--politicians .feed--left .researchFeedSearchIcon,
 .terminal--institutions .feed--left .researchFeedSearchIcon,
-.terminal--main .researchTicker.feed--left .researchFeedSearchIcon
+.terminal--main .researchTicker.feed--left .researchFeedSearchIcon,
+.terminal--discover .discoverSearch .researchFeedSearchIcon
 {
   flex-shrink: 0;
   width: 12px;

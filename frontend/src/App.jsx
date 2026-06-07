@@ -4,6 +4,7 @@ import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { IntroPage } from './IntroPage.jsx'
 import { SettingsPanel } from './SettingsPanel.jsx'
+import { DiscoverPanel } from './DiscoverPanel.jsx'
 import './App.css'
 
 function clamp(n, lo, hi) {
@@ -9094,6 +9095,9 @@ function TerminalTopBar({
   showInvestigateSwitch = false,
   investigateMode = 'insider',
   onInvestigateModeChange,
+  showDiscoverSwitch = false,
+  discoverScope = 'all',
+  onDiscoverScopeChange,
 }) {
   return (
     <header className="terminalTopBar" aria-label="Mercerline">
@@ -9193,6 +9197,46 @@ function TerminalTopBar({
               Institutional intelligence
             </button>
           </div>
+        ) : showDiscoverSwitch ? (
+          <div
+            className={`terminalIntelSwitch terminalIntelSwitch--discover terminalIntelSwitch--${discoverScope}`}
+            role="tablist"
+            aria-label="Discover scope"
+          >
+            <button
+              type="button"
+              role="tab"
+              className={discoverScope === 'all' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
+              aria-selected={discoverScope === 'all'}
+              onClick={() => onDiscoverScopeChange?.('all')}
+            >
+              All events
+            </button>
+            <span className="terminalIntelSwitchSep" aria-hidden="true">
+              |
+            </span>
+            <button
+              type="button"
+              role="tab"
+              className={discoverScope === 'market' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
+              aria-selected={discoverScope === 'market'}
+              onClick={() => onDiscoverScopeChange?.('market')}
+            >
+              Market events
+            </button>
+            <span className="terminalIntelSwitchSep" aria-hidden="true">
+              |
+            </span>
+            <button
+              type="button"
+              role="tab"
+              className={discoverScope === 'clinical' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
+              aria-selected={discoverScope === 'clinical'}
+              onClick={() => onDiscoverScopeChange?.('clinical')}
+            >
+              Clinical events
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -9233,8 +9277,9 @@ function TerminalTopBar({
 
 function KensiglineTerminal() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState('main') // main | investigate | settings
+  const [activeTab, setActiveTab] = useState('main') // discover | main | investigate | settings
   const [intelMode, setIntelMode] = useState('market') // market | clinical
+  const [discoverScope, setDiscoverScope] = useState('all') // all | market | clinical
   const [investigateMode, setInvestigateMode] = useState('insider') // insider | politicians | institutions
   const [investigateFeedFilterOpen, setInvestigateFeedFilterOpen] = useState(false)
   const [investigateInsiderTxnFilters, setInvestigateInsiderTxnFilters] = useState(
@@ -10670,11 +10715,22 @@ function KensiglineTerminal() {
         onIntelModeChange={setIntelMode}
         showIntelSwitch={activeTab === 'main'}
         showInvestigateSwitch={activeTab === 'investigate'}
+        showDiscoverSwitch={activeTab === 'discover'}
+        discoverScope={discoverScope}
+        onDiscoverScopeChange={setDiscoverScope}
         investigateMode={investigateMode}
         onInvestigateModeChange={setInvestigateMode}
       />
       <div className="terminalWorkspace">
       <nav className="sideTabsRail" aria-label="Views">
+        <button
+          type="button"
+          className={activeTab === 'discover' ? 'sideTab isActive' : 'sideTab'}
+          aria-current={activeTab === 'discover' ? 'page' : undefined}
+          onClick={() => setActiveTab('discover')}
+        >
+          <span className="sideTabLabel">DISCOVER</span>
+        </button>
         <button
           type="button"
           className={activeTab === 'main' ? 'sideTab isActive' : 'sideTab'}
@@ -10705,6 +10761,18 @@ function KensiglineTerminal() {
         aria-label="MERCERLINE terminal grid"
       >
       {activeTab === 'settings' ? <SettingsPanel /> : null}
+      {activeTab === 'discover' ? (
+        <DiscoverPanel
+          scope={discoverScope}
+          onOpenResearch={({ ticker, intelMode }) => {
+            const t = String(ticker ?? '').trim().toUpperCase()
+            if (!t) return
+            if (intelMode === 'clinical' || intelMode === 'market') setIntelMode(intelMode)
+            setResearchTicker(t)
+            setActiveTab('main')
+          }}
+        />
+      ) : null}
       {investigateOpen ? (
         <>
           <CompactFeed
