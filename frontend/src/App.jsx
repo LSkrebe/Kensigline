@@ -1732,15 +1732,27 @@ function isWithinPastDays(date, days = CONTEXT_FLOW_MONTH_DAYS) {
   return t >= Date.now() - days * 86400000
 }
 
-function aggregateContextInsiders(rows, days = CONTEXT_FLOW_MONTH_DAYS) {
+function flowRowDateMs(date) {
+  const t = date instanceof Date ? date.getTime() : new Date(date ?? 0).getTime()
+  return Number.isFinite(t) ? t : 0
+}
+
+function formatTrackedInvestorDate(atMs) {
+  if (!atMs) return '—'
+  return formatProgramTimelineDate(new Date(atMs))
+}
+
+function aggregateContextInsiders(rows, days = null) {
   const map = new Map()
   for (const row of rows ?? []) {
-    if (!isWithinPastDays(row.date, days)) continue
+    if (days != null && !isWithinPastDays(row.date, days)) continue
     const id = `${row.key}|${row.person ?? ''}`
     const usd = parseTxnAmountUsd(row.amount)
     if (usd <= 0) continue
-    const prev = map.get(id) ?? { key: row.key, person: row.person, totalUsd: 0 }
+    const at = flowRowDateMs(row.date)
+    const prev = map.get(id) ?? { key: row.key, person: row.person, totalUsd: 0, latestAt: 0 }
     prev.totalUsd += usd
+    if (at >= prev.latestAt) prev.latestAt = at
     map.set(id, prev)
   }
   return [...map.values()]
@@ -1756,37 +1768,135 @@ function aggregateContextInsiders(rows, days = CONTEXT_FLOW_MONTH_DAYS) {
         nameStyle: 'insider',
         total: formatTxnAmountUsd(x.totalUsd),
         totalUsd: x.totalUsd,
+        latestAt: x.latestAt,
       }
     })
     .sort((a, b) => b.totalUsd - a.totalUsd)
 }
 
-function aggregateContextPoliticians(rows, days = CONTEXT_FLOW_MONTH_DAYS) {
+function aggregateContextPoliticians(rows, days = null) {
   const map = new Map()
   for (const row of rows ?? []) {
-    if (!isWithinPastDays(row.date, days)) continue
+    if (days != null && !isWithinPastDays(row.date, days)) continue
     const id = String(row.name ?? '')
     const usd = parseTxnAmountUsd(row.amount)
     if (usd <= 0) continue
+    const at = flowRowDateMs(row.date)
     const prev = map.get(id) ?? {
       name: row.name,
       chamber: row.chamber,
       totalUsd: 0,
+      latestAt: 0,
     }
     prev.totalUsd += usd
+    if (at >= prev.latestAt) prev.latestAt = at
     map.set(id, prev)
   }
   return [...map.values()]
     .map((x) => ({
-      id: x.name,
-      label: paperPoliticianTxnLabel(x.chamber, x.name),
-      personName: String(x.name ?? '').trim() || '—',
-      personDetail: paperPoliticianChamberLabel(x.chamber),
-      nameStyle: 'politician',
-      total: formatTxnAmountUsd(x.totalUsd),
+      id: `politician|${x.name}`,
+      name: String(x.name ?? '').trim() || '—',
+      type: 'Politician',
+      typeKey: 'politician',
+      amount: formatTxnAmountUsd(x.totalUsd),
       totalUsd: x.totalUsd,
+      latestAt: x.latestAt,
     }))
     .sort((a, b) => b.totalUsd - a.totalUsd)
+}
+
+function aggregateContextInstitutions(rows, days = null) {
+  const map = new Map()
+  for (const row of rows ?? []) {
+    if (days != null && !isWithinPastDays(row.date, days)) continue
+    const id = String(row.filer ?? 'Institution')
+    const usd = parseTxnAmountUsd(row.amount)
+    if (usd <= 0) continue
+    const at = flowRowDateMs(row.date)
+    const prev = map.get(id) ?? { filer: row.filer, totalUsd: 0, latestAt: 0 }
+    prev.totalUsd += usd
+    if (at >= prev.latestAt) prev.latestAt = at
+    map.set(id, prev)
+  }
+  return [...map.values()]
+    .map((x) => ({
+      id: `institution|${x.filer}`,
+      name: String(x.filer ?? '').trim() || '—',
+      type: 'Institution',
+      typeKey: 'institution',
+      amount: formatTxnAmountUsd(x.totalUsd),
+      totalUsd: x.totalUsd,
+      latestAt: x.latestAt,
+    }))
+    .sort((a, b) => b.totalUsd - a.totalUsd)
+}
+
+/** All tracked flows we have for this ticker (insider, politician, 13F). */
+function buildContextTrackedInvestors({ insiders = [], politicians = [], filings13f = [], days = null }) {
+  const insiderRows = aggregateContextInsiders(insiders, days).map((x) => ({
+    id: `insider|${x.id}`,
+    name: x.personName ?? x.label,
+    type: 'Insider',
+    typeKey: 'insider',
+    amount: x.total,
+    totalUsd: x.totalUsd,
+    dateAt: x.latestAt,
+    date: formatTrackedInvestorDate(x.latestAt),
+  }))
+  const politicianRows = aggregateContextPoliticians(politicians, days).map((x) => ({
+    ...x,
+    dateAt: x.latestAt,
+    date: formatTrackedInvestorDate(x.latestAt),
+  }))
+  const institutionRows = aggregateContextInstitutions(filings13f, days).map((x) => ({
+    ...x,
+    dateAt: x.latestAt,
+    date: formatTrackedInvestorDate(x.latestAt),
+  }))
+  return [...insiderRows, ...politicianRows, ...institutionRows].sort(
+    (a, b) => (b.dateAt ?? 0) - (a.dateAt ?? 0),
+  )
+}
+
+function ContextTrackedInvestorsCard({ rows = [], emptyLabel = 'No tracked investor activity yet.' }) {
+  return (
+    <div className="contextCatalystCard contextRecentInvestorsCard" aria-label="Tracked investors">
+      <div className="contextRecentInvestorsTable" role="list">
+        <div className="contextRecentInvestorsGrid contextRecentInvestorsGrid--head mono">
+          <span className="contextFlowChartLabel mono dim">Tracked investors</span>
+          <span className="contextRecentInvestorsHead">Type</span>
+          <span className="contextRecentInvestorsHead">Amount</span>
+          <span className="contextRecentInvestorsHead">Date</span>
+        </div>
+        {!rows.length ? (
+          <p className="contextFlowEmpty mono dim contextRecentInvestorsEmpty">{emptyLabel}</p>
+        ) : (
+          rows.map((row) => (
+            <div key={row.id} className="contextRecentInvestorsGrid" role="listitem" aria-label={row.name}>
+              <span className="contextRecentInvestorsName" title={row.name}>
+                {row.name}
+              </span>
+              <span
+                className={[
+                  'contextRecentInvestorsType',
+                  'mono',
+                  row.typeKey === 'insider' ? 'contextRecentInvestorsType--insider' : '',
+                  row.typeKey === 'politician' ? 'contextRecentInvestorsType--politician' : '',
+                  row.typeKey === 'institution' ? 'contextRecentInvestorsType--institution' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {row.type}
+              </span>
+              <span className="contextRecentInvestorsAmt mono">{row.amount}</span>
+              <span className="contextRecentInvestorsDate mono dim">{row.date ?? '—'}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
 }
 
 function buildContextCatalystItems(programs, limit = 4) {
@@ -2486,39 +2596,41 @@ function ContextClinicalOutcomesList({
 }) {
   const rows = buildMockPharmaOutcomeRows(outcomeLines, stats)
   return (
-    <div className="contextFlowList contextFlowList--marketFlows" role="list">
-      {outcomeLines.length ? (
-        <>
-          <ContextFlowChartHeader
-            title={chartTitle}
-            sample={contextOutcomesSampleLabel(sampleSize)}
-          />
-          <ContextFlowOutcomeChart
-            lines={outcomeLines}
-            xLabels={OUTCOME_HORIZON_CHART_LABELS}
-            ariaLabel="Average forward returns after trial events (21, 63, 252 trading days)"
-          />
-        </>
-      ) : null}
-      {rows.map((row) => (
-        <div
-          key={row.id}
-          className="contextCompanyEarnings historicalOutcomesPerson contextFlowPersonStrip"
-          role="listitem"
-        >
-          <div className="contextFlowRowKeyWrap">
-            {row.lineColor ? (
-              <span
-                className="contextFlowRowLine"
-                style={{ background: row.lineColor }}
-                aria-hidden="true"
-              />
-            ) : null}
-            <span className="contextCompanyEarningsK historicalOutcomesPersonName">{row.label}</span>
+    <div className="contextCatalystCard contextClinicalOutcomesCard" aria-label={chartTitle}>
+      <div className="contextFlowList contextFlowList--marketFlows contextFlowList--embedded" role="list">
+        {outcomeLines.length ? (
+          <>
+            <ContextFlowChartHeader
+              title={chartTitle}
+              sample={contextOutcomesSampleLabel(sampleSize)}
+            />
+            <ContextFlowOutcomeChart
+              lines={outcomeLines}
+              xLabels={OUTCOME_HORIZON_CHART_LABELS}
+              ariaLabel="Average forward returns after trial events (21, 63, 252 trading days)"
+            />
+          </>
+        ) : null}
+        {rows.map((row) => (
+          <div
+            key={row.id}
+            className="contextCompanyEarnings historicalOutcomesPerson contextFlowPersonStrip"
+            role="listitem"
+          >
+            <div className="contextFlowRowKeyWrap">
+              {row.lineColor ? (
+                <span
+                  className="contextFlowRowLine"
+                  style={{ background: row.lineColor }}
+                  aria-hidden="true"
+                />
+              ) : null}
+              <span className="contextCompanyEarningsK historicalOutcomesPersonName">{row.label}</span>
+            </div>
+            <span className="contextCompanyEarningsV historicalOutcomesPersonDetail mono">{row.total}</span>
           </div>
-          <span className="contextCompanyEarningsV historicalOutcomesPersonDetail mono">{row.total}</span>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
@@ -3940,6 +4052,7 @@ function MainContextPanel({
   selectedProgramKey = null,
   insiders = [],
   politicians = [],
+  filings13f = [],
   catalystItems = [],
   fundamentals = null,
   ownership = null,
@@ -3956,26 +4069,10 @@ function MainContextPanel({
     if (!selectedProgramKey || selectedProgramKey === CLINICAL_PROGRAM_ALL) return null
     return programGroups.find((pg) => pg.key === selectedProgramKey) ?? null
   }, [programGroups, selectedProgramKey])
-  const insidersFlow = useMemo(() => {
-    const pastMonth = aggregateContextInsiders(insiders)
-    const liveIns = backendUp ? contextOutcomesLive?.insider : null
-    const outcomeLines =
-      liveIns && historicalOutcomeHasAvgReturns(liveIns)
-        ? historicalOutcomeLinesFromIns(liveIns, 'insider', null)
-        : buildMockInsiderOutcomeLines(pastMonth, t)
-    const rows = attachOutcomeLineColors(pastMonth, outcomeLines, (row) => row.roleKey)
-    return { rows, outcomeLines }
-  }, [insiders, t, backendUp, contextOutcomesLive?.insider])
-  const politiciansFlow = useMemo(() => {
-    const pastMonth = aggregateContextPoliticians(politicians)
-    const livePol = backendUp ? contextOutcomesLive?.politicians : null
-    const outcomeLines =
-      livePol && historicalOutcomeHasAvgReturns(livePol)
-        ? historicalOutcomeLinesFromIns(livePol, 'politicians', null)
-        : buildMockPoliticianOutcomeLines(pastMonth, t)
-    const rows = attachOutcomeLineColors(pastMonth, outcomeLines, (row) => row.id)
-    return { rows, outcomeLines }
-  }, [politicians, t, backendUp, contextOutcomesLive?.politicians])
+  const trackedInvestors = useMemo(
+    () => buildContextTrackedInvestors({ insiders, politicians, filings13f }),
+    [insiders, politicians, filings13f],
+  )
 
   const clinicalOutcomes = useMemo(
     () => contextClinicalOutcomesFromLive(contextOutcomesLive?.pharma, t, backendUp),
@@ -4101,6 +4198,9 @@ function MainContextPanel({
             <ContextSection ariaLabel="Ownership">
               <ContextOwnershipCard ownership={ownership} />
             </ContextSection>
+            <ContextSection ariaLabel="Tracked investors">
+              <ContextTrackedInvestorsCard rows={trackedInvestors} />
+            </ContextSection>
             <ContextSection ariaLabel="Trial historical outcomes">
               <ContextClinicalOutcomesList
                 outcomeLines={clinicalOutcomes.outcomeLines}
@@ -4120,21 +4220,8 @@ function MainContextPanel({
             <ContextSection ariaLabel="Ownership">
               <ContextOwnershipCard ownership={ownership} />
             </ContextSection>
-            <ContextSection ariaLabel="Insider historical outcomes">
-              <ContextFlowTotalsList
-                rows={insidersFlow.rows}
-                outcomeLines={insidersFlow.outcomeLines}
-                emptyLabel="No insider filings in the past 30 days."
-                chartTitle="Insider historical outcomes"
-              />
-            </ContextSection>
-            <ContextSection ariaLabel="Politician historical outcomes">
-              <ContextFlowTotalsList
-                rows={politiciansFlow.rows}
-                outcomeLines={politiciansFlow.outcomeLines}
-                emptyLabel="No PTR disclosures in the past 30 days."
-                chartTitle="Politician historical outcomes"
-              />
+            <ContextSection ariaLabel="Tracked investors">
+              <ContextTrackedInvestorsCard rows={trackedInvestors} />
             </ContextSection>
           </>
         ) : null}
@@ -10739,6 +10826,7 @@ function KensiglineTerminal() {
             selectedProgramKey={contextProgramKey}
             insiders={contextFlowRows.insiders}
             politicians={contextFlowRows.politicians}
+            filings13f={contextFlowRows.filings13f}
             catalystItems={contextCatalystItems}
             fundamentals={contextFundamentals}
             ownership={contextOwnership}

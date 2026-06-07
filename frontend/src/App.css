@@ -2626,6 +2626,21 @@
   padding: 0 12px 4px;
 }
 
+.terminal--main .mainContextPanel .contextClinicalOutcomesCard {
+  padding: 0 8px 8px;
+}
+
+.terminal--main .mainContextPanel .contextCatalystCard .contextFlowList.contextFlowList--embedded {
+  border: none;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+}
+
+.terminal--main .mainContextPanel .contextClinicalOutcomesCard .contextFlowChartHeader {
+  padding: 8px 0 6px;
+}
+
 .terminal--main .mainContextPanel .contextCatalystCardHeader {
   display: flex;
   align-items: baseline;
@@ -2668,9 +2683,8 @@
   color: rgba(255, 255, 255, 0.42);
 }
 
-.terminal--main .mainContextPanel .contextFundamentalsCard {
+.terminal--main .mainContextPanel .contextFundamentalsCard:not(.contextOwnershipCard) {
   padding: 0 8px 8px;
-  background: var(--context-surface-inset);
 }
 
 .terminal--main .mainContextPanel .contextFundamentalsGrid {
@@ -3221,9 +3235,8 @@
   color: rgba(255, 120, 120, 0.92);
 }
 
-.contextFundamentalsCard {
+.contextFundamentalsCard:not(.contextOwnershipCard) {
   padding: 0 8px 8px;
-  background: var(--context-surface-inset);
 }
 
 .contextFundamentalsTable {
@@ -3390,6 +3403,103 @@
   font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.72);
   white-space: nowrap;
+}
+
+.contextRecentInvestorsCard {
+  padding: 0 8px 8px;
+  background: var(--context-surface-inset);
+}
+
+.contextRecentInvestorsTable {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.contextRecentInvestorsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(52px, auto) minmax(44px, auto) minmax(40px, auto);
+  column-gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.contextRecentInvestorsGrid:last-child {
+  border-bottom: none;
+}
+
+.contextRecentInvestorsGrid--head {
+  padding: 8px 0 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.contextRecentInvestorsHead {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.contextRecentInvestorsName {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.88);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contextRecentInvestorsType {
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: right;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.contextRecentInvestorsType--insider {
+  color: rgba(140, 255, 195, 0.82);
+}
+
+.contextRecentInvestorsType--politician {
+  color: rgba(255, 200, 120, 0.82);
+}
+
+.contextRecentInvestorsType--institution {
+  color: rgba(120, 180, 255, 0.82);
+}
+
+.contextRecentInvestorsAmt {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.contextRecentInvestorsDate {
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.contextRecentInvestorsEmpty {
+  margin: 0;
+  padding: 8px 0 10px;
+  font-size: 10px;
 }
 
 .contextInsiderDate {
