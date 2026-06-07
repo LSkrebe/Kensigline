@@ -181,6 +181,42 @@ test("historicalRunwayFromCompanyFacts cash burn and runway quarters", () => {
   assert.equal(out.runwayQuarters, 5.1);
 });
 
+test("discover source filter and query matching", async () => {
+  const { eventMatchesQuery, eventPassesSourceFilter } = await import("../discover/map.js");
+  const event = {
+    id: "doc:1",
+    ticker: "NVDA",
+    companyName: "NVIDIA Corporation",
+    intelMode: "market" as const,
+    at: "2026-01-15T12:00:00.000Z",
+    title: "Q4 earnings call",
+    kind: "earnings" as const,
+    source: "Earnings transcript",
+    summary: "Data center revenue beat expectations.",
+  };
+
+  assert.equal(eventPassesSourceFilter(event, null), true);
+  assert.equal(eventPassesSourceFilter(event, new Set(["Earnings transcript"])), true);
+  assert.equal(eventPassesSourceFilter(event, new Set(["8-K"])), false);
+  assert.equal(eventPassesSourceFilter(event, new Set()), false);
+  assert.equal(eventMatchesQuery(event, "nvda", "tsm mu"), true);
+  assert.equal(eventMatchesQuery(event, "amd", ""), false);
+});
+
+test("discover mentioned resolution prefers document data", async () => {
+  const { resolveDiscoverMentioned } = await import("../discover/mentions.js");
+  const mentioned = resolveDiscoverMentioned({
+    ticker: "ASML",
+    analysis: "Orders linked to TSM and NVDA demand.",
+    data: { related_tickers: { upstream: ["AMAT"], downstream: ["TSM"] } },
+    universe: new Set(["ASML", "AMAT", "TSM", "NVDA"]),
+  });
+  assert.ok(mentioned);
+  assert.ok(mentioned!.upstream.includes("AMAT"));
+  assert.ok(mentioned!.downstream.includes("TSM"));
+  assert.ok(mentioned!.downstream.includes("NVDA"));
+});
+
 test("tracked investor sign helpers", async () => {
   const { insiderTxnSign, politicianTxnSign, institutionActivitySign } = await import(
     "../research/market/tracked-investors-sign.js"

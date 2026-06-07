@@ -10579,6 +10579,7 @@ function KensiglineTerminal() {
       {activeTab === 'settings' ? <SettingsPanel /> : null}
       {activeTab === 'discover' ? (
         <DiscoverPanel
+          backendUp={backendUp}
           onOpenResearch={({ ticker, intelMode }) => {
             const t = String(ticker ?? '').trim().toUpperCase()
             if (!t) return

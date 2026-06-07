@@ -1,4 +1,9 @@
 import { llmChat } from "../core/llm.js";
+import {
+  normalizeSourceKey,
+  SOURCE_KEYS,
+  sourceKeyFromQueueType,
+} from "../shared/source-keys.js";
 
 export type ResearchDocExtractV1 = {
   schema_type: "research_doc_v1";
@@ -10,34 +15,11 @@ export type ResearchDocExtractV1 = {
   event_at: string | null;
   program_keys: string[];
   link_confidence: number | null;
+  related_tickers?: {
+    upstream?: string[];
+    downstream?: string[];
+  } | null;
 };
-
-const SOURCE_KEYS = [
-  "8-K",
-  "10-K",
-  "10-Q",
-  "6-K",
-  "20-F",
-  "S-1",
-  "S-3",
-  "S-4",
-  "DEF 14A",
-  "424B",
-  "SC 13D",
-  "SC 13G",
-  "Press release",
-  "Earnings transcript",
-  "Investor presentation",
-  "Annual report",
-  "Gov contract",
-  "ClinicalTrials.gov",
-  "Form 4",
-  "Form 3",
-  "Form 5",
-  "13F",
-  "PTR",
-  "Other",
-];
 
 function extractJsonObject(text: string): any {
   let raw = String(text ?? "").trim();
@@ -53,19 +35,12 @@ function extractJsonObject(text: string): any {
   }
 }
 
-function sourceKeyFromQueueType(sourceType: string): string | null {
-  const s = String(sourceType ?? "").toLowerCase();
-  if (s === "research_press_rss" || s === "bosha_press_rss") return "Press release";
-  if (s === "research_transcript_rss" || s === "bosha_transcript_rss") return "Earnings transcript";
-  if (s === "research_gov_contract" || s === "bosha_gov_contract") return "Gov contract";
-  return null;
+function sourceKeyFromQueueTypeLocal(sourceType: string): string | null {
+  return sourceKeyFromQueueType(sourceType);
 }
 
-function normalizeSourceKey(raw: unknown, fallback: string): string {
-  const s = String(raw ?? "").trim();
-  if (!s) return fallback;
-  const hit = SOURCE_KEYS.find((k) => k.toLowerCase() === s.toLowerCase());
-  return hit ?? s;
+function normalizeSourceKeyLocal(raw: unknown, fallback: string): string {
+  return normalizeSourceKey(raw, fallback);
 }
 
 function isResearchDocExtract(out: any): out is ResearchDocExtractV1 {
@@ -85,7 +60,7 @@ export async function runResearchDocExtract(args: {
   hintedName: string | null;
 }): Promise<{ out: ResearchDocExtractV1; model: string }> {
   const { text, url, sourceType, hintedTicker, hintedName } = args;
-  const defaultSource = sourceKeyFromQueueType(sourceType) ?? "Other";
+  const defaultSource = sourceKeyFromQueueTypeLocal(sourceType) ?? "Other";
 
   const messages = [
     {
@@ -98,6 +73,7 @@ export async function runResearchDocExtract(args: {
         `source_key must be one of: ${SOURCE_KEYS.join(", ")}.`,
         "For government contract text use source_key Gov contract and set link_confidence 0-1 for ticker linkage.",
         "For clinical trial registry pages use ClinicalTrials.gov and populate program_keys with drug names when explicit.",
+        "When the text names related public tickers (suppliers, customers, peers), set related_tickers.upstream and related_tickers.downstream as string arrays of US tickers only.",
       ].join("\n"),
     },
     {
@@ -114,6 +90,7 @@ export async function runResearchDocExtract(args: {
           event_at: "ISO8601 string|null",
           program_keys: ["string"],
           link_confidence: "number|null",
+          related_tickers: { upstream: ["string"], downstream: ["string"] },
         }),
         `source_type: ${sourceType}`,
         `hinted_ticker: ${hintedTicker ?? "null"}`,
@@ -131,13 +108,15 @@ export async function runResearchDocExtract(args: {
     throw new Error("llm_output_schema_mismatch");
   }
 
+  const relatedTickers = normalizeRelatedTickers(out.related_tickers);
+
   return {
     out: {
       schema_type: "research_doc_v1",
       schema_version: "v1",
       title: out.title != null ? String(out.title) : null,
       primary_ticker: out.primary_ticker ? String(out.primary_ticker).trim().toUpperCase() : null,
-      source_key: normalizeSourceKey(out.source_key, defaultSource),
+      source_key: normalizeSourceKeyLocal(out.source_key, defaultSource),
       analysis: out.analysis.trim(),
       event_at: out.event_at ? String(out.event_at) : null,
       program_keys: Array.isArray(out.program_keys)
@@ -147,7 +126,21 @@ export async function runResearchDocExtract(args: {
         out.link_confidence != null && Number.isFinite(Number(out.link_confidence))
           ? Math.max(0, Math.min(1, Number(out.link_confidence)))
           : null,
+      ...(relatedTickers != null ? { related_tickers: relatedTickers } : {}),
     },
     model,
   };
+}
+
+function normalizeRelatedTickers(raw: unknown): ResearchDocExtractV1["related_tickers"] {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const upstream = Array.isArray(r.upstream)
+    ? r.upstream.map((t) => String(t).trim().toUpperCase()).filter(Boolean).slice(0, 8)
+    : [];
+  const downstream = Array.isArray(r.downstream)
+    ? r.downstream.map((t) => String(t).trim().toUpperCase()).filter(Boolean).slice(0, 8)
+    : [];
+  if (!upstream.length && !downstream.length) return null;
+  return { upstream, downstream };
 }

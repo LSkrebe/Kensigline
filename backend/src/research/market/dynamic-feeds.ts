@@ -1,4 +1,4 @@
-import { db } from "../../core/db.js";
+import { loadTickerUniverse as loadSharedTickerUniverse } from "../../shared/ticker-universe.js";
 import { googleNewsTranscriptFeedUrl, yahooHeadlineFeedUrl } from "./feeds.js";
 import { enqueueResearchRssFeeds } from "./rss-queue.js";
 import { researchEnv, researchEnvNum } from "../../documents/spec.js";
@@ -11,22 +11,7 @@ function clampInt(n: number, lo: number, hi: number) {
 }
 
 async function loadTickerUniverse(): Promise<string[]> {
-  const rows = await db.query<{ t: string }>(
-    `
-    SELECT DISTINCT upper(trim(x.ticker)) AS t
-    FROM (
-      SELECT ticker FROM companies WHERE ticker IS NOT NULL
-      UNION ALL
-      SELECT ticker FROM documents WHERE ticker IS NOT NULL
-    ) x
-    WHERE length(trim(x.ticker)) BETWEEN 1 AND 6
-      AND trim(x.ticker) ~ '^[A-Za-z]{1,6}$'
-    ORDER BY t
-    `,
-  );
-  const list = rows.map((r) => r.t).filter(Boolean);
-  const maxU = clampInt(researchEnvNum("DYNAMIC_MAX_UNIVERSE", 500), 50, 5000);
-  return list.slice(0, maxU);
+  return loadSharedTickerUniverse(researchEnvNum("DYNAMIC_MAX_UNIVERSE", 500));
 }
 
 function nextTickerBatch(all: string[], batchSize: number): string[] {

@@ -1,5 +1,6 @@
-import { Fragment, useCallback, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { DiscoverTimelineGap, EventBriefDocCard, formatEventCardDate } from './EventBrief.jsx'
+import { fetchDiscoverTimeline } from './discoverClient.js'
 import {
   buildDiscoverCardDisplayRows,
   buildDiscoverTimeline,
@@ -43,7 +44,7 @@ function DiscoverFilterPicker({ enabled, onToggle }) {
 }
 
 function DiscoverEventCard({ event, onResearch, showMentioned = false, interactive = false }) {
-  const mentioned = showMentioned ? getEventMentioned(event.briefKey) : null
+  const mentioned = showMentioned ? (event.mentioned ?? getEventMentioned(event.briefKey)) : null
   const source = event.source ?? 'Filing'
   const dateTime = event.at?.includes('T') ? event.at : `${event.at}T12:00:00`
   const body = String(event.summary ?? event.title ?? '').trim()
@@ -119,15 +120,55 @@ function DiscoverAgendaColumn({ label, emptyLabel, variant, events, onResearch, 
   )
 }
 
-export function DiscoverPanel({ onOpenResearch }) {
+export function DiscoverPanel({ backendUp = false, onOpenResearch }) {
   const [query, setQuery] = useState('')
   const [filterOpen, setFilterOpen] = useState(false)
   const [enabledFilters, setEnabledFilters] = useState(() => new Set(DISCOVER_FILTER_DEFAULT))
+  const [remoteTimeline, setRemoteTimeline] = useState(null)
+  const [loading, setLoading] = useState(false)
 
-  const { upcoming, past } = useMemo(
-    () => buildDiscoverTimeline({ query, enabledFilters }),
-    [query, enabledFilters],
-  )
+  useEffect(() => {
+    if (!backendUp) {
+      setRemoteTimeline(null)
+      setLoading(false)
+      return undefined
+    }
+
+    let cancelled = false
+    setLoading(true)
+
+    fetchDiscoverTimeline({
+      query,
+      sourceKeys: [...enabledFilters],
+    })
+      .then((data) => {
+        if (cancelled) return
+        setRemoteTimeline(data)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setRemoteTimeline(null)
+        setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [backendUp, query, enabledFilters])
+
+  const { upcoming, past } = useMemo(() => {
+    if (backendUp && remoteTimeline) {
+      return {
+        upcoming: remoteTimeline.upcoming ?? [],
+        past: remoteTimeline.past ?? [],
+      }
+    }
+    if (backendUp && loading) {
+      return { upcoming: [], past: [] }
+    }
+    return buildDiscoverTimeline({ query, enabledFilters })
+  }, [backendUp, remoteTimeline, loading, query, enabledFilters])
 
   const toggleFilter = useCallback((id) => {
     setEnabledFilters((prev) => {
@@ -179,6 +220,9 @@ export function DiscoverPanel({ onOpenResearch }) {
     </div>
   )
 
+  const aheadEmpty = loading ? 'Loading upcoming events…' : 'No upcoming events.'
+  const recentEmpty = loading ? 'Loading recent events…' : 'No recent events.'
+
   return (
     <section className="panel discoverPanel" aria-label="Discover">
       <div className="discoverPanelBody">
@@ -196,7 +240,7 @@ export function DiscoverPanel({ onOpenResearch }) {
           ) : (
             <DiscoverAgendaColumn
               label="Ahead"
-              emptyLabel="No upcoming events."
+              emptyLabel={aheadEmpty}
               variant="ahead"
               events={upcoming}
               onResearch={onOpenResearch}
@@ -207,7 +251,7 @@ export function DiscoverPanel({ onOpenResearch }) {
           <div className="discoverSplitRule" aria-hidden="true" />
           <DiscoverAgendaColumn
             label="Recent"
-            emptyLabel="No recent events."
+            emptyLabel={recentEmpty}
             variant="recent"
             events={past}
             onResearch={onOpenResearch}

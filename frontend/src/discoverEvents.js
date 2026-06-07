@@ -582,12 +582,16 @@ export function buildDiscoverTimeline(opts = {}) {
     .toLowerCase()
   const enabledFilters = opts.enabledFilters ?? DISCOVER_FILTER_DEFAULT
   const today = todayStartMs()
+  const sourceRows = opts.events ?? DISCOVER_EVENTS
 
-  let rows = DISCOVER_EVENTS.filter((e) => discoverEventPassesFilters(e, enabledFilters))
+  let rows = sourceRows.filter((e) => discoverEventPassesFilters(e, enabledFilters))
 
   if (q) {
     rows = rows.filter((e) => {
-      const mentioned = eventMentionedSearchText(e.ticker, getEventMentioned(e.briefKey))
+      const mentioned =
+        e.mentioned != null
+          ? eventMentionedSearchText(e.ticker, e.mentioned)
+          : eventMentionedSearchText(e.ticker, getEventMentioned(e.briefKey))
       const hay = `${e.ticker} ${e.companyName} ${e.title} ${e.programKey ?? ''} ${e.source ?? ''} ${e.summary ?? ''} ${mentioned}`.toLowerCase()
       return hay.includes(q)
     })

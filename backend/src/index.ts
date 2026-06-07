@@ -29,6 +29,7 @@ import {
   handleResearchState,
 } from "./research/api.js";
 import { tryInvestigateRoutes } from "./investigate/api.js";
+import { tryDiscoverRoutes } from "./discover/api.js";
 import { clampInt } from "./shared/feed-helpers.js";
 import { startAllWorkers, stopAllWorkers } from "./server/workers.js";
 
@@ -227,6 +228,8 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 200, out);
       return;
     }
+
+    if (await tryDiscoverRoutes(req, res, url)) return;
 
     if (await tryInvestigateRoutes(req, res, url)) return;
     // ---- Pharma: feed ----
