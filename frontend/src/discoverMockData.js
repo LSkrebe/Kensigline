@@ -143,6 +143,57 @@ export function formatMacroDayHeader(date) {
   }
 }
 
+/** Deterministic mock session series ending in the event move. */
+export function mockReactionSeries(ticker, movePct, points = 36) {
+  const seed = String(ticker ?? 'X')
+  const move = Number(movePct)
+  const safeMove = Number.isFinite(move) ? move : 0
+  let h = 0
+  let v = 100
+  const out = []
+
+  for (let i = 0; i < points; i++) {
+    h = (h * 1103515245 + seed.charCodeAt(i % seed.length) * (i + 7)) >>> 0
+    const noise = ((h % 1000) / 1000 - 0.5) * 0.9
+    const wave = Math.sin((i + seed.length) * 0.55) * 0.35
+    v += noise + wave
+
+    if (i < points - 5) {
+      out.push(v)
+      continue
+    }
+
+    const ramp = (i - (points - 5)) / 4
+    const target = safeMove / 100
+    out.push(v * (1 + target * ramp))
+  }
+
+  return out
+}
+
+/** Stable mock % move for an event id (used when live bar data is unavailable). */
+export function mockMovePctForEvent(event) {
+  const seed = String(event?.id ?? event?.ticker ?? 'x')
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
+  const raw = (h % 1600) / 100 - 8
+  return Math.round(raw * 10) / 10
+}
+
+/** Mock move reactions keyed by event id — mirrors live `/api/discover/timeline` moves map. */
+export function buildMockMoveReactions(events) {
+  const out = /** @type {Record<string, { movePct: number; closes: number[] }>} */ ({})
+  for (const event of events ?? []) {
+    if (!String(event?.summary ?? '').trim() || event?.kind === 'flow') continue
+    const movePct = mockMovePctForEvent(event)
+    out[event.id] = {
+      movePct,
+      closes: mockReactionSeries(event.ticker, movePct),
+    }
+  }
+  return out
+}
+
 export function formatRippleMove(pct) {
   const n = Number(pct)
   if (!Number.isFinite(n)) return '—'

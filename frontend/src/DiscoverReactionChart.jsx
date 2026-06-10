@@ -1,37 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { mockReactionSeries } from './discoverMockData.js'
+
+export { mockReactionSeries } from './discoverMockData.js'
 
 const CHART_AREA_GRAD_TOP = 'var(--intel-accent-area-top)'
 const CHART_AREA_GRAD_BOTTOM = 'var(--intel-accent-area-bottom)'
 
-/** Deterministic mock session series ending in the event move. */
-export function mockReactionSeries(ticker, movePct, points = 36) {
-  const seed = String(ticker ?? 'X')
-  const move = Number(movePct)
-  const safeMove = Number.isFinite(move) ? move : 0
-  let h = 0
-  let v = 100
-  const out = []
-
-  for (let i = 0; i < points; i++) {
-    h = (h * 1103515245 + seed.charCodeAt(i % seed.length) * (i + 7)) >>> 0
-    const noise = ((h % 1000) / 1000 - 0.5) * 0.9
-    const wave = Math.sin((i + seed.length) * 0.55) * 0.35
-    v += noise + wave
-
-    if (i < points - 5) {
-      out.push(v)
-      continue
-    }
-
-    const ramp = (i - (points - 5)) / 4
-    const target = safeMove / 100
-    out.push(v * (1 + target * ramp))
-  }
-
-  return out
-}
-
-export function DiscoverReactionChart({ ticker, movePct, closes, height = 72 }) {
+export function DiscoverReactionChart({ ticker, movePct, closes, height = 72, allowMockSeries = false }) {
   const wrapRef = useRef(null)
   const [width, setWidth] = useState(280)
 
@@ -54,8 +29,9 @@ export function DiscoverReactionChart({ ticker, movePct, closes, height = 72 }) 
       if (!Number.isFinite(base) || base <= 0) return raw
       return raw.map((v) => (v / base) * 100)
     }
-    return mockReactionSeries(ticker, movePct)
-  }, [ticker, movePct, closes])
+    if (allowMockSeries) return mockReactionSeries(ticker, movePct)
+    return []
+  }, [ticker, movePct, closes, allowMockSeries])
   const w = width
   const h = height
   const margin = { l: 0, r: 4, t: 6, b: 14 }

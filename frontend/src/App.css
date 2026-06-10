@@ -3695,36 +3695,124 @@
 .terminal--discover .discoverPanelBody {
   flex: 1 1 auto;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(152px, min(38vh, 220px)) 1px minmax(0, 1fr);
   padding: 0;
   box-sizing: border-box;
   overflow: hidden;
 }
 
-.terminal--discover .discoverPanelBody.discoverTriple {
+
+.terminal--discover .discoverMacroStrip {
+  min-height: 0;
+  overflow: hidden;
+  border-bottom: none;
+}
+
+.terminal--discover .discoverMacroStrip .feedCompactBody.discoverMacroStripBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 0 8px;
+  gap: 0;
+}
+
+.terminal--discover .discoverMacroStripMain {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal--discover .discoverMacroStripScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+.terminal--discover .discoverMacroDay--col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+}
+
+.terminal--discover .discoverMacroDay--col .discoverMacroDayHead {
+  padding: 2px 0 8px;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.terminal--discover .discoverMacroDay--col .discoverMacroDayToday {
+  margin-left: 0;
+  width: 100%;
+}
+
+.terminal--discover .discoverMacroDay--col .discoverMacroDayBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 0;
+  gap: 5px;
+}
+
+.terminal--discover .discoverMacroDay--col .discoverMacroDayEmpty {
+  margin: 4px 0 0;
+  font-size: 9px;
+}
+
+.terminal--discover .discoverMacroDay--col .discoverMacroEvent {
+  margin: 0;
+}
+
+.terminal--discover .discoverPanelSplit--horizontal {
+  flex: 0 0 1px;
+  width: 100%;
+  height: 1px;
+  min-height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.terminal--discover .discoverDual {
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr) 1px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
   align-items: stretch;
 }
 
-.terminal--discover .discoverMacroWeek {
+.terminal--discover .discoverDual > .discoverCol {
+  min-height: 0;
+}
+
+.terminal--discover .discoverMacroWeek:not(.discoverMacroWeek--horizontal) {
   display: flex;
   flex-direction: column;
   gap: 0;
   min-height: 0;
 }
 
+.terminal--discover .discoverMacroWeek.discoverMacroWeek--horizontal {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+  padding: 2px 0 4px;
+  box-sizing: border-box;
+}
+
 .discoverMacroDay {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding-bottom: 6px;
-}
-
-.discoverMacroDay:last-child {
-  padding-bottom: 0;
 }
 
 .discoverMacroDayHead {
@@ -3769,7 +3857,6 @@
 }
 
 .discoverMacroEvent {
-  margin: 0 8px;
   padding: 6px 8px;
   border-radius: 5px;
   border: 1px solid rgba(255, 255, 255, 0.07);
@@ -3842,9 +3929,10 @@
 }
 
 .discoverMoveList {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  align-items: stretch;
 }
 
 .discoverMoveCard {
@@ -3852,6 +3940,7 @@
   flex-direction: column;
   gap: 0;
   width: 100%;
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.07);
@@ -4061,7 +4150,7 @@
   align-items: stretch;
 }
 
-.terminal--discover .discoverTriple > .discoverCol {
+.terminal--discover .discoverDual > .discoverCol {
   min-height: 0;
 }
 
@@ -4161,6 +4250,30 @@
   box-sizing: border-box;
   background: inherit;
   -webkit-overflow-scrolling: touch;
+}
+
+.terminal--discover .discoverMacroStrip .feedCompactFilterPicker.discoverMacroFilterPicker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 32px;
+  align-content: start;
+  align-items: start;
+  padding: 4px 16px 10px;
+}
+
+.terminal--discover .discoverMacroStrip .discoverMacroFilterPicker .feedFilterSection {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.terminal--discover .discoverMacroStrip .discoverMacroFilterPicker .feedFilterSectionTitle {
+  margin: 0 0 6px;
+}
+
+.feedFilterSection {
+  display: contents;
 }
 
 .discoverColEmpty {
