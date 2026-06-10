@@ -1,5 +1,6 @@
 import { normalizeResearchPaperSourceKey } from "../shared/source-keys.js";
 import { resolveDiscoverMentioned } from "./mentions.js";
+import { truncateDiscoverSummary } from "./summary.js";
 import type { DiscoverEvent, DiscoverEventKind, DiscoverIntelMode } from "./types.js";
 
 const FLOW_SOURCES = new Set(["Form 4", "Form 3", "Form 5", "13F", "PTR"]);
@@ -87,7 +88,7 @@ export function mapDocumentToDiscoverEvent(
     source,
     phase: row.program_phase,
     programKey: row.program_drug,
-    summary: row.analysis ? String(row.analysis).trim() : null,
+    summary: truncateDiscoverSummary(row.analysis, 200),
     url: row.url,
     mentioned,
   };

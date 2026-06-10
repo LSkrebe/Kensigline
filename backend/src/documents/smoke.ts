@@ -181,6 +181,16 @@ test("historicalRunwayFromCompanyFacts cash burn and runway quarters", () => {
   assert.equal(out.runwayQuarters, 5.1);
 });
 
+test("discover summary truncation", async () => {
+  const { truncateDiscoverSummary } = await import("../discover/summary.js");
+  const long =
+    "Management updated cash runway guidance and reiterated that EFZO-FIT remains fully enrolled with no change to the week-48 mean oral-steroid primary endpoint across sites.";
+  const out = truncateDiscoverSummary(long, 120);
+  assert.ok(out);
+  assert.ok(out!.length <= 120);
+  assert.ok(out!.endsWith("…"));
+});
+
 test("discover source filter and query matching", async () => {
   const { eventMatchesQuery, eventPassesSourceFilter } = await import("../discover/map.js");
   const event = {

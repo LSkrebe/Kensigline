@@ -1,5 +1,5 @@
 import { db } from "../core/db.js";
-import type { ResearchDocExtractV1 } from "./extract.js";
+import type { ResearchDocExtractV2 } from "./extract.js";
 import { formatUsdCompact } from "../shared/money.js";
 
 const GOV_LINK_THRESHOLD = () => Number(process.env.GOV_CONTRACT_LINK_THRESHOLD ?? 0.72);
@@ -18,7 +18,7 @@ export async function insertResearchDocument(args: {
   contentSha256: string;
   sourceType: string;
   url: string | null;
-  out: ResearchDocExtractV1;
+  out: ResearchDocExtractV2;
   model: string;
   publishedAt: string | null;
 }): Promise<string | null> {
@@ -43,7 +43,7 @@ export async function insertResearchDocument(args: {
     VALUES (
       $1, $2, 'v1', $3, $4, $5,
       'research', $3, $6, $7, $8, $9,
-      $10, $11, $12, $13, 'research_doc_v1', $14, $15::jsonb
+      $10, $11, $12, $13, 'research_doc_v2', $14, $15::jsonb
     )
     RETURNING id
     `,
@@ -79,7 +79,7 @@ async function upsertGovContractFromDocument(
   args: {
     contentSha256: string;
     url: string | null;
-    out: ResearchDocExtractV1;
+    out: ResearchDocExtractV2;
     publishedAt: string | null;
   },
 ) {

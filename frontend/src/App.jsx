@@ -344,6 +344,20 @@ function formatHhMmLocal(d) {
   return `${hh}:${mm}`
 }
 
+function formatTerminalTopBarDateTimeAttr(d = new Date()) {
+  return d.toISOString()
+}
+
+function formatTerminalTopBarDateLabel(d = new Date()) {
+  const date = d.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+  return `${date}, ${formatHhMmLocal(d)}`
+}
+
 /**
  * ISO or Date → feed date label:
  * - today (local): HH:MM
@@ -8959,6 +8973,22 @@ function TerminalTopBar({
   investigateMode = 'insider',
   onInvestigateModeChange,
 }) {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const tick = () => setNow(new Date())
+    const msToNextMinute = 60000 - (Date.now() % 60000)
+    let intervalId = 0
+    const startId = window.setTimeout(() => {
+      tick()
+      intervalId = window.setInterval(tick, 60000)
+    }, msToNextMinute)
+    return () => {
+      window.clearTimeout(startId)
+      if (intervalId) window.clearInterval(intervalId)
+    }
+  }, [])
+
   return (
     <header className="terminalTopBar" aria-label="Mercerline">
       <div className="terminalTopBarStart">
@@ -9062,6 +9092,9 @@ function TerminalTopBar({
 
       <div className="terminalTopBarEnd">
         <div className="terminalTopBarActions">
+          <time className="terminalTopBarDate mono dim" dateTime={formatTerminalTopBarDateTimeAttr(now)}>
+            {formatTerminalTopBarDateLabel(now)}
+          </time>
           <button
             type="button"
             className={
@@ -9093,6 +9126,15 @@ function TerminalTopBar({
       </div>
     </header>
   )
+}
+
+const VIEW_TAB_CYCLE = ['main', 'discover', 'investigate']
+
+function cycleViewTab(current, settingsReturnTab = 'main') {
+  if (current === 'settings') return settingsReturnTab
+  const idx = VIEW_TAB_CYCLE.indexOf(current)
+  if (idx < 0) return VIEW_TAB_CYCLE[0]
+  return VIEW_TAB_CYCLE[(idx + 1) % VIEW_TAB_CYCLE.length]
 }
 
 function KensiglineTerminal() {
@@ -10517,6 +10559,20 @@ function KensiglineTerminal() {
     setActiveTab('settings')
   }, [activeTab])
 
+  useEffect(() => {
+    function onKey(e) {
+      const el = e.target
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
+        return
+      }
+      if (e.key !== 'Tab') return
+      e.preventDefault()
+      setActiveTab((t) => cycleViewTab(t, tabBeforeSettingsRef.current))
+    }
+    window.addEventListener('keydown', onKey, { capture: true })
+    return () => window.removeEventListener('keydown', onKey, { capture: true })
+  }, [])
+
   return (
     <div
       className={[
@@ -10541,19 +10597,19 @@ function KensiglineTerminal() {
       <nav className="sideTabsRail" aria-label="Views">
         <button
           type="button"
-          className={activeTab === 'discover' ? 'sideTab isActive' : 'sideTab'}
-          aria-current={activeTab === 'discover' ? 'page' : undefined}
-          onClick={() => setActiveTab('discover')}
-        >
-          <span className="sideTabLabel">DISCOVER</span>
-        </button>
-        <button
-          type="button"
           className={activeTab === 'main' ? 'sideTab isActive' : 'sideTab'}
           aria-current={activeTab === 'main' ? 'page' : undefined}
           onClick={() => setActiveTab('main')}
         >
           <span className="sideTabLabel">RESEARCH</span>
+        </button>
+        <button
+          type="button"
+          className={activeTab === 'discover' ? 'sideTab isActive' : 'sideTab'}
+          aria-current={activeTab === 'discover' ? 'page' : undefined}
+          onClick={() => setActiveTab('discover')}
+        >
+          <span className="sideTabLabel">DISCOVER</span>
         </button>
         <button
           type="button"
@@ -10579,7 +10635,6 @@ function KensiglineTerminal() {
       {activeTab === 'settings' ? <SettingsPanel /> : null}
       {activeTab === 'discover' ? (
         <DiscoverPanel
-          backendUp={backendUp}
           onOpenResearch={({ ticker, intelMode }) => {
             const t = String(ticker ?? '').trim().toUpperCase()
             if (!t) return

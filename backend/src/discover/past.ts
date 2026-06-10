@@ -13,7 +13,7 @@ export async function loadPastDiscoverEvents(opts: {
       upper(trim(d.ticker)) AS ticker,
       COALESCE(NULLIF(trim(c.name), ''), upper(trim(d.ticker))) AS company_name,
       d.event_at::text AS event_at,
-      COALESCE(NULLIF(trim(d.feed_label), ''), NULLIF(trim(d.title), ''), d.source_key) AS title,
+      COALESCE(NULLIF(trim(d.title), ''), NULLIF(trim(d.feed_label), ''), d.source_key) AS title,
       d.source_key,
       d.feed_kind,
       d.analysis,

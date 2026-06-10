@@ -96,11 +96,47 @@ export function researchPaperSourceIdsForIntel(intelMode) {
   return researchPaperSourceTypesForIntel(intelMode).map((t) => t.id)
 }
 
-/** Flat document-type filter list for Discover (all tracked sources). */
-export const DISCOVER_DOCUMENT_FILTER_TYPES = RESEARCH_PAPER_SOURCE_CATALOG.map(({ id, label, code }) => ({
-  id,
-  label,
-  code,
-}))
+/** Document-type filters aligned with the Research tab (market + clinical scopes merged). */
+export function discoverResearchDocumentFilterTypes() {
+  const seen = new Set()
+  const out = []
+  for (const mode of ['market', 'clinical']) {
+    for (const t of researchPaperSourceTypesForIntel(mode)) {
+      if (seen.has(t.id)) continue
+      seen.add(t.id)
+      out.push({ id: t.id, label: t.label, code: t.code })
+    }
+  }
+  return out
+}
 
-export const DISCOVER_FILTER_DEFAULT = new Set(RESEARCH_PAPER_SOURCE_CATALOG.map((t) => t.id))
+export const DISCOVER_RESEARCH_DOCUMENT_FILTER_DEFAULT = new Set(
+  discoverResearchDocumentFilterTypes().map((t) => t.id),
+)
+
+/** Watchlist catalysts — company events only (no insider / politician / institutional feeds). */
+const DISCOVER_WATCHLIST_EXCLUDED_SOURCE_IDS = new Set([
+  'Form 4',
+  'Form 3',
+  'Form 5',
+  '13F',
+  'PTR',
+  'SC 13D',
+  'SC 13G',
+])
+
+export function discoverWatchlistFilterTypes() {
+  return discoverResearchDocumentFilterTypes().filter((t) => !DISCOVER_WATCHLIST_EXCLUDED_SOURCE_IDS.has(t.id))
+}
+
+export const DISCOVER_WATCHLIST_FILTER_TYPES = discoverWatchlistFilterTypes()
+
+export const DISCOVER_MARKET_MOVE_FILTER_TYPES = discoverResearchDocumentFilterTypes()
+
+export const DISCOVER_WATCHLIST_FILTER_DEFAULT = new Set(DISCOVER_WATCHLIST_FILTER_TYPES.map((t) => t.id))
+
+/** @deprecated Use DISCOVER_WATCHLIST_FILTER_TYPES. */
+export const DISCOVER_DOCUMENT_FILTER_TYPES = DISCOVER_WATCHLIST_FILTER_TYPES
+
+/** @deprecated Use DISCOVER_WATCHLIST_FILTER_DEFAULT. */
+export const DISCOVER_FILTER_DEFAULT = DISCOVER_WATCHLIST_FILTER_DEFAULT

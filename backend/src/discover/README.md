@@ -56,3 +56,16 @@ Resolved in order:
 | `types.ts` | Shared DTOs |
 
 Shared catalog: `shared/source-keys.ts` (same ids as frontend `researchPaperSources.js`).
+
+## Event copy (`title` + `summary`)
+
+| Field | Source | UX |
+|-------|--------|-----|
+| `title` | `documents.title` (LLM headline), else `feed_label`, else `source_key` | Market Moves card headline; Watchlist catalyst label |
+| `summary` | `documents.analysis` (truncated ~200 chars) | Market Moves body copy |
+
+**Research ingest** (`documents/extract.ts`, `research_doc_v2`): LLM returns a 4–12 word `title` and 1–2 sentence `analysis`.
+
+**Pharma ingest** (`research/clinical/pipeline.ts`, `pharma_sec_v3`): LLM `feed_label` → `documents.title`; phase label → `feed_label`; compact `analysis`.
+
+Re-parse or backfill existing rows to refresh headlines on live cards.

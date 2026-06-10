@@ -299,6 +299,14 @@
   min-width: 0;
 }
 
+.terminalTopBarDate {
+  flex: 0 0 auto;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  line-height: 1;
+}
+
 .terminalTopBarSettings {
   flex: 0 0 auto;
   display: flex;
@@ -3598,16 +3606,84 @@
   background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
 }
 
+.terminal--discover .discoverCol.feed.feedCompact {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
+}
+
+.terminal--discover .discoverCol .feedCompactHeader {
+  box-sizing: border-box;
+  flex: 0 0 27px;
+  height: 27px;
+  min-height: 27px;
+  max-height: 27px;
+  padding: 0 12px;
+  align-items: center;
+  border-bottom: none;
+}
+
+.terminal--discover .discoverCol .feedCompactHeader.discoverColHeadBar {
+  width: 100%;
+}
+
+.terminal--discover .discoverCol .feedCompactHeader .feedCompactFilterBtn {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.terminal--discover .discoverCol .feedCompactHeader .feedCompactFilterBtn:hover {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.terminal--discover .discoverCol .feedCompactHeader .feedCompactFilterBtn.isActive {
+  color: var(--cyan);
+}
+
+.terminal--discover .discoverCol--filter .feedCompactMain {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.terminal--discover .discoverCol .feedCompactTitle {
+  color: var(--hi);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  font-weight: 600;
+}
+
+.terminal--discover .discoverCol .feedCompactBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 10px 10px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
 .terminal--discover .discoverColScroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  padding: 4px 10px 14px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  box-sizing: border-box;
+}
+
+.terminal--discover .discoverColScroll--marketMoves {
+  padding: 0 10px 0 4px;
 }
 
 .terminal--discover .discoverEventList {
@@ -3626,15 +3702,355 @@
   overflow: hidden;
 }
 
-.terminal--discover .discoverColSearch {
+.terminal--discover .discoverPanelBody.discoverTriple {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr) 1px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.terminal--discover .discoverMacroWeek {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+
+.discoverMacroDay {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-bottom: 6px;
+}
+
+.discoverMacroDay:last-child {
+  padding-bottom: 0;
+}
+
+.discoverMacroDayHead {
   flex-shrink: 0;
-  padding: 8px 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 2px 6px;
+}
+
+.discoverMacroDayWeekday {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hi);
+}
+
+.discoverMacroDayDate {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.discoverMacroDayToday {
+  margin-left: auto;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+.discoverMacroDayBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 2px 6px;
+}
+
+.discoverMacroDayEmpty {
+  margin: 8px 10px 0;
+  font-size: 10px;
+}
+
+.discoverMacroEvent {
+  margin: 0 8px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.02);
+  border-left-width: 2px;
+}
+
+.discoverMacroEvent--high {
+  border-left-color: rgba(255, 88, 108, 0.78);
+}
+
+.discoverMacroEvent--medium {
+  border-left-color: rgba(120, 196, 255, 0.55);
+}
+
+.discoverMacroEvent--low {
+  border-left-color: rgba(255, 255, 255, 0.18);
+}
+
+.discoverMacroEventLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  align-items: start;
+}
+
+.discoverMacroEventAside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.discoverMacroEventTime {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.86);
+  white-space: nowrap;
+}
+
+.discoverMacroEventRegion {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.discoverMacroEventTitle {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.terminal--discover .discoverCol .researchFeedSearch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  min-height: var(--feed-search-row-min-h, calc(0.08em + 1.08em + 10px));
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: text;
+}
+
+.discoverMoveList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.discoverMoveCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  overflow: hidden;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.discoverMoveCard:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.discoverMoveCard:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.discoverMoveCardHead {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 4px;
+}
+
+.discoverMoveCardTicker {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--hi);
+}
+
+.discoverMoveCardDate {
+  font-size: 9px;
+  letter-spacing: 0.05em;
+}
+
+.discoverMoveCardMove {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.discoverMoveCardMove.isUp {
+  color: rgba(120, 220, 160, 0.95);
+}
+
+.discoverMoveCardMove.isDown {
+  color: var(--bad);
+}
+
+.discoverMoveChart {
+  width: 100%;
+  height: 72px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.terminal--discover .discoverCol--ahead .discoverSearch {
+.discoverMoveCardCopy {
+  padding: 7px 8px 8px;
+  min-width: 0;
+}
+
+.discoverMoveCardTitle {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.discoverMoveCardCopy .researchPaperDocCardAnalysis {
+  margin: 4px 0 0;
+  padding-right: 0;
+  font-size: 10px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.discoverCatalystList {
+  --paper-doc-radius: 5px;
+  --research-paper-txn-portrait-w: 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard .eventBriefRailTicker {
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.05;
+  padding: 0 2px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard .researchPaperRailCardGrid {
+  column-gap: 6px;
+  row-gap: 1px;
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard .researchPaperDocCardSource,
+.terminal--discover .discoverCatalystList .discoverCatalystCard .researchPaperDocCardDate {
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  min-height: 0;
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard .researchPaperDocCardSource {
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard .researchPaperDocCardDate {
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard .discoverCatalystCardTitle {
+  margin: 5px 0 0;
+  padding-right: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.32;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard.researchPaperRailCard {
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard.researchPaperRailCard::before {
+  transition: background 0.15s ease;
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard .researchPaperRailCardRail {
+  transition: background 0.15s ease;
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard.researchPaperRailCard:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard.researchPaperRailCard:hover::before {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent 52%);
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard.researchPaperRailCard:hover .researchPaperRailCardRail {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.terminal--discover .discoverCatalystList .discoverWatchlistGap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 18px;
+  margin: 0;
+  padding: 5px 0;
+  box-sizing: border-box;
+}
+
+.terminal--discover .discoverCatalystList .discoverWatchlistGapRow {
+  display: flex;
+  align-items: center;
   width: 100%;
-  max-width: none;
+  min-height: 14px;
+}
+
+.terminal--discover .discoverCatalystList .discoverWatchlistGapRule {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 1px;
+  margin-right: 10px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.terminal--discover .discoverCatalystList .discoverWatchlistGapLabel {
+  flex: 0 0 auto;
+  padding-right: 2px;
+  font-size: 7.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.32);
 }
 
 .terminal--discover .discoverSplit {
@@ -3643,6 +4059,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
   align-items: stretch;
+}
+
+.terminal--discover .discoverTriple > .discoverCol {
+  min-height: 0;
 }
 
 .discoverSplitRule {
@@ -3714,6 +4134,15 @@
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+}
+
+.terminal--discover .discoverCol--filter .feedCompactBody--filterOpen .feedCompactMain[aria-hidden='true'] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.terminal--discover .discoverCol--filter .feedFilterSectionTitle:not(:first-child) {
+  margin-top: 10px;
 }
 
 .terminal--discover .discoverCol--filter .feedCompactFilterPicker {
@@ -3855,7 +4284,8 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-.terminal--discover .discoverEventCard.researchPaperRailCard.eventBriefDocCard--clickable:focus-visible {
+.terminal--discover .discoverEventCard.researchPaperRailCard.eventBriefDocCard--clickable:focus-visible,
+.terminal--discover .discoverCatalystList .discoverCatalystCard.researchPaperRailCard.eventBriefDocCard--clickable:focus-visible {
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.045);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
@@ -3867,6 +4297,10 @@
 
 .terminal--discover .discoverEventCard--ahead.researchPaperDocCard .researchPaperRailCardMain {
   padding: 5px 6px 5px 5px;
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard.researchPaperDocCard .researchPaperRailCardMain {
+  padding: 4px 5px 4px 4px;
 }
 
 .terminal--discover .discoverEventCard .researchPaperDocCardAnalysis {

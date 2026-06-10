@@ -90,8 +90,9 @@ function buildPharmaExtractionPrompt(args: { ticker: string; companyName?: strin
         "Return ONLY valid JSON. No markdown. No extra keys beyond the schema.",
         "If unknown, use null. Do not invent facts.",
         "Keep `context_sentences` short and plain English (3 sentences).",
-        "`worksheet.analysis` must be plain-English narrative prose (2–4 short paragraphs), not key-value fields.",
-        "Focus analysis on what changed in this filing, the program (drug, phase, indication), material efficacy/safety/regulatory numbers if stated, timing, and why it matters.",
+        "`feed_label` must be a short event headline (4–12 words). Not a phase label alone.",
+        "`worksheet.analysis` must be 1–2 dense scan sentences (~80–200 chars). No bullet lists.",
+        "Focus analysis on what changed, the program (drug, phase), any stated numbers, timing, and why it matters.",
         "Only output events that are likely to matter (trial results, FDA/regulatory updates, trial start/stop/delay, key enrollment milestones, major safety signals, major partnerships, major financing).",
         "IMPORTANT: Only output an event if you can identify at least a trial PHASE (I/II/III) and a concrete update type (RESULT vs PROGRESS).",
         "Do NOT output generic filler like 'Pipeline update'. If you can't extract phase, output zero events.",
@@ -116,7 +117,7 @@ function buildPharmaExtractionPrompt(args: { ticker: string; companyName?: strin
         '    "phase": "I"|"II"|"III"|string|null,',
         '    "event_type": "RESULT"|"PROGRESS"|"REGULATORY"|"SAFETY"|"FINANCING"|"PARTNERING"|string,',
         '    "event_at": string|null,',
-        '    "feed_label": string,',
+        '    "feed_label": string (4-12 word headline),',
         '    "context_sentences": string[],',
         '    "worksheet": { "analysis": string }',
         "  }>",
@@ -319,11 +320,14 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
           .join("\n\n");
       }
       if (!analysis) continue;
-      const feedLabel = pharmaFeedLabelFrom(phase, eventType);
+      const phaseLabel = pharmaFeedLabelFrom(phase, eventType);
+      const headline = String(e.feed_label ?? "")
+        .trim()
+        .replace(/\s+/g, " ");
       const companyName = e.company_name != null ? String(e.company_name) : nameForPrompt;
 
       // If we couldn't derive a real label (no phase), skip inserting this event.
-      if (!feedLabel) continue;
+      if (!phaseLabel || headline.length < 8) continue;
 
       const perEventSha = createHash("sha256")
         .update(contentSha + ":" + String(i) + ":" + JSON.stringify(e).slice(0, 2000), "utf8")
@@ -348,6 +352,7 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
           analysis,
           event_at,
           feed_label,
+          title,
           program_drug,
           program_indication,
           program_phase,
@@ -365,8 +370,8 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
           'v2',
           $2,
           'pharma',
-          $15,
           $16,
+          $17,
           $3,
           $4,
           $5,
@@ -378,7 +383,8 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
           $11,
           $12,
           $13,
-          $14
+          $14,
+          $15
         )
         ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
         DO UPDATE SET parsed_at = now()
@@ -388,7 +394,8 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
           queueId,
           ticker,
           eventAt,
-          feedLabel,
+          phaseLabel,
+          headline,
           drug,
           indication,
           phase,
@@ -396,7 +403,7 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
           primaryUrl,
           eventAt,
           model,
-          "pharma_sec_v2",
+          "pharma_sec_v3",
           perEventSha,
           {
             ...e,

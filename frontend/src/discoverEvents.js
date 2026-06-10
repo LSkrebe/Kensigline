@@ -2,12 +2,19 @@
 
 import { eventMentionedSearchText, getEventMentioned } from './eventBriefs.js'
 import {
-  DISCOVER_DOCUMENT_FILTER_TYPES,
-  DISCOVER_FILTER_DEFAULT,
+  DISCOVER_MARKET_MOVE_FILTER_TYPES,
+  DISCOVER_RESEARCH_DOCUMENT_FILTER_DEFAULT,
+  DISCOVER_WATCHLIST_FILTER_DEFAULT,
+  DISCOVER_WATCHLIST_FILTER_TYPES,
   normalizeResearchPaperSourceKey,
 } from './researchPaperSources.js'
 
-export { DISCOVER_DOCUMENT_FILTER_TYPES, DISCOVER_FILTER_DEFAULT }
+export {
+  DISCOVER_MARKET_MOVE_FILTER_TYPES,
+  DISCOVER_RESEARCH_DOCUMENT_FILTER_DEFAULT as DISCOVER_MARKET_MOVE_FILTER_DEFAULT,
+  DISCOVER_WATCHLIST_FILTER_TYPES,
+  DISCOVER_WATCHLIST_FILTER_DEFAULT,
+}
 
 const DISCOVER_COMPANIES = {
   ASML: { name: 'ASML Holding N.V.', intelMode: 'market' },
@@ -52,7 +59,7 @@ const DISCOVER_EVENTS = [
     companyName: DISCOVER_COMPANIES.ATYR.name,
     intelMode: 'clinical',
     at: '2026-07-18',
-    title: 'EFZO-FIT topline readout',
+    title: 'Primary completion',
     kind: 'catalyst',
     source: 'ClinicalTrials.gov',
     phase: 'Phase 3',
@@ -67,7 +74,7 @@ const DISCOVER_EVENTS = [
     companyName: DISCOVER_COMPANIES.ASML.name,
     intelMode: 'market',
     at: '2026-06-14',
-    title: 'Q2 earnings & EUV order commentary',
+    title: 'Earnings report',
     kind: 'earnings',
     source: '8-K',
     impact: 'high',
@@ -79,7 +86,7 @@ const DISCOVER_EVENTS = [
     companyName: DISCOVER_COMPANIES.ATYR.name,
     intelMode: 'clinical',
     at: '2026-06-06',
-    title: 'Biomarker update — sarcoidosis cohort',
+    title: 'Study completion (est.)',
     kind: 'trial',
     source: 'ClinicalTrials.gov',
     phase: 'Phase 2',
@@ -93,7 +100,7 @@ const DISCOVER_EVENTS = [
     companyName: DISCOVER_COMPANIES.ATYR.name,
     intelMode: 'clinical',
     at: '2026-05-22',
-    title: 'Initial response signal — ATYR-2810 escalation',
+    title: 'Trial active',
     kind: 'trial',
     source: '8-K',
     phase: 'Phase 1',
@@ -106,7 +113,7 @@ const DISCOVER_EVENTS = [
     companyName: DISCOVER_COMPANIES.MRNA.name,
     intelMode: 'clinical',
     at: '2026-06-28',
-    title: 'mRNA-1345 Phase 3 interim — older-adult RSV',
+    title: 'Primary completion (est.)',
     kind: 'catalyst',
     source: 'ClinicalTrials.gov',
     phase: 'Phase 3',
@@ -120,7 +127,7 @@ const DISCOVER_EVENTS = [
     companyName: DISCOVER_COMPANIES.SRPT.name,
     intelMode: 'clinical',
     at: '2026-06-02',
-    title: 'FDA response window — SRP-9001 supplemental analyses',
+    title: 'Regulatory milestone',
     kind: 'regulatory',
     source: '8-K',
     phase: 'Phase 3',
@@ -134,7 +141,7 @@ const DISCOVER_EVENTS = [
     companyName: DISCOVER_COMPANIES.NVDA.name,
     intelMode: 'market',
     at: '2026-06-04',
-    title: 'Computex keynote — next-gen accelerator roadmap',
+    title: 'Company release',
     kind: 'catalyst',
     source: 'Press release',
     impact: 'high',
@@ -146,7 +153,7 @@ const DISCOVER_EVENTS = [
     companyName: DISCOVER_COMPANIES.TSM.name,
     intelMode: 'market',
     at: '2026-06-10',
-    title: 'Capital markets day — advanced-node capacity outlook',
+    title: 'Investor presentation',
     kind: 'earnings',
     source: 'Investor presentation',
     impact: 'medium',
@@ -158,7 +165,7 @@ const DISCOVER_EVENTS = [
     companyName: DISCOVER_COMPANIES.BIIB.name,
     intelMode: 'clinical',
     at: '2026-05-30',
-    title: 'Leqembi subcutaneous formulation PDUFA target',
+    title: 'PDUFA target',
     kind: 'regulatory',
     source: 'Press release',
     phase: 'Approved',
@@ -172,7 +179,7 @@ const DISCOVER_EVENTS = [
     companyName: DISCOVER_COMPANIES.LRCX.name,
     intelMode: 'market',
     at: '2026-06-18',
-    title: 'Analyst day — WFE cycle & memory recovery timing',
+    title: 'Investor presentation',
     kind: 'catalyst',
     source: 'Investor presentation',
     impact: 'medium',
@@ -192,7 +199,7 @@ const DISCOVER_EVENTS = [
     impact: 'low',
     briefKey: 'atyr-8k-today',
     summary:
-      'Same-day 8-K: no material clinical update, routine disclosure ahead of the week-48 readout window. Useful as a timestamp anchor; does not change the binary mean-OCS setup.',
+      'Routine same-day 8-K with no material clinical update ahead of the week-48 readout window.',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
   },
   {
@@ -207,7 +214,7 @@ const DISCOVER_EVENTS = [
     impact: 'medium',
     briefKey: 'asml-gov-dod',
     summary:
-      'DoD IDIQ modification ($18.4M) names ASML US, Inc. as awardee for EUV lithography sustainment and field engineering at a domestic high-volume fab. Award text ties delivery to existing high-NA install base rather than a new platform buy. Supports the scarcity thesis: defense-side spend is maintaining installed EUV, not signaling a cancellation wave.',
+      'DoD sustainment award ($18.4M) covers EUV field engineering at a domestic fab, supporting installed-base scarcity rather than a new platform buy.',
     url: 'https://sam.gov/',
   },
   {
@@ -223,7 +230,7 @@ const DISCOVER_EVENTS = [
     impact: 'medium',
     briefKey: 'atyr-8k-cash',
     summary:
-      'Management updated cash runway guidance and reiterated that EFZO-FIT remains fully enrolled with no change to the week-48 mean oral-steroid primary. The filing is operational, not efficacy-bearing, but it narrows financing overhang ahead of the binary readout.',
+      'Cash runway update with EFZO-FIT fully enrolled and no change to the week-48 mean oral-steroid primary.',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
   },
   {
@@ -240,7 +247,7 @@ const DISCOVER_EVENTS = [
     impact: 'medium',
     briefKey: 'atyr-8k-safety',
     summary:
-      'The company filed an interim blinded safety update without unblinded efficacy tables. Management reiterated that blinded review has not shown a toxicity spiral ahead of topline. The disclosure is supportive for holders into the print but does not change the statistical fight on the mean oral-steroid primary.',
+      'Interim blinded safety update with no unblinded efficacy; management sees no toxicity spiral ahead of topline.',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
   },
   {
@@ -255,7 +262,7 @@ const DISCOVER_EVENTS = [
     impact: 'high',
     briefKey: 'asml-q1',
     summary:
-      'Q1 commentary highlights backlog stability and longer EUV lead times rather than a cancellation wave. Management frames demand as capacity-constrained at the leading edge, which keeps pricing power on high-NA slots intact even when downstream GPU names wobble.',
+      'Q1 commentary cites stable backlog and longer EUV lead times, framing demand as capacity-constrained at the leading edge.',
     url: 'https://www.sec.gov/edgar/search/#/q=ASML',
   },
   {
@@ -272,7 +279,7 @@ const DISCOVER_EVENTS = [
     impact: 'medium',
     briefKey: 'atyr-10q-risk',
     summary:
-      'Risk factors again stress that EFZO-FIT success depends on demonstrating steroid reduction with acceptable variability across sites. The filing cautions that enrollment completion does not tighten confidence intervals on a mean-dose endpoint when placebo arms follow the same visit cadence. Language stays consistent with a binary catalyst rather than a de-risked fundamental story.',
+      'Risk factors stress steroid-reduction success on a mean-dose endpoint with site variability; enrollment completion does not de-risk the binary readout.',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
   },
   {
@@ -289,7 +296,7 @@ const DISCOVER_EVENTS = [
     impact: 'high',
     briefKey: 'atyr-enrollment',
     summary:
-      'EFZO-FIT (NCT05415137) lists enrollment at 268 participants versus a 264 target for the sarcoidosis program. The trial remains three-arm with 5 mg/kg, 3 mg/kg, and placebo. The registry still frames the primary endpoint as absolute change from baseline in mean daily oral steroid dose at week 48, which is the regulatory line investors should track before any efficacy narrative hardens.',
+      'Registry lists EFZO-FIT enrollment at 268 vs 264 target; primary remains mean oral-steroid change at week 48.',
     url: 'https://clinicaltrials.gov/study/NCT05415137',
   },
   {
@@ -306,7 +313,7 @@ const DISCOVER_EVENTS = [
     impact: 'high',
     briefKey: 'srpt-fda-req',
     summary:
-      'Regulatory correspondence asks for supplemental functional analyses on the gene-therapy dataset. Management framed the request as clarifying rather than a complete response letter, but the timeline pushes commercial assumptions out another quarter and raises the bar for how cleanly responder narratives must read.',
+      'FDA requested supplemental functional analyses; management called it clarifying, but commercial timing slips another quarter.',
     url: 'https://www.sec.gov/edgar/search/#/q=SRPT',
   },
   {
@@ -321,7 +328,7 @@ const DISCOVER_EVENTS = [
     impact: 'high',
     briefKey: 'asml-orders',
     summary:
-      'Management commentary points to extended EUV delivery timelines and continued tightness in high-NA tool allocation. Customers are prioritizing leading-edge slots even as downstream AI demand headlines dominate equity flows. The filing reinforces scarcity in lithography rather than a demand air pocket for the tools themselves.',
+      'Commentary cites extended EUV delivery times and tight high-NA allocation, reinforcing lithography scarcity over demand weakness.',
     url: 'https://www.sec.gov/edgar/search/#/q=ASML',
   },
   {
@@ -338,7 +345,7 @@ const DISCOVER_EVENTS = [
     impact: 'medium',
     briefKey: 'mrna-phase2',
     summary:
-      'Interim immunogenicity met pre-specified thresholds versus a licensed comparator in the CMV program. The update supports progression talk but does not substitute for Phase 3 event-driven efficacy; investors still need infection-rate separation at scale.',
+      'Phase 2 CMV immunogenicity met thresholds vs comparator; progression talk remains ahead of Phase 3 infection-rate proof.',
     url: 'https://clinicaltrials.gov/',
   },
   {
@@ -355,7 +362,7 @@ const DISCOVER_EVENTS = [
     impact: 'low',
     briefKey: 'atyr-connect',
     summary:
-      'EFZO-CONNECT (NCT05892614) remains a separate SSc-ILD proof-of-concept with roughly 25 patients and placebo control. The registry update does not alter EFZO-FIT power. A strong PoC read could help sentiment after Phase 3 tables, but it cannot statistically rescue a failed pivotal mean-OCS outcome.',
+      'EFZO-CONNECT PoC registry refresh does not change EFZO-FIT power; a positive read may help sentiment only after pivotal data.',
     url: 'https://clinicaltrials.gov/study/NCT05892614',
   },
   {
@@ -370,7 +377,7 @@ const DISCOVER_EVENTS = [
     impact: 'high',
     briefKey: 'nvda-q1-earnings',
     summary:
-      'Q1 beat on data-center revenue with management citing continued accelerator demand and tight advanced-packaging supply. Commentary again frames growth as supply-constrained at the foundry and memory layer rather than purely demand-limited, keeping second-order read-through names in focus.',
+      'Q1 data-center beat with management citing accelerator demand and tight packaging supply at foundry and memory layers.',
     url: 'https://www.sec.gov/edgar/search/#/q=NVDA',
   },
 ]
@@ -418,6 +425,17 @@ export function discoverEventRelativeLabel(at) {
   if (diffDays === 1) return 'Tomorrow'
   if (diffDays === -1) return 'Yesterday'
   if (diffDays > 0 && diffDays <= 90) return `In ${diffDays}d`
+  if (diffDays < 0 && diffDays >= -14) return `${Math.abs(diffDays)}d ago`
+  return formatDiscoverDate(at)
+}
+
+/** Compact day count for Discover watchlist (e.g. `4d`, `Today`). */
+export function discoverWatchlistDaysLabel(at) {
+  const dayMs = eventDayStartMs(at)
+  if (!Number.isFinite(dayMs)) return '—'
+  const diffDays = Math.round((dayMs - todayStartMs()) / 86400000)
+  if (diffDays === 0) return 'Today'
+  if (diffDays > 0 && diffDays <= 90) return `${diffDays}d`
   if (diffDays < 0 && diffDays >= -14) return `${Math.abs(diffDays)}d ago`
   return formatDiscoverDate(at)
 }
@@ -580,7 +598,7 @@ export function buildDiscoverTimeline(opts = {}) {
   const q = String(opts.query ?? '')
     .trim()
     .toLowerCase()
-  const enabledFilters = opts.enabledFilters ?? DISCOVER_FILTER_DEFAULT
+  const enabledFilters = opts.enabledFilters ?? DISCOVER_WATCHLIST_FILTER_DEFAULT
   const today = todayStartMs()
   const sourceRows = opts.events ?? DISCOVER_EVENTS
 
@@ -611,6 +629,19 @@ export function buildDiscoverTimeline(opts = {}) {
   past.sort((a, b) => eventDayStartMs(b.at) - eventDayStartMs(a.at))
 
   return { upcoming, past }
+}
+
+/** Upcoming catalyst rows for the watchlist column. */
+export function getDiscoverWatchlistEvents(opts = {}) {
+  const { query, enabledFilters } = opts
+  return buildDiscoverTimeline({ query, enabledFilters }).upcoming
+}
+
+/** Past document rows with analysis text for market moves (excludes flow filings). */
+export function getDiscoverMarketMoves(opts = {}) {
+  const { query, enabledFilters } = opts
+  const { past } = buildDiscoverTimeline({ query, enabledFilters })
+  return past.filter((e) => String(e.summary ?? '').trim() && e.kind !== 'flow')
 }
 
 export function discoverImpactClass(impact) {

@@ -4,11 +4,10 @@ import {
   SOURCE_KEYS,
   sourceKeyFromQueueType,
 } from "../shared/source-keys.js";
-
-export type ResearchDocExtractV1 = {
-  schema_type: "research_doc_v1";
-  schema_version: "v1";
-  title: string | null;
+export type ResearchDocExtractV2 = {
+  schema_type: "research_doc_v2";
+  schema_version: "v2";
+  title: string;
   primary_ticker: string | null;
   source_key: string;
   analysis: string;
@@ -20,6 +19,9 @@ export type ResearchDocExtractV1 = {
     downstream?: string[];
   } | null;
 };
+
+/** @deprecated Use ResearchDocExtractV2 */
+export type ResearchDocExtractV1 = ResearchDocExtractV2;
 
 function extractJsonObject(text: string): any {
   let raw = String(text ?? "").trim();
@@ -43,12 +45,24 @@ function normalizeSourceKeyLocal(raw: unknown, fallback: string): string {
   return normalizeSourceKey(raw, fallback);
 }
 
-function isResearchDocExtract(out: any): out is ResearchDocExtractV1 {
+function normalizeHeadline(raw: unknown): string | null {
+  const t = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (t.length < 8) return null;
+  if (t.length > 120) return t.slice(0, 119).trim();
+  return t;
+}
+
+function isResearchDocExtract(out: any): out is ResearchDocExtractV2 {
+  const schema = String(out?.schema_type ?? "");
+  const versionOk = schema === "research_doc_v2" || schema === "research_doc_v1";
   return (
     out &&
-    out.schema_type === "research_doc_v1" &&
+    versionOk &&
     typeof out.analysis === "string" &&
-    out.analysis.trim().length > 20
+    out.analysis.trim().length >= 40 &&
+    normalizeHeadline(out.title) != null
   );
 }
 
@@ -58,7 +72,7 @@ export async function runResearchDocExtract(args: {
   sourceType: string;
   hintedTicker: string | null;
   hintedName: string | null;
-}): Promise<{ out: ResearchDocExtractV1; model: string }> {
+}): Promise<{ out: ResearchDocExtractV2; model: string }> {
   const { text, url, sourceType, hintedTicker, hintedName } = args;
   const defaultSource = sourceKeyFromQueueTypeLocal(sourceType) ?? "Other";
 
@@ -68,7 +82,8 @@ export async function runResearchDocExtract(args: {
       content: [
         "You extract structured research cards for an equity research timeline.",
         "Return ONLY valid JSON (no markdown).",
-        "Write analysis as 1-3 dense sentences an investor can scan; no bullet lists.",
+        "title: required short event headline (4–12 words). No document form numbers alone.",
+        "analysis: required 1–2 dense sentences an investor can scan (~80–200 chars). No bullet lists.",
         "Do not invent tickers. Use null when uncertain.",
         `source_key must be one of: ${SOURCE_KEYS.join(", ")}.`,
         "For government contract text use source_key Gov contract and set link_confidence 0-1 for ticker linkage.",
@@ -81,12 +96,12 @@ export async function runResearchDocExtract(args: {
       content: [
         "Return exactly this JSON shape:",
         JSON.stringify({
-          schema_type: "research_doc_v1",
-          schema_version: "v1",
-          title: "string|null",
+          schema_type: "research_doc_v2",
+          schema_version: "v2",
+          title: "string (required, 4-12 word headline)",
           primary_ticker: "string|null",
           source_key: defaultSource,
-          analysis: "string (required, 40+ chars)",
+          analysis: "string (required, 1-2 sentences, ~80-200 chars)",
           event_at: "ISO8601 string|null",
           program_keys: ["string"],
           link_confidence: "number|null",
@@ -109,15 +124,17 @@ export async function runResearchDocExtract(args: {
   }
 
   const relatedTickers = normalizeRelatedTickers(out.related_tickers);
+  const title = normalizeHeadline(out.title)!;
+  const analysis = out.analysis.trim();
 
   return {
     out: {
-      schema_type: "research_doc_v1",
-      schema_version: "v1",
-      title: out.title != null ? String(out.title) : null,
+      schema_type: "research_doc_v2",
+      schema_version: "v2",
+      title,
       primary_ticker: out.primary_ticker ? String(out.primary_ticker).trim().toUpperCase() : null,
       source_key: normalizeSourceKeyLocal(out.source_key, defaultSource),
-      analysis: out.analysis.trim(),
+      analysis,
       event_at: out.event_at ? String(out.event_at) : null,
       program_keys: Array.isArray(out.program_keys)
         ? out.program_keys.map((k) => String(k).trim()).filter(Boolean).slice(0, 8)
@@ -132,7 +149,7 @@ export async function runResearchDocExtract(args: {
   };
 }
 
-function normalizeRelatedTickers(raw: unknown): ResearchDocExtractV1["related_tickers"] {
+function normalizeRelatedTickers(raw: unknown): ResearchDocExtractV2["related_tickers"] {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const upstream = Array.isArray(r.upstream)
