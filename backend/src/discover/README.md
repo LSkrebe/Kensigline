@@ -6,7 +6,7 @@ Cross-ticker calendar for the Discover frontend: **Ahead** (upcoming) and **Rece
 
 | Route | Description |
 |-------|-------------|
-| `GET /api/discover/timeline` | Aggregated upcoming + past events |
+| `GET /api/discover/timeline` | Aggregated upcoming + past events, macro week, and move reactions |
 
 Query params:
 
@@ -17,6 +17,14 @@ Query params:
 | `past_days` | 90 | Recent window |
 | `ahead_days` | 180 | Upcoming window |
 | `limit` | 120 | Max rows per column (before client display) |
+| `macro_days` | 5 | Business days in macro calendar column |
+
+Response also includes:
+
+| Field | Description |
+|-------|-------------|
+| `macro` | Upcoming macro release week (business-day templates) |
+| `moves` | Map of past event id → `{ movePct, closes }` for Market Moves sparklines |
 
 ## Data sources
 
@@ -25,7 +33,7 @@ Query params:
 | **Recent** | `documents` (research + pharma analysis, investigate flow docs) |
 | **Ahead — earnings** | `companies.earnings_date` |
 | **Ahead — trials** | ClinicalTrials.gov via `research/clinical/trials.ts` (clinical tickers) |
-| **Ahead — scheduled** | Future-dated `documents` rows |
+| **Ahead — scheduled** | Future-dated `documents` rows (research/pharma/press) |
 
 ## Mentioned tickers (Recent)
 
@@ -41,6 +49,7 @@ Resolved in order:
 |----------|---------|------|
 | `DISCOVER_MAX_UNIVERSE` | 500 | Ticker universe cap |
 | `DISCOVER_CLINICAL_TICKERS` | 12 | CT.gov lookups per timeline request |
+| `DISCOVER_MOVE_MAX` | 36 | Max past events with move/chart enrichment per request |
 
 ## Module map
 
@@ -51,6 +60,8 @@ Resolved in order:
 | `past.ts` | Recent SQL |
 | `ahead.ts` | Upcoming earnings + catalysts |
 | `map.ts` | Row → `DiscoverEvent` |
+| `macro.ts` | Macro calendar week |
+| `moves.ts` | Event-day move % + bar series for charts |
 | `mentions.ts` | Upstream/downstream chains |
 | `peers.ts` | Curated supply-chain hints |
 | `types.ts` | Shared DTOs |

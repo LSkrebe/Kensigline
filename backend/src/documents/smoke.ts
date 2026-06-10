@@ -191,6 +191,14 @@ test("discover summary truncation", async () => {
   assert.ok(out!.endsWith("…"));
 });
 
+test("discover macro week generation", async () => {
+  const { loadUpcomingMacroDays } = await import("../discover/macro.js");
+  const days = loadUpcomingMacroDays(3);
+  assert.ok(days.length >= 3);
+  assert.ok(days[0]?.date);
+  assert.ok(Array.isArray(days[0]?.events));
+});
+
 test("discover source filter and query matching", async () => {
   const { eventMatchesQuery, eventPassesSourceFilter } = await import("../discover/map.js");
   const event = {

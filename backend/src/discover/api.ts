@@ -15,6 +15,7 @@ export async function tryDiscoverRoutes(
     const aheadDays = clampInt(url.searchParams.get("ahead_days"), 7, 365, 180);
     const limit = clampInt(url.searchParams.get("limit"), 10, 500, 120);
     const sourcesParam = url.searchParams.get("sources") ?? url.searchParams.get("source_keys");
+    const macroDays = clampInt(url.searchParams.get("macro_days"), 1, 14, 5);
     const sourceKeys =
       sourcesParam != null && String(sourcesParam).trim()
         ? parseSourceKeyFilterParam(sourcesParam)
@@ -27,6 +28,7 @@ export async function tryDiscoverRoutes(
         pastDays,
         aheadDays,
         limit,
+        macroDays,
       });
       sendJson(res, 200, payload);
     } catch (e) {

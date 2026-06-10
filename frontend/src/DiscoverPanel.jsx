@@ -22,7 +22,6 @@ import {
   getUpcomingMacroDays,
   MACRO_IMPACT_FILTER_DEFAULT,
   MACRO_IMPACT_FILTER_TYPES,
-  MOCK_DISCOVER_MOVE_PCT,
   rippleMoveClass,
 } from './discoverMockData.js'
 
@@ -232,6 +231,7 @@ function DiscoverMacroDaySection({ day }) {
 }
 
 function DiscoverMacroColumn({
+  macroDays,
   enabledRegions,
   enabledImpacts,
   filterOpen,
@@ -239,8 +239,8 @@ function DiscoverMacroColumn({
   onFilterToggle,
 }) {
   const days = useMemo(
-    () => filterMacroCalendarDays(getUpcomingMacroDays(5), { regions: enabledRegions, impacts: enabledImpacts }),
-    [enabledRegions, enabledImpacts],
+    () => filterMacroCalendarDays(macroDays ?? [], { regions: enabledRegions, impacts: enabledImpacts }),
+    [macroDays, enabledRegions, enabledImpacts],
   )
 
   const macroFilterEnabled = useMemo(() => {
@@ -284,13 +284,14 @@ function DiscoverMacroColumn({
   )
 }
 
-function DiscoverMoveCard({ event, movePct, onResearch }) {
+function DiscoverMoveCard({ event, movePct, reactionCloses, onResearch }) {
   const title = String(event.title ?? '').trim() || '—'
   const summary = truncateDiscoverSummary(event.summary)
   const ticker = String(event.ticker ?? '').trim().toUpperCase()
   const showMove = Number.isFinite(movePct)
   const move = showMove ? formatRippleMove(movePct) : ''
   const moveCls = showMove ? rippleMoveClass(movePct) : ''
+  const showChart = showMove || (Array.isArray(reactionCloses) && reactionCloses.length >= 2)
 
   return (
     <button
@@ -305,7 +306,9 @@ function DiscoverMoveCard({ event, movePct, onResearch }) {
           <span className={['discoverMoveCardMove', 'mono', moveCls].filter(Boolean).join(' ')}>{move}</span>
         ) : null}
       </div>
-      {showMove ? <DiscoverReactionChart ticker={event.ticker} movePct={movePct} /> : null}
+      {showChart ? (
+        <DiscoverReactionChart ticker={event.ticker} movePct={movePct} closes={reactionCloses} />
+      ) : null}
       <div className="discoverMoveCardCopy">
         <p className="discoverMoveCardTitle">{title}</p>
         {summary ? <EventBriefAnalysis text={summary} /> : null}
@@ -429,6 +432,8 @@ export function DiscoverPanel({ onOpenResearch }) {
   const mockTimeline = useMemo(() => buildDiscoverTimeline({ query }), [query])
   const upcomingSource = liveTimeline?.upcoming ?? mockTimeline.upcoming
   const pastSource = liveTimeline?.past ?? mockTimeline.past
+  const macroSource = liveTimeline?.macro ?? getUpcomingMacroDays(5)
+  const moveReactions = liveTimeline?.moves ?? {}
 
   const catalysts = useMemo(
     () => applyDiscoverSourceFilter(upcomingSource, watchlistFilters),
@@ -466,6 +471,7 @@ export function DiscoverPanel({ onOpenResearch }) {
         </DiscoverFeedColumn>
         <div className="discoverSplitRule" aria-hidden="true" />
         <DiscoverMacroColumn
+          macroDays={macroSource}
           enabledRegions={macroRegionFilters}
           enabledImpacts={macroImpactFilters}
           filterOpen={macroFilterOpen}
@@ -487,14 +493,18 @@ export function DiscoverPanel({ onOpenResearch }) {
             <p className="discoverColEmpty mono dim">No recent market moves.</p>
           ) : (
             <div className="discoverMoveList">
-              {marketMoves.map((event) => (
-                <DiscoverMoveCard
-                  key={event.id}
-                  event={event}
-                  movePct={MOCK_DISCOVER_MOVE_PCT[event.id]}
-                  onResearch={onOpenResearch}
-                />
-              ))}
+              {marketMoves.map((event) => {
+                const reaction = moveReactions[event.id]
+                return (
+                  <DiscoverMoveCard
+                    key={event.id}
+                    event={event}
+                    movePct={reaction?.movePct}
+                    reactionCloses={reaction?.closes}
+                    onResearch={onOpenResearch}
+                  />
+                )
+              })}
             </div>
           )}
         </DiscoverFeedColumn>

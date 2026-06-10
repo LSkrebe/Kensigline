@@ -20,15 +20,7 @@ import { getDiscoverMarketMoves, getDiscoverWatchlistEvents } from './discoverEv
  * @property {DiscoverMacroEvent[]} events
  */
 
-/** Optional mock session-move overlay until bars/outcomes feed the chart column. */
-export const MOCK_DISCOVER_MOVE_PCT = {
-  'disc-atyr-8k-today': -4.1,
-  'disc-asml-gov': 3.2,
-  'disc-nvda-earnings': 6.8,
-  'disc-asml-q1': 5.4,
-  'disc-srpt-fda-req': -18.2,
-  'disc-atyr-enroll': 12.4,
-}
+/** Offline macro calendar fallback when the API is unavailable. */
 
 export const MACRO_IMPACT_FILTER_TYPES = [
   { id: 'high', label: 'High impact', code: 'HIGH' },

@@ -1,6 +1,8 @@
 import { loadTickerUniverse } from "../shared/ticker-universe.js";
 import { loadUpcomingDiscoverEvents } from "./ahead.js";
+import { loadUpcomingMacroDays } from "./macro.js";
 import { mentionedSearchText } from "./mentions.js";
+import { buildMoveReactionsForEvents } from "./moves.js";
 import { eventMatchesQuery, eventPassesSourceFilter } from "./map.js";
 import { loadPastDiscoverEvents } from "./past.js";
 import type { DiscoverEvent, DiscoverTimelineResult } from "./types.js";
@@ -31,20 +33,23 @@ export type DiscoverTimelineOpts = {
   pastDays?: number;
   aheadDays?: number;
   limit?: number;
+  macroDays?: number;
 };
 
 export async function buildDiscoverTimeline(opts: DiscoverTimelineOpts = {}): Promise<DiscoverTimelineResult> {
   const pastDays = clampInt(opts.pastDays, 7, 365, 90);
   const aheadDays = clampInt(opts.aheadDays, 7, 365, 180);
   const limit = clampInt(opts.limit, 10, 500, 120);
+  const macroDayLimit = clampInt(opts.macroDays, 1, 14, 5);
   const q = String(opts.query ?? "").trim();
   const enabled = opts.sourceKeys ?? null;
 
   const universe = await loadTickerUniverse(Number(process.env.DISCOVER_MAX_UNIVERSE ?? 500));
 
-  const [pastRaw, upcomingRaw] = await Promise.all([
+  const [pastRaw, upcomingRaw, macro] = await Promise.all([
     loadPastDiscoverEvents({ pastDays, limit }),
     loadUpcomingDiscoverEvents({ aheadDays, limit }),
+    Promise.resolve(loadUpcomingMacroDays(macroDayLimit)),
   ]);
 
   const filterRow = (event: DiscoverEvent) => {
@@ -62,10 +67,14 @@ export async function buildDiscoverTimeline(opts: DiscoverTimelineOpts = {}): Pr
     })
     .sort((a, b) => dayStartMs(a.at) - dayStartMs(b.at));
 
+  const moves = await buildMoveReactionsForEvents(past);
+
   return {
     ok: true,
     upcoming,
     past,
+    macro,
+    moves,
     meta: {
       past_days: pastDays,
       ahead_days: aheadDays,

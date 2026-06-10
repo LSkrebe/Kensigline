@@ -1,0 +1,81 @@
+export type MacroImpact = "high" | "medium" | "low";
+
+export type DiscoverMacroEvent = {
+  id: string;
+  time: string;
+  title: string;
+  region: "US" | "EU" | "CN" | "UK";
+  impact: MacroImpact;
+};
+
+export type DiscoverMacroDay = {
+  date: string;
+  events: DiscoverMacroEvent[];
+};
+
+/** Weekday templates (Mon=0 … Fri=4). Dates are generated from the real calendar. */
+const MACRO_DAY_TEMPLATES: DiscoverMacroEvent[][] = [
+  [
+    { id: "mon-dallas", time: "10:30", title: "Dallas Fed manufacturing activity", region: "US", impact: "low" },
+    { id: "mon-eu-sent", time: "10:00", title: "Eurozone economic sentiment", region: "EU", impact: "medium" },
+  ],
+  [
+    { id: "tue-durables", time: "08:30", title: "Durable goods orders", region: "US", impact: "medium" },
+    { id: "tue-eu-conf", time: "10:00", title: "Eurozone consumer confidence", region: "EU", impact: "low" },
+  ],
+  [
+    { id: "wed-us-conf", time: "10:00", title: "US consumer confidence", region: "US", impact: "medium" },
+    { id: "wed-waller", time: "14:00", title: "Fed Governor Waller — remarks", region: "US", impact: "medium" },
+    { id: "wed-de-ifo", time: "04:00", title: "Germany Ifo business climate", region: "EU", impact: "low" },
+  ],
+  [
+    { id: "thu-gdp", time: "08:30", title: "GDP — Q1 2nd estimate", region: "US", impact: "high" },
+    { id: "thu-fomc-min", time: "14:00", title: "FOMC meeting minutes", region: "US", impact: "high" },
+  ],
+  [
+    { id: "fri-claims", time: "08:30", title: "Initial jobless claims", region: "US", impact: "medium" },
+    { id: "fri-pce", time: "08:30", title: "PCE price index", region: "US", impact: "high" },
+    { id: "fri-ecb", time: "07:45", title: "ECB monetary policy account", region: "EU", impact: "medium" },
+  ],
+];
+
+function isoLocalDate(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function isWeekday(d: Date) {
+  const day = d.getDay();
+  return day >= 1 && day <= 5;
+}
+
+/** Next N business days from today (Mon–Fri only, today included). */
+export function loadUpcomingMacroDays(limit = 5): DiscoverMacroDay[] {
+  const out: DiscoverMacroDay[] = [];
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+
+  while (!isWeekday(cursor)) {
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  while (out.length < limit) {
+    if (isWeekday(cursor)) {
+      const dow = cursor.getDay() - 1;
+      const date = isoLocalDate(cursor);
+      const templates = MACRO_DAY_TEMPLATES[dow] ?? MACRO_DAY_TEMPLATES[0] ?? [];
+      out.push({
+        date,
+        events: templates.map((event, idx) => ({
+          ...event,
+          id: `${date}-${event.id ?? idx}`,
+        })),
+      });
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return out;
+}

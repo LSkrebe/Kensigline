@@ -31,7 +31,7 @@ export function mockReactionSeries(ticker, movePct, points = 36) {
   return out
 }
 
-export function DiscoverReactionChart({ ticker, movePct, height = 72 }) {
+export function DiscoverReactionChart({ ticker, movePct, closes, height = 72 }) {
   const wrapRef = useRef(null)
   const [width, setWidth] = useState(280)
 
@@ -47,7 +47,15 @@ export function DiscoverReactionChart({ ticker, movePct, height = 72 }) {
     return () => ro.disconnect()
   }, [])
 
-  const vals = useMemo(() => mockReactionSeries(ticker, movePct), [ticker, movePct])
+  const vals = useMemo(() => {
+    const raw = Array.isArray(closes) ? closes.map((v) => Number(v)).filter(Number.isFinite) : []
+    if (raw.length >= 2) {
+      const base = raw[0]
+      if (!Number.isFinite(base) || base <= 0) return raw
+      return raw.map((v) => (v / base) * 100)
+    }
+    return mockReactionSeries(ticker, movePct)
+  }, [ticker, movePct, closes])
   const w = width
   const h = height
   const margin = { l: 0, r: 4, t: 6, b: 14 }

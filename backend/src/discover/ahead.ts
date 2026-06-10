@@ -82,7 +82,7 @@ async function loadClinicalTickerCandidates(limit: number): Promise<Array<{ tick
   }));
 }
 
-async function loadScheduledDocumentEvents(aheadDays: number, limit: number): Promise<DiscoverEvent[]> {
+async function loadUpcomingDocumentCatalysts(aheadDays: number, limit: number): Promise<DiscoverEvent[]> {
   const rows = await db.query<{
     id: string;
     ticker: string;
@@ -94,6 +94,7 @@ async function loadScheduledDocumentEvents(aheadDays: number, limit: number): Pr
     program_drug: string | null;
     program_phase: string | null;
     industry: string | null;
+    url: string | null;
   }>(
     `
     SELECT
@@ -101,19 +102,24 @@ async function loadScheduledDocumentEvents(aheadDays: number, limit: number): Pr
       upper(trim(d.ticker)) AS ticker,
       COALESCE(NULLIF(trim(c.name), ''), upper(trim(d.ticker))) AS company_name,
       d.event_at::text AS event_at,
-      COALESCE(NULLIF(trim(d.feed_label), ''), NULLIF(trim(d.title), ''), d.source_key) AS title,
+      COALESCE(NULLIF(trim(d.title), ''), NULLIF(trim(d.feed_label), ''), d.source_key) AS title,
       d.source_key,
       d.feed_kind,
       d.program_drug,
       d.program_phase,
-      c.industry
+      c.industry,
+      d.url
     FROM documents d
     LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
     WHERE d.ticker IS NOT NULL
       AND d.event_at IS NOT NULL
       AND d.event_at >= date_trunc('day', now())
       AND d.event_at < date_trunc('day', now()) + ($1 || ' days')::interval
-      AND d.feed_kind IN ('research', 'pharma')
+      AND d.show_on_ticker IS NOT FALSE
+      AND (
+        d.feed_kind IN ('research', 'pharma')
+        OR d.source_key IN ('ClinicalTrials.gov', 'Press release')
+      )
     ORDER BY d.event_at ASC
     LIMIT $2
     `,
@@ -125,7 +131,6 @@ async function loadScheduledDocumentEvents(aheadDays: number, limit: number): Pr
       {
         ...row,
         analysis: null,
-        url: null,
         data: null,
       },
       new Set(rows.map((r) => r.ticker)),
@@ -175,13 +180,13 @@ export async function loadUpcomingDiscoverEvents(opts: {
   limit: number;
 }): Promise<DiscoverEvent[]> {
   const perSide = opts.limit;
-  const [earnings, scheduled, clinical] = await Promise.all([
+  const [earnings, documentCatalysts, clinical] = await Promise.all([
     loadUpcomingEarnings(opts.aheadDays, perSide),
-    loadScheduledDocumentEvents(opts.aheadDays, perSide),
+    loadUpcomingDocumentCatalysts(opts.aheadDays, perSide),
     loadClinicalCatalysts(opts.aheadDays, 4),
   ]);
 
-  const merged = [...earnings, ...scheduled, ...clinical];
+  const merged = [...earnings, ...documentCatalysts, ...clinical];
   const seen = new Set<string>();
   const deduped: DiscoverEvent[] = [];
   for (const e of merged) {
