@@ -3,7 +3,9 @@ import { toPng } from 'html-to-image'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { IntroPage } from './IntroPage.jsx'
+import { SubscribePage } from './SubscribePage.jsx'
 import { SettingsPanel } from './SettingsPanel.jsx'
+import { useSubscription } from './useSubscription.js'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
 import { EventBriefDocCard } from './EventBrief.jsx'
 import { getEventMentioned } from './eventBriefs.js'
@@ -6410,6 +6412,8 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       name: label,
       amount: row?.amount,
       activity: String(row?.activity ?? '').trim() || null,
+      personFullName: filer,
+      personMode: 'institutions',
     })
   }
   return items.sort((a, b) => paperTimelineAtMs(b?.at) - paperTimelineAtMs(a?.at))
@@ -6778,7 +6782,12 @@ function ResearchPaperTxnCard({
   const label = String(name ?? '').trim()
   const amt = String(amount ?? '').trim()
   const personName = String(personFullName ?? '').trim()
-  const photoMode = personMode === 'politicians' ? 'politicians' : 'insider'
+  const photoMode =
+    personMode === 'politicians'
+      ? 'politicians'
+      : personMode === 'institutions'
+        ? 'institutions'
+        : 'insider'
   const [portraitActive, setPortraitActive] = useState(false)
   if (!label && !amt) return null
   return (
@@ -8972,10 +8981,16 @@ function TerminalTopBar({
   showInvestigateSwitch = false,
   investigateMode = 'insider',
   onInvestigateModeChange,
+  clockAt = null,
 }) {
-  const [now, setNow] = useState(() => new Date())
+  const frozenMs = clockAt != null ? new Date(clockAt).getTime() : null
+  const [now, setNow] = useState(() => (Number.isFinite(frozenMs) ? new Date(frozenMs) : new Date()))
 
   useEffect(() => {
+    if (Number.isFinite(frozenMs)) {
+      setNow(new Date(frozenMs))
+      return undefined
+    }
     const tick = () => setNow(new Date())
     const msToNextMinute = 60000 - (Date.now() % 60000)
     let intervalId = 0
@@ -8987,7 +9002,7 @@ function TerminalTopBar({
       window.clearTimeout(startId)
       if (intervalId) window.clearInterval(intervalId)
     }
-  }, [])
+  }, [frozenMs])
 
   return (
     <header className="terminalTopBar" aria-label="Mercerline">
@@ -10909,13 +10924,50 @@ function AuthBootScreen() {
   )
 }
 
-export default function App() {
+function AppGate() {
   const { configured, loading, user } = useAuth()
+  const signedIn = Boolean(configured && user)
+  const { loading: subLoading, active, billingEnabled, refresh } = useSubscription(signedIn)
 
-  // Subscription gate disabled temporarily — re-enable SubscribePage + useSubscription when billing goes live.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.location.pathname.replace(/\/$/, '') === '/subscribe') {
+      window.history.replaceState(null, '', '/')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!signedIn) return
+    const params = new URLSearchParams(window.location.search)
+    const checkout = params.get('checkout')
+    if (checkout !== 'success' && checkout !== 'cancel') return
+
+    const cleanUrl = () => {
+      if (window.history?.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname || '/')
+      }
+    }
+
+    if (checkout === 'success') {
+      void fetchJsonSafe('/api/billing/refresh', { method: 'POST', timeoutMs: 20000 })
+        .then(() => refresh())
+        .finally(cleanUrl)
+    } else {
+      cleanUrl()
+    }
+  }, [signedIn, refresh])
 
   if (configured && loading) return <AuthBootScreen />
   if (configured && !user) return <IntroPage />
 
+  if (signedIn && billingEnabled) {
+    if (subLoading) return <AuthBootScreen />
+    if (!active) return <SubscribePage />
+  }
+
   return <KensiglineTerminal />
+}
+
+export default function App() {
+  return <AppGate />
 }

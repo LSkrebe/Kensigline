@@ -1,39 +1,17 @@
 import { useCallback, useState } from 'react'
 import { fetchJsonSafe, getBackendBase } from './api.js'
 import { useAuth } from './AuthContext.jsx'
-import { BILLING_PLANS, formatUsd, MONTHLY_PRICE_USD, YEARLY_LIST_USD, YEARLY_SAVE_USD } from './billingPlans.js'
+import { BILLING_PLANS, formatUsd, MONTHLY_PRICE_USD, YEARLY_SAVE_USD } from './billingPlans.js'
 import { IntroReveal } from './IntroReveal.jsx'
+import {
+  PLAN_FEATURES,
+  PRICING,
+  SUBSCRIBE,
+  SUBSCRIBE_FAQ,
+} from './marketingContent.js'
 import './IntroPage.css'
+import './IntroPage.marketing.css'
 import './SubscribePage.css'
-
-const INCLUDED = [
-  'Research, Insiders, Pharma & Politicians rails',
-  'Research catalyst papers & case worksheets',
-  'Historical outcomes on similar setups',
-  'Insider clusters with filing context',
-  'Exportable research — built for event-driven names',
-]
-
-const TRUST = [
-  { label: 'Cancel anytime', body: 'Self-serve from billing settings once Stripe is live.' },
-  { label: 'Secure checkout', body: 'Card handled by Stripe — never stored on our servers.' },
-  { label: 'Full terminal access', body: 'One subscription unlocks every workspace tab.' },
-]
-
-const FAQ = [
-  {
-    q: 'Can I switch between monthly and yearly?',
-    a: 'Yes. You can change plans from billing settings after checkout is connected.',
-  },
-  {
-    q: 'Is this investment advice?',
-    a: 'No. Mercerline is a research workspace only.',
-  },
-  {
-    q: 'What happens after I subscribe?',
-    a: 'You go straight into the terminal with live feeds when your API is connected.',
-  },
-]
 
 export function SubscribePage() {
   const { user, signOut } = useAuth()
@@ -41,7 +19,8 @@ export function SubscribePage() {
   const [checkoutMsg, setCheckoutMsg] = useState('')
   const [checkoutBusy, setCheckoutBusy] = useState(false)
 
-  const email = user?.email ?? 'Signed in'
+  const email = user?.email?.trim() || null
+  const selectedPlan = BILLING_PLANS.find((p) => p.id === selected) ?? BILLING_PLANS[1]
 
   const onCheckout = useCallback(async (planId) => {
     setSelected(planId)
@@ -66,185 +45,161 @@ export function SubscribePage() {
     const detail = res.data?.message
     if (res.status === 0 || err === 'network_error') {
       setCheckoutMsg(
-        `Cannot reach the API (${getBackendBase() || 'same origin'}/api). Run npm run dev locally, or set API_BASE_URL to your live API when deploying.`,
+        `Cannot reach the API (${getBackendBase() || 'same origin'}/api). Check API_BASE_URL points at your live backend.`,
       )
     } else if (err === 'stripe_not_configured') {
       setCheckoutMsg('Billing is not configured on the server yet (STRIPE_SECRET_KEY / price IDs).')
     } else if (err === 'invalid_plan') {
-      setCheckoutMsg('Unknown plan — check STRIPE_PRICE_ID_MONTHLY and STRIPE_PRICE_ID_YEARLY in .env.')
+      setCheckoutMsg('Unknown plan - check STRIPE_PRICE_ID_MONTHLY and STRIPE_PRICE_ID_YEARLY in .env.')
     } else if (res.status === 401) {
-      setCheckoutMsg('Session expired — sign out and sign in again, then retry.')
+      setCheckoutMsg('Session expired - sign out and sign in again, then retry.')
     } else if (err === 'checkout_failed' && detail) {
       setCheckoutMsg(`Checkout failed: ${detail}`)
     } else {
       setCheckoutMsg(
-        `Could not start checkout (HTTP ${res.status}${err ? `: ${err}` : ''}${detail ? ` — ${detail}` : ''}).`,
+        `Could not start checkout (HTTP ${res.status}${err ? `: ${err}` : ''}${detail ? ` - ${detail}` : ''}).`,
       )
     }
   }, [])
+
+  const footerLabel =
+    selected === 'yearly'
+      ? `Continue · yearly · save ${formatUsd(YEARLY_SAVE_USD)}`
+      : `Continue · ${formatUsd(MONTHLY_PRICE_USD)}/mo`
 
   return (
     <div className="introPage subscribePage">
       <header className="introNav">
         <div className="introNavInner">
-          <div className="introBrand" aria-label="Mercerline">
+          <a className="introBrand" href="/" aria-label="Mercerline home">
             <img className="introBrandLogo" src="/mercerline_logo_transparent.png" alt="" width={28} height={28} />
             <span className="introBrandName">MERCERLINE</span>
-          </div>
-          <p className="subscribeNavEmail mono" title={email}>
-            {email}
-          </p>
+          </a>
+          {email ? (
+            <p className="subscribeNavEmail mono" title={email}>
+              {email}
+            </p>
+          ) : null}
           <button type="button" className="introNavCta subscribeNavSignOut" onClick={() => void signOut()}>
             Sign out
           </button>
         </div>
       </header>
 
-      <main className="introMain">
-        <section className="introHero introHero--enter subscribeHero">
-          <p className="introEyebrow mono">One step left</p>
-          <h1 className="introHeadline subscribeHeadline">
-            Unlock the
+      <main className="introMain subscribeMain">
+        <section className="mktSubscribeHero introHero--enter">
+          <p className="introEyebrow mono">{SUBSCRIBE.eyebrow}</p>
+          <h1 className="mktHeroTitle mktSubscribeTitle">
+            {SUBSCRIBE.headline}
             <br />
-            <span className="introHeadlineAccent">full terminal</span>
+            <span className="introHeadlineAccent">{SUBSCRIBE.headlineAccent}</span>
           </h1>
-          <p className="introLead subscribeLead">
-            You are in. Choose a plan to access Research, Insiders, Pharma, Politicians, outcomes, and research papers in
-            one grid.
-          </p>
+          <p className="introLead mktSubscribeLead">{SUBSCRIBE.lead}</p>
+          <p className="mktHeroReassurance mono dim">{SUBSCRIBE.reassurance}</p>
         </section>
 
-        <IntroReveal as="section" className="introSection subscribePricing" delay={30}>
-          <div className="introSectionHead subscribePricingHead">
-            <p className="introSectionKicker mono">Pricing</p>
-            <h2 className="introSectionTitle">Pick how you want to pay</h2>
-            <p className="introSectionLead introSectionLead--wide">
-              Yearly is the best value — {formatUsd(YEARLY_SAVE_USD)} less than {formatUsd(MONTHLY_PRICE_USD)}/mo × 12.
-              Most members choose annual.
-            </p>
-          </div>
+        <IntroReveal as="section" className="introSection mktPricing subscribePricing" eager>
+          <div className="mktPricingLayout">
+            <div className="mktPricingHead">
+              <p className="introSectionKicker mono">{PRICING.kicker}</p>
+              <h2 className="introSectionTitle">{PRICING.title}</h2>
+              <p className="introSectionLead mktPricingSub">{PRICING.sub}</p>
+              <ul className="mktPricingFeatures">
+                {PLAN_FEATURES.map((line) => (
+                  <li key={line} className="mktPricingFeaturesItem">
+                    <span className="mktPricingFeaturesMark" aria-hidden="true" />
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-          <div className="subscribePlanGrid" role="list">
-            {BILLING_PLANS.map((plan) => {
-              const isSelected = selected === plan.id
-              return (
-                <article
-                  key={plan.id}
-                  role="listitem"
-                  className={[
-                    'subscribePlanCard',
-                    plan.featured ? 'subscribePlanCard--featured' : '',
-                    isSelected ? 'subscribePlanCard--selected' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                >
-                  {plan.badge ? (
-                    <span className="subscribePlanBadge mono">{plan.badge}</span>
-                  ) : (
-                    <span className="subscribePlanBadge subscribePlanBadge--spacer" aria-hidden="true" />
-                  )}
-                  <h3 className="subscribePlanName">{plan.name}</h3>
-                  <p className="subscribePlanPrice">
-                    <span className="subscribePlanAmount">{formatUsd(plan.priceUsd)}</span>
-                    <span className="subscribePlanInterval mono">/{plan.intervalLabel}</span>
-                  </p>
-                  {plan.id === 'yearly' ? (
-                    <p className="subscribePlanCompare mono">
-                      <s>{formatUsd(YEARLY_LIST_USD)}/yr</s> list
-                    </p>
-                  ) : (
-                    <p className="subscribePlanCompare mono subscribePlanCompare--muted">
-                      Flexible month to month
-                    </p>
-                  )}
-                  <p className="subscribePlanNote">{plan.billedNote}</p>
-                  <ul className="subscribePlanBullets">
-                    {INCLUDED.slice(0, 3).map((line) => (
-                      <li key={line}>{line}</li>
-                    ))}
-                  </ul>
-                  <button
-                    type="button"
-                    className={`introBtn ${plan.featured ? 'introBtn--primary' : 'introBtn--ghost'} subscribePlanBtn`}
-                    disabled={checkoutBusy}
-                    onClick={() => void onCheckout(plan.id)}
+            <div className="mktPlanGrid mktPlanGrid--full">
+              {BILLING_PLANS.map((plan) => {
+                const isSelected = selected === plan.id
+                return (
+                  <article
+                    key={plan.id}
+                    className={[
+                      'mktPlanCard',
+                      plan.featured ? 'mktPlanCard--featured' : '',
+                      isSelected ? 'subscribePlanCard--selected' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                   >
-                    {checkoutBusy ? 'Opening checkout…' : plan.featured ? 'Start yearly' : 'Start monthly'}
-                  </button>
-                </article>
-              )
-            })}
+                    {plan.badge ? <span className="mktPlanBadge mono">{plan.badge}</span> : null}
+                    <h3 className="mktPlanName">{plan.name}</h3>
+                    <p className="mktPlanPrice">
+                      <span className="mktPlanAmount">{formatUsd(plan.priceUsd)}</span>
+                      <span className="mono mktPlanInterval">/{plan.intervalLabel}</span>
+                    </p>
+                    <p className="mktPlanNote mono dim">
+                      {plan.id === 'yearly' ? PRICING.yearlyNote : PRICING.monthlyNote}
+                    </p>
+                    {plan.featured ? (
+                      <p className="mktPlanHighlight mono">Recommended for full-time use</p>
+                    ) : (
+                      <p className="mktPlanHighlight mktPlanHighlight--spacer" aria-hidden="true">
+                        &nbsp;
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      className={`introBtn ${plan.featured ? 'introBtn--primary' : 'introBtn--ghost'} mktPlanBtn`}
+                      disabled={checkoutBusy}
+                      onClick={() => void onCheckout(plan.id)}
+                    >
+                      {checkoutBusy && isSelected
+                        ? 'Opening checkout…'
+                        : plan.featured
+                          ? 'Continue with yearly'
+                          : 'Continue with monthly'}
+                    </button>
+                  </article>
+                )
+              })}
+            </div>
           </div>
 
           {checkoutMsg ? (
-            <p className="subscribeCheckoutMsg mono" role="status">
+            <p className="subscribeCheckoutMsg mono" role="alert">
               {checkoutMsg}
             </p>
           ) : null}
+
+          <p className="mktPricingFoot mono dim">
+            {formatUsd(YEARLY_SAVE_USD)} off yearly vs 12 monthly payments · Cancel anytime
+          </p>
         </IntroReveal>
 
-        <IntroReveal as="section" className="introSection subscribeIncluded" delay={50}>
-          <p className="introSectionKicker mono">Included</p>
-          <h2 className="introSectionTitle">Everything in one subscription</h2>
-          <ul className="subscribeIncludedList">
-            {INCLUDED.map((line) => (
-              <li key={line} className="subscribeIncludedItem">
-                <span className="subscribeIncludedMark" aria-hidden="true" />
-                {line}
-              </li>
-            ))}
-          </ul>
-        </IntroReveal>
-
-        <IntroReveal as="section" className="introSection subscribeTrust" delay={40}>
-          <div className="subscribeTrustGrid">
-            {TRUST.map((t) => (
-              <div key={t.label} className="subscribeTrustCell">
-                <h3 className="subscribeTrustLabel">{t.label}</h3>
-                <p className="subscribeTrustBody">{t.body}</p>
+        <IntroReveal as="section" className="introSection mktFaq subscribeFaq" delay={20}>
+          <p className="introSectionKicker mono">FAQ</p>
+          <h2 className="introSectionTitle">Before you checkout</h2>
+          <dl className="mktFaqList">
+            {SUBSCRIBE_FAQ.map((item) => (
+              <div key={item.q} className="mktFaqItem">
+                <dt className="mktFaqQ">{item.q}</dt>
+                <dd className="mktFaqA">{item.a}</dd>
               </div>
             ))}
-          </div>
+          </dl>
         </IntroReveal>
-
-        <IntroReveal as="section" className="introSection subscribeFaq" aria-labelledby="subscribe-faq-title" delay={40}>
-          <p className="introSectionKicker mono">FAQ</p>
-          <h2 id="subscribe-faq-title" className="introSectionTitle">
-            Quick answers
-          </h2>
-          <ul className="introFaqList subscribeFaqList">
-            {FAQ.map((item) => (
-              <li key={item.q} className="introFaqCell">
-                <p className="introFaqQ">{item.q}</p>
-                <p className="introFaqA">{item.a}</p>
-              </li>
-            ))}
-          </ul>
-        </IntroReveal>
-
-        <section className="introSection introCtaBand subscribeBottomCta">
-          <div className="introCtaInner">
-            <div className="introCtaRule" aria-hidden="true" />
-            <div className="introCtaCopy">
-              <h2 className="introCtaTitle">
-                Ready when
-                <span className="introCtaTitleAccent"> you are</span>
-              </h2>
-              <p className="introCtaRails mono">Yearly · {formatUsd(YEARLY_SAVE_USD)} off vs monthly × 12</p>
-              <button
-                type="button"
-                className="introBtn introBtn--primary introCtaBtn"
-                disabled={checkoutBusy}
-                onClick={() => void onCheckout('yearly')}
-              >
-                {checkoutBusy ? 'Opening checkout…' : 'Continue with yearly'}
-              </button>
-            </div>
-            <div className="introCtaRule" aria-hidden="true" />
-          </div>
-        </section>
       </main>
+
+      <footer className="introFoot introFoot--bar" role="contentinfo">
+        <div className="introFootInner">
+          <span className="introFootNfa mono dim">Not investment advice</span>
+          <button
+            type="button"
+            className="introBtn introBtn--primary introFootCta"
+            disabled={checkoutBusy}
+            onClick={() => void onCheckout(selectedPlan.id)}
+          >
+            {checkoutBusy ? 'Opening checkout…' : footerLabel}
+          </button>
+        </div>
+      </footer>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 /** Display + checkout plan ids (Stripe price IDs wired later). */
-export const MONTHLY_PRICE_USD = 49
-export const YEARLY_PRICE_USD = 470
+export const MONTHLY_PRICE_USD = 99
+export const YEARLY_PRICE_USD = 999
 export const YEARLY_LIST_USD = MONTHLY_PRICE_USD * 12
 export const YEARLY_SAVE_USD = YEARLY_LIST_USD - YEARLY_PRICE_USD
 
@@ -19,7 +19,7 @@ export const BILLING_PLANS = [
     name: 'Yearly',
     priceUsd: YEARLY_PRICE_USD,
     intervalLabel: 'year',
-    billedNote: `~$${Math.round(YEARLY_PRICE_USD / 12)}/mo · billed annually`,
+    billedNote: `Save ${formatUsd(YEARLY_SAVE_USD)} vs monthly · billed annually`,
     badge: `Save $${YEARLY_SAVE_USD}`,
     featured: true,
   },

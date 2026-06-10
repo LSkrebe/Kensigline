@@ -1,93 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AuthSignIn } from './AuthSignIn.jsx'
 import { IntroReveal } from './IntroReveal.jsx'
+import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
+import { BILLING_PLANS, formatUsd, MONTHLY_PRICE_USD, YEARLY_SAVE_USD } from './billingPlans.js'
+import {
+  DATA_SOURCES,
+  HERO,
+  INTRO_FAQ,
+  PLAN_FEATURES,
+  PRICING,
+  PROOF_POINTS,
+  SHOWCASE_TABS,
+} from './marketingContent.js'
 import './IntroPage.css'
+import './IntroPage.marketing.css'
 
-const PROBLEMS = [
-  {
-    title: 'Fragmented context',
-    body: 'Thesis, filing, and chart live in three apps. You align them after the move starts.',
-  },
-  {
-    title: 'Noisy insider flow',
-    body: 'Headlines chase single Form 4s. Clusters and size vs history are what matter.',
-  },
-  {
-    title: 'Unstructured pharma',
-    body: 'Press releases skip design and endpoints. You need the worksheet, not another alert.',
-  },
-  {
-    title: 'Politicians misread',
-    body: 'PTR is delayed. Use it as exposure confirmation — not timing alpha.',
-  },
-]
-
-const FEATURES = [
-  {
-    tag: 'Research',
-    title: 'Catalyst papers',
-    body: 'Thesis, price, causality, and sources in one exportable paper.',
-  },
-  {
-    tag: 'Insiders',
-    title: 'Form 4 on the case',
-    body: 'Clusters on the tape with historical outcome context.',
-  },
-  {
-    tag: 'Pharma',
-    title: 'Trials on a timeline',
-    body: 'Programs and worksheets beside the chart — not buried in PDFs.',
-  },
-  {
-    tag: 'Politicians',
-    title: 'PTR, framed right',
-    body: 'Disclosures as exposure signals. Same rhythm as insider flow.',
-  },
-]
-
-const BENEFITS = [
-  { code: 'OUT', title: 'Historical outcomes', body: 'Win rates and return windows on similar setups — no export.' },
-  { code: 'TRD', title: 'Trend panels', body: 'Forward-return views per rail when your API is live.' },
-  { code: 'PPR', title: 'Research papers', body: 'Long-form theses you copy or share — not chat scraps.' },
-  { code: 'UX', title: 'Terminal UX', body: 'Dense grid and keyboard flow for full-day screens.' },
-]
-
-const STEPS = [
-  { n: '1', title: 'Pick your lane', body: 'Research, Insiders, Pharma, or Politicians — each a full workspace.' },
-  { n: '2', title: 'Build the case', body: 'Feeds, worksheets, and graphs lock to the ticker in one grid.' },
-  { n: '3', title: 'Decide early', body: 'Outcomes and trends show how similar setups behaved before the print.' },
-]
-
-const PERSONAS = [
-  { code: 'BIO', title: 'Biotech & pharma', body: 'Readouts and FDA dates with trial structure on the same screen.' },
-  { code: 'EVT', title: 'Event-driven', body: 'Binary catalysts and short holds — not continuous coverage.' },
-  { code: 'FLW', title: 'Insider & flow', body: 'Form 4 clusters and case sheets as first-class rails.' },
-]
-
-const FAQ = [
-  {
-    code: 'Q01',
-    q: 'Bloomberg replacement?',
-    a: 'No — narrow by design: catalyst equities, insider flow, trials, and research papers.',
-  },
-  {
-    code: 'Q02',
-    q: 'How fresh is data?',
-    a: 'Live feeds when your API is connected; sample data offline so the UI still runs.',
-  },
-  {
-    code: 'Q03',
-    q: 'Who is it for?',
-    a: 'Investors and analysts who already work in catalysts, filings, and readouts.',
-  },
-  {
-    code: 'Q04',
-    q: 'Investment advice?',
-    a: 'No. Mercerline is a research workspace only.',
-  },
-]
-
-const INTRO_NAV_OFFSET = 80
+const NAV_OFFSET = 72
 
 export function IntroPage() {
   const [signInOpen, setSignInOpen] = useState(false)
@@ -101,33 +29,20 @@ export function IntroPage() {
     const scroller = pageRef.current
     const target = document.getElementById(sectionId)
     if (!scroller || !target) return
-
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     const top =
       target.getBoundingClientRect().top -
       scroller.getBoundingClientRect().top +
       scroller.scrollTop -
-      INTRO_NAV_OFFSET
-
-    scroller.scrollTo({
-      top: Math.max(0, top),
-      behavior: reduced ? 'instant' : 'smooth',
-    })
-
-    if (window.history?.pushState) {
-      window.history.pushState(null, '', `#${sectionId}`)
-    }
+      NAV_OFFSET
+    scroller.scrollTo({ top: Math.max(0, top), behavior: reduced ? 'instant' : 'smooth' })
+    if (window.history?.pushState) window.history.pushState(null, '', `#${sectionId}`)
   }, [])
 
   const scrollToTop = useCallback((e) => {
     e?.preventDefault()
-    const scroller = pageRef.current
-    if (!scroller) return
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    scroller.scrollTo({ top: 0, behavior: reduced ? 'instant' : 'smooth' })
-    if (window.history?.pushState) {
-      window.history.pushState(null, '', window.location.pathname)
-    }
+    pageRef.current?.scrollTo({ top: 0, behavior: 'auto' })
+    if (window.history?.pushState) window.history.pushState(null, '', window.location.pathname)
   }, [])
 
   useEffect(() => {
@@ -140,7 +55,7 @@ export function IntroPage() {
   }, [signInOpen, closeSignIn])
 
   return (
-    <div ref={pageRef} className={`introPage${signInOpen ? ' introPage--modalOpen' : ''}`}>
+    <div ref={pageRef} className={['introPage', signInOpen ? 'introPage--modalOpen' : ''].filter(Boolean).join(' ')}>
       <header className="introNav">
         <div className="introNavInner">
           <a className="introBrand" href="/" aria-label="Mercerline home" onClick={scrollToTop}>
@@ -148,14 +63,11 @@ export function IntroPage() {
             <span className="introBrandName">MERCERLINE</span>
           </a>
           <nav className="introNavLinks mono" aria-label="On this page">
-            <a href="#problem" onClick={(e) => scrollToSection('problem', e)}>
-              Why
+            <a href="#how" onClick={(e) => scrollToSection('how', e)}>
+              How it works
             </a>
-            <a href="#features" onClick={(e) => scrollToSection('features', e)}>
-              Product
-            </a>
-            <a href="#workflow" onClick={(e) => scrollToSection('workflow', e)}>
-              Workflow
+            <a href="#pricing" onClick={(e) => scrollToSection('pricing', e)}>
+              Pricing
             </a>
             <a href="#faq" onClick={(e) => scrollToSection('faq', e)}>
               FAQ
@@ -168,192 +80,148 @@ export function IntroPage() {
       </header>
 
       <main className="introMain">
-        <section className="introHero introHero--enter">
-          <div className="introHeroContent">
-            <p className="introEyebrow mono">Research terminal</p>
-            <h1 className="introHeadline">
-              Read the tape.
+        <section className="mktHero introHero--enter">
+          <div className="mktHeroCopy">
+            <p className="introEyebrow mono">{HERO.eyebrow}</p>
+            <h1 className="mktHeroTitle">
+              {HERO.headline}
               <br />
-              <span className="introHeadlineAccent">Own the catalyst.</span>
+              <span className="introHeadlineAccent">{HERO.headlineAccent}</span>
             </h1>
-            <p className="introLead">
-              One dark grid for biotech, insider flow, and event-driven names — built around what moves the stock.
-            </p>
-          </div>
-          <div className="introHeroRow">
-            <div className="introHeroActions">
-              <button type="button" className="introBtn introBtn--primary" onClick={openSignIn}>
-                Get started
+            <p className="introLead mktHeroLead">{HERO.lead}</p>
+            <div className="introHeroActions mktHeroActions">
+              <button type="button" className="introBtn introBtn--primary introBtn--lg" onClick={openSignIn}>
+                {HERO.ctaPrimary}
               </button>
-              <a className="introBtn introBtn--ghost" href="#workflow" onClick={(e) => scrollToSection('workflow', e)}>
-                See how it works
+              <a className="introBtn introBtn--ghost" href="#how" onClick={(e) => scrollToSection('how', e)}>
+                {HERO.ctaSecondary}
               </a>
             </div>
-            <p className="introHeroRailsLabel mono" aria-hidden="true">
-              Insiders · Pharma · Politicians · Research
-            </p>
+            <p className="mktHeroReassurance mono dim">{HERO.reassurance}</p>
+          </div>
+
+          <div className="mktHeroDemo">
+            <IntroTerminalPreview staticResearch />
+            <p className="mktHeroDemoHint mono dim">{DATA_SOURCES}</p>
           </div>
         </section>
 
-        <IntroReveal as="section" id="problem" className="introSection introProblem" aria-labelledby="intro-problem-title">
-          <div className="introProblemBand">
-            <div className="introSectionHead introProblemHead">
-              <p className="introSectionKicker mono">Why Mercerline</p>
-              <h2 id="intro-problem-title" className="introSectionTitle">
-                Generic tools fail catalyst work
-              </h2>
-              <p className="introSectionLead introSectionLead--wide">
-                You trade discrete events. Most platforms are built for always-on coverage.
-              </p>
-            </div>
-            <ul className="introProblemList">
-              {PROBLEMS.map((p) => (
-                <li key={p.title} className="introProblemItem">
-                  <span className="introProblemTitle">{p.title}</span>
-                  <span className="introProblemBody">{p.body}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </IntroReveal>
-
-        <IntroReveal
-          as="section"
-          id="features"
-          className="introSection introFeatures"
-          aria-labelledby="intro-features-title"
-          delay={40}
-        >
-          <div className="introSectionHead">
-            <p className="introSectionKicker mono">Product</p>
-            <h2 id="intro-features-title" className="introSectionTitle">
-              Everything before the print
+        <IntroReveal as="section" id="how" className="introSection mktWorkflowSection" aria-labelledby="mkt-workflow-title">
+          <div className="mktWorkflowHead">
+            <p className="introSectionKicker mono">How it works</p>
+            <h2 id="mkt-workflow-title" className="introSectionTitle">
+              Scan. Build. Drill.
             </h2>
-            <p className="introSectionLead introSectionLead--wide">
-              Four rails. One terminal. Same rhythm from Phase 3 drill-down to insider clusters.
+            <p className="introSectionLead mktWorkflowLead">
+              Three tabs, one workflow - from macro week to Form 4 cluster, without leaving the grid.
             </p>
           </div>
-          <div className="introFeatureGrid">
-            {FEATURES.map((f) => (
-              <article key={f.tag} className="introFeatureCard">
-                <span className="introFeatureTag mono">{f.tag}</span>
-                <h3 className="introFeatureTitle">{f.title}</h3>
-                <p className="introFeatureBody">{f.body}</p>
-              </article>
-            ))}
-          </div>
-        </IntroReveal>
-
-        <IntroReveal as="section" className="introSection introBenefits" aria-labelledby="intro-benefits-title" delay={60}>
-          <p className="introSectionKicker mono">Included</p>
-          <h2 id="intro-benefits-title" className="introSectionTitle">
-            Built into every case
-          </h2>
-          <ul className="introBenefitMatrix">
-            {BENEFITS.map((b) => (
-              <li key={b.title} className="introBenefitCell">
-                <span className="introBenefitCode mono">{b.code}</span>
-                <h3 className="introBenefitTitle">{b.title}</h3>
-                <p className="introBenefitBody">{b.body}</p>
-              </li>
-            ))}
-          </ul>
-        </IntroReveal>
-
-        <IntroReveal
-          as="section"
-          id="workflow"
-          className="introSection introWorkflow"
-          aria-labelledby="intro-workflow-title"
-          delay={40}
-        >
-          <div className="introSectionHead">
-            <p className="introSectionKicker mono">Workflow</p>
-            <h2 id="intro-workflow-title" className="introSectionTitle">
-              Idea to conviction in three steps
-            </h2>
-          </div>
-          <ol className="introSteps">
-            {STEPS.map((s) => (
-              <li key={s.n} className="introStep">
-                <span className="introStepMarker mono" aria-hidden="true">
-                  {s.n}
-                </span>
-                <div className="introStepBody">
-                  <h3 className="introStepTitle">{s.title}</h3>
-                  <p className="introStepText">{s.body}</p>
+          <ol className="mktWorkflowSteps">
+            {SHOWCASE_TABS.map((tab) => (
+              <li key={tab.id} className="mktWorkflowStep">
+                <div className="mktWorkflowStepRail" aria-hidden="true">
+                  <span className="mktWorkflowStepNum mono">{tab.step}</span>
+                  <span className="mktWorkflowStepLine" />
+                </div>
+                <div className="mktWorkflowStepBody">
+                  <p className="mktWorkflowStepLabel mono">{tab.label}</p>
+                  <h3 className="mktWorkflowStepTitle">{tab.title}</h3>
+                  <p className="mktWorkflowStepText">{tab.body}</p>
                 </div>
               </li>
             ))}
           </ol>
         </IntroReveal>
 
-        <IntroReveal as="section" className="introSection introPersonas" aria-labelledby="intro-personas-title" delay={60}>
-          <p className="introSectionKicker mono">Who it&apos;s for</p>
-          <h2 id="intro-personas-title" className="introSectionTitle">
-            Built for serious process
+        <IntroReveal as="section" className="introSection mktProof" aria-labelledby="mkt-proof-title" delay={30}>
+          <p className="introSectionKicker mono">Why Mercerline</p>
+          <h2 id="mkt-proof-title" className="introSectionTitle">
+            Built for catalyst process
           </h2>
-          <ul className="introPersonaStack">
-            {PERSONAS.map((p, i) => (
-              <li key={p.title} className="introPersonaRail">
-                <div className="introPersonaRailTrack" aria-hidden="true">
-                  <span className="introPersonaCode mono">{p.code}</span>
-                  {i < PERSONAS.length - 1 ? <span className="introPersonaRailLine" /> : null}
-                </div>
-                <div className="introPersonaRailCopy">
-                  <h3 className="introPersonaTitle">{p.title}</h3>
-                  <p className="introPersonaBody">{p.body}</p>
-                </div>
+          <ul className="mktProofGrid">
+            {PROOF_POINTS.map((p) => (
+              <li key={p.label} className="mktProofCard">
+                <span className="mktProofStat mono">{p.stat}</span>
+                <span className="mktProofLabel">{p.label}</span>
+                <p className="mktProofDetail">{p.detail}</p>
               </li>
             ))}
           </ul>
         </IntroReveal>
 
-        <IntroReveal as="section" className="introSection introPitch" delay={40}>
-          <blockquote className="introQuote">
-            “Insider flow, trial design, and narrative in one frame — before the crowd reprices.”
-          </blockquote>
-        </IntroReveal>
-
-        <IntroReveal as="section" id="faq" className="introSection introFaq" aria-labelledby="intro-faq-title" delay={60}>
-          <div className="introSectionHead">
-            <p className="introSectionKicker mono">FAQ</p>
-            <h2 id="intro-faq-title" className="introSectionTitle">
-              Common questions
-            </h2>
-          </div>
-          <ul className="introFaqMatrix">
-            {FAQ.map((item) => (
-              <li key={item.q} className="introFaqCell">
-                <span className="introFaqCode mono">{item.code}</span>
-                <h3 className="introFaqQ">{item.q}</h3>
-                <p className="introFaqA">{item.a}</p>
-              </li>
-            ))}
-          </ul>
-        </IntroReveal>
-
-        <IntroReveal
-          as="section"
-          className="introSection introCtaBand"
-          aria-labelledby="intro-cta-title"
-          delay={80}
-          eager
-        >
-          <div className="introCtaInner">
-            <div className="introCtaRule" aria-hidden="true" />
-            <div className="introCtaCopy">
-              <h2 id="intro-cta-title" className="introCtaTitle">
-                Open the <span className="introCtaTitleAccent">terminal</span>
-              </h2>
-              <p className="introCtaRails mono" aria-hidden="true">
-                Insiders · Pharma · Politicians · Research
-              </p>
-              <button type="button" className="introBtn introBtn--primary introCtaBtn" onClick={openSignIn}>
-                Sign in
-              </button>
+        <IntroReveal as="section" id="pricing" className="introSection mktPricing" delay={40}>
+          <div className="mktPricingLayout">
+            <div className="mktPricingHead">
+              <p className="introSectionKicker mono">{PRICING.kicker}</p>
+              <h2 className="introSectionTitle">{PRICING.title}</h2>
+              <p className="introSectionLead mktPricingSub">{PRICING.sub}</p>
+              <ul className="mktPricingFeatures">
+                {PLAN_FEATURES.map((line) => (
+                  <li key={line} className="mktPricingFeaturesItem">
+                    <span className="mktPricingFeaturesMark" aria-hidden="true" />
+                    {line}
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="introCtaRule" aria-hidden="true" />
+            <div className="mktPlanGrid mktPlanGrid--full">
+              {BILLING_PLANS.map((plan) => (
+                <article
+                  key={plan.id}
+                  className={['mktPlanCard', plan.featured ? 'mktPlanCard--featured' : ''].filter(Boolean).join(' ')}
+                >
+                  {plan.badge ? <span className="mktPlanBadge mono">{plan.badge}</span> : null}
+                  <h3 className="mktPlanName">{plan.name}</h3>
+                  <p className="mktPlanPrice">
+                    <span className="mktPlanAmount">{formatUsd(plan.priceUsd)}</span>
+                    <span className="mono mktPlanInterval">/{plan.intervalLabel}</span>
+                  </p>
+                  <p className="mktPlanNote mono dim">
+                    {plan.id === 'yearly' ? PRICING.yearlyNote : PRICING.monthlyNote}
+                  </p>
+                  {plan.featured ? (
+                    <p className="mktPlanHighlight mono">Recommended for full-time use</p>
+                  ) : (
+                    <p className="mktPlanHighlight mktPlanHighlight--spacer" aria-hidden="true">
+                      &nbsp;
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    className={`introBtn ${plan.featured ? 'introBtn--primary' : 'introBtn--ghost'} mktPlanBtn`}
+                    onClick={openSignIn}
+                  >
+                    {plan.featured ? 'Start yearly' : 'Start monthly'}
+                  </button>
+                </article>
+              ))}
+            </div>
+          </div>
+          <p className="mktPricingFoot mono dim">
+            {formatUsd(YEARLY_SAVE_USD)} off yearly vs 12 monthly payments · Cancel anytime
+          </p>
+        </IntroReveal>
+
+        <IntroReveal as="section" id="faq" className="introSection mktFaq" delay={50}>
+          <p className="introSectionKicker mono">FAQ</p>
+          <h2 className="introSectionTitle">Common questions</h2>
+          <dl className="mktFaqList">
+            {INTRO_FAQ.map((item) => (
+              <div key={item.q} className="mktFaqItem">
+                <dt className="mktFaqQ">{item.q}</dt>
+                <dd className="mktFaqA">{item.a}</dd>
+              </div>
+            ))}
+          </dl>
+        </IntroReveal>
+
+        <IntroReveal as="section" className="introSection mktFinalCta" delay={20} eager>
+          <div className="mktFinalCtaInner">
+            <h2 className="mktFinalCtaTitle">Open the terminal</h2>
+            <p className="mktFinalCtaSub mono dim">{HERO.rails}</p>
+            <button type="button" className="introBtn introBtn--primary introBtn--lg" onClick={openSignIn}>
+              {HERO.ctaPrimary}
+            </button>
           </div>
         </IntroReveal>
       </main>
@@ -371,20 +239,23 @@ export function IntroPage() {
               ×
             </button>
             <h2 id="intro-signin-title" className="introModalTitle">
-              Sign in
+              Sign in to continue
             </h2>
-            <p className="introModalLead mono dim">
-              Sign in with email and password, or create an account to open the terminal.
-            </p>
+            <p className="introModalLead mono dim">Create an account or sign in, then choose your plan.</p>
             <AuthSignIn variant="intro" onSuccess={closeSignIn} />
           </div>
         </div>
       ) : null}
 
-      <footer className="introFoot mono dim">
-        <span>Mercerline</span>
-        <span className="introFootSep">·</span>
-        <span>Not investment advice</span>
+      <footer className="introFoot introFoot--bar" role="contentinfo">
+        <div className="introFootInner">
+          <span className="introFootNfa mono dim">Not investment advice</span>
+          {!signInOpen ? (
+            <button type="button" className="introBtn introBtn--primary introFootCta" onClick={openSignIn}>
+              Get access - {formatUsd(MONTHLY_PRICE_USD)}/mo
+            </button>
+          ) : null}
+        </div>
       </footer>
     </div>
   )

@@ -1,6 +1,10 @@
 .introPage {
   --intro-gutter: clamp(18px, 4vw, 22px);
   --intro-max: 1080px;
+  --intro-accent: rgba(168, 196, 255, 0.92);
+  --intro-accent-dim: rgba(168, 196, 255, 0.55);
+  --intro-accent-bg: rgba(168, 196, 255, 0.1);
+  --intro-accent-border: rgba(168, 196, 255, 0.38);
   box-sizing: border-box;
   min-height: 100dvh;
   height: 100dvh;
@@ -14,8 +18,8 @@
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(900px 480px at 12% -8%, rgba(90, 220, 255, 0.09), transparent 55%),
-    radial-gradient(700px 400px at 88% 20%, rgba(168, 196, 255, 0.06), transparent 50%),
+    radial-gradient(900px 480px at 12% -8%, rgba(168, 196, 255, 0.08), transparent 55%),
+    radial-gradient(700px 400px at 88% 20%, rgba(168, 196, 255, 0.05), transparent 50%),
     #06070a;
   color: rgba(255, 255, 255, 0.88);
 }
@@ -68,8 +72,8 @@
 .introNavCta {
   height: 32px;
   padding: 0 14px;
-  border: 1px solid rgba(90, 220, 255, 0.35);
-  background: rgba(90, 220, 255, 0.1);
+  border: 1px solid var(--intro-accent-border);
+  background: var(--intro-accent-bg);
   color: rgba(240, 255, 252, 0.95);
   font-family: inherit;
   font-size: 10px;
@@ -99,8 +103,8 @@
 }
 
 .introNavCta:hover {
-  background: rgba(90, 220, 255, 0.18);
-  border-color: rgba(90, 220, 255, 0.5);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 
 @media (max-width: 640px) {
@@ -157,7 +161,7 @@
   font-size: 10px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(90, 220, 255, 0.75);
+  color: var(--intro-accent-dim);
 }
 
 .introHeadline {
@@ -205,13 +209,14 @@
 }
 
 .introBtn--primary {
-  background: rgba(90, 220, 255, 0.2);
-  border-color: rgba(90, 220, 255, 0.45);
-  color: rgba(248, 255, 255, 0.98);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: rgba(255, 255, 255, 0.98);
 }
 
 .introBtn--primary:hover {
-  background: rgba(90, 220, 255, 0.3);
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.38);
 }
 
 .introBtn--ghost {
@@ -292,7 +297,7 @@
   font-size: 10px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: rgba(90, 220, 255, 0.65);
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .introSectionTitle {
@@ -935,16 +940,83 @@
 }
 
 .introFoot {
-  padding: 20px 22px 28px;
+  padding: 16px 22px 20px;
   text-align: center;
   font-size: 10px;
   letter-spacing: 0.06em;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.introFootSep {
-  margin: 0 8px;
-  opacity: 0.5;
+.introFoot--bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 25;
+  padding: 0;
+  text-align: left;
+  background: rgba(5, 6, 7, 0.94);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.introFootInner {
+  max-width: var(--intro-max);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px var(--intro-gutter) calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+.introFootNfa {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 9px;
+  color: rgba(180, 195, 210, 0.55);
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.introFootCta {
+  flex: 0 0 auto;
+  height: 36px;
+  padding: 0 18px;
+  font-size: 10px;
+}
+
+.introPage:not(.introPage--modalOpen) {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+.introFoot--nfa {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 9px;
+  color: rgba(180, 195, 210, 0.55);
+}
+
+.introPage:not(.introPage--modalOpen) .introFoot:not(.introFoot--bar) {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (max-width: 640px) {
+  .introFootInner {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .introFootNfa {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+
+  .introFootCta {
+    width: 100%;
+    max-width: 320px;
+  }
 }
 
 /* Shared auth form (intro + settings) */

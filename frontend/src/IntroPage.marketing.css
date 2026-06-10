@@ -1,0 +1,1282 @@
+/* Mercerline marketing page */
+
+.introPage {
+  --intro-demo-max: min(1180px, 100vw - 2 * var(--intro-gutter));
+}
+
+.introPage .introMain {
+  padding-top: clamp(16px, 3vh, 32px);
+}
+
+.mktHero {
+  padding: clamp(52px, 9vh, 88px) 0 clamp(36px, 6vh, 56px);
+}
+
+.mktHeroCopy {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+  padding-top: clamp(8px, 2vh, 20px);
+}
+
+.mktHero .introEyebrow {
+  margin: 0 0 clamp(18px, 3vh, 24px);
+}
+
+.mktHero .introLead {
+  margin-bottom: clamp(28px, 4vh, 36px);
+}
+
+.mktHeroTitle {
+  margin: 0 0 clamp(20px, 3vh, 28px);
+  font-size: clamp(2.25rem, 6.5vw, 3.5rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.mktHeroLead {
+  margin: 0 auto clamp(28px, 4vh, 36px);
+  max-width: 46ch;
+}
+
+.mktHeroActions {
+  justify-content: center;
+  margin-top: 0;
+}
+
+.mktHeroReassurance {
+  margin: 16px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+
+.mktHeroDemo {
+  margin-top: clamp(40px, 6vh, 56px);
+  max-width: var(--intro-demo-max);
+  margin-inline: auto;
+}
+
+.mktHeroDemoHint {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.introBtn--lg {
+  height: 44px;
+  padding: 0 24px;
+  font-size: 11px;
+}
+
+/* Terminal-shaped teaser — mirrors live chrome, generic placeholders only */
+.mktTeaser {
+  --mkt-bg: #050607;
+  --mkt-panel: rgba(10, 11, 13, 0.86);
+  --mkt-grid: rgba(255, 255, 255, 0.09);
+  --mkt-hi: rgba(255, 255, 255, 0.92);
+  --mkt-dim: rgba(255, 255, 255, 0.56);
+  --mkt-cyan: rgba(168, 196, 255, 0.9);
+  --mkt-topbar-h: 34px;
+  --mkt-tabrail-w: clamp(26px, 3.2vw, 34px);
+  --mkt-paper-portrait: 44px;
+  --mkt-paper-radius: 6px;
+  height: clamp(500px, 64vh, 640px);
+}
+
+.mktTeaserShell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--mkt-grid);
+  background: var(--mkt-bg);
+  color: rgba(255, 255, 255, 0.86);
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+
+.mktTeaserTopBar {
+  flex: 0 0 var(--mkt-topbar-h);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+  padding: 0 12px 0 10px;
+  background: rgba(5, 6, 7, 0.94);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--mkt-grid);
+  z-index: 2;
+}
+
+.mktTeaserTopBarStart,
+.mktTeaserTopBarCenter,
+.mktTeaserTopBarEnd {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+}
+
+.mktTeaserTopBarStart {
+  justify-content: flex-start;
+}
+
+.mktTeaserTopBarCenter {
+  justify-content: center;
+  align-items: stretch;
+}
+
+.mktTeaserTopBarEnd {
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.mktTeaserBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 100%;
+}
+
+.mktTeaserLogo {
+  display: block;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  object-fit: contain;
+  object-position: center;
+  transform: translateX(4px);
+}
+
+.mktTeaserBrandName {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--mkt-hi);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.mktTeaserHealth {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.mktTeaserHealth.isUp {
+  background: rgba(120, 220, 160, 0.95);
+  box-shadow: 0 0 6px rgba(120, 220, 160, 0.45);
+}
+
+.mktTeaserIntelSwitch {
+  display: inline-flex;
+  align-items: stretch;
+  justify-content: center;
+  height: 100%;
+  white-space: nowrap;
+}
+
+.mktTeaserIntelBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mkt-dim);
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+.mktTeaserIntelBtn.isActive {
+  color: var(--mkt-hi);
+}
+
+.mktTeaserIntelBtn.isActive::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.mktTeaserIntelSep {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  padding: 0 4px;
+  color: rgba(255, 255, 255, 0.22);
+  font-size: 8px;
+  line-height: 1;
+}
+
+.mktTeaserClock {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--mkt-dim);
+  line-height: 1;
+}
+
+.mktTeaserSettingsIcon {
+  flex-shrink: 0;
+  width: var(--terminal-topbar-icon-size, 22px);
+  height: var(--terminal-topbar-icon-size, 22px);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.22) 1.5px, transparent 2px),
+    rgba(255, 255, 255, 0.03);
+}
+
+.mktTeaserWorkspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+}
+
+.mktTeaserSideRail {
+  flex: 0 0 var(--mkt-tabrail-w);
+  width: var(--mkt-tabrail-w);
+  display: flex;
+  flex-direction: column;
+  background: rgba(5, 6, 7, 0.96);
+  border-right: 1px solid var(--mkt-grid);
+  z-index: 2;
+}
+
+.mktTeaserSideTab {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  border-bottom: 1px solid var(--mkt-grid);
+  color: var(--mkt-hi);
+}
+
+.mktTeaserSideTab:last-child {
+  border-bottom: none;
+}
+
+.mktTeaserSideTab.isActive {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.mktTeaserSideTabLabel {
+  display: inline-block;
+  transform: rotate(-90deg);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: min(calc(var(--mkt-tabrail-w) / 1.28), 10px);
+  font-weight: 600;
+}
+
+.mktTeaserSideTabLabel--investigate {
+  font-size: min(calc(var(--mkt-tabrail-w) / 1.38), 9px);
+}
+
+.mktTeaserGrid {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(62px, 0.95fr) minmax(0, 1.8fr) minmax(48px, 1.35fr);
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  border-left: 1px solid var(--mkt-grid);
+  background:
+    radial-gradient(1200px 700px at 20% 28%, rgba(255, 255, 255, 0.06), transparent 60%),
+    radial-gradient(900px 520px at 76% 65%, rgba(255, 255, 255, 0.035), transparent 62%),
+    var(--mkt-bg);
+}
+
+.mktTeaserPanel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--mkt-grid);
+  background: var(--mkt-panel);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 10px 26px rgba(0, 0, 0, 0.32);
+}
+
+.mktTeaserPanel--feed {
+  grid-column: 1;
+  grid-row: 1 / span 4;
+  background:
+    radial-gradient(420px 240px at -8% -12%, rgba(255, 255, 255, 0.14), transparent 58%),
+    radial-gradient(280px 160px at 108% 108%, rgba(255, 255, 255, 0.04), transparent 54%),
+    var(--mkt-panel);
+}
+
+.mktTeaserPanel--paper {
+  grid-column: 2;
+  grid-row: 1 / span 4;
+  background: rgba(8, 9, 11, 0.92);
+  position: relative;
+  isolation: isolate;
+}
+
+.mktTeaserPanel--paper::after {
+  content: '';
+  position: absolute;
+  inset: 27px 0 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(720px 420px at 12% 0%, rgba(255, 255, 255, 0.035), transparent 62%),
+    radial-gradient(520px 320px at 88% 18%, rgba(255, 255, 255, 0.02), transparent 58%);
+}
+
+.mktTeaserPanel--context {
+  grid-column: 3;
+  grid-row: 1 / span 4;
+  border-right: none;
+  background:
+    radial-gradient(420px 240px at -8% -12%, rgba(255, 255, 255, 0.14), transparent 58%),
+    radial-gradient(280px 160px at 108% 108%, rgba(255, 255, 255, 0.04), transparent 54%),
+    rgba(10, 11, 13, 0.88);
+}
+
+.mktTeaserPanelHead {
+  flex: 0 0 27px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--mkt-grid);
+  position: relative;
+  z-index: 1;
+}
+
+.mktTeaserPanelHead--paper {
+  align-items: stretch;
+}
+
+.mktTeaserPanelTitle {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mkt-hi);
+}
+
+.mktTeaserPanelHeadEnd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.mktTeaserPanelMeta {
+  font-size: 9px;
+  color: var(--mkt-dim);
+}
+
+.mktTeaserFilterIcon {
+  width: 14px;
+  height: 14px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.45) 0 0) 2px 2px / 4px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.45) 0 0) 2px 6px / 8px 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.45) 0 0) 2px 10px / 6px 1px no-repeat;
+  opacity: 0.55;
+}
+
+.mktTeaserFeedSearch {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 8px 4px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.mktTeaserSearchIcon {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  position: relative;
+}
+
+.mktTeaserSearchIcon::after {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 1.5px;
+  background: rgba(255, 255, 255, 0.28);
+  right: -3px;
+  bottom: -1px;
+  transform: rotate(45deg);
+}
+
+.mktTeaserSearchPlaceholder {
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.mktTeaserFeedList {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.mktTeaserFeedRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  flex: 1 1 0;
+  min-height: 22px;
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(140, 255, 195, 0.06);
+}
+
+.mktTeaserFeedRow.isActive {
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
+  border-bottom-color: transparent;
+}
+
+.mktTeaserFeedDate {
+  flex-shrink: 0;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.38);
+  white-space: nowrap;
+}
+
+.mktTeaserGhost {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  min-width: 24px;
+}
+
+.mktTeaserGhost--short {
+  height: 5px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.mktTeaserGhost--tall {
+  height: 10px;
+}
+
+.mktTeaserPaperTicker {
+  align-self: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1;
+}
+
+.mktTeaserShotIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 0;
+}
+
+.mktTeaserShotIcon svg {
+  display: block;
+}
+
+.mktTeaserPaperBody {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 10px 10px 12px;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mktTeaserPaperHero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mktTeaserPaperDocs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.mktTeaserPaperDoc {
+  position: relative;
+}
+
+.mktTeaserPaperDoc + .mktTeaserPaperDoc::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--mkt-paper-radius) + var(--mkt-paper-portrait) / 2 - 0.5px);
+  top: -8px;
+  height: 8px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mktTeaserPaperDocCard {
+  display: grid;
+  grid-template-columns: var(--mkt-paper-portrait) minmax(0, 1fr);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--mkt-paper-radius);
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+  position: relative;
+}
+
+.mktTeaserPaperDocCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.012) 14%, transparent 48%);
+}
+
+.mktTeaserPaperDocRail {
+  min-height: 54px;
+  overflow: hidden;
+}
+
+.mktTeaserPaperDocRail--ticker {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.mktTeaserPaperDocRail--photo {
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.mktTeaserPaperRailTicker {
+  padding: 0 3px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.mktTeaserPaperThumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 54px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.03) 100%);
+}
+
+.mktTeaserPaperDocMain {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 5px 10px 18px 8px;
+  min-width: 0;
+}
+
+.mktTeaserPaperDocMeta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mktTeaserPaperDocSource {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.mktTeaserPaperDocDate {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.28);
+  white-space: nowrap;
+}
+
+.mktTeaserPaperTxnRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.mktTeaserPaperToday {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+.mktTeaserPaperTodayRule {
+  flex: 1;
+  height: 1px;
+  margin-left: calc(var(--mkt-paper-portrait) / 2 + var(--mkt-paper-radius));
+  margin-right: 10px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mktTeaserPaperTodayLabel {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--mkt-cyan);
+}
+
+.mktTeaserContextBody {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 10px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mktTeaserContextCard {
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  background: rgba(10, 11, 13, 0.88);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mktTeaserContextTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mktTeaserContextTicker {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.mktTeaserContextPrice {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.mktTeaserChartBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.mktTeaserChartRanges {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.mktTeaserRangeBtn {
+  padding: 3px 7px;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.mktTeaserRangeBtn.isActive {
+  background: #fff;
+  color: #0a0b0d;
+  border-radius: 2px;
+}
+
+.mktTeaserChartSvg {
+  display: block;
+  width: 100%;
+  height: clamp(72px, 12vh, 96px);
+}
+
+.mktTeaserChartGrid {
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 1;
+}
+
+.mktTeaserChartLine {
+  stroke: rgba(255, 255, 255, 0.88);
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
+}
+
+.mktTeaserContextEarnings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(10, 11, 13, 0.88);
+}
+
+.mktTeaserContextEarningsK {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--mkt-hi);
+}
+
+.mktTeaserContextEarningsV {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.mktTeaserContextSection {
+  margin-top: 12px;
+}
+
+.mktTeaserContextSectionHead {
+  margin-bottom: 8px;
+}
+
+.mktTeaserContextSectionTitle {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.mktTeaserFundTable {
+  display: flex;
+  flex-direction: column;
+  padding: 0 4px 4px;
+}
+
+.mktTeaserFundRow {
+  display: grid;
+  grid-template-columns: minmax(0, 72px) repeat(4, minmax(0, 1fr));
+  gap: 4px 6px;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mktTeaserFundRow:last-child {
+  border-bottom: none;
+}
+
+.mktTeaserFundRow--head {
+  padding: 6px 0 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mktTeaserFundLabel {
+  font-size: 7.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.mktTeaserFundHead {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.mktTeaserFundRow .mktTeaserGhost {
+  justify-self: end;
+  max-width: 36px;
+}
+
+.mktTeaserOwnership {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mktTeaserOwnershipDonut {
+  position: relative;
+  flex: 0 0 88px;
+  width: 88px;
+  height: 88px;
+}
+
+.mktTeaserOwnershipDonut svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.mktTeaserOwnershipDonutCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.mktTeaserOwnershipLegend {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mktTeaserOwnershipLegendRow {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.mktTeaserOwnershipSwatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+}
+
+.mktTeaserOwnershipLegendLabel {
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.mktTeaserOwnershipLegendRow .mktTeaserGhost {
+  width: 28px;
+}
+
+.mktTeaserTexture {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: 0.45;
+  mix-blend-mode: overlay;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 4px);
+}
+
+@media (max-width: 720px) {
+  .mktTeaserGrid {
+    grid-template-columns: minmax(56px, 0.9fr) minmax(0, 1.4fr);
+  }
+
+  .mktTeaserPanel--context {
+    display: none;
+  }
+
+  .mktTeaserIntelBtn {
+    font-size: 7px;
+    letter-spacing: 0.1em;
+  }
+}
+
+/* How it works */
+.mktWorkflowSection {
+  padding-top: clamp(64px, 10vh, 96px);
+}
+
+.mktWorkflowHead {
+  max-width: 52ch;
+  margin-bottom: clamp(28px, 4vh, 40px);
+}
+
+.mktWorkflowLead {
+  margin-top: 10px;
+}
+
+.mktWorkflowSteps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(12px, 2vw, 20px);
+}
+
+.mktWorkflowStep {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: clamp(18px, 2.5vw, 24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  min-height: 100%;
+}
+
+.mktWorkflowStepRail {
+  display: flex;
+  align-items: center;
+}
+
+.mktWorkflowStepNum {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.mktWorkflowStepLine {
+  flex: 1 1 auto;
+  height: 1px;
+  margin-left: 12px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+}
+
+.mktWorkflowStepLabel {
+  margin: 0 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.mktWorkflowStepTitle {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.mktWorkflowStepText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(210, 218, 228, 0.78);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.mktProofGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mktProofCard {
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mktProofStat {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  margin-bottom: 4px;
+}
+
+.mktProofLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.mktProofDetail {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(200, 208, 218, 0.72);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.mktPricingLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: clamp(20px, 3vw, 32px);
+  align-items: start;
+}
+
+.mktPricingHead {
+  margin-bottom: 0;
+}
+
+.mktPricingSub {
+  max-width: 42ch;
+}
+
+.mktPricingFeatures {
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mktPricingFeaturesItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(210, 218, 228, 0.85);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.mktPricingFeaturesMark {
+  flex-shrink: 0;
+  width: 5px;
+  height: 5px;
+  margin-top: 8px;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.mktPlanGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  max-width: 640px;
+}
+
+.mktPlanGrid--full {
+  max-width: none;
+  width: 100%;
+}
+
+.mktPlanCard {
+  position: relative;
+  padding: clamp(22px, 3vw, 28px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.mktPlanCard--featured {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+}
+
+.mktPlanBadge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: rgba(140, 220, 180, 0.9);
+}
+
+.mktPlanName {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.mktPlanPrice {
+  margin: 0 0 6px;
+}
+
+.mktPlanAmount {
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.mktPlanInterval {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.mktPlanNote {
+  margin: 0 0 8px;
+  font-size: 10px;
+}
+
+.mktPlanHighlight {
+  margin: 0 0 16px;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: rgba(140, 220, 180, 0.85);
+  min-height: 14px;
+}
+
+.mktPlanHighlight--spacer {
+  visibility: hidden;
+}
+
+.mktPlanBtn {
+  width: 100%;
+  margin-top: auto;
+}
+
+.mktPricingFoot {
+  margin: 16px 0 0;
+  font-size: 10px;
+}
+
+.mktFaqList {
+  margin: 24px 0 0;
+}
+
+.mktFaqItem {
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mktFaqItem:first-child {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mktFaqQ {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mktFaqA {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(200, 208, 218, 0.75);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.mktFinalCta {
+  padding-bottom: clamp(48px, 8vh, 80px);
+}
+
+.mktFinalCtaInner {
+  text-align: center;
+  padding: clamp(40px, 6vw, 56px) 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(600px 200px at 50% 0%, rgba(255, 255, 255, 0.06), transparent 60%),
+    rgba(255, 255, 255, 0.02);
+}
+
+.mktFinalCtaTitle {
+  margin: 0 0 8px;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 600;
+}
+
+.mktFinalCtaSub {
+  margin: 0 0 24px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
+
+.mktStickyBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 25;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(5, 6, 7, 0.94);
+  backdrop-filter: blur(14px);
+  padding: 10px var(--intro-gutter) calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+.introPage--modalOpen .mktStickyBar {
+  display: none;
+}
+
+.mktStickyBarInner {
+  max-width: var(--intro-max);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mktStickyBarInner--solo {
+  justify-content: center;
+}
+
+.mktStickyBarBtn {
+  height: 36px;
+}
+
+@media (max-width: 768px) {
+  .mktProofGrid,
+  .mktWorkflowSteps {
+    grid-template-columns: 1fr;
+  }
+
+  .mktWorkflowStepLine {
+    display: none;
+  }
+
+  .mktPricingLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .mktPlanGrid,
+  .mktPlanGrid--full {
+    grid-template-columns: 1fr;
+  }
+}
