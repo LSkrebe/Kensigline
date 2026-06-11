@@ -210,7 +210,7 @@ function DiscoverMacroDayColumn({ day }) {
         {head.isToday ? <span className="discoverMacroDayToday mono">Today</span> : null}
       </header>
       <div className="discoverMacroDayBody">
-        {!day.events.length ? (
+        {!(Array.isArray(day?.events) && day.events.length) ? (
           <p className="discoverMacroDayEmpty mono dim">Quiet session</p>
         ) : (
           day.events.map((event) => (
@@ -441,7 +441,7 @@ function DiscoverCatalystList({ events, onResearch }) {
 const WATCHLIST_FILTER_SECTIONS = [{ types: DISCOVER_WATCHLIST_FILTER_TYPES }]
 const MARKET_MOVE_FILTER_SECTIONS = [{ types: DISCOVER_MARKET_MOVE_FILTER_TYPES }]
 
-export function DiscoverPanel({ onOpenResearch }) {
+export function DiscoverPanel({ backendUp = false, onOpenResearch }) {
   const [query, setQuery] = useState('')
   const [liveTimeline, setLiveTimeline] = useState(null)
 
@@ -466,31 +466,43 @@ export function DiscoverPanel({ onOpenResearch }) {
   useEffect(() => {
     let alive = true
     void fetchDiscoverTimeline({ query, limit: 120, pastDays: 90, aheadDays: 180 }).then((data) => {
-      if (alive && Array.isArray(data?.upcoming) && Array.isArray(data?.past)) setLiveTimeline(data)
+      if (!alive) return
+      if (Array.isArray(data?.upcoming) && Array.isArray(data?.past)) setLiveTimeline(data)
+      else setLiveTimeline(null)
     })
     return () => {
       alive = false
     }
   }, [query])
 
-  const isLiveTimeline = liveTimeline != null
-  const mockTimeline = useMemo(() => buildDiscoverTimeline({ query }), [query])
-  const upcomingSource = liveTimeline?.upcoming ?? mockTimeline.upcoming
-  const pastSource = liveTimeline?.past ?? mockTimeline.past
+  const mockTimeline = useMemo(() => (backendUp ? null : buildDiscoverTimeline({ query })), [backendUp, query])
+  const upcomingSource = useMemo(() => {
+    if (backendUp) return liveTimeline?.upcoming ?? []
+    return liveTimeline?.upcoming ?? mockTimeline?.upcoming ?? []
+  }, [backendUp, liveTimeline?.upcoming, mockTimeline?.upcoming])
+
+  const pastSource = useMemo(() => {
+    if (backendUp) return liveTimeline?.past ?? []
+    return liveTimeline?.past ?? mockTimeline?.past ?? []
+  }, [backendUp, liveTimeline?.past, mockTimeline?.past])
 
   const macroSource = useMemo(() => {
+    if (backendUp) {
+      return Array.isArray(liveTimeline?.macro) ? liveTimeline.macro : []
+    }
     const live = liveTimeline?.macro
     if (Array.isArray(live) && live.length > 0) return live
     return getUpcomingMacroDays(5)
-  }, [liveTimeline?.macro])
+  }, [backendUp, liveTimeline?.macro])
 
   const moveReactions = useMemo(() => {
-    if (isLiveTimeline) return liveTimeline.moves ?? {}
-    const rows = mockTimeline.past.filter(
+    if (backendUp) return liveTimeline?.moves ?? {}
+    if (liveTimeline != null) return liveTimeline.moves ?? {}
+    const rows = (mockTimeline?.past ?? []).filter(
       (event) => String(event.summary ?? '').trim() && event.kind !== 'flow',
     )
     return buildMockMoveReactions(rows)
-  }, [isLiveTimeline, liveTimeline?.moves, mockTimeline.past])
+  }, [backendUp, liveTimeline, mockTimeline?.past])
 
   const catalysts = useMemo(
     () => applyDiscoverSourceFilter(upcomingSource, watchlistFilters),
@@ -559,7 +571,7 @@ export function DiscoverPanel({ onOpenResearch }) {
                       event={event}
                       movePct={reaction?.movePct}
                       reactionCloses={reaction?.closes}
-                      allowMockFallback={!isLiveTimeline}
+                      allowMockFallback={!backendUp}
                       onResearch={onOpenResearch}
                     />
                   )

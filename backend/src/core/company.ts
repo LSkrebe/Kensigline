@@ -155,7 +155,11 @@ async function getLatestClose(ticker: string): Promise<number | null> {
   const from = new Date(now);
   from.setUTCDate(from.getUTCDate() - 30);
   const fromDay = isoDayUTC(from);
-  await getDailyCloseBars({ ticker, fromDay, toDay });
+  try {
+    await getDailyCloseBars({ ticker, fromDay, toDay });
+  } catch {
+    return null;
+  }
   const row2 = await db.one<{ close: number }>(
     `
     SELECT close

@@ -128,7 +128,8 @@ export async function buildMoveReactionsForEvents(
         if (reaction) out[e.id] = reaction;
       }
     } catch (err) {
-      console.error("discover_move_reaction_failed", ticker, err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`discover_move_reaction_skipped ${ticker}: ${msg}`);
     }
   }
 

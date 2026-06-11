@@ -3367,8 +3367,26 @@ function formatCompanySnapshotMcap(raw) {
 
 function resolveCompanySnapshot({ ticker, company, backendUp, price = null }) {
   const t = String(ticker ?? '').trim().toUpperCase() || '—'
+
+  if (backendUp) {
+    const c = company && typeof company === 'object' ? company : null
+    let resolvedPrice = Number(price)
+    if (!(Number.isFinite(resolvedPrice) && resolvedPrice > 0)) {
+      const fromApi = Number(c?.latest_close)
+      resolvedPrice = Number.isFinite(fromApi) && fromApi > 0 ? fromApi : null
+    }
+    return {
+      ticker: t,
+      price: resolvedPrice,
+      sector: String(c?.industry ?? '').trim() || '—',
+      domicile: contextCountryLabel(c?.country) ?? '—',
+      mcap: formatCompanySnapshotMcap(c?.mcap ?? ''),
+      earnings: c?.earnings_date ? contextEarningsFromDate(c.earnings_date) : null,
+    }
+  }
+
   const mock = contextMockForTicker(t, [])
-  const c = backendUp && company && typeof company === 'object' ? company : null
+  const c = company && typeof company === 'object' ? company : null
 
   const sector = String(c?.industry ?? mock.sector ?? MOCK_COMPANY.industry ?? '').trim() || '—'
   const domicile = contextCountryLabel(c?.country) ?? mock.domicile ?? contextCountryLabel(MOCK_COMPANY.country)
@@ -3385,7 +3403,7 @@ function resolveCompanySnapshot({ ticker, company, backendUp, price = null }) {
   let earnings = mock.earnings ?? null
   if (c?.earnings_date) {
     earnings = contextEarningsFromDate(c.earnings_date) ?? earnings
-  } else if (!backendUp && MOCK_COMPANY.earnings) {
+  } else if (MOCK_COMPANY.earnings) {
     const d = new Date()
     d.setDate(d.getDate() + 30)
     earnings = contextEarningsFromDate(d)
@@ -3521,26 +3539,28 @@ function pharmaOutcomeLinesFromLiveBuckets(buckets, ticker) {
 }
 
 function contextClinicalOutcomesFromLive(livePharma, ticker, backendUp) {
-  const hasDataset = backendUp && historicalOutcomesHasDataset(livePharma)
-  const stats = hasDataset ? livePharma : MOCK_HISTORICAL_TRIALS
-  const liveLines = hasDataset ? pharmaOutcomeLinesFromLiveBuckets(livePharma?.buckets, ticker) : null
+  if (backendUp) {
+    const hasDataset = historicalOutcomesHasDataset(livePharma)
+    const liveLines = hasDataset ? pharmaOutcomeLinesFromLiveBuckets(livePharma?.buckets, ticker) : []
+    return {
+      outcomeLines: liveLines ?? [],
+      sampleSize: livePharma?.sampleSize ?? EMPTY,
+      stats: hasDataset ? livePharma : null,
+      hasDataset,
+    }
+  }
+  const stats = MOCK_HISTORICAL_TRIALS
   return {
-    outcomeLines: liveLines ?? buildMockPharmaOutcomeLines(ticker),
+    outcomeLines: buildMockPharmaOutcomeLines(ticker),
     sampleSize: stats?.sampleSize ?? EMPTY,
     stats,
-    hasDataset,
+    hasDataset: true,
   }
 }
 
 function historicalOutcomeLinesFromIns(ins, mode, personDisplay) {
   const percents = parseAvgReturnHorizonPercents(ins?.avgReturn21d63d252d)
-  const base =
-    mode === 'politicians'
-      ? OUTCOME_BASE_POLITICIAN_RETURNS
-      : mode === 'institutions'
-        ? OUTCOME_BASE_INSTITUTION_RETURNS
-        : OUTCOME_BASE_INSIDER_RETURNS
-  const returns = percents.map((p, i) => (p != null ? p / 100 : base[i]))
+  const returns = percents.map((p) => (p != null ? p / 100 : null))
   if (!returns.some((r) => Number.isFinite(r))) return []
   const label =
     String(personDisplay?.fullName ?? '').trim() ||
@@ -6543,8 +6563,29 @@ function buildResearchPaperTimelineForTicker({
   livePresentation = null,
   selectedTicker = null,
   backendUp = false,
+  liveFlows = null,
 }) {
   const t = String(ticker ?? '').toUpperCase()
+  const sel = String(selectedTicker ?? '').toUpperCase()
+  const showFlows =
+    intelMode !== 'clinical' || !programKey || programKey === CLINICAL_PROGRAM_ALL
+
+  if (backendUp) {
+    if (!livePresentation?.title || t !== sel) return []
+    let docs = paperDocumentsFromPresentation(livePresentation)
+    if (intelMode === 'clinical') docs = filterPaperDocumentsByProgram(docs, programKey)
+    const flows =
+      liveFlows && typeof liveFlows === 'object'
+        ? liveFlows
+        : { insiders: [], politicians: [], filings13f: [] }
+    return buildPaperTimelineItems({
+      documents: docs,
+      insiders: showFlows ? (Array.isArray(flows.insiders) ? flows.insiders : []) : [],
+      politicians: showFlows ? (Array.isArray(flows.politicians) ? flows.politicians : []) : [],
+      filings13f: showFlows ? (Array.isArray(flows.filings13f) ? flows.filings13f : []) : [],
+    })
+  }
+
   const memo = buildThesisMemo({
     ticker: t,
     companyName: researchFeedNameForTicker(t, intelMode),
@@ -6552,17 +6593,11 @@ function buildResearchPaperTimelineForTicker({
     priceSeries: mockDatasetForTicker(t).price,
     constituents: isEtfTicker(t) ? mockDatasetForTicker(t)?.constituents ?? [] : [],
   })
-  const sel = String(selectedTicker ?? '').toUpperCase()
-  const pres =
-    backendUp && livePresentation?.title && t === sel
-      ? livePresentation
-      : researchOfflinePresentationForTicker({ ticker: t, intelMode, memo })
+  const pres = researchOfflinePresentationForTicker({ ticker: t, intelMode, memo })
   if (!pres?.title) return []
   let docs = paperDocumentsFromPresentation(pres)
   if (intelMode === 'clinical') docs = filterPaperDocumentsByProgram(docs, programKey)
   const mock = contextMockForTicker(t, [])
-  const showFlows =
-    intelMode !== 'clinical' || !programKey || programKey === CLINICAL_PROGRAM_ALL
   return buildPaperTimelineItems({
     documents: docs,
     insiders: showFlows ? mock.insiders : [],
@@ -8200,10 +8235,14 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
   })()
 
   const hasDataset = sampleSizeNum != null ? sampleSizeNum > 0 : Boolean(ins && ins.sampleSize)
-  const clinicalOutcomeLines = useMemo(
-    () => (hasDataset ? buildMockPharmaOutcomeLines('') : []),
-    [hasDataset],
-  )
+  const clinicalOutcomeLines = useMemo(() => {
+    if (!hasDataset) return []
+    if (backendUp) {
+      const lines = pharmaOutcomeLinesFromLiveBuckets(ins?.buckets, '')
+      return lines ?? []
+    }
+    return buildMockPharmaOutcomeLines('')
+  }, [hasDataset, backendUp, ins])
 
   return (
     <section
@@ -8224,7 +8263,7 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
           <ContextClinicalOutcomesList
             outcomeLines={clinicalOutcomeLines}
             sampleSize={ins?.sampleSize ?? EMPTY}
-            stats={ins ?? MOCK_HISTORICAL_TRIALS}
+            stats={ins}
             chartTitle="Trial historical outcomes"
           />
         ) : (
@@ -9215,14 +9254,17 @@ function KensiglineTerminal() {
   const [politiciansClusterLive, setPoliticiansClusterLive] = useState(null)
   const [institutionsFeedLive, setInstitutionsFeedLive] = useState(null)
   const [institutionsClusterLive, setInstitutionsClusterLive] = useState(null)
-  const researchDataset = useMemo(() => mockDatasetForTicker(researchTicker), [researchTicker])
+  const researchDataset = useMemo(
+    () => (backendUp ? null : mockDatasetForTicker(researchTicker)),
+    [backendUp, researchTicker],
+  )
   const researchFeedItems = useMemo(() => {
     const mode = intelMode === 'clinical' ? 'clinical' : 'market'
     const fallback = RESEARCH_FEED_BY_INTEL[mode]
     const allowed = new Set(researchTickersForIntelMode(intelMode))
     if (!backendUp) return fallback
-    if (!Array.isArray(researchFeedLive) || !researchFeedLive.length) return fallback
-    const mapped = sortFeedRowsByAtDesc(
+    if (!Array.isArray(researchFeedLive) || !researchFeedLive.length) return []
+    return sortFeedRowsByAtDesc(
       researchFeedLive
         .map((x) => ({
           rowKey:
@@ -9233,8 +9275,6 @@ function KensiglineTerminal() {
         }))
         .filter((x) => allowed.has(x.ticker)),
     )
-    if (!mapped.length) return fallback
-    return mergeResearchFeedDemoRows(mapped, intelMode)
   }, [backendUp, researchFeedLive, intelMode])
 
   const researchCompanyName = useMemo(() => {
@@ -9248,20 +9288,21 @@ function KensiglineTerminal() {
     }
     const fromFeed = researchFeedItems.find((x) => String(x.ticker ?? '').toUpperCase() === t)?.name
     if (fromFeed) return fromFeed
-    const companyEnt = researchDataset.entities?.find((e) => String(e?.type ?? '').toLowerCase() === 'company')
+    if (backendUp) return t
+    const companyEnt = researchDataset?.entities?.find((e) => String(e?.type ?? '').toLowerCase() === 'company')
     return companyEnt?.name ?? t
-  }, [researchFeedItems, researchDataset.entities, researchTicker, researchExploreLive])
+  }, [researchFeedItems, researchDataset?.entities, researchTicker, researchExploreLive, backendUp])
 
   const researchPriceSeries = useMemo(() => {
     if (Array.isArray(researchBarsSeries) && researchBarsSeries.length) return researchBarsSeries
     if (backendUp) return []
-    return researchDataset.price
-  }, [researchBarsSeries, researchDataset.price, backendUp])
+    return researchDataset?.price ?? []
+  }, [researchBarsSeries, researchDataset?.price, backendUp])
 
-  const contextMock = useMemo(
-    () => contextMockForTicker(researchTicker, researchPriceSeries),
-    [researchTicker, researchPriceSeries],
-  )
+  const contextMock = useMemo(() => {
+    if (backendUp) return null
+    return contextMockForTicker(researchTicker, researchPriceSeries)
+  }, [backendUp, researchTicker, researchPriceSeries])
 
   const contextLivePrice = useMemo(() => {
     if (Array.isArray(researchPriceSeries) && researchPriceSeries.length) {
@@ -9283,25 +9324,29 @@ function KensiglineTerminal() {
   )
 
   const contextFundamentals = useMemo(() => {
-    if (backendUp && researchCompanyLive?.fundamentals) {
-      return mapFundamentalsFromApi(researchCompanyLive.fundamentals) ?? contextMock.fundamentals
+    if (backendUp) {
+      return researchCompanyLive?.fundamentals
+        ? mapFundamentalsFromApi(researchCompanyLive.fundamentals)
+        : null
     }
-    return contextMock.fundamentals
-  }, [backendUp, researchCompanyLive?.fundamentals, contextMock.fundamentals])
+    return contextMock?.fundamentals ?? null
+  }, [backendUp, researchCompanyLive?.fundamentals, contextMock?.fundamentals])
 
   const contextOwnership = useMemo(() => {
-    if (backendUp && researchCompanyLive?.ownership) {
-      return mapOwnershipFromApi(researchCompanyLive.ownership) ?? contextMock.ownership
+    if (backendUp) {
+      return researchCompanyLive?.ownership ? mapOwnershipFromApi(researchCompanyLive.ownership) : null
     }
-    return contextMock.ownership
-  }, [backendUp, researchCompanyLive?.ownership, contextMock.ownership])
+    return contextMock?.ownership ?? null
+  }, [backendUp, researchCompanyLive?.ownership, contextMock?.ownership])
 
   const contextEarnings = useMemo(() => {
-    if (backendUp && researchCompanyLive?.earnings_date) {
-      return contextEarningsFromDate(researchCompanyLive.earnings_date) ?? contextMock.earnings
+    if (backendUp) {
+      return researchCompanyLive?.earnings_date
+        ? contextEarningsFromDate(researchCompanyLive.earnings_date)
+        : null
     }
-    return contextMock.earnings
-  }, [backendUp, researchCompanyLive, contextMock.earnings])
+    return contextMock?.earnings ?? null
+  }, [backendUp, researchCompanyLive?.earnings_date, contextMock?.earnings])
 
   const contextClinicalMapped = useMemo(
     () => mapClinicalContextFromApi(contextClinicalLive),
@@ -9309,30 +9354,30 @@ function KensiglineTerminal() {
   )
 
   const contextRunway = useMemo(() => {
-    if (backendUp && contextClinicalMapped?.runway) return contextClinicalMapped.runway
-    return contextMock.runway
-  }, [backendUp, contextClinicalMapped?.runway, contextMock.runway])
+    if (backendUp) return contextClinicalMapped?.runway ?? null
+    return contextMock?.runway ?? null
+  }, [backendUp, contextClinicalMapped?.runway, contextMock?.runway])
 
   const contextPrograms = useMemo(() => {
     if (intelMode !== 'clinical') return []
-    if (backendUp && contextClinicalMapped) return contextClinicalMapped.programs
-    return contextMock.programs
-  }, [backendUp, contextClinicalMapped, contextMock.programs, intelMode])
+    if (backendUp) return contextClinicalMapped?.programs ?? []
+    return contextMock?.programs ?? []
+  }, [backendUp, contextClinicalMapped?.programs, contextMock?.programs, intelMode])
 
   const contextLeadDrug = useMemo(() => {
     if (intelMode !== 'clinical') return null
-    if (backendUp && contextClinicalMapped?.lead?.name) {
-      return contextClinicalMapped.lead
+    if (backendUp) {
+      return contextClinicalMapped?.lead?.name ? contextClinicalMapped.lead : null
     }
-    const fromEntities = contextLeadDrugFromEntities(researchDataset.entities)
+    const fromEntities = contextLeadDrugFromEntities(researchDataset?.entities ?? [])
     if (fromEntities) {
       return {
-        ...contextMock.leadDrug,
+        ...contextMock?.leadDrug,
         ...fromEntities,
       }
     }
-    return contextMock.leadDrug ?? null
-  }, [backendUp, researchDataset.entities, contextClinicalMapped, contextMock.leadDrug, intelMode])
+    return contextMock?.leadDrug ?? null
+  }, [backendUp, researchDataset?.entities, contextClinicalMapped?.lead, contextMock?.leadDrug, intelMode])
 
   useEffect(() => {
     if (intelMode === 'clinical') setContextProgramKey(CLINICAL_PROGRAM_ALL)
@@ -9352,21 +9397,20 @@ function KensiglineTerminal() {
 
   const contextCatalystItems = useMemo(() => {
     if (intelMode !== 'clinical') return []
-    if (backendUp && contextClinicalMapped) return contextClinicalMapped.catalysts
-    return buildContextCatalystItems(contextMock.programs, 6)
-  }, [backendUp, contextClinicalMapped, contextMock.programs, intelMode])
+    if (backendUp) return contextClinicalMapped?.catalysts ?? []
+    return buildContextCatalystItems(contextMock?.programs ?? [], 6)
+  }, [backendUp, contextClinicalMapped?.catalysts, contextMock?.programs, intelMode])
 
-  const researchPaperMemo = useMemo(
-    () =>
-      buildThesisMemo({
-        ticker: researchTicker,
-        companyName: researchCompanyName,
-        events: researchDataset.events,
-        priceSeries: researchPriceSeries,
-        constituents: isEtfTicker(researchTicker) ? mockDatasetForTicker(researchTicker)?.constituents ?? [] : [],
-      }),
-    [researchTicker, researchCompanyName, researchDataset.events, researchPriceSeries],
-  )
+  const researchPaperMemo = useMemo(() => {
+    if (backendUp) return null
+    return buildThesisMemo({
+      ticker: researchTicker,
+      companyName: researchCompanyName,
+      events: researchDataset?.events ?? [],
+      priceSeries: researchPriceSeries,
+      constituents: isEtfTicker(researchTicker) ? mockDatasetForTicker(researchTicker)?.constituents ?? [] : [],
+    })
+  }, [backendUp, researchTicker, researchCompanyName, researchDataset?.events, researchPriceSeries])
 
   const researchPresentation = useMemo(
     () =>
@@ -9400,8 +9444,11 @@ function KensiglineTerminal() {
       const d = new Date(raw ?? 0)
       return Number.isFinite(d.getTime()) ? d : new Date()
     }
-    const live = backendUp ? researchExploreLive?.flows : null
-    if (live && typeof live === 'object') {
+    if (backendUp) {
+      const live = researchExploreLive?.flows
+      if (!live || typeof live !== 'object') {
+        return { insiders: [], politicians: [], filings13f: [] }
+      }
       return {
         insiders: (Array.isArray(live.insiders) ? live.insiders : []).map((row) => ({
           ...row,
@@ -9418,9 +9465,9 @@ function KensiglineTerminal() {
       }
     }
     return {
-      insiders: contextMock.insiders,
-      politicians: contextMock.politicians,
-      filings13f: contextMock.filings13f,
+      insiders: contextMock?.insiders ?? [],
+      politicians: contextMock?.politicians ?? [],
+      filings13f: contextMock?.filings13f ?? [],
     }
   }, [backendUp, researchExploreLive?.flows, contextMock])
 
@@ -9451,10 +9498,14 @@ function KensiglineTerminal() {
   const researchFeedAfterSourceFilter = useMemo(() => {
     const enabled = researchPaperSourceFilters
     if (!enabled?.size) return []
+    const selected = String(researchTicker ?? '').toUpperCase()
     return researchFilteredFeed
       .map((row) => {
         const ticker = String(row?.ticker ?? '').toUpperCase()
         if (!ticker) return null
+        if (backendUp && ticker !== selected) {
+          return normalizeResearchFeedRow(row, [])
+        }
         const timeline = buildResearchPaperTimelineForTicker({
           ticker,
           intelMode,
@@ -9463,7 +9514,11 @@ function KensiglineTerminal() {
           livePresentation: researchPresentation,
           selectedTicker: researchTicker,
           backendUp,
+          liveFlows: contextFlowRows,
         })
+        if (backendUp && !timeline.length) {
+          return normalizeResearchFeedRow(row, [])
+        }
         const visible = filterPaperTimelineBySources(timeline, enabled)
         if (!visible.length) return null
         return normalizeResearchFeedRow(row, visible)
@@ -9477,6 +9532,7 @@ function KensiglineTerminal() {
     researchPresentation,
     researchTicker,
     backendUp,
+    contextFlowRows,
   ])
 
   const researchPaperSourceFiltersPicker = researchFeedFilterOpen
@@ -10650,6 +10706,7 @@ function KensiglineTerminal() {
       {activeTab === 'settings' ? <SettingsPanel /> : null}
       {activeTab === 'discover' ? (
         <DiscoverPanel
+          backendUp={backendUp}
           onOpenResearch={({ ticker, intelMode }) => {
             const t = String(ticker ?? '').trim().toUpperCase()
             if (!t) return
@@ -10821,9 +10878,9 @@ function KensiglineTerminal() {
           <ResearchPaperPanel
             ticker={researchTicker}
             companyName={researchCompanyName}
-            entities={researchDataset.entities}
-            events={researchDataset.events}
-            edges={researchDataset.edges}
+            entities={researchDataset?.entities ?? []}
+            events={researchDataset?.events ?? []}
+            edges={researchDataset?.edges ?? []}
             backendUp={backendUp}
             presentation={researchPresentation}
             intelMode={intelMode}
@@ -10924,10 +10981,15 @@ function AuthBootScreen() {
   )
 }
 
+/** Set true when Stripe checkout should block terminal access. */
+const BILLING_GATE_ENABLED = false
+
 function AppGate() {
   const { configured, loading, user } = useAuth()
   const signedIn = Boolean(configured && user)
-  const { loading: subLoading, active, billingEnabled, refresh } = useSubscription(signedIn)
+  const { loading: subLoading, active, billingEnabled, refresh } = useSubscription(
+    signedIn && BILLING_GATE_ENABLED,
+  )
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -10960,7 +11022,7 @@ function AppGate() {
   if (configured && loading) return <AuthBootScreen />
   if (configured && !user) return <IntroPage />
 
-  if (signedIn && billingEnabled) {
+  if (BILLING_GATE_ENABLED && signedIn && billingEnabled) {
     if (subLoading) return <AuthBootScreen />
     if (!active) return <SubscribePage />
   }

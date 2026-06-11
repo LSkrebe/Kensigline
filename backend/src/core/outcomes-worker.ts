@@ -51,7 +51,8 @@ export function startOutcomesWorker() {
           await runOutcomesRecomputeOnce({ lookbackDays, maxTickers, enablePoliticians, enableResearch });
         } catch (e) {
           // Keep the worker alive; outcomes are best-effort.
-          console.error("[outcomes-worker]", e);
+          const msg = e instanceof Error ? e.message : String(e);
+          console.warn("[outcomes-worker]", msg);
         } finally {
           running = false;
         }

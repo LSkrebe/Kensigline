@@ -20,7 +20,10 @@ export function startAllWorkers(): Stoppable[] {
   ];
 
   if (String(process.env.OUTCOMES_RECOMPUTE_ON_START ?? "1").trim() !== "0") {
-    void runOutcomesRecomputeOnce().catch((err) => console.error("[outcomes] startup recompute", err));
+    void runOutcomesRecomputeOnce().catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("[outcomes] startup recompute skipped:", msg);
+    });
   }
 
   return workers;

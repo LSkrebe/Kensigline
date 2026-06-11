@@ -87,7 +87,9 @@ export function filterMacroCalendarDays(days, { regions, impacts }) {
   return days
     .map((day) => ({
       ...day,
-      events: day.events.filter((event) => regions.has(event.region) && impacts.has(event.impact)),
+      events: (Array.isArray(day?.events) ? day.events : []).filter(
+        (event) => regions.has(event.region) && impacts.has(event.impact),
+      ),
     }))
     .filter((day) => day.events.length > 0)
 }

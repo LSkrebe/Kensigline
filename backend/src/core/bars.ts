@@ -84,10 +84,17 @@ async function fetchYahooDailyCloses(ticker: string, fromDay: string, toDay: str
 
   const res = await fetch(url, { headers: { accept: "application/json,text/plain,*/*" } });
   const txt = await res.text().catch(() => "");
-  if (!res.ok) throw new Error(`yahoo_fetch_failed ${res.status} ${txt.slice(0, 200)}`);
+  if (!res.ok) {
+    // Delisted / unknown symbols are common in filings feeds — not worth throwing.
+    if (res.status === 404 || res.status === 400) return [];
+    throw new Error(`yahoo_fetch_failed ${res.status} ${txt.slice(0, 200)}`);
+  }
 
   const json = JSON.parse(txt) as any;
+  const chartErr = json?.chart?.error;
+  if (chartErr?.code === "Not Found") return [];
   const r0 = json?.chart?.result?.[0];
+  if (!r0) return [];
   const ts = Array.isArray(r0?.timestamp) ? r0.timestamp : [];
   const closes = r0?.indicators?.quote?.[0]?.close;
   const closeArr = Array.isArray(closes) ? closes : [];
@@ -141,8 +148,13 @@ export async function getDailyCloseBars(opts: { ticker: string; fromDay: string;
     fetched = await fetchPolygonDailyCloses(ticker, fromDay, toDay);
     source = "polygon";
   } catch {
-    fetched = await fetchYahooDailyCloses(ticker, fromDay, toDay);
-    source = "yahoo";
+    try {
+      fetched = await fetchYahooDailyCloses(ticker, fromDay, toDay);
+      source = fetched.length ? "yahoo" : "none";
+    } catch {
+      fetched = [];
+      source = "none";
+    }
   }
 
   if (fetched.length) {
