@@ -85,6 +85,7 @@ export const RESEARCH_PAPER_SOURCE_CATALOG = [
   { id: 'Form 5', label: 'Annual insider change', code: 'F5', modes: ['market', 'clinical'] },
   { id: '13F', label: 'Institutional holdings', code: '13F', modes: ['market', 'clinical'] },
   { id: 'PTR', label: 'Politician trade', code: 'PTR', modes: ['market', 'clinical'] },
+  { id: 'Other', label: 'Other filing', code: 'Other', modes: ['market', 'clinical'] },
 ]
 
 export function researchPaperSourceTypesForIntel(intelMode) {

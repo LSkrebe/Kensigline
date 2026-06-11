@@ -200,12 +200,21 @@ const server = http.createServer(async (req, res) => {
     // ---- Outcomes (Historical outcomes) ----
     if (route(req, url, "GET", "/api/outcomes")) {
       const mode = String(url.searchParams.get("mode") ?? "insider").trim().toLowerCase();
-      const row = await getLatestOutcomes(mode);
-      if (!row) {
-        sendJson(res, 200, { ok: true, mode, empty: true });
-        return;
+      try {
+        const row = await getLatestOutcomes(mode);
+        if (!row) {
+          sendJson(res, 200, { ok: true, mode, empty: true });
+          return;
+        }
+        sendJson(res, 200, { ok: true, mode, ...row });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("mode_not_supported")) {
+          sendJson(res, 200, { ok: true, mode, empty: true });
+          return;
+        }
+        throw err;
       }
-      sendJson(res, 200, { ok: true, mode, ...row });
       return;
     }
 

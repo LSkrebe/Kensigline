@@ -238,10 +238,10 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
     data: any;
   }>(
     `SELECT id, event_at, feed_label, ticker, data FROM documents
-     WHERE feed_kind=$3 AND event_at IS NOT NULL
-       AND event_at >= now() - ($2 || ' days')::interval
-     ORDER BY event_at DESC NULLS LAST, parsed_at DESC LIMIT $1`,
-    [limit, String(days), feedKind],
+     WHERE feed_kind=$2 AND ticker IS NOT NULL AND event_at IS NOT NULL
+       AND event_at >= now() - ($1 || ' days')::interval
+     ORDER BY event_at DESC NULLS LAST, parsed_at DESC LIMIT 5000`,
+    [String(days), feedKind],
   );
 
   const peopleKey = feedKind === "politicians" ? "politicians" : "institutions";

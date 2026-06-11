@@ -1,4 +1,3 @@
-import { getDailyCloseBars } from "../core/bars.js";
 import { db } from "../core/db.js";
 import type { DiscoverEvent } from "./types.js";
 
@@ -11,19 +10,6 @@ function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
   if (!Number.isFinite(x)) return fallback;
   return Math.max(min, Math.min(max, Math.floor(x)));
-}
-
-function isoDayUTC(d: Date) {
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(d.getUTCDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
-}
-
-function addDaysUtc(d: Date, n: number) {
-  const x = new Date(d);
-  x.setUTCDate(x.getUTCDate() + n);
-  return x;
 }
 
 function eventDayUtc(at: string) {
@@ -71,16 +57,6 @@ function nextTradingIndex(days: string[], eventDay: string) {
   return ans;
 }
 
-async function ensureBarsForEvents(ticker: string, eventDays: string[]) {
-  if (!eventDays.length) return;
-  const sorted = [...eventDays].sort();
-  const minDay = sorted[0]!;
-  const maxDay = sorted[sorted.length - 1]!;
-  const from = new Date(`${minDay}T00:00:00Z`);
-  const to = addDaysUtc(new Date(`${maxDay}T00:00:00Z`), 14);
-  await getDailyCloseBars({ ticker, fromDay: isoDayUTC(from), toDay: isoDayUTC(to) });
-}
-
 function reactionForEvent(
   bars: { days: string[]; closes: number[] },
   eventDay: string,
@@ -118,9 +94,7 @@ export async function buildMoveReactionsForEvents(
   const out: Record<string, DiscoverMoveReaction> = {};
 
   for (const [ticker, evs] of byTicker) {
-    const eventDays = evs.map((e) => eventDayUtc(e.at));
     try {
-      await ensureBarsForEvents(ticker, eventDays);
       const bars = await loadBarsMap(ticker);
       if (bars.days.length < 2) continue;
       for (const e of evs) {

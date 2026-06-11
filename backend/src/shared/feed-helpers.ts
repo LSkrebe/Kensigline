@@ -1,4 +1,5 @@
 export function clampInt(n: unknown, min: number, max: number, fallback: number) {
+  if (n === null || n === undefined || n === "") return fallback;
   const x = Number(n);
   if (!Number.isFinite(x)) return fallback;
   return Math.max(min, Math.min(max, Math.floor(x)));

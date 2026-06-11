@@ -9261,19 +9261,16 @@ function KensiglineTerminal() {
   const researchFeedItems = useMemo(() => {
     const mode = intelMode === 'clinical' ? 'clinical' : 'market'
     const fallback = RESEARCH_FEED_BY_INTEL[mode]
-    const allowed = new Set(researchTickersForIntelMode(intelMode))
     if (!backendUp) return fallback
     if (!Array.isArray(researchFeedLive) || !researchFeedLive.length) return []
     return sortFeedRowsByAtDesc(
-      researchFeedLive
-        .map((x) => ({
-          rowKey:
-            x.kind === 'paper' && x.id ? String(x.id) : `sig-${String(x.ticker ?? '').toUpperCase()}`,
-          ticker: String(x.ticker ?? '').toUpperCase(),
-          name: String(x.name ?? x.company_name ?? x.ticker ?? ''),
-          at: x.feed_at ? String(x.feed_at) : null,
-        }))
-        .filter((x) => allowed.has(x.ticker)),
+      researchFeedLive.map((x) => ({
+        rowKey:
+          x.kind === 'paper' && x.id ? String(x.id) : `sig-${String(x.ticker ?? '').toUpperCase()}`,
+        ticker: String(x.ticker ?? '').toUpperCase(),
+        name: String(x.name ?? x.company_name ?? x.ticker ?? ''),
+        at: x.feed_at ? String(x.feed_at) : null,
+      })),
     )
   }, [backendUp, researchFeedLive, intelMode])
 
@@ -9498,14 +9495,16 @@ function KensiglineTerminal() {
   const researchFeedAfterSourceFilter = useMemo(() => {
     const enabled = researchPaperSourceFilters
     if (!enabled?.size) return []
+    if (backendUp) {
+      return researchFilteredFeed
+        .map((row) => normalizeResearchFeedRow(row, []))
+        .filter(Boolean)
+    }
     const selected = String(researchTicker ?? '').toUpperCase()
     return researchFilteredFeed
       .map((row) => {
         const ticker = String(row?.ticker ?? '').toUpperCase()
         if (!ticker) return null
-        if (backendUp && ticker !== selected) {
-          return normalizeResearchFeedRow(row, [])
-        }
         const timeline = buildResearchPaperTimelineForTicker({
           ticker,
           intelMode,
@@ -9516,9 +9515,6 @@ function KensiglineTerminal() {
           backendUp,
           liveFlows: contextFlowRows,
         })
-        if (backendUp && !timeline.length) {
-          return normalizeResearchFeedRow(row, [])
-        }
         const visible = filterPaperTimelineBySources(timeline, enabled)
         if (!visible.length) return null
         return normalizeResearchFeedRow(row, visible)

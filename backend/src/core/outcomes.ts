@@ -226,7 +226,16 @@ export async function recomputeInsiderOutcomes(opts?: { lookbackDays?: number; m
 
 export async function getLatestOutcomes(mode: string) {
   const m = String(mode ?? "").trim().toLowerCase();
-  if (m !== "insider" && m !== "pharma" && m !== "politicians" && m !== "research" && m !== "bosha") throw new Error("mode_not_supported_yet");
+  if (
+    m !== "insider" &&
+    m !== "pharma" &&
+    m !== "politicians" &&
+    m !== "institutions" &&
+    m !== "research" &&
+    m !== "bosha"
+  ) {
+    throw new Error("mode_not_supported_yet");
+  }
   const modeKey = m === "bosha" ? "research" : m;
   const globalCompanyId = await getOrCreateGlobalCompanyId();
   const row = await db.one<{ as_of_date: string; data: any }>(

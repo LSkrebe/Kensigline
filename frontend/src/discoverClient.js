@@ -15,7 +15,7 @@ export async function fetchDiscoverTimeline(opts = {}) {
 
   const qs = params.toString()
   const path = qs ? `/api/discover/timeline?${qs}` : '/api/discover/timeline'
-  const res = await fetchJsonSafe(path, { timeoutMs: 12000 })
+  const res = await fetchJsonSafe(path, { timeoutMs: 30000 })
   if (!res.ok || !res.data?.ok) return null
   return res.data
 }
