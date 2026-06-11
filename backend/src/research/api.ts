@@ -235,7 +235,7 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
 
   const items = [
     ...papers.map((p) => {
-      const displayName = resolveResearchFeedCompanyName(p.ticker, p.company_name, p.title);
+      const displayName = resolveResearchFeedCompanyName(p.ticker, p.company_name);
       return {
         kind: "paper" as const,
         id: p.id,
@@ -248,7 +248,7 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
       };
     }),
     ...signals.map((s) => {
-      const displayName = resolveResearchFeedCompanyName(s.ticker, s.company_name, null);
+      const displayName = resolveResearchFeedCompanyName(s.ticker, s.company_name);
       return {
         kind: "signal" as const,
         id: null,

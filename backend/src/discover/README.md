@@ -23,7 +23,7 @@ Response also includes:
 
 | Field | Description |
 |-------|-------------|
-| `macro` | Upcoming macro release week (business-day templates) |
+| `macro` | Upcoming macro release week (Yahoo Finance live, else business-day templates) |
 | `moves` | Map of past event id → `{ movePct, closes }` for Market Moves sparklines |
 
 ## Data sources
@@ -34,6 +34,7 @@ Response also includes:
 | **Ahead — earnings** | `companies.earnings_date` |
 | **Ahead — trials** | ClinicalTrials.gov via `research/clinical/trials.ts` (clinical tickers) |
 | **Ahead — scheduled** | Future-dated `documents` rows (research/pharma/press) |
+| **Macro calendar** | Yahoo Finance `economic_event` visualization API (US/EU/UK/CN), cached in memory |
 
 ## Mentioned tickers (Recent)
 
@@ -50,6 +51,10 @@ Resolved in order:
 | `DISCOVER_MAX_UNIVERSE` | 500 | Ticker universe cap |
 | `DISCOVER_CLINICAL_TICKERS` | 12 | CT.gov lookups per timeline request |
 | `DISCOVER_MOVE_MAX` | 36 | Max past events with move/chart enrichment per request |
+| `MACRO_CALENDAR_CACHE_MS` | 3600000 | In-memory Yahoo macro response TTL |
+| `MACRO_CALENDAR_MAX_EVENTS_PER_DAY` | 12 | Cap per business day (sorted by impact) |
+| `MACRO_CALENDAR_YAHOO_MAX_PAGES` | 4 | Yahoo pagination cap (100 rows/page) |
+| `DISCOVER_TIMELINE_CACHE_MS` | 45000 | In-memory timeline response TTL |
 
 ## Module map
 
@@ -60,7 +65,8 @@ Resolved in order:
 | `past.ts` | Recent SQL |
 | `ahead.ts` | Upcoming earnings + catalysts |
 | `map.ts` | Row → `DiscoverEvent` |
-| `macro.ts` | Macro calendar week |
+| `macro.ts` | Macro calendar week (template fallback) |
+| `macro-live.ts` | Yahoo economic calendar fetch + cache |
 | `moves.ts` | Event-day move % + bar series for charts |
 | `mentions.ts` | Upstream/downstream chains |
 | `peers.ts` | Curated supply-chain hints |

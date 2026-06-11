@@ -93,19 +93,21 @@ export async function buildMoveReactionsForEvents(
 
   const out: Record<string, DiscoverMoveReaction> = {};
 
-  for (const [ticker, evs] of byTicker) {
-    try {
-      const bars = await loadBarsMap(ticker);
-      if (bars.days.length < 2) continue;
-      for (const e of evs) {
-        const reaction = reactionForEvent(bars, eventDayUtc(e.at));
-        if (reaction) out[e.id] = reaction;
+  await Promise.all(
+    [...byTicker.entries()].map(async ([ticker, evs]) => {
+      try {
+        const bars = await loadBarsMap(ticker);
+        if (bars.days.length < 2) return;
+        for (const e of evs) {
+          const reaction = reactionForEvent(bars, eventDayUtc(e.at));
+          if (reaction) out[e.id] = reaction;
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`discover_move_reaction_skipped ${ticker}: ${msg}`);
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn(`discover_move_reaction_skipped ${ticker}: ${msg}`);
-    }
-  }
+    }),
+  );
 
   return out;
 }

@@ -146,32 +146,38 @@ async function loadClinicalCatalysts(aheadDays: number, perTickerLimit: number):
   today.setHours(0, 0, 0, 0);
   const horizonMs = today.getTime() + aheadDays * 86400000;
 
-  for (const { ticker, name } of candidates) {
-    try {
-      const studies = await fetchClinicalStudiesForCompany({ ticker, companyName: name });
-      const catalysts = buildCatalystsFromStudies(studies, { limit: perTickerLimit });
-      for (const c of catalysts) {
-        if (!c.at) continue;
-        const ms = new Date(`${c.at}T12:00:00`).getTime();
-        if (!Number.isFinite(ms) || ms < today.getTime() || ms > horizonMs) continue;
-        const mapped = mapCatalystAheadEvent({
-          ticker,
-          companyName: name,
-          id: c.id,
-          label: c.label,
-          at: c.at,
-          phase: c.phase,
-          programKey: c.programKey,
-          url: c.url,
-          kind: c.kind,
-        });
-        if (mapped) out.push(mapped);
+  const batches = await Promise.all(
+    candidates.map(async ({ ticker, name }) => {
+      try {
+        const studies = await fetchClinicalStudiesForCompany({ ticker, companyName: name });
+        const catalysts = buildCatalystsFromStudies(studies, { limit: perTickerLimit });
+        const rows: DiscoverEvent[] = [];
+        for (const c of catalysts) {
+          if (!c.at) continue;
+          const ms = new Date(`${c.at}T12:00:00`).getTime();
+          if (!Number.isFinite(ms) || ms < today.getTime() || ms > horizonMs) continue;
+          const mapped = mapCatalystAheadEvent({
+            ticker,
+            companyName: name,
+            id: c.id,
+            label: c.label,
+            at: c.at,
+            phase: c.phase,
+            programKey: c.programKey,
+            url: c.url,
+            kind: c.kind,
+          });
+          if (mapped) rows.push(mapped);
+        }
+        return rows;
+      } catch (e) {
+        console.error("discover_clinical_catalyst_failed", ticker, e);
+        return [];
       }
-    } catch (e) {
-      console.error("discover_clinical_catalyst_failed", ticker, e);
-    }
-  }
+    }),
+  );
 
+  for (const rows of batches) out.push(...rows);
   return out;
 }
 

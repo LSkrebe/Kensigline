@@ -1,9 +1,52 @@
 import { fetchJsonSafe } from './api.js'
 
+const CACHE_MS = 60_000
+
+/** @type {{ at: number; key: string; data: unknown } | null} */
+let cached = null
+/** @type {Promise<unknown> | null} */
+let inflight = null
+/** @type {string} */
+let inflightKey = ''
+
+export const DISCOVER_TIMELINE_DEFAULTS = {
+  limit: 80,
+  pastDays: 90,
+  aheadDays: 180,
+  macroDays: 5,
+}
+
+function timelineCacheKey(opts = {}) {
+  return JSON.stringify({
+    q: String(opts.query ?? '').trim(),
+    pastDays: opts.pastDays ?? DISCOVER_TIMELINE_DEFAULTS.pastDays,
+    aheadDays: opts.aheadDays ?? DISCOVER_TIMELINE_DEFAULTS.aheadDays,
+    limit: opts.limit ?? DISCOVER_TIMELINE_DEFAULTS.limit,
+    macroDays: opts.macroDays ?? DISCOVER_TIMELINE_DEFAULTS.macroDays,
+    sources: (opts.sourceKeys ?? []).join(','),
+  })
+}
+
 /**
- * @param {{ query?: string; sourceKeys?: string[]; pastDays?: number; aheadDays?: number; limit?: number }} [opts]
+ * @param {typeof DISCOVER_TIMELINE_DEFAULTS & { query?: string; sourceKeys?: string[] }} [opts]
+ */
+export function peekDiscoverTimelineCache(opts = {}) {
+  if (!cached) return null
+  if (Date.now() - cached.at > CACHE_MS) return null
+  if (cached.key !== timelineCacheKey(opts)) return null
+  return cached.data
+}
+
+/**
+ * @param {{ query?: string; sourceKeys?: string[]; pastDays?: number; aheadDays?: number; limit?: number; macroDays?: number }} [opts]
  */
 export async function fetchDiscoverTimeline(opts = {}) {
+  const key = timelineCacheKey(opts)
+  const hit = peekDiscoverTimelineCache(opts)
+  if (hit) return hit
+
+  if (inflight && inflightKey === key) return inflight
+
   const params = new URLSearchParams()
   const q = String(opts.query ?? '').trim()
   if (q) params.set('q', q)
@@ -12,10 +55,25 @@ export async function fetchDiscoverTimeline(opts = {}) {
   if (opts.pastDays != null) params.set('past_days', String(opts.pastDays))
   if (opts.aheadDays != null) params.set('ahead_days', String(opts.aheadDays))
   if (opts.limit != null) params.set('limit', String(opts.limit))
+  if (opts.macroDays != null) params.set('macro_days', String(opts.macroDays))
 
   const qs = params.toString()
   const path = qs ? `/api/discover/timeline?${qs}` : '/api/discover/timeline'
-  const res = await fetchJsonSafe(path, { timeoutMs: 30000 })
-  if (!res.ok || !res.data?.ok) return null
-  return res.data
+
+  inflightKey = key
+  inflight = (async () => {
+    const res = await fetchJsonSafe(path, { timeoutMs: 45_000 })
+    if (!res.ok || !res.data?.ok) return null
+    cached = { at: Date.now(), key, data: res.data }
+    return res.data
+  })().finally(() => {
+    inflight = null
+  })
+
+  return inflight
+}
+
+/** Warm the client cache as soon as the API is up (before opening Discover). */
+export function prefetchDiscoverTimeline(opts = {}) {
+  void fetchDiscoverTimeline({ ...DISCOVER_TIMELINE_DEFAULTS, ...opts })
 }

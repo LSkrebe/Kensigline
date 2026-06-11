@@ -7,6 +7,7 @@ import { SubscribePage } from './SubscribePage.jsx'
 import { SettingsPanel } from './SettingsPanel.jsx'
 import { useSubscription } from './useSubscription.js'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
+import { prefetchDiscoverTimeline } from './discoverClient.js'
 import { EventBriefDocCard } from './EventBrief.jsx'
 import { getEventMentioned } from './eventBriefs.js'
 import {
@@ -873,10 +874,10 @@ const RESEARCH_FEED_BY_INTEL = {
   ],
 }
 
-/** Middle FEED column: full company name (never repeat the ticker or show scores). */
+/** Middle FEED column: full company name from DB (never memo headline / feed_label). */
 function researchFeedRowLabel(item) {
   const ticker = String(item?.ticker ?? '').trim().toUpperCase()
-  const companyName = String(item?.company_name ?? item?.company ?? item?.name ?? '').trim()
+  const companyName = String(item?.company_name ?? item?.company ?? '').trim()
   if (companyName && companyName.toUpperCase() !== ticker) return companyName
   return ticker
 }
@@ -4369,7 +4370,7 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
       ...it,
       id: it.id ?? it.rowKey ?? String(it.ticker ?? ''),
       at: it.at ?? it.feed_at ?? null,
-      company: String(it.company ?? it.name ?? '').trim() || String(it.ticker ?? '').toUpperCase(),
+      company: researchFeedRowLabel(it),
     }))
     const dated = items.filter((it) => {
       const t = new Date(it.at).getTime()
@@ -6412,14 +6413,15 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
     if (!doc?.id) continue
     items.push({ kind: 'document', id: String(doc.id), at: doc.filedAt, document: doc })
   }
-  for (const row of insiders) {
+  for (let i = 0; i < insiders.length; i++) {
+    const row = insiders[i]
     const role = String(row?.key ?? '').trim()
     const person = String(row?.person ?? '').trim()
     const label = paperInsiderTxnLabel(role, person)
     if (label === '—') continue
     items.push({
       kind: 'insider',
-      id: `insider-${role}-${person}-${paperTimelineAtMs(row?.date)}`,
+      id: `insider-${role}-${person}-${paperTimelineAtMs(row?.date)}-${String(row?.transactionCode ?? '').trim()}-${i}`,
       at: row?.date,
       source: paperTxnSourceLabel('Form 4', row?.transactionCode, 'insider'),
       name: label,
@@ -6429,14 +6431,15 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       transactionCode: String(row?.transactionCode ?? '').trim().toUpperCase() || null,
     })
   }
-  for (const row of politicians) {
+  for (let i = 0; i < politicians.length; i++) {
+    const row = politicians[i]
     const member = String(row?.name ?? '').trim()
     const label = paperPoliticianTxnLabel(row?.chamber, member)
     if (label === paperPoliticianChamberLabel(row?.chamber) && !member) continue
     if (!member) continue
     items.push({
       kind: 'politician',
-      id: `politician-${member}-${paperTimelineAtMs(row?.date)}`,
+      id: `politician-${member}-${paperTimelineAtMs(row?.date)}-${String(row?.transactionType ?? '').trim()}-${String(row?.amount ?? '').trim()}-${i}`,
       at: row?.date,
       source: paperTxnSourceLabel('PTR', row?.transactionType, 'politician'),
       name: label,
@@ -6446,13 +6449,14 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       transactionType: row?.transactionType ?? null,
     })
   }
-  for (const row of filings13f) {
+  for (let i = 0; i < filings13f.length; i++) {
+    const row = filings13f[i]
     const filer = String(row?.filer ?? '').trim()
     const label = paper13fTxnLabel(filer)
     if (label === '—') continue
     items.push({
       kind: '13f',
-      id: `13f-${filer}-${paperTimelineAtMs(row?.date)}`,
+      id: `13f-${filer}-${paperTimelineAtMs(row?.date)}-${String(row?.activity ?? '').trim()}-${i}`,
       at: row?.date,
       source: paperTxnSourceLabel('13F', row?.activity, '13f'),
       name: label,
@@ -6663,7 +6667,7 @@ function normalizeResearchFeedRow(row, timelineItems) {
   return {
     ...row,
     id: row?.rowKey ?? ticker,
-    company: String(row?.company ?? row?.name ?? '').trim() || ticker,
+    company: researchFeedRowLabel(row),
     at,
     count: todayCount > 0 ? todayCount : null,
   }
@@ -9790,6 +9794,12 @@ function KensiglineTerminal() {
     }, 1000)
     return () => clearInterval(t)
   }, [backendLastOkAt])
+
+  useEffect(() => {
+    if (!backendUp) return undefined
+    prefetchDiscoverTimeline()
+    return undefined
+  }, [backendUp])
 
   useEffect(() => {
     let alive = true

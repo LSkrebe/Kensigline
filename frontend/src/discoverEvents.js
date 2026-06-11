@@ -494,11 +494,13 @@ function discoverEventAtIso(event) {
 export function buildDiscoverCardDisplayRows(events, variant) {
   /** @type {Array<{ type: 'sep'; key: string; label: string } | { type: 'event'; key: string; event: DiscoverEvent }>} */
   const out = []
-  const items = (events ?? []).map((event) => ({
-    id: event.id,
-    at: discoverEventAtIso(event),
-    event,
-  }))
+  const items = (events ?? [])
+    .map((event) => ({
+      id: event.id,
+      at: discoverEventAtIso(event),
+      event,
+    }))
+    .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
   if (!items.length) return out
 
   for (let i = 0; i < items.length; i++) {

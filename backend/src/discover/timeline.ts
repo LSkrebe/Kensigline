@@ -44,12 +44,11 @@ export async function buildDiscoverTimeline(opts: DiscoverTimelineOpts = {}): Pr
   const q = String(opts.query ?? "").trim();
   const enabled = opts.sourceKeys ?? null;
 
-  const universe = await loadTickerUniverse(Number(process.env.DISCOVER_MAX_UNIVERSE ?? 500));
-
-  const [pastRaw, upcomingRaw, macro] = await Promise.all([
+  const [pastRaw, upcomingRaw, macro, universe] = await Promise.all([
     loadPastDiscoverEvents({ pastDays, limit }),
     loadUpcomingDiscoverEvents({ aheadDays, limit }),
-    Promise.resolve(loadUpcomingMacroDays(macroDayLimit)),
+    loadUpcomingMacroDays(macroDayLimit),
+    loadTickerUniverse(Number(process.env.DISCOVER_MAX_UNIVERSE ?? 500)),
   ]);
 
   const filterRow = (event: DiscoverEvent) => {

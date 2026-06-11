@@ -52,7 +52,7 @@ function isWeekday(d: Date) {
 }
 
 /** Next N business days from today (Mon–Fri only, today included). */
-export function loadUpcomingMacroDays(limit = 5): DiscoverMacroDay[] {
+export function loadTemplateMacroDays(limit = 5): DiscoverMacroDay[] {
   const out: DiscoverMacroDay[] = [];
   const cursor = new Date();
   cursor.setHours(0, 0, 0, 0);
@@ -78,4 +78,17 @@ export function loadUpcomingMacroDays(limit = 5): DiscoverMacroDay[] {
   }
 
   return out;
+}
+
+/** Yahoo Finance economic calendar when reachable; otherwise weekday templates. */
+export async function loadUpcomingMacroDays(limit = 5): Promise<DiscoverMacroDay[]> {
+  try {
+    const { loadLiveMacroDays } = await import("./macro-live.js");
+    const live = await loadLiveMacroDays(limit);
+    const hasEvents = live.some((day) => day.events.length > 0);
+    if (hasEvents) return live;
+  } catch (e) {
+    console.warn("macro_live_fetch_failed", e);
+  }
+  return loadTemplateMacroDays(limit);
 }

@@ -1,7 +1,11 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { EventBriefAnalysis, formatEventCardDate } from './EventBrief.jsx'
 import { DiscoverReactionChart } from './DiscoverReactionChart.jsx'
-import { fetchDiscoverTimeline } from './discoverClient.js'
+import {
+  DISCOVER_TIMELINE_DEFAULTS,
+  fetchDiscoverTimeline,
+  peekDiscoverTimelineCache,
+} from './discoverClient.js'
 import {
   buildDiscoverCardDisplayRows,
   buildDiscoverTimeline,
@@ -242,6 +246,7 @@ function DiscoverMacroStrip({
   filterOpen,
   onFilterClick,
   onFilterToggle,
+  loading = false,
 }) {
   const days = useMemo(
     () => filterMacroCalendarDays(macroDays ?? [], { regions: enabledRegions, impacts: enabledImpacts }),
@@ -298,7 +303,9 @@ function DiscoverMacroStrip({
         <div className="feedCompactMain discoverMacroStripMain" aria-hidden={filterOpen || undefined}>
           <div className="discoverMacroStripScroll scrollThin">
             {!days.length ? (
-              <p className="discoverColEmpty mono dim">No upcoming macro releases.</p>
+              <p className="discoverColEmpty mono dim">
+                {loading ? 'Loading macro calendar…' : 'No upcoming macro releases.'}
+              </p>
             ) : (
               <div className="discoverMacroWeek discoverMacroWeek--horizontal">
                 {days.map((day) => (
@@ -326,11 +333,11 @@ function DiscoverMoveCard({ event, movePct, reactionCloses, allowMockFallback = 
   const title = String(event.title ?? '').trim() || '—'
   const summary = truncateDiscoverSummary(event.summary)
   const ticker = String(event.ticker ?? '').trim().toUpperCase()
-  const showMove = Number.isFinite(movePct)
+  const hasCloses = Array.isArray(reactionCloses) && reactionCloses.length >= 2
+  const showMove = hasCloses && Number.isFinite(movePct)
   const move = showMove ? formatRippleMove(movePct) : ''
   const moveCls = showMove ? rippleMoveClass(movePct) : ''
-  const hasCloses = Array.isArray(reactionCloses) && reactionCloses.length >= 2
-  const showChart = hasCloses || (allowMockFallback && showMove)
+  const showChart = hasCloses || (allowMockFallback && Number.isFinite(movePct))
 
   return (
     <button
@@ -416,11 +423,15 @@ function DiscoverCatalystRow({ event, onResearch }) {
   )
 }
 
-function DiscoverCatalystList({ events, onResearch }) {
+function DiscoverCatalystList({ events, onResearch, loading = false }) {
   const displayRows = useMemo(() => buildDiscoverCardDisplayRows(events, 'upcoming'), [events])
 
   if (!displayRows.length) {
-    return <p className="discoverColEmpty mono dim">No matching catalysts.</p>
+    return (
+      <p className="discoverColEmpty mono dim">
+        {loading ? 'Loading watchlist catalysts…' : 'No matching catalysts.'}
+      </p>
+    )
   }
 
   return (
@@ -443,7 +454,9 @@ const MARKET_MOVE_FILTER_SECTIONS = [{ types: DISCOVER_MARKET_MOVE_FILTER_TYPES 
 
 export function DiscoverPanel({ backendUp = false, onOpenResearch }) {
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [liveTimeline, setLiveTimeline] = useState(null)
+  const [timelineFetching, setTimelineFetching] = useState(false)
 
   const [watchlistFilterOpen, setWatchlistFilterOpen] = useState(false)
   const [watchlistFilters, setWatchlistFilters] = useState(() => new Set(DISCOVER_WATCHLIST_FILTER_DEFAULT))
@@ -464,45 +477,63 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch }) {
   }, [])
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 280)
+    return () => clearTimeout(t)
+  }, [query])
+
+  useEffect(() => {
+    if (!backendUp) {
+      setLiveTimeline(null)
+      setTimelineFetching(false)
+      return undefined
+    }
+
+    const fetchOpts = { ...DISCOVER_TIMELINE_DEFAULTS, query: debouncedQuery }
+    const cached = peekDiscoverTimelineCache(fetchOpts)
+    if (cached && Array.isArray(cached.upcoming) && Array.isArray(cached.past)) {
+      setLiveTimeline(cached)
+    }
+
     let alive = true
-    void fetchDiscoverTimeline({ query, limit: 120, pastDays: 90, aheadDays: 180 }).then((data) => {
+    setTimelineFetching(true)
+    void fetchDiscoverTimeline(fetchOpts).then((data) => {
       if (!alive) return
+      setTimelineFetching(false)
       if (Array.isArray(data?.upcoming) && Array.isArray(data?.past)) setLiveTimeline(data)
-      else setLiveTimeline(null)
+      else if (!cached) setLiveTimeline(null)
     })
     return () => {
       alive = false
     }
-  }, [query])
+  }, [debouncedQuery, backendUp])
+
+  const timelineLoading = backendUp && timelineFetching && liveTimeline == null
+  const timelineRefreshing = backendUp && timelineFetching && liveTimeline != null
+  const showColumnLoading = timelineLoading || timelineRefreshing
 
   const mockTimeline = useMemo(() => (backendUp ? null : buildDiscoverTimeline({ query })), [backendUp, query])
   const upcomingSource = useMemo(() => {
     if (backendUp) return liveTimeline?.upcoming ?? []
-    return liveTimeline?.upcoming ?? mockTimeline?.upcoming ?? []
+    return mockTimeline?.upcoming ?? []
   }, [backendUp, liveTimeline?.upcoming, mockTimeline?.upcoming])
 
   const pastSource = useMemo(() => {
     if (backendUp) return liveTimeline?.past ?? []
-    return liveTimeline?.past ?? mockTimeline?.past ?? []
+    return mockTimeline?.past ?? []
   }, [backendUp, liveTimeline?.past, mockTimeline?.past])
 
   const macroSource = useMemo(() => {
-    if (backendUp) {
-      return Array.isArray(liveTimeline?.macro) ? liveTimeline.macro : []
-    }
-    const live = liveTimeline?.macro
-    if (Array.isArray(live) && live.length > 0) return live
+    if (backendUp) return Array.isArray(liveTimeline?.macro) ? liveTimeline.macro : []
     return getUpcomingMacroDays(5)
   }, [backendUp, liveTimeline?.macro])
 
   const moveReactions = useMemo(() => {
     if (backendUp) return liveTimeline?.moves ?? {}
-    if (liveTimeline != null) return liveTimeline.moves ?? {}
     const rows = (mockTimeline?.past ?? []).filter(
       (event) => String(event.summary ?? '').trim() && event.kind !== 'flow',
     )
     return buildMockMoveReactions(rows)
-  }, [backendUp, liveTimeline, mockTimeline?.past])
+  }, [backendUp, liveTimeline?.moves, mockTimeline?.past])
 
   const catalysts = useMemo(
     () => applyDiscoverSourceFilter(upcomingSource, watchlistFilters),
@@ -533,6 +564,7 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch }) {
           filterOpen={macroFilterOpen}
           onFilterClick={() => setMacroFilterOpen((open) => !open)}
           onFilterToggle={toggleMacroFilter}
+          loading={showColumnLoading && !macroSource.some((d) => d.events?.length)}
         />
         <div className="discoverPanelSplit discoverPanelSplit--horizontal" aria-hidden="true" />
         <div className="discoverDual">
@@ -546,7 +578,7 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch }) {
             onFilterToggle={toggleWatchlistFilter}
             filterAriaLabel="Watchlist document types"
           >
-            <DiscoverCatalystList events={catalysts} onResearch={onOpenResearch} />
+            <DiscoverCatalystList events={catalysts} onResearch={onOpenResearch} loading={showColumnLoading && !catalysts.length} />
           </DiscoverFeedColumn>
           <div className="discoverSplitRule" aria-hidden="true" />
           <DiscoverFeedColumn
@@ -560,7 +592,9 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch }) {
             filterAriaLabel="Market move document types"
           >
             {!marketMoves.length ? (
-              <p className="discoverColEmpty mono dim">No recent market moves.</p>
+              <p className="discoverColEmpty mono dim">
+                {showColumnLoading ? 'Loading market moves…' : 'No recent market moves.'}
+              </p>
             ) : (
               <div className="discoverMoveList">
                 {marketMoves.map((event) => {

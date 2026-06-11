@@ -191,9 +191,16 @@ test("discover summary truncation", async () => {
   assert.ok(out!.endsWith("…"));
 });
 
+test("research feed company label uses DB name only", async () => {
+  const { resolveResearchFeedCompanyName } = await import("../research/feed-display.js");
+  assert.equal(resolveResearchFeedCompanyName("ADBE", "Adobe Inc."), "Adobe Inc.");
+  assert.equal(resolveResearchFeedCompanyName("ADBE", null), "ADBE");
+  assert.equal(resolveResearchFeedCompanyName("NVDA", "NVIDIA Corporation"), "NVIDIA Corporation");
+});
+
 test("discover macro week generation", async () => {
   const { loadUpcomingMacroDays } = await import("../discover/macro.js");
-  const days = loadUpcomingMacroDays(3);
+  const days = await loadUpcomingMacroDays(3);
   assert.ok(days.length >= 3);
   assert.ok(days[0]?.date);
   assert.ok(Array.isArray(days[0]?.events));

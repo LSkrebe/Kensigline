@@ -3956,10 +3956,12 @@
 }
 
 .discoverMoveList {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   align-items: stretch;
+  width: 100%;
 }
 
 .discoverMoveCard {
@@ -4058,20 +4060,28 @@
 
 .discoverCatalystList {
   --paper-doc-radius: 5px;
-  --research-paper-txn-portrait-w: 34px;
+  --research-paper-txn-portrait-w: 40px;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-height: 0;
+  width: 100%;
+}
+
+.terminal--discover .discoverCatalystList .discoverCatalystCard.researchPaperRailCard {
+  flex: 0 0 auto;
+  min-height: 44px;
+  align-items: stretch;
 }
 
 .terminal--discover .discoverCatalystList .discoverCatalystCard .eventBriefRailTicker {
-  font-size: 7.5px;
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  line-height: 1.05;
-  padding: 0 2px;
-  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.15;
+  padding: 0 3px;
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .terminal--discover .discoverCatalystList .discoverCatalystCard .researchPaperRailCardGrid {
@@ -4081,10 +4091,10 @@
 
 .terminal--discover .discoverCatalystList .discoverCatalystCard .researchPaperDocCardSource,
 .terminal--discover .discoverCatalystList .discoverCatalystCard .researchPaperDocCardDate {
-  font-size: 7px;
+  font-size: 8.5px;
   font-weight: 500;
   letter-spacing: 0.04em;
-  line-height: 1.1;
+  line-height: 1.2;
   min-height: 0;
 }
 
@@ -4098,13 +4108,13 @@
 }
 
 .terminal--discover .discoverCatalystList .discoverCatalystCard .discoverCatalystCardTitle {
-  margin: 5px 0 0;
+  margin: 4px 0 0;
   padding-right: 4px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
-  line-height: 1.32;
+  line-height: 1.35;
   letter-spacing: 0.01em;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .terminal--discover .discoverCatalystList .discoverCatalystCard.researchPaperRailCard {

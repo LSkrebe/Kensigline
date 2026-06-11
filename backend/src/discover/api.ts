@@ -2,7 +2,7 @@ import type http from "node:http";
 import { route, sendJson } from "../core/http.js";
 import { clampInt } from "../shared/feed-helpers.js";
 import { parseSourceKeyFilterParam } from "../shared/source-keys.js";
-import { buildDiscoverTimeline } from "./timeline.js";
+import { buildDiscoverTimelineCached } from "./timeline-cache.js";
 
 export async function tryDiscoverRoutes(
   req: http.IncomingMessage,
@@ -22,7 +22,7 @@ export async function tryDiscoverRoutes(
         : null;
 
     try {
-      const payload = await buildDiscoverTimeline({
+      const payload = await buildDiscoverTimelineCached({
         query,
         sourceKeys,
         pastDays,
