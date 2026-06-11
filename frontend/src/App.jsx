@@ -301,7 +301,8 @@ function patchInvestigateFeedRowFromCluster(rows, ticker, cluster, buildCaseShee
     if (String(r.ticker ?? '').toUpperCase() !== tick) return r
     const caseSheet = buildCaseSheet(cluster, r)
     if (!Array.isArray(caseSheet?.rows) || !caseSheet.rows.length) return r
-    return normalizeFeedRowActivity({ ...r, caseSheet })
+    // Keep feed sort keys from the API row; cluster data is for CASE panel only.
+    return { ...r, caseSheet, at: r.at, count: r.count }
   })
 }
 
@@ -865,6 +866,14 @@ const RESEARCH_FEED_BY_INTEL = {
     { rowKey: 'fb-PFE', ticker: 'PFE', name: 'Pfizer Inc.', at: '2024-08-02T12:30:00.000Z' },
     { rowKey: 'fb-ABBV', ticker: 'ABBV', name: 'AbbVie Inc.', at: '2024-03-14T09:00:00.000Z' },
   ],
+}
+
+/** Middle FEED column: full company name (never repeat the ticker or show scores). */
+function researchFeedRowLabel(item) {
+  const ticker = String(item?.ticker ?? '').trim().toUpperCase()
+  const companyName = String(item?.company_name ?? item?.company ?? item?.name ?? '').trim()
+  if (companyName && companyName.toUpperCase() !== ticker) return companyName
+  return ticker
 }
 
 /** Pad live research feed with demo rows (feed-only) so timeline separators stay visible. */
@@ -2470,12 +2479,7 @@ function ContextFlowOutcomeChart({
   const w = size.w
   const h = size.h
   const n = Math.max(1, xLabels.length)
-  const margin = { l: 0, r: 0, t: 10, b: 22 }
-  const yTickGap = 8
-  const innerW = Math.max(1, w - margin.l - margin.r)
-  const plotTop = margin.t
-  const axisY = h - margin.b
-  const innerH = Math.max(1, axisY - plotTop)
+  const marginSides = { r: 0, t: 10, b: 22 }
 
   const allVals = lines.flatMap((l) => (Array.isArray(l.returns) ? l.returns : []))
   const rawMin = allVals.length ? Math.min(...allVals, 0) : 0
@@ -2487,19 +2491,26 @@ function ContextFlowOutcomeChart({
   const max = hiP / 100
   const span = max - min || 1
 
+  const yTicks = useMemo(() => returnTicks(min, max, 3), [min, max])
+  const yTickGap = 5
+  const yTickTexts = useMemo(() => yTicks.map((v) => formatReturnTick(v)), [yTicks])
+  const marginL = useMemo(
+    () => chartYAxisMargin(yTickTexts, { gap: yTickGap, min: 22, max: 40 }),
+    [yTickTexts],
+  )
+  const margin = { l: marginL, ...marginSides }
+  const innerW = Math.max(1, w - margin.l - margin.r)
+  const plotTop = margin.t
+  const axisY = h - margin.b
+  const innerH = Math.max(1, axisY - plotTop)
+  const yTickLabelX = margin.l - yTickGap
+
   function xAt(i) {
     return margin.l + (i / Math.max(1, n - 1)) * innerW
   }
   function yAt(v) {
     return plotTop + (1 - (v - min) / span) * innerH
   }
-
-  const yTicks = useMemo(() => returnTicks(min, max, 3), [min, max])
-  const viewPadL = useMemo(() => {
-    const maxLen = yTicks.reduce((m, v) => Math.max(m, formatReturnTick(v).length), 3)
-    return Math.min(40, Math.max(28, Math.ceil(maxLen * 6.5) + yTickGap + 4))
-  }, [yTicks])
-  const yTickLabelX = margin.l - yTickGap
 
   const paths = useMemo(() => {
     return lines.map((line) => {
@@ -2513,7 +2524,7 @@ function ContextFlowOutcomeChart({
       }
       return { id: line.id, d: d.trim(), color: line.color }
     })
-  }, [lines, w, h, min, max])
+  }, [lines, w, h, min, max, marginL])
 
   const zeroY =
     min < 0 && max > 0 ? yAt(0) : null
@@ -2524,8 +2535,8 @@ function ContextFlowOutcomeChart({
     <div className="contextFlowOutcomeChart" ref={wrapRef} role="img" aria-label={ariaLabel}>
       <svg
         className="contextFlowOutcomeSvg"
-        viewBox={`${-viewPadL} 0 ${w + viewPadL + 4} ${h}`}
-        preserveAspectRatio="xMinYMid meet"
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio="xMidYMid meet"
         role="img"
       >
         <path
@@ -4859,11 +4870,8 @@ function MiniPriceChart({
 
   const w = size.w
   const h = size.h
-  const margin =
-    chartAlign === 'context' ? { l: 0, r: 0, t: 8, b: 18 } : { l: 0, r: 6, t: 8, b: 18 }
-  const svgPreserveAspect = chartAlign === 'context' ? 'xMinYMid meet' : 'xMidYMid meet'
-  const innerW = Math.max(1, w - margin.l - margin.r)
-  const innerH = Math.max(1, h - margin.t - margin.b)
+  const marginSides =
+    chartAlign === 'context' ? { r: 0, t: 8, b: 18 } : { r: 6, t: 8, b: 18 }
 
   const vals = useMemo(() => {
     let base = Array.isArray(series) ? series : []
@@ -4875,6 +4883,18 @@ function MiniPriceChart({
   const min = vals.length ? Math.min(...vals) : 0
   const max = vals.length ? Math.max(...vals) : 1
   const span = max - min || 1
+
+  const yTicks = useMemo(() => priceTicks(min, max, 4), [min, max])
+  const yTickGap = 5
+  const yTickTexts = useMemo(() => yTicks.map((v) => formatPriceTick(v)), [yTicks])
+  const marginL = useMemo(
+    () => chartYAxisMargin(yTickTexts, { gap: yTickGap, min: 22, max: 44 }),
+    [yTickTexts],
+  )
+  const margin = { l: marginL, ...marginSides }
+  const innerW = Math.max(1, w - margin.l - margin.r)
+  const innerH = Math.max(1, h - margin.t - margin.b)
+  const yTickLabelX = margin.l - yTickGap
 
   function xAt(i) {
     return margin.l + (i / Math.max(1, vals.length - 1)) * innerW
@@ -4892,7 +4912,7 @@ function MiniPriceChart({
       d += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)} `
     }
     return d.trim()
-  }, [vals, w, h])
+  }, [vals, w, h, marginL, min, max])
 
   const areaPath = useMemo(() => {
     if (!vals.length) return ''
@@ -4905,7 +4925,7 @@ function MiniPriceChart({
     }
     d += `L ${xAt(vals.length - 1).toFixed(2)} ${yBase.toFixed(2)} Z`
     return d.trim()
-  }, [vals, w, h])
+  }, [vals, w, h, marginL, min, max])
 
   const gradId = useMemo(() => {
     const s = String(label ?? 'PRICE')
@@ -4913,16 +4933,6 @@ function MiniPriceChart({
     for (let i = 0; i < s.length; i++) h0 = Math.imul(h0 ^ s.charCodeAt(i), 16777619)
     return `miniFill-${(h0 >>> 0).toString(16)}`
   }, [label])
-
-  const yTicks = useMemo(() => priceTicks(min, max, 4), [min, max])
-  // Left viewBox gutter: fit widest y tick (end-anchored 8px left of axis). Context uses a tighter gutter.
-  const yTickGap = 8
-  const viewPadL = useMemo(() => {
-    if (chartAlign !== 'context') return 50
-    const maxLen = yTicks.reduce((m, v) => Math.max(m, formatPriceTick(v).length), 3)
-    return Math.min(40, Math.max(28, Math.ceil(maxLen * 6.5) + yTickGap + 4))
-  }, [chartAlign, yTicks])
-  const yTickLabelX = margin.l - yTickGap
   const xTickIdx = useMemo(() => {
     const n = Math.max(0, vals.length)
     if (n <= 1) return []
@@ -4985,8 +4995,8 @@ function MiniPriceChart({
         ) : (
           <svg
             className="graphSvg"
-            viewBox={`${-viewPadL} 0 ${w + viewPadL} ${h}`}
-            preserveAspectRatio={svgPreserveAspect}
+            viewBox={`0 0 ${w} ${h}`}
+            preserveAspectRatio="xMidYMid meet"
             role="img"
           >
             <defs>
@@ -5014,7 +5024,7 @@ function MiniPriceChart({
                     x={yTickLabelX}
                     y={y}
                   >
-                    {formatPriceTick(v)}
+                    {yTickTexts[i]}
                   </text>
                   <path
                     className="graphTickLine"
@@ -6637,7 +6647,7 @@ function normalizeResearchFeedRow(row, timelineItems) {
   return {
     ...row,
     id: row?.rowKey ?? ticker,
-    company: String(row?.name ?? row?.company ?? '').trim() || ticker,
+    company: String(row?.company ?? row?.name ?? '').trim() || ticker,
     at,
     count: todayCount > 0 ? todayCount : null,
   }
@@ -7366,9 +7376,29 @@ function returnTicks(minFr, maxFr, n = 4) {
 function formatPriceTick(v) {
   const x = Number(v)
   if (!Number.isFinite(x)) return EMPTY
-  if (x >= 100) return String(Math.round(x))
-  if (x >= 10) return x.toFixed(1)
+  const abs = Math.abs(x)
+  if (abs >= 1000) return String(Math.round(x))
+  if (abs >= 100) return String(Math.round(x))
+  if (abs >= 10) {
+    const r = Math.round(x * 10) / 10
+    return Number.isInteger(r) ? String(r) : r.toFixed(1)
+  }
+  if (abs >= 1) return x.toFixed(2)
   return x.toFixed(2)
+}
+
+/** Width of the widest Y tick label (11px mono graph ticks). */
+function estimateChartTickLabelWidth(labels, fontSize = 11) {
+  const texts = (Array.isArray(labels) ? labels : []).map((s) => String(s ?? ''))
+  if (!texts.length) return 0
+  const maxLen = texts.reduce((m, s) => Math.max(m, s.length), 1)
+  return Math.ceil(maxLen * fontSize * 0.56 + Math.max(0, maxLen - 1) * fontSize * 0.04)
+}
+
+/** Left margin so end-anchored Y labels sit flush against the axis (no viewBox gutter). */
+function chartYAxisMargin(labels, { gap = 5, fontSize = 11, min = 24, max = 48 } = {}) {
+  const textW = estimateChartTickLabelWidth(labels, fontSize)
+  return Math.min(max, Math.max(min, textW + gap))
 }
 
 /** Forward return fraction → Y-axis label (integer %, compact; no grouping commas). */
@@ -7863,12 +7893,7 @@ function GraphPanel({
   }, [markers, rangeKey, showRangeSelector, metaMode])
 
   const isRet = yTickFormat === 'return'
-  /* Plain axes: Y scale runs plotTop→axisY (min sits on the x-axis). Left gutter + bottom room for month labels. */
-  const margin = { l: isRet ? 28 : 26, r: 6, t: isRet ? 10 : 8, b: isRet ? 22 : 20 }
-  const marginL = margin.l
-  const plotTop = margin.t
-  const axisY = h - margin.b
-  const innerW = Math.max(1, w - margin.l - margin.r)
+  const marginSides = { r: 6, t: isRet ? 10 : 8, b: isRet ? 22 : 20 }
 
   const { series: vals, dates: ds } = useMemo(() => {
     if (!showRangeSelector || metaMode !== 'range') {
@@ -7919,6 +7944,24 @@ function GraphPanel({
     return { wr, ytd, ytdPp }
   }, [metaMode, vals])
 
+  const yTicks = useMemo(() => {
+    if (yTickFormat === 'return') return returnTicks(min, max, 4)
+    return priceTicks(min, max, 4)
+  }, [min, max, yTickFormat])
+  const yTickGap = 5
+  const yTickTexts = useMemo(
+    () => yTicks.map((v) => (yTickFormat === 'return' ? formatReturnTick(v) : formatPriceTick(v))),
+    [yTicks, yTickFormat],
+  )
+  const marginL = useMemo(
+    () => chartYAxisMargin(yTickTexts, { gap: yTickGap, min: isRet ? 28 : 24, max: 48 }),
+    [yTickTexts, isRet],
+  )
+  const margin = { l: marginL, ...marginSides }
+  const plotTop = margin.t
+  const axisY = h - margin.b
+  const innerW = Math.max(1, w - margin.l - margin.r)
+
   function xAt(i) {
     return margin.l + (i / Math.max(1, vals.length - 1)) * innerW
   }
@@ -7936,7 +7979,7 @@ function GraphPanel({
       d += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)} `
     }
     return d.trim()
-  }, [vals, w, h, marginL, margin.t, margin.b, plotTop, axisY])
+  }, [vals, w, h, marginL, margin.t, margin.b, plotTop, axisY, min, max, span])
 
   const areaPath = useMemo(() => {
     if (!vals.length) return ''
@@ -7949,7 +7992,7 @@ function GraphPanel({
     }
     d += `L ${xAt(vals.length - 1).toFixed(2)} ${yBase.toFixed(2)} Z`
     return d.trim()
-  }, [vals, w, h, marginL, margin.t, margin.b, plotTop, axisY])
+  }, [vals, w, h, marginL, margin.t, margin.b, plotTop, axisY, min, max, span])
 
   const gradId = useMemo(() => {
     const s = String(title ?? 'graph')
@@ -7958,10 +8001,6 @@ function GraphPanel({
     return `graphFill-${(h0 >>> 0).toString(16)}`
   }, [title])
 
-  const yTicks = useMemo(() => {
-    if (yTickFormat === 'return') return returnTicks(min, max, 4)
-    return priceTicks(min, max, 4)
-  }, [min, max, yTickFormat])
   const xTickIdx = useMemo(() => {
     const n = Math.max(0, ds.length)
     if (n <= 1) return []
@@ -8083,10 +8122,10 @@ function GraphPanel({
                     style={GRAPH_SVG_TICK}
                     textAnchor="end"
                     dominantBaseline={baseline}
-                    x={margin.l - 8}
+                    x={margin.l - yTickGap}
                     y={tyAdj}
                   >
-                    {yTickFormat === 'return' ? formatReturnTick(v) : formatPriceTick(v)}
+                    {yTickTexts[i]}
                   </text>
                   <path className="graphTickLine" style={GRAPH_SVG_TICK_LINE} d={`M ${margin.l} ${y} L ${margin.l + 6} ${y}`} />
                 </g>
@@ -9249,7 +9288,12 @@ function KensiglineTerminal() {
   const [insiderFeedLive, setInsiderFeedLive] = useState(null)
   const [insiderClusterLive, setInsiderClusterLive] = useState(null)
   const [barsLive, setBarsLive] = useState(null)
+  const [barsLiveTicker, setBarsLiveTicker] = useState(null)
+  const barsCacheRef = useRef(new Map())
+  const barsFetchGenRef = useRef(0)
   const [companyLive, setCompanyLive] = useState(null)
+  const [companyLiveTicker, setCompanyLiveTicker] = useState(null)
+  const companyFetchGenRef = useRef(0)
   const [politiciansFeedLive, setPoliticiansFeedLive] = useState(null)
   const [politiciansClusterLive, setPoliticiansClusterLive] = useState(null)
   const [institutionsFeedLive, setInstitutionsFeedLive] = useState(null)
@@ -9264,13 +9308,17 @@ function KensiglineTerminal() {
     if (!backendUp) return fallback
     if (!Array.isArray(researchFeedLive) || !researchFeedLive.length) return []
     return sortFeedRowsByAtDesc(
-      researchFeedLive.map((x) => ({
-        rowKey:
-          x.kind === 'paper' && x.id ? String(x.id) : `sig-${String(x.ticker ?? '').toUpperCase()}`,
-        ticker: String(x.ticker ?? '').toUpperCase(),
-        name: String(x.name ?? x.company_name ?? x.ticker ?? ''),
-        at: x.feed_at ? String(x.feed_at) : null,
-      })),
+      researchFeedLive.map((x) => {
+        const ticker = String(x.ticker ?? '').toUpperCase()
+        const label = researchFeedRowLabel(x)
+        return {
+          rowKey: x.kind === 'paper' && x.id ? String(x.id) : `sig-${ticker}`,
+          ticker,
+          name: label,
+          company: label,
+          at: x.feed_at ? String(x.feed_at) : null,
+        }
+      }),
     )
   }, [backendUp, researchFeedLive, intelMode])
 
@@ -9876,7 +9924,7 @@ function KensiglineTerminal() {
           insiderFeedRowMatchesCompanyQuery(r, companyQ) && insiderFeedRowMatchesPersonQuery(r, personQ),
       )
     }
-    return sortFeedRowsByAtDesc(rows)
+    return sortFeedRowsTodayEventsFirst(rows)
   }, [insiderFeedRowsTxnFiltered, insiderCompanyQuery, insiderPersonQuery])
 
   useEffect(() => {
@@ -9890,17 +9938,14 @@ function KensiglineTerminal() {
       : null
 
   const insiderFeedDisplay = useMemo(() => {
-    let rows = insiderFilteredFeed
-    if (backendUp && insiderClusterLive && insiderSelected?.ticker) {
-      rows = patchInvestigateFeedRowFromCluster(
-        insiderFilteredFeed,
-        insiderSelected.ticker,
-        insiderClusterLive,
-        insiderCaseSheetFromClusterLive,
-      )
-    }
-    return applyInvestigateFeedTxnFilter(rows, investigateInsiderTxnFilters, 'insider')
-  }, [backendUp, insiderFilteredFeed, insiderClusterLive, insiderSelected?.ticker, investigateInsiderTxnFilters])
+    if (!(backendUp && insiderClusterLive && insiderSelected?.ticker)) return insiderFilteredFeed
+    return patchInvestigateFeedRowFromCluster(
+      insiderFilteredFeed,
+      insiderSelected.ticker,
+      insiderClusterLive,
+      insiderCaseSheetFromClusterLive,
+    )
+  }, [backendUp, insiderFilteredFeed, insiderClusterLive, insiderSelected?.ticker])
 
   useEffect(() => {
     let alive = true
@@ -9967,7 +10012,7 @@ function KensiglineTerminal() {
           politicianFeedRowMatchesPoliticianQuery(r, politicianQ),
       )
     }
-    return sortFeedRowsByAtDesc(rows)
+    return sortFeedRowsTodayEventsFirst(rows)
   }, [politiciansFeedRowsTxnFiltered, politiciansCompanyQuery, politiciansPoliticianQuery])
 
   useEffect(() => {
@@ -9981,23 +10026,14 @@ function KensiglineTerminal() {
       : null
 
   const politiciansFeedDisplay = useMemo(() => {
-    let rows = politiciansFilteredFeed
-    if (backendUp && politiciansClusterLive && politiciansSelected?.ticker) {
-      rows = patchInvestigateFeedRowFromCluster(
-        politiciansFilteredFeed,
-        politiciansSelected.ticker,
-        politiciansClusterLive,
-        politiciansCaseSheetFromClusterLive,
-      )
-    }
-    return applyInvestigateFeedTxnFilter(rows, investigatePoliticianTxnFilters, 'politicians')
-  }, [
-    backendUp,
-    politiciansFilteredFeed,
-    politiciansClusterLive,
-    politiciansSelected?.ticker,
-    investigatePoliticianTxnFilters,
-  ])
+    if (!(backendUp && politiciansClusterLive && politiciansSelected?.ticker)) return politiciansFilteredFeed
+    return patchInvestigateFeedRowFromCluster(
+      politiciansFilteredFeed,
+      politiciansSelected.ticker,
+      politiciansClusterLive,
+      politiciansCaseSheetFromClusterLive,
+    )
+  }, [backendUp, politiciansFilteredFeed, politiciansClusterLive, politiciansSelected?.ticker])
 
   const institutionsFeedRowsBase = useMemo(
     () => applyFeedTodayEventCounts(!backendUp ? INSTITUTION_FEED_ROWS : institutionsFeedLive ?? []),
@@ -10020,7 +10056,7 @@ function KensiglineTerminal() {
           institutionFeedRowMatchesInstitutionQuery(r, institutionQ),
       )
     }
-    return sortFeedRowsByAtDesc(rows)
+    return sortFeedRowsTodayEventsFirst(rows)
   }, [institutionsFeedRowsTxnFiltered, institutionsCompanyQuery, institutionsInstitutionQuery])
 
   useEffect(() => {
@@ -10040,23 +10076,14 @@ function KensiglineTerminal() {
       : null
 
   const institutionsFeedDisplay = useMemo(() => {
-    let rows = institutionsFilteredFeed
-    if (backendUp && institutionsClusterLive && institutionsSelected?.ticker) {
-      rows = patchInvestigateFeedRowFromCluster(
-        institutionsFilteredFeed,
-        institutionsSelected.ticker,
-        institutionsClusterLive,
-        institutionCaseSheetFromClusterLive,
-      )
-    }
-    return applyInvestigateFeedTxnFilter(rows, investigateInstitutionTxnFilters, 'institutions')
-  }, [
-    backendUp,
-    institutionsFilteredFeed,
-    institutionsClusterLive,
-    institutionsSelected?.ticker,
-    investigateInstitutionTxnFilters,
-  ])
+    if (!(backendUp && institutionsClusterLive && institutionsSelected?.ticker)) return institutionsFilteredFeed
+    return patchInvestigateFeedRowFromCluster(
+      institutionsFilteredFeed,
+      institutionsSelected.ticker,
+      institutionsClusterLive,
+      institutionCaseSheetFromClusterLive,
+    )
+  }, [backendUp, institutionsFilteredFeed, institutionsClusterLive, institutionsSelected?.ticker])
 
   const institutionsSelectedResolved = useMemo(() => {
     let base = institutionsSelected
@@ -10112,18 +10139,23 @@ function KensiglineTerminal() {
   // Insider cluster: case worksheet + context
   useEffect(() => {
     let alive = true
+    if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'insider') {
+      setInsiderClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    const id = insiderSelected?.__backend_id ?? null
+    const ticker = insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
+    const useId = id || (ticker ? `company:${ticker}` : null)
+    if (!useId) {
+      setInsiderClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    setInsiderClusterLive(null)
     async function run() {
-      if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'insider') {
-        if (alive) setInsiderClusterLive(null)
-        return
-      }
-      const id = insiderSelected?.__backend_id ?? null
-      const ticker = insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
-      const useId = id || (ticker ? `company:${ticker}` : null)
-      if (!useId) {
-        if (alive) setInsiderClusterLive(null)
-        return
-      }
       const r = await fetchJsonSafe(`/api/insider/cluster/${encodeURIComponent(useId)}?days=30`)
       if (!alive) return
       const data = r.ok ? r.data?.data ?? null : null
@@ -10133,22 +10165,27 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, activeTab, insiderSelected?.ticker, insiderSelected?.__backend_id])
+  }, [backendUp, activeTab, investigateMode, insiderSelected?.ticker, insiderSelected?.__backend_id])
 
   // Politicians cluster: case worksheet + context
   useEffect(() => {
     let alive = true
+    if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'politicians') {
+      setPoliticiansClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    const ticker = politiciansSelected?.ticker ? String(politiciansSelected.ticker).toUpperCase() : null
+    const useId = ticker ? `ticker:${ticker}` : null
+    if (!useId) {
+      setPoliticiansClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    setPoliticiansClusterLive(null)
     async function run() {
-      if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'politicians') {
-        if (alive) setPoliticiansClusterLive(null)
-        return
-      }
-      const ticker = politiciansSelected?.ticker ? String(politiciansSelected.ticker).toUpperCase() : null
-      const useId = ticker ? `ticker:${ticker}` : null
-      if (!useId) {
-        if (alive) setPoliticiansClusterLive(null)
-        return
-      }
       const r = await fetchJsonSafe(`/api/politicians/cluster/${encodeURIComponent(useId)}?days=120`, { timeoutMs: 7000 })
       if (!alive) return
       const data = r.ok ? r.data?.data ?? null : null
@@ -10158,21 +10195,26 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, activeTab, politiciansSelected?.ticker])
+  }, [backendUp, activeTab, investigateMode, politiciansSelected?.ticker])
 
   useEffect(() => {
     let alive = true
+    if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'institutions') {
+      setInstitutionsClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    const ticker = institutionsSelected?.ticker ? String(institutionsSelected.ticker).toUpperCase() : null
+    const useId = ticker ? `ticker:${ticker}` : null
+    if (!useId) {
+      setInstitutionsClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    setInstitutionsClusterLive(null)
     async function run() {
-      if (!backendUp || activeTab !== 'investigate' || investigateMode !== 'institutions') {
-        if (alive) setInstitutionsClusterLive(null)
-        return
-      }
-      const ticker = institutionsSelected?.ticker ? String(institutionsSelected.ticker).toUpperCase() : null
-      const useId = ticker ? `ticker:${ticker}` : null
-      if (!useId) {
-        if (alive) setInstitutionsClusterLive(null)
-        return
-      }
       const r = await fetchJsonSafe(`/api/institutions/cluster/${encodeURIComponent(useId)}?days=120`, {
         timeoutMs: 7000,
       })
@@ -10284,19 +10326,17 @@ function KensiglineTerminal() {
   const selectedTicker = useMemo(() => {
     if (investigateIsInsider) return insiderSelected?.ticker ? String(insiderSelected.ticker).toUpperCase() : null
     if (investigateIsPoliticians)
-      return politiciansSelectedResolved?.ticker ? String(politiciansSelectedResolved.ticker).toUpperCase() : null
+      return politiciansSelected?.ticker ? String(politiciansSelected.ticker).toUpperCase() : null
     if (investigateIsInstitutions)
-      return institutionsSelectedResolved?.ticker
-        ? String(institutionsSelectedResolved.ticker).toUpperCase()
-        : null
+      return institutionsSelected?.ticker ? String(institutionsSelected.ticker).toUpperCase() : null
     return null
   }, [
     investigateIsInsider,
     investigateIsPoliticians,
     investigateIsInstitutions,
     insiderSelected?.ticker,
-    politiciansSelectedResolved?.ticker,
-    institutionsSelectedResolved?.ticker,
+    politiciansSelected?.ticker,
+    institutionsSelected?.ticker,
   ])
 
   const chartPanelTitle = useMemo(() => {
@@ -10343,36 +10383,114 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     let alive = true
+    const ticker = selectedTicker ? String(selectedTicker).toUpperCase() : null
+    const gen = ++barsFetchGenRef.current
+
+    if (!backendUp || !ticker) {
+      setBarsLive(null)
+      setBarsLiveTicker(null)
+      return () => {
+        alive = false
+      }
+    }
+
+    const cached = barsCacheRef.current.get(ticker)
+    if (Array.isArray(cached) && cached.length) {
+      setBarsLive(cached)
+      setBarsLiveTicker(ticker)
+    } else {
+      setBarsLive(null)
+      setBarsLiveTicker(ticker)
+    }
+
     async function run() {
-      if (!backendUp || !selectedTicker) return
-      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(selectedTicker)}&days=365`, { timeoutMs: 6000 })
-      if (!alive) return
+      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(ticker)}&days=365`, { timeoutMs: 6000 })
+      if (!alive || barsFetchGenRef.current !== gen) return
+      const respTicker = String(r.data?.ticker ?? ticker).trim().toUpperCase()
+      if (respTicker !== ticker) return
       const closes = Array.isArray(r.data?.items)
         ? r.data.items.map((x) => Number(x?.close)).filter((n) => Number.isFinite(n))
         : []
-      if (r.ok) setBarsLive(closes.length ? closes : null)
+      if (!alive || barsFetchGenRef.current !== gen) return
+      if (closes.length) {
+        barsCacheRef.current.set(ticker, closes)
+        setBarsLive(closes)
+        setBarsLiveTicker(ticker)
+      } else if (r.ok) {
+        barsCacheRef.current.delete(ticker)
+        setBarsLive(null)
+        setBarsLiveTicker(ticker)
+      }
     }
     run()
-    const t = setInterval(run, 60_000)
+    const t = setInterval(() => {
+      if (barsFetchGenRef.current === gen) run()
+    }, 60_000)
     return () => {
       alive = false
       clearInterval(t)
     }
   }, [backendUp, selectedTicker])
 
+  const investigateFeedCompany = useMemo(() => {
+    const row = investigateIsInsider
+      ? insiderSelected
+      : investigateIsPoliticians
+        ? politiciansSelected
+        : investigateIsInstitutions
+          ? institutionsSelected
+          : null
+    if (!row) return null
+    const name = String(row.company ?? row.label ?? '').trim()
+    return {
+      ticker: row.ticker ? String(row.ticker).toUpperCase() : null,
+      name: name || null,
+    }
+  }, [
+    investigateIsInsider,
+    investigateIsPoliticians,
+    investigateIsInstitutions,
+    insiderSelected,
+    politiciansSelected,
+    institutionsSelected,
+  ])
+
+  const companyForInvestigatePanel = useMemo(() => {
+    if (!backendUp || !selectedTicker) return null
+    if (companyLiveTicker === selectedTicker && companyLive) return companyLive
+    const feedName = investigateFeedCompany?.ticker === selectedTicker ? investigateFeedCompany.name : null
+    if (!feedName) return null
+    return { ticker: selectedTicker, name: feedName, industry: null, country: null, mcap: null, earnings_date: null }
+  }, [backendUp, selectedTicker, companyLiveTicker, companyLive, investigateFeedCompany])
+
   useEffect(() => {
     let alive = true
-    if (!backendUp || !selectedTicker) {
+    const ticker = selectedTicker ? String(selectedTicker).toUpperCase() : null
+    const gen = ++companyFetchGenRef.current
+
+    if (!backendUp || !ticker) {
       setCompanyLive(null)
+      setCompanyLiveTicker(null)
       return () => {
         alive = false
       }
     }
+
     setCompanyLive(null)
+    setCompanyLiveTicker(ticker)
+
     async function run() {
-      const r = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(selectedTicker)}`, { timeoutMs: 6000 })
-      if (!alive) return
-      if (r.ok) setCompanyLive(r.data)
+      const r = await fetchJsonSafe(
+        `/api/company?ticker=${encodeURIComponent(ticker)}&snapshot=1`,
+        { timeoutMs: 15_000 },
+      )
+      if (!alive || companyFetchGenRef.current !== gen) return
+      const respTicker = String(r.data?.ticker ?? ticker).trim().toUpperCase()
+      if (respTicker !== ticker) return
+      if (r.ok && r.data && typeof r.data === 'object') {
+        setCompanyLive(r.data)
+        setCompanyLiveTicker(ticker)
+      }
     }
     run()
     return () => {
@@ -10382,7 +10500,9 @@ function KensiglineTerminal() {
 
   const daily =
     backendUp
-      ? barsLive ?? []
+      ? barsLiveTicker === selectedTicker
+        ? barsLive ?? []
+        : []
       : investigateIsInsider
         ? (barsLive ?? insiderSelectedResolved?.daily ?? [])
         : investigateIsPoliticians
@@ -10934,6 +11054,7 @@ function KensiglineTerminal() {
           />
 
           <GraphPanel
+            key={selectedTicker ?? 'none'}
             title={chartPanelTitle}
             series={dailySeries}
             dates={dailyDates}
@@ -10956,7 +11077,7 @@ function KensiglineTerminal() {
           />
 
           <CompanyPanel
-            company={companyLive}
+            company={companyForInvestigatePanel}
             ticker={selectedTicker}
             backendUp={backendUp}
             price={chartLastPrice}

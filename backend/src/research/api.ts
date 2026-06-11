@@ -10,6 +10,7 @@ import {
   loadPoliticianFlowsForTicker,
 } from "../documents/store.js";
 import { getTrackedInvestorsForTicker } from "./market/tracked-investors.js";
+import { resolveResearchFeedCompanyName } from "./feed-display.js";
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -201,9 +202,9 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
   }>(
     `
     SELECT p.id, p.ticker, p.title, p.score::text, p.created_at::text,
-           COALESCE(c.name, p.ticker) AS company_name
+           COALESCE(NULLIF(trim(c.name), ''), p.ticker) AS company_name
     FROM research_memos p
-    LEFT JOIN companies c ON upper(trim(c.ticker)) = p.ticker
+    LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(p.ticker))
     ORDER BY p.created_at DESC
     LIMIT $1
     `,
@@ -233,26 +234,32 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
       : [];
 
   const items = [
-    ...papers.map((p) => ({
-      kind: "paper" as const,
-      id: p.id,
-      ticker: p.ticker,
-      name: truncLabel(p.title, 52),
-      feed_label: p.title,
-      score: Number(p.score),
-      feed_at: p.created_at,
-      company_name: p.company_name ?? p.ticker,
-    })),
-    ...signals.map((s) => ({
-      kind: "signal" as const,
-      id: null,
-      ticker: s.ticker,
-      name: `${truncLabel(s.company_name ?? s.ticker, 36)} · score ${Number(s.score).toFixed(1)}`,
-      feed_label: `Live research signals · ${s.ticker}`,
-      score: Number(s.score),
-      feed_at: s.updated_at,
-      company_name: s.company_name ?? s.ticker,
-    })),
+    ...papers.map((p) => {
+      const displayName = resolveResearchFeedCompanyName(p.ticker, p.company_name, p.title);
+      return {
+        kind: "paper" as const,
+        id: p.id,
+        ticker: p.ticker,
+        name: displayName,
+        feed_label: p.title,
+        score: Number(p.score),
+        feed_at: p.created_at,
+        company_name: displayName,
+      };
+    }),
+    ...signals.map((s) => {
+      const displayName = resolveResearchFeedCompanyName(s.ticker, s.company_name, null);
+      return {
+        kind: "signal" as const,
+        id: null,
+        ticker: s.ticker,
+        name: displayName,
+        feed_label: `Live research signals · ${s.ticker}`,
+        score: Number(s.score),
+        feed_at: s.updated_at,
+        company_name: displayName,
+      };
+    }),
   ];
 
   sendJson(res, 200, { ok: true, items });

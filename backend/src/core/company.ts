@@ -136,6 +136,89 @@ function pickSharesOutstanding(companyFacts: any): number | null {
   return null;
 }
 
+async function loadCompanyDbRow(ticker: string) {
+  return db.one<{
+    name: string | null;
+    industry: string | null;
+    country: string | null;
+    mcap: string | null;
+    earnings_date: string | null;
+  }>(
+    `
+    SELECT name, industry, country, mcap, earnings_date::text AS earnings_date
+    FROM companies
+    WHERE ticker = $1
+    LIMIT 1
+    `,
+    [ticker],
+  );
+}
+
+async function getLatestCloseDbOnly(ticker: string): Promise<number | null> {
+  const row = await db.one<{ close: number }>(
+    `
+    SELECT close
+    FROM bars
+    WHERE ticker = $1
+    ORDER BY day DESC
+    LIMIT 1
+    `,
+    [ticker],
+  );
+  if (row && Number.isFinite(Number(row.close))) return Number(row.close);
+  return null;
+}
+
+/** Fast company tile for Investigate — DB cache + latest bar close; one Polygon call only when uncached. */
+export async function getCompanySnapshot(opts: { ticker: string }) {
+  const ticker = String(opts.ticker ?? "").trim().toUpperCase();
+  if (!ticker) throw new Error("ticker_required");
+
+  const cached = await loadCompanyDbRow(ticker);
+  const latestClose = await getLatestCloseDbOnly(ticker);
+
+  if (cached?.name) {
+    return {
+      ticker,
+      name: cached.name,
+      industry: cached.industry,
+      country: cached.country,
+      earnings_date: cached.earnings_date,
+      shares_outstanding: null,
+      latest_close: latestClose,
+      mcap: cached.mcap,
+    };
+  }
+
+  let name: string | null = null;
+  let industry: string | null = null;
+  let country: string | null = null;
+  try {
+    const r = await fetchPolygonTickerOverview(ticker);
+    name = r?.name ? String(r.name) : null;
+    industry =
+      r?.sic_description != null
+        ? String(r.sic_description)
+        : r?.industry != null
+          ? String(r.industry)
+          : null;
+    country = r?.address?.country != null ? String(r.address.country) : r?.locale != null ? String(r.locale) : null;
+  } catch {
+    // best-effort profile only
+  }
+
+  return {
+    ticker,
+    name,
+    industry,
+    country,
+    earnings_date: null,
+    shares_outstanding: null,
+    latest_close: latestClose,
+    mcap: null,
+  };
+}
+
 async function getLatestClose(ticker: string): Promise<number | null> {
   const row = await db.one<{ close: number }>(
     `

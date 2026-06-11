@@ -4,7 +4,7 @@ import { URL } from "node:url";
 import { json, notFound, readRawBody, route, sendJson } from "./core/http.js";
 import { db } from "./core/db.js";
 import { getDailyCloseBars } from "./core/bars.js";
-import { getCompanyPanelData } from "./core/company.js";
+import { getCompanyPanelData, getCompanySnapshot } from "./core/company.js";
 import { getMarketFundamentalsForTicker } from "./research/market/fundamentals.js";
 import { getMarketOwnershipForTicker } from "./research/market/ownership.js";
 import { getLatestOutcomes, recomputeResearchOutcomes, recomputeInsiderOutcomes, recomputePharmaOutcomes, recomputePoliticiansOutcomes } from "./core/outcomes.js";
@@ -180,7 +180,14 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 400, { ok: false, error: "ticker_required" });
         return;
       }
-      const out = await getCompanyPanelData({ ticker });
+      const snapshot = ["1", "true", "yes"].includes(
+        String(url.searchParams.get("snapshot") ?? url.searchParams.get("lite") ?? "").toLowerCase(),
+      );
+      const out = snapshot ? await getCompanySnapshot({ ticker }) : await getCompanyPanelData({ ticker });
+      if (snapshot) {
+        sendJson(res, 200, out);
+        return;
+      }
       let fundamentals = null;
       let ownership = null;
       try {
