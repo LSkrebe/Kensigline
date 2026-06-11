@@ -28,7 +28,12 @@ const CHART_AREA_GRAD_BOTTOM = 'var(--intel-accent-area-bottom)'
 /** Inline SVG paint: avoids WebKit/CSS cascade quirks on <text> and export rasterizers. */
 const GRAPH_SVG_FONT =
   'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
-const GRAPH_SVG_TICK = { fill: 'rgba(255, 255, 255, 0.42)', fontSize: 11, fontFamily: GRAPH_SVG_FONT }
+const GRAPH_SVG_TICK = {
+  fill: 'rgba(255, 255, 255, 0.42)',
+  fontSize: 11,
+  fontFamily: GRAPH_SVG_FONT,
+  letterSpacing: 0,
+}
 const GRAPH_SVG_TICK_LINE = { stroke: 'rgba(255, 255, 255, 0.16)', strokeWidth: 1, fill: 'none' }
 const GRAPH_SVG_AXIS = { stroke: 'rgba(255, 255, 255, 0.16)', strokeWidth: 0.85, fill: 'none' }
 const GRAPH_SVG_PATH = { stroke: 'var(--intel-accent-stroke-strong)', strokeWidth: 2, fill: 'none' }
@@ -4892,15 +4897,17 @@ function MiniPriceChart({
     [yTickTexts],
   )
   const margin = { l: marginL, ...marginSides }
+  const plotTop = margin.t
+  const axisY = h - margin.b
   const innerW = Math.max(1, w - margin.l - margin.r)
-  const innerH = Math.max(1, h - margin.t - margin.b)
+  const innerH = Math.max(1, axisY - plotTop)
   const yTickLabelX = margin.l - yTickGap
 
   function xAt(i) {
     return margin.l + (i / Math.max(1, vals.length - 1)) * innerW
   }
   function yAt(v) {
-    return margin.t + (1 - (v - min) / span) * innerH
+    return plotTop + (1 - (v - min) / span) * innerH
   }
 
   const path = useMemo(() => {
@@ -4916,7 +4923,7 @@ function MiniPriceChart({
 
   const areaPath = useMemo(() => {
     if (!vals.length) return ''
-    const yBase = h - margin.b
+    const yBase = axisY
     let d = `M ${xAt(0).toFixed(2)} ${yBase.toFixed(2)} `
     for (let i = 0; i < vals.length; i++) {
       const x = xAt(i)
@@ -5009,20 +5016,26 @@ function MiniPriceChart({
             <path
               className="graphAxis"
               style={GRAPH_SVG_AXIS}
-              d={`M ${margin.l} ${margin.t} L ${margin.l} ${h - margin.b} L ${w - margin.r} ${h - margin.b}`}
+              d={`M ${margin.l} ${plotTop} L ${margin.l} ${axisY} L ${w - margin.r} ${axisY}`}
             />
 
             {yTicks.map((v, i) => {
               const y = yAt(v)
+              const nT = yTicks.length
+              const onFloor = nT === 1 ? false : i === 0
+              const onCeil = nT === 1 ? false : i === nT - 1
+              const ty = onFloor ? axisY : y
+              const baseline = onFloor ? 'alphabetic' : onCeil ? 'hanging' : 'middle'
+              const tyAdj = onCeil ? plotTop + 1 : ty
               return (
                 <g key={`yt-${i}`}>
                   <text
                     className="graphTick graphTick--y"
                     style={GRAPH_SVG_TICK}
                     textAnchor="end"
-                    dominantBaseline="middle"
+                    dominantBaseline={baseline}
                     x={yTickLabelX}
-                    y={y}
+                    y={tyAdj}
                   >
                     {yTickTexts[i]}
                   </text>
@@ -6119,6 +6132,8 @@ async function appendPaperCaptureBrandFooter(parent) {
 async function buildPaperCaptureChartClone(chartSourceEl) {
   const chart = chartSourceEl?.querySelector('.researchPaperCaptureChart')
   if (!chart) return null
+  const wasHidden = chartSourceEl.hasAttribute('hidden')
+  if (wasHidden) chartSourceEl.removeAttribute('hidden')
   chartSourceEl.classList.add('researchPaperCaptureChartSource--primed')
   try {
     void chart.offsetHeight
@@ -6127,6 +6142,7 @@ async function buildPaperCaptureChartClone(chartSourceEl) {
     return chart.cloneNode(true)
   } finally {
     chartSourceEl.classList.remove('researchPaperCaptureChartSource--primed')
+    if (wasHidden) chartSourceEl.setAttribute('hidden', '')
   }
 }
 
@@ -6915,9 +6931,9 @@ function ResearchPaperStructuredView({
   return (
     <div
       className={[
-        'researchPaperBody',
-        'researchPaperBody--documentsOnly',
-        screenshotSelectMode ? 'researchPaperBody--screenshotSelect' : '',
+        'researchPaperTimeline',
+        'researchPaperTimeline--documentsOnly',
+        screenshotSelectMode ? 'researchPaperTimeline--screenshotSelect' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -6986,6 +7002,7 @@ function ResearchPaperPanel({
   edges: _edges,
   presentation,
   backendUp,
+  dataTicker = null,
   intelMode = 'market',
   selectedProgramKey = null,
   insiders = [],
@@ -6999,6 +7016,10 @@ function ResearchPaperPanel({
 }) {
   const fullName = String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
   const t = String(ticker ?? '').toUpperCase()
+  const dataTick = String(dataTicker ?? '').trim().toUpperCase()
+  const presentationReady =
+    !backendUp || (Boolean(dataTick) && dataTick === t && Boolean(presentation?.title))
+  const safePresentation = presentationReady ? presentation : null
   const paperBodyRef = useRef(null)
   const captureMountRef = useRef(null)
   const chartCaptureRef = useRef(null)
@@ -7015,12 +7036,21 @@ function ResearchPaperPanel({
     return Number.isFinite(last) ? last : null
   }, [priceSeries])
 
+  useLayoutEffect(() => {
+    const el = paperBodyRef.current
+    if (el) el.scrollTop = 0
+  }, [t, presentationReady])
+
   const paperDocuments = useMemo(() => {
-    const docs = paperDocumentsFromPresentation(presentation)
+    const docs = paperDocumentsFromPresentation(safePresentation)
     let rows = intelMode !== 'clinical' ? docs : filterPaperDocumentsByProgram(docs, selectedProgramKey)
     if (paperSourceFilters) rows = filterPaperDocumentsBySources(rows, paperSourceFilters)
     return rows
-  }, [presentation, intelMode, selectedProgramKey, paperSourceFilters])
+  }, [safePresentation, intelMode, selectedProgramKey, paperSourceFilters])
+
+  const flowInsiders = presentationReady ? insiders : []
+  const flowPoliticians = presentationReady ? politicians : []
+  const flowFilings13f = presentationReady ? filings13f : []
 
   const showPaperInsiderPoliticianFlows =
     intelMode !== 'clinical' ||
@@ -7030,9 +7060,9 @@ function ResearchPaperPanel({
   const paperCaptureIds = useMemo(() => {
     const timeline = buildPaperTimelineItems({
       documents: paperDocuments,
-      insiders: showPaperInsiderPoliticianFlows ? insiders : [],
-      politicians: showPaperInsiderPoliticianFlows ? politicians : [],
-      filings13f: showPaperInsiderPoliticianFlows ? filings13f : [],
+      insiders: showPaperInsiderPoliticianFlows ? flowInsiders : [],
+      politicians: showPaperInsiderPoliticianFlows ? flowPoliticians : [],
+      filings13f: showPaperInsiderPoliticianFlows ? flowFilings13f : [],
     })
     const filtered = paperSourceFilters
       ? filterPaperTimelineBySources(timeline, paperSourceFilters)
@@ -7040,9 +7070,9 @@ function ResearchPaperPanel({
     return filtered.map((item) => item.id)
   }, [
     paperDocuments,
-    insiders,
-    politicians,
-    filings13f,
+    flowInsiders,
+    flowPoliticians,
+    flowFilings13f,
     paperSourceFilters,
     showPaperInsiderPoliticianFlows,
   ])
@@ -7050,9 +7080,9 @@ function ResearchPaperPanel({
   const paperCapturePortraitById = useMemo(() => {
     const timeline = buildPaperTimelineItems({
       documents: paperDocuments,
-      insiders: showPaperInsiderPoliticianFlows ? insiders : [],
-      politicians: showPaperInsiderPoliticianFlows ? politicians : [],
-      filings13f: showPaperInsiderPoliticianFlows ? filings13f : [],
+      insiders: showPaperInsiderPoliticianFlows ? flowInsiders : [],
+      politicians: showPaperInsiderPoliticianFlows ? flowPoliticians : [],
+      filings13f: showPaperInsiderPoliticianFlows ? flowFilings13f : [],
     })
     const filtered = paperSourceFilters
       ? filterPaperTimelineBySources(timeline, paperSourceFilters)
@@ -7080,6 +7110,10 @@ function ResearchPaperPanel({
     setScreenshotSelected(new Set())
     setScreenshotIncludeChart(false)
   }, [])
+
+  useEffect(() => {
+    cancelScreenshotSelect()
+  }, [t, cancelScreenshotSelect])
 
   const startScreenshotSelect = useCallback(() => {
     if (!paperCaptureIds.length) {
@@ -7218,7 +7252,9 @@ function ResearchPaperPanel({
       aria-label={fullName}
     >
       <header className="feedCompactHeader researchPaperPanelHeader">
-        <div className="researchPaperPanelName">{fullName}</div>
+        <div className="researchPaperPanelName" key={t}>
+          {fullName}
+        </div>
         <div className="feedCompactHeaderEnd">
           {screenshotSelectMode ? (
             <>
@@ -7266,15 +7302,29 @@ function ResearchPaperPanel({
           )}
         </div>
       </header>
-      <div ref={paperBodyRef} className="researchPaperBody scrollThin">
-        <div className="researchPaperDoc">
-          {presentation?.title ? (
+      <div
+        ref={paperBodyRef}
+        className={[
+          'researchPaperBody',
+          'scrollThin',
+          !presentationReady && backendUp ? 'researchPaperBody--pending' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <div className="researchPaperDoc" key={t}>
+          {!presentationReady && backendUp ? (
+            <div className="researchPaperLoading mono dim" role="status">
+              Loading company research…
+            </div>
+          ) : safePresentation?.title ? (
             <ResearchPaperStructuredView
+              key={`${t}-${paperDocuments.map((d) => d.id).join('|')}`}
               ticker={ticker}
               documents={paperDocuments}
-              insiders={showPaperInsiderPoliticianFlows ? insiders : []}
-              politicians={showPaperInsiderPoliticianFlows ? politicians : []}
-              filings13f={showPaperInsiderPoliticianFlows ? filings13f : []}
+              insiders={showPaperInsiderPoliticianFlows ? flowInsiders : []}
+              politicians={showPaperInsiderPoliticianFlows ? flowPoliticians : []}
+              filings13f={showPaperInsiderPoliticianFlows ? flowFilings13f : []}
               paperSourceFilters={paperSourceFilters}
               screenshotSelectMode={screenshotSelectMode}
               screenshotSelected={screenshotSelected}
@@ -7290,8 +7340,13 @@ function ResearchPaperPanel({
           ) : null}
         </div>
       </div>
-      <div ref={captureMountRef} className="researchPaperCaptureMount" aria-hidden="true" />
-      <div ref={chartCaptureRef} className="researchPaperCaptureChartSource" aria-hidden="true">
+      <div
+        ref={captureMountRef}
+        className="researchPaperCaptureMount"
+        aria-hidden="true"
+        hidden={!screenshotBusy}
+      />
+      <div ref={chartCaptureRef} className="researchPaperCaptureChartSource" aria-hidden="true" hidden>
         <div className="researchPaperCaptureChart">
           <div className="researchPaperCaptureChartHead">
             <div className="researchPaperCaptureChartHeadLeft">
@@ -7391,8 +7446,21 @@ function formatPriceTick(v) {
 function estimateChartTickLabelWidth(labels, fontSize = 11) {
   const texts = (Array.isArray(labels) ? labels : []).map((s) => String(s ?? ''))
   if (!texts.length) return 0
+  if (typeof document !== 'undefined') {
+    try {
+      const ctx = document.createElement('canvas').getContext('2d')
+      if (ctx) {
+        ctx.font = `${fontSize}px ${GRAPH_SVG_FONT}`
+        let max = 0
+        for (const t of texts) max = Math.max(max, ctx.measureText(t).width)
+        if (max > 0) return Math.ceil(max + 3)
+      }
+    } catch {
+      /* use heuristic below */
+    }
+  }
   const maxLen = texts.reduce((m, s) => Math.max(m, s.length), 1)
-  return Math.ceil(maxLen * fontSize * 0.56 + Math.max(0, maxLen - 1) * fontSize * 0.04)
+  return Math.ceil(maxLen * fontSize * 0.62 + Math.max(0, maxLen - 1) * fontSize * 0.05)
 }
 
 /** Left margin so end-anchored Y labels sit flush against the axis (no viewBox gutter). */
@@ -9249,6 +9317,7 @@ function KensiglineTerminal() {
   const [investigatePoliticianTxnFiltersDraft, setInvestigatePoliticianTxnFiltersDraft] = useState(null)
   const [investigateInstitutionTxnFiltersDraft, setInvestigateInstitutionTxnFiltersDraft] = useState(null)
   const tabBeforeSettingsRef = useRef('discover')
+  const terminalMainRef = useRef(null)
 
   const [insiderIdx, setInsiderIdx] = useState(0)
   const [insiderCompanyQuery, setInsiderCompanyQuery] = useState('')
@@ -9267,9 +9336,17 @@ function KensiglineTerminal() {
   const [institutionsChartRange, setInstitutionsChartRange] = useState('1M')
   const [researchFeedLive, setResearchFeedLive] = useState(null)
   const [researchExploreLive, setResearchExploreLive] = useState(null)
+  const [researchExploreTicker, setResearchExploreTicker] = useState(null)
   const [researchCompanyLive, setResearchCompanyLive] = useState(null)
+  const [researchCompanyTicker, setResearchCompanyTicker] = useState(null)
   const [contextClinicalLive, setContextClinicalLive] = useState(null)
+  const [contextClinicalTicker, setContextClinicalTicker] = useState(null)
   const [researchBarsSeries, setResearchBarsSeries] = useState(null)
+  const [researchBarsTicker, setResearchBarsTicker] = useState(null)
+  const researchBarsFetchGenRef = useRef(0)
+  const researchCompanyFetchGenRef = useRef(0)
+  const researchExploreFetchGenRef = useRef(0)
+  const researchClinicalFetchGenRef = useRef(0)
   const [contextOutcomesLive, setContextOutcomesLive] = useState(null)
 
   const [researchTicker, setResearchTicker] = useState(RESEARCH_TICKER_MARKET)
@@ -9322,27 +9399,51 @@ function KensiglineTerminal() {
     )
   }, [backendUp, researchFeedLive, intelMode])
 
+  const researchTick = useMemo(
+    () => String(researchTicker ?? '').trim().toUpperCase(),
+    [researchTicker],
+  )
+
+  // React 19 can leave prior paper panels in the grid when ticker keys change — keep one slot.
+  useLayoutEffect(() => {
+    const main = terminalMainRef.current
+    if (!main || activeTab !== 'main') return
+    const panels = [...main.querySelectorAll(':scope > .researchPaperPanel')]
+    if (panels.length <= 1) return
+    for (let i = 0; i < panels.length - 1; i++) panels[i].remove()
+  }, [researchTick, activeTab])
+
+  const researchExploreResolved = useMemo(() => {
+    if (!backendUp || !researchTick) return null
+    if (researchExploreTicker !== researchTick || !researchExploreLive) return null
+    return researchExploreLive
+  }, [backendUp, researchTick, researchExploreTicker, researchExploreLive])
+
+  const researchCompanyResolved = useMemo(() => {
+    if (!backendUp || !researchTick) return null
+    if (researchCompanyTicker !== researchTick || !researchCompanyLive) return null
+    return researchCompanyLive
+  }, [backendUp, researchTick, researchCompanyTicker, researchCompanyLive])
+
   const researchCompanyName = useMemo(() => {
-    const t = String(researchTicker ?? '').toUpperCase()
-    if (
-      researchExploreLive &&
-      String(researchExploreLive.ticker ?? '').toUpperCase() === t &&
-      String(researchExploreLive.company_name ?? '').trim()
-    ) {
-      return String(researchExploreLive.company_name).trim()
-    }
-    const fromFeed = researchFeedItems.find((x) => String(x.ticker ?? '').toUpperCase() === t)?.name
+    const fromExplore = String(researchExploreResolved?.company_name ?? '').trim()
+    if (fromExplore && fromExplore.toUpperCase() !== researchTick) return fromExplore
+    const fromFeed = researchFeedItems.find((x) => String(x.ticker ?? '').toUpperCase() === researchTick)?.name
     if (fromFeed) return fromFeed
-    if (backendUp) return t
+    if (backendUp) return researchTick || '—'
     const companyEnt = researchDataset?.entities?.find((e) => String(e?.type ?? '').toLowerCase() === 'company')
-    return companyEnt?.name ?? t
-  }, [researchFeedItems, researchDataset?.entities, researchTicker, researchExploreLive, backendUp])
+    return companyEnt?.name ?? researchTick
+  }, [researchFeedItems, researchDataset?.entities, researchTick, researchExploreResolved?.company_name, backendUp])
 
   const researchPriceSeries = useMemo(() => {
-    if (Array.isArray(researchBarsSeries) && researchBarsSeries.length) return researchBarsSeries
-    if (backendUp) return []
+    if (backendUp) {
+      if (researchBarsTicker === researchTick && Array.isArray(researchBarsSeries) && researchBarsSeries.length) {
+        return researchBarsSeries
+      }
+      return []
+    }
     return researchDataset?.price ?? []
-  }, [researchBarsSeries, researchDataset?.price, backendUp])
+  }, [researchBarsSeries, researchBarsTicker, researchTick, researchDataset?.price, backendUp])
 
   const contextMock = useMemo(() => {
     if (backendUp) return null
@@ -9361,42 +9462,44 @@ function KensiglineTerminal() {
     () =>
       resolveCompanySnapshot({
         ticker: researchTicker,
-        company: researchCompanyLive,
+        company: researchCompanyResolved,
         backendUp,
         price: contextLivePrice,
       }),
-    [researchTicker, researchCompanyLive, backendUp, contextLivePrice],
+    [researchTicker, researchCompanyResolved, backendUp, contextLivePrice],
   )
 
   const contextFundamentals = useMemo(() => {
     if (backendUp) {
-      return researchCompanyLive?.fundamentals
-        ? mapFundamentalsFromApi(researchCompanyLive.fundamentals)
+      return researchCompanyResolved?.fundamentals
+        ? mapFundamentalsFromApi(researchCompanyResolved.fundamentals)
         : null
     }
     return contextMock?.fundamentals ?? null
-  }, [backendUp, researchCompanyLive?.fundamentals, contextMock?.fundamentals])
+  }, [backendUp, researchCompanyResolved?.fundamentals, contextMock?.fundamentals])
 
   const contextOwnership = useMemo(() => {
     if (backendUp) {
-      return researchCompanyLive?.ownership ? mapOwnershipFromApi(researchCompanyLive.ownership) : null
+      return researchCompanyResolved?.ownership
+        ? mapOwnershipFromApi(researchCompanyResolved.ownership)
+        : null
     }
     return contextMock?.ownership ?? null
-  }, [backendUp, researchCompanyLive?.ownership, contextMock?.ownership])
+  }, [backendUp, researchCompanyResolved?.ownership, contextMock?.ownership])
 
   const contextEarnings = useMemo(() => {
     if (backendUp) {
-      return researchCompanyLive?.earnings_date
-        ? contextEarningsFromDate(researchCompanyLive.earnings_date)
+      return researchCompanyResolved?.earnings_date
+        ? contextEarningsFromDate(researchCompanyResolved.earnings_date)
         : null
     }
     return contextMock?.earnings ?? null
-  }, [backendUp, researchCompanyLive?.earnings_date, contextMock?.earnings])
+  }, [backendUp, researchCompanyResolved?.earnings_date, contextMock?.earnings])
 
-  const contextClinicalMapped = useMemo(
-    () => mapClinicalContextFromApi(contextClinicalLive),
-    [contextClinicalLive],
-  )
+  const contextClinicalMapped = useMemo(() => {
+    if (backendUp && contextClinicalTicker !== researchTick) return mapClinicalContextFromApi(null)
+    return mapClinicalContextFromApi(contextClinicalLive)
+  }, [backendUp, contextClinicalLive, contextClinicalTicker, researchTick])
 
   const contextRunway = useMemo(() => {
     if (backendUp) return contextClinicalMapped?.runway ?? null
@@ -9463,11 +9566,11 @@ function KensiglineTerminal() {
         ticker: researchTicker,
         titleText: researchCompanyName,
         backendUp,
-        livePresentation: researchExploreLive?.presentation,
+        livePresentation: researchExploreResolved?.presentation,
         memo: researchPaperMemo,
         intelMode,
       }),
-    [researchTicker, researchCompanyName, backendUp, researchExploreLive?.presentation, researchPaperMemo, intelMode],
+    [researchTicker, researchCompanyName, backendUp, researchExploreResolved?.presentation, researchPaperMemo, intelMode],
   )
 
   useEffect(() => {
@@ -9490,7 +9593,7 @@ function KensiglineTerminal() {
       return Number.isFinite(d.getTime()) ? d : new Date()
     }
     if (backendUp) {
-      const live = researchExploreLive?.flows
+      const live = researchExploreResolved?.flows
       if (!live || typeof live !== 'object') {
         return { insiders: [], politicians: [], filings13f: [] }
       }
@@ -9514,7 +9617,7 @@ function KensiglineTerminal() {
       politicians: contextMock?.politicians ?? [],
       filings13f: contextMock?.filings13f ?? [],
     }
-  }, [backendUp, researchExploreLive?.flows, contextMock])
+  }, [backendUp, researchExploreResolved?.flows, contextMock])
 
   const insiderPriceMarkers = useMemo(
     () => contextFlowRows.insiders.map((x) => x.date),
@@ -9708,87 +9811,171 @@ function KensiglineTerminal() {
     if (backendUp) return
     setResearchFeedLive(null)
     setResearchExploreLive(null)
+    setResearchExploreTicker(null)
+    setResearchCompanyLive(null)
+    setResearchCompanyTicker(null)
     setResearchBarsSeries(null)
+    setResearchBarsTicker(null)
+    setContextClinicalLive(null)
+    setContextClinicalTicker(null)
+  }, [backendUp])
+
+  useEffect(() => {
+    if (!backendUp) return
+    let cancelled = false
+    async function run() {
+      const r = await fetchJsonSafe('/api/research/feed?limit=80', { timeoutMs: 8000 })
+      if (cancelled || !r.ok || !r.data?.ok || !Array.isArray(r.data.items)) return
+      setResearchFeedLive(r.data.items)
+    }
+    run()
+    const t = setInterval(run, 30_000)
+    return () => {
+      cancelled = true
+      clearInterval(t)
+    }
   }, [backendUp])
 
   useEffect(() => {
     if (!backendUp || activeTab !== 'main') return
-    let cancelled = false
-    ;(async () => {
-      const r = await fetchJsonSafe('/api/research/feed?limit=80', { timeoutMs: 8000 })
-      if (cancelled || !r.ok || !r.data?.ok || !Array.isArray(r.data.items)) return
-      setResearchFeedLive(r.data.items)
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [backendUp, activeTab])
-
-  useEffect(() => {
-    if (!backendUp || activeTab !== 'main') return
-    const tick = String(researchTicker ?? '')
-      .trim()
-      .toUpperCase()
+    const tick = researchTick
     if (!tick) return
-    let cancelled = false
-    ;(async () => {
-      const enc = encodeURIComponent(tick)
-      const [ex, br, co] = await Promise.all([
-        fetchJsonSafe(`/api/research/explore?ticker=${enc}`, { timeoutMs: 12_000 }),
-        fetchJsonSafe(`/api/bars?ticker=${enc}&days=400`, { timeoutMs: 12_000 }),
-        fetchJsonSafe(`/api/company?ticker=${enc}`, { timeoutMs: 12_000 }),
-      ])
-      if (cancelled) return
-      if (ex.ok && ex.data?.ok && String(ex.data.ticker ?? '').toUpperCase() === tick) {
-        setResearchExploreLive(ex.data)
-      } else if (!cancelled) {
-        setResearchExploreLive(null)
-      }
-      if (!cancelled) {
-        if (co.ok && String(co.data?.ticker ?? '').toUpperCase() === tick) {
-          setResearchCompanyLive(co.data)
-        } else {
-          setResearchCompanyLive(null)
-        }
-      }
-      if (cancelled) return
-      if (br.ok && Array.isArray(br.data?.items) && br.data.items.length) {
-        const closes = br.data.items.map((row) => Number(row.close)).filter((n) => Number.isFinite(n))
-        setResearchBarsSeries(closes.length ? closes : null)
-      } else {
-        setResearchBarsSeries(null)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [backendUp, activeTab, researchTicker])
-
-  useEffect(() => {
     let alive = true
+    const gen = ++researchBarsFetchGenRef.current
+
+    const cached = barsCacheRef.current.get(tick)
+    if (Array.isArray(cached) && cached.length) {
+      setResearchBarsSeries(cached)
+      setResearchBarsTicker(tick)
+    } else {
+      setResearchBarsSeries(null)
+      setResearchBarsTicker(tick)
+    }
+
     async function run() {
-      if (!backendUp || intelMode !== 'clinical' || activeTab !== 'main') {
-        if (alive) setContextClinicalLive(null)
-        return
+      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(tick)}&days=400`, { timeoutMs: 12_000 })
+      if (!alive || researchBarsFetchGenRef.current !== gen) return
+      const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
+      if (respTicker !== tick) return
+      const closes = Array.isArray(r.data?.items)
+        ? r.data.items.map((row) => Number(row.close)).filter((n) => Number.isFinite(n))
+        : []
+      if (!alive || researchBarsFetchGenRef.current !== gen) return
+      if (closes.length) {
+        barsCacheRef.current.set(tick, closes)
+        setResearchBarsSeries(closes)
+        setResearchBarsTicker(tick)
+      } else if (r.ok) {
+        barsCacheRef.current.delete(tick)
+        setResearchBarsSeries(null)
+        setResearchBarsTicker(tick)
       }
-      const tick = String(researchTicker ?? '').trim().toUpperCase()
-      if (!tick) {
-        if (alive) setContextClinicalLive(null)
-        return
-      }
-      const r = await fetchJsonSafe(
-        `/api/pharma/clinical-context?ticker=${encodeURIComponent(tick)}&catalyst_limit=6`,
-        { timeoutMs: 14_000 },
-      )
-      if (!alive) return
-      if (r.ok && r.data?.ticker) setContextClinicalLive(r.data)
-      else setContextClinicalLive(null)
     }
     run()
     return () => {
       alive = false
     }
-  }, [backendUp, intelMode, activeTab, researchTicker])
+  }, [backendUp, activeTab, researchTick])
+
+  useEffect(() => {
+    if (!backendUp || activeTab !== 'main') return
+    const tick = researchTick
+    if (!tick) return
+    let alive = true
+    const gen = ++researchCompanyFetchGenRef.current
+
+    setResearchCompanyLive(null)
+    setResearchCompanyTicker(tick)
+
+    async function run() {
+      const r = await fetchJsonSafe(
+        `/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`,
+        { timeoutMs: 15_000 },
+      )
+      if (!alive || researchCompanyFetchGenRef.current !== gen) return
+      const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
+      if (respTicker !== tick) return
+      if (r.ok && r.data && typeof r.data === 'object') {
+        setResearchCompanyLive(r.data)
+        setResearchCompanyTicker(tick)
+      }
+
+      const full = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 25_000 })
+      if (!alive || researchCompanyFetchGenRef.current !== gen) return
+      const fullTicker = String(full.data?.ticker ?? tick).trim().toUpperCase()
+      if (fullTicker !== tick) return
+      if (full.ok && full.data && typeof full.data === 'object') {
+        setResearchCompanyLive((prev) => (prev ? { ...prev, ...full.data } : full.data))
+        setResearchCompanyTicker(tick)
+      }
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, activeTab, researchTick])
+
+  useEffect(() => {
+    if (!backendUp || activeTab !== 'main') return
+    const tick = researchTick
+    if (!tick) return
+    let alive = true
+    const gen = ++researchExploreFetchGenRef.current
+
+    setResearchExploreLive(null)
+
+    async function run() {
+      const r = await fetchJsonSafe(`/api/research/explore?ticker=${encodeURIComponent(tick)}`, {
+        timeoutMs: 20_000,
+      })
+      if (!alive || researchExploreFetchGenRef.current !== gen) return
+      if (r.ok && r.data?.ok && String(r.data.ticker ?? '').toUpperCase() === tick) {
+        setResearchExploreLive(r.data)
+        setResearchExploreTicker(tick)
+      }
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, activeTab, researchTick])
+
+  useEffect(() => {
+    let alive = true
+    if (!backendUp || intelMode !== 'clinical' || activeTab !== 'main') {
+      setContextClinicalLive(null)
+      setContextClinicalTicker(null)
+      return () => {
+        alive = false
+      }
+    }
+    const tick = researchTick
+    if (!tick) {
+      setContextClinicalLive(null)
+      setContextClinicalTicker(null)
+      return () => {
+        alive = false
+      }
+    }
+    const gen = ++researchClinicalFetchGenRef.current
+    setContextClinicalLive(null)
+    setContextClinicalTicker(tick)
+
+    async function run() {
+      const r = await fetchJsonSafe(
+        `/api/pharma/clinical-context?ticker=${encodeURIComponent(tick)}&catalyst_limit=6`,
+        { timeoutMs: 14_000 },
+      )
+      if (!alive || researchClinicalFetchGenRef.current !== gen) return
+      const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
+      if (respTicker !== tick) return
+      if (r.ok && r.data?.ticker) setContextClinicalLive(r.data)
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, intelMode, activeTab, researchTick])
 
   useEffect(() => {
     if (!backendUp || activeTab !== 'main') return
@@ -10808,6 +10995,7 @@ function KensiglineTerminal() {
         </button>
       </nav>
       <main
+        ref={terminalMainRef}
         className={[
           'terminal',
           activeTab === 'investigate'
@@ -10998,6 +11186,7 @@ function KensiglineTerminal() {
             events={researchDataset?.events ?? []}
             edges={researchDataset?.edges ?? []}
             backendUp={backendUp}
+            dataTicker={researchExploreResolved ? researchTick : null}
             presentation={researchPresentation}
             intelMode={intelMode}
             selectedProgramKey={contextProgramKey}
@@ -11012,6 +11201,7 @@ function KensiglineTerminal() {
           />
 
           <MainContextPanel
+            key={researchTick}
             intelMode={intelMode}
             ticker={contextCompanySnapshot.ticker}
             price={contextCompanySnapshot.price}
@@ -11029,8 +11219,8 @@ function KensiglineTerminal() {
             politicians={contextFlowRows.politicians}
             filings13f={contextFlowRows.filings13f}
             trackedInvestorsApi={
-              backendUp && researchExploreLive?.tracked_investors != null
-                ? researchExploreLive.tracked_investors
+              backendUp && researchExploreResolved?.tracked_investors != null
+                ? researchExploreResolved.tracked_investors
                 : null
             }
             catalystItems={contextCatalystItems}
