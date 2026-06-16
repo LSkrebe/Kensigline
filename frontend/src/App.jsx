@@ -2518,14 +2518,18 @@ function ContextFlowOutcomeChart({
     }
     const ro = new ResizeObserver(() => requestAnimationFrame(measure))
     ro.observe(wrap)
+    window.addEventListener('resize', measure)
     measure()
-    return () => ro.disconnect()
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
   }, [])
 
   const w = size.w
   const h = size.h
   const n = Math.max(1, xLabels.length)
-  const marginSides = { r: 0, t: 10, b: 22 }
+  const marginSides = { r: 14, t: 10, b: 26 }
 
   const allVals = lines.flatMap((l) => (Array.isArray(l.returns) ? l.returns : []))
   const rawMin = allVals.length ? Math.min(...allVals, 0) : 0
@@ -2614,14 +2618,15 @@ function ContextFlowOutcomeChart({
         {xLabels.map((lab, i) => {
           const isLast = i === xLabels.length - 1
           const isFirst = i === 0
+          const xPos = isLast ? w - margin.r : isFirst ? margin.l : xAt(i)
           return (
             <text
               key={`ox-${lab}`}
               className="graphTick graphTick--x"
               style={GRAPH_SVG_TICK}
               textAnchor={isLast ? 'end' : isFirst ? 'start' : 'middle'}
-              x={isLast ? w - 2 : isFirst ? margin.l + 1 : xAt(i)}
-              y={h - 4}
+              x={xPos}
+              y={h - 6}
             >
               {lab}
             </text>
@@ -8002,8 +8007,12 @@ function GraphPanel({
     }
     const ro = new ResizeObserver(() => requestAnimationFrame(sync))
     ro.observe(el)
+    window.addEventListener('resize', sync)
     sync()
-    return () => ro.disconnect()
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', sync)
+    }
   }, [])
 
   const w = size.w
@@ -9271,7 +9280,7 @@ function TerminalTopBar({
               aria-selected={investigateMode === 'insider'}
               onClick={() => onInvestigateModeChange('insider')}
             >
-              Insider intelligence
+              Insider
             </button>
             <span className="terminalIntelSwitchSep" aria-hidden="true">
               |
@@ -9285,7 +9294,7 @@ function TerminalTopBar({
               aria-selected={investigateMode === 'politicians'}
               onClick={() => onInvestigateModeChange('politicians')}
             >
-              Politician intelligence
+              Politicians
             </button>
             <span className="terminalIntelSwitchSep" aria-hidden="true">
               |
@@ -9301,7 +9310,7 @@ function TerminalTopBar({
               aria-selected={investigateMode === 'institutions'}
               onClick={() => onInvestigateModeChange('institutions')}
             >
-              Institutional intelligence
+              Institutions
             </button>
           </div>
         ) : null}
@@ -9374,6 +9383,41 @@ function KensiglineTerminal() {
   const [investigateInstitutionTxnFiltersDraft, setInvestigateInstitutionTxnFiltersDraft] = useState(null)
   const tabBeforeSettingsRef = useRef('discover')
   const terminalMainRef = useRef(null)
+
+  // Re-sync grid/charts when crossing responsive breakpoints (CSS media queries alone
+  // don't always trigger ResizeObserver on panel children).
+  useEffect(() => {
+    let raf = 0
+    const mqInvestigateWide = window.matchMedia('(min-width: 1401px)')
+    const mqResearchWide = window.matchMedia('(min-width: 1281px)')
+
+    function onViewportChange() {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        const main = terminalMainRef.current
+        if (!main) return
+        if (mqInvestigateWide.matches) {
+          const stack = main.querySelector('.investigateRightStack')
+          if (stack) stack.scrollTop = 0
+        }
+        if (mqResearchWide.matches) {
+          const context = main.querySelector('.mainContextPanel')
+          if (context) context.scrollTop = 0
+        }
+        window.dispatchEvent(new Event('resize'))
+      })
+    }
+
+    window.addEventListener('resize', onViewportChange)
+    mqInvestigateWide.addEventListener('change', onViewportChange)
+    mqResearchWide.addEventListener('change', onViewportChange)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onViewportChange)
+      mqInvestigateWide.removeEventListener('change', onViewportChange)
+      mqResearchWide.removeEventListener('change', onViewportChange)
+    }
+  }, [])
 
   const [insiderIdx, setInsiderIdx] = useState(0)
   const [insiderCompanyQuery, setInsiderCompanyQuery] = useState('')
@@ -11324,13 +11368,7 @@ function KensiglineTerminal() {
       {/* Explore tab removed; Research panels live inside MAIN now. */}
 
       {investigateOpen ? (
-        <>
-          <HistoricalOutcomesPanel
-            mode={investigateMode}
-            backendUp={backendUp}
-            personDisplay={historicalOutcomesPerson}
-          />
-
+        <div className="investigateRightStack scrollThin">
           <GraphPanel
             key={selectedTicker ?? 'none'}
             title={chartPanelTitle}
@@ -11354,13 +11392,19 @@ function KensiglineTerminal() {
             }
           />
 
+          <HistoricalOutcomesPanel
+            mode={investigateMode}
+            backendUp={backendUp}
+            personDisplay={historicalOutcomesPerson}
+          />
+
           <CompanyPanel
             company={companyForInvestigatePanel}
             ticker={selectedTicker}
             backendUp={backendUp}
             price={chartLastPrice}
           />
-        </>
+        </div>
       ) : null}
       </main>
       </div>
