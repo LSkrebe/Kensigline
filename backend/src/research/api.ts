@@ -217,7 +217,7 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
       feed_kind: r.feed_kind,
       intel_mode: mode,
       idea_score: idea.idea_score,
-      idea_grade: idea.idea_grade,
+      idea_best: idea.idea_best,
       idea_reasons: idea.idea_reasons,
     };
   });

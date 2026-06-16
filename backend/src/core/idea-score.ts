@@ -1,25 +1,13 @@
-export type IdeaGrade = "A" | "B" | "C" | "D";
-
 export type IdeaScoreResult = {
   idea_score: number;
-  idea_grade: IdeaGrade;
+  /** Strict “best of the best” flag used for UI highlighting + digests. */
+  idea_best: boolean;
   idea_reasons: string[];
 };
 
 function envThreshold(key: string, fallback: number): number {
   const n = Number(process.env[key] ?? fallback);
   return Number.isFinite(n) ? n : fallback;
-}
-
-export function gradeFromScore(score: number): IdeaGrade {
-  const a = envThreshold("IDEA_SCORE_A", 80);
-  const b = envThreshold("IDEA_SCORE_B", 65);
-  const c = envThreshold("IDEA_SCORE_C", 45);
-  const s = Math.max(0, Math.min(100, Math.round(score)));
-  if (s >= a) return "A";
-  if (s >= b) return "B";
-  if (s >= c) return "C";
-  return "D";
 }
 
 function recencyBonus(eventAt: string | null | undefined): { pts: number; reason?: string } {
@@ -33,10 +21,11 @@ function recencyBonus(eventAt: string | null | undefined): { pts: number; reason
 }
 
 function clampScore(score: number, reasons: string[]): IdeaScoreResult {
+  const best = envThreshold("IDEA_SCORE_BEST", 90);
   const idea_score = Math.max(0, Math.min(100, Math.round(score)));
   return {
     idea_score,
-    idea_grade: gradeFromScore(idea_score),
+    idea_best: idea_score >= best,
     idea_reasons: reasons.filter(Boolean).slice(0, 6),
   };
 }
@@ -216,9 +205,4 @@ export function scoreResearchDocument(args: {
   score += rec.pts;
   if (rec.reason) reasons.push(rec.reason);
   return clampScore(score, reasons);
-}
-
-export function gradeMeetsMinimum(grade: IdeaGrade, minGrade: IdeaGrade): boolean {
-  const order: IdeaGrade[] = ["D", "C", "B", "A"];
-  return order.indexOf(grade) >= order.indexOf(minGrade);
 }

@@ -1,11 +1,9 @@
 import { db } from "../core/db.js";
 import {
-  gradeMeetsMinimum,
   scoreInsiderCluster,
   scoreInstitutionCluster,
   scorePoliticianCluster,
   scoreResearchDocument,
-  type IdeaGrade,
   type IdeaScoreResult,
 } from "../core/idea-score.js";
 
@@ -39,11 +37,9 @@ function attach(feed: string, id: string, ticker: string, title: string, summary
 export async function collectIdeaCandidates(opts: {
   sinceHours?: number;
   feeds?: string[];
-  minGrade?: IdeaGrade;
   limit?: number;
 }): Promise<IdeaCandidate[]> {
   const sinceHours = Math.max(6, Math.min(168, Number(opts.sinceHours ?? 36)));
-  const minGrade = opts.minGrade ?? "B";
   const limit = Math.max(1, Math.min(50, Number(opts.limit ?? 20)));
   const feeds = new Set(opts.feeds ?? ["insider", "politicians", "institutions", "research", "pharma"]);
   const out: IdeaCandidate[] = [];
@@ -77,7 +73,7 @@ export async function collectIdeaCandidates(opts: {
     }
     for (const [ticker, { doc, totalUsd }] of byTicker.entries()) {
       const score = scoreInsiderCluster({ data: doc.data, eventAt: doc.event_at, totalUsd });
-      if (!gradeMeetsMinimum(score.idea_grade, minGrade)) continue;
+      if (!score.idea_best) continue;
       out.push(
         attach(
           "insider",
@@ -122,7 +118,7 @@ export async function collectIdeaCandidates(opts: {
     }
     for (const [ticker, { doc, totalUsd }] of byTicker.entries()) {
       const score = scorePoliticianCluster({ data: doc.data, eventAt: doc.event_at, totalUsd });
-      if (!gradeMeetsMinimum(score.idea_grade, minGrade)) continue;
+      if (!score.idea_best) continue;
       out.push(
         attach(
           "politicians",
@@ -167,7 +163,7 @@ export async function collectIdeaCandidates(opts: {
     }
     for (const [ticker, { doc, totalUsd }] of byTicker.entries()) {
       const score = scoreInstitutionCluster({ data: doc.data, eventAt: doc.event_at, totalUsd });
-      if (!gradeMeetsMinimum(score.idea_grade, minGrade)) continue;
+      if (!score.idea_best) continue;
       out.push(
         attach(
           "institutions",
@@ -221,7 +217,7 @@ export async function collectIdeaCandidates(opts: {
         event_at: r.event_at,
         data: r.data,
       });
-      if (!gradeMeetsMinimum(score.idea_grade, minGrade)) continue;
+      if (!score.idea_best) continue;
       out.push(
         attach(
           r.feed_kind === "pharma" ? "pharma" : "research",
@@ -247,7 +243,7 @@ export async function collectIdeaCandidates(opts: {
 export function ideaScoreFields(result: IdeaScoreResult) {
   return {
     idea_score: result.idea_score,
-    idea_grade: result.idea_grade,
+    idea_best: result.idea_best,
     idea_reasons: result.idea_reasons,
   };
 }

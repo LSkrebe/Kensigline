@@ -231,7 +231,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
         today_count: todayCount,
         insiders: Array.from(c.insiders).slice(0, 20),
         idea_score: idea.idea_score,
-        idea_grade: idea.idea_grade,
+        idea_best: idea.idea_best,
         idea_reasons: idea.idea_reasons,
       };
     });
@@ -347,7 +347,7 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
         today_count: todayCount,
         [peopleKey]: Array.from(c.people).slice(0, 20),
         idea_score: idea.idea_score,
-        idea_grade: idea.idea_grade,
+        idea_best: idea.idea_best,
         idea_reasons: idea.idea_reasons,
       };
     });

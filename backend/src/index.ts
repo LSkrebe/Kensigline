@@ -308,7 +308,7 @@ const server = http.createServer(async (req, res) => {
             feed_label: r.feed_label,
             ticker: r.ticker,
             idea_score: idea.idea_score,
-            idea_grade: idea.idea_grade,
+            idea_best: idea.idea_best,
             idea_reasons: idea.idea_reasons,
           };
         }),

@@ -1,7 +1,6 @@
 import { collectIdeaCandidates } from "./candidates.js";
 import { sendIdeaDigestEmail } from "./email.js";
 import { digestAlreadySent, listEnabledAlertUsers, logDigestSent, type AlertPreferences } from "./store.js";
-import type { IdeaGrade } from "../core/idea-score.js";
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -38,7 +37,6 @@ async function runDigestForUser(prefs: AlertPreferences, slotKey: string): Promi
   const items = await collectIdeaCandidates({
     sinceHours: 36,
     feeds: prefs.feeds,
-    minGrade: prefs.min_grade as IdeaGrade,
     limit: prefs.max_items,
   });
   if (!items.length) {

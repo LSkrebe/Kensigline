@@ -1,11 +1,9 @@
 import { db } from "../core/db.js";
-import type { IdeaGrade } from "../core/idea-score.js";
 
 export type AlertPreferences = {
   user_id: string;
   email: string;
   enabled: boolean;
-  min_grade: IdeaGrade;
   timezone: string;
   morning_hour: number;
   evening_hour: number;
@@ -57,7 +55,6 @@ export async function upsertAlertPreferences(args: {
   userId: string;
   email: string;
   enabled?: boolean;
-  min_grade?: IdeaGrade;
   timezone?: string;
   morning_hour?: number;
   evening_hour?: number;
@@ -86,7 +83,8 @@ export async function upsertAlertPreferences(args: {
       args.userId,
       args.email,
       args.enabled ?? existing?.enabled ?? false,
-      args.min_grade ?? existing?.min_grade ?? "B",
+      // Keep legacy column populated; alert selection is now strictly “best ideas only”.
+      "A",
       args.timezone ?? existing?.timezone ?? "UTC",
       args.morning_hour ?? existing?.morning_hour ?? 8,
       args.evening_hour ?? existing?.evening_hour ?? 18,

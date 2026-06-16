@@ -13,7 +13,6 @@ function renderDigestHtml(items: IdeaCandidate[]): string {
     .map(
       (it) => `
       <tr>
-        <td style="padding:8px 12px;border-bottom:1px solid #e8e8e8;font-weight:600;">${escapeHtml(it.idea_grade)}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #e8e8e8;"><a href="${escapeHtml(it.url ?? "#")}">${escapeHtml(it.ticker)}</a></td>
         <td style="padding:8px 12px;border-bottom:1px solid #e8e8e8;">${escapeHtml(it.feed)}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #e8e8e8;">${escapeHtml(it.summary)}</td>
@@ -23,10 +22,10 @@ function renderDigestHtml(items: IdeaCandidate[]): string {
     .join("");
   return `<!DOCTYPE html><html><body style="font-family:system-ui,sans-serif;color:#111;">
     <h2 style="margin:0 0 12px;">Kensigline idea digest</h2>
-    <p style="color:#555;margin:0 0 16px;">Top scored signals from your enabled feeds.</p>
+    <p style="color:#555;margin:0 0 16px;">Best-of-the-best signals from your enabled feeds.</p>
     <table style="border-collapse:collapse;width:100%;font-size:14px;">
       <thead><tr style="background:#f4f4f4;text-align:left;">
-        <th style="padding:8px 12px;">Grade</th><th style="padding:8px 12px;">Ticker</th><th style="padding:8px 12px;">Feed</th><th style="padding:8px 12px;">Summary</th><th style="padding:8px 12px;text-align:right;">Score</th>
+        <th style="padding:8px 12px;">Ticker</th><th style="padding:8px 12px;">Feed</th><th style="padding:8px 12px;">Summary</th><th style="padding:8px 12px;text-align:right;">Score</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -35,7 +34,7 @@ function renderDigestHtml(items: IdeaCandidate[]): string {
 
 function renderDigestText(items: IdeaCandidate[]): string {
   const lines = items.map(
-    (it) => `[${it.idea_grade}] ${it.ticker} (${it.feed}, ${it.idea_score}) — ${it.summary}\n${it.url ?? ""}`,
+    (it) => `${it.ticker} (${it.feed}, ${it.idea_score}) — ${it.summary}\n${it.url ?? ""}`,
   );
   return `Kensigline idea digest\n\n${lines.join("\n\n")}`;
 }

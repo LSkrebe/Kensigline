@@ -197,7 +197,7 @@ export type PaperDocumentRow = {
   analysis: string;
   programKeys: string[];
   idea_score?: number;
-  idea_grade?: string;
+  idea_best?: boolean;
   idea_reasons?: string[];
 };
 
@@ -324,7 +324,7 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
       analysis: String(r.analysis ?? ""),
       programKeys: Array.isArray(r.program_keys) ? r.program_keys : [],
       idea_score: idea.idea_score,
-      idea_grade: idea.idea_grade,
+      idea_best: idea.idea_best,
       idea_reasons: idea.idea_reasons,
     };
   });
