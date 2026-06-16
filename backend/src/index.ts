@@ -30,6 +30,8 @@ import { tryInvestigateRoutes } from "./investigate/api.js";
 import { tryDiscoverRoutes } from "./discover/api.js";
 import { clampInt } from "./shared/feed-helpers.js";
 import { startAllWorkers, stopAllWorkers } from "./server/workers.js";
+import { handleAlertsPreferencesGet, handleAlertsPreferencesPatch } from "./alerts/api.js";
+import { scoreResearchDocument } from "./core/idea-score.js";
 
 const port = Number(process.env.PORT ?? "3001");
 const workers = startAllWorkers();
@@ -113,6 +115,24 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       sendJson(res, 200, { ok: true, user });
+      return;
+    }
+
+    if (route(req, url, "GET", "/api/alerts/preferences")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleAlertsPreferencesGet(req, res);
+      return;
+    }
+
+    if (route(req, url, "PATCH", "/api/alerts/preferences")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleAlertsPreferencesPatch(req, res);
       return;
     }
 
@@ -255,9 +275,13 @@ const server = http.createServer(async (req, res) => {
         event_at: string | null;
         feed_label: string | null;
         ticker: string | null;
+        analysis: string | null;
+        source_key: string | null;
+        program_phase: string | null;
+        data: any;
       }>(
         `
-        SELECT id, event_at, feed_label, ticker
+        SELECT id, event_at, feed_label, ticker, analysis, source_key, program_phase, data
         FROM documents
         WHERE feed_kind = 'pharma'
           AND event_at IS NOT NULL
@@ -269,12 +293,25 @@ const server = http.createServer(async (req, res) => {
         [limit, String(days)],
       );
       sendJson(res, 200, {
-        items: rows.map((r) => ({
-          id: r.id,
-          feed_at: r.event_at,
-          feed_label: r.feed_label,
-          ticker: r.ticker,
-        })),
+        items: rows.map((r) => {
+          const idea = scoreResearchDocument({
+            analysis: r.analysis ?? r.feed_label,
+            source_key: r.source_key,
+            feed_kind: "pharma",
+            program_phase: r.program_phase,
+            event_at: r.event_at,
+            data: r.data,
+          });
+          return {
+            id: r.id,
+            feed_at: r.event_at,
+            feed_label: r.feed_label,
+            ticker: r.ticker,
+            idea_score: idea.idea_score,
+            idea_grade: idea.idea_grade,
+            idea_reasons: idea.idea_reasons,
+          };
+        }),
         days,
       });
       return;

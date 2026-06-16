@@ -1,6 +1,7 @@
 import { db } from "../core/db.js";
 import type { ResearchDocExtractV2 } from "./extract.js";
 import { formatUsdCompact } from "../shared/money.js";
+import { scoreResearchDocument } from "../core/idea-score.js";
 
 const GOV_LINK_THRESHOLD = () => Number(process.env.GOV_CONTRACT_LINK_THRESHOLD ?? 0.72);
 
@@ -195,6 +196,9 @@ export type PaperDocumentRow = {
   url: string | null;
   analysis: string;
   programKeys: string[];
+  idea_score?: number;
+  idea_grade?: string;
+  idea_reasons?: string[];
 };
 
 export async function loadInsiderFlowsForTicker(ticker: string, limit = 80) {
@@ -285,9 +289,12 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
     url: string | null;
     analysis: string | null;
     program_keys: string[] | null;
+    feed_kind: string | null;
+    program_phase: string | null;
+    data: any;
   }>(
     `
-    SELECT id, source_key, event_at::text, url, analysis, program_keys
+    SELECT id, source_key, event_at::text, url, analysis, program_keys, feed_kind, program_phase, data
     FROM documents
     WHERE upper(trim(ticker)) = $1
       AND (
@@ -300,14 +307,27 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
     [t, limit],
   );
 
-  return rows.map((r) => ({
-    id: r.id,
-    source: String(r.source_key ?? "Other"),
-    filedAt: r.event_at ?? new Date().toISOString(),
-    url: r.url,
-    analysis: String(r.analysis ?? ""),
-    programKeys: Array.isArray(r.program_keys) ? r.program_keys : [],
-  }));
+  return rows.map((r) => {
+    const idea = scoreResearchDocument({
+      analysis: r.analysis,
+      source_key: r.source_key,
+      feed_kind: r.feed_kind,
+      program_phase: r.program_phase,
+      event_at: r.event_at,
+      data: r.data,
+    });
+    return {
+      id: r.id,
+      source: String(r.source_key ?? "Other"),
+      filedAt: r.event_at ?? new Date().toISOString(),
+      url: r.url,
+      analysis: String(r.analysis ?? ""),
+      programKeys: Array.isArray(r.program_keys) ? r.program_keys : [],
+      idea_score: idea.idea_score,
+      idea_grade: idea.idea_grade,
+      idea_reasons: idea.idea_reasons,
+    };
+  });
 }
 
 export type InstitutionShareSnapshot = {

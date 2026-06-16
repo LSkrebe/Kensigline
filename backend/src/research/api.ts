@@ -2,6 +2,7 @@ import type http from "node:http";
 import { notFound, sendJson } from "../core/http.js";
 import { db } from "../core/db.js";
 import { buildResearchPresentation } from "../documents/presentation.js";
+import { scoreResearchDocument } from "../core/idea-score.js";
 import {
   loadFilings13fForTicker,
   loadInsiderFlowsForTicker,
@@ -161,9 +162,12 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
     company_name: string | null;
     source_key: string | null;
     feed_kind: string;
+    program_phase: string | null;
+    event_at: string | null;
+    data: any;
   }>(
     `
-    SELECT sub.id, sub.ticker, sub.analysis, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind
+    SELECT sub.id, sub.ticker, sub.analysis, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind, sub.program_phase, sub.event_at, sub.data
     FROM (
       SELECT DISTINCT ON (upper(trim(d.ticker)))
         d.id::text,
@@ -172,7 +176,10 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
         COALESCE(d.event_at, d.parsed_at)::text AS feed_at,
         COALESCE(NULLIF(trim(c.name), ''), upper(trim(d.ticker))) AS company_name,
         d.source_key,
-        d.feed_kind
+        d.feed_kind,
+        d.program_phase,
+        d.event_at::text,
+        d.data
       FROM documents d
       LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
       WHERE d.ticker IS NOT NULL
@@ -190,6 +197,14 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
 
   const items = rows.map((r) => {
     const displayName = resolveResearchFeedCompanyName(r.ticker, r.company_name);
+    const idea = scoreResearchDocument({
+      analysis: r.analysis,
+      source_key: r.source_key,
+      feed_kind: r.feed_kind,
+      program_phase: r.program_phase,
+      event_at: r.event_at ?? r.feed_at,
+      data: r.data,
+    });
     return {
       kind: "document" as const,
       id: r.id,
@@ -201,6 +216,9 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
       source_key: r.source_key,
       feed_kind: r.feed_kind,
       intel_mode: mode,
+      idea_score: idea.idea_score,
+      idea_grade: idea.idea_grade,
+      idea_reasons: idea.idea_reasons,
     };
   });
 

@@ -14,6 +14,11 @@ import {
   tickerFromCompanyClusterId,
 } from "../shared/feed-helpers.js";
 import { normalizeInsiderWorksheetRow } from "./worksheet.js";
+import {
+  scoreInsiderCluster,
+  scoreInstitutionCluster,
+  scorePoliticianCluster,
+} from "../core/idea-score.js";
 
 /** Returns true if a route handled the request. */
 export async function tryInvestigateRoutes(
@@ -210,6 +215,12 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
             : (c.latestDoc.feed_label ?? "Insider activity");
       const data = c.latestDoc.data as { issuer?: { name?: string | null } } | null;
       const companyName = String(data?.issuer?.name ?? "").trim() || c.ticker;
+      const idea = scoreInsiderCluster({
+        data: c.latestDoc.data,
+        eventAt: c.latestFeedAt,
+        todayCount: c.todayCount,
+        totalUsd: c.totalUsd,
+      });
       return {
         id: `company:${c.ticker}`,
         feed_at: c.latestFeedAt,
@@ -219,6 +230,9 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
         company_id: c.company_id,
         today_count: todayCount,
         insiders: Array.from(c.insiders).slice(0, 20),
+        idea_score: idea.idea_score,
+        idea_grade: idea.idea_grade,
+        idea_reasons: idea.idea_reasons,
       };
     });
 
@@ -310,6 +324,20 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
       const label = todayCount > 0 ? `${usd} (${todayCount})` : usd;
       const data = c.latestDoc.data as { issuer?: { name?: string | null } } | null;
       const companyName = String(data?.issuer?.name ?? "").trim() || c.ticker;
+      const idea =
+        feedKind === "politicians"
+          ? scorePoliticianCluster({
+              data: c.latestDoc.data,
+              eventAt: c.latestFeedAt,
+              todayCount: c.todayCount,
+              totalUsd: c.totalUsd,
+            })
+          : scoreInstitutionCluster({
+              data: c.latestDoc.data,
+              eventAt: c.latestFeedAt,
+              todayCount: c.todayCount,
+              totalUsd: c.totalUsd,
+            });
       return {
         id: `ticker:${c.ticker}`,
         feed_at: c.latestFeedAt,
@@ -318,6 +346,9 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
         company_name: companyName,
         today_count: todayCount,
         [peopleKey]: Array.from(c.people).slice(0, 20),
+        idea_score: idea.idea_score,
+        idea_grade: idea.idea_grade,
+        idea_reasons: idea.idea_reasons,
       };
     });
 

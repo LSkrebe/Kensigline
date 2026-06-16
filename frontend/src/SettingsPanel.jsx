@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { AuthSignIn } from './AuthSignIn.jsx'
@@ -64,6 +64,10 @@ function SettingsKvBody({ children }) {
 export function SettingsPanel() {
   const { configured, loading, user, signOut } = useAuth()
   const [portalBusy, setPortalBusy] = useState(false)
+  const [alertsBusy, setAlertsBusy] = useState(false)
+  const [alertsEnabled, setAlertsEnabled] = useState(false)
+  const [alertsMinGrade, setAlertsMinGrade] = useState('B')
+  const [alertsLoaded, setAlertsLoaded] = useState(false)
 
   const onManageBilling = useCallback(async () => {
     setPortalBusy(true)
@@ -74,6 +78,42 @@ export function SettingsPanel() {
       return
     }
   }, [])
+
+  useEffect(() => {
+    let alive = true
+    async function loadAlerts() {
+      if (!configured || loading || !user) return
+      const res = await fetchJsonSafe('/api/alerts/preferences')
+      if (!alive) return
+      const prefs = res.data?.preferences
+      if (res.ok && prefs) {
+        setAlertsEnabled(Boolean(prefs.enabled))
+        setAlertsMinGrade(String(prefs.min_grade ?? 'B').toUpperCase())
+      }
+      setAlertsLoaded(true)
+    }
+    void loadAlerts()
+    return () => {
+      alive = false
+    }
+  }, [configured, loading, user])
+
+  const saveAlerts = useCallback(
+    async (patch) => {
+      setAlertsBusy(true)
+      const res = await fetchJsonSafe('/api/alerts/preferences', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+      setAlertsBusy(false)
+      if (res.ok && res.data?.preferences) {
+        setAlertsEnabled(Boolean(res.data.preferences.enabled))
+        setAlertsMinGrade(String(res.data.preferences.min_grade ?? 'B').toUpperCase())
+      }
+    },
+    [],
+  )
 
   if (!configured || loading || !user) {
     return (
@@ -145,6 +185,39 @@ export function SettingsPanel() {
         </footer>
         </section>
       </div>
+
+      <section className="panel settingsInvoicesPanel" aria-label="Idea alerts">
+        <SettingsPanelHeader title="IDEA ALERTS" />
+        <div className="settingsPanelBody">
+          <SettingsKvBody>
+            <SettingsRow label="EMAIL DIGEST">
+              <label className="settingsToggle">
+                <input
+                  type="checkbox"
+                  checked={alertsEnabled}
+                  disabled={!alertsLoaded || alertsBusy}
+                  onChange={(e) => void saveAlerts({ enabled: e.target.checked })}
+                />
+                <span>{alertsEnabled ? 'On (twice daily)' : 'Off'}</span>
+              </label>
+            </SettingsRow>
+            <SettingsRow label="MIN GRADE">
+              <select
+                className="settingsSelect mono"
+                value={alertsMinGrade}
+                disabled={!alertsLoaded || alertsBusy}
+                onChange={(e) => void saveAlerts({ min_grade: e.target.value })}
+              >
+                <option value="A">A only</option>
+                <option value="B">A + B</option>
+              </select>
+            </SettingsRow>
+          </SettingsKvBody>
+          <p className="settingsHint dim">
+            Sends top scored ideas from insider, politician, institution, and research feeds. Requires Brevo on the backend.
+          </p>
+        </div>
+      </section>
 
       <section className="panel settingsInvoicesPanel" aria-label="Invoices">
         <SettingsPanelHeader title="INVOICES" />

@@ -8787,3 +8787,70 @@ body {
   fill: none;
 }
 
+/* Idea score highlights (A/B grades) */
+.ideaHighlight--A {
+  border-left: 2px solid rgba(88, 214, 141, 0.85) !important;
+  background: linear-gradient(90deg, rgba(88, 214, 141, 0.12), transparent 48%);
+}
+
+.ideaHighlight--B {
+  border-left: 2px solid rgba(120, 176, 255, 0.75) !important;
+  background: linear-gradient(90deg, rgba(120, 176, 255, 0.1), transparent 48%);
+}
+
+.ideaGradeBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.2rem;
+  margin-left: 0.35rem;
+  border-radius: 2px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}
+
+.ideaGradeBadge--A {
+  color: #0d1a12;
+  background: rgba(88, 214, 141, 0.92);
+}
+
+.ideaGradeBadge--B {
+  color: #0f1520;
+  background: rgba(120, 176, 255, 0.88);
+}
+
+.researchPaperDocCard.ideaHighlight--A,
+.researchPaperDocCard.ideaHighlight--B {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.feedRowCompact.ideaHighlight--A .feedCellCompany,
+.feedRowCompact.ideaHighlight--B .feedCellCompany {
+  padding-right: 0.15rem;
+}
+
+.settingsToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.settingsSelect {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: inherit;
+  padding: 0.25rem 0.4rem;
+  border-radius: 2px;
+}
+
+.settingsHint {
+  margin: 0.65rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+

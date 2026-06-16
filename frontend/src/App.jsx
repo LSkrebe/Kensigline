@@ -20,6 +20,69 @@ function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n))
 }
 
+function ideaHighlightClass(grade) {
+  const g = String(grade ?? '').trim().toUpperCase()
+  if (g === 'A') return 'ideaHighlight--A'
+  if (g === 'B') return 'ideaHighlight--B'
+  return ''
+}
+
+function ideaGradeFromScore(score) {
+  const s = Number(score)
+  if (!Number.isFinite(s)) return null
+  if (s >= 80) return 'A'
+  if (s >= 65) return 'B'
+  if (s >= 45) return 'C'
+  return 'D'
+}
+
+function IdeaGradeBadge({ grade, reasons }) {
+  const g = String(grade ?? '').trim().toUpperCase()
+  if (g !== 'A' && g !== 'B') return null
+  const tip = Array.isArray(reasons) ? reasons.filter(Boolean).join(' · ') : ''
+  return (
+    <span className={`ideaGradeBadge ideaGradeBadge--${g}`} title={tip || undefined} aria-label={`Idea grade ${g}`}>
+      {g}
+    </span>
+  )
+}
+
+const MOCK_IDEA_SCORES = [92, 84, 76, 68, 55, 88, 71, 63, 49, 38, 86, 74, 66, 58, 81]
+
+function mockIdeaFields(i, kind = 'insider') {
+  const idea_score = MOCK_IDEA_SCORES[i % MOCK_IDEA_SCORES.length]
+  const idea_grade = ideaGradeFromScore(idea_score)
+  const reasonsByKind = {
+    insider: [
+      'Multiple open-market purchases',
+      'Senior insider involved',
+      'Recent filing inside a week',
+      'Meaningful purchase size',
+    ],
+    politician: [
+      'Stock purchase disclosure',
+      'Material disclosed range',
+      'PTR activity today',
+      'Senate PTR filing',
+    ],
+    institution: [
+      'New 13F position',
+      'Increased institutional stake',
+      'Large disclosed holding value',
+      'Multiple institutions active',
+    ],
+    research: [
+      'Phase III program signal',
+      'Material 8-K filing',
+      'High-signal clinical language',
+      'Recent filing inside a week',
+    ],
+  }
+  const pool = reasonsByKind[kind] ?? reasonsByKind.insider
+  const idea_reasons = pool.slice(0, 2 + (i % 2))
+  return { idea_score, idea_grade, idea_reasons }
+}
+
 const EMPTY = '-'
 
 /* Chart area fill under line — CSS vars follow market/clinical intel theme. */
@@ -847,30 +910,30 @@ const CLINICAL_PROGRAM_ALL = '__ALL__'
  */
 const RESEARCH_FEED_BY_INTEL = {
   market: [
-    { rowKey: 'fb-ASML', ticker: 'ASML', name: 'ASML Holding N.V.', at: '2026-05-28T18:10:00.000Z' },
-    { rowKey: 'fb-NVDA', ticker: 'NVDA', name: 'NVIDIA Corporation', at: '2026-05-28T16:45:00.000Z' },
-    { rowKey: 'fb-TSM', ticker: 'TSM', name: 'Taiwan Semiconductor · score 7.9', at: '2026-05-28T14:20:00.000Z' },
-    { rowKey: 'fb-LRCX', ticker: 'LRCX', name: 'Lam Research Corporation', at: '2026-05-15T09:00:00.000Z' },
-    { rowKey: 'fb-AMAT', ticker: 'AMAT', name: 'Applied Materials, Inc.', at: '2026-03-22T11:30:00.000Z' },
-    { rowKey: 'fb-AMD', ticker: 'AMD', name: 'Advanced Micro Devices', at: '2026-01-08T08:15:00.000Z' },
-    { rowKey: 'fb-INTC', ticker: 'INTC', name: 'Intel Corporation', at: '2025-11-12T13:00:00.000Z' },
-    { rowKey: 'fb-QCOM', ticker: 'QCOM', name: 'Qualcomm Incorporated', at: '2025-06-03T10:45:00.000Z' },
-    { rowKey: 'fb-MU', ticker: 'MU', name: 'Micron Technology, Inc.', at: '2025-02-18T07:20:00.000Z' },
-    { rowKey: 'fb-AVGO', ticker: 'AVGO', name: 'Broadcom Inc.', at: '2024-09-24T15:00:00.000Z' },
-    { rowKey: 'fb-KLAC', ticker: 'KLAC', name: 'KLA Corporation', at: '2024-04-10T12:00:00.000Z' },
+    { rowKey: 'fb-ASML', ticker: 'ASML', name: 'ASML Holding N.V.', at: '2026-05-28T18:10:00.000Z', ...mockIdeaFields(0, 'research') },
+    { rowKey: 'fb-NVDA', ticker: 'NVDA', name: 'NVIDIA Corporation', at: '2026-05-28T16:45:00.000Z', ...mockIdeaFields(1, 'research') },
+    { rowKey: 'fb-TSM', ticker: 'TSM', name: 'Taiwan Semiconductor', at: '2026-05-28T14:20:00.000Z', ...mockIdeaFields(2, 'research') },
+    { rowKey: 'fb-LRCX', ticker: 'LRCX', name: 'Lam Research Corporation', at: '2026-05-15T09:00:00.000Z', ...mockIdeaFields(4, 'research') },
+    { rowKey: 'fb-AMAT', ticker: 'AMAT', name: 'Applied Materials, Inc.', at: '2026-03-22T11:30:00.000Z', ...mockIdeaFields(6, 'research') },
+    { rowKey: 'fb-AMD', ticker: 'AMD', name: 'Advanced Micro Devices', at: '2026-01-08T08:15:00.000Z', ...mockIdeaFields(8, 'research') },
+    { rowKey: 'fb-INTC', ticker: 'INTC', name: 'Intel Corporation', at: '2025-11-12T13:00:00.000Z', ...mockIdeaFields(10, 'research') },
+    { rowKey: 'fb-QCOM', ticker: 'QCOM', name: 'Qualcomm Incorporated', at: '2025-06-03T10:45:00.000Z', ...mockIdeaFields(12, 'research') },
+    { rowKey: 'fb-MU', ticker: 'MU', name: 'Micron Technology, Inc.', at: '2025-02-18T07:20:00.000Z', ...mockIdeaFields(3, 'research') },
+    { rowKey: 'fb-AVGO', ticker: 'AVGO', name: 'Broadcom Inc.', at: '2024-09-24T15:00:00.000Z', ...mockIdeaFields(5, 'research') },
+    { rowKey: 'fb-KLAC', ticker: 'KLAC', name: 'KLA Corporation', at: '2024-04-10T12:00:00.000Z', ...mockIdeaFields(7, 'research') },
   ],
   clinical: [
-    { rowKey: 'fb-ATYR', ticker: 'ATYR', name: 'aTyr Pharma, Inc.', at: '2026-05-28T17:30:00.000Z' },
-    { rowKey: 'fb-MRNA', ticker: 'MRNA', name: 'Moderna, Inc.', at: '2026-05-28T13:10:00.000Z' },
-    { rowKey: 'fb-SRPT', ticker: 'SRPT', name: 'Sarepta Therapeutics · score 6.8', at: '2026-05-28T10:00:00.000Z' },
-    { rowKey: 'fb-BIIB', ticker: 'BIIB', name: 'Biogen Inc.', at: '2026-05-14T09:30:00.000Z' },
-    { rowKey: 'fb-REGN', ticker: 'REGN', name: 'Regeneron Pharmaceuticals', at: '2026-03-05T14:00:00.000Z' },
-    { rowKey: 'fb-VRTX', ticker: 'VRTX', name: 'Vertex Pharmaceuticals', at: '2026-01-21T11:00:00.000Z' },
-    { rowKey: 'fb-GILD', ticker: 'GILD', name: 'Gilead Sciences, Inc.', at: '2025-10-30T08:45:00.000Z' },
-    { rowKey: 'fb-AMGN', ticker: 'AMGN', name: 'Amgen Inc.', at: '2025-05-17T16:20:00.000Z' },
-    { rowKey: 'fb-BMY', ticker: 'BMY', name: 'Bristol-Myers Squibb', at: '2025-01-09T10:00:00.000Z' },
-    { rowKey: 'fb-PFE', ticker: 'PFE', name: 'Pfizer Inc.', at: '2024-08-02T12:30:00.000Z' },
-    { rowKey: 'fb-ABBV', ticker: 'ABBV', name: 'AbbVie Inc.', at: '2024-03-14T09:00:00.000Z' },
+    { rowKey: 'fb-ATYR', ticker: 'ATYR', name: 'aTyr Pharma, Inc.', at: '2026-05-28T17:30:00.000Z', ...mockIdeaFields(0, 'research') },
+    { rowKey: 'fb-MRNA', ticker: 'MRNA', name: 'Moderna, Inc.', at: '2026-05-28T13:10:00.000Z', ...mockIdeaFields(1, 'research') },
+    { rowKey: 'fb-SRPT', ticker: 'SRPT', name: 'Sarepta Therapeutics', at: '2026-05-28T10:00:00.000Z', ...mockIdeaFields(2, 'research') },
+    { rowKey: 'fb-BIIB', ticker: 'BIIB', name: 'Biogen Inc.', at: '2026-05-14T09:30:00.000Z', ...mockIdeaFields(4, 'research') },
+    { rowKey: 'fb-REGN', ticker: 'REGN', name: 'Regeneron Pharmaceuticals', at: '2026-03-05T14:00:00.000Z', ...mockIdeaFields(6, 'research') },
+    { rowKey: 'fb-VRTX', ticker: 'VRTX', name: 'Vertex Pharmaceuticals', at: '2026-01-21T11:00:00.000Z', ...mockIdeaFields(8, 'research') },
+    { rowKey: 'fb-GILD', ticker: 'GILD', name: 'Gilead Sciences, Inc.', at: '2025-10-30T08:45:00.000Z', ...mockIdeaFields(10, 'research') },
+    { rowKey: 'fb-AMGN', ticker: 'AMGN', name: 'Amgen Inc.', at: '2025-05-17T16:20:00.000Z', ...mockIdeaFields(12, 'research') },
+    { rowKey: 'fb-BMY', ticker: 'BMY', name: 'Bristol-Myers Squibb', at: '2025-01-09T10:00:00.000Z', ...mockIdeaFields(3, 'research') },
+    { rowKey: 'fb-PFE', ticker: 'PFE', name: 'Pfizer Inc.', at: '2024-08-02T12:30:00.000Z', ...mockIdeaFields(5, 'research') },
+    { rowKey: 'fb-ABBV', ticker: 'ABBV', name: 'AbbVie Inc.', at: '2024-03-14T09:00:00.000Z', ...mockIdeaFields(7, 'research') },
   ],
 }
 
@@ -4046,6 +4109,7 @@ function insiderCaseForRowIndex(i) {
     at: lastEventAt,
     insiders,
     daily: buildInsiderDailySeries(i + 31),
+    ...mockIdeaFields(i, 'insider'),
     caseSheet: {
       filingId,
       formType,
@@ -4101,6 +4165,7 @@ function politicianCaseForRowIndex(i) {
     company: base.company ?? base.caseSheet?.issuer,
     chamber,
     politicians: people,
+    ...mockIdeaFields(i, 'politician'),
     caseSheet: {
       ...(base.caseSheet ?? {}),
       formType: 'PTR',
@@ -4149,6 +4214,7 @@ function institutionCaseForRowIndex(i) {
     id: `inst-${i}`,
     label,
     institutions: filers,
+    ...mockIdeaFields(i, 'institution'),
     caseSheet: {
       ...(base.caseSheet ?? {}),
       formType: '13F',
@@ -4441,6 +4507,7 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
                 'feedRowCompact--company',
                 !feedCountVisible(it.count) ? 'feedRowCompact--noCount' : '',
                 it.ticker === selectedTicker ? 'isActive' : '',
+                ideaHighlightClass(it.idea_grade),
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -4449,7 +4516,7 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
               <span className="feedCell feedCellSymbol mono kvFeedDim">
                 {String(it.ticker ?? '').trim().toUpperCase() || '—'}
               </span>
-              <span className="feedCell feedCellCompany kvFeedMain">{it.company ?? '—'}</span>
+              <span className="feedCell feedCellCompany kvFeedMain">{it.company ?? '—'}<IdeaGradeBadge grade={it.idea_grade} reasons={it.idea_reasons} /></span>
               {feedCountVisible(it.count) ? (
                 <span className="feedCell feedCellCount mono kvFeedDim">
                   <span className="feedCountTag">{it.count}</span>
@@ -5718,6 +5785,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
     filedAt: mockPaperFiledAtToday(),
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
     briefKey: 'atyr-8k-today',
+    ...mockIdeaFields(0, 'research'),
     analysis:
       'Same-day 8-K: no material clinical update, routine disclosure ahead of the week-48 readout window. Useful as a timestamp anchor; does not change the binary mean-OCS setup.',
   },
@@ -5728,6 +5796,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
     filedAt: '2026-05-08T00:00:00.000Z',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
     briefKey: 'atyr-8k-cash',
+    ...mockIdeaFields(1, 'research'),
     analysis:
       'Management updated cash runway guidance and reiterated that EFZO-FIT remains fully enrolled with no change to the week-48 mean oral-steroid primary. The filing is operational, not efficacy-bearing, but it narrows financing overhang ahead of the binary readout.',
   },
@@ -5758,6 +5827,7 @@ const MOCK_PAPER_DOCUMENTS_ATYR = [
     filedAt: '2026-02-11T00:00:00.000Z',
     url: 'https://clinicaltrials.gov/study/NCT05415137',
     briefKey: 'atyr-enrollment',
+    ...mockIdeaFields(2, 'research'),
     analysis:
       'EFZO-FIT (NCT05415137) lists enrollment at 268 participants versus a 264 target for the sarcoidosis program. The trial remains three-arm with 5 mg/kg, 3 mg/kg, and placebo. The registry still frames the primary endpoint as absolute change from baseline in mean daily oral steroid dose at week 48, which is the regulatory line investors should track before any efficacy narrative hardens.',
   },
@@ -5789,6 +5859,7 @@ const MOCK_PAPER_DOCUMENTS_ASML = [
     filedAt: '2026-05-20T00:00:00.000Z',
     url: 'https://sam.gov/search/?index=opp&page=1&sort=-relevance&keywords=ASML',
     briefKey: 'asml-gov-dod',
+    ...mockIdeaFields(0, 'research'),
     analysis:
       'DoD IDIQ modification ($18.4M) names ASML US, Inc. as awardee for EUV lithography sustainment and field engineering at a domestic high-volume fab. Award text ties delivery to existing high-NA install base rather than a new platform buy. Supports the scarcity thesis: defense-side spend is maintaining installed EUV, not signaling a cancellation wave.',
   },
@@ -5798,6 +5869,7 @@ const MOCK_PAPER_DOCUMENTS_ASML = [
     filedAt: '2026-04-18T00:00:00.000Z',
     url: 'https://www.sec.gov/edgar/search/#/q=ASML',
     briefKey: 'asml-q1',
+    ...mockIdeaFields(1, 'research'),
     analysis:
       'Q1 commentary highlights backlog stability and longer EUV lead times rather than a cancellation wave. Management frames demand as capacity-constrained at the leading edge, which keeps pricing power on high-NA slots intact even when downstream GPU names wobble.',
   },
@@ -6210,6 +6282,7 @@ function ResearchPaperRailCaptureSelect({ captureId, selected, onToggle }) {
 
 function ResearchPaperDocCard({ doc, ticker, captureId, screenshotSelectMode = false, screenshotSelected = false, onScreenshotToggle }) {
   const source = doc?.source ?? 'Filing'
+  const ideaClass = ideaHighlightClass(doc?.idea_grade)
   return (
     <EventBriefDocCard
       captureId={captureId}
@@ -6228,9 +6301,12 @@ function ResearchPaperDocCard({ doc, ticker, captureId, screenshotSelectMode = f
             selected={screenshotSelected}
             onToggle={onScreenshotToggle}
           />
-        ) : null
+        ) : (
+          <IdeaGradeBadge grade={doc?.idea_grade} reasons={doc?.idea_reasons} />
+        )
       }
       className={[
+        ideaClass,
         screenshotSelectMode && screenshotSelected ? 'researchPaperRailCard--screenshotSelected' : '',
         screenshotSelectMode && !screenshotSelected ? 'researchPaperRailCard--screenshotUnselected' : '',
       ]
@@ -8687,6 +8763,7 @@ function CompactFeed({
                   className={[
                     'feedRowCompact',
                     active ? 'isActive' : '',
+                    ideaHighlightClass(row.idea_grade),
                     programsStackedRows ? 'feedRowCompact--programs' : '',
                     programsTimeline ? 'feedRowCompact--timeline' : '',
                   rowPrimary === 'company' ? 'feedRowCompact--company' : '',
@@ -8725,6 +8802,7 @@ function CompactFeed({
                       </span>
                       <span className="feedCell feedCellCompany kvFeedMain">
                         {String(row.company ?? row.issuer ?? '').trim() || '—'}
+                        <IdeaGradeBadge grade={row.idea_grade} reasons={row.idea_reasons} />
                       </span>
                       {!programsTimeline && feedCountVisible(row.count) ? (
                         <span className="feedCell feedCellCount mono kvFeedDim">
@@ -9398,6 +9476,9 @@ function KensiglineTerminal() {
           name: label,
           company: label,
           at: x.feed_at ? String(x.feed_at) : null,
+          idea_score: x.idea_score,
+          idea_grade: x.idea_grade,
+          idea_reasons: x.idea_reasons,
         }
       }),
     )
@@ -10058,6 +10139,9 @@ function KensiglineTerminal() {
             at,
             insiders,
             daily: [],
+            idea_score: it.idea_score,
+            idea_grade: it.idea_grade,
+            idea_reasons: it.idea_reasons,
             __backend_id: id,
           }
         })
@@ -10101,6 +10185,9 @@ function KensiglineTerminal() {
             at,
             institutions,
             daily: [],
+            idea_score: it.idea_score,
+            idea_grade: it.idea_grade,
+            idea_reasons: it.idea_reasons,
             __backend_id: id,
           }
         })
@@ -10188,6 +10275,9 @@ function KensiglineTerminal() {
             politicians,
             chamber: String(it.chamber ?? 'house').trim().toLowerCase() || 'house',
             daily: [],
+            idea_score: it.idea_score,
+            idea_grade: it.idea_grade,
+            idea_reasons: it.idea_reasons,
             __backend_id: id,
           }
         })
