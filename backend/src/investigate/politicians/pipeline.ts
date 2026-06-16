@@ -333,9 +333,9 @@ async function persistPoliticianFiling(opts: {
       `
       INSERT INTO documents (
         queue_id, doc_kind, schema_version, ticker, feed_kind, source_key, event_at,
-        feed_label, url, published_at, model, prompt_version, content_sha256, data
+        feed_label, url, published_at, content_sha256, data
       )
-      VALUES ($1, $2, $3, $4, 'politicians', 'PTR', $5, $6, $7, $8, $9, $10, $11, $12)
+      VALUES ($1, $2, $3, $4, 'politicians', 'PTR', $5, $6, $7, $8, $9, $10)
       ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
       DO UPDATE SET parsed_at = now()
       RETURNING id
@@ -349,8 +349,6 @@ async function persistPoliticianFiling(opts: {
         feedLabel,
         url,
         feedAt,
-        model,
-        promptVersion,
         docSha,
         data,
       ],

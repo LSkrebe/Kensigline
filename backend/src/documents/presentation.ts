@@ -78,30 +78,6 @@ export async function buildResearchPresentation(ticker: string): Promise<Explore
   );
   const name = String(companyRow?.name ?? t).trim() || t;
 
-  const memo = await db.one<{ title: string; presentation: unknown }>(
-    `
-    SELECT title, presentation
-    FROM research_memos
-    WHERE ticker = $1
-    ORDER BY created_at DESC
-    LIMIT 1
-    `,
-    [t],
-  );
-  const storedPres = memo?.presentation as Partial<ExplorePresentation> | null;
-  if (storedPres?.title && Array.isArray(storedPres.blocks) && storedPres.blocks.length) {
-    const documents = await loadPaperDocumentsForTicker(t);
-    return {
-      title: String(storedPres.title),
-      subtitle: String(storedPres.subtitle ?? `${name} · ${t} · ${isoDate(new Date())}`),
-      blocks: storedPres.blocks as ExploreBlock[],
-      ...(storedPres.diagram ? { diagram: storedPres.diagram as ExplorePresentation["diagram"] } : {}),
-      explainer: [],
-      sources: Array.isArray(storedPres.sources) ? (storedPres.sources as ResearchSourceRef[]) : await loadSourceRefs(t),
-      documents,
-    };
-  }
-
   const documents = await loadPaperDocumentsForTicker(t);
   const recentDocs = documents.slice(0, 6);
 

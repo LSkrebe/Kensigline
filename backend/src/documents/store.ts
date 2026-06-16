@@ -20,7 +20,6 @@ export async function insertResearchDocument(args: {
   sourceType: string;
   url: string | null;
   out: ResearchDocExtractV2;
-  model: string;
   publishedAt: string | null;
 }): Promise<string | null> {
   const dup = await db.one<{ id: string }>(
@@ -39,12 +38,12 @@ export async function insertResearchDocument(args: {
     INSERT INTO documents (
       queue_id, doc_kind, schema_version, source_key, analysis, event_at,
       feed_kind, feed_label, ticker, program_keys, link_confidence, show_on_ticker,
-      url, title, published_at, model, prompt_version, content_sha256, data
+      url, title, published_at, content_sha256, data
     )
     VALUES (
       $1, $2, 'v1', $3, $4, $5,
       'research', $3, $6, $7, $8, $9,
-      $10, $11, $12, $13, 'research_doc_v2', $14, $15::jsonb
+      $10, $11, $12, $13, $14::jsonb
     )
     RETURNING id
     `,
@@ -61,61 +60,12 @@ export async function insertResearchDocument(args: {
       args.url,
       args.out.title,
       args.publishedAt,
-      args.model,
       args.contentSha256,
       JSON.stringify(args.out),
     ],
   );
 
-  const docId = row?.id ?? null;
-  if (docId && isGov) {
-    await upsertGovContractFromDocument(docId, args);
-  }
-
-  return docId;
-}
-
-async function upsertGovContractFromDocument(
-  documentId: string,
-  args: {
-    contentSha256: string;
-    url: string | null;
-    out: ResearchDocExtractV2;
-    publishedAt: string | null;
-  },
-) {
-  const award = await db.one<{ id: string }>(
-    `
-    INSERT INTO gov_contract_awards (document_id, award_id, awardee_name, awarded_at, url, summary, data)
-    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
-    ON CONFLICT (award_id) WHERE award_id IS NOT NULL DO UPDATE SET
-      document_id = EXCLUDED.document_id,
-      summary = EXCLUDED.summary
-    RETURNING id
-    `,
-    [
-      documentId,
-      args.contentSha256.slice(0, 64),
-      args.out.title,
-      args.out.event_at ?? args.publishedAt,
-      args.url,
-      args.out.analysis.slice(0, 4000),
-      JSON.stringify(args.out),
-    ],
-  );
-
-  const ticker = args.out.primary_ticker?.trim().toUpperCase();
-  const conf = args.out.link_confidence;
-  if (award?.id && ticker && conf != null && conf >= GOV_LINK_THRESHOLD()) {
-    await db.query(
-      `
-      INSERT INTO gov_contract_ticker_links (award_id, ticker, confidence, reason)
-      VALUES ($1, $2, $3, 'llm_explicit')
-      ON CONFLICT (award_id, ticker) DO UPDATE SET confidence = EXCLUDED.confidence
-      `,
-      [award.id, ticker, conf],
-    );
-  }
+  return row?.id ?? null;
 }
 
 export async function syncInsiderTransactionsFromDocument(documentId: string, ticker: string, data: any) {

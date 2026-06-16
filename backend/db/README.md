@@ -23,9 +23,9 @@ Use pooler URL from `.env`. If TLS fails locally, set `PGSSLMODE=require` or use
 | Layer | Tables |
 |--------|--------|
 | Core | `companies`, `bars`, `billing_accounts`, `outcomes` |
-| Ingest | `document_queue` |
+| Ingest | `document_queue`, `ingest_cursors` |
 | Paper | `documents` |
 | Flows | `insider_transactions`, `politician_transactions`, `institution_filings_13f` |
-| Clinical | `clinical_programs`, `clinical_milestones`, `clinical_catalysts` |
-| Gov | `gov_contract_awards`, `gov_contract_ticker_links` |
-| Research | `research_memos` (legacy snapshots) |
+| Alerts | `alert_preferences`, `alert_digest_log` |
+
+Clinical, gov-contract, and research-memo data lives on `documents` (`feed_kind`, `program_*`, `source_key`).

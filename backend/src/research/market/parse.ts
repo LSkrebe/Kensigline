@@ -127,7 +127,6 @@ async function finalizePipeline(args: {
   contentSha: string;
   primaryUrl: string;
   publishedAt: string;
-  model: string;
   out: Awaited<ReturnType<typeof runResearchDocExtract>>["out"];
 }): Promise<{ document_id: string | null }> {
   const docId = await insertResearchDocument({
@@ -136,7 +135,6 @@ async function finalizePipeline(args: {
     sourceType: args.documentSourceType,
     url: args.primaryUrl,
     out: args.out,
-    model: args.model,
     publishedAt: args.publishedAt,
   });
 
@@ -238,7 +236,7 @@ async function parseSecDocument(queueId: string, indexUrl: string): Promise<Pars
   const cik = cikFromIndexUrl(indexUrl);
   const meta = cik ? await metaFromCik(cik) : { ticker: null, name: null };
 
-  const { out, model } = await runResearchDocExtract({
+  const { out } = await runResearchDocExtract({
     text: compactSecTextForLlm(text, 100_000),
     url: primaryUrl,
     sourceType: "research_sec",
@@ -253,7 +251,6 @@ async function parseSecDocument(queueId: string, indexUrl: string): Promise<Pars
     contentSha,
     primaryUrl,
     publishedAt,
-    model,
     out: {
       ...out,
       primary_ticker: out.primary_ticker ?? meta.ticker,
@@ -313,7 +310,7 @@ async function parseHttpDocument(
       : documentSourceType === "research_gov_contract"
         ? "gov"
         : "press";
-  const { out, model } = await runResearchDocExtract({
+  const { out } = await runResearchDocExtract({
     text: compactHttpTextForLlm(text, httpMode, 100_000),
     url: pageUrl,
     sourceType: documentSourceType,
@@ -328,7 +325,6 @@ async function parseHttpDocument(
     contentSha,
     primaryUrl: pageUrl,
     publishedAt,
-    model,
     out: {
       ...out,
       primary_ticker: out.primary_ticker ?? guessed,

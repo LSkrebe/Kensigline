@@ -365,17 +365,17 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
         `
         INSERT INTO documents (
           queue_id, doc_kind, schema_version, ticker, feed_kind, source_key,
-          event_at, feed_label, url, published_at, model, prompt_version, content_sha256, data
+          event_at, feed_label, url, published_at, content_sha256, data
         )
         VALUES (
           $1, 'institution_cluster', 'v1', $2, 'institutions', '13F',
-          $3, $4, $5, $6, $7, 'sec_13f_v1', $8, $9
+          $3, $4, $5, $6, $7, $8
         )
         ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
         DO UPDATE SET parsed_at = now()
         RETURNING id
         `,
-        [queueId, ticker, feedAt, feedLabel, primaryUrl, feedAt, model, contentSha256, data],
+        [queueId, ticker, feedAt, feedLabel, primaryUrl, feedAt, contentSha256, data],
       );
 
       if (inserted?.id) {

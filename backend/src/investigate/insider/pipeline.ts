@@ -391,9 +391,9 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
       `
       INSERT INTO documents (
         queue_id, doc_kind, schema_version, ticker, feed_kind, source_key, event_at,
-        feed_label, url, published_at, model, prompt_version, content_sha256, data
+        feed_label, url, published_at, content_sha256, data
       )
-      VALUES ($1, $2, $3, $4, 'insider', $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      VALUES ($1, $2, $3, $4, 'insider', $5, $6, $7, $8, $9, $10, $11)
       ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
       DO UPDATE SET parsed_at = now()
       RETURNING id
@@ -408,8 +408,6 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
         feedLabel,
         url,
         out.cluster.cluster_end_at ?? out.filing.filed_at,
-        model,
-        queueSourceType === "sec_form4" ? "insider_form4_v2" : `insider_${queueSourceType}_v2`,
         contentSha256,
         out,
       ],

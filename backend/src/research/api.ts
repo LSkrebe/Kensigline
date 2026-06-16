@@ -1,5 +1,5 @@
 import type http from "node:http";
-import { notFound, sendJson } from "../core/http.js";
+import { sendJson } from "../core/http.js";
 import { db } from "../core/db.js";
 import { buildResearchPresentation } from "../documents/presentation.js";
 import { scoreResearchDocument } from "../core/idea-score.js";
@@ -71,39 +71,23 @@ export async function handleResearchPaper(res: http.ServerResponse, ticker: stri
     sendJson(res, 400, { ok: false, error: "ticker_required" });
     return;
   }
-  const row = await db.one<{
-    id: string;
-    title: string;
-    thesis: string;
-    key_points: unknown;
-    presentation: unknown;
-    trigger_reason: string | null;
-    created_at: string;
-  }>(
-    `
-    SELECT id, title, thesis, key_points, presentation, trigger_reason, created_at::text
-    FROM research_memos
-    WHERE ticker = $1
-    ORDER BY created_at DESC
-    LIMIT 1
-    `,
-    [t],
-  );
-  if (!row) {
-    notFound(res);
-    return;
-  }
+  const presentation = await buildResearchPresentation(t);
+  const leadDoc = presentation.documents[0];
   sendJson(res, 200, {
     ok: true,
     ticker: t,
     paper: {
-      id: row.id,
-      title: row.title,
-      thesis: row.thesis,
-      key_points: row.key_points,
-      presentation: row.presentation,
-      trigger_reason: row.trigger_reason,
-      created_at: row.created_at,
+      id: leadDoc?.id ?? t,
+      title: presentation.title,
+      thesis: presentation.blocks
+        .filter((b) => b.type === "paragraph")
+        .map((b) => b.text)
+        .join(" ")
+        .slice(0, 4000),
+      key_points: presentation.documents.slice(0, 8).map((d) => d.analysis),
+      presentation,
+      trigger_reason: null,
+      created_at: leadDoc?.filedAt ?? new Date().toISOString(),
     },
   });
 }

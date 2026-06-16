@@ -353,11 +353,8 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
           program_drug,
           program_indication,
           program_phase,
-          program_sponsor,
           url,
           published_at,
-          model,
-          prompt_version,
           content_sha256,
           data
         )
@@ -367,8 +364,8 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
           'v2',
           $2,
           'pharma',
-          $16,
-          $17,
+          $12,
+          $13,
           $3,
           $4,
           $5,
@@ -378,10 +375,7 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
           $9,
           $10,
           $11,
-          $12,
-          $13,
-          $14,
-          $15
+          $14
         )
         ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
         DO UPDATE SET parsed_at = now()
@@ -396,19 +390,17 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
           drug,
           indication,
           phase,
-          companyName,
           primaryUrl,
           eventAt,
-          model,
-          "pharma_sec_v3",
           perEventSha,
+          sourceKey,
+          analysis,
           {
             ...e,
             event_type: eventType,
+            sponsor: companyName,
             worksheet: { analysis },
           },
-          sourceKey,
-          analysis,
         ],
       );
       if (r?.id) {

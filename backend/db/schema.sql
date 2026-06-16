@@ -24,6 +24,9 @@ DROP TABLE IF EXISTS outcomes CASCADE;
 DROP TABLE IF EXISTS bars CASCADE;
 DROP TABLE IF EXISTS billing_accounts CASCADE;
 DROP TABLE IF EXISTS companies CASCADE;
+DROP TABLE IF EXISTS ingest_cursors CASCADE;
+DROP TABLE IF EXISTS alert_digest_log CASCADE;
+DROP TABLE IF EXISTS alert_preferences CASCADE;
 
 DROP TABLE IF EXISTS bosha_exploration_queue CASCADE;
 DROP TABLE IF EXISTS bosha_claims CASCADE;
@@ -137,18 +140,14 @@ CREATE TABLE documents (
   program_drug text,
   program_indication text,
   program_phase text,
-  program_sponsor text,
   link_confidence numeric,
   show_on_ticker boolean NOT NULL DEFAULT true,
   url text,
   title text,
   published_at timestamptz,
   parsed_at timestamptz NOT NULL DEFAULT now(),
-  model text,
-  prompt_version text,
   content_sha256 text,
-  data jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now()
+  data jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
 CREATE UNIQUE INDEX documents_content_sha256_unique
@@ -176,8 +175,7 @@ CREATE TABLE insider_transactions (
   insider_name text NOT NULL,
   transaction_code text,
   amount_usd numeric,
-  transaction_at timestamptz NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  transaction_at timestamptz NOT NULL
 );
 
 CREATE INDEX insider_transactions_ticker_at_idx
@@ -191,8 +189,7 @@ CREATE TABLE politician_transactions (
   chamber text,
   transaction_type text,
   amount_usd_mid numeric,
-  transaction_at timestamptz NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  transaction_at timestamptz NOT NULL
 );
 
 CREATE INDEX politician_transactions_ticker_at_idx
@@ -205,108 +202,17 @@ CREATE TABLE institution_filings_13f (
   filer text NOT NULL,
   activity text,
   amount_usd numeric,
-  filed_at timestamptz NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
+  filed_at timestamptz NOT NULL
 );
 
 CREATE INDEX institution_filings_13f_ticker_at_idx
   ON institution_filings_13f (ticker, filed_at DESC);
-
--- --- Clinical ---
-CREATE TABLE clinical_programs (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  ticker text NOT NULL,
-  program_key text NOT NULL,
-  drug text,
-  indication text,
-  stage text,
-  nct_id text,
-  url text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (ticker, program_key)
-);
-
-CREATE INDEX clinical_programs_ticker_idx ON clinical_programs (ticker);
-
-CREATE TABLE clinical_milestones (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  program_id uuid NOT NULL REFERENCES clinical_programs(id) ON DELETE CASCADE,
-  milestone_at timestamptz NOT NULL,
-  label text NOT NULL,
-  url text,
-  document_id uuid REFERENCES documents(id) ON DELETE SET NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX clinical_milestones_program_at_idx
-  ON clinical_milestones (program_id, milestone_at ASC);
-
-CREATE TABLE clinical_catalysts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  ticker text NOT NULL,
-  catalyst_at timestamptz NOT NULL,
-  label text NOT NULL,
-  program_key text,
-  kind text NOT NULL DEFAULT 'trial',
-  url text,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX clinical_catalysts_ticker_at_idx ON clinical_catalysts (ticker, catalyst_at ASC);
-
--- --- Gov contracts ---
-CREATE TABLE gov_contract_awards (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  document_id uuid REFERENCES documents(id) ON DELETE SET NULL,
-  award_id text,
-  awardee_name text,
-  agency text,
-  amount_usd numeric,
-  awarded_at timestamptz,
-  url text,
-  summary text,
-  data jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE UNIQUE INDEX gov_contract_awards_award_id_unique
-  ON gov_contract_awards (award_id)
-  WHERE award_id IS NOT NULL;
-
-CREATE TABLE gov_contract_ticker_links (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  award_id uuid NOT NULL REFERENCES gov_contract_awards(id) ON DELETE CASCADE,
-  ticker text NOT NULL,
-  confidence numeric NOT NULL DEFAULT 0.5,
-  reason text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (award_id, ticker)
-);
-
-CREATE INDEX gov_contract_ticker_links_ticker_idx ON gov_contract_ticker_links (ticker);
-
--- --- Research feed ---
-CREATE TABLE research_memos (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  ticker text NOT NULL,
-  title text NOT NULL,
-  thesis text NOT NULL DEFAULT '',
-  key_points jsonb NOT NULL DEFAULT '[]'::jsonb,
-  presentation jsonb NOT NULL DEFAULT '{}'::jsonb,
-  score double precision NOT NULL DEFAULT 0,
-  trigger_reason text,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX research_memos_ticker_created_idx ON research_memos (ticker, created_at DESC);
 
 -- --- Bars ---
 CREATE TABLE bars (
   ticker text NOT NULL,
   day date NOT NULL,
   close numeric NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (ticker, day)
 );
 
@@ -318,7 +224,6 @@ CREATE TABLE outcomes (
   mode text NOT NULL,
   as_of_date date NOT NULL,
   data jsonb NOT NULL,
-  created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (company_id, mode, as_of_date)
 );
 
