@@ -20,14 +20,43 @@ export async function fetchJsonSafe(path, { timeoutMs = 4500, headers: extraHead
   if (body != null && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
-  if (supabase) {
+
+  function supabaseTokenFromLocalStorage() {
+    if (typeof window === 'undefined' || !window.localStorage) return null
     try {
-      const { data } = await supabase.auth.getSession()
-      const tok = data.session?.access_token
-      if (tok) headers.set('Authorization', `Bearer ${tok}`)
+      const keys = Object.keys(window.localStorage)
+      const key = keys.find((k) => k.startsWith('sb-') && k.toLowerCase().includes('auth-token'))
+      if (!key) return null
+      const raw = window.localStorage.getItem(key)
+      if (!raw) return null
+      try {
+        const parsed = JSON.parse(raw)
+        return parsed?.access_token ?? parsed?.session?.access_token ?? parsed?.token ?? null
+      } catch {
+        return raw
+      }
+    } catch {
+      return null
+    }
+  }
+
+  if (supabase) {
+    let sessionRes = null
+    try {
+      // Don't block API calls if session lookup hangs, but allow enough time
+      // for Supabase session retrieval on slower dev environments.
+      const sessionTimeoutMs = Math.max(500, Math.min(timeoutMs, 4000))
+      sessionRes = await Promise.race([
+        supabase.auth.getSession(),
+        new Promise((resolve) => setTimeout(() => resolve(null), sessionTimeoutMs)),
+      ])
     } catch {
       /* never block API calls (e.g. /health) if auth client errors */
+      sessionRes = null
     }
+
+    const tok = sessionRes?.data?.session?.access_token ?? supabaseTokenFromLocalStorage()
+    if (tok) headers.set('Authorization', `Bearer ${tok}`)
   }
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), timeoutMs)

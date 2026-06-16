@@ -20,38 +20,15 @@ function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n))
 }
 
-function ideaHighlightClass(grade) {
-  const g = String(grade ?? '').trim().toUpperCase()
-  if (g === 'A') return 'ideaHighlight--A'
-  if (g === 'B') return 'ideaHighlight--B'
-  return ''
-}
-
-function ideaGradeFromScore(score) {
-  const s = Number(score)
-  if (!Number.isFinite(s)) return null
-  if (s >= 80) return 'A'
-  if (s >= 65) return 'B'
-  if (s >= 45) return 'C'
-  return 'D'
-}
-
-function IdeaGradeBadge({ grade, reasons }) {
-  const g = String(grade ?? '').trim().toUpperCase()
-  if (g !== 'A' && g !== 'B') return null
-  const tip = Array.isArray(reasons) ? reasons.filter(Boolean).join(' · ') : ''
-  return (
-    <span className={`ideaGradeBadge ideaGradeBadge--${g}`} title={tip || undefined} aria-label={`Idea grade ${g}`}>
-      {g}
-    </span>
-  )
+function ideaHighlightClass(best) {
+  return best ? 'ideaHighlight--A' : ''
 }
 
 const MOCK_IDEA_SCORES = [92, 84, 76, 68, 55, 88, 71, 63, 49, 38, 86, 74, 66, 58, 81]
 
 function mockIdeaFields(i, kind = 'insider') {
   const idea_score = MOCK_IDEA_SCORES[i % MOCK_IDEA_SCORES.length]
-  const idea_grade = ideaGradeFromScore(idea_score)
+  const idea_best = idea_score >= 90
   const reasonsByKind = {
     insider: [
       'Multiple open-market purchases',
@@ -80,7 +57,7 @@ function mockIdeaFields(i, kind = 'insider') {
   }
   const pool = reasonsByKind[kind] ?? reasonsByKind.insider
   const idea_reasons = pool.slice(0, 2 + (i % 2))
-  return { idea_score, idea_grade, idea_reasons }
+  return { idea_score, idea_best, idea_reasons }
 }
 
 const EMPTY = '-'
@@ -4507,7 +4484,7 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
                 'feedRowCompact--company',
                 !feedCountVisible(it.count) ? 'feedRowCompact--noCount' : '',
                 it.ticker === selectedTicker ? 'isActive' : '',
-                ideaHighlightClass(it.idea_grade),
+                ideaHighlightClass(it.idea_best),
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -4516,7 +4493,7 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
               <span className="feedCell feedCellSymbol mono kvFeedDim">
                 {String(it.ticker ?? '').trim().toUpperCase() || '—'}
               </span>
-              <span className="feedCell feedCellCompany kvFeedMain">{it.company ?? '—'}<IdeaGradeBadge grade={it.idea_grade} reasons={it.idea_reasons} /></span>
+              <span className="feedCell feedCellCompany kvFeedMain">{it.company ?? '—'}</span>
               {feedCountVisible(it.count) ? (
                 <span className="feedCell feedCellCount mono kvFeedDim">
                   <span className="feedCountTag">{it.count}</span>
@@ -6282,7 +6259,7 @@ function ResearchPaperRailCaptureSelect({ captureId, selected, onToggle }) {
 
 function ResearchPaperDocCard({ doc, ticker, captureId, screenshotSelectMode = false, screenshotSelected = false, onScreenshotToggle }) {
   const source = doc?.source ?? 'Filing'
-  const ideaClass = ideaHighlightClass(doc?.idea_grade)
+  const ideaClass = ideaHighlightClass(doc?.idea_best)
   return (
     <EventBriefDocCard
       captureId={captureId}
@@ -6301,9 +6278,7 @@ function ResearchPaperDocCard({ doc, ticker, captureId, screenshotSelectMode = f
             selected={screenshotSelected}
             onToggle={onScreenshotToggle}
           />
-        ) : (
-          <IdeaGradeBadge grade={doc?.idea_grade} reasons={doc?.idea_reasons} />
-        )
+        ) : null
       }
       className={[
         ideaClass,
@@ -8763,7 +8738,7 @@ function CompactFeed({
                   className={[
                     'feedRowCompact',
                     active ? 'isActive' : '',
-                    ideaHighlightClass(row.idea_grade),
+                    ideaHighlightClass(row.idea_best),
                     programsStackedRows ? 'feedRowCompact--programs' : '',
                     programsTimeline ? 'feedRowCompact--timeline' : '',
                   rowPrimary === 'company' ? 'feedRowCompact--company' : '',
@@ -8802,7 +8777,6 @@ function CompactFeed({
                       </span>
                       <span className="feedCell feedCellCompany kvFeedMain">
                         {String(row.company ?? row.issuer ?? '').trim() || '—'}
-                        <IdeaGradeBadge grade={row.idea_grade} reasons={row.idea_reasons} />
                       </span>
                       {!programsTimeline && feedCountVisible(row.count) ? (
                         <span className="feedCell feedCellCount mono kvFeedDim">
@@ -9477,7 +9451,7 @@ function KensiglineTerminal() {
           company: label,
           at: x.feed_at ? String(x.feed_at) : null,
           idea_score: x.idea_score,
-          idea_grade: x.idea_grade,
+          idea_best: x.idea_best,
           idea_reasons: x.idea_reasons,
         }
       }),
@@ -10140,7 +10114,7 @@ function KensiglineTerminal() {
             insiders,
             daily: [],
             idea_score: it.idea_score,
-            idea_grade: it.idea_grade,
+            idea_best: it.idea_best,
             idea_reasons: it.idea_reasons,
             __backend_id: id,
           }
@@ -10186,7 +10160,7 @@ function KensiglineTerminal() {
             institutions,
             daily: [],
             idea_score: it.idea_score,
-            idea_grade: it.idea_grade,
+            idea_best: it.idea_best,
             idea_reasons: it.idea_reasons,
             __backend_id: id,
           }
@@ -10276,7 +10250,7 @@ function KensiglineTerminal() {
             chamber: String(it.chamber ?? 'house').trim().toLowerCase() || 'house',
             daily: [],
             idea_score: it.idea_score,
-            idea_grade: it.idea_grade,
+            idea_best: it.idea_best,
             idea_reasons: it.idea_reasons,
             __backend_id: id,
           }

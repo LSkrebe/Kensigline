@@ -66,7 +66,6 @@ export function SettingsPanel() {
   const [portalBusy, setPortalBusy] = useState(false)
   const [alertsBusy, setAlertsBusy] = useState(false)
   const [alertsEnabled, setAlertsEnabled] = useState(false)
-  const [alertsMinGrade, setAlertsMinGrade] = useState('B')
   const [alertsLoaded, setAlertsLoaded] = useState(false)
 
   const onManageBilling = useCallback(async () => {
@@ -88,7 +87,6 @@ export function SettingsPanel() {
       const prefs = res.data?.preferences
       if (res.ok && prefs) {
         setAlertsEnabled(Boolean(prefs.enabled))
-        setAlertsMinGrade(String(prefs.min_grade ?? 'B').toUpperCase())
       }
       setAlertsLoaded(true)
     }
@@ -104,13 +102,13 @@ export function SettingsPanel() {
       const res = await fetchJsonSafe('/api/alerts/preferences', {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(patch),
+        body: patch,
       })
       setAlertsBusy(false)
       if (res.ok && res.data?.preferences) {
         setAlertsEnabled(Boolean(res.data.preferences.enabled))
-        setAlertsMinGrade(String(res.data.preferences.min_grade ?? 'B').toUpperCase())
       }
+      return { ok: Boolean(res.ok && res.data?.preferences) }
     },
     [],
   )
@@ -145,6 +143,27 @@ export function SettingsPanel() {
           <SettingsKvBody>
             <SettingsRow label="EMAIL" valueClassName="kvV mono">
               <span title={email}>{email}</span>
+            </SettingsRow>
+            <SettingsRow label="EMAIL DIGEST">
+              <label className="settingsToggle">
+                <input
+                  type="checkbox"
+                  checked={alertsEnabled}
+                  disabled={alertsBusy}
+                  onChange={(e) => {
+                    const prev = Boolean(alertsEnabled)
+                    const next = Boolean(e.target.checked)
+                    // Optimistic UI: reflect intent immediately.
+                    setAlertsEnabled(next)
+                    void saveAlerts({ enabled: next })
+                      .then((r) => {
+                        if (!r.ok) setAlertsEnabled(prev)
+                      })
+                      .catch(() => setAlertsEnabled(prev))
+                  }}
+                />
+                <span>{alertsEnabled ? 'On (twice daily)' : 'Off'}</span>
+              </label>
             </SettingsRow>
             <SettingsRow
               label="SESSION"
@@ -185,39 +204,6 @@ export function SettingsPanel() {
         </footer>
         </section>
       </div>
-
-      <section className="panel settingsInvoicesPanel" aria-label="Idea alerts">
-        <SettingsPanelHeader title="IDEA ALERTS" />
-        <div className="settingsPanelBody">
-          <SettingsKvBody>
-            <SettingsRow label="EMAIL DIGEST">
-              <label className="settingsToggle">
-                <input
-                  type="checkbox"
-                  checked={alertsEnabled}
-                  disabled={!alertsLoaded || alertsBusy}
-                  onChange={(e) => void saveAlerts({ enabled: e.target.checked })}
-                />
-                <span>{alertsEnabled ? 'On (twice daily)' : 'Off'}</span>
-              </label>
-            </SettingsRow>
-            <SettingsRow label="MIN GRADE">
-              <select
-                className="settingsSelect mono"
-                value={alertsMinGrade}
-                disabled={!alertsLoaded || alertsBusy}
-                onChange={(e) => void saveAlerts({ min_grade: e.target.value })}
-              >
-                <option value="A">A only</option>
-                <option value="B">A + B</option>
-              </select>
-            </SettingsRow>
-          </SettingsKvBody>
-          <p className="settingsHint dim">
-            Sends top scored ideas from insider, politician, institution, and research feeds. Requires Brevo on the backend.
-          </p>
-        </div>
-      </section>
 
       <section className="panel settingsInvoicesPanel" aria-label="Invoices">
         <SettingsPanelHeader title="INVOICES" />
