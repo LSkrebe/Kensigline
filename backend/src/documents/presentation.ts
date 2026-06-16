@@ -78,16 +78,6 @@ export async function buildResearchPresentation(ticker: string): Promise<Explore
   );
   const name = String(companyRow?.name ?? t).trim() || t;
 
-  const st = await db.one<{ score: string; components: unknown }>(
-    `SELECT score::text, components FROM ticker_feed_state WHERE ticker = $1 LIMIT 1`,
-    [t],
-  );
-  const score = st?.score != null ? Number(st.score) : 0;
-  const components = (st?.components && typeof st.components === "object" ? st.components : {}) as Record<
-    string,
-    unknown
-  >;
-
   const memo = await db.one<{ title: string; presentation: unknown }>(
     `
     SELECT title, presentation
@@ -161,23 +151,17 @@ export async function buildResearchPresentation(ticker: string): Promise<Explore
         }; ${polN} politician PTR row${polN === 1 ? "" : "s"} in the lookback windows.`
       : `No insider or politician transaction rows are stored for ${t} in the current lookback windows.`;
 
-  const scorePara = `Research feed score is ${score.toFixed(1)} on a 0–100 scale (document velocity + cross-feed overlap). ${
-    components.research_docs_14d != null ? `Documents in the last 14 days: ${String(components.research_docs_14d)}.` : ""
-  }`;
-
   const blocks: ExploreBlock[] = [
     { type: "heading", text: "Company focus" },
     { type: "paragraph", text: overview },
     { type: "heading", text: "Price" },
     {
       type: "price",
-      caption: `Daily closes for ${t}. Sparkline is informational; score rail reflects document + flow activity, not a price target.`,
+      caption: `Daily closes for ${t}. Sparkline is informational, not a price target.`,
     },
     { type: "heading", text: "Document signals" },
     { type: "paragraph", text: signalPara },
     { type: "paragraph", text: flowPara },
-    { type: "heading", text: "Scoreboard" },
-    { type: "paragraph", text: scorePara },
   ];
 
   const sources = await loadSourceRefs(t);

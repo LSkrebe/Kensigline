@@ -1,4 +1,6 @@
 import { enqueueCurrentFilingFeed } from "../../core/sec.js";
+import { QUEUE_SOURCES } from "../../pipelines/registry.js";
+import { runSecDailyIndexBackfill } from "../../shared/sec-daily-backfill.js";
 import { startPipelineWorker } from "../../shared/worker.js";
 import { parseNextInstitutionsQueueItem } from "./pipeline.js";
 
@@ -8,11 +10,13 @@ export function startInstitutionsWorker() {
   return startPipelineWorker({
     name: "investigate/institutions",
     envPrefix: "INSTITUTIONS",
+    sourceTypes: [...QUEUE_SOURCES.investigateInstitutions],
     defaults: {
       enqueueEveryMs: 300_000,
       parsePollMs: 8_000,
       parseThrottleMs: 2_500,
       parseConcurrency: 1,
+      backfillIntervalMs: 90_000,
     },
     enqueue: async () => {
       for (const formType of ["13F-HR", "13F-HR/A"]) {
@@ -25,6 +29,15 @@ export function startInstitutionsWorker() {
         });
         console.log(`institutions_enqueue_${formType} enqueued=${r.enqueued}`);
       }
+    },
+    enqueueBackfill: async () => {
+      await runSecDailyIndexBackfill({
+        pipeline: "investigate/institutions",
+        forms: [
+          { form: "13F-HR", sourceType: "sec_13f", priority: 1 },
+          { form: "13F-HR/A", sourceType: "sec_13f", priority: 1 },
+        ],
+      });
     },
     parseNext: async () => {
       const r = await parseNextInstitutionsQueueItem();

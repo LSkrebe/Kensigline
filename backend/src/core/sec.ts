@@ -426,11 +426,10 @@ async function fetchMasterIdxForDate(dayUtc: Date): Promise<string> {
   return await secFetchText(url);
 }
 
-function parseMasterIdxForForm4(masterIdx: string) {
+function parseMasterIdxForForms(masterIdx: string, formsWanted: Set<string>) {
   const lines = masterIdx.split(/\r?\n/);
-  const out: Array<{ cik: string; company: string; accession: string; filed_date: string; filename: string }> = [];
+  const out: Array<{ cik: string; company: string; form: string; accession: string; filed_date: string; filename: string }> = [];
   for (const line of lines) {
-    // Data section is pipe-separated.
     if (!line.includes("|")) continue;
     const parts = line.split("|");
     if (parts.length < 5) continue;
@@ -439,14 +438,105 @@ function parseMasterIdxForForm4(masterIdx: string) {
     const form = parts[2]?.trim() ?? "";
     const filed_date = parts[3]?.trim() ?? "";
     const filename = parts[4]?.trim() ?? "";
-    if (form !== "4") continue;
-    // filename example: edgar/data/320193/0001140361-26-015421.txt
+    if (!formsWanted.has(form)) continue;
     const m = filename.match(/\/(\d{10}-\d{2}-\d{6})\.txt$/);
     const accession = m?.[1] ?? null;
     if (!accession) continue;
-    out.push({ cik, company, accession, filed_date, filename });
+    out.push({ cik, company, form, accession, filed_date, filename });
   }
   return out;
+}
+
+function parseMasterIdxForForm4(masterIdx: string) {
+  return parseMasterIdxForForms(masterIdx, new Set(["4"])).map(({ cik, company, accession, filed_date, filename }) => ({
+    cik,
+    company,
+    accession,
+    filed_date,
+    filename,
+  }));
+}
+
+export type EnqueueDailyIndexDayResult = {
+  day: string;
+  form: string;
+  sourceType: string;
+  found: number;
+  enqueued: number;
+  skipped_existing: number;
+  index_missing: boolean;
+};
+
+/** Enqueue one form type from a single SEC daily master.idx (historical backfill). */
+export async function enqueueFilingsFromDailyIndexDay(opts: {
+  dayUtc: Date;
+  form: string;
+  sourceType: string;
+  priority?: number;
+  limit?: number;
+}): Promise<EnqueueDailyIndexDayResult> {
+  const form = String(opts.form ?? "").trim();
+  const sourceType = String(opts.sourceType ?? "").trim() || "sec_filing";
+  const priority = Number.isFinite(opts.priority) ? Math.max(0, Math.min(100, Number(opts.priority))) : 1;
+  const limit = Number.isFinite(opts.limit) ? Math.max(1, Math.min(5000, Number(opts.limit))) : 800;
+  const day = yyyymmdd(opts.dayUtc);
+
+  let master: string;
+  try {
+    master = await fetchMasterIdxForDate(opts.dayUtc);
+  } catch {
+    return { day, form, sourceType, found: 0, enqueued: 0, skipped_existing: 0, index_missing: true };
+  }
+
+  const filings = parseMasterIdxForForms(master, new Set([form]));
+  let found = 0;
+  let enqueued = 0;
+  let skipped_existing = 0;
+
+  for (const f of filings) {
+    found += 1;
+    if (found > limit) break;
+
+    const cik10 = String(Number(f.cik)).padStart(10, "0");
+    const indexUrl = accessionToIndexJsonUrl(cik10, f.accession);
+
+    const existing = await db.one<{ id: string }>(
+      `
+      SELECT id FROM document_queue WHERE url = $1 AND source_type = $2
+      UNION ALL
+      SELECT id FROM documents WHERE url = $1
+      LIMIT 1
+      `,
+      [indexUrl, sourceType],
+    );
+    if (existing) {
+      skipped_existing += 1;
+      continue;
+    }
+
+    const r = await db.one<{ id: string }>(
+      `
+      INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)
+      VALUES ($1, $2, 'ready_to_parse', $3, 0, now())
+      RETURNING id
+      `,
+      [indexUrl, sourceType, priority],
+    );
+    if (r?.id) enqueued += 1;
+
+    if (f.company) {
+      await db.query(
+        `
+        INSERT INTO companies (name, updated_at)
+        VALUES ($1, now())
+        ON CONFLICT (name) DO UPDATE SET updated_at = now()
+        `,
+        [f.company],
+      );
+    }
+  }
+
+  return { day, form, sourceType, found, enqueued, skipped_existing, index_missing: false };
 }
 
 /**
@@ -682,6 +772,42 @@ export async function enqueueLatestFilingsForTicker(opts: {
   }
 
   return { ticker, cik, forms: formsWanted, found, enqueued, skipped_existing, queue_ids };
+}
+
+/** Primary cover doc plus information-table XML for 13F parsing (no LLM). */
+export async function fetch13fFilingBundle(indexJsonUrl: string): Promise<{ url: string; text: string; bundle: string }> {
+  const primary = await fetchFilingPrimaryText(indexJsonUrl);
+  if (!indexJsonUrl.endsWith("/index.json")) {
+    return { url: primary.url, text: primary.text, bundle: primary.text };
+  }
+
+  const idx = (await secFetchJson(indexJsonUrl)) as { directory?: { item?: Array<{ name?: string; size?: number }> } };
+  const items = (idx?.directory?.item ?? [])
+    .map((it) => ({ name: String(it?.name ?? ""), size: Number(it?.size ?? 0) }))
+    .filter((it) => it.name);
+  const base = indexJsonUrl.replace(/\/index\.json$/, "");
+
+  const infoNames = items
+    .filter(
+      (it) =>
+        /infotable/i.test(it.name) ||
+        /informationtable/i.test(it.name) ||
+        (/\.xml$/i.test(it.name) && /table|holdings|13f/i.test(it.name)),
+    )
+    .sort((a, b) => (b.size || 0) - (a.size || 0))
+    .map((it) => it.name);
+
+  const parts = [primary.text];
+  for (const name of infoNames.slice(0, 4)) {
+    try {
+      const chunk = await secFetchText(`${base}/${name}`);
+      if (chunk.includes("infoTable") || chunk.includes("nameOfIssuer")) parts.push(chunk);
+    } catch {
+      // optional supplemental table file
+    }
+  }
+
+  return { url: primary.url, text: primary.text, bundle: parts.join("\n\n") };
 }
 
 export async function fetchFilingPrimaryText(indexJsonUrl: string): Promise<{ url: string; text: string }> {

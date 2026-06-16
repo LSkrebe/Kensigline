@@ -24,9 +24,7 @@ import {
   handleResearchExplore,
   handleResearchFeed,
   handleResearchPaper,
-  handleResearchRefreshScore,
   handleResearchRelationships,
-  handleResearchState,
 } from "./research/api.js";
 import { tryInvestigateRoutes } from "./investigate/api.js";
 import { tryDiscoverRoutes } from "./discover/api.js";
@@ -363,11 +361,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ---- Research: structured company intel ----
-    if (route(req, url, "GET", "/api/research/state")) {
-      const ticker = String(url.searchParams.get("ticker") ?? "").trim();
-      await handleResearchState(res, ticker);
-      return;
-    }
     if (route(req, url, "GET", "/api/research/events")) {
       const ticker = String(url.searchParams.get("ticker") ?? "").trim();
       const limit = researchLimitFromSearchParams(url.searchParams);
@@ -391,13 +384,8 @@ const server = http.createServer(async (req, res) => {
     }
     if (route(req, url, "GET", "/api/research/feed")) {
       const limit = clampInt(url.searchParams.get("limit"), 1, 120, 60);
-      await handleResearchFeed(res, limit);
-      return;
-    }
-    if (route(req, url, "POST", "/api/research/refresh-score")) {
-      const body = await json(req);
-      const ticker = String(body?.ticker ?? "").trim();
-      await handleResearchRefreshScore(res, ticker);
+      const mode = url.searchParams.get("mode");
+      await handleResearchFeed(res, limit, mode);
       return;
     }
 
@@ -452,31 +440,6 @@ const server = http.createServer(async (req, res) => {
         politicians,
         research,
       });
-      return;
-    }
-
-    // ---- Research: score history series (for Research trend) ----
-    if (route(req, url, "GET", "/api/research/score-series")) {
-      const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
-      const days = clampInt(url.searchParams.get("days"), 30, 3650, 365);
-      if (!ticker) {
-        sendJson(res, 400, { ok: false, error: "ticker_required" });
-        return;
-      }
-      const rows = await db.query<{ day: string; s: string }>(
-        `
-        SELECT date_trunc('day', created_at)::date::text AS day,
-               AVG(score)::text AS s
-        FROM research_memos
-        WHERE ticker = $1
-          AND created_at >= now() - ($2 || ' days')::interval
-        GROUP BY 1
-        ORDER BY 1 ASC
-        `,
-        [ticker, String(days)],
-      );
-      const items = rows.map((r) => ({ day: r.day, score: Number(r.s) || 0 }));
-      sendJson(res, 200, { ok: true, ticker, days, items });
       return;
     }
 

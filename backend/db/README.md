@@ -28,4 +28,4 @@ Use pooler URL from `.env`. If TLS fails locally, set `PGSSLMODE=require` or use
 | Flows | `insider_transactions`, `politician_transactions`, `institution_filings_13f` |
 | Clinical | `clinical_programs`, `clinical_milestones`, `clinical_catalysts` |
 | Gov | `gov_contract_awards`, `gov_contract_ticker_links` |
-| Research | `ticker_feed_state`, `research_memos` |
+| Research | `research_memos` (legacy snapshots) |

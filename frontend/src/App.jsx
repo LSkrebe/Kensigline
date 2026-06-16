@@ -9385,7 +9385,7 @@ function KensiglineTerminal() {
   )
   const researchFeedItems = useMemo(() => {
     const mode = intelMode === 'clinical' ? 'clinical' : 'market'
-    const fallback = RESEARCH_FEED_BY_INTEL[mode]
+    const fallback = RESEARCH_FEED_BY_INTEL[mode] ?? RESEARCH_FEED_BY_INTEL.market
     if (!backendUp) return fallback
     if (!Array.isArray(researchFeedLive) || !researchFeedLive.length) return []
     return sortFeedRowsByAtDesc(
@@ -9393,7 +9393,7 @@ function KensiglineTerminal() {
         const ticker = String(x.ticker ?? '').toUpperCase()
         const label = researchFeedRowLabel(x)
         return {
-          rowKey: x.kind === 'paper' && x.id ? String(x.id) : `sig-${ticker}`,
+          rowKey: x.id ? String(x.id) : `doc-${ticker}`,
           ticker,
           name: label,
           company: label,
@@ -9581,10 +9581,22 @@ function KensiglineTerminal() {
     if (activeTab !== 'main') return
     if (intelModePrevRef.current === intelMode) return
     intelModePrevRef.current = intelMode
-    setResearchTicker(intelMode === 'clinical' ? RESEARCH_TICKER_CLINICAL : RESEARCH_TICKER_MARKET)
     setResearchQuery('')
     setResearchProgramQuery('')
-  }, [intelMode, activeTab])
+    if (!backendUp) {
+      setResearchTicker(intelMode === 'clinical' ? RESEARCH_TICKER_CLINICAL : RESEARCH_TICKER_MARKET)
+    }
+  }, [intelMode, activeTab, backendUp])
+
+  useEffect(() => {
+    if (!backendUp || activeTab !== 'main') return
+    if (!researchFeedItems.length) return
+    const current = String(researchTicker ?? '').trim().toUpperCase()
+    const inFeed = researchFeedItems.some((x) => String(x.ticker ?? '').toUpperCase() === current)
+    if (!inFeed) {
+      setResearchTicker(String(researchFeedItems[0]?.ticker ?? '').toUpperCase())
+    }
+  }, [backendUp, activeTab, intelMode, researchFeedItems, researchTicker])
 
   useEffect(() => {
     if (activeTab === 'pharma') setActiveTab('main')
@@ -9833,8 +9845,10 @@ function KensiglineTerminal() {
   useEffect(() => {
     if (!backendUp) return
     let cancelled = false
+    const mode = intelMode === 'clinical' ? 'clinical' : 'market'
+    setResearchFeedLive(null)
     async function run() {
-      const r = await fetchJsonSafe('/api/research/feed?limit=80', { timeoutMs: 8000 })
+      const r = await fetchJsonSafe(`/api/research/feed?limit=80&mode=${mode}`, { timeoutMs: 8000 })
       if (cancelled || !r.ok || !r.data?.ok || !Array.isArray(r.data.items)) return
       setResearchFeedLive(r.data.items)
     }
@@ -9844,7 +9858,7 @@ function KensiglineTerminal() {
       cancelled = true
       clearInterval(t)
     }
-  }, [backendUp])
+  }, [backendUp, intelMode])
 
   useEffect(() => {
     if (!backendUp || activeTab !== 'main') return

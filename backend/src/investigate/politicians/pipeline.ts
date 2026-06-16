@@ -9,7 +9,12 @@ import {
 import { syncPoliticianTransactionsFromDocument } from "../../documents/store.js";
 import { createHash } from "node:crypto";
 import { extractPdfTextWithFallback } from "../../core/pdf.js";
+import { compactPtrPdfTextForLlm } from "../../core/http-llm-text.js";
 import { createRequire } from "node:module";
+import {
+  MIN_HOUSE_PTR_CONFIDENT_ROWS,
+  parseHousePtrPdfText,
+} from "./house-ptr-parse.js";
 
 type PoliticianPtrSource = "house_ptr" | "senate_ptr";
 type Chamber = "house" | "senate";
@@ -107,6 +112,7 @@ function isPoliticianSchema(out: any, source: PoliticianPtrSource): out is {
 
 function buildHouseExtractionPrompt(args: { pdfText: string; pdfUrl: string; filingId: string | null }) {
   const { pdfText, pdfUrl, filingId } = args;
+  const body = compactPtrPdfTextForLlm(pdfText, 180_000);
   return [
     {
       role: "system" as const,
@@ -115,42 +121,39 @@ function buildHouseExtractionPrompt(args: { pdfText: string; pdfUrl: string; fil
         "Return ONLY valid JSON. No markdown. No extra keys beyond the schema.",
         "Do not invent facts. If missing, use null/empty arrays.",
         "Keep context sentences plain English with normal punctuation and no semicolons.",
+        "Extract ALL transaction rows. transaction_type: single letter P, S, E, etc.",
+        "amount_range: copy exactly like \"$1,001 - $15,000\".",
+        "context_sentences: exactly 3 high-level summary sentences.",
+        `Schema: ${JSON.stringify({
+          schema_type: "politician_filing",
+          schema_version: "v1",
+          filer: { name: "string|null", office: "string|null", state_district: "string|null" },
+          filing: { filing_id: "string|null", filed_at: "string|null", source: "house_ptr", pdf_url: "string|null" },
+          transactions: [
+            {
+              owner: "string|null",
+              asset_name: "string|null",
+              ticker: "string|null",
+              asset_type: "string|null",
+              transaction_type: "string|null",
+              transaction_date: "string|null",
+              notification_date: "string|null",
+              amount_range: "string|null",
+              description: "string|null",
+            },
+          ],
+          context_sentences: ["string"],
+        })}`,
       ].join("\n"),
     },
     {
       role: "user" as const,
       content: [
-        "SCHEMA (return exactly this shape):",
-        "{",
-        '  \"schema_type\": \"politician_filing\",',
-        '  \"schema_version\": \"v1\",',
-        '  \"filer\": { \"name\": string|null, \"office\": string|null, \"state_district\": string|null },',
-        '  \"filing\": { \"filing_id\": string|null, \"filed_at\": string|null, \"source\": \"house_ptr\", \"pdf_url\": string|null },',
-        "  \"transactions\": Array<{",
-        "    \"owner\": string|null,",
-        "    \"asset_name\": string|null,",
-        "    \"ticker\": string|null,",
-        "    \"asset_type\": string|null,",
-        "    \"transaction_type\": string|null,",
-        "    \"transaction_date\": string|null,",
-        "    \"notification_date\": string|null,",
-        "    \"amount_range\": string|null,",
-        "    \"description\": string|null",
-        "  }>,",
-        "  \"context_sentences\": string[]",
-        "}",
-        "",
-        "GUIDANCE:",
-        "- Extract ALL transaction rows you can find. Use tickers in parentheses when present.",
-        "- `transaction_type` is a single letter like P, S, E (copy what is shown).",
-        "- `amount_range` should be copied exactly like \"$1,001 - $15,000\" when present.",
-        "- `context_sentences`: write exactly 3 sentences summarizing the filing at a high level (who + what tickers + approximate sizes + reporting lag).",
-        "",
         "KNOWN METADATA:",
         JSON.stringify({ pdf_url: pdfUrl, filing_id: filingId, source: "house_ptr" }),
         "",
-        "PDF TEXT (best-effort extraction):",
-        pdfText.slice(0, 180_000),
+        "PDF TEXT:",
+        body,
       ].join("\n"),
     },
   ];
@@ -194,8 +197,31 @@ async function loadHouseFiling(url: string): Promise<{ filing: PoliticianFiling;
   const contentSha256 = createHash("sha256").update(pdf).digest("hex");
   const filingId = (url.match(/\/(\d+)\.pdf$/i) ?? [])[1] ?? null;
   const { text: pdfText } = await extractPdfTextWithFallback(pdf);
+
+  const parsed = parseHousePtrPdfText(pdfText, url);
+  if (parsed.confident_rows >= MIN_HOUSE_PTR_CONFIDENT_ROWS) {
+    return {
+      contentSha256,
+      model: null,
+      filing: {
+        filer: parsed.filer,
+        filing_id: parsed.filing_id ?? filingId,
+        filed_at: parsed.filed_at,
+        source: "house_ptr",
+        pdf_url: url,
+        transactions: parsed.transactions,
+        context_sentences: parsed.context_sentences,
+      },
+    };
+  }
+
   const messages = buildHouseExtractionPrompt({ pdfText, pdfUrl: url, filingId });
-  const { content, model } = await llmChat(messages, { temperature: 0, max_tokens: 3200, response_format: "json_object" });
+  const { content, model } = await llmChat(messages, {
+    temperature: 0,
+    max_tokens: 2800,
+    response_format: "json_object",
+    log_context: "politicians/house-ptr",
+  });
   const out = extractJsonObject(content);
   if (!isPoliticianSchema(out, "house_ptr")) throw new Error("llm_output_schema_mismatch");
   return {

@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { compactPharmaTextForLlm } from "../../core/sec-llm-text.js";
+import { sha256NormalizedText } from "../../core/text-hash.js";
 import { db } from "../../core/db.js";
 import { llmChat } from "../../core/llm.js";
 import { fetchFilingPrimaryText } from "../../core/sec.js";
@@ -86,48 +88,43 @@ function buildPharmaExtractionPrompt(args: { ticker: string; companyName?: strin
     {
       role: "system" as const,
       content: [
-        "You extract important pharma pipeline events from SEC filings (8-K, 10-Q, 10-K) into structured JSON.",
-        "Return ONLY valid JSON. No markdown. No extra keys beyond the schema.",
-        "If unknown, use null. Do not invent facts.",
-        "Keep `context_sentences` short and plain English (3 sentences).",
-        "`feed_label` must be a short event headline (4–12 words). Not a phase label alone.",
-        "`worksheet.analysis` must be 1–2 dense scan sentences (~80–200 chars). No bullet lists.",
-        "Focus analysis on what changed, the program (drug, phase), any stated numbers, timing, and why it matters.",
-        "Only output events that are likely to matter (trial results, FDA/regulatory updates, trial start/stop/delay, key enrollment milestones, major safety signals, major partnerships, major financing).",
-        "IMPORTANT: Only output an event if you can identify at least a trial PHASE (I/II/III) and a concrete update type (RESULT vs PROGRESS).",
-        "Do NOT output generic filler like 'Pipeline update'. If you can't extract phase, output zero events.",
+        "You extract important pharma pipeline events from SEC filings into structured JSON.",
+        "Return ONLY valid JSON. No markdown. If unknown, use null. Do not invent facts.",
+        "feed_label: 4–12 word headline. worksheet.analysis: 1–2 dense sentences.",
+        "Only output material events with identifiable phase (I/II/III) and update type.",
+        "If no phase, return zero events — no generic 'Pipeline update' filler.",
+        `Schema: ${JSON.stringify({
+          schema_type: "trial_event_batch",
+          schema_version: "v2",
+          ticker: "string",
+          company_name: "string|null",
+          events: [
+            {
+              schema_type: "trial_event",
+              schema_version: "v2",
+              ticker: "string",
+              company_name: "string|null",
+              drug: "string|null",
+              indication: "string|null",
+              phase: "I|II|III|string|null",
+              event_type: "RESULT|PROGRESS|REGULATORY|SAFETY|FINANCING|PARTNERING|string",
+              event_at: "string|null",
+              feed_label: "string",
+              context_sentences: ["string"],
+              worksheet: { analysis: "string" },
+            },
+          ],
+        })}`,
       ].join("\n"),
     },
     {
       role: "user" as const,
       content: [
-        "OUTPUT SCHEMA (return exactly this shape):",
-        "{",
-        '  "schema_type": "trial_event_batch",',
-        '  "schema_version": "v2",',
-        '  "ticker": string,',
-        '  "company_name": string|null,',
-        '  "events": Array<{',
-        '    "schema_type": "trial_event",',
-        '    "schema_version": "v2",',
-        '    "ticker": string,',
-        '    "company_name": string|null,',
-        '    "drug": string|null,',
-        '    "indication": string|null,',
-        '    "phase": "I"|"II"|"III"|string|null,',
-        '    "event_type": "RESULT"|"PROGRESS"|"REGULATORY"|"SAFETY"|"FINANCING"|"PARTNERING"|string,',
-        '    "event_at": string|null,',
-        '    "feed_label": string (4-12 word headline),',
-        '    "context_sentences": string[],',
-        '    "worksheet": { "analysis": string }',
-        "  }>",
-        "}",
-        "",
-        "INPUT CONTEXT:",
+        "INPUT:",
         JSON.stringify({ ticker, company_name: companyName ?? null }),
         "",
-        "FILING TEXT (truncated):",
-        filingText.slice(0, 120_000),
+        "FILING TEXT:",
+        compactPharmaTextForLlm(filingText, 120_000),
       ].join("\n"),
     },
   ];
@@ -240,7 +237,7 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
 
   try {
     const { url: primaryUrl, text } = await fetchFilingPrimaryText(indexUrl);
-    const contentSha = createHash("sha256").update(text, "utf8").digest("hex");
+    const contentSha = sha256NormalizedText(text);
     const filingNow = new Date().toISOString();
 
     // Cheap filter to avoid spending LLM calls on non-pharma filings.
@@ -294,7 +291,7 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
       companyName: nameForPrompt,
       filingText: text,
     });
-    const { content, model } = await llmChat(messages, { temperature: 0, max_tokens: 1800 });
+    const { content, model } = await llmChat(messages, { temperature: 0, max_tokens: 1200, log_context: "pharma/extract" });
     const out = extractJsonObject(content);
 
     const events = Array.isArray(out?.events) ? out.events : [];

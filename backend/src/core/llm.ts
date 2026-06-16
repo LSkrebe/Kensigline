@@ -4,7 +4,55 @@ type ChatOptions = {
   temperature?: number;
   max_tokens?: number;
   response_format?: "json_object";
+  /** Optional label for usage logs (pipeline name). */
+  log_context?: string;
 };
+
+export type LlmChatResult = {
+  content: string;
+  model: string;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
+};
+
+function normalizeUsage(raw: any): LlmChatResult["usage"] {
+  if (!raw) return undefined;
+  const prompt_tokens = Number(raw.prompt_tokens ?? raw.prompt_eval_count);
+  const completion_tokens = Number(raw.completion_tokens ?? raw.eval_count);
+  const total_tokens = Number(raw.total_tokens);
+  const usage: NonNullable<LlmChatResult["usage"]> = {};
+  if (Number.isFinite(prompt_tokens)) usage.prompt_tokens = prompt_tokens;
+  if (Number.isFinite(completion_tokens)) usage.completion_tokens = completion_tokens;
+  if (Number.isFinite(total_tokens)) usage.total_tokens = total_tokens;
+  else if (usage.prompt_tokens != null && usage.completion_tokens != null) {
+    usage.total_tokens = usage.prompt_tokens + usage.completion_tokens;
+  }
+  return Object.keys(usage).length ? usage : undefined;
+}
+
+function logLlmUsage(args: {
+  model: string;
+  messages: ChatMessage[];
+  usage?: LlmChatResult["usage"];
+  log_context?: string;
+}) {
+  if (String(process.env.LLM_LOG_USAGE ?? "1").trim() === "0") return;
+  const inputChars = args.messages.reduce((n, m) => n + String(m.content ?? "").length, 0);
+  console.info(
+    "[llm]",
+    JSON.stringify({
+      context: args.log_context ?? null,
+      model: args.model,
+      input_chars: inputChars,
+      prompt_tokens: args.usage?.prompt_tokens ?? null,
+      completion_tokens: args.usage?.completion_tokens ?? null,
+      total_tokens: args.usage?.total_tokens ?? null,
+    }),
+  );
+}
 
 function getProvider() {
   return String(process.env.LLM_PROVIDER ?? "openai").trim().toLowerCase();
@@ -48,7 +96,12 @@ async function chatOllama(messages: ChatMessage[], opts: ChatOptions) {
   }
   const json = (await res.json()) as any;
   const content = String(json?.message?.content ?? "");
-  return { content, model };
+  const resolvedModel = String(json?.model ?? model);
+  const usage = normalizeUsage({
+    prompt_eval_count: json?.prompt_eval_count,
+    eval_count: json?.eval_count,
+  });
+  return { content, model: resolvedModel, usage };
 }
 
 async function chatOpenAICompatible(messages: ChatMessage[], opts: ChatOptions) {
@@ -77,13 +130,30 @@ async function chatOpenAICompatible(messages: ChatMessage[], opts: ChatOptions) 
   }
   const json = (await res.json()) as any;
   const content = String(json?.choices?.[0]?.message?.content ?? "");
-  return { content, model };
+  const resolvedModel = String(json?.model ?? model);
+  const usage = normalizeUsage(json?.usage);
+  return { content, model: resolvedModel, usage };
 }
 
-export async function llmChat(messages: ChatMessage[], opts: ChatOptions = {}) {
+export async function llmChat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<LlmChatResult> {
   const provider = getProvider();
-  if (provider === "ollama") return await chatOllama(messages, opts);
-  if (provider === "openai") return await chatOpenAICompatible(messages, opts);
-  throw new Error(`unknown_llm_provider ${provider}`);
+  const result =
+    provider === "ollama"
+      ? await chatOllama(messages, opts)
+      : provider === "openai"
+        ? await chatOpenAICompatible(messages, opts)
+        : null;
+  if (!result) throw new Error(`unknown_llm_provider ${provider}`);
+  logLlmUsage({
+    model: result.model,
+    messages,
+    ...(result.usage ? { usage: result.usage } : {}),
+    ...(opts.log_context ? { log_context: opts.log_context } : {}),
+  });
+  return {
+    content: result.content,
+    model: result.model,
+    ...(result.usage ? { usage: result.usage } : {}),
+  };
 }
 

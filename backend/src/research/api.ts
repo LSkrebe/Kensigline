@@ -1,8 +1,6 @@
 import type http from "node:http";
 import { notFound, sendJson } from "../core/http.js";
 import { db } from "../core/db.js";
-import { computeScoreForTicker, saveTickerState } from "./market/score.js";
-import { maybeEmitPaper } from "./market/paper.js";
 import { buildResearchPresentation } from "../documents/presentation.js";
 import {
   loadFilings13fForTicker,
@@ -11,34 +9,12 @@ import {
 } from "../documents/store.js";
 import { getTrackedInvestorsForTicker } from "./market/tracked-investors.js";
 import { resolveResearchFeedCompanyName } from "./feed-display.js";
+import { CLINICAL_TICKERS_SUBQUERY, parseResearchFeedMode, type ResearchFeedMode } from "./feed-mode.js";
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
   if (!Number.isFinite(x)) return fallback;
   return Math.max(min, Math.min(max, Math.floor(x)));
-}
-
-export async function handleResearchState(res: http.ServerResponse, ticker: string) {
-  const t = String(ticker ?? "").trim().toUpperCase();
-  if (!t) {
-    sendJson(res, 400, { ok: false, error: "ticker_required" });
-    return;
-  }
-  const row = await db.one<{ score: string; components: unknown; updated_at: string }>(
-    `SELECT score::text, components, updated_at::text FROM ticker_feed_state WHERE ticker = $1 LIMIT 1`,
-    [t],
-  );
-  if (!row) {
-    sendJson(res, 200, { ok: true, ticker: t, empty: true, score: 0, components: {}, updated_at: null });
-    return;
-  }
-  sendJson(res, 200, {
-    ok: true,
-    ticker: t,
-    score: Number(row.score),
-    components: row.components,
-    updated_at: row.updated_at,
-  });
 }
 
 /** Legacy route — returns recent analyzed documents as pseudo-events. */
@@ -100,12 +76,11 @@ export async function handleResearchPaper(res: http.ServerResponse, ticker: stri
     thesis: string;
     key_points: unknown;
     presentation: unknown;
-    score: string;
     trigger_reason: string | null;
     created_at: string;
   }>(
     `
-    SELECT id, title, thesis, key_points, presentation, score::text, trigger_reason, created_at::text
+    SELECT id, title, thesis, key_points, presentation, trigger_reason, created_at::text
     FROM research_memos
     WHERE ticker = $1
     ORDER BY created_at DESC
@@ -126,7 +101,6 @@ export async function handleResearchPaper(res: http.ServerResponse, ticker: stri
       thesis: row.thesis,
       key_points: row.key_points,
       presentation: row.presentation,
-      score: Number(row.score),
       trigger_reason: row.trigger_reason,
       created_at: row.created_at,
     },
@@ -143,25 +117,6 @@ export async function handleResearchExplore(res: http.ServerResponse, ticker: st
     `SELECT name FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
     [t],
   );
-  const st = await db.one<{ score: string; components: unknown; updated_at: string }>(
-    `SELECT score::text, components, updated_at::text FROM ticker_feed_state WHERE ticker = $1 LIMIT 1`,
-    [t],
-  );
-  const latestPaper = await db.one<{
-    id: string;
-    created_at: string;
-    trigger_reason: string | null;
-    score: string;
-  }>(
-    `
-    SELECT id, created_at::text, trigger_reason, score::text
-    FROM research_memos
-    WHERE ticker = $1
-    ORDER BY created_at DESC
-    LIMIT 1
-    `,
-    [t],
-  );
   const presentation = await buildResearchPresentation(t);
   const [insiders, politicians, filings13f, tracked_investors] = await Promise.all([
     loadInsiderFlowsForTicker(t),
@@ -173,114 +128,83 @@ export async function handleResearchExplore(res: http.ServerResponse, ticker: st
     ok: true,
     ticker: t,
     company_name: String(companyRow?.name ?? t).trim() || t,
-    score: st?.score != null ? Number(st.score) : 0,
-    components: st?.components ?? {},
-    state_updated_at: st?.updated_at ?? null,
     presentation,
     flows: { insiders, politicians, filings13f },
     tracked_investors,
-    latest_paper: latestPaper
-      ? {
-          id: latestPaper.id,
-          created_at: latestPaper.created_at,
-          trigger_reason: latestPaper.trigger_reason,
-          score: Number(latestPaper.score),
-        }
-      : null,
   });
 }
 
-export async function handleResearchFeed(res: http.ServerResponse, limit: number) {
+export async function handleResearchFeed(res: http.ServerResponse, limit: number, modeRaw?: string | null) {
   const lim = Math.max(1, Math.min(120, limit));
-  const papers = await db.query<{
+  const mode: ResearchFeedMode = parseResearchFeedMode(modeRaw);
+
+  const modeFilter =
+    mode === "clinical"
+      ? `
+        AND upper(trim(d.ticker)) IN (${CLINICAL_TICKERS_SUBQUERY})
+        AND (
+          d.feed_kind = 'pharma'
+          OR (d.feed_kind = 'research' AND d.show_on_ticker IS NOT FALSE)
+        )
+      `
+      : `
+        AND upper(trim(d.ticker)) NOT IN (${CLINICAL_TICKERS_SUBQUERY})
+        AND d.feed_kind = 'research'
+        AND d.show_on_ticker IS NOT FALSE
+      `;
+
+  const rows = await db.query<{
     id: string;
     ticker: string;
-    title: string;
-    score: string;
-    created_at: string;
+    analysis: string | null;
+    feed_at: string;
     company_name: string | null;
+    source_key: string | null;
+    feed_kind: string;
   }>(
     `
-    SELECT p.id, p.ticker, p.title, p.score::text, p.created_at::text,
-           COALESCE(NULLIF(trim(c.name), ''), p.ticker) AS company_name
-    FROM research_memos p
-    LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(p.ticker))
-    ORDER BY p.created_at DESC
+    SELECT sub.id, sub.ticker, sub.analysis, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind
+    FROM (
+      SELECT DISTINCT ON (upper(trim(d.ticker)))
+        d.id::text,
+        upper(trim(d.ticker)) AS ticker,
+        d.analysis,
+        COALESCE(d.event_at, d.parsed_at)::text AS feed_at,
+        COALESCE(NULLIF(trim(c.name), ''), upper(trim(d.ticker))) AS company_name,
+        d.source_key,
+        d.feed_kind
+      FROM documents d
+      LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
+      WHERE d.ticker IS NOT NULL
+        AND length(trim(d.ticker)) > 0
+        AND d.analysis IS NOT NULL
+        AND length(trim(d.analysis)) > 0
+        ${modeFilter}
+      ORDER BY upper(trim(d.ticker)), COALESCE(d.event_at, d.parsed_at) DESC NULLS LAST, d.parsed_at DESC
+    ) sub
+    ORDER BY sub.feed_at DESC NULLS LAST
     LIMIT $1
     `,
     [lim],
   );
 
-  const fill = Math.max(0, Math.min(25, lim - papers.length));
-  const signals =
-    fill > 0
-      ? await db.query<{
-          ticker: string;
-          score: string;
-          updated_at: string;
-          company_name: string | null;
-        }>(
-          `
-          SELECT s.ticker, s.score::text, s.updated_at::text,
-                 COALESCE(c.name, s.ticker) AS company_name
-          FROM ticker_feed_state s
-          LEFT JOIN companies c ON upper(trim(c.ticker)) = s.ticker
-          WHERE NOT EXISTS (SELECT 1 FROM research_memos p WHERE p.ticker = s.ticker)
-          ORDER BY s.score DESC, s.updated_at DESC
-          LIMIT $1
-          `,
-          [fill],
-        )
-      : [];
+  const items = rows.map((r) => {
+    const displayName = resolveResearchFeedCompanyName(r.ticker, r.company_name);
+    return {
+      kind: "document" as const,
+      id: r.id,
+      ticker: r.ticker,
+      name: displayName,
+      feed_label: String(r.analysis ?? "").trim(),
+      feed_at: r.feed_at,
+      company_name: displayName,
+      source_key: r.source_key,
+      feed_kind: r.feed_kind,
+      intel_mode: mode,
+    };
+  });
 
-  const items = [
-    ...papers.map((p) => {
-      const displayName = resolveResearchFeedCompanyName(p.ticker, p.company_name);
-      return {
-        kind: "paper" as const,
-        id: p.id,
-        ticker: p.ticker,
-        name: displayName,
-        feed_label: p.title,
-        score: Number(p.score),
-        feed_at: p.created_at,
-        company_name: displayName,
-      };
-    }),
-    ...signals.map((s) => {
-      const displayName = resolveResearchFeedCompanyName(s.ticker, s.company_name);
-      return {
-        kind: "signal" as const,
-        id: null,
-        ticker: s.ticker,
-        name: displayName,
-        feed_label: `Live research signals · ${s.ticker}`,
-        score: Number(s.score),
-        feed_at: s.updated_at,
-        company_name: displayName,
-      };
-    }),
-  ];
-
-  sendJson(res, 200, { ok: true, items });
-}
-
-function truncLabel(s: string, n: number) {
-  const t = String(s ?? "").trim();
-  if (t.length <= n) return t;
-  return `${t.slice(0, n - 1)}…`;
-}
-
-export async function handleResearchRefreshScore(res: http.ServerResponse, ticker: string) {
-  const t = String(ticker ?? "").trim().toUpperCase();
-  if (!t) {
-    sendJson(res, 400, { ok: false, error: "ticker_required" });
-    return;
-  }
-  const { score, components } = await computeScoreForTicker(t);
-  await saveTickerState(t, score, components);
-  const paper = await maybeEmitPaper(t, score);
-  sendJson(res, 200, { ok: true, ticker: t, score, components, paper });
+  sendJson(res, 200, { ok: true, mode, items });
 }
 
 export function researchLimitFromSearchParams(sp: URLSearchParams) {

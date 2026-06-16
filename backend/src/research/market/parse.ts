@@ -1,10 +1,10 @@
-import { createHash } from "node:crypto";
+import { sha256NormalizedText } from "../../core/text-hash.js";
 import { db } from "../../core/db.js";
 import { fetchFilingPrimaryText, fetchSecJson } from "../../core/sec.js";
 import { runResearchDocExtract } from "../../documents/extract.js";
 import { insertResearchDocument } from "../../documents/store.js";
-import { computeScoreForTicker, saveTickerState } from "./score.js";
-import { maybeEmitPaper } from "./paper.js";
+import { compactSecTextForLlm } from "../../core/sec-llm-text.js";
+import { compactHttpTextForLlm } from "../../core/http-llm-text.js";
 import { fetchArticleHtml, guessTickerFromText, stripHtmlToText } from "./feeds.js";
 import { isUrlAllowedForResearchHttpIngest, RESEARCH_QUEUE_SOURCE_TYPES } from "../../documents/spec.js";
 
@@ -121,15 +121,6 @@ function looksTranscriptRelevant(text: string) {
   );
 }
 
-async function refreshTickerScores(tickers: string[]) {
-  const uniq = Array.from(new Set(tickers.filter(Boolean).map((x) => String(x).trim().toUpperCase())));
-  for (const t of uniq) {
-    const { score, components } = await computeScoreForTicker(t);
-    await saveTickerState(t, score, components);
-    await maybeEmitPaper(t, score);
-  }
-}
-
 async function finalizePipeline(args: {
   queueId: string;
   documentSourceType: string;
@@ -152,9 +143,6 @@ async function finalizePipeline(args: {
   await db.query(`UPDATE document_queue SET status = 'parsed', updated_at = now(), last_error = NULL WHERE id = $1`, [
     args.queueId,
   ]);
-
-  const ticker = args.out.primary_ticker?.trim().toUpperCase() ?? null;
-  if (ticker) await refreshTickerScores([ticker]);
 
   return { document_id: docId };
 }
@@ -224,7 +212,7 @@ export async function parseNextResearchQueueItem(): Promise<ParseNextResult> {
 
 async function parseSecDocument(queueId: string, indexUrl: string): Promise<ParseNextResult> {
   const { url: primaryUrl, text } = await fetchFilingPrimaryText(indexUrl);
-  const contentSha = createHash("sha256").update(text, "utf8").digest("hex");
+  const contentSha = sha256NormalizedText(text);
 
   const existingDoc = await db.one<{ id: string }>(`SELECT id FROM documents WHERE content_sha256 = $1 LIMIT 1`, [contentSha]);
   if (existingDoc?.id) {
@@ -251,7 +239,7 @@ async function parseSecDocument(queueId: string, indexUrl: string): Promise<Pars
   const meta = cik ? await metaFromCik(cik) : { ticker: null, name: null };
 
   const { out, model } = await runResearchDocExtract({
-    text: text.slice(0, 100_000),
+    text: compactSecTextForLlm(text, 100_000),
     url: primaryUrl,
     sourceType: "research_sec",
     hintedTicker: meta.ticker,
@@ -295,7 +283,7 @@ async function parseHttpDocument(
 
   const html = await fetchArticleHtml(pageUrl);
   const text = stripHtmlToText(html);
-  const contentSha = createHash("sha256").update(text, "utf8").digest("hex");
+  const contentSha = sha256NormalizedText(text);
 
   const existingDoc = await db.one<{ id: string }>(`SELECT id FROM documents WHERE content_sha256 = $1 LIMIT 1`, [contentSha]);
   if (existingDoc?.id) {
@@ -319,8 +307,14 @@ async function parseHttpDocument(
   }
 
   const guessed = guessTickerFromText(null, text.slice(0, 4000));
+  const httpMode =
+    documentSourceType === "research_transcript_rss"
+      ? "transcript"
+      : documentSourceType === "research_gov_contract"
+        ? "gov"
+        : "press";
   const { out, model } = await runResearchDocExtract({
-    text: text.slice(0, 100_000),
+    text: compactHttpTextForLlm(text, httpMode, 100_000),
     url: pageUrl,
     sourceType: documentSourceType,
     hintedTicker: guessed,

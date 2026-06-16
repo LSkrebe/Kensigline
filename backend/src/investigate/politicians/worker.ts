@@ -1,6 +1,8 @@
 import { db } from "../../core/db.js";
 import { listHousePtrPdfsWithRetry } from "../../core/house.js";
 import { listSenatePtrReportsWithRetry } from "../../core/senate.js";
+import { QUEUE_SOURCES } from "../../pipelines/registry.js";
+import { runPoliticiansHistoricalBackfill } from "./backfill.js";
 import { startPipelineWorker } from "../../shared/worker.js";
 import { parseNextPoliticiansQueueItem } from "./pipeline.js";
 
@@ -11,11 +13,13 @@ export function startPoliticiansWorker() {
   return startPipelineWorker({
     name: "investigate/politicians",
     envPrefix: "POLITICIANS",
+    sourceTypes: [...QUEUE_SOURCES.investigatePoliticians],
     defaults: {
       enqueueEveryMs: 180_000,
       parsePollMs: 5_000,
       parseThrottleMs: 500,
       parseConcurrency: 2,
+      backfillIntervalMs: 120_000,
     },
     enqueue: async () => {
       const year = new Date().getFullYear();
@@ -57,6 +61,9 @@ export function startPoliticiansWorker() {
       console.log(
         `politicians_enqueue year=${year} house_discovered=${houseRows.length} house_attempted=${houseEnq} senate_discovered=${senateRows.length} senate_attempted=${senateEnq}`,
       );
+    },
+    enqueueBackfill: async () => {
+      await runPoliticiansHistoricalBackfill("investigate/politicians");
     },
     parseNext: async () => {
       const r = await parseNextPoliticiansQueueItem();

@@ -242,15 +242,18 @@ function senateSearchBody(opts: { start: number; length: number; startDate: Date
 export async function listSenatePtrReports(opts: {
   max?: number;
   lookbackDays?: number;
+  endDate?: Date;
   session?: SenateSession;
 }): Promise<SenatePtrListing[]> {
   const max = Math.max(1, Math.min(2000, Number(opts.max ?? 400)));
   const lookbackDays = Math.max(30, Math.min(730, Number(opts.lookbackDays ?? 365)));
   const session = opts.session ?? (await openSenateSession());
 
-  const endDate = new Date();
+  const endDate = opts.endDate ? new Date(opts.endDate) : new Date();
+  endDate.setUTCHours(23, 59, 59, 999);
   const startDate = new Date(endDate);
-  startDate.setDate(startDate.getDate() - lookbackDays);
+  startDate.setUTCDate(startDate.getUTCDate() - lookbackDays);
+  startDate.setUTCHours(0, 0, 0, 0);
 
   const out: SenatePtrListing[] = [];
   const seen = new Set<string>();
@@ -303,6 +306,8 @@ export async function listSenatePtrReports(opts: {
 export async function listSenatePtrReportsWithRetry(opts: {
   max?: number;
   lookbackDays?: number;
+  endDate?: Date;
+  session?: SenateSession;
 }): Promise<SenatePtrListing[]> {
   const tries = 3;
   for (let i = 0; i < tries; i++) {

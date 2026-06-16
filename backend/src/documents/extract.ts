@@ -23,6 +23,21 @@ export type ResearchDocExtractV2 = {
 /** @deprecated Use ResearchDocExtractV2 */
 export type ResearchDocExtractV1 = ResearchDocExtractV2;
 
+const RESEARCH_LLM_MAX_CHARS = 100_000;
+
+const RESEARCH_EXTRACT_SCHEMA = {
+  schema_type: "research_doc_v2",
+  schema_version: "v2",
+  title: "string (4-12 word headline)",
+  primary_ticker: "string|null",
+  source_key: "string",
+  analysis: "string (1-2 sentences, ~80-200 chars)",
+  event_at: "ISO8601|null",
+  program_keys: ["string"],
+  link_confidence: "number|null",
+  related_tickers: { upstream: ["string"], downstream: ["string"] },
+};
+
 function extractJsonObject(text: string): any {
   let raw = String(text ?? "").trim();
   if (!raw) throw new Error("empty_llm_response");
@@ -75,49 +90,42 @@ export async function runResearchDocExtract(args: {
 }): Promise<{ out: ResearchDocExtractV2; model: string }> {
   const { text, url, sourceType, hintedTicker, hintedName } = args;
   const defaultSource = sourceKeyFromQueueTypeLocal(sourceType) ?? "Other";
+  const body = String(text ?? "").slice(0, RESEARCH_LLM_MAX_CHARS);
 
   const messages = [
     {
       role: "system" as const,
       content: [
         "You extract structured research cards for an equity research timeline.",
-        "Return ONLY valid JSON (no markdown).",
-        "title: required short event headline (4–12 words). No document form numbers alone.",
-        "analysis: required 1–2 dense sentences an investor can scan (~80–200 chars). No bullet lists.",
+        "Return ONLY valid JSON (no markdown) matching the schema.",
+        `Schema: ${JSON.stringify({ ...RESEARCH_EXTRACT_SCHEMA, source_key: defaultSource })}`,
+        "title: short event headline (4–12 words). No form numbers alone.",
+        "analysis: 1–2 dense sentences (~80–200 chars). No bullet lists.",
         "Do not invent tickers. Use null when uncertain.",
         `source_key must be one of: ${SOURCE_KEYS.join(", ")}.`,
-        "For government contract text use source_key Gov contract and set link_confidence 0-1 for ticker linkage.",
-        "For clinical trial registry pages use ClinicalTrials.gov and populate program_keys with drug names when explicit.",
-        "When the text names related public tickers (suppliers, customers, peers), set related_tickers.upstream and related_tickers.downstream as string arrays of US tickers only.",
+        "Gov contract: source_key Gov contract + link_confidence 0-1.",
+        "Clinical registry: ClinicalTrials.gov + program_keys when explicit.",
+        "related_tickers: US tickers only when explicitly named.",
       ].join("\n"),
     },
     {
       role: "user" as const,
       content: [
-        "Return exactly this JSON shape:",
-        JSON.stringify({
-          schema_type: "research_doc_v2",
-          schema_version: "v2",
-          title: "string (required, 4-12 word headline)",
-          primary_ticker: "string|null",
-          source_key: defaultSource,
-          analysis: "string (required, 1-2 sentences, ~80-200 chars)",
-          event_at: "ISO8601 string|null",
-          program_keys: ["string"],
-          link_confidence: "number|null",
-          related_tickers: { upstream: ["string"], downstream: ["string"] },
-        }),
         `source_type: ${sourceType}`,
         `hinted_ticker: ${hintedTicker ?? "null"}`,
         `hinted_name: ${hintedName ?? "null"}`,
         `url: ${url}`,
         "document text:",
-        text.slice(0, 95_000),
+        body,
       ].join("\n\n"),
     },
   ];
 
-  const { content, model } = await llmChat(messages, { temperature: 0, max_tokens: 1200 });
+  const { content, model } = await llmChat(messages, {
+    temperature: 0,
+    max_tokens: 800,
+    log_context: "research/extract",
+  });
   const out = extractJsonObject(content);
   if (!isResearchDocExtract(out)) {
     throw new Error("llm_output_schema_mismatch");

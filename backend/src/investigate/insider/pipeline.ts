@@ -2,12 +2,21 @@ import { db } from "../../core/db.js";
 import { fetchForm4Text } from "../../core/sec.js";
 import { llmChat } from "../../core/llm.js";
 import { syncInsiderTransactionsFromDocument } from "../../documents/store.js";
-import { createHash } from "node:crypto";
+import { sha256NormalizedText } from "../../core/text-hash.js";
 import {
   isBogusInsiderWorksheetKey,
   ownerSurname,
   type InsiderWorksheetRow,
 } from "../worksheet.js";
+import {
+  extractAllFormTransactions,
+  extractFormReportingOwner,
+  extractFormReportingOwners,
+  extractFormXmlTransactionFragments,
+  firstXmlTagText,
+  type FormXmlOwner,
+  type FormXmlTransaction,
+} from "./xml-extract.js";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }
@@ -18,21 +27,13 @@ type ParseNextResult =
 function extractJsonObject(text: string): any {
   let raw = String(text ?? "").trim();
   if (!raw) throw new Error("empty_llm_response");
-
-  // Strip common markdown fences if the model includes them anyway.
   raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-
-  // Common case: model outputs JSON directly.
   try {
     return JSON.parse(raw);
   } catch {
-    // Try to salvage: find first { ... last }
     const start = raw.indexOf("{");
     const end = raw.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      const slice = raw.slice(start, end + 1);
-      return JSON.parse(slice);
-    }
+    if (start >= 0 && end > start) return JSON.parse(raw.slice(start, end + 1));
     throw new Error("llm_output_not_json");
   }
 }
@@ -41,96 +42,6 @@ function formatIso(ts: any): string | null {
   const d = new Date(String(ts ?? ""));
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
-}
-
-type Form4PTransaction = {
-  transaction_code: "P";
-  transaction_date: string | null;
-  shares: number | null;
-  price: number | null;
-  amount_usd: number | null;
-  security_title: string | null;
-};
-
-function firstXmlTagText(xml: string, tag: string): string | null {
-  // Handle optional namespace prefixes and attributes:
-  // <transactionCode> P </transactionCode>
-  // <ns1:transactionCode xmlns:ns1="...">P</ns1:transactionCode>
-  // <transactionCode someAttr="x">P</transactionCode>
-  const re = new RegExp(`<((?:[A-Za-z_][\\w.-]*:)?)${tag}\\b[^>]*>([\\s\\S]*?)<\\/\\1${tag}>`, "i");
-  const m = xml.match(re);
-  if (!m) return null;
-  const inner = String(m[2] ?? "");
-  // Many Form 4 fields are wrapped as <tag><value>...</value></tag>.
-  const mv = inner.match(/<((?:[A-Za-z_][\w.-]*:)?)value\b[^>]*>([\s\S]*?)<\/\1value>/i);
-  const picked = mv ? String(mv[2] ?? "") : inner;
-  // Strip any remaining tags (defensive; we only need plain text/numbers).
-  const text = picked.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  return text || null;
-}
-
-function parseNumberLoose(s: string | null): number | null {
-  if (!s) return null;
-  const cleaned = s.replace(/[, ]+/g, "").trim();
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? n : null;
-}
-
-function extractForm4PTransactions(xml: string): Form4PTransaction[] {
-  const out: Form4PTransaction[] = [];
-  // Handle optional namespace prefixes and attributes.
-  const blocks =
-    xml.match(
-      /<(?:(?:[A-Za-z_][\w.-]*):)?nonDerivativeTransaction\b[^>]*>[\s\S]*?<\/(?:(?:[A-Za-z_][\w.-]*):)?nonDerivativeTransaction>/gi,
-    ) ?? [];
-  for (const b of blocks) {
-    const code = firstXmlTagText(b, "transactionCode");
-    if (String(code ?? "").replace(/\s+/g, "").trim().toUpperCase() !== "P") continue;
-
-    const dt = firstXmlTagText(b, "transactionDate");
-    const shares = parseNumberLoose(firstXmlTagText(b, "transactionShares"));
-    const price = parseNumberLoose(firstXmlTagText(b, "transactionPricePerShare"));
-    const title = firstXmlTagText(b, "securityTitle");
-    const amount_usd = shares != null && price != null ? Math.round(shares * price * 100) / 100 : null;
-
-    out.push({
-      transaction_code: "P",
-      transaction_date: dt,
-      shares,
-      price,
-      amount_usd,
-      security_title: title,
-    });
-  }
-  return out;
-}
-
-function extractForm4ReportingOwner(xml: string): { name: string | null; role: string } {
-  const name = firstXmlTagText(xml, "rptOwnerName");
-  const title = firstXmlTagText(xml, "officerTitle");
-  const isDirector = String(firstXmlTagText(xml, "isDirector") ?? "")
-    .replace(/\s+/g, "")
-    .toUpperCase();
-  const isOfficer = String(firstXmlTagText(xml, "isOfficer") ?? "")
-    .replace(/\s+/g, "")
-    .toUpperCase();
-
-  let role = "OFF";
-  if (title) {
-    if (/CEO|CHIEF\s*EXECUTIVE/i.test(title)) role = "CEO";
-    else if (/CFO|CHIEF\s*FINANCIAL/i.test(title)) role = "CFO";
-    else if (/COO|CHIEF\s*OPERATING/i.test(title)) role = "COO";
-    else if (/CTO|CHIEF\s*TECH/i.test(title)) role = "CTO";
-    else if (/CMO|CHIEF\s*MEDICAL/i.test(title)) role = "CMO";
-    else if (/DIRECTOR/i.test(title)) role = "DIR";
-    else role = "OFF";
-  } else if (isDirector === "1" || isDirector === "TRUE" || isDirector === "Y" || isDirector === "YES") {
-    role = "DIR";
-  } else if (isOfficer === "1" || isOfficer === "TRUE" || isOfficer === "Y" || isOfficer === "YES") {
-    role = "OFF";
-  }
-
-  return { name: name?.trim() || null, role };
 }
 
 function parseForm4TransactionDate(raw: string | null): string | null {
@@ -147,41 +58,55 @@ function parseForm4TransactionDate(raw: string | null): string | null {
   return formatIso(s);
 }
 
+function clusterBoundsFromRows(rows: InsiderWorksheetRow[]) {
+  const times = rows
+    .map((r) => parseForm4TransactionDate(r.ts ?? null))
+    .filter(Boolean)
+    .map((t) => new Date(String(t)).getTime())
+    .filter((n) => Number.isFinite(n));
+  if (!times.length) return { start: null as string | null, end: null as string | null };
+  const min = Math.min(...times);
+  const max = Math.max(...times);
+  return { start: new Date(min).toISOString(), end: new Date(max).toISOString() };
+}
+
+function buildWorksheetRowsFromTransactions(txns: FormXmlTransaction[], owner: FormXmlOwner): InsiderWorksheetRow[] {
+  const surname = ownerSurname(owner.name);
+  return txns.map((t, i) => ({
+    key: owner.name ? `${owner.role} ${owner.name}` : `Txn ${i + 1}`,
+    insider_name: owner.name,
+    surname,
+    role: owner.role,
+    transaction_code: t.transaction_code,
+    acquired_disposed: t.acquired_disposed ?? (t.transaction_code === "S" ? "D" : "A"),
+    amount_usd: t.amount_usd,
+    shares: t.shares,
+    is_derivative: t.is_derivative,
+    ts: parseForm4TransactionDate(t.transaction_date),
+  }));
+}
+
 function enrichInsiderWorksheetRows(
   llmRows: unknown[],
-  pTxns: Form4PTransaction[],
-  xml: string,
+  txns: FormXmlTransaction[],
+  owner: FormXmlOwner,
 ): InsiderWorksheetRow[] {
-  const owner = extractForm4ReportingOwner(xml);
-  const surname = ownerSurname(owner.name);
-  const role = owner.role ?? "OFF";
+  const codeRows = txns.length ? buildWorksheetRowsFromTransactions(txns, owner) : [];
   const rows = Array.isArray(llmRows) ? llmRows : [];
+  const llmLooksBogus = !rows.length || rows.every((r) => isBogusInsiderWorksheetKey(String((r as any)?.key ?? "")));
 
-  const llmLooksBogus =
-    !rows.length || rows.every((r) => isBogusInsiderWorksheetKey(String((r as any)?.key ?? "")));
-
-  if (llmLooksBogus && pTxns.length) {
-    return pTxns.map((p, i) => ({
-      key: owner.name ? `${role} ${owner.name}` : `Purchase ${i + 1}`,
-      insider_name: owner.name,
-      surname,
-      role,
-      transaction_code: "P",
-      acquired_disposed: "A",
-      amount_usd: p.amount_usd,
-      shares: p.shares,
-      ts: parseForm4TransactionDate(p.transaction_date),
-    }));
+  if (codeRows.length && (llmLooksBogus || codeRows.length >= rows.length)) {
+    return codeRows;
   }
 
+  const surname = ownerSurname(owner.name);
   return rows.map((raw, i) => {
     const r = raw as Record<string, unknown>;
-    const p = pTxns[i] ?? pTxns[pTxns.length - 1];
+    const t = txns[i] ?? txns[txns.length - 1];
     const key = String(r?.key ?? "").trim();
     const bogus = isBogusInsiderWorksheetKey(key);
-    const insider_name =
-      r?.insider_name != null ? String(r.insider_name).trim() : owner.name;
-    const resolvedRole = r?.role != null ? String(r.role).trim() : role;
+    const insider_name = r?.insider_name != null ? String(r.insider_name).trim() : owner.name;
+    const resolvedRole = r?.role != null ? String(r.role).trim() : owner.role;
     const resolvedSurname =
       r?.surname != null ? String(r.surname).trim() : ownerSurname(String(insider_name ?? "")) ?? surname;
     return {
@@ -194,147 +119,138 @@ function enrichInsiderWorksheetRows(
           ? String(r.transaction_code)
           : r?.code != null
             ? String(r.code)
-            : "P",
-      acquired_disposed: r?.acquired_disposed != null ? String(r.acquired_disposed) : "A",
+            : t?.transaction_code ?? "P",
+      acquired_disposed:
+        r?.acquired_disposed != null ? String(r.acquired_disposed) : t?.acquired_disposed ?? "A",
       amount_usd:
-        r?.amount_usd != null ? Number(r.amount_usd) : p?.amount_usd != null ? p.amount_usd : null,
-      shares: r?.shares != null ? Number(r.shares) : p?.shares != null ? p.shares : null,
-      is_derivative: Boolean(r?.is_derivative ?? r?.derivative),
-      ts:
-        r?.ts != null
-          ? String(r.ts)
-          : parseForm4TransactionDate(p?.transaction_date ?? null),
+        r?.amount_usd != null ? Number(r.amount_usd) : t?.amount_usd != null ? t.amount_usd : null,
+      shares: r?.shares != null ? Number(r.shares) : t?.shares != null ? t.shares : null,
+      is_derivative: Boolean(r?.is_derivative ?? r?.derivative ?? t?.is_derivative),
+      ts: r?.ts != null ? String(r.ts) : parseForm4TransactionDate(t?.transaction_date ?? null),
     };
   });
 }
 
-function isDesiredInsiderSchema(out: any): out is {
+type InsiderClusterOut = {
+  schema_type: "insider_cluster";
+  schema_version: "v1";
   issuer: { name: string | null; ticker: string | null; cik: string | null };
-  filing: { form_type: "Form 4"; accession_no: string | null; filed_at: string | null };
+  filing: { form_type: string; accession_no: string | null; filed_at: string | null };
   cluster: {
     cluster_start_at: string | null;
     cluster_end_at: string | null;
     feed_label: string;
     context_sentences: string[];
-    worksheet_rows: Array<{ key: string; ts: string | null; amount_usd: number | null }>;
+    worksheet_rows: InsiderWorksheetRow[];
   };
-} {
-  return (
-    out &&
-    typeof out === "object" &&
-    out.issuer &&
-    out.filing &&
-    out.cluster &&
-    typeof out.cluster.feed_label === "string" &&
-    Array.isArray(out.cluster.context_sentences) &&
-    Array.isArray(out.cluster.worksheet_rows)
-  );
-}
+};
 
-function buildInsiderNormalizePrompt(anyJson: unknown) {
-  return [
-    {
-      role: "system" as const,
-      content: [
-        "Convert arbitrary Form 4 extraction JSON into a single normalized JSON object for the app.",
-        "Return ONLY valid JSON. No markdown. No extra keys beyond the schema.",
-        "If a field is unknown, use null / empty arrays. Do not invent.",
-        "Keep `context_sentences` short, plain English, and at most 4 sentences.",
-      ].join("\n"),
-    },
-    {
-      role: "user" as const,
-      content: [
-        "TARGET SCHEMA (return exactly this shape):",
-        "{",
-        '  "schema_type": "insider_cluster",',
-        '  "schema_version": "v1",',
-        '  "issuer": { "name": string|null, "ticker": string|null, "cik": string|null },',
-        '  "filing": { "form_type": "Form 4", "accession_no": string|null, "filed_at": string|null },',
-        '  "cluster": {',
-        '    "cluster_start_at": string|null,',
-        '    "cluster_end_at": string|null,',
-        '    "feed_label": string,',
-        '    "context_sentences": string[],',
-        '    "worksheet_rows": Array<{ "key": string, "ts": string|null, "amount_usd": number|null }>',
-        "  }",
-        "}",
-        "",
-        "INPUT JSON (convert this):",
-        JSON.stringify(anyJson).slice(0, 180_000),
-      ].join("\n"),
-    },
-  ];
-}
-
-function buildInsiderExtractionPrompt(args: {
-  form4Xml: string;
+function buildInsiderNarrativePrompt(args: {
+  formType: string;
   issuerName: string | null;
   issuerTicker: string | null;
   issuerCik: string | null;
-  pTransactions: Form4PTransaction[];
+  owners: FormXmlOwner[];
+  transactions: FormXmlTransaction[];
+  xmlFragments: string;
+  focusPOnly: boolean;
 }) {
-  const { form4Xml, issuerName, issuerTicker, issuerCik, pTransactions } = args;
+  const { formType, issuerName, issuerTicker, issuerCik, owners, transactions, xmlFragments, focusPOnly } = args;
+  const guidance = focusPOnly
+    ? [
+        "This is a Form 4 cluster filtered for Code P open-market purchases in the feed, but ALL transaction rows below are stored.",
+        "In context_sentences, emphasize Code P purchases; mention other codes only if they appear in TRANSACTIONS.",
+        "Do NOT say 'no selling' — other codes may be present.",
+      ]
+    : [
+        `This is a ${formType} filing. Summarize all transaction codes present.`,
+        "Include every material transaction type visible in TRANSACTIONS.",
+      ];
+
   return [
     {
       role: "system" as const,
-      content:
-        [
-          "You extract SEC Form 4 filings into a single JSON object.",
-          "Return ONLY valid JSON. No markdown. No extra keys beyond the schema.",
-          "If a field is unknown, use null / empty arrays. Do not invent facts.",
-          "Keep sentences short and plain English.",
-          "IMPORTANT: Only include Transaction Code P purchases (open-market buys).",
-        ].join("\n"),
+      content: [
+        "You write narrative fields for an SEC insider filing card.",
+        "Return ONLY valid JSON. No markdown.",
+        "Do not invent facts. Use null when unknown.",
+        "worksheet_rows must be an empty array — rows are filled in code.",
+        `Schema: ${JSON.stringify({
+          schema_type: "insider_cluster",
+          schema_version: "v1",
+          issuer: { name: "string|null", ticker: "string|null", cik: "string|null" },
+          filing: { form_type: formType, accession_no: "string|null", filed_at: "ISO8601|null" },
+          cluster: {
+            cluster_start_at: "ISO8601|null",
+            cluster_end_at: "ISO8601|null",
+            feed_label: "string",
+            context_sentences: ["string"],
+            worksheet_rows: [],
+          },
+        })}`,
+      ].join("\n"),
     },
     {
       role: "user" as const,
-      content:
-        [
-          "SCHEMA (return exactly this shape):",
-          "{",
-          '  "schema_type": "insider_cluster",',
-          '  "schema_version": "v1",',
-          '  "issuer": { "name": string|null, "ticker": string|null, "cik": string|null },',
-          '  "filing": { "form_type": "Form 4", "accession_no": string|null, "filed_at": string|null },',
-          '  "cluster": {',
-          '    "cluster_start_at": string|null,',
-          '    "cluster_end_at": string|null,',
-          '    "feed_label": string,',
-          '    "context_sentences": string[],',
-          '    "worksheet_rows": Array<{ "key": string, "ts": string|null, "amount_usd": number|null }>',
-          "  }",
-          "}",
-          "",
-          "ISSUER (from filing):",
-          JSON.stringify({ name: issuerName, ticker: issuerTicker, cik: issuerCik }),
-          "",
-          "PURCHASE TRANSACTIONS (only code=P) extracted for you:",
-          JSON.stringify(pTransactions),
-          "",
-          "GUIDANCE:",
-          "- Only summarize the P purchases above. Ignore any sales, RSUs, awards, gifts, or other codes.",
-          "- `feed_label`: short, like 'Net buying ~$2.1M (P purchases)'.",
-          "- `context_sentences`: EXACTLY 4 medium-length sentences. Make them plain and readable with normal punctuation.",
-          "  - Do NOT prefix with 'Company overview:' and do NOT use semicolons.",
-          "  - Sentence 1: one-line description of what the company does (best-effort; if unsure, say 'The company is publicly listed, but its business is not clear from this filing.').",
-          "  - Sentence 2: what happened (who bought / how many purchases / over what window) and explicitly say Code P open-market purchases.",
-          "  - Sentence 3: size + concentration (net buying ~$X if possible; who dominates if visible; how many distinct buy dates if you can infer it).",
-          "  - Sentence 4: recency + why it matters (last buy within X days) and add one simple caveat if relevant (e.g. small dollar size).",
-          "  - IMPORTANT: Do NOT say 'no selling' or similar. This dataset only includes Code P purchases, so that would be misleading.",
-          "  - Avoid empty adjectives like 'clustered' unless you immediately quantify them (e.g. 'spread over 2 dates' or 'all on one day').",
-          "- `worksheet_rows`: one row per P transaction (include all of them).",
-          "- Each worksheet `key` must be `ROLE Full Name` (e.g. `CEO Jane Smith`), not `P-1` / transaction ids.",
-          "",
-          "FORM 4 XML (for context if needed):",
-          form4Xml.slice(0, 80_000),
-        ].join("\n"),
+      content: [
+        "ISSUER:",
+        JSON.stringify({ name: issuerName, ticker: issuerTicker, cik: issuerCik }),
+        "",
+        "REPORTING OWNERS:",
+        JSON.stringify(owners),
+        "",
+        "TRANSACTIONS (all codes — preserve every row in your narrative):",
+        JSON.stringify(transactions),
+        "",
+        ...guidance,
+        "- feed_label: short headline with amounts/counts when visible.",
+        "- context_sentences: up to 4 plain English sentences.",
+        ...(transactions.length === 0 && xmlFragments
+          ? ["", "XML_FRAGMENTS (fallback context):", xmlFragments]
+          : []),
+      ].join("\n"),
     },
   ];
 }
 
+function mergeInsiderNarrative(
+  llmOut: any,
+  base: {
+    issuer: InsiderClusterOut["issuer"];
+    filing: InsiderClusterOut["filing"];
+    worksheet_rows: InsiderWorksheetRow[];
+    defaultFeedLabel: string;
+  },
+): InsiderClusterOut {
+  const bounds = clusterBoundsFromRows(base.worksheet_rows);
+  const ctx = Array.isArray(llmOut?.cluster?.context_sentences)
+    ? llmOut.cluster.context_sentences.map((s: unknown) => String(s)).filter(Boolean).slice(0, 4)
+    : [];
+
+  return {
+    schema_type: "insider_cluster",
+    schema_version: "v1",
+    issuer: {
+      name: llmOut?.issuer?.name ?? base.issuer.name,
+      ticker: llmOut?.issuer?.ticker ?? base.issuer.ticker,
+      cik: llmOut?.issuer?.cik ?? base.issuer.cik,
+    },
+    filing: {
+      form_type: String(llmOut?.filing?.form_type ?? base.filing.form_type),
+      accession_no: llmOut?.filing?.accession_no ?? base.filing.accession_no,
+      filed_at: formatIso(llmOut?.filing?.filed_at) ?? base.filing.filed_at,
+    },
+    cluster: {
+      cluster_start_at: formatIso(llmOut?.cluster?.cluster_start_at) ?? bounds.start,
+      cluster_end_at: formatIso(llmOut?.cluster?.cluster_end_at) ?? bounds.end,
+      feed_label: String(llmOut?.cluster?.feed_label ?? base.defaultFeedLabel).trim() || base.defaultFeedLabel,
+      context_sentences: ctx,
+      worksheet_rows: base.worksheet_rows,
+    },
+  };
+}
+
 export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
-  // Pick one item ready to parse; mark it parsing to avoid double work.
   const next = await db.one<{ id: string; url: string; source_type: string }>(
     `
     UPDATE document_queue
@@ -365,15 +281,19 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
 
   try {
     const xml = await fetchForm4Text(url);
-    const contentSha256 = createHash("sha256").update(xml, "utf8").digest("hex");
+    const contentSha256 = sha256NormalizedText(xml);
 
     const issuerName = firstXmlTagText(xml, "issuerName");
     const issuerTicker = firstXmlTagText(xml, "issuerTradingSymbol");
     const issuerCik = firstXmlTagText(xml, "issuerCik");
-    const pTxns = extractForm4PTransactions(xml);
+    const accessionNo = firstXmlTagText(xml, "accessionNumber");
+    const filedAt = firstXmlTagText(xml, "periodOfReport") ?? firstXmlTagText(xml, "dateOfOriginalSubmission");
 
-    // Form 4: skip filings with no Code P purchases. Form 3/5: keep all extracted rows.
-    if (requirePOnly && pTxns.length === 0) {
+    const allTxns = extractAllFormTransactions(xml);
+    const owners = extractFormReportingOwners(xml);
+    const primaryOwner = owners[0] ?? extractFormReportingOwner(xml);
+
+    if (requirePOnly && !allTxns.some((t) => t.transaction_code === "P")) {
       await db.query(
         `
         UPDATE document_queue
@@ -388,48 +308,68 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_P_transactions" };
     }
 
-    const messages = buildInsiderExtractionPrompt({
-      form4Xml: xml,
+    const xmlFragments = extractFormXmlTransactionFragments(xml);
+    const messages = buildInsiderNarrativePrompt({
+      formType: formSourceKey,
       issuerName,
       issuerTicker,
       issuerCik,
-      pTransactions: pTxns,
+      owners,
+      transactions: allTxns,
+      xmlFragments,
+      focusPOnly: requirePOnly,
     });
-    const { content, model } = await llmChat(messages, { temperature: 0, max_tokens: 1500 });
-    let out = extractJsonObject(content);
-    if (!isDesiredInsiderSchema(out)) {
-      const norm = await llmChat(buildInsiderNormalizePrompt(out), { temperature: 0, max_tokens: 1500 });
-      out = extractJsonObject(norm.content);
-    }
-    if (!isDesiredInsiderSchema(out)) {
-      throw new Error("llm_output_schema_mismatch");
-    }
 
-    out.cluster.worksheet_rows = enrichInsiderWorksheetRows(
-      out.cluster.worksheet_rows ?? [],
-      pTxns,
-      xml,
-    ) as any;
+  const { content, model } = await llmChat(messages, {
+    temperature: 0,
+    max_tokens: 1200,
+    log_context: "insider/narrative",
+  });
+    const llmOut = extractJsonObject(content);
 
-    if (!requirePOnly && !out.cluster.worksheet_rows?.length) {
-      const filed = formatIso(out?.filing?.filed_at) ?? new Date().toISOString();
-      out.cluster.worksheet_rows = [
+    let worksheetRows = enrichInsiderWorksheetRows(
+      llmOut?.cluster?.worksheet_rows ?? [],
+      allTxns,
+      primaryOwner,
+    );
+
+    if (!worksheetRows.length) {
+      const filed = formatIso(filedAt) ?? new Date().toISOString();
+      worksheetRows = [
         {
-          key: "Reporting owner",
-          insider_name: "Reporting owner",
+          key: primaryOwner.name ? `${primaryOwner.role} ${primaryOwner.name}` : "Reporting owner",
+          insider_name: primaryOwner.name,
+          surname: ownerSurname(primaryOwner.name),
+          role: primaryOwner.role,
           transaction_code: formSourceKey === "Form 3" ? "A" : "H",
+          acquired_disposed: "A",
           amount_usd: null,
+          shares: null,
           ts: filed,
-        } as any,
+        },
       ];
-      out.cluster.feed_label = `${formSourceKey} filing`;
     }
 
-    const ticker = out?.issuer?.ticker ?? issuerTicker ?? null;
-    const feedLabel = String(out?.cluster?.feed_label ?? "Insider activity").trim() || "Insider activity";
+    const pSum = allTxns
+      .filter((t) => t.transaction_code === "P")
+      .reduce((a, t) => a + (t.amount_usd ?? 0), 0);
+    const defaultFeedLabel =
+      requirePOnly && pSum > 0
+        ? `Net buying ~$${Math.round(pSum).toLocaleString("en-US")} (P purchases)`
+        : `${formSourceKey} filing`;
 
-    // Enforce worksheet rows for Form 4 P clusters only.
-    if (requirePOnly && !out.cluster.worksheet_rows?.length) {
+    const out = mergeInsiderNarrative(llmOut, {
+      issuer: { name: issuerName, ticker: issuerTicker, cik: issuerCik },
+      filing: {
+        form_type: formSourceKey,
+        accession_no: accessionNo,
+        filed_at: formatIso(filedAt),
+      },
+      worksheet_rows: worksheetRows,
+      defaultFeedLabel,
+    });
+
+    if (requirePOnly && !out.cluster.worksheet_rows.length) {
       await db.query(
         `
         UPDATE document_queue
@@ -444,45 +384,16 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "empty_P_rows" };
     }
 
-    const clusterStart = formatIso(out?.cluster?.cluster_start_at);
-    const clusterEnd = formatIso(out?.cluster?.cluster_end_at);
-    const feedAt = clusterEnd ?? formatIso(out?.filing?.filed_at) ?? null;
+    const ticker = out.issuer.ticker ?? issuerTicker ?? null;
+    const feedLabel = out.cluster.feed_label;
 
-    // Insert parsed doc row.
     const inserted = await db.one<{ id: string }>(
       `
       INSERT INTO documents (
-        queue_id,
-        doc_kind,
-        schema_version,
-        ticker,
-        feed_kind,
-        source_key,
-        event_at,
-        feed_label,
-        url,
-        published_at,
-        model,
-        prompt_version,
-        content_sha256,
-        data
+        queue_id, doc_kind, schema_version, ticker, feed_kind, source_key, event_at,
+        feed_label, url, published_at, model, prompt_version, content_sha256, data
       )
-      VALUES (
-        $1,
-        $2,
-        $3,
-        $4,
-        'insider',
-        $5,
-        $6,
-        $7,
-        $8,
-        $9,
-        $10,
-        $11,
-        $12,
-        $13
-      )
+      VALUES ($1, $2, $3, $4, 'insider', $5, $6, $7, $8, $9, $10, $11, $12, $13)
       ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
       DO UPDATE SET parsed_at = now()
       RETURNING id
@@ -493,28 +404,22 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
         "v1",
         ticker,
         formSourceKey,
-        feedAt,
+        out.cluster.cluster_end_at ?? out.filing.filed_at,
         feedLabel,
         url,
-        feedAt,
+        out.cluster.cluster_end_at ?? out.filing.filed_at,
         model,
-        queueSourceType === "sec_form4" ? "insider_form4_v1" : `insider_${queueSourceType}_v1`,
+        queueSourceType === "sec_form4" ? "insider_form4_v2" : `insider_${queueSourceType}_v2`,
         contentSha256,
         out,
       ],
     );
 
-    // Mark queue item parsed.
     await db.query(
-      `
-      UPDATE document_queue
-      SET status = 'parsed', updated_at = now(), last_error = NULL
-      WHERE id = $1
-      `,
+      `UPDATE document_queue SET status = 'parsed', updated_at = now(), last_error = NULL WHERE id = $1`,
       [queueId],
     );
 
-    // Opportunistic upsert into companies (simple: keyed by name).
     if (issuerName) {
       await db.query(
         `
@@ -554,4 +459,3 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
     return { processed: false, reason: "busy", queue_id: queueId };
   }
 }
-

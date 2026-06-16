@@ -1,4 +1,6 @@
 import { enqueueCurrentFilingFeed } from "../../core/sec.js";
+import { QUEUE_SOURCES } from "../../pipelines/registry.js";
+import { runSecDailyIndexBackfill } from "../../shared/sec-daily-backfill.js";
 import { startPipelineWorker } from "../../shared/worker.js";
 import { parseNextPharmaQueueItem } from "./pipeline.js";
 
@@ -6,11 +8,13 @@ export function startClinicalWorker() {
   return startPipelineWorker({
     name: "research/clinical",
     envPrefix: "PHARMA",
+    sourceTypes: [...QUEUE_SOURCES.researchClinical],
     defaults: {
       enqueueEveryMs: 60_000,
       parsePollMs: 6_000,
       parseThrottleMs: 1_200,
       parseConcurrency: 1,
+      backfillIntervalMs: 60_000,
     },
     enqueue: async () => {
       const pages =
@@ -26,6 +30,16 @@ export function startClinicalWorker() {
           priority: 5,
         });
       }
+    },
+    enqueueBackfill: async () => {
+      await runSecDailyIndexBackfill({
+        pipeline: "research/clinical",
+        forms: [
+          { form: "8-K", sourceType: "sec_pharma_filing", priority: 1 },
+          { form: "10-Q", sourceType: "sec_pharma_filing", priority: 1 },
+          { form: "10-K", sourceType: "sec_pharma_filing", priority: 1 },
+        ],
+      });
     },
     parseNext: async () => {
       const r = await parseNextPharmaQueueItem();

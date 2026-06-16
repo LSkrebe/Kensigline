@@ -1,8 +1,15 @@
-import { createHash } from "node:crypto";
+import { sha256NormalizedText } from "../../core/text-hash.js";
 import { db } from "../../core/db.js";
 import { llmChat } from "../../core/llm.js";
-import { fetchFilingPrimaryText } from "../../core/sec.js";
+import { compactSecTextForLlm } from "../../core/sec-llm-text.js";
+import { fetch13fFilingBundle } from "../../core/sec.js";
 import { syncInstitutionFilingsFromDocument } from "../../documents/store.js";
+import {
+  MIN_PARSED_13F_HOLDINGS,
+  parse13fHoldings,
+  parse13fMeta,
+  type Parsed13fHolding,
+} from "./parse-13f.js";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }
@@ -62,6 +69,7 @@ function isInstitutionSchema(out: any): out is {
 }
 
 function buildInstitutionExtractionPrompt(args: { filingText: string; indexUrl: string }) {
+  const filingBody = compactSecTextForLlm(args.filingText, 180_000);
   return [
     {
       role: "system" as const,
@@ -70,13 +78,7 @@ function buildInstitutionExtractionPrompt(args: { filingText: string; indexUrl: 
         "Return ONLY valid JSON. No markdown.",
         "activity must be exactly one of: Increased stake, New position, Reduced stake.",
         "Use ticker symbols when visible; skip rows without a US equity ticker.",
-      ].join("\n"),
-    },
-    {
-      role: "user" as const,
-      content: [
-        "SCHEMA:",
-        JSON.stringify({
+        `Schema: ${JSON.stringify({
           schema_type: "institution_filing",
           schema_version: "v1",
           filer: { name: "string|null", cik: "string|null" },
@@ -92,15 +94,157 @@ function buildInstitutionExtractionPrompt(args: { filingText: string; indexUrl: 
             },
           ],
           context_sentences: ["string"],
-        }),
-        "",
+        })}`,
+      ].join("\n"),
+    },
+    {
+      role: "user" as const,
+      content: [`index_url: ${args.indexUrl}`, "", "FILING TEXT:", filingBody].join("\n"),
+    },
+  ];
+}
+
+function buildInstitutionEnrichPrompt(args: {
+  indexUrl: string;
+  coverExcerpt: string;
+  holdings: Parsed13fHolding[];
+  meta: ReturnType<typeof parse13fMeta>;
+}) {
+  const holdingsJson = JSON.stringify(
+    args.holdings.slice(0, 400).map((h) => ({
+      issuer_name: h.issuer_name,
+      cusip: h.cusip,
+      title_of_class: h.title_of_class,
+      value_usd: h.value_usd,
+      shares: h.shares,
+    })),
+  );
+  return [
+    {
+      role: "system" as const,
+      content: [
+        "You enrich pre-parsed SEC Form 13F information-table rows into strict JSON.",
+        "Return ONLY valid JSON. No markdown.",
+        "Map each parsed holding to a US equity ticker when possible; omit rows with no ticker.",
+        "activity must be exactly one of: Increased stake, New position, Reduced stake.",
+        "Infer activity from filing cover / summary tables when present; otherwise use New position.",
+        "context_sentences: exactly 3 plain-English summary sentences.",
+        `Schema: ${JSON.stringify({
+          schema_type: "institution_filing",
+          schema_version: "v1",
+          filer: { name: "string|null", cik: "string|null" },
+          filing: { form_type: "13F", accession_no: "string|null", filed_at: "ISO8601|null", index_url: "string|null" },
+          holdings: [
+            {
+              ticker: "string",
+              issuer_name: "string|null",
+              cusip: "string|null",
+              activity: "Increased stake|New position|Reduced stake",
+              value_usd: "number|null",
+              shares: "number|null",
+              as_of_date: "ISO8601|null",
+            },
+          ],
+          context_sentences: ["string"],
+        })}`,
+      ].join("\n"),
+    },
+    {
+      role: "user" as const,
+      content: [
         `index_url: ${args.indexUrl}`,
+        "KNOWN META:",
+        JSON.stringify(args.meta),
         "",
-        "FILING TEXT:",
-        args.filingText.slice(0, 180_000),
+        "COVER EXCERPT:",
+        args.coverExcerpt.slice(0, 8_000),
+        "",
+        "PARSED_HOLDINGS:",
+        holdingsJson,
       ].join("\n"),
     },
   ];
+}
+
+async function extractInstitutionFiling(args: {
+  bundleText: string;
+  indexUrl: string;
+}): Promise<{ out: any; model: string | null; path: "enrich" | "full" }> {
+  const parsedHoldings = parse13fHoldings(args.bundleText);
+  const meta = parse13fMeta(args.bundleText, args.indexUrl);
+
+  if (parsedHoldings.length >= MIN_PARSED_13F_HOLDINGS) {
+    const { content, model } = await llmChat(
+      buildInstitutionEnrichPrompt({
+        indexUrl: args.indexUrl,
+        coverExcerpt: args.bundleText.slice(0, 12_000),
+        holdings: parsedHoldings,
+        meta,
+      }),
+      {
+        temperature: 0,
+        max_tokens: 2800,
+        response_format: "json_object",
+        log_context: "institutions/13f-enrich",
+      },
+    );
+    const out = extractJsonObject(content);
+    if (isInstitutionSchema(out)) {
+      const byParsedKey = new Map(
+        parsedHoldings.map((p) => [`${(p.cusip ?? "").toUpperCase()}|${p.issuer_name.toLowerCase()}`, p]),
+      );
+      const enriched = (out.holdings ?? []).map((h: any) => {
+        const key = `${String(h?.cusip ?? "").toUpperCase()}|${String(h?.issuer_name ?? "").toLowerCase()}`;
+        const fallback = byParsedKey.get(key) ?? null;
+        return {
+          ...h,
+          issuer_name: h?.issuer_name ?? fallback?.issuer_name ?? null,
+          value_usd:
+            h?.value_usd != null && Number.isFinite(Number(h.value_usd))
+              ? Number(h.value_usd)
+              : fallback?.value_usd ?? null,
+          shares:
+            h?.shares != null && Number.isFinite(Number(h.shares)) ? Number(h.shares) : fallback?.shares ?? null,
+        };
+      });
+
+      const validCount = enriched.filter(
+        (h: any) =>
+          String(h?.ticker ?? "")
+            .trim()
+            .length >= 1 && normalizeActivity(h?.activity),
+      ).length;
+      const minValid = Math.max(3, Math.floor(parsedHoldings.length * 0.2));
+      if (validCount >= minValid) {
+        return {
+          out: {
+            ...out,
+            filer: {
+              name: out.filer?.name ?? meta.filer_name,
+              cik: out.filer?.cik ?? meta.cik,
+            },
+            filing: {
+              form_type: "13F",
+              accession_no: out.filing?.accession_no ?? meta.accession_no,
+              filed_at: out.filing?.filed_at ?? meta.filed_at ?? meta.period_of_report,
+              index_url: args.indexUrl,
+            },
+            holdings: enriched,
+          },
+          model: model ?? null,
+          path: "enrich",
+        };
+      }
+    }
+  }
+
+  const { content, model } = await llmChat(buildInstitutionExtractionPrompt({ filingText: args.bundleText, indexUrl: args.indexUrl }), {
+    temperature: 0,
+    max_tokens: 2800,
+    response_format: "json_object",
+    log_context: "institutions/13f",
+  });
+  return { out: extractJsonObject(content), model: model ?? null, path: "full" };
 }
 
 export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult> {
@@ -128,8 +272,8 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
   const indexUrl = next.url;
 
   try {
-    const { url: primaryUrl, text } = await fetchFilingPrimaryText(indexUrl);
-    const baseSha256 = createHash("sha256").update(text, "utf8").digest("hex");
+    const { url: primaryUrl, bundle } = await fetch13fFilingBundle(indexUrl);
+    const baseSha256 = sha256NormalizedText(bundle);
 
     const existing = await db.one<{ id: string }>(
       `SELECT id FROM documents WHERE feed_kind='institutions' AND content_sha256 LIKE ($1 || ':%') LIMIT 1`,
@@ -140,12 +284,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
       return { processed: true, queue_id: queueId, parsed_ids: [existing.id], ticker_count: 1 };
     }
 
-    const { content, model } = await llmChat(buildInstitutionExtractionPrompt({ filingText: text, indexUrl: primaryUrl }), {
-      temperature: 0,
-      max_tokens: 4000,
-      response_format: "json_object",
-    });
-    const out = extractJsonObject(content);
+    const { out, model } = await extractInstitutionFiling({ bundleText: bundle, indexUrl: primaryUrl });
     if (!isInstitutionSchema(out)) throw new Error("llm_output_schema_mismatch");
 
     const filerName = String(out.filer?.name ?? "").trim() || "Institution";

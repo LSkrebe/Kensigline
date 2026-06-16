@@ -66,6 +66,15 @@ CREATE TABLE companies (
 
 CREATE INDEX companies_ticker_idx ON companies (ticker);
 
+-- --- Historical ingest cursors (idle backfill) ---
+CREATE TABLE ingest_cursors (
+  pipeline text NOT NULL,
+  cursor_key text NOT NULL,
+  cursor_value text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (pipeline, cursor_key)
+);
+
 -- --- Ingest queue ---
 CREATE TABLE document_queue (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -255,13 +264,6 @@ CREATE TABLE gov_contract_ticker_links (
 CREATE INDEX gov_contract_ticker_links_ticker_idx ON gov_contract_ticker_links (ticker);
 
 -- --- Research feed ---
-CREATE TABLE ticker_feed_state (
-  ticker text PRIMARY KEY,
-  score double precision NOT NULL DEFAULT 0,
-  components jsonb NOT NULL DEFAULT '{}'::jsonb,
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-
 CREATE TABLE research_memos (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   ticker text NOT NULL,
