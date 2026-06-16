@@ -14,7 +14,85 @@ import {
   normalizeResearchPaperSourceKey,
   researchPaperSourceTypesForIntel,
 } from './researchPaperSources.js'
+import {
+  casePersonPhotoUrl,
+  getCongressLegislatorIndexRevision,
+  politicianDisplayNameFromRow,
+  portraitDisplayState,
+  portraitIsLogo,
+  preloadCongressLegislatorIndex,
+  probePortraitUrl,
+  subscribeCongressLegislatorIndex,
+  MOCK_INSIDER_PEOPLE,
+} from './personPortraits.js'
 import './App.css'
+
+const PHONE_VIEWPORT_MQ = '(max-width: 640px)'
+
+function usePhoneViewport() {
+  const [isPhone, setIsPhone] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(PHONE_VIEWPORT_MQ).matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia(PHONE_VIEWPORT_MQ)
+    const onChange = () => setIsPhone(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  return isPhone
+}
+
+function phonePaneHiddenClass(isPhone, activePane, paneId) {
+  if (!isPhone) return ''
+  return activePane === paneId ? '' : 'phonePane--hidden'
+}
+
+function PhoneSubNav({ items, value, onChange, ariaLabel, className = '' }) {
+  return (
+    <nav className={['phoneSubNav', className].filter(Boolean).join(' ')} aria-label={ariaLabel}>
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          className={['phoneSubNavBtn', value === item.id ? 'isActive' : ''].filter(Boolean).join(' ')}
+          aria-current={value === item.id ? 'page' : undefined}
+          onClick={() => onChange(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
+    </nav>
+  )
+}
+
+const RESEARCH_INTEL_MODES_PHONE = [
+  { id: 'market', label: 'Market' },
+  { id: 'clinical', label: 'Clinical' },
+]
+
+const INVESTIGATE_MODES_PHONE = [
+  { id: 'insider', label: 'Insider' },
+  { id: 'politicians', label: 'Pol.' },
+  { id: 'institutions', label: 'Inst.' },
+]
+
+const RESEARCH_PHONE_PANES = [
+  { id: 'feed', label: 'Feed' },
+  { id: 'paper', label: 'Paper' },
+  { id: 'context', label: 'Context' },
+]
+
+const INVESTIGATE_PHONE_PANES = [
+  { id: 'feed', label: 'Feed' },
+  { id: 'case', label: 'Case' },
+  { id: 'chart', label: 'Chart' },
+]
+
+const DISCOVER_PHONE_PANES = [
+  { id: 'macro', label: 'Macro' },
+  { id: 'catalyst', label: 'Catalyst' },
+  { id: 'moves', label: 'Moves' },
+]
 
 function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n))
@@ -507,46 +585,8 @@ const INSIDER_TICKERS = ['PRIM', 'HG', 'SPRU', 'VRA', 'FFIN']
 /** Insider roles for CASE txn rows (WHO column). */
 const INSIDER_TXN_ROLES = ['CEO', 'DIR', 'CFO', 'OFF', 'TRUST']
 
-/** Mock insiders (Form 4) — full names + public-domain headshots for CASE profile UI. */
-/** Commons redirect URL (direct upload.wikimedia thumb paths often 400/404). */
-function wikimediaPortraitUrl(fileName, width = 220) {
-  const file = String(fileName ?? '').trim()
-  if (!file) return null
-  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(file)}?width=${width}`
-}
-
-const INSIDER_MOCK_PEOPLE = [
-  { fullName: 'Tim Cook', photoFile: 'Tim_Cook_2009_cropped.jpg' },
-  { fullName: 'Satya Nadella', photoFile: 'Satya_Nadella.jpg' },
-  { fullName: 'Jamie Dimon', photoFile: 'Jamie_Dimon,_CEO_of_JPMorgan_Chase.jpg' },
-  { fullName: 'Mary Barra', photoFile: 'Mary_Barra,_Chairman_and_CEO,_General_Motors.jpg' },
-  { fullName: 'Sundar Pichai', photoFile: 'Sundar_pichai.png' },
-  { fullName: 'Jensen Huang', photoFile: 'Jensen_Huang_-_CEATEC_2017.jpg' },
-  { fullName: 'Lisa Su', photoFile: 'Lisa_Su_at_Computex_2024.jpg' },
-  { fullName: 'Ruth Porat', photoFile: 'Ruth_Porat_2015.jpg' },
-  { fullName: 'Brian Moynihan', photoFile: 'Brian_Moynihan.jpg' },
-  { fullName: 'Arvind Krishna', photoFile: 'Arvind_Krishna_(cropped).jpg' },
-  { fullName: 'Indra Nooyi', photoFile: 'Indra_Nooyi_(cropped).jpg' },
-  { fullName: 'Marc Benioff', photoFile: 'Marc_Benioff_2010.jpg' },
-  { fullName: 'Pat Gelsinger', photoFile: 'Pat_Gelsinger_(cropped).jpg' },
-  { fullName: 'Safra Catz', photoFile: 'Safra_Catz_2019.jpg' },
-  { fullName: 'Andy Jassy', photoFile: 'Andy_Jassy_(cropped).jpg' },
-]
-
-const INSIDER_PHOTO_BY_NAME_KEY = Object.fromEntries(
-  INSIDER_MOCK_PEOPLE.map((p) => [
-    normalizePoliticianNameKey(p.fullName),
-    wikimediaPortraitUrl(p.photoFile),
-  ]),
-)
-const INSIDER_PHOTO_BY_LAST_KEY = Object.fromEntries(
-  INSIDER_MOCK_PEOPLE.map((p) => {
-    const last = normalizePoliticianNameKey(lastName(p.fullName))
-    return last ? [last, wikimediaPortraitUrl(p.photoFile)] : null
-  }).filter(Boolean),
-)
-
 /**
+
  * Showcase cluster (feed row 0): every Form 4 code / value shape from Option C mocks.
  * `ad`: A = acquired, D = disposed (for signed $ display).
  */
@@ -2987,7 +3027,7 @@ function insiderRoleFromKey(key) {
 }
 
 function mockInsiderPerson(seedA, seedB) {
-  return INSIDER_MOCK_PEOPLE[(seedA * 7 + seedB * 3) % INSIDER_MOCK_PEOPLE.length]
+  return MOCK_INSIDER_PEOPLE[(seedA * 7 + seedB * 3) % MOCK_INSIDER_PEOPLE.length]
 }
 
 function mockInsiderSurname(seedA, seedB) {
@@ -3637,85 +3677,6 @@ function historicalOutcomeLinesFromIns(ins, mode, personDisplay) {
   ]
 }
 
-/** Congress bioguide IDs for politician profile photos (unitedstates/congress-photos). */
-const POLITICIAN_CONGRESS_PHOTO_ID = {
-  'nancy pelosi': 'P000197',
-  'dan crenshaw': 'C001120',
-  'josh gottheimer': 'G000583',
-  'ro khanna': 'K000389',
-  'tommy tuberville': 'T000278',
-  'michael mccaul': 'M001157',
-  'john thune': 'T000250',
-  'mark kelly': 'K000377',
-  'tom cotton': 'C001095',
-  'ted cruz': 'C001098',
-  'marco rubio': 'R000595',
-  'bernie sanders': 'S000033',
-  'mitch mcconnell': 'M000355',
-  'chuck schumer': 'S000148',
-  'gina raimondo': null,
-}
-
-/** Non-Congress officials / executives (Wikimedia via Commons FilePath). */
-const POLITICIAN_EXECUTIVE_PHOTO_FILE = {
-  'gina raimondo': 'Gina_Raimondo_2021.jpg',
-}
-
-function normalizePoliticianNameKey(name) {
-  return String(name ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/^(sen\.|rep\.|hon\.|mr\.|mrs\.|ms\.|dr\.)\s+/i, '')
-    .replace(/^(senate|house|executive|hse|sen|exe)\s*,?\s*/i, '')
-    .replace(/,/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-function politicianDisplayNameFromRow(r) {
-  const full = String(r?.whoFullName ?? '').trim()
-  if (full.includes(',')) {
-    const after = full.split(',').pop()?.trim()
-    if (after) return after
-  }
-  return full
-}
-
-function insiderPhotoUrlForName(fullName) {
-  const tryKey = (name) => {
-    const key = normalizePoliticianNameKey(name)
-    if (key && INSIDER_PHOTO_BY_NAME_KEY[key]) return INSIDER_PHOTO_BY_NAME_KEY[key]
-    const last = normalizePoliticianNameKey(lastName(name))
-    if (last && INSIDER_PHOTO_BY_LAST_KEY[last]) return INSIDER_PHOTO_BY_LAST_KEY[last]
-    return null
-  }
-
-  const direct = tryKey(fullName)
-  if (direct) return direct
-
-  const raw = String(fullName ?? '').trim()
-  if (raw.includes(',')) {
-    const [lastPart, ...rest] = raw.split(',')
-    const flipped = `${rest.join(',').trim()} ${lastPart.trim()}`.trim()
-    if (flipped) return tryKey(flipped)
-  }
-  return null
-}
-
-function casePersonPhotoUrl(fullName, mode) {
-  const key = normalizePoliticianNameKey(fullName)
-  if (!key) return null
-  if (mode === 'institutions') return null
-  if (mode === 'politicians') {
-    const id = POLITICIAN_CONGRESS_PHOTO_ID[key]
-    if (id) return `https://unitedstates.github.io/images/congress/225x275/${id}.jpg`
-    const execFile = POLITICIAN_EXECUTIVE_PHOTO_FILE[key]
-    if (execFile) return wikimediaPortraitUrl(execFile)
-    return null
-  }
-  return insiderPhotoUrlForName(fullName)
-}
-
 function formatCasePersonDisplayName(name) {
   const s = String(name ?? '').trim()
   if (!s) return ''
@@ -3728,13 +3689,13 @@ function formatCasePersonDisplayName(name) {
     .join(' ')
 }
 
-const PERSON_AVATAR_FAILED_URLS = new Set()
-const PERSON_AVATAR_LOADED_URLS = new Set()
-
-function personAvatarDisplayForUrl(photoUrl) {
-  if (!photoUrl || PERSON_AVATAR_FAILED_URLS.has(photoUrl)) return 'blank'
-  if (PERSON_AVATAR_LOADED_URLS.has(photoUrl)) return 'photo'
-  return 'blank'
+function usePortraitLookupRevision() {
+  const [revision, setRevision] = useState(() => getCongressLegislatorIndexRevision())
+  useEffect(() => {
+    void preloadCongressLegislatorIndex()
+    return subscribeCongressLegislatorIndex(setRevision)
+  }, [])
+  return revision
 }
 
 function PersonAvatar({
@@ -3744,47 +3705,42 @@ function PersonAvatar({
   photoClassName = 'casePersonHeaderPhoto',
   loadedPhotoClassName = 'isLoaded',
 }) {
-  const photoUrl = useMemo(() => casePersonPhotoUrl(fullName, mode), [fullName, mode])
-  const [display, setDisplay] = useState(() => personAvatarDisplayForUrl(photoUrl))
+  const portraitRevision = usePortraitLookupRevision()
+  const photoUrl = useMemo(
+    () => casePersonPhotoUrl(fullName, mode),
+    [fullName, mode, portraitRevision],
+  )
+  const [display, setDisplay] = useState(() => portraitDisplayState(photoUrl))
 
   useLayoutEffect(() => {
-    setDisplay(personAvatarDisplayForUrl(photoUrl))
-    if (!photoUrl || PERSON_AVATAR_FAILED_URLS.has(photoUrl) || PERSON_AVATAR_LOADED_URLS.has(photoUrl)) {
+    const state = portraitDisplayState(photoUrl)
+    if (state === 'photo') {
+      setDisplay('photo')
+      return undefined
+    }
+    if (!photoUrl || state === 'blank') {
+      setDisplay('blank')
       return undefined
     }
 
-    let active = true
-    const fail = () => {
-      PERSON_AVATAR_FAILED_URLS.add(photoUrl)
-      if (active) setDisplay('blank')
-    }
-    const timeoutId = window.setTimeout(fail, 600)
-
-    const probe = new Image()
-    probe.referrerPolicy = 'no-referrer'
-    probe.decoding = 'async'
-    probe.onload = () => {
-      window.clearTimeout(timeoutId)
-      PERSON_AVATAR_LOADED_URLS.add(photoUrl)
-      if (active) setDisplay('photo')
-    }
-    probe.onerror = () => {
-      window.clearTimeout(timeoutId)
-      fail()
-    }
-    probe.src = photoUrl
-
-    return () => {
-      active = false
-      window.clearTimeout(timeoutId)
-    }
+    setDisplay('blank')
+    return probePortraitUrl(photoUrl, {
+      onLoad: () => setDisplay('photo'),
+      onError: () => setDisplay('blank'),
+    })
   }, [photoUrl])
 
   return (
     <div className={className} aria-hidden="true">
       {display === 'photo' && photoUrl ? (
         <img
-          className={[photoClassName, loadedPhotoClassName].filter(Boolean).join(' ')}
+          className={[
+            photoClassName,
+            loadedPhotoClassName,
+            portraitIsLogo(mode) ? 'casePersonHeaderPhoto--logo' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
           src={photoUrl}
           alt=""
           decoding="async"
@@ -3801,33 +3757,32 @@ function CasePersonAvatar({ fullName, mode }) {
 
 /** Paper txn portrait column — full-bleed left rail when photo loads. */
 function ResearchPaperTxnThumb({ fullName, mode, onActiveChange }) {
-  const photoUrl = useMemo(() => casePersonPhotoUrl(fullName, mode), [fullName, mode])
+  const portraitRevision = usePortraitLookupRevision()
+  const photoUrl = useMemo(
+    () => casePersonPhotoUrl(fullName, mode),
+    [fullName, mode, portraitRevision],
+  )
   const [loadedSrc, setLoadedSrc] = useState(null)
-  const failedUrlsRef = useRef(new Set())
+  const isLogo = portraitIsLogo(mode)
 
   useEffect(() => {
     setLoadedSrc(null)
-    if (!photoUrl || failedUrlsRef.current.has(photoUrl)) return undefined
+    if (!photoUrl) return undefined
 
-    let active = true
-    const probe = new Image()
-    probe.referrerPolicy = 'no-referrer'
-    probe.decoding = 'async'
-    probe.onload = () => {
-      if (active) {
+    if (portraitDisplayState(photoUrl) === 'photo') {
+      setLoadedSrc(photoUrl)
+      void cachePortraitDataUrlForExport(photoUrl)
+      return undefined
+    }
+    if (portraitDisplayState(photoUrl) === 'blank') return undefined
+
+    return probePortraitUrl(photoUrl, {
+      onLoad: () => {
         setLoadedSrc(photoUrl)
         void cachePortraitDataUrlForExport(photoUrl)
-      }
-    }
-    probe.onerror = () => {
-      failedUrlsRef.current.add(photoUrl)
-      if (active) setLoadedSrc(null)
-    }
-    probe.src = photoUrl
-
-    return () => {
-      active = false
-    }
+      },
+      onError: () => setLoadedSrc(null),
+    })
   }, [photoUrl])
 
   useEffect(() => {
@@ -3838,7 +3793,9 @@ function ResearchPaperTxnThumb({ fullName, mode, onActiveChange }) {
 
   return (
     <img
-      className="researchPaperTxnThumb"
+      className={['researchPaperTxnThumb', isLogo ? 'researchPaperTxnThumb--logo' : '']
+        .filter(Boolean)
+        .join(' ')}
       src={loadedSrc}
       alt=""
       decoding="async"
@@ -4235,6 +4192,7 @@ function MainContextPanel({
   runway = null,
   backendUp = false,
   contextOutcomesLive = null,
+  panelClassName = '',
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const [priceRange, setPriceRange] = useState('6M')
@@ -4269,6 +4227,7 @@ function MainContextPanel({
         'feedCompact',
         'mainContextPanel',
         showFlows ? 'mainContextPanel--market' : 'mainContextPanel--clinical',
+        panelClassName,
       ]
         .filter(Boolean)
         .join(' ')}
@@ -6201,6 +6160,12 @@ async function buildPaperCaptureChartClone(chartSourceEl) {
   }
 }
 
+function paperCapturePhotoMode(personMode) {
+  if (personMode === 'politicians') return 'politicians'
+  if (personMode === 'institutions') return 'institutions'
+  return 'insider'
+}
+
 /** Sync clone prep — portraits are inlined in `inlineCaptureImages` before rasterize (see ae5a9a9). */
 function finalizePaperCaptureClone(sourceEl, clone, portraitMeta) {
   clone.querySelectorAll('.researchPaperCaptureCheck').forEach((node) => node.remove())
@@ -6217,10 +6182,7 @@ function finalizePaperCaptureClone(sourceEl, clone, portraitMeta) {
     origImg?.currentSrc ||
     origImg?.src ||
     (portraitMeta?.personFullName
-      ? casePersonPhotoUrl(
-          portraitMeta.personFullName,
-          portraitMeta.personMode === 'politicians' ? 'politicians' : 'insider',
-        )
+      ? casePersonPhotoUrl(portraitMeta.personFullName, paperCapturePhotoMode(portraitMeta.personMode))
       : null)
   if (photoUrl) {
     const absolute = absoluteAssetUrl(photoUrl)
@@ -6472,7 +6434,7 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
   for (let i = 0; i < insiders.length; i++) {
     const row = insiders[i]
     const role = String(row?.key ?? '').trim()
-    const person = String(row?.person ?? '').trim()
+    const person = insiderReportingOwnerName(row) || String(row?.person ?? '').trim()
     const label = paperInsiderTxnLabel(role, person)
     if (label === '—') continue
     items.push({
@@ -7184,10 +7146,7 @@ function ResearchPaperPanel({
     setScreenshotIncludeChart(true)
     setScreenshotSelectMode(true)
     for (const meta of paperCapturePortraitById.values()) {
-      const url = casePersonPhotoUrl(
-        meta.personFullName,
-        meta.personMode === 'politicians' ? 'politicians' : 'insider',
-      )
+      const url = casePersonPhotoUrl(meta.personFullName, paperCapturePhotoMode(meta.personMode))
       if (url) void cachePortraitDataUrlForExport(url)
     }
   }, [paperCaptureIds, paperCapturePortraitById])
@@ -7250,7 +7209,7 @@ function ResearchPaperPanel({
           if (meta?.personFullName) {
             const portraitUrl = casePersonPhotoUrl(
               meta.personFullName,
-              meta.personMode === 'politicians' ? 'politicians' : 'insider',
+              paperCapturePhotoMode(meta.personMode),
             )
             if (portraitUrl) await cachePortraitDataUrlForExport(portraitUrl)
           }
@@ -8965,6 +8924,7 @@ function CaseKvFeed({
   highlightPersonQuery = '',
   personDisplay = null,
   personMode = 'insider',
+  panelClassName = '',
 }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
@@ -9130,7 +9090,7 @@ function CaseKvFeed({
 
   return (
     <section
-      className={['panel', 'feed', 'feedCompact', `feed--${placement}`]
+      className={['panel', 'feed', 'feedCompact', `feed--${placement}`, panelClassName]
         .filter(Boolean)
         .join(' ')}
       aria-label={title}
@@ -9365,7 +9325,11 @@ function cycleViewTab(current, settingsReturnTab = 'main') {
 
 function KensiglineTerminal() {
   const { user } = useAuth()
+  const isPhone = usePhoneViewport()
   const [activeTab, setActiveTab] = useState('discover') // discover | main | investigate | settings
+  const [researchPhonePane, setResearchPhonePane] = useState('paper')
+  const [investigatePhonePane, setInvestigatePhonePane] = useState('feed')
+  const [discoverPhonePane, setDiscoverPhonePane] = useState('catalyst')
   const [intelMode, setIntelMode] = useState('market') // market | clinical
   const [investigateMode, setInvestigateMode] = useState('insider') // insider | politicians | institutions
   const [investigateFeedFilterOpen, setInvestigateFeedFilterOpen] = useState(false)
@@ -9384,39 +9348,25 @@ function KensiglineTerminal() {
   const tabBeforeSettingsRef = useRef('discover')
   const terminalMainRef = useRef(null)
 
-  // Re-sync grid/charts when crossing responsive breakpoints (CSS media queries alone
-  // don't always trigger ResizeObserver on panel children).
+  // Re-sync charts when crossing the phone breakpoint.
   useEffect(() => {
+    const mqPhone = window.matchMedia(PHONE_VIEWPORT_MQ)
     let raf = 0
-    const mqInvestigateWide = window.matchMedia('(min-width: 1401px)')
-    const mqResearchWide = window.matchMedia('(min-width: 1281px)')
-
     function onViewportChange() {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
-        const main = terminalMainRef.current
-        if (!main) return
-        if (mqInvestigateWide.matches) {
-          const stack = main.querySelector('.investigateRightStack')
-          if (stack) stack.scrollTop = 0
-        }
-        if (mqResearchWide.matches) {
-          const context = main.querySelector('.mainContextPanel')
-          if (context) context.scrollTop = 0
-        }
         window.dispatchEvent(new Event('resize'))
       })
     }
-
-    window.addEventListener('resize', onViewportChange)
-    mqInvestigateWide.addEventListener('change', onViewportChange)
-    mqResearchWide.addEventListener('change', onViewportChange)
+    mqPhone.addEventListener('change', onViewportChange)
     return () => {
       cancelAnimationFrame(raf)
-      window.removeEventListener('resize', onViewportChange)
-      mqInvestigateWide.removeEventListener('change', onViewportChange)
-      mqResearchWide.removeEventListener('change', onViewportChange)
+      mqPhone.removeEventListener('change', onViewportChange)
     }
+  }, [])
+
+  useEffect(() => {
+    void preloadCongressLegislatorIndex()
   }, [])
 
   const [insiderIdx, setInsiderIdx] = useState(0)
@@ -11056,6 +11006,32 @@ function KensiglineTerminal() {
     setInstitutionsCaseTradeIdx(0)
   }, [institutionsSelected?.id, institutionsSelected?.ticker, institutionsChartRange])
 
+  useEffect(() => {
+    if (isPhone && activeTab === 'main') setResearchPhonePane('paper')
+  }, [researchTicker, isPhone, activeTab])
+
+  useEffect(() => {
+    if (isPhone && activeTab === 'investigate') setInvestigatePhonePane('feed')
+  }, [investigateMode, isPhone, activeTab])
+
+  const onResearchSelectTicker = useCallback(
+    (ticker) => {
+      setResearchTicker(ticker)
+      if (isPhone) setResearchPhonePane('paper')
+    },
+    [isPhone],
+  )
+
+  const onInvestigateFeedSelectIndex = useCallback(
+    (idx) => {
+      if (investigateMode === 'insider') setInsiderIdx(idx)
+      else if (investigateMode === 'politicians') setPoliticiansIdx(idx)
+      else setInstitutionsIdx(idx)
+      if (isPhone) setInvestigatePhonePane('case')
+    },
+    [investigateMode, isPhone],
+  )
+
   const onSettingsClick = useCallback(() => {
     if (activeTab === 'settings') {
       setActiveTab(tabBeforeSettingsRef.current)
@@ -11083,6 +11059,7 @@ function KensiglineTerminal() {
     <div
       className={[
         'terminalShell',
+        isPhone ? 'terminalShell--phone' : '',
         activeTab === 'main' ? `terminalShell--intel-${intelMode}` : '',
       ]
         .filter(Boolean)
@@ -11100,32 +11077,34 @@ function KensiglineTerminal() {
         onInvestigateModeChange={setInvestigateMode}
       />
       <div className="terminalWorkspace">
-      <nav className="sideTabsRail" aria-label="Views">
-        <button
-          type="button"
-          className={activeTab === 'main' ? 'sideTab isActive' : 'sideTab'}
-          aria-current={activeTab === 'main' ? 'page' : undefined}
-          onClick={() => setActiveTab('main')}
-        >
-          <span className="sideTabLabel">RESEARCH</span>
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'discover' ? 'sideTab isActive' : 'sideTab'}
-          aria-current={activeTab === 'discover' ? 'page' : undefined}
-          onClick={() => setActiveTab('discover')}
-        >
-          <span className="sideTabLabel">DISCOVER</span>
-        </button>
-        <button
-          type="button"
-          className={activeTab === 'investigate' ? 'sideTab isActive' : 'sideTab'}
-          aria-current={activeTab === 'investigate' ? 'page' : undefined}
-          onClick={() => setActiveTab('investigate')}
-        >
-          <span className="sideTabLabel sideTabLabel--investigate">INVESTIGATE</span>
-        </button>
-      </nav>
+      {!isPhone ? (
+        <nav className="sideTabsRail" aria-label="Views">
+          <button
+            type="button"
+            className={activeTab === 'main' ? 'sideTab isActive' : 'sideTab'}
+            aria-current={activeTab === 'main' ? 'page' : undefined}
+            onClick={() => setActiveTab('main')}
+          >
+            <span className="sideTabLabel">RESEARCH</span>
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'discover' ? 'sideTab isActive' : 'sideTab'}
+            aria-current={activeTab === 'discover' ? 'page' : undefined}
+            onClick={() => setActiveTab('discover')}
+          >
+            <span className="sideTabLabel">DISCOVER</span>
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'investigate' ? 'sideTab isActive' : 'sideTab'}
+            aria-current={activeTab === 'investigate' ? 'page' : undefined}
+            onClick={() => setActiveTab('investigate')}
+          >
+            <span className="sideTabLabel sideTabLabel--investigate">INVESTIGATE</span>
+          </button>
+        </nav>
+      ) : null}
       <main
         ref={terminalMainRef}
         className={[
@@ -11143,11 +11122,14 @@ function KensiglineTerminal() {
       {activeTab === 'discover' ? (
         <DiscoverPanel
           backendUp={backendUp}
+          isPhone={isPhone}
+          phonePane={discoverPhonePane}
           onOpenResearch={({ ticker, intelMode }) => {
             const t = String(ticker ?? '').trim().toUpperCase()
             if (!t) return
             if (intelMode === 'clinical' || intelMode === 'market') setIntelMode(intelMode)
             setResearchTicker(t)
+            if (isPhone) setResearchPhonePane('paper')
             setActiveTab('main')
           }}
         />
@@ -11156,6 +11138,7 @@ function KensiglineTerminal() {
         <>
           <CompactFeed
             placement="left"
+            panelClassName={phonePaneHiddenClass(isPhone, investigatePhonePane, 'feed')}
             title="FEED"
             items={
               investigateIsInsider
@@ -11232,16 +11215,11 @@ function KensiglineTerminal() {
                   ? setPoliticiansPoliticianQuery
                   : setInstitutionsInstitutionQuery
             }
-            onSelectIndex={
-              investigateIsInsider
-                ? setInsiderIdx
-                : investigateIsPoliticians
-                  ? setPoliticiansIdx
-                  : setInstitutionsIdx
-            }
+            onSelectIndex={onInvestigateFeedSelectIndex}
           />
           <CaseKvFeed
             title="CASE"
+            panelClassName={phonePaneHiddenClass(isPhone, investigatePhonePane, 'case')}
             rows={
               investigateIsInsider
                 ? insiderCaseFeedRows
@@ -11294,7 +11272,7 @@ function KensiglineTerminal() {
           <ResearchTickerPanel
             intelMode={intelMode}
             selectedTicker={researchTicker}
-            onSelectTicker={setResearchTicker}
+            onSelectTicker={onResearchSelectTicker}
             q={researchQuery}
             onQuery={setResearchQuery}
             filtered={researchFeedAfterSourceFilter}
@@ -11308,7 +11286,12 @@ function KensiglineTerminal() {
             feedFilterOpen={researchFeedFilterOpen}
             onFeedFilterClick={onResearchFeedFilterClick}
             feedFilterPicker={researchFeedFilterPickerEl}
-            panelClassName="researchFeedSlot"
+            panelClassName={[
+              'researchFeedSlot',
+              phonePaneHiddenClass(isPhone, researchPhonePane, 'feed'),
+            ]
+              .filter(Boolean)
+              .join(' ')}
           />
 
           <ResearchPaperPanel
@@ -11329,7 +11312,12 @@ function KensiglineTerminal() {
             priceSeries={researchPriceSeries}
             insiderPriceMarkers={insiderPriceMarkers}
             politicianPriceMarkers={politicianPriceMarkers}
-            panelClassName="mainMainBlank"
+            panelClassName={[
+              'mainMainBlank',
+              phonePaneHiddenClass(isPhone, researchPhonePane, 'paper'),
+            ]
+              .filter(Boolean)
+              .join(' ')}
           />
 
           <MainContextPanel
@@ -11361,6 +11349,7 @@ function KensiglineTerminal() {
             runway={contextRunway}
             backendUp={backendUp}
             contextOutcomesLive={contextOutcomesLive}
+            panelClassName={phonePaneHiddenClass(isPhone, researchPhonePane, 'context')}
           />
         </>
       ) : null}
@@ -11368,7 +11357,15 @@ function KensiglineTerminal() {
       {/* Explore tab removed; Research panels live inside MAIN now. */}
 
       {investigateOpen ? (
-        <div className="investigateRightStack scrollThin">
+        <div
+          className={[
+            'investigateRightStack',
+            'scrollThin',
+            phonePaneHiddenClass(isPhone, investigatePhonePane, 'chart'),
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           <GraphPanel
             key={selectedTicker ?? 'none'}
             title={chartPanelTitle}
@@ -11407,6 +11404,78 @@ function KensiglineTerminal() {
         </div>
       ) : null}
       </main>
+      {isPhone ? (
+        <div className="terminalPhoneBottom">
+          {activeTab === 'main' ? (
+            <PhoneSubNav
+              className="phoneModeNav"
+              items={RESEARCH_INTEL_MODES_PHONE}
+              value={intelMode}
+              onChange={setIntelMode}
+              ariaLabel="Intelligence mode"
+            />
+          ) : null}
+          {activeTab === 'investigate' ? (
+            <PhoneSubNav
+              className="phoneModeNav"
+              items={INVESTIGATE_MODES_PHONE}
+              value={investigateMode}
+              onChange={setInvestigateMode}
+              ariaLabel="Investigate mode"
+            />
+          ) : null}
+          {activeTab === 'main' ? (
+            <PhoneSubNav
+              items={RESEARCH_PHONE_PANES}
+              value={researchPhonePane}
+              onChange={setResearchPhonePane}
+              ariaLabel="Research panels"
+            />
+          ) : null}
+          {activeTab === 'investigate' ? (
+            <PhoneSubNav
+              items={INVESTIGATE_PHONE_PANES}
+              value={investigatePhonePane}
+              onChange={setInvestigatePhonePane}
+              ariaLabel="Investigate panels"
+            />
+          ) : null}
+          {activeTab === 'discover' ? (
+            <PhoneSubNav
+              items={DISCOVER_PHONE_PANES}
+              value={discoverPhonePane}
+              onChange={setDiscoverPhonePane}
+              ariaLabel="Discover panels"
+            />
+          ) : null}
+          <nav className="sideTabsRail" aria-label="Views">
+            <button
+              type="button"
+              className={activeTab === 'main' ? 'sideTab isActive' : 'sideTab'}
+              aria-current={activeTab === 'main' ? 'page' : undefined}
+              onClick={() => setActiveTab('main')}
+            >
+              <span className="sideTabLabel">Research</span>
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'discover' ? 'sideTab isActive' : 'sideTab'}
+              aria-current={activeTab === 'discover' ? 'page' : undefined}
+              onClick={() => setActiveTab('discover')}
+            >
+              <span className="sideTabLabel">Discover</span>
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'investigate' ? 'sideTab isActive' : 'sideTab'}
+              aria-current={activeTab === 'investigate' ? 'page' : undefined}
+              onClick={() => setActiveTab('investigate')}
+            >
+              <span className="sideTabLabel">Investigate</span>
+            </button>
+          </nav>
+        </div>
+      ) : null}
       </div>
     </div>
   )

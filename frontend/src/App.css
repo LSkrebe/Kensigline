@@ -1322,6 +1322,15 @@
   object-position: center 22%;
 }
 
+.researchPaperTxnThumb--logo,
+.casePersonHeaderPhoto--logo {
+  object-fit: contain;
+  object-position: center center;
+  padding: 4px;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.94);
+}
+
 .researchPaperTxnCardName {
   font-size: 11.5px;
   font-weight: 500;
@@ -1964,6 +1973,7 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
   overflow-x: hidden;
   overflow-y: auto;
 }
@@ -1972,9 +1982,9 @@
 .terminal--politicians .companyTile .contextCompanyCard,
 .terminal--institutions .companyTile .contextCompanyCard
 {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
-  height: 100%;
+  height: auto;
   margin: 0;
   padding: 12px 12px 10px;
   border: 1px solid rgba(255, 255, 255, 0.09);
@@ -1983,6 +1993,8 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
+  gap: 0;
 }
 
 .terminal--insider .companyTile .contextCompanyTopRow,
@@ -2042,11 +2054,18 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: auto;
+  margin-top: 8px;
   padding: 8px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
   background: var(--panel-corner-wash-compact-a), var(--panel-corner-wash-compact-b), var(--context-surface-inset);
+}
+
+.terminal--insider .companyTile .contextCompanyMeta:last-of-type,
+.terminal--politicians .companyTile .contextCompanyMeta:last-of-type,
+.terminal--institutions .companyTile .contextCompanyMeta:last-of-type
+{
+  margin-bottom: 0;
 }
 
 .terminal--insider .companyTile .contextCompanyEarningsK,
@@ -2123,7 +2142,10 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  justify-content: flex-start;
+  gap: 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowChartHeader,
@@ -2254,12 +2276,12 @@
 {
   position: relative;
   z-index: 1;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   width: 100%;
-  min-height: 0;
-  height: auto;
-  max-height: none;
-  margin: 0 0 6px;
+  min-height: 80px;
+  height: clamp(80px, 11cqmin, 112px);
+  max-height: 112px;
+  margin: 0;
   padding: 0;
   box-sizing: border-box;
   overflow: visible;
@@ -2272,7 +2294,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 0;
+  min-height: 80px;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowOutcomePath,
@@ -6227,9 +6249,10 @@ button.researchPaperCopyIcon:focus-visible {
   grid-row: 1 / span 4;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) minmax(0, 0.48fr);
+  grid-template-rows: minmax(0, 1fr) minmax(200px, 0.58fr);
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
   container-type: normal;
 }
 
@@ -6262,9 +6285,10 @@ button.researchPaperCopyIcon:focus-visible {
   grid-row: 1 / span 4;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) minmax(0, 0.48fr);
+  grid-template-rows: minmax(0, 1fr) minmax(200px, 0.58fr);
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
   container-type: normal;
 }
 
@@ -7282,7 +7306,8 @@ button.researchPaperCopyIcon:focus-visible {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .terminal--insider .historicalOutcomes--market .worksheetBody,
@@ -8878,7 +8903,7 @@ body {
   line-height: 1.35;
 }
 
-/* ---- Responsive: fluid shrink + narrow-window layout ---- */
+/* ---- Responsive: fluid type tokens only on desktop; phone layout at bottom ---- */
 .feedCompactTitle,
 .graph .panelTitle,
 .panelTitle {
@@ -8891,193 +8916,7 @@ body {
   font-size: var(--fs-meta);
 }
 
-@media (max-width: 1320px) {
-  .terminalTopBar:has(.terminalIntelSwitch--insider) .terminalTopBarDate,
-  .terminalTopBar:has(.terminalIntelSwitch--politicians) .terminalTopBarDate,
-  .terminalTopBar:has(.terminalIntelSwitch--institutions) .terminalTopBarDate {
-    display: none;
-  }
-}
-
-/* Research: drop context below paper so it gets usable width */
-@media (max-width: 1280px) {
-  .terminal.terminal--main {
-    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
-    grid-template-rows: minmax(0, 1fr) minmax(0, min(42vh, 380px));
-  }
-
-  .terminal--main .researchFeedSlot,
-  .terminal--main .researchTicker.researchFeedSlot {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-  }
-
-  .terminal--main .mainMainBlank,
-  .terminal--main .researchPaper.mainMainBlank {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .terminal--main .mainContextPanel {
-    grid-column: 2;
-    grid-row: 2;
-    min-height: 0;
-  }
-}
-
-/* Investigate right column — sub-grid on wide; scrollable stack on narrow */
-.investigateRightStack > .graph,
-.investigateRightStack > .historicalOutcomes,
-.investigateRightStack > .companyTile {
-  container-type: normal;
-}
-
-@media (max-width: 1400px) {
-  .terminal.terminal--investigate.terminal--insider,
-  .terminal.terminal--insider,
-  .terminal.terminal--investigate.terminal--politicians,
-  .terminal.terminal--investigate.terminal--institutions,
-  .terminal.terminal--politicians,
-  .terminal.terminal--institutions {
-    grid-template-columns:
-      var(--terminal-feed-track)
-      minmax(0, 1.05fr)
-      minmax(0, 2fr);
-    grid-template-rows: minmax(0, 1fr);
-  }
-
-  .terminal--insider .feed--left,
-  .terminal--politicians .feed--left,
-  .terminal--institutions .feed--left,
-  .terminal--insider .feed--right,
-  .terminal--politicians .feed--right,
-  .terminal--institutions .feed--right {
-    grid-row: 1;
-  }
-
-  .terminal--insider .investigateRightStack,
-  .terminal--politicians .investigateRightStack,
-  .terminal--institutions .investigateRightStack {
-    display: flex;
-    flex-direction: column;
-    grid-column: 3;
-    grid-row: 1;
-    grid-template-columns: unset;
-    grid-template-rows: unset;
-    min-height: 0;
-    min-width: 0;
-    gap: 10px;
-    padding: 0 0 10px;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-  }
-
-  .terminal--insider .investigateRightStack > .graph,
-  .terminal--politicians .investigateRightStack > .graph,
-  .terminal--institutions .investigateRightStack > .graph,
-  .terminal--insider .investigateRightStack > .historicalOutcomes,
-  .terminal--politicians .investigateRightStack > .historicalOutcomes,
-  .terminal--institutions .investigateRightStack > .historicalOutcomes,
-  .terminal--insider .investigateRightStack > .companyTile,
-  .terminal--politicians .investigateRightStack > .companyTile,
-  .terminal--institutions .investigateRightStack > .companyTile {
-    grid-column: unset;
-    grid-row: unset;
-    flex: 0 0 auto;
-    width: 100%;
-    height: auto;
-    min-height: 0;
-    overflow: visible;
-    container-type: normal;
-    align-self: stretch;
-  }
-
-  .investigateRightStack .graph .panelHeader {
-    flex: 0 0 auto;
-  }
-
-  .terminal--insider .investigateRightStack .historicalOutcomes,
-  .terminal--politicians .investigateRightStack .historicalOutcomes,
-  .terminal--institutions .investigateRightStack .historicalOutcomes {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .terminal--insider .investigateRightStack .companyTile,
-  .terminal--politicians .investigateRightStack .companyTile,
-  .terminal--institutions .investigateRightStack .companyTile {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .terminal--insider .investigateRightStack .graph .graphWrap,
-  .terminal--politicians .investigateRightStack .graph .graphWrap,
-  .terminal--institutions .investigateRightStack .graph .graphWrap {
-    flex: 0 0 auto;
-    height: clamp(168px, 22vh, 200px);
-    min-height: 0;
-    max-height: 200px;
-  }
-
-  .terminal--insider .investigateRightStack .historicalOutcomes .worksheetBody,
-  .terminal--politicians .investigateRightStack .historicalOutcomes .worksheetBody,
-  .terminal--institutions .investigateRightStack .historicalOutcomes .worksheetBody,
-  .terminal--insider .investigateRightStack .historicalOutcomes .contextFlowList,
-  .terminal--politicians .investigateRightStack .historicalOutcomes .contextFlowList,
-  .terminal--institutions .investigateRightStack .historicalOutcomes .contextFlowList {
-    flex: 0 0 auto;
-    height: auto;
-    min-height: 0;
-    overflow: visible;
-  }
-
-  .terminal--insider .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart,
-  .terminal--politicians .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart,
-  .terminal--institutions .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart {
-    flex: 0 0 auto;
-    height: 132px;
-    min-height: 0;
-    max-height: 132px;
-  }
-
-  .terminal--insider .investigateRightStack .historicalOutcomes .contextFlowOutcomeSvg,
-  .terminal--politicians .investigateRightStack .historicalOutcomes .contextFlowOutcomeSvg,
-  .terminal--institutions .investigateRightStack .historicalOutcomes .contextFlowOutcomeSvg {
-    min-height: 0;
-    height: 100%;
-  }
-
-  .terminal--insider .investigateRightStack .companyTile .companyTileBody,
-  .terminal--politicians .investigateRightStack .companyTile .companyTileBody,
-  .terminal--institutions .investigateRightStack .companyTile .companyTileBody {
-    flex: 0 0 auto;
-    height: auto;
-    overflow: visible;
-  }
-
-  .terminal--insider .investigateRightStack .companyTile .contextCompanyCard,
-  .terminal--politicians .investigateRightStack .companyTile .contextCompanyCard,
-  .terminal--institutions .investigateRightStack .companyTile .contextCompanyCard {
-    flex: 0 0 auto;
-    height: auto;
-    min-height: 0;
-  }
-
-  .terminal--insider .investigateRightStack .companyTile .contextCompanyMeta:last-of-type,
-  .terminal--politicians .investigateRightStack .companyTile .contextCompanyMeta:last-of-type,
-  .terminal--institutions .investigateRightStack .companyTile .contextCompanyMeta:last-of-type {
-    margin-bottom: 6px;
-  }
-
-  .terminal--insider .investigateRightStack .companyTile .contextCompanyEarnings,
-  .terminal--politicians .investigateRightStack .companyTile .contextCompanyEarnings,
-  .terminal--institutions .investigateRightStack .companyTile .contextCompanyEarnings {
-    margin-top: 6px;
-  }
-}
-
-/* Context panel — compact tables when the column is still narrow */
+/* Context panel — compact tables when the column is physically narrow (desktop resize) */
 @container context-panel (max-width: 420px) {
   .terminal--main .mainContextPanel .contextFundamentalsGrid {
     grid-template-columns: minmax(0, 1fr) repeat(2, minmax(0, 1fr));
@@ -9143,31 +8982,564 @@ body {
   }
 }
 
-@media (max-width: 820px) {
-  .terminalIntelSwitchBtn {
-    padding: 0 4px;
-    letter-spacing: 0.1em;
+.investigateRightStack > .graph,
+.investigateRightStack > .historicalOutcomes,
+.investigateRightStack > .companyTile {
+  container-type: normal;
+}
+
+/* Full desktop — bottom investigate panels fill the grid row */
+@media (min-width: 1041px) {
+  .terminal--investigate .investigateRightStack > .historicalOutcomes,
+  .terminal--insider .investigateRightStack > .historicalOutcomes,
+  .terminal--politicians .investigateRightStack > .historicalOutcomes,
+  .terminal--institutions .investigateRightStack > .historicalOutcomes,
+  .terminal--investigate .investigateRightStack > .companyTile,
+  .terminal--insider .investigateRightStack > .companyTile,
+  .terminal--politicians .investigateRightStack > .companyTile,
+  .terminal--institutions .investigateRightStack > .companyTile {
+    height: 100%;
+    min-height: 0;
+    align-self: stretch;
+  }
+
+  .terminal--investigate .investigateRightStack .historicalOutcomes .worksheetBody,
+  .terminal--insider .investigateRightStack .historicalOutcomes .worksheetBody,
+  .terminal--politicians .investigateRightStack .historicalOutcomes .worksheetBody,
+  .terminal--institutions .investigateRightStack .historicalOutcomes .worksheetBody,
+  .terminal--investigate .investigateRightStack .companyTile .companyTileBody,
+  .terminal--insider .investigateRightStack .companyTile .companyTileBody,
+  .terminal--politicians .investigateRightStack .companyTile .companyTileBody,
+  .terminal--institutions .investigateRightStack .companyTile .companyTileBody {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .terminal--investigate .investigateRightStack .historicalOutcomes .contextFlowList,
+  .terminal--insider .investigateRightStack .historicalOutcomes .contextFlowList,
+  .terminal--politicians .investigateRightStack .historicalOutcomes .contextFlowList,
+  .terminal--institutions .investigateRightStack .historicalOutcomes .contextFlowList {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .terminal--investigate .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart,
+  .terminal--insider .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart,
+  .terminal--politicians .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart,
+  .terminal--institutions .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 80px;
+    max-height: none;
+  }
+
+  .terminal--investigate .investigateRightStack .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson,
+  .terminal--insider .investigateRightStack .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson,
+  .terminal--politicians .investigateRightStack .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson,
+  .terminal--institutions .investigateRightStack .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson {
+    margin-top: auto;
+  }
+
+  .terminal--investigate .investigateRightStack .companyTile .contextCompanyCard,
+  .terminal--insider .investigateRightStack .companyTile .contextCompanyCard,
+  .terminal--politicians .investigateRightStack .companyTile .contextCompanyCard,
+  .terminal--institutions .investigateRightStack .companyTile .contextCompanyCard {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .terminal--investigate .investigateRightStack .companyTile .contextCompanyEarnings,
+  .terminal--insider .investigateRightStack .companyTile .contextCompanyEarnings,
+  .terminal--politicians .investigateRightStack .companyTile .contextCompanyEarnings,
+  .terminal--institutions .investigateRightStack .companyTile .contextCompanyEarnings {
+    margin-top: auto;
   }
 }
 
-@media (max-width: 640px) {
-  .terminalTopBar {
-    padding: 0 6px 0 4px;
-    gap: 4px;
+/* Investigate chart stack — compact desktop: stack + scroll full right column */
+@media (max-width: 1040px) and (min-width: 641px) {
+  .terminal--investigate.terminal--insider .investigateRightStack,
+  .terminal--investigate.terminal--politicians .investigateRightStack,
+  .terminal--investigate.terminal--institutions .investigateRightStack,
+  .terminal--insider .investigateRightStack,
+  .terminal--politicians .investigateRightStack,
+  .terminal--institutions .investigateRightStack {
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    grid-template-columns: unset;
+    grid-template-rows: unset;
+    gap: 0;
   }
 
-  .terminalTopBarDate {
+  .terminal--investigate .investigateRightStack > .graph,
+  .terminal--insider .investigateRightStack > .graph,
+  .terminal--politicians .investigateRightStack > .graph,
+  .terminal--institutions .investigateRightStack > .graph {
+    flex: 0 0 auto;
+    width: 100%;
+    height: clamp(260px, 34vh, 400px);
+    max-height: clamp(260px, 34vh, 400px);
+    grid-column: unset;
+    grid-row: unset;
+  }
+
+  .terminal--investigate .investigateRightStack > .graph .graphWrap,
+  .terminal--insider .investigateRightStack > .graph .graphWrap,
+  .terminal--politicians .investigateRightStack > .graph .graphWrap,
+  .terminal--institutions .investigateRightStack > .graph .graphWrap {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .terminal--investigate .investigateRightStack > .historicalOutcomes,
+  .terminal--insider .investigateRightStack > .historicalOutcomes,
+  .terminal--politicians .investigateRightStack > .historicalOutcomes,
+  .terminal--institutions .investigateRightStack > .historicalOutcomes {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 200px;
+    grid-column: unset;
+    grid-row: unset;
+  }
+
+  .terminal--investigate .investigateRightStack > .companyTile,
+  .terminal--insider .investigateRightStack > .companyTile,
+  .terminal--politicians .investigateRightStack > .companyTile,
+  .terminal--institutions .investigateRightStack > .companyTile {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 168px;
+    grid-column: unset;
+    grid-row: unset;
+  }
+}
+
+/* ---- Phone layout (≤640px) — dedicated single-column views per tab ---- */
+@media (max-width: 640px) {
+  .terminalShell--phone {
+    --tabrail-w: 100%;
+    --feed-header-h: 30px;
+    --fs-title: 10px;
+    --fs-meta: 9px;
+    --fs-body: 11px;
+    --phone-chrome-btn-h: 40px;
+  }
+
+  .terminalShell--phone .terminalTopBar {
+    padding: 0 8px 0 6px;
+    gap: 6px;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .terminalShell--phone .terminalTopBarCenter {
     display: none;
   }
 
-  .discoverAgendaRow--ahead,
-  .discoverAgendaRow--recent {
+  .terminalShell--phone .terminalTopBarEnd {
+    grid-column: 2;
+    justify-content: flex-end;
+  }
+
+  .terminalShell--phone .terminalTopBarDate {
+    display: none;
+  }
+
+  .terminalShell--phone .terminalTopBarName {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+  }
+
+  .terminalShell--phone .terminalTopBarLogo {
+    width: 20px;
+    height: 20px;
+  }
+
+  .terminalShell--phone .terminalWorkspace {
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .terminalShell--phone .terminal {
+    order: 1;
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
+    border-left: none;
+    border-right: none;
+  }
+
+  .terminalShell--phone .terminalPhoneBottom {
+    flex: 0 0 auto;
+    order: 2;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border-top: 1px solid var(--grid);
+    background: rgba(5, 6, 7, 0.98);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .terminalShell--phone .terminalPhoneBottom .phoneSubNav + .phoneSubNav,
+  .terminalShell--phone .terminalPhoneBottom .phoneSubNav + .sideTabsRail,
+  .terminalShell--phone .terminalPhoneBottom .sideTabsRail {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  /* Bottom tab bar (was left rail) */
+  .terminalShell--phone .sideTabsRail {
+    flex: 0 0 auto;
+    flex-direction: row;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    border: none;
+    background: transparent;
+    padding-bottom: 0;
+  }
+
+  .terminalShell--phone .sideTab {
+    flex: 1 1 0;
+    min-height: var(--phone-chrome-btn-h);
+    height: var(--phone-chrome-btn-h);
+    border-bottom: none;
+    border-right: 1px solid var(--grid);
+    padding: 0 6px;
+    box-sizing: border-box;
+  }
+
+  .terminalShell--phone .sideTab:last-child {
+    border-right: none;
+  }
+
+  .terminalShell--phone .sideTabLabel,
+  .terminalShell--phone .sideTabLabel--investigate {
+    transform: none;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* Sub-panel + mode switcher (Feed / Paper / Context, Market / Clinical, etc.) */
+  .terminalShell--phone .phoneSubNav {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: rgba(8, 9, 11, 0.96);
+    backdrop-filter: blur(8px);
+  }
+
+  .terminalShell--phone .phoneSubNavBtn {
+    flex: 1 1 0;
+    margin: 0;
+    min-height: var(--phone-chrome-btn-h);
+    height: var(--phone-chrome-btn-h);
+    padding: 0 6px;
+    box-sizing: border-box;
+    border: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.52);
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .terminalShell--phone .phoneSubNavBtn:last-child {
+    border-right: none;
+  }
+
+  .terminalShell--phone .phoneSubNavBtn.isActive {
+    color: var(--hi);
+    background: var(--intel-accent-surface);
+    box-shadow: inset 0 -2px 0 var(--cyan);
+  }
+
+  .terminalShell--phone .sideTab.isActive {
+    color: var(--hi);
+    background: var(--intel-accent-surface);
+    box-shadow: inset 0 -2px 0 var(--cyan);
+  }
+
+  .terminalShell--phone .phonePane--hidden {
+    display: none !important;
+  }
+
+  /* Research — one pane at a time */
+  .terminalShell--phone .terminal.terminal--main {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .terminalShell--phone .terminal--main .researchFeedSlot,
+  .terminalShell--phone .terminal--main .researchTicker.researchFeedSlot,
+  .terminalShell--phone .terminal--main .mainMainBlank,
+  .terminalShell--phone .terminal--main .researchPaper.mainMainBlank,
+  .terminalShell--phone .terminal--main .mainContextPanel {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+  }
+
+  /* Investigate — one pane at a time */
+  .terminalShell--phone .terminal.terminal--investigate.terminal--insider,
+  .terminalShell--phone .terminal.terminal--insider,
+  .terminalShell--phone .terminal.terminal--investigate.terminal--politicians,
+  .terminalShell--phone .terminal.terminal--investigate.terminal--institutions,
+  .terminalShell--phone .terminal.terminal--politicians,
+  .terminalShell--phone .terminal.terminal--institutions {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .terminalShell--phone .terminal--investigate .feed--left,
+  .terminalShell--phone .terminal--investigate .feed--right,
+  .terminalShell--phone .terminal--insider .feed--left,
+  .terminalShell--phone .terminal--insider .feed--right,
+  .terminalShell--phone .terminal--politicians .feed--left,
+  .terminalShell--phone .terminal--politicians .feed--right,
+  .terminalShell--phone .terminal--institutions .feed--left,
+  .terminalShell--phone .terminal--institutions .feed--right,
+  .terminalShell--phone .investigateRightStack {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  /* Chart pane: vertical stack scroll */
+  .terminalShell--phone .investigateRightStack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 0 10px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    container-type: normal;
+  }
+
+  .terminalShell--phone .investigateRightStack > .graph,
+  .terminalShell--phone .investigateRightStack > .historicalOutcomes,
+  .terminalShell--phone .investigateRightStack > .companyTile {
+    grid-column: unset;
+    grid-row: unset;
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    align-self: stretch;
+  }
+
+  .terminalShell--phone .investigateRightStack .graph .graphWrap {
+    flex: 0 0 auto;
+    height: clamp(200px, 36vh, 280px);
+    min-height: 200px;
+    max-height: 280px;
+  }
+
+  .terminalShell--phone .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart {
+    flex: 0 0 auto;
+    height: 140px;
+    min-height: 140px;
+    max-height: 140px;
+  }
+
+  .terminalShell--phone .investigateRightStack .historicalOutcomes .worksheetBody,
+  .terminalShell--phone .investigateRightStack .historicalOutcomes .contextFlowList,
+  .terminalShell--phone .investigateRightStack .companyTile .companyTileBody {
+    flex: 0 0 auto;
+    height: auto;
+    overflow: visible;
+  }
+
+  .terminalShell--phone .investigateRightStack .companyTile .contextCompanyCard {
+    height: auto;
+    flex: 0 0 auto;
+  }
+
+  .terminalShell--phone .investigateRightStack .companyTile .contextCompanyEarnings {
+    margin-top: 0;
+  }
+
+  .terminalShell--phone .investigateRightStack .companyTile .contextCompanyMeta:last-of-type {
+    margin-bottom: 6px;
+  }
+
+  /* Discover — one pane at a time */
+  .terminalShell--phone .terminal--discover .discoverPanelBody {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .terminalShell--phone .terminal--discover .discoverPanelSplit--horizontal,
+  .terminalShell--phone .terminal--discover .discoverSplitRule {
+    display: none;
+  }
+
+  .terminalShell--phone .terminal--discover .discoverDual {
+    display: contents;
+  }
+
+  .terminalShell--phone .terminal--discover .discoverMacroStrip,
+  .terminalShell--phone .terminal--discover .discoverDual > .discoverCol {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+    max-height: none;
+    border-bottom: none;
+  }
+
+  .terminalShell--phone .terminal--discover .discoverMacroStripScroll {
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+  }
+
+  .terminalShell--phone .terminal--discover .discoverMacroWeek.discoverMacroWeek--horizontal {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto;
+    min-height: min-content;
+  }
+
+  .terminalShell--phone .terminal--discover .discoverMacroDay--col {
+    flex: 0 0 auto;
+    min-height: 0;
+  }
+
+  .terminalShell--phone .terminal--discover .discoverMacroDay--col .discoverMacroDayBody {
+    flex: 0 0 auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .terminalShell--phone .discoverAgendaRow--ahead,
+  .terminalShell--phone .discoverAgendaRow--recent {
     grid-template-columns: minmax(0, 2.8em) minmax(0, 1fr);
     gap: 4px 6px;
   }
 
-  .discoverAgendaRow--ahead .discoverAgendaWhen:nth-child(2),
-  .discoverAgendaRow--recent .discoverAgendaWhen:nth-child(2) {
+  .terminalShell--phone .discoverAgendaRow--ahead .discoverAgendaWhen:nth-child(2),
+  .terminalShell--phone .discoverAgendaRow--recent .discoverAgendaWhen:nth-child(2) {
     display: none;
+  }
+
+  /* Settings — stacked panels (account, subscription, invoices) */
+  .terminalShell--phone .terminal.terminal--settings {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    grid-template-columns: unset;
+    grid-template-rows: unset;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .terminalShell--phone .terminal.terminal--settings::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .terminalShell--phone .terminal--settings .settingsTopRow {
+    display: contents;
+  }
+
+  .terminalShell--phone .terminal--settings .settingsAccountPanel,
+  .terminalShell--phone .terminal--settings .settingsSubscriptionPanel,
+  .terminalShell--phone .terminal--settings .settingsInvoicesPanel,
+  .terminalShell--phone .terminal--settings .settingsSignInPanel {
+    flex: 0 0 auto;
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    grid-column: unset;
+    grid-row: unset;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .terminalShell--phone .terminal--settings .settingsInvoicesPanel,
+  .terminalShell--phone .terminal--settings .settingsSignInPanel {
+    flex: 1 1 auto;
+    min-height: min(42vh, 360px);
+    border-bottom: none;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .terminalShell--phone .terminal--settings .settingsAccountPanel,
+  .terminalShell--phone .terminal--settings .settingsSubscriptionPanel {
+    display: flex;
+    flex-direction: column;
+    grid-template-rows: unset;
+  }
+
+  .terminalShell--phone .settingsAccountPanel .settingsPanelBody,
+  .terminalShell--phone .settingsSubscriptionPanel .settingsPanelBody {
+    overflow: visible;
+    min-height: 0;
+    flex: 0 0 auto;
+  }
+
+  .terminalShell--phone .settingsInvoicesPanel .settingsPanelBody--invoices {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-x: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .terminalShell--phone .settingsInvoicesPanel .settingsPanelBody--invoices::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .terminalShell--phone .terminal--settings .settingsSignInPanel .settingsPanelBody {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .terminalShell--phone .terminal--settings .settingsSignInPanel .settingsPanelBody::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
+  .terminalShell--phone .settingsInvoiceList {
+    --settings-invoice-cols: 104px 84px 76px 168px 36px;
+    flex: 0 0 auto;
+    min-width: 488px;
+    width: max-content;
+    max-width: none;
+    overflow: visible;
+  }
+
+  .terminalShell--phone .settingsInvoiceCell {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
   }
 }

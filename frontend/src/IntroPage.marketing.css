@@ -1280,3 +1280,260 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Phone (≤640px) — intro, subscribe, terminal teaser ---- */
+@media (max-width: 640px) {
+  .introPage {
+    --intro-gutter: 16px;
+    --intro-demo-max: 100%;
+    scroll-padding-top: 64px;
+  }
+
+  .introNavInner {
+    padding: 10px var(--intro-gutter);
+    gap: 10px;
+  }
+
+  .introBrandName {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+  }
+
+  .introNavCta {
+    height: 30px;
+    padding: 0 12px;
+    font-size: 9px;
+    flex-shrink: 0;
+  }
+
+  .introPage .introMain {
+    padding-top: 12px;
+    padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mktHero {
+    padding: 28px 0 20px;
+  }
+
+  .mktHeroTitle {
+    font-size: clamp(1.65rem, 8.2vw, 2.15rem);
+    line-height: 1.1;
+  }
+
+  .mktHeroLead,
+  .mktSubscribeLead {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .introHeroActions.mktHeroActions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 300px;
+    margin-inline: auto;
+    gap: 10px;
+  }
+
+  .introHeroActions.mktHeroActions .introBtn {
+    width: 100%;
+  }
+
+  .introBtn--lg {
+    height: 42px;
+  }
+
+  .mktHeroDemo {
+    margin-top: 28px;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .mktHeroDemoHint {
+    font-size: 8px;
+    padding: 0 4px;
+  }
+
+  /* Terminal teaser — phone-shaped preview (paper + bottom tabs) */
+  .mktTeaser {
+    --mkt-topbar-h: 28px;
+    --mkt-tabrail-w: 100%;
+    height: clamp(320px, 54vh, 400px);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .mktTeaserShell {
+    border-radius: 8px;
+  }
+
+  .mktTeaserTopBar {
+    padding: 0 8px;
+    gap: 4px;
+  }
+
+  .mktTeaserLogo {
+    width: 18px;
+    height: 18px;
+  }
+
+  .mktTeaserBrandName {
+    font-size: 8px;
+    letter-spacing: 0.14em;
+  }
+
+  .mktTeaserClock,
+  .mktTeaserSettingsIcon {
+    display: none;
+  }
+
+  .mktTeaserIntelBtn {
+    font-size: 6px;
+    letter-spacing: 0.05em;
+    padding: 0 4px;
+  }
+
+  .mktTeaserIntelSep,
+  .mktTeaserIntelBtn:not(.isActive) {
+    display: none;
+  }
+
+  .mktTeaserWorkspace {
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .mktTeaserGrid {
+    order: 1;
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    border-left: none;
+  }
+
+  .mktTeaserPanel--feed,
+  .mktTeaserPanel--context {
+    display: none;
+  }
+
+  .mktTeaserPanel--paper {
+    grid-column: 1;
+    grid-row: 1;
+    border-right: none;
+  }
+
+  .mktTeaserSideRail {
+    order: 2;
+    flex: 0 0 auto;
+    flex-direction: row;
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-top: 1px solid var(--mkt-grid);
+  }
+
+  .mktTeaserSideTab {
+    flex: 1 1 0;
+    min-height: 30px;
+    border-bottom: none;
+    border-right: 1px solid var(--mkt-grid);
+  }
+
+  .mktTeaserSideTab:last-child {
+    border-right: none;
+  }
+
+  .mktTeaserSideTabLabel,
+  .mktTeaserSideTabLabel--investigate {
+    transform: none;
+    font-size: 6px;
+    letter-spacing: 0.1em;
+  }
+
+  .mktTeaserPanelHead {
+    padding: 0 8px;
+  }
+
+  .mktTeaserPanelTitle,
+  .mktTeaserPaperTicker {
+    font-size: 8px;
+  }
+
+  .mktTeaserFeedSearch,
+  .mktTeaserFeedList {
+    display: none;
+  }
+
+  .introSection {
+    padding-top: 52px;
+    padding-bottom: 20px;
+    scroll-margin-top: 64px;
+  }
+
+  .mktWorkflowSection {
+    padding-top: 40px;
+  }
+
+  .mktWorkflowStep {
+    padding: 16px;
+  }
+
+  .mktWorkflowStepTitle {
+    font-size: 1rem;
+  }
+
+  .mktWorkflowStepText,
+  .mktProofDetail,
+  .mktFaqA {
+    font-size: 13px;
+  }
+
+  .mktProofStat {
+    font-size: 1.25rem;
+  }
+
+  .mktPlanCard {
+    padding: 20px 18px;
+  }
+
+  .mktPlanAmount {
+    font-size: 1.65rem;
+  }
+
+  .mktFinalCtaInner {
+    padding: 32px 16px;
+  }
+
+  .mktFinalCtaTitle {
+    font-size: 1.35rem;
+  }
+
+  .introModalBackdrop {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .introModal {
+    width: 100%;
+    max-width: none;
+    max-height: min(92dvh, 720px);
+    border-radius: 14px 14px 0 0;
+    border-bottom: none;
+    padding: 22px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .introModalTitle {
+    font-size: 1.1rem;
+    padding-right: 28px;
+  }
+
+  .subscribeMain {
+    padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mktSubscribeHero {
+    padding-top: 16px;
+    margin-bottom: 28px;
+  }
+}

@@ -18,6 +18,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
+      host: '0.0.0.0',
+      port: 5173,
+      // Cloudflare / other dev tunnels use a random *.trycloudflare.com host each run.
+      allowedHosts: true,
       proxy: {
         '/api': { target: apiBase, changeOrigin: true },
         '/health': { target: apiBase, changeOrigin: true },

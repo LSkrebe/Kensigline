@@ -128,6 +128,11 @@ function DiscoverFeedSearch({ value, onChange, placeholder, ariaLabel }) {
   )
 }
 
+function discoverPhonePaneClass(isPhone, activePane, paneId) {
+  if (!isPhone) return ''
+  return activePane === paneId ? '' : 'phonePane--hidden'
+}
+
 function DiscoverFeedColumn({
   title,
   children,
@@ -139,12 +144,13 @@ function DiscoverFeedColumn({
   onFilterClick,
   onFilterToggle,
   filterAriaLabel = 'Filters',
+  panelClassName = '',
 }) {
   const showFilter = Boolean(filterSections?.length)
 
   return (
     <section
-      className={['discoverCol', 'feed', 'feedCompact', showFilter ? 'discoverCol--filter' : '']
+      className={['discoverCol', 'feed', 'feedCompact', showFilter ? 'discoverCol--filter' : '', panelClassName]
         .filter(Boolean)
         .join(' ')}
       aria-label={title}
@@ -247,6 +253,7 @@ function DiscoverMacroStrip({
   onFilterClick,
   onFilterToggle,
   loading = false,
+  panelClassName = '',
 }) {
   const days = useMemo(
     () => filterMacroCalendarDays(macroDays ?? [], { regions: enabledRegions, impacts: enabledImpacts }),
@@ -275,7 +282,7 @@ function DiscoverMacroStrip({
 
   return (
     <section
-      className={['discoverMacroStrip', 'discoverCol', 'feed', 'feedCompact', 'discoverCol--filter']
+      className={['discoverMacroStrip', 'discoverCol', 'feed', 'feedCompact', 'discoverCol--filter', panelClassName]
         .filter(Boolean)
         .join(' ')}
       aria-label="Macro calendar"
@@ -452,7 +459,7 @@ function DiscoverCatalystList({ events, onResearch, loading = false }) {
 const WATCHLIST_FILTER_SECTIONS = [{ types: DISCOVER_WATCHLIST_FILTER_TYPES }]
 const MARKET_MOVE_FILTER_SECTIONS = [{ types: DISCOVER_MARKET_MOVE_FILTER_TYPES }]
 
-export function DiscoverPanel({ backendUp = false, onOpenResearch }) {
+export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = false, phonePane = 'catalyst' }) {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [liveTimeline, setLiveTimeline] = useState(null)
@@ -558,6 +565,7 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch }) {
     <section className="panel discoverPanel" aria-label="Discover">
       <div className="discoverPanelBody">
         <DiscoverMacroStrip
+          panelClassName={discoverPhonePaneClass(isPhone, phonePane, 'macro')}
           macroDays={macroSource}
           enabledRegions={macroRegionFilters}
           enabledImpacts={macroImpactFilters}
@@ -569,6 +577,7 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch }) {
         <div className="discoverPanelSplit discoverPanelSplit--horizontal" aria-hidden="true" />
         <div className="discoverDual">
           <DiscoverFeedColumn
+            panelClassName={discoverPhonePaneClass(isPhone, phonePane, 'catalyst')}
             title="WATCHLIST CATALYST"
             search={watchlistSearch}
             filterSections={WATCHLIST_FILTER_SECTIONS}
@@ -582,6 +591,7 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch }) {
           </DiscoverFeedColumn>
           <div className="discoverSplitRule" aria-hidden="true" />
           <DiscoverFeedColumn
+            panelClassName={discoverPhonePaneClass(isPhone, phonePane, 'moves')}
             title="MARKET MOVES"
             scrollClassName="discoverColScroll--marketMoves"
             filterSections={MARKET_MOVE_FILTER_SECTIONS}

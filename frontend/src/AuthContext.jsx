@@ -16,6 +16,10 @@ export function AuthProvider({ children }) {
       return
     }
     let cancelled = false
+    const bootTimeoutMs = 6000
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) setLoading(false)
+    }, bootTimeoutMs)
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       if (!cancelled) setSession(next ?? null)
@@ -28,15 +32,21 @@ export function AuthProvider({ children }) {
       } catch (e) {
         console.warn('[auth] redirect handling failed', e)
       }
-      const { data } = await supabase.auth.getSession()
-      if (!cancelled) {
-        setSession(data.session ?? null)
-        setLoading(false)
+      try {
+        const { data } = await supabase.auth.getSession()
+        if (!cancelled) {
+          setSession(data.session ?? null)
+          setLoading(false)
+        }
+      } catch (e) {
+        console.warn('[auth] getSession failed', e)
+        if (!cancelled) setLoading(false)
       }
     })()
 
     return () => {
       cancelled = true
+      window.clearTimeout(timeoutId)
       sub.subscription.unsubscribe()
     }
   }, [])

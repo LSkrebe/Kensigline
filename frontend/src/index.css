@@ -156,3 +156,20 @@ body {
     opacity: 0.95;
   }
 }
+
+@media (max-width: 640px) {
+  .appShellScreen {
+    padding: 20px 16px;
+    padding-top: max(20px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .appShellCard {
+    padding: 24px 18px;
+  }
+
+  .appShellError {
+    font-size: 9px;
+    max-height: 8rem;
+  }
+}
