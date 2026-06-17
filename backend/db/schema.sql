@@ -81,7 +81,7 @@ CREATE TABLE ingest_cursors (
 CREATE TABLE alert_preferences (
   user_id text PRIMARY KEY,
   email text NOT NULL,
-  enabled boolean NOT NULL DEFAULT false,
+  enabled boolean NOT NULL DEFAULT true,
   min_grade text NOT NULL DEFAULT 'B',
   timezone text NOT NULL DEFAULT 'UTC',
   morning_hour int NOT NULL DEFAULT 8,

@@ -6,11 +6,13 @@ const PENDING_KEY = 'mercerline:digest-pending'
 const PREFS_EVENT = 'mercerline:digest-prefs'
 
 function readLocalEnabled() {
-  if (typeof window === 'undefined') return false
+  if (typeof window === 'undefined') return true
   try {
-    return window.localStorage.getItem(STORAGE_KEY) === '1'
+    const v = window.localStorage.getItem(STORAGE_KEY)
+    if (v === null) return true
+    return v === '1'
   } catch {
-    return false
+    return true
   }
 }
 

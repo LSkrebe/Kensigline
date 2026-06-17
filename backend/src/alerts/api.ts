@@ -17,7 +17,7 @@ export async function handleAlertsPreferencesGet(req: http.IncomingMessage, res:
   }
   let prefs = await getAlertPreferences(user.sub);
   if (!prefs) {
-    prefs = await upsertAlertPreferences({ userId: user.sub, email: user.email, enabled: false });
+    prefs = await upsertAlertPreferences({ userId: user.sub, email: user.email, enabled: true });
   }
   sendJson(res, 200, { ok: true, preferences: prefs });
 }

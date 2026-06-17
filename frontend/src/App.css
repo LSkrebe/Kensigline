@@ -4597,6 +4597,7 @@
 }
 
 .settingsPage {
+  width: 100%;
   height: 100%;
   min-height: 0;
   overflow-x: hidden;
@@ -4606,9 +4607,10 @@
 }
 
 .settingsPageInner {
-  max-width: 920px;
-  margin: 0 auto;
-  padding: 14px 14px 18px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 14px 18px 18px;
   box-sizing: border-box;
 }
 
@@ -5021,13 +5023,6 @@
   .settingsField {
     grid-template-columns: minmax(80px, 0.38fr) minmax(0, 1fr);
     gap: 10px;
-  }
-}
-
-@media (max-width: 1280px) and (min-width: 721px) {
-  .settingsPageInner {
-    max-width: none;
-    padding: 12px;
   }
 }
 
