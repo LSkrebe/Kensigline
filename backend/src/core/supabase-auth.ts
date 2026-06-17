@@ -1,7 +1,7 @@
 import type http from "node:http";
 import * as jose from "jose";
 
-export type SupabaseJwtUser = { sub: string; email: string | null };
+export type SupabaseJwtUser = { sub: string; email: string | null; billingExempt: boolean };
 
 function jwtIssuer(): string | null {
   const explicit = String(process.env.SUPABASE_JWT_ISSUER ?? "").trim();
@@ -45,11 +45,20 @@ export function bearerToken(req: http.IncomingMessage): string | null {
   return m?.[1] ?? null;
 }
 
+function billingExemptFromAppMetadata(meta: unknown): boolean {
+  if (!meta || typeof meta !== "object") return false;
+  const m = meta as Record<string, unknown>;
+  if (m.billing_exempt === true) return true;
+  if (String(m.role ?? "").trim().toLowerCase() === "owner") return true;
+  return false;
+}
+
 function payloadToUser(payload: jose.JWTPayload): SupabaseJwtUser | null {
   const sub = String(payload.sub ?? "");
   if (!sub) return null;
   const email = payload.email != null ? String(payload.email) : null;
-  return { sub, email };
+  const billingExempt = billingExemptFromAppMetadata(payload.app_metadata);
+  return { sub, email, billingExempt };
 }
 
 const verifyOpts = (issuer: string) => ({

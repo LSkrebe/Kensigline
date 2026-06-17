@@ -1,5 +1,8 @@
 import Stripe from "stripe";
 
+import type { SupabaseJwtUser } from "../core/supabase-auth.js";
+import type { BillingRow } from "./store.js";
+
 export function stripeConfigured(): boolean {
   return Boolean(String(process.env.STRIPE_SECRET_KEY ?? "").trim());
 }
@@ -59,4 +62,33 @@ export function isBillingBypassEmail(email: string | null | undefined): boolean 
   const e = String(email ?? "").trim().toLowerCase();
   if (!e) return false;
   return billingBypassEmails().has(e);
+}
+
+/** Paid sub, Supabase app_metadata comp, or optional server email allowlist. */
+export function hasBillingAccess(user: SupabaseJwtUser, row: BillingRow | null): boolean {
+  if (user.billingExempt) return true;
+  if (isBillingBypassEmail(user.email)) return true;
+  return isActiveStatus(row?.status);
+}
+
+export function billingAccessPayload(user: SupabaseJwtUser) {
+  if (user.billingExempt) {
+    return {
+      ok: true as const,
+      active: true,
+      status: "active",
+      plan: "owner",
+      current_period_end: null,
+    };
+  }
+  if (isBillingBypassEmail(user.email)) {
+    return {
+      ok: true as const,
+      active: true,
+      status: "active",
+      plan: "dev_bypass",
+      current_period_end: null,
+    };
+  }
+  return null;
 }

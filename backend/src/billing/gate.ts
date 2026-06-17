@@ -2,7 +2,7 @@ import type http from "node:http";
 import { URL } from "node:url";
 import { bearerToken, verifySupabaseAccessToken } from "../core/supabase-auth.js";
 import { sendJson } from "../core/http.js";
-import { isActiveStatus, isBillingBypassEmail, stripeConfigured } from "./config.js";
+import { hasBillingAccess, stripeConfigured } from "./config.js";
 import { getBillingByUserId } from "./store.js";
 
 const BILLING_EXEMPT_PATHS = new Set([
@@ -48,10 +48,8 @@ export async function billingGateBlocksRequest(
     return true;
   }
 
-  if (isBillingBypassEmail(user.email)) return false;
-
   const row = await getBillingByUserId(user.sub);
-  if (!isActiveStatus(row?.status)) {
+  if (!hasBillingAccess(user, row)) {
     sendJson(res, 402, { ok: false, error: "subscription_required" });
     return true;
   }

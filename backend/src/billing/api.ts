@@ -3,9 +3,9 @@ import type { SupabaseJwtUser } from "../core/supabase-auth.js";
 import { bearerToken, verifySupabaseAccessToken } from "../core/supabase-auth.js";
 import { json, sendJson } from "../core/http.js";
 import {
+  billingAccessPayload,
   frontendOrigin,
   getStripe,
-  isBillingBypassEmail,
   priceIdForPlan,
   stripeConfigured,
 } from "./config.js";
@@ -45,16 +45,9 @@ export async function handleBillingStatus(req: http.IncomingMessage, res: http.S
     return;
   }
 
-  if (isBillingBypassEmail(user.email)) {
-    sendJson(res, 200, {
-      ok: true,
-      active: true,
-      status: "active",
-      plan: "dev_bypass",
-      current_period_end: null,
-      billing_enabled: true,
-      stripe_configured: true,
-    });
+  const comped = billingAccessPayload(user);
+  if (comped) {
+    sendJson(res, 200, { ...comped, billing_enabled: true, stripe_configured: true });
     return;
   }
 
