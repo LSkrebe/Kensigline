@@ -78,11 +78,38 @@ function isFlowFeedKind(feedKind: string | null | undefined) {
   return fk === "insider" || fk === "politicians" || fk === "institutions";
 }
 
+/** Investigate FEED dollar+count labels (e.g. "$175K (1)" or "175001 (1)") — not card copy. */
+export function isAmountFeedLabel(text: string | null | undefined): boolean {
+  const s = String(text ?? "").trim();
+  if (!s) return false;
+  if (/^\$?[\d.,]+[KMB]?\s*\(\d+\)$/i.test(s)) return true;
+  if (/^\d{3,}\s*\(\d+\)$/.test(s)) return true;
+  return false;
+}
+
+export function flowEventTitle(row: DocumentDiscoverRow): string {
+  const data = row.data as { cluster?: { feed_label?: string | null } } | null;
+  const clusterLabel = String(data?.cluster?.feed_label ?? "").trim();
+  if (clusterLabel && !isAmountFeedLabel(clusterLabel)) return clusterLabel;
+
+  const sk = normalizeResearchPaperSourceKey(row.source_key);
+  const company = String(row.company_name ?? row.ticker ?? "").trim();
+  if (sk === "Form 4" || sk === "Form 3" || sk === "Form 5") {
+    return company ? `Insider activity · ${company}` : "Insider Form 4 activity";
+  }
+  if (sk === "PTR") return company ? `Politician disclosure · ${company}` : "Politician PTR disclosure";
+  if (sk === "13F") return company ? `Institutional 13F · ${company}` : "Institutional 13F filing";
+  return sk || "Flow activity";
+}
+
 export function discoverSummaryText(row: DocumentDiscoverRow): string | null {
   const analysis = String(row.analysis ?? "").trim();
   if (analysis) return truncateDiscoverSummary(analysis, 200);
 
-  const data = row.data as { cluster?: { context_sentences?: unknown[]; feed_label?: string | null } } | null;
+  const data = row.data as {
+    cluster?: { context_sentences?: unknown[]; feed_label?: string | null };
+    issuer?: { name?: string | null };
+  } | null;
   const sentences = data?.cluster?.context_sentences;
   if (Array.isArray(sentences) && sentences.length) {
     const joined = sentences
@@ -92,8 +119,23 @@ export function discoverSummaryText(row: DocumentDiscoverRow): string | null {
     if (joined) return truncateDiscoverSummary(joined, 200);
   }
 
-  const feedLabel = String(data?.cluster?.feed_label ?? row.title ?? "").trim();
-  if (feedLabel && isFlowFeedKind(row.feed_kind)) return truncateDiscoverSummary(feedLabel, 200);
+  const clusterLabel = String(data?.cluster?.feed_label ?? "").trim();
+  if (clusterLabel && !isAmountFeedLabel(clusterLabel) && isFlowFeedKind(row.feed_kind)) {
+    return truncateDiscoverSummary(clusterLabel, 200);
+  }
+
+  if (isFlowFeedKind(row.feed_kind)) {
+    const issuer = String(data?.issuer?.name ?? row.company_name ?? "").trim();
+    const sk = normalizeResearchPaperSourceKey(row.source_key);
+    if (issuer) {
+      if (sk === "Form 4" || sk === "Form 3" || sk === "Form 5") {
+        return truncateDiscoverSummary(`Recent insider filings for ${issuer}.`, 200);
+      }
+      if (sk === "PTR") return truncateDiscoverSummary(`Recent politician disclosures for ${issuer}.`, 200);
+      if (sk === "13F") return truncateDiscoverSummary(`Recent institutional 13F activity for ${issuer}.`, 200);
+    }
+  }
+
   return null;
 }
 
@@ -137,8 +179,10 @@ function scoreDiscoverDocumentRow(row: DocumentDiscoverRow, opts?: { todayCount?
 
 /** Same green-highlight tier as Investigate / Research feed rows. */
 export function discoverEventIsMarketMove(event: DiscoverEvent): boolean {
-  if (!String(event.summary ?? "").trim()) return false;
-  return isIdeaGreenHighlight(event);
+  if (!isIdeaGreenHighlight(event)) return false;
+  if (String(event.summary ?? "").trim()) return true;
+  if (event.kind === "flow" && String(event.title ?? "").trim()) return true;
+  return false;
 }
 
 export function mapDocumentToDiscoverEvent(

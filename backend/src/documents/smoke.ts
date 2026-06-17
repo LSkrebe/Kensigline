@@ -226,7 +226,14 @@ test("discover market move requires green highlight tier", async () => {
   };
   assert.equal(discoverEventIsMarketMove(base), true);
   assert.equal(discoverEventIsMarketMove({ ...base, idea_best: false, idea_score: 88 }), false);
-  assert.equal(discoverEventIsMarketMove({ ...base, summary: "" }), false);
+  assert.equal(
+    discoverEventIsMarketMove({ ...base, idea_best: true, summary: "", title: "Insider activity" }),
+    true,
+  );
+  assert.equal(
+    discoverEventIsMarketMove({ ...base, idea_best: true, summary: "", title: "", kind: "filing" }),
+    false,
+  );
 });
 
 test("discover source filter and query matching", async () => {

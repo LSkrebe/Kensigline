@@ -657,8 +657,10 @@ export function getDiscoverWatchlistEvents(opts = {}) {
 /** Past cards eligible for Market Moves: green-highlight tier (same as Investigate feed). */
 export function isDiscoverMarketMove(event) {
   if (!event) return false
-  if (!String(event.summary ?? '').trim()) return false
-  return Boolean(event.idea_best)
+  if (!event.idea_best) return false
+  if (String(event.summary ?? '').trim()) return true
+  if (event.kind === 'flow' && String(event.title ?? '').trim()) return true
+  return false
 }
 
 /** Past document rows with analysis text for market moves (best-graded only). */

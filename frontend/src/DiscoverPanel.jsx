@@ -371,7 +371,7 @@ function DiscoverMoveCard({ event, movePct, reactionCloses, allowMockFallback = 
       ) : null}
       <div className="discoverMoveCardCopy">
         <p className="discoverMoveCardTitle">{title}</p>
-        {summary ? <EventBriefAnalysis text={summary} /> : null}
+        {summary && summary !== title ? <EventBriefAnalysis text={summary} /> : null}
       </div>
     </button>
   )

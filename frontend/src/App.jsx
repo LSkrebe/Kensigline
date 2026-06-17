@@ -9416,6 +9416,7 @@ function KensiglineTerminal() {
   const [investigatePoliticianTxnFiltersDraft, setInvestigatePoliticianTxnFiltersDraft] = useState(null)
   const [investigateInstitutionTxnFiltersDraft, setInvestigateInstitutionTxnFiltersDraft] = useState(null)
   const tabBeforeSettingsRef = useRef('discover')
+  const researchTickerPinnedRef = useRef(null)
   const terminalMainRef = useRef(null)
 
   // Re-sync charts when crossing the phone breakpoint.
@@ -9762,6 +9763,8 @@ function KensiglineTerminal() {
     if (!backendUp || activeTab !== 'main') return
     if (!researchFeedItems.length) return
     const current = String(researchTicker ?? '').trim().toUpperCase()
+    const pinned = String(researchTickerPinnedRef.current ?? '').trim().toUpperCase()
+    if (pinned && pinned === current) return
     const inFeed = researchFeedItems.some((x) => String(x.ticker ?? '').toUpperCase() === current)
     if (!inFeed) {
       setResearchTicker(String(researchFeedItems[0]?.ticker ?? '').toUpperCase())
@@ -9943,6 +9946,9 @@ function KensiglineTerminal() {
   useEffect(() => {
     // If the current selection falls out of the filter, snap to the first match.
     if (activeTab !== 'main') return
+    const current = String(researchTicker ?? '').trim().toUpperCase()
+    const pinned = String(researchTickerPinnedRef.current ?? '').trim().toUpperCase()
+    if (pinned && pinned === current) return
     if (!researchFeedAfterSourceFilter.length) return
     const ok = researchFeedAfterSourceFilter.some((x) => x.ticker === researchTicker)
     if (!ok) setResearchTicker(researchFeedAfterSourceFilter[0].ticker)
@@ -11137,6 +11143,7 @@ function KensiglineTerminal() {
 
   const onResearchSelectTicker = useCallback(
     (ticker) => {
+      researchTickerPinnedRef.current = null
       setResearchTicker(ticker)
       if (isPhone) setResearchPhonePane('paper')
     },
@@ -11249,6 +11256,7 @@ function KensiglineTerminal() {
             const t = String(ticker ?? '').trim().toUpperCase()
             if (!t) return
             if (intelMode === 'clinical' || intelMode === 'market') setIntelMode(intelMode)
+            researchTickerPinnedRef.current = t
             setResearchTicker(t)
             if (isPhone) setResearchPhonePane('paper')
             setActiveTab('main')

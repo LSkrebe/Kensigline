@@ -14,8 +14,10 @@ import { normalizeResearchPaperSourceKey } from "../shared/source-keys.js";
 import {
   discoverEventIsMarketMove,
   discoverSummaryText,
+  flowEventTitle,
   inferIntelMode,
   isoDayStart,
+  isAmountFeedLabel,
   type DocumentDiscoverRow,
 } from "./map.js";
 import { loadPastDiscoverEvents } from "./past.js";
@@ -43,12 +45,14 @@ function flowDocToRow(doc: {
   program_phase?: string | null;
   industry?: string | null;
 }): DocumentDiscoverRow {
+  const rawTitle = String(doc.title ?? doc.feed_label ?? "").trim();
+  const title = rawTitle && !isAmountFeedLabel(rawTitle) ? rawTitle : null;
   return {
     id: doc.id,
     ticker: String(doc.ticker ?? "").trim().toUpperCase(),
     company_name: doc.company_name ?? null,
     event_at: String(doc.event_at ?? ""),
-    title: doc.title ?? doc.feed_label ?? null,
+    title,
     source_key: doc.source_key,
     feed_kind: doc.feed_kind,
     analysis: doc.analysis ?? null,
@@ -68,16 +72,21 @@ function flowAggToDiscoverEvent(args: {
   sourceKey: string;
   idea: { idea_score: number; idea_best: boolean; idea_reasons: string[] };
 }): DiscoverEvent | null {
-  const row = flowDocToRow(args.latestDoc);
-  const summary = discoverSummaryText(row);
-  if (!summary || !isIdeaGreenHighlight(args.idea)) return null;
+  const row = flowDocToRow({ ...args.latestDoc, company_name: args.companyName });
+  if (!isIdeaGreenHighlight(args.idea)) return null;
+
+  const title = flowEventTitle(row);
+  let summary = discoverSummaryText(row);
+  if (!summary || isAmountFeedLabel(summary) || summary === title) {
+    summary =
+      args.idea.idea_reasons?.length
+        ? args.idea.idea_reasons.slice(0, 2).join(" ")
+        : summary && !isAmountFeedLabel(summary)
+          ? summary
+          : null;
+  }
 
   const source = normalizeResearchPaperSourceKey(args.sourceKey);
-  const title =
-    String(row.title ?? "").trim() ||
-    String(args.latestDoc.feed_label ?? "").trim() ||
-    source ||
-    "Flow activity";
 
   return {
     id: `doc:${row.id}`,
