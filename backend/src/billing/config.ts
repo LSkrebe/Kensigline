@@ -42,3 +42,21 @@ export const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
 export function isActiveStatus(status: string | null | undefined): boolean {
   return ACTIVE_SUBSCRIPTION_STATUSES.has(String(status ?? "").toLowerCase());
 }
+
+/** Comma-separated emails that skip subscription checks (server env only — for prod dev access). */
+export function billingBypassEmails(): Set<string> {
+  const raw = String(process.env.BILLING_BYPASS_EMAILS ?? "").trim();
+  if (!raw) return new Set();
+  return new Set(
+    raw
+      .split(/[,;\s]+/)
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
+  );
+}
+
+export function isBillingBypassEmail(email: string | null | undefined): boolean {
+  const e = String(email ?? "").trim().toLowerCase();
+  if (!e) return false;
+  return billingBypassEmails().has(e);
+}

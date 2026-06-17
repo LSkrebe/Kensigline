@@ -2,7 +2,13 @@ import type http from "node:http";
 import type { SupabaseJwtUser } from "../core/supabase-auth.js";
 import { bearerToken, verifySupabaseAccessToken } from "../core/supabase-auth.js";
 import { json, sendJson } from "../core/http.js";
-import { frontendOrigin, getStripe, priceIdForPlan, stripeConfigured } from "./config.js";
+import {
+  frontendOrigin,
+  getStripe,
+  isBillingBypassEmail,
+  priceIdForPlan,
+  stripeConfigured,
+} from "./config.js";
 import {
   billingStatusPayload,
   getBillingByUserId,
@@ -35,6 +41,19 @@ export async function handleBillingStatus(req: http.IncomingMessage, res: http.S
       plan: null,
       billing_enabled: true,
       stripe_configured: false,
+    });
+    return;
+  }
+
+  if (isBillingBypassEmail(user.email)) {
+    sendJson(res, 200, {
+      ok: true,
+      active: true,
+      status: "active",
+      plan: "dev_bypass",
+      current_period_end: null,
+      billing_enabled: true,
+      stripe_configured: true,
     });
     return;
   }
