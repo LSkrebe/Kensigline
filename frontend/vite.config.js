@@ -9,11 +9,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig(({ mode }) => {
   const repoRoot = path.resolve(__dirname, '..')
   const env = loadEnv(mode, repoRoot, '')
+  // Vercel/CI only inject process.env — local dev uses root `.env` via loadEnv.
+  const pick = (key) => process.env[key] || env[key] || ''
 
-  const supabaseUrl = env.SUPABASE_URL || env.VITE_SUPABASE_URL || ''
-  const supabaseAnon = env.SUPABASE_ANON_KEY || env.VITE_SUPABASE_ANON_KEY || ''
+  const supabaseUrl = pick('SUPABASE_URL') || pick('VITE_SUPABASE_URL')
+  const supabaseAnon = pick('SUPABASE_ANON_KEY') || pick('VITE_SUPABASE_ANON_KEY')
   const apiBase =
-    env.API_BASE_URL || env.VITE_BACKEND_URL || env.VITE_API_BASE_URL || 'http://localhost:3001'
+    pick('API_BASE_URL') || pick('VITE_BACKEND_URL') || pick('VITE_API_BASE_URL') || 'http://localhost:3001'
 
   return {
     plugins: [react()],
