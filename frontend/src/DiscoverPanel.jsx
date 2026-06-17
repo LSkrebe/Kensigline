@@ -16,6 +16,7 @@ import {
   discoverEventPassesFilters,
   discoverKindLabel,
   discoverWatchlistDaysLabel,
+  isDiscoverMarketMove,
   truncateDiscoverSummary,
 } from './discoverEvents.js'
 import { normalizeResearchPaperSourceKey, RESEARCH_PAPER_SOURCE_CATALOG } from './researchPaperSources.js'
@@ -561,9 +562,7 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
 
   const moveReactions = useMemo(() => {
     if (backendUp) return liveTimeline?.moves ?? {}
-    const rows = (mockTimeline?.past ?? []).filter(
-      (event) => String(event.summary ?? '').trim() && event.kind !== 'flow',
-    )
+    const rows = (mockTimeline?.past ?? []).filter(isDiscoverMarketMove)
     return buildMockMoveReactions(rows)
   }, [backendUp, liveTimeline?.moves, mockTimeline?.past])
 
@@ -573,7 +572,7 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
   )
 
   const marketMoves = useMemo(() => {
-    const rows = pastSource.filter((event) => String(event.summary ?? '').trim() && event.kind !== 'flow')
+    const rows = pastSource.filter(isDiscoverMarketMove)
     return applyDiscoverSourceFilter(rows, movesSourceFilters)
   }, [pastSource, movesSourceFilters])
 
@@ -617,7 +616,7 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
           >
             {!marketMoves.length ? (
               <p className="discoverColEmpty mono dim">
-                {showColumnLoading ? 'Loading market moves…' : 'No recent market moves.'}
+                {showColumnLoading ? 'Loading market moves…' : 'No best-graded market moves.'}
               </p>
             ) : (
               <div className="discoverMoveList">

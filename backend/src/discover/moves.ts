@@ -1,4 +1,5 @@
 import { db } from "../core/db.js";
+import { discoverEventIsMarketMove } from "./map.js";
 import type { DiscoverEvent } from "./types.js";
 
 export type DiscoverMoveReaction = {
@@ -79,7 +80,7 @@ export async function buildMoveReactionsForEvents(
 ): Promise<Record<string, DiscoverMoveReaction>> {
   const maxEvents = clampInt(process.env.DISCOVER_MOVE_MAX, 5, 80, 36);
   const eligible = events
-    .filter((e) => String(e.summary ?? "").trim() && e.kind !== "flow")
+    .filter((e) => discoverEventIsMarketMove(e))
     .slice(0, maxEvents);
 
   const byTicker = new Map<string, DiscoverEvent[]>();

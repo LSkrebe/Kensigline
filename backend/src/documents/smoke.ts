@@ -208,6 +208,25 @@ test("discover macro week generation", async () => {
   assert.ok(Array.isArray(days[0]?.events));
 });
 
+test("discover market move requires best grade", async () => {
+  const { discoverEventIsMarketMove } = await import("../discover/map.js");
+  const base = {
+    id: "doc:1",
+    ticker: "NVDA",
+    companyName: "NVIDIA Corporation",
+    intelMode: "market" as const,
+    at: "2026-01-15T12:00:00.000Z",
+    title: "Q4 earnings call",
+    kind: "filing" as const,
+    source: "8-K",
+    summary: "Data center revenue beat expectations.",
+  };
+  assert.equal(discoverEventIsMarketMove({ ...base, idea_best: true }), true);
+  assert.equal(discoverEventIsMarketMove({ ...base, idea_best: false }), false);
+  assert.equal(discoverEventIsMarketMove({ ...base, idea_best: true, kind: "flow" }), false);
+  assert.equal(discoverEventIsMarketMove({ ...base, idea_best: true, summary: "" }), false);
+});
+
 test("discover source filter and query matching", async () => {
   const { eventMatchesQuery, eventPassesSourceFilter } = await import("../discover/map.js");
   const event = {

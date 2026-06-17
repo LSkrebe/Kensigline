@@ -28,6 +28,9 @@ export type DiscoverEvent = {
   url?: string | null;
   impact?: "high" | "medium" | "low" | null;
   mentioned?: DiscoverMentioned | null;
+  idea_score?: number;
+  idea_best?: boolean;
+  idea_reasons?: string[];
 };
 
 export type DiscoverMacroEvent = {

@@ -48,6 +48,9 @@ const DISCOVER_COMPANIES = {
  * @property {string} [briefKey] links mock mentioned-name sets in eventBriefs.js
  * @property {string} [url]
  * @property {'high' | 'medium' | 'low'} [impact]
+ * @property {number} [idea_score]
+ * @property {boolean} [idea_best]
+ * @property {string[]} [idea_reasons]
  */
 
 /** @type {DiscoverEvent[]} */
@@ -201,6 +204,7 @@ const DISCOVER_EVENTS = [
     summary:
       'Routine same-day 8-K with no material clinical update ahead of the week-48 readout window.',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    idea_best: false,
   },
   {
     id: 'disc-asml-gov',
@@ -216,6 +220,7 @@ const DISCOVER_EVENTS = [
     summary:
       'DoD sustainment award ($18.4M) covers EUV field engineering at a domestic fab, supporting installed-base scarcity rather than a new platform buy.',
     url: 'https://sam.gov/',
+    idea_best: false,
   },
   {
     id: 'disc-atyr-8k-cash',
@@ -232,6 +237,7 @@ const DISCOVER_EVENTS = [
     summary:
       'Cash runway update with EFZO-FIT fully enrolled and no change to the week-48 mean oral-steroid primary.',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    idea_best: false,
   },
   {
     id: 'disc-atyr-safety',
@@ -249,6 +255,7 @@ const DISCOVER_EVENTS = [
     summary:
       'Interim blinded safety update with no unblinded efficacy; management sees no toxicity spiral ahead of topline.',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    idea_best: false,
   },
   {
     id: 'disc-asml-q1',
@@ -264,6 +271,7 @@ const DISCOVER_EVENTS = [
     summary:
       'Q1 commentary cites stable backlog and longer EUV lead times, framing demand as capacity-constrained at the leading edge.',
     url: 'https://www.sec.gov/edgar/search/#/q=ASML',
+    idea_best: true,
   },
   {
     id: 'disc-atyr-10q',
@@ -281,6 +289,7 @@ const DISCOVER_EVENTS = [
     summary:
       'Risk factors stress steroid-reduction success on a mean-dose endpoint with site variability; enrollment completion does not de-risk the binary readout.',
     url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
+    idea_best: false,
   },
   {
     id: 'disc-atyr-enroll',
@@ -298,6 +307,7 @@ const DISCOVER_EVENTS = [
     summary:
       'Registry lists EFZO-FIT enrollment at 268 vs 264 target; primary remains mean oral-steroid change at week 48.',
     url: 'https://clinicaltrials.gov/study/NCT05415137',
+    idea_best: true,
   },
   {
     id: 'disc-srpt-fda-req',
@@ -315,6 +325,7 @@ const DISCOVER_EVENTS = [
     summary:
       'FDA requested supplemental functional analyses; management called it clarifying, but commercial timing slips another quarter.',
     url: 'https://www.sec.gov/edgar/search/#/q=SRPT',
+    idea_best: true,
   },
   {
     id: 'disc-asml-orders',
@@ -330,6 +341,7 @@ const DISCOVER_EVENTS = [
     summary:
       'Commentary cites extended EUV delivery times and tight high-NA allocation, reinforcing lithography scarcity over demand weakness.',
     url: 'https://www.sec.gov/edgar/search/#/q=ASML',
+    idea_best: true,
   },
   {
     id: 'disc-mrna-phase2',
@@ -347,6 +359,7 @@ const DISCOVER_EVENTS = [
     summary:
       'Phase 2 CMV immunogenicity met thresholds vs comparator; progression talk remains ahead of Phase 3 infection-rate proof.',
     url: 'https://clinicaltrials.gov/',
+    idea_best: false,
   },
   {
     id: 'disc-atyr-connect',
@@ -364,6 +377,7 @@ const DISCOVER_EVENTS = [
     summary:
       'EFZO-CONNECT PoC registry refresh does not change EFZO-FIT power; a positive read may help sentiment only after pivotal data.',
     url: 'https://clinicaltrials.gov/study/NCT05892614',
+    idea_best: false,
   },
   {
     id: 'disc-nvda-earnings',
@@ -379,6 +393,7 @@ const DISCOVER_EVENTS = [
     summary:
       'Q1 data-center beat with management citing accelerator demand and tight packaging supply at foundry and memory layers.',
     url: 'https://www.sec.gov/edgar/search/#/q=NVDA',
+    idea_best: true,
   },
 ]
 
@@ -639,11 +654,19 @@ export function getDiscoverWatchlistEvents(opts = {}) {
   return buildDiscoverTimeline({ query, enabledFilters }).upcoming
 }
 
-/** Past document rows with analysis text for market moves (excludes flow filings). */
+/** Past cards eligible for Market Moves: summary present, not a flow filing, strict best grade only. */
+export function isDiscoverMarketMove(event) {
+  if (!event) return false
+  if (event.kind === 'flow') return false
+  if (!String(event.summary ?? '').trim()) return false
+  return Boolean(event.idea_best)
+}
+
+/** Past document rows with analysis text for market moves (best-graded only). */
 export function getDiscoverMarketMoves(opts = {}) {
   const { query, enabledFilters } = opts
   const { past } = buildDiscoverTimeline({ query, enabledFilters })
-  return past.filter((e) => String(e.summary ?? '').trim() && e.kind !== 'flow')
+  return past.filter((e) => isDiscoverMarketMove(e))
 }
 
 export function discoverImpactClass(impact) {

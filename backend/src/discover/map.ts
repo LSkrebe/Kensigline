@@ -1,4 +1,10 @@
 import { normalizeResearchPaperSourceKey } from "../shared/source-keys.js";
+import {
+  scoreInsiderCluster,
+  scoreInstitutionCluster,
+  scorePoliticianCluster,
+  scoreResearchDocument,
+} from "../core/idea-score.js";
 import { resolveDiscoverMentioned } from "./mentions.js";
 import { truncateDiscoverSummary } from "./summary.js";
 import type { DiscoverEvent, DiscoverEventKind, DiscoverIntelMode } from "./types.js";
@@ -58,6 +64,42 @@ export type DocumentDiscoverRow = {
   data: unknown;
 };
 
+function clusterTotalUsd(data: unknown): number {
+  const rows = Array.isArray((data as any)?.cluster?.worksheet_rows) ? (data as any).cluster.worksheet_rows : [];
+  return rows.reduce((sum: number, r: any) => {
+    const amt = Number(r?.amount_usd ?? r?.value_usd ?? 0);
+    return sum + (Number.isFinite(amt) ? amt : 0);
+  }, 0);
+}
+
+function scoreDiscoverDocumentRow(row: DocumentDiscoverRow) {
+  const fk = String(row.feed_kind ?? "").toLowerCase();
+  const data = row.data;
+  if (fk === "insider") {
+    return scoreInsiderCluster({ data, eventAt: row.event_at, totalUsd: clusterTotalUsd(data) });
+  }
+  if (fk === "politicians") {
+    return scorePoliticianCluster({ data, eventAt: row.event_at, totalUsd: clusterTotalUsd(data) });
+  }
+  if (fk === "institutions") {
+    return scoreInstitutionCluster({ data, eventAt: row.event_at, totalUsd: clusterTotalUsd(data) });
+  }
+  return scoreResearchDocument({
+    analysis: row.analysis,
+    source_key: row.source_key,
+    feed_kind: row.feed_kind,
+    program_phase: row.program_phase,
+    event_at: row.event_at,
+    data,
+  });
+}
+
+export function discoverEventIsMarketMove(event: DiscoverEvent): boolean {
+  if (event.kind === "flow") return false;
+  if (!String(event.summary ?? "").trim()) return false;
+  return Boolean(event.idea_best);
+}
+
 export function mapDocumentToDiscoverEvent(
   row: DocumentDiscoverRow,
   universe: Set<string>,
@@ -76,6 +118,7 @@ export function mapDocumentToDiscoverEvent(
     data: row.data,
     universe,
   });
+  const idea = scoreDiscoverDocumentRow(row);
 
   return {
     id: `doc:${row.id}`,
@@ -91,6 +134,9 @@ export function mapDocumentToDiscoverEvent(
     summary: truncateDiscoverSummary(row.analysis, 200),
     url: row.url,
     mentioned,
+    idea_score: idea.idea_score,
+    idea_best: idea.idea_best,
+    idea_reasons: idea.idea_reasons,
   };
 }
 
