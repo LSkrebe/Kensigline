@@ -12,10 +12,23 @@ import {
   type ClinicalProgram,
 } from "./trials.js";
 
+function isoDayFromDbEventAt(raw: string | Date | null | undefined): string | null {
+  if (raw == null) return null;
+  if (raw instanceof Date) {
+    if (!Number.isFinite(raw.getTime())) return null;
+    return raw.toISOString().slice(0, 10);
+  }
+  const s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  if (Number.isFinite(d.getTime())) return d.toISOString().slice(0, 10);
+  return null;
+}
+
 function ensurePipelineProgramFromFilings(
   programs: ClinicalProgram[],
   rows: Array<{
-    event_at: string | null;
+    event_at: string | Date | null;
     feed_label: string | null;
     program_drug: string | null;
     url: string | null;
@@ -24,8 +37,8 @@ function ensurePipelineProgramFromFilings(
   if (programs.length) return programs;
   const milestones: ClinicalMilestone[] = [];
   for (const r of rows) {
-    const at = String(r.event_at ?? "").slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(at)) continue;
+    const at = isoDayFromDbEventAt(r.event_at);
+    if (!at) continue;
     const label = String(r.feed_label ?? "Filing update").trim() || "Filing update";
     const url = r.url ? String(r.url) : "https://www.sec.gov/edgar/search/";
     milestones.push({ at, label, url, nctId: "sec" });
@@ -47,7 +60,7 @@ function ensurePipelineProgramFromFilings(
 function mergeFilingMilestonesIntoPrograms(
   programs: ClinicalProgram[],
   rows: Array<{
-    event_at: string | null;
+    event_at: string | Date | null;
     feed_label: string | null;
     program_drug: string | null;
     url: string | null;
@@ -59,8 +72,8 @@ function mergeFilingMilestonesIntoPrograms(
     const drugRaw = String(r.program_drug ?? "").trim();
     const key = interventionDrugKey(drugRaw) ?? drugRaw;
     if (!key) continue;
-    const at = String(r.event_at ?? "").slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(at)) continue;
+    const at = isoDayFromDbEventAt(r.event_at);
+    if (!at) continue;
     const label = String(r.feed_label ?? "Filing update").trim() || "Filing update";
     const url = r.url ? String(r.url) : "https://www.sec.gov/edgar/search/";
     const prev =
@@ -120,9 +133,6 @@ export async function getPharmaClinicalContext(opts: {
 
   const companyName = await resolveCompanyName(ticker, panelName);
 
-  const studies = await fetchClinicalStudiesForCompany({ ticker, companyName });
-  let programs = buildProgramsFromStudies(studies);
-
   const filingRows = await db.query<{
     event_at: string | null;
     feed_label: string | null;
@@ -130,18 +140,30 @@ export async function getPharmaClinicalContext(opts: {
     url: string | null;
   }>(
     `
-    SELECT event_at, feed_label, program_drug, url
+    SELECT event_at::text, feed_label, program_drug, url
     FROM documents
     WHERE feed_kind = 'pharma'
-      AND ticker = $1
+      AND upper(trim(ticker)) = $1
       AND event_at IS NOT NULL
     ORDER BY event_at DESC
     LIMIT 80
     `,
     [ticker],
   );
-  programs = mergeFilingMilestonesIntoPrograms(programs, filingRows);
+
+  // SEC pharma filings (program_drug) are the source of truth for our ingest; CT.gov supplements.
+  let programs = mergeFilingMilestonesIntoPrograms([], filingRows);
+
+  const studies = await fetchClinicalStudiesForCompany({ ticker, companyName });
+  programs = mergeFilingMilestonesIntoPrograms(buildProgramsFromStudies(studies), filingRows);
   programs = ensurePipelineProgramFromFilings(programs, filingRows);
+
+  programs.sort((a, b) => {
+    const aSec = a.milestones.some((m) => m.nctId === "sec") ? 1 : 0;
+    const bSec = b.milestones.some((m) => m.nctId === "sec") ? 1 : 0;
+    if (bSec !== aSec) return bSec - aSec;
+    return a.key.localeCompare(b.key);
+  });
 
   const catalysts = buildCatalystsFromStudies(studies, {
     earningsDate: earnings_date,

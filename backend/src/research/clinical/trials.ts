@@ -178,6 +178,28 @@ function dedupeStudies(studies: CtgStudy[]) {
   return Array.from(byNct.values());
 }
 
+function companyNameMatchTokens(name: string): string[] {
+  return String(name ?? "")
+    .toLowerCase()
+    .replace(/[,./()]+/g, " ")
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length >= 4 && !/^(inc|corp|ltd|llc|limited|company|co|the|and|plc|nv|sa)$/.test(w));
+}
+
+function studyMatchesCompany(study: CtgStudy, ticker: string, companyName: string): boolean {
+  const tick = String(ticker ?? "").trim().toLowerCase();
+  const sponsor = String(study.sponsor ?? "").toLowerCase();
+  const title = study.briefTitle.toLowerCase();
+  const blob = `${sponsor} ${title}`;
+  if (tick && (sponsor.includes(tick) || title.includes(tick))) return true;
+  const tokens = companyNameMatchTokens(companyName);
+  if (!tokens.length) return true;
+  const hits = tokens.filter((t) => blob.includes(t));
+  const need = Math.min(2, tokens.length);
+  return hits.length >= need;
+}
+
 export async function fetchClinicalStudiesForCompany(opts: {
   ticker: string;
   companyName?: string | null;
@@ -207,16 +229,9 @@ export async function fetchClinicalStudiesForCompany(opts: {
     }
   }
 
-  // Prefer studies where sponsor or title mentions the company name / ticker.
-  const nameLo = name.toLowerCase();
-  const filtered = merged.filter((s) => {
-    if (!nameLo) return true;
-    const sponsor = String(s.sponsor ?? "").toLowerCase();
-    const title = s.briefTitle.toLowerCase();
-    return sponsor.includes(nameLo) || title.includes(nameLo) || sponsor.includes(ticker.toLowerCase());
-  });
-
-  const studies = filtered.length ? filtered : merged;
+  // Prefer studies where sponsor/title match company tokens; never fall back to unrelated trials.
+  const filtered = merged.filter((s) => studyMatchesCompany(s, ticker, name));
+  const studies = name.length >= 3 ? filtered : filtered.length ? filtered : merged;
   studyCache.set(cacheKey, { at: Date.now(), studies });
   return studies;
 }
