@@ -12,6 +12,21 @@ function isTickerPlaceholderName(name: string, ticker: string) {
   return !n || n === t;
 }
 
+/** Reject PTR worksheet blobs, IRA lines, and other non-issuer labels. */
+export function isPlausibleCompanyDisplayName(name: string, ticker: string): boolean {
+  const n = stripLegalNoise(String(name ?? "").trim());
+  if (!n || isTickerPlaceholderName(n, ticker)) return false;
+  if (n.length > 72) return false;
+  if (/->|⇒|=>|→/.test(n)) return false;
+  if (/\b(LOCATION|DESCRIPTION|Dividends|Real estate|Agency Account|Rent None)\b/i.test(n)) return false;
+  if (/\bIRa\b/i.test(n)) return false;
+  if (/g f e d c/i.test(n)) return false;
+  if (/\[[A-Z]{1,5}\]/.test(n)) return false;
+  if ((n.match(/\s+/g) ?? []).length >= 9) return false;
+  if (/\$\d/.test(n)) return false;
+  return true;
+}
+
 /** PTR / flow worksheet asset label → issuer display name when possible. */
 export function issuerNameFromFlowAsset(asset: string | null | undefined, ticker: string): string | null {
   let s = String(asset ?? "").trim();
@@ -22,7 +37,7 @@ export function issuerNameFromFlowAsset(asset: string | null | undefined, ticker
   s = s.replace(/\s+ordinary shares.*$/i, "").trim();
   s = s.replace(/\s+class\s+[a-z0-9]+.*$/i, "").trim();
   const cleaned = stripLegalNoise(s);
-  if (!cleaned || isTickerPlaceholderName(cleaned, ticker)) return null;
+  if (!cleaned || !isPlausibleCompanyDisplayName(cleaned, ticker)) return null;
   return cleaned;
 }
 
@@ -41,7 +56,7 @@ export function collectAssetNamesFromClusterData(data: unknown, ticker: string):
   return out;
 }
 
-/** Research FEED middle column: companies.name only (never memo headline text). */
+/** Research FEED + paper header: DB / SEC legal name only (never PTR asset blobs). */
 export function resolveResearchFeedCompanyName(
   ticker: string,
   dbName: string | null | undefined,
@@ -49,19 +64,18 @@ export function resolveResearchFeedCompanyName(
 ): string {
   const t = String(ticker ?? "").trim().toUpperCase();
   for (const raw of [dbName, ...fallbacks]) {
-    const fromDb = stripLegalNoise(String(raw ?? "").trim());
-    if (fromDb && !isTickerPlaceholderName(fromDb, t)) return fromDb;
+    const candidate = stripLegalNoise(String(raw ?? "").trim());
+    if (candidate && isPlausibleCompanyDisplayName(candidate, t)) return candidate;
   }
   return t;
 }
 
-/** Investigate FEED: DB name, SEC title, PTR asset labels, issuer JSON. */
+/** Investigate FEED: DB name, SEC title, issuer JSON — not raw PTR asset text. */
 export function resolveInvestigateFeedCompanyName(
   ticker: string,
   dbName: string | null | undefined,
   secTitle: string | null | undefined,
   issuerJsonName: string | null | undefined,
-  assetNames: string[] = [],
 ): string {
-  return resolveResearchFeedCompanyName(ticker, dbName, secTitle, issuerJsonName, ...assetNames);
+  return resolveResearchFeedCompanyName(ticker, dbName, secTitle, issuerJsonName);
 }

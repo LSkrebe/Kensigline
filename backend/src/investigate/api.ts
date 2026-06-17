@@ -243,7 +243,6 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
         c.latestDoc.company_name ?? data?.issuer?.name,
         secTitles.get(c.ticker) ?? null,
         data?.issuer?.name,
-        collectAssetNamesFromClusterData(c.latestDoc.data, c.ticker),
       );
       if (companyName && companyName.toUpperCase() !== c.ticker) {
         void upsertCompanyNameForTicker(c.ticker, companyName);
@@ -382,7 +381,6 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
         c.latestDoc.company_name,
         secTitles.get(c.ticker) ?? null,
         data?.issuer?.name,
-        Array.from(c.assetNames),
       );
       if (companyName && companyName.toUpperCase() !== c.ticker) {
         void upsertCompanyNameForTicker(c.ticker, companyName);

@@ -1,6 +1,7 @@
 import { db } from "./db.js";
 import { fetchSecJson, resolveCikForTicker } from "./sec.js";
 import { getDailyCloseBars } from "./bars.js";
+import { isPlausibleCompanyDisplayName } from "../research/feed-display.js";
 
 function mustEnv(name: string) {
   const v = String(process.env[name] ?? "").trim();
@@ -361,15 +362,17 @@ export async function getCompanyPanelData(opts: { ticker: string }) {
 export async function upsertCompanyNameForTicker(ticker: string, name: string) {
   const t = String(ticker ?? "").trim().toUpperCase();
   const n = String(name ?? "").trim();
-  if (!t || !n || n.toUpperCase() === t) return;
+  if (!t || !n || !isPlausibleCompanyDisplayName(n, t)) return;
 
   const existing = await db.one<{ id: string; name: string | null }>(
     `SELECT id, name FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
     [t],
   );
   if (existing?.id) {
-    const cur = String(existing.name ?? "").trim().toUpperCase();
-    if (!cur || cur === t) {
+    const cur = String(existing.name ?? "").trim();
+    const curIsTicker = !cur || cur.toUpperCase() === t;
+    const curPoisoned = cur && !isPlausibleCompanyDisplayName(cur, t);
+    if (curIsTicker || curPoisoned) {
       await db.query(`UPDATE companies SET name = $2, updated_at = now() WHERE id = $1`, [existing.id, n]);
     }
     return;
@@ -385,5 +388,26 @@ export async function upsertCompanyNameForTicker(ticker: string, name: string) {
     `,
     [n, t],
   );
+}
+
+/** Reset PTR worksheet blobs cached as company names; prefer SEC title when available. */
+export async function repairPoisonedCompanyNames(): Promise<number> {
+  const { getSecTickerTitleMap } = await import("./sec.js");
+  const { resolveResearchFeedCompanyName } = await import("../research/feed-display.js");
+  const rows = await db.query<{ id: string; ticker: string; name: string | null }>(
+    `SELECT id, ticker, name FROM companies WHERE name IS NOT NULL AND trim(ticker) <> ''`,
+  );
+  const secTitles = await getSecTickerTitleMap();
+  let repaired = 0;
+  for (const row of rows) {
+    const t = String(row.ticker ?? "").trim().toUpperCase();
+    const cur = String(row.name ?? "").trim();
+    if (!t || !cur) continue;
+    const fix = resolveResearchFeedCompanyName(t, cur, secTitles.get(t) ?? null);
+    if (fix === cur) continue;
+    await db.query(`UPDATE companies SET name = $2, updated_at = now() WHERE id = $1`, [row.id, fix]);
+    repaired++;
+  }
+  return repaired;
 }
 

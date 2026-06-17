@@ -103,6 +103,7 @@ export async function handleResearchExplore(res: http.ServerResponse, ticker: st
     `SELECT name FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
     [t],
   );
+  const secTitles = await getSecTickerTitleMap();
   const presentation = await buildResearchPresentation(t);
   const [insiders, politicians, filings13f, tracked_investors] = await Promise.all([
     loadInsiderFlowsForTicker(t),
@@ -113,7 +114,7 @@ export async function handleResearchExplore(res: http.ServerResponse, ticker: st
   sendJson(res, 200, {
     ok: true,
     ticker: t,
-    company_name: String(companyRow?.name ?? t).trim() || t,
+    company_name: resolveResearchFeedCompanyName(t, companyRow?.name, secTitles.get(t) ?? null),
     presentation,
     flows: { insiders, politicians, filings13f },
     tracked_investors,

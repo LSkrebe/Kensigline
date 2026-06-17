@@ -198,6 +198,10 @@ test("research feed company label uses DB name only", async () => {
   assert.equal(resolveResearchFeedCompanyName("ADBE", null), "ADBE");
   assert.equal(resolveResearchFeedCompanyName("NVDA", "NVIDIA Corporation"), "NVIDIA Corporation");
   assert.equal(resolveResearchFeedCompanyName("ING", "ING", "ING GROEP NV"), "ING GROEP NV");
+  const ptrBlob =
+    "IRa -> BLaCkROCK INfLaTIoN [MF] Monthly IRa -> EaTON VaNCE FLoATING [MF] Quarterly";
+  assert.equal(resolveResearchFeedCompanyName("MF", ptrBlob), "MF");
+  assert.equal(resolveResearchFeedCompanyName("MF", ptrBlob, "MFS Charter Income Trust"), "MFS Charter Income Trust");
 });
 
 test("discover macro week generation", async () => {

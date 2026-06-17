@@ -969,10 +969,25 @@ const RESEARCH_FEED_BY_INTEL = {
 }
 
 /** Middle FEED column: full company name from DB (never memo headline / feed_label). */
+function isPlausibleFeedCompanyName(name, ticker) {
+  const n = String(name ?? '').trim()
+  const t = String(ticker ?? '').trim().toUpperCase()
+  if (!n || n.toUpperCase() === t) return false
+  if (n.length > 72) return false
+  if (/->|⇒|=>|→/.test(n)) return false
+  if (/\b(LOCATION|DESCRIPTION|Dividends|Real estate|Agency Account|Rent None)\b/i.test(n)) return false
+  if (/\bIRa\b/i.test(n)) return false
+  if (/g f e d c/i.test(n)) return false
+  if (/\[[A-Z]{1,5}\]/.test(n)) return false
+  if ((n.match(/\s+/g) ?? []).length >= 9) return false
+  if (/\$\d/.test(n)) return false
+  return true
+}
+
 function researchFeedRowLabel(item) {
   const ticker = String(item?.ticker ?? '').trim().toUpperCase()
   const companyName = String(item?.company_name ?? item?.company ?? '').trim()
-  if (companyName && companyName.toUpperCase() !== ticker) return companyName
+  if (companyName && isPlausibleFeedCompanyName(companyName, ticker)) return companyName
   return ticker
 }
 
@@ -9620,12 +9635,13 @@ function KensiglineTerminal() {
 
   const researchCompanyName = useMemo(() => {
     const fromExplore = String(researchExploreResolved?.company_name ?? '').trim()
-    if (fromExplore && fromExplore.toUpperCase() !== researchTick) return fromExplore
+    if (fromExplore && isPlausibleFeedCompanyName(fromExplore, researchTick)) return fromExplore
     const fromFeed = researchFeedItems.find((x) => String(x.ticker ?? '').toUpperCase() === researchTick)?.name
-    if (fromFeed) return fromFeed
+    if (fromFeed && isPlausibleFeedCompanyName(fromFeed, researchTick)) return fromFeed
     if (backendUp) return researchTick || '—'
     const companyEnt = researchDataset?.entities?.find((e) => String(e?.type ?? '').toLowerCase() === 'company')
-    return companyEnt?.name ?? researchTick
+    const mockName = companyEnt?.name ?? researchTick
+    return isPlausibleFeedCompanyName(mockName, researchTick) ? mockName : researchTick
   }, [researchFeedItems, researchDataset?.entities, researchTick, researchExploreResolved?.company_name, backendUp])
 
   const researchPriceSeries = useMemo(() => {
@@ -10299,13 +10315,13 @@ function KensiglineTerminal() {
           const countFromLabel = m ? Number(m[2]) : null
           const todayCount = Number(it.today_count)
           const count = Number.isFinite(todayCount) ? todayCount : countFromLabel
-          const company = String(it.company_name ?? it.company ?? '').trim()
+          const company = researchFeedRowLabel({ ticker, company_name: it.company_name, company: it.company })
           const insiders = Array.isArray(it.insiders) ? it.insiders.map((x) => String(x)) : []
           return {
             id,
             label,
             count,
-            company: company || ticker,
+            company,
             ticker,
             at,
             insiders,
@@ -10346,12 +10362,12 @@ function KensiglineTerminal() {
           const todayCount = Number(it.today_count)
           const count = Number.isFinite(todayCount) ? todayCount : countFromLabel
           const institutions = Array.isArray(it.institutions) ? it.institutions.map((x) => String(x)) : []
-          const company = String(it.company_name ?? it.company ?? '').trim()
+          const company = researchFeedRowLabel({ ticker, company_name: it.company_name, company: it.company })
           return {
             id,
             label,
             count,
-            company: company || ticker,
+            company,
             ticker,
             at,
             institutions,
@@ -10435,12 +10451,12 @@ function KensiglineTerminal() {
           const todayCount = Number(it.today_count)
           const count = Number.isFinite(todayCount) ? todayCount : countFromLabel
           const politicians = Array.isArray(it.politicians) ? it.politicians.map((x) => String(x)) : []
-          const company = String(it.company_name ?? it.company ?? '').trim()
+          const company = researchFeedRowLabel({ ticker, company_name: it.company_name, company: it.company })
           return {
             id,
             label,
             count,
-            company: company || ticker,
+            company,
             ticker,
             at,
             politicians,
