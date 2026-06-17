@@ -171,7 +171,6 @@
 }
 
 .terminalIntelSwitchBtn {
-  position: relative;
   margin: 0;
   padding: 0 6px;
   border: none;
@@ -199,17 +198,6 @@
 
 .terminalIntelSwitchBtn.isActive {
   color: var(--hi);
-}
-
-.terminalIntelSwitchBtn.isActive::after {
-  content: '';
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  bottom: 0;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.88);
-  pointer-events: none;
 }
 
 .terminalIntelSwitchBtn:focus {
@@ -276,12 +264,6 @@
 .terminalIntelSwitchBtn:disabled {
   opacity: 0.32;
   cursor: not-allowed;
-  box-shadow: none;
-}
-
-.terminalIntelSwitchBtn.isUnavailable::after,
-.terminalIntelSwitchBtn:disabled::after {
-  content: none;
 }
 
 .terminalIntelSwitchBtn.isUnavailable:hover,

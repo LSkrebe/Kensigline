@@ -9216,15 +9216,6 @@ function intelSwitchBtnClass(active) {
   return active ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'
 }
 
-function blurIntelSwitchTarget(event) {
-  const el = event?.currentTarget
-  if (el && typeof el.blur === 'function') {
-    window.requestAnimationFrame(() => {
-      el.blur()
-    })
-  }
-}
-
 function TerminalTopBar({
   settingsActive,
   onSettingsClick,
@@ -9292,10 +9283,7 @@ function TerminalTopBar({
               role="tab"
               className={intelSwitchBtnClass(intelMode === 'market')}
               aria-selected={intelMode === 'market'}
-              onClick={(event) => {
-                onIntelModeChange('market')
-                blurIntelSwitchTarget(event)
-              }}
+              onClick={() => onIntelModeChange('market')}
             >
               Market intelligence
             </button>
@@ -9307,10 +9295,7 @@ function TerminalTopBar({
               role="tab"
               className={intelSwitchBtnClass(intelMode === 'clinical')}
               aria-selected={intelMode === 'clinical'}
-              onClick={(event) => {
-                onIntelModeChange('clinical')
-                blurIntelSwitchTarget(event)
-              }}
+              onClick={() => onIntelModeChange('clinical')}
             >
               Clinical intelligence
             </button>
@@ -9327,10 +9312,7 @@ function TerminalTopBar({
               role="tab"
               className={intelSwitchBtnClass(investigateMode === 'insider')}
               aria-selected={investigateMode === 'insider'}
-              onClick={(event) => {
-                onInvestigateModeChange('insider')
-                blurIntelSwitchTarget(event)
-              }}
+              onClick={() => onInvestigateModeChange('insider')}
             >
               Insider
             </button>
@@ -9342,10 +9324,7 @@ function TerminalTopBar({
               role="tab"
               className={intelSwitchBtnClass(investigateMode === 'politicians')}
               aria-selected={investigateMode === 'politicians'}
-              onClick={(event) => {
-                onInvestigateModeChange('politicians')
-                blurIntelSwitchTarget(event)
-              }}
+              onClick={() => onInvestigateModeChange('politicians')}
             >
               Politicians
             </button>
@@ -9357,10 +9336,7 @@ function TerminalTopBar({
               role="tab"
               className={intelSwitchBtnClass(investigateMode === 'institutions')}
               aria-selected={investigateMode === 'institutions'}
-              onClick={(event) => {
-                onInvestigateModeChange('institutions')
-                blurIntelSwitchTarget(event)
-              }}
+              onClick={() => onInvestigateModeChange('institutions')}
             >
               Institutions
             </button>
