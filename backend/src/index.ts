@@ -303,7 +303,7 @@ const server = http.createServer(async (req, res) => {
         data: any;
       }>(
         `
-        SELECT id, event_at, feed_label, ticker, analysis, source_key, program_phase, data
+        SELECT id, event_at::text AS event_at, feed_label, ticker, analysis, source_key, program_phase, data
         FROM documents
         WHERE feed_kind = 'pharma'
           AND event_at IS NOT NULL
@@ -377,7 +377,7 @@ const server = http.createServer(async (req, res) => {
         program_phase: string | null;
       }>(
         `
-        SELECT id, event_at, feed_label, program_drug, program_indication, program_phase
+        SELECT id, event_at::text AS event_at, feed_label, program_drug, program_indication, program_phase
         FROM documents
         WHERE feed_kind='pharma'
           AND ticker = $1

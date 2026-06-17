@@ -151,7 +151,7 @@ async function loadHighlightedInsiderMoves(days: number, cap: number): Promise<D
     url: string | null;
     source_key: string | null;
   }>(
-    `SELECT id, event_at, feed_label, ticker, data, url, source_key FROM documents
+    `SELECT id, event_at::text AS event_at, feed_label, ticker, data, url, source_key FROM documents
      WHERE feed_kind = 'insider' AND ticker IS NOT NULL AND event_at IS NOT NULL
        AND event_at >= now() - ($1 || ' days')::interval
      ORDER BY event_at DESC, parsed_at DESC LIMIT 5000`,
@@ -242,7 +242,7 @@ async function loadHighlightedPoliticianMoves(days: number, cap: number): Promis
     url: string | null;
     source_key: string | null;
   }>(
-    `SELECT id, event_at, feed_label, ticker, data, url, source_key FROM documents
+    `SELECT id, event_at::text AS event_at, feed_label, ticker, data, url, source_key FROM documents
      WHERE feed_kind = 'politicians' AND ticker IS NOT NULL AND event_at IS NOT NULL
        AND event_at >= now() - ($1 || ' days')::interval
      ORDER BY event_at DESC NULLS LAST, parsed_at DESC LIMIT 5000`,
@@ -328,7 +328,7 @@ async function loadHighlightedInstitutionMoves(days: number, cap: number): Promi
     url: string | null;
     source_key: string | null;
   }>(
-    `SELECT id, event_at, feed_label, ticker, data, url, source_key FROM documents
+    `SELECT id, event_at::text AS event_at, feed_label, ticker, data, url, source_key FROM documents
      WHERE feed_kind = 'institutions' AND ticker IS NOT NULL AND event_at IS NOT NULL
        AND event_at >= now() - ($1 || ' days')::interval
      ORDER BY event_at DESC NULLS LAST, parsed_at DESC LIMIT 5000`,

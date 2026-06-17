@@ -73,6 +73,12 @@ export async function syncInsiderTransactionsFromDocument(documentId: string, ti
   const rows = data?.cluster?.worksheet_rows;
   if (!Array.isArray(rows) || !rows.length) return;
 
+  const fallbackAt =
+    data?.cluster?.cluster_end_at ??
+    data?.cluster?.cluster_start_at ??
+    data?.filing?.filed_at ??
+    null;
+
   await db.query(`DELETE FROM insider_transactions WHERE document_id = $1`, [documentId]);
 
   for (const r of rows) {
@@ -80,7 +86,7 @@ export async function syncInsiderTransactionsFromDocument(documentId: string, ti
     const role = String(r?.key ?? "").trim() || null;
     const code = String(r?.transaction_code ?? r?.code ?? "").trim().toUpperCase() || null;
     const amt = r?.amount_usd != null ? Number(r.amount_usd) : null;
-    const at = r?.ts ? String(r.ts) : null;
+    const at = r?.ts ? String(r.ts) : fallbackAt ? String(fallbackAt) : null;
     if (!at) continue;
     await db.query(
       `
@@ -97,6 +103,12 @@ export async function syncPoliticianTransactionsFromDocument(documentId: string,
   const rows = data?.cluster?.worksheet_rows;
   if (!Array.isArray(rows) || !rows.length) return;
 
+  const fallbackAt =
+    data?.cluster?.cluster_end_at ??
+    data?.cluster?.cluster_start_at ??
+    data?.filing?.filed_at ??
+    null;
+
   await db.query(`DELETE FROM politician_transactions WHERE document_id = $1`, [documentId]);
 
   for (const r of rows) {
@@ -104,7 +116,7 @@ export async function syncPoliticianTransactionsFromDocument(documentId: string,
     const chamber = r?.chamber ? String(r.chamber).trim() : null;
     const txnType = String(r?.transaction_type ?? r?.type ?? "").trim().toUpperCase() || null;
     const amt = r?.amount_usd_mid != null ? Number(r.amount_usd_mid) : null;
-    const at = r?.ts ? String(r.ts) : null;
+    const at = r?.ts ? String(r.ts) : fallbackAt ? String(fallbackAt) : null;
     if (!at) continue;
     await db.query(
       `
@@ -121,13 +133,19 @@ export async function syncInstitutionFilingsFromDocument(documentId: string, tic
   const rows = data?.cluster?.worksheet_rows;
   if (!Array.isArray(rows) || !rows.length) return;
 
+  const fallbackAt =
+    data?.cluster?.cluster_end_at ??
+    data?.cluster?.cluster_start_at ??
+    data?.filing?.filed_at ??
+    null;
+
   await db.query(`DELETE FROM institution_filings_13f WHERE document_id = $1`, [documentId]);
 
   for (const r of rows) {
     const filer = String(r?.institution_name ?? r?.key ?? "Institution").trim();
     const activity = String(r?.activity ?? "").trim() || null;
     const amt = r?.amount_usd != null ? Number(r.amount_usd) : null;
-    const at = r?.ts ? String(r.ts) : null;
+    const at = r?.ts ? String(r.ts) : fallbackAt ? String(fallbackAt) : null;
     if (!at) continue;
     await db.query(
       `

@@ -20,6 +20,7 @@ import {
   tickerFromCompanyClusterId,
 } from "../shared/feed-helpers.js";
 import { normalizeInsiderWorksheetRow } from "./worksheet.js";
+import { isoTimestampFromDb } from "../shared/db-time.js";
 import {
   scoreInsiderCluster,
   scoreInstitutionCluster,
@@ -100,7 +101,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
       ticker: string | null;
       company_id: string | null;
     }>(
-      `SELECT id, event_at, feed_label, ticker, company_id FROM documents
+      `SELECT id, event_at::text AS event_at, feed_label, ticker, company_id FROM documents
        WHERE feed_kind = 'insider' ORDER BY event_at DESC NULLS LAST, parsed_at DESC LIMIT $1`,
       [limit],
     );
@@ -125,7 +126,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
     company_name: string | null;
     data: any;
   }>(
-    `SELECT d.id, d.event_at, d.feed_label, d.ticker, d.company_id, d.data,
+    `SELECT d.id, d.event_at::text AS event_at, d.feed_label, d.ticker, d.company_id, d.data,
       COALESCE(
         NULLIF(trim(c.name), ''),
         NULLIF(trim(iss.issuer_name), '')
@@ -163,7 +164,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
 
   for (const d of docs) {
     const t = String(d.ticker ?? "").trim().toUpperCase();
-    const feedAt = String(d.event_at ?? "");
+    const feedAt = isoTimestampFromDb(d.event_at) ?? "";
     if (!t || !feedAt) continue;
     const rows = (d.data as any)?.cluster?.worksheet_rows;
     let sum = 0;
@@ -284,7 +285,7 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
     company_name: string | null;
     data: any;
   }>(
-    `SELECT d.id, d.event_at, d.feed_label, d.ticker, d.data,
+    `SELECT d.id, d.event_at::text AS event_at, d.feed_label, d.ticker, d.data,
       COALESCE(
         NULLIF(trim(c.name), ''),
         NULLIF(trim(iss.issuer_name), '')
@@ -330,7 +331,7 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
   for (const r of rows) {
     const t = String(r.ticker ?? "").trim().toUpperCase();
     if (!t) continue;
-    const at = String(r.event_at ?? "");
+    const at = isoTimestampFromDb(r.event_at) ?? "";
     const ws = (r.data as any)?.cluster?.worksheet_rows;
     const todayDelta = countWorksheetEventsToday(ws, at, feedKind);
     const eventAt = latestEventAtFromDoc(ws, at);
@@ -447,7 +448,7 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
   let latest: any = null;
 
   for (const d of docs) {
-    const at = d.event_at ? String(d.event_at) : null;
+    const at = isoTimestampFromDb(d.event_at);
     if (at) {
       if (!minAt || at < minAt) minAt = at;
       if (!maxAt || at > maxAt) maxAt = at;
@@ -524,7 +525,7 @@ async function handleInstitutionsCluster(res: http.ServerResponse, url: URL) {
   let latest: any = null;
 
   for (const d of docs) {
-    const at = d.event_at ? String(d.event_at) : null;
+    const at = isoTimestampFromDb(d.event_at);
     if (at) {
       if (!minAt || at < minAt) minAt = at;
       if (!maxAt || at > maxAt) maxAt = at;
@@ -596,7 +597,7 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
     let latest: any = null;
 
     for (const d of docs) {
-      const at = d.event_at ? String(d.event_at) : null;
+      const at = isoTimestampFromDb(d.event_at);
       if (at) {
         if (!minAt || at < minAt) minAt = at;
         if (!maxAt || at > maxAt) maxAt = at;
@@ -658,8 +659,8 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
 
 async function loadClusterDocs(feedKind: string, ticker: string, days: number) {
   return db.query<{ id: string; event_at: string | null; ticker: string | null; data: any }>(
-    `SELECT id, event_at, ticker, data FROM documents
-     WHERE feed_kind=$1 AND ticker=$2 AND event_at IS NOT NULL
+    `SELECT id, event_at::text AS event_at, ticker, data FROM documents
+     WHERE feed_kind=$1 AND upper(trim(ticker))=upper(trim($2)) AND event_at IS NOT NULL
        AND event_at >= now() - ($3 || ' days')::interval
      ORDER BY event_at DESC, parsed_at DESC LIMIT 5000`,
     [feedKind, ticker, String(days)],

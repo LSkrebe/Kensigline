@@ -51,6 +51,10 @@ async function loadSourceRefs(ticker: string): Promise<ResearchSourceRef[]> {
     WHERE upper(trim(ticker)) = $1
       AND url IS NOT NULL
       AND length(trim(url)) > 0
+      AND (
+        (feed_kind = 'research' AND show_on_ticker IS NOT FALSE)
+        OR feed_kind = 'pharma'
+      )
     ORDER BY event_at DESC NULLS LAST, parsed_at DESC
     LIMIT 24
     `,

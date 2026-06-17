@@ -3282,7 +3282,7 @@ function filterInvestigateCaseSheetRows(caseSheet, enabledCodes, mode) {
 
 /** Drop companies with no matching worksheet rows; recompute feed `at` + today counts. */
 function applyInvestigateFeedTxnFilter(rows, enabledCodes, mode) {
-  if (!enabledCodes?.size) return []
+  if (!enabledCodes?.size) return rows ?? []
   const out = []
   for (const row of rows ?? []) {
     const cs = row?.caseSheet
@@ -6623,17 +6623,44 @@ function paperTimelineItemSubtypeKey(item) {
   return null
 }
 
+function insiderFormSourceFromTxnCode(code) {
+  const c = String(code ?? '').trim().toUpperCase()
+  if (c === 'A' || c === 'M') return 'Form 3'
+  if (c === 'F' || c === 'G') return 'Form 5'
+  return 'Form 4'
+}
+
 function paperTimelineItemSourceKey(item) {
   if (!item) return null
   if (item.kind === 'document') return normalizeResearchPaperSourceKey(item.document?.source)
-  if (item.kind === 'insider') return 'Form 4'
+  if (item.kind === 'insider') return insiderFormSourceFromTxnCode(item.transactionCode)
   if (item.kind === 'politician') return 'PTR'
   if (item.kind === '13f') return '13F'
   return null
 }
 
+function researchFeedRowPassesSourceFilter(row, enabledSources) {
+  if (!enabledSources?.size) return true
+  const fk = String(row?.feed_kind ?? '').toLowerCase()
+  if (fk === 'insider') {
+    const key = normalizeResearchPaperSourceKey(row?.source_key ?? 'Form 4')
+    if (enabledSources.has(key)) return true
+    return researchSourceSubtypeKeysForSource(key).some((k) => enabledSources.has(k))
+  }
+  if (fk === 'politicians') {
+    if (enabledSources.has('PTR')) return true
+    return researchSourceSubtypeKeysForSource('PTR').some((k) => enabledSources.has(k))
+  }
+  if (fk === 'institutions') {
+    if (enabledSources.has('13F')) return true
+    return researchSourceSubtypeKeysForSource('13F').some((k) => enabledSources.has(k))
+  }
+  const docKey = normalizeResearchPaperSourceKey(row?.source_key ?? 'Other')
+  return enabledSources.has(docKey)
+}
+
 function paperTimelineItemPassesSourceFilter(item, enabledSources) {
-  if (!enabledSources?.size) return false
+  if (!enabledSources?.size) return true
   if (item?.kind === 'document') {
     const key = normalizeResearchPaperSourceKey(item.document?.source)
     return key ? enabledSources.has(key) : false
@@ -6648,12 +6675,12 @@ function paperTimelineItemPassesSourceFilter(item, enabledSources) {
 }
 
 function filterPaperTimelineBySources(items, enabledSources) {
-  if (!enabledSources?.size) return []
+  if (!enabledSources?.size) return Array.isArray(items) ? items : []
   return (items ?? []).filter((item) => paperTimelineItemPassesSourceFilter(item, enabledSources))
 }
 
 function filterPaperDocumentsBySources(documents, enabledSources) {
-  if (!enabledSources?.size) return []
+  if (!enabledSources?.size) return Array.isArray(documents) ? documents : []
   return (documents ?? []).filter((doc) => {
     const key = normalizeResearchPaperSourceKey(doc?.source)
     return enabledSources.has(key)
@@ -9540,6 +9567,8 @@ function KensiglineTerminal() {
           name: label,
           company: label,
           at: x.feed_at ? String(x.feed_at) : null,
+          feed_kind: x.feed_kind ? String(x.feed_kind) : null,
+          source_key: x.source_key ? String(x.source_key) : null,
           idea_score: x.idea_score,
           idea_best: x.idea_best,
           idea_reasons: x.idea_reasons,
@@ -9863,9 +9892,10 @@ function KensiglineTerminal() {
 
   const researchFeedAfterSourceFilter = useMemo(() => {
     const enabled = researchPaperSourceFilters
-    if (!enabled?.size) return []
+    if (!enabled?.size) return researchFilteredFeed
     if (backendUp) {
       return researchFilteredFeed
+        .filter((row) => researchFeedRowPassesSourceFilter(row, enabled))
         .map((row) => normalizeResearchFeedRow(row, []))
         .filter(Boolean)
     }
@@ -9911,11 +9941,16 @@ function KensiglineTerminal() {
 
   const closeResearchFeedFilter = useCallback(() => {
     if (researchPaperSourceFiltersDraft) {
-      setResearchPaperSourceFilters(new Set(researchPaperSourceFiltersDraft))
+      const allowed = researchSourceFilterKeysForIntel(intelMode)
+      const next =
+        researchPaperSourceFiltersDraft.size > 0
+          ? new Set(researchPaperSourceFiltersDraft)
+          : new Set(allowed)
+      setResearchPaperSourceFilters(next)
     }
     setResearchPaperSourceFiltersDraft(null)
     setResearchFeedFilterOpen(false)
-  }, [researchPaperSourceFiltersDraft])
+  }, [researchPaperSourceFiltersDraft, intelMode])
 
   const onResearchFeedFilterClick = useCallback(() => {
     if (researchFeedFilterOpen) closeResearchFeedFilter()
