@@ -192,16 +192,22 @@ test("discover summary truncation", async () => {
 });
 
 test("research feed company label uses DB name only", async () => {
-  const { resolveResearchFeedCompanyName } = await import("../research/feed-display.js");
+  const {
+    resolveResearchFeedCompanyName,
+    formatCompanyDisplayName,
+  } = await import("../research/feed-display.js");
   assert.equal(resolveResearchFeedCompanyName("ADBE", "Adobe Inc."), "Adobe Inc.");
   assert.equal(resolveResearchFeedCompanyName("ADBE", null, "Adobe Inc."), "Adobe Inc.");
   assert.equal(resolveResearchFeedCompanyName("ADBE", null), "ADBE");
   assert.equal(resolveResearchFeedCompanyName("NVDA", "NVIDIA Corporation"), "NVIDIA Corporation");
-  assert.equal(resolveResearchFeedCompanyName("ING", "ING", "ING GROEP NV"), "ING GROEP NV");
+  assert.equal(resolveResearchFeedCompanyName("ING", "ING", "ING GROEP NV"), "ING Groep NV");
+  assert.equal(resolveResearchFeedCompanyName("BAC", null, "BANK OF AMERICA CORP /DE/"), "Bank of America");
+  assert.equal(resolveResearchFeedCompanyName("DHI", null, "HORTON D R INC /DE/"), "Horton D R");
   const ptrBlob =
     "IRa -> BLaCkROCK INfLaTIoN [MF] Monthly IRa -> EaTON VaNCE FLoATING [MF] Quarterly";
   assert.equal(resolveResearchFeedCompanyName("MF", ptrBlob), "MF");
   assert.equal(resolveResearchFeedCompanyName("MF", ptrBlob, "MFS Charter Income Trust"), "MFS Charter Income Trust");
+  assert.equal(formatCompanyDisplayName("BERKSHIRE HATHAWAY INC DEL"), "Berkshire Hathaway");
 });
 
 test("discover macro week generation", async () => {

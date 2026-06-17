@@ -7,6 +7,7 @@ import { formatUsdCompact } from "../shared/money.js";
 import {
   collectAssetNamesFromClusterData,
   resolveInvestigateFeedCompanyName,
+  resolveResearchFeedCompanyName,
 } from "../research/feed-display.js";
 import { upsertCompanyNameForTicker } from "../core/company.js";
 import { getSecTickerTitleMap } from "../core/sec.js";
@@ -433,14 +434,20 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
     return;
   }
 
+  const secTitles = await getSecTickerTitleMap();
   let minAt: string | null = null;
   let maxAt: string | null = null;
   const worksheet_rows: Array<{
     key: string;
     ts: string | null;
     amount_usd: number | null;
+    amount_usd_mid: number | null;
+    amount_range: string | null;
     chamber: string | null;
     transaction_type: string | null;
+    asset_name: string | null;
+    description: string | null;
+    ticker: string;
   }> = [];
   const politicians = new Set<string>();
   let latest: any = null;
@@ -457,12 +464,23 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
       for (const r of rows) {
         const key = String(r?.key ?? "").trim() || "POLITICIAN";
         politicians.add(key);
+        const rowTs = r?.ts != null ? String(r.ts) : at ?? null;
         worksheet_rows.push({
           key,
-          ts: r?.ts != null ? String(r.ts) : null,
-          amount_usd: r?.amount_usd_mid != null ? Number(r.amount_usd_mid) : null,
+          ts: rowTs,
+          amount_usd:
+            r?.amount_usd_mid != null
+              ? Number(r.amount_usd_mid)
+              : r?.amount_usd != null
+                ? Number(r.amount_usd)
+                : null,
+          amount_usd_mid: r?.amount_usd_mid != null ? Number(r.amount_usd_mid) : null,
+          amount_range: r?.amount_range != null ? String(r.amount_range) : null,
           chamber: r?.chamber != null ? String(r.chamber) : null,
           transaction_type: r?.transaction_type != null ? String(r.transaction_type) : null,
+          asset_name: r?.asset_name != null ? String(r.asset_name) : null,
+          description: r?.description != null ? String(r.description) : null,
+          ticker: r?.ticker != null ? String(r.ticker) : ticker,
         });
       }
     }
@@ -472,6 +490,7 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
   const context_sentences: string[] = Array.isArray(latest?.cluster?.context_sentences)
     ? latest.cluster.context_sentences.map((s: any) => String(s)).filter(Boolean).slice(0, 3)
     : [];
+  const issuerName = resolveResearchFeedCompanyName(ticker, secTitles.get(ticker) ?? null);
 
   sendJson(res, 200, {
     id,
@@ -480,7 +499,7 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
     data: {
       schema_type: "politician_cluster",
       schema_version: "v1",
-      issuer: { name: null, ticker, cik: null },
+      issuer: { name: issuerName !== ticker ? issuerName : null, ticker, cik: null },
       filing: { form_type: "PTR", accession_no: null, filed_at: maxAt },
       cluster: {
         cluster_start_at: minAt,

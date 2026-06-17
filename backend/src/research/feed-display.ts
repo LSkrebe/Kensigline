@@ -6,6 +6,41 @@ function stripLegalNoise(name: string) {
     .trim();
 }
 
+const TITLE_SMALL_WORDS = new Set(["of", "the", "and", "or", "in", "for", "a", "an", "to", "at", "by", "on"]);
+
+/** SEC legal title → readable company label (strip /DE/, DEL, INC, title-case). */
+export function formatCompanyDisplayName(name: string): string {
+  let s = stripLegalNoise(String(name ?? "").trim());
+  if (!s) return s;
+  const letters = s.replace(/[^A-Za-z]/g, "");
+  const upperLetters = letters.replace(/[^A-Z]/g, "").length;
+  const secStyle = letters.length > 0 && upperLetters / letters.length >= 0.8;
+  if (!secStyle) return s;
+  s = s
+    .replace(/\s*\/DE\/\s*$/i, "")
+    .replace(/\s+DEL\s*$/i, "")
+    .replace(/\s+PLC\s+IRELAND\s*$/i, "")
+    .replace(/\s+PLC\s*$/i, "")
+    .replace(/\s+CORP(?:ORATION)?\.?\s*$/i, "")
+    .replace(/\s+INC(?:ORPORATED)?\.?\s*$/i, "")
+    .replace(/\s+CO\.?\s*$/i, "")
+    .replace(/\s+LTD\.?\s*$/i, "")
+    .replace(/\s+LIMITED\s*$/i, "")
+    .replace(/\s+LLC\.?\s*$/i, "")
+    .trim();
+  if (!s) return s;
+  return s
+    .split(/\s+/)
+    .map((w, i) => {
+      const lower = w.toLowerCase();
+      if (i > 0 && TITLE_SMALL_WORDS.has(lower)) return lower;
+      if (/^[A-Z]\.?[A-Z]\.?$/.test(w)) return w;
+      if (w.length <= 3 && /^[A-Z]+$/.test(w)) return w;
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+}
+
 function isTickerPlaceholderName(name: string, ticker: string) {
   const n = stripLegalNoise(name).toUpperCase();
   const t = String(ticker ?? "").trim().toUpperCase();
@@ -65,7 +100,9 @@ export function resolveResearchFeedCompanyName(
   const t = String(ticker ?? "").trim().toUpperCase();
   for (const raw of [dbName, ...fallbacks]) {
     const candidate = stripLegalNoise(String(raw ?? "").trim());
-    if (candidate && isPlausibleCompanyDisplayName(candidate, t)) return candidate;
+    if (candidate && isPlausibleCompanyDisplayName(candidate, t)) {
+      return formatCompanyDisplayName(candidate);
+    }
   }
   return t;
 }
@@ -77,7 +114,5 @@ export function resolveInvestigateFeedCompanyName(
   secTitle: string | null | undefined,
   issuerJsonName: string | null | undefined,
 ): string {
-  // For investigate flows, SEC title is the most reliable issuer label when available.
-  // PTR/cluster parsing can attach a plausible-but-wrong issuer name to a real ticker.
   return resolveResearchFeedCompanyName(ticker, secTitle ?? null, dbName, issuerJsonName);
 }

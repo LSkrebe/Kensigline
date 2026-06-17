@@ -282,12 +282,13 @@ async function persistPoliticianFiling(opts: {
     const docSha = `${contentSha256}:${ticker}`;
     txs.sort((a, b) => String(b?.notification_date ?? "").localeCompare(String(a?.notification_date ?? "")));
 
+    const filingAt = formatIso(filing.filed_at);
     const worksheet_rows = txs.map((t) => {
       const amt = parseUsdAmountRange(t?.amount_range ?? null);
       return {
         key: filerName,
         chamber,
-        ts: formatIso(t?.transaction_date) ?? formatIso(t?.notification_date),
+        ts: formatIso(t?.transaction_date) ?? formatIso(t?.notification_date) ?? filingAt,
         reported_at: formatIso(t?.notification_date),
         transaction_type: t?.transaction_type ?? null,
         owner: t?.owner ?? null,

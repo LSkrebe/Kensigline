@@ -363,9 +363,10 @@ function politiciansCaseSheetFromClusterLive(cluster, fallback) {
   const wsRows = Array.isArray(cluster?.cluster?.worksheet_rows) ? cluster.cluster.worksheet_rows : []
   const chamberFromRow = wsRows.map((r) => String(r?.chamber ?? '').trim().toLowerCase()).find(Boolean)
   const chamber = chamberFromRow || fallback?.chamber || 'house'
+  const filedAt = cluster?.filing?.filed_at ?? fallback?.at ?? null
   const companyName =
-    String(cluster?.issuer?.name ?? '').trim() ||
-    String(fallback?.company ?? '').trim() ||
+    formatCompanyDisplayName(String(cluster?.issuer?.name ?? '').trim()) ||
+    formatCompanyDisplayName(String(fallback?.company ?? '').trim()) ||
     fallback?.ticker ||
     '—'
   return {
@@ -374,7 +375,7 @@ function politiciansCaseSheetFromClusterLive(cluster, fallback) {
     issuer: companyName,
     ticker: cluster?.issuer?.ticker ?? fallback?.ticker ?? '—',
     isForm4: true,
-    filedAt: cluster?.filing?.filed_at ?? fallback?.at ?? null,
+    filedAt,
     rows: wsRows.map((r) => {
       const fullName = String(r?.key ?? '').trim() || 'Politician'
       return {
@@ -398,7 +399,7 @@ function politiciansCaseSheetFromClusterLive(cluster, fallback) {
               ? Number(r.amount_usd)
               : null,
         acquiredDisposed: 'A',
-        ts: r?.ts != null ? String(r.ts) : null,
+        ts: r?.ts != null ? String(r.ts) : filedAt != null ? String(filedAt) : null,
       }
     }),
   }
@@ -968,6 +969,43 @@ const RESEARCH_FEED_BY_INTEL = {
   ],
 }
 
+function formatCompanyDisplayName(name) {
+  let s = String(name ?? '').trim()
+  if (!s) return s
+  s = s
+    .replace(/\s+common\s+stock$/i, '')
+    .replace(/\s+class\s+[a-z0-9]+$/i, '')
+    .trim()
+  const letters = s.replace(/[^A-Za-z]/g, '')
+  const upperLetters = letters.replace(/[^A-Z]/g, '').length
+  const secStyle = letters.length > 0 && upperLetters / letters.length >= 0.8
+  if (!secStyle) return s
+  s = s
+    .replace(/\s*\/DE\/\s*$/i, '')
+    .replace(/\s+DEL\s*$/i, '')
+    .replace(/\s+PLC\s+IRELAND\s*$/i, '')
+    .replace(/\s+PLC\s*$/i, '')
+    .replace(/\s+CORP(?:ORATION)?\.?\s*$/i, '')
+    .replace(/\s+INC(?:ORPORATED)?\.?\s*$/i, '')
+    .replace(/\s+CO\.?\s*$/i, '')
+    .replace(/\s+LTD\.?\s*$/i, '')
+    .replace(/\s+LIMITED\s*$/i, '')
+    .replace(/\s+LLC\.?\s*$/i, '')
+    .trim()
+  if (!s) return s
+  const small = new Set(['of', 'the', 'and', 'or', 'in', 'for', 'a', 'an', 'to', 'at', 'by', 'on'])
+  return s
+    .split(/\s+/)
+    .map((w, i) => {
+      const lower = w.toLowerCase()
+      if (i > 0 && small.has(lower)) return lower
+      if (/^[A-Z]\.?[A-Z]\.?$/.test(w)) return w
+      if (w.length <= 3 && /^[A-Z]+$/.test(w)) return w
+      return lower.charAt(0).toUpperCase() + lower.slice(1)
+    })
+    .join(' ')
+}
+
 /** Middle FEED column: full company name from DB (never memo headline / feed_label). */
 function isPlausibleFeedCompanyName(name, ticker) {
   const n = String(name ?? '').trim()
@@ -987,7 +1025,9 @@ function isPlausibleFeedCompanyName(name, ticker) {
 function researchFeedRowLabel(item) {
   const ticker = String(item?.ticker ?? '').trim().toUpperCase()
   const companyName = String(item?.company_name ?? item?.company ?? '').trim()
-  if (companyName && isPlausibleFeedCompanyName(companyName, ticker)) return companyName
+  if (companyName && isPlausibleFeedCompanyName(companyName, ticker)) {
+    return formatCompanyDisplayName(companyName)
+  }
   return ticker
 }
 
@@ -3283,7 +3323,7 @@ function investigateCaseRowTxnCode(r, mode) {
 }
 
 function investigateCaseRowPassesTxnFilter(r, enabledCodes, mode) {
-  if (!enabledCodes?.size) return false
+  if (!enabledCodes?.size) return true
   const code = investigateCaseRowTxnCode(r, mode)
   if (!code) return false
   return enabledCodes.has(code)
@@ -4922,7 +4962,10 @@ function filterCaseTradesForPriceRange(trades, range) {
   if (!Array.isArray(trades) || !trades.length) return []
   const start = priceRangeWindowStart(range)
   if (!start) return trades
-  return trades.filter((t) => t?.ts != null && markerWithinPriceRange(t.ts, range))
+  return trades.filter((t) => {
+    if (t?.ts == null) return true
+    return markerWithinPriceRange(t.ts, range)
+  })
 }
 
 function markerWithinPriceRange(marker, range) {
@@ -9635,13 +9678,15 @@ function KensiglineTerminal() {
 
   const researchCompanyName = useMemo(() => {
     const fromExplore = String(researchExploreResolved?.company_name ?? '').trim()
-    if (fromExplore && isPlausibleFeedCompanyName(fromExplore, researchTick)) return fromExplore
+    if (fromExplore && isPlausibleFeedCompanyName(fromExplore, researchTick)) {
+      return formatCompanyDisplayName(fromExplore)
+    }
     const fromFeed = researchFeedItems.find((x) => String(x.ticker ?? '').toUpperCase() === researchTick)?.name
     if (fromFeed && isPlausibleFeedCompanyName(fromFeed, researchTick)) return fromFeed
     if (backendUp) return researchTick || '—'
     const companyEnt = researchDataset?.entities?.find((e) => String(e?.type ?? '').toLowerCase() === 'company')
     const mockName = companyEnt?.name ?? researchTick
-    return isPlausibleFeedCompanyName(mockName, researchTick) ? mockName : researchTick
+    return isPlausibleFeedCompanyName(mockName, researchTick) ? formatCompanyDisplayName(mockName) : researchTick
   }, [researchFeedItems, researchDataset?.entities, researchTick, researchExploreResolved?.company_name, backendUp])
 
   const researchPriceSeries = useMemo(() => {
@@ -10607,8 +10652,8 @@ function KensiglineTerminal() {
     let base = politiciansSelected ?? null
     if (backendUp && activeTab === 'investigate' && investigateMode === 'politicians' && politiciansClusterLive) {
       const companyName =
-        String(politiciansClusterLive?.issuer?.name ?? '').trim() ||
-        String(politiciansSelected?.company ?? '').trim() ||
+        formatCompanyDisplayName(String(politiciansClusterLive?.issuer?.name ?? '').trim()) ||
+        formatCompanyDisplayName(String(politiciansSelected?.company ?? '').trim()) ||
         politiciansSelected?.ticker ||
         '—'
       const caseSheet = politiciansCaseSheetFromClusterLive(politiciansClusterLive, politiciansSelected)
