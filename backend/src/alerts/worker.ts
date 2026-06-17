@@ -1,4 +1,4 @@
-import { collectIdeaCandidates } from "./candidates.js";
+import { collectDigestSections, digestItemCount } from "./digest-collect.js";
 import { sendIdeaDigestEmail } from "./email.js";
 import { digestAlreadySent, listEnabledAlertUsers, logDigestSent, type AlertPreferences } from "./store.js";
 
@@ -34,23 +34,25 @@ function shouldSendNow(prefs: AlertPreferences, now = new Date()): { send: boole
 
 async function runDigestForUser(prefs: AlertPreferences, slotKey: string): Promise<void> {
   if (await digestAlreadySent(prefs.user_id, slotKey)) return;
-  const items = await collectIdeaCandidates({
+  const sections = await collectDigestSections({
     sinceHours: 36,
     feeds: prefs.feeds,
-    limit: prefs.max_items,
   });
-  if (!items.length) {
+  const itemCount = digestItemCount(sections);
+  if (!itemCount) {
     await logDigestSent(prefs.user_id, slotKey, 0);
     return;
   }
+  const slotLabel = slotKey.endsWith("-morning") ? "Morning" : slotKey.endsWith("-evening") ? "Evening" : undefined;
   const ok = await sendIdeaDigestEmail({
     to: prefs.email,
-    subject: `Kensigline ideas (${items.length})`,
-    items,
+    subject: `Mercerline digest · ${itemCount} idea${itemCount === 1 ? "" : "s"}`,
+    sections,
+    ...(slotLabel ? { slotLabel } : {}),
   });
   if (ok) {
-    await logDigestSent(prefs.user_id, slotKey, items.length);
-    console.log(`[alerts] digest sent user=${prefs.user_id} items=${items.length} slot=${slotKey}`);
+    await logDigestSent(prefs.user_id, slotKey, itemCount);
+    console.log(`[alerts] digest sent user=${prefs.user_id} items=${itemCount} slot=${slotKey}`);
   }
 }
 

@@ -31,6 +31,7 @@ import { tryDiscoverRoutes } from "./discover/api.js";
 import { clampInt } from "./shared/feed-helpers.js";
 import { startAllWorkers, stopAllWorkers } from "./server/workers.js";
 import { handleAlertsPreferencesGet, handleAlertsPreferencesPatch } from "./alerts/api.js";
+import { handleAlertsWatchlistGet, handleAlertsWatchlistPatch } from "./alerts/watchlist-api.js";
 import { scoreResearchDocument } from "./core/idea-score.js";
 
 const port = Number(process.env.PORT ?? "3001");
@@ -133,6 +134,24 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       await handleAlertsPreferencesPatch(req, res);
+      return;
+    }
+
+    if (route(req, url, "GET", "/api/alerts/watchlist")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleAlertsWatchlistGet(req, res);
+      return;
+    }
+
+    if (route(req, url, "PATCH", "/api/alerts/watchlist")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleAlertsWatchlistPatch(req, res);
       return;
     }
 

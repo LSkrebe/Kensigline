@@ -564,17 +564,6 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
   return (
     <section className="panel discoverPanel" aria-label="Discover">
       <div className="discoverPanelBody">
-        <DiscoverMacroStrip
-          panelClassName={discoverPhonePaneClass(isPhone, phonePane, 'macro')}
-          macroDays={macroSource}
-          enabledRegions={macroRegionFilters}
-          enabledImpacts={macroImpactFilters}
-          filterOpen={macroFilterOpen}
-          onFilterClick={() => setMacroFilterOpen((open) => !open)}
-          onFilterToggle={toggleMacroFilter}
-          loading={showColumnLoading && !macroSource.some((d) => d.events?.length)}
-        />
-        <div className="discoverPanelSplit discoverPanelSplit--horizontal" aria-hidden="true" />
         <div className="discoverDual">
           <DiscoverFeedColumn
             panelClassName={discoverPhonePaneClass(isPhone, phonePane, 'catalyst')}
@@ -624,6 +613,17 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
             )}
           </DiscoverFeedColumn>
         </div>
+        <div className="discoverPanelSplit discoverPanelSplit--horizontal" aria-hidden="true" />
+        <DiscoverMacroStrip
+          panelClassName={discoverPhonePaneClass(isPhone, phonePane, 'macro')}
+          macroDays={macroSource}
+          enabledRegions={macroRegionFilters}
+          enabledImpacts={macroImpactFilters}
+          filterOpen={macroFilterOpen}
+          onFilterClick={() => setMacroFilterOpen((open) => !open)}
+          onFilterToggle={toggleMacroFilter}
+          loading={showColumnLoading && !macroSource.some((d) => d.events?.length)}
+        />
       </div>
     </section>
   )

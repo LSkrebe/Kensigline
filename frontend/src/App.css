@@ -3761,7 +3761,7 @@
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(152px, min(38vh, 220px)) 1px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 1px minmax(152px, min(38vh, 220px));
   padding: 0;
   box-sizing: border-box;
   overflow: hidden;
@@ -4578,195 +4578,437 @@
   font-size: 11px;
 }
 
-/* Settings tab: account + subscription top row; invoices below */
+/* Settings tab — single scroll page with compact cards */
 .terminal.terminal--settings {
-  --settings-row-slot: calc(0.34em + 1.65em + 1px);
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 1.15fr repeat(3, minmax(0, 1fr));
+  display: block;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
 }
 
-/* Settings — research-aligned panels */
-.terminal--settings .settingsAccountPanel,
-.terminal--settings .settingsSubscriptionPanel,
-.terminal--settings .settingsInvoicesPanel,
-.terminal--settings .settingsSignInPanel {
+.settingsPage {
+  height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
+}
+
+.settingsPageInner {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 14px 14px 18px;
+  box-sizing: border-box;
+}
+
+.settingsPageGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+}
+
+.settingsCard {
   display: flex;
   flex-direction: column;
-  min-height: 0;
   min-width: 0;
-  padding: 0;
-}
-
-.terminal--settings .settingsSignInPanel {
-  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
-}
-
-.terminal--settings .settingsAccountPanel,
-.terminal--settings .settingsSubscriptionPanel,
-.terminal--settings .settingsInvoicesPanel {
-  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
-}
-
-.terminal--settings .feedCompactHeader {
+  min-height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
   box-sizing: border-box;
-  flex: 0 0 var(--feed-header-h);
-  height: var(--feed-header-h);
-  min-height: var(--feed-header-h);
-  max-height: var(--feed-header-h);
-  padding: 0 12px;
-  align-items: center;
-  border-bottom: none;
 }
 
-.terminal--settings .feedCompactTitle {
-  color: var(--hi);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  font-weight: 600;
-}
-
-.terminal--settings .settingsTopRow {
-  grid-column: 1 / -1;
-  grid-row: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: stretch;
-  gap: 0;
-  min-height: 0;
-  min-width: 0;
+.settingsCard--account,
+.settingsCard--billing {
   height: 100%;
-  box-sizing: border-box;
 }
 
-.terminal--settings .settingsTopRow .settingsAccountPanel,
-.terminal--settings .settingsTopRow .settingsSubscriptionPanel {
-  min-width: 0;
-  min-height: 0;
-  width: 100%;
+.settingsCard--account .settingsCardBody,
+.settingsCard--billing .settingsCardBody {
+  flex: 1 1 auto;
 }
 
-.terminal--settings .settingsInvoicesPanel {
+.settingsCard--wide {
   grid-column: 1 / -1;
-  grid-row: 2 / span 3;
 }
 
-.terminal--settings .settingsSignInPanel {
-  grid-column: 1 / -1;
-  grid-row: 1 / span 4;
+.settingsCardHead {
+  padding: 10px 12px 0;
 }
 
-.terminal--settings .settingsAccountPanel,
-.terminal--settings .settingsSubscriptionPanel {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  padding: 0;
-  min-height: 0;
+.settingsCardTitle {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hi);
+}
+
+.settingsCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px 12px 10px;
   min-width: 0;
 }
 
-.terminal--settings .settingsInvoicesPanel,
-.terminal--settings .settingsSignInPanel {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  padding: 0;
-  min-height: 0;
-  min-width: 0;
-}
-
-.settingsPanelFooter {
+.settingsCardFoot {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   flex-shrink: 0;
-  margin: 0;
-  padding: 0 12px 12px;
-  border: none;
-  box-sizing: border-box;
+  padding: 0 12px 10px;
+  margin-top: auto;
 }
 
-.settingsAccountPanel .settingsPanelBody,
-.settingsSubscriptionPanel .settingsPanelBody {
-  min-height: 0;
-  overflow: hidden;
-  align-content: start;
+.settingsCardHint {
+  margin: 0 0 8px;
+  font-size: 10px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.02em;
 }
 
-.settingsAccountPanel .settingsKvBody,
-.settingsSubscriptionPanel .settingsKvBody {
-  flex: 0 0 auto;
-}
-
-.settingsValue--trial {
-  color: var(--hi);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.settingsPanelBody {
-  min-height: 0;
-  overflow: hidden;
-  padding: 0 12px 12px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
-.settingsPanelBody--invoices {
-  min-height: 0;
-}
-
-.settingsKv {
-  box-sizing: border-box;
+.settingsField {
   display: grid;
-  gap: 0;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 10px;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.settingsKvRow {
-  display: grid;
-  grid-template-columns: minmax(0, 0.33fr) minmax(0, 1fr);
+  grid-template-columns: minmax(88px, 0.36fr) minmax(0, 1fr);
   gap: 12px;
   align-items: center;
-  padding: 7px 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  min-height: 32px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 11px;
+  line-height: 1.25;
 }
 
-.settingsKvRow:last-child {
+.settingsField:last-child {
   border-bottom: none;
 }
 
-.settingsKv .settingsKvRow:last-child:hover {
-  /* Legacy card layout only */
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-}
-
-.settingsKv .settingsKvRow:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.settingsAccountPanel .settingsKvRow:hover,
-.settingsSubscriptionPanel .settingsKvRow:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.settingsKvK {
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.58);
+.settingsFieldLabel {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  font-size: var(--fs-meta);
+  color: rgba(255, 255, 255, 0.42);
 }
 
-.settingsKvV {
+.settingsFieldLabelGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settingsFieldSublabel {
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.32);
+  line-height: 1.3;
+}
+
+.settingsField--digest {
+  min-height: 38px;
+}
+
+.settingsFieldValue {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: right;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.settingsDigestState {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.settingsFieldValue--control.isOn .settingsDigestState {
+  color: rgba(170, 220, 255, 0.82);
+}
+
+.settingsFieldValue--control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  overflow: visible;
+}
+
+.settingsFieldValue--good {
+  color: rgba(120, 220, 160, 0.95);
+}
+
+.settingsFieldValue--trial {
+  color: rgba(255, 255, 255, 0.88);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.settingsSessionPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 100%;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.settingsSwitch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  cursor: pointer;
+}
+
+.settingsSwitchInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.settingsSwitchTrack {
+  display: block;
+  width: 34px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-sizing: border-box;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.settingsSwitchThumb {
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: 2px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.settingsSwitchInput:checked + .settingsSwitchTrack {
+  background: rgba(100, 180, 255, 0.22);
+  border-color: rgba(120, 200, 255, 0.4);
+}
+
+.settingsSwitchInput:checked + .settingsSwitchTrack .settingsSwitchThumb {
+  transform: translateX(16px);
+  background: rgba(190, 225, 255, 0.95);
+}
+
+.settingsSwitchInput:focus-visible + .settingsSwitchTrack {
+  outline: 1px solid rgba(168, 196, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.settingsSwitchInput:disabled + .settingsSwitchTrack {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.settingsMuted {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.settingsLinkBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
   color: rgba(255, 255, 255, 0.72);
-  letter-spacing: 0.02em;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.settingsLinkBtn:hover:not(:disabled) {
+  color: var(--hi);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.settingsLinkBtn--danger {
+  border-color: rgba(255, 120, 160, 0.34);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.settingsLinkBtn--danger:hover:not(:disabled) {
+  color: rgba(255, 170, 195, 0.98);
+  background: rgba(255, 120, 160, 0.1);
+  border-color: rgba(255, 140, 170, 0.48);
+}
+
+.settingsLinkBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.settingsLinkBtn:focus-visible {
+  outline: 1px solid var(--intel-accent-focus);
+  outline-offset: 2px;
+}
+
+.settingsWatchlistChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.settingsWatchlistChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  padding: 0 2px 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.settingsWatchlistChipTicker {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--hi);
+}
+
+.settingsWatchlistChipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.settingsWatchlistChipRemove:hover:not(:disabled) {
+  color: rgba(255, 140, 170, 0.95);
+  background: rgba(255, 120, 160, 0.1);
+}
+
+.settingsInvoiceTableWrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -2px;
+}
+
+.settingsInvoiceTable {
+  width: 100%;
+  min-width: 420px;
+  border-collapse: collapse;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.settingsInvoiceTable th {
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.settingsInvoiceTable th:last-child,
+.settingsInvoiceTable td.settingsInvoiceAction {
+  text-align: right;
+  width: 32px;
+}
+
+.settingsInvoiceTable td {
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.78);
+  vertical-align: middle;
+}
+
+.settingsInvoiceTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.settingsInvoiceTable tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.settingsCard--signIn .authSignIn--settings {
+  width: 100%;
+  padding: 14px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  box-sizing: border-box;
+}
+
+@media (max-width: 720px) {
+  .settingsPageInner {
+    padding: 10px 10px 14px;
+  }
+
+  .settingsPageGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .settingsCard--wide {
+    grid-column: 1;
+  }
+
+  .settingsField {
+    grid-template-columns: minmax(80px, 0.38fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+}
+
+@media (max-width: 1280px) and (min-width: 721px) {
+  .settingsPageInner {
+    max-width: none;
+    padding: 12px;
+  }
 }
 
 .feedRowCompact--programs .feedProgramsLine + .feedProgramsLine {
@@ -4938,89 +5180,6 @@
   color: var(--bad);
 }
 
-.settingsInvoiceList {
-  --settings-invoice-cols: minmax(100px, 1.15fr) minmax(76px, 0.85fr) minmax(72px, 0.75fr) minmax(0, 1.35fr) 28px;
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  display: grid;
-  grid-template-columns: var(--settings-invoice-cols);
-  column-gap: clamp(8px, 1.5cqmin, 14px);
-  align-content: start;
-  padding: 8px 10px;
-  font-size: var(--fs-body);
-  line-height: 1.18;
-  box-sizing: border-box;
-  border: 1px solid var(--chart-panel-border);
-  border-radius: 10px;
-  background: var(--chart-panel-surface);
-}
-
-.settingsInvoiceRow {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  align-items: center;
-  box-sizing: border-box;
-  min-height: var(--settings-row-slot);
-  height: var(--settings-row-slot);
-  padding: 0.22em 10px;
-  margin: 0;
-  border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  background: transparent;
-  font-size: inherit;
-  line-height: inherit;
-  color: rgba(255, 255, 255, 0.88);
-}
-
-.settingsInvoiceRow:not(.settingsInvoiceRow--head):hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.settingsInvoiceRow--head {
-  min-height: var(--settings-row-slot);
-  height: var(--settings-row-slot);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.settingsInvoiceRow--head .settingsInvoiceCol--date,
-.settingsInvoiceRow--head .settingsInvoiceCol--amount,
-.settingsInvoiceRow--head .settingsInvoiceCol--status,
-.settingsInvoiceRow--head .settingsInvoiceCol--note,
-.settingsInvoiceRow--head .settingsInvoiceCol--action {
-  color: rgba(255, 255, 255, 0.42);
-}
-
-.settingsInvoiceCell {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.settingsInvoiceRow--head .settingsInvoiceCol--date,
-.settingsInvoiceRow--head .settingsInvoiceCol--amount,
-.settingsInvoiceRow--head .settingsInvoiceCol--status,
-.settingsInvoiceRow--head .settingsInvoiceCol--note,
-.settingsInvoiceCol--date,
-.settingsInvoiceCol--amount,
-.settingsInvoiceCol--status,
-.settingsInvoiceCol--note {
-  justify-self: start;
-}
-
-.settingsInvoiceRow:not(.settingsInvoiceRow--head) .settingsInvoiceCol--amount {
-  color: rgba(220, 228, 235, 0.78);
-}
-
-.settingsInvoiceRow:not(.settingsInvoiceRow--head) .settingsInvoiceCol--date {
-  color: rgba(255, 255, 255, 0.82);
-}
-
 .settingsInvoiceStatus {
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -5040,14 +5199,6 @@
 
 .settingsInvoiceNote {
   color: rgba(255, 255, 255, 0.45);
-  font-family: inherit;
-}
-
-.settingsInvoiceCol--action {
-  justify-self: end;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
 }
 
 .settingsInvoiceDownload {
@@ -7705,6 +7856,54 @@ body {
   flex-shrink: 0;
 }
 
+.contextAlertToggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.38);
+  cursor: pointer;
+  line-height: 0;
+  transition: color 0.15s ease;
+}
+
+.contextAlertToggle:hover:not(:disabled) {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.contextAlertToggle.isActive {
+  color: var(--cyan);
+}
+
+.contextAlertToggle:disabled {
+  opacity: 0.32;
+  cursor: default;
+}
+
+.contextAlertToggle:focus-visible {
+  outline: 1px solid rgba(168, 196, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.contextAlertToggleIcon {
+  display: block;
+}
+
+.contextAlertToggleDot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
+}
+
 .feedCompactFilterBtn {
   display: inline-flex;
   align-items: center;
@@ -9441,105 +9640,23 @@ body {
     display: none;
   }
 
-  /* Settings — stacked panels (account, subscription, invoices) */
-  .terminalShell--phone .terminal.terminal--settings {
-    display: flex;
-    flex-direction: column;
-    overflow-y: auto;
-    overflow-x: hidden;
-    overscroll-behavior: contain;
-    grid-template-columns: unset;
-    grid-template-rows: unset;
+  /* Settings — phone scroll page */
+  .terminalShell--phone .settingsPageInner {
+    padding: 10px 10px 16px;
+  }
+
+  .terminalShell--phone .settingsInvoiceTable {
+    min-width: 380px;
+  }
+
+  .terminalShell--phone .settingsPage {
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
 
-  .terminalShell--phone .terminal.terminal--settings::-webkit-scrollbar {
+  .terminalShell--phone .settingsPage::-webkit-scrollbar {
     display: none;
     width: 0;
     height: 0;
-  }
-
-  .terminalShell--phone .terminal--settings .settingsTopRow {
-    display: contents;
-  }
-
-  .terminalShell--phone .terminal--settings .settingsAccountPanel,
-  .terminalShell--phone .terminal--settings .settingsSubscriptionPanel,
-  .terminalShell--phone .terminal--settings .settingsInvoicesPanel,
-  .terminalShell--phone .terminal--settings .settingsSignInPanel {
-    flex: 0 0 auto;
-    width: 100%;
-    min-height: 0;
-    height: auto;
-    grid-column: unset;
-    grid-row: unset;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  .terminalShell--phone .terminal--settings .settingsInvoicesPanel,
-  .terminalShell--phone .terminal--settings .settingsSignInPanel {
-    flex: 1 1 auto;
-    min-height: min(42vh, 360px);
-    border-bottom: none;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .terminalShell--phone .terminal--settings .settingsAccountPanel,
-  .terminalShell--phone .terminal--settings .settingsSubscriptionPanel {
-    display: flex;
-    flex-direction: column;
-    grid-template-rows: unset;
-  }
-
-  .terminalShell--phone .settingsAccountPanel .settingsPanelBody,
-  .terminalShell--phone .settingsSubscriptionPanel .settingsPanelBody {
-    overflow: visible;
-    min-height: 0;
-    flex: 0 0 auto;
-  }
-
-  .terminalShell--phone .settingsInvoicesPanel .settingsPanelBody--invoices {
-    min-height: 0;
-    flex: 1 1 auto;
-    overflow-x: auto;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .terminalShell--phone .settingsInvoicesPanel .settingsPanelBody--invoices::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    height: 0;
-  }
-
-  .terminalShell--phone .terminal--settings .settingsSignInPanel .settingsPanelBody {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .terminalShell--phone .terminal--settings .settingsSignInPanel .settingsPanelBody::-webkit-scrollbar {
-    display: none;
-    width: 0;
-    height: 0;
-  }
-
-  .terminalShell--phone .settingsInvoiceList {
-    --settings-invoice-cols: 104px 84px 76px 168px 36px;
-    flex: 0 0 auto;
-    min-width: 488px;
-    width: max-content;
-    max-width: none;
-    overflow: visible;
-  }
-
-  .terminalShell--phone .settingsInvoiceCell {
-    overflow: visible;
-    text-overflow: clip;
-    white-space: nowrap;
   }
 }

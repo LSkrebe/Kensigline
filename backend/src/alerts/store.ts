@@ -13,7 +13,7 @@ export type AlertPreferences = {
 
 let tableReady: Promise<void> | null = null;
 
-async function ensureTables() {
+export async function ensureAlertTables() {
   if (!tableReady) {
     tableReady = db
       .query(
@@ -38,12 +38,29 @@ async function ensureTables() {
           item_count int NOT NULL DEFAULT 0
         );
         CREATE UNIQUE INDEX IF NOT EXISTS alert_digest_log_user_slot_unique ON alert_digest_log (user_id, slot_key);
+        CREATE TABLE IF NOT EXISTS alert_watchlist (
+          user_id text NOT NULL,
+          ticker text NOT NULL,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          PRIMARY KEY (user_id, ticker)
+        );
+        CREATE INDEX IF NOT EXISTS alert_watchlist_ticker_idx ON alert_watchlist (ticker);
+        CREATE TABLE IF NOT EXISTS alert_ticker_sent_log (
+          user_id text NOT NULL,
+          document_id uuid NOT NULL,
+          sent_at timestamptz NOT NULL DEFAULT now(),
+          PRIMARY KEY (user_id, document_id)
+        );
         `,
         [],
       )
       .then(() => undefined);
   }
   await tableReady;
+}
+
+async function ensureTables() {
+  await ensureAlertTables();
 }
 
 export async function getAlertPreferences(userId: string): Promise<AlertPreferences | null> {

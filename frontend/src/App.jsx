@@ -2,6 +2,7 @@ import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { toPng } from 'html-to-image'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
+import { useAlertWatchlist } from './alertsWatchlist.js'
 import { IntroPage } from './IntroPage.jsx'
 import { SubscribePage } from './SubscribePage.jsx'
 import { SettingsPanel } from './SettingsPanel.jsx'
@@ -89,9 +90,9 @@ const INVESTIGATE_PHONE_PANES = [
 ]
 
 const DISCOVER_PHONE_PANES = [
-  { id: 'macro', label: 'Macro' },
   { id: 'catalyst', label: 'Catalyst' },
   { id: 'moves', label: 'Moves' },
+  { id: 'macro', label: 'Macro' },
 ]
 
 function clamp(n, lo, hi) {
@@ -4168,6 +4169,52 @@ const INSTITUTION_FEED_ROWS = sortFeedRowsByAtDesc(
   Array.from({ length: 42 }, (_, i) => normalizeFeedRowActivity(institutionCaseForRowIndex(i))),
 )
 
+function ContextAlertToggle({ ticker, className = '' }) {
+  const { loading, user } = useAuth()
+  const sym = String(ticker ?? '').trim().toUpperCase()
+  const signedIn = Boolean(user)
+  const { tickers, loaded, busyTicker, toggle } = useAlertWatchlist({ enabled: signedIn })
+  const active = sym && tickers.includes(sym)
+  const busy = busyTicker === sym
+  const disabled = !sym || busy || loading || !signedIn
+
+  return (
+    <button
+      type="button"
+      className={['contextAlertToggle', active ? 'isActive' : '', className].filter(Boolean).join(' ')}
+      aria-pressed={active || undefined}
+      aria-label={
+        !signedIn
+          ? 'Sign in to enable ticker email alerts'
+          : active
+            ? `Email alerts on for ${sym}`
+            : `Enable email alerts for ${sym}`
+      }
+      title={
+        !signedIn
+          ? 'Sign in to enable alerts'
+          : active
+            ? 'Alerts on — email when new documents arrive'
+            : 'Alert me when new documents arrive'
+      }
+      disabled={disabled}
+      onClick={() => {
+        if (!sym || busy) return
+        if (!signedIn) return
+        void toggle(sym)
+      }}
+    >
+      <svg className="contextAlertToggleIcon" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          fill="currentColor"
+          d="M12 22a2.4 2.4 0 0 0 2.35-1.9l.11-.55H9.54l.11.55A2.4 2.4 0 0 0 12 22Zm6.3-6.1V11a6.3 6.3 0 0 0-5.2-6.2V4a1.1 1.1 0 1 0-2.2 0v.8A6.3 6.3 0 0 0 5.7 11v4.9L4 17.6V19h16v-1.4l-1.7-1.5ZM12 2a8 8 0 0 1 7.9 7H4.1A8 8 0 0 1 12 2Z"
+        />
+      </svg>
+      {loaded && active ? <span className="contextAlertToggleDot" aria-hidden="true" /> : null}
+    </button>
+  )
+}
+
 function MainContextPanel({
   intelMode = 'market',
   ticker,
@@ -4235,6 +4282,9 @@ function MainContextPanel({
     >
       <header className="feedCompactHeader researchContextHeader">
         <div className="panelTitle feedCompactTitle">CONTEXT</div>
+        <div className="feedCompactHeaderEnd">
+          <ContextAlertToggle ticker={ticker} />
+        </div>
       </header>
       <div className="mainContextPanelBody scrollThin">
         <CompanySnapshotCard

@@ -34,14 +34,35 @@ function attach(feed: string, id: string, ticker: string, title: string, summary
   };
 }
 
-export async function collectIdeaCandidates(opts: {
+function scorePasses(
+  score: IdeaScoreResult,
+  opts: { requireBest?: boolean; minScore?: number },
+): boolean {
+  if (opts.requireBest) return score.idea_best;
+  return score.idea_score >= (opts.minScore ?? 0);
+}
+
+function withUrls(items: IdeaCandidate[]): IdeaCandidate[] {
+  return items.map((c) => ({
+    ...c,
+    url: c.url ?? `${frontendBase()}/?ticker=${encodeURIComponent(c.ticker)}`,
+  }));
+}
+
+export async function collectFeedCandidates(opts: {
   sinceHours?: number;
-  feeds?: string[];
+  feeds: string[];
   limit?: number;
+  minScore?: number;
+  requireBest?: boolean;
 }): Promise<IdeaCandidate[]> {
   const sinceHours = Math.max(6, Math.min(168, Number(opts.sinceHours ?? 36)));
-  const limit = Math.max(1, Math.min(50, Number(opts.limit ?? 20)));
-  const feeds = new Set(opts.feeds ?? ["insider", "politicians", "institutions", "research", "pharma"]);
+  const limit = Math.max(1, Math.min(200, Number(opts.limit ?? 100)));
+  const feeds = new Set(opts.feeds);
+  const filter = {
+    requireBest: opts.requireBest ?? false,
+    minScore: opts.minScore ?? 0,
+  };
   const out: IdeaCandidate[] = [];
 
   if (feeds.has("insider")) {
@@ -73,7 +94,7 @@ export async function collectIdeaCandidates(opts: {
     }
     for (const [ticker, { doc, totalUsd }] of byTicker.entries()) {
       const score = scoreInsiderCluster({ data: doc.data, eventAt: doc.event_at, totalUsd });
-      if (!score.idea_best) continue;
+      if (!scorePasses(score, filter)) continue;
       out.push(
         attach(
           "insider",
@@ -118,7 +139,7 @@ export async function collectIdeaCandidates(opts: {
     }
     for (const [ticker, { doc, totalUsd }] of byTicker.entries()) {
       const score = scorePoliticianCluster({ data: doc.data, eventAt: doc.event_at, totalUsd });
-      if (!score.idea_best) continue;
+      if (!scorePasses(score, filter)) continue;
       out.push(
         attach(
           "politicians",
@@ -163,7 +184,7 @@ export async function collectIdeaCandidates(opts: {
     }
     for (const [ticker, { doc, totalUsd }] of byTicker.entries()) {
       const score = scoreInstitutionCluster({ data: doc.data, eventAt: doc.event_at, totalUsd });
-      if (!score.idea_best) continue;
+      if (!scorePasses(score, filter)) continue;
       out.push(
         attach(
           "institutions",
@@ -217,14 +238,14 @@ export async function collectIdeaCandidates(opts: {
         event_at: r.event_at,
         data: r.data,
       });
-      if (!score.idea_best) continue;
+      if (!scorePasses(score, filter)) continue;
       out.push(
         attach(
           r.feed_kind === "pharma" ? "pharma" : "research",
           r.id,
           ticker,
           `${ticker} ${String(r.source_key ?? "filing")}`,
-          String(r.analysis ?? "").slice(0, 160),
+          String(r.analysis ?? "").slice(0, 280),
           String(r.event_at ?? new Date().toISOString()),
           r.url,
           score,
@@ -234,10 +255,21 @@ export async function collectIdeaCandidates(opts: {
   }
 
   out.sort((a, b) => b.idea_score - a.idea_score || String(b.event_at).localeCompare(String(a.event_at)));
-  return out.slice(0, limit).map((c) => ({
-    ...c,
-    url: c.url ?? `${frontendBase()}/?ticker=${encodeURIComponent(c.ticker)}`,
-  }));
+  return withUrls(out.slice(0, limit));
+}
+
+/** Legacy flat list — strict best-idea picks across all feeds. */
+export async function collectIdeaCandidates(opts: {
+  sinceHours?: number;
+  feeds?: string[];
+  limit?: number;
+}): Promise<IdeaCandidate[]> {
+  return collectFeedCandidates({
+    ...(opts.sinceHours != null ? { sinceHours: opts.sinceHours } : {}),
+    feeds: opts.feeds ?? ["insider", "politicians", "institutions", "research", "pharma"],
+    limit: opts.limit ?? 20,
+    requireBest: true,
+  });
 }
 
 export function ideaScoreFields(result: IdeaScoreResult) {
