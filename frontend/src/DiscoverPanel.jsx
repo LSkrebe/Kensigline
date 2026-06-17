@@ -352,7 +352,7 @@ function DiscoverMoveCard({ event, movePct, reactionCloses, allowMockFallback = 
     <button
       type="button"
       className="discoverMoveCard"
-      onClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode })}
+      onClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode, companyName: event.companyName })}
     >
       <div className="discoverMoveCardHead">
         <span className="discoverMoveCardTicker mono">{ticker}</span>
@@ -410,7 +410,7 @@ function DiscoverCatalystRow({ event, onResearch }) {
         'researchPaperDocCard--railTicker',
         'eventBriefDocCard--clickable',
       ].join(' ')}
-      onClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode })}
+      onClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode, companyName: event.companyName })}
     >
       <div className="researchPaperRailCardRail researchPaperRailCardRail--ticker">
         <span className="eventBriefRailTicker mono">{ticker}</span>

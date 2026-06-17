@@ -9462,6 +9462,8 @@ function KensiglineTerminal() {
     readChartRange('institutions', PRICE_RANGE_OPTS, '1M'),
   )
   const [researchFeedLive, setResearchFeedLive] = useState(null)
+  const [researchFeedInjected, setResearchFeedInjected] = useState([])
+  const [researchFeedRefresh, setResearchFeedRefresh] = useState(0)
   const [researchExploreLive, setResearchExploreLive] = useState(null)
   const [researchExploreTicker, setResearchExploreTicker] = useState(null)
   const [researchCompanyLive, setResearchCompanyLive] = useState(null)
@@ -9513,9 +9515,19 @@ function KensiglineTerminal() {
     const mode = intelMode === 'clinical' ? 'clinical' : 'market'
     const fallback = RESEARCH_FEED_BY_INTEL[mode] ?? RESEARCH_FEED_BY_INTEL.market
     if (!backendUp) return fallback
-    if (!Array.isArray(researchFeedLive) || !researchFeedLive.length) return []
+    const liveRows = Array.isArray(researchFeedLive) ? researchFeedLive : []
+    const injected = Array.isArray(researchFeedInjected) ? researchFeedInjected : []
+    const seen = new Set(liveRows.map((x) => String(x.ticker ?? '').toUpperCase()))
+    const merged = [...liveRows]
+    for (const row of injected) {
+      const ticker = String(row?.ticker ?? '').toUpperCase()
+      if (!ticker || seen.has(ticker)) continue
+      seen.add(ticker)
+      merged.push(row)
+    }
+    if (!merged.length) return []
     return sortFeedRowsByAtDesc(
-      researchFeedLive.map((x) => {
+      merged.map((x) => {
         const ticker = String(x.ticker ?? '').toUpperCase()
         const label = researchFeedRowLabel(x)
         return {
@@ -9530,14 +9542,27 @@ function KensiglineTerminal() {
         }
       }),
     )
-  }, [backendUp, researchFeedLive, intelMode])
+  }, [backendUp, researchFeedLive, researchFeedInjected, intelMode])
+
+  useEffect(() => {
+    if (!backendUp) return
+    if (!Array.isArray(researchFeedLive) || !researchFeedInjected.length) return
+    const liveTickers = new Set(researchFeedLive.map((x) => String(x.ticker ?? '').toUpperCase()))
+    setResearchFeedInjected((prev) => prev.filter((row) => !liveTickers.has(String(row.ticker ?? '').toUpperCase())))
+  }, [backendUp, researchFeedLive, researchFeedInjected.length])
+
+  useEffect(() => {
+    const pinned = String(researchTickerPinnedRef.current ?? '').trim().toUpperCase()
+    if (!pinned) return
+    if (researchFeedItems.some((x) => String(x.ticker ?? '').toUpperCase() === pinned)) {
+      researchTickerPinnedRef.current = null
+    }
+  }, [researchFeedItems])
 
   const researchTick = useMemo(
     () => String(researchTicker ?? '').trim().toUpperCase(),
     [researchTicker],
   )
-
-  // React 19 can leave prior paper panels in the grid when ticker keys change — keep one slot.
   useLayoutEffect(() => {
     const main = terminalMainRef.current
     if (!main || activeTab !== 'main') return
@@ -10020,11 +10045,15 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
+    setResearchFeedLive(null)
+  }, [backendUp, intelMode])
+
+  useEffect(() => {
+    if (!backendUp) return
     let cancelled = false
     const mode = intelMode === 'clinical' ? 'clinical' : 'market'
-    setResearchFeedLive(null)
     async function run() {
-      const r = await fetchJsonSafe(`/api/research/feed?limit=80&mode=${mode}`, { timeoutMs: 8000 })
+      const r = await fetchJsonSafe(`/api/research/feed?limit=120&mode=${mode}`, { timeoutMs: 8000 })
       if (cancelled || !r.ok || !r.data?.ok || !Array.isArray(r.data.items)) return
       setResearchFeedLive(r.data.items)
     }
@@ -10034,7 +10063,14 @@ function KensiglineTerminal() {
       cancelled = true
       clearInterval(t)
     }
-  }, [backendUp, intelMode])
+  }, [backendUp, intelMode, researchFeedRefresh])
+
+  useEffect(() => {
+    if (!backendUp) {
+      setResearchFeedInjected([])
+      return
+    }
+  }, [backendUp])
 
   useEffect(() => {
     if (!backendUp || activeTab !== 'main') return
@@ -11252,11 +11288,25 @@ function KensiglineTerminal() {
           backendUp={backendUp}
           isPhone={isPhone}
           phonePane={discoverPhonePane}
-          onOpenResearch={({ ticker, intelMode }) => {
+          onOpenResearch={({ ticker, intelMode, companyName }) => {
             const t = String(ticker ?? '').trim().toUpperCase()
             if (!t) return
             if (intelMode === 'clinical' || intelMode === 'market') setIntelMode(intelMode)
             researchTickerPinnedRef.current = t
+            setResearchFeedInjected((prev) => {
+              if (prev.some((row) => String(row.ticker ?? '').toUpperCase() === t)) return prev
+              const name = String(companyName ?? '').trim()
+              return [
+                ...prev,
+                {
+                  id: `inj:${t}`,
+                  ticker: t,
+                  company_name: name && name.toUpperCase() !== t ? name : t,
+                  feed_at: new Date().toISOString(),
+                },
+              ]
+            })
+            setResearchFeedRefresh((n) => n + 1)
             setResearchTicker(t)
             if (isPhone) setResearchPhonePane('paper')
             setActiveTab('main')

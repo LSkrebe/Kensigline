@@ -2,7 +2,7 @@ import type http from "node:http";
 import { sendJson } from "../core/http.js";
 import { db } from "../core/db.js";
 import { buildResearchPresentation } from "../documents/presentation.js";
-import { scoreResearchDocument } from "../core/idea-score.js";
+import { scoreResearchDocument, scoreInsiderCluster, scoreInstitutionCluster, scorePoliticianCluster } from "../core/idea-score.js";
 import {
   loadFilings13fForTicker,
   loadInsiderFlowsForTicker,
@@ -120,29 +120,85 @@ export async function handleResearchExplore(res: http.ServerResponse, ticker: st
   });
 }
 
+function clusterTotalUsd(data: unknown): number {
+  const rows = Array.isArray((data as any)?.cluster?.worksheet_rows) ? (data as any).cluster.worksheet_rows : [];
+  return rows.reduce((sum: number, r: any) => {
+    const amt = Number(r?.amount_usd ?? r?.amount_usd_mid ?? r?.value_usd ?? 0);
+    return sum + (Number.isFinite(amt) ? amt : 0);
+  }, 0);
+}
+
+function researchFeedModeFilter(mode: ResearchFeedMode): string {
+  if (mode === "clinical") {
+    return `
+      AND upper(trim(d.ticker)) IN (${CLINICAL_TICKERS_SUBQUERY})
+      AND (
+        d.feed_kind IN ('insider', 'politicians', 'institutions')
+        OR (
+          d.analysis IS NOT NULL
+          AND length(trim(d.analysis)) > 0
+          AND (
+            d.feed_kind = 'pharma'
+            OR (d.feed_kind = 'research' AND d.show_on_ticker IS NOT FALSE)
+          )
+        )
+      )
+    `;
+  }
+  return `
+    AND upper(trim(d.ticker)) NOT IN (${CLINICAL_TICKERS_SUBQUERY})
+    AND (
+      d.feed_kind IN ('insider', 'politicians', 'institutions')
+      OR (
+        d.analysis IS NOT NULL
+        AND length(trim(d.analysis)) > 0
+        AND d.feed_kind = 'research'
+        AND d.show_on_ticker IS NOT FALSE
+      )
+    )
+  `;
+}
+
+function scoreResearchFeedRow(row: {
+  analysis: string | null;
+  source_key: string | null;
+  feed_kind: string;
+  program_phase: string | null;
+  event_at: string | null;
+  feed_at: string;
+  data: any;
+}) {
+  const fk = String(row.feed_kind ?? "").toLowerCase();
+  const eventAt = row.event_at ?? row.feed_at;
+  const totalUsd = clusterTotalUsd(row.data);
+  if (fk === "insider") {
+    return scoreInsiderCluster({ data: row.data, eventAt, totalUsd });
+  }
+  if (fk === "politicians") {
+    return scorePoliticianCluster({ data: row.data, eventAt, totalUsd });
+  }
+  if (fk === "institutions") {
+    return scoreInstitutionCluster({ data: row.data, eventAt, totalUsd });
+  }
+  return scoreResearchDocument({
+    analysis: row.analysis,
+    source_key: row.source_key,
+    feed_kind: row.feed_kind,
+    program_phase: row.program_phase,
+    event_at: eventAt,
+    data: row.data,
+  });
+}
+
 export async function handleResearchFeed(res: http.ServerResponse, limit: number, modeRaw?: string | null) {
   const lim = Math.max(1, Math.min(120, limit));
   const mode: ResearchFeedMode = parseResearchFeedMode(modeRaw);
-
-  const modeFilter =
-    mode === "clinical"
-      ? `
-        AND upper(trim(d.ticker)) IN (${CLINICAL_TICKERS_SUBQUERY})
-        AND (
-          d.feed_kind = 'pharma'
-          OR (d.feed_kind = 'research' AND d.show_on_ticker IS NOT FALSE)
-        )
-      `
-      : `
-        AND upper(trim(d.ticker)) NOT IN (${CLINICAL_TICKERS_SUBQUERY})
-        AND d.feed_kind = 'research'
-        AND d.show_on_ticker IS NOT FALSE
-      `;
 
   const rows = await db.query<{
     id: string;
     ticker: string;
     analysis: string | null;
+    feed_label: string | null;
     feed_at: string;
     company_name: string | null;
     source_key: string | null;
@@ -152,12 +208,13 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
     data: any;
   }>(
     `
-    SELECT sub.id, sub.ticker, sub.analysis, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind, sub.program_phase, sub.event_at, sub.data
+    SELECT sub.id, sub.ticker, sub.analysis, sub.feed_label, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind, sub.program_phase, sub.event_at, sub.data
     FROM (
       SELECT DISTINCT ON (upper(trim(d.ticker)))
         d.id::text,
         upper(trim(d.ticker)) AS ticker,
         d.analysis,
+        d.feed_label,
         COALESCE(d.event_at, d.parsed_at)::text AS feed_at,
         COALESCE(
           NULLIF(trim(c.name), ''),
@@ -181,9 +238,7 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
       ) iss ON true
       WHERE d.ticker IS NOT NULL
         AND length(trim(d.ticker)) > 0
-        AND d.analysis IS NOT NULL
-        AND length(trim(d.analysis)) > 0
-        ${modeFilter}
+        ${researchFeedModeFilter(mode)}
       ORDER BY upper(trim(d.ticker)), COALESCE(d.event_at, d.parsed_at) DESC NULLS LAST, d.parsed_at DESC
     ) sub
     ORDER BY sub.feed_at DESC NULLS LAST
@@ -196,20 +251,14 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
 
   const items = rows.map((r) => {
     const displayName = resolveResearchFeedCompanyName(r.ticker, r.company_name, secTitles.get(r.ticker) ?? null);
-    const idea = scoreResearchDocument({
-      analysis: r.analysis,
-      source_key: r.source_key,
-      feed_kind: r.feed_kind,
-      program_phase: r.program_phase,
-      event_at: r.event_at ?? r.feed_at,
-      data: r.data,
-    });
+    const idea = scoreResearchFeedRow(r);
+    const feedLabel = String(r.analysis ?? r.feed_label ?? "").trim();
     return {
       kind: "document" as const,
       id: r.id,
       ticker: r.ticker,
       name: displayName,
-      feed_label: String(r.analysis ?? "").trim(),
+      feed_label: feedLabel,
       feed_at: r.feed_at,
       company_name: displayName,
       source_key: r.source_key,
