@@ -1,6 +1,8 @@
 import { normalizeResearchPaperSourceKey } from "../shared/source-keys.js";
 import {
   isIdeaGreenHighlight,
+  scoreClinicalAheadEvent,
+  scoreEarningsAheadEvent,
   scoreInsiderCluster,
   scoreInstitutionCluster,
   scorePoliticianCluster,
@@ -47,6 +49,18 @@ export function isoDayStart(at: string): string {
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return raw;
   return d.toISOString();
+}
+
+/** True when event calendar day is strictly after today (UTC). */
+export function isStrictlyUpcomingDay(at: string | null | undefined): boolean {
+  const raw = String(at ?? "").trim();
+  if (!raw) return false;
+  const d = new Date(raw.includes("T") ? raw : `${raw}T12:00:00.000Z`);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const eventUtc = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return eventUtc > todayUtc;
 }
 
 export type DocumentDiscoverRow = {
@@ -186,6 +200,7 @@ export function mapEarningsAheadEvent(args: {
   earningsDate: string;
   intelMode: DiscoverIntelMode;
 }): DiscoverEvent {
+  const idea = scoreEarningsAheadEvent(args.earningsDate);
   return {
     id: `earn:${args.ticker}:${args.earningsDate.slice(0, 10)}`,
     ticker: args.ticker,
@@ -197,6 +212,9 @@ export function mapEarningsAheadEvent(args: {
     source: "8-K",
     programKey: "Earnings",
     impact: "medium",
+    idea_score: idea.idea_score,
+    idea_best: idea.idea_best,
+    idea_reasons: idea.idea_reasons,
   };
 }
 
@@ -219,6 +237,12 @@ export function mapCatalystAheadEvent(args: {
     kind = "catalyst";
   }
 
+  const idea = scoreClinicalAheadEvent({
+    label: args.label,
+    phase: args.phase,
+    at: args.at,
+  });
+
   return {
     id: `cat:${args.ticker}:${args.id}`,
     ticker: args.ticker,
@@ -232,6 +256,9 @@ export function mapCatalystAheadEvent(args: {
     programKey: args.programKey,
     url: args.url,
     impact: kind === "catalyst" ? "high" : "medium",
+    idea_score: idea.idea_score,
+    idea_best: idea.idea_best,
+    idea_reasons: idea.idea_reasons,
   };
 }
 

@@ -4,7 +4,7 @@ import { loadUpcomingDiscoverEvents } from "./ahead.js";
 import { loadUpcomingMacroDays } from "./macro.js";
 import { mentionedSearchText } from "./mentions.js";
 import { buildMoveReactionsForEvents } from "./moves.js";
-import { eventMatchesQuery, eventPassesSourceFilter } from "./map.js";
+import { eventMatchesQuery, eventPassesSourceFilter, isStrictlyUpcomingDay } from "./map.js";
 import { loadPastDiscoverEvents } from "./past.js";
 import type { DiscoverEvent, DiscoverTimelineResult } from "./types.js";
 
@@ -18,12 +18,6 @@ function dayStartMs(at: string) {
   const raw = String(at ?? "").trim();
   const d = new Date(raw.includes("T") ? raw : `${raw}T12:00:00`);
   if (Number.isNaN(d.getTime())) return NaN;
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
-function todayStartMs() {
-  const d = new Date();
   d.setHours(0, 0, 0, 0);
   return d.getTime();
 }
@@ -62,10 +56,7 @@ export async function buildDiscoverTimeline(opts: DiscoverTimelineOpts = {}): Pr
   const past = pastRaw.filter(filterRow).sort((a, b) => dayStartMs(b.at) - dayStartMs(a.at));
   const upcoming = upcomingRaw
     .filter(filterRow)
-    .filter((e) => {
-      const ms = dayStartMs(e.at);
-      return Number.isFinite(ms) && ms >= todayStartMs();
-    })
+    .filter((e) => isStrictlyUpcomingDay(e.at))
     .sort((a, b) => dayStartMs(a.at) - dayStartMs(b.at));
 
   const market_moves = marketMovesRaw.filter(filterRow).sort((a, b) => dayStartMs(b.at) - dayStartMs(a.at));

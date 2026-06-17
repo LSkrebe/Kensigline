@@ -4,6 +4,8 @@ import { db } from "../core/db.js";
 import { enqueueLatestForm4ForTicker } from "../core/sec.js";
 import { json, notFound, route, sendJson } from "../core/http.js";
 import { formatUsdCompact } from "../shared/money.js";
+import { resolveResearchFeedCompanyName } from "../research/feed-display.js";
+import { getSecTickerTitleMap } from "../core/sec.js";
 import {
   clampInt,
   countWorksheetEventsToday,
@@ -116,14 +118,31 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
     feed_label: string | null;
     ticker: string | null;
     company_id: string | null;
+    company_name: string | null;
     data: any;
   }>(
-    `SELECT id, event_at, feed_label, ticker, company_id, data FROM documents
-     WHERE feed_kind = 'insider' AND ticker IS NOT NULL AND event_at IS NOT NULL
-       AND event_at >= now() - ($1 || ' days')::interval
-     ORDER BY event_at DESC, parsed_at DESC LIMIT 5000`,
+    `SELECT d.id, d.event_at, d.feed_label, d.ticker, d.company_id, d.data,
+      COALESCE(
+        NULLIF(trim(c.name), ''),
+        NULLIF(trim(iss.issuer_name), '')
+      ) AS company_name
+     FROM documents d
+     LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
+     LEFT JOIN LATERAL (
+       SELECT NULLIF(trim(d2.data->'issuer'->>'name'), '') AS issuer_name
+       FROM documents d2
+       WHERE upper(trim(d2.ticker)) = upper(trim(d.ticker))
+         AND NULLIF(trim(d2.data->'issuer'->>'name'), '') IS NOT NULL
+       ORDER BY COALESCE(d2.event_at, d2.parsed_at) DESC NULLS LAST, d2.parsed_at DESC
+       LIMIT 1
+     ) iss ON true
+     WHERE d.feed_kind = 'insider' AND d.ticker IS NOT NULL AND d.event_at IS NOT NULL
+       AND d.event_at >= now() - ($1 || ' days')::interval
+     ORDER BY d.event_at DESC, d.parsed_at DESC LIMIT 5000`,
     [String(days)],
   );
+
+  const secTitles = await getSecTickerTitleMap();
 
   type Agg = {
     ticker: string;
@@ -214,7 +233,11 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
             ? usd
             : (c.latestDoc.feed_label ?? "Insider activity");
       const data = c.latestDoc.data as { issuer?: { name?: string | null } } | null;
-      const companyName = String(data?.issuer?.name ?? "").trim() || c.ticker;
+      const companyName = resolveResearchFeedCompanyName(
+        c.ticker,
+        c.latestDoc.company_name ?? data?.issuer?.name,
+        secTitles.get(c.ticker) ?? null,
+      );
       const idea = scoreInsiderCluster({
         data: c.latestDoc.data,
         eventAt: c.latestFeedAt,
@@ -249,14 +272,31 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
     event_at: string | null;
     feed_label: string | null;
     ticker: string | null;
+    company_name: string | null;
     data: any;
   }>(
-    `SELECT id, event_at, feed_label, ticker, data FROM documents
-     WHERE feed_kind=$2 AND ticker IS NOT NULL AND event_at IS NOT NULL
-       AND event_at >= now() - ($1 || ' days')::interval
-     ORDER BY event_at DESC NULLS LAST, parsed_at DESC LIMIT 5000`,
+    `SELECT d.id, d.event_at, d.feed_label, d.ticker, d.data,
+      COALESCE(
+        NULLIF(trim(c.name), ''),
+        NULLIF(trim(iss.issuer_name), '')
+      ) AS company_name
+     FROM documents d
+     LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
+     LEFT JOIN LATERAL (
+       SELECT NULLIF(trim(d2.data->'issuer'->>'name'), '') AS issuer_name
+       FROM documents d2
+       WHERE upper(trim(d2.ticker)) = upper(trim(d.ticker))
+         AND NULLIF(trim(d2.data->'issuer'->>'name'), '') IS NOT NULL
+       ORDER BY COALESCE(d2.event_at, d2.parsed_at) DESC NULLS LAST, d2.parsed_at DESC
+       LIMIT 1
+     ) iss ON true
+     WHERE d.feed_kind=$2 AND d.ticker IS NOT NULL AND d.event_at IS NOT NULL
+       AND d.event_at >= now() - ($1 || ' days')::interval
+     ORDER BY d.event_at DESC NULLS LAST, d.parsed_at DESC LIMIT 5000`,
     [String(days), feedKind],
   );
+
+  const secTitles = await getSecTickerTitleMap();
 
   const peopleKey = feedKind === "politicians" ? "politicians" : "institutions";
   const amountField = feedKind === "politicians" ? "amount_usd_mid" : "amount_usd";
@@ -323,7 +363,11 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
       const todayCount = c.todayCount;
       const label = todayCount > 0 ? `${usd} (${todayCount})` : usd;
       const data = c.latestDoc.data as { issuer?: { name?: string | null } } | null;
-      const companyName = String(data?.issuer?.name ?? "").trim() || c.ticker;
+      const companyName = resolveResearchFeedCompanyName(
+        c.ticker,
+        c.latestDoc.company_name ?? data?.issuer?.name,
+        secTitles.get(c.ticker) ?? null,
+      );
       const idea =
         feedKind === "politicians"
           ? scorePoliticianCluster({

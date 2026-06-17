@@ -3,7 +3,14 @@ import {
   buildCatalystsFromStudies,
   fetchClinicalStudiesForCompany,
 } from "../research/clinical/trials.js";
-import { inferIntelMode, mapCatalystAheadEvent, mapDocumentToDiscoverEvent, mapEarningsAheadEvent } from "./map.js";
+import { isIdeaGreenHighlight } from "../core/idea-score.js";
+import {
+  inferIntelMode,
+  isStrictlyUpcomingDay,
+  mapCatalystAheadEvent,
+  mapDocumentToDiscoverEvent,
+  mapEarningsAheadEvent,
+} from "./map.js";
 import type { DiscoverEvent } from "./types.js";
 
 function clampInt(n: number, lo: number, hi: number) {
@@ -32,7 +39,7 @@ async function loadUpcomingEarnings(aheadDays: number, limit: number): Promise<D
     FROM companies
     WHERE ticker IS NOT NULL
       AND earnings_date IS NOT NULL
-      AND earnings_date >= CURRENT_DATE
+      AND earnings_date > CURRENT_DATE
       AND earnings_date <= CURRENT_DATE + ($1 || ' days')::interval
     ORDER BY earnings_date ASC
     LIMIT $2
@@ -95,6 +102,8 @@ async function loadUpcomingDocumentCatalysts(aheadDays: number, limit: number): 
     program_phase: string | null;
     industry: string | null;
     url: string | null;
+    analysis: string | null;
+    data: unknown;
   }>(
     `
     SELECT
@@ -108,12 +117,14 @@ async function loadUpcomingDocumentCatalysts(aheadDays: number, limit: number): 
       d.program_drug,
       d.program_phase,
       c.industry,
-      d.url
+      d.url,
+      d.analysis,
+      d.data
     FROM documents d
     LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
     WHERE d.ticker IS NOT NULL
       AND d.event_at IS NOT NULL
-      AND d.event_at >= date_trunc('day', now())
+      AND d.event_at::date > CURRENT_DATE
       AND d.event_at < date_trunc('day', now()) + ($1 || ' days')::interval
       AND d.show_on_ticker IS NOT FALSE
       AND (
@@ -130,8 +141,7 @@ async function loadUpcomingDocumentCatalysts(aheadDays: number, limit: number): 
     mapDocumentToDiscoverEvent(
       {
         ...row,
-        analysis: null,
-        data: null,
+        event_at: row.event_at,
       },
       new Set(rows.map((r) => r.ticker)),
     ),
@@ -142,9 +152,6 @@ async function loadClinicalCatalysts(aheadDays: number, perTickerLimit: number):
   const tickerCap = discoverEnvInt("DISCOVER_CLINICAL_TICKERS", 12, 1, 40);
   const candidates = await loadClinicalTickerCandidates(tickerCap);
   const out: DiscoverEvent[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const horizonMs = today.getTime() + aheadDays * 86400000;
 
   const batches = await Promise.all(
     candidates.map(async ({ ticker, name }) => {
@@ -154,8 +161,7 @@ async function loadClinicalCatalysts(aheadDays: number, perTickerLimit: number):
         const rows: DiscoverEvent[] = [];
         for (const c of catalysts) {
           if (!c.at) continue;
-          const ms = new Date(`${c.at}T12:00:00`).getTime();
-          if (!Number.isFinite(ms) || ms < today.getTime() || ms > horizonMs) continue;
+          if (!isStrictlyUpcomingDay(c.at)) continue;
           const mapped = mapCatalystAheadEvent({
             ticker,
             companyName: name,
@@ -203,5 +209,7 @@ export async function loadUpcomingDiscoverEvents(opts: {
   }
 
   deduped.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
-  return deduped.slice(0, perSide);
+  return deduped
+    .filter((e) => isStrictlyUpcomingDay(e.at) && isIdeaGreenHighlight(e))
+    .slice(0, perSide);
 }

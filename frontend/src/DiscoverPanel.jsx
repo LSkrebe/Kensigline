@@ -567,7 +567,8 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
   }, [backendUp, liveTimeline?.moves, mockTimeline?.past])
 
   const catalysts = useMemo(
-    () => applyDiscoverSourceFilter(upcomingSource, watchlistFilters),
+    () =>
+      applyDiscoverSourceFilter(upcomingSource, watchlistFilters).filter((e) => Boolean(e.idea_best)),
     [upcomingSource, watchlistFilters],
   )
 

@@ -20,14 +20,72 @@ function recencyBonus(eventAt: string | null | undefined): { pts: number; reason
   return { pts: 0 };
 }
 
-function clampScore(score: number, reasons: string[]): IdeaScoreResult {
+function clampScore(score: number, reasons: string[], eventAt?: string | null): IdeaScoreResult {
   const best = envThreshold("IDEA_SCORE_BEST", 90);
   const idea_score = Math.max(0, Math.min(100, Math.round(score)));
+  let idea_best = idea_score >= best;
+  const decayDays = envThreshold("IDEA_BEST_DECAY_DAYS", 1);
+  if (idea_best && eventAt) {
+    const t = new Date(String(eventAt ?? "")).getTime();
+    if (Number.isFinite(t)) {
+      const ageDays = (Date.now() - t) / 86_400_000;
+      if (ageDays > decayDays) idea_best = false;
+    }
+  }
   return {
     idea_score,
-    idea_best: idea_score >= best,
+    idea_best,
     idea_reasons: reasons.filter(Boolean).slice(0, 6),
   };
+}
+
+/** Upcoming earnings row — scored for watchlist catalyst tier. */
+export function scoreEarningsAheadEvent(earningsDate: string): IdeaScoreResult {
+  const reasons: string[] = ["Upcoming earnings date"];
+  let score = 58;
+  const t = new Date(String(earningsDate ?? "")).getTime();
+  if (Number.isFinite(t)) {
+    const daysOut = (t - Date.now()) / 86_400_000;
+    if (daysOut <= 7) {
+      score += 36;
+      reasons.push("Earnings within a week");
+    } else if (daysOut <= 30) {
+      score += 18;
+      reasons.push("Earnings inside 30 days");
+    }
+  }
+  return clampScore(score, reasons, earningsDate);
+}
+
+/** Upcoming clinical / trial calendar row. */
+export function scoreClinicalAheadEvent(args: {
+  label: string;
+  phase?: string | null;
+  at: string;
+}): IdeaScoreResult {
+  const reasons: string[] = [];
+  let score = 38;
+  const phase = String(args.phase ?? "").toUpperCase();
+  if (phase.includes("III") || phase === "3") {
+    score += 36;
+    reasons.push("Phase III catalyst");
+  } else if (phase.includes("II") || phase === "2") {
+    score += 24;
+    reasons.push("Phase II catalyst");
+  } else if (phase.includes("I") || phase === "1") {
+    score += 14;
+    reasons.push("Early-phase catalyst");
+  }
+  const labelLo = String(args.label ?? "").toLowerCase();
+  if (labelLo.includes("readout") || labelLo.includes("primary completion") || labelLo.includes("interim")) {
+    score += 22;
+    reasons.push("Trial readout window");
+  } else if (labelLo.includes("enroll") || labelLo.includes("completion")) {
+    score += 12;
+    reasons.push("Trial milestone");
+  }
+  reasons.push("Scheduled clinical catalyst");
+  return clampScore(score, reasons, args.at);
 }
 
 /** Green left-border highlight tier in Research / Investigate feeds (idea_best). */
@@ -83,7 +141,7 @@ export function scoreInsiderCluster(args: {
   const rec = recencyBonus(args.eventAt);
   score += rec.pts;
   if (rec.reason) reasons.push(rec.reason);
-  return clampScore(score, reasons);
+  return clampScore(score, reasons, args.eventAt);
 }
 
 export function scorePoliticianCluster(args: {
@@ -120,7 +178,7 @@ export function scorePoliticianCluster(args: {
   const rec = recencyBonus(args.eventAt);
   score += rec.pts;
   if (rec.reason) reasons.push(rec.reason);
-  return clampScore(score, reasons);
+  return clampScore(score, reasons, args.eventAt);
 }
 
 export function scoreInstitutionCluster(args: {
@@ -163,7 +221,7 @@ export function scoreInstitutionCluster(args: {
   const rec = recencyBonus(args.eventAt);
   score += rec.pts;
   if (rec.reason) reasons.push(rec.reason);
-  return clampScore(score, reasons);
+  return clampScore(score, reasons, args.eventAt);
 }
 
 export function scoreResearchDocument(args: {
@@ -209,5 +267,5 @@ export function scoreResearchDocument(args: {
   const rec = recencyBonus(args.event_at);
   score += rec.pts;
   if (rec.reason) reasons.push(rec.reason);
-  return clampScore(score, reasons);
+  return clampScore(score, reasons, args.event_at);
 }

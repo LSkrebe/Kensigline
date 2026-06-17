@@ -648,10 +648,13 @@ export function buildDiscoverTimeline(opts = {}) {
   return { upcoming, past }
 }
 
-/** Upcoming catalyst rows for the watchlist column. */
+/** Upcoming catalyst rows for the watchlist column (strictly future + best tier). */
 export function getDiscoverWatchlistEvents(opts = {}) {
   const { query, enabledFilters } = opts
-  return buildDiscoverTimeline({ query, enabledFilters }).upcoming
+  const today = todayStartMs()
+  return buildDiscoverTimeline({ query, enabledFilters }).upcoming.filter(
+    (e) => e.idea_best && eventDayStartMs(e.at) > today,
+  )
 }
 
 /** Past cards eligible for Market Moves: green-highlight tier (same as Investigate feed). */
