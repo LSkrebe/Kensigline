@@ -4173,10 +4173,13 @@ function ContextAlertToggle({ ticker, className = '' }) {
   const { loading, user } = useAuth()
   const sym = String(ticker ?? '').trim().toUpperCase()
   const signedIn = Boolean(user)
-  const { tickers, loaded, busyTicker, toggle } = useAlertWatchlist({ enabled: signedIn })
+  const { tickers, maxTickers, atLimit, canAdd, loaded, busyTicker, toggle } = useAlertWatchlist({
+    enabled: signedIn,
+  })
   const active = sym && tickers.includes(sym)
   const busy = busyTicker === sym
-  const disabled = !sym || busy || loading || !signedIn
+  const limitBlocked = Boolean(sym && !active && atLimit && !canAdd(sym))
+  const disabled = !sym || busy || loading || !signedIn || limitBlocked
 
   return (
     <button
@@ -4186,16 +4189,20 @@ function ContextAlertToggle({ ticker, className = '' }) {
       aria-label={
         !signedIn
           ? 'Sign in to enable ticker email alerts'
-          : active
-            ? `Email alerts on for ${sym}`
-            : `Enable email alerts for ${sym}`
+          : limitBlocked
+            ? `Watchlist full — ${maxTickers} tickers maximum`
+            : active
+              ? `Email alerts on for ${sym}`
+              : `Enable email alerts for ${sym}`
       }
       title={
         !signedIn
           ? 'Sign in to enable alerts'
-          : active
-            ? 'Alerts on — email when new documents arrive'
-            : 'Alert me when new documents arrive'
+          : limitBlocked
+            ? `Watchlist full (${tickers.length}/${maxTickers}). Remove a ticker in Settings.`
+            : active
+              ? 'Alerts on — email when new documents arrive'
+              : 'Alert me when new documents arrive'
       }
       disabled={disabled}
       onClick={() => {

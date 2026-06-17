@@ -1,6 +1,23 @@
 import { db } from "../core/db.js";
 import { ensureAlertTables } from "./store.js";
 
+export function watchlistMaxTickers(): number {
+  const n = Number(process.env.WATCHLIST_MAX_TICKERS ?? 25);
+  if (!Number.isFinite(n)) return 25;
+  return Math.max(1, Math.min(50, Math.round(n)));
+}
+
+export class WatchlistLimitError extends Error {
+  readonly code = "watchlist_limit" as const;
+  readonly max: number;
+
+  constructor(max: number) {
+    super("watchlist_limit");
+    this.name = "WatchlistLimitError";
+    this.max = max;
+  }
+}
+
 export type WatchlistEntry = {
   user_id: string;
   ticker: string;
@@ -20,6 +37,13 @@ export async function addWatchlistTicker(userId: string, ticker: string): Promis
   await ensureAlertTables();
   const t = String(ticker ?? "").trim().toUpperCase();
   if (!t || !/^[A-Z0-9.-]{1,12}$/.test(t)) throw new Error("invalid_ticker");
+
+  const current = await listUserWatchlist(userId);
+  const max = watchlistMaxTickers();
+  if (!current.includes(t) && current.length >= max) {
+    throw new WatchlistLimitError(max);
+  }
+
   await db.query(
     `
     INSERT INTO alert_watchlist (user_id, ticker, created_at)

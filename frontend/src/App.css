@@ -4673,6 +4673,17 @@
   letter-spacing: 0.02em;
 }
 
+.settingsWatchlistQuota {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.settingsWatchlistLimitNote {
+  margin: 0 0 8px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: rgba(255, 180, 140, 0.88);
+}
+
 .settingsField {
   display: grid;
   grid-template-columns: minmax(88px, 0.36fr) minmax(0, 1fr);

@@ -2,7 +2,13 @@ import type http from "node:http";
 import { json, sendJson } from "../core/http.js";
 import { bearerToken, verifySupabaseAccessToken } from "../core/supabase-auth.js";
 import { upsertAlertPreferences } from "./store.js";
-import { addWatchlistTicker, listUserWatchlist, removeWatchlistTicker } from "./watchlist.js";
+import {
+  addWatchlistTicker,
+  listUserWatchlist,
+  removeWatchlistTicker,
+  watchlistMaxTickers,
+  WatchlistLimitError,
+} from "./watchlist.js";
 
 async function requireUser(req: http.IncomingMessage) {
   const tok = bearerToken(req);
@@ -18,7 +24,8 @@ export async function handleAlertsWatchlistGet(req: http.IncomingMessage, res: h
   }
   await upsertAlertPreferences({ userId: user.sub, email: user.email });
   const tickers = await listUserWatchlist(user.sub);
-  sendJson(res, 200, { ok: true, tickers });
+  const max = watchlistMaxTickers();
+  sendJson(res, 200, { ok: true, tickers, max, count: tickers.length });
 }
 
 export async function handleAlertsWatchlistPatch(req: http.IncomingMessage, res: http.ServerResponse) {
@@ -35,8 +42,26 @@ export async function handleAlertsWatchlistPatch(req: http.IncomingMessage, res:
   }
   await upsertAlertPreferences({ userId: user.sub, email: user.email });
   const subscribed = body.subscribed != null ? Boolean(body.subscribed) : !body.remove;
-  const tickers = subscribed
-    ? await addWatchlistTicker(user.sub, ticker)
-    : await removeWatchlistTicker(user.sub, ticker);
-  sendJson(res, 200, { ok: true, tickers, ticker, subscribed });
+  const max = watchlistMaxTickers();
+
+  try {
+    const tickers = subscribed
+      ? await addWatchlistTicker(user.sub, ticker)
+      : await removeWatchlistTicker(user.sub, ticker);
+    sendJson(res, 200, { ok: true, tickers, max, count: tickers.length, ticker, subscribed });
+  } catch (err) {
+    if (err instanceof WatchlistLimitError) {
+      const tickers = await listUserWatchlist(user.sub);
+      sendJson(res, 409, {
+        ok: false,
+        error: "watchlist_limit",
+        max: err.max,
+        count: tickers.length,
+        tickers,
+        ticker,
+      });
+      return;
+    }
+    throw err;
+  }
 }

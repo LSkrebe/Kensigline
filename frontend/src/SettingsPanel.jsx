@@ -99,7 +99,9 @@ export function SettingsPanel() {
   const { configured, loading, user, signOut } = useAuth()
   const [portalBusy, setPortalBusy] = useState(false)
   const signedIn = Boolean(configured && !loading && user)
-  const { tickers, loaded: watchlistLoaded, busyTicker, remove } = useAlertWatchlist({ enabled: signedIn })
+  const { tickers, maxTickers, atLimit, loaded: watchlistLoaded, busyTicker, remove } = useAlertWatchlist({
+    enabled: signedIn,
+  })
   const { digestEnabled, busy: digestBusy, setEnabled: setDigestEnabled } = useDigestPreference({
     enabled: signedIn,
   })
@@ -188,7 +190,14 @@ export function SettingsPanel() {
           <SettingsCard title="TICKER ALERTS" className="settingsCard--alerts settingsCard--wide">
             <p className="settingsCardHint">
               Receive document analysis by email when new filings are processed for your watched tickers.
+              {' '}
+              <span className="settingsWatchlistQuota">
+                {watchlistLoaded ? `${tickers.length} / ${maxTickers} on your plan` : `Up to ${maxTickers} tickers`}
+              </span>
             </p>
+            {atLimit ? (
+              <p className="settingsWatchlistLimitNote mono">Watchlist full — remove a ticker to add another.</p>
+            ) : null}
             {!watchlistLoaded ? (
               <p className="settingsMuted mono">Loading…</p>
             ) : !tickers.length ? (
