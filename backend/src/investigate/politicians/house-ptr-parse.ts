@@ -41,10 +41,9 @@ function parseTickerFromLine(line: string): string | null {
   if (paren) return paren.toUpperCase();
   const dash = line.match(/--\s*([A-Z]{1,6})\s*--/)?.[1];
   if (dash) return dash.toUpperCase();
-  const words = line.match(/\b([A-Z]{1,5})\b/g) ?? [];
-  for (const w of words) {
-    if (!["ST", "SP", "CS", "COM", "CL", "LLC", "INC", "LTD", "PLC", "ETF"].includes(w)) return w;
-  }
+  // Only accept explicit symbol markers (avoid grabbing random ALL-CAPS words from asset descriptions).
+  const tagged = line.match(/\b(?:ticker|symbol)\s*[:#-]\s*([A-Z]{1,6}(?:\.[A-Z])?)\b/i)?.[1];
+  if (tagged) return tagged.toUpperCase();
   return null;
 }
 

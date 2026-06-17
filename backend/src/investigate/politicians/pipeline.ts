@@ -15,6 +15,7 @@ import {
   MIN_HOUSE_PTR_CONFIDENT_ROWS,
   parseHousePtrPdfText,
 } from "./house-ptr-parse.js";
+import { getSecTickerTitleMap } from "../../core/sec.js";
 
 type PoliticianPtrSource = "house_ptr" | "senate_ptr";
 type Chamber = "house" | "senate";
@@ -261,10 +262,13 @@ async function persistPoliticianFiling(opts: {
   const txP = filterPurchaseStockTransactions(filing.transactions);
   if (!txP.length) return [];
 
+  const secTitles = await getSecTickerTitleMap();
   const byTicker = new Map<string, PoliticianTxn[]>();
   for (const t of txP) {
     const ticker = String(t?.ticker ?? "").trim().toUpperCase();
     if (!ticker) continue;
+    // Guard against bad parses: only persist tickers that exist in SEC's mapping.
+    if (!secTitles.has(ticker)) continue;
     const arr = byTicker.get(ticker) ?? [];
     arr.push(t);
     byTicker.set(ticker, arr);

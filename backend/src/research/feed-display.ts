@@ -77,5 +77,7 @@ export function resolveInvestigateFeedCompanyName(
   secTitle: string | null | undefined,
   issuerJsonName: string | null | undefined,
 ): string {
-  return resolveResearchFeedCompanyName(ticker, dbName, secTitle, issuerJsonName);
+  // For investigate flows, SEC title is the most reliable issuer label when available.
+  // PTR/cluster parsing can attach a plausible-but-wrong issuer name to a real ticker.
+  return resolveResearchFeedCompanyName(ticker, secTitle ?? null, dbName, issuerJsonName);
 }
