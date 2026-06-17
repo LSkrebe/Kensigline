@@ -2,6 +2,7 @@ import { db } from "../core/db.js";
 import type { ResearchDocExtractV2 } from "./extract.js";
 import { formatUsdCompact } from "../shared/money.js";
 import { scoreResearchDocument } from "../core/idea-score.js";
+import { isoTimestampFromDb } from "../shared/db-time.js";
 
 const GOV_LINK_THRESHOLD = () => Number(process.env.GOV_CONTRACT_LINK_THRESHOLD ?? 0.72);
 
@@ -169,6 +170,123 @@ export type PaperDocumentRow = {
   idea_reasons?: string[];
 };
 
+function clusterDocFallbackAt(data: any, eventAt: string | null): string | null {
+  return (
+    isoTimestampFromDb(eventAt) ??
+    isoTimestampFromDb(data?.cluster?.cluster_end_at) ??
+    isoTimestampFromDb(data?.cluster?.cluster_start_at) ??
+    isoTimestampFromDb(data?.filing?.filed_at) ??
+    null
+  );
+}
+
+async function loadInsiderFlowsFromDocuments(ticker: string, limit = 80) {
+  const t = ticker.trim().toUpperCase();
+  const docs = await db.query<{ data: any; event_at: string | null }>(
+    `
+    SELECT data, event_at::text AS event_at
+    FROM documents
+    WHERE upper(trim(ticker)) = $1 AND feed_kind = 'insider'
+    ORDER BY event_at DESC NULLS LAST, parsed_at DESC
+    LIMIT 40
+    `,
+    [t],
+  );
+  const out: Array<{
+    key: string;
+    person: string;
+    date: string;
+    amount: string;
+    transactionCode: string | null;
+  }> = [];
+  for (const d of docs) {
+    const fallbackAt = clusterDocFallbackAt(d.data, d.event_at);
+    const rows = Array.isArray(d.data?.cluster?.worksheet_rows) ? d.data.cluster.worksheet_rows : [];
+    for (const r of rows) {
+      const at = r?.ts ? String(r.ts) : fallbackAt;
+      if (!at) continue;
+      const amt = r?.amount_usd != null ? Number(r.amount_usd) : null;
+      out.push({
+        key: String(r?.key ?? r?.insider_role ?? "Insider").trim() || "Insider",
+        person: String(r?.insider_name ?? r?.person ?? r?.key ?? "Insider").trim(),
+        date: at,
+        amount: amt != null && Number.isFinite(amt) && amt > 0 ? formatUsdCompact(amt) : "—",
+        transactionCode: r?.transaction_code ?? r?.code ?? null,
+      });
+    }
+  }
+  return out.slice(0, limit);
+}
+
+async function loadPoliticianFlowsFromDocuments(ticker: string, limit = 80) {
+  const t = ticker.trim().toUpperCase();
+  const docs = await db.query<{ data: any; event_at: string | null }>(
+    `
+    SELECT data, event_at::text AS event_at
+    FROM documents
+    WHERE upper(trim(ticker)) = $1 AND feed_kind = 'politicians'
+    ORDER BY event_at DESC NULLS LAST, parsed_at DESC
+    LIMIT 40
+    `,
+    [t],
+  );
+  const out: Array<{
+    name: string;
+    chamber: string;
+    date: string;
+    amount: string;
+    transactionType: string | null;
+  }> = [];
+  for (const d of docs) {
+    const fallbackAt = clusterDocFallbackAt(d.data, d.event_at);
+    const rows = Array.isArray(d.data?.cluster?.worksheet_rows) ? d.data.cluster.worksheet_rows : [];
+    for (const r of rows) {
+      const at = r?.ts ? String(r.ts) : fallbackAt;
+      if (!at) continue;
+      const amt = r?.amount_usd_mid != null ? Number(r.amount_usd_mid) : null;
+      out.push({
+        name: String(r?.key ?? "Politician").trim() || "Politician",
+        chamber: r?.chamber ? String(r.chamber).trim() : "house",
+        date: at,
+        amount: amt != null && Number.isFinite(amt) && amt > 0 ? formatUsdCompact(amt) : "—",
+        transactionType: r?.transaction_type ?? r?.type ?? null,
+      });
+    }
+  }
+  return out.slice(0, limit);
+}
+
+async function loadFilings13fFromDocuments(ticker: string, limit = 40) {
+  const t = ticker.trim().toUpperCase();
+  const docs = await db.query<{ data: any; event_at: string | null }>(
+    `
+    SELECT data, event_at::text AS event_at
+    FROM documents
+    WHERE upper(trim(ticker)) = $1 AND feed_kind = 'institutions'
+    ORDER BY event_at DESC NULLS LAST, parsed_at DESC
+    LIMIT 40
+    `,
+    [t],
+  );
+  const out: Array<{ filer: string; activity: string | null; date: string; amount: string }> = [];
+  for (const d of docs) {
+    const fallbackAt = clusterDocFallbackAt(d.data, d.event_at);
+    const rows = Array.isArray(d.data?.cluster?.worksheet_rows) ? d.data.cluster.worksheet_rows : [];
+    for (const r of rows) {
+      const at = r?.ts ? String(r.ts) : fallbackAt;
+      if (!at) continue;
+      const amt = r?.amount_usd != null ? Number(r.amount_usd) : null;
+      out.push({
+        filer: String(r?.institution_name ?? r?.key ?? "Institution").trim() || "Institution",
+        activity: r?.activity ? String(r.activity).trim() : null,
+        date: at,
+        amount: amt != null && Number.isFinite(amt) && amt > 0 ? formatUsdCompact(amt) : "—",
+      });
+    }
+  }
+  return out.slice(0, limit);
+}
+
 export async function loadInsiderFlowsForTicker(ticker: string, limit = 80) {
   const t = ticker.trim().toUpperCase();
   const rows = await db.query<{
@@ -187,6 +305,7 @@ export async function loadInsiderFlowsForTicker(ticker: string, limit = 80) {
     `,
     [t, limit],
   );
+  if (!rows.length) return loadInsiderFlowsFromDocuments(t, limit);
   return rows.map((r) => ({
     key: r.insider_role ?? "Insider",
     person: r.insider_name,
@@ -214,6 +333,7 @@ export async function loadPoliticianFlowsForTicker(ticker: string, limit = 80) {
     `,
     [t, limit],
   );
+  if (!rows.length) return loadPoliticianFlowsFromDocuments(t, limit);
   return rows.map((r) => ({
     name: r.politician_name,
     chamber: r.chamber ?? "house",
@@ -240,6 +360,7 @@ export async function loadFilings13fForTicker(ticker: string, limit = 40) {
     `,
     [t, limit],
   );
+  if (!rows.length) return loadFilings13fFromDocuments(t, limit);
   return rows.map((r) => ({
     filer: r.filer,
     activity: r.activity,

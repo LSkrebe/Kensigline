@@ -9493,6 +9493,7 @@ function KensiglineTerminal() {
     readChartRange('institutions', PRICE_RANGE_OPTS, '1M'),
   )
   const [researchFeedLive, setResearchFeedLive] = useState(null)
+  const [researchFeedLiveMode, setResearchFeedLiveMode] = useState(null)
   const [researchFeedInjected, setResearchFeedInjected] = useState([])
   const [researchFeedRefresh, setResearchFeedRefresh] = useState(0)
   const [researchExploreLive, setResearchExploreLive] = useState(null)
@@ -9546,7 +9547,8 @@ function KensiglineTerminal() {
     const mode = intelMode === 'clinical' ? 'clinical' : 'market'
     const fallback = RESEARCH_FEED_BY_INTEL[mode] ?? RESEARCH_FEED_BY_INTEL.market
     if (!backendUp) return fallback
-    const liveRows = Array.isArray(researchFeedLive) ? researchFeedLive : []
+    const liveRows =
+      researchFeedLiveMode === mode && Array.isArray(researchFeedLive) ? researchFeedLive : []
     const injected = Array.isArray(researchFeedInjected) ? researchFeedInjected : []
     const seen = new Set(liveRows.map((x) => String(x.ticker ?? '').toUpperCase()))
     const merged = [...liveRows]
@@ -9575,7 +9577,7 @@ function KensiglineTerminal() {
         }
       }),
     )
-  }, [backendUp, researchFeedLive, researchFeedInjected, intelMode])
+  }, [backendUp, researchFeedLive, researchFeedLiveMode, researchFeedInjected, intelMode])
 
   useEffect(() => {
     if (!backendUp) return
@@ -10085,6 +10087,8 @@ function KensiglineTerminal() {
   useEffect(() => {
     if (!backendUp) return
     setResearchFeedLive(null)
+    setResearchFeedLiveMode(null)
+    setResearchFeedInjected([])
   }, [backendUp, intelMode])
 
   useEffect(() => {
@@ -10095,6 +10099,7 @@ function KensiglineTerminal() {
       const r = await fetchJsonSafe(`/api/research/feed?limit=120&mode=${mode}`, { timeoutMs: 8000 })
       if (cancelled || !r.ok || !r.data?.ok || !Array.isArray(r.data.items)) return
       setResearchFeedLive(r.data.items)
+      setResearchFeedLiveMode(mode)
     }
     run()
     const t = setInterval(run, 30_000)
@@ -10163,26 +10168,22 @@ function KensiglineTerminal() {
     setResearchCompanyTicker(tick)
 
     async function run() {
-      const r = await fetchJsonSafe(
-        `/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`,
-        { timeoutMs: 15_000 },
-      )
+      const [snap, full] = await Promise.all([
+        fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, { timeoutMs: 15_000 }),
+        fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 25_000 }),
+      ])
       if (!alive || researchCompanyFetchGenRef.current !== gen) return
-      const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
-      if (respTicker !== tick) return
-      if (r.ok && r.data && typeof r.data === 'object') {
-        setResearchCompanyLive(r.data)
+
+      const applyCompany = (payload) => {
+        if (!payload || typeof payload !== 'object') return
+        const respTicker = String(payload.ticker ?? tick).trim().toUpperCase()
+        if (respTicker !== tick) return
+        setResearchCompanyLive((prev) => (prev ? { ...prev, ...payload } : payload))
         setResearchCompanyTicker(tick)
       }
 
-      const full = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 25_000 })
-      if (!alive || researchCompanyFetchGenRef.current !== gen) return
-      const fullTicker = String(full.data?.ticker ?? tick).trim().toUpperCase()
-      if (fullTicker !== tick) return
-      if (full.ok && full.data && typeof full.data === 'object') {
-        setResearchCompanyLive((prev) => (prev ? { ...prev, ...full.data } : full.data))
-        setResearchCompanyTicker(tick)
-      }
+      if (snap.ok && snap.data) applyCompany(snap.data)
+      if (full.ok && full.data) applyCompany(full.data)
     }
     run()
     return () => {
