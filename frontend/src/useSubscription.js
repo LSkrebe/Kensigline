@@ -17,9 +17,15 @@ export function useSubscription(enabled = false) {
 
     setLoading(true)
     const res = await fetchJsonSafe('/api/billing/status')
-    const gateOn = res.ok && res.data?.billing_enabled !== false
-    setBillingEnabled(gateOn)
-    setActive(gateOn ? Boolean(res.data?.active) : true)
+    if (!res.ok) {
+      setBillingEnabled(true)
+      setActive(false)
+      setLoading(false)
+      return
+    }
+    const billingOn = res.data?.billing_enabled === true
+    setBillingEnabled(billingOn)
+    setActive(billingOn && Boolean(res.data?.active))
     setLoading(false)
   }, [enabled])
 

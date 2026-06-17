@@ -11546,13 +11546,13 @@ function AuthBootScreen() {
   )
 }
 
-/** Set true when Stripe checkout should block terminal access. */
-const BILLING_GATE_ENABLED = false
+/** Subscription gate — set VITE_BILLING_GATE=0 in root `.env` to bypass locally. */
+const BILLING_GATE_ENABLED = import.meta.env.VITE_BILLING_GATE !== '0'
 
 function AppGate() {
   const { configured, loading, user } = useAuth()
   const signedIn = Boolean(configured && user)
-  const { loading: subLoading, active, billingEnabled, refresh } = useSubscription(
+  const { loading: subLoading, active, refresh } = useSubscription(
     signedIn && BILLING_GATE_ENABLED,
   )
 
@@ -11587,7 +11587,7 @@ function AppGate() {
   if (configured && loading) return <AuthBootScreen />
   if (configured && !user) return <IntroPage />
 
-  if (BILLING_GATE_ENABLED && signedIn && billingEnabled) {
+  if (BILLING_GATE_ENABLED && signedIn) {
     if (subLoading) return <AuthBootScreen />
     if (!active) return <SubscribePage />
   }

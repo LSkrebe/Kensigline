@@ -28,12 +28,19 @@ export async function handleBillingStatus(req: http.IncomingMessage, res: http.S
   }
 
   if (!stripeConfigured()) {
-    sendJson(res, 200, { ok: true, active: true, status: "none", plan: null, billing_enabled: false });
+    sendJson(res, 200, {
+      ok: true,
+      active: false,
+      status: "none",
+      plan: null,
+      billing_enabled: true,
+      stripe_configured: false,
+    });
     return;
   }
 
   const row = await getBillingByUserId(user.sub);
-  sendJson(res, 200, { ...billingStatusPayload(row), billing_enabled: true });
+  sendJson(res, 200, { ...billingStatusPayload(row), billing_enabled: true, stripe_configured: true });
 }
 
 export async function handleBillingCheckout(req: http.IncomingMessage, res: http.ServerResponse) {

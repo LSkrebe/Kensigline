@@ -1,20 +1,29 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { useAlertWatchlist } from './alertsWatchlist.js'
 import { useDigestPreference } from './alertsPreferences.js'
 import { useAuth } from './AuthContext.jsx'
 import { AuthSignIn } from './AuthSignIn.jsx'
 
-const MOCK_SUBSCRIPTION = {
-  status: 'Trialing',
-  renews: '22 May 2026',
-  payment: 'Visa ···· 4242',
+function formatBillingStatus(status) {
+  const s = String(status ?? 'none').trim()
+  if (!s || s === 'none') return 'Not subscribed'
+  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-const MOCK_INVOICES = [
-  { id: 'inv_001', date: '17 Apr 2026', amount: '$0.00', status: 'Paid', note: 'Trial start' },
-  { id: 'inv_000', date: '17 Mar 2026', amount: '$0.00', status: 'Paid', note: 'Account opened' },
-]
+function formatPeriodEnd(iso) {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  } catch {
+    return '—'
+  }
+}
+
+function formatPlan(plan) {
+  if (!plan) return '—'
+  return plan === 'yearly' ? 'Yearly' : plan === 'monthly' ? 'Monthly' : String(plan)
+}
 
 /** @returns {'good' | 'bad' | 'neutral'} */
 function settingsStatusTone(status) {
@@ -98,6 +107,8 @@ function SettingsDigestToggle({ enabled, busy, onChange }) {
 export function SettingsPanel() {
   const { configured, loading, user, signOut } = useAuth()
   const [portalBusy, setPortalBusy] = useState(false)
+  const [billing, setBilling] = useState(null)
+  const [billingLoading, setBillingLoading] = useState(false)
   const signedIn = Boolean(configured && !loading && user)
   const { tickers, maxTickers, atLimit, loaded: watchlistLoaded, busyTicker, remove } = useAlertWatchlist({
     enabled: signedIn,
@@ -114,6 +125,23 @@ export function SettingsPanel() {
       window.location.href = res.data.url
     }
   }, [])
+
+  useEffect(() => {
+    if (!signedIn) {
+      setBilling(null)
+      return
+    }
+    let cancelled = false
+    setBillingLoading(true)
+    void fetchJsonSafe('/api/billing/status').then((res) => {
+      if (cancelled) return
+      setBilling(res.ok ? res.data : null)
+      setBillingLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [signedIn])
 
   if (!signedIn) {
     return (
@@ -180,11 +208,16 @@ export function SettingsPanel() {
               </button>
             }
           >
-            <SettingsField label="Status" valueTone="trial">
-              {MOCK_SUBSCRIPTION.status}
+            <SettingsField
+              label="Status"
+              valueTone={billing?.active ? 'good' : settingsStatusTone(billing?.status)}
+            >
+              {billingLoading ? 'Loading…' : formatBillingStatus(billing?.status)}
             </SettingsField>
-            <SettingsField label="Renews">{MOCK_SUBSCRIPTION.renews}</SettingsField>
-            <SettingsField label="Payment">{MOCK_SUBSCRIPTION.payment}</SettingsField>
+            <SettingsField label="Plan">{billingLoading ? '…' : formatPlan(billing?.plan)}</SettingsField>
+            <SettingsField label="Renews">
+              {billingLoading ? '…' : formatPeriodEnd(billing?.current_period_end)}
+            </SettingsField>
           </SettingsCard>
 
           <SettingsCard title="TICKER ALERTS" className="settingsCard--alerts settingsCard--wide">
@@ -223,50 +256,9 @@ export function SettingsPanel() {
           </SettingsCard>
 
           <SettingsCard title="INVOICES" className="settingsCard--invoices settingsCard--wide">
-            <div className="settingsInvoiceTableWrap">
-              <table className="settingsInvoiceTable">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Note</th>
-                    <th aria-label="Download" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {MOCK_INVOICES.map((inv) => (
-                    <tr key={inv.id}>
-                      <td className="mono">{inv.date}</td>
-                      <td className="mono">{inv.amount}</td>
-                      <td className={['mono', 'settingsInvoiceStatus', `settingsInvoiceStatus--${settingsStatusTone(inv.status)}`].join(' ')}>
-                        {inv.status}
-                      </td>
-                      <td className="settingsInvoiceNote">{inv.note}</td>
-                      <td className="settingsInvoiceAction">
-                        <button
-                          type="button"
-                          className="settingsInvoiceDownload"
-                          disabled
-                          title="Download PDF — coming soon"
-                          aria-label={`Download invoice ${inv.date}`}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-                            <path
-                              d="M12 4v10M8 14l4 4 4-4M5 20h14"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="square"
-                            />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <p className="settingsMuted mono">
+              Download invoices and update your payment method in Stripe via Manage billing.
+            </p>
           </SettingsCard>
         </div>
       </div>

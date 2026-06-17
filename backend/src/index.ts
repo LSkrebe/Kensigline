@@ -17,6 +17,7 @@ import {
   handleBillingStatus,
   handleBillingWebhook,
 } from "./billing/api.js";
+import { billingGateBlocksRequest } from "./billing/gate.js";
 import { stripeConfigured, stripeMode } from "./billing/config.js";
 import {
   researchLimitFromSearchParams,
@@ -154,6 +155,8 @@ const server = http.createServer(async (req, res) => {
       await handleAlertsWatchlistPatch(req, res);
       return;
     }
+
+    if (await billingGateBlocksRequest(req, res, url)) return;
 
     // ---- Backend stats (top bar) ----
     if (route(req, url, "GET", "/api/stats")) {
