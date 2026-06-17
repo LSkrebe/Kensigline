@@ -9269,6 +9269,7 @@ function TerminalTopBar({
       <div className="terminalTopBarCenter">
         {showIntelSwitch ? (
           <div
+            key="intel-mode-switch"
             className={`terminalIntelSwitch terminalIntelSwitch--${intelMode}`}
             role="tablist"
             aria-label="Intelligence mode"
@@ -9297,6 +9298,7 @@ function TerminalTopBar({
           </div>
         ) : showInvestigateSwitch ? (
           <div
+            key="investigate-mode-switch"
             className={`terminalIntelSwitch terminalIntelSwitch--${investigateMode}`}
             role="tablist"
             aria-label="Investigate mode"

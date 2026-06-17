@@ -4,7 +4,11 @@ import { db } from "../core/db.js";
 import { enqueueLatestForm4ForTicker } from "../core/sec.js";
 import { json, notFound, route, sendJson } from "../core/http.js";
 import { formatUsdCompact } from "../shared/money.js";
-import { resolveResearchFeedCompanyName } from "../research/feed-display.js";
+import {
+  collectAssetNamesFromClusterData,
+  resolveInvestigateFeedCompanyName,
+} from "../research/feed-display.js";
+import { upsertCompanyNameForTicker } from "../core/company.js";
 import { getSecTickerTitleMap } from "../core/sec.js";
 import {
   clampInt,
@@ -233,11 +237,16 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
             ? usd
             : (c.latestDoc.feed_label ?? "Insider activity");
       const data = c.latestDoc.data as { issuer?: { name?: string | null } } | null;
-      const companyName = resolveResearchFeedCompanyName(
+      const companyName = resolveInvestigateFeedCompanyName(
         c.ticker,
         c.latestDoc.company_name ?? data?.issuer?.name,
         secTitles.get(c.ticker) ?? null,
+        data?.issuer?.name,
+        collectAssetNamesFromClusterData(c.latestDoc.data, c.ticker),
       );
+      if (companyName && companyName.toUpperCase() !== c.ticker) {
+        void upsertCompanyNameForTicker(c.ticker, companyName);
+      }
       const idea = scoreInsiderCluster({
         data: c.latestDoc.data,
         eventAt: c.latestFeedAt,
@@ -313,6 +322,7 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
     totalCount: number;
     todayCount: number;
     people: Set<string>;
+    assetNames: Set<string>;
   };
 
   const byTicker = new Map<string, Agg>();
@@ -335,12 +345,14 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
         totalCount: 0,
         todayCount: 0,
         people: new Set<string>(),
+        assetNames: new Set(collectAssetNamesFromClusterData(r.data, t)),
       };
     if (eventT > parseEventTimeMs(cur.latestFeedAt)) {
       cur.latestFeedAt = eventAt;
       cur.latestDoc = r;
     }
     cur.todayCount += todayDelta;
+    for (const name of collectAssetNamesFromClusterData(r.data, t)) cur.assetNames.add(name);
     if (Array.isArray(ws)) {
       for (const w of ws) {
         const mid = Number(w?.[amountField] ?? w?.amount_usd ?? 0);
@@ -355,19 +367,25 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
     byTicker.set(t, cur);
   }
 
-  const items = Array.from(byTicker.values())
+  const items = await Promise.all(
+    Array.from(byTicker.values())
     .sort((a, b) => (a.latestFeedAt < b.latestFeedAt ? 1 : a.latestFeedAt > b.latestFeedAt ? -1 : 0))
     .slice(0, limit)
-    .map((c) => {
+    .map(async (c) => {
       const usd = c.totalUsd > 0 ? formatUsdCompact(c.totalUsd) : "—";
       const todayCount = c.todayCount;
       const label = todayCount > 0 ? `${usd} (${todayCount})` : usd;
       const data = c.latestDoc.data as { issuer?: { name?: string | null } } | null;
-      const companyName = resolveResearchFeedCompanyName(
+      const companyName = resolveInvestigateFeedCompanyName(
         c.ticker,
-        c.latestDoc.company_name ?? data?.issuer?.name,
+        c.latestDoc.company_name,
         secTitles.get(c.ticker) ?? null,
+        data?.issuer?.name,
+        Array.from(c.assetNames),
       );
+      if (companyName && companyName.toUpperCase() !== c.ticker) {
+        void upsertCompanyNameForTicker(c.ticker, companyName);
+      }
       const idea =
         feedKind === "politicians"
           ? scorePoliticianCluster({
@@ -394,7 +412,8 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
         idea_best: idea.idea_best,
         idea_reasons: idea.idea_reasons,
       };
-    });
+    }),
+  );
 
   sendJson(res, 200, { items, days, mode: "ticker" });
 }
