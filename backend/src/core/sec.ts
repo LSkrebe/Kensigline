@@ -359,6 +359,28 @@ export async function enqueueCurrentFilingFeed(opts: {
   return { pages, found, enqueued, skipped_existing, queue_ids };
 }
 
+let secTickerTitleMapCache: { at: number; map: Map<string, string> } | null = null;
+const SEC_TICKER_TITLE_MAP_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Cached ticker → SEC company title (company_tickers.json). */
+export async function getSecTickerTitleMap(): Promise<Map<string, string>> {
+  const now = Date.now();
+  if (secTickerTitleMapCache && now - secTickerTitleMapCache.at < SEC_TICKER_TITLE_MAP_TTL_MS) {
+    return secTickerTitleMapCache.map;
+  }
+
+  const data = await secFetchJson("https://www.sec.gov/files/company_tickers.json");
+  const map = new Map<string, string>();
+  for (const k of Object.keys(data)) {
+    const row = (data as any)[k];
+    const t = String(row?.ticker ?? "").trim().toUpperCase();
+    const title = String(row?.title ?? "").trim();
+    if (t && title) map.set(t, title);
+  }
+  secTickerTitleMapCache = { at: now, map };
+  return map;
+}
+
 /**
  * Resolve a ticker → CIK using SEC's published mapping.
  * Data source: https://www.sec.gov/files/company_tickers.json

@@ -1,5 +1,6 @@
 import { sha256NormalizedText } from "../../core/text-hash.js";
 import { db } from "../../core/db.js";
+import { upsertCompanyNameForTicker } from "../../core/company.js";
 import { fetchFilingPrimaryText, fetchSecJson } from "../../core/sec.js";
 import { runResearchDocExtract } from "../../documents/extract.js";
 import { insertResearchDocument } from "../../documents/store.js";
@@ -256,6 +257,11 @@ async function parseSecDocument(queueId: string, indexUrl: string): Promise<Pars
       primary_ticker: out.primary_ticker ?? meta.ticker,
     },
   });
+
+  const resolvedTicker = (out.primary_ticker ?? meta.ticker)?.trim().toUpperCase() ?? null;
+  if (resolvedTicker && meta.name) {
+    await upsertCompanyNameForTicker(resolvedTicker, meta.name).catch(() => {});
+  }
 
   return { processed: true, queue_id: queueId, document_id: fin.document_id };
 }

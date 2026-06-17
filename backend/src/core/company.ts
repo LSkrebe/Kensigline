@@ -357,3 +357,33 @@ export async function getCompanyPanelData(opts: { ticker: string }) {
   };
 }
 
+/** Best-effort cache when ingest learns a ticker's legal name (e.g. SEC submissions). */
+export async function upsertCompanyNameForTicker(ticker: string, name: string) {
+  const t = String(ticker ?? "").trim().toUpperCase();
+  const n = String(name ?? "").trim();
+  if (!t || !n || n.toUpperCase() === t) return;
+
+  const existing = await db.one<{ id: string; name: string | null }>(
+    `SELECT id, name FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
+    [t],
+  );
+  if (existing?.id) {
+    const cur = String(existing.name ?? "").trim().toUpperCase();
+    if (!cur || cur === t) {
+      await db.query(`UPDATE companies SET name = $2, updated_at = now() WHERE id = $1`, [existing.id, n]);
+    }
+    return;
+  }
+
+  await db.query(
+    `
+    INSERT INTO companies (name, ticker, updated_at)
+    VALUES ($1, $2, now())
+    ON CONFLICT (name) DO UPDATE
+      SET ticker = COALESCE(EXCLUDED.ticker, companies.ticker),
+          updated_at = now()
+    `,
+    [n, t],
+  );
+}
+

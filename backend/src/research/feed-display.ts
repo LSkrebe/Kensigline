@@ -16,9 +16,12 @@ function isTickerPlaceholderName(name: string, ticker: string) {
 export function resolveResearchFeedCompanyName(
   ticker: string,
   dbName: string | null | undefined,
+  ...fallbacks: Array<string | null | undefined>
 ): string {
   const t = String(ticker ?? "").trim().toUpperCase();
-  const fromDb = stripLegalNoise(String(dbName ?? "").trim());
-  if (fromDb && !isTickerPlaceholderName(fromDb, t)) return fromDb;
+  for (const raw of [dbName, ...fallbacks]) {
+    const fromDb = stripLegalNoise(String(raw ?? "").trim());
+    if (fromDb && !isTickerPlaceholderName(fromDb, t)) return fromDb;
+  }
   return t;
 }

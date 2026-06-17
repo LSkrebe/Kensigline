@@ -11,6 +11,7 @@ import {
 import { getTrackedInvestorsForTicker } from "./market/tracked-investors.js";
 import { resolveResearchFeedCompanyName } from "./feed-display.js";
 import { CLINICAL_TICKERS_SUBQUERY, parseResearchFeedMode, type ResearchFeedMode } from "./feed-mode.js";
+import { getSecTickerTitleMap } from "../core/sec.js";
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -158,7 +159,11 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
         upper(trim(d.ticker)) AS ticker,
         d.analysis,
         COALESCE(d.event_at, d.parsed_at)::text AS feed_at,
-        COALESCE(NULLIF(trim(c.name), ''), upper(trim(d.ticker))) AS company_name,
+        COALESCE(
+          NULLIF(trim(c.name), ''),
+          NULLIF(trim(iss.issuer_name), ''),
+          upper(trim(d.ticker))
+        ) AS company_name,
         d.source_key,
         d.feed_kind,
         d.program_phase,
@@ -166,6 +171,14 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
         d.data
       FROM documents d
       LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
+      LEFT JOIN LATERAL (
+        SELECT NULLIF(trim(d2.data->'issuer'->>'name'), '') AS issuer_name
+        FROM documents d2
+        WHERE upper(trim(d2.ticker)) = upper(trim(d.ticker))
+          AND NULLIF(trim(d2.data->'issuer'->>'name'), '') IS NOT NULL
+        ORDER BY COALESCE(d2.event_at, d2.parsed_at) DESC NULLS LAST, d2.parsed_at DESC
+        LIMIT 1
+      ) iss ON true
       WHERE d.ticker IS NOT NULL
         AND length(trim(d.ticker)) > 0
         AND d.analysis IS NOT NULL
@@ -179,8 +192,10 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
     [lim],
   );
 
+  const secTitles = await getSecTickerTitleMap();
+
   const items = rows.map((r) => {
-    const displayName = resolveResearchFeedCompanyName(r.ticker, r.company_name);
+    const displayName = resolveResearchFeedCompanyName(r.ticker, r.company_name, secTitles.get(r.ticker) ?? null);
     const idea = scoreResearchDocument({
       analysis: r.analysis,
       source_key: r.source_key,

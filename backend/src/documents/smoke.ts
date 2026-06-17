@@ -194,8 +194,10 @@ test("discover summary truncation", async () => {
 test("research feed company label uses DB name only", async () => {
   const { resolveResearchFeedCompanyName } = await import("../research/feed-display.js");
   assert.equal(resolveResearchFeedCompanyName("ADBE", "Adobe Inc."), "Adobe Inc.");
+  assert.equal(resolveResearchFeedCompanyName("ADBE", null, "Adobe Inc."), "Adobe Inc.");
   assert.equal(resolveResearchFeedCompanyName("ADBE", null), "ADBE");
   assert.equal(resolveResearchFeedCompanyName("NVDA", "NVIDIA Corporation"), "NVIDIA Corporation");
+  assert.equal(resolveResearchFeedCompanyName("ING", "ING", "ING GROEP NV"), "ING GROEP NV");
 });
 
 test("discover macro week generation", async () => {
