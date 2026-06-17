@@ -1051,7 +1051,8 @@
   /* mirror legacy body modifier */
 }
 
-.researchPaperLoading {
+.researchPaperLoading,
+.researchPaperEmpty {
   padding: 12px 4px;
   font-size: 11px;
   letter-spacing: 0.04em;

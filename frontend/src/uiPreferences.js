@@ -38,7 +38,7 @@ export function readFilterSet(storageKey, allowedIds) {
       const s = String(id ?? '').trim()
       if (s && allowed.has(s)) next.add(s)
     }
-    return next
+    return next.size ? next : new Set(allowed)
   } catch {
     return new Set(allowed)
   }

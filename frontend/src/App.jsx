@@ -6437,6 +6437,8 @@ function mockOfflinePresentation(memo, titleText, ticker) {
 function paperDocProgramKeys(doc) {
   const tagged = Array.isArray(doc?.programKeys) ? doc.programKeys : []
   if (tagged.length) return tagged.map((k) => String(k).trim()).filter(Boolean)
+  const drug = String(doc?.programDrug ?? doc?.program_drug ?? '').trim()
+  if (drug) return [drug]
   const id = String(doc?.id ?? '').toLowerCase()
   const blob = `${id} ${String(doc?.analysis ?? '').toLowerCase()}`
   const keys = []
@@ -7081,7 +7083,11 @@ function ResearchPaperStructuredView({
             )
           })}
         </div>
-      ) : null}
+      ) : (
+        <p className="researchPaperEmpty mono dim" role="status">
+          No filings or activity match the current filters for this program.
+        </p>
+      )}
     </div>
   )
 }

@@ -12,6 +12,38 @@ import {
   type ClinicalProgram,
 } from "./trials.js";
 
+function ensurePipelineProgramFromFilings(
+  programs: ClinicalProgram[],
+  rows: Array<{
+    event_at: string | null;
+    feed_label: string | null;
+    program_drug: string | null;
+    url: string | null;
+  }>,
+): ClinicalProgram[] {
+  if (programs.length) return programs;
+  const milestones: ClinicalMilestone[] = [];
+  for (const r of rows) {
+    const at = String(r.event_at ?? "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(at)) continue;
+    const label = String(r.feed_label ?? "Filing update").trim() || "Filing update";
+    const url = r.url ? String(r.url) : "https://www.sec.gov/edgar/search/";
+    milestones.push({ at, label, url, nctId: "sec" });
+  }
+  if (!milestones.length) return programs;
+  return [
+    {
+      key: "Pipeline",
+      indication: null,
+      stage: null,
+      milestones: milestones
+        .filter((m, i, arr) => arr.findIndex((x) => x.at === m.at && x.label === m.label) === i)
+        .sort((a, b) => a.at.localeCompare(b.at)),
+      nctIds: [],
+    },
+  ];
+}
+
 function mergeFilingMilestonesIntoPrograms(
   programs: ClinicalProgram[],
   rows: Array<{
@@ -109,6 +141,7 @@ export async function getPharmaClinicalContext(opts: {
     [ticker],
   );
   programs = mergeFilingMilestonesIntoPrograms(programs, filingRows);
+  programs = ensurePipelineProgramFromFilings(programs, filingRows);
 
   const catalysts = buildCatalystsFromStudies(studies, {
     earningsDate: earnings_date,
