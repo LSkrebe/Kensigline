@@ -29,6 +29,7 @@ import {
   MACRO_IMPACT_FILTER_TYPES,
   rippleMoveClass,
 } from './discoverMockData.js'
+import { readFilterSet, UI_PREF_KEYS, writeFilterSet } from './uiPreferences.js'
 
 function applyDiscoverSourceFilter(events, enabled) {
   if (!enabled?.size) return []
@@ -466,14 +467,22 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
   const [timelineFetching, setTimelineFetching] = useState(false)
 
   const [watchlistFilterOpen, setWatchlistFilterOpen] = useState(false)
-  const [watchlistFilters, setWatchlistFilters] = useState(() => new Set(DISCOVER_WATCHLIST_FILTER_DEFAULT))
+  const [watchlistFilters, setWatchlistFilters] = useState(() =>
+    readFilterSet(UI_PREF_KEYS.discoverWatchlistFilters, DISCOVER_WATCHLIST_FILTER_DEFAULT),
+  )
 
   const [macroFilterOpen, setMacroFilterOpen] = useState(false)
-  const [macroRegionFilters, setMacroRegionFilters] = useState(() => new Set(MACRO_REGION_FILTER_DEFAULT))
-  const [macroImpactFilters, setMacroImpactFilters] = useState(() => new Set(MACRO_IMPACT_FILTER_DEFAULT))
+  const [macroRegionFilters, setMacroRegionFilters] = useState(() =>
+    readFilterSet(UI_PREF_KEYS.discoverMacroRegionFilters, MACRO_REGION_FILTER_DEFAULT),
+  )
+  const [macroImpactFilters, setMacroImpactFilters] = useState(() =>
+    readFilterSet(UI_PREF_KEYS.discoverMacroImpactFilters, MACRO_IMPACT_FILTER_DEFAULT),
+  )
 
   const [movesFilterOpen, setMovesFilterOpen] = useState(false)
-  const [movesSourceFilters, setMovesSourceFilters] = useState(() => new Set(DISCOVER_MARKET_MOVE_FILTER_DEFAULT))
+  const [movesSourceFilters, setMovesSourceFilters] = useState(() =>
+    readFilterSet(UI_PREF_KEYS.discoverMovesFilters, DISCOVER_MARKET_MOVE_FILTER_DEFAULT),
+  )
 
   const toggleWatchlistFilter = useCallback((id) => toggleFilterSet(setWatchlistFilters, id), [])
   const toggleMovesFilter = useCallback((id) => toggleFilterSet(setMovesSourceFilters, id), [])
@@ -487,6 +496,22 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
     const t = setTimeout(() => setDebouncedQuery(query), 280)
     return () => clearTimeout(t)
   }, [query])
+
+  useEffect(() => {
+    writeFilterSet(UI_PREF_KEYS.discoverWatchlistFilters, watchlistFilters)
+  }, [watchlistFilters])
+
+  useEffect(() => {
+    writeFilterSet(UI_PREF_KEYS.discoverMacroRegionFilters, macroRegionFilters)
+  }, [macroRegionFilters])
+
+  useEffect(() => {
+    writeFilterSet(UI_PREF_KEYS.discoverMacroImpactFilters, macroImpactFilters)
+  }, [macroImpactFilters])
+
+  useEffect(() => {
+    writeFilterSet(UI_PREF_KEYS.discoverMovesFilters, movesSourceFilters)
+  }, [movesSourceFilters])
 
   useEffect(() => {
     if (!backendUp) {

@@ -16,6 +16,19 @@ import {
   researchPaperSourceTypesForIntel,
 } from './researchPaperSources.js'
 import {
+  readActiveTab,
+  readChartRange,
+  readFilterSet,
+  readIntelMode,
+  readInvestigateMode,
+  UI_PREF_KEYS,
+  writeActiveTab,
+  writeChartRange,
+  writeFilterSet,
+  writeIntelMode,
+  writeInvestigateMode,
+} from './uiPreferences.js'
+import {
   casePersonPhotoUrl,
   getCongressLegislatorIndexRevision,
   politicianDisplayNameFromRow,
@@ -9383,21 +9396,21 @@ function cycleViewTab(current, settingsReturnTab = 'main') {
 function KensiglineTerminal() {
   const { user } = useAuth()
   const isPhone = usePhoneViewport()
-  const [activeTab, setActiveTab] = useState('discover') // discover | main | investigate | settings
+  const [activeTab, setActiveTab] = useState(() => readActiveTab()) // discover | main | investigate | settings
   const [researchPhonePane, setResearchPhonePane] = useState('paper')
   const [investigatePhonePane, setInvestigatePhonePane] = useState('feed')
   const [discoverPhonePane, setDiscoverPhonePane] = useState('catalyst')
-  const [intelMode, setIntelMode] = useState('market') // market | clinical
-  const [investigateMode, setInvestigateMode] = useState('insider') // insider | politicians | institutions
+  const [intelMode, setIntelMode] = useState(() => readIntelMode()) // market | clinical
+  const [investigateMode, setInvestigateMode] = useState(() => readInvestigateMode()) // insider | politicians | institutions
   const [investigateFeedFilterOpen, setInvestigateFeedFilterOpen] = useState(false)
-  const [investigateInsiderTxnFilters, setInvestigateInsiderTxnFilters] = useState(
-    () => new Set(FORM4_TXN_CODES_CYCLE),
+  const [investigateInsiderTxnFilters, setInvestigateInsiderTxnFilters] = useState(() =>
+    readFilterSet(UI_PREF_KEYS.investigateTxnFilters('insider'), FORM4_TXN_CODES_CYCLE),
   )
-  const [investigatePoliticianTxnFilters, setInvestigatePoliticianTxnFilters] = useState(
-    () => new Set(PTR_TXN_CODES_CYCLE),
+  const [investigatePoliticianTxnFilters, setInvestigatePoliticianTxnFilters] = useState(() =>
+    readFilterSet(UI_PREF_KEYS.investigateTxnFilters('politicians'), PTR_TXN_CODES_CYCLE),
   )
-  const [investigateInstitutionTxnFilters, setInvestigateInstitutionTxnFilters] = useState(
-    () => new Set(INSTITUTION_ACTIVITY_CYCLE),
+  const [investigateInstitutionTxnFilters, setInvestigateInstitutionTxnFilters] = useState(() =>
+    readFilterSet(UI_PREF_KEYS.investigateTxnFilters('institutions'), INSTITUTION_ACTIVITY_CYCLE),
   )
   const [investigateInsiderTxnFiltersDraft, setInvestigateInsiderTxnFiltersDraft] = useState(null)
   const [investigatePoliticianTxnFiltersDraft, setInvestigatePoliticianTxnFiltersDraft] = useState(null)
@@ -9430,17 +9443,23 @@ function KensiglineTerminal() {
   const [insiderCompanyQuery, setInsiderCompanyQuery] = useState('')
   const [insiderPersonQuery, setInsiderPersonQuery] = useState('')
   const [insiderCaseTradeIdx, setInsiderCaseTradeIdx] = useState(0)
-  const [insiderChartRange, setInsiderChartRange] = useState('1M')
+  const [insiderChartRange, setInsiderChartRange] = useState(() =>
+    readChartRange('insider', PRICE_RANGE_OPTS, '1M'),
+  )
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
   const [politiciansCompanyQuery, setPoliticiansCompanyQuery] = useState('')
   const [politiciansPoliticianQuery, setPoliticiansPoliticianQuery] = useState('')
   const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
-  const [politiciansChartRange, setPoliticiansChartRange] = useState('1M')
+  const [politiciansChartRange, setPoliticiansChartRange] = useState(() =>
+    readChartRange('politicians', PRICE_RANGE_OPTS, '1M'),
+  )
   const [institutionsIdx, setInstitutionsIdx] = useState(0)
   const [institutionsCompanyQuery, setInstitutionsCompanyQuery] = useState('')
   const [institutionsInstitutionQuery, setInstitutionsInstitutionQuery] = useState('')
   const [institutionsCaseTradeIdx, setInstitutionsCaseTradeIdx] = useState(0)
-  const [institutionsChartRange, setInstitutionsChartRange] = useState('1M')
+  const [institutionsChartRange, setInstitutionsChartRange] = useState(() =>
+    readChartRange('institutions', PRICE_RANGE_OPTS, '1M'),
+  )
   const [researchFeedLive, setResearchFeedLive] = useState(null)
   const [researchExploreLive, setResearchExploreLive] = useState(null)
   const [researchExploreTicker, setResearchExploreTicker] = useState(null)
@@ -9461,8 +9480,11 @@ function KensiglineTerminal() {
   const [researchQuery, setResearchQuery] = useState('')
   const [researchProgramQuery, setResearchProgramQuery] = useState('')
   const [researchFeedFilterOpen, setResearchFeedFilterOpen] = useState(false)
-  const [researchPaperSourceFilters, setResearchPaperSourceFilters] = useState(
-    () => new Set(researchSourceFilterKeysForIntel('market')),
+  const [researchPaperSourceFilters, setResearchPaperSourceFilters] = useState(() =>
+    readFilterSet(
+      UI_PREF_KEYS.researchFilters(readIntelMode()),
+      researchSourceFilterKeysForIntel(readIntelMode()),
+    ),
   )
   const [researchPaperSourceFiltersDraft, setResearchPaperSourceFiltersDraft] = useState(null)
   const [backendUp, setBackendUp] = useState(false)
@@ -9643,10 +9665,52 @@ function KensiglineTerminal() {
   }, [intelMode, researchTicker])
 
   useEffect(() => {
-    setResearchPaperSourceFilters(new Set(researchSourceFilterKeysForIntel(intelMode)))
+    setResearchPaperSourceFilters(
+      readFilterSet(UI_PREF_KEYS.researchFilters(intelMode), researchSourceFilterKeysForIntel(intelMode)),
+    )
     setResearchFeedFilterOpen(false)
     setResearchPaperSourceFiltersDraft(null)
   }, [intelMode])
+
+  useEffect(() => {
+    writeActiveTab(activeTab)
+  }, [activeTab])
+
+  useEffect(() => {
+    writeIntelMode(intelMode)
+  }, [intelMode])
+
+  useEffect(() => {
+    writeInvestigateMode(investigateMode)
+  }, [investigateMode])
+
+  useEffect(() => {
+    writeFilterSet(UI_PREF_KEYS.researchFilters(intelMode), researchPaperSourceFilters)
+  }, [intelMode, researchPaperSourceFilters])
+
+  useEffect(() => {
+    writeFilterSet(UI_PREF_KEYS.investigateTxnFilters('insider'), investigateInsiderTxnFilters)
+  }, [investigateInsiderTxnFilters])
+
+  useEffect(() => {
+    writeFilterSet(UI_PREF_KEYS.investigateTxnFilters('politicians'), investigatePoliticianTxnFilters)
+  }, [investigatePoliticianTxnFilters])
+
+  useEffect(() => {
+    writeFilterSet(UI_PREF_KEYS.investigateTxnFilters('institutions'), investigateInstitutionTxnFilters)
+  }, [investigateInstitutionTxnFilters])
+
+  useEffect(() => {
+    writeChartRange('insider', insiderChartRange)
+  }, [insiderChartRange])
+
+  useEffect(() => {
+    writeChartRange('politicians', politiciansChartRange)
+  }, [politiciansChartRange])
+
+  useEffect(() => {
+    writeChartRange('institutions', institutionsChartRange)
+  }, [institutionsChartRange])
   useEffect(() => {
     if (intelMode !== 'clinical') return
     const allowed = new Set([CLINICAL_PROGRAM_ALL, ...groupPrograms(contextPrograms).map((g) => g.key)])
