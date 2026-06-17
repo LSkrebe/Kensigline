@@ -1,5 +1,6 @@
 import { normalizeResearchPaperSourceKey } from "../shared/source-keys.js";
 import {
+  isIdeaGreenHighlight,
   scoreInsiderCluster,
   scoreInstitutionCluster,
   scorePoliticianCluster,
@@ -72,17 +73,57 @@ function clusterTotalUsd(data: unknown): number {
   }, 0);
 }
 
-function scoreDiscoverDocumentRow(row: DocumentDiscoverRow) {
+function isFlowFeedKind(feedKind: string | null | undefined) {
+  const fk = String(feedKind ?? "").toLowerCase();
+  return fk === "insider" || fk === "politicians" || fk === "institutions";
+}
+
+function discoverSummaryText(row: DocumentDiscoverRow): string | null {
+  const analysis = String(row.analysis ?? "").trim();
+  if (analysis) return truncateDiscoverSummary(analysis, 200);
+
+  const data = row.data as { cluster?: { context_sentences?: unknown[]; feed_label?: string | null } } | null;
+  const sentences = data?.cluster?.context_sentences;
+  if (Array.isArray(sentences) && sentences.length) {
+    const joined = sentences
+      .map((s) => String(s ?? "").trim())
+      .filter(Boolean)
+      .join(" ");
+    if (joined) return truncateDiscoverSummary(joined, 200);
+  }
+
+  const feedLabel = String(data?.cluster?.feed_label ?? row.title ?? "").trim();
+  if (feedLabel && isFlowFeedKind(row.feed_kind)) return truncateDiscoverSummary(feedLabel, 200);
+  return null;
+}
+
+function scoreDiscoverDocumentRow(row: DocumentDiscoverRow, opts?: { todayCount?: number }) {
   const fk = String(row.feed_kind ?? "").toLowerCase();
   const data = row.data;
+  const todayCount = opts?.todayCount ?? 0;
   if (fk === "insider") {
-    return scoreInsiderCluster({ data, eventAt: row.event_at, totalUsd: clusterTotalUsd(data) });
+    return scoreInsiderCluster({
+      data,
+      eventAt: row.event_at,
+      totalUsd: clusterTotalUsd(data),
+      todayCount,
+    });
   }
   if (fk === "politicians") {
-    return scorePoliticianCluster({ data, eventAt: row.event_at, totalUsd: clusterTotalUsd(data) });
+    return scorePoliticianCluster({
+      data,
+      eventAt: row.event_at,
+      totalUsd: clusterTotalUsd(data),
+      todayCount,
+    });
   }
   if (fk === "institutions") {
-    return scoreInstitutionCluster({ data, eventAt: row.event_at, totalUsd: clusterTotalUsd(data) });
+    return scoreInstitutionCluster({
+      data,
+      eventAt: row.event_at,
+      totalUsd: clusterTotalUsd(data),
+      todayCount,
+    });
   }
   return scoreResearchDocument({
     analysis: row.analysis,
@@ -94,15 +135,16 @@ function scoreDiscoverDocumentRow(row: DocumentDiscoverRow) {
   });
 }
 
+/** Same green-highlight tier as Investigate / Research feed rows. */
 export function discoverEventIsMarketMove(event: DiscoverEvent): boolean {
-  if (event.kind === "flow") return false;
   if (!String(event.summary ?? "").trim()) return false;
-  return Boolean(event.idea_best);
+  return isIdeaGreenHighlight(event);
 }
 
 export function mapDocumentToDiscoverEvent(
   row: DocumentDiscoverRow,
   universe: Set<string>,
+  opts?: { todayCount?: number },
 ): DiscoverEvent {
   const ticker = String(row.ticker ?? "").trim().toUpperCase();
   const source = normalizeResearchPaperSourceKey(row.source_key);
@@ -118,7 +160,7 @@ export function mapDocumentToDiscoverEvent(
     data: row.data,
     universe,
   });
-  const idea = scoreDiscoverDocumentRow(row);
+  const idea = scoreDiscoverDocumentRow(row, opts);
 
   return {
     id: `doc:${row.id}`,
@@ -131,7 +173,7 @@ export function mapDocumentToDiscoverEvent(
     source,
     phase: row.program_phase,
     programKey: row.program_drug,
-    summary: truncateDiscoverSummary(row.analysis, 200),
+    summary: discoverSummaryText(row),
     url: row.url,
     mentioned,
     idea_score: idea.idea_score,

@@ -654,10 +654,9 @@ export function getDiscoverWatchlistEvents(opts = {}) {
   return buildDiscoverTimeline({ query, enabledFilters }).upcoming
 }
 
-/** Past cards eligible for Market Moves: summary present, not a flow filing, strict best grade only. */
+/** Past cards eligible for Market Moves: green-highlight tier (same as Investigate feed). */
 export function isDiscoverMarketMove(event) {
   if (!event) return false
-  if (event.kind === 'flow') return false
   if (!String(event.summary ?? '').trim()) return false
   return Boolean(event.idea_best)
 }

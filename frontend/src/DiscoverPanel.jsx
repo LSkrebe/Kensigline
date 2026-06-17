@@ -347,11 +347,12 @@ function DiscoverMoveCard({ event, movePct, reactionCloses, allowMockFallback = 
   const move = showMove ? formatRippleMove(movePct) : ''
   const moveCls = showMove ? rippleMoveClass(movePct) : ''
   const showChart = hasCloses || (allowMockFallback && Number.isFinite(movePct))
+  const highlightCls = event.idea_best ? 'ideaHighlight--A' : ''
 
   return (
     <button
       type="button"
-      className="discoverMoveCard"
+      className={['discoverMoveCard', highlightCls].filter(Boolean).join(' ')}
       onClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode })}
     >
       <div className="discoverMoveCardHead">
@@ -616,7 +617,7 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
           >
             {!marketMoves.length ? (
               <p className="discoverColEmpty mono dim">
-                {showColumnLoading ? 'Loading market moves…' : 'No best-graded market moves.'}
+                {showColumnLoading ? 'Loading market moves…' : 'No highlighted market moves.'}
               </p>
             ) : (
               <div className="discoverMoveList">

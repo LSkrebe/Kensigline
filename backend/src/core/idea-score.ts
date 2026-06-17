@@ -30,6 +30,11 @@ function clampScore(score: number, reasons: string[]): IdeaScoreResult {
   };
 }
 
+/** Green left-border highlight tier in Research / Investigate feeds (idea_best). */
+export function isIdeaGreenHighlight(result: { idea_best?: boolean | null }): boolean {
+  return Boolean(result.idea_best);
+}
+
 export function scoreInsiderCluster(args: {
   data: any;
   eventAt?: string | null;

@@ -208,7 +208,7 @@ test("discover macro week generation", async () => {
   assert.ok(Array.isArray(days[0]?.events));
 });
 
-test("discover market move requires best grade", async () => {
+test("discover market move requires green highlight tier", async () => {
   const { discoverEventIsMarketMove } = await import("../discover/map.js");
   const base = {
     id: "doc:1",
@@ -216,15 +216,17 @@ test("discover market move requires best grade", async () => {
     companyName: "NVIDIA Corporation",
     intelMode: "market" as const,
     at: "2026-01-15T12:00:00.000Z",
-    title: "Q4 earnings call",
-    kind: "filing" as const,
-    source: "8-K",
-    summary: "Data center revenue beat expectations.",
+    title: "Insider purchases",
+    kind: "flow" as const,
+    source: "Form 4",
+    summary: "Open-market insider purchases across multiple filings.",
+    idea_score: 92,
+    idea_best: true,
+    idea_reasons: ["Purchase notional above $1M"],
   };
-  assert.equal(discoverEventIsMarketMove({ ...base, idea_best: true }), true);
-  assert.equal(discoverEventIsMarketMove({ ...base, idea_best: false }), false);
-  assert.equal(discoverEventIsMarketMove({ ...base, idea_best: true, kind: "flow" }), false);
-  assert.equal(discoverEventIsMarketMove({ ...base, idea_best: true, summary: "" }), false);
+  assert.equal(discoverEventIsMarketMove(base), true);
+  assert.equal(discoverEventIsMarketMove({ ...base, idea_best: false, idea_score: 88 }), false);
+  assert.equal(discoverEventIsMarketMove({ ...base, summary: "" }), false);
 });
 
 test("discover source filter and query matching", async () => {

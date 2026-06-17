@@ -2,6 +2,35 @@ import { db } from "../core/db.js";
 import { mapDocumentToDiscoverEvent, type DocumentDiscoverRow } from "./map.js";
 import type { DiscoverEvent } from "./types.js";
 
+function isFlowFeedKind(feedKind: string | null | undefined) {
+  const fk = String(feedKind ?? "").toLowerCase();
+  return fk === "insider" || fk === "politicians" || fk === "institutions";
+}
+
+function isEventOnUtcToday(eventAt: string | null | undefined) {
+  const raw = String(eventAt ?? "").trim();
+  if (!raw) return false;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return (
+    d.getUTCFullYear() === now.getUTCFullYear() &&
+    d.getUTCMonth() === now.getUTCMonth() &&
+    d.getUTCDate() === now.getUTCDate()
+  );
+}
+
+function flowTodayCountsByTicker(rows: DocumentDiscoverRow[]) {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    if (!isFlowFeedKind(row.feed_kind) || !isEventOnUtcToday(row.event_at)) continue;
+    const ticker = String(row.ticker ?? "").trim().toUpperCase();
+    if (!ticker) continue;
+    counts.set(ticker, (counts.get(ticker) ?? 0) + 1);
+  }
+  return counts;
+}
+
 export async function loadPastDiscoverEvents(opts: {
   pastDays: number;
   limit: number;
@@ -47,5 +76,9 @@ export async function loadPastDiscoverEvents(opts: {
   );
 
   const universe = new Set(rows.map((r) => String(r.ticker ?? "").trim().toUpperCase()).filter(Boolean));
-  return rows.map((row) => mapDocumentToDiscoverEvent(row, universe));
+  const todayCounts = flowTodayCountsByTicker(rows);
+  return rows.map((row) => {
+    const ticker = String(row.ticker ?? "").trim().toUpperCase();
+    return mapDocumentToDiscoverEvent(row, universe, { todayCount: todayCounts.get(ticker) ?? 0 });
+  });
 }
