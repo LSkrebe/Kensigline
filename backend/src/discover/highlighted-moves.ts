@@ -11,6 +11,7 @@ import {
   parseEventTimeMs,
 } from "../shared/feed-helpers.js";
 import { normalizeResearchPaperSourceKey } from "../shared/source-keys.js";
+import { buildFlowMarketMoveCopy } from "./flow-copy.js";
 import {
   discoverEventIsMarketMove,
   discoverSummaryText,
@@ -64,6 +65,37 @@ function flowDocToRow(doc: {
   };
 }
 
+function mergeFlowClusterData(
+  latestData: unknown,
+  worksheetRows: unknown[],
+  feedLabel?: string | null,
+): unknown {
+  const base =
+    latestData && typeof latestData === "object"
+      ? (latestData as Record<string, unknown>)
+      : typeof latestData === "string"
+        ? (() => {
+            try {
+              return JSON.parse(latestData) as Record<string, unknown>;
+            } catch {
+              return {};
+            }
+          })()
+        : {};
+  const cluster =
+    base.cluster && typeof base.cluster === "object"
+      ? { ...(base.cluster as Record<string, unknown>) }
+      : {};
+  if (Array.isArray(worksheetRows) && worksheetRows.length) {
+    cluster.worksheet_rows = worksheetRows;
+  }
+  const label = String(feedLabel ?? "").trim();
+  if (label && !String(cluster.feed_label ?? "").trim()) {
+    cluster.feed_label = label;
+  }
+  return { ...base, cluster };
+}
+
 function flowAggToDiscoverEvent(args: {
   ticker: string;
   companyName: string;
@@ -71,19 +103,23 @@ function flowAggToDiscoverEvent(args: {
   latestDoc: Parameters<typeof flowDocToRow>[0];
   sourceKey: string;
   idea: { idea_score: number; idea_best: boolean; idea_reasons: string[] };
+  mergedData?: unknown;
 }): DiscoverEvent | null {
-  const row = flowDocToRow({ ...args.latestDoc, company_name: args.companyName });
+  const row = flowDocToRow({
+    ...args.latestDoc,
+    company_name: args.companyName,
+    data: args.mergedData ?? args.latestDoc.data,
+  });
   if (!isIdeaGreenHighlight(args.idea)) return null;
 
-  const title = flowEventTitle(row);
-  let summary = discoverSummaryText(row);
-  if (!summary || isAmountFeedLabel(summary) || summary === title) {
+  const templated = buildFlowMarketMoveCopy(row);
+  const title = templated?.title ?? flowEventTitle(row);
+  let summary = templated?.summary ?? discoverSummaryText(row);
+  if (!summary || isAmountFeedLabel(summary)) {
     summary =
       args.idea.idea_reasons?.length
         ? args.idea.idea_reasons.slice(0, 2).join(" ")
-        : summary && !isAmountFeedLabel(summary)
-          ? summary
-          : null;
+        : null;
   }
 
   const source = normalizeResearchPaperSourceKey(args.sourceKey);
@@ -128,6 +164,7 @@ async function loadHighlightedInsiderMoves(days: number, cap: number): Promise<D
     latestDoc: (typeof docs)[number];
     totalUsd: number;
     todayCount: number;
+    worksheetRows: any[];
   };
 
   const byTicker = new Map<string, Agg>();
@@ -156,6 +193,7 @@ async function loadHighlightedInsiderMoves(days: number, cap: number): Promise<D
         latestDoc: d,
         totalUsd: sum,
         todayCount: todayDelta,
+        worksheetRows: Array.isArray(rows) ? [...rows] : [],
       });
       continue;
     }
@@ -164,6 +202,7 @@ async function loadHighlightedInsiderMoves(days: number, cap: number): Promise<D
       cur.latestFeedAt = eventAt;
       cur.latestDoc = d;
     }
+    if (Array.isArray(rows)) cur.worksheetRows.push(...rows);
     cur.totalUsd += sum;
     cur.todayCount += todayDelta;
   }
@@ -185,6 +224,7 @@ async function loadHighlightedInsiderMoves(days: number, cap: number): Promise<D
       latestDoc: { ...c.latestDoc, feed_kind: "insider", ticker: c.ticker },
       sourceKey: c.latestDoc.source_key ?? "Form 4",
       idea,
+      mergedData: mergeFlowClusterData(c.latestDoc.data, c.worksheetRows, c.latestDoc.feed_label),
     });
     if (event) out.push(event);
   }
@@ -215,6 +255,7 @@ async function loadHighlightedPoliticianMoves(days: number, cap: number): Promis
     latestDoc: (typeof rows)[number];
     totalUsd: number;
     todayCount: number;
+    worksheetRows: any[];
   };
 
   const byTicker = new Map<string, Agg>();
@@ -235,6 +276,7 @@ async function loadHighlightedPoliticianMoves(days: number, cap: number): Promis
         latestDoc: r,
         totalUsd: 0,
         todayCount: 0,
+        worksheetRows: Array.isArray(ws) ? [...ws] : [],
       };
     if (eventT > parseEventTimeMs(cur.latestFeedAt)) {
       cur.latestFeedAt = eventAt;
@@ -242,6 +284,7 @@ async function loadHighlightedPoliticianMoves(days: number, cap: number): Promis
     }
     cur.todayCount += todayDelta;
     if (Array.isArray(ws)) {
+      if (byTicker.has(t)) cur.worksheetRows.push(...ws);
       for (const w of ws) {
         const mid = Number(w?.amount_usd_mid ?? w?.amount_usd ?? 0);
         if (Number.isFinite(mid) && mid > 0) cur.totalUsd += mid;
@@ -267,6 +310,7 @@ async function loadHighlightedPoliticianMoves(days: number, cap: number): Promis
       latestDoc: { ...c.latestDoc, feed_kind: "politicians", ticker: c.ticker },
       sourceKey: c.latestDoc.source_key ?? "PTR",
       idea,
+      mergedData: mergeFlowClusterData(c.latestDoc.data, c.worksheetRows, c.latestDoc.feed_label),
     });
     if (event) out.push(event);
   }
@@ -297,6 +341,7 @@ async function loadHighlightedInstitutionMoves(days: number, cap: number): Promi
     latestDoc: (typeof rows)[number];
     totalUsd: number;
     todayCount: number;
+    worksheetRows: any[];
   };
 
   const byTicker = new Map<string, Agg>();
@@ -317,6 +362,7 @@ async function loadHighlightedInstitutionMoves(days: number, cap: number): Promi
         latestDoc: r,
         totalUsd: 0,
         todayCount: 0,
+        worksheetRows: Array.isArray(ws) ? [...ws] : [],
       };
     if (eventT > parseEventTimeMs(cur.latestFeedAt)) {
       cur.latestFeedAt = eventAt;
@@ -324,6 +370,7 @@ async function loadHighlightedInstitutionMoves(days: number, cap: number): Promi
     }
     cur.todayCount += todayDelta;
     if (Array.isArray(ws)) {
+      if (byTicker.has(t)) cur.worksheetRows.push(...ws);
       for (const w of ws) {
         const mid = Number(w?.amount_usd ?? 0);
         if (Number.isFinite(mid) && mid > 0) cur.totalUsd += mid;
@@ -349,6 +396,7 @@ async function loadHighlightedInstitutionMoves(days: number, cap: number): Promi
       latestDoc: { ...c.latestDoc, feed_kind: "institutions", ticker: c.ticker },
       sourceKey: c.latestDoc.source_key ?? "13F",
       idea,
+      mergedData: mergeFlowClusterData(c.latestDoc.data, c.worksheetRows, c.latestDoc.feed_label),
     });
     if (event) out.push(event);
   }

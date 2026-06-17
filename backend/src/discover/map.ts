@@ -143,10 +143,13 @@ export function mapDocumentToDiscoverEvent(
 ): DiscoverEvent {
   const ticker = String(row.ticker ?? "").trim().toUpperCase();
   const source = normalizeResearchPaperSourceKey(row.source_key);
-  const title =
-    String(row.title ?? "").trim() ||
-    String(row.source_key ?? "").trim() ||
-    "Document update";
+  const fk = String(row.feed_kind ?? "").toLowerCase();
+  const isFlow = fk === "insider" || fk === "politicians" || fk === "institutions";
+  const title = isFlow
+    ? flowEventTitle(row)
+    : String(row.title ?? "").trim() ||
+      String(row.source_key ?? "").trim() ||
+      "Document update";
   const intelMode = inferIntelMode(row.feed_kind, row.industry);
   const kind = inferEventKind(source, title, row.feed_kind);
   const mentioned = resolveDiscoverMentioned({
