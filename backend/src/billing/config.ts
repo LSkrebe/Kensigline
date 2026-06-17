@@ -46,49 +46,19 @@ export function isActiveStatus(status: string | null | undefined): boolean {
   return ACTIVE_SUBSCRIPTION_STATUSES.has(String(status ?? "").toLowerCase());
 }
 
-/** Comma-separated emails that skip subscription checks (server env only — for prod dev access). */
-export function billingBypassEmails(): Set<string> {
-  const raw = String(process.env.BILLING_BYPASS_EMAILS ?? "").trim();
-  if (!raw) return new Set();
-  return new Set(
-    raw
-      .split(/[,;\s]+/)
-      .map((e) => e.trim().toLowerCase())
-      .filter(Boolean),
-  );
-}
-
-export function isBillingBypassEmail(email: string | null | undefined): boolean {
-  const e = String(email ?? "").trim().toLowerCase();
-  if (!e) return false;
-  return billingBypassEmails().has(e);
-}
-
-/** Paid sub, Supabase app_metadata comp, or optional server email allowlist. */
+/** Paid sub or Supabase app_metadata billing_exempt / role owner. */
 export function hasBillingAccess(user: SupabaseJwtUser, row: BillingRow | null): boolean {
   if (user.billingExempt) return true;
-  if (isBillingBypassEmail(user.email)) return true;
   return isActiveStatus(row?.status);
 }
 
 export function billingAccessPayload(user: SupabaseJwtUser) {
-  if (user.billingExempt) {
-    return {
-      ok: true as const,
-      active: true,
-      status: "active",
-      plan: "owner",
-      current_period_end: null,
-    };
-  }
-  if (isBillingBypassEmail(user.email)) {
-    return {
-      ok: true as const,
-      active: true,
-      status: "active",
-      plan: "dev_bypass",
-      current_period_end: null,
-    };
-  }
-  return null;
+  if (!user.billingExempt) return null;
+  return {
+    ok: true as const,
+    active: true,
+    status: "active",
+    plan: "owner",
+    current_period_end: null,
+  };
 }
