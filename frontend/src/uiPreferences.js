@@ -9,7 +9,7 @@ export const UI_PREF_KEYS = {
   discoverWatchlistFilters: `${PREFIX}discover:watchlist-filters`,
   discoverMacroRegionFilters: `${PREFIX}discover:macro-region-filters`,
   discoverMacroImpactFilters: `${PREFIX}discover:macro-impact-filters`,
-  discoverMovesFilters: `${PREFIX}discover:moves-filters`,
+  discoverMovesFilters: `${PREFIX}discover:moves-filters:v2`,
   chartRange: (lane) => `${PREFIX}chart-range:${lane}`,
 }
 

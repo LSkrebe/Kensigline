@@ -1,3 +1,4 @@
+import { loadHighlightedMarketMoves } from "./highlighted-moves.js";
 import { loadTickerUniverse } from "../shared/ticker-universe.js";
 import { loadUpcomingDiscoverEvents } from "./ahead.js";
 import { loadUpcomingMacroDays } from "./macro.js";
@@ -44,11 +45,12 @@ export async function buildDiscoverTimeline(opts: DiscoverTimelineOpts = {}): Pr
   const q = String(opts.query ?? "").trim();
   const enabled = opts.sourceKeys ?? null;
 
-  const [pastRaw, upcomingRaw, macro, universe] = await Promise.all([
+  const [pastRaw, upcomingRaw, macro, universe, marketMovesRaw] = await Promise.all([
     loadPastDiscoverEvents({ pastDays, limit }),
     loadUpcomingDiscoverEvents({ aheadDays, limit }),
     loadUpcomingMacroDays(macroDayLimit),
     loadTickerUniverse(Number(process.env.DISCOVER_MAX_UNIVERSE ?? 500)),
+    loadHighlightedMarketMoves({ pastDays, limit }),
   ]);
 
   const filterRow = (event: DiscoverEvent) => {
@@ -66,12 +68,14 @@ export async function buildDiscoverTimeline(opts: DiscoverTimelineOpts = {}): Pr
     })
     .sort((a, b) => dayStartMs(a.at) - dayStartMs(b.at));
 
-  const moves = await buildMoveReactionsForEvents(past);
+  const market_moves = marketMovesRaw.filter(filterRow).sort((a, b) => dayStartMs(b.at) - dayStartMs(a.at));
+  const moves = await buildMoveReactionsForEvents(market_moves);
 
   return {
     ok: true,
     upcoming,
     past,
+    market_moves,
     macro,
     moves,
     meta: {

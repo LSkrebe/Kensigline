@@ -78,7 +78,7 @@ function isFlowFeedKind(feedKind: string | null | undefined) {
   return fk === "insider" || fk === "politicians" || fk === "institutions";
 }
 
-function discoverSummaryText(row: DocumentDiscoverRow): string | null {
+export function discoverSummaryText(row: DocumentDiscoverRow): string | null {
   const analysis = String(row.analysis ?? "").trim();
   if (analysis) return truncateDiscoverSummary(analysis, 200);
 

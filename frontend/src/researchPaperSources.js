@@ -132,7 +132,23 @@ export function discoverWatchlistFilterTypes() {
 
 export const DISCOVER_WATCHLIST_FILTER_TYPES = discoverWatchlistFilterTypes()
 
-export const DISCOVER_MARKET_MOVE_FILTER_TYPES = discoverResearchDocumentFilterTypes()
+const DISCOVER_FLOW_SOURCE_FILTER_TYPES = [
+  { id: 'Form 4', label: 'Insider Form 4', code: 'F4' },
+  { id: 'Form 3', label: 'Insider Form 3', code: 'F3' },
+  { id: 'Form 5', label: 'Insider Form 5', code: 'F5' },
+  { id: 'PTR', label: 'Politician PTR', code: 'PTR' },
+  { id: '13F', label: 'Institutional 13F', code: '13F' },
+]
+
+/** Market moves — research filings plus Investigate flow sources. */
+export const DISCOVER_MARKET_MOVE_FILTER_TYPES = [
+  ...discoverResearchDocumentFilterTypes(),
+  ...DISCOVER_FLOW_SOURCE_FILTER_TYPES,
+]
+
+export const DISCOVER_MARKET_MOVE_FILTER_DEFAULT = new Set(
+  DISCOVER_MARKET_MOVE_FILTER_TYPES.map((t) => t.id),
+)
 
 export const DISCOVER_WATCHLIST_FILTER_DEFAULT = new Set(DISCOVER_WATCHLIST_FILTER_TYPES.map((t) => t.id))
 

@@ -55,6 +55,8 @@ export type DiscoverTimelineResult = {
   ok: true;
   upcoming: DiscoverEvent[];
   past: DiscoverEvent[];
+  /** Green-highlight market move cards (Investigate-aligned aggregation). */
+  market_moves: DiscoverEvent[];
   macro: DiscoverMacroDay[];
   moves: Record<string, DiscoverMoveReaction>;
   meta: {

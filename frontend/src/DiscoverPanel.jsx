@@ -347,12 +347,11 @@ function DiscoverMoveCard({ event, movePct, reactionCloses, allowMockFallback = 
   const move = showMove ? formatRippleMove(movePct) : ''
   const moveCls = showMove ? rippleMoveClass(movePct) : ''
   const showChart = hasCloses || (allowMockFallback && Number.isFinite(movePct))
-  const highlightCls = event.idea_best ? 'ideaHighlight--A' : ''
 
   return (
     <button
       type="button"
-      className={['discoverMoveCard', highlightCls].filter(Boolean).join(' ')}
+      className="discoverMoveCard"
       onClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode })}
     >
       <div className="discoverMoveCardHead">
@@ -551,15 +550,15 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
     return mockTimeline?.upcoming ?? []
   }, [backendUp, liveTimeline?.upcoming, mockTimeline?.upcoming])
 
-  const pastSource = useMemo(() => {
-    if (backendUp) return liveTimeline?.past ?? []
-    return mockTimeline?.past ?? []
-  }, [backendUp, liveTimeline?.past, mockTimeline?.past])
-
   const macroSource = useMemo(() => {
     if (backendUp) return Array.isArray(liveTimeline?.macro) ? liveTimeline.macro : []
     return getUpcomingMacroDays(5)
   }, [backendUp, liveTimeline?.macro])
+
+  const marketMovesSource = useMemo(() => {
+    if (backendUp) return liveTimeline?.market_moves ?? []
+    return (mockTimeline?.past ?? []).filter(isDiscoverMarketMove)
+  }, [backendUp, liveTimeline?.market_moves, mockTimeline?.past])
 
   const moveReactions = useMemo(() => {
     if (backendUp) return liveTimeline?.moves ?? {}
@@ -573,9 +572,8 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
   )
 
   const marketMoves = useMemo(() => {
-    const rows = pastSource.filter(isDiscoverMarketMove)
-    return applyDiscoverSourceFilter(rows, movesSourceFilters)
-  }, [pastSource, movesSourceFilters])
+    return applyDiscoverSourceFilter(marketMovesSource, movesSourceFilters)
+  }, [marketMovesSource, movesSourceFilters])
 
   const watchlistSearch = (
     <DiscoverFeedSearch
