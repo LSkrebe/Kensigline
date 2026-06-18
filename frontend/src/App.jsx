@@ -6694,6 +6694,9 @@ const RESEARCH_SOURCE_SUBTYPE_GROUPS = {
   ],
 }
 
+/** Flat insider form keys toggled together with the Form 4 transaction group. */
+const RESEARCH_INSIDER_GROUP_FLAT_KEYS = ['Form 3', 'Form 5']
+
 function researchSourceHasSubtypes(sourceId) {
   return Boolean(RESEARCH_SOURCE_SUBTYPE_GROUPS[sourceId]?.length)
 }
@@ -6721,10 +6724,33 @@ function researchSourceSubtypeKeysForSource(sourceId) {
   return subs.map((sub) => researchSourceSubtypeKey(sourceId, sub.id))
 }
 
+function researchInsiderGroupFilterKeys() {
+  return [...RESEARCH_INSIDER_GROUP_FLAT_KEYS, ...researchSourceSubtypeKeysForSource('Form 4')]
+}
+
+function enabledHasInvestigateFlowFilters(enabledSources) {
+  if (researchInsiderGroupFilterKeys().some((k) => enabledSources.has(k))) return true
+  if (researchSourceSubtypeKeysForSource('PTR').some((k) => enabledSources.has(k))) return true
+  if (researchSourceSubtypeKeysForSource('13F').some((k) => enabledSources.has(k))) return true
+  return false
+}
+
+function enabledHasDocumentFilters(enabledSources, intelMode) {
+  for (const t of researchPaperSourceTypesForIntel(intelMode)) {
+    if (RESEARCH_SOURCE_SUBTYPE_GROUPS[t.id]?.length) continue
+    if (['Form 3', 'Form 4', 'Form 5', 'PTR', '13F'].includes(t.id)) continue
+    if (enabledSources.has(t.id)) return true
+  }
+  return false
+}
+
 function paperTimelineItemSubtypeKey(item) {
   if (item?.kind === 'insider') {
     const code = String(item.transactionCode ?? '').trim().toUpperCase()
-    return code ? researchSourceSubtypeKey('Form 4', code) : null
+    if (!code) return null
+    const parent = insiderFormSourceFromTxnCode(code)
+    if (parent !== 'Form 4') return null
+    return researchSourceSubtypeKey('Form 4', code)
   }
   if (item?.kind === 'politician') {
     const code = politicianTxnCodeFromRaw(item.transactionType)
@@ -6756,28 +6782,54 @@ function paperTimelineItemSourceKey(item) {
 function researchFeedRowPassesSourceFilter(row, enabledSources) {
   if (!enabledSources?.size) return true
   const fk = String(row?.feed_kind ?? '').toLowerCase()
+  const rowId = String(row?.id ?? row?.rowKey ?? '')
+  if (!fk) {
+    if (rowId.startsWith('inj:')) return true
+    return false
+  }
   if (fk === 'insider') {
+    if (!enabledHasInvestigateFlowFilters(enabledSources)) return false
     const key = normalizeResearchPaperSourceKey(row?.source_key ?? 'Form 4')
+    if (key === 'Form 3' || key === 'Form 5') return enabledSources.has(key)
+    if (key === 'Form 4') {
+      return researchSourceSubtypeKeysForSource('Form 4').some((k) => enabledSources.has(k))
+    }
     if (enabledSources.has(key)) return true
-    return researchSourceSubtypeKeysForSource(key).some((k) => enabledSources.has(k))
+    if (researchSourceHasSubtypes(key)) {
+      return researchSourceSubtypeKeysForSource(key).some((k) => enabledSources.has(k))
+    }
+    return false
   }
   if (fk === 'politicians') {
-    if (enabledSources.has('PTR')) return true
+    if (!enabledHasInvestigateFlowFilters(enabledSources)) return false
     return researchSourceSubtypeKeysForSource('PTR').some((k) => enabledSources.has(k))
   }
   if (fk === 'institutions') {
-    if (enabledSources.has('13F')) return true
+    if (!enabledHasInvestigateFlowFilters(enabledSources)) return false
     return researchSourceSubtypeKeysForSource('13F').some((k) => enabledSources.has(k))
   }
+  if (fk === 'research' || fk === 'pharma') {
+    if (Number(row?.paper_doc_count) === 0) return false
+  }
   const docKey = normalizeResearchPaperSourceKey(row?.source_key ?? 'Other')
-  return enabledSources.has(docKey)
+  if (!docKey || docKey === 'Other') return enabledSources.has('Other')
+  if (enabledSources.has(docKey)) return true
+  if (researchSourceHasSubtypes(docKey)) {
+    return researchSourceSubtypeKeysForSource(docKey).some((k) => enabledSources.has(k))
+  }
+  return false
 }
 
 function paperTimelineItemPassesSourceFilter(item, enabledSources) {
   if (!enabledSources?.size) return true
   if (item?.kind === 'document') {
-    const key = normalizeResearchPaperSourceKey(item.document?.source)
-    return key ? enabledSources.has(key) : false
+    return paperDocumentPassesSourceFilter(item.document, enabledSources)
+  }
+  if (item?.kind === 'insider') {
+    const sourceKey = paperTimelineItemSourceKey(item)
+    if (sourceKey === 'Form 3' || sourceKey === 'Form 5') {
+      return enabledSources.has(sourceKey)
+    }
   }
   const subtypeKey = paperTimelineItemSubtypeKey(item)
   if (subtypeKey) return enabledSources.has(subtypeKey)
@@ -6951,7 +7003,7 @@ function ResearchFeedFilterPicker({ sourceTypes, enabled, onToggle, onToggleGrou
     const grouped = []
     for (const t of sourceTypes ?? []) {
       if (RESEARCH_SOURCE_SUBTYPE_GROUPS[t.id]?.length) grouped.push(t)
-      else flat.push(t)
+      else if (!RESEARCH_INSIDER_GROUP_FLAT_KEYS.includes(t.id)) flat.push(t)
     }
     return [...flat, ...grouped]
   }, [sourceTypes])
@@ -6970,7 +7022,8 @@ function ResearchFeedFilterPicker({ sourceTypes, enabled, onToggle, onToggleGrou
       {orderedSourceTypes.map(({ id, label, code }) => {
         const subtypes = RESEARCH_SOURCE_SUBTYPE_GROUPS[id]
         if (subtypes?.length) {
-          const subtypeKeys = researchSourceSubtypeKeysForSource(id)
+          const subtypeKeys =
+            id === 'Form 4' ? researchInsiderGroupFilterKeys() : researchSourceSubtypeKeysForSource(id)
           const isOpen = expanded.has(id)
           return (
             <div key={id} className="feedFilterGroup">
@@ -9705,6 +9758,7 @@ function KensiglineTerminal() {
           at: x.feed_at ? String(x.feed_at) : null,
           feed_kind: x.feed_kind ? String(x.feed_kind) : null,
           source_key: x.source_key ? String(x.source_key) : null,
+          paper_doc_count: Number(x.paper_doc_count) || 0,
           idea_score: x.idea_score,
           idea_best: x.idea_best,
           idea_reasons: x.idea_reasons,
@@ -10111,7 +10165,10 @@ function KensiglineTerminal() {
 
   const toggleResearchSourceFilterGroup = useCallback(
     (sourceId, enableAll) => {
-      const keys = researchSourceSubtypeKeysForSource(sourceId)
+      const keys =
+        sourceId === 'Form 4'
+          ? researchInsiderGroupFilterKeys()
+          : researchSourceSubtypeKeysForSource(sourceId)
       if (!keys.length) return
       patchResearchSourceFilters((prev) => {
         const next = new Set(prev ?? [])

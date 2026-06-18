@@ -207,9 +207,21 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
     program_phase: string | null;
     event_at: string | null;
     data: any;
+    paper_doc_count: number;
   }>(
     `
-    SELECT sub.id, sub.ticker, sub.analysis, sub.feed_label, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind, sub.program_phase, sub.event_at, sub.data
+    SELECT sub.id, sub.ticker, sub.analysis, sub.feed_label, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind, sub.program_phase, sub.event_at, sub.data,
+      (
+        SELECT COUNT(*)::int
+        FROM documents d2
+        WHERE upper(trim(d2.ticker)) = sub.ticker
+          AND d2.analysis IS NOT NULL
+          AND length(trim(d2.analysis)) > 0
+          AND (
+            d2.feed_kind = 'pharma'
+            OR (d2.feed_kind = 'research' AND d2.show_on_ticker IS NOT FALSE)
+          )
+      ) AS paper_doc_count
     FROM (
       SELECT DISTINCT ON (upper(trim(d.ticker)))
         d.id::text,
@@ -265,6 +277,7 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
       source_key: r.source_key,
       feed_kind: r.feed_kind,
       intel_mode: mode,
+      paper_doc_count: Number(r.paper_doc_count) || 0,
       idea_score: idea.idea_score,
       idea_best: idea.idea_best,
       idea_reasons: idea.idea_reasons,
