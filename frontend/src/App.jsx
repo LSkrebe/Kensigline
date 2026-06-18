@@ -2099,7 +2099,11 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
   )
 }
 
-function ContextTrackedInvestorsCard({ rows = [], emptyLabel = 'No tracked investor activity yet.' }) {
+function ContextTrackedInvestorsCard({
+  rows = [],
+  emptyLabel = 'No tracked investor activity yet.',
+  loading = false,
+}) {
   return (
     <div className="contextCatalystCard contextRecentInvestorsCard" aria-label="Tracked investors">
       <div className="contextRecentInvestorsTable" role="list">
@@ -2109,7 +2113,9 @@ function ContextTrackedInvestorsCard({ rows = [], emptyLabel = 'No tracked inves
           <span className="contextRecentInvestorsHead">Amount</span>
           <span className="contextRecentInvestorsHead">Date</span>
         </div>
-        {!rows.length ? (
+        {loading ? (
+          <p className="contextFlowEmpty mono dim contextRecentInvestorsEmpty">Loading tracked investors…</p>
+        ) : !rows.length ? (
           <p className="contextFlowEmpty mono dim contextRecentInvestorsEmpty">{emptyLabel}</p>
         ) : (
           rows.map((row) => (
@@ -2474,7 +2480,7 @@ function ContextMetricsTableRow({ row, data, periodLabels, periodCount }) {
   )
 }
 
-function ContextMetricsCard({ title, ariaLabel, periodLabels, rows, data }) {
+function ContextMetricsCard({ title, ariaLabel, periodLabels, rows, data, loading = false, emptyLabel = 'No data yet.' }) {
   const periodCount = periodLabels.length
 
   return (
@@ -2488,21 +2494,25 @@ function ContextMetricsCard({ title, ariaLabel, periodLabels, rows, data }) {
             </span>
           ))}
         </div>
-        {rows.map((row) => (
-          <ContextMetricsTableRow
-            key={row.key}
-            row={row}
-            data={data}
-            periodLabels={periodLabels}
-            periodCount={periodCount}
-          />
-        ))}
+        {loading ? (
+          <p className="contextCatalystCardEmpty mono dim">{emptyLabel}</p>
+        ) : (
+          rows.map((row) => (
+            <ContextMetricsTableRow
+              key={row.key}
+              row={row}
+              data={data}
+              periodLabels={periodLabels}
+              periodCount={periodCount}
+            />
+          ))
+        )}
       </div>
     </div>
   )
 }
 
-function ContextFundamentalsCard({ fundamentals }) {
+function ContextFundamentalsCard({ fundamentals, loading = false }) {
   const periodLabels = useMemo(() => {
     if (Array.isArray(fundamentals?.periodLabels) && fundamentals.periodLabels.length >= 4) {
       return fundamentals.periodLabels.slice(-4)
@@ -2517,11 +2527,13 @@ function ContextFundamentalsCard({ fundamentals }) {
       periodLabels={periodLabels}
       rows={CONTEXT_FUNDAMENTAL_ROWS}
       data={fundamentals}
+      loading={loading}
+      emptyLabel="Loading fundamentals…"
     />
   )
 }
 
-function ContextOwnershipCard({ ownership }) {
+function ContextOwnershipCard({ ownership, loading = false }) {
   const periodLabels = useMemo(() => contextOwnershipTrailingQuarterLabels(4), [])
   const latestPeriodLabel = periodLabels[periodLabels.length - 1] ?? '—'
   const periodCount = periodLabels.length
@@ -2538,15 +2550,19 @@ function ContextOwnershipCard({ ownership }) {
             </span>
           ))}
         </div>
-        {CONTEXT_OWNERSHIP_ROWS.map((row) => (
-          <ContextMetricsTableRow
-            key={row.key}
-            row={row}
-            data={ownership}
-            periodLabels={periodLabels}
-            periodCount={periodCount}
-          />
-        ))}
+        {loading ? (
+          <p className="contextCatalystCardEmpty mono dim">Loading ownership…</p>
+        ) : (
+          CONTEXT_OWNERSHIP_ROWS.map((row) => (
+            <ContextMetricsTableRow
+              key={row.key}
+              row={row}
+              data={ownership}
+              periodLabels={periodLabels}
+              periodCount={periodCount}
+            />
+          ))
+        )}
       </div>
     </div>
   )
@@ -2558,14 +2574,29 @@ const CONTEXT_RUNWAY_ROWS = [
   { key: 'runwayQuarters', label: 'Runway', format: 'quarters' },
 ]
 
-function ContextRunwayCard({ runway }) {
+function ContextRunwayCard({ runway, loading = false }) {
+  const hasRunwayData =
+    runway &&
+    CONTEXT_RUNWAY_ROWS.some((row) => {
+      const raw = runway?.[row.key]
+      if (raw == null || raw === '') return false
+      const n = Number(raw)
+      if (row.format === 'quarters') return Number.isFinite(n) && n > 0
+      return Number.isFinite(n) ? n !== 0 : true
+    })
+
   return (
     <div className="contextCatalystCard" aria-label="Financial runway">
       <div className="contextCatalystCardHeader">
         <div className="contextCatalystCardTitle mono dim">Financial runway</div>
       </div>
-      <div className="contextOutcomesStack">
-        {CONTEXT_RUNWAY_ROWS.map((row) => {
+      {loading ? (
+        <p className="contextCatalystCardEmpty mono dim">Loading runway…</p>
+      ) : !hasRunwayData ? (
+        <p className="contextCatalystCardEmpty mono dim">No runway data yet.</p>
+      ) : (
+        <div className="contextOutcomesStack">
+          {CONTEXT_RUNWAY_ROWS.map((row) => {
           const raw = runway?.[row.key]
           const tone = contextRunwayValueTone(row.key, raw)
           let display = '—'
@@ -2592,7 +2623,8 @@ function ContextRunwayCard({ runway }) {
             </div>
           )
         })}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2841,62 +2873,75 @@ function ContextClinicalOutcomesList({
   sampleSize = EMPTY,
   stats = MOCK_HISTORICAL_TRIALS,
   chartTitle = 'Trial historical outcomes',
+  loading = false,
+  emptyLabel = 'No historical trial outcomes yet.',
 }) {
   const rows = buildMockPharmaOutcomeRows(outcomeLines, stats)
+  const hasContent = outcomeLines.length > 0 || rows.length > 0
   return (
     <div className="contextCatalystCard contextClinicalOutcomesCard" aria-label={chartTitle}>
       <div className="contextFlowList contextFlowList--marketFlows contextFlowList--embedded" role="list">
-        {outcomeLines.length ? (
+        {loading ? (
+          <p className="contextCatalystCardEmpty mono dim">Loading historical outcomes…</p>
+        ) : !hasContent ? (
+          <p className="contextCatalystCardEmpty mono dim">{emptyLabel}</p>
+        ) : (
           <>
-            <ContextFlowChartHeader
-              title={chartTitle}
-              sample={contextOutcomesSampleLabel(sampleSize)}
-            />
-            <ContextFlowOutcomeChart
-              lines={outcomeLines}
-              xLabels={OUTCOME_HORIZON_CHART_LABELS}
-              ariaLabel="Average forward returns after trial events (21, 63, 252 trading days)"
-            />
-          </>
-        ) : null}
-        {rows.map((row) => (
-          <div
-            key={row.id}
-            className="contextCompanyEarnings historicalOutcomesPerson contextFlowPersonStrip"
-            role="listitem"
-          >
-            <div className="contextFlowRowKeyWrap">
-              {row.lineColor ? (
-                <span
-                  className="contextFlowRowLine"
-                  style={{ background: row.lineColor }}
-                  aria-hidden="true"
+            {outcomeLines.length ? (
+              <>
+                <ContextFlowChartHeader
+                  title={chartTitle}
+                  sample={contextOutcomesSampleLabel(sampleSize)}
                 />
-              ) : null}
-              <span className="contextCompanyEarningsK historicalOutcomesPersonName">{row.label}</span>
-            </div>
-            <span className="contextCompanyEarningsV historicalOutcomesPersonDetail mono">{row.total}</span>
-          </div>
-        ))}
+                <ContextFlowOutcomeChart
+                  lines={outcomeLines}
+                  xLabels={OUTCOME_HORIZON_CHART_LABELS}
+                  ariaLabel="Average forward returns after trial events (21, 63, 252 trading days)"
+                />
+              </>
+            ) : null}
+            {rows.map((row) => (
+              <div
+                key={row.id}
+                className="contextCompanyEarnings historicalOutcomesPerson contextFlowPersonStrip"
+                role="listitem"
+              >
+                <div className="contextFlowRowKeyWrap">
+                  {row.lineColor ? (
+                    <span
+                      className="contextFlowRowLine"
+                      style={{ background: row.lineColor }}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  <span className="contextCompanyEarningsK historicalOutcomesPersonName">{row.label}</span>
+                </div>
+                <span className="contextCompanyEarningsV historicalOutcomesPersonDetail mono">{row.total}</span>
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </div>
   )
 }
 
-function ContextCatalystCard({ items = [], title = 'Catalyst clock' }) {
+function ContextCatalystCard({ items = [], title = 'Catalyst clock', loading = false }) {
   const count = items.length
   const meta = count ? `${count} upcoming` : null
 
   return (
     <div
-      className={['contextCatalystCard', !count ? 'contextCatalystCard--empty' : ''].filter(Boolean).join(' ')}
+      className={['contextCatalystCard', !count && !loading ? 'contextCatalystCard--empty' : ''].filter(Boolean).join(' ')}
       aria-label={title}
     >
       <div className="contextCatalystCardHeader">
         <div className="contextCatalystCardTitle mono dim">{title}</div>
         {meta ? <span className="contextCatalystCardMeta mono dim">{meta}</span> : null}
       </div>
-      {!count ? (
+      {loading ? (
+        <p className="contextCatalystCardEmpty mono dim">Loading catalysts…</p>
+      ) : !count ? (
         <p className="contextCatalystCardEmpty mono dim">No upcoming catalysts</p>
       ) : (
         items.map((it) => (
@@ -4315,6 +4360,9 @@ function MainContextPanel({
   backendUp = false,
   contextOutcomesLive = null,
   panelClassName = '',
+  companyContextLoading = false,
+  clinicalContextLoading = false,
+  exploreContextLoading = false,
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const [priceRange, setPriceRange] = useState('6M')
@@ -4340,6 +4388,11 @@ function MainContextPanel({
     () => contextClinicalOutcomesFromLive(contextOutcomesLive?.pharma, t, backendUp),
     [t, backendUp, contextOutcomesLive?.pharma],
   )
+  const trackedInvestorsLoading = backendUp && exploreContextLoading
+  const ownershipLoading = backendUp && companyContextLoading && !ownership
+  const fundamentalsLoading = backendUp && companyContextLoading && !fundamentals
+  const clinicalSectionsLoading = backendUp && clinicalContextLoading
+  const outcomesLoading = backendUp && contextOutcomesLive == null
 
   return (
     <section
@@ -4456,16 +4509,16 @@ function MainContextPanel({
               </ContextSection>
             ) : null}
             <ContextSection ariaLabel="Catalyst clock">
-              <ContextCatalystCard items={catalystItems} title="Catalyst clock" />
+              <ContextCatalystCard items={catalystItems} title="Catalyst clock" loading={clinicalSectionsLoading} />
             </ContextSection>
             <ContextSection ariaLabel="Financial runway">
-              <ContextRunwayCard runway={runway} />
+              <ContextRunwayCard runway={runway} loading={clinicalSectionsLoading} />
             </ContextSection>
             <ContextSection ariaLabel="Ownership">
-              <ContextOwnershipCard ownership={ownership} />
+              <ContextOwnershipCard ownership={ownership} loading={ownershipLoading} />
             </ContextSection>
             <ContextSection ariaLabel="Tracked investors">
-              <ContextTrackedInvestorsCard rows={trackedInvestors} />
+              <ContextTrackedInvestorsCard rows={trackedInvestors} loading={trackedInvestorsLoading} />
             </ContextSection>
             <ContextSection ariaLabel="Trial historical outcomes">
               <ContextClinicalOutcomesList
@@ -4473,6 +4526,7 @@ function MainContextPanel({
                 sampleSize={clinicalOutcomes.sampleSize}
                 stats={clinicalOutcomes.stats}
                 chartTitle="Trial historical outcomes"
+                loading={outcomesLoading && !clinicalOutcomes.hasDataset}
               />
             </ContextSection>
           </>
@@ -4481,13 +4535,13 @@ function MainContextPanel({
         {showFlows ? (
           <>
             <ContextSection ariaLabel="Fundamentals">
-              <ContextFundamentalsCard fundamentals={fundamentals} />
+              <ContextFundamentalsCard fundamentals={fundamentals} loading={fundamentalsLoading} />
             </ContextSection>
             <ContextSection ariaLabel="Ownership">
-              <ContextOwnershipCard ownership={ownership} />
+              <ContextOwnershipCard ownership={ownership} loading={ownershipLoading} />
             </ContextSection>
             <ContextSection ariaLabel="Tracked investors">
-              <ContextTrackedInvestorsCard rows={trackedInvestors} />
+              <ContextTrackedInvestorsCard rows={trackedInvestors} loading={trackedInvestorsLoading} />
             </ContextSection>
           </>
         ) : null}
@@ -6737,12 +6791,25 @@ function filterPaperTimelineBySources(items, enabledSources) {
   return (items ?? []).filter((item) => paperTimelineItemPassesSourceFilter(item, enabledSources))
 }
 
+function paperDocumentPassesSourceFilter(doc, enabledSources) {
+  if (!enabledSources?.size) return true
+  const key = normalizeResearchPaperSourceKey(doc?.source)
+  if (!key) return false
+  if (enabledSources.has(key)) return true
+  if (researchSourceHasSubtypes(key)) {
+    return researchSourceSubtypeKeysForSource(key).some((k) => enabledSources.has(k))
+  }
+  return false
+}
+
 function filterPaperDocumentsBySources(documents, enabledSources) {
   if (!enabledSources?.size) return Array.isArray(documents) ? documents : []
-  return (documents ?? []).filter((doc) => {
-    const key = normalizeResearchPaperSourceKey(doc?.source)
-    return enabledSources.has(key)
-  })
+  return (documents ?? []).filter((doc) => paperDocumentPassesSourceFilter(doc, enabledSources))
+}
+
+function effectiveResearchPaperSourceFilters(enabledSources, intelMode) {
+  if (!enabledSources?.size) return new Set(researchSourceFilterKeysForIntel(intelMode))
+  return enabledSources
 }
 
 function researchFeedNameForTicker(ticker, intelMode) {
@@ -9579,7 +9646,13 @@ function KensiglineTerminal() {
       researchSourceFilterKeysForIntel(readIntelMode()),
     ),
   )
-  const [researchPaperSourceFiltersDraft, setResearchPaperSourceFiltersDraft] = useState(null)
+  const researchPaperSourceFiltersEffective = useMemo(
+    () => effectiveResearchPaperSourceFilters(researchPaperSourceFilters, intelMode),
+    [researchPaperSourceFilters, intelMode],
+  )
+
+  const [researchCompanyContextLoading, setResearchCompanyContextLoading] = useState(false)
+  const [researchClinicalContextLoading, setResearchClinicalContextLoading] = useState(false)
   const [backendUp, setBackendUp] = useState(false)
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
@@ -9881,18 +9954,6 @@ function KensiglineTerminal() {
   }, [intelMode, activeTab, backendUp])
 
   useEffect(() => {
-    if (!backendUp || activeTab !== 'main') return
-    if (!researchFeedItems.length) return
-    const current = String(researchTicker ?? '').trim().toUpperCase()
-    const pinned = String(researchTickerPinnedRef.current ?? '').trim().toUpperCase()
-    if (pinned && pinned === current) return
-    const inFeed = researchFeedItems.some((x) => String(x.ticker ?? '').toUpperCase() === current)
-    if (!inFeed) {
-      setResearchTicker(String(researchFeedItems[0]?.ticker ?? '').toUpperCase())
-    }
-  }, [backendUp, activeTab, intelMode, researchFeedItems, researchTicker])
-
-  useEffect(() => {
     if (activeTab === 'pharma') setActiveTab('main')
   }, [activeTab])
 
@@ -9954,32 +10015,45 @@ function KensiglineTerminal() {
   )
 
   const researchFeedAfterSourceFilter = useMemo(() => {
-    const enabled = researchPaperSourceFilters
-    if (!enabled?.size) return researchFilteredFeed
-    if (backendUp) {
-      return researchFilteredFeed
-        .filter((row) => researchFeedRowPassesSourceFilter(row, enabled))
-        .map((row) => normalizeResearchFeedRow(row, []))
-        .filter(Boolean)
-    }
+    const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters, intelMode)
     const selected = String(researchTicker ?? '').toUpperCase()
+    const exploreReady = Boolean(backendUp && researchExploreResolved?.presentation?.title)
     return researchFilteredFeed
       .map((row) => {
         const ticker = String(row?.ticker ?? '').toUpperCase()
         if (!ticker) return null
-        const timeline = buildResearchPaperTimelineForTicker({
-          ticker,
-          intelMode,
-          programKey:
-            intelMode === 'clinical' && ticker === researchTicker ? contextProgramKey : CLINICAL_PROGRAM_ALL,
-          livePresentation: researchPresentation,
-          selectedTicker: researchTicker,
-          backendUp,
-          liveFlows: contextFlowRows,
-        })
-        const visible = filterPaperTimelineBySources(timeline, enabled)
-        if (!visible.length) return null
-        return normalizeResearchFeedRow(row, visible)
+        if (!researchFeedRowPassesSourceFilter(row, enabled)) return null
+        if (backendUp && ticker === selected && exploreReady) {
+          const timeline = buildResearchPaperTimelineForTicker({
+            ticker,
+            intelMode,
+            programKey:
+              intelMode === 'clinical' && ticker === selected ? contextProgramKey : CLINICAL_PROGRAM_ALL,
+            livePresentation: researchExploreResolved.presentation,
+            selectedTicker: selected,
+            backendUp: true,
+            liveFlows: contextFlowRows,
+          })
+          const visible = filterPaperTimelineBySources(timeline, enabled)
+          if (!visible.length) return null
+          return normalizeResearchFeedRow(row, visible)
+        }
+        if (!backendUp) {
+          const timeline = buildResearchPaperTimelineForTicker({
+            ticker,
+            intelMode,
+            programKey:
+              intelMode === 'clinical' && ticker === selected ? contextProgramKey : CLINICAL_PROGRAM_ALL,
+            livePresentation: researchPresentation,
+            selectedTicker: researchTicker,
+            backendUp,
+            liveFlows: contextFlowRows,
+          })
+          const visible = filterPaperTimelineBySources(timeline, enabled)
+          if (!visible.length) return null
+          return normalizeResearchFeedRow(row, visible)
+        }
+        return normalizeResearchFeedRow(row, [])
       })
       .filter(Boolean)
   }, [
@@ -9991,6 +10065,7 @@ function KensiglineTerminal() {
     researchTicker,
     backendUp,
     contextFlowRows,
+    researchExploreResolved?.presentation,
   ])
 
   const researchPaperSourceFiltersPicker = researchFeedFilterOpen
@@ -10227,6 +10302,7 @@ function KensiglineTerminal() {
 
     setResearchCompanyLive(null)
     setResearchCompanyTicker(tick)
+    setResearchCompanyContextLoading(true)
 
     async function run() {
       const [snap, full] = await Promise.all([
@@ -10245,8 +10321,11 @@ function KensiglineTerminal() {
 
       if (snap.ok && snap.data) applyCompany(snap.data)
       if (full.ok && full.data) applyCompany(full.data)
+      setResearchCompanyContextLoading(false)
     }
-    run()
+    run().catch(() => {
+      if (alive && researchCompanyFetchGenRef.current === gen) setResearchCompanyContextLoading(false)
+    })
     return () => {
       alive = false
     }
@@ -10282,6 +10361,7 @@ function KensiglineTerminal() {
     if (!backendUp || intelMode !== 'clinical' || activeTab !== 'main') {
       setContextClinicalLive(null)
       setContextClinicalTicker(null)
+      setResearchClinicalContextLoading(false)
       return () => {
         alive = false
       }
@@ -10297,6 +10377,7 @@ function KensiglineTerminal() {
     const gen = ++researchClinicalFetchGenRef.current
     setContextClinicalLive(null)
     setContextClinicalTicker(tick)
+    setResearchClinicalContextLoading(true)
 
     async function run() {
       const r = await fetchJsonSafe(
@@ -10307,8 +10388,11 @@ function KensiglineTerminal() {
       const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
       if (respTicker !== tick) return
       if (r.ok && r.data?.ticker) setContextClinicalLive(r.data)
+      setResearchClinicalContextLoading(false)
     }
-    run()
+    run().catch(() => {
+      if (alive && researchClinicalFetchGenRef.current === gen) setResearchClinicalContextLoading(false)
+    })
     return () => {
       alive = false
     }
@@ -11588,7 +11672,7 @@ function KensiglineTerminal() {
             insiders={contextFlowRows.insiders}
             politicians={contextFlowRows.politicians}
             filings13f={contextFlowRows.filings13f}
-            paperSourceFilters={researchPaperSourceFilters}
+            paperSourceFilters={researchPaperSourceFiltersEffective}
             priceSeries={researchPriceSeries}
             insiderPriceMarkers={insiderPriceMarkers}
             politicianPriceMarkers={politicianPriceMarkers}
@@ -11629,6 +11713,9 @@ function KensiglineTerminal() {
             runway={contextRunway}
             backendUp={backendUp}
             contextOutcomesLive={contextOutcomesLive}
+            companyContextLoading={researchCompanyContextLoading}
+            clinicalContextLoading={researchClinicalContextLoading}
+            exploreContextLoading={backendUp && researchTick && !researchExploreResolved}
             panelClassName={phonePaneHiddenClass(isPhone, researchPhonePane, 'context')}
           />
         </>

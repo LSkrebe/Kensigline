@@ -223,23 +223,16 @@ const server = http.createServer(async (req, res) => {
       const snapshot = ["1", "true", "yes"].includes(
         String(url.searchParams.get("snapshot") ?? url.searchParams.get("lite") ?? "").toLowerCase(),
       );
-      const out = snapshot ? await getCompanySnapshot({ ticker }) : await getCompanyPanelData({ ticker });
       if (snapshot) {
+        const out = await getCompanySnapshot({ ticker });
         sendJson(res, 200, out);
         return;
       }
-      let fundamentals = null;
-      let ownership = null;
-      try {
-        fundamentals = await getMarketFundamentalsForTicker({ ticker });
-      } catch {
-        fundamentals = null;
-      }
-      try {
-        ownership = await getMarketOwnershipForTicker({ ticker });
-      } catch {
-        ownership = null;
-      }
+      const [out, fundamentals, ownership] = await Promise.all([
+        getCompanyPanelData({ ticker }),
+        getMarketFundamentalsForTicker({ ticker }).catch(() => null),
+        getMarketOwnershipForTicker({ ticker }).catch(() => null),
+      ]);
       sendJson(res, 200, { ...out, fundamentals, ownership });
       return;
     }
