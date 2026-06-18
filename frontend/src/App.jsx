@@ -9646,6 +9646,7 @@ function KensiglineTerminal() {
       researchSourceFilterKeysForIntel(readIntelMode()),
     ),
   )
+  const [researchPaperSourceFiltersDraft, setResearchPaperSourceFiltersDraft] = useState(null)
   const researchPaperSourceFiltersEffective = useMemo(
     () => effectiveResearchPaperSourceFilters(researchPaperSourceFilters, intelMode),
     [researchPaperSourceFilters, intelMode],
