@@ -4626,7 +4626,9 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
                 'feedRowCompact',
                 'feedRowCompact--company',
                 !feedCountVisible(it.count) ? 'feedRowCompact--noCount' : '',
-                it.ticker === selectedTicker ? 'isActive' : '',
+                String(it.ticker ?? '').toUpperCase() === String(selectedTicker ?? '').toUpperCase()
+                  ? 'isActive'
+                  : '',
                 ideaHighlightClass(it.idea_best),
               ]
                 .filter(Boolean)
@@ -10017,44 +10019,31 @@ function KensiglineTerminal() {
 
   const researchFeedAfterSourceFilter = useMemo(() => {
     const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters, intelMode)
+    if (backendUp) {
+      return researchFilteredFeed
+        .filter((row) => researchFeedRowPassesSourceFilter(row, enabled))
+        .map((row) => normalizeResearchFeedRow(row, []))
+        .filter(Boolean)
+    }
     const selected = String(researchTicker ?? '').toUpperCase()
-    const exploreReady = Boolean(backendUp && researchExploreResolved?.presentation?.title)
     return researchFilteredFeed
       .map((row) => {
         const ticker = String(row?.ticker ?? '').toUpperCase()
         if (!ticker) return null
         if (!researchFeedRowPassesSourceFilter(row, enabled)) return null
-        if (backendUp && ticker === selected && exploreReady) {
-          const timeline = buildResearchPaperTimelineForTicker({
-            ticker,
-            intelMode,
-            programKey:
-              intelMode === 'clinical' && ticker === selected ? contextProgramKey : CLINICAL_PROGRAM_ALL,
-            livePresentation: researchExploreResolved.presentation,
-            selectedTicker: selected,
-            backendUp: true,
-            liveFlows: contextFlowRows,
-          })
-          const visible = filterPaperTimelineBySources(timeline, enabled)
-          if (!visible.length) return null
-          return normalizeResearchFeedRow(row, visible)
-        }
-        if (!backendUp) {
-          const timeline = buildResearchPaperTimelineForTicker({
-            ticker,
-            intelMode,
-            programKey:
-              intelMode === 'clinical' && ticker === selected ? contextProgramKey : CLINICAL_PROGRAM_ALL,
-            livePresentation: researchPresentation,
-            selectedTicker: researchTicker,
-            backendUp,
-            liveFlows: contextFlowRows,
-          })
-          const visible = filterPaperTimelineBySources(timeline, enabled)
-          if (!visible.length) return null
-          return normalizeResearchFeedRow(row, visible)
-        }
-        return normalizeResearchFeedRow(row, [])
+        const timeline = buildResearchPaperTimelineForTicker({
+          ticker,
+          intelMode,
+          programKey:
+            intelMode === 'clinical' && ticker === selected ? contextProgramKey : CLINICAL_PROGRAM_ALL,
+          livePresentation: researchPresentation,
+          selectedTicker: researchTicker,
+          backendUp,
+          liveFlows: contextFlowRows,
+        })
+        const visible = filterPaperTimelineBySources(timeline, enabled)
+        if (!visible.length) return null
+        return normalizeResearchFeedRow(row, visible)
       })
       .filter(Boolean)
   }, [
@@ -10066,7 +10055,6 @@ function KensiglineTerminal() {
     researchTicker,
     backendUp,
     contextFlowRows,
-    researchExploreResolved?.presentation,
   ])
 
   const researchPaperSourceFiltersPicker = researchFeedFilterOpen
@@ -10147,15 +10135,18 @@ function KensiglineTerminal() {
   )
 
   useEffect(() => {
-    // If the current selection falls out of the filter, snap to the first match.
+    // If the current selection falls out of the source filter, snap to the first match.
     if (activeTab !== 'main') return
     const current = String(researchTicker ?? '').trim().toUpperCase()
     const pinned = String(researchTickerPinnedRef.current ?? '').trim().toUpperCase()
     if (pinned && pinned === current) return
-    if (!researchFeedAfterSourceFilter.length) return
-    const ok = researchFeedAfterSourceFilter.some((x) => x.ticker === researchTicker)
-    if (!ok) setResearchTicker(researchFeedAfterSourceFilter[0].ticker)
-  }, [activeTab, researchFeedAfterSourceFilter, researchTicker])
+
+    const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters, intelMode)
+    const rows = researchFilteredFeed.filter((row) => researchFeedRowPassesSourceFilter(row, enabled))
+    if (!rows.length) return
+    const ok = rows.some((x) => String(x.ticker ?? '').toUpperCase() === current)
+    if (!ok) setResearchTicker(String(rows[0]?.ticker ?? '').trim().toUpperCase())
+  }, [activeTab, researchPaperSourceFilters, intelMode, researchFilteredFeed, researchTicker])
 
   useEffect(() => {
     let alive = true
@@ -11365,8 +11356,10 @@ function KensiglineTerminal() {
 
   const onResearchSelectTicker = useCallback(
     (ticker) => {
+      const t = String(ticker ?? '').trim().toUpperCase()
+      if (!t) return
       researchTickerPinnedRef.current = null
-      setResearchTicker(ticker)
+      setResearchTicker(t)
       if (isPhone) setResearchPhonePane('paper')
     },
     [isPhone],
