@@ -24,7 +24,7 @@ function clampScore(score: number, reasons: string[], eventAt?: string | null): 
   const best = envThreshold("IDEA_SCORE_BEST", 90);
   const idea_score = Math.max(0, Math.min(100, Math.round(score)));
   let idea_best = idea_score >= best;
-  const decayDays = envThreshold("IDEA_BEST_DECAY_DAYS", 1);
+  const decayDays = envThreshold("IDEA_BEST_DECAY_DAYS", 4);
   if (idea_best && eventAt) {
     const t = new Date(String(eventAt ?? "")).getTime();
     if (Number.isFinite(t)) {
