@@ -369,16 +369,21 @@ export async function getSecTickerTitleMap(): Promise<Map<string, string>> {
     return secTickerTitleMapCache.map;
   }
 
-  const data = await secFetchJson("https://www.sec.gov/files/company_tickers.json");
-  const map = new Map<string, string>();
-  for (const k of Object.keys(data)) {
-    const row = (data as any)[k];
-    const t = String(row?.ticker ?? "").trim().toUpperCase();
-    const title = String(row?.title ?? "").trim();
-    if (t && title) map.set(t, title);
+  try {
+    const data = await secFetchJson("https://www.sec.gov/files/company_tickers.json");
+    const map = new Map<string, string>();
+    for (const k of Object.keys(data)) {
+      const row = (data as any)[k];
+      const t = String(row?.ticker ?? "").trim().toUpperCase();
+      const title = String(row?.title ?? "").trim();
+      if (t && title) map.set(t, title);
+    }
+    secTickerTitleMapCache = { at: now, map };
+    return map;
+  } catch {
+    if (secTickerTitleMapCache) return secTickerTitleMapCache.map;
+    return new Map();
   }
-  secTickerTitleMapCache = { at: now, map };
-  return map;
 }
 
 /**

@@ -4388,7 +4388,7 @@ function MainContextPanel({
     () => contextClinicalOutcomesFromLive(contextOutcomesLive?.pharma, t, backendUp),
     [t, backendUp, contextOutcomesLive?.pharma],
   )
-  const trackedInvestorsLoading = backendUp && exploreContextLoading
+  const trackedInvestorsLoading = backendUp && exploreContextLoading && !trackedInvestors.length
   const ownershipLoading = backendUp && companyContextLoading && !ownership
   const fundamentalsLoading = backendUp && companyContextLoading && !fundamentals
   const clinicalSectionsLoading = backendUp && clinicalContextLoading
@@ -10354,10 +10354,9 @@ function KensiglineTerminal() {
     setResearchCompanyContextLoading(true)
 
     async function run() {
-      const [snap, full] = await Promise.all([
-        fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, { timeoutMs: 15_000 }),
-        fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 25_000 }),
-      ])
+      const snap = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, {
+        timeoutMs: 15_000,
+      })
       if (!alive || researchCompanyFetchGenRef.current !== gen) return
 
       const applyCompany = (payload) => {
@@ -10369,8 +10368,11 @@ function KensiglineTerminal() {
       }
 
       if (snap.ok && snap.data) applyCompany(snap.data)
-      if (full.ok && full.data) applyCompany(full.data)
       setResearchCompanyContextLoading(false)
+
+      const full = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 25_000 })
+      if (!alive || researchCompanyFetchGenRef.current !== gen) return
+      if (full.ok && full.data) applyCompany(full.data)
     }
     run().catch(() => {
       if (alive && researchCompanyFetchGenRef.current === gen) setResearchCompanyContextLoading(false)
@@ -10388,18 +10390,55 @@ function KensiglineTerminal() {
     const gen = ++researchExploreFetchGenRef.current
 
     setResearchExploreLive(null)
+    setResearchExploreTicker(tick)
 
     async function run() {
       const r = await fetchJsonSafe(`/api/research/explore?ticker=${encodeURIComponent(tick)}`, {
         timeoutMs: 20_000,
       })
       if (!alive || researchExploreFetchGenRef.current !== gen) return
-      if (r.ok && r.data?.ok && String(r.data.ticker ?? '').toUpperCase() === tick) {
+      const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
+      if (r.ok && r.data?.ok && respTicker === tick) {
         setResearchExploreLive(r.data)
         setResearchExploreTicker(tick)
+        return
       }
+      setResearchExploreLive({
+        ok: true,
+        ticker: tick,
+        company_name: tick,
+        presentation: {
+          title: `${tick}`,
+          subtitle: tick,
+          blocks: [],
+          explainer: [],
+          sources: [],
+          documents: [],
+        },
+        flows: { insiders: [], politicians: [], filings13f: [] },
+        tracked_investors: [],
+      })
+      setResearchExploreTicker(tick)
     }
-    run()
+    run().catch(() => {
+      if (!alive || researchExploreFetchGenRef.current !== gen) return
+      setResearchExploreLive({
+        ok: true,
+        ticker: tick,
+        company_name: tick,
+        presentation: {
+          title: `${tick}`,
+          subtitle: tick,
+          blocks: [],
+          explainer: [],
+          sources: [],
+          documents: [],
+        },
+        flows: { insiders: [], politicians: [], filings13f: [] },
+        tracked_investors: [],
+      })
+      setResearchExploreTicker(tick)
+    })
     return () => {
       alive = false
     }

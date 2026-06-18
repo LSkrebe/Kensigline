@@ -93,6 +93,26 @@ export async function handleResearchPaper(res: http.ServerResponse, ticker: stri
   });
 }
 
+function emptyExplorePayload(ticker: string, companyName?: string | null) {
+  const t = String(ticker ?? "").trim().toUpperCase();
+  const name = String(companyName ?? t).trim() || t;
+  return {
+    ok: true as const,
+    ticker: t,
+    company_name: name,
+    presentation: {
+      title: `${t} — ${name}`,
+      subtitle: `${name} · ${t}`,
+      blocks: [] as const,
+      explainer: [] as const,
+      sources: [] as const,
+      documents: [] as const,
+    },
+    flows: { insiders: [] as const, politicians: [] as const, filings13f: [] as const },
+    tracked_investors: [] as const,
+  };
+}
+
 export async function handleResearchExplore(res: http.ServerResponse, ticker: string) {
   const t = String(ticker ?? "").trim().toUpperCase();
   if (!t) {
@@ -103,22 +123,35 @@ export async function handleResearchExplore(res: http.ServerResponse, ticker: st
     `SELECT name FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
     [t],
   );
-  const secTitles = await getSecTickerTitleMap();
-  const presentation = await buildResearchPresentation(t);
-  const [insiders, politicians, filings13f, tracked_investors] = await Promise.all([
-    loadInsiderFlowsForTicker(t),
-    loadPoliticianFlowsForTicker(t),
-    loadFilings13fForTicker(t),
-    getTrackedInvestorsForTicker(t),
-  ]);
-  sendJson(res, 200, {
-    ok: true,
-    ticker: t,
-    company_name: resolveResearchFeedCompanyName(t, companyRow?.name, secTitles.get(t) ?? null),
-    presentation,
-    flows: { insiders, politicians, filings13f },
-    tracked_investors,
-  });
+  let secTitles = new Map<string, string>();
+  try {
+    secTitles = await getSecTickerTitleMap();
+  } catch {
+    secTitles = new Map();
+  }
+  try {
+    const presentation = await buildResearchPresentation(t);
+    const [insiders, politicians, filings13f, tracked_investors] = await Promise.all([
+      loadInsiderFlowsForTicker(t),
+      loadPoliticianFlowsForTicker(t),
+      loadFilings13fForTicker(t),
+      getTrackedInvestorsForTicker(t),
+    ]);
+    sendJson(res, 200, {
+      ok: true,
+      ticker: t,
+      company_name: resolveResearchFeedCompanyName(t, companyRow?.name, secTitles.get(t) ?? null),
+      presentation,
+      flows: { insiders, politicians, filings13f },
+      tracked_investors,
+    });
+  } catch (err) {
+    console.error("research_explore_failed", t, err);
+    sendJson(res, 200, {
+      ...emptyExplorePayload(t, companyRow?.name),
+      company_name: resolveResearchFeedCompanyName(t, companyRow?.name, secTitles.get(t) ?? null),
+    });
+  }
 }
 
 function clusterTotalUsd(data: unknown): number {
@@ -260,7 +293,7 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
     [lim],
   );
 
-  const secTitles = await getSecTickerTitleMap();
+  const secTitles = await getSecTickerTitleMap().catch(() => new Map<string, string>());
 
   const items = rows.map((r) => {
     const displayName = resolveResearchFeedCompanyName(r.ticker, r.company_name, secTitles.get(r.ticker) ?? null);
