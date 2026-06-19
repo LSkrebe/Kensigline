@@ -147,7 +147,7 @@ export async function runResearchDocExtract(args: {
 
   const { content, model } = await llmChat(messages, {
     temperature: 0,
-    max_tokens: 900,
+    max_tokens: 800,
     log_context: "research/extract",
   });
   const out = extractJsonObject(content);
