@@ -49,6 +49,8 @@ export async function loadPastDiscoverEvents(opts: {
       d.url,
       d.program_drug,
       d.program_phase,
+      d.program_keys,
+      d.doc_kind,
       c.industry,
       d.data
     FROM documents d

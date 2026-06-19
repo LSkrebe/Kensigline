@@ -4,6 +4,7 @@ import {
   fetchClinicalStudiesForCompany,
 } from "../research/clinical/trials.js";
 import { isIdeaGreenHighlight } from "../core/idea-score.js";
+import { CLINICAL_TICKERS_SUBQUERY } from "../research/feed-mode.js";
 import {
   inferIntelMode,
   isStrictlyUpcomingDay,
@@ -63,19 +64,7 @@ async function loadClinicalTickerCandidates(limit: number): Promise<Array<{ tick
     SELECT DISTINCT ON (upper(trim(x.ticker)))
       upper(trim(x.ticker)) AS ticker,
       COALESCE(NULLIF(trim(c.name), ''), upper(trim(x.ticker))) AS name
-    FROM (
-      SELECT ticker FROM documents WHERE feed_kind = 'pharma' AND ticker IS NOT NULL
-      UNION ALL
-      SELECT ticker FROM companies
-      WHERE ticker IS NOT NULL
-        AND (
-          industry ILIKE '%biotech%'
-          OR industry ILIKE '%biopharm%'
-          OR industry ILIKE '%pharma%'
-          OR industry ILIKE '%drug%'
-          OR industry ILIKE '%life science%'
-        )
-    ) x
+    FROM (${CLINICAL_TICKERS_SUBQUERY}) x
     LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(x.ticker))
     WHERE length(trim(x.ticker)) BETWEEN 1 AND 6
     ORDER BY upper(trim(x.ticker))

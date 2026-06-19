@@ -1,5 +1,10 @@
 import { normalizeResearchPaperSourceKey } from "../shared/source-keys.js";
 import {
+  type ClinicalDocumentSignals,
+  isClinicalDocumentSignals,
+  isClinicalIndustry,
+} from "../research/feed-mode.js";
+import {
   isIdeaGreenHighlight,
   scoreClinicalAheadEvent,
   scoreEarningsAheadEvent,
@@ -14,18 +19,26 @@ import type { DiscoverEvent, DiscoverEventKind, DiscoverIntelMode } from "./type
 
 const FLOW_SOURCES = new Set(["Form 4", "Form 3", "Form 5", "13F", "PTR"]);
 
-export function inferIntelMode(feedKind: string | null, industry: string | null): DiscoverIntelMode {
-  if (String(feedKind ?? "").toLowerCase() === "pharma") return "clinical";
-  const ind = String(industry ?? "").toLowerCase();
+export function inferIntelMode(
+  feedKind: string | null,
+  industry: string | null,
+  doc?: ClinicalDocumentSignals | null,
+): DiscoverIntelMode {
   if (
-    ind.includes("biotech") ||
-    ind.includes("biopharm") ||
-    ind.includes("pharma") ||
-    ind.includes("drug") ||
-    ind.includes("life science")
+    isClinicalDocumentSignals({
+      feedKind,
+      docKind: doc?.docKind,
+      sourceKey: doc?.sourceKey,
+      url: doc?.url,
+      programDrug: doc?.programDrug,
+      programPhase: doc?.programPhase,
+      programKeys: doc?.programKeys,
+      data: doc?.data,
+    })
   ) {
     return "clinical";
   }
+  if (isClinicalIndustry(industry)) return "clinical";
   return "market";
 }
 
@@ -75,6 +88,8 @@ export type DocumentDiscoverRow = {
   url: string | null;
   program_drug: string | null;
   program_phase: string | null;
+  program_keys?: string[] | null;
+  doc_kind?: string | null;
   industry: string | null;
   data: unknown;
 };
@@ -164,7 +179,15 @@ export function mapDocumentToDiscoverEvent(
     : String(row.title ?? "").trim() ||
       String(row.source_key ?? "").trim() ||
       "Document update";
-  const intelMode = inferIntelMode(row.feed_kind, row.industry);
+  const intelMode = inferIntelMode(row.feed_kind, row.industry, {
+    docKind: row.doc_kind,
+    sourceKey: row.source_key,
+    url: row.url,
+    programDrug: row.program_drug,
+    programPhase: row.program_phase,
+    programKeys: row.program_keys,
+    data: row.data,
+  });
   const kind = inferEventKind(source, title, row.feed_kind);
   const mentioned = resolveDiscoverMentioned({
     ticker,
