@@ -28,15 +28,50 @@ const RESEARCH_LLM_MAX_CHARS = 100_000;
 const RESEARCH_EXTRACT_SCHEMA = {
   schema_type: "research_doc_v2",
   schema_version: "v2",
-  title: "string (4-12 word headline)",
+  title: "string (4-12 word catalyst headline; numbers/dates when material)",
   primary_ticker: "string|null",
   source_key: "string",
-  analysis: "string (1-2 sentences, ~80-200 chars)",
+  analysis: "string (1 sentence, ~70-220 chars; trade-relevant delta only)",
   event_at: "ISO8601|null",
   program_keys: ["string"],
   link_confidence: "number|null",
   related_tickers: { upstream: ["string"], downstream: ["string"] },
 };
+
+function buildResearchExtractSystemPrompt(defaultSource: string): string {
+  return [
+    "You write catalyst cards for Mercerline — an event-driven equity research terminal used by traders scanning filings, PR, and transcripts for stock-moving facts.",
+    "Return ONLY valid JSON (no markdown) matching the schema.",
+    `Schema: ${JSON.stringify({ ...RESEARCH_EXTRACT_SCHEMA, source_key: defaultSource })}`,
+    "",
+    "TITLE (4–12 words):",
+    "- Headline the market-moving event, not the filing mechanics.",
+    "- Put the hardest fact first: $ amounts, % changes, beats/misses, dates, regulatory gates.",
+    "- Do not start with the company name — the user already has the ticker.",
+    "- Bad: 'Files 2028 general rate case with CPUC'. Good: 'Seeks +8% 2028 revenue requirement; CPUC decision ~H2 2027'.",
+    "",
+    "ANALYSIS (one sentence, ~70–220 chars):",
+    "- Answer: what changed, by how much, and what happens next — only if it matters for the stock.",
+    "- Lead with deltas vs prior guidance, consensus, prior rate case, or prior period — not with 'filed/announced/submitted'.",
+    "- Extract specific numbers, dates, vote/approval milestones, guidance ranges, deal terms, capex, enrollment, FDA actions when present.",
+    "- Implied investor angle in the same breath: revenue/margin/cash/regulatory/capacity/timing risk.",
+    "",
+    "NEVER write:",
+    "- Company legal name or 'the company' opener",
+    "- Process filler: 'filed with', 'announced that', 'subject to approval', 'may differ from what is requested', 'pursuant to', 'in accordance with'",
+    "- Restating the document type without a new fact ('filed an 8-K', 'issued a press release')",
+    "- Disclaimers, boilerplate, or repeating info obvious from the title",
+    "",
+    "If the document is purely procedural with no quantified change, give the one non-obvious gate: decision body, next milestone date, or what binary outcome investors are waiting on — skip the filing wrapper.",
+    "If nothing material exists, still return JSON but make analysis the sharpest possible fact from the text — never generic summary prose.",
+    "",
+    "Do not invent tickers, numbers, or dates. Use null when uncertain.",
+    `source_key must be one of: ${SOURCE_KEYS.join(", ")}.`,
+    "Gov contract: source_key Gov contract + link_confidence 0-1.",
+    "Clinical registry: ClinicalTrials.gov + program_keys when explicit.",
+    "related_tickers: US tickers only when explicitly named in the document.",
+  ].join("\n");
+}
 
 function extractJsonObject(text: string): any {
   let raw = String(text ?? "").trim();
@@ -95,18 +130,7 @@ export async function runResearchDocExtract(args: {
   const messages = [
     {
       role: "system" as const,
-      content: [
-        "You extract structured research cards for an equity research timeline.",
-        "Return ONLY valid JSON (no markdown) matching the schema.",
-        `Schema: ${JSON.stringify({ ...RESEARCH_EXTRACT_SCHEMA, source_key: defaultSource })}`,
-        "title: short event headline (4–12 words). No form numbers alone.",
-        "analysis: 1–2 dense sentences (~80–200 chars). No bullet lists.",
-        "Do not invent tickers. Use null when uncertain.",
-        `source_key must be one of: ${SOURCE_KEYS.join(", ")}.`,
-        "Gov contract: source_key Gov contract + link_confidence 0-1.",
-        "Clinical registry: ClinicalTrials.gov + program_keys when explicit.",
-        "related_tickers: US tickers only when explicitly named.",
-      ].join("\n"),
+      content: buildResearchExtractSystemPrompt(defaultSource),
     },
     {
       role: "user" as const,
@@ -123,7 +147,7 @@ export async function runResearchDocExtract(args: {
 
   const { content, model } = await llmChat(messages, {
     temperature: 0,
-    max_tokens: 800,
+    max_tokens: 900,
     log_context: "research/extract",
   });
   const out = extractJsonObject(content);
