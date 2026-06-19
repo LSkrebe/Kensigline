@@ -10134,9 +10134,10 @@ function KensiglineTerminal() {
 
   const investigateFeedLoading =
     backendUp &&
-    (investigateIsInsider
+    activeTab === 'investigate' &&
+    (investigateMode === 'insider'
       ? insiderFeedLive === null
-      : investigateIsPoliticians
+      : investigateMode === 'politicians'
         ? politiciansFeedLive === null
         : institutionsFeedLive === null)
 
