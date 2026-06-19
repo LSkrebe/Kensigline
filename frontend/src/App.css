@@ -1306,7 +1306,6 @@
   width: 100%;
   max-width: none;
   box-sizing: border-box;
-  padding-right: 16px;
 }
 
 .researchPaperDocCardAnalysis:last-child {
@@ -1326,6 +1325,36 @@
 }
 
 .eventBriefDocCard--clickable:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable {
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable::before {
+  transition: background 0.15s ease;
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable .researchPaperRailCardRail {
+  transition: background 0.15s ease;
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:hover::before {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent 52%);
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:hover .researchPaperRailCardRail {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }

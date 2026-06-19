@@ -6492,6 +6492,7 @@ function ResearchPaperRailCaptureSelect({ captureId, selected, onToggle }) {
 function ResearchPaperDocCard({ doc, ticker, captureId, screenshotSelectMode = false, screenshotSelected = false, onScreenshotToggle }) {
   const source = doc?.source ?? 'Filing'
   const ideaClass = ideaHighlightClass(doc?.idea_best)
+  const openUrl = paperDocumentOpenUrl(doc, ticker)
   return (
     <EventBriefDocCard
       captureId={captureId}
@@ -6501,7 +6502,7 @@ function ResearchPaperDocCard({ doc, ticker, captureId, screenshotSelectMode = f
       dateLabel={doc?.filedAt ? formatFeedDate(doc.filedAt) : '—'}
       analysis={doc?.analysis}
       mentioned={getEventMentioned(doc?.briefKey)}
-      url={paperDocumentOpenUrl(doc, ticker)}
+      url={!screenshotSelectMode ? openUrl : null}
       openLabel={`Open ${source}`}
       railContent={
         screenshotSelectMode ? (

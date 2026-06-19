@@ -77,21 +77,6 @@ export function DiscoverTimelineGap({ label }) {
   )
 }
 
-function EventBriefDocOpenIcon() {
-  return (
-    <svg className="researchPaperDocOpenIconSvg" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d="M14 4h6v6M10 20 20 10M20 10h-6M20 10v6M4 14V4h10"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="square"
-        strokeLinejoin="miter"
-      />
-    </svg>
-  )
-}
-
 export function EventBriefDocCard({
   ticker,
   railTicker,
@@ -107,24 +92,28 @@ export function EventBriefDocCard({
   captureId,
   openLabel,
 }) {
-  const Tag = onCardClick ? 'button' : 'article'
+  const openUrl = String(url ?? '').trim()
+  const handleOpen = onCardClick ?? (openUrl ? () => window.open(openUrl, '_blank', 'noopener,noreferrer') : undefined)
+  const Tag = handleOpen ? 'button' : 'article'
   const label = openLabel ?? `Open ${source}`
   const railLabel = String(railTicker ?? '').trim().toUpperCase()
 
   return (
     <Tag
-      type={onCardClick ? 'button' : undefined}
+      type={handleOpen ? 'button' : undefined}
       data-paper-capture-id={captureId}
       className={[
         'researchPaperRailCard',
         'researchPaperDocCard',
-        onCardClick ? 'eventBriefDocCard--clickable' : '',
+        handleOpen ? 'eventBriefDocCard--clickable' : '',
         railLabel ? 'researchPaperDocCard--railTicker' : '',
         className,
       ]
         .filter(Boolean)
         .join(' ')}
-      onClick={onCardClick}
+      onClick={handleOpen}
+      aria-label={handleOpen ? label : undefined}
+      title={handleOpen ? label : undefined}
     >
       <div
         className={[
@@ -150,19 +139,6 @@ export function EventBriefDocCard({
           </div>
         </div>
         <EventBriefBody ticker={ticker} analysis={analysis} mentioned={mentioned} />
-        {url ? (
-          <a
-            className="researchPaperDocOpen"
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={label}
-            title={label}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <EventBriefDocOpenIcon />
-          </a>
-        ) : null}
       </div>
     </Tag>
   )
