@@ -154,6 +154,25 @@ function mockIdeaFields(i, kind = 'insider') {
 
 const EMPTY = '-'
 
+function PanelStatusMessage({ label, className = 'panelStatusMessage' }) {
+  if (!label) return null
+  return (
+    <p className={[className, 'mono', 'dim'].filter(Boolean).join(' ')} role="status" aria-live="polite">
+      {label}
+    </p>
+  )
+}
+
+function contextMetricsHasData(data, rows) {
+  if (!data || typeof data !== 'object') return false
+  return (rows ?? []).some((row) => {
+    const raw = data[row.key]
+    if (raw == null || raw === '') return false
+    if (Array.isArray(raw)) return raw.some((v) => v != null && v !== '' && v !== '—' && v !== EMPTY)
+    return raw !== '—' && raw !== EMPTY
+  })
+}
+
 /* Chart area fill under line — CSS vars follow market/clinical intel theme. */
 const CHART_AREA_GRAD_TOP = 'var(--intel-accent-area-top)'
 const CHART_AREA_GRAD_BOTTOM = 'var(--intel-accent-area-bottom)'
@@ -2114,9 +2133,9 @@ function ContextTrackedInvestorsCard({
           <span className="contextRecentInvestorsHead">Date</span>
         </div>
         {loading ? (
-          <p className="contextFlowEmpty mono dim contextRecentInvestorsEmpty">Loading tracked investors…</p>
+          <PanelStatusMessage label="Loading tracked investors…" className="contextFlowEmpty contextRecentInvestorsEmpty" />
         ) : !rows.length ? (
-          <p className="contextFlowEmpty mono dim contextRecentInvestorsEmpty">{emptyLabel}</p>
+          <PanelStatusMessage label={emptyLabel} className="contextFlowEmpty contextRecentInvestorsEmpty" />
         ) : (
           rows.map((row) => (
             <div key={row.id} className="contextRecentInvestorsGrid" role="listitem" aria-label={row.name}>
@@ -2480,8 +2499,18 @@ function ContextMetricsTableRow({ row, data, periodLabels, periodCount }) {
   )
 }
 
-function ContextMetricsCard({ title, ariaLabel, periodLabels, rows, data, loading = false, emptyLabel = 'No data yet.' }) {
+function ContextMetricsCard({
+  title,
+  ariaLabel,
+  periodLabels,
+  rows,
+  data,
+  loading = false,
+  loadingLabel = 'Loading…',
+  emptyLabel = 'No data yet.',
+}) {
   const periodCount = periodLabels.length
+  const hasData = contextMetricsHasData(data, rows)
 
   return (
     <div className="contextCatalystCard contextFundamentalsCard" aria-label={ariaLabel ?? title}>
@@ -2495,7 +2524,9 @@ function ContextMetricsCard({ title, ariaLabel, periodLabels, rows, data, loadin
           ))}
         </div>
         {loading ? (
-          <p className="contextCatalystCardEmpty mono dim">{emptyLabel}</p>
+          <PanelStatusMessage label={loadingLabel} className="contextCatalystCardEmpty" />
+        ) : !hasData ? (
+          <PanelStatusMessage label={emptyLabel} className="contextCatalystCardEmpty" />
         ) : (
           rows.map((row) => (
             <ContextMetricsTableRow
@@ -2528,7 +2559,8 @@ function ContextFundamentalsCard({ fundamentals, loading = false }) {
       rows={CONTEXT_FUNDAMENTAL_ROWS}
       data={fundamentals}
       loading={loading}
-      emptyLabel="Loading fundamentals…"
+      loadingLabel="Loading fundamentals…"
+      emptyLabel="No fundamentals data yet."
     />
   )
 }
@@ -2551,7 +2583,7 @@ function ContextOwnershipCard({ ownership, loading = false }) {
           ))}
         </div>
         {loading ? (
-          <p className="contextCatalystCardEmpty mono dim">Loading ownership…</p>
+          <PanelStatusMessage label="Loading ownership…" className="contextCatalystCardEmpty" />
         ) : (
           CONTEXT_OWNERSHIP_ROWS.map((row) => (
             <ContextMetricsTableRow
@@ -2591,9 +2623,9 @@ function ContextRunwayCard({ runway, loading = false }) {
         <div className="contextCatalystCardTitle mono dim">Financial runway</div>
       </div>
       {loading ? (
-        <p className="contextCatalystCardEmpty mono dim">Loading runway…</p>
+        <PanelStatusMessage label="Loading runway…" className="contextCatalystCardEmpty" />
       ) : !hasRunwayData ? (
-        <p className="contextCatalystCardEmpty mono dim">No runway data yet.</p>
+        <PanelStatusMessage label="No runway data yet." className="contextCatalystCardEmpty" />
       ) : (
         <div className="contextOutcomesStack">
           {CONTEXT_RUNWAY_ROWS.map((row) => {
@@ -2896,9 +2928,9 @@ function ContextClinicalOutcomesList({
         {sampleMeta ? <span className="contextCatalystCardMeta mono dim">{sampleMeta}</span> : null}
       </div>
       {loading ? (
-        <p className="contextCatalystCardEmpty mono dim">Loading historical outcomes…</p>
+        <PanelStatusMessage label="Loading historical outcomes…" className="contextCatalystCardEmpty" />
       ) : !hasContent ? (
-        <p className="contextCatalystCardEmpty mono dim">{emptyLabel}</p>
+        <PanelStatusMessage label={emptyLabel} className="contextCatalystCardEmpty" />
       ) : (
         <div className="contextFlowList contextFlowList--marketFlows contextFlowList--embedded" role="list">
           {outcomeLines.length ? (
@@ -2947,9 +2979,9 @@ function ContextCatalystCard({ items = [], title = 'Catalyst clock', loading = f
         {meta ? <span className="contextCatalystCardMeta mono dim">{meta}</span> : null}
       </div>
       {loading ? (
-        <p className="contextCatalystCardEmpty mono dim">Loading catalysts…</p>
+        <PanelStatusMessage label="Loading catalysts…" className="contextCatalystCardEmpty" />
       ) : !count ? (
-        <p className="contextCatalystCardEmpty mono dim">No upcoming catalysts</p>
+        <PanelStatusMessage label="No upcoming catalysts" className="contextCatalystCardEmpty" />
       ) : (
         items.map((it) => (
           <div key={it.id} className="contextCatalystRow">
@@ -3976,7 +4008,7 @@ function caseFeedSelectedPersonDisplay(rows, selectedRowIndex, personQuery, mode
   return null
 }
 
-function HistoricalMarketOutcomesView({ ins, mode, personDisplay = null }) {
+function HistoricalMarketOutcomesView({ ins, mode, personDisplay = null, loading = false }) {
   const hasDataset = historicalOutcomeHasAvgReturns(ins)
   const outcomeLines = useMemo(
     () => historicalOutcomeLinesFromIns(ins, mode, personDisplay),
@@ -3991,10 +4023,18 @@ function HistoricalMarketOutcomesView({ ins, mode, personDisplay = null }) {
         ? 'Institutional historical outcomes'
         : 'Insider historical outcomes'
 
+  if (loading) {
+    return (
+      <div className="contextFlowList contextFlowList--empty">
+        <PanelStatusMessage label="Loading historical outcomes…" className="contextFlowEmpty" />
+      </div>
+    )
+  }
+
   if (!hasDataset) {
     return (
       <div className="contextFlowList contextFlowList--empty">
-        <p className="contextFlowEmpty mono dim">No historical outcome data yet.</p>
+        <PanelStatusMessage label="No historical outcome data yet." className="contextFlowEmpty" />
       </div>
     )
   }
@@ -4482,7 +4522,12 @@ function MainContextPanel({
                           ) : null}
                         </div>
                       </div>
-                      {visibleMilestones.length ? (
+                      {clinicalSectionsLoading ? (
+                        <PanelStatusMessage
+                          label="Loading milestones…"
+                          className="contextProgramMilestonesEmpty"
+                        />
+                      ) : visibleMilestones.length ? (
                         <div className="contextProgramMilestones dim">
                           {visibleMilestones.map((m, idx) => (
                             <a
@@ -4508,7 +4553,7 @@ function MainContextPanel({
                           ))}
                         </div>
                       ) : (
-                        <p className="contextProgramMilestonesEmpty mono dim">No milestones</p>
+                        <PanelStatusMessage label="No milestones" className="contextProgramMilestonesEmpty" />
                       )}
                     </div>
                   )
@@ -4533,7 +4578,7 @@ function MainContextPanel({
                 sampleSize={clinicalOutcomes.sampleSize}
                 stats={clinicalOutcomes.stats}
                 chartTitle="Trial historical outcomes"
-                loading={outcomesLoading && !clinicalOutcomes.hasDataset}
+                loading={outcomesLoading}
               />
             </ContextSection>
           </>
@@ -4557,7 +4602,15 @@ function MainContextPanel({
   )
 }
 
-function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, filtered }) {
+function ResearchFeedTickerList({
+  selectedTicker,
+  onSelectTicker,
+  q,
+  onQuery,
+  filtered,
+  loading = false,
+  emptyLabel = 'No feed items yet.',
+}) {
   const feedItems = useMemo(() => {
     const items = (filtered ?? []).map((it) => ({
       ...it,
@@ -4611,7 +4664,12 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
         </svg>
       </label>
       <div className="feedCompactList feedCompactList--scroll scrollThin" role="list">
-        {displayRows.map((entry, i) => {
+        {loading ? (
+          <PanelStatusMessage label="Loading feed…" className="feedPanelStatus" />
+        ) : !displayRows.length ? (
+          <PanelStatusMessage label={emptyLabel} className="feedPanelStatus" />
+        ) : (
+          displayRows.map((entry, i) => {
           if (entry.type === 'sep') {
             return (
               <div
@@ -4654,7 +4712,8 @@ function ResearchFeedTickerList({ selectedTicker, onSelectTicker, q, onQuery, fi
               <span className="feedCell feedCellWhen mono kvFeedDim">{feedWhenLabel(it)}</span>
             </button>
           )
-        })}
+        })
+        )}
       </div>
     </>
   )
@@ -4672,7 +4731,14 @@ function programGroupMatchesQuery(pg, queryRaw) {
   return false
 }
 
-function ResearchFeedProgramsList({ programGroups, selectedProgramKey, onSelectProgramKey, q, onQuery }) {
+function ResearchFeedProgramsList({
+  programGroups,
+  selectedProgramKey,
+  onSelectProgramKey,
+  q,
+  onQuery,
+  loading = false,
+}) {
   const filteredGroups = useMemo(
     () => (programGroups ?? []).filter((pg) => programGroupMatchesQuery(pg, q)),
     [programGroups, q],
@@ -4718,7 +4784,9 @@ function ResearchFeedProgramsList({ programGroups, selectedProgramKey, onSelectP
           <span className="researchFeedRowName">ALL</span>
           <span className="researchFeedRowPhase mono dim">Company</span>
         </button>
-        {filteredGroups.length ? (
+        {loading ? (
+          <PanelStatusMessage label="Loading programs…" className="researchFeedProgramsEmpty" />
+        ) : filteredGroups.length ? (
           filteredGroups.map((pg) => (
             <button
               key={pg.key}
@@ -4738,9 +4806,9 @@ function ResearchFeedProgramsList({ programGroups, selectedProgramKey, onSelectP
             </button>
           ))
         ) : programGroups.length ? (
-          <p className="researchFeedProgramsEmpty mono dim">No matching programs</p>
+          <PanelStatusMessage label="No matching programs" className="researchFeedProgramsEmpty" />
         ) : (
-          <p className="researchFeedProgramsEmpty mono dim">No programs</p>
+          <PanelStatusMessage label="No programs" className="researchFeedProgramsEmpty" />
         )}
       </div>
     </>
@@ -4765,6 +4833,9 @@ function ResearchTickerPanel({
   onFeedFilterClick,
   feedFilterPicker = null,
   panelClassName = '',
+  feedLoading = false,
+  feedEmptyLabel = 'No feed items yet.',
+  programsLoading = false,
 }) {
   const clinicalSplit = intelMode === 'clinical'
   const programGroups = useMemo(() => groupPrograms(programs), [programs])
@@ -4789,6 +4860,8 @@ function ResearchTickerPanel({
       q={q}
       onQuery={onQuery}
       filtered={filtered}
+      loading={feedLoading}
+      emptyLabel={feedEmptyLabel}
     />
   )
 
@@ -4835,6 +4908,7 @@ function ResearchTickerPanel({
                   onSelectProgramKey={onSelectProgramKey}
                   q={programQuery}
                   onQuery={onProgramQuery}
+                  loading={programsLoading}
                 />
               </div>
             </div>
@@ -8616,9 +8690,11 @@ function KvLine({ className = '', children, ...rest }) {
 function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
   const insider = mode === 'insider' || mode === 'politicians' || mode === 'institutions'
   const [live, setLive] = useState(null)
+  const [outcomesLoaded, setOutcomesLoaded] = useState(false)
 
   useEffect(() => {
     let alive = true
+    setOutcomesLoaded(false)
     async function run() {
       try {
         const m =
@@ -8631,6 +8707,8 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
       } catch {
         if (!alive) return
         setLive(null)
+      } finally {
+        if (alive) setOutcomesLoaded(true)
       }
     }
     run()
@@ -8654,6 +8732,7 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
     return Number.isFinite(n) ? n : null
   })()
 
+  const outcomesLoading = backendUp && !outcomesLoaded
   const hasDataset = sampleSizeNum != null ? sampleSizeNum > 0 : Boolean(ins && ins.sampleSize)
   const clinicalOutcomeLines = useMemo(() => {
     if (!hasDataset) return []
@@ -8678,7 +8757,14 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
     >
       <div className="worksheetBody historicalOutcomesBody scrollThin">
         {insider ? (
-          <HistoricalMarketOutcomesView ins={ins} mode={mode} personDisplay={personDisplay} />
+          <HistoricalMarketOutcomesView
+            ins={ins}
+            mode={mode}
+            personDisplay={personDisplay}
+            loading={outcomesLoading}
+          />
+        ) : outcomesLoading ? (
+          <ContextClinicalOutcomesList chartTitle="Trial historical outcomes" loading />
         ) : hasDataset ? (
           <ContextClinicalOutcomesList
             outcomeLines={clinicalOutcomeLines}
@@ -8687,9 +8773,7 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
             chartTitle="Trial historical outcomes"
           />
         ) : (
-          <div className="contextFlowList contextFlowList--empty">
-            <p className="contextFlowEmpty mono dim">No historical outcome data yet.</p>
-          </div>
+          <ContextClinicalOutcomesList chartTitle="Trial historical outcomes" />
         )}
       </div>
     </section>
@@ -8769,6 +8853,9 @@ function CompactFeed({
   onFeedQuery,
   onFeedCompanyQuery,
   onFeedPersonQuery,
+  loading = false,
+  loadingLabel = 'Loading feed…',
+  emptyLabel = 'No feed items yet.',
 }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
@@ -8857,6 +8944,111 @@ function CompactFeed({
     const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 60
     if (!nearBottom) return
     setRenderLimit((prev) => Math.min(displayLen, prev + pageSize * 2))
+  }
+
+  function renderVisibleFeedRows(getGlobalIdx) {
+    if (loading) {
+      return <PanelStatusMessage label={loadingLabel} className="feedPanelStatus" />
+    }
+    if (!displayLen) {
+      return <PanelStatusMessage label={emptyLabel} className="feedPanelStatus" />
+    }
+    return visibleRows.map((entry, i) => {
+      const globalIdx = getGlobalIdx(i)
+      if (entry.type === 'sep') {
+        return (
+          <div
+            key={`${placement}-${entry.key}-${globalIdx}`}
+            className="feedRowTodaySep"
+            role="presentation"
+          >
+            {programsTimeline ? entry.label : entry.label ?? 'TODAY'}
+          </div>
+        )
+      }
+      const { row, idx } = entry
+      const active = idx === selectedIndex
+      return (
+        <button
+          key={row.id}
+          type="button"
+          role="listitem"
+          className={[
+            'feedRowCompact',
+            active ? 'isActive' : '',
+            ideaHighlightClass(row.idea_best),
+            programsStackedRows ? 'feedRowCompact--programs' : '',
+            programsTimeline ? 'feedRowCompact--timeline' : '',
+            rowPrimary === 'company' ? 'feedRowCompact--company' : '',
+            rowPrimary === 'company' && !feedCountVisible(row.count) ? 'feedRowCompact--noCount' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          onClick={() => onSelectIndex(idx)}
+          data-item-idx={idx}
+        >
+          {programsStackedRows ? (
+            <>
+              <span className="feedProgramsLine feedProgramsLine--drug kvFeedMain">{row.label}</span>
+              <span className="feedProgramsLine kvFeedDim">{row.indication ?? '—'}</span>
+              <span className="feedProgramsLine mono kvFeedDim">{row.phase ?? '—'}</span>
+            </>
+          ) : rowPrimary === 'ticker' ? (
+            <>
+              <span className="feedCell feedCellLabel kvFeedMain mono">{row.ticker}</span>
+              {!programsTimeline ? (
+                <span className="feedCell feedCellTicker mono kvFeedDim">
+                  {feedCountVisible(row.count) ? (
+                    <span className="feedCountTag">{row.count}</span>
+                  ) : null}
+                </span>
+              ) : null}
+              <span className="feedCell feedCellWhen mono kvFeedDim">
+                {feedWhenLabel(row)}
+              </span>
+            </>
+          ) : rowPrimary === 'company' ? (
+            <>
+              <span className="feedCell feedCellSymbol mono kvFeedDim">
+                {String(row.ticker ?? '').trim().toUpperCase() || '—'}
+              </span>
+              <span className="feedCell feedCellCompany kvFeedMain">
+                {String(row.company ?? row.issuer ?? '').trim() || '—'}
+              </span>
+              {!programsTimeline && feedCountVisible(row.count) ? (
+                <span className="feedCell feedCellCount mono kvFeedDim">
+                  <span className="feedCountTag">{row.count}</span>
+                </span>
+              ) : null}
+              <span className="feedCell feedCellWhen mono kvFeedDim">
+                {feedWhenLabel(row)}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="feedCell feedCellLabel kvFeedMain">{row.label}</span>
+              {!programsTimeline ? (
+                <span className="feedCell feedCellTicker mono kvFeedDim">
+                  {placement === 'left' ? (
+                    <>
+                      {row.ticker}
+                      {feedCountVisible(row.count) ? (
+                        <span className="feedCountTag">{row.count}</span>
+                      ) : null}
+                    </>
+                  ) : (
+                    row.ticker
+                  )}
+                </span>
+              ) : null}
+              <span className="feedCell feedCellWhen mono kvFeedDim">
+                {feedWhenLabel(row)}
+              </span>
+            </>
+          )}
+        </button>
+      )
+    })
   }
 
   return (
@@ -8973,103 +9165,7 @@ function CompactFeed({
               role="list"
               onScroll={scrollMode ? onScrollLoadMore : undefined}
             >
-            {visibleRows.map((entry, i) => {
-              const globalIdx = scrollMode ? i : pageStart + i
-              if (entry.type === 'sep') {
-                return (
-                  <div
-                    key={`${placement}-${entry.key}-${globalIdx}`}
-                    className="feedRowTodaySep"
-                    role="presentation"
-                  >
-                    {programsTimeline ? entry.label : entry.label ?? 'TODAY'}
-                  </div>
-                )
-              }
-              const { row, idx } = entry
-              const active = idx === selectedIndex
-              return (
-                <button
-                  key={row.id}
-                  type="button"
-                  role="listitem"
-                  className={[
-                    'feedRowCompact',
-                    active ? 'isActive' : '',
-                    ideaHighlightClass(row.idea_best),
-                    programsStackedRows ? 'feedRowCompact--programs' : '',
-                    programsTimeline ? 'feedRowCompact--timeline' : '',
-                  rowPrimary === 'company' ? 'feedRowCompact--company' : '',
-                  rowPrimary === 'company' && !feedCountVisible(row.count) ? 'feedRowCompact--noCount' : '',
-                  rowPrimary === 'company' && !feedCountVisible(row.count) ? 'feedRowCompact--noCount' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                onClick={() => onSelectIndex(idx)}
-                data-item-idx={idx}
-              >
-                {programsStackedRows ? (
-                  <>
-                    <span className="feedProgramsLine feedProgramsLine--drug kvFeedMain">{row.label}</span>
-                    <span className="feedProgramsLine kvFeedDim">{row.indication ?? '—'}</span>
-                      <span className="feedProgramsLine mono kvFeedDim">{row.phase ?? '—'}</span>
-                    </>
-                  ) : rowPrimary === 'ticker' ? (
-                    <>
-                      <span className="feedCell feedCellLabel kvFeedMain mono">{row.ticker}</span>
-                      {!programsTimeline ? (
-                        <span className="feedCell feedCellTicker mono kvFeedDim">
-                          {feedCountVisible(row.count) ? (
-                            <span className="feedCountTag">{row.count}</span>
-                          ) : null}
-                        </span>
-                      ) : null}
-                      <span className="feedCell feedCellWhen mono kvFeedDim">
-                        {feedWhenLabel(row)}
-                      </span>
-                    </>
-                  ) : rowPrimary === 'company' ? (
-                    <>
-                      <span className="feedCell feedCellSymbol mono kvFeedDim">
-                        {String(row.ticker ?? '').trim().toUpperCase() || '—'}
-                      </span>
-                      <span className="feedCell feedCellCompany kvFeedMain">
-                        {String(row.company ?? row.issuer ?? '').trim() || '—'}
-                      </span>
-                      {!programsTimeline && feedCountVisible(row.count) ? (
-                        <span className="feedCell feedCellCount mono kvFeedDim">
-                          <span className="feedCountTag">{row.count}</span>
-                        </span>
-                      ) : null}
-                      <span className="feedCell feedCellWhen mono kvFeedDim">
-                        {feedWhenLabel(row)}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="feedCell feedCellLabel kvFeedMain">{row.label}</span>
-                      {!programsTimeline ? (
-                        <span className="feedCell feedCellTicker mono kvFeedDim">
-                          {placement === 'left' ? (
-                            <>
-                              {row.ticker}
-                              {feedCountVisible(row.count) ? (
-                                <span className="feedCountTag">{row.count}</span>
-                              ) : null}
-                            </>
-                          ) : (
-                            row.ticker
-                          )}
-                        </span>
-                      ) : null}
-                      <span className="feedCell feedCellWhen mono kvFeedDim">
-                        {feedWhenLabel(row)}
-                      </span>
-                    </>
-                  )}
-                </button>
-              )
-            })}
+              {renderVisibleFeedRows((i) => (scrollMode ? i : pageStart + i))}
             </div>
           </div>
           {feedFilterOpen && feedFilterTypes.length ? (
@@ -9101,102 +9197,7 @@ function CompactFeed({
           role="list"
           onScroll={scrollMode ? onScrollLoadMore : undefined}
         >
-          {visibleRows.map((entry, i) => {
-            const globalIdx = scrollMode ? i : pageStart + i
-            if (entry.type === 'sep') {
-              return (
-                <div
-                  key={`${placement}-${entry.key}-${globalIdx}`}
-                  className="feedRowTodaySep"
-                  role="presentation"
-                >
-                  {programsTimeline ? entry.label : entry.label ?? 'TODAY'}
-                </div>
-              )
-            }
-            const { row, idx } = entry
-            const active = idx === selectedIndex
-            return (
-              <button
-                key={row.id}
-                type="button"
-                role="listitem"
-                className={[
-                  'feedRowCompact',
-                  active ? 'isActive' : '',
-                  programsStackedRows ? 'feedRowCompact--programs' : '',
-                  programsTimeline ? 'feedRowCompact--timeline' : '',
-                  rowPrimary === 'company' ? 'feedRowCompact--company' : '',
-                  rowPrimary === 'company' && !feedCountVisible(row.count) ? 'feedRowCompact--noCount' : '',
-                  rowPrimary === 'company' && !feedCountVisible(row.count) ? 'feedRowCompact--noCount' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                onClick={() => onSelectIndex(idx)}
-                data-item-idx={idx}
-              >
-                {programsStackedRows ? (
-                  <>
-                    <span className="feedProgramsLine feedProgramsLine--drug kvFeedMain">{row.label}</span>
-                    <span className="feedProgramsLine kvFeedDim">{row.indication ?? '—'}</span>
-                    <span className="feedProgramsLine mono kvFeedDim">{row.phase ?? '—'}</span>
-                  </>
-                ) : rowPrimary === 'ticker' ? (
-                  <>
-                    <span className="feedCell feedCellLabel kvFeedMain mono">{row.ticker}</span>
-                    {!programsTimeline ? (
-                      <span className="feedCell feedCellTicker mono kvFeedDim">
-                        {feedCountVisible(row.count) ? (
-                          <span className="feedCountTag">{row.count}</span>
-                        ) : null}
-                      </span>
-                    ) : null}
-                    <span className="feedCell feedCellWhen mono kvFeedDim">
-                      {feedWhenLabel(row)}
-                    </span>
-                  </>
-                ) : rowPrimary === 'company' ? (
-                  <>
-                    <span className="feedCell feedCellSymbol mono kvFeedDim">
-                      {String(row.ticker ?? '').trim().toUpperCase() || '—'}
-                    </span>
-                    <span className="feedCell feedCellCompany kvFeedMain">
-                      {String(row.company ?? row.issuer ?? '').trim() || '—'}
-                    </span>
-                    {!programsTimeline && feedCountVisible(row.count) ? (
-                      <span className="feedCell feedCellCount mono kvFeedDim">
-                        <span className="feedCountTag">{row.count}</span>
-                      </span>
-                    ) : null}
-                    <span className="feedCell feedCellWhen mono kvFeedDim">
-                      {feedWhenLabel(row)}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span className="feedCell feedCellLabel kvFeedMain">{row.label}</span>
-                    {!programsTimeline ? (
-                      <span className="feedCell feedCellTicker mono kvFeedDim">
-                        {placement === 'left' ? (
-                          <>
-                            {row.ticker}
-                            {feedCountVisible(row.count) ? (
-                              <span className="feedCountTag">{row.count}</span>
-                            ) : null}
-                          </>
-                        ) : (
-                          row.ticker
-                        )}
-                      </span>
-                    ) : null}
-                    <span className="feedCell feedCellWhen mono kvFeedDim">
-                      {feedWhenLabel(row)}
-                    </span>
-                  </>
-                )}
-              </button>
-            )
-          })}
+          {renderVisibleFeedRows((i) => (scrollMode ? i : pageStart + i))}
         </div>
       )}
     </section>
@@ -10117,6 +10118,27 @@ function KensiglineTerminal() {
     backendUp,
     contextFlowRows,
   ])
+
+  const researchFeedModeKey = intelMode === 'clinical' ? 'clinical' : 'market'
+  const researchFeedLoading =
+    backendUp && (researchFeedLive === null || researchFeedLiveMode !== researchFeedModeKey)
+  const researchProgramsLoading =
+    backendUp && intelMode === 'clinical' && researchClinicalContextLoading
+  const researchFeedEmptyLabel = useMemo(() => {
+    if (String(researchQuery ?? '').trim()) return 'No matching companies.'
+    const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters, intelMode)
+    const allowed = researchSourceFilterKeysForIntel(intelMode)
+    if (enabled.size < allowed.length) return 'No companies match filters.'
+    return 'No feed items yet.'
+  }, [researchQuery, researchPaperSourceFilters, intelMode])
+
+  const investigateFeedLoading =
+    backendUp &&
+    (investigateIsInsider
+      ? insiderFeedLive === null
+      : investigateIsPoliticians
+        ? politiciansFeedLive === null
+        : institutionsFeedLive === null)
 
   const researchPaperSourceFiltersPicker = researchFeedFilterOpen
     ? researchPaperSourceFiltersDraft
@@ -11601,6 +11623,9 @@ function KensiglineTerminal() {
             placement="left"
             panelClassName={phonePaneHiddenClass(isPhone, investigatePhonePane, 'feed')}
             title="FEED"
+            loading={investigateFeedLoading}
+            loadingLabel="Loading feed…"
+            emptyLabel="No feed items match filters."
             items={
               investigateIsInsider
                 ? insiderFeedDisplay
@@ -11737,6 +11762,9 @@ function KensiglineTerminal() {
             q={researchQuery}
             onQuery={setResearchQuery}
             filtered={researchFeedAfterSourceFilter}
+            feedLoading={researchFeedLoading}
+            feedEmptyLabel={researchFeedEmptyLabel}
+            programsLoading={researchProgramsLoading}
             programs={contextPrograms}
             selectedProgramKey={contextProgramKey}
             onSelectProgramKey={setContextProgramKey}
