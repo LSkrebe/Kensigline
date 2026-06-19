@@ -2878,50 +2878,57 @@ function ContextClinicalOutcomesList({
 }) {
   const rows = buildMockPharmaOutcomeRows(outcomeLines, stats)
   const hasContent = outcomeLines.length > 0 || rows.length > 0
+  const sampleMeta = outcomeLines.length ? contextOutcomesSampleLabel(sampleSize) : null
+
   return (
-    <div className="contextCatalystCard contextClinicalOutcomesCard" aria-label={chartTitle}>
-      <div className="contextFlowList contextFlowList--marketFlows contextFlowList--embedded" role="list">
-        {loading ? (
-          <p className="contextCatalystCardEmpty mono dim">Loading historical outcomes…</p>
-        ) : !hasContent ? (
-          <p className="contextCatalystCardEmpty mono dim">{emptyLabel}</p>
-        ) : (
-          <>
-            {outcomeLines.length ? (
-              <>
-                <ContextFlowChartHeader
-                  title={chartTitle}
-                  sample={contextOutcomesSampleLabel(sampleSize)}
-                />
-                <ContextFlowOutcomeChart
-                  lines={outcomeLines}
-                  xLabels={OUTCOME_HORIZON_CHART_LABELS}
-                  ariaLabel="Average forward returns after trial events (21, 63, 252 trading days)"
-                />
-              </>
-            ) : null}
-            {rows.map((row) => (
-              <div
-                key={row.id}
-                className="contextCompanyEarnings historicalOutcomesPerson contextFlowPersonStrip"
-                role="listitem"
-              >
-                <div className="contextFlowRowKeyWrap">
-                  {row.lineColor ? (
-                    <span
-                      className="contextFlowRowLine"
-                      style={{ background: row.lineColor }}
-                      aria-hidden="true"
-                    />
-                  ) : null}
-                  <span className="contextCompanyEarningsK historicalOutcomesPersonName">{row.label}</span>
-                </div>
-                <span className="contextCompanyEarningsV historicalOutcomesPersonDetail mono">{row.total}</span>
-              </div>
-            ))}
-          </>
-        )}
+    <div
+      className={[
+        'contextCatalystCard',
+        'contextClinicalOutcomesCard',
+        !hasContent && !loading ? 'contextCatalystCard--empty' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-label={chartTitle}
+    >
+      <div className="contextCatalystCardHeader">
+        <div className="contextCatalystCardTitle mono dim">{chartTitle}</div>
+        {sampleMeta ? <span className="contextCatalystCardMeta mono dim">{sampleMeta}</span> : null}
       </div>
+      {loading ? (
+        <p className="contextCatalystCardEmpty mono dim">Loading historical outcomes…</p>
+      ) : !hasContent ? (
+        <p className="contextCatalystCardEmpty mono dim">{emptyLabel}</p>
+      ) : (
+        <div className="contextFlowList contextFlowList--marketFlows contextFlowList--embedded" role="list">
+          {outcomeLines.length ? (
+            <ContextFlowOutcomeChart
+              lines={outcomeLines}
+              xLabels={OUTCOME_HORIZON_CHART_LABELS}
+              ariaLabel="Average forward returns after trial events (21, 63, 252 trading days)"
+            />
+          ) : null}
+          {rows.map((row) => (
+            <div
+              key={row.id}
+              className="contextCompanyEarnings historicalOutcomesPerson contextFlowPersonStrip"
+              role="listitem"
+            >
+              <div className="contextFlowRowKeyWrap">
+                {row.lineColor ? (
+                  <span
+                    className="contextFlowRowLine"
+                    style={{ background: row.lineColor }}
+                    aria-hidden="true"
+                  />
+                ) : null}
+                <span className="contextCompanyEarningsK historicalOutcomesPersonName">{row.label}</span>
+              </div>
+              <span className="contextCompanyEarningsV historicalOutcomesPersonDetail mono">{row.total}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
