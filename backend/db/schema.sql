@@ -218,6 +218,20 @@ CREATE TABLE bars (
 
 CREATE INDEX bars_ticker_day_idx ON bars (ticker, day DESC);
 
+-- --- Per-ticker context snapshots (Research CONTEXT panel + clinical programs) ---
+CREATE TABLE ticker_context_cache (
+  ticker text PRIMARY KEY,
+  company_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  fundamentals_json jsonb,
+  ownership_json jsonb,
+  clinical_json jsonb,
+  documents_watermark timestamptz,
+  computed_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX ticker_context_cache_computed_at_idx
+  ON ticker_context_cache (computed_at DESC);
+
 -- --- Outcomes ---
 CREATE TABLE outcomes (
   company_id uuid REFERENCES companies(id) ON DELETE CASCADE,

@@ -5,6 +5,7 @@ import { db } from "../../core/db.js";
 import { llmChat } from "../../core/llm.js";
 import { fetchFilingPrimaryText } from "../../core/sec.js";
 import { fetchSecJson } from "../../core/sec.js";
+import { invalidateTickerContextCache } from "../../core/ticker-context-cache.js";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }
@@ -297,6 +298,7 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
     const events = Array.isArray(out?.events) ? out.events : [];
     const parsed_ids: string[] = [];
     let inserted = 0;
+    const affectedTickers = new Set<string>();
 
     for (let i = 0; i < events.length; i++) {
       const e = events[i];
@@ -406,6 +408,7 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
       if (r?.id) {
         parsed_ids.push(r.id);
         inserted += 1;
+        if (ticker) affectedTickers.add(String(ticker).trim().toUpperCase());
       }
     }
 
@@ -432,6 +435,8 @@ export async function parseNextPharmaQueueItem(): Promise<ParseNextResult> {
         [queueId],
       );
     }
+
+    for (const t of affectedTickers) void invalidateTickerContextCache(t);
 
     return { processed: true, queue_id: queueId, parsed_ids, inserted };
   } catch (err: any) {

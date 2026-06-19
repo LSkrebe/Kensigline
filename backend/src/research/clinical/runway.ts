@@ -1,4 +1,4 @@
-import { fetchSecJson, resolveCikForTicker } from "../../core/sec.js";
+import { loadTickerSecBundle, type TickerSecBundle } from "../../core/sec.js";
 import { historicalRunwayFromCompanyFacts } from "../../core/runway.js";
 
 export type ClinicalRunway = {
@@ -11,7 +11,10 @@ export type ClinicalRunway = {
 };
 
 /** Research clinical CONTEXT panel — cash, burn, runway from SEC XBRL. */
-export async function getClinicalRunwayForTicker(opts: { ticker: string }): Promise<ClinicalRunway> {
+export async function getClinicalRunwayForTicker(opts: {
+  ticker: string;
+  secBundle?: TickerSecBundle | null;
+}): Promise<ClinicalRunway> {
   const ticker = String(opts.ticker ?? "").trim().toUpperCase();
   const empty: ClinicalRunway = {
     cashUsd: null,
@@ -25,9 +28,9 @@ export async function getClinicalRunwayForTicker(opts: { ticker: string }): Prom
   if (!ticker) return empty;
 
   try {
-    const { cik } = await resolveCikForTicker(ticker);
-    const facts = await fetchSecJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`);
-    const r = historicalRunwayFromCompanyFacts(facts);
+    const sec = opts.secBundle !== undefined ? opts.secBundle : await loadTickerSecBundle(ticker);
+    if (!sec) return empty;
+    const r = historicalRunwayFromCompanyFacts(sec.facts);
     const hasData = r.cashUsd != null || r.quarterlyBurnUsd != null || r.runwayQuarters != null;
     return {
       ...r,

@@ -1,5 +1,6 @@
 import { db } from "../../core/db.js";
 import { getCompanyPanelData } from "../../core/company.js";
+import type { TickerSecBundle } from "../../core/sec.js";
 import { getClinicalRunwayForTicker, type ClinicalRunway } from "./runway.js";
 import {
   buildCatalystsFromStudies,
@@ -97,9 +98,13 @@ async function resolveCompanyName(ticker: string, panelName: string | null): Pro
   return row?.name ? String(row.name).trim() || null : null;
 }
 
+export const CLINICAL_CONTEXT_CATALYST_STORE_LIMIT = 20;
+
 export async function getPharmaClinicalContext(opts: {
   ticker: string;
   catalystLimit?: number;
+  secBundle?: TickerSecBundle | null;
+  panel?: { earnings_date?: string | null; name?: string | null } | null;
 }): Promise<{
   ticker: string;
   company_name: string | null;
@@ -115,13 +120,21 @@ export async function getPharmaClinicalContext(opts: {
 
   let earnings_date: string | null = null;
   let panelName: string | null = null;
-  try {
-    const panel = await getCompanyPanelData({ ticker });
-    earnings_date = panel.earnings_date ?? null;
-    panelName = panel.name ? String(panel.name).trim() : null;
-  } catch {
-    earnings_date = null;
-    panelName = null;
+  if (opts.panel) {
+    earnings_date = opts.panel.earnings_date ?? null;
+    panelName = opts.panel.name ? String(opts.panel.name).trim() : null;
+  } else {
+    try {
+      const panel = await getCompanyPanelData({
+        ticker,
+        ...(opts.secBundle !== undefined ? { secBundle: opts.secBundle } : {}),
+      });
+      earnings_date = panel.earnings_date ?? null;
+      panelName = panel.name ? String(panel.name).trim() : null;
+    } catch {
+      earnings_date = null;
+      panelName = null;
+    }
   }
 
   const companyName = await resolveCompanyName(ticker, panelName);
@@ -158,10 +171,11 @@ export async function getPharmaClinicalContext(opts: {
     return a.key.localeCompare(b.key);
   });
 
+  const catalystLimit = opts.catalystLimit ?? 6;
   const catalysts = buildCatalystsFromStudies(studies, {
     earningsDate: earnings_date,
-    limit: opts.catalystLimit ?? 6,
-  });
+    limit: Math.max(catalystLimit, CLINICAL_CONTEXT_CATALYST_STORE_LIMIT),
+  }).slice(0, catalystLimit);
   const lead = pickLeadProgram(programs, catalysts);
 
   let runway: ClinicalRunway = {
@@ -173,7 +187,10 @@ export async function getPharmaClinicalContext(opts: {
     source: null,
   };
   try {
-    runway = await getClinicalRunwayForTicker({ ticker });
+    runway = await getClinicalRunwayForTicker({
+      ticker,
+      ...(opts.secBundle !== undefined ? { secBundle: opts.secBundle } : {}),
+    });
   } catch {
     runway = {
       cashUsd: null,

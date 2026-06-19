@@ -1,5 +1,5 @@
 import { db } from "./db.js";
-import { fetchSecJson, resolveCikForTicker } from "./sec.js";
+import { loadTickerSecBundle, type TickerSecBundle } from "./sec.js";
 import { getDailyCloseBars } from "./bars.js";
 import { isPlausibleCompanyDisplayName } from "../research/feed-display.js";
 
@@ -258,7 +258,7 @@ async function getLatestClose(ticker: string): Promise<number | null> {
   return null;
 }
 
-export async function getCompanyPanelData(opts: { ticker: string }) {
+export async function getCompanyPanelData(opts: { ticker: string; secBundle?: TickerSecBundle | null }) {
   const ticker = String(opts.ticker ?? "").trim().toUpperCase();
   if (!ticker) throw new Error("ticker_required");
 
@@ -282,14 +282,13 @@ export async function getCompanyPanelData(opts: { ticker: string }) {
   }
 
   // Shares outstanding from SEC companyfacts.
-  let cik: string | null = null;
   let sharesOutstanding: number | null = null;
   try {
-    const resolved = await resolveCikForTicker(ticker);
-    cik = resolved.cik;
-    const facts = await fetchSecJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`);
-    sharesOutstanding = pickSharesOutstanding(facts);
-    if (!name && resolved.title) name = String(resolved.title);
+    const sec = opts.secBundle !== undefined ? opts.secBundle : await loadTickerSecBundle(ticker);
+    if (sec) {
+      sharesOutstanding = pickSharesOutstanding(sec.facts);
+      if (!name && sec.title) name = String(sec.title);
+    }
   } catch {
     // best-effort
   }

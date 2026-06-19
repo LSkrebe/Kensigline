@@ -4,6 +4,7 @@ import { upsertCompanyNameForTicker } from "../../core/company.js";
 import { fetchFilingPrimaryText, fetchSecJson } from "../../core/sec.js";
 import { runResearchDocExtract } from "../../documents/extract.js";
 import { insertResearchDocument } from "../../documents/store.js";
+import { invalidateTickerContextCache } from "../../core/ticker-context-cache.js";
 import { compactSecTextForLlm } from "../../core/sec-llm-text.js";
 import { compactHttpTextForLlm } from "../../core/http-llm-text.js";
 import { fetchArticleHtml, guessTickerFromText, stripHtmlToText } from "./feeds.js";
@@ -142,6 +143,9 @@ async function finalizePipeline(args: {
   await db.query(`UPDATE document_queue SET status = 'parsed', updated_at = now(), last_error = NULL WHERE id = $1`, [
     args.queueId,
   ]);
+
+  const ticker = args.out.primary_ticker?.trim().toUpperCase() ?? null;
+  if (ticker) void invalidateTickerContextCache(ticker);
 
   return { document_id: docId };
 }

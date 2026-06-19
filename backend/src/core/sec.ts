@@ -160,6 +160,25 @@ export async function fetchSecJson(url: string) {
   return await secFetchJson(url);
 }
 
+export type TickerSecBundle = {
+  cik: string;
+  facts: unknown;
+  title?: string | null;
+};
+
+/** One SEC companyfacts fetch per ticker — shared by fundamentals, ownership, runway, mcap. */
+export async function loadTickerSecBundle(tickerInput: string): Promise<TickerSecBundle | null> {
+  const ticker = String(tickerInput ?? "").trim().toUpperCase();
+  if (!ticker) return null;
+  try {
+    const { cik, title } = await resolveCikForTicker(ticker);
+    const facts = await fetchSecJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`);
+    return { cik, facts, title: title ?? null };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchSecText(url: string) {
   return await secFetchText(url);
 }

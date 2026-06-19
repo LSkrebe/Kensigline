@@ -9727,6 +9727,9 @@ function KensiglineTerminal() {
   const [barsLive, setBarsLive] = useState(null)
   const [barsLiveTicker, setBarsLiveTicker] = useState(null)
   const barsCacheRef = useRef(new Map())
+  const researchCompanyCacheRef = useRef(new Map())
+  const researchExploreCacheRef = useRef(new Map())
+  const researchClinicalCacheRef = useRef(new Map())
   const barsFetchGenRef = useRef(0)
   const [companyLive, setCompanyLive] = useState(null)
   const [companyLiveTicker, setCompanyLiveTicker] = useState(null)
@@ -10380,9 +10383,16 @@ function KensiglineTerminal() {
     let alive = true
     const gen = ++researchCompanyFetchGenRef.current
 
-    setResearchCompanyLive(null)
-    setResearchCompanyTicker(tick)
-    setResearchCompanyContextLoading(true)
+    const cachedCompany = researchCompanyCacheRef.current.get(tick)
+    if (cachedCompany) {
+      setResearchCompanyLive(cachedCompany)
+      setResearchCompanyTicker(tick)
+      setResearchCompanyContextLoading(false)
+    } else {
+      setResearchCompanyLive(null)
+      setResearchCompanyTicker(tick)
+      setResearchCompanyContextLoading(true)
+    }
 
     async function run() {
       const snap = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, {
@@ -10394,12 +10404,16 @@ function KensiglineTerminal() {
         if (!payload || typeof payload !== 'object') return
         const respTicker = String(payload.ticker ?? tick).trim().toUpperCase()
         if (respTicker !== tick) return
-        setResearchCompanyLive((prev) => (prev ? { ...prev, ...payload } : payload))
+        setResearchCompanyLive((prev) => {
+          const merged = prev ? { ...prev, ...payload } : payload
+          researchCompanyCacheRef.current.set(tick, merged)
+          return merged
+        })
         setResearchCompanyTicker(tick)
       }
 
       if (snap.ok && snap.data) applyCompany(snap.data)
-      setResearchCompanyContextLoading(false)
+      if (!cachedCompany) setResearchCompanyContextLoading(false)
 
       const full = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 25_000 })
       if (!alive || researchCompanyFetchGenRef.current !== gen) return
@@ -10420,8 +10434,14 @@ function KensiglineTerminal() {
     let alive = true
     const gen = ++researchExploreFetchGenRef.current
 
-    setResearchExploreLive(null)
-    setResearchExploreTicker(tick)
+    const cachedExplore = researchExploreCacheRef.current.get(tick)
+    if (cachedExplore) {
+      setResearchExploreLive(cachedExplore)
+      setResearchExploreTicker(tick)
+    } else {
+      setResearchExploreLive(null)
+      setResearchExploreTicker(tick)
+    }
 
     async function run() {
       const r = await fetchJsonSafe(`/api/research/explore?ticker=${encodeURIComponent(tick)}`, {
@@ -10430,6 +10450,7 @@ function KensiglineTerminal() {
       if (!alive || researchExploreFetchGenRef.current !== gen) return
       const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
       if (r.ok && r.data?.ok && respTicker === tick) {
+        researchExploreCacheRef.current.set(tick, r.data)
         setResearchExploreLive(r.data)
         setResearchExploreTicker(tick)
         return
@@ -10494,9 +10515,16 @@ function KensiglineTerminal() {
       }
     }
     const gen = ++researchClinicalFetchGenRef.current
-    setContextClinicalLive(null)
-    setContextClinicalTicker(tick)
-    setResearchClinicalContextLoading(true)
+    const cachedClinical = researchClinicalCacheRef.current.get(tick)
+    if (cachedClinical) {
+      setContextClinicalLive(cachedClinical)
+      setContextClinicalTicker(tick)
+      setResearchClinicalContextLoading(false)
+    } else {
+      setContextClinicalLive(null)
+      setContextClinicalTicker(tick)
+      setResearchClinicalContextLoading(true)
+    }
 
     async function run() {
       const r = await fetchJsonSafe(
@@ -10506,7 +10534,10 @@ function KensiglineTerminal() {
       if (!alive || researchClinicalFetchGenRef.current !== gen) return
       const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
       if (respTicker !== tick) return
-      if (r.ok && r.data?.ticker) setContextClinicalLive(r.data)
+      if (r.ok && r.data?.ticker) {
+        researchClinicalCacheRef.current.set(tick, r.data)
+        setContextClinicalLive(r.data)
+      }
       setResearchClinicalContextLoading(false)
     }
     run().catch(() => {

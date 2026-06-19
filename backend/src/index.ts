@@ -4,11 +4,15 @@ import { URL } from "node:url";
 import { json, notFound, readRawBody, route, sendJson } from "./core/http.js";
 import { db } from "./core/db.js";
 import { getDailyCloseBars } from "./core/bars.js";
-import { getCompanyPanelData, getCompanySnapshot } from "./core/company.js";
-import { getMarketFundamentalsForTicker } from "./research/market/fundamentals.js";
-import { getMarketOwnershipForTicker } from "./research/market/ownership.js";
-import { getLatestOutcomes, recomputeResearchOutcomes, recomputeInsiderOutcomes, recomputePharmaOutcomes, recomputePoliticiansOutcomes } from "./core/outcomes.js";
-import { getPharmaClinicalContext } from "./research/clinical/context.js";
+import { getCompanySnapshot } from "./core/company.js";
+import { getCompanyFullCached, getPharmaClinicalContextCached } from "./core/ticker-context-cache.js";
+import {
+  getLatestOutcomes,
+  recomputeResearchOutcomes,
+  recomputeInsiderOutcomes,
+  recomputePharmaOutcomes,
+  recomputePoliticiansOutcomes,
+} from "./core/outcomes.js";
 import { bearerToken, supabaseAuthConfigured, verifySupabaseAccessToken } from "./core/supabase-auth.js";
 import {
   handleBillingCheckout,
@@ -228,12 +232,8 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 200, out);
         return;
       }
-      const [out, fundamentals, ownership] = await Promise.all([
-        getCompanyPanelData({ ticker }),
-        getMarketFundamentalsForTicker({ ticker }).catch(() => null),
-        getMarketOwnershipForTicker({ ticker }).catch(() => null),
-      ]);
-      sendJson(res, 200, { ...out, fundamentals, ownership });
+      const out = await getCompanyFullCached({ ticker });
+      sendJson(res, 200, out);
       return;
     }
 
@@ -403,7 +403,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       try {
-        const ctx = await getPharmaClinicalContext({ ticker, catalystLimit });
+        const ctx = await getPharmaClinicalContextCached({ ticker, catalystLimit });
         sendJson(res, 200, ctx);
       } catch (e) {
         console.error("pharma_clinical_context_failed", ticker, e);

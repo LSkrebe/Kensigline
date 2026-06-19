@@ -1,4 +1,4 @@
-import { fetchSecJson, resolveCikForTicker } from "../../core/sec.js";
+import { loadTickerSecBundle, type TickerSecBundle } from "../../core/sec.js";
 import { fundamentalsSeriesFromCompanyFacts } from "../../core/fundamentals.js";
 import { forwardRevenueGrowthFromDocuments } from "./guidance.js";
 
@@ -41,29 +41,31 @@ function padSeries(values: (number | null)[], count: number): (number | null)[] 
 /** Research CONTEXT panel fundamentals — SEC XBRL history + document guidance. */
 export async function getMarketFundamentalsForTicker(opts: {
   ticker: string;
+  secBundle?: TickerSecBundle | null;
 }): Promise<MarketFundamentals> {
   const ticker = String(opts.ticker ?? "").trim().toUpperCase();
   if (!ticker) return { ...EMPTY };
 
   let series = EMPTY;
   try {
-    const { cik } = await resolveCikForTicker(ticker);
-    const facts = await fetchSecJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`);
-    const s = fundamentalsSeriesFromCompanyFacts(facts, { periods: 4 });
-    const hasHistorical = s.periodLabels.length > 0 && s.revenueGrowth.some((v) => v != null);
-    series = {
-      periodLabels: s.periodLabels,
-      revenueGrowth: padSeries(s.revenueGrowth, 4),
-      grossMargin: padSeries(s.grossMargin, 4),
-      netMargin: padSeries(s.netMargin, 4),
-      fcfMargin: padSeries(s.fcfMargin, 4),
-      netIncomeGrowth: padSeries(s.netIncomeGrowth, 4),
-      fcfGrowth: padSeries(s.fcfGrowth, 4),
-      netCash: padSeries(s.netCash, 4),
-      sharesOutstanding: padSeries(s.sharesOutstanding, 4),
-      forwardRevenueGrowth: null,
-      sources: { historical: hasHistorical ? "sec_companyfacts" : null, forward: null },
-    };
+    const sec = opts.secBundle !== undefined ? opts.secBundle : await loadTickerSecBundle(ticker);
+    if (sec) {
+      const s = fundamentalsSeriesFromCompanyFacts(sec.facts, { periods: 4 });
+      const hasHistorical = s.periodLabels.length > 0 && s.revenueGrowth.some((v) => v != null);
+      series = {
+        periodLabels: s.periodLabels,
+        revenueGrowth: padSeries(s.revenueGrowth, 4),
+        grossMargin: padSeries(s.grossMargin, 4),
+        netMargin: padSeries(s.netMargin, 4),
+        fcfMargin: padSeries(s.fcfMargin, 4),
+        netIncomeGrowth: padSeries(s.netIncomeGrowth, 4),
+        fcfGrowth: padSeries(s.fcfGrowth, 4),
+        netCash: padSeries(s.netCash, 4),
+        sharesOutstanding: padSeries(s.sharesOutstanding, 4),
+        forwardRevenueGrowth: null,
+        sources: { historical: hasHistorical ? "sec_companyfacts" : null, forward: null },
+      };
+    }
   } catch {
     // best-effort — forward guidance may still apply
   }

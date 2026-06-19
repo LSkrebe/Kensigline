@@ -3,6 +3,7 @@ import type { ResearchDocExtractV2 } from "./extract.js";
 import { formatUsdCompact } from "../shared/money.js";
 import { scoreResearchDocument } from "../core/idea-score.js";
 import { isoTimestampFromDb } from "../shared/db-time.js";
+import { invalidateTickerContextCache } from "../core/ticker-context-cache.js";
 
 const GOV_LINK_THRESHOLD = () => Number(process.env.GOV_CONTRACT_LINK_THRESHOLD ?? 0.72);
 
@@ -97,6 +98,7 @@ export async function syncInsiderTransactionsFromDocument(documentId: string, ti
       [documentId, t, role, name, code, Number.isFinite(amt as number) ? amt : null, at],
     );
   }
+  void invalidateTickerContextCache(t);
 }
 
 export async function syncPoliticianTransactionsFromDocument(documentId: string, ticker: string, data: any) {
@@ -127,6 +129,7 @@ export async function syncPoliticianTransactionsFromDocument(documentId: string,
       [documentId, t, name, chamber, txnType, Number.isFinite(amt as number) ? amt : null, at],
     );
   }
+  void invalidateTickerContextCache(t);
 }
 
 export async function syncInstitutionFilingsFromDocument(documentId: string, ticker: string, data: any) {
@@ -156,6 +159,7 @@ export async function syncInstitutionFilingsFromDocument(documentId: string, tic
       [documentId, t, filer, activity, Number.isFinite(amt as number) ? amt : null, at],
     );
   }
+  void invalidateTickerContextCache(t);
 }
 
 export type PaperDocumentRow = {

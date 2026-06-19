@@ -1,6 +1,6 @@
 import { reportingOwnersFromOwnershipXml } from "../../core/form-ownership.js";
 import { fundamentalsSeriesFromCompanyFacts } from "../../core/fundamentals.js";
-import { fetchForm4Text, fetchSecJson, resolveCikForTicker } from "../../core/sec.js";
+import { fetchForm4Text, loadTickerSecBundle, type TickerSecBundle } from "../../core/sec.js";
 import {
   loadInsiderOwnershipFilingsForTicker,
   loadInstitutionShareSnapshotsForTicker,
@@ -145,7 +145,10 @@ async function aggregateInsiderPctByQuarter(
 }
 
 /** Research CONTEXT panel ownership — 13F institutions + Form 3/5 insiders. */
-export async function getMarketOwnershipForTicker(opts: { ticker: string }): Promise<MarketOwnership> {
+export async function getMarketOwnershipForTicker(opts: {
+  ticker: string;
+  secBundle?: TickerSecBundle | null;
+}): Promise<MarketOwnership> {
   const ticker = String(opts.ticker ?? "").trim().toUpperCase();
   if (!ticker) return { ...EMPTY };
 
@@ -153,9 +156,8 @@ export async function getMarketOwnershipForTicker(opts: { ticker: string }): Pro
 
   let floatByQuarter: (number | null)[] = quarters.map(() => null);
   try {
-    const { cik } = await resolveCikForTicker(ticker);
-    const facts = await fetchSecJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`);
-    floatByQuarter = quarterlySharesOutstanding(facts, quarters);
+    const sec = opts.secBundle !== undefined ? opts.secBundle : await loadTickerSecBundle(ticker);
+    if (sec) floatByQuarter = quarterlySharesOutstanding(sec.facts, quarters);
   } catch {
     // institutions may still compute if shares exist on snapshots only
   }
