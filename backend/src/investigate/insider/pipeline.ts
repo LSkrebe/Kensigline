@@ -17,6 +17,11 @@ import {
   type FormXmlOwner,
   type FormXmlTransaction,
 } from "./xml-extract.js";
+import {
+  assessInsiderParseConfidence,
+  buildInsiderNarrativeDeterministic,
+  type InsiderClusterOut,
+} from "./narrative.js";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }
@@ -131,7 +136,7 @@ function enrichInsiderWorksheetRows(
   });
 }
 
-type InsiderClusterOut = {
+type InsiderClusterOutLegacy = {
   schema_type: "insider_cluster";
   schema_version: "v1";
   issuer: { name: string | null; ticker: string | null; cik: string | null };
@@ -216,12 +221,12 @@ function buildInsiderNarrativePrompt(args: {
 function mergeInsiderNarrative(
   llmOut: any,
   base: {
-    issuer: InsiderClusterOut["issuer"];
-    filing: InsiderClusterOut["filing"];
+    issuer: InsiderClusterOutLegacy["issuer"];
+    filing: InsiderClusterOutLegacy["filing"];
     worksheet_rows: InsiderWorksheetRow[];
     defaultFeedLabel: string;
   },
-): InsiderClusterOut {
+): InsiderClusterOutLegacy {
   const bounds = clusterBoundsFromRows(base.worksheet_rows);
   const ctx = Array.isArray(llmOut?.cluster?.context_sentences)
     ? llmOut.cluster.context_sentences.map((s: unknown) => String(s)).filter(Boolean).slice(0, 4)
@@ -309,29 +314,8 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
     }
 
     const xmlFragments = extractFormXmlTransactionFragments(xml);
-    const messages = buildInsiderNarrativePrompt({
-      formType: formSourceKey,
-      issuerName,
-      issuerTicker,
-      issuerCik,
-      owners,
-      transactions: allTxns,
-      xmlFragments,
-      focusPOnly: requirePOnly,
-    });
 
-  const { content, model } = await llmChat(messages, {
-    temperature: 0,
-    max_tokens: 1200,
-    log_context: "insider/narrative",
-  });
-    const llmOut = extractJsonObject(content);
-
-    let worksheetRows = enrichInsiderWorksheetRows(
-      llmOut?.cluster?.worksheet_rows ?? [],
-      allTxns,
-      primaryOwner,
-    );
+    let worksheetRows = enrichInsiderWorksheetRows([], allTxns, primaryOwner);
 
     if (!worksheetRows.length) {
       const filed = formatIso(filedAt) ?? new Date().toISOString();
@@ -350,24 +334,93 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
       ];
     }
 
-    const pSum = allTxns
-      .filter((t) => t.transaction_code === "P")
-      .reduce((a, t) => a + (t.amount_usd ?? 0), 0);
-    const defaultFeedLabel =
-      requirePOnly && pSum > 0
-        ? `Net buying ~$${Math.round(pSum).toLocaleString("en-US")} (P purchases)`
-        : `${formSourceKey} filing`;
-
-    const out = mergeInsiderNarrative(llmOut, {
-      issuer: { name: issuerName, ticker: issuerTicker, cik: issuerCik },
-      filing: {
-        form_type: formSourceKey,
-        accession_no: accessionNo,
-        filed_at: formatIso(filedAt),
-      },
-      worksheet_rows: worksheetRows,
-      defaultFeedLabel,
+    const parseConfidence = assessInsiderParseConfidence({
+      issuerTicker: issuerTicker,
+      owners,
+      transactions: allTxns,
+      formSourceKey,
+      requirePOnly,
     });
+
+    let out: InsiderClusterOut;
+    if (parseConfidence.confident) {
+      console.info(
+        "[llm-skip]",
+        JSON.stringify({ context: "insider/narrative", path: "deterministic", reasons: parseConfidence.reasons }),
+      );
+      out = buildInsiderNarrativeDeterministic({
+        formSourceKey,
+        issuerName,
+        issuerTicker,
+        issuerCik,
+        accessionNo,
+        filedAt: formatIso(filedAt),
+        owner: primaryOwner,
+        transactions: allTxns,
+        worksheetRows,
+        requirePOnly,
+      });
+    } else {
+      const messages = buildInsiderNarrativePrompt({
+        formType: formSourceKey,
+        issuerName,
+        issuerTicker,
+        issuerCik,
+        owners,
+        transactions: allTxns,
+        xmlFragments,
+        focusPOnly: requirePOnly,
+      });
+
+      const { content } = await llmChat(messages, {
+        temperature: 0,
+        max_tokens: 900,
+        log_context: "insider/narrative",
+      });
+      const llmOut = extractJsonObject(content);
+
+      worksheetRows = enrichInsiderWorksheetRows(
+        llmOut?.cluster?.worksheet_rows ?? [],
+        allTxns,
+        primaryOwner,
+      );
+
+      if (!worksheetRows.length) {
+        const filed = formatIso(filedAt) ?? new Date().toISOString();
+        worksheetRows = [
+          {
+            key: primaryOwner.name ? `${primaryOwner.role} ${primaryOwner.name}` : "Reporting owner",
+            insider_name: primaryOwner.name,
+            surname: ownerSurname(primaryOwner.name),
+            role: primaryOwner.role,
+            transaction_code: formSourceKey === "Form 3" ? "A" : "H",
+            acquired_disposed: "A",
+            amount_usd: null,
+            shares: null,
+            ts: filed,
+          },
+        ];
+      }
+
+      const pSum = allTxns
+        .filter((t) => t.transaction_code === "P")
+        .reduce((a, t) => a + (t.amount_usd ?? 0), 0);
+      const defaultFeedLabel =
+        requirePOnly && pSum > 0
+          ? `Net buying ~$${Math.round(pSum).toLocaleString("en-US")} (P purchases)`
+          : `${formSourceKey} filing`;
+
+      out = mergeInsiderNarrative(llmOut, {
+        issuer: { name: issuerName, ticker: issuerTicker, cik: issuerCik },
+        filing: {
+          form_type: formSourceKey,
+          accession_no: accessionNo,
+          filed_at: formatIso(filedAt),
+        },
+        worksheet_rows: worksheetRows,
+        defaultFeedLabel,
+      });
+    }
 
     if (requirePOnly && !out.cluster.worksheet_rows.length) {
       await db.query(

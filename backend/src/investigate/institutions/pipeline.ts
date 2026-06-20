@@ -2,6 +2,8 @@ import { sha256NormalizedText } from "../../core/text-hash.js";
 import { db } from "../../core/db.js";
 import { llmChat } from "../../core/llm.js";
 import { compactSecTextForLlm } from "../../core/sec-llm-text.js";
+import { LLM_BUDGETS } from "../../core/llm-budgets.js";
+import { prepareLlmText } from "../../core/llm-text-prep.js";
 import { fetch13fFilingBundle } from "../../core/sec.js";
 import { syncInstitutionFilingsFromDocument } from "../../documents/store.js";
 import {
@@ -69,7 +71,13 @@ function isInstitutionSchema(out: any): out is {
 }
 
 function buildInstitutionExtractionPrompt(args: { filingText: string; indexUrl: string }) {
-  const filingBody = compactSecTextForLlm(args.filingText, 180_000);
+  const prep = prepareLlmText({
+    text: args.filingText,
+    context: "institutions/13f-full",
+    maxChars: LLM_BUDGETS.institution13fFull(),
+    compact: compactSecTextForLlm,
+  });
+  const filingBody = prep.text;
   return [
     {
       role: "system" as const,
@@ -177,13 +185,19 @@ async function extractInstitutionFiling(args: {
     const { content, model } = await llmChat(
       buildInstitutionEnrichPrompt({
         indexUrl: args.indexUrl,
-        coverExcerpt: args.bundleText.slice(0, 12_000),
-        holdings: parsedHoldings,
+        coverExcerpt: prepareLlmText({
+          text: args.bundleText,
+          context: "institutions/13f-cover",
+          maxChars: LLM_BUDGETS.institution13fCover(),
+          compact: (t, max) => t.slice(0, max),
+          stripBoilerplate: true,
+        }).text,
+        holdings: parsedHoldings.slice(0, 200),
         meta,
       }),
       {
         temperature: 0,
-        max_tokens: 2800,
+        max_tokens: 2200,
         response_format: "json_object",
         log_context: "institutions/13f-enrich",
       },
@@ -240,7 +254,7 @@ async function extractInstitutionFiling(args: {
 
   const { content, model } = await llmChat(buildInstitutionExtractionPrompt({ filingText: args.bundleText, indexUrl: args.indexUrl }), {
     temperature: 0,
-    max_tokens: 2800,
+    max_tokens: 2200,
     response_format: "json_object",
     log_context: "institutions/13f",
   });

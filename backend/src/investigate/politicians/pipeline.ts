@@ -10,6 +10,8 @@ import { syncPoliticianTransactionsFromDocument } from "../../documents/store.js
 import { createHash } from "node:crypto";
 import { extractPdfTextWithFallback } from "../../core/pdf.js";
 import { compactPtrPdfTextForLlm } from "../../core/http-llm-text.js";
+import { LLM_BUDGETS } from "../../core/llm-budgets.js";
+import { prepareLlmText } from "../../core/llm-text-prep.js";
 import { createRequire } from "node:module";
 import {
   MIN_HOUSE_PTR_CONFIDENT_ROWS,
@@ -113,7 +115,12 @@ function isPoliticianSchema(out: any, source: PoliticianPtrSource): out is {
 
 function buildHouseExtractionPrompt(args: { pdfText: string; pdfUrl: string; filingId: string | null }) {
   const { pdfText, pdfUrl, filingId } = args;
-  const body = compactPtrPdfTextForLlm(pdfText, 180_000);
+  const body = prepareLlmText({
+    text: pdfText,
+    context: "politicians/house-ptr",
+    maxChars: LLM_BUDGETS.housePtr(),
+    compact: compactPtrPdfTextForLlm,
+  }).text;
   return [
     {
       role: "system" as const,

@@ -1,4 +1,5 @@
 import { llmChat } from "../core/llm.js";
+import { LLM_BUDGETS } from "../core/llm-budgets.js";
 import {
   normalizeSourceKey,
   SOURCE_KEYS,
@@ -23,7 +24,7 @@ export type ResearchDocExtractV2 = {
 /** @deprecated Use ResearchDocExtractV2 */
 export type ResearchDocExtractV1 = ResearchDocExtractV2;
 
-const RESEARCH_LLM_MAX_CHARS = 100_000;
+const RESEARCH_LLM_MAX_CHARS = LLM_BUDGETS.researchExtractCap();
 
 const RESEARCH_EXTRACT_SCHEMA = {
   schema_type: "research_doc_v2",

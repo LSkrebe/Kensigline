@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import { compactPharmaTextForLlm } from "../../core/sec-llm-text.js";
+import { LLM_BUDGETS } from "../../core/llm-budgets.js";
+import { prepareLlmText } from "../../core/llm-text-prep.js";
 import { sha256NormalizedText } from "../../core/text-hash.js";
 import { db } from "../../core/db.js";
 import { llmChat } from "../../core/llm.js";
@@ -125,7 +127,12 @@ function buildPharmaExtractionPrompt(args: { ticker: string; companyName?: strin
         JSON.stringify({ ticker, company_name: companyName ?? null }),
         "",
         "FILING TEXT:",
-        compactPharmaTextForLlm(filingText, 120_000),
+        prepareLlmText({
+          text: filingText,
+          context: "pharma/extract",
+          maxChars: LLM_BUDGETS.pharmaFiling(),
+          compact: compactPharmaTextForLlm,
+        }).text,
       ].join("\n"),
     },
   ];
