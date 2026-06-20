@@ -3,6 +3,8 @@
  * so no exhibit / item content is dropped when section parsing finds little signal.
  */
 
+import { stripBoilerplateForLlm } from "./boilerplate-strip.js";
+
 const SEC_ITEM_HEADINGS = [
   "1.01",
   "1.02",
@@ -28,7 +30,7 @@ const SEC_ITEM_HEADINGS = [
 
 /** Pull 8-K / 10-K style ITEM blocks and exhibit headers with local body text. */
 export function extractRelevantSecSections(fullText: string, maxChars: number): string {
-  const text = String(fullText ?? "");
+  const text = stripBoilerplateForLlm(String(fullText ?? ""));
   if (!text) return "";
 
   const lower = text.toLowerCase();
@@ -77,8 +79,9 @@ export function extractRelevantSecSections(fullText: string, maxChars: number): 
 
 /** Prefer extracted sections; fall back to the legacy full slice when extraction is thin. */
 export function compactSecTextForLlm(fullText: string, maxChars: number): string {
-  const extracted = extractRelevantSecSections(fullText, maxChars);
-  const legacy = String(fullText ?? "").slice(0, maxChars);
+  const stripped = stripBoilerplateForLlm(fullText);
+  const extracted = extractRelevantSecSections(stripped, maxChars);
+  const legacy = stripped.slice(0, maxChars);
   if (extracted.length >= Math.min(2_000, Math.floor(legacy.length * 0.15))) {
     return extracted;
   }
@@ -124,7 +127,7 @@ const PHARMA_ITEM_MARKERS = ["item 1.", "item 1a.", "item 7.", "item 8."] as con
 
 /** Keyword windows around clinical / regulatory passages; falls back to compactSecTextForLlm. */
 export function compactPharmaTextForLlm(fullText: string, maxChars: number): string {
-  const text = String(fullText ?? "");
+  const text = stripBoilerplateForLlm(String(fullText ?? ""));
   if (!text) return "";
 
   const lower = text.toLowerCase();

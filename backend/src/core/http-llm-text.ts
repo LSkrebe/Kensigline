@@ -3,6 +3,8 @@
  * when extraction finds too little signal (same safety model as sec-llm-text).
  */
 
+import { stripBoilerplateForLlm } from "./boilerplate-strip.js";
+
 const PRESS_SIGNAL =
   /\b(announc|report|revenue|earnings|guidance|merger|acquisition|partnership|collaboration|contract|fda|clinical|financ|profit|loss|dividend|buyback|offering)\b/i;
 
@@ -42,7 +44,7 @@ function dedupeParts(parts: string[]): string[] {
 }
 
 export function extractPressArticleSections(fullText: string, maxChars: number): string {
-  const text = String(fullText ?? "");
+  const text = stripBoilerplateForLlm(String(fullText ?? ""));
   if (!text) return "";
 
   const paras = paragraphs(text);
@@ -57,18 +59,19 @@ export function extractPressArticleSections(fullText: string, maxChars: number):
 }
 
 export function extractTranscriptSections(fullText: string, maxChars: number): string {
-  const text = String(fullText ?? "");
+  const text = stripBoilerplateForLlm(String(fullText ?? ""));
   if (!text) return "";
 
   const paras = paragraphs(text);
   const signalParas = paras.filter((p) => TRANSCRIPT_SIGNAL.test(p) || /\b(Q&A|CEO|CFO)\b/i.test(p));
-  const windows = windowAroundMatches(text, TRANSCRIPT_SIGNAL, 1_200, 20);
+  const windows = windowAroundMatches(text, TRANSCRIPT_SIGNAL, 1_000, 14);
   const qnaStart = text.search(/question[\s-]*and[\s-]*answer|q\s*&\s*a/i);
-  const qnaBlock = qnaStart >= 0 ? text.slice(qnaStart, Math.min(text.length, qnaStart + 45_000)) : "";
+  const qnaBlock =
+    qnaStart >= 0 ? text.slice(qnaStart, Math.min(text.length, qnaStart + 12_000)) : "";
 
   const parts = dedupeParts([
-    ...paras.slice(0, 2),
-    ...signalParas,
+    ...paras.slice(0, 3),
+    ...signalParas.slice(0, 12),
     ...windows,
     ...(qnaBlock ? [qnaBlock] : []),
   ]);
@@ -78,14 +81,14 @@ export function extractTranscriptSections(fullText: string, maxChars: number): s
 }
 
 export function extractGovContractSections(fullText: string, maxChars: number): string {
-  const text = String(fullText ?? "");
+  const text = stripBoilerplateForLlm(String(fullText ?? ""));
   if (!text) return "";
 
   const signal =
-    /\b(contract|award|sam\.gov|federal|agency|obligat|recipient|naics|period of performance|ceiling|obligated)\b/i;
+    /\b(contract|award|sam\.gov|federal|agency|obligat|recipient|naics|period of performance|ceiling|obligated|piid)\b/i;
   const paras = paragraphs(text).filter((p) => signal.test(p));
-  const windows = windowAroundMatches(text, signal, 800, 18);
-  const parts = dedupeParts([...paras.slice(0, 4), ...paras, ...windows]);
+  const windows = windowAroundMatches(text, signal, 600, 12);
+  const parts = dedupeParts([...paras.slice(0, 6), ...windows]);
   const joined = parts.join("\n\n");
   if (joined.length < 800) return text.slice(0, maxChars);
   return joined.slice(0, maxChars);
@@ -94,13 +97,14 @@ export function extractGovContractSections(fullText: string, maxChars: number): 
 export type HttpLlmTextMode = "press" | "transcript" | "gov";
 
 export function compactHttpTextForLlm(fullText: string, mode: HttpLlmTextMode, maxChars: number): string {
-  const legacy = String(fullText ?? "").slice(0, maxChars);
+  const stripped = stripBoilerplateForLlm(fullText);
+  const legacy = stripped.slice(0, maxChars);
   const extracted =
     mode === "transcript"
-      ? extractTranscriptSections(fullText, maxChars)
+      ? extractTranscriptSections(stripped, maxChars)
       : mode === "gov"
-        ? extractGovContractSections(fullText, maxChars)
-        : extractPressArticleSections(fullText, maxChars);
+        ? extractGovContractSections(stripped, maxChars)
+        : extractPressArticleSections(stripped, maxChars);
 
   const minGood = Math.min(2_000, Math.floor(legacy.length * 0.12));
   if (extracted.length >= minGood) return extracted;
