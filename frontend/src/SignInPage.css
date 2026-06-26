@@ -29,7 +29,7 @@
   max-width: 520px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 32px;
   box-sizing: border-box;
   background: var(--sign-in-panel-bg);
@@ -82,8 +82,16 @@
   background-repeat: no-repeat;
 }
 
-.signInPage {
-  padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+.signInFoot {
+  flex: 0 0 auto;
+  padding: 0;
+  text-align: left;
+  border-top: none;
+  background: transparent;
+}
+
+.signInFoot--mobile {
+  display: none;
 }
 
 .signInPage .authSignIn--intro {
@@ -154,6 +162,14 @@
 
   .signInPage {
     padding-bottom: calc(36px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .signInFoot--desktop {
+    display: none;
+  }
+
+  .signInFoot--mobile {
+    display: block;
   }
 
   .signInPanel {

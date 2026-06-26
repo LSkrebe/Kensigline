@@ -50,11 +50,14 @@ export function SignInPage() {
             <p className="signInLead mono dim">{SIGN_IN.lead}</p>
             <AuthSignIn variant="intro" />
           </div>
+          <footer className="signInFoot signInFoot--desktop" role="contentinfo">
+            <span className="introFootNfa mono dim">{INTRO_FOOTER.nfa}</span>
+          </footer>
         </section>
         <div className="signInAside" aria-hidden="true" />
       </main>
 
-      <footer className="introFoot introFoot--bar" role="contentinfo">
+      <footer className="introFoot introFoot--bar signInFoot--mobile" role="contentinfo">
         <div className="introFootInner introFootInner--marketing">
           <div className="introFootMeta">
             <span className="introFootNfa mono dim">{INTRO_FOOTER.nfa}</span>
