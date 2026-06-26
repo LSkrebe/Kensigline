@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { AuthSignIn } from './AuthSignIn.jsx'
-import { SIGN_IN, SIGN_IN_PAGE_META } from './marketingContent.js'
+import { INTRO_FOOTER, SIGN_IN, SIGN_IN_PAGE_META } from './marketingContent.js'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import './IntroPage.css'
@@ -50,12 +50,17 @@ export function SignInPage() {
             <p className="signInLead mono dim">{SIGN_IN.lead}</p>
             <AuthSignIn variant="intro" />
           </div>
-          <footer className="signInFoot" role="contentinfo">
-            <span className="introFootNfa mono dim">Not investment advice</span>
-          </footer>
         </section>
         <div className="signInAside" aria-hidden="true" />
       </main>
+
+      <footer className="introFoot introFoot--bar" role="contentinfo">
+        <div className="introFootInner introFootInner--marketing">
+          <div className="introFootMeta">
+            <span className="introFootNfa mono dim">{INTRO_FOOTER.nfa}</span>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

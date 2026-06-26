@@ -1331,10 +1331,11 @@
   .mktProofGrid,
   .mktWorkflowSteps {
     grid-template-columns: 1fr;
+    gap: 20px;
   }
 
-  .mktWorkflowStepLine {
-    display: none;
+  .mktWorkflowStep {
+    min-height: auto;
   }
 }
 
@@ -1364,7 +1365,7 @@
   }
 
   .mktHero {
-    padding: 28px 0 20px;
+    padding: 28px 0 28px;
   }
 
   .mktHeroTitle {
@@ -1518,17 +1519,49 @@
   }
 
   .introSection {
-    padding-top: 52px;
-    padding-bottom: 20px;
+    padding-top: 64px;
+    padding-bottom: 28px;
     scroll-margin-top: 64px;
   }
 
-  .mktWorkflowSection {
-    padding-top: 40px;
+  .introSection + .introSection {
+    margin-top: 12px;
+  }
+
+  .mktWorkflowHead {
+    margin-bottom: 28px;
+  }
+
+  .mktWorkflowSteps {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
   }
 
   .mktWorkflowStep {
-    padding: 16px;
+    padding: 18px 16px;
+    min-height: auto;
+    border-radius: 3px;
+  }
+
+  .mktWorkflowStepRail {
+    width: 100%;
+  }
+
+  .mktProofGrid {
+    gap: 18px;
+  }
+
+  .mktProofCard {
+    border-radius: 3px;
+  }
+
+  .mktFaqList {
+    gap: 14px;
+  }
+
+  .mktPricingLayout {
+    gap: 28px;
   }
 
   .mktWorkflowStepTitle {
