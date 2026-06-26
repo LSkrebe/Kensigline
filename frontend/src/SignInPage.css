@@ -128,7 +128,7 @@
   padding-right: 0;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .signInPage {
     height: auto;
     max-height: none;

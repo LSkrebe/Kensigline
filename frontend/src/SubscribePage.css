@@ -71,7 +71,7 @@
   padding-bottom: clamp(24px, 4vh, 40px);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .subscribeNavEmail {
     display: none;
   }

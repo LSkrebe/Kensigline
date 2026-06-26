@@ -1,5 +1,7 @@
 /* Mercerline marketing page */
 
+/* Desktop layout is default. At ≤900px we switch to the full mobile shell (no in-between breakpoints). */
+
 .introPage {
   --intro-demo-max: min(1180px, 100vw - 2 * var(--intro-gutter));
 }
@@ -927,21 +929,6 @@
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 4px);
 }
 
-@media (max-width: 720px) {
-  .mktTeaserGrid {
-    grid-template-columns: minmax(56px, 0.9fr) minmax(0, 1.4fr);
-  }
-
-  .mktTeaserPanel--context {
-    display: none;
-  }
-
-  .mktTeaserIntelBtn {
-    font-size: 7px;
-    letter-spacing: 0.1em;
-  }
-}
-
 /* How it works */
 .mktWorkflowSection {
   padding-top: clamp(64px, 10vh, 96px);
@@ -963,6 +950,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(12px, 2vw, 20px);
+  align-items: stretch;
 }
 
 .mktWorkflowStep {
@@ -975,7 +963,8 @@
   backdrop-filter: blur(10px) saturate(115%);
   -webkit-backdrop-filter: blur(10px) saturate(115%);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
-  min-height: 100%;
+  min-height: 0;
+  align-self: stretch;
 }
 
 .mktWorkflowStepRail {
@@ -1022,6 +1011,7 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+  align-items: stretch;
   margin: 24px 0 0;
   padding: 0;
   list-style: none;
@@ -1034,6 +1024,8 @@
   backdrop-filter: blur(10px) saturate(115%);
   -webkit-backdrop-filter: blur(10px) saturate(115%);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  min-height: 0;
+  align-self: stretch;
 }
 
 .mktProofStat {
@@ -1125,6 +1117,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .mktPlanCard--featured {
@@ -1191,7 +1185,28 @@
   margin-top: auto;
 }
 
-@media (min-width: 961px) {
+@media (min-width: 901px) {
+  .mktWorkflowSteps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .mktWorkflowStep {
+    display: flex;
+    min-height: 0;
+    align-self: stretch;
+  }
+
+  .mktProofGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .mktProofCard {
+    align-self: stretch;
+  }
+
   .mktPricingLayout {
     align-items: stretch;
   }
@@ -1311,23 +1326,47 @@
   height: 36px;
 }
 
-@media (max-width: 960px) {
+/* ---- Mobile shell (≤900px) — single switch, no intermediate layouts ---- */
+@media (max-width: 900px) {
+  .introPage--marketingChrome .introNavLinks {
+    display: none;
+  }
+
   .mktPricingLayout {
     grid-template-columns: 1fr;
     gap: clamp(24px, 4vh, 32px);
+    min-width: 0;
+    max-width: 100%;
   }
 
   .mktPlanGrid,
   .mktPlanGrid--full {
-    grid-template-columns: 1fr;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 20px;
-    max-width: 520px;
-    margin-inline: auto;
+    max-width: 100%;
+    margin-inline: 0;
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
-}
 
-@media (max-width: 768px) {
+  .mktPlanCard {
+    width: auto;
+    max-width: 100%;
+    flex: none;
+  }
+
+  .mktPlanBtn {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  .mktPricingFoot {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
   .mktProofGrid,
   .mktWorkflowSteps {
     grid-template-columns: 1fr;
@@ -1337,15 +1376,13 @@
   .mktWorkflowStep {
     min-height: auto;
   }
-}
 
-/* ---- Phone (≤640px) — intro, subscribe, terminal teaser ---- */
-@media (max-width: 640px) {
-  .introPage {
+  .introPage--marketingChrome {
     --intro-gutter: 16px;
     --marketing-chrome-x: 16px;
     --intro-demo-max: 100%;
     scroll-padding-top: 64px;
+    background-position: center top, center top, center top, 68% 18%;
   }
 
   .introPage--marketingChrome .introNavInner {
@@ -1383,13 +1420,15 @@
     flex-direction: column;
     align-items: stretch;
     width: 100%;
-    max-width: 300px;
-    margin-inline: auto;
+    max-width: 100%;
+    margin-inline: 0;
     gap: 10px;
+    box-sizing: border-box;
   }
 
   .introHeroActions.mktHeroActions .introBtn {
     width: 100%;
+    box-sizing: border-box;
   }
 
   .introBtn--lg {
