@@ -145,7 +145,7 @@ export function renderDigestText(sections: DigestSection[]): string {
     lines.push(sec.title.toUpperCase());
     if (sec.subtitle) lines.push(sec.subtitle);
     for (const it of sec.items) {
-      lines.push(`${it.ticker} (${feedLabel(it.feed)}, ${it.idea_score}) — ${it.summary}`);
+      lines.push(`${it.ticker} (${feedLabel(it.feed)}, ${it.idea_score}) - ${it.summary}`);
       if (it.url) lines.push(it.url);
       lines.push("");
     }

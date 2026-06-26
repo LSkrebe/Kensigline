@@ -90,7 +90,7 @@ async function runTickerAlertsTick(): Promise<void> {
     const first = items[0];
     const subject =
       items.length === 1 && first
-        ? `Mercerline · ${first.ticker} — new context`
+        ? `Mercerline · ${first.ticker} - new context`
         : `Mercerline · ${items.length} ticker alerts`;
     const ok = await sendTickerContextEmail({ to: email, subject, items });
     if (!ok) continue;

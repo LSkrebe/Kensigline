@@ -4,9 +4,11 @@ import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { useAlertWatchlist } from './alertsWatchlist.js'
 import { IntroPage } from './IntroPage.jsx'
+import { SignInPage } from './SignInPage.jsx'
 import { SubscribePage } from './SubscribePage.jsx'
 import { SettingsPanel } from './SettingsPanel.jsx'
 import { useSubscription } from './useSubscription.js'
+import { useMarketingPath } from './marketingRoute.js'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
 import { prefetchDiscoverTimeline } from './discoverClient.js'
 import { EventBriefDocCard } from './EventBrief.jsx'
@@ -3355,10 +3357,10 @@ function appendCaseTxnTimeline(out, trades, sepMode = 'today+years', opts = {}) 
 
 const PTR_TXN_CODES_CYCLE = ['P', 'S', 'E']
 const PTR_AMOUNT_RANGES_MOCK = [
-  '$1,001 – $15,000',
-  '$15,001 – $50,000',
-  '$50,001 – $100,000',
-  '$100,001 – $250,000',
+  '$1,001 - $15,000',
+  '$15,001 - $50,000',
+  '$50,001 - $100,000',
+  '$100,001 - $250,000',
 ]
 
 function politicianTxnCodeFromRaw(raw) {
@@ -4350,7 +4352,7 @@ function ContextAlertToggle({ ticker, className = '' }) {
         !signedIn
           ? 'Sign in to enable ticker email alerts'
           : limitBlocked
-            ? `Watchlist full — ${maxTickers} tickers maximum`
+            ? `Watchlist full - ${maxTickers} tickers maximum`
             : active
               ? `Email alerts on for ${sym}`
               : `Enable email alerts for ${sym}`
@@ -4361,7 +4363,7 @@ function ContextAlertToggle({ ticker, className = '' }) {
           : limitBlocked
             ? `Watchlist full (${tickers.length}/${maxTickers}). Remove a ticker in Settings.`
             : active
-              ? 'Alerts on — email when new documents arrive'
+              ? 'Alerts on - email when new documents arrive'
               : 'Alert me when new documents arrive'
       }
       disabled={disabled}
@@ -5947,7 +5949,7 @@ function buildThesisMemo({ ticker, companyName, events, priceSeries, constituent
     : `${name} is entering a new positioning regime where the timing signal is getting louder than the narrative. The market is still pricing it as “normal drift,” but the evidence trail looks like pre-catalyst behavior: a dated regulatory window, reinforcement from smart-activity proxies, and language that suggests the next update will change probability, not just timing.`
 
   const openingB = isEtfTicker(t)
-    ? `This matters because dispersion is what drives ETF repricing: the highest-beta names move first, the basket follows, and the lag creates a window where vol is bid but spot is not. If you’re early, you get paid twice—first when the market admits the window exists, then when confirmation forces flows.`
+    ? `This matters because dispersion is what drives ETF repricing: the highest-beta names move first, the basket follows, and the lag creates a window where vol is bid but spot is not. If you're early, you get paid twice-first when the market admits the window exists, then when confirmation forces flows.`
     : `This matters because once the next “known date” is clear, liquidity shifts from patient holders to fast money and the repricing happens in days, not quarters. If you wait for the formal update, you typically pay for the same probability shift that is already being hinted at in behavior and process signals.`
 
   const priceRef = `Price is still behaving like ${chartX}; that mismatch is the setup, not the conclusion.`
@@ -5955,10 +5957,10 @@ function buildThesisMemo({ ticker, companyName, events, priceSeries, constituent
   const core = (() => {
     const dHi = hi?.date ? fmtDay(hi.date) : '—'
     const dTop = top?.date ? fmtDay(top.date) : '—'
-    const evA = hi?.title ? `The trigger is already dated: ${dHi} — “${hi.title},”` : 'The trigger is already dated,'
-    const evB = top?.title && top?.id !== hi?.id ? ` reinforced by ${dTop} — “${top.title}.”` : '.'
+    const evA = hi?.title ? `The trigger is already dated: ${dHi} - "${hi.title},"` : 'The trigger is already dated,'
+    const evB = top?.title && top?.id !== hi?.id ? ` reinforced by ${dTop} - "${top.title}."` : '.'
     const mech = isEtfTicker(t)
-      ? ` What makes this actionable now is that the “soft” signals are not soft anymore: ${rvPhrase} On the fundamental side, you can point to concrete behavior—${cPhrase} are the kind of names that lead early when windows tighten, and we already have process-like signals showing up as ${bits.hiring} plus ${bits.funding} rather than post-hoc narratives.`
+      ? ` What makes this actionable now is that the "soft" signals are not soft anymore: ${rvPhrase} On the fundamental side, you can point to concrete behavior-${cPhrase} are the kind of names that lead early when windows tighten, and we already have process-like signals showing up as ${bits.hiring} plus ${bits.funding} rather than post-hoc narratives.`
       : ` What makes this actionable now is that the signals have become concrete: ${rvPhrase} When you see ${bits.hiring} alongside ${bits.partnership} and a ${bits.funding}, it implies internal confidence that the next milestone unlocks a commercial step-change, not just another data point.`
     const chain = isEtfTicker(t)
       ? ` The second-order edge is dispersion: leaders gap first, laggards follow, and the ETF reprices last. If you want the tradeable asymmetry, you’re not “long biotech,” you’re long the window: signal leakage tightens timing → vol bid rises → leaders gap → flows chase → ETF reprices.`
@@ -5969,7 +5971,7 @@ function buildThesisMemo({ ticker, companyName, events, priceSeries, constituent
   const causalChain = `Process signal → positioning shifts → dated catalyst → confirmation headline → flows re-rate → repricing`
 
   const final = isEtfTicker(t)
-    ? `Best expression is to be long the window, not the story: long ${t} vol into the next 4–8 weeks while selectively leaning into leaders (${cPhrase}) versus the basket if dispersion picks up. Confirmation is concrete: scheduling language tightens again, realized vol stays elevated while spot lags, and the first gaps appear in the high-beta names before the ETF follows. Invalidation is also concrete: the window pushes out, vol mean-reverts, and moves revert to pure beta with no micro-driven gaps.`
+    ? `Best expression is to be long the window, not the story: long ${t} vol into the next 4-8 weeks while selectively leaning into leaders (${cPhrase}) versus the basket if dispersion picks up. Confirmation is concrete: scheduling language tightens again, realized vol stays elevated while spot lags, and the first gaps appear in the high-beta names before the ETF follows. Invalidation is also concrete: the window pushes out, vol mean-reverts, and moves revert to pure beta with no micro-driven gaps.`
     : `Next, watch for concrete confirmation that the market’s probability is too low: earnings language that moves from “monitoring” to “preparing,” a partnership/contract that pulls timelines forward, or disclosure that clarifies endpoints and dates. The thesis is confirmed when guidance language or counterparties shift in a way that forces revenue expectations higher; it fails if the next dated update is delayed or softened and behavior signals unwind without replacement.`
 
   const created = todayDateStamp()
@@ -6554,10 +6556,10 @@ function mockAsmlPresentation() {
     diagram: undefined,
     documents: MOCK_PAPER_DOCUMENTS_ASML,
     sources: [
-      { label: 'ASML — Investor relations', url: 'https://www.asml.com/en/investors' },
-      { label: 'SAM.gov — contract awards (mock)', url: 'https://sam.gov/' },
+      { label: 'ASML - Investor relations', url: 'https://www.asml.com/en/investors' },
+      { label: 'SAM.gov - contract awards (mock)', url: 'https://sam.gov/' },
       { label: 'SEC EDGAR search', url: 'https://www.sec.gov/edgar/search/' },
-      { label: 'EU regulation — company filings (mock)', url: 'https://www.sec.gov/edgar/search/' },
+      { label: 'EU regulation - company filings (mock)', url: 'https://www.sec.gov/edgar/search/' },
     ],
   }
 }
@@ -6593,8 +6595,8 @@ function mockAtyrPresentation() {
     diagram: undefined,
     documents: MOCK_PAPER_DOCUMENTS_ATYR,
     sources: [
-      { label: 'ClinicalTrials.gov — EFZO-FIT (NCT05415137)', url: 'https://clinicaltrials.gov/study/NCT05415137' },
-      { label: 'ClinicalTrials.gov — EFZO-CONNECT (NCT05892614)', url: 'https://clinicaltrials.gov/study/NCT05892614' },
+      { label: 'ClinicalTrials.gov - EFZO-FIT (NCT05415137)', url: 'https://clinicaltrials.gov/study/NCT05415137' },
+      { label: 'ClinicalTrials.gov - EFZO-CONNECT (NCT05892614)', url: 'https://clinicaltrials.gov/study/NCT05892614' },
       { label: 'SEC EDGAR search', url: 'https://www.sec.gov/edgar/search/' },
     ],
   }
@@ -7766,7 +7768,7 @@ const MOCK_HISTORICAL_INSIDER = {
   conditioningRole: 'CEO | director',
   conditioningPolitician: 'Pelosi | Tuberville',
   conditioningTxn: 'Buy | sell',
-  conditioningSizePct: 'P40–P90',
+  conditioningSizePct: 'P40-P90',
 }
 
 const MOCK_HISTORICAL_TRIALS = {
@@ -8533,7 +8535,7 @@ function GraphPanel({
               </>
             ) : (
               <>
-                L {vals.length ? vals[vals.length - 1] : 0} | R {min}–{max}
+                L {vals.length ? vals[vals.length - 1] : 0} | R {min}-{max}
               </>
             )}
           </div>
@@ -12020,9 +12022,14 @@ const BILLING_GATE_ENABLED = import.meta.env.VITE_BILLING_GATE !== '0'
 function AppGate() {
   const { configured, loading, user } = useAuth()
   const signedIn = Boolean(configured && user)
+  const marketingPath = useMarketingPath()
   const { loading: subLoading, active, refresh } = useSubscription(
     signedIn && BILLING_GATE_ENABLED,
   )
+  const previewSubscribe =
+    import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('preview') === 'subscribe'
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -12053,7 +12060,11 @@ function AppGate() {
   }, [signedIn, refresh])
 
   if (configured && loading) return <AuthBootScreen />
-  if (configured && !user) return <IntroPage />
+  if (previewSubscribe) return <SubscribePage />
+  if (configured && !user) {
+    if (marketingPath === '/sign-in') return <SignInPage />
+    return <IntroPage />
+  }
 
   if (BILLING_GATE_ENABLED && signedIn) {
     if (subLoading) return <AuthBootScreen />

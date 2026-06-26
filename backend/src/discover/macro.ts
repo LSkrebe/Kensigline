@@ -25,11 +25,11 @@ const MACRO_DAY_TEMPLATES: DiscoverMacroEvent[][] = [
   ],
   [
     { id: "wed-us-conf", time: "10:00", title: "US consumer confidence", region: "US", impact: "medium" },
-    { id: "wed-waller", time: "14:00", title: "Fed Governor Waller — remarks", region: "US", impact: "medium" },
+    { id: "wed-waller", time: "14:00", title: "Fed Governor Waller - remarks", region: "US", impact: "medium" },
     { id: "wed-de-ifo", time: "04:00", title: "Germany Ifo business climate", region: "EU", impact: "low" },
   ],
   [
-    { id: "thu-gdp", time: "08:30", title: "GDP — Q1 2nd estimate", region: "US", impact: "high" },
+    { id: "thu-gdp", time: "08:30", title: "GDP - Q1 2nd estimate", region: "US", impact: "high" },
     { id: "thu-fomc-min", time: "14:00", title: "FOMC meeting minutes", region: "US", impact: "high" },
   ],
   [

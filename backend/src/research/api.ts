@@ -101,7 +101,7 @@ function emptyExplorePayload(ticker: string, companyName?: string | null) {
     ticker: t,
     company_name: name,
     presentation: {
-      title: `${t} — ${name}`,
+      title: `${t} - ${name}`,
       subtitle: `${name} · ${t}`,
       blocks: [] as const,
       explainer: [] as const,

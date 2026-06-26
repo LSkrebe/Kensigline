@@ -1,4 +1,9 @@
-/* Subscribe — matches intro marketing (pricing block + foot bar) */
+/* Subscribe — matches intro marketing (pricing block + footer bar) */
+
+.subscribePage {
+  --intro-bg-image: url('/mercerline_background_2.png');
+  background-position: center top, center top, center top, center 38%;
+}
 
 .subscribeMain {
   padding-top: clamp(16px, 3vh, 32px);
@@ -29,7 +34,7 @@
 .mktSubscribeHero {
   max-width: 640px;
   margin: 0 auto clamp(36px, 6vh, 56px);
-  padding: clamp(24px, 5vh, 48px) 0 0;
+  padding: clamp(24px, 5vh, 48px) clamp(12px, 3vw, 0) 0;
   text-align: center;
 }
 
@@ -47,7 +52,7 @@
 }
 
 .subscribePlanCard--selected {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.28);
+  box-shadow: 0 0 0 1px rgba(168, 196, 255, 0.35), 0 0 24px rgba(168, 196, 255, 0.08);
 }
 
 .subscribeCheckoutMsg {
@@ -69,5 +74,9 @@
 @media (max-width: 640px) {
   .subscribeNavEmail {
     display: none;
+  }
+
+  .subscribePage {
+    background-position: center top, center top, center top, 72% 22%;
   }
 }

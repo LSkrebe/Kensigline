@@ -104,8 +104,8 @@ export async function buildResearchPresentation(ticker: string): Promise<Explore
 
   const title =
     recentDocs[0]?.analysis?.trim()
-      ? `${t} — ${trunc(recentDocs[0].analysis, 110)}`
-      : `${t} — document-backed research read`;
+      ? `${t} - ${trunc(recentDocs[0].analysis, 110)}`
+      : `${t} - document-backed research read`;
 
   const subtitle = `${name} · ${t} · ${isoDate(new Date())}`;
 
@@ -114,7 +114,7 @@ export async function buildResearchPresentation(ticker: string): Promise<Explore
   const insiderUsd = insiderAgg?.usd != null ? Number(insiderAgg.usd) : 0;
   const polN = Number(polAgg?.n) || 0;
 
-  const overview = `This page is anchored on ${name} (${t}). It is assembled from parsed filings, press releases, transcripts, registry updates, and flow data stored in this workspace — not from a relationship graph.`;
+  const overview = `This page is anchored on ${name} (${t}). It is assembled from parsed filings, press releases, transcripts, registry updates, and flow data stored in this workspace - not from a relationship graph.`;
 
   const signalPara =
     docCount > 0

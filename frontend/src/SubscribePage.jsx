@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { fetchJsonSafe, getBackendBase } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { BILLING_PLANS, formatUsd, MONTHLY_PRICE_USD, YEARLY_SAVE_USD } from './billingPlans.js'
@@ -8,10 +8,16 @@ import {
   PRICING,
   SUBSCRIBE,
   SUBSCRIBE_FAQ,
+  SUBSCRIBE_FOOTER,
+  SUBSCRIBE_PAGE_META,
 } from './marketingContent.js'
+import { navigateMarketing, returnToIntroAfterSignOut } from './marketingRoute.js'
+import { applyPageMeta } from './pageMeta.js'
 import './IntroPage.css'
 import './IntroPage.marketing.css'
 import './SubscribePage.css'
+
+const NAV_OFFSET = 72
 
 export function SubscribePage() {
   const { user, signOut } = useAuth()
@@ -20,7 +26,10 @@ export function SubscribePage() {
   const [checkoutBusy, setCheckoutBusy] = useState(false)
 
   const email = user?.email?.trim() || null
-  const selectedPlan = BILLING_PLANS.find((p) => p.id === selected) ?? BILLING_PLANS[1]
+
+  useEffect(() => {
+    applyPageMeta(SUBSCRIBE_PAGE_META)
+  }, [])
 
   const onCheckout = useCallback(async (planId) => {
     setSelected(planId)
@@ -62,13 +71,35 @@ export function SubscribePage() {
     }
   }, [])
 
-  const footerLabel =
-    selected === 'yearly'
-      ? `Continue · yearly · save ${formatUsd(YEARLY_SAVE_USD)}`
-      : `Continue · ${formatUsd(MONTHLY_PRICE_USD)}/mo`
+  const onSignOut = useCallback(async () => {
+    const { error } = await signOut()
+    if (error) return
+    returnToIntroAfterSignOut()
+  }, [signOut])
+
+  const onFooterLink = useCallback((link, e) => {
+    e.preventDefault()
+    const href = link.href
+    if (href === '/' || href.startsWith('/#')) {
+      navigateMarketing(href)
+      return
+    }
+    if (!href.startsWith('#')) return
+    const scroller = document.querySelector('.subscribePage')
+    const target = document.getElementById(href.slice(1))
+    if (!scroller || !target) return
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const top =
+      target.getBoundingClientRect().top -
+      scroller.getBoundingClientRect().top +
+      scroller.scrollTop -
+      NAV_OFFSET
+    scroller.scrollTo({ top: Math.max(0, top), behavior: reduced ? 'instant' : 'smooth' })
+    if (window.history?.replaceState) window.history.replaceState(null, '', href)
+  }, [])
 
   return (
-    <div className="introPage subscribePage">
+    <div className="introPage subscribePage introPage--marketingChrome">
       <header className="introNav">
         <div className="introNavInner">
           <a className="introBrand" href="/" aria-label="Mercerline home">
@@ -80,9 +111,15 @@ export function SubscribePage() {
               {email}
             </p>
           ) : null}
-          <button type="button" className="introNavCta subscribeNavSignOut" onClick={() => void signOut()}>
-            Sign out
-          </button>
+          {user ? (
+            <button
+              type="button"
+              className="introNavAction introNavCta subscribeNavSignOut"
+              onClick={() => void onSignOut()}
+            >
+              Sign out
+            </button>
+          ) : null}
         </div>
       </header>
 
@@ -98,7 +135,12 @@ export function SubscribePage() {
           <p className="mktHeroReassurance mono dim">{SUBSCRIBE.reassurance}</p>
         </section>
 
-        <IntroReveal as="section" className="introSection mktPricing subscribePricing" eager>
+        <IntroReveal
+          as="section"
+          id="subscribe-pricing"
+          className="introSection mktPricing subscribePricing"
+          eager
+        >
           <div className="mktPricingLayout">
             <div className="mktPricingHead">
               <p className="introSectionKicker mono">{PRICING.kicker}</p>
@@ -135,15 +177,12 @@ export function SubscribePage() {
                       <span className="mono mktPlanInterval">/{plan.intervalLabel}</span>
                     </p>
                     <p className="mktPlanNote mono dim">
-                      {plan.id === 'yearly' ? PRICING.yearlyNote : PRICING.monthlyNote}
+                      {(plan.id === 'yearly' ? PRICING.yearlyNoteLines : PRICING.monthlyNoteLines).map((line) => (
+                        <span key={line} className="mktPlanNoteLine">
+                          {line}
+                        </span>
+                      ))}
                     </p>
-                    {plan.featured ? (
-                      <p className="mktPlanHighlight mono">Recommended for full-time use</p>
-                    ) : (
-                      <p className="mktPlanHighlight mktPlanHighlight--spacer" aria-hidden="true">
-                        &nbsp;
-                      </p>
-                    )}
                     <button
                       type="button"
                       className={`introBtn ${plan.featured ? 'introBtn--primary' : 'introBtn--ghost'} mktPlanBtn`}
@@ -173,31 +212,38 @@ export function SubscribePage() {
           </p>
         </IntroReveal>
 
-        <IntroReveal as="section" className="introSection mktFaq subscribeFaq" delay={20}>
+        <IntroReveal as="section" id="subscribe-faq" className="introSection mktFaq subscribeFaq" delay={20}>
           <p className="introSectionKicker mono">FAQ</p>
           <h2 className="introSectionTitle">Before you checkout</h2>
-          <dl className="mktFaqList">
+          <div className="mktFaqList">
             {SUBSCRIBE_FAQ.map((item) => (
-              <div key={item.q} className="mktFaqItem">
-                <dt className="mktFaqQ">{item.q}</dt>
-                <dd className="mktFaqA">{item.a}</dd>
-              </div>
+              <article key={item.q} className="mktFaqItem">
+                <h3 className="mktFaqQ">{item.q}</h3>
+                <p className="mktFaqA">{item.a}</p>
+              </article>
             ))}
-          </dl>
+          </div>
         </IntroReveal>
       </main>
 
       <footer className="introFoot introFoot--bar" role="contentinfo">
-        <div className="introFootInner">
-          <span className="introFootNfa mono dim">Not investment advice</span>
-          <button
-            type="button"
-            className="introBtn introBtn--primary introFootCta"
-            disabled={checkoutBusy}
-            onClick={() => void onCheckout(selectedPlan.id)}
-          >
-            {checkoutBusy ? 'Opening checkout…' : footerLabel}
-          </button>
+        <div className="introFootInner introFootInner--marketing">
+          <div className="introFootMeta">
+            <span className="introFootNfa mono dim">{SUBSCRIBE_FOOTER.nfa}</span>
+            <p className="introFootTagline">{SUBSCRIBE_FOOTER.tagline}</p>
+          </div>
+          <nav className="introFootNav mono" aria-label="Footer">
+            {SUBSCRIBE_FOOTER.links.map((link) => (
+              <a
+                key={link.id}
+                className="introFootNavLink"
+                href={link.href}
+                onClick={(e) => onFooterLink(link, e)}
+              >
+                {link.label}
+              </a>
+            ))}
+          </nav>
         </div>
       </footer>
     </div>

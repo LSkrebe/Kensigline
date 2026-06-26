@@ -9,6 +9,48 @@ import {
 
 export const PRODUCT_NAME = 'Mercerline'
 
+export const INTRO_PAGE_META = {
+  title: 'Mercerline - Event-driven research terminal for catalyst traders',
+  description:
+    'Scan macro catalysts, build ticker research papers, and drill insider, politician, and institutional flow - with historical outcomes on every rail. SEC filings, PTR, 13F, and trials in one grid.',
+  path: '/',
+  ogImage: '/mercerline_background_1.png',
+}
+
+export const SUBSCRIBE_PAGE_META = {
+  title: 'Subscribe - Mercerline full terminal access',
+  description:
+    'Choose monthly or yearly Mercerline access. Unlock Discover, Research, and Investigate - macro calendar, exportable research papers, insider PTR, and 13F flow with historical outcomes.',
+  path: '/subscribe',
+  ogImage: '/mercerline_background_2.png',
+}
+
+export const SIGN_IN_PAGE_META = {
+  title: 'Sign in - Mercerline research terminal',
+  description:
+    'Sign in or create your Mercerline account to access the full catalyst research terminal - Discover, Research, and Investigate with SEC filings, insider flow, and historical outcomes.',
+  path: '/sign-in',
+  ogImage: '/mercerline_background_1.png',
+}
+
+export const SIGN_IN = {
+  eyebrow: 'Account access',
+  headline: 'Sign in to continue',
+  lead: 'Create an account or sign in, then choose your plan.',
+}
+
+export const INTRO_FOOTER = {
+  nfa: 'Not investment advice',
+  tagline:
+    'Event-driven research terminal for US equities - SEC filings, insider and institutional flow, and clinical trial catalysts.',
+  links: [
+    { id: 'how', label: 'How it works', href: '#how' },
+    { id: 'pricing', label: 'Pricing', href: '#pricing' },
+    { id: 'faq', label: 'FAQ', href: '#faq' },
+    { id: 'sign-in', label: 'Sign in', href: '/sign-in' },
+  ],
+}
+
 export const HERO = {
   eyebrow: 'Event-driven research terminal',
   headline: 'The catalyst trade,',
@@ -106,15 +148,24 @@ export const PRICING = {
   title: 'One plan. Full terminal.',
   sub: `Most members choose yearly - ${formatUsd(YEARLY_SAVE_USD)} less than twelve monthly payments.`,
   yearlyBadge: `Save ${formatUsd(YEARLY_SAVE_USD)}`,
-  monthlyNote: 'Billed monthly · cancel anytime',
-  yearlyNote: `Save ${formatUsd(YEARLY_SAVE_USD)} vs monthly · ${formatUsd(YEARLY_PRICE_USD)}/yr billed annually`,
+  monthlyNoteLines: ['Billed monthly', 'Cancel anytime'],
+  yearlyNoteLines: ['Billed annually'],
+}
+
+export const SUBSCRIBE_FOOTER = {
+  nfa: INTRO_FOOTER.nfa,
+  tagline: INTRO_FOOTER.tagline,
+  links: [
+    { id: 'pricing', label: 'Pricing', href: '#subscribe-pricing' },
+    { id: 'faq', label: 'FAQ', href: '#subscribe-faq' },
+  ],
 }
 
 export const SUBSCRIBE = {
   eyebrow: 'Step 2 · Checkout',
   headline: 'One plan.',
   headlineAccent: 'Full terminal.',
-  lead: `Choose monthly at ${formatUsd(MONTHLY_PRICE_USD)}/mo or yearly at ${formatUsd(YEARLY_PRICE_USD)}/yr — save ${formatUsd(YEARLY_SAVE_USD)} vs twelve monthly payments.`,
+  lead: `Choose monthly at ${formatUsd(MONTHLY_PRICE_USD)}/mo or yearly at ${formatUsd(YEARLY_PRICE_USD)}/yr - save ${formatUsd(YEARLY_SAVE_USD)} vs twelve monthly payments.`,
   reassurance: 'Secure Stripe checkout · Cancel anytime · Manage billing in Settings',
 }
 

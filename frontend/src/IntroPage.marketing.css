@@ -970,8 +970,11 @@
   flex-direction: column;
   gap: 14px;
   padding: clamp(18px, 2.5vw, 24px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(8, 10, 14, 0.42);
+  backdrop-filter: blur(10px) saturate(115%);
+  -webkit-backdrop-filter: blur(10px) saturate(115%);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
   min-height: 100%;
 }
 
@@ -1026,8 +1029,11 @@
 
 .mktProofCard {
   padding: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(8, 10, 14, 0.42);
+  backdrop-filter: blur(10px) saturate(115%);
+  -webkit-backdrop-filter: blur(10px) saturate(115%);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
 }
 
 .mktProofStat {
@@ -1097,6 +1103,8 @@
 .mktPlanGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: auto;
+  align-content: start;
   gap: 16px;
   max-width: 640px;
 }
@@ -1109,16 +1117,19 @@
 .mktPlanCard {
   position: relative;
   padding: clamp(22px, 3vw, 28px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.02);
-  min-height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(8, 10, 14, 0.48);
+  backdrop-filter: blur(12px) saturate(118%);
+  -webkit-backdrop-filter: blur(12px) saturate(118%);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.24);
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .mktPlanCard--featured {
-  border-color: rgba(255, 255, 255, 0.22);
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border-color: rgba(168, 196, 255, 0.28);
+  background: linear-gradient(160deg, rgba(168, 196, 255, 0.1), rgba(8, 10, 14, 0.52));
 }
 
 .mktPlanBadge {
@@ -1150,8 +1161,17 @@
 }
 
 .mktPlanNote {
-  margin: 0 0 8px;
+  margin: 0 0 16px;
   font-size: 10px;
+  line-height: 1.5;
+}
+
+.mktPlanNoteLine {
+  display: block;
+}
+
+.mktPlanNoteLine + .mktPlanNoteLine {
+  margin-top: 3px;
 }
 
 .mktPlanHighlight {
@@ -1171,6 +1191,30 @@
   margin-top: auto;
 }
 
+@media (min-width: 961px) {
+  .mktPricingLayout {
+    align-items: stretch;
+  }
+
+  .mktPlanGrid,
+  .mktPlanGrid--full {
+    display: flex;
+    flex-direction: row;
+    align-self: stretch;
+    align-items: stretch;
+    height: 100%;
+    min-height: 0;
+    gap: 16px;
+  }
+
+  .mktPlanCard {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 0;
+    align-self: stretch;
+  }
+}
+
 .mktPricingFoot {
   margin: 16px 0 0;
   font-size: 10px;
@@ -1178,15 +1222,18 @@
 
 .mktFaqList {
   margin: 24px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .mktFaqItem {
-  padding: 16px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.mktFaqItem:first-child {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  background: rgba(8, 10, 14, 0.34);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .mktFaqQ {
@@ -1210,10 +1257,13 @@
 .mktFinalCtaInner {
   text-align: center;
   padding: clamp(40px, 6vw, 56px) 24px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   background:
-    radial-gradient(600px 200px at 50% 0%, rgba(255, 255, 255, 0.06), transparent 60%),
-    rgba(255, 255, 255, 0.02);
+    radial-gradient(600px 200px at 50% 0%, rgba(168, 196, 255, 0.08), transparent 60%),
+    rgba(8, 10, 14, 0.46);
+  backdrop-filter: blur(12px) saturate(118%);
+  -webkit-backdrop-filter: blur(12px) saturate(118%);
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.28);
 }
 
 .mktFinalCtaTitle {
@@ -1261,6 +1311,22 @@
   height: 36px;
 }
 
+@media (max-width: 960px) {
+  .mktPricingLayout {
+    grid-template-columns: 1fr;
+    gap: clamp(24px, 4vh, 32px);
+  }
+
+  .mktPlanGrid,
+  .mktPlanGrid--full {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    max-width: 520px;
+    margin-inline: auto;
+    width: 100%;
+  }
+}
+
 @media (max-width: 768px) {
   .mktProofGrid,
   .mktWorkflowSteps {
@@ -1270,27 +1336,20 @@
   .mktWorkflowStepLine {
     display: none;
   }
-
-  .mktPricingLayout {
-    grid-template-columns: 1fr;
-  }
-
-  .mktPlanGrid,
-  .mktPlanGrid--full {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* ---- Phone (≤640px) — intro, subscribe, terminal teaser ---- */
 @media (max-width: 640px) {
   .introPage {
     --intro-gutter: 16px;
+    --marketing-chrome-x: 16px;
     --intro-demo-max: 100%;
     scroll-padding-top: 64px;
   }
 
-  .introNavInner {
-    padding: 10px var(--intro-gutter);
+  .introPage--marketingChrome .introNavInner {
+    padding: 10px var(--marketing-chrome-x);
+    padding-left: calc(var(--marketing-chrome-x) - var(--intro-brand-logo-nudge));
     gap: 10px;
   }
 
@@ -1299,16 +1358,9 @@
     letter-spacing: 0.16em;
   }
 
-  .introNavCta {
-    height: 30px;
-    padding: 0 12px;
-    font-size: 9px;
-    flex-shrink: 0;
-  }
-
   .introPage .introMain {
     padding-top: 12px;
-    padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px));
   }
 
   .mktHero {
@@ -1507,25 +1559,6 @@
 
   .mktFinalCtaTitle {
     font-size: 1.35rem;
-  }
-
-  .introModalBackdrop {
-    padding: 0;
-    align-items: flex-end;
-  }
-
-  .introModal {
-    width: 100%;
-    max-width: none;
-    max-height: min(92dvh, 720px);
-    border-radius: 14px 14px 0 0;
-    border-bottom: none;
-    padding: 22px 18px calc(20px + env(safe-area-inset-bottom, 0px));
-  }
-
-  .introModalTitle {
-    font-size: 1.1rem;
-    padding-right: 28px;
   }
 
   .subscribeMain {

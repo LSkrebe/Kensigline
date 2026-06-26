@@ -93,9 +93,9 @@ function buildPharmaExtractionPrompt(args: { ticker: string; companyName?: strin
       content: [
         "You extract important pharma pipeline events from SEC filings into structured JSON.",
         "Return ONLY valid JSON. No markdown. If unknown, use null. Do not invent facts.",
-        "feed_label: 4–12 word headline. worksheet.analysis: 1–2 dense sentences.",
+        "feed_label: 4-12 word headline. worksheet.analysis: 1-2 dense sentences.",
         "Only output material events with identifiable phase (I/II/III) and update type.",
-        "If no phase, return zero events — no generic 'Pipeline update' filler.",
+        "If no phase, return zero events - no generic 'Pipeline update' filler.",
         `Schema: ${JSON.stringify({
           schema_type: "trial_event_batch",
           schema_version: "v2",

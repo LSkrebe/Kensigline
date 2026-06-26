@@ -165,7 +165,7 @@ function buildInsiderNarrativePrompt(args: {
     ? [
         "This is a Form 4 cluster filtered for Code P open-market purchases in the feed, but ALL transaction rows below are stored.",
         "In context_sentences, emphasize Code P purchases; mention other codes only if they appear in TRANSACTIONS.",
-        "Do NOT say 'no selling' — other codes may be present.",
+        "Do NOT say 'no selling' - other codes may be present.",
       ]
     : [
         `This is a ${formType} filing. Summarize all transaction codes present.`,
@@ -179,7 +179,7 @@ function buildInsiderNarrativePrompt(args: {
         "You write narrative fields for an SEC insider filing card.",
         "Return ONLY valid JSON. No markdown.",
         "Do not invent facts. Use null when unknown.",
-        "worksheet_rows must be an empty array — rows are filled in code.",
+        "worksheet_rows must be an empty array - rows are filled in code.",
         `Schema: ${JSON.stringify({
           schema_type: "insider_cluster",
           schema_version: "v1",
@@ -204,7 +204,7 @@ function buildInsiderNarrativePrompt(args: {
         "REPORTING OWNERS:",
         JSON.stringify(owners),
         "",
-        "TRANSACTIONS (all codes — preserve every row in your narrative):",
+        "TRANSACTIONS (all codes - preserve every row in your narrative):",
         JSON.stringify(transactions),
         "",
         ...guidance,

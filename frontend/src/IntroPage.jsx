@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { AuthSignIn } from './AuthSignIn.jsx'
+import { useCallback, useEffect, useRef } from 'react'
 import { IntroReveal } from './IntroReveal.jsx'
 import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
 import { BILLING_PLANS, formatUsd, MONTHLY_PRICE_USD, YEARLY_SAVE_USD } from './billingPlans.js'
@@ -7,22 +6,27 @@ import {
   DATA_SOURCES,
   HERO,
   INTRO_FAQ,
+  INTRO_FOOTER,
+  INTRO_PAGE_META,
   PLAN_FEATURES,
   PRICING,
   PROOF_POINTS,
   SHOWCASE_TABS,
 } from './marketingContent.js'
+import { navigateMarketing } from './marketingRoute.js'
+import { applyPageMeta } from './pageMeta.js'
 import './IntroPage.css'
 import './IntroPage.marketing.css'
 
 const NAV_OFFSET = 72
 
 export function IntroPage() {
-  const [signInOpen, setSignInOpen] = useState(false)
   const pageRef = useRef(null)
 
-  const openSignIn = useCallback(() => setSignInOpen(true), [])
-  const closeSignIn = useCallback(() => setSignInOpen(false), [])
+  const goToSignIn = useCallback((e) => {
+    e?.preventDefault()
+    navigateMarketing('/sign-in')
+  }, [])
 
   const scrollToSection = useCallback((sectionId, e) => {
     e?.preventDefault()
@@ -46,16 +50,38 @@ export function IntroPage() {
   }, [])
 
   useEffect(() => {
-    if (!signInOpen) return
-    function onKeyDown(e) {
-      if (e.key === 'Escape') closeSignIn()
+    applyPageMeta(INTRO_PAGE_META)
+
+    const schema = {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Mercerline',
+      applicationCategory: 'FinanceApplication',
+      operatingSystem: 'Web',
+      description: INTRO_PAGE_META.description,
+      offers: {
+        '@type': 'Offer',
+        price: String(MONTHLY_PRICE_USD),
+        priceCurrency: 'USD',
+      },
     }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [signInOpen, closeSignIn])
+
+    let el = document.head.querySelector('script[data-intro-schema]')
+    if (!el) {
+      el = document.createElement('script')
+      el.setAttribute('type', 'application/ld+json')
+      el.setAttribute('data-intro-schema', 'true')
+      document.head.appendChild(el)
+    }
+    el.textContent = JSON.stringify(schema)
+
+    return () => {
+      el?.remove()
+    }
+  }, [])
 
   return (
-    <div ref={pageRef} className={['introPage', signInOpen ? 'introPage--modalOpen' : ''].filter(Boolean).join(' ')}>
+    <div ref={pageRef} className="introPage introPage--marketingChrome">
       <header className="introNav">
         <div className="introNavInner">
           <a className="introBrand" href="/" aria-label="Mercerline home" onClick={scrollToTop}>
@@ -73,9 +99,9 @@ export function IntroPage() {
               FAQ
             </a>
           </nav>
-          <button type="button" className="introNavCta" onClick={openSignIn}>
+          <a className="introNavAction introNavCta" href="/sign-in" onClick={goToSignIn}>
             Sign in
-          </button>
+          </a>
         </div>
       </header>
 
@@ -90,9 +116,9 @@ export function IntroPage() {
             </h1>
             <p className="introLead mktHeroLead">{HERO.lead}</p>
             <div className="introHeroActions mktHeroActions">
-              <button type="button" className="introBtn introBtn--primary introBtn--lg" onClick={openSignIn}>
+              <a className="introBtn introBtn--primary introBtn--lg" href="/sign-in" onClick={goToSignIn}>
                 {HERO.ctaPrimary}
-              </button>
+              </a>
               <a className="introBtn introBtn--ghost" href="#how" onClick={(e) => scrollToSection('how', e)}>
                 {HERO.ctaSecondary}
               </a>
@@ -177,22 +203,19 @@ export function IntroPage() {
                     <span className="mono mktPlanInterval">/{plan.intervalLabel}</span>
                   </p>
                   <p className="mktPlanNote mono dim">
-                    {plan.id === 'yearly' ? PRICING.yearlyNote : PRICING.monthlyNote}
+                    {(plan.id === 'yearly' ? PRICING.yearlyNoteLines : PRICING.monthlyNoteLines).map((line) => (
+                      <span key={line} className="mktPlanNoteLine">
+                        {line}
+                      </span>
+                    ))}
                   </p>
-                  {plan.featured ? (
-                    <p className="mktPlanHighlight mono">Recommended for full-time use</p>
-                  ) : (
-                    <p className="mktPlanHighlight mktPlanHighlight--spacer" aria-hidden="true">
-                      &nbsp;
-                    </p>
-                  )}
-                  <button
-                    type="button"
+                  <a
                     className={`introBtn ${plan.featured ? 'introBtn--primary' : 'introBtn--ghost'} mktPlanBtn`}
-                    onClick={openSignIn}
+                    href="/sign-in"
+                    onClick={goToSignIn}
                   >
                     {plan.featured ? 'Start yearly' : 'Start monthly'}
-                  </button>
+                  </a>
                 </article>
               ))}
             </div>
@@ -205,56 +228,51 @@ export function IntroPage() {
         <IntroReveal as="section" id="faq" className="introSection mktFaq" delay={50}>
           <p className="introSectionKicker mono">FAQ</p>
           <h2 className="introSectionTitle">Common questions</h2>
-          <dl className="mktFaqList">
+          <div className="mktFaqList">
             {INTRO_FAQ.map((item) => (
-              <div key={item.q} className="mktFaqItem">
-                <dt className="mktFaqQ">{item.q}</dt>
-                <dd className="mktFaqA">{item.a}</dd>
-              </div>
+              <article key={item.q} className="mktFaqItem">
+                <h3 className="mktFaqQ">{item.q}</h3>
+                <p className="mktFaqA">{item.a}</p>
+              </article>
             ))}
-          </dl>
+          </div>
         </IntroReveal>
 
         <IntroReveal as="section" className="introSection mktFinalCta" delay={20} eager>
           <div className="mktFinalCtaInner">
             <h2 className="mktFinalCtaTitle">Open the terminal</h2>
             <p className="mktFinalCtaSub mono dim">{HERO.rails}</p>
-            <button type="button" className="introBtn introBtn--primary introBtn--lg" onClick={openSignIn}>
+            <a className="introBtn introBtn--primary introBtn--lg" href="/sign-in" onClick={goToSignIn}>
               {HERO.ctaPrimary}
-            </button>
+            </a>
           </div>
         </IntroReveal>
       </main>
 
-      {signInOpen ? (
-        <div className="introModalBackdrop" onClick={closeSignIn}>
-          <div
-            className="introModal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="intro-signin-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button type="button" className="introModalClose mono" onClick={closeSignIn} aria-label="Close sign in">
-              ×
-            </button>
-            <h2 id="intro-signin-title" className="introModalTitle">
-              Sign in to continue
-            </h2>
-            <p className="introModalLead mono dim">Create an account or sign in, then choose your plan.</p>
-            <AuthSignIn variant="intro" onSuccess={closeSignIn} />
-          </div>
-        </div>
-      ) : null}
-
       <footer className="introFoot introFoot--bar" role="contentinfo">
-        <div className="introFootInner">
-          <span className="introFootNfa mono dim">Not investment advice</span>
-          {!signInOpen ? (
-            <button type="button" className="introBtn introBtn--primary introFootCta" onClick={openSignIn}>
-              Get access - {formatUsd(MONTHLY_PRICE_USD)}/mo
-            </button>
-          ) : null}
+        <div className="introFootInner introFootInner--marketing">
+          <div className="introFootMeta">
+            <span className="introFootNfa mono dim">{INTRO_FOOTER.nfa}</span>
+            <p className="introFootTagline">{INTRO_FOOTER.tagline}</p>
+          </div>
+          <nav className="introFootNav mono" aria-label="Footer">
+            {INTRO_FOOTER.links.map((link) =>
+              link.id === 'sign-in' ? (
+                <a key={link.id} className="introFootNavLink" href={link.href} onClick={goToSignIn}>
+                  {link.label}
+                </a>
+              ) : (
+                <a
+                  key={link.id}
+                  className="introFootNavLink"
+                  href={link.href}
+                  onClick={(e) => scrollToSection(link.id, e)}
+                >
+                  {link.label}
+                </a>
+              ),
+            )}
+          </nav>
         </div>
       </footer>
     </div>

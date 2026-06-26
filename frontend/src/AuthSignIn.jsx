@@ -4,7 +4,7 @@ import { supabase } from './supabaseClient.js'
 import './IntroPage.css'
 
 /**
- * Shared email/password sign-in. Used on the intro page and in Settings.
+ * Shared email/password sign-in. Used on the sign-in page and in Settings.
  */
 export function AuthSignIn({ variant = 'settings', onSuccess }) {
   const { configured, signInWithPassword, signUpWithPassword } = useAuth()
@@ -38,7 +38,7 @@ export function AuthSignIn({ variant = 'settings', onSuccess }) {
           setBusy(false)
           if (error) {
             const m = error.message || String(error)
-            setMsg(/not confirmed/i.test(m) ? `${m} — open the latest confirmation link, or resend below.` : m)
+            setMsg(/not confirmed/i.test(m) ? `${m} - open the latest confirmation link, or resend below.` : m)
           } else onSuccess?.()
         }}
       >
@@ -101,7 +101,7 @@ export function AuthSignIn({ variant = 'settings', onSuccess }) {
               })
               setBusy(false)
               if (error) setMsg(error.message || String(error))
-              else setMsg('Confirmation email sent — open the new link, then sign in.')
+              else setMsg('Confirmation email sent - open the new link, then sign in.')
             }}
           >
             Resend confirmation

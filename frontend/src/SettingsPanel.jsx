@@ -229,12 +229,12 @@ export function SettingsPanel() {
               </span>
             </p>
             {atLimit ? (
-              <p className="settingsWatchlistLimitNote mono">Watchlist full — remove a ticker to add another.</p>
+              <p className="settingsWatchlistLimitNote mono">Watchlist full - remove a ticker to add another.</p>
             ) : null}
             {!watchlistLoaded ? (
               <p className="settingsMuted mono">Loading…</p>
             ) : !tickers.length ? (
-              <p className="settingsMuted mono">No tickers — add from Research → Context using the bell icon.</p>
+              <p className="settingsMuted mono">No tickers - add from Research → Context using the bell icon.</p>
             ) : (
               <div className="settingsWatchlistChips" role="list">
                 {tickers.map((ticker) => (
