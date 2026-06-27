@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
-import { EventBriefAnalysis, formatEventCardDate } from './EventBrief.jsx'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { formatEventCardDate } from './EventBrief.jsx'
 import { DiscoverReactionChart } from './DiscoverReactionChart.jsx'
 import {
   DISCOVER_TIMELINE_DEFAULTS,
@@ -7,19 +7,14 @@ import {
   peekDiscoverTimelineCache,
 } from './discoverClient.js'
 import {
-  buildDiscoverCardDisplayRows,
   buildDiscoverTimeline,
+  buildHighlightedMarketMoves,
   DISCOVER_MARKET_MOVE_FILTER_DEFAULT,
   DISCOVER_MARKET_MOVE_FILTER_TYPES,
-  DISCOVER_WATCHLIST_FILTER_DEFAULT,
-  DISCOVER_WATCHLIST_FILTER_TYPES,
   discoverEventPassesFilters,
-  discoverKindLabel,
-  discoverWatchlistDaysLabel,
-  isDiscoverMarketMove,
-  truncateDiscoverSummary,
+  getDiscoverUpcomingEvents,
 } from './discoverEvents.js'
-import { normalizeResearchPaperSourceKey, RESEARCH_PAPER_SOURCE_CATALOG } from './researchPaperSources.js'
+import { attachNextUpcomingToMarketMoves, pickCatalystBgMoveIds, resolveDiscoverMoveFooter } from './discoverMoveFooters.js'
 import {
   buildMockMoveReactions,
   filterMacroCalendarDays,
@@ -152,12 +147,12 @@ function DiscoverFeedColumn({
 
   return (
     <section
-      className={['discoverCol', 'feed', 'feedCompact', showFilter ? 'discoverCol--filter' : '', panelClassName]
+      className={['panel', 'discoverCol', 'feed', 'feedCompact', showFilter ? 'discoverCol--filter' : '', panelClassName]
         .filter(Boolean)
         .join(' ')}
       aria-label={title}
     >
-      <header className="feedCompactHeader discoverColHeadBar">
+      <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">{title}</div>
         {showFilter ? (
           <div className="feedCompactHeaderEnd">
@@ -198,19 +193,6 @@ function DiscoverFeedColumn({
   )
 }
 
-function DiscoverWatchlistGap({ label }) {
-  const text = String(label ?? '').trim()
-  if (!text) return null
-  return (
-    <div className="discoverWatchlistGap" role="separator" aria-hidden="true">
-      <div className="discoverWatchlistGapRow">
-        <span className="discoverWatchlistGapRule" />
-        <span className="discoverWatchlistGapLabel mono">{text}</span>
-      </div>
-    </div>
-  )
-}
-
 function DiscoverMacroDayColumn({ day }) {
   const head = formatMacroDayHeader(day.date)
 
@@ -247,20 +229,43 @@ function DiscoverMacroDayColumn({ day }) {
   )
 }
 
+function macroEventMatchesQuery(event, query) {
+  const needle = String(query ?? '').trim().toLowerCase()
+  if (!needle) return true
+  const regionLabel = MACRO_REGION_LABEL[event.region] ?? event.region
+  const hay = [event.title, event.region, regionLabel, event.time].filter(Boolean).join(' ').toLowerCase()
+  return hay.includes(needle)
+}
+
+function filterMacroDaysByQuery(days, query) {
+  const needle = String(query ?? '').trim()
+  if (!needle) return days
+  return days
+    .map((day) => ({
+      ...day,
+      events: (Array.isArray(day?.events) ? day.events : []).filter((event) => macroEventMatchesQuery(event, needle)),
+    }))
+    .filter((day) => day.events.length > 0)
+}
+
 function DiscoverMacroStrip({
   macroDays,
   enabledRegions,
   enabledImpacts,
+  search,
+  macroQuery = '',
   filterOpen,
   onFilterClick,
   onFilterToggle,
   loading = false,
   panelClassName = '',
 }) {
-  const days = useMemo(
+  const filteredDays = useMemo(
     () => filterMacroCalendarDays(macroDays ?? [], { regions: enabledRegions, impacts: enabledImpacts }),
     [macroDays, enabledRegions, enabledImpacts],
   )
+
+  const days = useMemo(() => filterMacroDaysByQuery(filteredDays, macroQuery), [filteredDays, macroQuery])
 
   const macroFilterEnabled = useMemo(() => {
     const merged = new Set()
@@ -284,12 +289,12 @@ function DiscoverMacroStrip({
 
   return (
     <section
-      className={['discoverMacroStrip', 'discoverCol', 'feed', 'feedCompact', 'discoverCol--filter', panelClassName]
+      className={['panel', 'discoverMacroStrip', 'feed', 'feedCompact', 'feed--left', 'discoverCol--filter', panelClassName]
         .filter(Boolean)
         .join(' ')}
       aria-label="Macro calendar"
     >
-      <header className="feedCompactHeader discoverColHeadBar">
+      <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">MACRO CALENDAR</div>
         <div className="feedCompactHeaderEnd">
           <button
@@ -310,13 +315,18 @@ function DiscoverMacroStrip({
           .join(' ')}
       >
         <div className="feedCompactMain discoverMacroStripMain" aria-hidden={filterOpen || undefined}>
+          {search}
           <div className="discoverMacroStripScroll scrollThin">
             {!days.length ? (
               <p className="discoverColEmpty mono dim">
-                {loading ? 'Loading macro calendar…' : 'No upcoming macro releases.'}
+                {loading
+                  ? 'Loading macro calendar…'
+                  : macroQuery.trim()
+                    ? 'No matching macro releases.'
+                    : 'No upcoming macro releases.'}
               </p>
             ) : (
-              <div className="discoverMacroWeek discoverMacroWeek--horizontal">
+              <div className="discoverMacroWeek">
                 {days.map((day) => (
                   <DiscoverMacroDayColumn key={day.date} day={day} />
                 ))}
@@ -330,7 +340,6 @@ function DiscoverMacroStrip({
             enabled={macroFilterEnabled}
             onToggle={onMacroFilterToggle}
             ariaLabel="Macro calendar filters"
-            className="discoverMacroFilterPicker"
           />
         ) : null}
       </div>
@@ -338,15 +347,19 @@ function DiscoverMacroStrip({
   )
 }
 
-function DiscoverMoveCard({ event, movePct, reactionCloses, allowMockFallback = false, onResearch }) {
+function DiscoverMoveCard({ event, movePct, reactionCloses, upcoming = [], useMockEarnings = false, allowMockFallback = false, catalystBg = false, onResearch }) {
   const title = String(event.title ?? '').trim() || '—'
-  const summary = truncateDiscoverSummary(event.summary)
+  const summary = String(event.summary ?? '').trim()
   const ticker = String(event.ticker ?? '').trim().toUpperCase()
   const hasCloses = Array.isArray(reactionCloses) && reactionCloses.length >= 2
   const showMove = hasCloses && Number.isFinite(movePct)
   const move = showMove ? formatRippleMove(movePct) : ''
   const moveCls = showMove ? rippleMoveClass(movePct) : ''
   const showChart = hasCloses || (allowMockFallback && Number.isFinite(movePct))
+  const footer = useMemo(
+    () => resolveDiscoverMoveFooter(event, upcoming, { useMockFallback: useMockEarnings }),
+    [event, upcoming, useMockEarnings],
+  )
 
   return (
     <button
@@ -366,111 +379,49 @@ function DiscoverMoveCard({ event, movePct, reactionCloses, allowMockFallback = 
           ticker={event.ticker}
           movePct={movePct}
           closes={reactionCloses}
+          height={88}
           allowMockSeries={allowMockFallback}
         />
       ) : null}
-      <div className="discoverMoveCardCopy">
-        <p className="discoverMoveCardTitle">{title}</p>
-        {summary && summary !== title ? <EventBriefAnalysis text={summary} /> : null}
-      </div>
-    </button>
-  )
-}
-
-function catalystSourceLookup(event) {
-  const key = normalizeResearchPaperSourceKey(event.source)
-  const hit = RESEARCH_PAPER_SOURCE_CATALOG.find((s) => s.id === key)
-  return { key, hit }
-}
-
-function catalystSourceCode(event) {
-  const { key, hit } = catalystSourceLookup(event)
-  return hit?.code ?? key
-}
-
-function DiscoverCatalystRow({ event, onResearch }) {
-  const when = discoverWatchlistDaysLabel(event.at)
-  const dateLabel = formatEventCardDate(event.at)
-  const phase = event.phase ?? event.programKey
-  const kind = discoverKindLabel(event.kind)
-  const sourceCode = catalystSourceCode(event)
-  const docLabel = [sourceCode, phase, kind].filter(Boolean).join(' · ')
-  const atIso = String(event.at ?? '').includes('T') ? event.at : `${event.at}T12:00:00`
-  const ticker = String(event.ticker ?? '').trim().toUpperCase()
-
-  return (
-    <button
-      type="button"
-      className={[
-        'discoverCatalystCard',
-        'discoverEventCard',
-        'discoverEventCard--ahead',
-        'researchPaperRailCard',
-        'researchPaperDocCard',
-        'researchPaperDocCard--railTicker',
-        'eventBriefDocCard--clickable',
-      ].join(' ')}
-      onClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode, companyName: event.companyName })}
-    >
-      <div className="researchPaperRailCardRail researchPaperRailCardRail--ticker">
-        <span className="eventBriefRailTicker mono">{ticker}</span>
-      </div>
-      <div className="researchPaperRailCardMain">
-        <div className="researchPaperRailCardGrid">
-          <div className="researchPaperRailCardCol">
-            <span className="researchPaperDocCardSource mono dim">{docLabel}</span>
-          </div>
-          <div className="researchPaperRailCardCol researchPaperRailCardCol--end">
-            <time className="researchPaperDocCardDate mono dim" dateTime={atIso} title={dateLabel}>
-              {when}
-            </time>
+      <div className="discoverMoveCardLower">
+        <div className="discoverMoveCardCopy">
+          <p className="discoverMoveCardTitle">{title}</p>
+          <div className="discoverMoveCardSummary" aria-hidden={!summary || summary === title}>
+            {summary && summary !== title ? (
+              <p className="researchPaperDocCardAnalysis">{summary}</p>
+            ) : null}
           </div>
         </div>
-        <p className="discoverCatalystCardTitle">{event.title}</p>
+        {footer ? (
+          <div className="discoverMoveCardFooters">
+            <div
+              className={[
+                'contextCompanyEarnings',
+                'discoverMoveCardCatalyst',
+                catalystBg ? 'discoverMoveCardCatalyst--highlight' : '',
+                footer.soon ? 'contextCompanyEarnings--soon' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              <span className="contextCompanyEarningsK">{footer.label}</span>
+              <span className="contextCompanyEarningsV">{footer.date}</span>
+            </div>
+          </div>
+        ) : null}
       </div>
     </button>
   )
 }
 
-function DiscoverCatalystList({ events, onResearch, loading = false }) {
-  const displayRows = useMemo(() => buildDiscoverCardDisplayRows(events, 'upcoming'), [events])
-
-  if (!displayRows.length) {
-    return (
-      <p className="discoverColEmpty mono dim">
-        {loading ? 'Loading watchlist catalysts…' : 'No matching catalysts.'}
-      </p>
-    )
-  }
-
-  return (
-    <div className="discoverCatalystList">
-      {displayRows.map((entry) => (
-        <Fragment key={entry.key}>
-          {entry.type === 'sep' ? (
-            <DiscoverWatchlistGap label={entry.label} />
-          ) : (
-            <DiscoverCatalystRow event={entry.event} onResearch={onResearch} />
-          )}
-        </Fragment>
-      ))}
-    </div>
-  )
-}
-
-const WATCHLIST_FILTER_SECTIONS = [{ types: DISCOVER_WATCHLIST_FILTER_TYPES }]
 const MARKET_MOVE_FILTER_SECTIONS = [{ types: DISCOVER_MARKET_MOVE_FILTER_TYPES }]
 
-export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = false, phonePane = 'catalyst' }) {
+export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = false, phonePane = 'moves' }) {
   const [query, setQuery] = useState('')
+  const [macroQuery, setMacroQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [liveTimeline, setLiveTimeline] = useState(null)
   const [timelineFetching, setTimelineFetching] = useState(false)
-
-  const [watchlistFilterOpen, setWatchlistFilterOpen] = useState(false)
-  const [watchlistFilters, setWatchlistFilters] = useState(() =>
-    readFilterSet(UI_PREF_KEYS.discoverWatchlistFilters, DISCOVER_WATCHLIST_FILTER_DEFAULT),
-  )
 
   const [macroFilterOpen, setMacroFilterOpen] = useState(false)
   const [macroRegionFilters, setMacroRegionFilters] = useState(() =>
@@ -485,7 +436,6 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
     readFilterSet(UI_PREF_KEYS.discoverMovesFilters, DISCOVER_MARKET_MOVE_FILTER_DEFAULT),
   )
 
-  const toggleWatchlistFilter = useCallback((id) => toggleFilterSet(setWatchlistFilters, id), [])
   const toggleMovesFilter = useCallback((id) => toggleFilterSet(setMovesSourceFilters, id), [])
 
   const toggleMacroFilter = useCallback((dimension, id) => {
@@ -497,10 +447,6 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
     const t = setTimeout(() => setDebouncedQuery(query), 280)
     return () => clearTimeout(t)
   }, [query])
-
-  useEffect(() => {
-    writeFilterSet(UI_PREF_KEYS.discoverWatchlistFilters, watchlistFilters)
-  }, [watchlistFilters])
 
   useEffect(() => {
     writeFilterSet(UI_PREF_KEYS.discoverMacroRegionFilters, macroRegionFilters)
@@ -544,11 +490,20 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
   const timelineRefreshing = backendUp && timelineFetching && liveTimeline != null
   const showColumnLoading = timelineLoading || timelineRefreshing
 
-  const mockTimeline = useMemo(() => (backendUp ? null : buildDiscoverTimeline({ query })), [backendUp, query])
-  const upcomingSource = useMemo(() => {
-    if (backendUp) return liveTimeline?.upcoming ?? []
-    return mockTimeline?.upcoming ?? []
-  }, [backendUp, liveTimeline?.upcoming, mockTimeline?.upcoming])
+  const mockTimeline = useMemo(() => {
+    if (backendUp) return null
+    const base = buildDiscoverTimeline({ query })
+    const upcomingPool = getDiscoverUpcomingEvents()
+    const market_moves = attachNextUpcomingToMarketMoves(
+      buildHighlightedMarketMoves({ query, limit: DISCOVER_TIMELINE_DEFAULTS.limit }),
+      upcomingPool,
+    )
+    return {
+      ...base,
+      market_moves,
+      moves: buildMockMoveReactions(market_moves),
+    }
+  }, [backendUp, query])
 
   const macroSource = useMemo(() => {
     if (backendUp) return Array.isArray(liveTimeline?.macro) ? liveTimeline.macro : []
@@ -557,56 +512,65 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
 
   const marketMovesSource = useMemo(() => {
     if (backendUp) return liveTimeline?.market_moves ?? []
-    return (mockTimeline?.past ?? []).filter(isDiscoverMarketMove)
-  }, [backendUp, liveTimeline?.market_moves, mockTimeline?.past])
+    return mockTimeline?.market_moves ?? []
+  }, [backendUp, liveTimeline?.market_moves, mockTimeline?.market_moves])
 
   const moveReactions = useMemo(() => {
     if (backendUp) return liveTimeline?.moves ?? {}
-    const rows = (mockTimeline?.past ?? []).filter(isDiscoverMarketMove)
-    return buildMockMoveReactions(rows)
-  }, [backendUp, liveTimeline?.moves, mockTimeline?.past])
+    return mockTimeline?.moves ?? {}
+  }, [backendUp, liveTimeline?.moves, mockTimeline?.moves])
 
-  const catalysts = useMemo(
-    () =>
-      applyDiscoverSourceFilter(upcomingSource, watchlistFilters).filter((e) => Boolean(e.idea_best)),
-    [upcomingSource, watchlistFilters],
-  )
+  const upcomingForFooters = useMemo(() => {
+    if (backendUp) return []
+    return getDiscoverUpcomingEvents()
+  }, [backendUp])
 
   const marketMoves = useMemo(() => {
     return applyDiscoverSourceFilter(marketMovesSource, movesSourceFilters)
   }, [marketMovesSource, movesSourceFilters])
 
-  const watchlistSearch = (
+  const catalystBgMoveIds = useMemo(() => {
+    return pickCatalystBgMoveIds(marketMoves, upcomingForFooters, { useMockFallback: !backendUp })
+  }, [marketMoves, upcomingForFooters, backendUp])
+
+  const marketMovesSearch = (
     <DiscoverFeedSearch
       value={query}
       onChange={setQuery}
       placeholder="Search ticker or event"
-      ariaLabel="Search watchlist catalysts"
+      ariaLabel="Search market moves"
+    />
+  )
+
+  const macroSearch = (
+    <DiscoverFeedSearch
+      value={macroQuery}
+      onChange={setMacroQuery}
+      placeholder="Search macro release"
+      ariaLabel="Search macro calendar"
     />
   )
 
   return (
     <section className="panel discoverPanel" aria-label="Discover">
       <div className="discoverPanelBody">
+        <DiscoverMacroStrip
+          panelClassName={discoverPhonePaneClass(isPhone, phonePane, 'macro')}
+          macroDays={macroSource}
+          enabledRegions={macroRegionFilters}
+          enabledImpacts={macroImpactFilters}
+          search={macroSearch}
+          macroQuery={macroQuery}
+          filterOpen={macroFilterOpen}
+          onFilterClick={() => setMacroFilterOpen((open) => !open)}
+          onFilterToggle={toggleMacroFilter}
+          loading={showColumnLoading && !macroSource.some((d) => d.events?.length)}
+        />
         <div className="discoverDual">
-          <DiscoverFeedColumn
-            panelClassName={discoverPhonePaneClass(isPhone, phonePane, 'catalyst')}
-            title="WATCHLIST CATALYST"
-            search={watchlistSearch}
-            filterSections={WATCHLIST_FILTER_SECTIONS}
-            filterEnabled={watchlistFilters}
-            filterOpen={watchlistFilterOpen}
-            onFilterClick={() => setWatchlistFilterOpen((open) => !open)}
-            onFilterToggle={toggleWatchlistFilter}
-            filterAriaLabel="Watchlist document types"
-          >
-            <DiscoverCatalystList events={catalysts} onResearch={onOpenResearch} loading={showColumnLoading && !catalysts.length} />
-          </DiscoverFeedColumn>
-          <div className="discoverSplitRule" aria-hidden="true" />
           <DiscoverFeedColumn
             panelClassName={discoverPhonePaneClass(isPhone, phonePane, 'moves')}
             title="MARKET MOVES"
-            scrollClassName="discoverColScroll--marketMoves"
+            search={marketMovesSearch}
             filterSections={MARKET_MOVE_FILTER_SECTIONS}
             filterEnabled={movesSourceFilters}
             filterOpen={movesFilterOpen}
@@ -628,7 +592,10 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
                       event={event}
                       movePct={reaction?.movePct}
                       reactionCloses={reaction?.closes}
+                      upcoming={upcomingForFooters}
+                      useMockEarnings={!backendUp}
                       allowMockFallback={!backendUp}
+                      catalystBg={catalystBgMoveIds.has(event.id)}
                       onResearch={onOpenResearch}
                     />
                   )
@@ -637,17 +604,6 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
             )}
           </DiscoverFeedColumn>
         </div>
-        <div className="discoverPanelSplit discoverPanelSplit--horizontal" aria-hidden="true" />
-        <DiscoverMacroStrip
-          panelClassName={discoverPhonePaneClass(isPhone, phonePane, 'macro')}
-          macroDays={macroSource}
-          enabledRegions={macroRegionFilters}
-          enabledImpacts={macroImpactFilters}
-          filterOpen={macroFilterOpen}
-          onFilterClick={() => setMacroFilterOpen((open) => !open)}
-          onFilterToggle={toggleMacroFilter}
-          loading={showColumnLoading && !macroSource.some((d) => d.events?.length)}
-        />
       </div>
     </section>
   )

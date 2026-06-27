@@ -1,6 +1,6 @@
 /** Discover tab mock payloads — frontend-only until backend catches up. */
 
-import { getDiscoverMarketMoves, getDiscoverWatchlistEvents } from './discoverEvents.js'
+import { buildHighlightedMarketMoves, getDiscoverWatchlistEvents, isDiscoverMarketMove } from './discoverEvents.js'
 
 /** @typedef {'market' | 'clinical'} DiscoverIntelMode */
 /** @typedef {'high' | 'medium' | 'low'} MacroImpact */
@@ -21,6 +21,26 @@ import { getDiscoverMarketMoves, getDiscoverWatchlistEvents } from './discoverEv
  */
 
 /** Offline macro calendar fallback when the API is unavailable. */
+
+/**
+ * Offline fallback when a ticker has no row in the upcoming pool.
+ * @type {Record<string, { daysAhead: number; title: string; kind: string } | undefined>}
+ */
+export const DISCOVER_MOCK_UPCOMING_FALLBACK = {
+  NVDA: { daysAhead: 8, title: 'Product launch keynote', kind: 'catalyst' },
+  LRCX: { daysAhead: 4, title: 'Investor presentation', kind: 'catalyst' },
+  ASML: { daysAhead: 9, title: 'Technology conference', kind: 'catalyst' },
+  TSM: { daysAhead: 12, title: 'Analyst day', kind: 'catalyst' },
+  ATYR: { daysAhead: 30, title: 'Primary completion', kind: 'catalyst' },
+  SRPT: { daysAhead: 6, title: 'PDUFA target', kind: 'regulatory' },
+  MRNA: { daysAhead: 10, title: 'Primary completion (est.)', kind: 'catalyst' },
+  _default: { daysAhead: 30, title: 'Earnings report', kind: 'earnings' },
+}
+
+/** @deprecated Use DISCOVER_MOCK_UPCOMING_FALLBACK */
+export const DISCOVER_MOCK_EARNINGS_DAYS_AHEAD = Object.fromEntries(
+  Object.entries(DISCOVER_MOCK_UPCOMING_FALLBACK).map(([k, v]) => [k, v?.daysAhead ?? 30]),
+)
 
 export const MACRO_IMPACT_FILTER_TYPES = [
   { id: 'high', label: 'High impact', code: 'HIGH' },
@@ -185,8 +205,9 @@ export function mockMovePctForEvent(event) {
 /** Mock move reactions keyed by event id — mirrors live `/api/discover/timeline` moves map. */
 export function buildMockMoveReactions(events) {
   const out = /** @type {Record<string, { movePct: number; closes: number[] }>} */ ({})
-  for (const event of events ?? []) {
-    if (!String(event?.summary ?? '').trim() || event?.kind === 'flow') continue
+  const maxEvents = 36
+  const eligible = (events ?? []).filter(isDiscoverMarketMove).slice(0, maxEvents)
+  for (const event of eligible) {
     const movePct = mockMovePctForEvent(event)
     out[event.id] = {
       movePct,
@@ -218,5 +239,5 @@ export function getWatchlistCatalysts(opts = {}) {
 }
 
 export function getMarketMoveEvents(opts = {}) {
-  return getDiscoverMarketMoves(opts)
+  return buildHighlightedMarketMoves(opts)
 }

@@ -1,10 +1,12 @@
+import { isIdeaGreenHighlight } from "../core/idea-score.js";
 import { loadHighlightedMarketMoves } from "./highlighted-moves.js";
 import { loadTickerUniverse } from "../shared/ticker-universe.js";
-import { loadUpcomingDiscoverEvents } from "./ahead.js";
+import { loadUpcomingCatalystPool } from "./ahead.js";
 import { loadUpcomingMacroDays } from "./macro.js";
 import { mentionedSearchText } from "./mentions.js";
 import { buildMoveReactionsForEvents } from "./moves.js";
 import { eventMatchesQuery, eventPassesSourceFilter, isStrictlyUpcomingDay } from "./map.js";
+import { attachNextUpcomingToMarketMoves } from "./next-upcoming.js";
 import { loadPastDiscoverEvents } from "./past.js";
 import type { DiscoverEvent, DiscoverTimelineResult } from "./types.js";
 
@@ -39,13 +41,23 @@ export async function buildDiscoverTimeline(opts: DiscoverTimelineOpts = {}): Pr
   const q = String(opts.query ?? "").trim();
   const enabled = opts.sourceKeys ?? null;
 
-  const [pastRaw, upcomingRaw, macro, universe, marketMovesRaw] = await Promise.all([
+  const [pastRaw, macro, universe, marketMovesRaw] = await Promise.all([
     loadPastDiscoverEvents({ pastDays, limit }),
-    loadUpcomingDiscoverEvents({ aheadDays, limit }),
     loadUpcomingMacroDays(macroDayLimit),
     loadTickerUniverse(Number(process.env.DISCOVER_MAX_UNIVERSE ?? 500)),
     loadHighlightedMarketMoves({ pastDays, limit }),
   ]);
+
+  const moveTickers = [
+    ...new Set(
+      marketMovesRaw.map((m) => String(m.ticker ?? "").trim().toUpperCase()).filter(Boolean),
+    ),
+  ];
+  const upcomingPoolRaw = await loadUpcomingCatalystPool({
+    aheadDays,
+    limit: Math.max(limit, 200),
+    tickers: moveTickers.length ? moveTickers : null,
+  });
 
   const filterRow = (event: DiscoverEvent) => {
     if (!eventPassesSourceFilter(event, enabled)) return false;
@@ -54,12 +66,13 @@ export async function buildDiscoverTimeline(opts: DiscoverTimelineOpts = {}): Pr
   };
 
   const past = pastRaw.filter(filterRow).sort((a, b) => dayStartMs(b.at) - dayStartMs(a.at));
-  const upcoming = upcomingRaw
+  const upcoming = upcomingPoolRaw
+    .filter((e) => isStrictlyUpcomingDay(e.at) && isIdeaGreenHighlight(e))
     .filter(filterRow)
-    .filter((e) => isStrictlyUpcomingDay(e.at))
     .sort((a, b) => dayStartMs(a.at) - dayStartMs(b.at));
 
-  const market_moves = marketMovesRaw.filter(filterRow).sort((a, b) => dayStartMs(b.at) - dayStartMs(a.at));
+  const market_moves_filtered = marketMovesRaw.filter(filterRow).sort((a, b) => dayStartMs(b.at) - dayStartMs(a.at));
+  const market_moves = attachNextUpcomingToMarketMoves(market_moves_filtered, upcomingPoolRaw);
   const moves = await buildMoveReactionsForEvents(market_moves);
 
   return {

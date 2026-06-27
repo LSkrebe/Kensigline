@@ -105,7 +105,6 @@ const INVESTIGATE_PHONE_PANES = [
 ]
 
 const DISCOVER_PHONE_PANES = [
-  { id: 'catalyst', label: 'Catalyst' },
   { id: 'moves', label: 'Moves' },
   { id: 'macro', label: 'Macro' },
 ]
@@ -9768,7 +9767,7 @@ function KensiglineTerminal() {
   const [activeTab, setActiveTab] = useState(() => readActiveTab()) // discover | main | investigate | settings
   const [researchPhonePane, setResearchPhonePane] = useState('paper')
   const [investigatePhonePane, setInvestigatePhonePane] = useState('feed')
-  const [discoverPhonePane, setDiscoverPhonePane] = useState('catalyst')
+  const [discoverPhonePane, setDiscoverPhonePane] = useState('moves')
   const [intelMode, setIntelMode] = useState(() => readIntelMode()) // market | clinical
   const [investigateMode, setInvestigateMode] = useState(() => readInvestigateMode()) // insider | politicians | institutions
   const [investigateFeedFilterOpen, setInvestigateFeedFilterOpen] = useState(false)

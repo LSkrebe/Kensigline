@@ -49,6 +49,7 @@
   --panel-corner-wash-program-b: radial-gradient(220px 118px at 96% 72%, var(--intel-accent-tint), transparent 72%);
   --context-surface-inset: rgba(10, 11, 13, 0.88);
   --terminal-panel-bg-image: url('/mercerline_background_1.png');
+  --terminal-panel-bg-image-alt: url('/mercerline_background_2.png');
   /* Research chart/diagram outer shell (ENTITY MAP, price chart card) */
   --chart-panel-surface: rgba(255, 255, 255, 0.02);
   --chart-panel-border: rgba(255, 255, 255, 0.1);
@@ -3977,22 +3978,36 @@
   overflow: visible !important;
 }
 
-/* Discover tab — placeholder shell */
+/* Discover tab — same feed rail + main-area grid as Research */
 .terminal.terminal--discover {
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns:
+    var(--terminal-feed-track)
+    minmax(0, 1.8fr)
+    minmax(0, 1.35fr);
+  grid-template-rows: repeat(4, minmax(0, 1fr));
 }
 
 .terminal--discover .discoverPanel {
+  display: contents;
+}
+
+.terminal--discover .discoverPanelBody {
+  display: contents;
+}
+
+.terminal--discover .discoverMacroStrip {
   grid-column: 1;
-  grid-row: 1;
-  display: flex;
-  flex-direction: column;
+  grid-row: 1 / span 4;
   min-height: 0;
   min-width: 0;
-  padding: 0;
   overflow: hidden;
-  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
+}
+
+.terminal--discover .discoverDual {
+  grid-column: 2 / span 2;
+  grid-row: 1 / span 4;
+  min-height: 0;
+  min-width: 0;
 }
 
 .terminal--discover .discoverCol.feed.feedCompact {
@@ -4001,34 +4016,6 @@
   min-height: 0;
   min-width: 0;
   padding: 0;
-  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
-}
-
-.terminal--discover .discoverCol .feedCompactHeader {
-  box-sizing: border-box;
-  flex: 0 0 var(--feed-header-h);
-  height: var(--feed-header-h);
-  min-height: var(--feed-header-h);
-  max-height: var(--feed-header-h);
-  padding: 0 12px;
-  align-items: center;
-  border-bottom: none;
-}
-
-.terminal--discover .discoverCol .feedCompactHeader.discoverColHeadBar {
-  width: 100%;
-}
-
-.terminal--discover .discoverCol .feedCompactHeader .feedCompactFilterBtn {
-  color: rgba(255, 255, 255, 0.38);
-}
-
-.terminal--discover .discoverCol .feedCompactHeader .feedCompactFilterBtn:hover {
-  color: rgba(255, 255, 255, 0.68);
-}
-
-.terminal--discover .discoverCol .feedCompactHeader .feedCompactFilterBtn.isActive {
-  color: var(--cyan);
 }
 
 .terminal--discover .discoverCol--filter .feedCompactMain {
@@ -4038,24 +4025,6 @@
   flex-direction: column;
   gap: 8px;
   overflow: hidden;
-}
-
-.terminal--discover .discoverCol .feedCompactTitle {
-  color: var(--hi);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  font-weight: 600;
-}
-
-.terminal--discover .discoverCol .feedCompactBody {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 0 10px 10px;
-  overflow: hidden;
-  box-sizing: border-box;
 }
 
 .terminal--discover .discoverColScroll {
@@ -4071,37 +4040,17 @@
   box-sizing: border-box;
 }
 
-.terminal--discover .discoverColScroll--marketMoves {
-  padding: 0 10px 0 4px;
-}
-
 .terminal--discover .discoverEventList {
   flex: 0 0 auto;
   height: auto;
   min-height: 0;
 }
 
-.terminal--discover .discoverPanelBody {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) 1px minmax(152px, min(38vh, 220px));
-  padding: 0;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-
-.terminal--discover .discoverMacroStrip {
-  min-height: 0;
-  overflow: hidden;
-  border-bottom: none;
+.terminal--discover .discoverPanelSplit--vertical {
+  display: none;
 }
 
 .terminal--discover .discoverMacroStrip .feedCompactBody.discoverMacroStripBody {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: 0 0 8px;
   gap: 0;
 }
 
@@ -4115,13 +4064,25 @@
 .terminal--discover .discoverMacroStripScroll {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
-  padding: 0 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.terminal--discover .discoverMacroWeek {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: min-content;
+  padding: 0;
   box-sizing: border-box;
 }
 
 .terminal--discover .discoverMacroDay--col {
-  flex: 1 1 0;
+  flex: 0 0 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -4141,13 +4102,12 @@
 }
 
 .terminal--discover .discoverMacroDay--col .discoverMacroDayBody {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
+  overflow: visible;
+  overscroll-behavior: auto;
   padding: 0;
-  gap: 5px;
+  gap: 3px;
 }
 
 .terminal--discover .discoverMacroDay--col .discoverMacroDayEmpty {
@@ -4169,33 +4129,14 @@
 
 .terminal--discover .discoverDual {
   min-height: 0;
+  min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
 }
 
 .terminal--discover .discoverDual > .discoverCol {
   min-height: 0;
-}
-
-.terminal--discover .discoverMacroWeek:not(.discoverMacroWeek--horizontal) {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-height: 0;
-}
-
-.terminal--discover .discoverMacroWeek.discoverMacroWeek--horizontal {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 10px;
-  min-height: 0;
-  height: 100%;
-  width: 100%;
-  min-width: 0;
-  padding: 2px 0 4px;
-  box-sizing: border-box;
 }
 
 .discoverMacroDay {
@@ -4209,7 +4150,7 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 4px 2px 6px;
+  padding: 2px 0 6px;
 }
 
 .discoverMacroDayWeekday {
@@ -4241,13 +4182,13 @@
 }
 
 .discoverMacroDayEmpty {
-  margin: 8px 10px 0;
+  margin: 4px 0 0;
   font-size: 10px;
 }
 
 .discoverMacroEvent {
-  padding: 6px 8px;
-  border-radius: 5px;
+  padding: 5px 8px;
+  border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.07);
   background: rgba(255, 255, 255, 0.02);
   border-left-width: 2px;
@@ -4304,25 +4245,11 @@
   overflow-wrap: anywhere;
 }
 
-.terminal--discover .discoverCol .researchFeedSearch {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  box-sizing: border-box;
-  min-height: var(--feed-search-row-min-h, calc(0.08em + 1.08em + 10px));
-  padding: 5px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
-  cursor: text;
-}
-
 .discoverMoveList {
   flex: 0 0 auto;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
   align-items: stretch;
   width: 100%;
 }
@@ -4333,17 +4260,23 @@
   gap: 0;
   width: 100%;
   min-width: 0;
+  height: clamp(284px, 32vh, 304px);
+  min-height: clamp(284px, 32vh, 304px);
+  max-height: clamp(284px, 32vh, 304px);
   margin: 0;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
   color: inherit;
   text-align: left;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
   overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 8px 22px rgba(0, 0, 0, 0.24);
   transition:
     border-color 0.15s ease,
     background 0.15s ease;
@@ -4364,7 +4297,8 @@
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 8px;
-  padding: 7px 8px 4px;
+  flex: 0 0 auto;
+  padding: 10px 10px 6px;
 }
 
 .discoverMoveCardTicker {
@@ -4395,30 +4329,161 @@
 
 .discoverMoveChart {
   width: 100%;
-  height: clamp(48px, 9vh, 72px);
+  flex: 0 0 88px;
+  height: 88px;
+  min-height: 88px;
+  max-height: 88px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .discoverMoveCardCopy {
-  padding: 7px 8px 8px;
-  min-width: 0;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  padding: 4px 10px 0;
+  position: relative;
+  z-index: 1;
+  align-self: start;
+}
+
+.discoverMoveCardLower {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0 0 10px;
+  overflow: visible;
+}
+
+.discoverMoveCardFooters {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  margin-top: auto;
+  padding: 12px 10px 0;
+  position: relative;
+  z-index: 1;
 }
 
 .discoverMoveCardTitle {
   margin: 0;
-  font-size: 11px;
+  flex: 0 0 auto;
+  font-size: 10px;
   font-weight: 500;
-  line-height: 1.35;
+  line-height: 1.4;
+  min-height: 2.8em;
+  max-height: 2.8em;
   color: rgba(255, 255, 255, 0.9);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.discoverMoveCardSummary {
+  flex: 0 0 auto;
+  min-height: calc(9.5px * 1.45 * 4);
+  max-height: calc(9.5px * 1.45 * 4);
+  overflow: hidden;
 }
 
 .discoverMoveCardCopy .researchPaperDocCardAnalysis {
-  margin: 4px 0 0;
+  margin: 0;
   padding-right: 0;
-  font-size: 10px;
+  font-size: 9.5px;
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.52);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
+
+.terminal--discover .discoverMoveCard .discoverMoveCardCatalyst {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+  background: rgb(10, 11, 14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.terminal--discover .discoverMoveCard .discoverMoveCardCatalyst--highlight {
+  isolation: isolate;
+  border-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(10, 11, 13, 0.35);
+  box-shadow: none;
+}
+
+.terminal--discover .discoverMoveCard .discoverMoveCardCatalyst--highlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--terminal-panel-bg-image);
+  background-size: 360px auto;
+  background-position: 82% 46%;
+  background-repeat: no-repeat;
+  opacity: 0.75;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.terminal--discover .discoverMoveCard .discoverMoveCardCatalyst--highlight::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgba(5, 7, 10, 0.78) 0%,
+    rgba(5, 7, 10, 0.28) 52%,
+    rgba(5, 7, 10, 0.5) 100%
+  );
+  z-index: 0;
+  pointer-events: none;
+}
+
+.terminal--discover .discoverMoveCard .discoverMoveCardCatalyst--highlight .contextCompanyEarningsK,
+.terminal--discover .discoverMoveCard .discoverMoveCardCatalyst--highlight .contextCompanyEarningsV {
+  position: relative;
+  z-index: 1;
+}
+
+.terminal--discover .discoverMoveCard .discoverMoveCardCatalyst .contextCompanyEarningsK {
+  color: var(--hi);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal--discover .discoverMoveCard .discoverMoveCardCatalyst .contextCompanyEarningsV {
+  color: var(--hi);
+  text-align: right;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .discoverCatalystList {
@@ -4582,32 +4647,9 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.discoverColHeadBar {
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-}
-
 .discoverColHeadLabel {
   flex-shrink: 0;
   line-height: 1;
-}
-
-.discoverColHeadBar .feedCompactFilterBtn {
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.terminal--discover .discoverColHeadBar .feedCompactFilterBtn {
-  color: rgba(255, 255, 255, 0.38);
-}
-
-.terminal--discover .discoverColHeadBar .feedCompactFilterBtn:hover {
-  color: rgba(255, 255, 255, 0.68);
-}
-
-.terminal--discover .discoverColHeadBar .feedCompactFilterBtn.isActive {
-  color: var(--cyan);
 }
 
 .terminal--discover .discoverCol--filter .feedCompactBody {
@@ -4652,33 +4694,13 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.terminal--discover .discoverMacroStrip .feedCompactFilterPicker.discoverMacroFilterPicker {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px 32px;
-  align-content: start;
-  align-items: start;
-  padding: 4px 16px 10px;
-}
-
-.terminal--discover .discoverMacroStrip .discoverMacroFilterPicker .feedFilterSection {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.terminal--discover .discoverMacroStrip .discoverMacroFilterPicker .feedFilterSectionTitle {
-  margin: 0 0 6px;
-}
-
 .feedFilterSection {
   display: contents;
 }
 
 .discoverColEmpty {
   margin: 0;
-  padding: 10px 4px;
+  padding: 10px 4px 8px;
   font-size: 11px;
 }
 
@@ -4950,7 +4972,73 @@
 
 .settingsCard--account,
 .settingsCard--billing {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   height: 100%;
+  background-color: rgba(10, 11, 13, 0.35);
+}
+
+.settingsCard--account::before,
+.settingsCard--billing::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-repeat: no-repeat;
+  opacity: 0.75;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.settingsCard--account::before {
+  background-image: var(--terminal-panel-bg-image);
+  background-size: 185% auto;
+  background-position: 6% 18%;
+}
+
+.settingsCard--billing::before {
+  background-image: var(--terminal-panel-bg-image-alt);
+  background-size: 230% auto;
+  background-position: 92% 78%;
+}
+
+.settingsCard--account::after,
+.settingsCard--billing::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.settingsCard--account::after {
+  background: linear-gradient(
+    105deg,
+    rgba(5, 7, 10, 0.84) 0%,
+    rgba(5, 7, 10, 0.34) 48%,
+    rgba(5, 7, 10, 0.58) 100%
+  );
+}
+
+.settingsCard--billing::after {
+  background: linear-gradient(
+    285deg,
+    rgba(5, 7, 10, 0.8) 0%,
+    rgba(5, 7, 10, 0.22) 46%,
+    rgba(5, 7, 10, 0.62) 100%
+  );
+}
+
+.settingsCard--account .settingsCardHead,
+.settingsCard--account .settingsCardBody,
+.settingsCard--account .settingsCardFoot,
+.settingsCard--billing .settingsCardHead,
+.settingsCard--billing .settingsCardBody,
+.settingsCard--billing .settingsCardFoot {
+  position: relative;
+  z-index: 1;
 }
 
 .settingsCard--account .settingsCardBody,
@@ -6820,7 +6908,9 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed.feedCompact,
 .terminal--politicians .feed.feedCompact,
 .terminal--institutions .feed.feedCompact,
-.terminal--main .researchTicker.feed.feedCompact
+.terminal--main .researchTicker.feed.feedCompact,
+.terminal--discover .discoverMacroStrip.feed.feedCompact,
+.terminal--discover .discoverDual > .discoverCol.feed.feedCompact
 {
   background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
 }
@@ -6838,7 +6928,9 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .historicalOutcomes .feedCompactHeader,
 .terminal--institutions .historicalOutcomes .feedCompactHeader,
 .terminal--politicians .companyTile .feedCompactHeader,
-.terminal--institutions .companyTile .feedCompactHeader
+.terminal--institutions .companyTile .feedCompactHeader,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactHeader,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeader
 {
   box-sizing: border-box;
   flex: 0 0 var(--feed-header-h);
@@ -6889,30 +6981,42 @@ button.researchPaperCopyIcon:focus-visible {
   letter-spacing: 0.08em;
 }
 
-.terminal--investigate .feed--left .feedCompactHeaderEnd {
+.terminal--investigate .feed--left .feedCompactHeaderEnd,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactHeaderEnd,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeaderEnd {
   align-items: center;
   height: 100%;
 }
 
-.terminal--investigate .feed--left .feedCompactFilterBtn {
+.terminal--investigate .feed--left .feedCompactFilterBtn,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactFilterBtn,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactFilterBtn {
   color: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--investigate .feed--left .feedCompactFilterBtn:hover {
+.terminal--investigate .feed--left .feedCompactFilterBtn:hover,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactFilterBtn:hover,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactFilterBtn:hover {
   color: rgba(255, 255, 255, 0.68);
 }
 
-.terminal--investigate .feed--left .feedCompactFilterBtn.isActive {
+.terminal--investigate .feed--left .feedCompactFilterBtn.isActive,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactFilterBtn.isActive,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactFilterBtn.isActive {
   color: var(--cyan);
 }
 
-.terminal--investigate .feed--left .feedCompactBody--filterOpen {
+.terminal--investigate .feed--left .feedCompactBody--filterOpen,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactBody--filterOpen,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactBody--filterOpen {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
 }
 
-.terminal--investigate .feed--left .feedCompactMain {
+.terminal--investigate .feed--left .feedCompactMain,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactMain,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactMain {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -6921,12 +7025,16 @@ button.researchPaperCopyIcon:focus-visible {
   overflow: hidden;
 }
 
-.terminal--investigate .feed--left .feedCompactBody--filterOpen .feedCompactMain {
+.terminal--investigate .feed--left .feedCompactBody--filterOpen .feedCompactMain,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactBody--filterOpen .feedCompactMain,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactBody--filterOpen .feedCompactMain {
   visibility: hidden;
   pointer-events: none;
 }
 
-.terminal--investigate .feed--left .feedCompactBody--filterOpen .feedCompactFilterPicker {
+.terminal--investigate .feed--left .feedCompactBody--filterOpen .feedCompactFilterPicker,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactBody--filterOpen .feedCompactFilterPicker,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactBody--filterOpen .feedCompactFilterPicker {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -7032,33 +7140,45 @@ button.researchPaperCopyIcon:focus-visible {
 }
 
 /* Research tab: FEED filter (paper + feed scopes) */
-.terminal--main .researchTicker .feedCompactTitle {
+.terminal--main .researchTicker .feedCompactTitle,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactTitle,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactTitle {
   color: var(--hi);
   font-size: 10px;
   letter-spacing: 0.16em;
   font-weight: 600;
 }
 
-.terminal--main .researchTicker .feedCompactHeader {
+.terminal--main .researchTicker .feedCompactHeader,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactHeader,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeader {
   justify-content: space-between;
   padding: 0 12px;
   border-bottom: none;
 }
 
-.terminal--main .researchTicker .feedCompactHeaderEnd {
+.terminal--main .researchTicker .feedCompactHeaderEnd,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactHeaderEnd,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeaderEnd {
   align-items: center;
   height: 100%;
 }
 
-.terminal--main .researchTicker .feedCompactFilterBtn {
+.terminal--main .researchTicker .feedCompactFilterBtn,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactFilterBtn,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactFilterBtn {
   color: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--main .researchTicker .feedCompactFilterBtn:hover {
+.terminal--main .researchTicker .feedCompactFilterBtn:hover,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactFilterBtn:hover,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactFilterBtn:hover {
   color: rgba(255, 255, 255, 0.68);
 }
 
-.terminal--main .researchTicker .feedCompactFilterBtn.isActive {
+.terminal--main .researchTicker .feedCompactFilterBtn.isActive,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactFilterBtn.isActive,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactFilterBtn.isActive {
   color: var(--cyan);
 }
 
@@ -7322,7 +7442,9 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedCompactBody,
 .terminal--politicians .feed--left .feedCompactBody,
 .terminal--institutions .feed--left .feedCompactBody,
-.terminal--main .researchTicker.feed--left .feedCompactBody
+.terminal--main .researchTicker.feed--left .feedCompactBody,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactBody,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactBody
 {
   flex: 1 1 auto;
   min-height: 0;
@@ -9649,6 +9771,12 @@ body {
     grid-column: unset;
     grid-row: unset;
   }
+
+  /* Discover — compact desktop: 2 market-move cards per row */
+  .terminal--discover .discoverMoveList {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
 }
 
 /* ---- Phone layout (≤640px) — dedicated single-column views per tab ---- */
@@ -9907,20 +10035,41 @@ body {
   }
 
   /* Discover — one pane at a time */
-  .terminalShell--phone .terminal--discover .discoverPanelBody {
-    display: grid;
+  .terminalShell--phone .terminal.terminal--discover {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
+  }
+
+  .terminalShell--phone .terminal--discover .discoverPanel {
+    display: flex;
+    flex-direction: column;
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+    min-width: 0;
+    height: 100%;
     overflow: hidden;
   }
 
   .terminalShell--phone .terminal--discover .discoverPanelSplit--horizontal,
+  .terminalShell--phone .terminal--discover .discoverPanelSplit--vertical,
   .terminalShell--phone .terminal--discover .discoverSplitRule {
     display: none;
   }
 
+  .terminalShell--phone .terminal--discover .discoverPanelBody {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
   .terminalShell--phone .terminal--discover .discoverDual {
     display: contents;
+    grid-column: auto;
+    grid-row: auto;
   }
 
   .terminalShell--phone .terminal--discover .discoverMacroStrip,
@@ -9928,21 +10077,35 @@ body {
     grid-column: 1;
     grid-row: 1;
     min-height: 0;
+    height: 100%;
     max-height: none;
+    align-self: stretch;
     border-bottom: none;
+    overflow: hidden;
   }
 
-  .terminalShell--phone .terminal--discover .discoverMacroStripScroll {
+  .terminalShell--phone .terminal--discover .discoverMacroStrip.feed.feedCompact,
+  .terminalShell--phone .terminal--discover .discoverDual > .discoverCol.feed.feedCompact {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .terminalShell--phone .terminal--discover .discoverMacroStripMain,
+  .terminalShell--phone .terminal--discover .discoverDual > .discoverCol .feedCompactMain {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .terminalShell--phone .terminal--discover .discoverMacroStripScroll,
+  .terminalShell--phone .terminal--discover .discoverDual > .discoverCol .discoverColScroll {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: contain;
-  }
-
-  .terminalShell--phone .terminal--discover .discoverMacroWeek.discoverMacroWeek--horizontal {
-    flex-direction: column;
-    align-items: stretch;
-    height: auto;
-    min-height: min-content;
   }
 
   .terminalShell--phone .terminal--discover .discoverMacroDay--col {
@@ -9954,6 +10117,17 @@ body {
     flex: 0 0 auto;
     max-height: none;
     overflow: visible;
+  }
+
+  .terminalShell--phone .discoverMoveList {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .terminalShell--phone .discoverMoveCard {
+    height: clamp(276px, 32vh, 296px);
+    min-height: clamp(276px, 32vh, 296px);
+    max-height: clamp(276px, 32vh, 296px);
   }
 
   .terminalShell--phone .discoverAgendaRow--ahead,

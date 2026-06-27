@@ -29,6 +29,182 @@ const DISCOVER_COMPANIES = {
   VRTX: { name: 'Vertex Pharmaceuticals', intelMode: 'clinical' },
 }
 
+function isoDayFromOffset(daysAhead) {
+  const d = new Date()
+  d.setDate(d.getDate() + daysAhead)
+  d.setHours(0, 0, 0, 0)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+/** Dynamic upcoming rows — nearest per ticker wins in footer strips (not always earnings). */
+function buildDiscoverMockUpcomingEvents() {
+  const templates = [
+    {
+      id: 'disc-lrcx-analyst',
+      ticker: 'LRCX',
+      companyName: DISCOVER_COMPANIES.LRCX.name,
+      intelMode: 'market',
+      daysAhead: 4,
+      title: 'Investor presentation',
+      kind: 'catalyst',
+      source: 'Investor presentation',
+      impact: 'medium',
+      briefKey: 'lrcx-analyst',
+      idea_best: true,
+    },
+    {
+      id: 'disc-srpt-pdufa',
+      ticker: 'SRPT',
+      companyName: DISCOVER_COMPANIES.SRPT.name,
+      intelMode: 'clinical',
+      daysAhead: 6,
+      title: 'PDUFA target',
+      kind: 'regulatory',
+      source: 'Press release',
+      phase: 'Phase 3',
+      programKey: 'SRP-9001',
+      impact: 'high',
+      briefKey: 'srpt-fda',
+      idea_best: true,
+    },
+    {
+      id: 'disc-nvda-keynote',
+      ticker: 'NVDA',
+      companyName: DISCOVER_COMPANIES.NVDA.name,
+      intelMode: 'market',
+      daysAhead: 8,
+      title: 'Product launch keynote',
+      kind: 'catalyst',
+      source: 'Press release',
+      impact: 'high',
+      briefKey: 'nvda-computex',
+      idea_best: true,
+    },
+    {
+      id: 'disc-asml-tech',
+      ticker: 'ASML',
+      companyName: DISCOVER_COMPANIES.ASML.name,
+      intelMode: 'market',
+      daysAhead: 9,
+      title: 'Technology conference',
+      kind: 'catalyst',
+      source: 'Investor presentation',
+      impact: 'high',
+      briefKey: 'asml-tech',
+      idea_best: true,
+    },
+    {
+      id: 'disc-mrna-rsv',
+      ticker: 'MRNA',
+      companyName: DISCOVER_COMPANIES.MRNA.name,
+      intelMode: 'clinical',
+      daysAhead: 10,
+      title: 'Primary completion (est.)',
+      kind: 'catalyst',
+      source: 'ClinicalTrials.gov',
+      phase: 'Phase 3',
+      programKey: 'mRNA-1345',
+      impact: 'high',
+      briefKey: 'mrna-rsv',
+      idea_best: true,
+    },
+    {
+      id: 'disc-tsm-cmd',
+      ticker: 'TSM',
+      companyName: DISCOVER_COMPANIES.TSM.name,
+      intelMode: 'market',
+      daysAhead: 12,
+      title: 'Analyst day',
+      kind: 'catalyst',
+      source: 'Investor presentation',
+      impact: 'medium',
+      briefKey: 'tsm-cmd',
+      idea_best: true,
+    },
+    {
+      id: 'disc-nvda-earnings-up',
+      ticker: 'NVDA',
+      companyName: DISCOVER_COMPANIES.NVDA.name,
+      intelMode: 'market',
+      daysAhead: 45,
+      title: 'Earnings report',
+      kind: 'earnings',
+      source: '8-K',
+      impact: 'high',
+      briefKey: 'nvda-earnings-up',
+      idea_best: true,
+    },
+    {
+      id: 'disc-asml-earnings',
+      ticker: 'ASML',
+      companyName: DISCOVER_COMPANIES.ASML.name,
+      intelMode: 'market',
+      daysAhead: 52,
+      title: 'Earnings report',
+      kind: 'earnings',
+      source: '8-K',
+      impact: 'high',
+      briefKey: 'asml-earnings',
+      idea_best: true,
+    },
+    {
+      id: 'disc-atyr-topline',
+      ticker: 'ATYR',
+      companyName: DISCOVER_COMPANIES.ATYR.name,
+      intelMode: 'clinical',
+      daysAhead: 30,
+      title: 'Primary completion',
+      kind: 'catalyst',
+      source: 'ClinicalTrials.gov',
+      phase: 'Phase 3',
+      programKey: 'Efzofitimod',
+      impact: 'high',
+      briefKey: 'atyr-topline',
+      url: 'https://clinicaltrials.gov/study/NCT05415137',
+      idea_best: true,
+    },
+    {
+      id: 'disc-biib-adu',
+      ticker: 'BIIB',
+      companyName: DISCOVER_COMPANIES.BIIB.name,
+      intelMode: 'clinical',
+      daysAhead: 34,
+      title: 'PDUFA target',
+      kind: 'regulatory',
+      source: 'Press release',
+      phase: 'Approved',
+      programKey: 'Leqembi',
+      impact: 'medium',
+      briefKey: 'biib-adu',
+      idea_best: true,
+    },
+    {
+      id: 'disc-atyr-biomarker',
+      ticker: 'ATYR',
+      companyName: DISCOVER_COMPANIES.ATYR.name,
+      intelMode: 'clinical',
+      daysAhead: 48,
+      title: 'Study completion (est.)',
+      kind: 'trial',
+      source: 'ClinicalTrials.gov',
+      phase: 'Phase 2',
+      programKey: 'Efzofitimod',
+      impact: 'medium',
+      briefKey: 'atyr-biomarker',
+    },
+  ]
+
+  return templates.map(({ daysAhead, ...row }) => ({
+    ...row,
+    at: isoDayFromOffset(daysAhead),
+  }))
+}
+
+export { buildDiscoverMockUpcomingEvents }
+
 /** @typedef {'market' | 'clinical'} DiscoverIntelMode */
 /** @typedef {'catalyst' | 'filing' | 'earnings' | 'trial' | 'regulatory' | 'flow'} DiscoverEventKind */
 
@@ -51,143 +227,12 @@ const DISCOVER_COMPANIES = {
  * @property {number} [idea_score]
  * @property {boolean} [idea_best]
  * @property {string[]} [idea_reasons]
+ * @property {{ label: string; at: string; soon: boolean }} [next_upcoming]
  */
 
 /** @type {DiscoverEvent[]} */
 const DISCOVER_EVENTS = [
-  // —— Upcoming ——
-  {
-    id: 'disc-atyr-topline',
-    ticker: 'ATYR',
-    companyName: DISCOVER_COMPANIES.ATYR.name,
-    intelMode: 'clinical',
-    at: '2026-07-18',
-    title: 'Primary completion',
-    kind: 'catalyst',
-    source: 'ClinicalTrials.gov',
-    phase: 'Phase 3',
-    programKey: 'Efzofitimod',
-    impact: 'high',
-    briefKey: 'atyr-topline',
-    url: 'https://clinicaltrials.gov/study/NCT05415137',
-  },
-  {
-    id: 'disc-asml-earnings',
-    ticker: 'ASML',
-    companyName: DISCOVER_COMPANIES.ASML.name,
-    intelMode: 'market',
-    at: '2026-06-14',
-    title: 'Earnings report',
-    kind: 'earnings',
-    source: '8-K',
-    impact: 'high',
-    briefKey: 'asml-earnings',
-  },
-  {
-    id: 'disc-atyr-biomarker',
-    ticker: 'ATYR',
-    companyName: DISCOVER_COMPANIES.ATYR.name,
-    intelMode: 'clinical',
-    at: '2026-06-06',
-    title: 'Study completion (est.)',
-    kind: 'trial',
-    source: 'ClinicalTrials.gov',
-    phase: 'Phase 2',
-    programKey: 'Efzofitimod',
-    impact: 'medium',
-    briefKey: 'atyr-biomarker',
-  },
-  {
-    id: 'disc-atyr-2810',
-    ticker: 'ATYR',
-    companyName: DISCOVER_COMPANIES.ATYR.name,
-    intelMode: 'clinical',
-    at: '2026-05-22',
-    title: 'Trial active',
-    kind: 'trial',
-    source: '8-K',
-    phase: 'Phase 1',
-    programKey: 'ATYR-2810',
-    impact: 'medium',
-  },
-  {
-    id: 'disc-mrna-rsv',
-    ticker: 'MRNA',
-    companyName: DISCOVER_COMPANIES.MRNA.name,
-    intelMode: 'clinical',
-    at: '2026-06-28',
-    title: 'Primary completion (est.)',
-    kind: 'catalyst',
-    source: 'ClinicalTrials.gov',
-    phase: 'Phase 3',
-    programKey: 'mRNA-1345',
-    impact: 'high',
-    briefKey: 'mrna-rsv',
-  },
-  {
-    id: 'disc-srpt-fda',
-    ticker: 'SRPT',
-    companyName: DISCOVER_COMPANIES.SRPT.name,
-    intelMode: 'clinical',
-    at: '2026-06-02',
-    title: 'Regulatory milestone',
-    kind: 'regulatory',
-    source: '8-K',
-    phase: 'Phase 3',
-    programKey: 'SRP-9001',
-    impact: 'high',
-    briefKey: 'srpt-fda',
-  },
-  {
-    id: 'disc-nvda-computex',
-    ticker: 'NVDA',
-    companyName: DISCOVER_COMPANIES.NVDA.name,
-    intelMode: 'market',
-    at: '2026-06-04',
-    title: 'Company release',
-    kind: 'catalyst',
-    source: 'Press release',
-    impact: 'high',
-    briefKey: 'nvda-computex',
-  },
-  {
-    id: 'disc-tsm-cmd',
-    ticker: 'TSM',
-    companyName: DISCOVER_COMPANIES.TSM.name,
-    intelMode: 'market',
-    at: '2026-06-10',
-    title: 'Investor presentation',
-    kind: 'earnings',
-    source: 'Investor presentation',
-    impact: 'medium',
-    briefKey: 'tsm-cmd',
-  },
-  {
-    id: 'disc-biib-adu',
-    ticker: 'BIIB',
-    companyName: DISCOVER_COMPANIES.BIIB.name,
-    intelMode: 'clinical',
-    at: '2026-05-30',
-    title: 'PDUFA target',
-    kind: 'regulatory',
-    source: 'Press release',
-    phase: 'Approved',
-    programKey: 'Leqembi',
-    impact: 'medium',
-    briefKey: 'biib-adu',
-  },
-  {
-    id: 'disc-lrcx-analyst',
-    ticker: 'LRCX',
-    companyName: DISCOVER_COMPANIES.LRCX.name,
-    intelMode: 'market',
-    at: '2026-06-18',
-    title: 'Investor presentation',
-    kind: 'catalyst',
-    source: 'Investor presentation',
-    impact: 'medium',
-    briefKey: 'lrcx-analyst',
-  },
+  ...buildDiscoverMockUpcomingEvents(),
   // —— Past (with paper-style summaries) ——
   {
     id: 'disc-atyr-8k-today',
@@ -396,6 +441,74 @@ const DISCOVER_EVENTS = [
     idea_best: true,
   },
 ]
+
+/** Green-highlight flow rows — mirrors Investigate feed aggregation in highlighted-moves.ts */
+const DISCOVER_FLOW_MARKET_MOVES = /** @type {DiscoverEvent[]} */ ([
+  {
+    id: 'doc:mock-flow-nvda-insider',
+    ticker: 'NVDA',
+    companyName: DISCOVER_COMPANIES.NVDA.name,
+    intelMode: 'market',
+    at: '2026-05-12',
+    title: '3 Code P purchases totaling 62,400 shares',
+    kind: 'flow',
+    source: 'Form 4',
+    summary:
+      'This Form 4 filing includes 3 Code P open-market purchases by EVP & CFO Colette Kress, acquiring 62,400 shares at ~$8.1M notional in NVIDIA Corporation.',
+    url: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001045810',
+    idea_score: 78,
+    idea_best: true,
+    idea_reasons: ['Insider purchase cluster', 'Executive buyer'],
+  },
+  {
+    id: 'doc:mock-flow-lrcx-insider',
+    ticker: 'LRCX',
+    companyName: DISCOVER_COMPANIES.LRCX.name,
+    intelMode: 'market',
+    at: '2026-05-02',
+    title: '1 Code P purchase totaling 18,200 shares',
+    kind: 'flow',
+    source: 'Form 4',
+    summary:
+      'This Form 4 filing includes 1 Code P open-market purchase by CEO Timothy Archer, acquiring 18,200 shares at ~$2.4M notional in Lam Research Corporation.',
+    url: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=000707549',
+    idea_score: 74,
+    idea_best: true,
+    idea_reasons: ['CEO open-market purchase'],
+  },
+  {
+    id: 'doc:mock-flow-asml-ptr',
+    ticker: 'ASML',
+    companyName: DISCOVER_COMPANIES.ASML.name,
+    intelMode: 'market',
+    at: '2026-04-22',
+    title: '2 stock purchases (~$215K midpoint)',
+    kind: 'flow',
+    source: 'PTR',
+    summary:
+      'PTR disclosure for ASML: Representative Dan Crenshaw reported 2 stock purchases at a disclosed midpoint of $215K.',
+    url: 'https://disclosures-clerk.house.gov/',
+    idea_score: 71,
+    idea_best: true,
+    idea_reasons: ['Politician purchase cluster'],
+  },
+  {
+    id: 'doc:mock-flow-tsm-13f',
+    ticker: 'TSM',
+    companyName: DISCOVER_COMPANIES.TSM.name,
+    intelMode: 'market',
+    at: '2026-03-28',
+    title: 'Increased stake · Vanguard Group',
+    kind: 'flow',
+    source: '13F',
+    summary:
+      '13F filing shows Vanguard Group with increased stake in TSM, disclosed value ~$4.2B (1,842,000 shares).',
+    url: 'https://www.sec.gov/cgi-bin/browse-edgar',
+    idea_score: 68,
+    idea_best: true,
+    idea_reasons: ['Institutional accumulation'],
+  },
+])
 
 const KIND_LABEL = {
   catalyst: 'Catalyst',
@@ -648,6 +761,36 @@ export function buildDiscoverTimeline(opts = {}) {
   return { upcoming, past }
 }
 
+/**
+ * Upcoming catalyst + earnings rows for footer strips (no document-type filter).
+ * @param {{ query?: string }} [opts]
+ */
+export function getDiscoverUpcomingEvents(opts = {}) {
+  const q = String(opts.query ?? '')
+    .trim()
+    .toLowerCase()
+  const today = todayStartMs()
+
+  let rows = DISCOVER_EVENTS.filter((e) => {
+    const ms = eventDayStartMs(e.at)
+    return Number.isFinite(ms) && ms >= today
+  })
+
+  if (q) {
+    rows = rows.filter((e) => {
+      const mentioned =
+        e.mentioned != null
+          ? eventMentionedSearchText(e.ticker, e.mentioned)
+          : eventMentionedSearchText(e.ticker, getEventMentioned(e.briefKey))
+      const hay = `${e.ticker} ${e.companyName} ${e.title} ${e.programKey ?? ''} ${e.source ?? ''} ${e.summary ?? ''} ${mentioned}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }
+
+  rows.sort((a, b) => eventDayStartMs(a.at) - eventDayStartMs(b.at))
+  return rows
+}
+
 /** Upcoming catalyst rows for the watchlist column (strictly future + best tier). */
 export function getDiscoverWatchlistEvents(opts = {}) {
   const { query, enabledFilters } = opts
@@ -666,11 +809,50 @@ export function isDiscoverMarketMove(event) {
   return false
 }
 
+function filterMarketMovesByQuery(events, query) {
+  const q = String(query ?? '').trim().toLowerCase()
+  if (!q) return events
+  return events.filter((e) => {
+    const mentioned =
+      e.mentioned != null
+        ? eventMentionedSearchText(e.ticker, e.mentioned)
+        : eventMentionedSearchText(e.ticker, getEventMentioned(e.briefKey))
+    const hay = `${e.ticker} ${e.companyName} ${e.title} ${e.programKey ?? ''} ${e.source ?? ''} ${e.summary ?? ''} ${mentioned}`.toLowerCase()
+    return hay.includes(q)
+  })
+}
+
+/**
+ * Offline market_moves list — mirrors backend loadHighlightedMarketMoves():
+ * green-highlight flow clusters + past research docs with analysis.
+ * @param {{ query?: string; limit?: number; pastDays?: number }} [opts]
+ */
+export function buildHighlightedMarketMoves(opts = {}) {
+  const limit = Math.max(10, Math.min(200, Number(opts.limit) || 80))
+  const pastDays = Math.max(7, Math.min(365, Number(opts.pastDays) || 90))
+  const today = todayStartMs()
+  const minMs = today - pastDays * 86400000
+
+  const researchMoves = DISCOVER_EVENTS.filter((e) => {
+    const ms = eventDayStartMs(e.at)
+    if (!Number.isFinite(ms) || ms >= today || ms < minMs) return false
+    return isDiscoverMarketMove(e)
+  })
+
+  const flowMoves = DISCOVER_FLOW_MARKET_MOVES.filter((e) => {
+    const ms = eventDayStartMs(e.at)
+    return Number.isFinite(ms) && ms < today && ms >= minMs
+  })
+
+  let merged = [...flowMoves, ...researchMoves]
+  merged = filterMarketMovesByQuery(merged, opts.query)
+  merged.sort((a, b) => eventDayStartMs(b.at) - eventDayStartMs(a.at))
+  return merged.slice(0, limit)
+}
+
 /** Past document rows with analysis text for market moves (best-graded only). */
 export function getDiscoverMarketMoves(opts = {}) {
-  const { query, enabledFilters } = opts
-  const { past } = buildDiscoverTimeline({ query, enabledFilters })
-  return past.filter((e) => isDiscoverMarketMove(e))
+  return buildHighlightedMarketMoves(opts)
 }
 
 export function discoverImpactClass(impact) {

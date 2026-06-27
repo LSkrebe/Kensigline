@@ -6,7 +6,6 @@ export const UI_PREF_KEYS = {
   investigateMode: `${PREFIX}investigate-mode`,
   researchFilters: (intelMode) => `${PREFIX}research-filters:${intelMode === 'clinical' ? 'clinical' : 'market'}`,
   investigateTxnFilters: (mode) => `${PREFIX}investigate-txn:${mode}`,
-  discoverWatchlistFilters: `${PREFIX}discover:watchlist-filters`,
   discoverMacroRegionFilters: `${PREFIX}discover:macro-region-filters`,
   discoverMacroImpactFilters: `${PREFIX}discover:macro-impact-filters`,
   discoverMovesFilters: `${PREFIX}discover:moves-filters:v2`,
