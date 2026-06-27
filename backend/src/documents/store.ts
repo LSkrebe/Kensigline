@@ -186,9 +186,9 @@ function clusterDocFallbackAt(data: any, eventAt: string | null): string | null 
 
 async function loadInsiderFlowsFromDocuments(ticker: string, limit = 80) {
   const t = ticker.trim().toUpperCase();
-  const docs = await db.query<{ data: any; event_at: string | null }>(
+  const docs = await db.query<{ data: any; event_at: string | null; url: string | null }>(
     `
-    SELECT data, event_at::text AS event_at
+    SELECT data, event_at::text AS event_at, url
     FROM documents
     WHERE upper(trim(ticker)) = $1 AND feed_kind = 'insider'
     ORDER BY event_at DESC NULLS LAST, parsed_at DESC
@@ -202,9 +202,11 @@ async function loadInsiderFlowsFromDocuments(ticker: string, limit = 80) {
     date: string;
     amount: string;
     transactionCode: string | null;
+    url: string | null;
   }> = [];
   for (const d of docs) {
     const fallbackAt = clusterDocFallbackAt(d.data, d.event_at);
+    const docUrl = d.url ? String(d.url).trim() : null;
     const rows = Array.isArray(d.data?.cluster?.worksheet_rows) ? d.data.cluster.worksheet_rows : [];
     for (const r of rows) {
       const at = r?.ts ? String(r.ts) : fallbackAt;
@@ -216,6 +218,7 @@ async function loadInsiderFlowsFromDocuments(ticker: string, limit = 80) {
         date: at,
         amount: amt != null && Number.isFinite(amt) && amt > 0 ? formatUsdCompact(amt) : "—",
         transactionCode: r?.transaction_code ?? r?.code ?? null,
+        url: docUrl,
       });
     }
   }
@@ -224,9 +227,9 @@ async function loadInsiderFlowsFromDocuments(ticker: string, limit = 80) {
 
 async function loadPoliticianFlowsFromDocuments(ticker: string, limit = 80) {
   const t = ticker.trim().toUpperCase();
-  const docs = await db.query<{ data: any; event_at: string | null }>(
+  const docs = await db.query<{ data: any; event_at: string | null; url: string | null }>(
     `
-    SELECT data, event_at::text AS event_at
+    SELECT data, event_at::text AS event_at, url
     FROM documents
     WHERE upper(trim(ticker)) = $1 AND feed_kind = 'politicians'
     ORDER BY event_at DESC NULLS LAST, parsed_at DESC
@@ -240,9 +243,11 @@ async function loadPoliticianFlowsFromDocuments(ticker: string, limit = 80) {
     date: string;
     amount: string;
     transactionType: string | null;
+    url: string | null;
   }> = [];
   for (const d of docs) {
     const fallbackAt = clusterDocFallbackAt(d.data, d.event_at);
+    const docUrl = d.url ? String(d.url).trim() : null;
     const rows = Array.isArray(d.data?.cluster?.worksheet_rows) ? d.data.cluster.worksheet_rows : [];
     for (const r of rows) {
       const at = r?.ts ? String(r.ts) : fallbackAt;
@@ -254,6 +259,7 @@ async function loadPoliticianFlowsFromDocuments(ticker: string, limit = 80) {
         date: at,
         amount: amt != null && Number.isFinite(amt) && amt > 0 ? formatUsdCompact(amt) : "—",
         transactionType: r?.transaction_type ?? r?.type ?? null,
+        url: docUrl,
       });
     }
   }
@@ -262,9 +268,9 @@ async function loadPoliticianFlowsFromDocuments(ticker: string, limit = 80) {
 
 async function loadFilings13fFromDocuments(ticker: string, limit = 40) {
   const t = ticker.trim().toUpperCase();
-  const docs = await db.query<{ data: any; event_at: string | null }>(
+  const docs = await db.query<{ data: any; event_at: string | null; url: string | null }>(
     `
-    SELECT data, event_at::text AS event_at
+    SELECT data, event_at::text AS event_at, url
     FROM documents
     WHERE upper(trim(ticker)) = $1 AND feed_kind = 'institutions'
     ORDER BY event_at DESC NULLS LAST, parsed_at DESC
@@ -272,9 +278,10 @@ async function loadFilings13fFromDocuments(ticker: string, limit = 40) {
     `,
     [t],
   );
-  const out: Array<{ filer: string; activity: string | null; date: string; amount: string }> = [];
+  const out: Array<{ filer: string; activity: string | null; date: string; amount: string; url: string | null }> = [];
   for (const d of docs) {
     const fallbackAt = clusterDocFallbackAt(d.data, d.event_at);
+    const docUrl = d.url ? String(d.url).trim() : null;
     const rows = Array.isArray(d.data?.cluster?.worksheet_rows) ? d.data.cluster.worksheet_rows : [];
     for (const r of rows) {
       const at = r?.ts ? String(r.ts) : fallbackAt;
@@ -285,6 +292,7 @@ async function loadFilings13fFromDocuments(ticker: string, limit = 40) {
         activity: r?.activity ? String(r.activity).trim() : null,
         date: at,
         amount: amt != null && Number.isFinite(amt) && amt > 0 ? formatUsdCompact(amt) : "—",
+        url: docUrl,
       });
     }
   }
@@ -299,12 +307,20 @@ export async function loadInsiderFlowsForTicker(ticker: string, limit = 80) {
     transaction_code: string | null;
     amount_usd: string | null;
     transaction_at: string;
+    url: string | null;
   }>(
     `
-    SELECT insider_role, insider_name, transaction_code, amount_usd::text, transaction_at::text
-    FROM insider_transactions
-    WHERE ticker = $1
-    ORDER BY transaction_at DESC
+    SELECT
+      it.insider_role,
+      it.insider_name,
+      it.transaction_code,
+      it.amount_usd::text,
+      it.transaction_at::text,
+      d.url
+    FROM insider_transactions it
+    LEFT JOIN documents d ON d.id = it.document_id
+    WHERE it.ticker = $1
+    ORDER BY it.transaction_at DESC
     LIMIT $2
     `,
     [t, limit],
@@ -316,6 +332,7 @@ export async function loadInsiderFlowsForTicker(ticker: string, limit = 80) {
     date: r.transaction_at,
     amount: r.amount_usd != null && Number(r.amount_usd) > 0 ? formatUsdCompact(Number(r.amount_usd)) : "—",
     transactionCode: r.transaction_code,
+    url: r.url ? String(r.url).trim() : null,
   }));
 }
 
@@ -327,12 +344,20 @@ export async function loadPoliticianFlowsForTicker(ticker: string, limit = 80) {
     transaction_type: string | null;
     amount_usd_mid: string | null;
     transaction_at: string;
+    url: string | null;
   }>(
     `
-    SELECT politician_name, chamber, transaction_type, amount_usd_mid::text, transaction_at::text
-    FROM politician_transactions
-    WHERE ticker = $1
-    ORDER BY transaction_at DESC
+    SELECT
+      pt.politician_name,
+      pt.chamber,
+      pt.transaction_type,
+      pt.amount_usd_mid::text,
+      pt.transaction_at::text,
+      d.url
+    FROM politician_transactions pt
+    LEFT JOIN documents d ON d.id = pt.document_id
+    WHERE pt.ticker = $1
+    ORDER BY pt.transaction_at DESC
     LIMIT $2
     `,
     [t, limit],
@@ -344,6 +369,7 @@ export async function loadPoliticianFlowsForTicker(ticker: string, limit = 80) {
     date: r.transaction_at,
     amount: r.amount_usd_mid != null && Number(r.amount_usd_mid) > 0 ? formatUsdCompact(Number(r.amount_usd_mid)) : "—",
     transactionType: r.transaction_type,
+    url: r.url ? String(r.url).trim() : null,
   }));
 }
 
@@ -354,12 +380,19 @@ export async function loadFilings13fForTicker(ticker: string, limit = 40) {
     activity: string | null;
     amount_usd: string | null;
     filed_at: string;
+    url: string | null;
   }>(
     `
-    SELECT filer, activity, amount_usd::text, filed_at::text
-    FROM institution_filings_13f
-    WHERE ticker = $1
-    ORDER BY filed_at DESC
+    SELECT
+      f.filer,
+      f.activity,
+      f.amount_usd::text,
+      f.filed_at::text,
+      d.url
+    FROM institution_filings_13f f
+    LEFT JOIN documents d ON d.id = f.document_id
+    WHERE f.ticker = $1
+    ORDER BY f.filed_at DESC
     LIMIT $2
     `,
     [t, limit],
@@ -370,6 +403,7 @@ export async function loadFilings13fForTicker(ticker: string, limit = 40) {
     activity: r.activity,
     date: r.filed_at,
     amount: r.amount_usd != null && Number(r.amount_usd) > 0 ? formatUsdCompact(Number(r.amount_usd)) : "—",
+    url: r.url ? String(r.url).trim() : null,
   }));
 }
 

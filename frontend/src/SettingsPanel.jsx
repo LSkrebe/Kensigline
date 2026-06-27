@@ -234,7 +234,7 @@ export function SettingsPanel() {
             {!watchlistLoaded ? (
               <p className="settingsMuted mono">Loading…</p>
             ) : !tickers.length ? (
-              <p className="settingsMuted mono">No tickers - add from Research → Context using the bell icon.</p>
+              <p className="settingsMuted mono">No tickers - add from Research → Paper using the bell icon.</p>
             ) : (
               <div className="settingsWatchlistChips" role="list">
                 {tickers.map((ticker) => (

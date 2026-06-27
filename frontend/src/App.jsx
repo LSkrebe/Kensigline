@@ -2902,68 +2902,185 @@ function contextOutcomesSampleLabel(sampleSize) {
   return count ? `${count} events` : s
 }
 
-function ContextClinicalOutcomesList({
-  outcomeLines = [],
-  sampleSize = EMPTY,
-  stats = MOCK_HISTORICAL_TRIALS,
-  chartTitle = 'Trial historical outcomes',
+function contextOutcomesEventsRow(sampleSize) {
+  const s = String(sampleSize ?? '').trim()
+  if (!s || s === EMPTY) return null
+  const count = s.replace(/^N\s*=\s*/i, '').trim()
+  if (!count) return null
+  return { id: 'events', k: 'Events', v: count }
+}
+
+function formatOutcomeHorizonCell(valueAsFraction) {
+  if (valueAsFraction == null || !Number.isFinite(Number(valueAsFraction))) return '—'
+  const pct = Number(valueAsFraction) * 100
+  const sign = pct > 0 ? '+' : ''
+  const abs = Math.abs(pct)
+  const digits = abs >= 10 ? 1 : 2
+  return `${sign}${pct.toFixed(digits)}%`
+}
+
+function outcomeKvValueClass(valueAsFraction) {
+  if (valueAsFraction == null || !Number.isFinite(Number(valueAsFraction))) return ''
+  const pct = Number(valueAsFraction) * 100
+  if (pct > 0) return 'contextCardOutcomeV--pos'
+  if (pct < 0) return 'contextCardOutcomeV--neg'
+  return ''
+}
+
+function buildOutcomeKvRowsFromLines(outcomeLines) {
+  const rows = []
+  const lines = outcomeLines ?? []
+  const multi = lines.length > 1
+  for (const line of lines) {
+    OUTCOME_HORIZON_CHART_LABELS.forEach((h, i) => {
+      const frac = line.returns?.[i]
+      rows.push({
+        id: multi ? `${line.id}-${h}` : `avg-return-${h}`,
+        k: multi ? `${line.label} ${h}` : `Avg return ${h}`,
+        v: formatOutcomeHorizonCell(frac),
+        valueClass: outcomeKvValueClass(frac),
+      })
+    })
+  }
+  return rows
+}
+
+function buildMarketOutcomeStatRows(ins) {
+  const norm = historicalOutcomeNorm
+  const rows = []
+  const winRate = norm(ins?.winRate)
+  if (winRate && winRate !== EMPTY) rows.push({ k: 'Win rate', v: winRate })
+  const median = norm(ins?.medianReturn)
+  if (median && median !== EMPTY) rows.push({ k: 'Median return', v: median })
+  return rows
+}
+
+function buildClinicalOutcomeStatRows(stats) {
+  const norm = historicalOutcomeNorm
+  const rows = []
+  const drops = norm(stats?.pctLargeDropsOver30)
+  if (drops && drops !== EMPTY) rows.push({ k: 'Large drops (>30%)', v: drops })
+  const median = norm(stats?.medianReturn)
+  if (median && median !== EMPTY) rows.push({ k: 'Median return', v: median })
+  return rows
+}
+
+function buildMarketOutcomeKvRows(ins, outcomeLines) {
+  const rows = []
+  const eventsRow = contextOutcomesEventsRow(ins?.sampleSize)
+  if (eventsRow) rows.push(eventsRow)
+  rows.push(...buildOutcomeKvRowsFromLines(outcomeLines))
+  for (const row of buildMarketOutcomeStatRows(ins)) {
+    rows.push({
+      id: row.k,
+      k: row.k,
+      v: row.v,
+      valueClass: contextOutcomeValueClass(row.k, row.v),
+    })
+  }
+  return rows
+}
+
+function buildClinicalOutcomeKvRows(outcomeLines, stats, sampleSize) {
+  const rows = []
+  const eventsRow = contextOutcomesEventsRow(sampleSize)
+  if (eventsRow) rows.push(eventsRow)
+  rows.push(...buildOutcomeKvRowsFromLines(outcomeLines))
+  for (const row of buildClinicalOutcomeStatRows(stats)) {
+    rows.push({
+      id: row.k,
+      k: row.k,
+      v: row.v,
+      valueClass: contextOutcomeValueClass(row.k, row.v),
+    })
+  }
+  return rows
+}
+
+function ContextOutcomeKvRow({ label, value, valueClass = '' }) {
+  return (
+    <div className="contextCardOutcomeRow contextOutcomesKvRow" role="listitem">
+      <span className="contextCardOutcomeK">{label}</span>
+      <span className={['contextCardOutcomeV', 'mono', valueClass].filter(Boolean).join(' ')}>{value}</span>
+    </div>
+  )
+}
+
+function ContextOutcomesKvPanel({
+  title,
+  titleVariant = 'default',
+  rows = [],
   loading = false,
-  emptyLabel = 'No historical trial outcomes yet.',
+  loadingLabel = 'Loading historical outcomes…',
+  emptyLabel = 'No historical outcome data yet.',
 }) {
-  const rows = buildMockPharmaOutcomeRows(outcomeLines, stats)
-  const hasContent = outcomeLines.length > 0 || rows.length > 0
-  const sampleMeta = outcomeLines.length ? contextOutcomesSampleLabel(sampleSize) : null
+  const hasContent = rows.length > 0
 
   return (
     <div
       className={[
         'contextCatalystCard',
-        'contextClinicalOutcomesCard',
+        'contextOutcomesKvCard',
         !hasContent && !loading ? 'contextCatalystCard--empty' : '',
       ]
         .filter(Boolean)
         .join(' ')}
-      aria-label={chartTitle}
+      aria-label={title}
     >
       <div className="contextCatalystCardHeader">
-        <div className="contextCatalystCardTitle mono dim">{chartTitle}</div>
-        {sampleMeta ? <span className="contextCatalystCardMeta mono dim">{sampleMeta}</span> : null}
+        <div
+          className={[
+            'contextCatalystCardTitle',
+            'mono',
+            titleVariant === 'person' ? 'contextCatalystCardTitle--person' : 'dim',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {title}
+        </div>
       </div>
       {loading ? (
-        <PanelStatusMessage label="Loading historical outcomes…" className="contextCatalystCardEmpty" />
+        <PanelStatusMessage label={loadingLabel} className="contextCatalystCardEmpty" />
       ) : !hasContent ? (
         <PanelStatusMessage label={emptyLabel} className="contextCatalystCardEmpty" />
       ) : (
-        <div className="contextFlowList contextFlowList--marketFlows contextFlowList--embedded" role="list">
-          {outcomeLines.length ? (
-            <ContextFlowOutcomeChart
-              lines={outcomeLines}
-              xLabels={OUTCOME_HORIZON_CHART_LABELS}
-              ariaLabel="Average forward returns after trial events (21, 63, 252 trading days)"
+        <div className="contextOutcomesKvStack" role="list">
+          {rows.map((row, i) => (
+            <ContextOutcomeKvRow
+              key={row.id ?? `${row.k}-${i}`}
+              label={row.k}
+              value={row.v}
+              valueClass={row.valueClass ?? ''}
             />
-          ) : null}
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              className="contextCompanyEarnings historicalOutcomesPerson contextFlowPersonStrip"
-              role="listitem"
-            >
-              <div className="contextFlowRowKeyWrap">
-                {row.lineColor ? (
-                  <span
-                    className="contextFlowRowLine"
-                    style={{ background: row.lineColor }}
-                    aria-hidden="true"
-                  />
-                ) : null}
-                <span className="contextCompanyEarningsK historicalOutcomesPersonName">{row.label}</span>
-              </div>
-              <span className="contextCompanyEarningsV historicalOutcomesPersonDetail mono">{row.total}</span>
-            </div>
           ))}
         </div>
       )}
     </div>
+  )
+}
+
+function ContextClinicalOutcomesList({
+  outcomeLines = [],
+  sampleSize = EMPTY,
+  stats = MOCK_HISTORICAL_TRIALS,
+  chartTitle = 'Trial outcomes',
+  loading = false,
+  emptyLabel = 'No historical trial outcomes yet.',
+}) {
+  const kvRows = useMemo(
+    () => buildClinicalOutcomeKvRows(outcomeLines, stats, sampleSize),
+    [outcomeLines, stats, sampleSize],
+  )
+
+  return (
+    <ContextOutcomesKvPanel
+      title={chartTitle}
+      rows={kvRows}
+      loading={loading}
+      loadingLabel="Loading historical outcomes…"
+      emptyLabel={emptyLabel}
+    />
   )
 }
 
@@ -3815,13 +3932,12 @@ function contextClinicalOutcomesFromLive(livePharma, ticker, backendUp) {
   }
 }
 
-function historicalOutcomeLinesFromIns(ins, mode, personDisplay) {
+function historicalOutcomeLinesFromIns(ins, mode) {
   const percents = parseAvgReturnHorizonPercents(ins?.avgReturn21d63d252d)
   const returns = percents.map((p) => (p != null ? p / 100 : null))
   if (!returns.some((r) => Number.isFinite(r))) return []
   const label =
-    String(personDisplay?.fullName ?? '').trim() ||
-    (mode === 'politicians' ? 'Politician' : mode === 'institutions' ? 'Institution' : 'Insider')
+    mode === 'politicians' ? 'Politician' : mode === 'institutions' ? 'Institution' : 'Insider'
   return [
     {
       id: 'aggregate',
@@ -4011,56 +4127,25 @@ function caseFeedSelectedPersonDisplay(rows, selectedRowIndex, personQuery, mode
 }
 
 function HistoricalMarketOutcomesView({ ins, mode, personDisplay = null, loading = false }) {
-  const hasDataset = historicalOutcomeHasAvgReturns(ins)
-  const outcomeLines = useMemo(
-    () => historicalOutcomeLinesFromIns(ins, mode, personDisplay),
-    [ins, mode, personDisplay],
-  )
+  const outcomeLines = useMemo(() => historicalOutcomeLinesFromIns(ins, mode), [ins, mode])
+  const kvRows = useMemo(() => buildMarketOutcomeKvRows(ins, outcomeLines), [ins, outcomeLines])
   const personLabel = String(personDisplay?.fullName ?? '').trim()
-  const personDetail = String(personDisplay?.detail ?? '').trim()
-  const chartTitle =
+  const fallbackTitle =
     mode === 'politicians'
-      ? 'Politician historical outcomes'
+      ? 'Politician outcomes'
       : mode === 'institutions'
-        ? 'Institutional historical outcomes'
-        : 'Insider historical outcomes'
-
-  if (loading) {
-    return (
-      <div className="contextFlowList contextFlowList--empty">
-        <PanelStatusMessage label="Loading historical outcomes…" className="contextFlowEmpty" />
-      </div>
-    )
-  }
-
-  if (!hasDataset) {
-    return (
-      <div className="contextFlowList contextFlowList--empty">
-        <PanelStatusMessage label="No historical outcome data yet." className="contextFlowEmpty" />
-      </div>
-    )
-  }
+        ? 'Institution outcomes'
+        : 'Insider outcomes'
+  const title = personLabel ? formatCasePersonDisplayName(personLabel) : fallbackTitle
 
   return (
-    <div className="contextFlowList" role="list">
-      {outcomeLines.length ? (
-        <>
-          <ContextFlowChartHeader title={chartTitle} />
-          <ContextFlowOutcomeChart
-            lines={outcomeLines}
-            xLabels={OUTCOME_HORIZON_CHART_LABELS}
-            ariaLabel="Average forward returns by horizon (1 month, 3 months, 1 year)"
-          />
-        </>
-      ) : null}
-      {personLabel ? (
-        <div className="contextCompanyEarnings historicalOutcomesPerson" role="listitem">
-          <span className="contextCompanyEarningsK historicalOutcomesPersonName">{personLabel}</span>
-          {personDetail ? (
-            <span className="contextCompanyEarningsV historicalOutcomesPersonDetail">{personDetail}</span>
-          ) : null}
-        </div>
-      ) : null}
+    <div className="contextOutcomesPanelWrap">
+      <ContextOutcomesKvPanel
+        title={title}
+        titleVariant={personLabel ? 'person' : 'default'}
+        rows={kvRows}
+        loading={loading}
+      />
     </div>
   )
 }
@@ -4373,10 +4458,22 @@ function ContextAlertToggle({ ticker, className = '' }) {
         void toggle(sym)
       }}
     >
-      <svg className="contextAlertToggleIcon" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true">
+      <svg className="contextAlertToggleIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
         <path
-          fill="currentColor"
-          d="M12 22a2.4 2.4 0 0 0 2.35-1.9l.11-.55H9.54l.11.55A2.4 2.4 0 0 0 12 22Zm6.3-6.1V11a6.3 6.3 0 0 0-5.2-6.2V4a1.1 1.1 0 1 0-2.2 0v.8A6.3 6.3 0 0 0 5.7 11v4.9L4 17.6V19h16v-1.4l-1.7-1.5ZM12 2a8 8 0 0 1 7.9 7H4.1A8 8 0 0 1 12 2Z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"
+        />
+        <path
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M13.73 21a2 2 0 01-3.46 0"
         />
       </svg>
       {loaded && active ? <span className="contextAlertToggleDot" aria-hidden="true" /> : null}
@@ -4459,9 +4556,6 @@ function MainContextPanel({
     >
       <header className="feedCompactHeader researchContextHeader">
         <div className="panelTitle feedCompactTitle">CONTEXT</div>
-        <div className="feedCompactHeaderEnd">
-          <ContextAlertToggle ticker={ticker} />
-        </div>
       </header>
       <div className="mainContextPanelBody scrollThin">
         <CompanySnapshotCard
@@ -6156,6 +6250,22 @@ function paperDocumentOpenUrl(doc, ticker) {
   return 'https://www.sec.gov/edgar/search/'
 }
 
+function paperTxnOpenUrl({ kind, url, ticker, source, chamber = null }) {
+  const direct = String(url ?? '').trim()
+  if (direct) return direct
+  const t = String(ticker ?? '').trim().toUpperCase()
+  const src = String(source ?? '').toLowerCase()
+  if (kind === 'politician' || src.includes('ptr')) {
+    const ch = String(chamber ?? '').trim().toLowerCase()
+    if (ch === 'senate') return 'https://efdsearch.senate.gov/search/home/'
+    return 'https://disclosures-clerk.house.gov/FinancialDisclosure/ViewSearch'
+  }
+  if (kind === '13f' || src.includes('13f')) {
+    return paperDocumentOpenUrl({ source: '13F' }, ticker)
+  }
+  return paperDocumentOpenUrl({ source: src.includes('form 3') ? 'Form 3' : src.includes('form 5') ? 'Form 5' : 'Form 4' }, ticker)
+}
+
 function ResearchPaperScreenshotIcon() {
   return (
     <svg className="researchPaperScreenshotIconSvg" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
@@ -6717,6 +6827,7 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       personFullName: person,
       personMode: 'insider',
       transactionCode: String(row?.transactionCode ?? '').trim().toUpperCase() || null,
+      url: row?.url ?? null,
     })
   }
   for (let i = 0; i < politicians.length; i++) {
@@ -6735,6 +6846,8 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       personFullName: member,
       personMode: 'politicians',
       transactionType: row?.transactionType ?? null,
+      chamber: row?.chamber ?? null,
+      url: row?.url ?? null,
     })
   }
   for (let i = 0; i < filings13f.length; i++) {
@@ -6752,6 +6865,7 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       activity: String(row?.activity ?? '').trim() || null,
       personFullName: filer,
       personMode: 'institutions',
+      url: row?.url ?? null,
     })
   }
   return items.sort((a, b) => paperTimelineAtMs(b?.at) - paperTimelineAtMs(a?.at))
@@ -7221,6 +7335,8 @@ function ResearchPaperTxnCard({
   amount,
   personFullName,
   personMode,
+  openUrl = null,
+  openLabel = 'Open filing',
   screenshotSelectMode = false,
   screenshotSelected = false,
   onScreenshotToggle,
@@ -7235,19 +7351,29 @@ function ResearchPaperTxnCard({
         ? 'institutions'
         : 'insider'
   const [portraitActive, setPortraitActive] = useState(false)
+  const handleOpen =
+    !screenshotSelectMode && openUrl
+      ? () => window.open(openUrl, '_blank', 'noopener,noreferrer')
+      : undefined
+  const Tag = handleOpen ? 'button' : 'article'
   if (!label && !amt) return null
   return (
-    <article
+    <Tag
+      type={handleOpen ? 'button' : undefined}
       data-paper-capture-id={captureId}
       className={[
         'researchPaperRailCard',
         'researchPaperTxnCard',
+        handleOpen ? 'eventBriefDocCard--clickable' : '',
         portraitActive ? 'researchPaperTxnCard--hasPortrait' : '',
         screenshotSelectMode && screenshotSelected ? 'researchPaperRailCard--screenshotSelected' : '',
         screenshotSelectMode && !screenshotSelected ? 'researchPaperRailCard--screenshotUnselected' : '',
       ]
         .filter(Boolean)
         .join(' ')}
+      onClick={handleOpen}
+      aria-label={handleOpen ? openLabel : undefined}
+      title={handleOpen ? openLabel : undefined}
     >
       <div
         className={[
@@ -7290,7 +7416,7 @@ function ResearchPaperTxnCard({
           <span className="researchPaperTxnCardAmt mono">{amt || '—'}</span>
         </div>
       </div>
-    </article>
+    </Tag>
   )
 }
 
@@ -7365,6 +7491,18 @@ function ResearchPaperStructuredView({
                     amount={item.amount}
                     personFullName={item.personFullName}
                     personMode={item.personMode}
+                    openUrl={
+                      screenshotSelectMode
+                        ? null
+                        : paperTxnOpenUrl({
+                            kind: item.kind,
+                            url: item.url,
+                            ticker: t,
+                            source: item.source,
+                            chamber: item.chamber,
+                          })
+                    }
+                    openLabel={`Open ${item.source ?? 'filing'}`}
                     screenshotSelectMode={screenshotSelectMode}
                     screenshotSelected={selected}
                     onScreenshotToggle={onScreenshotToggle}
@@ -7676,15 +7814,18 @@ function ResearchPaperPanel({
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              className="researchPaperScreenshotIcon"
-              aria-label="Screenshot paper"
-              title="Screenshot paper"
-              onClick={startScreenshotSelect}
-            >
-              <ResearchPaperScreenshotIcon />
-            </button>
+            <>
+              <button
+                type="button"
+                className="researchPaperScreenshotIcon"
+                aria-label="Screenshot paper"
+                title="Screenshot paper"
+                onClick={startScreenshotSelect}
+              >
+                <ResearchPaperScreenshotIcon />
+              </button>
+              <ContextAlertToggle ticker={t} className="researchPaperAlertToggle" />
+            </>
           )}
         </div>
       </header>
@@ -8767,16 +8908,22 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
             loading={outcomesLoading}
           />
         ) : outcomesLoading ? (
-          <ContextClinicalOutcomesList chartTitle="Trial historical outcomes" loading />
+          <div className="contextOutcomesPanelWrap">
+            <ContextClinicalOutcomesList chartTitle="Trial outcomes" loading />
+          </div>
         ) : hasDataset ? (
-          <ContextClinicalOutcomesList
-            outcomeLines={clinicalOutcomeLines}
-            sampleSize={ins?.sampleSize ?? EMPTY}
-            stats={ins}
-            chartTitle="Trial historical outcomes"
-          />
+          <div className="contextOutcomesPanelWrap">
+            <ContextClinicalOutcomesList
+              outcomeLines={clinicalOutcomeLines}
+              sampleSize={ins?.sampleSize ?? EMPTY}
+              stats={ins}
+              chartTitle="Trial outcomes"
+            />
+          </div>
         ) : (
-          <ContextClinicalOutcomesList chartTitle="Trial historical outcomes" />
+          <div className="contextOutcomesPanelWrap">
+            <ContextClinicalOutcomesList chartTitle="Trial outcomes" />
+          </div>
         )}
       </div>
     </section>

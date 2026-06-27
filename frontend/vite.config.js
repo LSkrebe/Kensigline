@@ -18,6 +18,7 @@ export default defineConfig(({ mode }) => {
     pick('API_BASE_URL') || pick('VITE_BACKEND_URL') || pick('VITE_API_BASE_URL') || 'http://localhost:3001'
 
   return {
+    envDir: repoRoot,
     plugins: [react()],
     server: {
       host: '0.0.0.0',
@@ -33,6 +34,7 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.SUPABASE_URL': JSON.stringify(supabaseUrl),
       'import.meta.env.SUPABASE_ANON_KEY': JSON.stringify(supabaseAnon),
       'import.meta.env.API_BASE_URL': JSON.stringify(apiBase),
+      'import.meta.env.VITE_BILLING_GATE': JSON.stringify(pick('VITE_BILLING_GATE')),
     },
   }
 })

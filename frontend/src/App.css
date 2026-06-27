@@ -48,6 +48,7 @@
   --panel-corner-wash-program-a: radial-gradient(240px 130px at 4% 28%, var(--intel-accent-area-top), transparent 76%);
   --panel-corner-wash-program-b: radial-gradient(220px 118px at 96% 72%, var(--intel-accent-tint), transparent 72%);
   --context-surface-inset: rgba(10, 11, 13, 0.88);
+  --terminal-panel-bg-image: url('/mercerline_background_1.png');
   /* Research chart/diagram outer shell (ENTITY MAP, price chart card) */
   --chart-panel-surface: rgba(255, 255, 255, 0.02);
   --chart-panel-border: rgba(255, 255, 255, 0.1);
@@ -655,6 +656,47 @@
   cursor: pointer;
   border-radius: 4px;
   line-height: 0;
+}
+
+.terminal--main .researchPaperPanel .researchPaperAlertToggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--hi);
+  cursor: pointer;
+  border-radius: 4px;
+  line-height: 0;
+}
+
+.terminal--main .researchPaperPanel .researchPaperAlertToggle:hover:not(:disabled) {
+  color: var(--hi);
+}
+
+.terminal--main .researchPaperPanel .researchPaperAlertToggle.isActive {
+  color: var(--cyan);
+}
+
+.terminal--main .researchPaperPanel .researchPaperAlertToggle:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.terminal--main .researchPaperPanel .researchPaperAlertToggle:focus-visible {
+  outline: 1px solid rgba(168, 196, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.terminal--main .researchPaperPanel .researchPaperAlertToggle .contextAlertToggleIcon {
+  display: block;
+}
+
+.terminal--main .researchPaperPanel .researchPaperAlertToggle .contextAlertToggleDot {
+  top: 1px;
+  right: 0;
 }
 
 .terminal--main .researchPaperPanel .researchPaperScreenshotIcon:hover:not(:disabled) {
@@ -1329,32 +1371,39 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable {
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable,
+.terminal--main .researchPaperPanel .researchPaperTxnCard.eventBriefDocCard--clickable {
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable::before {
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable::before,
+.terminal--main .researchPaperPanel .researchPaperTxnCard.eventBriefDocCard--clickable::before {
   transition: background 0.15s ease;
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable .researchPaperRailCardRail {
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable .researchPaperRailCardRail,
+.terminal--main .researchPaperPanel .researchPaperTxnCard.eventBriefDocCard--clickable .researchPaperRailCardRail {
   transition: background 0.15s ease;
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:hover {
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:hover,
+.terminal--main .researchPaperPanel .researchPaperTxnCard.eventBriefDocCard--clickable:hover {
   border-color: rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.05);
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:hover::before {
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:hover::before,
+.terminal--main .researchPaperPanel .researchPaperTxnCard.eventBriefDocCard--clickable:hover::before {
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent 52%);
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:hover .researchPaperRailCardRail {
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:hover .researchPaperRailCardRail,
+.terminal--main .researchPaperPanel .researchPaperTxnCard.eventBriefDocCard--clickable:hover .researchPaperRailCardRail {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:focus-visible {
+.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:focus-visible,
+.terminal--main .researchPaperPanel .researchPaperTxnCard.eventBriefDocCard--clickable:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
 }
@@ -1977,7 +2026,40 @@
   grid-template-columns: unset;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  background: var(--panel-corner-wash-compact-a), var(--panel-corner-wash-compact-b), var(--context-surface-inset);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: rgba(10, 11, 13, 0.35);
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyEarnings::before,
+.terminal--main .mainContextPanel--clinical .contextCompanyEarnings::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--terminal-panel-bg-image);
+  background-size: 360px auto;
+  background-position: 82% 46%;
+  background-repeat: no-repeat;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.terminal--main .mainContextPanel--market .contextCompanyEarnings::after,
+.terminal--main .mainContextPanel--clinical .contextCompanyEarnings::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgba(5, 7, 10, 0.78) 0%,
+    rgba(5, 7, 10, 0.28) 52%,
+    rgba(5, 7, 10, 0.5) 100%
+  );
+  z-index: 0;
+  pointer-events: none;
 }
 
 .terminal--main .mainContextPanel--market .contextCompanyEarningsK,
@@ -2040,12 +2122,32 @@
   padding: 12px 12px 10px;
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 10px;
-  background: var(--context-surface-inset);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: rgba(10, 11, 13, 0.72);
+  background-image:
+    linear-gradient(180deg, rgba(5, 7, 10, 0.68) 0%, rgba(5, 7, 10, 0.88) 100%),
+    radial-gradient(240px 140px at 82% 8%, rgba(168, 196, 255, 0.07), transparent 58%),
+    var(--panel-corner-wash-compact-a),
+    var(--panel-corner-wash-compact-b),
+    var(--terminal-panel-bg-image);
+  background-size: auto, auto, auto, auto, cover;
+  background-position: center top;
+  background-repeat: no-repeat;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   gap: 0;
+}
+
+.terminal--insider .companyTile .contextCompanyCard > *,
+.terminal--politicians .companyTile .contextCompanyCard > *,
+.terminal--institutions .companyTile .contextCompanyCard > *
+{
+  position: relative;
+  z-index: 1;
 }
 
 .terminal--insider .companyTile .contextCompanyTopRow,
@@ -2182,7 +2284,10 @@
 .terminal--main .mainContextPanel--clinical .contextFlowList,
 .terminal--insider .historicalOutcomes .contextFlowList,
 .terminal--politicians .historicalOutcomes .contextFlowList,
-.terminal--institutions .historicalOutcomes .contextFlowList
+.terminal--institutions .historicalOutcomes .contextFlowList,
+.terminal--insider .historicalOutcomes .contextOutcomesPanelWrap,
+.terminal--politicians .historicalOutcomes .contextOutcomesPanelWrap,
+.terminal--institutions .historicalOutcomes .contextOutcomesPanelWrap
 {
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 10px;
@@ -2197,6 +2302,78 @@
   gap: 8px;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+.terminal--insider .historicalOutcomes .contextOutcomesKvCard,
+.terminal--politicians .historicalOutcomes .contextOutcomesKvCard,
+.terminal--institutions .historicalOutcomes .contextOutcomesKvCard
+{
+  border: none;
+  background: transparent;
+  padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.terminal--insider .historicalOutcomes .contextCatalystCardHeader,
+.terminal--politicians .historicalOutcomes .contextCatalystCardHeader,
+.terminal--institutions .historicalOutcomes .contextCatalystCardHeader
+{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.terminal--insider .historicalOutcomes .contextCatalystCardTitle,
+.terminal--politicians .historicalOutcomes .contextCatalystCardTitle,
+.terminal--institutions .historicalOutcomes .contextCatalystCardTitle
+{
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+  line-height: 1.25;
+}
+
+.terminal--insider .historicalOutcomes .contextCatalystCardTitle--person,
+.terminal--politicians .historicalOutcomes .contextCatalystCardTitle--person,
+.terminal--institutions .historicalOutcomes .contextCatalystCardTitle--person
+{
+  font-size: var(--fs-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--hi);
+  line-height: 1.1;
+}
+
+.terminal--insider .historicalOutcomes .contextCatalystCardMeta,
+.terminal--politicians .historicalOutcomes .contextCatalystCardMeta,
+.terminal--institutions .historicalOutcomes .contextCatalystCardMeta
+{
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+  text-align: right;
+}
+
+.terminal--insider .historicalOutcomes .contextCatalystCardEmpty,
+.terminal--politicians .historicalOutcomes .contextCatalystCardEmpty,
+.terminal--institutions .historicalOutcomes .contextCatalystCardEmpty
+{
+  margin: 0;
+  padding: 8px 0 10px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
 }
 
 .terminal--main .mainContextPanel--market .contextFlowChartHeader,
@@ -3459,6 +3636,79 @@
 
 .contextFundamentalsSeqCell--neg {
   color: rgba(255, 120, 120, 0.92);
+}
+
+.contextOutcomesKvCard {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.contextOutcomesKvStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+}
+
+.terminal--insider .historicalOutcomes .contextOutcomesKvStack,
+.terminal--politicians .historicalOutcomes .contextOutcomesKvStack,
+.terminal--institutions .historicalOutcomes .contextOutcomesKvStack
+{
+  padding-top: 8px;
+}
+
+.contextOutcomesKvRow {
+  padding: 0;
+  border: none;
+  line-height: 1.35;
+  align-items: baseline;
+}
+
+.terminal--insider .historicalOutcomes .contextOutcomesKvRow .contextCardOutcomeK,
+.terminal--politicians .historicalOutcomes .contextOutcomesKvRow .contextCardOutcomeK,
+.terminal--institutions .historicalOutcomes .contextOutcomesKvRow .contextCardOutcomeK
+{
+  font-size: 11px;
+  line-height: 1.35;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.terminal--insider .historicalOutcomes .contextOutcomesKvRow .contextCardOutcomeV,
+.terminal--politicians .historicalOutcomes .contextOutcomesKvRow .contextCardOutcomeV,
+.terminal--institutions .historicalOutcomes .contextOutcomesKvRow .contextCardOutcomeV
+{
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--hi);
+}
+
+.terminal--insider .historicalOutcomes .contextOutcomesKvRow .contextCardOutcomeV.contextCardOutcomeV--pos,
+.terminal--politicians .historicalOutcomes .contextOutcomesKvRow .contextCardOutcomeV.contextCardOutcomeV--pos,
+.terminal--institutions .historicalOutcomes .contextOutcomesKvRow .contextCardOutcomeV.contextCardOutcomeV--pos
+{
+  color: rgba(140, 255, 195, 0.92);
+}
+
+.terminal--insider .historicalOutcomes .contextOutcomesKvRow .contextCardOutcomeV.contextCardOutcomeV--neg,
+.terminal--politicians .historicalOutcomes .contextOutcomesKvRow .contextCardOutcomeV.contextCardOutcomeV--neg,
+.terminal--institutions .historicalOutcomes .contextOutcomesKvRow .contextCardOutcomeV.contextCardOutcomeV--neg
+{
+  color: rgba(255, 120, 120, 0.92);
+}
+
+.contextOutcomesPanelWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .contextOwnershipCard {
@@ -9275,19 +9525,21 @@ body {
   .terminal--investigate .investigateRightStack .historicalOutcomes .contextFlowList,
   .terminal--insider .investigateRightStack .historicalOutcomes .contextFlowList,
   .terminal--politicians .investigateRightStack .historicalOutcomes .contextFlowList,
-  .terminal--institutions .investigateRightStack .historicalOutcomes .contextFlowList {
+  .terminal--institutions .investigateRightStack .historicalOutcomes .contextFlowList,
+  .terminal--investigate .investigateRightStack .historicalOutcomes .contextOutcomesPanelWrap,
+  .terminal--insider .investigateRightStack .historicalOutcomes .contextOutcomesPanelWrap,
+  .terminal--politicians .investigateRightStack .historicalOutcomes .contextOutcomesPanelWrap,
+  .terminal--institutions .investigateRightStack .historicalOutcomes .contextOutcomesPanelWrap {
     flex: 1 1 auto;
     min-height: 0;
   }
 
-  .terminal--investigate .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart,
-  .terminal--insider .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart,
-  .terminal--politicians .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart,
-  .terminal--institutions .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart {
+  .terminal--investigate .investigateRightStack .historicalOutcomes .contextOutcomesKvCard,
+  .terminal--insider .investigateRightStack .historicalOutcomes .contextOutcomesKvCard,
+  .terminal--politicians .investigateRightStack .historicalOutcomes .contextOutcomesKvCard,
+  .terminal--institutions .investigateRightStack .historicalOutcomes .contextOutcomesKvCard {
     flex: 1 1 auto;
-    height: auto;
-    min-height: 80px;
-    max-height: none;
+    min-height: 0;
   }
 
   .terminal--investigate .investigateRightStack .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson,
@@ -9608,15 +9860,9 @@ body {
     max-height: 280px;
   }
 
-  .terminalShell--phone .investigateRightStack .historicalOutcomes .contextFlowOutcomeChart {
-    flex: 0 0 auto;
-    height: 140px;
-    min-height: 140px;
-    max-height: 140px;
-  }
-
   .terminalShell--phone .investigateRightStack .historicalOutcomes .worksheetBody,
   .terminalShell--phone .investigateRightStack .historicalOutcomes .contextFlowList,
+  .terminalShell--phone .investigateRightStack .historicalOutcomes .contextOutcomesPanelWrap,
   .terminalShell--phone .investigateRightStack .companyTile .companyTileBody {
     flex: 0 0 auto;
     height: auto;
