@@ -2029,7 +2029,7 @@
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  background-color: rgba(10, 11, 13, 0.58);
+  background-color: rgba(10, 11, 13, 0.35);
 }
 
 .terminal--main .mainContextPanel--market .contextCompanyEarnings::before,
@@ -2042,7 +2042,6 @@
   background-size: 360px auto;
   background-position: 82% 46%;
   background-repeat: no-repeat;
-  opacity: 0.48;
   z-index: 0;
   pointer-events: none;
 }
@@ -2055,9 +2054,9 @@
   border-radius: inherit;
   background: linear-gradient(
     90deg,
-    rgba(5, 7, 10, 0.88) 0%,
-    rgba(5, 7, 10, 0.62) 52%,
-    rgba(5, 7, 10, 0.74) 100%
+    rgba(5, 7, 10, 0.78) 0%,
+    rgba(5, 7, 10, 0.28) 52%,
+    rgba(5, 7, 10, 0.5) 100%
   );
   z-index: 0;
   pointer-events: none;
