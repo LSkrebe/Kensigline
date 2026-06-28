@@ -10,6 +10,7 @@ import { SettingsPanel } from './SettingsPanel.jsx'
 import { useSubscription } from './useSubscription.js'
 import { useMarketingPath } from './marketingRoute.js'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
+import { AnalysePanel } from './AnalysePanel.jsx'
 import { prefetchDiscoverTimeline } from './discoverClient.js'
 import { EventBriefDocCard } from './EventBrief.jsx'
 import { getEventMentioned } from './eventBriefs.js'
@@ -9752,7 +9753,7 @@ function TerminalTopBar({
   )
 }
 
-const VIEW_TAB_CYCLE = ['main', 'discover', 'investigate']
+const VIEW_TAB_CYCLE = ['analyse', 'main', 'discover', 'investigate']
 
 function cycleViewTab(current, settingsReturnTab = 'main') {
   if (current === 'settings') return settingsReturnTab
@@ -10160,7 +10161,7 @@ function KensiglineTerminal() {
   )
 
   useEffect(() => {
-    if (activeTab !== 'main') return
+    if (activeTab !== 'main' && activeTab !== 'analyse') return
     if (intelModePrevRef.current === intelMode) return
     intelModePrevRef.current = intelMode
     setResearchQuery('')
@@ -10375,7 +10376,7 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     // If the current selection falls out of the source filter, snap to the first match.
-    if (activeTab !== 'main') return
+    if (activeTab !== 'main' && activeTab !== 'analyse') return
     const current = String(researchTicker ?? '').trim().toUpperCase()
     const pinned = String(researchTickerPinnedRef.current ?? '').trim().toUpperCase()
     if (pinned && pinned === current) return
@@ -11709,7 +11710,7 @@ function KensiglineTerminal() {
       className={[
         'terminalShell',
         isPhone ? 'terminalShell--phone' : '',
-        activeTab === 'main' ? `terminalShell--intel-${intelMode}` : '',
+        activeTab === 'main' || activeTab === 'analyse' ? `terminalShell--intel-${intelMode}` : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -11728,6 +11729,14 @@ function KensiglineTerminal() {
       <div className="terminalWorkspace">
       {!isPhone ? (
         <nav className="sideTabsRail" aria-label="Views">
+          <button
+            type="button"
+            className={activeTab === 'analyse' ? 'sideTab isActive' : 'sideTab'}
+            aria-current={activeTab === 'analyse' ? 'page' : undefined}
+            onClick={() => setActiveTab('analyse')}
+          >
+            <span className="sideTabLabel">ANALYSE</span>
+          </button>
           <button
             type="button"
             className={activeTab === 'main' ? 'sideTab isActive' : 'sideTab'}
@@ -11761,13 +11770,41 @@ function KensiglineTerminal() {
           activeTab === 'investigate'
             ? `terminal--investigate terminal--${investigateMode}`
             : `terminal--${activeTab}`,
-          activeTab === 'main' ? `terminal--intel-${intelMode}` : '',
+          activeTab === 'main' || activeTab === 'analyse' ? 'terminal--researchFeed' : '',
+          activeTab === 'main' || activeTab === 'analyse' ? `terminal--intel-${intelMode}` : '',
         ]
           .filter(Boolean)
           .join(' ')}
         aria-label="MERCERLINE terminal grid"
       >
       {activeTab === 'settings' ? <SettingsPanel /> : null}
+      {activeTab === 'analyse' ? (
+        <>
+          <ResearchTickerPanel
+            intelMode={intelMode}
+            selectedTicker={researchTicker}
+            onSelectTicker={onResearchSelectTicker}
+            q={researchQuery}
+            onQuery={setResearchQuery}
+            filtered={researchFeedAfterSourceFilter}
+            feedLoading={researchFeedLoading}
+            feedEmptyLabel={researchFeedEmptyLabel}
+            programsLoading={researchProgramsLoading}
+            programs={contextPrograms}
+            selectedProgramKey={contextProgramKey}
+            onSelectProgramKey={setContextProgramKey}
+            programQuery={researchProgramQuery}
+            onProgramQuery={setResearchProgramQuery}
+            showFeedFilter
+            feedFilterActive={researchFeedFilterOpen}
+            feedFilterOpen={researchFeedFilterOpen}
+            onFeedFilterClick={onResearchFeedFilterClick}
+            feedFilterPicker={researchFeedFilterPickerEl}
+            panelClassName="researchFeedSlot analyseFeedSlot"
+          />
+          <AnalysePanel panelClassName="analyseMainSlot" />
+        </>
+      ) : null}
       {activeTab === 'discover' ? (
         <DiscoverPanel
           backendUp={backendUp}
@@ -12122,6 +12159,14 @@ function KensiglineTerminal() {
             />
           ) : null}
           <nav className="sideTabsRail" aria-label="Views">
+            <button
+              type="button"
+              className={activeTab === 'analyse' ? 'sideTab isActive' : 'sideTab'}
+              aria-current={activeTab === 'analyse' ? 'page' : undefined}
+              onClick={() => setActiveTab('analyse')}
+            >
+              <span className="sideTabLabel">Analyse</span>
+            </button>
             <button
               type="button"
               className={activeTab === 'main' ? 'sideTab isActive' : 'sideTab'}

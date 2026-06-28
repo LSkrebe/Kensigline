@@ -569,8 +569,8 @@
 }
 
 /* Main tab: slim feed | paper (center) | context */
-.terminal--main .researchFeedSlot,
-.terminal--main .researchTicker.researchFeedSlot,
+.terminal--researchFeed .researchFeedSlot,
+.terminal--researchFeed .researchTicker.researchFeedSlot,
 .terminal--main .mainMainBlank,
 .terminal--main .researchPaper.mainMainBlank,
 .terminal--main .mainContextPanel {
@@ -582,8 +582,8 @@
   overflow: hidden;
 }
 
-.terminal--main .researchFeedSlot,
-.terminal--main .researchTicker.researchFeedSlot {
+.terminal--researchFeed .researchFeedSlot,
+.terminal--researchFeed .researchTicker.researchFeedSlot {
   grid-column: 1;
   grid-row: 1 / span 4;
 }
@@ -600,7 +600,9 @@
 }
 
 /* One shared title-bar height across feed | paper | context */
-.terminal--main .feedCompactHeader {
+.terminal--researchFeed .researchTicker .feedCompactHeader,
+.terminal--main .researchPaperPanel .feedCompactHeader,
+.terminal--main .mainContextPanel .feedCompactHeader {
   box-sizing: border-box;
   flex: 0 0 var(--feed-header-h);
   height: var(--feed-header-h);
@@ -1107,7 +1109,7 @@
   color: rgba(255, 255, 255, 0.42);
 }
 
-.terminal--main .feedCompactList .feedPanelStatus {
+.terminal--researchFeed .feedCompactList .feedPanelStatus {
   padding: 10px 4px 8px;
 }
 
@@ -1643,20 +1645,20 @@
 }
 
 /* Research feed panel (market + clinical) */
-.terminal--main .researchFeedPanel--clinicalSplit {
+.terminal--researchFeed .researchFeedPanel--clinicalSplit {
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.terminal--main .researchFeedPanel--clinicalSplit .researchFeedSplit {
+.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedSplit {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
-.terminal--main .researchFeedPanel--clinicalSplit .researchFeedSplitPane {
+.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedSplitPane {
   flex: 1 1 50%;
   min-height: 0;
   display: flex;
@@ -1664,28 +1666,28 @@
   overflow: hidden;
 }
 
-.terminal--main .researchFeedPanel--clinicalSplit .researchFeedSplitPane--programs {
+.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedSplitPane--programs {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.terminal--main .researchFeedSplit--filterOpen {
+.terminal--researchFeed .researchFeedSplit--filterOpen {
   flex: 1 1 auto;
   min-height: 0;
 }
 
-.terminal--main .researchFeedSplit--filterOpen .researchFeedSplitPane--feed {
+.terminal--researchFeed .researchFeedSplit--filterOpen .researchFeedSplitPane--feed {
   flex: 1 1 auto;
   min-height: 0;
 }
 
-.terminal--main .researchFeedPanel--clinicalSplit .researchFeedBody--split {
+.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedBody--split {
   flex: 1 1 auto;
   min-height: 0;
   gap: 6px;
   padding: 0 10px 8px;
 }
 
-.terminal--main .researchFeedPanel--clinicalSplit .researchFeedBody--programs {
+.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedBody--programs {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -1694,7 +1696,7 @@
   padding: 0 10px 8px;
 }
 
-.terminal--main .researchFeedPanel--clinicalSplit .researchFeedProgramsList {
+.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedProgramsList {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -1708,14 +1710,14 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.terminal--main .researchFeedPanel--clinicalSplit .researchFeedProgramsEmpty {
+.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedProgramsEmpty {
   margin: 0;
   padding: 8px 2px;
   font-size: 10px;
   letter-spacing: 0.04em;
 }
 
-.terminal--main .researchFeedSearch {
+.terminal--researchFeed .researchFeedSearch {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1729,7 +1731,7 @@
   cursor: text;
 }
 
-.terminal--main .researchFeedSearchInput {
+.terminal--researchFeed .researchFeedSearchInput {
   flex: 1;
   min-width: 0;
   margin: 0;
@@ -1744,13 +1746,13 @@
   line-height: 1.15;
 }
 
-.terminal--main .researchFeedSearchInput::placeholder {
+.terminal--researchFeed .researchFeedSearchInput::placeholder {
   color: rgba(255, 255, 255, 0.38);
   text-transform: none;
   letter-spacing: 0.02em;
 }
 
-.terminal--main .researchFeedSearchIcon {
+.terminal--researchFeed .researchFeedSearchIcon {
   flex-shrink: 0;
   width: 12px;
   height: 12px;
@@ -1758,7 +1760,7 @@
   pointer-events: none;
 }
 
-.terminal--main .researchFeedList {
+.terminal--researchFeed .researchFeedList {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -1770,7 +1772,7 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.terminal--main .researchFeedRow {
+.terminal--researchFeed .researchFeedRow {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -1797,25 +1799,25 @@
     box-shadow 0.15s ease;
 }
 
-.terminal--main .researchFeedRow:focus,
-.terminal--main .researchFeedRow:focus-visible {
+.terminal--researchFeed .researchFeedRow:focus,
+.terminal--researchFeed .researchFeedRow:focus-visible {
   outline: none;
   box-shadow: none;
 }
 
-.terminal--main .researchFeedRow:hover {
+.terminal--researchFeed .researchFeedRow:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.terminal--main .researchFeedRow.isActive,
-.terminal--main .researchFeedRow.isActive:focus,
-.terminal--main .researchFeedRow.isActive:focus-visible {
+.terminal--researchFeed .researchFeedRow.isActive,
+.terminal--researchFeed .researchFeedRow.isActive:focus,
+.terminal--researchFeed .researchFeedRow.isActive:focus-visible {
   border-color: transparent;
   background: rgba(255, 255, 255, 0.03);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
 }
 
-.terminal--main .researchFeedRowName {
+.terminal--researchFeed .researchFeedRowName {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1824,18 +1826,18 @@
   letter-spacing: 0.02em;
 }
 
-.terminal--main .researchFeedRow--program .researchFeedRowName {
+.terminal--researchFeed .researchFeedRow--program .researchFeedRowName {
   font-weight: 600;
 }
 
-.terminal--main .researchFeedRowPhase {
+.terminal--researchFeed .researchFeedRowPhase {
   flex-shrink: 0;
   font-size: 9px;
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.45);
 }
 
-.terminal--main .researchFeedRowTicker {
+.terminal--researchFeed .researchFeedRowTicker {
   flex-shrink: 0;
   color: rgba(255, 255, 255, 0.45);
   font-size: 9px;
@@ -4027,7 +4029,8 @@
   overflow: hidden;
 }
 
-.terminal--discover .discoverColScroll {
+.terminal--discover .discoverColScroll,
+.terminal--analyse .analyseMainPanel .discoverColScroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -4929,6 +4932,43 @@
   margin: 0;
   padding: 12px 14px;
   font-size: 11px;
+}
+
+
+/* Analyse tab — same feed rail width as Research / Discover */
+.terminal.terminal--analyse {
+  grid-template-columns:
+    var(--terminal-feed-track)
+    minmax(0, 1.8fr)
+    minmax(0, 1.35fr);
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.terminal--analyse .researchFeedSlot,
+.terminal--analyse .researchTicker.researchFeedSlot,
+.terminal--analyse .analyseFeedSlot {
+  grid-column: 1;
+  grid-row: 1 / span 4;
+}
+
+.terminal--analyse .analyseMainPanel,
+.terminal--analyse .analyseMainSlot {
+  grid-column: 2 / span 2;
+  grid-row: 1 / span 4;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.analyseMainPanelBody {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* Settings tab — single scroll page with compact cards */
@@ -6914,8 +6954,9 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed.feedCompact,
 .terminal--politicians .feed.feedCompact,
 .terminal--institutions .feed.feedCompact,
-.terminal--main .researchTicker.feed.feedCompact,
+.terminal--researchFeed .researchTicker.feed.feedCompact,
 .terminal--discover .discoverMacroStrip.feed.feedCompact,
+.terminal--analyse .analyseMainPanel.feed.feedCompact,
 .terminal--discover .discoverDual > .discoverCol.feed.feedCompact
 {
   background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
@@ -6936,7 +6977,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .companyTile .feedCompactHeader,
 .terminal--institutions .companyTile .feedCompactHeader,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactHeader,
-.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeader
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeader,
+.terminal--analyse .analyseMainPanel.discoverCol .feedCompactHeader
 {
   box-sizing: border-box;
   flex: 0 0 var(--feed-header-h);
@@ -7022,7 +7064,8 @@ button.researchPaperCopyIcon:focus-visible {
 
 .terminal--investigate .feed--left .feedCompactMain,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactMain,
-.terminal--discover .discoverDual > .discoverCol.panel .feedCompactMain {
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactMain,
+.terminal--analyse .analyseMainPanel.discoverCol .feedCompactMain {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -7100,7 +7143,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedFilterTypeRow,
 .terminal--politicians .feed--left .feedFilterTypeRow,
 .terminal--institutions .feed--left .feedFilterTypeRow,
-.terminal--main .researchTicker.feed--left .feedFilterTypeRow,
+.terminal--researchFeed .researchTicker.feed--left .feedFilterTypeRow,
 .terminal--discover .discoverCol--filter .feedFilterTypeRow
 {
   gap: 6px;
@@ -7117,7 +7160,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedFilterTypeRow:hover,
 .terminal--politicians .feed--left .feedFilterTypeRow:hover,
 .terminal--institutions .feed--left .feedFilterTypeRow:hover,
-.terminal--main .researchTicker.feed--left .feedFilterTypeRow:hover,
+.terminal--researchFeed .researchTicker.feed--left .feedFilterTypeRow:hover,
 .terminal--discover .discoverCol--filter .feedFilterTypeRow:hover
 {
   background: rgba(255, 255, 255, 0.03);
@@ -7126,7 +7169,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedFilterTypeLabel,
 .terminal--politicians .feed--left .feedFilterTypeLabel,
 .terminal--institutions .feed--left .feedFilterTypeLabel,
-.terminal--main .researchTicker.feed--left .feedFilterTypeLabel,
+.terminal--researchFeed .researchTicker.feed--left .feedFilterTypeLabel,
 .terminal--discover .discoverCol--filter .feedFilterTypeLabel
 {
   color: rgba(255, 255, 255, 0.88);
@@ -7135,7 +7178,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedFilterTypeCode,
 .terminal--politicians .feed--left .feedFilterTypeCode,
 .terminal--institutions .feed--left .feedFilterTypeCode,
-.terminal--main .researchTicker.feed--left .feedFilterTypeCode,
+.terminal--researchFeed .researchTicker.feed--left .feedFilterTypeCode,
 .terminal--discover .discoverCol--filter .feedFilterTypeCode
 {
   min-width: 2.5ch;
@@ -7146,50 +7189,52 @@ button.researchPaperCopyIcon:focus-visible {
 }
 
 /* Research tab: FEED filter (paper + feed scopes) */
-.terminal--main .researchTicker .feedCompactTitle,
+.terminal--researchFeed .researchTicker .feedCompactTitle,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactTitle,
-.terminal--discover .discoverDual > .discoverCol.panel .feedCompactTitle {
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactTitle,
+.terminal--analyse .analyseMainPanel.discoverCol .feedCompactTitle {
   color: var(--hi);
   font-size: 10px;
   letter-spacing: 0.16em;
   font-weight: 600;
 }
 
-.terminal--main .researchTicker .feedCompactHeader,
+.terminal--researchFeed .researchTicker .feedCompactHeader,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactHeader,
-.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeader {
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeader,
+.terminal--analyse .analyseMainPanel.discoverCol .feedCompactHeader {
   justify-content: space-between;
   padding: 0 12px;
   border-bottom: none;
 }
 
-.terminal--main .researchTicker .feedCompactHeaderEnd,
+.terminal--researchFeed .researchTicker .feedCompactHeaderEnd,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactHeaderEnd,
 .terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeaderEnd {
   align-items: center;
   height: 100%;
 }
 
-.terminal--main .researchTicker .feedCompactFilterBtn,
+.terminal--researchFeed .researchTicker .feedCompactFilterBtn,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactFilterBtn,
 .terminal--discover .discoverDual > .discoverCol.panel .feedCompactFilterBtn {
   color: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--main .researchTicker .feedCompactFilterBtn:hover,
+.terminal--researchFeed .researchTicker .feedCompactFilterBtn:hover,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactFilterBtn:hover,
 .terminal--discover .discoverDual > .discoverCol.panel .feedCompactFilterBtn:hover {
   color: rgba(255, 255, 255, 0.68);
 }
 
-.terminal--main .researchTicker .feedCompactFilterBtn.isActive,
+.terminal--researchFeed .researchTicker .feedCompactFilterBtn.isActive,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactFilterBtn.isActive,
 .terminal--discover .discoverDual > .discoverCol.panel .feedCompactFilterBtn.isActive {
   color: var(--cyan);
 }
 
-.terminal--main .researchTicker.feed--left .feedCompactBody .feedCompactMain,
-.terminal--main .researchTicker.feed--left .researchFeedBody .feedCompactMain {
+.terminal--researchFeed .researchTicker.feed--left .feedCompactBody .feedCompactMain,
+.terminal--researchFeed .researchTicker.feed--left .researchFeedBody .feedCompactMain {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -7198,21 +7243,21 @@ button.researchPaperCopyIcon:focus-visible {
   overflow: hidden;
 }
 
-.terminal--main .researchTicker.feed--left .feedCompactBody--filterOpen,
-.terminal--main .researchTicker.feed--left .researchFeedBody--filterOpen {
+.terminal--researchFeed .researchTicker.feed--left .feedCompactBody--filterOpen,
+.terminal--researchFeed .researchTicker.feed--left .researchFeedBody--filterOpen {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
 }
 
-.terminal--main .researchTicker.feed--left .feedCompactBody--filterOpen .feedCompactMain[aria-hidden='true'],
-.terminal--main .researchTicker.feed--left .researchFeedBody--filterOpen .feedCompactMain[aria-hidden='true'] {
+.terminal--researchFeed .researchTicker.feed--left .feedCompactBody--filterOpen .feedCompactMain[aria-hidden='true'],
+.terminal--researchFeed .researchTicker.feed--left .researchFeedBody--filterOpen .feedCompactMain[aria-hidden='true'] {
   visibility: hidden;
   pointer-events: none;
 }
 
-.terminal--main .researchTicker.feed--left .feedCompactBody--filterOpen .feedCompactFilterPicker,
-.terminal--main .researchTicker.feed--left .researchFeedBody--filterOpen .feedCompactFilterPicker {
+.terminal--researchFeed .researchTicker.feed--left .feedCompactBody--filterOpen .feedCompactFilterPicker,
+.terminal--researchFeed .researchTicker.feed--left .researchFeedBody--filterOpen .feedCompactFilterPicker {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -7236,8 +7281,8 @@ button.researchPaperCopyIcon:focus-visible {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.terminal--main .researchFeedFilterPicker .feedFilterGroup + .feedFilterGroup,
-.terminal--main .researchFeedFilterPicker .feedFilterGroup + .feedFilterTypeRow {
+.terminal--researchFeed .researchFeedFilterPicker .feedFilterGroup + .feedFilterGroup,
+.terminal--researchFeed .researchFeedFilterPicker .feedFilterGroup + .feedFilterTypeRow {
   margin-top: 3px;
 }
 
@@ -7383,7 +7428,7 @@ button.researchPaperCopyIcon:focus-visible {
   letter-spacing: 0.02em;
 }
 
-.terminal--main .researchTicker .feedFilterTypeRow {
+.terminal--researchFeed .researchTicker .feedFilterTypeRow {
   gap: 6px;
   min-height: calc(10px * 1.15 + 10px);
   padding: 5px 8px;
@@ -7393,15 +7438,15 @@ button.researchPaperCopyIcon:focus-visible {
   line-height: 1.15;
 }
 
-.terminal--main .researchTicker .feedFilterTypeRow:hover {
+.terminal--researchFeed .researchTicker .feedFilterTypeRow:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.terminal--main .researchTicker .feedFilterTypeLabel {
+.terminal--researchFeed .researchTicker .feedFilterTypeLabel {
   color: rgba(255, 255, 255, 0.88);
 }
 
-.terminal--main .researchTicker .feedFilterTypeCode {
+.terminal--researchFeed .researchTicker .feedFilterTypeCode {
   min-width: 2.5ch;
   max-width: none;
   overflow: visible;
@@ -7438,7 +7483,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left.feedCompact,
 .terminal--politicians .feed--left.feedCompact,
 .terminal--institutions .feed--left.feedCompact,
-.terminal--main .researchTicker.feed--left.feedCompact
+.terminal--researchFeed .researchTicker.feed--left.feedCompact
 {
   display: flex;
   flex-direction: column;
@@ -7448,9 +7493,10 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedCompactBody,
 .terminal--politicians .feed--left .feedCompactBody,
 .terminal--institutions .feed--left .feedCompactBody,
-.terminal--main .researchTicker.feed--left .feedCompactBody,
+.terminal--researchFeed .researchTicker.feed--left .feedCompactBody,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactBody,
-.terminal--discover .discoverDual > .discoverCol.panel .feedCompactBody
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactBody,
+.terminal--analyse .analyseMainPanel.discoverCol .feedCompactBody
 {
   flex: 1 1 auto;
   min-height: 0;
@@ -7465,7 +7511,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearch,
 .terminal--politicians .feed--left .researchFeedSearch,
 .terminal--institutions .feed--left .researchFeedSearch,
-.terminal--main .researchTicker.feed--left .researchFeedSearch,
+.terminal--researchFeed .researchTicker.feed--left .researchFeedSearch,
 .terminal--discover .discoverSearch
 {
   display: flex;
@@ -7484,7 +7530,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchStack,
 .terminal--politicians .feed--left .researchFeedSearchStack,
 .terminal--institutions .feed--left .researchFeedSearchStack,
-.terminal--main .researchTicker.feed--left .researchFeedSearchStack
+.terminal--researchFeed .researchTicker.feed--left .researchFeedSearchStack
 {
   flex-shrink: 0;
   display: flex;
@@ -7500,7 +7546,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchStackIconWrap,
 .terminal--politicians .feed--left .researchFeedSearchStackIconWrap,
 .terminal--institutions .feed--left .researchFeedSearchStackIconWrap,
-.terminal--main .researchTicker.feed--left .researchFeedSearchStackIconWrap
+.terminal--researchFeed .researchTicker.feed--left .researchFeedSearchStackIconWrap
 {
   flex-shrink: 0;
   display: flex;
@@ -7515,7 +7561,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchStackIcon,
 .terminal--politicians .feed--left .researchFeedSearchStackIcon,
 .terminal--institutions .feed--left .researchFeedSearchStackIcon,
-.terminal--main .researchTicker.feed--left .researchFeedSearchStackIcon
+.terminal--researchFeed .researchTicker.feed--left .researchFeedSearchStackIcon
 {
   display: block;
   width: 13px;
@@ -7525,7 +7571,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchStackFields,
 .terminal--politicians .feed--left .researchFeedSearchStackFields,
 .terminal--institutions .feed--left .researchFeedSearchStackFields,
-.terminal--main .researchTicker.feed--left .researchFeedSearchStackFields
+.terminal--researchFeed .researchTicker.feed--left .researchFeedSearchStackFields
 {
   flex: 1;
   min-width: 0;
@@ -7536,7 +7582,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchRow,
 .terminal--politicians .feed--left .researchFeedSearchRow,
 .terminal--institutions .feed--left .researchFeedSearchRow,
-.terminal--main .researchTicker.feed--left .researchFeedSearchRow
+.terminal--researchFeed .researchTicker.feed--left .researchFeedSearchRow
 {
   display: flex;
   align-items: center;
@@ -7553,7 +7599,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchRow + .researchFeedSearchRow,
 .terminal--politicians .feed--left .researchFeedSearchRow + .researchFeedSearchRow,
 .terminal--institutions .feed--left .researchFeedSearchRow + .researchFeedSearchRow,
-.terminal--main .researchTicker.feed--left .researchFeedSearchRow + .researchFeedSearchRow
+.terminal--researchFeed .researchTicker.feed--left .researchFeedSearchRow + .researchFeedSearchRow
 {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -7561,7 +7607,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchInput,
 .terminal--politicians .feed--left .researchFeedSearchInput,
 .terminal--institutions .feed--left .researchFeedSearchInput,
-.terminal--main .researchTicker.feed--left .researchFeedSearchInput,
+.terminal--researchFeed .researchTicker.feed--left .researchFeedSearchInput,
 .terminal--discover .discoverSearch .researchFeedSearchInput
 {
   flex: 1;
@@ -7581,7 +7627,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchInput::placeholder,
 .terminal--politicians .feed--left .researchFeedSearchInput::placeholder,
 .terminal--institutions .feed--left .researchFeedSearchInput::placeholder,
-.terminal--main .researchTicker.feed--left .researchFeedSearchInput::placeholder,
+.terminal--researchFeed .researchTicker.feed--left .researchFeedSearchInput::placeholder,
 .terminal--discover .discoverSearch .researchFeedSearchInput::placeholder
 {
   color: rgba(255, 255, 255, 0.38);
@@ -7590,7 +7636,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .researchFeedSearchIcon,
 .terminal--politicians .feed--left .researchFeedSearchIcon,
 .terminal--institutions .feed--left .researchFeedSearchIcon,
-.terminal--main .researchTicker.feed--left .researchFeedSearchIcon,
+.terminal--researchFeed .researchTicker.feed--left .researchFeedSearchIcon,
 .terminal--discover .discoverSearch .researchFeedSearchIcon
 {
   flex-shrink: 0;
@@ -7603,7 +7649,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll,
 .terminal--politicians .feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll,
 .terminal--institutions .feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll,
-.terminal--main .researchTicker.feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll
+.terminal--researchFeed .researchTicker.feed--left .feedCompactBody .feedCompactList.feedCompactList--scroll
 {
   display: flex;
   flex-direction: column;
@@ -7617,7 +7663,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedCompactList.feedCompactList--scroll,
 .terminal--politicians .feed--left .feedCompactList.feedCompactList--scroll,
 .terminal--institutions .feed--left .feedCompactList.feedCompactList--scroll,
-.terminal--main .researchTicker.feed--left .feedCompactList.feedCompactList--scroll
+.terminal--researchFeed .researchTicker.feed--left .feedCompactList.feedCompactList--scroll
 {
   display: flex;
   flex-direction: column;
@@ -7628,7 +7674,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact,
 .terminal--politicians .feed--left .feedRowCompact,
 .terminal--institutions .feed--left .feedRowCompact,
-.terminal--main .researchTicker.feed--left .feedRowCompact
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact
 {
   min-height: calc(10px * 1.15 + 10px);
   padding: 5px 8px;
@@ -7646,7 +7692,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact:hover,
 .terminal--politicians .feed--left .feedRowCompact:hover,
 .terminal--institutions .feed--left .feedRowCompact:hover,
-.terminal--main .researchTicker.feed--left .feedRowCompact:hover
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact:hover
 {
   background: rgba(255, 255, 255, 0.03);
 }
@@ -7654,7 +7700,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact.isActive,
 .terminal--politicians .feed--left .feedRowCompact.isActive,
 .terminal--institutions .feed--left .feedRowCompact.isActive,
-.terminal--main .researchTicker.feed--left .feedRowCompact.isActive
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact.isActive
 {
   border-color: rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.03);
@@ -7665,7 +7711,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedCellLabel.kvFeedMain,
 .terminal--politicians .feed--left .feedCellLabel.kvFeedMain,
 .terminal--institutions .feed--left .feedCellLabel.kvFeedMain,
-.terminal--main .researchTicker.feed--left .feedCellLabel.kvFeedMain
+.terminal--researchFeed .researchTicker.feed--left .feedCellLabel.kvFeedMain
 {
   color: rgba(255, 255, 255, 0.88);
   letter-spacing: 0.02em;
@@ -7675,7 +7721,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company,
 .terminal--politicians .feed--left .feedRowCompact--company,
 .terminal--institutions .feed--left .feedRowCompact--company,
-.terminal--main .researchTicker.feed--left .feedRowCompact--company
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company
 {
   grid-template-columns: minmax(3.2em, 4.8em) minmax(0, 1fr) minmax(2.2em, 3.2em) max-content;
   gap: 4px 6px;
@@ -7684,7 +7730,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company.feedRowCompact--noCount,
 .terminal--politicians .feed--left .feedRowCompact--company.feedRowCompact--noCount,
 .terminal--institutions .feed--left .feedRowCompact--company.feedRowCompact--noCount,
-.terminal--main .researchTicker.feed--left .feedRowCompact--company.feedRowCompact--noCount
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company.feedRowCompact--noCount
 {
   grid-template-columns: minmax(3.2em, 4.8em) minmax(0, 1fr) max-content;
 }
@@ -7692,7 +7738,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCellSymbol,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellSymbol,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCellSymbol,
-.terminal--main .researchTicker.feed--left .feedRowCompact--company .feedCellSymbol
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCellSymbol
 {
   flex-shrink: 0;
   min-width: 0;
@@ -7707,7 +7753,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCellCompany,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellCompany,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCellCompany,
-.terminal--main .researchTicker.feed--left .feedRowCompact--company .feedCellCompany
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCellCompany
 {
   min-width: 0;
   overflow: hidden;
@@ -7718,7 +7764,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCellCount,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellCount,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCellCount,
-.terminal--main .researchTicker.feed--left .feedRowCompact--company .feedCellCount
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCellCount
 {
   min-width: 0;
   width: 4ch;
@@ -7730,7 +7776,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCountTag,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCountTag,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCountTag,
-.terminal--main .researchTicker.feed--left .feedRowCompact--company .feedCountTag
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCountTag
 {
   display: block;
   min-width: 4ch;
@@ -7743,7 +7789,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCellWhen,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellWhen,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCellWhen,
-.terminal--main .researchTicker.feed--left .feedRowCompact--company .feedCellWhen
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCellWhen
 {
   min-width: 0;
 }
@@ -7751,7 +7797,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedCellWhen,
 .terminal--politicians .feed--left .feedCellWhen,
 .terminal--institutions .feed--left .feedCellWhen,
-.terminal--main .researchTicker.feed--left .feedCellWhen
+.terminal--researchFeed .researchTicker.feed--left .feedCellWhen
 {
   font-size: 9px;
   letter-spacing: 0.06em;
@@ -7760,7 +7806,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowTodaySep,
 .terminal--politicians .feed--left .feedRowTodaySep,
 .terminal--institutions .feed--left .feedRowTodaySep,
-.terminal--main .researchTicker.feed--left .feedRowTodaySep
+.terminal--researchFeed .researchTicker.feed--left .feedRowTodaySep
 {
   min-height: calc(10px * 1.15 + 10px);
   margin: 0;
@@ -7789,7 +7835,7 @@ button.researchPaperCopyIcon:focus-visible {
 
 .terminal--politicians .kvFeedMain,
 .terminal--institutions .kvFeedMain,
-.terminal--main .researchTicker.feed--left .kvFeedMain
+.terminal--researchFeed .researchTicker.feed--left .kvFeedMain
 {
   color: rgba(255, 255, 255, 0.82);
 }
@@ -7798,7 +7844,7 @@ button.researchPaperCopyIcon:focus-visible {
 
 .terminal--politicians .kvFeedDim,
 .terminal--institutions .kvFeedDim,
-.terminal--main .researchTicker.feed--left .kvFeedDim
+.terminal--researchFeed .researchTicker.feed--left .kvFeedDim
 {
   color: rgba(255, 255, 255, 0.45);
 }
@@ -9177,7 +9223,7 @@ body {
 .terminal--insider .feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep,
 .terminal--politicians .feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep,
 .terminal--institutions .feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep,
-.terminal--main .researchTicker.feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep
+.terminal--researchFeed .researchTicker.feed--left .feedCompactList.feedCompactList--scroll:not(.feedCompactList--caseTable) > .feedRowTodaySep
 {
   margin-block: 0;
 }
@@ -9188,8 +9234,8 @@ body {
 .terminal--institutions .feed--left .feedCompactList > .feedRowCompact.isActive:has(+ .feedRowTodaySep),
 .terminal--politicians .feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep),
 .terminal--institutions .feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep),
-.terminal--main .researchTicker.feed--left .feedCompactList > .feedRowCompact.isActive:has(+ .feedRowTodaySep),
-.terminal--main .researchTicker.feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep)
+.terminal--researchFeed .researchTicker.feed--left .feedCompactList > .feedRowCompact.isActive:has(+ .feedRowTodaySep),
+.terminal--researchFeed .researchTicker.feed--left .feedCompactList > button.feedRowCompact.isActive:has(+ .feedRowTodaySep)
 {
   border-bottom-color: rgba(255, 255, 255, 0.22) !important;
 }
@@ -9950,8 +9996,8 @@ body {
     grid-template-rows: minmax(0, 1fr);
   }
 
-  .terminalShell--phone .terminal--main .researchFeedSlot,
-  .terminalShell--phone .terminal--main .researchTicker.researchFeedSlot,
+  .terminalShell--phone .terminal--researchFeed .researchFeedSlot,
+  .terminalShell--phone .terminal--researchFeed .researchTicker.researchFeedSlot,
   .terminalShell--phone .terminal--main .mainMainBlank,
   .terminalShell--phone .terminal--main .researchPaper.mainMainBlank,
   .terminalShell--phone .terminal--main .mainContextPanel {
