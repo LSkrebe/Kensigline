@@ -364,7 +364,7 @@ function DiscoverMoveCard({ event, movePct, reactionCloses, upcoming = [], useMo
   return (
     <button
       type="button"
-      className="discoverMoveCard"
+      className={['discoverMoveCard', catalystBg ? 'discoverMoveCard--highlight' : ''].filter(Boolean).join(' ')}
       onClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode, companyName: event.companyName })}
     >
       <div className="discoverMoveCardHead">
@@ -398,7 +398,6 @@ function DiscoverMoveCard({ event, movePct, reactionCloses, upcoming = [], useMo
               className={[
                 'contextCompanyEarnings',
                 'discoverMoveCardCatalyst',
-                catalystBg ? 'discoverMoveCardCatalyst--highlight' : '',
                 footer.soon ? 'contextCompanyEarnings--soon' : '',
               ]
                 .filter(Boolean)
