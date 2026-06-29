@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   analyseGridCellTone,
   analyseMockModelForTicker,
+  analyseRevenueOverlayMeta,
   applyForecastOverrides,
+  computeValuationView,
   formatAnalyseGridValue,
   isForecastEditableDriver,
   parseAnalyseGridInput,
@@ -95,7 +97,7 @@ function AnalyseModelGridCell({
         className={className}
         role="button"
         tabIndex={0}
-        title="Click to edit forecast"
+        title={modified ? 'Edited — click to change' : 'Click to edit forecast'}
         onClick={startEdit}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -271,44 +273,91 @@ function AnalyseModelGrid({
   )
 }
 
-function AnalyseValuationSummary({ valuation }) {
+function AnalyseValuationSummary({
+  valuation,
+  forecastQuarterOptions,
+  selectedColIndex,
+  onForecastQuarterChange,
+}) {
+  if (!valuation) return null
+
+  const { headline, bridge, details } = valuation
+
   return (
-    <div className="analyseValuationBlock" aria-label="Valuation summary">
-      <div className="analyseValuationMethod mono dim">Method: {valuation.method}</div>
-      <div className="analyseValuationLayout">
-        <div className="analyseValuationTableWrap">
-          <div className="analyseValuationTable" role="table">
-            <div className="analyseValuationRow analyseValuationRow--head" role="row">
-              <span role="columnheader">Metric</span>
-              <span className="mono" role="columnheader">
-                Current
-              </span>
-              <span className="mono" role="columnheader">
-                Implied
-              </span>
+    <div className="analyseValuationBlock" aria-label="Price vs your model">
+      <div
+        className={[
+          'analyseValuationVerdict',
+          headline.upsideUp ? 'isUp' : 'isDown',
+        ].join(' ')}
+      >
+        <div className="analyseValuationVerdictMain">
+          <div className="analyseValuationVerdictLead">
+            <div className="analyseValuationVerdictPrice mono">{headline.priceTargetFmt}</div>
+            <div
+              className={[
+                'analyseValuationVerdictUpside',
+                'mono',
+                headline.upsideUp ? 'isUp' : 'isDown',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {headline.upsidePct}
             </div>
-            {valuation.rows.map((row) => (
-              <div key={row.label} className="analyseValuationRow" role="row">
-                <span role="rowheader">{row.label}</span>
-                <span className="mono">{row.current}</span>
-                <span className="mono">{row.implied}</span>
-              </div>
-            ))}
           </div>
-          <div className="analyseFairValueCard">
-            <div className="analyseFairValueK">Estimated fair value / share</div>
-            <div className="analyseFairValueV mono">{valuation.fairValuePerShare}</div>
-          </div>
-        </div>
-        <div className="analyseValuationStats">
-          {valuation.stats.map((s) => (
-            <div key={s.label} className="analyseValuationStat">
-              <span className="analyseValuationStatK">{s.label}</span>
-              <span className="analyseValuationStatV mono">{s.value}</span>
+          {forecastQuarterOptions?.length ? (
+            <div
+              className="analyseValuationQuarterRange researchPriceRange"
+              role="group"
+              aria-label="Forecast quarter"
+            >
+              {forecastQuarterOptions.map((opt) => (
+                <button
+                  key={opt.colIndex}
+                  type="button"
+                  className={[
+                    'analyseValuationQuarterBtn',
+                    'researchPriceRangeBtn',
+                    'mono',
+                    selectedColIndex === opt.colIndex ? 'isActive' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  onClick={() => onForecastQuarterChange?.(opt.colIndex)}
+                  aria-pressed={selectedColIndex === opt.colIndex}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
-          ))}
-          <div className="analyseValuationUpside mono">{valuation.upsidePct} vs current price</div>
+          ) : (
+            <div className="analyseValuationVerdictQuarter mono">{headline.forecastPeriod}</div>
+          )}
         </div>
+        <div className="analyseValuationBridge mono" aria-label="Forecast to price target">
+          <div className="analyseValuationBridgeValues">{bridge.valuesLine}</div>
+          <div className="analyseValuationBridgeFormula">{bridge.formulaLine}</div>
+        </div>
+      </div>
+
+      <div className="analyseValuationTable" role="table">
+        <div className="analyseValuationRow analyseValuationRow--head" role="row">
+          <span role="columnheader">Metric</span>
+          <span className="mono" role="columnheader">
+            Your model
+          </span>
+          <span className="mono" role="columnheader">
+            Market today
+          </span>
+        </div>
+        {details.rows.map((row) => (
+          <div key={row.label} className="analyseValuationRow" role="row">
+            <span role="rowheader">{row.label}</span>
+            <span className="mono">{row.model}</span>
+            <span className="mono analyseValuationRowMarket">{row.market}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -326,19 +375,39 @@ export function AnalysePanel({
   mcap,
   earnings = null,
   children = null,
+  quarterlyRevenueOverlay = null,
+  chartRange = '6M',
 }) {
   const t = String(ticker ?? '').trim().toUpperCase()
   const showPrice = price != null && Number.isFinite(Number(price))
   const baseModel = useMemo(() => analyseMockModelForTicker(t), [t])
   const [forecastOverrides, setForecastOverrides] = useState({})
+  const [valuationQuarterIndex, setValuationQuarterIndex] = useState(null)
 
   useEffect(() => {
     setForecastOverrides({})
+    setValuationQuarterIndex(null)
   }, [baseModel])
 
   const model = useMemo(
     () => applyForecastOverrides(baseModel, forecastOverrides),
     [baseModel, forecastOverrides],
+  )
+
+  const forecastQuarterOptions = useMemo(() => {
+    const from = model.estimateFromIndex
+    return model.quarters.slice(from, from + 4).map((label, i) => ({
+      label,
+      colIndex: from + i,
+    }))
+  }, [model])
+
+  const defaultValuationCol = model.quarters.length - 1
+  const selectedValuationCol = valuationQuarterIndex ?? defaultValuationCol
+
+  const valuation = useMemo(
+    () => computeValuationView(model, showPrice ? Number(price) : null, selectedValuationCol),
+    [model, showPrice, price, selectedValuationCol],
   )
 
   const forecastEdited = Object.values(forecastOverrides).some(
@@ -364,6 +433,11 @@ export function AnalysePanel({
     setForecastOverrides({})
   }, [])
 
+  const revenueOverlayMeta = useMemo(
+    () => analyseRevenueOverlayMeta(quarterlyRevenueOverlay, chartRange),
+    [quarterlyRevenueOverlay, chartRange],
+  )
+
   const displayName = String(companyName ?? '').trim() || t || '—'
   const metaLine = [sector, domicile].filter(Boolean).join(' · ')
   const ch = priceChange != null && Number.isFinite(Number(priceChange)) ? Number(priceChange) : null
@@ -373,12 +447,8 @@ export function AnalysePanel({
   const lastUpdated = useMemo(() => {
     const d = new Date()
     return d.toLocaleString('en-GB', {
-      weekday: 'short',
       day: 'numeric',
       month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
     })
   }, [t])
 
@@ -395,7 +465,7 @@ export function AnalysePanel({
       <div className="feedCompactBody discoverColBody">
         <div className="feedCompactMain">
           <div className="analyseMainPanelBody discoverColScroll scrollThin">
-            <div className="analyseCompanyBlock">
+            <div className="analyseCompanyHero">
               <div className="contextCompanyCard analyseCompanyCard" aria-label="Company snapshot">
                 <div
                   className={[
@@ -446,20 +516,40 @@ export function AnalysePanel({
                   {mcap ? <div className="contextCompanyMeta analyseCompanyMcap">{mcap}</div> : null}
                 </div>
               </div>
+            </div>
 
-              <section className="analyseSection" aria-label="Price and earnings chart">
+            <section className="analyseSection" aria-label="Price and earnings chart">
+              <div className="analyseSectionHead analyseSectionHead--single">
                 <AnalyseSectionTitle title="Price & earnings" />
-                <div className="analysePriceChart contextCompanyChart">
-                  {children}
-                </div>
+                <span className="analyseSectionAside mono dim">Last updated {lastUpdated}</span>
+              </div>
+              <div className="analysePriceChart contextCompanyChart">
+                {children}
+              </div>
                 <div className="analyseChartLegend mono" aria-hidden="true">
                   <span className="analyseChartLegendItem">
                     <span className="analyseChartLegendSwatch analyseChartLegendSwatch--price" />
                     Share price
                   </span>
                   <span className="analyseChartLegendItem">
-                    <span className="analyseChartLegendSwatch analyseChartLegendSwatch--earnings" />
-                    Quarterly revenue growth (YoY %)
+                    <span
+                      className={[
+                        'analyseChartLegendSwatch',
+                        'analyseChartLegendSwatch--earnings',
+                        revenueOverlayMeta.tone === 'down' ? 'isDown' : 'isUp',
+                      ].join(' ')}
+                    />
+                    Revenue growth YoY
+                    {revenueOverlayMeta.latestPct ? (
+                      <span
+                        className={[
+                          'analyseChartLegendValue',
+                          revenueOverlayMeta.tone === 'down' ? 'isDown' : 'isUp',
+                        ].join(' ')}
+                      >
+                        {revenueOverlayMeta.latestPct}
+                      </span>
+                    ) : null}
                   </span>
                 </div>
               </section>
@@ -468,10 +558,7 @@ export function AnalysePanel({
                 <div className="analyseSectionHead">
                   <AnalyseSectionTitle
                     title="Business drivers"
-                    hintLines={[
-                      `${model.currency} millions`,
-                      'Click green cells to edit forecast inputs',
-                    ]}
+                    hintLines={[`${model.currency} millions`]}
                   />
                   {forecastEdited ? (
                     <button
@@ -481,7 +568,9 @@ export function AnalysePanel({
                     >
                       Reset forecast
                     </button>
-                  ) : null}
+                  ) : (
+                    <span className="analyseForecastEditable mono">Editable</span>
+                  )}
                 </div>
                 <div className="analyseModelScroll scrollThin">
                   <AnalyseModelGrid
@@ -499,10 +588,7 @@ export function AnalysePanel({
               <section className="analyseSection" aria-label="Historical financial model">
                 <AnalyseSectionTitle
                   title="Historical financial model"
-                  hintLines={[
-                    `${model.currency} millions except per share`,
-                    'Forecast derived from drivers',
-                  ]}
+                  hintLines={[`${model.currency} millions except per share`]}
                 />
                 <div className="analyseModelScroll scrollThin">
                   <AnalyseModelGrid
@@ -515,17 +601,18 @@ export function AnalysePanel({
                 </div>
               </section>
 
-              <section className="analyseSection" aria-label="Valuation summary">
-                <AnalyseSectionTitle title="Valuation summary" />
-                <AnalyseValuationSummary valuation={model.valuation} />
+              <section className="analyseSection" aria-label="Price vs your model">
+                <AnalyseSectionTitle
+                  title="Price vs your model"
+                  hintLines={[`${model.currency} millions except per share`]}
+                />
+                <AnalyseValuationSummary
+                  valuation={valuation}
+                  forecastQuarterOptions={forecastQuarterOptions}
+                  selectedColIndex={selectedValuationCol}
+                  onForecastQuarterChange={setValuationQuarterIndex}
+                />
               </section>
-
-              <footer className="analysePanelFooter mono dim">
-                <span>{model.currency}</span>
-                <span>Last updated {lastUpdated}</span>
-              </footer>
-              <p className="analysePanelNote mono dim">{model.unitNote}</p>
-            </div>
           </div>
         </div>
       </div>

@@ -4946,31 +4946,75 @@
 .analyseMainPanelBody {
   flex: 1 1 auto;
   min-height: 0;
+  padding: 12px 14px 16px;
+  box-sizing: border-box;
 }
 
-.terminal--analyse .analyseCompanyBlock {
-  padding: 12px 14px 16px;
+.terminal--analyse .analyseCompanyHero {
+  margin: 0 0 18px;
   min-width: 0;
 }
 
-.terminal--analyse .analyseCompanyBlock .contextCompanyCard {
-  margin: 0 0 10px;
+.terminal--analyse .analyseCompanyHero .contextCompanyCard {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: rgba(10, 11, 13, 0.35);
+  box-sizing: border-box;
 }
 
-.terminal--analyse .analyseCompanyBlock .contextCompanyTicker {
+.terminal--analyse .analyseCompanyHero .contextCompanyCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--terminal-panel-bg-image);
+  background-size: 190% auto;
+  background-position: center 42%;
+  background-repeat: no-repeat;
+  opacity: 0.75;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.terminal--analyse .analyseCompanyHero .contextCompanyCard::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgba(5, 7, 10, 0.82) 0%,
+    rgba(5, 7, 10, 0.34) 52%,
+    rgba(5, 7, 10, 0.56) 100%
+  );
+  z-index: 0;
+  pointer-events: none;
+}
+
+.terminal--analyse .analyseCompanyHero .contextCompanyCard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.terminal--analyse .analyseCompanyHero .contextCompanyTicker {
   font-size: clamp(14px, 2.2vmin, 20px);
 }
 
-.terminal--analyse .analyseCompanyBlock .contextCompanyPrice {
+.terminal--analyse .analyseCompanyHero .contextCompanyPrice {
   font-size: clamp(14px, 2.2vmin, 20px);
   text-align: right;
 }
 
-.terminal--analyse .analyseCompanyBlock .contextCompanyTopRow {
+.terminal--analyse .analyseCompanyHero .contextCompanyTopRow {
   margin-bottom: 6px;
 }
 
-.terminal--analyse .analyseCompanyBlock .contextCompanyMeta {
+.terminal--analyse .analyseCompanyHero .contextCompanyMeta {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.45);
   line-height: 1.35;
@@ -5031,9 +5075,16 @@
 }
 
 .analyseQuarterlyRevenueStep {
-  stroke: rgba(120, 255, 170, 0.88);
   stroke-width: 1.5px;
   fill: none;
+}
+
+.analyseQuarterlyRevenueStep.isUp {
+  stroke: rgba(120, 255, 170, 0.88);
+}
+
+.analyseQuarterlyRevenueStep.isDown {
+  stroke: rgba(255, 120, 120, 0.88);
 }
 
 .analyseQuarterlyRevenueDot {
@@ -5062,16 +5113,23 @@
 }
 
 .analyseQuarterlyRevenuePct {
-  fill: rgba(120, 255, 170, 0.95);
   font-size: 8px;
   letter-spacing: 0.02em;
   font-weight: 600;
   stroke-width: 3px;
 }
 
+.analyseQuarterlyRevenuePct.isUp {
+  fill: rgba(120, 255, 170, 0.95);
+}
+
+.analyseQuarterlyRevenuePct.isDown {
+  fill: rgba(255, 120, 120, 0.95);
+}
+
 /* ---- Analyse financial model sections ---- */
 .analyseCompanyCard {
-  margin-bottom: 4px;
+  margin: 0;
 }
 
 .analyseCompanyPriceCol {
@@ -5191,8 +5249,28 @@
 }
 
 .analyseChartLegendSwatch--earnings {
-  background: rgba(120, 255, 170, 0.95);
   height: 3px;
+}
+
+.analyseChartLegendSwatch--earnings.isUp {
+  background: rgba(120, 255, 170, 0.95);
+}
+
+.analyseChartLegendSwatch--earnings.isDown {
+  background: rgba(255, 120, 120, 0.95);
+}
+
+.analyseChartLegendValue {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.analyseChartLegendValue.isUp {
+  color: rgba(120, 255, 170, 0.92);
+}
+
+.analyseChartLegendValue.isDown {
+  color: rgba(255, 120, 120, 0.92);
 }
 
 .analyseModelScroll {
@@ -5253,8 +5331,9 @@
   bottom: 1px;
   left: var(--analyse-est-left, 0);
   width: var(--analyse-est-width, 0);
-  border: 1px solid rgba(120, 255, 170, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 0 2px 2px 0;
+  background: rgba(255, 255, 255, 0.02);
   pointer-events: none;
   z-index: 2;
   box-sizing: border-box;
@@ -5334,7 +5413,7 @@
 }
 
 .analyseModelGridHead--estimate {
-  color: rgba(120, 255, 170, 0.72);
+  color: rgba(255, 255, 255, 0.52);
 }
 
 .analyseModelGridCell {
@@ -5370,72 +5449,232 @@
   margin-bottom: 0;
 }
 
+.analyseSectionHead--single {
+  align-items: center;
+}
+
+.analyseSectionAside,
+.analyseForecastEditable,
 .analyseForecastReset {
   flex: 0 0 auto;
-  padding: 4px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 3px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.55);
   font-size: 9px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.42);
+  line-height: 1.2;
+  padding: 0;
+  margin: 0;
+}
+
+.analyseSectionAside {
+  text-align: right;
   letter-spacing: 0.04em;
+  text-transform: none;
+  max-width: min(100%, 220px);
+}
+
+.analyseForecastEditable,
+.analyseForecastReset {
+  text-transform: uppercase;
+}
+
+.analyseForecastReset {
+  border: none;
+  background: transparent;
   cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.22);
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
 }
 
 .analyseForecastReset:hover {
-  border-color: rgba(120, 255, 170, 0.35);
-  color: rgba(120, 255, 170, 0.88);
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration-color: rgba(255, 255, 255, 0.42);
+}
+
+.analyseForecastReset:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.28);
+  outline-offset: 2px;
 }
 
 .analyseModelGridCell--editable {
   cursor: pointer;
-  border-radius: 2px;
 }
 
 .analyseModelGridCell--editable:hover {
-  background: rgba(120, 255, 170, 0.08);
-  outline: 1px dashed rgba(120, 255, 170, 0.35);
-  outline-offset: -1px;
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .analyseModelGridCell--modified {
-  color: rgba(120, 255, 170, 0.95);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.analyseModelGridCell--modified::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
 }
 
 .analyseModelGridCellInput {
   width: 100%;
   min-width: 0;
-  padding: 2px 4px;
-  margin: -3px -4px;
-  border: 1px solid rgba(120, 255, 170, 0.55);
-  border-radius: 2px;
-  background: rgba(0, 0, 0, 0.55);
-  color: rgba(255, 255, 255, 0.92);
+  height: 100%;
+  padding: 0 4px;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.28);
+  color: rgba(255, 255, 255, 0.98);
   font-size: inherit;
-  text-align: right;
+  font-weight: 600;
+  text-align: center;
   box-sizing: border-box;
 }
 
 .analyseModelGridCellInput:focus {
   outline: none;
-  border-color: rgba(120, 255, 170, 0.85);
+  background: rgba(0, 0, 0, 0.38);
 }
 
 .analyseValuationBlock {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.analyseValuationMethod {
-  font-size: 9px;
+.analyseValuationVerdictMain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 14px;
+  width: 100%;
+}
+
+.analyseValuationVerdictLead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 14px;
+  min-width: 0;
+}
+
+.analyseValuationVerdictQuarter {
+  flex: 0 0 auto;
+  font-size: 10px;
   letter-spacing: 0.06em;
-  margin-bottom: 10px;
+  text-transform: uppercase;
+  line-height: 1.1;
+  padding-top: 2px;
 }
 
-.analyseValuationLayout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(9em, 0.65fr);
-  gap: 14px;
-  align-items: start;
+.analyseValuationVerdict.isUp .analyseValuationVerdictQuarter {
+  color: rgba(120, 255, 170, 0.72);
+}
+
+.analyseValuationVerdict.isDown .analyseValuationVerdictQuarter {
+  color: rgba(255, 120, 120, 0.72);
+}
+
+.analyseValuationQuarterRange {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
+  max-width: min(100%, 280px);
+}
+
+.analyseValuationQuarterBtn {
+  padding: 3px 6px;
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.analyseValuationQuarterBtn:hover {
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.analyseValuationQuarterBtn.isActive {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.analyseValuationVerdict {
+  padding: 12px 14px;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.analyseValuationVerdict.isUp {
+  border: 1px solid rgba(120, 255, 170, 0.35);
+  background: rgba(120, 255, 170, 0.06);
+}
+
+.analyseValuationVerdict.isDown {
+  border: 1px solid rgba(255, 120, 120, 0.35);
+  background: rgba(255, 120, 120, 0.06);
+}
+
+.analyseValuationVerdictPrice {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+}
+
+.analyseValuationVerdict.isUp .analyseValuationVerdictPrice {
+  color: rgba(120, 255, 170, 0.95);
+}
+
+.analyseValuationVerdict.isDown .analyseValuationVerdictPrice {
+  color: rgba(255, 120, 120, 0.95);
+}
+
+.analyseValuationVerdictUpside {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.analyseValuationVerdictUpside.isUp {
+  color: rgba(120, 255, 170, 0.92);
+}
+
+.analyseValuationVerdictUpside.isDown {
+  color: rgba(255, 120, 120, 0.92);
+}
+
+.analyseValuationBridge {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  line-height: 1.45;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.analyseValuationBridgeFormula {
+  color: rgba(255, 255, 255, 0.38);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.analyseValuationBridgeValues {
+  color: rgba(255, 255, 255, 0.68);
+  word-break: break-word;
 }
 
 .analyseValuationTable {
@@ -5467,71 +5706,8 @@
   color: rgba(255, 255, 255, 0.78);
 }
 
-.analyseFairValueCard {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border: 1px solid rgba(120, 255, 170, 0.35);
-  border-radius: 6px;
-  background: rgba(120, 255, 170, 0.06);
-}
-
-.analyseFairValueK {
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.48);
-  margin-bottom: 4px;
-}
-
-.analyseFairValueV {
-  font-size: 18px;
-  font-weight: 600;
-  color: rgba(120, 255, 170, 0.95);
-  letter-spacing: 0.02em;
-}
-
-.analyseValuationStats {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 2px;
-}
-
-.analyseValuationStat {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.analyseValuationStatK {
-  font-size: 8px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.34);
-}
-
-.analyseValuationStatV {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.78);
-}
-
-.analyseValuationUpside {
-  margin-top: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(120, 255, 170, 0.92);
-}
-
-.analysePanelFooter {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 20px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 9px;
-  letter-spacing: 0.06em;
+.analyseValuationRowMarket {
+  color: rgba(255, 255, 255, 0.55) !important;
 }
 
 .analysePanelNote {
@@ -5539,12 +5715,6 @@
   font-size: 9px;
   letter-spacing: 0.04em;
   line-height: 1.4;
-}
-
-@media (max-width: 900px) {
-  .analyseValuationLayout {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Settings tab — single scroll page with compact cards */

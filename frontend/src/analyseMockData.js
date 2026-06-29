@@ -1,16 +1,16 @@
 /** Mock analyse / financial-model payload (offline showcase). */
 
 const QUARTERS = [
-  "Q1 '24",
-  "Q2 '24",
-  "Q3 '24",
-  "Q4 '24",
-  "Q1 '25",
-  "Q2 '25",
-  "Q3 '25E",
-  "Q4 '25E",
-  "Q1 '26E",
-  "Q2 '26E",
+  "Q1'24",
+  "Q2'24",
+  "Q3'24",
+  "Q4'24",
+  "Q1'25",
+  "Q2'25",
+  "Q3'25E",
+  "Q4'25E",
+  "Q1'26E",
+  "Q2'26E",
 ]
 
 const ESTIMATE_FROM_INDEX = 6
@@ -50,25 +50,12 @@ const ASML_MODEL = {
     { label: 'Immersion revenue', driverKind: 'revenue', rollsUpToRevenue: true, values: [980, 1020, 1080, 1120, 1160, 1220, 1260, 1300, 1330, 1360] },
     { label: 'Installed base (units)', driverKind: 'units', rollsUpToRevenue: false, values: [1200, 1220, 1250, 1280, 1310, 1340, 1370, 1400, 1430, 1460] },
   ],
-  valuation: {
-    method: 'Discounted cash flow (FCFF)',
-    fairValuePerShare: '$168.72',
-    upsidePct: '+24.9%',
-    rows: [
-      { label: 'Estimated EPS (FY1)', current: '$4.08', implied: '$4.12' },
-      { label: 'Estimated free cash flow (FY1)', current: '$1,890M', implied: '$1,920M' },
-      { label: 'Estimated revenue (FY1)', current: '$7,620M', implied: '$7,680M' },
-      { label: 'Forward P/E (FY1)', current: '33.1x', implied: '32.8x' },
-      { label: 'EV / EBITDA (FY1)', current: '24.5x', implied: '24.2x' },
-      { label: 'EV / sales (FY1)', current: '8.2x', implied: '8.1x' },
-    ],
-    stats: [
-      { label: 'Share price', value: '$135.09' },
-      { label: 'Market cap', value: '$54.8B' },
-      { label: 'Enterprise value', value: '$52.1B' },
-      { label: 'WACC', value: '7.8%' },
-      { label: 'Terminal growth', value: '2.5%' },
-    ],
+  valuationConfig: {
+    targetPe: 41.4,
+    marketPrice: 135.09,
+    marketCapBillions: 54.8,
+    enterpriseValueBillions: 52.1,
+    bridgeDriverLabels: ['EUV revenue', 'DUV revenue', 'Immersion revenue'],
   },
 }
 
@@ -99,13 +86,12 @@ function scaleModel(base, factor) {
     ...base,
     historicalModel: base.historicalModel.map((r) => scaleRow(r, factor)),
     businessDrivers: base.businessDrivers.map((r) => scaleRow(r, factor)),
-    valuation: {
-      ...base.valuation,
-      stats: base.valuation.stats.map((s) =>
-        s.label === 'Market cap' || s.label === 'Enterprise value'
-          ? s
-          : s,
-      ),
+    valuationConfig: {
+      ...base.valuationConfig,
+      marketPrice: Math.round(base.valuationConfig.marketPrice * factor * 100) / 100,
+      marketCapBillions: Math.round(base.valuationConfig.marketCapBillions * factor * 10) / 10,
+      enterpriseValueBillions:
+        Math.round(base.valuationConfig.enterpriseValueBillions * factor * 10) / 10,
     },
   }
 }
@@ -146,6 +132,33 @@ function revenueResidualForColumn(baseModel, colIdx) {
 
 function revenueFromDrivers(businessDrivers, baseModel, colIdx) {
   return Math.round(revenueDriverSum(businessDrivers, colIdx) + revenueResidualForColumn(baseModel, colIdx))
+}
+
+/** Scale driver trajectory after an edit so terminal forecast (valuation) moves with near-term inputs. */
+function propagateDriverOverridesForward(businessDrivers, baseDrivers, overrides, estFrom, colCount) {
+  for (const [rowLabel, byCol] of Object.entries(overrides)) {
+    const row = findRow(businessDrivers, rowLabel)
+    const baseRow = findRow(baseDrivers, rowLabel)
+    if (!row || !baseRow) continue
+
+    const editedCols = Object.keys(byCol)
+      .map(Number)
+      .filter((i) => i >= estFrom && i < colCount && byCol[i] != null)
+      .sort((a, b) => a - b)
+
+    for (const fromCol of editedCols) {
+      const baseAt = baseRow.values[fromCol]
+      const newAt = row.values[fromCol]
+      if (typeof baseAt !== 'number' || baseAt === 0 || typeof newAt !== 'number') continue
+      const scale = newAt / baseAt
+      for (let j = fromCol + 1; j < colCount; j++) {
+        const baseFuture = baseRow.values[j]
+        if (typeof baseFuture === 'number') {
+          row.values[j] = Math.round(baseFuture * scale)
+        }
+      }
+    }
+  }
 }
 
 function forecastRatios(baseModel) {
@@ -212,45 +225,120 @@ function recalcEstimateColumn(historicalModel, baseModel, colIdx, rev, ratios) {
   epsGrowth.values[colIdx] = growthYoYStr(epsNum, epsPrior)
 }
 
-function buildValuationFromModel(baseModel, historicalModel) {
-  const colCount = baseModel.quarters.length
-  const lastIdx = colCount - 1
-  const baseEps = parseFloat(findRow(baseModel.historicalModel, 'EPS ($)')?.values[lastIdx] ?? '4.08')
-  const newEps = parseFloat(findRow(historicalModel, 'EPS ($)')?.values[lastIdx] ?? '4.08')
-  const baseRevLast = findRow(baseModel.historicalModel, 'Revenue')?.values[lastIdx] ?? 7620
-  const newRevLast = findRow(historicalModel, 'Revenue')?.values[lastIdx] ?? baseRevLast
-  const epsFactor = baseEps > 0 ? newEps / baseEps : 1
-  const revFactor = baseRevLast > 0 ? newRevLast / baseRevLast : 1
+function shortenDriverLabel(label) {
+  return String(label ?? '')
+    .replace(/\s+revenue$/i, '')
+    .trim()
+}
 
-  const parseMoney = (s) => parseFloat(String(s).replace(/[$,M]/g, '')) || 0
-  const fmtMoney = (n) => `$${Math.round(n).toLocaleString('en-US')}M`
-  const fmtEps = (n) => `$${n.toFixed(2)}`
+function fmtUsd(n, decimals = 2) {
+  return `$${Number(n).toFixed(decimals)}`
+}
+
+function fmtUsdMillions(n) {
+  return `$${Math.round(n).toLocaleString('en-US')}M`
+}
+
+function fmtPctSigned(n) {
+  return `${n >= 0 ? '+' : ''}${n.toFixed(1)}%`
+}
+
+function fmtUsdBillions(millions) {
+  return `$${(millions / 1000).toFixed(1)}B`
+}
+
+/** Price target and cross-checks derived from the live model grid. */
+export function computeValuationView(model, liveMarketPrice = null, forecastColumnIndex = null) {
+  const cfg = model.valuationConfig
+  if (!cfg) return null
+
+  const estFrom = model.estimateFromIndex
+  const defaultIdx = model.quarters.length - 1
+  const colIdx =
+    forecastColumnIndex != null &&
+    forecastColumnIndex >= estFrom &&
+    forecastColumnIndex < model.quarters.length
+      ? forecastColumnIndex
+      : defaultIdx
+  const forecastPeriod = model.quarters[colIdx]
+
+  const eps = parseFloat(findRow(model.historicalModel, 'EPS ($)')?.values[colIdx] ?? '0')
+  const revenue = findRow(model.historicalModel, 'Revenue')?.values[colIdx] ?? 0
+  const opIncome = findRow(model.historicalModel, 'Operating income')?.values[colIdx] ?? 0
+  const cash = findRow(model.historicalModel, 'Cash & equivalents')?.values[colIdx] ?? 0
+  const debt = findRow(model.historicalModel, 'Total debt')?.values[colIdx] ?? 0
+  const shares = findRow(model.historicalModel, 'Shares outstanding (M)')?.values[colIdx] ?? 404
+
+  const marketPrice = liveMarketPrice != null && Number.isFinite(liveMarketPrice)
+    ? liveMarketPrice
+    : cfg.marketPrice
+  const targetPe = cfg.targetPe
+  const priceTarget = eps * targetPe
+  const upsidePct = marketPrice > 0 ? ((priceTarget - marketPrice) / marketPrice) * 100 : 0
+
+  const forecastMcap = priceTarget * shares
+  const marketMcap = marketPrice * shares
+  const forecastEv = forecastMcap + debt - cash
+  const marketEv = marketMcap + debt - cash
+  const ebitdaProxy = Math.max(Math.round(opIncome * 1.15), 1)
+  const forecastEvEbitda = forecastEv / ebitdaProxy
+  const marketEvEbitda = marketEv / ebitdaProxy
+  const marketPe = eps > 0 ? marketPrice / eps : null
+
+  const bridgeSegments = (cfg.bridgeDriverLabels ?? [])
+    .map((label) => {
+      const row = findRow(model.businessDrivers, label)
+      if (!row) return null
+      return shortenDriverLabel(label)
+    })
+    .filter(Boolean)
+
+  const bridgeLabels = bridgeSegments.join(' + ')
+
+  const tableRows = [
+    {
+      label: 'Price per share',
+      model: fmtUsd(priceTarget),
+      market: fmtUsd(marketPrice),
+    },
+    {
+      label: 'Forward P/E',
+      model: `${targetPe.toFixed(1)}x`,
+      market: marketPe != null ? `${marketPe.toFixed(1)}x` : '—',
+    },
+    {
+      label: 'Market cap',
+      model: fmtUsdBillions(forecastMcap),
+      market: fmtUsdBillions(marketMcap),
+    },
+    {
+      label: 'Enterprise value',
+      model: fmtUsdBillions(forecastEv),
+      market: fmtUsdBillions(marketEv),
+    },
+    {
+      label: 'EV / EBITDA',
+      model: `${forecastEvEbitda.toFixed(1)}x`,
+      market: `${marketEvEbitda.toFixed(1)}x`,
+    },
+  ]
 
   return {
-    ...baseModel.valuation,
-    fairValuePerShare: fmtEps(parseMoney(baseModel.valuation.fairValuePerShare) * epsFactor),
-    upsidePct: (() => {
-      const m = String(baseModel.valuation.upsidePct).match(/([+-]?[\d.]+)/)
-      const base = m ? parseFloat(m[1]) : 24.9
-      const next = base + (epsFactor - 1) * 40
-      return `${next >= 0 ? '+' : ''}${next.toFixed(1)}%`
-    })(),
-    rows: baseModel.valuation.rows.map((row) => {
-      if (row.label.startsWith('Estimated EPS')) {
-        return { ...row, implied: fmtEps(parseMoney(row.implied) * epsFactor) }
-      }
-      if (row.label.includes('revenue')) {
-        return { ...row, implied: fmtMoney(parseMoney(row.implied) * revFactor) }
-      }
-      if (row.label.includes('free cash flow')) {
-        return { ...row, implied: fmtMoney(parseMoney(row.implied) * revFactor * 0.9) }
-      }
-      if (row.label.includes('P/E')) {
-        const cur = parseFloat(row.current)
-        return { ...row, implied: `${(cur / epsFactor).toFixed(1)}x` }
-      }
-      return row
-    }),
+    headline: {
+      priceTargetFmt: fmtUsd(priceTarget),
+      marketPriceFmt: fmtUsd(marketPrice),
+      upsidePct: fmtPctSigned(upsidePct),
+      upsideUp: upsidePct >= 0,
+      forecastPeriod,
+      targetPeFmt: `${targetPe.toFixed(1)}x`,
+    },
+    bridge: {
+      formulaLine: `${bridgeLabels} = Revenue = EPS × P/E = Price`,
+      valuesLine: `${fmtUsdMillions(revenue)} = ${fmtUsd(eps)} × ${targetPe.toFixed(1)}x = ${fmtUsd(priceTarget)}`,
+    },
+    details: {
+      rows: tableRows,
+    },
   }
 }
 
@@ -275,6 +363,14 @@ export function applyForecastOverrides(baseModel, overrides = {}) {
     return { ...row, values: valuesCopy }
   })
 
+  propagateDriverOverridesForward(
+    businessDrivers,
+    baseModel.businessDrivers,
+    overrides,
+    estFrom,
+    colCount,
+  )
+
   const historicalModel = baseModel.historicalModel.map((r) => ({
     ...r,
     values: [...r.values],
@@ -289,7 +385,6 @@ export function applyForecastOverrides(baseModel, overrides = {}) {
     ...baseModel,
     historicalModel,
     businessDrivers,
-    valuation: buildValuationFromModel(baseModel, historicalModel),
   }
 }
 
@@ -317,4 +412,27 @@ export function analyseGridCellTone(value, kind) {
   if (s.startsWith('+')) return 'pos'
   if (s.startsWith('-')) return 'neg'
   return null
+}
+
+const REVENUE_OVERLAY_QUARTERS_BY_RANGE = { '1M': 1, '3M': 1, '6M': 2, '1Y': 4, ALL: 8 }
+
+/** Latest visible YoY revenue growth for chart line + legend tone. */
+export function analyseRevenueOverlayMeta(overlay, priceRange = '6M') {
+  const values = overlay?.values
+  if (!Array.isArray(values) || !values.length) {
+    return { tone: 'up', latestPct: null }
+  }
+
+  const take = REVENUE_OVERLAY_QUARTERS_BY_RANGE[priceRange] ?? values.length
+  const numeric = values
+    .slice(-Math.min(take, values.length))
+    .map((v) => (v != null && Number.isFinite(Number(v)) ? Number(v) : null))
+    .filter((v) => v != null)
+  if (!numeric.length) return { tone: 'up', latestPct: null }
+
+  const latest = numeric.at(-1)
+  return {
+    tone: latest >= 0 ? 'up' : 'down',
+    latestPct: `${latest >= 0 ? '+' : ''}${latest.toFixed(1)}%`,
+  }
 }

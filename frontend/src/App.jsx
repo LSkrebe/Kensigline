@@ -11,6 +11,7 @@ import { useSubscription } from './useSubscription.js'
 import { useMarketingPath } from './marketingRoute.js'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
 import { AnalysePanel } from './AnalysePanel.jsx'
+import { analyseRevenueOverlayMeta } from './analyseMockData.js'
 import { prefetchDiscoverTimeline } from './discoverClient.js'
 import { EventBriefDocCard } from './EventBrief.jsx'
 import { getEventMentioned } from './eventBriefs.js'
@@ -5399,6 +5400,11 @@ function MiniPriceChart({
   const chPct = last != null && prev ? ((last - prev) / Math.max(1e-6, prev)) * 100 : null
   const up = ch != null ? ch >= 0 : true
 
+  const revenueOverlayMeta = useMemo(
+    () => analyseRevenueOverlayMeta(quarterlyRevenueOverlay, priceRange),
+    [quarterlyRevenueOverlay, priceRange],
+  )
+
   const quarterlyRevenueGeom = useMemo(() => {
     const values = quarterlyRevenueOverlay?.values
     if (!Array.isArray(values) || values.length < 1) return null
@@ -5540,7 +5546,10 @@ function MiniPriceChart({
 
             {quarterlyRevenueGeom ? (
               <path
-                className="analyseQuarterlyRevenueStep"
+                className={[
+                  'analyseQuarterlyRevenueStep',
+                  revenueOverlayMeta.tone === 'down' ? 'isDown' : 'isUp',
+                ].join(' ')}
                 d={quarterlyRevenueGeom}
                 vectorEffect="non-scaling-stroke"
               />
@@ -11979,6 +11988,8 @@ function KensiglineTerminal() {
             domicile={contextCompanySnapshot.domicile}
             mcap={contextCompanySnapshot.mcap}
             earnings={contextEarnings}
+            quarterlyRevenueOverlay={analyseQuarterlyRevenue}
+            chartRange={analysePriceRange}
           >
             <MiniPriceChart
               series={researchPriceSeries}
