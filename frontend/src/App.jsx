@@ -957,13 +957,21 @@ const RESEARCH_TICKER_CLINICAL = 'ATYR'
 /** Programs feed + paper filter: show every filing for the company. */
 const CLINICAL_PROGRAM_ALL = '__ALL__'
 
+const MOCK_ASML_FEED_ROW = {
+  rowKey: 'fb-ASML',
+  ticker: 'ASML',
+  name: 'ASML Holding N.V.',
+  at: '2026-05-28T18:10:00.000Z',
+  ...mockIdeaFields(0, 'research'),
+}
+
 /**
  * Research feed rows (no papers) — staggered `at` so TODAY / year separators are visible offline.
  * ASML / ATYR still own full offline presentations; other tickers use generic memo only.
  */
 const RESEARCH_FEED_BY_INTEL = {
   market: [
-    { rowKey: 'fb-ASML', ticker: 'ASML', name: 'ASML Holding N.V.', at: '2026-05-28T18:10:00.000Z', ...mockIdeaFields(0, 'research') },
+    MOCK_ASML_FEED_ROW,
     { rowKey: 'fb-NVDA', ticker: 'NVDA', name: 'NVIDIA Corporation', at: '2026-05-28T16:45:00.000Z', ...mockIdeaFields(1, 'research') },
     { rowKey: 'fb-TSM', ticker: 'TSM', name: 'Taiwan Semiconductor', at: '2026-05-28T14:20:00.000Z', ...mockIdeaFields(2, 'research') },
     { rowKey: 'fb-LRCX', ticker: 'LRCX', name: 'Lam Research Corporation', at: '2026-05-15T09:00:00.000Z', ...mockIdeaFields(4, 'research') },
@@ -1045,20 +1053,31 @@ function isPlausibleFeedCompanyName(name, ticker) {
 
 function researchFeedRowLabel(item) {
   const ticker = String(item?.ticker ?? '').trim().toUpperCase()
-  const companyName = String(item?.company_name ?? item?.company ?? '').trim()
+  const companyName = String(item?.company_name ?? item?.company ?? item?.name ?? '').trim()
   if (companyName && isPlausibleFeedCompanyName(companyName, ticker)) {
     return formatCompanyDisplayName(companyName)
   }
   return ticker
 }
 
-/** Pad live research feed with demo rows (feed-only) so timeline separators stay visible. */
-function mergeResearchFeedDemoRows(liveRows, intelMode) {
+/** Offline curated feed rows (RESEARCH_FEED_BY_INTEL) — no live feed_kind metadata. */
+function isOfflineCuratedResearchFeedRow(row) {
+  const key = String(row?.rowKey ?? row?.id ?? '')
+  return key.startsWith('fb-')
+}
+
+function isOfflineShowcaseResearchTicker(ticker) {
+  const t = String(ticker ?? '').trim().toUpperCase()
+  return t === 'ASML' || t === 'ATYR'
+}
+
+/** Offline research/analyse feed — always includes the ASML showcase row. */
+function offlineResearchFeedForIntel(intelMode) {
   const mode = intelMode === 'clinical' ? 'clinical' : 'market'
-  const fallback = RESEARCH_FEED_BY_INTEL[mode] ?? RESEARCH_FEED_BY_INTEL.market
-  const seen = new Set((liveRows ?? []).map((x) => String(x.ticker ?? '').toUpperCase()))
-  const extra = fallback.filter((x) => !seen.has(String(x.ticker ?? '').toUpperCase()))
-  return sortFeedRowsByAtDesc([...(liveRows ?? []), ...extra])
+  const base = RESEARCH_FEED_BY_INTEL[mode] ?? RESEARCH_FEED_BY_INTEL.market
+  const seen = new Set(base.map((x) => String(x.ticker ?? '').toUpperCase()))
+  if (seen.has('ASML')) return base
+  return sortFeedRowsByAtDesc([MOCK_ASML_FEED_ROW, ...base])
 }
 
 function researchTickersForIntelMode(intelMode) {
@@ -1077,7 +1096,7 @@ const RESEARCH_ALLOWED_EDGE_TYPES = new Set([
   'affects',
 ])
 
-function mockPriceSeries(seed, n = 110) {
+function mockPriceSeries(seed, n = 400) {
   let v = 80 + (seed % 23)
   const out = []
   for (let i = 0; i < n; i++) {
@@ -1123,7 +1142,7 @@ const MOCK_RESEARCH_DATASETS = {
       { id: 'e1', type: 'capacity_signal', title: 'EUV throughput remains the gating function', date: '2026-05-02', entities: ['c1'], sentiment: 'bullish', impact: 'high' },
     ],
     edges: [],
-    price: mockPriceSeries(712, 140),
+    price: mockPriceSeries(712, 400),
   },
   XBI: {
     constituents: ['SRPT', 'IONS', 'RARE', 'BMRN', 'EXAS', 'CRSP'],
@@ -1258,7 +1277,7 @@ const MOCK_RESEARCH_DATASETS = {
       { from: 'e3', to: 'd1', type: 'catalyst' },
       { from: 'e4', to: 'c1', type: 'insider_activity' },
     ],
-    price: mockPriceSeries(401, 130).map((x) => Math.round((x / 100) * 100) / 100),
+    price: mockPriceSeries(401, 400).map((x) => Math.round((x / 100) * 100) / 100),
   },
   MRNA: {
     entities: [
@@ -1620,6 +1639,40 @@ function contextMockOwnershipForTicker(ticker, profileOwnership = null) {
 function contextOwnershipQuarterLabel(year, quarter) {
   const yy = String(year % 100).padStart(2, '0')
   return `${yy}Q${quarter}`
+}
+
+/** Analyse chart quarter labels — e.g. Q1'24 */
+function analyseChartQuarterLabel(year, quarter) {
+  const yy = String(year % 100)
+  return `Q${quarter}'${yy}`
+}
+
+/** Trailing calendar quarters for the analyse earnings overlay, oldest → newest. */
+function analyseTrailingQuarterLabels(count = 8, asOf = new Date()) {
+  let year = asOf.getFullYear()
+  let quarter = Math.floor(asOf.getMonth() / 3) + 1
+  const out = []
+  for (let i = 0; i < count; i++) {
+    out.unshift(analyseChartQuarterLabel(year, quarter))
+    quarter -= 1
+    if (quarter < 1) {
+      quarter = 4
+      year -= 1
+    }
+  }
+  return out
+}
+
+const ANALYSE_MOCK_QUARTERLY_REV_GROWTH = [32.4, 35.1, 38.6, 41.2, 43.3, 44.9, 42.5, 40.1]
+
+function analyseMockQuarterlyRevenueOverlay(ticker) {
+  const labels = analyseTrailingQuarterLabels(8)
+  const seed = seedFromTicker(String(ticker ?? 'TICK'))
+  const factor = 0.82 + (seed % 28) / 100
+  const values = ANALYSE_MOCK_QUARTERLY_REV_GROWTH.map((v, i) =>
+    Math.round(v * factor * (1 + ((seed + i * 7) % 9) / 100) * 10) / 10,
+  )
+  return { labels, values }
 }
 
 /** Trailing calendar quarters ending at the current quarter, oldest → newest. */
@@ -4706,6 +4759,7 @@ function ResearchFeedTickerList({
   filtered,
   loading = false,
   emptyLabel = 'No feed items yet.',
+  showDocumentCount = true,
 }) {
   const feedItems = useMemo(() => {
     const items = (filtered ?? []).map((it) => ({
@@ -4778,6 +4832,7 @@ function ResearchFeedTickerList({
             )
           }
           const it = entry.row
+          const countVisible = showDocumentCount && feedCountVisible(it.count)
           return (
             <button
               key={it.id ?? it.rowKey ?? it.ticker}
@@ -4786,7 +4841,7 @@ function ResearchFeedTickerList({
               className={[
                 'feedRowCompact',
                 'feedRowCompact--company',
-                !feedCountVisible(it.count) ? 'feedRowCompact--noCount' : '',
+                !countVisible ? 'feedRowCompact--noCount' : '',
                 String(it.ticker ?? '').toUpperCase() === String(selectedTicker ?? '').toUpperCase()
                   ? 'isActive'
                   : '',
@@ -4800,7 +4855,7 @@ function ResearchFeedTickerList({
                 {String(it.ticker ?? '').trim().toUpperCase() || '—'}
               </span>
               <span className="feedCell feedCellCompany kvFeedMain">{it.company ?? '—'}</span>
-              {feedCountVisible(it.count) ? (
+              {countVisible ? (
                 <span className="feedCell feedCellCount mono kvFeedDim">
                   <span className="feedCountTag">{it.count}</span>
                 </span>
@@ -4932,6 +4987,7 @@ function ResearchTickerPanel({
   feedLoading = false,
   feedEmptyLabel = 'No feed items yet.',
   programsLoading = false,
+  showDocumentCount = true,
 }) {
   const clinicalSplit = intelMode === 'clinical'
   const programGroups = useMemo(() => groupPrograms(programs), [programs])
@@ -4958,6 +5014,7 @@ function ResearchTickerPanel({
       filtered={filtered}
       loading={feedLoading}
       emptyLabel={feedEmptyLabel}
+      showDocumentCount={showDocumentCount}
     />
   )
 
@@ -5147,6 +5204,7 @@ function CausalGraphFigure({ entities, events, edges }) {
 
 const PRICE_RANGE_OPTS = ['1M', '3M', '6M', '1Y', 'ALL']
 const PRICE_RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, ALL: null }
+const OVERLAY_QUARTERS_BY_RANGE = { '1M': 1, '3M': 1, '6M': 2, '1Y': 4, ALL: 8 }
 
 function slicePriceSeriesByRange(series, range) {
   const arr = Array.isArray(series) ? series : []
@@ -5221,6 +5279,7 @@ function MiniPriceChart({
   chartAlign = 'default',
   insiderMarkers = [],
   politicianMarkers = [],
+  quarterlyRevenueOverlay = null,
 }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 360, h: 192 })
@@ -5245,8 +5304,6 @@ function MiniPriceChart({
 
   const w = size.w
   const h = size.h
-  const marginSides =
-    chartAlign === 'context' ? { r: 0, t: 8, b: 18 } : { r: 6, t: 8, b: 18 }
 
   const vals = useMemo(() => {
     let base = Array.isArray(series) ? series : []
@@ -5266,12 +5323,27 @@ function MiniPriceChart({
     () => chartYAxisMargin(yTickTexts, { gap: yTickGap, min: 22, max: 44 }),
     [yTickTexts],
   )
+  const marginSides =
+    chartAlign === 'context' ? { r: 0, t: 8, b: 18 } : { r: 6, t: 8, b: 18 }
   const margin = { l: marginL, ...marginSides }
   const plotTop = margin.t
   const axisY = h - margin.b
   const innerW = Math.max(1, w - margin.l - margin.r)
   const innerH = Math.max(1, axisY - plotTop)
   const yTickLabelX = margin.l - yTickGap
+
+  const dates = useMemo(() => {
+    const n = Math.max(0, vals.length)
+    if (!n) return []
+    const now = new Date()
+    const out = []
+    for (let i = n - 1; i >= 0; i--) {
+      const d = new Date(now)
+      d.setDate(d.getDate() - i)
+      out.push(d)
+    }
+    return out
+  }, [vals.length])
 
   function xAt(i) {
     return margin.l + (i / Math.max(1, vals.length - 1)) * innerW
@@ -5316,24 +5388,54 @@ function MiniPriceChart({
     return [0.08, 0.32, 0.56, 0.8].map((p) => Math.round(clamp01(p) * (n - 1)))
   }, [vals.length])
 
-  const dates = useMemo(() => {
-    const n = Math.max(0, vals.length)
-    if (!n) return []
-    const now = new Date()
-    const out = []
-    for (let i = n - 1; i >= 0; i--) {
-      const d = new Date(now)
-      d.setDate(d.getDate() - i)
-      out.push(d)
-    }
-    return out
-  }, [vals.length])
-
   const last = Array.isArray(series) && series.length ? series.at(-1) : null
   const prev = Array.isArray(series) && series.length > 1 ? series.at(-2) : null
   const ch = last != null && prev != null ? last - prev : null
   const chPct = last != null && prev ? ((last - prev) / Math.max(1e-6, prev)) * 100 : null
   const up = ch != null ? ch >= 0 : true
+
+  const quarterlyRevenueGeom = useMemo(() => {
+    const values = quarterlyRevenueOverlay?.values
+    if (!Array.isArray(values) || values.length < 1) return null
+    const n = vals.length
+    if (n < 2) return null
+
+    const take = OVERLAY_QUARTERS_BY_RANGE[priceRange] ?? values.length
+    const numeric = values
+      .slice(-Math.min(take, values.length))
+      .map((v) => (v != null && Number.isFinite(Number(v)) ? Number(v) : null))
+      .filter((v) => v != null)
+    if (!numeric.length) return null
+
+    const minG = Math.min(...numeric)
+    const maxG = Math.max(...numeric)
+    const spanG = maxG - minG || 1
+    const bandTop = plotTop + innerH * 0.06
+    const bandH = innerH * 0.44
+
+    function yForGrowth(g) {
+      return bandTop + bandH * (1 - (g - minG) / spanG)
+    }
+
+    const count = numeric.length
+    const steps = []
+    for (let i = 0; i < count; i++) {
+      const xIdx = count <= 1 ? 0 : Math.round((i / Math.max(1, count - 1)) * (n - 1))
+      steps.push({ x: xAt(xIdx), y: yForGrowth(numeric[i]) })
+    }
+
+    let stepPath = ''
+    if (steps.length >= 2) {
+      stepPath = `M ${steps[0].x.toFixed(2)} ${steps[0].y.toFixed(2)}`
+      for (let i = 1; i < steps.length; i++) {
+        stepPath += ` H ${steps[i].x.toFixed(2)} V ${steps[i].y.toFixed(2)}`
+      }
+    } else {
+      stepPath = `M ${xAt(0).toFixed(2)} ${steps[0].y.toFixed(2)} H ${xAt(n - 1).toFixed(2)}`
+    }
+
+    return stepPath || null
+  }, [quarterlyRevenueOverlay, vals.length, priceRange, innerH, plotTop, margin.l, innerW])
 
   return (
     <div
@@ -5430,6 +5532,14 @@ function MiniPriceChart({
                 </g>
               )
             })}
+
+            {quarterlyRevenueGeom ? (
+              <path
+                className="analyseQuarterlyRevenueStep"
+                d={quarterlyRevenueGeom}
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : null}
 
             <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
           </svg>
@@ -6978,6 +7088,7 @@ function paperTimelineItemSourceKey(item) {
 }
 
 function researchFeedRowPassesSourceFilter(row, enabledSources) {
+  if (isOfflineCuratedResearchFeedRow(row)) return true
   if (!enabledSources?.size) return true
   const fk = String(row?.feed_kind ?? '').toLowerCase()
   const rowId = String(row?.id ?? row?.rowKey ?? '')
@@ -7775,8 +7886,8 @@ function ResearchPaperPanel({
         .join(' ')}
       aria-label={fullName}
     >
-      <header className="feedCompactHeader researchPaperPanelHeader">
-        <div className="researchPaperPanelName" key={t}>
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle researchPaperPanelName" key={t}>
           {fullName}
         </div>
         <div className="feedCompactHeaderEnd">
@@ -8459,7 +8570,7 @@ function GraphPanel({
 }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 900, h: 220 })
-  const [internalRange, setInternalRange] = useState('1M')
+  const [internalRange, setInternalRange] = useState('6M')
   const priceRange = chartRangeProp ?? internalRange
   const setPriceRange = onChartRangeChange ?? setInternalRange
 
@@ -8485,7 +8596,7 @@ function GraphPanel({
   const w = size.w
   const h = size.h
 
-  const rangeKey = PRICE_RANGE_OPTS.includes(priceRange) ? priceRange : '1M'
+  const rangeKey = PRICE_RANGE_OPTS.includes(priceRange) ? priceRange : '6M'
   const markersForRange = useMemo(() => {
     if (!showRangeSelector || metaMode !== 'range') return markers ?? []
     return filterMarkersForPriceRange(markers, rangeKey)
@@ -8866,8 +8977,8 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
   const ins = backendUp
     ? live
     : insider
-      ? (live ?? MOCK_HISTORICAL_INSIDER)
-      : (live ?? MOCK_HISTORICAL_TRIALS)
+      ? MOCK_HISTORICAL_INSIDER
+      : MOCK_HISTORICAL_TRIALS
 
   const sampleSizeNum = (() => {
     if (!ins) return null
@@ -9814,21 +9925,21 @@ function KensiglineTerminal() {
   const [insiderPersonQuery, setInsiderPersonQuery] = useState('')
   const [insiderCaseTradeIdx, setInsiderCaseTradeIdx] = useState(0)
   const [insiderChartRange, setInsiderChartRange] = useState(() =>
-    readChartRange('insider', PRICE_RANGE_OPTS, '1M'),
+    readChartRange('insider', PRICE_RANGE_OPTS, '6M'),
   )
   const [politiciansIdx, setPoliticiansIdx] = useState(0)
   const [politiciansCompanyQuery, setPoliticiansCompanyQuery] = useState('')
   const [politiciansPoliticianQuery, setPoliticiansPoliticianQuery] = useState('')
   const [politiciansCaseTradeIdx, setPoliticiansCaseTradeIdx] = useState(0)
   const [politiciansChartRange, setPoliticiansChartRange] = useState(() =>
-    readChartRange('politicians', PRICE_RANGE_OPTS, '1M'),
+    readChartRange('politicians', PRICE_RANGE_OPTS, '6M'),
   )
   const [institutionsIdx, setInstitutionsIdx] = useState(0)
   const [institutionsCompanyQuery, setInstitutionsCompanyQuery] = useState('')
   const [institutionsInstitutionQuery, setInstitutionsInstitutionQuery] = useState('')
   const [institutionsCaseTradeIdx, setInstitutionsCaseTradeIdx] = useState(0)
   const [institutionsChartRange, setInstitutionsChartRange] = useState(() =>
-    readChartRange('institutions', PRICE_RANGE_OPTS, '1M'),
+    readChartRange('institutions', PRICE_RANGE_OPTS, '6M'),
   )
   const [researchFeedLive, setResearchFeedLive] = useState(null)
   const [researchFeedLiveMode, setResearchFeedLiveMode] = useState(null)
@@ -9852,6 +9963,7 @@ function KensiglineTerminal() {
   const intelModePrevRef = useRef(intelMode)
   const [researchQuery, setResearchQuery] = useState('')
   const [researchProgramQuery, setResearchProgramQuery] = useState('')
+  const [analysePriceRange, setAnalysePriceRange] = useState('6M')
   const [researchFeedFilterOpen, setResearchFeedFilterOpen] = useState(false)
   const [researchPaperSourceFilters, setResearchPaperSourceFilters] = useState(() =>
     readFilterSet(
@@ -9893,8 +10005,7 @@ function KensiglineTerminal() {
   )
   const researchFeedItems = useMemo(() => {
     const mode = intelMode === 'clinical' ? 'clinical' : 'market'
-    const fallback = RESEARCH_FEED_BY_INTEL[mode] ?? RESEARCH_FEED_BY_INTEL.market
-    if (!backendUp) return fallback
+    if (!backendUp) return offlineResearchFeedForIntel(mode)
     const liveRows =
       researchFeedLiveMode === mode && Array.isArray(researchFeedLive) ? researchFeedLive : []
     const injected = Array.isArray(researchFeedInjected) ? researchFeedInjected : []
@@ -10022,6 +10133,11 @@ function KensiglineTerminal() {
     }
     return contextMock?.fundamentals ?? null
   }, [backendUp, researchCompanyResolved?.fundamentals, contextMock?.fundamentals])
+
+  const analyseQuarterlyRevenue = useMemo(
+    () => (backendUp ? null : analyseMockQuarterlyRevenueOverlay(researchTicker)),
+    [backendUp, researchTicker],
+  )
 
   const contextOwnership = useMemo(() => {
     if (backendUp) {
@@ -10245,7 +10361,6 @@ function KensiglineTerminal() {
       .map((row) => {
         const ticker = String(row?.ticker ?? '').toUpperCase()
         if (!ticker) return null
-        if (!researchFeedRowPassesSourceFilter(row, enabled)) return null
         const timeline = buildResearchPaperTimelineForTicker({
           ticker,
           intelMode,
@@ -10256,7 +10371,10 @@ function KensiglineTerminal() {
           backendUp,
           liveFlows: contextFlowRows,
         })
-        const visible = filterPaperTimelineBySources(timeline, enabled)
+        let visible = filterPaperTimelineBySources(timeline, enabled)
+        if (!visible.length && isOfflineShowcaseResearchTicker(ticker) && timeline.length) {
+          visible = timeline
+        }
         if (!visible.length) return null
         return normalizeResearchFeedRow(row, visible)
       })
@@ -10382,11 +10500,11 @@ function KensiglineTerminal() {
     if (pinned && pinned === current) return
 
     const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters, intelMode)
-    const rows = researchFilteredFeed.filter((row) => researchFeedRowPassesSourceFilter(row, enabled))
+    const rows = researchFeedAfterSourceFilter
     if (!rows.length) return
     const ok = rows.some((x) => String(x.ticker ?? '').toUpperCase() === current)
     if (!ok) setResearchTicker(String(rows[0]?.ticker ?? '').trim().toUpperCase())
-  }, [activeTab, researchPaperSourceFilters, intelMode, researchFilteredFeed, researchTicker])
+  }, [activeTab, researchPaperSourceFilters, intelMode, researchFeedAfterSourceFilter, researchTicker])
 
   useEffect(() => {
     let alive = true
@@ -10450,6 +10568,11 @@ function KensiglineTerminal() {
     setResearchBarsTicker(null)
     setContextClinicalLive(null)
     setContextClinicalTicker(null)
+    setBarsLive(null)
+    setBarsLiveTicker(null)
+    setInsiderClusterLive(null)
+    setPoliticiansClusterLive(null)
+    setInstitutionsClusterLive(null)
   }, [backendUp])
 
   useEffect(() => {
@@ -10485,7 +10608,7 @@ function KensiglineTerminal() {
   }, [backendUp])
 
   useEffect(() => {
-    if (!backendUp || activeTab !== 'main') return
+    if (!backendUp || (activeTab !== 'main' && activeTab !== 'analyse')) return
     const tick = researchTick
     if (!tick) return
     let alive = true
@@ -10526,7 +10649,7 @@ function KensiglineTerminal() {
   }, [backendUp, activeTab, researchTick])
 
   useEffect(() => {
-    if (!backendUp || activeTab !== 'main') return
+    if (!backendUp || (activeTab !== 'main' && activeTab !== 'analyse')) return
     const tick = researchTick
     if (!tick) return
     let alive = true
@@ -10698,7 +10821,7 @@ function KensiglineTerminal() {
   }, [backendUp, intelMode, activeTab, researchTick])
 
   useEffect(() => {
-    if (!backendUp || activeTab !== 'main') return
+    if (!backendUp || (activeTab !== 'main' && activeTab !== 'analyse')) return
     let alive = true
     async function run() {
       try {
@@ -11414,18 +11537,26 @@ function KensiglineTerminal() {
     }
   }, [backendUp, selectedTicker])
 
-  const daily =
-    backendUp
-      ? barsLiveTicker === selectedTicker
-        ? barsLive ?? []
-        : []
-      : investigateIsInsider
-        ? (barsLive ?? insiderSelectedResolved?.daily ?? [])
-        : investigateIsPoliticians
-          ? (politiciansSelectedResolved?.daily ?? [])
-          : investigateIsInstitutions
-            ? (institutionsSelectedResolved?.daily ?? [])
-            : []
+  const daily = useMemo(() => {
+    if (backendUp) {
+      return barsLiveTicker === selectedTicker ? barsLive ?? [] : []
+    }
+    if (investigateIsInsider) return insiderSelectedResolved?.daily ?? []
+    if (investigateIsPoliticians) return politiciansSelectedResolved?.daily ?? []
+    if (investigateIsInstitutions) return institutionsSelectedResolved?.daily ?? []
+    return []
+  }, [
+    backendUp,
+    barsLive,
+    barsLiveTicker,
+    selectedTicker,
+    investigateIsInsider,
+    investigateIsPoliticians,
+    investigateIsInstitutions,
+    insiderSelectedResolved?.daily,
+    politiciansSelectedResolved?.daily,
+    institutionsSelectedResolved?.daily,
+  ])
 
   const dailySeries = useMemo(() => {
     if (Array.isArray(daily) && daily.length >= 40) return daily
@@ -11801,8 +11932,29 @@ function KensiglineTerminal() {
             onFeedFilterClick={onResearchFeedFilterClick}
             feedFilterPicker={researchFeedFilterPickerEl}
             panelClassName="researchFeedSlot analyseFeedSlot"
+            showDocumentCount={false}
           />
-          <AnalysePanel panelClassName="analyseMainSlot" />
+          <AnalysePanel
+            panelClassName="analyseMainSlot"
+            ticker={contextCompanySnapshot.ticker}
+            price={contextCompanySnapshot.price}
+            sector={contextCompanySnapshot.sector}
+            domicile={contextCompanySnapshot.domicile}
+            mcap={contextCompanySnapshot.mcap}
+            earnings={contextEarnings}
+          >
+            <MiniPriceChart
+              series={researchPriceSeries}
+              label={researchTick || 'PRICE'}
+              showMeta={false}
+              showRangeSelector
+              chartAlign="context"
+              chartRange={analysePriceRange}
+              onChartRangeChange={setAnalysePriceRange}
+              trimLeadingPlateau
+              quarterlyRevenueOverlay={analyseQuarterlyRevenue}
+            />
+          </AnalysePanel>
         </>
       ) : null}
       {activeTab === 'discover' ? (

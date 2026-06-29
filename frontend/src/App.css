@@ -599,9 +599,8 @@
   grid-row: 1 / span 4;
 }
 
-/* One shared title-bar height across feed | paper | context */
+/* One shared title-bar height across feed | context (paper uses discoverCol header rhythm) */
 .terminal--researchFeed .researchTicker .feedCompactHeader,
-.terminal--main .researchPaperPanel .feedCompactHeader,
 .terminal--main .mainContextPanel .feedCompactHeader {
   box-sizing: border-box;
   flex: 0 0 var(--feed-header-h);
@@ -622,29 +621,11 @@
 }
 
 /* Research paper panel (market + clinical) */
-.terminal--main .researchPaperPanel .researchPaperPanelHeader {
-  border-bottom: none;
-  justify-content: space-between;
-  align-items: stretch;
-}
-
 .terminal--main .researchPaperPanel .researchPaperPanelName {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--hi);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  line-height: 1.2;
-  align-self: center;
-}
-
-.terminal--main .researchPaperPanel .feedCompactHeaderEnd {
-  align-items: stretch;
-  align-self: stretch;
-  height: 100%;
 }
 
 .terminal--main .researchPaperPanel .researchPaperScreenshotIcon {
@@ -1010,10 +991,6 @@
 .terminal--main .researchPaperPanel .feedCompactHeader {
   position: relative;
   z-index: 2;
-  background: #08090b;
-}
-
-.terminal--main .researchPaperPanel .researchPaperPanelHeader {
   background: #08090b;
 }
 
@@ -4971,6 +4948,122 @@
   min-height: 0;
 }
 
+.terminal--analyse .analyseCompanyBlock {
+  padding: 12px 14px 16px;
+  min-width: 0;
+}
+
+.terminal--analyse .analyseCompanyBlock .contextCompanyCard {
+  margin: 0 0 10px;
+}
+
+.terminal--analyse .analyseCompanyBlock .contextCompanyTicker {
+  font-size: clamp(14px, 2.2vmin, 20px);
+}
+
+.terminal--analyse .analyseCompanyBlock .contextCompanyPrice {
+  font-size: clamp(14px, 2.2vmin, 20px);
+}
+
+.terminal--analyse .analyseCompanyBlock .contextCompanyMeta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  line-height: 1.35;
+}
+
+.terminal--analyse .analysePriceChart {
+  margin-top: 4px;
+}
+
+.terminal--analyse .analysePriceChart .researchMiniPrice--chartOnly {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0;
+  gap: 8px;
+}
+
+.terminal--analyse .analysePriceChart .researchPriceRange {
+  display: flex;
+  width: 100%;
+  justify-content: flex-end;
+  margin-left: 0;
+}
+
+.terminal--analyse .analysePriceChart .researchPriceRangeBtn {
+  padding: 4px 8px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.terminal--analyse .analysePriceChart .researchPriceRangeBtn.isActive {
+  background: #fff;
+  color: #0a0b0d;
+}
+
+.terminal--analyse .analysePriceChart .researchMiniPriceWrap {
+  height: clamp(180px, 30vh, 340px);
+  min-height: 180px;
+}
+
+.terminal--analyse .analysePriceChart .graphPath {
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 1.25px;
+}
+
+.terminal--analyse .analysePriceChart .graphTick {
+  fill: rgba(255, 255, 255, 0.38);
+  font-size: 10px;
+}
+
+.terminal--analyse .analysePriceChart .graphTickLine {
+  stroke: rgba(255, 255, 255, 0.14);
+}
+
+.terminal--analyse .analysePriceChart .graphAxis {
+  stroke: rgba(255, 255, 255, 0.16);
+}
+
+.analyseQuarterlyRevenueStep {
+  stroke: rgba(120, 255, 170, 0.88);
+  stroke-width: 1.5px;
+  fill: none;
+}
+
+.analyseQuarterlyRevenueDot {
+  fill: rgba(120, 255, 170, 0.95);
+  stroke: rgba(8, 12, 10, 0.85);
+  stroke-width: 1px;
+}
+
+.analyseQuarterlyRevenueLabelGroup {
+  pointer-events: none;
+}
+
+.analyseQuarterlyRevenueLabel {
+  pointer-events: none;
+  paint-order: stroke fill;
+  stroke: rgba(8, 10, 12, 0.94);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.analyseQuarterlyRevenueQuarter {
+  fill: rgba(255, 255, 255, 0.62);
+  font-size: 7px;
+  letter-spacing: 0.04em;
+  stroke-width: 3px;
+}
+
+.analyseQuarterlyRevenuePct {
+  fill: rgba(120, 255, 170, 0.95);
+  font-size: 8px;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+  stroke-width: 3px;
+}
+
 /* Settings tab — single scroll page with compact cards */
 .terminal.terminal--settings {
   display: block;
@@ -6978,7 +7071,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--institutions .companyTile .feedCompactHeader,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactHeader,
 .terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeader,
-.terminal--analyse .analyseMainPanel.discoverCol .feedCompactHeader
+.terminal--analyse .analyseMainPanel.discoverCol .feedCompactHeader,
+.terminal--main .researchPaperPanel .feedCompactHeader
 {
   box-sizing: border-box;
   flex: 0 0 var(--feed-header-h);
@@ -7031,7 +7125,8 @@ button.researchPaperCopyIcon:focus-visible {
 
 .terminal--investigate .feed--left .feedCompactHeaderEnd,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactHeaderEnd,
-.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeaderEnd {
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeaderEnd,
+.terminal--main .researchPaperPanel .feedCompactHeaderEnd {
   align-items: center;
   height: 100%;
 }
@@ -7192,7 +7287,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--researchFeed .researchTicker .feedCompactTitle,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactTitle,
 .terminal--discover .discoverDual > .discoverCol.panel .feedCompactTitle,
-.terminal--analyse .analyseMainPanel.discoverCol .feedCompactTitle {
+.terminal--analyse .analyseMainPanel.discoverCol .feedCompactTitle,
+.terminal--main .researchPaperPanel .feedCompactTitle {
   color: var(--hi);
   font-size: 10px;
   letter-spacing: 0.16em;
@@ -7202,7 +7298,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--researchFeed .researchTicker .feedCompactHeader,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactHeader,
 .terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeader,
-.terminal--analyse .analyseMainPanel.discoverCol .feedCompactHeader {
+.terminal--analyse .analyseMainPanel.discoverCol .feedCompactHeader,
+.terminal--main .researchPaperPanel .feedCompactHeader {
   justify-content: space-between;
   padding: 0 12px;
   border-bottom: none;
@@ -7210,7 +7307,8 @@ button.researchPaperCopyIcon:focus-visible {
 
 .terminal--researchFeed .researchTicker .feedCompactHeaderEnd,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactHeaderEnd,
-.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeaderEnd {
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeaderEnd,
+.terminal--main .researchPaperPanel .feedCompactHeaderEnd {
   align-items: center;
   height: 100%;
 }
