@@ -4288,7 +4288,7 @@
   background-size: 1000px auto;
   background-position: 82% 46%;
   background-repeat: no-repeat;
-  opacity: 0.9;
+  opacity: 1;
   pointer-events: none;
   z-index: 2;
   -webkit-mask:
@@ -10325,16 +10325,130 @@ body {
 }
 
 /* Idea highlights (best-of-the-best only) */
-.ideaHighlight--A {
-  border-left: 2px solid rgba(88, 214, 141, 0.85) !important;
-  background: linear-gradient(90deg, rgba(88, 214, 141, 0.12), transparent 48%);
-}
-.researchPaperDocCard.ideaHighlight--A {
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+.terminal--main .researchPaperPanel .researchPaperDocCard.ideaHighlight--A {
+  position: relative;
+  isolation: isolate;
+  border-color: transparent;
 }
 
-.feedRowCompact.ideaHighlight--A .feedCellCompany {
-  padding-right: 0.15rem;
+.terminal--main .researchPaperPanel .researchPaperDocCard.ideaHighlight--A::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background-image: var(--terminal-panel-bg-image);
+  background-size: 1000px auto;
+  background-position: 82% 46%;
+  background-repeat: no-repeat;
+  opacity: 1;
+  pointer-events: none;
+  z-index: 2;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocCard.ideaHighlight--A.eventBriefDocCard--clickable:hover {
+  border-color: transparent;
+}
+
+.terminal--insider .feed--left .feedRowCompact.ideaHighlight--A,
+.terminal--politicians .feed--left .feedRowCompact.ideaHighlight--A,
+.terminal--institutions .feed--left .feedRowCompact.ideaHighlight--A,
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact.ideaHighlight--A {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-color: transparent;
+  background-color: rgba(8, 9, 11, 0.55);
+  box-shadow: none;
+}
+
+.terminal--insider .feed--left .feedRowCompact.ideaHighlight--A::before,
+.terminal--politicians .feed--left .feedRowCompact.ideaHighlight--A::before,
+.terminal--institutions .feed--left .feedRowCompact.ideaHighlight--A::before,
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact.ideaHighlight--A::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--terminal-panel-bg-image);
+  background-size: 420% auto;
+  background-position: 62% 38%;
+  background-repeat: no-repeat;
+  opacity: 0.72;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.terminal--insider .feed--left .feedRowCompact.ideaHighlight--A::after,
+.terminal--politicians .feed--left .feedRowCompact.ideaHighlight--A::after,
+.terminal--institutions .feed--left .feedRowCompact.ideaHighlight--A::after,
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact.ideaHighlight--A::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgba(5, 7, 10, 0.84) 0%,
+    rgba(5, 7, 10, 0.38) 55%,
+    rgba(5, 7, 10, 0.62) 100%
+  );
+  z-index: 0;
+  pointer-events: none;
+}
+
+.terminal--insider .feed--left .feedRowCompact.ideaHighlight--A > *,
+.terminal--politicians .feed--left .feedRowCompact.ideaHighlight--A > *,
+.terminal--institutions .feed--left .feedRowCompact.ideaHighlight--A > *,
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact.ideaHighlight--A > * {
+  position: relative;
+  z-index: 1;
+}
+
+.terminal--insider .feed--left .feedRowCompact.ideaHighlight--A:hover,
+.terminal--politicians .feed--left .feedRowCompact.ideaHighlight--A:hover,
+.terminal--institutions .feed--left .feedRowCompact.ideaHighlight--A:hover,
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact.ideaHighlight--A:hover {
+  border-color: transparent;
+  background-color: rgba(8, 9, 11, 0.5);
+}
+
+.terminal--insider .feed--left .feedRowCompact.ideaHighlight--A:hover::before,
+.terminal--politicians .feed--left .feedRowCompact.ideaHighlight--A:hover::before,
+.terminal--institutions .feed--left .feedRowCompact.ideaHighlight--A:hover::before,
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact.ideaHighlight--A:hover::before {
+  opacity: 0.8;
+}
+
+.terminal--insider .feed--left .feedRowCompact.ideaHighlight--A.isActive,
+.terminal--politicians .feed--left .feedRowCompact.ideaHighlight--A.isActive,
+.terminal--institutions .feed--left .feedRowCompact.ideaHighlight--A.isActive,
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact.ideaHighlight--A.isActive {
+  border-color: rgba(255, 255, 255, 0.22);
+  background-color: rgba(8, 9, 11, 0.48);
+  box-shadow: none;
+}
+
+.terminal--insider .feed--left .feedRowCompact.ideaHighlight--A.isActive::before,
+.terminal--politicians .feed--left .feedRowCompact.ideaHighlight--A.isActive::before,
+.terminal--institutions .feed--left .feedRowCompact.ideaHighlight--A.isActive::before,
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact.ideaHighlight--A.isActive::before {
+  opacity: 0.84;
+}
+
+.terminal--insider .feed--left .feedRowCompact.ideaHighlight--A .feedCellCompany,
+.terminal--politicians .feed--left .feedRowCompact.ideaHighlight--A .feedCellCompany,
+.terminal--institutions .feed--left .feedRowCompact.ideaHighlight--A .feedCellCompany,
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact.ideaHighlight--A .feedCellCompany {
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .settingsToggle {
