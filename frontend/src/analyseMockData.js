@@ -45,21 +45,10 @@ const ASML_MODEL = {
     },
   ],
   businessDrivers: [
-    { label: 'EUV revenue', values: [2100, 2280, 2450, 2580, 2720, 2890, 3020, 3150, 3240, 3330] },
-    { label: 'DUV revenue', values: [1800, 1850, 1920, 1980, 2040, 2100, 2150, 2200, 2240, 2280] },
-    { label: 'Immersion revenue', values: [980, 1020, 1080, 1120, 1160, 1220, 1260, 1300, 1330, 1360] },
-    { label: 'Installed base (units)', values: [1200, 1220, 1250, 1280, 1310, 1340, 1370, 1400, 1430, 1460] },
-  ],
-  assumptions: [
-    { label: 'Revenue growth (YoY)', value: '14.0%', change: '+0.5%' },
-    { label: 'Gross margin', value: '52.0%', change: '0.0%' },
-    { label: 'Operating margin', value: '27.0%', change: '0.0%' },
-    { label: 'Net margin', value: '22.0%', change: '0.0%' },
-    { label: 'Tax rate', value: '19.0%', change: '0.0%' },
-    { label: 'Shares outstanding (M)', value: '404', change: '0' },
-    { label: 'CapEx growth (YoY)', value: '8.0%', change: '0.0%' },
-    { label: 'Depreciation (% of revenue)', value: '5.5%', change: '0.0%' },
-    { label: 'Working capital (% of revenue)', value: '12.0%', change: '0.0%' },
+    { label: 'EUV revenue', driverKind: 'revenue', rollsUpToRevenue: true, values: [2100, 2280, 2450, 2580, 2720, 2890, 3020, 3150, 3240, 3330] },
+    { label: 'DUV revenue', driverKind: 'revenue', rollsUpToRevenue: true, values: [1800, 1850, 1920, 1980, 2040, 2100, 2150, 2200, 2240, 2280] },
+    { label: 'Immersion revenue', driverKind: 'revenue', rollsUpToRevenue: true, values: [980, 1020, 1080, 1120, 1160, 1220, 1260, 1300, 1330, 1360] },
+    { label: 'Installed base (units)', driverKind: 'units', rollsUpToRevenue: false, values: [1200, 1220, 1250, 1280, 1310, 1340, 1370, 1400, 1430, 1460] },
   ],
   valuation: {
     method: 'Discounted cash flow (FCFF)',
@@ -119,6 +108,194 @@ function scaleModel(base, factor) {
       ),
     },
   }
+}
+
+function pctStr(n) {
+  return `${Number(n).toFixed(1)}%`
+}
+
+function growthYoYStr(curr, prior) {
+  if (prior == null || prior === 0 || prior === '—') return '—'
+  const g = ((curr - prior) / prior) * 100
+  return `${g >= 0 ? '+' : ''}${g.toFixed(1)}%`
+}
+
+function findRow(rows, label) {
+  return rows.find((r) => r.label === label)
+}
+
+/** All business-driver forecast cells are user inputs; linkage to revenue is model-defined. */
+export function isForecastEditableDriver(_row) {
+  return true
+}
+
+function revenueDriverSum(drivers, colIdx) {
+  let sum = 0
+  for (const row of drivers) {
+    if (row.rollsUpToRevenue === false) continue
+    const v = row.values[colIdx]
+    if (typeof v === 'number') sum += v
+  }
+  return sum
+}
+
+function revenueResidualForColumn(baseModel, colIdx) {
+  const baseRev = findRow(baseModel.historicalModel, 'Revenue')?.values[colIdx] ?? 0
+  return baseRev - revenueDriverSum(baseModel.businessDrivers, colIdx)
+}
+
+function revenueFromDrivers(businessDrivers, baseModel, colIdx) {
+  return Math.round(revenueDriverSum(businessDrivers, colIdx) + revenueResidualForColumn(baseModel, colIdx))
+}
+
+function forecastRatios(baseModel) {
+  const anchor = baseModel.estimateFromIndex - 1
+  const rev = findRow(baseModel.historicalModel, 'Revenue')?.values[anchor] ?? 1
+  const grossProfit = findRow(baseModel.historicalModel, 'Gross profit')?.values[anchor] ?? 0
+  const opIncome = findRow(baseModel.historicalModel, 'Operating income')?.values[anchor] ?? 0
+  const netIncome = findRow(baseModel.historicalModel, 'Net income')?.values[anchor] ?? 0
+  const shares = findRow(baseModel.historicalModel, 'Shares outstanding (M)')?.values[anchor] ?? 404
+  return {
+    grossMargin: grossProfit / rev,
+    opMargin: opIncome / rev,
+    netMargin: netIncome / rev,
+    shares,
+  }
+}
+
+function recalcEstimateColumn(historicalModel, baseModel, colIdx, rev, ratios) {
+  const revenue = findRow(historicalModel, 'Revenue')
+  const grossProfit = findRow(historicalModel, 'Gross profit')
+  const grossMargin = findRow(historicalModel, 'Gross margin')
+  const opex = findRow(historicalModel, 'Operating expenses')
+  const opIncome = findRow(historicalModel, 'Operating income')
+  const opMargin = findRow(historicalModel, 'Operating margin')
+  const netIncome = findRow(historicalModel, 'Net income')
+  const eps = findRow(historicalModel, 'EPS ($)')
+  const shares = findRow(historicalModel, 'Shares outstanding (M)')
+  const cash = findRow(historicalModel, 'Cash & equivalents')
+  const debt = findRow(historicalModel, 'Total debt')
+  const fcf = findRow(historicalModel, 'Free cash flow')
+  const revGrowth = findRow(historicalModel, 'Revenue growth (YoY)')
+  const epsGrowth = findRow(historicalModel, 'EPS growth (YoY)')
+
+  const baseRevenue = findRow(baseModel.historicalModel, 'Revenue')
+  const baseFcf = findRow(baseModel.historicalModel, 'Free cash flow')
+  const baseRevAt = baseRevenue?.values[colIdx] ?? rev
+  const baseFcfAt = baseFcf?.values[colIdx] ?? 0
+
+  revenue.values[colIdx] = rev
+  grossProfit.values[colIdx] = Math.round(rev * ratios.grossMargin)
+  grossMargin.values[colIdx] = pctStr(ratios.grossMargin * 100)
+  opIncome.values[colIdx] = Math.round(rev * ratios.opMargin)
+  opMargin.values[colIdx] = pctStr(ratios.opMargin * 100)
+  opex.values[colIdx] = grossProfit.values[colIdx] - opIncome.values[colIdx]
+  netIncome.values[colIdx] = Math.round(rev * ratios.netMargin)
+  eps.values[colIdx] = (netIncome.values[colIdx] / ratios.shares).toFixed(2)
+  shares.values[colIdx] = ratios.shares
+
+  const fcfScale = baseRevAt > 0 ? rev / baseRevAt : 1
+  fcf.values[colIdx] = Math.round(baseFcfAt * fcfScale)
+
+  if (cash?.values[colIdx] != null && cash.values[colIdx - 1] != null) {
+    cash.values[colIdx] = Math.round(cash.values[colIdx - 1] + fcf.values[colIdx] * 0.35)
+  }
+  if (debt?.values[colIdx] != null && debt.values[colIdx - 1] != null) {
+    debt.values[colIdx] = Math.round(debt.values[colIdx - 1] * 0.985)
+  }
+
+  const yoyIdx = colIdx - 4
+  revGrowth.values[colIdx] = growthYoYStr(rev, yoyIdx >= 0 ? revenue.values[yoyIdx] : null)
+  const epsPriorIdx = colIdx - 4
+  const epsNum = parseFloat(eps.values[colIdx])
+  const epsPrior = epsPriorIdx >= 0 ? parseFloat(eps.values[epsPriorIdx]) : null
+  epsGrowth.values[colIdx] = growthYoYStr(epsNum, epsPrior)
+}
+
+function buildValuationFromModel(baseModel, historicalModel) {
+  const colCount = baseModel.quarters.length
+  const lastIdx = colCount - 1
+  const baseEps = parseFloat(findRow(baseModel.historicalModel, 'EPS ($)')?.values[lastIdx] ?? '4.08')
+  const newEps = parseFloat(findRow(historicalModel, 'EPS ($)')?.values[lastIdx] ?? '4.08')
+  const baseRevLast = findRow(baseModel.historicalModel, 'Revenue')?.values[lastIdx] ?? 7620
+  const newRevLast = findRow(historicalModel, 'Revenue')?.values[lastIdx] ?? baseRevLast
+  const epsFactor = baseEps > 0 ? newEps / baseEps : 1
+  const revFactor = baseRevLast > 0 ? newRevLast / baseRevLast : 1
+
+  const parseMoney = (s) => parseFloat(String(s).replace(/[$,M]/g, '')) || 0
+  const fmtMoney = (n) => `$${Math.round(n).toLocaleString('en-US')}M`
+  const fmtEps = (n) => `$${n.toFixed(2)}`
+
+  return {
+    ...baseModel.valuation,
+    fairValuePerShare: fmtEps(parseMoney(baseModel.valuation.fairValuePerShare) * epsFactor),
+    upsidePct: (() => {
+      const m = String(baseModel.valuation.upsidePct).match(/([+-]?[\d.]+)/)
+      const base = m ? parseFloat(m[1]) : 24.9
+      const next = base + (epsFactor - 1) * 40
+      return `${next >= 0 ? '+' : ''}${next.toFixed(1)}%`
+    })(),
+    rows: baseModel.valuation.rows.map((row) => {
+      if (row.label.startsWith('Estimated EPS')) {
+        return { ...row, implied: fmtEps(parseMoney(row.implied) * epsFactor) }
+      }
+      if (row.label.includes('revenue')) {
+        return { ...row, implied: fmtMoney(parseMoney(row.implied) * revFactor) }
+      }
+      if (row.label.includes('free cash flow')) {
+        return { ...row, implied: fmtMoney(parseMoney(row.implied) * revFactor * 0.9) }
+      }
+      if (row.label.includes('P/E')) {
+        const cur = parseFloat(row.current)
+        return { ...row, implied: `${(cur / epsFactor).toFixed(1)}x` }
+      }
+      return row
+    }),
+  }
+}
+
+/**
+ * Driver overrides in green columns roll up to revenue; the financial model is derived.
+ */
+export function applyForecastOverrides(baseModel, overrides = {}) {
+  const estFrom = baseModel.estimateFromIndex
+  const colCount = baseModel.quarters.length
+  if (!Object.keys(overrides).length) return baseModel
+
+  const ratios = forecastRatios(baseModel)
+
+  const businessDrivers = baseModel.businessDrivers.map((row) => {
+    const rowOverrides = overrides[row.label] ?? {}
+    const valuesCopy = [...row.values]
+    for (let i = estFrom; i < colCount; i++) {
+      if (rowOverrides[i] != null) {
+        valuesCopy[i] = Math.round(rowOverrides[i])
+      }
+    }
+    return { ...row, values: valuesCopy }
+  })
+
+  const historicalModel = baseModel.historicalModel.map((r) => ({
+    ...r,
+    values: [...r.values],
+  }))
+
+  for (let i = estFrom; i < colCount; i++) {
+    const rev = revenueFromDrivers(businessDrivers, baseModel, i)
+    recalcEstimateColumn(historicalModel, baseModel, i, rev, ratios)
+  }
+
+  return {
+    ...baseModel,
+    historicalModel,
+    businessDrivers,
+    valuation: buildValuationFromModel(baseModel, historicalModel),
+  }
+}
+
+export function parseAnalyseGridInput(raw) {
+  const n = parseFloat(String(raw ?? '').replace(/,/g, '').trim())
+  return Number.isFinite(n) ? n : null
 }
 
 export function analyseMockModelForTicker(ticker) {

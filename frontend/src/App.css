@@ -4963,6 +4963,11 @@
 
 .terminal--analyse .analyseCompanyBlock .contextCompanyPrice {
   font-size: clamp(14px, 2.2vmin, 20px);
+  text-align: right;
+}
+
+.terminal--analyse .analyseCompanyBlock .contextCompanyTopRow {
+  margin-bottom: 6px;
 }
 
 .terminal--analyse .analyseCompanyBlock .contextCompanyMeta {
@@ -5069,55 +5074,52 @@
   margin-bottom: 4px;
 }
 
+.analyseCompanyPriceCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  min-width: 0;
+}
+
+.analyseCompanyTickerCol {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.analyseCompanyMetaStack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .analyseCompanyName {
   font-size: 11px;
   color: rgba(255, 255, 255, 0.62);
 }
 
-.analyseCompanyFacts {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-  margin-top: 6px;
+.analyseCompanyMcap {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.analyseCompanyEarnings {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.48);
-  line-height: 1.35;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  color: rgba(255, 255, 255, 0.45);
 }
 
-.analyseCompanyFact {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-}
-
-.analyseCompanyFactSep {
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.22);
-  flex-shrink: 0;
-}
-
-.analyseCompanyFact--earnings .analyseCompanyFactK {
-  font-size: 8px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.34);
-}
-
-.analyseCompanyFact--earnings .analyseCompanyFactV {
-  color: rgba(255, 255, 255, 0.72);
-}
-
-.analyseCompanyFact--soon .analyseCompanyFactV {
-  color: rgba(120, 255, 170, 0.88);
+.analyseCompanyEarnings.isSoon {
+  color: rgba(120, 255, 170, 0.92);
 }
 
 .analysePriceChange {
-  font-size: 11px;
-  margin: 2px 0 6px;
+  font-size: 10px;
   letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-align: right;
 }
 
 .analysePriceChange.isUp {
@@ -5136,10 +5138,15 @@
 
 .analyseSectionTitle {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
   margin: 0 0 10px;
+  min-width: 0;
+}
+
+.analyseSectionLabel {
+  margin: 0;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -5148,10 +5155,12 @@
 }
 
 .analyseSectionHint {
+  display: block;
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: none;
   font-weight: 400;
+  line-height: 1.35;
 }
 
 .analyseChartLegend {
@@ -5242,15 +5251,8 @@
   position: absolute;
   top: 1px;
   bottom: 1px;
-  /* max(min floor, fr share of total width) — matches minmax() grid sizing */
-  left: max(
-    calc(var(--analyse-label-min) + var(--analyse-hist-cols) * var(--analyse-quarter-min)),
-    calc(
-      (var(--analyse-label-fr) + var(--analyse-hist-cols)) /
-        (var(--analyse-label-fr) + var(--analyse-hist-cols) + var(--analyse-est-cols)) * 100%
-    )
-  );
-  right: 1px;
+  left: var(--analyse-est-left, 0);
+  width: var(--analyse-est-width, 0);
   border: 1px solid rgba(120, 255, 170, 0.42);
   border-radius: 0 2px 2px 0;
   pointer-events: none;
@@ -5355,43 +5357,68 @@
   color: rgba(255, 255, 255, 0.18);
 }
 
-.analyseAssumptionsTable {
+.analyseSectionHead {
   display: flex;
-  flex-direction: column;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.analyseAssumptionsRow {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(4em, 0.7fr) minmax(5em, 0.8fr);
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
-  align-items: center;
-  padding: 7px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.62);
+  margin-bottom: 10px;
 }
 
-.analyseAssumptionsRow--head {
-  font-size: 8px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.34);
-  padding-top: 0;
+.analyseSectionHead .analyseSectionTitle {
+  margin-bottom: 0;
 }
 
-.analyseAssumptionsValue {
-  text-align: right;
-  color: rgba(255, 255, 255, 0.78);
+.analyseForecastReset {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
 }
 
-.analyseAssumptionsChange {
-  text-align: right;
-  color: rgba(255, 255, 255, 0.38);
-}
-
-.analyseAssumptionsChange--up {
+.analyseForecastReset:hover {
+  border-color: rgba(120, 255, 170, 0.35);
   color: rgba(120, 255, 170, 0.88);
+}
+
+.analyseModelGridCell--editable {
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.analyseModelGridCell--editable:hover {
+  background: rgba(120, 255, 170, 0.08);
+  outline: 1px dashed rgba(120, 255, 170, 0.35);
+  outline-offset: -1px;
+}
+
+.analyseModelGridCell--modified {
+  color: rgba(120, 255, 170, 0.95);
+}
+
+.analyseModelGridCellInput {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 4px;
+  margin: -3px -4px;
+  border: 1px solid rgba(120, 255, 170, 0.55);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: inherit;
+  text-align: right;
+  box-sizing: border-box;
+}
+
+.analyseModelGridCellInput:focus {
+  outline: none;
+  border-color: rgba(120, 255, 170, 0.85);
 }
 
 .analyseValuationBlock {
@@ -10558,6 +10585,23 @@ body {
     grid-column: 1;
     grid-row: 1;
     min-height: 0;
+  }
+
+  /* Analyse — one pane at a time */
+  .terminalShell--phone .terminal.terminal--analyse {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .terminalShell--phone .terminal--analyse .researchFeedSlot,
+  .terminalShell--phone .terminal--analyse .researchTicker.researchFeedSlot,
+  .terminalShell--phone .terminal--analyse .analyseFeedSlot,
+  .terminalShell--phone .terminal--analyse .analyseMainPanel,
+  .terminalShell--phone .terminal--analyse .analyseMainSlot {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+    min-width: 0;
   }
 
   /* Investigate — one pane at a time */

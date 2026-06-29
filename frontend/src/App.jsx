@@ -110,6 +110,11 @@ const DISCOVER_PHONE_PANES = [
   { id: 'macro', label: 'Macro' },
 ]
 
+const ANALYSE_PHONE_PANES = [
+  { id: 'feed', label: 'Feed' },
+  { id: 'analyse', label: 'Analyse' },
+]
+
 function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n))
 }
@@ -9878,6 +9883,7 @@ function KensiglineTerminal() {
   const isPhone = usePhoneViewport()
   const [activeTab, setActiveTab] = useState(() => readActiveTab()) // discover | main | investigate | settings
   const [researchPhonePane, setResearchPhonePane] = useState('paper')
+  const [analysePhonePane, setAnalysePhonePane] = useState('analyse')
   const [investigatePhonePane, setInvestigatePhonePane] = useState('feed')
   const [discoverPhonePane, setDiscoverPhonePane] = useState('moves')
   const [intelMode, setIntelMode] = useState(() => readIntelMode()) // market | clinical
@@ -11799,6 +11805,10 @@ function KensiglineTerminal() {
   }, [researchTicker, isPhone, activeTab])
 
   useEffect(() => {
+    if (isPhone && activeTab === 'analyse') setAnalysePhonePane('analyse')
+  }, [researchTicker, isPhone, activeTab])
+
+  useEffect(() => {
     if (isPhone && activeTab === 'investigate') setInvestigatePhonePane('feed')
   }, [investigateMode, isPhone, activeTab])
 
@@ -11808,9 +11818,12 @@ function KensiglineTerminal() {
       if (!t) return
       researchTickerPinnedRef.current = null
       setResearchTicker(t)
-      if (isPhone) setResearchPhonePane('paper')
+      if (isPhone) {
+        if (activeTab === 'analyse') setAnalysePhonePane('analyse')
+        else setResearchPhonePane('paper')
+      }
     },
-    [isPhone],
+    [activeTab, isPhone],
   )
 
   const onInvestigateFeedSelectIndex = useCallback(
@@ -11941,11 +11954,22 @@ function KensiglineTerminal() {
             feedFilterOpen={researchFeedFilterOpen}
             onFeedFilterClick={onResearchFeedFilterClick}
             feedFilterPicker={researchFeedFilterPickerEl}
-            panelClassName="researchFeedSlot analyseFeedSlot"
+            panelClassName={[
+              'researchFeedSlot',
+              'analyseFeedSlot',
+              phonePaneHiddenClass(isPhone, analysePhonePane, 'feed'),
+            ]
+              .filter(Boolean)
+              .join(' ')}
             showDocumentCount={false}
           />
           <AnalysePanel
-            panelClassName="analyseMainSlot"
+            panelClassName={[
+              'analyseMainSlot',
+              phonePaneHiddenClass(isPhone, analysePhonePane, 'analyse'),
+            ]
+              .filter(Boolean)
+              .join(' ')}
             ticker={contextCompanySnapshot.ticker}
             companyName={researchCompanyName}
             price={contextCompanySnapshot.price}
@@ -12321,6 +12345,14 @@ function KensiglineTerminal() {
               value={discoverPhonePane}
               onChange={setDiscoverPhonePane}
               ariaLabel="Discover panels"
+            />
+          ) : null}
+          {activeTab === 'analyse' ? (
+            <PhoneSubNav
+              items={ANALYSE_PHONE_PANES}
+              value={analysePhonePane}
+              onChange={setAnalysePhonePane}
+              ariaLabel="Analyse panels"
             />
           ) : null}
           <nav className="sideTabsRail" aria-label="Views">
