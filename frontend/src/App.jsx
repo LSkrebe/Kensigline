@@ -1473,7 +1473,7 @@ const CONTEXT_MOCK_PROFILES = {
   ASML: {
     sector: 'Semiconductor equipment',
     country: 'NL',
-    mcap: '€350B',
+    mcap: '$350B',
     earningsDaysAhead: 17,
     insiders: [
       { key: 'CEO', person: 'Christophe Borel', at: 'today', amount: '$8.2M', transactionCode: 'P' },
@@ -10139,6 +10139,16 @@ function KensiglineTerminal() {
     [backendUp, researchTicker],
   )
 
+  const analysePriceChange = useMemo(() => {
+    const rows = researchPriceSeries
+    if (!Array.isArray(rows) || rows.length < 2) return null
+    const last = Number(rows.at(-1))
+    const prev = Number(rows.at(-2))
+    if (!Number.isFinite(last) || !Number.isFinite(prev) || prev === 0) return null
+    const delta = last - prev
+    return { delta, pct: (delta / Math.abs(prev)) * 100 }
+  }, [researchPriceSeries])
+
   const contextOwnership = useMemo(() => {
     if (backendUp) {
       return researchCompanyResolved?.ownership
@@ -11937,7 +11947,10 @@ function KensiglineTerminal() {
           <AnalysePanel
             panelClassName="analyseMainSlot"
             ticker={contextCompanySnapshot.ticker}
+            companyName={researchCompanyName}
             price={contextCompanySnapshot.price}
+            priceChange={analysePriceChange?.delta}
+            priceChangePct={analysePriceChange?.pct}
             sector={contextCompanySnapshot.sector}
             domicile={contextCompanySnapshot.domicile}
             mcap={contextCompanySnapshot.mcap}

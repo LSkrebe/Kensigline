@@ -4972,7 +4972,7 @@
 }
 
 .terminal--analyse .analysePriceChart {
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .terminal--analyse .analysePriceChart .researchMiniPrice--chartOnly {
@@ -5003,8 +5003,8 @@
 }
 
 .terminal--analyse .analysePriceChart .researchMiniPriceWrap {
-  height: clamp(180px, 30vh, 340px);
-  min-height: 180px;
+  height: clamp(220px, 32vh, 360px);
+  min-height: 220px;
 }
 
 .terminal--analyse .analysePriceChart .graphPath {
@@ -5062,6 +5062,462 @@
   letter-spacing: 0.02em;
   font-weight: 600;
   stroke-width: 3px;
+}
+
+/* ---- Analyse financial model sections ---- */
+.analyseCompanyCard {
+  margin-bottom: 4px;
+}
+
+.analyseCompanyName {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.analyseCompanyFacts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.48);
+  line-height: 1.35;
+}
+
+.analyseCompanyFact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.analyseCompanyFactSep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  flex-shrink: 0;
+}
+
+.analyseCompanyFact--earnings .analyseCompanyFactK {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.analyseCompanyFact--earnings .analyseCompanyFactV {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.analyseCompanyFact--soon .analyseCompanyFactV {
+  color: rgba(120, 255, 170, 0.88);
+}
+
+.analysePriceChange {
+  font-size: 11px;
+  margin: 2px 0 6px;
+  letter-spacing: 0.02em;
+}
+
+.analysePriceChange.isUp {
+  color: rgba(120, 255, 170, 0.92);
+}
+
+.analysePriceChange.isDown {
+  color: rgba(255, 120, 120, 0.92);
+}
+
+.analyseSection {
+  margin-top: 18px;
+  min-width: 0;
+  width: 100%;
+}
+
+.analyseSectionTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  margin: 0 0 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.analyseSectionHint {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-weight: 400;
+}
+
+.analyseChartLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 8px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.analyseChartLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.analyseChartLegendSwatch {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.analyseChartLegendSwatch--price {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.analyseChartLegendSwatch--earnings {
+  background: rgba(120, 255, 170, 0.95);
+  height: 3px;
+}
+
+.analyseModelScroll {
+  display: block;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--intel-accent-scrollbar-thumb) transparent;
+}
+
+.analyseModelScroll::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.analyseModelScroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+}
+
+.analyseModelScroll::-webkit-scrollbar-thumb {
+  background: var(--intel-accent-scrollbar-thumb);
+  border-radius: 4px;
+}
+
+.analyseModelTable {
+  --analyse-hist-cols: 6;
+  --analyse-est-cols: 4;
+  --analyse-label-fr: 1.15;
+  /* px mins — not rem; root font is ~11px in this terminal */
+  --analyse-label-min: 72px;
+  --analyse-quarter-min: 42px;
+  --analyse-row-height: calc(2 * 1.25 * 8px + 8px);
+  --analyse-grid-line: rgba(255, 255, 255, 0.07);
+  --analyse-grid-min: calc(
+    var(--analyse-label-min) +
+      (var(--analyse-hist-cols) + var(--analyse-est-cols)) * var(--analyse-quarter-min)
+  );
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: max(100%, var(--analyse-grid-min));
+  box-sizing: border-box;
+  border: 1px solid var(--analyse-grid-line);
+  border-radius: 4px;
+}
+
+.analyseModelEstFrame {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  /* max(min floor, fr share of total width) — matches minmax() grid sizing */
+  left: max(
+    calc(var(--analyse-label-min) + var(--analyse-hist-cols) * var(--analyse-quarter-min)),
+    calc(
+      (var(--analyse-label-fr) + var(--analyse-hist-cols)) /
+        (var(--analyse-label-fr) + var(--analyse-hist-cols) + var(--analyse-est-cols)) * 100%
+    )
+  );
+  right: 1px;
+  border: 1px solid rgba(120, 255, 170, 0.42);
+  border-radius: 0 2px 2px 0;
+  pointer-events: none;
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+.analyseModelRow {
+  display: grid;
+  width: 100%;
+  min-width: 100%;
+  box-sizing: border-box;
+  column-gap: 0;
+  grid-template-columns:
+    minmax(var(--analyse-label-min), 1.15fr)
+    repeat(var(--analyse-hist-cols), minmax(var(--analyse-quarter-min), 1fr))
+    repeat(var(--analyse-est-cols), minmax(var(--analyse-quarter-min), 1fr));
+  align-items: stretch;
+}
+
+.analyseModelGridLabel,
+.analyseModelGridHead,
+.analyseModelGridCell {
+  box-sizing: border-box;
+  height: var(--analyse-row-height);
+  min-height: var(--analyse-row-height);
+  max-height: var(--analyse-row-height);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4px 4px;
+  border-right: 1px solid var(--analyse-grid-line);
+  border-bottom: 1px solid var(--analyse-grid-line);
+  position: relative;
+  z-index: 1;
+}
+
+.analyseModelRow > :last-child {
+  border-right: none;
+}
+
+.analyseModelRow--last .analyseModelGridLabel,
+.analyseModelRow--last .analyseModelGridHead,
+.analyseModelRow--last .analyseModelGridCell {
+  border-bottom: none;
+}
+
+.analyseModelRow--head .analyseModelGridLabel,
+.analyseModelRow--head .analyseModelGridHead {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.analyseModelGridLabel {
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.42);
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+
+.analyseModelGridLabel--head {
+  color: rgba(255, 255, 255, 0.34);
+  font-weight: 600;
+}
+
+.analyseModelGridHead {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.34);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.analyseModelGridHead--estimate {
+  color: rgba(120, 255, 170, 0.72);
+}
+
+.analyseModelGridCell {
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.analyseModelGridCell--pos {
+  color: rgba(120, 255, 170, 0.88);
+}
+
+.analyseModelGridCell--neg {
+  color: rgba(255, 120, 120, 0.88);
+}
+
+.analyseModelGridCell--empty {
+  color: rgba(255, 255, 255, 0.18);
+}
+
+.analyseAssumptionsTable {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.analyseAssumptionsRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(4em, 0.7fr) minmax(5em, 0.8fr);
+  gap: 8px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.analyseAssumptionsRow--head {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.34);
+  padding-top: 0;
+}
+
+.analyseAssumptionsValue {
+  text-align: right;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.analyseAssumptionsChange {
+  text-align: right;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.analyseAssumptionsChange--up {
+  color: rgba(120, 255, 170, 0.88);
+}
+
+.analyseValuationBlock {
+  min-width: 0;
+}
+
+.analyseValuationMethod {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.analyseValuationLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(9em, 0.65fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.analyseValuationTable {
+  display: flex;
+  flex-direction: column;
+}
+
+.analyseValuationRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(4em, 1fr) minmax(4em, 1fr);
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.analyseValuationRow--head {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.34);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 0;
+}
+
+.analyseValuationRow .mono {
+  text-align: right;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.analyseFairValueCard {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(120, 255, 170, 0.35);
+  border-radius: 6px;
+  background: rgba(120, 255, 170, 0.06);
+}
+
+.analyseFairValueK {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.48);
+  margin-bottom: 4px;
+}
+
+.analyseFairValueV {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(120, 255, 170, 0.95);
+  letter-spacing: 0.02em;
+}
+
+.analyseValuationStats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.analyseValuationStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.analyseValuationStatK {
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.analyseValuationStatV {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.analyseValuationUpside {
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(120, 255, 170, 0.92);
+}
+
+.analysePanelFooter {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+}
+
+.analysePanelNote {
+  margin: 6px 0 0;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .analyseValuationLayout {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Settings tab — single scroll page with compact cards */
