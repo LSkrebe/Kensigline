@@ -10,6 +10,8 @@ import {
   parseAnalyseGridInput,
 } from './analyseMockData.js'
 
+const ANALYSE_PRICE_RANGE_OPTS = ['1M', '3M', '6M', '1Y', 'ALL']
+
 function AnalyseSectionTitle({ title, hintLines }) {
   const lines = hintLines?.filter(Boolean) ?? []
   return (
@@ -377,6 +379,7 @@ export function AnalysePanel({
   children = null,
   quarterlyRevenueOverlay = null,
   chartRange = '6M',
+  onChartRangeChange,
 }) {
   const t = String(ticker ?? '').trim().toUpperCase()
   const showPrice = price != null && Number.isFinite(Number(price))
@@ -519,13 +522,28 @@ export function AnalysePanel({
             </div>
 
             <section className="analyseSection" aria-label="Price and earnings chart">
-              <div className="analyseSectionHead analyseSectionHead--single">
-                <AnalyseSectionTitle title="Price & earnings" />
-                <span className="analyseSectionAside mono dim">Last updated {lastUpdated}</span>
+              <div className="analyseSectionHead">
+                <AnalyseSectionTitle
+                  title="Price & earnings"
+                  hintLines={[`Last updated ${lastUpdated}`]}
+                />
+                <div className="researchPriceRange analyseSectionChartRange" role="group" aria-label="Chart range">
+                  {ANALYSE_PRICE_RANGE_OPTS.map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      className={['researchPriceRangeBtn', chartRange === r ? 'isActive' : '']
+                        .filter(Boolean)
+                        .join(' ')}
+                      onClick={() => onChartRangeChange?.(r)}
+                      aria-pressed={chartRange === r}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="analysePriceChart contextCompanyChart">
-                {children}
-              </div>
+              <div className="analysePriceChart contextCompanyChart">{children}</div>
                 <div className="analyseChartLegend mono" aria-hidden="true">
                   <span className="analyseChartLegendItem">
                     <span className="analyseChartLegendSwatch analyseChartLegendSwatch--price" />

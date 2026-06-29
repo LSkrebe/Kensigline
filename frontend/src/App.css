@@ -4007,13 +4007,13 @@
 }
 
 .terminal--discover .discoverColScroll,
-.terminal--analyse .analyseMainPanel .discoverColScroll {
+.terminal--analyse .analyseMainPanel .analyseMainPanelBody.discoverColScroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  padding: 0;
+  padding: 0 14px 16px 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -4169,21 +4169,20 @@
 .discoverMacroEvent {
   padding: 5px 8px;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
-  border-left-width: 2px;
 }
 
 .discoverMacroEvent--high {
-  border-left-color: rgba(255, 88, 108, 0.78);
+  background: rgba(255, 88, 108, 0.055);
 }
 
 .discoverMacroEvent--medium {
-  border-left-color: rgba(120, 196, 255, 0.55);
+  background: rgba(120, 196, 255, 0.045);
 }
 
 .discoverMacroEvent--low {
-  border-left-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.022);
 }
 
 .discoverMacroEventLayout {
@@ -4273,45 +4272,13 @@
 }
 
 .terminal--discover .discoverMoveCard.discoverMoveCard--highlight {
-  position: relative;
-  isolation: isolate;
-  border-color: transparent;
-}
-
-.terminal--discover .discoverMoveCard.discoverMoveCard--highlight::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.5px;
-  background-image: var(--terminal-panel-bg-image);
-  background-size: 1000px auto;
-  background-position: 82% 46%;
-  background-repeat: no-repeat;
-  opacity: 1;
-  pointer-events: none;
-  z-index: 2;
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-}
-
-.terminal--discover .discoverMoveCard.discoverMoveCard--highlight > * {
-  position: relative;
-  z-index: 1;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(120, 255, 170, 0.05);
 }
 
 .terminal--discover .discoverMoveCard.discoverMoveCard--highlight:hover {
-  border-color: transparent;
-}
-
-.terminal--discover .discoverMoveCard.discoverMoveCard--highlight:hover::before {
-  opacity: 1;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(120, 255, 170, 0.065);
 }
 
 .terminal--discover .discoverMoveCard.discoverMoveCard--highlight:focus-visible {
@@ -4946,7 +4913,7 @@
 .analyseMainPanelBody {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 12px 14px 16px;
+  padding: 0;
   box-sizing: border-box;
 }
 
@@ -5032,21 +4999,18 @@
   gap: 8px;
 }
 
-.terminal--analyse .analysePriceChart .researchPriceRange {
-  display: flex;
-  width: 100%;
-  justify-content: flex-end;
-  margin-left: 0;
+.terminal--analyse .analyseSectionHead .analyseSectionChartRange {
+  flex-shrink: 0;
 }
 
-.terminal--analyse .analysePriceChart .researchPriceRangeBtn {
+.terminal--analyse .analyseSectionHead .analyseSectionChartRange .researchPriceRangeBtn {
   padding: 4px 8px;
   font-size: 9px;
   letter-spacing: 0.08em;
   color: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--analyse .analysePriceChart .researchPriceRangeBtn.isActive {
+.terminal--analyse .analyseSectionHead .analyseSectionChartRange .researchPriceRangeBtn.isActive {
   background: #fff;
   color: #0a0b0d;
 }
@@ -8259,6 +8223,13 @@ button.researchPaperCopyIcon:focus-visible {
   box-sizing: border-box;
 }
 
+.terminal--analyse .analyseMainPanel.discoverCol .feedCompactHeader,
+.terminal--analyse .analyseMainPanel.discoverCol .feedCompactBody,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeader,
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactBody {
+  padding-inline: 16px;
+}
+
 .terminal--insider .feed--left .researchFeedSearch,
 .terminal--politicians .feed--left .researchFeedSearch,
 .terminal--institutions .feed--left .researchFeedSearch,
@@ -10326,36 +10297,13 @@ body {
 
 /* Idea highlights (best-of-the-best only) */
 .terminal--main .researchPaperPanel .researchPaperDocCard.ideaHighlight--A {
-  position: relative;
-  isolation: isolate;
-  border-color: transparent;
-}
-
-.terminal--main .researchPaperPanel .researchPaperDocCard.ideaHighlight--A::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.5px;
-  background-image: var(--terminal-panel-bg-image);
-  background-size: 1000px auto;
-  background-position: 82% 46%;
-  background-repeat: no-repeat;
-  opacity: 1;
-  pointer-events: none;
-  z-index: 2;
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask-composite: exclude;
+  border-color: var(--chart-panel-border);
+  background: rgba(120, 255, 170, 0.05);
 }
 
 .terminal--main .researchPaperPanel .researchPaperDocCard.ideaHighlight--A.eventBriefDocCard--clickable:hover {
-  border-color: transparent;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(120, 255, 170, 0.065);
 }
 
 .terminal--insider .feed--left .feedRowCompact.ideaHighlight--A,

@@ -11990,15 +11990,14 @@ function KensiglineTerminal() {
             earnings={contextEarnings}
             quarterlyRevenueOverlay={analyseQuarterlyRevenue}
             chartRange={analysePriceRange}
+            onChartRangeChange={setAnalysePriceRange}
           >
             <MiniPriceChart
               series={researchPriceSeries}
               label={researchTick || 'PRICE'}
               showMeta={false}
-              showRangeSelector
               chartAlign="context"
               chartRange={analysePriceRange}
-              onChartRangeChange={setAnalysePriceRange}
               trimLeadingPlateau
               quarterlyRevenueOverlay={analyseQuarterlyRevenue}
             />
