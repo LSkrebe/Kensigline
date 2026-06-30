@@ -1965,10 +1965,54 @@
   letter-spacing: 0.02em;
 }
 
-/* Insider / Politicians company tile — snapshot fills panel (no header) */
-.terminal--insider .companyTile .companyTileBody,
-.terminal--politicians .companyTile .companyTileBody,
-.terminal--institutions .companyTile .companyTileBody
+/* Insider / Politicians company tile — panel shell holds bg + content (no inner card) */
+.terminal--insider .companyTile,
+.terminal--politicians .companyTile,
+.terminal--institutions .companyTile
+{
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: rgba(10, 11, 13, 0.35);
+  box-sizing: border-box;
+}
+
+.terminal--insider .companyTile::before,
+.terminal--politicians .companyTile::before,
+.terminal--institutions .companyTile::before
+{
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--terminal-panel-bg-image);
+  background-size: 150% auto;
+  background-position: center 50%;
+  background-repeat: no-repeat;
+  opacity: 0.75;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.terminal--insider .companyTile::after,
+.terminal--politicians .companyTile::after,
+.terminal--institutions .companyTile::after
+{
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(5, 7, 10, 0.78) 0%,
+    rgba(5, 7, 10, 0.28) 52%,
+    rgba(5, 7, 10, 0.5) 100%
+  );
+  z-index: 0;
+  pointer-events: none;
+}
+
+.terminal--insider .companyTile .contextCompanyCard,
+.terminal--politicians .companyTile .contextCompanyCard,
+.terminal--institutions .companyTile .contextCompanyCard
 {
   flex: 1 1 auto;
   align-self: stretch;
@@ -1985,65 +2029,11 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  gap: 0;
   overflow-x: hidden;
   overflow-y: auto;
-}
-
-.terminal--insider .companyTile .contextCompanyCard,
-.terminal--politicians .companyTile .contextCompanyCard,
-.terminal--institutions .companyTile .contextCompanyCard
-{
-  flex: 0 1 auto;
-  min-height: 0;
-  height: auto;
-  margin: 0;
-  padding: 12px 12px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 10px;
   position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  background-color: rgba(10, 11, 13, 0.35);
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 0;
-}
-
-.terminal--insider .companyTile .contextCompanyCard::before,
-.terminal--politicians .companyTile .contextCompanyCard::before,
-.terminal--institutions .companyTile .contextCompanyCard::before
-{
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background-image: var(--terminal-panel-bg-image);
-  background-size: 150% auto;
-  background-position: center 50%;
-  background-repeat: no-repeat;
-  opacity: 0.75;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.terminal--insider .companyTile .contextCompanyCard::after,
-.terminal--politicians .companyTile .contextCompanyCard::after,
-.terminal--institutions .companyTile .contextCompanyCard::after
-{
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    rgba(5, 7, 10, 0.78) 0%,
-    rgba(5, 7, 10, 0.28) 52%,
-    rgba(5, 7, 10, 0.5) 100%
-  );
-  z-index: 0;
-  pointer-events: none;
+  z-index: 1;
 }
 
 .terminal--insider .companyTile .contextCompanyCard > *,
@@ -3652,7 +3642,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  padding: 0 14px 16px 0;
+  padding: 0 0 16px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -3807,21 +3797,47 @@
 
 .discoverMacroEvent {
   padding: 5px 8px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .discoverMacroEvent--high {
-  background: rgba(255, 88, 108, 0.055);
+  background: rgba(255, 88, 108, 0.09);
 }
 
 .discoverMacroEvent--medium {
-  background: rgba(120, 196, 255, 0.045);
+  background: rgba(120, 196, 255, 0.075);
 }
 
 .discoverMacroEvent--low {
-  background: rgba(255, 255, 255, 0.022);
+  background: rgba(255, 255, 255, 0.038);
+}
+
+.discoverMacroEvent--group {
+  padding: 0;
+}
+
+.discoverMacroEventGroupList {
+  display: flex;
+  flex-direction: column;
+}
+
+.discoverMacroEventRow {
+  padding: 6px 8px;
+}
+
+.discoverMacroEventRow .discoverMacroEventLayout {
+  gap: 2px 8px;
+}
+
+.discoverMacroEventRow + .discoverMacroEventRow {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.discoverMacroEvent--group .discoverMacroEventTitle {
+  font-size: clamp(8px, 1.05vmin, 9px);
+  line-height: 1.3;
 }
 
 .discoverMacroEventLayout {
@@ -3884,7 +3900,7 @@
   margin: 0;
   padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.025);
   color: inherit;
   text-align: left;
@@ -3908,22 +3924,6 @@
 .discoverMoveCard:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
-}
-
-.terminal--discover .discoverMoveCard.discoverMoveCard--highlight {
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(120, 255, 170, 0.05);
-}
-
-.terminal--discover .discoverMoveCard.discoverMoveCard--highlight:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(120, 255, 170, 0.065);
-}
-
-.terminal--discover .discoverMoveCard.discoverMoveCard--highlight:focus-visible {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
-    0 8px 22px rgba(0, 0, 0, 0.24);
 }
 
 .discoverMoveCardHead {
@@ -4049,8 +4049,42 @@
   border-radius: 10px;
   position: relative;
   overflow: hidden;
+  isolation: isolate;
   background: rgb(10, 11, 14);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.terminal--discover .discoverMoveCard .discoverMoveCardCatalyst.discoverMoveCardCatalyst--graded {
+  background-color: rgba(10, 11, 13, 0.35);
+}
+
+.terminal--discover .discoverMoveCard .discoverMoveCardCatalyst.discoverMoveCardCatalyst--graded::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--terminal-panel-bg-image-alt);
+  background-size: 180% auto;
+  background-position: center 50%;
+  background-repeat: no-repeat;
+  opacity: 0.75;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.terminal--discover .discoverMoveCard .discoverMoveCardCatalyst.discoverMoveCardCatalyst--graded::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    rgba(5, 7, 10, 0.78) 0%,
+    rgba(5, 7, 10, 0.28) 52%,
+    rgba(5, 7, 10, 0.5) 100%
+  );
+  z-index: 0;
+  pointer-events: none;
 }
 
 .terminal--discover .discoverMoveCard .discoverMoveCardCatalyst .contextCompanyEarningsK {
@@ -4064,6 +4098,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  position: relative;
+  z-index: 1;
 }
 
 .terminal--discover .discoverMoveCard .discoverMoveCardCatalyst .contextCompanyEarningsV {
@@ -4076,6 +4112,8 @@
   flex: 0 0 auto;
   flex-shrink: 0;
   white-space: nowrap;
+  position: relative;
+  z-index: 1;
 }
 
 .discoverCatalystList {
@@ -7283,17 +7321,22 @@ button.researchPaperCopyIcon:focus-visible {
 }
 
 .terminal--insider .feed.feedCompact,
-.terminal--insider .panel.graph,
 .terminal--insider .historicalOutcomes,
-.terminal--insider .companyTile,
 
 
 .terminal--politicians .feed.feedCompact,
 .terminal--institutions .feed.feedCompact,
-.terminal--politicians .panel.graph,
-.terminal--institutions .panel.graph,
 .terminal--politicians .historicalOutcomes,
-.terminal--institutions .historicalOutcomes,
+.terminal--institutions .historicalOutcomes
+{
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.terminal--insider .companyTile,
 .terminal--politicians .companyTile,
 .terminal--institutions .companyTile
 {
@@ -7301,7 +7344,19 @@ button.researchPaperCopyIcon:focus-visible {
   flex-direction: column;
   min-height: 0;
   min-width: 0;
+}
+
+.terminal--insider .panel.graph,
+.terminal--politicians .panel.graph,
+.terminal--institutions .panel.graph
+{
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
   padding: 0;
+  background: var(--chart-panel-surface);
+  box-sizing: border-box;
 }
 
 .terminal--insider .feed.feedCompact,
@@ -8258,11 +8313,11 @@ button.researchPaperCopyIcon:focus-visible {
   min-width: 0;
   width: auto;
   max-width: 100%;
-  margin: 0 12px 12px;
+  margin: 0;
   padding: 10px 10px 8px;
-  border: 1px solid var(--chart-panel-border);
-  border-radius: 10px;
-  background: var(--chart-panel-surface);
+  border: none;
+  border-radius: 0;
+  background: transparent;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -10163,10 +10218,10 @@ body {
   .terminal--insider .investigateRightStack .historicalOutcomes .worksheetBody,
   .terminal--politicians .investigateRightStack .historicalOutcomes .worksheetBody,
   .terminal--institutions .investigateRightStack .historicalOutcomes .worksheetBody,
-  .terminal--investigate .investigateRightStack .companyTile .companyTileBody,
-  .terminal--insider .investigateRightStack .companyTile .companyTileBody,
-  .terminal--politicians .investigateRightStack .companyTile .companyTileBody,
-  .terminal--institutions .investigateRightStack .companyTile .companyTileBody {
+  .terminal--investigate .investigateRightStack .companyTile .contextCompanyCard,
+  .terminal--insider .investigateRightStack .companyTile .contextCompanyCard,
+  .terminal--politicians .investigateRightStack .companyTile .contextCompanyCard,
+  .terminal--institutions .investigateRightStack .companyTile .contextCompanyCard {
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
@@ -10197,15 +10252,6 @@ body {
   .terminal--politicians .investigateRightStack .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson,
   .terminal--institutions .investigateRightStack .historicalOutcomes .contextCompanyEarnings.historicalOutcomesPerson {
     margin-top: auto;
-  }
-
-  .terminal--investigate .investigateRightStack .companyTile .contextCompanyCard,
-  .terminal--insider .investigateRightStack .companyTile .contextCompanyCard,
-  .terminal--politicians .investigateRightStack .companyTile .contextCompanyCard,
-  .terminal--institutions .investigateRightStack .companyTile .contextCompanyCard {
-    flex: 1 1 auto;
-    height: 100%;
-    min-height: 0;
   }
 
   .terminal--investigate .investigateRightStack .companyTile .contextCompanyEarnings,
@@ -10274,6 +10320,21 @@ body {
     min-height: 168px;
     grid-column: unset;
     grid-row: unset;
+  }
+
+  .terminal--investigate .investigateRightStack .companyTile .contextCompanyCard,
+  .terminal--insider .investigateRightStack .companyTile .contextCompanyCard,
+  .terminal--politicians .investigateRightStack .companyTile .contextCompanyCard,
+  .terminal--institutions .investigateRightStack .companyTile .contextCompanyCard {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .terminal--investigate .investigateRightStack .companyTile .contextCompanyEarnings,
+  .terminal--insider .investigateRightStack .companyTile .contextCompanyEarnings,
+  .terminal--politicians .investigateRightStack .companyTile .contextCompanyEarnings,
+  .terminal--institutions .investigateRightStack .companyTile .contextCompanyEarnings {
+    margin-top: auto;
   }
 
   /* Discover — compact desktop: 2 market-move cards per row */
@@ -10536,7 +10597,7 @@ body {
   .terminalShell--phone .investigateRightStack .historicalOutcomes .worksheetBody,
   .terminalShell--phone .investigateRightStack .historicalOutcomes .contextFlowList,
   .terminalShell--phone .investigateRightStack .historicalOutcomes .contextOutcomesPanelWrap,
-  .terminalShell--phone .investigateRightStack .companyTile .companyTileBody {
+  .terminalShell--phone .investigateRightStack .companyTile .contextCompanyCard {
     flex: 0 0 auto;
     height: auto;
     overflow: visible;
@@ -10547,8 +10608,8 @@ body {
     flex: 0 0 auto;
   }
 
-  .terminalShell--phone .investigateRightStack .companyTile .contextCompanyEarnings {
-    margin-top: 0;
+  .terminalShell--phone .investigateRightStack .companyTile .contextCompanyEarnings:first-of-type {
+    margin-top: 14px;
   }
 
   .terminalShell--phone .investigateRightStack .companyTile .contextCompanyMeta:last-of-type {

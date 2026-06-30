@@ -139,11 +139,11 @@ export function resolveDiscoverMoveFooter(event, upcoming, opts = {}) {
   return resolveDiscoverMoveNextUpcoming(event?.ticker, upcoming, opts)
 }
 
-/** Imminent catalyst window — Mercerline strip highlight on Market Moves cards. */
+/** Imminent catalyst window — Market Moves cards that show the catalyst strip. */
 export const DISCOVER_CATALYST_BG_DAYS = 7
 
 /**
- * Cards that earn the premium catalyst-strip background:
+ * Cards that show the catalyst strip:
  * - any with next catalyst within DISCOVER_CATALYST_BG_DAYS, else
  * - the single nearest catalyst among visible moves (so never zero when footers exist).
  */

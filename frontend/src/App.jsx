@@ -7805,7 +7805,6 @@ function KvLine({ className = '', children, ...rest }) {
 }
 
 function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
-  const insider = mode === 'insider' || mode === 'politicians' || mode === 'institutions'
   const [live, setLive] = useState(null)
   const [outcomesLoaded, setOutcomesLoaded] = useState(false)
 
@@ -7836,21 +7835,32 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
     }
   }, [mode])
 
-  const ins = backendUp
-    ? live
-    : insider
-      ? MOCK_HISTORICAL_INSIDER
-      : MOCK_HISTORICAL_TRIALS
-
-  const sampleSizeNum = (() => {
-    if (!ins) return null
-    const raw = ins.sampleSize
-    const n = typeof raw === 'number' ? raw : Number(String(raw ?? '').replace(/[^\d.-]/g, ''))
-    return Number.isFinite(n) ? n : null
-  })()
+  const ins = backendUp ? live : MOCK_HISTORICAL_INSIDER
 
   const outcomesLoading = backendUp && !outcomesLoaded
-  const hasDataset = sampleSizeNum != null ? sampleSizeNum > 0 : Boolean(ins && ins.sampleSize)
+
+  return (
+    <section
+      className={[
+        'panel',
+        'historicalOutcomes',
+        'blankTile--a',
+        'historicalOutcomes--market',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-label="Historical outcomes"
+    >
+      <div className="worksheetBody historicalOutcomesBody scrollThin">
+        <HistoricalMarketOutcomesView
+          ins={ins}
+          mode={mode}
+          personDisplay={personDisplay}
+          loading={outcomesLoading}
+        />
+      </div>
+    </section>
+  )
 }
 
 function CompanyPanel({ company, ticker, backendUp, price = null }) {
@@ -7861,9 +7871,7 @@ function CompanyPanel({ company, ticker, backendUp, price = null }) {
 
   return (
     <section className="panel companyTile" aria-label="Company">
-      <div className="companyTileBody">
-        <CompanySnapshotCard {...snapshot} />
-      </div>
+      <CompanySnapshotCard {...snapshot} />
     </section>
   )
 }

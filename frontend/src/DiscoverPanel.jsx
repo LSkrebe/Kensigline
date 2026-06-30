@@ -193,8 +193,41 @@ function DiscoverFeedColumn({
   )
 }
 
+const MACRO_IMPACT_RANK = { high: 3, medium: 2, low: 1 }
+
+function dominantMacroImpact(events) {
+  let best = 'low'
+  let rank = 0
+  for (const event of events) {
+    const impact = event?.impact === 'high' || event?.impact === 'medium' ? event.impact : 'low'
+    const next = MACRO_IMPACT_RANK[impact] ?? 1
+    if (next > rank) {
+      rank = next
+      best = impact
+    }
+  }
+  return best
+}
+
+function DiscoverMacroEventCard({ event }) {
+  return (
+    <article className={['discoverMacroEvent', `discoverMacroEvent--${event.impact}`].join(' ')}>
+      <div className="discoverMacroEventLayout">
+        <p className="discoverMacroEventTitle">{event.title}</p>
+        <div className="discoverMacroEventAside">
+          <span className="discoverMacroEventTime mono">{event.time}</span>
+          <span className="discoverMacroEventRegion mono dim">
+            {MACRO_REGION_LABEL[event.region] ?? event.region}
+          </span>
+        </div>
+      </div>
+    </article>
+  )
+}
+
 function DiscoverMacroDayColumn({ day }) {
   const head = formatMacroDayHeader(day.date)
+  const events = Array.isArray(day?.events) ? day.events : []
 
   return (
     <div className="discoverMacroDay discoverMacroDay--col">
@@ -204,25 +237,34 @@ function DiscoverMacroDayColumn({ day }) {
         {head.isToday ? <span className="discoverMacroDayToday mono">Today</span> : null}
       </header>
       <div className="discoverMacroDayBody">
-        {!(Array.isArray(day?.events) && day.events.length) ? (
+        {!events.length ? (
           <p className="discoverMacroDayEmpty mono dim">Quiet session</p>
+        ) : events.length === 1 ? (
+          <DiscoverMacroEventCard event={events[0]} />
         ) : (
-          day.events.map((event) => (
-            <article
-              key={event.id}
-              className={['discoverMacroEvent', `discoverMacroEvent--${event.impact}`].join(' ')}
-            >
-              <div className="discoverMacroEventLayout">
-                <p className="discoverMacroEventTitle">{event.title}</p>
-                <div className="discoverMacroEventAside">
-                  <span className="discoverMacroEventTime mono">{event.time}</span>
-                  <span className="discoverMacroEventRegion mono dim">
-                    {MACRO_REGION_LABEL[event.region] ?? event.region}
-                  </span>
+          <article
+            className={[
+              'discoverMacroEvent',
+              'discoverMacroEvent--group',
+              `discoverMacroEvent--${dominantMacroImpact(events)}`,
+            ].join(' ')}
+          >
+            <div className="discoverMacroEventGroupList">
+              {events.map((event) => (
+                <div key={event.id} className="discoverMacroEventRow">
+                  <div className="discoverMacroEventLayout">
+                    <p className="discoverMacroEventTitle">{event.title}</p>
+                    <div className="discoverMacroEventAside">
+                      <span className="discoverMacroEventTime mono">{event.time}</span>
+                      <span className="discoverMacroEventRegion mono dim">
+                        {MACRO_REGION_LABEL[event.region] ?? event.region}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))
+              ))}
+            </div>
+          </article>
         )}
       </div>
     </div>
@@ -364,7 +406,7 @@ function DiscoverMoveCard({ event, movePct, reactionCloses, upcoming = [], useMo
   return (
     <button
       type="button"
-      className={['discoverMoveCard', catalystBg ? 'discoverMoveCard--highlight' : ''].filter(Boolean).join(' ')}
+      className="discoverMoveCard"
       onClick={() => onResearch?.({ ticker: event.ticker, companyName: event.companyName })}
     >
       <div className="discoverMoveCardHead">
@@ -398,6 +440,7 @@ function DiscoverMoveCard({ event, movePct, reactionCloses, upcoming = [], useMo
               className={[
                 'contextCompanyEarnings',
                 'discoverMoveCardCatalyst',
+                catalystBg ? 'discoverMoveCardCatalyst--graded' : '',
                 footer.soon ? 'contextCompanyEarnings--soon' : '',
               ]
                 .filter(Boolean)
