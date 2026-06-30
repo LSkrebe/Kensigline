@@ -33,6 +33,11 @@
   --intel-accent-scrollbar: rgba(255, 255, 255, 0.45);
   --intel-accent-scrollbar-thumb: rgba(255, 255, 255, 0.28);
   --intel-accent-scrollbar-thumb-hover: rgba(255, 255, 255, 0.4);
+  --scrollbar-size: 4px;
+  --scrollbar-thumb-radius: 3px;
+  --panel-inline-pad: 12px;
+  --panel-scroll-bottom-pad: 16px;
+  --panel-section-gap: 8px;
   --intel-accent-inset: rgba(255, 255, 255, 0.55);
   --intel-accent-inset-strong: rgba(255, 255, 255, 0.72);
   --intel-accent-ring: rgba(255, 255, 255, 0.2);
@@ -222,7 +227,8 @@
 
 .terminalIntelSwitch--insider,
 .terminalIntelSwitch--politicians,
-.terminalIntelSwitch--institutions {
+.terminalIntelSwitch--institutions,
+.terminalIntelSwitch--all {
   max-width: 100%;
   width: auto;
   min-width: 0;
@@ -232,7 +238,15 @@
   overflow: hidden;
 }
 
+.terminalTopBar--investigate .terminalTopBarCenter {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .terminalIntelSwitch--insider .terminalIntelSwitchBtn,
+.terminalIntelSwitch--all .terminalIntelSwitchBtn,
 .terminalIntelSwitch--politicians .terminalIntelSwitchBtn,
 .terminalIntelSwitch--institutions .terminalIntelSwitchBtn {
   padding: 0 6px;
@@ -247,6 +261,7 @@
 }
 
 .terminalIntelSwitch--insider .terminalIntelSwitchSep,
+.terminalIntelSwitch--all .terminalIntelSwitchSep,
 .terminalIntelSwitch--politicians .terminalIntelSwitchSep,
 .terminalIntelSwitch--institutions .terminalIntelSwitchSep {
   align-self: center;
@@ -512,6 +527,7 @@
  * Mode class terminal--insider | terminal--politicians | terminal--institutions follows headline switch.
  */
 .terminal.terminal--investigate.terminal--insider,
+.terminal.terminal--investigate.terminal--all,
 .terminal.terminal--insider {
   grid-template-columns:
     var(--terminal-feed-track)
@@ -523,6 +539,7 @@
 
 .terminal.terminal--investigate.terminal--politicians,
 .terminal.terminal--investigate.terminal--institutions,
+.terminal.terminal--investigate.terminal--all,
 .terminal.terminal--politicians,
 .terminal.terminal--institutions
 {
@@ -607,7 +624,7 @@
   height: var(--feed-header-h);
   min-height: var(--feed-header-h);
   max-height: var(--feed-header-h);
-  padding: 0 8px;
+  padding: 0 var(--panel-inline-pad);
   align-items: center;
 }
 
@@ -960,20 +977,12 @@
 .terminal--main .researchPaperPanel.researchPaper {
   position: relative;
   isolation: isolate;
-  background: rgba(8, 9, 11, 0.92);
+  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
   --research-paper-txn-portrait-w: 44px;
 }
 
-/* Static wash on panel shell — does not move while the body scrolls (reduces scroll shimmer) */
 .terminal--main .researchPaperPanel.researchPaper::after {
-  content: '';
-  position: absolute;
-  inset: 27px 0 0;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    radial-gradient(720px 420px at 12% 0%, rgba(255, 255, 255, 0.035), transparent 62%),
-    radial-gradient(520px 320px at 88% 18%, rgba(255, 255, 255, 0.02), transparent 58%);
+  content: none;
 }
 
 .terminal--main .researchPaperPanel .researchPaperBody {
@@ -991,7 +1000,7 @@
 .terminal--main .researchPaperPanel .feedCompactHeader {
   position: relative;
   z-index: 2;
-  background: #08090b;
+  background: transparent;
 }
 
 .terminal--main .researchPaperPanel .researchPaperDoc {
@@ -1094,9 +1103,13 @@
   background: #08090b;
 }
 
+.terminal--main .researchPaperPanel .researchPaperDocuments {
+  --paper-doc-radius: 0;
+}
+
 .researchPaperDocuments {
   --paper-doc-radius: 6px;
-  --paper-card-gap: 8px;
+  --paper-card-gap: var(--panel-section-gap);
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1776,7 +1789,7 @@
 
 .terminal--main .mainContextPanel--market .researchContextHeader{
   border-bottom: none;
-  padding: 0 12px;
+  padding: 0 var(--panel-inline-pad);
   position: relative;
   z-index: 1;
 }
@@ -1791,10 +1804,10 @@
 .terminal--main .mainContextPanel--market .mainContextPanelBody{
   flex: 1 1 auto;
   min-height: 0;
-  padding: 0 12px 12px;
+  padding: 0 var(--panel-inline-pad) var(--panel-scroll-bottom-pad);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--panel-section-gap);
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -1808,7 +1821,7 @@
   margin: 0;
   padding: 12px 12px 10px;
   border: 1px solid var(--context-surface-border);
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--context-surface);
   box-sizing: border-box;
 }
@@ -1908,7 +1921,7 @@
   padding: 8px 10px;
   grid-template-columns: unset;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 0;
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -2104,7 +2117,7 @@
   margin-top: 8px;
   padding: 8px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--context-surface-inset);
 }
 
@@ -2175,7 +2188,7 @@
 
 .terminal--main .mainContextPanel--market .contextFlowList{
   border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--context-surface-inset);
   padding: 8px 12px 10px;
   box-sizing: border-box;
@@ -2465,7 +2478,7 @@
 .terminal--main .mainContextPanel .contextCatalystCard,
 .terminal--main .mainContextPanel .contextOutcomesCard {
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
   box-sizing: border-box;
 }
@@ -2697,11 +2710,11 @@
 }
 
 .terminal--main .mainContextPanel .contextCompanyCard + .contextSection {
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .terminal--main .mainContextPanel--market .contextSection + .contextSection{
-  margin-top: 14px;
+  margin-top: 0;
 }
 
 .contextCompanyCard {
@@ -3642,10 +3655,28 @@
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  padding: 0 0 16px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  box-sizing: border-box;
+}
+
+.terminal--discover .discoverColScroll {
+  padding: 0 0 var(--panel-scroll-bottom-pad);
+}
+
+.terminal--analyse .analyseMainPanel .analyseMainPanelBody.discoverColScroll {
+  padding: 0 var(--panel-inline-pad) var(--panel-scroll-bottom-pad);
+}
+
+.terminal--discover .discoverMacroStripScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 0 var(--panel-scroll-bottom-pad);
   box-sizing: border-box;
 }
 
@@ -3668,17 +3699,6 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-.terminal--discover .discoverMacroStripScroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  padding: 0;
-  box-sizing: border-box;
 }
 
 .terminal--discover .discoverMacroWeek {
@@ -3883,7 +3903,7 @@
   flex: 0 0 auto;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--panel-section-gap);
   align-items: stretch;
   width: 100%;
 }
@@ -4046,7 +4066,7 @@
   margin-top: 0;
   padding: 8px 10px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  border-radius: 0;
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -4318,7 +4338,7 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 0 10px 10px;
+  padding: 0 var(--panel-inline-pad) var(--panel-scroll-bottom-pad);
   box-sizing: border-box;
   background: inherit;
   -webkit-overflow-scrolling: touch;
@@ -4384,7 +4404,7 @@
 
 .discoverEventList {
   --paper-doc-radius: 6px;
-  --paper-card-gap: 8px;
+  --paper-card-gap: var(--panel-section-gap);
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -4603,7 +4623,7 @@
   margin: 0;
   padding: 12px 14px;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 10px;
+  border-radius: 0;
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -4924,23 +4944,6 @@
   padding-bottom: 4px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--intel-accent-scrollbar-thumb) transparent;
-}
-
-.analyseModelScroll::-webkit-scrollbar {
-  height: 6px;
-  width: 6px;
-}
-
-.analyseModelScroll::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 4px;
-}
-
-.analyseModelScroll::-webkit-scrollbar-thumb {
-  background: var(--intel-accent-scrollbar-thumb);
-  border-radius: 4px;
 }
 
 .analyseModelTable {
@@ -5255,7 +5258,7 @@
 
 .analyseValuationVerdict {
   padding: 12px 14px;
-  border-radius: 6px;
+  border-radius: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -6375,9 +6378,9 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Research tab paper panel: modest side inset; nested timeline body must not double-pad. */
+/* Research tab paper panel: scrollport inset matches analyse / feed panels. */
 .terminal--main .researchPaper.researchPaperPanel > .researchPaperBody {
-  padding: 8px 32px 20px;
+  padding: 0 var(--panel-inline-pad) var(--panel-scroll-bottom-pad);
 }
 
 .terminal--main .researchPaper.researchPaperPanel .researchPaperBody--documentsOnly,
@@ -7365,7 +7368,10 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--researchFeed .researchTicker.feed.feedCompact,
 .terminal--discover .discoverMacroStrip.feed.feedCompact,
 .terminal--analyse .analyseMainPanel.feed.feedCompact,
-.terminal--discover .discoverDual > .discoverCol.feed.feedCompact
+.terminal--discover .discoverDual > .discoverCol.feed.feedCompact,
+.terminal--insider .feed--right.feed.feedCompact,
+.terminal--politicians .feed--right.feed.feedCompact,
+.terminal--institutions .feed--right.feed.feedCompact
 {
   background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
 }
@@ -7394,7 +7400,7 @@ button.researchPaperCopyIcon:focus-visible {
   height: var(--feed-header-h);
   min-height: var(--feed-header-h);
   max-height: var(--feed-header-h);
-  padding: 0 12px;
+  padding: 0 var(--panel-inline-pad);
   align-items: center;
   border-bottom: none;
 }
@@ -7505,7 +7511,7 @@ button.researchPaperCopyIcon:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 0 10px 10px;
+  padding: 0 var(--panel-inline-pad) var(--panel-scroll-bottom-pad);
   box-sizing: border-box;
   background: inherit;
 }
@@ -7616,7 +7622,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--analyse .analyseMainPanel.discoverCol .feedCompactHeader,
 .terminal--main .researchPaperPanel .feedCompactHeader {
   justify-content: space-between;
-  padding: 0 12px;
+  padding: 0 var(--panel-inline-pad);
   border-bottom: none;
 }
 
@@ -7682,7 +7688,7 @@ button.researchPaperCopyIcon:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 0 10px 10px;
+  padding: 0 var(--panel-inline-pad) var(--panel-scroll-bottom-pad);
   box-sizing: border-box;
   background: inherit;
   -webkit-overflow-scrolling: touch;
@@ -7763,6 +7769,10 @@ button.researchPaperCopyIcon:focus-visible {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.42);
+}
+
+.investigateAllFeedFilterPicker .feedFilterSectionTitle:not(:first-child) {
+  margin-top: 12px;
 }
 
 .feedFilterSectionHead {
@@ -7921,11 +7931,18 @@ button.researchPaperCopyIcon:focus-visible {
   box-sizing: border-box;
 }
 
-.terminal--analyse .analyseMainPanel.discoverCol .feedCompactHeader,
-.terminal--analyse .analyseMainPanel.discoverCol .feedCompactBody,
-.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeader,
-.terminal--discover .discoverDual > .discoverCol.panel .feedCompactBody {
-  padding-inline: 16px;
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactHeader {
+  padding-inline: var(--panel-inline-pad);
+}
+
+.terminal--discover .discoverDual > .discoverCol.panel .feedCompactBody,
+.terminal--discover .discoverMacroStrip.feed--left .feedCompactBody {
+  padding: 0 var(--panel-inline-pad) 0;
+}
+
+.terminal--analyse .analyseMainPanel.discoverCol .feedCompactBody {
+  padding-inline: 0;
+  padding-bottom: 0;
 }
 
 .terminal--insider .feed--left .researchFeedSearch,
@@ -8459,7 +8476,7 @@ button.researchPaperCopyIcon:focus-visible {
   margin-top: 0;
   padding: 8px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--panel-corner-wash-compact-a), var(--panel-corner-wash-compact-b), var(--context-surface-inset);
   position: relative;
   z-index: 1;
@@ -8519,35 +8536,36 @@ body {
   overflow: hidden;
 }
 
-.scrollThin {
+.scrollThin,
+.feedCompactList.feedCompactList--scroll,
+.analyseModelScroll {
   scrollbar-width: thin; /* Firefox */
-  scrollbar-color: var(--intel-accent-scrollbar) transparent;
-}
-.scrollThin::-webkit-scrollbar {
-  width: 6px;
-}
-.scrollThin::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scrollThin::-webkit-scrollbar-thumb {
-  background: var(--intel-accent-scrollbar-thumb);
-  border-radius: 8px;
-}
-.scrollThin::-webkit-scrollbar-thumb:hover {
-  background: var(--intel-accent-scrollbar-thumb-hover);
+  scrollbar-color: var(--intel-accent-scrollbar-thumb) transparent;
 }
 
-.feedCompactList.feedCompactList--scroll::-webkit-scrollbar {
-  width: 6px;
+.scrollThin::-webkit-scrollbar,
+.feedCompactList.feedCompactList--scroll::-webkit-scrollbar,
+.analyseModelScroll::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
-.feedCompactList.feedCompactList--scroll::-webkit-scrollbar-track {
+
+.scrollThin::-webkit-scrollbar-track,
+.feedCompactList.feedCompactList--scroll::-webkit-scrollbar-track,
+.analyseModelScroll::-webkit-scrollbar-track {
   background: transparent;
 }
-.feedCompactList.feedCompactList--scroll::-webkit-scrollbar-thumb {
+
+.scrollThin::-webkit-scrollbar-thumb,
+.feedCompactList.feedCompactList--scroll::-webkit-scrollbar-thumb,
+.analyseModelScroll::-webkit-scrollbar-thumb {
   background: var(--intel-accent-scrollbar-thumb);
-  border-radius: 8px;
+  border-radius: var(--scrollbar-thumb-radius);
 }
-.feedCompactList.feedCompactList--scroll::-webkit-scrollbar-thumb:hover {
+
+.scrollThin::-webkit-scrollbar-thumb:hover,
+.feedCompactList.feedCompactList--scroll::-webkit-scrollbar-thumb:hover,
+.analyseModelScroll::-webkit-scrollbar-thumb:hover {
   background: var(--intel-accent-scrollbar-thumb-hover);
 }
 
@@ -8560,9 +8578,6 @@ body {
   flex: 1;
   min-height: 0;
   -webkit-overflow-scrolling: touch;
-  /* thin scrollbar (match panel title color) */
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: var(--intel-accent-scrollbar) transparent;
 }
 
 /* ---- Container tiles (per-panel cqmin still used for gaps / graph / stats tiles) ---- */
@@ -9061,7 +9076,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 0 10px 10px;
+  padding: 0 var(--panel-inline-pad) 0;
   box-sizing: border-box;
 }
 
@@ -9085,7 +9100,7 @@ body {
   min-height: var(--case-person-header-min-h, calc((0.08em + 1.08em + 10px) * 3 + 14px));
   box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--panel-corner-wash-a), var(--context-surface-inset);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.06),
@@ -9179,7 +9194,7 @@ body {
 .casePersonHeaderDetail {
   flex-shrink: 0;
   padding: 2px 7px;
-  border-radius: 4px;
+  border-radius: 0;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.06);
   font-size: 8px;
@@ -9200,7 +9215,7 @@ body {
 {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 0;
+  padding: 0 0 var(--panel-scroll-bottom-pad);
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -9215,7 +9230,7 @@ body {
 .terminal--institutions .feed--right .feedCompactList.feedCompactList--scroll.feedCompactList--caseTable
 {
   /* Room for selected-row ring so rounded ends are not clipped */
-  padding: 0 1px;
+  padding: 0 1px var(--panel-scroll-bottom-pad);
   box-sizing: border-box;
 }
 
@@ -10265,6 +10280,7 @@ body {
 /* Investigate chart stack — compact desktop: stack + scroll full right column */
 @media (max-width: 1040px) and (min-width: 641px) {
   .terminal--investigate.terminal--insider .investigateRightStack,
+  .terminal--investigate.terminal--all .investigateRightStack,
   .terminal--investigate.terminal--politicians .investigateRightStack,
   .terminal--investigate.terminal--institutions .investigateRightStack,
   .terminal--insider .investigateRightStack,
@@ -10340,7 +10356,7 @@ body {
   /* Discover — compact desktop: 2 market-move cards per row */
   .terminal--discover .discoverMoveList {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: var(--panel-section-gap);
   }
 }
 
@@ -10361,8 +10377,30 @@ body {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
+  .terminalShell--phone .terminalTopBar--investigate {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
   .terminalShell--phone .terminalTopBarCenter {
     display: none;
+  }
+
+  .terminalShell--phone .terminalTopBar--investigate .terminalTopBarEnd {
+    grid-column: 2;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .terminalShell--phone .terminalTopBarMode {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .terminalShell--phone .terminalTopBarEnd {
@@ -10539,6 +10577,8 @@ body {
   /* Investigate — one pane at a time */
   .terminalShell--phone .terminal.terminal--investigate.terminal--insider,
   .terminalShell--phone .terminal.terminal--insider,
+  .terminalShell--phone .terminal.terminal--investigate.terminal--all,
+  .terminalShell--phone .terminal.terminal--all,
   .terminalShell--phone .terminal.terminal--investigate.terminal--politicians,
   .terminalShell--phone .terminal.terminal--investigate.terminal--institutions,
   .terminalShell--phone .terminal.terminal--politicians,
@@ -10549,6 +10589,8 @@ body {
 
   .terminalShell--phone .terminal--investigate .feed--left,
   .terminalShell--phone .terminal--investigate .feed--right,
+  .terminalShell--phone .terminal--all .feed--left,
+  .terminalShell--phone .terminal--all .feed--right,
   .terminalShell--phone .terminal--insider .feed--left,
   .terminalShell--phone .terminal--insider .feed--right,
   .terminalShell--phone .terminal--politicians .feed--left,
@@ -10703,7 +10745,7 @@ body {
 
   .terminalShell--phone .discoverMoveList {
     grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
+    gap: var(--panel-section-gap);
   }
 
   .terminalShell--phone .discoverMoveCard {

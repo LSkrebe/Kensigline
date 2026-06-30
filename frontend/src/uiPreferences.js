@@ -12,7 +12,7 @@ export const UI_PREF_KEYS = {
 }
 
 const ACTIVE_TABS = new Set(['analyse', 'discover', 'main', 'investigate', 'settings'])
-const INVESTIGATE_MODES = new Set(['insider', 'politicians', 'institutions'])
+const INVESTIGATE_MODES = new Set(['all', 'insider', 'politicians', 'institutions'])
 
 function canUseStorage() {
   return typeof window !== 'undefined' && Boolean(window.localStorage)
