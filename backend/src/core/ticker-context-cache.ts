@@ -3,17 +3,12 @@ import { getCompanyPanelData } from "./company.js";
 import { loadTickerSecBundle } from "./sec.js";
 import { getMarketFundamentalsForTicker, type MarketFundamentals } from "../research/market/fundamentals.js";
 import { getMarketOwnershipForTicker, type MarketOwnership } from "../research/market/ownership.js";
-import {
-  CLINICAL_CONTEXT_CATALYST_STORE_LIMIT,
-  getPharmaClinicalContext,
-} from "../research/clinical/context.js";
 
 type CacheRow = {
   ticker: string;
   company_json: Record<string, unknown>;
   fundamentals_json: MarketFundamentals | null;
   ownership_json: MarketOwnership | null;
-  clinical_json: Awaited<ReturnType<typeof getPharmaClinicalContext>> | null;
   documents_watermark: string | null;
   computed_at: string;
 };
@@ -32,7 +27,6 @@ async function ensureCacheTable(): Promise<void> {
       company_json jsonb NOT NULL DEFAULT '{}'::jsonb,
       fundamentals_json jsonb,
       ownership_json jsonb,
-      clinical_json jsonb,
       documents_watermark timestamptz,
       computed_at timestamptz NOT NULL DEFAULT now()
     )
@@ -62,7 +56,6 @@ async function readCacheRow(ticker: string): Promise<CacheRow | null> {
       company_json,
       fundamentals_json,
       ownership_json,
-      clinical_json,
       documents_watermark::text,
       computed_at::text
     FROM ticker_context_cache
@@ -85,21 +78,19 @@ async function upsertCacheRow(args: {
   company: Record<string, unknown>;
   fundamentals: MarketFundamentals | null;
   ownership: MarketOwnership | null;
-  clinical: Awaited<ReturnType<typeof getPharmaClinicalContext>> | null;
   watermark: string | null;
 }): Promise<void> {
   await ensureCacheTable();
   await db.query(
     `
     INSERT INTO ticker_context_cache (
-      ticker, company_json, fundamentals_json, ownership_json, clinical_json, documents_watermark, computed_at
+      ticker, company_json, fundamentals_json, ownership_json, documents_watermark, computed_at
     )
-    VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::jsonb, $6::timestamptz, now())
+    VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::timestamptz, now())
     ON CONFLICT (ticker) DO UPDATE SET
       company_json = EXCLUDED.company_json,
       fundamentals_json = EXCLUDED.fundamentals_json,
       ownership_json = EXCLUDED.ownership_json,
-      clinical_json = EXCLUDED.clinical_json,
       documents_watermark = EXCLUDED.documents_watermark,
       computed_at = now()
     `,
@@ -108,7 +99,6 @@ async function upsertCacheRow(args: {
       JSON.stringify(args.company),
       args.fundamentals ? JSON.stringify(args.fundamentals) : null,
       args.ownership ? JSON.stringify(args.ownership) : null,
-      args.clinical ? JSON.stringify(args.clinical) : null,
       args.watermark,
     ],
   );
@@ -127,19 +117,11 @@ export async function computeTickerContextCache(tickerInput: string): Promise<vo
     getMarketOwnershipForTicker({ ticker, secBundle }).catch(() => null),
   ]);
 
-  const clinical = await getPharmaClinicalContext({
-    ticker,
-    catalystLimit: CLINICAL_CONTEXT_CATALYST_STORE_LIMIT,
-    secBundle,
-    panel: { earnings_date: company.earnings_date ?? null, name: company.name ?? null },
-  }).catch(() => null);
-
   await upsertCacheRow({
     ticker,
     company,
     fundamentals,
     ownership,
-    clinical,
     watermark,
   });
 }
@@ -185,26 +167,6 @@ export async function getCompanyFullCached(opts: { ticker: string }): Promise<Re
     getMarketOwnershipForTicker({ ticker, secBundle }).catch(() => null),
   ]);
   return { ...company, fundamentals, ownership };
-}
-
-export async function getPharmaClinicalContextCached(opts: {
-  ticker: string;
-  catalystLimit?: number;
-}): Promise<Awaited<ReturnType<typeof getPharmaClinicalContext>>> {
-  const ticker = normalizeTicker(opts.ticker);
-  if (!ticker) throw new Error("ticker_required");
-  const catalystLimit = Math.max(1, Math.min(20, Number(opts.catalystLimit ?? 6)));
-
-  const row = await getOrComputeCache(ticker);
-  if (row?.clinical_json && typeof row.clinical_json === "object") {
-    const clinical = row.clinical_json;
-    const catalysts = Array.isArray(clinical.catalysts)
-      ? clinical.catalysts.slice(0, catalystLimit)
-      : [];
-    return { ...clinical, catalysts };
-  }
-
-  return getPharmaClinicalContext({ ticker, catalystLimit });
 }
 
 export async function invalidateTickerContextCache(tickerInput: string): Promise<void> {

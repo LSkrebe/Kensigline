@@ -2,7 +2,6 @@
 
 import { buildHighlightedMarketMoves, getDiscoverWatchlistEvents, isDiscoverMarketMove } from './discoverEvents.js'
 
-/** @typedef {'market' | 'clinical'} DiscoverIntelMode */
 /** @typedef {'high' | 'medium' | 'low'} MacroImpact */
 
 /**
@@ -31,9 +30,8 @@ export const DISCOVER_MOCK_UPCOMING_FALLBACK = {
   LRCX: { daysAhead: 4, title: 'Investor presentation', kind: 'catalyst' },
   ASML: { daysAhead: 9, title: 'Technology conference', kind: 'catalyst' },
   TSM: { daysAhead: 12, title: 'Analyst day', kind: 'catalyst' },
-  ATYR: { daysAhead: 30, title: 'Primary completion', kind: 'catalyst' },
-  SRPT: { daysAhead: 6, title: 'PDUFA target', kind: 'regulatory' },
-  MRNA: { daysAhead: 10, title: 'Primary completion (est.)', kind: 'catalyst' },
+  AMD: { daysAhead: 6, title: 'Advancing AI keynote', kind: 'catalyst' },
+  AMAT: { daysAhead: 11, title: 'Guidance update', kind: 'catalyst' },
   _default: { daysAhead: 30, title: 'Earnings report', kind: 'earnings' },
 }
 

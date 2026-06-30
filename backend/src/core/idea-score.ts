@@ -57,37 +57,6 @@ export function scoreEarningsAheadEvent(earningsDate: string): IdeaScoreResult {
   return clampScore(score, reasons, earningsDate);
 }
 
-/** Upcoming clinical / trial calendar row. */
-export function scoreClinicalAheadEvent(args: {
-  label: string;
-  phase?: string | null;
-  at: string;
-}): IdeaScoreResult {
-  const reasons: string[] = [];
-  let score = 38;
-  const phase = String(args.phase ?? "").toUpperCase();
-  if (phase.includes("III") || phase === "3") {
-    score += 36;
-    reasons.push("Phase III catalyst");
-  } else if (phase.includes("II") || phase === "2") {
-    score += 24;
-    reasons.push("Phase II catalyst");
-  } else if (phase.includes("I") || phase === "1") {
-    score += 14;
-    reasons.push("Early-phase catalyst");
-  }
-  const labelLo = String(args.label ?? "").toLowerCase();
-  if (labelLo.includes("readout") || labelLo.includes("primary completion") || labelLo.includes("interim")) {
-    score += 22;
-    reasons.push("Trial readout window");
-  } else if (labelLo.includes("enroll") || labelLo.includes("completion")) {
-    score += 12;
-    reasons.push("Trial milestone");
-  }
-  reasons.push("Scheduled clinical catalyst");
-  return clampScore(score, reasons, args.at);
-}
-
 /** Green left-border highlight tier in Research / Investigate feeds (idea_best). */
 export function isIdeaGreenHighlight(result: { idea_best?: boolean | null }): boolean {
   return Boolean(result.idea_best);
@@ -234,35 +203,10 @@ export function scoreResearchDocument(args: {
 }): IdeaScoreResult {
   const reasons: string[] = [];
   let score = 22;
-  const phase = String(args.program_phase ?? args.data?.phase ?? "").toUpperCase();
-  if (phase.includes("III") || phase === "3") {
-    score += 28;
-    reasons.push("Phase III program signal");
-  } else if (phase.includes("II") || phase === "2") {
-    score += 18;
-    reasons.push("Phase II program signal");
-  } else if (phase.includes("I") || phase === "1") {
-    score += 10;
-    reasons.push("Early-phase program signal");
-  }
   const sk = String(args.source_key ?? "").toUpperCase();
-  if (sk.includes("CLINICAL") || sk.includes("TRIAL")) {
-    score += 12;
-    reasons.push("Clinical registry update");
-  } else if (sk === "8-K") {
+  if (sk === "8-K") {
     score += 8;
     reasons.push("Material 8-K filing");
-  }
-  const et = String(args.data?.event_type ?? "").toUpperCase();
-  if (et === "RESULT" || et === "REGULATORY") {
-    score += 16;
-    reasons.push(`${et === "RESULT" ? "Trial result" : "Regulatory"} event`);
-  }
-  if (args.feed_kind === "pharma") score += 6;
-  const text = String(args.analysis ?? "").toLowerCase();
-  if (/readout|endpoint|approval|enrollment|pivotal|topline|fda/.test(text)) {
-    score += 10;
-    reasons.push("High-signal clinical language");
   }
   const rec = recencyBonus(args.event_at);
   score += rec.pts;

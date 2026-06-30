@@ -427,10 +427,8 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
     WHERE upper(trim(ticker)) = $1
       AND analysis IS NOT NULL
       AND length(trim(analysis)) > 0
-      AND (
-        (feed_kind = 'research' AND show_on_ticker IS NOT FALSE)
-        OR feed_kind = 'pharma'
-      )
+      AND feed_kind = 'research'
+      AND show_on_ticker IS NOT FALSE
     ORDER BY event_at DESC NULLS LAST, parsed_at DESC
     LIMIT $2
     `,

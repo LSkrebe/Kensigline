@@ -17,19 +17,17 @@ import { EventBriefDocCard } from './EventBrief.jsx'
 import { getEventMentioned } from './eventBriefs.js'
 import {
   normalizeResearchPaperSourceKey,
-  researchPaperSourceTypesForIntel,
+  researchPaperSourceTypes,
 } from './researchPaperSources.js'
 import {
   readActiveTab,
   readChartRange,
   readFilterSet,
-  readIntelMode,
   readInvestigateMode,
   UI_PREF_KEYS,
   writeActiveTab,
   writeChartRange,
   writeFilterSet,
-  writeIntelMode,
   writeInvestigateMode,
 } from './uiPreferences.js'
 import {
@@ -83,10 +81,6 @@ function PhoneSubNav({ items, value, onChange, ariaLabel, className = '' }) {
   )
 }
 
-const RESEARCH_INTEL_MODES_PHONE = [
-  { id: 'market', label: 'Market' },
-  { id: 'clinical', label: 'Clinical' },
-]
 
 const INVESTIGATE_MODES_PHONE = [
   { id: 'insider', label: 'Insider' },
@@ -151,7 +145,7 @@ function mockIdeaFields(i, kind = 'insider') {
     research: [
       'Phase III program signal',
       'Material 8-K filing',
-      'High-signal clinical language',
+      'High-signal market language',
       'Recent filing inside a week',
     ],
   }
@@ -181,7 +175,7 @@ function contextMetricsHasData(data, rows) {
   })
 }
 
-/* Chart area fill under line — CSS vars follow market/clinical intel theme. */
+/* Chart area fill under line. */
 const CHART_AREA_GRAD_TOP = 'var(--intel-accent-area-top)'
 const CHART_AREA_GRAD_BOTTOM = 'var(--intel-accent-area-bottom)'
 
@@ -959,9 +953,6 @@ function insiderFeedRowMatchesPersonQuery(row, queryRaw) {
 // Research tab — mock causal graph system
 // ------------------------------------------------------------
 const RESEARCH_TICKER_MARKET = 'ASML'
-const RESEARCH_TICKER_CLINICAL = 'ATYR'
-/** Programs feed + paper filter: show every filing for the company. */
-const CLINICAL_PROGRAM_ALL = '__ALL__'
 
 const MOCK_ASML_FEED_ROW = {
   rowKey: 'fb-ASML',
@@ -971,38 +962,24 @@ const MOCK_ASML_FEED_ROW = {
   ...mockIdeaFields(0, 'research'),
 }
 
+
 /**
  * Research feed rows (no papers) — staggered `at` so TODAY / year separators are visible offline.
- * ASML / ATYR still own full offline presentations; other tickers use generic memo only.
+ * ASML owns full offline presentation; other tickers use generic memo only.
  */
-const RESEARCH_FEED_BY_INTEL = {
-  market: [
-    MOCK_ASML_FEED_ROW,
-    { rowKey: 'fb-NVDA', ticker: 'NVDA', name: 'NVIDIA Corporation', at: '2026-05-28T16:45:00.000Z', ...mockIdeaFields(1, 'research') },
-    { rowKey: 'fb-TSM', ticker: 'TSM', name: 'Taiwan Semiconductor', at: '2026-05-28T14:20:00.000Z', ...mockIdeaFields(2, 'research') },
-    { rowKey: 'fb-LRCX', ticker: 'LRCX', name: 'Lam Research Corporation', at: '2026-05-15T09:00:00.000Z', ...mockIdeaFields(4, 'research') },
-    { rowKey: 'fb-AMAT', ticker: 'AMAT', name: 'Applied Materials, Inc.', at: '2026-03-22T11:30:00.000Z', ...mockIdeaFields(6, 'research') },
-    { rowKey: 'fb-AMD', ticker: 'AMD', name: 'Advanced Micro Devices', at: '2026-01-08T08:15:00.000Z', ...mockIdeaFields(8, 'research') },
-    { rowKey: 'fb-INTC', ticker: 'INTC', name: 'Intel Corporation', at: '2025-11-12T13:00:00.000Z', ...mockIdeaFields(10, 'research') },
-    { rowKey: 'fb-QCOM', ticker: 'QCOM', name: 'Qualcomm Incorporated', at: '2025-06-03T10:45:00.000Z', ...mockIdeaFields(12, 'research') },
-    { rowKey: 'fb-MU', ticker: 'MU', name: 'Micron Technology, Inc.', at: '2025-02-18T07:20:00.000Z', ...mockIdeaFields(3, 'research') },
-    { rowKey: 'fb-AVGO', ticker: 'AVGO', name: 'Broadcom Inc.', at: '2024-09-24T15:00:00.000Z', ...mockIdeaFields(5, 'research') },
-    { rowKey: 'fb-KLAC', ticker: 'KLAC', name: 'KLA Corporation', at: '2024-04-10T12:00:00.000Z', ...mockIdeaFields(7, 'research') },
-  ],
-  clinical: [
-    { rowKey: 'fb-ATYR', ticker: 'ATYR', name: 'aTyr Pharma, Inc.', at: '2026-05-28T17:30:00.000Z', ...mockIdeaFields(0, 'research') },
-    { rowKey: 'fb-MRNA', ticker: 'MRNA', name: 'Moderna, Inc.', at: '2026-05-28T13:10:00.000Z', ...mockIdeaFields(1, 'research') },
-    { rowKey: 'fb-SRPT', ticker: 'SRPT', name: 'Sarepta Therapeutics', at: '2026-05-28T10:00:00.000Z', ...mockIdeaFields(2, 'research') },
-    { rowKey: 'fb-BIIB', ticker: 'BIIB', name: 'Biogen Inc.', at: '2026-05-14T09:30:00.000Z', ...mockIdeaFields(4, 'research') },
-    { rowKey: 'fb-REGN', ticker: 'REGN', name: 'Regeneron Pharmaceuticals', at: '2026-03-05T14:00:00.000Z', ...mockIdeaFields(6, 'research') },
-    { rowKey: 'fb-VRTX', ticker: 'VRTX', name: 'Vertex Pharmaceuticals', at: '2026-01-21T11:00:00.000Z', ...mockIdeaFields(8, 'research') },
-    { rowKey: 'fb-GILD', ticker: 'GILD', name: 'Gilead Sciences, Inc.', at: '2025-10-30T08:45:00.000Z', ...mockIdeaFields(10, 'research') },
-    { rowKey: 'fb-AMGN', ticker: 'AMGN', name: 'Amgen Inc.', at: '2025-05-17T16:20:00.000Z', ...mockIdeaFields(12, 'research') },
-    { rowKey: 'fb-BMY', ticker: 'BMY', name: 'Bristol-Myers Squibb', at: '2025-01-09T10:00:00.000Z', ...mockIdeaFields(3, 'research') },
-    { rowKey: 'fb-PFE', ticker: 'PFE', name: 'Pfizer Inc.', at: '2024-08-02T12:30:00.000Z', ...mockIdeaFields(5, 'research') },
-    { rowKey: 'fb-ABBV', ticker: 'ABBV', name: 'AbbVie Inc.', at: '2024-03-14T09:00:00.000Z', ...mockIdeaFields(7, 'research') },
-  ],
-}
+const RESEARCH_FEED_ROWS = [
+  MOCK_ASML_FEED_ROW,
+  { rowKey: 'fb-NVDA', ticker: 'NVDA', name: 'NVIDIA Corporation', at: '2026-05-28T16:45:00.000Z', ...mockIdeaFields(1, 'research') },
+  { rowKey: 'fb-TSM', ticker: 'TSM', name: 'Taiwan Semiconductor', at: '2026-05-28T14:20:00.000Z', ...mockIdeaFields(2, 'research') },
+  { rowKey: 'fb-LRCX', ticker: 'LRCX', name: 'Lam Research Corporation', at: '2026-05-15T09:00:00.000Z', ...mockIdeaFields(4, 'research') },
+  { rowKey: 'fb-AMAT', ticker: 'AMAT', name: 'Applied Materials, Inc.', at: '2026-03-22T11:30:00.000Z', ...mockIdeaFields(6, 'research') },
+  { rowKey: 'fb-AMD', ticker: 'AMD', name: 'Advanced Micro Devices', at: '2026-01-08T08:15:00.000Z', ...mockIdeaFields(8, 'research') },
+  { rowKey: 'fb-INTC', ticker: 'INTC', name: 'Intel Corporation', at: '2025-11-12T13:00:00.000Z', ...mockIdeaFields(10, 'research') },
+  { rowKey: 'fb-QCOM', ticker: 'QCOM', name: 'Qualcomm Incorporated', at: '2025-06-03T10:45:00.000Z', ...mockIdeaFields(12, 'research') },
+  { rowKey: 'fb-MU', ticker: 'MU', name: 'Micron Technology, Inc.', at: '2025-02-18T07:20:00.000Z', ...mockIdeaFields(3, 'research') },
+  { rowKey: 'fb-AVGO', ticker: 'AVGO', name: 'Broadcom Inc.', at: '2024-09-24T15:00:00.000Z', ...mockIdeaFields(5, 'research') },
+  { rowKey: 'fb-KLAC', ticker: 'KLAC', name: 'KLA Corporation', at: '2024-04-10T12:00:00.000Z', ...mockIdeaFields(7, 'research') },
+]
 
 function formatCompanyDisplayName(name) {
   let s = String(name ?? '').trim()
@@ -1066,7 +1043,7 @@ function researchFeedRowLabel(item) {
   return ticker
 }
 
-/** Offline curated feed rows (RESEARCH_FEED_BY_INTEL) — no live feed_kind metadata. */
+/** Offline curated feed rows (RESEARCH_FEED_ROWS) — no live feed_kind metadata. */
 function isOfflineCuratedResearchFeedRow(row) {
   const key = String(row?.rowKey ?? row?.id ?? '')
   return key.startsWith('fb-')
@@ -1074,23 +1051,17 @@ function isOfflineCuratedResearchFeedRow(row) {
 
 function isOfflineShowcaseResearchTicker(ticker) {
   const t = String(ticker ?? '').trim().toUpperCase()
-  return t === 'ASML' || t === 'ATYR'
+  return t === 'ASML'
 }
 
-/** Offline research/analyse feed — always includes the ASML showcase row. */
-function offlineResearchFeedForIntel(intelMode) {
-  const mode = intelMode === 'clinical' ? 'clinical' : 'market'
-  const base = RESEARCH_FEED_BY_INTEL[mode] ?? RESEARCH_FEED_BY_INTEL.market
+/** Offline research/analyse feed — always includes ASML showcase row. */
+function offlineResearchFeed() {
+  const base = RESEARCH_FEED_ROWS
   const seen = new Set(base.map((x) => String(x.ticker ?? '').toUpperCase()))
   if (seen.has('ASML')) return base
   return sortFeedRowsByAtDesc([MOCK_ASML_FEED_ROW, ...base])
 }
 
-function researchTickersForIntelMode(intelMode) {
-  return (RESEARCH_FEED_BY_INTEL[intelMode === 'clinical' ? 'clinical' : 'market'] ?? RESEARCH_FEED_BY_INTEL.market).map(
-    (x) => String(x.ticker).toUpperCase(),
-  )
-}
 
 const RESEARCH_ALLOWED_EDGE_TYPES = new Set([
   'catalyst',
@@ -1116,28 +1087,17 @@ function mockPriceSeries(seed, n = 400) {
 
 function _explainerForTicker(ticker) {
   const t = String(ticker ?? '').toUpperCase()
-  if (t === 'ATYR')
+  if (t === 'ASML') {
     return [
-      'EFZO-FIT is NCT05415137, 268 people, three arms with placebo, and the primary is mean daily OCS change at week 48. Trust the SAP more than the press release.',
-      'EFZO-CONNECT is NCT05892614 with about 25 patients. It is a mechanism check, not something that saves Phase 3 if the big study misses.',
-      'Treat this like trial forensics. Stack the protocol and filings and ignore the story until the numbers in the SAP actually print.',
+      'ASML remains the bottleneck supplier for leading-edge EUV capacity.',
+      'Downstream AI demand can reprice faster than upstream lithography constraints.',
+      'Track filings and policy signals that tighten or ease EUV allocation pressure.',
     ]
-  if (t === 'MRNA')
-    return [
-      'MRNA is a large-cap biotech where regulatory milestones and trial readouts can dominate flows before the market fully reprices expectations.',
-      'Short-horizon price moves tend to cluster around scheduled updates, endpoint language, and shifts in perceived probability of approval.',
-      'For this case, prioritize dated events and disclosures that change the approval narrative or timing window.',
-    ]
-  if (t === 'SRPT')
-    return [
-      'SRPT is a clinical-stage biotech with high sensitivity to FDA communications, trial data quality, and disclosure timing.',
-      'When regulatory language shifts, the implied approval probability can change quickly, which often drives volatility and risk hedging behavior.',
-      'For this case, focus on what the regulator asked for, what data claims were implied, and whether actions cluster before a formal update.',
-    ]
+  }
   return [
-    `${t} is a biotech-linked asset where event timing and information flow can dominate short-horizon price discovery.`,
-    'The highest-signal windows are scheduled catalysts (readouts, meetings, filings) and any behavior that clusters right before those dates.',
-    'Use this paper to track what changed first, what followed, and what the next “known date” is.',
+    `${t} is being reviewed through a market-first lens focused on filings and flow timing.`,
+    'Focus on dated disclosures and whether signal quality improves into known windows.',
+    'Use this paper to map what changed first, what followed, and what likely comes next.',
   ]
 }
 
@@ -1145,255 +1105,24 @@ const MOCK_RESEARCH_DATASETS = {
   ASML: {
     entities: [{ id: 'c1', type: 'company', name: 'ASML Holding N.V.' }],
     events: [
-      { id: 'e1', type: 'capacity_signal', title: 'EUV throughput remains the gating function', date: '2026-05-02', entities: ['c1'], sentiment: 'bullish', impact: 'high' },
+      {
+        id: 'e1',
+        type: 'capacity_signal',
+        title: 'EUV throughput remains the gating function',
+        date: '2026-05-02',
+        entities: ['c1'],
+        sentiment: 'bullish',
+        impact: 'high',
+      },
     ],
     edges: [],
     price: mockPriceSeries(712, 400),
-  },
-  XBI: {
-    constituents: ['SRPT', 'IONS', 'RARE', 'BMRN', 'EXAS', 'CRSP'],
-    entities: [
-      { id: 'c1', type: 'company', name: 'SPDR S&P Biotech ETF' },
-      { id: 'p1', type: 'politician', name: 'Sen. Mark Reynolds' },
-      { id: 'i1', type: 'insider', name: 'Dr. Sarah Klein (Ex-Amgen)' },
-      { id: 'd1', type: 'drug', name: 'AMG-301' },
-      { id: 'f1', type: 'institution', name: 'FDA' },
-      { id: 'x1', type: 'company', name: 'Sarepta Therapeutics (SRPT)' },
-      { id: 'x2', type: 'company', name: 'Ionis Pharmaceuticals (IONS)' },
-    ],
-    events: [
-      {
-        id: 'e0',
-        type: 'trial_result_rumor',
-        title: 'Leak: AMG-301 Phase 2 chatter appears in sell-side notes',
-        date: '2026-04-12',
-        entities: ['d1'],
-        sentiment: 'bullish',
-        impact: 'high',
-      },
-      {
-        id: 'e1',
-        type: 'fda_meeting',
-        title: 'FDA advisory meeting scheduled for AMG-301',
-        date: '2026-04-18',
-        entities: ['d1', 'f1'],
-        sentiment: 'neutral',
-        impact: 'high',
-      },
-      {
-        id: 'e2',
-        type: 'insider_buy',
-        title: 'Insider purchase of biotech exposure ETF',
-        date: '2026-04-20',
-        entities: ['i1', 'c1'],
-        sentiment: 'bullish',
-        impact: 'medium',
-      },
-      {
-        id: 'e3',
-        type: 'politician_trade',
-        title: 'Senator Reynolds discloses biotech ETF position',
-        date: '2026-04-21',
-        entities: ['p1', 'c1'],
-        sentiment: 'bullish',
-        impact: 'medium',
-      },
-      {
-        id: 'e4',
-        type: 'trial_result_rumor',
-        title: 'Leak: AMG-301 Phase 2 data stronger than expected',
-        date: '2026-04-22',
-        entities: ['d1'],
-        sentiment: 'bullish',
-        impact: 'high',
-      },
-      {
-        id: 'e5',
-        type: 'hiring_signal',
-        title: 'Two mid-cap constituents add BD/commercial roles within 10 days',
-        date: '2026-04-24',
-        entities: ['x1', 'x2'],
-        sentiment: 'bullish',
-        impact: 'medium',
-      },
-    ],
-    edges: [
-      { from: 'e0', to: 'd1', type: 'catalyst' },
-      { from: 'e1', to: 'd1', type: 'affects' },
-      { from: 'e1', to: 'c1', type: 'indirect_risk' },
-      { from: 'e2', to: 'c1', type: 'insider_activity' },
-      { from: 'e2', to: 'i1', type: 'initiated_by' },
-      { from: 'e3', to: 'c1', type: 'political_exposure' },
-      { from: 'e3', to: 'p1', type: 'initiated_by' },
-      { from: 'e4', to: 'd1', type: 'catalyst' },
-      { from: 'e4', to: 'e1', type: 'timing_link' },
-      { from: 'e5', to: 'c1', type: 'indirect_risk' },
-    ],
-    price: mockPriceSeries(119),
-  },
-  ATYR: {
-    entities: [
-      { id: 'c1', type: 'company', name: 'aTyr Pharma, Inc.' },
-      { id: 'd1', type: 'drug', name: 'Efzofitimod (ILD)' },
-      { id: 'f1', type: 'institution', name: 'FDA' },
-      { id: 'i1', type: 'insider', name: 'Chief Medical Officer (issuer)' },
-    ],
-    events: [
-      {
-        id: 'e1',
-        type: 'trial_update',
-        title: 'Efzofitimod ILD studies: enrollment pacing and site mix disclosed',
-        date: '2026-04-05',
-        entities: ['d1', 'c1'],
-        sentiment: 'neutral',
-        impact: 'medium',
-      },
-      {
-        id: 'e2',
-        type: 'fda_meeting',
-        title: 'Regulatory correspondence on pulmonary endpoints and safety follow-up',
-        date: '2026-04-22',
-        entities: ['d1', 'f1'],
-        sentiment: 'neutral',
-        impact: 'high',
-      },
-      {
-        id: 'e3',
-        type: 'catalyst',
-        title: 'Medical meeting abstract window: efzofitimod ILD data expected',
-        date: '2026-05-14',
-        entities: ['d1', 'c1'],
-        sentiment: 'bullish',
-        impact: 'high',
-      },
-      {
-        id: 'e4',
-        type: 'insider_buy',
-        title: 'Open-market purchases by issuer officer cluster ahead of data window',
-        date: '2026-04-28',
-        entities: ['i1', 'c1'],
-        sentiment: 'bullish',
-        impact: 'medium',
-      },
-    ],
-    edges: [
-      { from: 'e1', to: 'd1', type: 'catalyst' },
-      { from: 'e2', to: 'd1', type: 'affects' },
-      { from: 'e2', to: 'c1', type: 'indirect_risk' },
-      { from: 'e3', to: 'd1', type: 'catalyst' },
-      { from: 'e4', to: 'c1', type: 'insider_activity' },
-    ],
-    price: mockPriceSeries(401, 400).map((x) => Math.round((x / 100) * 100) / 100),
-  },
-  MRNA: {
-    entities: [
-      { id: 'c1', type: 'company', name: 'Moderna, Inc.' },
-      { id: 'd1', type: 'drug', name: 'mRNA-1647' },
-      { id: 'f1', type: 'institution', name: 'FDA' },
-      { id: 'i1', type: 'insider', name: 'CFO (Issuer insider)' },
-      { id: 'p1', type: 'politician', name: 'Rep. Jordan Collins' },
-    ],
-    events: [
-      {
-        id: 'e1',
-        type: 'fda_meeting',
-        title: 'FDA meeting set to discuss endpoint alignment for mRNA-1647',
-        date: '2026-03-11',
-        entities: ['d1', 'f1'],
-        sentiment: 'neutral',
-        impact: 'high',
-      },
-      {
-        id: 'e2',
-        type: 'insider_buy',
-        title: 'Issuer CFO adds shares ahead of data window',
-        date: '2026-03-18',
-        entities: ['i1', 'c1'],
-        sentiment: 'bullish',
-        impact: 'medium',
-      },
-      {
-        id: 'e3',
-        type: 'trial_result_rumor',
-        title: 'Channel checks imply strong immunogenicity readout',
-        date: '2026-03-21',
-        entities: ['d1'],
-        sentiment: 'bullish',
-        impact: 'high',
-      },
-      {
-        id: 'e4',
-        type: 'politician_trade',
-        title: 'Disclosure: House member reports position in issuer',
-        date: '2026-03-28',
-        entities: ['p1', 'c1'],
-        sentiment: 'neutral',
-        impact: 'medium',
-      },
-    ],
-    edges: [
-      { from: 'e1', to: 'd1', type: 'affects' },
-      { from: 'e1', to: 'c1', type: 'indirect_risk' },
-      { from: 'e2', to: 'c1', type: 'insider_activity' },
-      { from: 'e2', to: 'i1', type: 'initiated_by' },
-      { from: 'e3', to: 'd1', type: 'catalyst' },
-      { from: 'e3', to: 'e1', type: 'timing_link' },
-      { from: 'e4', to: 'c1', type: 'political_exposure' },
-      { from: 'e4', to: 'p1', type: 'initiated_by' },
-    ],
-    price: mockPriceSeries(331),
-  },
-  SRPT: {
-    entities: [
-      { id: 'c1', type: 'company', name: 'Sarepta Therapeutics, Inc.' },
-      { id: 'd1', type: 'drug', name: 'SRP-9001' },
-      { id: 'f1', type: 'institution', name: 'FDA' },
-      { id: 'i1', type: 'insider', name: 'Director (Issuer insider)' },
-    ],
-    events: [
-      {
-        id: 'e1',
-        type: 'fda_meeting',
-        title: 'FDA requests additional analyses for SRP-9001 submission',
-        date: '2026-02-06',
-        entities: ['d1', 'f1'],
-        sentiment: 'bearish',
-        impact: 'high',
-      },
-      {
-        id: 'e2',
-        type: 'trial_result_rumor',
-        title: 'Rumor: dataset re-cut improves responder narrative',
-        date: '2026-02-10',
-        entities: ['d1'],
-        sentiment: 'bullish',
-        impact: 'medium',
-      },
-      {
-        id: 'e3',
-        type: 'insider_buy',
-        title: 'Director purchase disclosed after regulatory headline',
-        date: '2026-02-14',
-        entities: ['i1', 'c1'],
-        sentiment: 'bullish',
-        impact: 'medium',
-      },
-    ],
-    edges: [
-      { from: 'e1', to: 'd1', type: 'affects' },
-      { from: 'e1', to: 'c1', type: 'indirect_risk' },
-      { from: 'e2', to: 'd1', type: 'catalyst' },
-      { from: 'e2', to: 'e1', type: 'timing_link' },
-      { from: 'e3', to: 'c1', type: 'insider_activity' },
-      { from: 'e3', to: 'i1', type: 'initiated_by' },
-    ],
-    price: mockPriceSeries(907),
   },
 }
 
 function mockDatasetForTicker(ticker) {
   const t = String(ticker ?? '').toUpperCase()
-  return MOCK_RESEARCH_DATASETS[t] ?? MOCK_RESEARCH_DATASETS.ATYR
+  return MOCK_RESEARCH_DATASETS[t] ?? MOCK_RESEARCH_DATASETS.ASML
 }
 
 const POLITICIAN_CHAMBER_LABELS = {
@@ -1452,7 +1181,7 @@ function paperPoliticianTxnLabel(chamber, name) {
   return `${prefix}, ${n}`
 }
 
-/** Research CONTEXT panel mock profiles (offline); keyed to feed/paper tickers ASML + ATYR. */
+/** Research CONTEXT panel mock profiles (offline); keyed to feed/paper tickers. */
 function contextCountryLabel(country) {
   const raw = String(country ?? '').trim()
   if (!raw) return null
@@ -1511,69 +1240,6 @@ const CONTEXT_MOCK_PROFILES = {
       fcfGrowth: [12, 18, 24, 30],
       netCash: [8_200_000_000, 9_100_000_000, 10_400_000_000, 11_800_000_000],
       sharesOutstanding: [392_000_000, 388_000_000, 385_000_000, 380_000_000],
-    },
-  },
-  ATYR: {
-    sector: 'Biotechnology',
-    country: 'US',
-    mcap: '$320M',
-    earningsDaysAhead: 5,
-    leadDrug: {
-      name: 'Efzofitimod',
-      indication: 'ILD',
-      stage: 'Phase 3',
-      next: '2026-07-18',
-    },
-    programs: [
-      {
-        key: 'Efzofitimod',
-        indication: 'ILD',
-        stage: 'Phase 3',
-        milestones: [
-          { at: '2026-02-11', label: 'Enrollment update', url: 'https://clinicaltrials.gov/study/NCT05415137' },
-          { at: '2026-04-09', label: 'Interim safety', url: 'https://www.sec.gov/edgar/search/' },
-          { at: '2026-07-18', label: 'Topline readout', url: 'https://clinicaltrials.gov/study/NCT05415137' },
-        ],
-      },
-      {
-        key: 'Efzofitimod',
-        indication: 'Sarcoidosis',
-        stage: 'Phase 2',
-        milestones: [
-          { at: '2026-03-03', label: 'Dose selection', url: 'https://clinicaltrials.gov/study/NCT05415137' },
-          { at: '2026-06-06', label: 'Biomarker update', url: 'https://www.sec.gov/edgar/search/' },
-        ],
-      },
-      {
-        key: 'ATYR-2810',
-        indication: 'Solid tumors',
-        stage: 'Phase 1',
-        milestones: [
-          { at: '2026-01-17', label: 'Escalation ongoing', url: 'https://www.sec.gov/edgar/search/' },
-          { at: '2026-05-22', label: 'Initial response signal', url: 'https://www.sec.gov/edgar/search/' },
-        ],
-      },
-    ],
-    insiders: [
-      { key: 'CMO', person: 'Sanjay S. Shukla', at: '2026-05-20', amount: '$240K', transactionCode: 'P' },
-      { key: 'CEO', person: 'John Mendlein', at: '2026-04-02', amount: '$890K', transactionCode: 'P' },
-      { key: 'Director', person: 'Jill Bates', at: '2026-03-05', amount: '$125K', transactionCode: 'S' },
-      { key: 'CFO', person: 'Stephen A. Hall', at: '2026-01-30', amount: '$310K', transactionCode: 'M' },
-    ],
-    politicians: [
-      { name: 'Tommy Tuberville', chamber: 'senate', at: '2026-04-24', amount: '$65K', transactionType: 'P' },
-      { name: 'Mark Kelly', chamber: 'senate', at: '2026-03-28', amount: '$42K', transactionType: 'S' },
-      { name: 'Ro Khanna', chamber: 'house', at: '2026-02-20', amount: '$28K', transactionType: 'P' },
-    ],
-    filings13f: [
-      { filer: 'Perceptive Advisors', activity: 'New position', at: '2026-04-18', amount: '$6.2M' },
-      { filer: 'Ra Capital', activity: 'Increased stake', at: '2026-03-08', amount: '$3.1M' },
-      { filer: 'EcoR1 Capital', activity: 'New position', at: '2026-01-22', amount: '$1.8M' },
-    ],
-    runway: {
-      cashUsd: 182_000_000,
-      quarterlyBurnUsd: 35_500_000,
-      runwayQuarters: 5.1,
     },
   },
 }
@@ -1793,47 +1459,9 @@ function formatContextFundamentalDisplay(fundamentals, row) {
   return formatContextFundamentalPctValue(raw, { signed: row.signed })
 }
 
-function contextMockRunwayForTicker(ticker, profileRunway = null) {
-  if (profileRunway && typeof profileRunway === 'object') {
-    return { ...profileRunway }
-  }
-  const seed = seedFromTicker(String(ticker ?? 'TICK'))
-  const cashUsd = Math.round((80 + (seed % 420)) * 1_000_000)
-  const quarterlyBurnUsd = Math.round((18 + (seed % 55)) * 1_000_000)
-  const runwayQuarters = Math.round((cashUsd / quarterlyBurnUsd) * 10) / 10
-  return { cashUsd, quarterlyBurnUsd, runwayQuarters }
-}
-
-function formatContextRunwayUsd(value) {
-  const n = Number(value)
-  if (!Number.isFinite(n) || n <= 0) return '—'
-  return formatUsdCompact(n)
-}
-
-function formatContextRunwayQuarters(value) {
-  const n = Number(value)
-  if (!Number.isFinite(n) || n <= 0) return '—'
-  if (n >= 8) return '>8 qtrs'
-  return `${n.toFixed(1)} qtrs`
-}
-
-function contextRunwayValueTone(key, value) {
-  if (key === 'quarterlyBurnUsd') {
-    const n = Number(value)
-    return Number.isFinite(n) && n > 0 ? 'neg' : null
-  }
-  if (key === 'runwayQuarters') {
-    const n = Number(value)
-    if (!Number.isFinite(n) || n <= 0) return null
-    if (n < 4) return 'neg'
-    if (n >= 8) return 'pos'
-  }
-  return null
-}
-
 function contextMockForTicker(ticker, priceSeries) {
-  const t = String(ticker ?? 'ATYR').toUpperCase()
-  const base = CONTEXT_MOCK_PROFILES[t] ?? CONTEXT_MOCK_PROFILE_DEFAULT
+  const t = String(ticker ?? 'ASML').toUpperCase()
+  const base = CONTEXT_MOCK_PROFILES[t] ?? CONTEXT_MOCK_PROFILES.ASML
   const dateDaysAgo = (daysAgo) => {
     const d = new Date()
     d.setDate(d.getDate() - daysAgo)
@@ -1883,7 +1511,6 @@ function contextMockForTicker(ticker, priceSeries) {
     })),
     fundamentals: contextMockFundamentalsForTicker(t, base.fundamentals),
     ownership: contextMockOwnershipForTicker(t, base.ownership),
-    runway: contextMockRunwayForTicker(t, base.runway),
   }
 }
 
@@ -1899,13 +1526,6 @@ const OUTCOME_HORIZON_CHART_LABELS = ['1M', '3M', '1Y']
 const OUTCOME_BASE_INSIDER_RETURNS = [0.0042, 0.0108, 0.0234]
 const OUTCOME_BASE_POLITICIAN_RETURNS = [0.0018, 0.0052, 0.0112]
 const OUTCOME_BASE_INSTITUTION_RETURNS = [0.0022, 0.0064, 0.0138]
-
-/** Mock forward-return curves (21d / 63d / 252d) for clinical context chart. */
-const MOCK_PHARMA_OUTCOME_BUCKETS = [
-  { id: 'ph3', label: 'Phase 3 readout', baseReturns: [-0.182, -0.158, -0.121] },
-  { id: 'ph2', label: 'Phase 2 miss', baseReturns: [-0.114, -0.092, -0.074] },
-  { id: 'all', label: 'All trial events', baseReturns: [-0.14, -0.118, -0.095] },
-]
 
 const CONTEXT_OUTCOME_LINE_COLORS = [
   'rgba(255, 255, 255, 0.9)',
@@ -1946,29 +1566,6 @@ function buildMockPoliticianOutcomeLines(pastMonthRows, ticker) {
       color: CONTEXT_OUTCOME_LINE_COLORS[i % CONTEXT_OUTCOME_LINE_COLORS.length],
     }
   })
-}
-
-function buildMockPharmaOutcomeLines(ticker) {
-  return MOCK_PHARMA_OUTCOME_BUCKETS.map((row, i) => ({
-    id: row.id,
-    label: row.label,
-    returns: mockOutcomeReturnsForKey(row.id, row.baseReturns, ticker),
-    color: CONTEXT_OUTCOME_LINE_COLORS[i % CONTEXT_OUTCOME_LINE_COLORS.length],
-  }))
-}
-
-function buildMockPharmaOutcomeRows(outcomeLines, stats = MOCK_HISTORICAL_TRIALS) {
-  const statById = {
-    ph3: stats?.avgAfterPh3Failure ?? EMPTY,
-    ph2: stats?.avgAfterPh2Miss ?? EMPTY,
-    all: stats?.medianReturn ?? EMPTY,
-  }
-  return (outcomeLines ?? []).map((line) => ({
-    id: line.id,
-    label: line.label,
-    total: statById[line.id] ?? EMPTY,
-    lineColor: line.color ?? null,
-  }))
 }
 
 function parseTxnAmountUsd(amount) {
@@ -2226,76 +1823,6 @@ function ContextTrackedInvestorsCard({
   )
 }
 
-function buildContextCatalystItems(programs, limit = 4) {
-  const rows = []
-  for (const p of programs ?? []) {
-    for (const m of p.milestones ?? []) {
-      rows.push({
-        id: `${p.key}-${m.at}-${m.label}`,
-        programKey: p.key,
-        phase: p.stage ?? null,
-        label: m.label,
-        at: m.at,
-        url: m.url ?? null,
-        kind: 'trial',
-      })
-    }
-  }
-  const now = Date.now()
-  return rows
-    .filter((r) => {
-      const t = new Date(`${String(r.at).trim()}T12:00:00`).getTime()
-      return Number.isFinite(t) && t >= now - 86400000 * 2
-    })
-    .sort((a, b) => new Date(`${a.at}T12:00:00`) - new Date(`${b.at}T12:00:00`))
-    .slice(0, limit)
-}
-
-function mapClinicalContextFromApi(data) {
-  if (!data || typeof data !== 'object') return null
-  const programs = (Array.isArray(data.programs) ? data.programs : []).map((p) => ({
-    key: String(p?.key ?? '').trim(),
-    indication: p?.indication != null ? String(p.indication) : null,
-    stage: p?.stage != null ? String(p.stage) : null,
-    milestones: (Array.isArray(p?.milestones) ? p.milestones : [])
-      .map((m) => ({
-        at: m?.at != null ? String(m.at).slice(0, 10) : null,
-        label: m?.label != null ? String(m.label) : null,
-        url: m?.url != null ? String(m.url) : null,
-      }))
-      .filter((m) => m.label),
-  })).filter((p) => p.key)
-
-  const catalysts = (Array.isArray(data.catalysts) ? data.catalysts : []).map((c) => ({
-    id: String(c?.id ?? ''),
-    programKey: String(c?.programKey ?? '').trim() || '—',
-    label: String(c?.label ?? '').trim() || '—',
-    at: c?.at != null ? String(c.at).slice(0, 10) : null,
-    url: c?.url != null ? String(c.url) : null,
-    phase: c?.phase != null ? String(c.phase) : null,
-    kind: c?.kind === 'earnings' ? 'earnings' : 'trial',
-  })).filter((c) => c.id)
-
-  const lead = data.lead
-    ? {
-        name: String(data.lead.name ?? '').trim(),
-        indication: data.lead.indication != null ? String(data.lead.indication) : null,
-        stage: data.lead.stage != null ? String(data.lead.stage) : null,
-        next: data.lead.next != null ? String(data.lead.next).slice(0, 10) : null,
-      }
-    : null
-
-  return { programs, catalysts, lead, runway: mapClinicalRunwayFromApi(data.runway) }
-}
-
-function mapClinicalRunwayFromApi(runway) {
-  if (!runway || typeof runway !== 'object') return null
-  return {
-    cashUsd: runway.cashUsd != null ? Number(runway.cashUsd) : null,
-    quarterlyBurnUsd: runway.quarterlyBurnUsd != null ? Number(runway.quarterlyBurnUsd) : null,
-    runwayQuarters: runway.runwayQuarters != null ? Number(runway.runwayQuarters) : null,
-  }
-}
 
 function mapFundamentalsFromApi(fundamentals) {
   if (!fundamentals || typeof fundamentals !== 'object') return null
@@ -2661,66 +2188,6 @@ function ContextOwnershipCard({ ownership, loading = false }) {
   )
 }
 
-const CONTEXT_RUNWAY_ROWS = [
-  { key: 'cashUsd', label: 'Cash & equivalents', format: 'usd' },
-  { key: 'quarterlyBurnUsd', label: 'Quarterly burn', format: 'burn' },
-  { key: 'runwayQuarters', label: 'Runway', format: 'quarters' },
-]
-
-function ContextRunwayCard({ runway, loading = false }) {
-  const hasRunwayData =
-    runway &&
-    CONTEXT_RUNWAY_ROWS.some((row) => {
-      const raw = runway?.[row.key]
-      if (raw == null || raw === '') return false
-      const n = Number(raw)
-      if (row.format === 'quarters') return Number.isFinite(n) && n > 0
-      return Number.isFinite(n) ? n !== 0 : true
-    })
-
-  return (
-    <div className="contextCatalystCard" aria-label="Financial runway">
-      <div className="contextCatalystCardHeader">
-        <div className="contextCatalystCardTitle mono dim">Financial runway</div>
-      </div>
-      {loading ? (
-        <PanelStatusMessage label="Loading runway…" className="contextCatalystCardEmpty" />
-      ) : !hasRunwayData ? (
-        <PanelStatusMessage label="No runway data yet." className="contextCatalystCardEmpty" />
-      ) : (
-        <div className="contextOutcomesStack">
-          {CONTEXT_RUNWAY_ROWS.map((row) => {
-          const raw = runway?.[row.key]
-          const tone = contextRunwayValueTone(row.key, raw)
-          let display = '—'
-          if (row.format === 'usd') display = formatContextRunwayUsd(raw)
-          else if (row.format === 'burn') {
-            const n = Number(raw)
-            display = Number.isFinite(n) && n > 0 ? `${formatUsdCompact(n)} / qtr` : '—'
-          } else if (row.format === 'quarters') display = formatContextRunwayQuarters(raw)
-          return (
-            <div key={row.key} className="contextCardOutcomeRow" role="listitem">
-              <span className="contextCardOutcomeK dim">{row.label}</span>
-              <span
-                className={[
-                  'contextCardOutcomeV',
-                  'mono',
-                  tone === 'pos' ? 'contextCardOutcomeV--pos' : '',
-                  tone === 'neg' ? 'contextCardOutcomeV--neg' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                {display}
-              </span>
-            </div>
-          )
-        })}
-        </div>
-      )}
-    </div>
-  )
-}
 
 function ContextFlowChartHeader({ title, sample = null }) {
   return (
@@ -3119,160 +2586,15 @@ function ContextOutcomesKvPanel({
   )
 }
 
-function ContextClinicalOutcomesList({
-  outcomeLines = [],
-  sampleSize = EMPTY,
-  stats = MOCK_HISTORICAL_TRIALS,
-  chartTitle = 'Trial outcomes',
-  loading = false,
-  emptyLabel = 'No historical trial outcomes yet.',
-}) {
-  const kvRows = useMemo(
-    () => buildClinicalOutcomeKvRows(outcomeLines, stats, sampleSize),
-    [outcomeLines, stats, sampleSize],
-  )
 
-  return (
-    <ContextOutcomesKvPanel
-      title={chartTitle}
-      rows={kvRows}
-      loading={loading}
-      loadingLabel="Loading historical outcomes…"
-      emptyLabel={emptyLabel}
-    />
-  )
-}
 
-function ContextCatalystCard({ items = [], title = 'Catalyst clock', loading = false }) {
-  const count = items.length
-  const meta = count ? `${count} upcoming` : null
 
-  return (
-    <div
-      className={['contextCatalystCard', !count && !loading ? 'contextCatalystCard--empty' : ''].filter(Boolean).join(' ')}
-      aria-label={title}
-    >
-      <div className="contextCatalystCardHeader">
-        <div className="contextCatalystCardTitle mono dim">{title}</div>
-        {meta ? <span className="contextCatalystCardMeta mono dim">{meta}</span> : null}
-      </div>
-      {loading ? (
-        <PanelStatusMessage label="Loading catalysts…" className="contextCatalystCardEmpty" />
-      ) : !count ? (
-        <PanelStatusMessage label="No upcoming catalysts" className="contextCatalystCardEmpty" />
-      ) : (
-        items.map((it) => (
-          <div key={it.id} className="contextCatalystRow">
-            <div className="contextCatalystMain">
-              <div className="contextCatalystProgram mono">{it.programKey}</div>
-              <div className="contextCatalystLabel">{it.label}</div>
-              {it.phase ? <div className="contextCatalystPhase mono dim">{displayPhaseLabel(it.phase)}</div> : null}
-            </div>
-            <div className="contextCatalystWhen mono">{contextCatalystCountdown(it.at)}</div>
-          </div>
-        ))
-      )}
-    </div>
-  )
-}
 
-function contextLeadDrugFromEntities(entities) {
-  if (!Array.isArray(entities)) return null
-  const drug = entities.find((e) => String(e?.type ?? '').toLowerCase() === 'drug')
-  const raw = String(drug?.name ?? '').trim()
-  if (!raw) return null
-  // Common pattern: "Name (Indication)". Keep both so the card can show a concise label.
-  const m = raw.match(/^(.+?)\s*\((.+?)\)\s*$/)
-  return m ? { name: m[1].trim(), indication: m[2].trim() } : { name: raw, indication: null }
-}
 
-function shortPhaseLabel(stage) {
-  const s = String(stage ?? '').trim()
-  if (!s) return null
-  const m = s.match(/phase\s*([0-9]+[a-zA-Z]?)/i)
-  if (m) return `P${String(m[1]).toUpperCase()}`
-  return s.length > 8 ? s.slice(0, 8) : s
-}
 
-/** Full phase copy for context program cards (e.g. Phase 3). */
-function displayPhaseLabel(stage) {
-  const s = String(stage ?? '').trim()
-  if (!s) return null
-  const m = s.match(/phase\s*([0-9]+[a-zA-Z]?)/i)
-  if (m) return `Phase ${m[1]}`
-  return s
-}
 
-function phaseLabelSortRank(stage) {
-  const s = String(stage ?? '').toLowerCase()
-  if (s.includes('3')) return 3
-  if (s.includes('2')) return 2
-  if (s.includes('1')) return 1
-  if (s.includes('4')) return 4
-  return 0
-}
 
-function feedProgramPhaseForGroup(pg) {
-  const stages = (pg?.variants ?? []).map((v) => v?.stage).filter(Boolean)
-  if (!stages.length) return '—'
-  const best = stages.sort((a, b) => phaseLabelSortRank(b) - phaseLabelSortRank(a))[0]
-  return displayPhaseLabel(best) ?? '—'
-}
 
-function groupPrograms(programs) {
-  const rows = Array.isArray(programs) ? programs : []
-  const byKey = new Map()
-  for (const p of rows) {
-    const key = String(p?.key ?? '').trim()
-    if (!key) continue
-    const prev = byKey.get(key) ?? { key, variants: [] }
-    const milestonesRaw = Array.isArray(p?.milestones) ? p.milestones : []
-    const milestones = milestonesRaw
-      .map((m) => {
-        if (typeof m === 'string') return { at: null, label: m }
-        return { at: m?.at ?? null, label: m?.label ?? null, url: m?.url ?? null }
-      })
-      .map((m) => ({
-        at: m.at ? parseDayOnly(m.at)?.toISOString?.() ?? String(m.at) : null,
-        label: String(m.label ?? '').trim() || null,
-        url: m.url ? String(m.url) : null,
-      }))
-      .filter((m) => m.label)
-
-    prev.variants.push({
-      indication: String(p?.indication ?? '').trim() || null,
-      stage: String(p?.stage ?? '').trim() || null,
-      milestones,
-    })
-    byKey.set(key, prev)
-  }
-  return Array.from(byKey.values())
-}
-
-function programVariantMatchesLead(variant, leadDrug) {
-  if (!variant || !leadDrug) return false
-  const leadInd = String(leadDrug.indication ?? '').trim().toLowerCase()
-  const leadStage = String(leadDrug.stage ?? '').trim().toLowerCase()
-  const varInd = String(variant.indication ?? '').trim().toLowerCase()
-  const varStage = String(variant.stage ?? '').trim().toLowerCase()
-  const indOk = !leadInd || !varInd || leadInd === varInd
-  const stageOk =
-    !leadStage ||
-    !varStage ||
-    leadStage === varStage ||
-    shortPhaseLabel(leadStage) === shortPhaseLabel(varStage)
-  return indOk && stageOk
-}
-
-function leadProgramVariantForGroup(pg, leadDrug) {
-  if (!pg || !leadDrug) return null
-  const leadName = String(leadDrug.name ?? '').trim().toLowerCase()
-  const pgKey = String(pg.key ?? '').trim().toLowerCase()
-  if (!leadName || leadName !== pgKey) return null
-  const variants = Array.isArray(pg.variants) ? pg.variants : []
-  const exact = variants.find((v) => programVariantMatchesLead(v, leadDrug))
-  return exact ?? variants[0] ?? null
-}
 
 function impactScore(impact) {
   const x = String(impact ?? '').toLowerCase()
@@ -3959,37 +3281,6 @@ function historicalOutcomesHasDataset(ins) {
   return Boolean(ins && ins.sampleSize)
 }
 
-function pharmaOutcomeLinesFromLiveBuckets(buckets, ticker) {
-  if (!Array.isArray(buckets) || !buckets.length) return null
-  const hasData = buckets.some((b) => (b.returns ?? []).some((r) => r != null && Number.isFinite(Number(r))))
-  if (!hasData) return null
-  return buckets.map((b, i) => ({
-    id: b.id,
-    label: b.label,
-    returns: (b.returns ?? []).map((r) => (r != null && Number.isFinite(Number(r)) ? Number(r) : null)),
-    color: CONTEXT_OUTCOME_LINE_COLORS[i % CONTEXT_OUTCOME_LINE_COLORS.length],
-  }))
-}
-
-function contextClinicalOutcomesFromLive(livePharma, ticker, backendUp) {
-  if (backendUp) {
-    const hasDataset = historicalOutcomesHasDataset(livePharma)
-    const liveLines = hasDataset ? pharmaOutcomeLinesFromLiveBuckets(livePharma?.buckets, ticker) : []
-    return {
-      outcomeLines: liveLines ?? [],
-      sampleSize: livePharma?.sampleSize ?? EMPTY,
-      stats: hasDataset ? livePharma : null,
-      hasDataset,
-    }
-  }
-  const stats = MOCK_HISTORICAL_TRIALS
-  return {
-    outcomeLines: buildMockPharmaOutcomeLines(ticker),
-    sampleSize: stats?.sampleSize ?? EMPTY,
-    stats,
-    hasDataset: true,
-  }
-}
 
 function historicalOutcomeLinesFromIns(ins, mode) {
   const percents = parseAvgReturnHorizonPercents(ins?.avgReturn21d63d252d)
@@ -4541,7 +3832,6 @@ function ContextAlertToggle({ ticker, className = '' }) {
 }
 
 function MainContextPanel({
-  intelMode = 'market',
   ticker,
   price,
   sector,
@@ -4551,33 +3841,19 @@ function MainContextPanel({
   insiderPriceMarkers = [],
   politicianPriceMarkers = [],
   earnings = null,
-  leadDrug = null,
-  programs = [],
-  selectedProgramKey = null,
   insiders = [],
   politicians = [],
   filings13f = [],
   trackedInvestorsApi = null,
-  catalystItems = [],
   fundamentals = null,
   ownership = null,
-  runway = null,
   backendUp = false,
-  contextOutcomesLive = null,
   panelClassName = '',
   companyContextLoading = false,
-  clinicalContextLoading = false,
   exploreContextLoading = false,
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const [priceRange, setPriceRange] = useState('6M')
-  const showFlows = intelMode !== 'clinical'
-  const programGroups = useMemo(() => groupPrograms(programs), [programs])
-  const selectedProgramGroup = useMemo(() => {
-    if (!programGroups.length) return null
-    if (!selectedProgramKey || selectedProgramKey === CLINICAL_PROGRAM_ALL) return null
-    return programGroups.find((pg) => pg.key === selectedProgramKey) ?? null
-  }, [programGroups, selectedProgramKey])
   const trackedInvestors = useMemo(
     () =>
       buildContextTrackedInvestors({
@@ -4588,16 +3864,9 @@ function MainContextPanel({
       }),
     [insiders, politicians, filings13f, trackedInvestorsApi],
   )
-
-  const clinicalOutcomes = useMemo(
-    () => contextClinicalOutcomesFromLive(contextOutcomesLive?.pharma, t, backendUp),
-    [t, backendUp, contextOutcomesLive?.pharma],
-  )
   const trackedInvestorsLoading = backendUp && exploreContextLoading && !trackedInvestors.length
   const ownershipLoading = backendUp && companyContextLoading && !ownership
   const fundamentalsLoading = backendUp && companyContextLoading && !fundamentals
-  const clinicalSectionsLoading = backendUp && clinicalContextLoading
-  const outcomesLoading = backendUp && contextOutcomesLive == null
 
   return (
     <section
@@ -4606,7 +3875,7 @@ function MainContextPanel({
         'feed',
         'feedCompact',
         'mainContextPanel',
-        showFlows ? 'mainContextPanel--market' : 'mainContextPanel--clinical',
+        'mainContextPanel--market',
         panelClassName,
       ]
         .filter(Boolean)
@@ -4623,8 +3892,7 @@ function MainContextPanel({
           sector={sector}
           domicile={domicile}
           mcap={mcap}
-          earnings={earnings && showFlows ? earnings : null}
-          lead={!showFlows && leadDrug ? { label: leadDrug.name } : null}
+          earnings={earnings}
         >
           <div className="contextCompanyChart" aria-label="Price chart">
             <MiniPriceChart
@@ -4641,105 +3909,6 @@ function MainContextPanel({
             />
           </div>
         </CompanySnapshotCard>
-
-        {!showFlows ? (
-          <>
-            {selectedProgramGroup ? (
-              <ContextSection title="PROGRAM" ariaLabel={`Program ${selectedProgramGroup.key}`}>
-                {(() => {
-                  const pg = selectedProgramGroup
-                  const leadVariant = leadProgramVariantForGroup(pg, leadDrug)
-                  const isLeadProgram = Boolean(leadVariant)
-                  const displayVariant = leadVariant ?? pg.variants?.[0] ?? {}
-                  const phase =
-                    displayVariant?.stage ? displayPhaseLabel(displayVariant.stage) : feedProgramPhaseForGroup(pg)
-                  const ind = displayVariant?.indication ?? null
-                  const visibleMilestones = (pg.variants ?? [])
-                    .flatMap((v) => v.milestones ?? [])
-                    .slice()
-                    .sort((a, b) => {
-                      const ta = a?.at ? new Date(a.at).getTime() : 0
-                      const tb = b?.at ? new Date(b.at).getTime() : 0
-                      return ta - tb
-                    })
-                    .slice(0, 12)
-                  return (
-                    <div className="contextProgramCard contextProgramCard--plain" aria-label={pg.key}>
-                      <div className="contextProgramTop">
-                        <div className="contextProgramTopMain">
-                          <div className="contextProgramKey mono">{pg.key}</div>
-                          <div className="contextProgramMeta mono dim">{ind || '—'}</div>
-                        </div>
-                        <div className="contextProgramTopRight">
-                          <div className="contextProgramPhase mono dim">{phase || '—'}</div>
-                          {isLeadProgram ? (
-                            <span className="contextProgramLeadBadge mono dim">LEAD</span>
-                          ) : null}
-                        </div>
-                      </div>
-                      {clinicalSectionsLoading ? (
-                        <PanelStatusMessage
-                          label="Loading milestones…"
-                          className="contextProgramMilestonesEmpty"
-                        />
-                      ) : visibleMilestones.length ? (
-                        <div className="contextProgramMilestones dim">
-                          {visibleMilestones.map((m, idx) => (
-                            <a
-                              key={`${pg.key}-${idx}`}
-                              className={[
-                                'contextProgramMilestoneRow',
-                                m?.url ? 'contextProgramMilestoneRow--link' : '',
-                              ]
-                                .filter(Boolean)
-                                .join(' ')}
-                              href={m?.url || undefined}
-                              target={m?.url ? '_blank' : undefined}
-                              rel={m?.url ? 'noopener noreferrer' : undefined}
-                              onClick={(e) => {
-                                if (!m?.url) e.preventDefault()
-                              }}
-                            >
-                              <div className="contextProgramMilestoneLabel">{m?.label ?? '—'}</div>
-                              <div className="contextProgramMilestoneAt mono dim">
-                                {m?.at ? formatProgramTimelineDate(m.at) : '—'}
-                              </div>
-                            </a>
-                          ))}
-                        </div>
-                      ) : (
-                        <PanelStatusMessage label="No milestones" className="contextProgramMilestonesEmpty" />
-                      )}
-                    </div>
-                  )
-                })()}
-              </ContextSection>
-            ) : null}
-            <ContextSection ariaLabel="Catalyst clock">
-              <ContextCatalystCard items={catalystItems} title="Catalyst clock" loading={clinicalSectionsLoading} />
-            </ContextSection>
-            <ContextSection ariaLabel="Financial runway">
-              <ContextRunwayCard runway={runway} loading={clinicalSectionsLoading} />
-            </ContextSection>
-            <ContextSection ariaLabel="Ownership">
-              <ContextOwnershipCard ownership={ownership} loading={ownershipLoading} />
-            </ContextSection>
-            <ContextSection ariaLabel="Tracked investors">
-              <ContextTrackedInvestorsCard rows={trackedInvestors} loading={trackedInvestorsLoading} />
-            </ContextSection>
-            <ContextSection ariaLabel="Trial historical outcomes">
-              <ContextClinicalOutcomesList
-                outcomeLines={clinicalOutcomes.outcomeLines}
-                sampleSize={clinicalOutcomes.sampleSize}
-                stats={clinicalOutcomes.stats}
-                chartTitle="Trial historical outcomes"
-                loading={outcomesLoading}
-              />
-            </ContextSection>
-          </>
-        ) : null}
-
-        {showFlows ? (
           <>
             <ContextSection ariaLabel="Fundamentals">
               <ContextFundamentalsCard fundamentals={fundamentals} loading={fundamentalsLoading} />
@@ -4751,7 +3920,6 @@ function MainContextPanel({
               <ContextTrackedInvestorsCard rows={trackedInvestors} loading={trackedInvestorsLoading} />
             </ContextSection>
           </>
-        ) : null}
       </div>
     </section>
   )
@@ -4876,114 +4044,13 @@ function ResearchFeedTickerList({
   )
 }
 
-function programGroupMatchesQuery(pg, queryRaw) {
-  const s = String(queryRaw ?? '').trim().toUpperCase()
-  if (!s) return true
-  if (String(pg?.key ?? '').toUpperCase().includes(s)) return true
-  if (feedProgramPhaseForGroup(pg).toUpperCase().includes(s)) return true
-  for (const v of pg?.variants ?? []) {
-    if (String(v?.indication ?? '').toUpperCase().includes(s)) return true
-    if (String(v?.stage ?? '').toUpperCase().includes(s)) return true
-  }
-  return false
-}
-
-function ResearchFeedProgramsList({
-  programGroups,
-  selectedProgramKey,
-  onSelectProgramKey,
-  q,
-  onQuery,
-  loading = false,
-}) {
-  const filteredGroups = useMemo(
-    () => (programGroups ?? []).filter((pg) => programGroupMatchesQuery(pg, q)),
-    [programGroups, q],
-  )
-
-  const selectProgram = (key) => (e) => {
-    onSelectProgramKey?.(key)
-    e.currentTarget.blur()
-  }
-
-  return (
-    <>
-      <label className="researchFeedSearch">
-        <input
-          className="researchFeedSearchInput"
-          value={q ?? ''}
-          placeholder="Search by program"
-          onChange={(e) => onQuery?.(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') onQuery?.('')
-          }}
-          aria-label="Search by program"
-          spellCheck={false}
-        />
-        <svg className="researchFeedSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
-          <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-        </svg>
-      </label>
-      <div className="researchFeedProgramsList scrollThin" role="list">
-        <button
-          type="button"
-          role="listitem"
-          className={[
-            'researchFeedRow',
-            'researchFeedRow--program',
-            !selectedProgramKey || selectedProgramKey === CLINICAL_PROGRAM_ALL ? 'isActive' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          onClick={selectProgram(CLINICAL_PROGRAM_ALL)}
-        >
-          <span className="researchFeedRowName">ALL</span>
-          <span className="researchFeedRowPhase mono dim">Company</span>
-        </button>
-        {loading ? (
-          <PanelStatusMessage label="Loading programs…" className="researchFeedProgramsEmpty" />
-        ) : filteredGroups.length ? (
-          filteredGroups.map((pg) => (
-            <button
-              key={pg.key}
-              type="button"
-              role="listitem"
-              className={[
-                'researchFeedRow',
-                'researchFeedRow--program',
-                selectedProgramKey === pg.key ? 'isActive' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              onClick={selectProgram(pg.key)}
-            >
-              <span className="researchFeedRowName">{pg.key}</span>
-              <span className="researchFeedRowPhase mono dim">{feedProgramPhaseForGroup(pg)}</span>
-            </button>
-          ))
-        ) : programGroups.length ? (
-          <PanelStatusMessage label="No matching programs" className="researchFeedProgramsEmpty" />
-        ) : (
-          <PanelStatusMessage label="No programs" className="researchFeedProgramsEmpty" />
-        )}
-      </div>
-    </>
-  )
-}
 
 function ResearchTickerPanel({
-  intelMode = 'market',
   selectedTicker,
   onSelectTicker,
   q,
   onQuery,
   filtered,
-  programs = [],
-  selectedProgramKey = null,
-  onSelectProgramKey,
-  programQuery = '',
-  onProgramQuery,
   showFeedFilter = false,
   feedFilterActive = false,
   feedFilterOpen = false,
@@ -4992,12 +4059,8 @@ function ResearchTickerPanel({
   panelClassName = '',
   feedLoading = false,
   feedEmptyLabel = 'No feed items yet.',
-  programsLoading = false,
   showDocumentCount = true,
 }) {
-  const clinicalSplit = intelMode === 'clinical'
-  const programGroups = useMemo(() => groupPrograms(programs), [programs])
-
   const feedFilterBtn = showFeedFilter ? (
     <button
       type="button"
@@ -5032,48 +4095,12 @@ function ResearchTickerPanel({
         'feedCompact',
         'feed--left',
         'researchTicker',
-        'researchFeedPanel',
-        clinicalSplit ? 'researchFeedPanel--clinicalSplit' : '',
-        panelClassName,
+        'researchFeedPanel',        panelClassName,
       ]
         .filter(Boolean)
         .join(' ')}
-      aria-label={clinicalSplit ? 'Feed and programs' : 'Ticker selector'}
+      aria-label="Ticker selector"
     >
-      {clinicalSplit ? (
-        <div
-          className={['researchFeedSplit', feedFilterOpen ? 'researchFeedSplit--filterOpen' : '']
-            .filter(Boolean)
-            .join(' ')}
-        >
-          <div className="researchFeedSplitPane researchFeedSplitPane--feed">
-            <header className="feedCompactHeader">
-              <div className="panelTitle feedCompactTitle">FEED</div>
-              <div className="feedCompactHeaderEnd">{feedFilterBtn}</div>
-            </header>
-            <ResearchFeedPaneShell filterOpen={feedFilterOpen} filterPicker={feedFilterPicker} split>
-              {tickerList}
-            </ResearchFeedPaneShell>
-          </div>
-          {feedFilterOpen ? null : (
-            <div className="researchFeedSplitPane researchFeedSplitPane--programs">
-              <header className="feedCompactHeader">
-                <div className="panelTitle feedCompactTitle">PROGRAMS</div>
-              </header>
-              <div className="researchFeedBody researchFeedBody--split researchFeedBody--programs">
-                <ResearchFeedProgramsList
-                  programGroups={programGroups}
-                  selectedProgramKey={selectedProgramKey}
-                  onSelectProgramKey={onSelectProgramKey}
-                  q={programQuery}
-                  onQuery={onProgramQuery}
-                  loading={programsLoading}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
         <>
           <header className="feedCompactHeader">
             <div className="panelTitle feedCompactTitle">FEED</div>
@@ -5083,7 +4110,6 @@ function ResearchTickerPanel({
             {tickerList}
           </ResearchFeedPaneShell>
         </>
-      )}
     </section>
   )
 }
@@ -5644,7 +4670,7 @@ function mockSignalBits(ticker) {
     'pipeline reprioritization',
   ][a]
   const hiring = [
-    'clinical ops hiring',
+    'operations hiring',
     'regulatory affairs hiring',
     'commercial build-out hiring',
     'CMC / manufacturing hiring',
@@ -5699,8 +4725,7 @@ function CausalDiagram({ ticker, diagramSpec }) {
   const wrapRef = useRef(null)
   const [size, setSize] = useState({ w: 720, h: 150 })
   const tUpper = String(ticker ?? '').toUpperCase()
-  const isForkMergeDiagram =
-    diagramSpec?.layout === 'fork_merge' || tUpper === 'ASML' || tUpper === 'ATYR'
+  const isForkMergeDiagram = diagramSpec?.layout === 'fork_merge' || tUpper === 'ASML'
 
   useEffect(() => {
     const el = wrapRef.current
@@ -5791,7 +4816,7 @@ function CausalDiagram({ ticker, diagramSpec }) {
       return [...top, ...bot]
     }
 
-    if (t === 'ASML' || t === 'ATYR') {
+    if (t === 'ASML') {
       const pad = 8
       const rh = 34
       /* Wide row gap so fork/merge elbows have room; thin gaps make arrows look stacked and messy. */
@@ -5826,13 +4851,7 @@ function CausalDiagram({ ticker, diagramSpec }) {
               ['a3', 'EUV slot / allocation'],
               ['a4', 'ASML EUV supply'],
             ]
-          : [
-              ['p0', 'SEC / CT.gov disclosures'],
-              ['p1', 'EFZO-FIT Ph3 (N=268)'],
-              ['p2', 'EFZO-CONNECT Ph2 PoC'],
-              ['p3', 'FDA / commercial read'],
-              ['p4', 'ATYR repricing'],
-            ]
+          : []
 
       return [
         { id: pack[0][0], label: pack[0][1], x: xTop, y: y0, w: topW, h: rh },
@@ -5870,7 +4889,7 @@ function CausalDiagram({ ticker, diagramSpec }) {
 
   const forkMergeVbH = useMemo(() => {
     const t = String(ticker ?? '').toUpperCase()
-    if (diagramSpec?.layout !== 'fork_merge' && t !== 'ASML' && t !== 'ATYR') return h
+    if (diagramSpec?.layout !== 'fork_merge' && t !== 'ASML') return h
     if (!nodes.length) return h
     const pad = 10
     const bottom = Math.max(...nodes.map((n) => n.y + n.h))
@@ -5894,17 +4913,6 @@ function CausalDiagram({ ticker, diagramSpec }) {
         ['a1', 'a3'],
         ['a2', 'a3'],
         ['a3', 'a4'],
-      ]
-        .map(([from, to]) => ({ from, to, a: byId[from], b: byId[to], kind: 'main' }))
-        .filter((x) => x.a && x.b)
-    }
-    if (t === 'ATYR') {
-      return [
-        ['p0', 'p1'],
-        ['p0', 'p2'],
-        ['p1', 'p3'],
-        ['p2', 'p3'],
-        ['p3', 'p4'],
       ]
         .map(([from, to]) => ({ from, to, a: byId[from], b: byId[to], kind: 'main' }))
         .filter((x) => x.a && x.b)
@@ -5996,9 +5004,7 @@ function CausalDiagram({ ticker, diagramSpec }) {
       ? 'Evidence chain diagram'
       : tUpper === 'ASML'
         ? 'Supply chain diagram'
-        : tUpper === 'ATYR'
-          ? 'Clinical catalyst chain diagram'
-          : 'Causal chain diagram'
+        : 'Causal chain diagram'
 
   const arrowMarkerId = useMemo(() => {
     const s = `research-arrow-${String(ticker ?? 'tk')}-${String(diagramSpec?.layout ?? 'x')}`
@@ -6203,81 +5209,6 @@ function mockPaperFiledAtToday() {
 }
 
 /** Per-filing AI summaries shown under the paper price chart (newest first). */
-const MOCK_PAPER_DOCUMENTS_ATYR = [
-  {
-    id: 'atyr-doc-8k-today',
-    programKeys: ['Efzofitimod'],
-    source: '8-K',
-    filedAt: mockPaperFiledAtToday(),
-    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
-    briefKey: 'atyr-8k-today',
-    ...mockIdeaFields(0, 'research'),
-    analysis:
-      'Same-day 8-K: no material clinical update, routine disclosure ahead of the week-48 readout window. Useful as a timestamp anchor; does not change the binary mean-OCS setup.',
-  },
-  {
-    id: 'atyr-doc-8k-cash',
-    programKeys: ['Efzofitimod'],
-    source: '8-K',
-    filedAt: '2026-05-08T00:00:00.000Z',
-    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
-    briefKey: 'atyr-8k-cash',
-    ...mockIdeaFields(1, 'research'),
-    analysis:
-      'Management updated cash runway guidance and reiterated that EFZO-FIT remains fully enrolled with no change to the week-48 mean oral-steroid primary. The filing is operational, not efficacy-bearing, but it narrows financing overhang ahead of the binary readout.',
-  },
-  {
-    id: 'atyr-doc-8k-safety',
-    programKeys: ['Efzofitimod'],
-    source: '8-K',
-    filedAt: '2026-04-09T00:00:00.000Z',
-    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
-    briefKey: 'atyr-8k-safety',
-    analysis:
-      'The company filed an interim blinded safety update without unblinded efficacy tables. Management reiterated that blinded review has not shown a toxicity spiral ahead of topline. The disclosure is supportive for holders into the print but does not change the statistical fight on the mean oral-steroid primary.',
-  },
-  {
-    id: 'atyr-doc-10q-risk',
-    programKeys: ['Efzofitimod'],
-    source: '10-Q',
-    filedAt: '2026-03-18T00:00:00.000Z',
-    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
-    briefKey: 'atyr-10q-risk',
-    analysis:
-      'Risk factors again stress that EFZO-FIT success depends on demonstrating steroid reduction with acceptable variability across sites. The filing cautions that enrollment completion does not tighten confidence intervals on a mean-dose endpoint when placebo arms follow the same visit cadence. Language stays consistent with a binary catalyst rather than a de-risked fundamental story.',
-  },
-  {
-    id: 'atyr-doc-enrollment',
-    programKeys: ['Efzofitimod'],
-    source: 'ClinicalTrials.gov',
-    filedAt: '2026-02-11T00:00:00.000Z',
-    url: 'https://clinicaltrials.gov/study/NCT05415137',
-    briefKey: 'atyr-enrollment',
-    ...mockIdeaFields(2, 'research'),
-    analysis:
-      'EFZO-FIT (NCT05415137) lists enrollment at 268 participants versus a 264 target for the sarcoidosis program. The trial remains three-arm with 5 mg/kg, 3 mg/kg, and placebo. The registry still frames the primary endpoint as absolute change from baseline in mean daily oral steroid dose at week 48, which is the regulatory line investors should track before any efficacy narrative hardens.',
-  },
-  {
-    id: 'atyr-doc-connect',
-    programKeys: ['Efzofitimod'],
-    source: 'ClinicalTrials.gov',
-    filedAt: '2026-01-22T00:00:00.000Z',
-    url: 'https://clinicaltrials.gov/study/NCT05892614',
-    briefKey: 'atyr-connect',
-    analysis:
-      'EFZO-CONNECT (NCT05892614) remains a separate SSc-ILD proof-of-concept with roughly 25 patients and placebo control. The registry update does not alter EFZO-FIT power. A strong PoC read could help sentiment after Phase 3 tables, but it cannot statistically rescue a failed pivotal mean-OCS outcome.',
-  },
-  {
-    id: 'atyr-doc-10k-prior',
-    programKeys: ['Efzofitimod'],
-    source: '10-K',
-    filedAt: '2025-03-04T00:00:00.000Z',
-    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
-    analysis:
-      'Prior-year 10-K language already framed EFZO-FIT as a mean oral-steroid primary with placebo-driven taper noise. Useful baseline if you are comparing how risk disclosure evolved into the current Phase 3 window.',
-  },
-]
-
 const MOCK_PAPER_DOCUMENTS_ASML = [
   {
     id: 'asml-doc-gov-dod-euv',
@@ -6356,12 +5287,6 @@ function paperDocumentOpenUrl(doc, ticker) {
   const id = String(doc?.id ?? '')
   const source = String(doc?.source ?? '').toLowerCase()
   const t = String(ticker ?? '').trim().toUpperCase()
-  if (id.includes('connect') || source.includes('connect')) {
-    return 'https://clinicaltrials.gov/study/NCT05892614'
-  }
-  if (source.includes('clinicaltrials') || id.includes('enrollment') || id.includes('fit')) {
-    return 'https://clinicaltrials.gov/study/NCT05415137'
-  }
   if (source.includes('investor') && t === 'ASML') {
     return 'https://www.asml.com/en/investors'
   }
@@ -6798,43 +5723,6 @@ function mockAsmlPresentation() {
   }
 }
 
-function mockAtyrPresentation() {
-  const intro =
-    'This note pulls only from documents. ClinicalTrials.gov, enrollment updates, what the company says about clinical risk, blinded safety tables. You cannot defend an efficacy claim until topline. EFZO-FIT (NCT05415137) is sarcoidosis with three arms at 5 mg per kg, 3 mg per kg, and placebo. Enrollment hit 268 against a 264 target. Placebo is real and the N matters. The SAP emphasizes absolute change from baseline in mean daily oral steroid dose at week 48. That is what regulators stare at first. Everything else is narrative until you see milligrams per day with spread. EFZO-CONNECT (NCT05892614) is a separate SSc-ILD proof-of-concept with about 25 patients and placebo. It can reveal a monster effect if one exists. It cannot statistically rescue Phase 3 if the pivotal mean-OCS line fails.'
-  const priceCaption =
-    'ATYR only. Price is mostly enthusiasm minus hard facts. If the stock rips before anyone has deltas and confidence intervals, that is guessing.'
-  const middle =
-    'Beating the enrollment target helps operations. It does not tighten the error bars on a mean steroid taper when placebo arms also step down on the same visit cadence baked into the protocol. A hit on the week-48 OCS primary can still be a coin toss unless the drug separation is huge. Patients miss doses and titrate differently, which can chew through several mg per day at the cohort level. Blinded safety updates so far have not screamed a toxicity spiral, which is the one qualitative cushion for holders into the print. Connect is small, tens of patients. If Phase 3 misses, that PoC does not prove you get approval. It only shows biology at a scale too tiny to fix power. Off documents alone, odds on clearing the written primary look low to middling. Steroid-free rate and lung numbers could still move how people trade if the separation is clean, because doctors care about those even when the headline mean-dose fight is noisy.'
-  const diagramCaption =
-    'Filings and trial registries link EFZO-FIT and EFZO-CONNECT. The FDA still wants both paths to tell one approvable story before the name reprices.'
-  const action =
-    'Blinded-file view says do not add fresh equity before unblinding. A long here is mostly variance on a mean-OCS endpoint that fights clean stats. Trim or hedge into any pre-data rally. If someone wants to gamble the print, use structures where downside is capped, like options. Buying more common into a binary FDA-style read without tables is how retail accounts vaporize. After topline, focus on what actually prints. Mean change in daily oral steroids with confidence intervals, steroid-free rates, FVC and the other pulmonary rows. Until then the protocol stack is the whole thesis.'
-  return {
-    title:
-      'EFZO-FIT finished enrollment while still blinded. The protocol and SAP lean hard on a mean-OCS primary that is messy statistically, so the stock is basically a catalyst flip until real tables drop.',
-    subtitle: paperSubtitle('aTyr Pharma, Inc.', 'ATYR'),
-    paperDate: todayDateStamp(),
-    blocks: [
-      { type: 'heading', text: 'Company focus' },
-      { type: 'paragraph', text: intro },
-      { type: 'heading', text: 'Price' },
-      { type: 'price', caption: priceCaption },
-      { type: 'heading', text: 'Structural signals' },
-      { type: 'paragraph', text: middle },
-      { type: 'heading', text: 'Entity map' },
-      { type: 'diagram', caption: diagramCaption },
-      { type: 'heading', text: 'Implementation angle' },
-      { type: 'paragraph', text: action },
-    ],
-    diagram: undefined,
-    documents: MOCK_PAPER_DOCUMENTS_ATYR,
-    sources: [
-      { label: 'ClinicalTrials.gov - EFZO-FIT (NCT05415137)', url: 'https://clinicaltrials.gov/study/NCT05415137' },
-      { label: 'ClinicalTrials.gov - EFZO-CONNECT (NCT05892614)', url: 'https://clinicaltrials.gov/study/NCT05892614' },
-      { label: 'SEC EDGAR search', url: 'https://www.sec.gov/edgar/search/' },
-    ],
-  }
-}
 
 function mockOfflinePresentation(memo, titleText, ticker) {
   const t = String(ticker ?? '').toUpperCase()
@@ -6866,26 +5754,6 @@ function mockOfflinePresentation(memo, titleText, ticker) {
   }
 }
 
-function paperDocProgramKeys(doc) {
-  const tagged = Array.isArray(doc?.programKeys) ? doc.programKeys : []
-  if (tagged.length) return tagged.map((k) => String(k).trim()).filter(Boolean)
-  const drug = String(doc?.programDrug ?? doc?.program_drug ?? '').trim()
-  if (drug) return [drug]
-  const id = String(doc?.id ?? '').toLowerCase()
-  const blob = `${id} ${String(doc?.analysis ?? '').toLowerCase()}`
-  const keys = []
-  if (/efzo|efzofitimod|nct05415137|nct05892614|sarcoid|week-48|mean-ocs|fit/.test(blob)) keys.push('Efzofitimod')
-  if (/atyr-2810|2810|solid tumor/.test(blob)) keys.push('ATYR-2810')
-  return keys
-}
-
-function filterPaperDocumentsByProgram(documents, programKey) {
-  const rows = Array.isArray(documents) ? documents : []
-  const sel = String(programKey ?? '').trim()
-  if (!sel || sel === CLINICAL_PROGRAM_ALL) return rows
-  const want = sel.toLowerCase()
-  return rows.filter((doc) => paperDocProgramKeys(doc).some((k) => k.toLowerCase() === want))
-}
 
 function paperDocumentsFromPresentation(presentation) {
   const rows = Array.isArray(presentation?.documents) ? presentation.documents : []
@@ -6995,13 +5863,11 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
   return items.sort((a, b) => paperTimelineAtMs(b?.at) - paperTimelineAtMs(a?.at))
 }
 
-function resolveResearchPresentation({ ticker, titleText, backendUp, livePresentation, memo, intelMode = 'market' }) {
+function resolveResearchPresentation({ ticker, titleText, backendUp, livePresentation, memo }) {
   const u = String(ticker ?? '').toUpperCase()
-  const clinical = intelMode === 'clinical'
   if (backendUp && livePresentation?.title) return livePresentation
   if (backendUp) return null
-  if (clinical && u === 'ATYR') return mockAtyrPresentation()
-  if (!clinical && u === 'ASML') return mockAsmlPresentation()
+  if (u === 'ASML') return mockAsmlPresentation()
   return mockOfflinePresentation(memo, titleText, ticker)
 }
 
@@ -7027,9 +5893,9 @@ function researchSourceSubtypeKey(sourceId, subtypeId) {
   return `${sourceId}::${String(subtypeId ?? '').trim()}`
 }
 
-function researchSourceFilterKeysForIntel(intelMode) {
+function researchSourceFilterKeys() {
   const keys = new Set()
-  for (const t of researchPaperSourceTypesForIntel(intelMode)) {
+  for (const t of researchPaperSourceTypes()) {
     const subs = RESEARCH_SOURCE_SUBTYPE_GROUPS[t.id]
     if (subs?.length) {
       for (const sub of subs) keys.add(researchSourceSubtypeKey(t.id, sub.id))
@@ -7057,8 +5923,8 @@ function enabledHasInvestigateFlowFilters(enabledSources) {
   return false
 }
 
-function enabledHasDocumentFilters(enabledSources, intelMode) {
-  for (const t of researchPaperSourceTypesForIntel(intelMode)) {
+function enabledHasDocumentFilters(enabledSources) {
+  for (const t of researchPaperSourceTypes()) {
     if (RESEARCH_SOURCE_SUBTYPE_GROUPS[t.id]?.length) continue
     if (['Form 3', 'Form 4', 'Form 5', 'PTR', '13F'].includes(t.id)) continue
     if (enabledSources.has(t.id)) return true
@@ -7131,7 +5997,7 @@ function researchFeedRowPassesSourceFilter(row, enabledSources) {
     if (!enabledHasInvestigateFlowFilters(enabledSources)) return false
     return researchSourceSubtypeKeysForSource('13F').some((k) => enabledSources.has(k))
   }
-  if (fk === 'research' || fk === 'pharma') {
+  if (fk === 'research') {
     if (Number(row?.paper_doc_count) === 0) return false
   }
   const docKey = normalizeResearchPaperSourceKey(row?.source_key ?? 'Other')
@@ -7184,31 +6050,26 @@ function filterPaperDocumentsBySources(documents, enabledSources) {
   return (documents ?? []).filter((doc) => paperDocumentPassesSourceFilter(doc, enabledSources))
 }
 
-function effectiveResearchPaperSourceFilters(enabledSources, intelMode) {
-  if (!enabledSources?.size) return new Set(researchSourceFilterKeysForIntel(intelMode))
+function effectiveResearchPaperSourceFilters(enabledSources) {
+  if (!enabledSources?.size) return new Set(researchSourceFilterKeys())
   return enabledSources
 }
 
-function researchFeedNameForTicker(ticker, intelMode) {
+function researchFeedNameForTicker(ticker) {
   const u = String(ticker ?? '').toUpperCase()
-  const mode = intelMode === 'clinical' ? 'clinical' : 'market'
-  const row = (RESEARCH_FEED_BY_INTEL[mode] ?? []).find((x) => String(x.ticker).toUpperCase() === u)
+  const row = RESEARCH_FEED_ROWS.find((x) => String(x.ticker).toUpperCase() === u)
   return row?.name ?? u
 }
 
-function researchOfflinePresentationForTicker({ ticker, intelMode, memo }) {
+function researchOfflinePresentationForTicker({ ticker, memo }) {
   const u = String(ticker ?? '').toUpperCase()
-  const clinical = intelMode === 'clinical'
-  const titleText = researchFeedNameForTicker(u, intelMode)
-  if (clinical && u === 'ATYR') return mockAtyrPresentation()
-  if (!clinical && u === 'ASML') return mockAsmlPresentation()
+  const titleText = researchFeedNameForTicker(u)
+  if (u === 'ASML') return mockAsmlPresentation()
   return mockOfflinePresentation(memo, titleText, ticker)
 }
 
 function buildResearchPaperTimelineForTicker({
   ticker,
-  intelMode,
-  programKey,
   livePresentation = null,
   selectedTicker = null,
   backendUp = false,
@@ -7216,13 +6077,11 @@ function buildResearchPaperTimelineForTicker({
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const sel = String(selectedTicker ?? '').toUpperCase()
-  const showFlows =
-    intelMode !== 'clinical' || !programKey || programKey === CLINICAL_PROGRAM_ALL
+  const showFlows = true
 
   if (backendUp) {
     if (!livePresentation?.title || t !== sel) return []
-    let docs = paperDocumentsFromPresentation(livePresentation)
-    if (intelMode === 'clinical') docs = filterPaperDocumentsByProgram(docs, programKey)
+    const docs = paperDocumentsFromPresentation(livePresentation)
     const flows =
       liveFlows && typeof liveFlows === 'object'
         ? liveFlows
@@ -7237,15 +6096,14 @@ function buildResearchPaperTimelineForTicker({
 
   const memo = buildThesisMemo({
     ticker: t,
-    companyName: researchFeedNameForTicker(t, intelMode),
+    companyName: researchFeedNameForTicker(t),
     events: mockDatasetForTicker(t).events,
     priceSeries: mockDatasetForTicker(t).price,
     constituents: isEtfTicker(t) ? mockDatasetForTicker(t)?.constituents ?? [] : [],
   })
-  const pres = researchOfflinePresentationForTicker({ ticker: t, intelMode, memo })
+  const pres = researchOfflinePresentationForTicker({ ticker: t, memo })
   if (!pres?.title) return []
-  let docs = paperDocumentsFromPresentation(pres)
-  if (intelMode === 'clinical') docs = filterPaperDocumentsByProgram(docs, programKey)
+  const docs = paperDocumentsFromPresentation(pres)
   const mock = contextMockForTicker(t, [])
   return buildPaperTimelineItems({
     documents: docs,
@@ -7639,7 +6497,7 @@ function ResearchPaperStructuredView({
         </div>
       ) : (
         <p className="researchPaperEmpty mono dim" role="status">
-          No filings or activity match the current filters for this program.
+          No filings or activity match the current filters.
         </p>
       )}
     </div>
@@ -7655,8 +6513,6 @@ function ResearchPaperPanel({
   presentation,
   backendUp,
   dataTicker = null,
-  intelMode = 'market',
-  selectedProgramKey = null,
   insiders = [],
   politicians = [],
   filings13f = [],
@@ -7679,7 +6535,7 @@ function ResearchPaperPanel({
   const [screenshotSelected, setScreenshotSelected] = useState(() => new Set())
   const [screenshotIncludeChart, setScreenshotIncludeChart] = useState(false)
   const [screenshotBusy, setScreenshotBusy] = useState(false)
-  const showChartFlowMarkers = intelMode !== 'clinical'
+  const showChartFlowMarkers = true
 
   const captureChartLatestPrice = useMemo(() => {
     const rows = Array.isArray(priceSeries) ? priceSeries : []
@@ -7695,26 +6551,20 @@ function ResearchPaperPanel({
 
   const paperDocuments = useMemo(() => {
     const docs = paperDocumentsFromPresentation(safePresentation)
-    let rows = intelMode !== 'clinical' ? docs : filterPaperDocumentsByProgram(docs, selectedProgramKey)
+    let rows = docs
     if (paperSourceFilters) rows = filterPaperDocumentsBySources(rows, paperSourceFilters)
     return rows
-  }, [safePresentation, intelMode, selectedProgramKey, paperSourceFilters])
+  }, [safePresentation, paperSourceFilters])
 
   const flowInsiders = presentationReady ? insiders : []
   const flowPoliticians = presentationReady ? politicians : []
   const flowFilings13f = presentationReady ? filings13f : []
-
-  const showPaperInsiderPoliticianFlows =
-    intelMode !== 'clinical' ||
-    !selectedProgramKey ||
-    selectedProgramKey === CLINICAL_PROGRAM_ALL
-
   const paperCaptureIds = useMemo(() => {
     const timeline = buildPaperTimelineItems({
       documents: paperDocuments,
-      insiders: showPaperInsiderPoliticianFlows ? flowInsiders : [],
-      politicians: showPaperInsiderPoliticianFlows ? flowPoliticians : [],
-      filings13f: showPaperInsiderPoliticianFlows ? flowFilings13f : [],
+      insiders: flowInsiders,
+      politicians: flowPoliticians,
+      filings13f: flowFilings13f,
     })
     const filtered = paperSourceFilters
       ? filterPaperTimelineBySources(timeline, paperSourceFilters)
@@ -7726,15 +6576,14 @@ function ResearchPaperPanel({
     flowPoliticians,
     flowFilings13f,
     paperSourceFilters,
-    showPaperInsiderPoliticianFlows,
   ])
 
   const paperCapturePortraitById = useMemo(() => {
     const timeline = buildPaperTimelineItems({
       documents: paperDocuments,
-      insiders: showPaperInsiderPoliticianFlows ? flowInsiders : [],
-      politicians: showPaperInsiderPoliticianFlows ? flowPoliticians : [],
-      filings13f: showPaperInsiderPoliticianFlows ? flowFilings13f : [],
+      insiders: flowInsiders,
+      politicians: flowPoliticians,
+      filings13f: flowFilings13f,
     })
     const filtered = paperSourceFilters
       ? filterPaperTimelineBySources(timeline, paperSourceFilters)
@@ -7754,7 +6603,6 @@ function ResearchPaperPanel({
     politicians,
     filings13f,
     paperSourceFilters,
-    showPaperInsiderPoliticianFlows,
   ])
 
   const cancelScreenshotSelect = useCallback(() => {
@@ -7974,9 +6822,9 @@ function ResearchPaperPanel({
               key={`${t}-${paperDocuments.map((d) => d.id).join('|')}`}
               ticker={ticker}
               documents={paperDocuments}
-              insiders={showPaperInsiderPoliticianFlows ? flowInsiders : []}
-              politicians={showPaperInsiderPoliticianFlows ? flowPoliticians : []}
-              filings13f={showPaperInsiderPoliticianFlows ? flowFilings13f : []}
+              insiders={flowInsiders}
+              politicians={flowPoliticians}
+              filings13f={flowFilings13f}
               paperSourceFilters={paperSourceFilters}
               screenshotSelectMode={screenshotSelectMode}
               screenshotSelected={screenshotSelected}
@@ -9003,56 +7851,6 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
 
   const outcomesLoading = backendUp && !outcomesLoaded
   const hasDataset = sampleSizeNum != null ? sampleSizeNum > 0 : Boolean(ins && ins.sampleSize)
-  const clinicalOutcomeLines = useMemo(() => {
-    if (!hasDataset) return []
-    if (backendUp) {
-      const lines = pharmaOutcomeLinesFromLiveBuckets(ins?.buckets, '')
-      return lines ?? []
-    }
-    return buildMockPharmaOutcomeLines('')
-  }, [hasDataset, backendUp, ins])
-
-  return (
-    <section
-      className={[
-        'panel',
-        'historicalOutcomes',
-        'blankTile--a',
-        'historicalOutcomes--market',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      aria-label="Historical outcomes"
-    >
-      <div className="worksheetBody historicalOutcomesBody scrollThin">
-        {insider ? (
-          <HistoricalMarketOutcomesView
-            ins={ins}
-            mode={mode}
-            personDisplay={personDisplay}
-            loading={outcomesLoading}
-          />
-        ) : outcomesLoading ? (
-          <div className="contextOutcomesPanelWrap">
-            <ContextClinicalOutcomesList chartTitle="Trial outcomes" loading />
-          </div>
-        ) : hasDataset ? (
-          <div className="contextOutcomesPanelWrap">
-            <ContextClinicalOutcomesList
-              outcomeLines={clinicalOutcomeLines}
-              sampleSize={ins?.sampleSize ?? EMPTY}
-              stats={ins}
-              chartTitle="Trial outcomes"
-            />
-          </div>
-        ) : (
-          <div className="contextOutcomesPanelWrap">
-            <ContextClinicalOutcomesList chartTitle="Trial outcomes" />
-          </div>
-        )}
-      </div>
-    </section>
-  )
 }
 
 function CompanyPanel({ company, ticker, backendUp, price = null }) {
@@ -9708,17 +8506,11 @@ function CaseKvFeed({
   )
 }
 
-function intelSwitchBtnClass(active) {
-  return active ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'
-}
 
 function TerminalTopBar({
   settingsActive,
   onSettingsClick,
   backendUp,
-  intelMode,
-  onIntelModeChange,
-  showIntelSwitch = false,
   showInvestigateSwitch = false,
   investigateMode = 'insider',
   onInvestigateModeChange,
@@ -9767,36 +8559,7 @@ function TerminalTopBar({
       </div>
 
       <div className="terminalTopBarCenter">
-        {showIntelSwitch ? (
-          <div
-            key="intel-mode-switch"
-            className={`terminalIntelSwitch terminalIntelSwitch--${intelMode}`}
-            role="tablist"
-            aria-label="Intelligence mode"
-          >
-            <button
-              type="button"
-              role="tab"
-              className={intelSwitchBtnClass(intelMode === 'market')}
-              aria-selected={intelMode === 'market'}
-              onClick={() => onIntelModeChange('market')}
-            >
-              Market intelligence
-            </button>
-            <span className="terminalIntelSwitchSep" aria-hidden="true">
-              |
-            </span>
-            <button
-              type="button"
-              role="tab"
-              className={intelSwitchBtnClass(intelMode === 'clinical')}
-              aria-selected={intelMode === 'clinical'}
-              onClick={() => onIntelModeChange('clinical')}
-            >
-              Clinical intelligence
-            </button>
-          </div>
-        ) : showInvestigateSwitch ? (
+        {showInvestigateSwitch ? (
           <div
             key="investigate-mode-switch"
             className={`terminalIntelSwitch terminalIntelSwitch--${investigateMode}`}
@@ -9806,7 +8569,7 @@ function TerminalTopBar({
             <button
               type="button"
               role="tab"
-              className={intelSwitchBtnClass(investigateMode === 'insider')}
+              className={investigateMode === 'insider' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
               aria-selected={investigateMode === 'insider'}
               onClick={() => onInvestigateModeChange('insider')}
             >
@@ -9818,7 +8581,7 @@ function TerminalTopBar({
             <button
               type="button"
               role="tab"
-              className={intelSwitchBtnClass(investigateMode === 'politicians')}
+              className={investigateMode === 'politicians' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
               aria-selected={investigateMode === 'politicians'}
               onClick={() => onInvestigateModeChange('politicians')}
             >
@@ -9830,7 +8593,7 @@ function TerminalTopBar({
             <button
               type="button"
               role="tab"
-              className={intelSwitchBtnClass(investigateMode === 'institutions')}
+              className={investigateMode === 'institutions' ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
               aria-selected={investigateMode === 'institutions'}
               onClick={() => onInvestigateModeChange('institutions')}
             >
@@ -9895,7 +8658,6 @@ function KensiglineTerminal() {
   const [analysePhonePane, setAnalysePhonePane] = useState('analyse')
   const [investigatePhonePane, setInvestigatePhonePane] = useState('feed')
   const [discoverPhonePane, setDiscoverPhonePane] = useState('moves')
-  const [intelMode, setIntelMode] = useState(() => readIntelMode()) // market | clinical
   const [investigateMode, setInvestigateMode] = useState(() => readInvestigateMode()) // insider | politicians | institutions
   const [investigateFeedFilterOpen, setInvestigateFeedFilterOpen] = useState(false)
   const [investigateInsiderTxnFilters, setInvestigateInsiderTxnFilters] = useState(() =>
@@ -9957,47 +8719,30 @@ function KensiglineTerminal() {
     readChartRange('institutions', PRICE_RANGE_OPTS, '6M'),
   )
   const [researchFeedLive, setResearchFeedLive] = useState(null)
-  const [researchFeedLiveMode, setResearchFeedLiveMode] = useState(null)
   const [researchFeedInjected, setResearchFeedInjected] = useState([])
   const [researchFeedRefresh, setResearchFeedRefresh] = useState(0)
   const [researchExploreLive, setResearchExploreLive] = useState(null)
   const [researchExploreTicker, setResearchExploreTicker] = useState(null)
   const [researchCompanyLive, setResearchCompanyLive] = useState(null)
   const [researchCompanyTicker, setResearchCompanyTicker] = useState(null)
-  const [contextClinicalLive, setContextClinicalLive] = useState(null)
-  const [contextClinicalTicker, setContextClinicalTicker] = useState(null)
-  const [researchBarsSeries, setResearchBarsSeries] = useState(null)
-  const [researchBarsTicker, setResearchBarsTicker] = useState(null)
-  const researchBarsFetchGenRef = useRef(0)
-  const researchCompanyFetchGenRef = useRef(0)
-  const researchExploreFetchGenRef = useRef(0)
-  const researchClinicalFetchGenRef = useRef(0)
-  const [contextOutcomesLive, setContextOutcomesLive] = useState(null)
 
   const [researchTicker, setResearchTicker] = useState(RESEARCH_TICKER_MARKET)
-  const intelModePrevRef = useRef(intelMode)
   const [researchQuery, setResearchQuery] = useState('')
-  const [researchProgramQuery, setResearchProgramQuery] = useState('')
   const [analysePriceRange, setAnalysePriceRange] = useState('6M')
   const [researchFeedFilterOpen, setResearchFeedFilterOpen] = useState(false)
   const [researchPaperSourceFilters, setResearchPaperSourceFilters] = useState(() =>
-    readFilterSet(
-      UI_PREF_KEYS.researchFilters(readIntelMode()),
-      researchSourceFilterKeysForIntel(readIntelMode()),
-    ),
+    readFilterSet(UI_PREF_KEYS.researchFilters, researchSourceFilterKeys()),
   )
   const [researchPaperSourceFiltersDraft, setResearchPaperSourceFiltersDraft] = useState(null)
   const researchPaperSourceFiltersEffective = useMemo(
-    () => effectiveResearchPaperSourceFilters(researchPaperSourceFilters, intelMode),
-    [researchPaperSourceFilters, intelMode],
+    () => effectiveResearchPaperSourceFilters(researchPaperSourceFilters),
+    [researchPaperSourceFilters],
   )
 
   const [researchCompanyContextLoading, setResearchCompanyContextLoading] = useState(false)
-  const [researchClinicalContextLoading, setResearchClinicalContextLoading] = useState(false)
   const [backendUp, setBackendUp] = useState(false)
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
-  const [contextProgramKey, setContextProgramKey] = useState(null)
   const [insiderFeedLive, setInsiderFeedLive] = useState(null)
   const [insiderClusterLive, setInsiderClusterLive] = useState(null)
   const [barsLive, setBarsLive] = useState(null)
@@ -10005,8 +8750,12 @@ function KensiglineTerminal() {
   const barsCacheRef = useRef(new Map())
   const researchCompanyCacheRef = useRef(new Map())
   const researchExploreCacheRef = useRef(new Map())
-  const researchClinicalCacheRef = useRef(new Map())
   const barsFetchGenRef = useRef(0)
+  const researchBarsFetchGenRef = useRef(0)
+  const researchCompanyFetchGenRef = useRef(0)
+  const researchExploreFetchGenRef = useRef(0)
+  const [researchBarsSeries, setResearchBarsSeries] = useState(null)
+  const [researchBarsTicker, setResearchBarsTicker] = useState(null)
   const [companyLive, setCompanyLive] = useState(null)
   const [companyLiveTicker, setCompanyLiveTicker] = useState(null)
   const companyFetchGenRef = useRef(0)
@@ -10019,10 +8768,9 @@ function KensiglineTerminal() {
     [backendUp, researchTicker],
   )
   const researchFeedItems = useMemo(() => {
-    const mode = intelMode === 'clinical' ? 'clinical' : 'market'
-    if (!backendUp) return offlineResearchFeedForIntel(mode)
+    if (!backendUp) return offlineResearchFeed()
     const liveRows =
-      researchFeedLiveMode === mode && Array.isArray(researchFeedLive) ? researchFeedLive : []
+      Array.isArray(researchFeedLive) ? researchFeedLive : []
     const injected = Array.isArray(researchFeedInjected) ? researchFeedInjected : []
     const seen = new Set(liveRows.map((x) => String(x.ticker ?? '').toUpperCase()))
     const merged = [...liveRows]
@@ -10052,7 +8800,7 @@ function KensiglineTerminal() {
         }
       }),
     )
-  }, [backendUp, researchFeedLive, researchFeedLiveMode, researchFeedInjected, intelMode])
+  }, [backendUp, researchFeedLive, researchFeedInjected])
 
   useEffect(() => {
     if (!backendUp) return
@@ -10182,65 +8930,36 @@ function KensiglineTerminal() {
     return contextMock?.earnings ?? null
   }, [backendUp, researchCompanyResolved?.earnings_date, contextMock?.earnings])
 
-  const contextClinicalMapped = useMemo(() => {
-    if (backendUp && contextClinicalTicker !== researchTick) return mapClinicalContextFromApi(null)
-    return mapClinicalContextFromApi(contextClinicalLive)
-  }, [backendUp, contextClinicalLive, contextClinicalTicker, researchTick])
+  const researchPaperMemo = useMemo(() => {
+    if (backendUp) return null
+    return buildThesisMemo({
+      ticker: researchTicker,
+      companyName: researchCompanyName,
+      events: researchDataset?.events ?? [],
+      priceSeries: researchPriceSeries,
+      constituents: isEtfTicker(researchTicker) ? mockDatasetForTicker(researchTicker)?.constituents ?? [] : [],
+    })
+  }, [backendUp, researchTicker, researchCompanyName, researchDataset?.events, researchPriceSeries])
 
-  const contextRunway = useMemo(() => {
-    if (backendUp) return contextClinicalMapped?.runway ?? null
-    return contextMock?.runway ?? null
-  }, [backendUp, contextClinicalMapped?.runway, contextMock?.runway])
-
-  const contextPrograms = useMemo(() => {
-    if (intelMode !== 'clinical') return []
-    if (backendUp) return contextClinicalMapped?.programs ?? []
-    return contextMock?.programs ?? []
-  }, [backendUp, contextClinicalMapped?.programs, contextMock?.programs, intelMode])
-
-  const contextLeadDrug = useMemo(() => {
-    if (intelMode !== 'clinical') return null
-    if (backendUp) {
-      return contextClinicalMapped?.lead?.name ? contextClinicalMapped.lead : null
-    }
-    const fromEntities = contextLeadDrugFromEntities(researchDataset?.entities ?? [])
-    if (fromEntities) {
-      return {
-        ...contextMock?.leadDrug,
-        ...fromEntities,
-      }
-    }
-    return contextMock?.leadDrug ?? null
-  }, [backendUp, researchDataset?.entities, contextClinicalMapped?.lead, contextMock?.leadDrug, intelMode])
-
-  useEffect(() => {
-    if (intelMode === 'clinical') setContextProgramKey(CLINICAL_PROGRAM_ALL)
-    else setContextProgramKey(null)
-  }, [intelMode, researchTicker])
-
-  useEffect(() => {
-    setResearchPaperSourceFilters(
-      readFilterSet(UI_PREF_KEYS.researchFilters(intelMode), researchSourceFilterKeysForIntel(intelMode)),
-    )
-    setResearchFeedFilterOpen(false)
-    setResearchPaperSourceFiltersDraft(null)
-  }, [intelMode])
+  const researchPresentation = useMemo(
+    () =>
+      resolveResearchPresentation({
+        ticker: researchTicker,
+        titleText: researchCompanyName,
+        backendUp,
+        livePresentation: researchExploreResolved?.presentation,
+        memo: researchPaperMemo,
+      }),
+    [researchTicker, researchCompanyName, backendUp, researchExploreResolved?.presentation, researchPaperMemo],
+  )
 
   useEffect(() => {
     writeActiveTab(activeTab)
   }, [activeTab])
 
   useEffect(() => {
-    writeIntelMode(intelMode)
-  }, [intelMode])
-
-  useEffect(() => {
     writeInvestigateMode(investigateMode)
   }, [investigateMode])
-
-  useEffect(() => {
-    writeFilterSet(UI_PREF_KEYS.researchFilters(intelMode), researchPaperSourceFilters)
-  }, [intelMode, researchPaperSourceFilters])
 
   useEffect(() => {
     writeFilterSet(UI_PREF_KEYS.investigateTxnFilters('insider'), investigateInsiderTxnFilters)
@@ -10265,56 +8984,6 @@ function KensiglineTerminal() {
   useEffect(() => {
     writeChartRange('institutions', institutionsChartRange)
   }, [institutionsChartRange])
-  useEffect(() => {
-    if (intelMode !== 'clinical') return
-    const allowed = new Set([CLINICAL_PROGRAM_ALL, ...groupPrograms(contextPrograms).map((g) => g.key)])
-    if (!contextProgramKey || !allowed.has(contextProgramKey)) setContextProgramKey(CLINICAL_PROGRAM_ALL)
-  }, [contextPrograms, contextProgramKey, intelMode])
-
-  const contextCatalystItems = useMemo(() => {
-    if (intelMode !== 'clinical') return []
-    if (backendUp) return contextClinicalMapped?.catalysts ?? []
-    return buildContextCatalystItems(contextMock?.programs ?? [], 6)
-  }, [backendUp, contextClinicalMapped?.catalysts, contextMock?.programs, intelMode])
-
-  const researchPaperMemo = useMemo(() => {
-    if (backendUp) return null
-    return buildThesisMemo({
-      ticker: researchTicker,
-      companyName: researchCompanyName,
-      events: researchDataset?.events ?? [],
-      priceSeries: researchPriceSeries,
-      constituents: isEtfTicker(researchTicker) ? mockDatasetForTicker(researchTicker)?.constituents ?? [] : [],
-    })
-  }, [backendUp, researchTicker, researchCompanyName, researchDataset?.events, researchPriceSeries])
-
-  const researchPresentation = useMemo(
-    () =>
-      resolveResearchPresentation({
-        ticker: researchTicker,
-        titleText: researchCompanyName,
-        backendUp,
-        livePresentation: researchExploreResolved?.presentation,
-        memo: researchPaperMemo,
-        intelMode,
-      }),
-    [researchTicker, researchCompanyName, backendUp, researchExploreResolved?.presentation, researchPaperMemo, intelMode],
-  )
-
-  useEffect(() => {
-    if (activeTab !== 'main' && activeTab !== 'analyse') return
-    if (intelModePrevRef.current === intelMode) return
-    intelModePrevRef.current = intelMode
-    setResearchQuery('')
-    setResearchProgramQuery('')
-    if (!backendUp) {
-      setResearchTicker(intelMode === 'clinical' ? RESEARCH_TICKER_CLINICAL : RESEARCH_TICKER_MARKET)
-    }
-  }, [intelMode, activeTab, backendUp])
-
-  useEffect(() => {
-    if (activeTab === 'pharma') setActiveTab('main')
-  }, [activeTab])
 
   const contextFlowRows = useMemo(() => {
     const parseFlowDate = (raw) => {
@@ -10369,12 +9038,12 @@ function KensiglineTerminal() {
   }, [researchFeedItems, researchQuery])
 
   const researchPaperSourceTypeDefs = useMemo(
-    () => researchPaperSourceTypesForIntel(intelMode),
-    [intelMode],
+    () => researchPaperSourceTypes(),
+    [],
   )
 
   const researchFeedAfterSourceFilter = useMemo(() => {
-    const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters, intelMode)
+    const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters)
     if (backendUp) {
       return researchFilteredFeed
         .filter((row) => researchFeedRowPassesSourceFilter(row, enabled))
@@ -10388,9 +9057,6 @@ function KensiglineTerminal() {
         if (!ticker) return null
         const timeline = buildResearchPaperTimelineForTicker({
           ticker,
-          intelMode,
-          programKey:
-            intelMode === 'clinical' && ticker === selected ? contextProgramKey : CLINICAL_PROGRAM_ALL,
           livePresentation: researchPresentation,
           selectedTicker: researchTicker,
           backendUp,
@@ -10407,26 +9073,20 @@ function KensiglineTerminal() {
   }, [
     researchFilteredFeed,
     researchPaperSourceFilters,
-    intelMode,
-    contextProgramKey,
     researchPresentation,
     researchTicker,
     backendUp,
     contextFlowRows,
   ])
 
-  const researchFeedModeKey = intelMode === 'clinical' ? 'clinical' : 'market'
-  const researchFeedLoading =
-    backendUp && (researchFeedLive === null || researchFeedLiveMode !== researchFeedModeKey)
-  const researchProgramsLoading =
-    backendUp && intelMode === 'clinical' && researchClinicalContextLoading
+  const researchFeedLoading = backendUp && researchFeedLive === null
   const researchFeedEmptyLabel = useMemo(() => {
     if (String(researchQuery ?? '').trim()) return 'No matching companies.'
-    const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters, intelMode)
-    const allowed = researchSourceFilterKeysForIntel(intelMode)
+    const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters)
+    const allowed = researchSourceFilterKeys()
     if (enabled.size < allowed.length) return 'No companies match filters.'
     return 'No feed items yet.'
-  }, [researchQuery, researchPaperSourceFilters, intelMode])
+  }, [researchQuery, researchPaperSourceFilters])
 
   const investigateFeedLoading =
     backendUp &&
@@ -10448,7 +9108,7 @@ function KensiglineTerminal() {
 
   const closeResearchFeedFilter = useCallback(() => {
     if (researchPaperSourceFiltersDraft) {
-      const allowed = researchSourceFilterKeysForIntel(intelMode)
+      const allowed = researchSourceFilterKeys()
       const next =
         researchPaperSourceFiltersDraft.size > 0
           ? new Set(researchPaperSourceFiltersDraft)
@@ -10457,7 +9117,7 @@ function KensiglineTerminal() {
     }
     setResearchPaperSourceFiltersDraft(null)
     setResearchFeedFilterOpen(false)
-  }, [researchPaperSourceFiltersDraft, intelMode])
+  }, [researchPaperSourceFiltersDraft])
 
   const onResearchFeedFilterClick = useCallback(() => {
     if (researchFeedFilterOpen) closeResearchFeedFilter()
@@ -10524,12 +9184,12 @@ function KensiglineTerminal() {
     const pinned = String(researchTickerPinnedRef.current ?? '').trim().toUpperCase()
     if (pinned && pinned === current) return
 
-    const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters, intelMode)
+    const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters)
     const rows = researchFeedAfterSourceFilter
     if (!rows.length) return
     const ok = rows.some((x) => String(x.ticker ?? '').toUpperCase() === current)
     if (!ok) setResearchTicker(String(rows[0]?.ticker ?? '').trim().toUpperCase())
-  }, [activeTab, researchPaperSourceFilters, intelMode, researchFeedAfterSourceFilter, researchTicker])
+  }, [activeTab, researchPaperSourceFilters, researchFeedAfterSourceFilter, researchTicker])
 
   useEffect(() => {
     let alive = true
@@ -10591,8 +9251,6 @@ function KensiglineTerminal() {
     setResearchCompanyTicker(null)
     setResearchBarsSeries(null)
     setResearchBarsTicker(null)
-    setContextClinicalLive(null)
-    setContextClinicalTicker(null)
     setBarsLive(null)
     setBarsLiveTicker(null)
     setInsiderClusterLive(null)
@@ -10603,19 +9261,17 @@ function KensiglineTerminal() {
   useEffect(() => {
     if (!backendUp) return
     setResearchFeedLive(null)
-    setResearchFeedLiveMode(null)
     setResearchFeedInjected([])
-  }, [backendUp, intelMode])
+  }, [backendUp])
 
   useEffect(() => {
     if (!backendUp) return
     let cancelled = false
-    const mode = intelMode === 'clinical' ? 'clinical' : 'market'
+    const mode = 'market'
     async function run() {
       const r = await fetchJsonSafe(`/api/research/feed?limit=120&mode=${mode}`, { timeoutMs: 8000 })
       if (cancelled || !r.ok || !r.data?.ok || !Array.isArray(r.data.items)) return
       setResearchFeedLive(r.data.items)
-      setResearchFeedLiveMode(mode)
     }
     run()
     const t = setInterval(run, 30_000)
@@ -10623,7 +9279,7 @@ function KensiglineTerminal() {
       cancelled = true
       clearInterval(t)
     }
-  }, [backendUp, intelMode, researchFeedRefresh])
+  }, [backendUp, researchFeedRefresh])
 
   useEffect(() => {
     if (!backendUp) {
@@ -10792,86 +9448,6 @@ function KensiglineTerminal() {
       alive = false
     }
   }, [backendUp, activeTab, researchTick])
-
-  useEffect(() => {
-    let alive = true
-    if (!backendUp || intelMode !== 'clinical' || activeTab !== 'main') {
-      setContextClinicalLive(null)
-      setContextClinicalTicker(null)
-      setResearchClinicalContextLoading(false)
-      return () => {
-        alive = false
-      }
-    }
-    const tick = researchTick
-    if (!tick) {
-      setContextClinicalLive(null)
-      setContextClinicalTicker(null)
-      return () => {
-        alive = false
-      }
-    }
-    const gen = ++researchClinicalFetchGenRef.current
-    const cachedClinical = researchClinicalCacheRef.current.get(tick)
-    if (cachedClinical) {
-      setContextClinicalLive(cachedClinical)
-      setContextClinicalTicker(tick)
-      setResearchClinicalContextLoading(false)
-    } else {
-      setContextClinicalLive(null)
-      setContextClinicalTicker(tick)
-      setResearchClinicalContextLoading(true)
-    }
-
-    async function run() {
-      const r = await fetchJsonSafe(
-        `/api/pharma/clinical-context?ticker=${encodeURIComponent(tick)}&catalyst_limit=6`,
-        { timeoutMs: 14_000 },
-      )
-      if (!alive || researchClinicalFetchGenRef.current !== gen) return
-      const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
-      if (respTicker !== tick) return
-      if (r.ok && r.data?.ticker) {
-        researchClinicalCacheRef.current.set(tick, r.data)
-        setContextClinicalLive(r.data)
-      }
-      setResearchClinicalContextLoading(false)
-    }
-    run().catch(() => {
-      if (alive && researchClinicalFetchGenRef.current === gen) setResearchClinicalContextLoading(false)
-    })
-    return () => {
-      alive = false
-    }
-  }, [backendUp, intelMode, activeTab, researchTick])
-
-  useEffect(() => {
-    if (!backendUp || (activeTab !== 'main' && activeTab !== 'analyse')) return
-    let alive = true
-    async function run() {
-      try {
-        const [ins, pol, ph] = await Promise.all([
-          fetchJsonSafe('/api/outcomes?mode=insider', { timeoutMs: 2500 }),
-          fetchJsonSafe('/api/outcomes?mode=politicians', { timeoutMs: 2500 }),
-          fetchJsonSafe('/api/outcomes?mode=pharma', { timeoutMs: 2500 }),
-        ])
-        if (!alive) return
-        const iData = ins.data?.data ?? null
-        const pData = pol.data?.data ?? null
-        const phData = ph.data?.data ?? null
-        setContextOutcomesLive({ insider: iData, politicians: pData, pharma: phData })
-      } catch {
-        if (!alive) return
-        setContextOutcomesLive(null)
-      }
-    }
-    run()
-    const t = setInterval(run, 60_000)
-    return () => {
-      alive = false
-      clearInterval(t)
-    }
-  }, [backendUp, activeTab])
 
   useEffect(() => {
     let alive = true
@@ -11873,7 +10449,6 @@ function KensiglineTerminal() {
       className={[
         'terminalShell',
         isPhone ? 'terminalShell--phone' : '',
-        activeTab === 'main' || activeTab === 'analyse' ? `terminalShell--intel-${intelMode}` : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -11882,9 +10457,6 @@ function KensiglineTerminal() {
         settingsActive={activeTab === 'settings'}
         onSettingsClick={onSettingsClick}
         backendUp={backendUp}
-        intelMode={intelMode}
-        onIntelModeChange={setIntelMode}
-        showIntelSwitch={activeTab === 'main'}
         showInvestigateSwitch={activeTab === 'investigate'}
         investigateMode={investigateMode}
         onInvestigateModeChange={setInvestigateMode}
@@ -11934,7 +10506,6 @@ function KensiglineTerminal() {
             ? `terminal--investigate terminal--${investigateMode}`
             : `terminal--${activeTab}`,
           activeTab === 'main' || activeTab === 'analyse' ? 'terminal--researchFeed' : '',
-          activeTab === 'main' || activeTab === 'analyse' ? `terminal--intel-${intelMode}` : '',
         ]
           .filter(Boolean)
           .join(' ')}
@@ -11944,7 +10515,6 @@ function KensiglineTerminal() {
       {activeTab === 'analyse' ? (
         <>
           <ResearchTickerPanel
-            intelMode={intelMode}
             selectedTicker={researchTicker}
             onSelectTicker={onResearchSelectTicker}
             q={researchQuery}
@@ -11952,12 +10522,6 @@ function KensiglineTerminal() {
             filtered={researchFeedAfterSourceFilter}
             feedLoading={researchFeedLoading}
             feedEmptyLabel={researchFeedEmptyLabel}
-            programsLoading={researchProgramsLoading}
-            programs={contextPrograms}
-            selectedProgramKey={contextProgramKey}
-            onSelectProgramKey={setContextProgramKey}
-            programQuery={researchProgramQuery}
-            onProgramQuery={setResearchProgramQuery}
             showFeedFilter
             feedFilterActive={researchFeedFilterOpen}
             feedFilterOpen={researchFeedFilterOpen}
@@ -12009,10 +10573,9 @@ function KensiglineTerminal() {
           backendUp={backendUp}
           isPhone={isPhone}
           phonePane={discoverPhonePane}
-          onOpenResearch={({ ticker, intelMode, companyName }) => {
+          onOpenResearch={({ ticker, companyName }) => {
             const t = String(ticker ?? '').trim().toUpperCase()
             if (!t) return
-            if (intelMode === 'clinical' || intelMode === 'market') setIntelMode(intelMode)
             researchTickerPinnedRef.current = t
             setResearchFeedInjected((prev) => {
               if (prev.some((row) => String(row.ticker ?? '').toUpperCase() === t)) return prev
@@ -12173,7 +10736,6 @@ function KensiglineTerminal() {
       {activeTab === 'main' ? (
         <>
           <ResearchTickerPanel
-            intelMode={intelMode}
             selectedTicker={researchTicker}
             onSelectTicker={onResearchSelectTicker}
             q={researchQuery}
@@ -12181,12 +10743,6 @@ function KensiglineTerminal() {
             filtered={researchFeedAfterSourceFilter}
             feedLoading={researchFeedLoading}
             feedEmptyLabel={researchFeedEmptyLabel}
-            programsLoading={researchProgramsLoading}
-            programs={contextPrograms}
-            selectedProgramKey={contextProgramKey}
-            onSelectProgramKey={setContextProgramKey}
-            programQuery={researchProgramQuery}
-            onProgramQuery={setResearchProgramQuery}
             showFeedFilter
             feedFilterActive={researchFeedFilterOpen}
             feedFilterOpen={researchFeedFilterOpen}
@@ -12209,8 +10765,6 @@ function KensiglineTerminal() {
             backendUp={backendUp}
             dataTicker={researchExploreResolved ? researchTick : null}
             presentation={researchPresentation}
-            intelMode={intelMode}
-            selectedProgramKey={contextProgramKey}
             insiders={contextFlowRows.insiders}
             politicians={contextFlowRows.politicians}
             filings13f={contextFlowRows.filings13f}
@@ -12228,7 +10782,6 @@ function KensiglineTerminal() {
 
           <MainContextPanel
             key={researchTick}
-            intelMode={intelMode}
             ticker={contextCompanySnapshot.ticker}
             price={contextCompanySnapshot.price}
             sector={contextCompanySnapshot.sector}
@@ -12238,9 +10791,6 @@ function KensiglineTerminal() {
             insiderPriceMarkers={insiderPriceMarkers}
             politicianPriceMarkers={politicianPriceMarkers}
             earnings={contextEarnings}
-            leadDrug={contextLeadDrug}
-            programs={contextPrograms}
-            selectedProgramKey={contextProgramKey}
             insiders={contextFlowRows.insiders}
             politicians={contextFlowRows.politicians}
             filings13f={contextFlowRows.filings13f}
@@ -12249,14 +10799,10 @@ function KensiglineTerminal() {
                 ? researchExploreResolved.tracked_investors
                 : null
             }
-            catalystItems={contextCatalystItems}
             fundamentals={contextFundamentals}
             ownership={contextOwnership}
-            runway={contextRunway}
             backendUp={backendUp}
-            contextOutcomesLive={contextOutcomesLive}
             companyContextLoading={researchCompanyContextLoading}
-            clinicalContextLoading={researchClinicalContextLoading}
             exploreContextLoading={backendUp && researchTick && !researchExploreResolved}
             panelClassName={phonePaneHiddenClass(isPhone, researchPhonePane, 'context')}
           />
@@ -12315,15 +10861,6 @@ function KensiglineTerminal() {
       </main>
       {isPhone ? (
         <div className="terminalPhoneBottom">
-          {activeTab === 'main' ? (
-            <PhoneSubNav
-              className="phoneModeNav"
-              items={RESEARCH_INTEL_MODES_PHONE}
-              value={intelMode}
-              onChange={setIntelMode}
-              ariaLabel="Intelligence mode"
-            />
-          ) : null}
           {activeTab === 'investigate' ? (
             <PhoneSubNav
               className="phoneModeNav"

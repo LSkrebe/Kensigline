@@ -1,4 +1,4 @@
-export type DiscoverIntelMode = "market" | "clinical";
+export type DiscoverIntelMode = "market";
 
 export type DiscoverEventKind =
   | "catalyst"

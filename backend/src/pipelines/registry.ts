@@ -13,7 +13,6 @@ export const QUEUE_SOURCES = {
     "bosha_transcript_rss",
     "bosha_gov_contract",
   ],
-  researchClinical: ["sec_pharma_filing", "sec_filing"],
   investigateInsider: ["sec_form4", "sec_form3", "sec_form5"],
   investigatePoliticians: ["house_ptr", "senate_ptr"],
   investigateInstitutions: ["sec_13f"],
@@ -21,7 +20,6 @@ export const QUEUE_SOURCES = {
 
 export const FEED_KIND = {
   research: "research",
-  pharma: "pharma",
   insider: "insider",
   politicians: "politicians",
   institutions: "institutions",

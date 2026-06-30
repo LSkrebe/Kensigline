@@ -1,4 +1,3 @@
-import { startClinicalWorker } from "../research/clinical/worker.js";
 import { startResearchWorker } from "../research/worker.js";
 import { startInsiderWorker } from "../investigate/insider/worker.js";
 import { startPoliticiansWorker } from "../investigate/politicians/worker.js";
@@ -15,7 +14,6 @@ export function startAllWorkers(): Stoppable[] {
   const workers: Stoppable[] = [
     startInsiderWorker(),
     startOutcomesWorker(),
-    startClinicalWorker(),
     startPoliticiansWorker(),
     startInstitutionsWorker(),
     startResearchWorker(),

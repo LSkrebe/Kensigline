@@ -10,7 +10,7 @@ import {
 } from "../documents/store.js";
 import { getTrackedInvestorsForTicker } from "./market/tracked-investors.js";
 import { resolveResearchFeedCompanyName } from "./feed-display.js";
-import { CLINICAL_TICKERS_SUBQUERY, parseResearchFeedMode, type ResearchFeedMode } from "./feed-mode.js";
+import { parseResearchFeedMode } from "./feed-mode.js";
 import { getSecTickerTitleMap } from "../core/sec.js";
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
@@ -162,37 +162,6 @@ function clusterTotalUsd(data: unknown): number {
   }, 0);
 }
 
-function researchFeedModeFilter(mode: ResearchFeedMode): string {
-  if (mode === "clinical") {
-    return `
-      AND upper(trim(d.ticker)) IN (${CLINICAL_TICKERS_SUBQUERY})
-      AND (
-        d.feed_kind IN ('insider', 'politicians', 'institutions')
-        OR (
-          d.analysis IS NOT NULL
-          AND length(trim(d.analysis)) > 0
-          AND (
-            d.feed_kind = 'pharma'
-            OR (d.feed_kind = 'research' AND d.show_on_ticker IS NOT FALSE)
-          )
-        )
-      )
-    `;
-  }
-  return `
-    AND upper(trim(d.ticker)) NOT IN (${CLINICAL_TICKERS_SUBQUERY})
-    AND (
-      d.feed_kind IN ('insider', 'politicians', 'institutions')
-      OR (
-        d.analysis IS NOT NULL
-        AND length(trim(d.analysis)) > 0
-        AND d.feed_kind = 'research'
-        AND d.show_on_ticker IS NOT FALSE
-      )
-    )
-  `;
-}
-
 function scoreResearchFeedRow(row: {
   analysis: string | null;
   source_key: string | null;
@@ -226,7 +195,7 @@ function scoreResearchFeedRow(row: {
 
 export async function handleResearchFeed(res: http.ServerResponse, limit: number, modeRaw?: string | null) {
   const lim = Math.max(1, Math.min(120, limit));
-  const mode: ResearchFeedMode = parseResearchFeedMode(modeRaw);
+  const mode = parseResearchFeedMode(modeRaw);
 
   const rows = await db.query<{
     id: string;
@@ -250,10 +219,8 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
         WHERE upper(trim(d2.ticker)) = sub.ticker
           AND d2.analysis IS NOT NULL
           AND length(trim(d2.analysis)) > 0
-          AND (
-            d2.feed_kind = 'pharma'
-            OR (d2.feed_kind = 'research' AND d2.show_on_ticker IS NOT FALSE)
-          )
+          AND d2.feed_kind = 'research'
+          AND d2.show_on_ticker IS NOT FALSE
       ) AS paper_doc_count
     FROM (
       SELECT DISTINCT ON (upper(trim(d.ticker)))
@@ -284,7 +251,15 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
       ) iss ON true
       WHERE d.ticker IS NOT NULL
         AND length(trim(d.ticker)) > 0
-        ${researchFeedModeFilter(mode)}
+        AND (
+          d.feed_kind IN ('insider', 'politicians', 'institutions')
+          OR (
+            d.analysis IS NOT NULL
+            AND length(trim(d.analysis)) > 0
+            AND d.feed_kind = 'research'
+            AND d.show_on_ticker IS NOT FALSE
+          )
+        )
       ORDER BY upper(trim(d.ticker)), COALESCE(d.event_at, d.parsed_at) DESC NULLS LAST, d.parsed_at DESC
     ) sub
     ORDER BY sub.feed_at DESC NULLS LAST

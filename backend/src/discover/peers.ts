@@ -11,12 +11,8 @@ export const TICKER_PEER_HINTS: Record<string, TickerPeers> = {
   LRCX: { upstream: ["ASML"], downstream: ["MU", "NVDA"] },
   TSM: { upstream: ["ASML", "AMAT"], downstream: ["NVDA", "AMD"] },
   NVDA: { upstream: ["TSM", "MU"], downstream: ["MSFT", "GOOG", "AMZN"] },
-  ATYR: { downstream: ["REGN", "VRTX", "BIIB", "MRNA", "SRPT"] },
-  MRNA: { downstream: ["REGN", "PFE", "BIIB"] },
-  SRPT: { downstream: ["BIIB", "VRTX", "MRNA"] },
-  BIIB: { downstream: ["LLY", "REGN"] },
-  REGN: { downstream: ["LLY", "VRTX"] },
-  VRTX: { downstream: ["REGN", "BIIB"] },
+  AMD: { upstream: ["TSM"], downstream: ["MSFT", "GOOG", "META"] },
+  AMAT: { upstream: ["ASML"], downstream: ["TSM", "LRCX"] },
 };
 
 export function peersForTicker(ticker: string): TickerPeers | null {

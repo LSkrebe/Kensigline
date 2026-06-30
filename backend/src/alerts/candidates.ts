@@ -200,11 +200,7 @@ export async function collectFeedCandidates(opts: {
     }
   }
 
-  if (feeds.has("research") || feeds.has("pharma")) {
-    const kinds = [
-      ...(feeds.has("research") ? ["research"] : []),
-      ...(feeds.has("pharma") ? ["pharma"] : []),
-    ];
+  if (feeds.has("research")) {
     const rows = await db.query<{
       id: string;
       ticker: string | null;
@@ -219,14 +215,14 @@ export async function collectFeedCandidates(opts: {
       `
       SELECT id::text, ticker, event_at::text, analysis, source_key, feed_kind, program_phase, url, data
       FROM documents
-      WHERE feed_kind = ANY($2::text[])
+      WHERE feed_kind = 'research'
         AND ticker IS NOT NULL
         AND analysis IS NOT NULL
         AND event_at >= now() - ($1 || ' hours')::interval
       ORDER BY event_at DESC
       LIMIT 300
       `,
-      [String(sinceHours), kinds],
+      [String(sinceHours)],
     );
     for (const r of rows) {
       const ticker = String(r.ticker ?? "").toUpperCase();
@@ -241,7 +237,7 @@ export async function collectFeedCandidates(opts: {
       if (!scorePasses(score, filter)) continue;
       out.push(
         attach(
-          r.feed_kind === "pharma" ? "pharma" : "research",
+          "research",
           r.id,
           ticker,
           `${ticker} ${String(r.source_key ?? "filing")}`,
@@ -266,7 +262,7 @@ export async function collectIdeaCandidates(opts: {
 }): Promise<IdeaCandidate[]> {
   return collectFeedCandidates({
     ...(opts.sinceHours != null ? { sinceHours: opts.sinceHours } : {}),
-    feeds: opts.feeds ?? ["insider", "politicians", "institutions", "research", "pharma"],
+    feeds: opts.feeds ?? ["insider", "politicians", "institutions", "research"],
     limit: opts.limit ?? 20,
     requireBest: true,
   });

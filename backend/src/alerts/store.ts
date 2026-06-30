@@ -26,7 +26,7 @@ export async function ensureAlertTables() {
           timezone text NOT NULL DEFAULT 'UTC',
           morning_hour int NOT NULL DEFAULT 8,
           evening_hour int NOT NULL DEFAULT 18,
-          feeds text[] NOT NULL DEFAULT ARRAY['insider','politicians','institutions','research','pharma'],
+          feeds text[] NOT NULL DEFAULT ARRAY['insider','politicians','institutions','research'],
           max_items int NOT NULL DEFAULT 12,
           updated_at timestamptz NOT NULL DEFAULT now()
         );
@@ -105,7 +105,7 @@ export async function upsertAlertPreferences(args: {
       args.timezone ?? existing?.timezone ?? "UTC",
       args.morning_hour ?? existing?.morning_hour ?? 8,
       args.evening_hour ?? existing?.evening_hour ?? 18,
-      args.feeds ?? existing?.feeds ?? ["insider", "politicians", "institutions", "research", "pharma"],
+      args.feeds ?? existing?.feeds ?? ["insider", "politicians", "institutions", "research"],
       args.max_items ?? existing?.max_items ?? 12,
     ],
   );

@@ -11,7 +11,7 @@
   --cyan: rgba(168, 196, 255, 0.9);
   --warn: rgba(255, 212, 92, 0.95);
   --bad: rgba(255, 88, 108, 0.95);
-  /* Research intel accents — neutral moonlight (market + clinical) */
+  /* Panel accents — neutral moonlight */
   --intel-accent: rgba(255, 255, 255, 0.72);
   --intel-accent-hi: rgba(255, 255, 255, 0.92);
   --intel-accent-border: rgba(255, 255, 255, 0.22);
@@ -620,7 +620,7 @@
   height: 12px;
 }
 
-/* Research paper panel (market + clinical) */
+/* Research paper panel */
 .terminal--main .researchPaperPanel .researchPaperPanelName {
   min-width: 0;
   overflow: hidden;
@@ -1621,78 +1621,6 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Research feed panel (market + clinical) */
-.terminal--researchFeed .researchFeedPanel--clinicalSplit {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedSplit {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedSplitPane {
-  flex: 1 1 50%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedSplitPane--programs {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.terminal--researchFeed .researchFeedSplit--filterOpen {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.terminal--researchFeed .researchFeedSplit--filterOpen .researchFeedSplitPane--feed {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedBody--split {
-  flex: 1 1 auto;
-  min-height: 0;
-  gap: 6px;
-  padding: 0 10px 8px;
-}
-
-.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedBody--programs {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 0 10px 8px;
-}
-
-.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedProgramsList {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-.terminal--researchFeed .researchFeedPanel--clinicalSplit .researchFeedProgramsEmpty {
-  margin: 0;
-  padding: 8px 2px;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-}
 
 .terminal--researchFeed .researchFeedSearch {
   display: flex;
@@ -1832,9 +1760,8 @@
   padding: 8px;
 }
 
-/* Research context panel — company snapshot (market + clinical) */
-.terminal--main .mainContextPanel--market,
-.terminal--main .mainContextPanel--clinical {
+/* Research context panel — company snapshot */
+.terminal--main .mainContextPanel--market {
   --context-surface: var(--context-surface-inset);
   --context-surface-border: rgba(255, 255, 255, 0.09);
 }
@@ -1847,24 +1774,21 @@
   container-name: context-panel;
 }
 
-.terminal--main .mainContextPanel--market .researchContextHeader,
-.terminal--main .mainContextPanel--clinical .researchContextHeader {
+.terminal--main .mainContextPanel--market .researchContextHeader{
   border-bottom: none;
   padding: 0 12px;
   position: relative;
   z-index: 1;
 }
 
-.terminal--main .mainContextPanel--market .feedCompactTitle,
-.terminal--main .mainContextPanel--clinical .feedCompactTitle {
+.terminal--main .mainContextPanel--market .feedCompactTitle{
   color: var(--hi);
   font-size: 10px;
   letter-spacing: 0.16em;
   font-weight: 600;
 }
 
-.terminal--main .mainContextPanel--market .mainContextPanelBody,
-.terminal--main .mainContextPanel--clinical .mainContextPanelBody {
+.terminal--main .mainContextPanel--market .mainContextPanelBody{
   flex: 1 1 auto;
   min-height: 0;
   padding: 0 12px 12px;
@@ -1880,8 +1804,7 @@
   background: transparent;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyCard,
-.terminal--main .mainContextPanel--clinical .contextCompanyCard {
+.terminal--main .mainContextPanel--market .contextCompanyCard{
   margin: 0;
   padding: 12px 12px 10px;
   border: 1px solid var(--context-surface-border);
@@ -1890,14 +1813,12 @@
   box-sizing: border-box;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyTopRow,
-.terminal--main .mainContextPanel--clinical .contextCompanyTopRow {
+.terminal--main .mainContextPanel--market .contextCompanyTopRow{
   align-items: center;
   margin-bottom: 6px;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyTicker,
-.terminal--main .mainContextPanel--clinical .contextCompanyTicker {
+.terminal--main .mainContextPanel--market .contextCompanyTicker{
   font-size: var(--fs-display);
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -1905,8 +1826,7 @@
   line-height: 1.1;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyPrice,
-.terminal--main .mainContextPanel--clinical .contextCompanyPrice {
+.terminal--main .mainContextPanel--market .contextCompanyPrice{
   font-size: var(--fs-price);
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -1914,20 +1834,17 @@
   line-height: 1.1;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyMeta,
-.terminal--main .mainContextPanel--clinical .contextCompanyMeta {
+.terminal--main .mainContextPanel--market .contextCompanyMeta{
   font-size: 11px;
   color: rgba(255, 255, 255, 0.45);
   line-height: 1.35;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart {
+.terminal--main .mainContextPanel--market .contextCompanyChart{
   margin-top: 10px;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .researchMiniPrice--chartOnly,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .researchMiniPrice--chartOnly {
+.terminal--main .mainContextPanel--market .contextCompanyChart .researchMiniPrice--chartOnly{
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1935,64 +1852,54 @@
   gap: 8px;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .researchPriceRange,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .researchPriceRange {
+.terminal--main .mainContextPanel--market .contextCompanyChart .researchPriceRange{
   display: flex;
   width: 100%;
   justify-content: flex-end;
   margin-left: 0;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .researchPriceRangeBtn,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .researchPriceRangeBtn {
+.terminal--main .mainContextPanel--market .contextCompanyChart .researchPriceRangeBtn{
   padding: 4px 8px;
   font-size: 9px;
   letter-spacing: 0.08em;
   color: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .researchPriceRangeBtn.isActive,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .researchPriceRangeBtn.isActive {
+.terminal--main .mainContextPanel--market .contextCompanyChart .researchPriceRangeBtn.isActive{
   background: #fff;
   color: #0a0b0d;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .researchMiniPriceWrap,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .researchMiniPriceWrap {
+.terminal--main .mainContextPanel--market .contextCompanyChart .researchMiniPriceWrap{
   height: clamp(112px, 16vh, 160px);
   min-height: 112px;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .graphPath,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .graphPath {
+.terminal--main .mainContextPanel--market .contextCompanyChart .graphPath{
   stroke: rgba(255, 255, 255, 0.9);
   stroke-width: 1.25px;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .graphTick,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .graphTick {
+.terminal--main .mainContextPanel--market .contextCompanyChart .graphTick{
   fill: rgba(255, 255, 255, 0.38);
   font-size: 10px;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .graphTickLine,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .graphTickLine {
+.terminal--main .mainContextPanel--market .contextCompanyChart .graphTickLine{
   stroke: rgba(255, 255, 255, 0.14);
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .graphAxis,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .graphAxis {
+.terminal--main .mainContextPanel--market .contextCompanyChart .graphAxis{
   stroke: rgba(255, 255, 255, 0.16);
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyChart .miniGraphMarker,
-.terminal--main .mainContextPanel--clinical .contextCompanyChart .miniGraphMarker {
+.terminal--main .mainContextPanel--market .contextCompanyChart .miniGraphMarker{
   stroke: rgba(255, 255, 255, 0.16);
   stroke-dasharray: 3 4;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyEarnings,
-.terminal--main .mainContextPanel--clinical .contextCompanyEarnings {
+.terminal--main .mainContextPanel--market .contextCompanyEarnings{
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2008,8 +1915,7 @@
   background-color: rgba(10, 11, 13, 0.35);
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyEarnings::before,
-.terminal--main .mainContextPanel--clinical .contextCompanyEarnings::before {
+.terminal--main .mainContextPanel--market .contextCompanyEarnings::before{
   content: '';
   position: absolute;
   inset: 0;
@@ -2023,8 +1929,7 @@
   pointer-events: none;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyEarnings::after,
-.terminal--main .mainContextPanel--clinical .contextCompanyEarnings::after {
+.terminal--main .mainContextPanel--market .contextCompanyEarnings::after{
   content: '';
   position: absolute;
   inset: 0;
@@ -2040,23 +1945,19 @@
 }
 
 .terminal--main .mainContextPanel--market .contextCompanyEarningsK,
-.terminal--main .mainContextPanel--market .contextCompanyEarningsV,
-.terminal--main .mainContextPanel--clinical .contextCompanyEarningsK,
-.terminal--main .mainContextPanel--clinical .contextCompanyEarningsV {
+.terminal--main .mainContextPanel--market .contextCompanyEarningsV{
   position: relative;
   z-index: 1;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyEarningsK,
-.terminal--main .mainContextPanel--clinical .contextCompanyEarningsK {
+.terminal--main .mainContextPanel--market .contextCompanyEarningsK{
   color: var(--hi);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.14em;
 }
 
-.terminal--main .mainContextPanel--market .contextCompanyEarningsV,
-.terminal--main .mainContextPanel--clinical .contextCompanyEarningsV {
+.terminal--main .mainContextPanel--market .contextCompanyEarningsV{
   color: var(--hi);
   text-align: right;
   font-size: 11px;
@@ -2250,8 +2151,7 @@
   margin-top: 0;
 }
 
-.terminal--main .mainContextPanel--market .contextSectionHeader,
-.terminal--main .mainContextPanel--clinical .contextSectionHeader {
+.terminal--main .mainContextPanel--market .contextSectionHeader{
   margin-bottom: 8px;
 }
 
@@ -2283,15 +2183,7 @@
   color: rgba(255, 255, 255, 0.72);
 }
 
-.terminal--main .mainContextPanel--market .contextFlowList,
-.terminal--main .mainContextPanel--clinical .contextFlowList,
-.terminal--insider .historicalOutcomes .contextFlowList,
-.terminal--politicians .historicalOutcomes .contextFlowList,
-.terminal--institutions .historicalOutcomes .contextFlowList,
-.terminal--insider .historicalOutcomes .contextOutcomesPanelWrap,
-.terminal--politicians .historicalOutcomes .contextOutcomesPanelWrap,
-.terminal--institutions .historicalOutcomes .contextOutcomesPanelWrap
-{
+.terminal--main .mainContextPanel--market .contextFlowList{
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 10px;
   background: var(--context-surface-inset);
@@ -2379,12 +2271,7 @@
   letter-spacing: 0.04em;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowChartHeader,
-.terminal--main .mainContextPanel--clinical .contextFlowChartHeader,
-.terminal--insider .historicalOutcomes .contextFlowChartHeader,
-.terminal--politicians .historicalOutcomes .contextFlowChartHeader,
-.terminal--institutions .historicalOutcomes .contextFlowChartHeader
-{
+.terminal--main .mainContextPanel--market .contextFlowChartHeader{
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -2395,12 +2282,7 @@
   z-index: 1;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowChartLabel,
-.terminal--main .mainContextPanel--clinical .contextFlowChartLabel,
-.terminal--insider .historicalOutcomes .contextFlowChartLabel,
-.terminal--politicians .historicalOutcomes .contextFlowChartLabel,
-.terminal--institutions .historicalOutcomes .contextFlowChartLabel
-{
+.terminal--main .mainContextPanel--market .contextFlowChartLabel{
   flex: 1 1 auto;
   min-width: 0;
   padding: 0;
@@ -2412,12 +2294,7 @@
   line-height: 1.25;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowChartSample,
-.terminal--main .mainContextPanel--clinical .contextFlowChartSample,
-.terminal--insider .historicalOutcomes .contextFlowChartSample,
-.terminal--politicians .historicalOutcomes .contextFlowChartSample,
-.terminal--institutions .historicalOutcomes .contextFlowChartSample
-{
+.terminal--main .mainContextPanel--market .contextFlowChartSample{
   flex-shrink: 0;
   font-size: 9px;
   font-weight: 600;
@@ -2427,12 +2304,7 @@
   text-align: right;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowTotalsMeta,
-.terminal--main .mainContextPanel--clinical .contextFlowTotalsMeta,
-.terminal--insider .historicalOutcomes .contextFlowTotalsMeta,
-.terminal--politicians .historicalOutcomes .contextFlowTotalsMeta,
-.terminal--institutions .historicalOutcomes .contextFlowTotalsMeta
-{
+.terminal--main .mainContextPanel--market .contextFlowTotalsMeta{
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2443,17 +2315,7 @@
   z-index: 1;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowTotalsMetaL,
-.terminal--main .mainContextPanel--clinical .contextFlowTotalsMetaL,
-.terminal--main .mainContextPanel--market .contextFlowTotalsMetaR,
-.terminal--main .mainContextPanel--clinical .contextFlowTotalsMetaR,
-.terminal--insider .historicalOutcomes .contextFlowTotalsMetaL,
-.terminal--politicians .historicalOutcomes .contextFlowTotalsMetaL,
-.terminal--institutions .historicalOutcomes .contextFlowTotalsMetaL,
-.terminal--insider .historicalOutcomes .contextFlowTotalsMetaR,
-.terminal--politicians .historicalOutcomes .contextFlowTotalsMetaR,
-.terminal--institutions .historicalOutcomes .contextFlowTotalsMetaR
-{
+.terminal--main .mainContextPanel--market .contextFlowTotalsMetaL{
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -2461,26 +2323,15 @@
   color: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--main .mainContextPanel--market .contextFlowTotalsMetaR,
-.terminal--main .mainContextPanel--clinical .contextFlowTotalsMetaR,
-.terminal--insider .historicalOutcomes .contextFlowTotalsMetaR,
-.terminal--politicians .historicalOutcomes .contextFlowTotalsMetaR,
-.terminal--institutions .historicalOutcomes .contextFlowTotalsMetaR
-{
+.terminal--main .mainContextPanel--market .contextFlowTotalsMetaR{
   text-align: right;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowList--empty .contextFlowEmpty,
-.terminal--main .mainContextPanel--clinical .contextFlowList--empty .contextFlowEmpty,
-.terminal--insider .historicalOutcomes .contextFlowList--empty .contextFlowEmpty,
-.terminal--politicians .historicalOutcomes .contextFlowList--empty .contextFlowEmpty,
-.terminal--institutions .historicalOutcomes .contextFlowList--empty .contextFlowEmpty
-{
+.terminal--main .mainContextPanel--market .contextFlowList--empty .contextFlowEmpty{
   color: rgba(255, 255, 255, 0.42);
 }
 
-.terminal--main .mainContextPanel--market .contextFlowList--marketFlows .contextFlowOutcomeChart,
-.terminal--main .mainContextPanel--clinical .contextFlowList--marketFlows .contextFlowOutcomeChart {
+.terminal--main .mainContextPanel--market .contextFlowList--marketFlows .contextFlowOutcomeChart{
   position: relative;
   z-index: 1;
   flex: 0 0 auto;
@@ -2493,8 +2344,7 @@
   box-sizing: border-box;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowOutcomeSvg,
-.terminal--main .mainContextPanel--clinical .contextFlowOutcomeSvg {
+.terminal--main .mainContextPanel--market .contextFlowOutcomeSvg{
   display: block;
   width: 100%;
   height: 100%;
@@ -2528,75 +2378,40 @@
   min-height: 80px;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowOutcomePath,
-.terminal--main .mainContextPanel--clinical .contextFlowOutcomePath,
-.terminal--insider .historicalOutcomes .contextFlowOutcomePath,
-.terminal--politicians .historicalOutcomes .contextFlowOutcomePath,
-.terminal--institutions .historicalOutcomes .contextFlowOutcomePath
-{
+.terminal--main .mainContextPanel--market .contextFlowOutcomePath{
   fill: none;
   stroke-width: 1.25px;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowOutcomeChart .graphTick--x,
-.terminal--main .mainContextPanel--clinical .contextFlowOutcomeChart .graphTick--x,
-.terminal--insider .historicalOutcomes .contextFlowOutcomeChart .graphTick--x,
-.terminal--politicians .historicalOutcomes .contextFlowOutcomeChart .graphTick--x,
-.terminal--institutions .historicalOutcomes .contextFlowOutcomeChart .graphTick--x
-{
+.terminal--main .mainContextPanel--market .contextFlowOutcomeChart .graphTick--x{
   font-size: 10px;
   fill: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--main .mainContextPanel--market .contextFlowOutcomeChart .graphTick--y,
-.terminal--main .mainContextPanel--clinical .contextFlowOutcomeChart .graphTick--y,
-.terminal--insider .historicalOutcomes .contextFlowOutcomeChart .graphTick--y,
-.terminal--politicians .historicalOutcomes .contextFlowOutcomeChart .graphTick--y,
-.terminal--institutions .historicalOutcomes .contextFlowOutcomeChart .graphTick--y
-{
+.terminal--main .mainContextPanel--market .contextFlowOutcomeChart .graphTick--y{
   font-size: 10px;
   fill: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--main .mainContextPanel--market .contextFlowRowKeyWrap,
-.terminal--main .mainContextPanel--clinical .contextFlowRowKeyWrap,
-.terminal--insider .historicalOutcomes .contextFlowRowKeyWrap,
-.terminal--politicians .historicalOutcomes .contextFlowRowKeyWrap,
-.terminal--institutions .historicalOutcomes .contextFlowRowKeyWrap
-{
+.terminal--main .mainContextPanel--market .contextFlowRowKeyWrap{
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowRowLine,
-.terminal--main .mainContextPanel--clinical .contextFlowRowLine,
-.terminal--insider .historicalOutcomes .contextFlowRowLine,
-.terminal--politicians .historicalOutcomes .contextFlowRowLine,
-.terminal--institutions .historicalOutcomes .contextFlowRowLine
-{
+.terminal--main .mainContextPanel--market .contextFlowRowLine{
   flex-shrink: 0;
   width: 14px;
   height: 2px;
   border-radius: 1px;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowRowKeyWrap .contextFlowRowKey,
-.terminal--main .mainContextPanel--clinical .contextFlowRowKeyWrap .contextFlowRowKey,
-.terminal--insider .historicalOutcomes .contextFlowRowKeyWrap .contextFlowRowKey,
-.terminal--politicians .historicalOutcomes .contextFlowRowKeyWrap .contextFlowRowKey,
-.terminal--institutions .historicalOutcomes .contextFlowRowKeyWrap .contextFlowRowKey
-{
+.terminal--main .mainContextPanel--market .contextFlowRowKeyWrap .contextFlowRowKey{
   min-width: 0;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowRow,
-.terminal--main .mainContextPanel--clinical .contextFlowRow,
-.terminal--insider .historicalOutcomes .contextFlowRow,
-.terminal--politicians .historicalOutcomes .contextFlowRow,
-.terminal--institutions .historicalOutcomes .contextFlowRow
-{
+.terminal--main .mainContextPanel--market .contextFlowRow{
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2607,33 +2422,18 @@
   z-index: 1;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowRow:last-child,
-.terminal--main .mainContextPanel--clinical .contextFlowRow:last-child,
-.terminal--insider .historicalOutcomes .contextFlowRow:last-child,
-.terminal--politicians .historicalOutcomes .contextFlowRow:last-child,
-.terminal--institutions .historicalOutcomes .contextFlowRow:last-child
-{
+.terminal--main .mainContextPanel--market .contextFlowRow:last-child{
   border-bottom: none;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowRowMain,
-.terminal--main .mainContextPanel--clinical .contextFlowRowMain,
-.terminal--insider .historicalOutcomes .contextFlowRowMain,
-.terminal--politicians .historicalOutcomes .contextFlowRowMain,
-.terminal--institutions .historicalOutcomes .contextFlowRowMain
-{
+.terminal--main .mainContextPanel--market .contextFlowRowMain{
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowRowKey,
-.terminal--main .mainContextPanel--clinical .contextFlowRowKey,
-.terminal--insider .historicalOutcomes .contextFlowRowKey,
-.terminal--politicians .historicalOutcomes .contextFlowRowKey,
-.terminal--institutions .historicalOutcomes .contextFlowRowKey
-{
+.terminal--main .mainContextPanel--market .contextFlowRowKey{
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -2641,33 +2441,18 @@
   color: var(--hi);
 }
 
-.terminal--main .mainContextPanel--market .contextFlowRowKey--name,
-.terminal--main .mainContextPanel--clinical .contextFlowRowKey--name,
-.terminal--insider .historicalOutcomes .contextFlowRowKey--name,
-.terminal--politicians .historicalOutcomes .contextFlowRowKey--name,
-.terminal--institutions .historicalOutcomes .contextFlowRowKey--name
-{
+.terminal--main .mainContextPanel--market .contextFlowRowKey--name{
   text-transform: none;
   letter-spacing: 0.01em;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowRowDate,
-.terminal--main .mainContextPanel--clinical .contextFlowRowDate,
-.terminal--insider .historicalOutcomes .contextFlowRowDate,
-.terminal--politicians .historicalOutcomes .contextFlowRowDate,
-.terminal--institutions .historicalOutcomes .contextFlowRowDate
-{
+.terminal--main .mainContextPanel--market .contextFlowRowDate{
   font-size: 10px;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.45);
 }
 
-.terminal--main .mainContextPanel--market .contextFlowRowAmt,
-.terminal--main .mainContextPanel--clinical .contextFlowRowAmt,
-.terminal--insider .historicalOutcomes .contextFlowRowAmt,
-.terminal--politicians .historicalOutcomes .contextFlowRowAmt,
-.terminal--institutions .historicalOutcomes .contextFlowRowAmt
-{
+.terminal--main .mainContextPanel--market .contextFlowRowAmt{
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.02em;
@@ -2675,160 +2460,15 @@
   color: var(--hi);
 }
 
-.terminal--main .mainContextPanel--clinical .contextSection {
-  margin-top: 0;
-}
 
-.terminal--main .mainContextPanel--market .contextSection--headless,
-.terminal--main .mainContextPanel--clinical .contextSection--headless {
+.terminal--main .mainContextPanel--market .contextSection--headless{
   margin-top: 12px;
 }
 
-.terminal--main .mainContextPanel--market .contextSection--headless:first-child,
-.terminal--main .mainContextPanel--clinical .contextSection--headless:first-child {
+.terminal--main .mainContextPanel--market .contextSection--headless:first-child{
   margin-top: 0;
 }
 
-.terminal--main .mainContextPanel--clinical .contextSectionHeader {
-  margin-bottom: 8px;
-}
-
-.terminal--main .mainContextPanel--clinical .contextSectionTitle {
-  color: rgba(255, 255, 255, 0.42);
-  font-size: 9px;
-  letter-spacing: 0.14em;
-  font-weight: 600;
-}
-
-.terminal--main .mainContextPanel--clinical .contextDivider {
-  display: none;
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramsGrid {
-  gap: 10px;
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramCard {
-  border: 1px solid var(--context-surface-border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  background: var(--context-surface);
-  box-shadow: none;
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramCard:hover {
-  border-color: rgba(255, 255, 255, 0.14);
-  background: var(--context-surface);
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramCard.isActive {
-  border-color: var(--intel-accent-focus);
-  background: var(--intel-accent-tint-soft);
-  box-shadow: inset 0 0 0 1px var(--intel-accent-border);
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramCard--plain {
-  cursor: default;
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramCard--plain:hover {
-  border-color: var(--context-surface-border);
-  background: var(--context-surface);
-}
-
-.terminal--main .mainContextPanel--clinical .contextCompanyCard + .contextSection {
-  margin-top: 10px;
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramMilestonesEmpty {
-  margin: 8px 0 0;
-  padding: 0;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramKey {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramPhase {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramLeadBadge {
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramCard.isActive .contextProgramLeadBadge {
-  color: rgba(255, 255, 255, 0.58);
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramMeta {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramMilestones {
-  margin-top: 8px;
-  gap: 4px;
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramCard .contextProgramMilestoneRow {
-  padding: 5px 6px;
-  border: none;
-  border-radius: 8px;
-  background: var(--panel-corner-wash-program-a), var(--panel-corner-wash-program-b), var(--context-surface-inset);
-  transition: background 0.15s ease;
-  align-items: center;
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramCard .contextProgramMilestoneRow:hover {
-  background: var(--panel-corner-wash-program-a), var(--panel-corner-wash-program-b), rgba(14, 15, 18, 0.92);
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramCard .contextProgramMilestoneLabel {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  line-height: 1.15;
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramCard .contextProgramMilestoneLabel::before {
-  content: '';
-  display: block;
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.38);
-  opacity: 0.85;
-  flex-shrink: 0;
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramMilestoneLabel,
-.terminal--main .mainContextPanel--clinical .contextProgramMilestoneAt {
-  position: relative;
-  z-index: 1;
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramMilestoneAt {
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.terminal--main .mainContextPanel--clinical .contextProgramMilestoneLabel {
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.03em;
-  color: rgba(255, 255, 255, 0.82);
-}
 
 /* Context — signal, outcomes, catalyst (research) */
 .terminal--main .mainContextPanel .contextSignalCard,
@@ -3070,8 +2710,7 @@
   margin-top: 10px;
 }
 
-.terminal--main .mainContextPanel--market .contextSection + .contextSection,
-.terminal--main .mainContextPanel--clinical .contextSection + .contextSection {
+.terminal--main .mainContextPanel--market .contextSection + .contextSection{
   margin-top: 14px;
 }
 
@@ -5398,6 +5037,10 @@
 
 .analyseModelGridCell--empty {
   color: rgba(255, 255, 255, 0.18);
+}
+
+.analyseModelGridCell--readonly {
+  color: rgba(255, 255, 255, 0.42);
 }
 
 .analyseSectionHead {
@@ -8737,9 +8380,8 @@ button.researchPaperCopyIcon:focus-visible {
   flex-shrink: 0;
 }
 
-/* Research CONTEXT — insider / politician / clinical outcome rows (person strips) */
-.terminal--main .mainContextPanel--market .contextFlowList--marketFlows,
-.terminal--main .mainContextPanel--clinical .contextFlowList--marketFlows {
+/* Research CONTEXT — insider / politician outcome rows (person strips) */
+.terminal--main .mainContextPanel--market .contextFlowList--marketFlows{
   gap: 8px;
 }
 
@@ -8753,8 +8395,7 @@ button.researchPaperCopyIcon:focus-visible {
   color: rgba(255, 255, 255, 0.38);
 }
 
-.terminal--main .mainContextPanel--market .contextFlowPersonStrip.contextCompanyEarnings.historicalOutcomesPerson,
-.terminal--main .mainContextPanel--clinical .contextFlowPersonStrip.contextCompanyEarnings.historicalOutcomesPerson {
+.terminal--main .mainContextPanel--market .contextFlowPersonStrip.contextCompanyEarnings.historicalOutcomesPerson{
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -8769,8 +8410,7 @@ button.researchPaperCopyIcon:focus-visible {
   z-index: 1;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowPersonStrip .historicalOutcomesPersonName,
-.terminal--main .mainContextPanel--clinical .contextFlowPersonStrip .historicalOutcomesPersonName {
+.terminal--main .mainContextPanel--market .contextFlowPersonStrip .historicalOutcomesPersonName{
   color: var(--hi);
   font-size: 11px;
   font-weight: 500;
@@ -8779,8 +8419,7 @@ button.researchPaperCopyIcon:focus-visible {
   min-width: 0;
 }
 
-.terminal--main .mainContextPanel--market .contextFlowPersonStrip .historicalOutcomesPersonDetail,
-.terminal--main .mainContextPanel--clinical .contextFlowPersonStrip .historicalOutcomesPersonDetail {
+.terminal--main .mainContextPanel--market .contextFlowPersonStrip .historicalOutcomesPersonDetail{
   color: var(--hi);
   text-align: right;
   font-size: 11px;
@@ -10241,7 +9880,7 @@ body {
 
 .graphTick {
   fill: rgba(255, 255, 255, 0.42);
-  /* Smaller tick labels for 1×1 graph (pharma) and overall tighter look */
+  /* Smaller tick labels for compact graph and overall tighter look */
   font-size: var(--fs-meta);
   letter-spacing: 0.06em;
 }

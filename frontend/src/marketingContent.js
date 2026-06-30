@@ -12,7 +12,7 @@ export const PRODUCT_NAME = 'Mercerline'
 export const INTRO_PAGE_META = {
   title: 'Mercerline - Event-driven research terminal for catalyst traders',
   description:
-    'Scan macro catalysts, build ticker research papers, and drill insider, politician, and institutional flow - with historical outcomes on every rail. SEC filings, PTR, 13F, and trials in one grid.',
+    'Scan macro catalysts, build ticker research papers, and drill insider, politician, and institutional flow - with historical outcomes on every rail. SEC filings, PTR, and 13F in one grid.',
   path: '/',
   ogImage: '/mercerline_background_1.png',
 }
@@ -42,7 +42,7 @@ export const SIGN_IN = {
 export const INTRO_FOOTER = {
   nfa: 'Not investment advice',
   tagline:
-    'Event-driven research terminal for US equities - SEC filings, insider and institutional flow, and clinical trial catalysts.',
+    'Event-driven research terminal for US equities - SEC filings, insider and institutional flow, and catalyst timelines.',
   links: [
     { id: 'how', label: 'How it works', href: '#how' },
     { id: 'pricing', label: 'Pricing', href: '#pricing' },
@@ -57,9 +57,9 @@ export const HERO = {
   headlineAccent: 'one terminal.',
   lead:
     'Scan the week, build the research paper, drill insider and institutional flow - with historical outcomes on every rail.',
-  ctaPrimary: `Get access - ${formatUsd(MONTHLY_PRICE_USD)}/mo`,
+  ctaPrimary: `Start researching - ${formatUsd(MONTHLY_PRICE_USD)}/mo`,
   ctaSecondary: 'See how it works',
-  reassurance: 'Cancel anytime · Full terminal · SEC, PTR, 13F, and trials',
+  reassurance: 'Cancel anytime · Full terminal · SEC, PTR, and 13F',
   rails: 'Discover · Research · Investigate',
 }
 
@@ -76,7 +76,7 @@ export const SHOWCASE_TABS = [
     step: '02',
     label: 'Research',
     title: 'Build the paper',
-    body: '12+ feed types on one timeline - filings, trials, PR, Form 4, PTR, 13F. Export a screenshot-ready research paper with context panel.',
+    body: '12+ feed types on one timeline - filings, press releases, transcripts, Form 4, PTR, and 13F. Export a screenshot-ready research paper with context panel.',
   },
   {
     id: 'investigate',
@@ -91,7 +91,7 @@ export const PROOF_POINTS = [
   {
     stat: '12+',
     label: 'document feeds',
-    detail: 'SEC, trials, PR, flow - one timeline card pattern.',
+    detail: 'SEC, PR, transcripts, flow - one timeline card pattern.',
   },
   {
     stat: '3',
@@ -110,11 +110,11 @@ export const PROOF_POINTS = [
   },
 ]
 
-export const DATA_SOURCES = 'SEC · PTR · 13F · ClinicalTrials.gov'
+export const DATA_SOURCES = 'SEC · PTR · 13F'
 
 export const PLAN_FEATURES = [
   'Discover - macro calendar, watchlist catalysts, market moves',
-  'Research - market and clinical intel, exportable papers',
+  'Research - ticker feed, context panel, exportable papers',
   'Investigate - insider, PTR, and 13F with case sheets',
   'Historical outcomes on similar setups',
   'Settings - billing and account',
@@ -131,7 +131,7 @@ export const INTRO_FAQ = [
   },
   {
     q: 'What sources are included?',
-    a: 'SEC filings, PTR, 13F, ClinicalTrials.gov, and company PR - unified on one timeline.',
+    a: 'SEC filings, PTR, 13F, company press releases, and earnings transcripts - unified on one timeline.',
   },
   {
     q: 'Can I cancel?',

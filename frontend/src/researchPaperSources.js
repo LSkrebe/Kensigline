@@ -21,7 +21,6 @@ export function normalizeResearchPaperSourceKey(source) {
   if (!raw) return 'Other'
   const low = raw.toLowerCase()
 
-  if (/clinicaltrials/i.test(raw)) return 'ClinicalTrials.gov'
   if (low === 'research_press_rss' || /\bpress\s*release\b/i.test(raw)) return 'Press release'
   if (
     low === 'research_transcript_rss' ||
@@ -46,7 +45,6 @@ export function normalizeResearchPaperSourceKey(source) {
     return 'Gov contract'
   }
   if (/\bsec\s*filing\b/i.test(raw)) return '8-K'
-  if (/\bfda\s*calendar\b/i.test(raw)) return 'Press release'
 
   const secDirect = normalizeSecFilingFormKey(raw)
   if (secDirect) return secDirect
@@ -62,53 +60,41 @@ export function normalizeResearchPaperSourceKey(source) {
 
 /** Filter catalog — ids match `normalizeResearchPaperSourceKey`; `code` is the compact right column. */
 export const RESEARCH_PAPER_SOURCE_CATALOG = [
-  { id: '8-K', label: 'Current report', code: '8-K', modes: ['market', 'clinical'] },
-  { id: '10-Q', label: 'Quarterly report', code: '10-Q', modes: ['market', 'clinical'] },
-  { id: '10-K', label: 'Annual filing', code: '10-K', modes: ['market', 'clinical'] },
-  { id: '6-K', label: 'Foreign current', code: '6-K', modes: ['market', 'clinical'] },
-  { id: '20-F', label: 'Foreign annual', code: '20-F', modes: ['market', 'clinical'] },
-  { id: 'S-1', label: 'Registration', code: 'S-1', modes: ['market', 'clinical'] },
-  { id: 'S-3', label: 'Shelf registration', code: 'S-3', modes: ['market', 'clinical'] },
-  { id: 'S-4', label: 'Business combination', code: 'S-4', modes: ['market', 'clinical'] },
-  { id: 'DEF 14A', label: 'Proxy statement', code: '14A', modes: ['market', 'clinical'] },
-  { id: '424B', label: 'Prospectus supplement', code: '424B', modes: ['market', 'clinical'] },
-  { id: 'SC 13D', label: 'Active ownership', code: '13D', modes: ['market', 'clinical'] },
-  { id: 'SC 13G', label: 'Passive ownership', code: '13G', modes: ['market', 'clinical'] },
-  { id: 'Press release', label: 'Company release', code: 'PR', modes: ['market', 'clinical'] },
-  { id: 'Earnings transcript', label: 'Earnings call', code: 'Call', modes: ['market', 'clinical'] },
-  { id: 'Investor presentation', label: 'Investor deck', code: 'Deck', modes: ['market'] },
-  { id: 'Annual report', label: 'IR annual report', code: 'AR', modes: ['market'] },
-  { id: 'Gov contract', label: 'Federal award', code: 'SAM', modes: ['market'] },
-  { id: 'ClinicalTrials.gov', label: 'Trial registry', code: 'CT.gov', modes: ['clinical'] },
-  { id: 'Form 4', label: 'Insider transaction', code: 'F4', modes: ['market', 'clinical'] },
-  { id: 'Form 3', label: 'Initial insider holding', code: 'F3', modes: ['market', 'clinical'] },
-  { id: 'Form 5', label: 'Annual insider change', code: 'F5', modes: ['market', 'clinical'] },
-  { id: '13F', label: 'Institutional holdings', code: '13F', modes: ['market', 'clinical'] },
-  { id: 'PTR', label: 'Politician trade', code: 'PTR', modes: ['market', 'clinical'] },
-  { id: 'Other', label: 'Other filing', code: 'Other', modes: ['market', 'clinical'] },
+  { id: '8-K', label: 'Current report', code: '8-K' },
+  { id: '10-Q', label: 'Quarterly report', code: '10-Q' },
+  { id: '10-K', label: 'Annual filing', code: '10-K' },
+  { id: '6-K', label: 'Foreign current', code: '6-K' },
+  { id: '20-F', label: 'Foreign annual', code: '20-F' },
+  { id: 'S-1', label: 'Registration', code: 'S-1' },
+  { id: 'S-3', label: 'Shelf registration', code: 'S-3' },
+  { id: 'S-4', label: 'Business combination', code: 'S-4' },
+  { id: 'DEF 14A', label: 'Proxy statement', code: '14A' },
+  { id: '424B', label: 'Prospectus supplement', code: '424B' },
+  { id: 'SC 13D', label: 'Active ownership', code: '13D' },
+  { id: 'SC 13G', label: 'Passive ownership', code: '13G' },
+  { id: 'Press release', label: 'Company release', code: 'PR' },
+  { id: 'Earnings transcript', label: 'Earnings call', code: 'Call' },
+  { id: 'Investor presentation', label: 'Investor deck', code: 'Deck' },
+  { id: 'Annual report', label: 'IR annual report', code: 'AR' },
+  { id: 'Gov contract', label: 'Federal award', code: 'SAM' },
+  { id: 'Form 4', label: 'Insider transaction', code: 'F4' },
+  { id: 'Form 3', label: 'Initial insider holding', code: 'F3' },
+  { id: 'Form 5', label: 'Annual insider change', code: 'F5' },
+  { id: '13F', label: 'Institutional holdings', code: '13F' },
+  { id: 'PTR', label: 'Politician trade', code: 'PTR' },
+  { id: 'Other', label: 'Other filing', code: 'Other' },
 ]
 
-export function researchPaperSourceTypesForIntel(intelMode) {
-  const mode = intelMode === 'clinical' ? 'clinical' : 'market'
-  return RESEARCH_PAPER_SOURCE_CATALOG.filter((t) => t.modes.includes(mode))
+export function researchPaperSourceTypes() {
+  return RESEARCH_PAPER_SOURCE_CATALOG
 }
 
-export function researchPaperSourceIdsForIntel(intelMode) {
-  return researchPaperSourceTypesForIntel(intelMode).map((t) => t.id)
+export function researchPaperSourceIds() {
+  return RESEARCH_PAPER_SOURCE_CATALOG.map((t) => t.id)
 }
 
-/** Document-type filters aligned with the Research tab (market + clinical scopes merged). */
 export function discoverResearchDocumentFilterTypes() {
-  const seen = new Set()
-  const out = []
-  for (const mode of ['market', 'clinical']) {
-    for (const t of researchPaperSourceTypesForIntel(mode)) {
-      if (seen.has(t.id)) continue
-      seen.add(t.id)
-      out.push({ id: t.id, label: t.label, code: t.code })
-    }
-  }
-  return out
+  return RESEARCH_PAPER_SOURCE_CATALOG.map((t) => ({ id: t.id, label: t.label, code: t.code }))
 }
 
 export const DISCOVER_RESEARCH_DOCUMENT_FILTER_DEFAULT = new Set(

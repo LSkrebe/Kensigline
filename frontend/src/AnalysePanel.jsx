@@ -57,11 +57,12 @@ function AnalyseModelGridCell({
     setEditing(false)
   }, [colIndex, draft, onEstimateEdit, row.label])
 
-  const className = [
+    const className = [
     'analyseModelGridCell',
     'mono',
     estimate ? 'analyseModelGridCell--estimate' : '',
     editable ? 'analyseModelGridCell--editable' : '',
+    row.readOnly ? 'analyseModelGridCell--readonly' : '',
     modified ? 'analyseModelGridCell--modified' : '',
     tone === 'pos' ? 'analyseModelGridCell--pos' : '',
     tone === 'neg' ? 'analyseModelGridCell--neg' : '',
@@ -108,14 +109,14 @@ function AnalyseModelGridCell({
           }
         }}
       >
-        {formatAnalyseGridValue(value)}
+        {formatAnalyseGridValue(value, row)}
       </span>
     )
   }
 
   return (
     <span className={className} role="cell">
-      {formatAnalyseGridValue(value)}
+      {formatAnalyseGridValue(value, row)}
     </span>
   )
 }
@@ -455,6 +456,10 @@ export function AnalysePanel({
     })
   }, [t])
 
+  const driverSectionTitle = model.driverSectionTitle ?? 'Business drivers'
+  const unitHint = model.driverUnitHint ?? `${model.currency} millions`
+  const perShareHint = `${model.currency} millions except per share`
+
   return (
     <section
       className={['panel', 'discoverCol', 'feed', 'feedCompact', 'analyseMainPanel', panelClassName]
@@ -572,12 +577,9 @@ export function AnalysePanel({
                 </div>
               </section>
 
-              <section className="analyseSection" aria-label="Business drivers">
+              <section className="analyseSection" aria-label={driverSectionTitle}>
                 <div className="analyseSectionHead">
-                  <AnalyseSectionTitle
-                    title="Business drivers"
-                    hintLines={[`${model.currency} millions`]}
-                  />
+                  <AnalyseSectionTitle title={driverSectionTitle} hintLines={[unitHint]} />
                   {forecastEdited ? (
                     <button
                       type="button"
@@ -606,7 +608,7 @@ export function AnalysePanel({
               <section className="analyseSection" aria-label="Historical financial model">
                 <AnalyseSectionTitle
                   title="Historical financial model"
-                  hintLines={[`${model.currency} millions except per share`]}
+                  hintLines={[perShareHint]}
                 />
                 <div className="analyseModelScroll scrollThin">
                   <AnalyseModelGrid
@@ -620,10 +622,7 @@ export function AnalysePanel({
               </section>
 
               <section className="analyseSection" aria-label="Price vs your model">
-                <AnalyseSectionTitle
-                  title="Price vs your model"
-                  hintLines={[`${model.currency} millions except per share`]}
-                />
+                <AnalyseSectionTitle title="Price vs your model" hintLines={[perShareHint]} />
                 <AnalyseValuationSummary
                   valuation={valuation}
                   forecastQuarterOptions={forecastQuarterOptions}

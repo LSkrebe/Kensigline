@@ -18,7 +18,6 @@ export const SOURCE_KEYS = [
   "Investor presentation",
   "Annual report",
   "Gov contract",
-  "ClinicalTrials.gov",
   "Form 4",
   "Form 3",
   "Form 5",
@@ -30,29 +29,28 @@ export const SOURCE_KEYS = [
 export type SourceKey = (typeof SOURCE_KEYS)[number];
 
 export const RESEARCH_PAPER_SOURCE_CATALOG = [
-  { id: "8-K", label: "Current report", code: "8-K", modes: ["market", "clinical"] as const },
-  { id: "10-Q", label: "Quarterly report", code: "10-Q", modes: ["market", "clinical"] as const },
-  { id: "10-K", label: "Annual filing", code: "10-K", modes: ["market", "clinical"] as const },
-  { id: "6-K", label: "Foreign current", code: "6-K", modes: ["market", "clinical"] as const },
-  { id: "20-F", label: "Foreign annual", code: "20-F", modes: ["market", "clinical"] as const },
-  { id: "S-1", label: "Registration", code: "S-1", modes: ["market", "clinical"] as const },
-  { id: "S-3", label: "Shelf registration", code: "S-3", modes: ["market", "clinical"] as const },
-  { id: "S-4", label: "Business combination", code: "S-4", modes: ["market", "clinical"] as const },
-  { id: "DEF 14A", label: "Proxy statement", code: "14A", modes: ["market", "clinical"] as const },
-  { id: "424B", label: "Prospectus supplement", code: "424B", modes: ["market", "clinical"] as const },
-  { id: "SC 13D", label: "Active ownership", code: "13D", modes: ["market", "clinical"] as const },
-  { id: "SC 13G", label: "Passive ownership", code: "13G", modes: ["market", "clinical"] as const },
-  { id: "Press release", label: "Company release", code: "PR", modes: ["market", "clinical"] as const },
-  { id: "Earnings transcript", label: "Earnings call", code: "Call", modes: ["market", "clinical"] as const },
+  { id: "8-K", label: "Current report", code: "8-K", modes: ["market"] as const },
+  { id: "10-Q", label: "Quarterly report", code: "10-Q", modes: ["market"] as const },
+  { id: "10-K", label: "Annual filing", code: "10-K", modes: ["market"] as const },
+  { id: "6-K", label: "Foreign current", code: "6-K", modes: ["market"] as const },
+  { id: "20-F", label: "Foreign annual", code: "20-F", modes: ["market"] as const },
+  { id: "S-1", label: "Registration", code: "S-1", modes: ["market"] as const },
+  { id: "S-3", label: "Shelf registration", code: "S-3", modes: ["market"] as const },
+  { id: "S-4", label: "Business combination", code: "S-4", modes: ["market"] as const },
+  { id: "DEF 14A", label: "Proxy statement", code: "14A", modes: ["market"] as const },
+  { id: "424B", label: "Prospectus supplement", code: "424B", modes: ["market"] as const },
+  { id: "SC 13D", label: "Active ownership", code: "13D", modes: ["market"] as const },
+  { id: "SC 13G", label: "Passive ownership", code: "13G", modes: ["market"] as const },
+  { id: "Press release", label: "Company release", code: "PR", modes: ["market"] as const },
+  { id: "Earnings transcript", label: "Earnings call", code: "Call", modes: ["market"] as const },
   { id: "Investor presentation", label: "Investor deck", code: "Deck", modes: ["market"] as const },
   { id: "Annual report", label: "IR annual report", code: "AR", modes: ["market"] as const },
   { id: "Gov contract", label: "Federal award", code: "SAM", modes: ["market"] as const },
-  { id: "ClinicalTrials.gov", label: "Trial registry", code: "CT.gov", modes: ["clinical"] as const },
-  { id: "Form 4", label: "Insider transaction", code: "F4", modes: ["market", "clinical"] as const },
-  { id: "Form 3", label: "Initial insider holding", code: "F3", modes: ["market", "clinical"] as const },
-  { id: "Form 5", label: "Annual insider change", code: "F5", modes: ["market", "clinical"] as const },
-  { id: "13F", label: "Institutional holdings", code: "13F", modes: ["market", "clinical"] as const },
-  { id: "PTR", label: "Politician trade", code: "PTR", modes: ["market", "clinical"] as const },
+  { id: "Form 4", label: "Insider transaction", code: "F4", modes: ["market"] as const },
+  { id: "Form 3", label: "Initial insider holding", code: "F3", modes: ["market"] as const },
+  { id: "Form 5", label: "Annual insider change", code: "F5", modes: ["market"] as const },
+  { id: "13F", label: "Institutional holdings", code: "13F", modes: ["market"] as const },
+  { id: "PTR", label: "Politician trade", code: "PTR", modes: ["market"] as const },
 ];
 
 export function sourceKeyFromQueueType(sourceType: string): string | null {
@@ -91,7 +89,6 @@ export function normalizeResearchPaperSourceKey(source: unknown): string {
   if (!raw) return "Other";
   const low = raw.toLowerCase();
 
-  if (/clinicaltrials/i.test(raw)) return "ClinicalTrials.gov";
   if (low === "research_press_rss" || /\bpress\s*release\b/i.test(raw)) return "Press release";
   if (
     low === "research_transcript_rss" ||

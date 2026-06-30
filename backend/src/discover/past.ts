@@ -61,7 +61,7 @@ export async function loadPastDiscoverEvents(opts: {
       AND d.event_at < date_trunc('day', now()) + interval '1 day'
       AND (
         (
-          d.feed_kind IN ('research', 'pharma')
+          d.feed_kind = 'research'
           AND d.show_on_ticker IS NOT FALSE
           AND d.analysis IS NOT NULL
           AND length(trim(d.analysis)) > 0

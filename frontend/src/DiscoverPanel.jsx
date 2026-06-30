@@ -365,7 +365,7 @@ function DiscoverMoveCard({ event, movePct, reactionCloses, upcoming = [], useMo
     <button
       type="button"
       className={['discoverMoveCard', catalystBg ? 'discoverMoveCard--highlight' : ''].filter(Boolean).join(' ')}
-      onClick={() => onResearch?.({ ticker: event.ticker, intelMode: event.intelMode, companyName: event.companyName })}
+      onClick={() => onResearch?.({ ticker: event.ticker, companyName: event.companyName })}
     >
       <div className="discoverMoveCardHead">
         <span className="discoverMoveCardTicker mono">{ticker}</span>

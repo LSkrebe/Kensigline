@@ -1,7 +1,6 @@
 import {
   recomputeResearchOutcomes,
   recomputeInsiderOutcomes,
-  recomputePharmaOutcomes,
   recomputePoliticiansOutcomes,
 } from "./outcomes.js";
 
@@ -31,7 +30,6 @@ export async function runOutcomesRecomputeOnce(opts?: {
   const enablePoliticians = opts?.enablePoliticians ?? d.enablePoliticians;
   const enableResearch = opts?.enableResearch ?? d.enableResearch;
   await recomputeInsiderOutcomes({ lookbackDays, maxTickers });
-  await recomputePharmaOutcomes({ lookbackDays, maxTickers });
   if (enablePoliticians) await recomputePoliticiansOutcomes({ lookbackDays, maxTickers });
   if (enableResearch) await recomputeResearchOutcomes({ lookbackDays, maxTickers });
 }

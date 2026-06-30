@@ -1,4 +1,4 @@
-/** Discover tab — curated market + clinical calendar (mock until live ingest). */
+/** Discover tab — curated market catalyst calendar (mock until live ingest). */
 
 import { eventMentionedSearchText, getEventMentioned } from './eventBriefs.js'
 import {
@@ -17,16 +17,12 @@ export {
 }
 
 const DISCOVER_COMPANIES = {
-  ASML: { name: 'ASML Holding N.V.', intelMode: 'market' },
-  NVDA: { name: 'NVIDIA Corporation', intelMode: 'market' },
-  TSM: { name: 'Taiwan Semiconductor', intelMode: 'market' },
-  LRCX: { name: 'Lam Research Corporation', intelMode: 'market' },
-  ATYR: { name: 'aTyr Pharma, Inc.', intelMode: 'clinical' },
-  MRNA: { name: 'Moderna, Inc.', intelMode: 'clinical' },
-  SRPT: { name: 'Sarepta Therapeutics', intelMode: 'clinical' },
-  BIIB: { name: 'Biogen Inc.', intelMode: 'clinical' },
-  REGN: { name: 'Regeneron Pharmaceuticals', intelMode: 'clinical' },
-  VRTX: { name: 'Vertex Pharmaceuticals', intelMode: 'clinical' },
+  ASML: { name: 'ASML Holding N.V.' },
+  NVDA: { name: 'NVIDIA Corporation' },
+  TSM: { name: 'Taiwan Semiconductor' },
+  LRCX: { name: 'Lam Research Corporation' },
+  AMD: { name: 'Advanced Micro Devices, Inc.' },
+  AMAT: { name: 'Applied Materials, Inc.' },
 }
 
 function isoDayFromOffset(daysAhead) {
@@ -46,7 +42,6 @@ function buildDiscoverMockUpcomingEvents() {
       id: 'disc-lrcx-analyst',
       ticker: 'LRCX',
       companyName: DISCOVER_COMPANIES.LRCX.name,
-      intelMode: 'market',
       daysAhead: 4,
       title: 'Investor presentation',
       kind: 'catalyst',
@@ -56,25 +51,21 @@ function buildDiscoverMockUpcomingEvents() {
       idea_best: true,
     },
     {
-      id: 'disc-srpt-pdufa',
-      ticker: 'SRPT',
-      companyName: DISCOVER_COMPANIES.SRPT.name,
-      intelMode: 'clinical',
+      id: 'disc-amd-keynote',
+      ticker: 'AMD',
+      companyName: DISCOVER_COMPANIES.AMD.name,
       daysAhead: 6,
-      title: 'PDUFA target',
-      kind: 'regulatory',
-      source: 'Press release',
-      phase: 'Phase 3',
-      programKey: 'SRP-9001',
+      title: 'Advancing AI keynote',
+      kind: 'catalyst',
+      source: 'Investor presentation',
       impact: 'high',
-      briefKey: 'srpt-fda',
+      briefKey: 'amd-keynote',
       idea_best: true,
     },
     {
       id: 'disc-nvda-keynote',
       ticker: 'NVDA',
       companyName: DISCOVER_COMPANIES.NVDA.name,
-      intelMode: 'market',
       daysAhead: 8,
       title: 'Product launch keynote',
       kind: 'catalyst',
@@ -87,7 +78,6 @@ function buildDiscoverMockUpcomingEvents() {
       id: 'disc-asml-tech',
       ticker: 'ASML',
       companyName: DISCOVER_COMPANIES.ASML.name,
-      intelMode: 'market',
       daysAhead: 9,
       title: 'Technology conference',
       kind: 'catalyst',
@@ -97,25 +87,21 @@ function buildDiscoverMockUpcomingEvents() {
       idea_best: true,
     },
     {
-      id: 'disc-mrna-rsv',
-      ticker: 'MRNA',
-      companyName: DISCOVER_COMPANIES.MRNA.name,
-      intelMode: 'clinical',
-      daysAhead: 10,
-      title: 'Primary completion (est.)',
+      id: 'disc-amat-guidance',
+      ticker: 'AMAT',
+      companyName: DISCOVER_COMPANIES.AMAT.name,
+      daysAhead: 11,
+      title: 'Guidance update at analyst event',
       kind: 'catalyst',
-      source: 'ClinicalTrials.gov',
-      phase: 'Phase 3',
-      programKey: 'mRNA-1345',
-      impact: 'high',
-      briefKey: 'mrna-rsv',
+      source: '8-K',
+      impact: 'medium',
+      briefKey: 'amat-guidance',
       idea_best: true,
     },
     {
       id: 'disc-tsm-cmd',
       ticker: 'TSM',
       companyName: DISCOVER_COMPANIES.TSM.name,
-      intelMode: 'market',
       daysAhead: 12,
       title: 'Analyst day',
       kind: 'catalyst',
@@ -128,7 +114,6 @@ function buildDiscoverMockUpcomingEvents() {
       id: 'disc-nvda-earnings-up',
       ticker: 'NVDA',
       companyName: DISCOVER_COMPANIES.NVDA.name,
-      intelMode: 'market',
       daysAhead: 45,
       title: 'Earnings report',
       kind: 'earnings',
@@ -141,7 +126,6 @@ function buildDiscoverMockUpcomingEvents() {
       id: 'disc-asml-earnings',
       ticker: 'ASML',
       companyName: DISCOVER_COMPANIES.ASML.name,
-      intelMode: 'market',
       daysAhead: 52,
       title: 'Earnings report',
       kind: 'earnings',
@@ -149,51 +133,6 @@ function buildDiscoverMockUpcomingEvents() {
       impact: 'high',
       briefKey: 'asml-earnings',
       idea_best: true,
-    },
-    {
-      id: 'disc-atyr-topline',
-      ticker: 'ATYR',
-      companyName: DISCOVER_COMPANIES.ATYR.name,
-      intelMode: 'clinical',
-      daysAhead: 30,
-      title: 'Primary completion',
-      kind: 'catalyst',
-      source: 'ClinicalTrials.gov',
-      phase: 'Phase 3',
-      programKey: 'Efzofitimod',
-      impact: 'high',
-      briefKey: 'atyr-topline',
-      url: 'https://clinicaltrials.gov/study/NCT05415137',
-      idea_best: true,
-    },
-    {
-      id: 'disc-biib-adu',
-      ticker: 'BIIB',
-      companyName: DISCOVER_COMPANIES.BIIB.name,
-      intelMode: 'clinical',
-      daysAhead: 34,
-      title: 'PDUFA target',
-      kind: 'regulatory',
-      source: 'Press release',
-      phase: 'Approved',
-      programKey: 'Leqembi',
-      impact: 'medium',
-      briefKey: 'biib-adu',
-      idea_best: true,
-    },
-    {
-      id: 'disc-atyr-biomarker',
-      ticker: 'ATYR',
-      companyName: DISCOVER_COMPANIES.ATYR.name,
-      intelMode: 'clinical',
-      daysAhead: 48,
-      title: 'Study completion (est.)',
-      kind: 'trial',
-      source: 'ClinicalTrials.gov',
-      phase: 'Phase 2',
-      programKey: 'Efzofitimod',
-      impact: 'medium',
-      briefKey: 'atyr-biomarker',
     },
   ]
 
@@ -205,7 +144,6 @@ function buildDiscoverMockUpcomingEvents() {
 
 export { buildDiscoverMockUpcomingEvents }
 
-/** @typedef {'market' | 'clinical'} DiscoverIntelMode */
 /** @typedef {'catalyst' | 'filing' | 'earnings' | 'trial' | 'regulatory' | 'flow'} DiscoverEventKind */
 
 /**
@@ -213,7 +151,6 @@ export { buildDiscoverMockUpcomingEvents }
  * @property {string} id
  * @property {string} ticker
  * @property {string} companyName
- * @property {DiscoverIntelMode} intelMode
  * @property {string} at ISO date or datetime
  * @property {string} title
  * @property {DiscoverEventKind} kind
@@ -235,27 +172,9 @@ const DISCOVER_EVENTS = [
   ...buildDiscoverMockUpcomingEvents(),
   // —— Past (with paper-style summaries) ——
   {
-    id: 'disc-atyr-8k-today',
-    ticker: 'ATYR',
-    companyName: DISCOVER_COMPANIES.ATYR.name,
-    intelMode: 'clinical',
-    at: '2026-05-28',
-    title: 'Routine 8-K ahead of readout window',
-    kind: 'filing',
-    source: '8-K',
-    programKey: 'Efzofitimod',
-    impact: 'low',
-    briefKey: 'atyr-8k-today',
-    summary:
-      'Routine same-day 8-K with no material clinical update ahead of the week-48 readout window.',
-    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
-    idea_best: false,
-  },
-  {
     id: 'disc-asml-gov',
     ticker: 'ASML',
     companyName: DISCOVER_COMPANIES.ASML.name,
-    intelMode: 'market',
     at: '2026-05-20',
     title: 'DoD EUV sustainment award modification',
     kind: 'filing',
@@ -268,45 +187,9 @@ const DISCOVER_EVENTS = [
     idea_best: false,
   },
   {
-    id: 'disc-atyr-8k-cash',
-    ticker: 'ATYR',
-    companyName: DISCOVER_COMPANIES.ATYR.name,
-    intelMode: 'clinical',
-    at: '2026-05-08',
-    title: 'Cash runway & enrollment reaffirmation',
-    kind: 'filing',
-    source: '8-K',
-    programKey: 'Efzofitimod',
-    impact: 'medium',
-    briefKey: 'atyr-8k-cash',
-    summary:
-      'Cash runway update with EFZO-FIT fully enrolled and no change to the week-48 mean oral-steroid primary.',
-    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
-    idea_best: false,
-  },
-  {
-    id: 'disc-atyr-safety',
-    ticker: 'ATYR',
-    companyName: DISCOVER_COMPANIES.ATYR.name,
-    intelMode: 'clinical',
-    at: '2026-04-09',
-    title: 'Interim blinded safety update',
-    kind: 'filing',
-    source: '8-K',
-    phase: 'Phase 3',
-    programKey: 'Efzofitimod',
-    impact: 'medium',
-    briefKey: 'atyr-8k-safety',
-    summary:
-      'Interim blinded safety update with no unblinded efficacy; management sees no toxicity spiral ahead of topline.',
-    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
-    idea_best: false,
-  },
-  {
     id: 'disc-asml-q1',
     ticker: 'ASML',
     companyName: DISCOVER_COMPANIES.ASML.name,
-    intelMode: 'market',
     at: '2026-04-18',
     title: 'Q1 backlog & EUV lead-time commentary',
     kind: 'filing',
@@ -319,64 +202,9 @@ const DISCOVER_EVENTS = [
     idea_best: true,
   },
   {
-    id: 'disc-atyr-10q',
-    ticker: 'ATYR',
-    companyName: DISCOVER_COMPANIES.ATYR.name,
-    intelMode: 'clinical',
-    at: '2026-03-18',
-    title: '10-Q risk language on mean-OCS endpoint',
-    kind: 'filing',
-    source: '10-Q',
-    phase: 'Phase 3',
-    programKey: 'Efzofitimod',
-    impact: 'medium',
-    briefKey: 'atyr-10q-risk',
-    summary:
-      'Risk factors stress steroid-reduction success on a mean-dose endpoint with site variability; enrollment completion does not de-risk the binary readout.',
-    url: 'https://www.sec.gov/edgar/search/#/q=ATYR',
-    idea_best: false,
-  },
-  {
-    id: 'disc-atyr-enroll',
-    ticker: 'ATYR',
-    companyName: DISCOVER_COMPANIES.ATYR.name,
-    intelMode: 'clinical',
-    at: '2026-02-11',
-    title: 'EFZO-FIT enrollment complete - registry update',
-    kind: 'trial',
-    source: 'ClinicalTrials.gov',
-    phase: 'Phase 3',
-    programKey: 'Efzofitimod',
-    impact: 'high',
-    briefKey: 'atyr-enrollment',
-    summary:
-      'Registry lists EFZO-FIT enrollment at 268 vs 264 target; primary remains mean oral-steroid change at week 48.',
-    url: 'https://clinicaltrials.gov/study/NCT05415137',
-    idea_best: true,
-  },
-  {
-    id: 'disc-srpt-fda-req',
-    ticker: 'SRPT',
-    companyName: DISCOVER_COMPANIES.SRPT.name,
-    intelMode: 'clinical',
-    at: '2026-02-06',
-    title: 'FDA requests additional SRP-9001 analyses',
-    kind: 'regulatory',
-    source: '8-K',
-    phase: 'Phase 3',
-    programKey: 'SRP-9001',
-    impact: 'high',
-    briefKey: 'srpt-fda-req',
-    summary:
-      'FDA requested supplemental functional analyses; management called it clarifying, but commercial timing slips another quarter.',
-    url: 'https://www.sec.gov/edgar/search/#/q=SRPT',
-    idea_best: true,
-  },
-  {
     id: 'disc-asml-orders',
     ticker: 'ASML',
     companyName: DISCOVER_COMPANIES.ASML.name,
-    intelMode: 'market',
     at: '2026-03-14',
     title: 'High-NA allocation & extended EUV delivery times',
     kind: 'filing',
@@ -389,46 +217,9 @@ const DISCOVER_EVENTS = [
     idea_best: true,
   },
   {
-    id: 'disc-mrna-phase2',
-    ticker: 'MRNA',
-    companyName: DISCOVER_COMPANIES.MRNA.name,
-    intelMode: 'clinical',
-    at: '2026-01-30',
-    title: 'Phase 2 CMV vaccine immunogenicity update',
-    kind: 'trial',
-    source: 'ClinicalTrials.gov',
-    phase: 'Phase 2',
-    programKey: 'mRNA-1647',
-    impact: 'medium',
-    briefKey: 'mrna-phase2',
-    summary:
-      'Phase 2 CMV immunogenicity met thresholds vs comparator; progression talk remains ahead of Phase 3 infection-rate proof.',
-    url: 'https://clinicaltrials.gov/',
-    idea_best: false,
-  },
-  {
-    id: 'disc-atyr-connect',
-    ticker: 'ATYR',
-    companyName: DISCOVER_COMPANIES.ATYR.name,
-    intelMode: 'clinical',
-    at: '2026-01-22',
-    title: 'EFZO-CONNECT registry refresh',
-    kind: 'trial',
-    source: 'ClinicalTrials.gov',
-    phase: 'Phase 2',
-    programKey: 'Efzofitimod',
-    impact: 'low',
-    briefKey: 'atyr-connect',
-    summary:
-      'EFZO-CONNECT PoC registry refresh does not change EFZO-FIT power; a positive read may help sentiment only after pivotal data.',
-    url: 'https://clinicaltrials.gov/study/NCT05892614',
-    idea_best: false,
-  },
-  {
     id: 'disc-nvda-earnings',
     ticker: 'NVDA',
     companyName: DISCOVER_COMPANIES.NVDA.name,
-    intelMode: 'market',
     at: '2026-05-15',
     title: 'Q1 earnings - data-center revenue & supply commentary',
     kind: 'earnings',
@@ -440,6 +231,21 @@ const DISCOVER_EVENTS = [
     url: 'https://www.sec.gov/edgar/search/#/q=NVDA',
     idea_best: true,
   },
+  {
+    id: 'disc-amd-guidance',
+    ticker: 'AMD',
+    companyName: DISCOVER_COMPANIES.AMD.name,
+    at: '2026-04-02',
+    title: 'Q1 guidance raise on data-center GPU mix',
+    kind: 'filing',
+    source: '8-K',
+    impact: 'high',
+    briefKey: 'amd-guidance',
+    summary:
+      'Management raised full-year data-center outlook after MI300 attach improved; supply commentary still cites HBM packaging as the gating item.',
+    url: 'https://www.sec.gov/edgar/search/#/q=AMD',
+    idea_best: true,
+  },
 ]
 
 /** Green-highlight flow rows — mirrors Investigate feed aggregation in highlighted-moves.ts */
@@ -448,7 +254,6 @@ const DISCOVER_FLOW_MARKET_MOVES = /** @type {DiscoverEvent[]} */ ([
     id: 'doc:mock-flow-nvda-insider',
     ticker: 'NVDA',
     companyName: DISCOVER_COMPANIES.NVDA.name,
-    intelMode: 'market',
     at: '2026-05-12',
     title: '3 Code P purchases totaling 62,400 shares',
     kind: 'flow',
@@ -464,7 +269,6 @@ const DISCOVER_FLOW_MARKET_MOVES = /** @type {DiscoverEvent[]} */ ([
     id: 'doc:mock-flow-lrcx-insider',
     ticker: 'LRCX',
     companyName: DISCOVER_COMPANIES.LRCX.name,
-    intelMode: 'market',
     at: '2026-05-02',
     title: '1 Code P purchase totaling 18,200 shares',
     kind: 'flow',
@@ -480,7 +284,6 @@ const DISCOVER_FLOW_MARKET_MOVES = /** @type {DiscoverEvent[]} */ ([
     id: 'doc:mock-flow-asml-ptr',
     ticker: 'ASML',
     companyName: DISCOVER_COMPANIES.ASML.name,
-    intelMode: 'market',
     at: '2026-04-22',
     title: '2 stock purchases (~$215K midpoint)',
     kind: 'flow',
@@ -496,7 +299,6 @@ const DISCOVER_FLOW_MARKET_MOVES = /** @type {DiscoverEvent[]} */ ([
     id: 'doc:mock-flow-tsm-13f',
     ticker: 'TSM',
     companyName: DISCOVER_COMPANIES.TSM.name,
-    intelMode: 'market',
     at: '2026-03-28',
     title: 'Increased stake · Vanguard Group',
     kind: 'flow',
@@ -660,7 +462,7 @@ export function buildDiscoverCardDisplayRows(events, variant) {
 }
 
 /**
- * @param {{ filter?: 'all' | DiscoverIntelMode; query?: string }} [opts]
+ * @param {{ query?: string }} [opts]
  * @returns {Array<{ type: 'today' } | { type: 'day'; date: string; variant: 'upcoming' | 'past'; events: DiscoverEvent[] }>}
  */
 export function buildDiscoverDayGroups(opts = {}) {

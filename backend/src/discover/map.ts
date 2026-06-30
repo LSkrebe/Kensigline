@@ -1,12 +1,6 @@
 import { normalizeResearchPaperSourceKey } from "../shared/source-keys.js";
 import {
-  type ClinicalDocumentSignals,
-  isClinicalDocumentSignals,
-  isClinicalIndustry,
-} from "../research/feed-mode.js";
-import {
   isIdeaGreenHighlight,
-  scoreClinicalAheadEvent,
   scoreEarningsAheadEvent,
   scoreInsiderCluster,
   scoreInstitutionCluster,
@@ -20,25 +14,10 @@ import type { DiscoverEvent, DiscoverEventKind, DiscoverIntelMode } from "./type
 const FLOW_SOURCES = new Set(["Form 4", "Form 3", "Form 5", "13F", "PTR"]);
 
 export function inferIntelMode(
-  feedKind: string | null,
-  industry: string | null,
-  doc?: ClinicalDocumentSignals | null,
+  _feedKind: string | null,
+  _industry: string | null,
+  _doc?: unknown,
 ): DiscoverIntelMode {
-  if (
-    isClinicalDocumentSignals({
-      feedKind,
-      docKind: doc?.docKind,
-      sourceKey: doc?.sourceKey,
-      url: doc?.url,
-      programDrug: doc?.programDrug,
-      programPhase: doc?.programPhase,
-      programKeys: doc?.programKeys,
-      data: doc?.data,
-    })
-  ) {
-    return "clinical";
-  }
-  if (isClinicalIndustry(industry)) return "clinical";
   return "market";
 }
 
@@ -51,7 +30,6 @@ export function inferEventKind(sourceKey: string, title: string, feedKind: strin
   if (src === "Earnings transcript" || /\bearnings\b/i.test(t)) return "earnings";
   if (/\bpdufa\b|\bfda\b|\bregulatory\b|\bapproval\b/i.test(t)) return "regulatory";
   if (/\btopline\b|\breadout\b|\binterim\b|\bcatalyst\b|\bcompletion\b/i.test(t)) return "catalyst";
-  if (String(feedKind ?? "").toLowerCase() === "pharma" && /\btrial\b|\bphase\b|\benroll/i.test(t)) return "trial";
   return "filing";
 }
 
@@ -235,50 +213,6 @@ export function mapEarningsAheadEvent(args: {
     source: "8-K",
     programKey: "Earnings",
     impact: "medium",
-    idea_score: idea.idea_score,
-    idea_best: idea.idea_best,
-    idea_reasons: idea.idea_reasons,
-  };
-}
-
-export function mapCatalystAheadEvent(args: {
-  ticker: string;
-  companyName: string;
-  id: string;
-  label: string;
-  at: string;
-  phase: string | null;
-  programKey: string;
-  url: string | null;
-  kind: "trial" | "earnings";
-}): DiscoverEvent | null {
-  if (!args.at) return null;
-  const labelLo = args.label.toLowerCase();
-  let kind: DiscoverEventKind = "trial";
-  if (args.kind === "earnings") kind = "earnings";
-  else if (labelLo.includes("primary completion") || labelLo.includes("readout") || labelLo.includes("interim")) {
-    kind = "catalyst";
-  }
-
-  const idea = scoreClinicalAheadEvent({
-    label: args.label,
-    phase: args.phase,
-    at: args.at,
-  });
-
-  return {
-    id: `cat:${args.ticker}:${args.id}`,
-    ticker: args.ticker,
-    companyName: args.companyName,
-    intelMode: "clinical",
-    at: isoDayStart(args.at),
-    title: args.label,
-    kind,
-    source: "ClinicalTrials.gov",
-    phase: args.phase,
-    programKey: args.programKey,
-    url: args.url,
-    impact: kind === "catalyst" ? "high" : "medium",
     idea_score: idea.idea_score,
     idea_best: idea.idea_best,
     idea_reasons: idea.idea_reasons,

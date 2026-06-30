@@ -27,7 +27,6 @@ export function parseFromAddress(raw: string): { name?: string; email: string } 
 
 const FEED_LABELS: Record<string, string> = {
   research: "Market",
-  pharma: "Clinical",
   insider: "Insider",
   politicians: "Politicians",
   institutions: "Institutions",
@@ -132,9 +131,9 @@ export function renderDigestHtml(sections: DigestSection[], slotLabel?: string):
     .map((sec, i) => `${sectionHeading(sec.title, sec.subtitle, i === 0)}${sec.items.map(ideaCardHtml).join("")}`)
     .join("");
   return emailShell({
-    preheader: `${total} idea${total === 1 ? "" : "s"} across market, clinical, and standout flows`,
+    preheader: `${total} idea${total === 1 ? "" : "s"} across market and standout flows`,
     title: slotLabel ? `Idea digest · ${slotLabel}` : "Idea digest",
-    lead: "Top signals from market and clinical research, plus exceptional flow activity when it stands out.",
+    lead: "Top market signals plus exceptional flow activity when it stands out.",
     body,
   });
 }

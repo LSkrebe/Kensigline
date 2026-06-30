@@ -228,7 +228,6 @@ export async function getLatestOutcomes(mode: string) {
   const m = String(mode ?? "").trim().toLowerCase();
   if (
     m !== "insider" &&
-    m !== "pharma" &&
     m !== "politicians" &&
     m !== "institutions" &&
     m !== "research" &&
@@ -249,131 +248,6 @@ export async function getLatestOutcomes(mode: string) {
     [globalCompanyId, modeKey],
   );
   return row ?? null;
-}
-
-export async function recomputePharmaOutcomes(opts?: { lookbackDays?: number; maxTickers?: number }) {
-  const lookbackDays = clampInt(opts?.lookbackDays, 30, 730, 365);
-  const maxTickers = clampInt(opts?.maxTickers, 10, 5000, 500);
-  const asOf = isoDayUTC(new Date());
-
-  const events = await db.query<{ ticker: string; day: string; program_phase: string | null; data: any }>(
-    `
-    SELECT ticker,
-           date_trunc('day', event_at)::date::text as day,
-           program_phase,
-           data
-    FROM documents
-    WHERE feed_kind='pharma'
-      AND ticker IS NOT NULL
-      AND event_at IS NOT NULL
-      AND event_at >= now() - ($1 || ' days')::interval
-    ORDER BY event_at DESC
-    LIMIT 5000
-    `,
-    [String(lookbackDays)],
-  );
-
-  const byTicker = new Map<string, Array<{ day: string; phase: string | null; eventType: string }>>();
-  for (const e of events) {
-    const t = String(e.ticker ?? "").trim().toUpperCase();
-    if (!t) continue;
-    const eventType = String(e.data?.event_type ?? e.data?.eventType ?? "").trim().toUpperCase();
-    const phase = e.program_phase ? String(e.program_phase) : null;
-    const day = String(e.day ?? "");
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
-    const arr = byTicker.get(t) ?? [];
-    arr.push({ day, phase, eventType });
-    byTicker.set(t, arr);
-  }
-
-  type HorizonAcc = { r21: number[]; r63: number[]; r252: number[] };
-  const emptyAcc = (): HorizonAcc => ({ r21: [], r63: [], r252: [] });
-  const acc = {
-    ph3: emptyAcc(),
-    ph2: emptyAcc(),
-    all: emptyAcc(),
-  };
-
-  const pushHorizon = (bucket: HorizonAcc, r21: number | null, r63: number | null, r252: number | null) => {
-    if (r21 == null || r63 == null || r252 == null) return;
-    bucket.r21.push(r21);
-    bucket.r63.push(r63);
-    bucket.r252.push(r252);
-  };
-
-  for (const [ticker, evs] of byTicker.entries()) {
-    const days = evs.map((e) => e.day);
-    await ensureBarsForEventWindows(ticker, days, 252);
-    const bars = await loadBarsMap(ticker);
-    if (bars.days.length < 80) continue;
-
-    for (const ev of evs) {
-      const baseIdx = nextTradingIndex(bars.days, ev.day);
-      if (baseIdx < 0) continue;
-      const r21 = computeForwardReturn(bars.closes, baseIdx, 21);
-      const r63 = computeForwardReturn(bars.closes, baseIdx, 63);
-      const r252 = computeForwardReturn(bars.closes, baseIdx, 252);
-      if (r21 == null) continue;
-
-      pushHorizon(acc.all, r21, r63, r252);
-
-      const p = String(ev.phase ?? "").toUpperCase();
-      const isResult =
-        ev.eventType === "RESULT" || ev.eventType === "READOUT" || ev.eventType === "ENDPOINT MISS";
-      if (isResult && p.includes("III")) pushHorizon(acc.ph3, r21, r63, r252);
-      if (isResult && (p.includes("II") || p.includes("I/II") || p.includes("II/III"))) {
-        pushHorizon(acc.ph2, r21, r63, r252);
-      }
-    }
-  }
-
-  const bucketReturns = (b: HorizonAcc): [number | null, number | null, number | null] => [
-    b.r21.length ? mean(b.r21) : null,
-    b.r63.length ? mean(b.r63) : null,
-    b.r252.length ? mean(b.r252) : null,
-  ];
-
-  const buckets = [
-    { id: "ph3", label: "Phase 3 readout", returns: bucketReturns(acc.ph3) },
-    { id: "ph2", label: "Phase 2 miss", returns: bucketReturns(acc.ph2) },
-    { id: "all", label: "All trial events", returns: bucketReturns(acc.all) },
-  ];
-
-  const all21 = acc.all.r21;
-  const avgPh3 = mean(acc.ph3.r21);
-  const avgPh2 = mean(acc.ph2.r21);
-  const med = median(all21);
-  const largeDrops = all21.length ? all21.filter((x) => x <= -0.3).length / all21.length : null;
-  const avg21 = mean(all21);
-  const winRate21 = all21.length ? all21.filter((x) => x > 0).length / all21.length : null;
-
-  const data = {
-    mode: "pharma",
-    as_of_date: asOf,
-    avgReturn21: avg21,
-    winRate21,
-    avgAfterPh3Failure: fmtRet(avgPh3),
-    avgAfterPh2Miss: fmtRet(avgPh2),
-    medianReturn: fmtRet(med),
-    pctLargeDropsOver30: largeDrops == null ? "—" : pct(largeDrops),
-    sampleSize: String(all21.length),
-    conditioningIndication: "—",
-    conditioningCoSize: "—",
-    buckets,
-  };
-
-  const globalCompanyId = await getOrCreateGlobalCompanyId();
-  await db.query(
-    `
-    INSERT INTO outcomes (company_id, mode, as_of_date, data)
-    VALUES ($1, $2, $3::date, $4::jsonb)
-    ON CONFLICT (company_id, mode, as_of_date)
-    DO UPDATE SET data = EXCLUDED.data, created_at = now()
-    `,
-    [globalCompanyId, "pharma", asOf, data],
-  );
-
-  return { ok: true, as_of_date: asOf, samples: all21.length };
 }
 
 export async function recomputePoliticiansOutcomes(opts?: { lookbackDays?: number; maxTickers?: number }) {

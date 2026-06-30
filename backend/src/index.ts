@@ -5,12 +5,11 @@ import { json, notFound, readRawBody, route, sendJson } from "./core/http.js";
 import { db } from "./core/db.js";
 import { getDailyCloseBars } from "./core/bars.js";
 import { getCompanySnapshot } from "./core/company.js";
-import { getCompanyFullCached, getPharmaClinicalContextCached } from "./core/ticker-context-cache.js";
+import { getCompanyFullCached } from "./core/ticker-context-cache.js";
 import {
   getLatestOutcomes,
   recomputeResearchOutcomes,
   recomputeInsiderOutcomes,
-  recomputePharmaOutcomes,
   recomputePoliticiansOutcomes,
 } from "./core/outcomes.js";
 import { bearerToken, supabaseAuthConfigured, verifySupabaseAccessToken } from "./core/supabase-auth.js";
@@ -37,7 +36,6 @@ import { clampInt } from "./shared/feed-helpers.js";
 import { startAllWorkers, stopAllWorkers } from "./server/workers.js";
 import { handleAlertsPreferencesGet, handleAlertsPreferencesPatch } from "./alerts/api.js";
 import { handleAlertsWatchlistGet, handleAlertsWatchlistPatch } from "./alerts/watchlist-api.js";
-import { scoreResearchDocument } from "./core/idea-score.js";
 
 const port = Number(process.env.PORT ?? "3001");
 const workers = startAllWorkers();
@@ -262,18 +260,16 @@ const server = http.createServer(async (req, res) => {
     if (route(req, url, "POST", "/api/outcomes/recompute")) {
       const body = await json(req);
       const mode = String(body?.mode ?? "insider").trim().toLowerCase();
-      if (mode !== "insider" && mode !== "pharma" && mode !== "politicians" && mode !== "research" && mode !== "bosha") {
+      if (mode !== "insider" && mode !== "politicians" && mode !== "research" && mode !== "bosha") {
         sendJson(res, 400, { ok: false, error: "mode_not_supported_yet" });
         return;
       }
       const out =
-        mode === "pharma"
-          ? await recomputePharmaOutcomes()
-          : mode === "politicians"
-            ? await recomputePoliticiansOutcomes()
-            : mode === "research" || mode === "bosha"
-              ? await recomputeResearchOutcomes()
-              : await recomputeInsiderOutcomes();
+        mode === "politicians"
+          ? await recomputePoliticiansOutcomes()
+          : mode === "research" || mode === "bosha"
+            ? await recomputeResearchOutcomes()
+            : await recomputeInsiderOutcomes();
       sendJson(res, 200, out);
       return;
     }
@@ -281,137 +277,6 @@ const server = http.createServer(async (req, res) => {
     if (await tryDiscoverRoutes(req, res, url)) return;
 
     if (await tryInvestigateRoutes(req, res, url)) return;
-    // ---- Pharma: feed ----
-    if (route(req, url, "GET", "/api/pharma/feed")) {
-      const limit = clampInt(url.searchParams.get("limit"), 1, 200, 60);
-      const days = clampInt(url.searchParams.get("days"), 1, 365, 30);
-      const rows = await db.query<{
-        id: string;
-        event_at: string | null;
-        feed_label: string | null;
-        ticker: string | null;
-        analysis: string | null;
-        source_key: string | null;
-        program_phase: string | null;
-        data: any;
-      }>(
-        `
-        SELECT id, event_at::text AS event_at, feed_label, ticker, analysis, source_key, program_phase, data
-        FROM documents
-        WHERE feed_kind = 'pharma'
-          AND event_at IS NOT NULL
-          AND (feed_label IS NULL OR feed_label <> 'Pipeline update')
-          AND event_at >= now() - ($2 || ' days')::interval
-        ORDER BY event_at DESC NULLS LAST, parsed_at DESC
-        LIMIT $1
-        `,
-        [limit, String(days)],
-      );
-      sendJson(res, 200, {
-        items: rows.map((r) => {
-          const idea = scoreResearchDocument({
-            analysis: r.analysis ?? r.feed_label,
-            source_key: r.source_key,
-            feed_kind: "pharma",
-            program_phase: r.program_phase,
-            event_at: r.event_at,
-            data: r.data,
-          });
-          return {
-            id: r.id,
-            feed_at: r.event_at,
-            feed_label: r.feed_label,
-            ticker: r.ticker,
-            idea_score: idea.idea_score,
-            idea_best: idea.idea_best,
-            idea_reasons: idea.idea_reasons,
-          };
-        }),
-        days,
-      });
-      return;
-    }
-
-    // ---- Pharma: event ----
-    if (req.method === "GET" && url.pathname.startsWith("/api/pharma/event/")) {
-      const id = url.pathname.split("/").at(-1) ?? "";
-      const row = await db.one<{ id: string; data: unknown; schema_type: string; schema_version: string }>(
-        `
-        SELECT id, data, doc_kind AS schema_type, schema_version
-        FROM documents
-        WHERE id = $1 AND feed_kind='pharma'
-        LIMIT 1
-        `,
-        [id],
-      );
-      if (!row) {
-        notFound(res);
-        return;
-      }
-      sendJson(res, 200, row);
-      return;
-    }
-
-    // ---- Pharma: programs timeline ----
-    if (route(req, url, "GET", "/api/pharma/programs")) {
-      const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
-      const limit = clampInt(url.searchParams.get("limit"), 1, 5000, 2000);
-      const days = clampInt(url.searchParams.get("days"), 1, 3650, 365);
-      if (!ticker) {
-        sendJson(res, 400, { ok: false, error: "ticker_required" });
-        return;
-      }
-      const rows = await db.query<{
-        id: string;
-        event_at: string | null;
-        feed_label: string | null;
-        program_drug: string | null;
-        program_indication: string | null;
-        program_phase: string | null;
-      }>(
-        `
-        SELECT id, event_at::text AS event_at, feed_label, program_drug, program_indication, program_phase
-        FROM documents
-        WHERE feed_kind='pharma'
-          AND ticker = $1
-          AND event_at IS NOT NULL
-          AND event_at >= now() - ($3 || ' days')::interval
-        ORDER BY program_drug ASC NULLS LAST, event_at ASC
-        LIMIT $2
-        `,
-        [ticker, limit, String(days)],
-      );
-      // Group by drug for the Programs rail.
-      const items = rows.map((r) => ({
-        id: r.id,
-        at: r.event_at,
-        label: r.feed_label,
-        drug: r.program_drug,
-        indication: r.program_indication,
-        phase: r.program_phase,
-      }));
-      sendJson(res, 200, { ticker, items });
-      return;
-    }
-
-    // ---- Pharma: ClinicalTrials.gov programs + catalyst clock (earnings merged) ----
-    if (route(req, url, "GET", "/api/pharma/clinical-context")) {
-      const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
-      const catalystLimit = clampInt(url.searchParams.get("catalyst_limit"), 1, 20, 6);
-      if (!ticker) {
-        sendJson(res, 400, { ok: false, error: "ticker_required" });
-        return;
-      }
-      try {
-        const ctx = await getPharmaClinicalContextCached({ ticker, catalystLimit });
-        sendJson(res, 200, ctx);
-      } catch (e) {
-        console.error("pharma_clinical_context_failed", ticker, e);
-        sendJson(res, 502, { ok: false, error: "clinical_context_failed" });
-      }
-      return;
-    }
-
     // ---- Research: structured company intel ----
     if (route(req, url, "GET", "/api/research/events")) {
       const ticker = String(url.searchParams.get("ticker") ?? "").trim();

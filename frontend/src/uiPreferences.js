@@ -2,9 +2,8 @@ const PREFIX = 'mercerline:ui:'
 
 export const UI_PREF_KEYS = {
   activeTab: `${PREFIX}active-tab`,
-  intelMode: `${PREFIX}intel-mode`,
   investigateMode: `${PREFIX}investigate-mode`,
-  researchFilters: (intelMode) => `${PREFIX}research-filters:${intelMode === 'clinical' ? 'clinical' : 'market'}`,
+  researchFilters: `${PREFIX}research-filters:market`,
   investigateTxnFilters: (mode) => `${PREFIX}investigate-txn:${mode}`,
   discoverMacroRegionFilters: `${PREFIX}discover:macro-region-filters`,
   discoverMacroImpactFilters: `${PREFIX}discover:macro-impact-filters`,
@@ -13,7 +12,6 @@ export const UI_PREF_KEYS = {
 }
 
 const ACTIVE_TABS = new Set(['analyse', 'discover', 'main', 'investigate', 'settings'])
-const INTEL_MODES = new Set(['market', 'clinical'])
 const INVESTIGATE_MODES = new Set(['insider', 'politicians', 'institutions'])
 
 function canUseStorage() {
@@ -78,14 +76,6 @@ export function readActiveTab() {
 
 export function writeActiveTab(tab) {
   writeChoice(UI_PREF_KEYS.activeTab, tab)
-}
-
-export function readIntelMode() {
-  return readChoice(UI_PREF_KEYS.intelMode, INTEL_MODES, 'market')
-}
-
-export function writeIntelMode(mode) {
-  writeChoice(UI_PREF_KEYS.intelMode, mode)
 }
 
 export function readInvestigateMode() {

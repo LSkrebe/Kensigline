@@ -1,7 +1,7 @@
 import { collectFeedCandidates, type IdeaCandidate } from "./candidates.js";
 
 export type DigestSection = {
-  id: "market" | "clinical" | "investigate";
+  id: "market" | "investigate";
   title: string;
   subtitle?: string;
   items: IdeaCandidate[];
@@ -34,7 +34,7 @@ function feedEnabled(feeds: Set<string>, feed: string): boolean {
 }
 
 /**
- * Mode-aware digest: top ideas from Market + Clinical, plus exceptional Investigate flows.
+ * Mode-aware digest: top ideas from Market, plus exceptional Investigate flows.
  */
 export async function collectDigestSections(opts: {
   sinceHours?: number;
@@ -42,15 +42,13 @@ export async function collectDigestSections(opts: {
 }): Promise<DigestSection[]> {
   const sinceHours = Math.max(6, Math.min(168, Number(opts.sinceHours ?? 36)));
   const feeds = new Set(
-    opts.feeds ?? ["insider", "politicians", "institutions", "research", "pharma"],
+    opts.feeds ?? ["insider", "politicians", "institutions", "research"],
   );
 
   const marketCount = envInt("DIGEST_MARKET_COUNT", 2, 1, 5);
-  const clinicalCount = envInt("DIGEST_CLINICAL_COUNT", 2, 1, 5);
   const investigateMin = envInt("IDEA_SCORE_DIGEST_EXCEPTIONAL", 85, 70, 99);
   const investigatePerFeed = envInt("DIGEST_INVESTIGATE_PER_FEED", 1, 0, 3);
   const researchMin = envInt("DIGEST_MARKET_MIN_SCORE", 72, 50, 95);
-  const pharmaMin = envInt("DIGEST_CLINICAL_MIN_SCORE", 72, 50, 95);
 
   const sections: DigestSection[] = [];
 
@@ -67,24 +65,6 @@ export async function collectDigestSections(opts: {
         id: "market",
         title: "Market",
         subtitle: "Top market intelligence from research filings",
-        items,
-      });
-    }
-  }
-
-  if (feedEnabled(feeds, "pharma")) {
-    const pool = await collectFeedCandidates({
-      sinceHours,
-      feeds: ["pharma"],
-      minScore: pharmaMin,
-      limit: 40,
-    });
-    const items = pickTop(pool, clinicalCount);
-    if (items.length) {
-      sections.push({
-        id: "clinical",
-        title: "Clinical",
-        subtitle: "Leading clinical and pharma program signals",
         items,
       });
     }

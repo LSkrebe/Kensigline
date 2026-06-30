@@ -74,7 +74,8 @@ function scaleNum(n, factor) {
 }
 
 function scaleRow(row, factor) {
-  if (row.kind === 'pct' || row.kind === 'growth' || row.kind === 'eps') return row
+  if (row.kind === 'pct' || row.kind === 'growth' || row.kind === 'eps' || row.kind === 'runway') return row
+  if (row.readOnly || row.driverKind === 'enrollment' || row.driverKind === 'pos_pct') return row
   return {
     ...row,
     values: row.values.map((v) => (typeof v === 'number' ? scaleNum(v, factor) : v)),
@@ -110,8 +111,8 @@ function findRow(rows, label) {
   return rows.find((r) => r.label === label)
 }
 
-/** All business-driver forecast cells are user inputs; linkage to revenue is model-defined. */
-export function isForecastEditableDriver(_row) {
+export function isForecastEditableDriver(row) {
+  if (row?.readOnly) return false
   return true
 }
 
@@ -134,12 +135,11 @@ function revenueFromDrivers(businessDrivers, baseModel, colIdx) {
   return Math.round(revenueDriverSum(businessDrivers, colIdx) + revenueResidualForColumn(baseModel, colIdx))
 }
 
-/** Scale driver trajectory after an edit so terminal forecast (valuation) moves with near-term inputs. */
 function propagateDriverOverridesForward(businessDrivers, baseDrivers, overrides, estFrom, colCount) {
   for (const [rowLabel, byCol] of Object.entries(overrides)) {
     const row = findRow(businessDrivers, rowLabel)
     const baseRow = findRow(baseDrivers, rowLabel)
-    if (!row || !baseRow) continue
+    if (!row || !baseRow || row.readOnly) continue
 
     const editedCols = Object.keys(byCol)
       .map(Number)
@@ -169,9 +169,9 @@ function forecastRatios(baseModel) {
   const netIncome = findRow(baseModel.historicalModel, 'Net income')?.values[anchor] ?? 0
   const shares = findRow(baseModel.historicalModel, 'Shares outstanding (M)')?.values[anchor] ?? 404
   return {
-    grossMargin: grossProfit / rev,
-    opMargin: opIncome / rev,
-    netMargin: netIncome / rev,
+    grossMargin: rev > 0 ? grossProfit / rev : 0.85,
+    opMargin: rev > 0 ? opIncome / rev : -7,
+    netMargin: rev > 0 ? netIncome / rev : -7,
     shares,
   }
 }
@@ -198,36 +198,44 @@ function recalcEstimateColumn(historicalModel, baseModel, colIdx, rev, ratios) {
   const baseFcfAt = baseFcf?.values[colIdx] ?? 0
 
   revenue.values[colIdx] = rev
-  grossProfit.values[colIdx] = Math.round(rev * ratios.grossMargin)
-  grossMargin.values[colIdx] = pctStr(ratios.grossMargin * 100)
-  opIncome.values[colIdx] = Math.round(rev * ratios.opMargin)
-  opMargin.values[colIdx] = pctStr(ratios.opMargin * 100)
-  opex.values[colIdx] = grossProfit.values[colIdx] - opIncome.values[colIdx]
-  netIncome.values[colIdx] = Math.round(rev * ratios.netMargin)
-  eps.values[colIdx] = (netIncome.values[colIdx] / ratios.shares).toFixed(2)
-  shares.values[colIdx] = ratios.shares
+  if (grossProfit) grossProfit.values[colIdx] = Math.round(rev * ratios.grossMargin)
+  if (grossMargin) grossMargin.values[colIdx] = pctStr(ratios.grossMargin * 100)
+  if (opIncome) opIncome.values[colIdx] = Math.round(rev * ratios.opMargin)
+  if (opMargin) opMargin.values[colIdx] = pctStr(ratios.opMargin * 100)
+  if (opex && grossProfit && opIncome) opex.values[colIdx] = grossProfit.values[colIdx] - opIncome.values[colIdx]
+  if (netIncome) netIncome.values[colIdx] = Math.round(rev * ratios.netMargin)
+  if (eps && netIncome && shares) eps.values[colIdx] = (netIncome.values[colIdx] / shares.values[colIdx]).toFixed(2)
+  if (shares) shares.values[colIdx] = ratios.shares
 
-  const fcfScale = baseRevAt > 0 ? rev / baseRevAt : 1
-  fcf.values[colIdx] = Math.round(baseFcfAt * fcfScale)
+  if (fcf) {
+    const fcfScale = baseRevAt > 0 ? rev / baseRevAt : 1
+    fcf.values[colIdx] = Math.round(baseFcfAt * fcfScale)
+  }
 
-  if (cash?.values[colIdx] != null && cash.values[colIdx - 1] != null) {
+  if (cash?.values[colIdx] != null && cash.values[colIdx - 1] != null && fcf) {
     cash.values[colIdx] = Math.round(cash.values[colIdx - 1] + fcf.values[colIdx] * 0.35)
   }
   if (debt?.values[colIdx] != null && debt.values[colIdx - 1] != null) {
     debt.values[colIdx] = Math.round(debt.values[colIdx - 1] * 0.985)
   }
 
-  const yoyIdx = colIdx - 4
-  revGrowth.values[colIdx] = growthYoYStr(rev, yoyIdx >= 0 ? revenue.values[yoyIdx] : null)
-  const epsPriorIdx = colIdx - 4
-  const epsNum = parseFloat(eps.values[colIdx])
-  const epsPrior = epsPriorIdx >= 0 ? parseFloat(eps.values[epsPriorIdx]) : null
-  epsGrowth.values[colIdx] = growthYoYStr(epsNum, epsPrior)
+  if (revGrowth) {
+    const yoyIdx = colIdx - 4
+    revGrowth.values[colIdx] = growthYoYStr(rev, yoyIdx >= 0 ? revenue.values[yoyIdx] : null)
+  }
+  if (epsGrowth && eps) {
+    const epsPriorIdx = colIdx - 4
+    const epsNum = parseFloat(eps.values[colIdx])
+    const epsPrior = epsPriorIdx >= 0 ? parseFloat(eps.values[epsPriorIdx]) : null
+    epsGrowth.values[colIdx] = growthYoYStr(epsNum, epsPrior)
+  }
 }
 
 function shortenDriverLabel(label) {
   return String(label ?? '')
     .replace(/\s+revenue$/i, '')
+    .replace(/\s+\(\$M\)$/i, '')
+    .replace(/\s+\(%\)$/i, '')
     .trim()
 }
 
@@ -247,8 +255,7 @@ function fmtUsdBillions(millions) {
   return `$${(millions / 1000).toFixed(1)}B`
 }
 
-/** Price target and cross-checks derived from the live model grid. */
-export function computeValuationView(model, liveMarketPrice = null, forecastColumnIndex = null) {
+function computeMarketValuationView(model, liveMarketPrice, forecastColumnIndex) {
   const cfg = model.valuationConfig
   if (!cfg) return null
 
@@ -293,37 +300,10 @@ export function computeValuationView(model, liveMarketPrice = null, forecastColu
     })
     .filter(Boolean)
 
-  const bridgeLabels = bridgeSegments.join(' + ')
-
-  const tableRows = [
-    {
-      label: 'Price per share',
-      model: fmtUsd(priceTarget),
-      market: fmtUsd(marketPrice),
-    },
-    {
-      label: 'Forward P/E',
-      model: `${targetPe.toFixed(1)}x`,
-      market: marketPe != null ? `${marketPe.toFixed(1)}x` : '—',
-    },
-    {
-      label: 'Market cap',
-      model: fmtUsdBillions(forecastMcap),
-      market: fmtUsdBillions(marketMcap),
-    },
-    {
-      label: 'Enterprise value',
-      model: fmtUsdBillions(forecastEv),
-      market: fmtUsdBillions(marketEv),
-    },
-    {
-      label: 'EV / EBITDA',
-      model: `${forecastEvEbitda.toFixed(1)}x`,
-      market: `${marketEvEbitda.toFixed(1)}x`,
-    },
-  ]
+  const bridgeLabels = bridgeSegments.join(' × ')
 
   return {
+    valuationMode: 'market',
     headline: {
       priceTargetFmt: fmtUsd(priceTarget),
       marketPriceFmt: fmtUsd(marketPrice),
@@ -333,43 +313,49 @@ export function computeValuationView(model, liveMarketPrice = null, forecastColu
       targetPeFmt: `${targetPe.toFixed(1)}x`,
     },
     bridge: {
-      formulaLine: `${bridgeLabels} = Revenue = EPS × P/E = Price`,
-      valuesLine: `${fmtUsdMillions(revenue)} = ${fmtUsd(eps)} × ${targetPe.toFixed(1)}x = ${fmtUsd(priceTarget)}`,
+      formulaLine: `${bridgeLabels} → Revenue → EPS × P/E → Price`,
+      valuesLine: `${fmtUsdMillions(revenue)} → ${fmtUsd(eps)} × ${targetPe.toFixed(1)}x → ${fmtUsd(priceTarget)}`,
     },
     details: {
-      rows: tableRows,
+      rows: [
+        { label: 'Price per share', model: fmtUsd(priceTarget), market: fmtUsd(marketPrice) },
+        {
+          label: 'Forward P/E',
+          model: `${targetPe.toFixed(1)}x`,
+          market: marketPe != null ? `${marketPe.toFixed(1)}x` : '—',
+        },
+        { label: 'Market cap', model: fmtUsdBillions(forecastMcap), market: fmtUsdBillions(marketMcap) },
+        { label: 'Enterprise value', model: fmtUsdBillions(forecastEv), market: fmtUsdBillions(marketEv) },
+        {
+          label: 'EV / EBITDA',
+          model: `${forecastEvEbitda.toFixed(1)}x`,
+          market: `${marketEvEbitda.toFixed(1)}x`,
+        },
+      ],
     },
   }
 }
 
-/**
- * Driver overrides in green columns roll up to revenue; the financial model is derived.
- */
-export function applyForecastOverrides(baseModel, overrides = {}) {
+/** Price target and cross-checks derived from the live model grid. */
+export function computeValuationView(model, liveMarketPrice = null, forecastColumnIndex = null) {
+  return computeMarketValuationView(model, liveMarketPrice, forecastColumnIndex)
+}
+
+function applyMarketForecastOverrides(baseModel, overrides) {
   const estFrom = baseModel.estimateFromIndex
   const colCount = baseModel.quarters.length
-  if (!Object.keys(overrides).length) return baseModel
-
   const ratios = forecastRatios(baseModel)
 
   const businessDrivers = baseModel.businessDrivers.map((row) => {
     const rowOverrides = overrides[row.label] ?? {}
     const valuesCopy = [...row.values]
     for (let i = estFrom; i < colCount; i++) {
-      if (rowOverrides[i] != null) {
-        valuesCopy[i] = Math.round(rowOverrides[i])
-      }
+      if (rowOverrides[i] != null) valuesCopy[i] = Math.round(rowOverrides[i])
     }
     return { ...row, values: valuesCopy }
   })
 
-  propagateDriverOverridesForward(
-    businessDrivers,
-    baseModel.businessDrivers,
-    overrides,
-    estFrom,
-    colCount,
-  )
+  propagateDriverOverridesForward(businessDrivers, baseModel.businessDrivers, overrides, estFrom, colCount)
 
   const historicalModel = baseModel.historicalModel.map((r) => ({
     ...r,
@@ -381,11 +367,15 @@ export function applyForecastOverrides(baseModel, overrides = {}) {
     recalcEstimateColumn(historicalModel, baseModel, i, rev, ratios)
   }
 
-  return {
-    ...baseModel,
-    historicalModel,
-    businessDrivers,
-  }
+  return { ...baseModel, historicalModel, businessDrivers }
+}
+
+/**
+ * Driver overrides in green columns roll up to revenue; the financial model is derived.
+ */
+export function applyForecastOverrides(baseModel, overrides = {}) {
+  if (!Object.keys(overrides).length) return baseModel
+  return applyMarketForecastOverrides(baseModel, overrides)
 }
 
 export function parseAnalyseGridInput(raw) {
@@ -400,7 +390,7 @@ export function analyseMockModelForTicker(ticker) {
   return scaleModel(ASML_MODEL, factor)
 }
 
-export function formatAnalyseGridValue(v) {
+export function formatAnalyseGridValue(v, row = null) {
   if (v == null || v === '') return '—'
   if (typeof v === 'number') return v.toLocaleString('en-US')
   return String(v)
