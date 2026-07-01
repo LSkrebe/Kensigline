@@ -1,12 +1,19 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
+import {
+  ALERT_WATCHLIST_MAX_DEFAULT,
+  combinedAlertWatchlistCount,
+  readAlertWatchlistMax,
+  readLocalActorWatchlist,
+  subscribeCombinedAlertWatchlist,
+  writeAlertWatchlistMax,
+} from './alertsWatchlistShared.js'
 
 const STORAGE_KEY = 'mercerline:ticker-watchlist'
 const PENDING_KEY = 'mercerline:ticker-watchlist-pending'
-const MAX_KEY = 'mercerline:ticker-watchlist-max'
 const WATCHLIST_EVENT = 'mercerline:watchlist'
 /** Matches backend default for $99/mo plan — overridden by GET /api/alerts/watchlist */
-export const WATCHLIST_MAX_DEFAULT = 25
+export const WATCHLIST_MAX_DEFAULT = ALERT_WATCHLIST_MAX_DEFAULT
 
 function normalizeTickers(list) {
   if (!Array.isArray(list)) return []
@@ -25,27 +32,11 @@ function readLocalWatchlist() {
 }
 
 function readWatchlistMax() {
-  if (typeof window === 'undefined') return WATCHLIST_MAX_DEFAULT
-  try {
-    const raw = window.localStorage.getItem(MAX_KEY)
-    const n = Number(raw)
-    if (Number.isFinite(n) && n >= 1) return Math.round(n)
-  } catch {
-    /* ignore */
-  }
-  return WATCHLIST_MAX_DEFAULT
+  return readAlertWatchlistMax()
 }
 
 function writeWatchlistMax(max) {
-  const n = Math.max(1, Math.round(Number(max) || WATCHLIST_MAX_DEFAULT))
-  if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.setItem(MAX_KEY, String(n))
-    } catch {
-      /* ignore */
-    }
-  }
-  return n
+  return writeAlertWatchlistMax(max)
 }
 
 function writeLocalWatchlist(tickers) {
@@ -129,7 +120,7 @@ export async function patchAlertWatchlist({ ticker, subscribed }) {
 
   const prev = readLocalWatchlist()
   const max = readWatchlistMax()
-  if (subscribed && !prev.includes(t) && prev.length >= max) {
+  if (subscribed && !prev.includes(t) && combinedAlertWatchlistCount() >= max) {
     return { ok: false, error: 'watchlist_limit', tickers: prev, max }
   }
 
@@ -170,8 +161,10 @@ export function useAlertWatchlist({ enabled = true } = {}) {
   const [loaded, setLoaded] = useState(() => readLocalWatchlist().length > 0)
   const [busyTicker, setBusyTicker] = useState('')
   const [limitError, setLimitError] = useState(false)
+  const [peerRevision, setPeerRevision] = useState(0)
 
   useEffect(() => subscribeAlertWatchlist(setTickers), [])
+  useEffect(() => subscribeCombinedAlertWatchlist(() => setPeerRevision((v) => v + 1)), [])
 
   useEffect(() => {
     if (!enabled) {
@@ -193,14 +186,18 @@ export function useAlertWatchlist({ enabled = true } = {}) {
     }
   }, [enabled])
 
-  const atLimit = tickers.length >= maxTickers
+  const combinedCount = useMemo(
+    () => combinedAlertWatchlistCount(),
+    [tickers, peerRevision],
+  )
+  const atLimit = combinedCount >= maxTickers
   const canAdd = useCallback(
     (ticker) => {
       const t = String(ticker ?? '').trim().toUpperCase()
       if (!t) return false
-      return tickers.includes(t) || tickers.length < maxTickers
+      return tickers.includes(t) || combinedCount < maxTickers
     },
-    [tickers, maxTickers],
+    [tickers, combinedCount, maxTickers],
   )
 
   const setSubscribed = useCallback(
@@ -234,6 +231,7 @@ export function useAlertWatchlist({ enabled = true } = {}) {
   return {
     tickers,
     maxTickers,
+    combinedCount,
     atLimit,
     canAdd,
     loaded,

@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
-import { useAlertWatchlist } from './alertsWatchlist.js'
+import { useActorAlertWatchlist } from './alertsActorWatchlist.js'
+import { useAlertWatchlist, WATCHLIST_MAX_DEFAULT } from './alertsWatchlist.js'
 import { useDigestPreference } from './alertsPreferences.js'
 import { useAuth } from './AuthContext.jsx'
 import { AuthSignIn } from './AuthSignIn.jsx'
+import { actorModeLabel } from './investigateActorKey.js'
 
 function formatBillingStatus(status) {
   const s = String(status ?? 'none').trim()
@@ -104,18 +106,121 @@ function SettingsDigestToggle({ enabled, busy, onChange }) {
   )
 }
 
+function SettingsAlertTable({ columns, rows, emptyLabel, loading = false }) {
+  if (loading) return <p className="settingsMuted mono">Loading…</p>
+  if (!rows.length) return <p className="settingsMuted mono">{emptyLabel}</p>
+  return (
+    <div className="settingsAlertTableWrap scrollThin">
+      <table className="settingsAlertTable">
+        <thead>
+          <tr>
+            {columns.map((col) => (
+              <th key={col.key} className={col.className ?? ''} scope="col">
+                {col.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              {columns.map((col) => (
+                <td key={col.key} className={col.className ?? ''}>
+                  {col.render(row)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export function SettingsPanel() {
   const { configured, loading, user, signOut } = useAuth()
   const [portalBusy, setPortalBusy] = useState(false)
   const [billing, setBilling] = useState(null)
   const [billingLoading, setBillingLoading] = useState(false)
   const signedIn = Boolean(configured && !loading && user)
-  const { tickers, maxTickers, atLimit, loaded: watchlistLoaded, busyTicker, remove } = useAlertWatchlist({
-    enabled: signedIn,
-  })
+  const {
+    tickers,
+    maxTickers,
+    combinedCount,
+    atLimit,
+    loaded: watchlistLoaded,
+    busyTicker,
+    remove,
+  } = useAlertWatchlist({ enabled: signedIn })
+  const {
+    actors,
+    loaded: actorWatchlistLoaded,
+    busyKey: busyActorKey,
+    remove: removeActor,
+  } = useActorAlertWatchlist({ enabled: signedIn })
   const { digestEnabled, busy: digestBusy, setEnabled: setDigestEnabled } = useDigestPreference({
     enabled: signedIn,
   })
+
+  const alertsLoaded = watchlistLoaded && actorWatchlistLoaded
+  const alertMax = maxTickers || WATCHLIST_MAX_DEFAULT
+
+  const alertRows = useMemo(() => {
+    const rows = []
+    for (const ticker of tickers) {
+      rows.push({
+        id: `ticker:${ticker}`,
+        kind: 'ticker',
+        label: ticker,
+        typeLabel: 'Document',
+        busy: busyTicker === ticker,
+        onRemove: () => void remove(ticker),
+      })
+    }
+    for (const actor of actors) {
+      rows.push({
+        id: `actor:${actor.actor_key}`,
+        kind: 'actor',
+        label: actor.display_name,
+        typeLabel: actorModeLabel(actor.mode),
+        busy: busyActorKey === actor.actor_key,
+        onRemove: () => void removeActor(actor.actor_key),
+      })
+    }
+    return rows
+  }, [tickers, actors, busyTicker, busyActorKey, remove, removeActor])
+
+  const alertColumns = [
+    {
+      key: 'label',
+      label: 'Alert',
+      className: 'settingsAlertTableCol--primary',
+      render: (row) => (
+        <span className={row.kind === 'ticker' ? 'mono' : ''}>{row.label}</span>
+      ),
+    },
+    {
+      key: 'type',
+      label: 'Type',
+      render: (row) => <span className="settingsAlertTableType mono">{row.typeLabel}</span>,
+    },
+    {
+      key: 'action',
+      label: '',
+      className: 'settingsAlertTableCol--action',
+      render: (row) => (
+        <button
+          type="button"
+          className="settingsAlertTableRemove"
+          aria-label={`Remove ${row.label} alerts`}
+          disabled={row.busy}
+          onClick={row.onRemove}
+        >
+          Remove
+        </button>
+      ),
+    },
+  ]
 
   const onManageBilling = useCallback(async () => {
     setPortalBusy(true)
@@ -220,39 +325,24 @@ export function SettingsPanel() {
             </SettingsField>
           </SettingsCard>
 
-          <SettingsCard title="TICKER ALERTS" className="settingsCard--alerts settingsCard--wide">
-            <p className="settingsCardHint">
-              Receive document analysis by email when new filings are processed for your watched tickers.
-              {' '}
-              <span className="settingsWatchlistQuota">
-                {watchlistLoaded ? `${tickers.length} / ${maxTickers} on your plan` : `Up to ${maxTickers} tickers`}
+          <SettingsCard title="ALERTS" className="settingsCard--alerts settingsCard--wide">
+            <div className="settingsCardHintRow">
+              <p className="settingsCardHint">
+                Email alerts for watched tickers and actors.
+              </p>
+              <span className="settingsWatchlistQuota mono">
+                {alertsLoaded ? `${combinedCount} / ${alertMax}` : `— / ${alertMax}`}
               </span>
-            </p>
+            </div>
             {atLimit ? (
-              <p className="settingsWatchlistLimitNote mono">Watchlist full - remove a ticker to add another.</p>
+              <p className="settingsWatchlistLimitNote mono">Watchlist full — remove an alert to add another.</p>
             ) : null}
-            {!watchlistLoaded ? (
-              <p className="settingsMuted mono">Loading…</p>
-            ) : !tickers.length ? (
-              <p className="settingsMuted mono">No tickers - add from Research → Paper using the bell icon.</p>
-            ) : (
-              <div className="settingsWatchlistChips" role="list">
-                {tickers.map((ticker) => (
-                  <div key={ticker} className="settingsWatchlistChip" role="listitem">
-                    <span className="settingsWatchlistChipTicker mono">{ticker}</span>
-                    <button
-                      type="button"
-                      className="settingsWatchlistChipRemove"
-                      aria-label={`Remove ${ticker} alerts`}
-                      disabled={busyTicker === ticker}
-                      onClick={() => void remove(ticker)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <SettingsAlertTable
+              columns={alertColumns}
+              rows={alertRows}
+              loading={!alertsLoaded}
+              emptyLabel="No alerts yet."
+            />
           </SettingsCard>
 
           <SettingsCard title="INVOICES" className="settingsCard--invoices settingsCard--wide">

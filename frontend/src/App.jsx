@@ -3,6 +3,8 @@ import { toPng } from 'html-to-image'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { useAlertWatchlist } from './alertsWatchlist.js'
+import { useActorAlertWatchlist } from './alertsActorWatchlist.js'
+import { investigateActorCanonicalKey } from './investigateActorKey.js'
 import { IntroPage } from './IntroPage.jsx'
 import { SignInPage } from './SignInPage.jsx'
 import { SubscribePage } from './SubscribePage.jsx'
@@ -1055,6 +1057,317 @@ function investigateFeedRowMatchesSearch(row, queryRaw, mode) {
   return true
 }
 
+const INVESTIGATE_SOURCE_ROLE_SHORT = {
+  insider: 'INS',
+  politicians: 'POL',
+  institutions: 'INST',
+}
+
+/** Lower = higher priority when the same person appears in multiple investigate sources. */
+const INVESTIGATE_SOURCE_PRIORITY = {
+  insider: 0,
+  institutions: 1,
+  politicians: 2,
+}
+
+function investigateSourceRoleShort(mode) {
+  return INVESTIGATE_SOURCE_ROLE_SHORT[mode] ?? 'INS'
+}
+
+function investigateTxnFiltersForMode(filters, mode) {
+  if (filters && typeof filters === 'object' && filters.insider instanceof Set) {
+    return mode === 'politicians'
+      ? filters.politicians
+      : mode === 'institutions'
+        ? filters.institutions
+        : filters.insider
+  }
+  return filters
+}
+
+function mergeInvestigateActorFeedRows(actors) {
+  const byCanonical = new Map()
+  for (const actor of actors ?? []) {
+    const canonicalKey =
+      actor.canonicalKey || investigateActorCanonicalKey(actor.actorName, actor.source)
+    const prev = byCanonical.get(canonicalKey)
+    if (!prev) {
+      byCanonical.set(canonicalKey, {
+        ...actor,
+        canonicalKey,
+        id: `actor:${canonicalKey}`,
+        sources: [actor.source],
+      })
+      continue
+    }
+    prev.transactions.push(...(actor.transactions ?? []))
+    prev.sources = [...new Set([...(prev.sources ?? []), actor.source])]
+    prev.matchNames = [...new Set([...(prev.matchNames ?? []), ...(actor.matchNames ?? [])])]
+    prev.idea_score = Math.max(Number(prev.idea_score) || 0, Number(actor.idea_score) || 0)
+    prev.idea_best = prev.idea_best || Boolean(actor.idea_best)
+    const pick = INVESTIGATE_SOURCE_PRIORITY[actor.source] < INVESTIGATE_SOURCE_PRIORITY[prev.source] ? actor : prev
+    const other = pick === actor ? prev : actor
+    prev.source = pick.source
+    prev.actorRole = pick.actorRole
+    prev.actorDetail = pick.actorDetail
+    if (String(pick.actorName ?? '').length >= String(other.actorName ?? '').length) {
+      prev.actorName = pick.actorName
+    }
+    prev.actorKey = pick.actorKey
+    prev.id = `actor:${canonicalKey}`
+    prev.canonicalKey = canonicalKey
+  }
+  const out = []
+  for (const actor of byCanonical.values()) {
+    actor.transactions.sort((a, b) => new Date(b.ts ?? 0).getTime() - new Date(a.ts ?? 0).getTime())
+    if (!actor.transactions.length) continue
+    out.push(normalizeInvestigateActorFeedRow(actor))
+  }
+  return out
+}
+
+function investigateActorKeyFromCaseRow(r, mode) {
+  if (mode === 'politicians') {
+    const name = String(r?.politician_name ?? r?.person ?? r?.key ?? '')
+      .trim()
+      .toLowerCase()
+    const chamber = String(r?.chamber ?? '').trim().toLowerCase()
+    return name ? `${chamber}:${name}` : ''
+  }
+  if (mode === 'institutions') {
+    return String(r?.institution_name ?? r?.key ?? '').trim().toLowerCase()
+  }
+  const full = insiderReportingOwnerName(r) || String(r?.insider_name ?? r?.key ?? '').trim()
+  return full.toLowerCase() || String(r?.key ?? '').trim().toLowerCase()
+}
+
+function investigateActorFullNameFromCaseRow(r, mode) {
+  if (mode === 'politicians') {
+    return String(r?.politician_name ?? r?.person ?? r?.key ?? '').trim()
+  }
+  if (mode === 'institutions') {
+    return String(r?.institution_name ?? r?.key ?? '').trim()
+  }
+  return insiderReportingOwnerName(r) || String(r?.insider_name ?? r?.key ?? '').trim()
+}
+
+function investigateActorDetailFromCaseRow(r, mode) {
+  if (mode === 'politicians') {
+    return politicianChamberLabelFromCode(politicianChamberCode(r?.chamber))
+  }
+  if (mode === 'institutions') {
+    return institutionFilerLabelFromFilingName(investigateActorFullNameFromCaseRow(r, mode))
+  }
+  const role = r?.role ? String(r.role).toUpperCase() : insiderRoleFromKey(r?.key)
+  return role || 'Insider'
+}
+
+function investigateActorTxnEntryFromCompanyRow(companyRow, sheetRow, mode) {
+  const ticker = String(companyRow?.ticker ?? '').trim().toUpperCase()
+  const company = String(companyRow?.company ?? companyRow?.caseSheet?.issuer ?? '').trim()
+  return {
+    sheetRow,
+    ticker,
+    company,
+    companyRow,
+    showMoney: Boolean(companyRow?.caseSheet?.isForm4),
+    ts: sheetRow?.ts ?? companyRow?.at ?? null,
+    source: mode,
+  }
+}
+
+function investigateActorCaseRowCountsToday(txn, mode) {
+  const r = txn?.sheetRow
+  if (!r?.ts || !isAtLocalToday(r.ts)) return 0
+  if (mode === 'politicians') {
+    return politicianCaseRowHasTxn(r) ? 1 : 0
+  }
+  if (mode === 'institutions') {
+    return institutionCaseRowHasTxn(r) ? 1 : 0
+  }
+  if (!txn.showMoney) return 0
+  const code = String(r?.transactionCode ?? '').trim()
+  const usd = Number(r?.amountUsd ?? 0)
+  return code || (Number.isFinite(usd) && usd > 0) ? 1 : 0
+}
+
+function countActorFeedEventsToday(actorRow) {
+  let n = 0
+  for (const txn of actorRow?.transactions ?? []) {
+    n += investigateActorCaseRowCountsToday(txn, txn.source ?? actorRow.source ?? 'insider')
+  }
+  return n
+}
+
+function normalizeInvestigateActorFeedRow(actor) {
+  let bestAt = null
+  let bestT = -Infinity
+  for (const txn of actor.transactions ?? []) {
+    const ts = txn?.ts
+    if (!ts) continue
+    const t = new Date(ts).getTime()
+    if (Number.isFinite(t) && t > bestT) {
+      bestT = t
+      bestAt = ts
+    }
+  }
+  const countN = countActorFeedEventsToday(actor)
+  return {
+    ...actor,
+    at: bestAt ?? actor.at ?? null,
+    count: countN > 0 ? countN : null,
+  }
+}
+
+function buildInvestigateActorFeed(companyRows, mode) {
+  const byActor = new Map()
+  for (const companyRow of companyRows ?? []) {
+    const cs = companyRow?.caseSheet
+    if (!Array.isArray(cs?.rows) || !cs.rows.length) continue
+    for (const sheetRow of cs.rows) {
+      if (mode === 'politicians') {
+        if (!politicianCaseRowHasTxn(sheetRow)) continue
+      } else if (mode === 'institutions') {
+        if (!institutionCaseRowHasTxn(sheetRow)) continue
+      } else if (!cs.isForm4) {
+        continue
+      }
+      const actorKey = investigateActorKeyFromCaseRow(sheetRow, mode)
+      if (!actorKey) continue
+      const entry = investigateActorTxnEntryFromCompanyRow(companyRow, sheetRow, mode)
+      const fullName = investigateActorFullNameFromCaseRow(sheetRow, mode)
+      const canonicalKey = investigateActorCanonicalKey(fullName, mode)
+      let actor = byActor.get(actorKey)
+      if (!actor) {
+        actor = {
+          id: `${mode}:${actorKey}`,
+          actorKey,
+          canonicalKey,
+          actorRole: investigateSourceRoleShort(mode),
+          actorName: fullName,
+          actorDetail: investigateActorDetailFromCaseRow(sheetRow, mode),
+          matchNames: [
+            ...new Set(
+              [fullName, lastName(fullName), institutionDisplayShortName(fullName)].filter(Boolean),
+            ),
+          ],
+          source: mode,
+          sources: [mode],
+          transactions: [],
+          at: null,
+          count: null,
+          idea_score: Number(companyRow.idea_score) || 0,
+          idea_best: Boolean(companyRow.idea_best),
+        }
+        byActor.set(actorKey, actor)
+      }
+      actor.transactions.push(entry)
+      actor.idea_score = Math.max(actor.idea_score, Number(companyRow.idea_score) || 0)
+      actor.idea_best = actor.idea_best || Boolean(companyRow.idea_best)
+    }
+  }
+  const out = []
+  for (const actor of byActor.values()) {
+    actor.transactions.sort((a, b) => new Date(b.ts ?? 0).getTime() - new Date(a.ts ?? 0).getTime())
+    if (!actor.transactions.length) continue
+    out.push(normalizeInvestigateActorFeedRow(actor))
+  }
+  return out
+}
+
+function investigateActorFeedRowMatchesSearch(row, queryRaw) {
+  const q = String(queryRaw ?? '').trim()
+  if (!q) return true
+  if (politicianNamesMatchQuery([row?.actorName, ...(row?.matchNames ?? [])], q)) return true
+  const qu = q.toUpperCase()
+  for (const txn of row?.transactions ?? []) {
+    const ticker = String(txn?.ticker ?? '').toUpperCase()
+    const company = String(txn?.company ?? '').toUpperCase()
+    if (ticker.includes(qu) || company.includes(qu)) return true
+  }
+  return false
+}
+
+function mergeInvestigateActorFeedsForAll({
+  insiderRows,
+  politicianRows,
+  institutionRows,
+  insiderQ,
+  politiciansQ,
+  institutionsQ,
+}) {
+  const insider = buildInvestigateActorFeed(
+    filterInvestigateFeedForAll(insiderRows, 'insider', insiderQ),
+    'insider',
+  )
+  const politicians = buildInvestigateActorFeed(
+    filterInvestigateFeedForAll(politicianRows, 'politicians', politiciansQ),
+    'politicians',
+  )
+  const institutions = buildInvestigateActorFeed(
+    filterInvestigateFeedForAll(institutionRows, 'institutions', institutionsQ),
+    'institutions',
+  )
+  return sortFeedRowsTodayEventsFirst(
+    mergeInvestigateActorFeedRows([...insider, ...politicians, ...institutions]),
+  )
+}
+
+function caseSheetRowToCompanyCaseFeedRow(r, { ticker, company, showMoney, mode }) {
+  const base =
+    mode === 'politicians'
+      ? caseSheetRowToPoliticianTxnFeedRow(r, { showMoney })
+      : mode === 'institutions'
+        ? caseSheetRowToInstitutionTxnFeedRow(r, { showMoney })
+        : caseSheetRowToTxnFeedRow(r, { showMoney })
+  if (!base) return null
+  const tick = String(ticker ?? '').trim().toUpperCase()
+  const companyName = String(company ?? '').trim() || tick
+  return {
+    ...base,
+    layout: 'txnCompany',
+    ticker: tick,
+    companyName,
+    matchCompanies: [tick, companyName],
+    __source: mode,
+  }
+}
+
+function buildActorCaseFeedRows(actorRow, filters, chartRange) {
+  if (!actorRow?.transactions?.length) return []
+  const trades = []
+  for (const txn of actorRow.transactions) {
+    const txnMode = txn.source ?? actorRow.source ?? 'insider'
+    const enabled = investigateTxnFiltersForMode(filters, txnMode)
+    if (!investigateCaseRowPassesTxnFilter(txn.sheetRow, enabled, txnMode)) continue
+    const row = caseSheetRowToCompanyCaseFeedRow(txn.sheetRow, {
+      ticker: txn.ticker,
+      company: txn.company,
+      showMoney: txn.showMoney,
+      mode: txnMode,
+    })
+    if (row) trades.push(row)
+  }
+  trades.sort((a, b) => new Date(b.ts ?? 0).getTime() - new Date(a.ts ?? 0).getTime())
+  return appendCaseTxnTimeline([], filterCaseTradesForPriceRange(trades, chartRange), 'today+years', {
+    priceRange: chartRange,
+  })
+}
+
+function actorPersonDisplayFromRow(actorRow) {
+  if (!actorRow?.actorName) return null
+  return {
+    fullName: actorRow.actorName,
+    detail: String(actorRow.actorDetail ?? '').trim() || EMPTY,
+  }
+}
+
+function findCompanyFeedRowByTicker(rows, ticker) {
+  const want = String(ticker ?? '').trim().toUpperCase()
+  if (!want) return null
+  return (rows ?? []).find((r) => String(r?.ticker ?? '').trim().toUpperCase() === want) ?? null
+}
+
 function tagInvestigateFeedSource(rows, source) {
   return (rows ?? []).map((r) => ({ ...r, __investigateSource: source }))
 }
@@ -1373,26 +1686,6 @@ function filterInvestigateFeedForAll(rows, source, query) {
   const q = String(query ?? '').trim()
   if (!q) return rows ?? []
   return (rows ?? []).filter((r) => investigateFeedRowMatchesSearch(r, q, source))
-}
-
-function mergeInvestigateFeedsForAll({
-  insiderRows,
-  politicianRows,
-  institutionRows,
-  insiderQ,
-  politiciansQ,
-  institutionsQ,
-}) {
-  const insider = filterInvestigateFeedForAll(insiderRows, 'insider', insiderQ)
-  const politicians = filterInvestigateFeedForAll(politicianRows, 'politicians', politiciansQ)
-  const institutions = filterInvestigateFeedForAll(institutionRows, 'institutions', institutionsQ)
-  return sortFeedRowsTodayEventsFirst(
-    dedupeInvestigateFeedByTicker([
-      ...tagInvestigateFeedSource(insider, 'insider'),
-      ...tagInvestigateFeedSource(politicians, 'politicians'),
-      ...tagInvestigateFeedSource(institutions, 'institutions'),
-    ]),
-  )
 }
 
 // ------------------------------------------------------------
@@ -4223,7 +4516,7 @@ function ContextAlertToggle({ ticker, className = '' }) {
   const { loading, user } = useAuth()
   const sym = String(ticker ?? '').trim().toUpperCase()
   const signedIn = Boolean(user)
-  const { tickers, maxTickers, atLimit, canAdd, loaded, busyTicker, toggle } = useAlertWatchlist({
+  const { tickers, maxTickers, combinedCount, atLimit, canAdd, loaded, busyTicker, toggle } = useAlertWatchlist({
     enabled: signedIn,
   })
   const active = sym && tickers.includes(sym)
@@ -4240,7 +4533,7 @@ function ContextAlertToggle({ ticker, className = '' }) {
         !signedIn
           ? 'Sign in to enable ticker email alerts'
           : limitBlocked
-            ? `Watchlist full - ${maxTickers} tickers maximum`
+            ? `Watchlist full - ${maxTickers} alerts maximum`
             : active
               ? `Email alerts on for ${sym}`
               : `Enable email alerts for ${sym}`
@@ -4249,7 +4542,7 @@ function ContextAlertToggle({ ticker, className = '' }) {
         !signedIn
           ? 'Sign in to enable alerts'
           : limitBlocked
-            ? `Watchlist full (${tickers.length}/${maxTickers}). Remove a ticker in Settings.`
+            ? `Watchlist full (${combinedCount}/${maxTickers}). Remove an alert in Settings.`
             : active
               ? 'Alerts on - email when new documents arrive'
               : 'Alert me when new documents arrive'
@@ -4259,6 +4552,72 @@ function ContextAlertToggle({ ticker, className = '' }) {
         if (!sym || busy) return
         if (!signedIn) return
         void toggle(sym)
+      }}
+    >
+      <svg className="contextAlertToggleIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"
+        />
+        <path
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M13.73 21a2 2 0 01-3.46 0"
+        />
+      </svg>
+      {loaded && active ? <span className="contextAlertToggleDot" aria-hidden="true" /> : null}
+    </button>
+  )
+}
+
+function ContextActorAlertToggle({ actorKey, displayName, mode = 'insider', className = '' }) {
+  const { loading, user } = useAuth()
+  const key = String(actorKey ?? '').trim().toLowerCase()
+  const signedIn = Boolean(user)
+  const { maxActors, combinedCount, atLimit, canAdd, loaded, busyKey, isSubscribed, toggle } = useActorAlertWatchlist({
+    enabled: signedIn,
+  })
+  const active = key && isSubscribed(key)
+  const busy = busyKey === key
+  const limitBlocked = Boolean(key && !active && atLimit && !canAdd(key))
+  const disabled = !key || busy || loading || !signedIn || limitBlocked
+  const name = String(displayName ?? '').trim() || 'this actor'
+
+  return (
+    <button
+      type="button"
+      className={['contextAlertToggle', active ? 'isActive' : '', className].filter(Boolean).join(' ')}
+      aria-pressed={active || undefined}
+      aria-label={
+        !signedIn
+          ? 'Sign in to enable actor email alerts'
+          : limitBlocked
+            ? `Watchlist full - ${maxActors} alerts maximum`
+            : active
+              ? `Email alerts on for ${name}`
+              : `Enable email alerts for ${name}`
+      }
+      title={
+        !signedIn
+          ? 'Sign in to enable alerts'
+          : limitBlocked
+            ? `Watchlist full (${combinedCount}/${maxActors}). Remove an alert in Settings.`
+            : active
+              ? 'Alerts on - email when new transactions arrive'
+              : 'Alert me when this actor has new transactions'
+      }
+      disabled={disabled}
+      onClick={() => {
+        if (!key || busy) return
+        if (!signedIn) return
+        void toggle(key, { display_name: displayName, mode })
       }}
     >
       <svg className="contextAlertToggleIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
@@ -8369,7 +8728,7 @@ function CompactFeed({
   todayGroupByEvents = false,
   /** Replace pagination with scroll-to-load. */
   scrollMode = false,
-  /** `ticker`: main label is ticker; `company`: main label is company name (insider feed). */
+  /** `ticker`: main label is ticker; `company`: main label is company name; `actor`: investigate actor feed. */
   rowPrimary = 'label',
   /** Optional ticker search (research-style) above the list. */
   showFeedSearch = false,
@@ -8504,7 +8863,10 @@ function CompactFeed({
             programsStackedRows ? 'feedRowCompact--programs' : '',
             programsTimeline ? 'feedRowCompact--timeline' : '',
             rowPrimary === 'company' ? 'feedRowCompact--company' : '',
-            rowPrimary === 'company' && !feedCountVisible(row.count) ? 'feedRowCompact--noCount' : '',
+            rowPrimary === 'actor' ? 'feedRowCompact--actor' : '',
+            (rowPrimary === 'company' || rowPrimary === 'actor') && !feedCountVisible(row.count)
+              ? 'feedRowCompact--noCount'
+              : '',
           ]
             .filter(Boolean)
             .join(' ')}
@@ -8538,6 +8900,21 @@ function CompactFeed({
               </span>
               <span className="feedCell feedCellCompany kvFeedMain">
                 {String(row.company ?? row.issuer ?? '').trim() || '—'}
+              </span>
+              {!programsTimeline && feedCountVisible(row.count) ? (
+                <span className="feedCell feedCellCount mono kvFeedDim">
+                  <span className="feedCountTag">{row.count}</span>
+                </span>
+              ) : null}
+              <span className="feedCell feedCellWhen mono kvFeedDim">
+                {feedWhenLabel(row)}
+              </span>
+            </>
+          ) : rowPrimary === 'actor' ? (
+            <>
+              <span className="feedCell feedCellRole mono kvFeedDim">{row.actorRole ?? '—'}</span>
+              <span className="feedCell feedCellActor kvFeedMain">
+                {String(row.actorName ?? '').trim() || '—'}
               </span>
               {!programsTimeline && feedCountVisible(row.count) ? (
                 <span className="feedCell feedCellCount mono kvFeedDim">
@@ -8699,10 +9076,11 @@ function CaseKvFeed({
   selectedTradeRowIndex = -1,
   onSelectTradeRowIndex,
   scrollMode = false,
-  /** When set, matching politician CASE surname cells use main (white) text. */
-  highlightPersonQuery = '',
+  /** When set, matching company cells in CASE use main (white) text. */
+  highlightCompanyQuery = '',
   personDisplay = null,
   personMode = 'insider',
+  actorAlert = null,
   panelClassName = '',
 }) {
   const listRef = useRef(null)
@@ -8783,18 +9161,30 @@ function CaseKvFeed({
         </div>
       )
     }
-    if (r?.layout === 'txn' || r?.layout === 'txnPolitician') {
+    if (r?.layout === 'txn' || r?.layout === 'txnPolitician' || r?.layout === 'txnCompany') {
       const isTrade = r?.type === 'trade'
       const isPoliticianTxn = r?.layout === 'txnPolitician'
+      const isCompanyTxn = r?.layout === 'txnCompany'
+      const companyQ = String(highlightCompanyQuery ?? '').trim().toUpperCase()
+      const highlightCompany =
+        isCompanyTxn &&
+        Boolean(companyQ) &&
+        ((r?.ticker && String(r.ticker).toUpperCase().includes(companyQ)) ||
+          (r?.companyName && String(r.companyName).toUpperCase().includes(companyQ)))
       const highlightPerson =
-        Boolean(String(highlightPersonQuery ?? '').trim()) &&
-        caseTxnPersonNameMatchesQuery(r, highlightPersonQuery)
+        !isCompanyTxn &&
+        Boolean(String(highlightCompanyQuery ?? '').trim()) &&
+        caseTxnPersonNameMatchesQuery(r, highlightCompanyQuery)
       return (
         <div
-          key={`txn-${r.whoRole ?? r.who}-${r.whoName ?? ''}-${r.code ?? 'x'}-${i}`}
+          key={
+            isCompanyTxn
+              ? `txn-co-${r.ticker ?? 'x'}-${r.code ?? 'x'}-${i}`
+              : `txn-${r.whoRole ?? r.who}-${r.whoName ?? ''}-${r.code ?? 'x'}-${i}`
+          }
           className={[
             'feedRowCompact',
-            'feedRowCompact--txn',
+            isCompanyTxn ? 'feedRowCompact--txnCompany' : 'feedRowCompact--txn',
             isPoliticianTxn ? 'feedRowCompact--txnPolitician' : '',
             isTrade && i === selectedTradeRowIndex ? 'isActive' : '',
           ]
@@ -8804,19 +9194,49 @@ function CaseKvFeed({
           onClick={isTrade ? () => onSelectTradeRowIndex?.(i) : undefined}
           data-row-idx={i}
         >
-          <span className="feedCell feedCellRole mono kvFeedMain">{r.whoRole ?? r.who ?? '—'}</span>
-          <span
-            className={[
-              'feedCell',
-              'feedCellSurname',
-              'mono',
-              highlightPerson ? 'kvFeedMain feedCellSurname--match' : 'kvFeedDim',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          >
-            {r.whoName ?? ''}
-          </span>
+          {isCompanyTxn ? (
+            <>
+              <span
+                className={[
+                  'feedCell',
+                  'feedCellSymbol',
+                  'mono',
+                  highlightCompany ? 'kvFeedMain feedCellSymbol--match' : 'kvFeedDim',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {r.ticker ?? '—'}
+              </span>
+              <span
+                className={[
+                  'feedCell',
+                  'feedCellCompany',
+                  highlightCompany ? 'kvFeedMain feedCellCompany--match' : 'kvFeedDim',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {r.companyName ?? '—'}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="feedCell feedCellRole mono kvFeedMain">{r.whoRole ?? r.who ?? '—'}</span>
+              <span
+                className={[
+                  'feedCell',
+                  'feedCellSurname',
+                  'mono',
+                  highlightPerson ? 'kvFeedMain feedCellSurname--match' : 'kvFeedDim',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {r.whoName ?? ''}
+              </span>
+            </>
+          )}
           <span
             className={[
               'feedCell',
@@ -8830,7 +9250,9 @@ function CaseKvFeed({
             title={r?.codeTitle ?? undefined}
           >
             {r.code ?? '—'}
-            {!isPoliticianTxn && r.isDerivative ? <span className="feedTxnDeriv">D</span> : null}
+            {!isPoliticianTxn && !isCompanyTxn && r.isDerivative ? (
+              <span className="feedTxnDeriv">D</span>
+            ) : null}
           </span>
           <span
             className={[
@@ -8876,11 +9298,21 @@ function CaseKvFeed({
     >
       <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">{title}</div>
-        {!scrollMode ? (
-          <div className="feedCompactMeta feedCompactMeta--paginationOnly">
-            <span className="feedPageInd">{total ? `${page + 1}/${totalPages}` : '0/0'}</span>
-          </div>
-        ) : null}
+        <div className="feedCompactHeaderEnd">
+          {actorAlert?.key ? (
+            <ContextActorAlertToggle
+              actorKey={actorAlert.key}
+              displayName={actorAlert.displayName}
+              mode={actorAlert.mode}
+              className="casePanelAlertToggle"
+            />
+          ) : null}
+          {!scrollMode ? (
+            <div className="feedCompactMeta feedCompactMeta--paginationOnly">
+              <span className="feedPageInd">{total ? `${page + 1}/${totalPages}` : '0/0'}</span>
+            </div>
+          ) : null}
+        </div>
       </header>
       {scrollMode ? (
         <div className="feedCompactBody feedCompactBody--case">
@@ -9127,7 +9559,7 @@ function KensiglineTerminal() {
   const [institutionsChartRange, setInstitutionsChartRange] = useState(() =>
     readChartRange('institutions', PRICE_RANGE_OPTS, '6M'),
   )
-  const [allSelectedTicker, setAllSelectedTicker] = useState(null)
+  const [allSelectedActorId, setAllSelectedActorId] = useState(null)
   const [allCaseTradeIdx, setAllCaseTradeIdx] = useState(0)
   const [researchFeedLive, setResearchFeedLive] = useState(null)
   const [researchFeedInjected, setResearchFeedInjected] = useState([])
@@ -9964,34 +10396,30 @@ function KensiglineTerminal() {
     [insiderFeedRowsBase, investigateInsiderTxnFilters],
   )
 
+  const insiderActorFeedBase = useMemo(
+    () => buildInvestigateActorFeed(insiderFeedRowsTxnFiltered, 'insider'),
+    [insiderFeedRowsTxnFiltered],
+  )
+
   const insiderFilteredFeed = useMemo(() => {
     const q = String(insiderFeedQuery ?? '').trim()
-    let rows = insiderFeedRowsTxnFiltered
+    let rows = insiderActorFeedBase
     if (q) {
-      rows = rows.filter((r) => investigateFeedRowMatchesSearch(r, q, 'insider'))
+      rows = rows.filter((r) => investigateActorFeedRowMatchesSearch(r, q))
     }
     return sortFeedRowsTodayEventsFirst(rows)
-  }, [insiderFeedRowsTxnFiltered, insiderFeedQuery])
+  }, [insiderActorFeedBase, insiderFeedQuery])
 
   useEffect(() => {
     if (activeTab !== 'investigate' || investigateMode !== 'insider') return
     setInsiderIdx(0)
+    setInsiderCaseTradeIdx(0)
   }, [insiderFeedQuery, activeTab, investigateInsiderTxnFilters, investigateMode])
 
   const insiderSelected =
     insiderFilteredFeed.length > 0
       ? insiderFilteredFeed[clamp(insiderIdx, 0, Math.max(0, insiderFilteredFeed.length - 1))]
       : null
-
-  const insiderFeedDisplay = useMemo(() => {
-    if (!(backendUp && insiderClusterLive && insiderSelected?.ticker)) return insiderFilteredFeed
-    return patchInvestigateFeedRowFromCluster(
-      insiderFilteredFeed,
-      insiderSelected.ticker,
-      insiderClusterLive,
-      insiderCaseSheetFromClusterLive,
-    )
-  }, [backendUp, insiderFilteredFeed, insiderClusterLive, insiderSelected?.ticker])
 
   useEffect(() => {
     let alive = true
@@ -10050,34 +10478,30 @@ function KensiglineTerminal() {
     [politiciansFeedRowsBase, investigatePoliticianTxnFilters],
   )
 
+  const politiciansActorFeedBase = useMemo(
+    () => buildInvestigateActorFeed(politiciansFeedRowsTxnFiltered, 'politicians'),
+    [politiciansFeedRowsTxnFiltered],
+  )
+
   const politiciansFilteredFeed = useMemo(() => {
     const q = String(politiciansFeedQuery ?? '').trim()
-    let rows = politiciansFeedRowsTxnFiltered
+    let rows = politiciansActorFeedBase
     if (q) {
-      rows = rows.filter((r) => investigateFeedRowMatchesSearch(r, q, 'politicians'))
+      rows = rows.filter((r) => investigateActorFeedRowMatchesSearch(r, q))
     }
     return sortFeedRowsTodayEventsFirst(rows)
-  }, [politiciansFeedRowsTxnFiltered, politiciansFeedQuery])
+  }, [politiciansActorFeedBase, politiciansFeedQuery])
 
   useEffect(() => {
     if (activeTab !== 'investigate' || investigateMode !== 'politicians') return
     setPoliticiansIdx(0)
+    setPoliticiansCaseTradeIdx(0)
   }, [politiciansFeedQuery, activeTab, investigatePoliticianTxnFilters, investigateMode])
 
   const politiciansSelected =
     politiciansFilteredFeed.length > 0
       ? politiciansFilteredFeed[clamp(politiciansIdx, 0, Math.max(0, politiciansFilteredFeed.length - 1))]
       : null
-
-  const politiciansFeedDisplay = useMemo(() => {
-    if (!(backendUp && politiciansClusterLive && politiciansSelected?.ticker)) return politiciansFilteredFeed
-    return patchInvestigateFeedRowFromCluster(
-      politiciansFilteredFeed,
-      politiciansSelected.ticker,
-      politiciansClusterLive,
-      politiciansCaseSheetFromClusterLive,
-    )
-  }, [backendUp, politiciansFilteredFeed, politiciansClusterLive, politiciansSelected?.ticker])
 
   const institutionsFeedRowsBase = useMemo(
     () => applyFeedTodayEventCounts(!backendUp ? INSTITUTION_FEED_ROWS : institutionsFeedLive ?? []),
@@ -10089,18 +10513,24 @@ function KensiglineTerminal() {
     [institutionsFeedRowsBase, investigateInstitutionTxnFilters],
   )
 
+  const institutionsActorFeedBase = useMemo(
+    () => buildInvestigateActorFeed(institutionsFeedRowsTxnFiltered, 'institutions'),
+    [institutionsFeedRowsTxnFiltered],
+  )
+
   const institutionsFilteredFeed = useMemo(() => {
     const q = String(institutionsFeedQuery ?? '').trim()
-    let rows = institutionsFeedRowsTxnFiltered
+    let rows = institutionsActorFeedBase
     if (q) {
-      rows = rows.filter((r) => investigateFeedRowMatchesSearch(r, q, 'institutions'))
+      rows = rows.filter((r) => investigateActorFeedRowMatchesSearch(r, q))
     }
     return sortFeedRowsTodayEventsFirst(rows)
-  }, [institutionsFeedRowsTxnFiltered, institutionsFeedQuery])
+  }, [institutionsActorFeedBase, institutionsFeedQuery])
 
   useEffect(() => {
     if (activeTab !== 'investigate' || investigateMode !== 'institutions') return
     setInstitutionsIdx(0)
+    setInstitutionsCaseTradeIdx(0)
   }, [institutionsFeedQuery, activeTab, investigateInstitutionTxnFilters, investigateMode])
 
   const institutionsSelected =
@@ -10108,19 +10538,9 @@ function KensiglineTerminal() {
       ? institutionsFilteredFeed[clamp(institutionsIdx, 0, Math.max(0, institutionsFilteredFeed.length - 1))]
       : null
 
-  const institutionsFeedDisplay = useMemo(() => {
-    if (!(backendUp && institutionsClusterLive && institutionsSelected?.ticker)) return institutionsFilteredFeed
-    return patchInvestigateFeedRowFromCluster(
-      institutionsFilteredFeed,
-      institutionsSelected.ticker,
-      institutionsClusterLive,
-      institutionCaseSheetFromClusterLive,
-    )
-  }, [backendUp, institutionsFilteredFeed, institutionsClusterLive, institutionsSelected?.ticker])
-
   const allMergedFeed = useMemo(() => {
     if (investigateMode !== 'all') return []
-    return mergeInvestigateFeedsForAll({
+    return mergeInvestigateActorFeedsForAll({
       insiderRows: insiderFeedRowsTxnFiltered,
       politicianRows: politiciansFeedRowsTxnFiltered,
       institutionRows: institutionsFeedRowsTxnFiltered,
@@ -10140,7 +10560,8 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (activeTab !== 'investigate' || investigateMode !== 'all') return
-    setAllSelectedTicker(null)
+    setAllSelectedActorId(null)
+    setAllCaseTradeIdx(0)
   }, [
     insiderFeedQuery,
     politiciansFeedQuery,
@@ -10154,336 +10575,38 @@ function KensiglineTerminal() {
 
   const allSelected = useMemo(() => {
     if (investigateMode !== 'all' || !allMergedFeed.length) return null
-    const want = allSelectedTicker ? String(allSelectedTicker).trim().toUpperCase() : ''
-    if (want) {
-      const hit = allMergedFeed.find((r) => String(r.ticker ?? '').trim().toUpperCase() === want)
+    if (allSelectedActorId) {
+      const hit = allMergedFeed.find((r) => r.id === allSelectedActorId)
       if (hit) return hit
     }
     return allMergedFeed[0]
-  }, [investigateMode, allMergedFeed, allSelectedTicker])
+  }, [investigateMode, allMergedFeed, allSelectedActorId])
 
   useEffect(() => {
-    if (investigateMode !== 'all' || !allSelectedTicker) return
-    const want = String(allSelectedTicker).trim().toUpperCase()
-    const stillVisible = allMergedFeed.some((r) => String(r.ticker ?? '').trim().toUpperCase() === want)
-    if (!stillVisible) setAllSelectedTicker(null)
-  }, [investigateMode, allMergedFeed, allSelectedTicker])
+    if (investigateMode !== 'all' || !allSelectedActorId) return
+    const stillVisible = allMergedFeed.some((r) => r.id === allSelectedActorId)
+    if (!stillVisible) setAllSelectedActorId(null)
+  }, [investigateMode, allMergedFeed, allSelectedActorId])
 
   const allFeedSelectedIndex = useMemo(() => {
     if (investigateMode !== 'all' || !allMergedFeed.length) return 0
-    const tick = allSelected?.ticker ? String(allSelected.ticker).trim().toUpperCase() : ''
-    if (!tick) return 0
-    const i = allMergedFeed.findIndex((r) => String(r.ticker ?? '').trim().toUpperCase() === tick)
+    const id = allSelected?.id
+    if (!id) return 0
+    const i = allMergedFeed.findIndex((r) => r.id === id)
     return i >= 0 ? i : 0
-  }, [investigateMode, allMergedFeed, allSelected?.ticker])
+  }, [investigateMode, allMergedFeed, allSelected?.id])
 
   const effectiveInvestigateMode = useMemo(() => {
     if (investigateMode !== 'all') return investigateMode
-    const srcs = allSelected?.__investigateSources
-    if (Array.isArray(srcs) && srcs.length) return srcs[0]
-    return 'insider'
-  }, [investigateMode, allSelected?.__investigateSources])
+    return allSelected?.source ?? 'insider'
+  }, [investigateMode, allSelected?.source])
 
-  const allSelectedResolved = useMemo(() => {
-    if (investigateMode !== 'all' || !allSelected) return null
-    const sheets = collectAllModeCaseSheets({
-      selected: allSelected,
-      insiderCluster: insiderClusterLive,
-      politiciansCluster: politiciansClusterLive,
-      institutionsCluster: institutionsClusterLive,
-      feedFallbacks: {
-        insider: insiderFeedRowsTxnFiltered,
-        politicians: politiciansFeedRowsTxnFiltered,
-        institutions: institutionsFeedRowsTxnFiltered,
-      },
-      filters: {
-        insider: investigateInsiderTxnFilters,
-        politicians: investigatePoliticianTxnFilters,
-        institutions: investigateInstitutionTxnFilters,
-      },
-      backendUp,
-    })
-    const merged = mergeAllModeCaseSheets(sheets)
-    if (!merged) return allSelected
-    return {
-      ...allSelected,
-      company: merged.issuer ?? allSelected.company,
-      caseSheet: merged,
-      at: allSelected.at,
-      count: allSelected.count,
-    }
-  }, [
-    investigateMode,
-    allSelected,
-    backendUp,
-    insiderClusterLive,
-    politiciansClusterLive,
-    institutionsClusterLive,
-    insiderFeedRowsTxnFiltered,
-    politiciansFeedRowsTxnFiltered,
-    institutionsFeedRowsTxnFiltered,
-    investigateInsiderTxnFilters,
-    investigatePoliticianTxnFilters,
-    investigateInstitutionTxnFilters,
-  ])
-
-  const effectiveFeedRow = useMemo(() => {
+  const effectiveActorRow = useMemo(() => {
     if (investigateMode === 'all') return allSelected
     if (investigateMode === 'politicians') return politiciansSelected
     if (investigateMode === 'institutions') return institutionsSelected
     return insiderSelected
   }, [investigateMode, allSelected, politiciansSelected, institutionsSelected, insiderSelected])
-
-  const institutionsSelectedResolved = useMemo(() => {
-    const feedRow = investigateMode === 'institutions' ? effectiveFeedRow : institutionsSelected
-    let base = feedRow
-    if (backendUp && activeTab === 'investigate' && investigateMode === 'institutions' && institutionsClusterLive) {
-      const companyName =
-        String(institutionsClusterLive?.issuer?.name ?? '').trim() ||
-        String(feedRow?.company ?? '').trim() ||
-        feedRow?.ticker ||
-        '—'
-      const caseSheet = institutionCaseSheetFromClusterLive(institutionsClusterLive, feedRow)
-      base = normalizeFeedRowActivity({ ...feedRow, company: companyName, caseSheet })
-    }
-    return applyInvestigateTxnFilterToFeedRow(base, investigateInstitutionTxnFilters, 'institutions')
-  }, [
-    backendUp,
-    activeTab,
-    effectiveInvestigateMode,
-    effectiveFeedRow,
-    institutionsSelected,
-    institutionsClusterLive,
-    investigateInstitutionTxnFilters,
-  ])
-
-  const insiderSelectedResolved = useMemo(() => {
-    const feedRow = investigateMode === 'insider' ? effectiveFeedRow : insiderSelected
-    let base = feedRow
-    if (backendUp && activeTab === 'investigate' && investigateMode === 'insider' && insiderClusterLive) {
-      const caseSheet = insiderCaseSheetFromClusterLive(insiderClusterLive, feedRow)
-      base = normalizeFeedRowActivity({ ...feedRow, caseSheet })
-    }
-    return applyInvestigateTxnFilterToFeedRow(base, investigateInsiderTxnFilters, 'insider')
-  }, [
-    backendUp,
-    activeTab,
-    effectiveInvestigateMode,
-    effectiveFeedRow,
-    insiderSelected,
-    insiderClusterLive,
-    investigateInsiderTxnFilters,
-  ])
-
-  const politiciansSelectedResolved = useMemo(() => {
-    const feedRow = investigateMode === 'politicians' ? effectiveFeedRow : politiciansSelected ?? null
-    let base = feedRow
-    if (backendUp && activeTab === 'investigate' && investigateMode === 'politicians' && politiciansClusterLive) {
-      const companyName =
-        formatCompanyDisplayName(String(politiciansClusterLive?.issuer?.name ?? '').trim()) ||
-        formatCompanyDisplayName(String(feedRow?.company ?? '').trim()) ||
-        feedRow?.ticker ||
-        '—'
-      const caseSheet = politiciansCaseSheetFromClusterLive(politiciansClusterLive, feedRow)
-      base = normalizeFeedRowActivity({ ...feedRow, company: companyName, caseSheet })
-    }
-    return applyInvestigateTxnFilterToFeedRow(base, investigatePoliticianTxnFilters, 'politicians')
-  }, [
-    backendUp,
-    activeTab,
-    effectiveInvestigateMode,
-    effectiveFeedRow,
-    politiciansSelected,
-    politiciansClusterLive,
-    investigatePoliticianTxnFilters,
-  ])
-
-  // Insider cluster: case worksheet + context
-  useEffect(() => {
-    let alive = true
-    if (!backendUp || activeTab !== 'investigate') {
-      setInsiderClusterLive(null)
-      return () => {
-        alive = false
-      }
-    }
-    const inAllMode = investigateMode === 'all'
-    if (!inAllMode && investigateMode !== 'insider') {
-      setInsiderClusterLive(null)
-      return () => {
-        alive = false
-      }
-    }
-    if (inAllMode && !allModeSourceKinds(allSelected).includes('insider')) {
-      setInsiderClusterLive(null)
-      return () => {
-        alive = false
-      }
-    }
-    const ticker = inAllMode
-      ? allSelected?.ticker
-        ? String(allSelected.ticker).toUpperCase()
-        : null
-      : effectiveFeedRow?.ticker
-        ? String(effectiveFeedRow.ticker).toUpperCase()
-        : null
-    const sourceRow = inAllMode ? allSelected?.__sourceRows?.insider ?? null : effectiveFeedRow
-    const id = sourceRow?.__backend_id ?? null
-    const useId = id || (ticker ? `company:${ticker}` : null)
-    if (!useId || !ticker) {
-      setInsiderClusterLive(null)
-      return () => {
-        alive = false
-      }
-    }
-    async function run() {
-      const r = await fetchJsonSafe(`/api/insider/cluster/${encodeURIComponent(useId)}?days=30`)
-      if (!alive) return
-      const data = r.ok ? r.data?.data ?? null : null
-      if (!data || typeof data !== 'object') {
-        setInsiderClusterLive(null)
-        return
-      }
-      if (!investigateClusterMatchesTicker(data, ticker)) return
-      setInsiderClusterLive(data)
-    }
-    run()
-    return () => {
-      alive = false
-    }
-  }, [
-    backendUp,
-    activeTab,
-    investigateMode,
-    allSelected,
-    allSelected?.ticker,
-    allSelected?.__investigateSources,
-    effectiveFeedRow?.ticker,
-    effectiveFeedRow?.__backend_id,
-  ])
-
-  // Politicians cluster: case worksheet + context
-  useEffect(() => {
-    let alive = true
-    if (!backendUp || activeTab !== 'investigate') {
-      setPoliticiansClusterLive(null)
-      return () => {
-        alive = false
-      }
-    }
-    const inAllMode = investigateMode === 'all'
-    if (!inAllMode && investigateMode !== 'politicians') {
-      setPoliticiansClusterLive(null)
-      return () => {
-        alive = false
-      }
-    }
-    if (inAllMode && !allModeSourceKinds(allSelected).includes('politicians')) {
-      setPoliticiansClusterLive(null)
-      return () => {
-        alive = false
-      }
-    }
-    const ticker = inAllMode
-      ? allSelected?.ticker
-        ? String(allSelected.ticker).toUpperCase()
-        : null
-      : effectiveFeedRow?.ticker
-        ? String(effectiveFeedRow.ticker).toUpperCase()
-        : null
-    const useId = ticker ? `ticker:${ticker}` : null
-    if (!useId) {
-      setPoliticiansClusterLive(null)
-      return () => {
-        alive = false
-      }
-    }
-    async function run() {
-      const r = await fetchJsonSafe(`/api/politicians/cluster/${encodeURIComponent(useId)}?days=120`, { timeoutMs: 7000 })
-      if (!alive) return
-      const data = r.ok ? r.data?.data ?? null : null
-      if (!data || typeof data !== 'object') {
-        setPoliticiansClusterLive(null)
-        return
-      }
-      if (!investigateClusterMatchesTicker(data, ticker)) return
-      setPoliticiansClusterLive(data)
-    }
-    run()
-    return () => {
-      alive = false
-    }
-  }, [
-    backendUp,
-    activeTab,
-    investigateMode,
-    allSelected,
-    allSelected?.ticker,
-    allSelected?.__investigateSources,
-    effectiveFeedRow?.ticker,
-  ])
-
-  useEffect(() => {
-    let alive = true
-    if (!backendUp || activeTab !== 'investigate') {
-      setInstitutionsClusterLive(null)
-      return () => {
-        alive = false
-      }
-    }
-    const inAllMode = investigateMode === 'all'
-    if (!inAllMode && investigateMode !== 'institutions') {
-      setInstitutionsClusterLive(null)
-      return () => {
-        alive = false
-      }
-    }
-    if (inAllMode && !allModeSourceKinds(allSelected).includes('institutions')) {
-      setInstitutionsClusterLive(null)
-      return () => {
-        alive = false
-      }
-    }
-    const ticker = inAllMode
-      ? allSelected?.ticker
-        ? String(allSelected.ticker).toUpperCase()
-        : null
-      : effectiveFeedRow?.ticker
-        ? String(effectiveFeedRow.ticker).toUpperCase()
-        : null
-    const useId = ticker ? `ticker:${ticker}` : null
-    if (!useId) {
-      setInstitutionsClusterLive(null)
-      return () => {
-        alive = false
-      }
-    }
-    async function run() {
-      const r = await fetchJsonSafe(`/api/institutions/cluster/${encodeURIComponent(useId)}?days=120`, {
-        timeoutMs: 7000,
-      })
-      if (!alive) return
-      const data = r.ok ? r.data?.data ?? null : null
-      if (!data || typeof data !== 'object') {
-        setInstitutionsClusterLive(null)
-        return
-      }
-      if (!investigateClusterMatchesTicker(data, ticker)) return
-      setInstitutionsClusterLive(data)
-    }
-    run()
-    return () => {
-      alive = false
-    }
-  }, [
-    backendUp,
-    activeTab,
-    investigateMode,
-    allSelected,
-    allSelected?.ticker,
-    allSelected?.__investigateSources,
-    effectiveFeedRow?.ticker,
-  ])
 
   // Bars (Daily Graph) + Company panel: use selected ticker in either mode
   const investigateOpen = activeTab === 'investigate'
@@ -10676,319 +10799,44 @@ function KensiglineTerminal() {
     setInstitutionsFeedQuery(q)
   }, [])
 
-  const selectedTicker = useMemo(() => {
-    const t = effectiveFeedRow?.ticker ? String(effectiveFeedRow.ticker).toUpperCase() : null
-    return t || null
-  }, [effectiveFeedRow?.ticker])
-
-  const chartPanelTitle = useMemo(() => {
-    const fromApi = backendUp && companyLive?.name ? String(companyLive.name).trim() : ''
-    const resolved = investigateIsAll
-      ? allSelectedResolved
-      : investigateIsPoliticians
-        ? politiciansSelectedResolved
-        : investigateIsInstitutions
-          ? institutionsSelectedResolved
-          : insiderSelectedResolved
-    const fromFeed = String(effectiveFeedRow?.company ?? resolved?.company ?? '').trim()
-    const fromCase = String(resolved?.caseSheet?.issuer ?? '').trim()
-    const ticker = String(effectiveFeedRow?.ticker ?? resolved?.ticker ?? '').trim().toUpperCase()
-    return fromApi || fromFeed || fromCase || ticker || '—'
-  }, [
-    investigateIsAll,
-    investigateIsPoliticians,
-    investigateIsInstitutions,
-    backendUp,
-    companyLive?.name,
-    effectiveFeedRow?.company,
-    effectiveFeedRow?.ticker,
-    allSelectedResolved,
-    insiderSelectedResolved,
-    politiciansSelectedResolved,
-    institutionsSelectedResolved,
-  ])
-
-  const investigateFeedCompany = useMemo(() => {
-    const row = effectiveFeedRow
-    if (!row) return null
-    const name = String(row.company ?? row.label ?? '').trim()
-    return {
-      ticker: row.ticker ? String(row.ticker).toUpperCase() : null,
-      name: name || null,
-    }
-  }, [effectiveFeedRow])
-
-  useEffect(() => {
-    let alive = true
-    const ticker = selectedTicker ? String(selectedTicker).toUpperCase() : null
-    const gen = ++barsFetchGenRef.current
-
-    if (!backendUp || !ticker) {
-      setBarsLive(null)
-      setBarsLiveTicker(null)
-      return () => {
-        alive = false
-      }
-    }
-
-    const cached = barsCacheRef.current.get(ticker)
-    if (Array.isArray(cached) && cached.length) {
-      setBarsLive(cached)
-      setBarsLiveTicker(ticker)
-    } else {
-      setBarsLive(null)
-      setBarsLiveTicker(ticker)
-    }
-
-    async function run() {
-      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(ticker)}&days=365`, { timeoutMs: 6000 })
-      if (!alive || barsFetchGenRef.current !== gen) return
-      const respTicker = String(r.data?.ticker ?? ticker).trim().toUpperCase()
-      if (respTicker !== ticker) return
-      const closes = Array.isArray(r.data?.items)
-        ? r.data.items.map((x) => Number(x?.close)).filter((n) => Number.isFinite(n))
-        : []
-      if (!alive || barsFetchGenRef.current !== gen) return
-      if (closes.length) {
-        barsCacheRef.current.set(ticker, closes)
-        setBarsLive(closes)
-        setBarsLiveTicker(ticker)
-      } else if (r.ok) {
-        barsCacheRef.current.delete(ticker)
-        setBarsLive(null)
-        setBarsLiveTicker(ticker)
-      }
-    }
-    run()
-    const t = setInterval(() => {
-      if (barsFetchGenRef.current === gen) run()
-    }, 60_000)
-    return () => {
-      alive = false
-      clearInterval(t)
-    }
-  }, [backendUp, selectedTicker])
-
-  const companyForInvestigatePanel = useMemo(() => {
-    if (!backendUp || !selectedTicker) return null
-    if (companyLiveTicker === selectedTicker && companyLive) return companyLive
-    const feedName = investigateFeedCompany?.ticker === selectedTicker ? investigateFeedCompany.name : null
-    if (!feedName) return null
-    return { ticker: selectedTicker, name: feedName, industry: null, country: null, mcap: null, earnings_date: null }
-  }, [backendUp, selectedTicker, companyLiveTicker, companyLive, investigateFeedCompany])
-
-  useEffect(() => {
-    let alive = true
-    const ticker = selectedTicker ? String(selectedTicker).toUpperCase() : null
-    const gen = ++companyFetchGenRef.current
-
-    if (!backendUp || !ticker) {
-      setCompanyLive(null)
-      setCompanyLiveTicker(null)
-      return () => {
-        alive = false
-      }
-    }
-
-    setCompanyLive(null)
-    setCompanyLiveTicker(ticker)
-
-    async function run() {
-      const r = await fetchJsonSafe(
-        `/api/company?ticker=${encodeURIComponent(ticker)}&snapshot=1`,
-        { timeoutMs: 15_000 },
-      )
-      if (!alive || companyFetchGenRef.current !== gen) return
-      const respTicker = String(r.data?.ticker ?? ticker).trim().toUpperCase()
-      if (respTicker !== ticker) return
-      if (r.ok && r.data && typeof r.data === 'object') {
-        setCompanyLive(r.data)
-        setCompanyLiveTicker(ticker)
-      }
-    }
-    run()
-    return () => {
-      alive = false
-    }
-  }, [backendUp, selectedTicker])
-
-  const daily = useMemo(() => {
-    if (backendUp) {
-      return barsLiveTicker === selectedTicker ? barsLive ?? [] : []
-    }
-    if (investigateIsInsider) return insiderSelectedResolved?.daily ?? []
-    if (investigateIsPoliticians) return politiciansSelectedResolved?.daily ?? []
-    if (investigateIsInstitutions) return institutionsSelectedResolved?.daily ?? []
-    return []
-  }, [
-    backendUp,
-    barsLive,
-    barsLiveTicker,
-    selectedTicker,
-    investigateIsInsider,
-    investigateIsPoliticians,
-    investigateIsInstitutions,
-    insiderSelectedResolved?.daily,
-    politiciansSelectedResolved?.daily,
-    institutionsSelectedResolved?.daily,
-  ])
-
-  const dailySeries = useMemo(() => {
-    if (Array.isArray(daily) && daily.length >= 40) return daily
-    if (!backendUp) return buildMockDailySeries(71, 160)
-    return []
-  }, [daily, backendUp, activeTab])
-
-  const dailyDates = useMemo(() => buildEvenlySpacedDates(dailySeries.length), [dailySeries.length])
-
-  const chartLastPrice = useMemo(() => {
-    const fromApi = Number(companyLive?.latest_close)
-    if (Number.isFinite(fromApi) && fromApi > 0) return fromApi
-    if (!Array.isArray(dailySeries) || !dailySeries.length) return null
-    const last = Number(dailySeries[dailySeries.length - 1])
-    return Number.isFinite(last) ? last : null
-  }, [companyLive?.latest_close, dailySeries])
-
-  const insiderTradeMarkers = useMemo(() => {
-    if (!investigateOpen) return []
-    const cs = investigateIsAll
-      ? allSelectedResolved?.caseSheet
-      : investigateIsPoliticians
-        ? politiciansSelectedResolved?.caseSheet
-        : investigateIsInstitutions
-          ? institutionsSelectedResolved?.caseSheet
-          : insiderSelectedResolved?.caseSheet
-    if (!cs?.isForm4 && !investigateIsAll) return []
-    const formType = String(cs?.formType ?? '').trim().toUpperCase()
-    const isMixedAll = formType === 'ALL'
-    const out = []
-    for (const r of cs?.rows ?? []) {
-      if (isMixedAll) {
-        const kind = caseSheetRowSourceKind(r)
-        if (kind === 'politicians') {
-          if (!politicianCaseRowHasTxn(r)) continue
-          if (!investigateCaseRowPassesTxnFilter(r, investigatePoliticianTxnFilters, 'politicians')) continue
-        } else if (kind === 'institutions') {
-          if (!institutionCaseRowHasTxn(r)) continue
-          if (!investigateCaseRowPassesTxnFilter(r, investigateInstitutionTxnFilters, 'institutions')) continue
-        } else {
-          if (!investigateCaseRowPassesTxnFilter(r, investigateInsiderTxnFilters, 'insider')) continue
-        }
-      } else {
-        const mode = investigateIsPoliticians
-          ? 'politicians'
-          : investigateIsInstitutions
-            ? 'institutions'
-            : 'insider'
-        if (mode === 'politicians' && !politicianCaseRowHasTxn(r)) continue
-        if (mode === 'institutions' && !institutionCaseRowHasTxn(r)) continue
-        const enabled =
-          mode === 'politicians'
-            ? investigatePoliticianTxnFilters
-            : mode === 'institutions'
-              ? investigateInstitutionTxnFilters
-              : investigateInsiderTxnFilters
-        if (!investigateCaseRowPassesTxnFilter(r, enabled, mode)) continue
-      }
-      const d = new Date(r.ts)
-      if (Number.isNaN(d.getTime())) continue
-      out.push(d)
-    }
-    return out
-  }, [
-    investigateOpen,
-    investigateIsAll,
-    investigateIsPoliticians,
-    investigateIsInstitutions,
-    allSelectedResolved?.caseSheet,
-    insiderSelectedResolved?.caseSheet,
-    politiciansSelectedResolved?.caseSheet,
-    institutionsSelectedResolved?.caseSheet,
-    investigateInsiderTxnFilters,
-    investigatePoliticianTxnFilters,
-    investigateInstitutionTxnFilters,
-  ])
-
-
   const insiderCaseFeedRows = useMemo(() => {
-    const cs = insiderSelectedResolved?.caseSheet
-    if (!cs) return []
-    const showMoney = Boolean(cs.isForm4)
-    const trades = []
-    for (const r of cs.rows ?? []) {
-      if (!investigateCaseRowPassesTxnFilter(r, investigateInsiderTxnFilters, 'insider')) continue
-      const row = caseSheetRowToTxnFeedRow(r, { showMoney })
-      if (row) trades.push(row)
-    }
-
-    return appendCaseTxnTimeline([], filterCaseTradesForPriceRange(trades, insiderChartRange), 'today+years', {
-      priceRange: insiderChartRange,
-    })
-  }, [insiderSelectedResolved?.caseSheet, insiderChartRange, investigateInsiderTxnFilters])
+    if (!insiderSelected) return []
+    return buildActorCaseFeedRows(insiderSelected, investigateInsiderTxnFilters, insiderChartRange)
+  }, [insiderSelected, insiderChartRange, investigateInsiderTxnFilters])
 
   const politiciansCaseFeedRows = useMemo(() => {
-    const cs = politiciansSelectedResolved?.caseSheet
-    if (!cs) return []
-    const showMoney = Boolean(cs.isForm4)
-    const trades = []
-    for (const r of cs.rows ?? []) {
-      if (!investigateCaseRowPassesTxnFilter(r, investigatePoliticianTxnFilters, 'politicians')) continue
-      const row = caseSheetRowToPoliticianTxnFeedRow(r, { showMoney })
-      if (row) trades.push(row)
-    }
-    return appendCaseTxnTimeline([], filterCaseTradesForPriceRange(trades, politiciansChartRange), 'today+years', {
-      priceRange: politiciansChartRange,
-    })
-  }, [politiciansSelectedResolved?.caseSheet, politiciansChartRange, investigatePoliticianTxnFilters])
+    if (!politiciansSelected) return []
+    return buildActorCaseFeedRows(
+      politiciansSelected,
+      investigatePoliticianTxnFilters,
+      politiciansChartRange,
+    )
+  }, [politiciansSelected, politiciansChartRange, investigatePoliticianTxnFilters])
 
   const institutionsCaseFeedRows = useMemo(() => {
-    const cs = institutionsSelectedResolved?.caseSheet
-    if (!cs) return []
-    const showMoney = Boolean(cs.isForm4)
-    const trades = []
-    for (const r of cs.rows ?? []) {
-      if (!investigateCaseRowPassesTxnFilter(r, investigateInstitutionTxnFilters, 'institutions')) continue
-      const row = caseSheetRowToInstitutionTxnFeedRow(r, { showMoney })
-      if (row) trades.push(row)
-    }
-    return appendCaseTxnTimeline([], filterCaseTradesForPriceRange(trades, institutionsChartRange), 'today+years', {
-      priceRange: institutionsChartRange,
-    })
-  }, [institutionsSelectedResolved?.caseSheet, institutionsChartRange, investigateInstitutionTxnFilters])
+    if (!institutionsSelected) return []
+    return buildActorCaseFeedRows(
+      institutionsSelected,
+      investigateInstitutionTxnFilters,
+      institutionsChartRange,
+    )
+  }, [institutionsSelected, institutionsChartRange, investigateInstitutionTxnFilters])
 
   const allCaseFeedRows = useMemo(() => {
-    if (investigateMode !== 'all' || activeTab !== 'investigate' || !allSelected?.ticker) return []
-    const trades = buildAllModeCaseFeedTrades({
-      selected: allSelected,
-      insiderCluster: insiderClusterLive,
-      politiciansCluster: politiciansClusterLive,
-      institutionsCluster: institutionsClusterLive,
-      feedFallbacks: {
-        insider: insiderFeedRowsTxnFiltered,
-        politicians: politiciansFeedRowsTxnFiltered,
-        institutions: institutionsFeedRowsTxnFiltered,
-      },
-      filters: {
+    if (investigateMode !== 'all' || activeTab !== 'investigate' || !allSelected) return []
+    return buildActorCaseFeedRows(
+      allSelected,
+      {
         insider: investigateInsiderTxnFilters,
         politicians: investigatePoliticianTxnFilters,
         institutions: investigateInstitutionTxnFilters,
       },
-      backendUp,
-    })
-    return appendCaseTxnTimeline([], filterCaseTradesForPriceRange(trades, insiderChartRange), 'today+years', {
-      priceRange: insiderChartRange,
-    })
+      insiderChartRange,
+    )
   }, [
     investigateMode,
     activeTab,
     allSelected,
-    backendUp,
-    insiderClusterLive,
-    politiciansClusterLive,
-    institutionsClusterLive,
-    insiderFeedRowsTxnFiltered,
-    politiciansFeedRowsTxnFiltered,
-    institutionsFeedRowsTxnFiltered,
     insiderChartRange,
     investigateInsiderTxnFilters,
     investigatePoliticianTxnFilters,
@@ -11052,6 +10900,397 @@ function KensiglineTerminal() {
       ? insiderCaseTradeRowIndices[clamp(insiderCaseTradeIdx, 0, insiderCaseTradeRowIndices.length - 1)]
       : -1
 
+  const investigateActiveCaseFeedRows = useMemo(() => {
+    if (investigateIsAll) return allCaseFeedRows
+    if (investigateIsPoliticians) return politiciansCaseFeedRows
+    if (investigateIsInstitutions) return institutionsCaseFeedRows
+    return insiderCaseFeedRows
+  }, [
+    investigateIsAll,
+    investigateIsPoliticians,
+    investigateIsInstitutions,
+    allCaseFeedRows,
+    politiciansCaseFeedRows,
+    institutionsCaseFeedRows,
+    insiderCaseFeedRows,
+  ])
+
+  const investigateCaseSelectedTrade = useMemo(() => {
+    if (investigateIsAll) return allCaseSelectedTrade
+    if (investigateIsPoliticians) {
+      return politiciansCaseSelectedRowIndex >= 0
+        ? politiciansCaseFeedRows[politiciansCaseSelectedRowIndex]
+        : null
+    }
+    if (investigateIsInstitutions) {
+      return institutionsCaseSelectedRowIndex >= 0
+        ? institutionsCaseFeedRows[institutionsCaseSelectedRowIndex]
+        : null
+    }
+    return insiderCaseSelectedRowIndex >= 0 ? insiderCaseFeedRows[insiderCaseSelectedRowIndex] : null
+  }, [
+    investigateIsAll,
+    investigateIsPoliticians,
+    investigateIsInstitutions,
+    allCaseSelectedTrade,
+    politiciansCaseSelectedRowIndex,
+    politiciansCaseFeedRows,
+    institutionsCaseSelectedRowIndex,
+    institutionsCaseFeedRows,
+    insiderCaseSelectedRowIndex,
+    insiderCaseFeedRows,
+  ])
+
+  const investigateChartTicker = useMemo(() => {
+    const fromSelected = investigateCaseSelectedTrade?.ticker
+    if (fromSelected) return String(fromSelected).trim().toUpperCase()
+    const first = investigateActiveCaseFeedRows.find((r) => r?.type === 'trade' && r?.ticker)
+    return first?.ticker ? String(first.ticker).trim().toUpperCase() : null
+  }, [investigateCaseSelectedTrade?.ticker, investigateActiveCaseFeedRows])
+
+  const investigateChartClusterMode = useMemo(() => {
+    const fromTrade = investigateCaseSelectedTrade?.__source
+    if (fromTrade) return fromTrade
+    if (investigateMode === 'all') return effectiveActorRow?.source ?? 'insider'
+    return investigateMode
+  }, [
+    investigateCaseSelectedTrade?.__source,
+    investigateMode,
+    effectiveActorRow?.source,
+  ])
+
+  const investigateChartCompanyRow = useMemo(() => {
+    const ticker = investigateChartTicker
+    if (!ticker) return null
+    const actor = effectiveActorRow
+    const hit = actor?.transactions?.find((t) => String(t.ticker ?? '').trim().toUpperCase() === ticker)
+    if (hit?.companyRow) return hit.companyRow
+    const mode = investigateChartClusterMode
+    const rows =
+      mode === 'politicians'
+        ? politiciansFeedRowsTxnFiltered
+        : mode === 'institutions'
+          ? institutionsFeedRowsTxnFiltered
+          : insiderFeedRowsTxnFiltered
+    return findCompanyFeedRowByTicker(rows, ticker)
+  }, [
+    investigateChartTicker,
+    effectiveActorRow,
+    investigateChartClusterMode,
+    insiderFeedRowsTxnFiltered,
+    politiciansFeedRowsTxnFiltered,
+    institutionsFeedRowsTxnFiltered,
+  ])
+
+  // Insider cluster: case worksheet + context
+  useEffect(() => {
+    let alive = true
+    if (!backendUp || activeTab !== 'investigate') {
+      setInsiderClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    const clusterMode = investigateMode === 'all' ? investigateChartClusterMode : investigateMode
+    if (clusterMode !== 'insider') {
+      setInsiderClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    const ticker = investigateChartTicker
+    const sourceRow = investigateChartCompanyRow
+    const id = sourceRow?.__backend_id ?? null
+    const useId = id || (ticker ? `company:${ticker}` : null)
+    if (!useId || !ticker) {
+      setInsiderClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    async function run() {
+      const r = await fetchJsonSafe(`/api/insider/cluster/${encodeURIComponent(useId)}?days=30`)
+      if (!alive) return
+      const data = r.ok ? r.data?.data ?? null : null
+      if (!data || typeof data !== 'object') {
+        setInsiderClusterLive(null)
+        return
+      }
+      if (!investigateClusterMatchesTicker(data, ticker)) return
+      setInsiderClusterLive(data)
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [
+    backendUp,
+    activeTab,
+    investigateMode,
+    investigateChartClusterMode,
+    investigateChartTicker,
+    investigateChartCompanyRow?.__backend_id,
+    investigateChartCompanyRow,
+  ])
+
+  // Politicians cluster: case worksheet + context
+  useEffect(() => {
+    let alive = true
+    if (!backendUp || activeTab !== 'investigate') {
+      setPoliticiansClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    const clusterMode = investigateMode === 'all' ? investigateChartClusterMode : investigateMode
+    if (clusterMode !== 'politicians') {
+      setPoliticiansClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    const ticker = investigateChartTicker
+    const useId = ticker ? `ticker:${ticker}` : null
+    if (!useId) {
+      setPoliticiansClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    async function run() {
+      const r = await fetchJsonSafe(`/api/politicians/cluster/${encodeURIComponent(useId)}?days=120`, { timeoutMs: 7000 })
+      if (!alive) return
+      const data = r.ok ? r.data?.data ?? null : null
+      if (!data || typeof data !== 'object') {
+        setPoliticiansClusterLive(null)
+        return
+      }
+      if (!investigateClusterMatchesTicker(data, ticker)) return
+      setPoliticiansClusterLive(data)
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, activeTab, investigateMode, investigateChartClusterMode, investigateChartTicker])
+
+  useEffect(() => {
+    let alive = true
+    if (!backendUp || activeTab !== 'investigate') {
+      setInstitutionsClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    const clusterMode = investigateMode === 'all' ? investigateChartClusterMode : investigateMode
+    if (clusterMode !== 'institutions') {
+      setInstitutionsClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    const ticker = investigateChartTicker
+    const useId = ticker ? `ticker:${ticker}` : null
+    if (!useId) {
+      setInstitutionsClusterLive(null)
+      return () => {
+        alive = false
+      }
+    }
+    async function run() {
+      const r = await fetchJsonSafe(`/api/institutions/cluster/${encodeURIComponent(useId)}?days=120`, {
+        timeoutMs: 7000,
+      })
+      if (!alive) return
+      const data = r.ok ? r.data?.data ?? null : null
+      if (!data || typeof data !== 'object') {
+        setInstitutionsClusterLive(null)
+        return
+      }
+      if (!investigateClusterMatchesTicker(data, ticker)) return
+      setInstitutionsClusterLive(data)
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, activeTab, investigateMode, investigateChartClusterMode, investigateChartTicker])
+
+  const selectedTicker = useMemo(() => investigateChartTicker, [investigateChartTicker])
+
+  const chartPanelTitle = useMemo(() => {
+    const fromApi = backendUp && companyLive?.name ? String(companyLive.name).trim() : ''
+    const companyRow = investigateChartCompanyRow
+    const fromFeed = String(companyRow?.company ?? '').trim()
+    const fromTrade = String(investigateCaseSelectedTrade?.companyName ?? '').trim()
+    const ticker = String(selectedTicker ?? '').trim().toUpperCase()
+    return fromApi || fromTrade || fromFeed || ticker || '—'
+  }, [
+    backendUp,
+    companyLive?.name,
+    investigateChartCompanyRow,
+    investigateCaseSelectedTrade?.companyName,
+    selectedTicker,
+  ])
+
+  const investigateFeedCompany = useMemo(() => {
+    const ticker = selectedTicker
+    if (!ticker) return null
+    const fromTrade = String(investigateCaseSelectedTrade?.companyName ?? '').trim()
+    const name = fromTrade || String(investigateChartCompanyRow?.company ?? '').trim()
+    return { ticker, name: name || null }
+  }, [selectedTicker, investigateCaseSelectedTrade?.companyName, investigateChartCompanyRow?.company])
+
+  useEffect(() => {
+    let alive = true
+    const ticker = selectedTicker ? String(selectedTicker).toUpperCase() : null
+    const gen = ++barsFetchGenRef.current
+
+    if (!backendUp || !ticker) {
+      setBarsLive(null)
+      setBarsLiveTicker(null)
+      return () => {
+        alive = false
+      }
+    }
+
+    const cached = barsCacheRef.current.get(ticker)
+    if (Array.isArray(cached) && cached.length) {
+      setBarsLive(cached)
+      setBarsLiveTicker(ticker)
+    } else {
+      setBarsLive(null)
+      setBarsLiveTicker(ticker)
+    }
+
+    async function run() {
+      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(ticker)}&days=365`, { timeoutMs: 6000 })
+      if (!alive || barsFetchGenRef.current !== gen) return
+      const respTicker = String(r.data?.ticker ?? ticker).trim().toUpperCase()
+      if (respTicker !== ticker) return
+      const closes = Array.isArray(r.data?.items)
+        ? r.data.items.map((x) => Number(x?.close)).filter((n) => Number.isFinite(n))
+        : []
+      if (!alive || barsFetchGenRef.current !== gen) return
+      if (closes.length) {
+        barsCacheRef.current.set(ticker, closes)
+        setBarsLive(closes)
+        setBarsLiveTicker(ticker)
+      } else if (r.ok) {
+        barsCacheRef.current.delete(ticker)
+        setBarsLive(null)
+        setBarsLiveTicker(ticker)
+      }
+    }
+    run()
+    const t = setInterval(() => {
+      if (barsFetchGenRef.current === gen) run()
+    }, 60_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [backendUp, selectedTicker])
+
+  const companyForInvestigatePanel = useMemo(() => {
+    if (!selectedTicker) return null
+    if (backendUp && companyLiveTicker === selectedTicker && companyLive) return companyLive
+    const row = investigateChartCompanyRow
+    const fromTrade = String(investigateCaseSelectedTrade?.companyName ?? '').trim()
+    const fromFeed = String(row?.company ?? '').trim()
+    const feedName =
+      investigateFeedCompany?.ticker === selectedTicker ? investigateFeedCompany.name : null
+    return {
+      ticker: selectedTicker,
+      name: fromTrade || feedName || fromFeed || selectedTicker,
+      industry: row?.industry ?? null,
+      country: row?.country ?? null,
+      mcap: row?.mcap ?? null,
+      earnings_date: row?.earnings_date ?? null,
+      latest_close: row?.latest_close ?? null,
+    }
+  }, [
+    selectedTicker,
+    backendUp,
+    companyLiveTicker,
+    companyLive,
+    investigateFeedCompany,
+    investigateCaseSelectedTrade?.companyName,
+    investigateChartCompanyRow,
+  ])
+
+  useEffect(() => {
+    let alive = true
+    const ticker = selectedTicker ? String(selectedTicker).toUpperCase() : null
+    const gen = ++companyFetchGenRef.current
+
+    if (!backendUp || !ticker) {
+      setCompanyLive(null)
+      setCompanyLiveTicker(null)
+      return () => {
+        alive = false
+      }
+    }
+
+    setCompanyLive(null)
+    setCompanyLiveTicker(ticker)
+
+    async function run() {
+      const r = await fetchJsonSafe(
+        `/api/company?ticker=${encodeURIComponent(ticker)}&snapshot=1`,
+        { timeoutMs: 15_000 },
+      )
+      if (!alive || companyFetchGenRef.current !== gen) return
+      const respTicker = String(r.data?.ticker ?? ticker).trim().toUpperCase()
+      if (respTicker !== ticker) return
+      if (r.ok && r.data && typeof r.data === 'object') {
+        setCompanyLive(r.data)
+        setCompanyLiveTicker(ticker)
+      }
+    }
+    run()
+    return () => {
+      alive = false
+    }
+  }, [backendUp, selectedTicker])
+
+  const daily = useMemo(() => {
+    if (backendUp) {
+      return barsLiveTicker === selectedTicker ? barsLive ?? [] : []
+    }
+    return investigateChartCompanyRow?.daily ?? []
+  }, [backendUp, barsLive, barsLiveTicker, selectedTicker, investigateChartCompanyRow?.daily])
+
+  const dailySeries = useMemo(() => {
+    if (Array.isArray(daily) && daily.length >= 40) return daily
+    if (!backendUp) return buildMockDailySeries(71, 160)
+    return []
+  }, [daily, backendUp, activeTab])
+
+  const dailyDates = useMemo(() => buildEvenlySpacedDates(dailySeries.length), [dailySeries.length])
+
+  const chartLastPrice = useMemo(() => {
+    const fromApi = Number(companyLive?.latest_close)
+    if (Number.isFinite(fromApi) && fromApi > 0) return fromApi
+    if (!Array.isArray(dailySeries) || !dailySeries.length) return null
+    const last = Number(dailySeries[dailySeries.length - 1])
+    return Number.isFinite(last) ? last : null
+  }, [companyLive?.latest_close, dailySeries])
+
+  const insiderTradeMarkers = useMemo(() => {
+    if (!investigateOpen || !selectedTicker) return []
+    const want = String(selectedTicker).trim().toUpperCase()
+    const out = []
+    for (const r of investigateActiveCaseFeedRows) {
+      if (r?.type !== 'trade') continue
+      if (String(r.ticker ?? '').trim().toUpperCase() !== want) continue
+      const d = new Date(r.ts)
+      if (Number.isNaN(d.getTime())) continue
+      out.push(d)
+    }
+    return out
+  }, [investigateOpen, selectedTicker, investigateActiveCaseFeedRows])
+
   const selectedInsiderTradeMarker = useMemo(() => {
     if (!investigateOpen) return null
     const rowIndex = investigateIsAll
@@ -11087,79 +11326,42 @@ function KensiglineTerminal() {
     institutionsCaseFeedRows,
   ])
 
-  const historicalOutcomesPerson = useMemo(() => {
-    if (investigateIsAll) {
-      const src = allCaseSelectedTrade?.__source ?? 'insider'
-      const personQ =
-        src === 'politicians'
-          ? politiciansFeedQuery
-          : src === 'institutions'
-            ? institutionsFeedQuery
-            : insiderFeedQuery
-      return caseFeedSelectedPersonDisplay(allCaseFeedRows, allCaseSelectedRowIndex, personQ, src)
-    }
-    if (investigateIsPoliticians) {
-      return caseFeedSelectedPersonDisplay(
-        politiciansCaseFeedRows,
-        politiciansCaseSelectedRowIndex,
-        politiciansFeedQuery,
-        'politicians',
-      )
-    }
-    if (investigateIsInstitutions) {
-      return caseFeedSelectedPersonDisplay(
-        institutionsCaseFeedRows,
-        institutionsCaseSelectedRowIndex,
-        institutionsFeedQuery,
-        'institutions',
-      )
-    }
-    if (investigateIsInsider) {
-      return caseFeedSelectedPersonDisplay(
-        insiderCaseFeedRows,
-        insiderCaseSelectedRowIndex,
-        insiderFeedQuery,
-        'insider',
-      )
-    }
-    return null
-  }, [
-    investigateIsAll,
-    investigateIsInsider,
-    investigateIsPoliticians,
-    investigateIsInstitutions,
-    allCaseFeedRows,
-    allCaseSelectedRowIndex,
-    allCaseSelectedTrade?.__source,
-    insiderCaseFeedRows,
-    insiderCaseSelectedRowIndex,
-    insiderFeedQuery,
-    politiciansCaseFeedRows,
-    politiciansCaseSelectedRowIndex,
-    politiciansFeedQuery,
-    institutionsCaseFeedRows,
-    institutionsCaseSelectedRowIndex,
-    institutionsFeedQuery,
-  ])
+  const historicalOutcomesPerson = useMemo(
+    () => actorPersonDisplayFromRow(effectiveActorRow),
+    [effectiveActorRow],
+  )
+
+  const investigateCaseActorAlert = useMemo(() => {
+    const displayName = String(effectiveActorRow?.actorName ?? historicalOutcomesPerson?.fullName ?? '').trim()
+    if (!displayName) return null
+    const mode =
+      effectiveInvestigateMode === 'politicians'
+        ? 'politicians'
+        : effectiveInvestigateMode === 'institutions'
+          ? 'institutions'
+          : 'insider'
+    const key = investigateActorCanonicalKey(displayName, mode)
+    if (!key) return null
+    return { key, displayName, mode }
+  }, [effectiveActorRow?.actorName, historicalOutcomesPerson?.fullName, effectiveInvestigateMode])
 
   useEffect(() => {
     setInsiderCaseTradeIdx(0)
-  }, [insiderSelected?.id, insiderSelected?.ticker, insiderChartRange])
+  }, [insiderSelected?.id, insiderChartRange])
 
   useEffect(() => {
     setPoliticiansCaseTradeIdx(0)
-  }, [politiciansSelected?.id, politiciansSelected?.ticker, politiciansChartRange])
+  }, [politiciansSelected?.id, politiciansChartRange])
 
   useEffect(() => {
     setInstitutionsCaseTradeIdx(0)
-  }, [institutionsSelected?.id, institutionsSelected?.ticker, institutionsChartRange])
+  }, [institutionsSelected?.id, institutionsChartRange])
 
   useEffect(() => {
     if (!investigateIsAll) return
     setAllCaseTradeIdx(0)
   }, [
     investigateIsAll,
-    allSelected?.ticker,
     allSelected?.id,
     insiderChartRange,
   ])
@@ -11194,11 +11396,18 @@ function KensiglineTerminal() {
     (idx) => {
       if (investigateMode === 'all') {
         const row = allMergedFeed[idx]
-        const t = row?.ticker ? String(row.ticker).trim().toUpperCase() : ''
-        if (t) setAllSelectedTicker(t)
-      } else if (investigateMode === 'insider') setInsiderIdx(idx)
-      else if (investigateMode === 'politicians') setPoliticiansIdx(idx)
-      else setInstitutionsIdx(idx)
+        if (row?.id) setAllSelectedActorId(row.id)
+        setAllCaseTradeIdx(0)
+      } else if (investigateMode === 'insider') {
+        setInsiderIdx(idx)
+        setInsiderCaseTradeIdx(0)
+      } else if (investigateMode === 'politicians') {
+        setPoliticiansIdx(idx)
+        setPoliticiansCaseTradeIdx(0)
+      } else {
+        setInstitutionsIdx(idx)
+        setInstitutionsCaseTradeIdx(0)
+      }
       if (isPhone) setInvestigatePhonePane('case')
     },
     [investigateMode, isPhone, allMergedFeed],
@@ -11396,10 +11605,10 @@ function KensiglineTerminal() {
               investigateMode === 'all'
                 ? allMergedFeed
                 : investigateMode === 'insider'
-                  ? insiderFeedDisplay
+                  ? insiderFilteredFeed
                   : investigateMode === 'politicians'
-                    ? politiciansFeedDisplay
-                    : institutionsFeedDisplay
+                    ? politiciansFilteredFeed
+                    : institutionsFilteredFeed
             }
             selectedIndex={
               investigateMode === 'all'
@@ -11413,7 +11622,7 @@ function KensiglineTerminal() {
             sepMode="today+years"
             todayGroupByEvents
             scrollMode
-            rowPrimary="company"
+            rowPrimary="actor"
             showFeedFilter
             feedFilterActive={investigateFeedFilterOpen}
             onFeedFilterClick={onInvestigateFeedFilterClick}
@@ -11442,21 +11651,21 @@ function KensiglineTerminal() {
             }
             feedSearchPlaceholder={
               investigateIsAll
-                ? 'Search company or name'
+                ? 'Search actor or company'
                 : investigateIsInsider
-                  ? 'Search company or insider'
+                  ? 'Search insider or company'
                   : investigateIsPoliticians
-                    ? 'Search company or politician'
-                    : 'Search company or institution'
+                    ? 'Search politician or company'
+                    : 'Search institution or company'
             }
             feedSearchAriaLabel={
               investigateIsAll
-                ? 'Search company or name'
+                ? 'Search actor or company'
                 : investigateIsInsider
-                  ? 'Search company or insider'
+                  ? 'Search insider or company'
                   : investigateIsPoliticians
-                    ? 'Search company or politician'
-                    : 'Search company or institution'
+                    ? 'Search politician or company'
+                    : 'Search institution or company'
             }
             onFeedQuery={
               investigateIsAll
@@ -11491,13 +11700,9 @@ function KensiglineTerminal() {
                     ? politiciansCaseSelectedRowIndex
                     : institutionsCaseSelectedRowIndex
             }
-            highlightPersonQuery={
+            highlightCompanyQuery={
               investigateIsAll
-                ? allCaseSelectedTrade?.__source === 'politicians'
-                  ? politiciansFeedQuery
-                  : allCaseSelectedTrade?.__source === 'institutions'
-                    ? institutionsFeedQuery
-                    : insiderFeedQuery
+                ? insiderFeedQuery
                 : investigateIsInsider
                   ? insiderFeedQuery
                   : investigateIsPoliticians
@@ -11505,11 +11710,12 @@ function KensiglineTerminal() {
                     : institutionsFeedQuery
             }
             personDisplay={historicalOutcomesPerson}
+            actorAlert={investigateCaseActorAlert}
             personMode={
               investigateIsAll
-                ? allCaseSelectedTrade?.__source === 'politicians'
+                ? allSelected?.source === 'politicians'
                   ? 'politicians'
-                  : allCaseSelectedTrade?.__source === 'institutions'
+                  : allSelected?.source === 'institutions'
                     ? 'institutions'
                     : 'insider'
                 : investigateIsPoliticians
@@ -11654,11 +11860,7 @@ function KensiglineTerminal() {
           />
 
           <HistoricalOutcomesPanel
-            mode={
-              investigateIsAll
-                ? allCaseSelectedTrade?.__source ?? effectiveInvestigateMode
-                : effectiveInvestigateMode
-            }
+            mode={effectiveInvestigateMode}
             backendUp={backendUp}
             personDisplay={historicalOutcomesPerson}
           />

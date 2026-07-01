@@ -194,22 +194,6 @@ function DiscoverFeedColumn({
   )
 }
 
-const MACRO_IMPACT_RANK = { high: 3, medium: 2, low: 1 }
-
-function dominantMacroImpact(events) {
-  let best = 'low'
-  let rank = 0
-  for (const event of events) {
-    const impact = event?.impact === 'high' || event?.impact === 'medium' ? event.impact : 'low'
-    const next = MACRO_IMPACT_RANK[impact] ?? 1
-    if (next > rank) {
-      rank = next
-      best = impact
-    }
-  }
-  return best
-}
-
 function DiscoverMacroEventCard({ event }) {
   return (
     <article className={['discoverMacroEvent', `discoverMacroEvent--${event.impact}`].join(' ')}>
@@ -243,16 +227,13 @@ function DiscoverMacroDayColumn({ day }) {
         ) : events.length === 1 ? (
           <DiscoverMacroEventCard event={events[0]} />
         ) : (
-          <article
-            className={[
-              'discoverMacroEvent',
-              'discoverMacroEvent--group',
-              `discoverMacroEvent--${dominantMacroImpact(events)}`,
-            ].join(' ')}
-          >
+          <article className="discoverMacroEvent discoverMacroEvent--group">
             <div className="discoverMacroEventGroupList">
               {events.map((event) => (
-                <div key={event.id} className="discoverMacroEventRow">
+                <div
+                  key={event.id}
+                  className={['discoverMacroEventRow', `discoverMacroEvent--${event.impact}`].join(' ')}
+                >
                   <div className="discoverMacroEventLayout">
                     <p className="discoverMacroEventTitle">{event.title}</p>
                     <div className="discoverMacroEventAside">

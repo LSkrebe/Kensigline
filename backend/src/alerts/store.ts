@@ -51,6 +51,22 @@ export async function ensureAlertTables() {
           sent_at timestamptz NOT NULL DEFAULT now(),
           PRIMARY KEY (user_id, document_id)
         );
+        CREATE TABLE IF NOT EXISTS alert_actor_watchlist (
+          user_id text NOT NULL,
+          actor_key text NOT NULL,
+          display_name text NOT NULL DEFAULT '',
+          mode text NOT NULL DEFAULT 'insider',
+          created_at timestamptz NOT NULL DEFAULT now(),
+          PRIMARY KEY (user_id, actor_key)
+        );
+        CREATE INDEX IF NOT EXISTS alert_actor_watchlist_actor_key_idx ON alert_actor_watchlist (actor_key);
+        CREATE TABLE IF NOT EXISTS alert_actor_sent_log (
+          user_id text NOT NULL,
+          document_id uuid NOT NULL,
+          actor_key text NOT NULL,
+          sent_at timestamptz NOT NULL DEFAULT now(),
+          PRIMARY KEY (user_id, document_id, actor_key)
+        );
         `,
         [],
       )

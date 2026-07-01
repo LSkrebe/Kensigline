@@ -6,6 +6,7 @@ import { startOutcomesWorker } from "../core/outcomes-worker.js";
 import { runOutcomesRecomputeOnce } from "../core/outcomes-worker.js";
 import { startAlertsWorker } from "../alerts/worker.js";
 import { startTickerAlertsWorker } from "../alerts/ticker-worker.js";
+import { startActorAlertsWorker } from "../alerts/actor-worker.js";
 
 export type Stoppable = { stop(): void };
 
@@ -19,6 +20,7 @@ export function startAllWorkers(): Stoppable[] {
     startResearchWorker(),
     startAlertsWorker(),
     startTickerAlertsWorker(),
+    startActorAlertsWorker(),
   ];
 
   if (String(process.env.OUTCOMES_RECOMPUTE_ON_START ?? "1").trim() !== "0") {

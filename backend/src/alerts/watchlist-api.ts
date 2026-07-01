@@ -6,9 +6,9 @@ import {
   addWatchlistTicker,
   listUserWatchlist,
   removeWatchlistTicker,
-  watchlistMaxTickers,
   WatchlistLimitError,
 } from "./watchlist.js";
+import { combinedWatchlistCounts } from "./watchlist-limits.js";
 
 async function requireUser(req: http.IncomingMessage) {
   const tok = bearerToken(req);
@@ -24,8 +24,14 @@ export async function handleAlertsWatchlistGet(req: http.IncomingMessage, res: h
   }
   await upsertAlertPreferences({ userId: user.sub, email: user.email });
   const tickers = await listUserWatchlist(user.sub);
-  const max = watchlistMaxTickers();
-  sendJson(res, 200, { ok: true, tickers, max, count: tickers.length });
+  const counts = await combinedWatchlistCounts(user.sub);
+  sendJson(res, 200, {
+    ok: true,
+    tickers,
+    max: counts.max,
+    count: tickers.length,
+    total_count: counts.totalCount,
+  });
 }
 
 export async function handleAlertsWatchlistPatch(req: http.IncomingMessage, res: http.ServerResponse) {
@@ -42,21 +48,31 @@ export async function handleAlertsWatchlistPatch(req: http.IncomingMessage, res:
   }
   await upsertAlertPreferences({ userId: user.sub, email: user.email });
   const subscribed = body.subscribed != null ? Boolean(body.subscribed) : !body.remove;
-  const max = watchlistMaxTickers();
 
   try {
     const tickers = subscribed
       ? await addWatchlistTicker(user.sub, ticker)
       : await removeWatchlistTicker(user.sub, ticker);
-    sendJson(res, 200, { ok: true, tickers, max, count: tickers.length, ticker, subscribed });
+    const counts = await combinedWatchlistCounts(user.sub);
+    sendJson(res, 200, {
+      ok: true,
+      tickers,
+      max: counts.max,
+      count: tickers.length,
+      total_count: counts.totalCount,
+      ticker,
+      subscribed,
+    });
   } catch (err) {
     if (err instanceof WatchlistLimitError) {
       const tickers = await listUserWatchlist(user.sub);
+      const counts = await combinedWatchlistCounts(user.sub);
       sendJson(res, 409, {
         ok: false,
         error: "watchlist_limit",
         max: err.max,
         count: tickers.length,
+        total_count: counts.totalCount,
         tickers,
         ticker,
       });

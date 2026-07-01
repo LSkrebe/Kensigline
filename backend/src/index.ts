@@ -36,6 +36,7 @@ import { clampInt } from "./shared/feed-helpers.js";
 import { startAllWorkers, stopAllWorkers } from "./server/workers.js";
 import { handleAlertsPreferencesGet, handleAlertsPreferencesPatch } from "./alerts/api.js";
 import { handleAlertsWatchlistGet, handleAlertsWatchlistPatch } from "./alerts/watchlist-api.js";
+import { handleAlertsActorWatchlistGet, handleAlertsActorWatchlistPatch } from "./alerts/actor-watchlist-api.js";
 
 const port = Number(process.env.PORT ?? "3001");
 const workers = startAllWorkers();
@@ -155,6 +156,24 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       await handleAlertsWatchlistPatch(req, res);
+      return;
+    }
+
+    if (route(req, url, "GET", "/api/alerts/actor-watchlist")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleAlertsActorWatchlistGet(req, res);
+      return;
+    }
+
+    if (route(req, url, "PATCH", "/api/alerts/actor-watchlist")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleAlertsActorWatchlistPatch(req, res);
       return;
     }
 

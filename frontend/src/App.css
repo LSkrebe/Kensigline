@@ -3812,6 +3812,8 @@
 
 .discoverMacroEvent--group {
   padding: 0;
+  background: transparent;
+  overflow: hidden;
 }
 
 .discoverMacroEventGroupList {
@@ -3878,9 +3880,10 @@
 .discoverMoveBoard {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   width: 100%;
   min-width: 0;
+  padding-top: 2px;
 }
 
 .discoverMoveCard {
@@ -3888,10 +3891,10 @@
   width: 100%;
   min-width: 0;
   margin: 0;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  padding: 12px 0 14px;
+  border: none;
   border-radius: 0;
-  background: rgba(255, 255, 255, 0.02);
+  background: transparent;
   color: inherit;
   text-align: left;
   cursor: pointer;
@@ -3904,22 +3907,24 @@
   max-height: none;
   position: relative;
   isolation: isolate;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background 0.12s ease;
+}
+
+.discoverMoveCard + .discoverMoveCard {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .discoverMoveCard:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.028);
+  background: rgba(255, 255, 255, 0.025);
 }
 
 .discoverMoveCard:focus-visible {
   outline: none;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
 
 .discoverMoveCard.discoverMoveCard--graded {
-  background-color: rgba(10, 11, 13, 0.35);
-  border-color: rgba(255, 255, 255, 0.1);
+  background-color: transparent;
 }
 
 .discoverMoveCard.discoverMoveCard--graded::before {
@@ -3930,7 +3935,7 @@
   background-size: 190% auto;
   background-position: center 42%;
   background-repeat: no-repeat;
-  opacity: 0.75;
+  opacity: 0.55;
   z-index: 0;
   pointer-events: none;
 }
@@ -3941,9 +3946,9 @@
   inset: 0;
   background: linear-gradient(
     90deg,
-    rgba(5, 7, 10, 0.84) 0%,
-    rgba(5, 7, 10, 0.34) 52%,
-    rgba(5, 7, 10, 0.58) 100%
+    rgba(5, 7, 10, 0.9) 0%,
+    rgba(5, 7, 10, 0.42) 52%,
+    rgba(5, 7, 10, 0.72) 100%
   );
   z-index: 0;
   pointer-events: none;
@@ -3953,7 +3958,7 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 78px minmax(200px, 1.05fr) minmax(0, 1fr);
+  grid-template-columns: 72px minmax(200px, 1.05fr) minmax(0, 1fr);
   grid-template-rows: auto auto;
   grid-template-areas:
     'rail chart copy'
@@ -3968,9 +3973,9 @@
   flex-direction: column;
   justify-content: flex-start;
   gap: 5px;
-  padding: 12px 10px;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.22);
+  padding: 2px 10px 2px 0;
+  border: none;
+  background: transparent;
   min-width: 0;
   align-self: stretch;
   min-height: 100%;
@@ -3978,7 +3983,7 @@
 }
 
 .discoverMoveRail--lead {
-  padding-top: 14px;
+  padding-top: 0;
 }
 
 .discoverMoveLeadChart {
@@ -3986,13 +3991,13 @@
   height: 112px;
   min-height: 112px;
   max-height: 112px;
-  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border: none;
   overflow: hidden;
   align-self: start;
 }
 
 .discoverMoveLeadChart--empty {
-  background: rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .discoverMoveLeadCopy {
@@ -4001,7 +4006,7 @@
   flex-direction: column;
   gap: 8px;
   min-width: 0;
-  padding: 12px 14px 10px;
+  padding: 2px 0 0 12px;
 }
 
 .discoverMoveCardTicker {
@@ -4101,9 +4106,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(0, 0, 0, 0.24);
+  margin-top: 10px;
+  padding: 8px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
 }
 
 .discoverMoveLeadGrid--noCatalyst {
@@ -5365,14 +5371,14 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 14px 18px 18px;
+  padding: 12px var(--panel-scroll-inline-pad) 16px;
   box-sizing: border-box;
 }
 
 .settingsPageGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
   align-items: stretch;
 }
 
@@ -5382,7 +5388,7 @@
   min-width: 0;
   min-height: 100%;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 10px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.02);
   box-sizing: border-box;
 }
@@ -5463,16 +5469,24 @@
   flex: 1 1 auto;
 }
 
+.settingsCard--alerts,
+.settingsCard--invoices,
+.settingsCard--signIn {
+  background: transparent;
+}
+
 .settingsCard--wide {
   grid-column: 1 / -1;
 }
 
 .settingsCardHead {
   padding: 10px 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .settingsCardTitle {
   margin: 0;
+  padding-bottom: 8px;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.16em;
@@ -5497,8 +5511,18 @@
   margin-top: auto;
 }
 
-.settingsCardHint {
+.settingsCardHintRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0 0 8px;
+}
+
+.settingsCardHint {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 10px;
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.45);
@@ -5506,7 +5530,12 @@
 }
 
 .settingsWatchlistQuota {
-  color: rgba(255, 255, 255, 0.38);
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.42);
+  white-space: nowrap;
 }
 
 .settingsWatchlistLimitNote {
@@ -5684,9 +5713,9 @@
   justify-content: center;
   height: 28px;
   padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+  background: transparent;
   color: rgba(255, 255, 255, 0.72);
   font-size: 9px;
   font-weight: 600;
@@ -5726,50 +5755,95 @@
   outline-offset: 2px;
 }
 
-.settingsWatchlistChips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.settingsAlertTableWrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.settingsWatchlistChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  height: 24px;
-  padding: 0 2px 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.03);
+.settingsAlertTable {
+  width: 100%;
+  min-width: 320px;
+  border-collapse: collapse;
+  font-size: 11px;
+  line-height: 1.25;
 }
 
-.settingsWatchlistChipTicker {
-  font-size: 10px;
+.settingsAlertTable th {
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 8px;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  color: var(--hi);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.02);
 }
 
-.settingsWatchlistChipRemove {
+.settingsAlertTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+  vertical-align: middle;
+}
+
+.settingsAlertTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.settingsAlertTable tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.settingsAlertTableCol--primary {
+  min-width: 0;
+}
+
+.settingsAlertTableCol--action {
+  width: 72px;
+  text-align: right;
+}
+
+.settingsAlertTableType {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.settingsAlertTableRemove {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 13px;
-  line-height: 1;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
 }
 
-.settingsWatchlistChipRemove:hover:not(:disabled) {
-  color: rgba(255, 140, 170, 0.95);
-  background: rgba(255, 120, 160, 0.1);
+.settingsAlertTableRemove:hover:not(:disabled) {
+  color: rgba(255, 170, 195, 0.95);
+  border-color: rgba(255, 140, 170, 0.35);
+  background: rgba(255, 120, 160, 0.08);
+}
+
+.settingsAlertTableRemove:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.casePanelAlertToggle {
+  flex-shrink: 0;
 }
 
 .settingsInvoiceTableWrap {
@@ -5822,8 +5896,8 @@
   width: 100%;
   padding: 14px 12px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0;
+  background: transparent;
   box-sizing: border-box;
 }
 
@@ -8055,7 +8129,10 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company,
 .terminal--politicians .feed--left .feedRowCompact--company,
 .terminal--institutions .feed--left .feedRowCompact--company,
-.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company,
+.terminal--insider .feed--left .feedRowCompact--actor,
+.terminal--politicians .feed--left .feedRowCompact--actor,
+.terminal--institutions .feed--left .feedRowCompact--actor
 {
   grid-template-columns: minmax(3.2em, 4.8em) minmax(0, 1fr) minmax(2.2em, 3.2em) max-content;
   gap: 4px 6px;
@@ -8064,7 +8141,10 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company.feedRowCompact--noCount,
 .terminal--politicians .feed--left .feedRowCompact--company.feedRowCompact--noCount,
 .terminal--institutions .feed--left .feedRowCompact--company.feedRowCompact--noCount,
-.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company.feedRowCompact--noCount
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company.feedRowCompact--noCount,
+.terminal--insider .feed--left .feedRowCompact--actor.feedRowCompact--noCount,
+.terminal--politicians .feed--left .feedRowCompact--actor.feedRowCompact--noCount,
+.terminal--institutions .feed--left .feedRowCompact--actor.feedRowCompact--noCount
 {
   grid-template-columns: minmax(3.2em, 4.8em) minmax(0, 1fr) max-content;
 }
@@ -8087,7 +8167,10 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCellCompany,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellCompany,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCellCompany,
-.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCellCompany
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCellCompany,
+.terminal--insider .feed--left .feedRowCompact--actor .feedCellActor,
+.terminal--politicians .feed--left .feedRowCompact--actor .feedCellActor,
+.terminal--institutions .feed--left .feedRowCompact--actor .feedCellActor
 {
   min-width: 0;
   overflow: hidden;
@@ -8098,7 +8181,10 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCellCount,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellCount,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCellCount,
-.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCellCount
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCellCount,
+.terminal--insider .feed--left .feedRowCompact--actor .feedCellCount,
+.terminal--politicians .feed--left .feedRowCompact--actor .feedCellCount,
+.terminal--institutions .feed--left .feedRowCompact--actor .feedCellCount
 {
   min-width: 0;
   width: 4ch;
@@ -8110,7 +8196,10 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCountTag,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCountTag,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCountTag,
-.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCountTag
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCountTag,
+.terminal--insider .feed--left .feedRowCompact--actor .feedCountTag,
+.terminal--politicians .feed--left .feedRowCompact--actor .feedCountTag,
+.terminal--institutions .feed--left .feedRowCompact--actor .feedCountTag
 {
   display: block;
   min-width: 4ch;
@@ -8123,7 +8212,10 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--insider .feed--left .feedRowCompact--company .feedCellWhen,
 .terminal--politicians .feed--left .feedRowCompact--company .feedCellWhen,
 .terminal--institutions .feed--left .feedRowCompact--company .feedCellWhen,
-.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCellWhen
+.terminal--researchFeed .researchTicker.feed--left .feedRowCompact--company .feedCellWhen,
+.terminal--insider .feed--left .feedRowCompact--actor .feedCellWhen,
+.terminal--politicians .feed--left .feedRowCompact--actor .feedCellWhen,
+.terminal--institutions .feed--left .feedRowCompact--actor .feedCellWhen
 {
   min-width: 0;
 }
@@ -8881,6 +8973,12 @@ body {
   gap: clamp(4px, 0.8cqmin, 8px);
 }
 
+/* Investigate CASE txn rows: TICKER · COMPANY · CODE · VALUE · DATE */
+.feedRowCompact--txnCompany {
+  grid-template-columns: minmax(3.2em, 4.8em) minmax(8em, 1fr) 2.2em minmax(10ch, 1fr) auto;
+  gap: clamp(4px, 0.8cqmin, 8px);
+}
+
 /* ISSUER / FORM: full-width two-column rows (label left, value right) */
 .feedRowCompact--two.feedRowCompact--meta {
   cursor: default;
@@ -9211,6 +9309,13 @@ body {
   grid-template-columns: 4.5em minmax(6em, 10em) 2.2em minmax(10ch, 1fr) auto;
 }
 
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txnCompany,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnCompany,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnCompany
+{
+  grid-template-columns: minmax(3.2em, 4.8em) minmax(8em, 1fr) 2.2em minmax(10ch, 1fr) auto;
+}
+
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician,
 .terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician,
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--two.feedRowCompact--meta,
@@ -9222,7 +9327,10 @@ body {
 /* CASE txn rows: table grid + same row height as FEED (left) */
 .terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txn,
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician,
-.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician,
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txnCompany,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnCompany,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnCompany
 {
   gap: 0;
   padding: 0;
@@ -9234,6 +9342,28 @@ body {
   border: none;
   border-bottom: 1px solid var(--case-table-line);
   border-radius: 0;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txnCompany,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnCompany,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnCompany
+{
+  min-height: calc((10px * 1.15 + 10px) * 2);
+  align-items: center;
+}
+
+.terminal--insider .feed--right .feedCompactList--caseTable .feedRowCompact--txnCompany .feedCellCompany,
+.terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnCompany .feedCellCompany,
+.terminal--institutions .feed--right .feedCompactList--caseTable .feedRowCompact--txnCompany .feedCellCompany
+{
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.15;
+  align-self: center;
+  text-overflow: ellipsis;
 }
 
 .terminal--politicians .feed--right .feedCompactList--caseTable .feedRowCompact--txnPolitician,
@@ -10686,8 +10816,7 @@ body {
     min-height: 96px;
     height: 96px;
     max-height: 96px;
-    border-right: none;
-    border-bottom: none;
+    border: none;
   }
 
   .terminalShell--phone .discoverMoveLeadChart .discoverMoveChart,
@@ -10698,12 +10827,13 @@ body {
   }
 
   .terminalShell--phone .discoverMoveLeadCopy {
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: none;
+    padding-top: 8px;
     align-self: stretch;
   }
 
   .terminalShell--phone .discoverMoveRail--lead {
-    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    border: none;
   }
 
   .terminalShell--phone .discoverAgendaRow--ahead,

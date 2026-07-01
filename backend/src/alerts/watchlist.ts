@@ -1,4 +1,5 @@
 import { db } from "../core/db.js";
+import { assertCombinedWatchlistHasRoom } from "./watchlist-limits.js";
 import { ensureAlertTables } from "./store.js";
 
 export function watchlistMaxTickers(): number {
@@ -39,9 +40,9 @@ export async function addWatchlistTicker(userId: string, ticker: string): Promis
   if (!t || !/^[A-Z0-9.-]{1,12}$/.test(t)) throw new Error("invalid_ticker");
 
   const current = await listUserWatchlist(userId);
-  const max = watchlistMaxTickers();
-  if (!current.includes(t) && current.length >= max) {
-    throw new WatchlistLimitError(max);
+  const addingNew = !current.includes(t);
+  if (addingNew) {
+    await assertCombinedWatchlistHasRoom(userId, true);
   }
 
   await db.query(

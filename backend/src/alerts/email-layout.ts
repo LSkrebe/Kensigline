@@ -1,6 +1,7 @@
 import type { IdeaCandidate } from "./candidates.js";
 import type { DigestSection } from "./digest-collect.js";
 import type { TickerAlertItem } from "./ticker-email.js";
+import type { ActorAlertItem } from "./actor-email.js";
 
 export function frontendBase(): string {
   return String(process.env.FRONTEND_URL ?? "http://localhost:5173").replace(/\/$/, "");
@@ -193,6 +194,55 @@ export function renderTickerAlertText(items: TickerAlertItem[]): string {
       `${it.ticker} (${feedLabel(it.feed)})\n${it.title}\n\n${it.context}\n${it.url ?? ""}`.trim(),
   );
   return `Mercerline ticker alert\n\n${blocks.join("\n\n---\n\n")}`;
+}
+
+function actorModeLabel(mode: string): string {
+  if (mode === "politicians") return "Politician";
+  if (mode === "institutions") return "Institution";
+  return "Insider";
+}
+
+export function renderActorAlertHtml(items: ActorAlertItem[]): string {
+  const blocks = items
+    .map((it) => {
+      const url = it.url ? escapeHtml(it.url) : escapeHtml(frontendBase());
+      const actor = escapeHtml(it.actor_name);
+      const ticker = escapeHtml(it.ticker);
+      return `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;background:rgba(255,255,255,0.02);">
+        <tr>
+          <td style="padding:14px 16px;">
+            <div style="font-family:ui-monospace,Menlo,monospace;font-size:9px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:rgba(170,220,255,0.72);margin-bottom:6px;">${escapeHtml(actorModeLabel(it.mode))}</div>
+            <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;font-weight:600;color:#ffffff;margin-bottom:10px;">${actor} · ${ticker} · ${escapeHtml(it.title)}</div>
+            <p style="margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;line-height:1.6;color:rgba(255,255,255,0.78);">${escapeHtml(it.context)}</p>
+            <p style="margin:12px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:11px;">
+              <a href="${url}" style="color:rgba(170,220,255,0.9);text-decoration:none;">Open in Mercerline →</a>
+            </p>
+          </td>
+        </tr>
+      </table>`;
+    })
+    .join("");
+
+  const preheader =
+    items.length === 1 && items[0]
+      ? `New activity for ${items[0].actor_name}`
+      : `${items.length} new actor alert${items.length === 1 ? "" : "s"}`;
+
+  return emailShell({
+    preheader,
+    title: items.length === 1 && items[0] ? `${items[0].actor_name} alert` : "Actor alerts",
+    lead: "New transaction activity for someone on your actor watchlist.",
+    body: blocks,
+  });
+}
+
+export function renderActorAlertText(items: ActorAlertItem[]): string {
+  const blocks = items.map(
+    (it) =>
+      `${it.actor_name} (${actorModeLabel(it.mode)}) · ${it.ticker}\n${it.title}\n\n${it.context}\n${it.url ?? ""}`.trim(),
+  );
+  return `Mercerline actor alert\n\n${blocks.join("\n\n---\n\n")}`;
 }
 
 export async function sendBrevoEmail(opts: {
