@@ -6,6 +6,7 @@ import { db } from "./core/db.js";
 import { getDailyCloseBars } from "./core/bars.js";
 import { getCompanySnapshot } from "./core/company.js";
 import { getCompanyFullCached } from "./core/ticker-context-cache.js";
+import { handleAnalyseModel } from "./analyse/api.js";
 import {
   getLatestOutcomes,
   recomputeResearchOutcomes,
@@ -251,6 +252,13 @@ const server = http.createServer(async (req, res) => {
       }
       const out = await getCompanyFullCached({ ticker });
       sendJson(res, 200, out);
+      return;
+    }
+
+    // ---- Analyse (financial model + revenue overlay) ----
+    if (route(req, url, "GET", "/api/analyse/model")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
+      await handleAnalyseModel(res, ticker);
       return;
     }
 

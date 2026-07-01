@@ -14,6 +14,7 @@ import { useMarketingPath } from './marketingRoute.js'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
 import { AnalysePanel } from './AnalysePanel.jsx'
 import { analyseRevenueOverlayMeta } from './analyseMockData.js'
+import { fetchAnalyseModel } from './analyseClient.js'
 import { prefetchDiscoverTimeline } from './discoverClient.js'
 import { EventBriefDocCard } from './EventBrief.jsx'
 import { getEventMentioned } from './eventBriefs.js'
@@ -9572,6 +9573,8 @@ function KensiglineTerminal() {
   const [researchTicker, setResearchTicker] = useState(RESEARCH_TICKER_MARKET)
   const [researchQuery, setResearchQuery] = useState('')
   const [analysePriceRange, setAnalysePriceRange] = useState('6M')
+  const [analyseLivePayload, setAnalyseLivePayload] = useState(null)
+  const [analyseModelLoading, setAnalyseModelLoading] = useState(false)
   const [researchFeedFilterOpen, setResearchFeedFilterOpen] = useState(false)
   const [researchPaperSourceFilters, setResearchPaperSourceFilters] = useState(() =>
     readFilterSet(UI_PREF_KEYS.researchFilters, researchSourceFilterKeys()),
@@ -9593,6 +9596,7 @@ function KensiglineTerminal() {
   const barsCacheRef = useRef(new Map())
   const researchCompanyCacheRef = useRef(new Map())
   const researchExploreCacheRef = useRef(new Map())
+  const analyseFetchGenRef = useRef(0)
   const barsFetchGenRef = useRef(0)
   const researchBarsFetchGenRef = useRef(0)
   const researchCompanyFetchGenRef = useRef(0)
@@ -9741,8 +9745,12 @@ function KensiglineTerminal() {
   }, [backendUp, researchCompanyResolved?.fundamentals, contextMock?.fundamentals])
 
   const analyseQuarterlyRevenue = useMemo(
-    () => (backendUp ? null : analyseMockQuarterlyRevenueOverlay(researchTicker)),
-    [backendUp, researchTicker],
+    () => {
+      if (backendUp && analyseLivePayload?.revenueOverlay) return analyseLivePayload.revenueOverlay
+      if (backendUp) return null
+      return analyseMockQuarterlyRevenueOverlay(researchTicker)
+    },
+    [backendUp, researchTicker, analyseLivePayload],
   )
 
   const analysePriceChange = useMemo(() => {
@@ -10224,6 +10232,25 @@ function KensiglineTerminal() {
       alive = false
     }
   }, [backendUp, activeTab, researchTick])
+
+  useEffect(() => {
+    if (!backendUp || !researchTicker) {
+      setAnalyseLivePayload(null)
+      setAnalyseModelLoading(false)
+      return
+    }
+    let alive = true
+    const gen = ++analyseFetchGenRef.current
+    setAnalyseModelLoading(true)
+    void fetchAnalyseModel(researchTicker).then((data) => {
+      if (!alive || analyseFetchGenRef.current !== gen) return
+      setAnalyseLivePayload(data)
+      setAnalyseModelLoading(false)
+    })
+    return () => {
+      alive = false
+    }
+  }, [backendUp, researchTicker])
 
   useEffect(() => {
     if (!backendUp || activeTab !== 'main') return
@@ -11550,6 +11577,9 @@ function KensiglineTerminal() {
             quarterlyRevenueOverlay={analyseQuarterlyRevenue}
             chartRange={analysePriceRange}
             onChartRangeChange={setAnalysePriceRange}
+            backendUp={backendUp}
+            liveModel={analyseLivePayload?.model ?? null}
+            modelLoading={analyseModelLoading}
           >
             <MiniPriceChart
               series={researchPriceSeries}

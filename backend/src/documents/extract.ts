@@ -5,6 +5,16 @@ import {
   SOURCE_KEYS,
   sourceKeyFromQueueType,
 } from "../shared/source-keys.js";
+export type ResearchBusinessDriver = {
+  label: string;
+  driver_kind?: string;
+  rolls_up_to_revenue?: boolean;
+  value_usd_millions?: number | null;
+  value?: number | null;
+  unit?: string | null;
+  period?: string | null;
+};
+
 export type ResearchDocExtractV2 = {
   schema_type: "research_doc_v2";
   schema_version: "v2";
@@ -19,6 +29,7 @@ export type ResearchDocExtractV2 = {
     upstream?: string[];
     downstream?: string[];
   } | null;
+  business_drivers?: ResearchBusinessDriver[];
 };
 
 /** @deprecated Use ResearchDocExtractV2 */
@@ -37,6 +48,17 @@ const RESEARCH_EXTRACT_SCHEMA = {
   program_keys: ["string"],
   link_confidence: "number|null",
   related_tickers: { upstream: ["string"], downstream: ["string"] },
+  business_drivers: [
+    {
+      label: "string (segment/product line/metric name, 2-6 words)",
+      driver_kind: "revenue|units|enrollment|volume|other",
+      rolls_up_to_revenue: "boolean (true when this driver is part of total revenue)",
+      value_usd_millions: "number|null (segment revenue in USD millions when disclosed)",
+      value: "number|null (non-revenue metric count when disclosed)",
+      unit: "string|null",
+      period: "string|null (e.g. Q2 FY2025)",
+    },
+  ],
 };
 
 function buildResearchExtractSystemPrompt(defaultSource: string): string {
@@ -71,6 +93,13 @@ function buildResearchExtractSystemPrompt(defaultSource: string): string {
     "Gov contract: source_key Gov contract + link_confidence 0-1.",
     "Clinical registry: ClinicalTrials.gov + program_keys when explicit.",
     "related_tickers: US tickers only when explicitly named in the document.",
+    "",
+    "BUSINESS_DRIVERS (0-6 items, optional):",
+    "- Extract disclosed segment revenues, product-line sales, unit volumes, enrollment, or other KPIs that explain revenue.",
+    "- Only include metrics explicitly stated with numbers in the document — never invent segments.",
+    "- Revenue-like drivers: set driver_kind revenue, rolls_up_to_revenue true, value_usd_millions when a dollar amount is given.",
+    "- Non-revenue KPIs (installed base, subscribers, doses): driver_kind units|enrollment|other, rolls_up_to_revenue false, value as count.",
+    "- Omit business_drivers entirely when the document has no quantified operating metrics.",
   ].join("\n");
 }
 
@@ -148,7 +177,7 @@ export async function runResearchDocExtract(args: {
 
   const { content, model } = await llmChat(messages, {
     temperature: 0,
-    max_tokens: 800,
+    max_tokens: 1200,
     log_context: "research/extract",
   });
   const out = extractJsonObject(content);
@@ -157,6 +186,7 @@ export async function runResearchDocExtract(args: {
   }
 
   const relatedTickers = normalizeRelatedTickers(out.related_tickers);
+  const businessDrivers = normalizeBusinessDrivers(out.business_drivers);
   const title = normalizeHeadline(out.title)!;
   const analysis = out.analysis.trim();
 
@@ -177,9 +207,34 @@ export async function runResearchDocExtract(args: {
           ? Math.max(0, Math.min(1, Number(out.link_confidence)))
           : null,
       ...(relatedTickers != null ? { related_tickers: relatedTickers } : {}),
+      ...(businessDrivers != null ? { business_drivers: businessDrivers } : {}),
     },
     model,
   };
+}
+
+function normalizeBusinessDrivers(raw: unknown): ResearchBusinessDriver[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: ResearchBusinessDriver[] = [];
+  for (const item of raw.slice(0, 8)) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as Record<string, unknown>;
+    const label = String(r.label ?? "").trim();
+    if (label.length < 2 || label.length > 80) continue;
+    const driverKind = String(r.driver_kind ?? r.driverKind ?? "other").trim().toLowerCase() || "other";
+    const valueUsd = r.value_usd_millions != null ? Number(r.value_usd_millions) : null;
+    const value = r.value != null ? Number(r.value) : null;
+    out.push({
+      label,
+      driver_kind: driverKind,
+      ...(r.rolls_up_to_revenue === false || r.rollsUpToRevenue === false ? { rolls_up_to_revenue: false } : {}),
+      value_usd_millions: Number.isFinite(valueUsd as number) ? (valueUsd as number) : null,
+      value: Number.isFinite(value as number) ? (value as number) : null,
+      unit: r.unit != null ? String(r.unit).trim().slice(0, 40) : null,
+      period: r.period != null ? String(r.period).trim().slice(0, 40) : null,
+    });
+  }
+  return out.length ? out : undefined;
 }
 
 function normalizeRelatedTickers(raw: unknown): ResearchDocExtractV2["related_tickers"] {

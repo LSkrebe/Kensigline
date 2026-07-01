@@ -26,6 +26,15 @@ Use pooler URL from `.env`. If TLS fails locally, set `PGSSLMODE=require` or use
 | Ingest | `document_queue`, `ingest_cursors` |
 | Paper | `documents` |
 | Flows | `insider_transactions`, `politician_transactions`, `institution_filings_13f` |
-| Alerts | `alert_preferences`, `alert_digest_log` |
+| Alerts | `alert_preferences`, `alert_digest_log`, `alert_watchlist`, `alert_actor_watchlist` |
 
 Clinical, gov-contract, and research-memo data lives on `documents` (`feed_kind`, `program_*`, `source_key`).
+
+### Content-only reset (keep users & billing)
+
+```bash
+cd backend
+npx tsx src/scripts/reset-content-data.ts
+```
+
+Clears documents, queues, bars, companies, outcomes, caches, and alert *send* logs. Keeps `billing_accounts`, alert preferences, and watchlists.

@@ -381,24 +381,32 @@ export function AnalysePanel({
   quarterlyRevenueOverlay = null,
   chartRange = '6M',
   onChartRangeChange,
+  backendUp = false,
+  liveModel = null,
+  modelLoading = false,
 }) {
   const t = String(ticker ?? '').trim().toUpperCase()
   const showPrice = price != null && Number.isFinite(Number(price))
-  const baseModel = useMemo(() => analyseMockModelForTicker(t), [t])
+  const baseModel = useMemo(() => {
+    if (backendUp && liveModel) return liveModel
+    if (backendUp && modelLoading) return null
+    return analyseMockModelForTicker(t)
+  }, [backendUp, liveModel, modelLoading, t])
   const [forecastOverrides, setForecastOverrides] = useState({})
   const [valuationQuarterIndex, setValuationQuarterIndex] = useState(null)
 
   useEffect(() => {
     setForecastOverrides({})
     setValuationQuarterIndex(null)
-  }, [baseModel])
+  }, [t, liveModel])
 
   const model = useMemo(
-    () => applyForecastOverrides(baseModel, forecastOverrides),
+    () => (baseModel ? applyForecastOverrides(baseModel, forecastOverrides) : null),
     [baseModel, forecastOverrides],
   )
 
   const forecastQuarterOptions = useMemo(() => {
+    if (!model) return []
     const from = model.estimateFromIndex
     return model.quarters.slice(from, from + 4).map((label, i) => ({
       label,
@@ -406,11 +414,12 @@ export function AnalysePanel({
     }))
   }, [model])
 
-  const defaultValuationCol = model.quarters.length - 1
+  const defaultValuationCol = model ? model.quarters.length - 1 : 0
   const selectedValuationCol = valuationQuarterIndex ?? defaultValuationCol
 
   const valuation = useMemo(
-    () => computeValuationView(model, showPrice ? Number(price) : null, selectedValuationCol),
+    () =>
+      model ? computeValuationView(model, showPrice ? Number(price) : null, selectedValuationCol) : null,
     [model, showPrice, price, selectedValuationCol],
   )
 
@@ -420,6 +429,7 @@ export function AnalysePanel({
 
   const baseRowsByLabel = useMemo(() => {
     const map = {}
+    if (!baseModel) return map
     for (const row of [...baseModel.historicalModel, ...baseModel.businessDrivers]) {
       map[row.label] = row.values
     }
@@ -456,9 +466,10 @@ export function AnalysePanel({
     })
   }, [t])
 
-  const driverSectionTitle = model.driverSectionTitle ?? 'Business drivers'
-  const unitHint = model.driverUnitHint ?? `${model.currency} millions`
-  const perShareHint = `${model.currency} millions except per share`
+  const driverSectionTitle = model?.driverSectionTitle ?? 'Business drivers'
+  const unitHint = model?.driverUnitHint ?? `${model?.currency ?? 'USD'} millions`
+  const perShareHint = `${model?.currency ?? 'USD'} millions except per share`
+  const modelReady = Boolean(model)
 
   return (
     <section
@@ -571,6 +582,12 @@ export function AnalysePanel({
                 </div>
               </section>
 
+              {!modelReady ? (
+                <div className="analyseSection analyseSection--loading mono dim">
+                  {modelLoading ? 'Loading financial model…' : 'Financial model unavailable.'}
+                </div>
+              ) : (
+                <>
               <section className="analyseSection" aria-label={driverSectionTitle}>
                 <div className="analyseSectionHead">
                   <AnalyseSectionTitle title={driverSectionTitle} hintLines={[unitHint]} />
@@ -624,6 +641,8 @@ export function AnalysePanel({
                   onForecastQuarterChange={setValuationQuarterIndex}
                 />
               </section>
+                </>
+              )}
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { formatUsdCompact } from "../shared/money.js";
 import { scoreResearchDocument } from "../core/idea-score.js";
 import { isoTimestampFromDb } from "../shared/db-time.js";
 import { invalidateTickerContextCache } from "../core/ticker-context-cache.js";
+import { invalidateAnalyseModelCache } from "../analyse/build-model.js";
 
 const GOV_LINK_THRESHOLD = () => Number(process.env.GOV_CONTRACT_LINK_THRESHOLD ?? 0.72);
 
@@ -66,6 +67,11 @@ export async function insertResearchDocument(args: {
       JSON.stringify(args.out),
     ],
   );
+
+  if (ticker) {
+    void invalidateTickerContextCache(ticker);
+    invalidateAnalyseModelCache(ticker);
+  }
 
   return row?.id ?? null;
 }

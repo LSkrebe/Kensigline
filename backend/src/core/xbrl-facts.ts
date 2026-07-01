@@ -115,6 +115,38 @@ export function fyShortLabel(fy: number): string {
   return `FY${String(yy).padStart(2, "0")}`;
 }
 
+export function quarterShortLabel(row: FactRow, estimate = false): string {
+  const fpRaw = String(row.fp ?? "").trim().toUpperCase();
+  const fp = fpRaw.startsWith("Q") ? fpRaw : fpRaw ? `Q${fpRaw}` : "Q?";
+  const fy = row.fy > 0 ? row.fy : Number(String(row.end).slice(0, 4));
+  const yy = fy % 100;
+  return `${fp}'${String(yy).padStart(2, "0")}${estimate ? "E" : ""}`;
+}
+
+/** Quarterly rows, one per fiscal period, oldest → newest. */
+export function pickQuarterlyRows(rows: FactRow[], count: number): FactRow[] {
+  if (!rows.length || count <= 0) return [];
+
+  const quarterly = rows.filter(isQuarterlyRow);
+  const pool = quarterly.length ? quarterly : rows;
+
+  const byKey = new Map<string, FactRow>();
+  for (const r of pool) {
+    const fy = r.fy > 0 ? r.fy : Number(String(r.end).slice(0, 4));
+    if (!Number.isFinite(fy) || fy <= 0) continue;
+    const fp = String(r.fp ?? "").trim().toUpperCase() || "Q?";
+    const key = `${fy}:${fp}`;
+    const cur = byKey.get(key);
+    if (!cur || r.filed > cur.filed || (r.filed === cur.filed && r.end > cur.end)) {
+      byKey.set(key, { ...r, fy });
+    }
+  }
+
+  return Array.from(byKey.values())
+    .sort((a, b) => a.end.localeCompare(b.end))
+    .slice(-count);
+}
+
 /** Annual 10-K / FY rows, one per fiscal year, oldest → newest. */
 export function pickAnnualFyRows(rows: FactRow[], count: number): FactRow[] {
   if (!rows.length || count <= 0) return [];
