@@ -4,15 +4,23 @@
  *   npx tsx src/scripts/reset-content-data.ts
  */
 import "../load-env.js";
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 import { pool } from "../core/db.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const sqlPath = join(__dirname, "../../db/reset-content.sql");
+const CONTENT_TRUNCATES = [
+  "alert_ticker_sent_log",
+  "alert_actor_sent_log",
+  "insider_transactions",
+  "politician_transactions",
+  "institution_filings_13f",
+  "documents",
+  "document_queue",
+  "outcomes",
+  "bars",
+  "ticker_context_cache",
+  "ingest_cursors",
+  "companies",
+];
 
-/** Legacy tables from older schemas — best-effort truncate before main script. */
 const LEGACY_TRUNCATES = [
   "research_memos",
   "ticker_feed_state",
@@ -33,52 +41,52 @@ const LEGACY_TRUNCATES = [
   "document_parsed",
 ];
 
-async function truncateIfExists(table: string): Promise<void> {
+const PRESERVED_TABLES = [
+  "billing_accounts",
+  "alert_preferences",
+  "alert_watchlist",
+  "alert_actor_watchlist",
+  "alert_digest_log",
+];
+
+async function truncateIfExists(table: string): Promise<boolean> {
   try {
     await pool.query(`TRUNCATE TABLE ${table} CASCADE`);
     console.log(`[reset] truncated ${table}`);
+    return true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("does not exist")) return;
-    console.warn(`[reset] skip ${table}:`, msg.split("\n")[0]);
+    if (msg.includes("does not exist")) {
+      console.log(`[reset] skip ${table} (not present)`);
+      return false;
+    }
+    throw err;
+  }
+}
+
+async function countTable(table: string): Promise<string> {
+  try {
+    const r = await pool.query<{ n: string }>(`SELECT count(*)::text AS n FROM ${table}`);
+    return r.rows[0]?.n ?? "?";
+  } catch {
+    return "—";
   }
 }
 
 async function main() {
-  for (const table of LEGACY_TRUNCATES) {
+  for (const table of [...LEGACY_TRUNCATES, ...CONTENT_TRUNCATES]) {
     await truncateIfExists(table);
   }
 
-  const sql = readFileSync(sqlPath, "utf8");
-  await pool.query(sql);
-
-  const kept = await pool.query<{ relname: string; n: string }>(
-    `
-    SELECT c.relname, c.reltuples::bigint::text AS n
-    FROM pg_class c
-    JOIN pg_namespace n ON n.oid = c.relnamespace
-    WHERE n.nspname = 'public'
-      AND c.relkind = 'r'
-      AND c.relname = ANY($1::text[])
-    ORDER BY c.relname
-    `,
-    [
-      [
-        "billing_accounts",
-        "alert_preferences",
-        "alert_watchlist",
-        "alert_actor_watchlist",
-        "alert_digest_log",
-        "documents",
-        "companies",
-        "bars",
-      ],
-    ],
-  );
-
   console.log("[reset] content wipe complete — preserved user tables:");
-  for (const row of kept.rows) {
-    console.log(`  ${row.relname}: ~${row.n} rows`);
+  for (const table of PRESERVED_TABLES) {
+    const n = await countTable(table);
+    console.log(`  ${table}: ${n} rows`);
+  }
+
+  for (const table of ["documents", "companies", "bars", "document_queue"]) {
+    const n = await countTable(table);
+    console.log(`  ${table}: ${n} rows`);
   }
 
   await pool.end();
