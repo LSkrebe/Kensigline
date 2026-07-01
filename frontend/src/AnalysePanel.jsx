@@ -555,13 +555,7 @@ export function AnalysePanel({
                     Share price
                   </span>
                   <span className="analyseChartLegendItem">
-                    <span
-                      className={[
-                        'analyseChartLegendSwatch',
-                        'analyseChartLegendSwatch--earnings',
-                        revenueOverlayMeta.tone === 'down' ? 'isDown' : 'isUp',
-                      ].join(' ')}
-                    />
+                    <span className="analyseChartLegendSwatch analyseChartLegendSwatch--earnings" />
                     Revenue growth YoY
                     {revenueOverlayMeta.latestPct ? (
                       <span

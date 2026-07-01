@@ -34,7 +34,7 @@ export function DiscoverReactionChart({ ticker, movePct, closes, height = 72, al
   }, [ticker, movePct, closes, allowMockSeries])
   const w = width
   const h = height
-  const margin = { l: 0, r: 4, t: 6, b: 14 }
+  const margin = { l: 0, r: 4, t: 6, b: 4 }
   const innerW = Math.max(1, w - margin.l - margin.r)
   const innerH = Math.max(1, h - margin.t - margin.b)
   const min = vals.length ? Math.min(...vals) : 0
@@ -87,13 +87,6 @@ export function DiscoverReactionChart({ ticker, movePct, closes, height = 72, al
             </linearGradient>
           </defs>
           {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
-          <path
-            className="graphAxis"
-            d={`M ${margin.l} ${margin.t} L ${margin.l} ${h - margin.b} L ${w - margin.r} ${h - margin.b}`}
-            stroke="rgba(255, 255, 255, 0.14)"
-            strokeWidth="0.85"
-            fill="none"
-          />
           <path
             className="graphPath"
             d={path}

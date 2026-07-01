@@ -12,6 +12,7 @@ import {
   DISCOVER_MARKET_MOVE_FILTER_DEFAULT,
   DISCOVER_MARKET_MOVE_FILTER_TYPES,
   discoverEventPassesFilters,
+  discoverKindLabel,
   getDiscoverUpcomingEvents,
 } from './discoverEvents.js'
 import { attachNextUpcomingToMarketMoves, pickCatalystBgMoveIds, resolveDiscoverMoveFooter } from './discoverMoveFooters.js'
@@ -352,13 +353,13 @@ function DiscoverMacroStrip({
         </div>
       </header>
       <div
-        className={['feedCompactBody', 'discoverMacroStripBody', filterOpen ? 'feedCompactBody--filterOpen' : '']
+        className={['feedCompactBody', 'discoverColBody', filterOpen ? 'feedCompactBody--filterOpen' : '']
           .filter(Boolean)
           .join(' ')}
       >
-        <div className="feedCompactMain discoverMacroStripMain" aria-hidden={filterOpen || undefined}>
+        <div className="feedCompactMain" aria-hidden={filterOpen || undefined}>
           {search}
-          <div className="discoverMacroStripScroll scrollThin">
+          <div className="discoverColScroll scrollThin">
             {!days.length ? (
               <p className="discoverColEmpty mono dim">
                 {loading
@@ -389,7 +390,20 @@ function DiscoverMacroStrip({
   )
 }
 
-function DiscoverMoveCard({ event, movePct, reactionCloses, upcoming = [], useMockEarnings = false, allowMockFallback = false, catalystBg = false, onResearch }) {
+function discoverMoveSourceLabel(event) {
+  const source = String(event?.source ?? '').trim()
+  if (source) return source
+  return discoverKindLabel(event?.kind)
+}
+
+function useDiscoverMoveCardModel({
+  event,
+  movePct,
+  reactionCloses,
+  upcoming,
+  useMockEarnings,
+  allowMockFallback,
+}) {
   const title = String(event.title ?? '').trim() || '—'
   const summary = String(event.summary ?? '').trim()
   const ticker = String(event.ticker ?? '').trim().toUpperCase()
@@ -402,57 +416,142 @@ function DiscoverMoveCard({ event, movePct, reactionCloses, upcoming = [], useMo
     () => resolveDiscoverMoveFooter(event, upcoming, { useMockFallback: useMockEarnings }),
     [event, upcoming, useMockEarnings],
   )
+  const sourceLabel = discoverMoveSourceLabel(event)
+  const dateLabel = formatEventCardDate(event.at)
+
+  return {
+    title,
+    summary,
+    ticker,
+    showMove,
+    move,
+    moveCls,
+    showChart,
+    footer,
+    sourceLabel,
+    dateLabel,
+  }
+}
+
+function DiscoverMoveRail({ ticker, move, moveCls, showMove, dateLabel, sourceLabel, lead = false }) {
+  return (
+    <div className={['discoverMoveRail', lead ? 'discoverMoveRail--lead' : ''].filter(Boolean).join(' ')}>
+      <span className="discoverMoveCardTicker mono">{ticker}</span>
+      {showMove ? (
+        <span className={['discoverMoveCardMove', 'mono', moveCls].filter(Boolean).join(' ')}>{move}</span>
+      ) : null}
+      <span className="discoverMoveCardDate mono dim">{dateLabel}</span>
+      {sourceLabel ? <span className="discoverMoveSource mono dim">{sourceLabel}</span> : null}
+    </div>
+  )
+}
+
+function DiscoverMoveCatalystStrip({ footer }) {
+  if (!footer) return null
+  return (
+    <div
+      className={['discoverMoveCatalyst', footer.soon ? 'discoverMoveCatalyst--soon' : '']
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <span className="discoverMoveCatalystK mono">{footer.label}</span>
+      <span className="discoverMoveCatalystV mono">{footer.date}</span>
+    </div>
+  )
+}
+
+function DiscoverMoveCard({
+  event,
+  movePct,
+  reactionCloses,
+  upcoming = [],
+  useMockEarnings = false,
+  allowMockFallback = false,
+  catalystBg = false,
+  onResearch,
+}) {
+  const model = useDiscoverMoveCardModel({
+    event,
+    movePct,
+    reactionCloses,
+    upcoming,
+    useMockEarnings,
+    allowMockFallback,
+  })
 
   return (
     <button
       type="button"
-      className="discoverMoveCard"
+      className={['discoverMoveCard', catalystBg ? 'discoverMoveCard--graded' : ''].filter(Boolean).join(' ')}
       onClick={() => onResearch?.({ ticker: event.ticker, companyName: event.companyName })}
     >
-      <div className="discoverMoveCardHead">
-        <span className="discoverMoveCardTicker mono">{ticker}</span>
-        <span className="discoverMoveCardDate mono dim">{formatEventCardDate(event.at)}</span>
-        {showMove ? (
-          <span className={['discoverMoveCardMove', 'mono', moveCls].filter(Boolean).join(' ')}>{move}</span>
-        ) : null}
-      </div>
-      {showChart ? (
-        <DiscoverReactionChart
-          ticker={event.ticker}
-          movePct={movePct}
-          closes={reactionCloses}
-          height={88}
-          allowMockSeries={allowMockFallback}
+      <div
+        className={['discoverMoveLeadGrid', model.footer ? '' : 'discoverMoveLeadGrid--noCatalyst']
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <DiscoverMoveRail
+          lead
+          ticker={model.ticker}
+          move={model.move}
+          moveCls={model.moveCls}
+          showMove={model.showMove}
+          dateLabel={model.dateLabel}
+          sourceLabel={model.sourceLabel}
         />
-      ) : null}
-      <div className="discoverMoveCardLower">
-        <div className="discoverMoveCardCopy">
-          <p className="discoverMoveCardTitle">{title}</p>
-          <div className="discoverMoveCardSummary" aria-hidden={!summary || summary === title}>
-            {summary && summary !== title ? (
-              <p className="researchPaperDocCardAnalysis">{summary}</p>
-            ) : null}
+        {model.showChart ? (
+          <div className="discoverMoveLeadChart">
+            <DiscoverReactionChart
+              ticker={event.ticker}
+              movePct={movePct}
+              closes={reactionCloses}
+              height={112}
+              allowMockSeries={allowMockFallback}
+            />
           </div>
+        ) : (
+          <div className="discoverMoveLeadChart discoverMoveLeadChart--empty" aria-hidden="true" />
+        )}
+        <div className="discoverMoveLeadCopy">
+          <p className="discoverMoveCardTitle discoverMoveCardTitle--lead">{model.title}</p>
+          {model.summary && model.summary !== model.title ? (
+            <p className="discoverMoveLeadSummary researchPaperDocCardAnalysis">{model.summary}</p>
+          ) : null}
         </div>
-        {footer ? (
-          <div className="discoverMoveCardFooters">
-            <div
-              className={[
-                'contextCompanyEarnings',
-                'discoverMoveCardCatalyst',
-                catalystBg ? 'discoverMoveCardCatalyst--graded' : '',
-                footer.soon ? 'contextCompanyEarnings--soon' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-            >
-              <span className="contextCompanyEarningsK">{footer.label}</span>
-              <span className="contextCompanyEarningsV">{footer.date}</span>
-            </div>
-          </div>
-        ) : null}
+        <DiscoverMoveCatalystStrip footer={model.footer} />
       </div>
     </button>
+  )
+}
+
+function DiscoverMoveBoard({
+  moves,
+  moveReactions,
+  catalystBgMoveIds,
+  upcoming,
+  useMockEarnings,
+  allowMockFallback,
+  onResearch,
+}) {
+  return (
+    <div className="discoverMoveBoard">
+      {moves.map((event) => {
+        const reaction = moveReactions[event.id]
+        return (
+          <DiscoverMoveCard
+            key={event.id}
+            event={event}
+            movePct={reaction?.movePct}
+            reactionCloses={reaction?.closes}
+            upcoming={upcoming}
+            useMockEarnings={useMockEarnings}
+            allowMockFallback={allowMockFallback}
+            catalystBg={catalystBgMoveIds.has(event.id)}
+            onResearch={onResearch}
+          />
+        )
+      })}
+    </div>
   )
 }
 
@@ -625,24 +724,15 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
                 {showColumnLoading ? 'Loading market moves…' : 'No highlighted market moves.'}
               </p>
             ) : (
-              <div className="discoverMoveList">
-                {marketMoves.map((event) => {
-                  const reaction = moveReactions[event.id]
-                  return (
-                    <DiscoverMoveCard
-                      key={event.id}
-                      event={event}
-                      movePct={reaction?.movePct}
-                      reactionCloses={reaction?.closes}
-                      upcoming={upcomingForFooters}
-                      useMockEarnings={!backendUp}
-                      allowMockFallback={!backendUp}
-                      catalystBg={catalystBgMoveIds.has(event.id)}
-                      onResearch={onOpenResearch}
-                    />
-                  )
-                })}
-              </div>
+              <DiscoverMoveBoard
+                moves={marketMoves}
+                moveReactions={moveReactions}
+                catalystBgMoveIds={catalystBgMoveIds}
+                upcoming={upcomingForFooters}
+                useMockEarnings={!backendUp}
+                allowMockFallback={!backendUp}
+                onResearch={onOpenResearch}
+              />
             )}
           </DiscoverFeedColumn>
         </div>
