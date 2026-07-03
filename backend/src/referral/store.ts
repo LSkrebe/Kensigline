@@ -1,5 +1,11 @@
 import { db } from "../core/db.js";
-import { normalizeReferralKey, parseReferralSourcesFromEnv, referralShareUrl } from "./config.js";
+import {
+  normalizeReferralKey,
+  ORGANIC_REFERRAL_KEY,
+  parseReferralSourcesFromEnv,
+  referralShareUrl,
+  SYSTEM_REFERRAL_SOURCES,
+} from "./config.js";
 
 export type ReferralSourceRow = {
   source_key: string;
@@ -68,6 +74,11 @@ export async function syncReferralSourcesFromEnv(): Promise<void> {
   const configured = parseReferralSourcesFromEnv();
   const configuredKeys = new Set<string>();
 
+  for (const src of SYSTEM_REFERRAL_SOURCES) {
+    configuredKeys.add(src.key);
+    await upsertSourceRow(src.key, src.label, true);
+  }
+
   for (const src of configured) {
     configuredKeys.add(src.key);
     await upsertSourceRow(src.key, src.label, true);
@@ -87,6 +98,12 @@ export async function syncReferralSourcesFromEnv(): Promise<void> {
 }
 
 async function ensureSourceExists(key: string): Promise<void> {
+  const system = SYSTEM_REFERRAL_SOURCES.find((s) => s.key === key);
+  if (system) {
+    await upsertSourceRow(system.key, system.label, true);
+    return;
+  }
+
   const configured = parseReferralSourcesFromEnv();
   const match = configured.find((s) => s.key === key);
   const label = match?.label ?? key;
@@ -168,7 +185,12 @@ export async function recordReferralSubscriptionOnce(userId: string): Promise<bo
 }
 
 export async function listReferralStats(): Promise<
-  (ReferralSourceRow & { share_url: string; conversion_signup_pct: number | null; conversion_sub_pct: number | null })[]
+  (ReferralSourceRow & {
+    share_url: string | null;
+    system: boolean;
+    conversion_signup_pct: number | null;
+    conversion_sub_pct: number | null;
+  })[]
 > {
   await ensureReferralTables();
   await syncReferralSourcesFromEnv();
@@ -185,11 +207,13 @@ export async function listReferralStats(): Promise<
     const visits = Number(row.visits) || 0;
     const signups = Number(row.signups) || 0;
     const subscriptions = Number(row.subscriptions) || 0;
+    const system = row.source_key === ORGANIC_REFERRAL_KEY;
     return {
       ...row,
       visits,
       signups,
       subscriptions,
+      system,
       share_url: referralShareUrl(row.source_key),
       conversion_signup_pct: visits > 0 ? Math.round((signups / visits) * 1000) / 10 : null,
       conversion_sub_pct: signups > 0 ? Math.round((subscriptions / signups) * 1000) / 10 : null,

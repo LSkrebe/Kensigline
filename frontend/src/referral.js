@@ -4,6 +4,7 @@
 
 const STORAGE_KEY = 'mercerline:referral'
 const VISIT_SESSION_PREFIX = 'mercerline:referral-visit:'
+export const ORGANIC_REFERRAL_KEY = 'organic'
 
 function attributionDays() {
   const n = Number(import.meta.env.REFERRAL_ATTRIBUTION_DAYS ?? 90)
@@ -109,6 +110,10 @@ export function captureReferralFromUrl() {
   if (incoming) {
     storeReferral(incoming)
     void recordVisit(incoming)
+  } else if (!readStoredReferral()) {
+    // No ?ref= and no prior campaign touch — count as organic (plain mercerline.com).
+    storeReferral(ORGANIC_REFERRAL_KEY)
+    void recordVisit(ORGANIC_REFERRAL_KEY)
   }
 
   stripReferralParamsFromUrl(url)
