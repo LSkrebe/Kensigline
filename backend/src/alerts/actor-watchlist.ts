@@ -73,13 +73,15 @@ export async function removeActorWatchlistEntry(userId: string, actorKey: string
   return listUserActorWatchlist(userId);
 }
 
-export async function listActorWatchlistSubscribers(actorKey: string): Promise<{ user_id: string; email: string }[]> {
+export async function listActorWatchlistSubscribers(
+  actorKey: string,
+): Promise<{ user_id: string; email: string; timezone: string }[]> {
   await ensureAlertTables();
   const key = normalizeActorKey(actorKey);
   if (!key) return [];
-  return db.query<{ user_id: string; email: string }>(
+  return db.query<{ user_id: string; email: string; timezone: string }>(
     `
-    SELECT w.user_id, p.email
+    SELECT w.user_id, p.email, coalesce(nullif(trim(p.timezone), ''), 'UTC') AS timezone
     FROM alert_actor_watchlist w
     INNER JOIN alert_preferences p ON p.user_id = w.user_id
     WHERE w.actor_key = $1 AND p.email IS NOT NULL AND trim(p.email) <> ''

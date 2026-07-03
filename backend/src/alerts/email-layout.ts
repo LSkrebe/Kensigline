@@ -245,6 +245,86 @@ export function renderActorAlertText(items: ActorAlertItem[]): string {
   return `Mercerline actor alert\n\n${blocks.join("\n\n---\n\n")}`;
 }
 
+function tickerAlertBlockHtml(it: TickerAlertItem): string {
+  const url = escapeHtml(it.url ?? frontendBase());
+  const link = `<a href="${url}" style="font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.06em;">${escapeHtml(it.ticker)}</a>`;
+  return `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;background:rgba(255,255,255,0.02);">
+        <tr>
+          <td style="padding:14px 16px;">
+            <div style="font-family:ui-monospace,Menlo,monospace;font-size:9px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:rgba(170,220,255,0.72);margin-bottom:6px;">${escapeHtml(feedLabel(it.feed))}</div>
+            <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;font-weight:600;color:#ffffff;margin-bottom:10px;">${link} · ${escapeHtml(it.title)}</div>
+            <p style="margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;line-height:1.6;color:rgba(255,255,255,0.78);">${escapeHtml(it.context)}</p>
+            <p style="margin:12px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:11px;">
+              <a href="${url}" style="color:rgba(170,220,255,0.9);text-decoration:none;">Open document →</a>
+            </p>
+          </td>
+        </tr>
+      </table>`;
+}
+
+function actorAlertBlockHtml(it: ActorAlertItem): string {
+  const url = it.url ? escapeHtml(it.url) : escapeHtml(frontendBase());
+  const actor = escapeHtml(it.actor_name);
+  const ticker = escapeHtml(it.ticker);
+  return `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;background:rgba(255,255,255,0.02);">
+        <tr>
+          <td style="padding:14px 16px;">
+            <div style="font-family:ui-monospace,Menlo,monospace;font-size:9px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:rgba(170,220,255,0.72);margin-bottom:6px;">${escapeHtml(actorModeLabel(it.mode))}</div>
+            <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:14px;font-weight:600;color:#ffffff;margin-bottom:10px;">${actor} · ${ticker} · ${escapeHtml(it.title)}</div>
+            <p style="margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:13px;line-height:1.6;color:rgba(255,255,255,0.78);">${escapeHtml(it.context)}</p>
+            <p style="margin:12px 0 0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:11px;">
+              <a href="${url}" style="color:rgba(170,220,255,0.9);text-decoration:none;">Open in Mercerline →</a>
+            </p>
+          </td>
+        </tr>
+      </table>`;
+}
+
+export function renderCombinedContextAlertHtml(tickers: TickerAlertItem[], actors: ActorAlertItem[]): string {
+  const parts: string[] = [];
+  let first = true;
+  if (tickers.length) {
+    parts.push(sectionHeading("Companies", `${tickers.length} new`, first));
+    parts.push(...tickers.map(tickerAlertBlockHtml));
+    first = false;
+  }
+  if (actors.length) {
+    parts.push(sectionHeading("Actors", `${actors.length} new`, first));
+    parts.push(...actors.map(actorAlertBlockHtml));
+  }
+
+  const total = tickers.length + actors.length;
+  const preheader =
+    total === 1 && tickers[0]
+      ? `New context for ${tickers[0].ticker}`
+      : total === 1 && actors[0]
+        ? `New activity for ${actors[0].actor_name}`
+        : `${total} new watchlist alert${total === 1 ? "" : "s"}`;
+
+  return emailShell({
+    preheader,
+    title: total === 1 ? "Watchlist alert" : "Watchlist alerts",
+    lead: "New document context for companies and actors on your watchlist.",
+    body: parts.join(""),
+  });
+}
+
+export function renderCombinedContextAlertText(tickers: TickerAlertItem[], actors: ActorAlertItem[]): string {
+  const lines: string[] = ["Mercerline watchlist alerts", ""];
+  if (tickers.length) {
+    lines.push("COMPANIES");
+    lines.push(renderTickerAlertText(tickers).replace(/^Mercerline ticker alert\n\n/, ""));
+    lines.push("");
+  }
+  if (actors.length) {
+    lines.push("ACTORS");
+    lines.push(renderActorAlertText(actors).replace(/^Mercerline actor alert\n\n/, ""));
+  }
+  return lines.join("\n").trim();
+}
+
 export async function sendBrevoEmail(opts: {
   to: string;
   subject: string;

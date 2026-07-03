@@ -57,7 +57,7 @@ async function runDigestForUser(prefs: AlertPreferences, slotKey: string): Promi
 }
 
 export function startAlertsWorker() {
-  const pollMs = Math.max(60_000, Number(process.env.ALERTS_POLL_MS ?? 300_000));
+  const pollMs = Math.max(60_000, Number(process.env.ALERTS_DIGEST_POLL_MS ?? process.env.ALERTS_POLL_MS ?? 900_000));
   let stopped = false;
   let running = false;
 
@@ -82,7 +82,7 @@ export function startAlertsWorker() {
 
   void tick();
   const timer = setInterval(() => void tick(), pollMs);
-  console.log(`[alerts] worker pollMs=${pollMs}`);
+  console.log(`[alerts] digest worker pollMs=${pollMs}`);
 
   return {
     stop() {

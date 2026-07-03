@@ -3,8 +3,8 @@ import { assertCombinedWatchlistHasRoom } from "./watchlist-limits.js";
 import { ensureAlertTables } from "./store.js";
 
 export function watchlistMaxTickers(): number {
-  const n = Number(process.env.WATCHLIST_MAX_TICKERS ?? 25);
-  if (!Number.isFinite(n)) return 25;
+  const n = Number(process.env.WATCHLIST_MAX_TICKERS ?? 20);
+  if (!Number.isFinite(n)) return 20;
   return Math.max(1, Math.min(50, Math.round(n)));
 }
 
@@ -64,13 +64,15 @@ export async function removeWatchlistTicker(userId: string, ticker: string): Pro
   return listUserWatchlist(userId);
 }
 
-export async function listWatchlistSubscribersForTicker(ticker: string): Promise<{ user_id: string; email: string }[]> {
+export async function listWatchlistSubscribersForTicker(
+  ticker: string,
+): Promise<{ user_id: string; email: string; timezone: string }[]> {
   await ensureAlertTables();
   const t = String(ticker ?? "").trim().toUpperCase();
   if (!t) return [];
-  return db.query<{ user_id: string; email: string }>(
+  return db.query<{ user_id: string; email: string; timezone: string }>(
     `
-    SELECT w.user_id, p.email
+    SELECT w.user_id, p.email, coalesce(nullif(trim(p.timezone), ''), 'UTC') AS timezone
     FROM alert_watchlist w
     INNER JOIN alert_preferences p ON p.user_id = w.user_id
     WHERE w.ticker = $1 AND p.email IS NOT NULL AND trim(p.email) <> ''

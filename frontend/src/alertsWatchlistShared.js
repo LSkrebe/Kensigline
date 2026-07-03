@@ -2,7 +2,7 @@ const TICKER_STORAGE_KEY = 'mercerline:ticker-watchlist'
 const ACTOR_STORAGE_KEY = 'mercerline:actor-watchlist'
 const MAX_KEY = 'mercerline:watchlist-max'
 
-export const ALERT_WATCHLIST_MAX_DEFAULT = 25
+export const ALERT_WATCHLIST_MAX_DEFAULT = 20
 
 function normalizeTickers(list) {
   if (!Array.isArray(list)) return []
