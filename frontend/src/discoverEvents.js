@@ -1,4 +1,9 @@
-/** Discover tab — curated market catalyst calendar (mock until live ingest). */
+import { mockAtDaysAgo } from './mockDates.js'
+import {
+  buildMockWeekDiscoverFlowMoves,
+  buildMockWeekDiscoverPastEvents,
+  MOCK_SEMIS_BY_TICKER,
+} from './mockWeekData.js'
 
 import { eventMentionedSearchText, getEventMentioned } from './eventBriefs.js'
 import {
@@ -16,14 +21,9 @@ export {
   DISCOVER_WATCHLIST_FILTER_DEFAULT,
 }
 
-const DISCOVER_COMPANIES = {
-  ASML: { name: 'ASML Holding N.V.' },
-  NVDA: { name: 'NVIDIA Corporation' },
-  TSM: { name: 'Taiwan Semiconductor' },
-  LRCX: { name: 'Lam Research Corporation' },
-  AMD: { name: 'Advanced Micro Devices, Inc.' },
-  AMAT: { name: 'Applied Materials, Inc.' },
-}
+const DISCOVER_COMPANIES = Object.fromEntries(
+  Object.entries(MOCK_SEMIS_BY_TICKER).map(([ticker, co]) => [ticker, { name: co.name }]),
+)
 
 function isoDayFromOffset(daysAhead) {
   const d = new Date()
@@ -111,6 +111,39 @@ function buildDiscoverMockUpcomingEvents() {
       idea_best: true,
     },
     {
+      id: 'disc-mu-hbm',
+      ticker: 'MU',
+      companyName: DISCOVER_COMPANIES.MU?.name ?? 'Micron Technology, Inc.',
+      daysAhead: 7,
+      title: 'HBM3e capacity briefing',
+      kind: 'catalyst',
+      source: 'Investor presentation',
+      impact: 'high',
+      idea_best: true,
+    },
+    {
+      id: 'disc-avgo-asic',
+      ticker: 'AVGO',
+      companyName: DISCOVER_COMPANIES.AVGO?.name ?? 'Broadcom Inc.',
+      daysAhead: 10,
+      title: 'Custom XPU analyst event',
+      kind: 'catalyst',
+      source: 'Investor presentation',
+      impact: 'medium',
+      idea_best: true,
+    },
+    {
+      id: 'disc-klac-symposium',
+      ticker: 'KLAC',
+      companyName: DISCOVER_COMPANIES.KLAC?.name ?? 'KLA Corporation',
+      daysAhead: 5,
+      title: 'Process control symposium',
+      kind: 'catalyst',
+      source: 'Investor presentation',
+      impact: 'medium',
+      idea_best: true,
+    },
+    {
       id: 'disc-nvda-earnings-up',
       ticker: 'NVDA',
       companyName: DISCOVER_COMPANIES.NVDA.name,
@@ -168,149 +201,17 @@ export { buildDiscoverMockUpcomingEvents }
  */
 
 /** @type {DiscoverEvent[]} */
-const DISCOVER_EVENTS = [
-  ...buildDiscoverMockUpcomingEvents(),
-  // —— Past (with paper-style summaries) ——
-  {
-    id: 'disc-asml-gov',
-    ticker: 'ASML',
-    companyName: DISCOVER_COMPANIES.ASML.name,
-    at: '2026-05-20',
-    title: 'DoD EUV sustainment award modification',
-    kind: 'filing',
-    source: 'Gov contract',
-    impact: 'medium',
-    briefKey: 'asml-gov-dod',
-    summary:
-      'DoD sustainment award ($18.4M) covers EUV field engineering at a domestic fab, supporting installed-base scarcity rather than a new platform buy.',
-    url: 'https://sam.gov/',
-    idea_best: false,
-  },
-  {
-    id: 'disc-asml-q1',
-    ticker: 'ASML',
-    companyName: DISCOVER_COMPANIES.ASML.name,
-    at: '2026-04-18',
-    title: 'Q1 backlog & EUV lead-time commentary',
-    kind: 'filing',
-    source: '8-K',
-    impact: 'high',
-    briefKey: 'asml-q1',
-    summary:
-      'Q1 commentary cites stable backlog and longer EUV lead times, framing demand as capacity-constrained at the leading edge.',
-    url: 'https://www.sec.gov/edgar/search/#/q=ASML',
-    idea_best: true,
-  },
-  {
-    id: 'disc-asml-orders',
-    ticker: 'ASML',
-    companyName: DISCOVER_COMPANIES.ASML.name,
-    at: '2026-03-14',
-    title: 'High-NA allocation & extended EUV delivery times',
-    kind: 'filing',
-    source: '8-K',
-    impact: 'high',
-    briefKey: 'asml-orders',
-    summary:
-      'Commentary cites extended EUV delivery times and tight high-NA allocation, reinforcing lithography scarcity over demand weakness.',
-    url: 'https://www.sec.gov/edgar/search/#/q=ASML',
-    idea_best: true,
-  },
-  {
-    id: 'disc-nvda-earnings',
-    ticker: 'NVDA',
-    companyName: DISCOVER_COMPANIES.NVDA.name,
-    at: '2026-05-15',
-    title: 'Q1 earnings - data-center revenue & supply commentary',
-    kind: 'earnings',
-    source: '8-K',
-    impact: 'high',
-    briefKey: 'nvda-q1-earnings',
-    summary:
-      'Q1 data-center beat with management citing accelerator demand and tight packaging supply at foundry and memory layers.',
-    url: 'https://www.sec.gov/edgar/search/#/q=NVDA',
-    idea_best: true,
-  },
-  {
-    id: 'disc-amd-guidance',
-    ticker: 'AMD',
-    companyName: DISCOVER_COMPANIES.AMD.name,
-    at: '2026-04-02',
-    title: 'Q1 guidance raise on data-center GPU mix',
-    kind: 'filing',
-    source: '8-K',
-    impact: 'high',
-    briefKey: 'amd-guidance',
-    summary:
-      'Management raised full-year data-center outlook after MI300 attach improved; supply commentary still cites HBM packaging as the gating item.',
-    url: 'https://www.sec.gov/edgar/search/#/q=AMD',
-    idea_best: true,
-  },
-]
+function buildDiscoverPastEvents() {
+  return buildMockWeekDiscoverPastEvents()
+}
 
-/** Green-highlight flow rows — mirrors Investigate feed aggregation in highlighted-moves.ts */
-const DISCOVER_FLOW_MARKET_MOVES = /** @type {DiscoverEvent[]} */ ([
-  {
-    id: 'doc:mock-flow-nvda-insider',
-    ticker: 'NVDA',
-    companyName: DISCOVER_COMPANIES.NVDA.name,
-    at: '2026-05-12',
-    title: '3 Code P purchases totaling 62,400 shares',
-    kind: 'flow',
-    source: 'Form 4',
-    summary:
-      'This Form 4 filing includes 3 Code P open-market purchases by EVP & CFO Colette Kress, acquiring 62,400 shares at ~$8.1M notional in NVIDIA Corporation.',
-    url: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=0001045810',
-    idea_score: 78,
-    idea_best: true,
-    idea_reasons: ['Insider purchase cluster', 'Executive buyer'],
-  },
-  {
-    id: 'doc:mock-flow-lrcx-insider',
-    ticker: 'LRCX',
-    companyName: DISCOVER_COMPANIES.LRCX.name,
-    at: '2026-05-02',
-    title: '1 Code P purchase totaling 18,200 shares',
-    kind: 'flow',
-    source: 'Form 4',
-    summary:
-      'This Form 4 filing includes 1 Code P open-market purchase by CEO Timothy Archer, acquiring 18,200 shares at ~$2.4M notional in Lam Research Corporation.',
-    url: 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=000707549',
-    idea_score: 74,
-    idea_best: true,
-    idea_reasons: ['CEO open-market purchase'],
-  },
-  {
-    id: 'doc:mock-flow-asml-ptr',
-    ticker: 'ASML',
-    companyName: DISCOVER_COMPANIES.ASML.name,
-    at: '2026-04-22',
-    title: '2 stock purchases (~$215K midpoint)',
-    kind: 'flow',
-    source: 'PTR',
-    summary:
-      'PTR disclosure for ASML: Representative Dan Crenshaw reported 2 stock purchases at a disclosed midpoint of $215K.',
-    url: 'https://disclosures-clerk.house.gov/',
-    idea_score: 71,
-    idea_best: true,
-    idea_reasons: ['Politician purchase cluster'],
-  },
-  {
-    id: 'doc:mock-flow-tsm-13f',
-    ticker: 'TSM',
-    companyName: DISCOVER_COMPANIES.TSM.name,
-    at: '2026-03-28',
-    title: 'Increased stake · Vanguard Group',
-    kind: 'flow',
-    source: '13F',
-    summary:
-      '13F filing shows Vanguard Group with increased stake in TSM, disclosed value ~$4.2B (1,842,000 shares).',
-    url: 'https://www.sec.gov/cgi-bin/browse-edgar',
-    idea_score: 68,
-    idea_best: true,
-    idea_reasons: ['Institutional accumulation'],
-  },
-])
+const DISCOVER_EVENTS = [...buildDiscoverMockUpcomingEvents(), ...buildDiscoverPastEvents()]
+
+function buildDiscoverFlowMarketMoves() {
+  return buildMockWeekDiscoverFlowMoves()
+}
+
+const DISCOVER_FLOW_MARKET_MOVES = buildDiscoverFlowMarketMoves()
 
 const KIND_LABEL = {
   catalyst: 'Catalyst',

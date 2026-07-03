@@ -52,9 +52,9 @@ const ASML_MODEL = {
   ],
   valuationConfig: {
     targetPe: 41.4,
-    marketPrice: 135.09,
-    marketCapBillions: 54.8,
-    enterpriseValueBillions: 52.1,
+    marketPrice: 748.5,
+    marketCapBillions: 302.4,
+    enterpriseValueBillions: 294.8,
     bridgeDriverLabels: ['EUV revenue', 'DUV revenue', 'Immersion revenue'],
   },
 }

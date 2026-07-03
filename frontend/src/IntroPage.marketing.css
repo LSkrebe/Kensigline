@@ -67,6 +67,42 @@
   letter-spacing: 0.08em;
 }
 
+/* Real terminal screenshots (replaces CSS teaser placeholders) */
+.mktHeroShot {
+  margin: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.45),
+    0 28px 80px rgba(0, 0, 0, 0.55);
+  background: #050607;
+}
+
+.mktHeroShotImg {
+  display: block;
+  width: 100%;
+  height: auto;
+  vertical-align: top;
+}
+
+.mktWorkflowShot {
+  margin: clamp(20px, 3vh, 28px) 0 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  background: #050607;
+  max-width: 100%;
+}
+
+.mktWorkflowShotImg {
+  display: block;
+  width: 100%;
+  height: auto;
+  vertical-align: top;
+}
+
 .introBtn--lg {
   height: 44px;
   padding: 0 24px;
@@ -935,8 +971,10 @@
 }
 
 .mktWorkflowHead {
-  max-width: 52ch;
-  margin-bottom: clamp(28px, 4vh, 40px);
+  max-width: 56ch;
+  margin-inline: auto;
+  margin-bottom: clamp(36px, 5vh, 52px);
+  text-align: center;
 }
 
 .mktWorkflowLead {
@@ -947,29 +985,32 @@
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(12px, 2vw, 20px);
-  align-items: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(28px, 4vh, 40px);
+  max-width: min(1040px, 100%);
+  margin-inline: auto;
 }
 
 .mktWorkflowStep {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: clamp(18px, 2.5vw, 24px);
+  display: grid;
+  grid-template-columns: minmax(52px, 64px) minmax(0, 1fr);
+  gap: clamp(14px, 2vw, 22px) clamp(20px, 3vw, 32px);
+  padding: clamp(22px, 3vw, 32px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(8, 10, 14, 0.42);
   backdrop-filter: blur(10px) saturate(115%);
   -webkit-backdrop-filter: blur(10px) saturate(115%);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
-  min-height: 0;
-  align-self: stretch;
+  align-items: start;
 }
 
 .mktWorkflowStepRail {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding-top: 2px;
 }
 
 .mktWorkflowStepNum {
@@ -979,10 +1020,19 @@
 }
 
 .mktWorkflowStepLine {
+  width: 1px;
   flex: 1 1 auto;
-  height: 1px;
-  margin-left: 12px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+  min-height: 28px;
+  margin-left: 5px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+}
+
+.mktWorkflowStep:last-child .mktWorkflowStepLine {
+  display: none;
+}
+
+.mktWorkflowStepBody {
+  min-width: 0;
 }
 
 .mktWorkflowStepLabel {
@@ -995,7 +1045,7 @@
 
 .mktWorkflowStepTitle {
   margin: 0 0 8px;
-  font-size: 1.15rem;
+  font-size: clamp(1.1rem, 2.2vw, 1.35rem);
   font-weight: 600;
 }
 
@@ -1005,6 +1055,7 @@
   line-height: 1.55;
   color: rgba(210, 218, 228, 0.78);
   font-family: ui-sans-serif, system-ui, sans-serif;
+  max-width: 62ch;
 }
 
 .mktProofGrid {
@@ -1187,15 +1238,11 @@
 
 @media (min-width: 901px) {
   .mktWorkflowSteps {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: stretch;
+    gap: clamp(32px, 4vh, 44px);
   }
 
   .mktWorkflowStep {
-    display: flex;
-    min-height: 0;
-    align-self: stretch;
+    padding: clamp(28px, 3.5vw, 36px);
   }
 
   .mktProofGrid {
@@ -1367,14 +1414,23 @@
     overflow-wrap: anywhere;
   }
 
-  .mktProofGrid,
-  .mktWorkflowSteps {
+  .mktProofGrid {
     grid-template-columns: 1fr;
     gap: 20px;
   }
 
   .mktWorkflowStep {
-    min-height: auto;
+    grid-template-columns: 48px minmax(0, 1fr);
+    padding: 20px 16px;
+    gap: 14px 16px;
+  }
+
+  .mktWorkflowStepRail {
+    padding-top: 0;
+  }
+
+  .mktWorkflowStepLine {
+    min-height: 20px;
   }
 
   .introPage--marketingChrome {
@@ -1569,11 +1625,10 @@
 
   .mktWorkflowHead {
     margin-bottom: 28px;
+    text-align: left;
   }
 
   .mktWorkflowSteps {
-    display: flex;
-    flex-direction: column;
     gap: 18px;
   }
 
@@ -1584,7 +1639,7 @@
   }
 
   .mktWorkflowStepRail {
-    width: 100%;
+    width: auto;
   }
 
   .mktProofGrid {

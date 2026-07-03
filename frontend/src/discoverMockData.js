@@ -32,6 +32,12 @@ export const DISCOVER_MOCK_UPCOMING_FALLBACK = {
   TSM: { daysAhead: 12, title: 'Analyst day', kind: 'catalyst' },
   AMD: { daysAhead: 6, title: 'Advancing AI keynote', kind: 'catalyst' },
   AMAT: { daysAhead: 11, title: 'Guidance update', kind: 'catalyst' },
+  MU: { daysAhead: 7, title: 'HBM supply briefing', kind: 'catalyst' },
+  AVGO: { daysAhead: 10, title: 'Custom silicon analyst event', kind: 'catalyst' },
+  KLAC: { daysAhead: 5, title: 'Process control symposium', kind: 'catalyst' },
+  INTC: { daysAhead: 14, title: 'Foundry partner update', kind: 'catalyst' },
+  QCOM: { daysAhead: 13, title: 'Mobile AI platform launch', kind: 'catalyst' },
+  MRVL: { daysAhead: 15, title: 'Electro-optics roadmap day', kind: 'catalyst' },
   _default: { daysAhead: 30, title: 'Earnings report', kind: 'earnings' },
 }
 
@@ -163,32 +169,50 @@ export function formatMacroDayHeader(date) {
   }
 }
 
-/** Deterministic mock session series ending in the event move. */
+function reactionSeed(ticker) {
+  const s = String(ticker ?? 'X')
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return h || 1
+}
+
+function reactionRand(seed) {
+  let a = seed >>> 0
+  return () => {
+    a += 0x6d2b79f5
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+/** Deterministic mock session series ending in the event move (indexed to 100). */
 export function mockReactionSeries(ticker, movePct, points = 36) {
-  const seed = String(ticker ?? 'X')
   const move = Number(movePct)
   const safeMove = Number.isFinite(move) ? move : 0
-  let h = 0
+  const rand = reactionRand(reactionSeed(ticker))
+  const preDrift = safeMove * -0.12
   let v = 100
   const out = []
 
   for (let i = 0; i < points; i++) {
-    h = (h * 1103515245 + seed.charCodeAt(i % seed.length) * (i + 7)) >>> 0
-    const noise = ((h % 1000) / 1000 - 0.5) * 0.9
-    const wave = Math.sin((i + seed.length) * 0.55) * 0.35
-    v += noise + wave
-
-    if (i < points - 5) {
-      out.push(v)
-      continue
+    const t = points <= 1 ? 1 : i / (points - 1)
+    const noise = (rand() - 0.5) * 0.55
+    let anchor = 100 + preDrift * Math.min(1, t * 2.2)
+    if (t > 0.68) {
+      const ramp = (t - 0.68) / 0.32
+      anchor = 100 + preDrift * 0.35 + safeMove * ramp
     }
-
-    const ramp = (i - (points - 5)) / 4
-    const target = safeMove / 100
-    out.push(v * (1 + target * ramp))
+    v = v * 0.58 + anchor * 0.42 + noise
+    out.push(v)
   }
 
-  return out
+  const targetEnd = 100 + safeMove
+  const last = out[out.length - 1]
+  if (!Number.isFinite(last) || last === 0) return out
+  const scale = targetEnd / last
+  return out.map((x, i) => (i === 0 ? 100 : Math.round(x * scale * 1000) / 1000))
 }
 
 /** Stable mock % move for an event id (used when live bar data is unavailable). */

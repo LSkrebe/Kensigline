@@ -60,7 +60,15 @@ export const HERO = {
   ctaPrimary: `Start researching - ${formatUsd(MONTHLY_PRICE_USD)}/mo`,
   ctaSecondary: 'See how it works',
   reassurance: 'Cancel anytime · Full terminal · SEC, PTR, and 13F',
-  rails: 'Discover · Research · Investigate',
+  rails: 'Analyse · Discover · Research · Investigate',
+}
+
+export const INTRO_SCREENSHOTS = {
+  hero: '/intro/hero.png',
+  research: '/intro/research.png',
+  analyse: '/intro/analyse.png',
+  discover: '/intro/discover.png',
+  investigateInsider: '/intro/investigate-insider.png',
 }
 
 export const SHOWCASE_TABS = [
@@ -70,6 +78,8 @@ export const SHOWCASE_TABS = [
     label: 'Discover',
     title: 'Scan before the print',
     body: 'Macro calendar across US, EU, CN, and UK. Watchlist catalysts beside market moves with post-event reaction charts.',
+    image: INTRO_SCREENSHOTS.discover,
+    imageAlt: 'Discover tab with macro calendar and highlighted market moves',
   },
   {
     id: 'research',
@@ -77,13 +87,26 @@ export const SHOWCASE_TABS = [
     label: 'Research',
     title: 'Build the paper',
     body: '12+ feed types on one timeline - filings, press releases, transcripts, Form 4, PTR, and 13F. Export a screenshot-ready research paper with context panel.',
+    image: INTRO_SCREENSHOTS.research,
+    imageAlt: 'Research tab with ticker feed, ASML paper timeline, and context panel',
+  },
+  {
+    id: 'analyse',
+    step: '03',
+    label: 'Analyse',
+    title: 'Model the drivers',
+    body: 'Quarterly financial grid with editable forecast columns, business-driver roll-ups, and a live valuation bridge tied to the price chart.',
+    image: INTRO_SCREENSHOTS.analyse,
+    imageAlt: 'Analyse tab with ASML price chart, business drivers, and financial model',
   },
   {
     id: 'investigate',
-    step: '03',
+    step: '04',
     label: 'Investigate',
     title: 'Drill the flow',
     body: 'Insider, politician PTR, and institutional 13F modes. Case worksheet, chart trade marks, and historical win rates before you size.',
+    image: INTRO_SCREENSHOTS.investigateInsider,
+    imageAlt: 'Investigate tab with insider feed, case worksheet, and historical outcomes',
   },
 ]
 

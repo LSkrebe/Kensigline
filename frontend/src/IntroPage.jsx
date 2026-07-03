@@ -139,7 +139,7 @@ export function IntroPage() {
               Scan. Build. Drill.
             </h2>
             <p className="introSectionLead mktWorkflowLead">
-              Three tabs, one workflow - from macro week to Form 4 cluster, without leaving the grid.
+              Four views, one workflow — from macro week to Form 4 cluster, without leaving the grid.
             </p>
           </div>
           <ol className="mktWorkflowSteps">
@@ -153,6 +153,17 @@ export function IntroPage() {
                   <p className="mktWorkflowStepLabel mono">{tab.label}</p>
                   <h3 className="mktWorkflowStepTitle">{tab.title}</h3>
                   <p className="mktWorkflowStepText">{tab.body}</p>
+                  {tab.image ? (
+                    <figure className="mktWorkflowShot">
+                      <img
+                        className="mktWorkflowShotImg"
+                        src={tab.image}
+                        alt={tab.imageAlt ?? `${tab.label} tab screenshot`}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </figure>
+                  ) : null}
                 </div>
               </li>
             ))}

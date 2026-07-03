@@ -14,6 +14,15 @@ import { useMarketingPath } from './marketingRoute.js'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
 import { AnalysePanel } from './AnalysePanel.jsx'
 import { analyseRevenueOverlayMeta } from './analyseMockData.js'
+import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
+import {
+  buildMockWeekContextFlows,
+  buildMockWeekResearchDocSpecs,
+  MOCK_INVESTIGATE_FEED_ROWS,
+  MOCK_SEMIS,
+  mockInvestigateFeedAtForIndex,
+} from './mockWeekData.js'
+import { mockShowcasePriceSeries, showcaseCompanyName } from './mockShowcasePrices.js'
 import { fetchAnalyseModel } from './analyseClient.js'
 import { prefetchDiscoverTimeline } from './discoverClient.js'
 import { EventBriefDocCard } from './EventBrief.jsx'
@@ -640,8 +649,8 @@ function formatProgramTimelineDate(at) {
 }
 
 const INSIDER_KINDS = ['P Purchase']
-/** Realistic issuer tickers only (no counts in this column). */
-const INSIDER_TICKERS = ['PRIM', 'HG', 'SPRU', 'VRA', 'FFIN']
+/** Realistic issuer tickers (pair with INSIDER_ISSUERS). */
+const INSIDER_TICKERS = MOCK_SEMIS.map((c) => c.ticker)
 
 /** Insider roles for CASE txn rows (WHO column). */
 const INSIDER_TXN_ROLES = ['CEO', 'DIR', 'CFO', 'OFF', 'TRUST']
@@ -864,13 +873,8 @@ const INSTITUTION_FILERS = [
   'Invesco',
 ]
 
-const INSIDER_ISSUERS = [
-  'Horizon Grain Co.',
-  'SilverSpruce Therapeutics',
-  'Arrival Labs',
-  'Northern Harbor REIT',
-  'VeraBio Holding Co.',
-]
+/** Realistic semis issuers for offline Investigate screenshots. */
+const INSIDER_ISSUERS = MOCK_SEMIS.map((c) => c.name)
 
 // Insider pipeline target: Form 4 only (Code P purchases).
 const FORM_TYPES_INSIDER = ['Form 4']
@@ -1698,28 +1702,22 @@ const MOCK_ASML_FEED_ROW = {
   rowKey: 'fb-ASML',
   ticker: 'ASML',
   name: 'ASML Holding N.V.',
-  at: '2026-05-28T18:10:00.000Z',
+  at: mockAtDaysAgo(0, 11, 10),
   ...mockIdeaFields(0, 'research'),
 }
 
-
-/**
- * Research feed rows (no papers) — staggered `at` so TODAY / year separators are visible offline.
- * ASML owns full offline presentation; other tickers use generic memo only.
- */
-const RESEARCH_FEED_ROWS = [
-  MOCK_ASML_FEED_ROW,
-  { rowKey: 'fb-NVDA', ticker: 'NVDA', name: 'NVIDIA Corporation', at: '2026-05-28T16:45:00.000Z', ...mockIdeaFields(1, 'research') },
-  { rowKey: 'fb-TSM', ticker: 'TSM', name: 'Taiwan Semiconductor', at: '2026-05-28T14:20:00.000Z', ...mockIdeaFields(2, 'research') },
-  { rowKey: 'fb-LRCX', ticker: 'LRCX', name: 'Lam Research Corporation', at: '2026-05-15T09:00:00.000Z', ...mockIdeaFields(4, 'research') },
-  { rowKey: 'fb-AMAT', ticker: 'AMAT', name: 'Applied Materials, Inc.', at: '2026-03-22T11:30:00.000Z', ...mockIdeaFields(6, 'research') },
-  { rowKey: 'fb-AMD', ticker: 'AMD', name: 'Advanced Micro Devices', at: '2026-01-08T08:15:00.000Z', ...mockIdeaFields(8, 'research') },
-  { rowKey: 'fb-INTC', ticker: 'INTC', name: 'Intel Corporation', at: '2025-11-12T13:00:00.000Z', ...mockIdeaFields(10, 'research') },
-  { rowKey: 'fb-QCOM', ticker: 'QCOM', name: 'Qualcomm Incorporated', at: '2025-06-03T10:45:00.000Z', ...mockIdeaFields(12, 'research') },
-  { rowKey: 'fb-MU', ticker: 'MU', name: 'Micron Technology, Inc.', at: '2025-02-18T07:20:00.000Z', ...mockIdeaFields(3, 'research') },
-  { rowKey: 'fb-AVGO', ticker: 'AVGO', name: 'Broadcom Inc.', at: '2024-09-24T15:00:00.000Z', ...mockIdeaFields(5, 'research') },
-  { rowKey: 'fb-KLAC', ticker: 'KLAC', name: 'KLA Corporation', at: '2024-04-10T12:00:00.000Z', ...mockIdeaFields(7, 'research') },
-]
+/** Research feed — 12 semis names, activity staggered across the last 7 days. */
+const RESEARCH_FEED_ROWS = MOCK_SEMIS.map((co, i) => {
+  const day = i % MOCK_SEMIS.length % 7
+  const slot = Math.floor(i / MOCK_SEMIS.length) + (i % 3)
+  return {
+    rowKey: `fb-${co.ticker}`,
+    ticker: co.ticker,
+    name: co.name,
+    at: mockAtDaysAgo(day, 9 + (slot % 8), 8 + (i * 11) % 52),
+    ...mockIdeaFields(i, 'research'),
+  }
+})
 
 function formatCompanyDisplayName(name) {
   let s = String(name ?? '').trim()
@@ -1841,6 +1839,17 @@ function _explainerForTicker(ticker) {
   ]
 }
 
+function mockDatasetForTicker(ticker) {
+  const t = String(ticker ?? '').toUpperCase()
+  if (MOCK_RESEARCH_DATASETS[t]) return MOCK_RESEARCH_DATASETS[t]
+  return {
+    entities: [{ id: 'c1', type: 'company', name: showcaseCompanyName(t) }],
+    events: [],
+    edges: [],
+    price: mockShowcasePriceSeries(t),
+  }
+}
+
 const MOCK_RESEARCH_DATASETS = {
   ASML: {
     entities: [{ id: 'c1', type: 'company', name: 'ASML Holding N.V.' }],
@@ -1849,20 +1858,15 @@ const MOCK_RESEARCH_DATASETS = {
         id: 'e1',
         type: 'capacity_signal',
         title: 'EUV throughput remains the gating function',
-        date: '2026-05-02',
+        date: mockDateOnlyDaysAgo(18),
         entities: ['c1'],
         sentiment: 'bullish',
         impact: 'high',
       },
     ],
     edges: [],
-    price: mockPriceSeries(712, 400),
+    price: mockShowcasePriceSeries('ASML'),
   },
-}
-
-function mockDatasetForTicker(ticker) {
-  const t = String(ticker ?? '').toUpperCase()
-  return MOCK_RESEARCH_DATASETS[t] ?? MOCK_RESEARCH_DATASETS.ASML
 }
 
 const POLITICIAN_CHAMBER_LABELS = {
@@ -1950,26 +1954,11 @@ const CONTEXT_MOCK_PROFILES = {
     country: 'NL',
     mcap: '$350B',
     earningsDaysAhead: 17,
-    insiders: [
-      { key: 'CEO', person: 'Christophe Borel', at: 'today', amount: '$8.2M', transactionCode: 'P' },
-      { key: 'CEO', person: 'Christophe Borel', at: '2026-05-10', amount: '$1.1M', transactionCode: 'S' },
-      { key: 'CFO', person: 'Roger Dassen', at: '2026-03-25', amount: '$2.1M', transactionCode: 'P' },
-      { key: 'CFO', person: 'Roger Dassen', at: '2026-05-18', amount: '$640K', transactionCode: 'M' },
-      { key: 'CTO', person: 'Frederic Schneider-Maunoury', at: '2026-02-20', amount: '$960K', transactionCode: 'P' },
-      { key: 'Director', person: 'Sophie van der Meer', at: '2026-01-14', amount: '$1.4M', transactionCode: 'S' },
-    ],
-    politicians: [
-      { name: 'Nancy Pelosi', chamber: 'house', at: '2026-05-02', amount: '$420K', transactionType: 'P' },
-      { name: 'Nancy Pelosi', chamber: 'house', at: '2026-05-20', amount: '$95K', transactionType: 'S' },
-      { name: 'Dan Crenshaw', chamber: 'house', at: '2026-03-01', amount: '$180K', transactionType: 'P' },
-      { name: 'John Thune', chamber: 'senate', at: '2026-02-08', amount: '$210K', transactionType: 'S' },
-      { name: 'Gina Raimondo', chamber: 'executive', at: '2026-01-12', amount: '$95K', transactionType: 'E' },
-    ],
-    filings13f: [
-      { filer: 'Vanguard Group', activity: 'Increased stake', at: '2026-05-01', amount: '$84M' },
-      { filer: 'BlackRock', activity: 'New position', at: '2026-03-12', amount: '$42M' },
-      { filer: 'Capital Group', activity: 'Reduced stake', at: '2026-02-05', amount: '$18M' },
-    ],
+    ownership: {
+      insiders: [0.17, 0.17, 0.18, 0.18],
+      institutions: [71.4, 72.3, 73.1, 74.2],
+      politicians: [0.08, 0.09, 0.11, 0.12],
+    },
     fundamentals: {
       forwardRevenueGrowth: 58,
       revenueGrowth: [12, 18, 24, 31],
@@ -1984,18 +1973,11 @@ const CONTEXT_MOCK_PROFILES = {
   },
 }
 
-function contextMockFlowDate(row, dateDaysAgo) {
-  if (String(row?.at ?? '').trim().toLowerCase() === 'today') {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d
-  }
-  if (row?.at) {
-    const d = new Date(`${String(row.at).trim()}T00:00:00.000Z`)
-    if (Number.isFinite(d.getTime())) return d
-  }
-  if (row?.daysAgo != null) return dateDaysAgo(row.daysAgo)
-  return dateDaysAgo(0)
+function contextMockFlowDate(row, dateDaysAgo, seed = 0) {
+  const parsed = mockFlowAtFromRaw(row?.at, seed)
+  if (parsed) return parsed
+  if (row?.daysAgo != null) return dateDaysAgo(row.daysAgo, 10 + (seed % 7), 12 + (seed * 5) % 48)
+  return dateDaysAgo(0, 10 + (seed % 6), 20)
 }
 
 const CONTEXT_MOCK_PROFILE_DEFAULT = {
@@ -2077,11 +2059,16 @@ function analyseTrailingQuarterLabels(count = 8, asOf = new Date()) {
 
 const ANALYSE_MOCK_QUARTERLY_REV_GROWTH = [32.4, 35.1, 38.6, 41.2, 43.3, 44.9, 42.5, 40.1]
 
+/** Equipment / large-cap semis — modest YoY revenue growth overlay for analyse chart. */
+const ANALYSE_MOCK_QUARTERLY_REV_GROWTH_ASML = [8.4, 10.1, 12.6, 14.2, 13.5, 12.8, 11.6, 10.3]
+
 function analyseMockQuarterlyRevenueOverlay(ticker) {
   const labels = analyseTrailingQuarterLabels(8)
-  const seed = seedFromTicker(String(ticker ?? 'TICK'))
-  const factor = 0.82 + (seed % 28) / 100
-  const values = ANALYSE_MOCK_QUARTERLY_REV_GROWTH.map((v, i) =>
+  const t = String(ticker ?? 'TICK').toUpperCase()
+  const base = t === 'ASML' ? ANALYSE_MOCK_QUARTERLY_REV_GROWTH_ASML : ANALYSE_MOCK_QUARTERLY_REV_GROWTH
+  const seed = seedFromTicker(t)
+  const factor = t === 'ASML' ? 1 : 0.82 + (seed % 28) / 100
+  const values = base.map((v, i) =>
     Math.round(v * factor * (1 + ((seed + i * 7) % 9) / 100) * 10) / 10,
   )
   return { labels, values }
@@ -2201,11 +2188,13 @@ function formatContextFundamentalDisplay(fundamentals, row) {
 
 function contextMockForTicker(ticker, priceSeries) {
   const t = String(ticker ?? 'ASML').toUpperCase()
+  const semis = MOCK_SEMIS.find((c) => c.ticker === t)
   const base = CONTEXT_MOCK_PROFILES[t] ?? CONTEXT_MOCK_PROFILES.ASML
-  const dateDaysAgo = (daysAgo) => {
+  const weekFlows = buildMockWeekContextFlows(t)
+  const dateDaysAgo = (daysAgo, hour = 10, minute = 20) => {
     const d = new Date()
     d.setDate(d.getDate() - daysAgo)
-    d.setHours(0, 0, 0, 0)
+    d.setHours(hour, minute, 0, 0)
     return d
   }
   const offlinePrice = mockDatasetForTicker(t).price
@@ -2223,30 +2212,30 @@ function contextMockForTicker(ticker, priceSeries) {
   return {
     ticker: t,
     price: Number.isFinite(price) ? price : 0,
-    sector: base.sector,
-    domicile: contextCountryLabel(base.country),
-    mcap: base.mcap,
+    sector: semis?.sector ?? base.sector,
+    domicile: contextCountryLabel(base.country ?? (t === 'ASML' ? 'NL' : t === 'TSM' ? 'TW' : 'US')),
+    mcap: semis?.mcap ?? base.mcap,
     earnings: contextEarningsFromDate(earningsDay),
     leadDrug: base.leadDrug ?? null,
     programs: Array.isArray(base.programs) ? base.programs : [],
-    insiders: base.insiders.map((row) => ({
+    insiders: weekFlows.insiders.map((row, i) => ({
       key: row.key,
       person: row.person ?? null,
-      date: contextMockFlowDate(row, dateDaysAgo),
+      date: contextMockFlowDate(row, dateDaysAgo, i * 3 + 1),
       amount: row.amount,
       transactionCode: row.transactionCode ?? null,
     })),
-    politicians: base.politicians.map((row) => ({
+    politicians: weekFlows.politicians.map((row, i) => ({
       name: row.name,
       chamber: row.chamber ?? 'house',
-      date: contextMockFlowDate(row, dateDaysAgo),
+      date: contextMockFlowDate(row, dateDaysAgo, i * 5 + 2),
       amount: row.amount,
       transactionType: row.transactionType ?? null,
     })),
-    filings13f: (base.filings13f ?? []).map((row) => ({
+    filings13f: weekFlows.filings13f.map((row, i) => ({
       filer: row.filer,
       activity: row.activity ?? null,
-      date: contextMockFlowDate(row, dateDaysAgo),
+      date: contextMockFlowDate(row, dateDaysAgo, i * 7 + 4),
       amount: row.amount,
     })),
     fundamentals: contextMockFundamentalsForTicker(t, base.fundamentals),
@@ -4316,22 +4305,7 @@ function insiderCaseForRowIndex(i) {
   const n = i % 11 === 0 ? 12 : i % 13 === 0 ? 18 : (i % 5) + 1
   const count = n
   const ticker = INSIDER_TICKERS[i % INSIDER_TICKERS.length]
-  const thisYear = new Date().getFullYear()
-  let at
-  if (i < 10) {
-    const t = new Date()
-    t.setMinutes(t.getMinutes() - i * 17 - i * i)
-    at = t.toISOString()
-  } else if (i < 24) {
-    const t = new Date()
-    t.setDate(t.getDate() - 1 - (i % 5))
-    t.setHours(14, 20 + (i % 30), 0, 0)
-    at = t.toISOString()
-  } else if (i < 36) {
-    at = new Date(thisYear, 1, 8 + (i % 12), 9, 15).toISOString()
-  } else {
-    at = new Date(2024, 6, 19, 11, 0).toISOString()
-  }
+  const at = mockInvestigateFeedAtForIndex(i)
 
   const formType = FORM_TYPES_INSIDER[i % FORM_TYPES_INSIDER.length]
   const isForm4 = formType === 'Form 4'
@@ -4408,7 +4382,9 @@ function insiderCaseForRowIndex(i) {
 }
 
 const INSIDER_FEED_ROWS = sortFeedRowsByAtDesc(
-  Array.from({ length: 42 }, (_, i) => normalizeFeedRowActivity(insiderCaseForRowIndex(i))),
+  Array.from({ length: MOCK_INVESTIGATE_FEED_ROWS }, (_, i) =>
+    normalizeFeedRowActivity(insiderCaseForRowIndex(i)),
+  ),
 )
 
 function lastName(name) {
@@ -4461,7 +4437,9 @@ function politicianCaseForRowIndex(i) {
 }
 
 const POLITICIAN_FEED_ROWS = sortFeedRowsByAtDesc(
-  Array.from({ length: 42 }, (_, i) => normalizeFeedRowActivity(politicianCaseForRowIndex(i))),
+  Array.from({ length: MOCK_INVESTIGATE_FEED_ROWS }, (_, i) =>
+    normalizeFeedRowActivity(politicianCaseForRowIndex(i)),
+  ),
 )
 
 function institutionCaseForRowIndex(i) {
@@ -4510,7 +4488,9 @@ function institutionCaseForRowIndex(i) {
 }
 
 const INSTITUTION_FEED_ROWS = sortFeedRowsByAtDesc(
-  Array.from({ length: 42 }, (_, i) => normalizeFeedRowActivity(institutionCaseForRowIndex(i))),
+  Array.from({ length: MOCK_INVESTIGATE_FEED_ROWS }, (_, i) =>
+    normalizeFeedRowActivity(institutionCaseForRowIndex(i)),
+  ),
 )
 
 function ContextAlertToggle({ ticker, className = '' }) {
@@ -6013,83 +5993,49 @@ function buildThesisMemo({ ticker, companyName, events, priceSeries, constituent
 }
 
 function mockPaperFiledAtToday() {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
+  return mockAtDaysAgo(0, new Date().getHours(), Math.max(1, new Date().getMinutes() - 5))
+}
+
+/** Shared offline research document pool — one week × 12 filings per day, reused per ticker. */
+const MOCK_RESEARCH_DOC_SPECS = buildMockWeekResearchDocSpecs()
+
+function mockResearchDocumentsForTicker(ticker) {
+  const t = String(ticker ?? 'ASML').trim().toUpperCase()
+  const showcase = t === 'ASML'
+  const name =
+    RESEARCH_FEED_ROWS.find((row) => String(row.ticker ?? '').toUpperCase() === t)?.name ?? t
+  const secUrl = `https://www.sec.gov/edgar/search/#/q=${encodeURIComponent(t)}`
+  const samUrl = `https://sam.gov/search/?index=opp&page=1&sort=-relevance&keywords=${encodeURIComponent(t)}`
+
+  return MOCK_RESEARCH_DOC_SPECS.map((spec, i) => {
+    const headline = String(spec.headline ?? 'filing').trim()
+    const sourceLabel = String(spec.source ?? 'Filing')
+    const tpl = showcase ? spec.analysis : spec.genericAnalysis ?? spec.analysis
+    const text = String(tpl ?? '')
+      .replace(/\{NAME\}/g, name)
+      .replace(/\{TICKER\}/g, t)
+      .replace(/\{SOURCE\}/g, sourceLabel)
+      .replace(/\{HEADLINE\}/g, headline)
+    const source = sourceLabel
+    const url = source.toLowerCase().includes('gov')
+      ? samUrl
+      : source.toLowerCase().includes('investor') && t === 'ASML'
+        ? 'https://www.asml.com/en/investors'
+        : secUrl
+    return {
+      id: `${t.toLowerCase()}-doc-${spec.slug}`,
+      source,
+      filedAt: mockAtDaysAgo(spec.daysAgo, spec.hour, spec.minute),
+      url,
+      ...(showcase && spec.briefKey ? { briefKey: spec.briefKey } : {}),
+      ...mockIdeaFields(i, 'research'),
+      analysis: text,
+    }
+  })
 }
 
 /** Per-filing AI summaries shown under the paper price chart (newest first). */
-const MOCK_PAPER_DOCUMENTS_ASML = [
-  {
-    id: 'asml-doc-gov-dod-euv',
-    source: 'Gov contract',
-    filedAt: '2026-05-20T00:00:00.000Z',
-    url: 'https://sam.gov/search/?index=opp&page=1&sort=-relevance&keywords=ASML',
-    briefKey: 'asml-gov-dod',
-    ...mockIdeaFields(0, 'research'),
-    analysis:
-      'DoD IDIQ modification ($18.4M) names ASML US, Inc. as awardee for EUV lithography sustainment and field engineering at a domestic high-volume fab. Award text ties delivery to existing high-NA install base rather than a new platform buy. Supports the scarcity thesis: defense-side spend is maintaining installed EUV, not signaling a cancellation wave.',
-  },
-  {
-    id: 'asml-doc-q1',
-    source: '8-K',
-    filedAt: '2026-04-18T00:00:00.000Z',
-    url: 'https://www.sec.gov/edgar/search/#/q=ASML',
-    briefKey: 'asml-q1',
-    ...mockIdeaFields(1, 'research'),
-    analysis:
-      'Q1 commentary highlights backlog stability and longer EUV lead times rather than a cancellation wave. Management frames demand as capacity-constrained at the leading edge, which keeps pricing power on high-NA slots intact even when downstream GPU names wobble.',
-  },
-  {
-    id: 'asml-doc-orders',
-    source: '8-K',
-    filedAt: '2026-03-14T00:00:00.000Z',
-    url: 'https://www.sec.gov/edgar/search/#/q=ASML',
-    briefKey: 'asml-orders',
-    analysis:
-      'Management commentary points to extended EUV delivery timelines and continued tightness in high-NA tool allocation. Customers are prioritizing leading-edge slots even as downstream AI demand headlines dominate equity flows. The filing reinforces scarcity in lithography rather than a demand air pocket for the tools themselves.',
-  },
-  {
-    id: 'asml-doc-gov-chips',
-    source: 'Gov contract',
-    filedAt: '2026-02-28T00:00:00.000Z',
-    url: 'https://sam.gov/search/?index=opp&page=1&sort=-relevance&keywords=ASML%20CHIPS',
-    analysis:
-      'CHIPS Program Office task order lists ASML Holding N.V. (US operating unit) for advanced-node lithography workforce training and metrology support tied to a domestic EUV line. Dollar value is modest versus systems revenue but extends the policy linkage between US fab incentives and EUV allocation. No new tool count disclosed.',
-  },
-  {
-    id: 'asml-doc-annual',
-    source: 'Annual report',
-    filedAt: '2026-02-06T00:00:00.000Z',
-    url: 'https://www.asml.com/en/investors/financial-results',
-    analysis:
-      'The annual report reiterates that advanced-node wafer output scales with EUV installs, not short-cycle GPU order headlines. Order book language emphasizes multi-year visibility on systems while foundry utilization commentary stays measured. Investors still appear to price downstream AI semiconductors ahead of the upstream constraint chain.',
-  },
-  {
-    id: 'asml-doc-investor-day',
-    source: 'Investor presentation',
-    filedAt: '2026-01-08T00:00:00.000Z',
-    url: 'https://www.asml.com/en/investors',
-    analysis:
-      'Investor day slides walk through EUV install cadence and high-NA mix shift without changing the core scarcity thesis. The deck is useful for framing where bottlenecks sit in the stack, but it does not by itself resolve timing on when downstream AI demand reprices back into ASML.',
-  },
-  {
-    id: 'asml-doc-prior-annual',
-    source: 'Annual report',
-    filedAt: '2025-02-14T00:00:00.000Z',
-    url: 'https://www.asml.com/en/investors/financial-results',
-    analysis:
-      'Prior-year annual framing already emphasized EUV as the binding step for leading-edge supply. The language is consistent with the current scarcity thesis, which makes timing shifts in orders and backlog the live variable rather than the structural story.',
-  },
-  {
-    id: 'asml-doc-gov-darpa',
-    source: 'Gov contract',
-    filedAt: '2025-11-06T00:00:00.000Z',
-    url: 'https://sam.gov/search/?index=opp&page=1&sort=-relevance&keywords=ASML%20EUV',
-    analysis:
-      'DARPA advanced-packaging prototype names ASML as subcontractor for EUV patterning modules in a heterogeneous-integration demo. Prime is a US research university; ASML role is tooling and process support, not a volume systems PO. Useful as a policy/tech footnote, not a backlog driver on its own.',
-  },
-]
+const MOCK_PAPER_DOCUMENTS_ASML = mockResearchDocumentsForTicker('ASML')
 
 function paperDocumentOpenUrl(doc, ticker) {
   const direct = String(doc?.url ?? '').trim()
@@ -6556,7 +6502,7 @@ function mockOfflinePresentation(memo, titleText, ticker) {
       { type: 'paragraph', text: memo.final },
     ],
     diagram: undefined,
-    documents: [],
+    documents: mockResearchDocumentsForTicker(t),
     sources: [
       { label: 'SEC EDGAR search', url: 'https://www.sec.gov/edgar/search/' },
       { label: 'Company investor materials (mock)', url: 'https://www.sec.gov/edgar/search/' },
@@ -7688,7 +7634,7 @@ const MOCK_HISTORICAL_INSIDER = {
   avgReturn21d63d252d: '+0.42% / +1.08% / +2.34%',
   medianReturn: '+0.61%',
   winRate: '54%',
-  sampleSize: '12,480',
+  sampleSize: '28,640',
   conditioningRole: 'CEO | director',
   conditioningPolitician: 'Pelosi | Tuberville',
   conditioningTxn: 'Buy | sell',
@@ -7707,10 +7653,10 @@ const MOCK_HISTORICAL_TRIALS = {
 
 /** Company tile (bottom-right): issuer profile */
 const MOCK_COMPANY = {
-  industry: 'Pharmaceuticals',
+  industry: 'Semiconductors',
   country: 'US',
-  mcap: '$8.46M USD',
-  earnings: '5 Aug',
+  mcap: '$2.8T USD',
+  earnings: '28 Aug',
 }
 
 function clamp01(x) {
@@ -12001,6 +11947,10 @@ function AppGate() {
     import.meta.env.DEV &&
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('preview') === 'subscribe'
+  const previewTerminal =
+    import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('preview') === 'terminal'
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -12031,6 +11981,7 @@ function AppGate() {
   }, [signedIn, refresh])
 
   if (configured && loading) return <AuthBootScreen />
+  if (previewTerminal) return <KensiglineTerminal />
   if (previewSubscribe) return <SubscribePage />
   if (configured && !user) {
     if (marketingPath === '/sign-in') return <SignInPage />
