@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './AuthContext.jsx'
+import { captureReferralFromUrl } from './referral.js'
+
+captureReferralFromUrl()
 
 // Small runtime error boundary so the app doesn't go fully black in prod/dev.
 // Keeps mocks and lets users continue navigating even if one panel crashes.

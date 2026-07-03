@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { completeAuthFromUrl } from './authCallback.js'
+import { attachStoredReferralToUser } from './referral.js'
 import { supabase } from './supabaseClient.js'
 
 const AuthContext = createContext(undefined)
@@ -8,6 +9,16 @@ export function AuthProvider({ children }) {
   const configured = Boolean(supabase)
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const referralAttachUserRef = useRef(null)
+
+  useEffect(() => {
+    const userId = session?.user?.id ?? null
+    if (!userId || referralAttachUserRef.current === userId) return
+    referralAttachUserRef.current = userId
+    void attachStoredReferralToUser().catch((e) => {
+      console.warn('[referral] attach failed', e)
+    })
+  }, [session?.user?.id])
 
   useEffect(() => {
     if (!supabase) {

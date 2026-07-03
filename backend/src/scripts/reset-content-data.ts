@@ -43,6 +43,8 @@ const LEGACY_TRUNCATES = [
 
 const PRESERVED_TABLES = [
   "billing_accounts",
+  "referral_sources",
+  "user_attribution",
   "alert_preferences",
   "alert_watchlist",
   "alert_actor_watchlist",
