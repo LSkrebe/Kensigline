@@ -145,26 +145,29 @@ export function IntroPage() {
           <ol className="mktWorkflowSteps">
             {SHOWCASE_TABS.map((tab) => (
               <li key={tab.id} className="mktWorkflowStep">
-                <div className="mktWorkflowStepRail" aria-hidden="true">
-                  <span className="mktWorkflowStepNum mono">{tab.step}</span>
-                  <span className="mktWorkflowStepLine" />
+                <p className="mktWorkflowStepKicker mono">
+                  <span className="mktWorkflowStepNum">{tab.step}</span>
+                  <span className="mktWorkflowStepLabel">{tab.label}</span>
+                </p>
+                <h3 className="mktWorkflowStepTitle">{tab.title}</h3>
+                <div className="mktWorkflowStepText">
+                  {tab.bodyLines.map((line) => (
+                    <p key={line} className="mktWorkflowStepTextLine">
+                      {line}
+                    </p>
+                  ))}
                 </div>
-                <div className="mktWorkflowStepBody">
-                  <p className="mktWorkflowStepLabel mono">{tab.label}</p>
-                  <h3 className="mktWorkflowStepTitle">{tab.title}</h3>
-                  <p className="mktWorkflowStepText">{tab.body}</p>
-                  {tab.image ? (
-                    <figure className="mktWorkflowShot">
-                      <img
-                        className="mktWorkflowShotImg"
-                        src={tab.image}
-                        alt={tab.imageAlt ?? `${tab.label} tab screenshot`}
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </figure>
-                  ) : null}
-                </div>
+                {tab.image ? (
+                  <figure className="mktWorkflowShot">
+                    <img
+                      className="mktWorkflowShotImg"
+                      src={tab.image}
+                      alt={tab.imageAlt ?? `${tab.label} tab screenshot`}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </figure>
+                ) : null}
               </li>
             ))}
           </ol>
