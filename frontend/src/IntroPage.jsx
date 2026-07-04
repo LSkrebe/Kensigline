@@ -132,7 +132,13 @@ export function IntroPage() {
           </div>
         </section>
 
-        <IntroReveal as="section" id="how" className="introSection mktWorkflowSection" aria-labelledby="mkt-workflow-title">
+        <IntroReveal
+          as="section"
+          id="how"
+          revealKey="intro-how"
+          className="introSection mktWorkflowSection"
+          aria-labelledby="mkt-workflow-title"
+        >
           <div className="mktWorkflowHead">
             <p className="introSectionKicker mono">How it works</p>
             <h2 id="mkt-workflow-title" className="introSectionTitle">
@@ -163,7 +169,7 @@ export function IntroPage() {
                       className="mktWorkflowShotImg"
                       src={tab.image}
                       alt={tab.imageAlt ?? `${tab.label} tab screenshot`}
-                      loading="lazy"
+                      loading="eager"
                       decoding="async"
                     />
                   </figure>
@@ -173,7 +179,7 @@ export function IntroPage() {
           </ol>
         </IntroReveal>
 
-        <IntroReveal as="section" className="introSection mktProof" aria-labelledby="mkt-proof-title" delay={30}>
+        <IntroReveal as="section" className="introSection mktProof" revealKey="intro-proof" aria-labelledby="mkt-proof-title" delay={30}>
           <p className="introSectionKicker mono">Why Mercerline</p>
           <h2 id="mkt-proof-title" className="introSectionTitle">
             Built for catalyst process
@@ -189,7 +195,7 @@ export function IntroPage() {
           </ul>
         </IntroReveal>
 
-        <IntroReveal as="section" id="pricing" className="introSection mktPricing" delay={40}>
+        <IntroReveal as="section" id="pricing" revealKey="intro-pricing" className="introSection mktPricing" delay={40}>
           <div className="mktPricingLayout">
             <div className="mktPricingHead">
               <p className="introSectionKicker mono">{PRICING.kicker}</p>
@@ -239,7 +245,7 @@ export function IntroPage() {
           </p>
         </IntroReveal>
 
-        <IntroReveal as="section" id="faq" className="introSection mktFaq" delay={50}>
+        <IntroReveal as="section" id="faq" revealKey="intro-faq" className="introSection mktFaq" delay={50}>
           <p className="introSectionKicker mono">FAQ</p>
           <h2 className="introSectionTitle">Common questions</h2>
           <div className="mktFaqList">
@@ -252,7 +258,7 @@ export function IntroPage() {
           </div>
         </IntroReveal>
 
-        <IntroReveal as="section" className="introSection mktFinalCta" delay={20} eager>
+        <IntroReveal as="section" revealKey="intro-final-cta" className="introSection mktFinalCta" delay={20} eager>
           <div className="mktFinalCtaInner">
             <h2 className="mktFinalCtaTitle">Open the terminal</h2>
             <p className="mktFinalCtaSub mono dim">{HERO.rails}</p>

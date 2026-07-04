@@ -38,6 +38,11 @@ export function returnToIntroAfterSignOut() {
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
+export function parsePublicTickerPath(pathname = '/') {
+  const m = normalizeMarketingPath(pathname).match(/^\/(?:ticker|research)\/([A-Za-z0-9.-]+)$/i)
+  return m ? String(m[1]).trim().toUpperCase() : null
+}
+
 export function useNavigateMarketing() {
   return useCallback((path) => navigateMarketing(path), [])
 }

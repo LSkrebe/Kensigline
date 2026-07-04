@@ -337,18 +337,19 @@
 }
 
 .introReveal {
-  opacity: 0;
-  transform: translateY(32px);
-  transition:
-    opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+  /* Transform-only — opacity on backdrop-filter children flickers in Chrome/Safari. */
+  opacity: 1;
+  transform: translateY(28px);
+  transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
   transition-delay: var(--reveal-delay, 0ms);
-  will-change: opacity, transform;
 }
 
 .introReveal--in {
-  opacity: 1;
   transform: none;
+}
+
+.introReveal--instant {
+  transition: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

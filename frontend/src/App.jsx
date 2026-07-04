@@ -10,7 +10,8 @@ import { SignInPage } from './SignInPage.jsx'
 import { SubscribePage } from './SubscribePage.jsx'
 import { SettingsPanel } from './SettingsPanel.jsx'
 import { useSubscription } from './useSubscription.js'
-import { useMarketingPath } from './marketingRoute.js'
+import { parsePublicTickerPath, useMarketingPath } from './marketingRoute.js'
+import { PublicTickerPage } from './PublicTickerPage.jsx'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
 import { AnalysePanel } from './AnalysePanel.jsx'
 import { analyseRevenueOverlayMeta } from './analyseMockData.js'
@@ -11984,6 +11985,8 @@ function AppGate() {
   if (previewTerminal) return <KensiglineTerminal />
   if (previewSubscribe) return <SubscribePage />
   if (configured && !user) {
+    const publicTicker = parsePublicTickerPath(marketingPath)
+    if (publicTicker) return <PublicTickerPage ticker={publicTicker} />
     if (marketingPath === '/sign-in') return <SignInPage />
     return <IntroPage />
   }
