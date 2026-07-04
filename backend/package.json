@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "test": "npm run build && tsx src/documents/smoke.ts && tsx src/documents/llm-cost-smoke.ts"
+    "test": "npm run build && tsx src/documents/smoke.ts && tsx src/documents/llm-cost-smoke.ts && tsx src/analyse/smoke.ts"
   },
   "keywords": [],
   "author": "",

@@ -161,17 +161,24 @@ function propagateDriverOverridesForward(businessDrivers, baseDrivers, overrides
   }
 }
 
-function forecastRatios(baseModel) {
+const BASE_CASE_TAX_RATE = 0.23
+const BASE_CASE_HIST_GROSS_MARGIN = 0.52
+
+function forecastRatios(baseModel, colIdx) {
   const anchor = baseModel.estimateFromIndex - 1
   const rev = findRow(baseModel.historicalModel, 'Revenue')?.values[anchor] ?? 1
   const grossProfit = findRow(baseModel.historicalModel, 'Gross profit')?.values[anchor] ?? 0
   const opIncome = findRow(baseModel.historicalModel, 'Operating income')?.values[anchor] ?? 0
-  const netIncome = findRow(baseModel.historicalModel, 'Net income')?.values[anchor] ?? 0
   const shares = findRow(baseModel.historicalModel, 'Shares outstanding (M)')?.values[anchor] ?? 404
+  const estOffset = colIdx - baseModel.estimateFromIndex
+  const revertProgress = Math.min(1, (estOffset + 1) / 8)
+  const anchorGm = rev > 0 ? grossProfit / rev : BASE_CASE_HIST_GROSS_MARGIN
+  const grossMargin = anchorGm + (BASE_CASE_HIST_GROSS_MARGIN - anchorGm) * revertProgress
+  const opMargin = rev > 0 ? opIncome / rev : grossMargin * 0.52
   return {
-    grossMargin: rev > 0 ? grossProfit / rev : 0.85,
-    opMargin: rev > 0 ? opIncome / rev : -7,
-    netMargin: rev > 0 ? netIncome / rev : -7,
+    grossMargin,
+    opMargin,
+    netMargin: opMargin * (1 - BASE_CASE_TAX_RATE),
     shares,
   }
 }
@@ -203,7 +210,10 @@ function recalcEstimateColumn(historicalModel, baseModel, colIdx, rev, ratios) {
   if (opIncome) opIncome.values[colIdx] = Math.round(rev * ratios.opMargin)
   if (opMargin) opMargin.values[colIdx] = pctStr(ratios.opMargin * 100)
   if (opex && grossProfit && opIncome) opex.values[colIdx] = grossProfit.values[colIdx] - opIncome.values[colIdx]
-  if (netIncome) netIncome.values[colIdx] = Math.round(rev * ratios.netMargin)
+  if (netIncome) {
+    const oi = opIncome?.values[colIdx] ?? 0
+    netIncome.values[colIdx] = oi > 0 ? Math.round(oi * (1 - BASE_CASE_TAX_RATE)) : Math.round(oi)
+  }
   if (eps && netIncome && shares) eps.values[colIdx] = (netIncome.values[colIdx] / shares.values[colIdx]).toFixed(2)
   if (shares) shares.values[colIdx] = ratios.shares
 
@@ -344,7 +354,6 @@ export function computeValuationView(model, liveMarketPrice = null, forecastColu
 function applyMarketForecastOverrides(baseModel, overrides) {
   const estFrom = baseModel.estimateFromIndex
   const colCount = baseModel.quarters.length
-  const ratios = forecastRatios(baseModel)
 
   const businessDrivers = baseModel.businessDrivers.map((row) => {
     const rowOverrides = overrides[row.label] ?? {}
@@ -364,7 +373,7 @@ function applyMarketForecastOverrides(baseModel, overrides) {
 
   for (let i = estFrom; i < colCount; i++) {
     const rev = revenueFromDrivers(businessDrivers, baseModel, i)
-    recalcEstimateColumn(historicalModel, baseModel, i, rev, ratios)
+    recalcEstimateColumn(historicalModel, baseModel, i, rev, forecastRatios(baseModel, i))
   }
 
   return { ...baseModel, historicalModel, businessDrivers }

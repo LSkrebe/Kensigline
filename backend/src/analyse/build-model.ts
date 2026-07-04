@@ -3,6 +3,11 @@ import { getDocumentsWatermarkForTicker } from "../core/ticker-context-cache.js"
 import { forwardRevenueGrowthFromDocuments } from "../research/market/guidance.js";
 import { aggregateBusinessDriversFromDocuments } from "./drivers-from-documents.js";
 import {
+  buildBaseCaseQuarterlyProjection,
+  revenueMillionsFromProjection,
+} from "./base-case-projection.js";
+import { fetchConsensusEstimates } from "./consensus-estimates.js";
+import {
   advanceFiscalQuarter,
   epsStr,
   growthYoYStr,
@@ -12,6 +17,7 @@ import {
   toMillions,
   type QuarterlyPnlPoint,
 } from "./quarterly-pnl.js";
+import type { ProjectedQuarterPnl } from "./base-case-projection.js";
 import { quarterShortLabel } from "../core/xbrl-facts.js";
 import type { AnalyseModel, AnalyseModelRow, AnalyseRevenueOverlay } from "./types.js";
 
@@ -39,52 +45,14 @@ function numRow(label: string, values: (number | null)[], extra: Partial<Analyse
   };
 }
 
-function projectRevenueSeries(
-  actualMillions: (number | null)[],
-  estimateCount: number,
-  forwardAnnualGrowthPct: number | null,
-): number[] {
-  const out = actualMillions.map((v) => (v != null ? v : 0));
-  const lastActual = [...out].reverse().find((v) => v > 0) ?? 0;
-  const qGrowth =
-    forwardAnnualGrowthPct != null && Number.isFinite(forwardAnnualGrowthPct)
-      ? Math.pow(1 + forwardAnnualGrowthPct / 100, 0.25) - 1
-      : 0.02;
-
-  let cursor = lastActual > 0 ? lastActual : 1000;
-  for (let i = 0; i < estimateCount; i++) {
-    cursor = Math.round(cursor * (1 + qGrowth));
-    out.push(cursor);
-  }
-  return out;
-}
-
-function ratiosFromPoint(p: QuarterlyPnlPoint | null) {
-  const revM = toMillions(p?.revenueUsd ?? null) ?? 0;
-  const gpM = toMillions(p?.grossProfitUsd ?? null) ?? 0;
-  const oiM = toMillions(p?.operatingIncomeUsd ?? null) ?? 0;
-  const niM = toMillions(p?.netIncomeUsd ?? null) ?? 0;
-  return {
-    grossMargin: revM > 0 ? gpM / revM : 0.5,
-    opMargin: revM > 0 ? oiM / revM : 0.2,
-    netMargin: revM > 0 ? niM / revM : 0.15,
-    opexRatio: revM > 0 ? (toMillions(p?.operatingExpensesUsd ?? null) ?? 0) / revM : 0.3,
-    fcfRatio:
-      revM > 0 && p?.fcfUsd != null ? (toMillions(p.fcfUsd) ?? 0) / revM : revM > 0 ? niM / revM : 0.12,
-    sharesM: p?.shares != null ? Math.round(p.shares / 1e6) : null,
-    cashM: toMillions(p?.cashUsd ?? null),
-    debtM: toMillions(p?.debtUsd ?? null),
-  };
-}
-
 function buildHistoricalRows(
   points: QuarterlyPnlPoint[],
   revenueMillions: number[],
   estimateFrom: number,
+  projection: ProjectedQuarterPnl[],
 ): AnalyseModelRow[] {
   const allPoints = points;
   const anchor = allPoints[allPoints.length - 1] ?? null;
-  const ratios = ratiosFromPoint(anchor);
 
   const grossProfit: (number | null)[] = [];
   const grossMargin: string[] = [];
@@ -104,36 +72,45 @@ function buildHistoricalRows(
     const revM = revenueMillions[i]!;
     const isEstimate = i >= estimateFrom;
     const src = isEstimate ? null : allPoints[i] ?? null;
+    const proj = isEstimate ? projection[i - estimateFrom] : null;
 
-    let gpM = toMillions(src?.grossProfitUsd ?? null);
-    let opexM = toMillions(src?.operatingExpensesUsd ?? null);
-    let oiM = toMillions(src?.operatingIncomeUsd ?? null);
-    let niM = toMillions(src?.netIncomeUsd ?? null);
-    let fcfM = toMillions(src?.fcfUsd ?? null);
-    let cashM = toMillions(src?.cashUsd ?? null);
-    let debtM = toMillions(src?.debtUsd ?? null);
-    let shM = src?.shares != null ? Math.round(src.shares / 1e6) : ratios.sharesM;
+    let gpM = proj?.grossProfitM ?? toMillions(src?.grossProfitUsd ?? null);
+    let opexM = proj?.opexM ?? toMillions(src?.operatingExpensesUsd ?? null);
+    let oiM = proj?.opIncomeM ?? toMillions(src?.operatingIncomeUsd ?? null);
+    let niM = proj?.netIncomeM ?? toMillions(src?.netIncomeUsd ?? null);
+    let fcfM = proj?.fcfM ?? toMillions(src?.fcfUsd ?? null);
+    let cashM = proj?.cashM ?? toMillions(src?.cashUsd ?? null);
+    let debtM = proj?.debtM ?? toMillions(src?.debtUsd ?? null);
+    let shM =
+      proj?.sharesM ??
+      (src?.shares != null ? Math.round(src.shares / 1e6) : anchor?.shares != null ? Math.round(anchor.shares / 1e6) : null);
 
-    if (isEstimate || gpM == null) gpM = Math.round(revM * ratios.grossMargin);
-    if (isEstimate || opexM == null) opexM = Math.round(revM * ratios.opexRatio);
-    if (isEstimate || oiM == null) oiM = Math.round(revM * ratios.opMargin);
-    if (isEstimate || niM == null) niM = Math.round(revM * ratios.netMargin);
-    if (isEstimate || fcfM == null) fcfM = Math.round(revM * ratios.fcfRatio);
-    if (isEstimate || cashM == null) cashM = cash[i - 1] ?? ratios.cashM ?? null;
-    if (isEstimate || debtM == null) debtM = debt[i - 1] ?? ratios.debtM ?? null;
-    if (isEstimate || shM == null) shM = shares[i - 1] ?? ratios.sharesM ?? null;
+    if (!isEstimate && gpM == null && revM > 0) gpM = Math.round(revM * 0.5);
+    if (!isEstimate && opexM == null && revM > 0) opexM = Math.round(revM * 0.3);
+    if (!isEstimate && oiM == null && gpM != null && opexM != null) oiM = gpM - opexM;
+    if (!isEstimate && niM == null && oiM != null) niM = Math.round(oiM * 0.77);
+    if (!isEstimate && fcfM == null && revM > 0) fcfM = Math.round(revM * 0.12);
+    if (cashM == null) cashM = cash[i - 1] ?? toMillions(anchor?.cashUsd ?? null);
+    if (debtM == null) debtM = debt[i - 1] ?? toMillions(anchor?.debtUsd ?? null);
+    if (shM == null) shM = shares[i - 1] ?? (anchor?.shares != null ? Math.round(anchor.shares / 1e6) : null);
 
     grossProfit.push(gpM);
-    grossMargin.push(pctStr(revM > 0 && gpM != null ? (gpM / revM) * 100 : null));
+    grossMargin.push(
+      proj != null ? pctStr(proj.grossMarginPct) : pctStr(revM > 0 && gpM != null ? (gpM / revM) * 100 : null),
+    );
     opex.push(opexM);
     opIncome.push(oiM);
-    opMargin.push(pctStr(revM > 0 && oiM != null ? (oiM / revM) * 100 : null));
+    opMargin.push(
+      proj != null ? pctStr(proj.opMarginPct) : pctStr(revM > 0 && oiM != null ? (oiM / revM) * 100 : null),
+    );
     netIncome.push(niM);
     eps.push(
-      epsStr(
-        niM != null ? niM * 1e6 : null,
-        shM != null ? shM * 1e6 : null,
-      ),
+      proj != null
+        ? proj.eps.toFixed(2)
+        : epsStr(
+            niM != null ? niM * 1e6 : null,
+            shM != null ? shM * 1e6 : null,
+          ),
     );
     shares.push(shM);
     cash.push(cashM);
@@ -302,7 +279,9 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
   const ticker = String(args.ticker ?? "").trim().toUpperCase();
   const sec = await loadTickerSecBundle(ticker).catch(() => null);
   const quarterly = sec ? quarterlyPnlFromCompanyFacts(sec.facts, { quarters: 8 }) : [];
+  const quarterlyLong = sec ? quarterlyPnlFromCompanyFacts(sec.facts, { quarters: 40 }) : [];
   const forwardGrowth = await forwardRevenueGrowthFromDocuments(ticker).catch(() => null);
+  const consensus = await fetchConsensusEstimates(ticker).catch(() => null);
   const docDrivers = await aggregateBusinessDriversFromDocuments(ticker).catch(() => []);
 
   const histCount = Math.max(2, Math.min(6, quarterly.length || 2));
@@ -356,10 +335,21 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
     ? actualRevM.map((v) => v ?? 0)
     : [800, 900].slice(0, histCount).map((v, i) => v + i * 50);
 
-  const revenueMillions = projectRevenueSeries(baseRevM, estimateCount, forwardGrowth);
+  const projection = buildBaseCaseQuarterlyProjection({
+    historicalPoints: histPoints,
+    longHistoryPoints: quarterlyLong.length ? quarterlyLong : histPoints,
+    estimateCount,
+    consensus,
+    documentRevenueGrowthPct: forwardGrowth,
+  });
+
+  const revenueMillions =
+    projection.length > 0
+      ? revenueMillionsFromProjection(baseRevM, projection)
+      : [...baseRevM, ...Array.from({ length: estimateCount }, (_, i) => Math.round((baseRevM.at(-1) ?? 1000) * Math.pow(1.02, i + 1)))];
   const { labels, estimateFrom: estFrom } = quarterLabelsFromPoints(histPoints, estimateCount);
 
-  const historicalModel = buildHistoricalRows(histPoints, revenueMillions, estFrom);
+  const historicalModel = buildHistoricalRows(histPoints, revenueMillions, estFrom, projection);
   const { rows: businessDrivers, source: driverSource } = buildDriverRows(docDrivers, revenueMillions, estFrom);
 
   const netIncomeRow = historicalModel.find((r) => r.label === "Net income");
@@ -392,8 +382,13 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
     sources: {
       historical: hasSec ? "sec_companyfacts" : null,
       drivers: driverSource,
-      forward: forwardGrowth != null ? "documents" : null,
+      forward: consensus
+        ? "consensus"
+        : forwardGrowth != null
+          ? "documents"
+          : "derived",
     },
+    projectionNote: "Base case — consensus years 1–2, normalized outer years, 23% tax.",
   };
 
   const overlayValues = hasSec ? revenueYoYGrowthSeries(quarterly).slice(-8) : [];

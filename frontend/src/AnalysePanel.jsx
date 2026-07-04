@@ -468,7 +468,7 @@ export function AnalysePanel({
 
   const driverSectionTitle = model?.driverSectionTitle ?? 'Business drivers'
   const unitHint = model?.driverUnitHint ?? `${model?.currency ?? 'USD'} millions`
-  const perShareHint = `${model?.currency ?? 'USD'} millions except per share`
+  const perShareHint = model?.projectionNote ?? `${model?.currency ?? 'USD'} millions except per share`
   const modelReady = Boolean(model)
 
   return (

@@ -28,8 +28,9 @@ export type AnalyseModel = {
   sources?: {
     historical: "sec_companyfacts" | null;
     drivers: "documents" | "derived" | null;
-    forward: "documents" | null;
+    forward: "consensus" | "documents" | "derived" | null;
   };
+  projectionNote?: string;
 };
 
 export type AnalyseRevenueOverlay = {
