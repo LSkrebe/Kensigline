@@ -3,7 +3,7 @@
  * Live: replace with delayed `/api/public/teaser/:ticker`.
  */
 
-import { SHOWCASE_SPOT_PRICES } from './mockShowcasePrices.js'
+import { SHOWCASE_SPOT_PRICES, mockShowcasePriceSeries } from './mockShowcasePrices.js'
 import { MOCK_SEMIS_BY_TICKER } from './mockWeekData.js'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo } from './mockDates.js'
 
@@ -34,7 +34,8 @@ import { mockAtDaysAgo, mockDateOnlyDaysAgo } from './mockDates.js'
  * @property {number} change
  * @property {number} changePct
  * @property {string} asOfLabel
- * @property {{ dateLabel: string; title: string; region: string; impact: string } | null} macro
+ * @property {{ label: string; soon?: boolean }} [earnings]
+ * @property {{ time: string; title: string; region: string; impact: string } | null} macro
  * @property {PublicTickerEvent[]} events
  * @property {number} lockedCount
  * @property {{ label: string; value: string }[]} stats
@@ -99,15 +100,16 @@ export function publicTickerPreviewMock(ticker) {
   if (t !== 'NVDA') return null
 
   const co = MOCK_SEMIS_BY_TICKER.NVDA
-  const spot = SHOWCASE_SPOT_PRICES.NVDA ?? 135.2
-  const changePct = 0.88
-  const change = Math.round(spot * (changePct / 100) * 100) / 100
+  const priceSeries = mockShowcasePriceSeries(t, 400)
+  const spot = priceSeries[priceSeries.length - 1] ?? SHOWCASE_SPOT_PRICES.NVDA ?? 135.2
+  const prev = priceSeries[priceSeries.length - 2] ?? spot
+  const change = Math.round((spot - prev) * 100) / 100
+  const changePct = Math.round(((spot - prev) / Math.max(1e-6, prev)) * 10000) / 100
 
   return {
     mode: 'sample',
-    delayLabel: 'Sample · 72h delay in production',
-    delayNote:
-      'Public preview only. Live Mercerline updates in real time with full feeds, Analyse, Investigate worksheets, and export.',
+    delayLabel: '',
+    delayNote: '',
     ticker: co.ticker,
     company: co.name,
     sector: co.sector,
@@ -117,8 +119,9 @@ export function publicTickerPreviewMock(ticker) {
     change,
     changePct,
     asOfLabel: mockDateOnlyDaysAgo(2),
+    earnings: { label: '28 Aug', soon: true },
     macro: {
-      dateLabel: 'Thu Jul 3 · 08:30 ET',
+      time: '08:30 ET',
       title: 'Initial jobless claims',
       region: 'US',
       impact: 'high',
@@ -158,17 +161,7 @@ export function tickerEventKindLabel(kind) {
   return 'Catalyst'
 }
 
-/** @param {string} ticker @param {number} points */
-export function publicTickerSparklinePoints(ticker, points = 36) {
-  const t = String(ticker ?? 'NVDA').toUpperCase()
-  const spot = SHOWCASE_SPOT_PRICES[t] ?? 100
-  const rand = (i) => 0.992 + (((i * 17) % 100) / 100) * 0.016 - 0.004
-  const out = []
-  let v = spot * 0.94
-  for (let i = 0; i < points; i++) {
-    v *= rand(i)
-    out.push(v)
-  }
-  out[out.length - 1] = spot
-  return out
+/** @param {string} ticker @param {number} [points] */
+export function publicTickerSparklinePoints(ticker, points = 400) {
+  return mockShowcasePriceSeries(String(ticker ?? 'NVDA').toUpperCase(), points)
 }
