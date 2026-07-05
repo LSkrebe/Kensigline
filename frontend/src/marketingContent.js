@@ -12,7 +12,7 @@ export const PRODUCT_NAME = 'Mercerline'
 export const INTRO_PAGE_META = {
   title: 'Mercerline - Event-driven research terminal for US equities',
   description:
-    'Mercerline is a catalyst research terminal for US-listed equities: SEC filings (8-K, 10-Q, Form 4), politician PTR, institutional 13F, earnings transcripts, and macro calendar coverage for US, EU, UK, and China — with historical outcomes on every rail.',
+    'Mercerline is a catalyst research terminal for US-listed equities: SEC filings (8-K, 10-Q, Form 4), politician PTR, institutional 13F, earnings transcripts, and macro calendar coverage for US, EU, UK, and China - with historical outcomes on every rail.',
   path: '/',
   ogImage: '/mercerline_background_1.png',
 }
@@ -83,7 +83,7 @@ export const WORKFLOW = {
   kicker: 'How it works',
   title: 'From macro week to filing cluster',
   lead:
-    'Four rails — Discover, Research, Analyse, and Investigate — built for US equities catalyst work. SEC disclosures, PTR, 13F, and earnings transcripts on one keyboard-first grid.',
+    'Four rails - Discover, Research, Analyse, and Investigate - built for US equities catalyst work. SEC disclosures, PTR, 13F, and earnings transcripts on one keyboard-first grid.',
 }
 
 export const SHOWCASE_TABS = [
@@ -159,12 +159,12 @@ export const PROOF_POINTS = [
   {
     stat: 'Outcomes',
     label: 'on every rail',
-    detail: 'Forward returns and win rates on similar setups — not another alert feed.',
+    detail: 'Forward returns and win rates on similar setups - not another alert feed.',
   },
   {
     stat: 'US',
     label: 'equities focus',
-    detail: 'Listed stocks and ADRs — catalyst process from discover to investigate.',
+    detail: 'Listed stocks and ADRs - catalyst process from discover to investigate.',
   },
 ]
 

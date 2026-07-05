@@ -21,7 +21,7 @@ function isInScrollView(el, root, eager) {
 }
 
 /**
- * Fade/slide sections in on scroll — improves scanability vs one long wall of text.
+ * Fade/slide sections in on scroll - improves scanability vs one long wall of text.
  * Pass a stable `revealKey` when the section can remount (avoids StrictMode double-fade).
  */
 export function IntroReveal({

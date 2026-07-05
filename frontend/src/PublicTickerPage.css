@@ -1,4 +1,4 @@
-/* Public ticker — intro marketing shell + app-faithful content blocks */
+/* Public ticker - intro marketing shell + app-faithful content blocks */
 
 .pubTickerPage {
   --pub-ticker-shell-max: min(1180px, 100vw - 2 * var(--intro-gutter));
@@ -20,7 +20,7 @@
   padding-bottom: clamp(72px, 10vh, 96px);
 }
 
-/* Final CTA — same block as intro, tighter section spacing on this page */
+/* Final CTA - same block as intro, tighter section spacing on this page */
 .pubTickerPage .introSection.mktFinalCta {
   padding-top: clamp(40px, 6vh, 56px);
   scroll-margin-top: 72px;
@@ -91,7 +91,7 @@
   letter-spacing: 0.06em;
 }
 
-/* Workspace shell — sharp app-like chrome, grows with content */
+/* Workspace shell - sharp app-like chrome, grows with content */
 .pubTickerShell {
   border-radius: 0;
   overflow: visible;
@@ -230,7 +230,7 @@
   margin: 0;
 }
 
-/* Timeline — app cards, zero radius like terminal */
+/* Timeline - app cards, zero radius like terminal */
 .pubTickerEvents {
   --paper-doc-radius: 0;
   --paper-card-gap: 14px;

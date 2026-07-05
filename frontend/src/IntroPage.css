@@ -32,7 +32,7 @@
   color: rgba(255, 255, 255, 0.88);
 }
 
-/* Full-width nav/footer edges — one shared horizontal inset for all chrome text. */
+/* Full-width nav/footer edges - one shared horizontal inset for all chrome text. */
 .introPage--marketingChrome .introNavInner,
 .introPage--marketingChrome .introFootInner {
   max-width: none;
@@ -337,7 +337,7 @@
 }
 
 .introReveal {
-  /* Transform-only — opacity on backdrop-filter children flickers in Chrome/Safari. */
+  /* Transform-only - opacity on backdrop-filter children flickers in Chrome/Safari. */
   opacity: 1;
   transform: translateY(28px);
   transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);

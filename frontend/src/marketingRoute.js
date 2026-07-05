@@ -31,7 +31,7 @@ export function navigateMarketing(path) {
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
-/** After auth sign-out from marketing pages — drop dev preview query and return to intro. */
+/** After auth sign-out from marketing pages - drop dev preview query and return to intro. */
 export function returnToIntroAfterSignOut() {
   if (typeof window === 'undefined') return
   window.history.replaceState(null, '', '/')

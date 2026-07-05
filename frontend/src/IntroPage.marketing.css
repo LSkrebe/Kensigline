@@ -92,7 +92,7 @@
   font-size: 11px;
 }
 
-/* Terminal-shaped teaser — mirrors live chrome, generic placeholders only */
+/* Terminal-shaped teaser - mirrors live chrome, generic placeholders only */
 .mktTeaser {
   --mkt-bg: #050607;
   --mkt-panel: rgba(10, 11, 13, 0.86);
@@ -1383,7 +1383,7 @@
   height: 36px;
 }
 
-/* ---- Mobile shell (≤900px) — single switch, no intermediate layouts ---- */
+/* ---- Mobile shell (≤900px) - single switch, no intermediate layouts ---- */
 @media (max-width: 900px) {
   .introPage--marketingChrome .introNavLinks {
     display: none;
@@ -1504,7 +1504,7 @@
     padding: 0 4px;
   }
 
-  /* Terminal teaser — phone-shaped preview (paper + bottom tabs) */
+  /* Terminal teaser - phone-shaped preview (paper + bottom tabs) */
   .mktTeaser {
     --mkt-topbar-h: 28px;
     --mkt-tabrail-w: 100%;

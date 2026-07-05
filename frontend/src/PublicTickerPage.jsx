@@ -280,7 +280,7 @@ export function PublicTickerPage({ ticker }) {
       </footer>
 
       <p className="pubTickerSeoVisuallyHidden">
-        Mercerline {payload.company} ({payload.ticker}) research — SEC filings, Form 4, PTR, 13F, and catalyst timeline.
+        Mercerline {payload.company} ({payload.ticker}) research - SEC filings, Form 4, PTR, 13F, and catalyst timeline.
         Public delayed sample; full terminal requires subscription.
       </p>
     </div>

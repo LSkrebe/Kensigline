@@ -9,7 +9,7 @@ export function IntroTerminalPreview({ staticResearch = false }) {
       <img
         className="mktHeroShotImg"
         src={INTRO_SCREENSHOTS.hero}
-        alt="Mercerline terminal — research feed, paper timeline, and context panel for ASML"
+        alt="Mercerline terminal - research feed, paper timeline, and context panel for ASML"
         width={1440}
         height={900}
         loading="eager"

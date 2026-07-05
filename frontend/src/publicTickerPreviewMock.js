@@ -59,7 +59,7 @@ const NVDA_EVENTS = [
     kind: 'flow',
     title: 'Officer purchase cluster · 3 filings',
     summary:
-      'Three open-market purchases by C-suite over five sessions — aggregate notional above the prior 12-month officer baseline; no 10b5-1 plan disclosed on the cluster.',
+      'Three open-market purchases by C-suite over five sessions - aggregate notional above the prior 12-month officer baseline; no 10b5-1 plan disclosed on the cluster.',
     ideaBest: true,
   },
   {
@@ -77,9 +77,9 @@ const NVDA_EVENTS = [
     atIso: () => mockAtDaysAgo(5, 17, 30),
     source: 'Earnings transcript',
     kind: 'catalyst',
-    title: 'Q1 earnings call — supply vs demand commentary',
+    title: 'Q1 earnings call - supply vs demand commentary',
     summary:
-      'Transcript emphasizes multi-quarter visibility on AI accelerators; packaging partners—not wafer starts—called out as the gating step for rack-scale systems.',
+      'Transcript emphasizes multi-quarter visibility on AI accelerators; packaging partners - not wafer starts - called out as the gating step for rack-scale systems.',
     ideaBest: true,
   },
   {
@@ -89,7 +89,7 @@ const NVDA_EVENTS = [
     kind: 'flow',
     title: 'Top-tier allocator increased stake · Q1 filing',
     summary:
-      'Institutional holder added shares in the quarter; position size still below top-five holder concentration — flow signal, not a standalone thesis.',
+      'Institutional holder added shares in the quarter; position size still below top-five holder concentration - flow signal, not a standalone thesis.',
     ideaBest: false,
   },
 ]
@@ -147,7 +147,7 @@ export function publicTickerPreviewMock(ticker) {
 /** @param {string} iso */
 export function formatTickerEventWhen(iso) {
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return { date: '—', time: '' }
+  if (Number.isNaN(d.getTime())) return { date: '-', time: '' }
   return {
     date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     time: d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
