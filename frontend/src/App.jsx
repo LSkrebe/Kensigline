@@ -7,6 +7,7 @@ import { useActorAlertWatchlist } from './alertsActorWatchlist.js'
 import { investigateActorCanonicalKey } from './investigateActorKey.js'
 import { SettingsPanel } from './SettingsPanel.jsx'
 import './App.css'
+import { markAppReady } from './marketingShell.js'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
 import { AnalysePanel } from './AnalysePanel.jsx'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
@@ -11636,5 +11637,9 @@ function KensiglineTerminal() {
 
 /** Terminal shell only - marketing and subscribe checkout live outside this bundle. */
 export default function App() {
+  useEffect(() => {
+    markAppReady()
+  }, [])
+
   return <KensiglineTerminal />
 }

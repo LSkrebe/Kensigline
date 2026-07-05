@@ -113,7 +113,7 @@ export function PublicTickerPage({ ticker }) {
       </header>
 
       <main className="introMain pubTickerMain">
-        <section className="pubTickerHero introHero--enter" aria-label={payload.company}>
+        <section className="pubTickerHero" aria-label={payload.company}>
           <p className="introEyebrow mono">
             {payload.ticker} · {payload.sector}
           </p>

@@ -107,7 +107,7 @@ export function IntroPage() {
       </header>
 
       <main className="introMain">
-        <section className="mktHero introHero--enter">
+        <section className="mktHero">
           <div className="mktHeroCopy">
             <p className="introEyebrow mono">{HERO.eyebrow}</p>
             <h1 className="mktHeroTitle">

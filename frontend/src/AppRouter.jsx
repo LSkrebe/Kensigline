@@ -1,14 +1,11 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
-import { AuthBootScreen } from './AuthBootScreen.jsx'
+import { SubscribePage } from './SubscribePage.jsx'
 import MarketingRoutes from './MarketingRoutes.jsx'
 import { useSubscription } from './useSubscription.js'
 
 const TerminalApp = lazy(() => import('./App.jsx'))
-const SubscribePage = lazy(() =>
-  import('./SubscribePage.jsx').then((m) => ({ default: m.SubscribePage })),
-)
 
 /** Set VITE_BILLING_GATE=0 in root `.env` to bypass locally. */
 const BILLING_GATE_ENABLED = import.meta.env.VITE_BILLING_GATE !== '0'
@@ -16,6 +13,7 @@ const BILLING_GATE_ENABLED = import.meta.env.VITE_BILLING_GATE !== '0'
 export default function AppRouter() {
   const { configured, loading, user } = useAuth()
   const signedIn = Boolean(configured && user)
+  const showMarketing = !configured || !user
   const { loading: subLoading, active, refresh } = useSubscription(
     signedIn && BILLING_GATE_ENABLED,
   )
@@ -52,31 +50,22 @@ export default function AppRouter() {
     }
   }, [signedIn, refresh])
 
-  if (configured && loading) return <AuthBootScreen />
-
   if (previewTerminal) {
     return (
-      <Suspense fallback={<AuthBootScreen />}>
+      <Suspense fallback={null}>
         <TerminalApp />
       </Suspense>
     )
   }
 
-  if (!configured || !user) return <MarketingRoutes />
+  if (showMarketing) return <MarketingRoutes />
 
-  if (BILLING_GATE_ENABLED) {
-    if (subLoading) return <AuthBootScreen />
-    if (!active) {
-      return (
-        <Suspense fallback={<AuthBootScreen />}>
-          <SubscribePage />
-        </Suspense>
-      )
-    }
-  }
+  if (loading || (BILLING_GATE_ENABLED && subLoading)) return null
+
+  if (BILLING_GATE_ENABLED && !active) return <SubscribePage />
 
   return (
-    <Suspense fallback={<AuthBootScreen />}>
+    <Suspense fallback={null}>
       <TerminalApp />
     </Suspense>
   )

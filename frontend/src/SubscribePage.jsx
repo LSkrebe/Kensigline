@@ -13,6 +13,7 @@ import {
 } from './marketingContent.js'
 import { navigateMarketing, returnToIntroAfterSignOut } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
+import { markAppReady } from './marketingShell.js'
 import './IntroPage.css'
 import './IntroPage.marketing.css'
 import './SubscribePage.css'
@@ -29,6 +30,7 @@ export function SubscribePage() {
 
   useEffect(() => {
     applyPageMeta(SUBSCRIBE_PAGE_META)
+    markAppReady()
   }, [])
 
   const onCheckout = useCallback(async (planId) => {
@@ -124,7 +126,7 @@ export function SubscribePage() {
       </header>
 
       <main className="introMain subscribeMain">
-        <section className="mktSubscribeHero introHero--enter">
+        <section className="mktSubscribeHero">
           <p className="introEyebrow mono">{SUBSCRIBE.eyebrow}</p>
           <h1 className="mktHeroTitle mktSubscribeTitle">
             {SUBSCRIBE.headline}
