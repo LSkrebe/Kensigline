@@ -141,11 +141,13 @@ export function SubscribePage() {
           className="introSection mktPricing subscribePricing"
           eager
         >
+          <div className="mktSectionHead">
+            <p className="introSectionKicker mono">{PRICING.kicker}</p>
+            <h2 className="introSectionTitle">{PRICING.title}</h2>
+            <p className="introSectionLead mktPricingSub">{PRICING.sub}</p>
+          </div>
           <div className="mktPricingLayout">
             <div className="mktPricingHead">
-              <p className="introSectionKicker mono">{PRICING.kicker}</p>
-              <h2 className="introSectionTitle">{PRICING.title}</h2>
-              <p className="introSectionLead mktPricingSub">{PRICING.sub}</p>
               <ul className="mktPricingFeatures">
                 {PLAN_FEATURES.map((line) => (
                   <li key={line} className="mktPricingFeaturesItem">
@@ -213,8 +215,10 @@ export function SubscribePage() {
         </IntroReveal>
 
         <IntroReveal as="section" id="subscribe-faq" className="introSection mktFaq subscribeFaq" delay={20}>
-          <p className="introSectionKicker mono">FAQ</p>
-          <h2 className="introSectionTitle">Before you checkout</h2>
+          <div className="mktSectionHead">
+            <p className="introSectionKicker mono">FAQ</p>
+            <h2 className="introSectionTitle">Before you checkout</h2>
+          </div>
           <div className="mktFaqList">
             {SUBSCRIBE_FAQ.map((item) => (
               <article key={item.q} className="mktFaqItem">

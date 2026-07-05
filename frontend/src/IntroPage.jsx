@@ -178,10 +178,12 @@ export function IntroPage() {
         </IntroReveal>
 
         <IntroReveal as="section" className="introSection mktProof" revealKey="intro-proof" aria-labelledby="mkt-proof-title" delay={30}>
-          <p className="introSectionKicker mono">Why Mercerline</p>
-          <h2 id="mkt-proof-title" className="introSectionTitle">
-            Built for catalyst process
-          </h2>
+          <div className="mktSectionHead">
+            <p className="introSectionKicker mono">Why Mercerline</p>
+            <h2 id="mkt-proof-title" className="introSectionTitle">
+              Built for catalyst process
+            </h2>
+          </div>
           <ul className="mktProofGrid">
             {PROOF_POINTS.map((p) => (
               <li key={p.label} className="mktProofCard">
@@ -194,11 +196,13 @@ export function IntroPage() {
         </IntroReveal>
 
         <IntroReveal as="section" id="pricing" revealKey="intro-pricing" className="introSection mktPricing" delay={40}>
+          <div className="mktSectionHead">
+            <p className="introSectionKicker mono">{PRICING.kicker}</p>
+            <h2 className="introSectionTitle">{PRICING.title}</h2>
+            <p className="introSectionLead mktPricingSub">{PRICING.sub}</p>
+          </div>
           <div className="mktPricingLayout">
             <div className="mktPricingHead">
-              <p className="introSectionKicker mono">{PRICING.kicker}</p>
-              <h2 className="introSectionTitle">{PRICING.title}</h2>
-              <p className="introSectionLead mktPricingSub">{PRICING.sub}</p>
               <ul className="mktPricingFeatures">
                 {PLAN_FEATURES.map((line) => (
                   <li key={line} className="mktPricingFeaturesItem">
@@ -244,8 +248,10 @@ export function IntroPage() {
         </IntroReveal>
 
         <IntroReveal as="section" id="faq" revealKey="intro-faq" className="introSection mktFaq" delay={50}>
-          <p className="introSectionKicker mono">FAQ</p>
-          <h2 className="introSectionTitle">Common questions</h2>
+          <div className="mktSectionHead">
+            <p className="introSectionKicker mono">FAQ</p>
+            <h2 className="introSectionTitle">Common questions</h2>
+          </div>
           <div className="mktFaqList">
             {INTRO_FAQ.map((item) => (
               <article key={item.q} className="mktFaqItem">
