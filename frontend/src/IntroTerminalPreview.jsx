@@ -7,7 +7,7 @@ export function IntroTerminalPreview({ staticResearch = false }) {
   const { heroSrcSet, heroSizes } = INTRO_SCREENSHOTS
 
   return (
-    <figure className="mktHeroShot">
+    <figure className="mktHeroShot mktEnterSeq mktEnterSeq--6">
       <picture>
         <source type="image/avif" srcSet={heroSrcSet.avif} sizes={heroSizes} />
         <source type="image/webp" srcSet={heroSrcSet.webp} sizes={heroSizes} />

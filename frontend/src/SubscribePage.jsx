@@ -102,7 +102,7 @@ export function SubscribePage() {
 
   return (
     <div className="introPage subscribePage introPage--marketingChrome">
-      <header className="introNav">
+      <header className="introNav mktEnterNav">
         <div className="introNavInner">
           <a className="introBrand" href="/" aria-label="Mercerline home">
             <img className="introBrandLogo" src="/mercerline_logo_transparent.png" alt="" width={28} height={28} />
@@ -127,21 +127,19 @@ export function SubscribePage() {
 
       <main className="introMain subscribeMain">
         <section className="mktSubscribeHero">
-          <p className="introEyebrow mono">{SUBSCRIBE.eyebrow}</p>
-          <h1 className="mktHeroTitle mktSubscribeTitle">
+          <p className="introEyebrow mono mktEnterSeq mktEnterSeq--1">{SUBSCRIBE.eyebrow}</p>
+          <h1 className="mktHeroTitle mktSubscribeTitle mktEnterSeq mktEnterSeq--2">
             {SUBSCRIBE.headline}
             <br />
             <span className="introHeadlineAccent">{SUBSCRIBE.headlineAccent}</span>
           </h1>
-          <p className="introLead mktSubscribeLead">{SUBSCRIBE.lead}</p>
-          <p className="mktHeroReassurance mono dim">{SUBSCRIBE.reassurance}</p>
+          <p className="introLead mktSubscribeLead mktEnterSeq mktEnterSeq--3">{SUBSCRIBE.lead}</p>
+          <p className="mktHeroReassurance mono dim mktEnterSeq mktEnterSeq--4">{SUBSCRIBE.reassurance}</p>
         </section>
 
-        <IntroReveal
-          as="section"
+        <section
           id="subscribe-pricing"
-          className="introSection mktPricing subscribePricing"
-          eager
+          className="introSection mktPricing subscribePricing mktEnterSeq mktEnterSeq--5"
         >
           <div className="mktPricingLayout">
             <div className="mktPricingHead">
@@ -209,7 +207,7 @@ export function SubscribePage() {
           <p className="mktPricingFoot mono dim">
             {formatUsd(YEARLY_SAVE_USD)} off yearly vs 12 monthly payments · Cancel anytime
           </p>
-        </IntroReveal>
+        </section>
 
         <IntroReveal as="section" id="subscribe-faq" className="introSection mktFaq subscribeFaq" delay={20}>
           <div className="mktSectionHead">

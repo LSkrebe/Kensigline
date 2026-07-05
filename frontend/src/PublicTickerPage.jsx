@@ -3,6 +3,7 @@ import { fetchJsonSafe } from './api.js'
 import { HERO, INTRO_FOOTER, publicTickerPageMeta } from './marketingContent.js'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
+import { markAppReady } from './marketingShell.js'
 import { EventBriefDocCard, formatEventCardDate } from './EventBrief.jsx'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import {
@@ -76,6 +77,7 @@ export function PublicTickerPage({ ticker }) {
       return
     }
     applyPageMeta(publicTickerPageMeta(payload))
+    markAppReady()
   }, [payload])
 
   if (!payload) return null
@@ -88,7 +90,7 @@ export function PublicTickerPage({ ticker }) {
 
   return (
     <div className="introPage pubTickerPage introPage--marketingChrome">
-      <header className="introNav">
+      <header className="introNav mktEnterNav">
         <div className="introNavInner">
           <a className="introBrand" href="/" aria-label="Mercerline home" onClick={goHome}>
             <img className="introBrandLogo" src="/mercerline_logo_transparent.png" alt="" width={28} height={28} />

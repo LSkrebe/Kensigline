@@ -35,9 +35,7 @@ export function IntroReveal({
 }) {
   const ref = useRef(null)
   const wasRevealed = useRef(Boolean(revealKey && revealedKeys.has(revealKey)))
-  const [visible, setVisible] = useState(
-    () => eager || wasRevealed.current || prefersReducedMotion(),
-  )
+  const [visible, setVisible] = useState(() => wasRevealed.current)
 
   useEffect(() => {
     const el = ref.current

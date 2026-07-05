@@ -16,6 +16,7 @@ import {
 } from './marketingContent.js'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
+import { markAppReady } from './marketingShell.js'
 import './IntroPage.css'
 import './IntroPage.marketing.css'
 
@@ -52,6 +53,7 @@ export function IntroPage() {
 
   useEffect(() => {
     applyPageMeta(INTRO_PAGE_META)
+    markAppReady()
 
     const schema = {
       '@context': 'https://schema.org',
@@ -83,7 +85,7 @@ export function IntroPage() {
 
   return (
     <div ref={pageRef} className="introPage introPage--marketingChrome">
-      <header className="introNav">
+      <header className="introNav mktEnterNav">
         <div className="introNavInner">
           <a className="introBrand" href="/" aria-label="Mercerline home" onClick={scrollToTop}>
             <img className="introBrandLogo" src="/mercerline_logo_transparent.png" alt="" width={28} height={28} />
@@ -109,13 +111,13 @@ export function IntroPage() {
       <main className="introMain">
         <section className="mktHero">
           <div className="mktHeroCopy">
-            <p className="introEyebrow mono">{HERO.eyebrow}</p>
-            <h1 className="mktHeroTitle">
+            <p className="introEyebrow mono mktEnterSeq mktEnterSeq--1">{HERO.eyebrow}</p>
+            <h1 className="mktHeroTitle mktEnterSeq mktEnterSeq--2">
               Event-driven research terminal
               <span className="introHeadlineAccent"> for the catalyst trade.</span>
             </h1>
-            <p className="introLead mktHeroLead">{HERO.lead}</p>
-            <div className="introHeroActions mktHeroActions">
+            <p className="introLead mktHeroLead mktEnterSeq mktEnterSeq--3">{HERO.lead}</p>
+            <div className="introHeroActions mktHeroActions mktEnterSeq mktEnterSeq--4">
               <a className="introBtn introBtn--primary introBtn--lg" href="/sign-in" onClick={goToSignIn}>
                 {HERO.ctaPrimary}
               </a>
@@ -123,7 +125,7 @@ export function IntroPage() {
                 {HERO.ctaSecondary}
               </a>
             </div>
-            <p className="mktHeroReassurance mono dim">{HERO.reassurance}</p>
+            <p className="mktHeroReassurance mono dim mktEnterSeq mktEnterSeq--5">{HERO.reassurance}</p>
           </div>
 
           <div className="mktHeroDemo">

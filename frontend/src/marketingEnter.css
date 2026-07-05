@@ -1,0 +1,86 @@
+/* Marketing entrance motion - runs only after html.app-ready (styled shell, no FOUC). */
+
+@keyframes mktEnterUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes mktEnterHeroShot {
+  from {
+    opacity: 0;
+    transform: translateY(28px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.mktEnterSeq {
+  opacity: 0;
+}
+
+html.app-ready .mktEnterSeq {
+  animation: mktEnterUp 0.82s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+html.app-ready .mktEnterSeq--1 {
+  animation-delay: 0.05s;
+}
+
+html.app-ready .mktEnterSeq--2 {
+  animation-delay: 0.13s;
+}
+
+html.app-ready .mktEnterSeq--3 {
+  animation-delay: 0.21s;
+}
+
+html.app-ready .mktEnterSeq--4 {
+  animation-delay: 0.29s;
+}
+
+html.app-ready .mktEnterSeq--5 {
+  animation-delay: 0.37s;
+}
+
+html.app-ready .mktEnterSeq--6 {
+  animation-delay: 0.45s;
+}
+
+html.app-ready .mktEnterSeq--7 {
+  animation-delay: 0.53s;
+}
+
+.introNav.mktEnterNav {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+
+html.app-ready .introNav.mktEnterNav {
+  animation: mktEnterUp 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.02s;
+}
+
+.mktHeroShot.mktEnterSeq {
+  transform: translateY(24px) scale(0.985);
+}
+
+html.app-ready .mktHeroShot.mktEnterSeq {
+  animation: mktEnterHeroShot 0.95s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mktEnterSeq,
+  .introNav.mktEnterNav {
+    opacity: 1;
+    transform: none;
+    animation: none !important;
+  }
+}

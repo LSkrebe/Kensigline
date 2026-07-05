@@ -1,8 +1,7 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense } from 'react'
 import { IntroPage } from './IntroPage.jsx'
 import { SignInPage } from './SignInPage.jsx'
 import { SubscribePage } from './SubscribePage.jsx'
-import { markAppReady } from './marketingShell.js'
 import { parsePublicTickerPath, useMarketingPath } from './marketingRoute.js'
 
 const PublicTickerPage = lazy(() =>
@@ -16,10 +15,6 @@ export default function MarketingRoutes() {
     import.meta.env.DEV &&
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('preview') === 'subscribe'
-
-  useEffect(() => {
-    markAppReady()
-  }, [])
 
   if (previewSubscribe) return <SubscribePage />
 
