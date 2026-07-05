@@ -1,12 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 :root {
   background: #06070a;
   color-scheme: dark;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     'Liberation Mono', 'Courier New', monospace;
-  font-size: clamp(11px, 1.15vw, 13px);
-  line-height: 1.2;
+  font-size: clamp(12px, 1.15vw, 13px);
+  line-height: 1.35;
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

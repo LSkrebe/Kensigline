@@ -64,11 +64,11 @@ export const INTRO_FOOTER = {
 }
 
 export const HERO = {
-  eyebrow: 'US equities · catalyst research',
-  headline: 'Event-driven research',
-  headlineAccent: 'terminal for the catalyst trade.',
+  eyebrow: 'Mercerline · US equities',
+  headline: 'Event-driven research terminal',
+  headlineAccent: 'for the catalyst trade.',
   lead:
-    'Scan the week and build the research paper. Drill insider and institutional flow with historical outcomes on every rail.',
+    'Event-driven research terminal for US equities. Scan the week, build the research paper, and drill insider and institutional flow with historical outcomes on every rail.',
   ctaPrimary: `Start researching - ${formatUsd(MONTHLY_PRICE_USD)}/mo`,
   ctaSecondary: 'See how it works',
   reassurance: 'Cancel anytime · Full terminal · SEC, PTR, and 13F',
@@ -87,9 +87,9 @@ export const INTRO_SCREENSHOTS = {
 
 export const WORKFLOW = {
   kicker: 'How it works',
-  title: 'Event-driven research from macro week to filing cluster',
+  title: 'Event-driven research terminal workflow',
   lead:
-    'Discover, Research, Analyse, and Investigate on one grid. SEC filings, PTR, 13F, and earnings transcripts for US equities.',
+    'Discover macro catalysts. Research ticker papers. Analyse drivers. Investigate insider PTR and 13F flow on one grid.',
 }
 
 export const SHOWCASE_TABS = [
@@ -154,8 +154,8 @@ export const SHOWCASE_TABS = [
 export const PROOF_POINTS = [
   {
     stat: 'SEC',
-    label: 'filings & flow',
-    detail: '8-K, 10-Q, Form 4, PTR, 13F, press releases, and earnings transcripts.',
+    label: 'filings and flow',
+    detail: '8-K, 10-Q, Form 4, PTR, 13F, press releases, and earnings transcripts in one feed.',
   },
   {
     stat: '4',
@@ -165,12 +165,12 @@ export const PROOF_POINTS = [
   {
     stat: 'Outcomes',
     label: 'on every rail',
-    detail: 'Forward returns and win rates on similar setups - not another alert feed.',
+    detail: 'Forward returns and win rates on similar setups. Not another alert feed.',
   },
   {
     stat: 'US',
     label: 'equities focus',
-    detail: 'Listed stocks and ADRs - catalyst process from discover to investigate.',
+    detail: 'Listed stocks and ADRs. Catalyst process from discover to investigate.',
   },
 ]
 
@@ -188,19 +188,19 @@ export const PLAN_FEATURES = [
 export const INTRO_FAQ = [
   {
     q: 'Is this a Bloomberg replacement?',
-    a: 'No. Mercerline is narrow by design - catalyst equities, discover timeline, research papers, and flow investigation.',
+    a: 'No. Mercerline focuses on catalyst equities, a discover timeline, research papers, and flow investigation.',
   },
   {
     q: 'Discover vs Research?',
-    a: 'Discover scans your week - macro, watchlist, moves. Research is ticker-deep: feed, paper, and context panel.',
+    a: 'Discover scans your week: macro, watchlist, and moves. Research is ticker-deep with feed, paper, and context.',
   },
   {
     q: 'What sources are included?',
-    a: 'SEC filings, PTR, 13F, company press releases, and earnings transcripts - unified on one timeline.',
+    a: 'SEC filings, PTR, 13F, company press releases, and earnings transcripts on one timeline.',
   },
   {
     q: 'Can I cancel?',
-    a: `Yes - ${formatUsd(MONTHLY_PRICE_USD)}/mo or ${formatUsd(YEARLY_PRICE_USD)}/yr, self-serve billing via Stripe.`,
+    a: `Yes. ${formatUsd(MONTHLY_PRICE_USD)}/mo or ${formatUsd(YEARLY_PRICE_USD)}/yr with self-serve Stripe billing.`,
   },
   {
     q: 'Investment advice?',

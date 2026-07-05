@@ -5,13 +5,11 @@ import { useAuth } from './AuthContext.jsx'
 import { useAlertWatchlist } from './alertsWatchlist.js'
 import { useActorAlertWatchlist } from './alertsActorWatchlist.js'
 import { investigateActorCanonicalKey } from './investigateActorKey.js'
-import { IntroPage } from './IntroPage.jsx'
-import { SignInPage } from './SignInPage.jsx'
 import { SubscribePage } from './SubscribePage.jsx'
 import { SettingsPanel } from './SettingsPanel.jsx'
 import { useSubscription } from './useSubscription.js'
-import { parsePublicTickerPath, useMarketingPath } from './marketingRoute.js'
-import { PublicTickerPage } from './PublicTickerPage.jsx'
+import { AuthBootScreen } from './AuthBootScreen.jsx'
+import './App.css'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
 import { AnalysePanel } from './AnalysePanel.jsx'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
@@ -54,7 +52,6 @@ import {
   subscribeCongressLegislatorIndex,
   MOCK_INSIDER_PEOPLE,
 } from './personPortraits.js'
-import './App.css'
 
 const PHONE_VIEWPORT_MQ = '(max-width: 640px)'
 
@@ -11640,21 +11637,12 @@ function KensiglineTerminal() {
   )
 }
 
-function AuthBootScreen() {
-  return (
-    <div className="appShellScreen appShellBoot" aria-live="polite" aria-busy="true">
-      <span className="appShellBootName">MERCERLINE</span>
-    </div>
-  )
-}
-
 /** Subscription gate — set VITE_BILLING_GATE=0 in root `.env` to bypass locally. */
 const BILLING_GATE_ENABLED = import.meta.env.VITE_BILLING_GATE !== '0'
 
 function AppGate() {
   const { configured, loading, user } = useAuth()
   const signedIn = Boolean(configured && user)
-  const marketingPath = useMarketingPath()
   const { loading: subLoading, active, refresh } = useSubscription(
     signedIn && BILLING_GATE_ENABLED,
   )
@@ -11662,10 +11650,6 @@ function AppGate() {
     import.meta.env.DEV &&
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('preview') === 'subscribe'
-  const previewTerminal =
-    import.meta.env.DEV &&
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('preview') === 'terminal'
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -11695,15 +11679,8 @@ function AppGate() {
     }
   }, [signedIn, refresh])
 
-  if (configured && loading) return <AuthBootScreen />
-  if (previewTerminal) return <KensiglineTerminal />
+  if (!signedIn) return null
   if (previewSubscribe) return <SubscribePage />
-  if (configured && !user) {
-    const publicTicker = parsePublicTickerPath(marketingPath)
-    if (publicTicker) return <PublicTickerPage ticker={publicTicker} />
-    if (marketingPath === '/sign-in') return <SignInPage />
-    return <IntroPage />
-  }
 
   if (BILLING_GATE_ENABLED && signedIn) {
     if (subLoading) return <AuthBootScreen />

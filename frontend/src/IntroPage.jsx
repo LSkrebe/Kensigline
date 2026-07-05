@@ -111,9 +111,8 @@ export function IntroPage() {
           <div className="mktHeroCopy">
             <p className="introEyebrow mono">{HERO.eyebrow}</p>
             <h1 className="mktHeroTitle">
-              {HERO.headline}
-              <br />
-              <span className="introHeadlineAccent">{HERO.headlineAccent}</span>
+              Event-driven research terminal
+              <span className="introHeadlineAccent"> for the catalyst trade.</span>
             </h1>
             <p className="introLead mktHeroLead">{HERO.lead}</p>
             <div className="introHeroActions mktHeroActions">
@@ -161,16 +160,10 @@ export function IntroPage() {
                       {line}
                     </p>
                   ))}
+                  {tab.bullets?.length ? (
+                    <p className="mktWorkflowStepTextLine mktWorkflowStepBullets">{tab.bullets.join(' · ')}</p>
+                  ) : null}
                 </div>
-                {tab.bullets?.length ? (
-                  <ul className="mktWorkflowBullets">
-                    {tab.bullets.map((item) => (
-                      <li key={item} className="mktWorkflowBullet">
-                        {item}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
               </li>
             ))}
           </ol>
@@ -252,9 +245,9 @@ export function IntroPage() {
             <p className="introSectionKicker mono">FAQ</p>
             <h2 className="introSectionTitle">Common questions</h2>
           </div>
-          <div className="mktFaqList">
+          <div className="mktFaqList" role="list">
             {INTRO_FAQ.map((item) => (
-              <article key={item.q} className="mktFaqItem">
+              <article key={item.q} className="mktFaqItem" role="listitem">
                 <h3 className="mktFaqQ">{item.q}</h3>
                 <p className="mktFaqA">{item.a}</p>
               </article>

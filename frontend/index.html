@@ -14,6 +14,20 @@
     <meta name="theme-color" content="#030405" />
     <meta name="robots" content="index,follow" />
     <link rel="canonical" href="https://mercerline.com/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
+      />
+    </noscript>
     <link rel="preload" as="image" type="image/webp" href="/intro/hero-768.webp" media="(max-width: 900px)" fetchpriority="high" />
     <link rel="preload" as="image" type="image/webp" href="/intro/hero-1200.webp" media="(min-width: 901px)" fetchpriority="high" />
     <meta property="og:type" content="website" />
@@ -30,24 +44,81 @@
     <meta name="twitter:description" content="Event-driven research terminal for US equities. SEC filings, insider PTR, 13F flow, and macro calendar with historical outcomes on every rail." />
     <meta name="twitter:image" content="https://mercerline.com/og-image.png" />
     <title>Mercerline - Event-driven research terminal for US equities</title>
+    <style>
+      .introStatic {
+        margin: 0;
+        padding: 0 16px 48px;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 16px;
+        line-height: 1.55;
+        color: #e8ecf0;
+        background: #030405;
+      }
+      .introStatic a {
+        color: #c8d8f0;
+      }
+      .introStatic h1 {
+        margin: 1.5rem 0 0.75rem;
+        font-size: clamp(1.75rem, 5vw, 2.5rem);
+        line-height: 1.15;
+      }
+      .introStatic h2 {
+        margin: 1.5rem 0 0.5rem;
+        font-size: 1.25rem;
+      }
+      .introStatic p {
+        margin: 0 0 1rem;
+        max-width: 42rem;
+      }
+      .introStatic img {
+        display: block;
+        width: 100%;
+        max-width: 1180px;
+        height: auto;
+        margin: 1.5rem auto 0;
+      }
+      .introStatic .introStaticCta {
+        display: inline-block;
+        min-height: 44px;
+        padding: 12px 20px;
+        margin-top: 0.5rem;
+        text-decoration: none;
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        border-radius: 2px;
+      }
+    </style>
   </head>
   <body>
-    <noscript>
-      <main style="max-width: 720px; margin: 2rem auto; padding: 0 1rem; font-family: system-ui, sans-serif; color: #e8ecf0; background: #030405; line-height: 1.55; font-size: 16px;">
-        <h1>Mercerline - Event-driven research terminal for US equities</h1>
+    <div id="root">
+      <main class="introStatic">
+        <h1>Event-driven research terminal for US equities</h1>
         <p>
           Event-driven research terminal for catalyst traders. Scan the week, build the research paper, and drill
           insider and institutional flow with historical outcomes on every rail.
         </p>
-        <h2>How it works</h2>
         <p>
-          Discover macro catalysts, Research ticker papers, Analyse drivers, and Investigate insider PTR and 13F
-          flow. SEC filings, earnings transcripts, and macro calendar coverage on one grid.
+          <a class="introStaticCta" href="/sign-in">Start researching</a>
         </p>
-        <p>Enable JavaScript to sign in and open the terminal.</p>
+        <picture>
+          <source type="image/webp" srcset="/intro/hero-768.webp" media="(max-width: 900px)" />
+          <source type="image/webp" srcset="/intro/hero-1200.webp" media="(min-width: 901px)" />
+          <img
+            src="/intro/hero-1200.webp"
+            alt="Mercerline event-driven research terminal screenshot"
+            width="1200"
+            height="750"
+            fetchpriority="high"
+            decoding="async"
+          />
+        </picture>
+        <h2>How the event-driven research terminal works</h2>
+        <p>
+          Discover macro catalysts. Research ticker papers. Analyse drivers. Investigate insider PTR and 13F flow.
+          SEC filings, earnings transcripts, and macro calendar coverage on one grid.
+        </p>
+        <p>Enable JavaScript for the full interactive terminal experience.</p>
       </main>
-    </noscript>
-    <div id="root"></div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

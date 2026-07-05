@@ -1,7 +1,7 @@
 import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.jsx'
+import AppRouter from './AppRouter.jsx'
 import { AuthProvider } from './AuthContext.jsx'
 import { captureReferralFromUrl } from './referral.js'
 
@@ -52,7 +52,7 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
       <AuthProvider>
-        <App />
+        <AppRouter />
       </AuthProvider>
     </ErrorBoundary>
   </StrictMode>,
