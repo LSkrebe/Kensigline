@@ -83,7 +83,7 @@ export const WORKFLOW = {
   kicker: 'How it works',
   title: 'From macro week to filing cluster',
   lead:
-    'Four rails - Discover, Research, Analyse, and Investigate - built for US equities catalyst work. SEC disclosures, PTR, 13F, and earnings transcripts on one keyboard-first grid.',
+    'Discover, Research, Analyse, and Investigate on one grid - SEC filings, PTR, 13F, and earnings transcripts for US equities.',
 }
 
 export const SHOWCASE_TABS = [

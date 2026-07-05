@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Mercerline">
+  <defs>
+    <clipPath id="mercerline-favicon-circle">
+      <circle cx="256" cy="256" r="256" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#mercerline-favicon-circle)">
+    <rect width="512" height="512" fill="#030405" />
+    <image href="/mercerline_logo.png" x="72" y="72" width="368" height="368" preserveAspectRatio="xMidYMid meet" />
+  </g>
+</svg>
