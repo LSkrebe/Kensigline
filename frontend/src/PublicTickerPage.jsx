@@ -1,26 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { HERO, INTRO_FOOTER, publicTickerPageMeta } from './marketingContent.js'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
-import { EventBriefDocCard, formatEventCardDate } from './EventBrief.jsx'
-import { MiniPriceChart } from './MiniPriceChart.jsx'
-import {
-  publicTickerPreviewMock,
-  publicTickerSparklinePoints,
-} from './publicTickerPreviewMock.js'
-import './App.css'
+import { fetchPublicTickerTeaser } from './publicTickerApi.js'
+import { publicTickerPreviewMock, publicTickerSparklinePoints } from './publicTickerPreviewMock.js'
 import './IntroPage.css'
 import './IntroPage.marketing.css'
 import './PublicTickerPage.css'
 
-function outcomeValueTone(value) {
-  const v = String(value ?? '')
-  if (/^\+|positive/i.test(v)) return 'contextSignalV--pos'
-  if (/^−|^-|negative/i.test(v)) return 'contextSignalV--neg'
-  return ''
-}
+const PublicTickerContent = lazy(() =>
+  import('./PublicTickerContent.jsx').then((m) => ({ default: m.PublicTickerContent })),
+)
 
 function useBackendHealth() {
   const [backendUp, setBackendUp] = useState(false)
@@ -56,10 +48,11 @@ function useBackendHealth() {
 }
 
 export function PublicTickerPage({ ticker }) {
-  const payload = publicTickerPreviewMock(ticker)
-  const spark = useMemo(() => publicTickerSparklinePoints(ticker), [ticker])
-  const backendUp = useBackendHealth()
+  const [payload, setPayload] = useState(null)
+  const [spark, setSpark] = useState([])
+  const [loading, setLoading] = useState(true)
   const [priceRange, setPriceRange] = useState('6M')
+  const backendUp = useBackendHealth()
 
   const goHome = useCallback((e) => {
     e?.preventDefault()
@@ -72,21 +65,49 @@ export function PublicTickerPage({ ticker }) {
   }, [])
 
   useEffect(() => {
-    if (!payload) {
-      navigateMarketing('/')
-      return
+    let alive = true
+    const t = String(ticker ?? '').trim().toUpperCase()
+
+    async function load() {
+      setLoading(true)
+      const live = await fetchPublicTickerTeaser(t)
+      if (!alive) return
+
+      if (live?.notFound) {
+        navigateMarketing('/')
+        return
+      }
+
+      if (live?.preview) {
+        setPayload(live.preview)
+        setSpark(live.sparkline.length ? live.sparkline : publicTickerSparklinePoints(t))
+        setLoading(false)
+        return
+      }
+
+      const mock = publicTickerPreviewMock(t)
+      if (!mock) {
+        navigateMarketing('/')
+        return
+      }
+      setPayload(mock)
+      setSpark(publicTickerSparklinePoints(t))
+      setLoading(false)
     }
+
+    void load()
+    return () => {
+      alive = false
+    }
+  }, [ticker])
+
+  useEffect(() => {
+    if (!payload) return
     applyPageMeta(publicTickerPageMeta(payload))
     markAppReady()
   }, [payload])
 
-  if (!payload) return null
-
-  const up = payload.change >= 0
-  const macroImpact =
-    payload.macro?.impact === 'medium' || payload.macro?.impact === 'low'
-      ? payload.macro.impact
-      : 'high'
+  if (loading || !payload) return null
 
   return (
     <div className="introPage pubTickerPage introPage--marketingChrome">
@@ -115,143 +136,14 @@ export function PublicTickerPage({ ticker }) {
       </header>
 
       <main className="introMain pubTickerMain">
-        <section className="pubTickerHero" aria-label={payload.company}>
-          <p className="introEyebrow mono mktEnterSeq mktEnterSeq--1">
-            {payload.ticker} · {payload.sector}
-          </p>
-          <div className="pubTickerHeroRow mktEnterSeq mktEnterSeq--2">
-            <div className="pubTickerHeroCopy">
-              <h1 className="pubTickerHeroTitle">{payload.company}</h1>
-              <p className="pubTickerHeroMeta mono dim">
-                {payload.sector} · {payload.country} · {payload.mcap}
-              </p>
-            </div>
-            <div className="pubTickerHeroQuote" aria-label="Quote snapshot">
-              <div className="pubTickerHeroPrice mono">${payload.price.toFixed(2)}</div>
-              <div className={['pubTickerHeroChange', 'mono', up ? 'isUp' : 'isDown'].filter(Boolean).join(' ')}>
-                {up ? '+' : ''}
-                {payload.change.toFixed(2)} ({up ? '+' : ''}
-                {payload.changePct.toFixed(2)}%)
-              </div>
-              <div className="pubTickerHeroAsOf mono dim">As of {payload.asOfLabel}</div>
-            </div>
-          </div>
-        </section>
-
-        <div className="pubTickerShell mktEnterSeq mktEnterSeq--3" aria-label="Research workspace">
-          <div className="pubTickerShellGrid">
-            <div className="pubTickerStream scrollThin">
-              <header className="pubTickerColHead">
-                <p className="introSectionKicker mono">Paper timeline</p>
-                <h2 className="pubTickerColTitle">Recent events</h2>
-              </header>
-
-              <div className="pubTickerEvents" aria-label="Filings and catalysts">
-                {payload.events.map((event, idx) => (
-                  <div key={event.id} className="pubTickerEventSlot">
-                    {idx > 0 ? <div className="researchPaperDocConnector pubTickerEventConnector" aria-hidden="true" /> : null}
-                    <EventBriefDocCard
-                      captureId={event.id}
-                      ticker={payload.ticker}
-                      source={event.source}
-                      dateTime={event.atIso}
-                      dateLabel={formatEventCardDate(event.atIso)}
-                      analysis={event.summary}
-                      className={event.ideaBest ? 'ideaHighlight--A' : ''}
-                    />
-                  </div>
-                ))}
-
-                <div className="pubTickerEventSlot pubTickerEventSlot--lock">
-                  <div className="researchPaperDocConnector pubTickerEventConnector" aria-hidden="true" />
-                  <div className="pubTickerLock" aria-label="Additional events locked">
-                    <p className="pubTickerLockCount mono">
-                      +{payload.lockedCount}{' '}
-                      <span className="pubTickerLockCountLabel">events</span>
-                    </p>
-                    <p className="pubTickerLockLine mono dim">More events in live terminal</p>
-                    <p className="researchPaperDocCardAnalysis pubTickerLockDetail">
-                      Analyse, Investigate, entity map, and export unlock with subscription.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <aside className="pubTickerIntel pubTickerAppContext scrollThin" aria-label="Market context">
-              <section className="pubTickerGlass pubTickerChartBlock contextCompanyCard">
-                <div className="pubTickerChart contextCompanyChart" aria-label="Price chart">
-                  <MiniPriceChart
-                    series={spark}
-                    label={payload.ticker}
-                    showMeta={false}
-                    showRangeSelector
-                    rangeHeaderLabel={payload.ticker}
-                    chartRange={priceRange}
-                    onChartRangeChange={setPriceRange}
-                    chartAlign="context"
-                    trimLeadingPlateau
-                  />
-                </div>
-                {payload.earnings ? (
-                  <div
-                    className={[
-                      'pubTickerEarnings',
-                      'contextCompanyEarnings',
-                      payload.earnings.soon ? 'contextCompanyEarnings--soon' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                  >
-                    <span className="contextCompanyEarningsK">EARNINGS</span>
-                    <span className="contextCompanyEarningsV">{payload.earnings.label}</span>
-                  </div>
-                ) : null}
-              </section>
-
-              {payload.macro ? (
-                <div className="contextSection pubTickerMacroSection" aria-label="Macro">
-                  <div className="contextSectionHeader">
-                    <div className="contextSectionTitle">MACRO</div>
-                  </div>
-                  <article className={['discoverMacroEvent', `discoverMacroEvent--${macroImpact}`].join(' ')}>
-                    <div className="discoverMacroEventLayout">
-                      <p className="discoverMacroEventTitle">{payload.macro.title}</p>
-                      <div className="discoverMacroEventAside">
-                        <span className="discoverMacroEventTime mono">{payload.macro.time}</span>
-                        <span className="discoverMacroEventRegion mono dim">{payload.macro.region}</span>
-                      </div>
-                    </div>
-                  </article>
-                </div>
-              ) : null}
-
-              <div className="contextSection pubTickerOutcomesSection" aria-label="Historical outcomes">
-                <div className="contextSectionHeader">
-                  <div className="contextSectionTitle">OUTCOMES</div>
-                </div>
-                <div className="contextSignalCard">
-                  {payload.stats.map((s, idx) => (
-                    <div
-                      key={s.label}
-                      className={[
-                        'contextSignalRow',
-                        idx === 0 ? 'contextSignalRow--accent' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                    >
-                      <span className="contextSignalK mono dim">{s.label}</span>
-                      <span className={['contextSignalV', 'mono', outcomeValueTone(s.value)].filter(Boolean).join(' ')}>
-                        {s.value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </aside>
-          </div>
-        </div>
+        <Suspense fallback={null}>
+          <PublicTickerContent
+            payload={payload}
+            spark={spark}
+            priceRange={priceRange}
+            onChartRangeChange={setPriceRange}
+          />
+        </Suspense>
 
         <section className="introSection mktFinalCta" aria-label="Subscribe">
           <div className="mktFinalCtaInner">

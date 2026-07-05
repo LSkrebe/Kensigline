@@ -1,6 +1,6 @@
 /**
  * Standalone public ticker preview mock (offline / SEO prototype).
- * Live: replace with delayed `/api/public/teaser/:ticker`.
+ * Offline fallback when `/api/public/teaser/:ticker` is unreachable (sample tickers only).
  */
 
 import { SHOWCASE_SPOT_PRICES, mockShowcasePriceSeries } from './mockShowcasePrices.js'

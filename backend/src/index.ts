@@ -44,6 +44,7 @@ import {
   handleReferralVisit,
 } from "./referral/api.js";
 import { syncReferralSourcesFromEnv } from "./referral/store.js";
+import { handlePublicTeaser } from "./public/teaser.js";
 
 const port = Number(process.env.PORT ?? "3001");
 void syncReferralSourcesFromEnv().catch((err) => {
@@ -126,6 +127,12 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       await handleBillingRefresh(req, res);
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname.startsWith("/api/public/teaser/")) {
+      const ticker = decodeURIComponent(url.pathname.slice("/api/public/teaser/".length));
+      await handlePublicTeaser(res, ticker);
       return;
     }
 

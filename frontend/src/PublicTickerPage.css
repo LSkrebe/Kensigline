@@ -3,6 +3,11 @@
 .pubTickerPage {
   --pub-ticker-shell-max: min(1180px, 100vw - 2 * var(--intro-gutter));
   --paper-doc-radius: 0;
+  --paper-txn-surface: rgba(8, 10, 13, 0.55);
+  --paper-txn-wash: transparent;
+  --research-paper-txn-portrait-w: 44px;
+  --paper-card-gap: 14px;
+  --terminal-panel-bg-image-alt: url('/mercerline_background_2.png');
   overflow-x: hidden;
   overflow-y: auto;
   scroll-behavior: smooth;
@@ -12,6 +17,19 @@
   width: 6px;
   height: 6px;
   margin-left: 2px;
+  display: inline-block;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pubTickerPage .introBrand .terminalTopBarHealth.isUp {
+  background: rgba(120, 220, 160, 0.95);
+  box-shadow: 0 0 6px rgba(120, 220, 160, 0.45);
+}
+
+.pubTickerPage .introBrand .terminalTopBarHealth.isDown {
+  background: rgba(255, 120, 160, 0.92);
+  box-shadow: 0 0 6px rgba(255, 120, 160, 0.35);
 }
 
 .pubTickerMain.introMain {
@@ -34,6 +52,18 @@
 /* Hero */
 .pubTickerHero {
   padding: clamp(8px, 2vh, 20px) 0 clamp(28px, 4vh, 40px);
+}
+
+.pubTickerDelayBadge {
+  display: inline-block;
+  margin: 0 0 10px;
+  padding: 4px 8px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(168, 196, 255, 0.88);
+  border: 1px solid rgba(168, 196, 255, 0.22);
+  background: rgba(168, 196, 255, 0.06);
 }
 
 .pubTickerHeroRow {
@@ -228,6 +258,208 @@
 
 .pubTickerMacroSection .discoverMacroEvent {
   margin: 0;
+}
+
+.discoverMacroEvent {
+  padding: 5px 8px;
+  border-radius: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.discoverMacroEvent--high {
+  background: rgba(255, 88, 108, 0.09);
+}
+
+.discoverMacroEvent--medium {
+  background: rgba(120, 196, 255, 0.075);
+}
+
+.discoverMacroEvent--low {
+  background: rgba(255, 255, 255, 0.038);
+}
+
+.discoverMacroEventLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 10px;
+  align-items: start;
+}
+
+.discoverMacroEventAside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.discoverMacroEventTime {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.86);
+  white-space: nowrap;
+}
+
+.discoverMacroEventRegion {
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.discoverMacroEventTitle {
+  margin: 0;
+  font-size: clamp(8px, 1.1vmin, 10px);
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.86);
+  overflow-wrap: anywhere;
+}
+
+.researchPaperDocConnector {
+  align-self: flex-start;
+  margin-left: var(--paper-doc-radius);
+  width: 1px;
+  height: var(--paper-card-gap);
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.researchPaperRailCard {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: var(--research-paper-txn-portrait-w, 44px) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--paper-doc-radius);
+  background: var(--paper-txn-surface);
+  box-sizing: border-box;
+}
+
+.researchPaperRailCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: var(--paper-txn-wash);
+}
+
+.researchPaperRailCard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.researchPaperRailCardRail {
+  position: relative;
+  align-self: stretch;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--paper-doc-radius) 0 0 var(--paper-doc-radius);
+  background: rgba(0, 0, 0, 0.2);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.researchPaperRailCardMain {
+  position: relative;
+  min-width: 0;
+  padding: 5px 10px 5px 8px;
+  box-sizing: border-box;
+}
+
+.researchPaperDocCard .researchPaperRailCardMain {
+  padding: 5px 10px 18px 8px;
+}
+
+.researchPaperRailCardGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 10px;
+  row-gap: 4px;
+  align-items: start;
+  width: 100%;
+}
+
+.researchPaperRailCardCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.researchPaperRailCardCol--end {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.researchPaperRailCardCol .researchPaperDocCardSource,
+.researchPaperRailCardCol .researchPaperDocCardDate {
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  line-height: 1.15;
+  min-height: 10px;
+}
+
+.researchPaperDocCardSource {
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.researchPaperDocCardDate {
+  color: rgba(255, 255, 255, 0.38);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.researchPaperDocCardAnalysis {
+  margin: 4px 0 5px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.88);
+  letter-spacing: 0.01em;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.researchPaperDocCardAnalysis:last-child {
+  margin-bottom: 0;
+}
+
+.eventBriefDocCard--clickable {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  color: inherit;
+  font: inherit;
+}
+
+.eventBriefDocCard--clickable:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.pubTickerEvents .researchPaperDocCard.ideaHighlight--A {
+  border-color: rgba(120, 255, 170, 0.22);
+  background: rgba(120, 255, 170, 0.05);
+}
+
+.pubTickerEvents .researchPaperDocCard.ideaHighlight--A.eventBriefDocCard--clickable:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(120, 255, 170, 0.065);
 }
 
 /* Timeline - app cards, zero radius like terminal */
