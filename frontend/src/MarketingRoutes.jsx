@@ -3,9 +3,13 @@ import { IntroPage } from './IntroPage.jsx'
 import { AuthBootScreen } from './AuthBootScreen.jsx'
 import { parsePublicTickerPath, useMarketingPath } from './marketingRoute.js'
 
-const PublicTickerPage = lazy(() => import('./PublicTickerPage.jsx'))
-const SignInPage = lazy(() => import('./SignInPage.jsx'))
-const SubscribePage = lazy(() => import('./SubscribePage.jsx'))
+const PublicTickerPage = lazy(() =>
+  import('./PublicTickerPage.jsx').then((m) => ({ default: m.PublicTickerPage })),
+)
+const SignInPage = lazy(() => import('./SignInPage.jsx').then((m) => ({ default: m.SignInPage })))
+const SubscribePage = lazy(() =>
+  import('./SubscribePage.jsx').then((m) => ({ default: m.SubscribePage })),
+)
 
 /** Logged-out marketing pages - terminal bundle loads only after sign-in. */
 export default function MarketingRoutes() {
