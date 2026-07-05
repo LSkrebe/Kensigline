@@ -12,7 +12,7 @@ export const PRODUCT_NAME = 'Mercerline'
 export const INTRO_PAGE_META = {
   title: 'Mercerline - Event-driven research terminal for US equities',
   description:
-    'Mercerline is a catalyst research terminal for US-listed equities: SEC filings (8-K, 10-Q, Form 4), politician PTR, institutional 13F, earnings transcripts, and macro calendar coverage for US, EU, UK, and China - with historical outcomes on every rail.',
+    'Event-driven research terminal for US equities. SEC filings, insider PTR, 13F flow, and macro calendar with historical outcomes on every rail.',
   path: '/',
   ogImage: '/og-image.png',
 }
@@ -64,11 +64,11 @@ export const INTRO_FOOTER = {
 }
 
 export const HERO = {
-  eyebrow: 'Event-driven research terminal',
-  headline: 'The catalyst trade,',
-  headlineAccent: 'one terminal.',
+  eyebrow: 'US equities · catalyst research',
+  headline: 'Event-driven research',
+  headlineAccent: 'terminal for the catalyst trade.',
   lead:
-    'Scan the week, build the research paper, drill insider and institutional flow - with historical outcomes on every rail.',
+    'Scan the week and build the research paper. Drill insider and institutional flow with historical outcomes on every rail.',
   ctaPrimary: `Start researching - ${formatUsd(MONTHLY_PRICE_USD)}/mo`,
   ctaSecondary: 'See how it works',
   reassurance: 'Cancel anytime · Full terminal · SEC, PTR, and 13F',
@@ -76,14 +76,20 @@ export const HERO = {
 }
 
 export const INTRO_SCREENSHOTS = {
-  hero: '/intro/hero.png',
+  hero: '/intro/hero-1200.webp',
+  heroSrcSet: {
+    avif: '/intro/hero-768.avif 768w, /intro/hero-1200.avif 1200w',
+    webp: '/intro/hero-768.webp 768w, /intro/hero-1200.webp 1200w',
+    fallback: '/intro/hero.png',
+  },
+  heroSizes: '(max-width: 900px) 100vw, 1180px',
 }
 
 export const WORKFLOW = {
   kicker: 'How it works',
-  title: 'From macro week to filing cluster',
+  title: 'Event-driven research from macro week to filing cluster',
   lead:
-    'Discover, Research, Analyse, and Investigate on one grid - SEC filings, PTR, 13F, and earnings transcripts for US equities.',
+    'Discover, Research, Analyse, and Investigate on one grid. SEC filings, PTR, 13F, and earnings transcripts for US equities.',
 }
 
 export const SHOWCASE_TABS = [

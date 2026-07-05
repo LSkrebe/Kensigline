@@ -4,17 +4,26 @@ import { INTRO_SCREENSHOTS } from './marketingContent.js'
 export function IntroTerminalPreview({ staticResearch = false }) {
   if (!staticResearch) return null
 
+  const { heroSrcSet, heroSizes } = INTRO_SCREENSHOTS
+
   return (
     <figure className="mktHeroShot">
-      <img
-        className="mktHeroShotImg"
-        src={INTRO_SCREENSHOTS.hero}
-        alt="Mercerline terminal - research feed, paper timeline, and context panel for ASML"
-        width={1440}
-        height={900}
-        loading="eager"
-        decoding="async"
-      />
+      <picture>
+        <source type="image/avif" srcSet={heroSrcSet.avif} sizes={heroSizes} />
+        <source type="image/webp" srcSet={heroSrcSet.webp} sizes={heroSizes} />
+        <img
+          className="mktHeroShotImg"
+          src={INTRO_SCREENSHOTS.hero}
+          srcSet={heroSrcSet.webp}
+          sizes={heroSizes}
+          alt="Mercerline event-driven research terminal - research feed, paper timeline, and context panel"
+          width={1200}
+          height={750}
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
+        />
+      </picture>
     </figure>
   )
 }

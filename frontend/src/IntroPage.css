@@ -164,9 +164,10 @@
   }
 
   .introNavAction {
-    height: 30px;
-    padding: 0 10px;
-    font-size: 9px;
+    min-height: 44px;
+    height: auto;
+    padding: 10px 14px;
+    font-size: 12px;
   }
 
   .introPage--marketingChrome {

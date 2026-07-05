@@ -49,7 +49,7 @@
 
 .mktHeroReassurance {
   margin: 16px 0 0;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.04em;
   line-height: 1.5;
 }
@@ -63,8 +63,9 @@
 .mktHeroDemoHint {
   margin: 10px 0 0;
   text-align: center;
-  font-size: 9px;
-  letter-spacing: 0.08em;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  line-height: 1.45;
 }
 
 /* Real terminal screenshots (replaces CSS teaser placeholders) */
@@ -1461,8 +1462,8 @@
   }
 
   .introBrandName {
-    font-size: 9px;
-    letter-spacing: 0.16em;
+    font-size: 12px;
+    letter-spacing: 0.14em;
   }
 
   .introPage .introMain {
