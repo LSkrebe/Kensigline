@@ -3,8 +3,8 @@
   color-scheme: dark;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     'Liberation Mono', 'Courier New', monospace;
-  font-size: clamp(12px, 1.15vw, 13px);
-  line-height: 1.35;
+  font-size: clamp(11px, 1.15vw, 13px);
+  line-height: 1.2;
   text-rendering: geometricPrecision;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

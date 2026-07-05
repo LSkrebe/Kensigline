@@ -15,7 +15,7 @@ export function SignInPage() {
 
   return (
     <div className="introPage signInPage introPage--marketingChrome">
-      <header className="introNav signInNav mktEnterNav">
+      <header className="introNav signInNav">
         <div className="introNavInner">
           <a
             className="introBrand"
@@ -45,14 +45,12 @@ export function SignInPage() {
       <main className="signInLayout">
         <section className="signInPanel" aria-labelledby="sign-in-title">
           <div className="signInPanelBody">
-            <p className="introEyebrow mono mktEnterSeq mktEnterSeq--1">{SIGN_IN.eyebrow}</p>
-            <h1 id="sign-in-title" className="signInTitle mktEnterSeq mktEnterSeq--2">
+            <p className="introEyebrow mono">{SIGN_IN.eyebrow}</p>
+            <h1 id="sign-in-title" className="signInTitle">
               {SIGN_IN.headline}
             </h1>
-            <p className="signInLead mono dim mktEnterSeq mktEnterSeq--3">{SIGN_IN.lead}</p>
-            <div className="mktEnterSeq mktEnterSeq--4">
-              <AuthSignIn variant="intro" />
-            </div>
+            <p className="signInLead mono dim">{SIGN_IN.lead}</p>
+            <AuthSignIn variant="intro" />
           </div>
           <footer className="signInFoot signInFoot--desktop" role="contentinfo">
             <span className="introFootNfa mono dim">{INTRO_FOOTER.nfa}</span>
