@@ -33,7 +33,7 @@
 
 .mktSubscribeHero {
   max-width: 640px;
-  margin: 0 auto clamp(36px, 6vh, 56px);
+  margin: 0 auto clamp(28px, 4vh, 40px);
   padding: clamp(24px, 5vh, 48px) clamp(12px, 3vw, 0) 0;
   text-align: center;
 }

@@ -141,11 +141,6 @@ export function SubscribePage() {
           className="introSection mktPricing subscribePricing"
           eager
         >
-          <div className="mktSectionHead">
-            <p className="introSectionKicker mono">{PRICING.kicker}</p>
-            <h2 className="introSectionTitle">{PRICING.title}</h2>
-            <p className="introSectionLead mktPricingSub">{PRICING.sub}</p>
-          </div>
           <div className="mktPricingLayout">
             <div className="mktPricingHead">
               <ul className="mktPricingFeatures">
