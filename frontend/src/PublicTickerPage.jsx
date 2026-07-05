@@ -116,10 +116,10 @@ export function PublicTickerPage({ ticker }) {
 
       <main className="introMain pubTickerMain">
         <section className="pubTickerHero" aria-label={payload.company}>
-          <p className="introEyebrow mono">
+          <p className="introEyebrow mono mktEnterSeq mktEnterSeq--1">
             {payload.ticker} · {payload.sector}
           </p>
-          <div className="pubTickerHeroRow">
+          <div className="pubTickerHeroRow mktEnterSeq mktEnterSeq--2">
             <div className="pubTickerHeroCopy">
               <h1 className="pubTickerHeroTitle">{payload.company}</h1>
               <p className="pubTickerHeroMeta mono dim">
@@ -138,7 +138,7 @@ export function PublicTickerPage({ ticker }) {
           </div>
         </section>
 
-        <div className="pubTickerShell" aria-label="Research workspace">
+        <div className="pubTickerShell mktEnterSeq mktEnterSeq--3" aria-label="Research workspace">
           <div className="pubTickerShellGrid">
             <div className="pubTickerStream scrollThin">
               <header className="pubTickerColHead">
