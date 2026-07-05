@@ -10,9 +10,9 @@ import {
 export const PRODUCT_NAME = 'Mercerline'
 
 export const INTRO_PAGE_META = {
-  title: 'Mercerline - Event-driven research terminal for catalyst traders',
+  title: 'Mercerline - Event-driven research terminal for US equities',
   description:
-    'Scan macro catalysts, build ticker research papers, and drill insider, politician, and institutional flow - with historical outcomes on every rail. SEC filings, PTR, and 13F in one grid.',
+    'Mercerline is a catalyst research terminal for US-listed equities: SEC filings (8-K, 10-Q, Form 4), politician PTR, institutional 13F, earnings transcripts, and macro calendar coverage for US, EU, UK, and China — with historical outcomes on every rail.',
   path: '/',
   ogImage: '/mercerline_background_1.png',
 }
@@ -77,10 +77,13 @@ export const HERO = {
 
 export const INTRO_SCREENSHOTS = {
   hero: '/intro/hero.png',
-  research: '/intro/research.png',
-  analyse: '/intro/analyse.png',
-  discover: '/intro/discover.png',
-  investigateInsider: '/intro/investigate-insider.png',
+}
+
+export const WORKFLOW = {
+  kicker: 'How it works',
+  title: 'From macro week to filing cluster',
+  lead:
+    'Four rails — Discover, Research, Analyse, and Investigate — built for US equities catalyst work. SEC disclosures, PTR, 13F, and earnings transcripts on one keyboard-first grid.',
 }
 
 export const SHOWCASE_TABS = [
@@ -88,25 +91,29 @@ export const SHOWCASE_TABS = [
     id: 'discover',
     step: '01',
     label: 'Discover',
-    title: 'Scan before the print',
+    title: 'Scan the macro week',
     bodyLines: [
-      'Macro calendar across US, EU, CN, and UK.',
-      'Watchlist catalysts beside market moves with post-event reaction charts.',
+      'Weekly catalyst calendar and watchlist moves before the open.',
     ],
-    image: INTRO_SCREENSHOTS.discover,
-    imageAlt: 'Discover tab preview',
+    bullets: [
+      'US, EU, UK, and China macro releases with impact tags',
+      'FOMC, CPI, payrolls, ECB, and PMI on one timeline',
+      'Watchlist catalysts beside sector and index moves',
+    ],
   },
   {
     id: 'research',
     step: '02',
     label: 'Research',
-    title: 'Build the paper',
+    title: 'Build the ticker paper',
     bodyLines: [
-      '12+ feed types on one timeline — filings, press releases, transcripts, Form 4, PTR, and 13F.',
-      'Export a screenshot-ready research paper with context panel.',
+      'Ticker-deep feed, context panel, and exportable research paper.',
     ],
-    image: INTRO_SCREENSHOTS.research,
-    imageAlt: 'Research tab preview',
+    bullets: [
+      '8-K, 10-Q, press releases, and earnings call transcripts',
+      'Form 4 insider flow, politician PTR, and 13F filings',
+      'Price chart, fundamentals, ownership, and macro context',
+    ],
   },
   {
     id: 'analyse',
@@ -114,11 +121,13 @@ export const SHOWCASE_TABS = [
     label: 'Analyse',
     title: 'Model the drivers',
     bodyLines: [
-      'Quarterly financial grid with editable forecast columns and business-driver roll-ups.',
-      'Live valuation bridge tied to the price chart.',
+      'Quarterly financials and business-driver roll-ups for US issuers.',
     ],
-    image: INTRO_SCREENSHOTS.analyse,
-    imageAlt: 'Analyse tab preview',
+    bullets: [
+      'Revenue and margin grid with editable forecast columns',
+      'Driver bridge tied to the live price chart',
+      'Sector, domicile, and market-cap context on every name',
+    ],
   },
   {
     id: 'investigate',
@@ -126,38 +135,41 @@ export const SHOWCASE_TABS = [
     label: 'Investigate',
     title: 'Drill the flow',
     bodyLines: [
-      'Insider, politician PTR, and institutional 13F modes.',
-      'Case worksheet, chart trade marks, and historical win rates before you size.',
+      'Insider, politician, and institutional modes with case worksheets.',
     ],
-    image: INTRO_SCREENSHOTS.investigateInsider,
-    imageAlt: 'Investigate tab preview',
+    bullets: [
+      'Form 4 clusters and officer purchase windows',
+      'House and Senate PTR disclosures (STOCK Act)',
+      '13F allocator changes with historical win rates',
+    ],
   },
 ]
 
 export const PROOF_POINTS = [
   {
-    stat: '12+',
-    label: 'document feeds',
-    detail: 'SEC, PR, transcripts, flow - one timeline card pattern.',
+    stat: 'SEC',
+    label: 'filings & flow',
+    detail: '8-K, 10-Q, Form 4, PTR, 13F, press releases, and earnings transcripts.',
   },
   {
-    stat: '3',
-    label: 'investigate modes',
-    detail: 'Insider Form 4, politician PTR, institutional 13F.',
+    stat: '4',
+    label: 'macro regions',
+    detail: 'US, EU, UK, and China catalyst calendar with impact tags.',
   },
   {
     stat: 'Outcomes',
     label: 'on every rail',
-    detail: 'Win rates and forward returns - not another alert stream.',
+    detail: 'Forward returns and win rates on similar setups — not another alert feed.',
   },
   {
-    stat: '1 grid',
-    label: 'keyboard-first',
-    detail: 'Tab between Discover, Research, Investigate all day.',
+    stat: 'US',
+    label: 'equities focus',
+    detail: 'Listed stocks and ADRs — catalyst process from discover to investigate.',
   },
 ]
 
-export const DATA_SOURCES = 'SEC · PTR · 13F'
+export const DATA_SOURCES =
+  'SEC EDGAR · Form 4 · PTR · 13F · Earnings transcripts · Macro US · EU · UK · CN'
 
 export const PLAN_FEATURES = [
   'Discover - macro calendar, watchlist catalysts, market moves',

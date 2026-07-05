@@ -86,24 +86,6 @@
   vertical-align: top;
 }
 
-.mktWorkflowShot {
-  margin: clamp(22px, 3vw, 32px) 0 0;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
-  background: #050607;
-  max-width: 100%;
-  aspect-ratio: 8 / 5;
-}
-
-.mktWorkflowShotImg {
-  display: block;
-  width: 100%;
-  height: auto;
-  vertical-align: top;
-}
-
 .introBtn--lg {
   height: 44px;
   padding: 0 24px;
@@ -987,8 +969,8 @@
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: clamp(14px, 2vw, 18px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(12px, 2vw, 16px);
   max-width: min(1180px, 100%);
   margin-inline: auto;
   align-items: stretch;
@@ -998,8 +980,9 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding: clamp(18px, 2.5vw, 24px);
+  padding: clamp(18px, 2.5vw, 22px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
   background: rgba(8, 10, 14, 0.42);
   backdrop-filter: blur(10px) saturate(115%);
   -webkit-backdrop-filter: blur(10px) saturate(115%);
@@ -1038,8 +1021,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin: 0 0 clamp(4px, 1vw, 8px);
-  max-width: 58ch;
+  margin: 0 0 12px;
+  max-width: none;
 }
 
 .mktWorkflowStepTextLine {
@@ -1048,6 +1031,45 @@
   line-height: 1.55;
   color: rgba(210, 218, 228, 0.72);
   font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.mktWorkflowBullets {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 auto;
+}
+
+.mktWorkflowBullet {
+  position: relative;
+  margin: 0;
+  padding-left: 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(200, 208, 218, 0.78);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.mktWorkflowBullet::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 5px;
+  height: 1px;
+  background: rgba(168, 196, 255, 0.55);
+}
+
+.mktWorkflowSources {
+  margin: clamp(20px, 3vh, 28px) auto 0;
+  max-width: min(1180px, 100%);
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .mktProofGrid {
@@ -1616,7 +1638,11 @@
   .mktWorkflowStep {
     padding: 16px;
     min-height: auto;
-    border-radius: 3px;
+    border-radius: 0;
+  }
+
+  .mktWorkflowSources {
+    text-align: left;
   }
 
   .mktProofGrid {

@@ -12,6 +12,7 @@ import {
   PRICING,
   PROOF_POINTS,
   SHOWCASE_TABS,
+  WORKFLOW,
 } from './marketingContent.js'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
@@ -140,13 +141,11 @@ export function IntroPage() {
           aria-labelledby="mkt-workflow-title"
         >
           <div className="mktWorkflowHead">
-            <p className="introSectionKicker mono">How it works</p>
+            <p className="introSectionKicker mono">{WORKFLOW.kicker}</p>
             <h2 id="mkt-workflow-title" className="introSectionTitle">
-              Scan. Build. Drill.
+              {WORKFLOW.title}
             </h2>
-            <p className="introSectionLead mktWorkflowLead">
-              Four views, one workflow — from macro week to Form 4 cluster, without leaving the grid.
-            </p>
+            <p className="introSectionLead mktWorkflowLead">{WORKFLOW.lead}</p>
           </div>
           <ol className="mktWorkflowSteps">
             {SHOWCASE_TABS.map((tab) => (
@@ -163,20 +162,19 @@ export function IntroPage() {
                     </p>
                   ))}
                 </div>
-                {tab.image ? (
-                  <figure className="mktWorkflowShot">
-                    <img
-                      className="mktWorkflowShotImg"
-                      src={tab.image}
-                      alt={tab.imageAlt ?? `${tab.label} tab screenshot`}
-                      loading="eager"
-                      decoding="async"
-                    />
-                  </figure>
+                {tab.bullets?.length ? (
+                  <ul className="mktWorkflowBullets">
+                    {tab.bullets.map((item) => (
+                      <li key={item} className="mktWorkflowBullet">
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
                 ) : null}
               </li>
             ))}
           </ol>
+          <p className="mktWorkflowSources mono dim">{DATA_SOURCES}</p>
         </IntroReveal>
 
         <IntroReveal as="section" className="introSection mktProof" revealKey="intro-proof" aria-labelledby="mkt-proof-title" delay={30}>
