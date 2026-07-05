@@ -1,5 +1,5 @@
 const DEFAULT_SITE_URL = 'https://mercerline.com'
-const DEFAULT_OG_IMAGE = '/mercerline_background_1.png'
+const DEFAULT_OG_IMAGE = '/og-image.png'
 
 function siteOrigin() {
   if (typeof window !== 'undefined' && window.location?.origin) {
@@ -55,6 +55,11 @@ export function applyPageMeta({
   upsertMeta('property', 'og:type', ogType)
   upsertMeta('property', 'og:url', url)
   upsertMeta('property', 'og:image', imageUrl)
+  upsertMeta('property', 'og:image:alt', 'Mercerline logo')
+  if (ogImage.includes('og-image')) {
+    upsertMeta('property', 'og:image:width', '1200')
+    upsertMeta('property', 'og:image:height', '630')
+  }
   upsertMeta('property', 'og:site_name', 'Mercerline')
   upsertMeta('name', 'twitter:card', 'summary_large_image')
   upsertMeta('name', 'twitter:title', title)

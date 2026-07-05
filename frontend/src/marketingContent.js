@@ -14,7 +14,7 @@ export const INTRO_PAGE_META = {
   description:
     'Mercerline is a catalyst research terminal for US-listed equities: SEC filings (8-K, 10-Q, Form 4), politician PTR, institutional 13F, earnings transcripts, and macro calendar coverage for US, EU, UK, and China - with historical outcomes on every rail.',
   path: '/',
-  ogImage: '/mercerline_background_1.png',
+  ogImage: '/og-image.png',
 }
 
 export const SUBSCRIBE_PAGE_META = {
@@ -22,7 +22,7 @@ export const SUBSCRIBE_PAGE_META = {
   description:
     'Choose monthly or yearly Mercerline access. Unlock Discover, Research, and Investigate - macro calendar, exportable research papers, insider PTR, and 13F flow with historical outcomes.',
   path: '/subscribe',
-  ogImage: '/mercerline_background_2.png',
+  ogImage: '/og-image.png',
 }
 
 export const SIGN_IN_PAGE_META = {
@@ -30,7 +30,7 @@ export const SIGN_IN_PAGE_META = {
   description:
     'Sign in or create your Mercerline account to access the full catalyst research terminal - Discover, Research, and Investigate with SEC filings, insider flow, and historical outcomes.',
   path: '/sign-in',
-  ogImage: '/mercerline_background_1.png',
+  ogImage: '/og-image.png',
 }
 
 /** @param {{ ticker: string; company: string }} payload */
@@ -41,7 +41,7 @@ export function publicTickerPageMeta(payload) {
     title: `${t} research timeline - ${name} | Mercerline`,
     description: `Delayed public sample of ${name} (${t}) catalyst, SEC filing, and flow research on Mercerline. Full live terminal with Analyse, Investigate, and historical outcomes requires subscription.`,
     path: `/ticker/${t.toLowerCase()}`,
-    ogImage: '/mercerline_background_1.png',
+    ogImage: '/og-image.png',
   }
 }
 
