@@ -5,10 +5,7 @@ import { useAuth } from './AuthContext.jsx'
 import { useAlertWatchlist } from './alertsWatchlist.js'
 import { useActorAlertWatchlist } from './alertsActorWatchlist.js'
 import { investigateActorCanonicalKey } from './investigateActorKey.js'
-import { SubscribePage } from './SubscribePage.jsx'
 import { SettingsPanel } from './SettingsPanel.jsx'
-import { useSubscription } from './useSubscription.js'
-import { AuthBootScreen } from './AuthBootScreen.jsx'
 import './App.css'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
 import { AnalysePanel } from './AnalysePanel.jsx'
@@ -11637,59 +11634,7 @@ function KensiglineTerminal() {
   )
 }
 
-/** Subscription gate — set VITE_BILLING_GATE=0 in root `.env` to bypass locally. */
-const BILLING_GATE_ENABLED = import.meta.env.VITE_BILLING_GATE !== '0'
-
-function AppGate() {
-  const { configured, loading, user } = useAuth()
-  const signedIn = Boolean(configured && user)
-  const { loading: subLoading, active, refresh } = useSubscription(
-    signedIn && BILLING_GATE_ENABLED,
-  )
-  const previewSubscribe =
-    import.meta.env.DEV &&
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('preview') === 'subscribe'
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (window.location.pathname.replace(/\/$/, '') === '/subscribe') {
-      window.history.replaceState(null, '', '/')
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!signedIn) return
-    const params = new URLSearchParams(window.location.search)
-    const checkout = params.get('checkout')
-    if (checkout !== 'success' && checkout !== 'cancel') return
-
-    const cleanUrl = () => {
-      if (window.history?.replaceState) {
-        window.history.replaceState(null, '', window.location.pathname || '/')
-      }
-    }
-
-    if (checkout === 'success') {
-      void fetchJsonSafe('/api/billing/refresh', { method: 'POST', timeoutMs: 20000 })
-        .then(() => refresh())
-        .finally(cleanUrl)
-    } else {
-      cleanUrl()
-    }
-  }, [signedIn, refresh])
-
-  if (!signedIn) return null
-  if (previewSubscribe) return <SubscribePage />
-
-  if (BILLING_GATE_ENABLED && signedIn) {
-    if (subLoading) return <AuthBootScreen />
-    if (!active) return <SubscribePage />
-  }
-
-  return <KensiglineTerminal />
-}
-
+/** Terminal shell only - marketing and subscribe checkout live outside this bundle. */
 export default function App() {
-  return <AppGate />
+  return <KensiglineTerminal />
 }

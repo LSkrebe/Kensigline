@@ -1,8 +1,8 @@
 import { lazy, Suspense } from 'react'
-import { IntroPage } from './IntroPage.jsx'
 import { AuthBootScreen } from './AuthBootScreen.jsx'
 import { parsePublicTickerPath, useMarketingPath } from './marketingRoute.js'
 
+const IntroPage = lazy(() => import('./IntroPage.jsx').then((m) => ({ default: m.IntroPage })))
 const PublicTickerPage = lazy(() =>
   import('./PublicTickerPage.jsx').then((m) => ({ default: m.PublicTickerPage })),
 )
@@ -11,7 +11,7 @@ const SubscribePage = lazy(() =>
   import('./SubscribePage.jsx').then((m) => ({ default: m.SubscribePage })),
 )
 
-/** Logged-out marketing pages - terminal bundle loads only after sign-in. */
+/** Logged-out marketing pages - terminal bundle loads only after sign-in + active subscription. */
 export default function MarketingRoutes() {
   const marketingPath = useMarketingPath()
   const previewSubscribe =
@@ -44,5 +44,9 @@ export default function MarketingRoutes() {
     )
   }
 
-  return <IntroPage />
+  return (
+    <Suspense fallback={<AuthBootScreen />}>
+      <IntroPage />
+    </Suspense>
+  )
 }
