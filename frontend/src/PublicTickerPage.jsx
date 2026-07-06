@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
-import { HERO, INTRO_FOOTER, publicTickerPageMeta } from './marketingContent.js'
+import { INTRO_FOOTER, PUBLIC_TICKER_CTA, publicTickerPageMeta } from './marketingContent.js'
 import { canonicalPublicTickerPath, navigateMarketing, normalizeMarketingPath } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
@@ -152,12 +152,12 @@ export function PublicTickerPage({ ticker }) {
           />
         </Suspense>
 
-        <section className="introSection mktFinalCta" aria-label="Subscribe">
+        <section className="introSection mktFinalCta" aria-label="Explore Mercerline">
           <div className="mktFinalCtaInner">
-            <h2 className="mktFinalCtaTitle">Open the terminal</h2>
-            <p className="mktFinalCtaSub mono dim">{HERO.rails}</p>
-            <a className="introBtn introBtn--primary introBtn--lg" href="/sign-in" onClick={goSignIn}>
-              {HERO.ctaPrimary}
+            <h2 className="mktFinalCtaTitle">{PUBLIC_TICKER_CTA.title}</h2>
+            <p className="mktFinalCtaSub mono dim">{PUBLIC_TICKER_CTA.lead}</p>
+            <a className="introBtn introBtn--primary introBtn--lg" href="/" onClick={goHome}>
+              {PUBLIC_TICKER_CTA.buttonLabel}
             </a>
           </div>
         </section>
