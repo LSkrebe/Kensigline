@@ -8,6 +8,11 @@
   --research-paper-txn-portrait-w: 44px;
   --paper-card-gap: 14px;
   --terminal-panel-bg-image-alt: url('/mercerline_background_2.png');
+  /* MiniPriceChart tokens (from App.css :root) — required for area gradient + stroke */
+  --intel-accent-area-top: rgba(255, 255, 255, 0.14);
+  --intel-accent-area-bottom: rgba(255, 255, 255, 0);
+  --intel-accent-stroke-strong: rgba(255, 255, 255, 0.88);
+  --intel-accent-marker: rgba(255, 255, 255, 0.38);
   overflow-x: hidden;
   overflow-y: auto;
   scroll-behavior: smooth;
@@ -640,9 +645,14 @@
   overflow: visible;
 }
 
+.pubTickerChart .graphArea {
+  pointer-events: none;
+}
+
 .pubTickerChart .graphPath {
   stroke: rgba(255, 255, 255, 0.9);
   stroke-width: 1.25px;
+  fill: none;
 }
 
 .pubTickerChart .graphTick {
