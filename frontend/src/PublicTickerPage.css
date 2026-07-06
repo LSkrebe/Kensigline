@@ -511,59 +511,54 @@
   min-height: 88px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  gap: 8px;
   margin-top: 2px;
-  padding: 22px 18px;
+  padding: 16px 12px;
   border: 1px dashed rgba(255, 255, 255, 0.14);
   border-radius: 0;
   background: rgba(255, 255, 255, 0.025);
-  text-align: center;
   align-self: stretch;
 }
 
-.pubTickerLockCount {
+.pubTickerLockLabels {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+}
+
+.pubTickerLockHead {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 5px;
   margin: 0;
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .pubTickerLockCountN {
-  font-size: 1.5rem;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  color: rgba(255, 255, 255, 0.92);
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.9);
 }
 
-.pubTickerLockCountLabel {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.pubTickerLockLine {
-  margin: 0;
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
+.pubTickerLockHeadText {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.52);
 }
 
 .pubTickerLockDetail {
   margin: 0;
-  max-width: 34ch;
-  font-size: 11px;
-  line-height: 1.45;
-  letter-spacing: 0.01em;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.52);
+  font-size: 10px;
+  line-height: 1.35;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.34);
 }
 
 .pubTickerEventSlot--lock .pubTickerLock {

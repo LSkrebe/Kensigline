@@ -76,14 +76,13 @@ export function PublicTickerContent({ payload, spark, priceRange, onChartRangeCh
               <div className="pubTickerEventSlot pubTickerEventSlot--lock">
                 <div className="researchPaperDocConnector pubTickerEventConnector" aria-hidden="true" />
                 <div className="pubTickerLock" aria-label="Additional events locked">
-                  <p className="pubTickerLockLine mono">More events in live terminal</p>
-                  <div className="pubTickerLockCount mono" aria-hidden="true">
-                    <span className="pubTickerLockCountN">+{payload.lockedCount}</span>
-                    <span className="pubTickerLockCountLabel">events</span>
+                  <div className="pubTickerLockLabels">
+                    <p className="pubTickerLockHead mono">
+                      <span className="pubTickerLockCountN">+{payload.lockedCount}</span>
+                      <span className="pubTickerLockHeadText">more events</span>
+                    </p>
+                    <p className="pubTickerLockDetail mono dim">Full timeline in the live terminal.</p>
                   </div>
-                  <p className="pubTickerLockDetail mono dim">
-                    Analyse, Investigate, entity map, and export unlock with subscription.
-                  </p>
                 </div>
               </div>
             </div>
