@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig(({ mode }) => {
   const repoRoot = path.resolve(__dirname, '..')
   const env = loadEnv(mode, repoRoot, '')
-  // Vercel/CI only inject process.env — local dev uses root `.env` via loadEnv.
+  // Cloudflare Pages / CI inject process.env — local dev uses root `.env` via loadEnv.
   const pick = (key) => process.env[key] || env[key] || ''
 
   const supabaseUrl = pick('SUPABASE_URL') || pick('VITE_SUPABASE_URL')
