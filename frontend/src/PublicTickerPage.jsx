@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { HERO, INTRO_FOOTER, publicTickerPageMeta } from './marketingContent.js'
-import { navigateMarketing } from './marketingRoute.js'
+import { canonicalPublicTickerPath, navigateMarketing, normalizeMarketingPath } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
 import { fetchPublicTickerTeaser } from './publicTickerApi.js'
@@ -98,6 +98,13 @@ export function PublicTickerPage({ ticker }) {
     void load()
     return () => {
       alive = false
+    }
+  }, [ticker])
+
+  useEffect(() => {
+    const canon = canonicalPublicTickerPath(ticker)
+    if (normalizeMarketingPath(window.location.pathname) !== canon) {
+      window.history.replaceState(null, '', canon)
     }
   }, [ticker])
 

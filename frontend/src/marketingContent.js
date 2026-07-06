@@ -40,7 +40,7 @@ export function publicTickerPageMeta(payload) {
   return {
     title: `${t} research timeline - ${name} | Mercerline`,
     description: `Delayed public sample of ${name} (${t}) catalyst, SEC filing, and flow research on Mercerline. Full live terminal with Analyse, Investigate, and historical outcomes requires subscription.`,
-    path: `/ticker/${t.toLowerCase()}`,
+    path: `/ticker/${t.toUpperCase()}`,
     ogImage: '/og-image.png',
   }
 }
