@@ -75,13 +75,6 @@ export const HERO = {
   rails: 'Analyse · Discover · Research · Investigate',
 }
 
-/** Bottom CTA on public `/ticker/:symbol` pages — send visitors to intro, not sign-in. */
-export const PUBLIC_TICKER_CTA = {
-  title: 'Explore Mercerline',
-  lead: 'You are viewing a public sample. See how Discover, Research, and Investigate work on the full terminal.',
-  buttonLabel: 'See how it works',
-}
-
 export const INTRO_SCREENSHOTS = {
   hero: '/intro/hero-1200.webp',
   heroSrcSet: {
