@@ -582,7 +582,9 @@
 }
 
 .pubTickerChart .researchPriceRangeBar .researchPriceRange {
-  display: flex;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   flex: 0 0 auto;
   margin-left: auto;
 }
@@ -598,11 +600,25 @@
 }
 
 .pubTickerChart .researchPriceRangeBtn {
+  margin: 0;
   padding: 4px 8px;
-  font-size: 9px;
-  letter-spacing: 0.08em;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
   color: rgba(255, 255, 255, 0.38);
-  border-radius: 0;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  line-height: 1;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.pubTickerChart .researchPriceRangeBtn:hover:not(.isActive) {
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .pubTickerChart .researchPriceRangeBtn.isActive {
