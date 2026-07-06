@@ -1,5 +1,8 @@
-# Cloudflare Pages — optional; Git-connected deploys use the dashboard build settings below.
+# Cloudflare: build with `npm run build`, deploy with `npx wrangler deploy` (if dashboard asks for a deploy command).
 # Local preview: npm run build && npx wrangler pages dev dist
 name = "mercerline"
-pages_build_output_dir = "dist"
 compatibility_date = "2025-01-01"
+pages_build_output_dir = "dist"
+
+[assets]
+directory = "./dist"
