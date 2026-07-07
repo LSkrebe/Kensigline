@@ -82,6 +82,47 @@ Copyright 2026 Company X. All rights reserved.
   assert.doesNotMatch(compact, /Copyright 2026/i);
 });
 
+test("insider deterministic path is confident for Form 4 sale-only filings", () => {
+  const txns = [
+    {
+      transaction_code: "S",
+      transaction_date: "2026-03-01",
+      shares: 5_000,
+      price: 12.5,
+      amount_usd: 62_500,
+      security_title: "Common",
+      acquired_disposed: "D",
+      is_derivative: false,
+    },
+  ];
+  const conf = assessInsiderParseConfidence({
+    issuerTicker: "ACME",
+    owners: [{ name: "Jane Doe", role: "CEO" }],
+    transactions: txns,
+    formSourceKey: "Form 4",
+    requirePOnly: true,
+  });
+  assert.equal(conf.confident, true);
+
+  const label = buildInsiderDefaultFeedLabel({
+    formSourceKey: "Form 4",
+    requirePOnly: true,
+    transactions: txns,
+  });
+  assert.match(label, /open-market sale/i);
+
+  const sentences = buildInsiderContextSentences({
+    formSourceKey: "Form 4",
+    issuerName: "ACME Corp",
+    issuerTicker: "ACME",
+    owner: { name: "Jane Doe", role: "CEO" },
+    transactions: txns,
+    requirePOnly: true,
+  });
+  assert.ok(sentences.length >= 1);
+  assert.match(sentences[0]!, /sale/i);
+});
+
 test("insider deterministic path is confident for parsed Form 4 P purchases", () => {
   const txns = [
     {

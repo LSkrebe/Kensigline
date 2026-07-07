@@ -59,8 +59,7 @@ export function assessInsiderParseConfidence(args: {
 
   if (args.requirePOnly) {
     const pRows = txns.filter((t) => t.transaction_code === "P");
-    if (!pRows.length) reasons.push("no_P_rows");
-    else {
+    if (pRows.length) {
       const withSize = pRows.filter((t) => (t.amount_usd ?? 0) > 0 || (t.shares ?? 0) > 0);
       if (!withSize.length) reasons.push("P_rows_without_size");
       else reasons.push("P_rows_with_size");
@@ -72,7 +71,6 @@ export function assessInsiderParseConfidence(args: {
     !reasons.includes("missing_owner_name") &&
     !reasons.includes("no_transactions") &&
     !reasons.includes("ambiguous_codes") &&
-    !reasons.includes("no_P_rows") &&
     !reasons.includes("P_rows_without_size");
 
   return { confident, reasons };
@@ -107,9 +105,7 @@ export function buildInsiderContextSentences(args: {
     ? `${args.owner.role} ${args.owner.name}`.trim()
     : "A reporting insider";
   const company = args.issuerName ?? args.issuerTicker ?? "the issuer";
-  const txns = args.requirePOnly
-    ? args.transactions.filter((t) => t.transaction_code === "P")
-    : args.transactions;
+  const txns = args.transactions;
 
   const sentences: string[] = [];
   if (!txns.length) {

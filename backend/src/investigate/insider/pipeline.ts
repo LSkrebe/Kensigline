@@ -163,9 +163,9 @@ function buildInsiderNarrativePrompt(args: {
   const { formType, issuerName, issuerTicker, issuerCik, owners, transactions, xmlFragments, focusPOnly } = args;
   const guidance = focusPOnly
     ? [
-        "This is a Form 4 cluster filtered for Code P open-market purchases in the feed, but ALL transaction rows below are stored.",
-        "In context_sentences, emphasize Code P purchases; mention other codes only if they appear in TRANSACTIONS.",
-        "Do NOT say 'no selling' - other codes may be present.",
+        "Form 4: ALL transaction codes in TRANSACTIONS are stored in worksheet_rows (filled in code).",
+        "In feed_label and context_sentences, lead with Code P purchases when present; also describe S/A/M and other codes.",
+        "Do NOT say 'no selling' when S or other disposal codes are present.",
       ]
     : [
         `This is a ${formType} filing. Summarize all transaction codes present.`,
@@ -298,21 +298,6 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
     const owners = extractFormReportingOwners(xml);
     const primaryOwner = owners[0] ?? extractFormReportingOwner(xml);
 
-    if (requirePOnly && !allTxns.some((t) => t.transaction_code === "P")) {
-      await db.query(
-        `
-        UPDATE document_queue
-        SET status = 'dead',
-            last_error = 'skipped_no_P_transactions',
-            next_attempt_at = NULL,
-            updated_at = now()
-        WHERE id = $1
-        `,
-        [queueId],
-      );
-      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_P_transactions" };
-    }
-
     const xmlFragments = extractFormXmlTransactionFragments(xml);
 
     let worksheetRows = enrichInsiderWorksheetRows([], allTxns, primaryOwner);
@@ -422,19 +407,19 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
       });
     }
 
-    if (requirePOnly && !out.cluster.worksheet_rows.length) {
+    if (!out.cluster.worksheet_rows.length) {
       await db.query(
         `
         UPDATE document_queue
         SET status = 'dead',
-            last_error = 'skipped_empty_P_rows',
+            last_error = 'skipped_no_worksheet_rows',
             next_attempt_at = NULL,
             updated_at = now()
         WHERE id = $1
         `,
         [queueId],
       );
-      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "empty_P_rows" };
+      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_worksheet_rows" };
     }
 
     const ticker = out.issuer.ticker ?? issuerTicker ?? null;

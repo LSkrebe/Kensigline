@@ -176,9 +176,13 @@ async function fetchPdfBytes(url: string): Promise<Buffer> {
   return Buffer.from(ab);
 }
 
-function filterPurchaseStockTransactions(txAll: PoliticianTxn[]) {
-  const txP0 = txAll.filter((t) => String(t?.transaction_type ?? "").trim().toUpperCase() === "P");
-  return txP0.filter((t) => {
+const PTR_REPORTABLE_TYPES = new Set(["P", "S", "E"]);
+
+/** Stock rows for P/S/E — matches Investigate PTR transaction filters in the UI. */
+function filterReportableStockTransactions(txAll: PoliticianTxn[]) {
+  return txAll.filter((t) => {
+    const type = String(t?.transaction_type ?? "").trim().toUpperCase();
+    if (!PTR_REPORTABLE_TYPES.has(type)) return false;
     const at = String(t?.asset_type ?? "").trim().toUpperCase();
     return !at || at.includes("ST") || /\bCOMMON STOCK\b/i.test(String(t?.asset_name ?? ""));
   });
@@ -266,7 +270,7 @@ async function persistPoliticianFiling(opts: {
   filing: PoliticianFiling;
 }): Promise<string[]> {
   const { queueId, url, chamber, source, promptVersion, model, contentSha256, filing } = opts;
-  const txP = filterPurchaseStockTransactions(filing.transactions);
+  const txP = filterReportableStockTransactions(filing.transactions);
   if (!txP.length) return [];
 
   const secTitles = await getSecTickerTitleMap();
@@ -414,13 +418,13 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
       return { processed: true, queue_id: queueId, parsed_ids: [existing.id], ticker_count: 1 };
     }
 
-    const txP = filterPurchaseStockTransactions(filing.transactions);
-    if (!txP.length) {
+    const txRows = filterReportableStockTransactions(filing.transactions);
+    if (!txRows.length) {
       await db.query(
-        `UPDATE document_queue SET status='dead', last_error='skipped_no_P_transactions', next_attempt_at=NULL, updated_at=now() WHERE id=$1`,
+        `UPDATE document_queue SET status='dead', last_error='skipped_no_reportable_transactions', next_attempt_at=NULL, updated_at=now() WHERE id=$1`,
         [queueId],
       );
-      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_P_transactions" };
+      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_reportable_transactions" };
     }
 
     const parsedIds = await persistPoliticianFiling({

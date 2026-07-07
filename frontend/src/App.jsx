@@ -872,7 +872,7 @@ const INSTITUTION_FILERS = [
 /** Realistic semis issuers for offline Investigate screenshots. */
 const INSIDER_ISSUERS = MOCK_SEMIS.map((c) => c.name)
 
-// Insider pipeline target: Form 4 only (Code P purchases).
+// Insider pipeline: Form 4 (all SEC transaction codes); Form 3/5 via separate queue types.
 const FORM_TYPES_INSIDER = ['Form 4']
 
 // Politicians: mock names used in CASE key column (in place of insider roles).

@@ -504,7 +504,7 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
       cluster: {
         cluster_start_at: minAt,
         cluster_end_at: maxAt,
-        feed_label: `Politician purchases (${worksheet_rows.length})`,
+        feed_label: `Politician disclosures (${worksheet_rows.length})`,
         politicians: Array.from(politicians),
         context_sentences,
         worksheet_rows,
@@ -639,8 +639,8 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
 
     const feed_label =
       totalUsd > 0
-        ? `Net buying ~${formatUsdCompact(totalUsd)} (P purchases, ${worksheet_rows.length})`
-        : `Insider P purchases (${worksheet_rows.length})`;
+        ? `Insider activity (~${formatUsdCompact(totalUsd)}, ${worksheet_rows.length} txn)`
+        : `Insider transactions (${worksheet_rows.length})`;
 
     sendJson(res, 200, {
       id,
