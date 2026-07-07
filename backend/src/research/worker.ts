@@ -1,21 +1,15 @@
-import { enqueueResearchSecFilings, enqueueResearchWebFeeds } from "./market/ingest.js";
+import {
+  backfillPriorityForResearchSecForm,
+  enqueueResearchSecFilings,
+  enqueueResearchWebFeeds,
+  researchSecFormList,
+  researchSecFormsForBackfill,
+} from "./market/ingest.js";
 import { parseNextResearchQueueItem } from "./market/parse.js";
-import { researchEnv, researchEnvNum } from "../documents/spec.js";
+import { researchEnvNum } from "../documents/spec.js";
 import { QUEUE_SOURCES } from "../pipelines/registry.js";
 import { runSecDailyIndexBackfill } from "../shared/sec-daily-backfill.js";
 import { startPipelineWorker } from "../shared/worker.js";
-
-function researchSecForms(): string[] {
-  return String(
-    researchEnv(
-      "SEC_FORMS",
-      "8-K,10-Q,10-K,6-K,20-F,S-1,S-3,S-4,DEF 14A,424B5,SC 13D,SC 13G",
-    ),
-  )
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
 
 export function startResearchWorker() {
   const pages = Math.max(1, Math.min(20, researchEnvNum("FEED_PAGES", 3)));
@@ -36,10 +30,14 @@ export function startResearchWorker() {
       await enqueueResearchWebFeeds();
     },
     enqueueBackfill: async () => {
-      const forms = researchSecForms();
+      const forms = researchSecFormsForBackfill(researchSecFormList());
       await runSecDailyIndexBackfill({
         pipeline: "research/market",
-        forms: forms.map((form) => ({ form, sourceType: "research_sec", priority: 1 })),
+        forms: forms.map((form) => ({
+          form,
+          sourceType: "research_sec",
+          priority: backfillPriorityForResearchSecForm(form),
+        })),
       });
     },
     parseNext: async () => {

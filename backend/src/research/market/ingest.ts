@@ -3,18 +3,40 @@ import { enqueueResearchRssFeeds } from "./rss-queue.js";
 import { enqueueResearchDynamicTickerFeeds } from "./dynamic-feeds.js";
 import { researchEnv } from "../../documents/spec.js";
 
-/** Pull fresh SEC filings into the research document pipeline. */
-export async function enqueueResearchSecFilings(opts?: { pages?: number }) {
-  const pages = Math.max(1, Math.min(20, Number(opts?.pages ?? researchEnv("FEED_PAGES", "3"))));
-  const forms = String(
-    researchEnv(
-      "SEC_FORMS",
-      "8-K,10-Q,10-K,6-K,20-F,S-1,S-3,S-4,DEF 14A,424B5,SC 13D,SC 13G",
-    ),
-  )
+const DEFAULT_SEC_FORMS = "8-K,10-Q,10-K,6-K,20-F,S-1,S-3,S-4,DEF 14A,424B5,SC 13D,SC 13G";
+
+/** Earnings / periodic reports — higher queue tier for Analyse drivers and guidance. */
+const EARNINGS_SEC_FORMS = new Set(["10-Q", "10-K", "20-F", "6-K", "8-K"]);
+
+export function researchSecFormList(): string[] {
+  return String(researchEnv("SEC_FORMS", DEFAULT_SEC_FORMS))
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+export function livePriorityForResearchSecForm(formType: string): number {
+  return EARNINGS_SEC_FORMS.has(formType) ? 5 : 4;
+}
+
+export function backfillPriorityForResearchSecForm(formType: string): number {
+  return EARNINGS_SEC_FORMS.has(formType) ? 2 : 1;
+}
+
+/** Earnings forms first so FIFO within a backfill day favors 10-Q/10-K over S-1 etc. */
+export function researchSecFormsForBackfill(forms: string[]): string[] {
+  const earnings: string[] = [];
+  const other: string[] = [];
+  for (const form of forms) {
+    (EARNINGS_SEC_FORMS.has(form) ? earnings : other).push(form);
+  }
+  return [...earnings, ...other];
+}
+
+/** Pull fresh SEC filings into the research document pipeline. */
+export async function enqueueResearchSecFilings(opts?: { pages?: number }) {
+  const pages = Math.max(1, Math.min(20, Number(opts?.pages ?? researchEnv("FEED_PAGES", "3"))));
+  const forms = researchSecFormList();
   const out: Awaited<ReturnType<typeof enqueueCurrentFilingFeed>>[] = [];
   for (const formType of forms) {
     const r = await enqueueCurrentFilingFeed({
@@ -22,7 +44,7 @@ export async function enqueueResearchSecFilings(opts?: { pages?: number }) {
       pages,
       pageSize: 100,
       sourceType: "research_sec",
-      priority: 4,
+      priority: livePriorityForResearchSecForm(formType),
     });
     out.push(r);
   }
