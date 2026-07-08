@@ -9,6 +9,7 @@ import { pool } from "../core/db.js";
 const CONTENT_TRUNCATES = [
   "alert_ticker_sent_log",
   "alert_actor_sent_log",
+  "alert_context_email_log",
   "insider_transactions",
   "politician_transactions",
   "institution_filings_13f",
