@@ -7,6 +7,8 @@ import "../load-env.js";
 import { pool } from "../core/db.js";
 
 const CONTENT_TRUNCATES = [
+  "feed_market_latest",
+  "feed_ticker_latest",
   "alert_ticker_sent_log",
   "alert_actor_sent_log",
   "alert_context_email_log",
@@ -87,7 +89,7 @@ async function main() {
     console.log(`  ${table}: ${n} rows`);
   }
 
-  for (const table of ["documents", "companies", "bars", "document_queue"]) {
+  for (const table of ["documents", "companies", "bars", "document_queue", "feed_ticker_latest", "feed_market_latest"]) {
     const n = await countTable(table);
     console.log(`  ${table}: ${n} rows`);
   }
