@@ -13,6 +13,8 @@ DROP TABLE IF EXISTS gov_contract_awards CASCADE;
 DROP TABLE IF EXISTS clinical_catalysts CASCADE;
 DROP TABLE IF EXISTS clinical_milestones CASCADE;
 DROP TABLE IF EXISTS clinical_programs CASCADE;
+DROP TABLE IF EXISTS feed_market_latest CASCADE;
+DROP TABLE IF EXISTS feed_ticker_latest CASCADE;
 DROP TABLE IF EXISTS institution_filings_13f CASCADE;
 DROP TABLE IF EXISTS politician_transactions CASCADE;
 DROP TABLE IF EXISTS insider_transactions CASCADE;
@@ -134,9 +136,11 @@ CREATE TABLE documents (
   source_key text,
   analysis text,
   event_at timestamptz,
+  feed_at timestamptz,
   feed_kind text,
   feed_label text,
   ticker text,
+  ticker_norm text,
   company_id uuid REFERENCES companies(id) ON DELETE SET NULL,
   program_keys text[] NOT NULL DEFAULT '{}',
   program_drug text,
@@ -155,6 +159,12 @@ CREATE TABLE documents (
 CREATE UNIQUE INDEX documents_content_sha256_unique
   ON documents (content_sha256)
   WHERE content_sha256 IS NOT NULL;
+CREATE INDEX documents_feed_kind_feed_at_idx
+  ON documents (feed_kind, feed_at DESC)
+  WHERE feed_at IS NOT NULL;
+CREATE INDEX documents_ticker_norm_feed_at_idx
+  ON documents (ticker_norm, feed_at DESC)
+  WHERE ticker_norm IS NOT NULL AND feed_at IS NOT NULL;
 CREATE INDEX documents_ticker_event_idx
   ON documents (ticker, event_at DESC)
   WHERE ticker IS NOT NULL AND event_at IS NOT NULL;
@@ -281,5 +291,38 @@ CREATE TABLE user_attribution (
 );
 
 CREATE INDEX user_attribution_source_idx ON user_attribution (source_key);
+
+CREATE TABLE feed_ticker_latest (
+  feed_kind text NOT NULL,
+  ticker_norm text NOT NULL,
+  document_id uuid NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  feed_at timestamptz NOT NULL,
+  feed_label text,
+  company_name text,
+  source_key text,
+  analysis text,
+  program_phase text,
+  show_on_ticker boolean NOT NULL DEFAULT true,
+  summary jsonb NOT NULL DEFAULT '{}'::jsonb,
+  PRIMARY KEY (feed_kind, ticker_norm)
+);
+
+CREATE INDEX feed_ticker_latest_kind_at_idx ON feed_ticker_latest (feed_kind, feed_at DESC);
+
+CREATE TABLE feed_market_latest (
+  ticker_norm text PRIMARY KEY,
+  feed_kind text NOT NULL,
+  document_id uuid NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  feed_at timestamptz NOT NULL,
+  feed_label text,
+  company_name text,
+  source_key text,
+  analysis text,
+  program_phase text,
+  show_on_ticker boolean NOT NULL DEFAULT true,
+  summary jsonb NOT NULL DEFAULT '{}'::jsonb
+);
+
+CREATE INDEX feed_market_latest_feed_at_idx ON feed_market_latest (feed_at DESC);
 
 COMMIT;

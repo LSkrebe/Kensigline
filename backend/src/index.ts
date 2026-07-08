@@ -45,8 +45,10 @@ import {
 } from "./referral/api.js";
 import { syncReferralSourcesFromEnv } from "./referral/store.js";
 import { handlePublicTeaser } from "./public/teaser.js";
+import { getSecTickerTitleMap } from "./core/sec.js";
 
 const port = Number(process.env.PORT ?? "3001");
+void getSecTickerTitleMap().catch(() => {});
 void syncReferralSourcesFromEnv().catch((err) => {
   console.warn("[referral] source sync skipped:", err instanceof Error ? err.message : String(err));
 });

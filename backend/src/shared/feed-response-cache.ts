@@ -3,7 +3,7 @@ type FeedCacheEntry = { at: number; body: unknown };
 const cache = new Map<string, FeedCacheEntry>();
 
 function ttlMs(): number {
-  return Math.max(5_000, Number(process.env.FEED_RESPONSE_CACHE_MS ?? 30_000));
+  return Math.max(5_000, Number(process.env.FEED_RESPONSE_CACHE_MS ?? 60_000));
 }
 
 export function feedCacheKey(parts: Record<string, string | number | null | undefined>): string {

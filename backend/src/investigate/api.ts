@@ -9,7 +9,6 @@ import {
   resolveInvestigateFeedCompanyName,
   resolveResearchFeedCompanyName,
 } from "../research/feed-display.js";
-import { upsertCompanyNameForTicker } from "../core/company.js";
 import { getSecTickerTitleMap } from "../core/sec.js";
 import {
   clampInt,
@@ -21,6 +20,12 @@ import {
   tickerFromCompanyClusterId,
 } from "../shared/feed-helpers.js";
 import { loadTickerFeedDocs, parseFeedPageParams } from "../shared/ticker-feed-aggregate.js";
+import { loadFeedKindIndexPage } from "../shared/feed-index.js";
+import {
+  feedCacheKey,
+  readFeedResponseCache,
+  writeFeedResponseCache,
+} from "../shared/feed-response-cache.js";
 import { normalizeInsiderWorksheetRow } from "./worksheet.js";
 import { isoTimestampFromDb } from "../shared/db-time.js";
 import {
@@ -28,6 +33,15 @@ import {
   scoreInstitutionCluster,
   scorePoliticianCluster,
 } from "../core/idea-score.js";
+
+function ideaFromSummary(summary: Record<string, unknown> | null | undefined) {
+  const s = summary ?? {};
+  return {
+    idea_score: Number(s.idea_score) || 0,
+    idea_best: Boolean(s.idea_best),
+    idea_reasons: Array.isArray(s.idea_reasons) ? (s.idea_reasons as string[]) : [],
+  };
+}
 
 /** Returns true if a route handled the request. */
 export async function tryInvestigateRoutes(
@@ -120,6 +134,76 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
       has_more: rows.length >= page.limit,
       next_offset: page.offset + rows.length,
     });
+    return;
+  }
+
+  const cacheKey = feedCacheKey({
+    route: "insider_feed",
+    mode: "company",
+    days,
+    limit: page.limit,
+    offset: page.offset,
+  });
+  const cached = readFeedResponseCache<Record<string, unknown>>(cacheKey);
+  if (cached) {
+    sendJson(res, 200, cached);
+    return;
+  }
+
+  const indexed = await loadFeedKindIndexPage({
+    feedKind: "insider",
+    days,
+    limit: page.limit,
+    offset: page.offset,
+  });
+  if (indexed.rows.length > 0 || page.offset > 0) {
+    const secTitles = await getSecTickerTitleMap();
+    const items = indexed.rows.map((r) => {
+      const s = r.summary ?? {};
+      const totalUsd = Number(s.total_usd) || 0;
+      const todayCount = Number(s.today_count) || 0;
+      const totalCount = Number(s.total_count) || 0;
+      const eventAt = String(s.event_at ?? r.event_at);
+      const usd = totalUsd > 0 ? formatUsdCompact(totalUsd) : "—";
+      const label =
+        todayCount > 0
+          ? `${usd} (${todayCount})`
+          : totalCount > 0
+            ? usd
+            : (r.feed_label ?? "Insider activity");
+      const data = r.data as { issuer?: { name?: string | null } } | null;
+      const companyName = resolveInvestigateFeedCompanyName(
+        r.ticker,
+        r.company_name,
+        secTitles.get(r.ticker) ?? null,
+        data?.issuer?.name,
+      );
+      const idea = ideaFromSummary(s);
+      return {
+        id: `company:${r.ticker}`,
+        feed_at: eventAt,
+        feed_label: label,
+        ticker: r.ticker,
+        company_name: companyName,
+        company_id: r.company_id,
+        today_count: todayCount,
+        insiders: Array.isArray(s.insiders) ? s.insiders : [],
+        idea_score: idea.idea_score,
+        idea_best: idea.idea_best,
+        idea_reasons: idea.idea_reasons,
+      };
+    });
+    const body = {
+      items,
+      days,
+      mode: "company",
+      offset: page.offset,
+      limit: page.limit,
+      has_more: indexed.hasMore,
+      next_offset: indexed.nextOffset,
+    };
+    writeFeedResponseCache(cacheKey, body);
+    sendJson(res, 200, body);
     return;
   }
 
@@ -227,9 +311,6 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
         secTitles.get(c.ticker) ?? null,
         data?.issuer?.name,
       );
-      if (companyName && companyName.toUpperCase() !== c.ticker) {
-        void upsertCompanyNameForTicker(c.ticker, companyName);
-      }
       const idea = scoreInsiderCluster({
         data: c.latestDoc.data,
         eventAt: c.latestFeedAt,
@@ -251,7 +332,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
       };
     });
 
-  sendJson(res, 200, {
+  const body = {
     items,
     days,
     mode: "company",
@@ -259,7 +340,9 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
     limit: page.limit,
     has_more: hasMore,
     next_offset: nextOffset,
-  });
+  };
+  writeFeedResponseCache(cacheKey, body);
+  sendJson(res, 200, body);
 }
 
 type TickerFeedKind = "politicians" | "institutions";
@@ -267,6 +350,80 @@ type TickerFeedKind = "politicians" | "institutions";
 async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, feedKind: TickerFeedKind) {
   const page = parseFeedPageParams(url, { limit: 40, maxLimit: 120 });
   const days = clampInt(url.searchParams.get("days"), 1, 365, feedKind === "politicians" ? 30 : 60);
+  const peopleKey = feedKind === "politicians" ? "politicians" : "institutions";
+
+  const cacheKey = feedCacheKey({
+    route: `${feedKind}_feed`,
+    days,
+    limit: page.limit,
+    offset: page.offset,
+  });
+  const cached = readFeedResponseCache<Record<string, unknown>>(cacheKey);
+  if (cached) {
+    sendJson(res, 200, cached);
+    return;
+  }
+
+  const indexed = await loadFeedKindIndexPage({
+    feedKind,
+    days,
+    limit: page.limit,
+    offset: page.offset,
+  });
+  if (indexed.rows.length > 0 || page.offset > 0) {
+    const secTitles = await getSecTickerTitleMap();
+    const items = indexed.rows.map((r) => {
+      const s = r.summary ?? {};
+      const totalUsd = Number(s.total_usd) || 0;
+      const todayCount = Number(s.today_count) || 0;
+      const eventAt = String(s.event_at ?? r.event_at);
+      const usd = totalUsd > 0 ? formatUsdCompact(totalUsd) : "—";
+      const label = todayCount > 0 ? `${usd} (${todayCount})` : usd;
+      const data = r.data as { issuer?: { name?: string | null } } | null;
+      const companyName = resolveInvestigateFeedCompanyName(
+        r.ticker,
+        r.company_name,
+        secTitles.get(r.ticker) ?? null,
+        data?.issuer?.name,
+      );
+      const ws = (r.data as { cluster?: { worksheet_rows?: unknown[] } })?.cluster?.worksheet_rows;
+      const people = new Set<string>();
+      if (Array.isArray(ws)) {
+        for (const raw of ws) {
+          const w = raw as Record<string, unknown>;
+          const who = String(
+            w?.[feedKind === "politicians" ? "key" : "institution_name"] ?? w?.key ?? "",
+          ).trim();
+          if (who) people.add(who);
+        }
+      }
+      const idea = ideaFromSummary(s);
+      return {
+        id: `ticker:${r.ticker}`,
+        feed_at: eventAt,
+        feed_label: label,
+        ticker: r.ticker,
+        company_name: companyName,
+        today_count: todayCount,
+        [peopleKey]: Array.from(people).slice(0, 20),
+        idea_score: idea.idea_score,
+        idea_best: idea.idea_best,
+        idea_reasons: idea.idea_reasons,
+      };
+    });
+    const body = {
+      items,
+      days,
+      offset: page.offset,
+      limit: page.limit,
+      has_more: indexed.hasMore,
+      next_offset: indexed.nextOffset,
+    };
+    writeFeedResponseCache(cacheKey, body);
+    sendJson(res, 200, body);
+    return;
+  }
+
   const { docs: rows, hasMore, offset, nextOffset } = await loadTickerFeedDocs({
     feedKind,
     days,
@@ -277,7 +434,6 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
 
   const secTitles = await getSecTickerTitleMap();
 
-  const peopleKey = feedKind === "politicians" ? "politicians" : "institutions";
   const amountField = feedKind === "politicians" ? "amount_usd_mid" : "amount_usd";
   const nameFields =
     feedKind === "politicians"
@@ -351,9 +507,6 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
         secTitles.get(c.ticker) ?? null,
         data?.issuer?.name,
       );
-      if (companyName && companyName.toUpperCase() !== c.ticker) {
-        void upsertCompanyNameForTicker(c.ticker, companyName);
-      }
       const idea =
         feedKind === "politicians"
           ? scorePoliticianCluster({
@@ -383,7 +536,7 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
     }),
   );
 
-  sendJson(res, 200, {
+  const legacyBody = {
     items,
     days,
     mode: "ticker",
@@ -391,7 +544,9 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
     limit: page.limit,
     has_more: hasMore,
     next_offset: nextOffset,
-  });
+  };
+  writeFeedResponseCache(cacheKey, legacyBody);
+  sendJson(res, 200, legacyBody);
 }
 
 async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {

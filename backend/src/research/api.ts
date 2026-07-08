@@ -18,6 +18,7 @@ import {
   writeFeedResponseCache,
 } from "../shared/feed-response-cache.js";
 import { documentFeedAtSql } from "../shared/document-activity-at.js";
+import { loadMarketFeedIndexPage } from "../shared/feed-index.js";
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -217,21 +218,27 @@ export async function handleResearchFeed(
 
   const probe = lim + 1;
 
-  const rows = await db.query<{
-    id: string;
-    ticker: string;
-    analysis: string | null;
-    feed_label: string | null;
-    feed_at: string;
-    company_name: string | null;
-    source_key: string | null;
-    feed_kind: string;
-    program_phase: string | null;
-    event_at: string | null;
-    data: any;
-  }>(
-    `
-    SELECT sub.id, sub.ticker, sub.analysis, sub.feed_label, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind, sub.program_phase, sub.event_at, sub.data
+  const indexed = await loadMarketFeedIndexPage({ limit: probe, offset });
+  const useIndex = indexed.rows.length > 0 || offset > 0;
+
+  const rows = useIndex
+    ? indexed.rows
+    : await db.query<{
+        id: string;
+        ticker: string;
+        analysis: string | null;
+        feed_label: string | null;
+        feed_at: string;
+        company_name: string | null;
+        source_key: string | null;
+        feed_kind: string;
+        program_phase: string | null;
+        event_at: string | null;
+        data: any;
+        summary: Record<string, unknown>;
+      }>(
+        `
+    SELECT sub.id, sub.ticker, sub.analysis, sub.feed_label, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind, sub.program_phase, sub.event_at, sub.data, '{}'::jsonb AS summary
     FROM (
       SELECT DISTINCT ON (upper(trim(d.ticker)))
         d.id::text,
@@ -266,17 +273,25 @@ export async function handleResearchFeed(
     ORDER BY sub.feed_at DESC NULLS LAST
     LIMIT $1 OFFSET $2
     `,
-    [probe, offset],
-  );
+        [probe, offset],
+      );
 
-  const hasMore = rows.length > lim;
+  const hasMore = useIndex ? indexed.hasMore : rows.length > lim;
   const page = rows.slice(0, lim);
 
   const secTitles = await getSecTickerTitleMap().catch(() => new Map<string, string>());
 
   const items = page.map((r) => {
     const displayName = resolveResearchFeedCompanyName(r.ticker, r.company_name, secTitles.get(r.ticker) ?? null);
-    const idea = scoreResearchFeedRow(r);
+    const summary = (r as { summary?: Record<string, unknown> }).summary ?? {};
+    const idea =
+      summary.idea_score != null
+        ? {
+            idea_score: Number(summary.idea_score),
+            idea_best: Boolean(summary.idea_best),
+            idea_reasons: Array.isArray(summary.idea_reasons) ? summary.idea_reasons : [],
+          }
+        : scoreResearchFeedRow(r);
     const feedLabel = String(r.analysis ?? r.feed_label ?? "").trim();
     const hasPaper =
       r.feed_kind === "research" &&

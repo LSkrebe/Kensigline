@@ -649,10 +649,14 @@ export function AnalysePanel({
                       </li>
                     ))}
                   </ul>
+                  {model.projectionNote ? (
+                    <p className="analyseModelWarningsNote mono dim">{model.projectionNote}</p>
+                  ) : null}
                 </div>
-              ) : null}
-              {model.projectionNote ? (
-                <div className="analyseSectionHint mono dim">{model.projectionNote}</div>
+              ) : model.projectionNote ? (
+                <div className="analyseSection analyseSectionTitle">
+                  <span className="analyseSectionHint mono dim">{model.projectionNote}</span>
+                </div>
               ) : null}
               <section className="analyseSection" aria-label={driverSectionTitle}>
                 <div className="analyseSectionHead">

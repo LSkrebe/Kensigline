@@ -1,5 +1,5 @@
 /** Session cache for feed list payloads — instant paint on tab return. */
-const TTL_MS = 5 * 60_000
+const TTL_MS = 10 * 60_000
 const PREFIX = 'mercerline:feed:'
 
 export function readFeedCache(key) {

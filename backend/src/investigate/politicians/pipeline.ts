@@ -7,6 +7,7 @@ import {
   type ParsedSenatePtr,
 } from "../../core/senate.js";
 import { syncPoliticianTransactionsFromDocument } from "../../documents/store.js";
+import { syncFeedIndexForDocument } from "../../shared/feed-index.js";
 import { createHash } from "node:crypto";
 import { extractPdfTextWithFallback } from "../../core/pdf.js";
 import { compactPtrPdfTextForLlm } from "../../core/http-llm-text.js";
@@ -372,6 +373,7 @@ async function persistPoliticianFiling(opts: {
     if (inserted?.id) {
       parsedIds.push(inserted.id);
       await syncPoliticianTransactionsFromDocument(inserted.id, ticker, data);
+      void syncFeedIndexForDocument(inserted.id).catch(() => {});
     }
   }
 

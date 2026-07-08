@@ -6,6 +6,7 @@ import { isoTimestampFromDb } from "../shared/db-time.js";
 import { invalidateTickerContextCache } from "../core/ticker-context-cache.js";
 import { invalidateAnalyseModelCache } from "../analyse/build-model.js";
 import { parseEventTimeMs, sanitizeEventAtForFeed, FEED_FUTURE_GRACE_DAYS } from "../shared/document-activity-at.js";
+import { syncFeedIndexForDocument } from "../shared/feed-index.js";
 
 const GOV_LINK_THRESHOLD = () => Number(process.env.GOV_CONTRACT_LINK_THRESHOLD ?? 0.72);
 
@@ -62,13 +63,13 @@ export async function insertResearchDocument(args: {
     `
     INSERT INTO documents (
       queue_id, doc_kind, schema_version, source_key, analysis, event_at,
-      feed_kind, feed_label, ticker, program_keys, link_confidence, show_on_ticker,
+      feed_kind, feed_label, ticker, ticker_norm, feed_at, program_keys, link_confidence, show_on_ticker,
       url, title, published_at, content_sha256, data
     )
     VALUES (
       $1, $2, 'v1', $3, $4, $5,
-      'research', $3, $6, $7, $8, $9,
-      $10, $11, $12, $13, $14::jsonb
+      'research', $3, $6, $6, $7::timestamptz, $8, $9, $10,
+      $11, $12, $13, $14, $15::jsonb
     )
     RETURNING id
     `,
@@ -79,6 +80,7 @@ export async function insertResearchDocument(args: {
       args.out.analysis,
       eventAt,
       ticker,
+      eventAt,
       args.out.program_keys,
       linkConf,
       showOnTicker,
@@ -89,6 +91,10 @@ export async function insertResearchDocument(args: {
       JSON.stringify(storedOut),
     ],
   );
+
+  if (row?.id) {
+    void syncFeedIndexForDocument(row.id).catch(() => {});
+  }
 
   if (ticker) {
     void invalidateTickerContextCache(ticker);

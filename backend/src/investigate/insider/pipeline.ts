@@ -4,6 +4,7 @@ import { llmChat } from "../../core/llm.js";
 import { syncInsiderTransactionsFromDocument } from "../../documents/store.js";
 import { sha256NormalizedText } from "../../core/text-hash.js";
 import { sanitizeEventAtForFeed } from "../../shared/document-activity-at.js";
+import { syncFeedIndexForDocument } from "../../shared/feed-index.js";
 import {
   isBogusInsiderWorksheetKey,
   ownerSurname,
@@ -475,6 +476,7 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
 
     if (inserted?.id && ticker) {
       await syncInsiderTransactionsFromDocument(inserted.id, String(ticker), out);
+      void syncFeedIndexForDocument(inserted.id).catch(() => {});
     }
 
     return { processed: true, queue_id: queueId, parsed_id: inserted?.id ?? "", feed_label: feedLabel, ticker };

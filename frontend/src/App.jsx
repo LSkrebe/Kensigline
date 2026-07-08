@@ -9,6 +9,7 @@ import { SettingsPanel } from './SettingsPanel.jsx'
 import './App.css'
 import { markAppReady } from './marketingShell.js'
 import { DiscoverPanel } from './DiscoverPanel.jsx'
+import { prefetchDiscoverTimeline } from './discoverClient.js'
 import { AnalysePanel } from './AnalysePanel.jsx'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
@@ -6894,7 +6895,10 @@ function ResearchPaperPanel({
   const t = String(ticker ?? '').toUpperCase()
   const dataTick = String(dataTicker ?? '').trim().toUpperCase()
   const presentationReady =
-    !backendUp || (Boolean(dataTick) && dataTick === t && Boolean(presentation?.title))
+    !backendUp ||
+    (Boolean(dataTick) &&
+      dataTick === t &&
+      (Boolean(presentation?.title) || Boolean(fullName && fullName.toUpperCase() !== '—')))
   const safePresentation = presentationReady ? presentation : null
   const paperBodyRef = useRef(null)
   const captureMountRef = useRef(null)
@@ -9737,6 +9741,11 @@ function KensiglineTerminal() {
   }, [backendLastOkAt])
 
   useEffect(() => {
+    if (!backendUp) return
+    prefetchDiscoverTimeline()
+  }, [backendUp])
+
+  useEffect(() => {
     let alive = true
     async function run() {
       if (!backendUp) return
@@ -9809,11 +9818,8 @@ function KensiglineTerminal() {
     if (!hadCache) {
       researchFeedOffsetRef.current = 0
       setResearchFeedHasMore(false)
-      setResearchFeedLive(null)
-      void run({ append: false, offset: 0 })
-    } else {
-      void run({ append: false, offset: 0 })
     }
+    void run({ append: false, offset: 0 })
 
     const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
@@ -9926,8 +9932,6 @@ function KensiglineTerminal() {
       if (!cachedCompany) setResearchCompanyContextLoading(false)
 
       if (activeTab !== 'main') return
-      await new Promise((resolve) => setTimeout(resolve, 400))
-      if (!alive || researchCompanyFetchGenRef.current !== gen) return
       const full = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 20_000 })
       if (!alive || researchCompanyFetchGenRef.current !== gen) return
       if (full.ok && full.data) applyCompany(full.data)
@@ -9976,8 +9980,6 @@ function KensiglineTerminal() {
     }
 
     async function run() {
-      await new Promise((resolve) => setTimeout(resolve, 700))
-      if (!alive || researchExploreFetchGenRef.current !== gen) return
       const r = await fetchJsonSafe(`/api/research/explore?ticker=${encodeURIComponent(tick)}`, {
         timeoutMs: 15_000,
       })
@@ -10064,11 +10066,8 @@ function KensiglineTerminal() {
     if (!hadCache) {
       insiderFeedOffsetRef.current = 0
       setInsiderFeedHasMore(false)
-      setInsiderFeedLive(null)
-      void run({ append: false, offset: 0 })
-    } else {
-      void run({ append: false, offset: 0 })
     }
+    void run({ append: false, offset: 0 })
 
     const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
@@ -10128,11 +10127,8 @@ function KensiglineTerminal() {
     if (!hadCache) {
       institutionsFeedOffsetRef.current = 0
       setInstitutionsFeedHasMore(false)
-      setInstitutionsFeedLive(null)
-      void run({ append: false, offset: 0 })
-    } else {
-      void run({ append: false, offset: 0 })
     }
+    void run({ append: false, offset: 0 })
 
     const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
@@ -10192,11 +10188,8 @@ function KensiglineTerminal() {
     if (!hadCache) {
       politiciansFeedOffsetRef.current = 0
       setPoliticiansFeedHasMore(false)
-      setPoliticiansFeedLive(null)
-      void run({ append: false, offset: 0 })
-    } else {
-      void run({ append: false, offset: 0 })
     }
+    void run({ append: false, offset: 0 })
 
     const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
@@ -10761,7 +10754,7 @@ function KensiglineTerminal() {
     const ticker = selectedTicker ? String(selectedTicker).toUpperCase() : null
     const gen = ++barsFetchGenRef.current
 
-    if (!backendUp || !ticker) {
+    if (!backendUp || activeTab !== 'investigate' || !ticker) {
       setBarsLive(null)
       setBarsLiveTicker(null)
       return () => {
@@ -10805,7 +10798,7 @@ function KensiglineTerminal() {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp, selectedTicker])
+  }, [backendUp, activeTab, selectedTicker])
 
   const companyForInvestigatePanel = useMemo(() => {
     if (!selectedTicker) return null
@@ -10839,7 +10832,7 @@ function KensiglineTerminal() {
     const ticker = selectedTicker ? String(selectedTicker).toUpperCase() : null
     const gen = ++companyFetchGenRef.current
 
-    if (!backendUp || !ticker) {
+    if (!backendUp || activeTab !== 'investigate' || !ticker) {
       setCompanyLive(null)
       setCompanyLiveTicker(null)
       return () => {
@@ -10867,7 +10860,7 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, selectedTicker])
+  }, [backendUp, activeTab, selectedTicker])
 
   const daily = useMemo(() => {
     if (backendUp) {

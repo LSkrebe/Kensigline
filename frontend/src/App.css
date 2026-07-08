@@ -123,6 +123,22 @@
   min-width: 0;
 }
 
+.terminalShell--boot {
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.terminalBootBar {
+  flex: 1 1 auto;
+  min-height: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.01) 40%,
+    transparent 100%
+  );
+}
+
 .terminalTopBar {
   flex: 0 0 auto;
   height: var(--terminal-topbar-h);
@@ -4894,10 +4910,15 @@
 }
 
 .analyseModelWarnings {
-  padding: 10px 12px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin-top: 18px;
+  padding: 10px 0;
   border: 1px solid rgba(255, 196, 96, 0.28);
-  background: rgba(255, 196, 96, 0.06);
   border-radius: 4px;
+  background: rgba(255, 196, 96, 0.06);
 }
 
 .analyseModelWarningsTitle {
@@ -4905,14 +4926,23 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 210, 130, 0.92);
-  margin-bottom: 6px;
+  margin: 0 0 6px;
+  padding: 0 var(--panel-scroll-inline-pad);
 }
 
 .analyseModelWarningsList {
   margin: 0;
-  padding-left: 16px;
+  padding: 0 var(--panel-scroll-inline-pad) 0 calc(var(--panel-scroll-inline-pad) + 16px);
   font-size: 10px;
   line-height: 1.45;
+}
+
+.analyseModelWarningsNote {
+  margin: 8px 0 0;
+  padding: 0 var(--panel-scroll-inline-pad);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  line-height: 1.35;
 }
 
 .analyseScenarioRange {

@@ -60,7 +60,13 @@ export default function AppRouter() {
 
   if (showMarketing) return <MarketingRoutes />
 
-  if (loading || (BILLING_GATE_ENABLED && subLoading)) return null
+  if (loading || (BILLING_GATE_ENABLED && subLoading)) {
+    return (
+      <div className="terminalShell terminalShell--boot" aria-busy="true" aria-label="Loading">
+        <div className="terminalBootBar" />
+      </div>
+    )
+  }
 
   if (BILLING_GATE_ENABLED && !active) return <SubscribePage />
 

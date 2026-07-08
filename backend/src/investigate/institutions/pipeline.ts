@@ -6,6 +6,7 @@ import { LLM_BUDGETS } from "../../core/llm-budgets.js";
 import { prepareLlmText } from "../../core/llm-text-prep.js";
 import { fetch13fFilingBundle } from "../../core/sec.js";
 import { syncInstitutionFilingsFromDocument } from "../../documents/store.js";
+import { syncFeedIndexForDocument } from "../../shared/feed-index.js";
 import {
   MIN_PARSED_13F_HOLDINGS,
   parse13fHoldings,
@@ -396,6 +397,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
       if (inserted?.id) {
         parsedIds.push(inserted.id);
         await syncInstitutionFilingsFromDocument(inserted.id, ticker, data);
+        void syncFeedIndexForDocument(inserted.id).catch(() => {});
       }
     }
 
