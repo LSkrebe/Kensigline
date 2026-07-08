@@ -13,6 +13,22 @@ export type AnalyseValuationConfig = {
   marketCapBillions: number | null;
   enterpriseValueBillions: number | null;
   bridgeDriverLabels: string[];
+  /** NTM (next 4 estimate quarters) EPS used for headline valuation. */
+  ntmEps: number | null;
+  ltmEps: number | null;
+  priceTarget: number | null;
+  valuationBasis: "ntm";
+  defaultColumnIndex: number;
+  valuationPeriodLabel: string;
+  valuationAvailable: boolean;
+};
+
+export type ModelQualityGrade = "full" | "limited" | "unavailable";
+
+export type ModelQuality = {
+  grade: ModelQualityGrade;
+  warnings: string[];
+  valuationAvailable: boolean;
 };
 
 export type AnalyseModel = {
@@ -25,6 +41,7 @@ export type AnalyseModel = {
   historicalModel: AnalyseModelRow[];
   businessDrivers: AnalyseModelRow[];
   valuationConfig: AnalyseValuationConfig;
+  modelQuality?: ModelQuality;
   sources?: {
     historical: "sec_companyfacts" | null;
     drivers: "documents" | "derived" | null;

@@ -18,7 +18,7 @@ export function parseForwardRevenueGrowthFromText(text: string): number | null {
     const m = t.match(re);
     if (!m?.[1]) continue;
     const n = Number(m[1]);
-    if (Number.isFinite(n) && n >= -100 && n <= 500) return Math.round(n * 10) / 10;
+    if (Number.isFinite(n) && n >= -100 && n <= 500) return Math.round(Math.max(-30, Math.min(50, n)) * 10) / 10;
   }
 
   return null;

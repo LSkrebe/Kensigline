@@ -106,6 +106,28 @@ export function runAnalyseSmokeTests() {
     assert.ok(Math.abs(impliedTax - BASE_CASE_TAX_RATE) < 0.02);
   }
 
+  const seasonal = [
+    mkPoint("Q1'24", 2024, "Q1", 2300),
+    mkPoint("Q2'24", 2024, "Q2", 5000),
+    mkPoint("Q3'24", 2024, "Q3", 7600),
+    mkPoint("Q4'24", 2024, "Q4", 4500),
+    mkPoint("Q1'25", 2025, "Q1", 1900),
+    mkPoint("Q2'25", 2025, "Q2", 5100),
+  ];
+  const seasonalProj = buildBaseCaseQuarterlyProjection({
+    historicalPoints: seasonal,
+    longHistoryPoints: seasonal,
+    estimateCount: 8,
+    consensus: null,
+    documentRevenueGrowthPct: 8,
+  });
+  for (const q of seasonalProj) {
+    assert.ok(q.opIncomeM > -q.revenueM * 0.15, `seasonal op loss too extreme: ${q.opIncomeM}`);
+    assert.ok(q.eps > -50, `seasonal eps too negative: ${q.eps}`);
+  }
+  const peakQ = seasonalProj.reduce((best, q) => (q.revenueM > best.revenueM ? q : best), seasonalProj[0]!);
+  assert.ok(peakQ.opIncomeM > 0, "peak seasonal quarter should stay profitable");
+
   console.log("[analyse-smoke] ok");
 }
 

@@ -1,10 +1,9 @@
 /**
- * Single Base Case forward projection for Analyse tab estimate columns.
+ * Annual-first Base Case forward projection for Analyse estimate columns.
  *
- * Years 1–2: consensus revenue growth & EPS when available.
- * Year 3: 60% consensus / 40% normalized growth.
- * Year 4+: smooth fade toward 2.5% long-term growth.
- * Gross margin reverts toward 5–10y average; OpEx shows operating leverage; tax ~23%.
+ * 1. Project fiscal-year revenue, margins, and OpEx (consensus Y1–Y2 when available).
+ * 2. Split each year to quarters using long-run fiscal-quarter seasonality.
+ * 3. Avoid quarter-over-quarter OpEx spirals that break seasonal businesses.
  */
 
 import type { QuarterlyPnlPoint } from "./quarterly-pnl.js";
@@ -14,6 +13,10 @@ import { toMillions } from "./quarterly-pnl.js";
 export const BASE_CASE_LTGR_PCT = 2.5;
 export const BASE_CASE_TAX_RATE = 0.23;
 export const BASE_CASE_OPEX_LEVERAGE = 0.35;
+export const GROWTH_PCT_MIN = -30;
+export const GROWTH_PCT_MAX = 50;
+
+const QUARTER_ORDER = ["Q1", "Q2", "Q3", "Q4"] as const;
 
 export type BaseCaseProjectionInput = {
   historicalPoints: QuarterlyPnlPoint[];
@@ -38,9 +41,24 @@ export type ProjectedQuarterPnl = {
   fcfM: number;
 };
 
+type YearPnl = {
+  revenueM: number;
+  grossMarginPct: number;
+  opexRatio: number;
+  grossProfitM: number;
+  opexM: number;
+  opIncomeM: number;
+  netIncomeM: number;
+};
+
 function avg(values: number[]): number | null {
   if (!values.length) return null;
   return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+export function clampGrowthPct(n: number): number {
+  if (!Number.isFinite(n)) return 6;
+  return Math.max(GROWTH_PCT_MIN, Math.min(GROWTH_PCT_MAX, n));
 }
 
 function grossMarginPct(point: QuarterlyPnlPoint): number | null {
@@ -65,18 +83,17 @@ function historicalRevenueYoYGrowthPct(points: QuarterlyPnlPoint[]): number | nu
       ys.push(((curr - prev) / prev) * 100);
     }
   }
-  return avg(ys.slice(-8));
+  const raw = avg(ys.slice(-8));
+  return raw != null ? clampGrowthPct(raw) : null;
 }
 
 function normalizedGrowthPct(
   historicalPoints: QuarterlyPnlPoint[],
   documentRevenueGrowthPct: number | null,
 ): number {
-  return (
-    documentRevenueGrowthPct ??
-    historicalRevenueYoYGrowthPct(historicalPoints) ??
-    6
-  );
+  const doc =
+    documentRevenueGrowthPct != null ? clampGrowthPct(documentRevenueGrowthPct) : null;
+  return doc ?? historicalRevenueYoYGrowthPct(historicalPoints) ?? 6;
 }
 
 function annualGrowthPct(
@@ -94,12 +111,12 @@ function annualGrowthPct(
       consensus?.year2RevenueGrowthPct ??
       consensus?.year1RevenueGrowthPct ??
       year2Growth;
-    return 0.6 * cons + 0.4 * normalized;
+    return clampGrowthPct(0.6 * cons + 0.4 * normalized);
   }
 
   const y3 = annualGrowthPct(3, consensus, normalized, year1Growth, year2Growth);
   const steps = forwardYear - 3;
-  return BASE_CASE_LTGR_PCT + (y3 - BASE_CASE_LTGR_PCT) * Math.pow(0.55, steps);
+  return clampGrowthPct(BASE_CASE_LTGR_PCT + (y3 - BASE_CASE_LTGR_PCT) * Math.pow(0.55, steps));
 }
 
 function resolveYearGrowthRates(
@@ -108,23 +125,134 @@ function resolveYearGrowthRates(
   historicalPoints: QuarterlyPnlPoint[],
 ): { year1: number; year2: number; normalized: number } {
   const normalized = normalizedGrowthPct(historicalPoints, documentRevenueGrowthPct);
-  const year1 = consensus?.year1RevenueGrowthPct ?? documentRevenueGrowthPct ?? normalized;
-  const year2 =
+  const year1 = clampGrowthPct(
+    consensus?.year1RevenueGrowthPct ?? documentRevenueGrowthPct ?? normalized,
+  );
+  const year2 = clampGrowthPct(
     consensus?.year2RevenueGrowthPct ??
-    consensus?.year1RevenueGrowthPct ??
-    documentRevenueGrowthPct ??
-    year1 * 0.92;
+      consensus?.year1RevenueGrowthPct ??
+      documentRevenueGrowthPct ??
+      year1 * 0.92,
+  );
   return { year1, year2, normalized };
-}
-
-function seasonalWeights(revenuesM: number[]): number[] {
-  const sum = revenuesM.reduce((a, b) => a + b, 0);
-  if (sum <= 0) return revenuesM.map(() => 1 / revenuesM.length);
-  return revenuesM.map((r) => r / sum);
 }
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * Math.max(0, Math.min(1, t));
+}
+
+function fpAtOffset(anchorFp: string, offset: number): string {
+  let idx = QUARTER_ORDER.indexOf(anchorFp.toUpperCase() as (typeof QUARTER_ORDER)[number]);
+  if (idx < 0) idx = 0;
+  return QUARTER_ORDER[(idx + offset) % 4]!;
+}
+
+/** Fiscal-quarter revenue weights from long history; blend toward equal when extreme. */
+export function fiscalQuarterWeights(points: QuarterlyPnlPoint[]): Map<string, number> {
+  const byFp: Record<string, number[]> = { Q1: [], Q2: [], Q3: [], Q4: [] };
+  for (const p of points) {
+    const rev = toMillions(p.revenueUsd);
+    if (rev != null && rev > 0 && byFp[p.fp]) byFp[p.fp]!.push(rev);
+  }
+
+  const avgs = QUARTER_ORDER.map((fp) => avg(byFp[fp]!) ?? 0);
+  const sum = avgs.reduce((a, b) => a + b, 0);
+  if (sum <= 0) {
+    return new Map(QUARTER_ORDER.map((fp) => [fp, 0.25]));
+  }
+
+  let weights = avgs.map((v) => v / sum);
+  const maxW = Math.max(...weights);
+  if (maxW > 0.42 || points.length < 4) {
+    weights = weights.map((w) => 0.35 * w + 0.65 * 0.25);
+    const s = weights.reduce((a, b) => a + b, 0);
+    weights = weights.map((w) => w / s);
+  }
+
+  return new Map(QUARTER_ORDER.map((fp, i) => [fp, weights[i]!]));
+}
+
+function historicalOpexRatioBounds(points: QuarterlyPnlPoint[]): { avg: number; max: number; min: number } {
+  const ratios: number[] = [];
+  for (const p of points) {
+    const rev = toMillions(p.revenueUsd);
+    const opex = toMillions(p.operatingExpensesUsd);
+    const gp = toMillions(p.grossProfitUsd);
+    const oi = toMillions(p.operatingIncomeUsd);
+    if (rev == null || rev <= 0) continue;
+    if (opex != null) {
+      ratios.push(opex / rev);
+    } else if (gp != null && oi != null) {
+      ratios.push(Math.max(0, (gp - oi) / rev));
+    }
+  }
+
+  const valid = ratios.filter((r) => r > 0.05 && r < 0.55);
+  if (!valid.length) {
+    return { avg: 0.3, max: 0.38, min: 0.05 };
+  }
+
+  const a = avg(valid) ?? 0.3;
+  return {
+    avg: a,
+    max: Math.min(0.48, Math.max(...valid) + 0.03),
+    min: Math.max(0.05, Math.min(...valid)),
+  };
+}
+
+function projectAnnualYears(input: {
+  ltmRevM: number;
+  latestGmPct: number;
+  targetGmPct: number;
+  opexBounds: { avg: number; max: number; min: number };
+  yearCount: number;
+  consensus: ConsensusEstimates | null;
+  documentRevenueGrowthPct: number | null;
+  hist: QuarterlyPnlPoint[];
+}): YearPnl[] {
+  const { year1, year2, normalized } = resolveYearGrowthRates(
+    input.consensus,
+    input.documentRevenueGrowthPct,
+    input.hist,
+  );
+
+  let opexRatio = input.opexBounds.avg;
+  let prevAnnualRev = input.ltmRevM;
+  const years: YearPnl[] = [];
+
+  for (let y = 1; y <= input.yearCount; y++) {
+    const g = annualGrowthPct(y, input.consensus, normalized, year1, year2);
+    const revenueM = Math.round(prevAnnualRev * (1 + g / 100));
+
+    const revertProgress = Math.min(1, y / 4);
+    const grossMarginPctNow = lerp(input.latestGmPct, input.targetGmPct, revertProgress);
+
+    const annualGrowth = prevAnnualRev > 0 ? (revenueM - prevAnnualRev) / prevAnnualRev : 0;
+    opexRatio = opexRatio * (1 + annualGrowth * (1 - BASE_CASE_OPEX_LEVERAGE) * 0.45);
+    opexRatio = Math.max(
+      input.opexBounds.min,
+      Math.min(input.opexBounds.max + 0.08, opexRatio, 0.72),
+    );
+
+    const grossProfitM = Math.round(revenueM * (grossMarginPctNow / 100));
+    const opexM = Math.round(revenueM * opexRatio);
+    const opIncomeM = grossProfitM - opexM;
+    const netIncomeM =
+      opIncomeM > 0 ? Math.round(opIncomeM * (1 - BASE_CASE_TAX_RATE)) : Math.round(opIncomeM);
+
+    years.push({
+      revenueM,
+      grossMarginPct: grossMarginPctNow,
+      opexRatio,
+      grossProfitM,
+      opexM,
+      opIncomeM,
+      netIncomeM,
+    });
+    prevAnnualRev = revenueM;
+  }
+
+  return years;
 }
 
 export function buildBaseCaseQuarterlyProjection(input: BaseCaseProjectionInput): ProjectedQuarterPnl[] {
@@ -144,62 +272,54 @@ export function buildBaseCaseQuarterlyProjection(input: BaseCaseProjectionInput)
     }));
   }
 
-  const anchor = hist[hist.length - 1];
+  const anchor = [...hist].reverse().find((p) => (toMillions(p.revenueUsd) ?? 0) > 0) ?? hist[hist.length - 1];
   if (!anchor || estimateCount <= 0) return [];
+
+  const historyForSeason = longHistoryPoints.length >= 4 ? longHistoryPoints : hist;
+  const fpWeights = fiscalQuarterWeights(historyForSeason);
+  const opexBounds = historicalOpexRatioBounds(hist.slice(-8));
 
   const lastFourRevM = hist.slice(-4).map((p) => toMillions(p.revenueUsd) ?? 0);
   const ltmRevM = lastFourRevM.reduce((a, b) => a + b, 0);
-  const weights = seasonalWeights(lastFourRevM.length === 4 ? lastFourRevM : [ltmRevM / 4]);
 
   const latestGmPct = grossMarginPct(anchor) ?? historicalGrossMarginAvg(longHistoryPoints);
   const targetGmPct = historicalGrossMarginAvg(longHistoryPoints);
 
   const anchorRevM = toMillions(anchor.revenueUsd) ?? ltmRevM / 4;
-  const anchorOpexM = toMillions(anchor.operatingExpensesUsd) ?? anchorRevM * 0.3;
-  const anchorOpexRatio = anchorRevM > 0 ? anchorOpexM / anchorRevM : 0.3;
+  const anchorFcfM = toMillions(anchor.fcfUsd) ?? anchorRevM * 0.12;
+  const fcfRatio = anchorRevM > 0 ? anchorFcfM / anchorRevM : 0.12;
 
   let sharesM = anchor.shares != null ? Math.round(anchor.shares / 1e6) : 400;
   let cashM = toMillions(anchor.cashUsd);
   let debtM = toMillions(anchor.debtUsd);
-  const anchorFcfM = toMillions(anchor.fcfUsd) ?? anchorRevM * 0.12;
-  const fcfRatio = anchorRevM > 0 ? anchorFcfM / anchorRevM : 0.12;
 
-  const { year1, year2, normalized } = resolveYearGrowthRates(
+  const yearCount = Math.ceil(estimateCount / 4) + 1;
+  const annualYears = projectAnnualYears({
+    ltmRevM,
+    latestGmPct,
+    targetGmPct,
+    opexBounds,
+    yearCount,
     consensus,
     documentRevenueGrowthPct,
     hist,
-  );
-
-  const annualTargets: number[] = [];
-  let revCursor = ltmRevM;
-  for (let y = 1; y <= Math.ceil(estimateCount / 4) + 2; y++) {
-    const g = annualGrowthPct(y, consensus, normalized, year1, year2);
-    revCursor = revCursor * (1 + g / 100);
-    annualTargets.push(revCursor);
-  }
+  });
 
   const out: ProjectedQuarterPnl[] = [];
-  let prevRevM = anchorRevM;
-  let prevOpexRatio = anchorOpexRatio;
 
   for (let i = 0; i < estimateCount; i++) {
     const forwardYear = Math.floor(i / 4) + 1;
-    const quarterInYear = i % 4;
-    const yearTarget = annualTargets[forwardYear - 1] ?? annualTargets[annualTargets.length - 1]!;
-    const revM = Math.round(yearTarget * (weights[quarterInYear] ?? 0.25));
+    const ya = annualYears[forwardYear - 1] ?? annualYears[annualYears.length - 1]!;
 
-    const revertProgress = Math.min(1, (i + 1) / 8);
-    const grossMarginPctNow = lerp(latestGmPct, targetGmPct, revertProgress);
-    const grossProfitM = Math.round(revM * (grossMarginPctNow / 100));
+    const fpOffset = (forwardYear - 1) * 4 + (i % 4) + 1;
+    const fp = fpAtOffset(anchor.fp, fpOffset);
+    const w = fpWeights.get(fp) ?? 0.25;
 
-    const revGrowthQ = prevRevM > 0 ? (revM - prevRevM) / prevRevM : 0;
-    prevOpexRatio = prevOpexRatio * (1 + revGrowthQ * (1 - BASE_CASE_OPEX_LEVERAGE));
-    prevOpexRatio = Math.max(0.05, Math.min(0.85, prevOpexRatio));
-    const opexM = Math.round(revM * prevOpexRatio);
-
+    const revM = Math.round(ya.revenueM * w);
+    const grossProfitM = Math.round(ya.grossProfitM * w);
+    const opexM = Math.round(ya.opexM * w);
     const opIncomeM = grossProfitM - opexM;
     const opMarginPct = revM > 0 ? (opIncomeM / revM) * 100 : 0;
-
     const netIncomeM =
       opIncomeM > 0 ? Math.round(opIncomeM * (1 - BASE_CASE_TAX_RATE)) : Math.round(opIncomeM);
     const eps = sharesM > 0 ? Math.round((netIncomeM / sharesM) * 100) / 100 : 0;
@@ -211,7 +331,7 @@ export function buildBaseCaseQuarterlyProjection(input: BaseCaseProjectionInput)
     out.push({
       revenueM: revM,
       grossProfitM,
-      grossMarginPct: Math.round(grossMarginPctNow * 10) / 10,
+      grossMarginPct: Math.round(ya.grossMarginPct * 10) / 10,
       opexM,
       opIncomeM,
       opMarginPct: Math.round(opMarginPct * 10) / 10,
@@ -222,8 +342,6 @@ export function buildBaseCaseQuarterlyProjection(input: BaseCaseProjectionInput)
       debtM,
       fcfM,
     });
-
-    prevRevM = revM;
   }
 
   if (consensus?.year1Eps != null && out.length >= 4) {

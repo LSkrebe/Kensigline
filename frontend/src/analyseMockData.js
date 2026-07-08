@@ -1,62 +1,182 @@
 /** Mock analyse / financial-model payload (offline showcase). */
 
-const QUARTERS = [
-  "Q1'24",
-  "Q2'24",
-  "Q3'24",
-  "Q4'24",
-  "Q1'25",
-  "Q2'25",
-  "Q3'25E",
-  "Q4'25E",
-  "Q1'26E",
-  "Q2'26E",
-]
+export const HISTORICAL_QUARTERS = 6
+export const ESTIMATE_QUARTERS = 4
 
-const ESTIMATE_FROM_INDEX = 6
+function calendarQuarterFromDate(date = new Date()) {
+  return {
+    calYear: date.getFullYear(),
+    calQuarter: Math.floor(date.getMonth() / 3) + 1,
+  }
+}
 
-const ASML_MODEL = {
-  currency: 'USD',
-  unitNote: 'All financials in USD millions except per share data.',
-  estimateFromIndex: ESTIMATE_FROM_INDEX,
-  quarters: QUARTERS,
-  historicalModel: [
-    { label: 'Revenue', values: [5200, 5450, 5890, 6120, 6340, 6780, 7020, 7280, 7450, 7620] },
-    { label: 'Gross profit', values: [2704, 2835, 3062, 3182, 3298, 3526, 3651, 3784, 3872, 3962] },
-    { label: 'Gross margin', values: ['52.0%', '52.0%', '52.0%', '52.0%', '52.0%', '52.0%', '52.0%', '52.0%', '52.0%', '52.0%'], kind: 'pct' },
-    { label: 'Operating expenses', values: [1300, 1363, 1472, 1530, 1585, 1695, 1755, 1820, 1863, 1905] },
-    { label: 'Operating income', values: [1404, 1472, 1590, 1652, 1713, 1831, 1896, 1964, 2009, 2057] },
-    { label: 'Operating margin', values: ['27.0%', '27.0%', '27.0%', '27.0%', '27.0%', '27.0%', '27.0%', '27.0%', '27.0%', '27.0%'], kind: 'pct' },
-    { label: 'Net income', values: [1123, 1178, 1272, 1322, 1370, 1465, 1517, 1571, 1607, 1646] },
-    { label: 'EPS ($)', values: ['2.78', '2.91', '3.15', '3.27', '3.39', '3.62', '3.75', '3.89', '3.98', '4.08'], kind: 'eps' },
-    { label: 'Shares outstanding (M)', values: [404, 404, 404, 404, 404, 404, 404, 404, 404, 404] },
-    { label: 'Cash & equivalents', values: [7200, 7450, 7890, 8120, 8340, 8780, 9020, 9280, 9450, 9620] },
-    { label: 'Total debt', values: [3200, 3100, 3050, 2980, 2920, 2860, 2800, 2740, 2680, 2620] },
-    { label: 'Free cash flow', values: [1250, 1320, 1450, 1520, 1580, 1680, 1740, 1810, 1850, 1890] },
-    {
-      label: 'Revenue growth (YoY)',
-      values: ['—', '—', '+14.2%', '+12.8%', '+13.1%', '+11.8%', '+12.5%', '+14.0%', '+10.6%', '+12.7%'],
-      kind: 'growth',
+function retreatCalendarQuarter(calYear, calQuarter, steps = 1) {
+  let y = calYear
+  let q = calQuarter
+  for (let i = 0; i < steps; i++) {
+    q -= 1
+    if (q < 1) {
+      q = 4
+      y -= 1
+    }
+  }
+  return { calYear: y, calQuarter: q }
+}
+
+function advanceCalendarQuarter(calYear, calQuarter, steps = 1) {
+  let y = calYear
+  let q = calQuarter
+  for (let i = 0; i < steps; i++) {
+    q += 1
+    if (q > 4) {
+      q = 1
+      y += 1
+    }
+  }
+  return { calYear: y, calQuarter: q }
+}
+
+function labelForCalendarQuarter(calYear, calQuarter, estimate = false) {
+  const yy = String(calYear % 100).padStart(2, '0')
+  return `Q${calQuarter}'${yy}${estimate ? 'E' : ''}`
+}
+
+/** Six reported quarters through the last complete quarter, plus four forward. */
+export function buildAnalyseQuarterWindow(asOf = new Date()) {
+  const { calYear, calQuarter } = calendarQuarterFromDate(asOf)
+  const lastHist = retreatCalendarQuarter(calYear, calQuarter, 1)
+  const slots = []
+
+  let y = lastHist.calYear
+  let q = lastHist.calQuarter
+  for (let i = 0; i < HISTORICAL_QUARTERS; i++) {
+    slots.push({
+      label: labelForCalendarQuarter(y, q, false),
+      isEstimate: false,
+    })
+    const prev = retreatCalendarQuarter(y, q, 1)
+    y = prev.calYear
+    q = prev.calQuarter
+  }
+  slots.reverse()
+
+  y = calYear
+  q = calQuarter
+  for (let i = 0; i < ESTIMATE_QUARTERS; i++) {
+    slots.push({
+      label: labelForCalendarQuarter(y, q, true),
+      isEstimate: true,
+    })
+    const next = advanceCalendarQuarter(y, q, 1)
+    y = next.calYear
+    q = next.calQuarter
+  }
+
+  return slots
+}
+
+function buildAsmlMockModel(asOf = new Date()) {
+  const window = buildAnalyseQuarterWindow(asOf)
+  const quarters = window.map((s) => s.label)
+  const estimateFromIndex = HISTORICAL_QUARTERS
+  const colCount = quarters.length
+
+  const revenue = []
+  let rev = 5200
+  for (let i = 0; i < colCount; i++) {
+    if (i > 0) rev = Math.round(rev * (1.012 + (i % 4) * 0.002))
+    revenue.push(rev)
+  }
+
+  const grossProfit = revenue.map((r) => Math.round(r * 0.52))
+  const opIncome = revenue.map((r) => Math.round(r * 0.27))
+  const opex = grossProfit.map((g, i) => g - opIncome[i])
+  const netIncome = opIncome.map((o) => Math.round(o * 0.77))
+  const eps = netIncome.map((n) => (n / 404).toFixed(2))
+  const shares = Array(colCount).fill(404)
+  const cash = revenue.map((r, i) => 7200 + i * 180 + Math.round(r * 0.05))
+  const debt = revenue.map((_, i) => 3200 - i * 35)
+  const fcf = revenue.map((r) => Math.round(r * 0.12))
+
+  const revGrowth = revenue.map((r, i) => growthYoYStr(r, i >= 4 ? revenue[i - 4] : null))
+  const epsGrowth = eps.map((e, i) =>
+    growthYoYStr(parseFloat(e), i >= 4 ? parseFloat(eps[i - 4]) : null),
+  )
+
+  const estLabels = quarters.slice(estimateFromIndex, estimateFromIndex + ESTIMATE_QUARTERS)
+  const marketPrice = 748.5
+  const ltmEpsSum = eps
+    .slice(estimateFromIndex - 4, estimateFromIndex)
+    .reduce((s, e) => s + parseFloat(e), 0)
+  const targetPe = clampPe(marketPrice / ltmEpsSum)
+
+  return finalizeMockModel({
+    currency: 'USD',
+    unitNote: 'All financials in USD millions except per share data.',
+    estimateFromIndex,
+    quarters,
+    historicalModel: [
+      { label: 'Revenue', values: revenue },
+      { label: 'Gross profit', values: grossProfit },
+      { label: 'Gross margin', values: revenue.map(() => '52.0%'), kind: 'pct' },
+      { label: 'Operating expenses', values: opex },
+      { label: 'Operating income', values: opIncome },
+      { label: 'Operating margin', values: revenue.map(() => '27.0%'), kind: 'pct' },
+      { label: 'Net income', values: netIncome },
+      { label: 'EPS ($)', values: eps, kind: 'eps' },
+      { label: 'Shares outstanding (M)', values: shares },
+      { label: 'Cash & equivalents', values: cash },
+      { label: 'Total debt', values: debt },
+      { label: 'Free cash flow', values: fcf },
+      { label: 'Revenue growth (YoY)', values: revGrowth, kind: 'growth' },
+      { label: 'EPS growth (YoY)', values: epsGrowth, kind: 'growth' },
+    ],
+    businessDrivers: [
+      {
+        label: 'EUV revenue',
+        driverKind: 'revenue',
+        rollsUpToRevenue: true,
+        values: revenue.map((r) => Math.round(r * 0.42)),
+      },
+      {
+        label: 'DUV revenue',
+        driverKind: 'revenue',
+        rollsUpToRevenue: true,
+        values: revenue.map((r) => Math.round(r * 0.35)),
+      },
+      {
+        label: 'Immersion revenue',
+        driverKind: 'revenue',
+        rollsUpToRevenue: true,
+        values: revenue.map((r) => Math.round(r * 0.18)),
+      },
+      {
+        label: 'Installed base (units)',
+        driverKind: 'units',
+        rollsUpToRevenue: false,
+        values: revenue.map((_, i) => 1200 + i * 25),
+      },
+    ],
+    valuationConfig: {
+      targetPe,
+      marketPrice,
+      marketCapBillions: 302.4,
+      enterpriseValueBillions: 294.8,
+      bridgeDriverLabels: ['EUV revenue', 'DUV revenue', 'Immersion revenue'],
+      ntmEps: null,
+      ltmEps: null,
+      priceTarget: null,
+      valuationBasis: 'ntm',
+      defaultColumnIndex: estimateFromIndex,
+      valuationPeriodLabel:
+        estLabels.length >= 2
+          ? `NTM (${estLabels[0]}–${estLabels[estLabels.length - 1]})`
+          : 'NTM',
+      valuationAvailable: true,
     },
-    {
-      label: 'EPS growth (YoY)',
-      values: ['—', '—', '+15.3%', '+13.2%', '+13.5%', '+12.1%', '+12.9%', '+14.0%', '+10.9%', '+12.7%'],
-      kind: 'growth',
-    },
-  ],
-  businessDrivers: [
-    { label: 'EUV revenue', driverKind: 'revenue', rollsUpToRevenue: true, values: [2100, 2280, 2450, 2580, 2720, 2890, 3020, 3150, 3240, 3330] },
-    { label: 'DUV revenue', driverKind: 'revenue', rollsUpToRevenue: true, values: [1800, 1850, 1920, 1980, 2040, 2100, 2150, 2200, 2240, 2280] },
-    { label: 'Immersion revenue', driverKind: 'revenue', rollsUpToRevenue: true, values: [980, 1020, 1080, 1120, 1160, 1220, 1260, 1300, 1330, 1360] },
-    { label: 'Installed base (units)', driverKind: 'units', rollsUpToRevenue: false, values: [1200, 1220, 1250, 1280, 1310, 1340, 1370, 1400, 1430, 1460] },
-  ],
-  valuationConfig: {
-    targetPe: 41.4,
-    marketPrice: 748.5,
-    marketCapBillions: 302.4,
-    enterpriseValueBillions: 294.8,
-    bridgeDriverLabels: ['EUV revenue', 'DUV revenue', 'Immersion revenue'],
-  },
+    projectionNote:
+      'Base case — annual P&L, consensus FY1–FY2 when available, fiscal seasonality, NTM valuation.',
+  })
 }
 
 function seedFromTicker(ticker) {
@@ -74,7 +194,16 @@ function scaleNum(n, factor) {
 }
 
 function scaleRow(row, factor) {
-  if (row.kind === 'pct' || row.kind === 'growth' || row.kind === 'eps' || row.kind === 'runway') return row
+  if (row.kind === 'pct' || row.kind === 'growth' || row.kind === 'runway') return row
+  if (row.kind === 'eps') {
+    return {
+      ...row,
+      values: row.values.map((v) => {
+        const n = parseFloat(String(v ?? ''))
+        return Number.isFinite(n) ? (Math.round(n * factor * 100) / 100).toFixed(2) : v
+      }),
+    }
+  }
   if (row.readOnly || row.driverKind === 'enrollment' || row.driverKind === 'pos_pct') return row
   return {
     ...row,
@@ -82,8 +211,175 @@ function scaleRow(row, factor) {
   }
 }
 
-function scaleModel(base, factor) {
+function clampPe(pe) {
+  if (!Number.isFinite(pe)) return 20
+  return Math.max(5, Math.min(80, Math.round(pe * 10) / 10))
+}
+
+function parseEpsAt(model, colIdx) {
+  const raw = findRow(model.historicalModel, 'EPS ($)')?.values[colIdx]
+  const n = parseFloat(String(raw ?? ''))
+  return Number.isFinite(n) ? n : null
+}
+
+function sumOpIncomeRange(model, start, end) {
+  const row = findRow(model.historicalModel, 'Operating income')
+  if (!row || end <= start) return null
+  let sum = 0
+  for (let i = start; i < end && i < row.values.length; i++) {
+    const v = Number(row.values[i])
+    if (!Number.isFinite(v)) return null
+    sum += v
+  }
+  return sum
+}
+
+function numAt(model, label, colIdx, fallback = 0) {
+  const v = Number(findRow(model.historicalModel, label)?.values[colIdx])
+  return Number.isFinite(v) ? v : fallback
+}
+
+/**
+ * Quarter-aware valuation: model column follows selected estimate quarter;
+ * market column stays on spot + LTM. Price uses NTM on first estimate col,
+ * otherwise annualized quarter EPS (×4) × LTM P/E — not raw Q EPS × P/E.
+ */
+function valuationForQuarter(model, colIdx, marketPriceOverride = null) {
+  const cfg = model.valuationConfig ?? {}
+  const estFrom = model.estimateFromIndex
+  const ntmStart = cfg.defaultColumnIndex ?? estFrom
+  const ntmEnd = Math.min(ntmStart + ESTIMATE_QUARTERS, model.quarters.length)
+  const histCol = Math.max(0, estFrom - 1)
+
+  const ntmEps = sumEpsRange(model, ntmStart, ntmEnd)
+  const ltmEps = sumEpsRange(model, Math.max(0, estFrom - 4), estFrom)
+  const quarterEps = parseEpsAt(model, colIdx)
+
+  const marketPrice =
+    marketPriceOverride != null && Number.isFinite(marketPriceOverride)
+      ? marketPriceOverride
+      : cfg.marketPrice
+
+  const targetPe =
+    ltmEps != null && ltmEps > 0 && marketPrice != null && marketPrice > 0
+      ? clampPe(marketPrice / ltmEps)
+      : clampPe(cfg.targetPe ?? 20)
+
+  const useNtm = colIdx === ntmStart && ntmEps != null && ntmEps > 0
+  const annualizedQuarterEps =
+    quarterEps != null && quarterEps > 0 ? Math.round(quarterEps * 4 * 100) / 100 : null
+  const valuationEps = useNtm ? ntmEps : annualizedQuarterEps ?? ntmEps
+  const earningsLabel = useNtm ? 'NTM EPS' : 'Ann. EPS'
+
+  const valuationAvailable =
+    valuationEps != null && valuationEps > 0 && marketPrice != null && marketPrice > 0
+  const priceTarget =
+    valuationAvailable && valuationEps != null
+      ? Math.round(valuationEps * targetPe * 100) / 100
+      : null
+
+  const revenue = numAt(model, 'Revenue', colIdx)
+  const opIncome = numAt(model, 'Operating income', colIdx)
+  const cash = numAt(model, 'Cash & equivalents', colIdx)
+  const debt = numAt(model, 'Total debt', colIdx)
+  const shares = numAt(model, 'Shares outstanding (M)', colIdx, 404)
+
+  const marketShares = numAt(model, 'Shares outstanding (M)', histCol, shares)
+  const marketCash = numAt(model, 'Cash & equivalents', histCol, cash)
+  const marketDebt = numAt(model, 'Total debt', histCol, debt)
+  const ltmOpIncome = sumOpIncomeRange(model, Math.max(0, estFrom - 4), estFrom)
+
+  const marketMcap = marketPrice * marketShares
+  const marketEv = marketMcap + marketDebt - marketCash
+  const marketEbitda = Math.max((ltmOpIncome ?? opIncome) * 1.15, 1)
+  const marketEvEbitda = marketEv / marketEbitda
+  const marketPe = ltmEps != null && ltmEps > 0 ? marketPrice / ltmEps : null
+
+  const modelMcap = priceTarget != null ? priceTarget * shares : null
+  const modelEv = modelMcap != null ? modelMcap + debt - cash : null
+  const modelEbitda = Math.max(opIncome * 4 * 1.15, 1)
+  const modelEvEbitda = modelEv != null ? modelEv / modelEbitda : null
+  const modelPe =
+    valuationEps != null && valuationEps > 0 && priceTarget != null
+      ? priceTarget / valuationEps
+      : targetPe
+
   return {
+    ntmEps,
+    ltmEps,
+    quarterEps,
+    valuationEps,
+    earningsLabel,
+    targetPe,
+    modelPe,
+    marketPrice,
+    priceTarget,
+    valuationAvailable,
+    revenue,
+    opIncome,
+    shares,
+    forecastPeriod: model.quarters[colIdx],
+    marketMcap,
+    marketEv,
+    marketEvEbitda,
+    marketPe,
+    modelMcap,
+    modelEv,
+    modelEvEbitda,
+  }
+}
+
+/** Keep valuation config aligned with NTM anchor (first estimate column). */
+function valuationMetricsFromModel(model, marketPriceOverride = null) {
+  const cfg = model.valuationConfig ?? {}
+  const ntmStart = cfg.defaultColumnIndex ?? model.estimateFromIndex
+  const v = valuationForQuarter(model, ntmStart, marketPriceOverride)
+  const ntmEnd = Math.min(ntmStart + ESTIMATE_QUARTERS, model.quarters.length)
+  const estLabels = model.quarters.slice(ntmStart, ntmEnd)
+  return {
+    ntmStart,
+    ntmEnd,
+    ntmEps: v.ntmEps != null ? Math.round(v.ntmEps * 100) / 100 : null,
+    ltmEps: v.ltmEps != null ? Math.round(v.ltmEps * 100) / 100 : null,
+    targetPe: v.targetPe,
+    marketPrice: v.marketPrice,
+    priceTarget: v.priceTarget,
+    valuationAvailable: v.valuationAvailable,
+    valuationPeriodLabel:
+      estLabels.length >= 2
+        ? `NTM (${estLabels[0]}–${estLabels[estLabels.length - 1]})`
+        : 'NTM',
+  }
+}
+
+function finalizeMockModel(model, marketPriceOverride = null) {
+  const metrics = valuationMetricsFromModel(model, marketPriceOverride)
+  const shares =
+    findRow(model.historicalModel, 'Shares outstanding (M)')?.values[model.estimateFromIndex - 1] ?? 404
+  const mcapB =
+    metrics.marketPrice != null && shares > 0 ? (metrics.marketPrice * shares) / 1000 : null
+  return {
+    ...model,
+    valuationConfig: {
+      ...model.valuationConfig,
+      targetPe: metrics.targetPe,
+      marketPrice:
+        metrics.marketPrice != null ? Math.round(metrics.marketPrice * 100) / 100 : null,
+      marketCapBillions: mcapB != null ? Math.round(mcapB * 10) / 10 : null,
+      enterpriseValueBillions: mcapB != null ? Math.round(mcapB * 0.95 * 10) / 10 : null,
+      ntmEps: metrics.ntmEps,
+      ltmEps: metrics.ltmEps,
+      priceTarget: metrics.priceTarget,
+      valuationBasis: 'ntm',
+      defaultColumnIndex: metrics.ntmStart,
+      valuationPeriodLabel: metrics.valuationPeriodLabel,
+      valuationAvailable: metrics.valuationAvailable,
+    },
+  }
+}
+
+function scaleModel(base, factor) {
+  const scaled = {
     ...base,
     historicalModel: base.historicalModel.map((r) => scaleRow(r, factor)),
     businessDrivers: base.businessDrivers.map((r) => scaleRow(r, factor)),
@@ -95,6 +391,7 @@ function scaleModel(base, factor) {
         Math.round(base.valuationConfig.enterpriseValueBillions * factor * 10) / 10,
     },
   }
+  return finalizeMockModel(scaled)
 }
 
 function pctStr(n) {
@@ -265,42 +562,67 @@ function fmtUsdBillions(millions) {
   return `$${(millions / 1000).toFixed(1)}B`
 }
 
+function sumEpsRange(model, start, end) {
+  const epsRow = findRow(model.historicalModel, 'EPS ($)')
+  if (!epsRow || end <= start) return null
+  let sum = 0
+  let count = 0
+  for (let i = start; i < end && i < epsRow.values.length; i++) {
+    const e = parseFloat(String(epsRow.values[i] ?? ''))
+    if (!Number.isFinite(e)) return null
+    sum += e
+    count++
+  }
+  return count > 0 ? sum : null
+}
+
+function applyScenarioToModel(model, scenario) {
+  if (!model || scenario === 'base') return model
+  const estFrom = model.estimateFromIndex
+  const colCount = model.quarters.length
+  const revMult = scenario === 'bull' ? 1.05 : 0.95
+  const marginBps = scenario === 'bull' ? 0.01 : -0.01
+
+  const historicalModel = model.historicalModel.map((r) => ({ ...r, values: [...r.values] }))
+  const businessDrivers = model.businessDrivers.map((r) => ({ ...r, values: [...r.values] }))
+
+  for (let i = estFrom; i < colCount; i++) {
+    const rev = findRow(historicalModel, 'Revenue')
+    const ratios = forecastRatios(model, i)
+    const adjustedRatios = {
+      ...ratios,
+      grossMargin: Math.max(0.05, Math.min(0.9, ratios.grossMargin + marginBps)),
+      opMargin: Math.max(0.02, Math.min(0.85, ratios.opMargin + marginBps)),
+      netMargin: Math.max(0.01, Math.min(0.8, ratios.netMargin + marginBps * (1 - BASE_CASE_TAX_RATE))),
+    }
+    const baseRev = rev?.values[i]
+    const newRev = typeof baseRev === 'number' ? Math.round(baseRev * revMult) : baseRev
+    if (typeof newRev === 'number') {
+      recalcEstimateColumn(historicalModel, model, i, newRev, adjustedRatios)
+    }
+  }
+
+  return { ...model, historicalModel, businessDrivers }
+}
+
 function computeMarketValuationView(model, liveMarketPrice, forecastColumnIndex) {
   const cfg = model.valuationConfig
   if (!cfg) return null
 
   const estFrom = model.estimateFromIndex
-  const defaultIdx = model.quarters.length - 1
+  const ntmStart = cfg.defaultColumnIndex ?? estFrom
   const colIdx =
     forecastColumnIndex != null &&
     forecastColumnIndex >= estFrom &&
     forecastColumnIndex < model.quarters.length
       ? forecastColumnIndex
-      : defaultIdx
-  const forecastPeriod = model.quarters[colIdx]
+      : ntmStart
 
-  const eps = parseFloat(findRow(model.historicalModel, 'EPS ($)')?.values[colIdx] ?? '0')
-  const revenue = findRow(model.historicalModel, 'Revenue')?.values[colIdx] ?? 0
-  const opIncome = findRow(model.historicalModel, 'Operating income')?.values[colIdx] ?? 0
-  const cash = findRow(model.historicalModel, 'Cash & equivalents')?.values[colIdx] ?? 0
-  const debt = findRow(model.historicalModel, 'Total debt')?.values[colIdx] ?? 0
-  const shares = findRow(model.historicalModel, 'Shares outstanding (M)')?.values[colIdx] ?? 404
-
-  const marketPrice = liveMarketPrice != null && Number.isFinite(liveMarketPrice)
-    ? liveMarketPrice
-    : cfg.marketPrice
-  const targetPe = cfg.targetPe
-  const priceTarget = eps * targetPe
-  const upsidePct = marketPrice > 0 ? ((priceTarget - marketPrice) / marketPrice) * 100 : 0
-
-  const forecastMcap = priceTarget * shares
-  const marketMcap = marketPrice * shares
-  const forecastEv = forecastMcap + debt - cash
-  const marketEv = marketMcap + debt - cash
-  const ebitdaProxy = Math.max(Math.round(opIncome * 1.15), 1)
-  const forecastEvEbitda = forecastEv / ebitdaProxy
-  const marketEvEbitda = marketEv / ebitdaProxy
-  const marketPe = eps > 0 ? marketPrice / eps : null
+  const v = valuationForQuarter(model, colIdx, liveMarketPrice ?? cfg.marketPrice)
+  const upsidePct =
+    v.priceTarget != null && v.marketPrice > 0
+      ? ((v.priceTarget - v.marketPrice) / v.marketPrice) * 100
+      : null
 
   const bridgeSegments = (cfg.bridgeDriverLabels ?? [])
     .map((label) => {
@@ -311,35 +633,57 @@ function computeMarketValuationView(model, liveMarketPrice, forecastColumnIndex)
     .filter(Boolean)
 
   const bridgeLabels = bridgeSegments.join(' × ')
+  const peLabel = v.earningsLabel === 'NTM EPS' ? 'NTM P/E' : 'Ann. P/E'
 
   return {
     valuationMode: 'market',
     headline: {
-      priceTargetFmt: fmtUsd(priceTarget),
-      marketPriceFmt: fmtUsd(marketPrice),
-      upsidePct: fmtPctSigned(upsidePct),
-      upsideUp: upsidePct >= 0,
-      forecastPeriod,
-      targetPeFmt: `${targetPe.toFixed(1)}x`,
+      priceTargetFmt: v.priceTarget != null ? fmtUsd(v.priceTarget) : 'N/M',
+      marketPriceFmt: fmtUsd(v.marketPrice),
+      upsidePct: upsidePct != null ? fmtPctSigned(upsidePct) : '—',
+      upsideUp: upsidePct != null ? upsidePct >= 0 : false,
+      forecastPeriod: v.forecastPeriod,
+      targetPeFmt: `${v.targetPe.toFixed(1)}x`,
+      valuationAvailable: v.valuationAvailable,
     },
     bridge: {
-      formulaLine: `${bridgeLabels} → Revenue → EPS × P/E → Price`,
-      valuesLine: `${fmtUsdMillions(revenue)} → ${fmtUsd(eps)} × ${targetPe.toFixed(1)}x → ${fmtUsd(priceTarget)}`,
+      formulaLine: `${bridgeLabels} → Revenue → ${v.earningsLabel} × P/E → Price`,
+      valuesLine:
+        v.priceTarget != null && v.valuationEps != null
+          ? `${fmtUsdMillions(v.revenue)} · ${fmtUsd(v.valuationEps)} ${v.earningsLabel} × ${v.targetPe.toFixed(1)}x → ${fmtUsd(v.priceTarget)}`
+          : `${fmtUsdMillions(v.revenue)} → ${v.earningsLabel} n/a`,
     },
     details: {
       rows: [
-        { label: 'Price per share', model: fmtUsd(priceTarget), market: fmtUsd(marketPrice) },
         {
-          label: 'Forward P/E',
-          model: `${targetPe.toFixed(1)}x`,
-          market: marketPe != null ? `${marketPe.toFixed(1)}x` : '—',
+          label: 'Price per share',
+          model: v.priceTarget != null ? fmtUsd(v.priceTarget) : 'N/M',
+          market: fmtUsd(v.marketPrice),
         },
-        { label: 'Market cap', model: fmtUsdBillions(forecastMcap), market: fmtUsdBillions(marketMcap) },
-        { label: 'Enterprise value', model: fmtUsdBillions(forecastEv), market: fmtUsdBillions(marketEv) },
+        {
+          label: peLabel,
+          model: `${v.modelPe.toFixed(1)}x`,
+          market: v.marketPe != null ? `${v.marketPe.toFixed(1)}x` : '—',
+        },
+        {
+          label: v.earningsLabel,
+          model: v.valuationEps != null ? fmtUsd(v.valuationEps) : '—',
+          market: v.ltmEps != null ? `${fmtUsd(v.ltmEps)} LTM` : '—',
+        },
+        {
+          label: 'Market cap',
+          model: v.modelMcap != null ? fmtUsdBillions(v.modelMcap) : '—',
+          market: fmtUsdBillions(v.marketMcap),
+        },
+        {
+          label: 'Enterprise value',
+          model: v.modelEv != null ? fmtUsdBillions(v.modelEv) : '—',
+          market: fmtUsdBillions(v.marketEv),
+        },
         {
           label: 'EV / EBITDA',
-          model: `${forecastEvEbitda.toFixed(1)}x`,
-          market: `${marketEvEbitda.toFixed(1)}x`,
+          model: v.modelEvEbitda != null ? `${v.modelEvEbitda.toFixed(1)}x` : '—',
+          market: `${v.marketEvEbitda.toFixed(1)}x`,
         },
       ],
     },
@@ -349,6 +693,10 @@ function computeMarketValuationView(model, liveMarketPrice, forecastColumnIndex)
 /** Price target and cross-checks derived from the live model grid. */
 export function computeValuationView(model, liveMarketPrice = null, forecastColumnIndex = null) {
   return computeMarketValuationView(model, liveMarketPrice, forecastColumnIndex)
+}
+
+export function applyScenario(model, scenario = 'base') {
+  return applyScenarioToModel(model, scenario)
 }
 
 function applyMarketForecastOverrides(baseModel, overrides) {
@@ -394,9 +742,15 @@ export function parseAnalyseGridInput(raw) {
 
 export function analyseMockModelForTicker(ticker) {
   const t = String(ticker ?? 'ASML').trim().toUpperCase()
-  if (t === 'ASML') return ASML_MODEL
+  const base = buildAsmlMockModel()
+  if (t === 'ASML') return base
   const factor = 0.82 + (seedFromTicker(t) % 28) / 100
-  return scaleModel(ASML_MODEL, factor)
+  return scaleModel(base, factor)
+}
+
+/** Recompute headline valuation from grid + optional live spot (after scenario edits). */
+export function refreshModelValuation(model, liveMarketPrice = null) {
+  return finalizeMockModel(model, liveMarketPrice)
 }
 
 export function formatAnalyseGridValue(v, row = null) {

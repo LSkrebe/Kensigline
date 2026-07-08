@@ -8,30 +8,35 @@ import {
 } from "./base-case-projection.js";
 import { fetchConsensusEstimates } from "./consensus-estimates.js";
 import {
-  advanceFiscalQuarter,
   epsStr,
   growthYoYStr,
   pctStr,
   quarterlyPnlFromCompanyFacts,
-  revenueYoYGrowthSeries,
   toMillions,
   type QuarterlyPnlPoint,
 } from "./quarterly-pnl.js";
 import type { ProjectedQuarterPnl } from "./base-case-projection.js";
-import { quarterShortLabel } from "../core/xbrl-facts.js";
 import type { AnalyseModel, AnalyseModelRow, AnalyseRevenueOverlay } from "./types.js";
-
-const TOTAL_COLUMNS = 10;
-const ESTIMATE_COLUMNS = 4;
+import { assessModelQuality, buildValuationMetrics } from "./model-quality.js";
+import {
+  buildAnalyseQuarterWindow,
+  ESTIMATE_QUARTERS,
+  HISTORICAL_QUARTERS,
+  indexQuarterlyPointsByCalendar,
+  histPointsForWindow,
+  TOTAL_COLUMNS,
+} from "./quarter-window.js";
 
 type BuildArgs = {
   ticker: string;
   latestPrice: number | null;
   sharesOutstanding: number | null;
+  industry: string | null;
 };
 
 type CacheEntry = {
   watermark: string | null;
+  windowKey: string;
   payload: { model: AnalyseModel; revenueOverlay: AnalyseRevenueOverlay; partial: boolean };
 };
 
@@ -225,50 +230,37 @@ function buildDriverRows(
 }
 
 function buildValuationConfig(args: {
-  revenueMillions: number[];
-  netIncomeMillions: (number | null)[];
-  colIndex: number;
+  model: AnalyseModel;
   price: number | null;
   sharesOutstanding: number | null;
   bridgeDriverLabels: string[];
+  valuationAvailable: boolean;
 }): AnalyseModel["valuationConfig"] {
-  const ni = args.netIncomeMillions[args.colIndex];
-  const sh = args.sharesOutstanding;
-  const eps = ni != null && sh != null && sh > 0 ? (ni * 1e6) / sh : null;
-  const pe =
-    eps != null && eps > 0 && args.price != null ? args.price / eps : eps != null && eps > 0 ? 25 : 20;
+  const metrics = buildValuationMetrics({
+    model: args.model,
+    price: args.price,
+    sharesOutstanding: args.sharesOutstanding,
+  });
 
   const mcapB =
-    args.price != null && sh != null && sh > 0 ? (args.price * sh) / 1e9 : null;
+    args.price != null && args.sharesOutstanding != null && args.sharesOutstanding > 0
+      ? (args.price * args.sharesOutstanding) / 1e9
+      : null;
 
   return {
-    targetPe: Math.round(pe * 10) / 10,
+    targetPe: metrics.targetPe,
     marketPrice: args.price != null ? Math.round(args.price * 100) / 100 : null,
     marketCapBillions: mcapB != null ? Math.round(mcapB * 10) / 10 : null,
     enterpriseValueBillions: mcapB != null ? Math.round(mcapB * 0.95 * 10) / 10 : null,
     bridgeDriverLabels: args.bridgeDriverLabels,
+    ntmEps: metrics.ntmEps,
+    ltmEps: metrics.ltmEps,
+    priceTarget: args.valuationAvailable ? metrics.priceTarget : null,
+    valuationBasis: "ntm",
+    defaultColumnIndex: metrics.defaultColumnIndex,
+    valuationPeriodLabel: metrics.ntmRange.label,
+    valuationAvailable: args.valuationAvailable,
   };
-}
-
-function quarterLabelsFromPoints(
-  points: QuarterlyPnlPoint[],
-  estimateCount: number,
-): { labels: string[]; estimateFrom: number } {
-  const histLabels = points.map((p) => p.label);
-  const last = points[points.length - 1]!;
-  let fy = last.fy;
-  let fp = last.fp;
-  const estLabels: string[] = [];
-  for (let i = 1; i <= estimateCount; i++) {
-    const next = advanceFiscalQuarter(fy, fp, i);
-    estLabels.push(
-      quarterShortLabel(
-        { val: 0, end: "", filed: "", fy: next.fy, fp: next.fp, form: "10-Q" },
-        true,
-      ),
-    );
-  }
-  return { labels: [...histLabels, ...estLabels], estimateFrom: histLabels.length };
 }
 
 export async function buildAnalyseModel(args: BuildArgs): Promise<{
@@ -278,62 +270,39 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
 }> {
   const ticker = String(args.ticker ?? "").trim().toUpperCase();
   const sec = await loadTickerSecBundle(ticker).catch(() => null);
-  const quarterly = sec ? quarterlyPnlFromCompanyFacts(sec.facts, { quarters: 8 }) : [];
+  const quarterWindow = buildAnalyseQuarterWindow();
+  const estFrom = HISTORICAL_QUARTERS;
+  const estimateCount = ESTIMATE_QUARTERS;
+  const labels = quarterWindow.map((s) => s.label);
+
   const quarterlyLong = sec ? quarterlyPnlFromCompanyFacts(sec.facts, { quarters: 40 }) : [];
+  const byCalendar = indexQuarterlyPointsByCalendar(quarterlyLong);
   const forwardGrowth = await forwardRevenueGrowthFromDocuments(ticker).catch(() => null);
   const consensus = await fetchConsensusEstimates(ticker).catch(() => null);
   const docDrivers = await aggregateBusinessDriversFromDocuments(ticker).catch(() => []);
 
-  const histCount = Math.max(2, Math.min(6, quarterly.length || 2));
-  const estimateCount = TOTAL_COLUMNS - histCount;
-  const estimateFrom = histCount;
-
   let partial = false;
-  let histPoints = quarterly.slice(-histCount);
+  let histPoints = histPointsForWindow(quarterWindow, byCalendar, args.sharesOutstanding);
 
-  if (histPoints.length < 2) {
+  const filledHist = histPoints.filter((p) => (toMillions(p.revenueUsd) ?? 0) > 0);
+  if (filledHist.length < 2) {
     partial = true;
-    const now = new Date();
-    const y = now.getFullYear();
-    histPoints = [
-      {
-        label: `Q1'${String((y - 1) % 100).padStart(2, "0")}`,
-        end: `${y - 1}-03-31`,
-        fy: y - 1,
-        fp: "Q1",
-        revenueUsd: null,
-        grossProfitUsd: null,
-        operatingExpensesUsd: null,
-        operatingIncomeUsd: null,
-        netIncomeUsd: null,
-        shares: args.sharesOutstanding,
-        cashUsd: null,
-        debtUsd: null,
-        fcfUsd: null,
-      },
-      {
-        label: `Q2'${String((y - 1) % 100).padStart(2, "0")}`,
-        end: `${y - 1}-06-30`,
-        fy: y - 1,
-        fp: "Q2",
-        revenueUsd: null,
-        grossProfitUsd: null,
-        operatingExpensesUsd: null,
-        operatingIncomeUsd: null,
-        netIncomeUsd: null,
-        shares: args.sharesOutstanding,
-        cashUsd: null,
-        debtUsd: null,
-        fcfUsd: null,
-      },
-    ];
+    histPoints = histPoints.map((p, i) => ({
+      ...p,
+      revenueUsd: p.revenueUsd ?? (800 + i * 50) * 1e6,
+      grossProfitUsd: p.grossProfitUsd ?? (800 + i * 50) * 1e6 * 0.52,
+      operatingExpensesUsd: p.operatingExpensesUsd ?? (800 + i * 50) * 1e6 * 0.25,
+      operatingIncomeUsd: p.operatingIncomeUsd ?? (800 + i * 50) * 1e6 * 0.27,
+      netIncomeUsd: p.netIncomeUsd ?? (800 + i * 50) * 1e6 * 0.21,
+      fcfUsd: p.fcfUsd ?? (800 + i * 50) * 1e6 * 0.12,
+    }));
   }
 
   const actualRevM = histPoints.map((p) => toMillions(p.revenueUsd));
-  const hasSec = quarterly.length >= 2 && actualRevM.some((v) => v != null && v > 0);
+  const hasSec = filledHist.length >= 2;
   const baseRevM = hasSec
     ? actualRevM.map((v) => v ?? 0)
-    : [800, 900].slice(0, histCount).map((v, i) => v + i * 50);
+    : histPoints.map((_, i) => 800 + i * 50);
 
   const projection = buildBaseCaseQuarterlyProjection({
     historicalPoints: histPoints,
@@ -346,23 +315,22 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
   const revenueMillions =
     projection.length > 0
       ? revenueMillionsFromProjection(baseRevM, projection)
-      : [...baseRevM, ...Array.from({ length: estimateCount }, (_, i) => Math.round((baseRevM.at(-1) ?? 1000) * Math.pow(1.02, i + 1)))];
-  const { labels, estimateFrom: estFrom } = quarterLabelsFromPoints(histPoints, estimateCount);
+      : [
+          ...baseRevM,
+          ...Array.from({ length: estimateCount }, (_, i) =>
+            Math.round((baseRevM.at(-1) ?? 1000) * Math.pow(1.02, i + 1)),
+          ),
+        ];
 
   const historicalModel = buildHistoricalRows(histPoints, revenueMillions, estFrom, projection);
   const { rows: businessDrivers, source: driverSource } = buildDriverRows(docDrivers, revenueMillions, estFrom);
-
-  const netIncomeRow = historicalModel.find((r) => r.label === "Net income");
-  const netIncomeMillions = (netIncomeRow?.values ?? []).map((v) =>
-    typeof v === "number" ? v : null,
-  );
 
   const bridgeLabels = businessDrivers
     .filter((r) => r.rollsUpToRevenue !== false)
     .map((r) => r.label)
     .slice(0, 4);
 
-  const model: AnalyseModel = {
+  const modelDraft: AnalyseModel = {
     currency: "USD",
     unitNote: "All financials in USD millions except per share data.",
     estimateFromIndex: estFrom,
@@ -371,14 +339,20 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
     driverUnitHint: "USD millions unless noted",
     historicalModel,
     businessDrivers,
-    valuationConfig: buildValuationConfig({
-      revenueMillions,
-      netIncomeMillions,
-      colIndex: revenueMillions.length - 1,
-      price: args.latestPrice,
-      sharesOutstanding: args.sharesOutstanding,
+    valuationConfig: {
+      targetPe: 20,
+      marketPrice: args.latestPrice != null ? Math.round(args.latestPrice * 100) / 100 : null,
+      marketCapBillions: null,
+      enterpriseValueBillions: null,
       bridgeDriverLabels: bridgeLabels.length ? bridgeLabels : ["Core revenue", "Other revenue"],
-    }),
+      ntmEps: null,
+      ltmEps: null,
+      priceTarget: null,
+      valuationBasis: "ntm",
+      defaultColumnIndex: estFrom,
+      valuationPeriodLabel: "NTM",
+      valuationAvailable: false,
+    },
     sources: {
       historical: hasSec ? "sec_companyfacts" : null,
       drivers: driverSource,
@@ -388,16 +362,38 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
           ? "documents"
           : "derived",
     },
-    projectionNote: "Base case — consensus years 1–2, normalized outer years, 23% tax.",
+    projectionNote:
+      "Base case — annual P&L, consensus FY1–FY2 when available, fiscal seasonality, NTM valuation.",
   };
 
-  const overlayValues = hasSec ? revenueYoYGrowthSeries(quarterly).slice(-8) : [];
-  const revenueOverlay: AnalyseRevenueOverlay = {
-    values: overlayValues.length ? overlayValues : revenueMillions.slice(-8).map((v, i, arr) => {
-      const prior = i > 0 ? arr[i - 1]! : null;
-      if (prior == null || prior === 0) return 0;
-      return Math.round(((v - prior) / prior) * 1000) / 10;
+  const modelQuality = assessModelQuality({
+    model: modelDraft,
+    partial: partial || !hasSec,
+    hasSec,
+    industry: args.industry,
+    price: args.latestPrice,
+    sharesOutstanding: args.sharesOutstanding,
+  });
+
+  const model: AnalyseModel = {
+    ...modelDraft,
+    modelQuality,
+    valuationConfig: buildValuationConfig({
+      model: modelDraft,
+      price: args.latestPrice,
+      sharesOutstanding: args.sharesOutstanding,
+      bridgeDriverLabels: bridgeLabels.length ? bridgeLabels : ["Core revenue", "Other revenue"],
+      valuationAvailable: modelQuality.valuationAvailable,
     }),
+  };
+
+  const overlayFromModel = revenueMillions.slice(0, estFrom).map((v, i, arr) => {
+    const prior = i >= 4 ? revenueMillions[i - 4] : null;
+    if (prior == null || prior === 0) return 0;
+    return Math.round(((v - prior) / prior) * 1000) / 10;
+  });
+  const revenueOverlay: AnalyseRevenueOverlay = {
+    values: overlayFromModel.length ? overlayFromModel.slice(-8) : [],
   };
 
   return { model, revenueOverlay, partial: partial || !hasSec };
@@ -412,8 +408,11 @@ export async function getAnalyseModelForTicker(tickerInput: string): Promise<{
   if (!ticker) throw new Error("ticker_required");
 
   const watermark = await getDocumentsWatermarkForTicker(ticker);
+  const windowKey = buildAnalyseQuarterWindow()
+    .map((s) => s.label)
+    .join(",");
   const cached = modelCache.get(ticker);
-  if (cached && cached.watermark === watermark) return cached.payload;
+  if (cached && cached.watermark === watermark && cached.windowKey === windowKey) return cached.payload;
 
   const sec = await loadTickerSecBundle(ticker).catch(() => null);
   let latestPrice: number | null = null;
@@ -436,8 +435,19 @@ export async function getAnalyseModelForTicker(tickerInput: string): Promise<{
     if (latest?.val) sharesOutstanding = latest.val;
   }
 
-  const payload = await buildAnalyseModel({ ticker, latestPrice, sharesOutstanding });
-  modelCache.set(ticker, { watermark, payload });
+  let industry: string | null = null;
+  try {
+    const co = await db.one<{ industry: string | null }>(
+      `SELECT industry FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
+      [ticker],
+    );
+    industry = co?.industry ?? null;
+  } catch {
+    industry = null;
+  }
+
+  const payload = await buildAnalyseModel({ ticker, latestPrice, sharesOutstanding, industry });
+  modelCache.set(ticker, { watermark, windowKey, payload });
   return payload;
 }
 

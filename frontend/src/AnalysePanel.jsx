@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   analyseGridCellTone,
   analyseMockModelForTicker,
   analyseRevenueOverlayMeta,
   applyForecastOverrides,
+  applyScenario,
   computeValuationView,
   formatAnalyseGridValue,
   isForecastEditableDriver,
@@ -11,6 +12,10 @@ import {
 } from './analyseMockData.js'
 
 const ANALYSE_PRICE_RANGE_OPTS = ['1M', '3M', '6M', '1Y', 'ALL']
+
+function preventScrollChurnFocus(e) {
+  e.preventDefault()
+}
 
 function AnalyseSectionTitle({ title, hintLines }) {
   const lines = hintLines?.filter(Boolean) ?? []
@@ -328,6 +333,7 @@ function AnalyseValuationSummary({
                     .filter(Boolean)
                     .join(' ')}
                   onClick={() => onForecastQuarterChange?.(opt.colIndex)}
+                  onMouseDown={preventScrollChurnFocus}
                   aria-pressed={selectedColIndex === opt.colIndex}
                 >
                   {opt.label}
@@ -394,27 +400,58 @@ export function AnalysePanel({
   }, [backendUp, liveModel, modelLoading, t])
   const [forecastOverrides, setForecastOverrides] = useState({})
   const [valuationQuarterIndex, setValuationQuarterIndex] = useState(null)
+  const [scenario, setScenario] = useState('base')
+  const scrollRef = useRef(null)
+  const scrollSnapRef = useRef(null)
+
+  const captureScrollSnap = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 8
+    scrollSnapRef.current = { scrollTop: el.scrollTop, pinBottom: atBottom }
+  }, [])
+
+  const onForecastQuarterChange = useCallback((colIndex) => {
+    captureScrollSnap()
+    setValuationQuarterIndex(colIndex)
+  }, [captureScrollSnap])
+
+  const onScenarioChange = useCallback((next) => {
+    captureScrollSnap()
+    setScenario(next)
+  }, [captureScrollSnap])
 
   useEffect(() => {
     setForecastOverrides({})
     setValuationQuarterIndex(null)
+    setScenario('base')
   }, [t, liveModel])
 
+  const scenarioModel = useMemo(
+    () => (baseModel ? applyScenario(baseModel, scenario) : null),
+    [baseModel, scenario],
+  )
+
   const model = useMemo(
-    () => (baseModel ? applyForecastOverrides(baseModel, forecastOverrides) : null),
-    [baseModel, forecastOverrides],
+    () => (scenarioModel ? applyForecastOverrides(scenarioModel, forecastOverrides) : null),
+    [scenarioModel, forecastOverrides],
   )
 
   const forecastQuarterOptions = useMemo(() => {
     if (!model) return []
     const from = model.estimateFromIndex
-    return model.quarters.slice(from, from + 4).map((label, i) => ({
-      label,
-      colIndex: from + i,
-    }))
+    const opts = []
+    for (let i = 0; i < 4 && from + i < model.quarters.length; i++) {
+      opts.push({
+        label: model.quarters[from + i],
+        colIndex: from + i,
+      })
+    }
+    return opts
   }, [model])
 
-  const defaultValuationCol = model ? model.quarters.length - 1 : 0
+  const defaultValuationCol =
+    model?.valuationConfig?.defaultColumnIndex ?? model?.estimateFromIndex ?? 0
   const selectedValuationCol = valuationQuarterIndex ?? defaultValuationCol
 
   const valuation = useMemo(
@@ -422,6 +459,18 @@ export function AnalysePanel({
       model ? computeValuationView(model, showPrice ? Number(price) : null, selectedValuationCol) : null,
     [model, showPrice, price, selectedValuationCol],
   )
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    const snap = scrollSnapRef.current
+    if (!el || !snap) return
+    scrollSnapRef.current = null
+    if (snap.pinBottom) {
+      el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight)
+    } else {
+      el.scrollTop = snap.scrollTop
+    }
+  }, [selectedValuationCol, scenario, valuation])
 
   const forecastEdited = Object.values(forecastOverrides).some(
     (byCol) => byCol && Object.keys(byCol).length > 0,
@@ -483,7 +532,7 @@ export function AnalysePanel({
       </header>
       <div className="feedCompactBody discoverColBody">
         <div className="feedCompactMain">
-          <div className="analyseMainPanelBody discoverColScroll scrollThin">
+          <div ref={scrollRef} className="analyseMainPanelBody discoverColScroll scrollThin">
             <div className="analyseCompanyHero">
               <div className="contextCompanyCard analyseCompanyCard" aria-label="Company snapshot">
                 <div
@@ -588,6 +637,23 @@ export function AnalysePanel({
                 </div>
               ) : (
                 <>
+              {model.modelQuality?.warnings?.length ? (
+                <div className="analyseSection analyseModelWarnings" role="status">
+                  <div className="analyseModelWarningsTitle mono">
+                    Model {model.modelQuality.grade === 'full' ? 'notes' : model.modelQuality.grade}
+                  </div>
+                  <ul className="analyseModelWarningsList">
+                    {model.modelQuality.warnings.map((w) => (
+                      <li key={w} className="mono dim">
+                        {w}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {model.projectionNote ? (
+                <div className="analyseSectionHint mono dim">{model.projectionNote}</div>
+              ) : null}
               <section className="analyseSection" aria-label={driverSectionTitle}>
                 <div className="analyseSectionHead">
                   <AnalyseSectionTitle title={driverSectionTitle} hintLines={[unitHint]} />
@@ -633,12 +699,30 @@ export function AnalysePanel({
               </section>
 
               <section className="analyseSection" aria-label="Price vs your model">
-                <AnalyseSectionTitle title="Price vs your model" hintLines={[perShareHint]} />
+                <div className="analyseSectionHead">
+                  <AnalyseSectionTitle title="Price vs your model" hintLines={[perShareHint]} />
+                  <div className="researchPriceRange analyseScenarioRange" role="group" aria-label="Scenario">
+                    {['base', 'bull', 'bear'].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className={['researchPriceRangeBtn', 'mono', scenario === s ? 'isActive' : '']
+                          .filter(Boolean)
+                          .join(' ')}
+                        onClick={() => onScenarioChange(s)}
+                        onMouseDown={preventScrollChurnFocus}
+                        aria-pressed={scenario === s}
+                      >
+                        {s === 'base' ? 'Base' : s === 'bull' ? 'Bull' : 'Bear'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <AnalyseValuationSummary
                   valuation={valuation}
                   forecastQuarterOptions={forecastQuarterOptions}
                   selectedColIndex={selectedValuationCol}
-                  onForecastQuarterChange={setValuationQuarterIndex}
+                  onForecastQuarterChange={onForecastQuarterChange}
                 />
               </section>
                 </>

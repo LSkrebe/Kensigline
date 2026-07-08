@@ -173,7 +173,7 @@ export function advanceFiscalQuarter(fy: number, fp: string, steps: number): { f
 }
 
 export function quarterlyPnlFromCompanyFacts(companyFacts: unknown, opts?: { quarters?: number }): QuarterlyPnlPoint[] {
-  const count = Math.max(2, Math.min(12, opts?.quarters ?? 8));
+  const count = Math.max(2, Math.min(40, opts?.quarters ?? 8));
 
   const revenueRows = pickFactSeries(companyFacts, REVENUE_TAGS);
   const anchors = pickQuarterlyRows(revenueRows, count);

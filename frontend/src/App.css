@@ -4890,6 +4890,32 @@
   line-height: 1.35;
 }
 
+.analyseModelWarnings {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 196, 96, 0.28);
+  background: rgba(255, 196, 96, 0.06);
+  border-radius: 4px;
+}
+
+.analyseModelWarningsTitle {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 210, 130, 0.92);
+  margin-bottom: 6px;
+}
+
+.analyseModelWarningsList {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.analyseScenarioRange {
+  flex-shrink: 0;
+}
+
 .analyseChartLegend {
   display: flex;
   flex-wrap: wrap;
@@ -5245,6 +5271,10 @@
   color: rgba(255, 255, 255, 0.38);
 }
 
+.analyseValuationQuarterBtn:focus {
+  outline: none;
+}
+
 .analyseValuationQuarterBtn:hover {
   color: rgba(255, 255, 255, 0.68);
 }
@@ -5270,6 +5300,7 @@
   letter-spacing: 0.02em;
   line-height: 1.1;
   color: var(--hi);
+  font-variant-numeric: tabular-nums;
 }
 
 .analyseValuationVerdictUpside {
@@ -5306,6 +5337,7 @@
 .analyseValuationBridgeValues {
   color: rgba(255, 255, 255, 0.68);
   word-break: break-word;
+  min-height: 2.6em;
 }
 
 .analyseValuationTable {
