@@ -1,4 +1,7 @@
-/** Default page size for feed list APIs (server + client). */
+/** First paint — small page for fast API + render. */
+export const FEED_INITIAL_PAGE_SIZE = 15
+
+/** Scroll / load-more page size. */
 export const FEED_PAGE_SIZE = 40
 
 export function feedPageQuery(basePath, { limit = FEED_PAGE_SIZE, offset = 0, extra = {} } = {}) {

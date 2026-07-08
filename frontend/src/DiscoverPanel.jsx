@@ -601,7 +601,7 @@ export function DiscoverPanel({ backendUp = false, onOpenResearch, isPhone = fal
       if (!alive) return
       setTimelineFetching(false)
       if (Array.isArray(data?.upcoming) && Array.isArray(data?.past)) setLiveTimeline(data)
-      else if (!cached) setLiveTimeline(null)
+      else setLiveTimeline(cached ?? { upcoming: [], past: [], macro: [], market_moves: [], moves: {} })
     })
     return () => {
       alive = false

@@ -12,6 +12,11 @@ import { getTrackedInvestorsForTicker } from "./market/tracked-investors.js";
 import { resolveResearchFeedCompanyName } from "./feed-display.js";
 import { parseResearchFeedMode } from "./feed-mode.js";
 import { getSecTickerTitleMap } from "../core/sec.js";
+import {
+  feedCacheKey,
+  readFeedResponseCache,
+  writeFeedResponseCache,
+} from "../shared/feed-response-cache.js";
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -202,6 +207,13 @@ export async function handleResearchFeed(
   const lim = Math.max(1, Math.min(120, limit));
   const offset = Math.max(0, Math.min(50_000, Math.floor(Number(offsetRaw) || 0)));
   const mode = parseResearchFeedMode(modeRaw);
+  const cacheKey = feedCacheKey({ route: "research_feed", mode, lim, offset });
+  const cached = readFeedResponseCache<{ ok: boolean; mode: string; items: unknown[]; offset: number; limit: number; has_more: boolean; next_offset: number }>(cacheKey);
+  if (cached) {
+    sendJson(res, 200, cached);
+    return;
+  }
+
   const probe = lim + 1;
 
   const rows = await db.query<{
@@ -216,11 +228,9 @@ export async function handleResearchFeed(
     program_phase: string | null;
     event_at: string | null;
     data: any;
-    paper_doc_count: number;
   }>(
     `
-    SELECT sub.id, sub.ticker, sub.analysis, sub.feed_label, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind, sub.program_phase, sub.event_at, sub.data,
-      COALESCE(pc.paper_doc_count, 0) AS paper_doc_count
+    SELECT sub.id, sub.ticker, sub.analysis, sub.feed_label, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind, sub.program_phase, sub.event_at, sub.data
     FROM (
       SELECT DISTINCT ON (upper(trim(d.ticker)))
         d.id::text,
@@ -230,7 +240,6 @@ export async function handleResearchFeed(
         COALESCE(d.event_at, d.parsed_at)::text AS feed_at,
         COALESCE(
           NULLIF(trim(c.name), ''),
-          NULLIF(trim(iss.issuer_name), ''),
           upper(trim(d.ticker))
         ) AS company_name,
         d.source_key,
@@ -240,14 +249,6 @@ export async function handleResearchFeed(
         d.data
       FROM documents d
       LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
-      LEFT JOIN LATERAL (
-        SELECT NULLIF(trim(d2.data->'issuer'->>'name'), '') AS issuer_name
-        FROM documents d2
-        WHERE upper(trim(d2.ticker)) = upper(trim(d.ticker))
-          AND NULLIF(trim(d2.data->'issuer'->>'name'), '') IS NOT NULL
-        ORDER BY COALESCE(d2.event_at, d2.parsed_at) DESC NULLS LAST, d2.parsed_at DESC
-        LIMIT 1
-      ) iss ON true
       WHERE d.ticker IS NOT NULL
         AND length(trim(d.ticker)) > 0
         AND (
@@ -261,15 +262,6 @@ export async function handleResearchFeed(
         )
       ORDER BY upper(trim(d.ticker)), COALESCE(d.event_at, d.parsed_at) DESC NULLS LAST, d.parsed_at DESC
     ) sub
-    LEFT JOIN LATERAL (
-      SELECT COUNT(*)::int AS paper_doc_count
-      FROM documents d2
-      WHERE upper(trim(d2.ticker)) = sub.ticker
-        AND d2.analysis IS NOT NULL
-        AND length(trim(d2.analysis)) > 0
-        AND d2.feed_kind = 'research'
-        AND d2.show_on_ticker IS NOT FALSE
-    ) pc ON true
     ORDER BY sub.feed_at DESC NULLS LAST
     LIMIT $1 OFFSET $2
     `,
@@ -285,6 +277,9 @@ export async function handleResearchFeed(
     const displayName = resolveResearchFeedCompanyName(r.ticker, r.company_name, secTitles.get(r.ticker) ?? null);
     const idea = scoreResearchFeedRow(r);
     const feedLabel = String(r.analysis ?? r.feed_label ?? "").trim();
+    const hasPaper =
+      r.feed_kind === "research" &&
+      Boolean(r.analysis && String(r.analysis).trim().length > 0);
     return {
       kind: "document" as const,
       id: r.id,
@@ -296,14 +291,14 @@ export async function handleResearchFeed(
       source_key: r.source_key,
       feed_kind: r.feed_kind,
       intel_mode: mode,
-      paper_doc_count: Number(r.paper_doc_count) || 0,
+      paper_doc_count: hasPaper ? 1 : 0,
       idea_score: idea.idea_score,
       idea_best: idea.idea_best,
       idea_reasons: idea.idea_reasons,
     };
   });
 
-  sendJson(res, 200, {
+  const payload = {
     ok: true,
     mode,
     items,
@@ -311,7 +306,9 @@ export async function handleResearchFeed(
     limit: lim,
     has_more: hasMore,
     next_offset: offset + items.length,
-  });
+  };
+  writeFeedResponseCache(cacheKey, payload);
+  sendJson(res, 200, payload);
 }
 
 export function researchLimitFromSearchParams(sp: URLSearchParams) {

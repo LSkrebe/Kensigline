@@ -10,9 +10,9 @@ let inflight = null
 let inflightKey = ''
 
 export const DISCOVER_TIMELINE_DEFAULTS = {
-  limit: 40,
-  pastDays: 90,
-  aheadDays: 180,
+  limit: 24,
+  pastDays: 60,
+  aheadDays: 120,
   macroDays: 5,
 }
 
@@ -62,8 +62,12 @@ export async function fetchDiscoverTimeline(opts = {}) {
 
   inflightKey = key
   inflight = (async () => {
-    const res = await fetchJsonSafe(path, { timeoutMs: 45_000 })
-    if (!res.ok || !res.data?.ok) return null
+    const res = await fetchJsonSafe(path, { timeoutMs: 20_000 })
+    if (!res.ok || !res.data?.ok) {
+      const empty = { ok: true, upcoming: [], past: [], macro: [], market_moves: [], moves: {} }
+      cached = { at: Date.now(), key, data: empty }
+      return empty
+    }
     cached = { at: Date.now(), key, data: res.data }
     return res.data
   })().finally(() => {

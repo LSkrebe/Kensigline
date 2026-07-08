@@ -21,7 +21,13 @@ import {
 } from './mockWeekData.js'
 import { mockShowcasePriceSeries, showcaseCompanyName } from './mockShowcasePrices.js'
 import { fetchAnalyseModel } from './analyseClient.js'
-import { FEED_PAGE_SIZE, feedPageQuery, mergeFeedPages } from './feedPagination.js'
+import { FEED_INITIAL_PAGE_SIZE, FEED_PAGE_SIZE, feedPageQuery, mergeFeedPages } from './feedPagination.js'
+import {
+  applyFeedCache,
+  FEED_BACKGROUND_REFRESH_MS,
+  fetchFeedPage,
+  persistFeedCache,
+} from './feedLoad.js'
 import { EventBriefDocCard } from './EventBrief.jsx'
 import { getEventMentioned } from './eventBriefs.js'
 import {
@@ -4728,7 +4734,7 @@ function ResearchFeedTickerList({
   showDocumentCount = true,
 }) {
   const listRef = useRef(null)
-  const [renderLimit, setRenderLimit] = useState(FEED_PAGE_SIZE)
+  const [renderLimit, setRenderLimit] = useState(FEED_INITIAL_PAGE_SIZE)
   const feedItems = useMemo(() => {
     const items = (filtered ?? []).map((it) => ({
       ...it,
@@ -8437,7 +8443,7 @@ function CompactFeed({
 }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
-  const [renderLimit, setRenderLimit] = useState(FEED_PAGE_SIZE)
+  const [renderLimit, setRenderLimit] = useState(FEED_INITIAL_PAGE_SIZE)
 
   const feedItems = useMemo(() => {
     if (programsTimeline || !todayGroupByEvents) return items
@@ -9743,7 +9749,7 @@ function KensiglineTerminal() {
     backendUp &&
     activeTab === 'investigate' &&
     (investigateMode === 'all'
-      ? insiderFeedLive === null || politiciansFeedLive === null || institutionsFeedLive === null
+      ? insiderFeedLive === null && politiciansFeedLive === null && institutionsFeedLive === null
       : investigateMode === 'insider'
         ? insiderFeedLive === null
         : investigateMode === 'politicians'
@@ -9882,7 +9888,7 @@ function KensiglineTerminal() {
       if (r.ok && r.data?.ok) setBackendStats(r.data)
     }
     run()
-    const t = setInterval(run, 4000)
+    const t = setInterval(run, 30_000)
     return () => {
       alive = false
       clearInterval(t)
@@ -9906,34 +9912,53 @@ function KensiglineTerminal() {
   }, [backendUp])
 
   useEffect(() => {
-    if (!backendUp) return
-    setResearchFeedLive(null)
-    setResearchFeedInjected([])
-  }, [backendUp])
-
-  useEffect(() => {
     if (!backendUp || (activeTab !== 'main' && activeTab !== 'analyse')) return
     let cancelled = false
-    const mode = 'market'
-    async function run({ append = false, offset = 0 } = {}) {
-      const path = feedPageQuery('/api/research/feed', {
-        limit: FEED_PAGE_SIZE,
+    const cacheKey = 'research:market'
+    const hadCache = applyFeedCache(cacheKey, (hit) => {
+      setResearchFeedLive(hit.items)
+      setResearchFeedHasMore(Boolean(hit.hasMore))
+      researchFeedOffsetRef.current = Number(hit.nextOffset) || hit.items.length
+    })
+
+    async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
+      const page = await fetchFeedPage('/api/research/feed', {
+        limit,
         offset,
-        extra: { mode },
+        extra: { mode: 'market' },
       })
-      const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
-      if (cancelled || !r.ok || !r.data?.ok || !Array.isArray(r.data.items)) return
+      if (cancelled) return
+      if (!page.ok) {
+        if (!append) {
+          setResearchFeedLive((prev) => (Array.isArray(prev) ? prev : []))
+          setResearchFeedHasMore(false)
+        }
+        return
+      }
       setResearchFeedLive((prev) =>
-        append ? mergeFeedPages(prev, r.data.items, { append: true }) : r.data.items,
+        append ? mergeFeedPages(prev, page.items, { append: true }) : page.items,
       )
-      setResearchFeedHasMore(Boolean(r.data.has_more))
-      researchFeedOffsetRef.current = Number(r.data.next_offset) || offset + r.data.items.length
+      setResearchFeedHasMore(page.hasMore)
+      researchFeedOffsetRef.current = page.nextOffset
+      if (!append) {
+        persistFeedCache(cacheKey, {
+          items: page.items,
+          hasMore: page.hasMore,
+          nextOffset: page.nextOffset,
+        })
+      }
     }
-    researchFeedOffsetRef.current = 0
-    setResearchFeedLive(null)
-    setResearchFeedHasMore(false)
-    run({ append: false, offset: 0 })
-    const t = setInterval(() => run({ append: false, offset: 0 }), 30_000)
+
+    if (!hadCache) {
+      researchFeedOffsetRef.current = 0
+      setResearchFeedHasMore(false)
+      setResearchFeedLive(null)
+      void run({ append: false, offset: 0 })
+    } else {
+      void run({ append: false, offset: 0 })
+    }
+
+    const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
       cancelled = true
       clearInterval(t)
@@ -9943,17 +9968,15 @@ function KensiglineTerminal() {
   const loadMoreResearchFeed = useCallback(async () => {
     if (!backendUp || researchFeedLoadingMore || !researchFeedHasMore) return
     setResearchFeedLoadingMore(true)
-    const path = feedPageQuery('/api/research/feed', {
+    const page = await fetchFeedPage('/api/research/feed', {
       limit: FEED_PAGE_SIZE,
       offset: researchFeedOffsetRef.current,
       extra: { mode: 'market' },
     })
-    const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
-    if (r.ok && r.data?.ok && Array.isArray(r.data.items)) {
-      setResearchFeedLive((prev) => mergeFeedPages(prev, r.data.items, { append: true }))
-      setResearchFeedHasMore(Boolean(r.data.has_more))
-      researchFeedOffsetRef.current =
-        Number(r.data.next_offset) || researchFeedOffsetRef.current + r.data.items.length
+    if (page.ok) {
+      setResearchFeedLive((prev) => mergeFeedPages(prev, page.items, { append: true }))
+      setResearchFeedHasMore(page.hasMore)
+      researchFeedOffsetRef.current = page.nextOffset
     }
     setResearchFeedLoadingMore(false)
   }, [backendUp, researchFeedHasMore, researchFeedLoadingMore])
@@ -9982,7 +10005,7 @@ function KensiglineTerminal() {
     }
 
     async function run() {
-      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(tick)}&days=400`, { timeoutMs: 12_000 })
+      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(tick)}&days=120`, { timeoutMs: 10_000 })
       if (!alive || researchBarsFetchGenRef.current !== gen) return
       const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
       if (respTicker !== tick) return
@@ -10025,12 +10048,9 @@ function KensiglineTerminal() {
     }
 
     async function run() {
-      const [snap, full] = await Promise.all([
-        fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, {
-          timeoutMs: 15_000,
-        }),
-        fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 25_000 }),
-      ])
+      const snap = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, {
+        timeoutMs: 8_000,
+      })
       if (!alive || researchCompanyFetchGenRef.current !== gen) return
 
       const applyCompany = (payload) => {
@@ -10047,6 +10067,12 @@ function KensiglineTerminal() {
 
       if (snap.ok && snap.data) applyCompany(snap.data)
       if (!cachedCompany) setResearchCompanyContextLoading(false)
+
+      if (activeTab !== 'main') return
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      if (!alive || researchCompanyFetchGenRef.current !== gen) return
+      const full = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 20_000 })
+      if (!alive || researchCompanyFetchGenRef.current !== gen) return
       if (full.ok && full.data) applyCompany(full.data)
     }
     run().catch(() => {
@@ -10093,8 +10119,10 @@ function KensiglineTerminal() {
     }
 
     async function run() {
+      await new Promise((resolve) => setTimeout(resolve, 700))
+      if (!alive || researchExploreFetchGenRef.current !== gen) return
       const r = await fetchJsonSafe(`/api/research/explore?ticker=${encodeURIComponent(tick)}`, {
-        timeoutMs: 20_000,
+        timeoutMs: 15_000,
       })
       if (!alive || researchExploreFetchGenRef.current !== gen) return
       const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
@@ -10149,26 +10177,43 @@ function KensiglineTerminal() {
     const investigateActive = backendUp && activeTab === 'investigate'
     if (!investigateActive || (investigateMode !== 'insider' && investigateMode !== 'all')) return
     let alive = true
-    async function run({ append = false, offset = 0 } = {}) {
-      const path = feedPageQuery('/api/insider/feed', {
-        limit: FEED_PAGE_SIZE,
+    const cacheKey = 'investigate:insider:company:30'
+    const hadCache = applyFeedCache(cacheKey, (hit) => {
+      setInsiderFeedLive(hit.items)
+      setInsiderFeedHasMore(Boolean(hit.hasMore))
+      insiderFeedOffsetRef.current = Number(hit.nextOffset) || hit.items.length
+    })
+
+    async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
+      const page = await fetchFeedPage('/api/insider/feed', {
+        limit,
         offset,
         extra: { mode: 'company', days: 30 },
       })
-      const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
       if (!alive) return
-      const items = Array.isArray(r.data?.items) ? r.data.items : []
-      const mapped = items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
-      if (!r.ok) return
+      const mapped = page.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
+      if (!page.ok) {
+        if (!append) setInsiderFeedLive((prev) => (Array.isArray(prev) ? prev : []))
+        return
+      }
       setInsiderFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
-      setInsiderFeedHasMore(Boolean(r.data?.has_more))
-      insiderFeedOffsetRef.current = Number(r.data?.next_offset) || offset + mapped.length
+      setInsiderFeedHasMore(page.hasMore)
+      insiderFeedOffsetRef.current = page.nextOffset
+      if (!append) {
+        persistFeedCache(cacheKey, { items: mapped, hasMore: page.hasMore, nextOffset: page.nextOffset })
+      }
     }
-    insiderFeedOffsetRef.current = 0
-    setInsiderFeedLive(null)
-    setInsiderFeedHasMore(false)
-    run({ append: false, offset: 0 })
-    const t = setInterval(() => run({ append: false, offset: 0 }), 20_000)
+
+    if (!hadCache) {
+      insiderFeedOffsetRef.current = 0
+      setInsiderFeedHasMore(false)
+      setInsiderFeedLive(null)
+      void run({ append: false, offset: 0 })
+    } else {
+      void run({ append: false, offset: 0 })
+    }
+
+    const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
       alive = false
       clearInterval(t)
@@ -10178,17 +10223,16 @@ function KensiglineTerminal() {
   const loadMoreInsiderFeed = useCallback(async () => {
     if (!backendUp || insiderFeedLoadingMore || !insiderFeedHasMore) return
     setInsiderFeedLoadingMore(true)
-    const path = feedPageQuery('/api/insider/feed', {
+    const page = await fetchFeedPage('/api/insider/feed', {
       limit: FEED_PAGE_SIZE,
       offset: insiderFeedOffsetRef.current,
       extra: { mode: 'company', days: 30 },
     })
-    const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
-    if (r.ok && Array.isArray(r.data?.items)) {
-      const mapped = r.data.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
+    if (page.ok) {
+      const mapped = page.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
       setInsiderFeedLive((prev) => mergeFeedPages(prev, mapped, { append: true }))
-      setInsiderFeedHasMore(Boolean(r.data?.has_more))
-      insiderFeedOffsetRef.current = Number(r.data?.next_offset) || insiderFeedOffsetRef.current + mapped.length
+      setInsiderFeedHasMore(page.hasMore)
+      insiderFeedOffsetRef.current = page.nextOffset
     }
     setInsiderFeedLoadingMore(false)
   }, [backendUp, insiderFeedHasMore, insiderFeedLoadingMore])
@@ -10197,26 +10241,43 @@ function KensiglineTerminal() {
     const investigateActive = backendUp && activeTab === 'investigate'
     if (!investigateActive || (investigateMode !== 'institutions' && investigateMode !== 'all')) return
     let alive = true
-    async function run({ append = false, offset = 0 } = {}) {
-      const path = feedPageQuery('/api/institutions/feed', {
-        limit: FEED_PAGE_SIZE,
+    const cacheKey = 'investigate:institutions:60'
+    const hadCache = applyFeedCache(cacheKey, (hit) => {
+      setInstitutionsFeedLive(hit.items)
+      setInstitutionsFeedHasMore(Boolean(hit.hasMore))
+      institutionsFeedOffsetRef.current = Number(hit.nextOffset) || hit.items.length
+    })
+
+    async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
+      const page = await fetchFeedPage('/api/institutions/feed', {
+        limit,
         offset,
-        extra: { days: 120 },
+        extra: { days: 60 },
       })
-      const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
       if (!alive) return
-      const items = Array.isArray(r.data?.items) ? r.data.items : []
-      const mapped = items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
-      if (!r.ok) return
+      const mapped = page.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
+      if (!page.ok) {
+        if (!append) setInstitutionsFeedLive((prev) => (Array.isArray(prev) ? prev : []))
+        return
+      }
       setInstitutionsFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
-      setInstitutionsFeedHasMore(Boolean(r.data?.has_more))
-      institutionsFeedOffsetRef.current = Number(r.data?.next_offset) || offset + mapped.length
+      setInstitutionsFeedHasMore(page.hasMore)
+      institutionsFeedOffsetRef.current = page.nextOffset
+      if (!append) {
+        persistFeedCache(cacheKey, { items: mapped, hasMore: page.hasMore, nextOffset: page.nextOffset })
+      }
     }
-    institutionsFeedOffsetRef.current = 0
-    setInstitutionsFeedLive(null)
-    setInstitutionsFeedHasMore(false)
-    run({ append: false, offset: 0 })
-    const t = setInterval(() => run({ append: false, offset: 0 }), 30_000)
+
+    if (!hadCache) {
+      institutionsFeedOffsetRef.current = 0
+      setInstitutionsFeedHasMore(false)
+      setInstitutionsFeedLive(null)
+      void run({ append: false, offset: 0 })
+    } else {
+      void run({ append: false, offset: 0 })
+    }
+
+    const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
       alive = false
       clearInterval(t)
@@ -10226,18 +10287,16 @@ function KensiglineTerminal() {
   const loadMoreInstitutionsFeed = useCallback(async () => {
     if (!backendUp || institutionsFeedLoadingMore || !institutionsFeedHasMore) return
     setInstitutionsFeedLoadingMore(true)
-    const path = feedPageQuery('/api/institutions/feed', {
+    const page = await fetchFeedPage('/api/institutions/feed', {
       limit: FEED_PAGE_SIZE,
       offset: institutionsFeedOffsetRef.current,
-      extra: { days: 120 },
+      extra: { days: 60 },
     })
-    const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
-    if (r.ok && Array.isArray(r.data?.items)) {
-      const mapped = r.data.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
+    if (page.ok) {
+      const mapped = page.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
       setInstitutionsFeedLive((prev) => mergeFeedPages(prev, mapped, { append: true }))
-      setInstitutionsFeedHasMore(Boolean(r.data?.has_more))
-      institutionsFeedOffsetRef.current =
-        Number(r.data?.next_offset) || institutionsFeedOffsetRef.current + mapped.length
+      setInstitutionsFeedHasMore(page.hasMore)
+      institutionsFeedOffsetRef.current = page.nextOffset
     }
     setInstitutionsFeedLoadingMore(false)
   }, [backendUp, institutionsFeedHasMore, institutionsFeedLoadingMore])
@@ -10246,26 +10305,43 @@ function KensiglineTerminal() {
     const investigateActive = backendUp && activeTab === 'investigate'
     if (!investigateActive || (investigateMode !== 'politicians' && investigateMode !== 'all')) return
     let alive = true
-    async function run({ append = false, offset = 0 } = {}) {
-      const path = feedPageQuery('/api/politicians/feed', {
-        limit: FEED_PAGE_SIZE,
+    const cacheKey = 'investigate:politicians:30'
+    const hadCache = applyFeedCache(cacheKey, (hit) => {
+      setPoliticiansFeedLive(hit.items)
+      setPoliticiansFeedHasMore(Boolean(hit.hasMore))
+      politiciansFeedOffsetRef.current = Number(hit.nextOffset) || hit.items.length
+    })
+
+    async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
+      const page = await fetchFeedPage('/api/politicians/feed', {
+        limit,
         offset,
-        extra: { days: 120 },
+        extra: { days: 30 },
       })
-      const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
       if (!alive) return
-      const items = Array.isArray(r.data?.items) ? r.data.items : []
-      const mapped = items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
-      if (!r.ok) return
+      const mapped = page.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
+      if (!page.ok) {
+        if (!append) setPoliticiansFeedLive((prev) => (Array.isArray(prev) ? prev : []))
+        return
+      }
       setPoliticiansFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
-      setPoliticiansFeedHasMore(Boolean(r.data?.has_more))
-      politiciansFeedOffsetRef.current = Number(r.data?.next_offset) || offset + mapped.length
+      setPoliticiansFeedHasMore(page.hasMore)
+      politiciansFeedOffsetRef.current = page.nextOffset
+      if (!append) {
+        persistFeedCache(cacheKey, { items: mapped, hasMore: page.hasMore, nextOffset: page.nextOffset })
+      }
     }
-    politiciansFeedOffsetRef.current = 0
-    setPoliticiansFeedLive(null)
-    setPoliticiansFeedHasMore(false)
-    run({ append: false, offset: 0 })
-    const t = setInterval(() => run({ append: false, offset: 0 }), 30_000)
+
+    if (!hadCache) {
+      politiciansFeedOffsetRef.current = 0
+      setPoliticiansFeedHasMore(false)
+      setPoliticiansFeedLive(null)
+      void run({ append: false, offset: 0 })
+    } else {
+      void run({ append: false, offset: 0 })
+    }
+
+    const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
       alive = false
       clearInterval(t)
@@ -10275,18 +10351,16 @@ function KensiglineTerminal() {
   const loadMorePoliticiansFeed = useCallback(async () => {
     if (!backendUp || politiciansFeedLoadingMore || !politiciansFeedHasMore) return
     setPoliticiansFeedLoadingMore(true)
-    const path = feedPageQuery('/api/politicians/feed', {
+    const page = await fetchFeedPage('/api/politicians/feed', {
       limit: FEED_PAGE_SIZE,
       offset: politiciansFeedOffsetRef.current,
-      extra: { days: 120 },
+      extra: { days: 30 },
     })
-    const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
-    if (r.ok && Array.isArray(r.data?.items)) {
-      const mapped = r.data.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
+    if (page.ok) {
+      const mapped = page.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
       setPoliticiansFeedLive((prev) => mergeFeedPages(prev, mapped, { append: true }))
-      setPoliticiansFeedHasMore(Boolean(r.data?.has_more))
-      politiciansFeedOffsetRef.current =
-        Number(r.data?.next_offset) || politiciansFeedOffsetRef.current + mapped.length
+      setPoliticiansFeedHasMore(page.hasMore)
+      politiciansFeedOffsetRef.current = page.nextOffset
     }
     setPoliticiansFeedLoadingMore(false)
   }, [backendUp, politiciansFeedHasMore, politiciansFeedLoadingMore])
@@ -11057,7 +11131,7 @@ function KensiglineTerminal() {
     }
 
     async function run() {
-      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(ticker)}&days=365`, { timeoutMs: 6000 })
+      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(ticker)}&days=120`, { timeoutMs: 6000 })
       if (!alive || barsFetchGenRef.current !== gen) return
       const respTicker = String(r.data?.ticker ?? ticker).trim().toUpperCase()
       if (respTicker !== ticker) return

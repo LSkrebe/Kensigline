@@ -1,5 +1,62 @@
 import { supabase } from './supabaseClient.js'
 
+let cachedAuthToken = null
+let cachedAuthTokenAt = 0
+const AUTH_TOKEN_TTL_MS = 90_000
+
+function supabaseTokenFromLocalStorage() {
+  if (typeof window === 'undefined' || !window.localStorage) return null
+  try {
+    const keys = Object.keys(window.localStorage)
+    const key = keys.find((k) => k.startsWith('sb-') && k.toLowerCase().includes('auth-token'))
+    if (!key) return null
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return null
+    try {
+      const parsed = JSON.parse(raw)
+      return parsed?.access_token ?? parsed?.session?.access_token ?? parsed?.token ?? null
+    } catch {
+      return raw
+    }
+  } catch {
+    return null
+  }
+}
+
+async function resolveAuthToken(timeoutMs) {
+  const now = Date.now()
+  if (cachedAuthToken && now - cachedAuthTokenAt < AUTH_TOKEN_TTL_MS) {
+    return cachedAuthToken
+  }
+
+  let tok = supabaseTokenFromLocalStorage()
+  if (tok) {
+    cachedAuthToken = tok
+    cachedAuthTokenAt = now
+    return tok
+  }
+
+  if (!supabase) return null
+
+  let sessionRes = null
+  try {
+    const sessionTimeoutMs = Math.max(300, Math.min(timeoutMs, 1500))
+    sessionRes = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise((resolve) => setTimeout(() => resolve(null), sessionTimeoutMs)),
+    ])
+  } catch {
+    sessionRes = null
+  }
+
+  tok = sessionRes?.data?.session?.access_token ?? supabaseTokenFromLocalStorage()
+  if (tok) {
+    cachedAuthToken = tok
+    cachedAuthTokenAt = now
+  }
+  return tok
+}
+
 export function getBackendBase() {
   /* Must use direct `import.meta.env.*` so Vite `define` injects root `.env` values (not only VITE_). */
   const configured = String(
@@ -21,43 +78,9 @@ export async function fetchJsonSafe(path, { timeoutMs = 4500, headers: extraHead
     headers.set('Content-Type', 'application/json')
   }
 
-  function supabaseTokenFromLocalStorage() {
-    if (typeof window === 'undefined' || !window.localStorage) return null
-    try {
-      const keys = Object.keys(window.localStorage)
-      const key = keys.find((k) => k.startsWith('sb-') && k.toLowerCase().includes('auth-token'))
-      if (!key) return null
-      const raw = window.localStorage.getItem(key)
-      if (!raw) return null
-      try {
-        const parsed = JSON.parse(raw)
-        return parsed?.access_token ?? parsed?.session?.access_token ?? parsed?.token ?? null
-      } catch {
-        return raw
-      }
-    } catch {
-      return null
-    }
-  }
+  const tok = await resolveAuthToken(timeoutMs)
+  if (tok) headers.set('Authorization', `Bearer ${tok}`)
 
-  if (supabase) {
-    let sessionRes = null
-    try {
-      // Don't block API calls if session lookup hangs, but allow enough time
-      // for Supabase session retrieval on slower dev environments.
-      const sessionTimeoutMs = Math.max(500, Math.min(timeoutMs, 4000))
-      sessionRes = await Promise.race([
-        supabase.auth.getSession(),
-        new Promise((resolve) => setTimeout(() => resolve(null), sessionTimeoutMs)),
-      ])
-    } catch {
-      /* never block API calls (e.g. /health) if auth client errors */
-      sessionRes = null
-    }
-
-    const tok = sessionRes?.data?.session?.access_token ?? supabaseTokenFromLocalStorage()
-    if (tok) headers.set('Authorization', `Bearer ${tok}`)
-  }
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), timeoutMs)
   try {

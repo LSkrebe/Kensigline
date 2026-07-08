@@ -153,6 +153,7 @@ async function loadHighlightedInsiderMoves(days: number, cap: number): Promise<D
     days,
     limit: cap,
     offset: 0,
+    latestOnly: false,
   });
 
   type Agg = {
@@ -235,6 +236,7 @@ async function loadHighlightedPoliticianMoves(days: number, cap: number): Promis
     days,
     limit: cap,
     offset: 0,
+    latestOnly: false,
   });
 
   type Agg = {
@@ -312,6 +314,7 @@ async function loadHighlightedInstitutionMoves(days: number, cap: number): Promi
     days,
     limit: cap,
     offset: 0,
+    latestOnly: false,
   });
 
   type Agg = {

@@ -128,6 +128,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
     days,
     limit: page.limit,
     offset: page.offset,
+    latestOnly: true,
   });
 
   const secTitles = await getSecTickerTitleMap();
@@ -265,12 +266,13 @@ type TickerFeedKind = "politicians" | "institutions";
 
 async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, feedKind: TickerFeedKind) {
   const page = parseFeedPageParams(url, { limit: 40, maxLimit: 120 });
-  const days = clampInt(url.searchParams.get("days"), 1, 365, feedKind === "politicians" ? 30 : 120);
+  const days = clampInt(url.searchParams.get("days"), 1, 365, feedKind === "politicians" ? 30 : 60);
   const { docs: rows, hasMore, offset, nextOffset } = await loadTickerFeedDocs({
     feedKind,
     days,
     limit: page.limit,
     offset: page.offset,
+    latestOnly: true,
   });
 
   const secTitles = await getSecTickerTitleMap();

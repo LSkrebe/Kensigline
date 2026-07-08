@@ -28,19 +28,21 @@ export function parseFeedPageParams(
   };
 }
 
-/** Paginate tickers by latest activity, then load only those tickers' documents (not a global 5000-doc scan). */
+/** Paginate tickers by latest activity, then load only latest doc per ticker (fast feed list). */
 export async function loadTickerFeedDocs(opts: {
   feedKind: string;
   days: number;
   limit: number;
   offset: number;
+  /** When true, one row per ticker (feed rail). When false, all docs in window (cluster build). */
+  latestOnly?: boolean;
 }): Promise<{
   docs: TickerFeedDoc[];
   hasMore: boolean;
   offset: number;
   nextOffset: number;
 }> {
-  const { feedKind, days, limit, offset } = opts;
+  const { feedKind, days, limit, offset, latestOnly = true } = opts;
   const probe = limit + 1;
 
   const tickerRows = await db.query<{ ticker: string }>(
@@ -64,32 +66,52 @@ export async function loadTickerFeedDocs(opts: {
     return { docs: [], hasMore: false, offset, nextOffset: offset };
   }
 
-  const docs = await db.query<TickerFeedDoc>(
-    `
-    SELECT d.id::text AS id, d.event_at::text AS event_at, d.feed_label, d.ticker, d.company_id, d.data,
-      d.url, d.source_key,
-      COALESCE(
-        NULLIF(trim(c.name), ''),
-        NULLIF(trim(iss.issuer_name), '')
-      ) AS company_name
-    FROM documents d
-    LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
-    LEFT JOIN LATERAL (
-      SELECT NULLIF(trim(d2.data->'issuer'->>'name'), '') AS issuer_name
-      FROM documents d2
-      WHERE upper(trim(d2.ticker)) = upper(trim(d.ticker))
-        AND NULLIF(trim(d2.data->'issuer'->>'name'), '') IS NOT NULL
-      ORDER BY COALESCE(d2.event_at, d2.parsed_at) DESC NULLS LAST, d2.parsed_at DESC
-      LIMIT 1
-    ) iss ON true
-    WHERE d.feed_kind = $1
-      AND upper(trim(d.ticker)) = ANY($2::text[])
-      AND d.event_at IS NOT NULL
-      AND d.event_at >= now() - ($3 || ' days')::interval
-    ORDER BY d.event_at DESC, d.parsed_at DESC
-    `,
-    [feedKind, pageTickers, String(days)],
-  );
+  const docs = latestOnly
+    ? await db.query<TickerFeedDoc>(
+        `
+        SELECT DISTINCT ON (upper(trim(d.ticker)))
+          d.id::text AS id, d.event_at::text AS event_at, d.feed_label, d.ticker, d.company_id, d.data,
+          d.url, d.source_key,
+          COALESCE(
+            NULLIF(trim(c.name), ''),
+            NULLIF(trim(d.data->'issuer'->>'name'), '')
+          ) AS company_name
+        FROM documents d
+        LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
+        WHERE d.feed_kind = $1
+          AND upper(trim(d.ticker)) = ANY($2::text[])
+          AND d.event_at IS NOT NULL
+          AND d.event_at >= now() - ($3 || ' days')::interval
+        ORDER BY upper(trim(d.ticker)), d.event_at DESC, d.parsed_at DESC
+        `,
+        [feedKind, pageTickers, String(days)],
+      )
+    : await db.query<TickerFeedDoc>(
+        `
+        SELECT d.id::text AS id, d.event_at::text AS event_at, d.feed_label, d.ticker, d.company_id, d.data,
+          d.url, d.source_key,
+          COALESCE(
+            NULLIF(trim(c.name), ''),
+            NULLIF(trim(iss.issuer_name), '')
+          ) AS company_name
+        FROM documents d
+        LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
+        LEFT JOIN LATERAL (
+          SELECT NULLIF(trim(d2.data->'issuer'->>'name'), '') AS issuer_name
+          FROM documents d2
+          WHERE upper(trim(d2.ticker)) = upper(trim(d.ticker))
+            AND NULLIF(trim(d2.data->'issuer'->>'name'), '') IS NOT NULL
+          ORDER BY COALESCE(d2.event_at, d2.parsed_at) DESC NULLS LAST, d2.parsed_at DESC
+          LIMIT 1
+        ) iss ON true
+        WHERE d.feed_kind = $1
+          AND upper(trim(d.ticker)) = ANY($2::text[])
+          AND d.event_at IS NOT NULL
+          AND d.event_at >= now() - ($3 || ' days')::interval
+        ORDER BY d.event_at DESC, d.parsed_at DESC
+        `,
+        [feedKind, pageTickers, String(days)],
+      );
 
   return {
     docs,
