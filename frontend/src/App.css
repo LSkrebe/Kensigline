@@ -1096,6 +1096,9 @@
   color: rgba(255, 255, 255, 0.42);
 }
 
+.terminal--insider .feed--left .feedCompactList .feedPanelStatus,
+.terminal--politicians .feed--left .feedCompactList .feedPanelStatus,
+.terminal--institutions .feed--left .feedCompactList .feedPanelStatus,
 .terminal--researchFeed .feedCompactList .feedPanelStatus {
   padding: 10px 4px 8px;
 }
