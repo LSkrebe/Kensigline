@@ -26,7 +26,11 @@ async function main() {
       END,
       event_at = COALESCE(
         NULLIF(trim(d.data->'filing'->>'filed_at'), '')::timestamptz,
-        d.published_at,
+        CASE
+          WHEN d.published_at IS NOT NULL AND d.published_at <= now() + ($1::interval)
+            THEN d.published_at
+          ELSE NULL
+        END,
         d.parsed_at
       )
     WHERE d.event_at > now() + ($1::interval)
