@@ -308,7 +308,7 @@ async function parseSecDocument(queueId: string, indexUrl: string): Promise<Pars
     maxChars: LLM_BUDGETS.secFiling(),
   });
 
-  const publishedAt = out.event_at ?? new Date().toISOString();
+  const publishedAt = new Date().toISOString();
   const fin = await finalizePipeline({
     queueId,
     documentSourceType: "research_sec",
@@ -385,7 +385,7 @@ async function parseHttpDocument(
     const deterministic = buildGovContractExtractFromFacts(facts, { url: pageUrl, hintedTicker: guessed });
     if (deterministic) {
       const nearDupKey = computeResearchNearDupKey(text);
-      const publishedAt = deterministic.event_at ?? new Date().toISOString();
+      const publishedAt = new Date().toISOString();
       const fin = await finalizePipeline({
         queueId,
         documentSourceType,
@@ -443,7 +443,7 @@ async function parseHttpDocument(
     out = attachNearDupKey(extracted.out, nearDupKey, pageUrl);
   }
 
-  const publishedAt = out.event_at ?? new Date().toISOString();
+  const publishedAt = new Date().toISOString();
   const fin = await finalizePipeline({
     queueId,
     documentSourceType,

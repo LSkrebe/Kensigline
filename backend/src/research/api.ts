@@ -17,6 +17,7 @@ import {
   readFeedResponseCache,
   writeFeedResponseCache,
 } from "../shared/feed-response-cache.js";
+import { documentFeedAtSql } from "../shared/document-activity-at.js";
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -237,7 +238,7 @@ export async function handleResearchFeed(
         upper(trim(d.ticker)) AS ticker,
         d.analysis,
         d.feed_label,
-        COALESCE(d.event_at, d.parsed_at)::text AS feed_at,
+        (${documentFeedAtSql("d")})::text AS feed_at,
         COALESCE(
           NULLIF(trim(c.name), ''),
           upper(trim(d.ticker))
@@ -260,7 +261,7 @@ export async function handleResearchFeed(
             AND d.show_on_ticker IS NOT FALSE
           )
         )
-      ORDER BY upper(trim(d.ticker)), COALESCE(d.event_at, d.parsed_at) DESC NULLS LAST, d.parsed_at DESC
+      ORDER BY upper(trim(d.ticker)), (${documentFeedAtSql("d")}) DESC NULLS LAST, d.parsed_at DESC
     ) sub
     ORDER BY sub.feed_at DESC NULLS LAST
     LIMIT $1 OFFSET $2

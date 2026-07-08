@@ -3,6 +3,7 @@ import { fetchForm4Text } from "../../core/sec.js";
 import { llmChat } from "../../core/llm.js";
 import { syncInsiderTransactionsFromDocument } from "../../documents/store.js";
 import { sha256NormalizedText } from "../../core/text-hash.js";
+import { sanitizeEventAtForFeed } from "../../shared/document-activity-at.js";
 import {
   isBogusInsiderWorksheetKey,
   ownerSurname,
@@ -424,6 +425,11 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
 
     const ticker = out.issuer.ticker ?? issuerTicker ?? null;
     const feedLabel = out.cluster.feed_label;
+    const filingAt = out.filing.filed_at ?? formatIso(filedAt) ?? new Date().toISOString();
+    const activityAt = sanitizeEventAtForFeed({
+      candidate: out.cluster.cluster_end_at ?? filingAt,
+      filedAt: filingAt,
+    });
 
     const inserted = await db.one<{ id: string }>(
       `
@@ -442,10 +448,10 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
         "v1",
         ticker,
         formSourceKey,
-        out.cluster.cluster_end_at ?? out.filing.filed_at,
+        activityAt,
         feedLabel,
         url,
-        out.cluster.cluster_end_at ?? out.filing.filed_at,
+        filingAt,
         contentSha256,
         out,
       ],

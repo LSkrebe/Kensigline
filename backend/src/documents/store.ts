@@ -5,6 +5,7 @@ import { scoreResearchDocument } from "../core/idea-score.js";
 import { isoTimestampFromDb } from "../shared/db-time.js";
 import { invalidateTickerContextCache } from "../core/ticker-context-cache.js";
 import { invalidateAnalyseModelCache } from "../analyse/build-model.js";
+import { parseEventTimeMs, sanitizeEventAtForFeed, FEED_FUTURE_GRACE_DAYS } from "../shared/document-activity-at.js";
 
 const GOV_LINK_THRESHOLD = () => Number(process.env.GOV_CONTRACT_LINK_THRESHOLD ?? 0.72);
 
@@ -36,6 +37,27 @@ export async function insertResearchDocument(args: {
   const linkConf = isGov ? args.out.link_confidence : null;
   const showOnTicker = !isGov || (linkConf != null && linkConf >= GOV_LINK_THRESHOLD());
 
+  const publishedAt = args.publishedAt ?? new Date().toISOString();
+  const now = new Date();
+  const graceMs = FEED_FUTURE_GRACE_DAYS * 24 * 60 * 60 * 1000;
+  const llmAt = args.out.event_at;
+  const llmMs = parseEventTimeMs(llmAt);
+  let catalystAt = args.out.catalyst_at ? String(args.out.catalyst_at) : null;
+  if (!catalystAt && llmMs > now.getTime() + graceMs) {
+    catalystAt = llmAt;
+  }
+  const eventAt = sanitizeEventAtForFeed({
+    candidate: llmAt,
+    filedAt: publishedAt,
+    parsedAt: now.toISOString(),
+    now,
+  });
+  const storedOut = {
+    ...args.out,
+    event_at: eventAt,
+    ...(catalystAt ? { catalyst_at: catalystAt } : {}),
+  };
+
   const row = await db.one<{ id: string }>(
     `
     INSERT INTO documents (
@@ -55,16 +77,16 @@ export async function insertResearchDocument(args: {
       mapQueueSourceToDocKind(args.sourceType),
       args.out.source_key,
       args.out.analysis,
-      args.out.event_at ?? args.publishedAt,
+      eventAt,
       ticker,
       args.out.program_keys,
       linkConf,
       showOnTicker,
       args.url,
       args.out.title,
-      args.publishedAt,
+      publishedAt,
       args.contentSha256,
-      JSON.stringify(args.out),
+      JSON.stringify(storedOut),
     ],
   );
 

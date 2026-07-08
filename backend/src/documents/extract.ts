@@ -23,6 +23,7 @@ export type ResearchDocExtractV2 = {
   source_key: string;
   analysis: string;
   event_at: string | null;
+  catalyst_at?: string | null;
   program_keys: string[];
   link_confidence: number | null;
   related_tickers?: {
@@ -44,7 +45,8 @@ const RESEARCH_EXTRACT_SCHEMA = {
   primary_ticker: "string|null",
   source_key: "string",
   analysis: "string (1 sentence, ~70-220 chars; trade-relevant delta only)",
-  event_at: "ISO8601|null",
+  event_at: "ISO8601|null — document filing or publication date (NOT bond maturity, target year, or vesting)",
+  catalyst_at: "ISO8601|null — optional forward milestone (maturity, meeting, deal close) if different from filing date",
   program_keys: ["string"],
   link_confidence: "number|null",
   related_tickers: { upstream: ["string"], downstream: ["string"] },
@@ -89,6 +91,8 @@ function buildResearchExtractSystemPrompt(defaultSource: string): string {
     "If nothing material exists, still return JSON but make analysis the sharpest possible fact from the text - never generic summary prose.",
     "",
     "Do not invent tickers, numbers, or dates. Use null when uncertain.",
+    "event_at MUST be when the document was filed or published — never a bond maturity, strategic target year, or vesting date.",
+    "Put forward milestones (maturity, deal close, annual meeting, production target year) in catalyst_at instead.",
     `source_key must be one of: ${SOURCE_KEYS.join(", ")}.`,
     "Gov contract: source_key Gov contract + link_confidence 0-1.",
     "Clinical registry: ClinicalTrials.gov + program_keys when explicit.",
@@ -189,6 +193,7 @@ export async function runResearchDocExtract(args: {
   const businessDrivers = normalizeBusinessDrivers(out.business_drivers);
   const title = normalizeHeadline(out.title)!;
   const analysis = out.analysis.trim();
+  const catalyst_at = out.catalyst_at ? String(out.catalyst_at) : null;
 
   return {
     out: {
@@ -199,6 +204,7 @@ export async function runResearchDocExtract(args: {
       source_key: normalizeSourceKeyLocal(out.source_key, defaultSource),
       analysis,
       event_at: out.event_at ? String(out.event_at) : null,
+      ...(catalyst_at ? { catalyst_at } : {}),
       program_keys: Array.isArray(out.program_keys)
         ? out.program_keys.map((k) => String(k).trim()).filter(Boolean).slice(0, 8)
         : [],

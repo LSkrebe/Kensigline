@@ -12,7 +12,7 @@ export const UI_PREF_KEYS = {
 }
 
 const ACTIVE_TABS = new Set(['analyse', 'discover', 'main', 'investigate', 'settings'])
-const INVESTIGATE_MODES = new Set(['all', 'insider', 'politicians', 'institutions'])
+const INVESTIGATE_MODES = new Set(['insider', 'politicians', 'institutions'])
 
 function canUseStorage() {
   return typeof window !== 'undefined' && Boolean(window.localStorage)
@@ -79,11 +79,19 @@ export function writeActiveTab(tab) {
 }
 
 export function readInvestigateMode() {
-  return readChoice(UI_PREF_KEYS.investigateMode, INVESTIGATE_MODES, 'insider')
+  if (!canUseStorage()) return 'insider'
+  try {
+    const raw = window.localStorage.getItem(UI_PREF_KEYS.investigateMode)
+    if (raw === 'all') return 'insider'
+    return INVESTIGATE_MODES.has(raw) ? raw : 'insider'
+  } catch {
+    return 'insider'
+  }
 }
 
 export function writeInvestigateMode(mode) {
-  writeChoice(UI_PREF_KEYS.investigateMode, mode)
+  const next = mode === 'all' ? 'insider' : mode
+  writeChoice(UI_PREF_KEYS.investigateMode, next)
 }
 
 export function readChartRange(lane, allowedRanges, fallback) {

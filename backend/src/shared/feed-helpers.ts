@@ -29,8 +29,11 @@ export function parseEventTimeMs(iso: string): number {
 }
 
 export function latestEventAtFromDoc(rows: unknown, docFeedAt: string): string {
+  const now = Date.now();
+  const graceMs = 14 * 24 * 60 * 60 * 1000;
+  const filedMs = parseEventTimeMs(docFeedAt);
   let best = docFeedAt;
-  let bestT = parseEventTimeMs(docFeedAt);
+  let bestT = filedMs;
   if (Array.isArray(rows)) {
     for (const raw of rows) {
       const r = raw as Record<string, unknown>;
@@ -41,6 +44,9 @@ export function latestEventAtFromDoc(rows: unknown, docFeedAt: string): string {
         best = ts || docFeedAt;
       }
     }
+  }
+  if (bestT > now + graceMs && filedMs > Number.NEGATIVE_INFINITY) {
+    return docFeedAt;
   }
   return best;
 }
