@@ -1,4 +1,5 @@
 import { db } from "../../core/db.js";
+import { isUrlAllowedForResearchHttpIngest } from "../../documents/spec.js";
 import { extractLinksFromFeedXml, fetchFeedXml } from "./feeds.js";
 
 /** Shared helper: fetch RSS/Atom XML and enqueue article URLs for research document parsing. */
@@ -15,6 +16,7 @@ export async function enqueueResearchRssFeeds(opts: {
       const links = extractLinksFromFeedXml(xml, feedUrl).slice(0, opts.maxLinksPerFeed);
       let enq = 0;
       for (const { url } of links) {
+        if (!isUrlAllowedForResearchHttpIngest(url)) continue;
         const r = await db.one<{ id: string }>(
           `
           INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)

@@ -20,6 +20,7 @@ type ParseNextResult =
   | { processed: true; queue_id: string; parsed_ids: string[]; ticker_count: number };
 
 const ACTIVITIES = new Set(["Increased stake", "New position", "Reduced stake"]);
+const ENRICH_HOLDINGS_LLM_LIMIT = 120;
 
 function extractJsonObject(text: string): any {
   let raw = String(text ?? "").trim();
@@ -192,7 +193,7 @@ async function extractInstitutionFiling(args: {
           compact: (t, max) => t.slice(0, max),
           stripBoilerplate: true,
         }).text,
-        holdings: parsedHoldings.slice(0, 200),
+        holdings: parsedHoldings.slice(0, ENRICH_HOLDINGS_LLM_LIMIT),
         meta,
       }),
       {

@@ -2,7 +2,7 @@ import {
   backfillPriorityForResearchSecForm,
   enqueueResearchSecFilings,
   enqueueResearchWebFeeds,
-  researchSecFormList,
+  researchSecFormListForBackfill,
   researchSecFormsForBackfill,
 } from "./market/ingest.js";
 import { parseNextResearchQueueItem } from "./market/parse.js";
@@ -30,7 +30,7 @@ export function startResearchWorker() {
       await enqueueResearchWebFeeds();
     },
     enqueueBackfill: async () => {
-      const forms = researchSecFormsForBackfill(researchSecFormList());
+      const forms = researchSecFormsForBackfill(researchSecFormListForBackfill());
       await runSecDailyIndexBackfill({
         pipeline: "research/market",
         forms: forms.map((form) => ({

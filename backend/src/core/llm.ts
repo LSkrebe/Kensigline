@@ -65,9 +65,9 @@ function mustEnv(name: string) {
 }
 
 function getApiKey() {
-  // Support a few common names so env setup is forgiving.
   return (
     String(process.env.LLM_API_KEY ?? "").trim() ||
+    String(process.env.DEEPSEEK_API_KEY ?? "").trim() ||
     String(process.env.OPENAI_API_KEY ?? "").trim() ||
     String(process.env.OPENAPI_SECRET_KEY ?? "").trim()
   );
@@ -105,10 +105,10 @@ async function chatOllama(messages: ChatMessage[], opts: ChatOptions) {
 }
 
 async function chatOpenAICompatible(messages: ChatMessage[], opts: ChatOptions) {
-  const baseUrl = String(process.env.LLM_BASE_URL ?? "https://api.openai.com/v1").trim(); // e.g. http://localhost:8000/v1
+  const baseUrl = String(process.env.LLM_BASE_URL ?? "https://api.deepseek.com/v1").trim();
   const apiKey = getApiKey();
-  const model = String(process.env.LLM_MODEL ?? "gpt-4o-mini").trim();
-  if (!apiKey) throw new Error("LLM_API_KEY (or OPENAI_API_KEY / OPENAPI_SECRET_KEY) is required");
+  const model = String(process.env.LLM_MODEL ?? "deepseek-v4-flash").trim();
+  if (!apiKey) throw new Error("LLM_API_KEY (or DEEPSEEK_API_KEY) is required");
 
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (apiKey) headers.authorization = `Bearer ${apiKey}`;
@@ -135,12 +135,16 @@ async function chatOpenAICompatible(messages: ChatMessage[], opts: ChatOptions) 
   return { content, model: resolvedModel, usage };
 }
 
+function usesOpenAiCompatibleApi(provider: string): boolean {
+  return provider === "openai" || provider === "deepseek" || provider === "openai-compatible";
+}
+
 export async function llmChat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<LlmChatResult> {
   const provider = getProvider();
   const result =
     provider === "ollama"
       ? await chatOllama(messages, opts)
-      : provider === "openai"
+      : usesOpenAiCompatibleApi(provider)
         ? await chatOpenAICompatible(messages, opts)
         : null;
   if (!result) throw new Error(`unknown_llm_provider ${provider}`);
