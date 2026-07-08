@@ -21,7 +21,7 @@ import {
 } from './mockWeekData.js'
 import { mockShowcasePriceSeries, showcaseCompanyName } from './mockShowcasePrices.js'
 import { fetchAnalyseModel } from './analyseClient.js'
-import { prefetchDiscoverTimeline } from './discoverClient.js'
+import { FEED_PAGE_SIZE, feedPageQuery, mergeFeedPages } from './feedPagination.js'
 import { EventBriefDocCard } from './EventBrief.jsx'
 import { getEventMentioned } from './eventBriefs.js'
 import {
@@ -4721,9 +4721,14 @@ function ResearchFeedTickerList({
   onQuery,
   filtered,
   loading = false,
+  loadingMore = false,
+  hasMore = false,
+  onLoadMore,
   emptyLabel = 'No feed items yet.',
   showDocumentCount = true,
 }) {
+  const listRef = useRef(null)
+  const [renderLimit, setRenderLimit] = useState(FEED_PAGE_SIZE)
   const feedItems = useMemo(() => {
     const items = (filtered ?? []).map((it) => ({
       ...it,
@@ -4757,6 +4762,24 @@ function ResearchFeedTickerList({
       belowTodayBand: !feedRowHasTodayEvents(row),
     })
 
+  useEffect(() => {
+    setRenderLimit(FEED_PAGE_SIZE)
+  }, [filtered?.length, q])
+
+  function onScrollLoadMore() {
+    const list = listRef.current
+    if (!list) return
+    const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 60
+    if (!nearBottom) return
+    setRenderLimit((prev) => Math.min(displayRows.length, prev + FEED_PAGE_SIZE))
+    if (hasMore && !loadingMore) onLoadMore?.()
+  }
+
+  const visibleDisplayRows = displayRows.slice(
+    0,
+    Math.min(displayRows.length, Math.max(FEED_PAGE_SIZE, renderLimit)),
+  )
+
   return (
     <>
       <label className="researchFeedSearch">
@@ -4776,13 +4799,18 @@ function ResearchFeedTickerList({
           <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
         </svg>
       </label>
-      <div className="feedCompactList feedCompactList--scroll scrollThin" role="list">
+      <div
+        ref={listRef}
+        className="feedCompactList feedCompactList--scroll scrollThin"
+        role="list"
+        onScroll={onScrollLoadMore}
+      >
         {loading ? (
           <PanelStatusMessage label="Loading feed…" className="feedPanelStatus" />
         ) : !displayRows.length ? (
           <PanelStatusMessage label={emptyLabel} className="feedPanelStatus" />
         ) : (
-          displayRows.map((entry, i) => {
+          visibleDisplayRows.map((entry, i) => {
           if (entry.type === 'sep') {
             return (
               <div
@@ -4828,6 +4856,7 @@ function ResearchFeedTickerList({
           )
         })
         )}
+        {loadingMore ? <PanelStatusMessage label="Loading more…" className="feedPanelStatus" /> : null}
       </div>
     </>
   )
@@ -4847,6 +4876,9 @@ function ResearchTickerPanel({
   feedFilterPicker = null,
   panelClassName = '',
   feedLoading = false,
+  feedLoadingMore = false,
+  feedHasMore = false,
+  onFeedLoadMore,
   feedEmptyLabel = 'No feed items yet.',
   showDocumentCount = true,
 }) {
@@ -4871,6 +4903,9 @@ function ResearchTickerPanel({
       onQuery={onQuery}
       filtered={filtered}
       loading={feedLoading}
+      loadingMore={feedLoadingMore}
+      hasMore={feedHasMore}
+      onLoadMore={onFeedLoadMore}
       emptyLabel={feedEmptyLabel}
       showDocumentCount={showDocumentCount}
     />
@@ -8396,10 +8431,13 @@ function CompactFeed({
   loading = false,
   loadingLabel = 'Loading feed…',
   emptyLabel = 'No feed items yet.',
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }) {
   const listRef = useRef(null)
   const [rowsPerPage, setRowsPerPage] = useState(16)
-  const [renderLimit, setRenderLimit] = useState(80)
+  const [renderLimit, setRenderLimit] = useState(FEED_PAGE_SIZE)
 
   const feedItems = useMemo(() => {
     if (programsTimeline || !todayGroupByEvents) return items
@@ -8484,6 +8522,7 @@ function CompactFeed({
     const nearBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 60
     if (!nearBottom) return
     setRenderLimit((prev) => Math.min(displayLen, prev + pageSize * 2))
+    if (hasMore && !loadingMore) onLoadMore?.()
   }
 
   function renderVisibleFeedRows(getGlobalIdx) {
@@ -8685,6 +8724,9 @@ function CompactFeed({
               onScroll={scrollMode ? onScrollLoadMore : undefined}
             >
               {renderVisibleFeedRows((i) => (scrollMode ? i : pageStart + i))}
+              {scrollMode && loadingMore ? (
+                <PanelStatusMessage label="Loading more…" className="feedPanelStatus" />
+              ) : null}
             </div>
           </div>
           {feedFilterOpen
@@ -8772,7 +8814,9 @@ function CaseKvFeed({
   const page = total ? clamp(Math.floor(Math.max(0, selectedTradeRowIndex) / pageSize), 0, totalPages - 1) : 0
   const pageStart = page * pageSize
   const pageSlice = total ? rows.slice(pageStart, pageStart + pageSize) : []
-  const visibleRows = scrollMode ? rows : pageSlice
+  const visibleRows = scrollMode
+    ? rows.slice(0, Math.min(total, Math.max(pageSize, renderLimit)))
+    : pageSlice
 
   useEffect(() => {
     if (!scrollMode) return
@@ -9151,6 +9195,91 @@ function cycleViewTab(current, settingsReturnTab = 'main') {
   return VIEW_TAB_CYCLE[(idx + 1) % VIEW_TAB_CYCLE.length]
 }
 
+function mapInsiderCompanyFeedItem(it) {
+  const ticker = String(it.ticker ?? '').trim().toUpperCase()
+  const at = String(it.feed_at ?? '')
+  const id = String(it.id ?? '')
+  const raw = String(it.feed_label ?? '')
+  const m = raw.match(/^\s*([^()]+?)\s*\(\s*(\d+)\s*\)\s*$/)
+  const label = (m ? m[1] : raw).trim() || '—'
+  const countFromLabel = m ? Number(m[2]) : null
+  const todayCount = Number(it.today_count)
+  const count = Number.isFinite(todayCount) ? todayCount : countFromLabel
+  const company = researchFeedRowLabel({ ticker, company_name: it.company_name, company: it.company })
+  const insiders = Array.isArray(it.insiders) ? it.insiders.map((x) => String(x)) : []
+  return {
+    id,
+    label,
+    count,
+    company,
+    ticker,
+    at,
+    insiders,
+    daily: [],
+    idea_score: it.idea_score,
+    idea_best: it.idea_best,
+    idea_reasons: it.idea_reasons,
+    __backend_id: id,
+  }
+}
+
+function mapPoliticianFeedItem(it) {
+  const ticker = String(it.ticker ?? '').trim().toUpperCase()
+  const at = String(it.feed_at ?? '')
+  const id = String(it.id ?? '')
+  const raw = String(it.feed_label ?? '')
+  const m = raw.match(/^\s*([^()]+?)\s*\(\s*(\d+)\s*\)\s*$/)
+  const label = (m ? m[1] : raw).trim() || '—'
+  const countFromLabel = m ? Number(m[2]) : null
+  const todayCount = Number(it.today_count)
+  const count = Number.isFinite(todayCount) ? todayCount : countFromLabel
+  const politicians = Array.isArray(it.politicians) ? it.politicians.map((x) => String(x)) : []
+  const company = researchFeedRowLabel({ ticker, company_name: it.company_name, company: it.company })
+  return {
+    id,
+    label,
+    count,
+    company,
+    ticker,
+    at,
+    politicians,
+    chamber: String(it.chamber ?? 'house').trim().toLowerCase() || 'house',
+    daily: [],
+    idea_score: it.idea_score,
+    idea_best: it.idea_best,
+    idea_reasons: it.idea_reasons,
+    __backend_id: id,
+  }
+}
+
+function mapInstitutionFeedItem(it) {
+  const ticker = String(it.ticker ?? '').trim().toUpperCase()
+  const at = String(it.feed_at ?? '')
+  const id = String(it.id ?? '')
+  const raw = String(it.feed_label ?? '')
+  const m = raw.match(/^\s*([^()]+?)\s*\(\s*(\d+)\s*\)\s*$/)
+  const label = (m ? m[1] : raw).trim() || '—'
+  const countFromLabel = m ? Number(m[2]) : null
+  const todayCount = Number(it.today_count)
+  const count = Number.isFinite(todayCount) ? todayCount : countFromLabel
+  const institutions = Array.isArray(it.institutions) ? it.institutions.map((x) => String(x)) : []
+  const company = researchFeedRowLabel({ ticker, company_name: it.company_name, company: it.company })
+  return {
+    id,
+    label,
+    count,
+    company,
+    ticker,
+    at,
+    institutions,
+    daily: [],
+    idea_score: it.idea_score,
+    idea_best: it.idea_best,
+    idea_reasons: it.idea_reasons,
+    __backend_id: id,
+  }
+}
+
 function KensiglineTerminal() {
   const { user } = useAuth()
   const isPhone = usePhoneViewport()
@@ -9219,6 +9348,9 @@ function KensiglineTerminal() {
   const [allSelectedActorId, setAllSelectedActorId] = useState(null)
   const [allCaseTradeIdx, setAllCaseTradeIdx] = useState(0)
   const [researchFeedLive, setResearchFeedLive] = useState(null)
+  const [researchFeedHasMore, setResearchFeedHasMore] = useState(false)
+  const [researchFeedLoadingMore, setResearchFeedLoadingMore] = useState(false)
+  const researchFeedOffsetRef = useRef(0)
   const [researchFeedInjected, setResearchFeedInjected] = useState([])
   const [researchFeedRefresh, setResearchFeedRefresh] = useState(0)
   const [researchExploreLive, setResearchExploreLive] = useState(null)
@@ -9246,6 +9378,9 @@ function KensiglineTerminal() {
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
   const [insiderFeedLive, setInsiderFeedLive] = useState(null)
+  const [insiderFeedHasMore, setInsiderFeedHasMore] = useState(false)
+  const [insiderFeedLoadingMore, setInsiderFeedLoadingMore] = useState(false)
+  const insiderFeedOffsetRef = useRef(0)
   const [insiderClusterLive, setInsiderClusterLive] = useState(null)
   const [barsLive, setBarsLive] = useState(null)
   const [barsLiveTicker, setBarsLiveTicker] = useState(null)
@@ -9263,8 +9398,14 @@ function KensiglineTerminal() {
   const [companyLiveTicker, setCompanyLiveTicker] = useState(null)
   const companyFetchGenRef = useRef(0)
   const [politiciansFeedLive, setPoliticiansFeedLive] = useState(null)
+  const [politiciansFeedHasMore, setPoliticiansFeedHasMore] = useState(false)
+  const [politiciansFeedLoadingMore, setPoliticiansFeedLoadingMore] = useState(false)
+  const politiciansFeedOffsetRef = useRef(0)
   const [politiciansClusterLive, setPoliticiansClusterLive] = useState(null)
   const [institutionsFeedLive, setInstitutionsFeedLive] = useState(null)
+  const [institutionsFeedHasMore, setInstitutionsFeedHasMore] = useState(false)
+  const [institutionsFeedLoadingMore, setInstitutionsFeedLoadingMore] = useState(false)
+  const institutionsFeedOffsetRef = useRef(0)
   const [institutionsClusterLive, setInstitutionsClusterLive] = useState(null)
   const researchDataset = useMemo(
     () => (backendUp ? null : mockDatasetForTicker(researchTicker)),
@@ -9586,7 +9727,10 @@ function KensiglineTerminal() {
     contextFlowRows,
   ])
 
-  const researchFeedLoading = backendUp && researchFeedLive === null
+  const researchFeedLoading =
+    backendUp &&
+    (activeTab === 'main' || activeTab === 'analyse') &&
+    researchFeedLive === null
   const researchFeedEmptyLabel = useMemo(() => {
     if (String(researchQuery ?? '').trim()) return 'No matching companies.'
     const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters)
@@ -9730,12 +9874,6 @@ function KensiglineTerminal() {
   }, [backendLastOkAt])
 
   useEffect(() => {
-    if (!backendUp) return undefined
-    prefetchDiscoverTimeline()
-    return undefined
-  }, [backendUp])
-
-  useEffect(() => {
     let alive = true
     async function run() {
       if (!backendUp) return
@@ -9774,21 +9912,51 @@ function KensiglineTerminal() {
   }, [backendUp])
 
   useEffect(() => {
-    if (!backendUp) return
+    if (!backendUp || (activeTab !== 'main' && activeTab !== 'analyse')) return
     let cancelled = false
     const mode = 'market'
-    async function run() {
-      const r = await fetchJsonSafe(`/api/research/feed?limit=120&mode=${mode}`, { timeoutMs: 8000 })
+    async function run({ append = false, offset = 0 } = {}) {
+      const path = feedPageQuery('/api/research/feed', {
+        limit: FEED_PAGE_SIZE,
+        offset,
+        extra: { mode },
+      })
+      const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
       if (cancelled || !r.ok || !r.data?.ok || !Array.isArray(r.data.items)) return
-      setResearchFeedLive(r.data.items)
+      setResearchFeedLive((prev) =>
+        append ? mergeFeedPages(prev, r.data.items, { append: true }) : r.data.items,
+      )
+      setResearchFeedHasMore(Boolean(r.data.has_more))
+      researchFeedOffsetRef.current = Number(r.data.next_offset) || offset + r.data.items.length
     }
-    run()
-    const t = setInterval(run, 30_000)
+    researchFeedOffsetRef.current = 0
+    setResearchFeedLive(null)
+    setResearchFeedHasMore(false)
+    run({ append: false, offset: 0 })
+    const t = setInterval(() => run({ append: false, offset: 0 }), 30_000)
     return () => {
       cancelled = true
       clearInterval(t)
     }
-  }, [backendUp, researchFeedRefresh])
+  }, [backendUp, activeTab, researchFeedRefresh])
+
+  const loadMoreResearchFeed = useCallback(async () => {
+    if (!backendUp || researchFeedLoadingMore || !researchFeedHasMore) return
+    setResearchFeedLoadingMore(true)
+    const path = feedPageQuery('/api/research/feed', {
+      limit: FEED_PAGE_SIZE,
+      offset: researchFeedOffsetRef.current,
+      extra: { mode: 'market' },
+    })
+    const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
+    if (r.ok && r.data?.ok && Array.isArray(r.data.items)) {
+      setResearchFeedLive((prev) => mergeFeedPages(prev, r.data.items, { append: true }))
+      setResearchFeedHasMore(Boolean(r.data.has_more))
+      researchFeedOffsetRef.current =
+        Number(r.data.next_offset) || researchFeedOffsetRef.current + r.data.items.length
+    }
+    setResearchFeedLoadingMore(false)
+  }, [backendUp, researchFeedHasMore, researchFeedLoadingMore])
 
   useEffect(() => {
     if (!backendUp) {
@@ -9857,9 +10025,12 @@ function KensiglineTerminal() {
     }
 
     async function run() {
-      const snap = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, {
-        timeoutMs: 15_000,
-      })
+      const [snap, full] = await Promise.all([
+        fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, {
+          timeoutMs: 15_000,
+        }),
+        fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 25_000 }),
+      ])
       if (!alive || researchCompanyFetchGenRef.current !== gen) return
 
       const applyCompany = (payload) => {
@@ -9876,9 +10047,6 @@ function KensiglineTerminal() {
 
       if (snap.ok && snap.data) applyCompany(snap.data)
       if (!cachedCompany) setResearchCompanyContextLoading(false)
-
-      const full = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 25_000 })
-      if (!alive || researchCompanyFetchGenRef.current !== gen) return
       if (full.ok && full.data) applyCompany(full.data)
     }
     run().catch(() => {
@@ -9890,7 +10058,7 @@ function KensiglineTerminal() {
   }, [backendUp, activeTab, researchTick])
 
   useEffect(() => {
-    if (!backendUp || !researchTicker) {
+    if (!backendUp || activeTab !== 'analyse' || !researchTicker) {
       setAnalyseLivePayload(null)
       setAnalyseModelLoading(false)
       return
@@ -9906,7 +10074,7 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, researchTicker])
+  }, [backendUp, activeTab, researchTicker])
 
   useEffect(() => {
     if (!backendUp || activeTab !== 'main') return
@@ -9978,96 +10146,185 @@ function KensiglineTerminal() {
   }, [backendUp, activeTab, researchTick])
 
   useEffect(() => {
+    const investigateActive = backendUp && activeTab === 'investigate'
+    if (!investigateActive || (investigateMode !== 'insider' && investigateMode !== 'all')) return
     let alive = true
-    async function run() {
-      if (!backendUp) return
-      const r = await fetchJsonSafe('/api/insider/feed?mode=company&limit=120&days=30')
+    async function run({ append = false, offset = 0 } = {}) {
+      const path = feedPageQuery('/api/insider/feed', {
+        limit: FEED_PAGE_SIZE,
+        offset,
+        extra: { mode: 'company', days: 30 },
+      })
+      const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
       if (!alive) return
       const items = Array.isArray(r.data?.items) ? r.data.items : []
-      const mapped = items
-        .map((it) => {
-          const ticker = String(it.ticker ?? '').trim().toUpperCase()
-          const at = String(it.feed_at ?? '')
-          const id = String(it.id ?? '')
-          const raw = String(it.feed_label ?? '')
-          const m = raw.match(/^\s*([^()]+?)\s*\(\s*(\d+)\s*\)\s*$/)
-          const label = (m ? m[1] : raw).trim() || '—'
-          const countFromLabel = m ? Number(m[2]) : null
-          const todayCount = Number(it.today_count)
-          const count = Number.isFinite(todayCount) ? todayCount : countFromLabel
-          const company = researchFeedRowLabel({ ticker, company_name: it.company_name, company: it.company })
-          const insiders = Array.isArray(it.insiders) ? it.insiders.map((x) => String(x)) : []
-          return {
-            id,
-            label,
-            count,
-            company,
-            ticker,
-            at,
-            insiders,
-            daily: [],
-            idea_score: it.idea_score,
-            idea_best: it.idea_best,
-            idea_reasons: it.idea_reasons,
-            __backend_id: id,
-          }
-        })
-        .filter((x) => x.id && x.ticker && x.at)
-      if (r.ok) setInsiderFeedLive(mapped)
+      const mapped = items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
+      if (!r.ok) return
+      setInsiderFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
+      setInsiderFeedHasMore(Boolean(r.data?.has_more))
+      insiderFeedOffsetRef.current = Number(r.data?.next_offset) || offset + mapped.length
     }
-    run()
-    const t = setInterval(run, 20_000)
+    insiderFeedOffsetRef.current = 0
+    setInsiderFeedLive(null)
+    setInsiderFeedHasMore(false)
+    run({ append: false, offset: 0 })
+    const t = setInterval(() => run({ append: false, offset: 0 }), 20_000)
     return () => {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp])
+  }, [backendUp, activeTab, investigateMode])
+
+  const loadMoreInsiderFeed = useCallback(async () => {
+    if (!backendUp || insiderFeedLoadingMore || !insiderFeedHasMore) return
+    setInsiderFeedLoadingMore(true)
+    const path = feedPageQuery('/api/insider/feed', {
+      limit: FEED_PAGE_SIZE,
+      offset: insiderFeedOffsetRef.current,
+      extra: { mode: 'company', days: 30 },
+    })
+    const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
+    if (r.ok && Array.isArray(r.data?.items)) {
+      const mapped = r.data.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
+      setInsiderFeedLive((prev) => mergeFeedPages(prev, mapped, { append: true }))
+      setInsiderFeedHasMore(Boolean(r.data?.has_more))
+      insiderFeedOffsetRef.current = Number(r.data?.next_offset) || insiderFeedOffsetRef.current + mapped.length
+    }
+    setInsiderFeedLoadingMore(false)
+  }, [backendUp, insiderFeedHasMore, insiderFeedLoadingMore])
 
   useEffect(() => {
+    const investigateActive = backendUp && activeTab === 'investigate'
+    if (!investigateActive || (investigateMode !== 'institutions' && investigateMode !== 'all')) return
     let alive = true
-    async function run() {
-      if (!backendUp) return
-      const r = await fetchJsonSafe('/api/institutions/feed?limit=120&days=120', { timeoutMs: 5000 })
+    async function run({ append = false, offset = 0 } = {}) {
+      const path = feedPageQuery('/api/institutions/feed', {
+        limit: FEED_PAGE_SIZE,
+        offset,
+        extra: { days: 120 },
+      })
+      const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
       if (!alive) return
       const items = Array.isArray(r.data?.items) ? r.data.items : []
-      const mapped = items
-        .map((it) => {
-          const ticker = String(it.ticker ?? '').trim().toUpperCase()
-          const at = String(it.feed_at ?? '')
-          const id = String(it.id ?? '')
-          const raw = String(it.feed_label ?? '')
-          const m = raw.match(/^\s*([^()]+?)\s*\(\s*(\d+)\s*\)\s*$/)
-          const label = (m ? m[1] : raw).trim() || '—'
-          const countFromLabel = m ? Number(m[2]) : null
-          const todayCount = Number(it.today_count)
-          const count = Number.isFinite(todayCount) ? todayCount : countFromLabel
-          const institutions = Array.isArray(it.institutions) ? it.institutions.map((x) => String(x)) : []
-          const company = researchFeedRowLabel({ ticker, company_name: it.company_name, company: it.company })
-          return {
-            id,
-            label,
-            count,
-            company,
-            ticker,
-            at,
-            institutions,
-            daily: [],
-            idea_score: it.idea_score,
-            idea_best: it.idea_best,
-            idea_reasons: it.idea_reasons,
-            __backend_id: id,
-          }
-        })
-        .filter((x) => x.id && x.ticker && x.at)
-      if (r.ok) setInstitutionsFeedLive(mapped)
+      const mapped = items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
+      if (!r.ok) return
+      setInstitutionsFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
+      setInstitutionsFeedHasMore(Boolean(r.data?.has_more))
+      institutionsFeedOffsetRef.current = Number(r.data?.next_offset) || offset + mapped.length
     }
-    run()
-    const t = setInterval(run, 30_000)
+    institutionsFeedOffsetRef.current = 0
+    setInstitutionsFeedLive(null)
+    setInstitutionsFeedHasMore(false)
+    run({ append: false, offset: 0 })
+    const t = setInterval(() => run({ append: false, offset: 0 }), 30_000)
     return () => {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp])
+  }, [backendUp, activeTab, investigateMode])
+
+  const loadMoreInstitutionsFeed = useCallback(async () => {
+    if (!backendUp || institutionsFeedLoadingMore || !institutionsFeedHasMore) return
+    setInstitutionsFeedLoadingMore(true)
+    const path = feedPageQuery('/api/institutions/feed', {
+      limit: FEED_PAGE_SIZE,
+      offset: institutionsFeedOffsetRef.current,
+      extra: { days: 120 },
+    })
+    const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
+    if (r.ok && Array.isArray(r.data?.items)) {
+      const mapped = r.data.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
+      setInstitutionsFeedLive((prev) => mergeFeedPages(prev, mapped, { append: true }))
+      setInstitutionsFeedHasMore(Boolean(r.data?.has_more))
+      institutionsFeedOffsetRef.current =
+        Number(r.data?.next_offset) || institutionsFeedOffsetRef.current + mapped.length
+    }
+    setInstitutionsFeedLoadingMore(false)
+  }, [backendUp, institutionsFeedHasMore, institutionsFeedLoadingMore])
+
+  useEffect(() => {
+    const investigateActive = backendUp && activeTab === 'investigate'
+    if (!investigateActive || (investigateMode !== 'politicians' && investigateMode !== 'all')) return
+    let alive = true
+    async function run({ append = false, offset = 0 } = {}) {
+      const path = feedPageQuery('/api/politicians/feed', {
+        limit: FEED_PAGE_SIZE,
+        offset,
+        extra: { days: 120 },
+      })
+      const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
+      if (!alive) return
+      const items = Array.isArray(r.data?.items) ? r.data.items : []
+      const mapped = items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
+      if (!r.ok) return
+      setPoliticiansFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
+      setPoliticiansFeedHasMore(Boolean(r.data?.has_more))
+      politiciansFeedOffsetRef.current = Number(r.data?.next_offset) || offset + mapped.length
+    }
+    politiciansFeedOffsetRef.current = 0
+    setPoliticiansFeedLive(null)
+    setPoliticiansFeedHasMore(false)
+    run({ append: false, offset: 0 })
+    const t = setInterval(() => run({ append: false, offset: 0 }), 30_000)
+    return () => {
+      alive = false
+      clearInterval(t)
+    }
+  }, [backendUp, activeTab, investigateMode])
+
+  const loadMorePoliticiansFeed = useCallback(async () => {
+    if (!backendUp || politiciansFeedLoadingMore || !politiciansFeedHasMore) return
+    setPoliticiansFeedLoadingMore(true)
+    const path = feedPageQuery('/api/politicians/feed', {
+      limit: FEED_PAGE_SIZE,
+      offset: politiciansFeedOffsetRef.current,
+      extra: { days: 120 },
+    })
+    const r = await fetchJsonSafe(path, { timeoutMs: 8000 })
+    if (r.ok && Array.isArray(r.data?.items)) {
+      const mapped = r.data.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
+      setPoliticiansFeedLive((prev) => mergeFeedPages(prev, mapped, { append: true }))
+      setPoliticiansFeedHasMore(Boolean(r.data?.has_more))
+      politiciansFeedOffsetRef.current =
+        Number(r.data?.next_offset) || politiciansFeedOffsetRef.current + mapped.length
+    }
+    setPoliticiansFeedLoadingMore(false)
+  }, [backendUp, politiciansFeedHasMore, politiciansFeedLoadingMore])
+
+  const investigateFeedLoadMore = useCallback(() => {
+    if (investigateMode === 'all') {
+      void loadMoreInsiderFeed()
+      void loadMorePoliticiansFeed()
+      void loadMoreInstitutionsFeed()
+      return
+    }
+    if (investigateMode === 'insider') void loadMoreInsiderFeed()
+    else if (investigateMode === 'politicians') void loadMorePoliticiansFeed()
+    else void loadMoreInstitutionsFeed()
+  }, [
+    investigateMode,
+    loadMoreInsiderFeed,
+    loadMorePoliticiansFeed,
+    loadMoreInstitutionsFeed,
+  ])
+
+  const investigateFeedHasMore =
+    investigateMode === 'all'
+      ? insiderFeedHasMore || politiciansFeedHasMore || institutionsFeedHasMore
+      : investigateMode === 'insider'
+        ? insiderFeedHasMore
+        : investigateMode === 'politicians'
+          ? politiciansFeedHasMore
+          : institutionsFeedHasMore
+
+  const investigateFeedLoadingMore =
+    investigateMode === 'all'
+      ? insiderFeedLoadingMore || politiciansFeedLoadingMore || institutionsFeedLoadingMore
+      : investigateMode === 'insider'
+        ? insiderFeedLoadingMore
+        : investigateMode === 'politicians'
+          ? politiciansFeedLoadingMore
+          : institutionsFeedLoadingMore
 
   const insiderFeedRowsBase = useMemo(
     () => applyFeedTodayEventCounts(!backendUp ? INSIDER_FEED_ROWS : insiderFeedLive ?? []),
@@ -10103,53 +10360,6 @@ function KensiglineTerminal() {
     insiderFilteredFeed.length > 0
       ? insiderFilteredFeed[clamp(insiderIdx, 0, Math.max(0, insiderFilteredFeed.length - 1))]
       : null
-
-  useEffect(() => {
-    let alive = true
-    async function run() {
-      if (!backendUp) return
-      const r = await fetchJsonSafe('/api/politicians/feed?limit=120&days=120', { timeoutMs: 5000 })
-      if (!alive) return
-      const items = Array.isArray(r.data?.items) ? r.data.items : []
-      const mapped = items
-        .map((it) => {
-          const ticker = String(it.ticker ?? '').trim().toUpperCase()
-          const at = String(it.feed_at ?? '')
-          const id = String(it.id ?? '')
-          const raw = String(it.feed_label ?? '')
-          const m = raw.match(/^\s*([^()]+?)\s*\(\s*(\d+)\s*\)\s*$/)
-          const label = (m ? m[1] : raw).trim() || '—'
-          const countFromLabel = m ? Number(m[2]) : null
-          const todayCount = Number(it.today_count)
-          const count = Number.isFinite(todayCount) ? todayCount : countFromLabel
-          const politicians = Array.isArray(it.politicians) ? it.politicians.map((x) => String(x)) : []
-          const company = researchFeedRowLabel({ ticker, company_name: it.company_name, company: it.company })
-          return {
-            id,
-            label,
-            count,
-            company,
-            ticker,
-            at,
-            politicians,
-            chamber: String(it.chamber ?? 'house').trim().toLowerCase() || 'house',
-            daily: [],
-            idea_score: it.idea_score,
-            idea_best: it.idea_best,
-            idea_reasons: it.idea_reasons,
-            __backend_id: id,
-          }
-        })
-        .filter((x) => x.id && x.ticker && x.at)
-      if (r.ok) setPoliticiansFeedLive(mapped)
-    }
-    run()
-    const t = setInterval(run, 30_000)
-    return () => {
-      alive = false
-      clearInterval(t)
-    }
-  }, [backendUp])
 
   const politiciansFeedRowsBase = useMemo(
     () => applyFeedTodayEventCounts(!backendUp ? POLITICIAN_FEED_ROWS : politiciansFeedLive ?? []),
@@ -11199,6 +11409,9 @@ function KensiglineTerminal() {
             onQuery={setResearchQuery}
             filtered={researchFeedAfterSourceFilter}
             feedLoading={researchFeedLoading}
+            feedLoadingMore={researchFeedLoadingMore}
+            feedHasMore={researchFeedHasMore}
+            onFeedLoadMore={loadMoreResearchFeed}
             feedEmptyLabel={researchFeedEmptyLabel}
             showFeedFilter
             feedFilterActive={researchFeedFilterOpen}
@@ -11308,6 +11521,9 @@ function KensiglineTerminal() {
             sepMode="today+years"
             todayGroupByEvents
             scrollMode
+            hasMore={investigateFeedHasMore}
+            loadingMore={investigateFeedLoadingMore}
+            onLoadMore={investigateFeedLoadMore}
             rowPrimary="actor"
             showFeedFilter
             feedFilterActive={investigateFeedFilterOpen}
@@ -11439,6 +11655,9 @@ function KensiglineTerminal() {
             onQuery={setResearchQuery}
             filtered={researchFeedAfterSourceFilter}
             feedLoading={researchFeedLoading}
+            feedLoadingMore={researchFeedLoadingMore}
+            feedHasMore={researchFeedHasMore}
+            onFeedLoadMore={loadMoreResearchFeed}
             feedEmptyLabel={researchFeedEmptyLabel}
             showFeedFilter
             feedFilterActive={researchFeedFilterOpen}

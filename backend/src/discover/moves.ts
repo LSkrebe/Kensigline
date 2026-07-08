@@ -25,6 +25,7 @@ async function loadBarsMap(ticker: string) {
     SELECT day::text AS day, close
     FROM bars
     WHERE ticker = $1
+      AND day >= (CURRENT_DATE - INTERVAL '200 days')
     ORDER BY day ASC
     `,
     [ticker],

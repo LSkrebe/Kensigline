@@ -10,7 +10,7 @@ let inflight = null
 let inflightKey = ''
 
 export const DISCOVER_TIMELINE_DEFAULTS = {
-  limit: 80,
+  limit: 40,
   pastDays: 90,
   aheadDays: 180,
   macroDays: 5,

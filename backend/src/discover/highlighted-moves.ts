@@ -1,4 +1,3 @@
-import { db } from "../core/db.js";
 import {
   isIdeaGreenHighlight,
   scoreInsiderCluster,
@@ -10,6 +9,7 @@ import {
   latestEventAtFromDoc,
   parseEventTimeMs,
 } from "../shared/feed-helpers.js";
+import { loadTickerFeedDocs } from "../shared/ticker-feed-aggregate.js";
 import { normalizeResearchPaperSourceKey } from "../shared/source-keys.js";
 import { buildFlowMarketMoveCopy } from "./flow-copy.js";
 import {
@@ -148,21 +148,12 @@ function flowAggToDiscoverEvent(args: {
 }
 
 async function loadHighlightedInsiderMoves(days: number, cap: number): Promise<DiscoverEvent[]> {
-  const docs = await db.query<{
-    id: string;
-    event_at: string | null;
-    feed_label: string | null;
-    ticker: string | null;
-    data: any;
-    url: string | null;
-    source_key: string | null;
-  }>(
-    `SELECT id, event_at::text AS event_at, feed_label, ticker, data, url, source_key FROM documents
-     WHERE feed_kind = 'insider' AND ticker IS NOT NULL AND event_at IS NOT NULL
-       AND event_at >= now() - ($1 || ' days')::interval
-     ORDER BY event_at DESC, parsed_at DESC LIMIT 5000`,
-    [String(days)],
-  );
+  const { docs } = await loadTickerFeedDocs({
+    feedKind: "insider",
+    days,
+    limit: cap,
+    offset: 0,
+  });
 
   type Agg = {
     ticker: string;
@@ -239,21 +230,12 @@ async function loadHighlightedInsiderMoves(days: number, cap: number): Promise<D
 }
 
 async function loadHighlightedPoliticianMoves(days: number, cap: number): Promise<DiscoverEvent[]> {
-  const rows = await db.query<{
-    id: string;
-    event_at: string | null;
-    feed_label: string | null;
-    ticker: string | null;
-    data: any;
-    url: string | null;
-    source_key: string | null;
-  }>(
-    `SELECT id, event_at::text AS event_at, feed_label, ticker, data, url, source_key FROM documents
-     WHERE feed_kind = 'politicians' AND ticker IS NOT NULL AND event_at IS NOT NULL
-       AND event_at >= now() - ($1 || ' days')::interval
-     ORDER BY event_at DESC NULLS LAST, parsed_at DESC LIMIT 5000`,
-    [String(days)],
-  );
+  const { docs: rows } = await loadTickerFeedDocs({
+    feedKind: "politicians",
+    days,
+    limit: cap,
+    offset: 0,
+  });
 
   type Agg = {
     ticker: string;
@@ -325,21 +307,12 @@ async function loadHighlightedPoliticianMoves(days: number, cap: number): Promis
 }
 
 async function loadHighlightedInstitutionMoves(days: number, cap: number): Promise<DiscoverEvent[]> {
-  const rows = await db.query<{
-    id: string;
-    event_at: string | null;
-    feed_label: string | null;
-    ticker: string | null;
-    data: any;
-    url: string | null;
-    source_key: string | null;
-  }>(
-    `SELECT id, event_at::text AS event_at, feed_label, ticker, data, url, source_key FROM documents
-     WHERE feed_kind = 'institutions' AND ticker IS NOT NULL AND event_at IS NOT NULL
-       AND event_at >= now() - ($1 || ' days')::interval
-     ORDER BY event_at DESC NULLS LAST, parsed_at DESC LIMIT 5000`,
-    [String(days)],
-  );
+  const { docs: rows } = await loadTickerFeedDocs({
+    feedKind: "institutions",
+    days,
+    limit: cap,
+    offset: 0,
+  });
 
   type Agg = {
     ticker: string;

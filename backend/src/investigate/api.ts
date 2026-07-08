@@ -20,6 +20,7 @@ import {
   tickerFromClusterId,
   tickerFromCompanyClusterId,
 } from "../shared/feed-helpers.js";
+import { loadTickerFeedDocs, parseFeedPageParams } from "../shared/ticker-feed-aggregate.js";
 import { normalizeInsiderWorksheetRow } from "./worksheet.js";
 import { isoTimestampFromDb } from "../shared/db-time.js";
 import {
@@ -91,7 +92,7 @@ export async function tryInvestigateRoutes(
 
 async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
   const mode = String(url.searchParams.get("mode") ?? "company").trim().toLowerCase();
-  const limit = clampInt(url.searchParams.get("limit"), 1, 200, 60);
+  const page = parseFeedPageParams(url, { limit: 40, maxLimit: 120 });
   const days = clampInt(url.searchParams.get("days"), 1, 90, 30);
 
   if (mode !== "company") {
@@ -103,8 +104,8 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
       company_id: string | null;
     }>(
       `SELECT id, event_at::text AS event_at, feed_label, ticker, company_id FROM documents
-       WHERE feed_kind = 'insider' ORDER BY event_at DESC NULLS LAST, parsed_at DESC LIMIT $1`,
-      [limit],
+       WHERE feed_kind = 'insider' ORDER BY event_at DESC NULLS LAST, parsed_at DESC LIMIT $1 OFFSET $2`,
+      [page.limit, page.offset],
     );
     sendJson(res, 200, {
       items: rows.map((r) => ({
@@ -114,39 +115,20 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
         ticker: r.ticker,
         company_id: r.company_id,
       })),
+      offset: page.offset,
+      limit: page.limit,
+      has_more: rows.length >= page.limit,
+      next_offset: page.offset + rows.length,
     });
     return;
   }
 
-  const docs = await db.query<{
-    id: string;
-    event_at: string | null;
-    feed_label: string | null;
-    ticker: string | null;
-    company_id: string | null;
-    company_name: string | null;
-    data: any;
-  }>(
-    `SELECT d.id, d.event_at::text AS event_at, d.feed_label, d.ticker, d.company_id, d.data,
-      COALESCE(
-        NULLIF(trim(c.name), ''),
-        NULLIF(trim(iss.issuer_name), '')
-      ) AS company_name
-     FROM documents d
-     LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
-     LEFT JOIN LATERAL (
-       SELECT NULLIF(trim(d2.data->'issuer'->>'name'), '') AS issuer_name
-       FROM documents d2
-       WHERE upper(trim(d2.ticker)) = upper(trim(d.ticker))
-         AND NULLIF(trim(d2.data->'issuer'->>'name'), '') IS NOT NULL
-       ORDER BY COALESCE(d2.event_at, d2.parsed_at) DESC NULLS LAST, d2.parsed_at DESC
-       LIMIT 1
-     ) iss ON true
-     WHERE d.feed_kind = 'insider' AND d.ticker IS NOT NULL AND d.event_at IS NOT NULL
-       AND d.event_at >= now() - ($1 || ' days')::interval
-     ORDER BY d.event_at DESC, d.parsed_at DESC LIMIT 5000`,
-    [String(days)],
-  );
+  const { docs, hasMore, offset, nextOffset } = await loadTickerFeedDocs({
+    feedKind: "insider",
+    days,
+    limit: page.limit,
+    offset: page.offset,
+  });
 
   const secTitles = await getSecTickerTitleMap();
 
@@ -228,7 +210,6 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
 
   const items = Array.from(byTicker.values())
     .sort((a, b) => (a.latestFeedAt < b.latestFeedAt ? 1 : a.latestFeedAt > b.latestFeedAt ? -1 : 0))
-    .slice(0, limit)
     .map((c) => {
       const usd = c.totalUsd > 0 ? formatUsdCompact(c.totalUsd) : "—";
       const todayCount = c.todayCount;
@@ -269,42 +250,28 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
       };
     });
 
-  sendJson(res, 200, { items, days, mode: "company" });
+  sendJson(res, 200, {
+    items,
+    days,
+    mode: "company",
+    offset,
+    limit: page.limit,
+    has_more: hasMore,
+    next_offset: nextOffset,
+  });
 }
 
 type TickerFeedKind = "politicians" | "institutions";
 
 async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, feedKind: TickerFeedKind) {
-  const limit = clampInt(url.searchParams.get("limit"), 1, 500, 120);
+  const page = parseFeedPageParams(url, { limit: 40, maxLimit: 120 });
   const days = clampInt(url.searchParams.get("days"), 1, 365, feedKind === "politicians" ? 30 : 120);
-  const rows = await db.query<{
-    id: string;
-    event_at: string | null;
-    feed_label: string | null;
-    ticker: string | null;
-    company_name: string | null;
-    data: any;
-  }>(
-    `SELECT d.id, d.event_at::text AS event_at, d.feed_label, d.ticker, d.data,
-      COALESCE(
-        NULLIF(trim(c.name), ''),
-        NULLIF(trim(iss.issuer_name), '')
-      ) AS company_name
-     FROM documents d
-     LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
-     LEFT JOIN LATERAL (
-       SELECT NULLIF(trim(d2.data->'issuer'->>'name'), '') AS issuer_name
-       FROM documents d2
-       WHERE upper(trim(d2.ticker)) = upper(trim(d.ticker))
-         AND NULLIF(trim(d2.data->'issuer'->>'name'), '') IS NOT NULL
-       ORDER BY COALESCE(d2.event_at, d2.parsed_at) DESC NULLS LAST, d2.parsed_at DESC
-       LIMIT 1
-     ) iss ON true
-     WHERE d.feed_kind=$2 AND d.ticker IS NOT NULL AND d.event_at IS NOT NULL
-       AND d.event_at >= now() - ($1 || ' days')::interval
-     ORDER BY d.event_at DESC NULLS LAST, d.parsed_at DESC LIMIT 5000`,
-    [String(days), feedKind],
-  );
+  const { docs: rows, hasMore, offset, nextOffset } = await loadTickerFeedDocs({
+    feedKind,
+    days,
+    limit: page.limit,
+    offset: page.offset,
+  });
 
   const secTitles = await getSecTickerTitleMap();
 
@@ -371,7 +338,6 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
   const items = await Promise.all(
     Array.from(byTicker.values())
     .sort((a, b) => (a.latestFeedAt < b.latestFeedAt ? 1 : a.latestFeedAt > b.latestFeedAt ? -1 : 0))
-    .slice(0, limit)
     .map(async (c) => {
       const usd = c.totalUsd > 0 ? formatUsdCompact(c.totalUsd) : "—";
       const todayCount = c.todayCount;
@@ -415,7 +381,15 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
     }),
   );
 
-  sendJson(res, 200, { items, days, mode: "ticker" });
+  sendJson(res, 200, {
+    items,
+    days,
+    mode: "ticker",
+    offset,
+    limit: page.limit,
+    has_more: hasMore,
+    next_offset: nextOffset,
+  });
 }
 
 async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
@@ -679,7 +653,7 @@ async function loadClusterDocs(feedKind: string, ticker: string, days: number) {
     `SELECT id, event_at::text AS event_at, ticker, data FROM documents
      WHERE feed_kind=$1 AND upper(trim(ticker))=upper(trim($2)) AND event_at IS NOT NULL
        AND event_at >= now() - ($3 || ' days')::interval
-     ORDER BY event_at DESC, parsed_at DESC LIMIT 5000`,
+     ORDER BY event_at DESC, parsed_at DESC LIMIT 400`,
     [feedKind, ticker, String(days)],
   );
 }

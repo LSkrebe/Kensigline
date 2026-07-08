@@ -193,9 +193,16 @@ function scoreResearchFeedRow(row: {
   });
 }
 
-export async function handleResearchFeed(res: http.ServerResponse, limit: number, modeRaw?: string | null) {
+export async function handleResearchFeed(
+  res: http.ServerResponse,
+  limit: number,
+  modeRaw?: string | null,
+  offsetRaw = 0,
+) {
   const lim = Math.max(1, Math.min(120, limit));
+  const offset = Math.max(0, Math.min(50_000, Math.floor(Number(offsetRaw) || 0)));
   const mode = parseResearchFeedMode(modeRaw);
+  const probe = lim + 1;
 
   const rows = await db.query<{
     id: string;
@@ -213,15 +220,7 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
   }>(
     `
     SELECT sub.id, sub.ticker, sub.analysis, sub.feed_label, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind, sub.program_phase, sub.event_at, sub.data,
-      (
-        SELECT COUNT(*)::int
-        FROM documents d2
-        WHERE upper(trim(d2.ticker)) = sub.ticker
-          AND d2.analysis IS NOT NULL
-          AND length(trim(d2.analysis)) > 0
-          AND d2.feed_kind = 'research'
-          AND d2.show_on_ticker IS NOT FALSE
-      ) AS paper_doc_count
+      COALESCE(pc.paper_doc_count, 0) AS paper_doc_count
     FROM (
       SELECT DISTINCT ON (upper(trim(d.ticker)))
         d.id::text,
@@ -262,15 +261,27 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
         )
       ORDER BY upper(trim(d.ticker)), COALESCE(d.event_at, d.parsed_at) DESC NULLS LAST, d.parsed_at DESC
     ) sub
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*)::int AS paper_doc_count
+      FROM documents d2
+      WHERE upper(trim(d2.ticker)) = sub.ticker
+        AND d2.analysis IS NOT NULL
+        AND length(trim(d2.analysis)) > 0
+        AND d2.feed_kind = 'research'
+        AND d2.show_on_ticker IS NOT FALSE
+    ) pc ON true
     ORDER BY sub.feed_at DESC NULLS LAST
-    LIMIT $1
+    LIMIT $1 OFFSET $2
     `,
-    [lim],
+    [probe, offset],
   );
+
+  const hasMore = rows.length > lim;
+  const page = rows.slice(0, lim);
 
   const secTitles = await getSecTickerTitleMap().catch(() => new Map<string, string>());
 
-  const items = rows.map((r) => {
+  const items = page.map((r) => {
     const displayName = resolveResearchFeedCompanyName(r.ticker, r.company_name, secTitles.get(r.ticker) ?? null);
     const idea = scoreResearchFeedRow(r);
     const feedLabel = String(r.analysis ?? r.feed_label ?? "").trim();
@@ -292,7 +303,15 @@ export async function handleResearchFeed(res: http.ServerResponse, limit: number
     };
   });
 
-  sendJson(res, 200, { ok: true, mode, items });
+  sendJson(res, 200, {
+    ok: true,
+    mode,
+    items,
+    offset,
+    limit: lim,
+    has_more: hasMore,
+    next_offset: offset + items.length,
+  });
 }
 
 export function researchLimitFromSearchParams(sp: URLSearchParams) {
