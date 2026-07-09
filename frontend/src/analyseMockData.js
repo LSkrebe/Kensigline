@@ -196,7 +196,7 @@ function buildAsmlMockModel(asOf = new Date()) {
       valuationAvailable: true,
     },
     projectionNote:
-      'Reported SEC history; forward revenue extrapolated from YoY growth (editable). Drivers are disclosure reference only.',
+      'Reported SEC history; forward revenue and gross margin are editable — other lines derived with flat opex.',
     driverUnitHint: 'From filings — historical quarters only',
   })
 }
@@ -431,7 +431,7 @@ function findRow(rows, label) {
 }
 
 export function isForecastEditablePnlRow(row) {
-  return row?.label === 'Revenue'
+  return row?.label === 'Revenue' || row?.label === 'Gross margin'
 }
 
 /** @deprecated Drivers are historical-only; use isForecastEditablePnlRow. */
@@ -661,10 +661,16 @@ export function applyScenario(model, scenario = 'base') {
   return applyScenarioToModel(model, scenario)
 }
 
-function applyRevenueForecastOverrides(baseModel, overrides) {
+function marginPctFromCell(value) {
+  if (typeof value === 'number') return value
+  return parseAnalyseMarginInput(value)
+}
+
+function applyPnlForecastOverrides(baseModel, overrides) {
   const estFrom = baseModel.estimateFromIndex
   const colCount = baseModel.quarters.length
   const revenueOverrides = overrides.Revenue ?? {}
+  const marginOverrides = overrides['Gross margin'] ?? {}
 
   const historicalModel = baseModel.historicalModel.map((r) => ({
     ...r,
@@ -673,25 +679,63 @@ function applyRevenueForecastOverrides(baseModel, overrides) {
 
   for (let i = estFrom; i < colCount; i++) {
     const revOverride = revenueOverrides[i]
-    if (revOverride == null) continue
-    recalcEstimateColumn(
-      historicalModel,
-      baseModel,
-      i,
-      Math.round(revOverride),
-      forecastRatios(baseModel, i),
-    )
+    const gmOverride = marginOverrides[i]
+    if (revOverride == null && gmOverride == null) continue
+
+    const baseRev = findRow(baseModel.historicalModel, 'Revenue')?.values[i]
+    const rev =
+      revOverride != null && revOverride > 0
+        ? Math.round(revOverride)
+        : Number(findRow(historicalModel, 'Revenue')?.values[i] ?? baseRev)
+    if (!Number.isFinite(rev) || rev <= 0) continue
+
+    const ratios = forecastRatios(baseModel, i)
+    if (gmOverride != null && gmOverride > 0 && gmOverride <= 100) {
+      ratios.grossMargin = gmOverride / 100
+    } else {
+      const gmCell = findRow(historicalModel, 'Gross margin')?.values[i]
+      const parsed = marginPctFromCell(gmCell)
+      if (parsed != null && parsed > 0) ratios.grossMargin = parsed / 100
+    }
+    ratios.netMargin = ratios.opMargin * (1 - BASE_CASE_TAX_RATE)
+
+    recalcEstimateColumn(historicalModel, baseModel, i, rev, ratios)
   }
 
   return { ...baseModel, historicalModel }
 }
 
 /**
- * Forward revenue edits recalc the P&L column; drivers stay independent.
+ * Forward revenue / gross margin edits recalc the P&L column; drivers stay independent.
  */
 export function applyForecastOverrides(baseModel, overrides = {}) {
   if (!Object.keys(overrides).length) return baseModel
-  return applyRevenueForecastOverrides(baseModel, overrides)
+  return applyPnlForecastOverrides(baseModel, overrides)
+}
+
+export function parseAnalyseMarginInput(raw) {
+  const n = parseFloat(String(raw ?? '').replace(/%/g, '').replace(/,/g, '').trim())
+  return Number.isFinite(n) ? n : null
+}
+
+export function parseAnalyseCellInput(row, raw) {
+  if (row?.kind === 'pct' || row?.label === 'Gross margin') return parseAnalyseMarginInput(raw)
+  return parseAnalyseGridInput(raw)
+}
+
+export function isValidAnalyseCellInput(row, n) {
+  if (n == null || !Number.isFinite(n)) return false
+  if (row?.kind === 'pct' || row?.label === 'Gross margin') return n > 0 && n <= 100
+  return n > 0
+}
+
+export function analyseCellOverrideModified(row, baseVal, override) {
+  if (override == null) return false
+  if (row?.kind === 'pct' || row?.label === 'Gross margin') {
+    const basePct = marginPctFromCell(baseVal)
+    return basePct == null || Math.abs(basePct - override) >= 0.05
+  }
+  return baseVal !== override
 }
 
 export function parseAnalyseGridInput(raw) {

@@ -356,7 +356,7 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
       forward: hasSec ? "historical" : "derived",
     },
     projectionNote:
-      "Reported SEC history; forward revenue extrapolated from YoY growth (editable). Drivers are disclosure reference only.",
+      "Reported SEC history; forward revenue and gross margin are editable — other lines derived with flat opex.",
   };
 
   const modelQuality = assessModelQuality({

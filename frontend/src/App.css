@@ -4934,42 +4934,6 @@
   line-height: 1.35;
 }
 
-.analyseModelWarnings {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  margin-top: 18px;
-  padding: 10px 0;
-  border: 1px solid rgba(255, 196, 96, 0.28);
-  border-radius: 4px;
-  background: rgba(255, 196, 96, 0.06);
-}
-
-.analyseModelWarningsTitle {
-  font-size: 9px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 210, 130, 0.92);
-  margin: 0 0 6px;
-  padding: 0 var(--panel-scroll-inline-pad);
-}
-
-.analyseModelWarningsList {
-  margin: 0;
-  padding: 0 var(--panel-scroll-inline-pad) 0 calc(var(--panel-scroll-inline-pad) + 16px);
-  font-size: 10px;
-  line-height: 1.45;
-}
-
-.analyseModelWarningsNote {
-  margin: 8px 0 0;
-  padding: 0 var(--panel-scroll-inline-pad);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  line-height: 1.35;
-}
-
 .analyseScenarioRange {
   flex-shrink: 0;
 }
@@ -5067,18 +5031,9 @@
     repeat(var(--analyse-hist-cols), minmax(var(--analyse-quarter-min), 1fr));
 }
 
-.analyseModelEstFrame {
-  position: absolute;
-  top: 1px;
-  bottom: 1px;
-  left: var(--analyse-est-left, 0);
-  width: var(--analyse-est-width, 0);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 0 2px 2px 0;
-  background: rgba(255, 255, 255, 0.02);
-  pointer-events: none;
-  z-index: 2;
-  box-sizing: border-box;
+.analyseModelGridHead--estimateStart,
+.analyseModelGridCell--estimateStart {
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .analyseModelRow {
@@ -5245,15 +5200,23 @@
 
 .analyseModelGridCell--editable {
   cursor: pointer;
+  transition: background 0.14s ease;
 }
 
-.analyseModelGridCell--editable:hover {
-  color: rgba(255, 255, 255, 0.78);
+.analyseModelGridCell--editable.analyseModelGridCell--estimate {
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.analyseModelGridCell--modified {
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.92);
+.analyseModelGridCell--editable.analyseModelGridCell--estimate:hover {
+  background: rgba(255, 255, 255, 0.085);
+}
+
+.analyseModelGridCell--editable.analyseModelGridCell--estimate:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.analyseModelGridCell--modified.analyseModelGridCell--estimate {
+  background: rgba(255, 255, 255, 0.072);
 }
 
 .analyseModelGridCell--modified::after {
@@ -5261,10 +5224,11 @@
   position: absolute;
   top: 5px;
   right: 5px;
-  width: 4px;
-  height: 4px;
+  width: 3px;
+  height: 3px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 .analyseModelGridCellInput {

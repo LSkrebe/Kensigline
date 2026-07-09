@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
+  analyseCellOverrideModified,
   analyseGridCellTone,
   analyseMockModelForTicker,
   analyseRevenueOverlayMeta,
@@ -7,6 +8,8 @@ import {
   computeValuationView,
   formatAnalyseGridValue,
   isForecastEditablePnlRow,
+  isValidAnalyseCellInput,
+  parseAnalyseCellInput,
   parseAnalyseGridInput,
 } from './analyseMockData.js'
 
@@ -34,6 +37,7 @@ function AnalyseModelGridCell({
   row,
   value,
   estimate,
+  estimateStart = false,
   colIndex,
   editable,
   modified,
@@ -46,25 +50,31 @@ function AnalyseModelGridCell({
 
   const startEdit = useCallback(() => {
     if (!editable) return
-    const n = typeof value === 'number' ? value : parseAnalyseGridInput(value)
+    const n =
+      typeof value === 'number'
+        ? value
+        : row.kind === 'pct'
+          ? parseAnalyseCellInput(row, value)
+          : parseAnalyseGridInput(value)
     setDraft(n != null ? String(n) : '')
     setEditing(true)
-  }, [editable, value])
+  }, [editable, row, value])
 
   useEffect(() => {
     if (editing) inputRef.current?.select()
   }, [editing])
 
   const commit = useCallback(() => {
-    const n = parseAnalyseGridInput(draft)
-    if (n != null && n > 0) onEstimateEdit?.(row.label, colIndex, n)
+    const n = parseAnalyseCellInput(row, draft)
+    if (isValidAnalyseCellInput(row, n)) onEstimateEdit?.(row.label, colIndex, n)
     setEditing(false)
-  }, [colIndex, draft, onEstimateEdit, row.label])
+  }, [colIndex, draft, onEstimateEdit, row])
 
     const className = [
     'analyseModelGridCell',
     'mono',
     estimate ? 'analyseModelGridCell--estimate' : '',
+    estimateStart ? 'analyseModelGridCell--estimateStart' : '',
     editable ? 'analyseModelGridCell--editable' : '',
     row.readOnly ? 'analyseModelGridCell--readonly' : '',
     modified ? 'analyseModelGridCell--modified' : '',
@@ -140,7 +150,9 @@ function AnalyseModelGridCells({
     const editable = estimate && onEstimateEdit && editableRowFn?.(row)
     const override = forecastOverrides?.[row.label]?.[colIndex]
     const modified =
-      editable && override != null && baseRowValues?.[colIndex] !== override
+      editable &&
+      override != null &&
+      !analyseCellOverrideModified(row, baseRowValues?.[colIndex], override)
 
     return (
       <AnalyseModelGridCell
@@ -148,6 +160,7 @@ function AnalyseModelGridCells({
         row={row}
         value={cell}
         estimate={estimate}
+        estimateStart={estimate && i === 0}
         colIndex={colIndex}
         editable={editable}
         modified={modified}
@@ -171,43 +184,9 @@ function AnalyseModelGrid({
   const estQuarters = showEstimates ? quarters.slice(estimateFromIndex) : []
   const histCount = histQuarters.length
   const estCount = estQuarters.length
-  const tableRef = useRef(null)
-  const estStartRef = useRef(null)
-  const estEndRef = useRef(null)
-  const [estFrame, setEstFrame] = useState(null)
-
-  const syncEstFrame = useCallback(() => {
-    const table = tableRef.current
-    const start = estStartRef.current
-    const end = estEndRef.current
-    if (!table || !start || !end) return
-    const tableRect = table.getBoundingClientRect()
-    const padLeft = table.clientLeft
-    const startRect = start.getBoundingClientRect()
-    const endRect = end.getBoundingClientRect()
-    setEstFrame({
-      left: startRect.left - tableRect.left - padLeft,
-      width: endRect.right - startRect.left,
-    })
-  }, [])
-
-  useEffect(() => {
-    if (!estCount) return undefined
-    syncEstFrame()
-    const table = tableRef.current
-    if (!table) return undefined
-    const ro = new ResizeObserver(syncEstFrame)
-    ro.observe(table)
-    window.addEventListener('resize', syncEstFrame)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', syncEstFrame)
-    }
-  }, [estCount, syncEstFrame, histCount, rows.length, quarters.join('|')])
 
   return (
     <div
-      ref={tableRef}
       className={[
         'analyseModelTable',
         showEstimates ? '' : 'analyseModelTable--historicalOnly',
@@ -217,12 +196,6 @@ function AnalyseModelGrid({
       style={{
         '--analyse-hist-cols': histCount,
         '--analyse-est-cols': estCount,
-        ...(estFrame
-          ? {
-              '--analyse-est-left': `${estFrame.left}px`,
-              '--analyse-est-width': `${estFrame.width}px`,
-            }
-          : {}),
       }}
       role="table"
       aria-label="Financial model"
@@ -239,8 +212,14 @@ function AnalyseModelGrid({
         {estQuarters.map((q, i) => (
           <span
             key={q}
-            ref={i === 0 ? estStartRef : i === estQuarters.length - 1 ? estEndRef : undefined}
-            className="analyseModelGridHead analyseModelGridHead--estimate mono"
+            className={[
+              'analyseModelGridHead',
+              'analyseModelGridHead--estimate',
+              'mono',
+              i === 0 ? 'analyseModelGridHead--estimateStart' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
             role="columnheader"
           >
             {q}
@@ -283,7 +262,6 @@ function AnalyseModelGrid({
           ) : null}
         </div>
       ))}
-      {estCount ? <div className="analyseModelEstFrame" aria-hidden="true" /> : null}
     </div>
   )
 }
@@ -467,8 +445,8 @@ export function AnalysePanel({
     }
   }, [selectedValuationCol, valuation])
 
-  const forecastEdited = Boolean(
-    forecastOverrides.Revenue && Object.keys(forecastOverrides.Revenue).length > 0,
+  const forecastEdited = Object.values(forecastOverrides).some(
+    (byCol) => byCol && Object.keys(byCol).length > 0,
   )
 
   const baseRowsByLabel = useMemo(() => {
@@ -632,27 +610,6 @@ export function AnalysePanel({
                 </div>
               ) : (
                 <>
-              {model.modelQuality?.warnings?.length ? (
-                <div className="analyseSection analyseModelWarnings" role="status">
-                  <div className="analyseModelWarningsTitle mono">
-                    Model {model.modelQuality.grade === 'full' ? 'notes' : model.modelQuality.grade}
-                  </div>
-                  <ul className="analyseModelWarningsList">
-                    {model.modelQuality.warnings.map((w) => (
-                      <li key={w} className="mono dim">
-                        {w}
-                      </li>
-                    ))}
-                  </ul>
-                  {model.projectionNote ? (
-                    <p className="analyseModelWarningsNote mono dim">{model.projectionNote}</p>
-                  ) : null}
-                </div>
-              ) : model.projectionNote ? (
-                <div className="analyseSection analyseSectionTitle">
-                  <span className="analyseSectionHint mono dim">{model.projectionNote}</span>
-                </div>
-              ) : null}
               <section className="analyseSection" aria-label={driverSectionTitle}>
                 <AnalyseSectionTitle title={driverSectionTitle} hintLines={[unitHint]} />
                 <div className="analyseModelScroll scrollThin">
@@ -669,7 +626,7 @@ export function AnalysePanel({
                 <div className="analyseSectionHead">
                   <AnalyseSectionTitle
                     title="Financial model"
-                    hintLines={[perShareHint, 'Click forward revenue to edit your forecast']}
+                    hintLines={[perShareHint, 'Click forward revenue or gross margin to edit']}
                   />
                   {forecastEdited ? (
                     <button
@@ -679,7 +636,9 @@ export function AnalysePanel({
                     >
                       Reset forecast
                     </button>
-                  ) : null}
+                  ) : (
+                    <span className="analyseForecastEditable mono">Editable</span>
+                  )}
                 </div>
                 <div className="analyseModelScroll scrollThin">
                   <AnalyseModelGrid
