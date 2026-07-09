@@ -4,10 +4,9 @@ import {
   analyseMockModelForTicker,
   analyseRevenueOverlayMeta,
   applyForecastOverrides,
-  applyScenario,
   computeValuationView,
   formatAnalyseGridValue,
-  isForecastEditableDriver,
+  isForecastEditablePnlRow,
   parseAnalyseGridInput,
 } from './analyseMockData.js'
 
@@ -162,13 +161,14 @@ function AnalyseModelGrid({
   rows,
   quarters,
   estimateFromIndex,
+  showEstimates = true,
   editableRowFn,
   forecastOverrides,
   baseRowsByLabel,
   onEstimateEdit,
 }) {
   const histQuarters = quarters.slice(0, estimateFromIndex)
-  const estQuarters = quarters.slice(estimateFromIndex)
+  const estQuarters = showEstimates ? quarters.slice(estimateFromIndex) : []
   const histCount = histQuarters.length
   const estCount = estQuarters.length
   const tableRef = useRef(null)
@@ -208,7 +208,12 @@ function AnalyseModelGrid({
   return (
     <div
       ref={tableRef}
-      className="analyseModelTable"
+      className={[
+        'analyseModelTable',
+        showEstimates ? '' : 'analyseModelTable--historicalOnly',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={{
         '--analyse-hist-cols': histCount,
         '--analyse-est-cols': estCount,
@@ -264,16 +269,18 @@ function AnalyseModelGrid({
             forecastOverrides={forecastOverrides}
             baseRowValues={baseRowsByLabel?.[row.label]}
           />
-          <AnalyseModelGridCells
-            row={row}
-            values={row.values.slice(estimateFromIndex)}
-            estimate
-            estimateFromIndex={estimateFromIndex}
-            editableRowFn={editableRowFn}
-            forecastOverrides={forecastOverrides}
-            baseRowValues={baseRowsByLabel?.[row.label]}
-            onEstimateEdit={onEstimateEdit}
-          />
+          {showEstimates ? (
+            <AnalyseModelGridCells
+              row={row}
+              values={row.values.slice(estimateFromIndex)}
+              estimate
+              estimateFromIndex={estimateFromIndex}
+              editableRowFn={editableRowFn}
+              forecastOverrides={forecastOverrides}
+              baseRowValues={baseRowsByLabel?.[row.label]}
+              onEstimateEdit={onEstimateEdit}
+            />
+          ) : null}
         </div>
       ))}
       {estCount ? <div className="analyseModelEstFrame" aria-hidden="true" /> : null}
@@ -400,7 +407,6 @@ export function AnalysePanel({
   }, [backendUp, liveModel, modelLoading, t])
   const [forecastOverrides, setForecastOverrides] = useState({})
   const [valuationQuarterIndex, setValuationQuarterIndex] = useState(null)
-  const [scenario, setScenario] = useState('base')
   const scrollRef = useRef(null)
   const scrollSnapRef = useRef(null)
 
@@ -416,25 +422,14 @@ export function AnalysePanel({
     setValuationQuarterIndex(colIndex)
   }, [captureScrollSnap])
 
-  const onScenarioChange = useCallback((next) => {
-    captureScrollSnap()
-    setScenario(next)
-  }, [captureScrollSnap])
-
   useEffect(() => {
     setForecastOverrides({})
     setValuationQuarterIndex(null)
-    setScenario('base')
   }, [t, liveModel])
 
-  const scenarioModel = useMemo(
-    () => (baseModel ? applyScenario(baseModel, scenario) : null),
-    [baseModel, scenario],
-  )
-
   const model = useMemo(
-    () => (scenarioModel ? applyForecastOverrides(scenarioModel, forecastOverrides) : null),
-    [scenarioModel, forecastOverrides],
+    () => (baseModel ? applyForecastOverrides(baseModel, forecastOverrides) : null),
+    [baseModel, forecastOverrides],
   )
 
   const forecastQuarterOptions = useMemo(() => {
@@ -470,10 +465,10 @@ export function AnalysePanel({
     } else {
       el.scrollTop = snap.scrollTop
     }
-  }, [selectedValuationCol, scenario, valuation])
+  }, [selectedValuationCol, valuation])
 
-  const forecastEdited = Object.values(forecastOverrides).some(
-    (byCol) => byCol && Object.keys(byCol).length > 0,
+  const forecastEdited = Boolean(
+    forecastOverrides.Revenue && Object.keys(forecastOverrides.Revenue).length > 0,
   )
 
   const baseRowsByLabel = useMemo(() => {
@@ -659,8 +654,23 @@ export function AnalysePanel({
                 </div>
               ) : null}
               <section className="analyseSection" aria-label={driverSectionTitle}>
+                <AnalyseSectionTitle title={driverSectionTitle} hintLines={[unitHint]} />
+                <div className="analyseModelScroll scrollThin">
+                  <AnalyseModelGrid
+                    rows={model.businessDrivers}
+                    quarters={model.quarters}
+                    estimateFromIndex={model.estimateFromIndex}
+                    showEstimates={false}
+                  />
+                </div>
+              </section>
+
+              <section className="analyseSection" aria-label="Financial model">
                 <div className="analyseSectionHead">
-                  <AnalyseSectionTitle title={driverSectionTitle} hintLines={[unitHint]} />
+                  <AnalyseSectionTitle
+                    title="Financial model"
+                    hintLines={[perShareHint, 'Click forward revenue to edit your forecast']}
+                  />
                   {forecastEdited ? (
                     <button
                       type="button"
@@ -669,16 +679,14 @@ export function AnalysePanel({
                     >
                       Reset forecast
                     </button>
-                  ) : (
-                    <span className="analyseForecastEditable mono">Editable</span>
-                  )}
+                  ) : null}
                 </div>
                 <div className="analyseModelScroll scrollThin">
                   <AnalyseModelGrid
-                    rows={model.businessDrivers}
+                    rows={model.historicalModel}
                     quarters={model.quarters}
                     estimateFromIndex={model.estimateFromIndex}
-                    editableRowFn={isForecastEditableDriver}
+                    editableRowFn={isForecastEditablePnlRow}
                     forecastOverrides={forecastOverrides}
                     baseRowsByLabel={baseRowsByLabel}
                     onEstimateEdit={onEstimateEdit}
@@ -686,42 +694,8 @@ export function AnalysePanel({
                 </div>
               </section>
 
-              <section className="analyseSection" aria-label="Historical financial model">
-                <AnalyseSectionTitle
-                  title="Historical financial model"
-                  hintLines={[perShareHint]}
-                />
-                <div className="analyseModelScroll scrollThin">
-                  <AnalyseModelGrid
-                    rows={model.historicalModel}
-                    quarters={model.quarters}
-                    estimateFromIndex={model.estimateFromIndex}
-                    forecastOverrides={forecastOverrides}
-                    baseRowsByLabel={baseRowsByLabel}
-                  />
-                </div>
-              </section>
-
               <section className="analyseSection" aria-label="Price vs your model">
-                <div className="analyseSectionHead">
-                  <AnalyseSectionTitle title="Price vs your model" hintLines={[perShareHint]} />
-                  <div className="researchPriceRange analyseScenarioRange" role="group" aria-label="Scenario">
-                    {['base', 'bull', 'bear'].map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        className={['researchPriceRangeBtn', 'mono', scenario === s ? 'isActive' : '']
-                          .filter(Boolean)
-                          .join(' ')}
-                        onClick={() => onScenarioChange(s)}
-                        onMouseDown={preventScrollChurnFocus}
-                        aria-pressed={scenario === s}
-                      >
-                        {s === 'base' ? 'Base' : s === 'bull' ? 'Bull' : 'Bear'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <AnalyseSectionTitle title="Price vs your model" hintLines={[perShareHint]} />
                 <AnalyseValuationSummary
                   valuation={valuation}
                   forecastQuarterOptions={forecastQuarterOptions}

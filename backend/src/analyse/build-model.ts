@@ -1,12 +1,10 @@
 import { loadTickerSecBundle } from "../core/sec.js";
 import { getDocumentsWatermarkForTicker } from "../core/ticker-context-cache.js";
-import { forwardRevenueGrowthFromDocuments } from "../research/market/guidance.js";
 import { aggregateBusinessDriversFromDocuments } from "./drivers-from-documents.js";
 import {
   buildBaseCaseQuarterlyProjection,
   revenueMillionsFromProjection,
 } from "./base-case-projection.js";
-import { fetchConsensusEstimates } from "./consensus-estimates.js";
 import {
   epsStr,
   growthYoYStr,
@@ -152,30 +150,36 @@ function buildHistoricalRows(
   ];
 }
 
-function defaultRevenueDrivers(revenueMillions: number[]): AnalyseModelRow[] {
-  return [
-    {
-      label: "Core revenue",
-      driverKind: "revenue",
-      rollsUpToRevenue: true,
-      values: revenueMillions.map((v) => Math.round(v * 0.72)),
-    },
-    {
-      label: "Other revenue",
-      driverKind: "revenue",
-      rollsUpToRevenue: true,
-      values: revenueMillions.map((v) => Math.round(v * 0.28)),
-    },
-  ];
-}
-
 function buildDriverRows(
   drivers: Awaited<ReturnType<typeof aggregateBusinessDriversFromDocuments>>,
   revenueMillions: number[],
   estimateFrom: number,
 ): { rows: AnalyseModelRow[]; source: "documents" | "derived" } {
+  const colCount = revenueMillions.length;
+  const dashForward = (histValues: (number | string)[]): (number | string)[] => [
+    ...histValues,
+    ...Array(Math.max(0, colCount - estimateFrom)).fill("—"),
+  ];
+
   if (!drivers.length) {
-    return { rows: defaultRevenueDrivers(revenueMillions), source: "derived" };
+    const histRev = revenueMillions.slice(0, estimateFrom);
+    return {
+      rows: [
+        {
+          label: "Core revenue",
+          driverKind: "revenue",
+          rollsUpToRevenue: true,
+          values: dashForward(histRev.map((v) => Math.round(v * 0.72))),
+        },
+        {
+          label: "Other revenue",
+          driverKind: "revenue",
+          rollsUpToRevenue: true,
+          values: dashForward(histRev.map((v) => Math.round(v * 0.28))),
+        },
+      ],
+      source: "derived",
+    };
   }
 
   const revenueDrivers = drivers.filter((d) => d.rollsUpToRevenue);
@@ -187,42 +191,40 @@ function buildDriverRows(
   const rows: AnalyseModelRow[] = [];
 
   for (const d of revenueDrivers) {
-    const values = revenueMillions.map((rev, idx) => {
-      if (idx < estimateFrom) {
-        if (knownSum > 0 && d.latestValue != null && anchorRev > 0 && idx === estimateFrom - 1) {
-          return Math.round((d.latestValue / knownSum) * rev);
-        }
-        const share = knownSum > 0 && d.latestValue != null ? d.latestValue / knownSum : 1 / revenueDrivers.length;
-        return Math.round(rev * share);
+    const histValues: (number | string)[] = [];
+    for (let idx = 0; idx < estimateFrom; idx++) {
+      const rev = revenueMillions[idx] ?? 0;
+      if (knownSum > 0 && d.latestValue != null && anchorRev > 0 && idx === estimateFrom - 1) {
+        histValues.push(Math.round((d.latestValue / knownSum) * rev));
+      } else {
+        const share =
+          knownSum > 0 && d.latestValue != null ? d.latestValue / knownSum : 1 / revenueDrivers.length;
+        histValues.push(Math.round(rev * share));
       }
-      if (d.latestValue != null && anchorRev > 0) {
-        const share = d.latestValue / anchorRev;
-        return Math.round(rev * Math.min(1, share));
-      }
-      return Math.round(rev / Math.max(1, revenueDrivers.length));
-    });
+    }
 
     rows.push({
       label: d.label,
       driverKind: d.driverKind,
       rollsUpToRevenue: true,
-      readOnly: d.readOnly,
-      values,
+      readOnly: true,
+      values: dashForward(histValues),
     });
   }
 
   for (const d of nonRevenue) {
     const anchor = d.latestValue ?? 0;
-    const values = revenueMillions.map((_, idx) => {
-      if (idx < estimateFrom) return idx === estimateFrom - 1 ? anchor : "—";
-      return Math.round(anchor * Math.pow(1.02, idx - estimateFrom + 1));
-    });
+    const histValues: (number | string)[] = [];
+    for (let idx = 0; idx < estimateFrom; idx++) {
+      histValues.push(idx === estimateFrom - 1 ? anchor : "—");
+    }
+
     rows.push({
       label: d.label,
       driverKind: d.driverKind,
       rollsUpToRevenue: false,
-      readOnly: d.readOnly,
-      values,
+      readOnly: true,
+      values: dashForward(histValues),
     });
   }
 
@@ -277,8 +279,6 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
 
   const quarterlyLong = sec ? quarterlyPnlFromCompanyFacts(sec.facts, { quarters: 40 }) : [];
   const byCalendar = indexQuarterlyPointsByCalendar(quarterlyLong);
-  const forwardGrowth = await forwardRevenueGrowthFromDocuments(ticker).catch(() => null);
-  const consensus = await fetchConsensusEstimates(ticker).catch(() => null);
   const docDrivers = await aggregateBusinessDriversFromDocuments(ticker).catch(() => []);
 
   let partial = false;
@@ -306,10 +306,7 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
 
   const projection = buildBaseCaseQuarterlyProjection({
     historicalPoints: histPoints,
-    longHistoryPoints: quarterlyLong.length ? quarterlyLong : histPoints,
     estimateCount,
-    consensus,
-    documentRevenueGrowthPct: forwardGrowth,
   });
 
   const revenueMillions =
@@ -336,7 +333,7 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
     estimateFromIndex: estFrom,
     quarters: labels.length === TOTAL_COLUMNS ? labels : [...labels].slice(0, TOTAL_COLUMNS),
     driverSectionTitle: docDrivers.length ? "Business drivers" : "Business drivers (estimated)",
-    driverUnitHint: "USD millions unless noted",
+    driverUnitHint: "From filings — historical quarters only",
     historicalModel,
     businessDrivers,
     valuationConfig: {
@@ -356,14 +353,10 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
     sources: {
       historical: hasSec ? "sec_companyfacts" : null,
       drivers: driverSource,
-      forward: consensus
-        ? "consensus"
-        : forwardGrowth != null
-          ? "documents"
-          : "derived",
+      forward: hasSec ? "historical" : "derived",
     },
     projectionNote:
-      "Base case — annual P&L, consensus FY1–FY2 when available, fiscal seasonality, NTM valuation.",
+      "Reported SEC history; forward revenue extrapolated from YoY growth (editable). Drivers are disclosure reference only.",
   };
 
   const modelQuality = assessModelQuality({

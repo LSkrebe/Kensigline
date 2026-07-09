@@ -83,9 +83,23 @@ function buildAsmlMockModel(asOf = new Date()) {
 
   const revenue = []
   let rev = 5200
-  for (let i = 0; i < colCount; i++) {
+  for (let i = 0; i < HISTORICAL_QUARTERS; i++) {
     if (i > 0) rev = Math.round(rev * (1.012 + (i % 4) * 0.002))
     revenue.push(rev)
+  }
+
+  const yoyGrowths = []
+  for (let i = 4; i < revenue.length; i++) {
+    const prev = revenue[i - 4]
+    if (prev > 0) yoyGrowths.push(((revenue[i] - prev) / prev) * 100)
+  }
+  const yoyPct = yoyGrowths.length
+    ? yoyGrowths.reduce((a, b) => a + b, 0) / yoyGrowths.length
+    : 6
+  const refOffset = HISTORICAL_QUARTERS - 4
+  for (let i = 0; i < ESTIMATE_QUARTERS; i++) {
+    const base = revenue[refOffset + i] ?? revenue[revenue.length - 1]
+    revenue.push(Math.round(base * (1 + yoyPct / 100)))
   }
 
   const grossProfit = revenue.map((r) => Math.round(r * 0.52))
@@ -109,6 +123,9 @@ function buildAsmlMockModel(asOf = new Date()) {
     .slice(estimateFromIndex - 4, estimateFromIndex)
     .reduce((s, e) => s + parseFloat(e), 0)
   const targetPe = clampPe(marketPrice / ltmEpsSum)
+
+  const histRev = revenue.slice(0, HISTORICAL_QUARTERS)
+  const dashForward = (histValues) => [...histValues, ...Array(ESTIMATE_QUARTERS).fill('—')]
 
   return finalizeMockModel({
     currency: 'USD',
@@ -136,25 +153,29 @@ function buildAsmlMockModel(asOf = new Date()) {
         label: 'EUV revenue',
         driverKind: 'revenue',
         rollsUpToRevenue: true,
-        values: revenue.map((r) => Math.round(r * 0.42)),
+        readOnly: true,
+        values: dashForward(histRev.map((r) => Math.round(r * 0.42))),
       },
       {
         label: 'DUV revenue',
         driverKind: 'revenue',
         rollsUpToRevenue: true,
-        values: revenue.map((r) => Math.round(r * 0.35)),
+        readOnly: true,
+        values: dashForward(histRev.map((r) => Math.round(r * 0.35))),
       },
       {
         label: 'Immersion revenue',
         driverKind: 'revenue',
         rollsUpToRevenue: true,
-        values: revenue.map((r) => Math.round(r * 0.18)),
+        readOnly: true,
+        values: dashForward(histRev.map((r) => Math.round(r * 0.18))),
       },
       {
         label: 'Installed base (units)',
         driverKind: 'units',
         rollsUpToRevenue: false,
-        values: revenue.map((_, i) => 1200 + i * 25),
+        readOnly: true,
+        values: dashForward(histRev.map((_, i) => (i === HISTORICAL_QUARTERS - 1 ? 1200 + i * 25 : '—'))),
       },
     ],
     valuationConfig: {
@@ -175,7 +196,8 @@ function buildAsmlMockModel(asOf = new Date()) {
       valuationAvailable: true,
     },
     projectionNote:
-      'Base case — annual P&L, consensus FY1–FY2 when available, fiscal seasonality, NTM valuation.',
+      'Reported SEC history; forward revenue extrapolated from YoY growth (editable). Drivers are disclosure reference only.',
+    driverUnitHint: 'From filings — historical quarters only',
   })
 }
 
@@ -408,54 +430,13 @@ function findRow(rows, label) {
   return rows.find((r) => r.label === label)
 }
 
-export function isForecastEditableDriver(row) {
-  if (row?.readOnly) return false
-  return true
+export function isForecastEditablePnlRow(row) {
+  return row?.label === 'Revenue'
 }
 
-function revenueDriverSum(drivers, colIdx) {
-  let sum = 0
-  for (const row of drivers) {
-    if (row.rollsUpToRevenue === false) continue
-    const v = row.values[colIdx]
-    if (typeof v === 'number') sum += v
-  }
-  return sum
-}
-
-function revenueResidualForColumn(baseModel, colIdx) {
-  const baseRev = findRow(baseModel.historicalModel, 'Revenue')?.values[colIdx] ?? 0
-  return baseRev - revenueDriverSum(baseModel.businessDrivers, colIdx)
-}
-
-function revenueFromDrivers(businessDrivers, baseModel, colIdx) {
-  return Math.round(revenueDriverSum(businessDrivers, colIdx) + revenueResidualForColumn(baseModel, colIdx))
-}
-
-function propagateDriverOverridesForward(businessDrivers, baseDrivers, overrides, estFrom, colCount) {
-  for (const [rowLabel, byCol] of Object.entries(overrides)) {
-    const row = findRow(businessDrivers, rowLabel)
-    const baseRow = findRow(baseDrivers, rowLabel)
-    if (!row || !baseRow || row.readOnly) continue
-
-    const editedCols = Object.keys(byCol)
-      .map(Number)
-      .filter((i) => i >= estFrom && i < colCount && byCol[i] != null)
-      .sort((a, b) => a - b)
-
-    for (const fromCol of editedCols) {
-      const baseAt = baseRow.values[fromCol]
-      const newAt = row.values[fromCol]
-      if (typeof baseAt !== 'number' || baseAt === 0 || typeof newAt !== 'number') continue
-      const scale = newAt / baseAt
-      for (let j = fromCol + 1; j < colCount; j++) {
-        const baseFuture = baseRow.values[j]
-        if (typeof baseFuture === 'number') {
-          row.values[j] = Math.round(baseFuture * scale)
-        }
-      }
-    }
-  }
+/** @deprecated Drivers are historical-only; use isForecastEditablePnlRow. */
+export function isForecastEditableDriver() {
+  return false
 }
 
 const BASE_CASE_TAX_RATE = 0.23
@@ -467,10 +448,8 @@ function forecastRatios(baseModel, colIdx) {
   const grossProfit = findRow(baseModel.historicalModel, 'Gross profit')?.values[anchor] ?? 0
   const opIncome = findRow(baseModel.historicalModel, 'Operating income')?.values[anchor] ?? 0
   const shares = findRow(baseModel.historicalModel, 'Shares outstanding (M)')?.values[anchor] ?? 404
-  const estOffset = colIdx - baseModel.estimateFromIndex
-  const revertProgress = Math.min(1, (estOffset + 1) / 8)
   const anchorGm = rev > 0 ? grossProfit / rev : BASE_CASE_HIST_GROSS_MARGIN
-  const grossMargin = anchorGm + (BASE_CASE_HIST_GROSS_MARGIN - anchorGm) * revertProgress
+  const grossMargin = anchorGm
   const opMargin = rev > 0 ? opIncome / rev : grossMargin * 0.52
   return {
     grossMargin,
@@ -536,14 +515,6 @@ function recalcEstimateColumn(historicalModel, baseModel, colIdx, rev, ratios) {
     const epsPrior = epsPriorIdx >= 0 ? parseFloat(eps.values[epsPriorIdx]) : null
     epsGrowth.values[colIdx] = growthYoYStr(epsNum, epsPrior)
   }
-}
-
-function shortenDriverLabel(label) {
-  return String(label ?? '')
-    .replace(/\s+revenue$/i, '')
-    .replace(/\s+\(\$M\)$/i, '')
-    .replace(/\s+\(%\)$/i, '')
-    .trim()
 }
 
 function fmtUsd(n, decimals = 2) {
@@ -624,15 +595,6 @@ function computeMarketValuationView(model, liveMarketPrice, forecastColumnIndex)
       ? ((v.priceTarget - v.marketPrice) / v.marketPrice) * 100
       : null
 
-  const bridgeSegments = (cfg.bridgeDriverLabels ?? [])
-    .map((label) => {
-      const row = findRow(model.businessDrivers, label)
-      if (!row) return null
-      return shortenDriverLabel(label)
-    })
-    .filter(Boolean)
-
-  const bridgeLabels = bridgeSegments.join(' × ')
   const peLabel = v.earningsLabel === 'NTM EPS' ? 'NTM P/E' : 'Ann. P/E'
 
   return {
@@ -647,7 +609,7 @@ function computeMarketValuationView(model, liveMarketPrice, forecastColumnIndex)
       valuationAvailable: v.valuationAvailable,
     },
     bridge: {
-      formulaLine: `${bridgeLabels} → Revenue → ${v.earningsLabel} × P/E → Price`,
+      formulaLine: `Revenue → ${v.earningsLabel} × P/E → Price`,
       valuesLine:
         v.priceTarget != null && v.valuationEps != null
           ? `${fmtUsdMillions(v.revenue)} · ${fmtUsd(v.valuationEps)} ${v.earningsLabel} × ${v.targetPe.toFixed(1)}x → ${fmtUsd(v.priceTarget)}`
@@ -699,20 +661,10 @@ export function applyScenario(model, scenario = 'base') {
   return applyScenarioToModel(model, scenario)
 }
 
-function applyMarketForecastOverrides(baseModel, overrides) {
+function applyRevenueForecastOverrides(baseModel, overrides) {
   const estFrom = baseModel.estimateFromIndex
   const colCount = baseModel.quarters.length
-
-  const businessDrivers = baseModel.businessDrivers.map((row) => {
-    const rowOverrides = overrides[row.label] ?? {}
-    const valuesCopy = [...row.values]
-    for (let i = estFrom; i < colCount; i++) {
-      if (rowOverrides[i] != null) valuesCopy[i] = Math.round(rowOverrides[i])
-    }
-    return { ...row, values: valuesCopy }
-  })
-
-  propagateDriverOverridesForward(businessDrivers, baseModel.businessDrivers, overrides, estFrom, colCount)
+  const revenueOverrides = overrides.Revenue ?? {}
 
   const historicalModel = baseModel.historicalModel.map((r) => ({
     ...r,
@@ -720,19 +672,26 @@ function applyMarketForecastOverrides(baseModel, overrides) {
   }))
 
   for (let i = estFrom; i < colCount; i++) {
-    const rev = revenueFromDrivers(businessDrivers, baseModel, i)
-    recalcEstimateColumn(historicalModel, baseModel, i, rev, forecastRatios(baseModel, i))
+    const revOverride = revenueOverrides[i]
+    if (revOverride == null) continue
+    recalcEstimateColumn(
+      historicalModel,
+      baseModel,
+      i,
+      Math.round(revOverride),
+      forecastRatios(baseModel, i),
+    )
   }
 
-  return { ...baseModel, historicalModel, businessDrivers }
+  return { ...baseModel, historicalModel }
 }
 
 /**
- * Driver overrides in green columns roll up to revenue; the financial model is derived.
+ * Forward revenue edits recalc the P&L column; drivers stay independent.
  */
 export function applyForecastOverrides(baseModel, overrides = {}) {
   if (!Object.keys(overrides).length) return baseModel
-  return applyMarketForecastOverrides(baseModel, overrides)
+  return applyRevenueForecastOverrides(baseModel, overrides)
 }
 
 export function parseAnalyseGridInput(raw) {

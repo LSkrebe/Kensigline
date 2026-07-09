@@ -45,7 +45,7 @@ export type AnalyseModel = {
   sources?: {
     historical: "sec_companyfacts" | null;
     drivers: "documents" | "derived" | null;
-    forward: "consensus" | "documents" | "derived" | null;
+    forward: "historical" | "derived" | null;
   };
   projectionNote?: string;
 };

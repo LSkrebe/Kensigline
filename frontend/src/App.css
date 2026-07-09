@@ -5054,6 +5054,19 @@
   border-radius: 4px;
 }
 
+/* Drivers table: historical columns only — omit repeat(0,…) which breaks grid layout */
+.analyseModelTable--historicalOnly {
+  --analyse-grid-min: calc(
+    var(--analyse-label-min) + var(--analyse-hist-cols) * var(--analyse-quarter-min)
+  );
+}
+
+.analyseModelTable--historicalOnly .analyseModelRow {
+  grid-template-columns:
+    minmax(var(--analyse-label-min), 1.15fr)
+    repeat(var(--analyse-hist-cols), minmax(var(--analyse-quarter-min), 1fr));
+}
+
 .analyseModelEstFrame {
   position: absolute;
   top: 1px;

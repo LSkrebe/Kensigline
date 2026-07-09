@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { BASE_CASE_LTGR_PCT, BASE_CASE_TAX_RATE, buildBaseCaseQuarterlyProjection } from "./base-case-projection.js";
+import { BASE_CASE_TAX_RATE, buildBaseCaseQuarterlyProjection, historicalRevenueYoYGrowthPct } from "./base-case-projection.js";
 import type { QuarterlyPnlPoint } from "./quarterly-pnl.js";
 
 function mkPoint(
@@ -43,62 +43,38 @@ function histSix(): QuarterlyPnlPoint[] {
 }
 
 export function runAnalyseSmokeTests() {
-  console.log("[analyse-smoke] base case projection");
+  console.log("[analyse-smoke] quarterly projection");
 
   const hist = histSix();
+  const revM = hist.map((p) => p.revenueUsd! / 1e6);
+  const yoy = historicalRevenueYoYGrowthPct(revM);
+  assert.ok(yoy > 0 && yoy < 50, `expected positive YoY growth, got ${yoy}`);
+
   const projection = buildBaseCaseQuarterlyProjection({
     historicalPoints: hist,
-    longHistoryPoints: hist,
     estimateCount: 4,
-    consensus: {
-      year1RevenueGrowthPct: 12,
-      year2RevenueGrowthPct: 10,
-      year1Eps: 16,
-      year2Eps: null,
-    },
-    documentRevenueGrowthPct: null,
   });
 
   assert.equal(projection.length, 4);
 
-  const ltmHist = hist.slice(-4).reduce((s, p) => s + p.revenueUsd! / 1e6, 0);
-  const ltmEst = projection.reduce((s, q) => s + q.revenueM, 0);
-  assert.ok(ltmEst > ltmHist, "forward year revenue should exceed trailing four quarters");
+  const q1Base = revM[2]!;
+  const q1Est = projection[0]!.revenueM;
+  const expectedQ1 = Math.round(q1Base * (1 + yoy / 100));
+  assert.equal(q1Est, expectedQ1, `Q+1 should be same-quarter-last-year × growth`);
 
-  const sumNi = projection.reduce((s, q) => s + q.netIncomeM, 0);
-  const impliedEps = sumNi / projection[0]!.sharesM;
-  assert.ok(Math.abs(impliedEps - 16) < 1.5, `expected ~16 EPS, got ${impliedEps}`);
+  const q4Base = revM[5]!;
+  const q4Est = projection[3]!.revenueM;
+  assert.equal(q4Est, Math.round(q4Base * (1 + yoy / 100)));
 
   for (const q of projection) {
     assert.ok(q.grossMarginPct > 0 && q.grossMarginPct <= 100);
     assert.ok(q.opMarginPct < q.grossMarginPct);
+    assert.ok(q.revenueM > 0);
   }
-
-  const normalized = 8;
-  const outer = buildBaseCaseQuarterlyProjection({
-    historicalPoints: hist,
-    longHistoryPoints: hist,
-    estimateCount: 12,
-    consensus: {
-      year1RevenueGrowthPct: 20,
-      year2RevenueGrowthPct: 18,
-      year1Eps: null,
-      year2Eps: null,
-    },
-    documentRevenueGrowthPct: normalized,
-  });
-  const revY1 = outer.slice(0, 4).reduce((s, q) => s + q.revenueM, 0);
-  const revY4 = outer.slice(8, 12).reduce((s, q) => s + q.revenueM, 0);
-  const gY4 = revY1 > 0 ? ((revY4 / revY1) ** (1 / 3) - 1) * 100 : 0;
-  assert.ok(gY4 < 20, "outer-year growth should fade below year-1 consensus");
-  assert.ok(gY4 >= BASE_CASE_LTGR_PCT - 2, "outer-year growth should approach LTGR");
 
   const taxCheck = buildBaseCaseQuarterlyProjection({
     historicalPoints: hist,
-    longHistoryPoints: hist,
     estimateCount: 1,
-    consensus: null,
-    documentRevenueGrowthPct: 8,
   });
   const q0 = taxCheck[0]!;
   if (q0.opIncomeM > 0) {
@@ -116,17 +92,12 @@ export function runAnalyseSmokeTests() {
   ];
   const seasonalProj = buildBaseCaseQuarterlyProjection({
     historicalPoints: seasonal,
-    longHistoryPoints: seasonal,
-    estimateCount: 8,
-    consensus: null,
-    documentRevenueGrowthPct: 8,
+    estimateCount: 4,
   });
   for (const q of seasonalProj) {
     assert.ok(q.opIncomeM > -q.revenueM * 0.15, `seasonal op loss too extreme: ${q.opIncomeM}`);
     assert.ok(q.eps > -50, `seasonal eps too negative: ${q.eps}`);
   }
-  const peakQ = seasonalProj.reduce((best, q) => (q.revenueM > best.revenueM ? q : best), seasonalProj[0]!);
-  assert.ok(peakQ.opIncomeM > 0, "peak seasonal quarter should stay profitable");
 
   console.log("[analyse-smoke] ok");
 }
