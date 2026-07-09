@@ -69,7 +69,7 @@ function isInstitutionSchema(out: any): out is {
   }>;
   context_sentences: string[];
 } {
-  return out?.schema_type === "institution_filing" && Array.isArray(out.holdings) && Array.isArray(out.context_sentences);
+  return out?.schema_type === "institution_filing" && Array.isArray(out.holdings);
 }
 
 function buildInstitutionExtractionPrompt(args: { filingText: string; indexUrl: string }) {
@@ -103,7 +103,6 @@ function buildInstitutionExtractionPrompt(args: { filingText: string; indexUrl: 
               as_of_date: "ISO8601|null",
             },
           ],
-          context_sentences: ["string"],
         })}`,
       ].join("\n"),
     },
@@ -138,7 +137,6 @@ function buildInstitutionEnrichPrompt(args: {
         "Map each parsed holding to a US equity ticker when possible; omit rows with no ticker.",
         "activity must be exactly one of: Increased stake, New position, Reduced stake.",
         "Infer activity from filing cover / summary tables when present; otherwise use New position.",
-        "context_sentences: exactly 3 plain-English summary sentences.",
         `Schema: ${JSON.stringify({
           schema_type: "institution_filing",
           schema_version: "v1",
@@ -155,7 +153,6 @@ function buildInstitutionEnrichPrompt(args: {
               as_of_date: "ISO8601|null",
             },
           ],
-          context_sentences: ["string"],
         })}`,
       ].join("\n"),
     },
@@ -370,9 +367,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
           cluster_start_at: worksheet_rows.at(-1)?.ts ?? null,
           cluster_end_at: worksheet_rows[0]?.ts ?? null,
           institutions,
-          context_sentences: Array.isArray(out.context_sentences)
-            ? out.context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 3)
-            : [],
+          context_sentences: [],
           worksheet_rows,
         },
       };

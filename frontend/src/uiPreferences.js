@@ -5,13 +5,14 @@ export const UI_PREF_KEYS = {
   investigateMode: `${PREFIX}investigate-mode`,
   researchFilters: `${PREFIX}research-filters:market`,
   investigateTxnFilters: (mode) => `${PREFIX}investigate-txn:${mode}`,
+  macroRegionFilters: `${PREFIX}macro:region-filters`,
+  macroImpactFilters: `${PREFIX}macro:impact-filters`,
   discoverMacroRegionFilters: `${PREFIX}discover:macro-region-filters`,
   discoverMacroImpactFilters: `${PREFIX}discover:macro-impact-filters`,
-  discoverMovesFilters: `${PREFIX}discover:moves-filters:v2`,
   chartRange: (lane) => `${PREFIX}chart-range:${lane}`,
 }
 
-const ACTIVE_TABS = new Set(['analyse', 'discover', 'main', 'investigate', 'settings'])
+const ACTIVE_TABS = new Set(['analyse', 'main', 'investigate', 'macro', 'settings'])
 const INVESTIGATE_MODES = new Set(['insider', 'politicians', 'institutions'])
 
 function canUseStorage() {
@@ -71,7 +72,7 @@ function writeChoice(storageKey, value) {
 }
 
 export function readActiveTab() {
-  return readChoice(UI_PREF_KEYS.activeTab, ACTIVE_TABS, 'discover')
+  return readChoice(UI_PREF_KEYS.activeTab, ACTIVE_TABS, 'main')
 }
 
 export function writeActiveTab(tab) {

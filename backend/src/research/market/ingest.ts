@@ -2,12 +2,18 @@ import { enqueueCurrentFilingFeed } from "../../core/sec.js";
 import { enqueueResearchRssFeeds } from "./rss-queue.js";
 import { enqueueResearchDynamicTickerFeeds } from "./dynamic-feeds.js";
 import { researchEnv } from "../../documents/spec.js";
+import {
+  QUEUE_PRIORITY_BACKFILL_INDEX,
+  QUEUE_PRIORITY_BACKFILL_STRUCTURED,
+  QUEUE_PRIORITY_LIVE_EARNINGS,
+  QUEUE_PRIORITY_LIVE_RSS,
+  QUEUE_PRIORITY_LIVE_SEC,
+  secFormNeedsStructuredLlm,
+} from "../../shared/ingest-policy.js";
 
 const DEFAULT_SEC_FORMS = "8-K,10-Q,10-K,6-K,20-F,S-1,S-3,S-4,DEF 14A,424B5,SC 13D,SC 13G";
-/** Backfill only — core earnings/periodic forms (no 6-K/20-F/S-1/proxy) to cut LLM volume. */
-const DEFAULT_BACKFILL_SEC_FORMS = "8-K,10-Q,10-K";
 
-/** Earnings / periodic reports — higher queue tier for Analyse drivers and guidance. */
+/** Earnings / periodic — live structured LLM + higher backfill tier within idle queue. */
 const EARNINGS_SEC_FORMS = new Set(["10-Q", "10-K", "20-F", "6-K", "8-K"]);
 
 export function researchSecFormList(): string[] {
@@ -18,28 +24,39 @@ export function researchSecFormList(): string[] {
 }
 
 export function livePriorityForResearchSecForm(formType: string): number {
-  return EARNINGS_SEC_FORMS.has(formType) ? 5 : 4;
+  return EARNINGS_SEC_FORMS.has(formType) ? QUEUE_PRIORITY_LIVE_EARNINGS : QUEUE_PRIORITY_LIVE_SEC;
 }
 
 export function backfillPriorityForResearchSecForm(formType: string): number {
-  return EARNINGS_SEC_FORMS.has(formType) ? 2 : 1;
+  if (EARNINGS_SEC_FORMS.has(formType) || secFormNeedsStructuredLlm(formType)) {
+    return QUEUE_PRIORITY_BACKFILL_STRUCTURED;
+  }
+  return QUEUE_PRIORITY_BACKFILL_INDEX;
 }
 
+/** All live SEC forms unless RESEARCH_BACKFILL_SEC_FORMS overrides — template index only on backfill. */
 export function researchSecFormListForBackfill(): string[] {
-  return String(researchEnv("BACKFILL_SEC_FORMS", DEFAULT_BACKFILL_SEC_FORMS))
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const explicit = String(researchEnv("BACKFILL_SEC_FORMS", "")).trim();
+  if (explicit) {
+    return explicit
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return researchSecFormList();
 }
 
-/** Earnings forms first so FIFO within a backfill day favors 10-Q/10-K over S-1 etc. */
+/** Earnings / structured forms first within a backfill day. */
 export function researchSecFormsForBackfill(forms: string[]): string[] {
+  const structured: string[] = [];
   const earnings: string[] = [];
   const other: string[] = [];
   for (const form of forms) {
-    (EARNINGS_SEC_FORMS.has(form) ? earnings : other).push(form);
+    if (secFormNeedsStructuredLlm(form)) structured.push(form);
+    else if (EARNINGS_SEC_FORMS.has(form)) earnings.push(form);
+    else other.push(form);
   }
-  return [...earnings, ...other];
+  return [...structured, ...earnings, ...other];
 }
 
 /** Pull fresh SEC filings into the research document pipeline. */
@@ -82,7 +99,7 @@ export async function enqueueResearchWebFeeds() {
     pressExtra = await enqueueResearchRssFeeds({
       feedUrls: pressUrls,
       sourceType: "research_press_rss",
-      priority: 3,
+      priority: QUEUE_PRIORITY_LIVE_RSS,
       maxLinksPerFeed: maxLinks,
     });
   }
@@ -90,7 +107,7 @@ export async function enqueueResearchWebFeeds() {
     transcriptExtra = await enqueueResearchRssFeeds({
       feedUrls: transcriptUrls,
       sourceType: "research_transcript_rss",
-      priority: 3,
+      priority: QUEUE_PRIORITY_LIVE_RSS,
       maxLinksPerFeed: maxLinks,
     });
   }
@@ -103,7 +120,7 @@ export async function enqueueResearchWebFeeds() {
     govExtra = await enqueueResearchRssFeeds({
       feedUrls: govUrls,
       sourceType: "research_gov_contract",
-      priority: 3,
+      priority: QUEUE_PRIORITY_LIVE_RSS,
       maxLinksPerFeed: maxLinks,
     });
   }

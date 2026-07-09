@@ -1,5 +1,4 @@
 import { db } from "../../core/db.js";
-import { llmChat } from "../../core/llm.js";
 import {
   fetchSenatePtrHtml,
   openSenateSession,
@@ -10,9 +9,6 @@ import { syncPoliticianTransactionsFromDocument } from "../../documents/store.js
 import { syncFeedIndexForDocument } from "../../shared/feed-index.js";
 import { createHash } from "node:crypto";
 import { extractPdfTextWithFallback } from "../../core/pdf.js";
-import { compactPtrPdfTextForLlm } from "../../core/http-llm-text.js";
-import { LLM_BUDGETS } from "../../core/llm-budgets.js";
-import { prepareLlmText } from "../../core/llm-text-prep.js";
 import { createRequire } from "node:module";
 import {
   MIN_HOUSE_PTR_CONFIDENT_ROWS,
@@ -114,60 +110,6 @@ function isPoliticianSchema(out: any, source: PoliticianPtrSource): out is {
   );
 }
 
-function buildHouseExtractionPrompt(args: { pdfText: string; pdfUrl: string; filingId: string | null }) {
-  const { pdfText, pdfUrl, filingId } = args;
-  const body = prepareLlmText({
-    text: pdfText,
-    context: "politicians/house-ptr",
-    maxChars: LLM_BUDGETS.housePtr(),
-    compact: compactPtrPdfTextForLlm,
-  }).text;
-  return [
-    {
-      role: "system" as const,
-      content: [
-        "You extract U.S. House STOCK Act Periodic Transaction Report (PTR) PDFs into strict JSON.",
-        "Return ONLY valid JSON. No markdown. No extra keys beyond the schema.",
-        "Do not invent facts. If missing, use null/empty arrays.",
-        "Keep context sentences plain English with normal punctuation and no semicolons.",
-        "Extract ALL transaction rows. transaction_type: single letter P, S, E, etc.",
-        "amount_range: copy exactly like \"$1,001 - $15,000\".",
-        "context_sentences: exactly 3 high-level summary sentences.",
-        `Schema: ${JSON.stringify({
-          schema_type: "politician_filing",
-          schema_version: "v1",
-          filer: { name: "string|null", office: "string|null", state_district: "string|null" },
-          filing: { filing_id: "string|null", filed_at: "string|null", source: "house_ptr", pdf_url: "string|null" },
-          transactions: [
-            {
-              owner: "string|null",
-              asset_name: "string|null",
-              ticker: "string|null",
-              asset_type: "string|null",
-              transaction_type: "string|null",
-              transaction_date: "string|null",
-              notification_date: "string|null",
-              amount_range: "string|null",
-              description: "string|null",
-            },
-          ],
-          context_sentences: ["string"],
-        })}`,
-      ].join("\n"),
-    },
-    {
-      role: "user" as const,
-      content: [
-        "KNOWN METADATA:",
-        JSON.stringify({ pdf_url: pdfUrl, filing_id: filingId, source: "house_ptr" }),
-        "",
-        "PDF TEXT:",
-        body,
-      ].join("\n"),
-    },
-  ];
-}
-
 async function fetchPdfBytes(url: string): Promise<Buffer> {
   const r = await fetch(url, {
     headers: { "user-agent": "kensigline/0.1 (+politicians-ptr)" },
@@ -212,7 +154,7 @@ async function loadHouseFiling(url: string): Promise<{ filing: PoliticianFiling;
   const { text: pdfText } = await extractPdfTextWithFallback(pdf);
 
   const parsed = parseHousePtrPdfText(pdfText, url);
-  if (parsed.confident_rows >= MIN_HOUSE_PTR_CONFIDENT_ROWS) {
+  if (parsed.confident_rows >= MIN_HOUSE_PTR_CONFIDENT_ROWS || parsed.transactions.length) {
     return {
       contentSha256,
       model: null,
@@ -228,28 +170,7 @@ async function loadHouseFiling(url: string): Promise<{ filing: PoliticianFiling;
     };
   }
 
-  const messages = buildHouseExtractionPrompt({ pdfText, pdfUrl: url, filingId });
-  const { content, model } = await llmChat(messages, {
-    temperature: 0,
-    max_tokens: 2800,
-    response_format: "json_object",
-    log_context: "politicians/house-ptr",
-  });
-  const out = extractJsonObject(content);
-  if (!isPoliticianSchema(out, "house_ptr")) throw new Error("llm_output_schema_mismatch");
-  return {
-    contentSha256,
-    model: model ?? null,
-    filing: {
-      filer: out.filer,
-      filing_id: out.filing?.filing_id ?? filingId,
-      filed_at: out.filing?.filed_at ?? null,
-      source: "house_ptr",
-      pdf_url: url,
-      transactions: out.transactions,
-      context_sentences: out.context_sentences,
-    },
-  };
+  throw new Error("house_ptr_low_confidence_parse");
 }
 
 async function loadSenateFiling(url: string): Promise<{ filing: PoliticianFiling; contentSha256: string; model: string | null }> {

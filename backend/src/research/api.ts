@@ -44,7 +44,10 @@ export async function handleResearchEvents(res: http.ServerResponse, ticker: str
     SELECT id, source_key, analysis, event_at::text, parsed_at::text AS created_at
     FROM documents
     WHERE upper(trim(ticker)) = $1
-      AND analysis IS NOT NULL
+      AND (
+        (analysis IS NOT NULL AND length(trim(analysis)) > 0)
+        OR (title IS NOT NULL AND length(trim(title)) > 0)
+      )
     ORDER BY event_at DESC NULLS LAST, parsed_at DESC
     LIMIT $2
     `,
@@ -262,10 +265,12 @@ export async function handleResearchFeed(
         AND (
           d.feed_kind IN ('insider', 'politicians', 'institutions')
           OR (
-            d.analysis IS NOT NULL
-            AND length(trim(d.analysis)) > 0
-            AND d.feed_kind = 'research'
+            d.feed_kind = 'research'
             AND d.show_on_ticker IS NOT FALSE
+            AND (
+              (d.analysis IS NOT NULL AND length(trim(d.analysis)) > 0)
+              OR (d.title IS NOT NULL AND length(trim(d.title)) > 0)
+            )
           )
         )
       ORDER BY upper(trim(d.ticker)), (${documentFeedAtSql("d")}) DESC NULLS LAST, d.parsed_at DESC

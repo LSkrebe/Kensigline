@@ -8,8 +8,8 @@ import { investigateActorCanonicalKey } from './investigateActorKey.js'
 import { SettingsPanel } from './SettingsPanel.jsx'
 import './App.css'
 import { markAppReady } from './marketingShell.js'
-import { DiscoverPanel } from './DiscoverPanel.jsx'
-import { prefetchDiscoverTimeline } from './discoverClient.js'
+import { MacroCalendarPanel } from './MacroCalendarPanel.jsx'
+import { prefetchMacroCalendar } from './macroClient.js'
 import { AnalysePanel } from './AnalysePanel.jsx'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
@@ -117,11 +117,6 @@ const INVESTIGATE_PHONE_PANES = [
   { id: 'feed', label: 'Feed' },
   { id: 'case', label: 'Case' },
   { id: 'chart', label: 'Chart' },
-]
-
-const DISCOVER_PHONE_PANES = [
-  { id: 'macro', label: 'Macro' },
-  { id: 'moves', label: 'Moves' },
 ]
 
 const ANALYSE_PHONE_PANES = [
@@ -6036,7 +6031,7 @@ function ResearchPaperDocCard({ doc, ticker, captureId, screenshotSelectMode = f
       source={source}
       dateTime={doc?.filedAt ?? undefined}
       dateLabel={doc?.filedAt ? formatFeedDate(doc.filedAt) : '—'}
-      analysis={doc?.analysis}
+      analysis={doc?.analysis ?? doc?.title}
       mentioned={getEventMentioned(doc?.briefKey)}
       url={!screenshotSelectMode ? openUrl : null}
       openLabel={`Open ${source}`}
@@ -8956,6 +8951,8 @@ function InvestigateModeSwitch({ mode, onChange }) {
 }
 
 function TerminalTopBar({
+  macroActive,
+  onMacroClick,
   settingsActive,
   onSettingsClick,
   backendUp,
@@ -9024,26 +9021,56 @@ function TerminalTopBar({
           <time className="terminalTopBarDate mono dim" dateTime={formatTerminalTopBarDateTimeAttr(now)}>
             {formatTerminalTopBarDateLabel(now)}
           </time>
+          <div className="terminalTopBarIconGroup">
           <button
             type="button"
             className={
-              settingsActive
-                ? 'terminalTopBarSettings isActive isClose'
-                : 'terminalTopBarSettings'
+              macroActive ? 'terminalTopBarIconBtn isActive isClose' : 'terminalTopBarIconBtn'
             }
-            aria-label={settingsActive ? 'Close settings' : 'Settings'}
-            aria-current={settingsActive ? 'page' : undefined}
-            onClick={onSettingsClick}
+            aria-label={macroActive ? 'Close macro calendar' : 'Macro calendar'}
+            aria-current={macroActive ? 'page' : undefined}
+            onClick={onMacroClick}
           >
-            {settingsActive ? (
-              <svg className="terminalTopBarSettingsIcon" viewBox="0 0 24 24" aria-hidden="true">
+            {macroActive ? (
+              <svg className="terminalTopBarIcon" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   fill="currentColor"
                   d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7A1 1 0 0 0 5.7 7.11L10.59 12l-4.89 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.89a1 1 0 0 0 1.42-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.42z"
                 />
               </svg>
             ) : (
-              <svg className="terminalTopBarSettingsIcon" viewBox="0 0 24 24" aria-hidden="true">
+              <svg className="terminalTopBarIcon terminalTopBarIcon--calendar" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.65"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M7 3v2M17 3v2M5.5 8.5h13M6 6h12a1.5 1.5 0 0 1 1.5 1.5v12A1.5 1.5 0 0 1 18 21H6a1.5 1.5 0 0 1-1.5-1.5v-12A1.5 1.5 0 0 1 6 6z"
+                />
+              </svg>
+            )}
+          </button>
+          <button
+            type="button"
+            className={
+              settingsActive
+                ? 'terminalTopBarIconBtn isActive isClose'
+                : 'terminalTopBarIconBtn'
+            }
+            aria-label={settingsActive ? 'Close settings' : 'Settings'}
+            aria-current={settingsActive ? 'page' : undefined}
+            onClick={onSettingsClick}
+          >
+            {settingsActive ? (
+              <svg className="terminalTopBarIcon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M18.3 5.71a1 1 0 0 0-1.41 0L12 10.59 7.11 5.7A1 1 0 0 0 5.7 7.11L10.59 12l-4.89 4.89a1 1 0 1 0 1.41 1.42L12 13.41l4.89 4.89a1 1 0 0 0 1.42-1.41L13.41 12l4.89-4.89a1 1 0 0 0 0-1.42z"
+                />
+              </svg>
+            ) : (
+              <svg className="terminalTopBarIcon" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   fill="currentColor"
                   d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.12.57-1.62.94l-2.39-.96a.488.488 0 0 0-.59.22L2.74 8.81a.49.49 0 0 0 .12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.13.22.39.3.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.12-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32a.49.49 0 0 0-.12-.61l-2.03-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"
@@ -9051,16 +9078,18 @@ function TerminalTopBar({
               </svg>
             )}
           </button>
+          </div>
         </div>
       </div>
     </header>
   )
 }
 
-const VIEW_TAB_CYCLE = ['analyse', 'main', 'discover', 'investigate']
+const VIEW_TAB_CYCLE = ['analyse', 'main', 'investigate']
+const OVERLAY_TABS = new Set(['settings', 'macro'])
 
-function cycleViewTab(current, settingsReturnTab = 'main') {
-  if (current === 'settings') return settingsReturnTab
+function cycleViewTab(current, overlayReturnTab = 'main') {
+  if (OVERLAY_TABS.has(current)) return overlayReturnTab
   const idx = VIEW_TAB_CYCLE.indexOf(current)
   if (idx < 0) return VIEW_TAB_CYCLE[0]
   return VIEW_TAB_CYCLE[(idx + 1) % VIEW_TAB_CYCLE.length]
@@ -9244,11 +9273,10 @@ function mapInstitutionFeedItem(it) {
 function KensiglineTerminal() {
   const { user } = useAuth()
   const isPhone = usePhoneViewport()
-  const [activeTab, setActiveTab] = useState(() => readActiveTab()) // discover | main | investigate | settings
+  const [activeTab, setActiveTab] = useState(() => readActiveTab()) // analyse | main | investigate | macro | settings
   const [researchPhonePane, setResearchPhonePane] = useState('paper')
   const [analysePhonePane, setAnalysePhonePane] = useState('analyse')
   const [investigatePhonePane, setInvestigatePhonePane] = useState('feed')
-  const [discoverPhonePane, setDiscoverPhonePane] = useState('moves')
   const [investigateMode, setInvestigateMode] = useState(() => readInvestigateMode()) // insider | politicians | institutions
   const [investigateFeedFilterOpen, setInvestigateFeedFilterOpen] = useState(false)
   const [investigateInsiderTxnFilters, setInvestigateInsiderTxnFilters] = useState(() =>
@@ -9263,7 +9291,7 @@ function KensiglineTerminal() {
   const [investigateInsiderTxnFiltersDraft, setInvestigateInsiderTxnFiltersDraft] = useState(null)
   const [investigatePoliticianTxnFiltersDraft, setInvestigatePoliticianTxnFiltersDraft] = useState(null)
   const [investigateInstitutionTxnFiltersDraft, setInvestigateInstitutionTxnFiltersDraft] = useState(null)
-  const tabBeforeSettingsRef = useRef('discover')
+  const underlyingTabRef = useRef('main')
   const researchTickerPinnedRef = useRef(null)
   const terminalMainRef = useRef(null)
 
@@ -9820,7 +9848,7 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
-    prefetchDiscoverTimeline()
+    prefetchMacroCalendar()
   }, [backendUp])
 
   useEffect(() => {
@@ -11078,12 +11106,25 @@ function KensiglineTerminal() {
     [investigateMode, isPhone],
   )
 
-  const onSettingsClick = useCallback(() => {
-    if (activeTab === 'settings') {
-      setActiveTab(tabBeforeSettingsRef.current)
+  const onMacroClick = useCallback(() => {
+    if (activeTab === 'macro') {
+      setActiveTab(underlyingTabRef.current)
       return
     }
-    tabBeforeSettingsRef.current = activeTab
+    if (!OVERLAY_TABS.has(activeTab)) {
+      underlyingTabRef.current = activeTab
+    }
+    setActiveTab('macro')
+  }, [activeTab])
+
+  const onSettingsClick = useCallback(() => {
+    if (activeTab === 'settings') {
+      setActiveTab(underlyingTabRef.current)
+      return
+    }
+    if (!OVERLAY_TABS.has(activeTab)) {
+      underlyingTabRef.current = activeTab
+    }
     setActiveTab('settings')
   }, [activeTab])
 
@@ -11093,13 +11134,18 @@ function KensiglineTerminal() {
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
         return
       }
+      if (e.key === 'Escape' && OVERLAY_TABS.has(activeTab)) {
+        e.preventDefault()
+        setActiveTab(underlyingTabRef.current)
+        return
+      }
       if (e.key !== 'Tab') return
       e.preventDefault()
-      setActiveTab((t) => cycleViewTab(t, tabBeforeSettingsRef.current))
+      setActiveTab((t) => cycleViewTab(t, underlyingTabRef.current))
     }
     window.addEventListener('keydown', onKey, { capture: true })
     return () => window.removeEventListener('keydown', onKey, { capture: true })
-  }, [])
+  }, [activeTab])
 
   const investigateTerminalSkin = investigateMode
 
@@ -11113,6 +11159,8 @@ function KensiglineTerminal() {
         .join(' ')}
     >
       <TerminalTopBar
+        macroActive={activeTab === 'macro'}
+        onMacroClick={onMacroClick}
         settingsActive={activeTab === 'settings'}
         onSettingsClick={onSettingsClick}
         backendUp={backendUp}
@@ -11142,14 +11190,6 @@ function KensiglineTerminal() {
           </button>
           <button
             type="button"
-            className={activeTab === 'discover' ? 'sideTab isActive' : 'sideTab'}
-            aria-current={activeTab === 'discover' ? 'page' : undefined}
-            onClick={() => setActiveTab('discover')}
-          >
-            <span className="sideTabLabel">DISCOVER</span>
-          </button>
-          <button
-            type="button"
             className={activeTab === 'investigate' ? 'sideTab isActive' : 'sideTab'}
             aria-current={activeTab === 'investigate' ? 'page' : undefined}
             onClick={() => setActiveTab('investigate')}
@@ -11172,6 +11212,7 @@ function KensiglineTerminal() {
         aria-label="MERCERLINE terminal grid"
       >
       {activeTab === 'settings' ? <SettingsPanel /> : null}
+      {activeTab === 'macro' ? <MacroCalendarPanel backendUp={backendUp} /> : null}
       <div className={tabPanelHiddenClass(activeTab, 'analyse')}>
         <ResearchTickerPanel
           selectedTicker={researchTicker}
@@ -11231,35 +11272,6 @@ function KensiglineTerminal() {
             quarterlyRevenueOverlay={analyseQuarterlyRevenue}
           />
         </AnalysePanel>
-      </div>
-      <div className={tabPanelHiddenClass(activeTab, 'discover')}>
-        <DiscoverPanel
-          backendUp={backendUp}
-          isPhone={isPhone}
-          phonePane={discoverPhonePane}
-          onOpenResearch={({ ticker, companyName }) => {
-            const t = String(ticker ?? '').trim().toUpperCase()
-            if (!t) return
-            researchTickerPinnedRef.current = t
-            setResearchFeedInjected((prev) => {
-              if (prev.some((row) => String(row.ticker ?? '').toUpperCase() === t)) return prev
-              const name = String(companyName ?? '').trim()
-              return [
-                ...prev,
-                {
-                  id: `inj:${t}`,
-                  ticker: t,
-                  company_name: name && name.toUpperCase() !== t ? name : t,
-                  feed_at: new Date().toISOString(),
-                },
-              ]
-            })
-            setResearchFeedRefresh((n) => n + 1)
-            setResearchTicker(t)
-            if (isPhone) setResearchPhonePane('paper')
-            setActiveTab('main')
-          }}
-        />
       </div>
       <div className={tabPanelHiddenClass(activeTab, 'investigate')}>
           <CompactFeed
@@ -11526,14 +11538,6 @@ function KensiglineTerminal() {
               ariaLabel="Investigate panels"
             />
           ) : null}
-          {activeTab === 'discover' ? (
-            <PhoneSubNav
-              items={DISCOVER_PHONE_PANES}
-              value={discoverPhonePane}
-              onChange={setDiscoverPhonePane}
-              ariaLabel="Discover panels"
-            />
-          ) : null}
           {activeTab === 'analyse' ? (
             <PhoneSubNav
               items={ANALYSE_PHONE_PANES}
@@ -11558,14 +11562,6 @@ function KensiglineTerminal() {
               onClick={() => setActiveTab('main')}
             >
               <span className="sideTabLabel">Research</span>
-            </button>
-            <button
-              type="button"
-              className={activeTab === 'discover' ? 'sideTab isActive' : 'sideTab'}
-              aria-current={activeTab === 'discover' ? 'page' : undefined}
-              onClick={() => setActiveTab('discover')}
-            >
-              <span className="sideTabLabel">Discover</span>
             </button>
             <button
               type="button"

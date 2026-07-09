@@ -1,6 +1,5 @@
 import { db } from "../../core/db.js";
 import { fetchForm4Text } from "../../core/sec.js";
-import { llmChat } from "../../core/llm.js";
 import { syncInsiderTransactionsFromDocument } from "../../documents/store.js";
 import { sha256NormalizedText } from "../../core/text-hash.js";
 import { sanitizeEventAtForFeed } from "../../shared/document-activity-at.js";
@@ -14,7 +13,6 @@ import {
   extractAllFormTransactions,
   extractFormReportingOwner,
   extractFormReportingOwners,
-  extractFormXmlTransactionFragments,
   firstXmlTagText,
   type FormXmlOwner,
   type FormXmlTransaction,
@@ -300,8 +298,6 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
     const owners = extractFormReportingOwners(xml);
     const primaryOwner = owners[0] ?? extractFormReportingOwner(xml);
 
-    const xmlFragments = extractFormXmlTransactionFragments(xml);
-
     let worksheetRows = enrichInsiderWorksheetRows([], allTxns, primaryOwner);
 
     if (!worksheetRows.length) {
@@ -330,11 +326,13 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
     });
 
     let out: InsiderClusterOut;
-    if (parseConfidence.confident) {
-      console.info(
-        "[llm-skip]",
-        JSON.stringify({ context: "insider/narrative", path: "deterministic", reasons: parseConfidence.reasons }),
-      );
+    if (parseConfidence.confident || worksheetRows.length) {
+      if (parseConfidence.confident) {
+        console.info(
+          "[llm-skip]",
+          JSON.stringify({ context: "insider/narrative", path: "deterministic", reasons: parseConfidence.reasons }),
+        );
+      }
       out = buildInsiderNarrativeDeterministic({
         formSourceKey,
         issuerName,
@@ -348,65 +346,15 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
         requirePOnly,
       });
     } else {
-      const messages = buildInsiderNarrativePrompt({
-        formType: formSourceKey,
-        issuerName,
-        issuerTicker,
-        issuerCik,
-        owners,
-        transactions: allTxns,
-        xmlFragments,
-        focusPOnly: requirePOnly,
-      });
-
-      const { content } = await llmChat(messages, {
-        temperature: 0,
-        max_tokens: 900,
-        log_context: "insider/narrative",
-      });
-      const llmOut = extractJsonObject(content);
-
-      worksheetRows = enrichInsiderWorksheetRows(
-        llmOut?.cluster?.worksheet_rows ?? [],
-        allTxns,
-        primaryOwner,
+      await db.query(
+        `
+        UPDATE document_queue
+        SET status = 'dead', last_error = 'skipped_low_confidence_xml', next_attempt_at = NULL, updated_at = now()
+        WHERE id = $1
+        `,
+        [queueId],
       );
-
-      if (!worksheetRows.length) {
-        const filed = formatIso(filedAt) ?? new Date().toISOString();
-        worksheetRows = [
-          {
-            key: primaryOwner.name ? `${primaryOwner.role} ${primaryOwner.name}` : "Reporting owner",
-            insider_name: primaryOwner.name,
-            surname: ownerSurname(primaryOwner.name),
-            role: primaryOwner.role,
-            transaction_code: formSourceKey === "Form 3" ? "A" : "H",
-            acquired_disposed: "A",
-            amount_usd: null,
-            shares: null,
-            ts: filed,
-          },
-        ];
-      }
-
-      const pSum = allTxns
-        .filter((t) => t.transaction_code === "P")
-        .reduce((a, t) => a + (t.amount_usd ?? 0), 0);
-      const defaultFeedLabel =
-        requirePOnly && pSum > 0
-          ? `Net buying ~$${Math.round(pSum).toLocaleString("en-US")} (P purchases)`
-          : `${formSourceKey} filing`;
-
-      out = mergeInsiderNarrative(llmOut, {
-        issuer: { name: issuerName, ticker: issuerTicker, cik: issuerCik },
-        filing: {
-          form_type: formSourceKey,
-          accession_no: accessionNo,
-          filed_at: formatIso(filedAt),
-        },
-        worksheet_rows: worksheetRows,
-        defaultFeedLabel,
-      });
+      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "low_confidence" };
     }
 
     if (!out.cluster.worksheet_rows.length) {

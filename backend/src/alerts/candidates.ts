@@ -217,7 +217,10 @@ export async function collectFeedCandidates(opts: {
       FROM documents
       WHERE feed_kind = 'research'
         AND ticker IS NOT NULL
-        AND analysis IS NOT NULL
+        AND (
+          (analysis IS NOT NULL AND length(trim(analysis)) > 0)
+          OR (title IS NOT NULL AND length(trim(title)) > 0)
+        )
         AND event_at >= now() - ($1 || ' hours')::interval
       ORDER BY event_at DESC
       LIMIT 300

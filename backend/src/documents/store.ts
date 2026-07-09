@@ -448,6 +448,7 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
     source_key: string | null;
     event_at: string | null;
     url: string | null;
+    title: string | null;
     analysis: string | null;
     program_keys: string[] | null;
     program_drug: string | null;
@@ -456,13 +457,15 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
     data: any;
   }>(
     `
-    SELECT id, source_key, event_at::text, url, analysis, program_keys, program_drug, feed_kind, program_phase, data
+    SELECT id, source_key, event_at::text, url, title, analysis, program_keys, program_drug, feed_kind, program_phase, data
     FROM documents
     WHERE upper(trim(ticker)) = $1
-      AND analysis IS NOT NULL
-      AND length(trim(analysis)) > 0
       AND feed_kind = 'research'
       AND show_on_ticker IS NOT FALSE
+      AND (
+        (analysis IS NOT NULL AND length(trim(analysis)) > 0)
+        OR (title IS NOT NULL AND length(trim(title)) > 0)
+      )
     ORDER BY event_at DESC NULLS LAST, parsed_at DESC
     LIMIT $2
     `,
@@ -488,7 +491,7 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
       source: String(r.source_key ?? "Other"),
       filedAt: r.event_at ?? new Date().toISOString(),
       url: r.url,
-      analysis: String(r.analysis ?? ""),
+      analysis: String(r.analysis ?? r.title ?? "").trim() || String(r.source_key ?? "Filing"),
       programKeys,
       idea_score: idea.idea_score,
       idea_best: idea.idea_best,

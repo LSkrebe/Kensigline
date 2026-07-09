@@ -359,6 +359,14 @@
   line-height: 1;
 }
 
+.terminalTopBarIconGroup {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex: 0 0 auto;
+}
+
+.terminalTopBarIconBtn,
 .terminalTopBarSettings {
   flex: 0 0 auto;
   display: flex;
@@ -378,16 +386,19 @@
   appearance: none;
 }
 
+.terminalTopBarIconBtn:hover,
 .terminalTopBarSettings:hover {
   color: var(--hi);
   opacity: 1;
 }
 
+.terminalTopBarIconBtn.isActive,
 .terminalTopBarSettings.isActive {
   color: var(--hi);
   opacity: 1;
 }
 
+.terminalTopBarIcon,
 .terminalTopBarSettingsIcon {
   display: block;
   width: var(--terminal-topbar-icon-size);
@@ -397,6 +408,12 @@
   transform: scale(0.82);
 }
 
+.terminalTopBarIcon--calendar {
+  transform: scale(0.7);
+}
+
+.terminalTopBarIconBtn.isClose .terminalTopBarIcon,
+.terminalTopBarSettings.isClose .terminalTopBarIcon,
 .terminalTopBarSettings.isClose .terminalTopBarSettingsIcon {
   transform: scale(0.72);
 }
@@ -5422,12 +5439,218 @@
 }
 
 /* Settings tab — single scroll page with compact cards */
-.terminal.terminal--settings {
+.terminal.terminal--settings,
+.terminal.terminal--macro {
   display: block;
   min-height: 0;
   overflow: hidden;
   padding: 0;
   background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
+}
+
+.macroCalendarPage {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.macroCalendarPageHead {
+  position: relative;
+  flex: 0 0 auto;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px var(--panel-scroll-inline-pad) 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  isolation: isolate;
+  overflow: hidden;
+  background-color: rgba(10, 11, 13, 0.28);
+}
+
+.macroCalendarPageHead::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--terminal-panel-bg-image);
+  background-size: 175% auto;
+  background-position: 6% 14%;
+  background-repeat: no-repeat;
+  opacity: 0.92;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.macroCalendarPageHead::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    rgba(5, 7, 10, 0.62) 0%,
+    rgba(5, 7, 10, 0.14) 46%,
+    rgba(5, 7, 10, 0.48) 100%
+  );
+}
+
+.macroCalendarPageHeadMain,
+.macroCalendarPageTools {
+  position: relative;
+  z-index: 1;
+}
+
+.macroCalendarPageHeadMain {
+  min-width: 0;
+}
+
+.macroCalendarPageTitle {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hi);
+}
+
+.macroCalendarPageSubtitle {
+  margin: 4px 0 0;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.macroCalendarPageTools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 260px;
+  justify-content: flex-end;
+  min-width: min(100%, 260px);
+}
+
+.macroCalendarPageTools .researchFeedSearch {
+  flex: 1 1 200px;
+  max-width: 320px;
+}
+
+.macroCalendarPageBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.macroCalendarPageContent {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px var(--panel-scroll-inline-pad) 16px;
+  box-sizing: border-box;
+}
+
+.macroCalendarPageContent--filterOpen {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+}
+
+.macroCalendarPageMain {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+.macroCalendarPageContent--filterOpen .macroCalendarPageMain[aria-hidden='true'] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.macroCalendarPageContent--filterOpen .feedCompactFilterPicker {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px var(--panel-scroll-inline-pad) var(--panel-scroll-bottom-pad);
+  box-sizing: border-box;
+  border: none;
+  background: inherit;
+  -webkit-overflow-scrolling: touch;
+}
+
+.macroCalendarPageContent--filterOpen .feedFilterSectionTitle:not(:first-child) {
+  margin-top: 10px;
+}
+
+.macroCalendarEmpty {
+  margin: 28px 0;
+  text-align: center;
+  font-size: 10px;
+}
+
+
+.terminal--macro .macroCalWeek {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: min-content;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.terminal--macro .discoverMacroDay--col {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.terminal--macro .discoverMacroDay--col + .discoverMacroDay--col {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.terminal--macro .discoverMacroDay--col .discoverMacroDayHead {
+  padding: 0 0 8px;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.terminal--macro .discoverMacroDay--col .discoverMacroDayToday {
+  margin-left: auto;
+}
+
+.terminal--macro .discoverMacroDay--col .discoverMacroDayBody {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: visible;
+  padding: 0;
+  gap: 4px;
 }
 
 .settingsPage {
@@ -7686,7 +7909,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .feed--left .feedFilterTypeRow,
 .terminal--institutions .feed--left .feedFilterTypeRow,
 .terminal--researchFeed .researchTicker.feed--left .feedFilterTypeRow,
-.terminal--discover .discoverCol--filter .feedFilterTypeRow
+.terminal--discover .discoverCol--filter .feedFilterTypeRow,
+.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeRow
 {
   gap: 6px;
   min-height: calc(10px * 1.15 + 10px);
@@ -7703,7 +7927,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .feed--left .feedFilterTypeRow:hover,
 .terminal--institutions .feed--left .feedFilterTypeRow:hover,
 .terminal--researchFeed .researchTicker.feed--left .feedFilterTypeRow:hover,
-.terminal--discover .discoverCol--filter .feedFilterTypeRow:hover
+.terminal--discover .discoverCol--filter .feedFilterTypeRow:hover,
+.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeRow:hover
 {
   background: rgba(255, 255, 255, 0.03);
 }
@@ -7712,7 +7937,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .feed--left .feedFilterTypeLabel,
 .terminal--institutions .feed--left .feedFilterTypeLabel,
 .terminal--researchFeed .researchTicker.feed--left .feedFilterTypeLabel,
-.terminal--discover .discoverCol--filter .feedFilterTypeLabel
+.terminal--discover .discoverCol--filter .feedFilterTypeLabel,
+.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeLabel
 {
   color: rgba(255, 255, 255, 0.88);
 }
@@ -7721,7 +7947,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .feed--left .feedFilterTypeCode,
 .terminal--institutions .feed--left .feedFilterTypeCode,
 .terminal--researchFeed .researchTicker.feed--left .feedFilterTypeCode,
-.terminal--discover .discoverCol--filter .feedFilterTypeCode
+.terminal--discover .discoverCol--filter .feedFilterTypeCode,
+.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeCode
 {
   min-width: 2.5ch;
   max-width: none;
@@ -8069,7 +8296,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .feed--left .researchFeedSearch,
 .terminal--institutions .feed--left .researchFeedSearch,
 .terminal--researchFeed .researchTicker.feed--left .researchFeedSearch,
-.terminal--discover .discoverSearch
+.terminal--discover .discoverSearch,
+.terminal--macro .macroCalendarPageTools .researchFeedSearch
 {
   display: flex;
   align-items: center;
@@ -8088,7 +8316,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .feed--left .researchFeedSearchInput,
 .terminal--institutions .feed--left .researchFeedSearchInput,
 .terminal--researchFeed .researchTicker.feed--left .researchFeedSearchInput,
-.terminal--discover .discoverSearch .researchFeedSearchInput
+.terminal--discover .discoverSearch .researchFeedSearchInput,
+.terminal--macro .macroCalendarPageTools .researchFeedSearchInput
 {
   flex: 1;
   min-width: 0;
@@ -8108,7 +8337,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .feed--left .researchFeedSearchInput::placeholder,
 .terminal--institutions .feed--left .researchFeedSearchInput::placeholder,
 .terminal--researchFeed .researchTicker.feed--left .researchFeedSearchInput::placeholder,
-.terminal--discover .discoverSearch .researchFeedSearchInput::placeholder
+.terminal--discover .discoverSearch .researchFeedSearchInput::placeholder,
+.terminal--macro .macroCalendarPageTools .researchFeedSearchInput::placeholder
 {
   color: rgba(255, 255, 255, 0.38);
 }
@@ -8117,7 +8347,8 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .feed--left .researchFeedSearchIcon,
 .terminal--institutions .feed--left .researchFeedSearchIcon,
 .terminal--researchFeed .researchTicker.feed--left .researchFeedSearchIcon,
-.terminal--discover .discoverSearch .researchFeedSearchIcon
+.terminal--discover .discoverSearch .researchFeedSearchIcon,
+.terminal--macro .macroCalendarPageTools .researchFeedSearchIcon
 {
   flex-shrink: 0;
   width: 12px;

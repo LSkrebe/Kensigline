@@ -8,9 +8,9 @@ function envInt(key: string, fallback: number, min: number, max: number): number
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
-/** How far back idle SEC daily index backfill may walk (days). Default 120 ≈ 4 months. */
+/** How far back idle backfill may walk (days). Template indexing is cheap — default 2 years. */
 export function backfillMaxAgeDays(): number {
-  return envInt("BACKFILL_MAX_AGE_DAYS", 120, 30, 365);
+  return envInt("BACKFILL_MAX_AGE_DAYS", 730, 30, 3650);
 }
 
 function parseIsoDateUtc(raw: string): Date | null {
@@ -21,7 +21,7 @@ function parseIsoDateUtc(raw: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** Earliest UTC calendar day SEC daily backfill will process (rolling floor wins over ancient min date). */
+/** Earliest UTC calendar day backfill will process (rolling window ∩ BACKFILL_MIN_DATE floor). */
 export function effectiveBackfillMinDate(): Date {
   const rolling = new Date();
   rolling.setUTCHours(0, 0, 0, 0);
@@ -29,12 +29,22 @@ export function effectiveBackfillMinDate(): Date {
 
   const configured = parseIsoDateUtc(String(process.env.BACKFILL_MIN_DATE ?? "2012-01-01").trim());
   if (!configured) return rolling;
+  // Stop at the more recent bound — raise BACKFILL_MAX_AGE_DAYS to walk further back.
   return configured.getTime() > rolling.getTime() ? configured : rolling;
 }
 
-/** Max filings enqueued per form per backfill day (was 800 — too bursty). */
+/** Parse queue tiers (higher = parsed first). Live ingest always beats idle backfill. */
+export const QUEUE_PRIORITY_LIVE_EARNINGS = 5;
+export const QUEUE_PRIORITY_LIVE_SEC = 4;
+export const QUEUE_PRIORITY_LIVE_RSS = 3;
+/** Backfill rows that may still need structured LLM when BACKFILL_LLM_ENABLED=1. */
+export const QUEUE_PRIORITY_BACKFILL_STRUCTURED = 2;
+/** Template-only historical index for paper panel. */
+export const QUEUE_PRIORITY_BACKFILL_INDEX = 1;
+
+/** Max filings enqueued per form per backfill day. */
 export function backfillSecLimitPerForm(): number {
-  return envInt("BACKFILL_SEC_LIMIT_PER_DAY", 200, 20, 2000);
+  return envInt("BACKFILL_SEC_LIMIT_PER_DAY", 300, 20, 2000);
 }
 
 /** Queue priorities at or below this are treated as idle backfill (not live). */
@@ -57,4 +67,36 @@ export function politiciansLiveSenateLookbackDays(): number {
 /** Senate PTR backfill window size (days per step). */
 export function politiciansBackfillSenateWindowDays(): number {
   return envInt("BACKFILL_SENATE_WINDOW_DAYS", 60, 14, 120);
+}
+
+const DEFAULT_STRUCTURED_LLM_SEC_FORMS = new Set(["10-Q", "10-K"]);
+
+function structuredLlmSecForms(): Set<string> {
+  const raw = String(process.env.STRUCTURED_LLM_SEC_FORMS ?? "10-Q,10-K")
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+  return raw.length ? new Set(raw) : DEFAULT_STRUCTURED_LLM_SEC_FORMS;
+}
+
+/** Live SEC forms that get structured LLM (drivers / dates) — not display summaries. */
+export function secFormNeedsStructuredLlm(formType: string): boolean {
+  const f = String(formType ?? "").trim().toUpperCase().replace(/\/A$/, "");
+  return structuredLlmSecForms().has(f);
+}
+
+/** Whether research ingest should call LLM for structured fields (not prose summaries). */
+export function needsStructuredResearchLlm(args: {
+  sourceType: string;
+  secForm?: string | null;
+  priority: number;
+}): boolean {
+  if (isBackfillPriority(args.priority) && !backfillLlmEnabled()) return false;
+
+  const st = String(args.sourceType ?? "").toLowerCase();
+  if (st === "research_transcript_rss" || st === "bosha_transcript_rss") return true;
+  if (st === "research_sec" || st === "bosha_sec") {
+    return secFormNeedsStructuredLlm(args.secForm ?? "");
+  }
+  return false;
 }

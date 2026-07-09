@@ -101,9 +101,9 @@ export async function buildResearchPresentation(ticker: string): Promise<Explore
   );
 
   const title =
-    recentDocs[0]?.analysis?.trim()
-      ? `${t} - ${trunc(recentDocs[0].analysis, 110)}`
-      : `${t} - document-backed research read`;
+    recentDocs[0]?.analysis?.trim() || recentDocs[0]?.source
+      ? `${t} — ${trunc(recentDocs[0].analysis || recentDocs[0].source, 80)}`
+      : `${t} — event timeline`;
 
   const subtitle = `${name} · ${t} · ${isoDate(new Date())}`;
 
@@ -116,11 +116,11 @@ export async function buildResearchPresentation(ticker: string): Promise<Explore
 
   const signalPara =
     docCount > 0
-      ? `The timeline holds ${docCount} analyzed document${docCount === 1 ? "" : "s"}. Latest: ${recentDocs
+      ? `The timeline holds ${docCount} indexed document${docCount === 1 ? "" : "s"}. Latest: ${recentDocs
           .slice(0, 3)
-          .map((d) => `[${d.source}] ${trunc(d.analysis, 180)}`)
-          .join(" ")}`
-      : `No analyzed documents are on file for ${t} yet. Ingestion workers will populate the timeline as filings and allowlisted sources are parsed.`;
+          .map((d) => `[${d.source}] ${trunc(d.analysis, 120)}`)
+          .join(" · ")}`
+      : `No documents are on file for ${t} yet. Ingestion workers will populate the timeline as filings and allowlisted sources are indexed.`;
 
   const flowPara =
     insiderN > 0 || polN > 0

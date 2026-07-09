@@ -6,6 +6,7 @@ import {
   effectiveBackfillMinDate,
   politiciansBackfillSenateWindowDays,
   politiciansLiveSenateLookbackDays,
+  QUEUE_PRIORITY_BACKFILL_INDEX,
 } from "../../shared/ingest-policy.js";
 import { getIngestCursor, setIngestCursor } from "../../shared/ingest-cursor.js";
 
@@ -25,37 +26,41 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Shallow PTR backfill: current + prior House year, Senate windows within BACKFILL_MAX_AGE_DAYS only. */
+/** PTR backfill within BACKFILL_MAX_AGE_DAYS — House filing years + Senate date windows. */
 export async function runPoliticiansHistoricalBackfill(pipeline: string): Promise<{ enqueued: number }> {
   if (!backfillEnabled()) return { enqueued: 0 };
 
   let enqueued = 0;
   const maxPerBatch = Math.max(10, Math.min(500, Number(process.env.BACKFILL_POLITICIANS_MAX_PER_BATCH ?? 120)));
   const senateWindowDays = politiciansBackfillSenateWindowDays();
-  const minSenate = effectiveBackfillMinDate();
+  const minDate = effectiveBackfillMinDate();
+  const minHouseYear = minDate.getUTCFullYear();
   const currentYear = new Date().getUTCFullYear();
 
   const houseYearRaw = await getIngestCursor(pipeline, "house_year");
   let houseYear = houseYearRaw ? Number(houseYearRaw) : currentYear - 1;
   if (!Number.isFinite(houseYear)) houseYear = currentYear - 1;
-  const minHouseYear = currentYear - 1;
 
   if (houseYear >= minHouseYear) {
     try {
       const rows = await listHousePtrPdfsWithRetry({ filingYear: houseYear, max: maxPerBatch });
+      let houseEnq = 0;
       for (const r of rows) {
         const ins = await db.one<{ id: string }>(
           `
           INSERT INTO document_queue (url, source_type, status, priority, updated_at)
-          VALUES ($1, 'house_ptr', 'ready_to_parse', 1, now())
+          VALUES ($1, 'house_ptr', 'ready_to_parse', $2, now())
           ON CONFLICT (url, source_type) DO NOTHING
           RETURNING id
           `,
-          [r.pdf_url],
+          [r.pdf_url, QUEUE_PRIORITY_BACKFILL_INDEX],
         );
-        if (ins?.id) enqueued += 1;
+        if (ins?.id) {
+          houseEnq += 1;
+          enqueued += 1;
+        }
       }
-      console.log(`[${pipeline}] backfill house year=${houseYear} discovered=${rows.length} enqueued=${enqueued}`);
+      console.log(`[${pipeline}] backfill house year=${houseYear} discovered=${rows.length} enqueued=${houseEnq}`);
     } catch (e) {
       console.error(`[${pipeline}] backfill house year=${houseYear} failed`, e);
     }
@@ -73,7 +78,7 @@ export async function runPoliticiansHistoricalBackfill(pipeline: string): Promis
   const senateStart = new Date(senateEnd);
   senateStart.setUTCDate(senateStart.getUTCDate() - senateWindowDays);
 
-  if (senateEnd.getTime() >= minSenate.getTime()) {
+  if (senateEnd.getTime() >= minDate.getTime()) {
     try {
       const session = await openSenateSession();
       const listings = await listSenatePtrReportsWithRetry({
@@ -87,11 +92,11 @@ export async function runPoliticiansHistoricalBackfill(pipeline: string): Promis
         const ins = await db.one<{ id: string }>(
           `
           INSERT INTO document_queue (url, source_type, status, priority, updated_at)
-          VALUES ($1, 'senate_ptr', 'ready_to_parse', 1, now())
+          VALUES ($1, 'senate_ptr', 'ready_to_parse', $2, now())
           ON CONFLICT (url, source_type) DO NOTHING
           RETURNING id
           `,
-          [r.view_url],
+          [r.view_url, QUEUE_PRIORITY_BACKFILL_INDEX],
         );
         if (ins?.id) {
           senateEnq += 1;

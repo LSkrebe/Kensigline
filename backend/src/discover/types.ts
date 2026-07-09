@@ -31,8 +31,6 @@ export type DiscoverEvent = {
   idea_score?: number;
   idea_best?: boolean;
   idea_reasons?: string[];
-  /** Closest upcoming catalyst/earnings for this ticker (Market Moves footer). */
-  next_upcoming?: DiscoverNextUpcoming | null;
 };
 
 export type DiscoverMacroEvent = {
@@ -48,29 +46,3 @@ export type DiscoverMacroDay = {
   events: DiscoverMacroEvent[];
 };
 
-export type DiscoverMoveReaction = {
-  movePct: number;
-  closes: number[];
-};
-
-/** Next catalyst on a Market Moves card (closest upcoming event for the ticker). */
-export type DiscoverNextUpcoming = {
-  label: string;
-  at: string;
-  soon: boolean;
-};
-
-export type DiscoverTimelineResult = {
-  ok: true;
-  upcoming: DiscoverEvent[];
-  past: DiscoverEvent[];
-  /** Green-highlight market move cards (Investigate-aligned aggregation). */
-  market_moves: DiscoverEvent[];
-  macro: DiscoverMacroDay[];
-  moves: Record<string, DiscoverMoveReaction>;
-  meta: {
-    past_days: number;
-    ahead_days: number;
-    universe: number;
-  };
-};

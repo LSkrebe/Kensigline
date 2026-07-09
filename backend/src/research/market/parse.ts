@@ -2,14 +2,23 @@ import { sha256NormalizedText } from "../../core/text-hash.js";
 import { db } from "../../core/db.js";
 import { upsertCompanyNameForTicker } from "../../core/company.js";
 import { fetchFilingPrimaryText, fetchSecJson } from "../../core/sec.js";
-import { runResearchDocExtract, type ResearchDocExtractV2 } from "../../documents/extract.js";
+import {
+  runStructuredResearchExtract,
+  type ResearchDocExtractV2,
+} from "../../documents/extract.js";
+import {
+  buildTemplateResearchExtract,
+  filingTextExcerpt,
+  guessSecFormFromFilingText,
+  secFilingEventAtFromText,
+} from "../../documents/display.js";
 import { insertResearchDocument } from "../../documents/store.js";
 import { invalidateTickerContextCache } from "../../core/ticker-context-cache.js";
 import { compactSecTextForLlm } from "../../core/sec-llm-text.js";
 import { compactHttpTextForLlm } from "../../core/http-llm-text.js";
 import { prepareLlmText } from "../../core/llm-text-prep.js";
 import { LLM_BUDGETS } from "../../core/llm-budgets.js";
-import { backfillLlmEnabled, isBackfillPriority } from "../../shared/ingest-policy.js";
+import { isBackfillPriority, needsStructuredResearchLlm } from "../../shared/ingest-policy.js";
 import { normalizeSourceKey } from "../../shared/source-keys.js";
 import {
   attachNearDupKey,
@@ -18,7 +27,6 @@ import {
 } from "../../core/research-extract-reuse.js";
 import {
   buildGovContractExtractFromFacts,
-  compactGovContractFactsForLlm,
   parseGovContractFacts,
 } from "./gov-contract-parse.js";
 import { fetchArticleHtml, guessTickerFromText, stripHtmlToText } from "./feeds.js";
@@ -63,14 +71,12 @@ function isResearchGovSource(sourceType: string) {
   return sourceType === "research_gov_contract" || sourceType === "bosha_gov_contract";
 }
 
-function normalizeDocumentSourceType(
-  sourceType: string,
-): "research_sec" | "research_press_rss" | "research_transcript_rss" | "research_gov_contract" {
-  if (isResearchPressSource(sourceType)) return "research_press_rss";
-  if (isResearchTranscriptSource(sourceType)) return "research_transcript_rss";
-  if (isResearchGovSource(sourceType)) return "research_gov_contract";
-  return "research_sec";
+function httpSourceKey(documentSourceType: string): string {
+  if (documentSourceType === "research_transcript_rss") return "Earnings transcript";
+  if (documentSourceType === "research_gov_contract") return "Gov contract";
+  return "Press release";
 }
+
 function looksSecResearchRelevant(text: string) {
   const t = text.toLowerCase();
   return (
@@ -137,50 +143,30 @@ function looksTranscriptRelevant(text: string) {
   );
 }
 
-function guessSecFormFromFilingText(text: string): string {
-  const head = text.slice(0, 8000);
-  const sub = head.match(/CONFORMED SUBMISSION TYPE:\s*([A-Z0-9\-/\s]+)/i);
-  if (sub?.[1]) {
-    const raw = sub[1].trim().replace(/\s+/g, " ").toUpperCase().replace(/\/A$/, "");
-    if (raw.startsWith("10-Q")) return "10-Q";
-    if (raw.startsWith("10-K")) return "10-K";
-    if (raw.startsWith("8-K")) return "8-K";
-    if (raw.startsWith("6-K")) return "6-K";
-    if (raw.startsWith("20-F")) return "20-F";
-    return raw.split(/\s/)[0] ?? "8-K";
-  }
-  const inline = head.match(/\b(8-K|10-Q|10-K|6-K|20-F)\b/i);
-  return inline?.[1] ? inline[1].toUpperCase() : "8-K";
+function pressHeadlineFromText(text: string): string | null {
+  const line = String(text ?? "")
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .find((s) => s.length >= 12 && s.length <= 160);
+  return line ?? null;
 }
 
-function buildBackfillSecResearchStub(args: {
-  text: string;
-  url: string;
-  hintedTicker: string | null;
-  hintedName: string | null;
-}): ResearchDocExtractV2 {
-  const form = guessSecFormFromFilingText(args.text);
-  const source_key = normalizeSourceKey(form, "8-K");
-  const ticker = args.hintedTicker?.trim().toUpperCase() ?? null;
-  const name = args.hintedName?.trim();
-  const who = ticker ? (name ? `${name} (${ticker})` : ticker) : "issuer";
-  const filed = args.text.match(/FILED AS OF DATE:\s*(\d{8})/i);
-  let event_at: string | null = null;
-  if (filed?.[1]) {
-    const d = filed[1];
-    event_at = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}T00:00:00.000Z`;
-  }
-  return {
-    schema_type: "research_doc_v2",
-    schema_version: "v2",
-    title: `${source_key} filing — ${who}`,
-    primary_ticker: ticker,
-    source_key,
-    analysis: "Historical SEC filing indexed for ticker context; open the filing for full text.",
-    event_at,
-    program_keys: [],
-    link_confidence: ticker ? 0.85 : 0.4,
+function mergeTemplateWithStructured(
+  template: ResearchDocExtractV2,
+  structured: Partial<ResearchDocExtractV2>,
+): ResearchDocExtractV2 {
+  const merged: ResearchDocExtractV2 = {
+    ...template,
+    primary_ticker: structured.primary_ticker ?? template.primary_ticker,
+    source_key: structured.source_key ? normalizeSourceKey(structured.source_key, template.source_key) : template.source_key,
+    event_at: structured.event_at ?? template.event_at,
+    program_keys: structured.program_keys?.length ? structured.program_keys : template.program_keys,
+    link_confidence: structured.link_confidence ?? template.link_confidence,
   };
+  if (structured.catalyst_at) merged.catalyst_at = structured.catalyst_at;
+  if (structured.business_drivers?.length) merged.business_drivers = structured.business_drivers;
+  if (template.text_excerpt) merged.text_excerpt = template.text_excerpt;
+  return merged;
 }
 
 async function finalizePipeline(args: {
@@ -189,7 +175,7 @@ async function finalizePipeline(args: {
   contentSha: string;
   primaryUrl: string;
   publishedAt: string;
-  out: Awaited<ReturnType<typeof runResearchDocExtract>>["out"];
+  out: ResearchDocExtractV2;
 }): Promise<{ document_id: string | null }> {
   const docId = await insertResearchDocument({
     queueId: args.queueId,
@@ -210,17 +196,44 @@ async function finalizePipeline(args: {
   return { document_id: docId };
 }
 
-async function extractResearchDocument(args: {
+async function resolveResearchExtract(args: {
   text: string;
   url: string;
   sourceType: string;
+  sourceKey: string;
   hintedTicker: string | null;
   hintedName: string | null;
+  priority: number;
+  secForm?: string | null;
+  headline?: string | null;
   prepContext: string;
   compact: (text: string, max: number) => string;
   maxChars: number;
-  skipLlm?: boolean;
-}): Promise<{ out: Awaited<ReturnType<typeof runResearchDocExtract>>["out"]; model: string | null }> {
+}): Promise<{ out: ResearchDocExtractV2; model: string | null }> {
+  const excerpt = filingTextExcerpt(args.text);
+  const eventAt =
+    args.secForm != null ? secFilingEventAtFromText(args.text) : null;
+
+  const template = buildTemplateResearchExtract({
+    sourceKey: args.sourceKey,
+    ticker: args.hintedTicker,
+    companyName: args.hintedName,
+    eventAt,
+    url: args.url,
+    textExcerpt: excerpt,
+    ...(args.headline != null ? { headline: args.headline } : {}),
+  });
+
+  const useStructured = needsStructuredResearchLlm({
+    sourceType: args.sourceType,
+    ...(args.secForm != null ? { secForm: args.secForm } : {}),
+    priority: args.priority,
+  });
+
+  if (!useStructured) {
+    return { out: template, model: "template" };
+  }
+
   const prep = prepareLlmText({
     text: args.text,
     context: args.prepContext,
@@ -233,38 +246,33 @@ async function extractResearchDocument(args: {
     ticker: args.hintedTicker,
     url: args.url,
   });
-  if (reused) {
+  if (reused?.out?.business_drivers?.length || reused?.out?.event_at) {
     console.info(
       "[llm-reuse]",
       JSON.stringify({ context: args.prepContext, reused_from: reused.reused_from, near_dup_key: reused.near_dup_key }),
     );
+    const merged = mergeTemplateWithStructured(template, reused.out);
     return {
-      out: attachNearDupKey(reused.out, reused.near_dup_key, args.url),
+      out: attachNearDupKey(merged, reused.near_dup_key, args.url),
       model: "reuse/near-dup",
     };
   }
 
-  if (args.skipLlm) {
-    return {
-      out: buildBackfillSecResearchStub({
-        text: args.text,
-        url: args.url,
-        hintedTicker: args.hintedTicker,
-        hintedName: args.hintedName,
-      }),
-      model: "backfill/stub",
-    };
+  try {
+    const structured = await runStructuredResearchExtract({
+      text: prep.text,
+      url: args.url,
+      sourceType: args.sourceType,
+      hintedTicker: args.hintedTicker,
+      hintedName: args.hintedName,
+    });
+    const nearDupKey = computeResearchNearDupKey(prep.text);
+    const merged = mergeTemplateWithStructured(template, structured);
+    return { out: attachNearDupKey(merged, nearDupKey, args.url), model: "research/structured" };
+  } catch (e) {
+    console.warn("[research/structured] fallback to template", String((e as Error)?.message ?? e));
+    return { out: template, model: "template/fallback" };
   }
-
-  const nearDupKey = computeResearchNearDupKey(prep.text);
-  const { out, model } = await runResearchDocExtract({
-    text: prep.text,
-    url: args.url,
-    sourceType: args.sourceType,
-    hintedTicker: args.hintedTicker,
-    hintedName: args.hintedName,
-  });
-  return { out: attachNearDupKey(out, nearDupKey, args.url), model };
 }
 
 export async function parseNextResearchQueueItem(): Promise<ParseNextResult> {
@@ -292,20 +300,19 @@ export async function parseNextResearchQueueItem(): Promise<ParseNextResult> {
   const queueId = next.id;
   const sourceType = next.source_type;
   const priority = Number(next.priority ?? 0);
-  const skipLlm = isBackfillPriority(priority) && !backfillLlmEnabled();
 
   try {
     if (isResearchSecSource(sourceType)) {
-      return await parseSecDocument(queueId, next.url, skipLlm);
+      return await parseSecDocument(queueId, next.url, priority);
     }
     if (isResearchPressSource(sourceType)) {
-      return await parseHttpDocument(queueId, next.url, "research_press_rss", looksPressRelevant, skipLlm);
+      return await parseHttpDocument(queueId, next.url, "research_press_rss", looksPressRelevant, priority);
     }
     if (isResearchTranscriptSource(sourceType)) {
-      return await parseHttpDocument(queueId, next.url, "research_transcript_rss", looksTranscriptRelevant, skipLlm);
+      return await parseHttpDocument(queueId, next.url, "research_transcript_rss", looksTranscriptRelevant, priority);
     }
     if (isResearchGovSource(sourceType)) {
-      return await parseHttpDocument(queueId, next.url, "research_gov_contract", looksGovRelevant, skipLlm);
+      return await parseHttpDocument(queueId, next.url, "research_gov_contract", looksGovRelevant, priority);
     }
     await db.query(`UPDATE document_queue SET status = 'dead', last_error = 'unknown_research_source', updated_at = now() WHERE id = $1`, [
       queueId,
@@ -332,7 +339,7 @@ export async function parseNextResearchQueueItem(): Promise<ParseNextResult> {
   }
 }
 
-async function parseSecDocument(queueId: string, indexUrl: string, skipLlm: boolean): Promise<ParseNextResult> {
+async function parseSecDocument(queueId: string, indexUrl: string, priority: number): Promise<ParseNextResult> {
   const { url: primaryUrl, text } = await fetchFilingPrimaryText(indexUrl);
   const contentSha = sha256NormalizedText(text);
 
@@ -345,7 +352,10 @@ async function parseSecDocument(queueId: string, indexUrl: string, skipLlm: bool
     return { processed: true, queue_id: queueId, document_id: null };
   }
 
-  if (!looksSecResearchRelevant(text.slice(0, 200_000))) {
+  if (
+    !isBackfillPriority(priority) &&
+    !looksSecResearchRelevant(text.slice(0, 200_000))
+  ) {
     await db.query(
       `
       UPDATE document_queue
@@ -359,17 +369,32 @@ async function parseSecDocument(queueId: string, indexUrl: string, skipLlm: bool
 
   const cik = cikFromIndexUrl(indexUrl);
   const meta = cik ? await metaFromCik(cik) : { ticker: null, name: null };
+  const secForm = guessSecFormFromFilingText(text);
 
-  const { out } = await extractResearchDocument({
+  if (isBackfillPriority(priority) && !meta.ticker && text.length < 200) {
+    await db.query(
+      `
+      UPDATE document_queue
+      SET status = 'dead', last_error = 'skipped_backfill_no_ticker', next_attempt_at = NULL, updated_at = now()
+      WHERE id = $1
+      `,
+      [queueId],
+    );
+    return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_ticker" };
+  }
+
+  const { out } = await resolveResearchExtract({
     text,
     url: primaryUrl,
     sourceType: "research_sec",
+    sourceKey: secForm,
     hintedTicker: meta.ticker,
     hintedName: meta.name,
+    priority,
+    secForm,
     prepContext: "research/sec",
     compact: compactSecTextForLlm,
     maxChars: LLM_BUDGETS.secFiling(),
-    skipLlm,
   });
 
   const publishedAt = new Date().toISOString();
@@ -398,7 +423,7 @@ async function parseHttpDocument(
   pageUrl: string,
   documentSourceType: "research_press_rss" | "research_transcript_rss" | "research_gov_contract",
   relevance: (text: string) => boolean,
-  skipLlm: boolean,
+  priority: number,
 ): Promise<ParseNextResult> {
   if (!isUrlAllowedForResearchHttpIngest(pageUrl)) {
     await db.query(
@@ -438,6 +463,7 @@ async function parseHttpDocument(
   }
 
   const guessed = guessTickerFromText(null, text.slice(0, 4000));
+  const sourceKey = httpSourceKey(documentSourceType);
   const httpMode =
     documentSourceType === "research_transcript_rss"
       ? "transcript"
@@ -450,6 +476,15 @@ async function parseHttpDocument(
     const deterministic = buildGovContractExtractFromFacts(facts, { url: pageUrl, hintedTicker: guessed });
     if (deterministic) {
       const nearDupKey = computeResearchNearDupKey(text);
+      const display = buildTemplateResearchExtract({
+        sourceKey: "Gov contract",
+        ticker: deterministic.primary_ticker ?? guessed,
+        companyName: null,
+        eventAt: deterministic.event_at,
+        url: pageUrl,
+        textExcerpt: filingTextExcerpt(text),
+        headline: deterministic.title,
+      });
       const publishedAt = new Date().toISOString();
       const fin = await finalizePipeline({
         queueId,
@@ -457,66 +492,39 @@ async function parseHttpDocument(
         contentSha,
         primaryUrl: pageUrl,
         publishedAt,
-        out: attachNearDupKey(deterministic, nearDupKey, pageUrl),
+        out: attachNearDupKey(
+          mergeTemplateWithStructured(display, { ...deterministic, analysis: display.analysis, title: display.title }),
+          nearDupKey,
+          pageUrl,
+        ),
       });
       return { processed: true, queue_id: queueId, document_id: fin.document_id };
     }
+    await db.query(
+      `UPDATE document_queue SET status = 'dead', last_error = 'skipped_gov_parse', next_attempt_at = NULL, updated_at = now() WHERE id = $1`,
+      [queueId],
+    );
+    return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "gov_parse" };
   }
-
-  const govFacts =
-    documentSourceType === "research_gov_contract" ? parseGovContractFacts(text) : null;
-  const govHint =
-    govFacts && compactGovContractFactsForLlm(govFacts, 4_000).length > 40
-      ? `\n\nstructured_contract_facts:\n${compactGovContractFactsForLlm(govFacts, 4_000)}`
-      : "";
 
   const maxChars =
     httpMode === "transcript"
       ? LLM_BUDGETS.transcript()
-      : httpMode === "gov"
-        ? LLM_BUDGETS.govContract()
-        : LLM_BUDGETS.pressRelease();
+      : LLM_BUDGETS.pressRelease();
 
-  const prep = prepareLlmText({
-    text: govHint ? `${text}\n${govHint}` : text,
-    context: `research/${httpMode}`,
-    maxChars,
-    compact: (body, max) => compactHttpTextForLlm(body, httpMode, max),
-  });
-
-  const reused = await findReusableResearchExtract({
-    compactText: prep.text,
-    ticker: guessed,
+  const { out } = await resolveResearchExtract({
+    text,
     url: pageUrl,
+    sourceType: documentSourceType,
+    sourceKey,
+    hintedTicker: guessed,
+    hintedName: null,
+    priority,
+    headline: documentSourceType === "research_press_rss" ? pressHeadlineFromText(text) : null,
+    prepContext: `research/${httpMode}`,
+    compact: (body, max) => compactHttpTextForLlm(body, httpMode, max),
+    maxChars,
   });
-  let out: Awaited<ReturnType<typeof runResearchDocExtract>>["out"];
-  if (reused) {
-    console.info(
-      "[llm-reuse]",
-      JSON.stringify({ context: `research/${httpMode}`, reused_from: reused.reused_from }),
-    );
-    out = attachNearDupKey(reused.out, reused.near_dup_key, pageUrl);
-  } else if (skipLlm) {
-    await db.query(
-      `
-      UPDATE document_queue
-      SET status = 'dead', last_error = 'skipped_backfill_no_llm', next_attempt_at = NULL, updated_at = now()
-      WHERE id = $1
-      `,
-      [queueId],
-    );
-    return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "backfill_no_llm" };
-  } else {
-    const nearDupKey = computeResearchNearDupKey(prep.text);
-    const extracted = await runResearchDocExtract({
-      text: prep.text,
-      url: pageUrl,
-      sourceType: documentSourceType,
-      hintedTicker: guessed,
-      hintedName: null,
-    });
-    out = attachNearDupKey(extracted.out, nearDupKey, pageUrl);
-  }
 
   const publishedAt = new Date().toISOString();
   const fin = await finalizePipeline({
