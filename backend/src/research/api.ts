@@ -2,7 +2,7 @@ import type http from "node:http";
 import { sendJson } from "../core/http.js";
 import { db } from "../core/db.js";
 import { buildResearchPresentation } from "../documents/presentation.js";
-import { scoreResearchDocument, scoreInsiderCluster, scoreInstitutionCluster, scorePoliticianCluster } from "../core/idea-score.js";
+import { scoreResearchDocument, scoreInsiderCluster, scoreInstitutionCluster, scorePoliticianCluster, mergeResearchFeedIdea, investigateRollupFromSummary } from "../core/idea-score.js";
 import {
   loadFilings13fForTicker,
   loadInsiderFlowsForTicker,
@@ -18,7 +18,7 @@ import {
   writeFeedResponseCache,
 } from "../shared/feed-response-cache.js";
 import { documentFeedAtSql } from "../shared/document-activity-at.js";
-import { loadMarketFeedIndexPage } from "../shared/feed-index.js";
+import { loadMarketFeedIndexPage, loadInvestigateRollupsByTicker } from "../shared/feed-index.js";
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -203,6 +203,46 @@ function scoreResearchFeedRow(row: {
   });
 }
 
+function docIdeaFromSummary(
+  summary: Record<string, unknown>,
+  row: {
+    analysis: string | null;
+    source_key: string | null;
+    feed_kind: string;
+    program_phase: string | null;
+    event_at: string | null;
+    feed_at: string;
+    data: any;
+  },
+) {
+  if (summary.idea_score != null) {
+    return {
+      idea_score: Number(summary.idea_score),
+      idea_best: Boolean(summary.idea_best),
+      idea_reasons: Array.isArray(summary.idea_reasons) ? (summary.idea_reasons as string[]) : [],
+    };
+  }
+  return scoreResearchFeedRow(row);
+}
+
+function resolveResearchFeedIdea(
+  summary: Record<string, unknown>,
+  row: {
+    analysis: string | null;
+    source_key: string | null;
+    feed_kind: string;
+    program_phase: string | null;
+    event_at: string | null;
+    feed_at: string;
+    data: any;
+  },
+  rollupFallback?: ReturnType<typeof investigateRollupFromSummary>,
+) {
+  const docIdea = docIdeaFromSummary(summary, row);
+  const rollup = investigateRollupFromSummary(summary) ?? rollupFallback ?? null;
+  return mergeResearchFeedIdea(docIdea, rollup);
+}
+
 export async function handleResearchFeed(
   res: http.ServerResponse,
   limit: number,
@@ -285,18 +325,15 @@ export async function handleResearchFeed(
   const page = rows.slice(0, lim);
 
   const secTitles = await getSecTickerTitleMap().catch(() => new Map<string, string>());
+  const rollupByTicker = await loadInvestigateRollupsByTicker(page.map((r) => r.ticker));
 
   const items = page.map((r) => {
     const displayName = resolveResearchFeedCompanyName(r.ticker, r.company_name, secTitles.get(r.ticker) ?? null);
     const summary = (r as { summary?: Record<string, unknown> }).summary ?? {};
-    const idea =
-      summary.idea_score != null
-        ? {
-            idea_score: Number(summary.idea_score),
-            idea_best: Boolean(summary.idea_best),
-            idea_reasons: Array.isArray(summary.idea_reasons) ? summary.idea_reasons : [],
-          }
-        : scoreResearchFeedRow(r);
+    const tickerNorm = String(r.ticker ?? "").trim().toUpperCase();
+    const rollup =
+      rollupByTicker.get(tickerNorm) ?? investigateRollupFromSummary(summary) ?? null;
+    const idea = resolveResearchFeedIdea(summary, r, rollup);
     const feedLabel = String(r.analysis ?? r.feed_label ?? "").trim();
     const hasPaper =
       r.feed_kind === "research" &&

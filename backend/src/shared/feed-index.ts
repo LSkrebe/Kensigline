@@ -1,5 +1,8 @@
 import { db } from "../core/db.js";
 import {
+  computeInvestigateTickerRollup,
+  type InvestigateRollupFeed,
+  type InvestigateTickerRollup,
   scoreInsiderCluster,
   scoreInstitutionCluster,
   scorePoliticianCluster,
@@ -89,6 +92,89 @@ function buildInvestigateSummary(
     idea_best: idea.idea_best,
     idea_reasons: idea.idea_reasons,
   };
+}
+
+const INVESTIGATE_FEED_KINDS = ["insider", "politicians", "institutions"] as const;
+
+function rollupFeedsFromSummaries(
+  rows: Array<{ feed_kind: string; summary: Record<string, unknown> }>,
+): InvestigateRollupFeed[] {
+  return rows
+    .map((row) => {
+      const summary = row.summary ?? {};
+      const idea_score = Number(summary.idea_score) || 0;
+      if (idea_score <= 0) return null;
+      const event_at = summary.event_at != null ? String(summary.event_at) : null;
+      return {
+        feed_kind: String(row.feed_kind ?? ""),
+        idea_score,
+        idea_reasons: Array.isArray(summary.idea_reasons) ? (summary.idea_reasons as string[]) : [],
+        event_at,
+      };
+    })
+    .filter((row): row is InvestigateRollupFeed => row != null);
+}
+
+export async function computeInvestigateRollupForTicker(tickerNorm: string): Promise<InvestigateTickerRollup> {
+  const rows = await db.query<{ feed_kind: string; summary: Record<string, unknown> }>(
+    `
+    SELECT feed_kind, summary
+    FROM feed_ticker_latest
+    WHERE ticker_norm = $1
+      AND feed_kind = ANY($2::text[])
+    `,
+    [tickerNorm, [...INVESTIGATE_FEED_KINDS]],
+  );
+  return computeInvestigateTickerRollup(rollupFeedsFromSummaries(rows));
+}
+
+export async function persistInvestigateRollupForTicker(tickerNorm: string): Promise<InvestigateTickerRollup> {
+  const rollup = await computeInvestigateRollupForTicker(tickerNorm);
+  await db.query(
+    `
+    UPDATE feed_market_latest
+    SET summary = COALESCE(summary, '{}'::jsonb) || jsonb_build_object('investigate_rollup', $2::jsonb)
+    WHERE ticker_norm = $1
+    `,
+    [tickerNorm, JSON.stringify(rollup)],
+  );
+  return rollup;
+}
+
+export async function loadInvestigateRollupsByTicker(
+  tickers: string[],
+): Promise<Map<string, InvestigateTickerRollup>> {
+  const out = new Map<string, InvestigateTickerRollup>();
+  const norms = [...new Set(tickers.map((t) => normalizeTickerNorm(t)).filter(Boolean))] as string[];
+  if (!norms.length) return out;
+
+  const rows = await db.query<{ ticker_norm: string; feed_kind: string; summary: Record<string, unknown> }>(
+    `
+    SELECT ticker_norm, feed_kind, summary
+    FROM feed_ticker_latest
+    WHERE ticker_norm = ANY($1::text[])
+      AND feed_kind = ANY($2::text[])
+    `,
+    [norms, [...INVESTIGATE_FEED_KINDS]],
+  );
+
+  const byTicker = new Map<string, Array<{ feed_kind: string; summary: Record<string, unknown> }>>();
+  for (const row of rows) {
+    const bucket = byTicker.get(row.ticker_norm) ?? [];
+    bucket.push({ feed_kind: row.feed_kind, summary: row.summary ?? {} });
+    byTicker.set(row.ticker_norm, bucket);
+  }
+  for (const [ticker, feedRows] of byTicker) {
+    out.set(ticker, computeInvestigateTickerRollup(rollupFeedsFromSummaries(feedRows)));
+  }
+  return out;
+}
+
+function withInvestigateRollup(
+  summary: Record<string, unknown>,
+  rollup: InvestigateTickerRollup,
+): Record<string, unknown> {
+  return { ...summary, investigate_rollup: rollup };
 }
 
 function marketEligible(row: DocRow): boolean {
@@ -199,7 +285,15 @@ export async function syncFeedIndexForDocument(documentId: string): Promise<void
     ],
   );
 
+  const isInvestigateFeed = (INVESTIGATE_FEED_KINDS as readonly string[]).includes(feedKind);
+  const investigateRollup = isInvestigateFeed
+    ? await persistInvestigateRollupForTicker(tickerNorm)
+    : await computeInvestigateRollupForTicker(tickerNorm);
+
   if (!marketEligible(row)) return;
+
+  const marketSummary =
+    investigateRollup.idea_score > 0 ? withInvestigateRollup(summary, investigateRollup) : summary;
 
   await db.query(
     `
@@ -232,7 +326,7 @@ export async function syncFeedIndexForDocument(documentId: string): Promise<void
       row.analysis,
       row.program_phase,
       row.show_on_ticker !== false,
-      JSON.stringify(summary),
+      JSON.stringify(marketSummary),
     ],
   );
 }

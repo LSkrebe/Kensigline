@@ -1861,14 +1861,14 @@ const CONTEXT_MOCK_PROFILE_DEFAULT = {
 
 const CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE = {
   forwardRevenueGrowth: 65,
-  revenueGrowth: [31, 44, 55, 72],
-  grossMargin: [42, 44, 46, 48],
-  netMargin: [15, 19, 24, 29],
-  fcfMargin: [10, 14, 18, 24],
-  netIncomeGrowth: [22, 35, 61, 110],
-  fcfGrowth: [18, 29, 53, 95],
-  netCash: [90_000_000, 140_000_000, 240_000_000, 340_000_000],
-  sharesOutstanding: [120_000_000, 115_000_000, 108_000_000, 92_000_000],
+  revenueGrowth: [55, 72],
+  grossMargin: [46, 48],
+  netMargin: [24, 29],
+  fcfMargin: [18, 24],
+  netIncomeGrowth: [61, 110],
+  fcfGrowth: [53, 95],
+  netCash: [240_000_000, 340_000_000],
+  sharesOutstanding: [108_000_000, 92_000_000],
 }
 
 const CONTEXT_OWNERSHIP_MOCK_TEMPLATE = {
@@ -2659,12 +2659,22 @@ function contextMetricsRowCells(data, row, periodCount) {
   return [...Array.from({ length: periodCount - cells.length }, () => '—'), ...cells]
 }
 
-function ContextMetricsTableRow({ row, data, periodLabels, periodCount }) {
+function contextFundamentalsGridPeriodClass(periodCount) {
+  if (periodCount === 2) return 'contextFundamentalsGrid--periods2'
+  if (periodCount === 4) return 'contextFundamentalsGrid--periods4'
+  return ''
+}
+
+function ContextMetricsTableRow({ row, data, periodLabels, periodCount, gridPeriodClass = '' }) {
   const cells = contextMetricsRowCells(data, row, periodCount)
   const latestIndex = periodCount - 1
 
   return (
-    <div className="contextFundamentalsGrid" role="listitem" aria-label={row.label}>
+    <div
+      className={['contextFundamentalsGrid', gridPeriodClass].filter(Boolean).join(' ')}
+      role="listitem"
+      aria-label={row.label}
+    >
       <span className="contextFundamentalsSeqLabel dim">{row.label}</span>
       {cells.map((cell, i) => (
         <span
@@ -2697,12 +2707,17 @@ function ContextMetricsCard({
   emptyLabel = 'No data yet.',
 }) {
   const periodCount = periodLabels.length
+  const gridPeriodClass = contextFundamentalsGridPeriodClass(periodCount)
   const hasData = contextMetricsHasData(data, rows)
 
   return (
     <div className="contextCatalystCard contextFundamentalsCard" aria-label={ariaLabel ?? title}>
       <div className="contextFundamentalsTable" role="list">
-        <div className="contextFundamentalsGrid contextFundamentalsGrid--head mono">
+        <div
+          className={['contextFundamentalsGrid', 'contextFundamentalsGrid--head', 'mono', gridPeriodClass]
+            .filter(Boolean)
+            .join(' ')}
+        >
           <span className="contextFlowChartLabel mono dim">{title}</span>
           {periodLabels.map((label) => (
             <span key={label} className="contextFundamentalsSeqHead">
@@ -2722,6 +2737,7 @@ function ContextMetricsCard({
               data={data}
               periodLabels={periodLabels}
               periodCount={periodCount}
+              gridPeriodClass={gridPeriodClass}
             />
           ))
         )}
@@ -2756,12 +2772,17 @@ function ContextOwnershipCard({ ownership, loading = false }) {
   const periodLabels = useMemo(() => contextOwnershipTrailingQuarterLabels(4), [])
   const latestPeriodLabel = periodLabels[periodLabels.length - 1] ?? '—'
   const periodCount = periodLabels.length
+  const gridPeriodClass = contextFundamentalsGridPeriodClass(periodCount)
 
   return (
     <div className="contextCatalystCard contextFundamentalsCard contextOwnershipCard" aria-label="Ownership">
       <ContextOwnershipChart ownership={ownership} periodLabel={latestPeriodLabel} />
       <div className="contextFundamentalsTable" role="list">
-        <div className="contextFundamentalsGrid contextFundamentalsGrid--head mono">
+        <div
+          className={['contextFundamentalsGrid', 'contextFundamentalsGrid--head', 'mono', gridPeriodClass]
+            .filter(Boolean)
+            .join(' ')}
+        >
           <span className="contextFlowChartLabel mono dim">Ownership</span>
           {periodLabels.map((label) => (
             <span key={label} className="contextFundamentalsSeqHead">
@@ -2779,6 +2800,7 @@ function ContextOwnershipCard({ ownership, loading = false }) {
               data={ownership}
               periodLabels={periodLabels}
               periodCount={periodCount}
+              gridPeriodClass={gridPeriodClass}
             />
           ))
         )}

@@ -62,6 +62,105 @@ export function isIdeaGreenHighlight(result: { idea_best?: boolean | null }): bo
   return Boolean(result.idea_best);
 }
 
+export type InvestigateRollupFeed = {
+  feed_kind: string;
+  idea_score: number;
+  idea_reasons: string[];
+  event_at: string | null;
+};
+
+export type InvestigateTickerRollup = IdeaScoreResult & {
+  feed_kind: string | null;
+  event_at: string | null;
+};
+
+function eventAgeDays(eventAt: string | null | undefined): number | null {
+  const t = new Date(String(eventAt ?? "")).getTime();
+  if (!Number.isFinite(t)) return null;
+  return (Date.now() - t) / 86_400_000;
+}
+
+/** Ticker-level best signal across insider / politician / institution feeds (longer decay than row-level). */
+export function computeInvestigateTickerRollup(feeds: InvestigateRollupFeed[]): InvestigateTickerRollup {
+  const bestThreshold = envThreshold("IDEA_SCORE_BEST", 75);
+  const rollupDecayDays = envThreshold("IDEA_ROLLUP_DECAY_DAYS", 14);
+
+  let winner: InvestigateRollupFeed | null = null;
+  for (const feed of feeds) {
+    const score = Number(feed.idea_score) || 0;
+    if (score <= 0) continue;
+    const ageDays = eventAgeDays(feed.event_at);
+    if (ageDays != null && ageDays > rollupDecayDays) continue;
+    if (!winner) {
+      winner = feed;
+      continue;
+    }
+    const winnerScore = Number(winner.idea_score) || 0;
+    if (score > winnerScore) {
+      winner = feed;
+      continue;
+    }
+    if (score < winnerScore) continue;
+    const winnerAt = new Date(String(winner.event_at ?? "")).getTime();
+    const feedAt = new Date(String(feed.event_at ?? "")).getTime();
+    if (Number.isFinite(feedAt) && (!Number.isFinite(winnerAt) || feedAt > winnerAt)) {
+      winner = feed;
+    }
+  }
+
+  if (!winner) {
+    return {
+      idea_score: 0,
+      idea_best: false,
+      idea_reasons: [],
+      feed_kind: null,
+      event_at: null,
+    };
+  }
+
+  const idea_score = Math.max(0, Math.min(100, Math.round(Number(winner.idea_score) || 0)));
+  const ageDays = eventAgeDays(winner.event_at);
+  const idea_best = idea_score >= bestThreshold && ageDays != null && ageDays <= rollupDecayDays;
+  return {
+    idea_score,
+    idea_best,
+    idea_reasons: Array.isArray(winner.idea_reasons) ? winner.idea_reasons.filter(Boolean).slice(0, 6) : [],
+    feed_kind: String(winner.feed_kind ?? "").trim() || null,
+    event_at: winner.event_at ?? null,
+  };
+}
+
+/** Research feed: doc score for the latest row; rollup carries investigate best across tabs. */
+export function mergeResearchFeedIdea(
+  doc: IdeaScoreResult,
+  rollup: IdeaScoreResult | null | undefined,
+): IdeaScoreResult {
+  if (!rollup || !(Number(rollup.idea_score) > 0)) return doc;
+  const useRollupReasons = Boolean(rollup.idea_best) && Array.isArray(rollup.idea_reasons) && rollup.idea_reasons.length > 0;
+  return {
+    idea_score: Math.max(Number(doc.idea_score) || 0, Number(rollup.idea_score) || 0),
+    idea_best: Boolean(doc.idea_best || rollup.idea_best),
+    idea_reasons: useRollupReasons ? rollup.idea_reasons : doc.idea_reasons,
+  };
+}
+
+export function investigateRollupFromSummary(
+  raw: Record<string, unknown> | null | undefined,
+): InvestigateTickerRollup | null {
+  const rollup = raw?.investigate_rollup;
+  if (!rollup || typeof rollup !== "object") return null;
+  const r = rollup as Record<string, unknown>;
+  const idea_score = Number(r.idea_score) || 0;
+  if (idea_score <= 0) return null;
+  return {
+    idea_score,
+    idea_best: Boolean(r.idea_best),
+    idea_reasons: Array.isArray(r.idea_reasons) ? (r.idea_reasons as string[]) : [],
+    feed_kind: r.feed_kind != null ? String(r.feed_kind) : null,
+    event_at: r.event_at != null ? String(r.event_at) : null,
+  };
+}
+
 export function scoreInsiderCluster(args: {
   data: any;
   eventAt?: string | null;

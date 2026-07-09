@@ -2699,9 +2699,12 @@
   padding: 0 8px 8px;
 }
 
-.terminal--main .mainContextPanel .contextFundamentalsGrid {
-  grid-template-columns: minmax(0, 1.1fr) repeat(4, minmax(0, 1fr));
-  column-gap: 4px;
+.terminal--main .mainContextPanel .contextFundamentalsGrid--periods2 {
+  column-gap: 6px;
+}
+
+.terminal--main .mainContextPanel .contextFundamentalsGrid--periods4 {
+  column-gap: 6px;
 }
 
 .terminal--main .mainContextPanel .contextFundamentalsGrid--head {
@@ -3254,6 +3257,7 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  width: 100%;
   padding-top: 0;
 }
 
@@ -3261,12 +3265,20 @@
   --context-fundamentals-label-size: 7.5px;
   --context-fundamentals-label-lh: 1.25;
   display: grid;
-  grid-template-columns: minmax(0, 5.5em) repeat(4, minmax(0, 1fr));
   column-gap: 6px;
   row-gap: 0;
   align-items: center;
   padding: 4px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Match tracked-investors: label flexes left, value columns pack to the right edge */
+.contextFundamentalsGrid--periods2 {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.7fr) minmax(0, 0.55fr);
+}
+
+.contextFundamentalsGrid--periods4 {
+  grid-template-columns: minmax(0, 1.4fr) repeat(4, minmax(0, 0.55fr));
 }
 
 .contextFundamentalsGrid:last-child {
@@ -10491,12 +10503,20 @@ body {
 
 /* Context panel — compact tables when the column is physically narrow (desktop resize) */
 @container context-panel (max-width: 420px) {
-  .terminal--main .mainContextPanel .contextFundamentalsGrid {
+  .terminal--main .mainContextPanel .contextFundamentalsCard:not(.contextOwnershipCard) .contextFundamentalsGrid--periods2 {
+    grid-template-columns: minmax(0, 1fr) minmax(3.25em, max-content);
+  }
+
+  .terminal--main .mainContextPanel .contextFundamentalsCard:not(.contextOwnershipCard) .contextFundamentalsGrid--periods2 > :nth-child(2) {
+    display: none;
+  }
+
+  .terminal--main .mainContextPanel .contextOwnershipCard .contextFundamentalsGrid--periods4 {
     grid-template-columns: minmax(0, 1fr) repeat(2, minmax(0, 1fr));
   }
 
-  .terminal--main .mainContextPanel .contextFundamentalsGrid > :nth-child(2),
-  .terminal--main .mainContextPanel .contextFundamentalsGrid > :nth-child(3) {
+  .terminal--main .mainContextPanel .contextOwnershipCard .contextFundamentalsGrid--periods4 > :nth-child(2),
+  .terminal--main .mainContextPanel .contextOwnershipCard .contextFundamentalsGrid--periods4 > :nth-child(3) {
     display: none;
   }
 

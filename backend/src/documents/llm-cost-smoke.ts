@@ -14,7 +14,11 @@ import {
 } from "../investigate/insider/narrative.js";
 import { computeResearchNearDupKey, textShingleSimilarity } from "../core/research-fingerprint.js";
 import { buildGovContractExtractFromFacts, parseGovContractFacts } from "../research/market/gov-contract-parse.js";
-import { scoreResearchDocument } from "../core/idea-score.js";
+import {
+  scoreResearchDocument,
+  computeInvestigateTickerRollup,
+  mergeResearchFeedIdea,
+} from "../core/idea-score.js";
 
 test("stripBoilerplate removes safe harbor but keeps revenue guidance", () => {
   const raw = `
@@ -235,6 +239,37 @@ test("idea_score remains deterministic for insider purchases", () => {
   });
   assert.deepEqual(a, b);
   assert.ok(typeof a.idea_score === "number");
+});
+
+test("investigate ticker rollup picks strongest recent feed", () => {
+  const recent = new Date().toISOString();
+  const rollup = computeInvestigateTickerRollup([
+    {
+      feed_kind: "insider",
+      idea_score: 82,
+      idea_reasons: ["CEO open-market purchase"],
+      event_at: recent,
+    },
+    {
+      feed_kind: "politicians",
+      idea_score: 68,
+      idea_reasons: ["Politician purchase"],
+      event_at: recent,
+    },
+  ]);
+  assert.equal(rollup.idea_score, 82);
+  assert.equal(rollup.idea_best, true);
+  assert.equal(rollup.feed_kind, "insider");
+});
+
+test("mergeResearchFeedIdea carries investigate best over weak latest doc", () => {
+  const merged = mergeResearchFeedIdea(
+    { idea_score: 24, idea_best: false, idea_reasons: ["Material 8-K filing"] },
+    { idea_score: 86, idea_best: true, idea_reasons: ["Purchase notional above $1M"] },
+  );
+  assert.equal(merged.idea_best, true);
+  assert.equal(merged.idea_score, 86);
+  assert.match(merged.idea_reasons[0] ?? "", /purchase/i);
 });
 
 test("paragraphHasMaterialSignal detects clinical facts", () => {

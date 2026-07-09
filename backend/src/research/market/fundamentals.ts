@@ -51,7 +51,7 @@ function marginPct(numerator: number | null, revenue: number | null): number | n
   return Math.round((numerator / revenue) * 1000) / 10;
 }
 
-function fundamentalsSeriesFromQuarterlyFacts(companyFacts: unknown, periods = 4): MarketFundamentals | null {
+function fundamentalsSeriesFromQuarterlyFacts(companyFacts: unknown, periods = CONTEXT_FUNDAMENTAL_QUARTERS): MarketFundamentals | null {
   const quarters = quarterlyPnlFromCompanyFacts(companyFacts, { quarters: periods });
   if (quarters.length < 2) return null;
 
