@@ -46,12 +46,17 @@ function pushAgg(
   map.set(key, prev);
 }
 
-/** Net signed USD exposure per tracked entity for a ticker (all history in DB). */
-export async function getTrackedInvestorsForTicker(ticker: string): Promise<TrackedInvestorRow[]> {
+/** Net signed USD per tracked entity for a ticker (grouped by investor, newest activity first). */
+export async function getTrackedInvestorsForTicker(
+  ticker: string,
+  limit = 24,
+): Promise<TrackedInvestorRow[]> {
   const t = String(ticker ?? "")
     .trim()
     .toUpperCase();
   if (!t) return [];
+
+  const cap = Math.max(1, Math.min(60, limit));
 
   const [insiders, politicians, institutions] = await Promise.all([
     db.query<{
@@ -63,7 +68,7 @@ export async function getTrackedInvestorsForTicker(ticker: string): Promise<Trac
       `
       SELECT insider_name, transaction_code, amount_usd::text, transaction_at::text
       FROM insider_transactions
-      WHERE ticker = $1
+      WHERE upper(trim(ticker)) = $1
       ORDER BY transaction_at DESC
       `,
       [t],
@@ -77,7 +82,7 @@ export async function getTrackedInvestorsForTicker(ticker: string): Promise<Trac
       `
       SELECT politician_name, transaction_type, amount_usd_mid::text, transaction_at::text
       FROM politician_transactions
-      WHERE ticker = $1
+      WHERE upper(trim(ticker)) = $1
       ORDER BY transaction_at DESC
       `,
       [t],
@@ -91,7 +96,7 @@ export async function getTrackedInvestorsForTicker(ticker: string): Promise<Trac
       `
       SELECT filer, activity, amount_usd::text, filed_at::text
       FROM institution_filings_13f
-      WHERE ticker = $1
+      WHERE upper(trim(ticker)) = $1
       ORDER BY filed_at DESC
       `,
       [t],
@@ -133,6 +138,7 @@ export async function getTrackedInvestorsForTicker(ticker: string): Promise<Trac
   return [...map.values()]
     .filter((x) => x.netUsd !== 0)
     .sort((a, b) => b.latestAt.localeCompare(a.latestAt) || Math.abs(b.netUsd) - Math.abs(a.netUsd))
+    .slice(0, cap)
     .map((x) => ({
       id: `${x.type}|${slugKey(x.name)}`,
       name: x.name,

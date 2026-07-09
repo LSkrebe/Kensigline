@@ -510,6 +510,14 @@
   color: var(--bad);
 }
 
+.tabPanelWrap {
+  display: contents;
+}
+
+.tabPanelWrap.tabPanel--hidden {
+  display: none !important;
+}
+
 .terminal {
   /* Shared feed rail — investigate col 1 and research col 1 must stay pixel-identical on tab switch */
   --terminal-feed-track: minmax(0, 1fr);

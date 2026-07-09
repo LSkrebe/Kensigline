@@ -2,13 +2,11 @@ import { db } from "./db.js";
 import { getCompanyPanelData } from "./company.js";
 import { loadTickerSecBundle } from "./sec.js";
 import { getMarketFundamentalsForTicker, type MarketFundamentals } from "../research/market/fundamentals.js";
-import { getMarketOwnershipForTicker, type MarketOwnership } from "../research/market/ownership.js";
 
 type CacheRow = {
   ticker: string;
   company_json: Record<string, unknown>;
   fundamentals_json: MarketFundamentals | null;
-  ownership_json: MarketOwnership | null;
   documents_watermark: string | null;
   computed_at: string;
 };
@@ -26,7 +24,6 @@ async function ensureCacheTable(): Promise<void> {
       ticker text PRIMARY KEY,
       company_json jsonb NOT NULL DEFAULT '{}'::jsonb,
       fundamentals_json jsonb,
-      ownership_json jsonb,
       documents_watermark timestamptz,
       computed_at timestamptz NOT NULL DEFAULT now()
     )
@@ -55,7 +52,6 @@ async function readCacheRow(ticker: string): Promise<CacheRow | null> {
       ticker,
       company_json,
       fundamentals_json,
-      ownership_json,
       documents_watermark::text,
       computed_at::text
     FROM ticker_context_cache
@@ -77,20 +73,18 @@ async function upsertCacheRow(args: {
   ticker: string;
   company: Record<string, unknown>;
   fundamentals: MarketFundamentals | null;
-  ownership: MarketOwnership | null;
   watermark: string | null;
 }): Promise<void> {
   await ensureCacheTable();
   await db.query(
     `
     INSERT INTO ticker_context_cache (
-      ticker, company_json, fundamentals_json, ownership_json, documents_watermark, computed_at
+      ticker, company_json, fundamentals_json, documents_watermark, computed_at
     )
-    VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::timestamptz, now())
+    VALUES ($1, $2::jsonb, $3::jsonb, $4::timestamptz, now())
     ON CONFLICT (ticker) DO UPDATE SET
       company_json = EXCLUDED.company_json,
       fundamentals_json = EXCLUDED.fundamentals_json,
-      ownership_json = EXCLUDED.ownership_json,
       documents_watermark = EXCLUDED.documents_watermark,
       computed_at = now()
     `,
@@ -98,7 +92,6 @@ async function upsertCacheRow(args: {
       args.ticker,
       JSON.stringify(args.company),
       args.fundamentals ? JSON.stringify(args.fundamentals) : null,
-      args.ownership ? JSON.stringify(args.ownership) : null,
       args.watermark,
     ],
   );
@@ -111,17 +104,15 @@ export async function computeTickerContextCache(tickerInput: string): Promise<vo
   const secBundle = await loadTickerSecBundle(ticker);
   const watermark = await getDocumentsWatermarkForTicker(ticker);
 
-  const [company, fundamentals, ownership] = await Promise.all([
+  const [company, fundamentals] = await Promise.all([
     getCompanyPanelData({ ticker, secBundle }),
     getMarketFundamentalsForTicker({ ticker, secBundle }).catch(() => null),
-    getMarketOwnershipForTicker({ ticker, secBundle }).catch(() => null),
   ]);
 
   await upsertCacheRow({
     ticker,
     company,
     fundamentals,
-    ownership,
     watermark,
   });
 }
@@ -156,17 +147,15 @@ export async function getCompanyFullCached(opts: { ticker: string }): Promise<Re
     return {
       ...row.company_json,
       fundamentals: row.fundamentals_json ?? null,
-      ownership: row.ownership_json ?? null,
     };
   }
 
   const secBundle = await loadTickerSecBundle(ticker);
-  const [company, fundamentals, ownership] = await Promise.all([
+  const [company, fundamentals] = await Promise.all([
     getCompanyPanelData({ ticker, secBundle }),
     getMarketFundamentalsForTicker({ ticker, secBundle }).catch(() => null),
-    getMarketOwnershipForTicker({ ticker, secBundle }).catch(() => null),
   ]);
-  return { ...company, fundamentals, ownership };
+  return { ...company, fundamentals };
 }
 
 export async function invalidateTickerContextCache(tickerInput: string): Promise<void> {

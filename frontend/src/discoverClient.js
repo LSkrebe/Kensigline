@@ -1,6 +1,6 @@
 import { fetchJsonSafe } from './api.js'
 
-const CACHE_MS = 60_000
+const CACHE_MS = 10 * 60_000
 
 /** @type {{ at: number; key: string; data: unknown } | null} */
 let cached = null

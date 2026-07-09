@@ -178,6 +178,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
         secTitles.get(r.ticker) ?? null,
         data?.issuer?.name,
       );
+      const ws = (r.data as { cluster?: { worksheet_rows?: unknown[] } })?.cluster?.worksheet_rows;
       const idea = ideaFromSummary(s);
       return {
         id: `company:${r.ticker}`,
@@ -188,6 +189,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
         company_id: r.company_id,
         today_count: todayCount,
         insiders: Array.isArray(s.insiders) ? s.insiders : [],
+        worksheet_rows: Array.isArray(ws) ? ws : [],
         idea_score: idea.idea_score,
         idea_best: idea.idea_best,
         idea_reasons: idea.idea_reasons,
@@ -317,6 +319,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
         todayCount: c.todayCount,
         totalUsd: c.totalUsd,
       });
+      const ws = (c.latestDoc.data as { cluster?: { worksheet_rows?: unknown[] } })?.cluster?.worksheet_rows;
       return {
         id: `company:${c.ticker}`,
         feed_at: c.latestFeedAt,
@@ -326,6 +329,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
         company_id: c.company_id,
         today_count: todayCount,
         insiders: Array.from(c.insiders).slice(0, 20),
+        worksheet_rows: Array.isArray(ws) ? ws : [],
         idea_score: idea.idea_score,
         idea_best: idea.idea_best,
         idea_reasons: idea.idea_reasons,
@@ -406,6 +410,7 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
         company_name: companyName,
         today_count: todayCount,
         [peopleKey]: Array.from(people).slice(0, 20),
+        worksheet_rows: Array.isArray(ws) ? ws : [],
         idea_score: idea.idea_score,
         idea_best: idea.idea_best,
         idea_reasons: idea.idea_reasons,

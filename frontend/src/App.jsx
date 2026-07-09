@@ -78,6 +78,10 @@ function phonePaneHiddenClass(isPhone, activePane, paneId) {
   return activePane === paneId ? '' : 'phonePane--hidden'
 }
 
+function tabPanelHiddenClass(activeTab, tabId) {
+  return ['tabPanelWrap', activeTab === tabId ? '' : 'tabPanel--hidden'].filter(Boolean).join(' ')
+}
+
 function PhoneSubNav({ items, value, onChange, ariaLabel, className = '' }) {
   return (
     <nav className={['phoneSubNav', className].filter(Boolean).join(' ')} aria-label={ariaLabel}>
@@ -2341,8 +2345,11 @@ function mapTrackedInvestorsFromApi(rows) {
 /** All tracked flows we have for this ticker (insider, politician, 13F). */
 function buildContextTrackedInvestors({ insiders = [], politicians = [], filings13f = [], days = null, apiRows = null }) {
   const fromApi = mapTrackedInvestorsFromApi(apiRows)
-  if (fromApi) {
+  if (fromApi?.length) {
     return fromApi.sort((a, b) => (b.dateAt ?? 0) - (a.dateAt ?? 0))
+  }
+  if (Array.isArray(apiRows)) {
+    return []
   }
   const insiderRows = aggregateContextInsiders(insiders, days).map((x) => ({
     id: `insider|${x.id}`,
@@ -2503,7 +2510,9 @@ function ContextSection({ title, ariaLabel, children }) {
   )
 }
 
-const CONTEXT_FUNDAMENTAL_PERIOD_LABELS = ['FY24', 'FY25', 'FY26', 'FY27']
+const CONTEXT_FUNDAMENTAL_PERIOD_COUNT = 2
+
+const CONTEXT_FUNDAMENTAL_PERIOD_LABELS = () => analyseTrailingQuarterLabels(CONTEXT_FUNDAMENTAL_PERIOD_COUNT)
 
 const CONTEXT_FUNDAMENTAL_ROWS = [
   { key: 'forwardRevenueGrowth', label: 'Forward rev growth', kind: 'single', format: 'pct', signed: false },
@@ -2726,10 +2735,10 @@ function ContextMetricsCard({
 
 function ContextFundamentalsCard({ fundamentals, loading = false }) {
   const periodLabels = useMemo(() => {
-    if (Array.isArray(fundamentals?.periodLabels) && fundamentals.periodLabels.length >= 4) {
-      return fundamentals.periodLabels.slice(-4)
+    if (Array.isArray(fundamentals?.periodLabels) && fundamentals.periodLabels.length) {
+      return fundamentals.periodLabels.slice(-CONTEXT_FUNDAMENTAL_PERIOD_COUNT)
     }
-    return CONTEXT_FUNDAMENTAL_PERIOD_LABELS
+    return CONTEXT_FUNDAMENTAL_PERIOD_LABELS()
   }, [fundamentals?.periodLabels])
 
   return (
@@ -4503,7 +4512,6 @@ function MainContextPanel({
   filings13f = [],
   trackedInvestorsApi = null,
   fundamentals = null,
-  ownership = null,
   backendUp = false,
   panelClassName = '',
   companyContextLoading = false,
@@ -4522,7 +4530,6 @@ function MainContextPanel({
     [insiders, politicians, filings13f, trackedInvestorsApi],
   )
   const trackedInvestorsLoading = backendUp && exploreContextLoading && !trackedInvestors.length
-  const ownershipLoading = backendUp && companyContextLoading && !ownership
   const fundamentalsLoading = backendUp && companyContextLoading && !fundamentals
 
   return (
@@ -4569,9 +4576,6 @@ function MainContextPanel({
           <>
             <ContextSection ariaLabel="Fundamentals">
               <ContextFundamentalsCard fundamentals={fundamentals} loading={fundamentalsLoading} />
-            </ContextSection>
-            <ContextSection ariaLabel="Ownership">
-              <ContextOwnershipCard ownership={ownership} loading={ownershipLoading} />
             </ContextSection>
             <ContextSection ariaLabel="Tracked investors">
               <ContextTrackedInvestorsCard rows={trackedInvestors} loading={trackedInvestorsLoading} />
@@ -6785,10 +6789,10 @@ function ResearchPaperStructuredView({
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const timelineRows = useMemo(() => {
-    const raw = buildPaperTimelineItems({ documents, insiders, politicians, filings13f })
+    const raw = buildPaperTimelineItems({ documents, insiders: [], politicians: [], filings13f: [] })
     if (!paperSourceFilters) return raw
     return filterPaperTimelineBySources(raw, paperSourceFilters)
-  }, [documents, insiders, politicians, filings13f, paperSourceFilters])
+  }, [documents, paperSourceFilters])
   const displayRows = useMemo(() => buildPaperDisplayRows(timelineRows), [timelineRows])
   const selectedSet = screenshotSelected ?? new Set()
   return (
@@ -6809,7 +6813,7 @@ function ResearchPaperStructuredView({
           ]
             .filter(Boolean)
             .join(' ')}
-          aria-label="Filings and transactions"
+          aria-label="Filings"
         >
           {displayRows.map((entry, idx) => {
             if (entry.type === 'sep') {
@@ -6934,9 +6938,9 @@ function ResearchPaperPanel({
   const paperCaptureIds = useMemo(() => {
     const timeline = buildPaperTimelineItems({
       documents: paperDocuments,
-      insiders: flowInsiders,
-      politicians: flowPoliticians,
-      filings13f: flowFilings13f,
+      insiders: [],
+      politicians: [],
+      filings13f: [],
     })
     const filtered = paperSourceFilters
       ? filterPaperTimelineBySources(timeline, paperSourceFilters)
@@ -6944,18 +6948,15 @@ function ResearchPaperPanel({
     return filtered.map((item) => item.id)
   }, [
     paperDocuments,
-    flowInsiders,
-    flowPoliticians,
-    flowFilings13f,
     paperSourceFilters,
   ])
 
   const paperCapturePortraitById = useMemo(() => {
     const timeline = buildPaperTimelineItems({
       documents: paperDocuments,
-      insiders: flowInsiders,
-      politicians: flowPoliticians,
-      filings13f: flowFilings13f,
+      insiders: [],
+      politicians: [],
+      filings13f: [],
     })
     const filtered = paperSourceFilters
       ? filterPaperTimelineBySources(timeline, paperSourceFilters)
@@ -6971,9 +6972,6 @@ function ResearchPaperPanel({
     return map
   }, [
     paperDocuments,
-    insiders,
-    politicians,
-    filings13f,
     paperSourceFilters,
   ])
 
@@ -9066,6 +9064,93 @@ function cycleViewTab(current, settingsReturnTab = 'main') {
   return VIEW_TAB_CYCLE[(idx + 1) % VIEW_TAB_CYCLE.length]
 }
 
+function investigateCaseSheetFromApiItem(it, mode) {
+  const fallback = {
+    id: it.id,
+    ticker: it.ticker,
+    company: it.company_name ?? it.company,
+    at: it.feed_at ?? it.at,
+    chamber: it.chamber,
+  }
+  const ws = Array.isArray(it.worksheet_rows) ? it.worksheet_rows : []
+  if (ws.length) {
+    const pseudo = {
+      cluster: { worksheet_rows: ws },
+      issuer: { ticker: it.ticker, name: it.company_name ?? it.company },
+      filing: {
+        filed_at: it.feed_at ?? it.at,
+        form_type: mode === 'insider' ? 'Form 4' : mode === 'politicians' ? 'PTR' : '13F',
+        accession_no: it.id,
+      },
+    }
+    if (mode === 'politicians') return politiciansCaseSheetFromClusterLive(pseudo, fallback)
+    if (mode === 'institutions') return institutionCaseSheetFromClusterLive(pseudo, fallback)
+    return insiderCaseSheetFromClusterLive(pseudo, fallback)
+  }
+  const at = String(it.feed_at ?? it.at ?? '')
+  if (mode === 'politicians') {
+    const names = Array.isArray(it.politicians) ? it.politicians : []
+    if (!names.length) return null
+    return {
+      filingId: it.id,
+      formType: 'PTR',
+      issuer: fallback.company ?? fallback.ticker ?? '—',
+      ticker: it.ticker,
+      isForm4: true,
+      filedAt: at || null,
+      rows: names.map((name) => ({
+        key: String(name),
+        politician_name: String(name),
+        surname: lastName(String(name)),
+        chamber: String(it.chamber ?? 'house').trim().toLowerCase() || 'house',
+        transactionType: 'Purchase',
+        amountUsd: 1,
+        acquiredDisposed: 'A',
+        ts: at || null,
+      })),
+    }
+  }
+  if (mode === 'institutions') {
+    const names = Array.isArray(it.institutions) ? it.institutions : []
+    if (!names.length) return null
+    return {
+      filingId: it.id,
+      formType: '13F',
+      issuer: fallback.company ?? fallback.ticker ?? '—',
+      ticker: it.ticker,
+      isForm4: true,
+      filedAt: at || null,
+      rows: names.map((name) => ({
+        key: String(name),
+        institution_name: String(name),
+        surname: String(name),
+        activity: 'Increased stake',
+        amountUsd: 1,
+        ts: at || null,
+      })),
+    }
+  }
+  const insiders = Array.isArray(it.insiders) ? it.insiders : []
+  if (!insiders.length) return null
+  return {
+    filingId: it.id,
+    formType: 'Form 4',
+    issuer: fallback.company ?? fallback.ticker ?? '—',
+    ticker: it.ticker,
+    isForm4: true,
+    filedAt: at || null,
+    rows: insiders.map((name) => ({
+      key: String(name),
+      insider_name: String(name),
+      surname: lastName(String(name)),
+      transactionCode: 'P',
+      acquiredDisposed: 'A',
+      amountUsd: 1,
+      ts: at || null,
+    })),
+  }
+}
+
 function mapInsiderCompanyFeedItem(it) {
   const ticker = String(it.ticker ?? '').trim().toUpperCase()
   const at = String(it.feed_at ?? '')
@@ -9087,6 +9172,7 @@ function mapInsiderCompanyFeedItem(it) {
     at,
     insiders,
     daily: [],
+    caseSheet: investigateCaseSheetFromApiItem(it, 'insider'),
     idea_score: it.idea_score,
     idea_best: it.idea_best,
     idea_reasons: it.idea_reasons,
@@ -9116,6 +9202,7 @@ function mapPoliticianFeedItem(it) {
     politicians,
     chamber: String(it.chamber ?? 'house').trim().toLowerCase() || 'house',
     daily: [],
+    caseSheet: investigateCaseSheetFromApiItem(it, 'politicians'),
     idea_score: it.idea_score,
     idea_best: it.idea_best,
     idea_reasons: it.idea_reasons,
@@ -9144,6 +9231,7 @@ function mapInstitutionFeedItem(it) {
     at,
     institutions,
     daily: [],
+    caseSheet: investigateCaseSheetFromApiItem(it, 'institutions'),
     idea_score: it.idea_score,
     idea_best: it.idea_best,
     idea_reasons: it.idea_reasons,
@@ -9256,6 +9344,7 @@ function KensiglineTerminal() {
   const barsCacheRef = useRef(new Map())
   const researchCompanyCacheRef = useRef(new Map())
   const researchExploreCacheRef = useRef(new Map())
+  const analyseCacheRef = useRef(new Map())
   const analyseFetchGenRef = useRef(0)
   const barsFetchGenRef = useRef(0)
   const researchBarsFetchGenRef = useRef(0)
@@ -9429,15 +9518,6 @@ function KensiglineTerminal() {
     return { delta, pct: (delta / Math.abs(prev)) * 100 }
   }, [researchPriceSeries])
 
-  const contextOwnership = useMemo(() => {
-    if (backendUp) {
-      return researchCompanyResolved?.ownership
-        ? mapOwnershipFromApi(researchCompanyResolved.ownership)
-        : null
-    }
-    return contextMock?.ownership ?? null
-  }, [backendUp, researchCompanyResolved?.ownership, contextMock?.ownership])
-
   const contextEarnings = useMemo(() => {
     if (backendUp) {
       return researchCompanyResolved?.earnings_date
@@ -9596,10 +9676,7 @@ function KensiglineTerminal() {
     contextFlowRows,
   ])
 
-  const researchFeedLoading =
-    backendUp &&
-    (activeTab === 'main' || activeTab === 'analyse') &&
-    researchFeedLive === null
+  const researchFeedLoading = backendUp && researchFeedLive === null
   const researchFeedEmptyLabel = useMemo(() => {
     if (String(researchQuery ?? '').trim()) return 'No matching companies.'
     const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters)
@@ -9610,7 +9687,6 @@ function KensiglineTerminal() {
 
   const investigateFeedLoading =
     backendUp &&
-    activeTab === 'investigate' &&
     (investigateMode === 'insider'
       ? insiderFeedLive === null
       : investigateMode === 'politicians'
@@ -9778,7 +9854,7 @@ function KensiglineTerminal() {
   }, [backendUp])
 
   useEffect(() => {
-    if (!backendUp || (activeTab !== 'main' && activeTab !== 'analyse')) return
+    if (!backendUp) return
     let cancelled = false
     const cacheKey = 'research:market'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -9826,7 +9902,7 @@ function KensiglineTerminal() {
       cancelled = true
       clearInterval(t)
     }
-  }, [backendUp, activeTab, researchFeedRefresh])
+  }, [backendUp, researchFeedRefresh])
 
   const loadMoreResearchFeed = useCallback(async () => {
     if (!backendUp || researchFeedLoadingMore || !researchFeedHasMore) return
@@ -9852,7 +9928,7 @@ function KensiglineTerminal() {
   }, [backendUp])
 
   useEffect(() => {
-    if (!backendUp || (activeTab !== 'main' && activeTab !== 'analyse')) return
+    if (!backendUp) return
     const tick = researchTick
     if (!tick) return
     let alive = true
@@ -9890,10 +9966,10 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, activeTab, researchTick])
+  }, [backendUp, researchTick])
 
   useEffect(() => {
-    if (!backendUp || (activeTab !== 'main' && activeTab !== 'analyse')) return
+    if (!backendUp) return
     const tick = researchTick
     if (!tick) return
     let alive = true
@@ -9929,12 +10005,11 @@ function KensiglineTerminal() {
       }
 
       if (snap.ok && snap.data) applyCompany(snap.data)
-      if (!cachedCompany) setResearchCompanyContextLoading(false)
 
-      if (activeTab !== 'main') return
       const full = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 20_000 })
       if (!alive || researchCompanyFetchGenRef.current !== gen) return
       if (full.ok && full.data) applyCompany(full.data)
+      setResearchCompanyContextLoading(false)
     }
     run().catch(() => {
       if (alive && researchCompanyFetchGenRef.current === gen) setResearchCompanyContextLoading(false)
@@ -9942,29 +10017,36 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, activeTab, researchTick])
+  }, [backendUp, researchTick])
 
   useEffect(() => {
-    if (!backendUp || activeTab !== 'analyse' || !researchTicker) {
-      setAnalyseLivePayload(null)
+    if (!backendUp || !researchTicker) {
       setAnalyseModelLoading(false)
       return
     }
     let alive = true
     const gen = ++analyseFetchGenRef.current
-    setAnalyseModelLoading(true)
-    void fetchAnalyseModel(researchTicker).then((data) => {
+    const tick = researchTicker
+    const cached = analyseCacheRef.current.get(tick)
+    if (cached) {
+      setAnalyseLivePayload(cached)
+      setAnalyseModelLoading(false)
+    } else {
+      setAnalyseModelLoading(true)
+    }
+    void fetchAnalyseModel(tick).then((data) => {
       if (!alive || analyseFetchGenRef.current !== gen) return
+      if (data) analyseCacheRef.current.set(tick, data)
       setAnalyseLivePayload(data)
       setAnalyseModelLoading(false)
     })
     return () => {
       alive = false
     }
-  }, [backendUp, activeTab, researchTicker])
+  }, [backendUp, researchTicker])
 
   useEffect(() => {
-    if (!backendUp || activeTab !== 'main') return
+    if (!backendUp) return
     const tick = researchTick
     if (!tick) return
     let alive = true
@@ -10030,11 +10112,10 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, activeTab, researchTick])
+  }, [backendUp, researchTick])
 
   useEffect(() => {
-    const investigateActive = backendUp && activeTab === 'investigate'
-    if (!investigateActive || investigateMode !== 'insider') return
+    if (!backendUp) return
     let alive = true
     const cacheKey = 'investigate:insider:company:30'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10074,7 +10155,7 @@ function KensiglineTerminal() {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp, activeTab, investigateMode])
+  }, [backendUp])
 
   const loadMoreInsiderFeed = useCallback(async () => {
     if (!backendUp || insiderFeedLoadingMore || !insiderFeedHasMore) return
@@ -10094,8 +10175,7 @@ function KensiglineTerminal() {
   }, [backendUp, insiderFeedHasMore, insiderFeedLoadingMore])
 
   useEffect(() => {
-    const investigateActive = backendUp && activeTab === 'investigate'
-    if (!investigateActive || investigateMode !== 'institutions') return
+    if (!backendUp) return
     let alive = true
     const cacheKey = 'investigate:institutions:60'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10135,7 +10215,7 @@ function KensiglineTerminal() {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp, activeTab, investigateMode])
+  }, [backendUp])
 
   const loadMoreInstitutionsFeed = useCallback(async () => {
     if (!backendUp || institutionsFeedLoadingMore || !institutionsFeedHasMore) return
@@ -10155,8 +10235,7 @@ function KensiglineTerminal() {
   }, [backendUp, institutionsFeedHasMore, institutionsFeedLoadingMore])
 
   useEffect(() => {
-    const investigateActive = backendUp && activeTab === 'investigate'
-    if (!investigateActive || investigateMode !== 'politicians') return
+    if (!backendUp) return
     let alive = true
     const cacheKey = 'investigate:politicians:30'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10196,7 +10275,7 @@ function KensiglineTerminal() {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp, activeTab, investigateMode])
+  }, [backendUp])
 
   const loadMorePoliticiansFeed = useCallback(async () => {
     if (!backendUp || politiciansFeedLoadingMore || !politiciansFeedHasMore) return
@@ -10593,7 +10672,7 @@ function KensiglineTerminal() {
   // Insider cluster: case worksheet + context
   useEffect(() => {
     let alive = true
-    if (!backendUp || activeTab !== 'investigate') {
+    if (!backendUp) {
       setInsiderClusterLive(null)
       return () => {
         alive = false
@@ -10601,7 +10680,6 @@ function KensiglineTerminal() {
     }
     const clusterMode = investigateMode
     if (clusterMode !== 'insider') {
-      setInsiderClusterLive(null)
       return () => {
         alive = false
       }
@@ -10633,7 +10711,6 @@ function KensiglineTerminal() {
     }
   }, [
     backendUp,
-    activeTab,
     investigateMode,
     investigateChartClusterMode,
     investigateChartTicker,
@@ -10644,7 +10721,7 @@ function KensiglineTerminal() {
   // Politicians cluster: case worksheet + context
   useEffect(() => {
     let alive = true
-    if (!backendUp || activeTab !== 'investigate') {
+    if (!backendUp) {
       setPoliticiansClusterLive(null)
       return () => {
         alive = false
@@ -10652,7 +10729,6 @@ function KensiglineTerminal() {
     }
     const clusterMode = investigateMode
     if (clusterMode !== 'politicians') {
-      setPoliticiansClusterLive(null)
       return () => {
         alive = false
       }
@@ -10680,11 +10756,11 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, activeTab, investigateMode, investigateChartClusterMode, investigateChartTicker])
+  }, [backendUp, investigateMode, investigateChartClusterMode, investigateChartTicker])
 
   useEffect(() => {
     let alive = true
-    if (!backendUp || activeTab !== 'investigate') {
+    if (!backendUp) {
       setInstitutionsClusterLive(null)
       return () => {
         alive = false
@@ -10692,7 +10768,6 @@ function KensiglineTerminal() {
     }
     const clusterMode = investigateMode
     if (clusterMode !== 'institutions') {
-      setInstitutionsClusterLive(null)
       return () => {
         alive = false
       }
@@ -10722,7 +10797,7 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, activeTab, investigateMode, investigateChartClusterMode, investigateChartTicker])
+  }, [backendUp, investigateMode, investigateChartClusterMode, investigateChartTicker])
 
   const selectedTicker = useMemo(() => investigateChartTicker, [investigateChartTicker])
 
@@ -10754,7 +10829,7 @@ function KensiglineTerminal() {
     const ticker = selectedTicker ? String(selectedTicker).toUpperCase() : null
     const gen = ++barsFetchGenRef.current
 
-    if (!backendUp || activeTab !== 'investigate' || !ticker) {
+    if (!backendUp || !ticker) {
       setBarsLive(null)
       setBarsLiveTicker(null)
       return () => {
@@ -10798,7 +10873,7 @@ function KensiglineTerminal() {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp, activeTab, selectedTicker])
+  }, [backendUp, selectedTicker])
 
   const companyForInvestigatePanel = useMemo(() => {
     if (!selectedTicker) return null
@@ -10832,7 +10907,7 @@ function KensiglineTerminal() {
     const ticker = selectedTicker ? String(selectedTicker).toUpperCase() : null
     const gen = ++companyFetchGenRef.current
 
-    if (!backendUp || activeTab !== 'investigate' || !ticker) {
+    if (!backendUp || !ticker) {
       setCompanyLive(null)
       setCompanyLiveTicker(null)
       return () => {
@@ -10860,7 +10935,7 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, activeTab, selectedTicker])
+  }, [backendUp, selectedTicker])
 
   const daily = useMemo(() => {
     if (backendUp) {
@@ -11095,69 +11170,67 @@ function KensiglineTerminal() {
         aria-label="MERCERLINE terminal grid"
       >
       {activeTab === 'settings' ? <SettingsPanel /> : null}
-      {activeTab === 'analyse' ? (
-        <>
-          <ResearchTickerPanel
-            selectedTicker={researchTicker}
-            onSelectTicker={onResearchSelectTicker}
-            q={researchQuery}
-            onQuery={setResearchQuery}
-            filtered={researchFeedAfterSourceFilter}
-            feedLoading={researchFeedLoading}
-            feedLoadingMore={researchFeedLoadingMore}
-            feedHasMore={researchFeedHasMore}
-            onFeedLoadMore={loadMoreResearchFeed}
-            feedEmptyLabel={researchFeedEmptyLabel}
-            showFeedFilter
-            feedFilterActive={researchFeedFilterOpen}
-            feedFilterOpen={researchFeedFilterOpen}
-            onFeedFilterClick={onResearchFeedFilterClick}
-            feedFilterPicker={researchFeedFilterPickerEl}
-            panelClassName={[
-              'researchFeedSlot',
-              'analyseFeedSlot',
-              phonePaneHiddenClass(isPhone, analysePhonePane, 'feed'),
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            showDocumentCount={false}
-          />
-          <AnalysePanel
-            panelClassName={[
-              'analyseMainSlot',
-              phonePaneHiddenClass(isPhone, analysePhonePane, 'analyse'),
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            ticker={contextCompanySnapshot.ticker}
-            companyName={researchCompanyName}
-            price={contextCompanySnapshot.price}
-            priceChange={analysePriceChange?.delta}
-            priceChangePct={analysePriceChange?.pct}
-            sector={contextCompanySnapshot.sector}
-            domicile={contextCompanySnapshot.domicile}
-            mcap={contextCompanySnapshot.mcap}
-            earnings={contextEarnings}
-            quarterlyRevenueOverlay={analyseQuarterlyRevenue}
+      <div className={tabPanelHiddenClass(activeTab, 'analyse')}>
+        <ResearchTickerPanel
+          selectedTicker={researchTicker}
+          onSelectTicker={onResearchSelectTicker}
+          q={researchQuery}
+          onQuery={setResearchQuery}
+          filtered={researchFeedAfterSourceFilter}
+          feedLoading={researchFeedLoading}
+          feedLoadingMore={researchFeedLoadingMore}
+          feedHasMore={researchFeedHasMore}
+          onFeedLoadMore={loadMoreResearchFeed}
+          feedEmptyLabel={researchFeedEmptyLabel}
+          showFeedFilter
+          feedFilterActive={researchFeedFilterOpen}
+          feedFilterOpen={researchFeedFilterOpen}
+          onFeedFilterClick={onResearchFeedFilterClick}
+          feedFilterPicker={researchFeedFilterPickerEl}
+          panelClassName={[
+            'researchFeedSlot',
+            'analyseFeedSlot',
+            phonePaneHiddenClass(isPhone, analysePhonePane, 'feed'),
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          showDocumentCount={false}
+        />
+        <AnalysePanel
+          panelClassName={[
+            'analyseMainSlot',
+            phonePaneHiddenClass(isPhone, analysePhonePane, 'analyse'),
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          ticker={contextCompanySnapshot.ticker}
+          companyName={researchCompanyName}
+          price={contextCompanySnapshot.price}
+          priceChange={analysePriceChange?.delta}
+          priceChangePct={analysePriceChange?.pct}
+          sector={contextCompanySnapshot.sector}
+          domicile={contextCompanySnapshot.domicile}
+          mcap={contextCompanySnapshot.mcap}
+          earnings={contextEarnings}
+          quarterlyRevenueOverlay={analyseQuarterlyRevenue}
+          chartRange={analysePriceRange}
+          onChartRangeChange={setAnalysePriceRange}
+          backendUp={backendUp}
+          liveModel={analyseLivePayload?.model ?? null}
+          modelLoading={analyseModelLoading}
+        >
+          <MiniPriceChart
+            series={researchPriceSeries}
+            label={researchTick || 'PRICE'}
+            showMeta={false}
+            chartAlign="context"
             chartRange={analysePriceRange}
-            onChartRangeChange={setAnalysePriceRange}
-            backendUp={backendUp}
-            liveModel={analyseLivePayload?.model ?? null}
-            modelLoading={analyseModelLoading}
-          >
-            <MiniPriceChart
-              series={researchPriceSeries}
-              label={researchTick || 'PRICE'}
-              showMeta={false}
-              chartAlign="context"
-              chartRange={analysePriceRange}
-              trimLeadingPlateau
-              quarterlyRevenueOverlay={analyseQuarterlyRevenue}
-            />
-          </AnalysePanel>
-        </>
-      ) : null}
-      {activeTab === 'discover' ? (
+            trimLeadingPlateau
+            quarterlyRevenueOverlay={analyseQuarterlyRevenue}
+          />
+        </AnalysePanel>
+      </div>
+      <div className={tabPanelHiddenClass(activeTab, 'discover')}>
         <DiscoverPanel
           backendUp={backendUp}
           isPhone={isPhone}
@@ -11185,9 +11258,8 @@ function KensiglineTerminal() {
             setActiveTab('main')
           }}
         />
-      ) : null}
-      {investigateOpen ? (
-        <>
+      </div>
+      <div className={tabPanelHiddenClass(activeTab, 'investigate')}>
           <CompactFeed
             placement="left"
             panelClassName={phonePaneHiddenClass(isPhone, investigatePhonePane, 'feed')}
@@ -11309,11 +11381,54 @@ function KensiglineTerminal() {
               }
             }}
           />
-        </>
-      ) : null}
+        <div
+          className={[
+            'investigateRightStack',
+            'scrollThin',
+            phonePaneHiddenClass(isPhone, investigatePhonePane, 'chart'),
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <GraphPanel
+            key={selectedTicker ?? 'none'}
+            title={chartPanelTitle}
+            series={dailySeries}
+            dates={dailyDates}
+            markers={insiderTradeMarkers}
+            selectedMarker={selectedInsiderTradeMarker}
+            chartRange={
+              investigateIsPoliticians
+                ? politiciansChartRange
+                : investigateIsInstitutions
+                  ? institutionsChartRange
+                  : insiderChartRange
+            }
+            onChartRangeChange={
+              investigateIsPoliticians
+                ? setPoliticiansChartRange
+                : investigateIsInstitutions
+                  ? setInstitutionsChartRange
+                  : setInsiderChartRange
+            }
+          />
 
-      {activeTab === 'main' ? (
-        <>
+          <HistoricalOutcomesPanel
+            mode={investigateMode}
+            backendUp={backendUp}
+            personDisplay={historicalOutcomesPerson}
+          />
+
+          <CompanyPanel
+            company={companyForInvestigatePanel}
+            ticker={selectedTicker}
+            backendUp={backendUp}
+            price={chartLastPrice}
+          />
+        </div>
+      </div>
+
+      <div className={tabPanelHiddenClass(activeTab, 'main')}>
           <ResearchTickerPanel
             selectedTicker={researchTicker}
             onSelectTicker={onResearchSelectTicker}
@@ -11382,64 +11497,14 @@ function KensiglineTerminal() {
                 : null
             }
             fundamentals={contextFundamentals}
-            ownership={contextOwnership}
             backendUp={backendUp}
             companyContextLoading={researchCompanyContextLoading}
             exploreContextLoading={backendUp && researchTick && !researchExploreResolved}
             panelClassName={phonePaneHiddenClass(isPhone, researchPhonePane, 'context')}
           />
-        </>
-      ) : null}
+      </div>
 
       {/* Explore tab removed; Research panels live inside MAIN now. */}
-
-      {investigateOpen ? (
-        <div
-          className={[
-            'investigateRightStack',
-            'scrollThin',
-            phonePaneHiddenClass(isPhone, investigatePhonePane, 'chart'),
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
-          <GraphPanel
-            key={selectedTicker ?? 'none'}
-            title={chartPanelTitle}
-            series={dailySeries}
-            dates={dailyDates}
-            markers={insiderTradeMarkers}
-            selectedMarker={selectedInsiderTradeMarker}
-            chartRange={
-              investigateIsPoliticians
-                ? politiciansChartRange
-                : investigateIsInstitutions
-                  ? institutionsChartRange
-                  : insiderChartRange
-            }
-            onChartRangeChange={
-              investigateIsPoliticians
-                ? setPoliticiansChartRange
-                : investigateIsInstitutions
-                  ? setInstitutionsChartRange
-                  : setInsiderChartRange
-            }
-          />
-
-          <HistoricalOutcomesPanel
-            mode={investigateMode}
-            backendUp={backendUp}
-            personDisplay={historicalOutcomesPerson}
-          />
-
-          <CompanyPanel
-            company={companyForInvestigatePanel}
-            ticker={selectedTicker}
-            backendUp={backendUp}
-            price={chartLastPrice}
-          />
-        </div>
-      ) : null}
       </main>
       {isPhone ? (
         <div className="terminalPhoneBottom">
