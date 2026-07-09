@@ -21,7 +21,7 @@ function recencyBonus(eventAt: string | null | undefined): { pts: number; reason
 }
 
 function clampScore(score: number, reasons: string[], eventAt?: string | null): IdeaScoreResult {
-  const best = envThreshold("IDEA_SCORE_BEST", 90);
+  const best = envThreshold("IDEA_SCORE_BEST", 75);
   const idea_score = Math.max(0, Math.min(100, Math.round(score)));
   let idea_best = idea_score >= best;
   const decayDays = envThreshold("IDEA_BEST_DECAY_DAYS", 4);

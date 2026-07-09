@@ -1,4 +1,5 @@
 import { enqueueFilingsFromDailyIndexDay } from "../core/sec.js";
+import { effectiveBackfillMinDate, backfillSecLimitPerForm } from "./ingest-policy.js";
 import { getIngestCursor, setIngestCursor } from "./ingest-cursor.js";
 
 export type SecDailyFormSpec = {
@@ -34,13 +35,6 @@ function prevUtcDay(d: Date): Date {
   return out;
 }
 
-function minBackfillDate(): Date {
-  const raw = String(process.env.BACKFILL_MIN_DATE ?? "2012-01-01").trim();
-  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return new Date(Date.UTC(2012, 0, 1));
-  return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-}
-
 /**
  * When the parse queue is idle, walk SEC daily master.idx backwards one calendar day
  * and enqueue filings for the configured form types.
@@ -54,7 +48,7 @@ export async function runSecDailyIndexBackfill(opts: {
   if (!backfillEnabled() || !opts.forms.length) return { ran: false, enqueued: 0, skipped_existing: 0 };
 
   const cursorKey = opts.cursorKey ?? "sec_daily";
-  const limitPerForm = Math.max(1, Math.min(5000, Number(opts.limitPerForm ?? process.env.BACKFILL_SEC_LIMIT_PER_DAY ?? 800)));
+  const limitPerForm = Math.max(1, Math.min(5000, Number(opts.limitPerForm ?? backfillSecLimitPerForm())));
 
   let day = parseYyyymmdd((await getIngestCursor(opts.pipeline, cursorKey)) ?? "");
   if (!day) {
@@ -62,7 +56,7 @@ export async function runSecDailyIndexBackfill(opts: {
     day.setUTCHours(0, 0, 0, 0);
   }
 
-  const minDate = minBackfillDate();
+  const minDate = effectiveBackfillMinDate();
   if (day.getTime() < minDate.getTime()) {
     return { ran: false, enqueued: 0, skipped_existing: 0 };
   }

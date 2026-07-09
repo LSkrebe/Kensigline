@@ -2,13 +2,14 @@ import { db } from "../../core/db.js";
 import { listHousePtrPdfsWithRetry } from "../../core/house.js";
 import { listSenatePtrReportsWithRetry } from "../../core/senate.js";
 import { QUEUE_SOURCES } from "../../pipelines/registry.js";
+import { politiciansLiveSenateLookbackDays } from "../../shared/ingest-policy.js";
 import { runPoliticiansHistoricalBackfill } from "./backfill.js";
 import { startPipelineWorker } from "../../shared/worker.js";
 import { parseNextPoliticiansQueueItem } from "./pipeline.js";
 
 export function startPoliticiansWorker() {
   const maxPerPoll = Math.max(10, Math.min(2000, Number(process.env.POLITICIANS_MAX_PER_POLL ?? 400)));
-  const senateLookbackDays = Math.max(90, Math.min(730, Number(process.env.POLITICIANS_SENATE_LOOKBACK_DAYS ?? 365)));
+  const senateLookbackDays = politiciansLiveSenateLookbackDays();
 
   return startPipelineWorker({
     name: "investigate/politicians",
@@ -33,7 +34,7 @@ export function startPoliticiansWorker() {
         try {
           await db.query(
             `INSERT INTO document_queue (url, source_type, status, priority, updated_at)
-             VALUES ($1, 'house_ptr', 'ready_to_parse', 0, now())
+             VALUES ($1, 'house_ptr', 'ready_to_parse', 5, now())
              ON CONFLICT (url, source_type) DO NOTHING`,
             [r.pdf_url],
           );
@@ -48,7 +49,7 @@ export function startPoliticiansWorker() {
         try {
           await db.query(
             `INSERT INTO document_queue (url, source_type, status, priority, updated_at)
-             VALUES ($1, 'senate_ptr', 'ready_to_parse', 0, now())
+             VALUES ($1, 'senate_ptr', 'ready_to_parse', 5, now())
              ON CONFLICT (url, source_type) DO NOTHING`,
             [r.view_url],
           );

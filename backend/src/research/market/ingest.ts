@@ -4,8 +4,8 @@ import { enqueueResearchDynamicTickerFeeds } from "./dynamic-feeds.js";
 import { researchEnv } from "../../documents/spec.js";
 
 const DEFAULT_SEC_FORMS = "8-K,10-Q,10-K,6-K,20-F,S-1,S-3,S-4,DEF 14A,424B5,SC 13D,SC 13G";
-/** Backfill only — earnings/periodic forms; skips S-1, proxy, shelf, etc. to cut LLM on low-signal filings. */
-const DEFAULT_BACKFILL_SEC_FORMS = "8-K,10-Q,10-K,6-K,20-F";
+/** Backfill only — core earnings/periodic forms (no 6-K/20-F/S-1/proxy) to cut LLM volume. */
+const DEFAULT_BACKFILL_SEC_FORMS = "8-K,10-Q,10-K";
 
 /** Earnings / periodic reports — higher queue tier for Analyse drivers and guidance. */
 const EARNINGS_SEC_FORMS = new Set(["10-Q", "10-K", "20-F", "6-K", "8-K"]);

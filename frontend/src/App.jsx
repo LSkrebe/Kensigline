@@ -133,6 +133,8 @@ function clamp(n, lo, hi) {
   return Math.max(lo, Math.min(hi, n))
 }
 
+const IDEA_SCORE_BEST_THRESHOLD = 75
+
 function ideaHighlightClass(best) {
   return best ? 'ideaHighlight--A' : ''
 }
@@ -141,7 +143,7 @@ const MOCK_IDEA_SCORES = [92, 84, 76, 68, 55, 88, 71, 63, 49, 38, 86, 74, 66, 58
 
 function mockIdeaFields(i, kind = 'insider') {
   const idea_score = MOCK_IDEA_SCORES[i % MOCK_IDEA_SCORES.length]
-  const idea_best = idea_score >= 90
+  const idea_best = idea_score >= IDEA_SCORE_BEST_THRESHOLD
   const reasonsByKind = {
     insider: [
       'Multiple open-market purchases',
@@ -1310,7 +1312,7 @@ function dedupeInvestigateFeedByTicker(rows) {
       at,
       count,
       idea_score: ideaScore || prev.idea_score || row.idea_score,
-      idea_best: Boolean(prev.idea_best || row.idea_best || ideaScore >= 90),
+      idea_best: Boolean(prev.idea_best || row.idea_best || ideaScore >= IDEA_SCORE_BEST_THRESHOLD),
       __investigateSources: sources,
       __sourceRows: sourceRows,
       insiders: [...new Set([...(prev.insiders ?? []), ...(row.insiders ?? [])])],
