@@ -1,7 +1,10 @@
 /**
  * Regenerate favicons, apple-touch icons, maskable PWA icons, and OG image.
- * Source: mercerline_yt.png — black is keyed out, then the transparent mark is
- * composited onto the app background (#030405) so rounded / circle masks look clean.
+ *
+ * Source: mercerline_yt.png (black keyed out → transparent mark).
+ * Favicons / PWA / apple-touch: transparent canvas only — browsers & OS apply
+ * their own background (tabs, rounded rects, theme_color from manifest).
+ * OG image: solid app background (#030405) since social cards need a fill.
  */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -12,7 +15,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const publicDir = join(__dirname, '..', 'public')
 const logoPath = join(publicDir, 'mercerline_yt.png')
 const BG = { r: 3, g: 4, b: 5, alpha: 1 }
-const BLACK_KEY_THRESHOLD = 28
+const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 }
+const BLACK_KEY_THRESHOLD = 32
+const BLACK_KEY_SOFT_RANGE = 28
 const TRANSPARENT_MASTER_PX = 1024
 
 async function extractTransparentMark(size = TRANSPARENT_MASTER_PX) {
@@ -26,48 +31,56 @@ async function extractTransparentMark(size = TRANSPARENT_MASTER_PX) {
     const r = data[i]
     const g = data[i + 1]
     const b = data[i + 2]
-    if (r <= BLACK_KEY_THRESHOLD && g <= BLACK_KEY_THRESHOLD && b <= BLACK_KEY_THRESHOLD) {
+    const lum = Math.max(r, g, b)
+    if (lum <= BLACK_KEY_THRESHOLD) {
       data[i + 3] = 0
+      continue
     }
+    if (lum <= BLACK_KEY_THRESHOLD + BLACK_KEY_SOFT_RANGE) {
+      const t = (lum - BLACK_KEY_THRESHOLD) / BLACK_KEY_SOFT_RANGE
+      data[i + 3] = Math.round(255 * t * t)
+      continue
+    }
+    data[i + 3] = 255
   }
 
   return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer()
 }
 
-async function compositeOnBrandBg(size, markBuffer, logoScale = 0.92) {
+/** Mark centered on a fully transparent square — no baked background. */
+async function transparentIcon(size, markBuffer, logoScale = 0.88) {
   const logoSize = Math.round(size * logoScale)
-  const logo = await sharp(markBuffer).resize(logoSize, logoSize, { fit: 'contain' }).png().toBuffer()
+  const logo = await sharp(markBuffer)
+    .resize(logoSize, logoSize, { fit: 'contain', background: TRANSPARENT })
+    .png()
+    .toBuffer()
   const meta = await sharp(logo).metadata()
   const left = Math.round((size - meta.width) / 2)
   const top = Math.round((size - meta.height) / 2)
   return sharp({
-    create: { width: size, height: size, channels: 4, background: BG },
+    create: { width: size, height: size, channels: 4, background: TRANSPARENT },
   })
     .composite([{ input: logo, left, top }])
     .png()
     .toBuffer()
 }
 
-/** Maskable safe zone: keep mark inside center ~72% (Android squircle / iOS rounded rect). */
+/**
+ * Maskable PWA icon: transparent full-bleed canvas, mark in center safe zone.
+ * Android/iOS use manifest theme_color / background_color behind the mask.
+ */
 async function maskableIcon(size, markBuffer) {
-  const safe = Math.round(size * 0.72)
-  const logo = await sharp(markBuffer).resize(safe, safe, { fit: 'contain' }).png().toBuffer()
-  const meta = await sharp(logo).metadata()
-  const left = Math.round((size - meta.width) / 2)
-  const top = Math.round((size - meta.height) / 2)
-  return sharp({
-    create: { width: size, height: size, channels: 4, background: BG },
-  })
-    .composite([{ input: logo, left, top }])
-    .png()
-    .toBuffer()
+  return transparentIcon(size, markBuffer, 0.72)
 }
 
 async function ogImage(markBuffer) {
   const width = 1200
   const height = 630
   const logoHeight = 340
-  const logo = await sharp(markBuffer).resize(logoHeight, logoHeight, { fit: 'contain' }).png().toBuffer()
+  const logo = await sharp(markBuffer)
+    .resize(logoHeight, logoHeight, { fit: 'contain', background: TRANSPARENT })
+    .png()
+    .toBuffer()
   const meta = await sharp(logo).metadata()
   const left = Math.round((width - meta.width) / 2)
   const top = Math.round((height - meta.height) / 2)
@@ -119,16 +132,16 @@ async function main() {
   console.log('wrote mercerline_logo_transparent.png')
 
   const sizes = [
-    ['favicon-16.png', 16, 0.96],
-    ['favicon-32.png', 32, 0.94],
-    ['favicon-48.png', 48, 0.92],
-    ['apple-touch-icon.png', 180, 0.9],
-    ['icon-192.png', 192, 0.9],
-    ['icon-512.png', 512, 0.9],
+    ['favicon-16.png', 16, 0.9],
+    ['favicon-32.png', 32, 0.88],
+    ['favicon-48.png', 48, 0.86],
+    ['apple-touch-icon.png', 180, 0.82],
+    ['icon-192.png', 192, 0.82],
+    ['icon-512.png', 512, 0.82],
   ]
 
   for (const [name, size, scale] of sizes) {
-    const buf = await compositeOnBrandBg(size, mark, scale)
+    const buf = await transparentIcon(size, mark, scale)
     await writeFile(join(publicDir, name), buf)
     console.log(`wrote ${name}`)
   }
@@ -141,9 +154,9 @@ async function main() {
   await writeFile(join(publicDir, 'og-image.png'), og)
   console.log('wrote og-image.png')
 
-  const ico16 = await compositeOnBrandBg(16, mark, 0.96)
-  const ico32 = await compositeOnBrandBg(32, mark, 0.94)
-  const ico48 = await compositeOnBrandBg(48, mark, 0.92)
+  const ico16 = await transparentIcon(16, mark, 0.9)
+  const ico32 = await transparentIcon(32, mark, 0.88)
+  const ico48 = await transparentIcon(48, mark, 0.86)
   const ico = await pngToIco([ico16, ico32, ico48])
   await writeFile(join(publicDir, 'favicon.ico'), ico)
   console.log('wrote favicon.ico')
