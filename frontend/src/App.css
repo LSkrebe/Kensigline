@@ -287,6 +287,31 @@
   line-height: 1;
 }
 
+.terminalIntelSwitchLabel--full {
+  display: none;
+}
+
+@media (min-width: 1041px) {
+  .terminalIntelSwitch--insider .terminalIntelSwitchLabel--short,
+  .terminalIntelSwitch--politicians .terminalIntelSwitchLabel--short,
+  .terminalIntelSwitch--institutions .terminalIntelSwitchLabel--short {
+    display: none;
+  }
+
+  .terminalIntelSwitch--insider .terminalIntelSwitchLabel--full,
+  .terminalIntelSwitch--politicians .terminalIntelSwitchLabel--full,
+  .terminalIntelSwitch--institutions .terminalIntelSwitchLabel--full {
+    display: inline;
+  }
+
+  .terminalIntelSwitch--insider .terminalIntelSwitchBtn,
+  .terminalIntelSwitch--politicians .terminalIntelSwitchBtn,
+  .terminalIntelSwitch--institutions .terminalIntelSwitchBtn {
+    padding: 0 8px;
+    letter-spacing: 0.1em;
+  }
+}
+
 .terminalIntelSwitchBranchGap {
   display: inline-block;
   width: 14px;
@@ -5475,9 +5500,41 @@
   align-items: center;
 }
 
+.analyseSectionHead--forecast {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.analyseSectionHead--forecast .analyseSectionTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.analyseSectionHead--forecast .analyseForecastEditable,
+.analyseSectionHead--forecast .analyseForecastReset {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.analyseSectionHead--drivers {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
+.analyseSectionHead--drivers .analyseSectionTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.analyseSectionHead--drivers .analyseForecastExport {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
 .analyseSectionAside,
 .analyseForecastEditable,
-.analyseForecastReset {
+.analyseForecastReset,
+.analyseForecastExport {
   flex: 0 0 auto;
   font-size: 9px;
   letter-spacing: 0.06em;
@@ -5495,11 +5552,13 @@
 }
 
 .analyseForecastEditable,
-.analyseForecastReset {
+.analyseForecastReset,
+.analyseForecastExport {
   text-transform: uppercase;
 }
 
-.analyseForecastReset {
+.analyseForecastReset,
+.analyseForecastExport {
   border: none;
   background: transparent;
   cursor: pointer;
@@ -5514,7 +5573,22 @@
   text-decoration-color: rgba(255, 255, 255, 0.42);
 }
 
+.analyseForecastExport:hover:not(:disabled) {
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration-color: rgba(255, 255, 255, 0.42);
+}
+
+.analyseForecastExport:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .analyseForecastReset:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.28);
+  outline-offset: 2px;
+}
+
+.analyseForecastExport:focus-visible {
   outline: 1px solid rgba(255, 255, 255, 0.28);
   outline-offset: 2px;
 }

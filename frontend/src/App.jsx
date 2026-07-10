@@ -109,9 +109,9 @@ function PhoneSubNav({ items, value, onChange, ariaLabel, className = '' }) {
 
 
 const INVESTIGATE_MODE_OPTIONS = [
-  { id: 'insider', label: 'Ins' },
-  { id: 'politicians', label: 'Pol' },
-  { id: 'institutions', label: 'Inst' },
+  { id: 'insider', label: 'Ins', labelFull: 'Insiders' },
+  { id: 'politicians', label: 'Pol', labelFull: 'Politicians' },
+  { id: 'institutions', label: 'Inst', labelFull: 'Institutions' },
 ]
 
 const RESEARCH_PHONE_PANES = [
@@ -8742,7 +8742,8 @@ function InvestigateModeSwitch({ mode, onChange }) {
             aria-selected={mode === opt.id}
             onClick={() => onChange(opt.id)}
           >
-            {opt.label}
+            <span className="terminalIntelSwitchLabel terminalIntelSwitchLabel--short">{opt.label}</span>
+            <span className="terminalIntelSwitchLabel terminalIntelSwitchLabel--full">{opt.labelFull}</span>
           </button>
         </Fragment>
       ))}

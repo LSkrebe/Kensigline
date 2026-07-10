@@ -198,7 +198,7 @@ function buildAsmlMockModel(asOf = new Date()) {
       valuationAvailable: true,
     },
     projectionNote:
-      'Reported SEC history; forward revenue and gross margin are editable — other lines derived with flat opex.',
+      'Reported SEC history — edit revenue or gross margin; flat opex on other lines.',
     driverUnitHint: 'From filings — historical quarters only',
   })
 }

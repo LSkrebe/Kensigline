@@ -384,6 +384,7 @@ export function AnalysePanel({
     return analyseMockModelForTicker(t)
   }, [backendUp, liveModel, modelLoading, t])
   const [forecastOverrides, setForecastOverrides] = useState({})
+  const [exportBusy, setExportBusy] = useState(false)
   const [valuationQuarterIndex, setValuationQuarterIndex] = useState(null)
   const scrollRef = useRef(null)
   const scrollSnapRef = useRef(null)
@@ -469,12 +470,32 @@ export function AnalysePanel({
     setForecastOverrides({})
   }, [])
 
+  const displayName = String(companyName ?? '').trim() || t || '—'
+
+  const onExportExcel = useCallback(async () => {
+    if (!model || exportBusy) return
+    setExportBusy(true)
+    try {
+      const { exportAnalyseModelToExcel } = await import('./analyseExcelExport.js')
+      await exportAnalyseModelToExcel({
+        ticker: t,
+        companyName: displayName,
+        model,
+        valuation,
+        liveMarketPrice: showPrice ? Number(price) : null,
+      })
+    } catch (err) {
+      console.error('Analyse Excel export failed', err)
+    } finally {
+      setExportBusy(false)
+    }
+  }, [model, exportBusy, t, displayName, valuation, showPrice, price])
+
   const revenueOverlayMeta = useMemo(
     () => analyseRevenueOverlayMeta(quarterlyRevenueOverlay, chartRange),
     [quarterlyRevenueOverlay, chartRange],
   )
 
-  const displayName = String(companyName ?? '').trim() || t || '—'
   const metaLine = [sector, domicile].filter(Boolean).join(' · ')
   const ch = priceChange != null && Number.isFinite(Number(priceChange)) ? Number(priceChange) : null
   const chPct =
@@ -611,7 +632,20 @@ export function AnalysePanel({
               ) : (
                 <>
               <section className="analyseSection" aria-label={driverSectionTitle}>
-                <AnalyseSectionTitle title={driverSectionTitle} hintLines={[unitHint]} />
+                <div className="analyseSectionHead analyseSectionHead--drivers">
+                  <AnalyseSectionTitle title={driverSectionTitle} hintLines={[unitHint]} />
+                  {modelReady ? (
+                    <button
+                      type="button"
+                      className="analyseForecastExport mono"
+                      aria-label="Export analyse model to Excel"
+                      disabled={exportBusy}
+                      onClick={() => void onExportExcel()}
+                    >
+                      EXPORT
+                    </button>
+                  ) : null}
+                </div>
                 <div className="analyseModelScroll scrollThin">
                   <AnalyseModelGrid
                     rows={model.businessDrivers}
@@ -623,18 +657,19 @@ export function AnalysePanel({
               </section>
 
               <section className="analyseSection" aria-label="Financial model">
-                <div className="analyseSectionHead">
+                <div className="analyseSectionHead analyseSectionHead--forecast">
                   <AnalyseSectionTitle
                     title="Financial model"
-                    hintLines={[perShareHint, 'Click forward revenue or gross margin to edit']}
+                    hintLines={[perShareHint]}
                   />
                   {forecastEdited ? (
                     <button
                       type="button"
                       className="analyseForecastReset mono"
+                      aria-label="Reset forecast"
                       onClick={onForecastReset}
                     >
-                      Reset forecast
+                      RESET
                     </button>
                   ) : (
                     <span className="analyseForecastEditable mono">Editable</span>
