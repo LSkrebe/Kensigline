@@ -76,10 +76,10 @@ export const HERO = {
 }
 
 export const INTRO_SCREENSHOTS = {
-  hero: '/intro/hero-1200.webp',
+  hero: '/intro/hero-2400.webp',
   heroSrcSet: {
-    avif: '/intro/hero-768.avif 768w, /intro/hero-1200.avif 1200w',
-    webp: '/intro/hero-768.webp 768w, /intro/hero-1200.webp 1200w',
+    avif: '/intro/hero-768.avif 768w, /intro/hero-1200.avif 1200w, /intro/hero-2400.avif 2400w',
+    webp: '/intro/hero-768.webp 768w, /intro/hero-1200.webp 1200w, /intro/hero-2400.webp 2400w',
     fallback: '/intro/hero.png',
   },
   heroSizes: '(max-width: 900px) 100vw, 1180px',

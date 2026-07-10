@@ -1093,6 +1093,22 @@ function slotTime(daysAgo, slot) {
   }
 }
 
+function seedFromTicker(ticker) {
+  const t = String(ticker ?? '').toUpperCase()
+  let s = 17
+  for (let i = 0; i < t.length; i++) s = (s * 31 + t.charCodeAt(i)) % 10_000
+  return s
+}
+
+/** Staggered feed timestamp per issuer — spread across the week with ticker-specific jitter. */
+function mockFeedAtForRow(i, ticker) {
+  const seed = seedFromTicker(ticker)
+  const day = (i + (seed % 5)) % MOCK_WEEK_DAYS
+  const hour = 7 + ((seed >> 2) + i * 3) % 14
+  const minute = ((seed * 7 + i * 19) % 60)
+  return mockAtDaysAgo(day, hour, minute)
+}
+
 /** ~12 discover past cards per day × 7 days. */
 export function buildMockWeekDiscoverPastEvents() {
   const out = []
@@ -1163,15 +1179,13 @@ export function discoverPastForTicker(ticker) {
 /** Offline research FEED rows — one row per issuer, staggered across the week. */
 export function buildMockResearchFeedRows() {
   return MOCK_FEED_UNIVERSE.map((co, i) => {
-    const day = i % MOCK_WEEK_DAYS
-    const { hour, minute } = slotTime(day, i)
     const idea_best = mockIdeaBestForRowIndex(i)
     const idea_score = idea_best ? 82 + (i % 11) : 52 + (i % 18)
     return {
       rowKey: `fb-${co.ticker}`,
       ticker: co.ticker,
       name: co.name,
-      at: mockAtDaysAgo(day, hour, minute),
+      at: mockFeedAtForRow(i, co.ticker),
       paper_doc_count: mockFeedTodayEventCount(i),
       idea_score,
       idea_best,
@@ -1256,6 +1270,7 @@ export function mockInvestigateFeedAtForIndex(i) {
   const perDay = Math.max(1, Math.ceil(total / MOCK_WEEK_DAYS))
   const day = Math.min(MOCK_WEEK_DAYS - 1, Math.floor(i / perDay))
   const slot = i % perDay
-  const { hour, minute } = slotTime(day, slot)
+  const hour = 7 + (i * 3 + day * 2) % 14
+  const minute = (slot * 17 + i * 11 + day * 7) % 60
   return mockAtDaysAgo(day, hour, minute)
 }

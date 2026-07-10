@@ -52,13 +52,27 @@ function settingsStatusTone(status) {
   return 'neutral'
 }
 
-function SettingsCard({ title, className = '', children, footer }) {
+const ALERTS_EMPTY_HINT = 'Email alerts for watched tickers and actors.'
+const INVOICES_EMPTY_HINT =
+  'Download invoices and update your payment method in Stripe via Manage billing.'
+
+function SettingsCardEmptyHint({ children }) {
+  return <p className="settingsCardEmptyHint">{children}</p>
+}
+
+function SettingsCard({ title, className = '', children, footer, headAside = null }) {
+  const hasBody = children != null && children !== false
   return (
     <section className={['settingsCard', className].filter(Boolean).join(' ')}>
-      <header className="settingsCardHead">
+      <header
+        className={['settingsCardHead', headAside ? 'settingsCardHead--split' : '']
+          .filter(Boolean)
+          .join(' ')}
+      >
         <h2 className="settingsCardTitle">{title}</h2>
+        {headAside}
       </header>
-      <div className="settingsCardBody">{children}</div>
+      {hasBody ? <div className="settingsCardBody">{children}</div> : null}
       {footer ? <footer className="settingsCardFoot">{footer}</footer> : null}
     </section>
   )
@@ -106,34 +120,32 @@ function SettingsDigestToggle({ enabled, busy, onChange }) {
   )
 }
 
-function SettingsAlertTable({ columns, rows, emptyLabel, loading = false }) {
-  if (loading) return <p className="settingsMuted mono">Loading…</p>
-  if (!rows.length) return <p className="settingsMuted mono">{emptyLabel}</p>
+function SettingsAlertTable({ columns, rows, loading = false }) {
+  if (loading) return null
+  if (!rows.length) return null
   return (
-    <div className="settingsAlertTableWrap scrollThin">
-      <table className="settingsAlertTable">
-        <thead>
-          <tr>
+    <table className="settingsAlertTable">
+      <thead>
+        <tr>
+          {columns.map((col) => (
+            <th key={col.key} className={col.className ?? ''} scope="col">
+              {col.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.id}>
             {columns.map((col) => (
-              <th key={col.key} className={col.className ?? ''} scope="col">
-                {col.label}
-              </th>
+              <td key={col.key} className={col.className ?? ''}>
+                {col.render(row)}
+              </td>
             ))}
           </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id}>
-              {columns.map((col) => (
-                <td key={col.key} className={col.className ?? ''}>
-                  {col.render(row)}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   )
 }
 
@@ -146,8 +158,6 @@ export function SettingsPanel() {
   const {
     tickers,
     maxTickers,
-    combinedCount,
-    atLimit,
     loaded: watchlistLoaded,
     busyTicker,
     remove,
@@ -172,7 +182,7 @@ export function SettingsPanel() {
         id: `ticker:${ticker}`,
         kind: 'ticker',
         label: ticker,
-        typeLabel: 'Document',
+        typeLabel: 'Company',
         busy: busyTicker === ticker,
         onRemove: () => void remove(ticker),
       })
@@ -189,6 +199,9 @@ export function SettingsPanel() {
     }
     return rows
   }, [tickers, actors, busyTicker, busyActorKey, remove, removeActor])
+
+  const alertsEmpty = alertsLoaded && alertRows.length === 0
+  const alertsCount = alertRows.length
 
   const alertColumns = [
     {
@@ -325,30 +338,35 @@ export function SettingsPanel() {
             </SettingsField>
           </SettingsCard>
 
-          <SettingsCard title="ALERTS" className="settingsCard--alerts settingsCard--wide">
-            <div className="settingsCardHintRow">
-              <p className="settingsCardHint">
-                Email alerts for watched tickers and actors.
-              </p>
+          <SettingsCard
+            title="ALERTS"
+            className={[
+              'settingsCard--alerts',
+              'settingsCard--wide',
+              alertsEmpty || !alertsLoaded ? 'settingsCard--emptyBody' : 'settingsCard--tableBody',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            headAside={
               <span className="settingsWatchlistQuota mono">
-                {alertsLoaded ? `${combinedCount} / ${alertMax}` : `— / ${alertMax}`}
+                {alertsLoaded ? `${alertsCount} / ${alertMax}` : `— / ${alertMax}`}
               </span>
-            </div>
-            {atLimit ? (
-              <p className="settingsWatchlistLimitNote mono">Watchlist full — remove an alert to add another.</p>
-            ) : null}
-            <SettingsAlertTable
-              columns={alertColumns}
-              rows={alertRows}
-              loading={!alertsLoaded}
-              emptyLabel="No alerts yet."
-            />
+            }
+          >
+            {!alertsLoaded ? (
+              <SettingsCardEmptyHint key="loading">Loading…</SettingsCardEmptyHint>
+            ) : alertsEmpty ? (
+              <SettingsCardEmptyHint key="empty">{ALERTS_EMPTY_HINT}</SettingsCardEmptyHint>
+            ) : (
+              <SettingsAlertTable key="table" columns={alertColumns} rows={alertRows} />
+            )}
           </SettingsCard>
 
-          <SettingsCard title="INVOICES" className="settingsCard--invoices settingsCard--wide">
-            <p className="settingsMuted mono">
-              Download invoices and update your payment method in Stripe via Manage billing.
-            </p>
+          <SettingsCard
+            title="INVOICES"
+            className="settingsCard--invoices settingsCard--wide settingsCard--emptyBody"
+          >
+            <SettingsCardEmptyHint>{INVOICES_EMPTY_HINT}</SettingsCardEmptyHint>
           </SettingsCard>
         </div>
       </div>

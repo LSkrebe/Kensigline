@@ -1,5 +1,7 @@
 /** Mock analyse / financial-model payload (offline showcase). */
 
+import { showcaseSpotPrice } from './mockShowcasePrices.js'
+
 export const HISTORICAL_QUARTERS = 6
 export const ESTIMATE_QUARTERS = 4
 
@@ -746,9 +748,11 @@ export function parseAnalyseGridInput(raw) {
 export function analyseMockModelForTicker(ticker) {
   const t = String(ticker ?? 'ASML').trim().toUpperCase()
   const base = buildAsmlMockModel()
-  if (t === 'ASML') return base
-  const factor = 0.82 + (seedFromTicker(t) % 28) / 100
-  return scaleModel(base, factor)
+  if (t === 'ASML') return finalizeMockModel(base, showcaseSpotPrice('ASML'))
+  const asmlSpot = showcaseSpotPrice('ASML')
+  const spot = showcaseSpotPrice(t)
+  const factor = asmlSpot > 0 ? spot / asmlSpot : 1
+  return finalizeMockModel(scaleModel(base, factor), spot)
 }
 
 /** Recompute headline valuation from grid + optional live spot (after scenario edits). */

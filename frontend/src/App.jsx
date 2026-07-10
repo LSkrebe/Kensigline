@@ -6650,7 +6650,8 @@ function countResearchFeedEventsToday(timelineItems) {
 }
 
 function normalizeResearchFeedRow(row, timelineItems) {
-  const at = researchFeedAtFromTimeline(timelineItems) ?? row?.at ?? null
+  const timelineAt = researchFeedAtFromTimeline(timelineItems)
+  const at = row?.at ?? timelineAt ?? null
   const timelineCount = countResearchFeedEventsToday(timelineItems)
   const explicit = Number(row?.paper_doc_count)
   const todayCount =
@@ -9378,6 +9379,18 @@ function KensiglineTerminal() {
       }),
     [researchTicker, researchCompanyName, backendUp, researchExploreResolved?.presentation, researchPaperMemo],
   )
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('preview') !== 'terminal') return
+    const tab = params.get('tab')
+    if (tab === 'analyse' || tab === 'main' || tab === 'investigate') {
+      setActiveTab(tab)
+    }
+    const ticker = String(params.get('ticker') ?? '').trim().toUpperCase()
+    if (ticker) setResearchTicker(ticker)
+  }, [])
 
   useEffect(() => {
     writeActiveTab(activeTab)

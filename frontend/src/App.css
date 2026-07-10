@@ -6392,6 +6392,35 @@
   background: transparent;
 }
 
+.settingsCard--wide.settingsCard--alerts,
+.settingsCard--wide.settingsCard--invoices {
+  align-self: start;
+  height: auto;
+  min-height: 0;
+}
+
+.settingsCard--tableBody .settingsCardBody {
+  flex: 0 0 auto;
+  padding: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.settingsCard--emptyBody .settingsCardBody {
+  flex: 0 0 auto;
+  display: block;
+  padding: 10px 12px 12px;
+}
+
+.settingsCardEmptyHint {
+  margin: 0;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.02em;
+}
+
 .settingsCard--wide {
   grid-column: 1 / -1;
 }
@@ -6399,6 +6428,13 @@
 .settingsCardHead {
   padding: 10px 12px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.settingsCardHead--split {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .settingsCardTitle {
@@ -6672,23 +6708,23 @@
   outline-offset: 2px;
 }
 
-.settingsAlertTableWrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  margin: 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
 .settingsAlertTable {
   width: 100%;
-  min-width: 320px;
+  min-width: 0;
   border-collapse: collapse;
   font-size: 11px;
   line-height: 1.25;
+  table-layout: fixed;
+}
+
+.settingsAlertTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .settingsAlertTable th {
-  padding: 7px 10px;
+  padding: 8px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 8px;
   font-weight: 600;
@@ -6700,7 +6736,7 @@
 }
 
 .settingsAlertTable td {
-  padding: 8px 10px;
+  padding: 9px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.82);
   vertical-align: middle;
@@ -6771,14 +6807,21 @@
 
 .settingsInvoiceTable {
   width: 100%;
-  min-width: 420px;
+  min-width: 0;
   border-collapse: collapse;
   font-size: 11px;
   line-height: 1.2;
+  table-layout: fixed;
+}
+
+.settingsInvoiceTable thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .settingsInvoiceTable th {
-  padding: 6px 8px;
+  padding: 8px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 9px;
   font-weight: 600;
@@ -6795,7 +6838,7 @@
 }
 
 .settingsInvoiceTable td {
-  padding: 7px 8px;
+  padding: 9px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.78);
   vertical-align: middle;
