@@ -1,4 +1,5 @@
 import { fetchJsonSafe } from './api.js'
+import { currentMonthKey } from './macroCalendarData.js'
 
 const CACHE_MS = 10 * 60_000
 
@@ -10,12 +11,12 @@ let inflight = null
 let inflightKey = ''
 
 export const MACRO_CALENDAR_DEFAULTS = {
-  days: 7,
+  month: currentMonthKey(),
 }
 
 function calendarCacheKey(opts = {}) {
   return JSON.stringify({
-    days: opts.days ?? MACRO_CALENDAR_DEFAULTS.days,
+    month: opts.month ?? currentMonthKey(),
   })
 }
 
@@ -30,7 +31,7 @@ export function peekMacroCalendarCache(opts = {}) {
 }
 
 /**
- * @param {{ days?: number }} [opts]
+ * @param {{ month?: string }} [opts]
  */
 export async function fetchMacroCalendar(opts = {}) {
   const key = calendarCacheKey(opts)
@@ -40,16 +41,15 @@ export async function fetchMacroCalendar(opts = {}) {
   if (inflight && inflightKey === key) return inflight
 
   const params = new URLSearchParams()
-  if (opts.days != null) params.set('days', String(opts.days))
+  params.set('month', opts.month ?? currentMonthKey())
 
-  const qs = params.toString()
-  const path = qs ? `/api/macro/calendar?${qs}` : '/api/macro/calendar'
+  const path = `/api/macro/calendar?${params.toString()}`
 
   inflightKey = key
   inflight = (async () => {
     const res = await fetchJsonSafe(path, { timeoutMs: 20_000 })
     if (!res.ok || !res.data?.ok) {
-      const empty = { ok: true, days: opts.days ?? MACRO_CALENDAR_DEFAULTS.days, macro: [] }
+      const empty = { ok: true, month: opts.month ?? currentMonthKey(), macro: [] }
       cached = { at: Date.now(), key, data: empty }
       return empty
     }

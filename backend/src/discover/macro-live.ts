@@ -332,6 +332,15 @@ function rowsToMacroDays(rows: YahooEconomicRow[], businessDays: string[]): Disc
   });
 }
 
+function allDaysInMonth(year: number, month: number): string[] {
+  const last = new Date(year, month, 0).getDate();
+  const out: string[] = [];
+  for (let d = 1; d <= last; d++) {
+    out.push(isoLocalDate(new Date(year, month - 1, d)));
+  }
+  return out;
+}
+
 /** Live macro week from Yahoo Finance economic-events calendar (no API key). */
 export async function loadLiveMacroDays(limit: number): Promise<DiscoverMacroDay[]> {
   const businessDays = nextBusinessDays(limit);
@@ -341,4 +350,15 @@ export async function loadLiveMacroDays(limit: number): Promise<DiscoverMacroDay
   const to = isoLocalDate(addCalendarDays(new Date(`${from}T12:00:00`), Math.max(7, limit * 3)));
   const rows = await fetchYahooEconomicCalendar(from, to);
   return rowsToMacroDays(rows, businessDays);
+}
+
+/** Full calendar month from Yahoo (all days incl. weekends; empty cells when quiet). */
+export async function loadLiveMacroMonth(year: number, month: number): Promise<DiscoverMacroDay[]> {
+  const days = allDaysInMonth(year, month);
+  if (!days.length) return [];
+
+  const from = days[0]!;
+  const to = days[days.length - 1]!;
+  const rows = await fetchYahooEconomicCalendar(from, to);
+  return rowsToMacroDays(rows, days);
 }

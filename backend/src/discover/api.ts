@@ -1,6 +1,5 @@
 import type http from "node:http";
 import { route, sendJson } from "../core/http.js";
-import { clampInt } from "../shared/feed-helpers.js";
 import { buildMacroCalendarCached } from "./macro-calendar-cache.js";
 
 export async function tryDiscoverRoutes(
@@ -9,10 +8,10 @@ export async function tryDiscoverRoutes(
   url: URL,
 ): Promise<boolean> {
   if (route(req, url, "GET", "/api/macro/calendar")) {
-    const days = clampInt(url.searchParams.get("days"), 1, 14, 7);
+    const month = url.searchParams.get("month");
 
     try {
-      const payload = await buildMacroCalendarCached(days);
+      const payload = await buildMacroCalendarCached(month);
       sendJson(res, 200, payload);
     } catch (e) {
       console.error("macro_calendar_failed", e);

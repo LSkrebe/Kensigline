@@ -1128,6 +1128,11 @@
   color: rgba(255, 255, 255, 0.42);
 }
 
+.terminal--main .researchPaperPanel .researchPaperLoading,
+.terminal--main .researchPaperPanel .researchPaperEmpty {
+  padding: 12px var(--panel-inline-pad);
+}
+
 .panelStatusMessage,
 .feedPanelStatus {
   margin: 0;
@@ -1420,18 +1425,16 @@
   transition: background 0.15s ease;
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:hover,
+.terminal--main .researchPaperPanel .researchPaperTxnCard.eventBriefDocCard--clickable:hover,
 .terminal--main .researchPaperPanel .researchPaperTxnCard.eventBriefDocCard--clickable:hover {
   border-color: rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.05);
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:hover::before,
 .terminal--main .researchPaperPanel .researchPaperTxnCard.eventBriefDocCard--clickable:hover::before {
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent 52%);
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocCard.eventBriefDocCard--clickable:hover .researchPaperRailCardRail,
 .terminal--main .researchPaperPanel .researchPaperTxnCard.eventBriefDocCard--clickable:hover .researchPaperRailCardRail {
   background: rgba(255, 255, 255, 0.04);
 }
@@ -1483,30 +1486,107 @@
   white-space: nowrap;
 }
 
+/* Research paper panel — filing list (no rail cards, no idea highlights) */
+.terminal--main .researchPaperPanel .researchPaperDocuments {
+  --paper-doc-radius: 0;
+  gap: 0;
+}
+
 .terminal--main .researchPaperPanel .researchPaperDocConnector {
-  background: rgba(255, 255, 255, 0.1);
+  display: none;
 }
 
-.terminal--main .researchPaperPanel .researchPaperTodayGap::before,
-.terminal--main .researchPaperPanel .researchPaperTodayGapRule {
-  background: rgba(255, 255, 255, 0.1);
+.terminal--main .researchPaperPanel .researchPaperFilingSep {
+  margin: 0;
+  padding: 18px var(--panel-inline-pad) 6px;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.34);
+  box-sizing: border-box;
 }
 
-.terminal--main .researchPaperPanel .researchPaperTodayGapLabel {
-  color: var(--cyan);
+.terminal--main .researchPaperPanel .researchPaperFiling {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 15px var(--panel-inline-pad) 17px;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 0;
+  background: transparent;
+  box-sizing: border-box;
+  text-align: left;
+  color: inherit;
+  font: inherit;
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocCard {
-  background: var(--paper-txn-surface);
-  border-color: var(--chart-panel-border);
+.terminal--main .researchPaperPanel .researchPaperFiling--clickable {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocCardAnalysis {
-  color: rgba(255, 255, 255, 0.92);
+.terminal--main .researchPaperPanel .researchPaperFiling--clickable:hover {
+  background: rgba(255, 255, 255, 0.025);
 }
 
-.terminal--main .researchPaperPanel .researchPaperDocOpen:hover {
-  color: var(--cyan);
+.terminal--main .researchPaperPanel .researchPaperFiling--clickable:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.terminal--main .researchPaperPanel .researchPaperDocuments > .researchPaperFiling:last-child,
+.terminal--main .researchPaperPanel .researchPaperDocuments > .researchPaperFilingSep:last-child + .researchPaperFiling {
+  border-bottom: none;
+}
+
+.terminal--main .researchPaperPanel .researchPaperFilingHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+
+.terminal--main .researchPaperPanel .researchPaperFilingHeadMain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.terminal--main .researchPaperPanel .researchPaperFilingSource {
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.terminal--main .researchPaperPanel .researchPaperFilingDate {
+  flex: 0 0 auto;
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+}
+
+.terminal--main .researchPaperPanel .researchPaperFiling .researchPaperDocCardAnalysis {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.58;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.terminal--main .researchPaperPanel .researchPaperFiling--screenshotUnselected {
+  opacity: 0.42;
+}
+
+.terminal--main .researchPaperPanel .researchPaperFiling--screenshotSelected {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .terminal--main .researchPaperPanel .researchPaperTxnCard {
@@ -5451,11 +5531,10 @@
   position: relative;
   flex: 0 0 auto;
   z-index: 2;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: 10px 12px;
   padding: 14px var(--panel-scroll-inline-pad) 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   isolation: isolate;
@@ -5491,13 +5570,30 @@
 }
 
 .macroCalendarPageHeadMain,
-.macroCalendarPageTools {
+.macroCalendarPageHeadCenter,
+.macroCalendarPageHeadEnd {
   position: relative;
   z-index: 1;
+  min-width: 0;
 }
 
 .macroCalendarPageHeadMain {
-  min-width: 0;
+  justify-self: start;
+  align-self: end;
+}
+
+.macroCalendarPageHeadCenter {
+  justify-self: center;
+  align-self: center;
+}
+
+.macroCalendarPageHeadEnd {
+  justify-self: end;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .macroCalendarPageTitle {
@@ -5513,20 +5609,6 @@
   margin: 4px 0 0;
   font-size: 9px;
   letter-spacing: 0.04em;
-}
-
-.macroCalendarPageTools {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1 1 260px;
-  justify-content: flex-end;
-  min-width: min(100%, 260px);
-}
-
-.macroCalendarPageTools .researchFeedSearch {
-  flex: 1 1 200px;
-  max-width: 320px;
 }
 
 .macroCalendarPageBody {
@@ -5546,7 +5628,7 @@
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 10px var(--panel-scroll-inline-pad) 16px;
+  padding: 0 0 16px;
   box-sizing: border-box;
 }
 
@@ -5557,11 +5639,11 @@
 }
 
 .macroCalendarPageMain {
-  min-height: 0;
   min-width: 0;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 1 0 auto;
 }
 
 .macroCalendarPageContent--filterOpen .macroCalendarPageMain[aria-hidden='true'] {
@@ -5593,53 +5675,375 @@
 }
 
 .macroCalendarEmpty {
-  margin: 28px 0;
+  margin: 28px var(--panel-scroll-inline-pad);
   text-align: center;
   font-size: 10px;
 }
 
 
-.terminal--macro .macroCalWeek {
+.terminal--macro .macroCalMonthNav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  padding: 0;
+}
+
+.terminal--macro .macroCalMonthNavTitle {
+  min-width: 6.5em;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.terminal--macro .macroCalMonthNavBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.terminal--macro .macroCalMonthNavBtn:hover {
+  color: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.terminal--macro .macroCalMonthResetBtn:disabled {
+  opacity: 0.28;
+  cursor: default;
+  pointer-events: none;
+}
+
+.terminal--macro .macroCalMonth {
   display: flex;
   flex-direction: column;
   gap: 0;
-  min-height: min-content;
-  padding: 0;
-  box-sizing: border-box;
+  min-width: 0;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.terminal--macro .discoverMacroDay--col {
+.terminal--macro .macroCalMonthWeekdays,
+.terminal--macro .macroCalMonthGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0;
+}
+
+.terminal--macro .macroCalMonthWeekdays {
   flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--context-surface-inset);
+}
+
+.terminal--macro .macroCalMonthWeekday {
+  padding: 6px 4px 8px;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.terminal--macro .macroCalMonthGrid {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+  grid-auto-rows: minmax(4.5rem, 1fr);
+}
+
+.terminal--macro .macroCalMonthCell {
+  min-height: 4.5rem;
+  height: 100%;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 12px 0;
-  border: none;
-  border-radius: 0;
+  padding: 6px 6px 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   background: transparent;
   box-sizing: border-box;
-}
-
-.terminal--macro .discoverMacroDay--col + .discoverMacroDay--col {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.terminal--macro .discoverMacroDay--col .discoverMacroDayHead {
-  padding: 0 0 8px;
-  gap: 5px;
-  flex-wrap: wrap;
-}
-
-.terminal--macro .discoverMacroDay--col .discoverMacroDayToday {
-  margin-left: auto;
-}
-
-.terminal--macro .discoverMacroDay--col .discoverMacroDayBody {
-  flex: 0 0 auto;
-  min-height: 0;
   overflow: visible;
-  padding: 0;
+}
+
+.terminal--macro .macroCalMonthCell:nth-child(7n) {
+  border-right: none;
+}
+
+.terminal--macro .macroCalMonthGrid .macroCalMonthCell:nth-last-child(-n + 7) {
+  border-bottom: none;
+}
+
+.terminal--macro .macroCalMonthCell--outside .macroCalMonthCellDay {
+  color: rgba(255, 255, 255, 0.22);
+}
+
+.terminal--macro .macroCalMonthCell--today .macroCalMonthCellDay {
+  color: rgba(120, 180, 255, 0.92);
+}
+
+.terminal--macro .macroCalMonthCell--quiet .macroCalMonthCellBody {
+  opacity: 0.55;
+}
+
+.terminal--macro .macroCalMonthCell--noMatch {
+  opacity: 0.45;
+}
+
+.terminal--macro .macroCalMonthCellHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   gap: 4px;
+  margin-bottom: 4px;
+}
+
+.terminal--macro .macroCalMonthCellHeadMain {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+}
+
+.terminal--macro .macroCalMonthCellWeekday {
+  display: none;
+}
+
+.terminal--macro .macroCalMonthCellDay {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.terminal--macro .macroCalMonthCellToday {
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(140, 190, 255, 0.9);
+}
+
+.terminal--macro .macroCalMonthCellBody {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 auto;
+  overflow: visible;
+}
+
+.terminal--macro .macroCalMonthEvent {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 2px 0 2px 5px;
+  border-left: 2px solid rgba(255, 255, 255, 0.2);
+  min-width: 0;
+}
+
+.terminal--macro .macroCalMonthEvent--high {
+  border-left-color: rgba(255, 120, 160, 0.9);
+}
+
+.terminal--macro .macroCalMonthEvent--medium {
+  border-left-color: rgba(255, 200, 120, 0.82);
+}
+
+.terminal--macro .macroCalMonthEvent--low {
+  border-left-color: rgba(255, 255, 255, 0.28);
+}
+
+.terminal--macro .macroCalMonthEventTime {
+  font-size: 7px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.terminal--macro .macroCalMonthEventTitle {
+  font-size: 8px;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.78);
+  overflow: visible;
+  word-break: break-word;
+}
+
+@media (max-width: 900px) {
+  .macroCalendarPageHead {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'title tools'
+      'nav nav';
+    align-items: center;
+    gap: 10px 12px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .macroCalendarPageHeadMain {
+    grid-area: title;
+  }
+
+  .macroCalendarPageHeadCenter {
+    grid-area: nav;
+    justify-self: stretch;
+    padding-top: 2px;
+  }
+
+  .macroCalendarPageHeadEnd {
+    grid-area: tools;
+  }
+
+  .macroCalendarPageSubtitle {
+    display: none;
+  }
+
+  .terminal--macro .macroCalMonthNav {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .terminal--macro .macroCalMonthNavTitle {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 10px;
+    letter-spacing: 0.03em;
+  }
+
+  .terminal--macro .macroCalMonthNavBtn {
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+  }
+
+  .terminal--macro .macroCalMonthWeekdays {
+    display: none;
+  }
+
+  .terminal--macro .macroCalMonthGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    flex: 0 0 auto;
+    min-height: 0;
+    grid-auto-rows: unset;
+  }
+
+  .terminal--macro .macroCalMonthCell--outside,
+  .terminal--macro .macroCalMonthCell--quiet {
+    display: none;
+  }
+
+  .terminal--macro .macroCalMonthCell {
+    min-height: auto;
+    height: auto;
+    padding: 14px var(--panel-scroll-inline-pad) 16px;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .terminal--macro .macroCalMonthGrid .macroCalMonthCell:nth-last-child(-n + 7) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .terminal--macro .macroCalMonthGrid .macroCalMonthCell:last-child {
+    border-bottom: none;
+    padding-bottom: 4px;
+  }
+
+  .terminal--macro .macroCalMonthCell--today {
+    box-shadow: none;
+    background: rgba(120, 180, 255, 0.04);
+  }
+
+  .terminal--macro .macroCalMonthCell--today .macroCalMonthCellDay {
+    color: rgba(120, 180, 255, 0.95);
+  }
+
+  .terminal--macro .macroCalMonthCellHead {
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .terminal--macro .macroCalMonthCellHeadMain {
+    gap: 8px;
+  }
+
+  .terminal--macro .macroCalMonthCellWeekday {
+    display: inline;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.42);
+  }
+
+  .terminal--macro .macroCalMonthCellDay {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .terminal--macro .macroCalMonthCellToday {
+    font-size: 8px;
+    padding: 2px 6px;
+    border: 1px solid rgba(120, 180, 255, 0.28);
+    background: rgba(120, 180, 255, 0.08);
+  }
+
+  .terminal--macro .macroCalMonthCellBody {
+    gap: 6px;
+  }
+
+  .terminal--macro .macroCalMonthEvent {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    border-left-width: 3px;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .terminal--macro .macroCalMonthEventTime {
+    flex: 0 0 2.75rem;
+    font-size: 9px;
+    line-height: 1.35;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .terminal--macro .macroCalMonthEventTitle {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 10px;
+    line-height: 1.35;
+    color: rgba(255, 255, 255, 0.86);
+  }
+}
+
+@media (max-width: 640px) {
+  .macroCalendarPageHead {
+    padding-top: 12px;
+    padding-bottom: 10px;
+  }
 }
 
 .settingsPage {
@@ -6714,16 +7118,20 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Research tab paper panel: scrollport inset matches analyse / feed panels. */
+/* Research tab paper panel: full-width filing list (no side gutters on scrollport). */
 .terminal--main .researchPaper.researchPaperPanel > .researchPaperBody {
-  padding: 0 var(--panel-scroll-inline-pad) var(--panel-scroll-bottom-pad);
+  padding: 0 0 var(--panel-scroll-bottom-pad);
   scrollbar-gutter: stable;
   box-sizing: border-box;
 }
 
 .terminal--main .researchPaper.researchPaperPanel .researchPaperBody--documentsOnly,
 .terminal--main .researchPaper.researchPaperPanel .researchPaperTimeline--documentsOnly {
-  padding: 0;
+  padding: 0 0 22px;
+}
+
+.terminal--main .researchPaper.researchPaperPanel .researchPaperDocuments {
+  width: 100%;
 }
 
 .terminal--main .researchPaper.researchPaperPanel .researchPaperChart {
@@ -6735,14 +7143,10 @@
 }
 
 .terminal--main .researchPaper.researchPaperPanel .researchPaperDocCard .researchPaperRailCardMain {
-  padding: 5px 6px 14px 5px;
+  padding: 0 0 2px;
 }
 
 .terminal--main .researchPaper.researchPaperPanel .researchPaperDocCardAnalysis {
-  padding-right: 6px;
-}
-
-.terminal--main .researchPaper.researchPaperPanel .eventBriefMentionedTickers {
   padding-right: 6px;
 }
 
@@ -7946,6 +8350,18 @@ button.researchPaperCopyIcon:focus-visible {
   color: rgba(255, 255, 255, 0.52);
 }
 
+.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeCode--impact-high {
+  color: rgba(255, 120, 160, 0.9);
+}
+
+.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeCode--impact-medium {
+  color: rgba(255, 200, 120, 0.82);
+}
+
+.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeCode--impact-low {
+  color: rgba(255, 255, 255, 0.28);
+}
+
 /* Research tab: FEED filter (paper + feed scopes) */
 .terminal--researchFeed .researchTicker .feedCompactTitle,
 .terminal--discover .discoverMacroStrip.feed--left .feedCompactTitle,
@@ -8285,9 +8701,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .feed--left .researchFeedSearch,
 .terminal--institutions .feed--left .researchFeedSearch,
 .terminal--researchFeed .researchTicker.feed--left .researchFeedSearch,
-.terminal--discover .discoverSearch,
-.terminal--macro .macroCalendarPageTools .researchFeedSearch
-{
+.terminal--discover .discoverSearch {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -8305,9 +8719,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .feed--left .researchFeedSearchInput,
 .terminal--institutions .feed--left .researchFeedSearchInput,
 .terminal--researchFeed .researchTicker.feed--left .researchFeedSearchInput,
-.terminal--discover .discoverSearch .researchFeedSearchInput,
-.terminal--macro .macroCalendarPageTools .researchFeedSearchInput
-{
+.terminal--discover .discoverSearch .researchFeedSearchInput {
   flex: 1;
   min-width: 0;
   margin: 0;
@@ -8326,9 +8738,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .feed--left .researchFeedSearchInput::placeholder,
 .terminal--institutions .feed--left .researchFeedSearchInput::placeholder,
 .terminal--researchFeed .researchTicker.feed--left .researchFeedSearchInput::placeholder,
-.terminal--discover .discoverSearch .researchFeedSearchInput::placeholder,
-.terminal--macro .macroCalendarPageTools .researchFeedSearchInput::placeholder
-{
+.terminal--discover .discoverSearch .researchFeedSearchInput::placeholder {
   color: rgba(255, 255, 255, 0.38);
 }
 
@@ -8336,9 +8746,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--politicians .feed--left .researchFeedSearchIcon,
 .terminal--institutions .feed--left .researchFeedSearchIcon,
 .terminal--researchFeed .researchTicker.feed--left .researchFeedSearchIcon,
-.terminal--discover .discoverSearch .researchFeedSearchIcon,
-.terminal--macro .macroCalendarPageTools .researchFeedSearchIcon
-{
+.terminal--discover .discoverSearch .researchFeedSearchIcon {
   flex-shrink: 0;
   width: 12px;
   height: 12px;
@@ -10361,17 +10769,6 @@ body {
   stroke: var(--intel-accent-stroke-strong);
   stroke-width: 2px;
   fill: none;
-}
-
-/* Idea highlights (best-of-the-best only) */
-.terminal--main .researchPaperPanel .researchPaperDocCard.ideaHighlight--A {
-  border-color: var(--chart-panel-border);
-  background: rgba(120, 255, 170, 0.05);
-}
-
-.terminal--main .researchPaperPanel .researchPaperDocCard.ideaHighlight--A.eventBriefDocCard--clickable:hover {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(120, 255, 170, 0.065);
 }
 
 .terminal--insider .feed--left .feedRowCompact.ideaHighlight--A,

@@ -25,6 +25,8 @@ export const MACRO_IMPACT_FILTER_TYPES = [
 
 export const MACRO_IMPACT_FILTER_DEFAULT = new Set(MACRO_IMPACT_FILTER_TYPES.map((t) => t.id))
 
+export const MACRO_WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
 function parseLocalDay(dateStr) {
   const raw = String(dateStr ?? '').trim()
   const parts = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
@@ -76,7 +78,20 @@ function isoLocalDate(d) {
   return `${y}-${m}-${day}`
 }
 
-/** Next N business days from today (Mon–Fri only, today included). */
+/** Filter events inside each day; keeps every calendar day in the payload. */
+export function applyMacroEventFilters(days, { regions, impacts }) {
+  if (!regions?.size || !impacts?.size) {
+    return (days ?? []).map((day) => ({ ...day, events: [] }))
+  }
+  return (days ?? []).map((day) => ({
+    ...day,
+    events: (Array.isArray(day?.events) ? day.events : []).filter(
+      (event) => regions.has(event.region) && impacts.has(event.impact),
+    ),
+  }))
+}
+
+/** @deprecated Use applyMacroEventFilters for month view. */
 export function filterMacroCalendarDays(days, { regions, impacts }) {
   if (!regions?.size || !impacts?.size) return []
   return days
@@ -89,6 +104,122 @@ export function filterMacroCalendarDays(days, { regions, impacts }) {
     .filter((day) => day.events.length > 0)
 }
 
+export function currentMonthKey() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+export function parseMonthKey(raw) {
+  const m = String(raw ?? '').trim().match(/^(\d{4})-(\d{2})$/)
+  if (!m) return null
+  const year = Number(m[1])
+  const month = Number(m[2])
+  if (!Number.isFinite(year) || month < 1 || month > 12) return null
+  return { year, month }
+}
+
+export function shiftMonthKey(key, delta) {
+  const parsed = parseMonthKey(key) ?? parseMonthKey(currentMonthKey())
+  if (!parsed) return currentMonthKey()
+  const d = new Date(parsed.year, parsed.month - 1 + delta, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+export function formatMacroMonthTitle(key) {
+  const parsed = parseMonthKey(key)
+  if (!parsed) return '—'
+  const d = new Date(parsed.year, parsed.month - 1, 1, 12, 0, 0, 0)
+  return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+}
+
+function allDaysInMonth(year, month) {
+  const last = new Date(year, month, 0).getDate()
+  const out = []
+  for (let d = 1; d <= last; d++) {
+    out.push(isoLocalDate(new Date(year, month - 1, d)))
+  }
+  return out
+}
+
+export function getMacroMonthDays(year, month) {
+  return allDaysInMonth(year, month).map((date) => {
+    const d = parseLocalDay(date)
+    if (!d || !isWeekday(d)) return { date, events: [] }
+    const dow = d.getDay() - 1
+    const templates = MACRO_DAY_TEMPLATES[dow] ?? MACRO_DAY_TEMPLATES[0] ?? []
+    return {
+      date,
+      events: templates.map((event, idx) => ({
+        ...event,
+        id: `${date}-${event.id ?? idx}`,
+      })),
+    }
+  })
+}
+
+/**
+ * Build a Sun–Sat month grid with leading/trailing outside-month padding cells.
+ * @param {Map<string, { events?: MacroCalendarEvent[] }>} daysByDate
+ */
+export function buildMacroMonthGrid(year, month, daysByDate) {
+  const first = new Date(year, month - 1, 1)
+  const lastDate = new Date(year, month, 0).getDate()
+  const leadPad = first.getDay()
+  const cells = []
+
+  const prevMonth = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 }
+  const prevLast = new Date(prevMonth.year, prevMonth.month, 0).getDate()
+  for (let i = leadPad - 1; i >= 0; i--) {
+    const dayNum = prevLast - i
+    const date = isoLocalDate(new Date(prevMonth.year, prevMonth.month - 1, dayNum))
+    const dow = new Date(prevMonth.year, prevMonth.month - 1, dayNum).getDay()
+    cells.push({
+      kind: 'outside',
+      date,
+      dayNum,
+      weekdayLabel: MACRO_WEEKDAY_LABELS[dow],
+      events: [],
+      isWeekend: dow === 0 || dow === 6,
+      isToday: false,
+    })
+  }
+
+  for (let dayNum = 1; dayNum <= lastDate; dayNum++) {
+    const date = isoLocalDate(new Date(year, month - 1, dayNum))
+    const dow = new Date(year, month - 1, dayNum).getDay()
+    const bucket = daysByDate?.get?.(date)
+    cells.push({
+      kind: 'in-month',
+      date,
+      dayNum,
+      weekdayLabel: MACRO_WEEKDAY_LABELS[dow],
+      isWeekend: dow === 0 || dow === 6,
+      isToday: isMacroCalendarToday(date),
+      events: Array.isArray(bucket?.events) ? bucket.events : [],
+    })
+  }
+
+  const nextMonth = month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 }
+  let nextDay = 1
+  while (cells.length % 7 !== 0) {
+    const date = isoLocalDate(new Date(nextMonth.year, nextMonth.month - 1, nextDay))
+    const dow = new Date(nextMonth.year, nextMonth.month - 1, nextDay).getDay()
+    cells.push({
+      kind: 'outside',
+      date,
+      dayNum: nextDay,
+      weekdayLabel: MACRO_WEEKDAY_LABELS[dow],
+      events: [],
+      isWeekend: dow === 0 || dow === 6,
+      isToday: false,
+    })
+    nextDay += 1
+  }
+
+  return cells
+}
+
+/** Next N business days from today (Mon–Fri only, today included). */
 export function getUpcomingMacroDays(limit = 7) {
   const out = /** @type {MacroCalendarDay[]} */ ([])
   const cursor = todayLocalStart()

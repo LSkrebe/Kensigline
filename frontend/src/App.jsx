@@ -14,11 +14,19 @@ import { AnalysePanel } from './AnalysePanel.jsx'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
 import {
+  buildMockResearchFeedRows,
   buildMockWeekContextFlows,
   buildMockWeekResearchDocSpecs,
+  discoverPastForTicker,
+  MOCK_FEED_UNIVERSE,
   MOCK_INVESTIGATE_FEED_ROWS,
   MOCK_SEMIS,
+  mockFeedTodayEventCount,
+  mockIdeaBestForRowIndex,
+  mockIdeaFieldsForRow,
+  mockInvestigateActorNameForRow,
   mockInvestigateFeedAtForIndex,
+  polishOfflineInvestigateActorFeed,
 } from './mockWeekData.js'
 import { mockShowcasePriceSeries, showcaseCompanyName } from './mockShowcasePrices.js'
 import { fetchAnalyseModel } from './analyseClient.js'
@@ -29,8 +37,7 @@ import {
   fetchFeedPage,
   persistFeedCache,
 } from './feedLoad.js'
-import { EventBriefDocCard } from './EventBrief.jsx'
-import { getEventMentioned } from './eventBriefs.js'
+import { EventBriefAnalysis } from './EventBrief.jsx'
 import {
   normalizeResearchPaperSourceKey,
   researchPaperSourceTypes,
@@ -134,41 +141,7 @@ function ideaHighlightClass(best) {
   return best ? 'ideaHighlight--A' : ''
 }
 
-const MOCK_IDEA_SCORES = [92, 84, 76, 68, 55, 88, 71, 63, 49, 38, 86, 74, 66, 58, 81]
-
-function mockIdeaFields(i, kind = 'insider') {
-  const idea_score = MOCK_IDEA_SCORES[i % MOCK_IDEA_SCORES.length]
-  const idea_best = idea_score >= IDEA_SCORE_BEST_THRESHOLD
-  const reasonsByKind = {
-    insider: [
-      'Multiple open-market purchases',
-      'Senior insider involved',
-      'Recent filing inside a week',
-      'Meaningful purchase size',
-    ],
-    politician: [
-      'Stock purchase disclosure',
-      'Material disclosed range',
-      'PTR activity today',
-      'Senate PTR filing',
-    ],
-    institution: [
-      'New 13F position',
-      'Increased institutional stake',
-      'Large disclosed holding value',
-      'Multiple institutions active',
-    ],
-    research: [
-      'Phase III program signal',
-      'Material 8-K filing',
-      'High-signal market language',
-      'Recent filing inside a week',
-    ],
-  }
-  const pool = reasonsByKind[kind] ?? reasonsByKind.insider
-  const idea_reasons = pool.slice(0, 2 + (i % 2))
-  return { idea_score, idea_best, idea_reasons }
-}
+const mockIdeaFields = mockIdeaFieldsForRow
 
 const EMPTY = '-'
 
@@ -343,6 +316,8 @@ function feedRowLastEventAt(row) {
 }
 
 function feedRowTodayEventCount(row) {
+  const preset = Number(row?.mockTodayCount)
+  if (Number.isFinite(preset) && preset > 0) return preset
   if (row?.caseSheet?.rows?.length) return countCompanyFeedEventsToday(row)
   const api = Number(row?.count)
   if (Number.isFinite(api) && api >= 0) return api
@@ -1112,7 +1087,10 @@ function normalizeInvestigateActorFeedRow(actor) {
       bestAt = ts
     }
   }
-  const countN = countActorFeedEventsToday(actor)
+  const countN =
+    Number.isFinite(Number(actor._mockTodayCount)) && Number(actor._mockTodayCount) > 0
+      ? Number(actor._mockTodayCount)
+      : countActorFeedEventsToday(actor)
   return {
     ...actor,
     at: bestAt ?? actor.at ?? null,
@@ -1571,18 +1549,8 @@ const MOCK_ASML_FEED_ROW = {
   ...mockIdeaFields(0, 'research'),
 }
 
-/** Research feed — 12 semis names, activity staggered across the last 7 days. */
-const RESEARCH_FEED_ROWS = MOCK_SEMIS.map((co, i) => {
-  const day = i % MOCK_SEMIS.length % 7
-  const slot = Math.floor(i / MOCK_SEMIS.length) + (i % 3)
-  return {
-    rowKey: `fb-${co.ticker}`,
-    ticker: co.ticker,
-    name: co.name,
-    at: mockAtDaysAgo(day, 9 + (slot % 8), 8 + (i * 11) % 52),
-    ...mockIdeaFields(i, 'research'),
-  }
-})
+/** Research feed — one row per issuer, activity staggered across the week. */
+const RESEARCH_FEED_ROWS = buildMockResearchFeedRows()
 
 function formatCompanyDisplayName(name) {
   let s = String(name ?? '').trim()
@@ -1704,35 +1672,47 @@ function _explainerForTicker(ticker) {
   ]
 }
 
-function mockDatasetForTicker(ticker) {
+function buildMockResearchDatasetForTicker(ticker) {
   const t = String(ticker ?? '').toUpperCase()
-  if (MOCK_RESEARCH_DATASETS[t]) return MOCK_RESEARCH_DATASETS[t]
+  const co = MOCK_SEMIS.find((c) => c.ticker === t)
+  const narratives = discoverPastForTicker(t)
+  const eventSource =
+    narratives.length > 0
+      ? narratives
+      : [
+          {
+            title: `${t} supply-chain and demand update`,
+            kind: 'filing',
+            impact: 'medium',
+            idea_best: false,
+          },
+        ]
+  const events = eventSource.slice(0, 3).map((n, i) => ({
+    id: `${t.toLowerCase()}-ev-${i}`,
+    type: n.kind === 'flow' ? 'insider_activity' : 'capacity_signal',
+    title: n.title,
+    date: mockDateOnlyDaysAgo(3 + i * 5),
+    entities: ['c1'],
+    sentiment: n.idea_best ? 'bullish' : 'neutral',
+    impact: n.impact ?? 'medium',
+  }))
   return {
-    entities: [{ id: 'c1', type: 'company', name: showcaseCompanyName(t) }],
-    events: [],
+    entities: [{ id: 'c1', type: 'company', name: co?.name ?? showcaseCompanyName(t) }],
+    events,
     edges: [],
     price: mockShowcasePriceSeries(t),
   }
 }
 
-const MOCK_RESEARCH_DATASETS = {
-  ASML: {
-    entities: [{ id: 'c1', type: 'company', name: 'ASML Holding N.V.' }],
-    events: [
-      {
-        id: 'e1',
-        type: 'capacity_signal',
-        title: 'EUV throughput remains the gating function',
-        date: mockDateOnlyDaysAgo(18),
-        entities: ['c1'],
-        sentiment: 'bullish',
-        impact: 'high',
-      },
-    ],
-    edges: [],
-    price: mockShowcasePriceSeries('ASML'),
-  },
+function mockDatasetForTicker(ticker) {
+  const t = String(ticker ?? '').toUpperCase()
+  if (MOCK_RESEARCH_DATASETS[t]) return MOCK_RESEARCH_DATASETS[t]
+  return buildMockResearchDatasetForTicker(t)
 }
+
+const MOCK_RESEARCH_DATASETS = Object.fromEntries(
+  MOCK_SEMIS.map((co) => [co.ticker, buildMockResearchDatasetForTicker(co.ticker)]),
+)
 
 const POLITICIAN_CHAMBER_LABELS = {
   house: 'House',
@@ -1838,6 +1818,49 @@ const CONTEXT_MOCK_PROFILES = {
   },
 }
 
+function semisContextFundamentalsForTicker(ticker) {
+  const t = String(ticker ?? '').toUpperCase()
+  const seed = seedFromTicker(t)
+  const mult = 0.9 + (seed % 18) / 100
+  const growthBoost =
+    t === 'NVDA' ? 1.45 : t === 'AMD' || t === 'MU' ? 1.25 : t === 'INTC' ? 0.82 : 1.05
+  const marginBoost = t === 'NVDA' || t === 'AVGO' ? 1.12 : t === 'INTC' ? 0.88 : 1.0
+  const cashScale =
+    t === 'NVDA' ? 28 : t === 'TSM' ? 22 : t === 'AVGO' ? 18 : t === 'INTC' ? 8 : 6
+  const shareBase =
+    t === 'NVDA' ? 2_460_000_000 : t === 'TSM' ? 5_180_000_000 : t === 'INTC' ? 4_280_000_000 : 620_000_000
+  return {
+    forwardRevenueGrowth: Math.round(22 * mult * growthBoost),
+    revenueGrowth: [8, 12, 16, 20].map((v) => Math.round(v * mult * growthBoost)),
+    grossMargin: [44, 46, 48, 50].map((v) => Math.round(v * marginBoost)),
+    netMargin: [16, 18, 20, 22].map((v) => Math.round(v * marginBoost * mult)),
+    fcfMargin: [14, 16, 18, 20].map((v) => Math.round(v * mult)),
+    netIncomeGrowth: [10, 16, 22, 28].map((v) => Math.round(v * growthBoost)),
+    fcfGrowth: [8, 14, 20, 26].map((v) => Math.round(v * growthBoost)),
+    netCash: [1, 2, 3, 4].map((q) => Math.round(cashScale * 1e9 * (0.85 + q * 0.08) * mult)),
+    sharesOutstanding: [0, 1, 2, 3].map((i) => Math.round(shareBase * (1 - i * 0.012))),
+  }
+}
+
+function semisContextCountry(ticker) {
+  const t = String(ticker ?? '').toUpperCase()
+  if (t === 'ASML') return 'NL'
+  if (t === 'TSM') return 'TW'
+  return 'US'
+}
+
+for (const co of MOCK_SEMIS) {
+  if (co.ticker === 'ASML') continue
+  CONTEXT_MOCK_PROFILES[co.ticker] = {
+    sector: co.sector,
+    country: semisContextCountry(co.ticker),
+    mcap: co.mcap,
+    earningsDaysAhead: 11 + (seedFromTicker(co.ticker) % 24),
+    fundamentals: semisContextFundamentalsForTicker(co.ticker),
+    ownership: null,
+  }
+}
+
 function contextMockFlowDate(row, dateDaysAgo, seed = 0) {
   const parsed = mockFlowAtFromRaw(row?.at, seed)
   if (parsed) return parsed
@@ -1846,10 +1869,10 @@ function contextMockFlowDate(row, dateDaysAgo, seed = 0) {
 }
 
 const CONTEXT_MOCK_PROFILE_DEFAULT = {
-  sector: 'Biotechnology',
+  sector: 'Semiconductors',
   country: 'US',
   mcap: '—',
-  earningsDaysAhead: 30,
+  earningsDaysAhead: 21,
   leadDrug: null,
   programs: [],
   insiders: [],
@@ -1860,15 +1883,15 @@ const CONTEXT_MOCK_PROFILE_DEFAULT = {
 }
 
 const CONTEXT_FUNDAMENTALS_MOCK_TEMPLATE = {
-  forwardRevenueGrowth: 65,
-  revenueGrowth: [55, 72],
-  grossMargin: [46, 48],
-  netMargin: [24, 29],
-  fcfMargin: [18, 24],
-  netIncomeGrowth: [61, 110],
-  fcfGrowth: [53, 95],
-  netCash: [240_000_000, 340_000_000],
-  sharesOutstanding: [108_000_000, 92_000_000],
+  forwardRevenueGrowth: 22,
+  revenueGrowth: [8, 12, 16, 20],
+  grossMargin: [44, 46, 48, 50],
+  netMargin: [16, 18, 20, 22],
+  fcfMargin: [14, 16, 18, 20],
+  netIncomeGrowth: [10, 16, 22, 28],
+  fcfGrowth: [8, 14, 20, 26],
+  netCash: [6_000_000_000, 8_500_000_000, 11_000_000_000, 14_000_000_000],
+  sharesOutstanding: [820_000_000, 805_000_000, 790_000_000, 775_000_000],
 }
 
 const CONTEXT_OWNERSHIP_MOCK_TEMPLATE = {
@@ -2054,7 +2077,14 @@ function formatContextFundamentalDisplay(fundamentals, row) {
 function contextMockForTicker(ticker, priceSeries) {
   const t = String(ticker ?? 'ASML').toUpperCase()
   const semis = MOCK_SEMIS.find((c) => c.ticker === t)
-  const base = CONTEXT_MOCK_PROFILES[t] ?? CONTEXT_MOCK_PROFILES.ASML
+  const base = CONTEXT_MOCK_PROFILES[t] ?? {
+    ...CONTEXT_MOCK_PROFILE_DEFAULT,
+    sector: semis?.sector ?? CONTEXT_MOCK_PROFILE_DEFAULT.sector,
+    country: semisContextCountry(t),
+    mcap: semis?.mcap ?? CONTEXT_MOCK_PROFILE_DEFAULT.mcap,
+    earningsDaysAhead: 12 + (seedFromTicker(t) % 20),
+    fundamentals: semisContextFundamentalsForTicker(t),
+  }
   const weekFlows = buildMockWeekContextFlows(t)
   const dateDaysAgo = (daysAgo, hour = 10, minute = 20) => {
     const d = new Date()
@@ -3380,10 +3410,10 @@ function insiderCaseRowFromSpec(spec, tsIso, seedI = 0, seedK = 0) {
   }
 }
 
-function mockTxnSpecForCluster(i, k) {
+function mockTxnSpecForCluster(i, k, personOverride = null) {
   const code = FORM4_TXN_CODES_CYCLE[(i * 5 + k * 3) % FORM4_TXN_CODES_CYCLE.length]
   const role = INSIDER_TXN_ROLES[(i + k) % INSIDER_TXN_ROLES.length]
-  const person = mockInsiderPerson(i, k).fullName
+  const person = personOverride ?? mockInsiderPerson(i, k).fullName
   const seed = i * 131 + k * 37
   const isDeriv = code === 'D' || (code === 'P' && k % 7 === 0) || (code === 'S' && k % 9 === 0)
   const ad =
@@ -4196,12 +4226,14 @@ function insiderCaseForRowIndex(i) {
   // Mix in some double-digit clusters to stress the count/ticker layout.
   const n = i % 11 === 0 ? 12 : i % 13 === 0 ? 18 : (i % 5) + 1
   const count = n
-  const ticker = INSIDER_TICKERS[i % INSIDER_TICKERS.length]
+  const co = MOCK_FEED_UNIVERSE[i] ?? MOCK_FEED_UNIVERSE[i % MOCK_FEED_UNIVERSE.length]
+  const ticker = co.ticker
   const at = mockInvestigateFeedAtForIndex(i)
+  const primaryInsider = mockInvestigateActorNameForRow(i, 'insider')
 
   const formType = FORM_TYPES_INSIDER[i % FORM_TYPES_INSIDER.length]
   const isForm4 = formType === 'Form 4'
-  const issuer = INSIDER_ISSUERS[i % INSIDER_ISSUERS.length]
+  const issuer = co.name
   const filingId = `${ticker}-${String(220000 + (i * 7919) % 879000)}`
 
   const showcaseAllCodes = i === 0 && isForm4
@@ -4209,7 +4241,7 @@ function insiderCaseForRowIndex(i) {
   const rows = []
   for (let k = 0; k < rowCount; k++) {
     const ts = new Date(at)
-    const dayJitter = Math.floor(seededJitter(i * 97 + k * 19, 28))
+    const dayJitter = k === 0 ? 0 : Math.floor(seededJitter(i * 97 + k * 19, 28))
     ts.setDate(ts.getDate() - dayJitter)
     ts.setHours(9 + ((i + k) % 8), ((i * k * 13) % 55) + 5, 0, 0)
     const rowIso = ts.toISOString()
@@ -4217,9 +4249,9 @@ function insiderCaseForRowIndex(i) {
       rows.push({ key: '—', amountUsd: null, ts: rowIso })
       continue
     }
-    const rawSpec = showcaseAllCodes ? FORM4_TXN_MOCK_SAMPLES[k] : mockTxnSpecForCluster(i, k)
+    const rawSpec = showcaseAllCodes ? FORM4_TXN_MOCK_SAMPLES[k] : mockTxnSpecForCluster(i, k, primaryInsider)
     const spec = showcaseAllCodes
-      ? { ...rawSpec, person: rawSpec.person ?? mockInsiderPerson(i, k).fullName }
+      ? { ...rawSpec, person: rawSpec.person ?? primaryInsider }
       : rawSpec
     rows.push(insiderCaseRowFromSpec(spec, rowIso, i, k))
   }
@@ -4259,6 +4291,7 @@ function insiderCaseForRowIndex(i) {
     at: lastEventAt,
     insiders,
     daily: buildInsiderDailySeries(i + 31),
+    mockTodayCount: mockFeedTodayEventCount(i),
     ...mockIdeaFields(i, 'insider'),
     caseSheet: {
       filingId,
@@ -4289,8 +4322,9 @@ function lastName(name) {
 
 function politicianCaseForRowIndex(i) {
   const base = insiderCaseForRowIndex(i)
-  const nPeople = 1 + (i % 3)
-  const people = Array.from({ length: nPeople }, (_, j) => POLITICIAN_NAMES[(i + j) % POLITICIAN_NAMES.length])
+  const primaryPolitician = mockInvestigateActorNameForRow(i, 'politicians')
+  const nPeople = 1
+  const people = [primaryPolitician]
   const chamber = i % 5 === 0 ? 'senate' : i % 7 === 0 ? 'executive' : 'house'
   const rows = (base?.caseSheet?.rows ?? []).map((r, idx) => {
     const who = people[idx % people.length]
@@ -4336,11 +4370,9 @@ const POLITICIAN_FEED_ROWS = sortFeedRowsByAtDesc(
 
 function institutionCaseForRowIndex(i) {
   const base = insiderCaseForRowIndex(i)
-  const nFilers = 1 + (i % 3)
-  const filers = Array.from(
-    { length: nFilers },
-    (_, j) => INSTITUTION_FILERS[(i + j) % INSTITUTION_FILERS.length],
-  )
+  const primaryFiler = mockInvestigateActorNameForRow(i, 'institutions')
+  const nFilers = 1
+  const filers = [primaryFiler]
   const rows = (base?.caseSheet?.rows ?? []).map((r, idx) => {
     const filer = filers[idx % filers.length]
     const activity = INSTITUTION_ACTIVITY_CYCLE[(i + idx) % INSTITUTION_ACTIVITY_CYCLE.length]
@@ -5085,37 +5117,37 @@ function mockSignalBits(ticker) {
   const b = Math.floor(seededJitter(seed + 29, 9))
   const c = Math.floor(seededJitter(seed + 47, 9))
   const funding = [
-    'non-dilutive grant',
-    'strategic financing',
-    'accelerated spend',
-    'partner-funded study',
-    'manufacturing scale signal',
-    'guidance language shift',
-    'backlog / demand pull',
-    'new reimbursement signal',
-    'pipeline reprioritization',
+    'WFE order acceleration',
+    'HBM capacity ramp signal',
+    'hyperscaler capex pull-forward',
+    'EUV backlog extension',
+    'packaging constraint easing',
+    'data-center GPU mix shift',
+    'custom ASIC attach',
+    'memory pricing firming',
+    'foundry utilization step-up',
   ][a]
   const hiring = [
-    'operations hiring',
-    'regulatory affairs hiring',
-    'commercial build-out hiring',
-    'CMC / manufacturing hiring',
-    'BD partnership hires',
-    'quality systems expansion',
-    'medical affairs expansion',
-    'field team build hints',
-    'enterprise sales hiring',
+    'packaging engineering hiring',
+    'fab operations expansion',
+    'supply-chain scaling hires',
+    'CoWoS capacity build-out',
+    'field service EUV hiring',
+    'advanced node yield team',
+    'datacenter solutions hiring',
+    'silicon photonics build-out',
+    'systems integration hiring',
   ][b]
   const partnership = [
-    'distribution partner',
-    'co-dev partner',
-    'data-sharing agreement',
-    'supply chain contract',
-    'payer / provider partnership',
-    'defense / gov contract rumor',
-    'major platform integration',
-    'site network expansion',
-    'KOL / investigator network',
+    'hyperscaler supply agreement',
+    'foundry co-development',
+    'HBM supply contract',
+    'equipment install milestone',
+    'defense packaging award',
+    'rack-scale platform win',
+    'OSAT capacity reservation',
+    'design-win disclosure',
+    'strategic materials JV',
   ][c]
   return { funding, hiring, partnership }
 }
@@ -5588,41 +5620,45 @@ function buildThesisMemo({ ticker, companyName, events, priceSeries, constituent
   const cNames = (constituents ?? []).filter(Boolean).slice(0, 4)
   const cPhrase = cNames.length ? `${cNames.join(', ')}` : 'mid-cap constituents'
 
-  const chartX = isEtfTicker(t) ? 'lagging despite a tightening catalyst window' : 'muted reaction to accumulating pre-catalyst signals'
+  const chartX = isEtfTicker(t)
+    ? 'lagging despite a tightening catalyst window'
+    : 'muted versus downstream AI hardware despite tightening supply signals'
 
   const title = isEtfTicker(t)
     ? `${t}: Biotech catalyst risk is compressing, but price is still treating it as noise`
-    : `${t}: The market is underpricing a near-term catalyst window implied by behavior and language shifts`
+    : `${t}: Capacity and capex signals are tightening faster than the equity tape admits`
 
   const openingA = isEtfTicker(t)
     ? `${name} is seeing a clean regime shift: the “date risk” in the underlying ecosystem is compressing into a narrower window, while positioning signals are showing up ahead of the headline. The edge is not “biotech will go up”; the edge is that timing is tightening while the tape still prices it as background noise.`
-    : `${name} is entering a new positioning regime where the timing signal is getting louder than the narrative. The market is still pricing it as “normal drift,” but the evidence trail looks like pre-catalyst behavior: a dated regulatory window, reinforcement from smart-activity proxies, and language that suggests the next update will change probability, not just timing.`
+    : `${name} is entering a positioning regime where upstream bottlenecks—EUV tools, advanced packaging, HBM, and foundry allocation—are binding harder than the headline AI demand narrative implies. The market still prices much of the complex as a simple downstream beta trade, but filings and management language are shifting toward capacity, lead times, and mix rather than unit optimism.`
 
   const openingB = isEtfTicker(t)
     ? `This matters because dispersion is what drives ETF repricing: the highest-beta names move first, the basket follows, and the lag creates a window where vol is bid but spot is not. If you're early, you get paid twice-first when the market admits the window exists, then when confirmation forces flows.`
-    : `This matters because once the next “known date” is clear, liquidity shifts from patient holders to fast money and the repricing happens in days, not quarters. If you wait for the formal update, you typically pay for the same probability shift that is already being hinted at in behavior and process signals.`
+    : `This matters because once allocation pressure shows up in order books or guidance, liquidity shifts from passive holders to fast money and repricing happens in weeks, not quarters. The tradeable gap is between “AI demand is strong” (already priced) and “this name owns the choke point” (not fully priced).`
 
   const priceRef = `Price is still behaving like ${chartX}; that mismatch is the setup, not the conclusion.`
 
   const core = (() => {
     const dHi = hi?.date ? fmtDay(hi.date) : '—'
     const dTop = top?.date ? fmtDay(top.date) : '—'
-    const evA = hi?.title ? `The trigger is already dated: ${dHi} - "${hi.title},"` : 'The trigger is already dated,'
-    const evB = top?.title && top?.id !== hi?.id ? ` reinforced by ${dTop} - "${top.title}."` : '.'
+    const evA = hi?.title ? `The trigger is already on file: ${dHi} — "${hi.title},"` : 'The trigger is already on file,'
+    const evB = top?.title && top?.id !== hi?.id ? ` reinforced by ${dTop} — "${top.title}."` : '.'
     const mech = isEtfTicker(t)
       ? ` What makes this actionable now is that the "soft" signals are not soft anymore: ${rvPhrase} On the fundamental side, you can point to concrete behavior-${cPhrase} are the kind of names that lead early when windows tighten, and we already have process-like signals showing up as ${bits.hiring} plus ${bits.funding} rather than post-hoc narratives.`
-      : ` What makes this actionable now is that the signals have become concrete: ${rvPhrase} When you see ${bits.hiring} alongside ${bits.partnership} and a ${bits.funding}, it implies internal confidence that the next milestone unlocks a commercial step-change, not just another data point.`
+      : ` What makes this actionable now is that the signals have become concrete: ${rvPhrase} When you see ${bits.hiring} alongside ${bits.partnership} and ${bits.funding}, it implies internal confidence that the next capacity milestone matters for revenue mix, not just shipment timing.`
     const chain = isEtfTicker(t)
       ? ` The second-order edge is dispersion: leaders gap first, laggards follow, and the ETF reprices last. If you want the tradeable asymmetry, you’re not “long biotech,” you’re long the window: signal leakage tightens timing → vol bid rises → leaders gap → flows chase → ETF reprices.`
-      : ` The causal chain is: pre-catalyst signals imply improving probability → positioning shifts ahead of the dated window → confirmation changes guidance language → counterparties/partners commit → revenue expectations expand and the multiple follows.`
+      : ` The causal chain is: bottleneck signals tighten → hyperscaler / foundry allocation shifts → order books and lead times move → guidance language changes → counterparties commit → revenue mix and multiples follow.`
     return `${evA}${evB}${mech}${chain}`
   })()
 
-  const causalChain = `Process signal → positioning shifts → dated catalyst → confirmation headline → flows re-rate → repricing`
+  const causalChain = isEtfTicker(t)
+    ? `Process signal → positioning shifts → dated catalyst → confirmation headline → flows re-rate → repricing`
+    : `Capacity signal → allocation shift → order book move → guidance language → counterparties commit → repricing`
 
   const final = isEtfTicker(t)
     ? `Best expression is to be long the window, not the story: long ${t} vol into the next 4-8 weeks while selectively leaning into leaders (${cPhrase}) versus the basket if dispersion picks up. Confirmation is concrete: scheduling language tightens again, realized vol stays elevated while spot lags, and the first gaps appear in the high-beta names before the ETF follows. Invalidation is also concrete: the window pushes out, vol mean-reverts, and moves revert to pure beta with no micro-driven gaps.`
-    : `Next, watch for concrete confirmation that the market’s probability is too low: earnings language that moves from “monitoring” to “preparing,” a partnership/contract that pulls timelines forward, or disclosure that clarifies endpoints and dates. The thesis is confirmed when guidance language or counterparties shift in a way that forces revenue expectations higher; it fails if the next dated update is delayed or softened and behavior signals unwind without replacement.`
+    : `Next, watch for concrete confirmation that the market’s bottleneck view is too low: 8-K or earnings language that moves from “monitoring supply” to “extending lead times,” a hyperscaler or foundry allocation shift, or a gov / defense packaging award that pulls timelines forward. The thesis is confirmed when guidance or order commentary forces revenue expectations higher; it fails if the next dated update softens demand or capacity commentary without replacement signals.`
 
   const created = todayDateStamp()
   return { created, title, openingA, openingB, priceRef, chartX, core, causalChain, final }
@@ -5640,14 +5676,19 @@ function mockResearchDocumentsForTicker(ticker) {
   const showcase = t === 'ASML'
   const name =
     RESEARCH_FEED_ROWS.find((row) => String(row.ticker ?? '').toUpperCase() === t)?.name ?? t
+  const narratives = discoverPastForTicker(t)
   const secUrl = `https://www.sec.gov/edgar/search/#/q=${encodeURIComponent(t)}`
   const samUrl = `https://sam.gov/search/?index=opp&page=1&sort=-relevance&keywords=${encodeURIComponent(t)}`
 
   return MOCK_RESEARCH_DOC_SPECS.map((spec, i) => {
-    const headline = String(spec.headline ?? 'filing').trim()
-    const sourceLabel = String(spec.source ?? 'Filing')
-    const tpl = showcase ? spec.analysis : spec.genericAnalysis ?? spec.analysis
-    const text = String(tpl ?? '')
+    const narrative = narratives[i % Math.max(1, narratives.length)]
+    const headline = narrative?.title ?? String(spec.headline ?? 'filing').trim()
+    const sourceLabel = String(spec.source ?? narrative?.source ?? 'Filing')
+    const analysisRaw =
+      narrative?.summary && String(narrative.summary).trim()
+        ? narrative.summary
+        : String(spec.analysis ?? '').trim() || String(spec.genericAnalysis ?? '')
+    const text = String(analysisRaw)
       .replace(/\{NAME\}/g, name)
       .replace(/\{TICKER\}/g, t)
       .replace(/\{SOURCE\}/g, sourceLabel)
@@ -5658,13 +5699,17 @@ function mockResearchDocumentsForTicker(ticker) {
       : source.toLowerCase().includes('investor') && t === 'ASML'
         ? 'https://www.asml.com/en/investors'
         : secUrl
+    const idea_best = mockIdeaBestForRowIndex(i)
+    const idea_score = idea_best ? 82 + (i % 11) : 58 + (i % 14)
     return {
       id: `${t.toLowerCase()}-doc-${spec.slug}`,
       source,
       filedAt: mockAtDaysAgo(spec.daysAgo, spec.hour, spec.minute),
       url,
-      ...(showcase && spec.briefKey ? { briefKey: spec.briefKey } : {}),
-      ...mockIdeaFields(i, 'research'),
+      ...(showcase && (narrative?.briefKey ?? spec.briefKey) ? { briefKey: narrative?.briefKey ?? spec.briefKey } : {}),
+      idea_score,
+      idea_best,
+      idea_reasons: mockIdeaFields(i, 'research').idea_reasons,
       analysis: text,
     }
   })
@@ -5990,6 +6035,8 @@ function finalizePaperCaptureClone(sourceEl, clone, portraitMeta) {
   clone.classList.remove(
     'researchPaperRailCard--screenshotSelected',
     'researchPaperRailCard--screenshotUnselected',
+    'researchPaperFiling--screenshotSelected',
+    'researchPaperFiling--screenshotUnselected',
   )
   const rail = clone.querySelector('.researchPaperRailCardRail')
   if (!rail) return
@@ -6042,39 +6089,62 @@ function ResearchPaperRailCaptureSelect({ captureId, selected, onToggle }) {
   )
 }
 
-function ResearchPaperDocCard({ doc, ticker, captureId, screenshotSelectMode = false, screenshotSelected = false, onScreenshotToggle }) {
+function ResearchPaperFilingCard({
+  doc,
+  ticker,
+  captureId,
+  screenshotSelectMode = false,
+  screenshotSelected = false,
+  onScreenshotToggle,
+}) {
   const source = doc?.source ?? 'Filing'
-  const ideaClass = ideaHighlightClass(doc?.idea_best)
   const openUrl = paperDocumentOpenUrl(doc, ticker)
+  const handleOpen =
+    !screenshotSelectMode && openUrl
+      ? () => window.open(openUrl, '_blank', 'noopener,noreferrer')
+      : undefined
+  const Tag = handleOpen ? 'button' : 'article'
+
   return (
-    <EventBriefDocCard
-      captureId={captureId}
-      ticker={ticker}
-      source={source}
-      dateTime={doc?.filedAt ?? undefined}
-      dateLabel={doc?.filedAt ? formatFeedDate(doc.filedAt) : '—'}
-      analysis={doc?.analysis ?? doc?.title}
-      mentioned={getEventMentioned(doc?.briefKey)}
-      url={!screenshotSelectMode ? openUrl : null}
-      openLabel={`Open ${source}`}
-      railContent={
-        screenshotSelectMode ? (
-          <ResearchPaperRailCaptureSelect
-            captureId={captureId}
-            selected={screenshotSelected}
-            onToggle={onScreenshotToggle}
-          />
-        ) : null
-      }
+    <Tag
+      type={handleOpen ? 'button' : undefined}
+      data-paper-capture-id={captureId}
       className={[
-        ideaClass,
-        screenshotSelectMode && screenshotSelected ? 'researchPaperRailCard--screenshotSelected' : '',
-        screenshotSelectMode && !screenshotSelected ? 'researchPaperRailCard--screenshotUnselected' : '',
+        'researchPaperFiling',
+        handleOpen ? 'researchPaperFiling--clickable' : '',
+        screenshotSelectMode && screenshotSelected ? 'researchPaperFiling--screenshotSelected' : '',
+        screenshotSelectMode && !screenshotSelected ? 'researchPaperFiling--screenshotUnselected' : '',
       ]
         .filter(Boolean)
         .join(' ')}
-    />
+      onClick={handleOpen}
+      aria-label={handleOpen ? `Open ${source}` : undefined}
+      title={handleOpen ? `Open ${source}` : undefined}
+    >
+      <div className="researchPaperFilingHead">
+        <div className="researchPaperFilingHeadMain">
+          {screenshotSelectMode ? (
+            <ResearchPaperRailCaptureSelect
+              captureId={captureId}
+              selected={screenshotSelected}
+              onToggle={onScreenshotToggle}
+            />
+          ) : null}
+          <span className="researchPaperFilingSource mono">{source}</span>
+        </div>
+        <time className="researchPaperFilingDate mono dim" dateTime={doc?.filedAt ?? undefined}>
+          {doc?.filedAt ? formatFeedDate(doc.filedAt) : '—'}
+        </time>
+      </div>
+      <EventBriefAnalysis text={doc?.analysis ?? doc?.title} />
+    </Tag>
   )
+}
+
+function ResearchPaperTimelineGap({ label }) {
+  const text = String(label ?? '').trim()
+  if (!text) return null
+  return <div className="researchPaperFilingSep mono">{text}</div>
 }
 
 function mockAsmlPresentation() {
@@ -6531,7 +6601,10 @@ function countResearchFeedEventsToday(timelineItems) {
 
 function normalizeResearchFeedRow(row, timelineItems) {
   const at = researchFeedAtFromTimeline(timelineItems) ?? row?.at ?? null
-  const todayCount = countResearchFeedEventsToday(timelineItems)
+  const timelineCount = countResearchFeedEventsToday(timelineItems)
+  const explicit = Number(row?.paper_doc_count)
+  const todayCount =
+    Number.isFinite(explicit) && explicit > 0 ? explicit : timelineCount
   const ticker = String(row?.ticker ?? '').trim().toUpperCase()
   return {
     ...row,
@@ -6689,19 +6762,6 @@ function ResearchFeedPaneShell({ filterOpen, filterPicker, children, split = fal
   )
 }
 
-function ResearchPaperTimelineGap({ label }) {
-  const text = String(label ?? '').trim()
-  if (!text) return null
-  return (
-    <div className="researchPaperTodayGap" aria-hidden="true">
-      <div className="researchPaperTodayGapRow">
-        <span className="researchPaperTodayGapRule" />
-        <span className="researchPaperTodayGapLabel mono">{text}</span>
-      </div>
-    </div>
-  )
-}
-
 function ResearchPaperTxnCard({
   captureId,
   source,
@@ -6834,22 +6894,16 @@ function ResearchPaperStructuredView({
             .join(' ')}
           aria-label="Filings"
         >
-          {displayRows.map((entry, idx) => {
+          {displayRows.map((entry) => {
             if (entry.type === 'sep') {
-              return (
-                <Fragment key={entry.key}>
-                  {idx > 0 ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
-                  <ResearchPaperTimelineGap label={entry.label} />
-                </Fragment>
-              )
+              return <ResearchPaperTimelineGap key={entry.key} label={entry.label} />
             }
             const item = entry.row.item
             const selected = selectedSet.has(item.id)
             return (
               <Fragment key={item.id}>
-                {idx > 0 ? <div className="researchPaperDocConnector" aria-hidden="true" /> : null}
                 {item.kind === 'document' ? (
-                  <ResearchPaperDocCard
+                  <ResearchPaperFilingCard
                     doc={item.document}
                     ticker={t}
                     captureId={item.id}
@@ -10381,10 +10435,13 @@ function KensiglineTerminal() {
     [insiderFeedRowsBase, investigateInsiderTxnFilters],
   )
 
-  const insiderActorFeedBase = useMemo(
-    () => buildInvestigateActorFeed(insiderFeedRowsTxnFiltered, 'insider'),
-    [insiderFeedRowsTxnFiltered],
-  )
+  const insiderActorFeedBase = useMemo(() => {
+    const actors = buildInvestigateActorFeed(insiderFeedRowsTxnFiltered, 'insider')
+    if (!backendUp) {
+      return polishOfflineInvestigateActorFeed(actors).map(normalizeInvestigateActorFeedRow)
+    }
+    return actors
+  }, [insiderFeedRowsTxnFiltered, backendUp])
 
   const insiderFilteredFeed = useMemo(() => {
     const q = String(insiderFeedQuery ?? '').trim()
@@ -10416,10 +10473,13 @@ function KensiglineTerminal() {
     [politiciansFeedRowsBase, investigatePoliticianTxnFilters],
   )
 
-  const politiciansActorFeedBase = useMemo(
-    () => buildInvestigateActorFeed(politiciansFeedRowsTxnFiltered, 'politicians'),
-    [politiciansFeedRowsTxnFiltered],
-  )
+  const politiciansActorFeedBase = useMemo(() => {
+    const actors = buildInvestigateActorFeed(politiciansFeedRowsTxnFiltered, 'politicians')
+    if (!backendUp) {
+      return polishOfflineInvestigateActorFeed(actors).map(normalizeInvestigateActorFeedRow)
+    }
+    return actors
+  }, [politiciansFeedRowsTxnFiltered, backendUp])
 
   const politiciansFilteredFeed = useMemo(() => {
     const q = String(politiciansFeedQuery ?? '').trim()
@@ -10451,10 +10511,13 @@ function KensiglineTerminal() {
     [institutionsFeedRowsBase, investigateInstitutionTxnFilters],
   )
 
-  const institutionsActorFeedBase = useMemo(
-    () => buildInvestigateActorFeed(institutionsFeedRowsTxnFiltered, 'institutions'),
-    [institutionsFeedRowsTxnFiltered],
-  )
+  const institutionsActorFeedBase = useMemo(() => {
+    const actors = buildInvestigateActorFeed(institutionsFeedRowsTxnFiltered, 'institutions')
+    if (!backendUp) {
+      return polishOfflineInvestigateActorFeed(actors).map(normalizeInvestigateActorFeedRow)
+    }
+    return actors
+  }, [institutionsFeedRowsTxnFiltered, backendUp])
 
   const institutionsFilteredFeed = useMemo(() => {
     const q = String(institutionsFeedQuery ?? '').trim()

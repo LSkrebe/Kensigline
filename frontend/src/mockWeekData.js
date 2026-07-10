@@ -1,13 +1,54 @@
 /**
  * One rolling week of realistic semiconductor mock data (anchored to app load).
- * ~12 items per calendar day across feeds, timelines, and discover panels.
+ * ~20 items per calendar day across feeds, timelines, and discover panels.
  */
 
 import { mockAtDaysAgo, mockDateOnlyDaysAgo } from './mockDates.js'
 
 export const MOCK_WEEK_DAYS = 7
-export const MOCK_ITEMS_PER_DAY = 12
-export const MOCK_INVESTIGATE_FEED_ROWS = MOCK_WEEK_DAYS * MOCK_ITEMS_PER_DAY
+export const MOCK_ITEMS_PER_DAY = 20
+
+/** Sparse green-highlight rows in offline feeds (max 5 per list). */
+export const MOCK_IDEA_BEST_INDICES = new Set([0, 18, 37, 58, 82])
+
+export function mockIdeaBestForRowIndex(i) {
+  return MOCK_IDEA_BEST_INDICES.has(i)
+}
+
+export function mockIdeaFieldsForRow(i, kind = 'insider') {
+  const idea_best = mockIdeaBestForRowIndex(i)
+  const idea_score = idea_best ? 82 + (i % 11) : 48 + (i % 24)
+  const reasonsByKind = {
+    insider: [
+      'Multiple open-market purchases',
+      'Senior insider involved',
+      'Recent filing inside a week',
+      'Meaningful purchase size',
+    ],
+    politician: [
+      'Stock purchase disclosure',
+      'Material disclosed range',
+      'PTR activity today',
+      'Senate PTR filing',
+    ],
+    institution: [
+      'New 13F position',
+      'Increased institutional stake',
+      'Large disclosed holding value',
+      'Multiple institutions active',
+    ],
+    research: [
+      'Material 8-K filing',
+      'High-signal demand language',
+      'Recent filing inside a week',
+      'Earnings guidance shift',
+      'Gov contract award',
+    ],
+  }
+  const pool = reasonsByKind[kind] ?? reasonsByKind.insider
+  const idea_reasons = idea_best ? pool.slice(0, 2 + (i % 2)) : []
+  return { idea_score, idea_best, idea_reasons }
+}
 
 export const MOCK_SEMIS = [
   { ticker: 'NVDA', name: 'NVIDIA Corporation', sector: 'Semiconductors', mcap: '$3.2T' },
@@ -25,6 +66,605 @@ export const MOCK_SEMIS = [
 ]
 
 export const MOCK_SEMIS_BY_TICKER = Object.fromEntries(MOCK_SEMIS.map((c) => [c.ticker, c]))
+
+/** Extra issuers for offline feeds — one row per ticker (no duplicates in feed lists). */
+const MOCK_FEED_EXTRA_PAIRS = [
+  ['ON', 'ON Semiconductor Corporation'],
+  ['NXPI', 'NXP Semiconductors N.V.'],
+  ['TXN', 'Texas Instruments Incorporated'],
+  ['ADI', 'Analog Devices, Inc.'],
+  ['MCHP', 'Microchip Technology Incorporated'],
+  ['STM', 'STMicroelectronics N.V.'],
+  ['GFS', 'GlobalFoundries Inc.'],
+  ['SWKS', 'Skyworks Solutions, Inc.'],
+  ['QRVO', 'Qorvo, Inc.'],
+  ['CRUS', 'Cirrus Logic, Inc.'],
+  ['ENTG', 'Entegris, Inc.'],
+  ['MKSI', 'MKS Instruments, Inc.'],
+  ['ACLS', 'Axcelis Technologies, Inc.'],
+  ['FORM', 'FormFactor, Inc.'],
+  ['CAMT', 'Camtek Ltd.'],
+  ['SITM', 'SiTime Corporation'],
+  ['ALGM', 'Allegro MicroSystems, Inc.'],
+  ['RMBS', 'Rambus Inc.'],
+  ['SNPS', 'Synopsys, Inc.'],
+  ['CDNS', 'Cadence Design Systems, Inc.'],
+  ['SMCI', 'Super Micro Computer, Inc.'],
+  ['DELL', 'Dell Technologies Inc.'],
+  ['ANET', 'Arista Networks, Inc.'],
+  ['CSCO', 'Cisco Systems, Inc.'],
+  ['PANW', 'Palo Alto Networks, Inc.'],
+  ['FTNT', 'Fortinet, Inc.'],
+  ['NOW', 'ServiceNow, Inc.'],
+  ['CRM', 'Salesforce, Inc.'],
+  ['ORCL', 'Oracle Corporation'],
+  ['IBM', 'International Business Machines Corporation'],
+  ['AAPL', 'Apple Inc.'],
+  ['MSFT', 'Microsoft Corporation'],
+  ['GOOGL', 'Alphabet Inc.'],
+  ['META', 'Meta Platforms, Inc.'],
+  ['AMZN', 'Amazon.com, Inc.'],
+  ['TSLA', 'Tesla, Inc.'],
+  ['NFLX', 'Netflix, Inc.'],
+  ['UBER', 'Uber Technologies, Inc.'],
+  ['ABNB', 'Airbnb, Inc.'],
+  ['COIN', 'Coinbase Global, Inc.'],
+  ['PYPL', 'PayPal Holdings, Inc.'],
+  ['V', 'Visa Inc.'],
+  ['MA', 'Mastercard Incorporated'],
+  ['JPM', 'JPMorgan Chase & Co.'],
+  ['GS', 'The Goldman Sachs Group, Inc.'],
+  ['MS', 'Morgan Stanley'],
+  ['BAC', 'Bank of America Corporation'],
+  ['WFC', 'Wells Fargo & Company'],
+  ['XOM', 'Exxon Mobil Corporation'],
+  ['CVX', 'Chevron Corporation'],
+  ['COP', 'ConocoPhillips'],
+  ['LLY', 'Eli Lilly and Company'],
+  ['JNJ', 'Johnson & Johnson'],
+  ['UNH', 'UnitedHealth Group Incorporated'],
+  ['PFE', 'Pfizer Inc.'],
+  ['ABBV', 'AbbVie Inc.'],
+  ['MRK', 'Merck & Co., Inc.'],
+  ['COST', 'Costco Wholesale Corporation'],
+  ['WMT', 'Walmart Inc.'],
+  ['HD', 'The Home Depot, Inc.'],
+  ['LOW', "Lowe's Companies, Inc."],
+  ['NKE', 'NIKE, Inc.'],
+  ['SBUX', 'Starbucks Corporation'],
+  ['DIS', 'The Walt Disney Company'],
+  ['BA', 'The Boeing Company'],
+  ['CAT', 'Caterpillar Inc.'],
+  ['GE', 'GE Aerospace'],
+  ['HON', 'Honeywell International Inc.'],
+  ['UPS', 'United Parcel Service, Inc.'],
+  ['FDX', 'FedEx Corporation'],
+  ['DE', 'Deere & Company'],
+  ['PLTR', 'Palantir Technologies Inc.'],
+  ['SNOW', 'Snowflake Inc.'],
+  ['DDOG', 'Datadog, Inc.'],
+  ['NET', 'Cloudflare, Inc.'],
+  ['ZS', 'Zscaler, Inc.'],
+  ['CRWD', 'CrowdStrike Holdings, Inc.'],
+  ['OKTA', 'Okta, Inc.'],
+  ['MDB', 'MongoDB, Inc.'],
+  ['SHOP', 'Shopify Inc.'],
+  ['SQ', 'Block, Inc.'],
+  ['ROKU', 'Roku, Inc.'],
+  ['TTD', 'The Trade Desk, Inc.'],
+  ['ARM', 'Arm Holdings plc'],
+  ['WOLF', 'Wolfspeed, Inc.'],
+  ['TER', 'Teradyne, Inc.'],
+  ['MPWR', 'Monolithic Power Systems, Inc.'],
+  ['LSCC', 'Lattice Semiconductor Corporation'],
+  ['SLAB', 'Silicon Laboratories Inc.'],
+  ['OLED', 'Universal Display Corporation'],
+  ['IPGP', 'IPG Photonics Corporation'],
+  ['COHR', 'Coherent Corp.'],
+  ['LITE', 'Lumentum Holdings Inc.'],
+  ['VIAV', 'Viavi Solutions Inc.'],
+  ['HPE', 'Hewlett Packard Enterprise Company'],
+  ['HPQ', 'HP Inc.'],
+  ['NTAP', 'NetApp, Inc.'],
+  ['STX', 'Seagate Technology Holdings plc'],
+  ['WDC', 'Western Digital Corporation'],
+]
+
+const MOCK_FEED_EXTRA = MOCK_FEED_EXTRA_PAIRS.map(([ticker, name], i) => ({
+  ticker,
+  name,
+  sector:
+    i % 4 === 0
+      ? 'Semiconductors'
+      : i % 4 === 1
+        ? 'Technology'
+        : i % 4 === 2
+          ? 'Industrials'
+          : 'Consumer',
+  mcap: `$${12 + (i % 88)}B`,
+}))
+
+/** Unique issuers for offline feed panels (research + investigate). */
+export const MOCK_FEED_UNIVERSE = [...MOCK_SEMIS, ...MOCK_FEED_EXTRA]
+
+export const MOCK_FEED_UNIVERSE_BY_TICKER = Object.fromEntries(
+  MOCK_FEED_UNIVERSE.map((c) => [c.ticker, c]),
+)
+
+export const MOCK_INVESTIGATE_FEED_ROWS = MOCK_FEED_UNIVERSE.length
+
+export function mockFeedTodayEventCount(i) {
+  const palette = [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 14, 16, 5, 7, 10, 13, 15, 4, 6, 8]
+  return palette[i % palette.length] + (i % 5 === 0 ? 1 : 0)
+}
+
+function uniqueNameList(names) {
+  const out = []
+  const seen = new Set()
+  for (const raw of names) {
+    const name = String(raw ?? '').trim()
+    if (!name) continue
+    const key = name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(name)
+  }
+  return out
+}
+
+const MOCK_INVESTIGATE_INSIDER_SEED = uniqueNameList([
+  'Tim Cook',
+  'Satya Nadella',
+  'Jamie Dimon',
+  'Mary Barra',
+  'Sundar Pichai',
+  'Jensen Huang',
+  'Lisa Su',
+  'Ruth Porat',
+  'Brian Moynihan',
+  'Arvind Krishna',
+  'Indra Nooyi',
+  'Marc Benioff',
+  'Pat Gelsinger',
+  'Safra Catz',
+  'Andy Jassy',
+  'Christophe Fouquet',
+  'Roger Dassen',
+  'Colette Kress',
+  'Jean Hu',
+  'Forrest Norrod',
+  'C.C. Wei',
+  'Wendell Huang',
+  'Timothy Archer',
+  'Douglas Bettinger',
+  'Gary Dickerson',
+  'Brice Hill',
+  'Sanjay Mehrotra',
+  'Mark Murphy',
+  'Hock Tan',
+  'Kirsten Spears',
+  'Rick Wallace',
+  'Brennan Kiernan',
+  'Lip-Bu Tan',
+  'David Zinsner',
+  'Cristiano Amon',
+  'Akash Palkhiwala',
+  'Matt Murphy',
+  'Wes Cummins',
+  'Debora Shoquist',
+  'Frederic Schneider-Maunoury',
+  'Reed Hastings',
+  'Shantanu Narayen',
+  'John Donahoe',
+  'Edward Bastian',
+  'David Taylor',
+  'Douglas McMillon',
+  'Warren Buffett',
+  'Larry Fink',
+  'David Solomon',
+  'James Gorman',
+  'Charlie Scharf',
+  'Jane Fraser',
+  'Brian Niccol',
+  'Howard Schultz',
+  'Bob Chapek',
+  'Bob Iger',
+  'Elon Musk',
+  'Herbert Diess',
+  'Oliver Blume',
+  'Jim Farley',
+  'Carlos Tavares',
+  'Mike Manley',
+  'Ginni Rometty',
+  'Virginia Rometty',
+  'John Chambers',
+  'Chuck Robbins',
+  'Jayshree Ullal',
+  'Nikesh Arora',
+  'George Kurtz',
+  'Jay Chaudhry',
+  'Bill McDermott',
+  'Christian Klein',
+  'Shantanu Narayen',
+  'Enrique Lores',
+  'Antonio Neri',
+  'Michael Dell',
+  'Pat Gelsinger',
+  'Hock Tan',
+  'Ajay Banga',
+  'David M. Solomon',
+  'Ted Pick',
+  'Ronald O\'Hanley',
+  'Abigail Johnson',
+  'Larry Culp',
+  'David Calhoun',
+  'Greg Hayes',
+  'Phebe Novakovic',
+  'Kathy Warden',
+  'Marillyn Hewson',
+  'Gregory Hayes',
+  'Thomas Kennedy',
+  'Christopher Kubasik',
+  'Wesley Bush',
+  'Leo Reddy',
+  'Kevin McAllister',
+  'Darius Adamczyk',
+  'Vasant Narasimhan',
+  'Albert Bourla',
+  'Michel Vounatsos',
+  'Christopher Boerner',
+  'Robert Ford',
+  'Lars Fruergaard Jorgensen',
+  'Emma Walmsley',
+  'Pascal Soriot',
+  'Ken Frazier',
+  'Vasant Narasimhan',
+  'Ian Read',
+  'Alex Gorsky',
+  'Joaquin Duato',
+  'Chris Kempczinski',
+  'Ramon Laguarta',
+  'Dirk Van de Put',
+  'Mark Schneider',
+  'Ulf Mark Schneider',
+  'Stefano Pessina',
+  'Rosalind Brewer',
+  'Brian Cornell',
+  'Corie Barry',
+  'Hubert Joly',
+  'Marvin Ellison',
+  'Eddie Lampert',
+  'Richard Hayne',
+  'Erik Nordstrom',
+  'Peter Nordstrom',
+  'William McMillon',
+  'John Furner',
+  'Judith McKenna',
+  'Doug McMillon',
+  'Roz Brewer',
+  'Michelle Gass',
+  'William Lauder',
+  'Fabrizio Freda',
+  'James Quincey',
+  'Ivan Menezes',
+  'Debra Crew',
+  'Rob Sands',
+  'Bill Newlands',
+  'Gavin Hattersley',
+  'James Craigie',
+  'Andrés Gluski',
+  'Thomas Fanning',
+  'Nick Akins',
+  'Pat Vincent-Collawn',
+  'Chris Crane',
+  'Pedro Pizarro',
+  'Warner Baxter',
+  'Lisa Davis',
+  'John Ketchum',
+  'Scott Kirby',
+  'Robert Isom',
+  'William Flynn',
+  'Richard Anderson',
+  'Oscar Munoz',
+  'Ed Bastian',
+  'Gary Kelly',
+  'Robin Hayes',
+  'Doug Parker',
+  'Robert Jordan',
+  'Maurice Gallagher',
+  'Barry Biffle',
+  'Ted Christie',
+  'David Neeleman',
+  'Herb Kelleher',
+])
+
+const MOCK_INVESTIGATE_POLITICIAN_SEED = uniqueNameList([
+  'Nancy Pelosi',
+  'Dan Crenshaw',
+  'Josh Gottheimer',
+  'Ro Khanna',
+  'Tommy Tuberville',
+  'Michael McCaul',
+  'John Thune',
+  'Mark Kelly',
+  'Gina Raimondo',
+  'Bernie Sanders',
+  'Ted Cruz',
+  'Marco Rubio',
+  'Chuck Schumer',
+  'Mitch McConnell',
+  'Tom Cotton',
+  'Elizabeth Warren',
+  'Josh Hawley',
+  'Katie Britt',
+  'John Barrasso',
+  'John Cornyn',
+  'Rick Scott',
+  'Tim Scott',
+  'Lindsey Graham',
+  'Susan Collins',
+  'Lisa Murkowski',
+  'Mitt Romney',
+  'Kyrsten Sinema',
+  'Joe Manchin',
+  'Sherrod Brown',
+  'Ron Wyden',
+  'Mike Crapo',
+  'Pat Toomey',
+  'Ben Cardin',
+  'Chris Van Hollen',
+  'Amy Klobuchar',
+  'Tina Smith',
+  'Debbie Stabenow',
+  'Gary Peters',
+  'Tammy Baldwin',
+  'Tammy Duckworth',
+  'Dick Durbin',
+  'Richard Blumenthal',
+  'Chris Murphy',
+  'Sheldon Whitehouse',
+  'Jack Reed',
+  'Jeanne Shaheen',
+  'Maggie Hassan',
+  'Angus King',
+  'Martin Heinrich',
+  'Ben Ray Luján',
+  'Mark Warner',
+  'Tim Kaine',
+  'Raphael Warnock',
+  'Jon Ossoff',
+  'Alex Padilla',
+  'Laphonza Butler',
+  'Adam Schiff',
+  'Hakeem Jeffries',
+  'Steny Hoyer',
+  'Jim Clyburn',
+  'Kevin McCarthy',
+  'Steve Scalise',
+  'Elise Stefanik',
+  'Jim Jordan',
+  'Matt Gaetz',
+  'Marjorie Taylor Greene',
+  'Lauren Boebert',
+  'Alexandria Ocasio-Cortez',
+  'Ilhan Omar',
+  'Ayanna Pressley',
+  'Rashida Tlaib',
+  'Pramila Jayapal',
+  'Ro Khanna',
+  'Seth Moulton',
+  'Dean Phillips',
+  'Pete Sessions',
+  'Beth Van Duyne',
+  'Tony Gonzales',
+  'August Pfluger',
+  'Chip Roy',
+  'Lloyd Doggett',
+  'Veronica Escobar',
+  'Joaquin Castro',
+  'Colin Allred',
+  'Lizzie Fletcher',
+  'Sylvia Garcia',
+  'Al Green',
+  'Sheila Jackson Lee',
+  'Michael Cloud',
+  'Wesley Hunt',
+  'Monica De La Cruz',
+  'Morgan Luttrell',
+  'Keith Self',
+  'Jake Ellzey',
+  'Pat Fallon',
+  'Ronny Jackson',
+  'Troy Nehls',
+  'Beth Van Duyne',
+  'Michael Burgess',
+  'Kay Granger',
+  'Roger Williams',
+  'John Carter',
+  'Pete Olson',
+  'Brian Babin',
+  'Randy Weber',
+  'Lance Gooden',
+  'Van Taylor',
+  'Jake Ellzey',
+  'Pat Fallon',
+  'Beth Van Duyne',
+  'Michael McCaul',
+  'Pete Sessions',
+  'John Cornyn',
+  'Ted Cruz',
+  'Louie Gohmert',
+  'Michael Conaway',
+  'Mac Thornberry',
+  'Bill Flores',
+  'Kevin Brady',
+  'Ron Wright',
+  'Ronny Jackson',
+  'Mayra Flores',
+  'Monica De La Cruz',
+  'Tony Gonzales',
+  'Chip Roy',
+  'Lloyd Doggett',
+  'Colin Allred',
+  'Joaquin Castro',
+  'Veronica Escobar',
+  'Lizzie Fletcher',
+  'Al Green',
+  'Sylvia Garcia',
+  'Sheila Jackson Lee',
+  'Michael Cloud',
+  'Wesley Hunt',
+  'Morgan Luttrell',
+  'Keith Self',
+  'Jake Ellzey',
+  'Pat Fallon',
+  'Ronny Jackson',
+  'Troy Nehls',
+])
+
+const MOCK_INVESTIGATE_INSTITUTION_SEED = uniqueNameList([
+  'Vanguard Group',
+  'BlackRock',
+  'State Street Global Advisors',
+  'Fidelity Management',
+  'Capital Group',
+  'Goldman Sachs',
+  'Citadel Advisors',
+  'Renaissance Technologies',
+  'JPMorgan Chase',
+  'Morgan Stanley',
+  'Bank of America',
+  'Wells Fargo',
+  'Citigroup',
+  'UBS Asset Management',
+  'Deutsche Bank',
+  'Barclays',
+  'BNP Paribas',
+  'Credit Suisse',
+  'Bridgewater Associates',
+  'Two Sigma',
+  'DE Shaw',
+  'Millennium Management',
+  'Point72 Asset Management',
+  'Elliott Investment Management',
+  'Baupost Group',
+  'Tiger Global Management',
+  'Coatue Management',
+  'Lone Pine Capital',
+  'Viking Global Investors',
+  'Third Point',
+  'Pershing Square Capital',
+  'Appaloosa Management',
+  'Soros Fund Management',
+  'T. Rowe Price',
+  'Invesco',
+  'Franklin Templeton',
+  'PIMCO',
+  'Wellington Management',
+  'AllianceBernstein',
+  'Nuveen',
+  'Northern Trust',
+  'Charles Schwab',
+  'Ameriprise Financial',
+  'Raymond James',
+  'Stifel Financial',
+  'Jefferies',
+  'Cowen',
+  'Evercore',
+  'Lazard',
+  'Moelis & Company',
+  'Greenhill',
+  'Perceptive Advisors',
+  'RA Capital',
+  'EcoR1 Capital',
+  'Orbimed Advisors',
+  'Baker Bros Advisors',
+  'Redmile Group',
+  'Suvretta Capital',
+  'D1 Capital Partners',
+  'Altimeter Capital',
+  'Dragoneer Investment Group',
+  'Iconiq Capital',
+  'General Atlantic',
+  'Silver Lake',
+  'Thoma Bravo',
+  'Vista Equity Partners',
+  'KKR',
+  'Apollo Global Management',
+  'Blackstone',
+  'Carlyle Group',
+  'Brookfield Asset Management',
+  'Ares Management',
+  'Oaktree Capital',
+  'Man Group',
+  'AQR Capital Management',
+  'Winton Group',
+  'Man Numeric',
+  'Graham Capital',
+  'Brevan Howard',
+  'Caxton Associates',
+  'Capula Investment Management',
+  'BlueCrest Capital',
+  'Marshall Wace',
+  'Systematica Investments',
+  'Quantinno',
+  'Schonfeld Strategic Advisors',
+  'ExodusPoint Capital',
+  'Verition Fund Management',
+  'Holocene Advisors',
+  'Woodline Partners',
+  'Sculptor Capital',
+  'King Street Capital',
+  'Farallon Capital',
+  'Trian Fund Management',
+  'Starboard Value',
+  'ValueAct Capital',
+  'Jana Partners',
+  'Icahn Enterprises',
+  'Engine Capital',
+  'Sachem Head Capital',
+  'Ancora Holdings',
+  'Cevian Capital',
+  'Dodge & Cox',
+  'Harris Associates',
+  'MFS Investment Management',
+  'Principal Global Investors',
+  'Legal & General Investment Management',
+  'Norges Bank Investment Management',
+  'GIC Private Limited',
+  'Temasek Holdings',
+  'Qatar Investment Authority',
+  'ADIA',
+])
+
+function investigateActorNamePool(mode) {
+  if (mode === 'politicians') return MOCK_INVESTIGATE_POLITICIAN_SEED
+  if (mode === 'institutions') return MOCK_INVESTIGATE_INSTITUTION_SEED
+  return MOCK_INVESTIGATE_INSIDER_SEED
+}
+
+export function mockInvestigateActorNameForRow(i, mode = 'insider') {
+  const pool = investigateActorNamePool(mode)
+  return pool[i % pool.length] ?? pool[0] ?? '—'
+}
+
+/** Offline investigate FEED (actor rows): varied counts, sparse highlights, stable sort. */
+export function polishOfflineInvestigateActorFeed(actors) {
+  const sorted = [...(actors ?? [])].sort(
+    (a, b) => new Date(b.at ?? 0).getTime() - new Date(a.at ?? 0).getTime(),
+  )
+  return sorted.map((actor, i) => {
+    const idea_best = mockIdeaBestForRowIndex(i)
+    const mockTodayCount = mockFeedTodayEventCount(i)
+    return {
+      ...actor,
+      idea_best,
+      idea_score: idea_best ? 82 + (i % 11) : 48 + (i % 24),
+      _mockTodayCount: mockTodayCount,
+      at: actor.at ?? mockInvestigateFeedAtForIndex(i),
+    }
+  })
+}
 
 /** Realistic discover past-event narratives — rotated across the week. */
 const DISCOVER_PAST_POOL = [
@@ -370,7 +1010,7 @@ const INSIDER_ROSTER = {
     { key: 'EVP', person: 'Debora Shoquist' },
   ],
   ASML: [
-    { key: 'CEO', person: 'Christophe Borel' },
+    { key: 'CEO', person: 'Christophe Fouquet' },
     { key: 'CFO', person: 'Roger Dassen' },
     { key: 'CTO', person: 'Frederic Schneider-Maunoury' },
   ],
@@ -404,7 +1044,7 @@ const INSIDER_ROSTER = {
     { key: 'CFO', person: 'Brennan Kiernan' },
   ],
   INTC: [
-    { key: 'CEO', person: 'Pat Gelsinger' },
+    { key: 'CEO', person: 'Lip-Bu Tan' },
     { key: 'CFO', person: 'David Zinsner' },
   ],
   QCOM: [
@@ -413,7 +1053,7 @@ const INSIDER_ROSTER = {
   ],
   MRVL: [
     { key: 'CEO', person: 'Matt Murphy' },
-    { key: 'CFO', person: 'Jean Hu' },
+    { key: 'CFO', person: 'Wes Cummins' },
   ],
 }
 
@@ -514,25 +1154,55 @@ export function buildMockWeekDiscoverFlowMoves() {
   return out
 }
 
+/** Narratives for a single ticker from the discover past pool. */
+export function discoverPastForTicker(ticker) {
+  const t = String(ticker ?? '').toUpperCase()
+  return DISCOVER_PAST_POOL.filter((row) => String(row.ticker ?? '').toUpperCase() === t)
+}
+
+/** Offline research FEED rows — one row per issuer, staggered across the week. */
+export function buildMockResearchFeedRows() {
+  return MOCK_FEED_UNIVERSE.map((co, i) => {
+    const day = i % MOCK_WEEK_DAYS
+    const { hour, minute } = slotTime(day, i)
+    const idea_best = mockIdeaBestForRowIndex(i)
+    const idea_score = idea_best ? 82 + (i % 11) : 52 + (i % 18)
+    return {
+      rowKey: `fb-${co.ticker}`,
+      ticker: co.ticker,
+      name: co.name,
+      at: mockAtDaysAgo(day, hour, minute),
+      paper_doc_count: mockFeedTodayEventCount(i),
+      idea_score,
+      idea_best,
+      idea_reasons: idea_best
+        ? ['Material 8-K filing', 'Recent filing inside a week'].slice(0, 1 + (i % 2))
+        : [],
+    }
+  })
+}
+
 /** ~12 research paper documents per day × 7 days (reused per ticker). */
 export function buildMockWeekResearchDocSpecs() {
   const specs = []
   for (let day = 0; day < MOCK_WEEK_DAYS; day++) {
     for (let slot = 0; slot < MOCK_ITEMS_PER_DAY; slot++) {
-      const tpl = RESEARCH_DOC_TITLES[slot % RESEARCH_DOC_TITLES.length]
+      const poolIdx = (day * MOCK_ITEMS_PER_DAY + slot) % DISCOVER_PAST_POOL.length
+      const tpl = DISCOVER_PAST_POOL[poolIdx]
+      const docTpl = RESEARCH_DOC_TITLES[slot % RESEARCH_DOC_TITLES.length]
       const { hour, minute } = slotTime(day, slot)
+      const briefKey = tpl.briefKey ?? docTpl.briefKey
       specs.push({
         slug: `d${day}-s${slot}`,
-        source: tpl.source,
+        source: tpl.source ?? docTpl.source,
         daysAgo: day,
         hour,
         minute,
-        ...(tpl.briefKey ? { briefKey: tpl.briefKey } : {}),
-        headline: tpl.title,
-        analysis:
-          '{NAME} filed a {SOURCE} on {HEADLINE}. Disclosure reads consistent with capacity-constrained leading-edge demand rather than a near-term order air pocket.',
+        ...(briefKey ? { briefKey } : {}),
+        headline: tpl.title ?? docTpl.title,
+        analysis: tpl.summary ?? '',
         genericAnalysis:
-          '{NAME} filed a {SOURCE} ({HEADLINE}). Useful for timing when equity attention shifts between downstream AI hardware and upstream tool or memory bottlenecks.',
+          '{NAME} disclosed {HEADLINE} in a {SOURCE} filing. Commentary is consistent with {TICKER} participating in the AI supply-chain bottleneck rather than a demand air pocket.',
       })
     }
   }
@@ -580,10 +1250,12 @@ export function buildMockWeekContextFlows(ticker) {
   return { insiders, politicians, filings13f }
 }
 
-/** Filing timestamp for investigate feed row index (12 rows per day). */
+/** Filing timestamp for investigate feed row index — spread across the week. */
 export function mockInvestigateFeedAtForIndex(i) {
-  const day = Math.floor(i / MOCK_ITEMS_PER_DAY)
-  const slot = i % MOCK_ITEMS_PER_DAY
+  const total = MOCK_INVESTIGATE_FEED_ROWS
+  const perDay = Math.max(1, Math.ceil(total / MOCK_WEEK_DAYS))
+  const day = Math.min(MOCK_WEEK_DAYS - 1, Math.floor(i / perDay))
+  const slot = i % perDay
   const { hour, minute } = slotTime(day, slot)
   return mockAtDaysAgo(day, hour, minute)
 }

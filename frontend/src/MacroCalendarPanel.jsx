@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   fetchMacroCalendar,
-  MACRO_CALENDAR_DEFAULTS,
   peekMacroCalendarCache,
   prefetchMacroCalendar,
 } from './macroClient.js'
 import {
-  filterMacroCalendarDays,
-  formatMacroDayHeader,
-  getUpcomingMacroDays,
+  applyMacroEventFilters,
+  buildMacroMonthGrid,
+  currentMonthKey,
+  formatMacroMonthTitle,
+  getMacroMonthDays,
   MACRO_IMPACT_FILTER_DEFAULT,
   MACRO_IMPACT_FILTER_TYPES,
+  MACRO_WEEKDAY_LABELS,
+  parseMonthKey,
+  shiftMonthKey,
 } from './macroCalendarData.js'
 import { readFilterSet, UI_PREF_KEYS, writeFilterSet } from './uiPreferences.js'
 
@@ -49,6 +53,21 @@ function MacroFilterIcon() {
   )
 }
 
+function MacroResetIcon() {
+  return (
+    <svg className="feedCompactFilterIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M4 4v6h6M20 20v-6h-6M5.6 9a7.5 7.5 0 0 1 12.7-2.3M18.4 15a7.5 7.5 0 0 1-12.7 2.3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 function toggleFilterSet(setter, id) {
   setter((prev) => {
     const next = new Set(prev)
@@ -68,7 +87,16 @@ function MacroFilterPicker({ sections, enabled, onToggle, ariaLabel }) {
             <label key={id} className="feedFilterTypeRow">
               <input type="checkbox" checked={enabled?.has(id) ?? false} onChange={() => onToggle(id)} />
               <span className="feedFilterTypeLabel">{label}</span>
-              <span className="feedFilterTypeCode mono" title={id}>
+              <span
+                className={[
+                  'feedFilterTypeCode',
+                  'mono',
+                  section.title === 'Impact' ? `feedFilterTypeCode--impact-${id}` : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                title={id}
+              >
                 {code ?? id}
               </span>
             </label>
@@ -79,108 +107,105 @@ function MacroFilterPicker({ sections, enabled, onToggle, ariaLabel }) {
   )
 }
 
-function MacroCalendarSearch({ value, onChange }) {
+function MacroMonthNav({ monthKey, onChange }) {
   return (
-    <label className="researchFeedSearch">
-      <input
-        className="researchFeedSearchInput"
-        type="search"
-        value={value}
-        placeholder="Search releases"
-        onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onChange('')
-        }}
-        aria-label="Search macro calendar"
-        spellCheck={false}
-        autoComplete="off"
-      />
-      <svg className="researchFeedSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
-        <path d="M16 16 L20 20" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-      </svg>
-    </label>
+    <div className="macroCalMonthNav" role="navigation" aria-label="Calendar month">
+      <button
+        type="button"
+        className="macroCalMonthNavBtn mono"
+        aria-label="Previous month"
+        onClick={() => onChange(shiftMonthKey(monthKey, -1))}
+      >
+        ‹
+      </button>
+      <span className="macroCalMonthNavTitle">{formatMacroMonthTitle(monthKey)}</span>
+      <button
+        type="button"
+        className="macroCalMonthNavBtn mono"
+        aria-label="Next month"
+        onClick={() => onChange(shiftMonthKey(monthKey, 1))}
+      >
+        ›
+      </button>
+    </div>
   )
 }
 
-function MacroCalendarEventCard({ event }) {
+function MacroMonthEventPill({ event }) {
   return (
-    <article className={['discoverMacroEvent', `discoverMacroEvent--${event.impact}`].join(' ')}>
-      <div className="discoverMacroEventLayout">
-        <p className="discoverMacroEventTitle">{event.title}</p>
-        <div className="discoverMacroEventAside">
-          <span className="discoverMacroEventTime mono">{event.time}</span>
-          <span className="discoverMacroEventRegion mono dim">
-            {MACRO_REGION_LABEL[event.region] ?? event.region}
-          </span>
+    <div
+      className={['macroCalMonthEvent', `macroCalMonthEvent--${event.impact}`].filter(Boolean).join(' ')}
+      title={`${event.time} ET · ${event.title} (${MACRO_REGION_LABEL[event.region] ?? event.region})`}
+    >
+      <span className="macroCalMonthEventTime mono">{event.time}</span>
+      <span className="macroCalMonthEventTitle">{event.title}</span>
+    </div>
+  )
+}
+
+function MacroMonthDayCell({ cell }) {
+  const events = Array.isArray(cell?.events) ? cell.events : []
+  const outside = cell.kind === 'outside'
+  const quiet = !outside && !events.length
+
+  return (
+    <div
+      className={[
+        'macroCalMonthCell',
+        outside ? 'macroCalMonthCell--outside' : '',
+        cell.isToday ? 'macroCalMonthCell--today' : '',
+        quiet ? 'macroCalMonthCell--quiet' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      role="gridcell"
+      aria-label={
+        outside
+          ? undefined
+          : `${cell.dayNum}${cell.isToday ? ', today' : ''}${events.length ? `, ${events.length} releases` : ', no releases'}`
+      }
+    >
+      <div className="macroCalMonthCellHead">
+        <div className="macroCalMonthCellHeadMain">
+          {cell.weekdayLabel ? (
+            <span className="macroCalMonthCellWeekday mono dim">{cell.weekdayLabel}</span>
+          ) : null}
+          <span className="macroCalMonthCellDay mono">{cell.dayNum}</span>
         </div>
+        {cell.isToday ? <span className="macroCalMonthCellToday mono">Today</span> : null}
       </div>
-    </article>
+      {!outside ? (
+        <div className="macroCalMonthCellBody">
+          {events.map((event) => (
+            <MacroMonthEventPill key={event.id} event={event} />
+          ))}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
-function MacroCalDayColumn({ day }) {
-  const head = formatMacroDayHeader(day.date)
-  const events = Array.isArray(day?.events) ? day.events : []
-
+function MacroMonthGrid({ cells }) {
   return (
-    <div className="discoverMacroDay discoverMacroDay--col">
-      <header className="discoverMacroDayHead">
-        <span className="discoverMacroDayWeekday mono">{head.weekday}</span>
-        <span className="discoverMacroDayDate mono dim">{head.label}</span>
-        {head.isToday ? <span className="discoverMacroDayToday mono">Today</span> : null}
-      </header>
-      <div className="discoverMacroDayBody">
-        {!events.length ? (
-          <p className="discoverMacroDayEmpty mono dim">Quiet session</p>
-        ) : events.length === 1 ? (
-          <MacroCalendarEventCard event={events[0]} />
-        ) : (
-          <article className="discoverMacroEvent discoverMacroEvent--group">
-            <div className="discoverMacroEventGroupList">
-              {events.map((event) => (
-                <div
-                  key={event.id}
-                  className={['discoverMacroEventRow', `discoverMacroEvent--${event.impact}`].join(' ')}
-                >
-                  <div className="discoverMacroEventLayout">
-                    <p className="discoverMacroEventTitle">{event.title}</p>
-                    <div className="discoverMacroEventAside">
-                      <span className="discoverMacroEventTime mono">{event.time}</span>
-                      <span className="discoverMacroEventRegion mono dim">
-                        {MACRO_REGION_LABEL[event.region] ?? event.region}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </article>
-        )}
+    <div className="macroCalMonth" role="grid" aria-label="Macro calendar month">
+      <div className="macroCalMonthWeekdays" aria-hidden="true">
+        {MACRO_WEEKDAY_LABELS.map((label) => (
+          <span key={label} className="macroCalMonthWeekday mono dim">
+            {label}
+          </span>
+        ))}
+      </div>
+      <div className="macroCalMonthGrid">
+        {cells.map((cell) => (
+          <MacroMonthDayCell key={cell.date} cell={cell} />
+        ))}
       </div>
     </div>
   )
 }
 
-function macroEventMatchesQuery(event, needle) {
-  if (!needle) return true
-  const hay = [event?.title, event?.region, event?.time].map((s) => String(s ?? '').toLowerCase()).join(' ')
-  return hay.includes(needle)
-}
-
-function filterMacroDaysByQuery(days, query) {
-  const needle = String(query ?? '').trim().toLowerCase()
-  if (!needle) return days
-  return days
-    .map((day) => ({
-      ...day,
-      events: (Array.isArray(day?.events) ? day.events : []).filter((event) => macroEventMatchesQuery(event, needle)),
-    }))
-    .filter((day) => day.events.length > 0)
-}
-
 export function MacroCalendarPanel({ backendUp = false }) {
-  const [query, setQuery] = useState('')
+  const [viewMonth, setViewMonth] = useState(() => currentMonthKey())
   const [liveMacro, setLiveMacro] = useState(null)
   const [fetching, setFetching] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
@@ -190,6 +215,8 @@ export function MacroCalendarPanel({ backendUp = false }) {
   const [impactFilters, setImpactFilters] = useState(() =>
     readFilterSet(UI_PREF_KEYS.macroImpactFilters, MACRO_IMPACT_FILTER_DEFAULT),
   )
+
+  const monthParsed = useMemo(() => parseMonthKey(viewMonth), [viewMonth])
 
   const toggleMacroFilter = useCallback((dimension, id) => {
     if (dimension === 'region') toggleFilterSet(setRegionFilters, id)
@@ -211,7 +238,7 @@ export function MacroCalendarPanel({ backendUp = false }) {
       return undefined
     }
 
-    const fetchOpts = { ...MACRO_CALENDAR_DEFAULTS }
+    const fetchOpts = { month: viewMonth }
     const cached = peekMacroCalendarCache(fetchOpts)
     if (cached && Array.isArray(cached.macro)) {
       setLiveMacro(cached.macro)
@@ -228,23 +255,34 @@ export function MacroCalendarPanel({ backendUp = false }) {
     return () => {
       alive = false
     }
-  }, [backendUp])
+  }, [backendUp, viewMonth])
 
   useEffect(() => {
-    if (backendUp) prefetchMacroCalendar()
-  }, [backendUp])
+    if (backendUp) prefetchMacroCalendar({ month: viewMonth })
+  }, [backendUp, viewMonth])
 
   const macroSource = useMemo(() => {
+    if (!monthParsed) return []
     if (backendUp) return Array.isArray(liveMacro) ? liveMacro : []
-    return getUpcomingMacroDays(MACRO_CALENDAR_DEFAULTS.days)
-  }, [backendUp, liveMacro])
+    return getMacroMonthDays(monthParsed.year, monthParsed.month)
+  }, [backendUp, liveMacro, monthParsed])
 
   const filteredDays = useMemo(
-    () => filterMacroCalendarDays(macroSource, { regions: regionFilters, impacts: impactFilters }),
+    () => applyMacroEventFilters(macroSource, { regions: regionFilters, impacts: impactFilters }),
     [macroSource, regionFilters, impactFilters],
   )
 
-  const days = useMemo(() => filterMacroDaysByQuery(filteredDays, query), [filteredDays, query])
+  const daysByDate = useMemo(() => new Map(filteredDays.map((day) => [day.date, day])), [filteredDays])
+
+  const gridCells = useMemo(() => {
+    if (!monthParsed) return []
+    return buildMacroMonthGrid(monthParsed.year, monthParsed.month, daysByDate)
+  }, [monthParsed, daysByDate])
+
+  const hasVisibleEvents = useMemo(
+    () => gridCells.some((cell) => cell.kind === 'in-month' && cell.events.length > 0),
+    [gridCells],
+  )
 
   const macroFilterEnabled = useMemo(() => {
     const merged = new Set()
@@ -266,9 +304,9 @@ export function MacroCalendarPanel({ backendUp = false }) {
     [toggleMacroFilter],
   )
 
-
   const loading = backendUp && fetching && liveMacro == null
   const refreshing = backendUp && fetching && liveMacro != null
+  const isCurrentMonth = viewMonth === currentMonthKey()
 
   return (
     <div className="macroCalendarPage" aria-label="Macro calendar">
@@ -276,11 +314,25 @@ export function MacroCalendarPanel({ backendUp = false }) {
         <div className="macroCalendarPageHeadMain">
           <h1 className="macroCalendarPageTitle">MACRO CALENDAR</h1>
           <p className="macroCalendarPageSubtitle mono dim">
-            Upcoming economic releases{refreshing ? ' · refreshing' : ''}
+            Economic releases{refreshing ? ' · refreshing' : ''}
           </p>
         </div>
-        <div className="macroCalendarPageTools">
-          <MacroCalendarSearch value={query} onChange={setQuery} />
+        <div className="macroCalendarPageHeadCenter">
+          <MacroMonthNav monthKey={viewMonth} onChange={setViewMonth} />
+        </div>
+        <div className="macroCalendarPageHeadEnd">
+          <button
+            type="button"
+            className={['feedCompactFilterBtn', 'macroCalMonthResetBtn', !isCurrentMonth ? 'isActive' : '']
+              .filter(Boolean)
+              .join(' ')}
+            aria-label="Jump to current month"
+            title="Current month"
+            disabled={isCurrentMonth}
+            onClick={() => setViewMonth(currentMonthKey())}
+          >
+            <MacroResetIcon />
+          </button>
           <button
             type="button"
             className={['feedCompactFilterBtn', filterOpen ? 'isActive' : ''].filter(Boolean).join(' ')}
@@ -301,21 +353,12 @@ export function MacroCalendarPanel({ backendUp = false }) {
             .join(' ')}
         >
           <div className="macroCalendarPageMain" aria-hidden={filterOpen || undefined}>
-            {!days.length ? (
-              <p className="macroCalendarEmpty mono dim">
-                {loading
-                  ? 'Loading macro calendar…'
-                  : query.trim()
-                    ? 'No matching macro releases.'
-                    : 'No upcoming macro releases.'}
-              </p>
-            ) : (
-              <div className="macroCalWeek discoverMacroWeek">
-                {days.map((day) => (
-                  <MacroCalDayColumn key={day.date} day={day} />
-                ))}
-              </div>
-            )}
+            {loading ? (
+              <p className="macroCalendarEmpty mono dim">Loading macro calendar…</p>
+            ) : !hasVisibleEvents ? (
+              <p className="macroCalendarEmpty mono dim">No macro releases this month.</p>
+            ) : null}
+            {monthParsed && !loading ? <MacroMonthGrid cells={gridCells} /> : null}
           </div>
           {filterOpen ? (
             <MacroFilterPicker

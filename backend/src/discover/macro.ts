@@ -39,18 +39,6 @@ const MACRO_DAY_TEMPLATES: DiscoverMacroEvent[][] = [
   ],
 ];
 
-function isoLocalDate(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function isWeekday(d: Date) {
-  const day = d.getDay();
-  return day >= 1 && day <= 5;
-}
-
 /** Next N business days from today (Mon–Fri only, today included). */
 export function loadTemplateMacroDays(limit = 5): DiscoverMacroDay[] {
   const out: DiscoverMacroDay[] = [];
@@ -78,6 +66,69 @@ export function loadTemplateMacroDays(limit = 5): DiscoverMacroDay[] {
   }
 
   return out;
+}
+
+function isoLocalDate(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function isWeekday(d: Date) {
+  const day = d.getDay();
+  return day >= 1 && day <= 5;
+}
+
+export function parseMonthKey(raw: string | null | undefined): { year: number; month: number } | null {
+  const m = String(raw ?? "").trim().match(/^(\d{4})-(\d{2})$/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  if (!Number.isFinite(year) || month < 1 || month > 12) return null;
+  return { year, month };
+}
+
+export function currentMonthKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function allDaysInMonth(year: number, month: number): string[] {
+  const last = new Date(year, month, 0).getDate();
+  const out: string[] = [];
+  for (let d = 1; d <= last; d++) {
+    out.push(isoLocalDate(new Date(year, month - 1, d)));
+  }
+  return out;
+}
+
+export function loadTemplateMacroMonth(year: number, month: number): DiscoverMacroDay[] {
+  return allDaysInMonth(year, month).map((date) => {
+    const d = new Date(`${date}T12:00:00`);
+    if (!isWeekday(d)) return { date, events: [] };
+    const dow = d.getDay() - 1;
+    const templates = MACRO_DAY_TEMPLATES[dow] ?? MACRO_DAY_TEMPLATES[0] ?? [];
+    return {
+      date,
+      events: templates.map((event, idx) => ({
+        ...event,
+        id: `${date}-${event.id ?? idx}`,
+      })),
+    };
+  });
+}
+
+/** Yahoo Finance when reachable; otherwise weekday templates for the month. */
+export async function loadMacroMonth(year: number, month: number): Promise<DiscoverMacroDay[]> {
+  try {
+    const { loadLiveMacroMonth } = await import("./macro-live.js");
+    const live = await loadLiveMacroMonth(year, month);
+    if (live.some((day) => day.events.length > 0)) return live;
+  } catch (e) {
+    console.warn("macro_live_month_failed", e);
+  }
+  return loadTemplateMacroMonth(year, month);
 }
 
 /** Yahoo Finance economic calendar when reachable; otherwise weekday templates. */
