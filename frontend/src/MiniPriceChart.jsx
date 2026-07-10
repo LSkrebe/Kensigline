@@ -101,6 +101,7 @@ export function MiniPriceChart({
   onChartRangeChange,
   chartAlign = 'default',
   rangeHeaderLabel = null,
+  layoutSize = null,
   insiderMarkers = [],
   politicianMarkers = [],
   quarterlyRevenueOverlay = null,
@@ -109,12 +110,19 @@ export function MiniPriceChart({
   void politicianMarkers
 
   const wrapRef = useRef(null)
-  const [size, setSize] = useState({ w: 360, h: 192 })
+  const [size, setSize] = useState(() => ({
+    w: layoutSize?.w ?? 360,
+    h: layoutSize?.h ?? 192,
+  }))
   const [internalRange, setInternalRange] = useState('6M')
   const priceRange = chartRangeProp ?? internalRange
   const setPriceRange = onChartRangeChange ?? setInternalRange
 
   useEffect(() => {
+    if (layoutSize?.w && layoutSize?.h) {
+      setSize({ w: layoutSize.w, h: layoutSize.h })
+      return
+    }
     const wrap = wrapRef.current
     if (!wrap) return
     function measure() {
@@ -127,7 +135,7 @@ export function MiniPriceChart({
     ro.observe(wrap)
     measure()
     return () => ro.disconnect()
-  }, [])
+  }, [layoutSize?.w, layoutSize?.h])
 
   const w = size.w
   const h = size.h

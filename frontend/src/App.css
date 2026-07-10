@@ -837,6 +837,31 @@
   cursor: pointer;
 }
 
+.researchPaperCaptureCheck--corner {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.researchPaperCaptureCornerSlot {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 3;
+  pointer-events: auto;
+}
+
 .researchPaperRailCard--screenshotSelected {
   border-color: rgba(255, 255, 255, 0.22);
 }
@@ -915,6 +940,63 @@
   visibility: visible;
 }
 
+.researchPaperCaptureExport .researchPaperFiling {
+  display: block;
+  position: relative;
+  width: 100%;
+  margin: 0;
+  padding: 15px 12px 17px;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 0;
+  background: transparent;
+  box-sizing: border-box;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.researchPaperCaptureExport .researchPaperFiling:last-child {
+  border-bottom: none;
+}
+
+.researchPaperCaptureExport .researchPaperFilingHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+
+.researchPaperCaptureExport .researchPaperFilingHeadMain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.researchPaperCaptureExport .researchPaperFilingSource {
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.researchPaperCaptureExport .researchPaperFilingDate {
+  flex: 0 0 auto;
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+}
+
+.researchPaperCaptureExport .researchPaperFiling .researchPaperDocCardAnalysis {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.58;
+  color: rgba(255, 255, 255, 0.9);
+}
+
 .researchPaperCaptureChartSource {
   position: fixed;
   left: -10000px;
@@ -924,6 +1006,45 @@
   max-width: 860px;
   pointer-events: none;
   opacity: 0;
+}
+
+.researchPaperCaptureChartSource--selectVisible {
+  position: relative;
+  left: auto;
+  top: auto;
+  z-index: auto;
+  width: 100%;
+  max-width: none;
+  margin: 0 0 2px;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.researchPaperCaptureChartSource--selectVisible .researchPaperCaptureChart {
+  position: relative;
+  margin: 0;
+  padding: 10px var(--panel-inline-pad) 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 0;
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.researchPaperCaptureChartSource--selectVisible .researchPaperCaptureCornerSlot {
+  right: var(--panel-inline-pad, 12px);
+  bottom: 14px;
+}
+
+.researchPaperCaptureChart--screenshotSelect {
+  cursor: pointer;
+}
+
+.researchPaperCaptureChart--screenshotUnselected {
+  opacity: 0.42;
+}
+
+.researchPaperCaptureChart--screenshotSelected {
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .researchPaperCaptureChartSource--primed {
@@ -989,6 +1110,12 @@
 .researchPaperCaptureExport .researchPaperCaptureChart .researchMiniPriceWrap {
   height: 168px;
   min-height: 168px;
+}
+
+.researchPaperCaptureExport .researchPaperCaptureChart .graphSvg {
+  width: 100%;
+  height: 168px;
+  display: block;
 }
 
 .researchPaperCaptureBrand {
@@ -1509,6 +1636,7 @@
 
 .terminal--main .researchPaperPanel .researchPaperFiling {
   display: block;
+  position: relative;
   width: 100%;
   margin: 0;
   padding: 15px var(--panel-inline-pad) 17px;
@@ -1549,6 +1677,20 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 9px;
+}
+
+.terminal--main .researchPaperPanel .researchPaperFiling--screenshotSelect .researchPaperCaptureCornerSlot {
+  right: var(--panel-inline-pad);
+  bottom: 17px;
+}
+
+.terminal--main .researchPaperPanel .researchPaperFiling--screenshotSelect {
+  cursor: pointer;
+  padding-bottom: 38px;
+}
+
+.terminal--main .researchPaperPanel .researchPaperFiling--screenshotSelect .researchPaperDocCardAnalysis {
+  padding-right: 30px;
 }
 
 .terminal--main .researchPaperPanel .researchPaperFilingHeadMain {
@@ -1917,6 +2059,92 @@
   padding: 0 var(--panel-inline-pad);
   position: relative;
   z-index: 1;
+}
+
+.terminal--main .mainContextPanel--market .researchContextHeader .feedCompactHeaderEnd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.terminal--main .mainContextPanel--market .contextScreenshotIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--hi);
+  cursor: pointer;
+  border-radius: 4px;
+  line-height: 0;
+}
+
+.terminal--main .mainContextPanel--market .contextScreenshotIcon:hover:not(:disabled) {
+  color: var(--hi);
+}
+
+.terminal--main .mainContextPanel--market .contextScreenshotIcon:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.terminal--main .mainContextPanel--market .contextScreenshotIcon:focus-visible {
+  outline: 1px solid rgba(168, 196, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.terminal--main .mainContextPanel--market .panelScreenshotIconSvg {
+  display: block;
+}
+
+.panelSnapshotCaptureMount {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.contextSnapshotCaptureShell {
+  display: block;
+  box-sizing: border-box;
+}
+
+.contextCompanySnapshot {
+  display: block;
+}
+
+.contextCompanyEarningsCaptureBg {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.contextCompanyEarningsCaptureBg--image {
+  background-size: 1000px auto;
+  background-position: 82% 46%;
+  background-repeat: no-repeat;
+  opacity: 0.75;
+}
+
+.contextCompanyEarningsCaptureBg--wash {
+  background: linear-gradient(
+    90deg,
+    rgba(5, 7, 10, 0.78) 0%,
+    rgba(5, 7, 10, 0.28) 52%,
+    rgba(5, 7, 10, 0.5) 100%
+  );
+}
+
+.contextCompanyEarnings--capturePrimed::before,
+.contextCompanyEarnings--capturePrimed::after {
+  display: none !important;
+  content: none !important;
 }
 
 .terminal--main .mainContextPanel--market .feedCompactTitle{

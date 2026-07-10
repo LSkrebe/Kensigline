@@ -1,5 +1,5 @@
-import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { toPng } from 'html-to-image'
+import { Fragment, forwardRef, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { toBlob } from 'html-to-image'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { useAlertWatchlist } from './alertsWatchlist.js'
@@ -3826,19 +3826,22 @@ function resolveCompanySnapshot({ ticker, company, backendUp, price = null }) {
 }
 
 /** Research CONTEXT + Insider/Politicians company tile (optional price + chart slot). */
-function CompanySnapshotCard({
-  ticker,
-  price = null,
-  sector,
-  domicile = null,
-  mcap,
-  earnings = null,
-  lead = null,
-  children = null,
-}) {
+const CompanySnapshotCard = forwardRef(function CompanySnapshotCard(
+  {
+    ticker,
+    price = null,
+    sector,
+    domicile = null,
+    mcap,
+    earnings = null,
+    lead = null,
+    children = null,
+  },
+  ref,
+) {
   const showPrice = price != null && Number.isFinite(Number(price))
   return (
-    <div className="contextCompanyCard" aria-label="Company snapshot">
+    <div ref={ref} className="contextCompanyCard" aria-label="Company snapshot">
       <div
         className={[
           'contextCompanyTopRow',
@@ -3875,7 +3878,7 @@ function CompanySnapshotCard({
       ) : null}
     </div>
   )
-}
+})
 
 function historicalOutcomeNorm(v) {
   if (v == null) return EMPTY
@@ -4570,6 +4573,8 @@ function MainContextPanel({
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const [priceRange, setPriceRange] = useState('6M')
+  const [snapshotBusy, setSnapshotBusy] = useState(false)
+  const snapshotRef = useRef(null)
   const trackedInvestors = useMemo(
     () =>
       buildContextTrackedInvestors({
@@ -4582,6 +4587,22 @@ function MainContextPanel({
   )
   const trackedInvestorsLoading = backendUp && exploreContextLoading && !trackedInvestors.length
   const fundamentalsLoading = backendUp && companyContextLoading && !fundamentals
+
+  useEffect(() => {
+    void preloadContextEarningsBgImage()
+  }, [])
+
+  const copySnapshot = useCallback(async () => {
+    if (snapshotBusy) return
+    const el = snapshotRef.current
+    if (!el) return
+    setSnapshotBusy(true)
+    try {
+      await copyElementSnapshotToClipboard(el)
+    } finally {
+      setSnapshotBusy(false)
+    }
+  }, [snapshotBusy])
 
   return (
     <section
@@ -4599,9 +4620,23 @@ function MainContextPanel({
     >
       <header className="feedCompactHeader researchContextHeader">
         <div className="panelTitle feedCompactTitle">CONTEXT</div>
+        <div className="feedCompactHeaderEnd">
+          <button
+            type="button"
+            className="contextScreenshotIcon"
+            aria-label="Copy company snapshot"
+            title="Copy company snapshot"
+            disabled={snapshotBusy}
+            onClick={() => void copySnapshot()}
+          >
+            <PanelScreenshotIcon />
+          </button>
+          <ContextAlertToggle ticker={t} />
+        </div>
       </header>
       <div className="mainContextPanelBody scrollThin">
         <CompanySnapshotCard
+          ref={snapshotRef}
           ticker={ticker}
           price={price}
           sector={sector}
@@ -4624,14 +4659,14 @@ function MainContextPanel({
             />
           </div>
         </CompanySnapshotCard>
-          <>
-            <ContextSection ariaLabel="Fundamentals">
-              <ContextFundamentalsCard fundamentals={fundamentals} loading={fundamentalsLoading} />
-            </ContextSection>
-            <ContextSection ariaLabel="Tracked investors">
-              <ContextTrackedInvestorsCard rows={trackedInvestors} loading={trackedInvestorsLoading} />
-            </ContextSection>
-          </>
+        <>
+          <ContextSection ariaLabel="Fundamentals">
+            <ContextFundamentalsCard fundamentals={fundamentals} loading={fundamentalsLoading} />
+          </ContextSection>
+          <ContextSection ariaLabel="Tracked investors">
+            <ContextTrackedInvestorsCard rows={trackedInvestors} loading={trackedInvestorsLoading} />
+          </ContextSection>
+        </>
       </div>
     </section>
   )
@@ -5752,13 +5787,57 @@ function paperTxnOpenUrl({ kind, url, ticker, source, chamber = null }) {
   return paperDocumentOpenUrl({ source: src.includes('form 3') ? 'Form 3' : src.includes('form 5') ? 'Form 5' : 'Form 4' }, ticker)
 }
 
-function ResearchPaperScreenshotIcon() {
+function PanelScreenshotIcon() {
   return (
-    <svg className="researchPaperScreenshotIconSvg" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="panelScreenshotIconSvg" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
       <rect x="4" y="4" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.75" />
       <rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.75" />
     </svg>
   )
+}
+
+async function copyElementSnapshotToClipboard(sourceEl) {
+  if (!sourceEl) return false
+  if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+    window.alert(
+      'Copying as an image is not supported in this browser. Try Chrome or Edge, or take a screenshot.',
+    )
+    return false
+  }
+
+  const mount = document.createElement('div')
+  mount.className = 'panelSnapshotCaptureMount'
+  mount.setAttribute('aria-hidden', 'true')
+  document.body.appendChild(mount)
+
+  const pngPromise = (async () => {
+    try {
+      const [earningsBgImage] = await Promise.all([
+        resolveContextEarningsBgImage(),
+        whenDocumentFontsReady(),
+      ])
+      const exportNode = buildContextSnapshotExportNode(sourceEl, earningsBgImage)
+      mount.appendChild(exportNode)
+      await waitForCaptureImages(exportNode)
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+      const card = exportNode.querySelector('.contextCompanyCard')
+      if (!card) throw new Error('Snapshot card missing')
+      const blob = await rasterizeElementToPngBlob(card)
+      if (!blob) throw new Error('Snapshot rasterize failed')
+      return blob
+    } finally {
+      mount.remove()
+    }
+  })()
+
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngPromise })])
+    return true
+  } catch (e) {
+    console.error(e)
+    window.alert('Could not copy the snapshot. Wait until the chart has loaded, then try again.')
+    return false
+  }
 }
 
 async function whenDocumentFontsReady() {
@@ -5771,20 +5850,137 @@ async function whenDocumentFontsReady() {
 }
 
 const PAPER_EXPORT_BG = '#0a0b0d'
+const CONTEXT_EARNINGS_CAPTURE_IMAGE = '/mercerline_background_2.png'
 
-async function rasterizePaperElementToPngDataUrl(el, { pixelRatio: prIn = 2 } = {}) {
+let contextEarningsBgDataUrlCache = null
+let contextEarningsBgImageCache = null
+let contextEarningsBgImagePromise = null
+
+function preloadContextEarningsBgImage() {
+  if (contextEarningsBgImageCache) return Promise.resolve(contextEarningsBgImageCache)
+  if (!contextEarningsBgImagePromise) {
+    contextEarningsBgImagePromise = (async () => {
+      const dataUrl = await imageUrlToDataUrl(CONTEXT_EARNINGS_CAPTURE_IMAGE)
+      contextEarningsBgDataUrlCache = dataUrl
+      contextEarningsBgImageCache = dataUrl
+        ? `url("${dataUrl}")`
+        : `url("${absoluteAssetUrl(CONTEXT_EARNINGS_CAPTURE_IMAGE) ?? CONTEXT_EARNINGS_CAPTURE_IMAGE}")`
+      return contextEarningsBgImageCache
+    })()
+  }
+  return contextEarningsBgImagePromise
+}
+
+async function resolveContextEarningsBgImage() {
+  if (contextEarningsBgImageCache) return contextEarningsBgImageCache
+  return preloadContextEarningsBgImage()
+}
+
+const SNAPSHOT_SYNC_PROPS = [
+  'font-size',
+  'font-weight',
+  'letter-spacing',
+  'line-height',
+  'color',
+  'padding-top',
+  'padding-right',
+  'padding-bottom',
+  'padding-left',
+  'margin-top',
+  'margin-right',
+  'margin-bottom',
+  'margin-left',
+  'width',
+  'height',
+  'min-width',
+  'min-height',
+  'max-height',
+  'border-top-width',
+  'border-right-width',
+  'border-bottom-width',
+  'border-left-width',
+  'border-top-color',
+  'border-right-color',
+  'border-bottom-color',
+  'border-left-color',
+  'border-radius',
+  'background-color',
+  'gap',
+  'row-gap',
+  'column-gap',
+  'display',
+  'align-items',
+  'justify-content',
+  'grid-template-columns',
+  'flex-direction',
+  'text-align',
+  'opacity',
+]
+
+function syncContextSnapshotComputedStyles(sourceEl, cloneEl) {
+  if (!sourceEl || !cloneEl) return
+  const cs = getComputedStyle(sourceEl)
+  for (const prop of SNAPSHOT_SYNC_PROPS) {
+    const val = cs.getPropertyValue(prop)
+    if (val) cloneEl.style.setProperty(prop, val, 'important')
+  }
+  const sourceKids = [...sourceEl.children].filter((n) => n.nodeType === Node.ELEMENT_NODE)
+  const cloneKids = [...cloneEl.children].filter((n) => n.nodeType === Node.ELEMENT_NODE)
+  for (let i = 0; i < sourceKids.length; i++) {
+    if (cloneKids[i]) syncContextSnapshotComputedStyles(sourceKids[i], cloneKids[i])
+  }
+}
+
+function buildContextSnapshotExportNode(sourceEl, earningsBgImage) {
+  const width = Math.max(1, Math.ceil(sourceEl.getBoundingClientRect().width))
+  const root = document.createElement('div')
+  root.className = 'terminal--main contextSnapshotCaptureShell'
+  root.style.width = `${width}px`
+
+  const panel = document.createElement('div')
+  panel.className = 'mainContextPanel mainContextPanel--market'
+
+  const clone = sourceEl.cloneNode(true)
+  panel.appendChild(clone)
+  root.appendChild(panel)
+
+  syncContextSnapshotComputedStyles(sourceEl, clone)
+  primeContextEarningsCaptureLayers(clone, earningsBgImage)
+  return root
+}
+
+function primeContextEarningsCaptureLayers(root, earningsBgImage) {
+  if (!root || !earningsBgImage) return
+  for (const el of root.querySelectorAll('.contextCompanyEarnings')) {
+    const imageLayer = document.createElement('div')
+    imageLayer.className = 'contextCompanyEarningsCaptureBg contextCompanyEarningsCaptureBg--image'
+    imageLayer.style.backgroundImage = earningsBgImage
+    imageLayer.setAttribute('aria-hidden', 'true')
+
+    const washLayer = document.createElement('div')
+    washLayer.className = 'contextCompanyEarningsCaptureBg contextCompanyEarningsCaptureBg--wash'
+    washLayer.setAttribute('aria-hidden', 'true')
+
+    el.prepend(imageLayer, washLayer)
+    el.classList.add('contextCompanyEarnings--capturePrimed')
+  }
+}
+
+async function rasterizeElementToPngBlob(el, { pixelRatio: prIn = 2 } = {}) {
   const w = Math.max(1, Math.ceil(Math.max(el.scrollWidth, el.offsetWidth)))
   const h = Math.max(1, Math.ceil(Math.max(el.scrollHeight, el.offsetHeight)))
   const pr = h > 5600 ? 1 : h > 3600 ? 1.25 : prIn
-  return toPng(el, {
+  const computed = getComputedStyle(el).backgroundColor
+  const bg = computed && computed !== 'rgba(0, 0, 0, 0)' ? computed : PAPER_EXPORT_BG
+  return toBlob(el, {
     width: w,
     height: h,
     pixelRatio: pr,
-    cacheBust: true,
+    cacheBust: false,
     useCORS: true,
-    backgroundColor: PAPER_EXPORT_BG,
+    backgroundColor: bg,
     style: {
-      backgroundColor: PAPER_EXPORT_BG,
+      backgroundColor: bg,
       printColorAdjust: 'exact',
     },
     filter: (node) => {
@@ -5883,10 +6079,6 @@ async function imageUrlToDataUrl(url) {
   })
 }
 
-const PAPER_CAPTURE_BRAND_LOGO = '/mercerline_logo_transparent.png'
-const PAPER_CAPTURE_BRAND_NAME = 'MERCERLINE.COM'
-
-/** Pre-inlined portrait blobs for paper screenshot export (key = absolute photo URL). */
 const PAPER_PORTRAIT_DATA_URL_CACHE = new Map()
 
 async function cachePortraitDataUrlForExport(url) {
@@ -5929,25 +6121,6 @@ function setRailPortraitFromDataUrl(rail, card, dataUrl) {
   rail.style.backgroundRepeat = 'no-repeat'
 }
 
-async function applyCapturePortraitRails(exportRoot) {
-  const cards = [...(exportRoot?.querySelectorAll('.researchPaperTxnCard') ?? [])]
-  await Promise.all(
-    cards.map(async (card) => {
-      const rail = card.querySelector('.researchPaperRailCardRail')
-      if (!rail) return
-      const raw =
-        card.getAttribute('data-capture-photo-url') ||
-        rail.querySelector('.researchPaperTxnThumb')?.currentSrc ||
-        rail.querySelector('.researchPaperTxnThumb')?.src
-      const dataUrl = await resolveCaptureImageDataUrl(raw)
-      if (!dataUrl) return
-      setRailPortraitFromDataUrl(rail, card, dataUrl)
-      await waitForImgElement(rail.querySelector('.researchPaperTxnThumb'))
-    }),
-  )
-}
-
-/** html-to-image cannot paint cross-origin <img> tags; inline them before rasterizing. */
 async function inlineCaptureImages(root) {
   const imgs = [...(root?.querySelectorAll('img') ?? [])]
   if (!imgs.length) return
@@ -5984,136 +6157,20 @@ async function waitForImgElement(img) {
   })
 }
 
-async function appendPaperCaptureBrandFooter(parent) {
-  const footer = document.createElement('div')
-  footer.className = 'researchPaperCaptureBrand'
-  const img = document.createElement('img')
-  img.className = 'researchPaperCaptureBrandLogo'
-  img.alt = ''
-  img.width = 22
-  img.height = 22
-  img.decoding = 'async'
-  img.crossOrigin = 'anonymous'
-  img.referrerPolicy = 'no-referrer'
-  const inlinedLogo = await imageUrlToDataUrl(PAPER_CAPTURE_BRAND_LOGO)
-  img.src = inlinedLogo || PAPER_CAPTURE_BRAND_LOGO
-  await waitForImgElement(img)
-  const name = document.createElement('span')
-  name.className = 'researchPaperCaptureBrandName mono'
-  name.textContent = PAPER_CAPTURE_BRAND_NAME
-  footer.append(img, name)
-  parent.appendChild(footer)
-}
-
-/** Prime off-screen chart layout, then clone only the chart card (not the hidden wrapper). */
-async function buildPaperCaptureChartClone(chartSourceEl) {
-  const chart = chartSourceEl?.querySelector('.researchPaperCaptureChart')
-  if (!chart) return null
-  const wasHidden = chartSourceEl.hasAttribute('hidden')
-  if (wasHidden) chartSourceEl.removeAttribute('hidden')
-  chartSourceEl.classList.add('researchPaperCaptureChartSource--primed')
-  try {
-    void chart.offsetHeight
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
-    await waitForCaptureImages(chartSourceEl)
-    return chart.cloneNode(true)
-  } finally {
-    chartSourceEl.classList.remove('researchPaperCaptureChartSource--primed')
-    if (wasHidden) chartSourceEl.setAttribute('hidden', '')
-  }
-}
-
-function paperCapturePhotoMode(personMode) {
-  if (personMode === 'politicians') return 'politicians'
-  if (personMode === 'institutions') return 'institutions'
-  return 'insider'
-}
-
-/** Sync clone prep — portraits are inlined in `inlineCaptureImages` before rasterize (see ae5a9a9). */
-function finalizePaperCaptureClone(sourceEl, clone, portraitMeta) {
-  clone.querySelectorAll('.researchPaperCaptureCheck').forEach((node) => node.remove())
-  clone.classList.remove(
-    'researchPaperRailCard--screenshotSelected',
-    'researchPaperRailCard--screenshotUnselected',
-    'researchPaperFiling--screenshotSelected',
-    'researchPaperFiling--screenshotUnselected',
-  )
-  const rail = clone.querySelector('.researchPaperRailCardRail')
-  if (!rail) return
-  rail.classList.remove('researchPaperRailCardRail--capture')
-  const origImg = sourceEl.querySelector('.researchPaperTxnThumb')
-  let cloneImg = clone.querySelector('.researchPaperTxnThumb')
-  const photoUrl =
-    origImg?.currentSrc ||
-    origImg?.src ||
-    (portraitMeta?.personFullName
-      ? casePersonPhotoUrl(portraitMeta.personFullName, paperCapturePhotoMode(portraitMeta.personMode))
-      : null)
-  if (photoUrl) {
-    const absolute = absoluteAssetUrl(photoUrl)
-    if (absolute) clone.setAttribute('data-capture-photo-url', absolute)
-    if (!cloneImg) {
-      cloneImg = document.createElement('img')
-      cloneImg.className = 'researchPaperTxnThumb'
-      cloneImg.alt = ''
-      cloneImg.decoding = 'async'
-      rail.prepend(cloneImg)
-    }
-    const cached = absolute ? PAPER_PORTRAIT_DATA_URL_CACHE.get(absolute) : null
-    if (cached) {
-      setRailPortraitFromDataUrl(rail, clone.classList.contains('researchPaperTxnCard') ? clone : null, cached)
-    } else {
-      cloneImg.crossOrigin = 'anonymous'
-      cloneImg.referrerPolicy = 'no-referrer'
-      cloneImg.src = photoUrl
-      rail.classList.add('researchPaperRailCardRail--photo')
-      clone.classList.add('researchPaperTxnCard--hasPortrait')
-    }
-  }
-}
-
-function ResearchPaperRailCaptureSelect({ captureId, selected, onToggle }) {
-  return (
-    <label
-      className="researchPaperCaptureCheck"
-      onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
-      <input
-        type="checkbox"
-        checked={selected}
-        onChange={() => onToggle?.(captureId)}
-        aria-label="Include in screenshot"
-      />
-    </label>
-  )
-}
-
-function ResearchPaperFilingCard({
-  doc,
-  ticker,
-  captureId,
-  screenshotSelectMode = false,
-  screenshotSelected = false,
-  onScreenshotToggle,
-}) {
+function ResearchPaperFilingCard({ doc, ticker }) {
   const source = doc?.source ?? 'Filing'
   const openUrl = paperDocumentOpenUrl(doc, ticker)
-  const handleOpen =
-    !screenshotSelectMode && openUrl
-      ? () => window.open(openUrl, '_blank', 'noopener,noreferrer')
-      : undefined
+  const handleOpen = openUrl
+    ? () => window.open(openUrl, '_blank', 'noopener,noreferrer')
+    : undefined
   const Tag = handleOpen ? 'button' : 'article'
 
   return (
     <Tag
       type={handleOpen ? 'button' : undefined}
-      data-paper-capture-id={captureId}
       className={[
         'researchPaperFiling',
         handleOpen ? 'researchPaperFiling--clickable' : '',
-        screenshotSelectMode && screenshotSelected ? 'researchPaperFiling--screenshotSelected' : '',
-        screenshotSelectMode && !screenshotSelected ? 'researchPaperFiling--screenshotUnselected' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -6123,13 +6180,6 @@ function ResearchPaperFilingCard({
     >
       <div className="researchPaperFilingHead">
         <div className="researchPaperFilingHeadMain">
-          {screenshotSelectMode ? (
-            <ResearchPaperRailCaptureSelect
-              captureId={captureId}
-              selected={screenshotSelected}
-              onToggle={onScreenshotToggle}
-            />
-          ) : null}
           <span className="researchPaperFilingSource mono">{source}</span>
         </div>
         <time className="researchPaperFilingDate mono dim" dateTime={doc?.filedAt ?? undefined}>
@@ -6763,7 +6813,6 @@ function ResearchFeedPaneShell({ filterOpen, filterPicker, children, split = fal
 }
 
 function ResearchPaperTxnCard({
-  captureId,
   source,
   filedAt,
   name,
@@ -6772,9 +6821,6 @@ function ResearchPaperTxnCard({
   personMode,
   openUrl = null,
   openLabel = 'Open filing',
-  screenshotSelectMode = false,
-  screenshotSelected = false,
-  onScreenshotToggle,
 }) {
   const label = String(name ?? '').trim()
   const amt = String(amount ?? '').trim()
@@ -6786,23 +6832,19 @@ function ResearchPaperTxnCard({
         ? 'institutions'
         : 'insider'
   const [portraitActive, setPortraitActive] = useState(false)
-  const handleOpen =
-    !screenshotSelectMode && openUrl
-      ? () => window.open(openUrl, '_blank', 'noopener,noreferrer')
-      : undefined
+  const handleOpen = openUrl
+    ? () => window.open(openUrl, '_blank', 'noopener,noreferrer')
+    : undefined
   const Tag = handleOpen ? 'button' : 'article'
   if (!label && !amt) return null
   return (
     <Tag
       type={handleOpen ? 'button' : undefined}
-      data-paper-capture-id={captureId}
       className={[
         'researchPaperRailCard',
         'researchPaperTxnCard',
         handleOpen ? 'eventBriefDocCard--clickable' : '',
         portraitActive ? 'researchPaperTxnCard--hasPortrait' : '',
-        screenshotSelectMode && screenshotSelected ? 'researchPaperRailCard--screenshotSelected' : '',
-        screenshotSelectMode && !screenshotSelected ? 'researchPaperRailCard--screenshotUnselected' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -6813,25 +6855,17 @@ function ResearchPaperTxnCard({
       <div
         className={[
           'researchPaperRailCardRail',
-          screenshotSelectMode ? 'researchPaperRailCardRail--capture' : '',
           portraitActive ? 'researchPaperRailCardRail--photo' : '',
         ]
           .filter(Boolean)
           .join(' ')}
-        aria-hidden={!portraitActive && !screenshotSelectMode ? true : undefined}
+        aria-hidden={!portraitActive ? true : undefined}
       >
         {personName ? (
           <ResearchPaperTxnThumb
             fullName={personName}
             mode={photoMode}
             onActiveChange={setPortraitActive}
-          />
-        ) : null}
-        {screenshotSelectMode ? (
-          <ResearchPaperRailCaptureSelect
-            captureId={captureId}
-            selected={screenshotSelected}
-            onToggle={onScreenshotToggle}
           />
         ) : null}
       </div>
@@ -6862,9 +6896,6 @@ function ResearchPaperStructuredView({
   filings13f = [],
   ticker = '',
   paperSourceFilters = null,
-  screenshotSelectMode = false,
-  screenshotSelected = null,
-  onScreenshotToggle,
 }) {
   const t = String(ticker ?? '').toUpperCase()
   const timelineRows = useMemo(() => {
@@ -6873,68 +6904,35 @@ function ResearchPaperStructuredView({
     return filterPaperTimelineBySources(raw, paperSourceFilters)
   }, [documents, paperSourceFilters])
   const displayRows = useMemo(() => buildPaperDisplayRows(timelineRows), [timelineRows])
-  const selectedSet = screenshotSelected ?? new Set()
   return (
-    <div
-      className={[
-        'researchPaperTimeline',
-        'researchPaperTimeline--documentsOnly',
-        screenshotSelectMode ? 'researchPaperTimeline--screenshotSelect' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
+    <div className="researchPaperTimeline researchPaperTimeline--documentsOnly">
       {displayRows.length ? (
-        <div
-          className={[
-            'researchPaperDocuments',
-            screenshotSelectMode ? 'researchPaperDocuments--screenshotSelect' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          aria-label="Filings"
-        >
+        <div className="researchPaperDocuments" aria-label="Filings">
           {displayRows.map((entry) => {
             if (entry.type === 'sep') {
               return <ResearchPaperTimelineGap key={entry.key} label={entry.label} />
             }
             const item = entry.row.item
-            const selected = selectedSet.has(item.id)
             return (
               <Fragment key={item.id}>
                 {item.kind === 'document' ? (
-                  <ResearchPaperFilingCard
-                    doc={item.document}
-                    ticker={t}
-                    captureId={item.id}
-                    screenshotSelectMode={screenshotSelectMode}
-                    screenshotSelected={selected}
-                    onScreenshotToggle={onScreenshotToggle}
-                  />
+                  <ResearchPaperFilingCard doc={item.document} ticker={t} />
                 ) : (
                   <ResearchPaperTxnCard
-                    captureId={item.id}
                     source={item.source}
                     filedAt={item.at}
                     name={item.name}
                     amount={item.amount}
                     personFullName={item.personFullName}
                     personMode={item.personMode}
-                    openUrl={
-                      screenshotSelectMode
-                        ? null
-                        : paperTxnOpenUrl({
-                            kind: item.kind,
-                            url: item.url,
-                            ticker: t,
-                            source: item.source,
-                            chamber: item.chamber,
-                          })
-                    }
+                    openUrl={paperTxnOpenUrl({
+                      kind: item.kind,
+                      url: item.url,
+                      ticker: t,
+                      source: item.source,
+                      chamber: item.chamber,
+                    })}
                     openLabel={`Open ${item.source ?? 'filing'}`}
-                    screenshotSelectMode={screenshotSelectMode}
-                    screenshotSelected={selected}
-                    onScreenshotToggle={onScreenshotToggle}
                   />
                 )}
               </Fragment>
@@ -6963,9 +6961,6 @@ function ResearchPaperPanel({
   politicians = [],
   filings13f = [],
   paperSourceFilters = null,
-  priceSeries = [],
-  insiderPriceMarkers = [],
-  politicianPriceMarkers = [],
   panelClassName = '',
 }) {
   const fullName = String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
@@ -6978,20 +6973,6 @@ function ResearchPaperPanel({
       (Boolean(presentation?.title) || Boolean(fullName && fullName.toUpperCase() !== '—')))
   const safePresentation = presentationReady ? presentation : null
   const paperBodyRef = useRef(null)
-  const captureMountRef = useRef(null)
-  const chartCaptureRef = useRef(null)
-  const [screenshotSelectMode, setScreenshotSelectMode] = useState(false)
-  const [screenshotSelected, setScreenshotSelected] = useState(() => new Set())
-  const [screenshotIncludeChart, setScreenshotIncludeChart] = useState(false)
-  const [screenshotBusy, setScreenshotBusy] = useState(false)
-  const showChartFlowMarkers = true
-
-  const captureChartLatestPrice = useMemo(() => {
-    const rows = Array.isArray(priceSeries) ? priceSeries : []
-    if (!rows.length) return null
-    const last = Number(rows.at(-1))
-    return Number.isFinite(last) ? last : null
-  }, [priceSeries])
 
   useLayoutEffect(() => {
     const el = paperBodyRef.current
@@ -7008,241 +6989,15 @@ function ResearchPaperPanel({
   const flowInsiders = presentationReady ? insiders : []
   const flowPoliticians = presentationReady ? politicians : []
   const flowFilings13f = presentationReady ? filings13f : []
-  const paperCaptureIds = useMemo(() => {
-    const timeline = buildPaperTimelineItems({
-      documents: paperDocuments,
-      insiders: [],
-      politicians: [],
-      filings13f: [],
-    })
-    const filtered = paperSourceFilters
-      ? filterPaperTimelineBySources(timeline, paperSourceFilters)
-      : timeline
-    return filtered.map((item) => item.id)
-  }, [
-    paperDocuments,
-    paperSourceFilters,
-  ])
-
-  const paperCapturePortraitById = useMemo(() => {
-    const timeline = buildPaperTimelineItems({
-      documents: paperDocuments,
-      insiders: [],
-      politicians: [],
-      filings13f: [],
-    })
-    const filtered = paperSourceFilters
-      ? filterPaperTimelineBySources(timeline, paperSourceFilters)
-      : timeline
-    const map = new Map()
-    for (const item of filtered) {
-      if (!item?.personFullName) continue
-      map.set(item.id, {
-        personFullName: item.personFullName,
-        personMode: item.personMode,
-      })
-    }
-    return map
-  }, [
-    paperDocuments,
-    paperSourceFilters,
-  ])
-
-  const cancelScreenshotSelect = useCallback(() => {
-    setScreenshotSelectMode(false)
-    setScreenshotSelected(new Set())
-    setScreenshotIncludeChart(false)
-  }, [])
-
-  useEffect(() => {
-    cancelScreenshotSelect()
-  }, [t, cancelScreenshotSelect])
-
-  const startScreenshotSelect = useCallback(() => {
-    if (!paperCaptureIds.length) {
-      window.alert('Nothing on the timeline to capture yet.')
-      return
-    }
-    setScreenshotSelected(new Set())
-    setScreenshotIncludeChart(true)
-    setScreenshotSelectMode(true)
-    for (const meta of paperCapturePortraitById.values()) {
-      const url = casePersonPhotoUrl(meta.personFullName, paperCapturePhotoMode(meta.personMode))
-      if (url) void cachePortraitDataUrlForExport(url)
-    }
-  }, [paperCaptureIds, paperCapturePortraitById])
-
-  const toggleScreenshotSelection = useCallback((captureId) => {
-    const id = String(captureId ?? '').trim()
-    if (!id) return
-    setScreenshotSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
-
-  const confirmScreenshotCopy = useCallback(() => {
-    const body = paperBodyRef.current
-    const mount = captureMountRef.current
-    if (!body || !mount || screenshotBusy) return
-    if (!screenshotSelected.size) {
-      window.alert('Select at least one item to copy.')
-      return
-    }
-    if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
-      window.alert(
-        'Copying the paper as an image is not supported in this browser. Try Chrome or Edge, or take a screenshot.',
-      )
-      return
-    }
-
-    setScreenshotBusy(true)
-    const paperRoot = body.closest('section.researchPaper')
-    body.classList.add('researchPaperBody--capturing')
-    paperRoot?.classList.add('researchPaper--capturing')
-
-    const orderedIds = paperCaptureIds.filter((id) => screenshotSelected.has(id))
-    const includeChart = screenshotIncludeChart
-    const chartSource = chartCaptureRef.current
-
-    const pngPromise = (async () => {
-      try {
-        mount.replaceChildren()
-        mount.classList.add('researchPaperCaptureMount--exporting')
-        const exportWrap = document.createElement('div')
-        exportWrap.className = 'researchPaperCaptureExport'
-
-        if (includeChart && chartSource) {
-          const chartNode = await buildPaperCaptureChartClone(chartSource)
-          if (chartNode) exportWrap.appendChild(chartNode)
-        }
-
-        for (const id of orderedIds) {
-          const el = body.querySelector(`[data-paper-capture-id="${CSS.escape(id)}"]`)
-          if (!el) continue
-          const meta = paperCapturePortraitById.get(id)
-          const liveThumb = el.querySelector('.researchPaperTxnThumb')
-          if (liveThumb?.currentSrc || liveThumb?.src) {
-            await cachePortraitDataUrlForExport(liveThumb.currentSrc || liveThumb.src)
-          }
-          if (meta?.personFullName) {
-            const portraitUrl = casePersonPhotoUrl(
-              meta.personFullName,
-              paperCapturePhotoMode(meta.personMode),
-            )
-            if (portraitUrl) await cachePortraitDataUrlForExport(portraitUrl)
-          }
-          const clone = el.cloneNode(true)
-          finalizePaperCaptureClone(el, clone, meta)
-          exportWrap.appendChild(clone)
-        }
-
-        await appendPaperCaptureBrandFooter(exportWrap)
-        mount.appendChild(exportWrap)
-
-        await whenDocumentFontsReady()
-        await waitForCaptureImages(exportWrap)
-        await applyCapturePortraitRails(exportWrap)
-        await inlineCaptureImages(exportWrap)
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
-        void exportWrap.offsetHeight
-        const dataUrl = await rasterizePaperElementToPngDataUrl(exportWrap)
-        return (await fetch(dataUrl)).blob()
-      } finally {
-        mount.classList.remove('researchPaperCaptureMount--exporting')
-        mount.replaceChildren()
-        body.classList.remove('researchPaperBody--capturing')
-        paperRoot?.classList.remove('researchPaper--capturing')
-        setScreenshotBusy(false)
-        setScreenshotSelectMode(false)
-        setScreenshotSelected(new Set())
-        setScreenshotIncludeChart(false)
-      }
-    })()
-
-    navigator.clipboard
-      .write([new ClipboardItem({ 'image/png': pngPromise })])
-      .catch((e) => {
-        console.error(e)
-        window.alert(
-          'Could not copy the paper image. Wait until the timeline has fully loaded, then try again.',
-        )
-      })
-  }, [
-    paperCaptureIds,
-    paperCapturePortraitById,
-    screenshotBusy,
-    screenshotSelected,
-    screenshotIncludeChart,
-  ])
 
   return (
     <section
-      className={[
-        'panel',
-        'researchPaper',
-        'researchPaperPanel',
-        screenshotSelectMode ? 'researchPaperPanel--screenshotSelect' : '',
-        panelClassName,
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      className={['panel', 'researchPaper', 'researchPaperPanel', panelClassName].filter(Boolean).join(' ')}
       aria-label={fullName}
     >
       <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle researchPaperPanelName" key={t}>
           {fullName}
-        </div>
-        <div className="feedCompactHeaderEnd">
-          {screenshotSelectMode ? (
-            <>
-              <button
-                type="button"
-                className="researchPaperCaptureAction"
-                disabled={screenshotBusy}
-                onClick={cancelScreenshotSelect}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={[
-                  'researchPaperCaptureAction',
-                  screenshotIncludeChart ? 'isActive' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                disabled={screenshotBusy}
-                aria-pressed={screenshotIncludeChart}
-                onClick={() => setScreenshotIncludeChart((on) => !on)}
-              >
-                Include chart
-              </button>
-              <button
-                type="button"
-                className="researchPaperCaptureAction researchPaperCaptureAction--primary"
-                disabled={screenshotBusy || !screenshotSelected.size}
-                onClick={confirmScreenshotCopy}
-              >
-                {screenshotBusy ? 'Copying…' : 'Copy image'}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="researchPaperScreenshotIcon"
-                aria-label="Screenshot paper"
-                title="Screenshot paper"
-                onClick={startScreenshotSelect}
-              >
-                <ResearchPaperScreenshotIcon />
-              </button>
-              <ContextAlertToggle ticker={t} className="researchPaperAlertToggle" />
-            </>
-          )}
         </div>
       </header>
       <div
@@ -7269,9 +7024,6 @@ function ResearchPaperPanel({
               politicians={flowPoliticians}
               filings13f={flowFilings13f}
               paperSourceFilters={paperSourceFilters}
-              screenshotSelectMode={screenshotSelectMode}
-              screenshotSelected={screenshotSelected}
-              onScreenshotToggle={toggleScreenshotSelection}
             />
           ) : backendUp ? (
             <div className="researchThesisBody researchThesisBody--live">
@@ -7281,35 +7033,6 @@ function ResearchPaperPanel({
               </p>
             </div>
           ) : null}
-        </div>
-      </div>
-      <div
-        ref={captureMountRef}
-        className="researchPaperCaptureMount"
-        aria-hidden="true"
-        hidden={!screenshotBusy}
-      />
-      <div ref={chartCaptureRef} className="researchPaperCaptureChartSource" aria-hidden="true" hidden>
-        <div className="researchPaperCaptureChart">
-          <div className="researchPaperCaptureChartHead">
-            <div className="researchPaperCaptureChartHeadLeft">
-              <span className="researchPaperCaptureChartTicker mono">{t || '—'}</span>
-              <span className="researchPaperCaptureChartName">{fullName}</span>
-            </div>
-            <span className="researchPaperCaptureChartPrice mono">
-              {captureChartLatestPrice != null ? `$${captureChartLatestPrice.toFixed(2)}` : '—'}
-            </span>
-          </div>
-          <MiniPriceChart
-            series={priceSeries}
-            label={t || 'PRICE'}
-            showMeta={false}
-            chartAlign="context"
-            chartRange="6M"
-            trimLeadingPlateau
-            insiderMarkers={showChartFlowMarkers ? insiderPriceMarkers : []}
-            politicianMarkers={showChartFlowMarkers ? politicianPriceMarkers : []}
-          />
         </div>
       </div>
     </section>
@@ -11565,9 +11288,6 @@ function KensiglineTerminal() {
             politicians={contextFlowRows.politicians}
             filings13f={contextFlowRows.filings13f}
             paperSourceFilters={researchPaperSourceFiltersEffective}
-            priceSeries={researchPriceSeries}
-            insiderPriceMarkers={insiderPriceMarkers}
-            politicianPriceMarkers={politicianPriceMarkers}
             panelClassName={[
               'mainMainBlank',
               phonePaneHiddenClass(isPhone, researchPhonePane, 'paper'),
