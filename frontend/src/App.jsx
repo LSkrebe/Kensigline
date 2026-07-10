@@ -8798,7 +8798,7 @@ function TerminalTopBar({
         <div className="terminalTopBarBrand">
           <img
             className="terminalTopBarLogo"
-            src="/mercerline_logo_transparent.png"
+            src="/mercerline_yt.png"
             alt=""
             width={22}
             height={22}

@@ -1,10 +1,6 @@
 /**
  * Regenerate favicons, apple-touch icons, maskable PWA icons, and OG image.
- *
- * Source: mercerline_yt.png (black keyed out → transparent mark).
- * Favicons / PWA / apple-touch: transparent canvas only — browsers & OS apply
- * their own background (tabs, rounded rects, theme_color from manifest).
- * OG image: solid app background (#030405) since social cards need a fill.
+ * Source: mercerline_yt.png — white mark on pure black, used as-is (no keying).
  */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -14,78 +10,42 @@ import sharp from 'sharp'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const publicDir = join(__dirname, '..', 'public')
 const logoPath = join(publicDir, 'mercerline_yt.png')
-const BG = { r: 3, g: 4, b: 5, alpha: 1 }
-const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 }
-const BLACK_KEY_THRESHOLD = 32
-const BLACK_KEY_SOFT_RANGE = 28
-const TRANSPARENT_MASTER_PX = 1024
+const BLACK = { r: 0, g: 0, b: 0, alpha: 1 }
 
-async function extractTransparentMark(size = TRANSPARENT_MASTER_PX) {
-  const { data, info } = await sharp(logoPath)
-    .resize(size, size, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 1 } })
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true })
-
-  for (let i = 0; i < data.length; i += info.channels) {
-    const r = data[i]
-    const g = data[i + 1]
-    const b = data[i + 2]
-    const lum = Math.max(r, g, b)
-    if (lum <= BLACK_KEY_THRESHOLD) {
-      data[i + 3] = 0
-      continue
-    }
-    if (lum <= BLACK_KEY_THRESHOLD + BLACK_KEY_SOFT_RANGE) {
-      const t = (lum - BLACK_KEY_THRESHOLD) / BLACK_KEY_SOFT_RANGE
-      data[i + 3] = Math.round(255 * t * t)
-      continue
-    }
-    data[i + 3] = 255
-  }
-
-  return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer()
-}
-
-/** Mark centered on a fully transparent square — no baked background. */
-async function transparentIcon(size, markBuffer, logoScale = 0.88) {
-  const logoSize = Math.round(size * logoScale)
-  const logo = await sharp(markBuffer)
-    .resize(logoSize, logoSize, { fit: 'contain', background: TRANSPARENT })
+async function iconFromLogo(size, logoScale = 0.92) {
+  const inner = Math.round(size * logoScale)
+  const logo = await sharp(logoPath)
+    .resize(inner, inner, { fit: 'contain', background: BLACK, kernel: sharp.kernel.lanczos3 })
     .png()
     .toBuffer()
   const meta = await sharp(logo).metadata()
   const left = Math.round((size - meta.width) / 2)
   const top = Math.round((size - meta.height) / 2)
   return sharp({
-    create: { width: size, height: size, channels: 4, background: TRANSPARENT },
+    create: { width: size, height: size, channels: 4, background: BLACK },
   })
     .composite([{ input: logo, left, top }])
-    .png()
+    .png({ compressionLevel: 9, adaptiveFiltering: false })
     .toBuffer()
 }
 
-/**
- * Maskable PWA icon: transparent full-bleed canvas, mark in center safe zone.
- * Android/iOS use manifest theme_color / background_color behind the mask.
- */
-async function maskableIcon(size, markBuffer) {
-  return transparentIcon(size, markBuffer, 0.72)
+async function maskableIcon(size) {
+  return iconFromLogo(size, 0.72)
 }
 
-async function ogImage(markBuffer) {
+async function ogImage() {
   const width = 1200
   const height = 630
   const logoHeight = 340
-  const logo = await sharp(markBuffer)
-    .resize(logoHeight, logoHeight, { fit: 'contain', background: TRANSPARENT })
+  const logo = await sharp(logoPath)
+    .resize(logoHeight, logoHeight, { fit: 'contain', background: BLACK, kernel: sharp.kernel.lanczos3 })
     .png()
     .toBuffer()
   const meta = await sharp(logo).metadata()
   const left = Math.round((width - meta.width) / 2)
   const top = Math.round((height - meta.height) / 2)
   return sharp({
-    create: { width, height, channels: 4, background: BG },
+    create: { width, height, channels: 4, background: BLACK },
   })
     .composite([{ input: logo, left, top }])
     .png()
@@ -127,36 +87,32 @@ async function pngToIco(pngBuffers) {
 async function main() {
   await mkdir(publicDir, { recursive: true })
 
-  const mark = await extractTransparentMark(TRANSPARENT_MASTER_PX)
-  await writeFile(join(publicDir, 'mercerline_logo_transparent.png'), mark)
-  console.log('wrote mercerline_logo_transparent.png')
-
   const sizes = [
-    ['favicon-16.png', 16, 0.9],
-    ['favicon-32.png', 32, 0.88],
-    ['favicon-48.png', 48, 0.86],
-    ['apple-touch-icon.png', 180, 0.82],
-    ['icon-192.png', 192, 0.82],
-    ['icon-512.png', 512, 0.82],
+    ['favicon-16.png', 16, 0.92],
+    ['favicon-32.png', 32, 0.9],
+    ['favicon-48.png', 48, 0.88],
+    ['apple-touch-icon.png', 180, 0.86],
+    ['icon-192.png', 192, 0.86],
+    ['icon-512.png', 512, 0.86],
   ]
 
   for (const [name, size, scale] of sizes) {
-    const buf = await transparentIcon(size, mark, scale)
+    const buf = await iconFromLogo(size, scale)
     await writeFile(join(publicDir, name), buf)
     console.log(`wrote ${name}`)
   }
 
-  const maskable = await maskableIcon(512, mark)
+  const maskable = await maskableIcon(512)
   await writeFile(join(publicDir, 'icon-512-maskable.png'), maskable)
   console.log('wrote icon-512-maskable.png')
 
-  const og = await ogImage(mark)
+  const og = await ogImage()
   await writeFile(join(publicDir, 'og-image.png'), og)
   console.log('wrote og-image.png')
 
-  const ico16 = await transparentIcon(16, mark, 0.9)
-  const ico32 = await transparentIcon(32, mark, 0.88)
-  const ico48 = await transparentIcon(48, mark, 0.86)
+  const ico16 = await iconFromLogo(16, 0.92)
+  const ico32 = await iconFromLogo(32, 0.9)
+  const ico48 = await iconFromLogo(48, 0.88)
   const ico = await pngToIco([ico16, ico32, ico48])
   await writeFile(join(publicDir, 'favicon.ico'), ico)
   console.log('wrote favicon.ico')

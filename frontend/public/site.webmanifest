@@ -4,8 +4,8 @@
   "description": "Event-driven research terminal for US equities",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#030405",
-  "theme_color": "#030405",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "icons": [
     {
       "src": "/favicon-48.png",

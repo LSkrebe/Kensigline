@@ -105,7 +105,7 @@ export function SubscribePage() {
       <header className="introNav mktEnterNav">
         <div className="introNavInner">
           <a className="introBrand" href="/" aria-label="Mercerline home">
-            <img className="introBrandLogo" src="/mercerline_logo_transparent.png" alt="" width={28} height={28} />
+            <img className="introBrandLogo" src="/mercerline_yt.png" alt="" width={28} height={28} />
             <span className="introBrandName">MERCERLINE</span>
           </a>
           {email ? (

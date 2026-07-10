@@ -88,7 +88,7 @@ export function IntroPage() {
       <header className="introNav mktEnterNav">
         <div className="introNavInner">
           <a className="introBrand" href="/" aria-label="Mercerline home" onClick={scrollToTop}>
-            <img className="introBrandLogo" src="/mercerline_logo_transparent.png" alt="" width={28} height={28} />
+            <img className="introBrandLogo" src="/mercerline_yt.png" alt="" width={28} height={28} />
             <span className="introBrandName">MERCERLINE</span>
           </a>
           <nav className="introNavLinks mono" aria-label="On this page">
