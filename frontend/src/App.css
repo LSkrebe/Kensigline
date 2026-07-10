@@ -1174,8 +1174,8 @@
 
 .terminal--main .researchPaperPanel .researchPaperDoc {
   max-width: none;
-  width: 100%;
-  margin: 0;
+  width: auto;
+  margin-inline: var(--panel-scroll-inline-pad);
   box-sizing: border-box;
   position: relative;
   z-index: 1;
@@ -1257,7 +1257,7 @@
 
 .terminal--main .researchPaperPanel .researchPaperLoading,
 .terminal--main .researchPaperPanel .researchPaperEmpty {
-  padding: 12px var(--panel-inline-pad);
+  padding: 12px 0;
 }
 
 .panelStatusMessage,
@@ -1625,7 +1625,7 @@
 
 .terminal--main .researchPaperPanel .researchPaperFilingSep {
   margin: 0;
-  padding: 18px var(--panel-inline-pad) 6px;
+  padding: 18px 0 6px;
   font-size: 8px;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -1639,7 +1639,7 @@
   position: relative;
   width: 100%;
   margin: 0;
-  padding: 15px var(--panel-inline-pad) 17px;
+  padding: 15px 0 17px;
   border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.085);
   border-radius: 0;
@@ -1680,7 +1680,7 @@
 }
 
 .terminal--main .researchPaperPanel .researchPaperFiling--screenshotSelect .researchPaperCaptureCornerSlot {
-  right: var(--panel-inline-pad);
+  right: 0;
   bottom: 17px;
 }
 
@@ -2037,7 +2037,8 @@
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding: 8px;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 /* Research context panel — company snapshot */
@@ -7389,7 +7390,7 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Research tab paper panel: full-width filing list (no side gutters on scrollport). */
+/* Research tab paper panel: content inset like context sections; scrollbar gutter only on scrollport. */
 .terminal--main .researchPaper.researchPaperPanel > .researchPaperBody {
   padding: 0 0 var(--panel-scroll-bottom-pad);
   scrollbar-gutter: stable;
@@ -7399,10 +7400,6 @@
 .terminal--main .researchPaper.researchPaperPanel .researchPaperBody--documentsOnly,
 .terminal--main .researchPaper.researchPaperPanel .researchPaperTimeline--documentsOnly {
   padding: 0 0 22px;
-}
-
-.terminal--main .researchPaper.researchPaperPanel .researchPaperDocuments {
-  width: 100%;
 }
 
 .terminal--main .researchPaper.researchPaperPanel .researchPaperChart {
