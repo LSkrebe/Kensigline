@@ -2410,7 +2410,7 @@ function mapTrackedInvestorsFromApi(rows) {
       typeKey: normalizedKey,
       source:
         r.source ??
-        (normalizedKey === 'politician' ? 'PTR' : normalizedKey === 'institution' ? '13F' : '4'),
+        (normalizedKey === 'politician' ? 'PTR' : normalizedKey === 'institution' ? '13F' : 'F4'),
       code,
       codeTone,
       amount: r.amount ?? formatTxnAmountUsd(r.amountUsd ?? r.amount_usd),
@@ -2435,7 +2435,7 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
     name: x.personName ?? x.label,
     type: 'Insider',
     typeKey: 'insider',
-    source: '4',
+    source: 'F4',
     code: x.latestCode ?? 'P',
     codeTone: insiderTxnCodeTone(x.latestCode, x.latestAd),
     amount: x.total,

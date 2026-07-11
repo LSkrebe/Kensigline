@@ -36,7 +36,7 @@ function deepTxnCodeTone(code, ad) {
 }
 
 const TRACKED_INVESTOR_SOURCE = {
-  insider: '4',
+  insider: 'F4',
   politician: 'PTR',
   institution: '13F',
 }
