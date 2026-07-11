@@ -1,16 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { AnalyseModelGrid } from './AnalyseModelGrid.jsx'
 import {
-  analyseCellOverrideModified,
-  analyseGridCellTone,
   analyseMockModelForTicker,
   analyseRevenueOverlayMeta,
   applyForecastOverrides,
   computeValuationView,
-  formatAnalyseGridValue,
   isForecastEditablePnlRow,
-  isValidAnalyseCellInput,
-  parseAnalyseCellInput,
-  parseAnalyseGridInput,
 } from './analyseMockData.js'
 
 const ANALYSE_PRICE_RANGE_OPTS = ['1M', '3M', '6M', '1Y', 'ALL']
@@ -28,239 +23,6 @@ function AnalyseSectionTitle({ title, hintLines }) {
         <span key={line} className="analyseSectionHint mono dim">
           {line}
         </span>
-      ))}
-    </div>
-  )
-}
-
-function AnalyseModelGridCell({
-  row,
-  value,
-  estimate,
-  estimateStart = false,
-  colIndex,
-  editable,
-  modified,
-  onEstimateEdit,
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const inputRef = useRef(null)
-  const tone = analyseGridCellTone(value, row.kind)
-
-  const startEdit = useCallback(() => {
-    if (!editable) return
-    const n =
-      typeof value === 'number'
-        ? value
-        : row.kind === 'pct'
-          ? parseAnalyseCellInput(row, value)
-          : parseAnalyseGridInput(value)
-    setDraft(n != null ? String(n) : '')
-    setEditing(true)
-  }, [editable, row, value])
-
-  useEffect(() => {
-    if (editing) inputRef.current?.select()
-  }, [editing])
-
-  const commit = useCallback(() => {
-    const n = parseAnalyseCellInput(row, draft)
-    if (isValidAnalyseCellInput(row, n)) onEstimateEdit?.(row.label, colIndex, n)
-    setEditing(false)
-  }, [colIndex, draft, onEstimateEdit, row])
-
-    const className = [
-    'analyseModelGridCell',
-    'mono',
-    estimate ? 'analyseModelGridCell--estimate' : '',
-    estimateStart ? 'analyseModelGridCell--estimateStart' : '',
-    editable ? 'analyseModelGridCell--editable' : '',
-    row.readOnly ? 'analyseModelGridCell--readonly' : '',
-    modified ? 'analyseModelGridCell--modified' : '',
-    tone === 'pos' ? 'analyseModelGridCell--pos' : '',
-    tone === 'neg' ? 'analyseModelGridCell--neg' : '',
-    value === '—' ? 'analyseModelGridCell--empty' : '',
-  ]
-    .filter(Boolean)
-    .join(' ')
-
-  if (editing) {
-    return (
-      <input
-        ref={inputRef}
-        className="analyseModelGridCellInput mono"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault()
-            commit()
-          }
-          if (e.key === 'Escape') {
-            e.preventDefault()
-            setEditing(false)
-          }
-        }}
-        aria-label={`Edit ${row.label}`}
-      />
-    )
-  }
-
-  if (editable) {
-    return (
-      <span
-        className={className}
-        role="button"
-        tabIndex={0}
-        title={modified ? 'Edited — click to change' : 'Click to edit forecast'}
-        onClick={startEdit}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            startEdit()
-          }
-        }}
-      >
-        {formatAnalyseGridValue(value, row)}
-      </span>
-    )
-  }
-
-  return (
-    <span className={className} role="cell">
-      {formatAnalyseGridValue(value, row)}
-    </span>
-  )
-}
-
-function AnalyseModelGridCells({
-  row,
-  values,
-  estimate = false,
-  estimateFromIndex = 0,
-  editableRowFn,
-  forecastOverrides,
-  baseRowValues,
-  onEstimateEdit,
-}) {
-  return values.map((cell, i) => {
-    const colIndex = estimate ? estimateFromIndex + i : i
-    const editable = estimate && onEstimateEdit && editableRowFn?.(row)
-    const override = forecastOverrides?.[row.label]?.[colIndex]
-    const modified =
-      editable &&
-      override != null &&
-      !analyseCellOverrideModified(row, baseRowValues?.[colIndex], override)
-
-    return (
-      <AnalyseModelGridCell
-        key={`${row.label}-${estimate ? 'e' : 'h'}-${i}`}
-        row={row}
-        value={cell}
-        estimate={estimate}
-        estimateStart={estimate && i === 0}
-        colIndex={colIndex}
-        editable={editable}
-        modified={modified}
-        onEstimateEdit={onEstimateEdit}
-      />
-    )
-  })
-}
-
-function AnalyseModelGrid({
-  rows,
-  quarters,
-  estimateFromIndex,
-  showEstimates = true,
-  editableRowFn,
-  forecastOverrides,
-  baseRowsByLabel,
-  onEstimateEdit,
-}) {
-  const histQuarters = quarters.slice(0, estimateFromIndex)
-  const estQuarters = showEstimates ? quarters.slice(estimateFromIndex) : []
-  const histCount = histQuarters.length
-  const estCount = estQuarters.length
-
-  return (
-    <div
-      className={[
-        'analyseModelTable',
-        showEstimates ? '' : 'analyseModelTable--historicalOnly',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      style={{
-        '--analyse-hist-cols': histCount,
-        '--analyse-est-cols': estCount,
-      }}
-      role="table"
-      aria-label="Financial model"
-    >
-      <div className="analyseModelRow analyseModelRow--head" role="row">
-        <span className="analyseModelGridLabel analyseModelGridLabel--head" role="columnheader">
-          Metric
-        </span>
-        {histQuarters.map((q) => (
-          <span key={q} className="analyseModelGridHead mono" role="columnheader">
-            {q}
-          </span>
-        ))}
-        {estQuarters.map((q, i) => (
-          <span
-            key={q}
-            className={[
-              'analyseModelGridHead',
-              'analyseModelGridHead--estimate',
-              'mono',
-              i === 0 ? 'analyseModelGridHead--estimateStart' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            role="columnheader"
-          >
-            {q}
-          </span>
-        ))}
-      </div>
-      {rows.map((row, index) => (
-        <div
-          key={row.label}
-          className={[
-            'analyseModelRow',
-            index === rows.length - 1 ? 'analyseModelRow--last' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          role="row"
-        >
-          <span className="analyseModelGridLabel" role="rowheader">
-            {row.label}
-          </span>
-          <AnalyseModelGridCells
-            row={row}
-            values={row.values.slice(0, estimateFromIndex)}
-            estimateFromIndex={estimateFromIndex}
-            editableRowFn={editableRowFn}
-            forecastOverrides={forecastOverrides}
-            baseRowValues={baseRowsByLabel?.[row.label]}
-          />
-          {showEstimates ? (
-            <AnalyseModelGridCells
-              row={row}
-              values={row.values.slice(estimateFromIndex)}
-              estimate
-              estimateFromIndex={estimateFromIndex}
-              editableRowFn={editableRowFn}
-              forecastOverrides={forecastOverrides}
-              baseRowValues={baseRowsByLabel?.[row.label]}
-              onEstimateEdit={onEstimateEdit}
-            />
-          ) : null}
-        </div>
       ))}
     </div>
   )
@@ -359,6 +121,8 @@ function AnalyseValuationSummary({
 
 export function AnalysePanel({
   panelClassName = '',
+  embedded = false,
+  omitSections = {},
   ticker,
   companyName = null,
   price = null,
@@ -496,7 +260,6 @@ export function AnalysePanel({
     [quarterlyRevenueOverlay, chartRange],
   )
 
-  const metaLine = [sector, domicile].filter(Boolean).join(' · ')
   const ch = priceChange != null && Number.isFinite(Number(priceChange)) ? Number(priceChange) : null
   const chPct =
     priceChangePct != null && Number.isFinite(Number(priceChangePct)) ? Number(priceChangePct) : null
@@ -513,20 +276,13 @@ export function AnalysePanel({
   const unitHint = model?.driverUnitHint ?? `${model?.currency ?? 'USD'} millions`
   const perShareHint = model?.projectionNote ?? `${model?.currency ?? 'USD'} millions except per share`
   const modelReady = Boolean(model)
+  const showSection = (key) => omitSections[key] !== true
+  const showModelBlock =
+    showSection('drivers') || showSection('model') || showSection('valuation')
 
-  return (
-    <section
-      className={['panel', 'discoverCol', 'feed', 'feedCompact', 'analyseMainPanel', panelClassName]
-        .filter(Boolean)
-        .join(' ')}
-      aria-label="Analyse"
-    >
-      <header className="feedCompactHeader">
-        <div className="panelTitle feedCompactTitle">ANALYSE</div>
-      </header>
-      <div className="feedCompactBody discoverColBody">
-        <div className="feedCompactMain">
-          <div ref={scrollRef} className="analyseMainPanelBody discoverColScroll scrollThin">
+  const body = (
+    <>
+            {showSection('hero') ? (
             <div className="analyseCompanyHero">
               <div className="contextCompanyCard analyseCompanyCard" aria-label="Company snapshot">
                 <div
@@ -572,14 +328,19 @@ export function AnalysePanel({
                 </div>
                 <div className="analyseCompanyMetaStack">
                   <div className="contextCompanyMeta analyseCompanyName">{displayName}</div>
-                  {metaLine ? (
-                    <div className="contextCompanyMeta contextCompanyMeta--domicile">{metaLine}</div>
+                  {sector ? (
+                    <div className="contextCompanyMeta analyseCompanySector">{sector}</div>
+                  ) : null}
+                  {domicile ? (
+                    <div className="contextCompanyMeta contextCompanyMeta--domicile">{domicile}</div>
                   ) : null}
                   {mcap ? <div className="contextCompanyMeta analyseCompanyMcap">{mcap}</div> : null}
                 </div>
               </div>
             </div>
+            ) : null}
 
+            {showSection('chart') ? (
             <section className="analyseSection" aria-label="Price and earnings chart">
               <div className="analyseSectionHead">
                 <AnalyseSectionTitle
@@ -624,13 +385,16 @@ export function AnalysePanel({
                   </span>
                 </div>
               </section>
+            ) : null}
 
-              {!modelReady ? (
+              {showModelBlock ? (
+              !modelReady ? (
                 <div className="analyseSection analyseSection--loading mono dim">
                   {modelLoading ? 'Loading financial model…' : 'Financial model unavailable.'}
                 </div>
               ) : (
                 <>
+              {showSection('drivers') ? (
               <section className="analyseSection" aria-label={driverSectionTitle}>
                 <div className="analyseSectionHead analyseSectionHead--drivers">
                   <AnalyseSectionTitle title={driverSectionTitle} hintLines={[unitHint]} />
@@ -655,7 +419,9 @@ export function AnalysePanel({
                   />
                 </div>
               </section>
+              ) : null}
 
+              {showSection('model') ? (
               <section className="analyseSection" aria-label="Financial model">
                 <div className="analyseSectionHead analyseSectionHead--forecast">
                   <AnalyseSectionTitle
@@ -687,7 +453,9 @@ export function AnalysePanel({
                   />
                 </div>
               </section>
+              ) : null}
 
+              {showSection('valuation') ? (
               <section className="analyseSection" aria-label="Price vs your model">
                 <AnalyseSectionTitle title="Price vs your model" hintLines={[perShareHint]} />
                 <AnalyseValuationSummary
@@ -697,8 +465,39 @@ export function AnalysePanel({
                   onForecastQuarterChange={onForecastQuarterChange}
                 />
               </section>
+              ) : null}
                 </>
-              )}
+              )
+              ) : null}
+    </>
+  )
+
+  if (embedded) {
+    return (
+      <div
+        className={['analyseMainPanelBody', 'analyseMainPanelBody--embedded', panelClassName]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <section
+      className={['panel', 'discoverCol', 'feed', 'feedCompact', 'analyseMainPanel', panelClassName]
+        .filter(Boolean)
+        .join(' ')}
+      aria-label="Analyse"
+    >
+      <header className="feedCompactHeader">
+        <div className="panelTitle feedCompactTitle">ANALYSE</div>
+      </header>
+      <div className="feedCompactBody discoverColBody">
+        <div className="feedCompactMain">
+          <div ref={scrollRef} className="analyseMainPanelBody discoverColScroll scrollThin">
+            {body}
           </div>
         </div>
       </div>

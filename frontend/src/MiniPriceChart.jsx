@@ -91,6 +91,11 @@ function chartYAxisMargin(labels, { gap = 5, fontSize = 11, min = 24, max = 48 }
   return Math.min(max, Math.max(min, textW + gap))
 }
 
+function formatHoverDate(d) {
+  if (!d || Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 export function MiniPriceChart({
   series,
   label,
@@ -101,10 +106,14 @@ export function MiniPriceChart({
   onChartRangeChange,
   chartAlign = 'default',
   rangeHeaderLabel = null,
+  rangeHeaderHint = null,
   layoutSize = null,
   insiderMarkers = [],
   politicianMarkers = [],
   quarterlyRevenueOverlay = null,
+  hideAxisLabels = false,
+  flushEdges = false,
+  showHoverTooltip = false,
 }) {
   void insiderMarkers
   void politicianMarkers
@@ -115,6 +124,8 @@ export function MiniPriceChart({
     h: layoutSize?.h ?? 192,
   }))
   const [internalRange, setInternalRange] = useState('6M')
+  const [hoverIdx, setHoverIdx] = useState(null)
+  const [hoverPos, setHoverPos] = useState(null)
   const priceRange = chartRangeProp ?? internalRange
   const setPriceRange = onChartRangeChange ?? setInternalRange
 
@@ -157,9 +168,15 @@ export function MiniPriceChart({
   const yTickTexts = useMemo(() => yTicks.map((v) => formatPriceTick(v)), [yTicks])
   const yAxisMarginOpts =
     chartAlign === 'context' ? { gap: yTickGap, min: 32, max: 56 } : { gap: yTickGap, min: 22, max: 44 }
-  const marginL = useMemo(() => chartYAxisMargin(yTickTexts, yAxisMarginOpts), [yTickTexts, chartAlign])
-  const marginSides =
-    chartAlign === 'context' ? { r: 0, t: 14, b: 22 } : { r: 6, t: 8, b: 18 }
+  const marginL = useMemo(
+    () => (flushEdges || hideAxisLabels ? 0 : chartYAxisMargin(yTickTexts, yAxisMarginOpts)),
+    [flushEdges, hideAxisLabels, yTickTexts, chartAlign],
+  )
+  const marginSides = flushEdges
+    ? { r: 0, t: 0, b: 0 }
+    : chartAlign === 'context'
+      ? { r: 0, t: 14, b: 22 }
+      : { r: 6, t: 8, b: 18 }
   const margin = { l: marginL, ...marginSides }
   const plotTop = margin.t
   const axisY = h - margin.b
@@ -273,6 +290,29 @@ export function MiniPriceChart({
     return stepPath || null
   }, [quarterlyRevenueOverlay, vals.length, priceRange, innerH, plotTop, margin.l, innerW, min, span])
 
+  const activeIdx =
+    hoverIdx != null && hoverIdx >= 0 && hoverIdx < vals.length ? hoverIdx : null
+
+  function updateHoverFromClient(clientX, clientY) {
+    if (!showHoverTooltip || !vals.length || !wrapRef.current) return
+    const rect = wrapRef.current.getBoundingClientRect()
+    if (!rect.width) return
+    const fracX = (clientX - rect.left) / rect.width
+    const relX = fracX * w
+    const idx = Math.round((relX / Math.max(1, w)) * (vals.length - 1))
+    const clamped = Math.max(0, Math.min(vals.length - 1, idx))
+    setHoverIdx(clamped)
+    setHoverPos({
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    })
+  }
+
+  function clearHover() {
+    setHoverIdx(null)
+    setHoverPos(null)
+  }
+
   return (
     <div
       className={['researchMiniPrice', showMeta ? '' : 'researchMiniPrice--chartOnly'].filter(Boolean).join(' ')}
@@ -288,7 +328,12 @@ export function MiniPriceChart({
             .join(' ')}
         >
           {rangeHeaderLabel ? (
-            <div className="researchPriceRangeLabel contextCompanyTicker">{rangeHeaderLabel}</div>
+            <div className="researchPriceRangeHeader">
+              <div className="researchPriceRangeLabel contextCompanyTicker">{rangeHeaderLabel}</div>
+              {rangeHeaderHint ? (
+                <div className="researchPriceRangeHint mono dim">{rangeHeaderHint}</div>
+              ) : null}
+            </div>
           ) : null}
           <div className="researchPriceRange" role="group" aria-label="Chart range">
             {PRICE_RANGE_OPTS.map((r) => (
@@ -314,13 +359,31 @@ export function MiniPriceChart({
           </div>
         </div>
       ) : null}
-      <div ref={wrapRef} className="researchMiniPriceWrap" role="img" aria-label="Mini price sparkline">
+      <div
+        ref={wrapRef}
+        className={[
+          'researchMiniPriceWrap',
+          flushEdges ? 'researchMiniPriceWrap--flush' : '',
+          showHoverTooltip ? 'researchMiniPriceWrap--interactive' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        role="img"
+        aria-label="Mini price sparkline"
+        onPointerMove={showHoverTooltip ? (e) => updateHoverFromClient(e.clientX, e.clientY) : undefined}
+        onPointerLeave={showHoverTooltip ? clearHover : undefined}
+      >
         {!vals.length ? (
           <div className="graphEmpty mono dim" role="status">
             No price data.
           </div>
         ) : (
-          <svg className="graphSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
+          <svg
+            className="graphSvg"
+            viewBox={`0 0 ${w} ${h}`}
+            preserveAspectRatio={flushEdges ? 'none' : 'xMidYMid meet'}
+            role="img"
+          >
             <defs>
               <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={CHART_AREA_GRAD_TOP} stopOpacity="1" />
@@ -328,61 +391,94 @@ export function MiniPriceChart({
               </linearGradient>
             </defs>
             {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
-            <path
-              className="graphAxis"
-              style={GRAPH_SVG_AXIS}
-              d={`M ${margin.l} ${plotTop} L ${margin.l} ${axisY} L ${w - margin.r} ${axisY}`}
-            />
+            {!hideAxisLabels ? (
+              <path
+                className="graphAxis"
+                style={GRAPH_SVG_AXIS}
+                d={`M ${margin.l} ${plotTop} L ${margin.l} ${axisY} L ${w - margin.r} ${axisY}`}
+              />
+            ) : null}
 
-            {yTicks.map((v, i) => {
-              const y = yAt(v)
-              const nT = yTicks.length
-              const onFloor = nT === 1 ? false : i === 0
-              const onCeil = nT === 1 ? false : i === nT - 1
-              const ty = onFloor ? axisY : y
-              const baseline = onFloor ? 'alphabetic' : onCeil ? 'hanging' : 'middle'
-              const tyAdj = onCeil ? plotTop + 2 : onFloor ? axisY - 1 : ty
-              return (
-                <g key={`yt-${i}`}>
-                  <text
-                    className="graphTick graphTick--y"
-                    style={GRAPH_SVG_TICK}
-                    textAnchor="end"
-                    dominantBaseline={baseline}
-                    x={yTickLabelX}
-                    y={tyAdj}
-                  >
-                    {yTickTexts[i]}
-                  </text>
-                  <path
-                    className="graphTickLine"
-                    style={GRAPH_SVG_TICK_LINE}
-                    d={`M ${margin.l} ${y} L ${margin.l + (chartAlign === 'context' ? 4 : 6)} ${y}`}
-                  />
-                </g>
-              )
-            })}
+            {!hideAxisLabels
+              ? yTicks.map((v, i) => {
+                  const y = yAt(v)
+                  const nT = yTicks.length
+                  const onFloor = nT === 1 ? false : i === 0
+                  const onCeil = nT === 1 ? false : i === nT - 1
+                  const ty = onFloor ? axisY : y
+                  const baseline = onFloor ? 'alphabetic' : onCeil ? 'hanging' : 'middle'
+                  const tyAdj = onCeil ? plotTop + 2 : onFloor ? axisY - 1 : ty
+                  return (
+                    <g key={`yt-${i}`}>
+                      <text
+                        className="graphTick graphTick--y"
+                        style={GRAPH_SVG_TICK}
+                        textAnchor="end"
+                        dominantBaseline={baseline}
+                        x={yTickLabelX}
+                        y={tyAdj}
+                      >
+                        {yTickTexts[i]}
+                      </text>
+                      <path
+                        className="graphTickLine"
+                        style={GRAPH_SVG_TICK_LINE}
+                        d={`M ${margin.l} ${y} L ${margin.l + (chartAlign === 'context' ? 4 : 6)} ${y}`}
+                      />
+                    </g>
+                  )
+                })
+              : null}
 
-            {xTickIdx.map((idx, i) => {
-              const x = xAt(idx)
-              const d = dates[idx]
-              const m = d instanceof Date && !Number.isNaN(d.getTime()) ? MONTHS_SHORT[d.getMonth()] : EMPTY
-              return (
-                <g key={`xt-${i}`}>
-                  <text className="graphTick graphTick--x" style={GRAPH_SVG_TICK} x={x} y={h - 4}>
-                    {m}
-                  </text>
-                </g>
-              )
-            })}
+            {!hideAxisLabels
+              ? xTickIdx.map((idx, i) => {
+                  const x = xAt(idx)
+                  const d = dates[idx]
+                  const m = d instanceof Date && !Number.isNaN(d.getTime()) ? MONTHS_SHORT[d.getMonth()] : EMPTY
+                  return (
+                    <g key={`xt-${i}`}>
+                      <text className="graphTick graphTick--x" style={GRAPH_SVG_TICK} x={x} y={h - 4}>
+                        {m}
+                      </text>
+                    </g>
+                  )
+                })
+              : null}
 
             {quarterlyRevenueGeom ? (
               <path className="analyseQuarterlyRevenueStep" d={quarterlyRevenueGeom} vectorEffect="non-scaling-stroke" />
             ) : null}
 
             <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
+
+            {activeIdx != null && showHoverTooltip ? (
+              <g className="graphHoverMarker" aria-hidden="true">
+                <line
+                  className="graphHoverLine"
+                  x1={xAt(activeIdx)}
+                  x2={xAt(activeIdx)}
+                  y1={plotTop}
+                  y2={axisY}
+                />
+                <circle className="graphHoverDot" cx={xAt(activeIdx)} cy={yAt(vals[activeIdx])} r={3.5} />
+              </g>
+            ) : null}
           </svg>
         )}
+        {activeIdx != null && hoverPos && showHoverTooltip ? (
+          <div
+            className="researchMiniPriceTooltip mono"
+            style={{
+              left: Math.min(Math.max(8, hoverPos.x + 12), Math.max(8, w - 120)),
+              top: Math.max(8, hoverPos.y - 36),
+            }}
+          >
+            <span className="researchMiniPriceTooltipDate">{formatHoverDate(dates[activeIdx])}</span>
+            <span className="researchMiniPriceTooltipPrice">
+              ${Number(vals[activeIdx]).toFixed(2)}
+            </span>
+          </div>
+        ) : null}
       </div>
     </div>
   )

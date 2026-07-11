@@ -262,6 +262,32 @@
   overflow: hidden;
 }
 
+.terminalTopBar--deepResearch .terminalTopBarCenter {
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.terminalIntelSwitch--deepResearch .terminalIntelSwitchBtn {
+  padding: 0 6px;
+  font-size: clamp(8px, 1.35vmin, 11px);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  height: 100%;
+  align-self: center;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.terminalIntelSwitch--deepResearch .terminalIntelSwitchSep {
+  align-self: center;
+  padding: 0 4px;
+  font-size: clamp(8px, 1.2vmin, 10px);
+  line-height: 1;
+}
+
 .terminalIntelSwitch--insider .terminalIntelSwitchBtn,
 .terminalIntelSwitch--all .terminalIntelSwitchBtn,
 .terminalIntelSwitch--politicians .terminalIntelSwitchBtn,
@@ -5012,6 +5038,8 @@
   overflow: hidden;
 }
 
+/* Deep Research layout → see DeepResearch.css */
+
 .analyseMainPanelBody {
   flex: 1 1 auto;
   min-height: 0;
@@ -9572,6 +9600,7 @@ body {
 /* ---- Terminal scrollports: reserve gutter beside content ---- */
 .terminal .feedCompactList.feedCompactList--scroll,
 .terminal .discoverColScroll,
+.terminal .deepResearchScroll,
 .terminal .mainContextPanelBody,
 .terminal .researchPaper.researchPaperPanel > .researchPaperBody,
 .terminal .analyseMainPanelBody.discoverColScroll,
@@ -9584,7 +9613,9 @@ body {
 .scrollThin,
 .feedCompactList.feedCompactList--scroll,
 .analyseModelScroll,
+.drpt-modelScroll,
 .discoverColScroll,
+.deepResearchScroll,
 .mainContextPanelBody,
 .researchPaper.researchPaperPanel > .researchPaperBody,
 .historicalOutcomesBody,
@@ -9596,7 +9627,9 @@ body {
 .scrollThin::-webkit-scrollbar,
 .feedCompactList.feedCompactList--scroll::-webkit-scrollbar,
 .analyseModelScroll::-webkit-scrollbar,
+.drpt-modelScroll::-webkit-scrollbar,
 .discoverColScroll::-webkit-scrollbar,
+.deepResearchScroll::-webkit-scrollbar,
 .mainContextPanelBody::-webkit-scrollbar,
 .researchPaper.researchPaperPanel > .researchPaperBody::-webkit-scrollbar,
 .historicalOutcomesBody::-webkit-scrollbar,
@@ -9608,7 +9641,9 @@ body {
 .scrollThin::-webkit-scrollbar-track,
 .feedCompactList.feedCompactList--scroll::-webkit-scrollbar-track,
 .analyseModelScroll::-webkit-scrollbar-track,
+.drpt-modelScroll::-webkit-scrollbar-track,
 .discoverColScroll::-webkit-scrollbar-track,
+.deepResearchScroll::-webkit-scrollbar-track,
 .mainContextPanelBody::-webkit-scrollbar-track,
 .researchPaper.researchPaperPanel > .researchPaperBody::-webkit-scrollbar-track,
 .historicalOutcomesBody::-webkit-scrollbar-track,
@@ -9619,7 +9654,9 @@ body {
 .scrollThin::-webkit-scrollbar-thumb,
 .feedCompactList.feedCompactList--scroll::-webkit-scrollbar-thumb,
 .analyseModelScroll::-webkit-scrollbar-thumb,
+.drpt-modelScroll::-webkit-scrollbar-thumb,
 .discoverColScroll::-webkit-scrollbar-thumb,
+.deepResearchScroll::-webkit-scrollbar-thumb,
 .mainContextPanelBody::-webkit-scrollbar-thumb,
 .researchPaper.researchPaperPanel > .researchPaperBody::-webkit-scrollbar-thumb,
 .historicalOutcomesBody::-webkit-scrollbar-thumb,
@@ -9631,7 +9668,9 @@ body {
 .scrollThin::-webkit-scrollbar-thumb:hover,
 .feedCompactList.feedCompactList--scroll::-webkit-scrollbar-thumb:hover,
 .analyseModelScroll::-webkit-scrollbar-thumb:hover,
+.drpt-modelScroll::-webkit-scrollbar-thumb:hover,
 .discoverColScroll::-webkit-scrollbar-thumb:hover,
+.deepResearchScroll::-webkit-scrollbar-thumb:hover,
 .mainContextPanelBody::-webkit-scrollbar-thumb:hover,
 .researchPaper.researchPaperPanel > .researchPaperBody::-webkit-scrollbar-thumb:hover,
 .historicalOutcomesBody::-webkit-scrollbar-thumb:hover,
@@ -11482,11 +11521,25 @@ body {
     gap: 6px;
   }
 
+  .terminalShell--phone .terminalTopBar--deepResearch {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
   .terminalShell--phone .terminalTopBarCenter {
     display: none;
   }
 
   .terminalShell--phone .terminalTopBar--investigate .terminalTopBarEnd {
+    grid-column: 2;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .terminalShell--phone .terminalTopBar--deepResearch .terminalTopBarEnd {
     grid-column: 2;
     display: flex;
     align-items: center;
@@ -11668,6 +11721,18 @@ body {
   .terminalShell--phone .terminal--analyse .analyseFeedSlot,
   .terminalShell--phone .terminal--analyse .analyseMainPanel,
   .terminalShell--phone .terminal--analyse .analyseMainSlot {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .terminalShell--phone .terminal.terminal--deepAnalyse {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .terminalShell--phone .terminal--deepAnalyse .deepResearchRoot {
     grid-column: 1;
     grid-row: 1;
     min-height: 0;

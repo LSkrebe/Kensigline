@@ -12,7 +12,7 @@ export const UI_PREF_KEYS = {
   chartRange: (lane) => `${PREFIX}chart-range:${lane}`,
 }
 
-const ACTIVE_TABS = new Set(['analyse', 'main', 'investigate', 'macro', 'settings'])
+const ACTIVE_TABS = new Set(['analyse', 'main', 'investigate', 'deepAnalyse', 'macro', 'settings'])
 const INVESTIGATE_MODES = new Set(['insider', 'politicians', 'institutions'])
 
 function canUseStorage() {

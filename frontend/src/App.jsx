@@ -11,6 +11,8 @@ import { markAppReady } from './marketingShell.js'
 import { MacroCalendarPanel } from './MacroCalendarPanel.jsx'
 import { prefetchMacroCalendar } from './macroClient.js'
 import { AnalysePanel } from './AnalysePanel.jsx'
+import { DeepResearchLayout } from './DeepResearchLayout.jsx'
+import { DeepPage } from './DeepCompanyPage.jsx'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
 import {
@@ -2269,9 +2271,21 @@ function aggregateContextInsiders(rows, days = null) {
     const usd = signedFlowUsd(row, insiderFlowSign)
     if (usd === 0) continue
     const at = flowRowDateMs(row.date)
-    const prev = map.get(id) ?? { key: row.key, person: row.person, totalUsd: 0, latestAt: 0 }
+    const code = String(row.transactionCode ?? row.code ?? 'P').trim().toUpperCase() || 'P'
+    const prev = map.get(id) ?? {
+      key: row.key,
+      person: row.person,
+      totalUsd: 0,
+      latestAt: 0,
+      latestCode: code,
+      latestAd: row.acquiredDisposed ?? null,
+    }
     prev.totalUsd += usd
-    if (at >= prev.latestAt) prev.latestAt = at
+    if (at >= prev.latestAt) {
+      prev.latestAt = at
+      prev.latestCode = code
+      prev.latestAd = row.acquiredDisposed ?? prev.latestAd
+    }
     map.set(id, prev)
   }
   return [...map.values()]
@@ -2288,6 +2302,8 @@ function aggregateContextInsiders(rows, days = null) {
         total: formatTxnAmountUsd(x.totalUsd),
         totalUsd: x.totalUsd,
         latestAt: x.latestAt,
+        latestCode: x.latestCode,
+        latestAd: x.latestAd,
       }
     })
     .sort((a, b) => Math.abs(b.totalUsd) - Math.abs(a.totalUsd))
@@ -2301,14 +2317,19 @@ function aggregateContextPoliticians(rows, days = null) {
     const usd = signedFlowUsd(row, politicianFlowSign)
     if (usd === 0) continue
     const at = flowRowDateMs(row.date)
+    const code = politicianTxnCodeFromRaw(row.transactionType ?? row.transactionCode)
     const prev = map.get(id) ?? {
       name: row.name,
       chamber: row.chamber,
       totalUsd: 0,
       latestAt: 0,
+      latestCode: code,
     }
     prev.totalUsd += usd
-    if (at >= prev.latestAt) prev.latestAt = at
+    if (at >= prev.latestAt) {
+      prev.latestAt = at
+      prev.latestCode = code
+    }
     map.set(id, prev)
   }
   return [...map.values()]
@@ -2320,6 +2341,7 @@ function aggregateContextPoliticians(rows, days = null) {
       amount: formatTxnAmountUsd(x.totalUsd),
       totalUsd: x.totalUsd,
       latestAt: x.latestAt,
+      latestCode: x.latestCode,
     }))
     .sort((a, b) => Math.abs(b.totalUsd) - Math.abs(a.totalUsd))
 }
@@ -2332,9 +2354,17 @@ function aggregateContextInstitutions(rows, days = null) {
     const usd = signedFlowUsd(row, institutionFlowSign)
     if (usd === 0) continue
     const at = flowRowDateMs(row.date)
-    const prev = map.get(id) ?? { filer: row.filer, totalUsd: 0, latestAt: 0 }
+    const prev = map.get(id) ?? {
+      filer: row.filer,
+      totalUsd: 0,
+      latestAt: 0,
+      latestActivity: row.activity ?? null,
+    }
     prev.totalUsd += usd
-    if (at >= prev.latestAt) prev.latestAt = at
+    if (at >= prev.latestAt) {
+      prev.latestAt = at
+      prev.latestActivity = row.activity ?? prev.latestActivity
+    }
     map.set(id, prev)
   }
   return [...map.values()]
@@ -2346,6 +2376,7 @@ function aggregateContextInstitutions(rows, days = null) {
       amount: formatTxnAmountUsd(x.totalUsd),
       totalUsd: x.totalUsd,
       latestAt: x.latestAt,
+      latestActivity: x.latestActivity,
     }))
     .sort((a, b) => Math.abs(b.totalUsd) - Math.abs(a.totalUsd))
 }
@@ -2356,11 +2387,32 @@ function mapTrackedInvestorsFromApi(rows) {
     const latestAt = r.latestAt ?? r.latest_at
     const dateAt = latestAt ? new Date(latestAt).getTime() : 0
     const typeKey = r.type ?? r.typeKey ?? 'insider'
+    const normalizedKey =
+      typeKey === 'politician' ? 'politician' : typeKey === 'institution' ? 'institution' : 'insider'
+    const code = String(
+      r.transactionCode ??
+        r.transaction_code ??
+        r.code ??
+        (normalizedKey === 'institution' ? institutionTxnFromActivity(r.activity ?? r.latest_activity).code : 'P'),
+    )
+      .trim()
+      .toUpperCase() || '—'
+    const codeTone =
+      r.codeTone ??
+      r.code_tone ??
+      (normalizedKey === 'institution'
+        ? institutionTxnFromActivity(r.activity ?? r.latest_activity).tone
+        : insiderTxnCodeTone(code, r.acquiredDisposed ?? r.acquired_disposed))
     return {
       id: r.id ?? `${typeKey}|${r.name}`,
       name: String(r.name ?? '—').trim() || '—',
       type: r.typeLabel ?? r.type_label ?? typeKey,
-      typeKey,
+      typeKey: normalizedKey,
+      source:
+        r.source ??
+        (normalizedKey === 'politician' ? 'PTR' : normalizedKey === 'institution' ? '13F' : '4'),
+      code,
+      codeTone,
       amount: r.amount ?? formatTxnAmountUsd(r.amountUsd ?? r.amount_usd),
       totalUsd: Number(r.amountUsd ?? r.amount_usd ?? 0),
       dateAt,
@@ -2383,6 +2435,9 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
     name: x.personName ?? x.label,
     type: 'Insider',
     typeKey: 'insider',
+    source: '4',
+    code: x.latestCode ?? 'P',
+    codeTone: insiderTxnCodeTone(x.latestCode, x.latestAd),
     amount: x.total,
     totalUsd: x.totalUsd,
     dateAt: x.latestAt,
@@ -2390,14 +2445,23 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
   }))
   const politicianRows = aggregateContextPoliticians(politicians, days).map((x) => ({
     ...x,
+    source: 'PTR',
+    code: x.latestCode ?? '—',
+    codeTone: insiderTxnCodeTone(x.latestCode),
     dateAt: x.latestAt,
     date: formatTrackedInvestorDate(x.latestAt),
   }))
-  const institutionRows = aggregateContextInstitutions(filings13f, days).map((x) => ({
-    ...x,
-    dateAt: x.latestAt,
-    date: formatTrackedInvestorDate(x.latestAt),
-  }))
+  const institutionRows = aggregateContextInstitutions(filings13f, days).map((x) => {
+    const txn = institutionTxnFromActivity(x.latestActivity)
+    return {
+      ...x,
+      source: '13F',
+      code: txn.code,
+      codeTone: txn.tone,
+      dateAt: x.latestAt,
+      date: formatTrackedInvestorDate(x.latestAt),
+    }
+  })
   return [...insiderRows, ...politicianRows, ...institutionRows].sort(
     (a, b) => (b.dateAt ?? 0) - (a.dateAt ?? 0),
   )
@@ -6963,6 +7027,7 @@ function ResearchPaperPanel({
   filings13f = [],
   paperSourceFilters = null,
   panelClassName = '',
+  embedded = false,
 }) {
   const fullName = String(companyName ?? '').trim() || String(ticker ?? '—').toUpperCase()
   const t = String(ticker ?? '').toUpperCase()
@@ -6991,6 +7056,52 @@ function ResearchPaperPanel({
   const flowPoliticians = presentationReady ? politicians : []
   const flowFilings13f = presentationReady ? filings13f : []
 
+  const paperBody = (
+    <div
+      ref={paperBodyRef}
+      className={[
+        'researchPaperBody',
+        embedded ? 'researchPaperBody--embedded' : 'scrollThin',
+        !presentationReady && backendUp ? 'researchPaperBody--pending' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <div className="researchPaperDoc" key={t}>
+        {!presentationReady && backendUp ? (
+          <div className="researchPaperLoading mono dim" role="status">
+            Loading company research…
+          </div>
+        ) : safePresentation?.title ? (
+          <ResearchPaperStructuredView
+            key={`${t}-${paperDocuments.map((d) => d.id).join('|')}`}
+            ticker={ticker}
+            documents={paperDocuments}
+            insiders={flowInsiders}
+            politicians={flowPoliticians}
+            filings13f={flowFilings13f}
+            paperSourceFilters={paperSourceFilters}
+          />
+        ) : backendUp ? (
+          <div className="researchThesisBody researchThesisBody--live">
+            <p className="researchThesisP researchThesisP--live mono dim">
+              Research explore data is not available yet for this view (API error or empty response). Check that the
+              backend is running and the database has been ingested.
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+
+  if (embedded) {
+    return (
+      <div className={['researchPaperEmbed', panelClassName].filter(Boolean).join(' ')} aria-label={fullName}>
+        {paperBody}
+      </div>
+    )
+  }
+
   return (
     <section
       className={['panel', 'researchPaper', 'researchPaperPanel', panelClassName].filter(Boolean).join(' ')}
@@ -7001,41 +7112,7 @@ function ResearchPaperPanel({
           {fullName}
         </div>
       </header>
-      <div
-        ref={paperBodyRef}
-        className={[
-          'researchPaperBody',
-          'scrollThin',
-          !presentationReady && backendUp ? 'researchPaperBody--pending' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        <div className="researchPaperDoc" key={t}>
-          {!presentationReady && backendUp ? (
-            <div className="researchPaperLoading mono dim" role="status">
-              Loading company research…
-            </div>
-          ) : safePresentation?.title ? (
-            <ResearchPaperStructuredView
-              key={`${t}-${paperDocuments.map((d) => d.id).join('|')}`}
-              ticker={ticker}
-              documents={paperDocuments}
-              insiders={flowInsiders}
-              politicians={flowPoliticians}
-              filings13f={flowFilings13f}
-              paperSourceFilters={paperSourceFilters}
-            />
-          ) : backendUp ? (
-            <div className="researchThesisBody researchThesisBody--live">
-              <p className="researchThesisP researchThesisP--live mono dim">
-                Research explore data is not available yet for this view (API error or empty response). Check that the
-                backend is running and the database has been ingested.
-              </p>
-            </div>
-          ) : null}
-        </div>
-      </div>
+      {paperBody}
     </section>
   )
 }
@@ -7971,7 +8048,7 @@ function KvLine({ className = '', children, ...rest }) {
   )
 }
 
-function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
+function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null, panelClassName = '' }) {
   const [live, setLive] = useState(null)
   const [outcomesLoaded, setOutcomesLoaded] = useState(false)
 
@@ -8013,6 +8090,7 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null }) {
         'historicalOutcomes',
         'blankTile--a',
         'historicalOutcomes--market',
+        panelClassName,
       ]
         .filter(Boolean)
         .join(' ')}
@@ -8751,6 +8829,40 @@ function InvestigateModeSwitch({ mode, onChange }) {
   )
 }
 
+const DEEP_RESEARCH_MODE_OPTIONS = [
+  { id: 'company', label: 'Company' },
+  { id: 'actor', label: 'Actor' },
+]
+
+function DeepResearchModeSwitch({ mode, onChange }) {
+  return (
+    <div
+      className={`terminalIntelSwitch terminalIntelSwitch--deepResearch terminalIntelSwitch--${mode}`}
+      role="tablist"
+      aria-label="Deep research subject mode"
+    >
+      {DEEP_RESEARCH_MODE_OPTIONS.map((opt, i) => (
+        <Fragment key={opt.id}>
+          {i > 0 ? (
+            <span className="terminalIntelSwitchSep" aria-hidden="true">
+              |
+            </span>
+          ) : null}
+          <button
+            type="button"
+            role="tab"
+            className={mode === opt.id ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
+            aria-selected={mode === opt.id}
+            onClick={() => onChange(opt.id)}
+          >
+            {opt.label}
+          </button>
+        </Fragment>
+      ))}
+    </div>
+  )
+}
+
 function TerminalTopBar({
   macroActive,
   onMacroClick,
@@ -8761,6 +8873,10 @@ function TerminalTopBar({
   showInvestigateSwitch = false,
   investigateMode = 'insider',
   onInvestigateModeChange,
+  showDeepResearchSwitch = false,
+  deepResearchMode = 'company',
+  onDeepResearchModeChange,
+  topBarExtra = null,
   clockAt = null,
 }) {
   const frozenMs = clockAt != null ? new Date(clockAt).getTime() : null
@@ -8786,11 +8902,17 @@ function TerminalTopBar({
 
   const modeSwitch = showInvestigateSwitch ? (
     <InvestigateModeSwitch mode={investigateMode} onChange={onInvestigateModeChange} />
+  ) : showDeepResearchSwitch ? (
+    <DeepResearchModeSwitch mode={deepResearchMode} onChange={onDeepResearchModeChange} />
   ) : null
 
   return (
     <header
-      className={['terminalTopBar', showInvestigateSwitch ? 'terminalTopBar--investigate' : '']
+      className={[
+        'terminalTopBar',
+        showInvestigateSwitch ? 'terminalTopBar--investigate' : '',
+        showDeepResearchSwitch ? 'terminalTopBar--deepResearch' : '',
+      ]
         .filter(Boolean)
         .join(' ')}
       aria-label="Mercerline"
@@ -8819,6 +8941,7 @@ function TerminalTopBar({
       <div className="terminalTopBarEnd">
         {isPhone && modeSwitch ? <div className="terminalTopBarMode">{modeSwitch}</div> : null}
         <div className="terminalTopBarActions">
+          {topBarExtra}
           <time className="terminalTopBarDate mono dim" dateTime={formatTerminalTopBarDateTimeAttr(now)}>
             {formatTerminalTopBarDateLabel(now)}
           </time>
@@ -9078,6 +9201,7 @@ function KensiglineTerminal() {
   const [researchPhonePane, setResearchPhonePane] = useState('paper')
   const [analysePhonePane, setAnalysePhonePane] = useState('analyse')
   const [investigatePhonePane, setInvestigatePhonePane] = useState('feed')
+  const [deepResearchMode, setDeepResearchMode] = useState('company')
   const [investigateMode, setInvestigateMode] = useState(() => readInvestigateMode()) // insider | politicians | institutions
   const [investigateFeedFilterOpen, setInvestigateFeedFilterOpen] = useState(false)
   const [investigateInsiderTxnFilters, setInvestigateInsiderTxnFilters] = useState(() =>
@@ -9457,6 +9581,32 @@ function KensiglineTerminal() {
       filings13f: contextMock?.filings13f ?? [],
     }
   }, [backendUp, researchExploreResolved?.flows, contextMock])
+
+  const deepExploreReady =
+    !backendUp ||
+    (Boolean(researchTick) && researchExploreTicker === researchTick)
+
+  const deepPaperTimelineEntries = useMemo(() => {
+    const docs = paperDocumentsFromPresentation(deepExploreReady ? researchPresentation : null)
+    const raw = buildPaperTimelineItems({
+      documents: docs,
+      insiders: [],
+      politicians: [],
+      filings13f: [],
+    })
+    return buildPaperDisplayRows(raw)
+  }, [deepExploreReady, researchPresentation])
+
+  const deepTrackedInvestors = useMemo(
+    () =>
+      buildContextTrackedInvestors({
+        insiders: contextFlowRows.insiders,
+        politicians: contextFlowRows.politicians,
+        filings13f: contextFlowRows.filings13f,
+        apiRows: researchExploreResolved?.tracked_investors ?? null,
+      }),
+    [contextFlowRows, researchExploreResolved?.tracked_investors],
+  )
 
   const insiderPriceMarkers = useMemo(
     () => contextFlowRows.insiders.map((x) => x.date),
@@ -10990,6 +11140,10 @@ function KensiglineTerminal() {
         showInvestigateSwitch={activeTab === 'investigate'}
         investigateMode={investigateMode}
         onInvestigateModeChange={setInvestigateMode}
+        showDeepResearchSwitch={activeTab === 'deepAnalyse'}
+        deepResearchMode={deepResearchMode}
+        onDeepResearchModeChange={setDeepResearchMode}
+        topBarExtra={null}
       />
       <div className="terminalWorkspace">
       {!isPhone ? (
@@ -11017,6 +11171,14 @@ function KensiglineTerminal() {
             onClick={() => setActiveTab('investigate')}
           >
             <span className="sideTabLabel sideTabLabel--investigate">INVESTIGATE</span>
+          </button>
+          <button
+            type="button"
+            className={activeTab === 'deepAnalyse' ? 'sideTab isActive' : 'sideTab'}
+            aria-current={activeTab === 'deepAnalyse' ? 'page' : undefined}
+            onClick={() => setActiveTab('deepAnalyse')}
+          >
+            <span className="sideTabLabel sideTabLabel--deepAnalyse">DEEP</span>
           </button>
         </nav>
       ) : null}
@@ -11337,6 +11499,56 @@ function KensiglineTerminal() {
           />
       </div>
 
+      <div className={tabPanelHiddenClass(activeTab, 'deepAnalyse')}>
+        <DeepResearchLayout>
+          <DeepPage
+            mode={deepResearchMode}
+            company={{
+              ticker: researchTicker,
+              companyName: researchCompanyName,
+              sector: contextCompanySnapshot.sector,
+              domicile: contextCompanySnapshot.domicile,
+              mcap: contextCompanySnapshot.mcap,
+              price: contextCompanySnapshot.price,
+              priceChange: analysePriceChange?.delta,
+              priceChangePct: analysePriceChange?.pct,
+              earnings: contextEarnings,
+              timelineEntries: deepPaperTimelineEntries,
+              timelineLoading:
+                backendUp && researchTick && (!researchExploreResolved || researchExploreTicker !== researchTick),
+              trackedInvestors: deepTrackedInvestors,
+              fundamentals: contextFundamentals,
+              model: analyseLivePayload?.model ?? null,
+              modelLoading: analyseModelLoading,
+              backendUp,
+              chartRange: analysePriceRange,
+              onChartRangeChange: setAnalysePriceRange,
+              chartSlot: (
+                <MiniPriceChart
+                  series={researchPriceSeries}
+                  label={researchTick || 'PRICE'}
+                  showMeta={false}
+                  chartRange={analysePriceRange}
+                  onChartRangeChange={setAnalysePriceRange}
+                  trimLeadingPlateau
+                  quarterlyRevenueOverlay={analyseQuarterlyRevenue}
+                  hideAxisLabels
+                  flushEdges
+                  showHoverTooltip
+                />
+              ),
+            }}
+            actor={{
+              actorRow: effectiveActorRow,
+              personDisplay: historicalOutcomesPerson,
+              mode: investigateMode,
+              caseRows: investigateActiveCaseFeedRows,
+              backendUp,
+            }}
+          />
+        </DeepResearchLayout>
+      </div>
+
       {/* Explore tab removed; Research panels live inside MAIN now. */}
       </main>
       {isPhone ? (
@@ -11389,6 +11601,14 @@ function KensiglineTerminal() {
               onClick={() => setActiveTab('investigate')}
             >
               <span className="sideTabLabel">Investigate</span>
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'deepAnalyse' ? 'sideTab isActive' : 'sideTab'}
+              aria-current={activeTab === 'deepAnalyse' ? 'page' : undefined}
+              onClick={() => setActiveTab('deepAnalyse')}
+            >
+              <span className="sideTabLabel">Deep</span>
             </button>
           </nav>
         </div>

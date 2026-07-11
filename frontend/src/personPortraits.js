@@ -3,6 +3,8 @@
  * Shared URL resolution + probe cache for case headers and paper txn rails.
  */
 
+import { useEffect, useState } from 'react'
+
 const CONGRESS_LEGISLATORS_URL =
   'https://unitedstates.github.io/congress-legislators/legislators-current.json'
 
@@ -39,7 +41,7 @@ const INSIDER_PHOTO_PEOPLE = [
   { fullName: 'Sundar Pichai', photoFile: 'Sundar_pichai.png' },
   { fullName: 'Jensen Huang', photoFile: 'Jensen_Huang_-_CEATEC_2017.jpg' },
   { fullName: 'Lisa Su', photoFile: 'Lisa_Su_at_Computex_2024.jpg' },
-  { fullName: 'Ruth Porat', photoFile: 'Ruth_Porat_2015.jpg' },
+  { fullName: 'Ruth Porat', photoFile: 'RuthPorat2016 (cropped).jpg' },
   { fullName: 'Brian Moynihan', photoFile: 'Brian_Moynihan.jpg' },
   { fullName: 'Arvind Krishna', photoFile: 'Arvind_Krishna_(cropped).jpg' },
   { fullName: 'Indra Nooyi', photoFile: 'Indra_Nooyi_(cropped).jpg' },
@@ -249,6 +251,31 @@ export function casePersonPhotoUrl(fullName, mode) {
   if (mode === 'institutions') return institutionPhotoUrlForName(name)
   if (mode === 'politicians') return politicianPhotoUrlForName(name)
   return insiderPhotoUrlForName(name)
+}
+
+/** Try primary name then alternates (feed matchNames, surname-only keys, etc.). */
+export function resolveCasePersonPhotoUrl(primaryName, mode, altNames = []) {
+  const seen = new Set()
+  const candidates = [primaryName, ...(Array.isArray(altNames) ? altNames : [])]
+  for (const raw of candidates) {
+    const name = String(raw ?? '').trim()
+    if (!name) continue
+    const key = name.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    const url = casePersonPhotoUrl(name, mode)
+    if (url) return url
+  }
+  return null
+}
+
+export function usePortraitLookupRevision() {
+  const [revision, setRevision] = useState(() => getCongressLegislatorIndexRevision())
+  useEffect(() => {
+    void preloadCongressLegislatorIndex()
+    return subscribeCongressLegislatorIndex(setRevision)
+  }, [])
+  return revision
 }
 
 export function portraitIsLogo(mode) {
