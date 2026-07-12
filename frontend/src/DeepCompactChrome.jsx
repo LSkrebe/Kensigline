@@ -1,0 +1,52 @@
+import { TerminalTopBarActions, TerminalTopBarBrand } from './TerminalTopBarChrome.jsx'
+
+export function DeepCompactChrome({
+  backendUp = true,
+  macroActive = false,
+  onMacroClick,
+  settingsActive = false,
+  onSettingsClick,
+  subjectLabel = '',
+  price = null,
+  priceChange = null,
+  priceChangePct = null,
+}) {
+  const label = String(subjectLabel ?? '').trim()
+  const ch = priceChange != null && Number.isFinite(Number(priceChange)) ? Number(priceChange) : null
+  const chPct =
+    priceChangePct != null && Number.isFinite(Number(priceChangePct)) ? Number(priceChangePct) : null
+  const up = ch != null ? ch >= 0 : true
+  const showPrice = price != null && Number.isFinite(Number(price))
+
+  return (
+    <div className="deepCompactChrome terminalTopBarChrome">
+      <TerminalTopBarBrand backendUp={backendUp} logoSrc="/mercerline_mark.png" />
+      <div className="deepCompactChromeEnd">
+        {label || showPrice ? (
+          <div className="deepCompactChromeTrail">
+            {label ? <span className="deepCompactChromeSubject mono">{label}</span> : null}
+            {showPrice ? (
+              <>
+                <span className="deepCompactChromePrice mono">${Number(price).toFixed(2)}</span>
+                {ch != null && chPct != null ? (
+                  <span className={['deepCompactChromeChange mono', up ? 'isUp' : 'isDown'].join(' ')}>
+                    {up ? '+' : ''}
+                    {ch.toFixed(2)} ({up ? '+' : ''}
+                    {chPct.toFixed(2)}%)
+                  </span>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+        ) : null}
+        <TerminalTopBarActions
+          macroActive={macroActive}
+          onMacroClick={onMacroClick}
+          settingsActive={settingsActive}
+          onSettingsClick={onSettingsClick}
+          hideDate
+        />
+      </div>
+    </div>
+  )
+}

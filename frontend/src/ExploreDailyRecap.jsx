@@ -1,48 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
+import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 
-function ExploreRecapCompactSpark({ series = [] }) {
-  const vals = useMemo(() => {
-    const arr = Array.isArray(series) ? series.filter(Number.isFinite) : []
-    return arr.length > 40 ? arr.slice(-40) : arr
-  }, [series])
-
-  if (vals.length < 2) return null
-
-  const min = Math.min(...vals)
-  const max = Math.max(...vals)
-  const span = max - min || 1
-  const padX = 0
-  const padY = 2
-  const w = 200
-  const h = 26
-  const linePts = vals
-    .map((v, i) => {
-      const x = padX + (i / (vals.length - 1)) * (w - padX * 2)
-      const y = padY + (1 - (v - min) / span) * (h - padY * 2)
-      return `${x.toFixed(2)},${y.toFixed(2)}`
-    })
-    .join(' ')
-
-  return (
-    <svg
-      className="exploreRecapCompactSpark"
-      viewBox={`0 0 ${w} ${h}`}
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <polyline
-        points={linePts}
-        fill="none"
-        stroke="rgba(255, 255, 255, 0.88)"
-        strokeWidth="1.25"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  )
+function getRecapSlideCount(recap) {
+  return 1 + recap.companies.length + recap.actors.length
 }
 
 function ExploreRecapCompanySlide({ company }) {
@@ -147,26 +109,6 @@ function ExploreRecapEventSlide({ event }) {
   )
 }
 
-function getCompactSlides(recap) {
-  return [
-    {
-      title: recap.event.headline,
-      ticker: recap.event.ticker,
-      priceSeries: recap.event.priceSeries,
-    },
-    ...recap.companies.map((company) => ({
-      title: company.headline,
-      ticker: company.ticker,
-      priceSeries: company.priceSeries,
-    })),
-    ...recap.actors.map((actor) => ({
-      title: actor.headline,
-      ticker: actor.ticker,
-      priceSeries: actor.priceSeries,
-    })),
-  ]
-}
-
 function renderRecapSlideAt(recap, logicalIdx) {
   if (logicalIdx === 0) {
     return <ExploreRecapEventSlide event={recap.event} />
@@ -201,13 +143,19 @@ function jumpToPhysicalSlide(el, physicalIdx) {
   el.style.scrollBehavior = prev || ''
 }
 
-export function ExploreDailyRecap({ recap = buildExploreDailyRecap() }) {
+export function ExploreDailyRecap({
+  recap = buildExploreDailyRecap(),
+  backendUp = true,
+  macroActive = false,
+  onMacroClick,
+  settingsActive = false,
+  onSettingsClick,
+}) {
   const trackRef = useRef(null)
   const jumpingRef = useRef(false)
   const activeIdxRef = useRef(0)
   const [activeIdx, setActiveIdx] = useState(0)
-  const compactSlides = useMemo(() => getCompactSlides(recap), [recap])
-  const slideCount = compactSlides.length
+  const slideCount = useMemo(() => getRecapSlideCount(recap), [recap])
   const loopEnabled = slideCount > 1
 
   activeIdxRef.current = activeIdx
@@ -337,14 +285,18 @@ export function ExploreDailyRecap({ recap = buildExploreDailyRecap() }) {
 
         <div className="exploreRecapCompactBg" aria-hidden="true" />
 
-        <div className="exploreRecapCompactBar" aria-hidden="true">
-          <div className="exploreRecapCompactSlide">
-            <span className="exploreRecapCompactTicker exploreDirectoryTicker mono">
-              {compactSlides[activeIdx]?.ticker}
-            </span>
-            <p className="exploreRecapCompactTitle">{compactSlides[activeIdx]?.title}</p>
-            <ExploreRecapCompactSpark series={compactSlides[activeIdx]?.priceSeries ?? []} />
-          </div>
+        <div className="exploreRecapCompactBar">
+          <TerminalTopBarChrome
+            className="exploreRecapCompactChrome"
+            logoSrc="/mercerline_mark.png"
+            backendUp={backendUp}
+            macroActive={macroActive}
+            onMacroClick={onMacroClick}
+            settingsActive={settingsActive}
+            onSettingsClick={onSettingsClick}
+            showSearch
+            searchPlaceholder="Search companies, actors"
+          />
         </div>
 
         <div className="exploreRecapDots">

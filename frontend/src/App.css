@@ -183,6 +183,15 @@
   min-width: 0;
 }
 
+.terminalTopBarChrome {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .terminalIntelSwitch {
   display: inline-flex;
   align-items: center;
@@ -658,6 +667,20 @@
 }
 
 .terminal--explore .explorePage {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+}
+
+/* Deep tab — full-viewport dossier with scroll-driven header */
+.terminal.terminal--deepAnalyse {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.terminal--deepAnalyse .deepResearchRoot {
   grid-column: 1;
   grid-row: 1;
   min-height: 0;

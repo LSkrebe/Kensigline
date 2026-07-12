@@ -30,7 +30,7 @@ class ErrorBoundary extends React.Component {
           <div className="appShellBrand" aria-label="Mercerline">
             <img
               className="appShellBrandLogo"
-              src="/mercerline_yt.png"
+              src="/mercerline_logo.png"
               alt=""
               width={28}
               height={28}

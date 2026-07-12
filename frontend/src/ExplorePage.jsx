@@ -45,7 +45,13 @@ function ExploreDirectorySection({ title, kicker, children }) {
   )
 }
 
-export function ExplorePage() {
+export function ExplorePage({
+  backendUp = true,
+  macroActive = false,
+  onMacroClick,
+  settingsActive = false,
+  onSettingsClick,
+}) {
   const recap = buildExploreDailyRecap()
   const directory = buildExploreDirectoryMock()
   const pageRef = useRef(null)
@@ -92,7 +98,14 @@ export function ExplorePage() {
     <div className="explorePage" ref={pageRef}>
       <div className="exploreRecapStickWrap">
         <div ref={dockRef} className="exploreRecapDock">
-          <ExploreDailyRecap recap={recap} />
+          <ExploreDailyRecap
+            recap={recap}
+            backendUp={backendUp}
+            macroActive={macroActive}
+            onMacroClick={onMacroClick}
+            settingsActive={settingsActive}
+          onSettingsClick={onSettingsClick}
+        />
         </div>
         <div ref={spacerRef} className="exploreRecapCollapseSpacer" aria-hidden="true" />
         <div className="explorePageBody">

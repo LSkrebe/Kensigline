@@ -16,12 +16,16 @@
   --drpt-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --drpt-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --drpt-sans: system-ui, -apple-system, sans-serif;
+  --drpt-page-pad-x: 32px;
 
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   background: var(--drpt-bg);
   color: var(--drpt-text);
   font-family: var(--drpt-sans);
@@ -29,15 +33,298 @@
   line-height: 1.5;
 }
 
+.drpt-stickWrap {
+  --deep-expanded-h: clamp(180px, 26vh, 260px);
+  --deep-collapsed-h: 56px;
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.drpt-dock {
+  --deep-collapse: 0;
+  --deep-expanded-opacity: 1;
+  --deep-compact-opacity: 0;
+  --deep-expanded-display: flex;
+  --deep-dock-visual-h: calc(
+    var(--deep-expanded-h) * (1 - var(--deep-collapse)) +
+      var(--deep-collapsed-h) * var(--deep-collapse)
+  );
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  height: var(--deep-dock-visual-h);
+  margin-bottom: calc(var(--deep-collapsed-h) - var(--deep-dock-visual-h));
+  overflow: hidden;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 calc(var(--deep-collapse) * 1px) 0 rgba(255, 255, 255, calc(var(--deep-collapse) * 0.08));
+  background: color-mix(
+    in srgb,
+    transparent calc((1 - var(--deep-collapse)) * 100%),
+    rgba(8, 8, 9, 0.96)
+  );
+  backdrop-filter: blur(calc(var(--deep-collapse) * 10px));
+}
+
+.drpt-collapseSpacer {
+  flex: 0 0 auto;
+  height: calc(var(--deep-expanded-h) - var(--deep-collapsed-h));
+  pointer-events: none;
+}
+
+.drpt-viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.drpt-expandedBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: var(--deep-expanded-opacity);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.drpt-expandedBg::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--deep-expanded-h);
+  background-image: url('/mercerline_background_1.png');
+  background-size: 150% auto;
+  background-position: center 48%;
+  background-repeat: no-repeat;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.drpt-expandedBg::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--deep-expanded-h);
+  background: linear-gradient(
+    90deg,
+    rgba(5, 7, 10, 0.82) 0%,
+    rgba(5, 7, 10, 0.34) 52%,
+    rgba(5, 7, 10, 0.58) 100%
+  );
+  pointer-events: none;
+}
+
+.drpt-expanded {
+  position: relative;
+  z-index: 1;
+  display: var(--deep-expanded-display);
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+  min-height: 0;
+  opacity: var(--deep-expanded-opacity);
+  pointer-events: none;
+}
+
+.drpt-expanded .drpt-topbar {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  min-height: 0;
+  height: auto;
+  border-bottom: none;
+  background-color: transparent;
+  overflow: visible;
+}
+
+.drpt-expanded .drpt-topbar::before,
+.drpt-expanded .drpt-topbar::after {
+  display: none;
+}
+
+.drpt-topbarMeta .terminalIntelSwitch {
+  margin-right: 4px;
+}
+
+.drpt-compactBg {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: var(--deep-compact-opacity);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.drpt-compactBg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/mercerline_background_2.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+.drpt-compactBg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(5, 7, 10, 0.42) 0%, rgba(5, 7, 10, 0.72) 100%);
+  pointer-events: none;
+}
+
+.drpt-compactBar {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  opacity: var(--deep-compact-opacity);
+  pointer-events: none;
+  overflow: hidden;
+  background: transparent;
+  isolation: isolate;
+}
+
+.deepCompactChrome {
+  pointer-events: auto;
+  --explore-compact-chrome-size: 30px;
+  box-sizing: border-box;
+  width: 100%;
+  padding-inline: var(--drpt-page-pad-x);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.deepCompactChromeEnd {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  height: var(--explore-compact-chrome-size);
+}
+
+.deepCompactChromeTrail {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.deepCompactChromeSubject {
+  flex: 0 1 auto;
+  max-width: 42%;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: rgba(168, 196, 255, 0.82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deepCompactChrome .terminalTopBarBrand {
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  height: var(--explore-compact-chrome-size);
+}
+
+.deepCompactChrome .terminalTopBarLogo {
+  width: var(--explore-compact-chrome-size);
+  height: var(--explore-compact-chrome-size);
+  transform: none;
+  object-position: left center;
+}
+
+.deepCompactChrome .terminalTopBarName {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  line-height: 1;
+}
+
+.deepCompactChrome .terminalTopBarHealth {
+  width: 7px;
+  height: 7px;
+}
+
+.deepCompactChrome .terminalTopBarActions {
+  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: 8px;
+  height: var(--explore-compact-chrome-size);
+}
+
+.deepCompactChrome .terminalTopBarIconBtn {
+  width: var(--explore-compact-chrome-size);
+  height: var(--explore-compact-chrome-size);
+}
+
+.deepCompactChrome .terminalTopBarIcon {
+  width: calc(var(--explore-compact-chrome-size) - 6px);
+  height: calc(var(--explore-compact-chrome-size) - 6px);
+  transform: none;
+}
+
+.deepCompactChrome .terminalTopBarIcon--calendar {
+  transform: none;
+}
+
+.deepCompactChrome .terminalTopBarIconBtn.isClose .terminalTopBarIcon {
+  transform: none;
+}
+
+.deepCompactChromePrice {
+  flex: 0 0 auto;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.deepCompactChromeChange {
+  flex: 0 0 auto;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.deepCompactChromeChange.isUp {
+  color: var(--drpt-up);
+}
+
+.deepCompactChromeChange.isDown {
+  color: var(--drpt-down);
+}
+
+.deepCompactChrome .terminalTopBarIconGroup {
+  flex-shrink: 0;
+}
+
 /* ── Scrollable paper body ── */
 
 .drpt-paper {
-  flex: 1 1 auto;
+  flex: 1 0 auto;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
-  padding: 28px 32px 48px;
+  overflow: visible;
+  padding: 28px var(--drpt-page-pad-x) 48px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
@@ -62,11 +349,11 @@
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: end;
   gap: 24px 32px;
-  padding: 20px 28px 18px;
+  padding: 28px var(--drpt-page-pad-x) 24px;
   border-bottom: 1px solid var(--drpt-border);
   background-color: rgba(10, 11, 13, 0.35);
   --drpt-topbar-kicker-h: calc(10px * 1.25 + 4px);
-  --drpt-topbar-title-h: calc(clamp(28px, 3vw, 36px) * 1.05);
+  --drpt-topbar-title-h: calc(clamp(34px, 4.2vw, 44px) * 1.05);
   --drpt-topbar-row-h: calc(var(--drpt-topbar-kicker-h) + var(--drpt-topbar-title-h));
   --drpt-topbar-aside-h: var(--drpt-topbar-row-h);
 }
@@ -154,7 +441,7 @@
 .drpt-topbarTicker {
   margin: 0;
   font-family: var(--drpt-serif);
-  font-size: clamp(28px, 3vw, 36px);
+  font-size: clamp(34px, 4.2vw, 44px);
   font-weight: 400;
   line-height: 1.05;
   letter-spacing: -0.02em;
@@ -1231,6 +1518,14 @@
 /* ── Responsive ── */
 
 @media (max-width: 960px) {
+  .drpt {
+    --drpt-page-pad-x: 18px;
+  }
+
+  .drpt-stickWrap {
+    --deep-expanded-h: clamp(170px, 24vh, 220px);
+  }
+
   .drpt-topbar {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: var(--drpt-topbar-row-h) auto;
@@ -1239,7 +1534,7 @@
       'meta meta';
     align-items: end;
     gap: 10px 16px;
-    padding: 16px 18px 14px;
+    padding: 16px var(--drpt-page-pad-x) 14px;
   }
 
   .drpt-topbarIdentity {
@@ -1269,7 +1564,7 @@
   }
 
   .drpt-paper {
-    padding: 20px 18px 36px;
+    padding: 20px var(--drpt-page-pad-x) 36px;
   }
 
   /* Compact lists: show a few rows + expand control (no nested scroll) */
@@ -1348,5 +1643,17 @@
 
   .drpt-row--market .drpt-metricGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .deepCompactChrome {
+    --explore-compact-chrome-size: 28px;
+  }
+
+  .deepCompactChrome .terminalTopBarName {
+    font-size: 11px;
+  }
+
+  .deepCompactChromeChange {
+    display: none;
   }
 }

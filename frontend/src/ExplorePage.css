@@ -1,7 +1,7 @@
 .explorePage {
   --explore-recap-expanded-h: clamp(360px, 46vh, 520px);
   --explore-recap-collapsed-h: 56px;
-  --explore-page-pad-x: 24px;
+  --explore-page-pad-x: 32px;
   --explore-directory-ticker-w: 52px;
   --explore-directory-trail-w: 64px;
   --explore-directory-col-gap: 14px;
@@ -58,7 +58,7 @@
 .explorePageBody {
   flex: 1 0 auto;
   min-height: max(42vh, 280px);
-  padding: 18px var(--explore-page-pad-x) 48px;
+  padding: 28px var(--explore-page-pad-x) 48px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -273,7 +273,7 @@
   z-index: 4;
   display: flex;
   align-items: center;
-  padding: 0 var(--explore-page-pad-x);
+  padding: 0;
   opacity: var(--explore-compact-opacity);
   pointer-events: none;
   overflow: hidden;
@@ -281,43 +281,116 @@
   isolation: isolate;
 }
 
-.exploreRecapCompactSlide {
+.exploreRecapCompactChrome {
+  --explore-compact-chrome-size: 30px;
+  pointer-events: auto;
+  box-sizing: border-box;
   width: 100%;
+  padding-inline: var(--explore-page-pad-x);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.exploreRecapCompactChrome .terminalTopBarBrand {
   min-width: 0;
-  display: grid;
-  grid-template-columns: var(--explore-directory-ticker-w) minmax(0, 1fr) minmax(0, 25%);
-  column-gap: var(--explore-directory-col-gap);
   align-items: center;
-  overflow: hidden;
+  gap: 10px;
+  height: var(--explore-compact-chrome-size);
 }
 
-.exploreRecapCompactTicker {
-  grid-column: 1;
+.exploreRecapCompactChrome .terminalTopBarLogo {
+  width: var(--explore-compact-chrome-size);
+  height: var(--explore-compact-chrome-size);
+  transform: none;
+  object-position: left center;
+}
+
+.exploreRecapCompactChrome .terminalTopBarName {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  line-height: 1;
+}
+
+.exploreRecapCompactChrome .terminalTopBarHealth {
+  width: 7px;
+  height: 7px;
+}
+
+.exploreRecapCompactChrome .terminalTopBarActions {
+  flex: 1;
   min-width: 0;
+  justify-content: flex-end;
+  gap: 8px;
+  height: var(--explore-compact-chrome-size);
 }
 
-.exploreRecapCompactTitle {
-  grid-column: 2;
+.exploreRecapCompactChrome .terminalTopBarIconBtn {
+  width: var(--explore-compact-chrome-size);
+  height: var(--explore-compact-chrome-size);
+}
+
+.exploreRecapCompactChrome .terminalTopBarIcon {
+  width: calc(var(--explore-compact-chrome-size) - 6px);
+  height: calc(var(--explore-compact-chrome-size) - 6px);
+  transform: none;
+}
+
+.exploreRecapCompactChrome .terminalTopBarIcon--calendar {
+  transform: none;
+}
+
+.exploreRecapCompactChrome .terminalTopBarIconBtn.isClose .terminalTopBarIcon {
+  transform: none;
+}
+
+.exploreRecapCompactSearch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--explore-compact-chrome-size);
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(8, 8, 12, 0.42);
+  backdrop-filter: blur(8px);
+  cursor: text;
+}
+
+.exploreRecapCompactSearchInput {
+  flex: 1;
   min-width: 0;
   margin: 0;
-  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-  color: rgba(255, 255, 255, 0.88);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 
-.exploreRecapCompactSpark {
-  grid-column: 3;
-  display: block;
-  width: 100%;
-  height: 26px;
-  min-width: 0;
-  overflow: hidden;
+.exploreRecapCompactSearchInput::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.exploreRecapCompactSearchInput::-webkit-search-cancel-button {
+  display: none;
+}
+
+.exploreRecapCompactSearchIcon {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  color: rgba(255, 255, 255, 0.42);
+  pointer-events: none;
+}
+
+.exploreRecapCompactChrome .terminalTopBarIconGroup {
+  flex-shrink: 0;
 }
 
 .exploreRecapDock .exploreRecapDots {
@@ -713,6 +786,11 @@
   .explorePage {
     --explore-recap-expanded-h: 100dvh;
     --explore-recap-expanded-h: 100svh;
+    --explore-page-pad-x: 18px;
+  }
+
+  .explorePageBody {
+    padding: 20px var(--explore-page-pad-x) 36px;
   }
 
   .exploreRecapSlideInner {
@@ -796,10 +874,6 @@
 }
 
 @media (max-width: 640px) {
-  .explorePage {
-    --explore-page-pad-x: 16px;
-  }
-
   .exploreRecapSlideInner {
     padding-bottom: 44px;
   }
@@ -821,7 +895,16 @@
     bottom: 12px;
   }
 
-  .exploreRecapCompactTitle {
-    font-size: 12px;
+  .exploreRecapCompactChrome {
+    --explore-compact-chrome-size: 28px;
+  }
+
+  .exploreRecapCompactChrome .terminalTopBarName {
+    font-size: 11px;
+  }
+
+  .terminalShell--phone .exploreRecapCompactChrome .terminalTopBarLogo {
+    width: var(--explore-compact-chrome-size);
+    height: var(--explore-compact-chrome-size);
   }
 }

@@ -8,12 +8,112 @@ import {
   buildMockActorTrackRecord,
   formatReturnFraction,
 } from './deepOutcomes.js'
+import { DeepCompactChrome } from './DeepCompactChrome.jsx'
 import { PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
 import {
   normalizeResearchPaperSourceKey,
   RESEARCH_PAPER_SOURCE_CATALOG,
 } from './researchPaperSources.js'
 import './DeepReport.css'
+
+const DEEP_COLLAPSE_RANGE_FALLBACK = 1
+
+function deepCollapseProgressVars(progress) {
+  const p = Math.min(1, Math.max(0, progress))
+  const expandedOpacity = p <= 0.42 ? 1 - p / 0.42 : 0
+  const compactOpacity = p >= 0.58 ? (p - 0.58) / 0.42 : 0
+  return {
+    '--deep-collapse': String(p),
+    '--deep-expanded-opacity': String(expandedOpacity),
+    '--deep-compact-opacity': String(compactOpacity),
+    '--deep-expanded-display': compactOpacity > 0 || p >= 0.42 ? 'none' : 'flex',
+  }
+}
+
+function useDeepCollapseScroll() {
+  const pageRef = useRef(null)
+  const dockRef = useRef(null)
+  const spacerRef = useRef(null)
+
+  useEffect(() => {
+    const page = pageRef.current
+    const dock = dockRef.current
+    const spacer = spacerRef.current
+    if (!page || !dock) return undefined
+
+    let raf = 0
+
+    const syncCollapse = () => {
+      raf = 0
+      const range = spacer?.offsetHeight || DEEP_COLLAPSE_RANGE_FALLBACK
+      const progress = Math.min(1, Math.max(0, page.scrollTop / range))
+      for (const [key, value] of Object.entries(deepCollapseProgressVars(progress))) {
+        dock.style.setProperty(key, value)
+      }
+    }
+
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(syncCollapse)
+    }
+
+    const onResize = () => {
+      if (!raf) raf = requestAnimationFrame(syncCollapse)
+    }
+
+    page.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onResize)
+    syncCollapse()
+
+    return () => {
+      page.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onResize)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [])
+
+  return { pageRef, dockRef, spacerRef }
+}
+
+function DeepReportShell({
+  expandedHeader,
+  compactLabel,
+  compactPrice,
+  compactPriceChange,
+  compactPriceChangePct,
+  chrome,
+  children,
+}) {
+  const { pageRef, dockRef, spacerRef } = useDeepCollapseScroll()
+
+  return (
+    <article className="drpt" ref={pageRef}>
+      <div className="drpt-stickWrap">
+        <div ref={dockRef} className="drpt-dock">
+          <div className="drpt-viewport">
+            <div className="drpt-expandedBg" aria-hidden="true" />
+            <div className="drpt-expanded">{expandedHeader}</div>
+            <div className="drpt-compactBg" aria-hidden="true" />
+            <div className="drpt-compactBar">
+              <DeepCompactChrome
+                backendUp={chrome?.backendUp}
+                macroActive={chrome?.macroActive}
+                onMacroClick={chrome?.onMacroClick}
+                settingsActive={chrome?.settingsActive}
+                onSettingsClick={chrome?.onSettingsClick}
+                subjectLabel={compactLabel}
+                price={compactPrice}
+                priceChange={compactPriceChange}
+                priceChangePct={compactPriceChangePct}
+              />
+            </div>
+          </div>
+        </div>
+        <div ref={spacerRef} className="drpt-collapseSpacer" aria-hidden="true" />
+        <div className="drpt-paper drpt-scroll">{children}</div>
+      </div>
+    </article>
+  )
+}
 
 const DEEP_COMPACT_MQ = '(max-width: 960px)'
 const DEEP_LIST_INITIAL = 5
@@ -804,7 +904,7 @@ function DeepTradeLog({ rows = [], visibleLimit = null }) {
   )
 }
 
-function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount }) {
+function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount, modeSwitch = null }) {
   return (
     <header className="drpt-topbar drpt-topbar--actor">
       <div className="drpt-topbarIdentity">
@@ -815,6 +915,7 @@ function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount }) {
         </div>
       </div>
       <div className="drpt-topbarMeta">
+        {modeSwitch}
         {detail ? <span>{detail}</span> : null}
         <span>{tradeCount} transactions</span>
         <span>{companyCount} companies</span>
@@ -833,6 +934,7 @@ function CompanyTopBar({
   price,
   priceChange,
   priceChangePct,
+  modeSwitch = null,
 }) {
   const ch = priceChange != null && Number.isFinite(Number(priceChange)) ? Number(priceChange) : null
   const chPct =
@@ -850,6 +952,7 @@ function CompanyTopBar({
         </div>
       </div>
       <div className="drpt-topbarMeta">
+        {modeSwitch}
         {sector ? <span>{sector}</span> : null}
         {domicile ? <span>{domicile}</span> : null}
         {mcap ? <span>{mcap}</span> : null}
@@ -902,6 +1005,8 @@ export function DeepCompanyReport({
   chartSlot,
   chartRange = '6M',
   onChartRangeChange,
+  chrome,
+  modeSwitch = null,
 }) {
   const t = String(ticker ?? '').trim().toUpperCase()
   const displayName = String(companyName ?? '').trim() || t || 'Company'
@@ -914,20 +1019,27 @@ export function DeepCompanyReport({
   const eventCount = countTimelineItems(timelineEntries)
 
   return (
-    <article className="drpt">
-      <CompanyTopBar
-        ticker={t}
-        displayName={displayName}
-        sector={sector}
-        domicile={domicile}
-        mcap={mcap}
-        earnings={earnings}
-        price={price}
-        priceChange={priceChange}
-        priceChangePct={priceChangePct}
-      />
-
-      <div className="drpt-paper drpt-scroll">
+    <DeepReportShell
+      compactLabel={t}
+      compactPrice={price}
+      compactPriceChange={priceChange}
+      compactPriceChangePct={priceChangePct}
+      chrome={chrome}
+      expandedHeader={
+        <CompanyTopBar
+          ticker={t}
+          displayName={displayName}
+          sector={sector}
+          domicile={domicile}
+          mcap={mcap}
+          earnings={earnings}
+          price={price}
+          priceChange={priceChange}
+          priceChangePct={priceChangePct}
+          modeSwitch={modeSwitch}
+        />
+      }
+    >
         {chartSlot || fundamentals ? (
           <div className="drpt-row drpt-row--market">
             {chartSlot ? (
@@ -1007,8 +1119,7 @@ export function DeepCompanyReport({
             </DeepExpandablePanel>
           </div>
         </DeepSection>
-      </div>
-    </article>
+    </DeepReportShell>
   )
 }
 
@@ -1017,6 +1128,11 @@ export function DeepActorReport({
   personDisplay,
   mode = 'insider',
   caseRows = [],
+  chrome,
+  modeSwitch = null,
+  compactPrice = null,
+  compactPriceChange = null,
+  compactPriceChangePct = null,
 }) {
   const name = String(personDisplay?.fullName ?? actorRow?.actorName ?? '').trim()
   const detail = String(personDisplay?.detail ?? actorRow?.actorDetail ?? '').trim()
@@ -1061,17 +1177,26 @@ export function DeepActorReport({
     )
   }
 
-  return (
-    <article className="drpt">
-      <ActorTopBar
-        name={name}
-        detail={detail}
-        modeLabel={modeLabel}
-        tradeCount={tradeRows.length}
-        companyCount={companies.length}
-      />
+  const actorCompactLabel = name
 
-      <div className="drpt-paper drpt-scroll">
+  return (
+    <DeepReportShell
+      compactLabel={actorCompactLabel}
+      compactPrice={compactPrice}
+      compactPriceChange={compactPriceChange}
+      compactPriceChangePct={compactPriceChangePct}
+      chrome={chrome}
+      expandedHeader={
+        <ActorTopBar
+          name={name}
+          detail={detail}
+          modeLabel={modeLabel}
+          tradeCount={tradeRows.length}
+          companyCount={companies.length}
+          modeSwitch={modeSwitch}
+        />
+      }
+    >
         <div className="drpt-row drpt-row--market">
           <DeepSection label="Track record" title="Trading history">
             <div className="drpt-figure drpt-figure--chart">
@@ -1095,11 +1220,14 @@ export function DeepActorReport({
             </DeepExpandablePanel>
           </div>
         </DeepSection>
-      </div>
-    </article>
+    </DeepReportShell>
   )
 }
 
-export function DeepPage({ mode, company, actor }) {
-  return mode === 'actor' ? <DeepActorReport {...actor} /> : <DeepCompanyReport {...company} />
+export function DeepPage({ mode, company, actor, chrome, modeSwitch }) {
+  return mode === 'actor' ? (
+    <DeepActorReport {...actor} chrome={chrome} modeSwitch={modeSwitch} />
+  ) : (
+    <DeepCompanyReport {...company} chrome={chrome} modeSwitch={modeSwitch} />
+  )
 }

@@ -26,7 +26,7 @@ export function SignInPage() {
               navigateMarketing('/')
             }}
           >
-            <img className="introBrandLogo" src="/mercerline_yt.png" alt="" width={28} height={28} />
+            <img className="introBrandLogo" src="/mercerline_logo.png" alt="" width={28} height={28} />
             <span className="introBrandName">MERCERLINE</span>
           </a>
           <a

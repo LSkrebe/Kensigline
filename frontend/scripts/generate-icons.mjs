@@ -1,6 +1,6 @@
 /**
  * Regenerate favicons, apple-touch icons, maskable PWA icons, and OG image.
- * Source: mercerline_yt.png — white mark on pure black, used as-is (no keying).
+ * Source: mercerline_logo.png — white mark on pure black, used as-is (no keying).
  */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
@@ -9,7 +9,7 @@ import sharp from 'sharp'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const publicDir = join(__dirname, '..', 'public')
-const logoPath = join(publicDir, 'mercerline_yt.png')
+const logoPath = join(publicDir, 'mercerline_logo.png')
 const BLACK = { r: 0, g: 0, b: 0, alpha: 1 }
 
 async function iconFromLogo(size, logoScale = 0.92) {

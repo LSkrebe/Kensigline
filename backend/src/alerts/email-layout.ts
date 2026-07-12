@@ -8,7 +8,7 @@ export function frontendBase(): string {
 }
 
 export function emailLogoUrl(): string {
-  return `${frontendBase()}/mercerline_yt.png`;
+  return `${frontendBase()}/mercerline_logo.png`;
 }
 
 export function escapeHtml(s: string): string {
