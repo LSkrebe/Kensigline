@@ -651,14 +651,18 @@
   --case-person-header-min-h: calc(var(--feed-search-row-min-h) * 3 + 2px + 12px);
 }
 
-/* Research tab layout: investigation board layout */
+/* Explore tab — parent shell for daily events + company/actor directory */
 .terminal.terminal--explore {
-  grid-template-columns:
-    minmax(0, 0.876fr) /* feed rail (match other tabs visually) */
-    minmax(0, 3.674fr)    /* paper panel */
-    minmax(0, 0fr)
-    minmax(0, 0fr);
-  grid-template-rows: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.terminal--explore .explorePage {
+  grid-column: 1;
+  grid-row: 1;
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
 }
 
 /*

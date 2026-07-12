@@ -13,6 +13,7 @@ import { prefetchMacroCalendar } from './macroClient.js'
 import { AnalysePanel } from './AnalysePanel.jsx'
 import { DeepResearchLayout } from './DeepResearchLayout.jsx'
 import { DeepPage } from './DeepCompanyPage.jsx'
+import { ExplorePage } from './ExplorePage.jsx'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
 import {
@@ -11174,6 +11175,14 @@ function KensiglineTerminal() {
           </button>
           <button
             type="button"
+            className={activeTab === 'explore' ? 'sideTab isActive' : 'sideTab'}
+            aria-current={activeTab === 'explore' ? 'page' : undefined}
+            onClick={() => setActiveTab('explore')}
+          >
+            <span className="sideTabLabel">EXPLORE</span>
+          </button>
+          <button
+            type="button"
             className={activeTab === 'deepAnalyse' ? 'sideTab isActive' : 'sideTab'}
             aria-current={activeTab === 'deepAnalyse' ? 'page' : undefined}
             onClick={() => setActiveTab('deepAnalyse')}
@@ -11499,6 +11508,10 @@ function KensiglineTerminal() {
           />
       </div>
 
+      <div className={tabPanelHiddenClass(activeTab, 'explore')}>
+        <ExplorePage />
+      </div>
+
       <div className={tabPanelHiddenClass(activeTab, 'deepAnalyse')}>
         <DeepResearchLayout>
           <DeepPage
@@ -11549,7 +11562,7 @@ function KensiglineTerminal() {
         </DeepResearchLayout>
       </div>
 
-      {/* Explore tab removed; Research panels live inside MAIN now. */}
+      {/* Explore parent shell; DEEP dossier is the child detail view for now. */}
       </main>
       {isPhone ? (
         <div className="terminalPhoneBottom">
@@ -11601,6 +11614,14 @@ function KensiglineTerminal() {
               onClick={() => setActiveTab('investigate')}
             >
               <span className="sideTabLabel">Investigate</span>
+            </button>
+            <button
+              type="button"
+              className={activeTab === 'explore' ? 'sideTab isActive' : 'sideTab'}
+              aria-current={activeTab === 'explore' ? 'page' : undefined}
+              onClick={() => setActiveTab('explore')}
+            >
+              <span className="sideTabLabel">Explore</span>
             </button>
             <button
               type="button"

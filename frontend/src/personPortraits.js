@@ -39,7 +39,7 @@ const INSIDER_PHOTO_PEOPLE = [
   { fullName: 'Jamie Dimon', photoFile: 'Jamie_Dimon,_CEO_of_JPMorgan_Chase.jpg' },
   { fullName: 'Mary Barra', photoFile: 'Mary_Barra,_Chairman_and_CEO,_General_Motors.jpg' },
   { fullName: 'Sundar Pichai', photoFile: 'Sundar_pichai.png' },
-  { fullName: 'Jensen Huang', photoFile: 'Jensen_Huang_-_CEATEC_2017.jpg' },
+  { fullName: 'Jensen Huang', photoFile: 'Jensen_Huang_(cropped).jpg' },
   { fullName: 'Lisa Su', photoFile: 'Lisa_Su_at_Computex_2024.jpg' },
   { fullName: 'Ruth Porat', photoFile: 'RuthPorat2016 (cropped).jpg' },
   { fullName: 'Brian Moynihan', photoFile: 'Brian_Moynihan.jpg' },

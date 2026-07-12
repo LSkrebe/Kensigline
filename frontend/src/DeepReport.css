@@ -71,6 +71,10 @@
   --drpt-topbar-aside-h: var(--drpt-topbar-row-h);
 }
 
+.drpt-topbar--actor {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .drpt-topbar::before {
   content: '';
   position: absolute;
@@ -122,10 +126,6 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
-
-.drpt-topbarPortrait.drpt-topbarAside {
-  width: var(--drpt-topbar-aside-h);
 }
 
 .drpt-topbarPrice.drpt-topbarAside {
@@ -1204,30 +1204,6 @@
   text-align: right;
 }
 
-/* ── Actor ── */
-
-.drpt-actorPhoto {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 3px;
-  object-fit: cover;
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 0 0 1px var(--drpt-border);
-  box-sizing: border-box;
-}
-
-.drpt-actorPhoto--placeholder {
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 0 0 1px var(--drpt-border);
-}
-
-.drpt-actorPhoto--logo {
-  object-fit: contain;
-  padding: 2px;
-  background: #fff;
-}
-
 /* ── Empty / loading ── */
 
 .drpt-empty {
@@ -1280,8 +1256,7 @@
     justify-content: flex-start;
   }
 
-  .drpt-topbarPrice,
-  .drpt-topbarPortrait {
+  .drpt-topbarPrice {
     grid-area: price;
   }
 

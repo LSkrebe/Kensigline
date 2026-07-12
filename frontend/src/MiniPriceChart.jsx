@@ -114,6 +114,7 @@ export function MiniPriceChart({
   hideAxisLabels = false,
   flushEdges = false,
   showHoverTooltip = false,
+  lineOnly = false,
 }) {
   void insiderMarkers
   void politicianMarkers
@@ -384,13 +385,15 @@ export function MiniPriceChart({
             preserveAspectRatio={flushEdges ? 'none' : 'xMidYMid meet'}
             role="img"
           >
-            <defs>
-              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={CHART_AREA_GRAD_TOP} stopOpacity="1" />
-                <stop offset="100%" stopColor={CHART_AREA_GRAD_BOTTOM} stopOpacity="1" />
-              </linearGradient>
-            </defs>
-            {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
+            {!lineOnly ? (
+              <defs>
+                <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={CHART_AREA_GRAD_TOP} stopOpacity="1" />
+                  <stop offset="100%" stopColor={CHART_AREA_GRAD_BOTTOM} stopOpacity="1" />
+                </linearGradient>
+              </defs>
+            ) : null}
+            {!lineOnly && areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
             {!hideAxisLabels ? (
               <path
                 className="graphAxis"

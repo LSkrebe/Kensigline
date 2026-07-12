@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   analyseMockModelForTicker,
   formatAnalyseGridValue,
@@ -9,13 +9,6 @@ import {
   formatReturnFraction,
 } from './deepOutcomes.js'
 import { PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
-import {
-  portraitDisplayState,
-  portraitIsLogo,
-  probePortraitUrl,
-  resolveCasePersonPhotoUrl,
-  usePortraitLookupRevision,
-} from './personPortraits.js'
 import {
   normalizeResearchPaperSourceKey,
   RESEARCH_PAPER_SOURCE_CATALOG,
@@ -811,7 +804,7 @@ function DeepTradeLog({ rows = [], visibleLimit = null }) {
   )
 }
 
-function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount, mode, portraitMode, altNames }) {
+function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount }) {
   return (
     <header className="drpt-topbar drpt-topbar--actor">
       <div className="drpt-topbarIdentity">
@@ -826,52 +819,7 @@ function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount, mode, 
         <span>{tradeCount} transactions</span>
         <span>{companyCount} companies</span>
       </div>
-      <div className="drpt-topbarPortrait drpt-topbarAside">
-        <ActorPortrait name={name} mode={portraitMode ?? mode} altNames={altNames} />
-      </div>
     </header>
-  )
-}
-
-function ActorPortrait({ name, mode, altNames = [] }) {
-  const portraitRevision = usePortraitLookupRevision()
-  const photoUrl = useMemo(
-    () => resolveCasePersonPhotoUrl(name, mode, altNames),
-    [name, mode, altNames, portraitRevision],
-  )
-  const isLogo = portraitIsLogo(mode)
-  const [display, setDisplay] = useState(() => portraitDisplayState(photoUrl))
-
-  useLayoutEffect(() => {
-    const state = portraitDisplayState(photoUrl)
-    if (state === 'photo') {
-      setDisplay('photo')
-      return undefined
-    }
-    if (!photoUrl || state === 'blank') {
-      setDisplay('blank')
-      return undefined
-    }
-
-    setDisplay('blank')
-    return probePortraitUrl(photoUrl, {
-      onLoad: () => setDisplay('photo'),
-      onError: () => setDisplay('blank'),
-    })
-  }, [photoUrl])
-
-  if (display !== 'photo' || !photoUrl) {
-    return <div className="drpt-actorPhoto drpt-actorPhoto--placeholder" aria-hidden="true" />
-  }
-
-  return (
-    <img
-      className={['drpt-actorPhoto', isLogo ? 'drpt-actorPhoto--logo' : ''].filter(Boolean).join(' ')}
-      src={photoUrl}
-      alt=""
-      decoding="async"
-      referrerPolicy="no-referrer"
-    />
   )
 }
 
@@ -1121,8 +1069,6 @@ export function DeepActorReport({
         modeLabel={modeLabel}
         tradeCount={tradeRows.length}
         companyCount={companies.length}
-        mode={mode}
-        altNames={actorRow?.matchNames}
       />
 
       <div className="drpt-paper drpt-scroll">

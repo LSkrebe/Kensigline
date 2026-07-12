@@ -1,0 +1,827 @@
+.explorePage {
+  --explore-recap-expanded-h: clamp(360px, 46vh, 520px);
+  --explore-recap-collapsed-h: 56px;
+  --explore-page-pad-x: 24px;
+  --explore-directory-ticker-w: 52px;
+  --explore-directory-trail-w: 64px;
+  --explore-directory-col-gap: 14px;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  background: #080809;
+}
+
+.exploreRecapStickWrap {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.exploreRecapDock {
+  --explore-recap-visual-h: calc(
+    var(--explore-recap-expanded-h) * (1 - var(--explore-collapse)) +
+      var(--explore-recap-collapsed-h) * var(--explore-collapse)
+  );
+  --explore-collapse: 0;
+  --explore-expanded-opacity: 1;
+  --explore-compact-opacity: 0;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  height: var(--explore-recap-visual-h);
+  margin-bottom: calc(var(--explore-recap-collapsed-h) - var(--explore-recap-visual-h));
+  overflow: hidden;
+  box-shadow: 0 calc(var(--explore-collapse) * 1px) 0 rgba(255, 255, 255, calc(var(--explore-collapse) * 0.08));
+  background: color-mix(
+    in srgb,
+    transparent calc((1 - var(--explore-collapse)) * 100%),
+    rgba(8, 8, 9, 0.96)
+  );
+  backdrop-filter: blur(calc(var(--explore-collapse) * 10px));
+}
+
+.exploreRecapCollapseSpacer {
+  flex: 0 0 auto;
+  height: calc(var(--explore-recap-expanded-h) - var(--explore-recap-collapsed-h));
+  pointer-events: none;
+}
+
+.explorePageBody {
+  flex: 1 0 auto;
+  min-height: max(42vh, 280px);
+  padding: 18px var(--explore-page-pad-x) 48px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.exploreDirectorySection + .exploreDirectorySection {
+  margin-top: 36px;
+}
+
+.exploreDirectorySectionHead {
+  margin-bottom: 14px;
+}
+
+.exploreDirectorySectionKicker {
+  margin: 0 0 4px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.exploreDirectorySectionTitle {
+  margin: 0;
+  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.1;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.exploreDirectoryList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.exploreDirectoryRow {
+  display: grid;
+  grid-template-columns: var(--explore-directory-ticker-w) minmax(0, 1fr) var(--explore-directory-trail-w);
+  align-items: center;
+  column-gap: var(--explore-directory-col-gap);
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.exploreDirectoryCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.exploreDirectoryTicker {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: rgba(168, 196, 255, 0.82);
+  white-space: nowrap;
+}
+
+.exploreDirectoryName {
+  font-size: 14px;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.exploreDirectoryMeta {
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.exploreDirectoryMove,
+.exploreDirectoryAmount {
+  justify-self: end;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.exploreDirectoryMove.isUp,
+.exploreDirectoryAmount.isUp {
+  color: rgba(92, 184, 138, 0.92);
+}
+
+.exploreDirectoryMove.isDown,
+.exploreDirectoryAmount.isDown {
+  color: rgba(212, 114, 106, 0.92);
+}
+
+/* ── Daily recap carousel ── */
+
+.exploreRecapDock .exploreRecap {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+.exploreRecap {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.exploreRecapDock .exploreRecapViewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
+/* Crossfade: expanded hero out, compact bar in */
+.exploreRecapDock .exploreRecapExpandedBg {
+  display: var(--explore-expanded-display);
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: var(--explore-expanded-opacity);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.exploreRecapExpandedBg::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--explore-recap-expanded-h);
+  background-image: url('/mercerline_background_1.png');
+  background-size: 150% auto;
+  background-position: center 48%;
+  background-repeat: no-repeat;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.exploreRecapExpandedBg::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--explore-recap-expanded-h);
+  background: linear-gradient(
+    90deg,
+    rgba(5, 7, 10, 0.82) 0%,
+    rgba(5, 7, 10, 0.34) 52%,
+    rgba(5, 7, 10, 0.58) 100%
+  );
+  pointer-events: none;
+}
+
+.exploreRecapDock .exploreRecapExpanded {
+  position: relative;
+  z-index: 1;
+  display: var(--explore-expanded-display);
+  height: 100%;
+  min-height: 0;
+  opacity: var(--explore-expanded-opacity);
+  pointer-events: none;
+}
+
+.exploreRecapDock .exploreRecapTrack {
+  pointer-events: auto;
+}
+
+.exploreRecapDock .exploreRecapCompactBg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: var(--explore-compact-opacity);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.exploreRecapCompactBg::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--explore-recap-expanded-h);
+  background-image: url('/mercerline_background_2.png');
+  background-size: 150% auto;
+  background-position: center 48%;
+  background-repeat: no-repeat;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.exploreRecapCompactBg::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--explore-recap-expanded-h);
+  background: linear-gradient(
+    90deg,
+    rgba(5, 7, 10, 0.82) 0%,
+    rgba(5, 7, 10, 0.34) 52%,
+    rgba(5, 7, 10, 0.58) 100%
+  );
+  pointer-events: none;
+}
+
+.exploreRecapDock .exploreRecapCompactBar {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--explore-page-pad-x);
+  opacity: var(--explore-compact-opacity);
+  pointer-events: none;
+  overflow: hidden;
+  background: transparent;
+  isolation: isolate;
+}
+
+.exploreRecapCompactSlide {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: var(--explore-directory-ticker-w) minmax(0, 1fr) minmax(0, 25%);
+  column-gap: var(--explore-directory-col-gap);
+  align-items: center;
+  overflow: hidden;
+}
+
+.exploreRecapCompactTicker {
+  grid-column: 1;
+  min-width: 0;
+}
+
+.exploreRecapCompactTitle {
+  grid-column: 2;
+  min-width: 0;
+  margin: 0;
+  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.exploreRecapCompactSpark {
+  grid-column: 3;
+  display: block;
+  width: 100%;
+  height: 26px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.exploreRecapDock .exploreRecapDots {
+  z-index: 3;
+  opacity: var(--explore-expanded-opacity);
+  bottom: calc(16px * (1 - var(--explore-collapse)) + 50% * var(--explore-collapse));
+  transform: translate(-50%, calc(50% * var(--explore-collapse)));
+  padding-top: calc(7px + (4px - 7px) * var(--explore-collapse));
+  padding-bottom: calc(7px + (4px - 7px) * var(--explore-collapse));
+  padding-left: calc(12px + (10px - 12px) * var(--explore-collapse));
+  padding-right: calc(12px + (10px - 12px) * var(--explore-collapse));
+  pointer-events: auto;
+}
+
+.exploreRecapViewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.exploreRecapTrack {
+  display: flex;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.exploreRecapTrack::-webkit-scrollbar {
+  display: none;
+}
+
+.exploreRecapSlide {
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
+  background: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-sizing: border-box;
+}
+
+.exploreRecapSlideWrap {
+  position: relative;
+  isolation: isolate;
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 100%;
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.exploreRecapSlideWrap > .exploreRecapSlide {
+  flex: none;
+  width: 100%;
+  min-width: 100%;
+  height: 100%;
+  scroll-snap-align: none;
+  scroll-snap-stop: normal;
+}
+
+.exploreRecapSlideInner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(240px, 0.95fr);
+  gap: 24px 28px;
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+  padding: 28px var(--explore-page-pad-x) 44px;
+  box-sizing: border-box;
+}
+
+.exploreRecapSlideInner--stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.exploreRecapSlideKicker {
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.exploreRecapDots {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  z-index: 3;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(5, 7, 10, 0.52);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.exploreRecapDot {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+}
+
+.exploreRecapDot.isActive {
+  transform: scale(1.25);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+/* Event slide */
+
+.exploreRecapSlideInner--event {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  min-height: 0;
+}
+
+.exploreRecapEventLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 24px 28px;
+  align-items: end;
+  width: 100%;
+  min-width: 0;
+}
+
+.exploreRecapEventCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 14px;
+}
+
+.exploreRecapEventTitle {
+  margin: 0;
+  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.exploreRecapEventSummary {
+  margin: 0;
+  max-width: 54ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.exploreRecapEventMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.exploreRecapMetaItem {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(168, 196, 255, 0.78);
+}
+
+.exploreRecapEventVisual {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-self: end;
+  width: 100%;
+}
+
+.exploreRecapEventChart {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  height: clamp(80px, 12vh, 130px);
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  overflow: hidden;
+}
+
+.exploreRecapEventChart .researchMiniPrice--chartOnly {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.exploreRecapEventChart .researchMiniPriceWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+  position: relative;
+}
+
+.exploreRecapEventChart .researchMiniPriceWrap--interactive {
+  cursor: crosshair;
+}
+
+.exploreRecapEventChart .graphSvg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.exploreRecapEventChart .graphHoverLine {
+  stroke: rgba(255, 255, 255, 0.22);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.exploreRecapEventChart .graphHoverDot {
+  fill: #fff;
+  stroke: rgba(0, 0, 0, 0.45);
+  stroke-width: 1.5;
+}
+
+.exploreRecapEventChart .researchMiniPriceTooltip {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 4px;
+  background: rgba(10, 10, 12, 0.94);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  font-size: 10px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.exploreRecapEventChart .researchMiniPriceTooltipDate {
+  color: rgba(255, 255, 255, 0.48);
+  letter-spacing: 0.04em;
+}
+
+.exploreRecapEventChart .researchMiniPriceTooltipPrice {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+}
+
+.exploreRecapSparkline {
+  display: block;
+  width: 100%;
+  height: 36px;
+}
+
+/* Companies + actors feature slides */
+
+.exploreRecapSlideInner--feature {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  min-height: 0;
+}
+
+.exploreRecapFeatureLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+  gap: 24px 28px;
+  align-items: end;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.exploreRecapFeatureCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 14px;
+}
+
+.exploreRecapFeatureSummary {
+  margin: 0;
+  max-width: 54ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.exploreRecapSecondaryList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex: 0 0 auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.exploreRecapSecondaryRow {
+  display: grid;
+  grid-template-columns: var(--explore-directory-ticker-w) minmax(0, 1fr) var(--explore-directory-trail-w);
+  column-gap: var(--explore-directory-col-gap);
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.exploreRecapSecondaryCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.exploreRecapSecondaryTitle {
+  font-size: 13px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.exploreRecapSecondaryMeta {
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.exploreRecapSecondaryRow .exploreRecapTileMove,
+.exploreRecapSecondaryRow .exploreRecapSparkline {
+  justify-self: end;
+}
+
+.exploreRecapSecondaryRow .exploreRecapSparkline {
+  flex: 0 0 var(--explore-directory-trail-w);
+  width: var(--explore-directory-trail-w);
+  max-width: var(--explore-directory-trail-w);
+}
+
+.exploreRecapTileMove {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.exploreRecapTileMove.isUp {
+  color: rgba(92, 184, 138, 0.92);
+}
+
+.exploreRecapTileMove.isDown {
+  color: rgba(212, 114, 106, 0.92);
+}
+
+@media (max-width: 960px) {
+  .explorePage {
+    --explore-recap-expanded-h: 100dvh;
+    --explore-recap-expanded-h: 100svh;
+  }
+
+  .exploreRecapSlideInner {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 22px;
+    padding-bottom: 44px;
+    gap: 18px;
+  }
+
+  .exploreRecapSlideInner--event {
+    align-items: stretch;
+    justify-content: flex-start;
+    height: 100%;
+  }
+
+  .exploreRecapEventLayout {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .exploreRecapEventCopy {
+    flex: 0 0 auto;
+  }
+
+  .exploreRecapEventVisual {
+    margin-top: auto;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+    min-height: clamp(70px, 14vh, 110px);
+    padding-bottom: 12px;
+  }
+
+  .exploreRecapEventChart {
+    flex: 0 0 100%;
+    height: 100%;
+    max-height: none;
+    min-height: clamp(70px, 14vh, 110px);
+  }
+
+  .exploreRecapSlideInner--feature {
+    justify-content: flex-start;
+  }
+
+  .exploreRecapFeatureLayout {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .exploreRecapFeatureCopy {
+    flex: 0 0 auto;
+  }
+
+  .exploreRecapExpandedBg::before {
+    height: max(100dvh, 100svh);
+    background-size: cover;
+    background-position: center top;
+  }
+
+  .exploreRecapExpandedBg::after {
+    height: max(100dvh, 100svh);
+  }
+
+  .exploreRecapCompactBg::before {
+    height: max(100dvh, 100svh);
+    background-size: cover;
+    background-position: center top;
+  }
+
+  .exploreRecapCompactBg::after {
+    height: max(100dvh, 100svh);
+  }
+}
+
+@media (max-width: 640px) {
+  .explorePage {
+    --explore-page-pad-x: 16px;
+  }
+
+  .exploreRecapSlideInner {
+    padding-bottom: 44px;
+  }
+
+  .exploreRecapSlideInner--event {
+    padding-top: 18px;
+  }
+
+  .exploreRecapEventVisual {
+    min-height: clamp(60px, 12vh, 90px);
+    padding-bottom: 8px;
+  }
+
+  .exploreRecapEventChart {
+    min-height: clamp(60px, 12vh, 90px);
+  }
+
+  .exploreRecapDots {
+    bottom: 12px;
+  }
+
+  .exploreRecapCompactTitle {
+    font-size: 12px;
+  }
+}
