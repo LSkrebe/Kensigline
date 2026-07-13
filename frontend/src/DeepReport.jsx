@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   analyseMockModelForTicker,
   formatAnalyseGridValue,
@@ -33,7 +33,6 @@ function deepCollapseProgressVars(progress) {
     '--deep-collapse': String(p),
     '--deep-expanded-opacity': String(expandedOpacity),
     '--deep-compact-opacity': String(compactOpacity),
-    '--deep-expanded-display': p >= DEEP_EXPANDED_FADE_END ? 'none' : 'flex',
   }
 }
 
@@ -670,33 +669,33 @@ const OUTCOME_GRAPH_PATH = { stroke: 'var(--intel-accent-stroke-strong)', stroke
 function DeepTrackRecordChart({ points = [] }) {
   const wrapRef = useRef(null)
   const gradId = useId()
-  const [size, setSize] = useState({ w: 280, h: 280 })
+  const [size, setSize] = useState(null)
   const [hoverIdx, setHoverIdx] = useState(null)
   const [hoverPos, setHoverPos] = useState(null)
 
   const vals = useMemo(() => points.map((p) => p.cumulative), [points])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const wrap = wrapRef.current
     if (!wrap) return undefined
     function measure() {
       const rect = wrap.getBoundingClientRect()
       const w = Math.max(160, rect.width)
       const h = Math.max(160, rect.height)
-      setSize((prev) => (prev.w !== w || prev.h !== h ? { w, h } : prev))
+      setSize((prev) => (prev?.w !== w || prev?.h !== h ? { w, h } : prev))
     }
+    measure()
     const ro = new ResizeObserver(() => requestAnimationFrame(measure))
     ro.observe(wrap)
     window.addEventListener('resize', measure)
-    measure()
     return () => {
       ro.disconnect()
       window.removeEventListener('resize', measure)
     }
   }, [])
 
-  const w = size.w
-  const h = size.h
+  const w = size?.w ?? 0
+  const h = size?.h ?? 0
   const n = Math.max(1, vals.length)
   const margin = { l: 0, r: 0, t: 6, b: 6 }
   const plotTop = margin.t
@@ -768,7 +767,14 @@ function DeepTrackRecordChart({ points = [] }) {
       onPointerMove={(e) => updateHoverFromClient(e.clientX, e.clientY)}
       onPointerLeave={clearHover}
     >
-      <svg className="graphSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img">
+      {size ? (
+        <svg
+          className="graphSvg"
+          viewBox={`0 0 ${w} ${h}`}
+          preserveAspectRatio="none"
+          overflow="visible"
+          role="img"
+        >
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={OUTCOME_CHART_AREA_TOP} stopOpacity="1" />
@@ -786,6 +792,7 @@ function DeepTrackRecordChart({ points = [] }) {
           </g>
         ) : null}
       </svg>
+      ) : null}
       {activePoint && hoverPos ? (
         <div
           className="researchMiniPriceTooltip mono"

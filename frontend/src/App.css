@@ -544,6 +544,61 @@
   outline-offset: 1px;
 }
 
+@media (max-width: 960px) {
+  .terminalTopBarChrome.exploreRecapChrome,
+  .terminalTopBarChrome.deepCompactChrome {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .exploreRecapChrome .terminalTopBarBrand,
+  .deepCompactChrome .terminalTopBarBrand {
+    min-width: auto;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .exploreRecapChrome .terminalTopBarLogoClip,
+  .deepCompactChrome .terminalTopBarLogoClip {
+    flex: 0 0 auto;
+    width: var(--explore-compact-chrome-size);
+    height: var(--explore-compact-chrome-size);
+    min-width: var(--explore-compact-chrome-size);
+    min-height: var(--explore-compact-chrome-size);
+  }
+
+  .exploreRecapChrome .terminalTopBarLogo,
+  .deepCompactChrome .terminalTopBarLogo {
+    flex: 0 0 auto;
+    width: calc(var(--explore-compact-chrome-size) * var(--terminal-mark-crop-scale));
+    height: var(--explore-compact-chrome-size);
+    min-width: calc(var(--explore-compact-chrome-size) * var(--terminal-mark-crop-scale));
+    object-fit: contain;
+    object-position: left center;
+  }
+
+  .exploreRecapChrome .terminalTopBarName,
+  .deepCompactChrome .terminalTopBarName {
+    flex-shrink: 0;
+  }
+
+  .terminalShell--phone .exploreRecapChrome .terminalTopBarLogoClip,
+  .terminalShell--phone .deepCompactChrome .terminalTopBarLogoClip {
+    width: var(--explore-compact-chrome-size);
+    height: var(--explore-compact-chrome-size);
+    min-width: var(--explore-compact-chrome-size);
+    min-height: var(--explore-compact-chrome-size);
+    margin-left: calc(var(--explore-compact-chrome-size) * -0.1);
+  }
+
+  .terminalShell--phone .exploreRecapChrome .terminalTopBarLogo,
+  .terminalShell--phone .deepCompactChrome .terminalTopBarLogo {
+    width: calc(var(--explore-compact-chrome-size) * var(--terminal-mark-crop-scale));
+    height: var(--explore-compact-chrome-size);
+    min-width: calc(var(--explore-compact-chrome-size) * var(--terminal-mark-crop-scale));
+  }
+}
+
 .terminalWorkspace {
   flex: 1 1 0;
   min-height: 0;

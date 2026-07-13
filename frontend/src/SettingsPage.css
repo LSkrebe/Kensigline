@@ -88,6 +88,10 @@
   margin-bottom: 36px;
 }
 
+.stgRow .stgSection {
+  margin-bottom: 0;
+}
+
 .stgSection {
   margin-bottom: 36px;
 }
@@ -489,7 +493,7 @@
 
   .stgRow {
     grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
+    gap: 36px;
   }
 
   .stgPaper {

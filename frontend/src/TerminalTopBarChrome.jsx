@@ -100,6 +100,8 @@ export function TerminalTopBarActions({
   leading = null,
   hideMacro = false,
   hideSettings = false,
+  macroCloseClassName = '',
+  macroCloseAriaLabel = null,
 }) {
   const now = useTerminalTopBarClock(clockAt)
   const compactSearch = useCompactSearchLayout()
@@ -141,8 +143,17 @@ export function TerminalTopBarActions({
         {!hideMacro ? (
           <button
             type="button"
-            className={macroActive ? 'terminalTopBarIconBtn isActive isClose' : 'terminalTopBarIconBtn'}
-            aria-label={macroActive ? 'Close macro calendar' : 'Macro calendar'}
+            className={[
+              macroActive ? 'terminalTopBarIconBtn isActive isClose' : 'terminalTopBarIconBtn',
+              macroActive && macroCloseClassName ? macroCloseClassName : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            aria-label={
+              macroActive
+                ? (macroCloseAriaLabel ?? 'Close macro calendar')
+                : 'Macro calendar'
+            }
             aria-current={macroActive ? 'page' : undefined}
             onClick={onMacroClick}
           >
@@ -223,6 +234,8 @@ export function TerminalTopBarChrome({
   hideMacro = false,
   hideSettings = false,
   leading = null,
+  macroCloseClassName = '',
+  macroCloseAriaLabel = null,
 }) {
   return (
     <div className={['terminalTopBarChrome', className].filter(Boolean).join(' ')}>
@@ -241,6 +254,8 @@ export function TerminalTopBarChrome({
         hideMacro={hideMacro}
         hideSettings={hideSettings}
         leading={leading}
+        macroCloseClassName={macroCloseClassName}
+        macroCloseAriaLabel={macroCloseAriaLabel}
       />
     </div>
   )

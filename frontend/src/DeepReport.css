@@ -46,7 +46,6 @@
   --deep-collapse: 0;
   --deep-expanded-opacity: 1;
   --deep-compact-opacity: 0;
-  --deep-expanded-display: flex;
   --deep-dock-visual-h: calc(
     var(--deep-expanded-h) * (1 - var(--deep-collapse)) +
       var(--deep-collapsed-h) * var(--deep-collapse)
@@ -89,7 +88,10 @@
 
 .drpt-expandedBg {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--deep-expanded-h);
   z-index: 0;
   opacity: var(--deep-expanded-opacity);
   pointer-events: none;
@@ -128,14 +130,16 @@
 }
 
 .drpt-expanded {
-  position: relative;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--deep-collapsed-h);
+  width: 100%;
+  height: calc(var(--deep-expanded-h) - var(--deep-collapsed-h));
   z-index: 1;
-  flex: 1 1 auto;
-  min-height: 0;
-  display: var(--deep-expanded-display);
+  display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  height: 100%;
   opacity: var(--deep-expanded-opacity);
   overflow: hidden;
   pointer-events: none;
@@ -679,7 +683,7 @@
   padding: 0;
   border: none;
   background: transparent;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .drpt-row--market .drpt-figure--chart .researchMiniPrice--chartOnly {
@@ -694,6 +698,7 @@
   min-height: 0;
   height: 100%;
   max-height: none;
+  overflow: visible;
 }
 
 .drpt-figure--chart .researchMiniPriceWrap {
@@ -884,7 +889,7 @@
   min-height: 300px;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .drpt-row--market .drpt-figure--chart {
@@ -908,6 +913,7 @@
   padding: 0;
   border: none;
   background: transparent;
+  overflow: visible;
 }
 
 .drpt-figure--chart .researchMiniPriceWrap--interactive {
@@ -935,7 +941,7 @@
   gap: 2px;
   padding: 6px 8px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 4px;
+  border-radius: 0;
   background: rgba(10, 10, 12, 0.94);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   font-size: 10px;
@@ -957,6 +963,7 @@
   width: 100%;
   height: 100%;
   display: block;
+  overflow: visible;
 }
 
 /* ── Metric snapshot ── */

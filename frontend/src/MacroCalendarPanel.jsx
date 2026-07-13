@@ -38,13 +38,13 @@ const MACRO_REGION_FILTER_TYPES = [
 const MACRO_REGION_FILTER_DEFAULT = new Set(MACRO_REGION_FILTER_TYPES.map((t) => t.id))
 
 const MACRO_FILTER_SECTIONS = [
-  { title: 'Region', types: MACRO_REGION_FILTER_TYPES },
-  { title: 'Impact', types: MACRO_IMPACT_FILTER_TYPES },
+  { id: 'region', label: 'Coverage', title: 'Region', types: MACRO_REGION_FILTER_TYPES },
+  { id: 'impact', label: 'Releases', title: 'Impact', types: MACRO_IMPACT_FILTER_TYPES, padRows: 1 },
 ]
 
 function MacroFilterIcon() {
   return (
-    <svg className="feedCompactFilterIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="mcalStripFilterIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
       <path
         d="M4 6h16l-6 7v5l-4 2v-7L4 6z"
         fill="none"
@@ -54,6 +54,24 @@ function MacroFilterIcon() {
       />
     </svg>
   )
+}
+
+function MacroFilterConfirmIcon() {
+  return (
+    <svg className="mcalStripFilterIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="square"
+        d="M6 12l4 4 8-10"
+      />
+    </svg>
+  )
+}
+
+function cloneFilterSet(set) {
+  return new Set(set)
 }
 
 function toggleFilterSet(setter, id) {
@@ -67,30 +85,69 @@ function toggleFilterSet(setter, id) {
 
 function MacroFilterPicker({ sections, enabled, onToggle, ariaLabel }) {
   return (
-    <div className="mcalFilterPicker feedCompactFilterPicker scrollThin" role="group" aria-label={ariaLabel}>
-      {sections.map((section, idx) => (
-        <div key={section.title || String(idx)} className="feedFilterSection">
-          {section.title ? <p className="feedFilterSectionTitle">{section.title}</p> : null}
-          {(Array.isArray(section.types) ? section.types : []).map(({ id, label, code }) => (
-            <label key={id} className="feedFilterTypeRow">
-              <input type="checkbox" checked={enabled?.has(id) ?? false} onChange={() => onToggle(id)} />
-              <span className="feedFilterTypeLabel">{label}</span>
-              <span
-                className={[
-                  'feedFilterTypeCode',
-                  'mono',
-                  section.title === 'Impact' ? `feedFilterTypeCode--impact-${id}` : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                title={id}
-              >
-                {code ?? id}
-              </span>
-            </label>
-          ))}
-        </div>
-      ))}
+    <div className="mcalFilter scrollThin" role="group" aria-label={ariaLabel}>
+      <header className="mcalFilterHero">
+        <p className="mcalFilterKicker">Macro calendar</p>
+        <h2 className="mcalFilterTitle">Filters</h2>
+      </header>
+      <div className="mcalFilterSections">
+        {sections.map((section, idx) => (
+          <section key={section.id || section.title || String(idx)} className="mcalFilterSection">
+            {section.label || section.title ? (
+              <header className="mcalFilterSectionHead">
+                {section.label ? <p className="mcalFilterSectionLabel">{section.label}</p> : null}
+                {section.title ? <h3 className="mcalFilterSectionTitle">{section.title}</h3> : null}
+              </header>
+            ) : null}
+            <div className="mcalFilterPanel">
+              <div className="mcalFilterPanelBody">
+                {(Array.isArray(section.types) ? section.types : []).map(({ id, label, code }) => {
+                  const on = enabled?.has(id) ?? false
+                  return (
+                    <label key={id} className="mcalFilterRow">
+                      <span className="mcalFilterRowMain">
+                        <span className="mcalFilterRowLabel">{label}</span>
+                        {code ? (
+                          <span
+                            className={[
+                              'mcalFilterRowCode',
+                              section.id === 'impact' ? `mcalFilterRowCode--${id}` : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
+                          >
+                            {code}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="mcalFilterRowControl">
+                        <span className="mcalSwitch">
+                          <input
+                            type="checkbox"
+                            className="mcalSwitchInput"
+                            checked={on}
+                            onChange={() => onToggle(id)}
+                          />
+                          <span className="mcalSwitchTrack" aria-hidden="true">
+                            <span className="mcalSwitchThumb" />
+                          </span>
+                        </span>
+                      </span>
+                    </label>
+                  )
+                })}
+                {Array.from({ length: section.padRows ?? 0 }, (_, padIdx) => (
+                  <div
+                    key={`pad-${section.id}-${padIdx}`}
+                    className="mcalFilterRow mcalFilterRow--spacer"
+                    aria-hidden="true"
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   )
 }
@@ -125,7 +182,9 @@ function MacroCalendarStrip({
   viewMonth,
   onViewMonthChange,
   filterOpen,
-  onFilterToggle,
+  onFilterOpen,
+  onFilterConfirm,
+  onFilterCancel,
 }) {
   return (
     <div className="mcalStrip">
@@ -135,21 +194,29 @@ function MacroCalendarStrip({
         logoSrc="/mercerline_mark.png"
         backendUp={backendUp}
         macroActive
-        onMacroClick={onMacroClick}
+        onMacroClick={filterOpen ? onFilterCancel : onMacroClick}
+        macroCloseClassName={filterOpen ? 'mcalStripCancelBtn' : ''}
+        macroCloseAriaLabel={filterOpen ? 'Cancel filter changes' : undefined}
         hideDate
         hideSettings
         leading={
           <div className="mcalStripActions">
-            <MacroStripMonthNav monthKey={viewMonth} onChange={onViewMonthChange} />
+            {!filterOpen ? (
+              <MacroStripMonthNav monthKey={viewMonth} onChange={onViewMonthChange} />
+            ) : null}
             <button
               type="button"
-              className={['mcalStripFilterBtn', filterOpen ? 'isActive' : ''].filter(Boolean).join(' ')}
-              aria-label="Filter macro calendar"
-              title="Filter"
-              aria-pressed={filterOpen || undefined}
-              onClick={onFilterToggle}
+              className={[
+                'mcalStripFilterBtn',
+                filterOpen ? 'mcalStripFilterBtn--confirm' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              aria-label={filterOpen ? 'Apply filters' : 'Filter macro calendar'}
+              title={filterOpen ? 'Apply' : 'Filter'}
+              onClick={filterOpen ? onFilterConfirm : onFilterOpen}
             >
-              <MacroFilterIcon />
+              {filterOpen ? <MacroFilterConfirmIcon /> : <MacroFilterIcon />}
             </button>
           </div>
         }
@@ -236,6 +303,7 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick }) {
   const [liveMacro, setLiveMacro] = useState(null)
   const [fetching, setFetching] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
+  const [filterSnapshot, setFilterSnapshot] = useState(null)
   const [regionFilters, setRegionFilters] = useState(() =>
     readFilterSet(UI_PREF_KEYS.macroRegionFilters, MACRO_REGION_FILTER_DEFAULT),
   )
@@ -331,6 +399,28 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick }) {
     [toggleMacroFilter],
   )
 
+  const openFilters = useCallback(() => {
+    setFilterSnapshot({
+      region: cloneFilterSet(regionFilters),
+      impact: cloneFilterSet(impactFilters),
+    })
+    setFilterOpen(true)
+  }, [regionFilters, impactFilters])
+
+  const confirmFilters = useCallback(() => {
+    setFilterSnapshot(null)
+    setFilterOpen(false)
+  }, [])
+
+  const cancelFilters = useCallback(() => {
+    if (filterSnapshot) {
+      setRegionFilters(filterSnapshot.region)
+      setImpactFilters(filterSnapshot.impact)
+    }
+    setFilterSnapshot(null)
+    setFilterOpen(false)
+  }, [filterSnapshot])
+
   const loading = backendUp && fetching && liveMacro == null
 
   return (
@@ -341,7 +431,9 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick }) {
         viewMonth={viewMonth}
         onViewMonthChange={setViewMonth}
         filterOpen={filterOpen}
-        onFilterToggle={() => setFilterOpen((open) => !open)}
+        onFilterOpen={openFilters}
+        onFilterConfirm={confirmFilters}
+        onFilterCancel={cancelFilters}
       />
 
       <div className="mcalScroll scrollThin">

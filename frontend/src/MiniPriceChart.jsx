@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 const EMPTY = '-'
 const CHART_AREA_GRAD_TOP = 'var(--intel-accent-area-top)'
@@ -113,6 +113,7 @@ export function MiniPriceChart({
   quarterlyRevenueOverlay = null,
   hideAxisLabels = false,
   flushEdges = false,
+  plotInset = 0,
   showHoverTooltip = false,
   lineOnly = false,
 }) {
@@ -120,17 +121,16 @@ export function MiniPriceChart({
   void politicianMarkers
 
   const wrapRef = useRef(null)
-  const [size, setSize] = useState(() => ({
-    w: layoutSize?.w ?? 360,
-    h: layoutSize?.h ?? 192,
-  }))
+  const [size, setSize] = useState(() =>
+    layoutSize?.w && layoutSize?.h ? { w: layoutSize.w, h: layoutSize.h } : null,
+  )
   const [internalRange, setInternalRange] = useState('6M')
   const [hoverIdx, setHoverIdx] = useState(null)
   const [hoverPos, setHoverPos] = useState(null)
   const priceRange = chartRangeProp ?? internalRange
   const setPriceRange = onChartRangeChange ?? setInternalRange
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (layoutSize?.w && layoutSize?.h) {
       setSize({ w: layoutSize.w, h: layoutSize.h })
       return
@@ -141,16 +141,16 @@ export function MiniPriceChart({
       const rect = wrap.getBoundingClientRect()
       const w = Math.max(240, rect.width)
       const h = Math.max(64, rect.height)
-      setSize((prev) => (prev.w !== w || prev.h !== h ? { w, h } : prev))
+      setSize((prev) => (prev?.w !== w || prev?.h !== h ? { w, h } : prev))
     }
+    measure()
     const ro = new ResizeObserver(() => requestAnimationFrame(measure))
     ro.observe(wrap)
-    measure()
     return () => ro.disconnect()
   }, [layoutSize?.w, layoutSize?.h])
 
-  const w = size.w
-  const h = size.h
+  const w = size?.w ?? 0
+  const h = size?.h ?? 0
 
   const vals = useMemo(() => {
     let base = Array.isArray(series) ? series : []
@@ -169,12 +169,18 @@ export function MiniPriceChart({
   const yTickTexts = useMemo(() => yTicks.map((v) => formatPriceTick(v)), [yTicks])
   const yAxisMarginOpts =
     chartAlign === 'context' ? { gap: yTickGap, min: 32, max: 56 } : { gap: yTickGap, min: 22, max: 44 }
+  const edgePad = flushEdges ? Math.max(0, plotInset) : 0
   const marginL = useMemo(
-    () => (flushEdges || hideAxisLabels ? 0 : chartYAxisMargin(yTickTexts, yAxisMarginOpts)),
-    [flushEdges, hideAxisLabels, yTickTexts, chartAlign],
+    () =>
+      flushEdges
+        ? edgePad
+        : hideAxisLabels
+          ? 0
+          : chartYAxisMargin(yTickTexts, yAxisMarginOpts),
+    [flushEdges, edgePad, hideAxisLabels, yTickTexts, chartAlign],
   )
   const marginSides = flushEdges
-    ? { r: 0, t: 0, b: 0 }
+    ? { r: edgePad, t: edgePad, b: edgePad }
     : chartAlign === 'context'
       ? { r: 0, t: 14, b: 22 }
       : { r: 6, t: 8, b: 18 }
@@ -378,11 +384,12 @@ export function MiniPriceChart({
           <div className="graphEmpty mono dim" role="status">
             No price data.
           </div>
-        ) : (
+        ) : !size ? null : (
           <svg
             className="graphSvg"
             viewBox={`0 0 ${w} ${h}`}
             preserveAspectRatio={flushEdges ? 'none' : 'xMidYMid meet'}
+            overflow={showHoverTooltip ? 'visible' : undefined}
             role="img"
           >
             {!lineOnly ? (

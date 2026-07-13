@@ -21,7 +21,6 @@ function collapseProgressVars(progress) {
     '--explore-collapse': String(p),
     '--explore-expanded-opacity': String(expandedOpacity),
     '--explore-compact-opacity': String(compactOpacity),
-    '--explore-expanded-display': p >= EXPLORE_EXPANDED_FADE_END ? 'none' : 'block',
   }
 }
 

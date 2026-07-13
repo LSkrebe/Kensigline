@@ -6,6 +6,7 @@
   --mcal-border: rgba(255, 255, 255, 0.08);
   --mcal-surface: rgba(255, 255, 255, 0.02);
   --mcal-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --mcal-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --explore-compact-opacity: 1;
 
   width: 100%;
@@ -127,6 +128,37 @@
   background: rgba(14, 15, 18, 0.96);
 }
 
+.mcalStripFilterBtn--confirm {
+  color: rgba(92, 184, 138, 0.92);
+  border-color: rgba(92, 184, 138, 0.45);
+  background: rgba(10, 14, 12, 0.9);
+}
+
+.mcalStripFilterBtn--confirm:hover {
+  color: rgba(120, 210, 160, 0.96);
+  border-color: rgba(92, 184, 138, 0.58);
+  background: rgba(12, 18, 15, 0.96);
+}
+
+.mcalStrip .exploreRecapChrome .terminalTopBarIconBtn.mcalStripCancelBtn,
+.mcalStrip .exploreRecapChrome .terminalTopBarIconBtn.mcalStripCancelBtn.isActive {
+  color: rgba(212, 114, 106, 0.92);
+  border-color: rgba(212, 114, 106, 0.45);
+  background: rgba(14, 10, 10, 0.9);
+}
+
+.mcalStrip .exploreRecapChrome .terminalTopBarIconBtn.mcalStripCancelBtn:hover,
+.mcalStrip .exploreRecapChrome .terminalTopBarIconBtn.mcalStripCancelBtn.isActive:hover {
+  color: rgba(232, 140, 132, 0.96);
+  border-color: rgba(212, 114, 106, 0.58);
+  background: rgba(18, 12, 12, 0.96);
+}
+
+.mcalStripFilterIcon {
+  display: block;
+  flex-shrink: 0;
+}
+
 .mcalScroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -170,24 +202,206 @@
   color: rgba(255, 255, 255, 0.42);
 }
 
-.mcalBodyContent--filterOpen .mcalFilterPicker {
+.mcalBodyContent--filterOpen .mcalFilter {
   position: absolute;
   inset: 0;
   z-index: 2;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 12px var(--mcal-pad-x) 16px;
   box-sizing: border-box;
-  background: rgba(8, 8, 9, 0.98);
+  padding: 28px var(--mcal-pad-x) 48px;
+  background: #080809;
   -webkit-overflow-scrolling: touch;
 }
 
-.mcalBodyContent--filterOpen .mcalFilterPicker .feedFilterSectionTitle:not(:first-child) {
-  margin-top: 10px;
+.mcalFilterHero {
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--mcal-border);
+}
+
+.mcalFilterKicker {
+  margin: 0 0 6px;
+  font-family: var(--mcal-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.mcalFilterTitle {
+  margin: 0;
+  font-family: var(--mcal-serif);
+  font-size: clamp(24px, 3vw, 30px);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.mcalFilterSections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 28px;
+  align-items: start;
+}
+
+.mcalFilterSection {
+  min-width: 0;
+}
+
+.mcalFilterSectionHead {
+  margin-bottom: 14px;
+}
+
+.mcalFilterSectionLabel {
+  margin: 0 0 6px;
+  font-family: var(--mcal-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.mcalFilterSectionTitle {
+  margin: 0;
+  font-family: var(--mcal-serif);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.15;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.mcalFilterPanel {
+  border: 1px solid var(--mcal-border);
+  background: var(--mcal-surface);
+  box-sizing: border-box;
+}
+
+.mcalFilterPanelBody {
+  padding: 4px 14px 6px;
+}
+
+.mcalFilterRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-height: 38px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.mcalFilterRow:last-child {
+  border-bottom: none;
+}
+
+.mcalFilterRow--spacer {
+  pointer-events: none;
+  cursor: default;
+  min-height: 38px;
+}
+
+.mcalFilterRowMain {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mcalFilterRowLabel {
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.mcalFilterRowCode {
+  flex-shrink: 0;
+  font-family: var(--mcal-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.mcalFilterRowCode--high {
+  color: rgba(255, 120, 160, 0.9);
+}
+
+.mcalFilterRowCode--medium {
+  color: rgba(255, 200, 120, 0.82);
+}
+
+.mcalFilterRowCode--low {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.mcalFilterRowControl {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.mcalSwitch {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  cursor: pointer;
+}
+
+.mcalSwitchInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mcalSwitchTrack {
+  display: block;
+  width: 34px;
+  height: 18px;
+  border-radius: 0;
+  background: rgba(10, 11, 13, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-sizing: border-box;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.mcalSwitchThumb {
+  display: block;
+  width: 12px;
+  height: 12px;
+  margin: 2px;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.45);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.mcalSwitchInput:checked + .mcalSwitchTrack {
+  background: rgba(14, 15, 18, 0.96);
+  border-color: rgba(168, 196, 255, 0.35);
+}
+
+.mcalSwitchInput:checked + .mcalSwitchTrack .mcalSwitchThumb {
+  transform: translateX(16px);
+  background: rgba(168, 196, 255, 0.88);
+}
+
+.mcalSwitchInput:focus-visible + .mcalSwitchTrack {
+  outline: 1px solid rgba(168, 196, 255, 0.45);
+  outline-offset: 2px;
 }
 
 /* Calendar grid */
@@ -357,6 +571,20 @@
   .mcalShell {
     --mcal-pad-x: 18px;
     --explore-page-pad-x: 18px;
+  }
+
+  .mcalBodyContent--filterOpen .mcalFilter {
+    padding: 20px var(--mcal-pad-x) 36px;
+  }
+
+  .mcalFilterSections {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .mcalFilterHero {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
   }
 
   .mcalStripMonthLabel {
