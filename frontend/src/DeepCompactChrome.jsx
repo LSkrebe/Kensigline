@@ -18,35 +18,36 @@ export function DeepCompactChrome({
   const up = ch != null ? ch >= 0 : true
   const showPrice = price != null && Number.isFinite(Number(price))
 
+  const trail =
+    label || showPrice ? (
+      <div className="deepCompactChromeTrail">
+        {label ? <span className="deepCompactChromeSubject mono">{label}</span> : null}
+        {showPrice ? (
+          <>
+            <span className="deepCompactChromePrice mono">${Number(price).toFixed(2)}</span>
+            {ch != null && chPct != null ? (
+              <span className={['deepCompactChromeChange mono', up ? 'isUp' : 'isDown'].join(' ')}>
+                {up ? '+' : ''}
+                {ch.toFixed(2)} ({up ? '+' : ''}
+                {chPct.toFixed(2)}%)
+              </span>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    ) : null
+
   return (
     <div className="deepCompactChrome terminalTopBarChrome">
       <TerminalTopBarBrand backendUp={backendUp} logoSrc="/mercerline_mark.png" />
-      <div className="deepCompactChromeEnd">
-        {label || showPrice ? (
-          <div className="deepCompactChromeTrail">
-            {label ? <span className="deepCompactChromeSubject mono">{label}</span> : null}
-            {showPrice ? (
-              <>
-                <span className="deepCompactChromePrice mono">${Number(price).toFixed(2)}</span>
-                {ch != null && chPct != null ? (
-                  <span className={['deepCompactChromeChange mono', up ? 'isUp' : 'isDown'].join(' ')}>
-                    {up ? '+' : ''}
-                    {ch.toFixed(2)} ({up ? '+' : ''}
-                    {chPct.toFixed(2)}%)
-                  </span>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-        ) : null}
-        <TerminalTopBarActions
-          macroActive={macroActive}
-          onMacroClick={onMacroClick}
-          settingsActive={settingsActive}
-          onSettingsClick={onSettingsClick}
-          hideDate
-        />
-      </div>
+      <TerminalTopBarActions
+        leading={trail}
+        macroActive={macroActive}
+        onMacroClick={onMacroClick}
+        settingsActive={settingsActive}
+        onSettingsClick={onSettingsClick}
+        hideDate
+      />
     </div>
   )
 }

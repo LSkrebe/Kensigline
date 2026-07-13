@@ -34,7 +34,7 @@
 }
 
 .drpt-stickWrap {
-  --deep-expanded-h: clamp(180px, 26vh, 260px);
+  --deep-expanded-h: clamp(208px, calc(22vh + 56px), 280px);
   --deep-collapsed-h: 56px;
   flex: 1 0 auto;
   display: flex;
@@ -81,7 +81,10 @@
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  isolation: isolate;
 }
 
 .drpt-expandedBg {
@@ -127,12 +130,14 @@
 .drpt-expanded {
   position: relative;
   z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   display: var(--deep-expanded-display);
   flex-direction: column;
   justify-content: flex-end;
   height: 100%;
-  min-height: 0;
   opacity: var(--deep-expanded-opacity);
+  overflow: hidden;
   pointer-events: none;
 }
 
@@ -143,7 +148,7 @@
   height: auto;
   border-bottom: none;
   background-color: transparent;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .drpt-expanded .drpt-topbar::before,
@@ -158,7 +163,7 @@
 .drpt-compactBg {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 0;
   opacity: var(--deep-compact-opacity);
   pointer-events: none;
   overflow: hidden;
@@ -184,18 +189,23 @@
   pointer-events: none;
 }
 
-.drpt-compactBar {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
+.drpt-chromeBar {
+  flex: 0 0 var(--deep-collapsed-h);
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
-  padding: 0;
-  opacity: var(--deep-compact-opacity);
-  pointer-events: none;
+  flex-shrink: 0;
   overflow: hidden;
-  background: transparent;
   isolation: isolate;
+  border-bottom: 1px solid rgba(255, 255, 255, calc(0.08 * var(--deep-collapse)));
+  background: transparent;
+}
+
+.drpt-chromeBar .deepCompactChrome {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
 }
 
 .deepCompactChrome {
@@ -208,23 +218,15 @@
   gap: 10px;
 }
 
-.deepCompactChromeEnd {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  min-width: 0;
-  height: var(--explore-compact-chrome-size);
-}
-
 .deepCompactChromeTrail {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
+  opacity: var(--deep-compact-opacity);
 }
 
 .deepCompactChromeSubject {
@@ -253,8 +255,10 @@
 }
 
 .deepCompactChrome .terminalTopBarName {
+  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   font-size: 12px;
-  letter-spacing: 0.14em;
+  font-weight: 400;
+  letter-spacing: 0.08em;
   line-height: 1;
 }
 
@@ -264,10 +268,17 @@
 }
 
 .deepCompactChrome .terminalTopBarActions {
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
+  flex-shrink: 1;
   justify-content: flex-end;
   gap: 8px;
   height: var(--explore-compact-chrome-size);
+}
+
+.deepCompactChrome .terminalTopBarIconGroup {
+  flex-shrink: 0;
+  gap: 8px;
 }
 
 .deepCompactChrome .terminalTopBarIconBtn {
@@ -276,12 +287,8 @@
 }
 
 .deepCompactChrome .terminalTopBarIcon {
-  width: calc(var(--explore-compact-chrome-size) - 6px);
-  height: calc(var(--explore-compact-chrome-size) - 6px);
-  transform: none;
-}
-
-.deepCompactChrome .terminalTopBarIcon--calendar {
+  width: 14px;
+  height: 14px;
   transform: none;
 }
 
@@ -312,10 +319,6 @@
 
 .deepCompactChromeChange.isDown {
   color: var(--drpt-down);
-}
-
-.deepCompactChrome .terminalTopBarIconGroup {
-  flex-shrink: 0;
 }
 
 /* ── Scrollable paper body ── */
@@ -1523,7 +1526,7 @@
   }
 
   .drpt-stickWrap {
-    --deep-expanded-h: clamp(170px, 24vh, 220px);
+    --deep-expanded-h: clamp(200px, calc(21vh + 56px), 252px);
   }
 
   .drpt-topbar {

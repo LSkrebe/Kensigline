@@ -263,31 +263,10 @@ export function ExploreDailyRecap({
       <div className="exploreRecapViewport">
         <div className="exploreRecapExpandedBg" aria-hidden="true" />
 
-        <div className="exploreRecapExpanded">
-          <div className="exploreRecapTrack" ref={trackRef}>
-            {loopEnabled ? (
-              <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true">
-                {renderRecapSlideAt(recap, slideCount - 1)}
-              </div>
-            ) : null}
-            {Array.from({ length: slideCount }, (_, i) => (
-              <div key={i} className="exploreRecapSlideWrap">
-                {renderRecapSlideAt(recap, i)}
-              </div>
-            ))}
-            {loopEnabled ? (
-              <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true">
-                {renderRecapSlideAt(recap, 0)}
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="exploreRecapCompactBg" aria-hidden="true" />
-
-        <div className="exploreRecapCompactBar">
+        <div className="exploreRecapChromeBar">
+          <div className="exploreRecapCompactBg" aria-hidden="true" />
           <TerminalTopBarChrome
-            className="exploreRecapCompactChrome"
+            className="exploreRecapChrome"
             logoSrc="/mercerline_mark.png"
             backendUp={backendUp}
             macroActive={macroActive}
@@ -299,16 +278,38 @@ export function ExploreDailyRecap({
           />
         </div>
 
-        <div className="exploreRecapDots">
-          {Array.from({ length: slideCount }, (_, i) => (
-            <button
-              key={i}
-              type="button"
-              className={['exploreRecapDot', i === activeIdx ? 'isActive' : ''].filter(Boolean).join(' ')}
-              aria-label={`Go to recap section ${i + 1}`}
-              onClick={() => scrollToSlide(i)}
-            />
-          ))}
+        <div className="exploreRecapHero">
+          <div className="exploreRecapExpanded">
+            <div className="exploreRecapTrack" ref={trackRef}>
+              {loopEnabled ? (
+                <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true">
+                  {renderRecapSlideAt(recap, slideCount - 1)}
+                </div>
+              ) : null}
+              {Array.from({ length: slideCount }, (_, i) => (
+                <div key={i} className="exploreRecapSlideWrap">
+                  {renderRecapSlideAt(recap, i)}
+                </div>
+              ))}
+              {loopEnabled ? (
+                <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true">
+                  {renderRecapSlideAt(recap, 0)}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="exploreRecapDots">
+            {Array.from({ length: slideCount }, (_, i) => (
+              <button
+                key={i}
+                type="button"
+                className={['exploreRecapDot', i === activeIdx ? 'isActive' : ''].filter(Boolean).join(' ')}
+                aria-label={`Go to recap section ${i + 1}`}
+                onClick={() => scrollToSlide(i)}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </section>

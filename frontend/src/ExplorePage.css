@@ -171,9 +171,16 @@
   height: 100%;
 }
 
-/* Crossfade: expanded hero out, compact bar in */
-.exploreRecapDock .exploreRecapExpandedBg {
-  display: var(--explore-expanded-display);
+/* Chrome strip stays fixed at top; recap hero fades on collapse */
+.exploreRecapViewport {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.exploreRecapExpandedBg {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -182,13 +189,39 @@
   overflow: hidden;
 }
 
+.exploreRecapCompactBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: var(--explore-compact-opacity);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.exploreRecapCompactBg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/mercerline_background_2.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+.exploreRecapCompactBg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(5, 7, 10, 0.42) 0%, rgba(5, 7, 10, 0.72) 100%);
+  pointer-events: none;
+}
+
 .exploreRecapExpandedBg::before {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: var(--explore-recap-expanded-h);
+  inset: 0;
   background-image: url('/mercerline_background_1.png');
   background-size: 150% auto;
   background-position: center 48%;
@@ -200,10 +233,7 @@
 .exploreRecapExpandedBg::after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: var(--explore-recap-expanded-h);
+  inset: 0;
   background: linear-gradient(
     90deg,
     rgba(5, 7, 10, 0.82) 0%,
@@ -213,75 +243,45 @@
   pointer-events: none;
 }
 
-.exploreRecapDock .exploreRecapExpanded {
+.exploreRecapChromeBar {
+  flex: 0 0 var(--explore-recap-collapsed-h);
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  isolation: isolate;
+  border-bottom: 1px solid rgba(255, 255, 255, calc(0.08 * var(--explore-collapse)));
+  background: transparent;
+}
+
+.exploreRecapHero {
   position: relative;
   z-index: 1;
-  display: var(--explore-expanded-display);
-  height: 100%;
+  flex: 1 1 auto;
   min-height: 0;
+  display: var(--explore-expanded-display);
   opacity: var(--explore-expanded-opacity);
+  overflow: hidden;
   pointer-events: none;
 }
 
-.exploreRecapDock .exploreRecapTrack {
+.exploreRecapHero .exploreRecapTrack,
+.exploreRecapHero .exploreRecapDots {
   pointer-events: auto;
 }
 
-.exploreRecapDock .exploreRecapCompactBg {
-  position: absolute;
-  inset: 0;
+.exploreRecapExpanded {
+  position: relative;
   z-index: 1;
-  opacity: var(--explore-compact-opacity);
-  pointer-events: none;
-  overflow: hidden;
+  height: 100%;
+  min-height: 0;
 }
 
-.exploreRecapCompactBg::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: var(--explore-recap-expanded-h);
-  background-image: url('/mercerline_background_2.png');
-  background-size: 150% auto;
-  background-position: center 48%;
-  background-repeat: no-repeat;
-  opacity: 0.75;
-  pointer-events: none;
-}
-
-.exploreRecapCompactBg::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  height: var(--explore-recap-expanded-h);
-  background: linear-gradient(
-    90deg,
-    rgba(5, 7, 10, 0.82) 0%,
-    rgba(5, 7, 10, 0.34) 52%,
-    rgba(5, 7, 10, 0.58) 100%
-  );
-  pointer-events: none;
-}
-
-.exploreRecapDock .exploreRecapCompactBar {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: flex;
-  align-items: center;
-  padding: 0;
-  opacity: var(--explore-compact-opacity);
-  pointer-events: none;
-  overflow: hidden;
-  background: transparent;
-  isolation: isolate;
-}
-
-.exploreRecapCompactChrome {
+.exploreRecapChrome {
+  position: relative;
+  z-index: 1;
   --explore-compact-chrome-size: 30px;
   pointer-events: auto;
   box-sizing: border-box;
@@ -291,32 +291,34 @@
   gap: 10px;
 }
 
-.exploreRecapCompactChrome .terminalTopBarBrand {
+.exploreRecapChrome .terminalTopBarBrand {
   min-width: 0;
   align-items: center;
   gap: 10px;
   height: var(--explore-compact-chrome-size);
 }
 
-.exploreRecapCompactChrome .terminalTopBarLogo {
+.exploreRecapChrome .terminalTopBarLogo {
   width: var(--explore-compact-chrome-size);
   height: var(--explore-compact-chrome-size);
   transform: none;
   object-position: left center;
 }
 
-.exploreRecapCompactChrome .terminalTopBarName {
+.exploreRecapChrome .terminalTopBarName {
+  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   font-size: 12px;
-  letter-spacing: 0.14em;
+  font-weight: 400;
+  letter-spacing: 0.08em;
   line-height: 1;
 }
 
-.exploreRecapCompactChrome .terminalTopBarHealth {
+.exploreRecapChrome .terminalTopBarHealth {
   width: 7px;
   height: 7px;
 }
 
-.exploreRecapCompactChrome .terminalTopBarActions {
+.exploreRecapChrome .terminalTopBarActions {
   flex: 1;
   min-width: 0;
   justify-content: flex-end;
@@ -324,23 +326,28 @@
   height: var(--explore-compact-chrome-size);
 }
 
-.exploreRecapCompactChrome .terminalTopBarIconBtn {
+.exploreRecapChrome .terminalTopBarIconBtn {
   width: var(--explore-compact-chrome-size);
   height: var(--explore-compact-chrome-size);
 }
 
-.exploreRecapCompactChrome .terminalTopBarIcon {
-  width: calc(var(--explore-compact-chrome-size) - 6px);
-  height: calc(var(--explore-compact-chrome-size) - 6px);
+.exploreRecapChrome .terminalTopBarIcon {
+  width: 14px;
+  height: 14px;
   transform: none;
 }
 
-.exploreRecapCompactChrome .terminalTopBarIcon--calendar {
+.exploreRecapChrome .terminalTopBarIconBtn.isClose .terminalTopBarIcon {
   transform: none;
 }
 
-.exploreRecapCompactChrome .terminalTopBarIconBtn.isClose .terminalTopBarIcon {
-  transform: none;
+.exploreRecapChrome .terminalTopBarIconGroup {
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.exploreRecapDock .exploreRecapDots {
+  opacity: var(--explore-expanded-opacity);
 }
 
 .exploreRecapCompactSearch {
@@ -351,10 +358,9 @@
   min-width: 0;
   height: var(--explore-compact-chrome-size);
   padding: 0 10px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 8px;
-  background: rgba(8, 8, 12, 0.42);
-  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+  background: rgba(10, 11, 13, 0.82);
   cursor: text;
 }
 
@@ -366,15 +372,18 @@
   border: none;
   outline: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.9);
-  font-family: inherit;
-  font-size: 11px;
-  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.88);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.06em;
   line-height: 1.2;
 }
 
 .exploreRecapCompactSearchInput::placeholder {
-  color: rgba(255, 255, 255, 0.42);
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .exploreRecapCompactSearchInput::-webkit-search-cancel-button {
@@ -383,34 +392,10 @@
 
 .exploreRecapCompactSearchIcon {
   flex-shrink: 0;
-  width: 12px;
-  height: 12px;
+  width: 11px;
+  height: 11px;
   color: rgba(255, 255, 255, 0.42);
   pointer-events: none;
-}
-
-.exploreRecapCompactChrome .terminalTopBarIconGroup {
-  flex-shrink: 0;
-}
-
-.exploreRecapDock .exploreRecapDots {
-  z-index: 3;
-  opacity: var(--explore-expanded-opacity);
-  bottom: calc(16px * (1 - var(--explore-collapse)) + 50% * var(--explore-collapse));
-  transform: translate(-50%, calc(50% * var(--explore-collapse)));
-  padding-top: calc(7px + (4px - 7px) * var(--explore-collapse));
-  padding-bottom: calc(7px + (4px - 7px) * var(--explore-collapse));
-  padding-left: calc(12px + (10px - 12px) * var(--explore-collapse));
-  padding-right: calc(12px + (10px - 12px) * var(--explore-collapse));
-  pointer-events: auto;
-}
-
-.exploreRecapViewport {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  height: 100%;
-  overflow: hidden;
 }
 
 .exploreRecapTrack {
@@ -852,24 +837,11 @@
     flex: 0 0 auto;
   }
 
-  .exploreRecapExpandedBg::before {
-    height: max(100dvh, 100svh);
-    background-size: cover;
-    background-position: center top;
-  }
-
-  .exploreRecapExpandedBg::after {
-    height: max(100dvh, 100svh);
-  }
-
+  .exploreRecapExpandedBg::before,
+  .exploreRecapExpandedBg::after,
   .exploreRecapCompactBg::before {
-    height: max(100dvh, 100svh);
     background-size: cover;
     background-position: center top;
-  }
-
-  .exploreRecapCompactBg::after {
-    height: max(100dvh, 100svh);
   }
 }
 
@@ -895,15 +867,15 @@
     bottom: 12px;
   }
 
-  .exploreRecapCompactChrome {
+  .exploreRecapChrome {
     --explore-compact-chrome-size: 28px;
   }
 
-  .exploreRecapCompactChrome .terminalTopBarName {
+  .exploreRecapChrome .terminalTopBarName {
     font-size: 11px;
   }
 
-  .terminalShell--phone .exploreRecapCompactChrome .terminalTopBarLogo {
+  .terminalShell--phone .exploreRecapChrome .terminalTopBarLogo {
     width: var(--explore-compact-chrome-size);
     height: var(--explore-compact-chrome-size);
   }

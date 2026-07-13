@@ -17,16 +17,19 @@ import {
 import './DeepReport.css'
 
 const DEEP_COLLAPSE_RANGE_FALLBACK = 1
+/** Scroll progress (0–1) at which expanded header finishes fading; compact strip starts here. */
+const DEEP_EXPANDED_FADE_END = 0.88
 
 function deepCollapseProgressVars(progress) {
   const p = Math.min(1, Math.max(0, progress))
-  const expandedOpacity = p <= 0.42 ? 1 - p / 0.42 : 0
-  const compactOpacity = p >= 0.58 ? (p - 0.58) / 0.42 : 0
+  const expandedOpacity = p <= DEEP_EXPANDED_FADE_END ? 1 - p / DEEP_EXPANDED_FADE_END : 0
+  const compactOpacity =
+    p <= DEEP_EXPANDED_FADE_END ? 0 : (p - DEEP_EXPANDED_FADE_END) / (1 - DEEP_EXPANDED_FADE_END)
   return {
     '--deep-collapse': String(p),
     '--deep-expanded-opacity': String(expandedOpacity),
     '--deep-compact-opacity': String(compactOpacity),
-    '--deep-expanded-display': compactOpacity > 0 || p >= 0.42 ? 'none' : 'flex',
+    '--deep-expanded-display': p >= DEEP_EXPANDED_FADE_END ? 'none' : 'flex',
   }
 }
 
@@ -91,9 +94,9 @@ function DeepReportShell({
         <div ref={dockRef} className="drpt-dock">
           <div className="drpt-viewport">
             <div className="drpt-expandedBg" aria-hidden="true" />
-            <div className="drpt-expanded">{expandedHeader}</div>
-            <div className="drpt-compactBg" aria-hidden="true" />
-            <div className="drpt-compactBar">
+
+            <div className="drpt-chromeBar">
+              <div className="drpt-compactBg" aria-hidden="true" />
               <DeepCompactChrome
                 backendUp={chrome?.backendUp}
                 macroActive={chrome?.macroActive}
@@ -106,6 +109,8 @@ function DeepReportShell({
                 priceChangePct={compactPriceChangePct}
               />
             </div>
+
+            <div className="drpt-expanded">{expandedHeader}</div>
           </div>
         </div>
         <div ref={spacerRef} className="drpt-collapseSpacer" aria-hidden="true" />
