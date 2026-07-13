@@ -3,6 +3,23 @@ import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 
+const EXPLORE_COMPACT_MQ = '(max-width: 960px)'
+
+function useExploreCompactLayout() {
+  const [compact, setCompact] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(EXPLORE_COMPACT_MQ).matches,
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia(EXPLORE_COMPACT_MQ)
+    const onChange = () => setCompact(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  return compact
+}
+
 function getRecapSlideCount(recap) {
   return 1 + recap.companies.length + recap.actors.length
 }
@@ -155,6 +172,7 @@ export function ExploreDailyRecap({
   const jumpingRef = useRef(false)
   const activeIdxRef = useRef(0)
   const [activeIdx, setActiveIdx] = useState(0)
+  const compactLayout = useExploreCompactLayout()
   const slideCount = useMemo(() => getRecapSlideCount(recap), [recap])
   const loopEnabled = slideCount > 1
 
@@ -300,16 +318,38 @@ export function ExploreDailyRecap({
             </div>
           </div>
 
-          <div className="exploreRecapDots">
-            {Array.from({ length: slideCount }, (_, i) => (
-              <button
-                key={i}
-                type="button"
-                className={['exploreRecapDot', i === activeIdx ? 'isActive' : ''].filter(Boolean).join(' ')}
-                aria-label={`Go to recap section ${i + 1}`}
-                onClick={() => scrollToSlide(i)}
-              />
-            ))}
+          <div
+            className={['exploreRecapSlideFooter', compactLayout ? 'exploreRecapSlideFooter--compact' : '']
+              .filter(Boolean)
+              .join(' ')}
+          >
+            <div
+              className={['exploreRecapDots', compactLayout ? 'exploreRecapDots--static' : ''].filter(Boolean).join(' ')}
+            >
+              <div
+                className="exploreRecapDotsList"
+                role={compactLayout ? 'group' : 'tablist'}
+                aria-label="Recap sections"
+              >
+                {Array.from({ length: slideCount }, (_, i) =>
+                  compactLayout ? (
+                    <span
+                      key={i}
+                      className={['exploreRecapDot', i === activeIdx ? 'isActive' : ''].filter(Boolean).join(' ')}
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <button
+                      key={i}
+                      type="button"
+                      className={['exploreRecapDot', i === activeIdx ? 'isActive' : ''].filter(Boolean).join(' ')}
+                      aria-label={`Go to recap section ${i + 1}`}
+                      onClick={() => scrollToSlide(i)}
+                    />
+                  ),
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -1,4 +1,21 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, useEffect } from 'react'
+
+const COMPACT_CHART_MQ = '(max-width: 960px)'
+
+function useCompactChartLayout() {
+  const [compact, setCompact] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(COMPACT_CHART_MQ).matches,
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia(COMPACT_CHART_MQ)
+    const onChange = () => setCompact(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  return compact
+}
 
 const EMPTY = '-'
 const CHART_AREA_GRAD_TOP = 'var(--intel-accent-area-top)'
@@ -129,6 +146,8 @@ export function MiniPriceChart({
   const [hoverPos, setHoverPos] = useState(null)
   const priceRange = chartRangeProp ?? internalRange
   const setPriceRange = onChartRangeChange ?? setInternalRange
+  const compactChart = useCompactChartLayout()
+  const hoverEnabled = showHoverTooltip && !compactChart
 
   useLayoutEffect(() => {
     if (layoutSize?.w && layoutSize?.h) {
@@ -301,7 +320,7 @@ export function MiniPriceChart({
     hoverIdx != null && hoverIdx >= 0 && hoverIdx < vals.length ? hoverIdx : null
 
   function updateHoverFromClient(clientX, clientY) {
-    if (!showHoverTooltip || !vals.length || !wrapRef.current) return
+    if (!hoverEnabled || !vals.length || !wrapRef.current) return
     const rect = wrapRef.current.getBoundingClientRect()
     if (!rect.width) return
     const fracX = (clientX - rect.left) / rect.width
@@ -371,14 +390,14 @@ export function MiniPriceChart({
         className={[
           'researchMiniPriceWrap',
           flushEdges ? 'researchMiniPriceWrap--flush' : '',
-          showHoverTooltip ? 'researchMiniPriceWrap--interactive' : '',
+          hoverEnabled ? 'researchMiniPriceWrap--interactive' : '',
         ]
           .filter(Boolean)
           .join(' ')}
         role="img"
         aria-label="Mini price sparkline"
-        onPointerMove={showHoverTooltip ? (e) => updateHoverFromClient(e.clientX, e.clientY) : undefined}
-        onPointerLeave={showHoverTooltip ? clearHover : undefined}
+        onPointerMove={hoverEnabled ? (e) => updateHoverFromClient(e.clientX, e.clientY) : undefined}
+        onPointerLeave={hoverEnabled ? clearHover : undefined}
       >
         {!vals.length ? (
           <div className="graphEmpty mono dim" role="status">
@@ -389,7 +408,7 @@ export function MiniPriceChart({
             className="graphSvg"
             viewBox={`0 0 ${w} ${h}`}
             preserveAspectRatio={flushEdges ? 'none' : 'xMidYMid meet'}
-            overflow={showHoverTooltip ? 'visible' : undefined}
+            overflow={hoverEnabled ? 'visible' : undefined}
             role="img"
           >
             {!lineOnly ? (
@@ -461,7 +480,7 @@ export function MiniPriceChart({
 
             <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
 
-            {activeIdx != null && showHoverTooltip ? (
+            {activeIdx != null && hoverEnabled ? (
               <g className="graphHoverMarker" aria-hidden="true">
                 <line
                   className="graphHoverLine"
@@ -475,7 +494,7 @@ export function MiniPriceChart({
             ) : null}
           </svg>
         )}
-        {activeIdx != null && hoverPos && showHoverTooltip ? (
+        {activeIdx != null && hoverPos && hoverEnabled ? (
           <div
             className="researchMiniPriceTooltip mono"
             style={{

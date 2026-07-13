@@ -273,7 +273,7 @@
 }
 
 .exploreRecapHero .exploreRecapTrack,
-.exploreRecapHero .exploreRecapDots {
+.exploreRecapHero .exploreRecapSlideFooter {
   pointer-events: auto;
 }
 
@@ -354,7 +354,7 @@
   gap: 8px;
 }
 
-.exploreRecapDock .exploreRecapDots {
+.exploreRecapDock .exploreRecapSlideFooter {
   opacity: var(--explore-expanded-opacity);
 }
 
@@ -486,12 +486,35 @@
   color: rgba(255, 255, 255, 0.42);
 }
 
-.exploreRecapDots {
+.exploreRecapSlideFooter {
   position: absolute;
   left: 50%;
   bottom: 16px;
   z-index: 3;
   transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: max-content;
+  max-width: calc(100% - 2 * var(--explore-page-pad-x));
+  pointer-events: auto;
+}
+
+.exploreRecapSlideFooter--compact {
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: none;
+  transform: none;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--explore-page-pad-x);
+  box-sizing: border-box;
+}
+
+.exploreRecapDots {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -501,7 +524,12 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(5, 7, 10, 0.52);
   backdrop-filter: blur(10px);
-  pointer-events: auto;
+}
+
+.exploreRecapDotsList {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .exploreRecapDot {
@@ -779,9 +807,11 @@
 
 @media (max-width: 960px) {
   .explorePage {
-    --explore-recap-expanded-h: 100dvh;
-    --explore-recap-expanded-h: 100svh;
+    --explore-recap-expanded-h: calc(100dvh - 72px);
+    --explore-recap-expanded-h: calc(100svh - 72px);
     --explore-page-pad-x: 18px;
+    --explore-recap-dock-pad-block: 12px;
+    --explore-recap-dock-pad-inline: 16px;
   }
 
   .explorePageBody {
@@ -802,32 +832,42 @@
   }
 
   .exploreRecapEventLayout {
+    position: relative;
     display: flex;
     flex-direction: column;
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
     align-items: stretch;
-    gap: 0;
+    width: 100%;
   }
 
   .exploreRecapEventCopy {
     flex: 0 0 auto;
+    position: relative;
+    z-index: 1;
   }
 
   .exploreRecapEventVisual {
-    margin-top: auto;
-    justify-content: flex-end;
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    margin-top: 0;
+    justify-content: flex-start;
+    align-items: flex-end;
     flex: 0 0 auto;
-    min-height: clamp(70px, 14vh, 110px);
-    padding-bottom: 12px;
+    min-height: 0;
+    padding-bottom: 0;
+    width: 100%;
   }
 
   .exploreRecapEventChart {
-    flex: 0 0 100%;
-    height: 100%;
-    max-height: none;
+    flex: 0 0 auto;
+    width: 75%;
+    height: clamp(70px, 14vh, 110px);
     min-height: clamp(70px, 14vh, 110px);
+    max-height: clamp(70px, 14vh, 110px);
   }
 
   .exploreRecapSlideInner--feature {
@@ -853,6 +893,21 @@
     background-size: cover;
     background-position: center top;
   }
+
+  .exploreRecapSlideFooter--compact {
+    bottom: 12px;
+  }
+
+  .exploreRecapDots--static {
+    flex: 0 0 auto;
+    padding: var(--explore-recap-dock-pad-block) var(--explore-recap-dock-pad-inline);
+    box-sizing: border-box;
+  }
+
+  .exploreRecapDot {
+    cursor: default;
+    pointer-events: none;
+  }
 }
 
 @media (max-width: 640px) {
@@ -864,17 +919,15 @@
     padding-top: 18px;
   }
 
-  .exploreRecapEventVisual {
-    min-height: clamp(60px, 12vh, 90px);
-    padding-bottom: 8px;
-  }
-
   .exploreRecapEventChart {
+    width: 75%;
     min-height: clamp(60px, 12vh, 90px);
+    height: clamp(60px, 12vh, 90px);
+    max-height: clamp(60px, 12vh, 90px);
   }
 
-  .exploreRecapDots {
-    bottom: 12px;
+  .exploreRecapSlideFooter--compact {
+    bottom: 10px;
   }
 
   .exploreRecapChrome {

@@ -669,6 +669,8 @@ const OUTCOME_GRAPH_PATH = { stroke: 'var(--intel-accent-stroke-strong)', stroke
 function DeepTrackRecordChart({ points = [] }) {
   const wrapRef = useRef(null)
   const gradId = useId()
+  const compact = useDeepCompactLayout()
+  const hoverEnabled = !compact
   const [size, setSize] = useState(null)
   const [hoverIdx, setHoverIdx] = useState(null)
   const [hoverPos, setHoverPos] = useState(null)
@@ -737,7 +739,7 @@ function DeepTrackRecordChart({ points = [] }) {
   const activePoint = activeIdx != null ? points[activeIdx] : null
 
   function updateHoverFromClient(clientX, clientY) {
-    if (!vals.length || !wrapRef.current) return
+    if (!hoverEnabled || !vals.length || !wrapRef.current) return
     const rect = wrapRef.current.getBoundingClientRect()
     if (!rect.width) return
     const fracX = (clientX - rect.left) / rect.width
@@ -760,12 +762,18 @@ function DeepTrackRecordChart({ points = [] }) {
 
   return (
     <div
-      className="researchMiniPriceWrap researchMiniPriceWrap--flush researchMiniPriceWrap--interactive"
+      className={[
+        'researchMiniPriceWrap',
+        'researchMiniPriceWrap--flush',
+        hoverEnabled ? 'researchMiniPriceWrap--interactive' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       ref={wrapRef}
       role="img"
       aria-label="Cumulative realized track record"
-      onPointerMove={(e) => updateHoverFromClient(e.clientX, e.clientY)}
-      onPointerLeave={clearHover}
+      onPointerMove={hoverEnabled ? (e) => updateHoverFromClient(e.clientX, e.clientY) : undefined}
+      onPointerLeave={hoverEnabled ? clearHover : undefined}
     >
       {size ? (
         <svg
@@ -785,7 +793,7 @@ function DeepTrackRecordChart({ points = [] }) {
         {linePath ? (
           <path className="graphPath" style={OUTCOME_GRAPH_PATH} d={linePath} vectorEffect="non-scaling-stroke" />
         ) : null}
-        {activeIdx != null ? (
+        {activeIdx != null && hoverEnabled ? (
           <g className="graphHoverMarker" aria-hidden="true">
             <line className="graphHoverLine" x1={xAt(activeIdx)} x2={xAt(activeIdx)} y1={plotTop} y2={axisY} />
             <circle className="graphHoverDot" cx={xAt(activeIdx)} cy={yAt(vals[activeIdx])} r={3.5} />
@@ -793,7 +801,7 @@ function DeepTrackRecordChart({ points = [] }) {
         ) : null}
       </svg>
       ) : null}
-      {activePoint && hoverPos ? (
+      {activePoint && hoverPos && hoverEnabled ? (
         <div
           className="researchMiniPriceTooltip mono"
           style={{
