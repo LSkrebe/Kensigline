@@ -215,7 +215,7 @@
   width: 100%;
   padding-inline: var(--drpt-page-pad-x);
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 
 .deepCompactChromeTrail {
@@ -243,15 +243,7 @@
 .deepCompactChrome .terminalTopBarBrand {
   min-width: 0;
   align-items: center;
-  gap: 10px;
   height: var(--explore-compact-chrome-size);
-}
-
-.deepCompactChrome .terminalTopBarLogo {
-  width: var(--explore-compact-chrome-size);
-  height: var(--explore-compact-chrome-size);
-  transform: none;
-  object-position: left center;
 }
 
 .deepCompactChrome .terminalTopBarName {
@@ -260,11 +252,6 @@
   font-weight: 400;
   letter-spacing: 0.08em;
   line-height: 1;
-}
-
-.deepCompactChrome .terminalTopBarHealth {
-  width: 7px;
-  height: 7px;
 }
 
 .deepCompactChrome .terminalTopBarActions {

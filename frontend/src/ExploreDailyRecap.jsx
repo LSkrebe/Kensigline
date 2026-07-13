@@ -275,6 +275,7 @@ export function ExploreDailyRecap({
             onSettingsClick={onSettingsClick}
             showSearch
             searchPlaceholder="Search companies, actors"
+            searchPlaceholderMobile="Search"
           />
         </div>
 

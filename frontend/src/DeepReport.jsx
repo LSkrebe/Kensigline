@@ -17,14 +17,18 @@ import {
 import './DeepReport.css'
 
 const DEEP_COLLAPSE_RANGE_FALLBACK = 1
-/** Scroll progress (0–1) at which expanded header finishes fading; compact strip starts here. */
+/** Scroll progress (0–1) at which expanded header / bg finishes fading. */
 const DEEP_EXPANDED_FADE_END = 0.88
+/** Strip bg_2 fades in from the start of collapse through 100% scroll. */
+const DEEP_COMPACT_FADE_START = 0
 
 function deepCollapseProgressVars(progress) {
   const p = Math.min(1, Math.max(0, progress))
   const expandedOpacity = p <= DEEP_EXPANDED_FADE_END ? 1 - p / DEEP_EXPANDED_FADE_END : 0
   const compactOpacity =
-    p <= DEEP_EXPANDED_FADE_END ? 0 : (p - DEEP_EXPANDED_FADE_END) / (1 - DEEP_EXPANDED_FADE_END)
+    p <= DEEP_COMPACT_FADE_START
+      ? 0
+      : (p - DEEP_COMPACT_FADE_START) / (1 - DEEP_COMPACT_FADE_START)
   return {
     '--deep-collapse': String(p),
     '--deep-expanded-opacity': String(expandedOpacity),

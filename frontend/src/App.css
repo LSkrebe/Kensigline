@@ -2,6 +2,8 @@
   /* Mercerline “moonlight” palette (global). */
   --terminal-topbar-h: clamp(28px, 4.2vmin, 34px);
   --terminal-topbar-icon-size: clamp(18px, 2.8vmin, 22px);
+  /* Scale mark asset inside its clip box to trim baked-in transparent padding. */
+  --terminal-mark-crop-scale: 1.38;
   --bg: #050607;
   --panel: rgba(10, 11, 13, 0.86);
   --grid: rgba(255, 255, 255, 0.09);
@@ -187,7 +189,7 @@
   width: 100%;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
 }
@@ -365,14 +367,23 @@
   color: var(--dim);
 }
 
-.terminalTopBarLogo {
+.terminalTopBarLogoClip {
   display: block;
+  flex-shrink: 0;
   width: var(--terminal-topbar-icon-size);
   height: var(--terminal-topbar-icon-size);
+  overflow: hidden;
+  margin-left: calc(var(--terminal-topbar-icon-size) * -0.1);
+}
+
+.terminalTopBarLogo {
+  display: block;
+  width: calc(var(--terminal-topbar-icon-size) * var(--terminal-mark-crop-scale));
+  height: var(--terminal-topbar-icon-size);
+  max-width: none;
   object-fit: contain;
-  object-position: center;
+  object-position: left center;
   opacity: 0.95;
-  transform: translateX(4px);
   flex-shrink: 0;
 }
 
@@ -479,6 +490,25 @@
 }
 
 /* Explore / Deep dock strip — rigid bordered controls */
+.exploreRecapChrome .terminalTopBarBrand,
+.deepCompactChrome .terminalTopBarBrand {
+  gap: 8px;
+}
+
+.exploreRecapChrome .terminalTopBarLogoClip,
+.deepCompactChrome .terminalTopBarLogoClip {
+  width: var(--explore-compact-chrome-size);
+  height: var(--explore-compact-chrome-size);
+  margin-left: calc(var(--explore-compact-chrome-size) * -0.1);
+}
+
+.exploreRecapChrome .terminalTopBarLogo,
+.deepCompactChrome .terminalTopBarLogo {
+  width: calc(var(--explore-compact-chrome-size) * var(--terminal-mark-crop-scale));
+  height: var(--explore-compact-chrome-size);
+  margin-right: 0;
+}
+
 .exploreRecapChrome .terminalTopBarIconGroup,
 .deepCompactChrome .terminalTopBarIconGroup {
   gap: 8px;
@@ -5901,14 +5931,23 @@
   line-height: 1.4;
 }
 
-/* Settings tab — single scroll page with compact cards */
-.terminal.terminal--settings,
-.terminal.terminal--macro {
-  display: block;
+/* Settings tab — full-height shell with embedded strip chrome */
+.terminal.terminal--settings {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   overflow: hidden;
   padding: 0;
-  background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
+  background: #080809;
+}
+
+.terminal.terminal--macro {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  background: #080809;
 }
 
 .macroCalendarPage {
@@ -8736,7 +8775,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--institutions .feed--left .feedFilterTypeRow,
 .terminal--researchFeed .researchTicker.feed--left .feedFilterTypeRow,
 .terminal--discover .discoverCol--filter .feedFilterTypeRow,
-.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeRow
+.terminal--macro .mcalBodyContent--filterOpen .feedFilterTypeRow
 {
   gap: 6px;
   min-height: calc(10px * 1.15 + 10px);
@@ -8754,7 +8793,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--institutions .feed--left .feedFilterTypeRow:hover,
 .terminal--researchFeed .researchTicker.feed--left .feedFilterTypeRow:hover,
 .terminal--discover .discoverCol--filter .feedFilterTypeRow:hover,
-.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeRow:hover
+.terminal--macro .mcalBodyContent--filterOpen .feedFilterTypeRow:hover
 {
   background: rgba(255, 255, 255, 0.03);
 }
@@ -8764,7 +8803,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--institutions .feed--left .feedFilterTypeLabel,
 .terminal--researchFeed .researchTicker.feed--left .feedFilterTypeLabel,
 .terminal--discover .discoverCol--filter .feedFilterTypeLabel,
-.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeLabel
+.terminal--macro .mcalBodyContent--filterOpen .feedFilterTypeLabel
 {
   color: rgba(255, 255, 255, 0.88);
 }
@@ -8774,7 +8813,7 @@ button.researchPaperCopyIcon:focus-visible {
 .terminal--institutions .feed--left .feedFilterTypeCode,
 .terminal--researchFeed .researchTicker.feed--left .feedFilterTypeCode,
 .terminal--discover .discoverCol--filter .feedFilterTypeCode,
-.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeCode
+.terminal--macro .mcalBodyContent--filterOpen .feedFilterTypeCode
 {
   min-width: 2.5ch;
   max-width: none;
@@ -8783,15 +8822,15 @@ button.researchPaperCopyIcon:focus-visible {
   color: rgba(255, 255, 255, 0.52);
 }
 
-.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeCode--impact-high {
+.terminal--macro .mcalBodyContent--filterOpen .feedFilterTypeCode--impact-high {
   color: rgba(255, 120, 160, 0.9);
 }
 
-.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeCode--impact-medium {
+.terminal--macro .mcalBodyContent--filterOpen .feedFilterTypeCode--impact-medium {
   color: rgba(255, 200, 120, 0.82);
 }
 
-.terminal--macro .macroCalendarPageContent--filterOpen .feedFilterTypeCode--impact-low {
+.terminal--macro .mcalBodyContent--filterOpen .feedFilterTypeCode--impact-low {
   color: rgba(255, 255, 255, 0.28);
 }
 
@@ -11633,8 +11672,14 @@ body {
     letter-spacing: 0.14em;
   }
 
-  .terminalShell--phone .terminalTopBarLogo {
+  .terminalShell--phone .terminalTopBarLogoClip {
     width: 20px;
+    height: 20px;
+    margin-left: -2px;
+  }
+
+  .terminalShell--phone .terminalTopBarLogo {
+    width: calc(20px * var(--terminal-mark-crop-scale));
     height: 20px;
   }
 

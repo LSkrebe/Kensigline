@@ -39,7 +39,7 @@ export function DeepCompactChrome({
 
   return (
     <div className="deepCompactChrome terminalTopBarChrome">
-      <TerminalTopBarBrand backendUp={backendUp} logoSrc="/mercerline_mark.png" />
+      <TerminalTopBarBrand logoSrc="/mercerline_mark.png" />
       <TerminalTopBarActions
         leading={trail}
         macroActive={macroActive}

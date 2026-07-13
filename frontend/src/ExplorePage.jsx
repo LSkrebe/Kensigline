@@ -5,14 +5,18 @@ import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import './ExplorePage.css'
 
 const COLLAPSE_RANGE_FALLBACK = 1
-/** Scroll progress (0–1) at which recap hero finishes fading; strip bg_2 starts here. */
+/** Scroll progress (0–1) at which recap hero / expanded bg finishes fading. */
 const EXPLORE_EXPANDED_FADE_END = 0.88
+/** Strip bg_2 fades in from the start of collapse through 100% scroll. */
+const EXPLORE_COMPACT_FADE_START = 0
 
 function collapseProgressVars(progress) {
   const p = Math.min(1, Math.max(0, progress))
   const expandedOpacity = p <= EXPLORE_EXPANDED_FADE_END ? 1 - p / EXPLORE_EXPANDED_FADE_END : 0
   const compactOpacity =
-    p <= EXPLORE_EXPANDED_FADE_END ? 0 : (p - EXPLORE_EXPANDED_FADE_END) / (1 - EXPLORE_EXPANDED_FADE_END)
+    p <= EXPLORE_COMPACT_FADE_START
+      ? 0
+      : (p - EXPLORE_COMPACT_FADE_START) / (1 - EXPLORE_COMPACT_FADE_START)
   return {
     '--explore-collapse': String(p),
     '--explore-expanded-opacity': String(expandedOpacity),

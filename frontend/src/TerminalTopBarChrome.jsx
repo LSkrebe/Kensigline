@@ -1,5 +1,22 @@
 import { useEffect, useState } from 'react'
 
+const COMPACT_SEARCH_MQ = '(max-width: 640px)'
+
+function useCompactSearchLayout() {
+  const [compact, setCompact] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(COMPACT_SEARCH_MQ).matches,
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia(COMPACT_SEARCH_MQ)
+    const onChange = () => setCompact(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  return compact
+}
+
 function formatHhMmLocal(d) {
   const hh = String(d.getHours()).padStart(2, '0')
   const mm = String(d.getMinutes()).padStart(2, '0')
@@ -53,21 +70,18 @@ function useTerminalTopBarClock(clockAt = null) {
   return now
 }
 
-export function TerminalTopBarBrand({ backendUp = true, logoSrc = '/mercerline_logo.png' }) {
+export function TerminalTopBarBrand({ logoSrc = '/mercerline_logo.png' }) {
   return (
     <div className="terminalTopBarBrand">
-      <img
-        className="terminalTopBarLogo"
-        src={logoSrc}
-        alt=""
-        decoding="async"
-      />
+      <span className="terminalTopBarLogoClip">
+        <img
+          className="terminalTopBarLogo"
+          src={logoSrc}
+          alt=""
+          decoding="async"
+        />
+      </span>
       <span className="terminalTopBarName">MERCERLINE</span>
-      <span
-        className={backendUp ? 'terminalTopBarHealth isUp' : 'terminalTopBarHealth isDown'}
-        title={backendUp ? 'API connected' : 'API offline'}
-        aria-label={backendUp ? 'Backend up' : 'Backend down'}
-      />
     </div>
   )
 }
@@ -82,10 +96,17 @@ export function TerminalTopBarActions({
   shortDate = false,
   showSearch = false,
   searchPlaceholder = 'Search',
+  searchPlaceholderMobile = null,
   leading = null,
+  hideMacro = false,
+  hideSettings = false,
 }) {
   const now = useTerminalTopBarClock(clockAt)
+  const compactSearch = useCompactSearchLayout()
   const dateLabel = shortDate ? formatTerminalTopBarDateLabelShort(now) : formatTerminalTopBarDateLabel(now)
+  const activeSearchPlaceholder = compactSearch
+    ? (searchPlaceholderMobile ?? searchPlaceholder)
+    : searchPlaceholder
 
   return (
     <div className="terminalTopBarActions">
@@ -94,8 +115,8 @@ export function TerminalTopBarActions({
           <input
             className="exploreRecapCompactSearchInput"
             type="search"
-            placeholder={searchPlaceholder}
-            aria-label={searchPlaceholder}
+            placeholder={activeSearchPlaceholder}
+            aria-label={activeSearchPlaceholder}
             spellCheck={false}
             autoComplete="off"
           />
@@ -117,65 +138,69 @@ export function TerminalTopBarActions({
       ) : null}
       {leading}
       <div className="terminalTopBarIconGroup">
-        <button
-          type="button"
-          className={macroActive ? 'terminalTopBarIconBtn isActive isClose' : 'terminalTopBarIconBtn'}
-          aria-label={macroActive ? 'Close macro calendar' : 'Macro calendar'}
-          aria-current={macroActive ? 'page' : undefined}
-          onClick={onMacroClick}
-        >
-          {macroActive ? (
-            <svg className="terminalTopBarIcon terminalTopBarIcon--close" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="square"
-                d="M7 7l10 10M17 7L7 17"
-              />
-            </svg>
-          ) : (
-            <svg className="terminalTopBarIcon terminalTopBarIcon--macro" viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="none" stroke="currentColor" strokeWidth="1.5" d="M5 5h14v16H5z" />
-              <path stroke="currentColor" strokeWidth="1.5" d="M5 9h14" />
-              <path stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" d="M9 3v4M15 3v4" />
-              <rect x="8" y="12" width="3" height="3" fill="currentColor" />
-              <rect x="13" y="12" width="3" height="3" fill="currentColor" opacity="0.45" />
-            </svg>
-          )}
-        </button>
-        <button
-          type="button"
-          className={settingsActive ? 'terminalTopBarIconBtn isActive isClose' : 'terminalTopBarIconBtn'}
-          aria-label={settingsActive ? 'Close settings' : 'Settings'}
-          aria-current={settingsActive ? 'page' : undefined}
-          onClick={onSettingsClick}
-        >
-          {settingsActive ? (
-            <svg className="terminalTopBarIcon terminalTopBarIcon--close" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="square"
-                d="M7 7l10 10M17 7L7 17"
-              />
-            </svg>
-          ) : (
-            <svg className="terminalTopBarIcon terminalTopBarIcon--settings" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="square"
-                d="M4 7h12M4 12h16M4 17h9"
-              />
-              <circle cx="18" cy="7" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              <circle cx="14" cy="12" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-              <circle cx="17" cy="17" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
-            </svg>
-          )}
-        </button>
+        {!hideMacro ? (
+          <button
+            type="button"
+            className={macroActive ? 'terminalTopBarIconBtn isActive isClose' : 'terminalTopBarIconBtn'}
+            aria-label={macroActive ? 'Close macro calendar' : 'Macro calendar'}
+            aria-current={macroActive ? 'page' : undefined}
+            onClick={onMacroClick}
+          >
+            {macroActive ? (
+              <svg className="terminalTopBarIcon terminalTopBarIcon--close" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="square"
+                  d="M7 7l10 10M17 7L7 17"
+                />
+              </svg>
+            ) : (
+              <svg className="terminalTopBarIcon terminalTopBarIcon--macro" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="none" stroke="currentColor" strokeWidth="1.5" d="M5 5h14v16H5z" />
+                <path stroke="currentColor" strokeWidth="1.5" d="M5 9h14" />
+                <path stroke="currentColor" strokeWidth="1.5" strokeLinecap="square" d="M9 3v4M15 3v4" />
+                <rect x="8" y="12" width="3" height="3" fill="currentColor" />
+                <rect x="13" y="12" width="3" height="3" fill="currentColor" opacity="0.45" />
+              </svg>
+            )}
+          </button>
+        ) : null}
+        {!hideSettings ? (
+          <button
+            type="button"
+            className={settingsActive ? 'terminalTopBarIconBtn isActive isClose' : 'terminalTopBarIconBtn'}
+            aria-label={settingsActive ? 'Close settings' : 'Settings'}
+            aria-current={settingsActive ? 'page' : undefined}
+            onClick={onSettingsClick}
+          >
+            {settingsActive ? (
+              <svg className="terminalTopBarIcon terminalTopBarIcon--close" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="square"
+                  d="M7 7l10 10M17 7L7 17"
+                />
+              </svg>
+            ) : (
+              <svg className="terminalTopBarIcon terminalTopBarIcon--settings" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="square"
+                  d="M4 7h12M4 12h16M4 17h9"
+                />
+                <circle cx="18" cy="7" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <circle cx="14" cy="12" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <circle cx="17" cy="17" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              </svg>
+            )}
+          </button>
+        ) : null}
       </div>
     </div>
   )
@@ -192,12 +217,16 @@ export function TerminalTopBarChrome({
   shortDate = false,
   showSearch = false,
   searchPlaceholder = 'Search',
+  searchPlaceholderMobile = null,
   logoSrc = '/mercerline_logo.png',
   className = '',
+  hideMacro = false,
+  hideSettings = false,
+  leading = null,
 }) {
   return (
     <div className={['terminalTopBarChrome', className].filter(Boolean).join(' ')}>
-      <TerminalTopBarBrand backendUp={backendUp} logoSrc={logoSrc} />
+      <TerminalTopBarBrand logoSrc={logoSrc} />
       <TerminalTopBarActions
         macroActive={macroActive}
         onMacroClick={onMacroClick}
@@ -208,6 +237,10 @@ export function TerminalTopBarChrome({
         shortDate={shortDate}
         showSearch={showSearch}
         searchPlaceholder={searchPlaceholder}
+        searchPlaceholderMobile={searchPlaceholderMobile}
+        hideMacro={hideMacro}
+        hideSettings={hideSettings}
+        leading={leading}
       />
     </div>
   )

@@ -17,6 +17,9 @@ import {
   shiftMonthKey,
 } from './macroCalendarData.js'
 import { readFilterSet, UI_PREF_KEYS, writeFilterSet } from './uiPreferences.js'
+import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
+import './ExplorePage.css'
+import './MacroCalendarPage.css'
 
 const MACRO_REGION_LABEL = {
   US: 'US',
@@ -53,21 +56,6 @@ function MacroFilterIcon() {
   )
 }
 
-function MacroResetIcon() {
-  return (
-    <svg className="feedCompactFilterIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d="M4 4v6h6M20 20v-6h-6M5.6 9a7.5 7.5 0 0 1 12.7-2.3M18.4 15a7.5 7.5 0 0 1-12.7 2.3"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 function toggleFilterSet(setter, id) {
   setter((prev) => {
     const next = new Set(prev)
@@ -79,7 +67,7 @@ function toggleFilterSet(setter, id) {
 
 function MacroFilterPicker({ sections, enabled, onToggle, ariaLabel }) {
   return (
-    <div className="feedCompactFilterPicker scrollThin" role="group" aria-label={ariaLabel}>
+    <div className="mcalFilterPicker feedCompactFilterPicker scrollThin" role="group" aria-label={ariaLabel}>
       {sections.map((section, idx) => (
         <div key={section.title || String(idx)} className="feedFilterSection">
           {section.title ? <p className="feedFilterSectionTitle">{section.title}</p> : null}
@@ -107,26 +95,65 @@ function MacroFilterPicker({ sections, enabled, onToggle, ariaLabel }) {
   )
 }
 
-function MacroMonthNav({ monthKey, onChange }) {
+function MacroStripMonthNav({ monthKey, onChange }) {
   return (
-    <div className="macroCalMonthNav" role="navigation" aria-label="Calendar month">
+    <div className="mcalStripMonthNav" role="navigation" aria-label="Calendar month">
       <button
         type="button"
-        className="macroCalMonthNavBtn mono"
+        className="mcalStripMonthBtn mono"
         aria-label="Previous month"
         onClick={() => onChange(shiftMonthKey(monthKey, -1))}
       >
         ‹
       </button>
-      <span className="macroCalMonthNavTitle">{formatMacroMonthTitle(monthKey)}</span>
+      <span className="mcalStripMonthLabel">{formatMacroMonthTitle(monthKey)}</span>
       <button
         type="button"
-        className="macroCalMonthNavBtn mono"
+        className="mcalStripMonthBtn mono"
         aria-label="Next month"
         onClick={() => onChange(shiftMonthKey(monthKey, 1))}
       >
         ›
       </button>
+    </div>
+  )
+}
+
+function MacroCalendarStrip({
+  backendUp,
+  onMacroClick,
+  viewMonth,
+  onViewMonthChange,
+  filterOpen,
+  onFilterToggle,
+}) {
+  return (
+    <div className="mcalStrip">
+      <div className="exploreRecapCompactBg" aria-hidden="true" />
+      <TerminalTopBarChrome
+        className="exploreRecapChrome"
+        logoSrc="/mercerline_mark.png"
+        backendUp={backendUp}
+        macroActive
+        onMacroClick={onMacroClick}
+        hideDate
+        hideSettings
+        leading={
+          <div className="mcalStripActions">
+            <MacroStripMonthNav monthKey={viewMonth} onChange={onViewMonthChange} />
+            <button
+              type="button"
+              className={['mcalStripFilterBtn', filterOpen ? 'isActive' : ''].filter(Boolean).join(' ')}
+              aria-label="Filter macro calendar"
+              title="Filter"
+              aria-pressed={filterOpen || undefined}
+              onClick={onFilterToggle}
+            >
+              <MacroFilterIcon />
+            </button>
+          </div>
+        }
+      />
     </div>
   )
 }
@@ -204,7 +231,7 @@ function MacroMonthGrid({ cells }) {
   )
 }
 
-export function MacroCalendarPanel({ backendUp = false }) {
+export function MacroCalendarPanel({ backendUp = false, onMacroClick }) {
   const [viewMonth, setViewMonth] = useState(() => currentMonthKey())
   const [liveMacro, setLiveMacro] = useState(null)
   const [fetching, setFetching] = useState(false)
@@ -305,60 +332,31 @@ export function MacroCalendarPanel({ backendUp = false }) {
   )
 
   const loading = backendUp && fetching && liveMacro == null
-  const refreshing = backendUp && fetching && liveMacro != null
-  const isCurrentMonth = viewMonth === currentMonthKey()
 
   return (
-    <div className="macroCalendarPage" aria-label="Macro calendar">
-      <header className="macroCalendarPageHead">
-        <div className="macroCalendarPageHeadMain">
-          <h1 className="macroCalendarPageTitle">MACRO CALENDAR</h1>
-          <p className="macroCalendarPageSubtitle mono dim">
-            Economic releases{refreshing ? ' · refreshing' : ''}
-          </p>
-        </div>
-        <div className="macroCalendarPageHeadCenter">
-          <MacroMonthNav monthKey={viewMonth} onChange={setViewMonth} />
-        </div>
-        <div className="macroCalendarPageHeadEnd">
-          <button
-            type="button"
-            className={['feedCompactFilterBtn', 'macroCalMonthResetBtn', !isCurrentMonth ? 'isActive' : '']
-              .filter(Boolean)
-              .join(' ')}
-            aria-label="Jump to current month"
-            title="Current month"
-            disabled={isCurrentMonth}
-            onClick={() => setViewMonth(currentMonthKey())}
-          >
-            <MacroResetIcon />
-          </button>
-          <button
-            type="button"
-            className={['feedCompactFilterBtn', filterOpen ? 'isActive' : ''].filter(Boolean).join(' ')}
-            aria-label="Filter macro calendar"
-            title="Filter"
-            aria-pressed={filterOpen || undefined}
-            onClick={() => setFilterOpen((open) => !open)}
-          >
-            <MacroFilterIcon />
-          </button>
-        </div>
-      </header>
+    <div className="mcalShell" aria-label="Macro calendar">
+      <MacroCalendarStrip
+        backendUp={backendUp}
+        onMacroClick={onMacroClick}
+        viewMonth={viewMonth}
+        onViewMonthChange={setViewMonth}
+        filterOpen={filterOpen}
+        onFilterToggle={() => setFilterOpen((open) => !open)}
+      />
 
-      <div className="macroCalendarPageBody">
+      <div className="mcalScroll scrollThin">
         <div
-          className={['macroCalendarPageContent', 'scrollThin', filterOpen ? 'macroCalendarPageContent--filterOpen' : '']
+          className={['mcalBodyContent', filterOpen ? 'mcalBodyContent--filterOpen' : '']
             .filter(Boolean)
             .join(' ')}
         >
-          <div className="macroCalendarPageMain" aria-hidden={filterOpen || undefined}>
+          <div className="mcalMain" aria-hidden={filterOpen || undefined}>
             {loading ? (
-              <p className="macroCalendarEmpty mono dim">Loading macro calendar…</p>
+              <p className="mcalEmpty">Loading macro calendar…</p>
             ) : !hasVisibleEvents ? (
-              <p className="macroCalendarEmpty mono dim">No macro releases this month.</p>
+              <p className="mcalEmpty">No macro releases this month.</p>
             ) : null}
-            {monthParsed && !loading ? <MacroMonthGrid cells={gridCells} /> : null}
+            {monthParsed && !loading && hasVisibleEvents ? <MacroMonthGrid cells={gridCells} /> : null}
           </div>
           {filterOpen ? (
             <MacroFilterPicker

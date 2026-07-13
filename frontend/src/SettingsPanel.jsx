@@ -6,6 +6,9 @@ import { useDigestPreference } from './alertsPreferences.js'
 import { useAuth } from './AuthContext.jsx'
 import { AuthSignIn } from './AuthSignIn.jsx'
 import { actorModeLabel } from './investigateActorKey.js'
+import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
+import './ExplorePage.css'
+import './SettingsPage.css'
 
 function formatBillingStatus(status) {
   const s = String(status ?? 'none').trim()
@@ -56,33 +59,61 @@ const ALERTS_EMPTY_HINT = 'Email alerts for watched tickers and actors.'
 const INVOICES_EMPTY_HINT =
   'Download invoices and update your payment method in Stripe via Manage billing.'
 
-function SettingsCardEmptyHint({ children }) {
-  return <p className="settingsCardEmptyHint">{children}</p>
+function SettingsStrip({ backendUp, onSettingsClick }) {
+  return (
+    <div className="stgDock">
+      <div className="exploreRecapCompactBg" aria-hidden="true" />
+      <TerminalTopBarChrome
+        className="exploreRecapChrome"
+        logoSrc="/mercerline_mark.png"
+        backendUp={backendUp}
+        settingsActive
+        onSettingsClick={onSettingsClick}
+        hideDate
+        hideMacro
+      />
+    </div>
+  )
 }
 
-function SettingsCard({ title, className = '', children, footer, headAside = null }) {
+function SettingsSection({ label, title, headAside = null, children, footer, panelClassName = '' }) {
   const hasBody = children != null && children !== false
+  const flushTable = panelClassName.includes('flushTable')
   return (
-    <section className={['settingsCard', className].filter(Boolean).join(' ')}>
-      <header
-        className={['settingsCardHead', headAside ? 'settingsCardHead--split' : '']
-          .filter(Boolean)
-          .join(' ')}
-      >
-        <h2 className="settingsCardTitle">{title}</h2>
-        {headAside}
-      </header>
-      {hasBody ? <div className="settingsCardBody">{children}</div> : null}
-      {footer ? <footer className="settingsCardFoot">{footer}</footer> : null}
+    <section className="stgSection">
+      {label ? <p className="stgSectionLabel">{label}</p> : null}
+      {title || headAside ? (
+        <header className="stgSectionHead">
+          {title ? <h2 className="stgSectionTitle">{title}</h2> : null}
+          {headAside}
+        </header>
+      ) : null}
+      {hasBody ? (
+        <div className={['stgPanel', panelClassName].filter(Boolean).join(' ')}>
+          {flushTable ? children : <div className="stgPanelBody">{children}</div>}
+          {footer ? <footer className="stgPanelFoot">{footer}</footer> : null}
+        </div>
+      ) : null}
     </section>
   )
 }
 
-function SettingsField({ label, children, valueTone }) {
+function SettingsField({ label, sublabel, children, valueTone }) {
   return (
-    <div className="settingsField">
-      <span className="settingsFieldLabel">{label}</span>
-      <span className={['settingsFieldValue', valueTone ? `settingsFieldValue--${valueTone}` : ''].filter(Boolean).join(' ')}>
+    <div className="stgField">
+      {sublabel ? (
+        <div className="stgFieldLabelGroup">
+          <span className="stgFieldLabel">{label}</span>
+          <span className="stgFieldSublabel">{sublabel}</span>
+        </div>
+      ) : (
+        <span className="stgFieldLabel">{label}</span>
+      )}
+      <span
+        className={['stgFieldValue', valueTone ? `stgFieldValue--${valueTone}` : '']
+          .filter(Boolean)
+          .join(' ')}
+      >
         {children}
       </span>
     </div>
@@ -91,28 +122,30 @@ function SettingsField({ label, children, valueTone }) {
 
 function SettingsDigestToggle({ enabled, busy, onChange }) {
   return (
-    <div className="settingsField settingsField--digest">
-      <div className="settingsFieldLabelGroup">
-        <span className="settingsFieldLabel">Idea digest</span>
-        <span className="settingsFieldSublabel">Twice-daily email summary</span>
+    <div className="stgField">
+      <div className="stgFieldLabelGroup">
+        <span className="stgFieldLabel">Idea digest</span>
+        <span className="stgFieldSublabel">Twice-daily email summary</span>
       </div>
       <span
-        className={['settingsFieldValue', 'settingsFieldValue--control', enabled ? 'isOn' : ''].filter(Boolean).join(' ')}
+        className={['stgFieldValue', 'stgFieldValue--control', enabled ? 'isOn' : '']
+          .filter(Boolean)
+          .join(' ')}
       >
-        <span className="settingsDigestState" aria-hidden="true">
+        <span className="stgDigestState" aria-hidden="true">
           {enabled ? 'On' : 'Off'}
         </span>
-        <label className="settingsSwitch">
+        <label className="stgSwitch">
           <input
             type="checkbox"
-            className="settingsSwitchInput"
+            className="stgSwitchInput"
             checked={enabled}
             disabled={busy}
             aria-label={enabled ? 'Idea digest on' : 'Idea digest off'}
             onChange={(e) => onChange(Boolean(e.target.checked))}
           />
-          <span className="settingsSwitchTrack" aria-hidden="true">
-            <span className="settingsSwitchThumb" />
+          <span className="stgSwitchTrack" aria-hidden="true">
+            <span className="stgSwitchThumb" />
           </span>
         </label>
       </span>
@@ -124,7 +157,7 @@ function SettingsAlertTable({ columns, rows, loading = false }) {
   if (loading) return null
   if (!rows.length) return null
   return (
-    <table className="settingsAlertTable">
+    <table className="stgTable">
       <thead>
         <tr>
           {columns.map((col) => (
@@ -149,7 +182,10 @@ function SettingsAlertTable({ columns, rows, loading = false }) {
   )
 }
 
-export function SettingsPanel() {
+export function SettingsPanel({
+  backendUp = true,
+  onSettingsClick,
+}) {
   const { configured, loading, user, signOut } = useAuth()
   const [portalBusy, setPortalBusy] = useState(false)
   const [billing, setBilling] = useState(null)
@@ -207,7 +243,7 @@ export function SettingsPanel() {
     {
       key: 'label',
       label: 'Alert',
-      className: 'settingsAlertTableCol--primary',
+      className: 'stgTableCol--primary',
       render: (row) => (
         <span className={row.kind === 'ticker' ? 'mono' : ''}>{row.label}</span>
       ),
@@ -215,16 +251,16 @@ export function SettingsPanel() {
     {
       key: 'type',
       label: 'Type',
-      render: (row) => <span className="settingsAlertTableType mono">{row.typeLabel}</span>,
+      render: (row) => <span className="stgTableType mono">{row.typeLabel}</span>,
     },
     {
       key: 'action',
       label: '',
-      className: 'settingsAlertTableCol--action',
+      className: 'stgTableCol--action',
       render: (row) => (
         <button
           type="button"
-          className="settingsAlertTableRemove"
+          className="stgTableRemove"
           aria-label={`Remove ${row.label} alerts`}
           disabled={row.busy}
           onClick={row.onRemove}
@@ -263,17 +299,24 @@ export function SettingsPanel() {
 
   if (!signedIn) {
     return (
-      <div className="settingsPage scrollThin">
-        <div className="settingsPageInner">
-          <SettingsCard title={loading ? 'SETTINGS' : 'SIGN IN'} className="settingsCard--signIn">
-            {loading ? (
-              <p className="settingsMuted mono" aria-live="polite">
-                Loading session…
-              </p>
-            ) : (
-              <AuthSignIn variant="settings" />
-            )}
-          </SettingsCard>
+      <div className="stgShell">
+        <SettingsStrip backendUp={backendUp} onSettingsClick={onSettingsClick} />
+        <div className="stgScroll scrollThin">
+          <div className="stgPaper">
+            <header className="stgHero">
+              <p className="stgKicker">Workspace</p>
+              <h1 className="stgTitle">Settings</h1>
+            </header>
+            <SettingsSection label="Access" title="Sign in" panelClassName="stgSignInPanel">
+              {loading ? (
+                <p className="stgMuted mono" aria-live="polite">
+                  Loading session…
+                </p>
+              ) : (
+                <AuthSignIn variant="settings" />
+              )}
+            </SettingsSection>
+          </div>
         </div>
       </div>
     )
@@ -282,92 +325,88 @@ export function SettingsPanel() {
   const email = user.email ?? '—'
 
   return (
-    <div className="settingsPage scrollThin">
-      <div className="settingsPageInner">
-        <div className="settingsPageGrid">
-          <SettingsCard
-            title="ACCOUNT"
-            className="settingsCard--account"
-            footer={
-              <button type="button" className="settingsLinkBtn settingsLinkBtn--danger" onClick={() => void signOut()}>
+    <div className="stgShell">
+      <SettingsStrip backendUp={backendUp} onSettingsClick={onSettingsClick} />
+      <div className="stgScroll scrollThin">
+        <div className="stgPaper">
+          <header className="stgHero">
+            <p className="stgKicker">Workspace</p>
+            <h1 className="stgTitle">Settings</h1>
+          </header>
+
+          <div className="stgRow">
+            <SettingsSection label="Profile" title="Account" footer={
+              <button type="button" className="stgBtn stgBtn--danger" onClick={() => void signOut()}>
                 Sign out
               </button>
-            }
-          >
-            <SettingsField label="Email">
-              <span className="mono" title={email}>
-                {email}
-              </span>
-            </SettingsField>
-            <SettingsDigestToggle
-              enabled={digestEnabled}
-              busy={digestBusy}
-              onChange={(next) => void setDigestEnabled(next)}
-            />
-            <SettingsField label="Session" valueTone="good">
-              <span className="settingsSessionPill">
-                <span className="settingsStatusDot settingsStatusDot--good" aria-hidden="true" />
-                Active
-              </span>
-            </SettingsField>
-          </SettingsCard>
+            }>
+              <SettingsField label="Email">
+                <span className="mono" title={email}>
+                  {email}
+                </span>
+              </SettingsField>
+              <SettingsDigestToggle
+                enabled={digestEnabled}
+                busy={digestBusy}
+                onChange={(next) => void setDigestEnabled(next)}
+              />
+              <SettingsField label="Session" valueTone="good">
+                <span className="stgSessionPill">
+                  <span className="stgStatusDot stgStatusDot--good" aria-hidden="true" />
+                  Active
+                </span>
+              </SettingsField>
+            </SettingsSection>
 
-          <SettingsCard
-            title="SUBSCRIPTION"
-            className="settingsCard--billing"
-            footer={
-              <button
-                type="button"
-                className="settingsLinkBtn"
-                disabled={portalBusy}
-                onClick={() => void onManageBilling()}
-              >
-                {portalBusy ? 'Opening…' : 'Manage billing'}
-              </button>
-            }
-          >
-            <SettingsField
-              label="Status"
-              valueTone={billing?.active ? 'good' : settingsStatusTone(billing?.status)}
+            <SettingsSection
+              label="Billing"
+              title="Subscription"
+              footer={
+                <button
+                  type="button"
+                  className="stgBtn"
+                  disabled={portalBusy}
+                  onClick={() => void onManageBilling()}
+                >
+                  {portalBusy ? 'Opening…' : 'Manage billing'}
+                </button>
+              }
             >
-              {billingLoading ? 'Loading…' : formatBillingStatus(billing?.status)}
-            </SettingsField>
-            <SettingsField label="Plan">{billingLoading ? '…' : formatPlan(billing?.plan)}</SettingsField>
-            <SettingsField label="Renews">
-              {billingLoading ? '…' : formatPeriodEnd(billing?.current_period_end)}
-            </SettingsField>
-          </SettingsCard>
+              <SettingsField
+                label="Status"
+                valueTone={billing?.active ? 'good' : settingsStatusTone(billing?.status)}
+              >
+                {billingLoading ? 'Loading…' : formatBillingStatus(billing?.status)}
+              </SettingsField>
+              <SettingsField label="Plan">{billingLoading ? '…' : formatPlan(billing?.plan)}</SettingsField>
+              <SettingsField label="Renews">
+                {billingLoading ? '…' : formatPeriodEnd(billing?.current_period_end)}
+              </SettingsField>
+            </SettingsSection>
+          </div>
 
-          <SettingsCard
-            title="ALERTS"
-            className={[
-              'settingsCard--alerts',
-              'settingsCard--wide',
-              alertsEmpty || !alertsLoaded ? 'settingsCard--emptyBody' : 'settingsCard--tableBody',
-            ]
-              .filter(Boolean)
-              .join(' ')}
+          <SettingsSection
+            label="Notifications"
+            title="Alerts"
             headAside={
-              <span className="settingsWatchlistQuota mono">
+              <span className="stgSectionMeta mono">
                 {alertsLoaded ? `${alertsCount} / ${alertMax}` : `— / ${alertMax}`}
               </span>
             }
+            panelClassName={alertsEmpty || !alertsLoaded ? '' : 'stgPanel--flushTable'}
           >
             {!alertsLoaded ? (
-              <SettingsCardEmptyHint key="loading">Loading…</SettingsCardEmptyHint>
+              <p className="stgEmpty">Loading…</p>
             ) : alertsEmpty ? (
-              <SettingsCardEmptyHint key="empty">{ALERTS_EMPTY_HINT}</SettingsCardEmptyHint>
+              <p className="stgEmpty">{ALERTS_EMPTY_HINT}</p>
             ) : (
-              <SettingsAlertTable key="table" columns={alertColumns} rows={alertRows} />
+              <SettingsAlertTable columns={alertColumns} rows={alertRows} />
             )}
-          </SettingsCard>
+          </SettingsSection>
 
-          <SettingsCard
-            title="INVOICES"
-            className="settingsCard--invoices settingsCard--wide settingsCard--emptyBody"
-          >
-            <SettingsCardEmptyHint>{INVOICES_EMPTY_HINT}</SettingsCardEmptyHint>
-          </SettingsCard>
+          <SettingsSection label="Billing" title="Invoices">
+            <p className="stgEmpty">{INVOICES_EMPTY_HINT}</p>
+          </SettingsSection>
         </div>
       </div>
     </div>

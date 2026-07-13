@@ -279,7 +279,7 @@
   min-height: 0;
 }
 
-.exploreRecapChrome {
+.terminalTopBarChrome.exploreRecapChrome {
   position: relative;
   z-index: 1;
   --explore-compact-chrome-size: 30px;
@@ -294,15 +294,7 @@
 .exploreRecapChrome .terminalTopBarBrand {
   min-width: 0;
   align-items: center;
-  gap: 10px;
   height: var(--explore-compact-chrome-size);
-}
-
-.exploreRecapChrome .terminalTopBarLogo {
-  width: var(--explore-compact-chrome-size);
-  height: var(--explore-compact-chrome-size);
-  transform: none;
-  object-position: left center;
 }
 
 .exploreRecapChrome .terminalTopBarName {
@@ -313,17 +305,20 @@
   line-height: 1;
 }
 
-.exploreRecapChrome .terminalTopBarHealth {
-  width: 7px;
-  height: 7px;
-}
-
 .exploreRecapChrome .terminalTopBarActions {
   flex: 1;
   min-width: 0;
   justify-content: flex-end;
   gap: 8px;
   height: var(--explore-compact-chrome-size);
+}
+
+@media (min-width: 641px) {
+  .exploreRecapChrome .exploreRecapCompactSearch {
+    flex: 0 1 auto;
+    width: 450px;
+    max-width: 100%;
+  }
 }
 
 .exploreRecapChrome .terminalTopBarIconBtn {
@@ -875,7 +870,7 @@
     font-size: 11px;
   }
 
-  .terminalShell--phone .exploreRecapChrome .terminalTopBarLogo {
+  .terminalShell--phone .exploreRecapChrome .terminalTopBarLogoClip {
     width: var(--explore-compact-chrome-size);
     height: var(--explore-compact-chrome-size);
   }

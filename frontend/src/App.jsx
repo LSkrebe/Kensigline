@@ -8884,7 +8884,7 @@ function TerminalTopBar({
       aria-label="Mercerline"
     >
       <div className="terminalTopBarStart">
-        <TerminalTopBarBrand backendUp={backendUp} />
+        <TerminalTopBarBrand />
       </div>
 
       <div className="terminalTopBarCenter">{!isPhone ? modeSwitch : null}</div>
@@ -11025,7 +11025,7 @@ function KensiglineTerminal() {
         .filter(Boolean)
         .join(' ')}
     >
-      {activeTab !== 'explore' && activeTab !== 'deepAnalyse' ? (
+      {activeTab !== 'explore' && activeTab !== 'deepAnalyse' && activeTab !== 'settings' && activeTab !== 'macro' ? (
         <TerminalTopBar
           macroActive={activeTab === 'macro'}
           onMacroClick={onMacroClick}
@@ -11100,8 +11100,12 @@ function KensiglineTerminal() {
           .join(' ')}
         aria-label="MERCERLINE terminal grid"
       >
-      {activeTab === 'settings' ? <SettingsPanel /> : null}
-      {activeTab === 'macro' ? <MacroCalendarPanel backendUp={backendUp} /> : null}
+      {activeTab === 'settings' ? (
+        <SettingsPanel backendUp={backendUp} onSettingsClick={onSettingsClick} />
+      ) : null}
+      {activeTab === 'macro' ? (
+        <MacroCalendarPanel backendUp={backendUp} onMacroClick={onMacroClick} />
+      ) : null}
       <div className={tabPanelHiddenClass(activeTab, 'analyse')}>
         <ResearchTickerPanel
           selectedTicker={researchTicker}
