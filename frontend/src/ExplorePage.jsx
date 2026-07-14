@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { buildExploreDirectoryMock } from './exploreDirectoryMock.js'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
@@ -64,6 +64,13 @@ export function ExplorePage({
   const dockRef = useRef(null)
   const spacerRef = useRef(null)
 
+  const requestRecapCollapse = useCallback(() => {
+    const page = pageRef.current
+    const spacer = spacerRef.current
+    if (!page || !spacer) return
+    page.scrollTo({ top: spacer.offsetHeight, behavior: 'smooth' })
+  }, [])
+
   useEffect(() => {
     const page = pageRef.current
     const dock = dockRef.current
@@ -110,8 +117,9 @@ export function ExplorePage({
             macroActive={macroActive}
             onMacroClick={onMacroClick}
             settingsActive={settingsActive}
-          onSettingsClick={onSettingsClick}
-        />
+            onSettingsClick={onSettingsClick}
+            onRequestCollapse={requestRecapCollapse}
+          />
         </div>
         <div ref={spacerRef} className="exploreRecapCollapseSpacer" aria-hidden="true" />
         <div className="explorePageBody">

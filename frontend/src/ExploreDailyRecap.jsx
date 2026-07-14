@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
@@ -20,31 +20,114 @@ function useExploreCompactLayout() {
   return compact
 }
 
+function useRecapChartOverlap(layoutRef, enabled, contentKey) {
+  useLayoutEffect(() => {
+    const layout = layoutRef.current
+    if (!layout) return undefined
+
+    if (!enabled) {
+      layout.classList.remove('exploreRecapEventLayout--chartHidden')
+      return undefined
+    }
+
+    const check = () => {
+      const meta = layout.querySelector('.exploreRecapEventMeta')
+      const visual = layout.querySelector('.exploreRecapEventVisual')
+      if (!meta || !visual) {
+        layout.classList.remove('exploreRecapEventLayout--chartHidden')
+        return
+      }
+
+      // Always measure while visible — display:none zeros getBoundingClientRect and
+      // would otherwise keep the chart hidden after expanding the window.
+      layout.classList.remove('exploreRecapEventLayout--chartHidden')
+
+      const metaBottom = meta.getBoundingClientRect().bottom
+      const visualTop = visual.getBoundingClientRect().top
+      if (visualTop < metaBottom + 6) {
+        layout.classList.add('exploreRecapEventLayout--chartHidden')
+      }
+    }
+
+    check()
+
+    const ro = new ResizeObserver(check)
+    ro.observe(layout)
+
+    const meta = layout.querySelector('.exploreRecapEventMeta')
+    const visual = layout.querySelector('.exploreRecapEventVisual')
+    const copy = layout.querySelector('.exploreRecapEventCopy')
+    if (meta) ro.observe(meta)
+    if (visual) ro.observe(visual)
+    if (copy) ro.observe(copy)
+
+    window.addEventListener('resize', check)
+
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', check)
+      layout.classList.remove('exploreRecapEventLayout--chartHidden')
+    }
+  }, [enabled, contentKey, layoutRef])
+}
+
+function ExploreRecapEventSlideLayout({ copy, series, ticker, overlapKey }) {
+  const layoutRef = useRef(null)
+  const compactLayout = useExploreCompactLayout()
+
+  useRecapChartOverlap(layoutRef, compactLayout, overlapKey)
+
+  return (
+    <div className="exploreRecapEventLayout" ref={layoutRef}>
+      {copy}
+      <div className="exploreRecapEventVisual">
+        <ExploreRecapFeatureChart series={series} ticker={ticker} />
+      </div>
+    </div>
+  )
+}
+
 function getRecapSlideCount(recap) {
   return 1 + recap.companies.length + recap.actors.length
+}
+
+const EXPLORE_RECAP_ARROW = {
+  left: '←',
+  right: '→',
+  down: '↓',
+}
+
+function ExploreRecapNavArrow({ direction = 'down' }) {
+  return (
+    <span className="exploreRecapNavBtnGlyph mono" aria-hidden="true">
+      {EXPLORE_RECAP_ARROW[direction]}
+    </span>
+  )
 }
 
 function ExploreRecapCompanySlide({ company }) {
   return (
     <article className="exploreRecapSlide exploreRecapSlide--company">
       <div className="exploreRecapSlideInner exploreRecapSlideInner--event">
-        <div className="exploreRecapEventLayout">
-          <div className="exploreRecapEventCopy">
-            <p className="exploreRecapSlideKicker mono">Companies of the day</p>
-            <h2 className="exploreRecapEventTitle">{company.headline}</h2>
-            <p className="exploreRecapEventSummary">{company.name}</p>
-            <div className="exploreRecapEventMeta">
-              <span className="exploreRecapMetaItem mono">{company.source}</span>
-              <span className="exploreRecapMetaItem mono">{company.ticker}</span>
-              <span className={['exploreRecapTileMove mono', company.moveUp ? 'isUp' : 'isDown'].join(' ')}>
-                {company.moveLabel}
-              </span>
+        <ExploreRecapEventSlideLayout
+          overlapKey={`${company.ticker}-${company.headline}-${company.name}`}
+          series={company.priceSeries}
+          ticker={company.ticker}
+          copy={
+            <div className="exploreRecapEventCopy">
+              <p className="exploreRecapSlideKicker mono">Companies of the day</p>
+              <h2 className="exploreRecapEventTitle">{company.headline}</h2>
+              <p className="exploreRecapEventSummary">{company.name}</p>
+              <div className="exploreRecapEventMeta">
+                <span className="exploreRecapMetaItem mono">{company.source}</span>
+                <span className="exploreRecapMetaItem mono">{company.ticker}</span>
+                <span className={['exploreRecapTileMove mono', company.moveUp ? 'isUp' : 'isDown'].join(' ')}>
+                  {company.moveLabel}
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="exploreRecapEventVisual">
-            <ExploreRecapFeatureChart series={company.priceSeries} ticker={company.ticker} />
-          </div>
-        </div>
+          }
+        />
       </div>
     </article>
   )
@@ -54,25 +137,27 @@ function ExploreRecapActorSlide({ actor }) {
   return (
     <article className="exploreRecapSlide exploreRecapSlide--actor">
       <div className="exploreRecapSlideInner exploreRecapSlideInner--event">
-        <div className="exploreRecapEventLayout">
-          <div className="exploreRecapEventCopy">
-            <p className="exploreRecapSlideKicker mono">Actors of the day</p>
-            <h2 className="exploreRecapEventTitle">{actor.headline}</h2>
-            <p className="exploreRecapEventSummary">{actor.name}</p>
-            <div className="exploreRecapEventMeta">
-              <span className="exploreRecapMetaItem mono">{recapDocType(actor.detail)}</span>
-              <span className="exploreRecapMetaItem mono">{actor.ticker}</span>
-              {actor.amount ? (
-                <span className={['exploreRecapTileMove mono', actor.up ? 'isUp' : 'isDown'].join(' ')}>
-                  {actor.amount}
-                </span>
-              ) : null}
+        <ExploreRecapEventSlideLayout
+          overlapKey={`${actor.id ?? actor.name}-${actor.headline}-${actor.name}`}
+          series={actor.priceSeries}
+          ticker={actor.ticker}
+          copy={
+            <div className="exploreRecapEventCopy">
+              <p className="exploreRecapSlideKicker mono">Actors of the day</p>
+              <h2 className="exploreRecapEventTitle">{actor.headline}</h2>
+              <p className="exploreRecapEventSummary">{actor.name}</p>
+              <div className="exploreRecapEventMeta">
+                <span className="exploreRecapMetaItem mono">{recapDocType(actor.detail)}</span>
+                <span className="exploreRecapMetaItem mono">{actor.ticker}</span>
+                {actor.amount ? (
+                  <span className={['exploreRecapTileMove mono', actor.up ? 'isUp' : 'isDown'].join(' ')}>
+                    {actor.amount}
+                  </span>
+                ) : null}
+              </div>
             </div>
-          </div>
-          <div className="exploreRecapEventVisual">
-            <ExploreRecapFeatureChart series={actor.priceSeries} ticker={actor.ticker} />
-          </div>
-        </div>
+          }
+        />
       </div>
     </article>
   )
@@ -104,23 +189,25 @@ function ExploreRecapEventSlide({ event }) {
   return (
     <article className="exploreRecapSlide exploreRecapSlide--event">
       <div className="exploreRecapSlideInner exploreRecapSlideInner--event">
-        <div className="exploreRecapEventLayout">
-          <div className="exploreRecapEventCopy">
-            <p className="exploreRecapSlideKicker mono">Event of the day</p>
-            <h2 className="exploreRecapEventTitle">{event.headline}</h2>
-            <p className="exploreRecapEventSummary">{event.summary}</p>
-            <div className="exploreRecapEventMeta">
-              <span className="exploreRecapMetaItem mono">{event.source}</span>
-              <span className="exploreRecapMetaItem mono">{event.ticker}</span>
-              <span className={['exploreRecapTileMove mono', event.moveUp ? 'isUp' : 'isDown'].join(' ')}>
-                {event.moveLabel}
-              </span>
+        <ExploreRecapEventSlideLayout
+          overlapKey={`${event.ticker}-${event.headline}-${event.summary}`}
+          series={event.priceSeries}
+          ticker={event.ticker}
+          copy={
+            <div className="exploreRecapEventCopy">
+              <p className="exploreRecapSlideKicker mono">Event of the day</p>
+              <h2 className="exploreRecapEventTitle">{event.headline}</h2>
+              <p className="exploreRecapEventSummary">{event.summary}</p>
+              <div className="exploreRecapEventMeta">
+                <span className="exploreRecapMetaItem mono">{event.source}</span>
+                <span className="exploreRecapMetaItem mono">{event.ticker}</span>
+                <span className={['exploreRecapTileMove mono', event.moveUp ? 'isUp' : 'isDown'].join(' ')}>
+                  {event.moveLabel}
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="exploreRecapEventVisual">
-            <ExploreRecapFeatureChart series={event.priceSeries} ticker={event.ticker} />
-          </div>
-        </div>
+          }
+        />
       </div>
     </article>
   )
@@ -167,6 +254,7 @@ export function ExploreDailyRecap({
   onMacroClick,
   settingsActive = false,
   onSettingsClick,
+  onRequestCollapse,
 }) {
   const trackRef = useRef(null)
   const jumpingRef = useRef(false)
@@ -323,6 +411,16 @@ export function ExploreDailyRecap({
               .filter(Boolean)
               .join(' ')}
           >
+            {!compactLayout && slideCount > 1 ? (
+              <button
+                type="button"
+                className="exploreRecapNavBtn exploreRecapNavBtn--prev"
+                aria-label="Previous recap section"
+                onClick={() => scrollToSlide(activeIdx - 1 < 0 ? slideCount - 1 : activeIdx - 1)}
+              >
+                <ExploreRecapNavArrow direction="left" />
+              </button>
+            ) : null}
             <div
               className={['exploreRecapDots', compactLayout ? 'exploreRecapDots--static' : ''].filter(Boolean).join(' ')}
             >
@@ -350,6 +448,25 @@ export function ExploreDailyRecap({
                 )}
               </div>
             </div>
+            {compactLayout ? (
+              <button
+                type="button"
+                className="exploreRecapNavBtn exploreRecapNavBtn--collapse"
+                aria-label="Collapse recap"
+                onClick={onRequestCollapse}
+              >
+                <ExploreRecapNavArrow direction="down" />
+              </button>
+            ) : slideCount > 1 ? (
+              <button
+                type="button"
+                className="exploreRecapNavBtn exploreRecapNavBtn--next"
+                aria-label="Next recap section"
+                onClick={() => scrollToSlide((activeIdx + 1) % slideCount)}
+              >
+                <ExploreRecapNavArrow direction="right" />
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
