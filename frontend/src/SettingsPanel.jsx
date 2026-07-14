@@ -59,7 +59,7 @@ const ALERTS_EMPTY_HINT = 'Email alerts for watched tickers and actors.'
 const INVOICES_EMPTY_HINT =
   'Download invoices and update your payment method in Stripe via Manage billing.'
 
-function SettingsStrip({ backendUp, onSettingsClick }) {
+function SettingsStrip({ backendUp, onSettingsClick, onBrandClick = null }) {
   return (
     <div className="stgDock">
       <div className="exploreRecapCompactBg" aria-hidden="true" />
@@ -69,6 +69,7 @@ function SettingsStrip({ backendUp, onSettingsClick }) {
         backendUp={backendUp}
         settingsActive
         onSettingsClick={onSettingsClick}
+        onBrandClick={onBrandClick}
         hideDate
         hideMacro
       />
@@ -185,6 +186,7 @@ function SettingsAlertTable({ columns, rows, loading = false }) {
 export function SettingsPanel({
   backendUp = true,
   onSettingsClick,
+  onBrandClick = null,
 }) {
   const { configured, loading, user, signOut } = useAuth()
   const [portalBusy, setPortalBusy] = useState(false)
@@ -300,7 +302,7 @@ export function SettingsPanel({
   if (!signedIn) {
     return (
       <div className="stgShell">
-        <SettingsStrip backendUp={backendUp} onSettingsClick={onSettingsClick} />
+        <SettingsStrip backendUp={backendUp} onSettingsClick={onSettingsClick} onBrandClick={onBrandClick} />
         <div className="stgScroll scrollThin">
           <div className="stgPaper">
             <header className="stgHero">
@@ -326,7 +328,7 @@ export function SettingsPanel({
 
   return (
     <div className="stgShell">
-      <SettingsStrip backendUp={backendUp} onSettingsClick={onSettingsClick} />
+      <SettingsStrip backendUp={backendUp} onSettingsClick={onSettingsClick} onBrandClick={onBrandClick} />
       <div className="stgScroll scrollThin">
         <div className="stgPaper">
           <header className="stgHero">

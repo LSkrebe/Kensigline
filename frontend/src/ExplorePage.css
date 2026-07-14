@@ -67,11 +67,47 @@
 }
 
 .exploreDirectorySectionHead {
-  margin-bottom: 14px;
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  margin: 0 0 14px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+
+.exploreDirectorySectionHead:hover {
+  opacity: 0.88;
+}
+
+.exploreDirectorySectionHeadCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.exploreDirectorySectionTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.exploreDirectorySectionChevron {
+  flex: 0 0 auto;
+  font-size: 14px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.42);
 }
 
 .exploreDirectorySectionKicker {
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 10px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -95,12 +131,32 @@
 }
 
 .exploreDirectoryRow {
+  padding: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.exploreDirectoryRowBtn {
+  display: grid;
+  grid-template-columns: var(--explore-directory-ticker-w) minmax(0, 1fr) var(--explore-directory-trail-w);
+  align-items: center;
+  column-gap: var(--explore-directory-col-gap);
+  width: 100%;
+  margin: 0;
+  padding: 14px 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.exploreDirectoryRow:not(:has(.exploreDirectoryRowBtn)) {
   display: grid;
   grid-template-columns: var(--explore-directory-ticker-w) minmax(0, 1fr) var(--explore-directory-trail-w);
   align-items: center;
   column-gap: var(--explore-directory-col-gap);
   padding: 14px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .exploreDirectoryCopy {
@@ -129,6 +185,10 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
+.exploreDirectoryMetaMore {
+  color: rgba(255, 255, 255, 0.52);
+}
+
 .exploreDirectoryMove,
 .exploreDirectoryAmount {
   justify-self: end;
@@ -147,6 +207,111 @@
 .exploreDirectoryMove.isDown,
 .exploreDirectoryAmount.isDown {
   color: rgba(212, 114, 106, 0.92);
+}
+
+/* ── Explore directory list pages (Companies / Actors) ── */
+
+.exploreDirShell {
+  --explore-dir-pad-x: 32px;
+  --explore-dir-strip-h: 56px;
+  --explore-compact-opacity: 1;
+  --explore-directory-ticker-w: 52px;
+  --explore-directory-trail-w: 64px;
+  --explore-directory-col-gap: 14px;
+
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #080809;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.exploreDirDock {
+  --explore-page-pad-x: var(--explore-dir-pad-x);
+  flex: 0 0 var(--explore-dir-strip-h);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  isolation: isolate;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+}
+
+.exploreDirDock .exploreRecapChrome {
+  position: relative;
+  z-index: 1;
+}
+
+.exploreDirScroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.exploreDirPaper {
+  padding: 28px var(--explore-dir-pad-x) 48px;
+  box-sizing: border-box;
+}
+
+.exploreDirHero {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.exploreDirKicker {
+  margin: 0 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.exploreDirTitle {
+  margin: 0 0 10px;
+  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  font-size: clamp(28px, 3.6vw, 36px);
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.exploreDirLead {
+  margin: 0;
+  max-width: 50ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.exploreDirListPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.exploreDirScrollSentinel {
+  flex: 0 0 auto;
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
+}
+
+@media (max-width: 960px) {
+  .exploreDirShell {
+    --explore-dir-pad-x: 18px;
+  }
 }
 
 /* ── Daily recap carousel ── */
@@ -304,7 +469,7 @@
 
 .exploreRecapChrome .terminalTopBarName {
   font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-  font-size: 12px;
+  font-size: calc(var(--explore-compact-chrome-size) * 0.5);
   font-weight: 400;
   letter-spacing: 0.08em;
   line-height: 1;
@@ -323,6 +488,10 @@
     flex: 0 1 auto;
     width: min(200px, calc(50vw - 7rem));
     max-width: 100%;
+  }
+
+  .terminalTopBarActions--collapsibleSearch.terminalTopBarActions--searchOpen .terminalTopBarIconGroup {
+    display: none;
   }
 }
 
@@ -403,6 +572,37 @@
   width: 11px;
   height: 11px;
   color: rgba(255, 255, 255, 0.42);
+  pointer-events: none;
+}
+
+.exploreRecapSearchToggleBtn {
+  flex-shrink: 0;
+}
+
+.exploreRecapSearchToggleIcon {
+  width: 14px;
+  height: 14px;
+  transform: none;
+}
+
+.exploreRecapCompactSearchTrailBtn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.42);
+  cursor: pointer;
+}
+
+.exploreRecapCompactSearchTrailBtn:hover {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.exploreRecapCompactSearchTrailBtn .exploreRecapCompactSearchIcon {
   pointer-events: none;
 }
 
@@ -971,9 +1171,5 @@
 
   .exploreRecapChrome {
     --explore-compact-chrome-size: 28px;
-  }
-
-  .exploreRecapChrome .terminalTopBarName {
-    font-size: 11px;
   }
 }

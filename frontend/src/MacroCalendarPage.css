@@ -140,15 +140,13 @@
   background: rgba(12, 18, 15, 0.96);
 }
 
-.mcalStrip .exploreRecapChrome .terminalTopBarIconBtn.mcalStripCancelBtn,
-.mcalStrip .exploreRecapChrome .terminalTopBarIconBtn.mcalStripCancelBtn.isActive {
+.mcalStrip .exploreRecapChrome .terminalTopBarIconBtn.mcalStripCancelBtn {
   color: rgba(212, 114, 106, 0.92);
   border-color: rgba(212, 114, 106, 0.45);
   background: rgba(14, 10, 10, 0.9);
 }
 
-.mcalStrip .exploreRecapChrome .terminalTopBarIconBtn.mcalStripCancelBtn:hover,
-.mcalStrip .exploreRecapChrome .terminalTopBarIconBtn.mcalStripCancelBtn.isActive:hover {
+.mcalStrip .exploreRecapChrome .terminalTopBarIconBtn.mcalStripCancelBtn:hover {
   color: rgba(232, 140, 132, 0.96);
   border-color: rgba(212, 114, 106, 0.58);
   background: rgba(18, 12, 12, 0.96);

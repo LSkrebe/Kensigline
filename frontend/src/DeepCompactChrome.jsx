@@ -6,6 +6,7 @@ export function DeepCompactChrome({
   onMacroClick,
   settingsActive = false,
   onSettingsClick,
+  onBrandClick = null,
   subjectLabel = '',
   price = null,
   priceChange = null,
@@ -39,7 +40,7 @@ export function DeepCompactChrome({
 
   return (
     <div className="deepCompactChrome terminalTopBarChrome">
-      <TerminalTopBarBrand logoSrc="/mercerline_mark.png" />
+      <TerminalTopBarBrand logoSrc="/mercerline_mark.png" onBrandClick={onBrandClick} />
       <TerminalTopBarActions
         leading={trail}
         macroActive={macroActive}

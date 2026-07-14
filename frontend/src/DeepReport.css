@@ -252,7 +252,7 @@
 
 .deepCompactChrome .terminalTopBarName {
   font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-  font-size: 12px;
+  font-size: calc(var(--explore-compact-chrome-size) * 0.5);
   font-weight: 400;
   letter-spacing: 0.08em;
   line-height: 1;
@@ -1644,10 +1644,6 @@
 
   .deepCompactChrome {
     --explore-compact-chrome-size: 28px;
-  }
-
-  .deepCompactChrome .terminalTopBarName {
-    font-size: 11px;
   }
 
   .deepCompactChromeChange {

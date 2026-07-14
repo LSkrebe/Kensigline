@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { buildExploreDirectoryMock } from './exploreDirectoryMock.js'
+import { buildExploreDirectoryHomePreview } from './exploreDirectoryMock.js'
+import { ExploreDirectoryActorRow, ExploreDirectoryCompanyRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
+import { navigateExploreActors, navigateExploreCompanies } from './terminalRoute.js'
 import './ExplorePage.css'
 
 const COLLAPSE_RANGE_FALLBACK = 1
@@ -24,28 +26,25 @@ function collapseProgressVars(progress) {
   }
 }
 
-function actorModeLabel(mode) {
-  const m = String(mode ?? '').toLowerCase()
-  if (m === 'politicians' || m === 'politician') return 'Politician'
-  if (m === 'institutions' || m === 'institution') return 'Institution'
-  if (m === 'insider') return 'Insider'
-  if (!m) return ''
-  return String(mode)
-}
-
-function actorDirectoryMeta(row) {
-  const txn = String(row.detail ?? '').split(' · ').slice(1).join(' · ').trim()
-  const mode = actorModeLabel(row.mode)
-  return txn ? `${mode} ${txn}` : mode
-}
-
-function ExploreDirectorySection({ title, kicker, children }) {
+function ExploreDirectorySection({ title, kicker, onOpen, children }) {
   return (
     <section className="exploreDirectorySection">
-      <header className="exploreDirectorySectionHead">
-        <p className="exploreDirectorySectionKicker mono">{kicker}</p>
-        <h2 className="exploreDirectorySectionTitle">{title}</h2>
-      </header>
+      <button
+        type="button"
+        className="exploreDirectorySectionHead"
+        aria-label={`Open ${title}`}
+        onClick={onOpen}
+      >
+        <span className="exploreDirectorySectionHeadCopy">
+          <span className="exploreDirectorySectionKicker mono">{kicker}</span>
+          <span className="exploreDirectorySectionTitleRow">
+            <span className="exploreDirectorySectionTitle">{title}</span>
+            <span className="exploreDirectorySectionChevron mono" aria-hidden="true">
+              &gt;
+            </span>
+          </span>
+        </span>
+      </button>
       {children}
     </section>
   )
@@ -57,9 +56,12 @@ export function ExplorePage({
   onMacroClick,
   settingsActive = false,
   onSettingsClick,
+  onBrandClick = null,
+  onCompanyRowClick = null,
+  onActorRowClick = null,
 }) {
   const recap = buildExploreDailyRecap()
-  const directory = buildExploreDirectoryMock()
+  const directoryPreview = buildExploreDirectoryHomePreview()
   const pageRef = useRef(null)
   const dockRef = useRef(null)
   const spacerRef = useRef(null)
@@ -118,41 +120,32 @@ export function ExplorePage({
             onMacroClick={onMacroClick}
             settingsActive={settingsActive}
             onSettingsClick={onSettingsClick}
+            onBrandClick={onBrandClick}
             onRequestCollapse={requestRecapCollapse}
           />
         </div>
         <div ref={spacerRef} className="exploreRecapCollapseSpacer" aria-hidden="true" />
         <div className="explorePageBody">
-        <ExploreDirectorySection title="Companies" kicker="Directory">
+        <ExploreDirectorySection
+          title="Companies"
+          kicker="Latest"
+          onOpen={() => navigateExploreCompanies()}
+        >
           <ul className="exploreDirectoryList">
-            {directory.companies.map((row) => (
-              <li key={row.ticker} className="exploreDirectoryRow exploreDirectoryRow--company">
-                <span className="exploreDirectoryTicker mono">{row.ticker}</span>
-                <div className="exploreDirectoryCopy">
-                  <span className="exploreDirectoryName">{row.name}</span>
-                  <span className="exploreDirectoryMeta mono">{row.sector}</span>
-                </div>
-                <span className={['exploreDirectoryMove mono', row.up ? 'isUp' : 'isDown'].join(' ')}>
-                  {row.move}
-                </span>
-              </li>
+            {directoryPreview.companies.map((row) => (
+              <ExploreDirectoryCompanyRow key={row.id} row={row} onClick={onCompanyRowClick} />
             ))}
           </ul>
         </ExploreDirectorySection>
 
-        <ExploreDirectorySection title="Actors" kicker="Directory">
+        <ExploreDirectorySection
+          title="Actors"
+          kicker="Latest"
+          onOpen={() => navigateExploreActors()}
+        >
           <ul className="exploreDirectoryList">
-            {directory.actors.map((row) => (
-              <li key={`${row.name}-${row.ticker}`} className="exploreDirectoryRow exploreDirectoryRow--actor">
-                <span className="exploreDirectoryTicker mono">{row.ticker}</span>
-                <div className="exploreDirectoryCopy">
-                  <span className="exploreDirectoryName">{row.name}</span>
-                  <span className="exploreDirectoryMeta mono">{actorDirectoryMeta(row)}</span>
-                </div>
-                <span className={['exploreDirectoryAmount mono', row.up ? 'isUp' : 'isDown'].join(' ')}>
-                  {row.amount}
-                </span>
-              </li>
+            {directoryPreview.actors.map((row) => (
+              <ExploreDirectoryActorRow key={row.id} row={row} onClick={onActorRowClick} />
             ))}
           </ul>
         </ExploreDirectorySection>

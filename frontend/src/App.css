@@ -185,6 +185,29 @@
   min-width: 0;
 }
 
+button.terminalTopBarBrand {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: filter 0.12s;
+}
+
+button.terminalTopBarBrand:hover {
+  filter: brightness(0.88);
+}
+
+button.terminalTopBarBrand:focus-visible {
+  outline: 1px solid rgba(255, 255, 255, 0.35);
+  outline-offset: 2px;
+}
+
 .terminalTopBarChrome {
   width: 100%;
   min-width: 0;
@@ -383,12 +406,11 @@
   max-width: none;
   object-fit: contain;
   object-position: left center;
-  opacity: 0.95;
   flex-shrink: 0;
 }
 
 .terminalTopBarName {
-  font-size: clamp(8px, 0.72vmin, 10px);
+  font-size: calc(var(--terminal-topbar-icon-size) * 0.64);
   letter-spacing: 0.2em;
   font-weight: 600;
   color: var(--hi);
@@ -536,6 +558,20 @@
   color: rgba(255, 255, 255, 0.94);
   border-color: rgba(255, 255, 255, 0.18);
   background: rgba(14, 15, 18, 0.96);
+}
+
+.exploreRecapChrome .terminalTopBarIconBtn.isClose:not(.mcalStripCancelBtn),
+.deepCompactChrome .terminalTopBarIconBtn.isClose {
+  color: rgba(255, 255, 255, 0.52);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(10, 11, 13, 0.82);
+}
+
+.exploreRecapChrome .terminalTopBarIconBtn.isClose:not(.mcalStripCancelBtn):hover,
+.deepCompactChrome .terminalTopBarIconBtn.isClose:hover {
+  color: rgba(255, 255, 255, 0.82);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(12, 13, 16, 0.9);
 }
 
 .exploreRecapChrome .terminalTopBarIconBtn:focus-visible,
@@ -11723,7 +11759,7 @@ body {
   }
 
   .terminalShell--phone .terminalTopBarName {
-    font-size: 10px;
+    font-size: calc(20px * 0.64);
     letter-spacing: 0.14em;
   }
 

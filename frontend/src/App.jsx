@@ -14,6 +14,21 @@ import { AnalysePanel } from './AnalysePanel.jsx'
 import { DeepResearchLayout } from './DeepResearchLayout.jsx'
 import { DeepPage } from './DeepCompanyPage.jsx'
 import { ExplorePage } from './ExplorePage.jsx'
+import { ExploreCompaniesPage } from './ExploreCompaniesPage.jsx'
+import { ExploreActorsPage } from './ExploreActorsPage.jsx'
+import {
+  applyExploreActorFeedSelection,
+  exploreActorModeFromDocType,
+  findExploreActorInFeeds,
+  findExploreActorInFeedsByName,
+} from './exploreDirectoryNav.js'
+import {
+  isExplorePath,
+  navigateExploreActorDetail,
+  navigateExploreCompanyDetail,
+  navigateExploreHome,
+  useExploreRoute,
+} from './terminalRoute.js'
 import { TerminalTopBarActions, TerminalTopBarBrand } from './TerminalTopBarChrome.jsx'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
@@ -8856,6 +8871,7 @@ function TerminalTopBar({
   onMacroClick,
   settingsActive,
   onSettingsClick,
+  onBrandClick = null,
   backendUp,
   isPhone = false,
   showInvestigateSwitch = false,
@@ -8884,7 +8900,7 @@ function TerminalTopBar({
       aria-label="Mercerline"
     >
       <div className="terminalTopBarStart">
-        <TerminalTopBarBrand />
+        <TerminalTopBarBrand onBrandClick={onBrandClick} />
       </div>
 
       <div className="terminalTopBarCenter">{!isPhone ? modeSwitch : null}</div>
@@ -9092,7 +9108,12 @@ function mapInstitutionFeedItem(it) {
 function KensiglineTerminal() {
   const { user } = useAuth()
   const isPhone = usePhoneViewport()
-  const [activeTab, setActiveTab] = useState(() => readActiveTab()) // analyse | main | investigate | macro | settings
+  const exploreRoute = useExploreRoute()
+  const exploreSubview = exploreRoute.view
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined' && isExplorePath()) return 'explore'
+    return readActiveTab()
+  }) // analyse | main | investigate | macro | settings
   const [researchPhonePane, setResearchPhonePane] = useState('paper')
   const [analysePhonePane, setAnalysePhonePane] = useState('analyse')
   const [investigatePhonePane, setInvestigatePhonePane] = useState('feed')
@@ -9405,11 +9426,24 @@ function KensiglineTerminal() {
     const params = new URLSearchParams(window.location.search)
     if (params.get('preview') !== 'terminal') return
     const tab = params.get('tab')
+    const view = params.get('view')
     if (tab === 'analyse' || tab === 'main' || tab === 'investigate') {
       setActiveTab(tab)
     }
+    if (tab === 'explore' || view === 'companies' || view === 'actors') {
+      setActiveTab('explore')
+    }
     const ticker = String(params.get('ticker') ?? '').trim().toUpperCase()
     if (ticker) setResearchTicker(ticker)
+  }, [])
+
+  useEffect(() => {
+    const syncExploreTabFromPath = () => {
+      if (isExplorePath()) setActiveTab('explore')
+    }
+    syncExploreTabFromPath()
+    window.addEventListener('popstate', syncExploreTabFromPath)
+    return () => window.removeEventListener('popstate', syncExploreTabFromPath)
   }, [])
 
   useEffect(() => {
@@ -10310,6 +10344,44 @@ function KensiglineTerminal() {
     return sortFeedRowsTodayEventsFirst(rows)
   }, [institutionsActorFeedBase, institutionsFeedQuery])
 
+  const exploreActorFeeds = useMemo(
+    () => ({
+      insider: insiderFilteredFeed,
+      politicians: politiciansFilteredFeed,
+      institutions: institutionsFilteredFeed,
+    }),
+    [insiderFilteredFeed, politiciansFilteredFeed, institutionsFilteredFeed],
+  )
+
+  const exploreActorFeedHandlers = useMemo(
+    () => ({
+      setInvestigateMode,
+      setInsiderIdx,
+      setPoliticiansIdx,
+      setInstitutionsIdx,
+      setInsiderCaseTradeIdx,
+      setPoliticiansCaseTradeIdx,
+      setInstitutionsCaseTradeIdx,
+    }),
+    [],
+  )
+
+  useEffect(() => {
+    if (activeTab !== 'explore') return
+    if (exploreRoute.view === 'companyDetail' && exploreRoute.ticker) {
+      setResearchTicker(exploreRoute.ticker)
+      setDeepResearchMode('company')
+      return
+    }
+    if (exploreRoute.view === 'actorDetail' && exploreRoute.actorSlug) {
+      setDeepResearchMode('actor')
+      applyExploreActorFeedSelection(
+        findExploreActorInFeeds(exploreRoute.actorSlug, exploreActorFeeds),
+        exploreActorFeedHandlers,
+      )
+    }
+  }, [activeTab, exploreRoute, exploreActorFeeds, exploreActorFeedHandlers])
+
   useEffect(() => {
     if (activeTab !== 'investigate' || investigateMode !== 'institutions') return
     setInstitutionsIdx(0)
@@ -10995,6 +11067,38 @@ function KensiglineTerminal() {
     setActiveTab('settings')
   }, [activeTab])
 
+  const onExploreHomeClick = useCallback(() => {
+    setActiveTab('explore')
+    navigateExploreHome()
+  }, [])
+
+  const onExploreCompanyClick = useCallback(
+    (row) => {
+      const ticker = String(row?.ticker ?? '').trim().toUpperCase()
+      if (!ticker) return
+      setActiveTab('explore')
+      setResearchTicker(ticker)
+      setDeepResearchMode('company')
+      navigateExploreCompanyDetail(ticker)
+    },
+    [],
+  )
+
+  const onExploreActorClick = useCallback(
+    (row) => {
+      const name = String(row?.name ?? '').trim()
+      if (!name) return
+      setActiveTab('explore')
+      setDeepResearchMode('actor')
+      applyExploreActorFeedSelection(
+        findExploreActorInFeedsByName(name, exploreActorModeFromDocType(row.docType), exploreActorFeeds),
+        exploreActorFeedHandlers,
+      )
+      navigateExploreActorDetail(name)
+    },
+    [exploreActorFeeds, exploreActorFeedHandlers],
+  )
+
   useEffect(() => {
     function onKey(e) {
       const el = e.target
@@ -11015,6 +11119,72 @@ function KensiglineTerminal() {
   }, [activeTab])
 
   const investigateTerminalSkin = investigateMode
+  const deepPageMode =
+    exploreSubview === 'actorDetail' ? 'actor' : exploreSubview === 'companyDetail' ? 'company' : deepResearchMode
+
+  const deepDossierPage = (
+    <DeepResearchLayout>
+      <DeepPage
+        mode={deepPageMode}
+        chrome={{
+          backendUp,
+          macroActive: activeTab === 'macro',
+          onMacroClick,
+          settingsActive: activeTab === 'settings',
+          onSettingsClick,
+          onBrandClick: onExploreHomeClick,
+        }}
+        modeSwitch={
+          <DeepResearchModeSwitch mode={deepResearchMode} onChange={setDeepResearchMode} />
+        }
+        company={{
+          ticker: researchTicker,
+          companyName: researchCompanyName,
+          sector: contextCompanySnapshot.sector,
+          domicile: contextCompanySnapshot.domicile,
+          mcap: contextCompanySnapshot.mcap,
+          price: contextCompanySnapshot.price,
+          priceChange: analysePriceChange?.delta,
+          priceChangePct: analysePriceChange?.pct,
+          earnings: contextEarnings,
+          timelineEntries: deepPaperTimelineEntries,
+          timelineLoading:
+            backendUp && researchTick && (!researchExploreResolved || researchExploreTicker !== researchTick),
+          trackedInvestors: deepTrackedInvestors,
+          fundamentals: contextFundamentals,
+          model: analyseLivePayload?.model ?? null,
+          modelLoading: analyseModelLoading,
+          backendUp,
+          chartRange: analysePriceRange,
+          onChartRangeChange: setAnalysePriceRange,
+          chartSlot: (
+            <MiniPriceChart
+              series={researchPriceSeries}
+              label={researchTick || 'PRICE'}
+              showMeta={false}
+              chartRange={analysePriceRange}
+              onChartRangeChange={setAnalysePriceRange}
+              trimLeadingPlateau
+              quarterlyRevenueOverlay={analyseQuarterlyRevenue}
+              hideAxisLabels
+              flushEdges
+              showHoverTooltip
+            />
+          ),
+        }}
+        actor={{
+          actorRow: effectiveActorRow,
+          personDisplay: historicalOutcomesPerson,
+          mode: investigateMode,
+          caseRows: investigateActiveCaseFeedRows,
+          backendUp,
+          compactPrice: contextCompanySnapshot.price,
+          compactPriceChange: analysePriceChange?.delta,
+          compactPriceChangePct: analysePriceChange?.pct,
+        }}
+      />
+    </DeepResearchLayout>
+  )
 
   return (
     <div
@@ -11031,6 +11201,7 @@ function KensiglineTerminal() {
           onMacroClick={onMacroClick}
           settingsActive={activeTab === 'settings'}
           onSettingsClick={onSettingsClick}
+          onBrandClick={onExploreHomeClick}
           backendUp={backendUp}
           isPhone={isPhone}
           showInvestigateSwitch={activeTab === 'investigate'}
@@ -11043,50 +11214,6 @@ function KensiglineTerminal() {
         />
       ) : null}
       <div className="terminalWorkspace">
-      {!isPhone ? (
-        <nav className="sideTabsRail" aria-label="Views">
-          <button
-            type="button"
-            className={activeTab === 'analyse' ? 'sideTab isActive' : 'sideTab'}
-            aria-current={activeTab === 'analyse' ? 'page' : undefined}
-            onClick={() => setActiveTab('analyse')}
-          >
-            <span className="sideTabLabel">ANALYSE</span>
-          </button>
-          <button
-            type="button"
-            className={activeTab === 'main' ? 'sideTab isActive' : 'sideTab'}
-            aria-current={activeTab === 'main' ? 'page' : undefined}
-            onClick={() => setActiveTab('main')}
-          >
-            <span className="sideTabLabel">RESEARCH</span>
-          </button>
-          <button
-            type="button"
-            className={activeTab === 'investigate' ? 'sideTab isActive' : 'sideTab'}
-            aria-current={activeTab === 'investigate' ? 'page' : undefined}
-            onClick={() => setActiveTab('investigate')}
-          >
-            <span className="sideTabLabel sideTabLabel--investigate">INVESTIGATE</span>
-          </button>
-          <button
-            type="button"
-            className={activeTab === 'explore' ? 'sideTab isActive' : 'sideTab'}
-            aria-current={activeTab === 'explore' ? 'page' : undefined}
-            onClick={() => setActiveTab('explore')}
-          >
-            <span className="sideTabLabel">EXPLORE</span>
-          </button>
-          <button
-            type="button"
-            className={activeTab === 'deepAnalyse' ? 'sideTab isActive' : 'sideTab'}
-            aria-current={activeTab === 'deepAnalyse' ? 'page' : undefined}
-            onClick={() => setActiveTab('deepAnalyse')}
-          >
-            <span className="sideTabLabel sideTabLabel--deepAnalyse">DEEP</span>
-          </button>
-        </nav>
-      ) : null}
       <main
         ref={terminalMainRef}
         className={[
@@ -11101,10 +11228,18 @@ function KensiglineTerminal() {
         aria-label="MERCERLINE terminal grid"
       >
       {activeTab === 'settings' ? (
-        <SettingsPanel backendUp={backendUp} onSettingsClick={onSettingsClick} />
+        <SettingsPanel
+          backendUp={backendUp}
+          onSettingsClick={onSettingsClick}
+          onBrandClick={onExploreHomeClick}
+        />
       ) : null}
       {activeTab === 'macro' ? (
-        <MacroCalendarPanel backendUp={backendUp} onMacroClick={onMacroClick} />
+        <MacroCalendarPanel
+          backendUp={backendUp}
+          onMacroClick={onMacroClick}
+          onBrandClick={onExploreHomeClick}
+        />
       ) : null}
       <div className={tabPanelHiddenClass(activeTab, 'analyse')}>
         <ResearchTickerPanel
@@ -11409,76 +11544,44 @@ function KensiglineTerminal() {
       </div>
 
       <div className={tabPanelHiddenClass(activeTab, 'explore')}>
-        <ExplorePage
-          backendUp={backendUp}
-          macroActive={activeTab === 'macro'}
-          onMacroClick={onMacroClick}
-          settingsActive={activeTab === 'settings'}
-          onSettingsClick={onSettingsClick}
-        />
+        {exploreSubview === 'companyDetail' || exploreSubview === 'actorDetail' ? (
+          deepDossierPage
+        ) : exploreSubview === 'companies' ? (
+          <ExploreCompaniesPage
+            backendUp={backendUp}
+            macroActive={activeTab === 'macro'}
+            onMacroClick={onMacroClick}
+            settingsActive={activeTab === 'settings'}
+            onSettingsClick={onSettingsClick}
+            onBrandClick={onExploreHomeClick}
+            onCompanyRowClick={onExploreCompanyClick}
+          />
+        ) : exploreSubview === 'actors' ? (
+          <ExploreActorsPage
+            backendUp={backendUp}
+            macroActive={activeTab === 'macro'}
+            onMacroClick={onMacroClick}
+            settingsActive={activeTab === 'settings'}
+            onSettingsClick={onSettingsClick}
+            onBrandClick={onExploreHomeClick}
+            onActorRowClick={onExploreActorClick}
+          />
+        ) : (
+          <ExplorePage
+            backendUp={backendUp}
+            macroActive={activeTab === 'macro'}
+            onMacroClick={onMacroClick}
+            settingsActive={activeTab === 'settings'}
+            onSettingsClick={onSettingsClick}
+            onBrandClick={onExploreHomeClick}
+            onCompanyRowClick={onExploreCompanyClick}
+            onActorRowClick={onExploreActorClick}
+          />
+        )}
       </div>
 
       <div className={tabPanelHiddenClass(activeTab, 'deepAnalyse')}>
-        <DeepResearchLayout>
-          <DeepPage
-            mode={deepResearchMode}
-            chrome={{
-              backendUp,
-              macroActive: activeTab === 'macro',
-              onMacroClick,
-              settingsActive: activeTab === 'settings',
-              onSettingsClick,
-            }}
-            modeSwitch={
-              <DeepResearchModeSwitch mode={deepResearchMode} onChange={setDeepResearchMode} />
-            }
-            company={{
-              ticker: researchTicker,
-              companyName: researchCompanyName,
-              sector: contextCompanySnapshot.sector,
-              domicile: contextCompanySnapshot.domicile,
-              mcap: contextCompanySnapshot.mcap,
-              price: contextCompanySnapshot.price,
-              priceChange: analysePriceChange?.delta,
-              priceChangePct: analysePriceChange?.pct,
-              earnings: contextEarnings,
-              timelineEntries: deepPaperTimelineEntries,
-              timelineLoading:
-                backendUp && researchTick && (!researchExploreResolved || researchExploreTicker !== researchTick),
-              trackedInvestors: deepTrackedInvestors,
-              fundamentals: contextFundamentals,
-              model: analyseLivePayload?.model ?? null,
-              modelLoading: analyseModelLoading,
-              backendUp,
-              chartRange: analysePriceRange,
-              onChartRangeChange: setAnalysePriceRange,
-              chartSlot: (
-                <MiniPriceChart
-                  series={researchPriceSeries}
-                  label={researchTick || 'PRICE'}
-                  showMeta={false}
-                  chartRange={analysePriceRange}
-                  onChartRangeChange={setAnalysePriceRange}
-                  trimLeadingPlateau
-                  quarterlyRevenueOverlay={analyseQuarterlyRevenue}
-                  hideAxisLabels
-                  flushEdges
-                  showHoverTooltip
-                />
-              ),
-            }}
-            actor={{
-              actorRow: effectiveActorRow,
-              personDisplay: historicalOutcomesPerson,
-              mode: investigateMode,
-              caseRows: investigateActiveCaseFeedRows,
-              backendUp,
-              compactPrice: contextCompanySnapshot.price,
-              compactPriceChange: analysePriceChange?.delta,
-              compactPriceChangePct: analysePriceChange?.pct,
-            }}
-          />
-        </DeepResearchLayout>
+        {deepDossierPage}
       </div>
 
       {/* Explore parent shell; DEEP dossier is the child detail view for now. */}

@@ -179,6 +179,7 @@ function MacroStripMonthNav({ monthKey, onChange }) {
 function MacroCalendarStrip({
   backendUp,
   onMacroClick,
+  onBrandClick = null,
   viewMonth,
   onViewMonthChange,
   filterOpen,
@@ -195,6 +196,7 @@ function MacroCalendarStrip({
         backendUp={backendUp}
         macroActive
         onMacroClick={filterOpen ? onFilterCancel : onMacroClick}
+        onBrandClick={onBrandClick}
         macroCloseClassName={filterOpen ? 'mcalStripCancelBtn' : ''}
         macroCloseAriaLabel={filterOpen ? 'Cancel filter changes' : undefined}
         hideDate
@@ -298,7 +300,7 @@ function MacroMonthGrid({ cells }) {
   )
 }
 
-export function MacroCalendarPanel({ backendUp = false, onMacroClick }) {
+export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandClick = null }) {
   const [viewMonth, setViewMonth] = useState(() => currentMonthKey())
   const [liveMacro, setLiveMacro] = useState(null)
   const [fetching, setFetching] = useState(false)
@@ -428,6 +430,7 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick }) {
       <MacroCalendarStrip
         backendUp={backendUp}
         onMacroClick={onMacroClick}
+        onBrandClick={onBrandClick}
         viewMonth={viewMonth}
         onViewMonthChange={setViewMonth}
         filterOpen={filterOpen}

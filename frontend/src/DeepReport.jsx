@@ -106,6 +106,7 @@ function DeepReportShell({
                 onMacroClick={chrome?.onMacroClick}
                 settingsActive={chrome?.settingsActive}
                 onSettingsClick={chrome?.onSettingsClick}
+                onBrandClick={chrome?.onBrandClick}
                 subjectLabel={compactLabel}
                 price={compactPrice}
                 priceChange={compactPriceChange}

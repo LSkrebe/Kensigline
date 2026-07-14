@@ -254,6 +254,7 @@ export function ExploreDailyRecap({
   onMacroClick,
   settingsActive = false,
   onSettingsClick,
+  onBrandClick = null,
   onRequestCollapse,
 }) {
   const trackRef = useRef(null)
@@ -379,8 +380,10 @@ export function ExploreDailyRecap({
             onMacroClick={onMacroClick}
             settingsActive={settingsActive}
             onSettingsClick={onSettingsClick}
+            onBrandClick={onBrandClick}
+            collapsibleSearch
             showSearch
-            searchPlaceholder="Search companies, actors"
+            searchPlaceholder="Search company, actor"
             searchPlaceholderMobile="Search"
           />
         </div>

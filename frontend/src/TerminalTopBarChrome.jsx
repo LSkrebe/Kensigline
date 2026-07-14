@@ -1,20 +1,43 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const COMPACT_SEARCH_MQ = '(max-width: 640px)'
+const EXPLORE_COLLAPSIBLE_SEARCH_MQ = '(max-width: 960px)'
 
-function useCompactSearchLayout() {
-  const [compact, setCompact] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(COMPACT_SEARCH_MQ).matches,
+function useMediaQuery(mq) {
+  const [matches, setMatches] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(mq).matches,
   )
 
   useEffect(() => {
-    const mq = window.matchMedia(COMPACT_SEARCH_MQ)
-    const onChange = () => setCompact(mq.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
+    const media = window.matchMedia(mq)
+    const onChange = () => setMatches(media.matches)
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [mq])
 
-  return compact
+  return matches
+}
+
+function useCompactSearchLayout() {
+  return useMediaQuery(COMPACT_SEARCH_MQ)
+}
+
+function useExploreCollapsibleSearchLayout() {
+  return useMediaQuery(EXPLORE_COLLAPSIBLE_SEARCH_MQ)
+}
+
+function ExploreSearchIcon() {
+  return (
+    <svg className="terminalTopBarIcon exploreRecapSearchToggleIcon" viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="10" cy="10" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+      <path
+        d="M14.5 14.5 L19 19"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="square"
+      />
+    </svg>
+  )
 }
 
 function formatHhMmLocal(d) {
@@ -70,9 +93,9 @@ function useTerminalTopBarClock(clockAt = null) {
   return now
 }
 
-export function TerminalTopBarBrand({ logoSrc = '/mercerline_logo.png' }) {
-  return (
-    <div className="terminalTopBarBrand">
+export function TerminalTopBarBrand({ logoSrc = '/mercerline_logo.png', onBrandClick = null }) {
+  const content = (
+    <>
       <span className="terminalTopBarLogoClip">
         <img
           className="terminalTopBarLogo"
@@ -82,8 +105,23 @@ export function TerminalTopBarBrand({ logoSrc = '/mercerline_logo.png' }) {
         />
       </span>
       <span className="terminalTopBarName">MERCERLINE</span>
-    </div>
+    </>
   )
+
+  if (onBrandClick) {
+    return (
+      <button
+        type="button"
+        className="terminalTopBarBrand"
+        onClick={onBrandClick}
+        aria-label="Explore home"
+      >
+        {content}
+      </button>
+    )
+  }
+
+  return <div className="terminalTopBarBrand">{content}</div>
 }
 
 export function TerminalTopBarActions({
@@ -102,19 +140,65 @@ export function TerminalTopBarActions({
   hideSettings = false,
   macroCloseClassName = '',
   macroCloseAriaLabel = null,
+  collapsibleSearch = false,
 }) {
   const now = useTerminalTopBarClock(clockAt)
   const compactSearch = useCompactSearchLayout()
+  const collapsibleSearchLayout = useExploreCollapsibleSearchLayout()
+  const useCollapsibleSearch = collapsibleSearch && collapsibleSearchLayout
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchInputRef = useRef(null)
   const dateLabel = shortDate ? formatTerminalTopBarDateLabelShort(now) : formatTerminalTopBarDateLabel(now)
   const activeSearchPlaceholder = compactSearch
     ? (searchPlaceholderMobile ?? searchPlaceholder)
     : searchPlaceholder
 
+  useEffect(() => {
+    if (!useCollapsibleSearch) setSearchOpen(false)
+  }, [useCollapsibleSearch])
+
+  useEffect(() => {
+    if (macroActive || settingsActive) setSearchOpen(false)
+  }, [macroActive, settingsActive])
+
+  useEffect(() => {
+    if (!searchOpen) return undefined
+    const input = searchInputRef.current
+    if (input) input.focus()
+    const onKey = (e) => {
+      if (e.key === 'Escape') setSearchOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [searchOpen])
+
+  const showSearchField = showSearch && (!useCollapsibleSearch || searchOpen)
+  const showSearchToggle = showSearch && useCollapsibleSearch && !searchOpen
+
   return (
-    <div className="terminalTopBarActions">
-      {showSearch ? (
+    <div
+      className={[
+        'terminalTopBarActions',
+        useCollapsibleSearch ? 'terminalTopBarActions--collapsibleSearch' : '',
+        useCollapsibleSearch && searchOpen ? 'terminalTopBarActions--searchOpen' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      {showSearchToggle ? (
+        <button
+          type="button"
+          className="terminalTopBarIconBtn exploreRecapSearchToggleBtn"
+          aria-label="Search"
+          onClick={() => setSearchOpen(true)}
+        >
+          <ExploreSearchIcon />
+        </button>
+      ) : null}
+      {showSearchField ? (
         <label className="exploreRecapCompactSearch">
           <input
+            ref={searchInputRef}
             className="exploreRecapCompactSearchInput"
             type="search"
             placeholder={activeSearchPlaceholder}
@@ -122,15 +206,34 @@ export function TerminalTopBarActions({
             spellCheck={false}
             autoComplete="off"
           />
-          <svg className="exploreRecapCompactSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="10" cy="10" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
-            <path
-              d="M14.5 14.5 L19 19"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="square"
-            />
-          </svg>
+          {useCollapsibleSearch && searchOpen ? (
+            <button
+              type="button"
+              className="exploreRecapCompactSearchTrailBtn"
+              aria-label="Close search"
+              onClick={() => setSearchOpen(false)}
+            >
+              <svg className="exploreRecapCompactSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="square"
+                  d="M7 7l10 10M17 7L7 17"
+                />
+              </svg>
+            </button>
+          ) : (
+            <svg className="exploreRecapCompactSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="10" cy="10" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+              <path
+                d="M14.5 14.5 L19 19"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="square"
+              />
+            </svg>
+          )}
         </label>
       ) : null}
       {!showSearch && !hideDate ? (
@@ -144,7 +247,7 @@ export function TerminalTopBarActions({
           <button
             type="button"
             className={[
-              macroActive ? 'terminalTopBarIconBtn isActive isClose' : 'terminalTopBarIconBtn',
+              macroActive ? 'terminalTopBarIconBtn isClose' : 'terminalTopBarIconBtn',
               macroActive && macroCloseClassName ? macroCloseClassName : '',
             ]
               .filter(Boolean)
@@ -181,7 +284,7 @@ export function TerminalTopBarActions({
         {!hideSettings ? (
           <button
             type="button"
-            className={settingsActive ? 'terminalTopBarIconBtn isActive isClose' : 'terminalTopBarIconBtn'}
+            className={settingsActive ? 'terminalTopBarIconBtn isClose' : 'terminalTopBarIconBtn'}
             aria-label={settingsActive ? 'Close settings' : 'Settings'}
             aria-current={settingsActive ? 'page' : undefined}
             onClick={onSettingsClick}
@@ -236,10 +339,12 @@ export function TerminalTopBarChrome({
   leading = null,
   macroCloseClassName = '',
   macroCloseAriaLabel = null,
+  onBrandClick = null,
+  collapsibleSearch = false,
 }) {
   return (
     <div className={['terminalTopBarChrome', className].filter(Boolean).join(' ')}>
-      <TerminalTopBarBrand logoSrc={logoSrc} />
+      <TerminalTopBarBrand logoSrc={logoSrc} onBrandClick={onBrandClick} />
       <TerminalTopBarActions
         macroActive={macroActive}
         onMacroClick={onMacroClick}
@@ -256,6 +361,7 @@ export function TerminalTopBarChrome({
         leading={leading}
         macroCloseClassName={macroCloseClassName}
         macroCloseAriaLabel={macroCloseAriaLabel}
+        collapsibleSearch={collapsibleSearch}
       />
     </div>
   )
