@@ -941,7 +941,6 @@
 
   .exploreRecapDots--static {
     flex: 0 0 auto;
-    padding: var(--explore-recap-dock-pad-block) var(--explore-recap-dock-pad-inline);
     box-sizing: border-box;
   }
 
