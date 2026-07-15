@@ -141,6 +141,8 @@ export function TerminalTopBarActions({
   macroCloseClassName = '',
   macroCloseAriaLabel = null,
   collapsibleSearch = false,
+  showClose = false,
+  onCloseClick = null,
 }) {
   const now = useTerminalTopBarClock(clockAt)
   const compactSearch = useCompactSearchLayout()
@@ -185,16 +187,6 @@ export function TerminalTopBarActions({
         .filter(Boolean)
         .join(' ')}
     >
-      {showSearchToggle ? (
-        <button
-          type="button"
-          className="terminalTopBarIconBtn exploreRecapSearchToggleBtn"
-          aria-label="Search"
-          onClick={() => setSearchOpen(true)}
-        >
-          <ExploreSearchIcon />
-        </button>
-      ) : null}
       {showSearchField ? (
         <label className="exploreRecapCompactSearch">
           <input
@@ -243,6 +235,34 @@ export function TerminalTopBarActions({
       ) : null}
       {leading}
       <div className="terminalTopBarIconGroup">
+        {showSearchToggle ? (
+          <button
+            type="button"
+            className="terminalTopBarIconBtn exploreRecapSearchToggleBtn"
+            aria-label="Search"
+            onClick={() => setSearchOpen(true)}
+          >
+            <ExploreSearchIcon />
+          </button>
+        ) : null}
+        {showClose && onCloseClick ? (
+          <button
+            type="button"
+            className="terminalTopBarIconBtn isClose"
+            aria-label="Close dossier"
+            onClick={onCloseClick}
+          >
+            <svg className="terminalTopBarIcon terminalTopBarIcon--close" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="square"
+                d="M7 7l10 10M17 7L7 17"
+              />
+            </svg>
+          </button>
+        ) : null}
         {!hideMacro ? (
           <button
             type="button"
@@ -341,6 +361,8 @@ export function TerminalTopBarChrome({
   macroCloseAriaLabel = null,
   onBrandClick = null,
   collapsibleSearch = false,
+  showClose = false,
+  onCloseClick = null,
 }) {
   return (
     <div className={['terminalTopBarChrome', className].filter(Boolean).join(' ')}>
@@ -362,6 +384,8 @@ export function TerminalTopBarChrome({
         macroCloseClassName={macroCloseClassName}
         macroCloseAriaLabel={macroCloseAriaLabel}
         collapsibleSearch={collapsibleSearch}
+        showClose={showClose}
+        onCloseClick={onCloseClick}
       />
     </div>
   )

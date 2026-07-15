@@ -90,6 +90,11 @@ export function navigateExploreActorDetail(name) {
   navigateTerminal(exploreActorDetailPath(name))
 }
 
+export function navigateExploreBack() {
+  if (typeof window === 'undefined') return
+  window.history.back()
+}
+
 export function useExploreRoute() {
   const [route, setRoute] = useState(() => parseExploreRoute(readTerminalPath()) ?? { view: 'home' })
 

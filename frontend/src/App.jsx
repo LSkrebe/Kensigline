@@ -25,6 +25,7 @@ import {
 import {
   isExplorePath,
   navigateExploreActorDetail,
+  navigateExploreBack,
   navigateExploreCompanyDetail,
   navigateExploreHome,
   useExploreRoute,
@@ -11067,6 +11068,10 @@ function KensiglineTerminal() {
     setActiveTab('settings')
   }, [activeTab])
 
+  const onExploreDossierCloseClick = useCallback(() => {
+    navigateExploreBack()
+  }, [])
+
   const onExploreHomeClick = useCallback(() => {
     setActiveTab('explore')
     navigateExploreHome()
@@ -11119,8 +11124,7 @@ function KensiglineTerminal() {
   }, [activeTab])
 
   const investigateTerminalSkin = investigateMode
-  const deepPageMode =
-    exploreSubview === 'actorDetail' ? 'actor' : exploreSubview === 'companyDetail' ? 'company' : deepResearchMode
+  const deepPageMode = exploreSubview === 'actorDetail' ? 'actor' : 'company'
 
   const deepDossierPage = (
     <DeepResearchLayout>
@@ -11133,10 +11137,8 @@ function KensiglineTerminal() {
           settingsActive: activeTab === 'settings',
           onSettingsClick,
           onBrandClick: onExploreHomeClick,
+          onCloseClick: onExploreDossierCloseClick,
         }}
-        modeSwitch={
-          <DeepResearchModeSwitch mode={deepResearchMode} onChange={setDeepResearchMode} />
-        }
         company={{
           ticker: researchTicker,
           companyName: researchCompanyName,
@@ -11178,9 +11180,9 @@ function KensiglineTerminal() {
           mode: investigateMode,
           caseRows: investigateActiveCaseFeedRows,
           backendUp,
-          compactPrice: contextCompanySnapshot.price,
-          compactPriceChange: analysePriceChange?.delta,
-          compactPriceChangePct: analysePriceChange?.pct,
+          compactPrice: null,
+          compactPriceChange: null,
+          compactPriceChangePct: null,
         }}
       />
     </DeepResearchLayout>
@@ -11554,6 +11556,7 @@ function KensiglineTerminal() {
             settingsActive={activeTab === 'settings'}
             onSettingsClick={onSettingsClick}
             onBrandClick={onExploreHomeClick}
+            onCloseClick={onExploreDossierCloseClick}
             onCompanyRowClick={onExploreCompanyClick}
           />
         ) : exploreSubview === 'actors' ? (
@@ -11564,6 +11567,7 @@ function KensiglineTerminal() {
             settingsActive={activeTab === 'settings'}
             onSettingsClick={onSettingsClick}
             onBrandClick={onExploreHomeClick}
+            onCloseClick={onExploreDossierCloseClick}
             onActorRowClick={onExploreActorClick}
           />
         ) : (

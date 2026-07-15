@@ -9,6 +9,7 @@ export function ExploreActorsPage({
   settingsActive = false,
   onSettingsClick,
   onBrandClick = null,
+  onCloseClick = null,
   onActorRowClick = null,
 }) {
   const rows = useMemo(() => buildExploreDirectoryFullList('actors'), [])
@@ -23,6 +24,7 @@ export function ExploreActorsPage({
       settingsActive={settingsActive}
       onSettingsClick={onSettingsClick}
       onBrandClick={onBrandClick}
+      onCloseClick={onCloseClick}
       onActorRowClick={onActorRowClick}
     />
   )

@@ -7,6 +7,7 @@ export function DeepCompactChrome({
   settingsActive = false,
   onSettingsClick,
   onBrandClick = null,
+  onCloseClick = null,
   subjectLabel = '',
   price = null,
   priceChange = null,
@@ -39,7 +40,7 @@ export function DeepCompactChrome({
     ) : null
 
   return (
-    <div className="deepCompactChrome terminalTopBarChrome">
+    <div className="deepCompactChrome terminalTopBarChrome exploreRecapChrome">
       <TerminalTopBarBrand logoSrc="/mercerline_mark.png" onBrandClick={onBrandClick} />
       <TerminalTopBarActions
         leading={trail}
@@ -48,6 +49,8 @@ export function DeepCompactChrome({
         settingsActive={settingsActive}
         onSettingsClick={onSettingsClick}
         hideDate
+        showClose={!!onCloseClick}
+        onCloseClick={onCloseClick}
       />
     </div>
   )

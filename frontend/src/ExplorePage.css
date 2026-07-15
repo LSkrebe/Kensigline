@@ -190,13 +190,19 @@
 }
 
 .exploreDirectoryMove,
-.exploreDirectoryAmount {
+.exploreDirectoryAmount,
+.exploreDirectoryDate {
   justify-self: end;
   font-size: 11px;
   letter-spacing: 0.04em;
   white-space: nowrap;
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.exploreDirectoryDate {
+  color: rgba(255, 255, 255, 0.42);
+  letter-spacing: 0.02em;
 }
 
 .exploreDirectoryMove.isUp,
@@ -209,14 +215,19 @@
   color: rgba(212, 114, 106, 0.92);
 }
 
+.exploreDirectoryAmount.isFlat {
+  color: rgba(255, 255, 255, 0.42);
+}
+
 /* ── Explore directory list pages (Companies / Actors) ── */
 
 .exploreDirShell {
   --explore-dir-pad-x: 32px;
-  --explore-dir-strip-h: 56px;
-  --explore-compact-opacity: 1;
+  --drpt-page-pad-x: var(--explore-dir-pad-x);
   --explore-directory-ticker-w: 52px;
-  --explore-directory-trail-w: 64px;
+  --explore-directory-trail-w: 88px;
+  --explore-directory-pos-w: 42px;
+  --explore-directory-amount-w: 76px;
   --explore-directory-col-gap: 14px;
 
   width: 100%;
@@ -224,81 +235,72 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: #080809;
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.exploreDirDock {
-  --explore-page-pad-x: var(--explore-dir-pad-x);
-  flex: 0 0 var(--explore-dir-strip-h);
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  overflow: hidden;
-  isolation: isolate;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: transparent;
-}
-
-.exploreDirDock .exploreRecapChrome {
-  position: relative;
-  z-index: 1;
-}
-
-.exploreDirScroll {
-  flex: 1 1 auto;
-  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+  background: var(--drpt-bg);
+  color: var(--drpt-text);
+  font-family: var(--drpt-sans);
 }
 
 .exploreDirPaper {
-  padding: 28px var(--explore-dir-pad-x) 48px;
+  flex: 1 0 auto;
+  min-height: max(42vh, 280px);
+  padding: 0 var(--explore-dir-pad-x) 48px;
   box-sizing: border-box;
-}
-
-.exploreDirHero {
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.exploreDirKicker {
-  margin: 0 0 6px;
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.42);
-}
-
-.exploreDirTitle {
-  margin: 0 0 10px;
-  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-  font-size: clamp(28px, 3.6vw, 36px);
-  font-weight: 400;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  color: rgba(255, 255, 255, 0.94);
-}
-
-.exploreDirLead {
-  margin: 0;
-  max-width: 50ch;
-  font-size: 14px;
-  line-height: 1.55;
-  color: rgba(255, 255, 255, 0.52);
 }
 
 .exploreDirListPanel {
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+.exploreDirListPanel .exploreDirectoryList {
+  border-top: none;
+}
+
+.exploreDirectoryRow--actor.exploreDirectoryRow--list .exploreDirectoryRowBtn,
+.exploreDirectoryRow--actor.exploreDirectoryRow--list:not(:has(.exploreDirectoryRowBtn)) {
+  grid-template-columns:
+    var(--explore-directory-ticker-w)
+    minmax(0, 1fr)
+    var(--explore-directory-pos-w)
+    var(--explore-directory-amount-w);
+}
+
+.exploreDirectoryMeta--tickers {
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.exploreDirectoryStat {
+  justify-self: end;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.2em;
+  min-width: var(--explore-directory-pos-w);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.exploreDirectoryStatCount {
+  flex: 0 0 auto;
+  min-width: 1.5ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.exploreDirectoryStatLabel {
+  flex: 0 0 2.5ch;
+  text-align: left;
 }
 
 .exploreDirScrollSentinel {
@@ -519,6 +521,8 @@
 }
 
 .exploreRecapChrome .terminalTopBarIconGroup {
+  display: inline-flex;
+  align-items: center;
   flex-shrink: 0;
   gap: 8px;
 }

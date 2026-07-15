@@ -613,9 +613,8 @@ button.terminalTopBarBrand:focus-visible {
     object-position: left center;
   }
 
-  .exploreRecapChrome .terminalTopBarName,
-  .deepCompactChrome .terminalTopBarName {
-    flex-shrink: 0;
+  .terminalTopBarName {
+    display: none;
   }
 
   .terminalShell--phone .exploreRecapChrome .terminalTopBarLogoClip,
@@ -823,7 +822,9 @@ button.terminalTopBarBrand:focus-visible {
   grid-template-rows: minmax(0, 1fr);
 }
 
-.terminal--explore .explorePage {
+.terminal--explore .explorePage,
+.terminal--explore .exploreDirShell,
+.terminal--explore .deepResearchRoot {
   grid-column: 1;
   grid-row: 1;
   min-height: 0;
@@ -11758,11 +11759,6 @@ body {
     display: none;
   }
 
-  .terminalShell--phone .terminalTopBarName {
-    font-size: calc(20px * 0.64);
-    letter-spacing: 0.14em;
-  }
-
   .terminalShell--phone .terminalTopBarLogoClip {
     width: 20px;
     height: 20px;
@@ -11931,11 +11927,14 @@ body {
     grid-template-rows: minmax(0, 1fr);
   }
 
-  .terminalShell--phone .terminal--deepAnalyse .deepResearchRoot {
+  .terminalShell--phone .terminal--deepAnalyse .deepResearchRoot,
+  .terminalShell--phone .terminal--explore .deepResearchRoot,
+  .terminalShell--phone .terminal--explore .exploreDirShell {
     grid-column: 1;
     grid-row: 1;
     min-height: 0;
     min-width: 0;
+    height: 100%;
   }
 
   /* Investigate — one pane at a time */

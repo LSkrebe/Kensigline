@@ -32,6 +32,28 @@ export function exploreActorEventLabel(docType) {
   return ACTOR_EVENT_LABELS[String(docType ?? '').trim()] ?? 'Actor filing'
 }
 
+export function exploreActorDocCode(docType) {
+  const d = String(docType ?? '').trim().toLowerCase()
+  if (d.startsWith('ptr')) return 'PTR'
+  if (d.startsWith('13f')) return '13F'
+  if (d.startsWith('form4') || d === 'form4') return 'F4'
+  return 'F4'
+}
+
+export function exploreCompanyDocCode(docType) {
+  const d = String(docType ?? '').trim().toLowerCase()
+  if (d === '8k_earnings') return '8-K'
+  if (d === '8k') return '8-K'
+  if (d === '10q') return '10-Q'
+  if (d === '10k') return '10-K'
+  if (d === 'earnings') return 'ER'
+  if (d === 'transcript') return 'CALL'
+  if (d === 'guidance') return 'GUIDE'
+  if (d === 'proxy') return 'PX'
+  if (d === 'press') return 'PR'
+  return 'FILING'
+}
+
 function withEventLabel(row, labelFn) {
   return { ...row, event: labelFn(row.docType) }
 }

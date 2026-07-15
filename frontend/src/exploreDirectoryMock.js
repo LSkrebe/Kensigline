@@ -1,5 +1,5 @@
 import { MOCK_SEMIS_BY_TICKER } from './mockWeekData.js'
-import { mapActorEventRows, mapCompanyEventRows } from './exploreEventLabels.js'
+import { exploreActorDocCode, mapActorEventRows, mapCompanyEventRows } from './exploreEventLabels.js'
 
 const HOME_DIRECTORY_PREVIEW = 12
 export const EXPLORE_DIRECTORY_BLOCK = 20
@@ -18,6 +18,135 @@ function isoDaysAgo(days) {
 
 function todayIso() {
   return isoDaysAgo(0)
+}
+
+function formatExploreRecency(iso) {
+  const date = String(iso ?? '').trim()
+  if (!date) return null
+  const today = todayIso()
+  if (date === today) return 'Today'
+  const then = new Date(`${date}T12:00:00`)
+  const now = new Date(`${today}T12:00:00`)
+  const days = Math.max(0, Math.round((now - then) / 86400000))
+  if (days === 1) return '1d ago'
+  if (days < 14) return `${days}d ago`
+  return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+/** Parse compact disclosure notional strings like +$5.2M or -$640K into signed USD. */
+export function parseExploreTrailUsd(trail) {
+  const raw = String(trail ?? '').trim()
+  if (!raw || raw === '—') return null
+
+  const match = raw.match(/^([+\-−])?\$?([\d,.]+)\s*([KMB])?$/i)
+  if (!match) return null
+
+  const signToken = match[1]
+  const num = Number.parseFloat(String(match[2]).replace(/,/g, ''))
+  if (!Number.isFinite(num)) return null
+
+  const suffix = String(match[3] ?? '').toUpperCase()
+  const scale = suffix === 'B' ? 1e9 : suffix === 'M' ? 1e6 : suffix === 'K' ? 1e3 : 1
+  const sign = signToken === '-' || signToken === '−' ? -1 : 1
+
+  return sign * num * scale
+}
+
+/** Signed net flow for directory rows: acquisitions/adds minus sales/trims. */
+export function formatExploreNetFlowUsd(usd) {
+  if (usd == null || !Number.isFinite(usd)) return '—'
+  if (usd === 0) return '$0'
+
+  const abs = Math.abs(usd)
+  const sign = usd > 0 ? '+' : '−'
+
+  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(1)}B`
+  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`
+  if (abs >= 1e3) return `${sign}$${Math.round(abs / 1e3)}K`
+  return `${sign}$${Math.round(abs)}`
+}
+
+function formatExplorePublishDate(iso) {
+  const date = String(iso ?? '').trim()
+  if (!date) return '—'
+  const then = new Date(`${date}T12:00:00`)
+  if (Number.isNaN(then.getTime())) return '—'
+  return then.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function aggregateCompaniesByTicker(events) {
+  const sorted = sortEventsNewestFirst(events)
+  const byTicker = new Map()
+
+  for (const ev of sorted) {
+    if (!byTicker.has(ev.ticker)) byTicker.set(ev.ticker, [])
+    byTicker.get(ev.ticker).push(ev)
+  }
+
+  const out = []
+
+  for (const tickerEvents of byTicker.values()) {
+    const newest = tickerEvents[0]
+    const latestDate = newest.date
+    const sameDayCount = tickerEvents.filter((ev) => ev.date === latestDate).length
+
+    out.push({
+      id: `co-${newest.ticker}`,
+      ticker: newest.ticker,
+      name: newest.name,
+      event: newest.event,
+      extraSameDay: Math.max(0, sameDayCount - 1),
+      lastDate: latestDate,
+      publishedDateLabel: formatExplorePublishDate(latestDate),
+    })
+  }
+
+  return out.sort((a, b) => String(b.lastDate).localeCompare(String(a.lastDate)))
+}
+
+function aggregateActorsByName(events) {
+  const sorted = sortEventsNewestFirst(events)
+  const positionCounts = new Map()
+  const tickerLists = new Map()
+  const netFlows = new Map()
+
+  for (const ev of sorted) {
+    positionCounts.set(ev.name, (positionCounts.get(ev.name) ?? 0) + 1)
+    if (!tickerLists.has(ev.name)) tickerLists.set(ev.name, [])
+    const tickers = tickerLists.get(ev.name)
+    if (!tickers.includes(ev.ticker)) tickers.push(ev.ticker)
+
+    const signedUsd = parseExploreTrailUsd(ev.trail)
+    if (signedUsd != null) {
+      netFlows.set(ev.name, (netFlows.get(ev.name) ?? 0) + signedUsd)
+    }
+  }
+
+  const seen = new Set()
+  const out = []
+
+  for (const ev of sorted) {
+    if (seen.has(ev.name)) continue
+    seen.add(ev.name)
+    const netFlowUsd = netFlows.get(ev.name) ?? 0
+    out.push({
+      id: `ac-${String(ev.name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      name: ev.name,
+      ticker: ev.ticker,
+      tickers: tickerLists.get(ev.name) ?? [ev.ticker],
+      docType: ev.docType,
+      modeCode: exploreActorDocCode(ev.docType),
+      positionCount: positionCounts.get(ev.name) ?? 1,
+      netFlowUsd,
+      netFlowLabel: formatExploreNetFlowUsd(netFlowUsd),
+      lastDate: ev.date,
+      recency: formatExploreRecency(ev.date),
+      trail: ev.trail,
+      up: ev.up,
+    })
+  }
+
+  return out
 }
 
 /** Company-level filings only (no Form 4, PTR, or 13F). */
@@ -189,7 +318,7 @@ export function buildExploreDirectoryHomePreview(directory = buildExploreDirecto
 
 export function buildExploreDirectoryFullList(kind, directory = buildExploreDirectoryMock()) {
   if (kind === 'actors') {
-    return aggregateExploreSameDayEvents(directory.actorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`)
+    return aggregateActorsByName(directory.actorEvents)
   }
-  return aggregateExploreSameDayEvents(directory.companyEvents, (row) => `${row.ticker}|${row.date}`)
+  return aggregateCompaniesByTicker(directory.companyEvents)
 }

@@ -9,6 +9,7 @@ export function ExploreCompaniesPage({
   settingsActive = false,
   onSettingsClick,
   onBrandClick = null,
+  onCloseClick = null,
   onCompanyRowClick = null,
 }) {
   const rows = useMemo(() => buildExploreDirectoryFullList('companies'), [])
@@ -23,6 +24,7 @@ export function ExploreCompaniesPage({
       settingsActive={settingsActive}
       onSettingsClick={onSettingsClick}
       onBrandClick={onBrandClick}
+      onCloseClick={onCloseClick}
       onCompanyRowClick={onCompanyRowClick}
     />
   )

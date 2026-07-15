@@ -15,6 +15,7 @@ import {
   RESEARCH_PAPER_SOURCE_CATALOG,
 } from './researchPaperSources.js'
 import './DeepReport.css'
+import './ExplorePage.css'
 
 const DEEP_COLLAPSE_RANGE_FALLBACK = 1
 /** Scroll progress (0–1) at which expanded header / bg finishes fading. */
@@ -107,6 +108,7 @@ function DeepReportShell({
                 settingsActive={chrome?.settingsActive}
                 onSettingsClick={chrome?.onSettingsClick}
                 onBrandClick={chrome?.onBrandClick}
+                onCloseClick={chrome?.onCloseClick}
                 subjectLabel={compactLabel}
                 price={compactPrice}
                 priceChange={compactPriceChange}
@@ -929,7 +931,7 @@ function DeepTradeLog({ rows = [], visibleLimit = null }) {
   )
 }
 
-function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount, modeSwitch = null }) {
+function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount }) {
   return (
     <header className="drpt-topbar drpt-topbar--actor">
       <div className="drpt-topbarIdentity">
@@ -940,7 +942,6 @@ function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount, modeSw
         </div>
       </div>
       <div className="drpt-topbarMeta">
-        {modeSwitch}
         {detail ? <span>{detail}</span> : null}
         <span>{tradeCount} transactions</span>
         <span>{companyCount} companies</span>
@@ -959,7 +960,6 @@ function CompanyTopBar({
   price,
   priceChange,
   priceChangePct,
-  modeSwitch = null,
 }) {
   const ch = priceChange != null && Number.isFinite(Number(priceChange)) ? Number(priceChange) : null
   const chPct =
@@ -977,7 +977,6 @@ function CompanyTopBar({
         </div>
       </div>
       <div className="drpt-topbarMeta">
-        {modeSwitch}
         {sector ? <span>{sector}</span> : null}
         {domicile ? <span>{domicile}</span> : null}
         {mcap ? <span>{mcap}</span> : null}
@@ -1031,7 +1030,6 @@ export function DeepCompanyReport({
   chartRange = '6M',
   onChartRangeChange,
   chrome,
-  modeSwitch = null,
 }) {
   const t = String(ticker ?? '').trim().toUpperCase()
   const displayName = String(companyName ?? '').trim() || t || 'Company'
@@ -1061,7 +1059,6 @@ export function DeepCompanyReport({
           price={price}
           priceChange={priceChange}
           priceChangePct={priceChangePct}
-          modeSwitch={modeSwitch}
         />
       }
     >
@@ -1154,7 +1151,6 @@ export function DeepActorReport({
   mode = 'insider',
   caseRows = [],
   chrome,
-  modeSwitch = null,
   compactPrice = null,
   compactPriceChange = null,
   compactPriceChangePct = null,
@@ -1218,7 +1214,6 @@ export function DeepActorReport({
           modeLabel={modeLabel}
           tradeCount={tradeRows.length}
           companyCount={companies.length}
-          modeSwitch={modeSwitch}
         />
       }
     >
@@ -1249,10 +1244,10 @@ export function DeepActorReport({
   )
 }
 
-export function DeepPage({ mode, company, actor, chrome, modeSwitch }) {
+export function DeepPage({ mode, company, actor, chrome }) {
   return mode === 'actor' ? (
-    <DeepActorReport {...actor} chrome={chrome} modeSwitch={modeSwitch} />
+    <DeepActorReport {...actor} chrome={chrome} />
   ) : (
-    <DeepCompanyReport {...company} chrome={chrome} modeSwitch={modeSwitch} />
+    <DeepCompanyReport {...company} chrome={chrome} />
   )
 }
