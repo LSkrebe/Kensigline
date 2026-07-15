@@ -1519,8 +1519,8 @@
     grid-area: price;
   }
 
-  .drpt-topbar--actor .drpt-topbarName {
-    flex-shrink: 1;
+  .drpt-topbarName {
+    display: none;
   }
 
   .drpt-topbar--directory .drpt-topbarMeta span {
