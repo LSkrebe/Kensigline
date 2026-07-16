@@ -30,7 +30,9 @@ function formatExploreRecency(iso) {
   const days = Math.max(0, Math.round((now - then) / 86400000))
   if (days === 1) return '1d ago'
   if (days < 14) return `${days}d ago`
-  return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  const mm = String(then.getMonth() + 1).padStart(2, '0')
+  const dd = String(then.getDate()).padStart(2, '0')
+  return `${mm}-${dd}`
 }
 
 /** Parse compact disclosure notional strings like +$5.2M or -$640K into signed USD. */
@@ -71,7 +73,9 @@ function formatExplorePublishDate(iso) {
   if (!date) return '—'
   const then = new Date(`${date}T12:00:00`)
   if (Number.isNaN(then.getTime())) return '—'
-  return then.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  const mm = String(then.getMonth() + 1).padStart(2, '0')
+  const dd = String(then.getDate()).padStart(2, '0')
+  return `${mm}-${dd}`
 }
 
 function aggregateCompaniesByTicker(events) {
@@ -140,6 +144,7 @@ function aggregateInvestorsByName(events) {
       netFlowUsd,
       netFlowLabel: formatExploreNetFlowUsd(netFlowUsd),
       lastDate: ev.date,
+      lastDateLabel: formatExplorePublishDate(ev.date),
       recency: formatExploreRecency(ev.date),
       trail: ev.trail,
       up: ev.up,

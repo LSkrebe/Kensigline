@@ -126,6 +126,15 @@ const DISCOVER_FLOW_SOURCE_FILTER_TYPES = [
   { id: '13F', label: 'Institutional 13F', code: '13F' },
 ]
 
+/** Investor / filer activity sources — shown under Tracked investors, not company Documents. */
+export const COMPANY_DEEP_DOCUMENTS_EXCLUDED_SOURCES = new Set(
+  DISCOVER_FLOW_SOURCE_FILTER_TYPES.map((t) => t.id),
+)
+
+export function isCompanyDeepDocumentSource(source) {
+  return !COMPANY_DEEP_DOCUMENTS_EXCLUDED_SOURCES.has(normalizeResearchPaperSourceKey(source))
+}
+
 /** Market moves — research filings plus Investigate flow sources. */
 export const DISCOVER_MARKET_MOVE_FILTER_TYPES = [
   ...discoverResearchDocumentFilterTypes(),

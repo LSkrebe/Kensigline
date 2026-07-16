@@ -140,6 +140,98 @@ function deepTxnCodeTone(code, ad) {
   return 'neutral'
 }
 
+/** One-word txn badge for deep flow rows (tracked investors / trade log). */
+const DEEP_TXN_CODE_WORDS = {
+  P: 'BUY',
+  S: 'SELL',
+  A: 'AWARD',
+  M: 'EXERCISE',
+  F: 'TAX',
+  G: 'GIFT',
+  D: 'DISPOSE',
+  V: 'VOLUNTARY',
+  I: 'DISCRETION',
+  C: 'CONVERT',
+  E: 'EXPIRE',
+  H: 'EXPIRE',
+  J: 'OTHER',
+  K: 'SWAP',
+  L: 'BUY',
+  O: 'EXERCISE',
+  U: 'TENDER',
+  W: 'HEIR',
+  Z: 'TRUST',
+  X: 'EXERCISE',
+  INC: 'INCREASE',
+  NEW: 'NEW',
+  RED: 'REDUCE',
+  BUY: 'BUY',
+  SELL: 'SELL',
+  PURCHASE: 'BUY',
+  SALE: 'SELL',
+  EXCHANGE: 'EXCHANGE',
+}
+
+function deepTxnCodeWord(code) {
+  const raw = String(code ?? '').trim()
+  if (!raw || raw === '—') return null
+  const upper = raw.toUpperCase()
+  if (DEEP_TXN_CODE_WORDS[upper]) return DEEP_TXN_CODE_WORDS[upper]
+  // Multi-word activity strings (e.g. "Increased stake") → first token map or fallback.
+  const first = upper.split(/[\s/_-]+/).filter(Boolean)[0] ?? upper
+  if (first === 'INCREASED' || first === 'INCREASE') return 'INCREASE'
+  if (first === 'REDUCED' || first === 'REDUCE') return 'REDUCE'
+  if (first === 'NEW') return 'NEW'
+  if (DEEP_TXN_CODE_WORDS[first]) return DEEP_TXN_CODE_WORDS[first]
+  return first
+}
+
+/** Compact badge: letter / short codes (P, S, INC). */
+function deepTxnCodeShort(code) {
+  const raw = String(code ?? '').trim()
+  if (!raw || raw === '—') return null
+  const upper = raw.toUpperCase()
+  if (/^[A-Z0-9]{1,3}$/.test(upper)) return upper
+
+  const first = upper.split(/[\s/_-]+/).filter(Boolean)[0] ?? upper
+  if (first === 'INCREASED' || first === 'INCREASE') return 'INC'
+  if (first === 'REDUCED' || first === 'REDUCE') return 'RED'
+  if (first === 'NEW') return 'NEW'
+  if (first === 'BUY' || first === 'PURCHASE') return 'P'
+  if (first === 'SELL' || first === 'SALE') return 'S'
+  if (first === 'EXCHANGE') return 'E'
+  if (first === 'AWARD') return 'A'
+  if (first === 'EXERCISE') return 'M'
+  if (first === 'GIFT') return 'G'
+  if (first === 'TAX') return 'F'
+  if (first === 'DISPOSE') return 'D'
+  if (first === 'CONVERT') return 'C'
+  if (first === 'EXPIRE') return 'E'
+  if (first === 'SWAP') return 'K'
+  if (first === 'TENDER') return 'U'
+  if (first === 'HEIR') return 'W'
+  if (first === 'TRUST') return 'Z'
+  if (first === 'OTHER') return 'J'
+  if (first === 'VOLUNTARY') return 'V'
+  if (first === 'DISCRETION') return 'I'
+  return first.slice(0, 3)
+}
+
+function useDeepCompactLayout() {
+  const [compact, setCompact] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(DEEP_COMPACT_MQ).matches,
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia(DEEP_COMPACT_MQ)
+    const onChange = () => setCompact(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  return compact
+}
+
 const TRACKED_INVESTOR_SOURCE = {
   insider: 'F4',
   politician: 'PTR',
@@ -147,8 +239,9 @@ const TRACKED_INVESTOR_SOURCE = {
 }
 
 function DeepDocTxnBadge({ code, tone = 'neutral' }) {
-  const label = String(code ?? '').trim().toUpperCase()
-  if (!label || label === '—') {
+  const compact = useDeepCompactLayout()
+  const label = compact ? deepTxnCodeShort(code) : deepTxnCodeWord(code)
+  if (!label) {
     return <span className="drpt-docTxn drpt-docTxn--empty">—</span>
   }
   return <span className={`drpt-docTxn drpt-docTxn--${tone}`}>{label}</span>
@@ -198,21 +291,6 @@ function DeepFlowRow({
       <time className="drpt-docDate">{date ?? '—'}</time>
     </Tag>
   )
-}
-
-function useDeepCompactLayout() {
-  const [compact, setCompact] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(DEEP_COMPACT_MQ).matches,
-  )
-
-  useEffect(() => {
-    const mq = window.matchMedia(DEEP_COMPACT_MQ)
-    const onChange = () => setCompact(mq.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-
-  return compact
 }
 
 function sliceTimelineEntries(entries, limit) {
@@ -290,7 +368,15 @@ function formatChronoDate(at) {
   if (!at) return '—'
   const d = at instanceof Date ? at : new Date(at)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  if (sameDay) {
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+  return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function formatFundamentalCell(value, format) {
@@ -677,7 +763,6 @@ function DeepInvestorList({ rows = [], visibleLimit = null, onInvestorClick = nu
               txnTone={row.codeTone ?? deepTxnCodeTone(row.code)}
               amount={row.amount}
               date={row.date}
-              tightTrail
               onClick={onInvestorClick ? () => onInvestorClick(row) : null}
             />
           </li>
@@ -1169,8 +1254,7 @@ export function DeepCompanyReport({
           <p className="drpt-empty drpt-loading">Loading financial model…</p>
         ) : null}
 
-        {resolvedModel || trackedInvestors.length || modelLoading ? (
-          <div className="drpt-row drpt-row--model">
+        <div className="drpt-row drpt-row--model">
             {resolvedModel ? (
               <DeepSection label="Model" title="Business drivers">
                 <DeepBusinessDriversSnapshot model={resolvedModel} />
@@ -1181,45 +1265,44 @@ export function DeepCompanyReport({
               </DeepSection>
             ) : null}
 
-            {trackedInvestors.length ? (
-              <DeepSection label="Flow" title="Tracked investors & filers">
-                <div className="drpt-docPanel drpt-scroll">
-                  <DeepExpandablePanel totalCount={trackedInvestors.length}>
-                    {(limit) => (
-                      <DeepInvestorList
-                        rows={trackedInvestors}
-                        visibleLimit={limit}
-                        onInvestorClick={onInvestorClick}
-                      />
-                    )}
-                  </DeepExpandablePanel>
-                </div>
-              </DeepSection>
-            ) : null}
-          </div>
-        ) : null}
-
-        <DeepSection
-          label="Archive"
-          title="Documents"
-          headExtra={
-            <span className="drpt-sectionCount">
-              {timelineLoading ? 'Loading…' : formatCountLabel(eventCount, 'filing')}
-            </span>
-          }
-        >
-          <div className="drpt-docPanel drpt-scroll">
-            <DeepExpandablePanel totalCount={timelineLoading ? 0 : eventCount}>
-              {(limit) =>
-                timelineLoading ? (
-                  <p className="drpt-empty drpt-loading">Loading filings…</p>
-                ) : (
-                  <DeepChronology entries={timelineEntries} visibleLimit={limit} />
-                )
+            <DeepSection
+              label="Archive"
+              title="Documents"
+              headExtra={
+                <span className="drpt-sectionCount">
+                  {timelineLoading ? 'Loading…' : formatCountLabel(eventCount, 'filing')}
+                </span>
               }
-            </DeepExpandablePanel>
+            >
+              <div className="drpt-docPanel drpt-scroll">
+                <DeepExpandablePanel totalCount={timelineLoading ? 0 : eventCount}>
+                  {(limit) =>
+                    timelineLoading ? (
+                      <p className="drpt-empty drpt-loading">Loading filings…</p>
+                    ) : (
+                      <DeepChronology entries={timelineEntries} visibleLimit={limit} />
+                    )
+                  }
+                </DeepExpandablePanel>
+              </div>
+            </DeepSection>
           </div>
-        </DeepSection>
+
+        {trackedInvestors.length ? (
+          <DeepSection label="Flow" title="Tracked investors & filers">
+            <div className="drpt-docPanel drpt-scroll">
+              <DeepExpandablePanel totalCount={trackedInvestors.length}>
+                {(limit) => (
+                  <DeepInvestorList
+                    rows={trackedInvestors}
+                    visibleLimit={limit}
+                    onInvestorClick={onInvestorClick}
+                  />
+                )}
+              </DeepExpandablePanel>
+            </div>
+          </DeepSection>
+        ) : null}
     </DeepReportShell>
   )
 }

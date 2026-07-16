@@ -121,6 +121,7 @@ function ExploreDirectoryListInvestorContent({ row }) {
         <span className="exploreDirectoryStatLabel">pos</span>
       </span>
       <span className={['exploreDirectoryAmount mono', netTone].join(' ')}>{row.netFlowLabel ?? '—'}</span>
+      <span className="exploreDirectoryDate mono">{row.lastDateLabel ?? '—'}</span>
     </>
   )
 }

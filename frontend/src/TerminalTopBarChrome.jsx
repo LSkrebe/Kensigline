@@ -206,7 +206,7 @@ export function TerminalTopBarActions({
               aria-label="Close search"
               onClick={() => setSearchOpen(false)}
             >
-              <svg className="exploreRecapCompactSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+              <svg className="exploreRecapCompactSearchIcon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   fill="none"
                   stroke="currentColor"

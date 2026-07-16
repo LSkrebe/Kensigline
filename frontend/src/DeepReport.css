@@ -1301,16 +1301,14 @@ button.drpt-docRow {
 }
 
 .drpt-docRow--flow {
-  grid-template-columns: 52px minmax(0, 1fr) 40px minmax(72px, 96px) 72px;
+  grid-template-columns: 52px minmax(0, 1fr) minmax(64px, 88px) minmax(72px, 96px) 72px;
 }
 
+.drpt-docRow--flow .drpt-docTxn,
 .drpt-docRow--flow .drpt-docAmt,
 .drpt-docRow--flow .drpt-docDate {
   text-align: right;
-}
-
-.drpt-docRow--flow .drpt-docTxn {
-  justify-self: center;
+  justify-self: end;
 }
 
 .drpt-docRow--flowTight {
@@ -1328,12 +1326,14 @@ button.drpt-docRow {
 
 .drpt-docRow--flowTight .drpt-docTxn {
   min-width: 0;
-  justify-self: center;
+  text-align: right;
+  justify-self: end;
 }
 
 .drpt-docRow--flowTight .drpt-docAmt,
 .drpt-docRow--flowTight .drpt-docDate {
   text-align: right;
+  justify-self: end;
 }
 
 .drpt-docCode {
@@ -1379,12 +1379,12 @@ button.drpt-docRow {
 .drpt-docTxn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 1.6em;
+  justify-content: flex-end;
+  min-width: 0;
   font-family: var(--drpt-mono);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   white-space: nowrap;
 }
 
@@ -1723,6 +1723,53 @@ button.drpt-docRow {
   .drpt-investorPanel .drpt-showMore {
     margin: 4px -8px -8px;
     width: calc(100% + 16px);
+  }
+
+  /* Align all deep list rows with compact flow spacing + short date column */
+  .drpt-docRow {
+    column-gap: 8px;
+    padding-inline: 10px;
+  }
+
+  .drpt-docRow:not(.drpt-docRow--flow) {
+    grid-template-columns: 32px minmax(0, 1fr) 48px;
+  }
+
+  .drpt-docRow:not(.drpt-docRow--flow) .drpt-docCode {
+    letter-spacing: 0.02em;
+  }
+
+  .drpt-docRow:not(.drpt-docRow--flow) .drpt-docDate {
+    font-size: 9px;
+  }
+
+  .drpt-docAside {
+    justify-self: end;
+    min-width: 0;
+  }
+
+  /* 5-col flow rows: reclaim name space without diverging from other lists */
+  .drpt-docRow--flow {
+    grid-template-columns: 32px minmax(0, 1fr) 28px 54px 48px;
+    column-gap: 8px;
+  }
+
+  .drpt-docRow--flow.drpt-docRow--flowNoTxn {
+    grid-template-columns: 32px minmax(0, 1fr) 54px 48px;
+    column-gap: 8px;
+  }
+
+  .drpt-docRow--flow .drpt-docCode {
+    letter-spacing: 0.02em;
+  }
+
+  .drpt-docRow--flow .drpt-docTxn {
+    letter-spacing: 0.04em;
+  }
+
+  .drpt-docRow--flow .drpt-docAmt,
+  .drpt-docRow--flow .drpt-docDate {
+    font-size: 9px;
   }
 
   .drpt-row--market {

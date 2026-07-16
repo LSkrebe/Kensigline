@@ -61,6 +61,7 @@ import {
 } from './feedLoad.js'
 import { EventBriefAnalysis } from './EventBrief.jsx'
 import {
+  isCompanyDeepDocumentSource,
   normalizeResearchPaperSourceKey,
   researchPaperSourceTypes,
 } from './researchPaperSources.js'
@@ -9521,7 +9522,9 @@ function KensiglineTerminal() {
     (Boolean(researchTick) && researchExploreTicker === researchTick)
 
   const deepPaperTimelineEntries = useMemo(() => {
-    const docs = paperDocumentsFromPresentation(deepExploreReady ? researchPresentation : null)
+    const docs = paperDocumentsFromPresentation(deepExploreReady ? researchPresentation : null).filter(
+      (doc) => isCompanyDeepDocumentSource(doc?.source),
+    )
     const raw = buildPaperTimelineItems({
       documents: docs,
       insiders: [],

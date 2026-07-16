@@ -228,6 +228,7 @@
   --explore-directory-trail-w: 88px;
   --explore-directory-pos-w: 42px;
   --explore-directory-amount-w: 76px;
+  --explore-directory-date-w: 88px;
   --explore-directory-col-gap: 14px;
 
   width: 100%;
@@ -269,7 +270,8 @@
     var(--explore-directory-ticker-w)
     minmax(0, 1fr)
     var(--explore-directory-pos-w)
-    var(--explore-directory-amount-w);
+    var(--explore-directory-amount-w)
+    var(--explore-directory-date-w);
 }
 
 .exploreDirectoryMeta--tickers {
@@ -315,6 +317,34 @@
 @media (max-width: 960px) {
   .exploreDirShell {
     --explore-dir-pad-x: 18px;
+    /* Company tickers (NVDA, SMCI) need more room than investor codes (F4, PTR). */
+    --explore-directory-ticker-w: 44px;
+    --explore-directory-trail-w: 48px;
+    --explore-directory-amount-w: 54px;
+    --explore-directory-date-w: 48px;
+    --explore-directory-col-gap: 10px;
+  }
+
+  .exploreDirectoryRow--investor.exploreDirectoryRow--list .exploreDirectoryRowBtn,
+  .exploreDirectoryRow--investor.exploreDirectoryRow--list:not(:has(.exploreDirectoryRowBtn)),
+  .exploreDirectoryRow--actor.exploreDirectoryRow--list .exploreDirectoryRowBtn,
+  .exploreDirectoryRow--actor.exploreDirectoryRow--list:not(:has(.exploreDirectoryRowBtn)) {
+    grid-template-columns:
+      var(--explore-directory-ticker-w)
+      minmax(0, 1fr)
+      var(--explore-directory-amount-w)
+      var(--explore-directory-date-w);
+  }
+
+  .exploreDirectoryRow--investor.exploreDirectoryRow--list .exploreDirectoryStat,
+  .exploreDirectoryRow--actor.exploreDirectoryRow--list .exploreDirectoryStat {
+    display: none;
+  }
+
+  .exploreDirShell .exploreDirectoryDate,
+  .exploreDirShell .exploreDirectoryAmount,
+  .exploreDirShell .exploreDirectoryMove {
+    font-size: 9px;
   }
 }
 
@@ -493,12 +523,36 @@
 @media (max-width: 960px) {
   .exploreRecapChrome .exploreRecapCompactSearch {
     flex: 0 1 auto;
-    width: min(200px, calc(50vw - 7rem));
+    width: min(52vw, 100%);
+    max-width: 100%;
+  }
+
+  .terminalTopBarActions--collapsibleSearch.terminalTopBarActions--searchOpen {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .terminalTopBarActions--collapsibleSearch.terminalTopBarActions--searchOpen .exploreRecapCompactSearch {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: min(52vw, 100%);
     max-width: 100%;
   }
 
   .terminalTopBarActions--collapsibleSearch.terminalTopBarActions--searchOpen .terminalTopBarIconGroup {
     display: none;
+  }
+
+  .exploreRecapChrome .exploreRecapCompactSearchTrailBtn {
+    width: var(--explore-compact-chrome-size);
+    height: var(--explore-compact-chrome-size);
+    min-width: var(--explore-compact-chrome-size);
+    margin-inline: -4px -6px;
+  }
+
+  .exploreRecapChrome .exploreRecapCompactSearchTrailBtn .exploreRecapCompactSearchIcon {
+    width: 14px;
+    height: 14px;
   }
 }
 
@@ -599,6 +653,8 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
+  width: 22px;
+  height: 22px;
   margin: 0;
   padding: 0;
   border: none;
@@ -613,6 +669,8 @@
 
 .exploreRecapCompactSearchTrailBtn .exploreRecapCompactSearchIcon {
   pointer-events: none;
+  width: 12px;
+  height: 12px;
 }
 
 .exploreRecapTrack {
@@ -1058,10 +1116,19 @@
     --explore-page-pad-x: 18px;
     --explore-recap-dock-pad-block: 12px;
     --explore-recap-dock-pad-inline: 16px;
+    --explore-directory-ticker-w: 44px;
+    --explore-directory-trail-w: 48px;
+    --explore-directory-col-gap: 10px;
   }
 
   .explorePageBody {
     padding: 20px var(--explore-page-pad-x) 36px;
+  }
+
+  .explorePage .exploreDirectoryDate,
+  .explorePage .exploreDirectoryAmount,
+  .explorePage .exploreDirectoryMove {
+    font-size: 9px;
   }
 
   .exploreRecapSlideInner {
