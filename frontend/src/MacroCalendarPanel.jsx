@@ -429,7 +429,10 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
   const loading = backendUp && fetching && liveMacro == null
 
   return (
-    <div className="mcalShell" aria-label="Macro calendar">
+    <div
+      className={['mcalShell', filterOpen ? 'mcalShell--filterOpen' : ''].filter(Boolean).join(' ')}
+      aria-label="Macro calendar"
+    >
       <MacroCalendarStrip
         backendUp={backendUp}
         onMacroClick={onMacroClick}

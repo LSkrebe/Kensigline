@@ -10,7 +10,6 @@ import './App.css'
 import { markAppReady } from './marketingShell.js'
 import { MacroCalendarPanel } from './MacroCalendarPanel.jsx'
 import { prefetchMacroCalendar } from './macroClient.js'
-import { AnalysePanel } from './AnalysePanel.jsx'
 import { DeepResearchLayout } from './DeepResearchLayout.jsx'
 import { DeepPage } from './DeepCompanyPage.jsx'
 import { ExplorePage } from './ExplorePage.jsx'
@@ -24,14 +23,15 @@ import {
   findExploreInvestorInFeedsByName,
 } from './exploreDirectoryNav.js'
 import {
-  isExplorePath,
+  isTerminalAppPath,
   navigateExploreBack,
   navigateExploreCompanyDetail,
   navigateExploreHome,
   navigateExploreInvestorDetail,
-  useExploreRoute,
+  navigateMacro,
+  navigateSettings,
+  useTerminalRoute,
 } from './terminalRoute.js'
-import { TerminalTopBarActions, TerminalTopBarBrand } from './TerminalTopBarChrome.jsx'
 import { formatCountLabel } from './formatCountLabel.js'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
@@ -66,12 +66,10 @@ import {
   researchPaperSourceTypes,
 } from './researchPaperSources.js'
 import {
-  readActiveTab,
   readChartRange,
   readFilterSet,
   readInvestigateMode,
   UI_PREF_KEYS,
-  writeActiveTab,
   writeChartRange,
   writeFilterSet,
   writeInvestigateMode,
@@ -106,10 +104,6 @@ function usePhoneViewport() {
 function phonePaneHiddenClass(isPhone, activePane, paneId) {
   if (!isPhone) return ''
   return activePane === paneId ? '' : 'phonePane--hidden'
-}
-
-function tabPanelHiddenClass(activeTab, tabId) {
-  return ['tabPanelWrap', activeTab === tabId ? '' : 'tabPanel--hidden'].filter(Boolean).join(' ')
 }
 
 function PhoneSubNav({ items, value, onChange, ariaLabel, className = '' }) {
@@ -8808,134 +8802,6 @@ function CaseKvFeed({
 }
 
 
-function InvestigateModeSwitch({ mode, onChange }) {
-  return (
-    <div
-      className={`terminalIntelSwitch terminalIntelSwitch--${mode}`}
-      role="tablist"
-      aria-label="Investigate mode"
-    >
-      {INVESTIGATE_MODE_OPTIONS.map((opt, i) => (
-        <Fragment key={opt.id}>
-          {i > 0 ? (
-            <span className="terminalIntelSwitchSep" aria-hidden="true">
-              |
-            </span>
-          ) : null}
-          <button
-            type="button"
-            role="tab"
-            className={mode === opt.id ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
-            aria-selected={mode === opt.id}
-            onClick={() => onChange(opt.id)}
-          >
-            <span className="terminalIntelSwitchLabel terminalIntelSwitchLabel--short">{opt.label}</span>
-            <span className="terminalIntelSwitchLabel terminalIntelSwitchLabel--full">{opt.labelFull}</span>
-          </button>
-        </Fragment>
-      ))}
-    </div>
-  )
-}
-
-const DEEP_RESEARCH_MODE_OPTIONS = [
-  { id: 'company', label: 'Company' },
-  { id: 'investor', label: 'Investor' },
-]
-
-function DeepResearchModeSwitch({ mode, onChange }) {
-  return (
-    <div
-      className={`terminalIntelSwitch terminalIntelSwitch--deepResearch terminalIntelSwitch--${mode}`}
-      role="tablist"
-      aria-label="Deep research subject mode"
-    >
-      {DEEP_RESEARCH_MODE_OPTIONS.map((opt, i) => (
-        <Fragment key={opt.id}>
-          {i > 0 ? (
-            <span className="terminalIntelSwitchSep" aria-hidden="true">
-              |
-            </span>
-          ) : null}
-          <button
-            type="button"
-            role="tab"
-            className={mode === opt.id ? 'terminalIntelSwitchBtn isActive' : 'terminalIntelSwitchBtn'}
-            aria-selected={mode === opt.id}
-            onClick={() => onChange(opt.id)}
-          >
-            {opt.label}
-          </button>
-        </Fragment>
-      ))}
-    </div>
-  )
-}
-
-function TerminalTopBar({
-  macroActive,
-  onMacroClick,
-  settingsActive,
-  onSettingsClick,
-  onBrandClick = null,
-  backendUp,
-  isPhone = false,
-  showInvestigateSwitch = false,
-  investigateMode = 'insider',
-  onInvestigateModeChange,
-  showDeepResearchSwitch = false,
-  deepResearchMode = 'company',
-  onDeepResearchModeChange,
-  topBarExtra = null,
-}) {
-  const modeSwitch = showInvestigateSwitch ? (
-    <InvestigateModeSwitch mode={investigateMode} onChange={onInvestigateModeChange} />
-  ) : showDeepResearchSwitch ? (
-    <DeepResearchModeSwitch mode={deepResearchMode} onChange={onDeepResearchModeChange} />
-  ) : null
-
-  return (
-    <header
-      className={[
-        'terminalTopBar',
-        showInvestigateSwitch ? 'terminalTopBar--investigate' : '',
-        showDeepResearchSwitch ? 'terminalTopBar--deepResearch' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      aria-label="Mercerline"
-    >
-      <div className="terminalTopBarStart">
-        <TerminalTopBarBrand onBrandClick={onBrandClick} />
-      </div>
-
-      <div className="terminalTopBarCenter">{!isPhone ? modeSwitch : null}</div>
-
-      <div className="terminalTopBarEnd">
-        {isPhone && modeSwitch ? <div className="terminalTopBarMode">{modeSwitch}</div> : null}
-        {topBarExtra}
-        <TerminalTopBarActions
-          macroActive={macroActive}
-          onMacroClick={onMacroClick}
-          settingsActive={settingsActive}
-          onSettingsClick={onSettingsClick}
-          hideDate={isPhone}
-        />
-      </div>
-    </header>
-  )
-}
-
-const VIEW_TAB_CYCLE = ['analyse', 'main', 'investigate']
-const OVERLAY_TABS = new Set(['settings', 'macro'])
-
-function cycleViewTab(current, overlayReturnTab = 'main') {
-  if (OVERLAY_TABS.has(current)) return overlayReturnTab
-  const idx = VIEW_TAB_CYCLE.indexOf(current)
-  if (idx < 0) return VIEW_TAB_CYCLE[0]
-  return VIEW_TAB_CYCLE[(idx + 1) % VIEW_TAB_CYCLE.length]
-}
-
 function investigateCaseSheetFromApiItem(it, mode) {
   const fallback = {
     id: it.id,
@@ -9114,12 +8980,11 @@ function mapInstitutionFeedItem(it) {
 function KensiglineTerminal() {
   const { user } = useAuth()
   const isPhone = usePhoneViewport()
-  const exploreRoute = useExploreRoute()
-  const exploreSubview = exploreRoute.view
-  const [activeTab, setActiveTab] = useState(() => {
-    if (typeof window !== 'undefined' && isExplorePath()) return 'explore'
-    return readActiveTab()
-  }) // analyse | main | investigate | macro | settings
+  const terminalRoute = useTerminalRoute()
+  const shell = terminalRoute.shell ?? 'explore'
+  const exploreSubview = shell === 'explore' ? (terminalRoute.view ?? 'home') : 'home'
+  const macroActive = shell === 'macro'
+  const settingsActive = shell === 'settings'
   const [researchPhonePane, setResearchPhonePane] = useState('paper')
   const [analysePhonePane, setAnalysePhonePane] = useState('analyse')
   const [investigatePhonePane, setInvestigatePhonePane] = useState('feed')
@@ -9138,7 +9003,6 @@ function KensiglineTerminal() {
   const [investigateInsiderTxnFiltersDraft, setInvestigateInsiderTxnFiltersDraft] = useState(null)
   const [investigatePoliticianTxnFiltersDraft, setInvestigatePoliticianTxnFiltersDraft] = useState(null)
   const [investigateInstitutionTxnFiltersDraft, setInvestigateInstitutionTxnFiltersDraft] = useState(null)
-  const underlyingTabRef = useRef('main')
   const researchTickerPinnedRef = useRef(null)
   const terminalMainRef = useRef(null)
 
@@ -9302,11 +9166,11 @@ function KensiglineTerminal() {
   )
   useLayoutEffect(() => {
     const main = terminalMainRef.current
-    if (!main || activeTab !== 'main') return
+    if (!main) return
     const panels = [...main.querySelectorAll(':scope > .researchPaperPanel')]
     if (panels.length <= 1) return
     for (let i = 0; i < panels.length - 1; i++) panels[i].remove()
-  }, [researchTick, activeTab])
+  }, [researchTick])
 
   const researchExploreResolved = useMemo(() => {
     if (!backendUp || !researchTick) return null
@@ -9428,33 +9292,16 @@ function KensiglineTerminal() {
   )
 
   useEffect(() => {
+    if (!isTerminalAppPath()) navigateExploreHome({ replace: true })
+  }, [])
+
+  useEffect(() => {
     if (!import.meta.env.DEV) return
     const params = new URLSearchParams(window.location.search)
     if (params.get('preview') !== 'terminal') return
-    const tab = params.get('tab')
-    const view = params.get('view')
-    if (tab === 'analyse' || tab === 'main' || tab === 'investigate') {
-      setActiveTab(tab)
-    }
-    if (tab === 'explore' || view === 'companies' || view === 'investors' || view === 'actors') {
-      setActiveTab('explore')
-    }
     const ticker = String(params.get('ticker') ?? '').trim().toUpperCase()
     if (ticker) setResearchTicker(ticker)
   }, [])
-
-  useEffect(() => {
-    const syncExploreTabFromPath = () => {
-      if (isExplorePath()) setActiveTab('explore')
-    }
-    syncExploreTabFromPath()
-    window.addEventListener('popstate', syncExploreTabFromPath)
-    return () => window.removeEventListener('popstate', syncExploreTabFromPath)
-  }, [])
-
-  useEffect(() => {
-    writeActiveTab(activeTab)
-  }, [activeTab])
 
   useEffect(() => {
     writeInvestigateMode(investigateMode)
@@ -9705,7 +9552,7 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     // If the current selection falls out of the source filter, snap to the first match.
-    if (activeTab !== 'main' && activeTab !== 'analyse') return
+    return
     const current = String(researchTicker ?? '').trim().toUpperCase()
     const pinned = String(researchTickerPinnedRef.current ?? '').trim().toUpperCase()
     if (pinned && pinned === current) return
@@ -9715,7 +9562,7 @@ function KensiglineTerminal() {
     if (!rows.length) return
     const ok = rows.some((x) => String(x.ticker ?? '').toUpperCase() === current)
     if (!ok) setResearchTicker(String(rows[0]?.ticker ?? '').trim().toUpperCase())
-  }, [activeTab, researchPaperSourceFilters, researchFeedAfterSourceFilter, researchTicker])
+  }, [researchPaperSourceFilters, researchFeedAfterSourceFilter, researchTicker])
 
   useEffect(() => {
     let alive = true
@@ -10277,10 +10124,10 @@ function KensiglineTerminal() {
   }, [insiderActorFeedBase, insiderFeedQuery])
 
   useEffect(() => {
-    if (activeTab !== 'investigate' || investigateMode !== 'insider') return
+    return
     setInsiderIdx(0)
     setInsiderCaseTradeIdx(0)
-  }, [insiderFeedQuery, activeTab, investigateInsiderTxnFilters, investigateMode])
+  }, [insiderFeedQuery, investigateInsiderTxnFilters, investigateMode])
 
   const insiderSelected =
     insiderFilteredFeed.length > 0
@@ -10315,10 +10162,10 @@ function KensiglineTerminal() {
   }, [politiciansActorFeedBase, politiciansFeedQuery])
 
   useEffect(() => {
-    if (activeTab !== 'investigate' || investigateMode !== 'politicians') return
+    return
     setPoliticiansIdx(0)
     setPoliticiansCaseTradeIdx(0)
-  }, [politiciansFeedQuery, activeTab, investigatePoliticianTxnFilters, investigateMode])
+  }, [politiciansFeedQuery, investigatePoliticianTxnFilters, investigateMode])
 
   const politiciansSelected =
     politiciansFilteredFeed.length > 0
@@ -10375,26 +10222,26 @@ function KensiglineTerminal() {
   )
 
   useEffect(() => {
-    if (activeTab !== 'explore') return
-    if (exploreRoute.view === 'companyDetail' && exploreRoute.ticker) {
-      setResearchTicker(exploreRoute.ticker)
+    if (shell !== 'explore') return
+    if (terminalRoute.view === 'companyDetail' && terminalRoute.ticker) {
+      setResearchTicker(terminalRoute.ticker)
       setDeepResearchMode('company')
       return
     }
-    if (exploreRoute.view === 'investorDetail' && exploreRoute.investorSlug) {
+    if (terminalRoute.view === 'investorDetail' && terminalRoute.investorSlug) {
       setDeepResearchMode('investor')
       applyExploreInvestorFeedSelection(
-        findExploreInvestorInFeeds(exploreRoute.investorSlug, exploreActorFeeds),
+        findExploreInvestorInFeeds(terminalRoute.investorSlug, exploreActorFeeds),
         exploreActorFeedHandlers,
       )
     }
-  }, [activeTab, exploreRoute, exploreActorFeeds, exploreActorFeedHandlers])
+  }, [shell, terminalRoute, exploreActorFeeds, exploreActorFeedHandlers])
 
   useEffect(() => {
-    if (activeTab !== 'investigate' || investigateMode !== 'institutions') return
+    return
     setInstitutionsIdx(0)
     setInstitutionsCaseTradeIdx(0)
-  }, [institutionsFeedQuery, activeTab, investigateInstitutionTxnFilters, investigateMode])
+  }, [institutionsFeedQuery, investigateInstitutionTxnFilters, investigateMode])
 
   const institutionsSelected =
     institutionsFilteredFeed.length > 0
@@ -10408,7 +10255,7 @@ function KensiglineTerminal() {
   }, [investigateMode, politiciansSelected, institutionsSelected, insiderSelected])
 
   // Bars (Daily Graph) + Company panel: use selected ticker in either mode
-  const investigateOpen = activeTab === 'investigate'
+  const investigateOpen = false
   const investigateIsInsider = investigateOpen && investigateMode === 'insider'
   const investigateIsPoliticians = investigateOpen && investigateMode === 'politicians'
   const investigateIsInstitutions = investigateOpen && investigateMode === 'institutions'
@@ -10925,7 +10772,7 @@ function KensiglineTerminal() {
     if (Array.isArray(daily) && daily.length >= 40) return daily
     if (!backendUp) return buildMockDailySeries(71, 160)
     return []
-  }, [daily, backendUp, activeTab])
+  }, [daily, backendUp])
 
   const dailyDates = useMemo(() => buildEvenlySpacedDates(dailySeries.length), [dailySeries.length])
 
@@ -11010,30 +10857,15 @@ function KensiglineTerminal() {
     setInstitutionsCaseTradeIdx(0)
   }, [institutionsSelected?.id, institutionsChartRange])
 
-  useEffect(() => {
-    if (isPhone && activeTab === 'main') setResearchPhonePane('paper')
-  }, [researchTicker, isPhone, activeTab])
-
-  useEffect(() => {
-    if (isPhone && activeTab === 'analyse') setAnalysePhonePane('analyse')
-  }, [researchTicker, isPhone, activeTab])
-
-  useEffect(() => {
-    if (isPhone && activeTab === 'investigate') setInvestigatePhonePane('feed')
-  }, [investigateMode, isPhone, activeTab])
-
   const onResearchSelectTicker = useCallback(
     (ticker) => {
       const t = String(ticker ?? '').trim().toUpperCase()
       if (!t) return
       researchTickerPinnedRef.current = null
       setResearchTicker(t)
-      if (isPhone) {
-        if (activeTab === 'analyse') setAnalysePhonePane('analyse')
-        else setResearchPhonePane('paper')
-      }
+      if (isPhone) setResearchPhonePane('paper')
     },
-    [activeTab, isPhone],
+    [isPhone],
   )
 
   const onInvestigateFeedSelectIndex = useCallback(
@@ -11054,33 +10886,20 @@ function KensiglineTerminal() {
   )
 
   const onMacroClick = useCallback(() => {
-    if (activeTab === 'macro') {
-      setActiveTab(underlyingTabRef.current)
-      return
-    }
-    if (!OVERLAY_TABS.has(activeTab)) {
-      underlyingTabRef.current = activeTab
-    }
-    setActiveTab('macro')
-  }, [activeTab])
+    if (shell === 'macro') navigateExploreHome()
+    else navigateMacro()
+  }, [shell])
 
   const onSettingsClick = useCallback(() => {
-    if (activeTab === 'settings') {
-      setActiveTab(underlyingTabRef.current)
-      return
-    }
-    if (!OVERLAY_TABS.has(activeTab)) {
-      underlyingTabRef.current = activeTab
-    }
-    setActiveTab('settings')
-  }, [activeTab])
+    if (shell === 'settings') navigateExploreHome()
+    else navigateSettings()
+  }, [shell])
 
   const onExploreDossierCloseClick = useCallback(() => {
     navigateExploreBack()
   }, [])
 
   const onExploreHomeClick = useCallback(() => {
-    setActiveTab('explore')
     navigateExploreHome()
   }, [])
 
@@ -11088,7 +10907,6 @@ function KensiglineTerminal() {
     (row) => {
       const ticker = String(row?.ticker ?? '').trim().toUpperCase()
       if (!ticker) return
-      setActiveTab('explore')
       setResearchTicker(ticker)
       setDeepResearchMode('company')
       navigateExploreCompanyDetail(ticker)
@@ -11103,7 +10921,6 @@ function KensiglineTerminal() {
       const preferredMode = row?.docType
         ? exploreInvestorModeFromDocType(row.docType)
         : exploreInvestorModeFromTypeKey(row?.typeKey ?? row?.type)
-      setActiveTab('explore')
       setDeepResearchMode('investor')
       applyExploreInvestorFeedSelection(
         findExploreInvestorInFeedsByName(name, preferredMode, exploreActorFeeds),
@@ -11120,18 +10937,14 @@ function KensiglineTerminal() {
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
         return
       }
-      if (e.key === 'Escape' && OVERLAY_TABS.has(activeTab)) {
+      if (e.key === 'Escape' && (shell === 'settings' || shell === 'macro')) {
         e.preventDefault()
-        setActiveTab(underlyingTabRef.current)
-        return
+        navigateExploreHome()
       }
-      if (e.key !== 'Tab') return
-      e.preventDefault()
-      setActiveTab((t) => cycleViewTab(t, underlyingTabRef.current))
     }
     window.addEventListener('keydown', onKey, { capture: true })
     return () => window.removeEventListener('keydown', onKey, { capture: true })
-  }, [activeTab])
+  }, [shell])
 
   const investigateTerminalSkin = investigateMode
   const deepPageMode = exploreSubview === 'investorDetail' ? 'investor' : 'company'
@@ -11142,9 +10955,9 @@ function KensiglineTerminal() {
         mode={deepPageMode}
         chrome={{
           backendUp,
-          macroActive: activeTab === 'macro',
+          macroActive,
           onMacroClick,
-          settingsActive: activeTab === 'settings',
+          settingsActive,
           onSettingsClick,
           onBrandClick: onExploreHomeClick,
           onCloseClick: onExploreDossierCloseClick,
@@ -11209,402 +11022,69 @@ function KensiglineTerminal() {
         .filter(Boolean)
         .join(' ')}
     >
-      {activeTab !== 'explore' && activeTab !== 'deepAnalyse' && activeTab !== 'settings' && activeTab !== 'macro' ? (
-        <TerminalTopBar
-          macroActive={activeTab === 'macro'}
-          onMacroClick={onMacroClick}
-          settingsActive={activeTab === 'settings'}
-          onSettingsClick={onSettingsClick}
-          onBrandClick={onExploreHomeClick}
-          backendUp={backendUp}
-          isPhone={isPhone}
-          showInvestigateSwitch={activeTab === 'investigate'}
-          investigateMode={investigateMode}
-          onInvestigateModeChange={setInvestigateMode}
-          showDeepResearchSwitch={activeTab === 'deepAnalyse'}
-          deepResearchMode={deepResearchMode}
-          onDeepResearchModeChange={setDeepResearchMode}
-          topBarExtra={null}
-        />
-      ) : null}
       <div className="terminalWorkspace">
-      <main
-        ref={terminalMainRef}
-        className={[
-          'terminal',
-          activeTab === 'investigate'
-            ? `terminal--investigate terminal--${investigateTerminalSkin}`
-            : `terminal--${activeTab}`,
-          activeTab === 'main' || activeTab === 'analyse' ? 'terminal--researchFeed' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        aria-label="MERCERLINE terminal grid"
-      >
-      {activeTab === 'settings' ? (
-        <SettingsPanel
-          backendUp={backendUp}
-          onSettingsClick={onSettingsClick}
-          onBrandClick={onExploreHomeClick}
-        />
-      ) : null}
-      {activeTab === 'macro' ? (
-        <MacroCalendarPanel
-          backendUp={backendUp}
-          onMacroClick={onMacroClick}
-          onBrandClick={onExploreHomeClick}
-        />
-      ) : null}
-      <div className={tabPanelHiddenClass(activeTab, 'analyse')}>
-        <ResearchTickerPanel
-          selectedTicker={researchTicker}
-          onSelectTicker={onResearchSelectTicker}
-          q={researchQuery}
-          onQuery={setResearchQuery}
-          filtered={researchFeedAfterSourceFilter}
-          feedLoading={researchFeedLoading}
-          feedLoadingMore={researchFeedLoadingMore}
-          feedHasMore={researchFeedHasMore}
-          onFeedLoadMore={loadMoreResearchFeed}
-          feedEmptyLabel={researchFeedEmptyLabel}
-          showFeedFilter
-          feedFilterActive={researchFeedFilterOpen}
-          feedFilterOpen={researchFeedFilterOpen}
-          onFeedFilterClick={onResearchFeedFilterClick}
-          feedFilterPicker={researchFeedFilterPickerEl}
-          panelClassName={[
-            'researchFeedSlot',
-            'analyseFeedSlot',
-            phonePaneHiddenClass(isPhone, analysePhonePane, 'feed'),
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          showDocumentCount={false}
-        />
-        <AnalysePanel
-          panelClassName={[
-            'analyseMainSlot',
-            phonePaneHiddenClass(isPhone, analysePhonePane, 'analyse'),
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          ticker={contextCompanySnapshot.ticker}
-          companyName={researchCompanyName}
-          price={contextCompanySnapshot.price}
-          priceChange={analysePriceChange?.delta}
-          priceChangePct={analysePriceChange?.pct}
-          sector={contextCompanySnapshot.sector}
-          domicile={contextCompanySnapshot.domicile}
-          mcap={contextCompanySnapshot.mcap}
-          earnings={contextEarnings}
-          quarterlyRevenueOverlay={analyseQuarterlyRevenue}
-          chartRange={analysePriceRange}
-          onChartRangeChange={setAnalysePriceRange}
-          backendUp={backendUp}
-          liveModel={analyseLivePayload?.model ?? null}
-          modelLoading={analyseModelLoading}
+        <main
+          ref={terminalMainRef}
+          className={['terminal', `terminal--${shell}`].filter(Boolean).join(' ')}
+          aria-label="MERCERLINE"
         >
-          <MiniPriceChart
-            series={researchPriceSeries}
-            label={researchTick || 'PRICE'}
-            showMeta={false}
-            chartAlign="context"
-            chartRange={analysePriceRange}
-            trimLeadingPlateau
-            quarterlyRevenueOverlay={analyseQuarterlyRevenue}
-          />
-        </AnalysePanel>
-      </div>
-      <div className={tabPanelHiddenClass(activeTab, 'investigate')}>
-          <CompactFeed
-            placement="left"
-            panelClassName={phonePaneHiddenClass(isPhone, investigatePhonePane, 'feed')}
-            title="FEED"
-            loading={investigateFeedLoading}
-            loadingLabel="Loading feed…"
-            emptyLabel="No feed items match filters."
-            items={
-              investigateMode === 'insider'
-                ? insiderFilteredFeed
-                : investigateMode === 'politicians'
-                  ? politiciansFilteredFeed
-                  : institutionsFilteredFeed
-            }
-            selectedIndex={
-              investigateMode === 'insider'
-                ? insiderIdx
-                : investigateMode === 'politicians'
-                  ? politiciansIdx
-                  : institutionsIdx
-            }
-            sepMode="today+years"
-            todayGroupByEvents
-            scrollMode
-            hasMore={investigateFeedHasMore}
-            loadingMore={investigateFeedLoadingMore}
-            onLoadMore={investigateFeedLoadMore}
-            rowPrimary="actor"
-            showFeedFilter
-            feedFilterActive={investigateFeedFilterOpen}
-            onFeedFilterClick={onInvestigateFeedFilterClick}
-            feedFilterOpen={investigateFeedFilterOpen}
-            feedFilterPicker={null}
-            feedFilterTypes={
-              investigateIsInsider
-                ? INVESTIGATE_INSIDER_TXN_TYPES
-                : investigateIsPoliticians
-                  ? INVESTIGATE_POLITICIAN_TXN_TYPES
-                  : INVESTIGATE_INSTITUTION_TXN_TYPES
-            }
-            feedFilterEnabled={investigateTxnFilterPickerEnabled}
-            onFeedFilterToggle={toggleInvestigateTxnFilter}
-            showFeedSearch
-            feedQuery={
-              investigateIsInsider
-                ? insiderFeedQuery
-                : investigateIsPoliticians
-                  ? politiciansFeedQuery
-                  : institutionsFeedQuery
-            }
-            feedSearchPlaceholder={
-              investigateIsInsider
-                ? 'Search insider or company'
-                : investigateIsPoliticians
-                  ? 'Search politician or company'
-                  : 'Search institution or company'
-            }
-            feedSearchAriaLabel={
-              investigateIsInsider
-                ? 'Search insider or company'
-                : investigateIsPoliticians
-                  ? 'Search politician or company'
-                  : 'Search institution or company'
-            }
-            onFeedQuery={
-              investigateIsInsider
-                ? setInsiderFeedQuery
-                : investigateIsPoliticians
-                  ? setPoliticiansFeedQuery
-                  : setInstitutionsFeedQuery
-            }
-            onSelectIndex={onInvestigateFeedSelectIndex}
-          />
-          <CaseKvFeed
-            title="CASE"
-            panelClassName={phonePaneHiddenClass(isPhone, investigatePhonePane, 'case')}
-            rows={
-              investigateIsInsider
-                ? insiderCaseFeedRows
-                : investigateIsPoliticians
-                  ? politiciansCaseFeedRows
-                  : institutionsCaseFeedRows
-            }
-            placement="right"
-            selectedTradeRowIndex={
-              investigateIsInsider
-                ? insiderCaseSelectedRowIndex
-                : investigateIsPoliticians
-                  ? politiciansCaseSelectedRowIndex
-                  : institutionsCaseSelectedRowIndex
-            }
-            highlightCompanyQuery={
-              investigateIsInsider
-                ? insiderFeedQuery
-                : investigateIsPoliticians
-                  ? politiciansFeedQuery
-                  : institutionsFeedQuery
-            }
-            personDisplay={historicalOutcomesPerson}
-            actorAlert={investigateCaseActorAlert}
-            personMode={
-              investigateIsPoliticians
-                ? 'politicians'
-                : investigateIsInstitutions
-                  ? 'institutions'
-                  : 'insider'
-            }
-            scrollMode
-            onSelectTradeRowIndex={(rowIndex) => {
-              if (investigateIsInsider) {
-                const pos = insiderCaseTradeRowIndices.indexOf(rowIndex)
-                if (pos >= 0) setInsiderCaseTradeIdx(pos)
-              } else if (investigateIsPoliticians) {
-                const pos = politiciansCaseTradeRowIndices.indexOf(rowIndex)
-                if (pos >= 0) setPoliticiansCaseTradeIdx(pos)
-              } else {
-                const pos = institutionsCaseTradeRowIndices.indexOf(rowIndex)
-                if (pos >= 0) setInstitutionsCaseTradeIdx(pos)
-              }
-            }}
-          />
-        <div
-          className={[
-            'investigateRightStack',
-            'scrollThin',
-            phonePaneHiddenClass(isPhone, investigatePhonePane, 'chart'),
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
-          <GraphPanel
-            key={selectedTicker ?? 'none'}
-            title={chartPanelTitle}
-            series={dailySeries}
-            dates={dailyDates}
-            markers={insiderTradeMarkers}
-            selectedMarker={selectedInsiderTradeMarker}
-            chartRange={
-              investigateIsPoliticians
-                ? politiciansChartRange
-                : investigateIsInstitutions
-                  ? institutionsChartRange
-                  : insiderChartRange
-            }
-            onChartRangeChange={
-              investigateIsPoliticians
-                ? setPoliticiansChartRange
-                : investigateIsInstitutions
-                  ? setInstitutionsChartRange
-                  : setInsiderChartRange
-            }
-          />
-
-          <HistoricalOutcomesPanel
-            mode={investigateMode}
-            backendUp={backendUp}
-            personDisplay={historicalOutcomesPerson}
-          />
-
-          <CompanyPanel
-            company={companyForInvestigatePanel}
-            ticker={selectedTicker}
-            backendUp={backendUp}
-            price={chartLastPrice}
-          />
-        </div>
-      </div>
-
-      <div className={tabPanelHiddenClass(activeTab, 'main')}>
-          <ResearchTickerPanel
-            selectedTicker={researchTicker}
-            onSelectTicker={onResearchSelectTicker}
-            q={researchQuery}
-            onQuery={setResearchQuery}
-            filtered={researchFeedAfterSourceFilter}
-            feedLoading={researchFeedLoading}
-            feedLoadingMore={researchFeedLoadingMore}
-            feedHasMore={researchFeedHasMore}
-            onFeedLoadMore={loadMoreResearchFeed}
-            feedEmptyLabel={researchFeedEmptyLabel}
-            showFeedFilter
-            feedFilterActive={researchFeedFilterOpen}
-            feedFilterOpen={researchFeedFilterOpen}
-            onFeedFilterClick={onResearchFeedFilterClick}
-            feedFilterPicker={researchFeedFilterPickerEl}
-            panelClassName={[
-              'researchFeedSlot',
-              phonePaneHiddenClass(isPhone, researchPhonePane, 'feed'),
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          />
-
-          <ResearchPaperPanel
-            ticker={researchTicker}
-            companyName={researchCompanyName}
-            entities={researchDataset?.entities ?? []}
-            events={researchDataset?.events ?? []}
-            edges={researchDataset?.edges ?? []}
-            backendUp={backendUp}
-            dataTicker={researchExploreResolved ? researchTick : null}
-            presentation={researchPresentation}
-            insiders={contextFlowRows.insiders}
-            politicians={contextFlowRows.politicians}
-            filings13f={contextFlowRows.filings13f}
-            paperSourceFilters={researchPaperSourceFiltersEffective}
-            panelClassName={[
-              'mainMainBlank',
-              phonePaneHiddenClass(isPhone, researchPhonePane, 'paper'),
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          />
-
-          <MainContextPanel
-            key={researchTick}
-            ticker={contextCompanySnapshot.ticker}
-            price={contextCompanySnapshot.price}
-            sector={contextCompanySnapshot.sector}
-            domicile={contextCompanySnapshot.domicile}
-            mcap={contextCompanySnapshot.mcap}
-            priceSeries={researchPriceSeries}
-            insiderPriceMarkers={insiderPriceMarkers}
-            politicianPriceMarkers={politicianPriceMarkers}
-            earnings={contextEarnings}
-            insiders={contextFlowRows.insiders}
-            politicians={contextFlowRows.politicians}
-            filings13f={contextFlowRows.filings13f}
-            trackedInvestorsApi={
-              backendUp && researchExploreResolved?.tracked_investors != null
-                ? researchExploreResolved.tracked_investors
-                : null
-            }
-            fundamentals={contextFundamentals}
-            backendUp={backendUp}
-            companyContextLoading={researchCompanyContextLoading}
-            exploreContextLoading={backendUp && researchTick && !researchExploreResolved}
-            panelClassName={phonePaneHiddenClass(isPhone, researchPhonePane, 'context')}
-          />
-      </div>
-
-      <div className={tabPanelHiddenClass(activeTab, 'explore')}>
-        {exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail' ? (
-          deepDossierPage
-        ) : exploreSubview === 'companies' ? (
-          <ExploreCompaniesPage
-            backendUp={backendUp}
-            macroActive={activeTab === 'macro'}
-            onMacroClick={onMacroClick}
-            settingsActive={activeTab === 'settings'}
-            onSettingsClick={onSettingsClick}
-            onBrandClick={onExploreHomeClick}
-            onCloseClick={onExploreDossierCloseClick}
-            onCompanyRowClick={onExploreCompanyClick}
-          />
-        ) : exploreSubview === 'investors' ? (
-          <ExploreInvestorsPage
-            backendUp={backendUp}
-            macroActive={activeTab === 'macro'}
-            onMacroClick={onMacroClick}
-            settingsActive={activeTab === 'settings'}
-            onSettingsClick={onSettingsClick}
-            onBrandClick={onExploreHomeClick}
-            onCloseClick={onExploreDossierCloseClick}
-            onInvestorRowClick={onExploreInvestorClick}
-          />
-        ) : (
-          <ExplorePage
-            backendUp={backendUp}
-            macroActive={activeTab === 'macro'}
-            onMacroClick={onMacroClick}
-            settingsActive={activeTab === 'settings'}
-            onSettingsClick={onSettingsClick}
-            onBrandClick={onExploreHomeClick}
-            onCompanyRowClick={onExploreCompanyClick}
-            onInvestorRowClick={onExploreInvestorClick}
-          />
-        )}
-      </div>
-
-      <div className={tabPanelHiddenClass(activeTab, 'deepAnalyse')}>
-        {deepDossierPage}
-      </div>
-
-      {/* Explore parent shell; DEEP dossier is the child detail view for now. */}
-      </main>
+          {shell === 'settings' ? (
+            <SettingsPanel
+              backendUp={backendUp}
+              onSettingsClick={onSettingsClick}
+              onBrandClick={onExploreHomeClick}
+            />
+          ) : null}
+          {shell === 'macro' ? (
+            <MacroCalendarPanel
+              backendUp={backendUp}
+              onMacroClick={onMacroClick}
+              onBrandClick={onExploreHomeClick}
+            />
+          ) : null}
+          {shell === 'explore' ? (
+            exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail' ? (
+              deepDossierPage
+            ) : exploreSubview === 'companies' ? (
+              <ExploreCompaniesPage
+                backendUp={backendUp}
+                macroActive={macroActive}
+                onMacroClick={onMacroClick}
+                settingsActive={settingsActive}
+                onSettingsClick={onSettingsClick}
+                onBrandClick={onExploreHomeClick}
+                onCloseClick={onExploreDossierCloseClick}
+                onCompanyRowClick={onExploreCompanyClick}
+              />
+            ) : exploreSubview === 'investors' ? (
+              <ExploreInvestorsPage
+                backendUp={backendUp}
+                macroActive={macroActive}
+                onMacroClick={onMacroClick}
+                settingsActive={settingsActive}
+                onSettingsClick={onSettingsClick}
+                onBrandClick={onExploreHomeClick}
+                onCloseClick={onExploreDossierCloseClick}
+                onInvestorRowClick={onExploreInvestorClick}
+              />
+            ) : (
+              <ExplorePage
+                backendUp={backendUp}
+                macroActive={macroActive}
+                onMacroClick={onMacroClick}
+                settingsActive={settingsActive}
+                onSettingsClick={onSettingsClick}
+                onBrandClick={onExploreHomeClick}
+                onCompanyRowClick={onExploreCompanyClick}
+                onInvestorRowClick={onExploreInvestorClick}
+              />
+            )
+          ) : null}
+        </main>
       </div>
     </div>
   )
+
 }
 
 /** Terminal shell only - marketing and subscribe checkout live outside this bundle. */

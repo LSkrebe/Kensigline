@@ -33,18 +33,6 @@ export const SIGN_IN_PAGE_META = {
   ogImage: '/og-image.png',
 }
 
-/** @param {{ ticker: string; company: string }} payload */
-export function publicTickerPageMeta(payload) {
-  const t = payload.ticker
-  const name = payload.company
-  return {
-    title: `${t} research timeline - ${name} | Mercerline`,
-    description: `Delayed public sample of ${name} (${t}) catalyst, SEC filing, and flow research on Mercerline. Full live terminal with Analyse, Investigate, and historical outcomes requires subscription.`,
-    path: `/ticker/${t.toUpperCase()}`,
-    ogImage: '/og-image.png',
-  }
-}
-
 export const SIGN_IN = {
   eyebrow: 'Account access',
   headline: 'Sign in to continue',

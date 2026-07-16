@@ -38,17 +38,6 @@ export function returnToIntroAfterSignOut() {
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
-/** Canonical public ticker URL — uppercase symbol; any casing in the path is accepted then normalized here. */
-export function canonicalPublicTickerPath(ticker) {
-  const t = String(ticker ?? '').trim().toUpperCase()
-  return t ? `/ticker/${t}` : '/'
-}
-
-export function parsePublicTickerPath(pathname = '/') {
-  const m = normalizeMarketingPath(pathname).match(/^\/(?:ticker|research|t)\/([A-Za-z0-9.-]+)$/i)
-  return m ? String(m[1]).trim().toUpperCase() : null
-}
-
 export function useNavigateMarketing() {
   return useCallback((path) => navigateMarketing(path), [])
 }

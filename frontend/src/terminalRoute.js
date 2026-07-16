@@ -5,6 +5,8 @@ import { normalizeMarketingPath } from './marketingRoute.js'
 export const EXPLORE_HOME_PATH = '/explore'
 export const EXPLORE_COMPANIES_PATH = '/explore/companies'
 export const EXPLORE_INVESTORS_PATH = '/explore/investors'
+export const SETTINGS_PATH = '/settings'
+export const MACRO_PATH = '/macro'
 /** @deprecated Use EXPLORE_INVESTORS_PATH */
 export const EXPLORE_ACTORS_PATH = EXPLORE_INVESTORS_PATH
 
@@ -49,6 +51,19 @@ export function parseExploreRoute(pathname = readTerminalPath()) {
   return null
 }
 
+/**
+ * App shell route: Explore tree, Settings, or Macro.
+ * @returns {{ shell: 'explore' | 'settings' | 'macro', view?: string, ticker?: string, investorSlug?: string } | null}
+ */
+export function parseTerminalRoute(pathname = readTerminalPath()) {
+  const path = normalizeMarketingPath(pathname)
+  if (path === SETTINGS_PATH) return { shell: 'settings', view: 'settings' }
+  if (path === MACRO_PATH) return { shell: 'macro', view: 'macro' }
+  const explore = parseExploreRoute(path)
+  if (explore) return { shell: 'explore', ...explore }
+  return null
+}
+
 /** @returns {'home' | 'companies' | 'investors' | 'companyDetail' | 'investorDetail' | null} */
 export function parseExploreSubview(pathname = readTerminalPath()) {
   return parseExploreRoute(pathname)?.view ?? null
@@ -56,6 +71,10 @@ export function parseExploreSubview(pathname = readTerminalPath()) {
 
 export function isExplorePath(pathname = readTerminalPath()) {
   return parseExploreRoute(pathname) != null
+}
+
+export function isTerminalAppPath(pathname = readTerminalPath()) {
+  return parseTerminalRoute(pathname) != null
 }
 
 export function explorePathForSubview(subview) {
@@ -77,16 +96,17 @@ export function exploreInvestorDetailPath(name) {
 /** @deprecated Use exploreInvestorDetailPath */
 export const exploreActorDetailPath = exploreInvestorDetailPath
 
-export function navigateTerminal(path) {
+export function navigateTerminal(path, { replace = false } = {}) {
   if (typeof window === 'undefined') return
   const next = path.startsWith('/') ? path : `/${path}`
   if (normalizeMarketingPath(window.location.pathname) === normalizeMarketingPath(next)) return
-  window.history.pushState(null, '', next)
+  if (replace) window.history.replaceState(null, '', next)
+  else window.history.pushState(null, '', next)
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
-export function navigateExploreHome() {
-  navigateTerminal(EXPLORE_HOME_PATH)
+export function navigateExploreHome({ replace = false } = {}) {
+  navigateTerminal(EXPLORE_HOME_PATH, { replace })
 }
 
 export function navigateExploreCompanies() {
@@ -111,13 +131,23 @@ export function navigateExploreInvestorDetail(name) {
 /** @deprecated Use navigateExploreInvestorDetail */
 export const navigateExploreActorDetail = navigateExploreInvestorDetail
 
+export function navigateSettings({ replace = false } = {}) {
+  navigateTerminal(SETTINGS_PATH, { replace })
+}
+
+export function navigateMacro({ replace = false } = {}) {
+  navigateTerminal(MACRO_PATH, { replace })
+}
+
 export function navigateExploreBack() {
   if (typeof window === 'undefined') return
   window.history.back()
 }
 
-export function useExploreRoute() {
-  const [route, setRoute] = useState(() => parseExploreRoute(readTerminalPath()) ?? { view: 'home' })
+export function useTerminalRoute() {
+  const [route, setRoute] = useState(
+    () => parseTerminalRoute(readTerminalPath()) ?? { shell: 'explore', view: 'home' },
+  )
 
   useEffect(() => {
     const sync = () => {
@@ -126,7 +156,7 @@ export function useExploreRoute() {
       if (rewritten && typeof window !== 'undefined') {
         window.history.replaceState(null, '', rewritten)
       }
-      setRoute(parseExploreRoute(readTerminalPath()) ?? { view: 'home' })
+      setRoute(parseTerminalRoute(readTerminalPath()) ?? { shell: 'explore', view: 'home' })
     }
     sync()
     window.addEventListener('popstate', sync)
@@ -134,6 +164,16 @@ export function useExploreRoute() {
   }, [])
 
   return route
+}
+
+export function useExploreRoute() {
+  const route = useTerminalRoute()
+  if (route.shell !== 'explore') return { view: 'home' }
+  return {
+    view: route.view ?? 'home',
+    ticker: route.ticker,
+    investorSlug: route.investorSlug,
+  }
 }
 
 export function useExploreSubview() {

@@ -12,7 +12,8 @@ export const UI_PREF_KEYS = {
   chartRange: (lane) => `${PREFIX}chart-range:${lane}`,
 }
 
-const ACTIVE_TABS = new Set(['analyse', 'main', 'investigate', 'explore', 'deepAnalyse', 'macro', 'settings'])
+/** Shell surfaces: Explore tree plus Settings and Macro pages. */
+const ACTIVE_TABS = new Set(['explore', 'macro', 'settings'])
 const INVESTIGATE_MODES = new Set(['insider', 'politicians', 'institutions'])
 
 function canUseStorage() {
@@ -72,7 +73,7 @@ function writeChoice(storageKey, value) {
 }
 
 export function readActiveTab() {
-  return readChoice(UI_PREF_KEYS.activeTab, ACTIVE_TABS, 'main')
+  return readChoice(UI_PREF_KEYS.activeTab, ACTIVE_TABS, 'explore')
 }
 
 export function writeActiveTab(tab) {

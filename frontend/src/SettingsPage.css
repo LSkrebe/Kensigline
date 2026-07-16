@@ -2,8 +2,8 @@
 
 .stgShell {
   --stg-pad-x: 32px;
-  --stg-strip-h: 56px;
-  --explore-compact-opacity: 1;
+  --drpt-page-pad-x: var(--stg-pad-x);
+  --explore-page-pad-x: var(--stg-pad-x);
   --stg-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --stg-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --stg-border: rgba(255, 255, 255, 0.08);
@@ -16,68 +16,20 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: #080809;
-  color: rgba(255, 255, 255, 0.92);
-}
-
-.stgDock {
-  --explore-page-pad-x: var(--stg-pad-x);
-  flex: 0 0 var(--stg-strip-h);
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  overflow: hidden;
-  isolation: isolate;
-  border-bottom: 1px solid var(--stg-border);
-  background: transparent;
-}
-
-.stgDock .exploreRecapChrome {
-  position: relative;
-  z-index: 1;
-}
-
-.stgScroll {
-  flex: 1 1 auto;
-  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+  background: var(--drpt-bg, #080809);
+  color: rgba(255, 255, 255, 0.92);
+  font-family: var(--drpt-sans, inherit);
 }
 
 .stgPaper {
+  flex: 1 0 auto;
+  min-height: max(42vh, 280px);
   padding: 28px var(--stg-pad-x) 48px;
   box-sizing: border-box;
-}
-
-.stgHero {
-  margin-bottom: 32px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--stg-border);
-}
-
-.stgKicker {
-  margin: 0 0 6px;
-  font-family: var(--stg-mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.42);
-}
-
-.stgTitle {
-  margin: 0;
-  font-family: var(--stg-serif);
-  font-size: clamp(28px, 3.6vw, 36px);
-  font-weight: 400;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  color: rgba(255, 255, 255, 0.94);
 }
 
 .stgRow {
@@ -489,6 +441,7 @@
   .stgShell {
     --stg-pad-x: 18px;
     --explore-page-pad-x: 18px;
+    --drpt-page-pad-x: 18px;
   }
 
   .stgRow {
@@ -498,10 +451,5 @@
 
   .stgPaper {
     padding: 20px var(--stg-pad-x) 36px;
-  }
-
-  .stgHero {
-    margin-bottom: 24px;
-    padding-bottom: 18px;
   }
 }
