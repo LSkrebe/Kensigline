@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { useActorAlertWatchlist } from './alertsActorWatchlist.js'
 import { useAlertWatchlist, WATCHLIST_MAX_DEFAULT } from './alertsWatchlist.js'
@@ -7,28 +7,8 @@ import { useAuth } from './AuthContext.jsx'
 import { AuthSignIn } from './AuthSignIn.jsx'
 import { actorModeLabel } from './investigateActorKey.js'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
-import './DeepReport.css'
 import './ExplorePage.css'
 import './SettingsPage.css'
-
-const SETTINGS_COLLAPSE_RANGE_FALLBACK = 1
-const SETTINGS_EXPANDED_FADE_END = 0.88
-const SETTINGS_COMPACT_FADE_START = 0
-const SETTINGS_LEAD = 'Account, billing, and alert preferences.'
-
-function settingsCollapseProgressVars(progress) {
-  const p = Math.min(1, Math.max(0, progress))
-  const expandedOpacity = p <= SETTINGS_EXPANDED_FADE_END ? 1 - p / SETTINGS_EXPANDED_FADE_END : 0
-  const compactOpacity =
-    p <= SETTINGS_COMPACT_FADE_START
-      ? 0
-      : (p - SETTINGS_COMPACT_FADE_START) / (1 - SETTINGS_COMPACT_FADE_START)
-  return {
-    '--deep-collapse': String(p),
-    '--deep-expanded-opacity': String(expandedOpacity),
-    '--deep-compact-opacity': String(compactOpacity),
-  }
-}
 
 function formatBillingStatus(status) {
   const s = String(status ?? 'none').trim()
@@ -79,84 +59,29 @@ const ALERTS_EMPTY_HINT = 'Email alerts for watched tickers and investors.'
 const INVOICES_EMPTY_HINT =
   'Download invoices and update your payment method in Stripe via Manage billing.'
 
-function SettingsPageShell({ backendUp, onSettingsClick, onBrandClick = null, children }) {
-  const pageRef = useRef(null)
-  const dockRef = useRef(null)
-  const spacerRef = useRef(null)
-
-  useEffect(() => {
-    const page = pageRef.current
-    const dock = dockRef.current
-    const spacer = spacerRef.current
-    if (!page || !dock) return undefined
-
-    let raf = 0
-
-    const syncCollapse = () => {
-      raf = 0
-      const range = spacer?.offsetHeight || SETTINGS_COLLAPSE_RANGE_FALLBACK
-      const progress = Math.min(1, Math.max(0, page.scrollTop / range))
-      for (const [key, value] of Object.entries(settingsCollapseProgressVars(progress))) {
-        dock.style.setProperty(key, value)
-      }
-    }
-
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(syncCollapse)
-    }
-
-    const onResize = () => {
-      if (!raf) raf = requestAnimationFrame(syncCollapse)
-    }
-
-    page.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onResize)
-    syncCollapse()
-
-    return () => {
-      page.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onResize)
-      if (raf) cancelAnimationFrame(raf)
-    }
-  }, [])
-
+function SettingsStrip({ backendUp, onSettingsClick, onBrandClick = null }) {
   return (
-    <div className="stgShell" ref={pageRef}>
-      <div className="drpt-stickWrap">
-        <div ref={dockRef} className="drpt-dock">
-          <div className="drpt-viewport">
-            <div className="drpt-expandedBg" aria-hidden="true" />
-            <div className="drpt-chromeBar">
-              <div className="drpt-compactBg" aria-hidden="true" />
-              <TerminalTopBarChrome
-                className="exploreRecapChrome"
-                logoSrc="/mercerline_mark.png"
-                backendUp={backendUp}
-                settingsActive
-                onSettingsClick={onSettingsClick}
-                onBrandClick={onBrandClick}
-                hideDate
-                hideMacro
-              />
-            </div>
-            <div className="drpt-expanded">
-              <header className="drpt-topbar drpt-topbar--directory">
-                <div className="drpt-topbarIdentity">
-                  <p className="drpt-kicker">Workspace</p>
-                  <div className="drpt-topbarTitleRow">
-                    <h1 className="drpt-topbarTicker">Settings</h1>
-                  </div>
-                </div>
-                <div className="drpt-topbarMeta">
-                  <span>{SETTINGS_LEAD}</span>
-                </div>
-              </header>
-            </div>
-          </div>
-        </div>
+    <div className="stgDock">
+      <div className="exploreRecapCompactBg" aria-hidden="true" />
+      <TerminalTopBarChrome
+        className="exploreRecapChrome"
+        logoSrc="/mercerline_mark.png"
+        backendUp={backendUp}
+        settingsActive
+        onSettingsClick={onSettingsClick}
+        onBrandClick={onBrandClick}
+        hideDate
+        hideMacro
+      />
+    </div>
+  )
+}
 
-        <div ref={spacerRef} className="drpt-collapseSpacer" aria-hidden="true" />
-
+function SettingsPageShell({ backendUp, onSettingsClick, onBrandClick = null, children }) {
+  return (
+    <div className="stgShell">
+      <SettingsStrip backendUp={backendUp} onSettingsClick={onSettingsClick} onBrandClick={onBrandClick} />
+      <div className="stgScroll scrollThin">
         <div className="stgPaper">{children}</div>
       </div>
     </div>

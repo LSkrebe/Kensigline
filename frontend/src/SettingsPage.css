@@ -2,8 +2,9 @@
 
 .stgShell {
   --stg-pad-x: 32px;
-  --drpt-page-pad-x: var(--stg-pad-x);
+  --stg-strip-h: 56px;
   --explore-page-pad-x: var(--stg-pad-x);
+  --explore-compact-opacity: 1;
   --stg-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --stg-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --stg-border: rgba(255, 255, 255, 0.08);
@@ -16,18 +17,48 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  background: #080809;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.stgDock {
+  --explore-page-pad-x: var(--stg-pad-x);
+  flex: 0 0 var(--stg-strip-h);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  isolation: isolate;
+  border-bottom: 1px solid var(--stg-border);
+  background: transparent;
+}
+
+.stgDock .exploreRecapCompactBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 1;
+}
+
+.stgDock .exploreRecapChrome {
+  position: relative;
+  z-index: 1;
+}
+
+.stgScroll {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  overscroll-behavior-y: contain;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  background: var(--drpt-bg, #080809);
-  color: rgba(255, 255, 255, 0.92);
-  font-family: var(--drpt-sans, inherit);
 }
 
 .stgPaper {
-  flex: 1 0 auto;
-  min-height: max(42vh, 280px);
   padding: 28px var(--stg-pad-x) 48px;
   box-sizing: border-box;
 }
@@ -441,7 +472,6 @@
   .stgShell {
     --stg-pad-x: 18px;
     --explore-page-pad-x: 18px;
-    --drpt-page-pad-x: 18px;
   }
 
   .stgRow {

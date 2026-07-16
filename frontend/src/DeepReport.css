@@ -1,8 +1,7 @@
 /* DEEP report — single scroll paper layout */
 
 .drpt,
-.exploreDirShell,
-.stgShell {
+.exploreDirShell {
   --drpt-bg: #080809;
   --drpt-surface: #0e0e10;
   --drpt-border: rgba(255, 255, 255, 0.08);
