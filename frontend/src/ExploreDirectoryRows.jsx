@@ -8,7 +8,7 @@ export function ExploreDirectoryEventMeta({ event, extraSameDay = 0 }) {
 }
 
 function ExploreDirectoryRowContent({ row, kind }) {
-  const trailClass = kind === 'actor' ? 'exploreDirectoryAmount' : 'exploreDirectoryMove'
+  const trailClass = kind === 'investor' ? 'exploreDirectoryAmount' : 'exploreDirectoryMove'
 
   return (
     <>
@@ -47,30 +47,33 @@ export function ExploreDirectoryCompanyRow({ row, onClick = null }) {
   )
 }
 
-export function ExploreDirectoryActorRow({ row, onClick = null }) {
+export function ExploreDirectoryInvestorRow({ row, onClick = null }) {
   const label = row.name
 
   if (onClick) {
     return (
-      <li className="exploreDirectoryRow exploreDirectoryRow--actor">
+      <li className="exploreDirectoryRow exploreDirectoryRow--investor">
         <button
           type="button"
           className="exploreDirectoryRowBtn"
           aria-label={`Open ${label}`}
           onClick={() => onClick(row)}
         >
-          <ExploreDirectoryRowContent row={row} kind="actor" />
+          <ExploreDirectoryRowContent row={row} kind="investor" />
         </button>
       </li>
     )
   }
 
   return (
-    <li className="exploreDirectoryRow exploreDirectoryRow--actor">
-      <ExploreDirectoryRowContent row={row} kind="actor" />
+    <li className="exploreDirectoryRow exploreDirectoryRow--investor">
+      <ExploreDirectoryRowContent row={row} kind="investor" />
     </li>
   )
 }
+
+/** @deprecated Use ExploreDirectoryInvestorRow */
+export const ExploreDirectoryActorRow = ExploreDirectoryInvestorRow
 
 function ExploreDirectoryListCompanyContent({ row }) {
   return (
@@ -85,9 +88,9 @@ function ExploreDirectoryListCompanyContent({ row }) {
   )
 }
 
-const ACTOR_TICKER_PREVIEW = 3
+const INVESTOR_TICKER_PREVIEW = 3
 
-function ExploreDirectoryActorTickers({ tickers, max = ACTOR_TICKER_PREVIEW }) {
+function ExploreDirectoryInvestorTickers({ tickers, max = INVESTOR_TICKER_PREVIEW }) {
   const list = Array.isArray(tickers) ? tickers.filter(Boolean) : []
   if (!list.length) return null
 
@@ -102,7 +105,7 @@ function ExploreDirectoryActorTickers({ tickers, max = ACTOR_TICKER_PREVIEW }) {
   )
 }
 
-function ExploreDirectoryListActorContent({ row }) {
+function ExploreDirectoryListInvestorContent({ row }) {
   const net = row.netFlowUsd ?? 0
   const netTone = net > 0 ? 'isUp' : net < 0 ? 'isDown' : 'isFlat'
 
@@ -111,17 +114,13 @@ function ExploreDirectoryListActorContent({ row }) {
       <span className="exploreDirectoryTicker mono">{row.modeCode}</span>
       <div className="exploreDirectoryCopy">
         <span className="exploreDirectoryName">{row.name}</span>
-        <ExploreDirectoryActorTickers tickers={row.tickers} />
+        <ExploreDirectoryInvestorTickers tickers={row.tickers} />
       </div>
       <span className="exploreDirectoryStat mono">
         <span className="exploreDirectoryStatCount">{row.positionCount}</span>
         <span className="exploreDirectoryStatLabel">pos</span>
       </span>
-      <span
-        className={['exploreDirectoryAmount mono', netTone].join(' ')}
-      >
-        {row.netFlowLabel ?? '—'}
-      </span>
+      <span className={['exploreDirectoryAmount mono', netTone].join(' ')}>{row.netFlowLabel ?? '—'}</span>
     </>
   )
 }
@@ -151,27 +150,30 @@ export function ExploreDirectoryListCompanyRow({ row, onClick = null }) {
   )
 }
 
-export function ExploreDirectoryListActorRow({ row, onClick = null }) {
+export function ExploreDirectoryListInvestorRow({ row, onClick = null }) {
   const label = row.name
 
   if (onClick) {
     return (
-      <li className="exploreDirectoryRow exploreDirectoryRow--actor exploreDirectoryRow--list">
+      <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--list">
         <button
           type="button"
           className="exploreDirectoryRowBtn"
           aria-label={`Open ${label}`}
           onClick={() => onClick(row)}
         >
-          <ExploreDirectoryListActorContent row={row} />
+          <ExploreDirectoryListInvestorContent row={row} />
         </button>
       </li>
     )
   }
 
   return (
-    <li className="exploreDirectoryRow exploreDirectoryRow--actor exploreDirectoryRow--list">
-      <ExploreDirectoryListActorContent row={row} />
+    <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--list">
+      <ExploreDirectoryListInvestorContent row={row} />
     </li>
   )
 }
+
+/** @deprecated Use ExploreDirectoryListInvestorRow */
+export const ExploreDirectoryListActorRow = ExploreDirectoryListInvestorRow

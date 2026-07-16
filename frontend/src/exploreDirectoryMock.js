@@ -104,7 +104,7 @@ function aggregateCompaniesByTicker(events) {
   return out.sort((a, b) => String(b.lastDate).localeCompare(String(a.lastDate)))
 }
 
-function aggregateActorsByName(events) {
+function aggregateInvestorsByName(events) {
   const sorted = sortEventsNewestFirst(events)
   const positionCounts = new Map()
   const tickerLists = new Map()
@@ -198,8 +198,8 @@ function buildExploreCompanyEventSeed() {
   )
 }
 
-/** Actor-level filings only (Form 4, PTR, 13F). */
-function buildExploreActorEventSeed() {
+/** Investor-level filings only (Form 4, PTR, 13F). */
+function buildExploreInvestorEventSeed() {
   const today = todayIso()
   const d1 = isoDaysAgo(1)
   const d2 = isoDaysAgo(2)
@@ -281,19 +281,26 @@ export function buildExploreCompanyEvents() {
   return sortEventsNewestFirst(buildExploreCompanyEventSeed())
 }
 
-export function buildExploreActorEvents() {
-  return sortEventsNewestFirst(buildExploreActorEventSeed())
+export function buildExploreInvestorEvents() {
+  return sortEventsNewestFirst(buildExploreInvestorEventSeed())
 }
+
+/** @deprecated Use buildExploreInvestorEvents */
+export const buildExploreActorEvents = buildExploreInvestorEvents
 
 export function buildExploreDirectoryMock() {
   const companyEvents = buildExploreCompanyEvents()
-  const actorEvents = buildExploreActorEvents()
+  const investorEvents = buildExploreInvestorEvents()
 
   return {
     companyEvents,
-    actorEvents,
+    investorEvents,
+    /** @deprecated Use investorEvents */
+    actorEvents: investorEvents,
     companies: aggregateExploreSameDayEvents(companyEvents, (row) => `${row.ticker}|${row.date}`),
-    actors: aggregateExploreSameDayEvents(actorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`),
+    investors: aggregateExploreSameDayEvents(investorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`),
+    /** @deprecated Use investors */
+    actors: aggregateExploreSameDayEvents(investorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`),
   }
 }
 
@@ -302,14 +309,15 @@ export function buildExploreDirectoryHomePreview(directory = buildExploreDirecto
   const today = todayIso()
 
   const todayCompanyEvents = directory.companyEvents.filter((row) => row.date === today)
-  const todayActorEvents = directory.actorEvents.filter((row) => row.date === today)
+  const investorEvents = directory.investorEvents ?? directory.actorEvents ?? []
+  const todayInvestorEvents = investorEvents.filter((row) => row.date === today)
 
   return {
     companies: aggregateExploreSameDayEvents(todayCompanyEvents, (row) => `${row.ticker}|${row.date}`).slice(
       0,
       HOME_DIRECTORY_PREVIEW,
     ),
-    actors: aggregateExploreSameDayEvents(todayActorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`).slice(
+    investors: aggregateExploreSameDayEvents(todayInvestorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`).slice(
       0,
       HOME_DIRECTORY_PREVIEW,
     ),
@@ -317,8 +325,8 @@ export function buildExploreDirectoryHomePreview(directory = buildExploreDirecto
 }
 
 export function buildExploreDirectoryFullList(kind, directory = buildExploreDirectoryMock()) {
-  if (kind === 'actors') {
-    return aggregateActorsByName(directory.actorEvents)
+  if (kind === 'investors' || kind === 'actors') {
+    return aggregateInvestorsByName(directory.investorEvents ?? directory.actorEvents ?? [])
   }
   return aggregateCompaniesByTicker(directory.companyEvents)
 }

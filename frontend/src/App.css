@@ -816,7 +816,7 @@ button.terminalTopBarBrand:focus-visible {
   --case-person-header-min-h: calc(var(--feed-search-row-min-h) * 3 + 2px + 12px);
 }
 
-/* Explore tab — parent shell for daily events + company/actor directory */
+/* Explore tab — parent shell for daily events + company/investor directory */
 .terminal.terminal--explore {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);

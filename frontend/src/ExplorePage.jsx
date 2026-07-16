@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { buildExploreDirectoryHomePreview } from './exploreDirectoryMock.js'
-import { ExploreDirectoryActorRow, ExploreDirectoryCompanyRow } from './ExploreDirectoryRows.jsx'
+import { ExploreDirectoryCompanyRow, ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
-import { navigateExploreActors, navigateExploreCompanies } from './terminalRoute.js'
+import { navigateExploreCompanies, navigateExploreInvestors } from './terminalRoute.js'
 import './ExplorePage.css'
 
 const COLLAPSE_RANGE_FALLBACK = 1
@@ -58,7 +58,7 @@ export function ExplorePage({
   onSettingsClick,
   onBrandClick = null,
   onCompanyRowClick = null,
-  onActorRowClick = null,
+  onInvestorRowClick = null,
 }) {
   const recap = buildExploreDailyRecap()
   const directoryPreview = buildExploreDirectoryHomePreview()
@@ -139,13 +139,13 @@ export function ExplorePage({
         </ExploreDirectorySection>
 
         <ExploreDirectorySection
-          title="Actors"
+          title="Investors"
           kicker="Latest"
-          onOpen={() => navigateExploreActors()}
+          onOpen={() => navigateExploreInvestors()}
         >
           <ul className="exploreDirectoryList">
-            {directoryPreview.actors.map((row) => (
-              <ExploreDirectoryActorRow key={row.id} row={row} onClick={onActorRowClick} />
+            {directoryPreview.investors.map((row) => (
+              <ExploreDirectoryInvestorRow key={row.id} row={row} onClick={onInvestorRowClick} />
             ))}
           </ul>
         </ExploreDirectorySection>

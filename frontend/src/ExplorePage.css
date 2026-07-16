@@ -219,7 +219,7 @@
   color: rgba(255, 255, 255, 0.42);
 }
 
-/* ── Explore directory list pages (Companies / Actors) ── */
+/* ── Explore directory list pages (Companies / Investors) ── */
 
 .exploreDirShell {
   --explore-dir-pad-x: 32px;
@@ -261,6 +261,8 @@
   border-top: none;
 }
 
+.exploreDirectoryRow--investor.exploreDirectoryRow--list .exploreDirectoryRowBtn,
+.exploreDirectoryRow--investor.exploreDirectoryRow--list:not(:has(.exploreDirectoryRowBtn)),
 .exploreDirectoryRow--actor.exploreDirectoryRow--list .exploreDirectoryRowBtn,
 .exploreDirectoryRow--actor.exploreDirectoryRow--list:not(:has(.exploreDirectoryRowBtn)) {
   grid-template-columns:

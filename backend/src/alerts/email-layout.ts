@@ -227,12 +227,12 @@ export function renderActorAlertHtml(items: ActorAlertItem[]): string {
   const preheader =
     items.length === 1 && items[0]
       ? `New activity for ${items[0].actor_name}`
-      : `${items.length} new actor alert${items.length === 1 ? "" : "s"}`;
+      : `${items.length} new investor alert${items.length === 1 ? "" : "s"}`;
 
   return emailShell({
     preheader,
-    title: items.length === 1 && items[0] ? `${items[0].actor_name} alert` : "Actor alerts",
-    lead: "New transaction activity for someone on your actor watchlist.",
+    title: items.length === 1 && items[0] ? `${items[0].actor_name} alert` : "Investor alerts",
+    lead: "New transaction activity for someone on your investor watchlist.",
     body: blocks,
   });
 }
@@ -242,7 +242,7 @@ export function renderActorAlertText(items: ActorAlertItem[]): string {
     (it) =>
       `${it.actor_name} (${actorModeLabel(it.mode)}) · ${it.ticker}\n${it.title}\n\n${it.context}\n${it.url ?? ""}`.trim(),
   );
-  return `Mercerline actor alert\n\n${blocks.join("\n\n---\n\n")}`;
+  return `Mercerline investor alert\n\n${blocks.join("\n\n---\n\n")}`;
 }
 
 function tickerAlertBlockHtml(it: TickerAlertItem): string {
@@ -291,7 +291,7 @@ export function renderCombinedContextAlertHtml(tickers: TickerAlertItem[], actor
     first = false;
   }
   if (actors.length) {
-    parts.push(sectionHeading("Actors", `${actors.length} new`, first));
+    parts.push(sectionHeading("Investors", `${actors.length} new`, first));
     parts.push(...actors.map(actorAlertBlockHtml));
   }
 
@@ -306,7 +306,7 @@ export function renderCombinedContextAlertHtml(tickers: TickerAlertItem[], actor
   return emailShell({
     preheader,
     title: total === 1 ? "Watchlist alert" : "Watchlist alerts",
-    lead: "New document context for companies and actors on your watchlist.",
+    lead: "New document context for companies and investors on your watchlist.",
     body: parts.join(""),
   });
 }
@@ -319,8 +319,8 @@ export function renderCombinedContextAlertText(tickers: TickerAlertItem[], actor
     lines.push("");
   }
   if (actors.length) {
-    lines.push("ACTORS");
-    lines.push(renderActorAlertText(actors).replace(/^Mercerline actor alert\n\n/, ""));
+    lines.push("INVESTORS");
+    lines.push(renderActorAlertText(actors).replace(/^Mercerline investor alert\n\n/, ""));
   }
   return lines.join("\n").trim();
 }

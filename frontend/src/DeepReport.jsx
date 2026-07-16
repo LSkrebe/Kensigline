@@ -9,6 +9,7 @@ import {
   formatReturnFraction,
 } from './deepOutcomes.js'
 import { DeepCompactChrome } from './DeepCompactChrome.jsx'
+import { formatCountLabel } from './formatCountLabel.js'
 import { PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
 import {
   normalizeResearchPaperSourceKey,
@@ -153,25 +154,49 @@ function DeepDocTxnBadge({ code, tone = 'neutral' }) {
   return <span className={`drpt-docTxn drpt-docTxn--${tone}`}>{label}</span>
 }
 
-function DeepFlowRow({ code, title, txnCode, txnTone, amount, date, tightTrail = false }) {
+function DeepFlowRow({
+  code,
+  title,
+  txnCode,
+  txnTone,
+  amount,
+  date,
+  tightTrail = false,
+  onClick = null,
+  href = null,
+  openLabel = null,
+  hideTxn = false,
+}) {
+  const hasHref = Boolean(href)
+  const hasClick = typeof onClick === 'function'
+  const clickable = hasHref || hasClick
+  const Tag = hasHref ? 'a' : hasClick ? 'button' : 'div'
   return (
-    <div
+    <Tag
+      type={hasClick && !hasHref ? 'button' : undefined}
+      href={hasHref ? href : undefined}
+      target={hasHref ? '_blank' : undefined}
+      rel={hasHref ? 'noopener noreferrer' : undefined}
       className={[
         'drpt-docRow',
         'drpt-docRow--flow',
         tightTrail ? 'drpt-docRow--flowTight' : '',
+        hideTxn ? 'drpt-docRow--flowNoTxn' : '',
+        clickable ? 'drpt-docRow--link' : '',
       ]
         .filter(Boolean)
         .join(' ')}
+      onClick={hasClick && !hasHref ? onClick : undefined}
+      aria-label={clickable ? openLabel || (hasHref ? `Open document for ${title}` : `Open ${title} dossier`) : undefined}
     >
       <span className="drpt-docCode">{code}</span>
       <span className="drpt-docMain">
         <span className="drpt-docKind">{title}</span>
       </span>
-      <DeepDocTxnBadge code={txnCode} tone={txnTone} />
+      {hideTxn ? null : <DeepDocTxnBadge code={txnCode} tone={txnTone} />}
       <span className="drpt-docAmt">{amount ?? '—'}</span>
       <time className="drpt-docDate">{date ?? '—'}</time>
-    </div>
+    </Tag>
   )
 }
 
@@ -627,7 +652,7 @@ function DeepBusinessDriversSnapshot({ model }) {
   )
 }
 
-function DeepInvestorList({ rows = [], visibleLimit = null }) {
+function DeepInvestorList({ rows = [], visibleLimit = null, onInvestorClick = null }) {
   const displayRows = useMemo(() => {
     if (!rows.length) return rows
     if (visibleLimit == null || visibleLimit >= rows.length) return rows
@@ -653,6 +678,7 @@ function DeepInvestorList({ rows = [], visibleLimit = null }) {
               amount={row.amount}
               date={row.date}
               tightTrail
+              onClick={onInvestorClick ? () => onInvestorClick(row) : null}
             />
           </li>
         )
@@ -864,6 +890,14 @@ function DeepActorMetrics({ trackRecord }) {
   )
 }
 
+function mockTradeDocumentUrl(row) {
+  const tick = String(row?.ticker ?? '').trim().toUpperCase()
+  const code = String(row?.code ?? '').trim().toUpperCase()
+  const q = [tick, code].filter((part) => part && part !== '—').join(' ')
+  if (!q) return 'https://www.sec.gov/edgar/search/'
+  return `https://www.sec.gov/edgar/search/#/q=${encodeURIComponent(q)}`
+}
+
 function tradeRowMeta(row) {
   const tick = String(row?.ticker ?? '').trim().toUpperCase()
   const code = String(row?.code ?? '').trim().toUpperCase() || '—'
@@ -914,6 +948,7 @@ function DeepTradeLog({ rows = [], visibleLimit = null }) {
     <ol className="drpt-docList">
       {displayRows.map((row, i) => {
         const meta = tradeRowMeta(row)
+        const href = mockTradeDocumentUrl(row)
         return (
           <li className="drpt-docItem" key={`${row.ts ?? i}-${meta.ticker}-${meta.date}`}>
             <DeepFlowRow
@@ -923,6 +958,43 @@ function DeepTradeLog({ rows = [], visibleLimit = null }) {
               txnTone={meta.codeTone}
               amount={meta.amount}
               date={meta.date}
+              href={href}
+              openLabel={`Open filing for ${meta.ticker !== '—' ? meta.ticker : meta.title}`}
+            />
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+function DeepTradedCompaniesList({ companies = [], visibleLimit = null, onCompanyClick = null }) {
+  const displayRows = useMemo(() => {
+    if (!companies.length) return companies
+    if (visibleLimit == null || visibleLimit >= companies.length) return companies
+    return companies.slice(0, visibleLimit)
+  }, [companies, visibleLimit])
+
+  if (!companies.length) {
+    return <p className="drpt-empty">No traded companies in scope yet.</p>
+  }
+
+  return (
+    <ol className="drpt-docList">
+      {displayRows.map((co) => {
+        const ticker = String(co.ticker ?? '').trim().toUpperCase()
+        const canOpen = Boolean(onCompanyClick && ticker)
+        return (
+          <li className="drpt-docItem" key={ticker}>
+            <DeepFlowRow
+              code={ticker}
+              title={co.name || ticker}
+              amount={formatCountLabel(co.tradeCount, 'trade')}
+              date={co.lastDate || '—'}
+              tightTrail
+              hideTxn
+              onClick={canOpen ? () => onCompanyClick({ ticker, name: co.name }) : null}
+              openLabel={canOpen ? `Open ${ticker} dossier` : null}
             />
           </li>
         )
@@ -933,9 +1005,9 @@ function DeepTradeLog({ rows = [], visibleLimit = null }) {
 
 function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount }) {
   return (
-    <header className="drpt-topbar drpt-topbar--actor">
+    <header className="drpt-topbar drpt-topbar--investor">
       <div className="drpt-topbarIdentity">
-        <p className="drpt-kicker">Actor dossier</p>
+        <p className="drpt-kicker">Investor dossier</p>
         <div className="drpt-topbarTitleRow">
           <h1 className="drpt-topbarTicker">{name}</h1>
           <span className="drpt-topbarName">{modeLabel}</span>
@@ -943,8 +1015,8 @@ function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount }) {
       </div>
       <div className="drpt-topbarMeta">
         {detail ? <span>{detail}</span> : null}
-        <span>{tradeCount} transactions</span>
-        <span>{companyCount} companies</span>
+        <span>{formatCountLabel(tradeCount, 'transaction')}</span>
+        <span>{formatCountLabel(companyCount, 'company', 'companies')}</span>
       </div>
     </header>
   )
@@ -1030,6 +1102,7 @@ export function DeepCompanyReport({
   chartRange = '6M',
   onChartRangeChange,
   chrome,
+  onInvestorClick = null,
 }) {
   const t = String(ticker ?? '').trim().toUpperCase()
   const displayName = String(companyName ?? '').trim() || t || 'Company'
@@ -1112,7 +1185,13 @@ export function DeepCompanyReport({
               <DeepSection label="Flow" title="Tracked investors & filers">
                 <div className="drpt-docPanel drpt-scroll">
                   <DeepExpandablePanel totalCount={trackedInvestors.length}>
-                    {(limit) => <DeepInvestorList rows={trackedInvestors} visibleLimit={limit} />}
+                    {(limit) => (
+                      <DeepInvestorList
+                        rows={trackedInvestors}
+                        visibleLimit={limit}
+                        onInvestorClick={onInvestorClick}
+                      />
+                    )}
                   </DeepExpandablePanel>
                 </div>
               </DeepSection>
@@ -1125,7 +1204,7 @@ export function DeepCompanyReport({
           title="Documents"
           headExtra={
             <span className="drpt-sectionCount">
-              {timelineLoading ? 'Loading…' : `${eventCount} filings`}
+              {timelineLoading ? 'Loading…' : formatCountLabel(eventCount, 'filing')}
             </span>
           }
         >
@@ -1154,6 +1233,7 @@ export function DeepActorReport({
   compactPrice = null,
   compactPriceChange = null,
   compactPriceChangePct = null,
+  onCompanyClick = null,
 }) {
   const name = String(personDisplay?.fullName ?? actorRow?.actorName ?? '').trim()
   const detail = String(personDisplay?.detail ?? actorRow?.actorDetail ?? '').trim()
@@ -1177,13 +1257,27 @@ export function DeepActorReport({
   )
 
   const companies = useMemo(() => {
-    const set = new Map()
+    const map = new Map()
     for (const r of tradeRows) {
       const tick = String(r.ticker ?? '').trim().toUpperCase()
       if (!tick) continue
-      set.set(tick, (set.get(tick) ?? 0) + 1)
+      const companyName = String(r.companyName ?? '').trim()
+      const when = String(r.when ?? '').trim()
+      const prev = map.get(tick)
+      if (!prev) {
+        map.set(tick, {
+          ticker: tick,
+          name: companyName || tick,
+          tradeCount: 1,
+          lastDate: when || null,
+        })
+        continue
+      }
+      prev.tradeCount += 1
+      if (companyName) prev.name = companyName
+      if (when) prev.lastDate = when
     }
-    return [...set.entries()].sort((a, b) => b[1] - a[1])
+    return [...map.values()].sort((a, b) => b.tradeCount - a.tradeCount || a.ticker.localeCompare(b.ticker))
   }, [tradeRows])
 
   if (!name) {
@@ -1191,7 +1285,7 @@ export function DeepActorReport({
       <article className="drpt">
         <div className="drpt-paper drpt-scroll">
           <p className="drpt-empty">
-            Select an actor in Investigate to open their dossier here.
+            Select an investor in Investigate to open their dossier here.
           </p>
         </div>
       </article>
@@ -1229,24 +1323,45 @@ export function DeepActorReport({
           </DeepSection>
         </div>
 
-        <DeepSection
-          label="Archive"
-          title="Trade log"
-          headExtra={<span className="drpt-sectionCount">{tradeRows.length} trades</span>}
-        >
-          <div className="drpt-docPanel drpt-scroll">
-            <DeepExpandablePanel totalCount={tradeRows.length}>
-              {(limit) => <DeepTradeLog rows={caseRows} visibleLimit={limit} />}
-            </DeepExpandablePanel>
-          </div>
-        </DeepSection>
+        <div className="drpt-row drpt-row--archive">
+          <DeepSection
+            label="Archive"
+            title="Trade log"
+            headExtra={<span className="drpt-sectionCount">{formatCountLabel(tradeRows.length, 'trade')}</span>}
+          >
+            <div className="drpt-docPanel drpt-scroll">
+              <DeepExpandablePanel totalCount={tradeRows.length}>
+                {(limit) => <DeepTradeLog rows={caseRows} visibleLimit={limit} />}
+              </DeepExpandablePanel>
+            </div>
+          </DeepSection>
+
+          <DeepSection
+            label="Issuers"
+            title="Company archive"
+            headExtra={<span className="drpt-sectionCount">{formatCountLabel(companies.length, 'company', 'companies')}</span>}
+          >
+            <div className="drpt-docPanel drpt-scroll">
+              <DeepExpandablePanel totalCount={companies.length}>
+                {(limit) => (
+                  <DeepTradedCompaniesList
+                    companies={companies}
+                    visibleLimit={limit}
+                    onCompanyClick={onCompanyClick}
+                  />
+                )}
+              </DeepExpandablePanel>
+            </div>
+          </DeepSection>
+        </div>
     </DeepReportShell>
   )
 }
 
-export function DeepPage({ mode, company, actor, chrome }) {
-  return mode === 'actor' ? (
-    <DeepActorReport {...actor} chrome={chrome} />
+export function DeepPage({ mode, company, investor, actor, chrome }) {
+  const investorProps = investor ?? actor
+  return mode === 'investor' || mode === 'actor' ? (
+    <DeepActorReport {...investorProps} chrome={chrome} />
   ) : (
     <DeepCompanyReport {...company} chrome={chrome} />
   )

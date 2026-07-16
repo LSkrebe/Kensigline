@@ -1,17 +1,29 @@
 import { useCallback, useEffect, useState } from 'react'
-import { exploreActorSlug } from './exploreDirectoryNav.js'
+import { exploreInvestorSlug } from './exploreDirectoryNav.js'
 import { normalizeMarketingPath } from './marketingRoute.js'
 
 export const EXPLORE_HOME_PATH = '/explore'
 export const EXPLORE_COMPANIES_PATH = '/explore/companies'
-export const EXPLORE_ACTORS_PATH = '/explore/actors'
+export const EXPLORE_INVESTORS_PATH = '/explore/investors'
+/** @deprecated Use EXPLORE_INVESTORS_PATH */
+export const EXPLORE_ACTORS_PATH = EXPLORE_INVESTORS_PATH
+
+function rewriteLegacyExploreActorsPath(pathname) {
+  const path = normalizeMarketingPath(pathname)
+  const detail = path.match(/^\/explore\/actors\/([^/]+)$/i)
+  if (detail) {
+    return `/explore/investors/${detail[1]}`
+  }
+  if (path === '/explore/actors') return EXPLORE_INVESTORS_PATH
+  return null
+}
 
 export function readTerminalPath() {
   if (typeof window === 'undefined') return '/'
   return normalizeMarketingPath(window.location.pathname)
 }
 
-/** @returns {{ view: string, ticker?: string, actorSlug?: string } | null} */
+/** @returns {{ view: string, ticker?: string, investorSlug?: string } | null} */
 export function parseExploreRoute(pathname = readTerminalPath()) {
   const path = normalizeMarketingPath(pathname)
 
@@ -23,21 +35,21 @@ export function parseExploreRoute(pathname = readTerminalPath()) {
     }
   }
 
-  const actorDetail = path.match(/^\/explore\/actors\/([^/]+)$/i)
-  if (actorDetail) {
+  const investorDetail = path.match(/^\/explore\/(?:investors|actors)\/([^/]+)$/i)
+  if (investorDetail) {
     return {
-      view: 'actorDetail',
-      actorSlug: decodeURIComponent(actorDetail[1]).trim().toLowerCase(),
+      view: 'investorDetail',
+      investorSlug: decodeURIComponent(investorDetail[1]).trim().toLowerCase(),
     }
   }
 
   if (path === EXPLORE_COMPANIES_PATH) return { view: 'companies' }
-  if (path === EXPLORE_ACTORS_PATH) return { view: 'actors' }
+  if (path === EXPLORE_INVESTORS_PATH || path === '/explore/actors') return { view: 'investors' }
   if (path === EXPLORE_HOME_PATH) return { view: 'home' }
   return null
 }
 
-/** @returns {'home' | 'companies' | 'actors' | 'companyDetail' | 'actorDetail' | null} */
+/** @returns {'home' | 'companies' | 'investors' | 'companyDetail' | 'investorDetail' | null} */
 export function parseExploreSubview(pathname = readTerminalPath()) {
   return parseExploreRoute(pathname)?.view ?? null
 }
@@ -48,7 +60,7 @@ export function isExplorePath(pathname = readTerminalPath()) {
 
 export function explorePathForSubview(subview) {
   if (subview === 'companies') return EXPLORE_COMPANIES_PATH
-  if (subview === 'actors') return EXPLORE_ACTORS_PATH
+  if (subview === 'investors' || subview === 'actors') return EXPLORE_INVESTORS_PATH
   return EXPLORE_HOME_PATH
 }
 
@@ -57,10 +69,13 @@ export function exploreCompanyDetailPath(ticker) {
   return t ? `/explore/companies/${t}` : EXPLORE_COMPANIES_PATH
 }
 
-export function exploreActorDetailPath(name) {
-  const slug = exploreActorSlug(name)
-  return slug ? `/explore/actors/${slug}` : EXPLORE_ACTORS_PATH
+export function exploreInvestorDetailPath(name) {
+  const slug = exploreInvestorSlug(name)
+  return slug ? `/explore/investors/${slug}` : EXPLORE_INVESTORS_PATH
 }
+
+/** @deprecated Use exploreInvestorDetailPath */
+export const exploreActorDetailPath = exploreInvestorDetailPath
 
 export function navigateTerminal(path) {
   if (typeof window === 'undefined') return
@@ -78,17 +93,23 @@ export function navigateExploreCompanies() {
   navigateTerminal(EXPLORE_COMPANIES_PATH)
 }
 
-export function navigateExploreActors() {
-  navigateTerminal(EXPLORE_ACTORS_PATH)
+export function navigateExploreInvestors() {
+  navigateTerminal(EXPLORE_INVESTORS_PATH)
 }
+
+/** @deprecated Use navigateExploreInvestors */
+export const navigateExploreActors = navigateExploreInvestors
 
 export function navigateExploreCompanyDetail(ticker) {
   navigateTerminal(exploreCompanyDetailPath(ticker))
 }
 
-export function navigateExploreActorDetail(name) {
-  navigateTerminal(exploreActorDetailPath(name))
+export function navigateExploreInvestorDetail(name) {
+  navigateTerminal(exploreInvestorDetailPath(name))
 }
+
+/** @deprecated Use navigateExploreInvestorDetail */
+export const navigateExploreActorDetail = navigateExploreInvestorDetail
 
 export function navigateExploreBack() {
   if (typeof window === 'undefined') return
@@ -99,11 +120,17 @@ export function useExploreRoute() {
   const [route, setRoute] = useState(() => parseExploreRoute(readTerminalPath()) ?? { view: 'home' })
 
   useEffect(() => {
-    const onPop = () => {
+    const sync = () => {
+      const path = readTerminalPath()
+      const rewritten = rewriteLegacyExploreActorsPath(path)
+      if (rewritten && typeof window !== 'undefined') {
+        window.history.replaceState(null, '', rewritten)
+      }
       setRoute(parseExploreRoute(readTerminalPath()) ?? { view: 'home' })
     }
-    window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
+    sync()
+    window.addEventListener('popstate', sync)
+    return () => window.removeEventListener('popstate', sync)
   }, [])
 
   return route
@@ -117,7 +144,7 @@ export function useExploreSubview() {
 export function useNavigateExplore() {
   return useCallback((target) => {
     if (target === 'companies') navigateExploreCompanies()
-    else if (target === 'actors') navigateExploreActors()
+    else if (target === 'investors' || target === 'actors') navigateExploreInvestors()
     else navigateExploreHome()
   }, [])
 }

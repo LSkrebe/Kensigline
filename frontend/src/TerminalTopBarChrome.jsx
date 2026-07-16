@@ -136,6 +136,7 @@ export function TerminalTopBarActions({
   searchPlaceholder = 'Search',
   searchPlaceholderMobile = null,
   leading = null,
+  iconLeading = null,
   hideMacro = false,
   hideSettings = false,
   macroCloseClassName = '',
@@ -245,6 +246,7 @@ export function TerminalTopBarActions({
             <ExploreSearchIcon />
           </button>
         ) : null}
+        {iconLeading}
         {showClose && onCloseClick ? (
           <button
             type="button"
@@ -357,6 +359,7 @@ export function TerminalTopBarChrome({
   hideMacro = false,
   hideSettings = false,
   leading = null,
+  iconLeading = null,
   macroCloseClassName = '',
   macroCloseAriaLabel = null,
   onBrandClick = null,
@@ -381,6 +384,7 @@ export function TerminalTopBarChrome({
         hideMacro={hideMacro}
         hideSettings={hideSettings}
         leading={leading}
+        iconLeading={iconLeading}
         macroCloseClassName={macroCloseClassName}
         macroCloseAriaLabel={macroCloseAriaLabel}
         collapsibleSearch={collapsibleSearch}

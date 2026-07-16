@@ -202,25 +202,28 @@ function MacroCalendarStrip({
         hideDate
         hideSettings
         leading={
-          <div className="mcalStripActions">
-            {!filterOpen ? (
+          !filterOpen ? (
+            <div className="mcalStripActions">
               <MacroStripMonthNav monthKey={viewMonth} onChange={onViewMonthChange} />
-            ) : null}
-            <button
-              type="button"
-              className={[
-                'mcalStripFilterBtn',
-                filterOpen ? 'mcalStripFilterBtn--confirm' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              aria-label={filterOpen ? 'Apply filters' : 'Filter macro calendar'}
-              title={filterOpen ? 'Apply' : 'Filter'}
-              onClick={filterOpen ? onFilterConfirm : onFilterOpen}
-            >
-              {filterOpen ? <MacroFilterConfirmIcon /> : <MacroFilterIcon />}
-            </button>
-          </div>
+            </div>
+          ) : null
+        }
+        iconLeading={
+          <button
+            type="button"
+            className={[
+              'terminalTopBarIconBtn',
+              'mcalStripFilterBtn',
+              filterOpen ? 'mcalStripFilterBtn--confirm' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            aria-label={filterOpen ? 'Apply filters' : 'Filter macro calendar'}
+            title={filterOpen ? 'Apply' : 'Filter'}
+            onClick={filterOpen ? onFilterConfirm : onFilterOpen}
+          >
+            {filterOpen ? <MacroFilterConfirmIcon /> : <MacroFilterIcon />}
+          </button>
         }
       />
     </div>

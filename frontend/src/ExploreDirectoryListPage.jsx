@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EXPLORE_DIRECTORY_BLOCK } from './exploreDirectoryMock.js'
-import { ExploreDirectoryListActorRow, ExploreDirectoryListCompanyRow } from './ExploreDirectoryRows.jsx'
+import { ExploreDirectoryListCompanyRow, ExploreDirectoryListInvestorRow } from './ExploreDirectoryRows.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 import './DeepReport.css'
 import './ExplorePage.css'
@@ -15,10 +15,10 @@ const EXPLORE_DIR_COPY = {
     lead: 'Historical catalyst and filing events across the coverage universe.',
     searchPlaceholder: 'Search company',
   },
-  actors: {
-    title: 'Actors',
+  investors: {
+    title: 'Investors',
     lead: 'Historical insider, politician, and institution disclosures.',
-    searchPlaceholder: 'Search actor',
+    searchPlaceholder: 'Search investor',
   },
 }
 
@@ -47,7 +47,7 @@ export function ExploreDirectoryListPage({
   onBrandClick = null,
   onCloseClick = null,
   onCompanyRowClick = null,
-  onActorRowClick = null,
+  onInvestorRowClick = null,
 }) {
   const copy = EXPLORE_DIR_COPY[kind] ?? EXPLORE_DIR_COPY.companies
   const pageRef = useRef(null)
@@ -165,9 +165,9 @@ export function ExploreDirectoryListPage({
         <div className="exploreDirPaper">
           <div className="exploreDirListPanel">
             <ul className="exploreDirectoryList">
-              {kind === 'actors'
+              {kind === 'investors'
                 ? visibleRows.map((row) => (
-                    <ExploreDirectoryListActorRow key={row.id} row={row} onClick={onActorRowClick} />
+                    <ExploreDirectoryListInvestorRow key={row.id} row={row} onClick={onInvestorRowClick} />
                   ))
                 : visibleRows.map((row) => (
                     <ExploreDirectoryListCompanyRow key={row.id} row={row} onClick={onCompanyRowClick} />

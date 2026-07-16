@@ -15,22 +15,24 @@ import { DeepResearchLayout } from './DeepResearchLayout.jsx'
 import { DeepPage } from './DeepCompanyPage.jsx'
 import { ExplorePage } from './ExplorePage.jsx'
 import { ExploreCompaniesPage } from './ExploreCompaniesPage.jsx'
-import { ExploreActorsPage } from './ExploreActorsPage.jsx'
+import { ExploreInvestorsPage } from './ExploreInvestorsPage.jsx'
 import {
-  applyExploreActorFeedSelection,
-  exploreActorModeFromDocType,
-  findExploreActorInFeeds,
-  findExploreActorInFeedsByName,
+  applyExploreInvestorFeedSelection,
+  exploreInvestorModeFromDocType,
+  exploreInvestorModeFromTypeKey,
+  findExploreInvestorInFeeds,
+  findExploreInvestorInFeedsByName,
 } from './exploreDirectoryNav.js'
 import {
   isExplorePath,
-  navigateExploreActorDetail,
   navigateExploreBack,
   navigateExploreCompanyDetail,
   navigateExploreHome,
+  navigateExploreInvestorDetail,
   useExploreRoute,
 } from './terminalRoute.js'
 import { TerminalTopBarActions, TerminalTopBarBrand } from './TerminalTopBarChrome.jsx'
+import { formatCountLabel } from './formatCountLabel.js'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
 import {
@@ -3144,7 +3146,9 @@ function contextOutcomesSampleLabel(sampleSize) {
   const s = String(sampleSize ?? '').trim()
   if (!s || s === EMPTY) return '—'
   const count = s.replace(/^N\s*=\s*/i, '').trim()
-  return count ? `${count} events` : s
+  if (!count) return s
+  const n = Number(count)
+  return Number.isFinite(n) ? formatCountLabel(n, 'event') : `${count} events`
 }
 
 function contextOutcomesEventsRow(sampleSize) {
@@ -8835,7 +8839,7 @@ function InvestigateModeSwitch({ mode, onChange }) {
 
 const DEEP_RESEARCH_MODE_OPTIONS = [
   { id: 'company', label: 'Company' },
-  { id: 'actor', label: 'Actor' },
+  { id: 'investor', label: 'Investor' },
 ]
 
 function DeepResearchModeSwitch({ mode, onChange }) {
@@ -9431,7 +9435,7 @@ function KensiglineTerminal() {
     if (tab === 'analyse' || tab === 'main' || tab === 'investigate') {
       setActiveTab(tab)
     }
-    if (tab === 'explore' || view === 'companies' || view === 'actors') {
+    if (tab === 'explore' || view === 'companies' || view === 'investors' || view === 'actors') {
       setActiveTab('explore')
     }
     const ticker = String(params.get('ticker') ?? '').trim().toUpperCase()
@@ -10374,10 +10378,10 @@ function KensiglineTerminal() {
       setDeepResearchMode('company')
       return
     }
-    if (exploreRoute.view === 'actorDetail' && exploreRoute.actorSlug) {
-      setDeepResearchMode('actor')
-      applyExploreActorFeedSelection(
-        findExploreActorInFeeds(exploreRoute.actorSlug, exploreActorFeeds),
+    if (exploreRoute.view === 'investorDetail' && exploreRoute.investorSlug) {
+      setDeepResearchMode('investor')
+      applyExploreInvestorFeedSelection(
+        findExploreInvestorInFeeds(exploreRoute.investorSlug, exploreActorFeeds),
         exploreActorFeedHandlers,
       )
     }
@@ -11089,17 +11093,20 @@ function KensiglineTerminal() {
     [],
   )
 
-  const onExploreActorClick = useCallback(
+  const onExploreInvestorClick = useCallback(
     (row) => {
       const name = String(row?.name ?? '').trim()
       if (!name) return
+      const preferredMode = row?.docType
+        ? exploreInvestorModeFromDocType(row.docType)
+        : exploreInvestorModeFromTypeKey(row?.typeKey ?? row?.type)
       setActiveTab('explore')
-      setDeepResearchMode('actor')
-      applyExploreActorFeedSelection(
-        findExploreActorInFeedsByName(name, exploreActorModeFromDocType(row.docType), exploreActorFeeds),
+      setDeepResearchMode('investor')
+      applyExploreInvestorFeedSelection(
+        findExploreInvestorInFeedsByName(name, preferredMode, exploreActorFeeds),
         exploreActorFeedHandlers,
       )
-      navigateExploreActorDetail(name)
+      navigateExploreInvestorDetail(name)
     },
     [exploreActorFeeds, exploreActorFeedHandlers],
   )
@@ -11124,7 +11131,7 @@ function KensiglineTerminal() {
   }, [activeTab])
 
   const investigateTerminalSkin = investigateMode
-  const deepPageMode = exploreSubview === 'actorDetail' ? 'actor' : 'company'
+  const deepPageMode = exploreSubview === 'investorDetail' ? 'investor' : 'company'
 
   const deepDossierPage = (
     <DeepResearchLayout>
@@ -11173,8 +11180,9 @@ function KensiglineTerminal() {
               showHoverTooltip
             />
           ),
+          onInvestorClick: onExploreInvestorClick,
         }}
-        actor={{
+        investor={{
           actorRow: effectiveActorRow,
           personDisplay: historicalOutcomesPerson,
           mode: investigateMode,
@@ -11183,6 +11191,7 @@ function KensiglineTerminal() {
           compactPrice: null,
           compactPriceChange: null,
           compactPriceChangePct: null,
+          onCompanyClick: onExploreCompanyClick,
         }}
       />
     </DeepResearchLayout>
@@ -11546,7 +11555,7 @@ function KensiglineTerminal() {
       </div>
 
       <div className={tabPanelHiddenClass(activeTab, 'explore')}>
-        {exploreSubview === 'companyDetail' || exploreSubview === 'actorDetail' ? (
+        {exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail' ? (
           deepDossierPage
         ) : exploreSubview === 'companies' ? (
           <ExploreCompaniesPage
@@ -11559,8 +11568,8 @@ function KensiglineTerminal() {
             onCloseClick={onExploreDossierCloseClick}
             onCompanyRowClick={onExploreCompanyClick}
           />
-        ) : exploreSubview === 'actors' ? (
-          <ExploreActorsPage
+        ) : exploreSubview === 'investors' ? (
+          <ExploreInvestorsPage
             backendUp={backendUp}
             macroActive={activeTab === 'macro'}
             onMacroClick={onMacroClick}
@@ -11568,7 +11577,7 @@ function KensiglineTerminal() {
             onSettingsClick={onSettingsClick}
             onBrandClick={onExploreHomeClick}
             onCloseClick={onExploreDossierCloseClick}
-            onActorRowClick={onExploreActorClick}
+            onInvestorRowClick={onExploreInvestorClick}
           />
         ) : (
           <ExplorePage
@@ -11579,7 +11588,7 @@ function KensiglineTerminal() {
             onSettingsClick={onSettingsClick}
             onBrandClick={onExploreHomeClick}
             onCompanyRowClick={onExploreCompanyClick}
-            onActorRowClick={onExploreActorClick}
+            onInvestorRowClick={onExploreInvestorClick}
           />
         )}
       </div>

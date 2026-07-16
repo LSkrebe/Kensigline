@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { buildExploreDirectoryFullList } from './exploreDirectoryMock.js'
 import { ExploreDirectoryListPage } from './ExploreDirectoryListPage.jsx'
 
-export function ExploreActorsPage({
+export function ExploreInvestorsPage({
   backendUp = true,
   macroActive = false,
   onMacroClick,
@@ -10,13 +10,13 @@ export function ExploreActorsPage({
   onSettingsClick,
   onBrandClick = null,
   onCloseClick = null,
-  onActorRowClick = null,
+  onInvestorRowClick = null,
 }) {
-  const rows = useMemo(() => buildExploreDirectoryFullList('actors'), [])
+  const rows = useMemo(() => buildExploreDirectoryFullList('investors'), [])
 
   return (
     <ExploreDirectoryListPage
-      kind="actors"
+      kind="investors"
       rows={rows}
       backendUp={backendUp}
       macroActive={macroActive}
@@ -25,7 +25,7 @@ export function ExploreActorsPage({
       onSettingsClick={onSettingsClick}
       onBrandClick={onBrandClick}
       onCloseClick={onCloseClick}
-      onActorRowClick={onActorRowClick}
+      onInvestorRowClick={onInvestorRowClick}
     />
   )
 }

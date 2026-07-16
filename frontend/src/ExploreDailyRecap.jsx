@@ -143,7 +143,7 @@ function ExploreRecapActorSlide({ actor }) {
           ticker={actor.ticker}
           copy={
             <div className="exploreRecapEventCopy">
-              <p className="exploreRecapSlideKicker mono">Actors of the day</p>
+              <p className="exploreRecapSlideKicker mono">Investors of the day</p>
               <h2 className="exploreRecapEventTitle">{actor.headline}</h2>
               <p className="exploreRecapEventSummary">{actor.name}</p>
               <div className="exploreRecapEventMeta">
@@ -383,7 +383,7 @@ export function ExploreDailyRecap({
             onBrandClick={onBrandClick}
             collapsibleSearch
             showSearch
-            searchPlaceholder="Search company, actor"
+            searchPlaceholder="Search company, investor"
             searchPlaceholderMobile="Search"
           />
         </div>

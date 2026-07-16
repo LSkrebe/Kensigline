@@ -29,7 +29,7 @@ export function exploreCompanyEventLabel(docType) {
 }
 
 export function exploreActorEventLabel(docType) {
-  return ACTOR_EVENT_LABELS[String(docType ?? '').trim()] ?? 'Actor filing'
+  return ACTOR_EVENT_LABELS[String(docType ?? '').trim()] ?? 'Investor filing'
 }
 
 export function exploreActorDocCode(docType) {

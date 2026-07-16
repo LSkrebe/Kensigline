@@ -58,7 +58,7 @@
 .mcalStripMonthNav {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   flex-shrink: 1;
 }
@@ -102,24 +102,11 @@
 }
 
 .mcalStripFilterBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0;
-  background: rgba(10, 11, 13, 0.82);
   color: rgba(255, 255, 255, 0.58);
-  cursor: pointer;
-  flex-shrink: 0;
 }
 
 .mcalStripFilterBtn:hover {
   color: rgba(255, 255, 255, 0.88);
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(12, 13, 16, 0.9);
 }
 
 .mcalStripFilterBtn.isActive {

@@ -55,7 +55,7 @@ function settingsStatusTone(status) {
   return 'neutral'
 }
 
-const ALERTS_EMPTY_HINT = 'Email alerts for watched tickers and actors.'
+const ALERTS_EMPTY_HINT = 'Email alerts for watched tickers and investors.'
 const INVOICES_EMPTY_HINT =
   'Download invoices and update your payment method in Stripe via Manage billing.'
 

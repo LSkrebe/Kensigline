@@ -1,4 +1,4 @@
-export function exploreActorSlug(name) {
+export function exploreInvestorSlug(name) {
   return String(name ?? '')
     .trim()
     .toLowerCase()
@@ -6,50 +6,73 @@ export function exploreActorSlug(name) {
     .replace(/^-+|-+$/g, '')
 }
 
-export function exploreActorModeFromDocType(docType) {
+/** @deprecated Use exploreInvestorSlug */
+export const exploreActorSlug = exploreInvestorSlug
+
+export function exploreInvestorModeFromDocType(docType) {
   const d = String(docType ?? '').trim().toLowerCase()
   if (d.startsWith('ptr')) return 'politicians'
   if (d.startsWith('13f')) return 'institutions'
   return 'insider'
 }
 
-export function exploreActorNameMatchesSlug(actorRow, slug) {
+/** Map tracked-investor type keys (insider / politician / institution) to Investigate modes. */
+export function exploreInvestorModeFromTypeKey(typeKey) {
+  const k = String(typeKey ?? '').trim().toLowerCase()
+  if (k === 'politician' || k === 'politicians' || k === 'ptr') return 'politicians'
+  if (k === 'institution' || k === 'institutions' || k === '13f') return 'institutions'
+  return 'insider'
+}
+
+/** @deprecated Use exploreInvestorModeFromDocType */
+export const exploreActorModeFromDocType = exploreInvestorModeFromDocType
+
+export function exploreInvestorNameMatchesSlug(investorRow, slug) {
   const target = String(slug ?? '').trim().toLowerCase()
   if (!target) return false
-  if (exploreActorSlug(actorRow?.actorName) === target) return true
-  for (const alias of actorRow?.matchNames ?? []) {
-    if (exploreActorSlug(alias) === target) return true
+  if (exploreInvestorSlug(investorRow?.actorName) === target) return true
+  for (const alias of investorRow?.matchNames ?? []) {
+    if (exploreInvestorSlug(alias) === target) return true
   }
   return false
 }
 
-export function findExploreActorInFeeds(actorSlug, feeds) {
-  const slug = String(actorSlug ?? '').trim().toLowerCase()
+/** @deprecated Use exploreInvestorNameMatchesSlug */
+export const exploreActorNameMatchesSlug = exploreInvestorNameMatchesSlug
+
+export function findExploreInvestorInFeeds(investorSlug, feeds) {
+  const slug = String(investorSlug ?? '').trim().toLowerCase()
   if (!slug) return null
 
   for (const mode of ['insider', 'politicians', 'institutions']) {
     const rows = feeds[mode] ?? []
-    const index = rows.findIndex((row) => exploreActorNameMatchesSlug(row, slug))
+    const index = rows.findIndex((row) => exploreInvestorNameMatchesSlug(row, slug))
     if (index >= 0) return { mode, index, row: rows[index] }
   }
 
   return null
 }
 
-export function findExploreActorInFeedsByName(name, preferredMode, feeds) {
-  const slug = exploreActorSlug(name)
+/** @deprecated Use findExploreInvestorInFeeds */
+export const findExploreActorInFeeds = findExploreInvestorInFeeds
+
+export function findExploreInvestorInFeedsByName(name, preferredMode, feeds) {
+  const slug = exploreInvestorSlug(name)
   if (!slug) return null
 
   const preferred = feeds[preferredMode] ?? []
-  const preferredIndex = preferred.findIndex((row) => exploreActorNameMatchesSlug(row, slug))
+  const preferredIndex = preferred.findIndex((row) => exploreInvestorNameMatchesSlug(row, slug))
   if (preferredIndex >= 0) {
     return { mode: preferredMode, index: preferredIndex, row: preferred[preferredIndex] }
   }
 
-  return findExploreActorInFeeds(slug, feeds)
+  return findExploreInvestorInFeeds(slug, feeds)
 }
 
-export function applyExploreActorFeedSelection(hit, handlers) {
+/** @deprecated Use findExploreInvestorInFeedsByName */
+export const findExploreActorInFeedsByName = findExploreInvestorInFeedsByName
+
+export function applyExploreInvestorFeedSelection(hit, handlers) {
   if (!hit) return
   const { mode, index } = hit
   handlers.setInvestigateMode(mode)
@@ -64,3 +87,6 @@ export function applyExploreActorFeedSelection(hit, handlers) {
     handlers.setInsiderCaseTradeIdx(0)
   }
 }
+
+/** @deprecated Use applyExploreInvestorFeedSelection */
+export const applyExploreActorFeedSelection = applyExploreInvestorFeedSelection
