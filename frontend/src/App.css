@@ -183,6 +183,10 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+  width: max-content;
+  max-width: 100%;
+  flex: 0 0 auto;
+  justify-self: start;
 }
 
 button.terminalTopBarBrand {

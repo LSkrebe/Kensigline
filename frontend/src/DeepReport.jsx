@@ -128,8 +128,8 @@ function DeepReportShell({
 }
 
 const DEEP_COMPACT_MQ = '(max-width: 960px)'
-const DEEP_LIST_INITIAL = 5
-const DEEP_LIST_STEP = 5
+const DEEP_LIST_INITIAL = 10
+const DEEP_LIST_STEP = 10
 
 function deepTxnCodeTone(code, ad) {
   const c = String(code ?? '').toUpperCase()
@@ -249,10 +249,10 @@ function DeepShowMoreButton({ remaining, onClick }) {
       onClick={onClick}
       aria-label={`Show ${step} more`}
     >
-      <span className="drpt-showMoreIcon" aria-hidden="true">
-        ↓
+      <span className="drpt-showMoreChip" aria-hidden="true">
+        <span className="drpt-showMoreSign">+</span>
+        <span className="drpt-showMoreLabel">{step}</span>
       </span>
-      <span className="drpt-showMoreLabel">{step}</span>
     </button>
   )
 }

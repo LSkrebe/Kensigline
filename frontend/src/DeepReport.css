@@ -221,6 +221,12 @@
   grid-template-columns: auto minmax(0, 1fr);
 }
 
+.deepCompactChrome .terminalTopBarBrand {
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
+}
+
 .deepCompactChrome .terminalTopBarActions {
   flex: 1 1 auto;
   min-width: 0;
@@ -1674,30 +1680,39 @@ button.drpt-docRow {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 2px;
     width: 100%;
     margin: 0;
-    padding: 10px 14px;
+    padding: 11px 14px;
     border: none;
     border-top: 1px solid var(--drpt-border);
-    background: rgba(255, 255, 255, 0.025);
+    background: transparent;
     color: var(--drpt-dim);
     cursor: pointer;
     font-family: var(--drpt-mono);
-    font-size: 10px;
-    letter-spacing: 0.06em;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    line-height: 1;
     transition: background 0.12s, color 0.12s;
   }
 
   .drpt-showMore:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.03);
     color: var(--drpt-muted);
   }
 
-  .drpt-showMoreIcon {
-    font-size: 13px;
-    line-height: 1;
+  .drpt-showMoreChip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 1px;
+  }
+
+  .drpt-showMoreSign {
     color: var(--drpt-accent);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
   }
 
   .drpt-showMoreLabel {
