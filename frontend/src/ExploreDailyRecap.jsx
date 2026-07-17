@@ -88,7 +88,8 @@ function ExploreRecapEventSlideLayout({ copy, series, ticker, overlapKey }) {
 }
 
 function getRecapSlideCount(recap) {
-  return 1 + recap.companies.length + recap.actors.length
+  const slides = Array.isArray(recap?.slides) ? recap.slides : []
+  return slides.length
 }
 
 const EXPLORE_RECAP_ARROW = {
@@ -102,64 +103,6 @@ function ExploreRecapNavArrow({ direction = 'down' }) {
     <span className="exploreRecapNavBtnGlyph mono" aria-hidden="true">
       {EXPLORE_RECAP_ARROW[direction]}
     </span>
-  )
-}
-
-function ExploreRecapCompanySlide({ company }) {
-  return (
-    <article className="exploreRecapSlide exploreRecapSlide--company">
-      <div className="exploreRecapSlideInner exploreRecapSlideInner--event">
-        <ExploreRecapEventSlideLayout
-          overlapKey={`${company.ticker}-${company.headline}-${company.name}`}
-          series={company.priceSeries}
-          ticker={company.ticker}
-          copy={
-            <div className="exploreRecapEventCopy">
-              <p className="exploreRecapSlideKicker mono">Companies of the day</p>
-              <h2 className="exploreRecapEventTitle">{company.headline}</h2>
-              <p className="exploreRecapEventSummary">{company.name}</p>
-              <div className="exploreRecapEventMeta">
-                <span className="exploreRecapMetaItem mono">{company.source}</span>
-                <span className="exploreRecapMetaItem mono">{company.ticker}</span>
-                <span className={['exploreRecapTileMove mono', company.moveUp ? 'isUp' : 'isDown'].join(' ')}>
-                  {company.moveLabel}
-                </span>
-              </div>
-            </div>
-          }
-        />
-      </div>
-    </article>
-  )
-}
-
-function ExploreRecapActorSlide({ actor }) {
-  return (
-    <article className="exploreRecapSlide exploreRecapSlide--actor">
-      <div className="exploreRecapSlideInner exploreRecapSlideInner--event">
-        <ExploreRecapEventSlideLayout
-          overlapKey={`${actor.id ?? actor.name}-${actor.headline}-${actor.name}`}
-          series={actor.priceSeries}
-          ticker={actor.ticker}
-          copy={
-            <div className="exploreRecapEventCopy">
-              <p className="exploreRecapSlideKicker mono">Investors of the day</p>
-              <h2 className="exploreRecapEventTitle">{actor.headline}</h2>
-              <p className="exploreRecapEventSummary">{actor.name}</p>
-              <div className="exploreRecapEventMeta">
-                <span className="exploreRecapMetaItem mono">{recapDocType(actor.detail)}</span>
-                <span className="exploreRecapMetaItem mono">{actor.ticker}</span>
-                {actor.amount ? (
-                  <span className={['exploreRecapTileMove mono', actor.up ? 'isUp' : 'isDown'].join(' ')}>
-                    {actor.amount}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          }
-        />
-      </div>
-    </article>
   )
 }
 
@@ -181,29 +124,61 @@ function ExploreRecapFeatureChart({ series, ticker }) {
   )
 }
 
-function recapDocType(detail) {
-  return String(detail ?? '').split(' · ')[0]?.trim() ?? ''
+function ExploreRecapEmptySlide() {
+  return (
+    <article className="exploreRecapSlide exploreRecapSlide--event">
+      <div className="exploreRecapSlideInner exploreRecapSlideInner--event">
+        <div className="exploreRecapEventCopy">
+          <p className="exploreRecapSlideKicker mono">Daily recap</p>
+          <h2 className="exploreRecapEventTitle">No notable filings today</h2>
+          <p className="exploreRecapEventSummary">
+            When something clears the bar, it will lead here first.
+          </p>
+        </div>
+      </div>
+    </article>
+  )
 }
 
-function ExploreRecapEventSlide({ event }) {
+function ExploreRecapSlideView({ slide, onOpenEvent }) {
+  if (!slide) return null
+  const openEvent = () => {
+    if (typeof onOpenEvent === 'function') onOpenEvent(slide)
+  }
   return (
     <article className="exploreRecapSlide exploreRecapSlide--event">
       <div className="exploreRecapSlideInner exploreRecapSlideInner--event">
         <ExploreRecapEventSlideLayout
-          overlapKey={`${event.ticker}-${event.headline}-${event.summary}`}
-          series={event.priceSeries}
-          ticker={event.ticker}
+          overlapKey={`${slide.id}-${slide.headline}`}
+          series={slide.priceSeries}
+          ticker={slide.ticker}
           copy={
             <div className="exploreRecapEventCopy">
-              <p className="exploreRecapSlideKicker mono">Event of the day</p>
-              <h2 className="exploreRecapEventTitle">{event.headline}</h2>
-              <p className="exploreRecapEventSummary">{event.summary}</p>
-              <div className="exploreRecapEventMeta">
-                <span className="exploreRecapMetaItem mono">{event.source}</span>
-                <span className="exploreRecapMetaItem mono">{event.ticker}</span>
-                <span className={['exploreRecapTileMove mono', event.moveUp ? 'isUp' : 'isDown'].join(' ')}>
-                  {event.moveLabel}
+              <p className="exploreRecapSlideKicker mono">{slide.kicker}</p>
+              <button
+                type="button"
+                className="exploreRecapEventTitleBtn"
+                aria-label={`Open event brief: ${slide.headline}`}
+                onClick={openEvent}
+              >
+                <span className="exploreRecapEventTitleRow">
+                  <span className="exploreRecapEventTitle">{slide.headline}</span>
+                  <span className="exploreRecapEventChevron mono" aria-hidden="true">
+                    &gt;
+                  </span>
                 </span>
+              </button>
+              <p className="exploreRecapEventSummary">{slide.summary}</p>
+              <div className="exploreRecapEventMeta">
+                <span className="exploreRecapMetaItem mono">{slide.source}</span>
+                {slide.ticker ? <span className="exploreRecapMetaItem mono">{slide.ticker}</span> : null}
+                {slide.moveLabel ? (
+                  <span
+                    className={['exploreRecapTileMove mono', slide.moveUp ? 'isUp' : 'isDown'].join(' ')}
+                  >
+                    {slide.moveLabel}
+                  </span>
+                ) : null}
               </div>
             </div>
           }
@@ -213,24 +188,12 @@ function ExploreRecapEventSlide({ event }) {
   )
 }
 
-function renderRecapSlideAt(recap, logicalIdx) {
-  if (logicalIdx === 0) {
-    return <ExploreRecapEventSlide event={recap.event} />
-  }
-
-  const companyIdx = logicalIdx - 1
-  if (companyIdx < recap.companies.length) {
-    const company = recap.companies[companyIdx]
-    return <ExploreRecapCompanySlide key={company.ticker} company={company} />
-  }
-
-  const actor = recap.actors[logicalIdx - 1 - recap.companies.length]
-  return (
-    <ExploreRecapActorSlide
-      key={actor.id ?? `${actor.name}-${actor.ticker}`}
-      actor={actor}
-    />
-  )
+function renderRecapSlideAt(recap, logicalIdx, onOpenEvent) {
+  const slides = Array.isArray(recap?.slides) ? recap.slides : []
+  if (!slides.length) return <ExploreRecapEmptySlide />
+  const slide = slides[logicalIdx]
+  if (!slide) return null
+  return <ExploreRecapSlideView key={slide.id} slide={slide} onOpenEvent={onOpenEvent} />
 }
 
 function logicalIndexFromPhysical(physicalIdx, slideCount) {
@@ -256,14 +219,16 @@ export function ExploreDailyRecap({
   onSettingsClick,
   onBrandClick = null,
   onRequestCollapse,
+  onOpenEvent = null,
 }) {
   const trackRef = useRef(null)
   const jumpingRef = useRef(false)
   const activeIdxRef = useRef(0)
   const [activeIdx, setActiveIdx] = useState(0)
   const compactLayout = useExploreCompactLayout()
-  const slideCount = useMemo(() => getRecapSlideCount(recap), [recap])
-  const loopEnabled = slideCount > 1
+  const slideCount = useMemo(() => Math.max(1, getRecapSlideCount(recap)), [recap])
+  const hasSlides = getRecapSlideCount(recap) > 0
+  const loopEnabled = hasSlides && slideCount > 1
 
   activeIdxRef.current = activeIdx
 
@@ -393,17 +358,17 @@ export function ExploreDailyRecap({
             <div className="exploreRecapTrack" ref={trackRef}>
               {loopEnabled ? (
                 <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true">
-                  {renderRecapSlideAt(recap, slideCount - 1)}
+                  {renderRecapSlideAt(recap, slideCount - 1, onOpenEvent)}
                 </div>
               ) : null}
               {Array.from({ length: slideCount }, (_, i) => (
-                <div key={i} className="exploreRecapSlideWrap">
-                  {renderRecapSlideAt(recap, i)}
+                <div key={hasSlides ? recap.slides[i]?.id ?? i : 'empty'} className="exploreRecapSlideWrap">
+                  {renderRecapSlideAt(recap, i, onOpenEvent)}
                 </div>
               ))}
               {loopEnabled ? (
                 <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true">
-                  {renderRecapSlideAt(recap, 0)}
+                  {renderRecapSlideAt(recap, 0, onOpenEvent)}
                 </div>
               ) : null}
             </div>

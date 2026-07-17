@@ -889,6 +889,107 @@
   color: rgba(255, 255, 255, 0.94);
 }
 
+.exploreRecapEventTitleBtn {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+
+.exploreRecapEventTitleBtn:hover {
+  opacity: 0.88;
+}
+
+.exploreRecapEventTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.exploreRecapEventChevron {
+  flex: 0 0 auto;
+  font-size: clamp(22px, 2.6vw, 30px);
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.exploreEventShell .drpt-topbarTicker {
+  min-width: 0;
+  flex-shrink: 1;
+  white-space: normal;
+  font-size: clamp(28px, 3.6vw, 40px);
+  line-height: 1.08;
+}
+
+.exploreEventEmpty {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 0 48px;
+  max-width: 42rem;
+}
+
+.exploreEventEmptyLead {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--drpt-muted, rgba(255, 255, 255, 0.58));
+}
+
+.exploreEventBrief {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0 56px;
+}
+
+.exploreEventSectionTitleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+
+.exploreEventSectionTitleBtn:hover {
+  opacity: 0.88;
+}
+
+.exploreEventSectionTitleBtn .drpt-sectionTitle {
+  margin: 0;
+}
+
+.exploreEventSectionChevron {
+  flex: 0 0 auto;
+  font-size: 14px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.exploreEventBrief .drpt-metricValue.isUp {
+  color: rgba(120, 210, 160, 0.95);
+}
+
+.exploreEventBrief .drpt-metricValue.isDown {
+  color: rgba(230, 120, 120, 0.95);
+}
+
 .exploreRecapEventSummary {
   margin: 0;
   max-width: 54ch;

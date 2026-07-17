@@ -3,7 +3,7 @@ import { buildExploreDirectoryHomePreview } from './exploreDirectoryMock.js'
 import { ExploreDirectoryCompanyRow, ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
-import { navigateExploreCompanies, navigateExploreInvestors } from './terminalRoute.js'
+import { navigateExploreCompanies, navigateExploreEventDetail, navigateExploreInvestors } from './terminalRoute.js'
 import './ExplorePage.css'
 
 const COLLAPSE_RANGE_FALLBACK = 1
@@ -59,12 +59,24 @@ export function ExplorePage({
   onBrandClick = null,
   onCompanyRowClick = null,
   onInvestorRowClick = null,
+  onEventClick = null,
 }) {
   const recap = buildExploreDailyRecap()
   const directoryPreview = buildExploreDirectoryHomePreview()
   const pageRef = useRef(null)
   const dockRef = useRef(null)
   const spacerRef = useRef(null)
+
+  const openRecapEvent = useCallback(
+    (slide) => {
+      if (typeof onEventClick === 'function') {
+        onEventClick(slide)
+        return
+      }
+      if (slide?.id) navigateExploreEventDetail(slide.id)
+    },
+    [onEventClick],
+  )
 
   const requestRecapCollapse = useCallback(() => {
     const page = pageRef.current
@@ -122,6 +134,7 @@ export function ExplorePage({
             onSettingsClick={onSettingsClick}
             onBrandClick={onBrandClick}
             onRequestCollapse={requestRecapCollapse}
+            onOpenEvent={openRecapEvent}
           />
         </div>
         <div ref={spacerRef} className="exploreRecapCollapseSpacer" aria-hidden="true" />

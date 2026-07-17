@@ -5,6 +5,7 @@ import { normalizeMarketingPath } from './marketingRoute.js'
 export const EXPLORE_HOME_PATH = '/explore'
 export const EXPLORE_COMPANIES_PATH = '/explore/companies'
 export const EXPLORE_INVESTORS_PATH = '/explore/investors'
+export const EXPLORE_EVENTS_PATH = '/explore/events'
 export const SETTINGS_PATH = '/settings'
 export const MACRO_PATH = '/macro'
 /** @deprecated Use EXPLORE_INVESTORS_PATH */
@@ -25,7 +26,7 @@ export function readTerminalPath() {
   return normalizeMarketingPath(window.location.pathname)
 }
 
-/** @returns {{ view: string, ticker?: string, investorSlug?: string } | null} */
+/** @returns {{ view: string, ticker?: string, investorSlug?: string, eventId?: string } | null} */
 export function parseExploreRoute(pathname = readTerminalPath()) {
   const path = normalizeMarketingPath(pathname)
 
@@ -42,6 +43,14 @@ export function parseExploreRoute(pathname = readTerminalPath()) {
     return {
       view: 'investorDetail',
       investorSlug: decodeURIComponent(investorDetail[1]).trim().toLowerCase(),
+    }
+  }
+
+  const eventDetail = path.match(/^\/explore\/events\/([^/]+)$/i)
+  if (eventDetail) {
+    return {
+      view: 'eventDetail',
+      eventId: decodeURIComponent(eventDetail[1]).trim(),
     }
   }
 
@@ -64,7 +73,7 @@ export function parseTerminalRoute(pathname = readTerminalPath()) {
   return null
 }
 
-/** @returns {'home' | 'companies' | 'investors' | 'companyDetail' | 'investorDetail' | null} */
+/** @returns {'home' | 'companies' | 'investors' | 'companyDetail' | 'investorDetail' | 'eventDetail' | null} */
 export function parseExploreSubview(pathname = readTerminalPath()) {
   return parseExploreRoute(pathname)?.view ?? null
 }
@@ -95,6 +104,12 @@ export function exploreInvestorDetailPath(name) {
 
 /** @deprecated Use exploreInvestorDetailPath */
 export const exploreActorDetailPath = exploreInvestorDetailPath
+
+export function exploreEventDetailPath(eventId) {
+  const id = String(eventId ?? '').trim()
+  if (!id) return EXPLORE_HOME_PATH
+  return `${EXPLORE_EVENTS_PATH}/${encodeURIComponent(id)}`
+}
 
 export function navigateTerminal(path, { replace = false } = {}) {
   if (typeof window === 'undefined') return
@@ -130,6 +145,10 @@ export function navigateExploreInvestorDetail(name) {
 
 /** @deprecated Use navigateExploreInvestorDetail */
 export const navigateExploreActorDetail = navigateExploreInvestorDetail
+
+export function navigateExploreEventDetail(eventId) {
+  navigateTerminal(exploreEventDetailPath(eventId))
+}
 
 export function navigateSettings({ replace = false } = {}) {
   navigateTerminal(SETTINGS_PATH, { replace })
@@ -173,6 +192,7 @@ export function useExploreRoute() {
     view: route.view ?? 'home',
     ticker: route.ticker,
     investorSlug: route.investorSlug,
+    eventId: route.eventId,
   }
 }
 

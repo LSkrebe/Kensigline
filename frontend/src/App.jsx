@@ -15,6 +15,7 @@ import { DeepPage } from './DeepCompanyPage.jsx'
 import { ExplorePage } from './ExplorePage.jsx'
 import { ExploreCompaniesPage } from './ExploreCompaniesPage.jsx'
 import { ExploreInvestorsPage } from './ExploreInvestorsPage.jsx'
+import { ExploreEventPage } from './ExploreEventPage.jsx'
 import {
   applyExploreInvestorFeedSelection,
   exploreInvestorModeFromDocType,
@@ -26,6 +27,7 @@ import {
   isTerminalAppPath,
   navigateExploreBack,
   navigateExploreCompanyDetail,
+  navigateExploreEventDetail,
   navigateExploreHome,
   navigateExploreInvestorDetail,
   navigateMacro,
@@ -10914,6 +10916,10 @@ function KensiglineTerminal() {
     navigateExploreHome()
   }, [])
 
+  const onExploreEventClick = useCallback((slide) => {
+    if (slide?.id) navigateExploreEventDetail(slide.id)
+  }, [])
+
   const onExploreCompanyClick = useCallback(
     (row) => {
       const ticker = String(row?.ticker ?? '').trim().toUpperCase()
@@ -11056,6 +11062,19 @@ function KensiglineTerminal() {
           {shell === 'explore' ? (
             exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail' ? (
               deepDossierPage
+            ) : exploreSubview === 'eventDetail' ? (
+              <ExploreEventPage
+                eventId={terminalRoute.eventId}
+                backendUp={backendUp}
+                macroActive={macroActive}
+                onMacroClick={onMacroClick}
+                settingsActive={settingsActive}
+                onSettingsClick={onSettingsClick}
+                onBrandClick={onExploreHomeClick}
+                onCloseClick={onExploreDossierCloseClick}
+                onCompanyClick={onExploreCompanyClick}
+                onInvestorClick={onExploreInvestorClick}
+              />
             ) : exploreSubview === 'companies' ? (
               <ExploreCompaniesPage
                 backendUp={backendUp}
@@ -11088,6 +11107,7 @@ function KensiglineTerminal() {
                 onBrandClick={onExploreHomeClick}
                 onCompanyRowClick={onExploreCompanyClick}
                 onInvestorRowClick={onExploreInvestorClick}
+                onEventClick={onExploreEventClick}
               />
             )
           ) : null}
