@@ -487,6 +487,7 @@
   position: relative;
   z-index: 1;
   --explore-compact-chrome-size: 30px;
+  --explore-compact-search-w: 520px;
   pointer-events: auto;
   box-sizing: border-box;
   width: 100%;
@@ -523,7 +524,7 @@
 @media (max-width: 960px) {
   .exploreRecapChrome .exploreRecapCompactSearch {
     flex: 0 1 auto;
-    width: min(52vw, 100%);
+    width: min(56vw, 100%);
     max-width: 100%;
   }
 
@@ -535,7 +536,7 @@
   .terminalTopBarActions--collapsibleSearch.terminalTopBarActions--searchOpen .exploreRecapCompactSearch {
     flex: 1 1 auto;
     width: auto;
-    min-width: min(52vw, 100%);
+    min-width: min(56vw, 100%);
     max-width: 100%;
   }
 
@@ -558,9 +559,9 @@
 
 @media (min-width: 961px) {
   .exploreRecapChrome .exploreRecapCompactSearch {
-    flex: 0 1 auto;
-    width: 450px;
-    max-width: 100%;
+    flex: 0 0 auto;
+    width: var(--explore-compact-search-w);
+    max-width: min(var(--explore-compact-search-w), 100%);
   }
 }
 

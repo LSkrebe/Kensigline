@@ -33,7 +33,7 @@ import {
   useTerminalRoute,
 } from './terminalRoute.js'
 import { formatCountLabel } from './formatCountLabel.js'
-import { MiniPriceChart } from './MiniPriceChart.jsx'
+import { MiniPriceChart, priceChangeForRange } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
 import {
   buildMockResearchFeedRows,
@@ -3529,7 +3529,7 @@ function buildCaseTxnDisplayRows(items, { sepMode = 'today+years', priceRange } 
   if (!rows.length) return []
 
   const rangeKey = PRICE_RANGE_OPTS.includes(priceRange) ? priceRange : null
-  const rangeStart = rangeKey && rangeKey !== 'ALL' ? priceRangeWindowStart(rangeKey) : null
+  const rangeStart = rangeKey ? priceRangeWindowStart(rangeKey) : null
   if (rangeStart) {
     const oldest = rows[rows.length - 1]
     const oldestAt = oldest?.at != null ? new Date(oldest.at) : null
@@ -5083,13 +5083,25 @@ function CausalGraphFigure({ entities, events, edges }) {
   )
 }
 
-const PRICE_RANGE_OPTS = ['1M', '3M', '6M', '1Y', 'ALL']
-const PRICE_RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, ALL: null }
-const OVERLAY_QUARTERS_BY_RANGE = { '1M': 1, '3M': 1, '6M': 2, '1Y': 4, ALL: 8 }
+const PRICE_RANGE_OPTS = ['1M', '3M', '6M', '1Y', 'YTD']
+const PRICE_RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, YTD: null }
+const OVERLAY_QUARTERS_BY_RANGE = { '1M': 1, '3M': 1, '6M': 2, '1Y': 4, YTD: 4 }
+
+function priceRangeDayCount(range, ref = new Date()) {
+  if (range === 'YTD') {
+    const start = new Date(ref.getFullYear(), 0, 1)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(ref)
+    end.setHours(0, 0, 0, 0)
+    return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1)
+  }
+  const days = PRICE_RANGE_DAYS[range]
+  return typeof days === 'number' ? days : null
+}
 
 function slicePriceSeriesByRange(series, range) {
   const arr = Array.isArray(series) ? series : []
-  const days = PRICE_RANGE_DAYS[range]
+  const days = priceRangeDayCount(range)
   if (!days || arr.length <= days) return arr
   return arr.slice(-days)
 }
@@ -5099,7 +5111,7 @@ function slicePriceDataByRange(series, dates, range) {
   const d = Array.isArray(dates) ? dates : []
   const n = s.length
   if (!n) return { series: [], dates: [] }
-  const days = PRICE_RANGE_DAYS[range]
+  const days = priceRangeDayCount(range)
   const take = typeof days === 'number' && n > days ? days : n
   const sliced = s.slice(-take)
   if (d.length >= n) return { series: sliced, dates: d.slice(-take) }
@@ -5109,6 +5121,11 @@ function slicePriceDataByRange(series, dates, range) {
 
 /** Start of calendar window for chart range (local midnight, inclusive). */
 function priceRangeWindowStart(range, ref = new Date()) {
+  if (range === 'YTD') {
+    const start = new Date(ref.getFullYear(), 0, 1)
+    start.setHours(0, 0, 0, 0)
+    return start
+  }
   const days = PRICE_RANGE_DAYS[range]
   if (days == null) return null
   const start = new Date(ref)
@@ -9250,14 +9267,8 @@ function KensiglineTerminal() {
   )
 
   const analysePriceChange = useMemo(() => {
-    const rows = researchPriceSeries
-    if (!Array.isArray(rows) || rows.length < 2) return null
-    const last = Number(rows.at(-1))
-    const prev = Number(rows.at(-2))
-    if (!Number.isFinite(last) || !Number.isFinite(prev) || prev === 0) return null
-    const delta = last - prev
-    return { delta, pct: (delta / Math.abs(prev)) * 100 }
-  }, [researchPriceSeries])
+    return priceChangeForRange(researchPriceSeries, analysePriceRange)
+  }, [researchPriceSeries, analysePriceRange])
 
   const contextEarnings = useMemo(() => {
     if (backendUp) {
@@ -9721,7 +9732,7 @@ function KensiglineTerminal() {
     }
 
     async function run() {
-      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(tick)}&days=120`, { timeoutMs: 10_000 })
+      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(tick)}&days=365`, { timeoutMs: 10_000 })
       if (!alive || researchBarsFetchGenRef.current !== gen) return
       const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
       if (respTicker !== tick) return
@@ -10671,7 +10682,7 @@ function KensiglineTerminal() {
     }
 
     async function run() {
-      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(ticker)}&days=120`, { timeoutMs: 6000 })
+      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(ticker)}&days=365`, { timeoutMs: 6000 })
       if (!alive || barsFetchGenRef.current !== gen) return
       const respTicker = String(r.data?.ticker ?? ticker).trim().toUpperCase()
       if (respTicker !== ticker) return

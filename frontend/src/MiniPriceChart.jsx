@@ -32,15 +32,67 @@ const GRAPH_SVG_AXIS = { stroke: 'rgba(255, 255, 255, 0.16)', strokeWidth: 0.85,
 const GRAPH_SVG_PATH = { stroke: 'var(--intel-accent-stroke-strong)', strokeWidth: 2, fill: 'none' }
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-export const PRICE_RANGE_OPTS = ['1M', '3M', '6M', '1Y', 'ALL']
-const PRICE_RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, ALL: null }
-const OVERLAY_QUARTERS_BY_RANGE = { '1M': 1, '3M': 1, '6M': 2, '1Y': 4, ALL: 8 }
+export const PRICE_RANGE_OPTS = ['1M', '3M', '6M', '1Y', 'YTD']
+const PRICE_RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, YTD: null }
+const OVERLAY_QUARTERS_BY_RANGE = { '1M': 1, '3M': 1, '6M': 2, '1Y': 4, YTD: 4 }
+
+/** Human labels for range chips / dossier aside (e.g. Net P&L subtitle). */
+export const PRICE_RANGE_LABELS = {
+  '1M': '1 Month',
+  '3M': '3 Months',
+  '6M': '6 Months',
+  '1Y': '1 Year',
+  YTD: 'Year to date',
+}
+
+export function priceRangeLabel(range) {
+  return PRICE_RANGE_LABELS[range] ?? String(range ?? '')
+}
+
+/** Calendar-day count for series slicing (YTD = days since Jan 1). */
+export function priceRangeDayCount(range, ref = new Date()) {
+  if (range === 'YTD') {
+    const start = new Date(ref.getFullYear(), 0, 1)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(ref)
+    end.setHours(0, 0, 0, 0)
+    return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1)
+  }
+  const days = PRICE_RANGE_DAYS[range]
+  return typeof days === 'number' ? days : null
+}
 
 export function slicePriceSeriesByRange(series, range) {
   const arr = Array.isArray(series) ? series : []
-  const days = PRICE_RANGE_DAYS[range]
+  const days = priceRangeDayCount(range)
   if (!days || arr.length <= days) return arr
   return arr.slice(-days)
+}
+
+/** Start of calendar window for chart range (local midnight, inclusive). */
+export function priceRangeWindowStart(range, ref = new Date()) {
+  if (range === 'YTD') {
+    const start = new Date(ref.getFullYear(), 0, 1)
+    start.setHours(0, 0, 0, 0)
+    return start
+  }
+  const days = PRICE_RANGE_DAYS[range]
+  if (days == null) return null
+  const start = new Date(ref)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - days)
+  return start
+}
+
+/** First→last $ / % change over the same window the chart uses. */
+export function priceChangeForRange(series, range) {
+  const rows = slicePriceSeriesByRange(series, range)
+  if (!Array.isArray(rows) || rows.length < 2) return null
+  const first = Number(rows[0])
+  const last = Number(rows.at(-1))
+  if (!Number.isFinite(first) || !Number.isFinite(last) || first === 0) return null
+  const delta = last - first
+  return { delta, pct: (delta / Math.abs(first)) * 100, last }
 }
 
 function trimLeadingFlatSeries(arr, { minRemain = 32, maxTrimFraction = 0.9 } = {}) {
@@ -267,10 +319,10 @@ export function MiniPriceChart({
     return [0.08, 0.32, 0.56, 0.8].map((p) => Math.round(clamp01(p) * (n - 1)))
   }, [vals.length])
 
-  const last = Array.isArray(series) && series.length ? series.at(-1) : null
-  const prev = Array.isArray(series) && series.length > 1 ? series.at(-2) : null
-  const ch = last != null && prev != null ? last - prev : null
-  const chPct = last != null && prev ? ((last - prev) / Math.max(1e-6, prev)) * 100 : null
+  const last = vals.length ? vals.at(-1) : null
+  const first = vals.length > 1 ? vals[0] : null
+  const ch = last != null && first != null ? last - first : null
+  const chPct = last != null && first ? ((last - first) / Math.max(1e-6, Math.abs(first))) * 100 : null
   const up = ch != null ? ch >= 0 : true
 
   const quarterlyRevenueGeom = useMemo(() => {

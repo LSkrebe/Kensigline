@@ -17,17 +17,19 @@ export function DeepCompactChrome({
   const ch = priceChange != null && Number.isFinite(Number(priceChange)) ? Number(priceChange) : null
   const chPct =
     priceChangePct != null && Number.isFinite(Number(priceChangePct)) ? Number(priceChangePct) : null
-  const up = ch != null ? ch >= 0 : true
+  const up = ch != null ? ch >= 0 : chPct != null ? chPct >= 0 : true
   const showPrice = price != null && Number.isFinite(Number(price))
+  const showChange = ch != null && chPct != null
+  const showReturnOnly = !showPrice && chPct != null
 
   const trail =
-    label || showPrice ? (
+    label || showPrice || showReturnOnly ? (
       <div className="deepCompactChromeTrail">
         {label ? <span className="deepCompactChromeSubject mono">{label}</span> : null}
         {showPrice ? (
           <>
             <span className="deepCompactChromePrice mono">${Number(price).toFixed(2)}</span>
-            {ch != null && chPct != null ? (
+            {showChange ? (
               <span className={['deepCompactChromeChange mono', up ? 'isUp' : 'isDown'].join(' ')}>
                 {up ? '+' : ''}
                 {ch.toFixed(2)} ({up ? '+' : ''}
@@ -35,6 +37,11 @@ export function DeepCompactChrome({
               </span>
             ) : null}
           </>
+        ) : showReturnOnly ? (
+          <span className={['deepCompactChromeChange mono', up ? 'isUp' : 'isDown'].join(' ')}>
+            {up ? '+' : ''}
+            {chPct.toFixed(2)}%
+          </span>
         ) : null}
       </div>
     ) : null

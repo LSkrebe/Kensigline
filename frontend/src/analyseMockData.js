@@ -774,7 +774,7 @@ export function analyseGridCellTone(value, kind) {
   return null
 }
 
-const REVENUE_OVERLAY_QUARTERS_BY_RANGE = { '1M': 1, '3M': 1, '6M': 2, '1Y': 4, ALL: 8 }
+const REVENUE_OVERLAY_QUARTERS_BY_RANGE = { '1M': 1, '3M': 1, '6M': 2, '1Y': 4, YTD: 4 }
 
 /** Latest visible YoY revenue growth for chart line + legend tone. */
 export function analyseRevenueOverlayMeta(overlay, priceRange = '6M') {

@@ -6,11 +6,12 @@ import {
 import { AnalyseModelGrid } from './AnalyseModelGrid.jsx'
 import {
   buildMockActorTrackRecord,
+  filterTrackTradesByRange,
   formatReturnFraction,
 } from './deepOutcomes.js'
 import { DeepCompactChrome } from './DeepCompactChrome.jsx'
 import { formatCountLabel } from './formatCountLabel.js'
-import { PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
+import { PRICE_RANGE_OPTS, priceRangeLabel } from './MiniPriceChart.jsx'
 import {
   normalizeResearchPaperSourceKey,
   RESEARCH_PAPER_SOURCE_CATALOG,
@@ -776,6 +777,15 @@ function formatTrackHoverValue(v) {
   return formatReturnFraction(v)
 }
 
+/** Same fuller date style as company MiniPriceChart hover (e.g. 17 Jul 2026). */
+function formatTrackHoverDate(point) {
+  const raw = point?.ts ?? point?.dateLabel
+  if (raw == null || raw === '') return '—'
+  const d = raw instanceof Date ? raw : new Date(raw)
+  if (Number.isNaN(d.getTime())) return String(point?.dateLabel ?? '—')
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 const OUTCOME_CHART_AREA_TOP = 'var(--intel-accent-area-top)'
 const OUTCOME_CHART_AREA_BOTTOM = 'var(--intel-accent-area-bottom)'
 const OUTCOME_GRAPH_PATH = { stroke: 'var(--intel-accent-stroke-strong)', strokeWidth: 2, fill: 'none' }
@@ -923,15 +933,9 @@ function DeepTrackRecordChart({ points = [] }) {
             top: Math.max(8, hoverPos.y - 36),
           }}
         >
-          <span className="researchMiniPriceTooltipDate">
-            {[activePoint.dateLabel, activePoint.detailLabel].filter(Boolean).join(' · ')}
-          </span>
+          <span className="researchMiniPriceTooltipDate">{formatTrackHoverDate(activePoint)}</span>
           <span className="researchMiniPriceTooltipPrice">
-            {activePoint.delta != null && activePoint.delta !== 0
-              ? formatTrackHoverValue(activePoint.delta)
-              : activePoint.eventKind === 'buy'
-                ? 'Position opened'
-                : formatTrackHoverValue(activePoint.cumulative)}
+            {formatTrackHoverValue(activePoint.cumulative)}
           </span>
         </div>
       ) : null}
@@ -951,15 +955,17 @@ function DeepTrackRecordChartPanel({ trackRecord }) {
   )
 }
 
-function DeepActorMetrics({ trackRecord }) {
+function DeepActorMetrics({ trackRecord, chartRange = '6M' }) {
   const stats = trackRecord?.stats
   if (!stats) return <p className="drpt-empty">No trades in scope yet.</p>
+
+  const rangeLabel = priceRangeLabel(chartRange) || 'Track record'
 
   const cards = [
     { key: 'win', label: 'Win rate', value: stats.winRate, period: 'Round trips' },
     { key: 'median', label: 'Median gain', value: stats.medianReturn, period: 'Per exit' },
     { key: 'trips', label: 'Round trips', value: stats.roundTrips ?? '—', period: 'Realized' },
-    { key: 'cum', label: 'Net P&L', value: stats.cumulativeReturn, period: 'Track record' },
+    { key: 'cum', label: 'Net P&L', value: stats.cumulativeReturn, period: rangeLabel },
   ]
 
   return (
@@ -1088,7 +1094,38 @@ function DeepTradedCompaniesList({ companies = [], visibleLimit = null, onCompan
   )
 }
 
-function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount }) {
+function ActorTopBar({
+  name,
+  detail,
+  modeLabel,
+  tradeCount,
+  companyCount,
+  rangeReturnPct = null,
+  chartRange = null,
+  winRate = null,
+  medianReturn = null,
+}) {
+  const pct =
+    rangeReturnPct != null && Number.isFinite(Number(rangeReturnPct)) ? Number(rangeReturnPct) * 100 : null
+  const up = pct != null ? pct >= 0 : true
+  const showReturn = pct != null
+  const hasMedian = medianReturn && medianReturn !== '—'
+  const hasWin = winRate && winRate !== '—'
+  const rangeLabel = chartRange ? priceRangeLabel(chartRange) : null
+
+  let secondary = null
+  if (hasMedian && hasWin) {
+    secondary = `${medianReturn} med (${winRate} win)`
+  } else if (hasWin && rangeLabel) {
+    secondary = `${winRate} win · ${rangeLabel}`
+  } else if (hasMedian && rangeLabel) {
+    secondary = `${medianReturn} med · ${rangeLabel}`
+  } else if (hasWin) {
+    secondary = `${winRate} win`
+  } else if (rangeLabel) {
+    secondary = rangeLabel
+  }
+
   return (
     <header className="drpt-topbar drpt-topbar--investor">
       <div className="drpt-topbarIdentity">
@@ -1102,6 +1139,25 @@ function ActorTopBar({ name, detail, modeLabel, tradeCount, companyCount }) {
         {detail ? <span>{detail}</span> : null}
         <span>{formatCountLabel(tradeCount, 'transaction')}</span>
         <span>{formatCountLabel(companyCount, 'company', 'companies')}</span>
+      </div>
+      <div
+        className={[
+          'drpt-topbarPrice',
+          'drpt-topbarAside',
+          showReturn ? '' : 'drpt-topbarPrice--empty',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-hidden={showReturn ? undefined : true}
+      >
+        {showReturn ? (
+          <>
+            <span className="drpt-price">{formatReturnFraction(rangeReturnPct)}</span>
+            {secondary ? (
+              <span className={['drpt-priceChange', up ? 'isUp' : 'isDown'].join(' ')}>{secondary}</span>
+            ) : null}
+          </>
+        ) : null}
       </div>
     </header>
   )
@@ -1318,6 +1374,7 @@ export function DeepActorReport({
   compactPriceChangePct = null,
   onCompanyClick = null,
 }) {
+  const [chartRange, setChartRange] = useState('6M')
   const name = String(personDisplay?.fullName ?? actorRow?.actorName ?? '').trim()
   const detail = String(personDisplay?.detail ?? actorRow?.actorDetail ?? '').trim()
   const modeLabel =
@@ -1334,10 +1391,25 @@ export function DeepActorReport({
     [caseRows],
   )
 
-  const trackRecord = useMemo(
-    () => buildMockActorTrackRecord(tradeRows, name),
-    [tradeRows, name],
+  const rangedTradeRows = useMemo(
+    () => filterTrackTradesByRange(tradeRows, chartRange),
+    [tradeRows, chartRange],
   )
+
+  const trackRecord = useMemo(
+    () => buildMockActorTrackRecord(rangedTradeRows, name),
+    [rangedTradeRows, name],
+  )
+
+  const rangeReturnRaw = trackRecord?.stats?.cumulativeReturnRaw
+  const rangeReturnPct =
+    rangeReturnRaw != null && Number.isFinite(Number(rangeReturnRaw)) ? Number(rangeReturnRaw) : null
+  const compactReturnPct =
+    compactPriceChangePct != null && Number.isFinite(Number(compactPriceChangePct))
+      ? Number(compactPriceChangePct)
+      : rangeReturnPct != null
+        ? rangeReturnPct * 100
+        : null
 
   const companies = useMemo(() => {
     const map = new Map()
@@ -1382,7 +1454,7 @@ export function DeepActorReport({
       compactLabel={actorCompactLabel}
       compactPrice={compactPrice}
       compactPriceChange={compactPriceChange}
-      compactPriceChangePct={compactPriceChangePct}
+      compactPriceChangePct={compactReturnPct}
       chrome={chrome}
       expandedHeader={
         <ActorTopBar
@@ -1391,18 +1463,26 @@ export function DeepActorReport({
           modeLabel={modeLabel}
           tradeCount={tradeRows.length}
           companyCount={companies.length}
+          rangeReturnPct={rangeReturnPct}
+          chartRange={chartRange}
+          winRate={trackRecord?.stats?.winRate ?? null}
+          medianReturn={trackRecord?.stats?.medianReturn ?? null}
         />
       }
     >
         <div className="drpt-row drpt-row--market">
-          <DeepSection label="Track record" title="Trading history">
+          <DeepSection
+            label="Track record"
+            title="Trading history"
+            headExtra={<DeepChartRange value={chartRange} onChange={setChartRange} />}
+          >
             <div className="drpt-figure drpt-figure--chart">
               <DeepTrackRecordChartPanel trackRecord={trackRecord} />
             </div>
           </DeepSection>
 
           <DeepSection label="Fundamentals" title="Key metrics">
-            <DeepActorMetrics trackRecord={trackRecord} />
+            <DeepActorMetrics trackRecord={trackRecord} chartRange={chartRange} />
           </DeepSection>
         </div>
 

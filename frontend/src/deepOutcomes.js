@@ -82,6 +82,7 @@ export function buildMockActorTrackRecord(tradeRows, actorName = '') {
     {
       cumulative: 0,
       delta: null,
+      ts: trades[0].ts,
       dateLabel: formatTrackDate(trades[0].ts),
       detailLabel: 'Start',
       eventKind: 'start',
@@ -118,6 +119,7 @@ export function buildMockActorTrackRecord(tradeRows, actorName = '') {
     points.push({
       cumulative,
       delta,
+      ts: trade.ts,
       dateLabel: trade.when || formatTrackDate(trade.ts),
       detailLabel: tradeDetailLabel(trade),
       eventKind,
@@ -135,9 +137,40 @@ export function buildMockActorTrackRecord(tradeRows, actorName = '') {
       medianReturn: formatReturnFraction(median),
       tradeCount: String(trades.length),
       cumulativeReturn: formatReturnFraction(cumulative),
+      cumulativeReturnRaw: cumulative,
       roundTrips: String(realized.length),
     },
   }
+}
+
+const TRACK_RANGE_DAYS = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365, YTD: null }
+
+/** Keep trades whose timestamp falls inside the chart range window. */
+export function filterTrackTradesByRange(tradeRows, range) {
+  const start = priceRangeWindowStartMs(range)
+  if (start == null) return Array.isArray(tradeRows) ? tradeRows : []
+  return (tradeRows ?? []).filter((row) => {
+    const ts = row?.ts
+    if (ts == null) return true
+    const t = new Date(ts).getTime()
+    if (!Number.isFinite(t)) return true
+    return t >= start
+  })
+}
+
+function priceRangeWindowStartMs(range, ref = new Date()) {
+  if (range === 'YTD') {
+    const start = new Date(ref.getFullYear(), 0, 1)
+    start.setHours(0, 0, 0, 0)
+    return start.getTime()
+  }
+  if (range === 'ALL') return null
+  const days = TRACK_RANGE_DAYS[range]
+  if (days == null) return null
+  const start = new Date(ref)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - days)
+  return start.getTime()
 }
 
 export const DEEP_OUTCOME_HORIZON_LABELS = ['1M', '3M', '1Y']
