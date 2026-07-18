@@ -83,15 +83,21 @@ function eventTxnTone(side) {
 }
 
 function EventFilingRow({ row, onCompanyClick, onInvestorClick }) {
-  const hasInvestor = Boolean(row.actorName && onInvestorClick)
-  const hasCompany = Boolean(row.ticker && onCompanyClick)
-  const clickable = hasInvestor || hasCompany
+  const openInvestor = Boolean(row.actorName && onInvestorClick && !row.openCompany)
+  const openCompany = Boolean(row.ticker && onCompanyClick && (row.openCompany || !row.actorName))
+  const clickable = openInvestor || openCompany
   const title = row.actorName || row.headline || row.companyName || 'Filing'
-  const txnLabel = row.side === 'buy' ? 'BUY' : row.side === 'sell' ? 'SELL' : null
+  const txnLabel = row.hideTxn
+    ? null
+    : row.side === 'buy'
+      ? 'BUY'
+      : row.side === 'sell'
+        ? 'SELL'
+        : null
   const txnTone = eventTxnTone(row.side)
 
   const open = () => {
-    if (hasInvestor) {
+    if (openInvestor) {
       onInvestorClick({
         name: row.actorName,
         typeKey: row.typeKey,
@@ -99,7 +105,7 @@ function EventFilingRow({ row, onCompanyClick, onInvestorClick }) {
       })
       return
     }
-    if (hasCompany) {
+    if (openCompany) {
       onCompanyClick({ ticker: row.ticker, name: row.companyName })
     }
   }
@@ -113,6 +119,7 @@ function EventFilingRow({ row, onCompanyClick, onInvestorClick }) {
         className={[
           'drpt-docRow',
           'drpt-docRow--flow',
+          row.hideTxn ? 'drpt-docRow--flowNoTxn' : '',
           clickable ? 'drpt-docRow--link' : '',
         ]
           .filter(Boolean)
@@ -120,7 +127,7 @@ function EventFilingRow({ row, onCompanyClick, onInvestorClick }) {
         onClick={clickable ? open : undefined}
         aria-label={
           clickable
-            ? hasInvestor
+            ? openInvestor
               ? `Open ${row.actorName} dossier`
               : `Open ${row.ticker} dossier`
             : undefined
@@ -130,12 +137,21 @@ function EventFilingRow({ row, onCompanyClick, onInvestorClick }) {
         <span className="drpt-docMain">
           <span className="drpt-docKind">{title}</span>
         </span>
-        {txnLabel ? (
+        {row.hideTxn ? null : txnLabel ? (
           <span className={`drpt-docTxn drpt-docTxn--${txnTone}`}>{txnLabel}</span>
         ) : (
           <span className="drpt-docTxn drpt-docTxn--empty">—</span>
         )}
-        <span className="drpt-docAmt">{row.amountLabel || row.moveLabel || '—'}</span>
+        <span
+          className={[
+            'drpt-docAmt',
+            row.hideTxn && row.moveLabel ? (row.moveUp ? 'isUp' : 'isDown') : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {row.amountLabel || row.moveLabel || '—'}
+        </span>
         <time className="drpt-docDate">{row.dateLabel || '—'}</time>
       </Tag>
     </li>
@@ -383,11 +399,12 @@ export function ExploreEventPage({
 
               {brief.filingRows.length ? (
                 <EventSection
-                  label="In this event"
-                  title="Filings"
+                  label={brief.listLabel || 'In this event'}
+                  title={brief.listTitle || 'Filings'}
                   headExtra={
                     <span className="drpt-sectionCount">
-                      {brief.filingRows.length} filing{brief.filingRows.length === 1 ? '' : 's'}
+                      {brief.listCountLabel ||
+                        `${brief.filingRows.length} filing${brief.filingRows.length === 1 ? '' : 's'}`}
                     </span>
                   }
                 >
@@ -406,7 +423,7 @@ export function ExploreEventPage({
                 </EventSection>
               ) : null}
 
-              {brief.companies.length > 1 ? (
+              {!brief.hideCompaniesSection && brief.companies.length > 1 ? (
                 <EventSection
                   label="Also involved"
                   title="Companies"

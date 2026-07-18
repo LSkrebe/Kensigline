@@ -309,6 +309,20 @@ export const EXPLORE_RECAP_COPY = {
       'The session marked a strong reaction in {company} after new paper.',
     ],
   },
+  earnings_watch: {
+    headlines: [
+      'Names lining up for earnings',
+      'The calendar gets loud',
+      'Results season steps closer',
+      'A watchlist ahead of the print',
+    ],
+    summaries: [
+      'Several coverage names report within the next stretch of sessions.',
+      'A cluster of earnings dates is coming into view across the board.',
+      'The near calendar is stacking results for names already on the tape.',
+      'With {company} among them, a run of reports is about to clear.',
+    ],
+  },
 }
 
 function hashSeed(str) {

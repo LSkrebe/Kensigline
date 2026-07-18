@@ -481,13 +481,44 @@ function evalFilingPriceReaction(filings) {
   })
 }
 
+const EARNINGS_WATCH_MAX = 5
+
+/** @returns {RecapSlide | null} */
+function evalEarningsWatch(earningsSoon) {
+  const rows = (Array.isArray(earningsSoon) ? earningsSoon : [])
+    .filter((r) => r?.ticker && Number.isFinite(r.daysAhead) && r.daysAhead >= 0 && r.daysAhead <= 14)
+    .slice()
+    .sort((a, b) => a.daysAhead - b.daysAhead || Math.abs(b.dayMovePct ?? 0) - Math.abs(a.dayMovePct ?? 0))
+  if (rows.length < 2) return null
+
+  const top = rows.slice(0, EARNINGS_WATCH_MAX)
+  const lead = top[0]
+  const company = companyPhrase(lead.companyName, lead.ticker)
+  const copy = pickRecapCopy('earnings_watch', `earnings-${lead.ticker}`, { company })
+  const proximity = lead.proximityLabel || (lead.daysAhead === 0 ? 'Today' : `${lead.daysAhead}d`)
+
+  return baseSlide('earnings_watch', {
+    id: 'earnings-watch',
+    headline: copy.headline,
+    summary: copy.summary,
+    source: 'Earnings',
+    ticker: lead.ticker,
+    moveLabel: proximity,
+    moveUp: (lead.dayMovePct ?? 0) >= 0,
+    priceSeries: lead.priceSeries ?? [],
+    score: (catalog('earnings_watch')?.weight ?? 0) + top.length * 3 + Math.max(0, 14 - lead.daysAhead),
+    memberIds: top.map((r) => r.id),
+  })
+}
+
 /**
- * @param {{ filings: RecapDayFiling[] }} day
+ * @param {{ filings?: RecapDayFiling[], earningsSoon?: object[], dayKey?: string }} day
  * @returns {{ slides: RecapSlide[] }}
  */
 export function evaluateExploreRecap(day) {
   const filings = Array.isArray(day?.filings) ? day.filings : []
-  if (!filings.length) return { slides: [] }
+  const earningsSoon = Array.isArray(day?.earningsSoon) ? day.earningsSoon : []
+  if (!filings.length && !earningsSoon.length) return { slides: [] }
 
   const buyClusters = evalInsiderBuyingCluster(filings)
   const sellClusters = evalInsiderSellingCluster(filings)
@@ -525,6 +556,7 @@ export function evaluateExploreRecap(day) {
 
   const bursts = evalCompanyFilingBurst(filings)
   const reaction = evalFilingPriceReaction(filings)
+  const earningsWatch = evalEarningsWatch(earningsSoon)
 
   /** Prefer cluster over burst for same ticker when both fire. */
   const burstFiltered = bursts.filter((b) => !clusterTickerCover.has(b.ticker))
@@ -553,6 +585,7 @@ export function evaluateExploreRecap(day) {
     ...singlesNoDup8k,
     ...burstNoReaction,
     ...(reaction ? [reaction] : []),
+    ...(earningsWatch ? [earningsWatch] : []),
   ]
 
   // Soft dedupe: one slide fingerprint per typeId+ticker+primary actor vibe

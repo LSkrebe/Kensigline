@@ -1,7 +1,8 @@
 /**
  * Offline "today's filings" universe for Explore recap evaluation.
  * Shape mirrors what a future /api/explore/recap builder would pull from
- * insider_transactions / politician_transactions / documents / bars.
+ * insider_transactions / politician_transactions / documents / bars /
+ * earnings calendar.
  */
 
 import { mockShowcasePriceSeries } from './mockShowcasePrices.js'
@@ -27,8 +28,23 @@ function pctMoveFromSeries(series, lookback = 5) {
   return ((last - first) / first) * 100
 }
 
+function earningsDateLabel(daysAhead) {
+  const d = new Date()
+  d.setHours(12, 0, 0, 0)
+  d.setDate(d.getDate() + daysAhead)
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+function earningsProximityLabel(daysAhead) {
+  const n = Number(daysAhead)
+  if (!Number.isFinite(n) || n < 0) return null
+  if (n === 0) return 'Today'
+  if (n === 1) return '1d'
+  return `${n}d`
+}
+
 /**
- * Mock flow + filing rows for a single calendar day.
+ * Mock flow + filing rows + near earnings watch for a single calendar day.
  * Intentionally uneven so some catalog types fire and others stay omitted.
  */
 export function buildExploreRecapMockDay() {
@@ -36,11 +52,19 @@ export function buildExploreRecapMockDay() {
   const amd = companyMeta('AMD')
   const asml = companyMeta('ASML')
   const avgo = companyMeta('AVGO')
+  const tsm = companyMeta('TSM')
+  const mu = companyMeta('MU')
+  const lrcx = companyMeta('LRCX')
+  const amat = companyMeta('AMAT')
 
   const nvdaSeries = mockShowcasePriceSeries('NVDA', 260)
   const amdSeries = mockShowcasePriceSeries('AMD', 260)
   const asmlSeries = mockShowcasePriceSeries('ASML', 260)
   const avgoSeries = mockShowcasePriceSeries('AVGO', 260)
+  const tsmSeries = mockShowcasePriceSeries('TSM', 260)
+  const muSeries = mockShowcasePriceSeries('MU', 260)
+  const lrcxSeries = mockShowcasePriceSeries('LRCX', 260)
+  const amatSeries = mockShowcasePriceSeries('AMAT', 260)
 
   /** @type {Array<Record<string, unknown>>} */
   const filings = [
@@ -180,5 +204,49 @@ export function buildExploreRecapMockDay() {
     },
   ]
 
-  return { dayKey: 'mock-today', filings }
+  /** Near-term earnings watch — fires `earnings_watch` when 2+ names land in window. */
+  const earningsSoon = [
+    {
+      id: 'er-tsm',
+      ticker: 'TSM',
+      companyName: tsm.name,
+      daysAhead: 2,
+      earningsLabel: earningsDateLabel(2),
+      proximityLabel: earningsProximityLabel(2),
+      priceSeries: tsmSeries,
+      dayMovePct: pctMoveFromSeries(tsmSeries, 5),
+    },
+    {
+      id: 'er-mu',
+      ticker: 'MU',
+      companyName: mu.name,
+      daysAhead: 4,
+      earningsLabel: earningsDateLabel(4),
+      proximityLabel: earningsProximityLabel(4),
+      priceSeries: muSeries,
+      dayMovePct: pctMoveFromSeries(muSeries, 5),
+    },
+    {
+      id: 'er-lrcx',
+      ticker: 'LRCX',
+      companyName: lrcx.name,
+      daysAhead: 7,
+      earningsLabel: earningsDateLabel(7),
+      proximityLabel: earningsProximityLabel(7),
+      priceSeries: lrcxSeries,
+      dayMovePct: pctMoveFromSeries(lrcxSeries, 5),
+    },
+    {
+      id: 'er-amat',
+      ticker: 'AMAT',
+      companyName: amat.name,
+      daysAhead: 9,
+      earningsLabel: earningsDateLabel(9),
+      proximityLabel: earningsProximityLabel(9),
+      priceSeries: amatSeries,
+      dayMovePct: pctMoveFromSeries(amatSeries, 5),
+    },
+  ]
+
+  return { dayKey: 'mock-today', filings, earningsSoon }
 }

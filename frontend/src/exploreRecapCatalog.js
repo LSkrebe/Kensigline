@@ -1,8 +1,8 @@
 /**
  * Explore daily-recap event catalog (v1).
  *
- * Only types we can truthfully back with Form 4 / PTR / research docs / bars
- * once a live builder exists. Mock evaluator uses the same ids today.
+ * Only types we can truthfully back with Form 4 / PTR / research docs / bars /
+ * earnings calendar once a live builder exists. Mock evaluator uses the same ids today.
  *
  * Each entry is a story template — the day builder emits a slide only when
  * its condition fires (omit otherwise).
@@ -73,6 +73,16 @@ export const EXPLORE_RECAP_CATALOG = [
     tier: 2,
     weight: 58,
     notes: 'Uses daily closes only (no intraday)',
+  },
+  {
+    id: 'earnings_watch',
+    title: 'Top Tickers Before Earnings',
+    kind: 'ranking',
+    kicker: 'Before earnings',
+    documents: ['Earnings'],
+    tier: 2,
+    weight: 66,
+    notes: 'Coverage names with earnings dates inside the near window; ranked by proximity',
   },
   {
     id: 'material_8k',

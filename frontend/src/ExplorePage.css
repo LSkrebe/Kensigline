@@ -990,6 +990,14 @@
   color: rgba(230, 120, 120, 0.95);
 }
 
+.exploreEventBrief .drpt-docAmt.isUp {
+  color: rgba(120, 210, 160, 0.95);
+}
+
+.exploreEventBrief .drpt-docAmt.isDown {
+  color: rgba(230, 120, 120, 0.95);
+}
+
 .exploreRecapEventSummary {
   margin: 0;
   max-width: 54ch;
