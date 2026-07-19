@@ -133,7 +133,7 @@ export const SHOWCASE_TABS = [
     ],
     bullets: [
       'Form 4 clusters and officer purchase windows',
-      'House and Senate PTR disclosures (STOCK Act)',
+      'House, Senate, and executive (OGE 278-T) PTR disclosures',
       '13F allocator changes with historical win rates',
     ],
   },

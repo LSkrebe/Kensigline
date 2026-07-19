@@ -5862,9 +5862,10 @@ function paperTxnOpenUrl({ kind, url, ticker, source, chamber = null }) {
   if (direct) return direct
   const t = String(ticker ?? '').trim().toUpperCase()
   const src = String(source ?? '').toLowerCase()
-  if (kind === 'politician' || src.includes('ptr')) {
+  if (kind === 'politician' || src.includes('ptr') || src.includes('278')) {
     const ch = String(chamber ?? '').trim().toLowerCase()
     if (ch === 'senate') return 'https://efdsearch.senate.gov/search/home/'
+    if (ch === 'executive') return 'https://extapps2.oge.gov/201/Presiden.nsf/PAS+Index?OpenView'
     return 'https://disclosures-clerk.house.gov/FinancialDisclosure/ViewSearch'
   }
   if (kind === '13f' || src.includes('13f')) {
@@ -10267,11 +10268,12 @@ function KensiglineTerminal() {
     return insiderSelected
   }, [investigateMode, politiciansSelected, institutionsSelected, insiderSelected])
 
-  // Bars (Daily Graph) + Company panel: use selected ticker in either mode
+  // Bars (Daily Graph) + Company panel: use selected ticker in either mode.
+  // Investigate tab chrome is retired; Explore deep dossiers still key off investigateMode.
   const investigateOpen = false
-  const investigateIsInsider = investigateOpen && investigateMode === 'insider'
-  const investigateIsPoliticians = investigateOpen && investigateMode === 'politicians'
-  const investigateIsInstitutions = investigateOpen && investigateMode === 'institutions'
+  const investigateIsInsider = investigateMode === 'insider'
+  const investigateIsPoliticians = investigateMode === 'politicians'
+  const investigateIsInstitutions = investigateMode === 'institutions'
 
   const investigateTxnFilterEnabled = investigateIsInsider
     ? investigateInsiderTxnFilters

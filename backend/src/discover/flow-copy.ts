@@ -70,6 +70,7 @@ function chamberHonorific(chamber: string | null | undefined): string {
   const c = String(chamber ?? "").trim().toLowerCase();
   if (c === "senate") return "Senator";
   if (c === "house") return "Representative";
+  if (c === "executive") return "Executive";
   return "Member";
 }
 

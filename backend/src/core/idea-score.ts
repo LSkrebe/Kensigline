@@ -238,6 +238,9 @@ export function scorePoliticianCluster(args: {
   if (chamber === "senate") {
     score += 4;
     reasons.push("Senate PTR filing");
+  } else if (chamber === "executive") {
+    score += 5;
+    reasons.push("Executive OGE 278-T filing");
   }
   if ((args.todayCount ?? 0) > 0) {
     score += 8;

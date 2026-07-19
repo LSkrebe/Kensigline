@@ -14,7 +14,7 @@ export const QUEUE_SOURCES = {
     "bosha_gov_contract",
   ],
   investigateInsider: ["sec_form4", "sec_form3", "sec_form5"],
-  investigatePoliticians: ["house_ptr", "senate_ptr"],
+  investigatePoliticians: ["house_ptr", "senate_ptr", "oge_278t"],
   investigateInstitutions: ["sec_13f"],
 } as const;
 

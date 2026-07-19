@@ -31,6 +31,8 @@ const POLITICIAN_BIOGUIDE_BY_KEY = {
 /** Non-Congress officials (Wikimedia Commons filenames). */
 const POLITICIAN_EXECUTIVE_PHOTO_FILE = {
   'gina raimondo': 'Gina_Raimondo_2021.jpg',
+  'donald j trump': 'Donald_Trump_official_portrait.jpg',
+  'donald trump': 'Donald_Trump_official_portrait.jpg',
 }
 
 const INSIDER_PHOTO_PEOPLE = [

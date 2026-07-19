@@ -14,10 +14,14 @@ import {
   MIN_HOUSE_PTR_CONFIDENT_ROWS,
   parseHousePtrPdfText,
 } from "./house-ptr-parse.js";
+import {
+  MIN_OGE_278T_CONFIDENT_ROWS,
+  parseOge278tPdfText,
+} from "./oge-278t-parse.js";
 import { getSecTickerTitleMap } from "../../core/sec.js";
 
-type PoliticianPtrSource = "house_ptr" | "senate_ptr";
-type Chamber = "house" | "senate";
+type PoliticianPtrSource = "house_ptr" | "senate_ptr" | "oge_278t";
+type Chamber = "house" | "senate" | "executive";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }
@@ -181,6 +185,43 @@ async function loadSenateFiling(url: string): Promise<{ filing: PoliticianFiling
   return { contentSha256, model: null, filing: filingFromSenate(parsed, url) };
 }
 
+async function loadOge278tFiling(url: string): Promise<{ filing: PoliticianFiling; contentSha256: string; model: string | null }> {
+  const pdf = await fetchPdfBytes(url);
+  const contentSha256 = createHash("sha256").update(pdf).digest("hex");
+  const { text: pdfText } = await extractPdfTextWithFallback(pdf);
+
+  const parsed = parseOge278tPdfText(pdfText, url);
+  if (parsed.confident_rows >= MIN_OGE_278T_CONFIDENT_ROWS || parsed.transactions.length) {
+    return {
+      contentSha256,
+      model: null,
+      filing: {
+        filer: parsed.filer,
+        filing_id: parsed.filing_id,
+        filed_at: parsed.filed_at,
+        source: "oge_278t",
+        pdf_url: url,
+        transactions: parsed.transactions,
+        context_sentences: parsed.context_sentences,
+      },
+    };
+  }
+
+  throw new Error("oge_278t_low_confidence_parse");
+}
+
+function chamberForSource(source: PoliticianPtrSource): Chamber {
+  if (source === "senate_ptr") return "senate";
+  if (source === "oge_278t") return "executive";
+  return "house";
+}
+
+function promptVersionForSource(source: PoliticianPtrSource): string {
+  if (source === "senate_ptr") return "senate_ptr_v1";
+  if (source === "oge_278t") return "oge_278t_v1";
+  return "house_ptr_v1";
+}
+
 async function persistPoliticianFiling(opts: {
   queueId: string;
   url: string;
@@ -310,7 +351,7 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
       SELECT id
       FROM document_queue
       WHERE status IN ('ready_to_parse', 'queued', 'failed')
-        AND source_type IN ('house_ptr', 'senate_ptr')
+        AND source_type IN ('house_ptr', 'senate_ptr', 'oge_278t')
         AND (next_attempt_at IS NULL OR next_attempt_at <= now())
       ORDER BY priority DESC, created_at ASC
       LIMIT 1
@@ -325,11 +366,15 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
   const queueId = next.id;
   const url = next.url;
   const source = String(next.source_type ?? "").trim() as PoliticianPtrSource;
-  const chamber: Chamber = source === "senate_ptr" ? "senate" : "house";
+  const chamber = chamberForSource(source);
 
   try {
     const loaded =
-      source === "senate_ptr" ? await loadSenateFiling(url) : await loadHouseFiling(url);
+      source === "senate_ptr"
+        ? await loadSenateFiling(url)
+        : source === "oge_278t"
+          ? await loadOge278tFiling(url)
+          : await loadHouseFiling(url);
     const { contentSha256, filing, model } = loaded;
 
     const existing = await db.one<{ id: string }>(
@@ -355,7 +400,7 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
       url,
       chamber,
       source,
-      promptVersion: source === "senate_ptr" ? "senate_ptr_v1" : "house_ptr_v1",
+      promptVersion: promptVersionForSource(source),
       model,
       contentSha256,
       filing: filingFromParsed(filing),

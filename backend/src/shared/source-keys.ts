@@ -101,7 +101,16 @@ export function normalizeResearchPaperSourceKey(source: unknown): string {
   if (low === "sec_13f" || /^form\s*13f$/i.test(raw) || raw === "13F") return "13F";
   if (/^form\s*3$/i.test(raw)) return "Form 3";
   if (/^form\s*5$/i.test(raw)) return "Form 5";
-  if (low === "house_ptr" || /^ptr$/i.test(raw) || /\bperiodic\s*transaction\b/i.test(raw)) return "PTR";
+  if (
+    low === "house_ptr" ||
+    low === "senate_ptr" ||
+    low === "oge_278t" ||
+    /^ptr$/i.test(raw) ||
+    /\b278[\s-]*t\b/i.test(raw) ||
+    /\bperiodic\s*transaction\b/i.test(raw)
+  ) {
+    return "PTR";
+  }
   if (/\binvestor\s*presentation\b/i.test(raw)) return "Investor presentation";
   if (/\bannual\s*report\b/i.test(raw) && !/\b10-k\b/i.test(raw)) return "Annual report";
   if (

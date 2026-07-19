@@ -64,6 +64,11 @@ export function politiciansLiveSenateLookbackDays(): number {
   return envInt("POLITICIANS_SENATE_LOOKBACK_DAYS", 90, 14, 365);
 }
 
+/** Live OGE Form 278-T lookback (days) — Level I/II + Trump downloadable PDFs. */
+export function politiciansLiveOgeLookbackDays(): number {
+  return envInt("POLITICIANS_OGE_LOOKBACK_DAYS", 90, 14, 365);
+}
+
 /** Senate PTR backfill window size (days per step). */
 export function politiciansBackfillSenateWindowDays(): number {
   return envInt("BACKFILL_SENATE_WINDOW_DAYS", 60, 14, 120);

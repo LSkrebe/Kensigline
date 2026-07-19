@@ -1,5 +1,6 @@
 import { db } from "../../core/db.js";
 import { listHousePtrPdfsWithRetry } from "../../core/house.js";
+import { listOge278tPdfsFromOffsetWithRetry } from "../../core/oge.js";
 import { listSenatePtrReportsWithRetry, openSenateSession } from "../../core/senate.js";
 import {
   backfillMaxAgeDays,
@@ -26,7 +27,7 @@ function isoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** PTR backfill within BACKFILL_MAX_AGE_DAYS — House filing years + Senate date windows. */
+/** PTR backfill within BACKFILL_MAX_AGE_DAYS — House filing years + Senate date windows + OGE PAS pages. */
 export async function runPoliticiansHistoricalBackfill(pipeline: string): Promise<{ enqueued: number }> {
   if (!backfillEnabled()) return { enqueued: 0 };
 
@@ -117,6 +118,46 @@ export async function runPoliticiansHistoricalBackfill(pipeline: string): Promis
     console.log(
       `[${pipeline}] backfill senate reached min age (${backfillMaxAgeDays()}d); stopping at ${isoDate(senateEnd)}`,
     );
+  }
+
+  const ogeStartRaw = await getIngestCursor(pipeline, "oge_api_start");
+  let ogeStart = ogeStartRaw != null && ogeStartRaw !== "" ? Number(ogeStartRaw) : 0;
+  if (!Number.isFinite(ogeStart) || ogeStart < 0) ogeStart = 0;
+  const ogeDoneRaw = await getIngestCursor(pipeline, "oge_backfill_done");
+  if (ogeDoneRaw !== "1") {
+    try {
+      const page = await listOge278tPdfsFromOffsetWithRetry({
+        start: ogeStart,
+        max: maxPerBatch,
+        minDocDate: minDate,
+      });
+      let ogeEnq = 0;
+      for (const r of page.listings) {
+        const ins = await db.one<{ id: string }>(
+          `
+          INSERT INTO document_queue (url, source_type, status, priority, updated_at)
+          VALUES ($1, 'oge_278t', 'ready_to_parse', $2, now())
+          ON CONFLICT (url, source_type) DO NOTHING
+          RETURNING id
+          `,
+          [r.pdf_url, QUEUE_PRIORITY_BACKFILL_INDEX],
+        );
+        if (ins?.id) {
+          ogeEnq += 1;
+          enqueued += 1;
+        }
+      }
+      console.log(
+        `[${pipeline}] backfill oge start=${ogeStart} next=${page.nextStart} discovered=${page.listings.length} enqueued=${ogeEnq} done=${page.done}`,
+      );
+      if (page.done) {
+        await setIngestCursor(pipeline, "oge_backfill_done", "1");
+      } else {
+        await setIngestCursor(pipeline, "oge_api_start", String(page.nextStart));
+      }
+    } catch (e) {
+      console.error(`[${pipeline}] backfill oge start=${ogeStart} failed`, e);
+    }
   }
 
   return { enqueued };
