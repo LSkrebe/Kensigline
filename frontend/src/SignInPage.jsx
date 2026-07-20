@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
 import { AuthSignIn } from './AuthSignIn.jsx'
-import { INTRO_FOOTER, SIGN_IN, SIGN_IN_PAGE_META } from './marketingContent.js'
+import { SIGN_IN, SIGN_IN_PAGE_META } from './marketingContent.js'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
 import './IntroPage.css'
+import './IntroPage.marketing.css'
 import './SignInPage.css'
 
 export function SignInPage() {
@@ -14,11 +15,11 @@ export function SignInPage() {
   }, [])
 
   return (
-    <div className="introPage signInPage introPage--marketingChrome">
-      <header className="introNav signInNav">
-        <div className="introNavInner">
+    <div className="lp authPage">
+      <header className="lpNav">
+        <div className="lpNavInner">
           <a
-            className="introBrand"
+            className="lpBrand"
             href="/"
             aria-label="Mercerline home"
             onClick={(e) => {
@@ -26,11 +27,13 @@ export function SignInPage() {
               navigateMarketing('/')
             }}
           >
-            <img className="introBrandLogo" src="/mercerline_logo.png" alt="" width={28} height={28} />
-            <span className="introBrandName">MERCERLINE</span>
+            <span className="lpBrandLogoClip">
+              <img className="lpBrandLogo" src="/mercerline_mark.png" alt="" width={44} height={32} decoding="async" />
+            </span>
+            <span className="lpBrandName">MERCERLINE</span>
           </a>
           <a
-            className="introNavAction introNavAction--end mono"
+            className="lpNavCta"
             href="/"
             onClick={(e) => {
               e.preventDefault()
@@ -42,30 +45,16 @@ export function SignInPage() {
         </div>
       </header>
 
-      <main className="signInLayout">
-        <section className="signInPanel" aria-labelledby="sign-in-title">
-          <div className="signInPanelBody">
-            <p className="introEyebrow mono">{SIGN_IN.eyebrow}</p>
-            <h1 id="sign-in-title" className="signInTitle">
-              {SIGN_IN.headline}
-            </h1>
-            <p className="signInLead mono dim">{SIGN_IN.lead}</p>
-            <AuthSignIn variant="intro" />
-          </div>
-          <footer className="signInFoot signInFoot--desktop" role="contentinfo">
-            <span className="introFootNfa mono dim">{INTRO_FOOTER.nfa}</span>
-          </footer>
+      <main className="authMain">
+        <section className="authCard" aria-labelledby="sign-in-title">
+          <p className="lpEyebrow">{SIGN_IN.eyebrow}</p>
+          <h1 id="sign-in-title" className="authTitle">
+            {SIGN_IN.headline}
+          </h1>
+          <p className="authLead">{SIGN_IN.lead}</p>
+          <AuthSignIn variant="intro" />
         </section>
-        <div className="signInAside" aria-hidden="true" />
       </main>
-
-      <footer className="introFoot introFoot--bar signInFoot--mobile" role="contentinfo">
-        <div className="introFootInner introFootInner--marketing">
-          <div className="introFootMeta">
-            <span className="introFootNfa mono dim">{INTRO_FOOTER.nfa}</span>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

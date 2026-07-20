@@ -1,82 +1,98 @@
-/* Subscribe - matches intro marketing (pricing block + footer bar) */
+/* Subscribe checkout page */
 
-.subscribePage {
-  --intro-bg-image: url('/mercerline_background_2.png');
-  background-position: center top, center top, center top, center 38%;
+.subPage .lpNavInner {
+  justify-content: space-between;
 }
 
-.subscribeMain {
-  padding-top: clamp(16px, 3vh, 32px);
+.subSpacer {
+  flex: 1;
 }
 
-.subscribeNavEmail {
-  margin: 0 12px 0 auto;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  color: rgba(180, 195, 210, 0.65);
-  max-width: min(240px, 42vw);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.subMain {
+  max-width: var(--lp-max);
+  margin: 0 auto;
+  width: 100%;
 }
 
-.subscribeNavSignOut {
-  background: transparent;
-  border-color: rgba(255, 255, 255, 0.14);
-  color: rgba(220, 228, 235, 0.88);
-}
-
-.subscribeNavSignOut:hover {
-  border-color: rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.mktSubscribeHero {
-  max-width: 640px;
-  margin: 0 auto clamp(28px, 4vh, 40px);
-  padding: clamp(24px, 5vh, 48px) clamp(12px, 3vw, 0) 0;
+/* Top band — same centered rhythm as intro hero */
+.subHero {
+  max-width: var(--lp-max);
+  margin: 0 auto;
+  padding: clamp(56px, 10vh, 96px) var(--lp-pad) clamp(48px, 8vh, 80px);
   text-align: center;
 }
 
-.mktSubscribeTitle {
-  margin-bottom: clamp(20px, 3vh, 28px);
+.subTitle {
+  margin: 0 auto 16px;
+  max-width: 14ch;
+  font-family: var(--lp-serif);
+  font-size: clamp(2.4rem, 5.5vw, 3.5rem);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
 }
 
-.mktSubscribeLead {
-  margin: 0 auto clamp(16px, 2vh, 20px);
-  max-width: 46ch;
+.subLead {
+  margin: 0 auto 12px;
+  max-width: 42ch;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--lp-muted);
 }
 
-.subscribePricing {
-  padding-top: 0;
+.subHero .lpHeroNote {
+  margin: 0 auto 40px;
 }
 
-.subscribePlanCard--selected {
-  box-shadow: 0 0 0 1px rgba(168, 196, 255, 0.35), 0 0 24px rgba(168, 196, 255, 0.08);
+.subHero .lpInclude {
+  text-align: left;
+  width: 100%;
+  margin: 0 0 36px;
+  max-width: none;
 }
 
-.subscribeCheckoutMsg {
-  margin: 20px 0 0;
+.subHero .lpPlans {
+  text-align: left;
+}
+
+.subHero .lpFinePrint {
+  text-align: center;
+}
+
+.lpPlan--selected {
+  outline: 1px solid rgba(158, 196, 212, 0.45);
+}
+
+.subError {
+  margin: 18px auto 0;
   padding: 12px 14px;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.45;
-  text-align: center;
   border: 1px solid rgba(255, 88, 108, 0.35);
   background: rgba(255, 88, 108, 0.08);
   color: rgba(255, 200, 210, 0.92);
+  max-width: 720px;
+  text-align: left;
 }
 
-.subscribeFaq {
-  padding-top: clamp(48px, 8vh, 72px);
-  padding-bottom: clamp(24px, 4vh, 40px);
+.subPage .lpNavCta {
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
 }
+
+/* FAQ uses default .lpSection padding from IntroPage.marketing.css */
 
 @media (max-width: 900px) {
-  .subscribeNavEmail {
-    display: none;
+  .subTitle {
+    max-width: none;
   }
 
-  .subscribePage {
-    background-position: center top, center top, center top, 72% 22%;
+  .subLead {
+    max-width: none;
+  }
+
+  .subMain {
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
   }
 }

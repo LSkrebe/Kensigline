@@ -68,6 +68,22 @@ html.app-ready .introNav.mktEnterNav {
   animation-delay: 0.02s;
 }
 
+.mktHeroStage.mktEnterSeq {
+  transform: translateY(20px);
+}
+
+html.app-ready .mktHeroStage.mktEnterSeq {
+  animation: mktEnterHeroShot 0.95s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mktProductPlane.mktEnterSeq {
+  transform: translateY(24px) scale(0.99);
+}
+
+html.app-ready .mktProductPlane.mktEnterSeq {
+  animation: mktEnterHeroShot 0.95s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .mktHeroShot.mktEnterSeq {
   transform: translateY(24px) scale(0.985);
 }

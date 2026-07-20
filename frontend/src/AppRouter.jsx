@@ -17,10 +17,6 @@ export default function AppRouter() {
   const { loading: subLoading, active, refresh } = useSubscription(
     signedIn && BILLING_GATE_ENABLED,
   )
-  const previewTerminal =
-    import.meta.env.DEV &&
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('preview') === 'terminal'
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -49,14 +45,6 @@ export default function AppRouter() {
       cleanUrl()
     }
   }, [signedIn, refresh])
-
-  if (previewTerminal) {
-    return (
-      <Suspense fallback={null}>
-        <TerminalApp />
-      </Suspense>
-    )
-  }
 
   if (showMarketing) return <MarketingRoutes />
 

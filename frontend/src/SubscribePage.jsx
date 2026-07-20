@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchJsonSafe, getBackendBase } from './api.js'
 import { useAuth } from './AuthContext.jsx'
-import { BILLING_PLANS, formatUsd, MONTHLY_PRICE_USD, YEARLY_SAVE_USD } from './billingPlans.js'
-import { IntroReveal } from './IntroReveal.jsx'
+import { BILLING_PLANS, formatUsd, YEARLY_SAVE_USD } from './billingPlans.js'
 import {
   PLAN_FEATURES,
   PRICING,
@@ -14,19 +13,14 @@ import {
 import { navigateMarketing, returnToIntroAfterSignOut } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
-import './IntroPage.css'
 import './IntroPage.marketing.css'
 import './SubscribePage.css'
-
-const NAV_OFFSET = 72
 
 export function SubscribePage() {
   const { user, signOut } = useAuth()
   const [selected, setSelected] = useState('yearly')
   const [checkoutMsg, setCheckoutMsg] = useState('')
   const [checkoutBusy, setCheckoutBusy] = useState(false)
-
-  const email = user?.email?.trim() || null
 
   useEffect(() => {
     applyPageMeta(SUBSCRIBE_PAGE_META)
@@ -56,20 +50,18 @@ export function SubscribePage() {
     const detail = res.data?.message
     if (res.status === 0 || err === 'network_error') {
       setCheckoutMsg(
-        `Cannot reach the API (${getBackendBase() || 'same origin'}/api). Check API_BASE_URL points at your live backend.`,
+        `Cannot reach the API (${getBackendBase() || 'same origin'}/api). Check API_BASE_URL.`,
       )
     } else if (err === 'stripe_not_configured') {
-      setCheckoutMsg('Billing is not configured on the server yet (STRIPE_SECRET_KEY / price IDs).')
+      setCheckoutMsg('Billing is not configured yet.')
     } else if (err === 'invalid_plan') {
-      setCheckoutMsg('Unknown plan - check STRIPE_PRICE_ID_MONTHLY and STRIPE_PRICE_ID_YEARLY in .env.')
+      setCheckoutMsg('Unknown plan.')
     } else if (res.status === 401) {
-      setCheckoutMsg('Session expired - sign out and sign in again, then retry.')
+      setCheckoutMsg('Session expired — sign in again.')
     } else if (err === 'checkout_failed' && detail) {
       setCheckoutMsg(`Checkout failed: ${detail}`)
     } else {
-      setCheckoutMsg(
-        `Could not start checkout (HTTP ${res.status}${err ? `: ${err}` : ''}${detail ? ` - ${detail}` : ''}).`,
-      )
+      setCheckoutMsg(`Could not start checkout (HTTP ${res.status}${err ? `: ${err}` : ''}).`)
     }
   }, [])
 
@@ -81,164 +73,118 @@ export function SubscribePage() {
 
   const onFooterLink = useCallback((link, e) => {
     e.preventDefault()
-    const href = link.href
-    if (href === '/' || href.startsWith('/#')) {
-      navigateMarketing(href)
+    if (link.href.startsWith('#')) {
+      document.getElementById(link.href.slice(1))?.scrollIntoView({ behavior: 'smooth' })
       return
     }
-    if (!href.startsWith('#')) return
-    const scroller = document.querySelector('.subscribePage')
-    const target = document.getElementById(href.slice(1))
-    if (!scroller || !target) return
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const top =
-      target.getBoundingClientRect().top -
-      scroller.getBoundingClientRect().top +
-      scroller.scrollTop -
-      NAV_OFFSET
-    scroller.scrollTo({ top: Math.max(0, top), behavior: reduced ? 'instant' : 'smooth' })
-    if (window.history?.replaceState) window.history.replaceState(null, '', href)
+    navigateMarketing(link.href)
   }, [])
 
   return (
-    <div className="introPage subscribePage introPage--marketingChrome">
-      <header className="introNav mktEnterNav">
-        <div className="introNavInner">
-          <a className="introBrand" href="/" aria-label="Mercerline home">
-            <img className="introBrandLogo" src="/mercerline_logo.png" alt="" width={28} height={28} />
-            <span className="introBrandName">MERCERLINE</span>
+    <div className="lp subPage">
+      <header className="lpNav">
+        <div className="lpNavInner">
+          <a className="lpBrand" href="/" aria-label="Mercerline home">
+            <span className="lpBrandLogoClip">
+              <img className="lpBrandLogo" src="/mercerline_mark.png" alt="" width={44} height={32} decoding="async" />
+            </span>
+            <span className="lpBrandName">MERCERLINE</span>
           </a>
-          {email ? (
-            <p className="subscribeNavEmail mono" title={email}>
-              {email}
-            </p>
-          ) : null}
+          <span className="subSpacer" />
           {user ? (
-            <button
-              type="button"
-              className="introNavAction introNavCta subscribeNavSignOut"
-              onClick={() => void onSignOut()}
-            >
+            <button type="button" className="lpNavCta" onClick={() => void onSignOut()}>
               Sign out
             </button>
           ) : null}
         </div>
       </header>
 
-      <main className="introMain subscribeMain">
-        <section className="mktSubscribeHero">
-          <p className="introEyebrow mono mktEnterSeq mktEnterSeq--1">{SUBSCRIBE.eyebrow}</p>
-          <h1 className="mktHeroTitle mktSubscribeTitle mktEnterSeq mktEnterSeq--2">
-            {SUBSCRIBE.headline}
-            <br />
-            <span className="introHeadlineAccent">{SUBSCRIBE.headlineAccent}</span>
-          </h1>
-          <p className="introLead mktSubscribeLead mktEnterSeq mktEnterSeq--3">{SUBSCRIBE.lead}</p>
-          <p className="mktHeroReassurance mono dim mktEnterSeq mktEnterSeq--4">{SUBSCRIBE.reassurance}</p>
-        </section>
+      <main className="subMain">
+        <section id="subscribe-pricing" className="subHero">
+          <p className="lpEyebrow">{SUBSCRIBE.eyebrow}</p>
+          <h1 className="subTitle">{SUBSCRIBE.headline}</h1>
+          <p className="subLead">{SUBSCRIBE.lead}</p>
+          <p className="lpHeroNote">{SUBSCRIBE.reassurance}</p>
 
-        <section
-          id="subscribe-pricing"
-          className="introSection mktPricing subscribePricing mktEnterSeq mktEnterSeq--5"
-        >
-          <div className="mktPricingLayout">
-            <div className="mktPricingHead">
-              <ul className="mktPricingFeatures">
-                {PLAN_FEATURES.map((line) => (
-                  <li key={line} className="mktPricingFeaturesItem">
-                    <span className="mktPricingFeaturesMark" aria-hidden="true" />
-                    {line}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="mktPlanGrid mktPlanGrid--full">
-              {BILLING_PLANS.map((plan) => {
-                const isSelected = selected === plan.id
-                return (
-                  <article
-                    key={plan.id}
-                    className={[
-                      'mktPlanCard',
-                      plan.featured ? 'mktPlanCard--featured' : '',
-                      isSelected ? 'subscribePlanCard--selected' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
+          <ul className="lpInclude">
+            {PLAN_FEATURES.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+          <div className="lpPlans">
+            {BILLING_PLANS.map((plan) => {
+              const isSelected = selected === plan.id
+              return (
+                <article
+                  key={plan.id}
+                  className={[
+                    'lpPlan',
+                    plan.featured ? 'lpPlan--featured' : '',
+                    isSelected ? 'lpPlan--selected' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  <h2 className="lpPlanName">{plan.name}</h2>
+                  <p className="lpPlanPrice">
+                    {plan.listPriceUsd ? (
+                      <span className="lpPlanListPrice">{formatUsd(plan.listPriceUsd)}</span>
+                    ) : null}
+                    <span className="lpPlanAmount">{formatUsd(plan.priceUsd)}</span>
+                    <span className="lpPlanInterval">/{plan.intervalLabel}</span>
+                  </p>
+                  <p className="lpPlanNote">
+                    {plan.id === 'yearly' ? PRICING.yearlyNote : PRICING.monthlyNote}
+                  </p>
+                  <button
+                    type="button"
+                    className={`lpBtn ${plan.featured ? 'lpBtn--primary' : 'lpBtn--ghost'} lpPlanCta`}
+                    disabled={checkoutBusy}
+                    onClick={() => void onCheckout(plan.id)}
                   >
-                    {plan.badge ? <span className="mktPlanBadge mono">{plan.badge}</span> : null}
-                    <h3 className="mktPlanName">{plan.name}</h3>
-                    <p className="mktPlanPrice">
-                      <span className="mktPlanAmount">{formatUsd(plan.priceUsd)}</span>
-                      <span className="mono mktPlanInterval">/{plan.intervalLabel}</span>
-                    </p>
-                    <p className="mktPlanNote mono dim">
-                      {(plan.id === 'yearly' ? PRICING.yearlyNoteLines : PRICING.monthlyNoteLines).map((line) => (
-                        <span key={line} className="mktPlanNoteLine">
-                          {line}
-                        </span>
-                      ))}
-                    </p>
-                    <button
-                      type="button"
-                      className={`introBtn ${plan.featured ? 'introBtn--primary' : 'introBtn--ghost'} mktPlanBtn`}
-                      disabled={checkoutBusy}
-                      onClick={() => void onCheckout(plan.id)}
-                    >
-                      {checkoutBusy && isSelected
-                        ? 'Opening checkout…'
-                        : plan.featured
-                          ? 'Continue with yearly'
-                          : 'Continue with monthly'}
-                    </button>
-                  </article>
-                )
-              })}
-            </div>
+                    {checkoutBusy && isSelected
+                      ? 'Opening checkout…'
+                      : plan.featured
+                        ? 'Continue with yearly'
+                        : 'Continue with monthly'}
+                  </button>
+                </article>
+              )
+            })}
           </div>
-
           {checkoutMsg ? (
-            <p className="subscribeCheckoutMsg mono" role="alert">
+            <p className="subError" role="alert">
               {checkoutMsg}
             </p>
           ) : null}
-
-          <p className="mktPricingFoot mono dim">
-            {formatUsd(YEARLY_SAVE_USD)} off yearly vs 12 monthly payments · Cancel anytime
-          </p>
+          <p className="lpFinePrint">Save {formatUsd(YEARLY_SAVE_USD)} on yearly. Cancel anytime.</p>
         </section>
 
-        <IntroReveal as="section" id="subscribe-faq" className="introSection mktFaq subscribeFaq" delay={20}>
-          <div className="mktSectionHead">
-            <p className="introSectionKicker mono">FAQ</p>
-            <h2 className="introSectionTitle">Before you checkout</h2>
+        <section id="subscribe-faq" className="lpSection">
+          <div className="lpSectionHead">
+            <p className="lpEyebrow">FAQ</p>
+            <h2 className="lpSectionTitle">Before you checkout</h2>
           </div>
-          <div className="mktFaqList">
+          <div className="lpFaq">
             {SUBSCRIBE_FAQ.map((item) => (
-              <article key={item.q} className="mktFaqItem">
-                <h3 className="mktFaqQ">{item.q}</h3>
-                <p className="mktFaqA">{item.a}</p>
+              <article key={item.q} className="lpFaqItem">
+                <h3 className="lpFaqQ">{item.q}</h3>
+                <p className="lpFaqA">{item.a}</p>
               </article>
             ))}
           </div>
-        </IntroReveal>
+        </section>
       </main>
 
-      <footer className="introFoot introFoot--bar" role="contentinfo">
-        <div className="introFootInner introFootInner--marketing">
-          <div className="introFootMeta">
-            <span className="introFootNfa mono dim">{SUBSCRIBE_FOOTER.nfa}</span>
-            <p className="introFootTagline">{SUBSCRIBE_FOOTER.tagline}</p>
+      <footer className="lpFoot" role="contentinfo">
+        <div className="lpFootInner">
+          <div>
+            <p className="lpFootNfa">{SUBSCRIBE_FOOTER.nfa}</p>
+            <p className="lpFootTag">{SUBSCRIBE_FOOTER.tagline}</p>
           </div>
-          <nav className="introFootNav mono" aria-label="Footer">
+          <nav className="lpFootNav" aria-label="Footer">
             {SUBSCRIBE_FOOTER.links.map((link) => (
-              <a
-                key={link.id}
-                className="introFootNavLink"
-                href={link.href}
-                onClick={(e) => onFooterLink(link, e)}
-              >
+              <a key={link.id} href={link.href} onClick={(e) => onFooterLink(link, e)}>
                 {link.label}
               </a>
             ))}

@@ -10,7 +10,7 @@ export function readMarketingPath() {
   return normalizeMarketingPath(window.location.pathname)
 }
 
-/** Client-side path for intro / sign-in / subscribe preview without react-router. */
+/** Client-side path for intro / sign-in without react-router. */
 export function useMarketingPath() {
   const [path, setPath] = useState(readMarketingPath)
 
@@ -31,7 +31,7 @@ export function navigateMarketing(path) {
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
-/** After auth sign-out from marketing pages - drop dev preview query and return to intro. */
+/** After auth sign-out from marketing pages — return to intro. */
 export function returnToIntroAfterSignOut() {
   if (typeof window === 'undefined') return
   window.history.replaceState(null, '', '/')

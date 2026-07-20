@@ -1,24 +1,21 @@
 import { INTRO_SCREENSHOTS } from './marketingContent.js'
 
-/** Live terminal screenshots for the marketing hero (captured from offline mock data). */
+/** Explore screenshot for the marketing product plane (desktop capture from offline mock data). */
 export function IntroTerminalPreview({ staticResearch = false }) {
   if (!staticResearch) return null
 
-  const { heroSrcSet, heroSizes } = INTRO_SCREENSHOTS
+  const { hero, heroSrcSet, heroSizes, alt, width, height } = INTRO_SCREENSHOTS
 
   return (
-    <figure className="mktHeroShot mktEnterSeq mktEnterSeq--6">
+    <figure className="mktHeroShot">
       <picture>
-        <source type="image/avif" srcSet={heroSrcSet.avif} sizes={heroSizes} />
         <source type="image/webp" srcSet={heroSrcSet.webp} sizes={heroSizes} />
         <img
           className="mktHeroShotImg"
-          src={INTRO_SCREENSHOTS.hero}
-          srcSet={heroSrcSet.webp}
-          sizes={heroSizes}
-          alt="Mercerline event-driven research terminal - Analyse tab with ASML model, price chart, and valuation grid"
-          width={1440}
-          height={900}
+          src={hero}
+          alt={alt}
+          width={width}
+          height={height}
           loading="eager"
           fetchPriority="high"
           decoding="async"

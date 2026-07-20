@@ -1,4 +1,4 @@
-/** Intro + subscribe copy - aligned with live terminal (Discover · Research · Investigate). */
+/** Marketing copy — landing / auth / checkout (not in-app chrome). */
 
 import {
   MONTHLY_PRICE_USD,
@@ -10,41 +10,38 @@ import {
 export const PRODUCT_NAME = 'Mercerline'
 
 export const INTRO_PAGE_META = {
-  title: 'Mercerline - Event-driven research terminal for US equities',
+  title: 'Mercerline - Research terminal for US equity catalysts',
   description:
-    'Event-driven research terminal for US equities. SEC filings, insider PTR, 13F flow, and macro calendar with historical outcomes on every rail.',
+    'Start from the day\'s filings and flow. Mercerline assembles a daily recap, company and investor dossiers, and a macro calendar — with SEC, Form 4, PTR, and 13F in context.',
   path: '/',
   ogImage: '/og-image.png',
 }
 
 export const SUBSCRIBE_PAGE_META = {
-  title: 'Subscribe - Mercerline full terminal access',
-  description:
-    'Choose monthly or yearly Mercerline access. Unlock Discover, Research, and Investigate - macro calendar, exportable research papers, insider PTR, and 13F flow with historical outcomes.',
+  title: 'Subscribe - Mercerline',
+  description: `Full terminal access from ${formatUsd(MONTHLY_PRICE_USD)}/mo. Explore, dossiers, and macro calendar.`,
   path: '/subscribe',
   ogImage: '/og-image.png',
 }
 
 export const SIGN_IN_PAGE_META = {
-  title: 'Sign in - Mercerline research terminal',
-  description:
-    'Sign in or create your Mercerline account to access the full catalyst research terminal - Discover, Research, and Investigate with SEC filings, insider flow, and historical outcomes.',
+  title: 'Sign in - Mercerline',
+  description: 'Sign in to Mercerline to open the research terminal.',
   path: '/sign-in',
   ogImage: '/og-image.png',
 }
 
 export const SIGN_IN = {
-  eyebrow: 'Account access',
-  headline: 'Sign in to continue',
-  lead: 'Create an account or sign in, then choose your plan.',
+  eyebrow: 'Welcome back',
+  headline: 'Sign in',
+  lead: 'Access your terminal. New here? Create an account in the same form.',
 }
 
 export const INTRO_FOOTER = {
   nfa: 'Not investment advice',
-  tagline:
-    'Event-driven research terminal for US equities - SEC filings, insider and institutional flow, and catalyst timelines.',
+  tagline: 'Research terminal for US equities.',
   links: [
-    { id: 'how', label: 'How it works', href: '#how' },
+    { id: 'product', label: 'Product', href: '#product' },
     { id: 'pricing', label: 'Pricing', href: '#pricing' },
     { id: 'faq', label: 'FAQ', href: '#faq' },
     { id: 'sign-in', label: 'Sign in', href: '/sign-in' },
@@ -52,187 +49,131 @@ export const INTRO_FOOTER = {
 }
 
 export const HERO = {
-  eyebrow: 'Mercerline · US equities',
-  headline: 'Event-driven research terminal',
-  headlineAccent: 'for the catalyst trade.',
+  eyebrow: 'US Equities Research',
+  brand: 'Mercerline',
+  headline: 'See the day\'s catalysts before you dig in.',
   lead:
-    'Event-driven research terminal for US equities. Scan the week, build the research paper, and drill insider and institutional flow with historical outcomes on every rail.',
-  ctaPrimary: `Start researching - ${formatUsd(MONTHLY_PRICE_USD)}/mo`,
-  ctaSecondary: 'See how it works',
-  reassurance: 'Cancel anytime · Full terminal · SEC, PTR, and 13F',
-  rails: 'Analyse · Discover · Research · Investigate',
+    'A research terminal that opens on a daily recap, then company and investor dossiers with filings, Form 4, PTR, and 13F on one timeline.',
+  ctaPrimary: 'Get started',
+  ctaSecondary: 'See product',
+  note: 'SEC Filings, Form 4, PTR, 13F, Earnings Transcripts',
 }
 
 export const INTRO_SCREENSHOTS = {
-  hero: '/intro/hero-2400.webp',
+  hero: '/intro/hero.png',
   heroSrcSet: {
-    avif: '/intro/hero-768.avif 768w, /intro/hero-1200.avif 1200w, /intro/hero-2400.avif 2400w',
     webp: '/intro/hero-768.webp 768w, /intro/hero-1200.webp 1200w, /intro/hero-2400.webp 2400w',
-    fallback: '/intro/hero.png',
   },
-  heroSizes: '(max-width: 900px) 100vw, 1180px',
+  heroSizes: '(max-width: 900px) calc(100vw - 48px), min(1120px, calc(100vw - 2 * clamp(24px, 5vw, 56px)))',
+  width: 2880,
+  height: 1800,
+  alt: 'Mercerline Explore home with daily recap and company directory',
 }
 
-export const WORKFLOW = {
-  kicker: 'How it works',
-  title: 'Event-driven research terminal workflow',
-  lead:
-    'Discover macro catalysts. Research ticker papers. Analyse drivers. Investigate insider PTR and 13F flow on one grid.',
-}
-
-export const SHOWCASE_TABS = [
+export const PILLARS = [
   {
-    id: 'discover',
-    step: '01',
-    label: 'Discover',
-    title: 'Scan the macro week',
-    bodyLines: [
-      'Weekly catalyst calendar and watchlist moves before the open.',
-    ],
-    bullets: [
-      'US, EU, UK, and China macro releases with impact tags',
-      'FOMC, CPI, payrolls, ECB, and PMI on one timeline',
-      'Watchlist catalysts beside sector and index moves',
-    ],
+    id: 'recap',
+    title: 'Daily recap',
+    body: 'The filings and flow that cleared the bar, assembled each session — not another alert firehose.',
   },
   {
-    id: 'research',
-    step: '02',
-    label: 'Research',
-    title: 'Build the ticker paper',
-    bodyLines: [
-      'Ticker-deep feed, context panel, and exportable research paper.',
-    ],
-    bullets: [
-      '8-K, 10-Q, press releases, and earnings call transcripts',
-      'Form 4 insider flow, politician PTR, and 13F filings',
-      'Price chart, fundamentals, ownership, and macro context',
-    ],
+    id: 'dossiers',
+    title: 'Deep dossiers',
+    body: 'Open a company or investor and stay on one paper rail: filings, insiders, politicians, 13F, outcomes.',
   },
   {
-    id: 'analyse',
-    step: '03',
-    label: 'Analyse',
-    title: 'Model the drivers',
-    bodyLines: [
-      'Quarterly financials and business-driver roll-ups for US issuers.',
-    ],
-    bullets: [
-      'Revenue and margin grid with editable forecast columns',
-      'Driver bridge tied to the live price chart',
-      'Sector, domicile, and market-cap context on every name',
-    ],
-  },
-  {
-    id: 'investigate',
-    step: '04',
-    label: 'Investigate',
-    title: 'Drill the flow',
-    bodyLines: [
-      'Insider, politician, and institutional modes with case worksheets.',
-    ],
-    bullets: [
-      'Form 4 clusters and officer purchase windows',
-      'House, Senate, and executive (OGE 278-T) PTR disclosures',
-      '13F allocator changes with historical win rates',
-    ],
+    id: 'macro',
+    title: 'Macro beside equities',
+    body: 'US, EU, UK, and China calendar releases with impact tags — without leaving the equity workflow.',
   },
 ]
 
-export const PROOF_POINTS = [
-  {
-    stat: 'SEC',
-    label: 'filings and flow',
-    detail: '8-K, 10-Q, Form 4, PTR, 13F, press releases, and earnings transcripts in one feed.',
-  },
-  {
-    stat: '4',
-    label: 'macro regions',
-    detail: 'US, EU, UK, and China catalyst calendar with impact tags.',
-  },
-  {
-    stat: 'Outcomes',
-    label: 'on every rail',
-    detail: 'Forward returns and win rates on similar setups. Not another alert feed.',
-  },
-  {
-    stat: 'US',
-    label: 'equities focus',
-    detail: 'Listed stocks and ADRs. Catalyst process from discover to investigate.',
-  },
-]
+export const PRODUCT = {
+  kicker: 'Product',
+  title: 'Built around how catalyst research actually runs',
+  lead: 'Explore first. Drill when something matters. Macro when the calendar moves.',
+}
 
-export const DATA_SOURCES =
-  'SEC EDGAR · Form 4 · PTR · 13F · Earnings transcripts · Macro US · EU · UK · CN'
+export const SOURCES = {
+  kicker: 'Coverage',
+  title: 'Sources that matter for US equities',
+  items: [
+    'SEC EDGAR',
+    'Form 4',
+    'House / Senate / Executive PTR',
+    '13F',
+    'Earnings Transcripts',
+    'Press & 8-K',
+    'Macro US, EU, UK, CN',
+  ],
+}
 
 export const PLAN_FEATURES = [
-  'Discover - macro calendar, watchlist catalysts, market moves',
-  'Research - ticker feed, context panel, exportable papers',
-  'Investigate - insider, PTR, and 13F with case sheets',
+  'Explore home — daily recap and directories',
+  'Company and investor dossiers',
+  'Macro calendar across four regions',
   'Historical outcomes on similar setups',
-  'Settings - billing and account',
+  'Settings and self-serve billing',
 ]
 
 export const INTRO_FAQ = [
   {
-    q: 'Is this a Bloomberg replacement?',
-    a: 'No. Mercerline focuses on catalyst equities, a discover timeline, research papers, and flow investigation.',
+    q: 'Is Mercerline a Bloomberg replacement?',
+    a: 'No. It is a focused terminal for catalyst equities — recap, dossiers, and flow — not a full market-data desk.',
   },
   {
-    q: 'Discover vs Research?',
-    a: 'Discover scans your week: macro, watchlist, and moves. Research is ticker-deep with feed, paper, and context.',
-  },
-  {
-    q: 'What sources are included?',
-    a: 'SEC filings, PTR, 13F, company press releases, and earnings transcripts on one timeline.',
+    q: 'What do I get on day one?',
+    a: 'Full access to Explore, company and investor dossiers, and the macro calendar.',
   },
   {
     q: 'Can I cancel?',
-    a: `Yes. ${formatUsd(MONTHLY_PRICE_USD)}/mo or ${formatUsd(YEARLY_PRICE_USD)}/yr with self-serve Stripe billing.`,
+    a: `Yes. ${formatUsd(MONTHLY_PRICE_USD)}/mo or ${formatUsd(YEARLY_PRICE_USD)}/yr with Stripe. Manage billing anytime in Settings.`,
   },
   {
-    q: 'Investment advice?',
+    q: 'Is this investment advice?',
     a: 'No. Mercerline is a research workspace only.',
   },
 ]
 
 export const PRICING = {
   kicker: 'Pricing',
-  title: 'One plan. Full terminal.',
-  sub: `Most members choose yearly - ${formatUsd(YEARLY_SAVE_USD)} less than twelve monthly payments.`,
-  yearlyBadge: `Save ${formatUsd(YEARLY_SAVE_USD)}`,
-  monthlyNoteLines: ['Billed monthly', 'Cancel anytime'],
-  yearlyNoteLines: ['Billed annually'],
+  title: 'Simple pricing. Full terminal.',
+  sub: `Most members choose yearly and save ${formatUsd(YEARLY_SAVE_USD)}.`,
+  monthlyNote: 'Billed monthly, cancel anytime',
+  yearlyNote: 'Billed annually',
 }
 
 export const SUBSCRIBE_FOOTER = {
   nfa: INTRO_FOOTER.nfa,
   tagline: INTRO_FOOTER.tagline,
   links: [
-    { id: 'pricing', label: 'Pricing', href: '#subscribe-pricing' },
+    { id: 'pricing', label: 'Plans', href: '#subscribe-pricing' },
     { id: 'faq', label: 'FAQ', href: '#subscribe-faq' },
   ],
 }
 
 export const SUBSCRIBE = {
-  eyebrow: 'Step 2 · Checkout',
-  headline: 'One plan.',
-  headlineAccent: 'Full terminal.',
-  lead: `Choose monthly at ${formatUsd(MONTHLY_PRICE_USD)}/mo or yearly at ${formatUsd(YEARLY_PRICE_USD)}/yr - save ${formatUsd(YEARLY_SAVE_USD)} vs twelve monthly payments.`,
-  reassurance: 'Secure Stripe checkout · Cancel anytime · Manage billing in Settings',
+  eyebrow: 'Subscribe',
+  headline: 'Choose your plan',
+  lead: 'Full access to Explore, dossiers, and the macro calendar from day one.',
+  reassurance: 'Secure Stripe checkout. Cancel anytime.',
 }
 
 export const SUBSCRIBE_FAQ = [
   {
-    q: 'Switch monthly or yearly later?',
-    a: 'Yes - from billing settings inside the terminal.',
+    q: 'Can I switch monthly and yearly later?',
+    a: 'Yes. Change plans anytime from billing settings inside the terminal.',
   },
   {
     q: 'What happens after I pay?',
-    a: 'You land in the full terminal with Discover, Research, and Investigate unlocked.',
+    a: 'You land in Explore with dossiers and macro unlocked.',
   },
   {
-    q: 'Why is yearly featured?',
-    a: `${formatUsd(YEARLY_SAVE_USD)} less than paying monthly for twelve months. Most members choose annual.`,
+    q: 'Why choose yearly?',
+    a: `${formatUsd(YEARLY_SAVE_USD)} less than paying monthly for twelve months.`,
+  },
+  {
+    q: 'Can I cancel anytime?',
+    a: 'Yes. Manage or cancel from Settings. Access stays active through the billed period.',
   },
 ]

@@ -9310,14 +9310,6 @@ function KensiglineTerminal() {
   }, [])
 
   useEffect(() => {
-    if (!import.meta.env.DEV) return
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('preview') !== 'terminal') return
-    const ticker = String(params.get('ticker') ?? '').trim().toUpperCase()
-    if (ticker) setResearchTicker(ticker)
-  }, [])
-
-  useEffect(() => {
     writeInvestigateMode(investigateMode)
   }, [investigateMode])
 

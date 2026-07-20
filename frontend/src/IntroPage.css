@@ -3,11 +3,13 @@
   --intro-max: 1080px;
   --marketing-chrome-x: clamp(28px, 4vw, 52px);
   --intro-brand-logo-nudge: 6px;
-  --intro-accent: rgba(168, 196, 255, 0.92);
-  --intro-accent-dim: rgba(168, 196, 255, 0.55);
-  --intro-accent-bg: rgba(168, 196, 255, 0.1);
-  --intro-accent-border: rgba(168, 196, 255, 0.38);
+  --intro-accent: rgba(140, 190, 210, 0.9);
+  --intro-accent-dim: rgba(140, 190, 210, 0.5);
+  --intro-accent-bg: rgba(140, 190, 210, 0.1);
+  --intro-accent-border: rgba(140, 190, 210, 0.32);
   --intro-bg-image: url('/mercerline_background_1.png');
+  --intro-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --intro-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
   box-sizing: border-box;
   min-height: 100dvh;
   height: 100dvh;
@@ -20,16 +22,17 @@
   scroll-padding-bottom: 48px;
   display: flex;
   flex-direction: column;
-  background-color: #030405;
+  background-color: #080809;
   background-image:
-    linear-gradient(180deg, rgba(3, 4, 5, 0.55) 0%, rgba(3, 4, 5, 0.82) 38%, rgba(3, 4, 5, 0.94) 100%),
-    radial-gradient(900px 520px at 78% 8%, rgba(168, 196, 255, 0.07), transparent 58%),
-    radial-gradient(640px 380px at 8% 72%, rgba(120, 160, 220, 0.05), transparent 55%),
+    linear-gradient(180deg, rgba(8, 8, 9, 0.55) 0%, rgba(8, 8, 9, 0.82) 38%, rgba(8, 8, 9, 0.94) 100%),
+    radial-gradient(900px 520px at 78% 8%, rgba(140, 190, 210, 0.05), transparent 58%),
+    radial-gradient(640px 380px at 8% 72%, rgba(120, 150, 160, 0.04), transparent 55%),
     var(--intro-bg-image);
   background-size: cover, cover, cover, cover;
   background-position: center top, center top, center top, center top;
   background-repeat: no-repeat;
   color: rgba(255, 255, 255, 0.88);
+  font-family: var(--intro-mono);
 }
 
 /* Full-width nav/footer edges - one shared horizontal inset for all chrome text. */
@@ -249,16 +252,16 @@
 }
 
 .introHeadlineAccent {
-  color: rgba(200, 230, 255, 0.92);
+  color: var(--intro-accent);
 }
 
 .introLead {
   margin: 0 0 28px;
   max-width: 52ch;
-  font-size: clamp(14px, 1.9vw, 16px);
+  font-size: clamp(13px, 1.8vw, 14px);
   line-height: 1.65;
-  color: rgba(210, 218, 228, 0.82);
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: rgba(210, 218, 228, 0.78);
+  font-family: var(--intro-mono);
 }
 
 .introHeroActions {
@@ -379,8 +382,9 @@
 
 .introSectionTitle {
   margin: 0 0 12px;
-  font-size: clamp(1.35rem, 3vw, 1.75rem);
-  font-weight: 600;
+  font-family: var(--intro-serif);
+  font-size: clamp(1.45rem, 3.2vw, 1.9rem);
+  font-weight: 400;
   letter-spacing: -0.01em;
 }
 
@@ -392,9 +396,9 @@
   margin: 0;
   max-width: 48ch;
   line-height: 1.55;
-  color: rgba(200, 208, 218, 0.78);
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  font-size: 14px;
+  color: rgba(200, 208, 218, 0.72);
+  font-family: var(--intro-mono);
+  font-size: 13px;
 }
 
 .introSectionLead--wide {
