@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   analyseMockModelForTicker,
   formatAnalyseGridValue,
@@ -459,6 +459,39 @@ function DeepSection({ label, title, children, headExtra = null }) {
       ) : null}
       {children}
     </section>
+  )
+}
+
+function DeepModelExportButton({ ticker, companyName, model }) {
+  const [busy, setBusy] = useState(false)
+
+  const onExport = useCallback(async () => {
+    if (!model || busy) return
+    setBusy(true)
+    try {
+      const { exportAnalyseModelToExcel } = await import('./analyseExcelExport.js')
+      await exportAnalyseModelToExcel({
+        ticker,
+        companyName,
+        model,
+      })
+    } catch (err) {
+      console.error('Financial model Excel export failed', err)
+    } finally {
+      setBusy(false)
+    }
+  }, [busy, companyName, model, ticker])
+
+  return (
+    <button
+      type="button"
+      className="drpt-exportBtn"
+      disabled={busy || !model}
+      aria-label="Export financial model to Excel"
+      onClick={() => void onExport()}
+    >
+      {busy ? 'Exporting…' : 'Export to Excel'}
+    </button>
   )
 }
 
@@ -1301,7 +1334,13 @@ export function DeepCompanyReport({
         ) : null}
 
         {resolvedModel ? (
-          <DeepSection label="Forecast" title="Financial model">
+          <DeepSection
+            label="Forecast"
+            title="Financial model"
+            headExtra={
+              <DeepModelExportButton ticker={t} companyName={displayName} model={resolvedModel} />
+            }
+          >
             <DeepModelTable model={resolvedModel} />
           </DeepSection>
         ) : null}
