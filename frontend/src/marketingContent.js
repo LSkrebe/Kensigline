@@ -12,7 +12,7 @@ export const PRODUCT_NAME = 'Mercerline'
 export const INTRO_PAGE_META = {
   title: 'Mercerline - Research terminal for US equity catalysts',
   description:
-    'Start from the day\'s filings and flow. Mercerline assembles a daily recap, company and investor dossiers, and a macro calendar — with SEC, Form 4, PTR, and 13F in context.',
+    'US equities research terminal with a daily recap, company and investor dossiers, and macro calendar. SEC filings, Form 4, PTR, 13F, and earnings transcripts in context.',
   path: '/',
   ogImage: '/og-image.png',
 }
@@ -51,9 +51,8 @@ export const INTRO_FOOTER = {
 export const HERO = {
   eyebrow: 'US Equities Research',
   brand: 'Mercerline',
-  headline: 'See the day\'s catalysts before you dig in.',
-  lead:
-    'A research terminal that opens on a daily recap, then company and investor dossiers with filings, Form 4, PTR, and 13F on one timeline.',
+  headline: 'See today\'s catalysts first.',
+  lead: 'Daily recap, company and investor dossiers on one timeline.',
   ctaPrimary: 'Get started',
   ctaSecondary: 'See product',
   note: 'SEC Filings, Form 4, PTR, 13F, Earnings Transcripts',

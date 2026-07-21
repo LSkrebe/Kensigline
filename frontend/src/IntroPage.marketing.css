@@ -146,7 +146,7 @@
 
 .lpHeroTitle {
   margin: 0 auto 20px;
-  max-width: 16ch;
+  max-width: 22ch;
   font-family: var(--lp-serif);
   font-size: clamp(2.4rem, 6vw, 3.75rem);
   font-weight: 400;
@@ -515,8 +515,12 @@
     display: none;
   }
 
+  .lpNavCta {
+    margin-left: auto;
+  }
+
   .lpHero {
-    text-align: left;
+    text-align: center;
     padding-top: 40px;
   }
 
@@ -525,16 +529,16 @@
   }
 
   .lpHeroLead {
-    margin-inline: 0;
+    margin-inline: auto;
   }
 
   .lpHeroActions {
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
   }
 
   .lpHeroActions .lpBtn {
-    width: 100%;
+    width: min(100%, 280px);
   }
 
   .lpPillars,
@@ -553,9 +557,17 @@
     align-items: flex-start;
   }
 
+  .lpFootNav {
+    display: none;
+  }
+
   .lpCtaBand {
-    text-align: left;
+    text-align: center;
     padding-top: clamp(64px, 10vh, 96px);
     padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .lpCtaBand .lpBtn {
+    width: min(100%, 280px);
   }
 }
