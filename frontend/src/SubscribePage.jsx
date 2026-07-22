@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchJsonSafe, getBackendBase } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { BILLING_PLANS, formatUsd, YEARLY_SAVE_USD } from './billingPlans.js'
+import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
 import {
   PLAN_FEATURES,
   PRICING,
@@ -9,6 +10,7 @@ import {
   SUBSCRIBE_FAQ,
   SUBSCRIBE_FOOTER,
   SUBSCRIBE_PAGE_META,
+  SUBSCRIBE_PREVIEW,
 } from './marketingContent.js'
 import { navigateMarketing, returnToIntroAfterSignOut } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
@@ -158,6 +160,28 @@ export function SubscribePage() {
             </p>
           ) : null}
           <p className="lpFinePrint">Save {formatUsd(YEARLY_SAVE_USD)} on yearly. Cancel anytime.</p>
+        </section>
+
+        <section className="lpSection subPreview" aria-label="Product preview">
+          <div className="lpSectionHead">
+            <p className="lpEyebrow">{SUBSCRIBE_PREVIEW.kicker}</p>
+            <h2 className="lpSectionTitle">{SUBSCRIBE_PREVIEW.title}</h2>
+            <p className="lpSectionLead">{SUBSCRIBE_PREVIEW.lead}</p>
+          </div>
+          <ul className="lpPillars">
+            {SUBSCRIBE_PREVIEW.pillars.map((p) => (
+              <li key={p.id} className="lpPillar">
+                <h3 className="lpPillarTitle">{p.title}</h3>
+                <p className="lpPillarBody">{p.body}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="lpShot" aria-label="Investors directory preview">
+          <div className="lpShotFrame">
+            <IntroTerminalPreview shot="investorsDirectory" staticResearch />
+          </div>
         </section>
 
         <section id="subscribe-faq" className="lpSection">

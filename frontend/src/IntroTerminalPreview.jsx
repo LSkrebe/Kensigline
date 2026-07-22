@@ -1,23 +1,24 @@
-import { INTRO_SCREENSHOTS } from './marketingContent.js'
+import { MARKETING_SHOTS } from './marketingContent.js'
 
-/** Explore screenshot for the marketing product plane (desktop capture from offline mock data). */
-export function IntroTerminalPreview({ staticResearch = false }) {
+/** Terminal screenshot for marketing pages (desktop capture at 1440×900 @2x). */
+export function IntroTerminalPreview({ shot = 'hero', staticResearch = false, eager = false }) {
   if (!staticResearch) return null
 
-  const { hero, heroSrcSet, heroSizes, alt, width, height } = INTRO_SCREENSHOTS
+  const meta = MARKETING_SHOTS[shot] ?? MARKETING_SHOTS.hero
+  const { src, srcSet, sizes, alt, width, height } = meta
 
   return (
     <figure className="mktHeroShot">
       <picture>
-        <source type="image/webp" srcSet={heroSrcSet.webp} sizes={heroSizes} />
+        <source type="image/webp" srcSet={srcSet.webp} sizes={sizes} />
         <img
           className="mktHeroShotImg"
-          src={hero}
+          src={src}
           alt={alt}
           width={width}
           height={height}
-          loading="eager"
-          fetchPriority="high"
+          loading={eager ? 'eager' : 'lazy'}
+          fetchPriority={eager ? 'high' : 'auto'}
           decoding="async"
         />
       </picture>

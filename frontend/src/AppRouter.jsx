@@ -10,10 +10,17 @@ const TerminalApp = lazy(() => import('./App.jsx'))
 /** Set VITE_BILLING_GATE=0 in root `.env` to bypass locally. */
 const BILLING_GATE_ENABLED = import.meta.env.VITE_BILLING_GATE !== '0'
 
+/** Local screenshot capture: `?capture=1` opens the terminal without auth (dev only). */
+function isCaptureMode() {
+  if (!import.meta.env.DEV || typeof window === 'undefined') return false
+  return new URLSearchParams(window.location.search).has('capture')
+}
+
 export default function AppRouter() {
   const { configured, loading, user } = useAuth()
   const signedIn = Boolean(configured && user)
-  const showMarketing = !configured || !user
+  const captureMode = isCaptureMode()
+  const showMarketing = !captureMode && (!configured || !user)
   const { loading: subLoading, active, refresh } = useSubscription(
     signedIn && BILLING_GATE_ENABLED,
   )
@@ -48,7 +55,7 @@ export default function AppRouter() {
 
   if (showMarketing) return <MarketingRoutes />
 
-  if (loading || (BILLING_GATE_ENABLED && subLoading)) {
+  if (loading || (BILLING_GATE_ENABLED && subLoading && !captureMode)) {
     return (
       <div className="terminalShell terminalShell--boot" aria-busy="true" aria-label="Loading">
         <div className="terminalBootBar" />
@@ -56,7 +63,7 @@ export default function AppRouter() {
     )
   }
 
-  if (BILLING_GATE_ENABLED && !active) return <SubscribePage />
+  if (BILLING_GATE_ENABLED && !active && !captureMode) return <SubscribePage />
 
   return (
     <Suspense fallback={null}>

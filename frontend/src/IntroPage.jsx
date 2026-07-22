@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
-import { BILLING_PLANS, formatUsd, MONTHLY_PRICE_USD, YEARLY_SAVE_USD } from './billingPlans.js'
+import { MONTHLY_PRICE_USD } from './billingPlans.js'
 import {
   HERO,
   INTRO_FAQ,
   INTRO_FOOTER,
   INTRO_PAGE_META,
   PILLARS,
-  PLAN_FEATURES,
-  PRICING,
   PRODUCT,
   SOURCES,
 } from './marketingContent.js'
@@ -94,9 +92,6 @@ export function IntroPage() {
             <a href="#product" onClick={(e) => scrollToSection('product', e)}>
               Product
             </a>
-            <a href="#pricing" onClick={(e) => scrollToSection('pricing', e)}>
-              Pricing
-            </a>
             <a href="#faq" onClick={(e) => scrollToSection('faq', e)}>
               FAQ
             </a>
@@ -125,7 +120,7 @@ export function IntroPage() {
 
         <section className="lpShot" aria-label="Product preview">
           <div className="lpShotFrame">
-            <IntroTerminalPreview staticResearch />
+            <IntroTerminalPreview shot="hero" staticResearch eager />
           </div>
         </section>
 
@@ -145,6 +140,12 @@ export function IntroPage() {
           </ul>
         </section>
 
+        <section className="lpShot" aria-label="Company dossier preview">
+          <div className="lpShotFrame">
+            <IntroTerminalPreview shot="deepCompany" staticResearch />
+          </div>
+        </section>
+
         <section className="lpSection lpSection--sources">
           <div className="lpSectionHead">
             <p className="lpEyebrow">{SOURCES.kicker}</p>
@@ -155,46 +156,6 @@ export function IntroPage() {
               <li key={item}>{item}</li>
             ))}
           </ul>
-        </section>
-
-        <section id="pricing" className="lpSection">
-          <div className="lpSectionHead">
-            <p className="lpEyebrow">{PRICING.kicker}</p>
-            <h2 className="lpSectionTitle">{PRICING.title}</h2>
-            <p className="lpSectionLead">{PRICING.sub}</p>
-          </div>
-          <ul className="lpInclude">
-            {PLAN_FEATURES.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-          <div className="lpPlans">
-            {BILLING_PLANS.map((plan) => (
-              <article key={plan.id} className={['lpPlan', plan.featured ? 'lpPlan--featured' : ''].filter(Boolean).join(' ')}>
-                <h3 className="lpPlanName">{plan.name}</h3>
-                <p className="lpPlanPrice">
-                  {plan.listPriceUsd ? (
-                    <span className="lpPlanListPrice">{formatUsd(plan.listPriceUsd)}</span>
-                  ) : null}
-                  <span className="lpPlanAmount">{formatUsd(plan.priceUsd)}</span>
-                  <span className="lpPlanInterval">/{plan.intervalLabel}</span>
-                </p>
-                <p className="lpPlanNote">
-                  {plan.id === 'yearly' ? PRICING.yearlyNote : PRICING.monthlyNote}
-                </p>
-                <a
-                  className={`lpBtn ${plan.featured ? 'lpBtn--primary' : 'lpBtn--ghost'} lpPlanCta`}
-                  href="/sign-in"
-                  onClick={goToSignIn}
-                >
-                  {plan.featured ? 'Start yearly' : 'Start monthly'}
-                </a>
-              </article>
-            ))}
-          </div>
-          <p className="lpFinePrint">
-            Save {formatUsd(YEARLY_SAVE_USD)} on yearly. Cancel anytime.
-          </p>
         </section>
 
         <section id="faq" className="lpSection">
