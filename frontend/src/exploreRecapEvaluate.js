@@ -9,6 +9,7 @@ import {
   EXPLORE_RECAP_MAX_SLIDES,
 } from './exploreRecapCatalog.js'
 import {
+  actorStoryCopyKey,
   pickRecapCopy,
   priceReactionCopyKey,
   withRoleCopyKey,
@@ -86,6 +87,14 @@ function form4Buys(filings) {
 
 function form4Sells(filings) {
   return filings.filter((f) => f.doc === 'Form 4' && f.side === 'sell')
+}
+
+function ptrBuys(filings) {
+  return filings.filter((f) => f.doc === 'PTR' && f.side === 'buy')
+}
+
+function ptrSells(filings) {
+  return filings.filter((f) => f.doc === 'PTR' && f.side === 'sell')
 }
 
 function groupBy(filings, keyFn) {
@@ -181,6 +190,35 @@ function evalInsiderSellingCluster(filings) {
 }
 
 /** @returns {RecapSlide[]} */
+function evalPoliticianSideCluster(filings, side, typeId) {
+  const pool = side === 'buy' ? ptrBuys(filings) : ptrSells(filings)
+  const slides = []
+  for (const [ticker, rows] of groupBy(pool, (f) => f.ticker)) {
+    const actors = uniqueActors(rows)
+    if (actors.length < 2) continue
+    const total = rows.reduce((s, r) => s + (r.amountUsd ?? 0), 0)
+    const lead = rows.slice().sort((a, b) => (b.amountUsd ?? 0) - (a.amountUsd ?? 0))[0]
+    const company = companyPhrase(lead?.companyName, ticker)
+    const copy = pickRecapCopy(typeId, `ptr-${side}-${ticker}`, { company })
+    slides.push(
+      baseSlide(typeId, {
+        id: `cluster-ptr-${side}-${ticker}`,
+        headline: copy.headline,
+        summary: copy.summary,
+        source: 'PTR',
+        ticker,
+        moveLabel: formatPct(lead?.dayMovePct) ?? formatUsd(total),
+        moveUp: side === 'buy',
+        priceSeries: lead?.priceSeries ?? [],
+        score: (catalog(typeId)?.weight ?? 0) + actors.length * 4 + Math.min(15, total / 1e6),
+        memberIds: rows.map((r) => r.id),
+      }),
+    )
+  }
+  return slides
+}
+
+/** @returns {RecapSlide[]} */
 function evalMultiplePeopleOneCompany(filings, coveredTickers) {
   const slides = []
   const form4 = filings.filter((f) => f.doc === 'Form 4')
@@ -217,9 +255,16 @@ function evalOnePersonMultipleCompanies(filings) {
     const tickers = [...new Set(rows.map((r) => r.ticker))]
     if (tickers.length < 2) continue
     const lead = rows.slice().sort((a, b) => (b.amountUsd ?? 0) - (a.amountUsd ?? 0))[0]
-    const copy = pickRecapCopy('one_person_multiple_companies', `person-multi-${actorId}`, {
-      person: lead.actorName,
-    })
+    const copy = pickRecapCopy(
+      actorStoryCopyKey('one_person_multiple_companies', {
+        actorMode: lead.actorMode,
+        doc: lead.doc,
+      }),
+      `person-multi-${actorId}`,
+      {
+        person: lead.actorName,
+      },
+    )
     slides.push(
       baseSlide('one_person_multiple_companies', {
         id: `person-multi-${actorId}`,
@@ -248,10 +293,18 @@ function evalPersonActivity(filings, suppressedActors) {
     const lead = rows.slice().sort((a, b) => (b.amountUsd ?? 0) - (a.amountUsd ?? 0))[0]
     const total = rows.reduce((s, r) => s + (r.amountUsd ?? 0), 0)
     const role = rolePlain(lead.actorRole)
-    const copy = pickRecapCopy(withRoleCopyKey('person_activity', role), `person-${actorId}`, {
-      person: lead.actorName,
-      role: role || undefined,
-    })
+    const copy = pickRecapCopy(
+      actorStoryCopyKey('person_activity', {
+        role,
+        actorMode: lead.actorMode,
+        doc: lead.doc,
+      }),
+      `person-${actorId}`,
+      {
+        person: lead.actorName,
+        role: role || undefined,
+      },
+    )
     slides.push(
       baseSlide('person_activity', {
         id: `person-${actorId}`,
@@ -522,8 +575,12 @@ export function evaluateExploreRecap(day) {
 
   const buyClusters = evalInsiderBuyingCluster(filings)
   const sellClusters = evalInsiderSellingCluster(filings)
+  const ptrBuyClusters = evalPoliticianSideCluster(filings, 'buy', 'politician_buying_cluster')
+  const ptrSellClusters = evalPoliticianSideCluster(filings, 'sell', 'politician_selling_cluster')
   const clusterTickerCover = new Set(
-    [...buyClusters, ...sellClusters].map((s) => s.ticker).filter(Boolean),
+    [...buyClusters, ...sellClusters, ...ptrBuyClusters, ...ptrSellClusters]
+      .map((s) => s.ticker)
+      .filter(Boolean),
   )
   const multiPeople = evalMultiplePeopleOneCompany(filings, clusterTickerCover)
   const personMulti = evalOnePersonMultipleCompanies(filings)
@@ -541,7 +598,11 @@ export function evaluateExploreRecap(day) {
   const suppressedForSingles = new Set([
     ...buyClusters.flatMap((s) => s.memberIds ?? []),
     ...sellClusters.flatMap((s) => s.memberIds ?? []),
+    ...ptrBuyClusters.flatMap((s) => s.memberIds ?? []),
+    ...ptrSellClusters.flatMap((s) => s.memberIds ?? []),
     ...multiPeople.flatMap((s) => s.memberIds ?? []),
+    ...personMulti.flatMap((s) => s.memberIds ?? []),
+    ...personActivity.flatMap((s) => s.memberIds ?? []),
   ])
   // Keep largest-of-day as ranking even if also in a cluster; suppress duplicate singles only.
   const singles = evalSingles(filings, suppressedForSingles).filter((s) => {
@@ -577,6 +638,8 @@ export function evaluateExploreRecap(day) {
   const candidates = [
     ...buyClusters,
     ...sellClusters,
+    ...ptrBuyClusters,
+    ...ptrSellClusters,
     ...multiPeople,
     ...personMulti,
     ...personActivity,
