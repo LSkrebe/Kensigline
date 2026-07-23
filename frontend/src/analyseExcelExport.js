@@ -1,4 +1,12 @@
-/** Shkreli-style Model sheet: default gridlines, formula totals, slim autofit columns. */
+/**
+ * Shkreli-style Model sheet (see martinshkreli/models GOOG / AAPL / AMAT).
+ *
+ * Inputs (raw): segment revenues, COGS, OpEx, Taxes, Shares, FCF
+ * Formulas:     Revenue (=segments), Gross Profit, OpInc, Pretax, Net Income,
+ *               EPS, YoY growth (cur/prior-1), margins, segment % rev
+ *
+ * Forward/estimate quarters stay blank for the user to fill — same as his sheets.
+ */
 
 import ExcelJS from 'exceljs'
 
@@ -89,7 +97,6 @@ function formatDisplay(value, numFmt) {
 
 /** Excel-style autofit after values are written (like double-clicking the col edge). */
 function autoFitColumns(sheet, labelCol, firstQCol, lastQCol, maxRow) {
-  // A: ticker only
   const ticker = sheet.getCell(1, 1).value
   sheet.getColumn(1).width = Math.min(Math.max(String(ticker ?? '').length + 1.25, 6), 14)
 
@@ -188,6 +195,7 @@ function buildModelSheet(workbook, model) {
     return rows[key]
   }
 
+  // —— Segment drivers (INPUT) ——
   const rollupDriverRows = []
   for (const driver of rollupDrivers) {
     rows[driver.label] = r
@@ -196,21 +204,21 @@ function buildModelSheet(workbook, model) {
     r += 1
   }
 
-  defineRow('revenue', 'Revenue', { bold: true })
-  defineRow('cogs', 'COGS')
-  defineRow('grossProfit', 'Gross Profit')
-  defineRow('opex', 'OpEx')
-  defineRow('opIncome', 'OpInc')
-  defineRow('other', 'Other')
-  defineRow('pretax', 'Pretax')
-  defineRow('taxes', 'Taxes')
-  defineRow('netIncome', 'Net Income')
-  defineRow('eps', 'EPS', { bold: true })
-  defineRow('shares', 'Shares')
+  // —— P&L (Shkreli GOOG/AAPL order, without Other/interest breakout) ——
+  defineRow('revenue', 'Revenue', { bold: true }) // FORMULA = sum segments (or INPUT if none)
+  defineRow('cogs', 'COGS') // INPUT
+  defineRow('grossProfit', 'Gross Profit', { bold: true }) // FORMULA = Rev - COGS
+  defineRow('opex', 'OpEx', { bold: true }) // INPUT (no R&D/S&M/G&A split in our data)
+  defineRow('opIncome', 'OpInc', { bold: true }) // FORMULA = GP - OpEx
+  defineRow('pretax', 'Pretax', { bold: true }) // FORMULA = OpInc
+  defineRow('taxes', 'Taxes') // INPUT
+  defineRow('netIncome', 'Net Income', { bold: true }) // FORMULA = Pretax - Taxes
+  defineRow('eps', 'EPS', { bold: true }) // FORMULA = NI / Shares
+  defineRow('shares', 'Shares') // INPUT
 
-  // Empty spacer (Shkreli)
-  r += 1
+  r += 1 // spacer
 
+  // —— Growth / margins (FORMULA) ——
   defineRow('revGrowth', 'Revenue Growth', { bold: true })
   const segmentGrowthRows = []
   for (const driver of rollupDrivers) {
@@ -226,16 +234,14 @@ function buildModelSheet(workbook, model) {
     segmentPctRows.push({ key, label: driver.label, row: rows[key] })
   }
 
-  // Empty spacer (Shkreli)
-  r += 1
+  r += 1 // spacer
 
-  defineRow('cffo', 'CFFO')
-  defineRow('capex', 'CapEx')
-  defineRow('fcf', 'FCF')
+  // —— Cash: only FCF in our source data (no CapEx / CFFO breakout) ——
+  defineRow('fcf', 'FCF', { bold: true })
 
   const lastRow = rows.fcf
 
-  // Historical inputs + formulas; estimate columns blank
+  // Historical only — estimate columns left blank (Shkreli style)
   for (let colIdx = 0; colIdx < estFrom; colIdx += 1) {
     const col = firstQCol + colIdx
     const pyCol = col - 4
@@ -245,14 +251,12 @@ function buildModelSheet(workbook, model) {
     const gp = A(col, rows.grossProfit)
     const opex = A(col, rows.opex)
     const op = A(col, rows.opIncome)
-    const other = A(col, rows.other)
     const pretax = A(col, rows.pretax)
     const taxes = A(col, rows.taxes)
     const ni = A(col, rows.netIncome)
     const shares = A(col, rows.shares)
-    const cffo = A(col, rows.cffo)
-    const capex = A(col, rows.capex)
 
+    // Segment revenues — INPUT
     const segmentVals = []
     rollupDrivers.forEach((driver, i) => {
       const driverRow = rollupDriverRows[i]
@@ -274,6 +278,7 @@ function buildModelSheet(workbook, model) {
         : numAt(revenueRow, colIdx)
       : numAt(revenueRow, colIdx)
 
+    // Revenue — FORMULA sum of segments when present, else INPUT
     if (rollupDriverRows.length) {
       setFormula(
         sheet,
@@ -287,79 +292,77 @@ function buildModelSheet(workbook, model) {
       setCell(sheet, rows.revenue, col, revN, boldNum)
     }
 
+    // COGS — INPUT (backed out from reported gross profit)
     const gpN = numAt(grossProfitRow, colIdx)
     const cogsN = revN != null && gpN != null ? Math.round(revN - gpN) : null
     setCell(sheet, rows.cogs, col, cogsN, numStyle)
-    setFormula(sheet, rows.grossProfit, col, `${rev}-${cogs}`, numStyle, gpN)
 
+    // Gross Profit — FORMULA = Revenue - COGS
+    setFormula(sheet, rows.grossProfit, col, `${rev}-${cogs}`, boldNum, gpN)
+
+    // OpEx — INPUT
     const opexN = numAt(opexRow, colIdx)
-    setCell(sheet, rows.opex, col, opexN, numStyle)
+    setCell(sheet, rows.opex, col, opexN != null ? Math.round(opexN) : null, boldNum)
+
+    // OpInc — FORMULA = Gross Profit - OpEx
     const opN = gpN != null && opexN != null ? gpN - opexN : numAt(opIncomeRow, colIdx)
-    setFormula(sheet, rows.opIncome, col, `${gp}-${opex}`, numStyle, opN)
+    setFormula(sheet, rows.opIncome, col, `${gp}-${opex}`, boldNum, opN)
 
+    // Pretax — FORMULA = OpInc (no separate other-income line in our data)
+    const pretaxN = opN
+    setFormula(sheet, rows.pretax, col, `${op}`, boldNum, pretaxN)
+
+    // Taxes — INPUT (backed out so Net Income formula matches reported NI)
     const niN = numAt(netIncomeRow, colIdx)
-    const otherN = 0
-    const pretaxN = opN != null ? opN + otherN : null
     const taxesN = pretaxN != null && niN != null ? Math.round(pretaxN - niN) : null
-    setCell(sheet, rows.other, col, otherN, numStyle)
-    setFormula(sheet, rows.pretax, col, `${op}+${other}`, numStyle, pretaxN)
     setCell(sheet, rows.taxes, col, taxesN, numStyle)
-    setFormula(sheet, rows.netIncome, col, `${pretax}-${taxes}`, numStyle, niN)
 
+    // Net Income — FORMULA = Pretax - Taxes
+    setFormula(sheet, rows.netIncome, col, `${pretax}-${taxes}`, boldNum, niN)
+
+    // Shares — INPUT
     const sh = numAt(sharesRow, colIdx) ?? anchorShares
     setCell(sheet, rows.shares, col, sh, numStyle)
+
+    // EPS — FORMULA = NI / Shares
     const epsN = niN != null && sh ? niN / sh : null
     setFormula(sheet, rows.eps, col, `${ni}/${shares}`, boldEps, epsN)
 
+    // YoY growth — FORMULA cur/priorYear-1 (Shkreli style, no IF wrapper)
     if (colIdx >= 4) {
       const priorRev = numAt(revenueRow, colIdx - 4)
-      const revGrowthN =
-        priorRev && revN != null ? (revN - priorRev) / priorRev : null
-      setFormula(
-        sheet,
-        rows.revGrowth,
-        col,
-        `IF(${A(pyCol, rows.revenue)}=0,0,(${rev}-${A(pyCol, rows.revenue)})/${A(pyCol, rows.revenue)})`,
-        boldPct,
-        revGrowthN,
-      )
+      const revGrowthN = priorRev && revN != null ? revN / priorRev - 1 : null
+      setFormula(sheet, rows.revGrowth, col, `${rev}/${A(pyCol, rows.revenue)}-1`, boldPct, revGrowthN)
+
       for (const g of segmentGrowthRows) {
         const dr = rows[g.label]
         const driver = rollupDrivers.find((d) => d.label === g.label)
         const cur = numAt(driver, colIdx)
         const prior = numAt(driver, colIdx - 4)
-        const gN = prior && cur != null ? (cur - prior) / prior : null
-        setFormula(
-          sheet,
-          g.row,
-          col,
-          `IF(${A(pyCol, dr)}=0,0,(${A(col, dr)}-${A(pyCol, dr)})/${A(pyCol, dr)})`,
-          pctStyle,
-          gN,
-        )
+        const gN = prior && cur != null ? cur / prior - 1 : null
+        setFormula(sheet, g.row, col, `${A(col, dr)}/${A(pyCol, dr)}-1`, pctStyle, gN)
       }
     }
 
+    // Gross Margin — FORMULA = GP / Rev
     const gmN = revN ? (gpN ?? 0) / revN : null
-    setFormula(sheet, rows.grossMargin, col, `IF(${rev}=0,0,${gp}/${rev})`, pctStyle, gmN)
+    setFormula(sheet, rows.grossMargin, col, `${gp}/${rev}`, pctStyle, gmN)
+
+    // Segment % of revenue — FORMULA
     for (const p of segmentPctRows) {
       const dr = rows[p.label]
       const driver = rollupDrivers.find((d) => d.label === p.label)
       const cur = numAt(driver, colIdx)
       const pctN = revN && cur != null ? cur / revN : null
-      setFormula(sheet, p.row, col, `IF(${rev}=0,0,${A(col, dr)}/${rev})`, pctStyle, pctN)
+      setFormula(sheet, p.row, col, `${A(col, dr)}/${rev}`, pctStyle, pctN)
     }
 
+    // FCF — INPUT (only cash metric we have)
     const fcfN = numAt(fcfRow, colIdx)
-    setCell(sheet, rows.cffo, col, fcfN, numStyle)
-    setCell(sheet, rows.capex, col, 0, numStyle)
-    setFormula(sheet, rows.fcf, col, `${cffo}-${capex}`, numStyle, fcfN)
+    setCell(sheet, rows.fcf, col, fcfN != null ? Math.round(fcfN) : null, boldNum)
   }
 
-  // Only borders Shkreli uses:
-  // 1) one horizontal under quarter headers
-  // 2) vertical to the right of metric names
-  // 3) vertical where forward quarters start
+  // Borders Shkreli uses: underline under headers, rule after labels, blue at estimates
   for (let c = LABEL_COL; c <= lastQCol; c += 1) {
     const cell = sheet.getCell(hdrRow, c)
     cell.border = { ...(cell.border ?? {}), bottom: THIN }
@@ -373,7 +376,6 @@ function buildModelSheet(workbook, model) {
     sheet.getRow(row).height = 15
   }
 
-  // Write numbers first, then resize like double-clicking the column edge
   autoFitColumns(sheet, LABEL_COL, firstQCol, lastQCol, lastRow)
   return sheet
 }
