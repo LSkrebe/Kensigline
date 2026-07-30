@@ -20,6 +20,7 @@ import { prepareLlmText } from "../../core/llm-text-prep.js";
 import { LLM_BUDGETS } from "../../core/llm-budgets.js";
 import { isBackfillPriority, needsStructuredResearchLlm } from "../../shared/ingest-policy.js";
 import { normalizeSourceKey } from "../../shared/source-keys.js";
+import { buildParseMeta } from "../../shared/parse-meta.js";
 import {
   attachNearDupKey,
   computeResearchNearDupKey,
@@ -224,6 +225,21 @@ async function resolveResearchExtract(args: {
     ...(args.headline != null ? { headline: args.headline } : {}),
   });
 
+  const attach = (
+    out: ResearchDocExtractV2,
+    path: string,
+    opts: { llm_used: boolean; llm_ok?: boolean | null; llm_model?: string | null },
+  ): ResearchDocExtractV2 => ({
+    ...out,
+    parse_meta: buildParseMeta({
+      path,
+      llm_used: opts.llm_used,
+      ...(opts.llm_ok !== undefined ? { llm_ok: opts.llm_ok } : {}),
+      ...(opts.llm_model !== undefined ? { llm_model: opts.llm_model } : {}),
+      source_type: args.sourceType,
+    }),
+  });
+
   const useStructured = needsStructuredResearchLlm({
     sourceType: args.sourceType,
     ...(args.secForm != null ? { secForm: args.secForm } : {}),
@@ -231,7 +247,7 @@ async function resolveResearchExtract(args: {
   });
 
   if (!useStructured) {
-    return { out: template, model: "template" };
+    return { out: attach(template, "template", { llm_used: false }), model: "template" };
   }
 
   const prep = prepareLlmText({
@@ -253,7 +269,7 @@ async function resolveResearchExtract(args: {
     );
     const merged = mergeTemplateWithStructured(template, reused.out);
     return {
-      out: attachNearDupKey(merged, reused.near_dup_key, args.url),
+      out: attach(attachNearDupKey(merged, reused.near_dup_key, args.url), "reuse/near-dup", { llm_used: false }),
       model: "reuse/near-dup",
     };
   }
@@ -266,12 +282,23 @@ async function resolveResearchExtract(args: {
       hintedTicker: args.hintedTicker,
       hintedName: args.hintedName,
     });
+    const { model: llmModel, ...structuredFields } = structured;
     const nearDupKey = computeResearchNearDupKey(prep.text);
-    const merged = mergeTemplateWithStructured(template, structured);
-    return { out: attachNearDupKey(merged, nearDupKey, args.url), model: "research/structured" };
+    const merged = mergeTemplateWithStructured(template, structuredFields);
+    return {
+      out: attach(attachNearDupKey(merged, nearDupKey, args.url), "research/structured", {
+        llm_used: true,
+        llm_ok: true,
+        llm_model: llmModel,
+      }),
+      model: "research/structured",
+    };
   } catch (e) {
     console.warn("[research/structured] fallback to template", String((e as Error)?.message ?? e));
-    return { out: template, model: "template/fallback" };
+    return {
+      out: attach(template, "template/fallback", { llm_used: true, llm_ok: false }),
+      model: "template/fallback",
+    };
   }
 }
 
@@ -486,17 +513,25 @@ async function parseHttpDocument(
         headline: deterministic.title,
       });
       const publishedAt = new Date().toISOString();
+      const govOut = attachNearDupKey(
+        mergeTemplateWithStructured(display, { ...deterministic, analysis: display.analysis, title: display.title }),
+        nearDupKey,
+        pageUrl,
+      );
       const fin = await finalizePipeline({
         queueId,
         documentSourceType,
         contentSha,
         primaryUrl: pageUrl,
         publishedAt,
-        out: attachNearDupKey(
-          mergeTemplateWithStructured(display, { ...deterministic, analysis: display.analysis, title: display.title }),
-          nearDupKey,
-          pageUrl,
-        ),
+        out: {
+          ...govOut,
+          parse_meta: buildParseMeta({
+            path: "deterministic/gov",
+            llm_used: false,
+            source_type: documentSourceType,
+          }),
+        },
       });
       return { processed: true, queue_id: queueId, document_id: fin.document_id };
     }

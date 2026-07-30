@@ -7,6 +7,7 @@ import { prepareLlmText } from "../../core/llm-text-prep.js";
 import { fetch13fFilingBundle } from "../../core/sec.js";
 import { syncInstitutionFilingsFromDocument } from "../../documents/store.js";
 import { syncFeedIndexForDocument } from "../../shared/feed-index.js";
+import { buildParseMeta } from "../../shared/parse-meta.js";
 import {
   MIN_PARSED_13F_HOLDINGS,
   parse13fHoldings,
@@ -297,8 +298,16 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
       return { processed: true, queue_id: queueId, parsed_ids: [existing.id], ticker_count: 1 };
     }
 
-    const { out, model } = await extractInstitutionFiling({ bundleText: bundle, indexUrl: primaryUrl });
+    const { out, model, path } = await extractInstitutionFiling({ bundleText: bundle, indexUrl: primaryUrl });
     if (!isInstitutionSchema(out)) throw new Error("llm_output_schema_mismatch");
+
+    const parseMeta = buildParseMeta({
+      path: path === "enrich" ? "institutions/13f-enrich" : "institutions/13f-full",
+      llm_used: true,
+      llm_ok: true,
+      llm_model: model,
+      source_type: "sec_13f",
+    });
 
     const filerName = String(out.filer?.name ?? "").trim() || "Institution";
     const holdings = (out.holdings ?? [])
@@ -370,6 +379,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
           context_sentences: [],
           worksheet_rows,
         },
+        parse_meta: parseMeta,
       };
 
       const inserted = await db.one<{ id: string }>(

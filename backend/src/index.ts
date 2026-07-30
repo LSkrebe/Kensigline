@@ -209,6 +209,9 @@ const server = http.createServer(async (req, res) => {
     // ---- Backend stats (top bar) ----
     if (route(req, url, "GET", "/api/stats")) {
       const uptime_s = Math.round(process.uptime());
+      const sinceRaw = String(url.searchParams.get("since") ?? "").trim();
+      const since =
+        sinceRaw && !Number.isNaN(Date.parse(sinceRaw)) ? new Date(sinceRaw).toISOString() : null;
 
       const queueRows = await db.query<{ status: string; count: string }>(
         `
@@ -233,7 +236,57 @@ const server = http.createServer(async (req, res) => {
         parsed[k] = { count: Number(r.count) || 0, last_parsed_at: r.last_parsed_at ? String(r.last_parsed_at) : null };
       }
 
-      sendJson(res, 200, { ok: true, uptime_s, queue, parsed });
+      const parseMetaRows = await db.query<{
+        path: string | null;
+        llm_used: string | null;
+        llm_ok: string | null;
+        count: string;
+      }>(
+        `
+        SELECT
+          data->'parse_meta'->>'path' AS path,
+          data->'parse_meta'->>'llm_used' AS llm_used,
+          data->'parse_meta'->>'llm_ok' AS llm_ok,
+          COUNT(*)::text AS count
+        FROM documents
+        WHERE data ? 'parse_meta'
+          AND ($1::timestamptz IS NULL OR parsed_at >= $1::timestamptz)
+        GROUP BY 1, 2, 3
+        ORDER BY COUNT(*) DESC
+        `,
+        [since],
+      );
+      const by_path: Record<string, number> = {};
+      let llm_used = 0;
+      let llm_ok = 0;
+      let llm_fallback = 0;
+      let with_meta = 0;
+      for (const r of parseMetaRows) {
+        const path = String(r.path ?? "unknown");
+        const n = Number(r.count) || 0;
+        by_path[path] = (by_path[path] ?? 0) + n;
+        with_meta += n;
+        if (r.llm_used === "true") {
+          llm_used += n;
+          if (r.llm_ok === "false") llm_fallback += n;
+          else if (r.llm_ok === "true") llm_ok += n;
+        }
+      }
+
+      sendJson(res, 200, {
+        ok: true,
+        uptime_s,
+        queue,
+        parsed,
+        parse_meta: {
+          since,
+          with_meta,
+          llm_used,
+          llm_ok,
+          llm_fallback,
+          by_path,
+        },
+      });
       return;
     }
 

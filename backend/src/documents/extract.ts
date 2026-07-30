@@ -33,6 +33,8 @@ export type ResearchDocExtractV2 = {
   business_drivers?: ResearchBusinessDriver[];
   /** Compact source text for regex guidance — no LLM required. */
   text_excerpt?: string;
+  /** How this card was built (template / LLM / reuse). Optional; stored for audits. */
+  parse_meta?: import("../shared/parse-meta.js").DocumentParseMeta;
 };
 
 /** @deprecated Use ResearchDocExtractV2 */
@@ -199,6 +201,7 @@ export async function runStructuredResearchExtract(args: {
   program_keys: string[];
   link_confidence: number | null;
   business_drivers?: ResearchBusinessDriver[];
+  model: string | null;
 }> {
   const defaultSource = sourceKeyFromQueueTypeLocal(args.sourceType) ?? "Other";
   const body = String(args.text ?? "").slice(0, RESEARCH_LLM_MAX_CHARS);
@@ -223,7 +226,6 @@ export async function runStructuredResearchExtract(args: {
     max_tokens: 700,
     log_context: "research/structured",
   });
-  void model;
   const out = extractJsonObject(content);
   if (!isStructuredResearchExtract(out)) {
     throw new Error("llm_output_schema_mismatch");
@@ -245,6 +247,7 @@ export async function runStructuredResearchExtract(args: {
         ? Math.max(0, Math.min(1, Number(out.link_confidence)))
         : null,
     ...(businessDrivers != null ? { business_drivers: businessDrivers } : {}),
+    model: model ?? null,
   };
 }
 
