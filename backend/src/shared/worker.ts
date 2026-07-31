@@ -1,5 +1,5 @@
-import { db } from "../core/db.js";
 import { countPendingQueue } from "./queue-pending.js";
+import { reclaimStaleParsing } from "./queue.js";
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -46,6 +46,8 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     5_000,
     envNum(opts.envPrefix, "BACKFILL_INTERVAL_MS", d.backfillIntervalMs ?? 60_000),
   );
+  const reclaimEveryMs = Math.max(60_000, envNum(opts.envPrefix, "RECLAIM_INTERVAL_MS", 5 * 60_000));
+  const reclaimOlderMinutes = Math.max(5, envNum(opts.envPrefix, "RECLAIM_STALE_MINUTES", 15));
 
   console.log(
     `[${opts.name}] enqueueEveryMs=${enqueueEveryMs} parseConcurrency=${parseConcurrency} backfillIntervalMs=${backfillIntervalMs}`,
@@ -53,8 +55,22 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
 
   let stopped = false;
   let enqueueTimer: ReturnType<typeof setInterval> | undefined;
+  let reclaimTimer: ReturnType<typeof setInterval> | undefined;
   let lastBackfillAt = 0;
   let backfillRunning = false;
+
+  const runReclaim = () =>
+    reclaimStaleParsing({ olderThanMinutes: reclaimOlderMinutes })
+      .then((n) => {
+        if (n > 0) console.warn(`[${opts.name}] reclaimed_stale_parsing count=${n}`);
+      })
+      .catch((e) => console.error(`[${opts.name}] reclaim_failed`, e));
+
+  void runReclaim();
+  reclaimTimer = setInterval(() => {
+    if (stopped) return;
+    void runReclaim();
+  }, reclaimEveryMs);
 
   const maybeRunBackfill = async () => {
     if (stopped || !opts.enqueueBackfill || !opts.sourceTypes?.length) return;
@@ -108,6 +124,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     stop() {
       stopped = true;
       if (enqueueTimer) clearInterval(enqueueTimer);
+      if (reclaimTimer) clearInterval(reclaimTimer);
     },
   };
 }

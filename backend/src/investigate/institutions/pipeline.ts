@@ -7,13 +7,23 @@ import { prepareLlmText } from "../../core/llm-text-prep.js";
 import { fetch13fFilingBundle } from "../../core/sec.js";
 import { syncInstitutionFilingsFromDocument } from "../../documents/store.js";
 import { syncFeedIndexForDocument } from "../../shared/feed-index.js";
-import { buildParseMeta } from "../../shared/parse-meta.js";
+import { buildParseMeta, logParseOutcome, type DocumentParseMeta } from "../../shared/parse-meta.js";
+import { claimQueueItemSingle, failQueueWithBackoff, markQueueDead, markQueueParsed } from "../../shared/queue.js";
 import {
   MIN_PARSED_13F_HOLDINGS,
   parse13fHoldings,
   parse13fMeta,
   type Parsed13fHolding,
 } from "./parse-13f.js";
+import {
+  activityFromShareDelta,
+  ensureCusipTickerMapTable,
+  institutionsLlmFallbackEnabled,
+  learnCusipTicker,
+  loadPriorFilerHolding,
+  resolveHoldingsToTickers,
+  type Mapped13fHolding,
+} from "./resolve-13f-tickers.js";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }
@@ -23,6 +33,17 @@ type ParseNextResult =
 
 const ACTIVITIES = new Set(["Increased stake", "New position", "Reduced stake"]);
 const ENRICH_HOLDINGS_LLM_LIMIT = 120;
+
+type HoldingRow = {
+  ticker: string;
+  issuer_name: string | null;
+  cusip: string | null;
+  activity: string;
+  value_usd: number | null;
+  shares: number | null;
+  as_of_date: string | null;
+  unchanged: boolean;
+};
 
 function extractJsonObject(text: string): any {
   let raw = String(text ?? "").trim();
@@ -63,6 +84,7 @@ function isInstitutionSchema(out: any): out is {
   holdings: Array<{
     ticker: string | null;
     issuer_name: string | null;
+    cusip?: string | null;
     activity: string | null;
     value_usd: number | null;
     shares: number | null;
@@ -80,7 +102,6 @@ function buildInstitutionExtractionPrompt(args: { filingText: string; indexUrl: 
     maxChars: LLM_BUDGETS.institution13fFull(),
     compact: compactSecTextForLlm,
   });
-  const filingBody = prep.text;
   return [
     {
       role: "system" as const,
@@ -109,7 +130,7 @@ function buildInstitutionExtractionPrompt(args: { filingText: string; indexUrl: 
     },
     {
       role: "user" as const,
-      content: [`index_url: ${args.indexUrl}`, "", "FILING TEXT:", filingBody].join("\n"),
+      content: [`index_url: ${args.indexUrl}`, "", "FILING TEXT:", prep.text].join("\n"),
     },
   ];
 }
@@ -137,7 +158,7 @@ function buildInstitutionEnrichPrompt(args: {
         "Return ONLY valid JSON. No markdown.",
         "Map each parsed holding to a US equity ticker when possible; omit rows with no ticker.",
         "activity must be exactly one of: Increased stake, New position, Reduced stake.",
-        "Infer activity from filing cover / summary tables when present; otherwise use New position.",
+        "Prefer New position when activity is unknown.",
         `Schema: ${JSON.stringify({
           schema_type: "institution_filing",
           schema_version: "v1",
@@ -174,7 +195,8 @@ function buildInstitutionEnrichPrompt(args: {
   ];
 }
 
-async function extractInstitutionFiling(args: {
+/** Rare residual LLM path — only when deterministic mapping yields zero tickers. */
+async function extractInstitutionFilingLlmResidual(args: {
   bundleText: string;
   indexUrl: string;
 }): Promise<{ out: any; model: string | null; path: "enrich" | "full" }> {
@@ -213,6 +235,7 @@ async function extractInstitutionFiling(args: {
         return {
           ...h,
           issuer_name: h?.issuer_name ?? fallback?.issuer_name ?? null,
+          cusip: h?.cusip ?? fallback?.cusip ?? null,
           value_usd:
             h?.value_usd != null && Number.isFinite(Number(h.value_usd))
               ? Number(h.value_usd)
@@ -228,7 +251,7 @@ async function extractInstitutionFiling(args: {
             .trim()
             .length >= 1 && normalizeActivity(h?.activity),
       ).length;
-      const minValid = Math.max(3, Math.floor(parsedHoldings.length * 0.2));
+      const minValid = Math.max(1, Math.min(3, Math.floor(parsedHoldings.length * 0.05) || 1));
       if (validCount >= minValid) {
         return {
           out: {
@@ -261,25 +284,127 @@ async function extractInstitutionFiling(args: {
   return { out: extractJsonObject(content), model: model ?? null, path: "full" };
 }
 
+async function attachActivities(
+  filerName: string,
+  mapped: Mapped13fHolding[],
+  asOf: string | null,
+): Promise<{ rows: HoldingRow[]; unchanged_holdings: number }> {
+  const rows: HoldingRow[] = [];
+  let unchanged_holdings = 0;
+  for (const h of mapped) {
+    const prior = await loadPriorFilerHolding({ filerName, ticker: h.ticker });
+    const { activity, unchanged } = activityFromShareDelta({
+      shares: h.shares,
+      priorShares: prior?.shares ?? null,
+      priorActivity: prior?.activity ?? null,
+    });
+    if (unchanged) unchanged_holdings += 1;
+    rows.push({
+      ticker: h.ticker,
+      issuer_name: h.issuer_name,
+      cusip: h.cusip,
+      activity,
+      value_usd: h.value_usd,
+      shares: h.shares,
+      as_of_date: asOf,
+      unchanged,
+    });
+  }
+  return { rows, unchanged_holdings };
+}
+
+async function persistInstitutionHoldings(args: {
+  queueId: string;
+  primaryUrl: string;
+  baseSha256: string;
+  filerName: string;
+  accessionNo: string | null;
+  filedAt: string | null;
+  holdings: HoldingRow[];
+  parseMeta: DocumentParseMeta;
+}): Promise<string[]> {
+  const byTicker = new Map<string, HoldingRow[]>();
+  for (const h of args.holdings) {
+    const arr = byTicker.get(h.ticker) ?? [];
+    arr.push(h);
+    byTicker.set(h.ticker, arr);
+  }
+
+  const parsedIds: string[] = [];
+  for (const [ticker, rows] of byTicker.entries()) {
+    const contentSha256 = `${args.baseSha256}:${ticker}`;
+    rows.sort((a, b) => String(b.as_of_date ?? "").localeCompare(String(a.as_of_date ?? "")));
+
+    const worksheet_rows = rows.map((r) => ({
+      key: args.filerName,
+      institution_name: args.filerName,
+      surname: args.filerName,
+      activity: r.activity,
+      amount_usd: r.value_usd,
+      shares: r.shares,
+      cusip: r.cusip,
+      ts: r.as_of_date ?? formatIso(args.filedAt),
+    }));
+
+    const sumUsd = worksheet_rows.reduce((a, r) => a + (Number(r.amount_usd ?? 0) || 0), 0);
+    const feedLabel = sumUsd > 0 ? `${Math.round(sumUsd)} (${worksheet_rows.length})` : `(${worksheet_rows.length})`;
+    const feedAt = worksheet_rows[0]?.ts ?? formatIso(args.filedAt) ?? new Date().toISOString();
+
+    const data = {
+      schema_type: "institution_cluster",
+      schema_version: "v1",
+      issuer: { name: rows[0]?.issuer_name ?? null, ticker, cik: null },
+      filing: {
+        form_type: "13F",
+        accession_no: args.accessionNo,
+        filed_at: formatIso(args.filedAt) ?? feedAt,
+        source: "sec_13f",
+        index_url: args.primaryUrl,
+      },
+      cluster: {
+        feed_label: feedLabel,
+        cluster_start_at: worksheet_rows.at(-1)?.ts ?? null,
+        cluster_end_at: worksheet_rows[0]?.ts ?? null,
+        institutions: [args.filerName],
+        context_sentences: [],
+        worksheet_rows,
+      },
+      parse_meta: args.parseMeta,
+    };
+
+    const inserted = await db.one<{ id: string }>(
+      `
+      INSERT INTO documents (
+        queue_id, doc_kind, schema_version, ticker, feed_kind, source_key,
+        event_at, feed_label, url, published_at, content_sha256, data
+      )
+      VALUES (
+        $1, 'institution_cluster', 'v1', $2, 'institutions', '13F',
+        $3, $4, $5, $6, $7, $8
+      )
+      ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
+      DO UPDATE SET parsed_at = now(), data = EXCLUDED.data
+      RETURNING id
+      `,
+      [args.queueId, ticker, feedAt, feedLabel, args.primaryUrl, feedAt, contentSha256, data],
+    );
+
+    if (inserted?.id) {
+      parsedIds.push(inserted.id);
+      await syncInstitutionFilingsFromDocument(inserted.id, ticker, data);
+      void syncFeedIndexForDocument(inserted.id).catch(() => {});
+      for (const r of rows) {
+        if (r.cusip) void learnCusipTicker(r.cusip, ticker, "13f_persist");
+      }
+    }
+  }
+  return parsedIds;
+}
+
 export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult> {
-  const next = await db.one<{ id: string; url: string }>(
-    `
-    UPDATE document_queue
-    SET status = 'parsing', updated_at = now()
-    WHERE id = (
-      SELECT id
-      FROM document_queue
-      WHERE status IN ('ready_to_parse', 'queued', 'failed')
-        AND source_type = 'sec_13f'
-        AND (next_attempt_at IS NULL OR next_attempt_at <= now())
-      ORDER BY priority DESC, created_at ASC
-      LIMIT 1
-      FOR UPDATE SKIP LOCKED
-    )
-    RETURNING id, url
-    `,
-    [],
-  );
+  await ensureCusipTickerMapTable().catch(() => {});
+
+  const next = await claimQueueItemSingle("sec_13f");
   if (!next) return { processed: false, reason: "no_work" };
 
   const queueId = next.id;
@@ -294,137 +419,173 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
       [baseSha256],
     );
     if (existing?.id) {
-      await db.query(`UPDATE document_queue SET status='parsed', updated_at=now(), last_error=NULL WHERE id=$1`, [queueId]);
+      await markQueueParsed(queueId, "duplicate_sha");
+      logParseOutcome({
+        source_type: "sec_13f",
+        queue_id: queueId,
+        outcome: "parsed",
+        path: "reuse/duplicate_sha",
+        llm_used: false,
+      });
       return { processed: true, queue_id: queueId, parsed_ids: [existing.id], ticker_count: 1 };
     }
 
-    const { out, model, path } = await extractInstitutionFiling({ bundleText: bundle, indexUrl: primaryUrl });
-    if (!isInstitutionSchema(out)) throw new Error("llm_output_schema_mismatch");
+    const parsedHoldings = parse13fHoldings(bundle);
+    const meta = parse13fMeta(bundle, primaryUrl);
+    const filerName = String(meta.filer_name ?? "").trim() || "Institution";
+    const asOf = formatIso(meta.period_of_report) ?? formatIso(meta.filed_at);
 
-    const parseMeta = buildParseMeta({
-      path: path === "enrich" ? "institutions/13f-enrich" : "institutions/13f-full",
-      llm_used: true,
-      llm_ok: true,
-      llm_model: model,
-      source_type: "sec_13f",
-    });
-
-    const filerName = String(out.filer?.name ?? "").trim() || "Institution";
-    const holdings = (out.holdings ?? [])
-      .map((h) => ({
-        ticker: String(h?.ticker ?? "")
-          .trim()
-          .toUpperCase()
-          .replace(/[^A-Z0-9.-]/g, ""),
-        issuer_name: h?.issuer_name != null ? String(h.issuer_name) : null,
-        activity: normalizeActivity(h?.activity),
-        value_usd: h?.value_usd != null && Number.isFinite(Number(h.value_usd)) ? Number(h.value_usd) : null,
-        shares: h?.shares != null && Number.isFinite(Number(h.shares)) ? Number(h.shares) : null,
-        as_of_date: formatIso(h?.as_of_date),
-      }))
-      .filter((h) => h.ticker.length >= 1 && h.ticker.length <= 8 && h.activity);
-
-    if (!holdings.length) {
-      await db.query(
-        `UPDATE document_queue SET status='dead', last_error='skipped_no_holdings', next_attempt_at=NULL, updated_at=now() WHERE id=$1`,
-        [queueId],
-      );
+    if (!parsedHoldings.length) {
+      await markQueueDead(queueId, "skipped_no_holdings");
+      logParseOutcome({
+        source_type: "sec_13f",
+        queue_id: queueId,
+        outcome: "skipped",
+        path: "institutions/13f-deterministic",
+        skip_reason: "no_holdings",
+        llm_used: false,
+        holdings_parsed: 0,
+      });
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_holdings" };
     }
 
-    const byTicker = new Map<string, typeof holdings>();
-    for (const h of holdings) {
-      const arr = byTicker.get(h.ticker) ?? [];
-      arr.push(h);
-      byTicker.set(h.ticker, arr);
-    }
+    const { mapped, stats } = await resolveHoldingsToTickers(parsedHoldings);
+    let holdings: HoldingRow[] = [];
+    let unchanged_holdings = 0;
+    let path = "institutions/13f-deterministic";
+    let llm_used = false;
+    let llm_ok: boolean | null = null;
+    let llm_model: string | null = null;
+    let activity_source: string = "share_delta";
+    let resolvedFiler = filerName;
 
-    const parsedIds: string[] = [];
-    for (const [ticker, rows] of byTicker.entries()) {
-      const contentSha256 = `${baseSha256}:${ticker}`;
-      rows.sort((a, b) => String(b.as_of_date ?? "").localeCompare(String(a.as_of_date ?? "")));
+    if (mapped.length >= 1) {
+      const attached = await attachActivities(filerName, mapped, asOf);
+      holdings = attached.rows;
+      unchanged_holdings = attached.unchanged_holdings;
+    } else if (institutionsLlmFallbackEnabled()) {
+      const { out, model, path: llmPath } = await extractInstitutionFilingLlmResidual({
+        bundleText: bundle,
+        indexUrl: primaryUrl,
+      });
+      if (!isInstitutionSchema(out)) throw new Error("llm_output_schema_mismatch");
+      llm_used = true;
+      llm_ok = true;
+      llm_model = model;
+      path = "institutions/13f-llm-residual";
+      activity_source = llmPath === "enrich" ? "llm_enrich" : "llm_full";
+      resolvedFiler = String(out.filer?.name ?? "").trim() || filerName;
 
-      const worksheet_rows = rows.map((r) => ({
-        key: filerName,
-        institution_name: filerName,
-        surname: filerName,
-        activity: r.activity,
-        amount_usd: r.value_usd,
-        shares: r.shares,
-        ts: r.as_of_date ?? formatIso(out.filing?.filed_at),
-      }));
-
-      const sumUsd = worksheet_rows.reduce((a, r) => a + (Number(r.amount_usd ?? 0) || 0), 0);
-      const feedLabel = sumUsd > 0 ? `${Math.round(sumUsd)} (${worksheet_rows.length})` : `(${worksheet_rows.length})`;
-      const feedAt =
-        worksheet_rows[0]?.ts ?? formatIso(out.filing?.filed_at) ?? new Date().toISOString();
-
-      const institutions = [filerName];
-      const data = {
-        schema_type: "institution_cluster",
-        schema_version: "v1",
-        issuer: { name: rows[0]?.issuer_name ?? null, ticker, cik: null },
-        filing: {
-          form_type: "13F",
-          accession_no: out.filing?.accession_no ?? null,
-          filed_at: formatIso(out.filing?.filed_at) ?? feedAt,
-          source: "sec_13f",
-          index_url: primaryUrl,
-        },
-        cluster: {
-          feed_label: feedLabel,
-          cluster_start_at: worksheet_rows.at(-1)?.ts ?? null,
-          cluster_end_at: worksheet_rows[0]?.ts ?? null,
-          institutions,
-          context_sentences: [],
-          worksheet_rows,
-        },
-        parse_meta: parseMeta,
-      };
-
-      const inserted = await db.one<{ id: string }>(
-        `
-        INSERT INTO documents (
-          queue_id, doc_kind, schema_version, ticker, feed_kind, source_key,
-          event_at, feed_label, url, published_at, content_sha256, data
-        )
-        VALUES (
-          $1, 'institution_cluster', 'v1', $2, 'institutions', '13F',
-          $3, $4, $5, $6, $7, $8
-        )
-        ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
-        DO UPDATE SET parsed_at = now()
-        RETURNING id
-        `,
-        [queueId, ticker, feedAt, feedLabel, primaryUrl, feedAt, contentSha256, data],
-      );
-
-      if (inserted?.id) {
-        parsedIds.push(inserted.id);
-        await syncInstitutionFilingsFromDocument(inserted.id, ticker, data);
-        void syncFeedIndexForDocument(inserted.id).catch(() => {});
+      const llmMapped: Mapped13fHolding[] = [];
+      for (const h of out.holdings ?? []) {
+        const ticker = String(h?.ticker ?? "")
+          .trim()
+          .toUpperCase()
+          .replace(/[^A-Z0-9.-]/g, "");
+        if (!ticker || ticker.length > 8) continue;
+        llmMapped.push({
+          issuer_name: h?.issuer_name != null ? String(h.issuer_name) : "Unknown",
+          cusip: h?.cusip != null ? String(h.cusip) : null,
+          title_of_class: null,
+          value_usd: h?.value_usd != null && Number.isFinite(Number(h.value_usd)) ? Number(h.value_usd) : null,
+          shares: h?.shares != null && Number.isFinite(Number(h.shares)) ? Number(h.shares) : null,
+          ticker,
+          resolve_source: "llm",
+        });
+        if (h?.cusip) void learnCusipTicker(String(h.cusip), ticker, "llm_residual");
       }
+
+      // Prefer share-delta activity even on LLM ticker residual.
+      const attached = await attachActivities(resolvedFiler, llmMapped, formatIso(out.filing?.filed_at) ?? asOf);
+      holdings = attached.rows;
+      unchanged_holdings = attached.unchanged_holdings;
+      stats.mapped = holdings.length;
+      stats.unmapped = Math.max(0, parsedHoldings.length - holdings.length);
+    } else {
+      await markQueueDead(
+        queueId,
+        `skipped_no_mapped_tickers holdings=${parsedHoldings.length}`,
+      );
+      logParseOutcome({
+        source_type: "sec_13f",
+        queue_id: queueId,
+        outcome: "skipped",
+        path: "institutions/13f-deterministic",
+        skip_reason: "no_mapped_tickers",
+        llm_used: false,
+        ...stats,
+      });
+      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_mapped_tickers" };
     }
 
-    await db.query(`UPDATE document_queue SET status='parsed', updated_at=now(), last_error=NULL WHERE id=$1`, [queueId]);
-    return { processed: true, queue_id: queueId, parsed_ids: parsedIds, ticker_count: byTicker.size };
+    if (!holdings.length) {
+      await markQueueDead(queueId, "skipped_no_holdings");
+      logParseOutcome({
+        source_type: "sec_13f",
+        queue_id: queueId,
+        outcome: "skipped",
+        path,
+        skip_reason: "no_holdings_after_resolve",
+        llm_used,
+        ...stats,
+      });
+      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_holdings" };
+    }
+
+    const parseMeta = buildParseMeta({
+      path,
+      llm_used,
+      llm_ok,
+      llm_model,
+      source_type: "sec_13f",
+      holdings_parsed: stats.holdings_parsed,
+      mapped: holdings.length,
+      unmapped: stats.unmapped,
+      cusip_hits: stats.cusip_hits,
+      name_hits: stats.name_hits,
+      activity_source,
+      unchanged_holdings,
+      unmapped_sample: stats.unmapped_sample,
+    });
+
+    const parsedIds = await persistInstitutionHoldings({
+      queueId,
+      primaryUrl,
+      baseSha256,
+      filerName: resolvedFiler,
+      accessionNo: meta.accession_no,
+      filedAt: meta.filed_at ?? meta.period_of_report,
+      holdings,
+      parseMeta,
+    });
+
+    await markQueueParsed(queueId);
+    logParseOutcome({
+      source_type: "sec_13f",
+      queue_id: queueId,
+      outcome: "parsed",
+      path,
+      llm_used,
+      ticker_count: new Set(holdings.map((h) => h.ticker)).size,
+      mapped: holdings.length,
+      unmapped: stats.unmapped,
+      holdings_parsed: stats.holdings_parsed,
+    });
+    return {
+      processed: true,
+      queue_id: queueId,
+      parsed_ids: parsedIds,
+      ticker_count: new Set(holdings.map((h) => h.ticker)).size,
+    };
   } catch (err: any) {
-    const msg = String(err?.message ?? err);
-    const attempts = await db.one<{ attempts: number }>(
-      `UPDATE document_queue SET attempts = attempts + 1 WHERE id = $1 RETURNING attempts`,
-      [queueId],
-    );
-    const n = attempts?.attempts ?? 1;
-    const backoffMinutes = Math.min(60, 2 ** Math.min(5, n));
-    const status = n >= 6 ? "dead" : "failed";
-    await db.query(
-      `
-      UPDATE document_queue
-      SET status = $2, last_error = $3, next_attempt_at = now() + ($4 || ' minutes')::interval, updated_at = now()
-      WHERE id = $1
-      `,
-      [queueId, status, msg.slice(0, 2000), String(backoffMinutes)],
-    );
+    await failQueueWithBackoff(queueId, err);
+    logParseOutcome({
+      source_type: "sec_13f",
+      queue_id: queueId,
+      outcome: "failed",
+      error: String(err?.message ?? err).slice(0, 200),
+      llm_used: null,
+    });
     return { processed: false, reason: "busy", queue_id: queueId };
   }
 }

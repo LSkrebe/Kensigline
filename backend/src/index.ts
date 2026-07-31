@@ -206,7 +206,7 @@ const server = http.createServer(async (req, res) => {
 
     if (await billingGateBlocksRequest(req, res, url)) return;
 
-    // ---- Backend stats (top bar) ----
+    // ---- Backend stats (top bar + overnight audit) ----
     if (route(req, url, "GET", "/api/stats")) {
       const uptime_s = Math.round(process.uptime());
       const sinceRaw = String(url.searchParams.get("since") ?? "").trim();
@@ -220,8 +220,52 @@ const server = http.createServer(async (req, res) => {
         GROUP BY status
         `,
       );
-      const queue: Record<string, number> = {};
-      for (const r of queueRows) queue[String(r.status)] = Number(r.count) || 0;
+      const by_status: Record<string, number> = {};
+      for (const r of queueRows) by_status[String(r.status)] = Number(r.count) || 0;
+
+      const sourceStatusRows = await db.query<{ source_type: string; status: string; count: string }>(
+        `
+        SELECT source_type, status::text AS status, COUNT(*)::text AS count
+        FROM document_queue
+        GROUP BY 1, 2
+        ORDER BY COUNT(*) DESC
+        `,
+      );
+      const by_source_status: Record<string, Record<string, number>> = {};
+      for (const r of sourceStatusRows) {
+        const st = String(r.source_type ?? "unknown");
+        const status = String(r.status);
+        if (!by_source_status[st]) by_source_status[st] = {};
+        by_source_status[st]![status] = Number(r.count) || 0;
+      }
+
+      const deadErrRows = await db.query<{ last_error: string | null; count: string }>(
+        `
+        SELECT left(COALESCE(last_error, ''), 120) AS last_error, COUNT(*)::text AS count
+        FROM document_queue
+        WHERE status = 'dead'
+          AND ($1::timestamptz IS NULL OR updated_at >= $1::timestamptz)
+        GROUP BY 1
+        ORDER BY COUNT(*) DESC
+        LIMIT 40
+        `,
+        [since],
+      );
+      const skipped: Record<string, number> = {};
+      const poison_dead: Record<string, number> = {};
+      for (const r of deadErrRows) {
+        const err = String(r.last_error ?? "(null)");
+        const n = Number(r.count) || 0;
+        if (err.startsWith("skipped_")) skipped[err] = (skipped[err] ?? 0) + n;
+        else poison_dead[err] = (poison_dead[err] ?? 0) + n;
+      }
+
+      const staleParsing = await db.one<{ n: string }>(
+        `
+        SELECT COUNT(*)::text AS n FROM document_queue
+        WHERE status = 'parsing' AND updated_at < now() - interval '15 minutes'
+        `,
+      );
 
       const parsedRows = await db.query<{ feed_kind: string | null; count: string; last_parsed_at: string | null }>(
         `
@@ -273,10 +317,55 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
+      const institutionsAgg = await db.one<{
+        deterministic_filings: string;
+        llm_residual_filings: string;
+        mapped_holdings: string;
+        unmapped_holdings: string;
+      }>(
+        `
+        SELECT
+          COUNT(*) FILTER (WHERE data->'parse_meta'->>'path' = 'institutions/13f-deterministic')::text AS deterministic_filings,
+          COUNT(*) FILTER (WHERE data->'parse_meta'->>'path' IN ('institutions/13f-llm-residual','institutions/13f-enrich','institutions/13f-full'))::text AS llm_residual_filings,
+          COALESCE(SUM(NULLIF(data->'parse_meta'->>'mapped','')::int), 0)::text AS mapped_holdings,
+          COALESCE(SUM(NULLIF(data->'parse_meta'->>'unmapped','')::int), 0)::text AS unmapped_holdings
+        FROM documents
+        WHERE feed_kind = 'institutions'
+          AND data ? 'parse_meta'
+          AND ($1::timestamptz IS NULL OR parsed_at >= $1::timestamptz)
+        `,
+        [since],
+      );
+
+      const coverage = await db.one<{
+        parsed_docs_since: string;
+        dead_skipped_since: string;
+        dead_failed_since: string;
+        ready: string;
+        failed: string;
+      }>(
+        `
+        SELECT
+          (SELECT COUNT(*)::text FROM documents WHERE $1::timestamptz IS NULL OR parsed_at >= $1::timestamptz) AS parsed_docs_since,
+          (SELECT COUNT(*)::text FROM document_queue
+             WHERE status = 'dead' AND last_error LIKE 'skipped_%'
+               AND ($1::timestamptz IS NULL OR updated_at >= $1::timestamptz)) AS dead_skipped_since,
+          (SELECT COUNT(*)::text FROM document_queue
+             WHERE status = 'dead' AND (last_error IS NULL OR last_error NOT LIKE 'skipped_%')
+               AND ($1::timestamptz IS NULL OR updated_at >= $1::timestamptz)) AS dead_failed_since,
+          (SELECT COUNT(*)::text FROM document_queue WHERE status IN ('ready_to_parse','queued')) AS ready,
+          (SELECT COUNT(*)::text FROM document_queue WHERE status = 'failed') AS failed
+        `,
+        [since],
+      );
+
+      const llm_rate = with_meta > 0 ? Number((llm_used / with_meta).toFixed(6)) : 0;
+
       sendJson(res, 200, {
         ok: true,
         uptime_s,
-        queue,
+        // Back-compat for top bar
+        queue: by_status,
         parsed,
         parse_meta: {
           since,
@@ -284,7 +373,29 @@ const server = http.createServer(async (req, res) => {
           llm_used,
           llm_ok,
           llm_fallback,
+          llm_rate,
           by_path,
+        },
+        queue_detail: {
+          by_status,
+          by_source_status,
+          skipped,
+          poison_dead,
+          stale_parsing: Number(staleParsing?.n ?? 0) || 0,
+          ready: Number(coverage?.ready ?? 0) || 0,
+          failed: Number(coverage?.failed ?? 0) || 0,
+        },
+        institutions: {
+          deterministic_filings: Number(institutionsAgg?.deterministic_filings ?? 0) || 0,
+          llm_residual_filings: Number(institutionsAgg?.llm_residual_filings ?? 0) || 0,
+          mapped_holdings: Number(institutionsAgg?.mapped_holdings ?? 0) || 0,
+          unmapped_holdings: Number(institutionsAgg?.unmapped_holdings ?? 0) || 0,
+        },
+        coverage: {
+          since,
+          parsed_docs_since: Number(coverage?.parsed_docs_since ?? 0) || 0,
+          dead_skipped_since: Number(coverage?.dead_skipped_since ?? 0) || 0,
+          dead_failed_since: Number(coverage?.dead_failed_since ?? 0) || 0,
         },
       });
       return;

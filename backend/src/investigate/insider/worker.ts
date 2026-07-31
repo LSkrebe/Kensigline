@@ -1,4 +1,4 @@
-import { enqueueCurrentForm4Feed } from "../../core/sec.js";
+import { enqueueCurrentFilingFeed, enqueueCurrentForm4Feed } from "../../core/sec.js";
 import { QUEUE_SOURCES } from "../../pipelines/registry.js";
 import { runSecDailyIndexBackfill } from "../../shared/sec-daily-backfill.js";
 import { startPipelineWorker } from "../../shared/worker.js";
@@ -21,12 +21,32 @@ export function startInsiderWorker() {
         process.env.INSIDER_CATCHUP === "1"
           ? Math.max(1, Math.min(20, Number(process.env.INSIDER_FEED_PAGES_PER_MIN_CATCHUP ?? 12)))
           : Math.max(1, Math.min(20, Number(process.env.INSIDER_FEED_PAGES_PER_MIN ?? 7)));
+      // Form 4 is the high-volume live feed; Form 3/5 get smaller page budgets.
+      const pages35 = Math.max(1, Math.min(5, Math.ceil(pages / 2)));
       await enqueueCurrentForm4Feed({ pages, pageSize: 100 });
+      await enqueueCurrentFilingFeed({
+        formType: "3",
+        pages: pages35,
+        pageSize: 100,
+        sourceType: "sec_form3",
+        priority: 9,
+      });
+      await enqueueCurrentFilingFeed({
+        formType: "5",
+        pages: pages35,
+        pageSize: 100,
+        sourceType: "sec_form5",
+        priority: 9,
+      });
     },
     enqueueBackfill: async () => {
       await runSecDailyIndexBackfill({
         pipeline: "investigate/insider",
-        forms: [{ form: "4", sourceType: "sec_form4", priority: 1 }],
+        forms: [
+          { form: "4", sourceType: "sec_form4", priority: 1 },
+          { form: "3", sourceType: "sec_form3", priority: 1 },
+          { form: "5", sourceType: "sec_form5", priority: 1 },
+        ],
       });
     },
     parseNext: async () => {

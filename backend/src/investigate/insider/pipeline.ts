@@ -4,6 +4,8 @@ import { syncInsiderTransactionsFromDocument } from "../../documents/store.js";
 import { sha256NormalizedText } from "../../core/text-hash.js";
 import { sanitizeEventAtForFeed } from "../../shared/document-activity-at.js";
 import { syncFeedIndexForDocument } from "../../shared/feed-index.js";
+import { buildParseMeta, logParseOutcome } from "../../shared/parse-meta.js";
+import { failQueueWithBackoff, markQueueDead, markQueueParsed } from "../../shared/queue.js";
 import {
   isBogusInsiderWorksheetKey,
   ownerSurname,
@@ -346,29 +348,28 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
         requirePOnly,
       });
     } else {
-      await db.query(
-        `
-        UPDATE document_queue
-        SET status = 'dead', last_error = 'skipped_low_confidence_xml', next_attempt_at = NULL, updated_at = now()
-        WHERE id = $1
-        `,
-        [queueId],
-      );
+      await markQueueDead(queueId, "skipped_low_confidence_xml");
+      logParseOutcome({
+        source_type: next.source_type,
+        queue_id: queueId,
+        outcome: "skipped",
+        path: "deterministic/insider",
+        skip_reason: "low_confidence",
+        llm_used: false,
+      });
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "low_confidence" };
     }
 
     if (!out.cluster.worksheet_rows.length) {
-      await db.query(
-        `
-        UPDATE document_queue
-        SET status = 'dead',
-            last_error = 'skipped_no_worksheet_rows',
-            next_attempt_at = NULL,
-            updated_at = now()
-        WHERE id = $1
-        `,
-        [queueId],
-      );
+      await markQueueDead(queueId, "skipped_no_worksheet_rows");
+      logParseOutcome({
+        source_type: next.source_type,
+        queue_id: queueId,
+        outcome: "skipped",
+        path: "deterministic/insider",
+        skip_reason: "no_worksheet_rows",
+        llm_used: false,
+      });
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_worksheet_rows" };
     }
 
@@ -379,6 +380,15 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
       candidate: out.cluster.cluster_end_at ?? filingAt,
       filedAt: filingAt,
     });
+
+    const data = {
+      ...out,
+      parse_meta: buildParseMeta({
+        path: "deterministic/insider",
+        llm_used: false,
+        source_type: next.source_type,
+      }),
+    };
 
     const inserted = await db.one<{ id: string }>(
       `
@@ -402,14 +412,11 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
         url,
         filingAt,
         contentSha256,
-        out,
+        data,
       ],
     );
 
-    await db.query(
-      `UPDATE document_queue SET status = 'parsed', updated_at = now(), last_error = NULL WHERE id = $1`,
-      [queueId],
-    );
+    await markQueueParsed(queueId);
 
     if (issuerName) {
       await db.query(
@@ -423,31 +430,28 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
     }
 
     if (inserted?.id && ticker) {
-      await syncInsiderTransactionsFromDocument(inserted.id, String(ticker), out);
+      await syncInsiderTransactionsFromDocument(inserted.id, String(ticker), data);
       void syncFeedIndexForDocument(inserted.id).catch(() => {});
     }
 
+    logParseOutcome({
+      source_type: next.source_type,
+      queue_id: queueId,
+      outcome: "parsed",
+      path: "deterministic/insider",
+      llm_used: false,
+      ticker,
+    });
     return { processed: true, queue_id: queueId, parsed_id: inserted?.id ?? "", feed_label: feedLabel, ticker };
   } catch (err: any) {
-    const msg = String(err?.message ?? err);
-    const attempts = await db.one<{ attempts: number }>(
-      `UPDATE document_queue SET attempts = attempts + 1 WHERE id = $1 RETURNING attempts`,
-      [queueId],
-    );
-    const n = attempts?.attempts ?? 1;
-    const backoffMinutes = Math.min(60, 2 ** Math.min(5, n));
-    const status = n >= 6 ? "dead" : "failed";
-    await db.query(
-      `
-      UPDATE document_queue
-      SET status = $2,
-          last_error = $3,
-          next_attempt_at = now() + ($4 || ' minutes')::interval,
-          updated_at = now()
-      WHERE id = $1
-      `,
-      [queueId, status, msg.slice(0, 2000), String(backoffMinutes)],
-    );
+    await failQueueWithBackoff(queueId, err);
+    logParseOutcome({
+      source_type: next.source_type,
+      queue_id: queueId,
+      outcome: "failed",
+      error: String(err?.message ?? err).slice(0, 200),
+      llm_used: false,
+    });
     return { processed: false, reason: "busy", queue_id: queueId };
   }
 }

@@ -20,7 +20,7 @@ import { prepareLlmText } from "../../core/llm-text-prep.js";
 import { LLM_BUDGETS } from "../../core/llm-budgets.js";
 import { isBackfillPriority, needsStructuredResearchLlm } from "../../shared/ingest-policy.js";
 import { normalizeSourceKey } from "../../shared/source-keys.js";
-import { buildParseMeta } from "../../shared/parse-meta.js";
+import { buildParseMeta, logParseOutcome } from "../../shared/parse-meta.js";
 import {
   attachNearDupKey,
   computeResearchNearDupKey,
@@ -193,6 +193,17 @@ async function finalizePipeline(args: {
 
   const ticker = args.out.primary_ticker?.trim().toUpperCase() ?? null;
   if (ticker) void invalidateTickerContextCache(ticker);
+
+  const meta = args.out.parse_meta;
+  logParseOutcome({
+    source_type: args.documentSourceType,
+    queue_id: args.queueId,
+    outcome: "parsed",
+    path: meta?.path ?? "template",
+    llm_used: meta?.llm_used ?? false,
+    document_id: docId,
+    ticker,
+  });
 
   return { document_id: docId };
 }

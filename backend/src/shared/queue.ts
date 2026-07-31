@@ -67,3 +67,25 @@ export async function failQueueWithBackoff(queueId: string, err: unknown): Promi
   );
   return status;
 }
+
+/**
+ * Crash/kill can leave rows stuck in `parsing` forever (claim never picks them).
+ * Reset stale ones to failed so workers reclaim them.
+ */
+export async function reclaimStaleParsing(opts?: { olderThanMinutes?: number }): Promise<number> {
+  const minutes = Math.max(1, Math.min(24 * 60, Math.floor(opts?.olderThanMinutes ?? 15)));
+  const rows = await db.query<{ id: string }>(
+    `
+    UPDATE document_queue
+    SET status = 'failed',
+        last_error = 'reclaimed_stale_parsing',
+        next_attempt_at = now(),
+        updated_at = now()
+    WHERE status = 'parsing'
+      AND updated_at < now() - ($1 || ' minutes')::interval
+    RETURNING id
+    `,
+    [String(minutes)],
+  );
+  return rows.length;
+}

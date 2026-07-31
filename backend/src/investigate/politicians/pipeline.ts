@@ -7,6 +7,8 @@ import {
 } from "../../core/senate.js";
 import { syncPoliticianTransactionsFromDocument } from "../../documents/store.js";
 import { syncFeedIndexForDocument } from "../../shared/feed-index.js";
+import { buildParseMeta, logParseOutcome } from "../../shared/parse-meta.js";
+import { failQueueWithBackoff, markQueueDead, markQueueParsed } from "../../shared/queue.js";
 import { createHash } from "node:crypto";
 import { extractPdfTextWithFallback } from "../../core/pdf.js";
 import { createRequire } from "node:module";
@@ -51,26 +53,43 @@ type PoliticianFiling = {
   context_sentences: string[];
 };
 
+function sanitizeBrokenUnicodeEscapes(raw: string): string {
+  // JSON.parse throws "unsupported Unicode escape sequence" on truncated \uXXXX.
+  return String(raw ?? "").replace(/\\u([0-9a-fA-F]{0,4})(?![0-9a-fA-F])/g, (full, hex: string) => {
+    if (hex.length === 4) return full;
+    return "";
+  });
+}
+
 function extractJsonObject(text: string): any {
   const require = createRequire(import.meta.url);
-  let raw = String(text ?? "").trim();
+  let raw = sanitizeBrokenUnicodeEscapes(String(text ?? "").trim());
   if (!raw) throw new Error("empty_llm_response");
   raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  const tryParse = (s: string) => JSON.parse(sanitizeBrokenUnicodeEscapes(s));
   try {
-    return JSON.parse(raw);
-  } catch {
+    return tryParse(raw);
+  } catch (e1) {
     const start = raw.indexOf("{");
     const end = raw.lastIndexOf("}");
     if (start >= 0 && end > start) {
       const sub = raw.slice(start, end + 1);
       try {
-        return JSON.parse(sub);
+        return tryParse(sub);
       } catch {
-        const { jsonrepair } = require("jsonrepair");
-        const repaired = String(jsonrepair(sub)).replace(/\u0000/g, "");
-        return JSON.parse(repaired);
+        try {
+          const { jsonrepair } = require("jsonrepair");
+          const repaired = sanitizeBrokenUnicodeEscapes(String(jsonrepair(sub)).replace(/\u0000/g, ""));
+          return tryParse(repaired);
+        } catch (e2) {
+          const msg = String((e2 as Error)?.message ?? (e1 as Error)?.message ?? e2);
+          if (/unicode escape/i.test(msg)) throw new Error("poison_invalid_unicode_escape");
+          throw new Error("llm_output_not_json");
+        }
       }
     }
+    const msg = String((e1 as Error)?.message ?? e1);
+    if (/unicode escape/i.test(msg)) throw new Error("poison_invalid_unicode_escape");
     throw new Error("llm_output_not_json");
   }
 }
@@ -306,6 +325,11 @@ async function persistPoliticianFiling(opts: {
           : [],
         worksheet_rows,
       },
+      parse_meta: buildParseMeta({
+        path: `deterministic/${source}`,
+        llm_used: false,
+        source_type: source,
+      }),
     };
 
     const inserted = await db.one<{ id: string }>(
@@ -382,16 +406,29 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
       [contentSha256],
     );
     if (existing?.id) {
-      await db.query(`UPDATE document_queue SET status='parsed', updated_at=now(), last_error=NULL WHERE id=$1`, [queueId]);
+      await markQueueParsed(queueId, "duplicate_sha");
+      logParseOutcome({
+        source_type: source,
+        queue_id: queueId,
+        outcome: "parsed",
+        path: `deterministic/${source}`,
+        llm_used: false,
+        note: "duplicate_sha",
+      });
       return { processed: true, queue_id: queueId, parsed_ids: [existing.id], ticker_count: 1 };
     }
 
     const txRows = filterReportableStockTransactions(filing.transactions);
     if (!txRows.length) {
-      await db.query(
-        `UPDATE document_queue SET status='dead', last_error='skipped_no_reportable_transactions', next_attempt_at=NULL, updated_at=now() WHERE id=$1`,
-        [queueId],
-      );
+      await markQueueDead(queueId, "skipped_no_reportable_transactions");
+      logParseOutcome({
+        source_type: source,
+        queue_id: queueId,
+        outcome: "skipped",
+        path: `deterministic/${source}`,
+        skip_reason: "no_reportable_transactions",
+        llm_used: false,
+      });
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_reportable_transactions" };
     }
 
@@ -407,35 +444,50 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
     });
 
     if (!parsedIds.length) {
-      await db.query(
-        `UPDATE document_queue SET status='dead', last_error='skipped_missing_tickers', next_attempt_at=NULL, updated_at=now() WHERE id=$1`,
-        [queueId],
-      );
+      await markQueueDead(queueId, "skipped_missing_tickers");
+      logParseOutcome({
+        source_type: source,
+        queue_id: queueId,
+        outcome: "skipped",
+        path: `deterministic/${source}`,
+        skip_reason: "missing_tickers",
+        llm_used: false,
+      });
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "missing_tickers" };
     }
 
-    await db.query(`UPDATE document_queue SET status='parsed', updated_at=now(), last_error=NULL WHERE id=$1`, [queueId]);
+    await markQueueParsed(queueId);
+    logParseOutcome({
+      source_type: source,
+      queue_id: queueId,
+      outcome: "parsed",
+      path: `deterministic/${source}`,
+      llm_used: false,
+      ticker_count: parsedIds.length,
+    });
     return { processed: true, queue_id: queueId, parsed_ids: parsedIds, ticker_count: parsedIds.length };
   } catch (err: any) {
     const msg = String(err?.message ?? err);
-    const attempts = await db.one<{ attempts: number }>(
-      `UPDATE document_queue SET attempts = attempts + 1 WHERE id = $1 RETURNING attempts`,
-      [queueId],
-    );
-    const n = attempts?.attempts ?? 1;
-    const backoffMinutes = Math.min(60, 2 ** Math.min(5, n));
-    const status = n >= 6 ? "dead" : "failed";
-    await db.query(
-      `
-      UPDATE document_queue
-      SET status = $2,
-          last_error = $3,
-          next_attempt_at = now() + ($4 || ' minutes')::interval,
-          updated_at = now()
-      WHERE id = $1
-      `,
-      [queueId, status, msg.slice(0, 2000), String(backoffMinutes)],
-    );
+    // Permanent poison — don't burn retries on broken unicode payloads.
+    if (/poison_|house_ptr_low_confidence|oge_278t_low_confidence/i.test(msg)) {
+      await markQueueDead(queueId, msg.slice(0, 2000));
+      logParseOutcome({
+        source_type: source,
+        queue_id: queueId,
+        outcome: "dead",
+        error: msg.slice(0, 200),
+        llm_used: false,
+      });
+      return { processed: false, reason: "busy", queue_id: queueId };
+    }
+    await failQueueWithBackoff(queueId, err);
+    logParseOutcome({
+      source_type: source,
+      queue_id: queueId,
+      outcome: "failed",
+      error: msg.slice(0, 200),
+      llm_used: false,
+    });
     return { processed: false, reason: "busy", queue_id: queueId };
   }
 }

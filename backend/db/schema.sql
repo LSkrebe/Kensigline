@@ -220,6 +220,16 @@ CREATE TABLE institution_filings_13f (
 CREATE INDEX institution_filings_13f_ticker_at_idx
   ON institution_filings_13f (ticker, filed_at DESC);
 
+-- Learned CUSIP → US equity ticker (populated by deterministic 13F resolve).
+CREATE TABLE cusip_ticker_map (
+  cusip text PRIMARY KEY,
+  ticker text NOT NULL,
+  source text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX cusip_ticker_map_ticker_idx ON cusip_ticker_map (ticker);
+
 -- --- Bars ---
 CREATE TABLE bars (
   ticker text NOT NULL,
