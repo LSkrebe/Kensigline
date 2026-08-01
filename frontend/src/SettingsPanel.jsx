@@ -201,6 +201,9 @@ export function SettingsPanel({
 }) {
   const { configured, loading, user, signOut } = useAuth()
   const [portalBusy, setPortalBusy] = useState(false)
+  const [supportMessage, setSupportMessage] = useState('')
+  const [supportBusy, setSupportBusy] = useState(false)
+  const [supportStatus, setSupportStatus] = useState(null)
   const [billing, setBilling] = useState(null)
   const [billingLoading, setBillingLoading] = useState(false)
   const signedIn = Boolean(configured && !loading && user)
@@ -292,6 +295,32 @@ export function SettingsPanel({
       window.location.href = res.data.url
     }
   }, [])
+
+  const onSendSupport = useCallback(async () => {
+    const message = supportMessage.trim()
+    if (!message || supportBusy) return
+    setSupportBusy(true)
+    setSupportStatus(null)
+    const res = await fetchJsonSafe('/api/support/contact', {
+      method: 'POST',
+      timeoutMs: 20000,
+      body: { message },
+    })
+    setSupportBusy(false)
+    if (res.ok) {
+      setSupportMessage('')
+      setSupportStatus({ ok: true, text: 'Sent — we will reply by email.' })
+      return
+    }
+    const err = String(res.data?.error ?? res.error ?? 'send_failed')
+    const text =
+      err === 'rate_limited'
+        ? 'Too many messages today. Try again tomorrow.'
+        : err === 'message_required'
+          ? 'Write a message first.'
+          : 'Could not send. Try again in a moment.'
+    setSupportStatus({ ok: false, text })
+  }, [supportBusy, supportMessage])
 
   useEffect(() => {
     if (!signedIn) {
@@ -402,6 +431,43 @@ export function SettingsPanel({
 
       <SettingsSection label="Billing" title="Invoices">
         <p className="stgEmpty">{INVOICES_EMPTY_HINT}</p>
+      </SettingsSection>
+
+      <SettingsSection label="Support" title="Talk to the founders">
+        <textarea
+          className="stgSupportTextarea mono"
+          rows={3}
+          maxLength={4000}
+          placeholder="Bug, billing, or idea…"
+          value={supportMessage}
+          onChange={(e) => {
+            setSupportMessage(e.target.value)
+            if (supportStatus) setSupportStatus(null)
+          }}
+          aria-label="Message to founders"
+        />
+        <div className="stgSupportActions">
+          <p
+            className={[
+              'stgSupportHint mono',
+              supportStatus?.ok === true ? 'isOk' : '',
+              supportStatus?.ok === false ? 'isBad' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            role={supportStatus ? 'status' : undefined}
+          >
+            {supportStatus ? supportStatus.text : 'We reply by email'}
+          </p>
+          <button
+            type="button"
+            className="stgBtn"
+            disabled={supportBusy || !supportMessage.trim()}
+            onClick={() => void onSendSupport()}
+          >
+            {supportBusy ? 'Sending…' : 'Send'}
+          </button>
+        </div>
       </SettingsSection>
     </SettingsPageShell>
   )

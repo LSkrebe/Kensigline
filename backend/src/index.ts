@@ -38,6 +38,7 @@ import { startAllWorkers, stopAllWorkers } from "./server/workers.js";
 import { handleAlertsPreferencesGet, handleAlertsPreferencesPatch } from "./alerts/api.js";
 import { handleAlertsWatchlistGet, handleAlertsWatchlistPatch } from "./alerts/watchlist-api.js";
 import { handleAlertsActorWatchlistGet, handleAlertsActorWatchlistPatch } from "./alerts/actor-watchlist-api.js";
+import { handleSupportContact } from "./support/api.js";
 import { getSecTickerTitleMap } from "./core/sec.js";
 
 const port = Number(process.env.PORT ?? "3001");
@@ -123,6 +124,15 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       sendJson(res, 200, { ok: true, user });
+      return;
+    }
+
+    if (route(req, url, "POST", "/api/support/contact")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleSupportContact(req, res);
       return;
     }
 

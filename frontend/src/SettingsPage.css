@@ -349,6 +349,58 @@
   cursor: default;
 }
 
+.stgSupportTextarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 10px 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
+  background: rgba(0, 0, 0, 0.28);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 8px 10px;
+  outline: none;
+  resize: vertical;
+  min-height: 64px;
+}
+
+.stgSupportTextarea:focus {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.stgSupportTextarea::placeholder {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.stgSupportActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin: 10px 0 8px;
+}
+
+.stgSupportHint {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.38);
+  text-align: left;
+}
+
+.stgSupportHint.isOk {
+  color: var(--stg-up);
+}
+
+.stgSupportHint.isBad {
+  color: var(--stg-down);
+}
+
 .stgEmpty {
   margin: 0;
   padding: 20px 14px 22px;

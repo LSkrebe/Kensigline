@@ -331,6 +331,7 @@ export async function sendBrevoEmail(opts: {
   htmlContent: string;
   textContent: string;
   logTag: string;
+  replyTo?: { email: string; name?: string } | null;
 }): Promise<boolean> {
   const apiKey = String(process.env.BREVO_API_KEY ?? "").trim();
   const fromRaw = String(process.env.ALERT_EMAIL_FROM ?? "Mercerline <alerts@mercerline.com>").trim();
@@ -340,6 +341,20 @@ export async function sendBrevoEmail(opts: {
   }
 
   const sender = parseFromAddress(fromRaw);
+  const payload: Record<string, unknown> = {
+    sender,
+    to: [{ email: opts.to }],
+    subject: opts.subject,
+    htmlContent: opts.htmlContent,
+    textContent: opts.textContent,
+  };
+  if (opts.replyTo?.email) {
+    payload.replyTo = {
+      email: opts.replyTo.email,
+      ...(opts.replyTo.name ? { name: opts.replyTo.name } : {}),
+    };
+  }
+
   const r = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
@@ -347,13 +362,7 @@ export async function sendBrevoEmail(opts: {
       accept: "application/json",
       "content-type": "application/json",
     },
-    body: JSON.stringify({
-      sender,
-      to: [{ email: opts.to }],
-      subject: opts.subject,
-      htmlContent: opts.htmlContent,
-      textContent: opts.textContent,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!r.ok) {
