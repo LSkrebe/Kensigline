@@ -10,23 +10,23 @@ import {
 export const PRODUCT_NAME = 'Mercerline'
 
 export const INTRO_PAGE_META = {
-  title: 'Mercerline - Research terminal for US equity catalysts',
+  title: 'Mercerline - Track insider, PTR, and 13F disclosures',
   description:
-    'US equities research terminal with a daily recap, company and investor dossiers, and macro calendar. SEC filings, Form 4, PTR, 13F, and earnings transcripts in context.',
+    'Mercerline tracks Form 4, House/Senate PTR, and 13F disclosures for US equities — daily recap, investor dossiers, and company context when a filing clears.',
   path: '/',
   ogImage: '/og-image.png',
 }
 
 export const SUBSCRIBE_PAGE_META = {
-  title: 'Subscribe to Mercerline - US equities research terminal',
-  description: `Subscribe to Mercerline from ${formatUsd(MONTHLY_PRICE_USD)}/mo. Full access to the daily recap, company and investor dossiers, Form 4, PTR, 13F filings, and macro calendar.`,
+  title: 'Subscribe to Mercerline - Insider disclosure tracking',
+  description: `Subscribe to Mercerline from ${formatUsd(MONTHLY_PRICE_USD)}/mo. Track Form 4, PTR, and 13F disclosures with investor dossiers, company context, and a daily recap.`,
   path: '/subscribe',
   ogImage: '/og-image.png',
 }
 
 export const SIGN_IN_PAGE_META = {
   title: 'Sign in - Mercerline',
-  description: 'Sign in to Mercerline to open the research terminal.',
+  description: 'Sign in to Mercerline to open your disclosure workspace.',
   path: '/sign-in',
   ogImage: '/og-image.png',
 }
@@ -34,12 +34,12 @@ export const SIGN_IN_PAGE_META = {
 export const SIGN_IN = {
   eyebrow: 'Welcome back',
   headline: 'Sign in',
-  lead: 'Access your terminal. New here? Create an account in the same form.',
+  lead: 'Open your disclosure workspace. New here? Create an account in the same form.',
 }
 
 export const INTRO_FOOTER = {
   nfa: 'Not investment advice',
-  tagline: 'Research terminal for US equities.',
+  tagline: 'See who filed before the market does.',
   links: [
     { id: 'product', label: 'Product', href: '#product' },
     { id: 'faq', label: 'FAQ', href: '#faq' },
@@ -48,13 +48,44 @@ export const INTRO_FOOTER = {
 }
 
 export const HERO = {
-  eyebrow: 'US Equities Research',
+  eyebrow: 'US equity disclosures',
   brand: 'Mercerline',
-  headline: 'See today\'s catalysts first.',
-  lead: `Daily recap, company and investor dossiers on one timeline from ${formatUsd(MONTHLY_PRICE_USD)}/mo.`,
+  headline: 'See who filed before the timeline moves.',
+  lead: `A focused workspace to track insider, politician, and fund filings on US equities as they clear, from ${formatUsd(MONTHLY_PRICE_USD)}/mo.`,
   ctaPrimary: 'Get started',
   ctaSecondary: 'See product',
-  note: 'SEC Filings, Form 4, PTR, 13F, Earnings Transcripts',
+  note: 'Open the investor behind each filing when it matters',
+}
+
+/**
+ * FOMO origin beat — concrete PTR story that explains why the niche exists.
+ * Portrait: United States Congress bioguide photo (P000197).
+ */
+export const ORIGIN_STORY = {
+  kicker: 'Why this exists',
+  title: 'The NVDA disclosure everyone saw too late',
+  lead: [
+    { text: 'Nov 22, 2023', tone: 'date' },
+    { text: ': a House PTR showed Paul Pelosi buying NVIDIA call options in the ' },
+    { text: '$1M–$5M', tone: 'money' },
+    { text: ' band. Twelve months later NVDA was up ' },
+    { text: '~+200%', tone: 'up' },
+    { text: ' — and most people only found out from a viral screenshot.' },
+  ],
+  person: {
+    name: 'Nancy Pelosi',
+    chamber: 'U.S. House',
+    filing: 'Periodic Transaction Report',
+    photoUrl: 'https://unitedstates.github.io/images/congress/225x275/P000197.jpg',
+    photoAlt: 'Portrait of Nancy Pelosi',
+  },
+  trade: {
+    filed: 'Nov 22, 2023',
+    detail: 'NVDA calls, $1–5M',
+    outcome: '+~200% / 12mo',
+  },
+  closer:
+    'Mercerline exists for that gap: see the disclosure when it clears, open the investor dossier, and keep Form 4, PTR, and 13F on one rail.',
 }
 
 const SHOT_SIZES =
@@ -75,7 +106,14 @@ function shotMeta(name, alt) {
 
 /** Marketing product screenshots (1440×900 @2x captures). */
 export const MARKETING_SHOTS = {
-  hero: shotMeta('hero', 'Mercerline Explore home with daily recap and company directory'),
+  hero: shotMeta(
+    'hero',
+    'Mercerline Explore home with daily recap and investors directory above companies',
+  ),
+  deepInvestor: shotMeta(
+    'deep-investor',
+    'Mercerline investor dossier for Nancy Pelosi with PTR trades and track-record chart',
+  ),
   deepCompany: shotMeta(
     'deep-company',
     'Mercerline company dossier with price chart, fundamentals, and financial model',
@@ -98,45 +136,52 @@ export const INTRO_SCREENSHOTS = {
 
 export const PILLARS = [
   {
+    id: 'investors',
+    title: 'Investor dossiers first',
+    body: 'Open a filer — insider, politician, or institution — and stay on one rail of disclosures, related tickers, and outcomes.',
+  },
+  {
     id: 'recap',
-    title: 'Daily recap',
-    body: 'The filings and flow that cleared the bar, assembled each session — not another alert firehose.',
+    title: 'Daily disclosure recap',
+    body: 'Form 4, PTR, and 13F flow that cleared the bar, assembled each session so you start from what actually filed.',
   },
   {
-    id: 'dossiers',
-    title: 'Deep dossiers',
-    body: 'Open a company or investor and stay on one paper rail: filings, insiders, politicians, 13F, outcomes.',
-  },
-  {
-    id: 'macro',
-    title: 'Macro beside equities',
-    body: 'US, EU, UK, and China calendar releases with impact tags — without leaving the equity workflow.',
+    id: 'companies',
+    title: 'Company context on demand',
+    body: 'Jump from a disclosure into the issuer — price, filings, and fundamentals — only when the ticker deserves it.',
   },
 ]
 
 export const PRODUCT = {
   kicker: 'Product',
-  title: 'Built around how catalyst research actually runs',
-  lead: 'Explore first. Drill when something matters. Macro when the calendar moves.',
+  title: 'Built around who filed',
+  lead: 'Start with the disclosure. Drill the investor. Open the company only when the name matters.',
 }
 
 export const SOURCES = {
   kicker: 'Coverage',
-  title: 'Sources that matter for US equities',
+  title: 'What we track',
   items: [
-    'SEC EDGAR',
     'Form 4',
-    'House / Senate / Executive PTR',
+    'House PTR',
+    'Senate PTR',
+    'Executive PTR',
     '13F',
+    'SEC EDGAR',
     'Earnings Transcripts',
-    'Press & 8-K',
-    'Macro US, EU, UK, CN',
+    'Press',
+    '8-K',
+    'Macro US',
+    'Macro EU',
+    'Macro UK',
+    'Macro CN',
   ],
 }
 
 export const PLAN_FEATURES = [
-  'Explore home with daily recap and directories',
-  'Company and investor dossiers',
+  'Explore home with daily disclosure recap',
+  'Investor dossiers (Form 4, PTR, 13F)',
+  'Company dossiers when you need issuer context',
   'Macro calendar across four regions',
   'Historical outcomes on similar setups',
   'Settings and self-serve billing',
@@ -144,12 +189,12 @@ export const PLAN_FEATURES = [
 
 export const INTRO_FAQ = [
   {
-    q: 'Is Mercerline a Bloomberg replacement?',
-    a: 'No. It is a focused terminal for catalyst equities — recap, dossiers, and flow — not a full market-data desk.',
+    q: 'What is Mercerline for?',
+    a: 'Tracking US equity disclosures — insider Form 4, politician PTR, and institution 13F — with investor dossiers and company context when you need it.',
   },
   {
     q: 'What do I get on day one?',
-    a: 'Full access to Explore, company and investor dossiers, and the macro calendar.',
+    a: 'Full access to Explore, investor and company dossiers, and the macro calendar.',
   },
   {
     q: 'Can I cancel?',
@@ -163,7 +208,7 @@ export const INTRO_FAQ = [
 
 export const PRICING = {
   kicker: 'Pricing',
-  title: 'Simple pricing. Full terminal.',
+  title: 'Simple pricing. Full access.',
   sub: `Most members choose yearly and save ${formatUsd(YEARLY_SAVE_USD)}.`,
   monthlyNote: 'Billed monthly, cancel anytime',
   yearlyNote: 'Billed annually',
@@ -181,15 +226,15 @@ export const SUBSCRIBE_FOOTER = {
 export const SUBSCRIBE = {
   eyebrow: 'Subscribe',
   headline: 'Choose your plan',
-  lead: 'Full access from day one.',
+  lead: 'Full disclosure access from day one.',
   reassurance: 'Secure Stripe checkout. Cancel anytime.',
 }
 
 /** Product plane under plans — frames the investors directory screenshot. */
 export const SUBSCRIBE_PREVIEW = {
   kicker: 'What you unlock',
-  title: 'Full Mercerline terminal for US equity catalyst research',
-  lead: 'Every plan includes Explore with company and investor directories, deep dossiers for both, and the macro calendar from day one.',
+  title: 'Everything you need to track disclosures',
+  lead: 'Every plan includes Explore with investor directories first, deep investor and company dossiers, and the macro calendar from day one.',
   pillars: [
     {
       id: 'directory',
@@ -198,13 +243,13 @@ export const SUBSCRIBE_PREVIEW = {
     },
     {
       id: 'dossiers',
-      title: 'Company dossiers',
-      body: 'Open a ticker for price history, fundamentals, financial model, and related filings on a single page.',
+      title: 'Investor dossiers',
+      body: 'Open a filer for the disclosure trail, related tickers, and track-record outcomes on a single page.',
     },
     {
       id: 'explore',
       title: 'Explore',
-      body: 'Start each session from the daily recap of filings and flow that cleared the bar, then drill when it matters.',
+      body: 'Start each session from the daily disclosure recap, then drill when a filing clears the bar.',
     },
   ],
 }
@@ -212,11 +257,11 @@ export const SUBSCRIBE_PREVIEW = {
 export const SUBSCRIBE_FAQ = [
   {
     q: 'Can I switch monthly and yearly later?',
-    a: 'Yes. Change plans anytime from billing settings inside the Mercerline terminal.',
+    a: 'Yes. Change plans anytime from billing settings in Mercerline.',
   },
   {
     q: 'What happens after I pay?',
-    a: 'You land in Explore with company dossiers, the investors directory, and the macro calendar unlocked.',
+    a: 'You land in Explore with investor dossiers, company context, and the macro calendar unlocked.',
   },
   {
     q: 'Why choose yearly?',

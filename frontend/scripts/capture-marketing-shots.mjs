@@ -1,4 +1,4 @@
-/** Capture marketing terminal screenshots (1440×900 @2x → 2880×1800), same as intro hero. */
+/** Capture marketing terminal screenshots (1440×900 @2x → 2880×1800). */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -13,11 +13,23 @@ const DEVICE_SCALE = 2
 
 const SHOTS = [
   {
+    name: 'hero',
+    path: '/explore?capture=1',
+    waitFor: '.exploreDirectoryList, .explorePage',
+    settleMs: 1100,
+  },
+  {
+    name: 'deep-investor',
+    path: '/explore/investors/nancy-pelosi?capture=1',
+    waitFor: '.drpt-sectionTitle, .drpt-scroll',
+    settleMs: 1200,
+    chartRange: '1Y',
+  },
+  {
     name: 'deep-company',
     path: '/explore/companies/ASML?capture=1',
     waitFor: '.drpt-sectionTitle',
     settleMs: 900,
-    /** Select chart range before capture (e.g. '1Y'). */
     chartRange: '1Y',
   },
   {
@@ -36,7 +48,6 @@ async function selectChartRange(page, range) {
     `.drpt-chartRange .researchPriceRangeBtn.isActive:text-is("${range}")`,
     { timeout: 10_000 },
   )
-  // Let the chart re-render after range change
   await page.waitForTimeout(400)
 }
 
@@ -46,7 +57,6 @@ async function captureOne(page, shot) {
   await page.waitForSelector('.terminalShell', { timeout: 30_000 })
   await page.waitForSelector(shot.waitFor, { timeout: 30_000 })
   if (shot.chartRange) await selectChartRange(page, shot.chartRange)
-  // Expanded deep header / directory list — start at top
   await page.evaluate(() => {
     const scroller =
       document.querySelector('.drpt-scroll') ||

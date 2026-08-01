@@ -6,6 +6,7 @@ import {
   INTRO_FAQ,
   INTRO_FOOTER,
   INTRO_PAGE_META,
+  ORIGIN_STORY,
   PILLARS,
   PRODUCT,
   SOURCES,
@@ -105,6 +106,7 @@ export function IntroPage() {
       <main>
         <section className="lpHero">
           <p className="lpEyebrow">{HERO.eyebrow}</p>
+          <p className="lpHeroBrand">{HERO.brand}</p>
           <h1 className="lpHeroTitle">{HERO.headline}</h1>
           <p className="lpHeroLead">{HERO.lead}</p>
           <div className="lpHeroActions">
@@ -124,6 +126,61 @@ export function IntroPage() {
           </div>
         </section>
 
+        <section className="lpStory" aria-labelledby="lp-story-title">
+          <div className="lpStoryInner">
+            <div className="lpStoryCopy">
+              <p className="lpEyebrow">{ORIGIN_STORY.kicker}</p>
+              <h2 id="lp-story-title" className="lpSectionTitle">
+                {ORIGIN_STORY.title}
+              </h2>
+              <p className="lpStoryLead">
+                {ORIGIN_STORY.lead.map((part, i) =>
+                  part.tone === 'up' ? (
+                    <span key={i} className="lpStoryMark lpStoryMark--up">
+                      {part.text}
+                    </span>
+                  ) : (
+                    <span key={i}>{part.text}</span>
+                  ),
+                )}
+              </p>
+              <p className="lpStoryCloser">{ORIGIN_STORY.closer}</p>
+            </div>
+            <aside className="lpStoryCard">
+              <div className="lpStoryPerson">
+                <img
+                  className="lpStoryPhoto"
+                  src={ORIGIN_STORY.person.photoUrl}
+                  alt={ORIGIN_STORY.person.photoAlt}
+                  width={112}
+                  height={137}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div className="lpStoryPersonMeta">
+                  <p className="lpStoryPersonName">{ORIGIN_STORY.person.name}</p>
+                  <p className="lpStoryPersonChamber">{ORIGIN_STORY.person.chamber}</p>
+                  <p className="lpStoryPersonFiling">{ORIGIN_STORY.person.filing}</p>
+                </div>
+              </div>
+              <dl className="lpStoryTrade">
+                <div className="lpStoryTradeRow">
+                  <dt>Filed</dt>
+                  <dd className="lpStoryTradeValue--date">{ORIGIN_STORY.trade.filed}</dd>
+                </div>
+                <div className="lpStoryTradeRow">
+                  <dt>Trade</dt>
+                  <dd className="lpStoryTradeValue--money">{ORIGIN_STORY.trade.detail}</dd>
+                </div>
+                <div className="lpStoryTradeRow">
+                  <dt>Move</dt>
+                  <dd className="lpStoryTradeValue--up">{ORIGIN_STORY.trade.outcome}</dd>
+                </div>
+              </dl>
+            </aside>
+          </div>
+        </section>
+
         <section id="product" className="lpSection">
           <div className="lpSectionHead">
             <p className="lpEyebrow">{PRODUCT.kicker}</p>
@@ -140,9 +197,9 @@ export function IntroPage() {
           </ul>
         </section>
 
-        <section className="lpShot" aria-label="Company dossier preview">
+        <section className="lpShot" aria-label="Investor dossier preview">
           <div className="lpShotFrame">
-            <IntroTerminalPreview shot="deepCompany" staticResearch />
+            <IntroTerminalPreview shot="deepInvestor" staticResearch />
           </div>
         </section>
 
@@ -174,7 +231,7 @@ export function IntroPage() {
         </section>
 
         <section className="lpCtaBand">
-          <h2 className="lpCtaTitle">Open the terminal</h2>
+          <h2 className="lpCtaTitle">Start tracking disclosures</h2>
           <p className="lpCtaLead">Full access from day one. Cancel anytime.</p>
           <a className="lpBtn lpBtn--primary" href="/sign-in" onClick={goToSignIn}>
             {HERO.ctaPrimary}

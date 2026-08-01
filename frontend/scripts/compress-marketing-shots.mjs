@@ -8,9 +8,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const introDir = join(__dirname, '..', 'public', 'intro')
 const widths = [768, 1200, 2400]
 
-const names = (process.env.SHOT ? [process.env.SHOT] : ['deep-company', 'investors-directory']).filter(
-  Boolean,
-)
+const names = (
+  process.env.SHOT
+    ? [process.env.SHOT]
+    : ['hero', 'deep-investor', 'deep-company', 'investors-directory']
+).filter(Boolean)
 
 async function compressOne(name) {
   const src = join(introDir, `${name}.png`)

@@ -140,18 +140,6 @@ export function ExplorePage({
         <div ref={spacerRef} className="exploreRecapCollapseSpacer" aria-hidden="true" />
         <div className="explorePageBody">
         <ExploreDirectorySection
-          title="Companies"
-          kicker="Latest"
-          onOpen={() => navigateExploreCompanies()}
-        >
-          <ul className="exploreDirectoryList">
-            {directoryPreview.companies.map((row) => (
-              <ExploreDirectoryCompanyRow key={row.id} row={row} onClick={onCompanyRowClick} />
-            ))}
-          </ul>
-        </ExploreDirectorySection>
-
-        <ExploreDirectorySection
           title="Investors"
           kicker="Latest"
           onOpen={() => navigateExploreInvestors()}
@@ -159,6 +147,18 @@ export function ExplorePage({
           <ul className="exploreDirectoryList">
             {directoryPreview.investors.map((row) => (
               <ExploreDirectoryInvestorRow key={row.id} row={row} onClick={onInvestorRowClick} />
+            ))}
+          </ul>
+        </ExploreDirectorySection>
+
+        <ExploreDirectorySection
+          title="Companies"
+          kicker="Latest"
+          onOpen={() => navigateExploreCompanies()}
+        >
+          <ul className="exploreDirectoryList">
+            {directoryPreview.companies.map((row) => (
+              <ExploreDirectoryCompanyRow key={row.id} row={row} onClick={onCompanyRowClick} />
             ))}
           </ul>
         </ExploreDirectorySection>

@@ -2,6 +2,7 @@ import { Fragment, forwardRef, memo, useCallback, useEffect, useLayoutEffect, us
 import { toBlob } from 'html-to-image'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
+import { isCaptureMode } from './captureMode.js'
 import { useAlertWatchlist } from './alertsWatchlist.js'
 import { useActorAlertWatchlist } from './alertsActorWatchlist.js'
 import { investigateActorCanonicalKey } from './investigateActorKey.js'
@@ -1044,8 +1045,12 @@ function investigateActorDetailFromCaseRow(r, mode) {
 }
 
 function investigateActorTxnEntryFromCompanyRow(companyRow, sheetRow, mode) {
-  const ticker = String(companyRow?.ticker ?? '').trim().toUpperCase()
-  const company = String(companyRow?.company ?? companyRow?.caseSheet?.issuer ?? '').trim()
+  const ticker = String(sheetRow?.assetTicker ?? companyRow?.ticker ?? '')
+    .trim()
+    .toUpperCase()
+  const company = String(
+    sheetRow?.assetName ?? companyRow?.company ?? companyRow?.caseSheet?.issuer ?? '',
+  ).trim()
   return {
     sheetRow,
     ticker,
@@ -4398,21 +4403,46 @@ function politicianCaseForRowIndex(i) {
   const nPeople = 1
   const people = [primaryPolitician]
   const chamber = i % 5 === 0 ? 'senate' : i % 7 === 0 ? 'executive' : 'house'
-  const rows = (base?.caseSheet?.rows ?? []).map((r, idx) => {
+  const showcasePelosi = primaryPolitician === 'Nancy Pelosi'
+  const sourceRows = showcasePelosi
+    ? Array.from({ length: 18 }, (_, k) => {
+        const ts = new Date()
+        // Keep denser activity inside ~1Y so capture charts / metrics look populated.
+        ts.setDate(ts.getDate() - (4 + k * 18 + ((i * 3 + k) % 5)))
+        ts.setHours(10 + (k % 6), (k * 7) % 50, 0, 0)
+        return {
+          ...(base?.caseSheet?.rows?.[k % Math.max(1, base?.caseSheet?.rows?.length ?? 1)] ?? {}),
+          amountUsd: Math.round(95_000 + seededJitter(i * 41 + k * 17, 480_000)),
+          ts: ts.toISOString(),
+        }
+      })
+    : (base?.caseSheet?.rows ?? [])
+  const rows = sourceRows.map((r, idx) => {
     const who = people[idx % people.length]
     const surname = lastName(who)
-    const transactionType = PTR_TXN_CODES_CYCLE[(i + idx) % PTR_TXN_CODES_CYCLE.length]
+    // Alternate buy/sell so track-record charts realize multiple round trips.
+    const transactionType = showcasePelosi
+      ? (idx % 2 === 1 ? 'S' : 'P')
+      : PTR_TXN_CODES_CYCLE[(i + idx) % PTR_TXN_CODES_CYCLE.length]
     const amountRange = PTR_AMOUNT_RANGES_MOCK[(i + idx * 2) % PTR_AMOUNT_RANGES_MOCK.length]
     const amountUsd = Number(r?.amountUsd ?? 0)
+    const tickers = ['NVDA', 'NVDA', 'NVDA', 'AAPL', 'MSFT', 'NVDA']
+    const showcaseTicker = tickers[idx % tickers.length]
+    const showcaseName =
+      showcaseTicker === 'AAPL'
+        ? 'Apple Inc.'
+        : showcaseTicker === 'MSFT'
+          ? 'Microsoft Corporation'
+          : 'NVIDIA Corporation'
     return {
       ...r,
       key: who,
       politician_name: who,
       surname,
-      chamber,
+      chamber: showcasePelosi ? 'house' : chamber,
       transactionType,
-      assetTicker: base.ticker,
-      assetName: base.company ?? base.caseSheet?.issuer,
+      assetTicker: showcasePelosi ? showcaseTicker : base.ticker,
+      assetName: showcasePelosi ? showcaseName : (base.company ?? base.caseSheet?.issuer),
       amountRange: amountUsd > 0 ? amountRange : null,
       acquiredDisposed: transactionType === 'S' ? 'D' : 'A',
     }
@@ -4420,15 +4450,16 @@ function politicianCaseForRowIndex(i) {
   return {
     ...base,
     id: `pol-${i}`,
-    company: base.company ?? base.caseSheet?.issuer,
-    chamber,
+    company: showcasePelosi ? 'NVIDIA Corporation' : (base.company ?? base.caseSheet?.issuer),
+    ticker: showcasePelosi ? 'NVDA' : base.ticker,
+    chamber: showcasePelosi ? 'house' : chamber,
     politicians: people,
     ...mockIdeaFields(i, 'politician'),
     caseSheet: {
       ...(base.caseSheet ?? {}),
       formType: 'PTR',
       isForm4: true,
-      issuer: base.company ?? base.caseSheet?.issuer,
+      issuer: showcasePelosi ? 'NVIDIA Corporation' : (base.company ?? base.caseSheet?.issuer),
       rows,
     },
   }
@@ -9143,7 +9174,8 @@ function KensiglineTerminal() {
       seen.add(ticker)
       merged.push(row)
     }
-    if (!merged.length) return []
+    // Backend up but empty DB — keep directories / company list screenshot-ready.
+    if (!merged.length) return researchFeedLive !== null ? offlineResearchFeed() : []
     return sortFeedRowsByAtDesc(
       merged.map((x) => {
         const ticker = String(x.ticker ?? '').toUpperCase()
@@ -9571,6 +9603,13 @@ function KensiglineTerminal() {
   }, [researchPaperSourceFilters, researchFeedAfterSourceFilter, researchTicker])
 
   useEffect(() => {
+    // Marketing / screenshot capture always uses rich offline mocks — never empty live feeds.
+    if (isCaptureMode()) {
+      setBackendUp(false)
+      setBackendLastOkAt(null)
+      return
+    }
+
     let alive = true
     async function ping() {
       const r = await fetchJsonSafe('/health', { timeoutMs: 3500 })
@@ -9591,6 +9630,7 @@ function KensiglineTerminal() {
 
   // Hysteresis: only drop to MOCK if backend hasn't responded in a while.
   useEffect(() => {
+    if (isCaptureMode()) return
     if (!backendLastOkAt) return
     const t = setInterval(() => {
       const staleMs = Date.now() - backendLastOkAt
@@ -10103,7 +10143,16 @@ function KensiglineTerminal() {
         : institutionsFeedLoadingMore
 
   const insiderFeedRowsBase = useMemo(
-    () => applyFeedTodayEventCounts(!backendUp ? INSIDER_FEED_ROWS : insiderFeedLive ?? []),
+    () =>
+      applyFeedTodayEventCounts(
+        !backendUp
+          ? INSIDER_FEED_ROWS
+          : Array.isArray(insiderFeedLive) && insiderFeedLive.length
+            ? insiderFeedLive
+            : insiderFeedLive === null
+              ? []
+              : INSIDER_FEED_ROWS,
+      ),
     [backendUp, insiderFeedLive],
   )
 
@@ -10114,11 +10163,13 @@ function KensiglineTerminal() {
 
   const insiderActorFeedBase = useMemo(() => {
     const actors = buildInvestigateActorFeed(insiderFeedRowsTxnFiltered, 'insider')
-    if (!backendUp) {
+    const usingMock =
+      !backendUp || (insiderFeedLive !== null && !(insiderFeedLive?.length > 0))
+    if (usingMock) {
       return polishOfflineInvestigateActorFeed(actors).map(normalizeInvestigateActorFeedRow)
     }
     return actors
-  }, [insiderFeedRowsTxnFiltered, backendUp])
+  }, [insiderFeedRowsTxnFiltered, backendUp, insiderFeedLive])
 
   const insiderFilteredFeed = useMemo(() => {
     const q = String(insiderFeedQuery ?? '').trim()
@@ -10141,7 +10192,16 @@ function KensiglineTerminal() {
       : null
 
   const politiciansFeedRowsBase = useMemo(
-    () => applyFeedTodayEventCounts(!backendUp ? POLITICIAN_FEED_ROWS : politiciansFeedLive ?? []),
+    () =>
+      applyFeedTodayEventCounts(
+        !backendUp
+          ? POLITICIAN_FEED_ROWS
+          : Array.isArray(politiciansFeedLive) && politiciansFeedLive.length
+            ? politiciansFeedLive
+            : politiciansFeedLive === null
+              ? []
+              : POLITICIAN_FEED_ROWS,
+      ),
     [backendUp, politiciansFeedLive],
   )
 
@@ -10152,11 +10212,13 @@ function KensiglineTerminal() {
 
   const politiciansActorFeedBase = useMemo(() => {
     const actors = buildInvestigateActorFeed(politiciansFeedRowsTxnFiltered, 'politicians')
-    if (!backendUp) {
+    const usingMock =
+      !backendUp || (politiciansFeedLive !== null && !(politiciansFeedLive?.length > 0))
+    if (usingMock) {
       return polishOfflineInvestigateActorFeed(actors).map(normalizeInvestigateActorFeedRow)
     }
     return actors
-  }, [politiciansFeedRowsTxnFiltered, backendUp])
+  }, [politiciansFeedRowsTxnFiltered, backendUp, politiciansFeedLive])
 
   const politiciansFilteredFeed = useMemo(() => {
     const q = String(politiciansFeedQuery ?? '').trim()
@@ -10179,7 +10241,16 @@ function KensiglineTerminal() {
       : null
 
   const institutionsFeedRowsBase = useMemo(
-    () => applyFeedTodayEventCounts(!backendUp ? INSTITUTION_FEED_ROWS : institutionsFeedLive ?? []),
+    () =>
+      applyFeedTodayEventCounts(
+        !backendUp
+          ? INSTITUTION_FEED_ROWS
+          : Array.isArray(institutionsFeedLive) && institutionsFeedLive.length
+            ? institutionsFeedLive
+            : institutionsFeedLive === null
+              ? []
+              : INSTITUTION_FEED_ROWS,
+      ),
     [backendUp, institutionsFeedLive],
   )
 
@@ -10190,11 +10261,13 @@ function KensiglineTerminal() {
 
   const institutionsActorFeedBase = useMemo(() => {
     const actors = buildInvestigateActorFeed(institutionsFeedRowsTxnFiltered, 'institutions')
-    if (!backendUp) {
+    const usingMock =
+      !backendUp || (institutionsFeedLive !== null && !(institutionsFeedLive?.length > 0))
+    if (usingMock) {
       return polishOfflineInvestigateActorFeed(actors).map(normalizeInvestigateActorFeedRow)
     }
     return actors
-  }, [institutionsFeedRowsTxnFiltered, backendUp])
+  }, [institutionsFeedRowsTxnFiltered, backendUp, institutionsFeedLive])
 
   const institutionsFilteredFeed = useMemo(() => {
     const q = String(institutionsFeedQuery ?? '').trim()

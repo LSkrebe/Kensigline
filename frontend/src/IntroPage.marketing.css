@@ -144,14 +144,32 @@
   color: var(--lp-dim);
 }
 
+.lpHeroBrand {
+  margin: 0 auto 18px;
+  font-family: var(--lp-serif);
+  font-size: clamp(2.85rem, 7.2vw, 4.5rem);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .lpHeroTitle {
   margin: 0 auto 20px;
-  max-width: 22ch;
+  max-width: min(100%, 36rem);
   font-family: var(--lp-serif);
-  font-size: clamp(2.4rem, 6vw, 3.75rem);
+  font-size: clamp(1.45rem, 3.2vw, 1.95rem);
   font-weight: 400;
-  line-height: 1.08;
-  letter-spacing: -0.02em;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+@media (min-width: 900px) {
+  .lpHeroTitle {
+    max-width: none;
+    white-space: nowrap;
+  }
 }
 
 .lpHeroLead {
@@ -160,6 +178,207 @@
   font-size: 15px;
   line-height: 1.65;
   color: var(--lp-muted);
+}
+
+/* Origin / FOMO story — same rule + vertical padding as .lpSection */
+.lpStory {
+  max-width: var(--lp-max);
+  margin: 0 auto;
+  padding: clamp(56px, 9vh, 88px) var(--lp-pad);
+  border-top: 1px solid var(--lp-line);
+}
+
+.lpStoryInner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(28px, 5vw, 56px);
+  align-items: start;
+}
+
+.lpStoryLead,
+.lpStoryCloser {
+  margin: 0 0 16px;
+  max-width: 54ch;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--lp-muted);
+}
+
+.lpStoryCloser {
+  margin-bottom: 0;
+}
+
+.lpStoryMark {
+  font: inherit;
+}
+
+.lpStoryMark--up {
+  color: #7dcea0;
+}
+
+.lpStoryCard {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+.lpStoryPerson {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--lp-line);
+}
+
+.lpStoryPhoto {
+  width: 72px;
+  height: 88px;
+  object-fit: cover;
+  object-position: center top;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.lpStoryPersonMeta {
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.lpStoryPersonName {
+  margin: 0 0 8px;
+  font-family: var(--lp-serif);
+  font-size: 1.35rem;
+  letter-spacing: 0.02em;
+  line-height: 1.15;
+}
+
+.lpStoryPersonChamber {
+  margin: 0 0 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(220, 228, 236, 0.72);
+}
+
+.lpStoryPersonFiling {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--lp-dim);
+}
+
+.lpStoryTrade {
+  margin: 0;
+  display: grid;
+  gap: 0;
+}
+
+.lpStoryTradeRow {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.lpStoryTradeRow:last-child {
+  border-bottom: 0;
+  padding-bottom: 2px;
+}
+
+.lpStoryTradeRow dt {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lp-dim);
+}
+
+.lpStoryTradeRow dd {
+  margin: 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.lpStoryTradeRow dd.lpStoryTradeValue--date,
+.lpStoryTradeRow dd.lpStoryTradeValue--money {
+  color: rgba(230, 236, 244, 0.96);
+}
+
+.lpStoryTradeRow dd.lpStoryTradeValue--up {
+  color: #7dcea0;
+}
+
+@media (max-width: 900px) {
+  .lpStoryInner {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .lpStoryCard {
+    padding-top: 20px;
+    border-top: 1px solid var(--lp-line);
+  }
+
+  .lpStoryPerson {
+    gap: 12px;
+    margin-bottom: 12px;
+    padding-bottom: 14px;
+  }
+
+  .lpStoryPhoto {
+    width: 56px;
+    height: 68px;
+  }
+
+  .lpStoryPersonName {
+    margin-bottom: 6px;
+    font-size: 1.2rem;
+  }
+
+  .lpStoryTradeRow {
+    padding: 10px 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lpStoryCard {
+    animation: lpStoryIn 0.7s ease both;
+  }
+
+  .lpHeroBrand {
+    animation: lpBrandIn 0.65s ease both;
+  }
+}
+
+@keyframes lpBrandIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes lpStoryIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .lpHeroActions {
@@ -525,7 +744,8 @@
   }
 
   .lpHeroTitle {
-    max-width: none;
+    max-width: min(100%, 28rem);
+    white-space: normal;
   }
 
   .lpHeroLead {

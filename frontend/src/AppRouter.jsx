@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
+import { isCaptureMode } from './captureMode.js'
 import { SubscribePage } from './SubscribePage.jsx'
 import MarketingRoutes from './MarketingRoutes.jsx'
 import { useSubscription } from './useSubscription.js'
@@ -9,12 +10,6 @@ const TerminalApp = lazy(() => import('./App.jsx'))
 
 /** Set VITE_BILLING_GATE=0 in root `.env` to bypass locally. */
 const BILLING_GATE_ENABLED = import.meta.env.VITE_BILLING_GATE !== '0'
-
-/** Local screenshot capture: `?capture=1` opens the terminal without auth (dev only). */
-function isCaptureMode() {
-  if (!import.meta.env.DEV || typeof window === 'undefined') return false
-  return new URLSearchParams(window.location.search).has('capture')
-}
 
 export default function AppRouter() {
   const { configured, loading, user } = useAuth()

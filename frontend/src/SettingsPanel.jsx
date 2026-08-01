@@ -195,7 +195,7 @@ function SettingsAlertTable({ columns, rows, loading = false }) {
 }
 
 export function SettingsPanel({
-  backendUp = true,
+  backendUp = false,
   onSettingsClick,
   onBrandClick = null,
 }) {
@@ -375,10 +375,15 @@ export function SettingsPanel({
             busy={digestBusy}
             onChange={(next) => void setDigestEnabled(next)}
           />
-          <SettingsField label="Session" valueTone="good">
+          <SettingsField label="Session" valueTone={backendUp ? 'good' : 'neutral'}>
             <span className="stgSessionPill">
-              <span className="stgStatusDot stgStatusDot--good" aria-hidden="true" />
-              Active
+              <span
+                className={
+                  backendUp ? 'stgStatusDot stgStatusDot--good' : 'stgStatusDot stgStatusDot--offline'
+                }
+                aria-hidden="true"
+              />
+              {backendUp ? 'Live' : 'Offline'}
             </span>
           </SettingsField>
         </SettingsSection>
