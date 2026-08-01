@@ -35,7 +35,6 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.SUPABASE_ANON_KEY': JSON.stringify(supabaseAnon),
       'import.meta.env.API_BASE_URL': JSON.stringify(apiBase),
       'import.meta.env.VITE_BILLING_GATE': JSON.stringify(pick('VITE_BILLING_GATE')),
-      'import.meta.env.REFERRAL_ATTRIBUTION_DAYS': JSON.stringify(pick('REFERRAL_ATTRIBUTION_DAYS') || '90'),
     },
   }
 })

@@ -38,19 +38,10 @@ import { startAllWorkers, stopAllWorkers } from "./server/workers.js";
 import { handleAlertsPreferencesGet, handleAlertsPreferencesPatch } from "./alerts/api.js";
 import { handleAlertsWatchlistGet, handleAlertsWatchlistPatch } from "./alerts/watchlist-api.js";
 import { handleAlertsActorWatchlistGet, handleAlertsActorWatchlistPatch } from "./alerts/actor-watchlist-api.js";
-import {
-  handleReferralAttach,
-  handleReferralStats,
-  handleReferralVisit,
-} from "./referral/api.js";
-import { syncReferralSourcesFromEnv } from "./referral/store.js";
 import { getSecTickerTitleMap } from "./core/sec.js";
 
 const port = Number(process.env.PORT ?? "3001");
 void getSecTickerTitleMap().catch(() => {});
-void syncReferralSourcesFromEnv().catch((err) => {
-  console.warn("[referral] source sync skipped:", err instanceof Error ? err.message : String(err));
-});
 const workers = startAllWorkers();
 
 const server = http.createServer(async (req, res) => {
@@ -62,7 +53,7 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(204, {
         "access-control-allow-origin": "*",
         "access-control-allow-methods": "GET,POST,OPTIONS",
-        "access-control-allow-headers": "content-type,authorization,x-referral-admin-token",
+        "access-control-allow-headers": "content-type,authorization",
         "cache-control": "no-store",
       });
       res.end();
@@ -71,21 +62,6 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/health") {
       sendJson(res, 200, { ok: true });
-      return;
-    }
-
-    if (route(req, url, "POST", "/api/referral/visit")) {
-      await handleReferralVisit(req, res);
-      return;
-    }
-
-    if (route(req, url, "POST", "/api/referral/attach")) {
-      await handleReferralAttach(req, res);
-      return;
-    }
-
-    if (route(req, url, "GET", "/api/referral/stats")) {
-      await handleReferralStats(req, res);
       return;
     }
 

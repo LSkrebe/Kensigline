@@ -281,27 +281,6 @@ CREATE INDEX billing_accounts_customer_idx
   ON billing_accounts (stripe_customer_id)
   WHERE stripe_customer_id IS NOT NULL;
 
--- --- Referral attribution ---
-CREATE TABLE referral_sources (
-  source_key text PRIMARY KEY,
-  label text NOT NULL,
-  visits int NOT NULL DEFAULT 0,
-  signups int NOT NULL DEFAULT 0,
-  subscriptions int NOT NULL DEFAULT 0,
-  enabled boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE user_attribution (
-  user_id text PRIMARY KEY,
-  source_key text NOT NULL REFERENCES referral_sources(source_key),
-  subscription_counted boolean NOT NULL DEFAULT false,
-  attributed_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX user_attribution_source_idx ON user_attribution (source_key);
-
 CREATE TABLE feed_ticker_latest (
   feed_kind text NOT NULL,
   ticker_norm text NOT NULL,

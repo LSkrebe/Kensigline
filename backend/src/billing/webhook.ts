@@ -1,7 +1,6 @@
 import type http from "node:http";
 import type Stripe from "stripe";
-import { getStripe, isActiveStatus } from "./config.js";
-import { recordReferralSubscriptionOnce } from "../referral/store.js";
+import { getStripe } from "./config.js";
 import { syncFromStripeSubscription } from "./store.js";
 
 export async function handleBillingWebhook(req: http.IncomingMessage, res: http.ServerResponse, rawBody: Buffer) {
@@ -51,11 +50,6 @@ async function dispatchStripeEvent(event: Stripe.Event) {
       if (subId) {
         const sub = await stripe.subscriptions.retrieve(subId);
         await syncFromStripeSubscription(sub, userId);
-        if (userId && isActiveStatus(sub.status)) {
-          void recordReferralSubscriptionOnce(userId).catch((err) => {
-            console.warn("[referral] subscription count failed", err);
-          });
-        }
       }
       break;
     }
