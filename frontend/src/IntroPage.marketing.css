@@ -11,20 +11,22 @@
   --lp-max: 1120px;
   --lp-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --lp-sans: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --lp-hero-expanded-h: clamp(420px, 58vh, 620px);
+  --lp-hero-collapsed-h: 64px;
 
   box-sizing: border-box;
   min-height: 100dvh;
   height: 100dvh;
   max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
-  background:
-    radial-gradient(900px 480px at 70% -10%, rgba(140, 190, 210, 0.08), transparent 55%),
-    radial-gradient(700px 420px at 10% 40%, rgba(120, 140, 160, 0.05), transparent 50%),
-    linear-gradient(180deg, rgba(8, 8, 9, 0.2), rgba(8, 8, 9, 0.85)),
-    url('/mercerline_background_1.png') center top / cover no-repeat,
-    var(--lp-bg);
+  background-color: var(--lp-bg);
+  background-image: none;
   color: var(--lp-fg);
   font-family: var(--lp-sans);
 }
@@ -35,25 +37,109 @@
   box-sizing: border-box;
 }
 
-/* Nav */
-.lpNav {
+/* Hero dock — Explore-style expand / collapse */
+.lpHeroStickWrap {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.lpHeroDock {
+  --lp-hero-visual-h: calc(
+    var(--lp-hero-expanded-h) * (1 - var(--lp-collapse)) + var(--lp-hero-collapsed-h) * var(--lp-collapse)
+  );
+  --lp-collapse: 0;
+  --lp-expanded-opacity: 1;
+  --lp-compact-opacity: 0;
   position: sticky;
   top: 0;
   z-index: 30;
-  border-bottom: 1px solid var(--lp-line);
-  background: rgba(8, 8, 9, 0.82);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  height: var(--lp-hero-visual-h);
+  margin-bottom: calc(var(--lp-hero-collapsed-h) - var(--lp-hero-visual-h));
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow: 0 calc(var(--lp-collapse) * 1px) 0 rgba(255, 255, 255, calc(var(--lp-collapse) * 0.08));
+  background: color-mix(in srgb, transparent calc((1 - var(--lp-collapse)) * 100%), rgba(8, 8, 9, 0.96));
+  backdrop-filter: blur(calc(var(--lp-collapse) * 12px));
+  -webkit-backdrop-filter: blur(calc(var(--lp-collapse) * 12px));
 }
 
-.lpNavInner {
+.lpHeroCollapseSpacer {
+  flex: 0 0 auto;
+  height: calc(var(--lp-hero-expanded-h) - var(--lp-hero-collapsed-h));
+  pointer-events: none;
+}
+
+.lpHeroExpandedBg,
+.lpHeroCompactBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.lpHeroExpandedBg {
+  height: var(--lp-hero-expanded-h);
+  opacity: var(--lp-expanded-opacity);
+}
+
+.lpHeroExpandedBg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/mercerline_background_1.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.88;
+}
+
+.lpHeroExpandedBg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 8, 9, 0.28) 0%, rgba(8, 8, 9, 0.72) 100%);
+}
+
+.lpHeroCompactBg {
+  opacity: var(--lp-compact-opacity);
+}
+
+.lpHeroCompactBg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/mercerline_background_2.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.9;
+}
+
+.lpHeroCompactBg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(8, 8, 9, 0.5) 0%, rgba(8, 8, 9, 0.78) 100%);
+}
+
+.lpHeroChrome {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 var(--lp-hero-collapsed-h);
   max-width: var(--lp-max);
+  width: 100%;
   margin: 0 auto;
   padding: 0 var(--lp-pad);
-  min-height: 64px;
+  min-height: var(--lp-hero-collapsed-h);
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 28px;
 }
 
 .lpBrand {
@@ -67,7 +153,6 @@
   flex-shrink: 0;
 }
 
-/* Same transparent mark + crop as terminal chrome */
 .lpBrandLogoClip {
   display: block;
   flex-shrink: 0;
@@ -94,11 +179,78 @@
   line-height: 1;
 }
 
+/* Classic sticky nav — sign-in / subscribe (collapsed-hero atmosphere) */
+.lpNav {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  flex-shrink: 0;
+  isolation: isolate;
+  overflow: hidden;
+  border-bottom: 1px solid var(--lp-line);
+  background-color: var(--lp-bg);
+}
+
+.lpNav::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: url('/mercerline_background_2.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.lpNav::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, rgba(8, 8, 9, 0.5) 0%, rgba(8, 8, 9, 0.78) 100%);
+  pointer-events: none;
+}
+
+.lpNavInner {
+  position: relative;
+  z-index: 1;
+  max-width: var(--lp-max);
+  margin: 0 auto;
+  padding: 0 var(--lp-pad);
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.lpNav .lpNavCta {
+  margin-left: auto;
+}
+
+.lpHeroDock .lpBrandName {
+  opacity: var(--lp-compact-opacity);
+  max-width: calc(11em * var(--lp-compact-opacity));
+  overflow: hidden;
+  white-space: nowrap;
+  transform: translateY(calc((1 - var(--lp-compact-opacity)) * 4px));
+}
+
 .lpNavLinks {
   display: flex;
   align-items: center;
   gap: 28px;
   margin-left: auto;
+}
+
+.lpHeroDock .lpNavLinks {
+  opacity: var(--lp-compact-opacity);
+  pointer-events: none;
+}
+
+.lpHeroDock--compact .lpNavLinks {
+  pointer-events: auto;
 }
 
 .lpNavLinks a {
@@ -116,7 +268,7 @@
   align-items: center;
   height: 36px;
   padding: 0 16px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   color: var(--lp-fg);
   text-decoration: none;
   font-size: 13px;
@@ -128,12 +280,31 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* Hero */
-.lpHero {
+.lpHeroExpanded {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--lp-hero-collapsed-h);
+  height: calc(var(--lp-hero-expanded-h) - var(--lp-hero-collapsed-h));
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: var(--lp-expanded-opacity);
+  pointer-events: none;
+}
+
+.lpHeroExpandedInner {
   max-width: var(--lp-max);
+  width: 100%;
   margin: 0 auto;
-  padding: clamp(56px, 10vh, 96px) var(--lp-pad) clamp(36px, 5vh, 48px);
+  padding: 12px var(--lp-pad) 28px;
   text-align: center;
+  pointer-events: none;
+}
+
+.lpHeroDock--expanded .lpHeroExpandedInner {
+  pointer-events: auto;
 }
 
 .lpEyebrow {
@@ -173,11 +344,34 @@
 }
 
 .lpHeroLead {
-  margin: 0 auto 32px;
+  margin: 0 auto 28px;
   max-width: 46ch;
   font-size: 15px;
   line-height: 1.65;
   color: var(--lp-muted);
+}
+
+.lpHeroActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.lpHeroNote {
+  margin: 0;
+  font-size: 12px;
+  color: var(--lp-dim);
+}
+
+.lpMain {
+  position: relative;
+  z-index: 1;
+  padding-top: clamp(56px, 9vh, 88px);
+  background:
+    linear-gradient(180deg, rgba(8, 8, 9, 0.55), rgba(8, 8, 9, 0.96)),
+    var(--lp-bg);
 }
 
 /* Origin / FOMO story — same rule + vertical padding as .lpSection */
@@ -379,20 +573,6 @@
     opacity: 1;
     transform: none;
   }
-}
-
-.lpHeroActions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.lpHeroNote {
-  margin: 0;
-  font-size: 12px;
-  color: var(--lp-dim);
 }
 
 /* Buttons */
@@ -685,11 +865,44 @@
 
 /* Footer */
 .lpFoot {
+  position: relative;
+  isolation: isolate;
+  flex-shrink: 0;
+  overflow: hidden;
   border-top: 1px solid var(--lp-line);
-  background: rgba(8, 8, 9, 0.9);
+  background-color: var(--lp-bg);
+}
+
+.lpFoot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image: url('/mercerline_background_1.png');
+  background-size: 165% auto;
+  background-position: 72% 38%;
+  background-repeat: no-repeat;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.lpFoot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(8, 8, 9, 0.82) 0%,
+    rgba(8, 8, 9, 0.55) 45%,
+    rgba(8, 8, 9, 0.72) 100%
+  );
+  pointer-events: none;
 }
 
 .lpFootInner {
+  position: relative;
+  z-index: 1;
   max-width: var(--lp-max);
   margin: 0 auto;
   padding: 20px var(--lp-pad) calc(20px + env(safe-area-inset-bottom, 0px));
@@ -697,6 +910,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+}
+
+.lpFootCopy {
+  min-width: 0;
 }
 
 .lpFootNfa {
@@ -713,34 +930,42 @@
   color: var(--lp-muted);
 }
 
-.lpFootNav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-}
-
-.lpFootNav a {
+.lpFootCta {
+  flex-shrink: 0;
   font-size: 13px;
   color: var(--lp-muted);
   text-decoration: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  cursor: pointer;
 }
 
-.lpFootNav a:hover {
+.lpFootCta:hover {
   color: var(--lp-fg);
 }
 
 @media (max-width: 900px) {
+  .lp {
+    --lp-hero-expanded-h: clamp(440px, 72vh, 640px);
+  }
+
   .lpNavLinks {
     display: none;
   }
 
-  .lpNavCta {
+  .lpHeroChrome .lpNavCta {
     margin-left: auto;
   }
 
-  .lpHero {
-    text-align: center;
-    padding-top: 40px;
+  .lpFootInner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .lpFootCta {
+    display: none;
   }
 
   .lpHeroTitle {
@@ -770,15 +995,6 @@
 
   .lpFaq {
     gap: 28px;
-  }
-
-  .lpFootInner {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .lpFootNav {
-    display: none;
   }
 
   .lpCtaBand {

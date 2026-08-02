@@ -12,7 +12,7 @@ import {
   SUBSCRIBE_PAGE_META,
   SUBSCRIBE_PREVIEW,
 } from './marketingContent.js'
-import { navigateMarketing, returnToIntroAfterSignOut } from './marketingRoute.js'
+import { returnToIntroAfterSignOut } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
 import './IntroPage.marketing.css'
@@ -72,15 +72,6 @@ export function SubscribePage() {
     if (error) return
     returnToIntroAfterSignOut()
   }, [signOut])
-
-  const onFooterLink = useCallback((link, e) => {
-    e.preventDefault()
-    if (link.href.startsWith('#')) {
-      document.getElementById(link.href.slice(1))?.scrollIntoView({ behavior: 'smooth' })
-      return
-    }
-    navigateMarketing(link.href)
-  }, [])
 
   return (
     <div className="lp subPage">
@@ -202,17 +193,13 @@ export function SubscribePage() {
 
       <footer className="lpFoot" role="contentinfo">
         <div className="lpFootInner">
-          <div>
+          <div className="lpFootCopy">
             <p className="lpFootNfa">{SUBSCRIBE_FOOTER.nfa}</p>
             <p className="lpFootTag">{SUBSCRIBE_FOOTER.tagline}</p>
           </div>
-          <nav className="lpFootNav" aria-label="Footer">
-            {SUBSCRIBE_FOOTER.links.map((link) => (
-              <a key={link.id} href={link.href} onClick={(e) => onFooterLink(link, e)}>
-                {link.label}
-              </a>
-            ))}
-          </nav>
+          <button type="button" className="lpFootCta" onClick={() => void onSignOut()}>
+            Sign out
+          </button>
         </div>
       </footer>
     </div>

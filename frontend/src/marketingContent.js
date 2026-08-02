@@ -51,7 +51,7 @@ export const HERO = {
   eyebrow: 'US equity disclosures',
   brand: 'Mercerline',
   headline: 'See who filed before the timeline moves.',
-  lead: `A focused workspace to track insider, politician, and fund filings on US equities as they clear, from ${formatUsd(MONTHLY_PRICE_USD)}/mo.`,
+  lead: `Track insider, politician, and fund filings on US equities as they clear from ${formatUsd(MONTHLY_PRICE_USD)}/mo.`,
   ctaPrimary: 'Get started',
   ctaSecondary: 'See product',
   note: 'Open the investor behind each filing when it matters',
@@ -217,10 +217,6 @@ export const PRICING = {
 export const SUBSCRIBE_FOOTER = {
   nfa: INTRO_FOOTER.nfa,
   tagline: INTRO_FOOTER.tagline,
-  links: [
-    { id: 'pricing', label: 'Plans', href: '#subscribe-pricing' },
-    { id: 'faq', label: 'FAQ', href: '#subscribe-faq' },
-  ],
 }
 
 export const SUBSCRIBE = {

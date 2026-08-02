@@ -1,5 +1,5 @@
 :root {
-  background: #06070a;
+  background: #080809;
   color-scheme: dark;
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     'Liberation Mono', 'Courier New', monospace;
@@ -13,15 +13,17 @@
 html,
 body {
   height: 100%;
+  background: #080809;
 }
 
 body {
   margin: 0;
-  background: #06070a;
+  background: #080809;
 }
 
 #root {
   height: 100%;
+  background: #080809;
 }
 
 /* Full-viewport shells: auth boot + fatal error (main.jsx ErrorBoundary) */

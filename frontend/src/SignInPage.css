@@ -3,6 +3,7 @@
 .authPage {
   display: flex;
   flex-direction: column;
+  background-color: var(--lp-bg);
 }
 
 .authMain {
@@ -11,6 +12,7 @@
   align-items: center;
   justify-content: center;
   padding: clamp(40px, 8vh, 72px) var(--lp-pad);
+  background-color: var(--lp-bg);
 }
 
 .authCard {
