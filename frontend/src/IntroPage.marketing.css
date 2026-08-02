@@ -187,8 +187,9 @@
   flex-shrink: 0;
   isolation: isolate;
   overflow: hidden;
-  border-bottom: 1px solid var(--lp-line);
+  border-bottom: none;
   background-color: var(--lp-bg);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .lpNav::before {

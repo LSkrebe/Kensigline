@@ -63,7 +63,6 @@
   height: var(--deep-dock-visual-h);
   margin-bottom: calc(var(--deep-collapsed-h) - var(--deep-dock-visual-h));
   overflow: hidden;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 calc(var(--deep-collapse) * 1px) 0 rgba(255, 255, 255, calc(var(--deep-collapse) * 0.08));
   background: color-mix(
     in srgb,
@@ -101,6 +100,7 @@
   opacity: var(--deep-expanded-opacity);
   pointer-events: none;
   overflow: hidden;
+  background-color: var(--drpt-bg);
 }
 
 .drpt-expandedBg::before {
@@ -203,7 +203,6 @@
   flex-shrink: 0;
   overflow: hidden;
   isolation: isolate;
-  border-bottom: 1px solid rgba(255, 255, 255, calc(0.08 * var(--deep-collapse)));
   background: transparent;
 }
 

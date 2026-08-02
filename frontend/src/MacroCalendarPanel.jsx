@@ -21,6 +21,23 @@ import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 import './ExplorePage.css'
 import './MacroCalendarPage.css'
 
+const MACRO_COMPACT_MONTH_MQ = '(max-width: 900px)'
+
+function useMediaQuery(mq) {
+  const [matches, setMatches] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(mq).matches,
+  )
+
+  useEffect(() => {
+    const media = window.matchMedia(mq)
+    const onChange = () => setMatches(media.matches)
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [mq])
+
+  return matches
+}
+
 const MACRO_REGION_LABEL = {
   US: 'US',
   EU: 'EU',
@@ -153,6 +170,7 @@ function MacroFilterPicker({ sections, enabled, onToggle, ariaLabel }) {
 }
 
 function MacroStripMonthNav({ monthKey, onChange }) {
+  const compact = useMediaQuery(MACRO_COMPACT_MONTH_MQ)
   return (
     <div className="mcalStripMonthNav" role="navigation" aria-label="Calendar month">
       <button
@@ -163,7 +181,7 @@ function MacroStripMonthNav({ monthKey, onChange }) {
       >
         ‹
       </button>
-      <span className="mcalStripMonthLabel">{formatMacroMonthTitle(monthKey)}</span>
+      <span className="mcalStripMonthLabel">{formatMacroMonthTitle(monthKey, { compact })}</span>
       <button
         type="button"
         className="mcalStripMonthBtn mono"

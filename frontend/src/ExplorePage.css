@@ -59,7 +59,6 @@
   flex: 1 0 auto;
   min-height: max(42vh, 280px);
   padding: 28px var(--explore-page-pad-x) 48px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .exploreDirectorySection + .exploreDirectorySection {
@@ -389,6 +388,7 @@
   opacity: var(--explore-expanded-opacity);
   pointer-events: none;
   overflow: hidden;
+  background-color: #080809;
 }
 
 .exploreRecapCompactBg {
@@ -454,7 +454,6 @@
   flex-shrink: 0;
   overflow: hidden;
   isolation: isolate;
-  border-bottom: 1px solid rgba(255, 255, 255, calc(0.08 * var(--explore-collapse)));
   background: transparent;
 }
 
@@ -488,6 +487,10 @@
   z-index: 1;
   --explore-compact-chrome-size: 30px;
   --explore-compact-search-w: 520px;
+  /* Keep search+icons cluster width stable when the close control appears */
+  --explore-compact-search-w-with-close: calc(
+    var(--explore-compact-search-w) - var(--explore-compact-chrome-size) - 8px
+  );
   pointer-events: auto;
   box-sizing: border-box;
   width: 100%;
@@ -562,6 +565,11 @@
     flex: 0 0 auto;
     width: var(--explore-compact-search-w);
     max-width: min(var(--explore-compact-search-w), 100%);
+  }
+
+  .exploreRecapChrome .terminalTopBarActions--withClose .exploreRecapCompactSearch {
+    width: var(--explore-compact-search-w-with-close);
+    max-width: min(var(--explore-compact-search-w-with-close), 100%);
   }
 }
 

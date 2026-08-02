@@ -232,6 +232,14 @@ export function ExploreDailyRecap({
 
   activeIdxRef.current = activeIdx
 
+  const syncActiveFromScroll = useCallback(() => {
+    const el = trackRef.current
+    if (!el || el.clientWidth <= 0 || jumpingRef.current) return
+    const physicalIdx = Math.round(el.scrollLeft / el.clientWidth)
+    const logicalIdx = logicalIndexFromPhysical(physicalIdx, slideCount)
+    setActiveIdx(Math.max(0, Math.min(slideCount - 1, logicalIdx)))
+  }, [slideCount])
+
   const settleLoopPosition = useCallback(() => {
     const el = trackRef.current
     if (!el || el.clientWidth <= 0 || !loopEnabled || jumpingRef.current) return
@@ -242,6 +250,7 @@ export function ExploreDailyRecap({
       jumpToPhysicalSlide(el, slideCount)
       requestAnimationFrame(() => {
         jumpingRef.current = false
+        syncActiveFromScroll()
       })
       return
     }
@@ -250,17 +259,10 @@ export function ExploreDailyRecap({
       jumpToPhysicalSlide(el, 1)
       requestAnimationFrame(() => {
         jumpingRef.current = false
+        syncActiveFromScroll()
       })
     }
-  }, [loopEnabled, slideCount])
-
-  const syncActiveFromScroll = useCallback(() => {
-    const el = trackRef.current
-    if (!el || el.clientWidth <= 0) return
-    const physicalIdx = Math.round(el.scrollLeft / el.clientWidth)
-    const logicalIdx = logicalIndexFromPhysical(physicalIdx, slideCount)
-    setActiveIdx(Math.max(0, Math.min(slideCount - 1, logicalIdx)))
-  }, [slideCount])
+  }, [loopEnabled, slideCount, syncActiveFromScroll])
 
   useEffect(() => {
     const el = trackRef.current
@@ -268,11 +270,11 @@ export function ExploreDailyRecap({
 
     let scrollEndTimer
     const onScroll = () => {
-      if (!jumpingRef.current) syncActiveFromScroll()
+      syncActiveFromScroll()
       clearTimeout(scrollEndTimer)
       scrollEndTimer = window.setTimeout(() => {
         settleLoopPosition()
-      }, 120)
+      }, 140)
     }
     const onScrollEnd = () => {
       clearTimeout(scrollEndTimer)
@@ -323,11 +325,20 @@ export function ExploreDailyRecap({
 
   const scrollToSlide = (idx) => {
     const el = trackRef.current
-    if (!el) return
+    if (!el || el.clientWidth <= 0) return
     const next = Math.max(0, Math.min(slideCount - 1, idx))
-    const physicalIdx = loopEnabled ? next + 1 : next
+    const current = activeIdxRef.current
+
+    let physicalIdx = loopEnabled ? next + 1 : next
+    // Wrap through clones so arrow nav matches trackpad (one-step, then snap).
+    if (loopEnabled && current === slideCount - 1 && next === 0) {
+      physicalIdx = slideCount + 1
+    } else if (loopEnabled && current === 0 && next === slideCount - 1) {
+      physicalIdx = 0
+    }
+
+    // Let scroll drive the active dot — same path as trackpad swipes.
     el.scrollTo({ left: physicalIdx * el.clientWidth, behavior: 'smooth' })
-    setActiveIdx(next)
   }
 
   return (

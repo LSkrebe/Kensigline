@@ -125,11 +125,14 @@ export function shiftMonthKey(key, delta) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-export function formatMacroMonthTitle(key) {
+export function formatMacroMonthTitle(key, { compact = false } = {}) {
   const parsed = parseMonthKey(key)
   if (!parsed) return '—'
   const d = new Date(parsed.year, parsed.month - 1, 1, 12, 0, 0, 0)
-  return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  return d.toLocaleDateString(undefined, {
+    month: compact ? 'short' : 'long',
+    year: 'numeric',
+  })
 }
 
 function allDaysInMonth(year, month) {

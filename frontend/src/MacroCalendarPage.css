@@ -89,7 +89,7 @@
 
 .mcalStripMonthLabel {
   min-width: 0;
-  max-width: 9em;
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -581,8 +581,8 @@
   }
 
   .mcalStripMonthLabel {
-    max-width: 6.5em;
     font-size: 9px;
+    letter-spacing: 0.04em;
   }
 
   .mcalShell .macroCalMonthWeekdays {

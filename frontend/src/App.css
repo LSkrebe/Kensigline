@@ -824,6 +824,9 @@ button.terminalTopBarBrand:focus-visible {
 .terminal.terminal--explore {
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
 }
 
 .terminal--explore .explorePage,
@@ -6035,6 +6038,9 @@ button.terminalTopBarBrand:focus-visible {
   overflow: hidden;
   padding: 0;
   background: #080809;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
 }
 
 .terminal.terminal--macro {
@@ -6044,6 +6050,9 @@ button.terminalTopBarBrand:focus-visible {
   overflow: hidden;
   padding: 0;
   background: #080809;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
 }
 
 .macroCalendarPage {

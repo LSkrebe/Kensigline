@@ -184,6 +184,7 @@ export function TerminalTopBarActions({
         'terminalTopBarActions',
         useCollapsibleSearch ? 'terminalTopBarActions--collapsibleSearch' : '',
         useCollapsibleSearch && searchOpen ? 'terminalTopBarActions--searchOpen' : '',
+        showSearch && showClose && onCloseClick ? 'terminalTopBarActions--withClose' : '',
       ]
         .filter(Boolean)
         .join(' ')}
