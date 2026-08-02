@@ -1,0 +1,31 @@
+# Mercerline
+> Track insider, politician, and fund filings on US equities as they clear.
+
+Mercerline is a focused disclosure workspace for US equities. The product surfaces filings as they clear, then lets you open investor dossiers and company context when a disclosure matters.
+
+## Site
+- Home: https://mercerline.com/
+- Sign in: https://mercerline.com/sign-in
+- Contact: research@mercerline.com
+
+## Product
+- Daily disclosure recap
+- Investor dossiers for insiders, politicians, and funds
+- Company context on demand
+- Macro calendar coverage for US, EU, UK, and China
+
+## Coverage
+- Form 4
+- House PTR
+- Senate PTR
+- Executive PTR
+- 13F
+- SEC EDGAR
+- Earnings transcripts
+- Press
+- 8-K
+- Macro US / EU / UK / CN
+
+## Notes
+- Not investment advice.
+- Public marketing pages are indexable. Signed-in terminal content requires authentication.

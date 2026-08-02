@@ -10,23 +10,23 @@ import {
 export const PRODUCT_NAME = 'Mercerline'
 
 export const INTRO_PAGE_META = {
-  title: 'Mercerline - Track insider, PTR, and 13F disclosures',
+  title: 'Mercerline - See who filed before the timeline moves',
   description:
-    'Mercerline tracks Form 4, House/Senate PTR, and 13F disclosures for US equities — daily recap, investor dossiers, and company context when a filing clears.',
+    'Track insider, politician, and fund filings on US equities as they clear. Open investor dossiers and company context when a disclosure matters.',
   path: '/',
   ogImage: '/og-image.png',
 }
 
 export const SUBSCRIBE_PAGE_META = {
-  title: 'Subscribe to Mercerline - Insider disclosure tracking',
-  description: `Subscribe to Mercerline from ${formatUsd(MONTHLY_PRICE_USD)}/mo. Track Form 4, PTR, and 13F disclosures with investor dossiers, company context, and a daily recap.`,
+  title: 'Subscribe - Mercerline',
+  description: `Subscribe to Mercerline from ${formatUsd(MONTHLY_PRICE_USD)}/mo. Track insider, politician, and fund filings with investor dossiers and company context.`,
   path: '/subscribe',
   ogImage: '/og-image.png',
 }
 
 export const SIGN_IN_PAGE_META = {
   title: 'Sign in - Mercerline',
-  description: 'Sign in to Mercerline to open your disclosure workspace.',
+  description: 'Sign in to Mercerline to track US equity disclosures.',
   path: '/sign-in',
   ogImage: '/og-image.png',
 }

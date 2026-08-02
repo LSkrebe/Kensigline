@@ -1,11 +1,11 @@
 {
   "name": "Mercerline",
   "short_name": "Mercerline",
-  "description": "Event-driven research terminal for US equities",
+  "description": "See who filed before the timeline moves. Track US equity disclosures.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#080809",
+  "theme_color": "#080809",
   "icons": [
     {
       "src": "/favicon-48.png",

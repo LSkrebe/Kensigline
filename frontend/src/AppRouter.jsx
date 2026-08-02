@@ -28,6 +28,17 @@ export default function AppRouter() {
   }, [])
 
   useEffect(() => {
+    if (showMarketing) return
+    const path = window.location.pathname.replace(/\/$/, '') || '/'
+    if (path.startsWith('/settings')) document.title = 'Settings - Mercerline'
+    else if (path.startsWith('/macro')) document.title = 'Macro - Mercerline'
+    else if (path.startsWith('/explore/investors')) document.title = 'Investors - Mercerline'
+    else if (path.startsWith('/explore/companies')) document.title = 'Companies - Mercerline'
+    else if (path.startsWith('/explore')) document.title = 'Explore - Mercerline'
+    else document.title = 'Mercerline'
+  }, [showMarketing, signedIn, active])
+
+  useEffect(() => {
     if (!signedIn || !BILLING_GATE_ENABLED) return
     const params = new URLSearchParams(window.location.search)
     const checkout = params.get('checkout')

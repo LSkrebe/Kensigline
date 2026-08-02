@@ -48,22 +48,26 @@ export function applyPageMeta({
 
   document.title = title
   upsertMeta('name', 'description', description)
-  upsertMeta('name', 'robots', 'index,follow')
-  upsertMeta('name', 'theme-color', '#030405')
+  upsertMeta('name', 'robots', 'index,follow,max-image-preview:large')
+  upsertMeta('name', 'theme-color', '#080809')
   upsertMeta('property', 'og:title', title)
   upsertMeta('property', 'og:description', description)
   upsertMeta('property', 'og:type', ogType)
   upsertMeta('property', 'og:url', url)
   upsertMeta('property', 'og:image', imageUrl)
-  upsertMeta('property', 'og:image:alt', 'Mercerline logo')
+  upsertMeta('property', 'og:image:secure_url', imageUrl)
+  upsertMeta('property', 'og:image:type', 'image/png')
+  upsertMeta('property', 'og:image:alt', title || 'Mercerline')
   if (ogImage.includes('og-image')) {
     upsertMeta('property', 'og:image:width', '1200')
     upsertMeta('property', 'og:image:height', '630')
   }
   upsertMeta('property', 'og:site_name', 'Mercerline')
+  upsertMeta('property', 'og:locale', 'en_US')
   upsertMeta('name', 'twitter:card', 'summary_large_image')
   upsertMeta('name', 'twitter:title', title)
   upsertMeta('name', 'twitter:description', description)
   upsertMeta('name', 'twitter:image', imageUrl)
+  upsertMeta('name', 'twitter:image:alt', title || 'Mercerline')
   upsertLink('canonical', url)
 }

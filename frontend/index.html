@@ -10,9 +10,13 @@
     <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="description" content="US equities research terminal with a daily recap, company and investor dossiers, and macro calendar. SEC filings, Form 4, PTR, 13F, and earnings transcripts in context." />
+    <meta
+      name="description"
+      content="Track insider, politician, and fund filings on US equities as they clear. Open investor dossiers and company context when a disclosure matters."
+    />
     <meta name="theme-color" content="#080809" />
-    <meta name="robots" content="index,follow" />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <meta name="googlebot" content="index,follow,max-image-preview:large" />
     <link rel="canonical" href="https://mercerline.com/" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,18 +36,28 @@
     <link rel="preload" as="image" type="image/webp" href="/intro/hero-2400.webp" media="(min-width: 901px)" fetchpriority="high" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Mercerline" />
-    <meta property="og:title" content="Mercerline - Research terminal for US equity catalysts" />
-    <meta property="og:description" content="US equities research terminal with a daily recap, company and investor dossiers, and macro calendar. SEC filings, Form 4, PTR, 13F, and earnings transcripts in context." />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:title" content="Mercerline - See who filed before the timeline moves" />
+    <meta
+      property="og:description"
+      content="Track insider, politician, and fund filings on US equities as they clear. Open investor dossiers and company context when a disclosure matters."
+    />
     <meta property="og:url" content="https://mercerline.com/" />
     <meta property="og:image" content="https://mercerline.com/og-image.png" />
+    <meta property="og:image:secure_url" content="https://mercerline.com/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Mercerline Explore terminal" />
+    <meta property="og:image:alt" content="Mercerline - See who filed before the timeline moves" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Mercerline - Research terminal for US equity catalysts" />
-    <meta name="twitter:description" content="US equities research terminal with a daily recap, company and investor dossiers, and macro calendar. SEC filings, Form 4, PTR, 13F, and earnings transcripts in context." />
+    <meta name="twitter:title" content="Mercerline - See who filed before the timeline moves" />
+    <meta
+      name="twitter:description"
+      content="Track insider, politician, and fund filings on US equities as they clear. Open investor dossiers and company context when a disclosure matters."
+    />
     <meta name="twitter:image" content="https://mercerline.com/og-image.png" />
-    <title>Mercerline - Research terminal for US equity catalysts</title>
+    <meta name="twitter:image:alt" content="Mercerline - See who filed before the timeline moves" />
+    <title>Mercerline - See who filed before the timeline moves</title>
     <style>
       html,
       body {
@@ -57,18 +71,53 @@
         opacity: 1;
         transition: opacity 0.42s cubic-bezier(0.22, 1, 0.36, 1);
       }
+      .seoBoot {
+        max-width: 720px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        font-family: system-ui, sans-serif;
+        color: #e8ecf0;
+        line-height: 1.55;
+        font-size: 16px;
+      }
+      .seoBoot h1 {
+        font-size: 1.75rem;
+        font-weight: 600;
+      }
+      .seoBoot a {
+        color: #9ec4d4;
+      }
     </style>
   </head>
   <body>
-    <div id="root"></div>
-    <noscript>
-      <main style="max-width: 720px; margin: 2rem auto; padding: 0 1rem; font-family: system-ui, sans-serif; color: #e8ecf0; background: #080809; line-height: 1.55; font-size: 16px;">
+    <div id="root">
+      <!-- Static markup for search engines and AI crawlers that do not run JavaScript. -->
+      <main class="seoBoot">
         <h1>Mercerline</h1>
+        <p>See who filed before the timeline moves.</p>
         <p>
-          Explore-first research terminal for US equities. Daily recap, company and investor dossiers, and macro calendar
-          with SEC filings, Form 4, PTR, and 13F.
+          Mercerline helps you track insider, politician, and fund filings on US equities as they clear.
+          Open investor dossiers and company context when a disclosure matters.
         </p>
-        <p>Enable JavaScript to sign in and open the terminal.</p>
+        <p>
+          Coverage includes Form 4, House PTR, Senate PTR, Executive PTR, 13F, SEC EDGAR, earnings transcripts,
+          press, 8-K, and macro calendars for the US, EU, UK, and China.
+        </p>
+        <p>
+          <a href="/sign-in">Sign in</a>
+          |
+          <a href="https://mercerline.com/">mercerline.com</a>
+        </p>
+      </main>
+    </div>
+    <noscript>
+      <main class="seoBoot">
+        <h1>Mercerline</h1>
+        <p>See who filed before the timeline moves.</p>
+        <p>
+          Track insider, politician, and fund filings on US equities as they clear. Enable JavaScript to open the
+          full workspace.
+        </p>
       </main>
     </noscript>
     <script type="module" src="/src/main.jsx"></script>
