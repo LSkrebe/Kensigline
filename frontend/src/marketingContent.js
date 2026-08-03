@@ -51,15 +51,47 @@ export function heroLead(pricing = DEFAULT_PRICING) {
   return `Track insider, politician, and fund filings on US equities as they clear from ${formatUsd(pricing.monthlyUsd)}/mo.`
 }
 
-export const HERO = {
-  eyebrow: 'US equity disclosures',
-  brand: 'Mercerline',
-  headline: 'See who filed before the timeline moves.',
-  lead: heroLead(),
-  ctaPrimary: 'Get started',
-  ctaSecondary: 'See product',
-  note: 'Open the investor behind each filing when it matters',
+/** Lead with optional struck list price for founders mode. */
+export function heroLeadParts(pricing = DEFAULT_PRICING) {
+  const prefix = 'Track insider, politician, and fund filings on US equities as they clear from '
+  if (pricing.founders && pricing.monthlyListUsd) {
+    return {
+      prefix,
+      listPrice: `${formatUsd(pricing.monthlyListUsd)}/mo`,
+      price: `${formatUsd(pricing.monthlyUsd)}/mo.`,
+    }
+  }
+  return {
+    prefix: `${prefix}${formatUsd(pricing.monthlyUsd)}/mo.`,
+    listPrice: null,
+    price: null,
+  }
 }
+
+export function heroCopy(pricing = DEFAULT_PRICING) {
+  if (pricing.founders) {
+    return {
+      eyebrow: 'Founders pricing — 50% off',
+      brand: 'Mercerline',
+      headline: 'See who filed before the timeline moves.',
+      lead: heroLead(pricing),
+      ctaPrimary: 'Claim founders rate',
+      ctaSecondary: 'See product',
+      note: 'Limited early access — lock in half price before it closes.',
+    }
+  }
+  return {
+    eyebrow: 'US equity disclosures',
+    brand: 'Mercerline',
+    headline: 'See who filed before the timeline moves.',
+    lead: heroLead(pricing),
+    ctaPrimary: 'Get started',
+    ctaSecondary: 'See product',
+    note: 'Open the investor behind each filing when it matters',
+  }
+}
+
+export const HERO = heroCopy()
 
 /**
  * FOMO origin beat — concrete PTR story that explains why the niche exists.

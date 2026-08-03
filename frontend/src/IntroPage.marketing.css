@@ -238,6 +238,22 @@
   transform: translateY(calc((1 - var(--lp-compact-opacity)) * 4px));
 }
 
+.lpHeroFoundersChip {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  opacity: var(--lp-compact-opacity);
+  pointer-events: none;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lp-accent);
+  white-space: nowrap;
+}
+
 .lpNavLinks {
   display: flex;
   align-items: center;
@@ -350,6 +366,18 @@
   font-size: 15px;
   line-height: 1.65;
   color: var(--lp-muted);
+}
+
+.lpHeroListPrice {
+  color: rgba(255, 255, 255, 0.38);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: rgba(255, 120, 120, 0.65);
+}
+
+.lpHeroPrice {
+  color: var(--lp-fg);
+  white-space: nowrap;
 }
 
 .lpHeroActions {
@@ -600,6 +628,25 @@
 
 .lpBtn--primary:hover {
   background: #fff;
+}
+
+.lpBtn--accent {
+  background: var(--lp-accent);
+  color: #0a0b0c;
+  border-color: var(--lp-accent);
+}
+
+.lpBtn--accent:hover {
+  background: #b4d4e0;
+  border-color: #b4d4e0;
+}
+
+.lpEyebrow--accent {
+  color: var(--lp-accent);
+}
+
+.lpHeroNote--accent {
+  color: var(--lp-accent);
 }
 
 .lpBtn--ghost {

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef } from 'react'
 import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
 import { formatUsd } from './billingPlans.js'
 import {
-  HERO,
-  heroLead,
+  heroCopy,
+  heroLeadParts,
   introFaq,
   INTRO_FOOTER,
   INTRO_PAGE_META,
@@ -40,8 +40,9 @@ export function IntroPage() {
   const dockRef = useRef(null)
   const spacerRef = useRef(null)
   const pricing = useBillingPricing()
+  const hero = heroCopy(pricing)
   const faq = introFaq(pricing)
-  const lead = heroLead(pricing)
+  const leadParts = heroLeadParts(pricing)
 
   const goToSignIn = useCallback((e) => {
     e?.preventDefault()
@@ -160,6 +161,9 @@ export function IntroPage() {
               </span>
               <span className="lpBrandName">MERCERLINE</span>
             </a>
+            {pricing.founders ? (
+              <p className="lpHeroFoundersChip">50% off</p>
+            ) : null}
             <nav className="lpNavLinks" aria-label="Page">
               <a href="#product" onClick={(e) => scrollToSection('product', e)}>
                 Product
@@ -175,23 +179,41 @@ export function IntroPage() {
 
           <div className="lpHeroExpanded">
             <div className="lpHeroExpandedInner">
-              <p className="lpEyebrow">{HERO.eyebrow}</p>
-              <p className="lpHeroBrand">{HERO.brand}</p>
-              <h1 className="lpHeroTitle">{HERO.headline}</h1>
-              <p className="lpHeroLead">{lead}</p>
+              <p className={['lpEyebrow', pricing.founders ? 'lpEyebrow--accent' : ''].filter(Boolean).join(' ')}>
+                {hero.eyebrow}
+              </p>
+              <p className="lpHeroBrand">{hero.brand}</p>
+              <h1 className="lpHeroTitle">{hero.headline}</h1>
+              <p className="lpHeroLead">
+                {leadParts.listPrice ? (
+                  <>
+                    {leadParts.prefix}
+                    <span className="lpHeroListPrice">{leadParts.listPrice}</span>{' '}
+                    <span className="lpHeroPrice">{leadParts.price}</span>
+                  </>
+                ) : (
+                  leadParts.prefix
+                )}
+              </p>
               <div className="lpHeroActions">
-                <a className="lpBtn lpBtn--primary" href="/sign-in" onClick={goToSignIn}>
-                  {HERO.ctaPrimary}
+                <a
+                  className={`lpBtn ${pricing.founders ? 'lpBtn--accent' : 'lpBtn--primary'}`}
+                  href="/sign-in"
+                  onClick={goToSignIn}
+                >
+                  {hero.ctaPrimary}
                 </a>
                 <a
                   className="lpBtn lpBtn--ghost"
                   href="#product"
                   onClick={(e) => scrollToSection('product', e)}
                 >
-                  {HERO.ctaSecondary}
+                  {hero.ctaSecondary}
                 </a>
               </div>
-              <p className="lpHeroNote">{HERO.note}</p>
+              <p className={['lpHeroNote', pricing.founders ? 'lpHeroNote--accent' : ''].filter(Boolean).join(' ')}>
+                {hero.note}
+              </p>
             </div>
           </div>
         </div>
@@ -312,10 +334,21 @@ export function IntroPage() {
             <h2 className="lpCtaTitle">Start tracking disclosures</h2>
             <p className="lpCtaLead">
               Full access from day one
-              {pricing.founders ? ` from ${formatUsd(pricing.monthlyUsd)}/mo` : ''}. Cancel anytime.
+              {pricing.founders && pricing.monthlyListUsd ? (
+                <>
+                  {' '}
+                  from <span className="lpHeroListPrice">{formatUsd(pricing.monthlyListUsd)}/mo</span>{' '}
+                  <span className="lpHeroPrice">{formatUsd(pricing.monthlyUsd)}/mo</span>
+                </>
+              ) : null}
+              . Cancel anytime.
             </p>
-            <a className="lpBtn lpBtn--primary" href="/sign-in" onClick={goToSignIn}>
-              {HERO.ctaPrimary}
+            <a
+              className={`lpBtn ${pricing.founders ? 'lpBtn--accent' : 'lpBtn--primary'}`}
+              href="/sign-in"
+              onClick={goToSignIn}
+            >
+              {hero.ctaPrimary}
             </a>
           </section>
         </main>
