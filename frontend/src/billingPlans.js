@@ -6,7 +6,7 @@ export const FOUNDERS_MONTHLY_USD = 49
 export const FOUNDERS_YEARLY_USD = 499
 
 /** Default until /api/billing/pricing responds. Match FOUNDERS_PRICING on the API. */
-export const DEFAULT_FOUNDERS = false
+export const DEFAULT_FOUNDERS = true
 
 export function formatUsd(n) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
