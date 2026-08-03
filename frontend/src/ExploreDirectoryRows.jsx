@@ -108,6 +108,9 @@ function ExploreDirectoryInvestorTickers({ tickers, max = INVESTOR_TICKER_PREVIE
 function ExploreDirectoryListInvestorContent({ row }) {
   const net = row.netFlowUsd ?? 0
   const netTone = net > 0 ? 'isUp' : net < 0 ? 'isDown' : 'isFlat'
+  const count = Number.isFinite(Number(row.positionCount))
+    ? Math.max(0, Math.trunc(Number(row.positionCount)))
+    : 0
 
   return (
     <>
@@ -117,8 +120,8 @@ function ExploreDirectoryListInvestorContent({ row }) {
         <ExploreDirectoryInvestorTickers tickers={row.tickers} />
       </div>
       <span className="exploreDirectoryStat mono">
-        <span className="exploreDirectoryStatCount">{row.positionCount}</span>
-        <span className="exploreDirectoryStatLabel">pos</span>
+        <span className="exploreDirectoryStatCount">{count}</span>
+        <span className="exploreDirectoryStatLabel">Pos.</span>
       </span>
       <span className={['exploreDirectoryAmount mono', netTone].join(' ')}>{row.netFlowLabel ?? '—'}</span>
       <span className="exploreDirectoryDate mono">{row.lastDateLabel ?? '—'}</span>
