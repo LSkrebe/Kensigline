@@ -34,7 +34,7 @@
 
 .subTitle {
   margin: 0 auto 16px;
-  max-width: 14ch;
+  max-width: 16ch;
   font-family: var(--lp-serif);
   font-size: clamp(2.4rem, 5.5vw, 3.5rem);
   font-weight: 400;
@@ -51,37 +51,38 @@
 }
 
 .subHero .lpHeroNote {
-  margin: 0 auto 40px;
-  max-width: 44ch;
+  margin: 0 auto 36px;
+  max-width: 36ch;
 }
 
-.subHero .lpInclude {
-  text-align: left;
+.subHero--founders .subTitle {
+  margin-bottom: 14px;
+}
+
+.subHero .subFeaturesList {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 40px;
   width: 100%;
-  margin: 0 0 36px;
-  max-width: none;
 }
 
 .subHero .lpPlans {
   text-align: left;
 }
 
+.subHero .lpPlanCta {
+  margin-top: 18px;
+}
+
 .subHero .lpFinePrint {
   text-align: center;
 }
 
-.subHero--founders .lpEyebrow {
-  color: var(--lp-accent);
-}
-
-.subHero--founders .subLead {
-  color: var(--lp-accent);
-  max-width: 44ch;
-}
-
 .subFoundersFine {
   margin-top: 24px;
-  max-width: 52ch;
+  max-width: 40ch;
   margin-left: auto;
   margin-right: auto;
   font-size: 13px;
@@ -119,8 +120,11 @@
   }
 
   .subLead,
-  .subHero--founders .subLead,
   .subHero .lpHeroNote {
     max-width: 42ch;
+  }
+
+  .subHero .subFeaturesList {
+    grid-template-columns: repeat(2, max-content);
   }
 }

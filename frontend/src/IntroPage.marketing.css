@@ -63,9 +63,7 @@
   overflow: hidden;
   isolation: isolate;
   box-shadow: 0 calc(var(--lp-collapse) * 1px) 0 rgba(255, 255, 255, calc(var(--lp-collapse) * 0.08));
-  background: color-mix(in srgb, transparent calc((1 - var(--lp-collapse)) * 100%), rgba(8, 8, 9, 0.96));
-  backdrop-filter: blur(calc(var(--lp-collapse) * 12px));
-  -webkit-backdrop-filter: blur(calc(var(--lp-collapse) * 12px));
+  background: var(--lp-bg);
 }
 
 .lpHeroCollapseSpacer {
@@ -74,18 +72,18 @@
   pointer-events: none;
 }
 
-.lpHeroExpandedBg,
-.lpHeroCompactBg {
+/* Expanded photo stays full hero size; dock clips it — no cover re-scale mid-collapse */
+.lpHeroExpandedBg {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--lp-hero-expanded-h);
   z-index: 0;
+  opacity: var(--lp-expanded-opacity);
   pointer-events: none;
   overflow: hidden;
-}
-
-.lpHeroExpandedBg {
-  height: var(--lp-hero-expanded-h);
-  opacity: var(--lp-expanded-opacity);
+  background-color: var(--lp-bg);
 }
 
 .lpHeroExpandedBg::before {
@@ -107,7 +105,12 @@
 }
 
 .lpHeroCompactBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   opacity: var(--lp-compact-opacity);
+  pointer-events: none;
+  overflow: hidden;
 }
 
 .lpHeroCompactBg::before {
@@ -236,22 +239,6 @@
   overflow: hidden;
   white-space: nowrap;
   transform: translateY(calc((1 - var(--lp-compact-opacity)) * 4px));
-}
-
-.lpHeroFoundersChip {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 1;
-  margin: 0;
-  transform: translate(-50%, -50%);
-  opacity: var(--lp-compact-opacity);
-  pointer-events: none;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--lp-accent);
-  white-space: nowrap;
 }
 
 .lpNavLinks {
@@ -960,6 +947,54 @@
   gap: 24px;
 }
 
+.lpFootInner--legal {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 10px;
+  padding-top: 24px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+}
+
+.lpFootLegalBlock {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 72ch;
+}
+
+.lpFootLine {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.48);
+  line-height: 1.45;
+}
+
+.lpFootLegalText {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.lpFootLegalLabel {
+  display: inline;
+  margin-right: 0.45em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.lpFootSub {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.32);
+}
+
 .lpFootCopy {
   min-width: 0;
 }
@@ -976,6 +1011,14 @@
   margin: 0;
   font-size: 13px;
   color: var(--lp-muted);
+}
+
+.lpFootLegal {
+  margin: 10px 0 0;
+  max-width: 62ch;
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.34);
 }
 
 .lpFootCta {

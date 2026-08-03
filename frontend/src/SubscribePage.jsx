@@ -4,8 +4,7 @@ import { useAuth } from './AuthContext.jsx'
 import { formatUsd } from './billingPlans.js'
 import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
 import {
-  PLAN_FEATURES,
-  pricingCopy,
+  SUBSCRIBE_FEATURES,
   subscribeCopy,
   subscribeFaq,
   SUBSCRIBE_FOOTER,
@@ -24,7 +23,6 @@ export function SubscribePage() {
   const pricing = useBillingPricing()
   const plans = pricing.plans
   const copy = subscribeCopy(pricing)
-  const notes = pricingCopy(pricing)
   const faq = subscribeFaq(pricing)
   const [selected, setSelected] = useState('yearly')
   const [checkoutMsg, setCheckoutMsg] = useState('')
@@ -103,14 +101,22 @@ export function SubscribePage() {
           id="subscribe-pricing"
           className={['subHero', pricing.founders ? 'subHero--founders' : ''].filter(Boolean).join(' ')}
         >
-          <p className="lpEyebrow">{copy.eyebrow}</p>
+          {copy.eyebrow ? <p className="lpEyebrow">{copy.eyebrow}</p> : null}
           <h1 className="subTitle">{copy.headline}</h1>
-          <p className="subLead">{copy.lead}</p>
-          <p className="lpHeroNote">{copy.reassurance}</p>
+          {copy.lead ? <p className="subLead">{copy.lead}</p> : null}
+          {copy.reassurance ? (
+            <p
+              className={['lpHeroNote', pricing.founders ? 'lpHeroNote--accent' : '']
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {copy.reassurance}
+            </p>
+          ) : null}
 
-          <ul className="lpInclude">
-            {PLAN_FEATURES.map((line) => (
-              <li key={line}>{line}</li>
+          <ul className="lpSourceList subFeaturesList" aria-label="Included with either plan">
+            {SUBSCRIBE_FEATURES.items.map((item) => (
+              <li key={item}>{item}</li>
             ))}
           </ul>
 
@@ -136,9 +142,6 @@ export function SubscribePage() {
                     <span className="lpPlanAmount">{formatUsd(plan.priceUsd)}</span>
                     <span className="lpPlanInterval">/{plan.intervalLabel}</span>
                   </p>
-                  <p className="lpPlanNote">
-                    {plan.id === 'yearly' ? notes.yearlyNote : notes.monthlyNote}
-                  </p>
                   <button
                     type="button"
                     className={`lpBtn ${plan.featured ? 'lpBtn--primary' : 'lpBtn--ghost'} lpPlanCta`}
@@ -162,7 +165,7 @@ export function SubscribePage() {
           ) : null}
           <p className={pricing.founders ? 'lpFinePrint subFoundersFine' : 'lpFinePrint'}>
             {pricing.founders
-              ? `Half-price founders deal — ${formatUsd(pricing.monthlyUsd)}/mo or ${formatUsd(pricing.yearlyUsd)}/yr instead of ${formatUsd(pricing.monthlyListUsd)}/${formatUsd(pricing.yearlyListUsd)}. Your rate locks in for as long as you stay. Once this closes, it's gone.`
+              ? 'This limited-time offer ends when early access closes'
               : `Save ${formatUsd(pricing.yearlySaveUsd)} on yearly. Cancel anytime.`}
           </p>
         </section>
@@ -206,14 +209,17 @@ export function SubscribePage() {
       </main>
 
       <footer className="lpFoot" role="contentinfo">
-        <div className="lpFootInner">
-          <div className="lpFootCopy">
-            <p className="lpFootNfa">{SUBSCRIBE_FOOTER.nfa}</p>
-            <p className="lpFootTag">{SUBSCRIBE_FOOTER.tagline}</p>
-          </div>
-          <button type="button" className="lpFootCta" onClick={() => void onSignOut()}>
-            Sign out
-          </button>
+        <div className="lpFootInner lpFootInner--legal">
+          <p className="lpFootLine">{SUBSCRIBE_FOOTER.line}</p>
+          <p className="lpFootLegalText">
+            <span className="lpFootLegalLabel">Terms</span> {SUBSCRIBE_FOOTER.terms}
+          </p>
+          <p className="lpFootLegalText">
+            <span className="lpFootLegalLabel">Privacy</span> {SUBSCRIBE_FOOTER.privacy}
+          </p>
+          <p className="lpFootLegalText">
+            <span className="lpFootLegalLabel">IP / DMCA</span> {SUBSCRIBE_FOOTER.ip}
+          </p>
         </div>
       </footer>
     </div>

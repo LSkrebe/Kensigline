@@ -318,7 +318,17 @@ export function SettingsPanel({
         ? 'Too many messages today. Try again tomorrow.'
         : err === 'message_required'
           ? 'Write a message first.'
-          : 'Could not send. Try again in a moment.'
+          : err === 'email_required'
+            ? 'Your account needs an email to send support messages.'
+            : err === 'unauthorized' || res.status === 401
+            ? 'Session expired — sign in again.'
+            : err === 'support_not_configured' || err === 'auth_not_configured'
+              ? 'Support mail is not configured yet.'
+              : err === 'send_failed' || res.status === 502
+                ? 'Mail send blocked — authorize the server IP in Brevo (Security → Authorised IPs), then try again.'
+                : res.status === 0 || err === 'network_error'
+                  ? 'Cannot reach the API. Check your connection.'
+                  : 'Could not send. Try again in a moment.'
     setSupportStatus({ ok: false, text })
   }, [supportBusy, supportMessage])
 

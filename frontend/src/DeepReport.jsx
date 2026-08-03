@@ -630,7 +630,7 @@ function DeepFundamentalsSnapshot({ fundamentals }) {
         <div className="drpt-metricCard" key={card.key}>
           <span className="drpt-metricLabel">{card.label}</span>
           <span className="drpt-metricValue">{card.value}</span>
-          <span className="drpt-metricPeriod">{card.period}</span>
+          {card.period ? <span className="drpt-metricPeriod">{card.period}</span> : null}
         </div>
       ))}
     </div>
@@ -762,7 +762,7 @@ function DeepBusinessDriversSnapshot({ model }) {
         <div className="drpt-driverCard" key={card.key}>
           <span className="drpt-metricLabel">{card.label}</span>
           <span className="drpt-metricValue">{card.value}</span>
-          <span className="drpt-metricPeriod">{card.period}</span>
+          {card.period ? <span className="drpt-metricPeriod">{card.period}</span> : null}
           {card.trail.length > 1 ? (
             <span className="drpt-driverTrail">{card.trail.join(' → ')}</span>
           ) : null}
@@ -1007,7 +1007,7 @@ function DeepActorMetrics({ trackRecord, chartRange = '6M' }) {
         <div className="drpt-metricCard" key={card.key}>
           <span className="drpt-metricLabel">{card.label}</span>
           <span className="drpt-metricValue">{card.value}</span>
-          <span className="drpt-metricPeriod">{card.period}</span>
+          {card.period ? <span className="drpt-metricPeriod">{card.period}</span> : null}
         </div>
       ))}
     </div>
@@ -1159,8 +1159,14 @@ function ActorTopBar({
     secondary = rangeLabel
   }
 
+  const metaBits = [
+    detail || null,
+    formatCountLabel(tradeCount, 'transaction'),
+    formatCountLabel(companyCount, 'company', 'companies'),
+  ].filter(Boolean)
+
   return (
-    <header className="drpt-topbar drpt-topbar--investor">
+    <header className={['drpt-topbar', 'drpt-topbar--investor', metaBits.length ? '' : 'drpt-topbar--noMeta'].filter(Boolean).join(' ')}>
       <div className="drpt-topbarIdentity">
         <p className="drpt-kicker">Investor dossier</p>
         <div className="drpt-topbarTitleRow">
@@ -1168,30 +1174,21 @@ function ActorTopBar({
           <span className="drpt-topbarName">{modeLabel}</span>
         </div>
       </div>
-      <div className="drpt-topbarMeta">
-        {detail ? <span>{detail}</span> : null}
-        <span>{formatCountLabel(tradeCount, 'transaction')}</span>
-        <span>{formatCountLabel(companyCount, 'company', 'companies')}</span>
-      </div>
-      <div
-        className={[
-          'drpt-topbarPrice',
-          'drpt-topbarAside',
-          showReturn ? '' : 'drpt-topbarPrice--empty',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        aria-hidden={showReturn ? undefined : true}
-      >
-        {showReturn ? (
-          <>
-            <span className="drpt-price">{formatReturnFraction(rangeReturnPct)}</span>
-            {secondary ? (
-              <span className={['drpt-priceChange', up ? 'isUp' : 'isDown'].join(' ')}>{secondary}</span>
-            ) : null}
-          </>
-        ) : null}
-      </div>
+      {metaBits.length ? (
+        <div className="drpt-topbarMeta">
+          {metaBits.map((bit) => (
+            <span key={bit}>{bit}</span>
+          ))}
+        </div>
+      ) : null}
+      {showReturn ? (
+        <div className="drpt-topbarPrice drpt-topbarAside">
+          <span className="drpt-price">{formatReturnFraction(rangeReturnPct)}</span>
+          {secondary ? (
+            <span className={['drpt-priceChange', up ? 'isUp' : 'isDown'].join(' ')}>{secondary}</span>
+          ) : null}
+        </div>
+      ) : null}
     </header>
   )
 }
@@ -1212,9 +1209,15 @@ function CompanyTopBar({
     priceChangePct != null && Number.isFinite(Number(priceChangePct)) ? Number(priceChangePct) : null
   const up = ch != null ? ch >= 0 : true
   const showPrice = price != null && Number.isFinite(Number(price))
+  const metaBits = [
+    sector || null,
+    domicile || null,
+    mcap || null,
+    earnings?.label ? `Earnings ${earnings.label}` : null,
+  ].filter(Boolean)
 
   return (
-    <header className="drpt-topbar">
+    <header className={['drpt-topbar', metaBits.length ? '' : 'drpt-topbar--noMeta'].filter(Boolean).join(' ')}>
       <div className="drpt-topbarIdentity">
         <p className="drpt-kicker">Company dossier</p>
         <div className="drpt-topbarTitleRow">
@@ -1222,35 +1225,25 @@ function CompanyTopBar({
           <span className="drpt-topbarName">{displayName}</span>
         </div>
       </div>
-      <div className="drpt-topbarMeta">
-        {sector ? <span>{sector}</span> : null}
-        {domicile ? <span>{domicile}</span> : null}
-        {mcap ? <span>{mcap}</span> : null}
-        {earnings?.label ? <span>Earnings {earnings.label}</span> : null}
-      </div>
-      <div
-        className={[
-          'drpt-topbarPrice',
-          'drpt-topbarAside',
-          showPrice ? '' : 'drpt-topbarPrice--empty',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        aria-hidden={showPrice ? undefined : true}
-      >
-        {showPrice ? (
-          <>
-            <span className="drpt-price">${Number(price).toFixed(2)}</span>
-            {ch != null && chPct != null ? (
-              <span className={['drpt-priceChange', up ? 'isUp' : 'isDown'].join(' ')}>
-                {up ? '+' : ''}
-                {ch.toFixed(2)} ({up ? '+' : ''}
-                {chPct.toFixed(2)}%)
-              </span>
-            ) : null}
-          </>
-        ) : null}
-      </div>
+      {metaBits.length ? (
+        <div className="drpt-topbarMeta">
+          {metaBits.map((bit) => (
+            <span key={bit}>{bit}</span>
+          ))}
+        </div>
+      ) : null}
+      {showPrice ? (
+        <div className="drpt-topbarPrice drpt-topbarAside">
+          <span className="drpt-price">${Number(price).toFixed(2)}</span>
+          {ch != null && chPct != null ? (
+            <span className={['drpt-priceChange', up ? 'isUp' : 'isDown'].join(' ')}>
+              {up ? '+' : ''}
+              {ch.toFixed(2)} ({up ? '+' : ''}
+              {chPct.toFixed(2)}%)
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </header>
   )
 }

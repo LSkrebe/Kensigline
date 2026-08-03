@@ -38,13 +38,12 @@ export const SIGN_IN = {
 }
 
 export const INTRO_FOOTER = {
-  nfa: 'Not investment advice',
-  tagline: 'See who filed before the market does.',
-  links: [
-    { id: 'product', label: 'Product', href: '#product' },
-    { id: 'faq', label: 'FAQ', href: '#faq' },
-    { id: 'sign-in', label: 'Sign in', href: '/sign-in' },
-  ],
+  line: '© Mercerline, Not investment advice, All rights reserved',
+  terms:
+    'By using Mercerline you agree this is a research and information product only. Nothing here is investment, legal, or tax advice; no broker, adviser, or fiduciary relationship is created. Markets involve risk of loss. You are solely responsible for decisions you make.',
+  privacy:
+    'We process account, billing, and product-usage data to operate the service. Payment is handled by Stripe. Do not submit sensitive personal data you are not authorized to share. Contact research@mercerline.com for data requests.',
+  ip: 'Site content, branding, and software are owned by Mercerline or its licensors. Unauthorized scraping, redistribution, or resale is prohibited. DMCA notices: research@mercerline.com.',
 }
 
 export function heroLead(pricing = DEFAULT_PRICING) {
@@ -71,13 +70,13 @@ export function heroLeadParts(pricing = DEFAULT_PRICING) {
 export function heroCopy(pricing = DEFAULT_PRICING) {
   if (pricing.founders) {
     return {
-      eyebrow: 'Founders pricing — 50% off',
+      eyebrow: null,
       brand: 'Mercerline',
       headline: 'See who filed before the timeline moves.',
-      lead: heroLead(pricing),
-      ctaPrimary: 'Claim founders rate',
+      lead: null,
+      ctaPrimary: 'Get 50% off',
       ctaSecondary: 'See product',
-      note: 'Limited early access — lock in half price before it closes.',
+      note: 'Limited early access offer',
     }
   }
   return {
@@ -219,9 +218,21 @@ export const PLAN_FEATURES = [
   'Investor dossiers (Form 4, PTR, 13F)',
   'Company dossiers when you need issuer context',
   'Macro calendar across four regions',
-  'Historical outcomes on similar setups',
+  'Historical outcomes after filings',
   'Settings and self-serve billing',
 ]
+
+/** Compact labels for subscribe — same chip treatment as intro Coverage. */
+export const SUBSCRIBE_FEATURES = {
+  items: [
+    'Daily disclosure recap',
+    'Investors directory',
+    'Investor dossiers',
+    'Company dossiers',
+    'Macro calendar',
+    'Historical outcomes',
+  ],
+}
 
 export function introFaq(pricing = DEFAULT_PRICING) {
   return [
@@ -252,7 +263,7 @@ export function pricingCopy(pricing = DEFAULT_PRICING) {
     kicker: 'Pricing',
     title: 'Simple pricing. Full access.',
     sub: pricing.founders
-      ? 'Founders pricing — early access rate. Most members choose yearly.'
+      ? 'Founders pricing, early access rate. Most members choose yearly.'
       : `Most members choose yearly and save ${formatUsd(pricing.yearlySaveUsd)}.`,
     monthlyNote: 'Billed monthly, cancel anytime',
     yearlyNote: 'Billed annually',
@@ -263,17 +274,19 @@ export function pricingCopy(pricing = DEFAULT_PRICING) {
 export const PRICING = pricingCopy()
 
 export const SUBSCRIBE_FOOTER = {
-  nfa: INTRO_FOOTER.nfa,
-  tagline: INTRO_FOOTER.tagline,
+  line: INTRO_FOOTER.line,
+  terms: INTRO_FOOTER.terms,
+  privacy: INTRO_FOOTER.privacy,
+  ip: INTRO_FOOTER.ip,
 }
 
 export function subscribeCopy(pricing = DEFAULT_PRICING) {
   if (pricing.founders) {
     return {
-      eyebrow: 'Limited offer',
-      headline: 'Founders pricing',
-      lead: '50% off — exclusive early access. Lock this rate in before it disappears.',
-      reassurance: 'Your price stays locked for as long as you stay subscribed.',
+      eyebrow: null,
+      headline: 'Early access offer',
+      lead: null,
+      reassurance: '50% off with your rate locked in',
     }
   }
   return {

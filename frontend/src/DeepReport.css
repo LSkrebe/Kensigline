@@ -734,6 +734,7 @@
   font-family: var(--drpt-mono);
   font-size: 10px;
   color: var(--drpt-muted);
+  min-width: 0;
   white-space: nowrap;
 }
 
@@ -1338,39 +1339,55 @@ button.drpt-docRow {
 }
 
 .drpt-docRow--flow {
-  grid-template-columns: 52px minmax(0, 1fr) minmax(64px, 88px) minmax(72px, 96px) 72px;
+  /* Fixed trail cols so txn/money/date line up across rows */
+  grid-template-columns: 52px minmax(0, 1fr) 7.25rem 8.5rem 4.5rem;
+  align-items: center;
+}
+
+.drpt-docRow--flow .drpt-docCode,
+.drpt-docRow--flow .drpt-docMain,
+.drpt-docRow--flow .drpt-docTxn,
+.drpt-docRow--flow .drpt-docAmt,
+.drpt-docRow--flow .drpt-docDate {
+  align-self: center;
+  line-height: 1.25;
 }
 
 .drpt-docRow--flow .drpt-docTxn,
 .drpt-docRow--flow .drpt-docAmt,
 .drpt-docRow--flow .drpt-docDate {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   text-align: right;
-  justify-self: end;
+  justify-self: stretch;
+  font-variant-numeric: tabular-nums;
 }
 
 .drpt-docRow--flowTight {
-  grid-template-columns: 36px minmax(0, 1fr) 30px 62px 50px;
+  grid-template-columns: 36px minmax(0, 1fr) 4.5rem 7rem 3.25rem;
   gap: 8px 6px;
+  align-items: center;
 }
 
 .drpt-docRow--flowTight.drpt-docRow--flowNoTxn {
-  grid-template-columns: 36px minmax(0, 1fr) 62px 50px;
+  grid-template-columns: 36px minmax(0, 1fr) 7rem 3.25rem;
 }
 
 .drpt-docRow--flow.drpt-docRow--flowNoTxn {
-  grid-template-columns: 52px minmax(0, 1fr) minmax(72px, 96px) 72px;
+  grid-template-columns: 52px minmax(0, 1fr) 8.5rem 4.5rem;
 }
 
-.drpt-docRow--flowTight .drpt-docTxn {
-  min-width: 0;
-  text-align: right;
-  justify-self: end;
-}
-
+.drpt-docRow--flowTight .drpt-docTxn,
 .drpt-docRow--flowTight .drpt-docAmt,
 .drpt-docRow--flowTight .drpt-docDate {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
   text-align: right;
-  justify-self: end;
+  justify-self: stretch;
+  align-self: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .drpt-docCode {
@@ -1384,7 +1401,7 @@ button.drpt-docRow {
 .drpt-docMain {
   min-width: 0;
   font-size: 12px;
-  line-height: 1.35;
+  line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1671,6 +1688,12 @@ button.drpt-docRow {
     padding: 16px var(--drpt-page-pad-x) 14px;
   }
 
+  .drpt-topbar--noMeta {
+    grid-template-rows: var(--drpt-topbar-row-h);
+    grid-template-areas: 'identity price';
+    gap: 0 16px;
+  }
+
   .drpt-topbarIdentity {
     grid-area: identity;
     min-width: 0;
@@ -1685,8 +1708,16 @@ button.drpt-docRow {
     justify-content: flex-start;
   }
 
+  .drpt-topbarMeta:empty {
+    display: none;
+  }
+
   .drpt-topbarPrice {
     grid-area: price;
+  }
+
+  .drpt-topbarPrice--empty {
+    display: none;
   }
 
   .drpt-topbarName {
@@ -1785,14 +1816,14 @@ button.drpt-docRow {
     min-width: 0;
   }
 
-  /* 5-col flow rows: reclaim name space without diverging from other lists */
+  /* 5-col flow rows: fixed trail cols keep txn/money/date aligned */
   .drpt-docRow--flow {
-    grid-template-columns: 32px minmax(0, 1fr) 28px 54px 48px;
+    grid-template-columns: 32px minmax(0, 1fr) 2.5rem 7.5rem 3rem;
     column-gap: 8px;
   }
 
   .drpt-docRow--flow.drpt-docRow--flowNoTxn {
-    grid-template-columns: 32px minmax(0, 1fr) 54px 48px;
+    grid-template-columns: 32px minmax(0, 1fr) 7.5rem 3rem;
     column-gap: 8px;
   }
 

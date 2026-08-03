@@ -19,15 +19,18 @@ import { useBillingPricing } from './useBillingPricing.js'
 import './IntroPage.marketing.css'
 
 const COLLAPSE_RANGE_FALLBACK = 1
-const LP_EXPANDED_FADE_END = 0.88
-const LP_COMPACT_FADE_START = 0
+const LP_EXPANDED_FADE_END = 0.92
+/** Keep compact strip dark until near the end so the hero photo doesn't morph mid-collapse. */
+const LP_COMPACT_FADE_START = 0.62
 const NAV_OFFSET = 64
 
 function collapseProgressVars(progress) {
   const p = Math.min(1, Math.max(0, progress))
   const expandedOpacity = p <= LP_EXPANDED_FADE_END ? 1 - p / LP_EXPANDED_FADE_END : 0
   const compactOpacity =
-    p <= LP_COMPACT_FADE_START ? 0 : (p - LP_COMPACT_FADE_START) / (1 - LP_COMPACT_FADE_START)
+    p <= LP_COMPACT_FADE_START
+      ? 0
+      : (p - LP_COMPACT_FADE_START) / (1 - LP_COMPACT_FADE_START)
   return {
     '--lp-collapse': String(p),
     '--lp-expanded-opacity': String(expandedOpacity),
@@ -161,9 +164,6 @@ export function IntroPage() {
               </span>
               <span className="lpBrandName">MERCERLINE</span>
             </a>
-            {pricing.founders ? (
-              <p className="lpHeroFoundersChip">50% off</p>
-            ) : null}
             <nav className="lpNavLinks" aria-label="Page">
               <a href="#product" onClick={(e) => scrollToSection('product', e)}>
                 Product
@@ -179,22 +179,26 @@ export function IntroPage() {
 
           <div className="lpHeroExpanded">
             <div className="lpHeroExpandedInner">
-              <p className={['lpEyebrow', pricing.founders ? 'lpEyebrow--accent' : ''].filter(Boolean).join(' ')}>
-                {hero.eyebrow}
-              </p>
+              {hero.eyebrow ? (
+                <p className={['lpEyebrow', pricing.founders ? 'lpEyebrow--accent' : ''].filter(Boolean).join(' ')}>
+                  {hero.eyebrow}
+                </p>
+              ) : null}
               <p className="lpHeroBrand">{hero.brand}</p>
               <h1 className="lpHeroTitle">{hero.headline}</h1>
-              <p className="lpHeroLead">
-                {leadParts.listPrice ? (
-                  <>
-                    {leadParts.prefix}
-                    <span className="lpHeroListPrice">{leadParts.listPrice}</span>{' '}
-                    <span className="lpHeroPrice">{leadParts.price}</span>
-                  </>
-                ) : (
-                  leadParts.prefix
-                )}
-              </p>
+              {hero.lead || leadParts.listPrice ? (
+                <p className="lpHeroLead">
+                  {leadParts.listPrice ? (
+                    <>
+                      {leadParts.prefix}
+                      <span className="lpHeroListPrice">{leadParts.listPrice}</span>{' '}
+                      <span className="lpHeroPrice">{leadParts.price}</span>
+                    </>
+                  ) : (
+                    leadParts.prefix
+                  )}
+                </p>
+              ) : null}
               <div className="lpHeroActions">
                 <a
                   className={`lpBtn ${pricing.founders ? 'lpBtn--accent' : 'lpBtn--primary'}`}
@@ -211,9 +215,11 @@ export function IntroPage() {
                   {hero.ctaSecondary}
                 </a>
               </div>
-              <p className={['lpHeroNote', pricing.founders ? 'lpHeroNote--accent' : ''].filter(Boolean).join(' ')}>
-                {hero.note}
-              </p>
+              {hero.note ? (
+                <p className={['lpHeroNote', pricing.founders ? 'lpHeroNote--accent' : ''].filter(Boolean).join(' ')}>
+                  {hero.note}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -333,15 +339,15 @@ export function IntroPage() {
           <section className="lpCtaBand">
             <h2 className="lpCtaTitle">Start tracking disclosures</h2>
             <p className="lpCtaLead">
-              Full access from day one
               {pricing.founders && pricing.monthlyListUsd ? (
                 <>
-                  {' '}
-                  from <span className="lpHeroListPrice">{formatUsd(pricing.monthlyListUsd)}/mo</span>{' '}
+                  Full access day one from{' '}
+                  <span className="lpHeroListPrice">{formatUsd(pricing.monthlyListUsd)}/mo</span>{' '}
                   <span className="lpHeroPrice">{formatUsd(pricing.monthlyUsd)}/mo</span>
                 </>
-              ) : null}
-              . Cancel anytime.
+              ) : (
+                'Full access from day one.'
+              )}
             </p>
             <a
               className={`lpBtn ${pricing.founders ? 'lpBtn--accent' : 'lpBtn--primary'}`}
@@ -354,14 +360,17 @@ export function IntroPage() {
         </main>
 
         <footer className="lpFoot" role="contentinfo">
-          <div className="lpFootInner">
-            <div className="lpFootCopy">
-              <p className="lpFootNfa">{INTRO_FOOTER.nfa}</p>
-              <p className="lpFootTag">{INTRO_FOOTER.tagline}</p>
-            </div>
-            <a className="lpFootCta" href="/sign-in" onClick={goToSignIn}>
-              Sign in
-            </a>
+          <div className="lpFootInner lpFootInner--legal">
+            <p className="lpFootLine">{INTRO_FOOTER.line}</p>
+            <p className="lpFootLegalText">
+              <span className="lpFootLegalLabel">Terms</span> {INTRO_FOOTER.terms}
+            </p>
+            <p className="lpFootLegalText">
+              <span className="lpFootLegalLabel">Privacy</span> {INTRO_FOOTER.privacy}
+            </p>
+            <p className="lpFootLegalText">
+              <span className="lpFootLegalLabel">IP / DMCA</span> {INTRO_FOOTER.ip}
+            </p>
           </div>
         </footer>
       </div>

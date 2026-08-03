@@ -227,6 +227,10 @@ export function ExploreDailyRecap({
   const [activeIdx, setActiveIdx] = useState(0)
   const compactLayout = useExploreCompactLayout()
   const slideCount = useMemo(() => Math.max(1, getRecapSlideCount(recap)), [recap])
+  const slidesContentKey = useMemo(() => {
+    const slides = Array.isArray(recap?.slides) ? recap.slides : []
+    return slides.map((s) => String(s?.id ?? '')).join('|')
+  }, [recap])
   const hasSlides = getRecapSlideCount(recap) > 0
   const loopEnabled = hasSlides && slideCount > 1
 
@@ -283,7 +287,7 @@ export function ExploreDailyRecap({
     }
     const onResize = () => {
       const track = trackRef.current
-      if (!track) return
+      if (!track || track.clientWidth <= 0) return
       const physicalIdx = loopEnabled ? activeIdxRef.current + 1 : activeIdxRef.current
       jumpToPhysicalSlide(track, physicalIdx)
       syncActiveFromScroll()
@@ -307,7 +311,7 @@ export function ExploreDailyRecap({
 
   useEffect(() => {
     const el = trackRef.current
-    if (!el) return
+    if (!el || el.clientWidth <= 0) return
     jumpingRef.current = true
     if (loopEnabled) {
       jumpToPhysicalSlide(el, 1)
@@ -321,7 +325,8 @@ export function ExploreDailyRecap({
     requestAnimationFrame(() => {
       jumpingRef.current = false
     })
-  }, [recap, loopEnabled, slideCount])
+    /* Reset only when slide content/count changes — not on parent re-renders. */
+  }, [slidesContentKey, loopEnabled, slideCount])
 
   const scrollToSlide = (idx) => {
     const el = trackRef.current

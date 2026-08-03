@@ -290,7 +290,7 @@ export function ExploreEventPage({
               />
             </div>
             <div className="drpt-expanded">
-              <header className="drpt-topbar">
+              <header className={['drpt-topbar', metaBits.length ? '' : 'drpt-topbar--noMeta'].filter(Boolean).join(' ')}>
                 <div className="drpt-topbarIdentity">
                   <p className="drpt-kicker">{kicker}</p>
                   <div className="drpt-topbarTitleRow">
@@ -303,20 +303,9 @@ export function ExploreEventPage({
                       <span key={bit}>{bit}</span>
                     ))}
                   </div>
-                ) : (
-                  <div className="drpt-topbarMeta" aria-hidden="true" />
-                )}
-                <div
-                  className={[
-                    'drpt-topbarPrice',
-                    'drpt-topbarAside',
-                    slide?.moveLabel ? '' : 'drpt-topbarPrice--empty',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  aria-hidden={slide?.moveLabel ? undefined : true}
-                >
-                  {slide?.moveLabel ? (
+                ) : null}
+                {slide?.moveLabel ? (
+                  <div className="drpt-topbarPrice drpt-topbarAside">
                     <span
                       className={['drpt-priceChange', 'mono', slide.moveUp ? 'isUp' : 'isDown'].join(
                         ' ',
@@ -324,8 +313,8 @@ export function ExploreEventPage({
                     >
                       {slide.moveLabel}
                     </span>
-                  ) : null}
-                </div>
+                  </div>
+                ) : null}
               </header>
             </div>
           </div>

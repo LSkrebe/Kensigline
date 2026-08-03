@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { buildExploreDirectoryHomePreview } from './exploreDirectoryMock.js'
 import { ExploreDirectoryCompanyRow, ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
@@ -8,9 +8,9 @@ import './ExplorePage.css'
 
 const COLLAPSE_RANGE_FALLBACK = 1
 /** Scroll progress (0–1) at which recap hero / expanded bg finishes fading. */
-const EXPLORE_EXPANDED_FADE_END = 0.88
-/** Strip bg_2 fades in from the start of collapse through 100% scroll. */
-const EXPLORE_COMPACT_FADE_START = 0
+const EXPLORE_EXPANDED_FADE_END = 0.92
+/** Keep compact strip dark until near the end so the hero photo doesn't morph mid-collapse. */
+const EXPLORE_COMPACT_FADE_START = 0.62
 
 function collapseProgressVars(progress) {
   const p = Math.min(1, Math.max(0, progress))
@@ -61,8 +61,8 @@ export function ExplorePage({
   onInvestorRowClick = null,
   onEventClick = null,
 }) {
-  const recap = buildExploreDailyRecap()
-  const directoryPreview = buildExploreDirectoryHomePreview()
+  const recap = useMemo(() => buildExploreDailyRecap(), [])
+  const directoryPreview = useMemo(() => buildExploreDirectoryHomePreview(), [])
   const pageRef = useRef(null)
   const dockRef = useRef(null)
   const spacerRef = useRef(null)

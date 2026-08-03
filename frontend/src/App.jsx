@@ -3363,6 +3363,31 @@ function formatUsdCompact(n) {
   return `$${Math.round(x)}`
 }
 
+/** Band endpoints for PTR-style ranges — round units, no trailing .0 */
+function formatUsdBandEndpoint(n) {
+  const x = Number(n)
+  if (!Number.isFinite(x) || x <= 0) return ''
+  if (x >= 1e9) return `$${Math.round(x / 1e9)}B`
+  if (x >= 1e6) return `$${Math.round(x / 1e6)}M`
+  if (x >= 1e3) return `$${Math.round(x / 1e3)}K`
+  return `$${Math.round(x)}`
+}
+
+/** `$100,001 - $250,000` → `$100K–$250K` so trade-log columns stay readable. */
+function compactUsdRangeLabel(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return ''
+  const m = s.match(/^\$?\s*([\d,]+(?:\.\d+)?)\s*[-–—]\s*\$?\s*([\d,]+(?:\.\d+)?)\s*$/)
+  if (!m) return s
+  const a = Number(String(m[1]).replace(/,/g, ''))
+  const b = Number(String(m[2]).replace(/,/g, ''))
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return s
+  const fa = formatUsdBandEndpoint(a)
+  const fb = formatUsdBandEndpoint(b)
+  if (!fa || !fb) return s
+  return `${fa} - ${fb}`
+}
+
 function formatSharesCompact(n) {
   const x = Math.abs(Number(n))
   if (!Number.isFinite(x) || x <= 0) return ''
@@ -3672,7 +3697,7 @@ function applyInvestigateTxnFilterToFeedRow(row, enabledCodes, mode) {
 
 function formatPoliticianTxnValue(r) {
   const range = String(r?.amountRange ?? '').trim()
-  if (range) return range
+  if (range) return compactUsdRangeLabel(range)
   const amt = Number(r?.amountUsd ?? 0)
   if (!(Number.isFinite(amt) && amt > 0)) return '—'
   const code = politicianTxnCodeFromRaw(r?.transactionType ?? r?.transactionCode)

@@ -41,12 +41,7 @@
   margin-bottom: calc(var(--explore-recap-collapsed-h) - var(--explore-recap-visual-h));
   overflow: hidden;
   box-shadow: 0 calc(var(--explore-collapse) * 1px) 0 rgba(255, 255, 255, calc(var(--explore-collapse) * 0.08));
-  background: color-mix(
-    in srgb,
-    transparent calc((1 - var(--explore-collapse)) * 100%),
-    rgba(8, 8, 9, 0.96)
-  );
-  backdrop-filter: blur(calc(var(--explore-collapse) * 10px));
+  background: #080809;
 }
 
 .exploreRecapCollapseSpacer {
@@ -425,8 +420,8 @@
   position: absolute;
   inset: 0;
   background-image: url('/mercerline_background_1.png');
-  background-size: 150% auto;
-  background-position: center 48%;
+  background-size: cover;
+  background-position: center top;
   background-repeat: no-repeat;
   opacity: 0.75;
   pointer-events: none;

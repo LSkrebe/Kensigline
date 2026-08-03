@@ -41,8 +41,13 @@ export async function handleSupportContact(req: http.IncomingMessage, res: http.
     return;
   }
   const user = await verifySupabaseAccessToken(tok);
-  if (!user?.sub || !user.email) {
+  if (!user?.sub) {
     sendJson(res, 401, { ok: false, error: "unauthorized" });
+    return;
+  }
+  const userEmail = user.email ? String(user.email).trim() : "";
+  if (!userEmail) {
+    sendJson(res, 400, { ok: false, error: "email_required" });
     return;
   }
 
@@ -89,13 +94,13 @@ export async function handleSupportContact(req: http.IncomingMessage, res: http.
 
   const billingShort = billingPlan ? `${billingStatus}/${billingPlan}` : billingStatus;
   // Fixed inbox-friendly subject — user text is body only.
-  const mailSubject = `[Mercerline] Support · ${user.email} · ${billingShort}`;
+  const mailSubject = `[Mercerline] Support · ${userEmail} · ${billingShort}`;
   const billingLine = `Billing: ${billingShort}`;
 
   const textContent = [
     "New Mercerline support message",
     "",
-    `From: ${user.email}`,
+    `From: ${userEmail}`,
     `User id: ${user.sub}`,
     billingLine,
     "",
@@ -107,7 +112,7 @@ export async function handleSupportContact(req: http.IncomingMessage, res: http.
   const htmlContent = `
     <div style="font-family:ui-sans-serif,system-ui,sans-serif;line-height:1.5;color:#111">
       <p style="margin:0 0 12px"><strong>New Mercerline support message</strong></p>
-      <p style="margin:0 0 4px"><strong>From:</strong> ${escapeHtml(user.email)}</p>
+      <p style="margin:0 0 4px"><strong>From:</strong> ${escapeHtml(userEmail)}</p>
       <p style="margin:0 0 4px"><strong>User id:</strong> <code>${escapeHtml(user.sub)}</code></p>
       <p style="margin:0 0 12px"><strong>${escapeHtml(billingLine)}</strong></p>
       <div style="white-space:pre-wrap;border-top:1px solid #ddd;padding-top:12px">${escapeHtml(message)}</div>
@@ -121,7 +126,7 @@ export async function handleSupportContact(req: http.IncomingMessage, res: http.
     htmlContent,
     textContent,
     logTag: "support_contact",
-    replyTo: { email: user.email },
+    replyTo: { email: userEmail },
   });
 
   if (!ok) {
