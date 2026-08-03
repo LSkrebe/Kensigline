@@ -99,18 +99,21 @@ export function SubscribePage() {
       </header>
 
       <main className="subMain">
-        <section id="subscribe-pricing" className="subHero">
+        <section
+          id="subscribe-pricing"
+          className={['subHero', pricing.founders ? 'subHero--founders' : ''].filter(Boolean).join(' ')}
+        >
           <p className="lpEyebrow">{copy.eyebrow}</p>
           <h1 className="subTitle">{copy.headline}</h1>
           <p className="subLead">{copy.lead}</p>
           <p className="lpHeroNote">{copy.reassurance}</p>
-          {pricing.badge ? <p className="subFoundersBadge">{pricing.badge}</p> : null}
 
           <ul className="lpInclude">
             {PLAN_FEATURES.map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>
+
           <div className="lpPlans">
             {plans.map((plan) => {
               const isSelected = selected === plan.id
@@ -157,9 +160,9 @@ export function SubscribePage() {
               {checkoutMsg}
             </p>
           ) : null}
-          <p className="lpFinePrint">
+          <p className={pricing.founders ? 'lpFinePrint subFoundersFine' : 'lpFinePrint'}>
             {pricing.founders
-              ? `Founders rate. Save ${formatUsd(pricing.yearlySaveUsd)} on yearly. Cancel anytime.`
+              ? `Half-price founders deal — ${formatUsd(pricing.monthlyUsd)}/mo or ${formatUsd(pricing.yearlyUsd)}/yr instead of ${formatUsd(pricing.monthlyListUsd)}/${formatUsd(pricing.yearlyListUsd)}. Your rate locks in for as long as you stay. Once this closes, it's gone.`
               : `Save ${formatUsd(pricing.yearlySaveUsd)} on yearly. Cancel anytime.`}
           </p>
         </section>

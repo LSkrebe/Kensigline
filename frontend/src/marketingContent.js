@@ -236,12 +236,18 @@ export const SUBSCRIBE_FOOTER = {
 }
 
 export function subscribeCopy(pricing = DEFAULT_PRICING) {
+  if (pricing.founders) {
+    return {
+      eyebrow: 'Limited offer',
+      headline: 'Founders pricing',
+      lead: '50% off — exclusive early access. Lock this rate in before it disappears.',
+      reassurance: 'Your price stays locked for as long as you stay subscribed.',
+    }
+  }
   return {
     eyebrow: 'Subscribe',
     headline: 'Choose your plan',
-    lead: pricing.founders
-      ? 'Founders pricing — early access rate. Full disclosure access from day one.'
-      : 'Full disclosure access from day one.',
+    lead: 'Full disclosure access from day one.',
     reassurance: 'Secure Stripe checkout. Cancel anytime.',
   }
 }
