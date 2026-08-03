@@ -6,6 +6,7 @@ import { hasBillingAccess, stripeConfigured } from "./config.js";
 import { getBillingByUserId } from "./store.js";
 
 const BILLING_EXEMPT_PATHS = new Set([
+  "/api/billing/pricing",
   "/api/billing/status",
   "/api/billing/checkout",
   "/api/billing/portal",

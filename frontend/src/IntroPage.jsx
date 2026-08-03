@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
-import { MONTHLY_PRICE_USD } from './billingPlans.js'
+import { formatUsd } from './billingPlans.js'
 import {
   HERO,
-  INTRO_FAQ,
+  heroLead,
+  introFaq,
   INTRO_FOOTER,
   INTRO_PAGE_META,
   ORIGIN_STORY,
@@ -14,6 +15,7 @@ import {
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
+import { useBillingPricing } from './useBillingPricing.js'
 import './IntroPage.marketing.css'
 
 const COLLAPSE_RANGE_FALLBACK = 1
@@ -37,6 +39,9 @@ export function IntroPage() {
   const pageRef = useRef(null)
   const dockRef = useRef(null)
   const spacerRef = useRef(null)
+  const pricing = useBillingPricing()
+  const faq = introFaq(pricing)
+  const lead = heroLead(pricing)
 
   const goToSignIn = useCallback((e) => {
     e?.preventDefault()
@@ -77,7 +82,7 @@ export function IntroPage() {
       description: INTRO_PAGE_META.description,
       offers: {
         '@type': 'Offer',
-        price: String(MONTHLY_PRICE_USD),
+        price: String(pricing.monthlyUsd),
         priceCurrency: 'USD',
       },
     }
@@ -94,7 +99,7 @@ export function IntroPage() {
     return () => {
       el?.remove()
     }
-  }, [])
+  }, [pricing.monthlyUsd])
 
   useEffect(() => {
     const page = pageRef.current
@@ -173,7 +178,7 @@ export function IntroPage() {
               <p className="lpEyebrow">{HERO.eyebrow}</p>
               <p className="lpHeroBrand">{HERO.brand}</p>
               <h1 className="lpHeroTitle">{HERO.headline}</h1>
-              <p className="lpHeroLead">{HERO.lead}</p>
+              <p className="lpHeroLead">{lead}</p>
               <div className="lpHeroActions">
                 <a className="lpBtn lpBtn--primary" href="/sign-in" onClick={goToSignIn}>
                   {HERO.ctaPrimary}
@@ -294,7 +299,7 @@ export function IntroPage() {
               <h2 className="lpSectionTitle">Questions</h2>
             </div>
             <div className="lpFaq">
-              {INTRO_FAQ.map((item) => (
+              {faq.map((item) => (
                 <article key={item.q} className="lpFaqItem">
                   <h3 className="lpFaqQ">{item.q}</h3>
                   <p className="lpFaqA">{item.a}</p>
@@ -305,7 +310,10 @@ export function IntroPage() {
 
           <section className="lpCtaBand">
             <h2 className="lpCtaTitle">Start tracking disclosures</h2>
-            <p className="lpCtaLead">Full access from day one. Cancel anytime.</p>
+            <p className="lpCtaLead">
+              Full access from day one
+              {pricing.founders ? ` from ${formatUsd(pricing.monthlyUsd)}/mo` : ''}. Cancel anytime.
+            </p>
             <a className="lpBtn lpBtn--primary" href="/sign-in" onClick={goToSignIn}>
               {HERO.ctaPrimary}
             </a>

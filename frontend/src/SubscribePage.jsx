@@ -1,33 +1,39 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchJsonSafe, getBackendBase } from './api.js'
 import { useAuth } from './AuthContext.jsx'
-import { BILLING_PLANS, formatUsd, YEARLY_SAVE_USD } from './billingPlans.js'
+import { formatUsd } from './billingPlans.js'
 import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
 import {
   PLAN_FEATURES,
-  PRICING,
-  SUBSCRIBE,
-  SUBSCRIBE_FAQ,
+  pricingCopy,
+  subscribeCopy,
+  subscribeFaq,
   SUBSCRIBE_FOOTER,
-  SUBSCRIBE_PAGE_META,
+  subscribePageMeta,
   SUBSCRIBE_PREVIEW,
 } from './marketingContent.js'
 import { returnToIntroAfterSignOut } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
+import { useBillingPricing } from './useBillingPricing.js'
 import './IntroPage.marketing.css'
 import './SubscribePage.css'
 
 export function SubscribePage() {
   const { user, signOut } = useAuth()
+  const pricing = useBillingPricing()
+  const plans = pricing.plans
+  const copy = subscribeCopy(pricing)
+  const notes = pricingCopy(pricing)
+  const faq = subscribeFaq(pricing)
   const [selected, setSelected] = useState('yearly')
   const [checkoutMsg, setCheckoutMsg] = useState('')
   const [checkoutBusy, setCheckoutBusy] = useState(false)
 
   useEffect(() => {
-    applyPageMeta(SUBSCRIBE_PAGE_META)
+    applyPageMeta(subscribePageMeta(pricing))
     markAppReady()
-  }, [])
+  }, [pricing])
 
   const onCheckout = useCallback(async (planId) => {
     setSelected(planId)
@@ -94,10 +100,11 @@ export function SubscribePage() {
 
       <main className="subMain">
         <section id="subscribe-pricing" className="subHero">
-          <p className="lpEyebrow">{SUBSCRIBE.eyebrow}</p>
-          <h1 className="subTitle">{SUBSCRIBE.headline}</h1>
-          <p className="subLead">{SUBSCRIBE.lead}</p>
-          <p className="lpHeroNote">{SUBSCRIBE.reassurance}</p>
+          <p className="lpEyebrow">{copy.eyebrow}</p>
+          <h1 className="subTitle">{copy.headline}</h1>
+          <p className="subLead">{copy.lead}</p>
+          <p className="lpHeroNote">{copy.reassurance}</p>
+          {pricing.badge ? <p className="subFoundersBadge">{pricing.badge}</p> : null}
 
           <ul className="lpInclude">
             {PLAN_FEATURES.map((line) => (
@@ -105,7 +112,7 @@ export function SubscribePage() {
             ))}
           </ul>
           <div className="lpPlans">
-            {BILLING_PLANS.map((plan) => {
+            {plans.map((plan) => {
               const isSelected = selected === plan.id
               return (
                 <article
@@ -127,7 +134,7 @@ export function SubscribePage() {
                     <span className="lpPlanInterval">/{plan.intervalLabel}</span>
                   </p>
                   <p className="lpPlanNote">
-                    {plan.id === 'yearly' ? PRICING.yearlyNote : PRICING.monthlyNote}
+                    {plan.id === 'yearly' ? notes.yearlyNote : notes.monthlyNote}
                   </p>
                   <button
                     type="button"
@@ -150,7 +157,11 @@ export function SubscribePage() {
               {checkoutMsg}
             </p>
           ) : null}
-          <p className="lpFinePrint">Save {formatUsd(YEARLY_SAVE_USD)} on yearly. Cancel anytime.</p>
+          <p className="lpFinePrint">
+            {pricing.founders
+              ? `Founders rate. Save ${formatUsd(pricing.yearlySaveUsd)} on yearly. Cancel anytime.`
+              : `Save ${formatUsd(pricing.yearlySaveUsd)} on yearly. Cancel anytime.`}
+          </p>
         </section>
 
         <section className="lpSection subPreview" aria-label="Product preview">
@@ -181,7 +192,7 @@ export function SubscribePage() {
             <h2 className="lpSectionTitle">Before you checkout</h2>
           </div>
           <div className="lpFaq">
-            {SUBSCRIBE_FAQ.map((item) => (
+            {faq.map((item) => (
               <article key={item.q} className="lpFaqItem">
                 <h3 className="lpFaqQ">{item.q}</h3>
                 <p className="lpFaqA">{item.a}</p>

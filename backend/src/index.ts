@@ -17,12 +17,13 @@ import { bearerToken, supabaseAuthConfigured, verifySupabaseAccessToken } from "
 import {
   handleBillingCheckout,
   handleBillingPortal,
+  handleBillingPricing,
   handleBillingRefresh,
   handleBillingStatus,
   handleBillingWebhook,
 } from "./billing/api.js";
 import { billingGateBlocksRequest } from "./billing/gate.js";
-import { stripeConfigured, stripeMode } from "./billing/config.js";
+import { isFoundersPricingEnabled, stripeConfigured, stripeMode } from "./billing/config.js";
 import {
   researchLimitFromSearchParams,
   handleResearchEvents,
@@ -69,6 +70,11 @@ const server = http.createServer(async (req, res) => {
     if (route(req, url, "POST", "/api/billing/webhook")) {
       const raw = await readRawBody(req);
       await handleBillingWebhook(req, res, raw);
+      return;
+    }
+
+    if (route(req, url, "GET", "/api/billing/pricing")) {
+      handleBillingPricing(req, res);
       return;
     }
 
@@ -575,6 +581,7 @@ server.listen(port, () => {
   console.log(`Backend listening on http://localhost:${port}`);
   if (stripeConfigured()) {
     console.log(`[billing] Stripe mode: ${stripeMode()}`);
+    console.log(`[billing] Founders pricing: ${isFoundersPricingEnabled() ? "on" : "off"}`);
   }
 });
 

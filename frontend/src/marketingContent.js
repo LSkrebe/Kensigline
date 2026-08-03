@@ -1,11 +1,6 @@
 /** Marketing copy — landing / auth / checkout (not in-app chrome). */
 
-import {
-  MONTHLY_PRICE_USD,
-  YEARLY_PRICE_USD,
-  YEARLY_SAVE_USD,
-  formatUsd,
-} from './billingPlans.js'
+import { DEFAULT_PRICING, formatUsd } from './billingPlans.js'
 
 export const PRODUCT_NAME = 'Mercerline'
 
@@ -17,12 +12,17 @@ export const INTRO_PAGE_META = {
   ogImage: '/og-image.png',
 }
 
-export const SUBSCRIBE_PAGE_META = {
-  title: 'Subscribe - Mercerline',
-  description: `Subscribe to Mercerline from ${formatUsd(MONTHLY_PRICE_USD)}/mo. Track insider, politician, and fund filings with investor dossiers and company context.`,
-  path: '/subscribe',
-  ogImage: '/og-image.png',
+export function subscribePageMeta(pricing = DEFAULT_PRICING) {
+  return {
+    title: 'Subscribe - Mercerline',
+    description: `Subscribe to Mercerline from ${formatUsd(pricing.monthlyUsd)}/mo. Track insider, politician, and fund filings with investor dossiers and company context.`,
+    path: '/subscribe',
+    ogImage: '/og-image.png',
+  }
 }
+
+/** @deprecated Prefer subscribePageMeta(pricing) */
+export const SUBSCRIBE_PAGE_META = subscribePageMeta()
 
 export const SIGN_IN_PAGE_META = {
   title: 'Sign in - Mercerline',
@@ -47,11 +47,15 @@ export const INTRO_FOOTER = {
   ],
 }
 
+export function heroLead(pricing = DEFAULT_PRICING) {
+  return `Track insider, politician, and fund filings on US equities as they clear from ${formatUsd(pricing.monthlyUsd)}/mo.`
+}
+
 export const HERO = {
   eyebrow: 'US equity disclosures',
   brand: 'Mercerline',
   headline: 'See who filed before the timeline moves.',
-  lead: `Track insider, politician, and fund filings on US equities as they clear from ${formatUsd(MONTHLY_PRICE_USD)}/mo.`,
+  lead: heroLead(),
   ctaPrimary: 'Get started',
   ctaSecondary: 'See product',
   note: 'Open the investor behind each filing when it matters',
@@ -187,44 +191,63 @@ export const PLAN_FEATURES = [
   'Settings and self-serve billing',
 ]
 
-export const INTRO_FAQ = [
-  {
-    q: 'What is Mercerline for?',
-    a: 'Tracking US equity disclosures — insider Form 4, politician PTR, and institution 13F — with investor dossiers and company context when you need it.',
-  },
-  {
-    q: 'What do I get on day one?',
-    a: 'Full access to Explore, investor and company dossiers, and the macro calendar.',
-  },
-  {
-    q: 'Can I cancel?',
-    a: `Yes. ${formatUsd(MONTHLY_PRICE_USD)}/mo or ${formatUsd(YEARLY_PRICE_USD)}/yr with Stripe. Manage billing anytime in Settings.`,
-  },
-  {
-    q: 'Is this investment advice?',
-    a: 'No. Mercerline is a research workspace only.',
-  },
-]
-
-export const PRICING = {
-  kicker: 'Pricing',
-  title: 'Simple pricing. Full access.',
-  sub: `Most members choose yearly and save ${formatUsd(YEARLY_SAVE_USD)}.`,
-  monthlyNote: 'Billed monthly, cancel anytime',
-  yearlyNote: 'Billed annually',
+export function introFaq(pricing = DEFAULT_PRICING) {
+  return [
+    {
+      q: 'What is Mercerline for?',
+      a: 'Tracking US equity disclosures — insider Form 4, politician PTR, and institution 13F — with investor dossiers and company context when you need it.',
+    },
+    {
+      q: 'What do I get on day one?',
+      a: 'Full access to Explore, investor and company dossiers, and the macro calendar.',
+    },
+    {
+      q: 'Can I cancel?',
+      a: `Yes. ${formatUsd(pricing.monthlyUsd)}/mo or ${formatUsd(pricing.yearlyUsd)}/yr with Stripe. Manage billing anytime in Settings.`,
+    },
+    {
+      q: 'Is this investment advice?',
+      a: 'No. Mercerline is a research workspace only.',
+    },
+  ]
 }
+
+/** @deprecated Prefer introFaq(pricing) */
+export const INTRO_FAQ = introFaq()
+
+export function pricingCopy(pricing = DEFAULT_PRICING) {
+  return {
+    kicker: 'Pricing',
+    title: 'Simple pricing. Full access.',
+    sub: pricing.founders
+      ? 'Founders pricing — early access rate. Most members choose yearly.'
+      : `Most members choose yearly and save ${formatUsd(pricing.yearlySaveUsd)}.`,
+    monthlyNote: 'Billed monthly, cancel anytime',
+    yearlyNote: 'Billed annually',
+  }
+}
+
+/** @deprecated Prefer pricingCopy(pricing) */
+export const PRICING = pricingCopy()
 
 export const SUBSCRIBE_FOOTER = {
   nfa: INTRO_FOOTER.nfa,
   tagline: INTRO_FOOTER.tagline,
 }
 
-export const SUBSCRIBE = {
-  eyebrow: 'Subscribe',
-  headline: 'Choose your plan',
-  lead: 'Full disclosure access from day one.',
-  reassurance: 'Secure Stripe checkout. Cancel anytime.',
+export function subscribeCopy(pricing = DEFAULT_PRICING) {
+  return {
+    eyebrow: 'Subscribe',
+    headline: 'Choose your plan',
+    lead: pricing.founders
+      ? 'Founders pricing — early access rate. Full disclosure access from day one.'
+      : 'Full disclosure access from day one.',
+    reassurance: 'Secure Stripe checkout. Cancel anytime.',
+  }
 }
+
+/** @deprecated Prefer subscribeCopy(pricing) */
+export const SUBSCRIBE = subscribeCopy()
 
 /** Product plane under plans — frames the investors directory screenshot. */
 export const SUBSCRIBE_PREVIEW = {
@@ -250,21 +273,28 @@ export const SUBSCRIBE_PREVIEW = {
   ],
 }
 
-export const SUBSCRIBE_FAQ = [
-  {
-    q: 'Can I switch monthly and yearly later?',
-    a: 'Yes. Change plans anytime from billing settings in Mercerline.',
-  },
-  {
-    q: 'What happens after I pay?',
-    a: 'You land in Explore with investor dossiers, company context, and the macro calendar unlocked.',
-  },
-  {
-    q: 'Why choose yearly?',
-    a: `${formatUsd(YEARLY_SAVE_USD)} less than paying monthly for twelve months.`,
-  },
-  {
-    q: 'Can I cancel anytime?',
-    a: 'Yes. Manage or cancel from Settings. Access stays active through the billed period.',
-  },
-]
+export function subscribeFaq(pricing = DEFAULT_PRICING) {
+  return [
+    {
+      q: 'Can I switch monthly and yearly later?',
+      a: 'Yes. Change plans anytime from billing settings in Mercerline.',
+    },
+    {
+      q: 'What happens after I pay?',
+      a: 'You land in Explore with investor dossiers, company context, and the macro calendar unlocked.',
+    },
+    {
+      q: 'Why choose yearly?',
+      a: pricing.founders
+        ? `Lock in founders pricing and save ${formatUsd(pricing.yearlySaveUsd)} vs paying monthly for twelve months.`
+        : `${formatUsd(pricing.yearlySaveUsd)} less than paying monthly for twelve months.`,
+    },
+    {
+      q: 'Can I cancel anytime?',
+      a: 'Yes. Manage or cancel from Settings. Access stays active through the billed period.',
+    },
+  ]
+}
+
+/** @deprecated Prefer subscribeFaq(pricing) */
+export const SUBSCRIBE_FAQ = subscribeFaq()

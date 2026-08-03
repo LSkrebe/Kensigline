@@ -6,7 +6,9 @@ import {
   billingAccessPayload,
   frontendOrigin,
   getStripe,
+  isFoundersPricingEnabled,
   priceIdForPlan,
+  publicPricingPayload,
   stripeConfigured,
 } from "./config.js";
 import {
@@ -18,6 +20,11 @@ import {
 import { handleBillingWebhook } from "./webhook.js";
 
 export { handleBillingWebhook };
+
+/** Public pricing for marketing pages (kill-switch aware). */
+export function handleBillingPricing(_req: http.IncomingMessage, res: http.ServerResponse) {
+  sendJson(res, 200, publicPricingPayload());
+}
 
 async function requireUser(req: http.IncomingMessage): Promise<SupabaseJwtUser | null> {
   const tok = bearerToken(req);
@@ -100,6 +107,7 @@ export async function handleBillingCheckout(req: http.IncomingMessage, res: http
       });
     }
 
+    const founders = isFoundersPricingEnabled() ? "1" : "0";
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -107,9 +115,9 @@ export async function handleBillingCheckout(req: http.IncomingMessage, res: http
       success_url: `${origin}/?checkout=success`,
       cancel_url: `${origin}/?checkout=cancel`,
       client_reference_id: user.sub,
-      metadata: { supabase_user_id: user.sub, plan },
+      metadata: { supabase_user_id: user.sub, plan, founders_pricing: founders },
       subscription_data: {
-        metadata: { supabase_user_id: user.sub, plan },
+        metadata: { supabase_user_id: user.sub, plan, founders_pricing: founders },
       },
     });
 

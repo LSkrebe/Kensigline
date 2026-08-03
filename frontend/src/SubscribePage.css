@@ -51,7 +51,16 @@
 }
 
 .subHero .lpHeroNote {
-  margin: 0 auto 40px;
+  margin: 0 auto 12px;
+}
+
+.subFoundersBadge {
+  margin: 0 auto 36px;
+  max-width: 42ch;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .subHero .lpInclude {
