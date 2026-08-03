@@ -4,6 +4,23 @@ let cachedAuthToken = null
 let cachedAuthTokenAt = 0
 const AUTH_TOKEN_TTL_MS = 90_000
 
+/** Drop cached bearer — call on sign-out / account switch. */
+export function clearAuthTokenCache() {
+  cachedAuthToken = null
+  cachedAuthTokenAt = 0
+}
+
+/** Prefer the live session token so billing checks never use another user’s JWT. */
+export function setAuthTokenCache(token) {
+  const tok = String(token ?? '').trim()
+  if (!tok) {
+    clearAuthTokenCache()
+    return
+  }
+  cachedAuthToken = tok
+  cachedAuthTokenAt = Date.now()
+}
+
 function supabaseTokenFromLocalStorage() {
   if (typeof window === 'undefined' || !window.localStorage) return null
   try {
@@ -25,16 +42,22 @@ function supabaseTokenFromLocalStorage() {
 
 async function resolveAuthToken(timeoutMs) {
   const now = Date.now()
-  if (cachedAuthToken && now - cachedAuthTokenAt < AUTH_TOKEN_TTL_MS) {
-    return cachedAuthToken
+  const fromStorage = supabaseTokenFromLocalStorage()
+
+  /* Storage is source of truth — never return a cached token that no longer matches. */
+  if (fromStorage) {
+    if (
+      cachedAuthToken === fromStorage &&
+      now - cachedAuthTokenAt < AUTH_TOKEN_TTL_MS
+    ) {
+      return cachedAuthToken
+    }
+    setAuthTokenCache(fromStorage)
+    return fromStorage
   }
 
-  let tok = supabaseTokenFromLocalStorage()
-  if (tok) {
-    cachedAuthToken = tok
-    cachedAuthTokenAt = now
-    return tok
-  }
+  /* Signed out (or storage cleared) — do not reuse a previous user’s token. */
+  if (cachedAuthToken) clearAuthTokenCache()
 
   if (!supabase) return null
 
@@ -49,11 +72,8 @@ async function resolveAuthToken(timeoutMs) {
     sessionRes = null
   }
 
-  tok = sessionRes?.data?.session?.access_token ?? supabaseTokenFromLocalStorage()
-  if (tok) {
-    cachedAuthToken = tok
-    cachedAuthTokenAt = now
-  }
+  const tok = sessionRes?.data?.session?.access_token ?? supabaseTokenFromLocalStorage()
+  if (tok) setAuthTokenCache(tok)
   return tok
 }
 

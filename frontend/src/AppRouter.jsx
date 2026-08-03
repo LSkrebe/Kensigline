@@ -14,10 +14,12 @@ const BILLING_GATE_ENABLED = import.meta.env.VITE_BILLING_GATE !== '0'
 export default function AppRouter() {
   const { configured, loading, user } = useAuth()
   const signedIn = Boolean(configured && user)
+  const userId = user?.id ?? null
   const captureMode = isCaptureMode()
   const showMarketing = !captureMode && (!configured || !user)
-  const { loading: subLoading, active, refresh } = useSubscription(
+  const { loading: subLoading, active, refresh, gateReady } = useSubscription(
     signedIn && BILLING_GATE_ENABLED,
+    userId,
   )
 
   useEffect(() => {
@@ -61,7 +63,8 @@ export default function AppRouter() {
 
   if (showMarketing) return <MarketingRoutes />
 
-  if (loading || (BILLING_GATE_ENABLED && subLoading && !captureMode)) {
+  /* Wait until billing status is for THIS user — no stale access / no premature paywall. */
+  if (loading || (BILLING_GATE_ENABLED && !captureMode && (!gateReady || subLoading))) {
     return (
       <div className="terminalShell terminalShell--boot" aria-busy="true" aria-label="Loading">
         <div className="terminalBootBar" />

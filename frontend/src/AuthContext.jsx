@@ -1,8 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { clearAuthTokenCache, setAuthTokenCache } from './api.js'
 import { completeAuthFromUrl } from './authCallback.js'
 import { supabase } from './supabaseClient.js'
 
 const AuthContext = createContext(undefined)
+
+function syncTokenFromSession(session) {
+  const tok = session?.access_token
+  if (tok) setAuthTokenCache(tok)
+  else clearAuthTokenCache()
+}
 
 export function AuthProvider({ children }) {
   const configured = Boolean(supabase)
@@ -13,6 +20,7 @@ export function AuthProvider({ children }) {
     if (!supabase) {
       setSession(null)
       setLoading(false)
+      clearAuthTokenCache()
       return
     }
     let cancelled = false
@@ -21,9 +29,13 @@ export function AuthProvider({ children }) {
       if (!cancelled) setLoading(false)
     }, bootTimeoutMs)
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      if (!cancelled) setSession(next ?? null)
+    const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
+      if (cancelled) return
+      /* Always realign bearer cache to this event’s session (SIGNED_OUT → clear). */
+      syncTokenFromSession(next)
+      setSession(next ?? null)
       setLoading(false)
+      if (event === 'SIGNED_OUT') clearAuthTokenCache()
     })
 
     ;(async () => {
@@ -35,6 +47,7 @@ export function AuthProvider({ children }) {
       try {
         const { data } = await supabase.auth.getSession()
         if (!cancelled) {
+          syncTokenFromSession(data.session)
           setSession(data.session ?? null)
           setLoading(false)
         }
@@ -53,7 +66,10 @@ export function AuthProvider({ children }) {
 
   const signInWithPassword = useCallback(async (email, password) => {
     if (!supabase) return { data: null, error: new Error('supabase_not_configured') }
-    return supabase.auth.signInWithPassword({ email: email.trim(), password })
+    clearAuthTokenCache()
+    const result = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    if (result.data?.session) syncTokenFromSession(result.data.session)
+    return result
   }, [])
 
   const signUpWithPassword = useCallback(async (email, password) => {
@@ -68,7 +84,10 @@ export function AuthProvider({ children }) {
 
   const signOut = useCallback(async () => {
     if (!supabase) return { error: new Error('supabase_not_configured') }
-    return supabase.auth.signOut()
+    clearAuthTokenCache()
+    const result = await supabase.auth.signOut()
+    clearAuthTokenCache()
+    return result
   }, [])
 
   const value = useMemo(

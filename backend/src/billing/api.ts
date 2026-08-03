@@ -40,6 +40,8 @@ export async function handleBillingStatus(req: http.IncomingMessage, res: http.S
     return;
   }
 
+  const identity = { user_id: user.sub, email: user.email };
+
   if (!stripeConfigured()) {
     sendJson(res, 200, {
       ok: true,
@@ -48,18 +50,29 @@ export async function handleBillingStatus(req: http.IncomingMessage, res: http.S
       plan: null,
       billing_enabled: true,
       stripe_configured: false,
+      ...identity,
     });
     return;
   }
 
   const comped = billingAccessPayload(user);
   if (comped) {
-    sendJson(res, 200, { ...comped, billing_enabled: true, stripe_configured: true });
+    sendJson(res, 200, {
+      ...comped,
+      billing_enabled: true,
+      stripe_configured: true,
+      ...identity,
+    });
     return;
   }
 
   const row = await getBillingByUserId(user.sub);
-  sendJson(res, 200, { ...billingStatusPayload(row), billing_enabled: true, stripe_configured: true });
+  sendJson(res, 200, {
+    ...billingStatusPayload(row),
+    billing_enabled: true,
+    stripe_configured: true,
+    ...identity,
+  });
 }
 
 export async function handleBillingCheckout(req: http.IncomingMessage, res: http.ServerResponse) {
