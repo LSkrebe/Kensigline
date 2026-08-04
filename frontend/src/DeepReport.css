@@ -233,20 +233,30 @@
 
 .deepCompactChromeTrail {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: flex-end;
   gap: 8px;
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   opacity: var(--deep-compact-opacity);
+  line-height: 1;
+}
+
+.deepCompactChromeSubject,
+.deepCompactChromePrice,
+.deepCompactChromeChange {
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+  font-size: 11px;
+  font-weight: 400;
 }
 
 .deepCompactChromeSubject {
   flex: 0 1 auto;
   min-width: 0;
   max-width: 22ch;
-  font-size: 11px;
   letter-spacing: 0.08em;
   color: rgba(168, 196, 255, 0.82);
   white-space: nowrap;
@@ -256,7 +266,6 @@
 
 .deepCompactChromePrice {
   flex: 0 0 auto;
-  font-size: 11px;
   letter-spacing: 0.04em;
   color: rgba(255, 255, 255, 0.9);
   white-space: nowrap;
@@ -265,7 +274,6 @@
 
 .deepCompactChromeChange {
   flex: 0 0 auto;
-  font-size: 10px;
   letter-spacing: 0.04em;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;

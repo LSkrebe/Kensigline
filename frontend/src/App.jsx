@@ -36,6 +36,7 @@ import {
   useTerminalRoute,
 } from './terminalRoute.js'
 import { formatCountLabel } from './formatCountLabel.js'
+import { resolveDocumentOpenUrl } from './documentOpenUrl.js'
 import { MiniPriceChart, priceChangeForRange } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
 import {
@@ -362,6 +363,27 @@ function applyFeedTodayEventCounts(rows) {
   return rows.map((r) => normalizeFeedRowActivity(r))
 }
 
+function caseSheetDocumentUrl(cluster, fallback) {
+  const filing = cluster?.filing ?? {}
+  const dataFiling = cluster?.data?.filing ?? {}
+  return (
+    trimNonEmpty(fallback?.url) ||
+    trimNonEmpty(cluster?.url) ||
+    trimNonEmpty(filing.pdf_url) ||
+    trimNonEmpty(filing.index_url) ||
+    trimNonEmpty(filing.url) ||
+    trimNonEmpty(dataFiling.pdf_url) ||
+    trimNonEmpty(dataFiling.index_url) ||
+    trimNonEmpty(dataFiling.url) ||
+    null
+  )
+}
+
+function trimNonEmpty(v) {
+  const s = String(v ?? '').trim()
+  return s || null
+}
+
 function insiderCaseSheetFromClusterLive(cluster, fallback) {
   const wsRows = Array.isArray(cluster?.cluster?.worksheet_rows) ? cluster.cluster.worksheet_rows : []
   const fallbackName = insiderFallbackNameFromFeed(fallback)
@@ -372,6 +394,8 @@ function insiderCaseSheetFromClusterLive(cluster, fallback) {
     ticker: cluster?.issuer?.ticker ?? fallback?.ticker ?? '—',
     isForm4: true,
     filedAt: cluster?.filing?.filed_at ?? fallback?.at ?? null,
+    documentUrl: caseSheetDocumentUrl(cluster, fallback),
+    cik: cluster?.issuer?.cik ?? null,
     rows: wsRows.map((r) => {
       const key = String(r?.key ?? '').trim() || 'Insider'
       const bogusKey = isBogusInsiderWorksheetKey(key)
@@ -400,6 +424,7 @@ function insiderCaseSheetFromClusterLive(cluster, fallback) {
         shares: r?.shares != null ? Number(r.shares) : null,
         isDerivative: Boolean(r?.is_derivative ?? r?.derivative),
         ts: r?.ts != null ? String(r.ts) : null,
+        url: trimNonEmpty(r?.url) || null,
       }
     }),
   }
@@ -422,6 +447,8 @@ function politiciansCaseSheetFromClusterLive(cluster, fallback) {
     ticker: cluster?.issuer?.ticker ?? fallback?.ticker ?? '—',
     isForm4: true,
     filedAt,
+    documentUrl: caseSheetDocumentUrl(cluster, fallback),
+    cik: cluster?.issuer?.cik ?? null,
     rows: wsRows.map((r) => {
       const fullName = String(r?.key ?? '').trim() || 'Politician'
       return {
@@ -446,6 +473,7 @@ function politiciansCaseSheetFromClusterLive(cluster, fallback) {
               : null,
         acquiredDisposed: 'A',
         ts: r?.ts != null ? String(r.ts) : filedAt != null ? String(filedAt) : null,
+        url: trimNonEmpty(r?.url) || null,
       }
     }),
   }
@@ -465,6 +493,8 @@ function institutionCaseSheetFromClusterLive(cluster, fallback) {
     ticker: cluster?.issuer?.ticker ?? fallback?.ticker ?? '—',
     isForm4: true,
     filedAt: cluster?.filing?.filed_at ?? fallback?.at ?? null,
+    documentUrl: caseSheetDocumentUrl(cluster, fallback),
+    cik: cluster?.issuer?.cik ?? null,
     rows: wsRows.map((r) => {
       const filer = String(r?.institution_name ?? r?.key ?? '').trim() || 'Institution'
       return {
@@ -474,6 +504,7 @@ function institutionCaseSheetFromClusterLive(cluster, fallback) {
         activity: r?.activity != null ? String(r.activity) : null,
         amountUsd: r?.amount_usd != null ? Number(r.amount_usd) : null,
         ts: r?.ts != null ? String(r.ts) : null,
+        url: trimNonEmpty(r?.url) || null,
       }
     }),
   }
@@ -1177,7 +1208,7 @@ function investigateActorFeedRowMatchesSearch(row, queryRaw) {
   return false
 }
 
-function caseSheetRowToCompanyCaseFeedRow(r, { ticker, company, showMoney, mode }) {
+function caseSheetRowToCompanyCaseFeedRow(r, { ticker, company, showMoney, mode, documentUrl = null, cik = null, filingId = null }) {
   const base =
     mode === 'politicians'
       ? caseSheetRowToPoliticianTxnFeedRow(r, { showMoney })
@@ -1194,6 +1225,12 @@ function caseSheetRowToCompanyCaseFeedRow(r, { ticker, company, showMoney, mode 
     companyName,
     matchCompanies: [tick, companyName],
     __source: mode,
+    url: trimNonEmpty(r?.url) || trimNonEmpty(documentUrl) || null,
+    documentUrl: trimNonEmpty(documentUrl) || trimNonEmpty(r?.url) || null,
+    cik: cik ?? null,
+    filingId: filingId ?? null,
+    accession: filingId ?? null,
+    chamber: r?.chamber ?? base.chamber ?? null,
   }
 }
 
@@ -1209,6 +1246,9 @@ function buildActorCaseFeedRows(actorRow, filters, chartRange) {
       company: txn.company,
       showMoney: txn.showMoney,
       mode: txnMode,
+      documentUrl: txn.companyRow?.caseSheet?.documentUrl ?? txn.companyRow?.url ?? null,
+      cik: txn.companyRow?.caseSheet?.cik ?? null,
+      filingId: txn.companyRow?.caseSheet?.filingId ?? null,
     })
     if (row) trades.push(row)
   }
@@ -5896,38 +5936,33 @@ function mockResearchDocumentsForTicker(ticker) {
 const MOCK_PAPER_DOCUMENTS_ASML = mockResearchDocumentsForTicker('ASML')
 
 function paperDocumentOpenUrl(doc, ticker) {
-  const direct = String(doc?.url ?? '').trim()
-  if (direct) return direct
-  const id = String(doc?.id ?? '')
   const source = String(doc?.source ?? '').toLowerCase()
   const t = String(ticker ?? '').trim().toUpperCase()
-  if (source.includes('investor') && t === 'ASML') {
+  const direct = String(doc?.url ?? '').trim()
+  if (source.includes('investor') && t === 'ASML' && !direct) {
     return 'https://www.asml.com/en/investors'
   }
-  if (source.includes('gov contract') || id.includes('gov') || source.includes('sam.gov')) {
-    if (direct) return direct
+  if (source.includes('gov contract') || String(doc?.id ?? '').includes('gov') || source.includes('sam.gov')) {
+    if (direct) return resolveDocumentOpenUrl({ url: direct, ticker: t, kind: 'document', source })
     const q = t || 'federal contract award'
     return `https://sam.gov/search/?index=opp&page=1&sort=-relevance&keywords=${encodeURIComponent(q)}`
   }
-  if (t) return `https://www.sec.gov/edgar/search/#/q=${encodeURIComponent(t)}`
-  return 'https://www.sec.gov/edgar/search/'
+  return resolveDocumentOpenUrl({
+    url: direct || null,
+    ticker: t,
+    kind: 'document',
+    source,
+  })
 }
 
 function paperTxnOpenUrl({ kind, url, ticker, source, chamber = null }) {
-  const direct = String(url ?? '').trim()
-  if (direct) return direct
-  const t = String(ticker ?? '').trim().toUpperCase()
-  const src = String(source ?? '').toLowerCase()
-  if (kind === 'politician' || src.includes('ptr') || src.includes('278')) {
-    const ch = String(chamber ?? '').trim().toLowerCase()
-    if (ch === 'senate') return 'https://efdsearch.senate.gov/search/home/'
-    if (ch === 'executive') return 'https://extapps2.oge.gov/201/Presiden.nsf/PAS+Index?OpenView'
-    return 'https://disclosures-clerk.house.gov/FinancialDisclosure/ViewSearch'
-  }
-  if (kind === '13f' || src.includes('13f')) {
-    return paperDocumentOpenUrl({ source: '13F' }, ticker)
-  }
-  return paperDocumentOpenUrl({ source: src.includes('form 3') ? 'Form 3' : src.includes('form 5') ? 'Form 5' : 'Form 4' }, ticker)
+  return resolveDocumentOpenUrl({
+    url,
+    ticker,
+    kind,
+    source,
+    chamber,
+  })
 }
 
 function PanelScreenshotIcon() {
@@ -8885,17 +8920,22 @@ function investigateCaseSheetFromApiItem(it, mode) {
     company: it.company_name ?? it.company,
     at: it.feed_at ?? it.at,
     chamber: it.chamber,
+    url: it.url ?? it.document_url ?? null,
   }
   const ws = Array.isArray(it.worksheet_rows) ? it.worksheet_rows : []
   if (ws.length) {
     const pseudo = {
       cluster: { worksheet_rows: ws },
-      issuer: { ticker: it.ticker, name: it.company_name ?? it.company },
+      issuer: { ticker: it.ticker, name: it.company_name ?? it.company, cik: it.cik ?? null },
       filing: {
         filed_at: it.feed_at ?? it.at,
         form_type: mode === 'insider' ? 'Form 4' : mode === 'politicians' ? 'PTR' : '13F',
-        accession_no: it.id,
+        accession_no: it.accession_no ?? it.id,
+        pdf_url: it.pdf_url ?? null,
+        index_url: it.index_url ?? null,
+        url: it.url ?? null,
       },
+      url: it.url ?? null,
     }
     if (mode === 'politicians') return politiciansCaseSheetFromClusterLive(pseudo, fallback)
     if (mode === 'institutions') return institutionCaseSheetFromClusterLive(pseudo, fallback)

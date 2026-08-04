@@ -12,6 +12,8 @@ const BILLING_EXEMPT_PATHS = new Set([
   "/api/billing/portal",
   "/api/billing/refresh",
   "/api/auth/me",
+  "/api/public/company",
+  "/api/public/bars",
 ]);
 
 /** When false, API data routes stay open (local dev). Default: on. */

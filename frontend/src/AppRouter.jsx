@@ -1,9 +1,12 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { isCaptureMode } from './captureMode.js'
 import { SubscribePage } from './SubscribePage.jsx'
 import MarketingRoutes from './MarketingRoutes.jsx'
+import { PublicCompanyPage } from './PublicCompanyPage.jsx'
+import { matchPublicCompanyPath } from './publicCompany.js'
+import { readMarketingPath } from './marketingRoute.js'
 import { useSubscription } from './useSubscription.js'
 
 const TerminalApp = lazy(() => import('./App.jsx'))
@@ -16,6 +19,8 @@ export default function AppRouter() {
   const signedIn = Boolean(configured && user)
   const userId = user?.id ?? null
   const captureMode = isCaptureMode()
+  const [path, setPath] = useState(readMarketingPath)
+  const publicCompany = matchPublicCompanyPath(path)
   const showMarketing = !captureMode && (!configured || !user)
   const { loading: subLoading, active, refresh, gateReady } = useSubscription(
     signedIn && BILLING_GATE_ENABLED,
@@ -23,22 +28,29 @@ export default function AppRouter() {
   )
 
   useEffect(() => {
+    const onPop = () => setPath(readMarketingPath())
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  useEffect(() => {
     if (typeof window === 'undefined') return
     if (window.location.pathname.replace(/\/$/, '') === '/subscribe') {
       window.history.replaceState(null, '', '/')
+      setPath('/')
     }
   }, [])
 
   useEffect(() => {
-    if (showMarketing) return
-    const path = window.location.pathname.replace(/\/$/, '') || '/'
-    if (path.startsWith('/settings')) document.title = 'Settings - Mercerline'
-    else if (path.startsWith('/macro')) document.title = 'Macro - Mercerline'
-    else if (path.startsWith('/explore/investors')) document.title = 'Investors - Mercerline'
-    else if (path.startsWith('/explore/companies')) document.title = 'Companies - Mercerline'
-    else if (path.startsWith('/explore')) document.title = 'Explore - Mercerline'
+    if (showMarketing || publicCompany) return
+    const p = path.replace(/\/$/, '') || '/'
+    if (p.startsWith('/settings')) document.title = 'Settings - Mercerline'
+    else if (p.startsWith('/macro')) document.title = 'Macro - Mercerline'
+    else if (p.startsWith('/explore/investors')) document.title = 'Investors - Mercerline'
+    else if (p.startsWith('/explore/companies')) document.title = 'Companies - Mercerline'
+    else if (p.startsWith('/explore')) document.title = 'Explore - Mercerline'
     else document.title = 'Mercerline'
-  }, [showMarketing, signedIn, active])
+  }, [showMarketing, publicCompany, path, signedIn, active])
 
   useEffect(() => {
     if (!signedIn || !BILLING_GATE_ENABLED) return
@@ -50,6 +62,7 @@ export default function AppRouter() {
       if (window.history?.replaceState) {
         window.history.replaceState(null, '', window.location.pathname || '/')
       }
+      setPath(readMarketingPath())
     }
 
     if (checkout === 'success') {
@@ -60,6 +73,11 @@ export default function AppRouter() {
       cleanUrl()
     }
   }, [signedIn, refresh])
+
+  /* Public SEO company pages stay outside auth + paywall. */
+  if (publicCompany) {
+    return <PublicCompanyPage ticker={publicCompany.ticker} />
+  }
 
   if (showMarketing) return <MarketingRoutes />
 

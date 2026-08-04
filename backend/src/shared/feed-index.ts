@@ -354,6 +354,7 @@ export async function loadFeedKindIndexPage(opts: {
     company_name: string | null;
     company_id: string | null;
     source_key: string | null;
+    url: string | null;
     data: unknown;
     summary: Record<string, unknown>;
   }>;
@@ -369,6 +370,7 @@ export async function loadFeedKindIndexPage(opts: {
     company_name: string | null;
     company_id: string | null;
     source_key: string | null;
+    url: string | null;
     data: unknown;
     summary: Record<string, unknown>;
   }>(
@@ -381,6 +383,7 @@ export async function loadFeedKindIndexPage(opts: {
       f.company_name,
       d.company_id::text AS company_id,
       f.source_key,
+      d.url,
       d.data,
       f.summary
     FROM feed_ticker_latest f

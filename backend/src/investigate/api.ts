@@ -171,7 +171,10 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
           : totalCount > 0
             ? usd
             : (r.feed_label ?? "Insider activity");
-      const data = r.data as { issuer?: { name?: string | null } } | null;
+      const data = r.data as {
+        issuer?: { name?: string | null; cik?: string | null };
+        filing?: { pdf_url?: string | null; index_url?: string | null; accession_no?: string | null };
+      } | null;
       const companyName = resolveInvestigateFeedCompanyName(
         r.ticker,
         r.company_name,
@@ -180,6 +183,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
       );
       const ws = (r.data as { cluster?: { worksheet_rows?: unknown[] } })?.cluster?.worksheet_rows;
       const idea = ideaFromSummary(s);
+        const docUrl = String(r.url ?? "").trim() || null;
       return {
         id: `company:${r.ticker}`,
         feed_at: eventAt,
@@ -190,6 +194,11 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
         today_count: todayCount,
         insiders: Array.isArray(s.insiders) ? s.insiders : [],
         worksheet_rows: Array.isArray(ws) ? ws : [],
+        url: docUrl,
+        pdf_url: data?.filing?.pdf_url ?? null,
+        index_url: data?.filing?.index_url ?? null,
+        accession_no: data?.filing?.accession_no ?? null,
+        cik: data?.issuer?.cik ?? null,
         idea_score: idea.idea_score,
         idea_best: idea.idea_best,
         idea_reasons: idea.idea_reasons,
@@ -383,7 +392,10 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
       const eventAt = String(s.event_at ?? r.event_at);
       const usd = totalUsd > 0 ? formatUsdCompact(totalUsd) : "—";
       const label = todayCount > 0 ? `${usd} (${todayCount})` : usd;
-      const data = r.data as { issuer?: { name?: string | null } } | null;
+      const data = r.data as {
+        issuer?: { name?: string | null; cik?: string | null };
+        filing?: { pdf_url?: string | null; index_url?: string | null; accession_no?: string | null };
+      } | null;
       const companyName = resolveInvestigateFeedCompanyName(
         r.ticker,
         r.company_name,
@@ -402,6 +414,7 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
         }
       }
       const idea = ideaFromSummary(s);
+      const docUrl = String(r.url ?? "").trim() || null;
       return {
         id: `ticker:${r.ticker}`,
         feed_at: eventAt,
@@ -411,6 +424,11 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
         today_count: todayCount,
         [peopleKey]: Array.from(people).slice(0, 20),
         worksheet_rows: Array.isArray(ws) ? ws : [],
+        url: docUrl,
+        pdf_url: data?.filing?.pdf_url ?? null,
+        index_url: data?.filing?.index_url ?? null,
+        accession_no: data?.filing?.accession_no ?? null,
+        cik: data?.issuer?.cik ?? null,
         idea_score: idea.idea_score,
         idea_best: idea.idea_best,
         idea_reasons: idea.idea_reasons,
@@ -636,7 +654,13 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
       schema_type: "politician_cluster",
       schema_version: "v1",
       issuer: { name: issuerName !== ticker ? issuerName : null, ticker, cik: null },
-      filing: { form_type: "PTR", accession_no: null, filed_at: maxAt },
+      filing: {
+        form_type: "PTR",
+        accession_no: latest?.filing?.accession_no ?? null,
+        filed_at: maxAt,
+        pdf_url: latest?.filing?.pdf_url ?? docs[0]?.url ?? null,
+        url: docs[0]?.url ?? latest?.filing?.pdf_url ?? null,
+      },
       cluster: {
         cluster_start_at: minAt,
         cluster_end_at: maxAt,
@@ -646,6 +670,7 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
         worksheet_rows,
       },
     },
+    url: docs[0]?.url ?? null,
   });
 }
 
@@ -713,7 +738,13 @@ async function handleInstitutionsCluster(res: http.ServerResponse, url: URL) {
       schema_type: "institution_cluster",
       schema_version: "v1",
       issuer: { name: null, ticker, cik: null },
-      filing: { form_type: "13F", accession_no: null, filed_at: maxAt },
+      filing: {
+        form_type: "13F",
+        accession_no: latest?.filing?.accession_no ?? null,
+        filed_at: maxAt,
+        index_url: latest?.filing?.index_url ?? null,
+        url: docs[0]?.url ?? latest?.filing?.index_url ?? null,
+      },
       cluster: {
         cluster_start_at: minAt,
         cluster_end_at: maxAt,
@@ -723,6 +754,7 @@ async function handleInstitutionsCluster(res: http.ServerResponse, url: URL) {
         worksheet_rows,
       },
     },
+    url: docs[0]?.url ?? null,
   });
 }
 
@@ -786,9 +818,17 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
         schema_type: "insider_cluster",
         schema_version: "v1",
         issuer: { name: latest?.issuer?.name ?? null, ticker, cik: latest?.issuer?.cik ?? null },
-        filing: { form_type: "Form 4", accession_no: null, filed_at: maxAt },
+        filing: {
+          form_type: "Form 4",
+          accession_no: latest?.filing?.accession_no ?? null,
+          filed_at: maxAt,
+          pdf_url: latest?.filing?.pdf_url ?? null,
+          index_url: latest?.filing?.index_url ?? null,
+          url: docs[0]?.url ?? latest?.filing?.url ?? null,
+        },
         cluster: { cluster_start_at: minAt, cluster_end_at: maxAt, feed_label, context_sentences, worksheet_rows },
       },
+      url: docs[0]?.url ?? null,
     });
     return;
   }
@@ -811,8 +851,8 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
 }
 
 async function loadClusterDocs(feedKind: string, ticker: string, days: number) {
-  return db.query<{ id: string; event_at: string | null; ticker: string | null; data: any }>(
-    `SELECT id, event_at::text AS event_at, ticker, data FROM documents
+  return db.query<{ id: string; event_at: string | null; ticker: string | null; url: string | null; data: any }>(
+    `SELECT id, event_at::text AS event_at, ticker, url, data FROM documents
      WHERE feed_kind=$1 AND upper(trim(ticker))=upper(trim($2)) AND event_at IS NOT NULL
        AND event_at >= now() - ($3 || ' days')::interval
      ORDER BY event_at DESC, parsed_at DESC LIMIT 400`,

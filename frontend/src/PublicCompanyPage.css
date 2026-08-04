@@ -1,0 +1,238 @@
+/* Public company page — collapsed deep chrome + section paper */
+
+.pubCo.drpt {
+  min-height: 100%;
+  height: 100%;
+  --drpt-page-pad-x: clamp(20px, 3.5vw, 40px);
+  --pubCo-chrome-h: 56px;
+}
+
+.pubCoChromeBar {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 var(--pubCo-chrome-h);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.pubCoChromeBg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.pubCoChromeBg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('/mercerline_background_2.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  opacity: 0.92;
+}
+
+.pubCoChromeBg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(5, 7, 10, 0.42) 0%, rgba(5, 7, 10, 0.72) 100%);
+}
+
+.pubCoChrome {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--pubCo-chrome-h);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 0 var(--drpt-page-pad-x);
+}
+
+.pubCoBrand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 30px;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.pubCoBrandLogoClip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
+.pubCoBrandMark {
+  display: block;
+  width: 28px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.pubCoBrandName {
+  font-family: var(--drpt-serif);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.pubCoChromeTrail {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px 10px;
+  min-width: 0;
+  overflow: hidden;
+  line-height: 1;
+}
+
+.pubCoChromeTicker,
+.pubCoChromeName,
+.pubCoChromePrice,
+.pubCoChromeChange {
+  margin: 0;
+  padding: 0;
+  line-height: 1;
+  font-family: var(--drpt-mono);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.pubCoChromeTicker {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 12ch;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: rgba(168, 196, 255, 0.82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pubCoChromeName {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 28ch;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.52);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pubCoChromePrice {
+  flex: 0 0 auto;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pubCoChromeChange {
+  flex: 0 0 auto;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pubCoChromeChange.isUp {
+  color: var(--drpt-up);
+}
+
+.pubCoChromeChange.isDown {
+  color: var(--drpt-down);
+}
+
+.pubCoSignIn {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.88);
+  font-family: var(--drpt-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  line-height: 1;
+  background: rgba(10, 11, 13, 0.35);
+}
+
+.pubCoSignIn:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+  color: #fff;
+}
+
+.pubCoPaper {
+  flex: 1 1 auto;
+  padding-top: 28px;
+  padding-bottom: 64px;
+}
+
+.pubCoBanner--err {
+  color: rgba(255, 160, 170, 0.9);
+}
+
+.pubCoGate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px 28px;
+  padding: 22px 24px;
+  border: 1px solid var(--drpt-border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.pubCoGateCopy {
+  margin: 0;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--drpt-muted);
+}
+
+.pubCoGateBtn {
+  justify-self: end;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-family: var(--drpt-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.pubCoGateBtn:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 720px) {
+  .pubCoChromeName,
+  .pubCoChromeChange {
+    display: none;
+  }
+}

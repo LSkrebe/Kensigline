@@ -4,6 +4,7 @@ import {
   formatAnalyseGridValue,
 } from './analyseMockData.js'
 import { AnalyseModelGrid } from './AnalyseModelGrid.jsx'
+import { resolveDocumentOpenUrl } from './documentOpenUrl.js'
 import {
   buildMockActorTrackRecord,
   filterTrackTradesByRange,
@@ -665,8 +666,14 @@ function DeepChronology({ entries = [], visibleLimit = null }) {
 
         if (item.kind === 'document') {
           const doc = item.document
-          const openUrl = doc?.url
           const meta = documentCardMeta(doc)
+          const openUrl =
+            resolveDocumentOpenUrl({
+              url: doc?.url,
+              ticker: null,
+              kind: 'document',
+              source: meta.source,
+            }) || null
           const Tag = openUrl ? 'a' : 'div'
           return (
             <li className="drpt-docItem" key={item.id}>
@@ -695,8 +702,15 @@ function DeepChronology({ entries = [], visibleLimit = null }) {
           )
         }
 
-        const openUrl = item.url
         const meta = flowCardMeta(item)
+        const openUrl =
+          resolveDocumentOpenUrl({
+            url: item.url,
+            ticker: item.ticker,
+            kind: item.kind,
+            source: item.source,
+            chamber: item.chamber,
+          }) || null
         const Tag = openUrl ? 'a' : 'div'
         return (
           <li className="drpt-docItem" key={item.id}>
@@ -1015,11 +1029,15 @@ function DeepActorMetrics({ trackRecord, chartRange = '6M' }) {
 }
 
 function mockTradeDocumentUrl(row) {
-  const tick = String(row?.ticker ?? '').trim().toUpperCase()
-  const code = String(row?.code ?? '').trim().toUpperCase()
-  const q = [tick, code].filter((part) => part && part !== '—').join(' ')
-  if (!q) return 'https://www.sec.gov/edgar/search/'
-  return `https://www.sec.gov/edgar/search/#/q=${encodeURIComponent(q)}`
+  return resolveDocumentOpenUrl({
+    url: row?.url ?? row?.documentUrl ?? row?.filingUrl ?? null,
+    ticker: row?.ticker ?? null,
+    kind: row?.layout === 'txnPolitician' ? 'politician' : row?.__source ?? 'insider',
+    source: row?.__source ?? row?.codeTitle ?? null,
+    chamber: row?.chamber ?? null,
+    accession: row?.accession ?? row?.filingId ?? null,
+    cik: row?.cik ?? null,
+  })
 }
 
 function tradeRowMeta(row) {

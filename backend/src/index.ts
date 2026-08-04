@@ -417,6 +417,62 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ---- Public company SEO (no auth / no subscription) ----
+    if (route(req, url, "GET", "/api/public/company")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
+      if (!ticker) {
+        sendJson(res, 400, { ok: false, error: "ticker_required" });
+        return;
+      }
+      try {
+        const full = await getCompanyFullCached({ ticker });
+        sendJson(res, 200, {
+          ok: true,
+          ticker: full.ticker ?? ticker,
+          name: full.name ?? null,
+          industry: full.industry ?? null,
+          country: full.country ?? null,
+          earnings_date: full.earnings_date ?? null,
+          latest_close: full.latest_close ?? null,
+          mcap: full.mcap ?? null,
+          fundamentals: full.fundamentals ?? null,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[public/company]", ticker, msg);
+        const snap = await getCompanySnapshot({ ticker }).catch(() => null);
+        if (!snap) {
+          sendJson(res, 404, { ok: false, error: "company_not_found" });
+          return;
+        }
+        sendJson(res, 200, { ok: true, ...snap, fundamentals: null });
+      }
+      return;
+    }
+
+    if (route(req, url, "GET", "/api/public/bars")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
+      const days = clampInt(url.searchParams.get("days"), 5, 400, 180);
+      if (!ticker) {
+        sendJson(res, 400, { ok: false, error: "ticker_required" });
+        return;
+      }
+      const now = new Date();
+      const toDay = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(
+        2,
+        "0",
+      )}`;
+      const from = new Date(now);
+      from.setUTCDate(from.getUTCDate() - days);
+      const fromDay = `${from.getUTCFullYear()}-${String(from.getUTCMonth() + 1).padStart(2, "0")}-${String(from.getUTCDate()).padStart(
+        2,
+        "0",
+      )}`;
+      const out = await getDailyCloseBars({ ticker, fromDay, toDay });
+      sendJson(res, 200, out);
+      return;
+    }
+
     // ---- Company (Company panel) ----
     if (route(req, url, "GET", "/api/company")) {
       const ticker = String(url.searchParams.get("ticker") ?? "").trim().toUpperCase();
