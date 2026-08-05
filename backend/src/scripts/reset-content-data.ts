@@ -50,6 +50,7 @@ const PRESERVED_TABLES = [
   "alert_watchlist",
   "alert_actor_watchlist",
   "alert_digest_log",
+  "politician_committee_lookup",
 ];
 
 async function truncateIfExists(table: string): Promise<boolean> {

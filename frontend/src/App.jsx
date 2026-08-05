@@ -65,6 +65,7 @@ import {
   persistFeedCache,
 } from './feedLoad.js'
 import { EventBriefAnalysis } from './EventBrief.jsx'
+import { politicianCommitteeFromRow } from './politicianCommittees.js'
 import {
   isCompanyDeepDocumentSource,
   normalizeResearchPaperSourceKey,
@@ -446,6 +447,7 @@ function politiciansCaseSheetFromClusterLive(cluster, fallback) {
         politician_name: fullName,
         surname: lastName(fullName),
         chamber: String(r?.chamber ?? chamber).trim().toLowerCase() || chamber,
+        committee: String(r?.committee ?? '').trim() || null,
         transactionType:
           r?.transaction_type != null
             ? String(r.transaction_type)
@@ -858,6 +860,17 @@ function politicianChamberLabelFromCode(code) {
   return 'House'
 }
 
+function politicianWhoDetail(fullName, chamberCode) {
+  return politicianChamberLabelFromCode(chamberCode)
+}
+
+function politicianWhoCommittee(rowOrName) {
+  if (rowOrName && typeof rowOrName === 'object') {
+    return politicianCommitteeFromRow(rowOrName)
+  }
+  return ''
+}
+
 function politicianDisplayNameFromRow(r) {
   const full = String(r?.whoFullName ?? '').trim()
   if (full.includes(',')) {
@@ -1074,6 +1087,11 @@ function investigateActorDetailFromCaseRow(r, mode) {
   return role || 'Insider'
 }
 
+function investigateActorDetailSecondaryFromCaseRow(r, mode) {
+  if (mode !== 'politicians') return ''
+  return politicianWhoCommittee(r)
+}
+
 function investigateActorTxnEntryFromCompanyRow(companyRow, sheetRow, mode) {
   const ticker = String(sheetRow?.assetTicker ?? companyRow?.ticker ?? '')
     .trim()
@@ -1165,6 +1183,7 @@ function buildInvestigateActorFeed(companyRows, mode) {
           actorRole: investigateSourceRoleShort(mode),
           actorName: fullName,
           actorDetail: investigateActorDetailFromCaseRow(sheetRow, mode),
+          actorDetailSecondary: investigateActorDetailSecondaryFromCaseRow(sheetRow, mode),
           matchNames: [
             ...new Set(
               [fullName, lastName(fullName), institutionDisplayShortName(fullName)].filter(Boolean),
@@ -1262,6 +1281,7 @@ function actorPersonDisplayFromRow(actorRow) {
   return {
     fullName: actorRow.actorName,
     detail: String(actorRow.actorDetail ?? '').trim() || EMPTY,
+    detailSecondary: String(actorRow.actorDetailSecondary ?? '').trim(),
   }
 }
 
@@ -3827,7 +3847,8 @@ function caseSheetRowToPoliticianTxnFeedRow(r, { showMoney }) {
     whoRole,
     whoName,
     whoFullName,
-    whoDetail: politicianChamberLabelFromCode(whoRole),
+    whoDetail: politicianWhoDetail(whoFullName, whoRole),
+    whoCommittee: politicianWhoCommittee(r),
     matchNames,
     code,
     value: formatPoliticianTxnValue(r),
@@ -4106,15 +4127,25 @@ function CasePersonHeader({ person, mode = 'insider' }) {
   const rawName = String(person?.fullName ?? '').trim()
   if (!rawName) return null
   const name = formatCasePersonDisplayName(rawName)
-  const detail = String(person?.detail ?? '').trim()
-  const roleLine = detail && detail !== EMPTY ? detail : null
+  const detailLabels = [
+    String(person?.detail ?? '').trim(),
+    String(person?.detailSecondary ?? '').trim(),
+  ].filter((d) => d && d !== EMPTY)
   const modeLabel =
     mode === 'politicians' ? 'politician' : mode === 'institutions' ? 'institution' : 'insider'
 
   return (
     <div className="casePersonHeader" aria-label={`Selected ${modeLabel}: ${name}`}>
       <div className="casePersonHeaderText">
-        {roleLine ? <div className="casePersonHeaderDetail mono">{roleLine}</div> : null}
+        {detailLabels.length ? (
+          <div className="casePersonHeaderDetails">
+            {detailLabels.map((label) => (
+              <div key={label} className="casePersonHeaderDetail mono">
+                {label}
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="casePersonHeaderName">{name}</div>
       </div>
     </div>
@@ -4131,11 +4162,19 @@ function caseFeedSelectedPersonDisplay(rows, selectedRowIndex, personQuery, mode
     if (!fullName) return null
     const detail =
       mode === 'politicians'
-        ? String(r.whoDetail ?? politicianChamberLabelFromCode(r.whoRole)).trim()
+        ? String(r.whoDetail ?? politicianWhoDetail(r.whoFullName ?? r.whoName, r.whoRole)).trim()
         : mode === 'institutions'
           ? String(r.whoDetail ?? institutionFilerLabelFromFilingName(r.whoFullName ?? r.whoName)).trim()
           : String(r.whoDetail ?? r.whoRole ?? '').trim()
-    return { fullName, detail: detail || EMPTY }
+    const detailSecondary =
+      mode === 'politicians'
+        ? String(r.whoCommittee ?? politicianWhoCommittee(r) ?? '').trim()
+        : ''
+    return {
+      fullName,
+      detail: detail || EMPTY,
+      detailSecondary: detailSecondary || '',
+    }
   }
 
   const row = selectedRowIndex >= 0 ? rows[selectedRowIndex] : null

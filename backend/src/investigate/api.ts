@@ -28,6 +28,7 @@ import {
 } from "../shared/feed-response-cache.js";
 import { normalizeInsiderWorksheetRow } from "./worksheet.js";
 import { isoTimestampFromDb } from "../shared/db-time.js";
+import { enrichPoliticianWorksheetRows } from "../politicians/committees.js";
 import {
   scoreInsiderCluster,
   scoreInstitutionCluster,
@@ -385,7 +386,8 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
   });
   if (indexed.rows.length > 0 || page.offset > 0) {
     const secTitles = await getSecTickerTitleMap();
-    const items = indexed.rows.map((r) => {
+    const items = [];
+    for (const r of indexed.rows) {
       const s = r.summary ?? {};
       const totalUsd = Number(s.total_usd) || 0;
       const todayCount = Number(s.today_count) || 0;
@@ -395,6 +397,7 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
       const data = r.data as {
         issuer?: { name?: string | null; cik?: string | null };
         filing?: { pdf_url?: string | null; index_url?: string | null; accession_no?: string | null };
+        cluster?: { worksheet_rows?: unknown[] };
       } | null;
       const companyName = resolveInvestigateFeedCompanyName(
         r.ticker,
@@ -402,7 +405,10 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
         secTitles.get(r.ticker) ?? null,
         data?.issuer?.name,
       );
-      const ws = (r.data as { cluster?: { worksheet_rows?: unknown[] } })?.cluster?.worksheet_rows;
+      let ws = (r.data as { cluster?: { worksheet_rows?: unknown[] } })?.cluster?.worksheet_rows;
+      if (feedKind === "politicians" && Array.isArray(ws)) {
+        ws = await enrichPoliticianWorksheetRows(ws as Record<string, unknown>[]);
+      }
       const people = new Set<string>();
       if (Array.isArray(ws)) {
         for (const raw of ws) {
@@ -415,7 +421,7 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
       }
       const idea = ideaFromSummary(s);
       const docUrl = String(r.url ?? "").trim() || null;
-      return {
+      items.push({
         id: `ticker:${r.ticker}`,
         feed_at: eventAt,
         feed_label: label,
@@ -432,8 +438,8 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
         idea_score: idea.idea_score,
         idea_best: idea.idea_best,
         idea_reasons: idea.idea_reasons,
-      };
-    });
+      });
+    }
     const body = {
       items,
       days,
@@ -598,6 +604,7 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
     amount_usd_mid: number | null;
     amount_range: string | null;
     chamber: string | null;
+    committee: string | null;
     transaction_type: string | null;
     asset_name: string | null;
     description: string | null;
@@ -631,6 +638,7 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
           amount_usd_mid: r?.amount_usd_mid != null ? Number(r.amount_usd_mid) : null,
           amount_range: r?.amount_range != null ? String(r.amount_range) : null,
           chamber: r?.chamber != null ? String(r.chamber) : null,
+          committee: r?.committee != null ? String(r.committee) : null,
           transaction_type: r?.transaction_type != null ? String(r.transaction_type) : null,
           asset_name: r?.asset_name != null ? String(r.asset_name) : null,
           description: r?.description != null ? String(r.description) : null,
@@ -640,6 +648,7 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
     }
   }
 
+  await enrichPoliticianWorksheetRows(worksheet_rows);
   worksheet_rows.sort((a, b) => String(b.ts ?? "").localeCompare(String(a.ts ?? "")));
   const context_sentences: string[] = Array.isArray(latest?.cluster?.context_sentences)
     ? latest.cluster.context_sentences.map((s: any) => String(s)).filter(Boolean).slice(0, 3)

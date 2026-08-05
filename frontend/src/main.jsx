@@ -20,23 +20,20 @@ class ErrorBoundary extends React.Component {
   }
   render() {
     if (!this.state.hasError) return this.props.children
-    const errMsg = this.state.err?.message ? String(this.state.err.message) : null
     return (
-      <div className="appShellScreen">
-        <div className="appShellCard" role="alert">
-          <div className="appShellBrand" aria-label="Mercerline">
-            <img
-              className="appShellBrandLogo"
-              src="/mercerline_logo.png"
-              alt=""
-              width={28}
-              height={28}
-              decoding="async"
-            />
-            <span className="appShellBrandName">MERCERLINE</span>
-          </div>
-          <p className="appShellMessage">UI crashed. Reload to recover.</p>
-          {errMsg ? <pre className="appShellError">{errMsg}</pre> : null}
+      <div className="appShellScreen appShellErrorScreen" role="alert">
+        <div className="appShellContent">
+          <img
+            className="appShellBrandLogo"
+            src="/mercerline_mark.png"
+            alt=""
+            width={44}
+            height={32}
+            decoding="async"
+          />
+          <p className="appShellBrandName">MERCERLINE</p>
+          <p className="appShellMessage">Something went wrong.</p>
+          <p className="appShellHint">Reload the page to continue.</p>
           <button type="button" className="appShellBtn" onClick={() => location.reload()}>
             Reload
           </button>

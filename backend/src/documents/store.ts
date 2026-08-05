@@ -7,6 +7,7 @@ import { invalidateTickerContextCache } from "../core/ticker-context-cache.js";
 import { invalidateAnalyseModelCache } from "../analyse/build-model.js";
 import { parseEventTimeMs, sanitizeEventAtForFeed, FEED_FUTURE_GRACE_DAYS } from "../shared/document-activity-at.js";
 import { syncFeedIndexForDocument } from "../shared/feed-index.js";
+import { lookupPoliticianCommittee, lookupPoliticianCommittees } from "../politicians/committees.js";
 
 const GOV_LINK_THRESHOLD = () => Number(process.env.GOV_CONTRACT_LINK_THRESHOLD ?? 0.72);
 
@@ -151,16 +152,20 @@ export async function syncPoliticianTransactionsFromDocument(documentId: string,
   for (const r of rows) {
     const name = String(r?.key ?? "Politician").trim();
     const chamber = r?.chamber ? String(r.chamber).trim() : null;
+    const committee =
+      (r?.committee != null ? String(r.committee).trim() : "") ||
+      (await lookupPoliticianCommittee(name)) ||
+      null;
     const txnType = String(r?.transaction_type ?? r?.type ?? "").trim().toUpperCase() || null;
     const amt = r?.amount_usd_mid != null ? Number(r.amount_usd_mid) : null;
     const at = r?.ts ? String(r.ts) : fallbackAt ? String(fallbackAt) : null;
     if (!at) continue;
     await db.query(
       `
-      INSERT INTO politician_transactions (document_id, ticker, politician_name, chamber, transaction_type, amount_usd_mid, transaction_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz)
+      INSERT INTO politician_transactions (document_id, ticker, politician_name, chamber, committee, transaction_type, amount_usd_mid, transaction_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz)
       `,
-      [documentId, t, name, chamber, txnType, Number.isFinite(amt as number) ? amt : null, at],
+      [documentId, t, name, chamber, committee, txnType, Number.isFinite(amt as number) ? amt : null, at],
     );
   }
   void invalidateTickerContextCache(t);
@@ -274,6 +279,7 @@ async function loadPoliticianFlowsFromDocuments(ticker: string, limit = 80) {
   const out: Array<{
     name: string;
     chamber: string;
+    committee: string | null;
     date: string;
     amount: string;
     transactionType: string | null;
@@ -287,9 +293,11 @@ async function loadPoliticianFlowsFromDocuments(ticker: string, limit = 80) {
       const at = r?.ts ? String(r.ts) : fallbackAt;
       if (!at) continue;
       const amt = r?.amount_usd_mid != null ? Number(r.amount_usd_mid) : null;
+      const name = String(r?.key ?? "Politician").trim() || "Politician";
       out.push({
-        name: String(r?.key ?? "Politician").trim() || "Politician",
+        name,
         chamber: r?.chamber ? String(r.chamber).trim() : "house",
+        committee: r?.committee ? String(r.committee).trim() : null,
         date: at,
         amount: amt != null && Number.isFinite(amt) && amt > 0 ? formatUsdCompact(amt) : "—",
         transactionType: r?.transaction_type ?? r?.type ?? null,
@@ -375,6 +383,7 @@ export async function loadPoliticianFlowsForTicker(ticker: string, limit = 80) {
   const rows = await db.query<{
     politician_name: string;
     chamber: string | null;
+    committee: string | null;
     transaction_type: string | null;
     amount_usd_mid: string | null;
     transaction_at: string;
@@ -384,6 +393,7 @@ export async function loadPoliticianFlowsForTicker(ticker: string, limit = 80) {
     SELECT
       pt.politician_name,
       pt.chamber,
+      pt.committee,
       pt.transaction_type,
       pt.amount_usd_mid::text,
       pt.transaction_at::text,
@@ -396,10 +406,18 @@ export async function loadPoliticianFlowsForTicker(ticker: string, limit = 80) {
     `,
     [t, limit],
   );
-  if (!rows.length) return loadPoliticianFlowsFromDocuments(t, limit);
+  if (!rows.length) {
+    const fromDocs = await loadPoliticianFlowsFromDocuments(t, limit);
+    const committees = await lookupPoliticianCommittees(fromDocs.map((r) => r.name));
+    return fromDocs.map((r) => ({
+      ...r,
+      committee: r.committee || committees.get(r.name) || null,
+    }));
+  }
   return rows.map((r) => ({
     name: r.politician_name,
     chamber: r.chamber ?? "house",
+    committee: r.committee ?? null,
     date: r.transaction_at,
     amount: r.amount_usd_mid != null && Number(r.amount_usd_mid) > 0 ? formatUsdCompact(Number(r.amount_usd_mid)) : "—",
     transactionType: r.transaction_type,

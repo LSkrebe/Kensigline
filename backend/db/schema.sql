@@ -199,6 +199,7 @@ CREATE TABLE politician_transactions (
   ticker text NOT NULL,
   politician_name text NOT NULL,
   chamber text,
+  committee text,
   transaction_type text,
   amount_usd_mid numeric,
   transaction_at timestamptz NOT NULL
@@ -313,5 +314,17 @@ CREATE TABLE feed_market_latest (
 );
 
 CREATE INDEX feed_market_latest_feed_at_idx ON feed_market_latest (feed_at DESC);
+
+CREATE TABLE politician_committee_lookup (
+  name_key text PRIMARY KEY,
+  committee text NOT NULL,
+  chamber text,
+  bioguide text,
+  refreshed_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX politician_committee_lookup_bioguide_idx
+  ON politician_committee_lookup (bioguide)
+  WHERE bioguide IS NOT NULL;
 
 COMMIT;

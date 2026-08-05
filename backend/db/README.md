@@ -37,4 +37,6 @@ cd backend
 npx tsx src/scripts/reset-content-data.ts
 ```
 
-Clears documents, queues, bars, companies, outcomes, caches, and alert *send* logs. Keeps `billing_accounts`, alert preferences, and watchlists.
+Clears documents, queues, bars, companies, outcomes, caches, and alert *send* logs. Keeps `billing_accounts`, alert preferences, watchlists, and `politician_committee_lookup`.
+
+Politician committee lookup (`politician_committee_lookup`) is refreshed automatically by the API workers when stale (about weekly).

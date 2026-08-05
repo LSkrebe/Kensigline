@@ -1148,6 +1148,7 @@ function DeepTradedCompaniesList({ companies = [], visibleLimit = null, onCompan
 function ActorTopBar({
   name,
   detail,
+  detailSecondary = '',
   modeLabel,
   tradeCount,
   companyCount,
@@ -1179,6 +1180,7 @@ function ActorTopBar({
 
   const metaBits = [
     detail || null,
+    detailSecondary || null,
     formatCountLabel(tradeCount, 'transaction'),
     formatCountLabel(companyCount, 'company', 'companies'),
   ].filter(Boolean)
@@ -1427,6 +1429,9 @@ export function DeepActorReport({
   const [chartRange, setChartRange] = useState('6M')
   const name = String(personDisplay?.fullName ?? actorRow?.actorName ?? '').trim()
   const detail = String(personDisplay?.detail ?? actorRow?.actorDetail ?? '').trim()
+  const detailSecondary = String(
+    personDisplay?.detailSecondary ?? actorRow?.actorDetailSecondary ?? '',
+  ).trim()
   const modeLabel =
     mode === 'politicians' ? 'Politician' : mode === 'institutions' ? 'Institution' : 'Insider'
 
@@ -1510,6 +1515,7 @@ export function DeepActorReport({
         <ActorTopBar
           name={name}
           detail={detail}
+          detailSecondary={detailSecondary}
           modeLabel={modeLabel}
           tradeCount={tradeRows.length}
           companyCount={companies.length}
