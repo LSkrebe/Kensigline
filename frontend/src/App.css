@@ -1051,12 +1051,6 @@ button.terminalTopBarBrand:focus-visible {
   justify-content: center;
 }
 
-.researchPaperRailCardRail--capture .researchPaperTxnThumb {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-}
-
 .researchPaperCaptureCheck {
   position: absolute;
   inset: 0;
@@ -1147,40 +1141,14 @@ button.terminalTopBarBrand:focus-visible {
   padding: 12px;
   box-sizing: border-box;
   background: #0a0b0d;
-  --research-paper-txn-portrait-w: 44px;
   --paper-doc-radius: 6px;
   --paper-txn-surface: rgba(255, 255, 255, 0.04);
   --paper-txn-wash: linear-gradient(90deg, rgba(255, 255, 255, 0.03), transparent 48%);
 }
 
-.researchPaperCaptureExport .researchPaperTxnCard--hasPortrait {
-  min-height: max(54px, var(--research-paper-txn-portrait-w, 44px));
-}
-
 .researchPaperCaptureExport .researchPaperRailCard {
   display: grid;
-  grid-template-columns: var(--research-paper-txn-portrait-w, 44px) minmax(0, 1fr);
-}
-
-.researchPaperCaptureExport .researchPaperRailCardRail--photo {
-  min-width: var(--research-paper-txn-portrait-w, 44px);
-  min-height: var(--research-paper-txn-portrait-w, 44px);
-  background-color: rgba(0, 0, 0, 0.35);
-}
-
-.researchPaperCaptureExport .researchPaperRailCardRail--photo .researchPaperTxnThumb {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-width: 100%;
-  min-height: 100%;
-  object-fit: cover;
-  object-position: center 22%;
-  opacity: 1;
-  visibility: visible;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .researchPaperCaptureExport .researchPaperFiling {
@@ -1390,7 +1358,6 @@ button.terminalTopBarBrand:focus-visible {
   position: relative;
   isolation: isolate;
   background: var(--panel-corner-wash-a), var(--panel-corner-wash-b), var(--context-surface-inset);
-  --research-paper-txn-portrait-w: 44px;
 }
 
 .terminal--main .researchPaperPanel.researchPaper::after {
@@ -1652,11 +1619,8 @@ button.terminalTopBarBrand:focus-visible {
 }
 
 .researchPaperTxnCard {
+  grid-template-columns: minmax(0, 1fr);
   min-height: 54px;
-}
-
-.researchPaperTxnCard--hasPortrait {
-  min-height: max(54px, var(--research-paper-txn-portrait-w, 44px));
 }
 
 .researchPaperDocCard .researchPaperRailCardMain {
@@ -1813,29 +1777,6 @@ button.terminalTopBarBrand:focus-visible {
 .terminal--main .researchPaperPanel .researchPaperTxnCard.eventBriefDocCard--clickable:focus-visible {
   outline: none;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
-}
-
-.researchPaperTxnThumb {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  object-fit: cover;
-  object-position: center 22%;
-}
-
-.researchPaperTxnThumb--logo,
-.casePersonHeaderPhoto--logo {
-  object-fit: contain;
-  object-position: center center;
-  padding: 4px;
-  box-sizing: border-box;
-  background: rgba(255, 255, 255, 0.94);
 }
 
 .researchPaperTxnCardName {
@@ -10415,11 +10356,11 @@ body {
   overflow: hidden;
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: var(--case-person-header-min-h, calc((0.08em + 1.08em + 10px) * 3 + 14px)) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 0;
   align-items: stretch;
   margin: 0 var(--panel-scroll-inline-pad) 8px;
-  min-height: var(--case-person-header-min-h, calc((0.08em + 1.08em + 10px) * 3 + 14px));
+  min-height: 0;
   box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 0;
@@ -10445,51 +10386,9 @@ body {
   z-index: 1;
 }
 
-.casePersonHeaderAvatar {
-  position: relative;
-  align-self: stretch;
-  flex-shrink: 0;
-  width: 100%;
-  min-height: 100%;
-  height: auto;
-  overflow: hidden;
-  border: none;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0;
-  background: rgba(0, 0, 0, 0.28);
-  display: flex;
-  align-items: stretch;
-  justify-content: stretch;
-}
-
-.casePersonHeaderAvatar::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.45) 100%);
-}
-
-.casePersonHeaderPhoto {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  object-fit: cover;
-  object-position: center 18%;
-}
-
-.casePersonHeaderPhoto.isLoaded {
-  opacity: 1;
-}
-
 .casePersonHeaderText {
   min-width: 0;
-  min-height: var(--case-person-header-min-h, calc((0.08em + 1.08em + 10px) * 3 + 14px));
+  min-height: 0;
   padding: 10px 12px 10px 10px;
   display: flex;
   flex-direction: column;
@@ -10497,6 +10396,7 @@ body {
   align-items: flex-end;
   text-align: right;
   box-sizing: border-box;
+  gap: 8px;
 }
 
 .casePersonHeaderName {

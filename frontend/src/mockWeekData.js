@@ -67,6 +67,27 @@ export const MOCK_SEMIS = [
 
 export const MOCK_SEMIS_BY_TICKER = Object.fromEntries(MOCK_SEMIS.map((c) => [c.ticker, c]))
 
+/** Mock feed / case insider display names (no portraits). */
+export const MOCK_INSIDER_PEOPLE = [
+  { fullName: 'Tim Cook' },
+  { fullName: 'Satya Nadella' },
+  { fullName: 'Jamie Dimon' },
+  { fullName: 'Mary Barra' },
+  { fullName: 'Sundar Pichai' },
+  { fullName: 'Jensen Huang' },
+  { fullName: 'Lisa Su' },
+  { fullName: 'Ruth Porat' },
+  { fullName: 'Brian Moynihan' },
+  { fullName: 'Arvind Krishna' },
+  { fullName: 'Indra Nooyi' },
+  { fullName: 'Marc Benioff' },
+  { fullName: 'Pat Gelsinger' },
+  { fullName: 'Safra Catz' },
+  { fullName: 'Andy Jassy' },
+  { fullName: 'Nancy Pelosi' },
+  { fullName: 'Dan Crenshaw' },
+]
+
 /** Extra issuers for offline feeds — one row per ticker (no duplicates in feed lists). */
 const MOCK_FEED_EXTRA_PAIRS = [
   ['ON', 'ON Semiconductor Corporation'],

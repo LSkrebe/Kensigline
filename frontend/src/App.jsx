@@ -45,6 +45,7 @@ import {
   buildMockWeekResearchDocSpecs,
   discoverPastForTicker,
   MOCK_FEED_UNIVERSE,
+  MOCK_INSIDER_PEOPLE,
   MOCK_INVESTIGATE_FEED_ROWS,
   MOCK_SEMIS,
   mockFeedTodayEventCount,
@@ -78,17 +79,6 @@ import {
   writeFilterSet,
   writeInvestigateMode,
 } from './uiPreferences.js'
-import {
-  casePersonPhotoUrl,
-  getCongressLegislatorIndexRevision,
-  politicianDisplayNameFromRow,
-  portraitDisplayState,
-  portraitIsLogo,
-  preloadCongressLegislatorIndex,
-  probePortraitUrl,
-  subscribeCongressLegislatorIndex,
-  MOCK_INSIDER_PEOPLE,
-} from './personPortraits.js'
 
 const PHONE_VIEWPORT_MQ = '(max-width: 640px)'
 
@@ -866,6 +856,15 @@ function politicianChamberLabelFromCode(code) {
   if (c === 'EXE') return 'Executive'
   if (c === 'HSE') return 'House'
   return 'House'
+}
+
+function politicianDisplayNameFromRow(r) {
+  const full = String(r?.whoFullName ?? '').trim()
+  if (full.includes(',')) {
+    const after = full.split(',').pop()?.trim()
+    if (after) return after
+  }
+  return full
 }
 
 /** Match politician names (full, partial, or last name) against a feed search query. */
@@ -4103,121 +4102,6 @@ function formatCasePersonDisplayName(name) {
     .join(' ')
 }
 
-function usePortraitLookupRevision() {
-  const [revision, setRevision] = useState(() => getCongressLegislatorIndexRevision())
-  useEffect(() => {
-    void preloadCongressLegislatorIndex()
-    return subscribeCongressLegislatorIndex(setRevision)
-  }, [])
-  return revision
-}
-
-function PersonAvatar({
-  fullName,
-  mode = 'insider',
-  className = 'casePersonHeaderAvatar',
-  photoClassName = 'casePersonHeaderPhoto',
-  loadedPhotoClassName = 'isLoaded',
-}) {
-  const portraitRevision = usePortraitLookupRevision()
-  const photoUrl = useMemo(
-    () => casePersonPhotoUrl(fullName, mode),
-    [fullName, mode, portraitRevision],
-  )
-  const [display, setDisplay] = useState(() => portraitDisplayState(photoUrl))
-
-  useLayoutEffect(() => {
-    const state = portraitDisplayState(photoUrl)
-    if (state === 'photo') {
-      setDisplay('photo')
-      return undefined
-    }
-    if (!photoUrl || state === 'blank') {
-      setDisplay('blank')
-      return undefined
-    }
-
-    setDisplay('blank')
-    return probePortraitUrl(photoUrl, {
-      onLoad: () => setDisplay('photo'),
-      onError: () => setDisplay('blank'),
-    })
-  }, [photoUrl])
-
-  return (
-    <div className={className} aria-hidden="true">
-      {display === 'photo' && photoUrl ? (
-        <img
-          className={[
-            photoClassName,
-            loadedPhotoClassName,
-            portraitIsLogo(mode) ? 'casePersonHeaderPhoto--logo' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          src={photoUrl}
-          alt=""
-          decoding="async"
-          referrerPolicy="no-referrer"
-        />
-      ) : null}
-    </div>
-  )
-}
-
-function CasePersonAvatar({ fullName, mode }) {
-  return <PersonAvatar fullName={fullName} mode={mode} />
-}
-
-/** Paper txn portrait column — full-bleed left rail when photo loads. */
-function ResearchPaperTxnThumb({ fullName, mode, onActiveChange }) {
-  const portraitRevision = usePortraitLookupRevision()
-  const photoUrl = useMemo(
-    () => casePersonPhotoUrl(fullName, mode),
-    [fullName, mode, portraitRevision],
-  )
-  const [loadedSrc, setLoadedSrc] = useState(null)
-  const isLogo = portraitIsLogo(mode)
-
-  useEffect(() => {
-    setLoadedSrc(null)
-    if (!photoUrl) return undefined
-
-    if (portraitDisplayState(photoUrl) === 'photo') {
-      setLoadedSrc(photoUrl)
-      void cachePortraitDataUrlForExport(photoUrl)
-      return undefined
-    }
-    if (portraitDisplayState(photoUrl) === 'blank') return undefined
-
-    return probePortraitUrl(photoUrl, {
-      onLoad: () => {
-        setLoadedSrc(photoUrl)
-        void cachePortraitDataUrlForExport(photoUrl)
-      },
-      onError: () => setLoadedSrc(null),
-    })
-  }, [photoUrl])
-
-  useEffect(() => {
-    onActiveChange?.(Boolean(loadedSrc))
-  }, [loadedSrc, onActiveChange])
-
-  if (!loadedSrc) return null
-
-  return (
-    <img
-      className={['researchPaperTxnThumb', isLogo ? 'researchPaperTxnThumb--logo' : '']
-        .filter(Boolean)
-        .join(' ')}
-      src={loadedSrc}
-      alt=""
-      decoding="async"
-      referrerPolicy="no-referrer"
-    />
-  )
-}
-
 function CasePersonHeader({ person, mode = 'insider' }) {
   const rawName = String(person?.fullName ?? '').trim()
   if (!rawName) return null
@@ -4229,7 +4113,6 @@ function CasePersonHeader({ person, mode = 'insider' }) {
 
   return (
     <div className="casePersonHeader" aria-label={`Selected ${modeLabel}: ${name}`}>
-      <CasePersonAvatar fullName={rawName} mode={mode} />
       <div className="casePersonHeaderText">
         {roleLine ? <div className="casePersonHeaderDetail mono">{roleLine}</div> : null}
         <div className="casePersonHeaderName">{name}</div>
@@ -6257,84 +6140,6 @@ async function imageUrlToDataUrl(url) {
   })
 }
 
-const PAPER_PORTRAIT_DATA_URL_CACHE = new Map()
-
-async function cachePortraitDataUrlForExport(url) {
-  const absolute = absoluteAssetUrl(url)
-  if (!absolute || PAPER_PORTRAIT_DATA_URL_CACHE.has(absolute)) return
-  const dataUrl = await imageUrlToDataUrl(absolute)
-  if (dataUrl) PAPER_PORTRAIT_DATA_URL_CACHE.set(absolute, dataUrl)
-}
-
-async function resolveCaptureImageDataUrl(url) {
-  const absolute = absoluteAssetUrl(url)
-  if (!absolute) return null
-  if (absolute.startsWith('data:') || absolute.startsWith('blob:')) return absolute
-  const cached = PAPER_PORTRAIT_DATA_URL_CACHE.get(absolute)
-  if (cached) return cached
-  const dataUrl = await imageUrlToDataUrl(absolute)
-  if (dataUrl) PAPER_PORTRAIT_DATA_URL_CACHE.set(absolute, dataUrl)
-  return dataUrl
-}
-
-/** Paint portrait on rail via data URL (img + background — html-to-image is flaky on <img> alone). */
-function setRailPortraitFromDataUrl(rail, card, dataUrl) {
-  if (!rail || !dataUrl) return
-  rail.classList.add('researchPaperRailCardRail--photo')
-  card?.classList.add('researchPaperTxnCard--hasPortrait')
-  let img = rail.querySelector('.researchPaperTxnThumb')
-  if (!img) {
-    img = document.createElement('img')
-    img.className = 'researchPaperTxnThumb'
-    img.alt = ''
-    img.decoding = 'async'
-    rail.prepend(img)
-  }
-  img.crossOrigin = 'anonymous'
-  img.referrerPolicy = 'no-referrer'
-  img.src = dataUrl
-  rail.style.backgroundImage = `url("${dataUrl}")`
-  rail.style.backgroundSize = 'cover'
-  rail.style.backgroundPosition = 'center 22%'
-  rail.style.backgroundRepeat = 'no-repeat'
-}
-
-async function inlineCaptureImages(root) {
-  const imgs = [...(root?.querySelectorAll('img') ?? [])]
-  if (!imgs.length) return
-  await Promise.all(
-    imgs.map(async (img) => {
-      const url = img.currentSrc || img.src
-      const dataUrl = await resolveCaptureImageDataUrl(url)
-      if (!dataUrl) return
-      const rail = img.closest('.researchPaperRailCardRail')
-      if (img.classList.contains('researchPaperTxnThumb') && rail) {
-        const card = img.closest('.researchPaperTxnCard')
-        setRailPortraitFromDataUrl(rail, card, dataUrl)
-        await waitForImgElement(img)
-        return
-      }
-      img.crossOrigin = 'anonymous'
-      img.referrerPolicy = 'no-referrer'
-      img.src = dataUrl
-      await waitForImgElement(img)
-    }),
-  )
-}
-
-async function waitForImgElement(img) {
-  if (!img) return
-  await new Promise((resolve) => {
-    if (img.complete && img.naturalWidth > 0) {
-      resolve()
-      return
-    }
-    const done = () => resolve()
-    img.addEventListener('load', done, { once: true })
-    img.addEventListener('error', done, { once: true })
-  })
-}
-
 function ResearchPaperFilingCard({ doc, ticker }) {
   const source = doc?.source ?? 'Filing'
   const openUrl = paperDocumentOpenUrl(doc, ticker)
@@ -6506,8 +6311,6 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       source: paperTxnSourceLabel('Form 4', row?.transactionCode, 'insider'),
       name: label,
       amount: row?.amount,
-      personFullName: person,
-      personMode: 'insider',
       transactionCode: String(row?.transactionCode ?? '').trim().toUpperCase() || null,
       url: row?.url ?? null,
     })
@@ -6525,8 +6328,6 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       source: paperTxnSourceLabel('PTR', row?.transactionType, 'politician'),
       name: label,
       amount: row?.amount,
-      personFullName: member,
-      personMode: 'politicians',
       transactionType: row?.transactionType ?? null,
       chamber: row?.chamber ?? null,
       url: row?.url ?? null,
@@ -6545,8 +6346,6 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
       name: label,
       amount: row?.amount,
       activity: String(row?.activity ?? '').trim() || null,
-      personFullName: filer,
-      personMode: 'institutions',
       url: row?.url ?? null,
     })
   }
@@ -6996,21 +6795,11 @@ function ResearchPaperTxnCard({
   filedAt,
   name,
   amount,
-  personFullName,
-  personMode,
   openUrl = null,
   openLabel = 'Open filing',
 }) {
   const label = String(name ?? '').trim()
   const amt = String(amount ?? '').trim()
-  const personName = String(personFullName ?? '').trim()
-  const photoMode =
-    personMode === 'politicians'
-      ? 'politicians'
-      : personMode === 'institutions'
-        ? 'institutions'
-        : 'insider'
-  const [portraitActive, setPortraitActive] = useState(false)
   const handleOpen = openUrl
     ? () => window.open(openUrl, '_blank', 'noopener,noreferrer')
     : undefined
@@ -7023,7 +6812,6 @@ function ResearchPaperTxnCard({
         'researchPaperRailCard',
         'researchPaperTxnCard',
         handleOpen ? 'eventBriefDocCard--clickable' : '',
-        portraitActive ? 'researchPaperTxnCard--hasPortrait' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -7031,23 +6819,6 @@ function ResearchPaperTxnCard({
       aria-label={handleOpen ? openLabel : undefined}
       title={handleOpen ? openLabel : undefined}
     >
-      <div
-        className={[
-          'researchPaperRailCardRail',
-          portraitActive ? 'researchPaperRailCardRail--photo' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        aria-hidden={!portraitActive ? true : undefined}
-      >
-        {personName ? (
-          <ResearchPaperTxnThumb
-            fullName={personName}
-            mode={photoMode}
-            onActiveChange={setPortraitActive}
-          />
-        ) : null}
-      </div>
       <div className="researchPaperRailCardMain">
         <div className="researchPaperRailCardGrid">
           <div className="researchPaperRailCardCol">
@@ -7102,8 +6873,6 @@ function ResearchPaperStructuredView({
                     filedAt={item.at}
                     name={item.name}
                     amount={item.amount}
-                    personFullName={item.personFullName}
-                    personMode={item.personMode}
                     openUrl={paperTxnOpenUrl({
                       kind: item.kind,
                       url: item.url,
@@ -9137,10 +8906,6 @@ function KensiglineTerminal() {
       cancelAnimationFrame(raf)
       mqPhone.removeEventListener('change', onViewportChange)
     }
-  }, [])
-
-  useEffect(() => {
-    void preloadCongressLegislatorIndex()
   }, [])
 
   const [insiderIdx, setInsiderIdx] = useState(0)
