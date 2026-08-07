@@ -229,8 +229,8 @@ async function loadInsiderFlowsFromDocuments(ticker: string, limit = 80) {
     `
     SELECT data, event_at::text AS event_at, url
     FROM documents
-    WHERE upper(trim(ticker)) = $1 AND feed_kind = 'insider'
-    ORDER BY event_at DESC NULLS LAST, parsed_at DESC
+    WHERE ticker_norm = $1 AND feed_kind = 'insider'
+    ORDER BY feed_at DESC NULLS LAST, parsed_at DESC
     LIMIT 40
     `,
     [t],
@@ -270,8 +270,8 @@ async function loadPoliticianFlowsFromDocuments(ticker: string, limit = 80) {
     `
     SELECT data, event_at::text AS event_at, url
     FROM documents
-    WHERE upper(trim(ticker)) = $1 AND feed_kind = 'politicians'
-    ORDER BY event_at DESC NULLS LAST, parsed_at DESC
+    WHERE ticker_norm = $1 AND feed_kind = 'politicians'
+    ORDER BY feed_at DESC NULLS LAST, parsed_at DESC
     LIMIT 40
     `,
     [t],
@@ -314,8 +314,8 @@ async function loadFilings13fFromDocuments(ticker: string, limit = 40) {
     `
     SELECT data, event_at::text AS event_at, url
     FROM documents
-    WHERE upper(trim(ticker)) = $1 AND feed_kind = 'institutions'
-    ORDER BY event_at DESC NULLS LAST, parsed_at DESC
+    WHERE ticker_norm = $1 AND feed_kind = 'institutions'
+    ORDER BY feed_at DESC NULLS LAST, parsed_at DESC
     LIMIT 40
     `,
     [t],
@@ -477,14 +477,14 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
     `
     SELECT id, source_key, event_at::text, url, title, analysis, program_keys, program_drug, feed_kind, program_phase, data
     FROM documents
-    WHERE upper(trim(ticker)) = $1
+    WHERE ticker_norm = $1
       AND feed_kind = 'research'
       AND show_on_ticker IS NOT FALSE
       AND (
         (analysis IS NOT NULL AND length(trim(analysis)) > 0)
         OR (title IS NOT NULL AND length(trim(title)) > 0)
       )
-    ORDER BY event_at DESC NULLS LAST, parsed_at DESC
+    ORDER BY COALESCE(feed_at, event_at) DESC NULLS LAST, parsed_at DESC
     LIMIT $2
     `,
     [t, limit],
@@ -533,8 +533,8 @@ export async function loadInstitutionShareSnapshotsForTicker(
     `
     SELECT data, event_at::text
     FROM documents
-    WHERE ticker = $1 AND feed_kind = 'institutions'
-    ORDER BY event_at DESC NULLS LAST
+    WHERE ticker_norm = $1 AND feed_kind = 'institutions'
+    ORDER BY feed_at DESC NULLS LAST
     LIMIT $2
     `,
     [t, limit],
@@ -586,11 +586,11 @@ export async function loadInsiderOwnershipFilingsForTicker(
     `
     SELECT url, event_at::text, source_key
     FROM documents
-    WHERE ticker = $1
+    WHERE ticker_norm = $1
       AND feed_kind = 'insider'
       AND source_key IN ('Form 3', 'Form 5')
       AND url IS NOT NULL
-    ORDER BY event_at DESC NULLS LAST
+    ORDER BY feed_at DESC NULLS LAST
     LIMIT $2
     `,
     [t, limit],

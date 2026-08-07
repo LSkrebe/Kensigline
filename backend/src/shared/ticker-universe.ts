@@ -9,14 +9,16 @@ export async function loadTickerUniverse(max = 500): Promise<string[]> {
   const cap = clampInt(max, 1, 5000);
   const rows = await db.query<{ t: string }>(
     `
-    SELECT DISTINCT upper(trim(x.ticker)) AS t
+    SELECT DISTINCT ticker_norm AS t
     FROM (
-      SELECT ticker FROM companies WHERE ticker IS NOT NULL
+      SELECT upper(trim(ticker)) AS ticker_norm FROM companies WHERE ticker IS NOT NULL
       UNION ALL
-      SELECT ticker FROM documents WHERE ticker IS NOT NULL
+      SELECT ticker_norm FROM documents WHERE ticker_norm IS NOT NULL
+      UNION ALL
+      SELECT ticker_norm FROM feed_market_latest
     ) x
-    WHERE length(trim(x.ticker)) BETWEEN 1 AND 6
-      AND trim(x.ticker) ~ '^[A-Za-z]{1,6}$'
+    WHERE length(ticker_norm) BETWEEN 1 AND 6
+      AND ticker_norm ~ '^[A-Z]{1,6}$'
     ORDER BY t
     LIMIT $1
     `,

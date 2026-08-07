@@ -58,13 +58,16 @@ export async function findReusableResearchExtract(args: {
     };
   }
 
+  // Narrow candidate scan: same ticker when known, else skip fuzzy (indexed exact key covers mirrors).
+  if (!ticker) return null;
+
   const candidates = await db.query<StoredExtractRow>(
     `
     SELECT id, ticker, data
     FROM documents
     WHERE feed_kind = 'research'
+      AND ticker_norm = $1
       AND parsed_at >= now() - interval '120 days'
-      AND ($1::text IS NULL OR upper(trim(ticker)) = $1)
     ORDER BY parsed_at DESC
     LIMIT 40
     `,

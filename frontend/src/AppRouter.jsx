@@ -74,6 +74,12 @@ export default function AppRouter() {
     }
   }, [signedIn, refresh])
 
+  useEffect(() => {
+    if (!signedIn) return
+    /* Warm the terminal chunk while auth/billing settle so Suspense doesn't stall. */
+    void import('./App.jsx')
+  }, [signedIn])
+
   /* Public SEO company pages stay outside auth + paywall. */
   if (publicCompany) {
     return <PublicCompanyPage ticker={publicCompany.ticker} />

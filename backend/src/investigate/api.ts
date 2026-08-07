@@ -118,8 +118,10 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
       ticker: string | null;
       company_id: string | null;
     }>(
-      `SELECT id, event_at::text AS event_at, feed_label, ticker, company_id FROM documents
-       WHERE feed_kind = 'insider' ORDER BY event_at DESC NULLS LAST, parsed_at DESC LIMIT $1 OFFSET $2`,
+      `SELECT id, COALESCE(feed_at, event_at)::text AS event_at, feed_label, ticker, company_id FROM documents
+       WHERE feed_kind = 'insider' AND feed_at IS NOT NULL
+       ORDER BY feed_at DESC, parsed_at DESC
+       LIMIT $1 OFFSET $2`,
       [page.limit, page.offset],
     );
     sendJson(res, 200, {
@@ -860,11 +862,15 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
 }
 
 async function loadClusterDocs(feedKind: string, ticker: string, days: number) {
+  const t = String(ticker ?? "").trim().toUpperCase();
   return db.query<{ id: string; event_at: string | null; ticker: string | null; url: string | null; data: any }>(
-    `SELECT id, event_at::text AS event_at, ticker, url, data FROM documents
-     WHERE feed_kind=$1 AND upper(trim(ticker))=upper(trim($2)) AND event_at IS NOT NULL
-       AND event_at >= now() - ($3 || ' days')::interval
-     ORDER BY event_at DESC, parsed_at DESC LIMIT 400`,
-    [feedKind, ticker, String(days)],
+    `SELECT id, COALESCE(feed_at, event_at)::text AS event_at, ticker, url, data FROM documents
+     WHERE feed_kind = $1
+       AND ticker_norm = $2
+       AND feed_at IS NOT NULL
+       AND feed_at >= now() - ($3 || ' days')::interval
+     ORDER BY feed_at DESC, parsed_at DESC
+     LIMIT 80`,
+    [feedKind, t, String(days)],
   );
 }

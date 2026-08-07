@@ -70,10 +70,10 @@ export async function aggregateBusinessDriversFromDocuments(ticker: string): Pro
     `
     SELECT data
     FROM documents
-    WHERE upper(trim(ticker)) = $1
+    WHERE ticker_norm = $1
       AND feed_kind = 'research'
       AND show_on_ticker IS NOT FALSE
-    ORDER BY event_at DESC NULLS LAST, parsed_at DESC
+    ORDER BY COALESCE(feed_at, event_at) DESC NULLS LAST, parsed_at DESC
     LIMIT 40
     `,
     [t],

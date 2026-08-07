@@ -7,6 +7,7 @@ import { runOutcomesRecomputeOnce } from "../core/outcomes-worker.js";
 import { startAlertsWorker } from "../alerts/worker.js";
 import { startContextAlertsWorker } from "../alerts/context-alerts-worker.js";
 import { startPoliticianCommitteeRefreshWorker } from "../politicians/committees.js";
+import { startBarsRefreshWorker } from "../core/bars-worker.js";
 
 export type Stoppable = { stop(): void };
 
@@ -21,6 +22,7 @@ export function startAllWorkers(): Stoppable[] {
     startAlertsWorker(),
     startContextAlertsWorker(),
     startPoliticianCommitteeRefreshWorker(),
+    startBarsRefreshWorker(),
   ];
 
   if (String(process.env.OUTCOMES_RECOMPUTE_ON_START ?? "1").trim() !== "0") {

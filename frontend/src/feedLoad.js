@@ -2,8 +2,8 @@ import { fetchJsonSafe } from './api.js'
 import { readFeedCache, writeFeedCache } from './feedCache.js'
 import { FEED_INITIAL_PAGE_SIZE, feedPageQuery } from './feedPagination.js'
 
-export const FEED_FETCH_TIMEOUT_MS = 12_000
-export const FEED_BACKGROUND_REFRESH_MS = 60_000
+export const FEED_FETCH_TIMEOUT_MS = 8_000
+export const FEED_BACKGROUND_REFRESH_MS = 45_000
 
 export function applyFeedCache(cacheKey, apply) {
   const hit = readFeedCache(cacheKey)

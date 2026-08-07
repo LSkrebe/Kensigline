@@ -37,7 +37,7 @@ export async function getDocumentsWatermarkForTicker(ticker: string): Promise<st
     `
     SELECT max(parsed_at)::text AS watermark
     FROM documents
-    WHERE upper(trim(ticker)) = $1
+    WHERE ticker_norm = $1
     `,
     [t],
   );
@@ -122,6 +122,23 @@ async function getOrComputeCache(ticker: string): Promise<CacheRow | null> {
   const cached = await readCacheRow(ticker);
   if (cacheIsFresh(cached, watermark)) return cached;
 
+  // Stale-while-revalidate: never block the API on Polygon/Yahoo for a warm panel.
+  if (cached?.company_json && Object.keys(cached.company_json).length > 0) {
+    let job = inflight.get(ticker);
+    if (!job) {
+      job = computeTickerContextCache(ticker)
+        .catch((err) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn("[ticker-context-cache] compute failed", ticker, msg);
+        })
+        .finally(() => {
+          inflight.delete(ticker);
+        });
+      inflight.set(ticker, job);
+    }
+    return cached;
+  }
+
   let job = inflight.get(ticker);
   if (!job) {
     job = computeTickerContextCache(ticker)
@@ -134,7 +151,8 @@ async function getOrComputeCache(ticker: string): Promise<CacheRow | null> {
       });
     inflight.set(ticker, job);
   }
-  await job;
+  // Cold miss: wait briefly; if still computing, fall through to snapshot-ish empty.
+  await Promise.race([job, new Promise((r) => setTimeout(r, 2_500))]);
   return readCacheRow(ticker);
 }
 
@@ -150,12 +168,20 @@ export async function getCompanyFullCached(opts: { ticker: string }): Promise<Re
     };
   }
 
+  // Last resort cold path — still prefer not to sit on Polygon forever.
   const secBundle = await loadTickerSecBundle(ticker);
-  const [company, fundamentals] = await Promise.all([
-    getCompanyPanelData({ ticker, secBundle }),
-    getMarketFundamentalsForTicker({ ticker, secBundle }).catch(() => null),
-  ]);
-  return { ...company, fundamentals };
+  const company = await getCompanyPanelData({ ticker, secBundle });
+  void getMarketFundamentalsForTicker({ ticker, secBundle })
+    .then((fundamentals) =>
+      upsertCacheRow({
+        ticker,
+        company,
+        fundamentals,
+        watermark: null,
+      }),
+    )
+    .catch(() => {});
+  return { ...company, fundamentals: null };
 }
 
 export async function invalidateTickerContextCache(tickerInput: string): Promise<void> {

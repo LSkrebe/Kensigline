@@ -14,11 +14,11 @@ export async function forwardRevenueGrowthFromDocuments(ticker: string): Promise
     `
     SELECT analysis, data
     FROM documents
-    WHERE ticker = $1
+    WHERE ticker_norm = $1
       AND feed_kind = 'research'
       AND show_on_ticker IS NOT FALSE
       AND source_key = ANY($2::text[])
-    ORDER BY event_at DESC NULLS LAST, parsed_at DESC
+    ORDER BY COALESCE(feed_at, event_at) DESC NULLS LAST, parsed_at DESC
     LIMIT 10
     `,
     [t, GUIDANCE_SOURCE_KEYS],

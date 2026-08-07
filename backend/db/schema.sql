@@ -177,6 +177,27 @@ CREATE INDEX documents_paper_idx
     AND analysis IS NOT NULL
     AND length(trim(analysis)) > 0;
 CREATE INDEX documents_doc_kind_idx ON documents (doc_kind, parsed_at DESC);
+CREATE INDEX documents_url_idx
+  ON documents (url)
+  WHERE url IS NOT NULL;
+CREATE INDEX documents_near_dup_key_idx
+  ON documents ((data->>'near_dup_key'))
+  WHERE feed_kind = 'research' AND (data ? 'near_dup_key');
+CREATE INDEX documents_ticker_norm_parsed_at_idx
+  ON documents (ticker_norm, parsed_at DESC)
+  WHERE ticker_norm IS NOT NULL;
+CREATE INDEX documents_feed_kind_ticker_norm_event_idx
+  ON documents (feed_kind, ticker_norm, event_at DESC)
+  WHERE feed_kind IS NOT NULL AND ticker_norm IS NOT NULL AND event_at IS NOT NULL;
+CREATE INDEX documents_feed_kind_parsed_at_idx
+  ON documents (feed_kind, parsed_at DESC)
+  WHERE feed_kind IS NOT NULL;
+CREATE INDEX document_queue_claim_idx
+  ON document_queue (source_type, status, priority DESC, created_at ASC)
+  WHERE status IN ('ready_to_parse', 'queued', 'failed');
+CREATE INDEX companies_ticker_norm_idx
+  ON companies (upper(trim(ticker)))
+  WHERE ticker IS NOT NULL;
 
 -- --- Flow tables (insider / PTR / 13F on paper timeline) ---
 CREATE TABLE insider_transactions (

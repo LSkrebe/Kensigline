@@ -1,5 +1,4 @@
 import { db } from "../core/db.js";
-import { documentFeedAtSql } from "./document-activity-at.js";
 import { clampInt } from "./feed-helpers.js";
 
 export type TickerFeedDoc = {
@@ -29,6 +28,10 @@ export function parseFeedPageParams(
   };
 }
 
+function normalizeTickers(tickers: string[]): string[] {
+  return [...new Set(tickers.map((t) => String(t).trim().toUpperCase()).filter(Boolean))];
+}
+
 /** Paginate tickers by latest activity, then load only latest doc per ticker (fast feed list). */
 export async function loadTickerFeedDocs(opts: {
   feedKind: string;
@@ -48,14 +51,14 @@ export async function loadTickerFeedDocs(opts: {
 
   const tickerRows = await db.query<{ ticker: string }>(
     `
-    SELECT upper(trim(ticker)) AS ticker
+    SELECT ticker_norm AS ticker
     FROM documents
     WHERE feed_kind = $1
-      AND ticker IS NOT NULL
-      AND event_at IS NOT NULL
-      AND event_at >= now() - ($2 || ' days')::interval
-    GROUP BY 1
-    ORDER BY max(event_at) DESC
+      AND ticker_norm IS NOT NULL
+      AND feed_at IS NOT NULL
+      AND feed_at >= now() - ($2 || ' days')::interval
+    GROUP BY ticker_norm
+    ORDER BY max(feed_at) DESC
     LIMIT $3 OFFSET $4
     `,
     [feedKind, String(days), probe, offset],
@@ -70,44 +73,51 @@ export async function loadTickerFeedDocs(opts: {
   const docs = latestOnly
     ? await db.query<TickerFeedDoc>(
         `
-        SELECT DISTINCT ON (upper(trim(d.ticker)))
-          d.id::text AS id, (${documentFeedAtSql("d")})::text AS event_at, d.feed_label, d.ticker, d.company_id, d.data,
-          d.url, d.source_key,
+        SELECT DISTINCT ON (d.ticker_norm)
+          d.id::text AS id,
+          COALESCE(d.feed_at, d.event_at)::text AS event_at,
+          d.feed_label,
+          d.ticker,
+          d.company_id,
+          d.data,
+          d.url,
+          d.source_key,
           COALESCE(
             NULLIF(trim(c.name), ''),
             NULLIF(trim(d.data->'issuer'->>'name'), '')
           ) AS company_name
         FROM documents d
-        LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
+        LEFT JOIN companies c ON upper(trim(c.ticker)) = d.ticker_norm
         WHERE d.feed_kind = $1
-          AND upper(trim(d.ticker)) = ANY($2::text[])
-          AND (${documentFeedAtSql("d")}) >= now() - ($3 || ' days')::interval
-        ORDER BY upper(trim(d.ticker)), (${documentFeedAtSql("d")}) DESC, d.parsed_at DESC
+          AND d.ticker_norm = ANY($2::text[])
+          AND d.feed_at IS NOT NULL
+          AND d.feed_at >= now() - ($3 || ' days')::interval
+        ORDER BY d.ticker_norm, d.feed_at DESC, d.parsed_at DESC
         `,
         [feedKind, pageTickers, String(days)],
       )
     : await db.query<TickerFeedDoc>(
         `
-        SELECT d.id::text AS id, (${documentFeedAtSql("d")})::text AS event_at, d.feed_label, d.ticker, d.company_id, d.data,
-          d.url, d.source_key,
+        SELECT
+          d.id::text AS id,
+          COALESCE(d.feed_at, d.event_at)::text AS event_at,
+          d.feed_label,
+          d.ticker,
+          d.company_id,
+          d.data,
+          d.url,
+          d.source_key,
           COALESCE(
             NULLIF(trim(c.name), ''),
-            NULLIF(trim(iss.issuer_name), '')
+            NULLIF(trim(d.data->'issuer'->>'name'), '')
           ) AS company_name
         FROM documents d
-        LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
-        LEFT JOIN LATERAL (
-          SELECT NULLIF(trim(d2.data->'issuer'->>'name'), '') AS issuer_name
-          FROM documents d2
-          WHERE upper(trim(d2.ticker)) = upper(trim(d.ticker))
-            AND NULLIF(trim(d2.data->'issuer'->>'name'), '') IS NOT NULL
-          ORDER BY ${documentFeedAtSql("d2")} DESC NULLS LAST, d2.parsed_at DESC
-          LIMIT 1
-        ) iss ON true
+        LEFT JOIN companies c ON upper(trim(c.ticker)) = d.ticker_norm
         WHERE d.feed_kind = $1
-          AND upper(trim(d.ticker)) = ANY($2::text[])
-          AND (${documentFeedAtSql("d")}) >= now() - ($3 || ' days')::interval
-        ORDER BY (${documentFeedAtSql("d")}) DESC, d.parsed_at DESC
+          AND d.ticker_norm = ANY($2::text[])
+          AND d.feed_at IS NOT NULL
+          AND d.feed_at >= now() - ($3 || ' days')::interval
+        ORDER BY d.feed_at DESC, d.parsed_at DESC
         `,
         [feedKind, pageTickers, String(days)],
       );
@@ -126,19 +136,27 @@ export async function loadTickerFeedDocsForTickers(opts: {
   days: number;
   tickers: string[];
 }): Promise<TickerFeedDoc[]> {
-  const tickers = [...new Set(opts.tickers.map((t) => String(t).trim().toUpperCase()).filter(Boolean))];
+  const tickers = normalizeTickers(opts.tickers);
   if (!tickers.length) return [];
 
   return db.query<TickerFeedDoc>(
     `
-    SELECT d.id::text AS id, (${documentFeedAtSql("d")})::text AS event_at, d.feed_label, d.ticker, d.data, d.company_id,
-      d.url, d.source_key,
+    SELECT
+      d.id::text AS id,
+      COALESCE(d.feed_at, d.event_at)::text AS event_at,
+      d.feed_label,
+      d.ticker,
+      d.data,
+      d.company_id,
+      d.url,
+      d.source_key,
       NULL::text AS company_name
     FROM documents d
     WHERE d.feed_kind = $1
-      AND upper(trim(d.ticker)) = ANY($2::text[])
-      AND (${documentFeedAtSql("d")}) >= now() - ($3 || ' days')::interval
-    ORDER BY (${documentFeedAtSql("d")}) DESC, d.parsed_at DESC
+      AND d.ticker_norm = ANY($2::text[])
+      AND d.feed_at IS NOT NULL
+      AND d.feed_at >= now() - ($3 || ' days')::interval
+    ORDER BY d.feed_at DESC, d.parsed_at DESC
     `,
     [opts.feedKind, tickers, String(opts.days)],
   );

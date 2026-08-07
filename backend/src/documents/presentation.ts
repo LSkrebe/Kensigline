@@ -48,12 +48,12 @@ async function loadSourceRefs(ticker: string): Promise<ResearchSourceRef[]> {
     `
     SELECT url, source_key, title
     FROM documents
-    WHERE upper(trim(ticker)) = $1
+    WHERE ticker_norm = $1
       AND url IS NOT NULL
       AND length(trim(url)) > 0
       AND feed_kind = 'research'
       AND show_on_ticker IS NOT FALSE
-    ORDER BY event_at DESC NULLS LAST, parsed_at DESC
+    ORDER BY COALESCE(feed_at, event_at) DESC NULLS LAST, parsed_at DESC
     LIMIT 24
     `,
     [t],

@@ -68,12 +68,12 @@ export async function collectFeedCandidates(opts: {
   if (feeds.has("insider")) {
     const rows = await db.query<{ id: string; ticker: string | null; event_at: string | null; data: any; url: string | null }>(
       `
-      SELECT id::text, ticker, event_at::text, data, url
+      SELECT id::text, ticker, COALESCE(feed_at, event_at)::text AS event_at, data, url
       FROM documents
-      WHERE feed_kind = 'insider' AND ticker IS NOT NULL
-        AND event_at >= now() - ($1 || ' hours')::interval
-      ORDER BY event_at DESC
-      LIMIT 400
+      WHERE feed_kind = 'insider' AND ticker_norm IS NOT NULL
+        AND feed_at >= now() - ($1 || ' hours')::interval
+      ORDER BY feed_at DESC
+      LIMIT 120
       `,
       [String(sinceHours)],
     );
@@ -113,12 +113,12 @@ export async function collectFeedCandidates(opts: {
   if (feeds.has("politicians")) {
     const rows = await db.query<{ id: string; ticker: string | null; event_at: string | null; data: any; url: string | null }>(
       `
-      SELECT id::text, ticker, event_at::text, data, url
+      SELECT id::text, ticker, COALESCE(feed_at, event_at)::text AS event_at, data, url
       FROM documents
-      WHERE feed_kind = 'politicians' AND ticker IS NOT NULL
-        AND event_at >= now() - ($1 || ' hours')::interval
-      ORDER BY event_at DESC
-      LIMIT 400
+      WHERE feed_kind = 'politicians' AND ticker_norm IS NOT NULL
+        AND feed_at >= now() - ($1 || ' hours')::interval
+      ORDER BY feed_at DESC
+      LIMIT 120
       `,
       [String(sinceHours)],
     );
@@ -158,12 +158,12 @@ export async function collectFeedCandidates(opts: {
   if (feeds.has("institutions")) {
     const rows = await db.query<{ id: string; ticker: string | null; event_at: string | null; data: any; url: string | null }>(
       `
-      SELECT id::text, ticker, event_at::text, data, url
+      SELECT id::text, ticker, COALESCE(feed_at, event_at)::text AS event_at, data, url
       FROM documents
-      WHERE feed_kind = 'institutions' AND ticker IS NOT NULL
-        AND event_at >= now() - ($1 || ' hours')::interval
-      ORDER BY event_at DESC
-      LIMIT 400
+      WHERE feed_kind = 'institutions' AND ticker_norm IS NOT NULL
+        AND feed_at >= now() - ($1 || ' hours')::interval
+      ORDER BY feed_at DESC
+      LIMIT 120
       `,
       [String(sinceHours)],
     );
@@ -213,17 +213,17 @@ export async function collectFeedCandidates(opts: {
       data: any;
     }>(
       `
-      SELECT id::text, ticker, event_at::text, analysis, source_key, feed_kind, program_phase, url, data
+      SELECT id::text, ticker, COALESCE(feed_at, event_at)::text AS event_at, analysis, source_key, feed_kind, program_phase, url, data
       FROM documents
       WHERE feed_kind = 'research'
-        AND ticker IS NOT NULL
+        AND ticker_norm IS NOT NULL
         AND (
           (analysis IS NOT NULL AND length(trim(analysis)) > 0)
           OR (title IS NOT NULL AND length(trim(title)) > 0)
         )
-        AND event_at >= now() - ($1 || ' hours')::interval
-      ORDER BY event_at DESC
-      LIMIT 300
+        AND feed_at >= now() - ($1 || ' hours')::interval
+      ORDER BY feed_at DESC
+      LIMIT 120
       `,
       [String(sinceHours)],
     );

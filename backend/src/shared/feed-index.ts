@@ -82,6 +82,10 @@ function buildInvestigateSummary(
       : feedKind === "institutions"
         ? scoreInstitutionCluster(scoreArgs)
         : scoreInsiderCluster(scoreArgs);
+  const dataObj = data as {
+    filing?: { pdf_url?: string | null; index_url?: string | null; accession_no?: string | null };
+    issuer?: { name?: string | null; cik?: string | null };
+  } | null;
   return {
     total_usd: totalUsd,
     total_count: totalCount,
@@ -91,6 +95,18 @@ function buildInvestigateSummary(
     idea_score: idea.idea_score,
     idea_best: idea.idea_best,
     idea_reasons: idea.idea_reasons,
+    // Keep feed list off full documents.data toast reads when index is warm.
+    worksheet_rows: Array.isArray(rows) ? rows : [],
+    filing: dataObj?.filing
+      ? {
+          pdf_url: dataObj.filing.pdf_url ?? null,
+          index_url: dataObj.filing.index_url ?? null,
+          accession_no: dataObj.filing.accession_no ?? null,
+        }
+      : null,
+    issuer: dataObj?.issuer
+      ? { name: dataObj.issuer.name ?? null, cik: dataObj.issuer.cik ?? null }
+      : null,
   };
 }
 
@@ -332,11 +348,32 @@ export async function syncFeedIndexForDocument(documentId: string): Promise<void
 }
 
 export async function rebuildFeedIndexFromDocuments(): Promise<void> {
-  const rows = await db.query<{ id: string }>(
-    `SELECT id::text AS id FROM documents WHERE ticker IS NOT NULL AND length(trim(ticker)) > 0 ORDER BY parsed_at ASC`,
-  );
-  for (const row of rows) {
-    await syncFeedIndexForDocument(row.id);
+  const batchSize = 500;
+  let lastParsedAt: string | null = null;
+  let lastId: string | null = null;
+  for (;;) {
+    const rows: Array<{ id: string; parsed_at: string }> = await db.query<{ id: string; parsed_at: string }>(
+      `
+      SELECT id::text AS id, parsed_at::text AS parsed_at
+      FROM documents
+      WHERE ticker_norm IS NOT NULL
+        AND (
+          $1::timestamptz IS NULL
+          OR parsed_at > $1::timestamptz
+          OR (parsed_at = $1::timestamptz AND id::text > $2)
+        )
+      ORDER BY parsed_at ASC, id ASC
+      LIMIT $3
+      `,
+      [lastParsedAt, lastId, batchSize],
+    );
+    if (!rows.length) break;
+    for (const row of rows) {
+      await syncFeedIndexForDocument(row.id);
+      lastParsedAt = row.parsed_at;
+      lastId = row.id;
+    }
+    if (rows.length < batchSize) break;
   }
 }
 
@@ -384,7 +421,15 @@ export async function loadFeedKindIndexPage(opts: {
       d.company_id::text AS company_id,
       f.source_key,
       d.url,
-      d.data,
+      CASE
+        WHEN f.summary ? 'worksheet_rows' THEN
+          jsonb_build_object(
+            'cluster', jsonb_build_object('worksheet_rows', f.summary->'worksheet_rows'),
+            'filing', f.summary->'filing',
+            'issuer', f.summary->'issuer'
+          )
+        ELSE d.data
+      END AS data,
       f.summary
     FROM feed_ticker_latest f
     JOIN documents d ON d.id = f.document_id
@@ -437,7 +482,7 @@ export async function loadMarketFeedIndexPage(opts: {
       f.analysis,
       f.program_phase,
       d.event_at::text AS event_at,
-      d.data,
+      NULL::jsonb AS data,
       f.summary
     FROM feed_market_latest f
     JOIN documents d ON d.id = f.document_id

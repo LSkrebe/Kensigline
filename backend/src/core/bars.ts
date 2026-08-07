@@ -25,9 +25,15 @@ function parseIsoDayToUtcDate(isoDay: string) {
   return new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`);
 }
 
+function daysBetweenIso(a: string, b: string): number {
+  const da = parseIsoDayToUtcDate(a);
+  const db_ = parseIsoDayToUtcDate(b);
+  if (!da || !db_) return Number.POSITIVE_INFINITY;
+  return Math.abs(db_.getTime() - da.getTime()) / (24 * 3600 * 1000);
+}
+
 let lastPolygonAt = 0;
 async function polygonRateLimit() {
-  // Polygon free tier is very tight (commonly ~5 req/min). Keep a safe default.
   const minMs = Math.max(500, Number(process.env.POLYGON_MIN_INTERVAL_MS ?? 12_500));
   const now = Date.now();
   const wait = lastPolygonAt ? Math.max(0, minMs - (now - lastPolygonAt)) : 0;
@@ -37,7 +43,7 @@ async function polygonRateLimit() {
 
 let lastYahooAt = 0;
 async function yahooRateLimit() {
-  const minMs = Math.max(150, Number(process.env.YAHOO_MIN_INTERVAL_MS ?? 500));
+  const minMs = Math.max(100, Number(process.env.YAHOO_MIN_INTERVAL_MS ?? 350));
   const now = Date.now();
   const wait = lastYahooAt ? Math.max(0, minMs - (now - lastYahooAt)) : 0;
   if (wait > 0) await sleep(wait);
@@ -62,18 +68,21 @@ async function fetchPolygonDailyCloses(ticker: string, fromDay: string, toDay: s
     const t = Number(r?.t);
     const c = Number(r?.c);
     if (!Number.isFinite(t) || !Number.isFinite(c)) continue;
-    const day = isoDayUTC(new Date(t));
-    out.push({ day, close: c });
+    out.push({ day: isoDayUTC(new Date(t)), close: c });
   }
   return out;
 }
 
-async function fetchYahooDailyCloses(ticker: string, fromDay: string, toDay: string): Promise<BarRow[]> {
+async function fetchYahooDailyCloses(
+  ticker: string,
+  fromDay: string,
+  toDay: string,
+  timeoutMs = 8_000,
+): Promise<BarRow[]> {
   const from = parseIsoDayToUtcDate(fromDay);
   const to = parseIsoDayToUtcDate(toDay);
   if (!from || !to) throw new Error("yahoo_bad_date_range");
 
-  // period2 is exclusive-ish; add a bit of slack.
   const period1 = Math.floor(from.getTime() / 1000);
   const period2 = Math.floor((to.getTime() + 36 * 3600 * 1000) / 1000);
 
@@ -82,95 +91,190 @@ async function fetchYahooDailyCloses(ticker: string, fromDay: string, toDay: str
     `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}` +
     `?interval=1d&period1=${period1}&period2=${period2}`;
 
-  const res = await fetch(url, { headers: { accept: "application/json,text/plain,*/*" } });
-  const txt = await res.text().catch(() => "");
-  if (!res.ok) {
-    // Delisted / unknown symbols are common in filings feeds — not worth throwing.
-    if (res.status === 404 || res.status === 400) return [];
-    throw new Error(`yahoo_fetch_failed ${res.status} ${txt.slice(0, 200)}`);
-  }
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), Math.max(500, timeoutMs));
+  try {
+    const res = await fetch(url, {
+      headers: { accept: "application/json,text/plain,*/*" },
+      signal: ac.signal,
+    });
+    const txt = await res.text().catch(() => "");
+    if (!res.ok) {
+      if (res.status === 404 || res.status === 400) return [];
+      throw new Error(`yahoo_fetch_failed ${res.status} ${txt.slice(0, 200)}`);
+    }
 
-  const json = JSON.parse(txt) as any;
-  const chartErr = json?.chart?.error;
-  if (chartErr?.code === "Not Found") return [];
-  const r0 = json?.chart?.result?.[0];
-  if (!r0) return [];
-  const ts = Array.isArray(r0?.timestamp) ? r0.timestamp : [];
-  const closes = r0?.indicators?.quote?.[0]?.close;
-  const closeArr = Array.isArray(closes) ? closes : [];
+    const json = JSON.parse(txt) as any;
+    if (json?.chart?.error?.code === "Not Found") return [];
+    const r0 = json?.chart?.result?.[0];
+    if (!r0) return [];
+    const ts = Array.isArray(r0?.timestamp) ? r0.timestamp : [];
+    const closes = r0?.indicators?.quote?.[0]?.close;
+    const closeArr = Array.isArray(closes) ? closes : [];
 
-  const out: BarRow[] = [];
-  for (let i = 0; i < ts.length; i++) {
-    const sec = Number(ts[i]);
-    const c = Number(closeArr[i]);
-    if (!Number.isFinite(sec) || !Number.isFinite(c)) continue;
-    const day = isoDayUTC(new Date(sec * 1000));
-    out.push({ day, close: c });
+    const out: BarRow[] = [];
+    for (let i = 0; i < ts.length; i++) {
+      const sec = Number(ts[i]);
+      const c = Number(closeArr[i]);
+      if (!Number.isFinite(sec) || !Number.isFinite(c)) continue;
+      out.push({ day: isoDayUTC(new Date(sec * 1000)), close: c });
+    }
+    return out;
+  } finally {
+    clearTimeout(timer);
   }
-  return out;
 }
 
 async function upsertBars(ticker: string, rows: BarRow[]) {
-  for (const r of rows) {
+  if (!rows.length) return;
+  const chunkSize = 200;
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const values: unknown[] = [];
+    const placeholders: string[] = [];
+    for (let j = 0; j < chunk.length; j++) {
+      const r = chunk[j]!;
+      const base = j * 3;
+      placeholders.push(`($${base + 1}, $${base + 2}::date, $${base + 3})`);
+      values.push(ticker, r.day, r.close);
+    }
     await db.query(
       `
       INSERT INTO bars (ticker, day, close)
-      VALUES ($1, $2::date, $3)
+      VALUES ${placeholders.join(", ")}
       ON CONFLICT (ticker, day) DO UPDATE SET close = EXCLUDED.close
       `,
-      [ticker, r.day, r.close],
+      values,
     );
   }
 }
 
-export async function getDailyCloseBars(opts: { ticker: string; fromDay: string; toDay: string }) {
+function cacheIsFreshEnough(cached: Array<{ day: string }>, toDay: string): boolean {
+  if (cached.length < 20) return false;
+  const last = cached[cached.length - 1]?.day;
+  if (!last) return false;
+  return daysBetweenIso(last, toDay) <= 4;
+}
+
+const backgroundRefresh = new Set<string>();
+
+async function fetchAndStoreBars(
+  ticker: string,
+  fromDay: string,
+  toDay: string,
+  prefer: "yahoo" | "polygon",
+): Promise<{ rows: BarRow[]; source: "polygon" | "yahoo" | "none" }> {
+  let fetched: BarRow[] = [];
+  let source: "polygon" | "yahoo" | "none" = "none";
+
+  const tryYahoo = async (timeoutMs: number) => {
+    fetched = await fetchYahooDailyCloses(ticker, fromDay, toDay, timeoutMs);
+    if (fetched.length) source = "yahoo";
+  };
+  const tryPolygon = async () => {
+    fetched = await fetchPolygonDailyCloses(ticker, fromDay, toDay);
+    source = "polygon";
+  };
+
+  if (prefer === "yahoo") {
+    try {
+      await tryYahoo(2_500);
+    } catch {
+      /* fall through */
+    }
+    if (!fetched.length) {
+      try {
+        await tryPolygon();
+      } catch {
+        try {
+          await tryYahoo(6_000);
+        } catch {
+          fetched = [];
+          source = "none";
+        }
+      }
+    }
+  } else {
+    try {
+      await tryPolygon();
+    } catch {
+      try {
+        await tryYahoo(6_000);
+      } catch {
+        fetched = [];
+        source = "none";
+      }
+    }
+  }
+
+  if (fetched.length) await upsertBars(ticker, fetched);
+  return { rows: fetched, source };
+}
+
+function scheduleBackgroundBarsRefresh(ticker: string, fromDay: string, toDay: string) {
+  if (backgroundRefresh.has(ticker)) return;
+  backgroundRefresh.add(ticker);
+  void fetchAndStoreBars(ticker, fromDay, toDay, "yahoo")
+    .catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("[bars] background refresh", ticker, msg);
+    })
+    .finally(() => backgroundRefresh.delete(ticker));
+}
+
+async function readBarsRange(ticker: string, fromDay: string, toDay: string) {
+  return db.query<{ day: string; close: number }>(
+    `
+    SELECT day::text as day, close
+    FROM bars
+    WHERE ticker = $1 AND day >= $2::date AND day <= $3::date
+    ORDER BY day ASC
+    `,
+    [ticker, fromDay, toDay],
+  );
+}
+
+/**
+ * Chart/API path: return DB bars immediately. Never block on Polygon's rate limit.
+ * Missing/stale series refresh in the background (Yahoo-first).
+ * Worker path (`forceRefresh`) still does a full sync.
+ */
+export async function getDailyCloseBars(opts: {
+  ticker: string;
+  fromDay: string;
+  toDay: string;
+  forceRefresh?: boolean;
+}) {
   const ticker = String(opts.ticker ?? "").trim().toUpperCase();
   const fromDay = String(opts.fromDay ?? "").trim();
   const toDay = String(opts.toDay ?? "").trim();
   if (!ticker) throw new Error("ticker_required");
 
-  const cached = await db.query<{ day: string; close: number }>(
-    `
-    SELECT day::text as day, close
-    FROM bars
-    WHERE ticker = $1 AND day >= $2::date AND day <= $3::date
-    ORDER BY day ASC
-    `,
-    [ticker, fromDay, toDay],
-  );
+  const cached = await readBarsRange(ticker, fromDay, toDay);
 
-  // Simple heuristic: if we already have "enough" rows, just return them.
-  if (cached.length >= 40) return { ticker, source: "cache" as const, items: cached };
+  if (opts.forceRefresh) {
+    const { source } = await fetchAndStoreBars(ticker, fromDay, toDay, "polygon");
+    const rows = await readBarsRange(ticker, fromDay, toDay);
+    return { ticker, source: rows.length ? source : "none", items: rows };
+  }
 
-  let fetched: BarRow[] = [];
-  let source: "polygon" | "yahoo" | "none" = "none";
-  try {
-    fetched = await fetchPolygonDailyCloses(ticker, fromDay, toDay);
-    source = "polygon";
-  } catch {
-    try {
-      fetched = await fetchYahooDailyCloses(ticker, fromDay, toDay);
-      source = fetched.length ? "yahoo" : "none";
-    } catch {
-      fetched = [];
-      source = "none";
+  if (cached.length > 0) {
+    if (!cacheIsFreshEnough(cached, toDay)) {
+      scheduleBackgroundBarsRefresh(ticker, fromDay, toDay);
     }
+    return { ticker, source: "cache" as const, items: cached };
   }
 
-  if (fetched.length) {
-    await upsertBars(ticker, fetched);
+  // Cold chart open: one short Yahoo attempt so the first paint isn't empty, else background.
+  try {
+    const { rows, source } = await fetchAndStoreBars(ticker, fromDay, toDay, "yahoo");
+    if (rows.length) {
+      const stored = await readBarsRange(ticker, fromDay, toDay);
+      return { ticker, source, items: stored };
+    }
+  } catch {
+    /* background below */
   }
-
-  const rows = await db.query<{ day: string; close: number }>(
-    `
-    SELECT day::text as day, close
-    FROM bars
-    WHERE ticker = $1 AND day >= $2::date AND day <= $3::date
-    ORDER BY day ASC
-    `,
-    [ticker, fromDay, toDay],
-  );
-
-  return { ticker, source, items: rows };
+  scheduleBackgroundBarsRefresh(ticker, fromDay, toDay);
+  return { ticker, source: "none" as const, items: [] };
 }
-

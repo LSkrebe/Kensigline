@@ -17,7 +17,6 @@ import {
   readFeedResponseCache,
   writeFeedResponseCache,
 } from "../shared/feed-response-cache.js";
-import { documentFeedAtSql } from "../shared/document-activity-at.js";
 import { loadMarketFeedIndexPage, loadInvestigateRollupsByTicker } from "../shared/feed-index.js";
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
@@ -43,12 +42,12 @@ export async function handleResearchEvents(res: http.ServerResponse, ticker: str
     `
     SELECT id, source_key, analysis, event_at::text, parsed_at::text AS created_at
     FROM documents
-    WHERE upper(trim(ticker)) = $1
+    WHERE ticker_norm = $1
       AND (
         (analysis IS NOT NULL AND length(trim(analysis)) > 0)
         OR (title IS NOT NULL AND length(trim(title)) > 0)
       )
-    ORDER BY event_at DESC NULLS LAST, parsed_at DESC
+    ORDER BY COALESCE(feed_at, event_at) DESC NULLS LAST, parsed_at DESC
     LIMIT $2
     `,
     [t, limit],
@@ -262,66 +261,9 @@ export async function handleResearchFeed(
   const probe = lim + 1;
 
   const indexed = await loadMarketFeedIndexPage({ limit: probe, offset });
-  const useIndex = indexed.rows.length > 0 || offset > 0;
-
-  const rows = useIndex
-    ? indexed.rows
-    : await db.query<{
-        id: string;
-        ticker: string;
-        analysis: string | null;
-        feed_label: string | null;
-        feed_at: string;
-        company_name: string | null;
-        source_key: string | null;
-        feed_kind: string;
-        program_phase: string | null;
-        event_at: string | null;
-        data: any;
-        summary: Record<string, unknown>;
-      }>(
-        `
-    SELECT sub.id, sub.ticker, sub.analysis, sub.feed_label, sub.feed_at, sub.company_name, sub.source_key, sub.feed_kind, sub.program_phase, sub.event_at, sub.data, '{}'::jsonb AS summary
-    FROM (
-      SELECT DISTINCT ON (upper(trim(d.ticker)))
-        d.id::text,
-        upper(trim(d.ticker)) AS ticker,
-        d.analysis,
-        d.feed_label,
-        (${documentFeedAtSql("d")})::text AS feed_at,
-        COALESCE(
-          NULLIF(trim(c.name), ''),
-          upper(trim(d.ticker))
-        ) AS company_name,
-        d.source_key,
-        d.feed_kind,
-        d.program_phase,
-        d.event_at::text,
-        d.data
-      FROM documents d
-      LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(d.ticker))
-      WHERE d.ticker IS NOT NULL
-        AND length(trim(d.ticker)) > 0
-        AND (
-          d.feed_kind IN ('insider', 'politicians', 'institutions')
-          OR (
-            d.feed_kind = 'research'
-            AND d.show_on_ticker IS NOT FALSE
-            AND (
-              (d.analysis IS NOT NULL AND length(trim(d.analysis)) > 0)
-              OR (d.title IS NOT NULL AND length(trim(d.title)) > 0)
-            )
-          )
-        )
-      ORDER BY upper(trim(d.ticker)), (${documentFeedAtSql("d")}) DESC NULLS LAST, d.parsed_at DESC
-    ) sub
-    ORDER BY sub.feed_at DESC NULLS LAST
-    LIMIT $1 OFFSET $2
-    `,
-        [probe, offset],
-      );
-
-  const hasMore = useIndex ? indexed.hasMore : rows.length > lim;
+  // Never fall back to full-table DISTINCT ON — empty index means empty feed until sync catches up.
+  const rows = indexed.rows;
+  const hasMore = indexed.hasMore;
   const page = rows.slice(0, lim);
 
   const secTitles = await getSecTickerTitleMap().catch(() => new Map<string, string>());

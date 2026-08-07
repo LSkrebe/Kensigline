@@ -68,8 +68,9 @@ export async function getTrackedInvestorsForTicker(
       `
       SELECT insider_name, transaction_code, amount_usd::text, transaction_at::text
       FROM insider_transactions
-      WHERE upper(trim(ticker)) = $1
+      WHERE ticker = $1
       ORDER BY transaction_at DESC
+      LIMIT 500
       `,
       [t],
     ),
@@ -82,8 +83,9 @@ export async function getTrackedInvestorsForTicker(
       `
       SELECT politician_name, transaction_type, amount_usd_mid::text, transaction_at::text
       FROM politician_transactions
-      WHERE upper(trim(ticker)) = $1
+      WHERE ticker = $1
       ORDER BY transaction_at DESC
+      LIMIT 500
       `,
       [t],
     ),
@@ -96,8 +98,9 @@ export async function getTrackedInvestorsForTicker(
       `
       SELECT filer, activity, amount_usd::text, filed_at::text
       FROM institution_filings_13f
-      WHERE upper(trim(ticker)) = $1
+      WHERE ticker = $1
       ORDER BY filed_at DESC
+      LIMIT 500
       `,
       [t],
     ),

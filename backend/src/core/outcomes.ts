@@ -130,12 +130,12 @@ export async function recomputeInsiderOutcomes(opts?: { lookbackDays?: number; m
   // Build universe: tickers that have insider docs in the last N days.
   const tickers = await db.query<{ ticker: string }>(
     `
-    SELECT DISTINCT ticker
+    SELECT DISTINCT ticker_norm AS ticker
     FROM documents
     WHERE feed_kind = 'insider'
-      AND ticker IS NOT NULL
-      AND event_at IS NOT NULL
-      AND event_at >= now() - ($1 || ' days')::interval
+      AND ticker_norm IS NOT NULL
+      AND feed_at IS NOT NULL
+      AND feed_at >= now() - ($1 || ' days')::interval
     ORDER BY ticker ASC
     LIMIT $2
     `,
@@ -154,12 +154,12 @@ export async function recomputeInsiderOutcomes(opts?: { lookbackDays?: number; m
 
     const events = await db.query<{ day: string }>(
       `
-      SELECT DISTINCT date_trunc('day', event_at)::date::text as day
+      SELECT DISTINCT date_trunc('day', COALESCE(feed_at, event_at))::date::text as day
       FROM documents
       WHERE feed_kind='insider'
-        AND ticker = $1
-        AND event_at IS NOT NULL
-        AND event_at >= now() - ($2 || ' days')::interval
+        AND ticker_norm = $1
+        AND feed_at IS NOT NULL
+        AND feed_at >= now() - ($2 || ' days')::interval
       ORDER BY day ASC
       `,
       [ticker, String(lookbackDays)],
@@ -353,12 +353,12 @@ export async function recomputeResearchOutcomes(opts?: { lookbackDays?: number; 
 
   const tickers = await db.query<{ ticker: string }>(
     `
-    SELECT DISTINCT ticker
+    SELECT DISTINCT ticker_norm AS ticker
     FROM documents
-    WHERE ticker IS NOT NULL
+    WHERE ticker_norm IS NOT NULL
       AND feed_kind = 'research'
-      AND event_at IS NOT NULL
-      AND event_at >= now() - ($1 || ' days')::interval
+      AND feed_at IS NOT NULL
+      AND feed_at >= now() - ($1 || ' days')::interval
     ORDER BY ticker ASC
     LIMIT $2
     `,
@@ -376,12 +376,12 @@ export async function recomputeResearchOutcomes(opts?: { lookbackDays?: number; 
 
     const events = await db.query<{ day: string }>(
       `
-      SELECT DISTINCT date_trunc('day', event_at)::date::text as day
+      SELECT DISTINCT date_trunc('day', COALESCE(feed_at, event_at))::date::text as day
       FROM documents
-      WHERE upper(trim(ticker)) = $1
+      WHERE ticker_norm = $1
         AND feed_kind = 'research'
-        AND event_at IS NOT NULL
-        AND event_at >= now() - ($2 || ' days')::interval
+        AND feed_at IS NOT NULL
+        AND feed_at >= now() - ($2 || ' days')::interval
       ORDER BY day ASC
       `,
       [ticker, String(lookbackDays)],
