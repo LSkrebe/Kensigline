@@ -59,6 +59,15 @@ export function backfillLlmEnabled(): boolean {
   return String(process.env.BACKFILL_LLM_ENABLED ?? "0").trim() === "1";
 }
 
+/**
+ * Master switch for live research structured LLM (Analyse business_drivers).
+ * Default off — template + near-dup reuse only. Set RESEARCH_STRUCTURED_LLM=1 to allow
+ * last-resort LLM on 10-Q/10-K/transcripts (still gated by form + reuse).
+ */
+export function researchStructuredLlmEnabled(): boolean {
+  return String(process.env.RESEARCH_STRUCTURED_LLM ?? "0").trim() === "1";
+}
+
 /** Live politician Senate PTR lookback (days). */
 export function politiciansLiveSenateLookbackDays(): number {
   return envInt("POLITICIANS_SENATE_LOOKBACK_DAYS", 90, 14, 365);
@@ -96,6 +105,8 @@ export function needsStructuredResearchLlm(args: {
   secForm?: string | null;
   priority: number;
 }): boolean {
+  // Opt-in only — default is zero research LLM spend.
+  if (!researchStructuredLlmEnabled()) return false;
   if (isBackfillPriority(args.priority) && !backfillLlmEnabled()) return false;
 
   const st = String(args.sourceType ?? "").toLowerCase();

@@ -109,10 +109,4 @@ export async function aggregateBusinessDriversFromDocuments(ticker: string): Pro
   return Array.from(byLabel.values()).slice(0, 8);
 }
 
-/** Prefer earnings-related documents when scanning analysis text for segment hints. */
-export async function hasDocumentDriverExtractions(ticker: string): Promise<boolean> {
-  const drivers = await aggregateBusinessDriversFromDocuments(ticker);
-  return drivers.length > 0;
-}
-
 export { DRIVER_SOURCE_KEYS };

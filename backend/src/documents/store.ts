@@ -1,5 +1,6 @@
 import { db } from "../core/db.js";
 import type { ResearchDocExtractV2 } from "./extract.js";
+import { slimResearchDocumentData } from "./research-data-slim.js";
 import { formatUsdCompact } from "../shared/money.js";
 import { scoreResearchDocument } from "../core/idea-score.js";
 import { isoTimestampFromDb } from "../shared/db-time.js";
@@ -59,6 +60,7 @@ export async function insertResearchDocument(args: {
     event_at: eventAt,
     ...(catalystAt ? { catalyst_at: catalystAt } : {}),
   };
+  const slimData = slimResearchDocumentData(storedOut);
 
   const row = await db.one<{ id: string }>(
     `
@@ -89,7 +91,7 @@ export async function insertResearchDocument(args: {
       args.out.title,
       publishedAt,
       args.contentSha256,
-      JSON.stringify(storedOut),
+      JSON.stringify(slimData),
     ],
   );
 

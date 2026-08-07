@@ -25,7 +25,13 @@ export async function forwardRevenueGrowthFromDocuments(ticker: string): Promise
   );
 
   for (const r of rows) {
-    const data = r.data as { text_excerpt?: string } | null;
+    const data = r.data as {
+      forward_revenue_growth_pct?: number | null;
+      text_excerpt?: string;
+    } | null;
+    const pre = data?.forward_revenue_growth_pct;
+    if (pre != null && Number.isFinite(Number(pre))) return Number(pre);
+
     const excerpt = String(data?.text_excerpt ?? "").trim();
     const body = excerpt.length > 40 ? excerpt : String(r.analysis ?? "");
     const pct = parseForwardRevenueGrowthFromText(body);

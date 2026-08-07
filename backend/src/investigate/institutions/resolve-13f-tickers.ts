@@ -243,5 +243,6 @@ export function activityFromShareDelta(args: {
 }
 
 export function institutionsLlmFallbackEnabled(): boolean {
-  return String(process.env.INSTITUTIONS_LLM_FALLBACK ?? "1").trim() !== "0";
+  // Default off — CUSIP/name only. Set INSTITUTIONS_LLM_FALLBACK=1 for zero-map residual.
+  return String(process.env.INSTITUTIONS_LLM_FALLBACK ?? "0").trim() === "1";
 }

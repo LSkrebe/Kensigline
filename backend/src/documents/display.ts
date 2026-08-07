@@ -79,8 +79,8 @@ export function buildTemplateResearchExtract(args: {
     event_at: args.eventAt,
     program_keys: [],
     link_confidence: ticker ? 0.9 : 0.4,
-    ...(args.textExcerpt ? { text_excerpt: args.textExcerpt.slice(0, 12_000) } : {}),
-  };
+  ...(args.textExcerpt ? { text_excerpt: args.textExcerpt.slice(0, 4_000) } : {}),
+};
 }
 
 export function filingTextExcerpt(text: string, max = 12_000): string {

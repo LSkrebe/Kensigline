@@ -11,7 +11,6 @@ import { buildParseMeta, logParseOutcome } from "../../shared/parse-meta.js";
 import { failQueueWithBackoff, markQueueDead, markQueueParsed } from "../../shared/queue.js";
 import { createHash } from "node:crypto";
 import { extractPdfTextWithFallback } from "../../core/pdf.js";
-import { createRequire } from "node:module";
 import {
   MIN_HOUSE_PTR_CONFIDENT_ROWS,
   parseHousePtrPdfText,
@@ -53,47 +52,6 @@ type PoliticianFiling = {
   context_sentences: string[];
 };
 
-function sanitizeBrokenUnicodeEscapes(raw: string): string {
-  // JSON.parse throws "unsupported Unicode escape sequence" on truncated \uXXXX.
-  return String(raw ?? "").replace(/\\u([0-9a-fA-F]{0,4})(?![0-9a-fA-F])/g, (full, hex: string) => {
-    if (hex.length === 4) return full;
-    return "";
-  });
-}
-
-function extractJsonObject(text: string): any {
-  const require = createRequire(import.meta.url);
-  let raw = sanitizeBrokenUnicodeEscapes(String(text ?? "").trim());
-  if (!raw) throw new Error("empty_llm_response");
-  raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-  const tryParse = (s: string) => JSON.parse(sanitizeBrokenUnicodeEscapes(s));
-  try {
-    return tryParse(raw);
-  } catch (e1) {
-    const start = raw.indexOf("{");
-    const end = raw.lastIndexOf("}");
-    if (start >= 0 && end > start) {
-      const sub = raw.slice(start, end + 1);
-      try {
-        return tryParse(sub);
-      } catch {
-        try {
-          const { jsonrepair } = require("jsonrepair");
-          const repaired = sanitizeBrokenUnicodeEscapes(String(jsonrepair(sub)).replace(/\u0000/g, ""));
-          return tryParse(repaired);
-        } catch (e2) {
-          const msg = String((e2 as Error)?.message ?? (e1 as Error)?.message ?? e2);
-          if (/unicode escape/i.test(msg)) throw new Error("poison_invalid_unicode_escape");
-          throw new Error("llm_output_not_json");
-        }
-      }
-    }
-    const msg = String((e1 as Error)?.message ?? e1);
-    if (/unicode escape/i.test(msg)) throw new Error("poison_invalid_unicode_escape");
-    throw new Error("llm_output_not_json");
-  }
-}
-
 function formatIso(ts: any): string | null {
   const d = new Date(String(ts ?? ""));
   if (Number.isNaN(d.getTime())) return null;
@@ -112,25 +70,6 @@ function parseUsdAmountRange(s: string | null): { low: number | null; high: numb
   const hi = Number.isFinite(high) ? high : null;
   const mid = lo != null && hi != null ? (lo + hi) / 2 : null;
   return { low: lo, high: hi, mid, raw: cleaned };
-}
-
-function isPoliticianSchema(out: any, source: PoliticianPtrSource): out is {
-  schema_type: "politician_filing";
-  schema_version: "v1";
-  filer: { name: string | null; office: string | null; state_district: string | null };
-  filing: { filing_id: string | null; filed_at: string | null; source: PoliticianPtrSource; pdf_url: string | null };
-  transactions: PoliticianTxn[];
-  context_sentences: string[];
-} {
-  return (
-    out &&
-    typeof out === "object" &&
-    out.schema_type === "politician_filing" &&
-    out.schema_version &&
-    Array.isArray(out.transactions) &&
-    Array.isArray(out.context_sentences) &&
-    String(out?.filing?.source ?? source) === source
-  );
 }
 
 async function fetchPdfBytes(url: string): Promise<Buffer> {

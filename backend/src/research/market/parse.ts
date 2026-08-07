@@ -25,6 +25,7 @@ import {
   attachNearDupKey,
   computeResearchNearDupKey,
   findReusableResearchExtract,
+  tickerHasRecentBusinessDrivers,
 } from "../../core/research-extract-reuse.js";
 import {
   buildGovContractExtractFromFacts,
@@ -283,6 +284,15 @@ async function resolveResearchExtract(args: {
       out: attach(attachNearDupKey(merged, reused.near_dup_key, args.url), "reuse/near-dup", { llm_used: false }),
       model: "reuse/near-dup",
     };
+  }
+
+  // Last resort: skip LLM when Analyse already has recent drivers for this ticker.
+  if (await tickerHasRecentBusinessDrivers(args.hintedTicker)) {
+    console.info(
+      "[llm-skip]",
+      JSON.stringify({ context: args.prepContext, reason: "recent_business_drivers", ticker: args.hintedTicker }),
+    );
+    return { out: attach(template, "template/drivers-fresh", { llm_used: false }), model: "template/drivers-fresh" };
   }
 
   try {

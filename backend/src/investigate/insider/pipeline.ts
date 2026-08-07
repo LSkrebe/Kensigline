@@ -7,7 +7,6 @@ import { syncFeedIndexForDocument } from "../../shared/feed-index.js";
 import { buildParseMeta, logParseOutcome } from "../../shared/parse-meta.js";
 import { failQueueWithBackoff, markQueueDead, markQueueParsed } from "../../shared/queue.js";
 import {
-  isBogusInsiderWorksheetKey,
   ownerSurname,
   type InsiderWorksheetRow,
 } from "../worksheet.js";
@@ -31,20 +30,6 @@ type ParseNextResult =
   | { processed: false; reason: "skipped"; queue_id: string; skip_reason: string }
   | { processed: true; queue_id: string; parsed_id: string; feed_label: string; ticker?: string | null };
 
-function extractJsonObject(text: string): any {
-  let raw = String(text ?? "").trim();
-  if (!raw) throw new Error("empty_llm_response");
-  raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-  try {
-    return JSON.parse(raw);
-  } catch {
-    const start = raw.indexOf("{");
-    const end = raw.lastIndexOf("}");
-    if (start >= 0 && end > start) return JSON.parse(raw.slice(start, end + 1));
-    throw new Error("llm_output_not_json");
-  }
-}
-
 function formatIso(ts: any): string | null {
   const d = new Date(String(ts ?? ""));
   if (Number.isNaN(d.getTime())) return null;
@@ -65,17 +50,6 @@ function parseForm4TransactionDate(raw: string | null): string | null {
   return formatIso(s);
 }
 
-function clusterBoundsFromRows(rows: InsiderWorksheetRow[]) {
-  const times = rows
-    .map((r) => parseForm4TransactionDate(r.ts ?? null))
-    .filter(Boolean)
-    .map((t) => new Date(String(t)).getTime())
-    .filter((n) => Number.isFinite(n));
-  if (!times.length) return { start: null as string | null, end: null as string | null };
-  const min = Math.min(...times);
-  const max = Math.max(...times);
-  return { start: new Date(min).toISOString(), end: new Date(max).toISOString() };
-}
 
 function buildWorksheetRowsFromTransactions(txns: FormXmlTransaction[], owner: FormXmlOwner): InsiderWorksheetRow[] {
   const surname = ownerSurname(owner.name);
@@ -91,170 +65,6 @@ function buildWorksheetRowsFromTransactions(txns: FormXmlTransaction[], owner: F
     is_derivative: t.is_derivative,
     ts: parseForm4TransactionDate(t.transaction_date),
   }));
-}
-
-function enrichInsiderWorksheetRows(
-  llmRows: unknown[],
-  txns: FormXmlTransaction[],
-  owner: FormXmlOwner,
-): InsiderWorksheetRow[] {
-  const codeRows = txns.length ? buildWorksheetRowsFromTransactions(txns, owner) : [];
-  const rows = Array.isArray(llmRows) ? llmRows : [];
-  const llmLooksBogus = !rows.length || rows.every((r) => isBogusInsiderWorksheetKey(String((r as any)?.key ?? "")));
-
-  if (codeRows.length && (llmLooksBogus || codeRows.length >= rows.length)) {
-    return codeRows;
-  }
-
-  const surname = ownerSurname(owner.name);
-  return rows.map((raw, i) => {
-    const r = raw as Record<string, unknown>;
-    const t = txns[i] ?? txns[txns.length - 1];
-    const key = String(r?.key ?? "").trim();
-    const bogus = isBogusInsiderWorksheetKey(key);
-    const insider_name = r?.insider_name != null ? String(r.insider_name).trim() : owner.name;
-    const resolvedRole = r?.role != null ? String(r.role).trim() : owner.role;
-    const resolvedSurname =
-      r?.surname != null ? String(r.surname).trim() : ownerSurname(String(insider_name ?? "")) ?? surname;
-    return {
-      key: bogus && insider_name ? `${resolvedRole} ${insider_name}` : key || "Insider",
-      insider_name,
-      surname: resolvedSurname,
-      role: resolvedRole,
-      transaction_code:
-        r?.transaction_code != null
-          ? String(r.transaction_code)
-          : r?.code != null
-            ? String(r.code)
-            : t?.transaction_code ?? "P",
-      acquired_disposed:
-        r?.acquired_disposed != null ? String(r.acquired_disposed) : t?.acquired_disposed ?? "A",
-      amount_usd:
-        r?.amount_usd != null ? Number(r.amount_usd) : t?.amount_usd != null ? t.amount_usd : null,
-      shares: r?.shares != null ? Number(r.shares) : t?.shares != null ? t.shares : null,
-      is_derivative: Boolean(r?.is_derivative ?? r?.derivative ?? t?.is_derivative),
-      ts: r?.ts != null ? String(r.ts) : parseForm4TransactionDate(t?.transaction_date ?? null),
-    };
-  });
-}
-
-type InsiderClusterOutLegacy = {
-  schema_type: "insider_cluster";
-  schema_version: "v1";
-  issuer: { name: string | null; ticker: string | null; cik: string | null };
-  filing: { form_type: string; accession_no: string | null; filed_at: string | null };
-  cluster: {
-    cluster_start_at: string | null;
-    cluster_end_at: string | null;
-    feed_label: string;
-    context_sentences: string[];
-    worksheet_rows: InsiderWorksheetRow[];
-  };
-};
-
-function buildInsiderNarrativePrompt(args: {
-  formType: string;
-  issuerName: string | null;
-  issuerTicker: string | null;
-  issuerCik: string | null;
-  owners: FormXmlOwner[];
-  transactions: FormXmlTransaction[];
-  xmlFragments: string;
-  focusPOnly: boolean;
-}) {
-  const { formType, issuerName, issuerTicker, issuerCik, owners, transactions, xmlFragments, focusPOnly } = args;
-  const guidance = focusPOnly
-    ? [
-        "Form 4: ALL transaction codes in TRANSACTIONS are stored in worksheet_rows (filled in code).",
-        "In feed_label and context_sentences, lead with Code P purchases when present; also describe S/A/M and other codes.",
-        "Do NOT say 'no selling' when S or other disposal codes are present.",
-      ]
-    : [
-        `This is a ${formType} filing. Summarize all transaction codes present.`,
-        "Include every material transaction type visible in TRANSACTIONS.",
-      ];
-
-  return [
-    {
-      role: "system" as const,
-      content: [
-        "You write narrative fields for an SEC insider filing card.",
-        "Return ONLY valid JSON. No markdown.",
-        "Do not invent facts. Use null when unknown.",
-        "worksheet_rows must be an empty array - rows are filled in code.",
-        `Schema: ${JSON.stringify({
-          schema_type: "insider_cluster",
-          schema_version: "v1",
-          issuer: { name: "string|null", ticker: "string|null", cik: "string|null" },
-          filing: { form_type: formType, accession_no: "string|null", filed_at: "ISO8601|null" },
-          cluster: {
-            cluster_start_at: "ISO8601|null",
-            cluster_end_at: "ISO8601|null",
-            feed_label: "string",
-            context_sentences: ["string"],
-            worksheet_rows: [],
-          },
-        })}`,
-      ].join("\n"),
-    },
-    {
-      role: "user" as const,
-      content: [
-        "ISSUER:",
-        JSON.stringify({ name: issuerName, ticker: issuerTicker, cik: issuerCik }),
-        "",
-        "REPORTING OWNERS:",
-        JSON.stringify(owners),
-        "",
-        "TRANSACTIONS (all codes - preserve every row in your narrative):",
-        JSON.stringify(transactions),
-        "",
-        ...guidance,
-        "- feed_label: short headline with amounts/counts when visible.",
-        "- context_sentences: up to 4 plain English sentences.",
-        ...(transactions.length === 0 && xmlFragments
-          ? ["", "XML_FRAGMENTS (fallback context):", xmlFragments]
-          : []),
-      ].join("\n"),
-    },
-  ];
-}
-
-function mergeInsiderNarrative(
-  llmOut: any,
-  base: {
-    issuer: InsiderClusterOutLegacy["issuer"];
-    filing: InsiderClusterOutLegacy["filing"];
-    worksheet_rows: InsiderWorksheetRow[];
-    defaultFeedLabel: string;
-  },
-): InsiderClusterOutLegacy {
-  const bounds = clusterBoundsFromRows(base.worksheet_rows);
-  const ctx = Array.isArray(llmOut?.cluster?.context_sentences)
-    ? llmOut.cluster.context_sentences.map((s: unknown) => String(s)).filter(Boolean).slice(0, 4)
-    : [];
-
-  return {
-    schema_type: "insider_cluster",
-    schema_version: "v1",
-    issuer: {
-      name: llmOut?.issuer?.name ?? base.issuer.name,
-      ticker: llmOut?.issuer?.ticker ?? base.issuer.ticker,
-      cik: llmOut?.issuer?.cik ?? base.issuer.cik,
-    },
-    filing: {
-      form_type: String(llmOut?.filing?.form_type ?? base.filing.form_type),
-      accession_no: llmOut?.filing?.accession_no ?? base.filing.accession_no,
-      filed_at: formatIso(llmOut?.filing?.filed_at) ?? base.filing.filed_at,
-    },
-    cluster: {
-      cluster_start_at: formatIso(llmOut?.cluster?.cluster_start_at) ?? bounds.start,
-      cluster_end_at: formatIso(llmOut?.cluster?.cluster_end_at) ?? bounds.end,
-      feed_label: String(llmOut?.cluster?.feed_label ?? base.defaultFeedLabel).trim() || base.defaultFeedLabel,
-      context_sentences: ctx,
-      worksheet_rows: base.worksheet_rows,
-    },
-  };
 }
 
 export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
@@ -300,7 +110,7 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
     const owners = extractFormReportingOwners(xml);
     const primaryOwner = owners[0] ?? extractFormReportingOwner(xml);
 
-    let worksheetRows = enrichInsiderWorksheetRows([], allTxns, primaryOwner);
+    let worksheetRows = buildWorksheetRowsFromTransactions(allTxns, primaryOwner);
 
     if (!worksheetRows.length) {
       const filed = formatIso(filedAt) ?? new Date().toISOString();
