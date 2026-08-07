@@ -93,7 +93,11 @@ export default function AppRouter() {
   if (BILLING_GATE_ENABLED && !active && !captureMode) return <SubscribePage />
 
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <div className="terminalShell terminalShell--boot" aria-busy="true" aria-label="Loading" />
+      }
+    >
       <TerminalApp />
     </Suspense>
   )

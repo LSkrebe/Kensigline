@@ -39,7 +39,7 @@ export function useSubscription(enabled = false, userId = null) {
     setActive(false)
     setVerifiedUserId(null)
 
-    const res = await fetchJsonSafe('/api/billing/status', { timeoutMs: 12000 })
+    const res = await fetchJsonSafe('/api/billing/status', { timeoutMs: 5000 })
     if (gen !== genRef.current) return
 
     if (res.ok && applyStatus(res.data, userId)) return
@@ -47,7 +47,7 @@ export function useSubscription(enabled = false, userId = null) {
     /* Auth race after account switch — clear cache and retry once. */
     if (!res.ok && (res.status === 401 || res.status === 0)) {
       clearAuthTokenCache()
-      const retry = await fetchJsonSafe('/api/billing/status', { timeoutMs: 12000 })
+      const retry = await fetchJsonSafe('/api/billing/status', { timeoutMs: 5000 })
       if (gen !== genRef.current) return
       if (retry.ok && applyStatus(retry.data, userId)) return
     }
@@ -55,7 +55,7 @@ export function useSubscription(enabled = false, userId = null) {
     /* Mismatched user_id on an otherwise-ok response — treat as deny + retry once. */
     if (res.ok && res.data?.user_id && res.data.user_id !== userId) {
       clearAuthTokenCache()
-      const retry = await fetchJsonSafe('/api/billing/status', { timeoutMs: 12000 })
+      const retry = await fetchJsonSafe('/api/billing/status', { timeoutMs: 5000 })
       if (gen !== genRef.current) return
       if (retry.ok && applyStatus(retry.data, userId)) return
     }

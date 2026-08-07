@@ -67,7 +67,19 @@ export function AuthProvider({ children }) {
   const signInWithPassword = useCallback(async (email, password) => {
     if (!supabase) return { data: null, error: new Error('supabase_not_configured') }
     clearAuthTokenCache()
-    const result = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    const result = await Promise.race([
+      supabase.auth.signInWithPassword({ email: email.trim(), password }),
+      new Promise((resolve) =>
+        setTimeout(
+          () =>
+            resolve({
+              data: { user: null, session: null },
+              error: new Error('Sign-in timed out. Check your connection and try again.'),
+            }),
+          12_000,
+        ),
+      ),
+    ])
     if (result.data?.session) syncTokenFromSession(result.data.session)
     return result
   }, [])
@@ -85,9 +97,22 @@ export function AuthProvider({ children }) {
   const signOut = useCallback(async () => {
     if (!supabase) return { error: new Error('supabase_not_configured') }
     clearAuthTokenCache()
-    const result = await supabase.auth.signOut()
-    clearAuthTokenCache()
-    return result
+    /* Unlock UI immediately — never wait on a hung network revoke. */
+    setSession(null)
+    setLoading(false)
+    try {
+      const local = await Promise.race([
+        supabase.auth.signOut({ scope: 'local' }),
+        new Promise((resolve) => setTimeout(() => resolve({ error: null }), 1500)),
+      ])
+      clearAuthTokenCache()
+      /* Best-effort server revoke; do not block the UI. */
+      void supabase.auth.signOut({ scope: 'global' }).catch(() => {})
+      return local ?? { error: null }
+    } catch (error) {
+      clearAuthTokenCache()
+      return { error: error instanceof Error ? error : new Error(String(error)) }
+    }
   }, [])
 
   const value = useMemo(
