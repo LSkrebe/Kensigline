@@ -357,7 +357,9 @@ export function ExploreEventPage({
                       />
                     </div>
                   ) : (
-                    <p className="exploreEventEmptyLead">No price series for this event.</p>
+                    <div className="drpt-figure drpt-figure--chart">
+                      <p className="exploreEventEmptyLead graphEmpty mono dim">No price series for this event.</p>
+                    </div>
                   )}
                 </EventSection>
 

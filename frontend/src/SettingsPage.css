@@ -413,6 +413,10 @@
 .stgEmpty {
   margin: 0;
   padding: 20px 14px 22px;
+  min-height: 7.5rem;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
   font-family: var(--stg-mono);
   font-size: 11px;
   line-height: 1.45;

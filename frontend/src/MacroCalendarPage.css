@@ -188,6 +188,11 @@
 .mcalEmpty {
   margin: 0;
   padding: 32px var(--mcal-pad-x) 40px;
+  min-height: calc(6 * 5rem);
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   font-family: var(--mcal-mono);
   font-size: 11px;

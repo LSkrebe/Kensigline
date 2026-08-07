@@ -1457,9 +1457,37 @@ button.terminalTopBarBrand:focus-visible {
   height: auto;
 }
 
+.panelStatusMessage,
+.feedPanelStatus {
+  margin: 0;
+  padding: 10px 4px 12px;
+  min-height: 2.75rem;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.feedCompactList .feedPanelStatus {
+  min-height: 7.5rem;
+}
+
+.terminal--insider .feed--left .feedCompactList .feedPanelStatus,
+.terminal--politicians .feed--left .feedCompactList .feedPanelStatus,
+.terminal--institutions .feed--left .feedCompactList .feedPanelStatus,
+.terminal--researchFeed .feedCompactList .feedPanelStatus {
+  padding: 10px 4px 12px;
+}
+
 .researchPaperLoading,
 .researchPaperEmpty {
   padding: 12px 4px;
+  min-height: 7.5rem;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
   font-size: 11px;
   letter-spacing: 0.04em;
   color: rgba(255, 255, 255, 0.42);
@@ -1468,22 +1496,6 @@ button.terminalTopBarBrand:focus-visible {
 .terminal--main .researchPaperPanel .researchPaperLoading,
 .terminal--main .researchPaperPanel .researchPaperEmpty {
   padding: 12px 0;
-}
-
-.panelStatusMessage,
-.feedPanelStatus {
-  margin: 0;
-  padding: 10px 2px 8px;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.42);
-}
-
-.terminal--insider .feed--left .feedCompactList .feedPanelStatus,
-.terminal--politicians .feed--left .feedCompactList .feedPanelStatus,
-.terminal--institutions .feed--left .feedCompactList .feedPanelStatus,
-.terminal--researchFeed .feedCompactList .feedPanelStatus {
-  padding: 10px 4px 8px;
 }
 
 .terminal--main .researchPaperPanel .researchPaperBody--pending {
@@ -3178,14 +3190,28 @@ button.terminalTopBarBrand:focus-visible {
 
 .terminal--main .mainContextPanel .contextCatalystCard--empty {
   padding-bottom: 10px;
+  min-height: 8.5rem;
 }
 
 .terminal--main .mainContextPanel .contextCatalystCardEmpty {
   margin: 0;
   padding: 10px 0 6px;
+  min-height: 5.5rem;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
   font-size: 10px;
   letter-spacing: 0.04em;
   color: rgba(255, 255, 255, 0.42);
+}
+
+.terminal--main .mainContextPanel .contextFundamentalsTable--empty,
+.terminal--main .mainContextPanel .contextFundamentalsTable--loading {
+  min-height: calc(2rem + (var(--context-metric-rows, 8) * 1.35rem));
+}
+
+.terminal--main .mainContextPanel .contextOutcomesKvCard {
+  min-height: 8.5rem;
 }
 
 .terminal--main .mainContextPanel .contextFundamentalsCard:not(.contextOwnershipCard) {
@@ -3274,6 +3300,7 @@ button.terminalTopBarBrand:focus-visible {
   align-items: start;
   gap: 10px;
   margin-bottom: 4px;
+  min-height: 1.6rem;
 }
 
 .contextCompanyTopRow--tickerOnly {
@@ -4088,7 +4115,35 @@ button.terminalTopBarBrand:focus-visible {
 .contextRecentInvestorsEmpty {
   margin: 0;
   padding: 8px 0 10px;
+  min-height: 5.5rem;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
   font-size: 10px;
+}
+
+.contextRecentInvestorsTable--empty,
+.contextRecentInvestorsTable--loading {
+  min-height: calc(2rem + 4 * 1.55rem);
+}
+
+.contextCompanyPrice--empty,
+.contextCompanyEarnings--empty .contextCompanyEarningsV {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.casePersonHeaderDetails {
+  min-height: 1.15rem;
+}
+
+.casePersonHeaderDetail--empty {
+  opacity: 0.35;
+}
+
+.feedCountTag--empty {
+  visibility: hidden;
+  min-width: 1.4em;
+  display: inline-block;
 }
 
 .contextInsiderDate {

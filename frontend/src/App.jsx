@@ -158,10 +158,10 @@ const mockIdeaFields = mockIdeaFieldsForRow
 const EMPTY = '-'
 
 function PanelStatusMessage({ label, className = 'panelStatusMessage' }) {
-  if (!label) return null
+  const text = String(label ?? '').trim() || '\u00a0'
   return (
     <p className={[className, 'mono', 'dim'].filter(Boolean).join(' ')} role="status" aria-live="polite">
-      {label}
+      {text}
     </p>
   )
 }
@@ -2541,7 +2541,16 @@ function ContextTrackedInvestorsCard({
 }) {
   return (
     <div className="contextCatalystCard contextRecentInvestorsCard" aria-label="Tracked investors">
-      <div className="contextRecentInvestorsTable" role="list">
+      <div
+        className={[
+          'contextRecentInvestorsTable',
+          !loading && !rows.length ? 'contextRecentInvestorsTable--empty' : '',
+          loading ? 'contextRecentInvestorsTable--loading' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        role="list"
+      >
         <div className="contextRecentInvestorsGrid contextRecentInvestorsGrid--head mono">
           <span className="contextFlowChartLabel mono dim">Tracked investors</span>
           <span className="contextRecentInvestorsHead">Type</span>
@@ -2873,7 +2882,17 @@ function ContextMetricsCard({
 
   return (
     <div className="contextCatalystCard contextFundamentalsCard" aria-label={ariaLabel ?? title}>
-      <div className="contextFundamentalsTable" role="list">
+      <div
+        className={[
+          'contextFundamentalsTable',
+          !loading && !hasData ? 'contextFundamentalsTable--empty' : '',
+          loading ? 'contextFundamentalsTable--loading' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        role="list"
+        style={{ '--context-metric-rows': String(Math.max(1, rows.length)) }}
+      >
         <div
           className={['contextFundamentalsGrid', 'contextFundamentalsGrid--head', 'mono', gridPeriodClass]
             .filter(Boolean)
@@ -3999,42 +4018,37 @@ const CompanySnapshotCard = forwardRef(function CompanySnapshotCard(
   ref,
 ) {
   const showPrice = price != null && Number.isFinite(Number(price))
+  const sectorLabel = String(sector ?? '').trim() || '—'
+  const domicileLabel = String(domicile ?? '').trim() || '—'
+  const mcapLabel = String(mcap ?? '').trim() || '—'
   return (
     <div ref={ref} className="contextCompanyCard" aria-label="Company snapshot">
+      <div className="contextCompanyTopRow">
+        <div className="contextCompanyTicker">{ticker}</div>
+        <div className={['contextCompanyPrice', showPrice ? '' : 'contextCompanyPrice--empty'].filter(Boolean).join(' ')}>
+          {showPrice ? `$${Number(price).toFixed(2)}` : '—'}
+        </div>
+      </div>
+      <div className="contextCompanyMeta">{sectorLabel}</div>
+      <div className="contextCompanyMeta contextCompanyMeta--domicile">{domicileLabel}</div>
+      <div className="contextCompanyMeta">{mcapLabel}</div>
+      {children}
+      <div className={['contextCompanyEarnings', lead ? '' : 'contextCompanyEarnings--empty'].filter(Boolean).join(' ')}>
+        <span className="contextCompanyEarningsK">LEAD</span>
+        <span className="contextCompanyEarningsV">{lead ? lead.label ?? lead.name ?? EMPTY : '—'}</span>
+      </div>
       <div
         className={[
-          'contextCompanyTopRow',
-          showPrice ? '' : 'contextCompanyTopRow--tickerOnly',
+          'contextCompanyEarnings',
+          earnings?.soon ? 'contextCompanyEarnings--soon' : '',
+          earnings ? '' : 'contextCompanyEarnings--empty',
         ]
           .filter(Boolean)
           .join(' ')}
       >
-        <div className="contextCompanyTicker">{ticker}</div>
-        {showPrice ? <div className="contextCompanyPrice">${Number(price).toFixed(2)}</div> : null}
+        <span className="contextCompanyEarningsK">EARNINGS</span>
+        <span className="contextCompanyEarningsV">{earnings ? earnings.label : '—'}</span>
       </div>
-      {sector ? <div className="contextCompanyMeta">{sector}</div> : null}
-      {domicile ? <div className="contextCompanyMeta contextCompanyMeta--domicile">{domicile}</div> : null}
-      {mcap ? <div className="contextCompanyMeta">{mcap}</div> : null}
-      {children}
-      {lead ? (
-        <div className="contextCompanyEarnings">
-          <span className="contextCompanyEarningsK">LEAD</span>
-          <span className="contextCompanyEarningsV">{lead.label ?? lead.name ?? EMPTY}</span>
-        </div>
-      ) : null}
-      {earnings ? (
-        <div
-          className={[
-            'contextCompanyEarnings',
-            earnings.soon ? 'contextCompanyEarnings--soon' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
-          <span className="contextCompanyEarningsK">EARNINGS</span>
-          <span className="contextCompanyEarningsV">{earnings.label}</span>
-        </div>
-      ) : null}
     </div>
   )
 })
@@ -4125,27 +4139,27 @@ function formatCasePersonDisplayName(name) {
 
 function CasePersonHeader({ person, mode = 'insider' }) {
   const rawName = String(person?.fullName ?? '').trim()
-  if (!rawName) return null
-  const name = formatCasePersonDisplayName(rawName)
-  const detailLabels = [
-    String(person?.detail ?? '').trim(),
-    String(person?.detailSecondary ?? '').trim(),
-  ].filter((d) => d && d !== EMPTY)
+  const name = formatCasePersonDisplayName(rawName) || '—'
+  const detailPrimary = String(person?.detail ?? '').trim()
+  const detailSecondary = String(person?.detailSecondary ?? '').trim()
+  const detailLabels = [detailPrimary, detailSecondary].filter((d) => d && d !== EMPTY)
   const modeLabel =
     mode === 'politicians' ? 'politician' : mode === 'institutions' ? 'institution' : 'insider'
 
   return (
     <div className="casePersonHeader" aria-label={`Selected ${modeLabel}: ${name}`}>
       <div className="casePersonHeaderText">
-        {detailLabels.length ? (
-          <div className="casePersonHeaderDetails">
-            {detailLabels.map((label) => (
+        <div className="casePersonHeaderDetails">
+          {detailLabels.length ? (
+            detailLabels.map((label) => (
               <div key={label} className="casePersonHeaderDetail mono">
                 {label}
               </div>
-            ))}
-          </div>
-        ) : null}
+            ))
+          ) : (
+            <div className="casePersonHeaderDetail casePersonHeaderDetail--empty mono">—</div>
+          )}
+        </div>
         <div className="casePersonHeaderName">{name}</div>
       </div>
     </div>
@@ -4868,7 +4882,6 @@ function ResearchFeedTickerList({
             )
           }
           const it = entry.row
-          const countVisible = showDocumentCount && feedCountVisible(it.count)
           return (
             <button
               key={it.id ?? it.rowKey ?? it.ticker}
@@ -4877,7 +4890,6 @@ function ResearchFeedTickerList({
               className={[
                 'feedRowCompact',
                 'feedRowCompact--company',
-                !countVisible ? 'feedRowCompact--noCount' : '',
                 String(it.ticker ?? '').toUpperCase() === String(selectedTicker ?? '').toUpperCase()
                   ? 'isActive'
                   : '',
@@ -4891,11 +4903,15 @@ function ResearchFeedTickerList({
                 {String(it.ticker ?? '').trim().toUpperCase() || '—'}
               </span>
               <span className="feedCell feedCellCompany kvFeedMain">{it.company ?? '—'}</span>
-              {countVisible ? (
-                <span className="feedCell feedCellCount mono kvFeedDim">
+              <span className="feedCell feedCellCount mono kvFeedDim">
+                {showDocumentCount && feedCountVisible(it.count) ? (
                   <span className="feedCountTag">{it.count}</span>
-                </span>
-              ) : null}
+                ) : (
+                  <span className="feedCountTag feedCountTag--empty" aria-hidden="true">
+                    {'\u00a0'}
+                  </span>
+                )}
+              </span>
               <span className="feedCell feedCellWhen mono kvFeedDim">{feedWhenLabel(it)}</span>
             </button>
           )
@@ -7526,9 +7542,7 @@ const MainTopPicksBarChart = memo(function MainTopPicksBarChart({ bars = [] }) {
   return (
     <div ref={wrapRef} className="graphWrap" aria-label="Top picks ticker performance">
       {!list.length ? (
-        <div className="mono dim" style={{ padding: '12px 10px', fontSize: 12 }}>
-          No top picks data from the API yet.
-        </div>
+        <div className="graphEmpty mono dim">No top picks data from the API yet.</div>
       ) : (
         <svg className="graphSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
         <path
@@ -8226,9 +8240,6 @@ function CompactFeed({
             programsTimeline ? 'feedRowCompact--timeline' : '',
             rowPrimary === 'company' ? 'feedRowCompact--company' : '',
             rowPrimary === 'actor' ? 'feedRowCompact--actor' : '',
-            (rowPrimary === 'company' || rowPrimary === 'actor') && !feedCountVisible(row.count)
-              ? 'feedRowCompact--noCount'
-              : '',
           ]
             .filter(Boolean)
             .join(' ')}
@@ -8248,7 +8259,11 @@ function CompactFeed({
                 <span className="feedCell feedCellTicker mono kvFeedDim">
                   {feedCountVisible(row.count) ? (
                     <span className="feedCountTag">{row.count}</span>
-                  ) : null}
+                  ) : (
+                    <span className="feedCountTag feedCountTag--empty" aria-hidden="true">
+                      {'\u00a0'}
+                    </span>
+                  )}
                 </span>
               ) : null}
               <span className="feedCell feedCellWhen mono kvFeedDim">
@@ -8263,9 +8278,15 @@ function CompactFeed({
               <span className="feedCell feedCellCompany kvFeedMain">
                 {String(row.company ?? row.issuer ?? '').trim() || '—'}
               </span>
-              {!programsTimeline && feedCountVisible(row.count) ? (
+              {!programsTimeline ? (
                 <span className="feedCell feedCellCount mono kvFeedDim">
-                  <span className="feedCountTag">{row.count}</span>
+                  {feedCountVisible(row.count) ? (
+                    <span className="feedCountTag">{row.count}</span>
+                  ) : (
+                    <span className="feedCountTag feedCountTag--empty" aria-hidden="true">
+                      {'\u00a0'}
+                    </span>
+                  )}
                 </span>
               ) : null}
               <span className="feedCell feedCellWhen mono kvFeedDim">
@@ -8278,9 +8299,15 @@ function CompactFeed({
               <span className="feedCell feedCellActor kvFeedMain">
                 {String(row.actorName ?? '').trim() || '—'}
               </span>
-              {!programsTimeline && feedCountVisible(row.count) ? (
+              {!programsTimeline ? (
                 <span className="feedCell feedCellCount mono kvFeedDim">
-                  <span className="feedCountTag">{row.count}</span>
+                  {feedCountVisible(row.count) ? (
+                    <span className="feedCountTag">{row.count}</span>
+                  ) : (
+                    <span className="feedCountTag feedCountTag--empty" aria-hidden="true">
+                      {'\u00a0'}
+                    </span>
+                  )}
                 </span>
               ) : null}
               <span className="feedCell feedCellWhen mono kvFeedDim">
