@@ -20,6 +20,7 @@ import {
   parseOge278tPdfText,
 } from "./oge-278t-parse.js";
 import { getSecTickerTitleMap } from "../../core/sec.js";
+import { isOlderThanRetentionWindow } from "../../shared/ingest-policy.js";
 
 type PoliticianPtrSource = "house_ptr" | "senate_ptr" | "oge_278t";
 type Chamber = "house" | "senate" | "executive";
@@ -191,6 +192,10 @@ async function persistPoliticianFiling(opts: {
   filing: PoliticianFiling;
 }): Promise<string[]> {
   const { queueId, url, chamber, source, promptVersion, model, contentSha256, filing } = opts;
+  if (isOlderThanRetentionWindow(filing.filed_at)) {
+    console.info("[retention] skip politician filing outside 2y window", filing.filed_at);
+    return [];
+  }
   const txP = filterReportableStockTransactions(filing.transactions);
   if (!txP.length) return [];
 

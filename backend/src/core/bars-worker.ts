@@ -82,7 +82,7 @@ export async function refreshBarsForTicker(ticker: string, lookbackDays = 400): 
 
 export async function runBarsRefreshOnce(opts?: { batchSize?: number }): Promise<{ refreshed: number; skipped: number }> {
   const batchSize = opts?.batchSize ?? envInt("BARS_REFRESH_BATCH", 6, 1, 40);
-  const lookback = envInt("BARS_REFRESH_LOOKBACK_DAYS", 400, 60, 3650);
+  const lookback = envInt("BARS_REFRESH_LOOKBACK_DAYS", 730, 60, 730);
   const candidates = await listBarRefreshCandidates(batchSize * 3);
   const selected: PriorityRow[] = [];
   for (const row of candidates) {

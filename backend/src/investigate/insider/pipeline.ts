@@ -23,6 +23,7 @@ import {
   buildInsiderNarrativeDeterministic,
   type InsiderClusterOut,
 } from "./narrative.js";
+import { isOlderThanRetentionWindow } from "../../shared/ingest-policy.js";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }
@@ -186,6 +187,18 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
     const ticker = out.issuer.ticker ?? issuerTicker ?? null;
     const feedLabel = out.cluster.feed_label;
     const filingAt = out.filing.filed_at ?? formatIso(filedAt) ?? new Date().toISOString();
+    if (isOlderThanRetentionWindow(filingAt)) {
+      await markQueueDead(queueId, "skipped_outside_retention_window");
+      logParseOutcome({
+        source_type: next.source_type,
+        queue_id: queueId,
+        outcome: "skipped",
+        path: "deterministic/insider",
+        skip_reason: "outside_retention_window",
+        llm_used: false,
+      });
+      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "outside_retention_window" };
+    }
     const activityAt = sanitizeEventAtForFeed({
       candidate: out.cluster.cluster_end_at ?? filingAt,
       filedAt: filingAt,

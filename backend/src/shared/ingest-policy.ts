@@ -8,9 +8,9 @@ function envInt(key: string, fallback: number, min: number, max: number): number
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
-/** How far back idle backfill may walk (days). Template indexing is cheap — default 2 years. */
+/** How far back idle backfill may walk (days). Hard ceiling: 2 years — older is pointless for this app. */
 export function backfillMaxAgeDays(): number {
-  return envInt("BACKFILL_MAX_AGE_DAYS", 730, 30, 3650);
+  return envInt("BACKFILL_MAX_AGE_DAYS", 730, 30, 730);
 }
 
 function parseIsoDateUtc(raw: string): Date | null {
@@ -21,7 +21,7 @@ function parseIsoDateUtc(raw: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** Earliest UTC calendar day backfill will process (rolling window ∩ BACKFILL_MIN_DATE floor). */
+/** Earliest UTC calendar day backfill will process (rolling 2y window ∩ BACKFILL_MIN_DATE floor). */
 export function effectiveBackfillMinDate(): Date {
   const rolling = new Date();
   rolling.setUTCHours(0, 0, 0, 0);
@@ -29,8 +29,16 @@ export function effectiveBackfillMinDate(): Date {
 
   const configured = parseIsoDateUtc(String(process.env.BACKFILL_MIN_DATE ?? "2012-01-01").trim());
   if (!configured) return rolling;
-  // Stop at the more recent bound — raise BACKFILL_MAX_AGE_DAYS to walk further back.
+  // Stop at the more recent bound — never older than the rolling 2y window.
   return configured.getTime() > rolling.getTime() ? configured : rolling;
+}
+
+/** True when a filing/event timestamp is outside the 2y retention/backfill window. */
+export function isOlderThanRetentionWindow(iso: string | Date | null | undefined): boolean {
+  if (iso == null) return false;
+  const d = iso instanceof Date ? iso : new Date(String(iso));
+  if (Number.isNaN(d.getTime())) return false;
+  return d.getTime() < effectiveBackfillMinDate().getTime();
 }
 
 /** Parse queue tiers (higher = parsed first). Live ingest always beats idle backfill. */

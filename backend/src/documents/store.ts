@@ -9,6 +9,7 @@ import { invalidateAnalyseModelCache } from "../analyse/build-model.js";
 import { parseEventTimeMs, sanitizeEventAtForFeed, FEED_FUTURE_GRACE_DAYS } from "../shared/document-activity-at.js";
 import { syncFeedIndexForDocument } from "../shared/feed-index.js";
 import { lookupPoliticianCommittee, lookupPoliticianCommittees } from "../politicians/committees.js";
+import { isOlderThanRetentionWindow } from "../shared/ingest-policy.js";
 
 const GOV_LINK_THRESHOLD = () => Number(process.env.GOV_CONTRACT_LINK_THRESHOLD ?? 0.72);
 
@@ -34,6 +35,14 @@ export async function insertResearchDocument(args: {
     [args.contentSha256],
   );
   if (dup?.id) return null;
+
+  if (isOlderThanRetentionWindow(args.publishedAt) || isOlderThanRetentionWindow(args.out.event_at)) {
+    console.info(
+      "[retention] skip research insert outside 2y window",
+      JSON.stringify({ publishedAt: args.publishedAt, event_at: args.out.event_at }),
+    );
+    return null;
+  }
 
   const ticker = args.out.primary_ticker?.trim().toUpperCase() ?? null;
   const isGov = args.out.source_key === "Gov contract";
