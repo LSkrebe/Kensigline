@@ -29,11 +29,10 @@ function daysAgoIso(days: number): string {
 }
 
 /**
- * Price-chart bar fetch priority:
- *  1 = event ticker with no bars yet (fill charts first)
- *  2 = event ticker with stale bars (last close older than ~3 calendar days)
- *  3 = event ticker with bars that are merely due for a light refresh
- *
+ * Price-chart bar fetch priority (uses bars_ticker_meta — never GROUP BY bars):
+ *  1 = event ticker with no bars yet
+ *  2 = event ticker with stale bars
+ *  3 = due for light refresh
  * Within each tier: newest feed activity first.
  */
 export async function listBarRefreshCandidates(limit = 40): Promise<PriorityRow[]> {
@@ -47,29 +46,24 @@ export async function listBarRefreshCandidates(limit = 40): Promise<PriorityRow[
         AND length(ticker_norm) BETWEEN 1 AND 6
         AND feed_at >= now() - interval '120 days'
       GROUP BY ticker_norm
-    ),
-    bar_meta AS (
-      SELECT ticker, max(day)::text AS last_bar_day, count(*)::int AS bar_count
-      FROM bars
-      GROUP BY ticker
     )
     SELECT
       e.ticker,
       CASE
         WHEN b.ticker IS NULL OR coalesce(b.bar_count, 0) < 5 THEN 1
-        WHEN b.last_bar_day::date < (CURRENT_DATE - 3) THEN 2
-        WHEN b.last_bar_day::date < CURRENT_DATE THEN 3
+        WHEN b.last_bar_day < (CURRENT_DATE - 3) THEN 2
+        WHEN b.last_bar_day < CURRENT_DATE THEN 3
         ELSE 4
       END AS priority,
       e.latest_event_at::text AS latest_event_at,
-      b.last_bar_day,
+      b.last_bar_day::text AS last_bar_day,
       coalesce(b.bar_count, 0) AS bar_count
     FROM event_tickers e
-    LEFT JOIN bar_meta b ON b.ticker = e.ticker
+    LEFT JOIN bars_ticker_meta b ON b.ticker = e.ticker
     WHERE
       b.ticker IS NULL
       OR coalesce(b.bar_count, 0) < 5
-      OR b.last_bar_day::date < CURRENT_DATE
+      OR b.last_bar_day < CURRENT_DATE
     ORDER BY priority ASC, e.latest_event_at DESC NULLS LAST
     LIMIT $1
     `,
@@ -90,7 +84,6 @@ export async function runBarsRefreshOnce(opts?: { batchSize?: number }): Promise
   const batchSize = opts?.batchSize ?? envInt("BARS_REFRESH_BATCH", 6, 1, 40);
   const lookback = envInt("BARS_REFRESH_LOOKBACK_DAYS", 400, 60, 3650);
   const candidates = await listBarRefreshCandidates(batchSize * 3);
-  // Prefer priorities 1–2 first in this pass; allow a couple of tier-3 if space remains.
   const selected: PriorityRow[] = [];
   for (const row of candidates) {
     if (selected.length >= batchSize) break;

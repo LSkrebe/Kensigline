@@ -4,10 +4,17 @@ export const FEED_INITIAL_PAGE_SIZE = 15
 /** Scroll / load-more page size. */
 export const FEED_PAGE_SIZE = 40
 
-export function feedPageQuery(basePath, { limit = FEED_PAGE_SIZE, offset = 0, extra = {} } = {}) {
+export function feedPageQuery(
+  basePath,
+  { limit = FEED_PAGE_SIZE, offset = 0, cursor = null, extra = {} } = {},
+) {
   const params = new URLSearchParams()
   params.set('limit', String(limit))
-  params.set('offset', String(offset))
+  if (cursor) {
+    params.set('cursor', String(cursor))
+  } else {
+    params.set('offset', String(offset))
+  }
   for (const [k, v] of Object.entries(extra)) {
     if (v != null && v !== '') params.set(k, String(v))
   }

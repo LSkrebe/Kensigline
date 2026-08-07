@@ -566,9 +566,10 @@ const server = http.createServer(async (req, res) => {
     }
     if (route(req, url, "GET", "/api/research/feed")) {
       const limit = clampInt(url.searchParams.get("limit"), 1, 120, 40);
-      const offset = clampInt(url.searchParams.get("offset"), 0, 50_000, 0);
+      const offset = clampInt(url.searchParams.get("offset"), 0, 500, 0);
       const mode = url.searchParams.get("mode");
-      await handleResearchFeed(res, limit, mode, offset);
+      const cursor = url.searchParams.get("cursor");
+      await handleResearchFeed(res, limit, mode, offset, cursor);
       return;
     }
 

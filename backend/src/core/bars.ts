@@ -125,8 +125,33 @@ async function fetchYahooDailyCloses(
   }
 }
 
+async function ensureBarsTickerMetaTable(): Promise<void> {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS bars_ticker_meta (
+      ticker text PRIMARY KEY,
+      last_bar_day date NOT NULL,
+      bar_count int NOT NULL DEFAULT 0,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS bars_ticker_meta_last_day_idx
+      ON bars_ticker_meta (last_bar_day DESC)
+  `);
+}
+
+let barsMetaReady: Promise<void> | null = null;
+function readyBarsMeta(): Promise<void> {
+  if (!barsMetaReady) barsMetaReady = ensureBarsTickerMetaTable().catch((err) => {
+    barsMetaReady = null;
+    throw err;
+  });
+  return barsMetaReady;
+}
+
 async function upsertBars(ticker: string, rows: BarRow[]) {
   if (!rows.length) return;
+  await readyBarsMeta();
   const chunkSize = 200;
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
@@ -147,6 +172,20 @@ async function upsertBars(ticker: string, rows: BarRow[]) {
       values,
     );
   }
+
+  await db.query(
+    `
+    INSERT INTO bars_ticker_meta (ticker, last_bar_day, bar_count, updated_at)
+    SELECT $1, max(day)::date, count(*)::int, now()
+    FROM bars
+    WHERE ticker = $1
+    ON CONFLICT (ticker) DO UPDATE SET
+      last_bar_day = EXCLUDED.last_bar_day,
+      bar_count = EXCLUDED.bar_count,
+      updated_at = now()
+    `,
+    [ticker],
+  );
 }
 
 function cacheIsFreshEnough(cached: Array<{ day: string }>, toDay: string): boolean {

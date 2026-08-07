@@ -18,6 +18,7 @@ import {
   writeFeedResponseCache,
 } from "../shared/feed-response-cache.js";
 import { loadMarketFeedIndexPage, loadInvestigateRollupsByTicker } from "../shared/feed-index.js";
+import { decodeFeedCursor, encodeFeedCursor } from "../shared/ticker-feed-aggregate.js";
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
   const x = Number(n);
@@ -247,24 +248,39 @@ export async function handleResearchFeed(
   limit: number,
   modeRaw?: string | null,
   offsetRaw = 0,
+  cursorRaw?: string | null,
 ) {
   const lim = Math.max(1, Math.min(120, limit));
-  const offset = Math.max(0, Math.min(50_000, Math.floor(Number(offsetRaw) || 0)));
+  // Deep OFFSET capped — clients should pass cursor after the first page.
+  const offset = Math.max(0, Math.min(500, Math.floor(Number(offsetRaw) || 0)));
+  const cursor = decodeFeedCursor(cursorRaw);
   const mode = parseResearchFeedMode(modeRaw);
-  const cacheKey = feedCacheKey({ route: "research_feed", mode, lim, offset });
-  const cached = readFeedResponseCache<{ ok: boolean; mode: string; items: unknown[]; offset: number; limit: number; has_more: boolean; next_offset: number }>(cacheKey);
+  const cacheKey = feedCacheKey({
+    route: "research_feed",
+    mode,
+    lim,
+    offset: cursor ? 0 : offset,
+    cursor: cursor ? `${cursor.feedAt}|${cursor.ticker}` : "",
+  });
+  const cached = readFeedResponseCache<{
+    ok: boolean;
+    mode: string;
+    items: unknown[];
+    offset: number;
+    limit: number;
+    has_more: boolean;
+    next_offset: number;
+    next_cursor: string | null;
+  }>(cacheKey);
   if (cached) {
     sendJson(res, 200, cached);
     return;
   }
 
-  const probe = lim + 1;
-
-  const indexed = await loadMarketFeedIndexPage({ limit: probe, offset });
+  const indexed = await loadMarketFeedIndexPage({ limit: lim, offset, cursor });
   // Never fall back to full-table DISTINCT ON — empty index means empty feed until sync catches up.
-  const rows = indexed.rows;
+  const page = indexed.rows;
   const hasMore = indexed.hasMore;
-  const page = rows.slice(0, lim);
 
   const secTitles = await getSecTickerTitleMap().catch(() => new Map<string, string>());
   const rollupByTicker = await loadInvestigateRollupsByTicker(page.map((r) => r.ticker));
@@ -306,6 +322,7 @@ export async function handleResearchFeed(
     limit: lim,
     has_more: hasMore,
     next_offset: offset + items.length,
+    next_cursor: encodeFeedCursor(indexed.nextCursor),
   };
   writeFeedResponseCache(cacheKey, payload);
   sendJson(res, 200, payload);

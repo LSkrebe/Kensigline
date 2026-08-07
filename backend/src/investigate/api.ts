@@ -19,7 +19,7 @@ import {
   tickerFromClusterId,
   tickerFromCompanyClusterId,
 } from "../shared/feed-helpers.js";
-import { loadTickerFeedDocs, parseFeedPageParams } from "../shared/ticker-feed-aggregate.js";
+import { loadTickerFeedDocs, parseFeedPageParams, encodeFeedCursor } from "../shared/ticker-feed-aggregate.js";
 import { loadFeedKindIndexPage } from "../shared/feed-index.js";
 import {
   feedCacheKey,
@@ -146,6 +146,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
     days,
     limit: page.limit,
     offset: page.offset,
+    cursor: page.cursor ? `${page.cursor.feedAt}|${page.cursor.ticker}` : "",
   });
   const cached = readFeedResponseCache<Record<string, unknown>>(cacheKey);
   if (cached) {
@@ -158,8 +159,9 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
     days,
     limit: page.limit,
     offset: page.offset,
+    cursor: page.cursor,
   });
-  if (indexed.rows.length > 0 || page.offset > 0) {
+  {
     const secTitles = await getSecTickerTitleMap();
     const items = indexed.rows.map((r) => {
       const s = r.summary ?? {};
@@ -196,7 +198,7 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
         company_id: r.company_id,
         today_count: todayCount,
         insiders: Array.isArray(s.insiders) ? s.insiders : [],
-        worksheet_rows: Array.isArray(ws) ? ws : [],
+        worksheet_rows: Array.isArray(ws) ? ws.slice(0, 24) : [],
         url: docUrl,
         pdf_url: data?.filing?.pdf_url ?? null,
         index_url: data?.filing?.index_url ?? null,
@@ -215,150 +217,12 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
       limit: page.limit,
       has_more: indexed.hasMore,
       next_offset: indexed.nextOffset,
+      next_cursor: encodeFeedCursor(indexed.nextCursor),
     };
     writeFeedResponseCache(cacheKey, body);
     sendJson(res, 200, body);
     return;
   }
-
-  const { docs, hasMore, offset, nextOffset } = await loadTickerFeedDocs({
-    feedKind: "insider",
-    days,
-    limit: page.limit,
-    offset: page.offset,
-    latestOnly: true,
-  });
-
-  const secTitles = await getSecTickerTitleMap();
-
-  type Agg = {
-    ticker: string;
-    company_id: string | null;
-    latestFeedAt: string;
-    latestDoc: (typeof docs)[number];
-    totalUsd: number;
-    totalCount: number;
-    todayCount: number;
-    insiders: Set<string>;
-  };
-
-  const byTicker = new Map<string, Agg>();
-
-  for (const d of docs) {
-    const t = String(d.ticker ?? "").trim().toUpperCase();
-    const feedAt = isoTimestampFromDb(d.event_at) ?? "";
-    if (!t || !feedAt) continue;
-    const rows = (d.data as any)?.cluster?.worksheet_rows;
-    let sum = 0;
-    let cnt = 0;
-    if (Array.isArray(rows)) {
-      for (const r of rows) {
-        const v = Number(r?.amount_usd ?? 0);
-        if (Number.isFinite(v) && v > 0) sum += v;
-        cnt += 1;
-      }
-    }
-    const todayDelta = countWorksheetEventsToday(rows, feedAt, "insider");
-    const eventAt = latestEventAtFromDoc(rows, feedAt);
-    const eventT = parseEventTimeMs(eventAt);
-
-    const cur = byTicker.get(t);
-    if (!cur) {
-      const insiders = new Set<string>();
-      if (Array.isArray(rows)) {
-        for (const r of rows) {
-          const sn = String(r?.surname ?? "").trim();
-          if (sn) insiders.add(sn);
-          const nm = String(r?.insider_name ?? "").trim();
-          if (nm) insiders.add(nm);
-          const k = String(r?.key ?? "").trim();
-          if (k && k !== "Insider") insiders.add(k);
-        }
-      }
-      byTicker.set(t, {
-        ticker: t,
-        company_id: d.company_id ?? null,
-        latestFeedAt: eventAt,
-        latestDoc: d,
-        totalUsd: sum,
-        totalCount: cnt,
-        todayCount: todayDelta,
-        insiders,
-      });
-      continue;
-    }
-
-    if (eventT > parseEventTimeMs(cur.latestFeedAt)) {
-      cur.latestFeedAt = eventAt;
-      cur.latestDoc = d;
-    }
-    cur.totalUsd += sum;
-    cur.totalCount += cnt;
-    cur.todayCount += todayDelta;
-    if (Array.isArray(rows)) {
-      for (const r of rows) {
-        const sn = String(r?.surname ?? "").trim();
-        if (sn) cur.insiders.add(sn);
-        const nm = String(r?.insider_name ?? "").trim();
-        if (nm) cur.insiders.add(nm);
-        const k = String(r?.key ?? "").trim();
-        if (k && k !== "Insider") cur.insiders.add(k);
-      }
-    }
-  }
-
-  const items = Array.from(byTicker.values())
-    .sort((a, b) => (a.latestFeedAt < b.latestFeedAt ? 1 : a.latestFeedAt > b.latestFeedAt ? -1 : 0))
-    .map((c) => {
-      const usd = c.totalUsd > 0 ? formatUsdCompact(c.totalUsd) : "—";
-      const todayCount = c.todayCount;
-      const label =
-        todayCount > 0
-          ? `${usd} (${todayCount})`
-          : c.totalCount > 0
-            ? usd
-            : (c.latestDoc.feed_label ?? "Insider activity");
-      const data = c.latestDoc.data as { issuer?: { name?: string | null } } | null;
-      const companyName = resolveInvestigateFeedCompanyName(
-        c.ticker,
-        c.latestDoc.company_name ?? data?.issuer?.name,
-        secTitles.get(c.ticker) ?? null,
-        data?.issuer?.name,
-      );
-      const idea = scoreInsiderCluster({
-        data: c.latestDoc.data,
-        eventAt: c.latestFeedAt,
-        todayCount: c.todayCount,
-        totalUsd: c.totalUsd,
-      });
-      const ws = (c.latestDoc.data as { cluster?: { worksheet_rows?: unknown[] } })?.cluster?.worksheet_rows;
-      return {
-        id: `company:${c.ticker}`,
-        feed_at: c.latestFeedAt,
-        feed_label: label,
-        ticker: c.ticker,
-        company_name: companyName,
-        company_id: c.company_id,
-        today_count: todayCount,
-        insiders: Array.from(c.insiders).slice(0, 20),
-        worksheet_rows: Array.isArray(ws) ? ws : [],
-        idea_score: idea.idea_score,
-        idea_best: idea.idea_best,
-        idea_reasons: idea.idea_reasons,
-      };
-    });
-
-  const body = {
-    items,
-    days,
-    mode: "company",
-    offset,
-    limit: page.limit,
-    has_more: hasMore,
-    next_offset: nextOffset,
-  };
-  writeFeedResponseCache(cacheKey, body);
-  sendJson(res, 200, body);
 }
 
 type TickerFeedKind = "politicians" | "institutions";
@@ -373,6 +237,7 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
     days,
     limit: page.limit,
     offset: page.offset,
+    cursor: page.cursor ? `${page.cursor.feedAt}|${page.cursor.ticker}` : "",
   });
   const cached = readFeedResponseCache<Record<string, unknown>>(cacheKey);
   if (cached) {
@@ -385,8 +250,9 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
     days,
     limit: page.limit,
     offset: page.offset,
+    cursor: page.cursor,
   });
-  if (indexed.rows.length > 0 || page.offset > 0) {
+  {
     const secTitles = await getSecTickerTitleMap();
     const items = [];
     for (const r of indexed.rows) {
@@ -431,7 +297,7 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
         company_name: companyName,
         today_count: todayCount,
         [peopleKey]: Array.from(people).slice(0, 20),
-        worksheet_rows: Array.isArray(ws) ? ws : [],
+        worksheet_rows: Array.isArray(ws) ? ws.slice(0, 24) : [],
         url: docUrl,
         pdf_url: data?.filing?.pdf_url ?? null,
         index_url: data?.filing?.index_url ?? null,
@@ -449,135 +315,12 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
       limit: page.limit,
       has_more: indexed.hasMore,
       next_offset: indexed.nextOffset,
+      next_cursor: encodeFeedCursor(indexed.nextCursor),
     };
     writeFeedResponseCache(cacheKey, body);
     sendJson(res, 200, body);
     return;
   }
-
-  const { docs: rows, hasMore, offset, nextOffset } = await loadTickerFeedDocs({
-    feedKind,
-    days,
-    limit: page.limit,
-    offset: page.offset,
-    latestOnly: true,
-  });
-
-  const secTitles = await getSecTickerTitleMap();
-
-  const amountField = feedKind === "politicians" ? "amount_usd_mid" : "amount_usd";
-  const nameFields =
-    feedKind === "politicians"
-      ? { row: "key", cluster: "politicians" }
-      : { row: "institution_name", cluster: "institutions" };
-
-  type Agg = {
-    ticker: string;
-    latestFeedAt: string;
-    latestDoc: (typeof rows)[number];
-    totalUsd: number;
-    totalCount: number;
-    todayCount: number;
-    people: Set<string>;
-    assetNames: Set<string>;
-  };
-
-  const byTicker = new Map<string, Agg>();
-
-  for (const r of rows) {
-    const t = String(r.ticker ?? "").trim().toUpperCase();
-    if (!t) continue;
-    const at = isoTimestampFromDb(r.event_at) ?? "";
-    const ws = (r.data as any)?.cluster?.worksheet_rows;
-    const todayDelta = countWorksheetEventsToday(ws, at, feedKind);
-    const eventAt = latestEventAtFromDoc(ws, at);
-    const eventT = parseEventTimeMs(eventAt);
-    const cur =
-      byTicker.get(t) ??
-      {
-        ticker: t,
-        latestFeedAt: eventAt,
-        latestDoc: r,
-        totalUsd: 0,
-        totalCount: 0,
-        todayCount: 0,
-        people: new Set<string>(),
-        assetNames: new Set(collectAssetNamesFromClusterData(r.data, t)),
-      };
-    if (eventT > parseEventTimeMs(cur.latestFeedAt)) {
-      cur.latestFeedAt = eventAt;
-      cur.latestDoc = r;
-    }
-    cur.todayCount += todayDelta;
-    for (const name of collectAssetNamesFromClusterData(r.data, t)) cur.assetNames.add(name);
-    if (Array.isArray(ws)) {
-      for (const w of ws) {
-        const mid = Number(w?.[amountField] ?? w?.amount_usd ?? 0);
-        if (Number.isFinite(mid) && mid > 0) cur.totalUsd += mid;
-        cur.totalCount += 1;
-        const who = String(w?.[nameFields.row] ?? w?.key ?? "").trim();
-        if (who) cur.people.add(who);
-      }
-    }
-    const ps = (r.data as any)?.cluster?.[nameFields.cluster];
-    if (Array.isArray(ps)) for (const p of ps) if (p) cur.people.add(String(p));
-    byTicker.set(t, cur);
-  }
-
-  const items = await Promise.all(
-    Array.from(byTicker.values())
-    .sort((a, b) => (a.latestFeedAt < b.latestFeedAt ? 1 : a.latestFeedAt > b.latestFeedAt ? -1 : 0))
-    .map(async (c) => {
-      const usd = c.totalUsd > 0 ? formatUsdCompact(c.totalUsd) : "—";
-      const todayCount = c.todayCount;
-      const label = todayCount > 0 ? `${usd} (${todayCount})` : usd;
-      const data = c.latestDoc.data as { issuer?: { name?: string | null } } | null;
-      const companyName = resolveInvestigateFeedCompanyName(
-        c.ticker,
-        c.latestDoc.company_name,
-        secTitles.get(c.ticker) ?? null,
-        data?.issuer?.name,
-      );
-      const idea =
-        feedKind === "politicians"
-          ? scorePoliticianCluster({
-              data: c.latestDoc.data,
-              eventAt: c.latestFeedAt,
-              todayCount: c.todayCount,
-              totalUsd: c.totalUsd,
-            })
-          : scoreInstitutionCluster({
-              data: c.latestDoc.data,
-              eventAt: c.latestFeedAt,
-              todayCount: c.todayCount,
-              totalUsd: c.totalUsd,
-            });
-      return {
-        id: `ticker:${c.ticker}`,
-        feed_at: c.latestFeedAt,
-        feed_label: label,
-        ticker: c.ticker,
-        company_name: companyName,
-        today_count: todayCount,
-        [peopleKey]: Array.from(c.people).slice(0, 20),
-        idea_score: idea.idea_score,
-        idea_best: idea.idea_best,
-        idea_reasons: idea.idea_reasons,
-      };
-    }),
-  );
-
-  const legacyBody = {
-    items,
-    days,
-    mode: "ticker",
-    offset,
-    limit: page.limit,
-    has_more: hasMore,
-    next_offset: nextOffset,
-  };
-  writeFeedResponseCache(cacheKey, legacyBody);
-  sendJson(res, 200, legacyBody);
 }
 
 async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
@@ -863,14 +606,23 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
 
 async function loadClusterDocs(feedKind: string, ticker: string, days: number) {
   const t = String(ticker ?? "").trim().toUpperCase();
-  return db.query<{ id: string; event_at: string | null; ticker: string | null; url: string | null; data: any }>(
-    `SELECT id, COALESCE(feed_at, event_at)::text AS event_at, ticker, url, data FROM documents
+  return db.queryApi<{ id: string; event_at: string | null; ticker: string | null; url: string | null; data: any }>(
+    `SELECT id,
+            COALESCE(feed_at, event_at)::text AS event_at,
+            ticker,
+            url,
+            jsonb_build_object(
+              'cluster', COALESCE(data->'cluster', '{}'::jsonb),
+              'filing', data->'filing',
+              'issuer', data->'issuer'
+            ) AS data
+     FROM documents
      WHERE feed_kind = $1
        AND ticker_norm = $2
        AND feed_at IS NOT NULL
        AND feed_at >= now() - ($3 || ' days')::interval
      ORDER BY feed_at DESC, parsed_at DESC
-     LIMIT 80`,
+     LIMIT 40`,
     [feedKind, t, String(days)],
   );
 }

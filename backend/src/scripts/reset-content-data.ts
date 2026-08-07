@@ -18,6 +18,7 @@ const CONTENT_TRUNCATES = [
   "documents",
   "document_queue",
   "outcomes",
+  "bars_ticker_meta",
   "bars",
   "ticker_context_cache",
   "ingest_cursors",

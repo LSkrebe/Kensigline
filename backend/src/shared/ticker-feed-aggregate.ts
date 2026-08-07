@@ -16,7 +16,30 @@ export type TickerFeedDoc = {
 export type FeedPageParams = {
   limit: number;
   offset: number;
+  cursor: { feedAt: string; ticker: string } | null;
 };
+
+/** Encode opaque feed cursor (feed_at + ticker). */
+export function encodeFeedCursor(cursor: { feedAt: string; ticker: string } | null | undefined): string | null {
+  if (!cursor?.feedAt || !cursor?.ticker) return null;
+  return Buffer.from(`${cursor.feedAt}\n${cursor.ticker}`, "utf8").toString("base64url");
+}
+
+export function decodeFeedCursor(raw: string | null | undefined): { feedAt: string; ticker: string } | null {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  try {
+    const text = Buffer.from(s, "base64url").toString("utf8");
+    const idx = text.indexOf("\n");
+    if (idx <= 0) return null;
+    const feedAt = text.slice(0, idx).trim();
+    const ticker = text.slice(idx + 1).trim().toUpperCase();
+    if (!feedAt || !ticker) return null;
+    return { feedAt, ticker };
+  } catch {
+    return null;
+  }
+}
 
 export function parseFeedPageParams(
   url: URL,
@@ -24,7 +47,9 @@ export function parseFeedPageParams(
 ): FeedPageParams {
   return {
     limit: clampInt(url.searchParams.get("limit"), 1, defaults.maxLimit, defaults.limit),
-    offset: clampInt(url.searchParams.get("offset"), 0, 50_000, 0),
+    // Deep OFFSET is intentionally capped — clients should use cursor after the first page.
+    offset: clampInt(url.searchParams.get("offset"), 0, 500, 0),
+    cursor: decodeFeedCursor(url.searchParams.get("cursor")),
   };
 }
 
@@ -48,8 +73,9 @@ export async function loadTickerFeedDocs(opts: {
 }> {
   const { feedKind, days, limit, offset, latestOnly = true } = opts;
   const probe = limit + 1;
+  const safeOffset = Math.max(0, Math.min(500, offset));
 
-  const tickerRows = await db.query<{ ticker: string }>(
+  const tickerRows = await db.queryApi<{ ticker: string }>(
     `
     SELECT ticker_norm AS ticker
     FROM documents
@@ -61,17 +87,17 @@ export async function loadTickerFeedDocs(opts: {
     ORDER BY max(feed_at) DESC
     LIMIT $3 OFFSET $4
     `,
-    [feedKind, String(days), probe, offset],
+    [feedKind, String(days), probe, safeOffset],
   );
 
   const hasMore = tickerRows.length > limit;
   const pageTickers = tickerRows.slice(0, limit).map((r) => r.ticker);
   if (!pageTickers.length) {
-    return { docs: [], hasMore: false, offset, nextOffset: offset };
+    return { docs: [], hasMore: false, offset: safeOffset, nextOffset: safeOffset };
   }
 
   const docs = latestOnly
-    ? await db.query<TickerFeedDoc>(
+    ? await db.queryApi<TickerFeedDoc>(
         `
         SELECT DISTINCT ON (d.ticker_norm)
           d.id::text AS id,
@@ -79,7 +105,11 @@ export async function loadTickerFeedDocs(opts: {
           d.feed_label,
           d.ticker,
           d.company_id,
-          d.data,
+          jsonb_build_object(
+            'cluster', jsonb_build_object('worksheet_rows', COALESCE(d.data->'cluster'->'worksheet_rows', '[]'::jsonb)),
+            'filing', d.data->'filing',
+            'issuer', d.data->'issuer'
+          ) AS data,
           d.url,
           d.source_key,
           COALESCE(
@@ -96,7 +126,7 @@ export async function loadTickerFeedDocs(opts: {
         `,
         [feedKind, pageTickers, String(days)],
       )
-    : await db.query<TickerFeedDoc>(
+    : await db.queryApi<TickerFeedDoc>(
         `
         SELECT
           d.id::text AS id,
@@ -104,7 +134,11 @@ export async function loadTickerFeedDocs(opts: {
           d.feed_label,
           d.ticker,
           d.company_id,
-          d.data,
+          jsonb_build_object(
+            'cluster', jsonb_build_object('worksheet_rows', COALESCE(d.data->'cluster'->'worksheet_rows', '[]'::jsonb)),
+            'filing', d.data->'filing',
+            'issuer', d.data->'issuer'
+          ) AS data,
           d.url,
           d.source_key,
           COALESCE(
@@ -125,8 +159,8 @@ export async function loadTickerFeedDocs(opts: {
   return {
     docs,
     hasMore,
-    offset,
-    nextOffset: offset + pageTickers.length,
+    offset: safeOffset,
+    nextOffset: safeOffset + pageTickers.length,
   };
 }
 
@@ -139,14 +173,18 @@ export async function loadTickerFeedDocsForTickers(opts: {
   const tickers = normalizeTickers(opts.tickers);
   if (!tickers.length) return [];
 
-  return db.query<TickerFeedDoc>(
+  return db.queryApi<TickerFeedDoc>(
     `
     SELECT
       d.id::text AS id,
       COALESCE(d.feed_at, d.event_at)::text AS event_at,
       d.feed_label,
       d.ticker,
-      d.data,
+      jsonb_build_object(
+        'cluster', jsonb_build_object('worksheet_rows', COALESCE(d.data->'cluster'->'worksheet_rows', '[]'::jsonb)),
+        'filing', d.data->'filing',
+        'issuer', d.data->'issuer'
+      ) AS data,
       d.company_id,
       d.url,
       d.source_key,

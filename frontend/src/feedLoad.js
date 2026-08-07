@@ -17,18 +17,30 @@ export function persistFeedCache(cacheKey, payload) {
 }
 
 /**
- * Fetch one feed page. On failure returns { ok: false, items: [] } so callers never spin forever.
+ * Fetch one feed page. Prefers keyset `cursor` when present (scale-safe).
+ * On failure returns { ok: false, items: [] } so callers never spin forever.
  */
-export async function fetchFeedPage(pathBase, { limit = FEED_INITIAL_PAGE_SIZE, offset = 0, extra = {} } = {}) {
-  const path = feedPageQuery(pathBase, { limit, offset, extra })
+export async function fetchFeedPage(
+  pathBase,
+  { limit = FEED_INITIAL_PAGE_SIZE, offset = 0, cursor = null, extra = {} } = {},
+) {
+  const path = feedPageQuery(pathBase, { limit, offset, cursor, extra })
   const r = await fetchJsonSafe(path, { timeoutMs: FEED_FETCH_TIMEOUT_MS })
   if (!r.ok || !r.data || r.data.ok === false || !Array.isArray(r.data.items)) {
-    return { ok: false, items: [], hasMore: false, nextOffset: offset, status: r.status }
+    return {
+      ok: false,
+      items: [],
+      hasMore: false,
+      nextOffset: offset,
+      nextCursor: null,
+      status: r.status,
+    }
   }
   return {
     ok: true,
     items: r.data.items,
     hasMore: Boolean(r.data.has_more),
     nextOffset: Number(r.data.next_offset) || offset + r.data.items.length,
+    nextCursor: r.data.next_cursor ? String(r.data.next_cursor) : null,
   }
 }

@@ -8996,6 +8996,7 @@ function KensiglineTerminal() {
   const [researchFeedHasMore, setResearchFeedHasMore] = useState(false)
   const [researchFeedLoadingMore, setResearchFeedLoadingMore] = useState(false)
   const researchFeedOffsetRef = useRef(0)
+  const researchFeedCursorRef = useRef(null)
   const [researchFeedInjected, setResearchFeedInjected] = useState([])
   const [researchFeedRefresh, setResearchFeedRefresh] = useState(0)
   const [researchExploreLive, setResearchExploreLive] = useState(null)
@@ -9026,6 +9027,7 @@ function KensiglineTerminal() {
   const [insiderFeedHasMore, setInsiderFeedHasMore] = useState(false)
   const [insiderFeedLoadingMore, setInsiderFeedLoadingMore] = useState(false)
   const insiderFeedOffsetRef = useRef(0)
+  const insiderFeedCursorRef = useRef(null)
   const [insiderClusterLive, setInsiderClusterLive] = useState(null)
   const [barsLive, setBarsLive] = useState(null)
   const [barsLiveTicker, setBarsLiveTicker] = useState(null)
@@ -9047,11 +9049,13 @@ function KensiglineTerminal() {
   const [politiciansFeedHasMore, setPoliticiansFeedHasMore] = useState(false)
   const [politiciansFeedLoadingMore, setPoliticiansFeedLoadingMore] = useState(false)
   const politiciansFeedOffsetRef = useRef(0)
+  const politiciansFeedCursorRef = useRef(null)
   const [politiciansClusterLive, setPoliticiansClusterLive] = useState(null)
   const [institutionsFeedLive, setInstitutionsFeedLive] = useState(null)
   const [institutionsFeedHasMore, setInstitutionsFeedHasMore] = useState(false)
   const [institutionsFeedLoadingMore, setInstitutionsFeedLoadingMore] = useState(false)
   const institutionsFeedOffsetRef = useRef(0)
+  const institutionsFeedCursorRef = useRef(null)
   const [institutionsClusterLive, setInstitutionsClusterLive] = useState(null)
   const researchDataset = useMemo(
     () => (backendUp ? null : mockDatasetForTicker(researchTicker)),
@@ -9580,6 +9584,7 @@ function KensiglineTerminal() {
       setResearchFeedLive(hit.items)
       setResearchFeedHasMore(Boolean(hit.hasMore))
       researchFeedOffsetRef.current = Number(hit.nextOffset) || hit.items.length
+      researchFeedCursorRef.current = hit.nextCursor ?? null
     })
 
     async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
@@ -9601,17 +9606,20 @@ function KensiglineTerminal() {
       )
       setResearchFeedHasMore(page.hasMore)
       researchFeedOffsetRef.current = page.nextOffset
+      researchFeedCursorRef.current = page.nextCursor
       if (!append) {
         persistFeedCache(cacheKey, {
           items: page.items,
           hasMore: page.hasMore,
           nextOffset: page.nextOffset,
+          nextCursor: page.nextCursor,
         })
       }
     }
 
     if (!hadCache) {
       researchFeedOffsetRef.current = 0
+      researchFeedCursorRef.current = null
       setResearchFeedHasMore(false)
     }
     void run({ append: false, offset: 0 })
@@ -9628,13 +9636,15 @@ function KensiglineTerminal() {
     setResearchFeedLoadingMore(true)
     const page = await fetchFeedPage('/api/research/feed', {
       limit: FEED_PAGE_SIZE,
-      offset: researchFeedOffsetRef.current,
+      offset: researchFeedCursorRef.current ? 0 : researchFeedOffsetRef.current,
+      cursor: researchFeedCursorRef.current,
       extra: { mode: 'market' },
     })
     if (page.ok) {
       setResearchFeedLive((prev) => mergeFeedPages(prev, page.items, { append: true }))
       setResearchFeedHasMore(page.hasMore)
       researchFeedOffsetRef.current = page.nextOffset
+      researchFeedCursorRef.current = page.nextCursor
     }
     setResearchFeedLoadingMore(false)
   }, [backendUp, researchFeedHasMore, researchFeedLoadingMore])
@@ -9841,6 +9851,7 @@ function KensiglineTerminal() {
       setInsiderFeedLive(hit.items)
       setInsiderFeedHasMore(Boolean(hit.hasMore))
       insiderFeedOffsetRef.current = Number(hit.nextOffset) || hit.items.length
+      insiderFeedCursorRef.current = hit.nextCursor ?? null
     })
 
     async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
@@ -9858,13 +9869,15 @@ function KensiglineTerminal() {
       setInsiderFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
       setInsiderFeedHasMore(page.hasMore)
       insiderFeedOffsetRef.current = page.nextOffset
+      insiderFeedCursorRef.current = page.nextCursor
       if (!append) {
-        persistFeedCache(cacheKey, { items: mapped, hasMore: page.hasMore, nextOffset: page.nextOffset })
+        persistFeedCache(cacheKey, { items: mapped, hasMore: page.hasMore, nextOffset: page.nextOffset, nextCursor: page.nextCursor })
       }
     }
 
     if (!hadCache) {
       insiderFeedOffsetRef.current = 0
+      insiderFeedCursorRef.current = null
       setInsiderFeedHasMore(false)
     }
     void run({ append: false, offset: 0 })
@@ -9881,7 +9894,8 @@ function KensiglineTerminal() {
     setInsiderFeedLoadingMore(true)
     const page = await fetchFeedPage('/api/insider/feed', {
       limit: FEED_PAGE_SIZE,
-      offset: insiderFeedOffsetRef.current,
+      offset: insiderFeedCursorRef.current ? 0 : insiderFeedOffsetRef.current,
+      cursor: insiderFeedCursorRef.current,
       extra: { mode: 'company', days: 30 },
     })
     if (page.ok) {
@@ -9889,6 +9903,7 @@ function KensiglineTerminal() {
       setInsiderFeedLive((prev) => mergeFeedPages(prev, mapped, { append: true }))
       setInsiderFeedHasMore(page.hasMore)
       insiderFeedOffsetRef.current = page.nextOffset
+      insiderFeedCursorRef.current = page.nextCursor
     }
     setInsiderFeedLoadingMore(false)
   }, [backendUp, insiderFeedHasMore, insiderFeedLoadingMore])
@@ -9901,6 +9916,7 @@ function KensiglineTerminal() {
       setInstitutionsFeedLive(hit.items)
       setInstitutionsFeedHasMore(Boolean(hit.hasMore))
       institutionsFeedOffsetRef.current = Number(hit.nextOffset) || hit.items.length
+      institutionsFeedCursorRef.current = hit.nextCursor ?? null
     })
 
     async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
@@ -9918,13 +9934,15 @@ function KensiglineTerminal() {
       setInstitutionsFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
       setInstitutionsFeedHasMore(page.hasMore)
       institutionsFeedOffsetRef.current = page.nextOffset
+      institutionsFeedCursorRef.current = page.nextCursor
       if (!append) {
-        persistFeedCache(cacheKey, { items: mapped, hasMore: page.hasMore, nextOffset: page.nextOffset })
+        persistFeedCache(cacheKey, { items: mapped, hasMore: page.hasMore, nextOffset: page.nextOffset, nextCursor: page.nextCursor })
       }
     }
 
     if (!hadCache) {
       institutionsFeedOffsetRef.current = 0
+      institutionsFeedCursorRef.current = null
       setInstitutionsFeedHasMore(false)
     }
     void run({ append: false, offset: 0 })
@@ -9941,7 +9959,8 @@ function KensiglineTerminal() {
     setInstitutionsFeedLoadingMore(true)
     const page = await fetchFeedPage('/api/institutions/feed', {
       limit: FEED_PAGE_SIZE,
-      offset: institutionsFeedOffsetRef.current,
+      offset: institutionsFeedCursorRef.current ? 0 : institutionsFeedOffsetRef.current,
+      cursor: institutionsFeedCursorRef.current,
       extra: { days: 60 },
     })
     if (page.ok) {
@@ -9949,6 +9968,7 @@ function KensiglineTerminal() {
       setInstitutionsFeedLive((prev) => mergeFeedPages(prev, mapped, { append: true }))
       setInstitutionsFeedHasMore(page.hasMore)
       institutionsFeedOffsetRef.current = page.nextOffset
+      institutionsFeedCursorRef.current = page.nextCursor
     }
     setInstitutionsFeedLoadingMore(false)
   }, [backendUp, institutionsFeedHasMore, institutionsFeedLoadingMore])
@@ -9961,6 +9981,7 @@ function KensiglineTerminal() {
       setPoliticiansFeedLive(hit.items)
       setPoliticiansFeedHasMore(Boolean(hit.hasMore))
       politiciansFeedOffsetRef.current = Number(hit.nextOffset) || hit.items.length
+      politiciansFeedCursorRef.current = hit.nextCursor ?? null
     })
 
     async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
@@ -9978,13 +9999,15 @@ function KensiglineTerminal() {
       setPoliticiansFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
       setPoliticiansFeedHasMore(page.hasMore)
       politiciansFeedOffsetRef.current = page.nextOffset
+      politiciansFeedCursorRef.current = page.nextCursor
       if (!append) {
-        persistFeedCache(cacheKey, { items: mapped, hasMore: page.hasMore, nextOffset: page.nextOffset })
+        persistFeedCache(cacheKey, { items: mapped, hasMore: page.hasMore, nextOffset: page.nextOffset, nextCursor: page.nextCursor })
       }
     }
 
     if (!hadCache) {
       politiciansFeedOffsetRef.current = 0
+      politiciansFeedCursorRef.current = null
       setPoliticiansFeedHasMore(false)
     }
     void run({ append: false, offset: 0 })
@@ -10001,7 +10024,8 @@ function KensiglineTerminal() {
     setPoliticiansFeedLoadingMore(true)
     const page = await fetchFeedPage('/api/politicians/feed', {
       limit: FEED_PAGE_SIZE,
-      offset: politiciansFeedOffsetRef.current,
+      offset: politiciansFeedCursorRef.current ? 0 : politiciansFeedOffsetRef.current,
+      cursor: politiciansFeedCursorRef.current,
       extra: { days: 30 },
     })
     if (page.ok) {
@@ -10009,6 +10033,7 @@ function KensiglineTerminal() {
       setPoliticiansFeedLive((prev) => mergeFeedPages(prev, mapped, { append: true }))
       setPoliticiansFeedHasMore(page.hasMore)
       politiciansFeedOffsetRef.current = page.nextOffset
+      politiciansFeedCursorRef.current = page.nextCursor
     }
     setPoliticiansFeedLoadingMore(false)
   }, [backendUp, politiciansFeedHasMore, politiciansFeedLoadingMore])

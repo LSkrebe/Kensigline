@@ -96,7 +96,7 @@ function buildInvestigateSummary(
     idea_best: idea.idea_best,
     idea_reasons: idea.idea_reasons,
     // Keep feed list off full documents.data toast reads when index is warm.
-    worksheet_rows: Array.isArray(rows) ? rows : [],
+    worksheet_rows: Array.isArray(rows) ? rows.slice(0, 24) : [],
     filing: dataObj?.filing
       ? {
           pdf_url: dataObj.filing.pdf_url ?? null,
@@ -381,7 +381,9 @@ export async function loadFeedKindIndexPage(opts: {
   feedKind: string;
   days: number;
   limit: number;
-  offset: number;
+  offset?: number;
+  /** Keyset cursor: continue after this (feed_at, ticker_norm). Prefer over offset. */
+  cursor?: { feedAt: string; ticker: string } | null;
 }): Promise<{
   rows: Array<{
     id: string;
@@ -397,9 +399,15 @@ export async function loadFeedKindIndexPage(opts: {
   }>;
   hasMore: boolean;
   nextOffset: number;
+  nextCursor: { feedAt: string; ticker: string } | null;
 }> {
   const probe = opts.limit + 1;
-  const rows = await db.query<{
+  const offset = Math.max(0, Math.min(500, Number(opts.offset) || 0));
+  const cursorAt = opts.cursor?.feedAt ? String(opts.cursor.feedAt) : null;
+  const cursorTicker = opts.cursor?.ticker ? String(opts.cursor.ticker).trim().toUpperCase() : null;
+  const useCursor = Boolean(cursorAt && cursorTicker);
+
+  const rows = await db.queryApi<{
     id: string;
     ticker: string;
     event_at: string;
@@ -428,29 +436,48 @@ export async function loadFeedKindIndexPage(opts: {
             'filing', f.summary->'filing',
             'issuer', f.summary->'issuer'
           )
-        ELSE d.data
+        ELSE jsonb_build_object(
+          'cluster', jsonb_build_object('worksheet_rows', COALESCE(d.data->'cluster'->'worksheet_rows', '[]'::jsonb)),
+          'filing', d.data->'filing',
+          'issuer', d.data->'issuer'
+        )
       END AS data,
       f.summary
     FROM feed_ticker_latest f
     JOIN documents d ON d.id = f.document_id
     WHERE f.feed_kind = $1
       AND f.feed_at >= now() - ($2 || ' days')::interval
-    ORDER BY f.feed_at DESC
+      AND (
+        $5::timestamptz IS NULL
+        OR (f.feed_at, f.ticker_norm) < ($5::timestamptz, $6::text)
+      )
+    ORDER BY f.feed_at DESC, f.ticker_norm DESC
     LIMIT $3 OFFSET $4
     `,
-    [opts.feedKind, String(opts.days), probe, opts.offset],
+    [
+      opts.feedKind,
+      String(opts.days),
+      probe,
+      useCursor ? 0 : offset,
+      useCursor ? cursorAt : null,
+      useCursor ? cursorTicker : null,
+    ],
   );
   const hasMore = rows.length > opts.limit;
+  const page = rows.slice(0, opts.limit);
+  const last = page[page.length - 1];
   return {
-    rows: rows.slice(0, opts.limit),
+    rows: page,
     hasMore,
-    nextOffset: opts.offset + Math.min(rows.length, opts.limit),
+    nextOffset: offset + page.length,
+    nextCursor: last ? { feedAt: last.event_at, ticker: last.ticker } : null,
   };
 }
 
 export async function loadMarketFeedIndexPage(opts: {
   limit: number;
-  offset: number;
+  offset?: number;
+  cursor?: { feedAt: string; ticker: string } | null;
 }): Promise<{
   rows: Array<{
     id: string;
@@ -467,9 +494,28 @@ export async function loadMarketFeedIndexPage(opts: {
     summary: Record<string, unknown>;
   }>;
   hasMore: boolean;
+  nextCursor: { feedAt: string; ticker: string } | null;
 }> {
   const probe = opts.limit + 1;
-  const rows = await db.query(
+  const offset = Math.max(0, Math.min(500, Number(opts.offset) || 0));
+  const cursorAt = opts.cursor?.feedAt ? String(opts.cursor.feedAt) : null;
+  const cursorTicker = opts.cursor?.ticker ? String(opts.cursor.ticker).trim().toUpperCase() : null;
+  const useCursor = Boolean(cursorAt && cursorTicker);
+
+  const rows = await db.queryApi<{
+    id: string;
+    ticker: string;
+    feed_kind: string;
+    feed_at: string;
+    feed_label: string | null;
+    company_name: string | null;
+    source_key: string | null;
+    analysis: string | null;
+    program_phase: string | null;
+    event_at: string | null;
+    data: unknown;
+    summary: Record<string, unknown>;
+  }>(
     `
     SELECT
       f.document_id::text AS id,
@@ -486,11 +532,21 @@ export async function loadMarketFeedIndexPage(opts: {
       f.summary
     FROM feed_market_latest f
     JOIN documents d ON d.id = f.document_id
-    ORDER BY f.feed_at DESC
+    WHERE (
+      $3::timestamptz IS NULL
+      OR (f.feed_at, f.ticker_norm) < ($3::timestamptz, $4::text)
+    )
+    ORDER BY f.feed_at DESC, f.ticker_norm DESC
     LIMIT $1 OFFSET $2
     `,
-    [probe, opts.offset],
+    [probe, useCursor ? 0 : offset, useCursor ? cursorAt : null, useCursor ? cursorTicker : null],
   );
   const hasMore = rows.length > opts.limit;
-  return { rows: rows.slice(0, opts.limit), hasMore };
+  const page = rows.slice(0, opts.limit);
+  const last = page[page.length - 1];
+  return {
+    rows: page,
+    hasMore,
+    nextCursor: last ? { feedAt: last.feed_at, ticker: last.ticker } : null,
+  };
 }

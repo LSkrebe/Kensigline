@@ -34,7 +34,6 @@ function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | und
     const normalized = url.replace(/^postgres:/i, "postgresql:");
     const u = new URL(normalized);
     const host = u.hostname.toLowerCase();
-    // Direct: db.<ref>.supabase.co — Pooler: *.pooler.supabase.com (regional AWS hosts)
     if (
       host.includes("supabase.co") ||
       host.endsWith("pooler.supabase.com") ||
@@ -59,6 +58,25 @@ export const pool = new Pool({
   allowExitOnIdle: true,
 });
 
+const DEFAULT_API_TIMEOUT_MS = Math.max(
+  1_000,
+  Math.min(30_000, Number(process.env.DATABASE_API_STATEMENT_TIMEOUT_MS ?? 8_000) || 8_000),
+);
+
+async function withClientTimeout<T>(
+  timeoutMs: number,
+  fn: (client: { query: Pool["query"] }) => Promise<T>,
+): Promise<T> {
+  const client = await pool.connect();
+  try {
+    const ms = Math.max(500, Math.floor(timeoutMs));
+    await client.query(`SET LOCAL statement_timeout = ${ms}`);
+    return await fn(client);
+  } finally {
+    client.release();
+  }
+}
+
 export const db = {
   async query<T = any>(text: string, params: any[] = []): Promise<T[]> {
     const r = await pool.query(text, params);
@@ -68,5 +86,15 @@ export const db = {
     const r = await pool.query(text, params);
     return (r.rows[0] as T | undefined) ?? null;
   },
+  /** API/read path — hard-cap statement time so one slow query cannot pin the pool. */
+  async queryApi<T = any>(text: string, params: any[] = [], timeoutMs = DEFAULT_API_TIMEOUT_MS): Promise<T[]> {
+    return withClientTimeout(timeoutMs, async (client) => {
+      const r = await client.query(text, params);
+      return r.rows as T[];
+    });
+  },
+  async oneApi<T = any>(text: string, params: any[] = [], timeoutMs = DEFAULT_API_TIMEOUT_MS): Promise<T | null> {
+    const rows = await db.queryApi<T>(text, params, timeoutMs);
+    return rows[0] ?? null;
+  },
 };
-
