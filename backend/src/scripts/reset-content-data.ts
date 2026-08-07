@@ -21,6 +21,7 @@ const CONTENT_TRUNCATES = [
   "bars_ticker_meta",
   "bars",
   "ticker_context_cache",
+  "feed_cluster_snapshot",
   "ingest_cursors",
   "companies",
 ];

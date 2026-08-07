@@ -34,6 +34,26 @@ import {
   scoreInstitutionCluster,
   scorePoliticianCluster,
 } from "../core/idea-score.js";
+import { readClusterSnapshot, writeClusterSnapshot } from "./cluster-snapshot.js";
+
+async function serveClusterSnapshotOrNull(
+  res: http.ServerResponse,
+  args: { feedKind: string; ticker: string; days: number },
+): Promise<boolean> {
+  const hit = await readClusterSnapshot(args).catch(() => null);
+  if (!hit) return false;
+  sendJson(res, 200, hit);
+  return true;
+}
+
+function cacheClusterSnapshot(args: {
+  feedKind: string;
+  ticker: string;
+  days: number;
+  payload: Record<string, unknown>;
+}) {
+  void writeClusterSnapshot(args).catch(() => {});
+}
 
 function ideaFromSummary(summary: Record<string, unknown> | null | undefined) {
   const s = summary ?? {};
@@ -333,6 +353,8 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
     return;
   }
 
+  if (await serveClusterSnapshotOrNull(res, { feedKind: "politicians", ticker, days })) return;
+
   const docs = await loadClusterDocs("politicians", ticker, days);
   if (!docs.length) {
     notFound(res);
@@ -400,7 +422,7 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
     : [];
   const issuerName = resolveResearchFeedCompanyName(ticker, secTitles.get(ticker) ?? null);
 
-  sendJson(res, 200, {
+  const payload = {
     id,
     schema_type: "politician_cluster",
     schema_version: "v1",
@@ -425,7 +447,9 @@ async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
       },
     },
     url: docs[0]?.url ?? null,
-  });
+  };
+  cacheClusterSnapshot({ feedKind: "politicians", ticker, days, payload });
+  sendJson(res, 200, payload);
 }
 
 async function handleInstitutionsCluster(res: http.ServerResponse, url: URL) {
@@ -437,6 +461,8 @@ async function handleInstitutionsCluster(res: http.ServerResponse, url: URL) {
     notFound(res);
     return;
   }
+
+  if (await serveClusterSnapshotOrNull(res, { feedKind: "institutions", ticker, days })) return;
 
   const docs = await loadClusterDocs("institutions", ticker, days);
   if (!docs.length) {
@@ -484,7 +510,7 @@ async function handleInstitutionsCluster(res: http.ServerResponse, url: URL) {
     ? latest.cluster.context_sentences.map((s: any) => String(s)).filter(Boolean).slice(0, 3)
     : [];
 
-  sendJson(res, 200, {
+  const payload = {
     id,
     schema_type: "institution_cluster",
     schema_version: "v1",
@@ -509,7 +535,9 @@ async function handleInstitutionsCluster(res: http.ServerResponse, url: URL) {
       },
     },
     url: docs[0]?.url ?? null,
-  });
+  };
+  cacheClusterSnapshot({ feedKind: "institutions", ticker, days, payload });
+  sendJson(res, 200, payload);
 }
 
 async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
@@ -522,6 +550,8 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
       notFound(res);
       return;
     }
+
+    if (await serveClusterSnapshotOrNull(res, { feedKind: "insider", ticker, days })) return;
 
     const docs = await loadClusterDocs("insider", ticker, days);
     if (!docs.length) {
@@ -564,7 +594,7 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
         ? `Insider activity (~${formatUsdCompact(totalUsd)}, ${worksheet_rows.length} txn)`
         : `Insider transactions (${worksheet_rows.length})`;
 
-    sendJson(res, 200, {
+    const payload = {
       id,
       schema_type: "insider_cluster",
       schema_version: "v1",
@@ -583,7 +613,9 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
         cluster: { cluster_start_at: minAt, cluster_end_at: maxAt, feed_label, context_sentences, worksheet_rows },
       },
       url: docs[0]?.url ?? null,
-    });
+    };
+    cacheClusterSnapshot({ feedKind: "insider", ticker, days, payload });
+    sendJson(res, 200, payload);
     return;
   }
 

@@ -139,6 +139,7 @@ async function getOrComputeCache(ticker: string): Promise<CacheRow | null> {
     return cached;
   }
 
+  // Cold miss: never block the API on Polygon — thin DB snapshot now, warm in background.
   let job = inflight.get(ticker);
   if (!job) {
     job = computeTickerContextCache(ticker)
@@ -151,9 +152,7 @@ async function getOrComputeCache(ticker: string): Promise<CacheRow | null> {
       });
     inflight.set(ticker, job);
   }
-  // Cold miss: wait briefly; if still computing, fall through to snapshot-ish empty.
-  await Promise.race([job, new Promise((r) => setTimeout(r, 2_500))]);
-  return readCacheRow(ticker);
+  return null;
 }
 
 export async function getCompanyFullCached(opts: { ticker: string }): Promise<Record<string, unknown>> {
@@ -168,19 +167,9 @@ export async function getCompanyFullCached(opts: { ticker: string }): Promise<Re
     };
   }
 
-  // Last resort cold path — still prefer not to sit on Polygon forever.
-  const secBundle = await loadTickerSecBundle(ticker);
-  const company = await getCompanyPanelData({ ticker, secBundle });
-  void getMarketFundamentalsForTicker({ ticker, secBundle })
-    .then((fundamentals) =>
-      upsertCacheRow({
-        ticker,
-        company,
-        fundamentals,
-        watermark: null,
-      }),
-    )
-    .catch(() => {});
+  // Instant cold path — DB/SEC only; full panel fills via background compute above.
+  const company = await getCompanyPanelData({ ticker, dbFirst: true });
+  scheduleTickerContextRefresh(ticker);
   return { ...company, fundamentals: null };
 }
 

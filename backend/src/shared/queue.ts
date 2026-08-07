@@ -73,7 +73,7 @@ export async function failQueueWithBackoff(queueId: string, err: unknown): Promi
  * Reset stale ones to failed so workers reclaim them.
  */
 export async function reclaimStaleParsing(opts?: { olderThanMinutes?: number }): Promise<number> {
-  const minutes = Math.max(1, Math.min(24 * 60, Math.floor(opts?.olderThanMinutes ?? 15)));
+  const minutes = Math.max(1, Math.min(24 * 60, Math.floor(opts?.olderThanMinutes ?? 10)));
   const rows = await db.query<{ id: string }>(
     `
     UPDATE document_queue
@@ -86,6 +86,48 @@ export async function reclaimStaleParsing(opts?: { olderThanMinutes?: number }):
     RETURNING id
     `,
     [String(minutes)],
+  );
+  return rows.length;
+}
+
+/**
+ * Requeue dead rows that look transient (network/rate/timeout) — not permanent parse poison.
+ * Caps attempts so we don't infinite-loop.
+ */
+export async function requeueTransientDead(opts?: { limit?: number }): Promise<number> {
+  const limit = Math.max(1, Math.min(500, Math.floor(opts?.limit ?? 100)));
+  const rows = await db.query<{ id: string }>(
+    `
+    UPDATE document_queue
+    SET status = 'failed',
+        next_attempt_at = now(),
+        last_error = left(coalesce(last_error,'') || ' | requeued_transient', 2000),
+        updated_at = now()
+    WHERE id IN (
+      SELECT id
+      FROM document_queue
+      WHERE status = 'dead'
+        AND attempts < 8
+        AND (
+          last_error ILIKE '%timeout%'
+          OR last_error ILIKE '%ECONN%'
+          OR last_error ILIKE '%ETIMEDOUT%'
+          OR last_error ILIKE '%429%'
+          OR last_error ILIKE '%rate%'
+          OR last_error ILIKE '%fetch_failed%'
+          OR last_error ILIKE '%network%'
+          OR last_error ILIKE '%reclaimed_stale%'
+          OR last_error ILIKE '%socket%'
+          OR last_error ILIKE '%503%'
+          OR last_error ILIKE '%502%'
+        )
+      ORDER BY updated_at ASC
+      LIMIT $1
+      FOR UPDATE SKIP LOCKED
+    )
+    RETURNING id
+    `,
+    [limit],
   );
   return rows.length;
 }

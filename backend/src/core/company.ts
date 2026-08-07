@@ -258,30 +258,53 @@ async function getLatestClose(ticker: string): Promise<number | null> {
   return null;
 }
 
-export async function getCompanyPanelData(opts: { ticker: string; secBundle?: TickerSecBundle | null }) {
+async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  try {
+    return await Promise.race([
+      p,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+    ]);
+  } catch {
+    return null;
+  }
+}
+
+export async function getCompanyPanelData(opts: {
+  ticker: string;
+  secBundle?: TickerSecBundle | null;
+  /** When true, never block on Polygon/Yahoo — DB + SEC only (API request path). */
+  dbFirst?: boolean;
+}) {
   const ticker = String(opts.ticker ?? "").trim().toUpperCase();
   if (!ticker) throw new Error("ticker_required");
+  const dbFirst = Boolean(opts.dbFirst);
 
-  // Profile (industry/country/name) from Polygon if available.
-  let name: string | null = null;
-  let industry: string | null = null;
-  let country: string | null = null;
+  const cached = await loadCompanyDbRow(ticker);
 
-  try {
-    const r = await fetchPolygonTickerOverview(ticker);
-    name = r?.name ? String(r.name) : null;
-    industry =
-      r?.sic_description != null
-        ? String(r.sic_description)
-        : r?.industry != null
-          ? String(r.industry)
-          : null;
-    country = r?.address?.country != null ? String(r.address.country) : r?.locale != null ? String(r.locale) : null;
-  } catch {
-    // Leave null; we can still compute MCAP.
+  let name: string | null = cached?.name ?? null;
+  let industry: string | null = cached?.industry ?? null;
+  let country: string | null = cached?.country ?? null;
+  let earnings_date: string | null = cached?.earnings_date ?? null;
+
+  if (!dbFirst || !name) {
+    const poly = await withTimeout(fetchPolygonTickerOverview(ticker), dbFirst ? 900 : 4_000);
+    if (poly) {
+      name = poly.name ? String(poly.name) : name;
+      industry =
+        poly.sic_description != null
+          ? String(poly.sic_description)
+          : poly.industry != null
+            ? String(poly.industry)
+            : industry;
+      country =
+        poly.address?.country != null
+          ? String(poly.address.country)
+          : poly.locale != null
+            ? String(poly.locale)
+            : country;
+    }
   }
 
-  // Shares outstanding from SEC companyfacts.
   let sharesOutstanding: number | null = null;
   try {
     const sec = opts.secBundle !== undefined ? opts.secBundle : await loadTickerSecBundle(ticker);
@@ -293,25 +316,25 @@ export async function getCompanyPanelData(opts: { ticker: string; secBundle?: Ti
     // best-effort
   }
 
-  // MCAP = latest close * shares.
-  const latestClose = await getLatestClose(ticker);
+  const latestClose = dbFirst ? await getLatestCloseDbOnly(ticker) : await getLatestClose(ticker);
   const mcapNum =
     latestClose != null && sharesOutstanding != null ? Number(latestClose) * Number(sharesOutstanding) : null;
-  const mcap = mcapNum != null && Number.isFinite(mcapNum) ? `${formatUsdCompact(mcapNum)} USD` : null;
+  let mcap =
+    mcapNum != null && Number.isFinite(mcapNum)
+      ? `${formatUsdCompact(mcapNum)} USD`
+      : cached?.mcap != null
+        ? String(cached.mcap)
+        : null;
 
-  // Earnings date: primary Polygon Benzinga calendar, fallback Yahoo best-effort.
-  let earnings_date: string | null = null;
-  try {
-    earnings_date = await fetchPolygonBenzingaNextEarningsDate(ticker);
-  } catch {
-    earnings_date = null;
-  }
-  if (!earnings_date) {
-    earnings_date = await fetchYahooNextEarningsDate(ticker);
+  if (!dbFirst || !earnings_date) {
+    const polyEarn = await withTimeout(fetchPolygonBenzingaNextEarningsDate(ticker), dbFirst ? 900 : 4_000);
+    if (polyEarn) earnings_date = polyEarn;
+    if (!earnings_date && !dbFirst) {
+      earnings_date = await fetchYahooNextEarningsDate(ticker);
+    }
   }
 
-  // Cache/upsert into companies table when we have at least a name.
-  if (name) {
+  if (name && !dbFirst) {
     const existing = await db.one<{ id: string }>(`SELECT id FROM companies WHERE ticker = $1 LIMIT 1`, [ticker]);
     if (existing?.id) {
       await db.query(

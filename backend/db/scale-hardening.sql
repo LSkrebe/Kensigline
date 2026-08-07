@@ -16,6 +16,15 @@ CREATE INDEX IF NOT EXISTS feed_ticker_latest_kind_at_ticker_idx
 CREATE INDEX IF NOT EXISTS feed_market_latest_at_ticker_idx
   ON feed_market_latest (feed_at DESC, ticker_norm DESC);
 
+CREATE TABLE IF NOT EXISTS feed_cluster_snapshot (
+  feed_kind text NOT NULL,
+  ticker_norm text NOT NULL,
+  days int NOT NULL,
+  payload jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (feed_kind, ticker_norm, days)
+);
+
 -- Backfill meta from existing bars (batched by callers if huge; fine while small/medium).
 INSERT INTO bars_ticker_meta (ticker, last_bar_day, bar_count, updated_at)
 SELECT ticker, max(day)::date, count(*)::int, now()
