@@ -909,30 +909,11 @@
 }
 
 .lpFoot::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background-image: url('/mercerline_background_1.png');
-  background-size: 165% auto;
-  background-position: 72% 38%;
-  background-repeat: no-repeat;
-  opacity: 0.55;
-  pointer-events: none;
+  content: none;
 }
 
 .lpFoot::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(8, 8, 9, 0.82) 0%,
-    rgba(8, 8, 9, 0.55) 45%,
-    rgba(8, 8, 9, 0.72) 100%
-  );
-  pointer-events: none;
+  content: none;
 }
 
 .lpFootInner {
@@ -940,58 +921,58 @@
   z-index: 1;
   max-width: var(--lp-max);
   margin: 0 auto;
-  padding: 20px var(--lp-pad) calc(20px + env(safe-area-inset-bottom, 0px));
+  padding: 14px var(--lp-pad) calc(14px + env(safe-area-inset-bottom, 0px));
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 16px;
 }
 
 .lpFootInner--legal {
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
-  gap: 10px;
-  padding-top: 24px;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  gap: 6px;
+  padding-top: 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 }
 
 .lpFootLegalBlock {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   max-width: 72ch;
 }
 
 .lpFootLine {
   margin: 0;
-  font-size: 11px;
+  font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.48);
-  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.42);
+  line-height: 1.4;
 }
 
 .lpFootLegalText {
   margin: 0;
-  font-size: 11px;
-  line-height: 1.55;
-  color: rgba(255, 255, 255, 0.34);
+  font-size: 9px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.3);
 }
 
 .lpFootLegalLabel {
   display: inline;
-  margin-right: 0.45em;
+  margin-right: 0.4em;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.44);
 }
 
 .lpFootSub {
   margin: 0;
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 10px;
+  line-height: 1.4;
   color: rgba(255, 255, 255, 0.32);
 }
 
@@ -1001,7 +982,7 @@
 
 .lpFootNfa {
   margin: 0 0 4px;
-  font-size: 11px;
+  font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--lp-dim);
@@ -1009,21 +990,21 @@
 
 .lpFootTag {
   margin: 0;
-  font-size: 13px;
+  font-size: 11px;
   color: var(--lp-muted);
 }
 
 .lpFootLegal {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   max-width: 62ch;
-  font-size: 11px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.34);
+  font-size: 9px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.3);
 }
 
 .lpFootCta {
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: 11px;
   color: var(--lp-muted);
   text-decoration: none;
   background: none;
