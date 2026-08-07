@@ -34,7 +34,7 @@ export function startAllWorkers(): Stoppable[] {
     });
   }
 
-  if (String(process.env.RETENTION_PURGE_ON_START ?? "1").trim() !== "0") {
+  if (String(process.env.RETENTION_PURGE_ON_START ?? "0").trim() === "1") {
     void runRetentionPurgeOnce()
       .then((r) => {
         const touched =

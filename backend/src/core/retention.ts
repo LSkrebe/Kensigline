@@ -164,7 +164,8 @@ export async function runRetentionPurgeOnce(opts?: {
 }
 
 export function startRetentionWorker(): { stop(): void } {
-  if (String(process.env.RETENTION_ENABLED ?? "1").trim() === "0") {
+  // Off by default — we cap how far backfill walks, but do not delete older stored docs.
+  if (String(process.env.RETENTION_ENABLED ?? "0").trim() !== "1") {
     return { stop() {} };
   }
 
