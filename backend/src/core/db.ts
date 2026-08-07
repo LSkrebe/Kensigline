@@ -52,6 +52,11 @@ function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | und
 export const pool = new Pool({
   connectionString: databaseUrl,
   ssl: sslOption(databaseUrl),
+  // Keep well under Supabase pooler limits — workers share this one pool.
+  max: Math.max(2, Math.min(12, Number(process.env.DATABASE_POOL_MAX ?? 6) || 6)),
+  connectionTimeoutMillis: Math.max(2_000, Number(process.env.DATABASE_CONNECT_TIMEOUT_MS ?? 8_000) || 8_000),
+  idleTimeoutMillis: Math.max(5_000, Number(process.env.DATABASE_IDLE_TIMEOUT_MS ?? 30_000) || 30_000),
+  allowExitOnIdle: true,
 });
 
 export const db = {
