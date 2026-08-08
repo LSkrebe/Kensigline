@@ -4,6 +4,7 @@ import { upsertCompanyNameForTicker } from "../../core/company.js";
 import { fetchFilingPrimaryText, fetchSecJson } from "../../core/sec.js";
 import {
   runStructuredResearchExtract,
+  textLooksWorthStructuredLlm,
   type ResearchDocExtractV2,
 } from "../../documents/extract.js";
 import {
@@ -295,6 +296,19 @@ async function resolveResearchExtract(args: {
     return { out: attach(template, "template/drivers-fresh", { llm_used: false }), model: "template/drivers-fresh" };
   }
 
+  // Skip paid calls on cover-page / empty compacted text (would only produce fallbacks).
+  if (!textLooksWorthStructuredLlm(prep.text)) {
+    console.info(
+      "[llm-skip]",
+      JSON.stringify({
+        context: args.prepContext,
+        reason: "low_signal_text",
+        chars: String(prep.text ?? "").length,
+      }),
+    );
+    return { out: attach(template, "template/low-signal", { llm_used: false }), model: "template/low-signal" };
+  }
+
   try {
     const structured = await runStructuredResearchExtract({
       text: prep.text,
@@ -315,7 +329,12 @@ async function resolveResearchExtract(args: {
       model: "research/structured",
     };
   } catch (e) {
-    console.warn("[research/structured] fallback to template", String((e as Error)?.message ?? e));
+    const msg = String((e as Error)?.message ?? e);
+    // Pre-call skip should not be billed; if it still surfaces, treat as no-LLM template.
+    if (msg.includes("llm_skip_low_signal_text")) {
+      return { out: attach(template, "template/low-signal", { llm_used: false }), model: "template/low-signal" };
+    }
+    console.warn("[research/structured] fallback to template", msg);
     return {
       out: attach(template, "template/fallback", { llm_used: true, llm_ok: false }),
       model: "template/fallback",

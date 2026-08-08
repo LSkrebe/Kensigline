@@ -70,18 +70,24 @@ export function PublicCompanyPage({ ticker: tickerProp = null }) {
 
   useEffect(() => {
     if (!ticker) return
+    // Always set crawlable meta immediately so API blips don't look like empty/404 pages.
+    applyPageMeta(publicCompanyPageMeta({ ticker, name: null }))
+  }, [ticker])
+
+  useEffect(() => {
+    if (!ticker) return
     let cancelled = false
     setLoading(true)
     setError('')
 
     void fetchJsonSafe(`/api/public/company?ticker=${encodeURIComponent(ticker)}`, {
-      timeoutMs: 20000,
+      timeoutMs: 20_000,
     }).then((res) => {
       if (cancelled) return
       setLoading(false)
       if (!res.ok || !res.data) {
         setCompany(null)
-        setError('Company data is unavailable right now.')
+        setError('Company data is temporarily unavailable. Try again in a moment.')
         applyPageMeta(publicCompanyPageMeta({ ticker, name: null }))
         return
       }
@@ -200,12 +206,22 @@ export function PublicCompanyPage({ ticker: tickerProp = null }) {
       <div className="drpt-paper pubCoPaper">
         {loading ? <p className="drpt-empty drpt-loading">Loading…</p> : null}
         {error ? (
-          <p className="drpt-empty pubCoBanner--err" role="alert">
-            {error}
-          </p>
+          <PublicSection label="Snapshot" title={`${ticker} overview`}>
+            <p className="drpt-empty pubCoBanner--err" role="alert">
+              {error}
+            </p>
+            <div className="pubCoGate">
+              <p className="pubCoGateCopy">
+                Mercerline tracks filings and fundamentals for {ticker}. Sign in for the full company dossier.
+              </p>
+              <a className="pubCoGateCta" href="/sign-in" onClick={goSignIn}>
+                Sign in
+              </a>
+            </div>
+          </PublicSection>
         ) : null}
 
-        {!loading && company ? (
+        {!loading && !error && company ? (
           <>
             <div className="drpt-row drpt-row--market">
               {overviewCards.length ? (

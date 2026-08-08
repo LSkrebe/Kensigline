@@ -106,21 +106,38 @@ const STRUCTURED_EXTRACT_SCHEMA = {
 function buildStructuredExtractSystemPrompt(defaultSource: string): string {
   return [
     "Extract structured operating metrics from an earnings SEC filing or earnings call transcript.",
-    "Return ONLY valid JSON matching the schema — no title, no analysis, no summary prose.",
+    "Return ONLY valid JSON matching the schema — no markdown fences, no title, no analysis, no summary prose.",
     `Schema: ${JSON.stringify({ ...STRUCTURED_EXTRACT_SCHEMA, source_key: defaultSource })}`,
+    "Always include schema_type as research_doc_v2.",
     "Extract disclosed segment revenues and KPIs into business_drivers when numbers are explicit.",
+    "If no quantified operating metrics exist, still return JSON with business_drivers: [] and primary_ticker when known.",
     "Do not invent tickers, numbers, or dates. Use null when uncertain.",
     `source_key must be one of: ${SOURCE_KEYS.join(", ")}.`,
   ].join("\n");
 }
 
 function isStructuredResearchExtract(out: any): boolean {
-  const schema = String(out?.schema_type ?? "");
+  if (!out || typeof out !== "object") return false;
+  const schema = String(out.schema_type ?? "").trim();
+  // Models often omit schema_type despite the prompt — accept useful payloads anyway.
+  const schemaOk = !schema || schema === "research_doc_v2" || schema === "research_doc_v1";
+  if (!schemaOk) return false;
   return (
-    out &&
-    (schema === "research_doc_v2" || schema === "research_doc_v1") &&
-    (Array.isArray(out.business_drivers) || out.event_at != null || out.primary_ticker != null)
+    Array.isArray(out.business_drivers) ||
+    out.event_at != null ||
+    out.primary_ticker != null ||
+    out.source_key != null
   );
+}
+
+/** True when compacted text is worth an LLM call (avoid paying for empty/cover-page junk). */
+export function textLooksWorthStructuredLlm(text: string): boolean {
+  const t = String(text ?? "").replace(/\s+/g, " ").trim();
+  if (t.length < 400) return false;
+  // Need at least some numeric / earnings signal or the model usually returns empty/unusable JSON.
+  const hasMoney = /\$|\bmillion\b|\bbillion\b|\brevenue\b|\beps\b|\bsegment\b|\boperating\b/i.test(t);
+  const hasDigits = (t.match(/\d/g) ?? []).length >= 8;
+  return hasMoney || hasDigits;
 }
 
 /** Structured fields only — used for Analyse drivers; display copy comes from templates. */
@@ -142,6 +159,9 @@ export async function runStructuredResearchExtract(args: {
 }> {
   const defaultSource = sourceKeyFromQueueType(args.sourceType) ?? "Other";
   const body = String(args.text ?? "").slice(0, RESEARCH_LLM_MAX_CHARS);
+  if (!textLooksWorthStructuredLlm(body)) {
+    throw new Error("llm_skip_low_signal_text");
+  }
 
   const messages = [
     { role: "system" as const, content: buildStructuredExtractSystemPrompt(defaultSource) },
@@ -160,7 +180,7 @@ export async function runStructuredResearchExtract(args: {
 
   const { content, model } = await llmChat(messages, {
     temperature: 0,
-    max_tokens: 700,
+    max_tokens: 900,
     log_context: "research/structured",
   });
   const out = extractJsonObject(content);
@@ -172,7 +192,11 @@ export async function runStructuredResearchExtract(args: {
   const catalyst_at = out.catalyst_at ? String(out.catalyst_at) : null;
 
   return {
-    primary_ticker: out.primary_ticker ? String(out.primary_ticker).trim().toUpperCase() : null,
+    primary_ticker: out.primary_ticker
+      ? String(out.primary_ticker).trim().toUpperCase()
+      : args.hintedTicker
+        ? String(args.hintedTicker).trim().toUpperCase()
+        : null,
     source_key: normalizeSourceKey(out.source_key, defaultSource),
     event_at: out.event_at ? String(out.event_at) : null,
     ...(catalyst_at ? { catalyst_at } : {}),
