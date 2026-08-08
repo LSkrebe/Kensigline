@@ -1,6 +1,7 @@
 import "./load-env.js";
 import http from "node:http";
 import { URL } from "node:url";
+import { bindCorsOrigin, corsResponseHeaders } from "./core/cors.js";
 import { json, notFound, readRawBody, route, sendJson } from "./core/http.js";
 import { db } from "./core/db.js";
 import { getDailyCloseBars } from "./core/bars.js";
@@ -50,12 +51,12 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
 
-    // CORS / preflight
+    bindCorsOrigin(req, res);
+
+    // CORS / preflight — only reflect allowlisted app origins (never *).
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
-        "access-control-allow-origin": "*",
-        "access-control-allow-methods": "GET,POST,OPTIONS",
-        "access-control-allow-headers": "content-type,authorization",
+        ...corsResponseHeaders(res),
         "cache-control": "no-store",
       });
       res.end();
@@ -67,21 +68,19 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // Public API root + robots — keep Search Console from treating api host as a 404 site page.
+    // Blank 200 so Search Console doesn't flag api host as 404 — no service advertising.
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "")) {
-      sendJson(res, 200, {
-        ok: true,
-        service: "mercerline-api",
-        site: "https://mercerline.com",
-        health: "/health",
+      res.writeHead(200, {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "no-store",
       });
+      res.end("");
       return;
     }
     if (req.method === "GET" && url.pathname === "/robots.txt") {
       res.writeHead(200, {
         "content-type": "text/plain; charset=utf-8",
         "cache-control": "public, max-age=3600",
-        "access-control-allow-origin": "*",
       });
       res.end("User-agent: *\nDisallow: /\n");
       return;
