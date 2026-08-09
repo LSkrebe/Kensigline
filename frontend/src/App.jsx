@@ -2453,42 +2453,48 @@ function aggregateContextInstitutions(rows, days = null) {
 
 function mapTrackedInvestorsFromApi(rows) {
   if (!Array.isArray(rows)) return null
-  return rows.map((r) => {
-    const latestAt = r.latestAt ?? r.latest_at
-    const dateAt = latestAt ? new Date(latestAt).getTime() : 0
-    const typeKey = r.type ?? r.typeKey ?? 'insider'
-    const normalizedKey =
-      typeKey === 'politician' ? 'politician' : typeKey === 'institution' ? 'institution' : 'insider'
-    const code = String(
-      r.transactionCode ??
-        r.transaction_code ??
-        r.code ??
-        (normalizedKey === 'institution' ? institutionTxnFromActivity(r.activity ?? r.latest_activity).code : 'P'),
-    )
-      .trim()
-      .toUpperCase() || '—'
-    const codeTone =
-      r.codeTone ??
-      r.code_tone ??
-      (normalizedKey === 'institution'
-        ? institutionTxnFromActivity(r.activity ?? r.latest_activity).tone
-        : insiderTxnCodeTone(code, r.acquiredDisposed ?? r.acquired_disposed))
-    return {
-      id: r.id ?? `${typeKey}|${r.name}`,
-      name: String(r.name ?? '—').trim() || '—',
-      type: r.typeLabel ?? r.type_label ?? typeKey,
-      typeKey: normalizedKey,
-      source:
-        r.source ??
-        (normalizedKey === 'politician' ? 'PTR' : normalizedKey === 'institution' ? '13F' : 'F4'),
-      code,
-      codeTone,
-      amount: r.amount ?? formatTxnAmountUsd(r.amountUsd ?? r.amount_usd),
-      totalUsd: Number(r.amountUsd ?? r.amount_usd ?? 0),
-      dateAt,
-      date: formatTrackedInvestorDate(dateAt),
-    }
-  })
+  return rows
+    .map((r) => {
+      const latestAt = r.latestAt ?? r.latest_at
+      const dateAt = latestAt ? new Date(latestAt).getTime() : 0
+      const typeKey = r.type ?? r.typeKey ?? 'insider'
+      const normalizedKey =
+        typeKey === 'politician' ? 'politician' : typeKey === 'institution' ? 'institution' : 'insider'
+      const name = String(r.name ?? '').trim()
+      if (!name || /^(institution|insider|politician|unknown|n\/?a|—|-)$/i.test(name)) return null
+      const totalUsd = Number(r.amountUsd ?? r.amount_usd ?? 0)
+      if (Number.isFinite(totalUsd) && Math.abs(totalUsd) > 100_000_000_000) return null
+      const code = String(
+        r.transactionCode ??
+          r.transaction_code ??
+          r.code ??
+          (normalizedKey === 'institution' ? institutionTxnFromActivity(r.activity ?? r.latest_activity).code : 'P'),
+      )
+        .trim()
+        .toUpperCase() || '—'
+      const codeTone =
+        r.codeTone ??
+        r.code_tone ??
+        (normalizedKey === 'institution'
+          ? institutionTxnFromActivity(r.activity ?? r.latest_activity).tone
+          : insiderTxnCodeTone(code, r.acquiredDisposed ?? r.acquired_disposed))
+      return {
+        id: r.id ?? `${typeKey}|${name}`,
+        name,
+        type: r.typeLabel ?? r.type_label ?? (normalizedKey === 'institution' ? 'Institution' : typeKey),
+        typeKey: normalizedKey,
+        source:
+          r.source ??
+          (normalizedKey === 'politician' ? 'PTR' : normalizedKey === 'institution' ? '13F' : 'F4'),
+        code,
+        codeTone,
+        amount: r.amount ?? formatTxnAmountUsd(totalUsd),
+        totalUsd: Number.isFinite(totalUsd) ? totalUsd : 0,
+        dateAt,
+        date: formatTrackedInvestorDate(dateAt),
+      }
+    })
+    .filter(Boolean)
 }
 
 /** All tracked flows we have for this ticker (insider, politician, 13F). */
@@ -2629,6 +2635,109 @@ function mapFundamentalsFromApi(fundamentals) {
   ].some((arr) => arr?.some((v) => v != null))
   if (!hasHistorical && mapped.forwardRevenueGrowth == null) return null
   return mapped
+}
+
+function findAnalyseModelRow(model, label) {
+  const want = String(label ?? '')
+    .trim()
+    .toLowerCase()
+  if (!want) return null
+  return (model?.historicalModel ?? []).find((row) => String(row?.label ?? '').trim().toLowerCase() === want) ?? null
+}
+
+function parseAnalyseModelNumber(raw) {
+  if (raw == null || raw === '—' || raw === '') return null
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+  const s = String(raw).trim().replace(/,/g, '').replace(/%/g, '')
+  const n = Number(s)
+  return Number.isFinite(n) ? n : null
+}
+
+/** Derive key-metrics snapshot from the Analyse P&L when company fundamentals are missing. */
+function mapFundamentalsFromAnalyseModel(model) {
+  if (!model?.historicalModel?.length) return null
+  const estFrom = Number(model.estimateFromIndex)
+  const histEnd = Number.isFinite(estFrom) && estFrom > 0 ? estFrom : (model.quarters?.length ?? 0)
+  if (histEnd < 1) return null
+  const take = Math.min(2, histEnd)
+  const start = histEnd - take
+  const periodLabels = (Array.isArray(model.quarters) ? model.quarters : [])
+    .slice(start, histEnd)
+    .map((l) => String(l))
+
+  const sliceNums = (row) => {
+    if (!row?.values) return null
+    const out = row.values.slice(start, histEnd).map(parseAnalyseModelNumber)
+    return out.some((v) => v != null) ? out : null
+  }
+
+  const revenue = sliceNums(findAnalyseModelRow(model, 'Revenue'))
+  const grossProfit = sliceNums(findAnalyseModelRow(model, 'Gross profit'))
+  const netIncome = sliceNums(findAnalyseModelRow(model, 'Net income'))
+  const fcf = sliceNums(findAnalyseModelRow(model, 'Free cash flow'))
+  const cash = sliceNums(findAnalyseModelRow(model, 'Cash & equivalents'))
+  const debt = sliceNums(findAnalyseModelRow(model, 'Total debt'))
+  let grossMargin = sliceNums(findAnalyseModelRow(model, 'Gross margin'))
+  let revenueGrowth = sliceNums(findAnalyseModelRow(model, 'Revenue growth (YoY)'))
+
+  if (!grossMargin && revenue && grossProfit) {
+    grossMargin = revenue.map((rev, i) => {
+      const gp = grossProfit[i]
+      if (rev == null || gp == null || rev === 0) return null
+      return Math.round((gp / rev) * 1000) / 10
+    })
+  }
+
+  const netMargin =
+    revenue && netIncome
+      ? revenue.map((rev, i) => {
+          const ni = netIncome[i]
+          if (rev == null || ni == null || rev === 0) return null
+          return Math.round((ni / rev) * 1000) / 10
+        })
+      : null
+
+  const fcfMargin =
+    revenue && fcf
+      ? revenue.map((rev, i) => {
+          const v = fcf[i]
+          if (rev == null || v == null || rev === 0) return null
+          return Math.round((v / rev) * 1000) / 10
+        })
+      : null
+
+  // Model cash/debt are in USD millions — expose dollars for the compact formatter.
+  const netCash =
+    cash || debt
+      ? Array.from({ length: take }, (_, i) => {
+          const c = cash?.[i]
+          const d = debt?.[i]
+          if (c == null && d == null) return null
+          const netM = (c ?? 0) - Math.abs(d ?? 0)
+          return netM * 1e6
+        })
+      : null
+
+  const mapped = {
+    periodLabels: periodLabels.length ? periodLabels : null,
+    forwardRevenueGrowth: null,
+    revenueGrowth,
+    grossMargin,
+    netMargin,
+    fcfMargin,
+    netIncomeGrowth: null,
+    fcfGrowth: null,
+    netCash,
+    sharesOutstanding: null,
+  }
+  const hasHistorical = [
+    mapped.revenueGrowth,
+    mapped.grossMargin,
+    mapped.netMargin,
+    mapped.fcfMargin,
+    mapped.netCash,
+  ].some((arr) => arr?.some((v) => v != null))
+  return hasHistorical ? mapped : null
 }
 
 function mapOwnershipFromApi(ownership) {
@@ -9195,12 +9304,19 @@ function KensiglineTerminal() {
 
   const contextFundamentals = useMemo(() => {
     if (backendUp) {
-      return researchCompanyResolved?.fundamentals
+      const fromCompany = researchCompanyResolved?.fundamentals
         ? mapFundamentalsFromApi(researchCompanyResolved.fundamentals)
         : null
+      if (fromCompany) return fromCompany
+      return mapFundamentalsFromAnalyseModel(analyseLivePayload?.model)
     }
     return contextMock?.fundamentals ?? null
-  }, [backendUp, researchCompanyResolved?.fundamentals, contextMock?.fundamentals])
+  }, [
+    backendUp,
+    researchCompanyResolved?.fundamentals,
+    analyseLivePayload?.model,
+    contextMock?.fundamentals,
+  ])
 
   const analyseQuarterlyRevenue = useMemo(
     () => {

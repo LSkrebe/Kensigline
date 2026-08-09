@@ -704,17 +704,18 @@
 }
 
 .drpt-row--market .drpt-marketAside .drpt-empty {
-  margin: auto 0;
+  margin: 0;
 }
 
 .drpt-row--market > .drpt-section > .drpt-empty {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   margin: 0;
-  padding: 0;
   border: 1px solid var(--drpt-border);
   background: rgba(255, 255, 255, 0.02);
-  padding-inline: 14px;
+  padding: 20px 16px;
+  box-sizing: border-box;
 }
 
 .drpt-row--market .drpt-figure--chart {
@@ -728,8 +729,8 @@
 }
 
 .drpt-row--market .drpt-figure--empty {
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   border: 1px solid var(--drpt-border);
   background: rgba(255, 255, 255, 0.02);
 }
@@ -817,9 +818,10 @@
 }
 
 .drpt-row--model > .drpt-section > .drpt-driverGrid {
-  align-content: stretch;
-  grid-auto-rows: 1fr;
-  height: 100%;
+  align-content: start;
+  grid-auto-rows: auto;
+  height: auto;
+  min-height: 220px;
   border: none;
   background: transparent;
   padding: 0;
@@ -832,7 +834,10 @@
 
 .drpt-row--model > .drpt-section > .drpt-empty {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 20px 16px;
+  box-sizing: border-box;
 }
 
 .drpt-sectionHint {
@@ -1718,6 +1723,12 @@ button.drpt-docRow {
   padding: 20px 16px;
   margin: 0;
   box-sizing: border-box;
+  align-self: flex-start;
+}
+
+.drpt-figure--empty {
+  justify-content: flex-start;
+  align-items: flex-start;
 }
 
 .drpt-loading {

@@ -133,13 +133,18 @@ export async function getTrackedInvestorsForTicker(
     if (!sign) continue;
     const amt = row.amount_usd != null ? Number(row.amount_usd) : NaN;
     if (!Number.isFinite(amt) || amt <= 0) continue;
-    const name = String(row.filer ?? "Institution").trim() || "Institution";
+    // Drop blank / placeholder filers — they collapse into one bogus "Institution" mega-row.
+    const name = String(row.filer ?? "").trim();
+    if (!name || /^(institution|unknown|n\/?a|null|undefined)$/i.test(name)) continue;
+    // Single-ticker 13F deltas above $100B are almost always bad units / bad parses.
+    if (amt > 100_000_000_000) continue;
     const key = `institution|${slugKey(name)}`;
     pushAgg(map, key, name, "institution", sign * amt, row.filed_at);
   }
 
   return [...map.values()]
     .filter((x) => x.netUsd !== 0)
+    .filter((x) => Math.abs(x.netUsd) <= 100_000_000_000)
     .sort((a, b) => b.latestAt.localeCompare(a.latestAt) || Math.abs(b.netUsd) - Math.abs(a.netUsd))
     .slice(0, cap)
     .map((x) => ({
