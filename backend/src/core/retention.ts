@@ -1,9 +1,9 @@
 /**
  * Rolling retention — keep documents/bars meaningful for the product, drop older junk.
  *
- * Default window = BACKFILL_MAX_AGE_DAYS (hard-capped at 2 years).
+ * Default window = BACKFILL_MAX_AGE_DAYS (hard-capped at 1 year).
  * Exception: research docs that still carry business_drivers for Analyse may be kept
- * up to RETENTION_ANALYSE_EXTRA_DAYS past the main window (default 0 — same 2y).
+ * up to RETENTION_ANALYSE_EXTRA_DAYS past the main window (default 0 — same 1y).
  */
 import { db, runWithWorkerDb } from "../core/db.js";
 import { backfillMaxAgeDays } from "../shared/ingest-policy.js";
