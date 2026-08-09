@@ -22,6 +22,7 @@ import {
   exploreInvestorModeFromDocType,
   exploreInvestorModeFromTypeKey,
   exploreInvestorSlug,
+  findExploreInvestorInFeeds,
   findExploreInvestorInFeedsByName,
   resolveExploreInvestorDossier,
   stubActorRowFromExploreInvestor,
@@ -10892,12 +10893,15 @@ function KensiglineTerminal() {
   const exploreInvestorDossier = useMemo(() => {
     if (terminalRoute.view !== 'investorDetail' || !terminalRoute.investorSlug) return null
     const slug = terminalRoute.investorSlug
+    const cached = readInvestorDossierCache(slug)
+    // Ignore thin cached stubs — they caused the 1-trade flash before reload.
+    const richCache = cached?.actorRow?.transactions?.length >= 5 ? cached : null
     return resolveExploreInvestorDossier({
       investorSlug: slug,
       feeds: exploreActorFeeds,
       directoryRows: exploreInvestorDirectoryRows,
       focus: exploreInvestorFocus,
-      cached: readInvestorDossierCache(slug),
+      cached: richCache,
     })
   }, [
     terminalRoute.view,
@@ -10917,12 +10921,14 @@ function KensiglineTerminal() {
     if (terminalRoute.view === 'investorDetail' && terminalRoute.investorSlug) {
       setDeepResearchMode('investor')
       const slug = terminalRoute.investorSlug
+      const cached = readInvestorDossierCache(slug)
+      const richCache = cached?.actorRow?.transactions?.length >= 5 ? cached : null
       const resolved = resolveExploreInvestorDossier({
         investorSlug: slug,
         feeds: exploreActorFeeds,
         directoryRows: exploreInvestorDirectoryRows,
         focus: exploreInvestorFocus,
-        cached: readInvestorDossierCache(slug),
+        cached: richCache,
       })
       if (!resolved) return
       if (resolved.fromFeed && resolved.index != null) {
@@ -10989,21 +10995,6 @@ function KensiglineTerminal() {
     researchCompanyName,
     contextFlowRows,
     exploreSubview,
-  ])
-
-  useEffect(() => {
-    const slug = terminalRoute.investorSlug
-    if (!slug || !(effectiveActorRow?.transactions?.length > 0)) return
-    writeInvestorDossierCache(
-      slug,
-      effectiveActorRow,
-      effectiveActorRow.source || exploreInvestorDossier?.mode || investigateMode,
-    )
-  }, [
-    terminalRoute.investorSlug,
-    effectiveActorRow,
-    exploreInvestorDossier?.mode,
-    investigateMode,
   ])
 
   const investorDossierMode = exploreInvestorDossier?.mode ?? investigateMode
@@ -11241,25 +11232,40 @@ function KensiglineTerminal() {
   const investorFeedsSettled =
     insiderFeedLive !== null && politiciansFeedLive !== null && institutionsFeedLive !== null
 
-  // Mirror company `researchExploreResolved`: stay loading until trades paint or hunt finishes.
-  const investorDossierResolved =
-    investorCaseTradeCount > 0 ||
-    (investorFeedsSettled &&
-      !investorModeLoadingMore &&
-      (exploreInvestorDossier?.fromFeed ||
-        investorFeedExpandCount >= 6 ||
-        !investorModeHasMore))
-
-  const investorCaseRowsLoading =
+  // Like company explore: stay in Loading until the actor has a real multi-trade
+  // payload (or the feed hunt is exhausted). A single +$1 stub must not finish early.
+  const investorStillHunting =
     backendUp &&
     exploreSubview === 'investorDetail' &&
-    investorCaseTradeCount === 0 &&
-    !investorDossierResolved
+    (!investorFeedsSettled ||
+      investorModeFeedPending ||
+      investorModeLoadingMore ||
+      (investorCaseTradeCount < 5 &&
+        investorFeedExpandCount < 6 &&
+        investorModeHasMore))
 
-  // If the investor isn't in the first feed page yet, keep paging until found or exhausted.
+  const investorCaseRowsLoading = Boolean(investorStillHunting)
+
+  useEffect(() => {
+    const slug = terminalRoute.investorSlug
+    if (!slug || investorStillHunting) return
+    if (!(effectiveActorRow?.transactions?.length > 0)) return
+    writeInvestorDossierCache(
+      slug,
+      effectiveActorRow,
+      effectiveActorRow.source || exploreInvestorDossier?.mode || investigateMode,
+    )
+  }, [
+    terminalRoute.investorSlug,
+    investorStillHunting,
+    effectiveActorRow,
+    exploreInvestorDossier?.mode,
+    investigateMode,
+  ])
+
+  // Keep paging while the dossier is open — do not stop after the first thin match.
   useEffect(() => {
     if (!backendUp || exploreSubview !== 'investorDetail') return
-    if (investorCaseTradeCount > 0) return
     if (investorFeedExpandCount >= 6) return
     if (investorModeFeedPending || investorModeLoadingMore) return
     if (!investorModeHasMore) return
@@ -11281,7 +11287,6 @@ function KensiglineTerminal() {
     exploreSubview,
     exploreInvestorDossier?.mode,
     investorDossierMode,
-    investorCaseTradeCount,
     investorFeedExpandCount,
     investorModeFeedPending,
     investorModeLoadingMore,
@@ -11290,6 +11295,24 @@ function KensiglineTerminal() {
     loadMoreInstitutionsFeed,
     loadMoreInsiderFeed,
   ])
+
+  // When feed aggregation grows past a thin focus/stub, promote the richer actor.
+  useEffect(() => {
+    if (!backendUp || exploreSubview !== 'investorDetail') return
+    const slug = terminalRoute.investorSlug
+    if (!slug) return
+    const hit = findExploreInvestorInFeeds(slug, exploreActorFeeds)
+    if (!hit?.row?.transactions?.length) return
+    const nextN = hit.row.transactions.length
+    setExploreInvestorFocus((prev) => {
+      if (prev?.slug !== slug) {
+        return { slug, mode: hit.mode, actorRow: hit.row }
+      }
+      const prevN = prev?.actorRow?.transactions?.length ?? 0
+      if (nextN <= prevN) return prev
+      return { slug, mode: hit.mode, actorRow: hit.row }
+    })
+  }, [backendUp, exploreSubview, terminalRoute.investorSlug, exploreActorFeeds])
 
   const investigateCaseSelectedTrade = useMemo(() => {
     if (investigateIsPoliticians) {
@@ -11803,9 +11826,6 @@ function KensiglineTerminal() {
         flows: contextFlowRows,
         trackedRow: row,
       })
-      if (actorRow?.transactions?.length) {
-        writeInvestorDossierCache(slug, actorRow, hit?.mode ?? preferredMode)
-      }
       setDeepResearchMode('investor')
       setExploreInvestorFocus({
         slug,

@@ -142,7 +142,18 @@ export function resolveExploreInvestorDossier({
   const focusN = focusOk ? focus.actorRow.transactions?.length ?? 0 : 0
   const cachedN = cachedOk ? cached.actorRow.transactions.length : 0
 
-  if (feedHit && feedN >= focusN && feedN >= cachedN && feedN > 0) {
+  // Always prefer the richest live feed aggregation when it beats focus/cache.
+  if (feedHit && feedN > 0 && feedN >= focusN && feedN >= cachedN) {
+    return {
+      slug,
+      mode: feedHit.mode,
+      index: feedHit.index,
+      actorRow: feedHit.row,
+      fromFeed: true,
+    }
+  }
+
+  if (feedHit && feedN > focusN) {
     return {
       slug,
       mode: feedHit.mode,

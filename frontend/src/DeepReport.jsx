@@ -1519,11 +1519,12 @@ export function DeepActorReport({
     [caseRows],
   )
   const sectionsLoading = Boolean(caseRowsLoading)
-  const showSectionLoading = sectionsLoading && !tradeRows.length
+  // While hunting, hide thin stub trades — same as company dossier waiting on explore.
+  const showSectionLoading = sectionsLoading
 
   const rangedTradeRows = useMemo(
-    () => filterTrackTradesByRange(tradeRows, chartRange),
-    [tradeRows, chartRange],
+    () => (showSectionLoading ? [] : filterTrackTradesByRange(tradeRows, chartRange)),
+    [tradeRows, chartRange, showSectionLoading],
   )
 
   const trackRecord = useMemo(
@@ -1542,6 +1543,7 @@ export function DeepActorReport({
         : null
 
   const companies = useMemo(() => {
+    if (showSectionLoading) return []
     const map = new Map()
     for (const r of tradeRows) {
       const tick = String(r.ticker ?? '').trim().toUpperCase()
@@ -1563,7 +1565,7 @@ export function DeepActorReport({
       if (when) prev.lastDate = when
     }
     return [...map.values()].sort((a, b) => b.tradeCount - a.tradeCount || a.ticker.localeCompare(b.ticker))
-  }, [tradeRows])
+  }, [tradeRows, showSectionLoading])
 
   if (!name) {
     return (
