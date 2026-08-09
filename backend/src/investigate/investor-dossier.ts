@@ -298,7 +298,7 @@ async function loadFromStructuredTables(slug: string, mode: InvestorMode, limit:
   return out;
 }
 
-/** Prefer feed_ticker_latest summaries (worksheet rows) — one query, no N cluster fan-out. */
+/** Prefer structured tables first; feed index only if thin (and never summary::text ILIKE). */
 async function loadFromFeedIndex(slug: string, mode: InvestorMode, limit: number): Promise<{
   txns: ActorTxn[];
   displayName: string | null;
@@ -318,12 +318,26 @@ async function loadFromFeedIndex(slug: string, mode: InvestorMode, limit: number
       f.summary->'worksheet_rows' AS ws
     FROM feed_ticker_latest f
     WHERE f.feed_kind = $1
-      AND f.summary::text ILIKE $2
+      AND EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(COALESCE(f.summary->'worksheet_rows', '[]'::jsonb)) AS elem
+        WHERE lower(
+          COALESCE(
+            elem->>'key',
+            elem->>'insider_name',
+            elem->>'institution_name',
+            elem->>'politician_name',
+            elem->>'person',
+            elem->>'filer',
+            ''
+          )
+        ) LIKE $2
+      )
     ORDER BY f.feed_at DESC NULLS LAST
     LIMIT $3
     `,
-    [mode, like, Math.min(80, Math.max(20, limit))],
-    12_000,
+    [mode, like.toLowerCase(), Math.min(40, Math.max(12, limit))],
+    8_000,
   );
 
   const txns: ActorTxn[] = [];
@@ -471,19 +485,30 @@ function parseMode(raw: string | null | undefined): InvestorMode | null {
 }
 
 async function loadMode(slug: string, mode: InvestorMode, limit: number) {
-  // Feed index first (worksheet + ranges); structured tables fill gaps.
-  const fromIndex = await loadFromFeedIndex(slug, mode, limit);
-  let txns = fromIndex.txns;
-  if (txns.length < 8) {
-    const extra = await loadFromStructuredTables(slug, mode, limit);
-    txns = dedupeTxns([...txns, ...extra]);
+  // Structured tables first (indexed name columns). Feed index only if thin —
+  // never scan summary::text (that was timing out dossiers under pool pressure).
+  const fromTables = await loadFromStructuredTables(slug, mode, limit);
+  let txns = fromTables;
+  let displayName: string | null =
+    fromTables[0]?.sheetRow?.person != null
+      ? String(fromTables[0].sheetRow.person)
+      : fromTables[0]?.sheetRow?.politician_name != null
+        ? String(fromTables[0].sheetRow.politician_name)
+        : fromTables[0]?.sheetRow?.institution_name != null
+          ? String(fromTables[0].sheetRow.institution_name)
+          : null;
+
+  if (txns.length < 6) {
+    const fromIndex = await loadFromFeedIndex(slug, mode, limit);
+    txns = dedupeTxns([...txns, ...fromIndex.txns]);
+    displayName = displayName || fromIndex.displayName;
   } else {
     txns = dedupeTxns(txns);
   }
   return {
     mode,
     txns: txns.slice(0, limit),
-    displayName: fromIndex.displayName,
+    displayName,
   };
 }
 

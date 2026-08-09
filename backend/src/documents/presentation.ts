@@ -44,7 +44,7 @@ function formatUsdCompact(n: number) {
 
 async function loadSourceRefs(ticker: string): Promise<ResearchSourceRef[]> {
   const t = ticker.trim().toUpperCase();
-  const rows = await db.query<{ url: string; source_key: string | null; title: string | null }>(
+  const rows = await db.queryApi<{ url: string; source_key: string | null; title: string | null }>(
     `
     SELECT url, source_key, title
     FROM documents
@@ -57,6 +57,7 @@ async function loadSourceRefs(ticker: string): Promise<ResearchSourceRef[]> {
     LIMIT 24
     `,
     [t],
+    5_000,
   );
   const seen = new Set<string>();
   const out: ResearchSourceRef[] = [];
@@ -74,30 +75,32 @@ async function loadSourceRefs(ticker: string): Promise<ResearchSourceRef[]> {
 export async function buildResearchPresentation(ticker: string): Promise<ExplorePresentation> {
   const t = ticker.trim().toUpperCase();
 
-  const [companyRow, documents, insiderAgg, polAgg, sources] = await Promise.all([
-    db.one<{ name: string | null }>(
-      `SELECT name FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
-      [t],
-    ),
-    loadPaperDocumentsForTicker(t),
-    db.one<{ n: string; usd: string | null }>(
-      `
+  // Sequential — parallel checkouts here stampede the pooler during dossier open.
+  const companyRow = await db.oneApi<{ name: string | null }>(
+    `SELECT name FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
+    [t],
+    5_000,
+  );
+  const documents = await loadPaperDocumentsForTicker(t, 40);
+  const insiderAgg = await db.oneApi<{ n: string; usd: string | null }>(
+    `
       SELECT COUNT(*)::text AS n, SUM(amount_usd)::text AS usd
       FROM insider_transactions
       WHERE ticker = $1 AND transaction_at >= now() - interval '90 days'
       `,
-      [t],
-    ),
-    db.one<{ n: string; usd: string | null }>(
-      `
+    [t],
+    5_000,
+  );
+  const polAgg = await db.oneApi<{ n: string; usd: string | null }>(
+    `
       SELECT COUNT(*)::text AS n, SUM(amount_usd_mid)::text AS usd
       FROM politician_transactions
       WHERE ticker = $1 AND transaction_at >= now() - interval '180 days'
       `,
-      [t],
-    ),
-    loadSourceRefs(t),
-  ]);
+    [t],
+    5_000,
+  );
+  const sources = await loadSourceRefs(t);
 
   const name = String(companyRow?.name ?? t).trim() || t;
   const recentDocs = documents.slice(0, 6);

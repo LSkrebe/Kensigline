@@ -485,7 +485,7 @@ export async function loadFilings13fForTicker(ticker: string, limit = 40) {
 
 export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): Promise<PaperDocumentRow[]> {
   const t = ticker.trim().toUpperCase();
-  const rows = await db.query<{
+  const rows = await db.queryApi<{
     id: string;
     source_key: string | null;
     event_at: string | null;
@@ -512,6 +512,7 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
     LIMIT $2
     `,
     [t, limit],
+    8_000,
   );
 
   return rows.map((r) => {

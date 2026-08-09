@@ -10199,17 +10199,19 @@ function KensiglineTerminal() {
     let alive = true
     async function run() {
       if (!backendUp) return
+      // Dossier opens need the pool — don't compete with a heavy stats aggregate.
+      if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
       const r = await fetchJsonSafe('/api/stats', { timeoutMs: 3500 })
       if (!alive) return
       if (r.ok && r.data?.ok) setBackendStats(r.data)
     }
     run()
-    const t = setInterval(run, 30_000)
+    const t = setInterval(run, 60_000)
     return () => {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp])
+  }, [backendUp, exploreSubview])
 
   useEffect(() => {
     if (backendUp) return
@@ -11538,7 +11540,7 @@ function KensiglineTerminal() {
     void (async () => {
       const qs = new URLSearchParams({ slug })
       if (modeHint) qs.set('mode', String(modeHint))
-      const r = await fetchJsonSafe(`/api/dossier/investor?${qs}`, { timeoutMs: 18_000 })
+      const r = await fetchJsonSafe(`/api/dossier/investor?${qs}`, { timeoutMs: 12_000 })
       if (!alive || investorBoostGenRef.current !== gen) return
       const actor = r.data?.actor
       if (r.ok && actor?.transactions?.length) {

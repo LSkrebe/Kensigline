@@ -226,12 +226,28 @@ const server = http.createServer(async (req, res) => {
       const since =
         sinceRaw && !Number.isNaN(Date.parse(sinceRaw)) ? new Date(sinceRaw).toISOString() : null;
 
-      const queueRows = await db.query<{ status: string; count: string }>(
+      // Cheap warm cache — stats is heavy and was competing with dossier opens every 30s.
+      const statsCacheKey = since ?? "__live__";
+      const statsCached = (globalThis as any).__kensiglineStatsCache as
+        | Map<string, { at: number; body: Record<string, unknown> }>
+        | undefined;
+      const cacheMap: Map<string, { at: number; body: Record<string, unknown> }> =
+        statsCached ?? new Map();
+      (globalThis as any).__kensiglineStatsCache = cacheMap;
+      const hit = cacheMap.get(statsCacheKey);
+      if (hit && Date.now() - hit.at < 45_000 && !since) {
+        sendJson(res, 200, { ...hit.body, uptime_s });
+        return;
+      }
+
+      const queueRows = await db.queryApi<{ status: string; count: string }>(
         `
         SELECT status::text AS status, COUNT(*)::text AS count
         FROM document_queue
         GROUP BY status
         `,
+        [],
+        6_000,
       );
       const by_status: Record<string, number> = {};
       for (const r of queueRows) by_status[String(r.status)] = Number(r.count) || 0;
@@ -374,7 +390,7 @@ const server = http.createServer(async (req, res) => {
 
       const llm_rate = with_meta > 0 ? Number((llm_used / with_meta).toFixed(6)) : 0;
 
-      sendJson(res, 200, {
+      const statsBody = {
         ok: true,
         uptime_s,
         // Back-compat for top bar
@@ -410,7 +426,9 @@ const server = http.createServer(async (req, res) => {
           dead_skipped_since: Number(coverage?.dead_skipped_since ?? 0) || 0,
           dead_failed_since: Number(coverage?.dead_failed_since ?? 0) || 0,
         },
-      });
+      };
+      if (!since) cacheMap.set(statsCacheKey, { at: Date.now(), body: statsBody });
+      sendJson(res, 200, statsBody);
       return;
     }
 
