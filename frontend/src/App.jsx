@@ -68,6 +68,7 @@ import {
   fetchFeedPage,
   persistFeedCache,
 } from './feedLoad.js'
+import { readFeedCache } from './feedCache.js'
 import { readInvestorDossierCache, writeInvestorDossierCache } from './investorDossierCache.js'
 import { EventBriefAnalysis } from './EventBrief.jsx'
 import { politicianCommitteeFromRow } from './politicianCommittees.js'
@@ -9639,8 +9640,9 @@ function KensiglineTerminal() {
   const researchExploreResolved = useMemo(() => {
     if (!backendUp || !researchTick) return null
     if (researchExploreTicker !== researchTick || !researchExploreLive) return null
-    // ok:false means soft failure / still retrying — keep dossier sections in loading state.
+    // Soft failure / exhausted stub — keep dossier sections in loading (or retrying).
     if (researchExploreLive.ok === false) return null
+    if (researchExploreLive._exploreExhausted) return null
     return researchExploreLive
   }, [backendUp, researchTick, researchExploreTicker, researchExploreLive])
 
@@ -10361,16 +10363,15 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
-    // Keep explore warm on investor pages when a company ticker is still in scope
-    // (company → investor enrichment). Only skip cold investor URLs with no ticker.
-    if (exploreSubview === 'investorDetail' && !researchTick) return
+    // Company dossier only — never contend with investor feed boosts.
+    if (exploreSubview !== 'companyDetail') return
     const tick = researchTick
     if (!tick) return
     let alive = true
     const gen = ++researchExploreFetchGenRef.current
 
     const cachedExplore = researchExploreCacheRef.current.get(tick)
-    if (cachedExplore?.ok) {
+    if (cachedExplore?.ok && !cachedExplore._exploreExhausted) {
       setResearchExploreLive(cachedExplore)
       setResearchExploreTicker(tick)
     } else {
@@ -10385,11 +10386,9 @@ function KensiglineTerminal() {
     }
 
     async function run() {
-      let last = null
-      for (let attempt = 0; attempt < 2; attempt += 1) {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
         if (!alive || researchExploreFetchGenRef.current !== gen) return
         const r = await fetchExploreOnce()
-        last = r
         const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
         if (r.ok && r.data?.ok && respTicker === tick) {
           researchExploreCacheRef.current.set(tick, r.data)
@@ -10397,7 +10396,6 @@ function KensiglineTerminal() {
           setResearchExploreTicker(tick)
           return
         }
-        // Soft failure with usable partial payload (flows/docs) — accept it.
         const softDocs = Array.isArray(r.data?.presentation?.documents)
           ? r.data.presentation.documents.length
           : 0
@@ -10413,45 +10411,45 @@ function KensiglineTerminal() {
           setResearchExploreTicker(tick)
           return
         }
-        if (attempt < 1) await new Promise((resolve) => setTimeout(resolve, 500))
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 800))
       }
       if (!alive || researchExploreFetchGenRef.current !== gen) return
       const prior = researchExploreCacheRef.current.get(tick)
-      if (prior?.ok) {
+      if (prior?.ok && !prior._exploreExhausted) {
         setResearchExploreLive(prior)
         setResearchExploreTicker(tick)
         return
       }
-      // Confirmed miss — show empty without caching.
-      const soft = last?.data && typeof last.data === 'object' ? last.data : null
+      // Keep loading — never settle empty ok:true (that caused empty→reload).
       setResearchExploreLive({
-        ok: true,
+        ok: false,
         ticker: tick,
-        company_name: soft?.company_name ?? tick,
-        presentation: soft?.presentation ?? {
-          title: `${tick}`,
-          subtitle: tick,
-          blocks: [],
-          explainer: [],
-          sources: [],
-          documents: [],
-        },
-        flows: soft?.flows ?? { insiders: [], politicians: [], filings13f: [] },
-        tracked_investors: Array.isArray(soft?.tracked_investors) ? soft.tracked_investors : [],
-        _exploreExhausted: true,
+        _exploreRetrying: true,
       })
       setResearchExploreTicker(tick)
     }
     run().catch(() => {
       if (!alive || researchExploreFetchGenRef.current !== gen) return
       const prior = researchExploreCacheRef.current.get(tick)
-      if (prior?.ok) {
+      if (prior?.ok && !prior._exploreExhausted) {
         setResearchExploreLive(prior)
+        setResearchExploreTicker(tick)
+      } else {
+        setResearchExploreLive({ ok: false, ticker: tick, _exploreRetrying: true })
         setResearchExploreTicker(tick)
       }
     })
+
+    const retry = setInterval(() => {
+      if (!alive || researchExploreFetchGenRef.current !== gen) return
+      const cur = researchExploreCacheRef.current.get(tick)
+      if (cur?.ok && !cur._exploreExhausted) return
+      void run()
+    }, 8_000)
+
     return () => {
       alive = false
+      clearInterval(retry)
     }
   }, [backendUp, researchTick, exploreSubview])
 
@@ -11270,13 +11268,20 @@ function KensiglineTerminal() {
   const investorBoostDone =
     Boolean(terminalRoute.investorSlug) && investorBoostDoneForSlug === terminalRoute.investorSlug
 
-  // Company-style: paint from cache immediately; only spin when cold with nothing to show.
+  const investorHuntExhausted =
+    investorBoostDone &&
+    !investorModeFeedPending &&
+    !investorModeLoadingMore &&
+    (investorFeedExpandCount >= 2 || !investorModeHasMore)
+
+  // Keep loading until rich trades/cache exist, or the parallel boost + follow-ups finish.
+  // Never end on boostDone alone (that painted empty/+ $1 stubs).
   const investorCaseRowsLoading =
     backendUp &&
     exploreSubview === 'investorDetail' &&
     !investorHasPaintableTrades &&
     !investorHasCachedPaint &&
-    !investorBoostDone
+    !investorHuntExhausted
 
   // Eager cache writes whenever we have real trades (survives reload like company explore).
   useEffect(() => {
@@ -11318,12 +11323,19 @@ function KensiglineTerminal() {
       setHasMore(Boolean(page.hasMore))
       offsetRef.current = page.nextOffset
       cursorRef.current = page.nextCursor
-      persistFeedCache(cacheKey, {
-        items: mapped,
-        hasMore: page.hasMore,
-        nextOffset: page.nextOffset,
-        nextCursor: page.nextCursor,
-      })
+      // Never overwrite a richer session feed cache with a thinner boost page.
+      if (mapped.length) {
+        const prior = readFeedCache(cacheKey)
+        const priorN = Array.isArray(prior?.items) ? prior.items.length : 0
+        if (mapped.length >= priorN) {
+          persistFeedCache(cacheKey, {
+            items: mapped,
+            hasMore: page.hasMore,
+            nextOffset: page.nextOffset,
+            nextCursor: page.nextCursor,
+          })
+        }
+      }
     }
 
     void (async () => {

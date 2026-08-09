@@ -7,12 +7,17 @@ export const FEED_BACKGROUND_REFRESH_MS = 45_000
 
 export function applyFeedCache(cacheKey, apply) {
   const hit = readFeedCache(cacheKey)
-  if (!hit?.items) return null
+  // Reject empty / missing — empty session cache caused false "loaded" empties.
+  if (!hit || !Array.isArray(hit.items) || !hit.items.length) return null
   apply(hit)
   return hit
 }
 
 export function persistFeedCache(cacheKey, payload) {
+  if (!payload || !Array.isArray(payload.items) || !payload.items.length) return
+  const prior = readFeedCache(cacheKey)
+  const priorN = Array.isArray(prior?.items) ? prior.items.length : 0
+  if (payload.items.length < priorN) return
   writeFeedCache(cacheKey, payload)
 }
 
