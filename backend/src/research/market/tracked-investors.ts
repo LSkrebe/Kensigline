@@ -76,7 +76,7 @@ export async function getTrackedInvestorsForTicker(
       FROM insider_transactions
       WHERE ticker = $1
       ORDER BY transaction_at DESC
-      LIMIT 500
+      LIMIT 120
       `,
       [t],
     ),
@@ -91,7 +91,7 @@ export async function getTrackedInvestorsForTicker(
       FROM politician_transactions
       WHERE ticker = $1
       ORDER BY transaction_at DESC
-      LIMIT 500
+      LIMIT 120
       `,
       [t],
     ),
@@ -106,7 +106,7 @@ export async function getTrackedInvestorsForTicker(
       FROM institution_filings_13f
       WHERE ticker = $1
       ORDER BY filed_at DESC
-      LIMIT 500
+      LIMIT 120
       `,
       [t],
     ),

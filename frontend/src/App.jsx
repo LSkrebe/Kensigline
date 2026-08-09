@@ -10485,6 +10485,8 @@ function KensiglineTerminal() {
     if (!tick) return
     let alive = true
     const gen = ++researchExploreFetchGenRef.current
+    let inFlight = false
+    let rounds = 0
 
     const memCached = researchExploreCacheRef.current.get(tick)
     const sessionCached = readExploreSession(tick)
@@ -10506,7 +10508,7 @@ function KensiglineTerminal() {
 
     async function fetchExploreOnce() {
       return fetchJsonSafe(`/api/research/explore?ticker=${encodeURIComponent(tick)}`, {
-        timeoutMs: 22_000,
+        timeoutMs: 18_000,
       })
     }
 
@@ -10521,37 +10523,44 @@ function KensiglineTerminal() {
     }
 
     async function run() {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (!alive || researchExploreFetchGenRef.current !== gen || inFlight) return
+      if (explorePayloadHasContent(researchExploreCacheRef.current.get(tick))) return
+      inFlight = true
+      rounds += 1
+      try {
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          if (!alive || researchExploreFetchGenRef.current !== gen) return
+          const r = await fetchExploreOnce()
+          const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
+          if (r.ok && r.data && respTicker === tick && explorePayloadHasContent(r.data)) {
+            acceptExplore(r.data)
+            return
+          }
+          if (attempt < 1) await new Promise((resolve) => setTimeout(resolve, 500))
+        }
         if (!alive || researchExploreFetchGenRef.current !== gen) return
-        const r = await fetchExploreOnce()
-        const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
-        if (r.ok && r.data && respTicker === tick && explorePayloadHasContent(r.data)) {
-          acceptExplore(r.data)
+        const prior = researchExploreCacheRef.current.get(tick)
+        if (explorePayloadHasContent(prior)) {
+          setResearchExploreLive(prior)
+          setResearchExploreTicker(tick)
           return
         }
-        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 700))
-      }
-      if (!alive || researchExploreFetchGenRef.current !== gen) return
-      const prior = researchExploreCacheRef.current.get(tick)
-      if (explorePayloadHasContent(prior)) {
-        setResearchExploreLive(prior)
+        const session = readExploreSession(tick)
+        if (explorePayloadHasContent(session)) {
+          researchExploreCacheRef.current.set(tick, session)
+          setResearchExploreLive(session)
+          setResearchExploreTicker(tick)
+          return
+        }
+        setResearchExploreLive({
+          ok: false,
+          ticker: tick,
+          _exploreRetrying: true,
+        })
         setResearchExploreTicker(tick)
-        return
+      } finally {
+        inFlight = false
       }
-      const session = readExploreSession(tick)
-      if (explorePayloadHasContent(session)) {
-        researchExploreCacheRef.current.set(tick, session)
-        setResearchExploreLive(session)
-        setResearchExploreTicker(tick)
-        return
-      }
-      // Keep loading + retry — never settle empty (that forced hard reloads).
-      setResearchExploreLive({
-        ok: false,
-        ticker: tick,
-        _exploreRetrying: true,
-      })
-      setResearchExploreTicker(tick)
     }
     run().catch(() => {
       if (!alive || researchExploreFetchGenRef.current !== gen) return
@@ -10565,12 +10574,19 @@ function KensiglineTerminal() {
       }
     })
 
+    // At most a few spaced retries — never stack overlapping explore calls.
     const retry = setInterval(() => {
       if (!alive || researchExploreFetchGenRef.current !== gen) return
-      const cur = researchExploreCacheRef.current.get(tick)
-      if (explorePayloadHasContent(cur)) return
+      if (explorePayloadHasContent(researchExploreCacheRef.current.get(tick))) {
+        clearInterval(retry)
+        return
+      }
+      if (rounds >= 4) {
+        clearInterval(retry)
+        return
+      }
       void run()
-    }, 5_000)
+    }, 7_000)
 
     return () => {
       alive = false
@@ -10580,6 +10596,8 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
+    // Company dossier must not compete with explore for the DB pool.
+    if (exploreSubview === 'companyDetail') return
     let alive = true
     const cacheKey = 'investigate:insider:company:30'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10651,7 +10669,7 @@ function KensiglineTerminal() {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp])
+  }, [backendUp, exploreSubview])
 
   const loadMoreInsiderFeed = useCallback(async () => {
     if (!backendUp || insiderFeedLoadingMore || !insiderFeedHasMore) return
@@ -10674,6 +10692,7 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
+    if (exploreSubview === 'companyDetail') return
     let alive = true
     const cacheKey = 'investigate:institutions:60'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10742,7 +10761,7 @@ function KensiglineTerminal() {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp])
+  }, [backendUp, exploreSubview])
 
   const loadMoreInstitutionsFeed = useCallback(async () => {
     if (!backendUp || institutionsFeedLoadingMore || !institutionsFeedHasMore) return
@@ -10765,6 +10784,7 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
+    if (exploreSubview === 'companyDetail') return
     let alive = true
     const cacheKey = 'investigate:politicians:30'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10833,7 +10853,7 @@ function KensiglineTerminal() {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp])
+  }, [backendUp, exploreSubview])
 
   const loadMorePoliticiansFeed = useCallback(async () => {
     if (!backendUp || politiciansFeedLoadingMore || !politiciansFeedHasMore) return

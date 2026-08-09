@@ -74,31 +74,33 @@ async function loadSourceRefs(ticker: string): Promise<ResearchSourceRef[]> {
 export async function buildResearchPresentation(ticker: string): Promise<ExplorePresentation> {
   const t = ticker.trim().toUpperCase();
 
-  const companyRow = await db.one<{ name: string | null }>(
-    `SELECT name FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
-    [t],
-  );
+  const [companyRow, documents, insiderAgg, polAgg, sources] = await Promise.all([
+    db.one<{ name: string | null }>(
+      `SELECT name FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
+      [t],
+    ),
+    loadPaperDocumentsForTicker(t),
+    db.one<{ n: string; usd: string | null }>(
+      `
+      SELECT COUNT(*)::text AS n, SUM(amount_usd)::text AS usd
+      FROM insider_transactions
+      WHERE ticker = $1 AND transaction_at >= now() - interval '90 days'
+      `,
+      [t],
+    ),
+    db.one<{ n: string; usd: string | null }>(
+      `
+      SELECT COUNT(*)::text AS n, SUM(amount_usd_mid)::text AS usd
+      FROM politician_transactions
+      WHERE ticker = $1 AND transaction_at >= now() - interval '180 days'
+      `,
+      [t],
+    ),
+    loadSourceRefs(t),
+  ]);
+
   const name = String(companyRow?.name ?? t).trim() || t;
-
-  const documents = await loadPaperDocumentsForTicker(t);
   const recentDocs = documents.slice(0, 6);
-
-  const insiderAgg = await db.one<{ n: string; usd: string | null }>(
-    `
-    SELECT COUNT(*)::text AS n, SUM(amount_usd)::text AS usd
-    FROM insider_transactions
-    WHERE ticker = $1 AND transaction_at >= now() - interval '90 days'
-    `,
-    [t],
-  );
-  const polAgg = await db.one<{ n: string; usd: string | null }>(
-    `
-    SELECT COUNT(*)::text AS n, SUM(amount_usd_mid)::text AS usd
-    FROM politician_transactions
-    WHERE ticker = $1 AND transaction_at >= now() - interval '180 days'
-    `,
-    [t],
-  );
 
   const title =
     recentDocs[0]?.analysis?.trim() || recentDocs[0]?.source
@@ -141,8 +143,6 @@ export async function buildResearchPresentation(ticker: string): Promise<Explore
     { type: "paragraph", text: signalPara },
     { type: "paragraph", text: flowPara },
   ];
-
-  const sources = await loadSourceRefs(t);
 
   return {
     title,

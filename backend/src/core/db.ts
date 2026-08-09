@@ -53,7 +53,7 @@ const connectTimeoutMs = Math.max(2_000, Number(process.env.DATABASE_CONNECT_TIM
 const idleTimeoutMs = Math.max(5_000, Number(process.env.DATABASE_IDLE_TIMEOUT_MS ?? 30_000) || 30_000);
 
 /** Interactive API / billing — kept separate so ingest workers cannot starve sign-in. */
-const apiPoolMax = Math.max(2, Math.min(12, Number(process.env.DATABASE_POOL_MAX ?? 4) || 4));
+const apiPoolMax = Math.max(2, Math.min(16, Number(process.env.DATABASE_POOL_MAX ?? 8) || 8));
 /** Background ingest / parse / outcomes — capped independently. */
 const workerPoolMax = Math.max(
   1,
