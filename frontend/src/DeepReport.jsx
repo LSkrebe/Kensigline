@@ -781,7 +781,15 @@ function DeepBusinessDriversSnapshot({ model }) {
   }
 
   return (
-    <div className="drpt-driverGrid">
+    <div
+      className={['drpt-driverGrid', cards.length === 1 ? 'drpt-driverGrid--count1' : '']
+        .filter(Boolean)
+        .join(' ')}
+      style={{
+        // Equal-height rows so N cards always fill the section beside Documents.
+        gridTemplateRows: `repeat(${Math.max(1, Math.ceil(cards.length / (cards.length === 1 ? 1 : 2)))}, minmax(0, 1fr))`,
+      }}
+    >
       {cards.map((card) => (
         <div className="drpt-driverCard" key={card.key}>
           <span className="drpt-metricLabel">{card.label}</span>

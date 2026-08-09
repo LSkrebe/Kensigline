@@ -818,10 +818,12 @@
 }
 
 .drpt-row--model > .drpt-section > .drpt-driverGrid {
-  align-content: start;
-  grid-auto-rows: auto;
-  height: auto;
+  flex: 1 1 auto;
+  align-content: stretch;
+  align-items: stretch;
+  grid-auto-rows: 1fr;
   min-height: 220px;
+  height: 100%;
   border: none;
   background: transparent;
   padding: 0;
@@ -853,6 +855,11 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   flex: 1 1 auto;
+  min-height: 0;
+}
+
+.drpt-driverGrid--count1 {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .drpt-driverCard {
@@ -862,7 +869,9 @@
   padding: 12px 14px;
   border: 1px solid var(--drpt-border);
   background: rgba(255, 255, 255, 0.02);
-  min-height: 88px;
+  min-height: 0;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .drpt-driverTrail {
