@@ -60,14 +60,14 @@ const workerPoolMax = Math.max(
   Math.min(32, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 1) || 1),
 );
 /**
- * Global cap on concurrent worker *jobs* that opt into runWithWorkerDb.
- * WORKER_DB_UNTHROTTLED=1 disables the gate (parse/backfill run fully parallel).
- * Default 1 keeps Auth healthy when users are on the product.
+ * Global cap on concurrent worker jobs that use runWithWorkerDb (enqueue/backfill/reclaim).
+ * Parse loops use withWorkerLane + PARSE_GLOBAL_CONCURRENCY instead (HTTP must not hold this gate).
  */
+const workerDbConcurrency = Math.max(
+  1,
+  Math.min(32, Number(process.env.WORKER_DB_CONCURRENCY ?? 1) || 1),
+);
 const workerDbUnthrottled = String(process.env.WORKER_DB_UNTHROTTLED ?? "").trim() === "1";
-const workerDbConcurrency = workerDbUnthrottled
-  ? Number.POSITIVE_INFINITY
-  : Math.max(1, Math.min(32, Number(process.env.WORKER_DB_CONCURRENCY ?? 1) || 1));
 
 function makePool(max: number, label: string): Pool {
   const p = new Pool({
@@ -89,8 +89,8 @@ const apiPool = makePool(apiPoolMax, "api");
 const workerPool = makePool(workerPoolMax, "worker");
 
 console.info(
-  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerDbConcurrency=${
-    workerDbUnthrottled ? "unthrottled" : workerDbConcurrency
+  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerDbConcurrency=${workerDbConcurrency}${
+    workerDbUnthrottled ? " parseUnthrottled=1" : ""
   }`,
 );
 
@@ -101,7 +101,7 @@ let workerInFlight = 0;
 const workerWaiters: Array<() => void> = [];
 
 async function acquireWorkerSlot(): Promise<void> {
-  if (workerDbUnthrottled || workerInFlight < workerDbConcurrency) {
+  if (workerInFlight < workerDbConcurrency) {
     workerInFlight += 1;
     return;
   }
