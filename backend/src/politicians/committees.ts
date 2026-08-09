@@ -44,6 +44,20 @@ export function normalizePoliticianNameKey(raw: string): string {
     .trim();
 }
 
+/** Strip honorifics ("The Honorable", Sen., Rep.) — keep the person's full name. */
+export function formatPoliticianDisplayName(raw: string | null | undefined): string {
+  let s = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!s) return "";
+  s = s.replace(/^(the\s+)?honou?rable\s+/i, "");
+  s = s.replace(
+    /^(hon\.?|sen\.?|senator|rep\.?|representative|congress(?:man|woman)|dr\.?|mr\.?|mrs\.?|ms\.?)\s+/i,
+    "",
+  );
+  return s.trim() || String(raw ?? "").trim();
+}
+
 function candidateNameKeys(raw: string): string[] {
   const s = String(raw ?? "").trim();
   if (!s) return [];

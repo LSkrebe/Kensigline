@@ -10,6 +10,7 @@ import {
   isPlaceholderInvestorName,
   isPlausibleTrackedFiler,
 } from "./tracked-investors-filter.js";
+import { formatPoliticianDisplayName } from "../../politicians/committees.js";
 
 export type TrackedInvestorType = "insider" | "politician" | "institution";
 
@@ -129,7 +130,7 @@ export async function getTrackedInvestorsForTicker(
     if (!sign) continue;
     const amt = row.amount_usd_mid != null ? Number(row.amount_usd_mid) : NaN;
     if (!Number.isFinite(amt) || amt <= 0) continue;
-    const name = String(row.politician_name ?? "").trim();
+    const name = formatPoliticianDisplayName(row.politician_name);
     if (!isPlausibleTrackedFiler(name, amt)) continue;
     const key = `politician|${slugKey(name)}`;
     pushAgg(map, key, name, "politician", sign * amt, row.transaction_at);

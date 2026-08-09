@@ -2383,17 +2383,31 @@ function aggregateContextInsiders(rows, days = null) {
     .sort((a, b) => Math.abs(b.totalUsd) - Math.abs(a.totalUsd))
 }
 
+function formatPoliticianDisplayName(raw) {
+  let s = String(raw ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+  if (!s) return ''
+  s = s.replace(/^(the\s+)?honou?rable\s+/i, '')
+  s = s.replace(
+    /^(hon\.?|sen\.?|senator|rep\.?|representative|congress(?:man|woman)|dr\.?|mr\.?|mrs\.?|ms\.?)\s+/i,
+    '',
+  )
+  return s.trim() || String(raw ?? '').trim()
+}
+
 function aggregateContextPoliticians(rows, days = null) {
   const map = new Map()
   for (const row of rows ?? []) {
     if (days != null && !isWithinPastDays(row.date, days)) continue
-    const id = String(row.name ?? '')
+    const name = formatPoliticianDisplayName(row.name)
+    if (!name) continue
     const usd = signedFlowUsd(row, politicianFlowSign)
     if (usd === 0) continue
     const at = flowRowDateMs(row.date)
     const code = politicianTxnCodeFromRaw(row.transactionType ?? row.transactionCode)
-    const prev = map.get(id) ?? {
-      name: row.name,
+    const prev = map.get(name) ?? {
+      name,
       chamber: row.chamber,
       totalUsd: 0,
       latestAt: 0,
@@ -2404,12 +2418,12 @@ function aggregateContextPoliticians(rows, days = null) {
       prev.latestAt = at
       prev.latestCode = code
     }
-    map.set(id, prev)
+    map.set(name, prev)
   }
   return [...map.values()]
     .map((x) => ({
       id: `politician|${x.name}`,
-      name: String(x.name ?? '').trim() || '—',
+      name: x.name,
       type: 'Politician',
       typeKey: 'politician',
       amount: formatTxnAmountUsd(x.totalUsd),
@@ -2495,9 +2509,19 @@ function mapTrackedInvestorsFromApi(rows) {
       const typeKey = r.type ?? r.typeKey ?? 'insider'
       const normalizedKey =
         typeKey === 'politician' ? 'politician' : typeKey === 'institution' ? 'institution' : 'insider'
-      const name = String(r.name ?? '').trim()
+      const name = formatPoliticianDisplayName(
+        normalizedKey === 'politician' ? r.name : String(r.name ?? '').trim(),
+      )
+      // Non-politicians: formatPoliticianDisplayName is a no-op for names without honorifics,
+      // but still trim — re-read raw for institutions/insiders to avoid accidental stripping.
+      const displayName =
+        normalizedKey === 'politician'
+          ? name
+          : String(r.name ?? '')
+              .trim()
+              .replace(/\s+/g, ' ')
       const totalUsd = Number(r.amountUsd ?? r.amount_usd ?? 0)
-      if (!isPlausibleTrackedFiler(name, Number.isFinite(totalUsd) ? totalUsd : null)) return null
+      if (!isPlausibleTrackedFiler(displayName, Number.isFinite(totalUsd) ? totalUsd : null)) return null
 
       // Prefer explicit codes, then reconcile against net signed USD so we never show BUY on −$14M.
       let code = String(
@@ -2546,8 +2570,8 @@ function mapTrackedInvestorsFromApi(rows) {
       }
 
       return {
-        id: r.id ?? `${typeKey}|${name}`,
-        name,
+        id: r.id ?? `${typeKey}|${displayName}`,
+        name: displayName,
         type: r.typeLabel ?? r.type_label ?? (normalizedKey === 'institution' ? 'Institution' : typeKey),
         typeKey: normalizedKey,
         source:
@@ -9345,6 +9369,8 @@ function KensiglineTerminal() {
   const researchExploreResolved = useMemo(() => {
     if (!backendUp || !researchTick) return null
     if (researchExploreTicker !== researchTick || !researchExploreLive) return null
+    // ok:false means soft failure / still retrying — keep dossier sections in loading state.
+    if (researchExploreLive.ok === false) return null
     return researchExploreLive
   }, [backendUp, researchTick, researchExploreTicker, researchExploreLive])
 
@@ -10032,7 +10058,7 @@ function KensiglineTerminal() {
     const gen = ++researchExploreFetchGenRef.current
 
     const cachedExplore = researchExploreCacheRef.current.get(tick)
-    if (cachedExplore) {
+    if (cachedExplore?.ok) {
       setResearchExploreLive(cachedExplore)
       setResearchExploreTicker(tick)
     } else {
@@ -10040,30 +10066,42 @@ function KensiglineTerminal() {
       setResearchExploreTicker(tick)
     }
 
-    async function run() {
-      const r = await fetchJsonSafe(`/api/research/explore?ticker=${encodeURIComponent(tick)}`, {
+    async function fetchExploreOnce() {
+      return fetchJsonSafe(`/api/research/explore?ticker=${encodeURIComponent(tick)}`, {
         timeoutMs: 25_000,
       })
-      if (!alive || researchExploreFetchGenRef.current !== gen) return
-      const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
-      if (r.ok && r.data?.ok && respTicker === tick) {
-        researchExploreCacheRef.current.set(tick, r.data)
-        setResearchExploreLive(r.data)
-        setResearchExploreTicker(tick)
-        return
+    }
+
+    async function run() {
+      let last = null
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        if (!alive || researchExploreFetchGenRef.current !== gen) return
+        const r = await fetchExploreOnce()
+        last = r
+        const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
+        if (r.ok && r.data?.ok && respTicker === tick) {
+          researchExploreCacheRef.current.set(tick, r.data)
+          setResearchExploreLive(r.data)
+          setResearchExploreTicker(tick)
+          return
+        }
+        // Soft failure (ok:false) or network — retry before showing empty.
+        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)))
       }
-      // Keep a prior good cache; never replace live dossier data with a fake empty stub.
+      if (!alive || researchExploreFetchGenRef.current !== gen) return
       const prior = researchExploreCacheRef.current.get(tick)
-      if (prior) {
+      if (prior?.ok) {
         setResearchExploreLive(prior)
         setResearchExploreTicker(tick)
         return
       }
+      // Confirmed miss after retries — show empty, but never cache failure stubs.
+      const soft = last?.data && typeof last.data === 'object' ? last.data : null
       setResearchExploreLive({
-        ok: false,
+        ok: true,
         ticker: tick,
-        company_name: tick,
-        presentation: {
+        company_name: soft?.company_name ?? tick,
+        presentation: soft?.presentation ?? {
           title: `${tick}`,
           subtitle: tick,
           blocks: [],
@@ -10071,35 +10109,19 @@ function KensiglineTerminal() {
           sources: [],
           documents: [],
         },
-        flows: { insiders: [], politicians: [], filings13f: [] },
-        tracked_investors: [],
+        flows: soft?.flows ?? { insiders: [], politicians: [], filings13f: [] },
+        tracked_investors: Array.isArray(soft?.tracked_investors) ? soft.tracked_investors : [],
+        _exploreExhausted: true,
       })
       setResearchExploreTicker(tick)
     }
     run().catch(() => {
       if (!alive || researchExploreFetchGenRef.current !== gen) return
       const prior = researchExploreCacheRef.current.get(tick)
-      if (prior) {
+      if (prior?.ok) {
         setResearchExploreLive(prior)
         setResearchExploreTicker(tick)
-        return
       }
-      setResearchExploreLive({
-        ok: false,
-        ticker: tick,
-        company_name: tick,
-        presentation: {
-          title: `${tick}`,
-          subtitle: tick,
-          blocks: [],
-          explainer: [],
-          sources: [],
-          documents: [],
-        },
-        flows: { insiders: [], politicians: [], filings13f: [] },
-        tracked_investors: [],
-      })
-      setResearchExploreTicker(tick)
     })
     return () => {
       alive = false

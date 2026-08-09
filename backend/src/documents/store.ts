@@ -9,7 +9,7 @@ import { invalidateAnalyseModelCache } from "../analyse/build-model.js";
 import { isPlausibleTrackedFiler } from "../research/market/tracked-investors-filter.js";
 import { parseEventTimeMs, sanitizeEventAtForFeed, FEED_FUTURE_GRACE_DAYS } from "../shared/document-activity-at.js";
 import { syncFeedIndexForDocument } from "../shared/feed-index.js";
-import { lookupPoliticianCommittee, lookupPoliticianCommittees } from "../politicians/committees.js";
+import { lookupPoliticianCommittee, lookupPoliticianCommittees, formatPoliticianDisplayName } from "../politicians/committees.js";
 import { isOlderThanRetentionWindow } from "../shared/ingest-policy.js";
 
 const GOV_LINK_THRESHOLD = () => Number(process.env.GOV_CONTRACT_LINK_THRESHOLD ?? 0.72);
@@ -306,7 +306,8 @@ async function loadPoliticianFlowsFromDocuments(ticker: string, limit = 80) {
       const at = r?.ts ? String(r.ts) : fallbackAt;
       if (!at) continue;
       const amt = r?.amount_usd_mid != null ? Number(r.amount_usd_mid) : null;
-      const name = String(r?.key ?? "Politician").trim() || "Politician";
+      const name = formatPoliticianDisplayName(String(r?.key ?? r?.politician_name ?? "").trim());
+      if (!name) continue;
       out.push({
         name,
         chamber: r?.chamber ? String(r.chamber).trim() : "house",
@@ -424,13 +425,17 @@ export async function loadPoliticianFlowsForTicker(ticker: string, limit = 80) {
   if (!rows.length) {
     const fromDocs = await loadPoliticianFlowsFromDocuments(t, limit);
     const committees = await lookupPoliticianCommittees(fromDocs.map((r) => r.name));
-    return fromDocs.map((r) => ({
-      ...r,
-      committee: r.committee || committees.get(r.name) || null,
-    }));
+    return fromDocs.map((r) => {
+      const name = formatPoliticianDisplayName(r.name);
+      return {
+        ...r,
+        name,
+        committee: r.committee || committees.get(r.name) || committees.get(name) || null,
+      };
+    });
   }
   return rows.map((r) => ({
-    name: r.politician_name,
+    name: formatPoliticianDisplayName(r.politician_name),
     chamber: r.chamber ?? "house",
     committee: r.committee ?? null,
     date: r.transaction_at,

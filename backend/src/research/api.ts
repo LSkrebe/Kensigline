@@ -123,6 +123,15 @@ function emptyExplorePayload(ticker: string, companyName?: string | null) {
   };
 }
 
+async function settledValue<T>(p: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await p;
+  } catch (err) {
+    console.warn("research_explore_part_failed", err);
+    return fallback;
+  }
+}
+
 export async function handleResearchExplore(res: http.ServerResponse, ticker: string) {
   const t = String(ticker ?? "").trim().toUpperCase();
   if (!t) {
@@ -139,18 +148,36 @@ export async function handleResearchExplore(res: http.ServerResponse, ticker: st
   } catch {
     secTitles = new Map();
   }
+  const companyName = resolveResearchFeedCompanyName(t, companyRow?.name, secTitles.get(t) ?? null);
+
   try {
-    const presentation = await buildResearchPresentation(t);
-    const [insiders, politicians, filings13f, tracked_investors] = await Promise.all([
-      loadInsiderFlowsForTicker(t),
-      loadPoliticianFlowsForTicker(t),
-      loadFilings13fForTicker(t),
-      getTrackedInvestorsForTicker(t),
+    // Never let one slow/flaky flow wipe the whole dossier — partial data is better than a fake empty ok:true.
+    const [presentation, insiders, politicians, filings13f, tracked_investors] = await Promise.all([
+      settledValue(buildResearchPresentation(t), null),
+      settledValue(loadInsiderFlowsForTicker(t), []),
+      settledValue(loadPoliticianFlowsForTicker(t), []),
+      settledValue(loadFilings13fForTicker(t), []),
+      settledValue(getTrackedInvestorsForTicker(t), []),
     ]);
+
+    if (!presentation) {
+      // Presentation is required for the paper shell; soft-empty only when the builder itself failed.
+      sendJson(res, 200, {
+        ok: false,
+        error: "explore_presentation_failed",
+        ticker: t,
+        company_name: companyName,
+        presentation: emptyExplorePayload(t, companyName).presentation,
+        flows: { insiders, politicians, filings13f },
+        tracked_investors,
+      });
+      return;
+    }
+
     sendJson(res, 200, {
       ok: true,
       ticker: t,
-      company_name: resolveResearchFeedCompanyName(t, companyRow?.name, secTitles.get(t) ?? null),
+      company_name: companyName,
       presentation,
       flows: { insiders, politicians, filings13f },
       tracked_investors,
@@ -158,8 +185,13 @@ export async function handleResearchExplore(res: http.ServerResponse, ticker: st
   } catch (err) {
     console.error("research_explore_failed", t, err);
     sendJson(res, 200, {
-      ...emptyExplorePayload(t, companyRow?.name),
-      company_name: resolveResearchFeedCompanyName(t, companyRow?.name, secTitles.get(t) ?? null),
+      ok: false,
+      error: "explore_failed",
+      ticker: t,
+      company_name: companyName,
+      presentation: emptyExplorePayload(t, companyName).presentation,
+      flows: { insiders: [], politicians: [], filings13f: [] },
+      tracked_investors: [],
     });
   }
 }
