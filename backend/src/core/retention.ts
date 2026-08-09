@@ -5,7 +5,7 @@
  * Exception: research docs that still carry business_drivers for Analyse may be kept
  * up to RETENTION_ANALYSE_EXTRA_DAYS past the main window (default 0 — same 2y).
  */
-import { db } from "../core/db.js";
+import { db, runWithWorkerDb } from "../core/db.js";
 import { backfillMaxAgeDays } from "../shared/ingest-policy.js";
 
 function envInt(key: string, fallback: number, min: number, max: number): number {
@@ -176,7 +176,7 @@ export function startRetentionWorker(): { stop(): void } {
   const tick = async () => {
     if (stopped) return;
     try {
-      const r = await runRetentionPurgeOnce();
+      const r = await runWithWorkerDb(() => runRetentionPurgeOnce());
       const touched =
         r.documents + r.bars + r.queue + r.cluster_snapshots + r.feed_ticker_latest + r.feed_market_latest;
       if (touched > 0) {

@@ -1,4 +1,4 @@
-import { db } from "../core/db.js";
+import { db, runWithWorkerDb } from "../core/db.js";
 import { actorModeLabel } from "./actor-key.js";
 import type { ActorAlertItem } from "./actor-email.js";
 import { sendCombinedContextEmail } from "./context-email.js";
@@ -209,7 +209,7 @@ export function startContextAlertsWorker() {
     if (String(process.env.ALERTS_ENABLED ?? "1").trim() === "0") return;
     running = true;
     try {
-      await runContextAlertsTick();
+      await runWithWorkerDb(() => runContextAlertsTick());
     } catch (e) {
       console.error("[alerts] context_tick_failed", e);
     } finally {

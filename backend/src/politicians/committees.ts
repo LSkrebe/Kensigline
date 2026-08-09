@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { db } from "../core/db.js";
+import { db, runWithWorkerDb } from "../core/db.js";
 
 const BASE = "https://unitedstates.github.io/congress-legislators";
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -373,7 +373,7 @@ export function startPoliticianCommitteeRefreshWorker(): { stop(): void } {
 
   const tick = () => {
     if (stopped) return;
-    void refreshPoliticianCommitteesIfStale().catch((err) => {
+    void runWithWorkerDb(() => refreshPoliticianCommitteesIfStale()).catch((err) => {
       console.warn("[politician-committees] refresh failed", err instanceof Error ? err.message : err);
     });
   };

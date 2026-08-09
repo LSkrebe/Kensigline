@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { Pool } from "pg";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -48,15 +49,52 @@ function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | und
   return undefined;
 }
 
-export const pool = new Pool({
-  connectionString: databaseUrl,
-  ssl: sslOption(databaseUrl),
-  // Keep well under Supabase pooler limits — workers share this one pool.
-  max: Math.max(2, Math.min(12, Number(process.env.DATABASE_POOL_MAX ?? 6) || 6)),
-  connectionTimeoutMillis: Math.max(2_000, Number(process.env.DATABASE_CONNECT_TIMEOUT_MS ?? 8_000) || 8_000),
-  idleTimeoutMillis: Math.max(5_000, Number(process.env.DATABASE_IDLE_TIMEOUT_MS ?? 30_000) || 30_000),
-  allowExitOnIdle: true,
-});
+const connectTimeoutMs = Math.max(2_000, Number(process.env.DATABASE_CONNECT_TIMEOUT_MS ?? 8_000) || 8_000);
+const idleTimeoutMs = Math.max(5_000, Number(process.env.DATABASE_IDLE_TIMEOUT_MS ?? 30_000) || 30_000);
+
+/** Interactive API / billing — kept separate so ingest workers cannot starve sign-in. */
+const apiPoolMax = Math.max(2, Math.min(12, Number(process.env.DATABASE_POOL_MAX ?? 4) || 4));
+/** Background ingest / parse / outcomes — capped independently. */
+const workerPoolMax = Math.max(
+  1,
+  Math.min(8, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 2) || 2),
+);
+
+function makePool(max: number, label: string): Pool {
+  const p = new Pool({
+    connectionString: databaseUrl,
+    ssl: sslOption(databaseUrl!),
+    max,
+    connectionTimeoutMillis: connectTimeoutMs,
+    idleTimeoutMillis: idleTimeoutMs,
+    // Never let idle pool clients alone decide process lifetime (HTTP server must stay up).
+    allowExitOnIdle: false,
+  });
+  p.on("error", (err) => {
+    console.error(`[db:${label}] idle client error`, err instanceof Error ? err.message : err);
+  });
+  return p;
+}
+
+const apiPool = makePool(apiPoolMax, "api");
+const workerPool = makePool(workerPoolMax, "worker");
+
+console.info(`[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax}`);
+
+type DbLane = "api" | "worker";
+const dbLane = new AsyncLocalStorage<DbLane>();
+
+/** Run background work on the worker pool so API keep-alive connections stay free. */
+export async function runWithWorkerDb<T>(fn: () => Promise<T> | T): Promise<T> {
+  return await dbLane.run("worker", fn);
+}
+
+function activePool(): Pool {
+  return dbLane.getStore() === "worker" ? workerPool : apiPool;
+}
+
+/** @deprecated Prefer activePool via db helpers; kept for scripts that import pool directly. */
+export const pool = apiPool;
 
 const DEFAULT_API_TIMEOUT_MS = Math.max(
   1_000,
@@ -67,7 +105,7 @@ async function withClientTimeout<T>(
   timeoutMs: number,
   fn: (client: { query: Pool["query"] }) => Promise<T>,
 ): Promise<T> {
-  const client = await pool.connect();
+  const client = await activePool().connect();
   try {
     const ms = Math.max(500, Math.floor(timeoutMs));
     await client.query(`SET LOCAL statement_timeout = ${ms}`);
@@ -79,11 +117,11 @@ async function withClientTimeout<T>(
 
 export const db = {
   async query<T = any>(text: string, params: any[] = []): Promise<T[]> {
-    const r = await pool.query(text, params);
+    const r = await activePool().query(text, params);
     return r.rows as T[];
   },
   async one<T = any>(text: string, params: any[] = []): Promise<T | null> {
-    const r = await pool.query(text, params);
+    const r = await activePool().query(text, params);
     return (r.rows[0] as T | undefined) ?? null;
   },
   /** API/read path — hard-cap statement time so one slow query cannot pin the pool. */

@@ -14,6 +14,8 @@ import {
 import {
   billingStatusPayload,
   getBillingByUserId,
+  peekBillingAccessCache,
+  rememberBillingAccess,
   syncFromStripeSubscription,
   upsertCustomerLink,
 } from "./store.js";
@@ -57,6 +59,7 @@ export async function handleBillingStatus(req: http.IncomingMessage, res: http.S
 
   const comped = billingAccessPayload(user);
   if (comped) {
+    rememberBillingAccess(user.sub, null, true);
     sendJson(res, 200, {
       ...comped,
       billing_enabled: true,
@@ -66,13 +69,41 @@ export async function handleBillingStatus(req: http.IncomingMessage, res: http.S
     return;
   }
 
-  const row = await getBillingByUserId(user.sub);
-  sendJson(res, 200, {
-    ...billingStatusPayload(row),
-    billing_enabled: true,
-    stripe_configured: true,
-    ...identity,
-  });
+  try {
+    const row = await getBillingByUserId(user.sub);
+    const payload = billingStatusPayload(row);
+    rememberBillingAccess(user.sub, row, Boolean(payload.active));
+    sendJson(res, 200, {
+      ...payload,
+      billing_enabled: true,
+      stripe_configured: true,
+      ...identity,
+    });
+  } catch (err) {
+    const cached = peekBillingAccessCache(user.sub);
+    if (cached) {
+      sendJson(res, 200, {
+        ok: true,
+        active: cached.active,
+        status: cached.row?.status ?? (cached.active ? "active" : "none"),
+        plan: cached.row?.plan ?? null,
+        current_period_end: cached.row?.current_period_end ?? null,
+        billing_enabled: true,
+        stripe_configured: true,
+        stale: true,
+        ...identity,
+      });
+      return;
+    }
+    console.warn("[billing/status] db_failed", err instanceof Error ? err.message : err);
+    sendJson(res, 503, {
+      ok: false,
+      error: "billing_temporarily_unavailable",
+      billing_enabled: true,
+      stripe_configured: true,
+      ...identity,
+    });
+  }
 }
 
 export async function handleBillingCheckout(req: http.IncomingMessage, res: http.ServerResponse) {

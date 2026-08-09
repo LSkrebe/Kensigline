@@ -21,9 +21,12 @@ import {
   applyExploreInvestorFeedSelection,
   exploreInvestorModeFromDocType,
   exploreInvestorModeFromTypeKey,
-  findExploreInvestorInFeeds,
+  exploreInvestorSlug,
   findExploreInvestorInFeedsByName,
+  resolveExploreInvestorDossier,
+  stubActorRowFromExploreInvestor,
 } from './exploreDirectoryNav.js'
+import { buildExploreDirectoryFullList } from './exploreDirectoryMock.js'
 import {
   isTerminalAppPath,
   navigateExploreBack,
@@ -8992,6 +8995,8 @@ function KensiglineTerminal() {
   const [institutionsChartRange, setInstitutionsChartRange] = useState(() =>
     readChartRange('institutions', PRICE_RANGE_OPTS, '6M'),
   )
+  /** URL/click-bound investor identity for deep pages (avoids silent idx-0 fallback). */
+  const [exploreInvestorFocus, setExploreInvestorFocus] = useState(null)
   const [researchFeedLive, setResearchFeedLive] = useState(null)
   const [researchFeedHasMore, setResearchFeedHasMore] = useState(false)
   const [researchFeedLoadingMore, setResearchFeedLoadingMore] = useState(false)
@@ -10199,6 +10204,8 @@ function KensiglineTerminal() {
     return sortFeedRowsTodayEventsFirst(rows)
   }, [institutionsActorFeedBase, institutionsFeedQuery])
 
+  const exploreInvestorDirectoryRows = useMemo(() => buildExploreDirectoryFullList('investors'), [])
+
   const exploreActorFeeds = useMemo(
     () => ({
       insider: insiderFilteredFeed,
@@ -10221,6 +10228,22 @@ function KensiglineTerminal() {
     [],
   )
 
+  const exploreInvestorDossier = useMemo(() => {
+    if (terminalRoute.view !== 'investorDetail' || !terminalRoute.investorSlug) return null
+    return resolveExploreInvestorDossier({
+      investorSlug: terminalRoute.investorSlug,
+      feeds: exploreActorFeeds,
+      directoryRows: exploreInvestorDirectoryRows,
+      focus: exploreInvestorFocus,
+    })
+  }, [
+    terminalRoute.view,
+    terminalRoute.investorSlug,
+    exploreActorFeeds,
+    exploreInvestorDirectoryRows,
+    exploreInvestorFocus,
+  ])
+
   useEffect(() => {
     if (shell !== 'explore') return
     if (terminalRoute.view === 'companyDetail' && terminalRoute.ticker) {
@@ -10230,12 +10253,36 @@ function KensiglineTerminal() {
     }
     if (terminalRoute.view === 'investorDetail' && terminalRoute.investorSlug) {
       setDeepResearchMode('investor')
-      applyExploreInvestorFeedSelection(
-        findExploreInvestorInFeeds(terminalRoute.investorSlug, exploreActorFeeds),
-        exploreActorFeedHandlers,
-      )
+      const slug = terminalRoute.investorSlug
+      const resolved = resolveExploreInvestorDossier({
+        investorSlug: slug,
+        feeds: exploreActorFeeds,
+        directoryRows: exploreInvestorDirectoryRows,
+        focus: exploreInvestorFocus,
+      })
+      if (!resolved) return
+      if (resolved.fromFeed && resolved.index != null) {
+        applyExploreInvestorFeedSelection(
+          { mode: resolved.mode, index: resolved.index },
+          exploreActorFeedHandlers,
+        )
+      } else {
+        exploreActorFeedHandlers.setInvestigateMode(resolved.mode)
+      }
+      setExploreInvestorFocus((prev) => {
+        if (
+          prev?.slug === resolved.slug &&
+          prev?.mode === resolved.mode &&
+          prev?.actorRow?.actorName === resolved.actorRow?.actorName
+        ) {
+          return prev
+        }
+        return { slug: resolved.slug, mode: resolved.mode, actorRow: resolved.actorRow }
+      })
     }
-  }, [shell, terminalRoute, exploreActorFeeds, exploreActorFeedHandlers])
+    // exploreInvestorFocus intentionally omitted: we seed from click, then sync URL→feeds without looping.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shell, terminalRoute, exploreActorFeeds, exploreActorFeedHandlers, exploreInvestorDirectoryRows])
 
   useEffect(() => {
     return
@@ -10249,17 +10296,26 @@ function KensiglineTerminal() {
       : null
 
   const effectiveActorRow = useMemo(() => {
+    if (exploreInvestorDossier?.actorRow) return exploreInvestorDossier.actorRow
     if (investigateMode === 'politicians') return politiciansSelected
     if (investigateMode === 'institutions') return institutionsSelected
     return insiderSelected
-  }, [investigateMode, politiciansSelected, institutionsSelected, insiderSelected])
+  }, [
+    exploreInvestorDossier,
+    investigateMode,
+    politiciansSelected,
+    institutionsSelected,
+    insiderSelected,
+  ])
+
+  const investorDossierMode = exploreInvestorDossier?.mode ?? investigateMode
 
   // Bars (Daily Graph) + Company panel: use selected ticker in either mode.
   // Investigate tab chrome is retired; Explore deep dossiers still key off investigateMode.
   const investigateOpen = false
-  const investigateIsInsider = investigateMode === 'insider'
-  const investigateIsPoliticians = investigateMode === 'politicians'
-  const investigateIsInstitutions = investigateMode === 'institutions'
+  const investigateIsInsider = investorDossierMode === 'insider'
+  const investigateIsPoliticians = investorDossierMode === 'politicians'
+  const investigateIsInstitutions = investorDossierMode === 'institutions'
 
   const investigateTxnFilterEnabled = investigateIsInsider
     ? investigateInsiderTxnFilters
@@ -10421,12 +10477,32 @@ function KensiglineTerminal() {
       : -1
 
   const investigateActiveCaseFeedRows = useMemo(() => {
+    if (exploreInvestorDossier?.actorRow) {
+      const filters = investigateIsPoliticians
+        ? investigatePoliticianTxnFilters
+        : investigateIsInstitutions
+          ? investigateInstitutionTxnFilters
+          : investigateInsiderTxnFilters
+      const range = investigateIsPoliticians
+        ? politiciansChartRange
+        : investigateIsInstitutions
+          ? institutionsChartRange
+          : insiderChartRange
+      return buildActorCaseFeedRows(exploreInvestorDossier.actorRow, filters, range)
+    }
     if (investigateIsPoliticians) return politiciansCaseFeedRows
     if (investigateIsInstitutions) return institutionsCaseFeedRows
     return insiderCaseFeedRows
   }, [
+    exploreInvestorDossier,
     investigateIsPoliticians,
     investigateIsInstitutions,
+    investigatePoliticianTxnFilters,
+    investigateInstitutionTxnFilters,
+    investigateInsiderTxnFilters,
+    politiciansChartRange,
+    institutionsChartRange,
+    insiderChartRange,
     politiciansCaseFeedRows,
     institutionsCaseFeedRows,
     insiderCaseFeedRows,
@@ -10926,11 +11002,20 @@ function KensiglineTerminal() {
       const preferredMode = row?.docType
         ? exploreInvestorModeFromDocType(row.docType)
         : exploreInvestorModeFromTypeKey(row?.typeKey ?? row?.type)
+      const slug = exploreInvestorSlug(name)
+      const hit = findExploreInvestorInFeedsByName(name, preferredMode, exploreActorFeeds)
+      const actorRow = hit?.row ?? stubActorRowFromExploreInvestor(row, preferredMode)
       setDeepResearchMode('investor')
-      applyExploreInvestorFeedSelection(
-        findExploreInvestorInFeedsByName(name, preferredMode, exploreActorFeeds),
-        exploreActorFeedHandlers,
-      )
+      setExploreInvestorFocus({
+        slug,
+        mode: hit?.mode ?? preferredMode,
+        actorRow,
+      })
+      if (hit) {
+        applyExploreInvestorFeedSelection(hit, exploreActorFeedHandlers)
+      } else {
+        exploreActorFeedHandlers.setInvestigateMode(preferredMode)
+      }
       navigateExploreInvestorDetail(name)
     },
     [exploreActorFeeds, exploreActorFeedHandlers],
@@ -11006,7 +11091,7 @@ function KensiglineTerminal() {
         investor={{
           actorRow: effectiveActorRow,
           personDisplay: historicalOutcomesPerson,
-          mode: investigateMode,
+          mode: investorDossierMode,
           caseRows: investigateActiveCaseFeedRows,
           backendUp,
           compactPrice: null,

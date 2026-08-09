@@ -1,3 +1,4 @@
+import { runWithWorkerDb } from "../core/db.js";
 import { countPendingQueue } from "./queue-pending.js";
 import { reclaimStaleParsing, requeueTransientDead } from "./queue.js";
 
@@ -60,10 +61,12 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   let backfillRunning = false;
 
   const runReclaim = () =>
-    Promise.all([
-      reclaimStaleParsing({ olderThanMinutes: reclaimOlderMinutes }),
-      requeueTransientDead({ limit: 80 }),
-    ])
+    runWithWorkerDb(() =>
+      Promise.all([
+        reclaimStaleParsing({ olderThanMinutes: reclaimOlderMinutes }),
+        requeueTransientDead({ limit: 80 }),
+      ]),
+    )
       .then(([stale, requeued]) => {
         if (stale > 0) console.warn(`[${opts.name}] reclaimed_stale_parsing count=${stale}`);
         if (requeued > 0) console.warn(`[${opts.name}] requeued_transient_dead count=${requeued}`);
@@ -81,13 +84,13 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     if (backfillRunning) return;
     if (Date.now() - lastBackfillAt < backfillIntervalMs) return;
 
-    const pending = await countPendingQueue(opts.sourceTypes);
+    const pending = await runWithWorkerDb(() => countPendingQueue(opts.sourceTypes!));
     if (pending > 0) return;
 
     backfillRunning = true;
     lastBackfillAt = Date.now();
     try {
-      await opts.enqueueBackfill();
+      await runWithWorkerDb(() => opts.enqueueBackfill!());
     } catch (e) {
       console.error(`[${opts.name}] backfill_failed`, e);
     } finally {
@@ -96,7 +99,8 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   };
 
   if (opts.enqueue) {
-    const runEnqueue = () => opts.enqueue!().catch((e) => console.error(`[${opts.name}] enqueue_failed`, e));
+    const runEnqueue = () =>
+      runWithWorkerDb(() => opts.enqueue!()).catch((e) => console.error(`[${opts.name}] enqueue_failed`, e));
     if (opts.bootstrapEnqueue !== false) void runEnqueue();
     enqueueTimer = setInterval(() => {
       if (stopped) return;
@@ -109,7 +113,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
       for (;;) {
         if (stopped) return;
         try {
-          const r = await opts.parseNext();
+          const r = await runWithWorkerDb(() => opts.parseNext());
           if (r.processed === false && r.reason === "no_work") {
             await maybeRunBackfill();
             await sleep(parsePollMs);

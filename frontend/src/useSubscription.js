@@ -34,6 +34,10 @@ function writeBillingCache(userId, data) {
   }
 }
 
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
 /**
  * Subscription gate for the signed-in user.
  * Always keyed by userId so account switches cannot reuse another user’s access.
@@ -86,27 +90,52 @@ export function useSubscription(enabled = false, userId = null) {
       setVerifiedUserId(null)
     }
 
-    const res = await fetchJsonSafe('/api/billing/status', { timeoutMs: 4000 })
-    if (gen !== genRef.current) return
+    const tryOnce = () => fetchJsonSafe('/api/billing/status', { timeoutMs: 8000 })
 
+    let res = await tryOnce()
+    if (gen !== genRef.current) return
     if (res.ok && applyStatus(res.data, userId)) return
 
     if (!res.ok && (res.status === 401 || res.status === 0)) {
       clearAuthTokenCache()
-      const retry = await fetchJsonSafe('/api/billing/status', { timeoutMs: 4000 })
+      await sleep(250)
       if (gen !== genRef.current) return
-      if (retry.ok && applyStatus(retry.data, userId)) return
+      res = await tryOnce()
+      if (gen !== genRef.current) return
+      if (res.ok && applyStatus(res.data, userId)) return
     }
 
     if (res.ok && res.data?.user_id && res.data.user_id !== userId) {
       clearAuthTokenCache()
-      const retry = await fetchJsonSafe('/api/billing/status', { timeoutMs: 4000 })
+      await sleep(250)
+      if (gen !== genRef.current) return
+      res = await tryOnce()
+      if (gen !== genRef.current) return
+      if (res.ok && applyStatus(res.data, userId)) return
+    }
+
+    // Transient API/DB pressure (503 / timeout): keep warm access; retry once more before denying.
+    const transient =
+      !res.ok && (res.status === 0 || res.status === 503 || res.status === 502 || res.status === 504)
+    if (transient) {
+      if (warm) {
+        setVerifiedUserId(userId)
+        setLoading(false)
+        return
+      }
+      await sleep(600)
+      if (gen !== genRef.current) return
+      const retry = await tryOnce()
       if (gen !== genRef.current) return
       if (retry.ok && applyStatus(retry.data, userId)) return
+      if (warm) {
+        setVerifiedUserId(userId)
+        setLoading(false)
+        return
+      }
     }
 
     if (warm) {
-      /* Keep warm access if network flakes; still mark gate ready. */
       setVerifiedUserId(userId)
       setLoading(false)
       return

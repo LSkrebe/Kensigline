@@ -9,6 +9,7 @@ import { startContextAlertsWorker } from "../alerts/context-alerts-worker.js";
 import { startPoliticianCommitteeRefreshWorker } from "../politicians/committees.js";
 import { startBarsRefreshWorker } from "../core/bars-worker.js";
 import { startRetentionWorker, runRetentionPurgeOnce } from "../core/retention.js";
+import { runWithWorkerDb } from "../core/db.js";
 
 export type Stoppable = { stop(): void };
 
@@ -27,15 +28,16 @@ export function startAllWorkers(): Stoppable[] {
     startRetentionWorker(),
   ];
 
-  if (String(process.env.OUTCOMES_RECOMPUTE_ON_START ?? "1").trim() !== "0") {
-    void runOutcomesRecomputeOnce().catch((err) => {
+  // Default off: startup recompute was pinning the DB pool and crashing the API under memory spikes.
+  if (String(process.env.OUTCOMES_RECOMPUTE_ON_START ?? "0").trim() === "1") {
+    void runWithWorkerDb(() => runOutcomesRecomputeOnce()).catch((err) => {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn("[outcomes] startup recompute skipped:", msg);
     });
   }
 
   if (String(process.env.RETENTION_PURGE_ON_START ?? "0").trim() === "1") {
-    void runRetentionPurgeOnce()
+    void runWithWorkerDb(() => runRetentionPurgeOnce())
       .then((r) => {
         const touched =
           r.documents + r.bars + r.queue + r.cluster_snapshots + r.feed_ticker_latest + r.feed_market_latest;

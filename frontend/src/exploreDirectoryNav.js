@@ -9,6 +9,13 @@ export function exploreInvestorSlug(name) {
 /** @deprecated Use exploreInvestorSlug */
 export const exploreActorSlug = exploreInvestorSlug
 
+/** Best-effort display name when only a URL slug is known. */
+export function exploreInvestorNameFromSlug(slug) {
+  const s = String(slug ?? '').trim().replace(/-+/g, ' ')
+  if (!s) return ''
+  return s.replace(/\b\w/g, (ch) => ch.toUpperCase())
+}
+
 export function exploreInvestorModeFromDocType(docType) {
   const d = String(docType ?? '').trim().toLowerCase()
   if (d.startsWith('ptr')) return 'politicians'
@@ -39,6 +46,30 @@ export function exploreInvestorNameMatchesSlug(investorRow, slug) {
 
 /** @deprecated Use exploreInvestorNameMatchesSlug */
 export const exploreActorNameMatchesSlug = exploreInvestorNameMatchesSlug
+
+/**
+ * Minimal actor-feed shaped row so deep pages can render the correct person
+ * even when they are absent from the live Investigate feeds.
+ */
+export function stubActorRowFromExploreInvestor(input, mode = 'insider') {
+  const name = String(input?.name ?? input?.actorName ?? '').trim()
+  if (!name) return null
+  const m = mode === 'politicians' || mode === 'institutions' ? mode : 'insider'
+  const ticker = String(input?.ticker ?? '').trim().toUpperCase() || null
+  const detail =
+    String(input?.detail ?? input?.actorDetail ?? '').trim() ||
+    (m === 'politicians' ? 'Politician' : m === 'institutions' ? 'Institution' : 'Insider')
+  return {
+    id: `explore:${exploreInvestorSlug(name)}`,
+    actorName: name,
+    actorDetail: detail,
+    actorDetailSecondary: String(input?.detailSecondary ?? input?.actorDetailSecondary ?? '').trim(),
+    source: m,
+    matchNames: [name],
+    transactions: Array.isArray(input?.transactions) ? input.transactions : [],
+    ticker,
+  }
+}
 
 export function findExploreInvestorInFeeds(investorSlug, feeds) {
   const slug = String(investorSlug ?? '').trim().toLowerCase()
@@ -72,9 +103,78 @@ export function findExploreInvestorInFeedsByName(name, preferredMode, feeds) {
 /** @deprecated Use findExploreInvestorInFeedsByName */
 export const findExploreActorInFeedsByName = findExploreInvestorInFeedsByName
 
+export function findExploreInvestorDirectoryRowBySlug(slug, directoryRows = []) {
+  const target = String(slug ?? '').trim().toLowerCase()
+  if (!target) return null
+  for (const row of directoryRows) {
+    if (exploreInvestorSlug(row?.name) === target) return row
+  }
+  return null
+}
+
+/**
+ * Resolve which investor the deep page should show from the URL slug.
+ * Prefer live feed identity; otherwise directory / stub so we never silently keep idx 0.
+ */
+export function resolveExploreInvestorDossier({
+  investorSlug,
+  feeds,
+  directoryRows = [],
+  focus = null,
+}) {
+  const slug = String(investorSlug ?? '').trim().toLowerCase()
+  if (!slug) return null
+
+  const feedHit = findExploreInvestorInFeeds(slug, feeds)
+  if (feedHit) {
+    return {
+      slug,
+      mode: feedHit.mode,
+      index: feedHit.index,
+      actorRow: feedHit.row,
+      fromFeed: true,
+    }
+  }
+
+  if (focus?.slug === slug && focus?.actorRow) {
+    return {
+      slug,
+      mode: focus.mode || 'insider',
+      index: null,
+      actorRow: focus.actorRow,
+      fromFeed: false,
+    }
+  }
+
+  const dir = findExploreInvestorDirectoryRowBySlug(slug, directoryRows)
+  if (dir) {
+    const mode = exploreInvestorModeFromDocType(dir.docType)
+    return {
+      slug,
+      mode,
+      index: null,
+      actorRow: stubActorRowFromExploreInvestor(dir, mode),
+      fromFeed: false,
+    }
+  }
+
+  const name = exploreInvestorNameFromSlug(slug)
+  return {
+    slug,
+    mode: 'insider',
+    index: null,
+    actorRow: stubActorRowFromExploreInvestor({ name }, 'insider'),
+    fromFeed: false,
+  }
+}
+
 export function applyExploreInvestorFeedSelection(hit, handlers) {
   if (!hit) return
   const { mode, index } = hit
+  if (index == null || index < 0) {
+    if (mode) handlers.setInvestigateMode(mode)
+    return
+  }
   handlers.setInvestigateMode(mode)
   if (mode === 'politicians') {
     handlers.setPoliticiansIdx(index)

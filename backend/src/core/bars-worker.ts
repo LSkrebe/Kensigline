@@ -1,4 +1,4 @@
-import { db } from "./db.js";
+import { db, runWithWorkerDb } from "./db.js";
 import { getDailyCloseBars } from "./bars.js";
 
 type PriorityRow = {
@@ -123,7 +123,7 @@ export function startBarsRefreshWorker() {
     if (stopped || running) return;
     running = true;
     try {
-      const out = await runBarsRefreshOnce();
+      const out = await runWithWorkerDb(() => runBarsRefreshOnce());
       if (out.refreshed > 0 || out.skipped > 0) {
         console.log(`[bars-worker] refreshed=${out.refreshed} skipped=${out.skipped}`);
       }

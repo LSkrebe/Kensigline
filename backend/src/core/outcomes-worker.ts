@@ -1,3 +1,4 @@
+import { runWithWorkerDb } from "./db.js";
 import {
   recomputeResearchOutcomes,
   recomputeInsiderOutcomes,
@@ -29,9 +30,11 @@ export async function runOutcomesRecomputeOnce(opts?: {
   const maxTickers = opts?.maxTickers ?? d.maxTickers;
   const enablePoliticians = opts?.enablePoliticians ?? d.enablePoliticians;
   const enableResearch = opts?.enableResearch ?? d.enableResearch;
-  await recomputeInsiderOutcomes({ lookbackDays, maxTickers });
-  if (enablePoliticians) await recomputePoliticiansOutcomes({ lookbackDays, maxTickers });
-  if (enableResearch) await recomputeResearchOutcomes({ lookbackDays, maxTickers });
+  await runWithWorkerDb(async () => {
+    await recomputeInsiderOutcomes({ lookbackDays, maxTickers });
+    if (enablePoliticians) await recomputePoliticiansOutcomes({ lookbackDays, maxTickers });
+    if (enableResearch) await recomputeResearchOutcomes({ lookbackDays, maxTickers });
+  });
 }
 
 export function startOutcomesWorker() {

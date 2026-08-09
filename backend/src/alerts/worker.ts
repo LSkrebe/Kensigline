@@ -1,3 +1,4 @@
+import { runWithWorkerDb } from "../core/db.js";
 import { collectDigestSections, digestItemCount } from "./digest-collect.js";
 import { sendIdeaDigestEmail } from "./email.js";
 import { digestAlreadySent, listEnabledAlertUsers, logDigestSent, type AlertPreferences } from "./store.js";
@@ -66,13 +67,15 @@ export function startAlertsWorker() {
     if (String(process.env.ALERTS_ENABLED ?? "1").trim() === "0") return;
     running = true;
     try {
-      const users = await listEnabledAlertUsers();
-      const now = new Date();
-      for (const prefs of users) {
-        const { send, slotKey } = shouldSendNow(prefs, now);
-        if (!send || !slotKey) continue;
-        await runDigestForUser(prefs, slotKey);
-      }
+      await runWithWorkerDb(async () => {
+        const users = await listEnabledAlertUsers();
+        const now = new Date();
+        for (const prefs of users) {
+          const { send, slotKey } = shouldSendNow(prefs, now);
+          if (!send || !slotKey) continue;
+          await runDigestForUser(prefs, slotKey);
+        }
+      });
     } catch (e) {
       console.error("[alerts] tick_failed", e);
     } finally {

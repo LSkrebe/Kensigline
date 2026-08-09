@@ -13,28 +13,60 @@ export type BillingRow = {
   current_period_end: string | null;
 };
 
+type AccessCacheEntry = {
+  at: number;
+  row: BillingRow | null;
+  active: boolean;
+};
+
+const ACCESS_TTL_MS = Math.max(
+  5_000,
+  Math.min(300_000, Number(process.env.BILLING_ACCESS_CACHE_TTL_MS ?? 60_000) || 60_000),
+);
+
+const accessCache = new Map<string, AccessCacheEntry>();
+
+function cacheKey(userId: string) {
+  return String(userId ?? "").trim();
+}
+
+export function peekBillingAccessCache(userId: string): AccessCacheEntry | null {
+  const key = cacheKey(userId);
+  if (!key) return null;
+  const hit = accessCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > ACCESS_TTL_MS) {
+    accessCache.delete(key);
+    return null;
+  }
+  return hit;
+}
+
+export function rememberBillingAccess(userId: string, row: BillingRow | null, active: boolean) {
+  const key = cacheKey(userId);
+  if (!key) return;
+  accessCache.set(key, { at: Date.now(), row, active });
+}
+
+export function invalidateBillingAccessCache(userId: string) {
+  const key = cacheKey(userId);
+  if (!key) return;
+  accessCache.delete(key);
+}
+
+const BILLING_SELECT = `
+  SELECT user_id, email, stripe_customer_id, stripe_subscription_id, status, plan, price_id,
+         current_period_end::text AS current_period_end
+  FROM billing_accounts
+`;
+
 export async function getBillingByUserId(userId: string): Promise<BillingRow | null> {
-  return db.one<BillingRow>(
-    `
-    SELECT user_id, email, stripe_customer_id, stripe_subscription_id, status, plan, price_id,
-           current_period_end::text AS current_period_end
-    FROM billing_accounts
-    WHERE user_id = $1
-    `,
-    [userId],
-  );
+  // Prefer statement-timeout path so a stuck pool cannot hang the login gate forever.
+  return db.oneApi<BillingRow>(`${BILLING_SELECT} WHERE user_id = $1`, [userId], 4_000);
 }
 
 export async function getBillingByCustomerId(customerId: string): Promise<BillingRow | null> {
-  return db.one<BillingRow>(
-    `
-    SELECT user_id, email, stripe_customer_id, stripe_subscription_id, status, plan, price_id,
-           current_period_end::text AS current_period_end
-    FROM billing_accounts
-    WHERE stripe_customer_id = $1
-    `,
-    [customerId],
-  );
+  return db.oneApi<BillingRow>(`${BILLING_SELECT} WHERE stripe_customer_id = $1`, [customerId], 4_000);
 }
 
 export async function upsertCustomerLink(args: {
@@ -53,6 +85,7 @@ export async function upsertCustomerLink(args: {
     `,
     [args.userId, args.email, args.stripeCustomerId],
   );
+  invalidateBillingAccessCache(args.userId);
 }
 
 export async function syncFromStripeSubscription(
@@ -98,6 +131,7 @@ export async function syncFromStripeSubscription(
     `,
     [userId, customerId, sub.id, sub.status, plan, priceId, periodEnd],
   );
+  invalidateBillingAccessCache(userId);
 }
 
 export function billingStatusPayload(row: BillingRow | null) {
