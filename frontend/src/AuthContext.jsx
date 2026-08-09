@@ -11,6 +11,47 @@ function syncTokenFromSession(session) {
   else clearAuthTokenCache()
 }
 
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+function isRetryableAuthError(error) {
+  const msg = String(error?.message ?? error ?? '').toLowerCase()
+  if (!msg) return false
+  return (
+    msg.includes('timed out') ||
+    msg.includes('timeout') ||
+    msg.includes('network') ||
+    msg.includes('fetch') ||
+    msg.includes('504') ||
+    msg.includes('502') ||
+    msg.includes('503') ||
+    msg.includes('upstream') ||
+    msg.includes('failed to fetch')
+  )
+}
+
+/**
+ * Race a sign-in attempt against a per-attempt budget.
+ * Supabase Auth can occasionally 504 under project load; we retry instead of
+ * failing the first blip (same path for every user).
+ */
+async function attemptSignIn(email, password, timeoutMs) {
+  return Promise.race([
+    supabase.auth.signInWithPassword({ email, password }),
+    new Promise((resolve) =>
+      setTimeout(
+        () =>
+          resolve({
+            data: { user: null, session: null },
+            error: new Error('Sign-in timed out. Check your connection and try again.'),
+          }),
+        timeoutMs,
+      ),
+    ),
+  ])
+}
+
 export function AuthProvider({ children }) {
   const configured = Boolean(supabase)
   const [session, setSession] = useState(null)
@@ -67,21 +108,26 @@ export function AuthProvider({ children }) {
   const signInWithPassword = useCallback(async (email, password) => {
     if (!supabase) return { data: null, error: new Error('supabase_not_configured') }
     clearAuthTokenCache()
-    const result = await Promise.race([
-      supabase.auth.signInWithPassword({ email: email.trim(), password }),
-      new Promise((resolve) =>
-        setTimeout(
-          () =>
-            resolve({
-              data: { user: null, session: null },
-              error: new Error('Sign-in timed out. Check your connection and try again.'),
-            }),
-          12_000,
-        ),
-      ),
-    ])
-    if (result.data?.session) syncTokenFromSession(result.data.session)
-    return result
+    const trimmed = email.trim()
+    const attempts = 3
+    const perAttemptMs = 20_000
+    let last = null
+
+    for (let i = 0; i < attempts; i++) {
+      const result = await attemptSignIn(trimmed, password, perAttemptMs)
+      last = result
+      if (result?.data?.session) {
+        syncTokenFromSession(result.data.session)
+        return result
+      }
+      const err = result?.error
+      if (!err || !isRetryableAuthError(err) || i === attempts - 1) {
+        return result
+      }
+      await sleep(400 * (i + 1))
+    }
+
+    return last ?? { data: { user: null, session: null }, error: new Error('Sign-in failed') }
   }, [])
 
   const signUpWithPassword = useCallback(async (email, password) => {

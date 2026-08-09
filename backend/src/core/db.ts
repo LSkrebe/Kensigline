@@ -59,6 +59,14 @@ const workerPoolMax = Math.max(
   1,
   Math.min(8, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 2) || 2),
 );
+/**
+ * Global cap on concurrent worker DB jobs across ALL pipelines.
+ * Keeps Supabase Auth / API healthy under continuous ingest (default 1).
+ */
+const workerDbConcurrency = Math.max(
+  1,
+  Math.min(4, Number(process.env.WORKER_DB_CONCURRENCY ?? 1) || 1),
+);
 
 function makePool(max: number, label: string): Pool {
   const p = new Pool({
@@ -79,14 +87,41 @@ function makePool(max: number, label: string): Pool {
 const apiPool = makePool(apiPoolMax, "api");
 const workerPool = makePool(workerPoolMax, "worker");
 
-console.info(`[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax}`);
+console.info(
+  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerDbConcurrency=${workerDbConcurrency}`,
+);
 
 type DbLane = "api" | "worker";
 const dbLane = new AsyncLocalStorage<DbLane>();
 
+let workerInFlight = 0;
+const workerWaiters: Array<() => void> = [];
+
+async function acquireWorkerSlot(): Promise<void> {
+  if (workerInFlight < workerDbConcurrency) {
+    workerInFlight += 1;
+    return;
+  }
+  await new Promise<void>((resolve) => {
+    workerWaiters.push(resolve);
+  });
+  workerInFlight += 1;
+}
+
+function releaseWorkerSlot(): void {
+  workerInFlight = Math.max(0, workerInFlight - 1);
+  const next = workerWaiters.shift();
+  if (next) next();
+}
+
 /** Run background work on the worker pool so API keep-alive connections stay free. */
 export async function runWithWorkerDb<T>(fn: () => Promise<T> | T): Promise<T> {
-  return await dbLane.run("worker", fn);
+  await acquireWorkerSlot();
+  try {
+    return await dbLane.run("worker", fn);
+  } finally {
+    releaseWorkerSlot();
+  }
 }
 
 function activePool(): Pool {

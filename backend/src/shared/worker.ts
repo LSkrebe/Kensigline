@@ -39,12 +39,13 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   const enqueueEveryMs = Math.max(15_000, envNum(opts.envPrefix, "ENQUEUE_INTERVAL_MS", d.enqueueEveryMs ?? 120_000));
   const parsePollMs = Math.max(2_000, envNum(opts.envPrefix, "PARSE_POLL_MS", d.parsePollMs ?? 6_000));
   const parseThrottleMs = Math.max(100, envNum(opts.envPrefix, "PARSE_THROTTLE_MS", d.parseThrottleMs ?? 1_000));
+  // Hard-cap at 2: global WORKER_DB_CONCURRENCY already serializes DB work.
   const parseConcurrency = Math.max(
     1,
-    Math.min(6, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
+    Math.min(2, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
   );
   const backfillIntervalMs = Math.max(
-    5_000,
+    15_000,
     envNum(opts.envPrefix, "BACKFILL_INTERVAL_MS", d.backfillIntervalMs ?? 60_000),
   );
   const reclaimEveryMs = Math.max(60_000, envNum(opts.envPrefix, "RECLAIM_INTERVAL_MS", 3 * 60_000));
@@ -59,6 +60,14 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   let reclaimTimer: ReturnType<typeof setInterval> | undefined;
   let lastBackfillAt = 0;
   let backfillRunning = false;
+  let pressureBackoffMs = 0;
+
+  const isDbPressure = (e: unknown) => {
+    const msg = e instanceof Error ? e.message : String(e ?? "");
+    return /timeout exceeded when trying to connect|ECHECKOUTTIMEOUT|too many clients|remaining connection slots/i.test(
+      msg,
+    );
+  };
 
   const runReclaim = () =>
     runWithWorkerDb(() =>
@@ -73,7 +82,12 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
       })
       .catch((e) => console.error(`[${opts.name}] reclaim_failed`, e));
 
-  void runReclaim();
+  // Stagger reclaim so pipelines don't all hit the pooler at boot.
+  const reclaimBootDelay = 5_000 + Math.floor(Math.random() * 20_000);
+  const reclaimBootTimer = setTimeout(() => {
+    if (stopped) return;
+    void runReclaim();
+  }, reclaimBootDelay);
   reclaimTimer = setInterval(() => {
     if (stopped) return;
     void runReclaim();
@@ -93,6 +107,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
       await runWithWorkerDb(() => opts.enqueueBackfill!());
     } catch (e) {
       console.error(`[${opts.name}] backfill_failed`, e);
+      if (isDbPressure(e)) pressureBackoffMs = Math.min(60_000, Math.max(8_000, pressureBackoffMs * 2 || 8_000));
     } finally {
       backfillRunning = false;
     }
@@ -100,8 +115,17 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
 
   if (opts.enqueue) {
     const runEnqueue = () =>
-      runWithWorkerDb(() => opts.enqueue!()).catch((e) => console.error(`[${opts.name}] enqueue_failed`, e));
-    if (opts.bootstrapEnqueue !== false) void runEnqueue();
+      runWithWorkerDb(() => opts.enqueue!()).catch((e) => {
+        console.error(`[${opts.name}] enqueue_failed`, e);
+        if (isDbPressure(e)) pressureBackoffMs = Math.min(60_000, Math.max(8_000, pressureBackoffMs * 2 || 8_000));
+      });
+    // Stagger bootstrap enqueue across pipelines (not a pause — lasting load shaping).
+    if (opts.bootstrapEnqueue !== false) {
+      const bootDelay = 2_000 + Math.floor(Math.random() * 25_000);
+      setTimeout(() => {
+        if (!stopped) void runEnqueue();
+      }, bootDelay);
+    }
     enqueueTimer = setInterval(() => {
       if (stopped) return;
       void runEnqueue();
@@ -110,8 +134,16 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
 
   for (let w = 0; w < parseConcurrency; w++) {
     (async () => {
+      // Stagger parse loop starts so N pipelines don't stampede together.
+      await sleep(1_000 + w * 750 + Math.floor(Math.random() * 4_000));
       for (;;) {
         if (stopped) return;
+        if (pressureBackoffMs > 0) {
+          const wait = pressureBackoffMs;
+          pressureBackoffMs = Math.floor(pressureBackoffMs * 0.7);
+          if (pressureBackoffMs < 2_000) pressureBackoffMs = 0;
+          await sleep(wait);
+        }
         try {
           const r = await runWithWorkerDb(() => opts.parseNext());
           if (r.processed === false && r.reason === "no_work") {
@@ -122,7 +154,12 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
           }
         } catch (e) {
           console.error(`[${opts.name}] parse_loop_failed`, e);
-          await sleep(2_000);
+          if (isDbPressure(e)) {
+            pressureBackoffMs = Math.min(60_000, Math.max(10_000, pressureBackoffMs * 2 || 10_000));
+            await sleep(pressureBackoffMs);
+          } else {
+            await sleep(2_000);
+          }
         }
       }
     })().catch((e) => console.error(`[${opts.name}] parse_loop_outer_failed`, e));
@@ -131,6 +168,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   return {
     stop() {
       stopped = true;
+      clearTimeout(reclaimBootTimer);
       if (enqueueTimer) clearInterval(enqueueTimer);
       if (reclaimTimer) clearInterval(reclaimTimer);
     },

@@ -13,7 +13,7 @@
     "pages:preview": "npm run build && wrangler pages dev dist"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.105.4",
+    "@supabase/supabase-js": "^2.112.2",
     "exceljs": "^4.4.0",
     "html-to-image": "^1.11.13",
     "react": "^19.2.4",
