@@ -1304,10 +1304,9 @@ export function DeepCompanyReport({
   const t = String(ticker ?? '').trim().toUpperCase()
   const displayName = String(companyName ?? '').trim() || t || 'Company'
   const resolvedModel = useMemo(() => {
-    if (backendUp && model) return model
-    if (backendUp && modelLoading) return null
+    if (backendUp) return model ?? null
     return analyseMockModelForTicker(t)
-  }, [backendUp, model, modelLoading, t])
+  }, [backendUp, model, t])
 
   const eventCount = countTimelineItems(timelineEntries)
 
@@ -1351,14 +1350,8 @@ export function DeepCompanyReport({
             )}
           </DeepSection>
 
-          <DeepSection label="Model" title="Business drivers">
-            <div className="drpt-marketAside">
-              {modelLoading && !resolvedModel ? (
-                <p className="drpt-empty drpt-loading">Loading business drivers…</p>
-              ) : (
-                <DeepBusinessDriversSnapshot model={resolvedModel} />
-              )}
-            </div>
+          <DeepSection label="Fundamentals" title="Key metrics">
+            <DeepFundamentalsSnapshot fundamentals={fundamentals} />
           </DeepSection>
         </div>
 
@@ -1381,8 +1374,12 @@ export function DeepCompanyReport({
         </DeepSection>
 
         <div className="drpt-row drpt-row--model">
-          <DeepSection label="Fundamentals" title="Key metrics">
-            <DeepFundamentalsSnapshot fundamentals={fundamentals} />
+          <DeepSection label="Model" title="Business drivers">
+            {modelLoading && !resolvedModel ? (
+              <p className="drpt-empty drpt-loading">Loading business drivers…</p>
+            ) : (
+              <DeepBusinessDriversSnapshot model={resolvedModel} />
+            )}
           </DeepSection>
 
           <DeepSection

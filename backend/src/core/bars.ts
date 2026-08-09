@@ -313,20 +313,12 @@ export async function getDailyCloseBars(opts: {
     return { ticker, source: rows.length ? source : "none", items: rows };
   }
 
-  if (cached.length > 0 && cacheCoversRequestedRange(cached, fromDay, toDay)) {
+  const covers = cached.length > 0 && cacheCoversRequestedRange(cached, fromDay, toDay);
+  if (covers) {
     return { ticker, source: "cache" as const, items: cached };
   }
 
-  // Empty or incomplete history: one Yahoo attempt so charts get a real window, else background.
-  try {
-    const { rows, source } = await fetchAndStoreBars(ticker, fromDay, toDay, "yahoo");
-    if (rows.length) {
-      const stored = await readBarsRange(ticker, fromDay, toDay);
-      if (stored.length) return { ticker, source, items: stored };
-    }
-  } catch {
-    /* background below */
-  }
+  // Never block the interactive chart on Yahoo/Polygon. Serve whatever we have and refresh async.
   scheduleBackgroundBarsRefresh(ticker, fromDay, toDay);
   if (cached.length > 0) {
     return { ticker, source: "cache" as const, items: cached };

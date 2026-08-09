@@ -88,6 +88,10 @@ export function getBackendBase() {
   if (configured) return configured
   /* Vite dev proxy forwards /api → API_BASE_URL from vite.config (see server.proxy). */
   if (import.meta.env.DEV && typeof window !== 'undefined') return ''
+  /* Production builds must hit the public API — never localhost. */
+  if (typeof window !== 'undefined' && /mercerline\.com$/i.test(window.location.hostname)) {
+    return 'https://api.mercerline.com'
+  }
   return 'http://localhost:3001'
 }
 
