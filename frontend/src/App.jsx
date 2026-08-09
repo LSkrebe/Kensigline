@@ -1858,6 +1858,10 @@ function contextCountryLabel(country) {
     IE: 'Ireland',
     CA: 'Canada',
     JP: 'Japan',
+    TW: 'Taiwan',
+    TWN: 'Taiwan',
+    CN: 'China',
+    CHN: 'China',
   }
   const key = raw.toUpperCase()
   if (names[key]) return names[key]
@@ -6518,8 +6522,12 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
 
 function resolveResearchPresentation({ ticker, titleText, backendUp, livePresentation, memo }) {
   const u = String(ticker ?? '').toUpperCase()
-  if (backendUp && livePresentation?.title) return livePresentation
-  if (backendUp) return null
+  if (backendUp) {
+    if (!livePresentation || typeof livePresentation !== 'object') return null
+    // Prefer live explore payload whenever it exists (docs may arrive without a title).
+    if (livePresentation.title || Array.isArray(livePresentation.documents)) return livePresentation
+    return null
+  }
   if (u === 'ASML') return mockAsmlPresentation()
   return mockOfflinePresentation(memo, titleText, ticker)
 }
@@ -9433,8 +9441,13 @@ function KensiglineTerminal() {
     (Boolean(researchTick) && researchExploreTicker === researchTick)
 
   const deepPaperTimelineEntries = useMemo(() => {
-    const docs = paperDocumentsFromPresentation(deepExploreReady ? researchPresentation : null).filter(
-      (doc) => isCompanyDeepDocumentSource(doc?.source),
+    const livePres =
+      deepExploreReady && researchExploreResolved?.presentation
+        ? researchExploreResolved.presentation
+        : null
+    const presentation = deepExploreReady ? researchPresentation ?? livePres : null
+    const docs = paperDocumentsFromPresentation(presentation).filter((doc) =>
+      isCompanyDeepDocumentSource(doc?.source),
     )
     const raw = buildPaperTimelineItems({
       documents: docs,
@@ -9443,7 +9456,7 @@ function KensiglineTerminal() {
       filings13f: [],
     })
     return buildPaperDisplayRows(raw)
-  }, [deepExploreReady, researchPresentation])
+  }, [deepExploreReady, researchPresentation, researchExploreResolved?.presentation])
 
   const deepTrackedInvestors = useMemo(
     () =>
@@ -9931,7 +9944,7 @@ function KensiglineTerminal() {
 
     async function run() {
       const r = await fetchJsonSafe(`/api/research/explore?ticker=${encodeURIComponent(tick)}`, {
-        timeoutMs: 15_000,
+        timeoutMs: 25_000,
       })
       if (!alive || researchExploreFetchGenRef.current !== gen) return
       const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
@@ -9941,8 +9954,15 @@ function KensiglineTerminal() {
         setResearchExploreTicker(tick)
         return
       }
+      // Keep a prior good cache; never replace live dossier data with a fake empty stub.
+      const prior = researchExploreCacheRef.current.get(tick)
+      if (prior) {
+        setResearchExploreLive(prior)
+        setResearchExploreTicker(tick)
+        return
+      }
       setResearchExploreLive({
-        ok: true,
+        ok: false,
         ticker: tick,
         company_name: tick,
         presentation: {
@@ -9960,8 +9980,14 @@ function KensiglineTerminal() {
     }
     run().catch(() => {
       if (!alive || researchExploreFetchGenRef.current !== gen) return
+      const prior = researchExploreCacheRef.current.get(tick)
+      if (prior) {
+        setResearchExploreLive(prior)
+        setResearchExploreTicker(tick)
+        return
+      }
       setResearchExploreLive({
-        ok: true,
+        ok: false,
         ticker: tick,
         company_name: tick,
         presentation: {

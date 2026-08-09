@@ -48,9 +48,47 @@ function formatUsdCompact(n: number) {
   return `${sign}$${Math.round(abs)}`;
 }
 
-async function fetchPolygonTickerOverview(ticker: string) {
+/** Polygon ADR overviews often omit sic_description — infer a short industry label. */
+function inferIndustryFromText(text: string | null | undefined): string | null {
+  const d = String(text ?? "").toLowerCase();
+  if (!d) return null;
+  if (/semiconductor|chip foundry|wafer|integrated circuit|fabless/.test(d)) return "Semiconductors";
+  if (/biotechnolog|biopharma|pharmaceutical|drug develop/.test(d)) return "Biotechnology";
+  if (/\bsaas\b|software|cloud computing|cybersecurity/.test(d)) return "Software";
+  if (/\bbank(ing)?\b|financial services|asset management/.test(d)) return "Banks";
+  if (/oil|petroleum|natural gas|exploration and production/.test(d)) return "Energy";
+  if (/e-?commerce|retail(er)?\b/.test(d)) return "Retail";
+  if (/automotiv|electric vehicle|\bev\b/.test(d)) return "Auto Manufacturers";
+  if (/telecom|wireless|5g network/.test(d)) return "Telecom";
+  return null;
+}
+
+/** Prefer corporate domicile cues over listing locale for foreign ADRs. */
+function inferCountryFromPolygon(r: any): string | null {
+  if (r?.address?.country != null) return String(r.address.country);
+  const blob = `${r?.name ?? ""} ${r?.description ?? ""}`;
+  if (/\btaiwan\b/i.test(blob)) return "TW";
+  if (/\bnetherlands\b|\bdutch\b/i.test(blob)) return "NL";
+  if (/\bunited kingdom\b|\bbritain\b/i.test(blob)) return "GB";
+  if (/\bjapan\b/i.test(blob)) return "JP";
+  if (/\bgermany\b/i.test(blob)) return "DE";
+  if (/\bswitzerland\b/i.test(blob)) return "CH";
+  if (/\bireland\b/i.test(blob)) return "IE";
+  if (/\bcanada\b/i.test(blob)) return "CA";
+  if (/\bchina\b|\bprc\b/i.test(blob)) return "CN";
+  if (r?.locale != null) return String(r.locale);
+  return null;
+}
+
+function industryFromPolygon(r: any): string | null {
+  if (r?.sic_description != null) return String(r.sic_description);
+  if (r?.industry != null) return String(r.industry);
+  return inferIndustryFromText(r?.description) ?? inferIndustryFromText(r?.name);
+}
+
+async function fetchPolygonTickerOverview(ticker: string, opts?: { rateLimit?: boolean }) {
   const apiKey = mustEnv("POLYGON_API_KEY");
-  await polygonRateLimit();
+  if (opts?.rateLimit !== false) await polygonRateLimit();
   const url = `https://api.polygon.io/v3/reference/tickers/${encodeURIComponent(ticker)}?apiKey=${encodeURIComponent(apiKey)}`;
   const res = await fetch(url);
   const txt = await res.text().catch(() => "");
@@ -148,7 +186,7 @@ async function loadCompanyDbRow(ticker: string) {
     `
     SELECT name, industry, country, mcap, earnings_date::text AS earnings_date
     FROM companies
-    WHERE ticker = $1
+    WHERE upper(trim(ticker)) = $1
     LIMIT 1
     `,
     [ticker],
@@ -178,34 +216,20 @@ export async function getCompanySnapshot(opts: { ticker: string }) {
   const cached = await loadCompanyDbRow(ticker);
   const latestClose = await getLatestCloseDbOnly(ticker);
 
-  if (cached?.name) {
-    return {
-      ticker,
-      name: cached.name,
-      industry: cached.industry,
-      country: cached.country,
-      earnings_date: cached.earnings_date,
-      shares_outstanding: null,
-      latest_close: latestClose,
-      mcap: cached.mcap,
-    };
-  }
+  let name: string | null = cached?.name ?? null;
+  let industry: string | null = cached?.industry ?? null;
+  let country: string | null = cached?.country ?? null;
+  let earnings_date: string | null = cached?.earnings_date ?? null;
+  let mcap: string | null = cached?.mcap != null ? String(cached.mcap) : null;
 
-  let name: string | null = null;
-  let industry: string | null = null;
-  let country: string | null = null;
-  try {
-    const r = await fetchPolygonTickerOverview(ticker);
-    name = r?.name ? String(r.name) : null;
-    industry =
-      r?.sic_description != null
-        ? String(r.sic_description)
-        : r?.industry != null
-          ? String(r.industry)
-          : null;
-    country = r?.address?.country != null ? String(r.address.country) : r?.locale != null ? String(r.locale) : null;
-  } catch {
-    // best-effort profile only
+  // Fill gaps even when a name is cached — otherwise dossier meta stays "—".
+  if (!name || !industry || !country) {
+    const r = await withTimeout(fetchPolygonTickerOverview(ticker, { rateLimit: false }), 2_500);
+    if (r) {
+      name = r?.name ? String(r.name) : name;
+      industry = industryFromPolygon(r) ?? industry;
+      country = inferCountryFromPolygon(r) ?? country;
+    }
   }
 
   return {
@@ -213,10 +237,10 @@ export async function getCompanySnapshot(opts: { ticker: string }) {
     name,
     industry,
     country,
-    earnings_date: null,
+    earnings_date,
     shares_outstanding: null,
     latest_close: latestClose,
-    mcap: null,
+    mcap,
   };
 }
 
@@ -286,22 +310,15 @@ export async function getCompanyPanelData(opts: {
   let country: string | null = cached?.country ?? null;
   let earnings_date: string | null = cached?.earnings_date ?? null;
 
-  if (!dbFirst || !name) {
-    const poly = await withTimeout(fetchPolygonTickerOverview(ticker), dbFirst ? 900 : 4_000);
+  if (!dbFirst || !name || !industry || !country) {
+    const poly = await withTimeout(
+      fetchPolygonTickerOverview(ticker, { rateLimit: !dbFirst }),
+      dbFirst ? 2_500 : 4_000,
+    );
     if (poly) {
       name = poly.name ? String(poly.name) : name;
-      industry =
-        poly.sic_description != null
-          ? String(poly.sic_description)
-          : poly.industry != null
-            ? String(poly.industry)
-            : industry;
-      country =
-        poly.address?.country != null
-          ? String(poly.address.country)
-          : poly.locale != null
-            ? String(poly.locale)
-            : country;
+      industry = industryFromPolygon(poly) ?? industry;
+      country = inferCountryFromPolygon(poly) ?? country;
     }
   }
 
@@ -334,37 +351,52 @@ export async function getCompanyPanelData(opts: {
     }
   }
 
-  if (name && !dbFirst) {
-    const existing = await db.one<{ id: string }>(`SELECT id FROM companies WHERE ticker = $1 LIMIT 1`, [ticker]);
-    if (existing?.id) {
-      await db.query(
-        `
-        UPDATE companies
-        SET name = $2,
-            industry = $3,
-            country = $4,
-            mcap = $5,
-            earnings_date = $6::date,
-            updated_at = now()
-        WHERE id = $1
-        `,
-        [existing.id, name, industry, country, mcap, earnings_date],
+  const shouldPersist =
+    Boolean(name) &&
+    (!dbFirst ||
+      industry !== (cached?.industry ?? null) ||
+      country !== (cached?.country ?? null) ||
+      mcap !== (cached?.mcap != null ? String(cached.mcap) : null) ||
+      earnings_date !== (cached?.earnings_date ?? null));
+
+  if (shouldPersist) {
+    try {
+      const existing = await db.one<{ id: string }>(
+        `SELECT id FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
+        [ticker],
       );
-    } else {
-      await db.query(
-        `
-        INSERT INTO companies (name, ticker, industry, country, mcap, earnings_date, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6::date, now())
-        ON CONFLICT (name) DO UPDATE
-          SET ticker = EXCLUDED.ticker,
-              industry = COALESCE(EXCLUDED.industry, companies.industry),
-              country = COALESCE(EXCLUDED.country, companies.country),
-              mcap = COALESCE(EXCLUDED.mcap, companies.mcap),
-              earnings_date = COALESCE(EXCLUDED.earnings_date, companies.earnings_date),
+      if (existing?.id) {
+        // Never rename into another row's unique name — only fill missing profile fields.
+        await db.query(
+          `
+          UPDATE companies
+          SET industry = COALESCE($2, industry),
+              country = COALESCE($3, country),
+              mcap = COALESCE($4, mcap),
+              earnings_date = COALESCE($5::date, earnings_date),
               updated_at = now()
-        `,
-        [name, ticker, industry, country, mcap, earnings_date],
-      );
+          WHERE id = $1
+          `,
+          [existing.id, industry, country, mcap, earnings_date],
+        );
+      } else {
+        await db.query(
+          `
+          INSERT INTO companies (name, ticker, industry, country, mcap, earnings_date, updated_at)
+          VALUES ($1, $2, $3, $4, $5, $6::date, now())
+          ON CONFLICT (name) DO UPDATE
+            SET ticker = COALESCE(EXCLUDED.ticker, companies.ticker),
+                industry = COALESCE(EXCLUDED.industry, companies.industry),
+                country = COALESCE(EXCLUDED.country, companies.country),
+                mcap = COALESCE(EXCLUDED.mcap, companies.mcap),
+                earnings_date = COALESCE(EXCLUDED.earnings_date, companies.earnings_date),
+                updated_at = now()
+          `,
+          [name, ticker, industry, country, mcap, earnings_date],
+        );
+      }
+    } catch {
+      // Cache write is best-effort — never fail the company panel on unique conflicts.
     }
   }
 
