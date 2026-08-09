@@ -1507,7 +1507,6 @@ export function DeepActorReport({
   ).trim()
   const modeLabel =
     mode === 'politicians' ? 'Politician' : mode === 'institutions' ? 'Institution' : 'Insider'
-  const sectionsLoading = Boolean(caseRowsLoading)
 
   const tradeRows = useMemo(
     () =>
@@ -1519,6 +1518,8 @@ export function DeepActorReport({
       ),
     [caseRows],
   )
+  const sectionsLoading = Boolean(caseRowsLoading)
+  const showSectionLoading = sectionsLoading && !tradeRows.length
 
   const rangedTradeRows = useMemo(
     () => filterTrackTradesByRange(tradeRows, chartRange),
@@ -1526,8 +1527,8 @@ export function DeepActorReport({
   )
 
   const trackRecord = useMemo(
-    () => (sectionsLoading && !rangedTradeRows.length ? null : buildMockActorTrackRecord(rangedTradeRows, name)),
-    [rangedTradeRows, name, sectionsLoading],
+    () => (showSectionLoading ? null : buildMockActorTrackRecord(rangedTradeRows, name)),
+    [rangedTradeRows, name, showSectionLoading],
   )
 
   const rangeReturnRaw = trackRecord?.stats?.cumulativeReturnRaw
@@ -1597,7 +1598,7 @@ export function DeepActorReport({
           chartRange={chartRange}
           winRate={trackRecord?.stats?.winRate ?? null}
           medianReturn={trackRecord?.stats?.medianReturn ?? null}
-          loading={sectionsLoading && !tradeRows.length}
+          loading={showSectionLoading}
         />
       }
     >
@@ -1610,7 +1611,7 @@ export function DeepActorReport({
             <div className="drpt-figure drpt-figure--chart">
               <DeepTrackRecordChartPanel
                 trackRecord={trackRecord}
-                loading={sectionsLoading && !tradeRows.length}
+                loading={showSectionLoading}
               />
             </div>
           </DeepSection>
@@ -1619,7 +1620,7 @@ export function DeepActorReport({
             <DeepActorMetrics
               trackRecord={trackRecord}
               chartRange={chartRange}
-              loading={sectionsLoading && !tradeRows.length}
+              loading={showSectionLoading}
             />
           </DeepSection>
         </div>
@@ -1630,19 +1631,19 @@ export function DeepActorReport({
             title="Trade log"
             headExtra={
               <span className="drpt-sectionCount">
-                {sectionsLoading && !tradeRows.length
+                {showSectionLoading
                   ? 'Loading…'
                   : formatCountLabel(tradeRows.length, 'trade')}
               </span>
             }
           >
             <div className="drpt-docPanel drpt-scroll">
-              <DeepExpandablePanel totalCount={sectionsLoading && !tradeRows.length ? 0 : tradeRows.length}>
+              <DeepExpandablePanel totalCount={showSectionLoading ? 0 : tradeRows.length}>
                 {(limit) => (
                   <DeepTradeLog
                     rows={caseRows}
                     visibleLimit={limit}
-                    loading={sectionsLoading && !tradeRows.length}
+                    loading={showSectionLoading}
                   />
                 )}
               </DeepExpandablePanel>
@@ -1654,20 +1655,20 @@ export function DeepActorReport({
             title="Company archive"
             headExtra={
               <span className="drpt-sectionCount">
-                {sectionsLoading && !companies.length
+                {showSectionLoading
                   ? 'Loading…'
                   : formatCountLabel(companies.length, 'company', 'companies')}
               </span>
             }
           >
             <div className="drpt-docPanel drpt-scroll">
-              <DeepExpandablePanel totalCount={sectionsLoading && !companies.length ? 0 : companies.length}>
+              <DeepExpandablePanel totalCount={showSectionLoading ? 0 : companies.length}>
                 {(limit) => (
                   <DeepTradedCompaniesList
                     companies={companies}
                     visibleLimit={limit}
                     onCompanyClick={onCompanyClick}
-                    loading={sectionsLoading && !companies.length}
+                    loading={showSectionLoading}
                   />
                 )}
               </DeepExpandablePanel>

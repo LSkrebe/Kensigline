@@ -9387,6 +9387,7 @@ function KensiglineTerminal() {
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
   const [insiderFeedLive, setInsiderFeedLive] = useState(null)
+  const insiderFeedFailRef = useRef(0)
   const [insiderFeedHasMore, setInsiderFeedHasMore] = useState(false)
   const [insiderFeedLoadingMore, setInsiderFeedLoadingMore] = useState(false)
   const insiderFeedOffsetRef = useRef(0)
@@ -9411,12 +9412,14 @@ function KensiglineTerminal() {
   const [companyLiveTicker, setCompanyLiveTicker] = useState(null)
   const companyFetchGenRef = useRef(0)
   const [politiciansFeedLive, setPoliticiansFeedLive] = useState(null)
+  const politiciansFeedFailRef = useRef(0)
   const [politiciansFeedHasMore, setPoliticiansFeedHasMore] = useState(false)
   const [politiciansFeedLoadingMore, setPoliticiansFeedLoadingMore] = useState(false)
   const politiciansFeedOffsetRef = useRef(0)
   const politiciansFeedCursorRef = useRef(null)
   const [politiciansClusterLive, setPoliticiansClusterLive] = useState(null)
   const [institutionsFeedLive, setInstitutionsFeedLive] = useState(null)
+  const institutionsFeedFailRef = useRef(0)
   const [institutionsFeedHasMore, setInstitutionsFeedHasMore] = useState(false)
   const [institutionsFeedLoadingMore, setInstitutionsFeedLoadingMore] = useState(false)
   const institutionsFeedOffsetRef = useRef(0)
@@ -10327,6 +10330,7 @@ function KensiglineTerminal() {
         if (!alive) return
         const mapped = page.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
         if (page.ok) {
+          insiderFeedFailRef.current = 0
           setInsiderFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
           setInsiderFeedHasMore(page.hasMore)
           insiderFeedOffsetRef.current = page.nextOffset
@@ -10343,9 +10347,15 @@ function KensiglineTerminal() {
         }
         if (attempt < 1) await new Promise((r) => setTimeout(r, 600))
       }
-      // Soft failure: keep prior page if any; otherwise mark resolved empty (no mock when live).
+      // Soft failure: keep prior data, or stay null so dossier sections keep loading.
       if (!append) {
-        setInsiderFeedLive((prev) => (Array.isArray(prev) ? prev : []))
+        insiderFeedFailRef.current += 1
+        setInsiderFeedLive((prev) => {
+          if (Array.isArray(prev) && prev.length) return prev
+          // After repeated misses, settle empty so we don't spin forever.
+          if (insiderFeedFailRef.current >= 3) return []
+          return null
+        })
       }
     }
 
@@ -10403,6 +10413,7 @@ function KensiglineTerminal() {
         if (!alive) return
         const mapped = page.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
         if (page.ok) {
+          institutionsFeedFailRef.current = 0
           setInstitutionsFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
           setInstitutionsFeedHasMore(page.hasMore)
           institutionsFeedOffsetRef.current = page.nextOffset
@@ -10420,7 +10431,12 @@ function KensiglineTerminal() {
         if (attempt < 1) await new Promise((r) => setTimeout(r, 600))
       }
       if (!append) {
-        setInstitutionsFeedLive((prev) => (Array.isArray(prev) ? prev : []))
+        institutionsFeedFailRef.current += 1
+        setInstitutionsFeedLive((prev) => {
+          if (Array.isArray(prev) && prev.length) return prev
+          if (institutionsFeedFailRef.current >= 3) return []
+          return null
+        })
       }
     }
 
@@ -10478,6 +10494,7 @@ function KensiglineTerminal() {
         if (!alive) return
         const mapped = page.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
         if (page.ok) {
+          politiciansFeedFailRef.current = 0
           setPoliticiansFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
           setPoliticiansFeedHasMore(page.hasMore)
           politiciansFeedOffsetRef.current = page.nextOffset
@@ -10495,7 +10512,12 @@ function KensiglineTerminal() {
         if (attempt < 1) await new Promise((r) => setTimeout(r, 600))
       }
       if (!append) {
-        setPoliticiansFeedLive((prev) => (Array.isArray(prev) ? prev : []))
+        politiciansFeedFailRef.current += 1
+        setPoliticiansFeedLive((prev) => {
+          if (Array.isArray(prev) && prev.length) return prev
+          if (politiciansFeedFailRef.current >= 3) return []
+          return null
+        })
       }
     }
 
@@ -10809,61 +10831,14 @@ function KensiglineTerminal() {
     exploreSubview,
   ])
 
-  const investorCaseRowsLoading =
-    backendUp &&
-    exploreSubview === 'investorDetail' &&
-    (insiderFeedLive === null ||
-      politiciansFeedLive === null ||
-      institutionsFeedLive === null) &&
-    !(effectiveActorRow?.transactions?.length > 0)
-
   const investorDossierMode = exploreInvestorDossier?.mode ?? investigateMode
-  const investorFeedExpandCountRef = useRef(0)
+  const [investorFeedExpandCount, setInvestorFeedExpandCount] = useState(0)
+  const investorFeedExpandingRef = useRef(false)
 
   useEffect(() => {
-    investorFeedExpandCountRef.current = 0
+    setInvestorFeedExpandCount(0)
+    investorFeedExpandingRef.current = false
   }, [terminalRoute.investorSlug])
-
-  // If the investor isn't in the first feed page yet, keep paging until found or exhausted.
-  useEffect(() => {
-    if (!backendUp || exploreSubview !== 'investorDetail') return
-    if (exploreInvestorDossier?.fromFeed) return
-    if (investorCaseRowsLoading) return
-    if (investorFeedExpandCountRef.current >= 3) return
-    const mode = exploreInvestorDossier?.mode ?? investorDossierMode
-    let triggered = false
-    if (mode === 'politicians') {
-      if (politiciansFeedHasMore && !politiciansFeedLoadingMore) {
-        triggered = true
-        void loadMorePoliticiansFeed()
-      }
-    } else if (mode === 'institutions') {
-      if (institutionsFeedHasMore && !institutionsFeedLoadingMore) {
-        triggered = true
-        void loadMoreInstitutionsFeed()
-      }
-    } else if (insiderFeedHasMore && !insiderFeedLoadingMore) {
-      triggered = true
-      void loadMoreInsiderFeed()
-    }
-    if (triggered) investorFeedExpandCountRef.current += 1
-  }, [
-    backendUp,
-    exploreSubview,
-    exploreInvestorDossier?.fromFeed,
-    exploreInvestorDossier?.mode,
-    investorDossierMode,
-    investorCaseRowsLoading,
-    politiciansFeedHasMore,
-    politiciansFeedLoadingMore,
-    institutionsFeedHasMore,
-    institutionsFeedLoadingMore,
-    insiderFeedHasMore,
-    insiderFeedLoadingMore,
-    loadMorePoliticiansFeed,
-    loadMoreInstitutionsFeed,
-    loadMoreInsiderFeed,
-  ])
 
   // Bars (Daily Graph) + Company panel: use selected ticker in either mode.
   // Investigate tab chrome is retired; Explore deep dossiers still key off investigateMode.
@@ -11032,7 +11007,9 @@ function KensiglineTerminal() {
       : -1
 
   const investigateActiveCaseFeedRows = useMemo(() => {
-    if (exploreInvestorDossier?.actorRow) {
+    // Always prefer the resolved/enriched actor used by the deep page — not the raw
+    // directory stub — so seeded company-flow trades and feed hits paint immediately.
+    if (exploreSubview === 'investorDetail' && effectiveActorRow) {
       const filters = investigateIsPoliticians
         ? investigatePoliticianTxnFilters
         : investigateIsInstitutions
@@ -11043,13 +11020,14 @@ function KensiglineTerminal() {
         : investigateIsInstitutions
           ? institutionsChartRange
           : insiderChartRange
-      return buildActorCaseFeedRows(exploreInvestorDossier.actorRow, filters, range)
+      return buildActorCaseFeedRows(effectiveActorRow, filters, range)
     }
     if (investigateIsPoliticians) return politiciansCaseFeedRows
     if (investigateIsInstitutions) return institutionsCaseFeedRows
     return insiderCaseFeedRows
   }, [
-    exploreInvestorDossier,
+    exploreSubview,
+    effectiveActorRow,
     investigateIsPoliticians,
     investigateIsInstitutions,
     investigatePoliticianTxnFilters,
@@ -11061,6 +11039,86 @@ function KensiglineTerminal() {
     politiciansCaseFeedRows,
     institutionsCaseFeedRows,
     insiderCaseFeedRows,
+  ])
+
+  const investorCaseTradeCount = useMemo(() => {
+    let n = 0
+    for (const r of investigateActiveCaseFeedRows) {
+      if (r?.type === 'trade' || String(r?.layout ?? '').startsWith('txn')) n += 1
+    }
+    return n
+  }, [investigateActiveCaseFeedRows])
+
+  const investorModeFeedPending =
+    investorDossierMode === 'politicians'
+      ? politiciansFeedLive === null
+      : investorDossierMode === 'institutions'
+        ? institutionsFeedLive === null
+        : insiderFeedLive === null
+
+  const investorModeHasMore =
+    investorDossierMode === 'politicians'
+      ? politiciansFeedHasMore
+      : investorDossierMode === 'institutions'
+        ? institutionsFeedHasMore
+        : insiderFeedHasMore
+
+  const investorModeLoadingMore =
+    investorDossierMode === 'politicians'
+      ? politiciansFeedLoadingMore
+      : investorDossierMode === 'institutions'
+        ? institutionsFeedLoadingMore
+        : insiderFeedLoadingMore
+
+  // Mirror company dossier: stay in loading until trades paint or feeds are settled.
+  const investorCaseRowsLoading =
+    backendUp &&
+    exploreSubview === 'investorDetail' &&
+    investorCaseTradeCount === 0 &&
+    (insiderFeedLive === null ||
+      politiciansFeedLive === null ||
+      institutionsFeedLive === null ||
+      investorModeFeedPending ||
+      investorModeLoadingMore ||
+      (!exploreInvestorDossier?.fromFeed &&
+        investorFeedExpandCount < 3 &&
+        investorModeHasMore))
+
+  // If the investor isn't in the first feed page yet, keep paging until found or exhausted.
+  useEffect(() => {
+    if (!backendUp || exploreSubview !== 'investorDetail') return
+    if (exploreInvestorDossier?.fromFeed) return
+    if (investorCaseTradeCount > 0) return
+    if (investorFeedExpandCount >= 3) return
+    if (investorModeFeedPending || investorModeLoadingMore) return
+    if (!investorModeHasMore) return
+    if (investorFeedExpandingRef.current) return
+    investorFeedExpandingRef.current = true
+    const mode = exploreInvestorDossier?.mode ?? investorDossierMode
+    const run =
+      mode === 'politicians'
+        ? loadMorePoliticiansFeed
+        : mode === 'institutions'
+          ? loadMoreInstitutionsFeed
+          : loadMoreInsiderFeed
+    void Promise.resolve(run()).finally(() => {
+      investorFeedExpandingRef.current = false
+      setInvestorFeedExpandCount((n) => n + 1)
+    })
+  }, [
+    backendUp,
+    exploreSubview,
+    exploreInvestorDossier?.fromFeed,
+    exploreInvestorDossier?.mode,
+    investorDossierMode,
+    investorCaseTradeCount,
+    investorFeedExpandCount,
+    investorModeFeedPending,
+    investorModeLoadingMore,
+    investorModeHasMore,
+    loadMorePoliticiansFeed,
+    loadMoreInstitutionsFeed,
+    loadMoreInsiderFeed,
   ])
 
   const investigateCaseSelectedTrade = useMemo(() => {
