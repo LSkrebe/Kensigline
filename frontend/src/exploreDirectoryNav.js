@@ -37,9 +37,17 @@ export const exploreActorModeFromDocType = exploreInvestorModeFromDocType
 export function exploreInvestorNameMatchesSlug(investorRow, slug) {
   const target = String(slug ?? '').trim().toLowerCase()
   if (!target) return false
-  if (exploreInvestorSlug(investorRow?.actorName) === target) return true
-  for (const alias of investorRow?.matchNames ?? []) {
-    if (exploreInvestorSlug(alias) === target) return true
+  const candidates = [investorRow?.actorName, ...(investorRow?.matchNames ?? [])]
+  for (const raw of candidates) {
+    const name = String(raw ?? '').trim()
+    if (!name) continue
+    if (exploreInvestorSlug(name) === target) return true
+    // "PELOSI, NANCY" ↔ pelosi-nancy / nancy-pelosi
+    if (name.includes(',')) {
+      const [last, rest] = name.split(',').map((p) => p.trim())
+      if (last && rest && exploreInvestorSlug(`${rest} ${last}`) === target) return true
+      if (last && rest && exploreInvestorSlug(`${last} ${rest}`) === target) return true
+    }
   }
   return false
 }
@@ -115,17 +123,55 @@ export function findExploreInvestorDirectoryRowBySlug(slug, directoryRows = []) 
 /**
  * Resolve which investor the deep page should show from the URL slug.
  * Prefer live feed identity; otherwise directory / stub so we never silently keep idx 0.
+ * When both feed + focus exist, keep the richer transaction set (company-seeded focus often wins first paint).
  */
 export function resolveExploreInvestorDossier({
   investorSlug,
   feeds,
   directoryRows = [],
   focus = null,
+  cached = null,
 }) {
   const slug = String(investorSlug ?? '').trim().toLowerCase()
   if (!slug) return null
 
   const feedHit = findExploreInvestorInFeeds(slug, feeds)
+  const focusOk = focus?.slug === slug && focus?.actorRow
+  const cachedOk = cached?.actorRow?.transactions?.length > 0
+  const feedN = feedHit?.row?.transactions?.length ?? 0
+  const focusN = focusOk ? focus.actorRow.transactions?.length ?? 0 : 0
+  const cachedN = cachedOk ? cached.actorRow.transactions.length : 0
+
+  if (feedHit && feedN >= focusN && feedN >= cachedN && feedN > 0) {
+    return {
+      slug,
+      mode: feedHit.mode,
+      index: feedHit.index,
+      actorRow: feedHit.row,
+      fromFeed: true,
+    }
+  }
+
+  if (focusOk && focusN >= cachedN && focusN > 0) {
+    return {
+      slug,
+      mode: focus.mode || feedHit?.mode || 'insider',
+      index: feedHit?.index ?? null,
+      actorRow: focus.actorRow,
+      fromFeed: Boolean(feedHit),
+    }
+  }
+
+  if (cachedOk) {
+    return {
+      slug,
+      mode: cached.mode || focus?.mode || feedHit?.mode || 'insider',
+      index: feedHit?.index ?? null,
+      actorRow: cached.actorRow,
+      fromFeed: Boolean(feedHit),
+    }
+  }
+
   if (feedHit) {
     return {
       slug,
@@ -136,7 +182,7 @@ export function resolveExploreInvestorDossier({
     }
   }
 
-  if (focus?.slug === slug && focus?.actorRow) {
+  if (focusOk) {
     return {
       slug,
       mode: focus.mode || 'insider',

@@ -67,6 +67,7 @@ import {
   fetchFeedPage,
   persistFeedCache,
 } from './feedLoad.js'
+import { readInvestorDossierCache, writeInvestorDossierCache } from './investorDossierCache.js'
 import { EventBriefAnalysis } from './EventBrief.jsx'
 import { politicianCommitteeFromRow } from './politicianCommittees.js'
 import {
@@ -1298,9 +1299,138 @@ function investorNamesLikelyMatch(a, b) {
   const nb = formatPoliticianDisplayName(b).trim().toLowerCase()
   if (!na || !nb) return false
   if (na === nb) return true
-  const la = lastName(na).toLowerCase()
-  const lb = lastName(nb).toLowerCase()
+  if (exploreInvestorSlug(na) === exploreInvestorSlug(nb)) return true
+  const norm = (s) => {
+    if (s.includes(',')) {
+      const [last, rest] = s.split(',').map((p) => p.trim())
+      if (last && rest) return `${rest} ${last}`.replace(/\s+/g, ' ')
+    }
+    return s.replace(/\s+/g, ' ')
+  }
+  if (norm(na) === norm(nb)) return true
+  const la = lastName(norm(na)).toLowerCase()
+  const lb = lastName(norm(nb)).toLowerCase()
   return Boolean(la && lb && la === lb && la.length > 2)
+}
+
+/** Seed at least one trade from a tracked-investor list row (company dossier click). */
+function buildActorTxnFromTrackedInvestorRow(row, { ticker, companyName, mode }) {
+  const tick = String(ticker ?? row?.ticker ?? '').trim().toUpperCase()
+  if (!tick) return null
+  const name = formatPoliticianDisplayName(row?.name ?? '')
+  if (!name) return null
+  const company = String(companyName ?? '').trim() || tick
+  const amountUsd = Number(row?.totalUsd)
+  const parsed = Number.isFinite(amountUsd) && amountUsd !== 0 ? Math.abs(amountUsd) : parseTxnAmountUsd(row?.amount)
+  const ts = row?.dateAt
+    ? new Date(row.dateAt).toISOString()
+    : row?.date
+      ? new Date(row.date).toISOString()
+      : null
+  const code = String(row?.code ?? '').trim().toUpperCase() || 'P'
+
+  if (mode === 'politicians') {
+    return {
+      sheetRow: {
+        politician_name: name,
+        person: name,
+        chamber: row?.chamber ?? 'house',
+        transactionType: code === 'S' ? 'Sale' : 'Purchase',
+        transactionCode: code,
+        amountUsd: parsed > 0 ? parsed : 1,
+        ts,
+      },
+      ticker: tick,
+      company,
+      companyRow: null,
+      showMoney: true,
+      ts,
+      source: 'politicians',
+    }
+  }
+  if (mode === 'institutions') {
+    return {
+      sheetRow: {
+        institution_name: name,
+        key: name,
+        activity: code === 'RED' || code === 'S' ? 'Reduced stake' : 'Increased stake',
+        amountUsd: parsed > 0 ? parsed : 1,
+        ts,
+      },
+      ticker: tick,
+      company,
+      companyRow: null,
+      showMoney: true,
+      ts,
+      source: 'institutions',
+    }
+  }
+  return {
+    sheetRow: {
+      person: name,
+      surname: lastName(name),
+      role: 'INS',
+      key: null,
+      transactionCode: code === 'S' || code === 'D' ? 'S' : 'P',
+      acquiredDisposed: code === 'S' || code === 'D' ? 'D' : 'A',
+      amountUsd: parsed > 0 ? parsed : 1,
+      ts,
+    },
+    ticker: tick,
+    company,
+    companyRow: null,
+    showMoney: true,
+    ts,
+    source: 'insider',
+  }
+}
+
+function mergeActorTransactions(base, extra) {
+  const out = [...(base ?? [])]
+  const seen = new Set(
+    out.map((t) => `${t?.ticker}|${t?.ts}|${t?.sheetRow?.transactionCode ?? t?.sheetRow?.activity ?? ''}|${t?.sheetRow?.amountUsd ?? ''}`),
+  )
+  for (const t of extra ?? []) {
+    const key = `${t?.ticker}|${t?.ts}|${t?.sheetRow?.transactionCode ?? t?.sheetRow?.activity ?? ''}|${t?.sheetRow?.amountUsd ?? ''}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(t)
+  }
+  out.sort((a, b) => new Date(b.ts ?? 0).getTime() - new Date(a.ts ?? 0).getTime())
+  return out
+}
+
+function enrichStubActorWithCompanyFlows(actorRow, { ticker, companyName, flows, trackedRow = null }) {
+  if (!actorRow?.actorName) return actorRow
+  const mode = actorRow.source === 'politicians' || actorRow.source === 'institutions' ? actorRow.source : 'insider'
+  const fromFlows = buildActorTxnsFromCompanyFlows({
+    name: actorRow.actorName,
+    mode,
+    ticker: ticker || actorRow.ticker,
+    companyName,
+    flows,
+  })
+  const fromTracked = trackedRow
+    ? buildActorTxnFromTrackedInvestorRow(trackedRow, {
+        ticker: ticker || actorRow.ticker,
+        companyName,
+        mode,
+      })
+    : null
+  const merged = mergeActorTransactions(actorRow.transactions, [
+    ...fromFlows,
+    ...(fromTracked ? [fromTracked] : []),
+  ])
+  if (!(merged.length > (actorRow.transactions?.length ?? 0))) {
+    if (merged.length && !(actorRow.transactions?.length > 0)) {
+      return normalizeInvestigateActorFeedRow({ ...actorRow, transactions: merged })
+    }
+    return actorRow
+  }
+  return normalizeInvestigateActorFeedRow({
+    ...actorRow,
+    transactions: merged,
+  })
 }
 
 /** Seed actor transactions from the company dossier flows so investor pages aren't empty on click. */
@@ -1390,24 +1520,6 @@ function buildActorTxnsFromCompanyFlows({ name, mode, ticker, companyName, flows
     })
   }
   return out
-}
-
-function enrichStubActorWithCompanyFlows(actorRow, { ticker, companyName, flows }) {
-  if (!actorRow?.actorName) return actorRow
-  if (Array.isArray(actorRow.transactions) && actorRow.transactions.length) return actorRow
-  const mode = actorRow.source === 'politicians' || actorRow.source === 'institutions' ? actorRow.source : 'insider'
-  const txns = buildActorTxnsFromCompanyFlows({
-    name: actorRow.actorName,
-    mode,
-    ticker: ticker || actorRow.ticker,
-    companyName,
-    flows,
-  })
-  if (!txns.length) return actorRow
-  return normalizeInvestigateActorFeedRow({
-    ...actorRow,
-    transactions: txns,
-  })
 }
 
 function findCompanyFeedRowByTicker(rows, ticker) {
@@ -9119,6 +9231,7 @@ function investigateCaseSheetFromApiItem(it, mode) {
     url: it.url ?? it.document_url ?? null,
   }
   const ws = Array.isArray(it.worksheet_rows) ? it.worksheet_rows : []
+  let fromWs = null
   if (ws.length) {
     const pseudo = {
       cluster: { worksheet_rows: ws },
@@ -9133,14 +9246,25 @@ function investigateCaseSheetFromApiItem(it, mode) {
       },
       url: it.url ?? null,
     }
-    if (mode === 'politicians') return politiciansCaseSheetFromClusterLive(pseudo, fallback)
-    if (mode === 'institutions') return institutionCaseSheetFromClusterLive(pseudo, fallback)
-    return insiderCaseSheetFromClusterLive(pseudo, fallback)
+    fromWs =
+      mode === 'politicians'
+        ? politiciansCaseSheetFromClusterLive(pseudo, fallback)
+        : mode === 'institutions'
+          ? institutionCaseSheetFromClusterLive(pseudo, fallback)
+          : insiderCaseSheetFromClusterLive(pseudo, fallback)
+    const usable = (fromWs?.rows ?? []).filter((r) => {
+      if (mode === 'politicians') return politicianCaseRowHasTxn(r)
+      if (mode === 'institutions') return institutionCaseRowHasTxn(r)
+      const code = String(r?.transactionCode ?? '').trim()
+      const usd = Number(r?.amountUsd ?? 0)
+      return Boolean(code) || (Number.isFinite(usd) && usd > 0)
+    })
+    if (usable.length) return fromWs
   }
   const at = String(it.feed_at ?? it.at ?? '')
   if (mode === 'politicians') {
     const names = Array.isArray(it.politicians) ? it.politicians : []
-    if (!names.length) return null
+    if (!names.length) return fromWs
     return {
       filingId: it.id,
       formType: 'PTR',
@@ -9148,6 +9272,7 @@ function investigateCaseSheetFromApiItem(it, mode) {
       ticker: it.ticker,
       isForm4: true,
       filedAt: at || null,
+      documentUrl: fromWs?.documentUrl ?? null,
       rows: names.map((name) => ({
         key: String(name),
         politician_name: String(name),
@@ -9162,7 +9287,7 @@ function investigateCaseSheetFromApiItem(it, mode) {
   }
   if (mode === 'institutions') {
     const names = Array.isArray(it.institutions) ? it.institutions : []
-    if (!names.length) return null
+    if (!names.length) return fromWs
     return {
       filingId: it.id,
       formType: '13F',
@@ -9170,6 +9295,7 @@ function investigateCaseSheetFromApiItem(it, mode) {
       ticker: it.ticker,
       isForm4: true,
       filedAt: at || null,
+      documentUrl: fromWs?.documentUrl ?? null,
       rows: names.map((name) => ({
         key: String(name),
         institution_name: String(name),
@@ -9181,7 +9307,7 @@ function investigateCaseSheetFromApiItem(it, mode) {
     }
   }
   const insiders = Array.isArray(it.insiders) ? it.insiders : []
-  if (!insiders.length) return null
+  if (!insiders.length) return fromWs
   return {
     filingId: it.id,
     formType: 'Form 4',
@@ -9189,6 +9315,7 @@ function investigateCaseSheetFromApiItem(it, mode) {
     ticker: it.ticker,
     isForm4: true,
     filedAt: at || null,
+    documentUrl: fromWs?.documentUrl ?? null,
     rows: insiders.map((name) => ({
       key: String(name),
       insider_name: String(name),
@@ -9295,6 +9422,8 @@ function KensiglineTerminal() {
   const terminalRoute = useTerminalRoute()
   const shell = terminalRoute.shell ?? 'explore'
   const exploreSubview = shell === 'explore' ? (terminalRoute.view ?? 'home') : 'home'
+  const exploreSubviewRef = useRef(exploreSubview)
+  exploreSubviewRef.current = exploreSubview
   const macroActive = shell === 'macro'
   const settingsActive = shell === 'settings'
   const [researchPhonePane, setResearchPhonePane] = useState('paper')
@@ -10217,7 +10346,9 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
-    if (exploreSubview === 'investorDetail') return
+    // Keep explore warm on investor pages when a company ticker is still in scope
+    // (company → investor enrichment). Only skip cold investor URLs with no ticker.
+    if (exploreSubview === 'investorDetail' && !researchTick) return
     const tick = researchTick
     if (!tick) return
     let alive = true
@@ -10331,7 +10462,18 @@ function KensiglineTerminal() {
         const mapped = page.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
         if (page.ok) {
           insiderFeedFailRef.current = 0
-          setInsiderFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
+          setInsiderFeedLive((prev) => {
+            if (append) return mergeFeedPages(prev, mapped, { append: true })
+            // Don't wipe expanded pages while an investor dossier is open (reload flash root cause).
+            if (
+              exploreSubviewRef.current === 'investorDetail' &&
+              Array.isArray(prev) &&
+              prev.length > mapped.length
+            ) {
+              return mergeFeedPages(mapped, prev, { append: true })
+            }
+            return mapped
+          })
           setInsiderFeedHasMore(page.hasMore)
           insiderFeedOffsetRef.current = page.nextOffset
           insiderFeedCursorRef.current = page.nextCursor
@@ -10364,9 +10506,9 @@ function KensiglineTerminal() {
       insiderFeedCursorRef.current = null
       setInsiderFeedHasMore(false)
     }
-    void run({ append: false, offset: 0, limit: Math.max(FEED_INITIAL_PAGE_SIZE, 40) })
+    void run({ append: false, offset: 0, limit: Math.max(FEED_INITIAL_PAGE_SIZE, 80) })
 
-    const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
+    const t = setInterval(() => run({ append: false, offset: 0, limit: Math.max(FEED_INITIAL_PAGE_SIZE, 80) }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
       alive = false
       clearInterval(t)
@@ -10414,7 +10556,17 @@ function KensiglineTerminal() {
         const mapped = page.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
         if (page.ok) {
           institutionsFeedFailRef.current = 0
-          setInstitutionsFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
+          setInstitutionsFeedLive((prev) => {
+            if (append) return mergeFeedPages(prev, mapped, { append: true })
+            if (
+              exploreSubviewRef.current === 'investorDetail' &&
+              Array.isArray(prev) &&
+              prev.length > mapped.length
+            ) {
+              return mergeFeedPages(mapped, prev, { append: true })
+            }
+            return mapped
+          })
           setInstitutionsFeedHasMore(page.hasMore)
           institutionsFeedOffsetRef.current = page.nextOffset
           institutionsFeedCursorRef.current = page.nextCursor
@@ -10445,7 +10597,7 @@ function KensiglineTerminal() {
       institutionsFeedCursorRef.current = null
       setInstitutionsFeedHasMore(false)
     }
-    void run({ append: false, offset: 0, limit: Math.max(FEED_INITIAL_PAGE_SIZE, 40) })
+    void run({ append: false, offset: 0, limit: Math.max(FEED_INITIAL_PAGE_SIZE, 80) })
 
     const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
@@ -10495,7 +10647,17 @@ function KensiglineTerminal() {
         const mapped = page.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
         if (page.ok) {
           politiciansFeedFailRef.current = 0
-          setPoliticiansFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
+          setPoliticiansFeedLive((prev) => {
+            if (append) return mergeFeedPages(prev, mapped, { append: true })
+            if (
+              exploreSubviewRef.current === 'investorDetail' &&
+              Array.isArray(prev) &&
+              prev.length > mapped.length
+            ) {
+              return mergeFeedPages(mapped, prev, { append: true })
+            }
+            return mapped
+          })
           setPoliticiansFeedHasMore(page.hasMore)
           politiciansFeedOffsetRef.current = page.nextOffset
           politiciansFeedCursorRef.current = page.nextCursor
@@ -10526,7 +10688,7 @@ function KensiglineTerminal() {
       politiciansFeedCursorRef.current = null
       setPoliticiansFeedHasMore(false)
     }
-    void run({ append: false, offset: 0, limit: Math.max(FEED_INITIAL_PAGE_SIZE, 40) })
+    void run({ append: false, offset: 0, limit: Math.max(FEED_INITIAL_PAGE_SIZE, 80) })
 
     const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
@@ -10729,11 +10891,13 @@ function KensiglineTerminal() {
 
   const exploreInvestorDossier = useMemo(() => {
     if (terminalRoute.view !== 'investorDetail' || !terminalRoute.investorSlug) return null
+    const slug = terminalRoute.investorSlug
     return resolveExploreInvestorDossier({
-      investorSlug: terminalRoute.investorSlug,
+      investorSlug: slug,
       feeds: exploreActorFeeds,
       directoryRows: exploreInvestorDirectoryRows,
       focus: exploreInvestorFocus,
+      cached: readInvestorDossierCache(slug),
     })
   }, [
     terminalRoute.view,
@@ -10758,6 +10922,7 @@ function KensiglineTerminal() {
         feeds: exploreActorFeeds,
         directoryRows: exploreInvestorDirectoryRows,
         focus: exploreInvestorFocus,
+        cached: readInvestorDossierCache(slug),
       })
       if (!resolved) return
       if (resolved.fromFeed && resolved.index != null) {
@@ -10806,12 +10971,7 @@ function KensiglineTerminal() {
         : investigateMode === 'institutions'
           ? institutionsSelected
           : insiderSelected)
-    if (
-      row &&
-      !(row.transactions?.length > 0) &&
-      researchTick &&
-      exploreSubview === 'investorDetail'
-    ) {
+    if (row && exploreSubview === 'investorDetail') {
       row = enrichStubActorWithCompanyFlows(row, {
         ticker: researchTick,
         companyName: researchCompanyName,
@@ -10829,6 +10989,21 @@ function KensiglineTerminal() {
     researchCompanyName,
     contextFlowRows,
     exploreSubview,
+  ])
+
+  useEffect(() => {
+    const slug = terminalRoute.investorSlug
+    if (!slug || !(effectiveActorRow?.transactions?.length > 0)) return
+    writeInvestorDossierCache(
+      slug,
+      effectiveActorRow,
+      effectiveActorRow.source || exploreInvestorDossier?.mode || investigateMode,
+    )
+  }, [
+    terminalRoute.investorSlug,
+    effectiveActorRow,
+    exploreInvestorDossier?.mode,
+    investigateMode,
   ])
 
   const investorDossierMode = exploreInvestorDossier?.mode ?? investigateMode
@@ -11009,18 +11184,14 @@ function KensiglineTerminal() {
   const investigateActiveCaseFeedRows = useMemo(() => {
     // Always prefer the resolved/enriched actor used by the deep page — not the raw
     // directory stub — so seeded company-flow trades and feed hits paint immediately.
+    // Pass full history here; DeepActorReport applies its own chart-range filter.
     if (exploreSubview === 'investorDetail' && effectiveActorRow) {
       const filters = investigateIsPoliticians
         ? investigatePoliticianTxnFilters
         : investigateIsInstitutions
           ? investigateInstitutionTxnFilters
           : investigateInsiderTxnFilters
-      const range = investigateIsPoliticians
-        ? politiciansChartRange
-        : investigateIsInstitutions
-          ? institutionsChartRange
-          : insiderChartRange
-      return buildActorCaseFeedRows(effectiveActorRow, filters, range)
+      return buildActorCaseFeedRows(effectiveActorRow, filters, null)
     }
     if (investigateIsPoliticians) return politiciansCaseFeedRows
     if (investigateIsInstitutions) return institutionsCaseFeedRows
@@ -11033,9 +11204,6 @@ function KensiglineTerminal() {
     investigatePoliticianTxnFilters,
     investigateInstitutionTxnFilters,
     investigateInsiderTxnFilters,
-    politiciansChartRange,
-    institutionsChartRange,
-    insiderChartRange,
     politiciansCaseFeedRows,
     institutionsCaseFeedRows,
     insiderCaseFeedRows,
@@ -11070,26 +11238,29 @@ function KensiglineTerminal() {
         ? institutionsFeedLoadingMore
         : insiderFeedLoadingMore
 
-  // Mirror company dossier: stay in loading until trades paint or feeds are settled.
+  const investorFeedsSettled =
+    insiderFeedLive !== null && politiciansFeedLive !== null && institutionsFeedLive !== null
+
+  // Mirror company `researchExploreResolved`: stay loading until trades paint or hunt finishes.
+  const investorDossierResolved =
+    investorCaseTradeCount > 0 ||
+    (investorFeedsSettled &&
+      !investorModeLoadingMore &&
+      (exploreInvestorDossier?.fromFeed ||
+        investorFeedExpandCount >= 6 ||
+        !investorModeHasMore))
+
   const investorCaseRowsLoading =
     backendUp &&
     exploreSubview === 'investorDetail' &&
     investorCaseTradeCount === 0 &&
-    (insiderFeedLive === null ||
-      politiciansFeedLive === null ||
-      institutionsFeedLive === null ||
-      investorModeFeedPending ||
-      investorModeLoadingMore ||
-      (!exploreInvestorDossier?.fromFeed &&
-        investorFeedExpandCount < 3 &&
-        investorModeHasMore))
+    !investorDossierResolved
 
   // If the investor isn't in the first feed page yet, keep paging until found or exhausted.
   useEffect(() => {
     if (!backendUp || exploreSubview !== 'investorDetail') return
-    if (exploreInvestorDossier?.fromFeed) return
     if (investorCaseTradeCount > 0) return
-    if (investorFeedExpandCount >= 3) return
+    if (investorFeedExpandCount >= 6) return
     if (investorModeFeedPending || investorModeLoadingMore) return
     if (!investorModeHasMore) return
     if (investorFeedExpandingRef.current) return
@@ -11108,7 +11279,6 @@ function KensiglineTerminal() {
   }, [
     backendUp,
     exploreSubview,
-    exploreInvestorDossier?.fromFeed,
     exploreInvestorDossier?.mode,
     investorDossierMode,
     investorCaseTradeCount,
@@ -11627,12 +11797,14 @@ function KensiglineTerminal() {
       const hit = findExploreInvestorInFeedsByName(name, preferredMode, exploreActorFeeds)
       const tick = String(row?.ticker ?? researchTick ?? '').trim().toUpperCase() || null
       let actorRow = hit?.row ?? stubActorRowFromExploreInvestor({ ...row, ticker: tick }, preferredMode)
-      if (!hit?.row) {
-        actorRow = enrichStubActorWithCompanyFlows(actorRow, {
-          ticker: tick,
-          companyName: researchCompanyName,
-          flows: contextFlowRows,
-        })
+      actorRow = enrichStubActorWithCompanyFlows(actorRow, {
+        ticker: tick,
+        companyName: researchCompanyName,
+        flows: contextFlowRows,
+        trackedRow: row,
+      })
+      if (actorRow?.transactions?.length) {
+        writeInvestorDossierCache(slug, actorRow, hit?.mode ?? preferredMode)
       }
       setDeepResearchMode('investor')
       setExploreInvestorFocus({
