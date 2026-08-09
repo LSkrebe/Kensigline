@@ -201,6 +201,7 @@ export function MiniPriceChart({
   plotInset = 0,
   showHoverTooltip = false,
   lineOnly = false,
+  loading = false,
 }) {
   void insiderMarkers
   void politicianMarkers
@@ -499,7 +500,7 @@ export function MiniPriceChart({
       >
         {!vals.length ? (
           <div className="graphEmpty mono dim" role="status">
-            No price data.
+            {loading ? 'Loading price…' : 'No price data.'}
           </div>
         ) : !size ? null : (
           <svg

@@ -25,10 +25,10 @@ export async function handleAnalyseModel(res: ServerResponse, tickerInput: strin
       return;
     }
     console.warn("[analyse/model] failed", ticker, msg);
+    // ok:false so the client keeps loading / retries instead of flashing "No financial model".
     sendJson(res, 200, {
-      ok: true,
+      ok: false,
       ticker,
-      empty: true,
       error: "analyse_model_unavailable",
     });
   }

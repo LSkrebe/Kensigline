@@ -9282,6 +9282,7 @@ function KensiglineTerminal() {
   const researchCompanyFetchGenRef = useRef(0)
   const researchExploreFetchGenRef = useRef(0)
   const [researchBarsSeries, setResearchBarsSeries] = useState(null)
+  const [researchBarsLoading, setResearchBarsLoading] = useState(false)
   const [researchBarsDays, setResearchBarsDays] = useState(null)
   const [researchBarsTicker, setResearchBarsTicker] = useState(null)
   const [companyLive, setCompanyLive] = useState(null)
@@ -9932,19 +9933,21 @@ function KensiglineTerminal() {
       setResearchBarsSeries(cached.closes)
       setResearchBarsDays(cached.days ?? null)
       setResearchBarsTicker(tick)
+      setResearchBarsLoading(false)
     } else {
       setResearchBarsSeries(null)
       setResearchBarsDays(null)
       setResearchBarsTicker(tick)
+      setResearchBarsLoading(true)
     }
 
-    async function run() {
+    async function fetchBarsOnce() {
       const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(tick)}&days=730`, {
-        timeoutMs: 15_000,
+        timeoutMs: 12_000,
       })
-      if (!alive || researchBarsFetchGenRef.current !== gen) return
+      if (!alive || researchBarsFetchGenRef.current !== gen) return null
       const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
-      if (respTicker !== tick) return
+      if (respTicker !== tick) return null
       const items = Array.isArray(r.data?.items) ? r.data.items : []
       const closes = []
       const days = []
@@ -9954,18 +9957,37 @@ function KensiglineTerminal() {
         closes.push(n)
         days.push(String(row?.day ?? '').slice(0, 10))
       }
+      return { closes, days, ok: Boolean(r.ok) }
+    }
+
+    async function run() {
+      // Cold bars may fill in the background — poll a couple times before giving up.
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        if (!alive || researchBarsFetchGenRef.current !== gen) return
+        const got = await fetchBarsOnce()
+        if (!alive || researchBarsFetchGenRef.current !== gen) return
+        if (got?.closes?.length) {
+          barsCacheRef.current.set(tick, { closes: got.closes, days: got.days })
+          setResearchBarsSeries(got.closes)
+          setResearchBarsDays(got.days)
+          setResearchBarsTicker(tick)
+          setResearchBarsLoading(false)
+          return
+        }
+        if (attempt < 2) await new Promise((r) => setTimeout(r, 1200))
+      }
       if (!alive || researchBarsFetchGenRef.current !== gen) return
-      if (closes.length) {
-        barsCacheRef.current.set(tick, { closes, days })
-        setResearchBarsSeries(closes)
-        setResearchBarsDays(days)
+      const prior = barsCacheRef.current.get(tick)
+      if (prior?.closes?.length) {
+        setResearchBarsSeries(prior.closes)
+        setResearchBarsDays(prior.days ?? null)
         setResearchBarsTicker(tick)
-      } else if (r.ok) {
-        barsCacheRef.current.delete(tick)
+      } else {
         setResearchBarsSeries(null)
         setResearchBarsDays(null)
         setResearchBarsTicker(tick)
       }
+      setResearchBarsLoading(false)
     }
     run()
     return () => {
@@ -9984,7 +10006,7 @@ function KensiglineTerminal() {
     if (cachedCompany) {
       setResearchCompanyLive(cachedCompany)
       setResearchCompanyTicker(tick)
-      setResearchCompanyContextLoading(false)
+      setResearchCompanyContextLoading(!cachedCompany.fundamentals)
     } else {
       setResearchCompanyLive(null)
       setResearchCompanyTicker(tick)
@@ -9992,11 +10014,6 @@ function KensiglineTerminal() {
     }
 
     async function run() {
-      const snap = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, {
-        timeoutMs: 8_000,
-      })
-      if (!alive || researchCompanyFetchGenRef.current !== gen) return
-
       const applyCompany = (payload) => {
         if (!payload || typeof payload !== 'object') return
         const respTicker = String(payload.ticker ?? tick).trim().toUpperCase()
@@ -10009,11 +10026,26 @@ function KensiglineTerminal() {
         setResearchCompanyTicker(tick)
       }
 
-      if (snap.ok && snap.data) applyCompany(snap.data)
-
-      const full = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 20_000 })
+      // Snapshot + full in parallel — snapshot paints meta fast; full brings fundamentals.
+      const [snap, full] = await Promise.all([
+        fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, { timeoutMs: 6_000 }),
+        fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 16_000 }),
+      ])
       if (!alive || researchCompanyFetchGenRef.current !== gen) return
+      if (snap.ok && snap.data) applyCompany(snap.data)
       if (full.ok && full.data) applyCompany(full.data)
+
+      // Cold company cache may return without fundamentals — one short follow-up.
+      const merged = researchCompanyCacheRef.current.get(tick)
+      if (!merged?.fundamentals) {
+        await new Promise((r) => setTimeout(r, 1500))
+        if (!alive || researchCompanyFetchGenRef.current !== gen) return
+        const again = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, {
+          timeoutMs: 12_000,
+        })
+        if (!alive || researchCompanyFetchGenRef.current !== gen) return
+        if (again.ok && again.data) applyCompany(again.data)
+      }
       setResearchCompanyContextLoading(false)
     }
     run().catch(() => {
@@ -10037,6 +10069,7 @@ function KensiglineTerminal() {
       setAnalyseLivePayload(cached)
       setAnalyseModelLoading(false)
     } else {
+      setAnalyseLivePayload(null)
       setAnalyseModelLoading(true)
     }
     void fetchAnalyseModel(tick).then((data) => {
@@ -10068,13 +10101,13 @@ function KensiglineTerminal() {
 
     async function fetchExploreOnce() {
       return fetchJsonSafe(`/api/research/explore?ticker=${encodeURIComponent(tick)}`, {
-        timeoutMs: 25_000,
+        timeoutMs: 14_000,
       })
     }
 
     async function run() {
       let last = null
-      for (let attempt = 0; attempt < 3; attempt += 1) {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
         if (!alive || researchExploreFetchGenRef.current !== gen) return
         const r = await fetchExploreOnce()
         last = r
@@ -10085,8 +10118,23 @@ function KensiglineTerminal() {
           setResearchExploreTicker(tick)
           return
         }
-        // Soft failure (ok:false) or network — retry before showing empty.
-        if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)))
+        // Soft failure with usable partial payload (flows/docs) — accept it.
+        const softDocs = Array.isArray(r.data?.presentation?.documents)
+          ? r.data.presentation.documents.length
+          : 0
+        const softTracked = Array.isArray(r.data?.tracked_investors) ? r.data.tracked_investors.length : 0
+        const softFlows =
+          (r.data?.flows?.insiders?.length || 0) +
+          (r.data?.flows?.politicians?.length || 0) +
+          (r.data?.flows?.filings13f?.length || 0)
+        if (r.ok && r.data && respTicker === tick && (softDocs > 0 || softTracked > 0 || softFlows > 0)) {
+          const partial = { ...r.data, ok: true }
+          researchExploreCacheRef.current.set(tick, partial)
+          setResearchExploreLive(partial)
+          setResearchExploreTicker(tick)
+          return
+        }
+        if (attempt < 1) await new Promise((resolve) => setTimeout(resolve, 500))
       }
       if (!alive || researchExploreFetchGenRef.current !== gen) return
       const prior = researchExploreCacheRef.current.get(tick)
@@ -10095,7 +10143,7 @@ function KensiglineTerminal() {
         setResearchExploreTicker(tick)
         return
       }
-      // Confirmed miss after retries — show empty, but never cache failure stubs.
+      // Confirmed miss — show empty without caching.
       const soft = last?.data && typeof last.data === 'object' ? last.data : null
       setResearchExploreLive({
         ok: true,
@@ -11357,9 +11405,17 @@ function KensiglineTerminal() {
           trackedInvestorsLoading:
             backendUp && researchTick && (!researchExploreResolved || researchExploreTicker !== researchTick),
           fundamentals: contextFundamentals,
+          fundamentalsLoading:
+            backendUp &&
+            !contextFundamentals &&
+            (researchCompanyContextLoading || analyseModelLoading),
           model: analyseLivePayload?.model ?? null,
           modelLoading: analyseModelLoading,
           backendUp,
+          chartLoading:
+            backendUp &&
+            researchBarsLoading &&
+            !(Array.isArray(researchPriceSeries) && researchPriceSeries.length),
           chartRange: analysePriceRange,
           onChartRangeChange: setAnalysePriceRange,
           chartSlot: (
@@ -11375,6 +11431,11 @@ function KensiglineTerminal() {
               hideAxisLabels
               flushEdges
               showHoverTooltip
+              loading={
+                backendUp &&
+                researchBarsLoading &&
+                !(Array.isArray(researchPriceSeries) && researchPriceSeries.length)
+              }
             />
           ),
           onInvestorClick: onExploreInvestorClick,

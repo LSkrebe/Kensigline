@@ -600,7 +600,10 @@ function latestSequenceValue(fundamentals, key) {
   return { value: null, period: null }
 }
 
-function DeepFundamentalsSnapshot({ fundamentals }) {
+function DeepFundamentalsSnapshot({ fundamentals, loading = false }) {
+  if (loading && !fundamentals) {
+    return <p className="drpt-empty drpt-loading">Loading key metrics…</p>
+  }
   if (!fundamentals) {
     return <p className="drpt-empty">No key metrics yet.</p>
   }
@@ -626,7 +629,11 @@ function DeepFundamentalsSnapshot({ fundamentals }) {
   }).filter(Boolean)
 
   if (!cards.length) {
-    return <p className="drpt-empty">No key metrics yet.</p>
+    return loading ? (
+      <p className="drpt-empty drpt-loading">Loading key metrics…</p>
+    ) : (
+      <p className="drpt-empty">No key metrics yet.</p>
+    )
   }
 
   return (
@@ -1315,10 +1322,12 @@ export function DeepCompanyReport({
   trackedInvestors = [],
   trackedInvestorsLoading = false,
   fundamentals,
+  fundamentalsLoading = false,
   model,
   modelLoading,
   backendUp,
   chartSlot,
+  chartLoading = false,
   chartRange = '6M',
   onChartRangeChange,
   chrome,
@@ -1366,6 +1375,10 @@ export function DeepCompanyReport({
           >
             {chartSlot ? (
               <div className="drpt-figure drpt-figure--chart">{chartSlot}</div>
+            ) : chartLoading ? (
+              <div className="drpt-figure drpt-figure--chart drpt-figure--empty">
+                <p className="drpt-empty drpt-loading">Loading price…</p>
+              </div>
             ) : (
               <div className="drpt-figure drpt-figure--chart drpt-figure--empty">
                 <p className="drpt-empty">No price series yet.</p>
@@ -1374,7 +1387,7 @@ export function DeepCompanyReport({
           </DeepSection>
 
           <DeepSection label="Fundamentals" title="Key metrics">
-            <DeepFundamentalsSnapshot fundamentals={fundamentals} />
+            <DeepFundamentalsSnapshot fundamentals={fundamentals} loading={fundamentalsLoading} />
           </DeepSection>
         </div>
 

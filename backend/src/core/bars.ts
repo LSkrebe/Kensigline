@@ -318,10 +318,26 @@ export async function getDailyCloseBars(opts: {
     return { ticker, source: "cache" as const, items: cached };
   }
 
-  // Never block the interactive chart on Yahoo/Polygon. Serve whatever we have and refresh async.
-  scheduleBackgroundBarsRefresh(ticker, fromDay, toDay);
+  // Partial history: serve it and refresh in background.
   if (cached.length > 0) {
+    scheduleBackgroundBarsRefresh(ticker, fromDay, toDay);
     return { ticker, source: "cache" as const, items: cached };
   }
+
+  // Cold miss: wait briefly for a first fill so the chart doesn't flash empty forever.
+  try {
+    const fill = await Promise.race([
+      fetchAndStoreBars(ticker, fromDay, toDay, "yahoo"),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2_800)),
+    ]);
+    const rows = await readBarsRange(ticker, fromDay, toDay);
+    if (rows.length) {
+      return { ticker, source: fill?.source ?? "yahoo", items: rows };
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[bars] cold fill", ticker, msg);
+  }
+  scheduleBackgroundBarsRefresh(ticker, fromDay, toDay);
   return { ticker, source: "none" as const, items: [] };
 }
