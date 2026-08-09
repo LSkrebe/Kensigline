@@ -750,6 +750,21 @@
   overflow: visible;
 }
 
+/* Company price loading — top-left like investor track-record loading */
+.drpt-row--market .drpt-figure--chart .graphEmpty {
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
+  min-height: 0;
+  height: 100%;
+  padding: 20px 16px;
+  font-family: var(--drpt-mono);
+  font-size: 11px;
+  letter-spacing: 0;
+  color: var(--drpt-dim);
+  animation: drpt-pulse 1.4s ease-in-out infinite;
+}
+
 .drpt-figure--chart .researchMiniPriceWrap {
   flex: 1 1 auto;
   min-height: 0;

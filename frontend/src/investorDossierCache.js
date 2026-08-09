@@ -3,6 +3,18 @@ const TTL_MS = 10 * 60_000
 const PREFIX = 'mercerline:investor-dossier:'
 const memory = new Map()
 
+function txnRichness(actorRow) {
+  const txns = actorRow?.transactions
+  if (!Array.isArray(txns) || !txns.length) return 0
+  let real = 0
+  for (const t of txns) {
+    const usd = Number(t?.sheetRow?.amountUsd)
+    if (Number.isFinite(usd) && usd > 1) real += 1
+    else if (t?.companyRow) real += 1
+  }
+  return txns.length * 10 + real * 5
+}
+
 function readSession(slug) {
   if (typeof window === 'undefined' || !window.sessionStorage) return null
   try {
@@ -50,12 +62,11 @@ export function writeInvestorDossierCache(slug, actorRow, mode) {
     .toLowerCase()
   if (!key || !(actorRow?.transactions?.length > 0)) return
   const prev = memory.get(key)
-  const nextN = actorRow.transactions.length
-  const prevN = prev?.actorRow?.transactions?.length ?? 0
+  const nextScore = txnRichness(actorRow)
+  const prevScore = txnRichness(prev?.actorRow)
   // Never overwrite a richer cache with a thinner stub.
-  if (prevN > nextN) return
+  if (prevScore > nextScore) return
   const payload = { at: Date.now(), mode: mode || actorRow.source || 'insider', actorRow }
   memory.set(key, payload)
   writeSession(key, actorRow, payload.mode)
 }
-

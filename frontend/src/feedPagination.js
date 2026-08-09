@@ -22,17 +22,42 @@ export function feedPageQuery(
   return qs ? `${basePath}?${qs}` : basePath
 }
 
+function feedRowWorksheetScore(row) {
+  const rows = row?.caseSheet?.rows
+  if (!Array.isArray(rows) || !rows.length) return 0
+  let score = rows.length
+  for (const r of rows) {
+    const usd = Number(r?.amountUsd)
+    if (Number.isFinite(usd) && usd > 1) score += 2
+    if (r?.companyRow || r?.url) score += 1
+  }
+  return score
+}
+
+/** Merge feed pages; on duplicate ids keep the richer caseSheet, not first-seen. */
 export function mergeFeedPages(prev, next, { append = false } = {}) {
   const a = append && Array.isArray(prev) ? prev : []
   const b = Array.isArray(next) ? next : []
   if (!a.length) return b
-  const seen = new Set(a.map((row) => String(row.id ?? row.__backend_id ?? '')))
-  const out = [...a]
-  for (const row of b) {
-    const key = String(row.id ?? row.__backend_id ?? '')
-    if (!key || seen.has(key)) continue
-    seen.add(key)
-    out.push(row)
+  const byId = new Map()
+  const order = []
+  const add = (row) => {
+    const key = String(row?.id ?? row?.__backend_id ?? '')
+    if (!key) {
+      order.push({ kind: 'anon', row })
+      return
+    }
+    const existing = byId.get(key)
+    if (!existing) {
+      byId.set(key, row)
+      order.push({ kind: 'id', key })
+      return
+    }
+    if (feedRowWorksheetScore(row) > feedRowWorksheetScore(existing)) {
+      byId.set(key, row)
+    }
   }
-  return out
+  for (const row of a) add(row)
+  for (const row of b) add(row)
+  return order.map((entry) => (entry.kind === 'id' ? byId.get(entry.key) : entry.row))
 }
