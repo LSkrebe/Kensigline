@@ -7,20 +7,34 @@ if (!databaseUrl) {
 }
 
 /**
- * Worker lane URL — prefer session-mode pooler (5432) over transaction (6543) so
- * concurrent parse/claim connections don't get ECHECKOUTTIMEOUT under drain.
- * Override with WORKER_DATABASE_URL, or set WORKER_DB_SESSION_POOLER=0 to force DATABASE_URL.
+ * Worker lane URL.
+ * - WORKER_DATABASE_URL: explicit override
+ * - WORKER_DB_DIRECT=1: db.<project>.supabase.co (best for heavy drain; bypasses pooler)
+ * - WORKER_DB_SESSION_POOLER=1: pooler :5432 session mode
+ * - else: same as DATABASE_URL (usually transaction pooler :6543)
  */
 function resolveWorkerDatabaseUrl(): string {
   const explicit = String(process.env.WORKER_DATABASE_URL ?? "").trim();
   if (explicit) return explicit;
-  if (String(process.env.WORKER_DB_SESSION_POOLER ?? "1").trim() === "0") return databaseUrl!;
+
   try {
     const u = new URL(databaseUrl!.replace(/^postgres:/i, "postgresql:"));
-    const host = u.hostname.toLowerCase();
-    if (u.port === "6543" && host.includes("pooler.supabase.com")) {
-      u.port = "5432";
-      return u.toString();
+    const user = decodeURIComponent(u.username || "");
+    const ref = user.includes(".") ? user.split(".").slice(1).join(".") : null;
+
+    if (String(process.env.WORKER_DB_DIRECT ?? "").trim() === "1" && ref) {
+      const direct = new URL(u.toString());
+      direct.hostname = `db.${ref}.supabase.co`;
+      direct.port = "5432";
+      direct.username = "postgres";
+      return direct.toString();
+    }
+
+    if (String(process.env.WORKER_DB_SESSION_POOLER ?? "").trim() === "1") {
+      if (u.port === "6543" && u.hostname.toLowerCase().includes("pooler.supabase.com")) {
+        u.port = "5432";
+        return u.toString();
+      }
     }
   } catch {
     /* keep primary */
@@ -116,7 +130,9 @@ const workerPool = makePool(workerPoolMax, "worker", workerDatabaseUrl);
 function workerUrlMode(): string {
   try {
     const u = new URL(workerDatabaseUrl.replace(/^postgres:/i, "postgresql:"));
-    if (u.port === "5432" && u.hostname.includes("pooler")) return "session-pooler";
+    const host = u.hostname.toLowerCase();
+    if (host.startsWith("db.") && host.endsWith(".supabase.co")) return "direct";
+    if (u.port === "5432" && host.includes("pooler")) return "session-pooler";
     if (u.port === "6543") return "transaction-pooler";
     return `port-${u.port || "default"}`;
   } catch {
