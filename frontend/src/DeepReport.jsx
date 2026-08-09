@@ -823,7 +823,14 @@ function DeepInvestorList({ rows = [], visibleLimit = null, onInvestorClick = nu
               code={source}
               title={row.name}
               txnCode={row.code}
-              txnTone={row.codeTone ?? deepTxnCodeTone(row.code)}
+              txnTone={
+                row.codeTone ??
+                (Number(row.totalUsd) < 0
+                  ? 'sell'
+                  : Number(row.totalUsd) > 0
+                    ? 'buy'
+                    : deepTxnCodeTone(row.code))
+              }
               amount={row.amount}
               date={row.date}
               onClick={onInvestorClick ? () => onInvestorClick(row) : null}
@@ -1249,7 +1256,9 @@ function CompanyTopBar({
     domicile || null,
     mcap || null,
     earnings?.label ? `Earnings ${earnings.label}` : null,
-  ].filter(Boolean)
+  ]
+    .map((bit) => (bit == null ? '' : String(bit).trim()))
+    .filter((bit) => bit && bit !== '—' && bit !== '-' && bit !== '–' && bit !== '--')
 
   return (
     <header className={['drpt-topbar', metaBits.length ? '' : 'drpt-topbar--noMeta'].filter(Boolean).join(' ')}>

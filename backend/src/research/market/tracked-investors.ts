@@ -147,13 +147,21 @@ export async function getTrackedInvestorsForTicker(
     .filter((x) => Math.abs(x.netUsd) <= 100_000_000_000)
     .sort((a, b) => b.latestAt.localeCompare(a.latestAt) || Math.abs(b.netUsd) - Math.abs(a.netUsd))
     .slice(0, cap)
-    .map((x) => ({
-      id: `${x.type}|${slugKey(x.name)}`,
-      name: x.name,
-      type: x.type,
-      typeLabel: TYPE_LABEL[x.type],
-      amountUsd: x.netUsd,
-      amount: formatUsdCompact(x.netUsd),
-      latestAt: x.latestAt,
-    }));
+    .map((x) => {
+      // Net signed USD drives the side badge — never show BUY on a negative net.
+      const sideCode = x.netUsd < 0 ? "S" : "P";
+      const sideActivity = x.netUsd < 0 ? "Reduced stake" : "Increased stake";
+      return {
+        id: `${x.type}|${slugKey(x.name)}`,
+        name: x.name,
+        type: x.type,
+        typeLabel: TYPE_LABEL[x.type],
+        amountUsd: x.netUsd,
+        amount: formatUsdCompact(x.netUsd),
+        latestAt: x.latestAt,
+        transactionCode: x.type === "institution" ? undefined : sideCode,
+        activity: x.type === "institution" ? sideActivity : undefined,
+        code: x.type === "institution" ? (x.netUsd < 0 ? "RED" : "INC") : sideCode,
+      };
+    });
 }

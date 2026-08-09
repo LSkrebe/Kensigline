@@ -66,7 +66,14 @@ function cacheIsFresh(row: CacheRow | null, watermark: string | null): boolean {
   if (!row?.computed_at) return false;
   const cached = row.documents_watermark ? String(row.documents_watermark) : null;
   const current = watermark ? String(watermark) : null;
-  return cached === current;
+  if (cached !== current) return false;
+  // Incomplete profile counts as stale — ADR overviews used to leave these null forever.
+  const co = row.company_json && typeof row.company_json === "object" ? row.company_json : null;
+  if (!co) return false;
+  const industry = String((co as any).industry ?? "").trim();
+  const country = String((co as any).country ?? "").trim();
+  if (!industry || !country) return false;
+  return true;
 }
 
 async function upsertCacheRow(args: {
@@ -161,8 +168,23 @@ export async function getCompanyFullCached(opts: { ticker: string }): Promise<Re
 
   const row = await getOrComputeCache(ticker);
   if (row?.company_json && typeof row.company_json === "object") {
+    const cached = row.company_json as Record<string, unknown>;
+    const industry = String(cached.industry ?? "").trim();
+    const country = String(cached.country ?? "").trim();
+    if (industry && country) {
+      return {
+        ...cached,
+        fundamentals: row.fundamentals_json ?? null,
+      };
+    }
+    // Cache hit but missing sector/domicile — fill now, keep fundamentals, refresh in background.
+    const filled = await getCompanyPanelData({ ticker, dbFirst: true });
+    scheduleTickerContextRefresh(ticker);
     return {
-      ...row.company_json,
+      ...cached,
+      ...filled,
+      industry: filled.industry ?? cached.industry ?? null,
+      country: filled.country ?? cached.country ?? null,
       fundamentals: row.fundamentals_json ?? null,
     };
   }

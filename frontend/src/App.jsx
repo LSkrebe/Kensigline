@@ -2468,20 +2468,53 @@ function mapTrackedInvestorsFromApi(rows) {
       if (!name || /^(institution|insider|politician|unknown|n\/?a|—|-)$/i.test(name)) return null
       const totalUsd = Number(r.amountUsd ?? r.amount_usd ?? 0)
       if (Number.isFinite(totalUsd) && Math.abs(totalUsd) > 100_000_000_000) return null
-      const code = String(
+
+      // Prefer explicit codes, then reconcile against net signed USD so we never show BUY on −$14M.
+      let code = String(
         r.transactionCode ??
           r.transaction_code ??
           r.code ??
-          (normalizedKey === 'institution' ? institutionTxnFromActivity(r.activity ?? r.latest_activity).code : 'P'),
+          (normalizedKey === 'institution'
+            ? institutionTxnFromActivity(r.activity ?? r.latest_activity).code
+            : ''),
       )
         .trim()
-        .toUpperCase() || '—'
-      const codeTone =
+        .toUpperCase()
+      let codeTone =
         r.codeTone ??
         r.code_tone ??
         (normalizedKey === 'institution'
           ? institutionTxnFromActivity(r.activity ?? r.latest_activity).tone
-          : insiderTxnCodeTone(code, r.acquiredDisposed ?? r.acquired_disposed))
+          : code
+            ? insiderTxnCodeTone(code, r.acquiredDisposed ?? r.acquired_disposed)
+            : null)
+
+      if (Number.isFinite(totalUsd) && totalUsd < 0) {
+        if (normalizedKey === 'institution') {
+          code = 'RED'
+          codeTone = 'sell'
+        } else {
+          code = 'S'
+          codeTone = 'sell'
+        }
+      } else if (Number.isFinite(totalUsd) && totalUsd > 0) {
+        if (normalizedKey === 'institution') {
+          if (!code || code === 'RED' || code === 'S') {
+            const txn = institutionTxnFromActivity(r.activity ?? r.latest_activity ?? 'Increased stake')
+            code = txn.code
+            codeTone = txn.tone
+          }
+        } else if (!code || code === 'S' || code === 'F' || code === 'RED') {
+          code = 'P'
+          codeTone = 'buy'
+        } else if (!codeTone) {
+          codeTone = insiderTxnCodeTone(code, r.acquiredDisposed ?? r.acquired_disposed)
+        }
+      } else if (!code) {
+        code = '—'
+        codeTone = 'neutral'
+      }
+
       return {
         id: r.id ?? `${typeKey}|${name}`,
         name,
@@ -2491,7 +2524,7 @@ function mapTrackedInvestorsFromApi(rows) {
           r.source ??
           (normalizedKey === 'politician' ? 'PTR' : normalizedKey === 'institution' ? '13F' : 'F4'),
         code,
-        codeTone,
+        codeTone: codeTone ?? 'neutral',
         amount: r.amount ?? formatTxnAmountUsd(totalUsd),
         totalUsd: Number.isFinite(totalUsd) ? totalUsd : 0,
         dateAt,
@@ -2507,29 +2540,43 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
   if (fromApi?.length) {
     return fromApi.sort((a, b) => (b.dateAt ?? 0) - (a.dateAt ?? 0))
   }
-  const insiderRows = aggregateContextInsiders(insiders, days).map((x) => ({
-    id: `insider|${x.id}`,
-    name: x.personName ?? x.label,
-    type: 'Insider',
-    typeKey: 'insider',
-    source: 'F4',
-    code: x.latestCode ?? 'P',
-    codeTone: insiderTxnCodeTone(x.latestCode, x.latestAd),
-    amount: x.total,
-    totalUsd: x.totalUsd,
-    dateAt: x.latestAt,
-    date: formatTrackedInvestorDate(x.latestAt),
-  }))
-  const politicianRows = aggregateContextPoliticians(politicians, days).map((x) => ({
-    ...x,
-    source: 'PTR',
-    code: x.latestCode ?? '—',
-    codeTone: insiderTxnCodeTone(x.latestCode),
-    dateAt: x.latestAt,
-    date: formatTrackedInvestorDate(x.latestAt),
-  }))
+  const insiderRows = aggregateContextInsiders(insiders, days).map((x) => {
+    const net = Number(x.totalUsd)
+    const code = Number.isFinite(net) && net < 0 ? 'S' : x.latestCode ?? 'P'
+    return {
+      id: `insider|${x.id}`,
+      name: x.personName ?? x.label,
+      type: 'Insider',
+      typeKey: 'insider',
+      source: 'F4',
+      code,
+      codeTone: Number.isFinite(net) && net < 0 ? 'sell' : insiderTxnCodeTone(code, x.latestAd),
+      amount: x.total,
+      totalUsd: x.totalUsd,
+      dateAt: x.latestAt,
+      date: formatTrackedInvestorDate(x.latestAt),
+    }
+  })
+  const politicianRows = aggregateContextPoliticians(politicians, days).map((x) => {
+    const net = Number(x.totalUsd)
+    const code = Number.isFinite(net) && net < 0 ? 'S' : x.latestCode ?? '—'
+    return {
+      ...x,
+      source: 'PTR',
+      code,
+      codeTone: Number.isFinite(net) && net < 0 ? 'sell' : insiderTxnCodeTone(code),
+      dateAt: x.latestAt,
+      date: formatTrackedInvestorDate(x.latestAt),
+    }
+  })
   const institutionRows = aggregateContextInstitutions(filings13f, days).map((x) => {
-    const txn = institutionTxnFromActivity(x.latestActivity)
+    const net = Number(x.totalUsd)
+    const txn =
+      Number.isFinite(net) && net < 0
+        ? { code: 'RED', tone: 'sell' }
+        : Number.isFinite(net) && net > 0
+          ? { code: 'INC', tone: 'buy' }
+          : institutionTxnFromActivity(x.latestActivity)
     return {
       ...x,
       source: '13F',
@@ -4060,6 +4107,27 @@ function formatCompanySnapshotMcap(raw) {
   if (!s) return '—'
   if (/MCAP/i.test(s)) return s
   return `${s} MCAP`
+}
+
+function isBlankCompanyMeta(value) {
+  const s = String(value ?? '').trim()
+  return !s || s === '—' || s === '-' || s === '–' || s === '--'
+}
+
+function mergeCompanyPayload(prev, payload) {
+  if (!payload || typeof payload !== 'object') return prev
+  if (!prev || typeof prev !== 'object') return payload
+  const merged = { ...prev, ...payload }
+  // Never let a later null/empty profile field wipe a known sector or domicile.
+  for (const key of ['industry', 'country', 'name', 'mcap', 'earnings_date']) {
+    if (isBlankCompanyMeta(payload[key]) && !isBlankCompanyMeta(prev[key])) {
+      merged[key] = prev[key]
+    }
+  }
+  if (payload.fundamentals == null && prev.fundamentals != null) {
+    merged.fundamentals = prev.fundamentals
+  }
+  return merged
 }
 
 function resolveCompanySnapshot({ ticker, company, backendUp, price = null }) {
@@ -9878,7 +9946,7 @@ function KensiglineTerminal() {
         const respTicker = String(payload.ticker ?? tick).trim().toUpperCase()
         if (respTicker !== tick) return
         setResearchCompanyLive((prev) => {
-          const merged = prev ? { ...prev, ...payload } : payload
+          const merged = mergeCompanyPayload(prev, payload)
           researchCompanyCacheRef.current.set(tick, merged)
           return merged
         })
