@@ -40,7 +40,7 @@ function envNum(prefix: string, key: string, fallback: number) {
  */
 const parseGlobalLimit = Math.max(
   1,
-  Math.min(24, Number(process.env.PARSE_GLOBAL_CONCURRENCY ?? 6) || 6),
+  Math.min(48, Number(process.env.PARSE_GLOBAL_CONCURRENCY ?? 6) || 6),
 );
 let parseInFlight = 0;
 const parseWaiters: Array<() => void> = [];
@@ -76,12 +76,12 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   const enqueueEveryMs = Math.max(15_000, envNum(opts.envPrefix, "ENQUEUE_INTERVAL_MS", d.enqueueEveryMs ?? 120_000));
   const parsePollMs = Math.max(1_000, envNum(opts.envPrefix, "PARSE_POLL_MS", d.parsePollMs ?? 6_000));
   const parseThrottleMs = Math.max(
-    unthrottled ? 50 : 100,
-    envNum(opts.envPrefix, "PARSE_THROTTLE_MS", d.parseThrottleMs ?? (unthrottled ? 200 : 1_000)),
+    0,
+    envNum(opts.envPrefix, "PARSE_THROTTLE_MS", d.parseThrottleMs ?? (unthrottled ? 50 : 1_000)),
   );
   const parseConcurrency = Math.max(
     1,
-    Math.min(16, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
+    Math.min(24, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
   );
   const backfillIntervalMs = Math.max(
     unthrottled ? 5_000 : 10_000,

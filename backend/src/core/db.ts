@@ -6,6 +6,31 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL is required");
 }
 
+/**
+ * Worker lane URL — prefer session-mode pooler (5432) over transaction (6543) so
+ * concurrent parse/claim connections don't get ECHECKOUTTIMEOUT under drain.
+ * Override with WORKER_DATABASE_URL, or set WORKER_DB_SESSION_POOLER=0 to force DATABASE_URL.
+ */
+function resolveWorkerDatabaseUrl(): string {
+  const explicit = String(process.env.WORKER_DATABASE_URL ?? "").trim();
+  if (explicit) return explicit;
+  if (String(process.env.WORKER_DB_SESSION_POOLER ?? "1").trim() === "0") return databaseUrl!;
+  try {
+    const u = new URL(databaseUrl!.replace(/^postgres:/i, "postgresql:"));
+    const host = u.hostname.toLowerCase();
+    if (u.port === "6543" && host.includes("pooler.supabase.com")) {
+      u.port = "5432";
+      return u.toString();
+    }
+  } catch {
+    /* keep primary */
+  }
+  return databaseUrl!;
+}
+
+const workerDatabaseUrl = resolveWorkerDatabaseUrl();
+
+
 /** Strict TLS for Supabase in production; relaxed in local dev (macOS pooler cert chain). */
 function supabaseRejectUnauthorized(): boolean {
   if (
@@ -57,7 +82,7 @@ const apiPoolMax = Math.max(2, Math.min(24, Number(process.env.DATABASE_POOL_MAX
 /** Background ingest / parse / outcomes — capped independently. */
 const workerPoolMax = Math.max(
   1,
-  Math.min(32, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 1) || 1),
+  Math.min(48, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 1) || 1),
 );
 /**
  * Global cap on concurrent worker jobs that use runWithWorkerDb (enqueue/backfill/reclaim).
@@ -65,14 +90,14 @@ const workerPoolMax = Math.max(
  */
 const workerDbConcurrency = Math.max(
   1,
-  Math.min(32, Number(process.env.WORKER_DB_CONCURRENCY ?? 1) || 1),
+  Math.min(48, Number(process.env.WORKER_DB_CONCURRENCY ?? 1) || 1),
 );
 const workerDbUnthrottled = String(process.env.WORKER_DB_UNTHROTTLED ?? "").trim() === "1";
 
-function makePool(max: number, label: string): Pool {
+function makePool(max: number, label: string, connectionString: string): Pool {
   const p = new Pool({
-    connectionString: databaseUrl,
-    ssl: sslOption(databaseUrl!),
+    connectionString,
+    ssl: sslOption(connectionString),
     max,
     connectionTimeoutMillis: connectTimeoutMs,
     idleTimeoutMillis: idleTimeoutMs,
@@ -85,11 +110,22 @@ function makePool(max: number, label: string): Pool {
   return p;
 }
 
-const apiPool = makePool(apiPoolMax, "api");
-const workerPool = makePool(workerPoolMax, "worker");
+const apiPool = makePool(apiPoolMax, "api", databaseUrl!);
+const workerPool = makePool(workerPoolMax, "worker", workerDatabaseUrl);
+
+function workerUrlMode(): string {
+  try {
+    const u = new URL(workerDatabaseUrl.replace(/^postgres:/i, "postgresql:"));
+    if (u.port === "5432" && u.hostname.includes("pooler")) return "session-pooler";
+    if (u.port === "6543") return "transaction-pooler";
+    return `port-${u.port || "default"}`;
+  } catch {
+    return "unknown";
+  }
+}
 
 console.info(
-  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerDbConcurrency=${workerDbConcurrency}${
+  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerDbConcurrency=${workerDbConcurrency} workerUrl=${workerUrlMode()}${
     workerDbUnthrottled ? " parseUnthrottled=1" : ""
   }`,
 );
