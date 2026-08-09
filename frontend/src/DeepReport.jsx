@@ -796,14 +796,19 @@ function DeepBusinessDriversSnapshot({ model }) {
   )
 }
 
-function DeepInvestorList({ rows = [], visibleLimit = null, onInvestorClick = null }) {
+function DeepInvestorList({ rows = [], visibleLimit = null, onInvestorClick = null, loading = false }) {
   const displayRows = useMemo(() => {
     if (!rows.length) return rows
     if (visibleLimit == null || visibleLimit >= rows.length) return rows
     return rows.slice(0, visibleLimit)
   }, [rows, visibleLimit])
 
-  if (!rows.length) return null
+  if (loading) {
+    return <p className="drpt-empty drpt-loading">Loading tracked investors…</p>
+  }
+  if (!rows.length) {
+    return <p className="drpt-empty">No tracked investor activity yet.</p>
+  }
 
   return (
     <ol className="drpt-docList">
@@ -1291,6 +1296,7 @@ export function DeepCompanyReport({
   timelineEntries = [],
   timelineLoading = false,
   trackedInvestors = [],
+  trackedInvestorsLoading = false,
   fundamentals,
   model,
   modelLoading,
@@ -1405,21 +1411,30 @@ export function DeepCompanyReport({
           </DeepSection>
         </div>
 
-        {trackedInvestors.length ? (
-          <DeepSection label="Flow" title="Tracked investors & filers">
-            <div className="drpt-docPanel drpt-scroll">
-              <DeepExpandablePanel totalCount={trackedInvestors.length}>
-                {(limit) => (
-                  <DeepInvestorList
-                    rows={trackedInvestors}
-                    visibleLimit={limit}
-                    onInvestorClick={onInvestorClick}
-                  />
-                )}
-              </DeepExpandablePanel>
-            </div>
-          </DeepSection>
-        ) : null}
+        <DeepSection
+          label="Flow"
+          title="Tracked investors & filers"
+          headExtra={
+            <span className="drpt-sectionCount">
+              {trackedInvestorsLoading
+                ? 'Loading…'
+                : formatCountLabel(trackedInvestors.length, 'investor')}
+            </span>
+          }
+        >
+          <div className="drpt-docPanel drpt-scroll">
+            <DeepExpandablePanel totalCount={trackedInvestorsLoading ? 0 : trackedInvestors.length}>
+              {(limit) => (
+                <DeepInvestorList
+                  rows={trackedInvestors}
+                  visibleLimit={limit}
+                  loading={trackedInvestorsLoading}
+                  onInvestorClick={onInvestorClick}
+                />
+              )}
+            </DeepExpandablePanel>
+          </div>
+        </DeepSection>
     </DeepReportShell>
   )
 }

@@ -2497,9 +2497,6 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
   if (fromApi?.length) {
     return fromApi.sort((a, b) => (b.dateAt ?? 0) - (a.dateAt ?? 0))
   }
-  if (Array.isArray(apiRows)) {
-    return []
-  }
   const insiderRows = aggregateContextInsiders(insiders, days).map((x) => ({
     id: `insider|${x.id}`,
     name: x.personName ?? x.label,
@@ -11095,6 +11092,8 @@ function KensiglineTerminal() {
           timelineLoading:
             backendUp && researchTick && (!researchExploreResolved || researchExploreTicker !== researchTick),
           trackedInvestors: deepTrackedInvestors,
+          trackedInvestorsLoading:
+            backendUp && researchTick && (!researchExploreResolved || researchExploreTicker !== researchTick),
           fundamentals: contextFundamentals,
           model: analyseLivePayload?.model ?? null,
           modelLoading: analyseModelLoading,

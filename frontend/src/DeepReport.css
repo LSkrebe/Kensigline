@@ -809,13 +809,25 @@
 }
 
 .drpt-row--model > .drpt-section > .drpt-metricGrid,
+.drpt-row--model > .drpt-section > .drpt-driverGrid,
 .drpt-row--model > .drpt-section > .drpt-empty,
 .drpt-row--model > .drpt-section > .drpt-docPanel {
+  flex: 1 1 auto;
   min-height: 220px;
+}
+
+.drpt-row--model > .drpt-section > .drpt-driverGrid {
+  align-content: stretch;
+  grid-auto-rows: 1fr;
+  height: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
 }
 
 .drpt-row--model > .drpt-section > .drpt-docPanel {
   flex: 1 1 auto;
+  height: 100%;
 }
 
 .drpt-row--model > .drpt-section > .drpt-empty {
