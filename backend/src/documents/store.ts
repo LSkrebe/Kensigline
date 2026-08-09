@@ -5,6 +5,7 @@ import { formatUsdCompact } from "../shared/money.js";
 import { scoreResearchDocument } from "../core/idea-score.js";
 import { isoTimestampFromDb } from "../shared/db-time.js";
 import { invalidateTickerContextCache } from "../core/ticker-context-cache.js";
+import { scheduleCompanyDossierRefresh, scheduleInvestorDossierRefresh, slugifyInvestorName } from "../core/dossier-cache.js";
 import { invalidateAnalyseModelCache } from "../analyse/build-model.js";
 import { isPlausibleTrackedFiler } from "../research/market/tracked-investors-filter.js";
 import { parseEventTimeMs, sanitizeEventAtForFeed, FEED_FUTURE_GRACE_DAYS } from "../shared/document-activity-at.js";
@@ -112,6 +113,10 @@ export async function insertResearchDocument(args: {
   if (ticker) {
     void invalidateTickerContextCache(ticker);
     invalidateAnalyseModelCache(ticker);
+    scheduleCompanyDossierRefresh(ticker, async (tick) => {
+      const { buildCompanyDossierPayload } = await import("../research/company-dossier.js");
+      return buildCompanyDossierPayload(tick);
+    });
   }
 
   return row?.id ?? null;
@@ -146,6 +151,19 @@ export async function syncInsiderTransactionsFromDocument(documentId: string, ti
     );
   }
   void invalidateTickerContextCache(t);
+  scheduleCompanyDossierRefresh(t, async (tick) => {
+    const { buildCompanyDossierPayload } = await import("../research/company-dossier.js");
+    return buildCompanyDossierPayload(tick);
+  });
+  for (const r of rows) {
+    const name = String(r?.insider_name ?? r?.person ?? r?.key ?? "").trim();
+    const slug = slugifyInvestorName(name);
+    if (!slug) continue;
+    scheduleInvestorDossierRefresh(slug, "insider", async (s, m) => {
+      const { buildInvestorDossierPayload } = await import("../investigate/investor-dossier.js");
+      return buildInvestorDossierPayload(s, m);
+    });
+  }
 }
 
 export async function syncPoliticianTransactionsFromDocument(documentId: string, ticker: string, data: any) {
@@ -181,6 +199,19 @@ export async function syncPoliticianTransactionsFromDocument(documentId: string,
     );
   }
   void invalidateTickerContextCache(t);
+  scheduleCompanyDossierRefresh(t, async (tick) => {
+    const { buildCompanyDossierPayload } = await import("../research/company-dossier.js");
+    return buildCompanyDossierPayload(tick);
+  });
+  for (const r of rows) {
+    const name = String(r?.key ?? "").trim();
+    const slug = slugifyInvestorName(name);
+    if (!slug) continue;
+    scheduleInvestorDossierRefresh(slug, "politicians", async (s, m) => {
+      const { buildInvestorDossierPayload } = await import("../investigate/investor-dossier.js");
+      return buildInvestorDossierPayload(s, m);
+    });
+  }
 }
 
 export async function syncInstitutionFilingsFromDocument(documentId: string, ticker: string, data: any) {
@@ -212,6 +243,19 @@ export async function syncInstitutionFilingsFromDocument(documentId: string, tic
     );
   }
   void invalidateTickerContextCache(t);
+  scheduleCompanyDossierRefresh(t, async (tick) => {
+    const { buildCompanyDossierPayload } = await import("../research/company-dossier.js");
+    return buildCompanyDossierPayload(tick);
+  });
+  for (const r of rows) {
+    const filer = String(r?.institution_name ?? r?.key ?? "").trim();
+    const slug = slugifyInvestorName(filer);
+    if (!slug) continue;
+    scheduleInvestorDossierRefresh(slug, "institutions", async (s, m) => {
+      const { buildInvestorDossierPayload } = await import("../investigate/investor-dossier.js");
+      return buildInvestorDossierPayload(s, m);
+    });
+  }
 }
 
 export type PaperDocumentRow = {

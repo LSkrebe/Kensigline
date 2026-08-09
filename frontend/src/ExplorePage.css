@@ -309,7 +309,21 @@
   pointer-events: none;
 }
 
+.exploreDirShowMore {
+  display: none;
+}
+
 @media (max-width: 960px) {
+  .exploreDirListPanel--truncated {
+    padding-bottom: 28px;
+  }
+
+  .exploreDirShowMore {
+    display: flex;
+    width: 100%;
+    margin-top: 8px;
+  }
+
   .exploreDirShell {
     --explore-dir-pad-x: 18px;
     /* Company tickers (NVDA, SMCI) need more room than investor codes (F4, PTR). */

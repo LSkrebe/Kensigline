@@ -513,7 +513,55 @@ async function loadMode(slug: string, mode: InvestorMode, limit: number) {
 }
 
 /**
- * Investor dossier in ONE response — replaces FE feed-hunt + N cluster calls.
+ * Live-build investor dossier payload (also used to populate Postgres cache).
+ */
+export async function buildInvestorDossierPayload(
+  slugInput: string,
+  modeInput?: string | null,
+): Promise<Record<string, unknown>> {
+  const slug = slugifyName(slugInput);
+  const preferred = parseMode(modeInput);
+  if (!slug) return { ok: false, error: "slug_required" };
+
+  const order: InvestorMode[] = preferred
+    ? [preferred, ...(["insider", "politicians", "institutions"] as InvestorMode[]).filter((m) => m !== preferred)]
+    : ["politicians", "insider", "institutions"];
+
+  let best: { mode: InvestorMode; txns: ActorTxn[]; displayName: string | null } | null = null;
+
+  for (const mode of order) {
+    const hit = await loadMode(slug, mode, 80);
+    if (!hit.txns.length) continue;
+    if (!best || hit.txns.length > best.txns.length) best = hit;
+    if (preferred && mode === preferred && hit.txns.length >= 2) break;
+    if (hit.txns.length >= 12) break;
+  }
+
+  if (!best) {
+    return {
+      ok: true,
+      slug,
+      mode: preferred ?? "insider",
+      actor: buildActorRow(slug, preferred ?? "insider", [], null),
+      empty: true,
+    };
+  }
+
+  const actor = buildActorRow(slug, best.mode, best.txns, best.displayName);
+  return {
+    ok: true,
+    slug,
+    mode: best.mode,
+    actor,
+    empty: false,
+    amount_hint: best.txns[0]
+      ? formatUsdCompact(Number(best.txns[0].sheetRow.amountUsd) || 0)
+      : null,
+  };
+}
+
+/**
+ * Investor dossier in ONE response — prefer Postgres materialization, else live build.
  * GET /api/dossier/investor?slug=sheldon-whitehouse&mode=politicians
  */
 export async function handleInvestorDossier(
@@ -527,54 +575,39 @@ export async function handleInvestorDossier(
   }
 
   const preferred = parseMode(opts.mode);
-  const cacheKey = `${preferred ?? "any"}:${slug}`;
-  const cached = dossierMemoryCache.get(cacheKey);
-  if (cached && Date.now() - cached.at < DOSSIER_CACHE_TTL_MS) {
-    sendJson(res, 200, cached.payload);
+  const modeKey = preferred ?? "any";
+  const memKey = `${modeKey}:${slug}`;
+
+  const mem = dossierMemoryCache.get(memKey);
+  if (mem && Date.now() - mem.at < DOSSIER_CACHE_TTL_MS) {
+    sendJson(res, 200, mem.payload);
     return;
   }
 
-  const order: InvestorMode[] = preferred
-    ? [preferred, ...(["insider", "politicians", "institutions"] as InvestorMode[]).filter((m) => m !== preferred)]
-    : ["politicians", "insider", "institutions"];
+  const {
+    readInvestorDossierCache,
+    scheduleInvestorDossierRefresh,
+    writeInvestorDossierCache,
+  } = await import("../core/dossier-cache.js");
 
-  let best: { mode: InvestorMode; txns: ActorTxn[]; displayName: string | null } | null = null;
+  const pgCached = await readInvestorDossierCache(slug, modeKey);
+  if (pgCached?.ok && pgCached.actor) {
+    dossierMemoryCache.set(memKey, { at: Date.now(), payload: pgCached });
+    sendJson(res, 200, pgCached);
+    scheduleInvestorDossierRefresh(slug, modeKey, (s, m) =>
+      buildInvestorDossierPayload(s, m === "any" ? null : m),
+    );
+    return;
+  }
 
   try {
-    for (const mode of order) {
-      const hit = await loadMode(slug, mode, 80);
-      if (!hit.txns.length) continue;
-      if (!best || hit.txns.length > best.txns.length) best = hit;
-      // Prefer preferred mode as soon as it has real trades.
-      if (preferred && mode === preferred && hit.txns.length >= 2) break;
-      if (hit.txns.length >= 12) break;
-    }
-
-    if (!best) {
-      const empty = {
-        ok: true as const,
-        slug,
-        mode: preferred ?? "insider",
-        actor: buildActorRow(slug, preferred ?? "insider", [], null),
-        empty: true,
-      };
-      sendJson(res, 200, empty);
-      return;
-    }
-
-    const actor = buildActorRow(slug, best.mode, best.txns, best.displayName);
-    const payload = {
-      ok: true as const,
-      slug,
-      mode: best.mode,
-      actor,
-      empty: false,
-      amount_hint: best.txns[0]
-        ? formatUsdCompact(Number(best.txns[0].sheetRow.amountUsd) || 0)
-        : null,
-    };
-    if (best.txns.length >= 2) {
-      dossierMemoryCache.set(cacheKey, { at: Date.now(), payload });
+    const payload = await buildInvestorDossierPayload(slug, preferred);
+    if (payload.ok && !(payload as { empty?: boolean }).empty) {
+      dossierMemoryCache.set(memKey, { at: Date.now(), payload });
+      void writeInvestorDossierCache(slug, modeKey, payload).catch(() => {});
+      if (preferred && payload.mode && payload.mode !== preferred) {
+        void writeInvestorDossierCache(slug, String(payload.mode), payload).catch(() => {});
+      }
     }
     sendJson(res, 200, payload);
   } catch (err) {

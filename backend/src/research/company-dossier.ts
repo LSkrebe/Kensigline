@@ -2,20 +2,19 @@ import type http from "node:http";
 import { sendJson } from "../core/http.js";
 import { getCompanySnapshot } from "../core/company.js";
 import { getCompanyFullCached } from "../core/ticker-context-cache.js";
+import {
+  readCompanyDossierCache,
+  scheduleCompanyDossierRefresh,
+  writeCompanyDossierCache,
+} from "../core/dossier-cache.js";
 import { buildCompanyExplorePayload } from "./api.js";
 
-/**
- * Company open in ONE response: explore shell + company meta/fundamentals.
- * Bars + analyse stay separate (heavy / optional).
- */
-export async function handleCompanyDossier(res: http.ServerResponse, ticker: string) {
+/** Live-build company fat dossier (also used to populate Postgres cache). */
+export async function buildCompanyDossierPayload(ticker: string): Promise<Record<string, unknown>> {
   const t = String(ticker ?? "")
     .trim()
     .toUpperCase();
-  if (!t) {
-    sendJson(res, 400, { ok: false, error: "ticker_required" });
-    return;
-  }
+  if (!t) return { ok: false, error: "ticker_required" };
 
   let explore: Record<string, unknown>;
   try {
@@ -45,10 +44,35 @@ export async function handleCompanyDossier(res: http.ServerResponse, ticker: str
     }
   }
 
-  sendJson(res, 200, {
+  return {
     ok: true,
     ticker: t,
     explore,
     company,
-  });
+  };
+}
+
+/**
+ * Company open: prefer materialized cache, rebuild in background when missing/stale-path.
+ */
+export async function handleCompanyDossier(res: http.ServerResponse, ticker: string) {
+  const t = String(ticker ?? "")
+    .trim()
+    .toUpperCase();
+  if (!t) {
+    sendJson(res, 400, { ok: false, error: "ticker_required" });
+    return;
+  }
+
+  const cached = await readCompanyDossierCache(t);
+  if (cached?.ok && cached.explore && cached.company) {
+    sendJson(res, 200, cached);
+    // Soft refresh in background so ingest catches up without blocking open.
+    scheduleCompanyDossierRefresh(t, buildCompanyDossierPayload);
+    return;
+  }
+
+  const payload = await buildCompanyDossierPayload(t);
+  void writeCompanyDossierCache(t, payload).catch(() => {});
+  sendJson(res, 200, payload);
 }

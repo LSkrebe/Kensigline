@@ -57,15 +57,15 @@ const apiPoolMax = Math.max(2, Math.min(16, Number(process.env.DATABASE_POOL_MAX
 /** Background ingest / parse / outcomes — capped independently. */
 const workerPoolMax = Math.max(
   1,
-  Math.min(8, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 1) || 1),
+  Math.min(16, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 1) || 1),
 );
 /**
  * Global cap on concurrent worker DB jobs across ALL pipelines.
- * Keeps Supabase Auth / API healthy under continuous ingest (default 1).
+ * Default 1 keeps Auth healthy with users; raise for historical drain when idle.
  */
 const workerDbConcurrency = Math.max(
   1,
-  Math.min(4, Number(process.env.WORKER_DB_CONCURRENCY ?? 1) || 1),
+  Math.min(8, Number(process.env.WORKER_DB_CONCURRENCY ?? 1) || 1),
 );
 
 function makePool(max: number, label: string): Pool {

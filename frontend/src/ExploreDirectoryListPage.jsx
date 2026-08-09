@@ -8,6 +8,8 @@ import './ExplorePage.css'
 const EXPLORE_DIR_COLLAPSE_RANGE_FALLBACK = 1
 const EXPLORE_DIR_EXPANDED_FADE_END = 0.88
 const EXPLORE_DIR_COMPACT_FADE_START = 0
+const EXPLORE_DIR_COMPACT_MQ = '(max-width: 960px)'
+const EXPLORE_DIR_COMPACT_STEP = 10
 
 const EXPLORE_DIR_COPY = {
   companies: {
@@ -36,6 +38,39 @@ function exploreDirCollapseProgressVars(progress) {
   }
 }
 
+function useExploreDirCompactLayout() {
+  const [compact, setCompact] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(EXPLORE_DIR_COMPACT_MQ).matches,
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia(EXPLORE_DIR_COMPACT_MQ)
+    const onChange = () => setCompact(mq.matches)
+    onChange()
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  return compact
+}
+
+function ExploreDirShowMoreButton({ remaining, onClick }) {
+  const step = Math.min(EXPLORE_DIR_COMPACT_STEP, remaining)
+  return (
+    <button
+      type="button"
+      className="drpt-showMore exploreDirShowMore"
+      onClick={onClick}
+      aria-label={`Show ${step} more`}
+    >
+      <span className="drpt-showMoreChip" aria-hidden="true">
+        <span className="drpt-showMoreSign">+</span>
+        <span className="drpt-showMoreLabel">{step}</span>
+      </span>
+    </button>
+  )
+}
+
 export function ExploreDirectoryListPage({
   kind,
   rows = [],
@@ -54,18 +89,24 @@ export function ExploreDirectoryListPage({
   const dockRef = useRef(null)
   const spacerRef = useRef(null)
   const sentinelRef = useRef(null)
-  const [visibleCount, setVisibleCount] = useState(EXPLORE_DIRECTORY_BLOCK)
+  const compact = useExploreDirCompactLayout()
+  const pageSize = compact ? EXPLORE_DIR_COMPACT_STEP : EXPLORE_DIRECTORY_BLOCK
+  const [visibleCount, setVisibleCount] = useState(pageSize)
 
   const visibleRows = useMemo(() => rows.slice(0, visibleCount), [rows, visibleCount])
   const hasMore = visibleCount < rows.length
+  const remaining = Math.max(0, rows.length - visibleCount)
 
-  const loadMore = useCallback(() => {
-    setVisibleCount((n) => Math.min(rows.length, n + EXPLORE_DIRECTORY_BLOCK))
-  }, [rows.length])
+  const loadMore = useCallback(
+    (step = pageSize) => {
+      setVisibleCount((n) => Math.min(rows.length, n + step))
+    },
+    [pageSize, rows.length],
+  )
 
   useEffect(() => {
-    setVisibleCount(EXPLORE_DIRECTORY_BLOCK)
-  }, [kind, rows])
+    setVisibleCount(pageSize)
+  }, [kind, rows, pageSize])
 
   useEffect(() => {
     const page = pageRef.current
@@ -103,21 +144,23 @@ export function ExploreDirectoryListPage({
     }
   }, [kind])
 
+  // Wide window: infinite scroll. Compact ≤960px: click +10 (dossier-style).
   useEffect(() => {
+    if (compact) return undefined
     const root = pageRef.current
     const sentinel = sentinelRef.current
     if (!root || !sentinel || !hasMore) return undefined
 
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) loadMore()
+        if (entries.some((entry) => entry.isIntersecting)) loadMore(EXPLORE_DIRECTORY_BLOCK)
       },
       { root, rootMargin: '160px 0px', threshold: 0 },
     )
 
     io.observe(sentinel)
     return () => io.disconnect()
-  }, [hasMore, loadMore, visibleCount])
+  }, [compact, hasMore, loadMore, visibleCount])
 
   return (
     <div className="exploreDirShell" ref={pageRef}>
@@ -163,7 +206,10 @@ export function ExploreDirectoryListPage({
         <div ref={spacerRef} className="drpt-collapseSpacer" aria-hidden="true" />
 
         <div className="exploreDirPaper">
-          <div className="exploreDirListPanel">
+          <div className={['exploreDirListPanel', compact && hasMore ? 'exploreDirListPanel--truncated' : '']
+            .filter(Boolean)
+            .join(' ')}
+          >
             <ul className="exploreDirectoryList">
               {kind === 'investors'
                 ? visibleRows.map((row) => (
@@ -173,7 +219,15 @@ export function ExploreDirectoryListPage({
                     <ExploreDirectoryListCompanyRow key={row.id} row={row} onClick={onCompanyRowClick} />
                   ))}
             </ul>
-            {hasMore ? <div ref={sentinelRef} className="exploreDirScrollSentinel" aria-hidden="true" /> : null}
+            {compact && hasMore ? (
+              <ExploreDirShowMoreButton
+                remaining={remaining}
+                onClick={() => loadMore(EXPLORE_DIR_COMPACT_STEP)}
+              />
+            ) : null}
+            {!compact && hasMore ? (
+              <div ref={sentinelRef} className="exploreDirScrollSentinel" aria-hidden="true" />
+            ) : null}
           </div>
         </div>
       </div>

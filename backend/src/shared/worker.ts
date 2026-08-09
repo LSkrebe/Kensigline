@@ -39,13 +39,13 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   const enqueueEveryMs = Math.max(15_000, envNum(opts.envPrefix, "ENQUEUE_INTERVAL_MS", d.enqueueEveryMs ?? 120_000));
   const parsePollMs = Math.max(2_000, envNum(opts.envPrefix, "PARSE_POLL_MS", d.parsePollMs ?? 6_000));
   const parseThrottleMs = Math.max(100, envNum(opts.envPrefix, "PARSE_THROTTLE_MS", d.parseThrottleMs ?? 1_000));
-  // Hard-cap at 4; effective parallelism still gated by WORKER_DB_CONCURRENCY.
+  // Hard-cap at 8; effective parallelism still gated by WORKER_DB_CONCURRENCY.
   const parseConcurrency = Math.max(
     1,
-    Math.min(4, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
+    Math.min(8, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
   );
   const backfillIntervalMs = Math.max(
-    15_000,
+    10_000,
     envNum(opts.envPrefix, "BACKFILL_INTERVAL_MS", d.backfillIntervalMs ?? 60_000),
   );
   const reclaimEveryMs = Math.max(60_000, envNum(opts.envPrefix, "RECLAIM_INTERVAL_MS", 3 * 60_000));
