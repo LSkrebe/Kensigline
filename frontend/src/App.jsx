@@ -1168,6 +1168,7 @@ function buildInvestigateActorFeed(companyRows, mode) {
     const cs = companyRow?.caseSheet
     if (!Array.isArray(cs?.rows) || !cs.rows.length) continue
     for (const sheetRow of cs.rows) {
+      if (isSyntheticDollarStub(sheetRow)) continue
       if (mode === 'politicians') {
         if (!politicianCaseRowHasTxn(sheetRow)) continue
       } else if (mode === 'institutions') {
@@ -1178,6 +1179,7 @@ function buildInvestigateActorFeed(companyRows, mode) {
       const actorKey = investigateActorKeyFromCaseRow(sheetRow, mode)
       if (!actorKey) continue
       const entry = investigateActorTxnEntryFromCompanyRow(companyRow, sheetRow, mode)
+      if (!isRealDisplayedActorTxn(entry)) continue
       const fullName = investigateActorFullNameFromCaseRow(sheetRow, mode)
       const canonicalKey = investigateActorCanonicalKey(fullName, mode)
       let actor = byActor.get(actorKey)
@@ -1258,10 +1260,38 @@ function caseSheetRowToCompanyCaseFeedRow(r, { ticker, company, showMoney, mode,
   }
 }
 
+/** True for fake name-only placeholders (never show these as trades). */
+function isSyntheticDollarStub(sheetRow) {
+  if (!sheetRow || sheetRow.__nameOnly) return true
+  const usd = Number(sheetRow.amountUsd)
+  if (usd === 1 && !String(sheetRow.amountRange ?? '').trim() && !(Number(sheetRow.shares) > 0)) {
+    return true
+  }
+  return false
+}
+
+function isRealDisplayedActorTxn(txn) {
+  const r = txn?.sheetRow
+  if (!r || isSyntheticDollarStub(r)) return false
+  const usd = Number(r.amountUsd)
+  if (Number.isFinite(usd) && usd > 1) return true
+  if (String(r.amountRange ?? '').trim()) return true
+  if (Number(r.shares) > 0) return true
+  return false
+}
+
+function stripSyntheticActorTxns(actorRow) {
+  if (!actorRow?.transactions?.length) return actorRow
+  const transactions = actorRow.transactions.filter(isRealDisplayedActorTxn)
+  if (transactions.length === actorRow.transactions.length) return actorRow
+  return normalizeInvestigateActorFeedRow({ ...actorRow, transactions })
+}
+
 function buildActorCaseFeedRows(actorRow, filters, chartRange) {
   if (!actorRow?.transactions?.length) return []
   const trades = []
   for (const txn of actorRow.transactions) {
+    if (!isRealDisplayedActorTxn(txn)) continue
     const txnMode = txn.source ?? actorRow.source ?? 'insider'
     const enabled = investigateTxnFiltersForMode(filters, txnMode)
     if (!investigateCaseRowPassesTxnFilter(txn.sheetRow, enabled, txnMode)) continue
@@ -1315,7 +1345,7 @@ function investorNamesLikelyMatch(a, b) {
   return Boolean(la && lb && la === lb && la.length > 2)
 }
 
-/** Seed at least one trade from a tracked-investor list row (company dossier click). */
+/** Seed a trade from a tracked-investor list row only when amount is real (never fake $1). */
 function buildActorTxnFromTrackedInvestorRow(row, { ticker, companyName, mode }) {
   const tick = String(ticker ?? row?.ticker ?? '').trim().toUpperCase()
   if (!tick) return null
@@ -1324,6 +1354,7 @@ function buildActorTxnFromTrackedInvestorRow(row, { ticker, companyName, mode })
   const company = String(companyName ?? '').trim() || tick
   const amountUsd = Number(row?.totalUsd)
   const parsed = Number.isFinite(amountUsd) && amountUsd !== 0 ? Math.abs(amountUsd) : parseTxnAmountUsd(row?.amount)
+  if (!(parsed > 1)) return null
   const ts = row?.dateAt
     ? new Date(row.dateAt).toISOString()
     : row?.date
@@ -1339,7 +1370,7 @@ function buildActorTxnFromTrackedInvestorRow(row, { ticker, companyName, mode })
         chamber: row?.chamber ?? 'house',
         transactionType: code === 'S' ? 'Sale' : 'Purchase',
         transactionCode: code,
-        amountUsd: parsed > 0 ? parsed : 1,
+        amountUsd: parsed,
         ts,
       },
       ticker: tick,
@@ -1356,7 +1387,7 @@ function buildActorTxnFromTrackedInvestorRow(row, { ticker, companyName, mode })
         institution_name: name,
         key: name,
         activity: code === 'RED' || code === 'S' ? 'Reduced stake' : 'Increased stake',
-        amountUsd: parsed > 0 ? parsed : 1,
+        amountUsd: parsed,
         ts,
       },
       ticker: tick,
@@ -1375,7 +1406,7 @@ function buildActorTxnFromTrackedInvestorRow(row, { ticker, companyName, mode })
       key: null,
       transactionCode: code === 'S' || code === 'D' ? 'S' : 'P',
       acquiredDisposed: code === 'S' || code === 'D' ? 'D' : 'A',
-      amountUsd: parsed > 0 ? parsed : 1,
+      amountUsd: parsed,
       ts,
     },
     ticker: tick,
@@ -1532,6 +1563,9 @@ function buildActorTxnsFromCompanyFlows({ name, mode, ticker, companyName, flows
       if (!investorNamesLikelyMatch(person, name)) continue
       const ts = row.date ? new Date(row.date).toISOString() : null
       const amountUsd = parseTxnAmountUsd(row.amount)
+      const amountRange = row.amountRange ?? (amountUsd > 0 ? null : String(row.amount ?? '').trim() || null)
+      // Real PTR data only — never invent a $1 placeholder.
+      if (!(amountUsd > 1) && !amountRange) continue
       out.push({
         sheetRow: {
           politician_name: person,
@@ -1539,8 +1573,8 @@ function buildActorTxnsFromCompanyFlows({ name, mode, ticker, companyName, flows
           chamber: row.chamber,
           transactionType: row.transactionType ?? row.type,
           transactionCode: row.transactionCode,
-          amountUsd: amountUsd > 0 ? amountUsd : null,
-          amountRange: row.amountRange ?? (amountUsd > 0 ? null : String(row.amount ?? '').trim() || null),
+          amountUsd: amountUsd > 1 ? amountUsd : null,
+          amountRange,
           ts,
           committee: row.committee ?? row.committeeName ?? null,
         },
@@ -1561,12 +1595,13 @@ function buildActorTxnsFromCompanyFlows({ name, mode, ticker, companyName, flows
       if (!investorNamesLikelyMatch(filer, name)) continue
       const ts = row.date ? new Date(row.date).toISOString() : null
       const amountUsd = parseTxnAmountUsd(row.amount)
+      if (!(amountUsd > 1)) continue
       out.push({
         sheetRow: {
           institution_name: filer,
           key: filer,
           activity: row.activity ?? 'Changed stake',
-          amountUsd: amountUsd > 0 ? amountUsd : 1,
+          amountUsd,
           ts,
         },
         ticker: tick,
@@ -1586,6 +1621,7 @@ function buildActorTxnsFromCompanyFlows({ name, mode, ticker, companyName, flows
     const ts = row.date ? new Date(row.date).toISOString() : null
     const code = String(row.transactionCode ?? row.code ?? 'P').trim().toUpperCase() || 'P'
     const amountUsd = parseTxnAmountUsd(row.amount)
+    if (!(amountUsd > 1)) continue
     out.push({
       sheetRow: {
         person,
@@ -1594,7 +1630,7 @@ function buildActorTxnsFromCompanyFlows({ name, mode, ticker, companyName, flows
         key: row.key ?? null,
         transactionCode: code,
         acquiredDisposed: row.acquiredDisposed ?? (code === 'S' || code === 'D' ? 'D' : 'A'),
-        amountUsd: amountUsd > 0 ? amountUsd : 1,
+        amountUsd,
         ts,
       },
       ticker: tick,
@@ -4235,17 +4271,17 @@ function politicianTxnCodeFromRaw(raw) {
 }
 
 function politicianCaseRowHasTxn(r) {
+  if (isSyntheticDollarStub(r)) return false
   const range = String(r?.amountRange ?? '').trim()
   if (range) return true
   const amt = Number(r?.amountUsd ?? 0)
-  return Number.isFinite(amt) && amt > 0
+  return Number.isFinite(amt) && amt > 1
 }
 
 function institutionCaseRowHasTxn(r) {
-  const activity = String(r?.activity ?? '').trim()
-  if (activity) return true
+  if (isSyntheticDollarStub(r)) return false
   const amt = Number(r?.amountUsd ?? 0)
-  return Number.isFinite(amt) && amt > 0
+  return Number.isFinite(amt) && amt > 1
 }
 
 function institutionActivityCode(activity) {
@@ -9339,15 +9375,18 @@ function investigateCaseSheetFromApiItem(it, mode) {
           ? institutionCaseSheetFromClusterLive(pseudo, fallback)
           : insiderCaseSheetFromClusterLive(pseudo, fallback)
     const usable = (fromWs?.rows ?? []).filter((r) => {
+      if (r?.__nameOnly || isSyntheticDollarStub(r)) return false
       if (mode === 'politicians') return politicianCaseRowHasTxn(r)
       if (mode === 'institutions') return institutionCaseRowHasTxn(r)
       const code = String(r?.transactionCode ?? '').trim()
       const usd = Number(r?.amountUsd ?? 0)
-      return Boolean(code) || (Number.isFinite(usd) && usd > 0)
+      const shares = Number(r?.shares ?? 0)
+      return Boolean(code) || (Number.isFinite(usd) && usd > 1) || (Number.isFinite(shares) && shares > 0)
     })
-    if (usable.length) return fromWs
+    if (usable.length) return { ...fromWs, rows: usable }
   }
   const at = String(it.feed_at ?? it.at ?? '')
+  // Name-only list rows are identity hints for feed search — never invent $1 trades.
   if (mode === 'politicians') {
     const names = Array.isArray(it.politicians) ? it.politicians : []
     if (!names.length) return fromWs
@@ -9364,9 +9403,10 @@ function investigateCaseSheetFromApiItem(it, mode) {
         politician_name: String(name),
         surname: lastName(String(name)),
         chamber: String(it.chamber ?? 'house').trim().toLowerCase() || 'house',
-        transactionType: 'Purchase',
-        amountUsd: 1,
-        acquiredDisposed: 'A',
+        transactionType: null,
+        amountUsd: null,
+        __nameOnly: true,
+        acquiredDisposed: null,
         ts: at || null,
       })),
     }
@@ -9386,8 +9426,9 @@ function investigateCaseSheetFromApiItem(it, mode) {
         key: String(name),
         institution_name: String(name),
         surname: String(name),
-        activity: 'Increased stake',
-        amountUsd: 1,
+        activity: null,
+        amountUsd: null,
+        __nameOnly: true,
         ts: at || null,
       })),
     }
@@ -9406,9 +9447,10 @@ function investigateCaseSheetFromApiItem(it, mode) {
       key: String(name),
       insider_name: String(name),
       surname: lastName(String(name)),
-      transactionCode: 'P',
-      acquiredDisposed: 'A',
-      amountUsd: 1,
+      transactionCode: null,
+      acquiredDisposed: null,
+      amountUsd: null,
+      __nameOnly: true,
       ts: at || null,
     })),
   }
@@ -10443,7 +10485,6 @@ function KensiglineTerminal() {
     if (!tick) return
     let alive = true
     const gen = ++researchExploreFetchGenRef.current
-    let attemptBudget = 0
 
     const memCached = researchExploreCacheRef.current.get(tick)
     const sessionCached = readExploreSession(tick)
@@ -10454,7 +10495,12 @@ function KensiglineTerminal() {
       setResearchExploreLive(cachedExplore)
       setResearchExploreTicker(tick)
     } else {
-      setResearchExploreLive(null)
+      // Keep any in-flight good paint for this ticker; otherwise show loading.
+      setResearchExploreLive((prev) =>
+        prev && String(prev.ticker ?? '').toUpperCase() === tick && explorePayloadHasContent(prev)
+          ? prev
+          : null,
+      )
       setResearchExploreTicker(tick)
     }
 
@@ -10474,10 +10520,9 @@ function KensiglineTerminal() {
       setResearchExploreTicker(tick)
     }
 
-    async function run({ allowExhaust = false } = {}) {
+    async function run() {
       for (let attempt = 0; attempt < 3; attempt += 1) {
         if (!alive || researchExploreFetchGenRef.current !== gen) return
-        attemptBudget += 1
         const r = await fetchExploreOnce()
         const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
         if (r.ok && r.data && respTicker === tick && explorePayloadHasContent(r.data)) {
@@ -10500,27 +10545,7 @@ function KensiglineTerminal() {
         setResearchExploreTicker(tick)
         return
       }
-      // Keep loading until content arrives — only exhaust after many failures.
-      if (allowExhaust && attemptBudget >= 9) {
-        setResearchExploreLive({
-          ok: true,
-          ticker: tick,
-          company_name: tick,
-          presentation: {
-            title: tick,
-            subtitle: tick,
-            blocks: [],
-            explainer: [],
-            sources: [],
-            documents: [],
-          },
-          flows: { insiders: [], politicians: [], filings13f: [] },
-          tracked_investors: [],
-          _exploreExhausted: true,
-        })
-        setResearchExploreTicker(tick)
-        return
-      }
+      // Keep loading + retry — never settle empty (that forced hard reloads).
       setResearchExploreLive({
         ok: false,
         ticker: tick,
@@ -10544,8 +10569,8 @@ function KensiglineTerminal() {
       if (!alive || researchExploreFetchGenRef.current !== gen) return
       const cur = researchExploreCacheRef.current.get(tick)
       if (explorePayloadHasContent(cur)) return
-      void run({ allowExhaust: true })
-    }, 6_000)
+      void run()
+    }, 5_000)
 
     return () => {
       alive = false
@@ -11108,7 +11133,7 @@ function KensiglineTerminal() {
         flows: contextFlowRows,
       })
     }
-    return row
+    return stripSyntheticActorTxns(row)
   }, [
     exploreInvestorDossier,
     investigateMode,
