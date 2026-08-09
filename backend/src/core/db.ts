@@ -53,20 +53,21 @@ const connectTimeoutMs = Math.max(2_000, Number(process.env.DATABASE_CONNECT_TIM
 const idleTimeoutMs = Math.max(5_000, Number(process.env.DATABASE_IDLE_TIMEOUT_MS ?? 30_000) || 30_000);
 
 /** Interactive API / billing — kept separate so ingest workers cannot starve sign-in. */
-const apiPoolMax = Math.max(2, Math.min(16, Number(process.env.DATABASE_POOL_MAX ?? 8) || 8));
+const apiPoolMax = Math.max(2, Math.min(24, Number(process.env.DATABASE_POOL_MAX ?? 8) || 8));
 /** Background ingest / parse / outcomes — capped independently. */
 const workerPoolMax = Math.max(
   1,
-  Math.min(16, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 1) || 1),
+  Math.min(32, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 1) || 1),
 );
 /**
- * Global cap on concurrent worker DB jobs across ALL pipelines.
- * Default 1 keeps Auth healthy with users; raise for historical drain when idle.
+ * Global cap on concurrent worker *jobs* that opt into runWithWorkerDb.
+ * WORKER_DB_UNTHROTTLED=1 disables the gate (parse/backfill run fully parallel).
+ * Default 1 keeps Auth healthy when users are on the product.
  */
-const workerDbConcurrency = Math.max(
-  1,
-  Math.min(8, Number(process.env.WORKER_DB_CONCURRENCY ?? 1) || 1),
-);
+const workerDbUnthrottled = String(process.env.WORKER_DB_UNTHROTTLED ?? "").trim() === "1";
+const workerDbConcurrency = workerDbUnthrottled
+  ? Number.POSITIVE_INFINITY
+  : Math.max(1, Math.min(32, Number(process.env.WORKER_DB_CONCURRENCY ?? 1) || 1));
 
 function makePool(max: number, label: string): Pool {
   const p = new Pool({
@@ -88,7 +89,9 @@ const apiPool = makePool(apiPoolMax, "api");
 const workerPool = makePool(workerPoolMax, "worker");
 
 console.info(
-  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerDbConcurrency=${workerDbConcurrency}`,
+  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerDbConcurrency=${
+    workerDbUnthrottled ? "unthrottled" : workerDbConcurrency
+  }`,
 );
 
 type DbLane = "api" | "worker";
@@ -98,7 +101,7 @@ let workerInFlight = 0;
 const workerWaiters: Array<() => void> = [];
 
 async function acquireWorkerSlot(): Promise<void> {
-  if (workerInFlight < workerDbConcurrency) {
+  if (workerDbUnthrottled || workerInFlight < workerDbConcurrency) {
     workerInFlight += 1;
     return;
   }
@@ -112,6 +115,11 @@ function releaseWorkerSlot(): void {
   workerInFlight = Math.max(0, workerInFlight - 1);
   const next = workerWaiters.shift();
   if (next) next();
+}
+
+/** Switch to worker pool without the global concurrency gate (for long parse jobs with HTTP I/O). */
+export async function withWorkerLane<T>(fn: () => Promise<T> | T): Promise<T> {
+  return await dbLane.run("worker", fn);
 }
 
 /** Run background work on the worker pool so API keep-alive connections stay free. */

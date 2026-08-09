@@ -50,9 +50,9 @@ export const QUEUE_PRIORITY_BACKFILL_STRUCTURED = 2;
 /** Template-only historical index for paper panel. */
 export const QUEUE_PRIORITY_BACKFILL_INDEX = 1;
 
-/** Max filings enqueued per form per backfill day. */
+/** Max *new* filings enqueued per form per backfill day. 0 = unlimited (full day, no holes). */
 export function backfillSecLimitPerForm(): number {
-  return envInt("BACKFILL_SEC_LIMIT_PER_DAY", 300, 20, 2000);
+  return envInt("BACKFILL_SEC_LIMIT_PER_DAY", 0, 0, 50_000);
 }
 
 /** Queue priorities at or below this are treated as idle backfill (not live). */

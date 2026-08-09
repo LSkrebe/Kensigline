@@ -511,6 +511,8 @@ export type EnqueueDailyIndexDayResult = {
   enqueued: number;
   skipped_existing: number;
   index_missing: boolean;
+  /** True when a hard limit stopped early — caller must NOT advance the day cursor. */
+  truncated: boolean;
 };
 
 /** Enqueue one form type from a single SEC daily master.idx (historical backfill). */
@@ -519,29 +521,42 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
   form: string;
   sourceType: string;
   priority?: number;
+  /** Max *new* enqueues for this form/day. 0 / omitted = no cap (full day, no holes). */
   limit?: number;
 }): Promise<EnqueueDailyIndexDayResult> {
   const form = String(opts.form ?? "").trim();
   const sourceType = String(opts.sourceType ?? "").trim() || "sec_filing";
   const priority = Number.isFinite(opts.priority) ? Math.max(0, Math.min(100, Number(opts.priority))) : 1;
-  const limit = Number.isFinite(opts.limit) ? Math.max(1, Math.min(5000, Number(opts.limit))) : 800;
+  const rawLimit = Number(opts.limit);
+  // 0 = unlimited. Positive caps new inserts only — we still scan the full master.idx so skips don't create holes.
+  const limit =
+    Number.isFinite(rawLimit) && rawLimit > 0 ? Math.max(1, Math.min(50_000, Math.floor(rawLimit))) : 0;
   const day = yyyymmdd(opts.dayUtc);
 
   let master: string;
   try {
     master = await fetchMasterIdxForDate(opts.dayUtc);
   } catch {
-    return { day, form, sourceType, found: 0, enqueued: 0, skipped_existing: 0, index_missing: true };
+    return {
+      day,
+      form,
+      sourceType,
+      found: 0,
+      enqueued: 0,
+      skipped_existing: 0,
+      index_missing: true,
+      truncated: false,
+    };
   }
 
   const filings = parseMasterIdxForForms(master, new Set([form]));
   let found = 0;
   let enqueued = 0;
   let skipped_existing = 0;
+  let truncated = false;
 
   for (const f of filings) {
     found += 1;
-    if (found > limit) break;
 
     const cik10 = String(Number(f.cik)).padStart(10, "0");
     const indexUrl = accessionToIndexJsonUrl(cik10, f.accession);
@@ -558,6 +573,11 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
     if (existing) {
       skipped_existing += 1;
       continue;
+    }
+
+    if (limit > 0 && enqueued >= limit) {
+      truncated = true;
+      break;
     }
 
     const r = await db.one<{ id: string }>(
@@ -582,7 +602,7 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
     }
   }
 
-  return { day, form, sourceType, found, enqueued, skipped_existing, index_missing: false };
+  return { day, form, sourceType, found, enqueued, skipped_existing, index_missing: false, truncated };
 }
 
 /**

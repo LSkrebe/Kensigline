@@ -95,11 +95,12 @@ export async function reclaimStaleParsing(opts?: { olderThanMinutes?: number }):
  * Caps attempts so we don't infinite-loop.
  */
 export async function requeueTransientDead(opts?: { limit?: number }): Promise<number> {
-  const limit = Math.max(1, Math.min(500, Math.floor(opts?.limit ?? 100)));
+  const limit = Math.max(1, Math.min(2000, Math.floor(opts?.limit ?? 100)));
   const rows = await db.query<{ id: string }>(
     `
     UPDATE document_queue
-    SET status = 'failed',
+    SET status = 'ready_to_parse',
+        attempts = LEAST(attempts, 3),
         next_attempt_at = now(),
         last_error = left(coalesce(last_error,'') || ' | requeued_transient', 2000),
         updated_at = now()
@@ -107,9 +108,10 @@ export async function requeueTransientDead(opts?: { limit?: number }): Promise<n
       SELECT id
       FROM document_queue
       WHERE status = 'dead'
-        AND attempts < 8
+        AND attempts < 12
         AND (
           last_error ILIKE '%timeout%'
+          OR last_error ILIKE '%ECHECKOUT%'
           OR last_error ILIKE '%ECONN%'
           OR last_error ILIKE '%ETIMEDOUT%'
           OR last_error ILIKE '%429%'
@@ -120,6 +122,9 @@ export async function requeueTransientDead(opts?: { limit?: number }): Promise<n
           OR last_error ILIKE '%socket%'
           OR last_error ILIKE '%503%'
           OR last_error ILIKE '%502%'
+          OR last_error ILIKE '%canceling statement%'
+          OR last_error ILIKE '%too many clients%'
+          OR last_error ILIKE '%remaining connection%'
         )
       ORDER BY updated_at ASC
       LIMIT $1

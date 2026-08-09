@@ -1,4 +1,4 @@
-import { runWithWorkerDb } from "../core/db.js";
+import { runWithWorkerDb, withWorkerLane } from "../core/db.js";
 import { countPendingQueue } from "./queue-pending.js";
 import { reclaimStaleParsing, requeueTransientDead } from "./queue.js";
 
@@ -36,23 +36,30 @@ function envNum(prefix: string, key: string, fallback: number) {
 /** Reusable enqueue + parse loop used by every tab pipeline worker. */
 export function startPipelineWorker(opts: PipelineWorkerOpts) {
   const d = opts.defaults ?? {};
-  const enqueueEveryMs = Math.max(15_000, envNum(opts.envPrefix, "ENQUEUE_INTERVAL_MS", d.enqueueEveryMs ?? 120_000));
-  const parsePollMs = Math.max(2_000, envNum(opts.envPrefix, "PARSE_POLL_MS", d.parsePollMs ?? 6_000));
-  const parseThrottleMs = Math.max(100, envNum(opts.envPrefix, "PARSE_THROTTLE_MS", d.parseThrottleMs ?? 1_000));
-  // Hard-cap at 8; effective parallelism still gated by WORKER_DB_CONCURRENCY.
+  const unthrottled = String(process.env.WORKER_DB_UNTHROTTLED ?? "").trim() === "1";
+  const enqueueEveryMs = Math.max(
+    unthrottled ? 15_000 : 15_000,
+    envNum(opts.envPrefix, "ENQUEUE_INTERVAL_MS", d.enqueueEveryMs ?? 120_000),
+  );
+  const parsePollMs = Math.max(1_000, envNum(opts.envPrefix, "PARSE_POLL_MS", d.parsePollMs ?? 6_000));
+  const parseThrottleMs = Math.max(
+    unthrottled ? 50 : 100,
+    envNum(opts.envPrefix, "PARSE_THROTTLE_MS", d.parseThrottleMs ?? (unthrottled ? 200 : 1_000)),
+  );
+  // Hard-cap at 16; with WORKER_DB_UNTHROTTLED parse loops no longer share one global slot.
   const parseConcurrency = Math.max(
     1,
-    Math.min(8, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
+    Math.min(16, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
   );
   const backfillIntervalMs = Math.max(
-    10_000,
+    unthrottled ? 5_000 : 10_000,
     envNum(opts.envPrefix, "BACKFILL_INTERVAL_MS", d.backfillIntervalMs ?? 60_000),
   );
   const reclaimEveryMs = Math.max(60_000, envNum(opts.envPrefix, "RECLAIM_INTERVAL_MS", 3 * 60_000));
   const reclaimOlderMinutes = Math.max(5, envNum(opts.envPrefix, "RECLAIM_STALE_MINUTES", 10));
 
   console.log(
-    `[${opts.name}] enqueueEveryMs=${enqueueEveryMs} parseConcurrency=${parseConcurrency} backfillIntervalMs=${backfillIntervalMs}`,
+    `[${opts.name}] enqueueEveryMs=${enqueueEveryMs} parseConcurrency=${parseConcurrency} backfillIntervalMs=${backfillIntervalMs} unthrottled=${unthrottled ? 1 : 0}`,
   );
 
   let stopped = false;
@@ -73,7 +80,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     runWithWorkerDb(() =>
       Promise.all([
         reclaimStaleParsing({ olderThanMinutes: reclaimOlderMinutes }),
-        requeueTransientDead({ limit: 80 }),
+        requeueTransientDead({ limit: unthrottled ? 400 : 80 }),
       ]),
     )
       .then(([stale, requeued]) => {
@@ -99,7 +106,9 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     if (Date.now() - lastBackfillAt < backfillIntervalMs) return;
 
     const pending = await runWithWorkerDb(() => countPendingQueue(opts.sourceTypes!));
-    if (pending > 0) return;
+    // Allow a small ready buffer so backfill keeps walking while parse drains.
+    const pendingGate = unthrottled ? 80 : 0;
+    if (pending > pendingGate) return;
 
     backfillRunning = true;
     lastBackfillAt = Date.now();
@@ -135,7 +144,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   for (let w = 0; w < parseConcurrency; w++) {
     (async () => {
       // Stagger parse loop starts so N pipelines don't stampede together.
-      await sleep(1_000 + w * 750 + Math.floor(Math.random() * 4_000));
+      await sleep(unthrottled ? 200 + w * 150 : 1_000 + w * 750 + Math.floor(Math.random() * 4_000));
       for (;;) {
         if (stopped) return;
         if (pressureBackoffMs > 0) {
@@ -145,7 +154,8 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
           await sleep(wait);
         }
         try {
-          const r = await runWithWorkerDb(() => opts.parseNext());
+          // Worker lane only — do NOT hold the global concurrency slot across SEC HTTP / PDF I/O.
+          const r = await withWorkerLane(() => opts.parseNext());
           if (r.processed === false && r.reason === "no_work") {
             await maybeRunBackfill();
             await sleep(parsePollMs);
