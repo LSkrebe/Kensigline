@@ -1071,7 +1071,7 @@ function investigateActorKeyFromCaseRow(r, mode) {
 
 function investigateActorFullNameFromCaseRow(r, mode) {
   if (mode === 'politicians') {
-    return String(r?.politician_name ?? r?.person ?? r?.key ?? '').trim()
+    return formatPoliticianDisplayName(String(r?.politician_name ?? r?.person ?? r?.key ?? '').trim())
   }
   if (mode === 'institutions') {
     return String(r?.institution_name ?? r?.key ?? '').trim()
@@ -1281,11 +1281,133 @@ function buildActorCaseFeedRows(actorRow, filters, chartRange) {
 
 function actorPersonDisplayFromRow(actorRow) {
   if (!actorRow?.actorName) return null
+  const rawName = String(actorRow.actorName ?? '').trim()
+  const fullName =
+    actorRow.source === 'politicians' || actorRow.__investigateSource === 'politicians'
+      ? formatPoliticianDisplayName(rawName)
+      : rawName
   return {
-    fullName: actorRow.actorName,
+    fullName,
     detail: String(actorRow.actorDetail ?? '').trim() || EMPTY,
     detailSecondary: String(actorRow.actorDetailSecondary ?? '').trim(),
   }
+}
+
+function investorNamesLikelyMatch(a, b) {
+  const na = formatPoliticianDisplayName(a).trim().toLowerCase()
+  const nb = formatPoliticianDisplayName(b).trim().toLowerCase()
+  if (!na || !nb) return false
+  if (na === nb) return true
+  const la = lastName(na).toLowerCase()
+  const lb = lastName(nb).toLowerCase()
+  return Boolean(la && lb && la === lb && la.length > 2)
+}
+
+/** Seed actor transactions from the company dossier flows so investor pages aren't empty on click. */
+function buildActorTxnsFromCompanyFlows({ name, mode, ticker, companyName, flows }) {
+  const tick = String(ticker ?? '').trim().toUpperCase()
+  if (!tick || !name) return []
+  const company = String(companyName ?? '').trim() || tick
+  const out = []
+
+  if (mode === 'politicians') {
+    for (const row of flows?.politicians ?? []) {
+      const person = formatPoliticianDisplayName(row.person ?? row.name ?? row.politician_name)
+      if (!investorNamesLikelyMatch(person, name)) continue
+      const ts = row.date ? new Date(row.date).toISOString() : null
+      const amountUsd = parseTxnAmountUsd(row.amount)
+      out.push({
+        sheetRow: {
+          politician_name: person,
+          person,
+          chamber: row.chamber,
+          transactionType: row.transactionType ?? row.type,
+          transactionCode: row.transactionCode,
+          amountUsd: amountUsd > 0 ? amountUsd : null,
+          amountRange: row.amountRange ?? (amountUsd > 0 ? null : String(row.amount ?? '').trim() || null),
+          ts,
+          committee: row.committee ?? row.committeeName ?? null,
+        },
+        ticker: tick,
+        company,
+        companyRow: null,
+        showMoney: true,
+        ts,
+        source: 'politicians',
+      })
+    }
+    return out
+  }
+
+  if (mode === 'institutions') {
+    for (const row of flows?.filings13f ?? []) {
+      const filer = String(row.filer ?? row.institution_name ?? row.name ?? '').trim()
+      if (!investorNamesLikelyMatch(filer, name)) continue
+      const ts = row.date ? new Date(row.date).toISOString() : null
+      const amountUsd = parseTxnAmountUsd(row.amount)
+      out.push({
+        sheetRow: {
+          institution_name: filer,
+          key: filer,
+          activity: row.activity ?? 'Changed stake',
+          amountUsd: amountUsd > 0 ? amountUsd : 1,
+          ts,
+        },
+        ticker: tick,
+        company,
+        companyRow: null,
+        showMoney: true,
+        ts,
+        source: 'institutions',
+      })
+    }
+    return out
+  }
+
+  for (const row of flows?.insiders ?? []) {
+    const person = String(row.person ?? row.insider_name ?? '').trim()
+    if (!investorNamesLikelyMatch(person, name)) continue
+    const ts = row.date ? new Date(row.date).toISOString() : null
+    const code = String(row.transactionCode ?? row.code ?? 'P').trim().toUpperCase() || 'P'
+    const amountUsd = parseTxnAmountUsd(row.amount)
+    out.push({
+      sheetRow: {
+        person,
+        surname: lastName(person),
+        role: row.key ?? row.role ?? 'INS',
+        key: row.key ?? null,
+        transactionCode: code,
+        acquiredDisposed: row.acquiredDisposed ?? (code === 'S' || code === 'D' ? 'D' : 'A'),
+        amountUsd: amountUsd > 0 ? amountUsd : 1,
+        ts,
+      },
+      ticker: tick,
+      company,
+      companyRow: null,
+      showMoney: true,
+      ts,
+      source: 'insider',
+    })
+  }
+  return out
+}
+
+function enrichStubActorWithCompanyFlows(actorRow, { ticker, companyName, flows }) {
+  if (!actorRow?.actorName) return actorRow
+  if (Array.isArray(actorRow.transactions) && actorRow.transactions.length) return actorRow
+  const mode = actorRow.source === 'politicians' || actorRow.source === 'institutions' ? actorRow.source : 'insider'
+  const txns = buildActorTxnsFromCompanyFlows({
+    name: actorRow.actorName,
+    mode,
+    ticker: ticker || actorRow.ticker,
+    companyName,
+    flows,
+  })
+  if (!txns.length) return actorRow
+  return normalizeInvestigateActorFeedRow({
+    ...actorRow,
+    transactions: txns,
+  })
 }
 
 function findCompanyFeedRowByTicker(rows, ticker) {
@@ -9923,6 +10045,8 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
+    // Investor dossier does not use price bars — skip to keep feeds snappy.
+    if (exploreSubview === 'investorDetail') return
     const tick = researchTick
     if (!tick) return
     let alive = true
@@ -9993,10 +10117,11 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, researchTick])
+  }, [backendUp, researchTick, exploreSubview])
 
   useEffect(() => {
     if (!backendUp) return
+    if (exploreSubview === 'investorDetail') return
     const tick = researchTick
     if (!tick) return
     let alive = true
@@ -10054,10 +10179,14 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, researchTick])
+  }, [backendUp, researchTick, exploreSubview])
 
   useEffect(() => {
     if (!backendUp || !researchTicker) {
+      setAnalyseModelLoading(false)
+      return
+    }
+    if (exploreSubview === 'investorDetail') {
       setAnalyseModelLoading(false)
       return
     }
@@ -10081,10 +10210,11 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, researchTicker])
+  }, [backendUp, researchTicker, exploreSubview])
 
   useEffect(() => {
     if (!backendUp) return
+    if (exploreSubview === 'investorDetail') return
     const tick = researchTick
     if (!tick) return
     let alive = true
@@ -10174,7 +10304,7 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, researchTick])
+  }, [backendUp, researchTick, exploreSubview])
 
   useEffect(() => {
     if (!backendUp) return
@@ -10188,23 +10318,34 @@ function KensiglineTerminal() {
     })
 
     async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
-      const page = await fetchFeedPage('/api/insider/feed', {
-        limit,
-        offset,
-        extra: { mode: 'company', days: 30 },
-      })
-      if (!alive) return
-      const mapped = page.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
-      if (!page.ok) {
-        if (!append) setInsiderFeedLive((prev) => (Array.isArray(prev) ? prev : []))
-        return
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const page = await fetchFeedPage('/api/insider/feed', {
+          limit,
+          offset,
+          extra: { mode: 'company', days: 30 },
+        })
+        if (!alive) return
+        const mapped = page.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
+        if (page.ok) {
+          setInsiderFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
+          setInsiderFeedHasMore(page.hasMore)
+          insiderFeedOffsetRef.current = page.nextOffset
+          insiderFeedCursorRef.current = page.nextCursor
+          if (!append) {
+            persistFeedCache(cacheKey, {
+              items: mapped,
+              hasMore: page.hasMore,
+              nextOffset: page.nextOffset,
+              nextCursor: page.nextCursor,
+            })
+          }
+          return
+        }
+        if (attempt < 1) await new Promise((r) => setTimeout(r, 600))
       }
-      setInsiderFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
-      setInsiderFeedHasMore(page.hasMore)
-      insiderFeedOffsetRef.current = page.nextOffset
-      insiderFeedCursorRef.current = page.nextCursor
+      // Soft failure: keep prior page if any; otherwise mark resolved empty (no mock when live).
       if (!append) {
-        persistFeedCache(cacheKey, { items: mapped, hasMore: page.hasMore, nextOffset: page.nextOffset, nextCursor: page.nextCursor })
+        setInsiderFeedLive((prev) => (Array.isArray(prev) ? prev : []))
       }
     }
 
@@ -10213,7 +10354,7 @@ function KensiglineTerminal() {
       insiderFeedCursorRef.current = null
       setInsiderFeedHasMore(false)
     }
-    void run({ append: false, offset: 0 })
+    void run({ append: false, offset: 0, limit: Math.max(FEED_INITIAL_PAGE_SIZE, 40) })
 
     const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
@@ -10253,23 +10394,33 @@ function KensiglineTerminal() {
     })
 
     async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
-      const page = await fetchFeedPage('/api/institutions/feed', {
-        limit,
-        offset,
-        extra: { days: 60 },
-      })
-      if (!alive) return
-      const mapped = page.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
-      if (!page.ok) {
-        if (!append) setInstitutionsFeedLive((prev) => (Array.isArray(prev) ? prev : []))
-        return
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const page = await fetchFeedPage('/api/institutions/feed', {
+          limit,
+          offset,
+          extra: { days: 60 },
+        })
+        if (!alive) return
+        const mapped = page.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
+        if (page.ok) {
+          setInstitutionsFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
+          setInstitutionsFeedHasMore(page.hasMore)
+          institutionsFeedOffsetRef.current = page.nextOffset
+          institutionsFeedCursorRef.current = page.nextCursor
+          if (!append) {
+            persistFeedCache(cacheKey, {
+              items: mapped,
+              hasMore: page.hasMore,
+              nextOffset: page.nextOffset,
+              nextCursor: page.nextCursor,
+            })
+          }
+          return
+        }
+        if (attempt < 1) await new Promise((r) => setTimeout(r, 600))
       }
-      setInstitutionsFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
-      setInstitutionsFeedHasMore(page.hasMore)
-      institutionsFeedOffsetRef.current = page.nextOffset
-      institutionsFeedCursorRef.current = page.nextCursor
       if (!append) {
-        persistFeedCache(cacheKey, { items: mapped, hasMore: page.hasMore, nextOffset: page.nextOffset, nextCursor: page.nextCursor })
+        setInstitutionsFeedLive((prev) => (Array.isArray(prev) ? prev : []))
       }
     }
 
@@ -10278,7 +10429,7 @@ function KensiglineTerminal() {
       institutionsFeedCursorRef.current = null
       setInstitutionsFeedHasMore(false)
     }
-    void run({ append: false, offset: 0 })
+    void run({ append: false, offset: 0, limit: Math.max(FEED_INITIAL_PAGE_SIZE, 40) })
 
     const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
@@ -10318,23 +10469,33 @@ function KensiglineTerminal() {
     })
 
     async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
-      const page = await fetchFeedPage('/api/politicians/feed', {
-        limit,
-        offset,
-        extra: { days: 30 },
-      })
-      if (!alive) return
-      const mapped = page.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
-      if (!page.ok) {
-        if (!append) setPoliticiansFeedLive((prev) => (Array.isArray(prev) ? prev : []))
-        return
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const page = await fetchFeedPage('/api/politicians/feed', {
+          limit,
+          offset,
+          extra: { days: 30 },
+        })
+        if (!alive) return
+        const mapped = page.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
+        if (page.ok) {
+          setPoliticiansFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
+          setPoliticiansFeedHasMore(page.hasMore)
+          politiciansFeedOffsetRef.current = page.nextOffset
+          politiciansFeedCursorRef.current = page.nextCursor
+          if (!append) {
+            persistFeedCache(cacheKey, {
+              items: mapped,
+              hasMore: page.hasMore,
+              nextOffset: page.nextOffset,
+              nextCursor: page.nextCursor,
+            })
+          }
+          return
+        }
+        if (attempt < 1) await new Promise((r) => setTimeout(r, 600))
       }
-      setPoliticiansFeedLive((prev) => (append ? mergeFeedPages(prev, mapped, { append: true }) : mapped))
-      setPoliticiansFeedHasMore(page.hasMore)
-      politiciansFeedOffsetRef.current = page.nextOffset
-      politiciansFeedCursorRef.current = page.nextCursor
       if (!append) {
-        persistFeedCache(cacheKey, { items: mapped, hasMore: page.hasMore, nextOffset: page.nextOffset, nextCursor: page.nextCursor })
+        setPoliticiansFeedLive((prev) => (Array.isArray(prev) ? prev : []))
       }
     }
 
@@ -10343,7 +10504,7 @@ function KensiglineTerminal() {
       politiciansFeedCursorRef.current = null
       setPoliticiansFeedHasMore(false)
     }
-    void run({ append: false, offset: 0 })
+    void run({ append: false, offset: 0, limit: Math.max(FEED_INITIAL_PAGE_SIZE, 40) })
 
     const t = setInterval(() => run({ append: false, offset: 0 }), FEED_BACKGROUND_REFRESH_MS)
     return () => {
@@ -10401,11 +10562,9 @@ function KensiglineTerminal() {
       applyFeedTodayEventCounts(
         !backendUp
           ? INSIDER_FEED_ROWS
-          : Array.isArray(insiderFeedLive) && insiderFeedLive.length
+          : Array.isArray(insiderFeedLive)
             ? insiderFeedLive
-            : insiderFeedLive === null
-              ? []
-              : INSIDER_FEED_ROWS,
+            : [],
       ),
     [backendUp, insiderFeedLive],
   )
@@ -10417,13 +10576,11 @@ function KensiglineTerminal() {
 
   const insiderActorFeedBase = useMemo(() => {
     const actors = buildInvestigateActorFeed(insiderFeedRowsTxnFiltered, 'insider')
-    const usingMock =
-      !backendUp || (insiderFeedLive !== null && !(insiderFeedLive?.length > 0))
-    if (usingMock) {
+    if (!backendUp) {
       return polishOfflineInvestigateActorFeed(actors).map(normalizeInvestigateActorFeedRow)
     }
     return actors
-  }, [insiderFeedRowsTxnFiltered, backendUp, insiderFeedLive])
+  }, [insiderFeedRowsTxnFiltered, backendUp])
 
   const insiderFilteredFeed = useMemo(() => {
     const q = String(insiderFeedQuery ?? '').trim()
@@ -10450,11 +10607,9 @@ function KensiglineTerminal() {
       applyFeedTodayEventCounts(
         !backendUp
           ? POLITICIAN_FEED_ROWS
-          : Array.isArray(politiciansFeedLive) && politiciansFeedLive.length
+          : Array.isArray(politiciansFeedLive)
             ? politiciansFeedLive
-            : politiciansFeedLive === null
-              ? []
-              : POLITICIAN_FEED_ROWS,
+            : [],
       ),
     [backendUp, politiciansFeedLive],
   )
@@ -10466,13 +10621,11 @@ function KensiglineTerminal() {
 
   const politiciansActorFeedBase = useMemo(() => {
     const actors = buildInvestigateActorFeed(politiciansFeedRowsTxnFiltered, 'politicians')
-    const usingMock =
-      !backendUp || (politiciansFeedLive !== null && !(politiciansFeedLive?.length > 0))
-    if (usingMock) {
+    if (!backendUp) {
       return polishOfflineInvestigateActorFeed(actors).map(normalizeInvestigateActorFeedRow)
     }
     return actors
-  }, [politiciansFeedRowsTxnFiltered, backendUp, politiciansFeedLive])
+  }, [politiciansFeedRowsTxnFiltered, backendUp])
 
   const politiciansFilteredFeed = useMemo(() => {
     const q = String(politiciansFeedQuery ?? '').trim()
@@ -10499,11 +10652,9 @@ function KensiglineTerminal() {
       applyFeedTodayEventCounts(
         !backendUp
           ? INSTITUTION_FEED_ROWS
-          : Array.isArray(institutionsFeedLive) && institutionsFeedLive.length
+          : Array.isArray(institutionsFeedLive)
             ? institutionsFeedLive
-            : institutionsFeedLive === null
-              ? []
-              : INSTITUTION_FEED_ROWS,
+            : [],
       ),
     [backendUp, institutionsFeedLive],
   )
@@ -10515,13 +10666,11 @@ function KensiglineTerminal() {
 
   const institutionsActorFeedBase = useMemo(() => {
     const actors = buildInvestigateActorFeed(institutionsFeedRowsTxnFiltered, 'institutions')
-    const usingMock =
-      !backendUp || (institutionsFeedLive !== null && !(institutionsFeedLive?.length > 0))
-    if (usingMock) {
+    if (!backendUp) {
       return polishOfflineInvestigateActorFeed(actors).map(normalizeInvestigateActorFeedRow)
     }
     return actors
-  }, [institutionsFeedRowsTxnFiltered, backendUp, institutionsFeedLive])
+  }, [institutionsFeedRowsTxnFiltered, backendUp])
 
   const institutionsFilteredFeed = useMemo(() => {
     const q = String(institutionsFeedQuery ?? '').trim()
@@ -10598,12 +10747,16 @@ function KensiglineTerminal() {
         exploreActorFeedHandlers.setInvestigateMode(resolved.mode)
       }
       setExploreInvestorFocus((prev) => {
-        if (
-          prev?.slug === resolved.slug &&
-          prev?.mode === resolved.mode &&
-          prev?.actorRow?.actorName === resolved.actorRow?.actorName
-        ) {
-          return prev
+        if (prev?.slug === resolved.slug) {
+          const prevN = prev?.actorRow?.transactions?.length ?? 0
+          const nextN = resolved.actorRow?.transactions?.length ?? 0
+          if (
+            prev?.mode === resolved.mode &&
+            prev?.actorRow?.actorName === resolved.actorRow?.actorName &&
+            prevN >= nextN
+          ) {
+            return prev
+          }
         }
         return { slug: resolved.slug, mode: resolved.mode, actorRow: resolved.actorRow }
       })
@@ -10624,19 +10777,93 @@ function KensiglineTerminal() {
       : null
 
   const effectiveActorRow = useMemo(() => {
-    if (exploreInvestorDossier?.actorRow) return exploreInvestorDossier.actorRow
-    if (investigateMode === 'politicians') return politiciansSelected
-    if (investigateMode === 'institutions') return institutionsSelected
-    return insiderSelected
+    let row =
+      exploreInvestorDossier?.actorRow ??
+      (investigateMode === 'politicians'
+        ? politiciansSelected
+        : investigateMode === 'institutions'
+          ? institutionsSelected
+          : insiderSelected)
+    if (
+      row &&
+      !(row.transactions?.length > 0) &&
+      researchTick &&
+      exploreSubview === 'investorDetail'
+    ) {
+      row = enrichStubActorWithCompanyFlows(row, {
+        ticker: researchTick,
+        companyName: researchCompanyName,
+        flows: contextFlowRows,
+      })
+    }
+    return row
   }, [
     exploreInvestorDossier,
     investigateMode,
     politiciansSelected,
     institutionsSelected,
     insiderSelected,
+    researchTick,
+    researchCompanyName,
+    contextFlowRows,
+    exploreSubview,
   ])
 
+  const investorCaseRowsLoading =
+    backendUp &&
+    exploreSubview === 'investorDetail' &&
+    (insiderFeedLive === null ||
+      politiciansFeedLive === null ||
+      institutionsFeedLive === null) &&
+    !(effectiveActorRow?.transactions?.length > 0)
+
   const investorDossierMode = exploreInvestorDossier?.mode ?? investigateMode
+  const investorFeedExpandCountRef = useRef(0)
+
+  useEffect(() => {
+    investorFeedExpandCountRef.current = 0
+  }, [terminalRoute.investorSlug])
+
+  // If the investor isn't in the first feed page yet, keep paging until found or exhausted.
+  useEffect(() => {
+    if (!backendUp || exploreSubview !== 'investorDetail') return
+    if (exploreInvestorDossier?.fromFeed) return
+    if (investorCaseRowsLoading) return
+    if (investorFeedExpandCountRef.current >= 3) return
+    const mode = exploreInvestorDossier?.mode ?? investorDossierMode
+    let triggered = false
+    if (mode === 'politicians') {
+      if (politiciansFeedHasMore && !politiciansFeedLoadingMore) {
+        triggered = true
+        void loadMorePoliticiansFeed()
+      }
+    } else if (mode === 'institutions') {
+      if (institutionsFeedHasMore && !institutionsFeedLoadingMore) {
+        triggered = true
+        void loadMoreInstitutionsFeed()
+      }
+    } else if (insiderFeedHasMore && !insiderFeedLoadingMore) {
+      triggered = true
+      void loadMoreInsiderFeed()
+    }
+    if (triggered) investorFeedExpandCountRef.current += 1
+  }, [
+    backendUp,
+    exploreSubview,
+    exploreInvestorDossier?.fromFeed,
+    exploreInvestorDossier?.mode,
+    investorDossierMode,
+    investorCaseRowsLoading,
+    politiciansFeedHasMore,
+    politiciansFeedLoadingMore,
+    institutionsFeedHasMore,
+    institutionsFeedLoadingMore,
+    insiderFeedHasMore,
+    insiderFeedLoadingMore,
+    loadMorePoliticiansFeed,
+    loadMoreInstitutionsFeed,
+    loadMoreInsiderFeed,
+  ])
 
   // Bars (Daily Graph) + Company panel: use selected ticker in either mode.
   // Investigate tab chrome is retired; Explore deep dossiers still key off investigateMode.
@@ -10901,7 +11128,7 @@ function KensiglineTerminal() {
   // Insider cluster: case worksheet + context
   useEffect(() => {
     let alive = true
-    if (!backendUp) {
+    if (!backendUp || !investigateOpen) {
       setInsiderClusterLive(null)
       return () => {
         alive = false
@@ -10950,7 +11177,7 @@ function KensiglineTerminal() {
   // Politicians cluster: case worksheet + context
   useEffect(() => {
     let alive = true
-    if (!backendUp) {
+    if (!backendUp || !investigateOpen) {
       setPoliticiansClusterLive(null)
       return () => {
         alive = false
@@ -10989,7 +11216,7 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     let alive = true
-    if (!backendUp) {
+    if (!backendUp || !investigateOpen) {
       setInstitutionsClusterLive(null)
       return () => {
         alive = false
@@ -11340,7 +11567,15 @@ function KensiglineTerminal() {
         : exploreInvestorModeFromTypeKey(row?.typeKey ?? row?.type)
       const slug = exploreInvestorSlug(name)
       const hit = findExploreInvestorInFeedsByName(name, preferredMode, exploreActorFeeds)
-      const actorRow = hit?.row ?? stubActorRowFromExploreInvestor(row, preferredMode)
+      const tick = String(row?.ticker ?? researchTick ?? '').trim().toUpperCase() || null
+      let actorRow = hit?.row ?? stubActorRowFromExploreInvestor({ ...row, ticker: tick }, preferredMode)
+      if (!hit?.row) {
+        actorRow = enrichStubActorWithCompanyFlows(actorRow, {
+          ticker: tick,
+          companyName: researchCompanyName,
+          flows: contextFlowRows,
+        })
+      }
       setDeepResearchMode('investor')
       setExploreInvestorFocus({
         slug,
@@ -11354,7 +11589,13 @@ function KensiglineTerminal() {
       }
       navigateExploreInvestorDetail(name)
     },
-    [exploreActorFeeds, exploreActorFeedHandlers],
+    [
+      exploreActorFeeds,
+      exploreActorFeedHandlers,
+      researchTick,
+      researchCompanyName,
+      contextFlowRows,
+    ],
   )
 
   useEffect(() => {
@@ -11445,6 +11686,7 @@ function KensiglineTerminal() {
           personDisplay: historicalOutcomesPerson,
           mode: investorDossierMode,
           caseRows: investigateActiveCaseFeedRows,
+          caseRowsLoading: investorCaseRowsLoading,
           backendUp,
           compactPrice: null,
           compactPriceChange: null,

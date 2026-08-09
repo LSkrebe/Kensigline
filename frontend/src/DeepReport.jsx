@@ -1027,7 +1027,10 @@ function DeepTrackRecordChart({ points = [] }) {
   )
 }
 
-function DeepTrackRecordChartPanel({ trackRecord }) {
+function DeepTrackRecordChartPanel({ trackRecord, loading = false }) {
+  if (loading && !trackRecord?.points?.length) {
+    return <p className="drpt-empty drpt-loading">Loading track record…</p>
+  }
   if (!trackRecord?.points?.length) {
     return <p className="drpt-empty">No trades in scope for a track record yet.</p>
   }
@@ -1039,8 +1042,11 @@ function DeepTrackRecordChartPanel({ trackRecord }) {
   )
 }
 
-function DeepActorMetrics({ trackRecord, chartRange = '6M' }) {
+function DeepActorMetrics({ trackRecord, chartRange = '6M', loading = false }) {
   const stats = trackRecord?.stats
+  if (loading && !stats) {
+    return <p className="drpt-empty drpt-loading">Loading key metrics…</p>
+  }
   if (!stats) return <p className="drpt-empty">No trades in scope yet.</p>
 
   const rangeLabel = priceRangeLabel(chartRange) || 'Track record'
@@ -1106,7 +1112,7 @@ function tradeRowMeta(row) {
   }
 }
 
-function DeepTradeLog({ rows = [], visibleLimit = null }) {
+function DeepTradeLog({ rows = [], visibleLimit = null, loading = false }) {
   const items = useMemo(
     () =>
       rows.filter(
@@ -1119,6 +1125,9 @@ function DeepTradeLog({ rows = [], visibleLimit = null }) {
     return items.slice(0, visibleLimit)
   }, [items, visibleLimit])
 
+  if (loading && !items.length) {
+    return <p className="drpt-empty drpt-loading">Loading trades…</p>
+  }
   if (!items.length) {
     return <p className="drpt-empty">No trades in the selected window.</p>
   }
@@ -1147,13 +1156,21 @@ function DeepTradeLog({ rows = [], visibleLimit = null }) {
   )
 }
 
-function DeepTradedCompaniesList({ companies = [], visibleLimit = null, onCompanyClick = null }) {
+function DeepTradedCompaniesList({
+  companies = [],
+  visibleLimit = null,
+  onCompanyClick = null,
+  loading = false,
+}) {
   const displayRows = useMemo(() => {
     if (!companies.length) return companies
     if (visibleLimit == null || visibleLimit >= companies.length) return companies
     return companies.slice(0, visibleLimit)
   }, [companies, visibleLimit])
 
+  if (loading && !companies.length) {
+    return <p className="drpt-empty drpt-loading">Loading companies…</p>
+  }
   if (!companies.length) {
     return <p className="drpt-empty">No traded companies in scope yet.</p>
   }
@@ -1193,11 +1210,12 @@ function ActorTopBar({
   chartRange = null,
   winRate = null,
   medianReturn = null,
+  loading = false,
 }) {
   const pct =
     rangeReturnPct != null && Number.isFinite(Number(rangeReturnPct)) ? Number(rangeReturnPct) * 100 : null
   const up = pct != null ? pct >= 0 : true
-  const showReturn = pct != null
+  const showReturn = pct != null && !loading
   const hasMedian = medianReturn && medianReturn !== '—'
   const hasWin = winRate && winRate !== '—'
   const rangeLabel = chartRange ? priceRangeLabel(chartRange) : null
@@ -1218,8 +1236,8 @@ function ActorTopBar({
   const metaBits = [
     detail || null,
     detailSecondary || null,
-    formatCountLabel(tradeCount, 'transaction'),
-    formatCountLabel(companyCount, 'company', 'companies'),
+    loading ? 'Loading…' : formatCountLabel(tradeCount, 'transaction'),
+    loading ? null : formatCountLabel(companyCount, 'company', 'companies'),
   ].filter(Boolean)
 
   return (
@@ -1474,6 +1492,7 @@ export function DeepActorReport({
   personDisplay,
   mode = 'insider',
   caseRows = [],
+  caseRowsLoading = false,
   chrome,
   compactPrice = null,
   compactPriceChange = null,
@@ -1488,6 +1507,7 @@ export function DeepActorReport({
   ).trim()
   const modeLabel =
     mode === 'politicians' ? 'Politician' : mode === 'institutions' ? 'Institution' : 'Insider'
+  const sectionsLoading = Boolean(caseRowsLoading)
 
   const tradeRows = useMemo(
     () =>
@@ -1506,8 +1526,8 @@ export function DeepActorReport({
   )
 
   const trackRecord = useMemo(
-    () => buildMockActorTrackRecord(rangedTradeRows, name),
-    [rangedTradeRows, name],
+    () => (sectionsLoading && !rangedTradeRows.length ? null : buildMockActorTrackRecord(rangedTradeRows, name)),
+    [rangedTradeRows, name, sectionsLoading],
   )
 
   const rangeReturnRaw = trackRecord?.stats?.cumulativeReturnRaw
@@ -1577,6 +1597,7 @@ export function DeepActorReport({
           chartRange={chartRange}
           winRate={trackRecord?.stats?.winRate ?? null}
           medianReturn={trackRecord?.stats?.medianReturn ?? null}
+          loading={sectionsLoading && !tradeRows.length}
         />
       }
     >
@@ -1587,12 +1608,19 @@ export function DeepActorReport({
             headExtra={<DeepChartRange value={chartRange} onChange={setChartRange} />}
           >
             <div className="drpt-figure drpt-figure--chart">
-              <DeepTrackRecordChartPanel trackRecord={trackRecord} />
+              <DeepTrackRecordChartPanel
+                trackRecord={trackRecord}
+                loading={sectionsLoading && !tradeRows.length}
+              />
             </div>
           </DeepSection>
 
           <DeepSection label="Fundamentals" title="Key metrics">
-            <DeepActorMetrics trackRecord={trackRecord} chartRange={chartRange} />
+            <DeepActorMetrics
+              trackRecord={trackRecord}
+              chartRange={chartRange}
+              loading={sectionsLoading && !tradeRows.length}
+            />
           </DeepSection>
         </div>
 
@@ -1600,11 +1628,23 @@ export function DeepActorReport({
           <DeepSection
             label="Archive"
             title="Trade log"
-            headExtra={<span className="drpt-sectionCount">{formatCountLabel(tradeRows.length, 'trade')}</span>}
+            headExtra={
+              <span className="drpt-sectionCount">
+                {sectionsLoading && !tradeRows.length
+                  ? 'Loading…'
+                  : formatCountLabel(tradeRows.length, 'trade')}
+              </span>
+            }
           >
             <div className="drpt-docPanel drpt-scroll">
-              <DeepExpandablePanel totalCount={tradeRows.length}>
-                {(limit) => <DeepTradeLog rows={caseRows} visibleLimit={limit} />}
+              <DeepExpandablePanel totalCount={sectionsLoading && !tradeRows.length ? 0 : tradeRows.length}>
+                {(limit) => (
+                  <DeepTradeLog
+                    rows={caseRows}
+                    visibleLimit={limit}
+                    loading={sectionsLoading && !tradeRows.length}
+                  />
+                )}
               </DeepExpandablePanel>
             </div>
           </DeepSection>
@@ -1612,15 +1652,22 @@ export function DeepActorReport({
           <DeepSection
             label="Issuers"
             title="Company archive"
-            headExtra={<span className="drpt-sectionCount">{formatCountLabel(companies.length, 'company', 'companies')}</span>}
+            headExtra={
+              <span className="drpt-sectionCount">
+                {sectionsLoading && !companies.length
+                  ? 'Loading…'
+                  : formatCountLabel(companies.length, 'company', 'companies')}
+              </span>
+            }
           >
             <div className="drpt-docPanel drpt-scroll">
-              <DeepExpandablePanel totalCount={companies.length}>
+              <DeepExpandablePanel totalCount={sectionsLoading && !companies.length ? 0 : companies.length}>
                 {(limit) => (
                   <DeepTradedCompaniesList
                     companies={companies}
                     visibleLimit={limit}
                     onCompanyClick={onCompanyClick}
+                    loading={sectionsLoading && !companies.length}
                   />
                 )}
               </DeepExpandablePanel>
