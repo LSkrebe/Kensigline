@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { DEFAULT_PRICING, pricingFromApi } from './billingPlans.js'
 
-/** Live pricing from backend kill switch (FOUNDERS_PRICING). */
+/** Live pricing + marketing mode from backend (FOUNDERS_PRICING / WAITLIST_MODE). */
 export function useBillingPricing() {
   const [pricing, setPricing] = useState(DEFAULT_PRICING)
 

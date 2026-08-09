@@ -24,7 +24,7 @@ import {
   handleBillingWebhook,
 } from "./billing/api.js";
 import { billingGateBlocksRequest } from "./billing/gate.js";
-import { isFoundersPricingEnabled, stripeConfigured, stripeMode } from "./billing/config.js";
+import { isFoundersPricingEnabled, isWaitlistModeEnabled, stripeConfigured, stripeMode } from "./billing/config.js";
 import {
   researchLimitFromSearchParams,
   handleResearchEvents,
@@ -43,6 +43,7 @@ import { handleAlertsPreferencesGet, handleAlertsPreferencesPatch } from "./aler
 import { handleAlertsWatchlistGet, handleAlertsWatchlistPatch } from "./alerts/watchlist-api.js";
 import { handleAlertsActorWatchlistGet, handleAlertsActorWatchlistPatch } from "./alerts/actor-watchlist-api.js";
 import { handleSupportContact } from "./support/api.js";
+import { handleWaitlistJoin } from "./waitlist/api.js";
 import { getSecTickerTitleMap } from "./core/sec.js";
 
 const port = Number(process.env.PORT ?? "3001");
@@ -111,7 +112,16 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (route(req, url, "POST", "/api/waitlist")) {
+      await handleWaitlistJoin(req, res);
+      return;
+    }
+
     if (route(req, url, "POST", "/api/billing/checkout")) {
+      if (isWaitlistModeEnabled()) {
+        sendJson(res, 503, { ok: false, error: "waitlist_mode" });
+        return;
+      }
       if (!supabaseAuthConfigured()) {
         sendJson(res, 503, { ok: false, error: "auth_not_configured" });
         return;
@@ -692,6 +702,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, () => {
   console.log(`Backend listening on http://localhost:${port}`);
+  console.log(`[marketing] Waitlist mode: ${isWaitlistModeEnabled() ? "on" : "off"}`);
   if (stripeConfigured()) {
     console.log(`[billing] Stripe mode: ${stripeMode()}`);
     console.log(`[billing] Founders pricing: ${isFoundersPricingEnabled() ? "on" : "off"}`);

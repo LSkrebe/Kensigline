@@ -5,18 +5,24 @@ export const STANDARD_YEARLY_USD = 999
 export const FOUNDERS_MONTHLY_USD = 49
 export const FOUNDERS_YEARLY_USD = 499
 
-/** Default until /api/billing/pricing responds. Match FOUNDERS_PRICING on the API. */
-export const DEFAULT_FOUNDERS = true
+/**
+ * Defaults until /api/billing/pricing responds.
+ * Waitlist is on by default while historical drain is in progress (match WAITLIST_MODE on API).
+ */
+export const DEFAULT_WAITLIST = true
+export const DEFAULT_FOUNDERS = false
 
 export function formatUsd(n) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 }
 
 export function pricingFromApi(data) {
-  const founders = data?.founders === true
+  const waitlist = data?.waitlist === true
+  const founders = !waitlist && data?.founders === true
   const monthlyUsd = Number(data?.monthly_usd)
   const yearlyUsd = Number(data?.yearly_usd)
   return buildPricing({
+    waitlist,
     founders,
     monthlyUsd: Number.isFinite(monthlyUsd) ? monthlyUsd : founders ? FOUNDERS_MONTHLY_USD : STANDARD_MONTHLY_USD,
     yearlyUsd: Number.isFinite(yearlyUsd) ? yearlyUsd : founders ? FOUNDERS_YEARLY_USD : STANDARD_YEARLY_USD,
@@ -31,18 +37,20 @@ export function pricingFromApi(data) {
 }
 
 export function buildPricing({
+  waitlist = DEFAULT_WAITLIST,
   founders = DEFAULT_FOUNDERS,
   monthlyUsd,
   yearlyUsd,
   monthlyListUsd,
   yearlyListUsd,
 } = {}) {
-  const monthly = monthlyUsd ?? (founders ? FOUNDERS_MONTHLY_USD : STANDARD_MONTHLY_USD)
-  const yearly = yearlyUsd ?? (founders ? FOUNDERS_YEARLY_USD : STANDARD_YEARLY_USD)
-  const monthlyList = monthlyListUsd ?? (founders ? STANDARD_MONTHLY_USD : null)
+  const foundersOn = !waitlist && founders
+  const monthly = monthlyUsd ?? (foundersOn ? FOUNDERS_MONTHLY_USD : STANDARD_MONTHLY_USD)
+  const yearly = yearlyUsd ?? (foundersOn ? FOUNDERS_YEARLY_USD : STANDARD_YEARLY_USD)
+  const monthlyList = monthlyListUsd ?? (foundersOn ? STANDARD_MONTHLY_USD : null)
   const yearlyList =
-    yearlyListUsd ?? (founders ? STANDARD_YEARLY_USD : STANDARD_MONTHLY_USD * 12)
-  const yearlySave = Math.max(0, (monthly * 12) - yearly)
+    yearlyListUsd ?? (foundersOn ? STANDARD_YEARLY_USD : STANDARD_MONTHLY_USD * 12)
+  const yearlySave = Math.max(0, monthly * 12 - yearly)
 
   const plans = [
     {
@@ -66,7 +74,8 @@ export function buildPricing({
   ]
 
   return {
-    founders,
+    waitlist: Boolean(waitlist),
+    founders: foundersOn,
     monthlyUsd: monthly,
     yearlyUsd: yearly,
     monthlyListUsd: monthlyList,
@@ -76,7 +85,7 @@ export function buildPricing({
   }
 }
 
-export const DEFAULT_PRICING = buildPricing({ founders: DEFAULT_FOUNDERS })
+export const DEFAULT_PRICING = buildPricing({ waitlist: DEFAULT_WAITLIST, founders: DEFAULT_FOUNDERS })
 
 /** @deprecated Prefer useBillingPricing / DEFAULT_PRICING — kept for static imports. */
 export const MONTHLY_PRICE_USD = DEFAULT_PRICING.monthlyUsd

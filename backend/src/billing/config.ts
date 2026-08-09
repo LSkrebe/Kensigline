@@ -33,7 +33,16 @@ export function frontendOrigin(): string {
 
 /** Kill switch: FOUNDERS_PRICING=1 → new checkouts use founders prices. */
 export function isFoundersPricingEnabled(): boolean {
+  if (isWaitlistModeEnabled()) return false;
   return String(process.env.FOUNDERS_PRICING ?? "").trim() === "1";
+}
+
+/**
+ * Marketing lock: WAITLIST_MODE=1 → intro uses waitlist CTAs, no subscribe / app access.
+ * Takes priority over founders pricing while history is still draining.
+ */
+export function isWaitlistModeEnabled(): boolean {
+  return String(process.env.WAITLIST_MODE ?? "").trim() === "1";
 }
 
 function envPrice(name: string): string {
@@ -68,11 +77,13 @@ export function planFromPriceId(priceId: string | null | undefined): string | nu
 
 /** Public display pricing for intro / subscribe (no auth). */
 export function publicPricingPayload() {
-  const founders = isFoundersPricingEnabled();
+  const waitlist = isWaitlistModeEnabled();
+  const founders = !waitlist && isFoundersPricingEnabled();
   const monthlyUsd = founders ? FOUNDERS_MONTHLY_USD : STANDARD_MONTHLY_USD;
   const yearlyUsd = founders ? FOUNDERS_YEARLY_USD : STANDARD_YEARLY_USD;
   return {
     ok: true as const,
+    waitlist,
     founders,
     currency: "usd" as const,
     monthly_usd: monthlyUsd,

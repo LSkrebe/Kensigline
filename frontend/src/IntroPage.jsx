@@ -46,11 +46,23 @@ export function IntroPage() {
   const hero = heroCopy(pricing)
   const faq = introFaq(pricing)
   const leadParts = heroLeadParts(pricing)
+  const waitlist = pricing.waitlist
+  const accentBtn = waitlist ? 'lpBtn--waitlist' : pricing.founders ? 'lpBtn--accent' : 'lpBtn--primary'
+  const accentNote = waitlist ? 'lpHeroNote--waitlist' : pricing.founders ? 'lpHeroNote--accent' : ''
+  const accentEyebrow = waitlist ? 'lpEyebrow--waitlist' : pricing.founders ? 'lpEyebrow--accent' : ''
 
   const goToSignIn = useCallback((e) => {
     e?.preventDefault()
     navigateMarketing('/sign-in')
   }, [])
+
+  const goToWaitlist = useCallback((e) => {
+    e?.preventDefault()
+    navigateMarketing('/waitlist')
+  }, [])
+
+  const goPrimary = waitlist ? goToWaitlist : goToSignIn
+  const primaryHref = waitlist ? '/waitlist' : '/sign-in'
 
   const scrollToSection = useCallback((sectionId, e) => {
     e?.preventDefault()
@@ -172,21 +184,21 @@ export function IntroPage() {
                 FAQ
               </a>
             </nav>
-            <a className="lpNavCta" href="/sign-in" onClick={goToSignIn}>
-              Sign in
+            <a className="lpNavCta" href={primaryHref} onClick={goPrimary}>
+              {waitlist ? 'Join waitlist' : 'Sign in'}
             </a>
           </div>
 
           <div className="lpHeroExpanded">
             <div className="lpHeroExpandedInner">
               {hero.eyebrow ? (
-                <p className={['lpEyebrow', pricing.founders ? 'lpEyebrow--accent' : ''].filter(Boolean).join(' ')}>
+                <p className={['lpEyebrow', accentEyebrow].filter(Boolean).join(' ')}>
                   {hero.eyebrow}
                 </p>
               ) : null}
               <p className="lpHeroBrand">{hero.brand}</p>
               <h1 className="lpHeroTitle">{hero.headline}</h1>
-              {hero.lead || leadParts.listPrice ? (
+              {hero.lead || leadParts.listPrice || (waitlist && leadParts.prefix) ? (
                 <p className="lpHeroLead">
                   {leadParts.listPrice ? (
                     <>
@@ -201,9 +213,9 @@ export function IntroPage() {
               ) : null}
               <div className="lpHeroActions">
                 <a
-                  className={`lpBtn ${pricing.founders ? 'lpBtn--accent' : 'lpBtn--primary'}`}
-                  href="/sign-in"
-                  onClick={goToSignIn}
+                  className={`lpBtn ${accentBtn}`}
+                  href={primaryHref}
+                  onClick={goPrimary}
                 >
                   {hero.ctaPrimary}
                 </a>
@@ -216,7 +228,7 @@ export function IntroPage() {
                 </a>
               </div>
               {hero.note ? (
-                <p className={['lpHeroNote', pricing.founders ? 'lpHeroNote--accent' : ''].filter(Boolean).join(' ')}>
+                <p className={['lpHeroNote', accentNote].filter(Boolean).join(' ')}>
                   {hero.note}
                 </p>
               ) : null}
@@ -337,9 +349,11 @@ export function IntroPage() {
           </section>
 
           <section className="lpCtaBand">
-            <h2 className="lpCtaTitle">Start tracking disclosures</h2>
+            <h2 className="lpCtaTitle">{waitlist ? 'Get notified when we open' : 'Start tracking disclosures'}</h2>
             <p className="lpCtaLead">
-              {pricing.founders && pricing.monthlyListUsd ? (
+              {waitlist
+                ? 'Leave your email — we’ll write when access is ready.'
+                : pricing.founders && pricing.monthlyListUsd ? (
                 <>
                   Full access day one from{' '}
                   <span className="lpHeroListPrice">{formatUsd(pricing.monthlyListUsd)}/mo</span>{' '}
@@ -350,9 +364,9 @@ export function IntroPage() {
               )}
             </p>
             <a
-              className={`lpBtn ${pricing.founders ? 'lpBtn--accent' : 'lpBtn--primary'}`}
-              href="/sign-in"
-              onClick={goToSignIn}
+              className={`lpBtn ${accentBtn}`}
+              href={primaryHref}
+              onClick={goPrimary}
             >
               {hero.ctaPrimary}
             </a>

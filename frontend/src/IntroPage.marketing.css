@@ -7,6 +7,7 @@
   --lp-dim: rgba(255, 255, 255, 0.4);
   --lp-line: rgba(255, 255, 255, 0.1);
   --lp-accent: #9ec4d4;
+  --lp-waitlist-accent: #e4c07a;
   --lp-pad: clamp(24px, 5vw, 56px);
   --lp-max: 1120px;
   --lp-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
@@ -628,12 +629,31 @@
   border-color: #b4d4e0;
 }
 
+.lpBtn--waitlist {
+  background: var(--lp-waitlist-accent);
+  color: #0a0b0c;
+  border-color: var(--lp-waitlist-accent);
+}
+
+.lpBtn--waitlist:hover {
+  background: #efd09a;
+  border-color: #efd09a;
+}
+
 .lpEyebrow--accent {
   color: var(--lp-accent);
 }
 
+.lpEyebrow--waitlist {
+  color: var(--lp-waitlist-accent);
+}
+
 .lpHeroNote--accent {
   color: var(--lp-accent);
+}
+
+.lpHeroNote--waitlist {
+  color: var(--lp-waitlist-accent);
 }
 
 .lpBtn--ghost {

@@ -1,0 +1,63 @@
+/* Waitlist form — same shell as sign-in, warm accent */
+
+.waitlistForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.waitlistLabel {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lp-dim);
+}
+
+.waitlistInput {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--lp-fg);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.waitlistInput::placeholder {
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.waitlistInput:focus {
+  outline: none;
+  border-color: rgba(228, 192, 122, 0.55);
+  box-shadow: 0 0 0 1px rgba(228, 192, 122, 0.25);
+}
+
+.waitlistSubmit {
+  margin-top: 8px;
+  width: 100%;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.waitlistSubmit:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.waitlistError {
+  margin: 0;
+  font-size: 13px;
+  color: #e8a0a0;
+}
+
+.waitlistSuccess {
+  margin: 0;
+  padding: 16px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--lp-waitlist-accent, #e4c07a);
+}

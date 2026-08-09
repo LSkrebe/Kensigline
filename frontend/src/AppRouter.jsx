@@ -6,24 +6,29 @@ import { SubscribePage } from './SubscribePage.jsx'
 import MarketingRoutes from './MarketingRoutes.jsx'
 import { PublicCompanyPage } from './PublicCompanyPage.jsx'
 import { matchPublicCompanyPath } from './publicCompany.js'
-import { readMarketingPath } from './marketingRoute.js'
+import { readMarketingPath, navigateMarketing } from './marketingRoute.js'
 import { useSubscription } from './useSubscription.js'
+import { useBillingPricing } from './useBillingPricing.js'
 
 const TerminalApp = lazy(() => import('./App.jsx'))
 
 /** Set VITE_BILLING_GATE=0 in root `.env` to bypass locally. */
 const BILLING_GATE_ENABLED = import.meta.env.VITE_BILLING_GATE !== '0'
+/** Build-time waitlist lock; API `waitlist` flag is the live source of truth. */
+const WAITLIST_BUILD = import.meta.env.VITE_WAITLIST_MODE === '1'
 
 export default function AppRouter() {
   const { configured, loading, user } = useAuth()
   const signedIn = Boolean(configured && user)
   const userId = user?.id ?? null
   const captureMode = isCaptureMode()
+  const pricing = useBillingPricing()
+  const waitlistMode = WAITLIST_BUILD || pricing.waitlist === true
   const [path, setPath] = useState(readMarketingPath)
   const publicCompany = matchPublicCompanyPath(path)
-  const showMarketing = !captureMode && (!configured || !user)
+  const showMarketing = !captureMode && (waitlistMode || !configured || !user)
   const { loading: subLoading, active, refresh, gateReady } = useSubscription(
-    signedIn && BILLING_GATE_ENABLED,
+    signedIn && BILLING_GATE_ENABLED && !waitlistMode,
     userId,
   )
 
@@ -36,10 +41,19 @@ export default function AppRouter() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (window.location.pathname.replace(/\/$/, '') === '/subscribe') {
-      window.history.replaceState(null, '', '/')
-      setPath('/')
+      window.history.replaceState(null, '', waitlistMode ? '/waitlist' : '/')
+      setPath(waitlistMode ? '/waitlist' : '/')
     }
-  }, [])
+  }, [waitlistMode])
+
+  useEffect(() => {
+    if (!waitlistMode || captureMode) return
+    const p = path.replace(/\/$/, '') || '/'
+    if (p === '/sign-in' || p === '/subscribe' || (signedIn && p !== '/' && p !== '/waitlist' && !publicCompany)) {
+      navigateMarketing('/waitlist')
+      setPath('/waitlist')
+    }
+  }, [waitlistMode, captureMode, path, signedIn, publicCompany])
 
   useEffect(() => {
     if (showMarketing || publicCompany) return
@@ -53,7 +67,7 @@ export default function AppRouter() {
   }, [showMarketing, publicCompany, path, signedIn, active])
 
   useEffect(() => {
-    if (!signedIn || !BILLING_GATE_ENABLED) return
+    if (!signedIn || !BILLING_GATE_ENABLED || waitlistMode) return
     const params = new URLSearchParams(window.location.search)
     const checkout = params.get('checkout')
     if (checkout !== 'success' && checkout !== 'cancel') return
@@ -72,20 +86,20 @@ export default function AppRouter() {
     } else {
       cleanUrl()
     }
-  }, [signedIn, refresh])
+  }, [signedIn, refresh, waitlistMode])
 
   useEffect(() => {
-    if (!signedIn) return
+    if (!signedIn || waitlistMode) return
     /* Warm the terminal chunk while auth/billing settle so Suspense doesn't stall. */
     void import('./App.jsx')
-  }, [signedIn])
+  }, [signedIn, waitlistMode])
 
   /* Public SEO company pages stay outside auth + paywall. */
-  if (publicCompany) {
+  if (publicCompany && !waitlistMode) {
     return <PublicCompanyPage ticker={publicCompany.ticker} />
   }
 
-  if (showMarketing) return <MarketingRoutes />
+  if (showMarketing || waitlistMode) return <MarketingRoutes />
 
   /* Wait until billing status is for THIS user — no stale access / no premature paywall. */
   if (loading || (BILLING_GATE_ENABLED && !captureMode && (!gateReady || subLoading))) {

@@ -31,6 +31,22 @@ export const SIGN_IN_PAGE_META = {
   ogImage: '/og-image.png',
 }
 
+export const WAITLIST_PAGE_META = {
+  title: 'Join the waitlist - Mercerline',
+  description: 'Join the Mercerline waitlist. We’ll email you when access opens.',
+  path: '/waitlist',
+  ogImage: '/og-image.png',
+}
+
+export const WAITLIST = {
+  eyebrow: 'Early access',
+  headline: 'Join the waitlist',
+  lead: 'We’re finishing historical coverage. Leave your email and we’ll notify you when Mercerline opens.',
+  submit: 'Notify me',
+  success: 'You’re on the list. We’ll email you when access opens.',
+  placeholder: 'you@company.com',
+}
+
 export const SIGN_IN = {
   eyebrow: 'Welcome back',
   headline: 'Sign in',
@@ -52,6 +68,13 @@ export function heroLead(pricing = DEFAULT_PRICING) {
 
 /** Lead with optional struck list price for founders mode. */
 export function heroLeadParts(pricing = DEFAULT_PRICING) {
+  if (pricing.waitlist) {
+    return {
+      prefix: 'Track insider, politician, and fund filings on US equities as they clear.',
+      listPrice: null,
+      price: null,
+    }
+  }
   const prefix = 'Track insider, politician, and fund filings on US equities as they clear from '
   if (pricing.founders && pricing.monthlyListUsd) {
     return {
@@ -68,6 +91,17 @@ export function heroLeadParts(pricing = DEFAULT_PRICING) {
 }
 
 export function heroCopy(pricing = DEFAULT_PRICING) {
+  if (pricing.waitlist) {
+    return {
+      eyebrow: null,
+      brand: 'Mercerline',
+      headline: 'See who filed before the timeline moves.',
+      lead: null,
+      ctaPrimary: 'Join waitlist',
+      ctaSecondary: 'See product',
+      note: "We'll notify you when access opens",
+    }
+  }
   if (pricing.founders) {
     return {
       eyebrow: null,
@@ -235,6 +269,26 @@ export const SUBSCRIBE_FEATURES = {
 }
 
 export function introFaq(pricing = DEFAULT_PRICING) {
+  if (pricing.waitlist) {
+    return [
+      {
+        q: 'What is Mercerline for?',
+        a: 'Tracking US equity disclosures — insider Form 4, politician PTR, and institution 13F — with investor dossiers and company context when you need it.',
+      },
+      {
+        q: 'When does access open?',
+        a: 'Soon. Join the waitlist and we’ll email you the moment it does.',
+      },
+      {
+        q: 'What will I get on day one?',
+        a: 'Full access to Explore, investor and company dossiers, and the macro calendar.',
+      },
+      {
+        q: 'Is this investment advice?',
+        a: 'No. Mercerline is a research workspace only.',
+      },
+    ]
+  }
   return [
     {
       q: 'What is Mercerline for?',
