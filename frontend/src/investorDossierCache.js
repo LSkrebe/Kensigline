@@ -49,7 +49,13 @@ export function writeInvestorDossierCache(slug, actorRow, mode) {
     .trim()
     .toLowerCase()
   if (!key || !(actorRow?.transactions?.length > 0)) return
+  const prev = memory.get(key)
+  const nextN = actorRow.transactions.length
+  const prevN = prev?.actorRow?.transactions?.length ?? 0
+  // Never overwrite a richer cache with a thinner stub.
+  if (prevN > nextN) return
   const payload = { at: Date.now(), mode: mode || actorRow.source || 'insider', actorRow }
   memory.set(key, payload)
   writeSession(key, actorRow, payload.mode)
 }
+

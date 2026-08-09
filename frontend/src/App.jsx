@@ -1434,6 +1434,20 @@ function enrichStubActorWithCompanyFlows(actorRow, { ticker, companyName, flows,
   })
 }
 
+/** True when dossier has real multi-trade history (not a synthetic +$1 name stub). */
+function actorDossierIsRich(actorRow) {
+  const txns = actorRow?.transactions
+  if (!Array.isArray(txns) || !txns.length) return false
+  if (txns.length >= 5) return true
+  let real = 0
+  for (const t of txns) {
+    const usd = Number(t?.sheetRow?.amountUsd)
+    if (Number.isFinite(usd) && usd > 1) real += 1
+    else if (t?.companyRow) real += 1
+  }
+  return real >= 2 || (txns.length >= 3 && real >= 1)
+}
+
 /** Seed actor transactions from the company dossier flows so investor pages aren't empty on click. */
 function buildActorTxnsFromCompanyFlows({ name, mode, ticker, companyName, flows }) {
   const tick = String(ticker ?? '').trim().toUpperCase()
@@ -10894,14 +10908,18 @@ function KensiglineTerminal() {
     if (terminalRoute.view !== 'investorDetail' || !terminalRoute.investorSlug) return null
     const slug = terminalRoute.investorSlug
     const cached = readInvestorDossierCache(slug)
-    // Ignore thin cached stubs — they caused the 1-trade flash before reload.
-    const richCache = cached?.actorRow?.transactions?.length >= 5 ? cached : null
+    // Cache-first like company explore — paint any non-empty cached actor immediately.
+    const paintCache = actorDossierIsRich(cached?.actorRow)
+      ? cached
+      : cached?.actorRow?.transactions?.length
+        ? cached
+        : null
     return resolveExploreInvestorDossier({
       investorSlug: slug,
       feeds: exploreActorFeeds,
       directoryRows: exploreInvestorDirectoryRows,
       focus: exploreInvestorFocus,
-      cached: richCache,
+      cached: paintCache,
     })
   }, [
     terminalRoute.view,
@@ -10922,13 +10940,21 @@ function KensiglineTerminal() {
       setDeepResearchMode('investor')
       const slug = terminalRoute.investorSlug
       const cached = readInvestorDossierCache(slug)
-      const richCache = cached?.actorRow?.transactions?.length >= 5 ? cached : null
+      // Seed focus from session cache immediately on reload (company-style cache paint).
+      if (cached?.actorRow?.transactions?.length) {
+        setExploreInvestorFocus((prev) => {
+          if (prev?.slug === slug && (prev.actorRow?.transactions?.length ?? 0) >= cached.actorRow.transactions.length) {
+            return prev
+          }
+          return { slug, mode: cached.mode || 'insider', actorRow: cached.actorRow }
+        })
+      }
       const resolved = resolveExploreInvestorDossier({
         investorSlug: slug,
         feeds: exploreActorFeeds,
         directoryRows: exploreInvestorDirectoryRows,
-        focus: exploreInvestorFocus,
-        cached: richCache,
+        focus: exploreInvestorFocus ?? (cached ? { slug, mode: cached.mode, actorRow: cached.actorRow } : null),
+        cached,
       })
       if (!resolved) return
       if (resolved.fromFeed && resolved.index != null) {
@@ -11000,10 +11026,13 @@ function KensiglineTerminal() {
   const investorDossierMode = exploreInvestorDossier?.mode ?? investigateMode
   const [investorFeedExpandCount, setInvestorFeedExpandCount] = useState(0)
   const investorFeedExpandingRef = useRef(false)
+  const investorBoostGenRef = useRef(0)
+  const [investorBoostDoneForSlug, setInvestorBoostDoneForSlug] = useState(null)
 
   useEffect(() => {
     setInvestorFeedExpandCount(0)
     investorFeedExpandingRef.current = false
+    setInvestorBoostDoneForSlug(null)
   }, [terminalRoute.investorSlug])
 
   // Bars (Daily Graph) + Company panel: use selected ticker in either mode.
@@ -11229,27 +11258,31 @@ function KensiglineTerminal() {
         ? institutionsFeedLoadingMore
         : insiderFeedLoadingMore
 
-  const investorFeedsSettled =
-    insiderFeedLive !== null && politiciansFeedLive !== null && institutionsFeedLive !== null
+  const investorHasCachedPaint =
+    actorDossierIsRich(exploreInvestorFocus?.actorRow) ||
+    actorDossierIsRich(exploreInvestorDossier?.actorRow) ||
+    actorDossierIsRich(readInvestorDossierCache(terminalRoute.investorSlug)?.actorRow)
 
-  // Like company explore: stay in Loading until the actor has a real multi-trade
-  // payload (or the feed hunt is exhausted). A single +$1 stub must not finish early.
-  const investorStillHunting =
+  const investorHasPaintableTrades =
+    investorCaseTradeCount > 0 &&
+    (actorDossierIsRich(effectiveActorRow) || investorCaseTradeCount >= 5)
+
+  const investorBoostDone =
+    Boolean(terminalRoute.investorSlug) && investorBoostDoneForSlug === terminalRoute.investorSlug
+
+  // Company-style: paint from cache immediately; only spin when cold with nothing to show.
+  const investorCaseRowsLoading =
     backendUp &&
     exploreSubview === 'investorDetail' &&
-    (!investorFeedsSettled ||
-      investorModeFeedPending ||
-      investorModeLoadingMore ||
-      (investorCaseTradeCount < 5 &&
-        investorFeedExpandCount < 6 &&
-        investorModeHasMore))
+    !investorHasPaintableTrades &&
+    !investorHasCachedPaint &&
+    !investorBoostDone
 
-  const investorCaseRowsLoading = Boolean(investorStillHunting)
-
+  // Eager cache writes whenever we have real trades (survives reload like company explore).
   useEffect(() => {
     const slug = terminalRoute.investorSlug
-    if (!slug || investorStillHunting) return
-    if (!(effectiveActorRow?.transactions?.length > 0)) return
+    if (!slug || !(effectiveActorRow?.transactions?.length > 0)) return
+    if (!actorDossierIsRich(effectiveActorRow) && effectiveActorRow.transactions.length < 3) return
     writeInvestorDossierCache(
       slug,
       effectiveActorRow,
@@ -11257,16 +11290,91 @@ function KensiglineTerminal() {
     )
   }, [
     terminalRoute.investorSlug,
-    investorStillHunting,
     effectiveActorRow,
     exploreInvestorDossier?.mode,
     investigateMode,
   ])
 
-  // Keep paging while the dossier is open — do not stop after the first thin match.
+  // Parallel boost on open — one large page per mode (company snap+full pattern).
   useEffect(() => {
     if (!backendUp || exploreSubview !== 'investorDetail') return
-    if (investorFeedExpandCount >= 6) return
+    const slug = terminalRoute.investorSlug
+    if (!slug) return
+    let alive = true
+    const gen = ++investorBoostGenRef.current
+
+    async function boostMode(path, extra, mapFn, setLive, setHasMore, offsetRef, cursorRef, cacheKey) {
+      const page = await fetchFeedPage(path, {
+        limit: 120,
+        offset: 0,
+        extra,
+      })
+      if (!alive || investorBoostGenRef.current !== gen || !page.ok) return
+      const mapped = page.items.map(mapFn).filter((x) => x.id && x.ticker && x.at)
+      setLive((prev) => {
+        if (!Array.isArray(prev) || !prev.length) return mapped
+        return mergeFeedPages(mapped, prev, { append: true })
+      })
+      setHasMore(Boolean(page.hasMore))
+      offsetRef.current = page.nextOffset
+      cursorRef.current = page.nextCursor
+      persistFeedCache(cacheKey, {
+        items: mapped,
+        hasMore: page.hasMore,
+        nextOffset: page.nextOffset,
+        nextCursor: page.nextCursor,
+      })
+    }
+
+    void (async () => {
+      await Promise.all([
+        boostMode(
+          '/api/insider/feed',
+          { mode: 'company', days: 30 },
+          mapInsiderCompanyFeedItem,
+          setInsiderFeedLive,
+          setInsiderFeedHasMore,
+          insiderFeedOffsetRef,
+          insiderFeedCursorRef,
+          'investigate:insider:company:30',
+        ),
+        boostMode(
+          '/api/politicians/feed',
+          { days: 30 },
+          mapPoliticianFeedItem,
+          setPoliticiansFeedLive,
+          setPoliticiansFeedHasMore,
+          politiciansFeedOffsetRef,
+          politiciansFeedCursorRef,
+          'investigate:politicians:30',
+        ),
+        boostMode(
+          '/api/institutions/feed',
+          { days: 60 },
+          mapInstitutionFeedItem,
+          setInstitutionsFeedLive,
+          setInstitutionsFeedHasMore,
+          institutionsFeedOffsetRef,
+          institutionsFeedCursorRef,
+          'investigate:institutions:60',
+        ),
+      ])
+      if (!alive || investorBoostGenRef.current !== gen) return
+      setInvestorBoostDoneForSlug(slug)
+    })()
+
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [backendUp, exploreSubview, terminalRoute.investorSlug])
+
+  // At most 2 follow-up pages if still thin after the parallel boost.
+  useEffect(() => {
+    if (!backendUp || exploreSubview !== 'investorDetail') return
+    if (!investorBoostDone) return
+    if (actorDossierIsRich(effectiveActorRow)) return
+    if (investorFeedExpandCount >= 2) return
     if (investorModeFeedPending || investorModeLoadingMore) return
     if (!investorModeHasMore) return
     if (investorFeedExpandingRef.current) return
@@ -11285,6 +11393,8 @@ function KensiglineTerminal() {
   }, [
     backendUp,
     exploreSubview,
+    investorBoostDone,
+    effectiveActorRow,
     exploreInvestorDossier?.mode,
     investorDossierMode,
     investorFeedExpandCount,
@@ -11312,6 +11422,9 @@ function KensiglineTerminal() {
       if (nextN <= prevN) return prev
       return { slug, mode: hit.mode, actorRow: hit.row }
     })
+    if (actorDossierIsRich(hit.row) || nextN >= 3) {
+      writeInvestorDossierCache(slug, hit.row, hit.mode)
+    }
   }, [backendUp, exploreSubview, terminalRoute.investorSlug, exploreActorFeeds])
 
   const investigateCaseSelectedTrade = useMemo(() => {
