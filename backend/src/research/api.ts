@@ -133,47 +133,36 @@ async function settledValue<T>(p: Promise<T>, fallback: T): Promise<T> {
 }
 
 const exploreMemoryCache = new Map<string, { at: number; payload: Record<string, unknown> }>();
-const EXPLORE_CACHE_TTL_MS = 60_000;
+const EXPLORE_CACHE_TTL_MS = 120_000;
 
-/**
- * Company dossier shell in ONE response (presentation + flows + tracked).
- * Always HTTP 200 — soft ok:false on partial miss — so FE never 500-spins.
- * Skips SEC title map + caches warm hits to stop pool starvation under FE storms.
- */
-export async function handleResearchExplore(res: http.ServerResponse, ticker: string) {
+/** Build explore payload (memory-cached). Shared by /api/research/explore and /api/dossier/company. */
+export async function buildCompanyExplorePayload(ticker: string): Promise<Record<string, unknown>> {
   const t = String(ticker ?? "").trim().toUpperCase();
-  if (!t) {
-    sendJson(res, 400, { ok: false, error: "ticker_required" });
-    return;
-  }
+  if (!t) return emptyExplorePayload("");
 
   const cached = exploreMemoryCache.get(t);
   if (cached && Date.now() - cached.at < EXPLORE_CACHE_TTL_MS) {
-    sendJson(res, 200, cached.payload);
-    return;
+    return cached.payload;
   }
 
   try {
     const companyRow = await settledValue(
-      db.one<{ name: string | null }>(
+      db.oneApi<{ name: string | null }>(
         `SELECT name FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
         [t],
+        6_000,
       ),
       null,
     );
     const companyName = resolveResearchFeedCompanyName(t, companyRow?.name, null);
 
-    // Cap concurrency — Supabase transaction pooler dies when explore fans out 5 queries
+    // Cap concurrency — Supabase transaction pooler dies when explore fans out
     // while company/bars/analyse also checkout connections.
     const presentation = await settledValue(buildResearchPresentation(t), null);
-    const [insiders, politicians] = await Promise.all([
-      settledValue(loadInsiderFlowsForTicker(t, 40), []),
-      settledValue(loadPoliticianFlowsForTicker(t, 40), []),
-    ]);
-    const [filings13f, tracked_investors] = await Promise.all([
-      settledValue(loadFilings13fForTicker(t, 24), []),
-      settledValue(getTrackedInvestorsForTicker(t, 24), []),
-    ]);
+    const insiders = await settledValue(loadInsiderFlowsForTicker(t, 40), []);
+    const politicians = await settledValue(loadPoliticianFlowsForTicker(t, 40), []);
+    const filings13f = await settledValue(loadFilings13fForTicker(t, 24), []);
+    const tracked_investors = await settledValue(getTrackedInvestorsForTicker(t, 24), []);
 
     const empty = emptyExplorePayload(t, companyName);
     const payload =
@@ -201,17 +190,30 @@ export async function handleResearchExplore(res: http.ServerResponse, ticker: st
       (tracked_investors?.length ?? 0) > 0 ||
       (insiders?.length ?? 0) + (politicians?.length ?? 0) + (filings13f?.length ?? 0) > 0;
     if (hasContent) exploreMemoryCache.set(t, { at: Date.now(), payload });
-
-    sendJson(res, 200, payload);
+    return payload;
   } catch (err) {
     console.error("research_explore_failed", t, err);
-    const empty = emptyExplorePayload(t, t);
-    sendJson(res, 200, {
-      ...empty,
+    return {
+      ...emptyExplorePayload(t, t),
       ok: false,
       error: "explore_failed",
-    });
+    };
   }
+}
+
+/**
+ * Company dossier shell in ONE response (presentation + flows + tracked).
+ * Always HTTP 200 — soft ok:false on partial miss — so FE never 500-spins.
+ * Skips SEC title map + caches warm hits to stop pool starvation under FE storms.
+ */
+export async function handleResearchExplore(res: http.ServerResponse, ticker: string) {
+  const t = String(ticker ?? "").trim().toUpperCase();
+  if (!t) {
+    sendJson(res, 400, { ok: false, error: "ticker_required" });
+    return;
+  }
+  const payload = await buildCompanyExplorePayload(t);
+  sendJson(res, 200, payload);
 }
 
 function clusterTotalUsd(data: unknown): number {

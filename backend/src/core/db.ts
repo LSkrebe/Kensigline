@@ -57,7 +57,7 @@ const apiPoolMax = Math.max(2, Math.min(16, Number(process.env.DATABASE_POOL_MAX
 /** Background ingest / parse / outcomes — capped independently. */
 const workerPoolMax = Math.max(
   1,
-  Math.min(8, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 2) || 2),
+  Math.min(8, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 1) || 1),
 );
 /**
  * Global cap on concurrent worker DB jobs across ALL pipelines.

@@ -34,7 +34,9 @@ import {
   handleResearchRelationships,
 } from "./research/api.js";
 import { tryInvestigateRoutes } from "./investigate/api.js";
+import { handleInvestorDossier } from "./investigate/investor-dossier.js";
 import { tryDiscoverRoutes } from "./discover/api.js";
+import { handleCompanyDossier } from "./research/company-dossier.js";
 import { clampInt } from "./shared/feed-helpers.js";
 import { startAllWorkers, stopAllWorkers } from "./server/workers.js";
 import { handleAlertsPreferencesGet, handleAlertsPreferencesPatch } from "./alerts/api.js";
@@ -559,6 +561,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (await tryDiscoverRoutes(req, res, url)) return;
+
+    if (route(req, url, "GET", "/api/dossier/company")) {
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim();
+      await handleCompanyDossier(res, ticker);
+      return;
+    }
+    if (route(req, url, "GET", "/api/dossier/investor")) {
+      await handleInvestorDossier(res, {
+        slug: url.searchParams.get("slug"),
+        name: url.searchParams.get("name"),
+        mode: url.searchParams.get("mode"),
+      });
+      return;
+    }
 
     if (await tryInvestigateRoutes(req, res, url)) return;
     // ---- Research: structured company intel ----

@@ -10312,8 +10312,8 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
-    // Investor dossier does not use price bars — skip to keep feeds snappy.
-    if (exploreSubview === 'investorDetail') return
+    // Only load bars on company dossier — home/directories must not burn the pooler on ASML.
+    if (exploreSubview !== 'companyDetail') return
     const tick = researchTick
     if (!tick) return
     let alive = true
@@ -10333,8 +10333,8 @@ function KensiglineTerminal() {
     }
 
     async function fetchBarsOnce() {
-      // On company open, give explore a short head start before bars competes for pooler.
-      if (exploreSubview === 'companyDetail' && !barsCacheRef.current.get(tick)?.closes?.length) {
+      // Give explore/dossier a short head start before bars competes for pooler.
+      if (!barsCacheRef.current.get(tick)?.closes?.length) {
         await new Promise((r) => setTimeout(r, 800))
         if (!alive || researchBarsFetchGenRef.current !== gen) return null
       }
@@ -10393,7 +10393,8 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
-    if (exploreSubview === 'investorDetail') return
+    // Company meta only on company dossier — not on home/ASML leak.
+    if (exploreSubview !== 'companyDetail') return
     const tick = researchTick
     if (!tick) return
     let alive = true
@@ -10423,51 +10424,40 @@ function KensiglineTerminal() {
         setResearchCompanyTicker(tick)
       }
 
-      // Company dossier: snapshot first (cheap meta), then full — never stampede the pooler
-      // alongside explore/bars/analyse.
-      if (exploreSubview === 'companyDetail') {
-        const snap = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, {
-          timeoutMs: 6_000,
-        })
+      // Fat dossier (/api/dossier/company) is fetched by the explore effect and paints company.
+      // Wait briefly for that, then fall back to snap→full only if still empty.
+      for (let i = 0; i < 40; i += 1) {
         if (!alive || researchCompanyFetchGenRef.current !== gen) return
-        if (snap.ok && snap.data) applyCompany(snap.data)
-
-        // Give explore the pool for Archive/Tracked before pulling fundamentals.
-        for (let i = 0; i < 25; i += 1) {
-          if (!alive || researchCompanyFetchGenRef.current !== gen) return
-          if (explorePayloadHasContent(researchExploreCacheRef.current.get(tick))) break
-          await new Promise((r) => setTimeout(r, 200))
+        const fromDossier = researchCompanyCacheRef.current.get(tick)
+        if (fromDossier && (fromDossier.fundamentals || fromDossier.name || fromDossier.industry)) {
+          applyCompany(fromDossier)
+          setResearchCompanyContextLoading(!fromDossier.fundamentals)
+          if (fromDossier.fundamentals) return
+          break
         }
-
-        const full = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, {
-          timeoutMs: 14_000,
-        })
-        if (!alive || researchCompanyFetchGenRef.current !== gen) return
-        if (full.ok && full.data) applyCompany(full.data)
+        if (explorePayloadHasContent(researchExploreCacheRef.current.get(tick)) && fromDossier) {
+          applyCompany(fromDossier)
+          break
+        }
+        await new Promise((r) => setTimeout(r, 150))
+      }
+      if (!alive || researchCompanyFetchGenRef.current !== gen) return
+      if (researchCompanyCacheRef.current.get(tick)?.fundamentals) {
         setResearchCompanyContextLoading(false)
         return
       }
 
-      // Snapshot + full in parallel — snapshot paints meta fast; full brings fundamentals.
-      const [snap, full] = await Promise.all([
-        fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, { timeoutMs: 6_000 }),
-        fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, { timeoutMs: 16_000 }),
-      ])
+      const snap = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, {
+        timeoutMs: 6_000,
+      })
       if (!alive || researchCompanyFetchGenRef.current !== gen) return
       if (snap.ok && snap.data) applyCompany(snap.data)
-      if (full.ok && full.data) applyCompany(full.data)
 
-      // Cold company cache may return without fundamentals — one short follow-up.
-      const merged = researchCompanyCacheRef.current.get(tick)
-      if (!merged?.fundamentals) {
-        await new Promise((r) => setTimeout(r, 1500))
-        if (!alive || researchCompanyFetchGenRef.current !== gen) return
-        const again = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, {
-          timeoutMs: 12_000,
-        })
-        if (!alive || researchCompanyFetchGenRef.current !== gen) return
-        if (again.ok && again.data) applyCompany(again.data)
-      }
+      const full = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, {
+        timeoutMs: 14_000,
+      })
+      if (!alive || researchCompanyFetchGenRef.current !== gen) return
+      if (full.ok && full.data) applyCompany(full.data)
       setResearchCompanyContextLoading(false)
     }
     run().catch(() => {
@@ -10483,12 +10473,13 @@ function KensiglineTerminal() {
       setAnalyseModelLoading(false)
       return
     }
-    if (exploreSubview === 'investorDetail') {
+    // Analyse only on company dossier.
+    if (exploreSubview !== 'companyDetail') {
       setAnalyseModelLoading(false)
       return
     }
-    // Company dossier: wait for explore (or timeout) so model doesn't starve Archive/Tracked.
-    if (exploreSubview === 'companyDetail' && !researchExploreResolved) {
+    // Wait for explore (or timeout) so model doesn't starve Archive/Tracked.
+    if (!researchExploreResolved) {
       setAnalyseModelLoading(true)
       let alive = true
       const tick = researchTicker
@@ -10541,6 +10532,13 @@ function KensiglineTerminal() {
     if (exploreSubview !== 'companyDetail') return
     const tick = researchTick
     if (!tick) return
+    // Fat dossier already filled explore — skip duplicate /api/research/explore.
+    if (explorePayloadHasContent(researchExploreCacheRef.current.get(tick))) {
+      const cachedExplore = researchExploreCacheRef.current.get(tick)
+      setResearchExploreLive(cachedExplore)
+      setResearchExploreTicker(tick)
+      return
+    }
     let alive = true
     const gen = ++researchExploreFetchGenRef.current
     let inFlight = false
@@ -10565,6 +10563,26 @@ function KensiglineTerminal() {
     }
 
     async function fetchExploreOnce() {
+      // Prefer fat dossier; fall back to explore-only.
+      const dossier = await fetchJsonSafe(`/api/dossier/company?ticker=${encodeURIComponent(tick)}`, {
+        timeoutMs: 22_000,
+      })
+      if (dossier.ok && explorePayloadHasContent(dossier.data?.explore)) {
+        if (dossier.data?.company) {
+          const payload = dossier.data.company
+          const respTicker = String(payload.ticker ?? tick).trim().toUpperCase()
+          if (respTicker === tick) {
+            setResearchCompanyLive((prev) => {
+              const merged = mergeCompanyPayload(prev, payload)
+              researchCompanyCacheRef.current.set(tick, merged)
+              return merged
+            })
+            setResearchCompanyTicker(tick)
+            setResearchCompanyContextLoading(false)
+          }
+        }
+        return { ok: true, data: dossier.data.explore }
+      }
       return fetchJsonSafe(`/api/research/explore?ticker=${encodeURIComponent(tick)}`, {
         timeoutMs: 18_000,
       })
@@ -10655,7 +10673,8 @@ function KensiglineTerminal() {
   useEffect(() => {
     if (!backendUp) return
     // Company dossier must not compete with explore for the DB pool.
-    if (exploreSubview === 'companyDetail') return
+    // Investor dossier uses /api/dossier/investor — don't burn pooler on feed pages.
+    if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
     let alive = true
     const cacheKey = 'investigate:insider:company:30'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10750,7 +10769,7 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
-    if (exploreSubview === 'companyDetail') return
+    if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
     let alive = true
     const cacheKey = 'investigate:institutions:60'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10842,7 +10861,7 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
-    if (exploreSubview === 'companyDetail') return
+    if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
     let alive = true
     const cacheKey = 'investigate:politicians:30'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -11499,79 +11518,81 @@ function KensiglineTerminal() {
     investigateMode,
   ])
 
-  // Parallel boost on open — one large page per mode (company snap+full pattern).
+  // One-shot investor dossier — replaces 3× feed boost + N cluster calls.
   useEffect(() => {
     if (!backendUp || exploreSubview !== 'investorDetail') return
     const slug = terminalRoute.investorSlug
     if (!slug) return
+    if (actorDossierIsRich(effectiveActorRow)) {
+      setInvestorBoostDoneForSlug(slug)
+      return
+    }
     let alive = true
     const gen = ++investorBoostGenRef.current
-
-    async function boostMode(path, extra, mapFn, setLive, setHasMore, offsetRef, cursorRef, cacheKey) {
-      const page = await fetchFeedPage(path, {
-        limit: 120,
-        offset: 0,
-        extra,
-      })
-      if (!alive || investorBoostGenRef.current !== gen || !page.ok) return
-      const mapped = page.items.map(mapFn).filter((x) => x.id && x.ticker && x.at)
-      setLive((prev) => {
-        if (!Array.isArray(prev) || !prev.length) return mapped
-        return mergeFeedPages(prev, mapped, { append: true })
-      })
-      setHasMore(Boolean(page.hasMore))
-      offsetRef.current = page.nextOffset
-      cursorRef.current = page.nextCursor
-      // Never overwrite a richer session feed cache with a thinner boost page.
-      if (mapped.length) {
-        const prior = readFeedCache(cacheKey)
-        const priorN = Array.isArray(prior?.items) ? prior.items.length : 0
-        if (mapped.length >= priorN) {
-          persistFeedCache(cacheKey, {
-            items: mapped,
-            hasMore: page.hasMore,
-            nextOffset: page.nextOffset,
-            nextCursor: page.nextCursor,
-          })
-        }
-      }
-    }
+    const modeHint =
+      exploreInvestorDossier?.mode ??
+      exploreInvestorFocus?.mode ??
+      investorDossierMode ??
+      null
 
     void (async () => {
-      await Promise.all([
-        boostMode(
-          '/api/insider/feed',
-          { mode: 'company', days: 30 },
-          mapInsiderCompanyFeedItem,
-          setInsiderFeedLive,
-          setInsiderFeedHasMore,
-          insiderFeedOffsetRef,
-          insiderFeedCursorRef,
-          'investigate:insider:company:30',
-        ),
-        boostMode(
-          '/api/politicians/feed',
-          { days: 30 },
-          mapPoliticianFeedItem,
-          setPoliticiansFeedLive,
-          setPoliticiansFeedHasMore,
-          politiciansFeedOffsetRef,
-          politiciansFeedCursorRef,
-          'investigate:politicians:30',
-        ),
-        boostMode(
-          '/api/institutions/feed',
-          { days: 60 },
-          mapInstitutionFeedItem,
-          setInstitutionsFeedLive,
-          setInstitutionsFeedHasMore,
-          institutionsFeedOffsetRef,
-          institutionsFeedCursorRef,
-          'investigate:institutions:60',
-        ),
-      ])
+      const qs = new URLSearchParams({ slug })
+      if (modeHint) qs.set('mode', String(modeHint))
+      const r = await fetchJsonSafe(`/api/dossier/investor?${qs}`, { timeoutMs: 18_000 })
       if (!alive || investorBoostGenRef.current !== gen) return
-      setInvestorBoostDoneForSlug(slug)
+      const actor = r.data?.actor
+      if (r.ok && actor?.transactions?.length) {
+        const next = normalizeInvestigateActorFeedRow(stripSyntheticActorTxns(actor))
+        const mode =
+          next.source === 'politicians' || next.source === 'institutions' ? next.source : 'insider'
+        setExploreInvestorFocus({ slug, mode, actorRow: next })
+        if (actorDossierIsRich(next)) {
+          writeInvestorDossierCache(slug, next, mode)
+          setInvestorBoostDoneForSlug(slug)
+          return
+        }
+      }
+      // Soft fallback: one mode feed page only (not 3 parallel boosts).
+      const mode =
+        modeHint === 'politicians' || modeHint === 'institutions' ? modeHint : 'insider'
+      if (mode === 'politicians') {
+        const page = await fetchFeedPage('/api/politicians/feed', {
+          limit: 80,
+          offset: 0,
+          extra: { days: 30 },
+        })
+        if (!alive || investorBoostGenRef.current !== gen || !page.ok) {
+          setInvestorBoostDoneForSlug(slug)
+          return
+        }
+        const mapped = page.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
+        setPoliticiansFeedLive((prev) => mergeFeedPages(prev ?? [], mapped, { append: true }))
+      } else if (mode === 'institutions') {
+        const page = await fetchFeedPage('/api/institutions/feed', {
+          limit: 80,
+          offset: 0,
+          extra: { days: 60 },
+        })
+        if (!alive || investorBoostGenRef.current !== gen || !page.ok) {
+          setInvestorBoostDoneForSlug(slug)
+          return
+        }
+        const mapped = page.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
+        setInstitutionsFeedLive((prev) => mergeFeedPages(prev ?? [], mapped, { append: true }))
+      } else {
+        const page = await fetchFeedPage('/api/insider/feed', {
+          limit: 80,
+          offset: 0,
+          extra: { mode: 'company', days: 30 },
+        })
+        if (!alive || investorBoostGenRef.current !== gen || !page.ok) {
+          setInvestorBoostDoneForSlug(slug)
+          return
+        }
+        const mapped = page.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
+        setInsiderFeedLive((prev) => mergeFeedPages(prev ?? [], mapped, { append: true }))
+      }
+      if (alive && investorBoostGenRef.current === gen) setInvestorBoostDoneForSlug(slug)
     })()
 
     return () => {

@@ -64,53 +64,55 @@ export async function getTrackedInvestorsForTicker(
 
   const cap = Math.max(1, Math.min(60, limit));
 
-  const [insiders, politicians, institutions] = await Promise.all([
-    db.query<{
-      insider_name: string;
-      transaction_code: string | null;
-      amount_usd: string | null;
-      transaction_at: string;
-    }>(
-      `
+  // Sequential — three parallel checkouts compete with explore/bars on the pooler.
+  const insiders = await db.queryApi<{
+    insider_name: string;
+    transaction_code: string | null;
+    amount_usd: string | null;
+    transaction_at: string;
+  }>(
+    `
       SELECT insider_name, transaction_code, amount_usd::text, transaction_at::text
       FROM insider_transactions
       WHERE ticker = $1
       ORDER BY transaction_at DESC
       LIMIT 120
       `,
-      [t],
-    ),
-    db.query<{
-      politician_name: string;
-      transaction_type: string | null;
-      amount_usd_mid: string | null;
-      transaction_at: string;
-    }>(
-      `
+    [t],
+    8_000,
+  );
+  const politicians = await db.queryApi<{
+    politician_name: string;
+    transaction_type: string | null;
+    amount_usd_mid: string | null;
+    transaction_at: string;
+  }>(
+    `
       SELECT politician_name, transaction_type, amount_usd_mid::text, transaction_at::text
       FROM politician_transactions
       WHERE ticker = $1
       ORDER BY transaction_at DESC
       LIMIT 120
       `,
-      [t],
-    ),
-    db.query<{
-      filer: string;
-      activity: string | null;
-      amount_usd: string | null;
-      filed_at: string;
-    }>(
-      `
+    [t],
+    8_000,
+  );
+  const institutions = await db.queryApi<{
+    filer: string;
+    activity: string | null;
+    amount_usd: string | null;
+    filed_at: string;
+  }>(
+    `
       SELECT filer, activity, amount_usd::text, filed_at::text
       FROM institution_filings_13f
       WHERE ticker = $1
       ORDER BY filed_at DESC
       LIMIT 120
       `,
-      [t],
-    ),
-  ]);
+    [t],
+    8_000,
+  );
 
   const map = new Map<string, { name: string; type: TrackedInvestorType; netUsd: number; latestAt: string }>();
 
