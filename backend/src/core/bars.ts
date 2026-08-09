@@ -195,6 +195,22 @@ function cacheIsFreshEnough(cached: Array<{ day: string }>, toDay: string): bool
   return daysBetweenIso(last, toDay) <= 4;
 }
 
+/** True when cache spans the requested window (not just a fresh trailing stub). */
+function cacheCoversRequestedRange(
+  cached: Array<{ day: string }>,
+  fromDay: string,
+  toDay: string,
+): boolean {
+  if (!cacheIsFreshEnough(cached, toDay)) return false;
+  const first = cached[0]?.day;
+  if (!first) return false;
+  // Leading gap: we only have a recent stub (e.g. 3 weeks) while the chart asked for a year.
+  if (daysBetweenIso(fromDay, first) > 14) return false;
+  const windowDays = daysBetweenIso(fromDay, toDay);
+  if (windowDays > 60 && cached.length < Math.floor(windowDays * 0.35)) return false;
+  return true;
+}
+
 const backgroundRefresh = new Set<string>();
 
 async function fetchAndStoreBars(
@@ -274,9 +290,9 @@ async function readBarsRange(ticker: string, fromDay: string, toDay: string) {
 }
 
 /**
- * Chart/API path: return DB bars immediately. Never block on Polygon's rate limit.
- * Missing/stale series refresh in the background (Yahoo-first).
- * Worker path (`forceRefresh`) still does a full sync.
+ * Chart/API path: return DB bars immediately when history covers the window.
+ * A fresh-but-short stub (common after content wipes) must re-fetch the full range
+ * or timeframe chips cannot zoom the price line.
  */
 export async function getDailyCloseBars(opts: {
   ticker: string;
@@ -297,23 +313,23 @@ export async function getDailyCloseBars(opts: {
     return { ticker, source: rows.length ? source : "none", items: rows };
   }
 
-  if (cached.length > 0) {
-    if (!cacheIsFreshEnough(cached, toDay)) {
-      scheduleBackgroundBarsRefresh(ticker, fromDay, toDay);
-    }
+  if (cached.length > 0 && cacheCoversRequestedRange(cached, fromDay, toDay)) {
     return { ticker, source: "cache" as const, items: cached };
   }
 
-  // Cold chart open: one short Yahoo attempt so the first paint isn't empty, else background.
+  // Empty or incomplete history: one Yahoo attempt so charts get a real window, else background.
   try {
     const { rows, source } = await fetchAndStoreBars(ticker, fromDay, toDay, "yahoo");
     if (rows.length) {
       const stored = await readBarsRange(ticker, fromDay, toDay);
-      return { ticker, source, items: stored };
+      if (stored.length) return { ticker, source, items: stored };
     }
   } catch {
     /* background below */
   }
   scheduleBackgroundBarsRefresh(ticker, fromDay, toDay);
+  if (cached.length > 0) {
+    return { ticker, source: "cache" as const, items: cached };
+  }
   return { ticker, source: "none" as const, items: [] };
 }

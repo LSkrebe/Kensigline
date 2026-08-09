@@ -9046,6 +9046,7 @@ function KensiglineTerminal() {
   const researchCompanyFetchGenRef = useRef(0)
   const researchExploreFetchGenRef = useRef(0)
   const [researchBarsSeries, setResearchBarsSeries] = useState(null)
+  const [researchBarsDays, setResearchBarsDays] = useState(null)
   const [researchBarsTicker, setResearchBarsTicker] = useState(null)
   const [companyLive, setCompanyLive] = useState(null)
   const [companyLiveTicker, setCompanyLiveTicker] = useState(null)
@@ -9164,6 +9165,13 @@ function KensiglineTerminal() {
     return researchDataset?.price ?? []
   }, [researchBarsSeries, researchBarsTicker, researchTick, researchDataset?.price, backendUp])
 
+  const researchPriceDays = useMemo(() => {
+    if (backendUp && researchBarsTicker === researchTick && Array.isArray(researchBarsDays)) {
+      return researchBarsDays
+    }
+    return null
+  }, [backendUp, researchBarsDays, researchBarsTicker, researchTick])
+
   const contextMock = useMemo(() => {
     if (backendUp) return null
     return contextMockForTicker(researchTicker, researchPriceSeries)
@@ -9207,8 +9215,8 @@ function KensiglineTerminal() {
   )
 
   const analysePriceChange = useMemo(() => {
-    return priceChangeForRange(researchPriceSeries, analysePriceRange)
-  }, [researchPriceSeries, analysePriceRange])
+    return priceChangeForRange(researchPriceSeries, analysePriceRange, researchPriceDays)
+  }, [researchPriceSeries, analysePriceRange, researchPriceDays])
 
   const contextEarnings = useMemo(() => {
     if (backendUp) {
@@ -9573,6 +9581,7 @@ function KensiglineTerminal() {
     setResearchCompanyLive(null)
     setResearchCompanyTicker(null)
     setResearchBarsSeries(null)
+    setResearchBarsDays(null)
     setResearchBarsTicker(null)
     setBarsLive(null)
     setBarsLiveTicker(null)
@@ -9669,30 +9678,42 @@ function KensiglineTerminal() {
     const gen = ++researchBarsFetchGenRef.current
 
     const cached = barsCacheRef.current.get(tick)
-    if (Array.isArray(cached) && cached.length) {
-      setResearchBarsSeries(cached)
+    if (cached?.closes?.length) {
+      setResearchBarsSeries(cached.closes)
+      setResearchBarsDays(cached.days ?? null)
       setResearchBarsTicker(tick)
     } else {
       setResearchBarsSeries(null)
+      setResearchBarsDays(null)
       setResearchBarsTicker(tick)
     }
 
     async function run() {
-      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(tick)}&days=365`, { timeoutMs: 10_000 })
+      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(tick)}&days=730`, {
+        timeoutMs: 15_000,
+      })
       if (!alive || researchBarsFetchGenRef.current !== gen) return
       const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
       if (respTicker !== tick) return
-      const closes = Array.isArray(r.data?.items)
-        ? r.data.items.map((row) => Number(row.close)).filter((n) => Number.isFinite(n))
-        : []
+      const items = Array.isArray(r.data?.items) ? r.data.items : []
+      const closes = []
+      const days = []
+      for (const row of items) {
+        const n = Number(row?.close)
+        if (!Number.isFinite(n)) continue
+        closes.push(n)
+        days.push(String(row?.day ?? '').slice(0, 10))
+      }
       if (!alive || researchBarsFetchGenRef.current !== gen) return
       if (closes.length) {
-        barsCacheRef.current.set(tick, closes)
+        barsCacheRef.current.set(tick, { closes, days })
         setResearchBarsSeries(closes)
+        setResearchBarsDays(days)
         setResearchBarsTicker(tick)
       } else if (r.ok) {
         barsCacheRef.current.delete(tick)
         setResearchBarsSeries(null)
+        setResearchBarsDays(null)
         setResearchBarsTicker(tick)
       }
     }
@@ -10739,8 +10760,8 @@ function KensiglineTerminal() {
     }
 
     const cached = barsCacheRef.current.get(ticker)
-    if (Array.isArray(cached) && cached.length) {
-      setBarsLive(cached)
+    if (cached?.closes?.length) {
+      setBarsLive(cached.closes)
       setBarsLiveTicker(ticker)
     } else {
       setBarsLive(null)
@@ -10748,16 +10769,24 @@ function KensiglineTerminal() {
     }
 
     async function run() {
-      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(ticker)}&days=365`, { timeoutMs: 6000 })
+      const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(ticker)}&days=730`, {
+        timeoutMs: 15_000,
+      })
       if (!alive || barsFetchGenRef.current !== gen) return
       const respTicker = String(r.data?.ticker ?? ticker).trim().toUpperCase()
       if (respTicker !== ticker) return
-      const closes = Array.isArray(r.data?.items)
-        ? r.data.items.map((x) => Number(x?.close)).filter((n) => Number.isFinite(n))
-        : []
+      const items = Array.isArray(r.data?.items) ? r.data.items : []
+      const closes = []
+      const days = []
+      for (const row of items) {
+        const n = Number(row?.close)
+        if (!Number.isFinite(n)) continue
+        closes.push(n)
+        days.push(String(row?.day ?? '').slice(0, 10))
+      }
       if (!alive || barsFetchGenRef.current !== gen) return
       if (closes.length) {
-        barsCacheRef.current.set(ticker, closes)
+        barsCacheRef.current.set(ticker, { closes, days })
         setBarsLive(closes)
         setBarsLiveTicker(ticker)
       } else if (r.ok) {
@@ -11075,6 +11104,7 @@ function KensiglineTerminal() {
           chartSlot: (
             <MiniPriceChart
               series={researchPriceSeries}
+              seriesDays={researchPriceDays}
               label={researchTick || 'PRICE'}
               showMeta={false}
               chartRange={analysePriceRange}

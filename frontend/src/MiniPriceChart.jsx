@@ -62,8 +62,23 @@ export function priceRangeDayCount(range, ref = new Date()) {
   return typeof days === 'number' ? days : null
 }
 
-export function slicePriceSeriesByRange(series, range) {
+export function slicePriceSeriesByRange(series, range, seriesDays = null) {
   const arr = Array.isArray(series) ? series : []
+  if (!arr.length) return arr
+
+  const daysList = Array.isArray(seriesDays) && seriesDays.length === arr.length ? seriesDays : null
+  if (daysList) {
+    const start = priceRangeWindowStart(range)
+    if (!start) return arr
+    const y = start.getFullYear()
+    const m = String(start.getMonth() + 1).padStart(2, '0')
+    const d = String(start.getDate()).padStart(2, '0')
+    const startIso = `${y}-${m}-${d}`
+    let i = 0
+    while (i < daysList.length && String(daysList[i]).slice(0, 10) < startIso) i += 1
+    return i > 0 ? arr.slice(i) : arr
+  }
+
   const days = priceRangeDayCount(range)
   if (!days || arr.length <= days) return arr
   return arr.slice(-days)
@@ -85,8 +100,8 @@ export function priceRangeWindowStart(range, ref = new Date()) {
 }
 
 /** First→last $ / % change over the same window the chart uses. */
-export function priceChangeForRange(series, range) {
-  const rows = slicePriceSeriesByRange(series, range)
+export function priceChangeForRange(series, range, seriesDays = null) {
+  const rows = slicePriceSeriesByRange(series, range, seriesDays)
   if (!Array.isArray(rows) || rows.length < 2) return null
   const first = Number(rows[0])
   const last = Number(rows.at(-1))
@@ -167,6 +182,7 @@ function formatHoverDate(d) {
 
 export function MiniPriceChart({
   series,
+  seriesDays = null,
   label,
   showMeta = true,
   trimLeadingPlateau = false,
@@ -223,14 +239,37 @@ export function MiniPriceChart({
   const w = size?.w ?? 0
   const h = size?.h ?? 0
 
-  const vals = useMemo(() => {
+  const sliced = useMemo(() => {
     let base = Array.isArray(series) ? series : []
-    if (chartRangeProp != null || showRangeSelector) base = slicePriceSeriesByRange(base, priceRange)
-    if (!trimLeadingPlateau || base.length < 8) return base
+    let days = Array.isArray(seriesDays) && seriesDays.length === base.length ? seriesDays : null
+    if (chartRangeProp != null || showRangeSelector) {
+      if (days) {
+        const start = priceRangeWindowStart(priceRange)
+        if (start) {
+          const y = start.getFullYear()
+          const m = String(start.getMonth() + 1).padStart(2, '0')
+          const d = String(start.getDate()).padStart(2, '0')
+          const startIso = `${y}-${m}-${d}`
+          let i = 0
+          while (i < days.length && String(days[i]).slice(0, 10) < startIso) i += 1
+          if (i > 0) {
+            base = base.slice(i)
+            days = days.slice(i)
+          }
+        }
+      } else {
+        base = slicePriceSeriesByRange(base, priceRange)
+      }
+    }
+    if (!trimLeadingPlateau || base.length < 8) return { vals: base, days }
     const t = trimLeadingFlatSeries(base)
-    return t.length >= 2 ? t : base
-  }, [series, trimLeadingPlateau, showRangeSelector, chartRangeProp, priceRange])
+    if (t.length < 2 || t.length === base.length) return { vals: base, days }
+    const trimCount = base.length - t.length
+    return { vals: t, days: days ? days.slice(trimCount) : null }
+  }, [series, seriesDays, trimLeadingPlateau, showRangeSelector, chartRangeProp, priceRange])
 
+  const vals = sliced.vals
+  const slicedDays = sliced.days
   const min = vals.length ? Math.min(...vals) : 0
   const max = vals.length ? Math.max(...vals) : 1
   const span = max - min || 1
@@ -265,6 +304,13 @@ export function MiniPriceChart({
   const dates = useMemo(() => {
     const n = Math.max(0, vals.length)
     if (!n) return []
+    if (Array.isArray(slicedDays) && slicedDays.length === n) {
+      return slicedDays.map((day) => {
+        const raw = String(day ?? '').slice(0, 10)
+        const d = new Date(`${raw}T12:00:00`)
+        return Number.isNaN(d.getTime()) ? null : d
+      })
+    }
     const now = new Date()
     const out = []
     for (let i = n - 1; i >= 0; i--) {
@@ -273,7 +319,7 @@ export function MiniPriceChart({
       out.push(d)
     }
     return out
-  }, [vals.length])
+  }, [vals.length, slicedDays])
 
   function xAt(i) {
     return margin.l + (i / Math.max(1, vals.length - 1)) * innerW
