@@ -601,7 +601,9 @@ function latestSequenceValue(fundamentals, key) {
 }
 
 function DeepFundamentalsSnapshot({ fundamentals }) {
-  if (!fundamentals) return null
+  if (!fundamentals) {
+    return <p className="drpt-empty">No key metrics yet.</p>
+  }
 
   const cards = FUNDAMENTAL_SNAPSHOT_ROWS.map((row) => {
     if (row.kind === 'single') {
@@ -623,7 +625,9 @@ function DeepFundamentalsSnapshot({ fundamentals }) {
     }
   }).filter(Boolean)
 
-  if (!cards.length) return null
+  if (!cards.length) {
+    return <p className="drpt-empty">No key metrics yet.</p>
+  }
 
   return (
     <div className="drpt-metricGrid">
@@ -735,11 +739,15 @@ function DeepChronology({ entries = [], visibleLimit = null }) {
 }
 
 function DeepBusinessDriversSnapshot({ model }) {
-  if (!model?.quarters?.length) return null
+  if (!model?.quarters?.length) {
+    return <p className="drpt-empty">No business drivers yet.</p>
+  }
   const estFrom = model.estimateFromIndex ?? model.quarters.length
   const histQs = model.quarters.slice(0, estFrom)
   const rows = model.businessDrivers ?? []
-  if (!rows.length) return null
+  if (!rows.length) {
+    return <p className="drpt-empty">No business drivers yet.</p>
+  }
 
   const cards = rows
     .map((row) => {
@@ -768,7 +776,9 @@ function DeepBusinessDriversSnapshot({ model }) {
     })
     .filter(Boolean)
 
-  if (!cards.length) return null
+  if (!cards.length) {
+    return <p className="drpt-empty">No business drivers yet.</p>
+  }
 
   return (
     <div className="drpt-driverGrid">
@@ -1322,79 +1332,81 @@ export function DeepCompanyReport({
         />
       }
     >
-        {chartSlot || fundamentals ? (
-          <div className="drpt-row drpt-row--market">
-            {chartSlot ? (
-              <DeepSection
-                label="Market"
-                title="Price & earnings"
-                headExtra={
-                  onChartRangeChange ? (
-                    <DeepChartRange value={chartRange} onChange={onChartRangeChange} />
-                  ) : null
-                }
-              >
-                <div className="drpt-figure drpt-figure--chart">{chartSlot}</div>
-              </DeepSection>
-            ) : null}
-
-            {fundamentals ? (
-              <DeepSection label="Fundamentals" title="Key metrics">
-                <DeepFundamentalsSnapshot fundamentals={fundamentals} />
-              </DeepSection>
-            ) : null}
-          </div>
-        ) : null}
-
-        {resolvedModel ? (
+        <div className="drpt-row drpt-row--market">
           <DeepSection
-            label="Forecast"
-            title="Financial model"
+            label="Market"
+            title="Price & earnings"
             headExtra={
-              <DeepModelExportButton ticker={t} companyName={displayName} model={resolvedModel} />
+              onChartRangeChange ? (
+                <DeepChartRange value={chartRange} onChange={onChartRangeChange} />
+              ) : null
             }
           >
-            <DeepModelTable model={resolvedModel} />
+            {chartSlot ? (
+              <div className="drpt-figure drpt-figure--chart">{chartSlot}</div>
+            ) : (
+              <div className="drpt-figure drpt-figure--chart drpt-figure--empty">
+                <p className="drpt-empty">No price series yet.</p>
+              </div>
+            )}
           </DeepSection>
-        ) : null}
 
-        {!resolvedModel && modelLoading ? (
-          <p className="drpt-empty drpt-loading">Loading financial model…</p>
-        ) : null}
+          <DeepSection label="Model" title="Business drivers">
+            <div className="drpt-marketAside">
+              {modelLoading && !resolvedModel ? (
+                <p className="drpt-empty drpt-loading">Loading business drivers…</p>
+              ) : (
+                <DeepBusinessDriversSnapshot model={resolvedModel} />
+              )}
+            </div>
+          </DeepSection>
+        </div>
+
+        <DeepSection
+          label="Forecast"
+          title="Financial model"
+          headExtra={
+            resolvedModel ? (
+              <DeepModelExportButton ticker={t} companyName={displayName} model={resolvedModel} />
+            ) : null
+          }
+        >
+          {resolvedModel ? (
+            <DeepModelTable model={resolvedModel} />
+          ) : modelLoading ? (
+            <p className="drpt-empty drpt-loading">Loading financial model…</p>
+          ) : (
+            <p className="drpt-empty">No financial model yet.</p>
+          )}
+        </DeepSection>
 
         <div className="drpt-row drpt-row--model">
-            {resolvedModel ? (
-              <DeepSection label="Model" title="Business drivers">
-                <DeepBusinessDriversSnapshot model={resolvedModel} />
-              </DeepSection>
-            ) : modelLoading ? (
-              <DeepSection label="Model" title="Business drivers">
-                <p className="drpt-empty drpt-loading">Loading business drivers…</p>
-              </DeepSection>
-            ) : null}
+          <DeepSection label="Fundamentals" title="Key metrics">
+            <DeepFundamentalsSnapshot fundamentals={fundamentals} />
+          </DeepSection>
 
-            <DeepSection
-              label="Archive"
-              title="Documents"
-              headExtra={
-                <span className="drpt-sectionCount">
-                  {timelineLoading ? 'Loading…' : formatCountLabel(eventCount, 'filing')}
-                </span>
-              }
-            >
-              <div className="drpt-docPanel drpt-scroll">
-                <DeepExpandablePanel totalCount={timelineLoading ? 0 : eventCount}>
-                  {(limit) =>
-                    timelineLoading ? (
-                      <p className="drpt-empty drpt-loading">Loading filings…</p>
-                    ) : (
-                      <DeepChronology entries={timelineEntries} visibleLimit={limit} />
-                    )
-                  }
-                </DeepExpandablePanel>
-              </div>
-            </DeepSection>
-          </div>
+          <DeepSection
+            label="Archive"
+            title="Documents"
+            headExtra={
+              <span className="drpt-sectionCount">
+                {timelineLoading ? 'Loading…' : formatCountLabel(eventCount, 'filing')}
+              </span>
+            }
+          >
+            <div className="drpt-docPanel drpt-scroll">
+              <DeepExpandablePanel totalCount={timelineLoading ? 0 : eventCount}>
+                {(limit) =>
+                  timelineLoading ? (
+                    <p className="drpt-empty drpt-loading">Loading filings…</p>
+                  ) : (
+                    <DeepChronology entries={timelineEntries} visibleLimit={limit} />
+                  )
+                }
+              </DeepExpandablePanel>
+            </div>
+          </DeepSection>
+        </div>
 
         {trackedInvestors.length ? (
           <DeepSection label="Flow" title="Tracked investors & filers">

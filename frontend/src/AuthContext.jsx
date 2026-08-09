@@ -110,7 +110,7 @@ export function AuthProvider({ children }) {
     clearAuthTokenCache()
     const trimmed = email.trim()
     const attempts = 3
-    const perAttemptMs = 20_000
+    const perAttemptMs = 35_000
     let last = null
 
     for (let i = 0; i < attempts; i++) {
