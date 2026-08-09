@@ -10230,6 +10230,8 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!backendUp) return
+    // Don't refresh market feed while a dossier is open — frees pooler for explore/bars.
+    if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
     let cancelled = false
     const cacheKey = 'research:market'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10281,7 +10283,7 @@ function KensiglineTerminal() {
       cancelled = true
       clearInterval(t)
     }
-  }, [backendUp, researchFeedRefresh])
+  }, [backendUp, researchFeedRefresh, exploreSubview])
 
   const loadMoreResearchFeed = useCallback(async () => {
     if (!backendUp || researchFeedLoadingMore || !researchFeedHasMore) return
@@ -10331,6 +10333,11 @@ function KensiglineTerminal() {
     }
 
     async function fetchBarsOnce() {
+      // On company open, give explore a short head start before bars competes for pooler.
+      if (exploreSubview === 'companyDetail' && !barsCacheRef.current.get(tick)?.closes?.length) {
+        await new Promise((r) => setTimeout(r, 800))
+        if (!alive || researchBarsFetchGenRef.current !== gen) return null
+      }
       const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(tick)}&days=730`, {
         timeoutMs: 12_000,
       })
@@ -10416,6 +10423,31 @@ function KensiglineTerminal() {
         setResearchCompanyTicker(tick)
       }
 
+      // Company dossier: snapshot first (cheap meta), then full — never stampede the pooler
+      // alongside explore/bars/analyse.
+      if (exploreSubview === 'companyDetail') {
+        const snap = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, {
+          timeoutMs: 6_000,
+        })
+        if (!alive || researchCompanyFetchGenRef.current !== gen) return
+        if (snap.ok && snap.data) applyCompany(snap.data)
+
+        // Give explore the pool for Archive/Tracked before pulling fundamentals.
+        for (let i = 0; i < 25; i += 1) {
+          if (!alive || researchCompanyFetchGenRef.current !== gen) return
+          if (explorePayloadHasContent(researchExploreCacheRef.current.get(tick))) break
+          await new Promise((r) => setTimeout(r, 200))
+        }
+
+        const full = await fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}`, {
+          timeoutMs: 14_000,
+        })
+        if (!alive || researchCompanyFetchGenRef.current !== gen) return
+        if (full.ok && full.data) applyCompany(full.data)
+        setResearchCompanyContextLoading(false)
+        return
+      }
+
       // Snapshot + full in parallel — snapshot paints meta fast; full brings fundamentals.
       const [snap, full] = await Promise.all([
         fetchJsonSafe(`/api/company?ticker=${encodeURIComponent(tick)}&snapshot=1`, { timeoutMs: 6_000 }),
@@ -10455,6 +10487,32 @@ function KensiglineTerminal() {
       setAnalyseModelLoading(false)
       return
     }
+    // Company dossier: wait for explore (or timeout) so model doesn't starve Archive/Tracked.
+    if (exploreSubview === 'companyDetail' && !researchExploreResolved) {
+      setAnalyseModelLoading(true)
+      let alive = true
+      const tick = researchTicker
+      const gen = ++analyseFetchGenRef.current
+      const wait = setTimeout(() => {
+        if (!alive || analyseFetchGenRef.current !== gen) return
+        const cached = analyseCacheRef.current.get(tick)
+        if (cached) {
+          setAnalyseLivePayload(cached)
+          setAnalyseModelLoading(false)
+          return
+        }
+        void fetchAnalyseModel(tick).then((data) => {
+          if (!alive || analyseFetchGenRef.current !== gen) return
+          if (data) analyseCacheRef.current.set(tick, data)
+          setAnalyseLivePayload(data)
+          setAnalyseModelLoading(false)
+        })
+      }, 10_000)
+      return () => {
+        alive = false
+        clearTimeout(wait)
+      }
+    }
     let alive = true
     const gen = ++analyseFetchGenRef.current
     const tick = researchTicker
@@ -10475,7 +10533,7 @@ function KensiglineTerminal() {
     return () => {
       alive = false
     }
-  }, [backendUp, researchTicker, exploreSubview])
+  }, [backendUp, researchTicker, exploreSubview, researchExploreResolved])
 
   useEffect(() => {
     if (!backendUp) return

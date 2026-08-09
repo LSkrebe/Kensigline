@@ -163,10 +163,14 @@ export async function handleResearchExplore(res: http.ServerResponse, ticker: st
     );
     const companyName = resolveResearchFeedCompanyName(t, companyRow?.name, null);
 
-    const [presentation, insiders, politicians, filings13f, tracked_investors] = await Promise.all([
-      settledValue(buildResearchPresentation(t), null),
+    // Cap concurrency — Supabase transaction pooler dies when explore fans out 5 queries
+    // while company/bars/analyse also checkout connections.
+    const presentation = await settledValue(buildResearchPresentation(t), null);
+    const [insiders, politicians] = await Promise.all([
       settledValue(loadInsiderFlowsForTicker(t, 40), []),
       settledValue(loadPoliticianFlowsForTicker(t, 40), []),
+    ]);
+    const [filings13f, tracked_investors] = await Promise.all([
       settledValue(loadFilings13fForTicker(t, 24), []),
       settledValue(getTrackedInvestorsForTicker(t, 24), []),
     ]);
