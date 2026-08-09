@@ -10556,7 +10556,7 @@ function KensiglineTerminal() {
   useEffect(() => {
     if (!backendUp) return
     let alive = true
-    const cacheKey = 'investigate:insider:company:90'
+    const cacheKey = 'investigate:insider:company:30'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
       setInsiderFeedLive(hit.items)
       setInsiderFeedHasMore(Boolean(hit.hasMore))
@@ -10569,7 +10569,7 @@ function KensiglineTerminal() {
         const page = await fetchFeedPage('/api/insider/feed', {
           limit,
           offset,
-          extra: { mode: 'company', days: 90 },
+          extra: { mode: 'company', days: 30 },
         })
         if (!alive) return
         const mapped = page.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
@@ -10635,7 +10635,7 @@ function KensiglineTerminal() {
       limit: FEED_PAGE_SIZE,
       offset: insiderFeedCursorRef.current ? 0 : insiderFeedOffsetRef.current,
       cursor: insiderFeedCursorRef.current,
-      extra: { mode: 'company', days: 90 },
+      extra: { mode: 'company', days: 30 },
     })
     if (page.ok) {
       const mapped = page.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
@@ -10650,7 +10650,7 @@ function KensiglineTerminal() {
   useEffect(() => {
     if (!backendUp) return
     let alive = true
-    const cacheKey = 'investigate:institutions:120'
+    const cacheKey = 'investigate:institutions:60'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
       setInstitutionsFeedLive(hit.items)
       setInstitutionsFeedHasMore(Boolean(hit.hasMore))
@@ -10663,7 +10663,7 @@ function KensiglineTerminal() {
         const page = await fetchFeedPage('/api/institutions/feed', {
           limit,
           offset,
-          extra: { days: 120 },
+          extra: { days: 60 },
         })
         if (!alive) return
         const mapped = page.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
@@ -10726,7 +10726,7 @@ function KensiglineTerminal() {
       limit: FEED_PAGE_SIZE,
       offset: institutionsFeedCursorRef.current ? 0 : institutionsFeedOffsetRef.current,
       cursor: institutionsFeedCursorRef.current,
-      extra: { days: 120 },
+      extra: { days: 60 },
     })
     if (page.ok) {
       const mapped = page.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
@@ -10741,7 +10741,7 @@ function KensiglineTerminal() {
   useEffect(() => {
     if (!backendUp) return
     let alive = true
-    const cacheKey = 'investigate:politicians:120'
+    const cacheKey = 'investigate:politicians:30'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
       setPoliticiansFeedLive(hit.items)
       setPoliticiansFeedHasMore(Boolean(hit.hasMore))
@@ -10754,7 +10754,7 @@ function KensiglineTerminal() {
         const page = await fetchFeedPage('/api/politicians/feed', {
           limit,
           offset,
-          extra: { days: 120 },
+          extra: { days: 30 },
         })
         if (!alive) return
         const mapped = page.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
@@ -10817,7 +10817,7 @@ function KensiglineTerminal() {
       limit: FEED_PAGE_SIZE,
       offset: politiciansFeedCursorRef.current ? 0 : politiciansFeedOffsetRef.current,
       cursor: politiciansFeedCursorRef.current,
-      extra: { days: 120 },
+      extra: { days: 30 },
     })
     if (page.ok) {
       const mapped = page.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
@@ -11370,7 +11370,7 @@ function KensiglineTerminal() {
     investorBoostDone &&
     !investorModeFeedPending &&
     !investorModeLoadingMore &&
-    (investorFeedExpandCount >= 8 || !investorModeHasMore)
+    (investorFeedExpandCount >= 3 || !investorModeHasMore)
 
   // Keep loading until rich trades exist. Never end on boostDone alone (that painted +$1 stubs).
   const investorCaseRowsLoading =
@@ -11406,7 +11406,7 @@ function KensiglineTerminal() {
 
     async function boostMode(path, extra, mapFn, setLive, setHasMore, offsetRef, cursorRef, cacheKey) {
       const page = await fetchFeedPage(path, {
-        limit: 150,
+        limit: 120,
         offset: 0,
         extra,
       })
@@ -11438,33 +11438,33 @@ function KensiglineTerminal() {
       await Promise.all([
         boostMode(
           '/api/insider/feed',
-          { mode: 'company', days: 90 },
+          { mode: 'company', days: 30 },
           mapInsiderCompanyFeedItem,
           setInsiderFeedLive,
           setInsiderFeedHasMore,
           insiderFeedOffsetRef,
           insiderFeedCursorRef,
-          'investigate:insider:company:90',
+          'investigate:insider:company:30',
         ),
         boostMode(
           '/api/politicians/feed',
-          { days: 120 },
+          { days: 30 },
           mapPoliticianFeedItem,
           setPoliticiansFeedLive,
           setPoliticiansFeedHasMore,
           politiciansFeedOffsetRef,
           politiciansFeedCursorRef,
-          'investigate:politicians:120',
+          'investigate:politicians:30',
         ),
         boostMode(
           '/api/institutions/feed',
-          { days: 120 },
+          { days: 60 },
           mapInstitutionFeedItem,
           setInstitutionsFeedLive,
           setInstitutionsFeedHasMore,
           institutionsFeedOffsetRef,
           institutionsFeedCursorRef,
-          'investigate:institutions:120',
+          'investigate:institutions:60',
         ),
       ])
       if (!alive || investorBoostGenRef.current !== gen) return
@@ -11482,7 +11482,7 @@ function KensiglineTerminal() {
     if (!backendUp || exploreSubview !== 'investorDetail') return
     if (!investorBoostDone) return
     if (actorDossierIsRich(effectiveActorRow)) return
-    if (investorFeedExpandCount >= 8) return
+    if (investorFeedExpandCount >= 3) return
     if (investorModeFeedPending || investorModeLoadingMore) return
     if (!investorModeHasMore) return
     if (investorFeedExpandingRef.current) return
@@ -11596,10 +11596,10 @@ function KensiglineTerminal() {
           if (!useId) return
           const path =
             mode === 'politicians'
-              ? `/api/politicians/cluster/${encodeURIComponent(useId)}?days=180`
+              ? `/api/politicians/cluster/${encodeURIComponent(useId)}?days=120`
               : mode === 'institutions'
-                ? `/api/institutions/cluster/${encodeURIComponent(useId)}?days=180`
-                : `/api/insider/cluster/${encodeURIComponent(useId)}?days=90`
+                ? `/api/institutions/cluster/${encodeURIComponent(useId)}?days=120`
+                : `/api/insider/cluster/${encodeURIComponent(useId)}?days=30`
           const r = await fetchJsonSafe(path, { timeoutMs: 12_000 })
           if (!alive || !r.ok) return
           const data = r.data?.data ?? null
