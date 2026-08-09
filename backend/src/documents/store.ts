@@ -135,6 +135,11 @@ export async function syncInsiderTransactionsFromDocument(documentId: string, ti
 
   await db.query(`DELETE FROM insider_transactions WHERE document_id = $1`, [documentId]);
 
+  const names: string[] = [];
+  const roles: Array<string | null> = [];
+  const codes: Array<string | null> = [];
+  const amounts: Array<number | null> = [];
+  const ats: string[] = [];
   for (const r of rows) {
     const name = String(r?.insider_name ?? r?.person ?? r?.key ?? "Insider").trim();
     const role = String(r?.key ?? "").trim() || null;
@@ -142,21 +147,40 @@ export async function syncInsiderTransactionsFromDocument(documentId: string, ti
     const amt = r?.amount_usd != null ? Number(r.amount_usd) : null;
     const at = r?.ts ? String(r.ts) : fallbackAt ? String(fallbackAt) : null;
     if (!at) continue;
+    names.push(name);
+    roles.push(role);
+    codes.push(code);
+    amounts.push(Number.isFinite(amt as number) ? (amt as number) : null);
+    ats.push(at);
+  }
+
+  if (names.length) {
     await db.query(
       `
       INSERT INTO insider_transactions (document_id, ticker, insider_role, insider_name, transaction_code, amount_usd, transaction_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz)
+      SELECT $1, $2, role, name, code, amount_usd, at::timestamptz
+      FROM unnest(
+        $3::text[],
+        $4::text[],
+        $5::text[],
+        $6::float8[],
+        $7::text[]
+      ) AS t(role, name, code, amount_usd, at)
       `,
-      [documentId, t, role, name, code, Number.isFinite(amt as number) ? amt : null, at],
+      [documentId, t, roles, names, codes, amounts, ats],
     );
   }
+
   void invalidateTickerContextCache(t);
+
+  // Historical drain: skip expensive dossier rebuilds (turn back on after waitlist).
+  if (String(process.env.DOSSIER_CACHE_REFRESH_ON_INGEST ?? "1").trim() === "0") return;
+
   scheduleCompanyDossierRefresh(t, async (tick) => {
     const { buildCompanyDossierPayload } = await import("../research/company-dossier.js");
     return buildCompanyDossierPayload(tick);
   });
-  for (const r of rows) {
-    const name = String(r?.insider_name ?? r?.person ?? r?.key ?? "").trim();
+  for (const name of names) {
     const slug = slugifyInvestorName(name);
     if (!slug) continue;
     scheduleInvestorDossierRefresh(slug, "insider", async (s, m) => {

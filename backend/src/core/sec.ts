@@ -49,10 +49,11 @@ let lastSecRequestAt = 0;
 let secBlockedUntil = 0;
 const secRecentReqAt: number[] = [];
 async function secRateLimit() {
-  // Be conservative by default to avoid SEC anti-bot blocks.
-  // Configure via SEC_MIN_INTERVAL_MS if you need to tune.
-  const minMs = Math.max(0, Number(process.env.SEC_MIN_INTERVAL_MS ?? 1500));
-  const maxRps = Math.max(1, Math.min(10, Number(process.env.SEC_MAX_RPS ?? 10)));
+  // SEC fair-access guide allows up to ~10 req/s. Default min-interval of 1500ms
+  // caps the whole process at ~0.67 rps (~57k/day) — fine for polite browsing,
+  // lethal for historical drain. Override with SEC_MIN_INTERVAL_MS / SEC_MAX_RPS.
+  const minMs = Math.max(0, Number(process.env.SEC_MIN_INTERVAL_MS ?? 120));
+  const maxRps = Math.max(1, Math.min(10, Number(process.env.SEC_MAX_RPS ?? 8)));
 
   const now = Date.now();
   const blockedWait = secBlockedUntil ? secBlockedUntil - now : 0;
@@ -89,6 +90,7 @@ function normalizeTicker(t: string) {
 async function secFetchJson(url: string) {
   const ua = requireSecUserAgent();
   await secRateLimit();
+  const timeoutMs = Math.max(3_000, Math.min(60_000, Number(process.env.SEC_FETCH_TIMEOUT_MS ?? 20_000) || 20_000));
   const res = await fetch(url, {
     headers: {
       "user-agent": ua,
@@ -96,19 +98,24 @@ async function secFetchJson(url: string) {
       "accept-encoding": "gzip, deflate, br",
       connection: "keep-alive",
     },
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const ctype = String(res.headers.get("content-type") ?? "").toLowerCase();
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     if (res.status === 403 || res.status === 429 || res.status >= 500) {
-      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + 60_000);
+      const blockMs = Math.max(5_000, Math.min(60_000, Number(process.env.SEC_BLOCK_MS ?? 15_000) || 15_000));
+      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + blockMs);
+      console.warn(`[sec] soft_block status=${res.status} ms=${blockMs} url=${url.slice(0, 120)}`);
     }
     throw new Error(`sec_fetch_failed ${res.status} ${url} ${txt.slice(0, 200)}`);
   }
   if (!ctype.includes("application/json")) {
     const txt = await res.text().catch(() => "");
     if (looksLikeSecBotBlock(txt)) {
-      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + 120_000);
+      const blockMs = Math.max(5_000, Math.min(120_000, Number(process.env.SEC_BOT_BLOCK_MS ?? 30_000) || 30_000));
+      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + blockMs);
+      console.warn(`[sec] bot_block ms=${blockMs}`);
       throw new Error("sec_blocked_undeclared_automated_tool");
     }
     // SEC sometimes mislabels JSON responses (e.g. `text/html`) even when the body is JSON.
@@ -122,7 +129,8 @@ async function secFetchJson(url: string) {
       }
     }
     if (ctype.includes("text/html")) {
-      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + 60_000);
+      const blockMs = Math.max(5_000, Math.min(60_000, Number(process.env.SEC_BLOCK_MS ?? 15_000) || 15_000));
+      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + blockMs);
     }
     throw new Error(`sec_expected_json_got_${ctype || "unknown"}`);
   }
@@ -132,6 +140,7 @@ async function secFetchJson(url: string) {
 async function secFetchText(url: string) {
   const ua = requireSecUserAgent();
   await secRateLimit();
+  const timeoutMs = Math.max(3_000, Math.min(60_000, Number(process.env.SEC_FETCH_TIMEOUT_MS ?? 20_000) || 20_000));
   const res = await fetch(url, {
     headers: {
       "user-agent": ua,
@@ -139,17 +148,22 @@ async function secFetchText(url: string) {
       "accept-encoding": "gzip, deflate, br",
       connection: "keep-alive",
     },
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     if (res.status === 403 || res.status === 429 || res.status >= 500) {
-      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + 60_000);
+      const blockMs = Math.max(5_000, Math.min(60_000, Number(process.env.SEC_BLOCK_MS ?? 15_000) || 15_000));
+      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + blockMs);
+      console.warn(`[sec] soft_block status=${res.status} ms=${blockMs} url=${url.slice(0, 120)}`);
     }
     throw new Error(`sec_fetch_failed ${res.status} ${url} ${txt.slice(0, 200)}`);
   }
   const txt = await res.text();
   if (looksLikeSecBotBlock(txt)) {
-    secBlockedUntil = Math.max(secBlockedUntil, Date.now() + 120_000);
+    const blockMs = Math.max(5_000, Math.min(120_000, Number(process.env.SEC_BOT_BLOCK_MS ?? 30_000) || 30_000));
+    secBlockedUntil = Math.max(secBlockedUntil, Date.now() + blockMs);
+    console.warn(`[sec] bot_block ms=${blockMs}`);
     throw new Error("sec_blocked_undeclared_automated_tool");
   }
   return txt;
@@ -550,56 +564,67 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
   }
 
   const filings = parseMasterIdxForForms(master, new Set([form]));
-  let found = 0;
+  const found = filings.length;
   let enqueued = 0;
   let skipped_existing = 0;
   let truncated = false;
 
-  for (const f of filings) {
-    found += 1;
+  // Batch existence checks + inserts. Per-row round-trips through the transaction
+  // pooler melted Supabase (ECHECKOUTTIMEOUT) and capped historical drain.
+  const chunkSize = Math.max(50, Math.min(500, Number(process.env.BACKFILL_ENQUEUE_CHUNK ?? 200) || 200));
 
-    const cik10 = String(Number(f.cik)).padStart(10, "0");
-    const indexUrl = accessionToIndexJsonUrl(cik10, f.accession);
-
-    const existing = await db.one<{ id: string }>(
-      `
-      SELECT id FROM document_queue WHERE url = $1 AND source_type = $2
-      UNION ALL
-      SELECT id FROM documents WHERE url = $1
-      LIMIT 1
-      `,
-      [indexUrl, sourceType],
-    );
-    if (existing) {
-      skipped_existing += 1;
-      continue;
-    }
-
+  for (let i = 0; i < filings.length; i += chunkSize) {
     if (limit > 0 && enqueued >= limit) {
       truncated = true;
       break;
     }
 
-    const r = await db.one<{ id: string }>(
-      `
-      INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)
-      VALUES ($1, $2, 'ready_to_parse', $3, 0, now())
-      RETURNING id
-      `,
-      [indexUrl, sourceType, priority],
-    );
-    if (r?.id) enqueued += 1;
+    const chunk = filings.slice(i, i + chunkSize);
+    const urls = chunk.map((f) => {
+      const cik10 = String(Number(f.cik)).padStart(10, "0");
+      return accessionToIndexJsonUrl(cik10, f.accession);
+    });
 
-    if (f.company) {
-      await db.query(
-        `
-        INSERT INTO companies (name, updated_at)
-        VALUES ($1, now())
-        ON CONFLICT (name) DO UPDATE SET updated_at = now()
-        `,
-        [f.company],
-      );
+    const existingRows = await db.query<{ url: string }>(
+      `
+      SELECT url FROM document_queue WHERE source_type = $2 AND url = ANY($1::text[])
+      UNION
+      SELECT url FROM documents WHERE url = ANY($1::text[])
+      `,
+      [urls, sourceType],
+    );
+    const existing = new Set(existingRows.map((r) => r.url));
+
+    const toInsert: string[] = [];
+    for (const url of urls) {
+      if (existing.has(url)) {
+        skipped_existing += 1;
+        continue;
+      }
+      if (limit > 0 && enqueued + toInsert.length >= limit) {
+        truncated = true;
+        break;
+      }
+      toInsert.push(url);
     }
+
+    if (toInsert.length) {
+      const inserted = await db.query<{ id: string }>(
+        `
+        INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)
+        SELECT u, $2, 'ready_to_parse', $3, 0, now()
+        FROM unnest($1::text[]) AS u
+        WHERE NOT EXISTS (
+          SELECT 1 FROM document_queue q WHERE q.url = u AND q.source_type = $2
+        )
+        RETURNING id
+        `,
+        [toInsert, sourceType, priority],
+      );
+      enqueued += inserted.length;
+    }
+
+    if (truncated) break;
   }
 
   return { day, form, sourceType, found, enqueued, skipped_existing, index_missing: false, truncated };

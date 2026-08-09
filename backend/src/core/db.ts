@@ -59,6 +59,14 @@ const workerPoolMax = Math.max(
   1,
   Math.min(16, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 8) || 8),
 );
+/**
+ * Max concurrent worker-lane SQL checkouts.
+ * Parse loops can be numerous (HTTP/SEC in parallel); only this many hit Postgres at once.
+ */
+const workerQueryConcurrency = Math.max(
+  1,
+  Math.min(16, Number(process.env.WORKER_QUERY_CONCURRENCY ?? 6) || 6),
+);
 
 function makePool(max: number, label: string): Pool {
   const p = new Pool({
@@ -78,12 +86,48 @@ function makePool(max: number, label: string): Pool {
 const apiPool = makePool(apiPoolMax, "api");
 const workerPool = makePool(workerPoolMax, "worker");
 
-console.info(`[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax}`);
+console.info(
+  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency}`,
+);
 
 type DbLane = "api" | "worker";
 const dbLane = new AsyncLocalStorage<DbLane>();
 
-/** Run background work on the worker pool (no global job semaphore — classic high-throughput mode). */
+let workerQueriesInFlight = 0;
+const workerQueryWaiters: Array<() => void> = [];
+
+async function acquireWorkerQuerySlot(): Promise<void> {
+  if (workerQueriesInFlight < workerQueryConcurrency) {
+    workerQueriesInFlight += 1;
+    return;
+  }
+  // Slot is transferred by releaseWorkerQuerySlot (inFlight unchanged).
+  await new Promise<void>((resolve) => workerQueryWaiters.push(resolve));
+}
+
+function releaseWorkerQuerySlot(): void {
+  const next = workerQueryWaiters.shift();
+  if (next) {
+    next();
+    return;
+  }
+  workerQueriesInFlight = Math.max(0, workerQueriesInFlight - 1);
+}
+
+async function withWorkerQuerySlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (dbLane.getStore() !== "worker") return fn();
+  await acquireWorkerQuerySlot();
+  try {
+    return await fn();
+  } finally {
+    releaseWorkerQuerySlot();
+  }
+}
+
+/**
+ * Run background work on the worker pool.
+ * HTTP/SEC inside may run wide; SQL is gated by WORKER_QUERY_CONCURRENCY.
+ */
 export async function runWithWorkerDb<T>(fn: () => Promise<T> | T): Promise<T> {
   return await dbLane.run("worker", fn);
 }
@@ -109,24 +153,30 @@ async function withClientTimeout<T>(
   timeoutMs: number,
   fn: (client: { query: Pool["query"] }) => Promise<T>,
 ): Promise<T> {
-  const client = await activePool().connect();
-  try {
-    const ms = Math.max(500, Math.floor(timeoutMs));
-    await client.query(`SET LOCAL statement_timeout = ${ms}`);
-    return await fn(client);
-  } finally {
-    client.release();
-  }
+  return withWorkerQuerySlot(async () => {
+    const client = await activePool().connect();
+    try {
+      const ms = Math.max(500, Math.floor(timeoutMs));
+      await client.query(`SET LOCAL statement_timeout = ${ms}`);
+      return await fn(client);
+    } finally {
+      client.release();
+    }
+  });
 }
 
 export const db = {
   async query<T = any>(text: string, params: any[] = []): Promise<T[]> {
-    const r = await activePool().query(text, params);
-    return r.rows as T[];
+    return withWorkerQuerySlot(async () => {
+      const r = await activePool().query(text, params);
+      return r.rows as T[];
+    });
   },
   async one<T = any>(text: string, params: any[] = []): Promise<T | null> {
-    const r = await activePool().query(text, params);
-    return (r.rows[0] as T | undefined) ?? null;
+    return withWorkerQuerySlot(async () => {
+      const r = await activePool().query(text, params);
+      return (r.rows[0] as T | undefined) ?? null;
+    });
   },
   /** API/read path — hard-cap statement time so one slow query cannot pin the pool. */
   async queryApi<T = any>(text: string, params: any[] = [], timeoutMs = DEFAULT_API_TIMEOUT_MS): Promise<T[]> {

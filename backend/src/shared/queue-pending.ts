@@ -16,3 +16,20 @@ export async function countPendingQueue(sourceTypes: string[]): Promise<number> 
   );
   return Number(row?.n ?? 0) || 0;
 }
+
+/** Ready/failed only — used to decide whether to top up via backfill while parsers are busy. */
+export async function countReadyQueue(sourceTypes: string[]): Promise<number> {
+  if (!sourceTypes.length) return 0;
+  const placeholders = sourceTypes.map((_, i) => `$${i + 1}`).join(", ");
+  const row = await db.one<{ n: string }>(
+    `
+    SELECT COUNT(*)::text AS n
+    FROM document_queue
+    WHERE source_type IN (${placeholders})
+      AND status IN ('ready_to_parse', 'queued', 'failed')
+      AND (next_attempt_at IS NULL OR next_attempt_at <= now())
+    `,
+    sourceTypes,
+  );
+  return Number(row?.n ?? 0) || 0;
+}

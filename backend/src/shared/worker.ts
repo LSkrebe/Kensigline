@@ -1,5 +1,5 @@
 import { runWithWorkerDb } from "../core/db.js";
-import { countPendingQueue } from "./queue-pending.js";
+import { countReadyQueue } from "./queue-pending.js";
 import { reclaimStaleParsing, requeueTransientDead } from "./queue.js";
 
 function sleep(ms: number) {
@@ -34,8 +34,9 @@ function envNum(prefix: string, key: string, fallback: number) {
 }
 
 /**
- * Classic high-throughput pipeline worker (pre Auth-throttle era).
- * No global parse semaphore / DB job gate — parallelism = sum of PARSE_CONCURRENCY.
+ * High-throughput pipeline worker.
+ * Parallelism = sum of PARSE_CONCURRENCY (HTTP/SEC in flight).
+ * Postgres checkouts are capped separately via WORKER_QUERY_CONCURRENCY in db.ts.
  */
 export function startPipelineWorker(opts: PipelineWorkerOpts) {
   const d = opts.defaults ?? {};
@@ -44,7 +45,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   const parseThrottleMs = Math.max(50, envNum(opts.envPrefix, "PARSE_THROTTLE_MS", d.parseThrottleMs ?? 750));
   const parseConcurrency = Math.max(
     1,
-    Math.min(6, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
+    Math.min(8, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
   );
   const backfillIntervalMs = Math.max(
     5_000,
@@ -87,8 +88,13 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     if (backfillRunning) return;
     if (Date.now() - lastBackfillAt < backfillIntervalMs) return;
 
-    const pending = await runWithWorkerDb(() => countPendingQueue(opts.sourceTypes!));
-    if (pending > 0) return;
+    const pending = await runWithWorkerDb(() => countReadyQueue(opts.sourceTypes!));
+    // Keep the parse queue fed — waiting for empty causes starve/fill cycles.
+    const lowWater = Math.max(
+      0,
+      envNum(opts.envPrefix, "BACKFILL_QUEUE_LOW_WATER", Number(process.env.BACKFILL_QUEUE_LOW_WATER ?? 80) || 80),
+    );
+    if (pending > lowWater) return;
 
     backfillRunning = true;
     lastBackfillAt = Date.now();
@@ -113,6 +119,8 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
 
   for (let w = 0; w < parseConcurrency; w++) {
     (async () => {
+      // Tiny stagger so claim storms don't all hit the pooler on the same tick.
+      await sleep(w * 40);
       for (;;) {
         if (stopped) return;
         try {
@@ -121,6 +129,8 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
             await maybeRunBackfill();
             await sleep(parsePollMs);
           } else {
+            // Top up the queue while parsers are busy (low-water backfill).
+            void maybeRunBackfill();
             await sleep(parseThrottleMs);
           }
         } catch (e) {

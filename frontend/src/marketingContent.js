@@ -44,7 +44,7 @@ export const WAITLIST = {
   lead: 'We’re finishing historical coverage. Leave your email and we’ll notify you when Mercerline opens.',
   submit: 'Notify me',
   success: 'You’re on the list. We’ll email you when access opens.',
-  placeholder: 'you@company.com',
+  placeholder: 'you@email.com',
 }
 
 export const SIGN_IN = {

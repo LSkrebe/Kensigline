@@ -13,20 +13,36 @@ import { runWithWorkerDb } from "../core/db.js";
 
 export type Stoppable = { stop(): void };
 
+function envEnabled(key: string, defaultOn = true): boolean {
+  const raw = process.env[key];
+  if (raw === undefined || raw === "") return defaultOn;
+  const v = String(raw).trim().toLowerCase();
+  return v !== "0" && v !== "false" && v !== "off";
+}
+
 /** All background workers — add new pipelines here. */
 export function startAllWorkers(): Stoppable[] {
-  const workers: Stoppable[] = [
-    startInsiderWorker(),
-    startOutcomesWorker(),
-    startPoliticiansWorker(),
-    startInstitutionsWorker(),
-    startResearchWorker(),
-    startAlertsWorker(),
-    startContextAlertsWorker(),
-    startPoliticianCommitteeRefreshWorker(),
-    startBarsRefreshWorker(),
-    startRetentionWorker(),
-  ];
+  const workers: Stoppable[] = [];
+
+  if (envEnabled("INSIDER_WORKER_ENABLED", true)) workers.push(startInsiderWorker());
+  if (envEnabled("OUTCOMES_WORKER_ENABLED", true)) workers.push(startOutcomesWorker());
+  if (envEnabled("POLITICIANS_WORKER_ENABLED", true)) workers.push(startPoliticiansWorker());
+  if (envEnabled("INSTITUTIONS_WORKER_ENABLED", true)) workers.push(startInstitutionsWorker());
+  if (envEnabled("RESEARCH_WORKER_ENABLED", true)) workers.push(startResearchWorker());
+  if (envEnabled("ALERTS_WORKER_ENABLED", true)) {
+    workers.push(startAlertsWorker());
+    workers.push(startContextAlertsWorker());
+  }
+  if (envEnabled("POLITICIAN_COMMITTEES_WORKER_ENABLED", true)) {
+    workers.push(startPoliticianCommitteeRefreshWorker());
+  }
+  // bars-worker self-gates on BARS_REFRESH_ENABLED
+  workers.push(startBarsRefreshWorker());
+  if (envEnabled("RETENTION_WORKER_ENABLED", true)) workers.push(startRetentionWorker());
+
+  console.info(
+    `[workers] started=${workers.length} institutions=${envEnabled("INSTITUTIONS_WORKER_ENABLED", true)} outcomes=${envEnabled("OUTCOMES_WORKER_ENABLED", true)} alerts=${envEnabled("ALERTS_WORKER_ENABLED", true)}`,
+  );
 
   // Default off: startup recompute was pinning the DB pool and crashing the API under memory spikes.
   if (String(process.env.OUTCOMES_RECOMPUTE_ON_START ?? "0").trim() === "1") {

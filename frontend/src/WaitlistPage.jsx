@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { fetchJsonSafe } from './api.js'
 import { WAITLIST, WAITLIST_PAGE_META } from './marketingContent.js'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
@@ -24,22 +23,15 @@ export function WaitlistPage() {
     e.preventDefault()
     if (busy || done) return
     setError(null)
-    setBusy(true)
-    const res = await fetchJsonSafe('/api/waitlist', {
-      method: 'POST',
-      timeoutMs: 12000,
-      body: { email, source: 'waitlist' },
-    })
-    setBusy(false)
-    if (!res.ok || !res.data?.ok) {
-      const code = res.data?.error || res.error || 'failed'
-      setError(
-        code === 'invalid_email'
-          ? 'Enter a valid email address.'
-          : 'Could not join right now. Try again in a moment.',
-      )
+    const trimmed = String(email ?? '').trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setError('Enter a valid email address.')
       return
     }
+    setBusy(true)
+    // Fake join — no storage / no API. UI only while history drain runs.
+    await new Promise((r) => setTimeout(r, 280))
+    setBusy(false)
     setDone(true)
   }
 
