@@ -6,6 +6,7 @@ import { scoreResearchDocument } from "../core/idea-score.js";
 import { isoTimestampFromDb } from "../shared/db-time.js";
 import { invalidateTickerContextCache } from "../core/ticker-context-cache.js";
 import { invalidateAnalyseModelCache } from "../analyse/build-model.js";
+import { isPlausibleTrackedFiler } from "../research/market/tracked-investors-filter.js";
 import { parseEventTimeMs, sanitizeEventAtForFeed, FEED_FUTURE_GRACE_DAYS } from "../shared/document-activity-at.js";
 import { syncFeedIndexForDocument } from "../shared/feed-index.js";
 import { lookupPoliticianCommittee, lookupPoliticianCommittees } from "../politicians/committees.js";
@@ -196,11 +197,12 @@ export async function syncInstitutionFilingsFromDocument(documentId: string, tic
   await db.query(`DELETE FROM institution_filings_13f WHERE document_id = $1`, [documentId]);
 
   for (const r of rows) {
-    const filer = String(r?.institution_name ?? r?.key ?? "Institution").trim();
+    const filer = String(r?.institution_name ?? r?.key ?? "").trim();
     const activity = String(r?.activity ?? "").trim() || null;
     const amt = r?.amount_usd != null ? Number(r.amount_usd) : null;
     const at = r?.ts ? String(r.ts) : fallbackAt ? String(fallbackAt) : null;
     if (!at) continue;
+    if (!isPlausibleTrackedFiler(filer, Number.isFinite(amt as number) ? (amt as number) : null)) continue;
     await db.query(
       `
       INSERT INTO institution_filings_13f (document_id, ticker, filer, activity, amount_usd, filed_at)
@@ -340,8 +342,10 @@ async function loadFilings13fFromDocuments(ticker: string, limit = 40) {
       const at = r?.ts ? String(r.ts) : fallbackAt;
       if (!at) continue;
       const amt = r?.amount_usd != null ? Number(r.amount_usd) : null;
+      const filer = String(r?.institution_name ?? r?.key ?? "").trim();
+      if (!isPlausibleTrackedFiler(filer, Number.isFinite(amt as number) ? (amt as number) : null)) continue;
       out.push({
-        filer: String(r?.institution_name ?? r?.key ?? "Institution").trim() || "Institution",
+        filer,
         activity: r?.activity ? String(r.activity).trim() : null,
         date: at,
         amount: amt != null && Number.isFinite(amt) && amt > 0 ? formatUsdCompact(amt) : "—",
@@ -461,13 +465,17 @@ export async function loadFilings13fForTicker(ticker: string, limit = 40) {
     [t, limit],
   );
   if (!rows.length) return loadFilings13fFromDocuments(t, limit);
-  return rows.map((r) => ({
-    filer: r.filer,
-    activity: r.activity,
-    date: r.filed_at,
-    amount: r.amount_usd != null && Number(r.amount_usd) > 0 ? formatUsdCompact(Number(r.amount_usd)) : "—",
-    url: r.url ? String(r.url).trim() : null,
-  }));
+  return rows
+    .map((r) => ({
+      filer: r.filer,
+      activity: r.activity,
+      date: r.filed_at,
+      amount: r.amount_usd != null && Number(r.amount_usd) > 0 ? formatUsdCompact(Number(r.amount_usd)) : "—",
+      amountUsd: r.amount_usd != null ? Number(r.amount_usd) : null,
+      url: r.url ? String(r.url).trim() : null,
+    }))
+    .filter((r) => isPlausibleTrackedFiler(r.filer, r.amountUsd))
+    .map(({ amountUsd: _a, ...rest }) => rest);
 }
 
 export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): Promise<PaperDocumentRow[]> {

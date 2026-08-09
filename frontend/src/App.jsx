@@ -2420,16 +2420,46 @@ function aggregateContextPoliticians(rows, days = null) {
     .sort((a, b) => Math.abs(b.totalUsd) - Math.abs(a.totalUsd))
 }
 
+const ABSURD_TRACKED_USD = 50_000_000_000
+const PLACEHOLDER_INVESTOR_NAME_RE =
+  /^(institutions?|insiders?|politicians?|filers?|unknown|n\/?a|null|undefined|none|—|-|–|--)$/i
+
+function isPlaceholderInvestorName(name) {
+  const s = String(name ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+  if (!s) return true
+  if (PLACEHOLDER_INVESTOR_NAME_RE.test(s)) return true
+  if (/^(institutions?|insiders?|politicians?|unknown)\b/i.test(s) && s.length <= 24) return true
+  return false
+}
+
+function isAbsurdTrackedUsd(usd) {
+  const n = Number(usd)
+  return Number.isFinite(n) && Math.abs(n) > ABSURD_TRACKED_USD
+}
+
+function isPlausibleTrackedFiler(name, usd = null) {
+  if (isPlaceholderInvestorName(name)) return false
+  if (usd != null && isAbsurdTrackedUsd(usd)) return false
+  return true
+}
+
+function sanitizeTrackedInvestorRows(rows) {
+  return (rows ?? []).filter((row) => isPlausibleTrackedFiler(row?.name, row?.totalUsd))
+}
+
 function aggregateContextInstitutions(rows, days = null) {
   const map = new Map()
   for (const row of rows ?? []) {
     if (days != null && !isWithinPastDays(row.date, days)) continue
-    const id = String(row.filer ?? 'Institution')
+    const name = String(row.filer ?? '').trim()
     const usd = signedFlowUsd(row, institutionFlowSign)
     if (usd === 0) continue
+    if (!isPlausibleTrackedFiler(name, usd)) continue
     const at = flowRowDateMs(row.date)
-    const prev = map.get(id) ?? {
-      filer: row.filer,
+    const prev = map.get(name) ?? {
+      filer: name,
       totalUsd: 0,
       latestAt: 0,
       latestActivity: row.activity ?? null,
@@ -2439,12 +2469,13 @@ function aggregateContextInstitutions(rows, days = null) {
       prev.latestAt = at
       prev.latestActivity = row.activity ?? prev.latestActivity
     }
-    map.set(id, prev)
+    map.set(name, prev)
   }
   return [...map.values()]
+    .filter((x) => isPlausibleTrackedFiler(x.filer, x.totalUsd))
     .map((x) => ({
       id: `institution|${x.filer}`,
-      name: String(x.filer ?? '').trim() || '—',
+      name: x.filer,
       type: 'Institution',
       typeKey: 'institution',
       amount: formatTxnAmountUsd(x.totalUsd),
@@ -2465,9 +2496,8 @@ function mapTrackedInvestorsFromApi(rows) {
       const normalizedKey =
         typeKey === 'politician' ? 'politician' : typeKey === 'institution' ? 'institution' : 'insider'
       const name = String(r.name ?? '').trim()
-      if (!name || /^(institution|insider|politician|unknown|n\/?a|—|-)$/i.test(name)) return null
       const totalUsd = Number(r.amountUsd ?? r.amount_usd ?? 0)
-      if (Number.isFinite(totalUsd) && Math.abs(totalUsd) > 100_000_000_000) return null
+      if (!isPlausibleTrackedFiler(name, Number.isFinite(totalUsd) ? totalUsd : null)) return null
 
       // Prefer explicit codes, then reconcile against net signed USD so we never show BUY on −$14M.
       let code = String(
@@ -2538,7 +2568,7 @@ function mapTrackedInvestorsFromApi(rows) {
 function buildContextTrackedInvestors({ insiders = [], politicians = [], filings13f = [], days = null, apiRows = null }) {
   const fromApi = mapTrackedInvestorsFromApi(apiRows)
   if (fromApi?.length) {
-    return fromApi.sort((a, b) => (b.dateAt ?? 0) - (a.dateAt ?? 0))
+    return sanitizeTrackedInvestorRows(fromApi).sort((a, b) => (b.dateAt ?? 0) - (a.dateAt ?? 0))
   }
   const insiderRows = aggregateContextInsiders(insiders, days).map((x) => {
     const net = Number(x.totalUsd)
@@ -2586,7 +2616,7 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
       date: formatTrackedInvestorDate(x.latestAt),
     }
   })
-  return [...insiderRows, ...politicianRows, ...institutionRows].sort(
+  return sanitizeTrackedInvestorRows([...insiderRows, ...politicianRows, ...institutionRows]).sort(
     (a, b) => (b.dateAt ?? 0) - (a.dateAt ?? 0),
   )
 }
