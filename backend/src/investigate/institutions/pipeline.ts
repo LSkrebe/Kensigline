@@ -358,7 +358,8 @@ async function persistInstitutionHoldings(args: {
 
     const sumUsd = worksheet_rows.reduce((a, r) => a + (Number(r.amount_usd ?? 0) || 0), 0);
     const feedLabel = sumUsd > 0 ? `${Math.round(sumUsd)} (${worksheet_rows.length})` : `(${worksheet_rows.length})`;
-    const feedAt = worksheet_rows[0]?.ts ?? formatIso(args.filedAt) ?? new Date().toISOString();
+    const feedAt =
+      worksheet_rows.find((r) => r.ts)?.ts ?? formatIso(args.filedAt) ?? new Date().toISOString();
 
     const issuer = await ensureIssuer({
       ticker,
@@ -384,14 +385,13 @@ async function persistInstitutionHoldings(args: {
 
     const txnRows = [];
     for (const r of worksheet_rows) {
-      if (!r.ts) continue;
       const amt = r.amount_usd != null ? Number(r.amount_usd) : null;
       txnRows.push({
         filerId: institutionFiler.id,
         activity: r.activity ? String(r.activity) : null,
         amountUsd: Number.isFinite(amt as number) ? amt : null,
         shares: r.shares != null ? Number(r.shares) : null,
-        transactionAt: String(r.ts),
+        transactionAt: String(r.ts ?? feedAt),
       });
     }
     await replaceInstitutionTransactions(filingId, issuer.id, txnRows);
