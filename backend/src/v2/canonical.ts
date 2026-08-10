@@ -105,25 +105,78 @@ export async function ensureFiler(opts: {
   const clash = await db.one<{ id: string }>(`SELECT id FROM filers WHERE slug = $1`, [slug]);
   if (clash) slug = `${slug}-${opts.filerType}-${crypto.randomUUID().slice(0, 6)}`;
 
-  const filer = await db.one<{ id: string; slug: string; display_name: string }>(
-    `
-    INSERT INTO filers (filer_type, display_name, slug, detail, detail_secondary, updated_at)
-    VALUES ($1::filer_type, $2, $3, $4, $5, now())
-    RETURNING id, slug, display_name
-    `,
-    [opts.filerType, displayName, slug, opts.detail ?? null, opts.detailSecondary ?? null],
-  );
-  if (!filer) throw new Error("ensure_filer_failed");
+  try {
+    const filer = await db.one<{ id: string; slug: string; display_name: string }>(
+      `
+      INSERT INTO filers (filer_type, display_name, slug, detail, detail_secondary, updated_at)
+      VALUES ($1::filer_type, $2, $3, $4, $5, now())
+      RETURNING id, slug, display_name
+      `,
+      [opts.filerType, displayName, slug, opts.detail ?? null, opts.detailSecondary ?? null],
+    );
+    if (!filer) throw new Error("ensure_filer_failed");
 
-  await db.query(
-    `
-    INSERT INTO filer_aliases (filer_id, filer_type, raw_name)
-    VALUES ($1, $2::filer_type, $3)
-    ON CONFLICT (filer_type, raw_name) DO NOTHING
-    `,
-    [filer.id, opts.filerType, rawKey],
-  );
-  return filer;
+    await db.query(
+      `
+      INSERT INTO filer_aliases (filer_id, filer_type, raw_name)
+      VALUES ($1, $2::filer_type, $3)
+      ON CONFLICT (filer_type, raw_name) DO NOTHING
+      `,
+      [filer.id, opts.filerType, rawKey],
+    );
+    return filer;
+  } catch (err: any) {
+    // Concurrent insert races on slug or alias — resolve via alias/slug lookup.
+    if (String(err?.code) === "23505") {
+      const viaAlias = await db.one<{ id: string; slug: string; display_name: string }>(
+        `
+        SELECT f.id, f.slug, f.display_name
+        FROM filer_aliases a
+        JOIN filers f ON f.id = a.filer_id
+        WHERE a.filer_type = $1::filer_type AND a.raw_name = $2
+        LIMIT 1
+        `,
+        [opts.filerType, rawKey],
+      );
+      if (viaAlias) return viaAlias;
+      const viaSlug = await db.one<{ id: string; slug: string; display_name: string }>(
+        `SELECT id, slug, display_name FROM filers WHERE slug = $1 LIMIT 1`,
+        [slug],
+      );
+      if (viaSlug) {
+        await db.query(
+          `
+          INSERT INTO filer_aliases (filer_id, filer_type, raw_name)
+          VALUES ($1, $2::filer_type, $3)
+          ON CONFLICT (filer_type, raw_name) DO NOTHING
+          `,
+          [viaSlug.id, opts.filerType, rawKey],
+        );
+        return viaSlug;
+      }
+      // Last resort: unique slug retry.
+      slug = `${slugifyFilerName(displayName)}-${crypto.randomUUID().slice(0, 8)}`;
+      const filer = await db.one<{ id: string; slug: string; display_name: string }>(
+        `
+        INSERT INTO filers (filer_type, display_name, slug, detail, detail_secondary, updated_at)
+        VALUES ($1::filer_type, $2, $3, $4, $5, now())
+        RETURNING id, slug, display_name
+        `,
+        [opts.filerType, displayName, slug, opts.detail ?? null, opts.detailSecondary ?? null],
+      );
+      if (!filer) throw new Error("ensure_filer_failed");
+      await db.query(
+        `
+        INSERT INTO filer_aliases (filer_id, filer_type, raw_name)
+        VALUES ($1, $2::filer_type, $3)
+        ON CONFLICT (filer_type, raw_name) DO NOTHING
+        `,
+        [filer.id, opts.filerType, rawKey],
+      );
+      return filer;
+    }
+    throw err;
+  }
 }
 
 export type FilingInsert = {

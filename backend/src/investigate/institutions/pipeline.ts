@@ -13,7 +13,6 @@ import {
   replaceInstitutionTransactions,
   upsertFeedEntry,
 } from "../../v2/canonical.js";
-import { isPlausibleTrackedFiler } from "../../research/market/tracked-investors-filter.js";
 import { claimQueueItemSingle, failQueueWithBackoff, markQueueDead, markQueueParsed } from "../../shared/queue.js";
 import {
   MIN_PARSED_13F_HOLDINGS,
@@ -387,9 +386,6 @@ async function persistInstitutionHoldings(args: {
     for (const r of worksheet_rows) {
       if (!r.ts) continue;
       const amt = r.amount_usd != null ? Number(r.amount_usd) : null;
-      if (!isPlausibleTrackedFiler(args.filerName, Number.isFinite(amt as number) ? (amt as number) : null)) {
-        continue;
-      }
       txnRows.push({
         filerId: institutionFiler.id,
         activity: r.activity ? String(r.activity) : null,
