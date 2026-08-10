@@ -3,6 +3,7 @@ import { WAITLIST, WAITLIST_PAGE_META } from './marketingContent.js'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
+import { fetchJsonSafe } from './api.js'
 import './IntroPage.css'
 import './IntroPage.marketing.css'
 import './SignInPage.css'
@@ -29,10 +30,23 @@ export function WaitlistPage() {
       return
     }
     setBusy(true)
-    // Fake join — no storage / no API. UI only while history drain runs.
-    await new Promise((r) => setTimeout(r, 280))
-    setBusy(false)
-    setDone(true)
+    try {
+      const r = await fetchJsonSafe('/api/waitlist', {
+        method: 'POST',
+        body: { email: trimmed },
+        timeoutMs: 8000,
+      })
+      if (!r?.ok) {
+        setError('Could not join right now. Try again in a moment.')
+        setBusy(false)
+        return
+      }
+      setDone(true)
+    } catch {
+      setError('Could not join right now. Try again in a moment.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
