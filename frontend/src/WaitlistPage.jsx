@@ -9,7 +9,7 @@ import './SignInPage.css'
 import './WaitlistPage.css'
 
 /** Where waitlist pings land (FormSubmit from the browser — avoids Hetzner/Brevo). */
-const WAITLIST_NOTIFY_TO = 'lukas.skrebe@gmail.com'
+const WAITLIST_NOTIFY_TO = 'lm.skrebe@gmail.com'
 
 export function WaitlistPage() {
   const [email, setEmail] = useState('')
