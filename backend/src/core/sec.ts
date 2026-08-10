@@ -276,7 +276,7 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
                OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%')
               AND source_type = 'sec_form4'
             UNION ALL
-            SELECT id FROM documents
+            SELECT id FROM filings
             WHERE url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
                OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%'
             LIMIT 1
@@ -287,7 +287,7 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
             `
             SELECT id FROM document_queue WHERE url = $1 AND source_type = 'sec_form4'
             UNION ALL
-            SELECT id FROM documents WHERE url = $1
+            SELECT id FROM filings WHERE url = $1
             LIMIT 1
             `,
             [filingUrl],
@@ -589,7 +589,7 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
       `
       SELECT url FROM document_queue WHERE source_type = $2 AND url = ANY($1::text[])
       UNION
-      SELECT url FROM documents WHERE url = ANY($1::text[])
+      SELECT url FROM filings WHERE url = ANY($1::text[])
       `,
       [urls, sourceType],
     );
@@ -665,7 +665,7 @@ export async function enqueueRecentForm4Global(opts?: { daysBack?: number; limit
         `
         SELECT id FROM document_queue WHERE url = $1 AND source_type = 'sec_form4'
         UNION ALL
-        SELECT id FROM documents WHERE url = $1
+        SELECT id FROM filings WHERE url = $1
         LIMIT 1
         `,
         [indexUrl],
@@ -746,7 +746,7 @@ export async function enqueueLatestForm4ForTicker(opts: { ticker: string; limit?
       `
       SELECT id FROM document_queue WHERE url = $1 AND source_type = 'sec_form4'
       UNION ALL
-      SELECT id FROM documents WHERE url = $1
+      SELECT id FROM filings WHERE url = $1
       LIMIT 1
       `,
       [docUrl],
@@ -802,18 +802,11 @@ export async function enqueueLatestFilingsForTicker(opts: {
   const sourceType = String(opts.sourceType ?? "sec_filing").trim() || "sec_filing";
 
   const { cik, title } = await resolveCikForTicker(ticker);
-  let companyId: string | null = null;
+  let issuerId: string | null = null;
   if (title) {
-    const row = await db.one<{ id: string }>(
-      `
-      INSERT INTO companies (name, ticker, updated_at)
-      VALUES ($1, $2, now())
-      ON CONFLICT (name) DO UPDATE SET ticker = EXCLUDED.ticker, updated_at = now()
-      RETURNING id
-      `,
-      [title, ticker],
-    );
-    companyId = row?.id ?? null;
+    const { ensureIssuer } = await import("../v2/canonical.js");
+    const issuer = await ensureIssuer({ ticker, name: title, cik });
+    issuerId = issuer.id;
   }
   const subs = (await secFetchJson(`https://data.sec.gov/submissions/CIK${cik}.json`)) as Submissions;
   const recent = subs.filings?.recent;
@@ -838,7 +831,7 @@ export async function enqueueLatestFilingsForTicker(opts: {
       `
       SELECT id FROM document_queue WHERE url = $1 AND source_type = $2
       UNION ALL
-      SELECT id FROM documents WHERE url = $1
+      SELECT id FROM filings WHERE url = $1
       LIMIT 1
       `,
       [indexUrl, sourceType],
@@ -850,11 +843,11 @@ export async function enqueueLatestFilingsForTicker(opts: {
 
     const r = await db.one<{ id: string }>(
       `
-      INSERT INTO document_queue (url, source_type, company_id, status, priority, attempts, next_attempt_at)
+      INSERT INTO document_queue (url, source_type, issuer_id, status, priority, attempts, next_attempt_at)
       VALUES ($1, $2, $3, 'ready_to_parse', 5, 0, now())
       RETURNING id
       `,
-      [indexUrl, sourceType, companyId],
+      [indexUrl, sourceType, issuerId],
     );
     if (r?.id) {
       queue_ids.push(r.id);

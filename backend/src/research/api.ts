@@ -146,58 +146,13 @@ export async function buildCompanyExplorePayload(ticker: string): Promise<Record
   }
 
   try {
-    const companyRow = await settledValue(
-      db.oneApi<{ name: string | null }>(
-        `SELECT name FROM companies WHERE upper(trim(ticker)) = $1 LIMIT 1`,
-        [t],
-        6_000,
-      ),
-      null,
-    );
-    const companyName = resolveResearchFeedCompanyName(t, companyRow?.name, null);
-
-    // Cap concurrency — Supabase transaction pooler dies when explore fans out
-    // while company/bars/analyse also checkout connections.
-    const presentation = await settledValue(buildResearchPresentation(t), null);
-    const insiders = await settledValue(loadInsiderFlowsForTicker(t, 40), []);
-    const politicians = await settledValue(loadPoliticianFlowsForTicker(t, 40), []);
-    const filings13f = await settledValue(loadFilings13fForTicker(t, 24), []);
-    const tracked_investors = await settledValue(getTrackedInvestorsForTicker(t, 24), []);
-
-    const empty = emptyExplorePayload(t, companyName);
-    const payload =
-      presentation != null
-        ? {
-            ok: true as const,
-            ticker: t,
-            company_name: companyName,
-            presentation,
-            flows: { insiders, politicians, filings13f },
-            tracked_investors,
-          }
-        : {
-            ok: false as const,
-            error: "explore_presentation_failed",
-            ticker: t,
-            company_name: companyName,
-            presentation: empty.presentation,
-            flows: { insiders, politicians, filings13f },
-            tracked_investors,
-          };
-
-    const hasContent =
-      (Array.isArray(presentation?.documents) && presentation.documents.length > 0) ||
-      (tracked_investors?.length ?? 0) > 0 ||
-      (insiders?.length ?? 0) + (politicians?.length ?? 0) + (filings13f?.length ?? 0) > 0;
-    if (hasContent) exploreMemoryCache.set(t, { at: Date.now(), payload });
+    const { buildIssuerExplorePayload } = await import("../v2/reads.js");
+    const payload = await buildIssuerExplorePayload(t);
+    exploreMemoryCache.set(t, { at: Date.now(), payload });
     return payload;
   } catch (err) {
     console.error("research_explore_failed", t, err);
-    return {
-      ...emptyExplorePayload(t, t),
-      ok: false,
-      error: "explore_failed",
-    };
+    return emptyExplorePayload(t);
   }
 }
 
@@ -329,52 +284,17 @@ export async function handleResearchFeed(
     return;
   }
 
-  const indexed = await loadMarketFeedIndexPage({ limit: lim, offset, cursor });
-  // Never fall back to full-table DISTINCT ON — empty index means empty feed until sync catches up.
-  const page = indexed.rows;
-  const hasMore = indexed.hasMore;
-
-  const secTitles = await getSecTickerTitleMap().catch(() => new Map<string, string>());
-  const rollupByTicker = await loadInvestigateRollupsByTicker(page.map((r) => r.ticker));
-
-  const items = page.map((r) => {
-    const displayName = resolveResearchFeedCompanyName(r.ticker, r.company_name, secTitles.get(r.ticker) ?? null);
-    const summary = (r as { summary?: Record<string, unknown> }).summary ?? {};
-    const tickerNorm = String(r.ticker ?? "").trim().toUpperCase();
-    const rollup =
-      rollupByTicker.get(tickerNorm) ?? investigateRollupFromSummary(summary) ?? null;
-    const idea = resolveResearchFeedIdea(summary, r, rollup);
-    const feedLabel = String(r.analysis ?? r.feed_label ?? "").trim();
-    const hasPaper =
-      r.feed_kind === "research" &&
-      Boolean(r.analysis && String(r.analysis).trim().length > 0);
-    return {
-      kind: "document" as const,
-      id: r.id,
-      ticker: r.ticker,
-      name: displayName,
-      feed_label: feedLabel,
-      feed_at: r.feed_at,
-      company_name: displayName,
-      source_key: r.source_key,
-      feed_kind: r.feed_kind,
-      intel_mode: mode,
-      paper_doc_count: hasPaper ? 1 : 0,
-      idea_score: idea.idea_score,
-      idea_best: idea.idea_best,
-      idea_reasons: idea.idea_reasons,
-    };
-  });
-
+  const { loadFeedEntriesPage } = await import("../v2/reads.js");
+  const page = await loadFeedEntriesPage({ feedKind: "research", limit: lim, offset });
   const payload = {
     ok: true,
     mode,
-    items,
+    items: page.items,
     offset,
     limit: lim,
-    has_more: hasMore,
-    next_offset: offset + items.length,
-    next_cursor: encodeFeedCursor(indexed.nextCursor),
+    has_more: page.has_more,
+    next_offset: page.next_offset ?? offset + page.items.length,
+    next_cursor: null as string | null,
   };
   writeFeedResponseCache(cacheKey, payload);
   sendJson(res, 200, payload);

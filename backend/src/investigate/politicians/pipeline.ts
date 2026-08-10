@@ -5,8 +5,6 @@ import {
   parseSenatePtrHtml,
   type ParsedSenatePtr,
 } from "../../core/senate.js";
-import { syncPoliticianTransactionsFromDocument } from "../../documents/store.js";
-import { syncFeedIndexForDocument } from "../../shared/feed-index.js";
 import { buildParseMeta, logParseOutcome } from "../../shared/parse-meta.js";
 import { failQueueWithBackoff, markQueueDead, markQueueParsed } from "../../shared/queue.js";
 import { createHash } from "node:crypto";
@@ -21,6 +19,14 @@ import {
 } from "./oge-278t-parse.js";
 import { getSecTickerTitleMap } from "../../core/sec.js";
 import { isOlderThanRetentionWindow } from "../../shared/ingest-policy.js";
+import { lookupPoliticianCommittee } from "../../politicians/committees.js";
+import {
+  ensureFiler,
+  ensureIssuer,
+  insertFiling,
+  replacePoliticianTransactions,
+  upsertFeedEntry,
+} from "../../v2/canonical.js";
 
 type PoliticianPtrSource = "house_ptr" | "senate_ptr" | "oge_278t";
 type Chamber = "house" | "senate" | "executive";
@@ -57,6 +63,12 @@ function formatIso(ts: any): string | null {
   const d = new Date(String(ts ?? ""));
   if (Number.isNaN(d.getTime())) return null;
   return d.toISOString();
+}
+
+function stripNullBytes(s: string | null | undefined): string | null {
+  if (s == null) return null;
+  const cleaned = String(s).replace(/\u0000/g, "").trim();
+  return cleaned || null;
 }
 
 function parseUsdAmountRange(s: string | null): { low: number | null; high: number | null; mid: number | null; raw: string | null } {
@@ -214,6 +226,13 @@ async function persistPoliticianFiling(opts: {
 
   const parsedIds: string[] = [];
   const filerName = String(filing.filer?.name ?? "").trim() || "POLITICIAN";
+  const filer = await ensureFiler({
+    filerType: "politician",
+    displayName: filerName,
+    detail: chamber,
+    detailSecondary: filing.filer?.state_district ?? null,
+  });
+  const committee = (await lookupPoliticianCommittee(filerName)) || null;
 
   for (const [ticker, txs] of byTicker.entries()) {
     const docSha = `${contentSha256}:${ticker}`;
@@ -247,64 +266,58 @@ async function persistPoliticianFiling(opts: {
       formatIso(filing.filed_at) ??
       new Date().toISOString();
 
-    const data = {
-      schema_type: "politician_cluster",
-      schema_version: "v1",
-      issuer: { name: null, ticker, cik: null },
-      filing: {
-        form_type: "PTR",
-        accession_no: filing.filing_id,
-        filed_at: formatIso(filing.filed_at) ?? feedAt,
-        source,
-        pdf_url: url,
-        chamber,
-      },
-      cluster: {
-        feed_label: feedLabel,
-        cluster_start_at: worksheet_rows.at(-1)?.ts ?? null,
-        cluster_end_at: worksheet_rows[0]?.ts ?? null,
-        politicians: [filerName],
-        context_sentences: Array.isArray(filing.context_sentences)
-          ? filing.context_sentences.map((s) => String(s)).filter(Boolean).slice(0, 3)
-          : [],
-        worksheet_rows,
-      },
-      parse_meta: buildParseMeta({
-        path: `deterministic/${source}`,
-        llm_used: false,
-        source_type: source,
-      }),
-    };
+    const issuer = await ensureIssuer({
+      ticker,
+      name: secTitles.get(ticker) ?? ticker,
+    });
 
-    const inserted = await db.one<{ id: string }>(
-      `
-      INSERT INTO documents (
-        queue_id, doc_kind, schema_version, ticker, feed_kind, source_key, event_at,
-        feed_label, url, published_at, content_sha256, data
-      )
-      VALUES ($1, $2, $3, $4, 'politicians', 'PTR', $5, $6, $7, $8, $9, $10)
-      ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
-      DO UPDATE SET parsed_at = now()
-      RETURNING id
-      `,
-      [
-        queueId,
-        "politician_cluster",
-        "v1",
-        ticker,
-        feedAt,
-        feedLabel,
-        url,
-        feedAt,
-        docSha,
-        data,
-      ],
-    );
-    if (inserted?.id) {
-      parsedIds.push(inserted.id);
-      await syncPoliticianTransactionsFromDocument(inserted.id, ticker, data);
-      void syncFeedIndexForDocument(inserted.id).catch(() => {});
+    const filingId = await insertFiling({
+      queueId,
+      sourceType: source,
+      feedKind: "politicians",
+      form: "PTR",
+      issuerId: issuer.id,
+      url,
+      pdfUrl: url,
+      accessionNo: stripNullBytes(filing.filing_id),
+      title: feedLabel,
+      sourceKey: "PTR",
+      analysis: stripNullBytes(
+        Array.isArray(filing.context_sentences)
+          ? filing.context_sentences.map((s) => String(s)).filter(Boolean)[0] ?? feedLabel
+          : feedLabel,
+      ),
+      filedAt: formatIso(filing.filed_at) ?? feedAt,
+      eventAt: feedAt,
+      contentSha256: docSha,
+    });
+
+    const txnRows = [];
+    for (const r of worksheet_rows) {
+      if (!r.ts) continue;
+      txnRows.push({
+        filerId: filer.id,
+        chamber,
+        committee: stripNullBytes(committee),
+        transactionType: r.transaction_type ? stripNullBytes(String(r.transaction_type)) : null,
+        amountUsd: r.amount_usd_mid != null ? Number(r.amount_usd_mid) : null,
+        amountUsdMid: r.amount_usd_mid != null ? Number(r.amount_usd_mid) : null,
+        amountRange: r.amount_range ? stripNullBytes(String(r.amount_range)) : null,
+        assetName: r.asset_name ? stripNullBytes(String(r.asset_name)) : null,
+        description: r.description ? stripNullBytes(String(r.description)) : null,
+        transactionAt: String(r.ts),
+      });
     }
+    await replacePoliticianTransactions(filingId, issuer.id, txnRows);
+    await upsertFeedEntry({
+      feedKind: "politicians",
+      issuerId: issuer.id,
+      filingId,
+      feedAt,
+      feedLabel,
+      todayCount: txnRows.length,
+    });
+    parsedIds.push(filingId);
   }
 
   return parsedIds;
@@ -346,7 +359,7 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
     const { contentSha256, filing, model } = loaded;
 
     const existing = await db.one<{ id: string }>(
-      `SELECT id FROM documents WHERE feed_kind='politicians' AND content_sha256 LIKE ($1 || ':%') LIMIT 1`,
+      `SELECT id FROM filings WHERE feed_kind='politicians' AND content_sha256 LIKE ($1 || ':%') LIMIT 1`,
       [contentSha256],
     );
     if (existing?.id) {

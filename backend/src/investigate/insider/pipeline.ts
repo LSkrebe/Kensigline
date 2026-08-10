@@ -1,10 +1,8 @@
 import { db } from "../../core/db.js";
 import { fetchForm4Text } from "../../core/sec.js";
-import { syncInsiderTransactionsFromDocument } from "../../documents/store.js";
 import { sha256NormalizedText } from "../../core/text-hash.js";
 import { sanitizeEventAtForFeed } from "../../shared/document-activity-at.js";
-import { syncFeedIndexForDocument } from "../../shared/feed-index.js";
-import { buildParseMeta, logParseOutcome } from "../../shared/parse-meta.js";
+import { logParseOutcome } from "../../shared/parse-meta.js";
 import { failQueueWithBackoff, markQueueDead, markQueueParsed } from "../../shared/queue.js";
 import {
   ownerSurname,
@@ -24,6 +22,13 @@ import {
   type InsiderClusterOut,
 } from "./narrative.js";
 import { isOlderThanRetentionWindow } from "../../shared/ingest-policy.js";
+import {
+  ensureFiler,
+  ensureIssuer,
+  insertFiling,
+  replaceInsiderTransactions,
+  upsertFeedEntry,
+} from "../../v2/canonical.js";
 
 type ParseNextResult =
   | { processed: false; reason: "no_work" }
@@ -204,58 +209,60 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
       filedAt: filingAt,
     });
 
-    const data = {
-      ...out,
-      parse_meta: buildParseMeta({
-        path: "deterministic/insider",
-        llm_used: false,
-        source_type: next.source_type,
-      }),
-    };
+    const issuer = await ensureIssuer({
+      ticker,
+      name: issuerName ?? ticker,
+      cik: issuerCik,
+    });
 
-    const inserted = await db.one<{ id: string }>(
-      `
-      INSERT INTO documents (
-        queue_id, doc_kind, schema_version, ticker, feed_kind, source_key, event_at,
-        feed_label, url, published_at, content_sha256, data
-      )
-      VALUES ($1, $2, $3, $4, 'insider', $5, $6, $7, $8, $9, $10, $11)
-      ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
-      DO UPDATE SET parsed_at = now()
-      RETURNING id
-      `,
-      [
-        queueId,
-        "insider_cluster",
-        "v1",
-        ticker,
-        formSourceKey,
-        activityAt,
-        feedLabel,
-        url,
-        filingAt,
-        contentSha256,
-        data,
-      ],
-    );
+    const filingId = await insertFiling({
+      queueId,
+      sourceType: queueSourceType,
+      feedKind: "insider",
+      form: formSourceKey,
+      issuerId: issuer.id,
+      url,
+      indexUrl: url.endsWith("/index.json") ? url : null,
+      accessionNo: accessionNo ?? out.filing?.accession_no ?? null,
+      title: feedLabel,
+      sourceKey: formSourceKey,
+      analysis: out.cluster?.context_sentences?.[0] ?? feedLabel,
+      filedAt: filingAt,
+      eventAt: activityAt,
+      contentSha256,
+    });
+
+    const txnRows = [];
+    for (const r of out.cluster.worksheet_rows) {
+      const name = String(r.insider_name ?? r.key ?? "Insider").trim();
+      const filer = await ensureFiler({
+        filerType: "insider",
+        displayName: name,
+        detail: r.role ? String(r.role) : null,
+      });
+      if (!r.ts) continue;
+      txnRows.push({
+        filerId: filer.id,
+        role: r.role ? String(r.role) : null,
+        transactionCode: r.transaction_code ? String(r.transaction_code) : null,
+        acquiredDisposed: r.acquired_disposed ? String(r.acquired_disposed) : null,
+        amountUsd: r.amount_usd != null ? Number(r.amount_usd) : null,
+        shares: r.shares != null ? Number(r.shares) : null,
+        isDerivative: Boolean(r.is_derivative),
+        transactionAt: String(r.ts),
+      });
+    }
+    await replaceInsiderTransactions(filingId, issuer.id, txnRows);
+    await upsertFeedEntry({
+      feedKind: "insider",
+      issuerId: issuer.id,
+      filingId,
+      feedAt: activityAt,
+      feedLabel,
+      todayCount: txnRows.length,
+    });
 
     await markQueueParsed(queueId);
-
-    if (issuerName) {
-      await db.query(
-        `
-        INSERT INTO companies (name, ticker, updated_at)
-        VALUES ($1, $2, now())
-        ON CONFLICT (name) DO UPDATE SET ticker = COALESCE(EXCLUDED.ticker, companies.ticker), updated_at = now()
-        `,
-        [String(issuerName), ticker ? String(ticker) : null],
-      );
-    }
-
-    if (inserted?.id && ticker) {
-      await syncInsiderTransactionsFromDocument(inserted.id, String(ticker), data);
-      void syncFeedIndexForDocument(inserted.id).catch(() => {});
-    }
 
     logParseOutcome({
       source_type: next.source_type,
@@ -265,7 +272,7 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
       llm_used: false,
       ticker,
     });
-    return { processed: true, queue_id: queueId, parsed_id: inserted?.id ?? "", feed_label: feedLabel, ticker };
+    return { processed: true, queue_id: queueId, parsed_id: filingId, feed_label: feedLabel, ticker };
   } catch (err: any) {
     await failQueueWithBackoff(queueId, err);
     logParseOutcome({

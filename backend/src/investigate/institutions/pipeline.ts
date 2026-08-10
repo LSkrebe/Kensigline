@@ -5,9 +5,15 @@ import { compactSecTextForLlm } from "../../core/sec-llm-text.js";
 import { LLM_BUDGETS } from "../../core/llm-budgets.js";
 import { prepareLlmText } from "../../core/llm-text-prep.js";
 import { fetch13fFilingBundle } from "../../core/sec.js";
-import { syncInstitutionFilingsFromDocument } from "../../documents/store.js";
-import { syncFeedIndexForDocument } from "../../shared/feed-index.js";
 import { buildParseMeta, logParseOutcome, type DocumentParseMeta } from "../../shared/parse-meta.js";
+import {
+  ensureFiler,
+  ensureIssuer,
+  insertFiling,
+  replaceInstitutionTransactions,
+  upsertFeedEntry,
+} from "../../v2/canonical.js";
+import { isPlausibleTrackedFiler } from "../../research/market/tracked-investors-filter.js";
 import { claimQueueItemSingle, failQueueWithBackoff, markQueueDead, markQueueParsed } from "../../shared/queue.js";
 import {
   MIN_PARSED_13F_HOLDINGS,
@@ -331,6 +337,11 @@ async function persistInstitutionHoldings(args: {
   }
 
   const parsedIds: string[] = [];
+  const institutionFiler = await ensureFiler({
+    filerType: "institution",
+    displayName: args.filerName,
+  });
+
   for (const [ticker, rows] of byTicker.entries()) {
     const contentSha256 = `${args.baseSha256}:${ticker}`;
     rows.sort((a, b) => String(b.as_of_date ?? "").localeCompare(String(a.as_of_date ?? "")));
@@ -350,52 +361,55 @@ async function persistInstitutionHoldings(args: {
     const feedLabel = sumUsd > 0 ? `${Math.round(sumUsd)} (${worksheet_rows.length})` : `(${worksheet_rows.length})`;
     const feedAt = worksheet_rows[0]?.ts ?? formatIso(args.filedAt) ?? new Date().toISOString();
 
-    const data = {
-      schema_type: "institution_cluster",
-      schema_version: "v1",
-      issuer: { name: rows[0]?.issuer_name ?? null, ticker, cik: null },
-      filing: {
-        form_type: "13F",
-        accession_no: args.accessionNo,
-        filed_at: formatIso(args.filedAt) ?? feedAt,
-        source: "sec_13f",
-        index_url: args.primaryUrl,
-      },
-      cluster: {
-        feed_label: feedLabel,
-        cluster_start_at: worksheet_rows.at(-1)?.ts ?? null,
-        cluster_end_at: worksheet_rows[0]?.ts ?? null,
-        institutions: [args.filerName],
-        context_sentences: [],
-        worksheet_rows,
-      },
-      parse_meta: args.parseMeta,
-    };
+    const issuer = await ensureIssuer({
+      ticker,
+      name: rows[0]?.issuer_name ?? ticker,
+    });
 
-    const inserted = await db.one<{ id: string }>(
-      `
-      INSERT INTO documents (
-        queue_id, doc_kind, schema_version, ticker, feed_kind, source_key,
-        event_at, feed_label, url, published_at, content_sha256, data
-      )
-      VALUES (
-        $1, 'institution_cluster', 'v1', $2, 'institutions', '13F',
-        $3, $4, $5, $6, $7, $8
-      )
-      ON CONFLICT (content_sha256) WHERE content_sha256 IS NOT NULL
-      DO UPDATE SET parsed_at = now(), data = EXCLUDED.data
-      RETURNING id
-      `,
-      [args.queueId, ticker, feedAt, feedLabel, args.primaryUrl, feedAt, contentSha256, data],
-    );
+    const filingId = await insertFiling({
+      queueId: args.queueId,
+      sourceType: "sec_13f",
+      feedKind: "institutions",
+      form: "13F",
+      issuerId: issuer.id,
+      url: args.primaryUrl,
+      indexUrl: args.primaryUrl,
+      accessionNo: args.accessionNo,
+      title: feedLabel,
+      sourceKey: "13F",
+      analysis: feedLabel,
+      filedAt: formatIso(args.filedAt) ?? feedAt,
+      eventAt: feedAt,
+      contentSha256,
+    });
 
-    if (inserted?.id) {
-      parsedIds.push(inserted.id);
-      await syncInstitutionFilingsFromDocument(inserted.id, ticker, data);
-      void syncFeedIndexForDocument(inserted.id).catch(() => {});
-      for (const r of rows) {
-        if (r.cusip) void learnCusipTicker(r.cusip, ticker, "13f_persist");
+    const txnRows = [];
+    for (const r of worksheet_rows) {
+      if (!r.ts) continue;
+      const amt = r.amount_usd != null ? Number(r.amount_usd) : null;
+      if (!isPlausibleTrackedFiler(args.filerName, Number.isFinite(amt as number) ? (amt as number) : null)) {
+        continue;
       }
+      txnRows.push({
+        filerId: institutionFiler.id,
+        activity: r.activity ? String(r.activity) : null,
+        amountUsd: Number.isFinite(amt as number) ? amt : null,
+        shares: r.shares != null ? Number(r.shares) : null,
+        transactionAt: String(r.ts),
+      });
+    }
+    await replaceInstitutionTransactions(filingId, issuer.id, txnRows);
+    await upsertFeedEntry({
+      feedKind: "institutions",
+      issuerId: issuer.id,
+      filingId,
+      feedAt,
+      feedLabel,
+      todayCount: txnRows.length,
+    });
+    parsedIds.push(filingId);
+    for (const r of rows) {
+      if (r.cusip) void learnCusipTicker(r.cusip, ticker, "13f_persist");
     }
   }
   return parsedIds;
@@ -415,7 +429,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
     const baseSha256 = sha256NormalizedText(bundle);
 
     const existing = await db.one<{ id: string }>(
-      `SELECT id FROM documents WHERE feed_kind='institutions' AND content_sha256 LIKE ($1 || ':%') LIMIT 1`,
+      `SELECT id FROM filings WHERE feed_kind='institutions' AND content_sha256 LIKE ($1 || ':%') LIMIT 1`,
       [baseSha256],
     );
     if (existing?.id) {

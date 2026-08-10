@@ -72,10 +72,12 @@ export async function getTrackedInvestorsForTicker(
     transaction_at: string;
   }>(
     `
-      SELECT insider_name, transaction_code, amount_usd::text, transaction_at::text
-      FROM insider_transactions
-      WHERE ticker = $1
-      ORDER BY transaction_at DESC
+      SELECT f.display_name AS insider_name, t.transaction_code, t.amount_usd::text, t.transaction_at::text
+      FROM insider_transactions t
+      JOIN issuers i ON i.id = t.issuer_id
+      JOIN filers f ON f.id = t.filer_id
+      WHERE i.ticker = $1
+      ORDER BY t.transaction_at DESC
       LIMIT 120
       `,
     [t],
@@ -88,10 +90,12 @@ export async function getTrackedInvestorsForTicker(
     transaction_at: string;
   }>(
     `
-      SELECT politician_name, transaction_type, amount_usd_mid::text, transaction_at::text
-      FROM politician_transactions
-      WHERE ticker = $1
-      ORDER BY transaction_at DESC
+      SELECT f.display_name AS politician_name, t.transaction_type, t.amount_usd_mid::text, t.transaction_at::text
+      FROM politician_transactions t
+      JOIN issuers i ON i.id = t.issuer_id
+      JOIN filers f ON f.id = t.filer_id
+      WHERE i.ticker = $1
+      ORDER BY t.transaction_at DESC
       LIMIT 120
       `,
     [t],
@@ -104,10 +108,12 @@ export async function getTrackedInvestorsForTicker(
     filed_at: string;
   }>(
     `
-      SELECT filer, activity, amount_usd::text, filed_at::text
-      FROM institution_filings_13f
-      WHERE ticker = $1
-      ORDER BY filed_at DESC
+      SELECT f.display_name AS filer, t.activity, t.amount_usd::text, t.transaction_at::text AS filed_at
+      FROM institution_transactions t
+      JOIN issuers i ON i.id = t.issuer_id
+      JOIN filers f ON f.id = t.filer_id
+      WHERE i.ticker = $1
+      ORDER BY t.transaction_at DESC
       LIMIT 120
       `,
     [t],

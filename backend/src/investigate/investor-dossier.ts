@@ -516,48 +516,12 @@ async function loadMode(slug: string, mode: InvestorMode, limit: number) {
  * Live-build investor dossier payload (also used to populate Postgres cache).
  */
 export async function buildInvestorDossierPayload(
-  slugInput: string,
-  modeInput?: string | null,
+  slug: string,
+  preferred: InvestorMode | null,
 ): Promise<Record<string, unknown>> {
-  const slug = slugifyName(slugInput);
-  const preferred = parseMode(modeInput);
-  if (!slug) return { ok: false, error: "slug_required" };
-
-  const order: InvestorMode[] = preferred
-    ? [preferred, ...(["insider", "politicians", "institutions"] as InvestorMode[]).filter((m) => m !== preferred)]
-    : ["politicians", "insider", "institutions"];
-
-  let best: { mode: InvestorMode; txns: ActorTxn[]; displayName: string | null } | null = null;
-
-  for (const mode of order) {
-    const hit = await loadMode(slug, mode, 80);
-    if (!hit.txns.length) continue;
-    if (!best || hit.txns.length > best.txns.length) best = hit;
-    if (preferred && mode === preferred && hit.txns.length >= 2) break;
-    if (hit.txns.length >= 12) break;
-  }
-
-  if (!best) {
-    return {
-      ok: true,
-      slug,
-      mode: preferred ?? "insider",
-      actor: buildActorRow(slug, preferred ?? "insider", [], null),
-      empty: true,
-    };
-  }
-
-  const actor = buildActorRow(slug, best.mode, best.txns, best.displayName);
-  return {
-    ok: true,
-    slug,
-    mode: best.mode,
-    actor,
-    empty: false,
-    amount_hint: best.txns[0]
-      ? formatUsdCompact(Number(best.txns[0].sheetRow.amountUsd) || 0)
-      : null,
-  };
+  const { buildFilerDossierPayload } = await import("../v2/reads.js");
+  const mode = preferred ?? "insider";
+  return buildFilerDossierPayload(slug, mode);
 }
 
 /**
@@ -595,7 +559,7 @@ export async function handleInvestorDossier(
     dossierMemoryCache.set(memKey, { at: Date.now(), payload: pgCached });
     sendJson(res, 200, pgCached);
     scheduleInvestorDossierRefresh(slug, modeKey, (s, m) =>
-      buildInvestorDossierPayload(s, m === "any" ? null : m),
+      buildInvestorDossierPayload(s, m === "any" || !m ? null : (m as "insider" | "politicians" | "institutions")),
     );
     return;
   }

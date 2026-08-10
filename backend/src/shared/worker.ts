@@ -40,15 +40,15 @@ function envNum(prefix: string, key: string, fallback: number) {
  */
 export function startPipelineWorker(opts: PipelineWorkerOpts) {
   const d = opts.defaults ?? {};
-  const enqueueEveryMs = Math.max(15_000, envNum(opts.envPrefix, "ENQUEUE_INTERVAL_MS", d.enqueueEveryMs ?? 120_000));
-  const parsePollMs = Math.max(1_000, envNum(opts.envPrefix, "PARSE_POLL_MS", d.parsePollMs ?? 6_000));
-  const parseThrottleMs = Math.max(50, envNum(opts.envPrefix, "PARSE_THROTTLE_MS", d.parseThrottleMs ?? 750));
+  const enqueueEveryMs = Math.max(5_000, envNum(opts.envPrefix, "ENQUEUE_INTERVAL_MS", d.enqueueEveryMs ?? 120_000));
+  const parsePollMs = Math.max(200, envNum(opts.envPrefix, "PARSE_POLL_MS", d.parsePollMs ?? 6_000));
+  const parseThrottleMs = Math.max(0, envNum(opts.envPrefix, "PARSE_THROTTLE_MS", d.parseThrottleMs ?? 750));
   const parseConcurrency = Math.max(
     1,
-    Math.min(8, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
+    Math.min(16, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
   );
   const backfillIntervalMs = Math.max(
-    5_000,
+    2_000,
     envNum(opts.envPrefix, "BACKFILL_INTERVAL_MS", d.backfillIntervalMs ?? 60_000),
   );
   const reclaimEveryMs = Math.max(60_000, envNum(opts.envPrefix, "RECLAIM_INTERVAL_MS", 3 * 60_000));

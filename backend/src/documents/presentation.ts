@@ -84,18 +84,20 @@ export async function buildResearchPresentation(ticker: string): Promise<Explore
   const documents = await loadPaperDocumentsForTicker(t, 40);
   const insiderAgg = await db.oneApi<{ n: string; usd: string | null }>(
     `
-      SELECT COUNT(*)::text AS n, SUM(amount_usd)::text AS usd
-      FROM insider_transactions
-      WHERE ticker = $1 AND transaction_at >= now() - interval '90 days'
+      SELECT COUNT(*)::text AS n, SUM(t.amount_usd)::text AS usd
+      FROM insider_transactions t
+      JOIN issuers i ON i.id = t.issuer_id
+      WHERE i.ticker = $1 AND t.transaction_at >= now() - interval '90 days'
       `,
     [t],
     5_000,
   );
   const polAgg = await db.oneApi<{ n: string; usd: string | null }>(
     `
-      SELECT COUNT(*)::text AS n, SUM(amount_usd_mid)::text AS usd
-      FROM politician_transactions
-      WHERE ticker = $1 AND transaction_at >= now() - interval '180 days'
+      SELECT COUNT(*)::text AS n, SUM(t.amount_usd_mid)::text AS usd
+      FROM politician_transactions t
+      JOIN issuers i ON i.id = t.issuer_id
+      WHERE i.ticker = $1 AND t.transaction_at >= now() - interval '180 days'
       `,
     [t],
     5_000,

@@ -19,8 +19,7 @@ import {
   tickerFromClusterId,
   tickerFromCompanyClusterId,
 } from "../shared/feed-helpers.js";
-import { loadTickerFeedDocs, parseFeedPageParams, encodeFeedCursor } from "../shared/ticker-feed-aggregate.js";
-import { loadFeedKindIndexPage } from "../shared/feed-index.js";
+import { loadTickerFeedDocs, parseFeedPageParams } from "../shared/ticker-feed-aggregate.js";
 import {
   feedCacheKey,
   readFeedResponseCache,
@@ -138,9 +137,12 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
       ticker: string | null;
       company_id: string | null;
     }>(
-      `SELECT id, COALESCE(feed_at, event_at)::text AS event_at, feed_label, ticker, company_id FROM documents
-       WHERE feed_kind = 'insider' AND feed_at IS NOT NULL
-       ORDER BY feed_at DESC, parsed_at DESC
+      `SELECT f.id::text, f.event_at::text AS event_at, COALESCE(f.title, f.source_key) AS feed_label,
+              i.ticker, f.issuer_id::text AS company_id
+       FROM filings f
+       LEFT JOIN issuers i ON i.id = f.issuer_id
+       WHERE f.feed_kind = 'insider' AND f.event_at IS NOT NULL
+       ORDER BY f.event_at DESC, f.parsed_at DESC
        LIMIT $1 OFFSET $2`,
       [page.limit, page.offset],
     );
@@ -174,75 +176,24 @@ async function handleInsiderFeed(res: http.ServerResponse, url: URL) {
     return;
   }
 
-  const indexed = await loadFeedKindIndexPage({
+  const { loadFeedEntriesPage } = await import("../v2/reads.js");
+  const pageData = await loadFeedEntriesPage({
     feedKind: "insider",
-    days,
     limit: page.limit,
     offset: page.offset,
-    cursor: page.cursor,
   });
-  {
-    const secTitles = await getSecTickerTitleMap();
-    const items = indexed.rows.map((r) => {
-      const s = r.summary ?? {};
-      const totalUsd = Number(s.total_usd) || 0;
-      const todayCount = Number(s.today_count) || 0;
-      const totalCount = Number(s.total_count) || 0;
-      const eventAt = String(s.event_at ?? r.event_at);
-      const usd = totalUsd > 0 ? formatUsdCompact(totalUsd) : "—";
-      const label =
-        todayCount > 0
-          ? `${usd} (${todayCount})`
-          : totalCount > 0
-            ? usd
-            : (r.feed_label ?? "Insider activity");
-      const data = r.data as {
-        issuer?: { name?: string | null; cik?: string | null };
-        filing?: { pdf_url?: string | null; index_url?: string | null; accession_no?: string | null };
-      } | null;
-      const companyName = resolveInvestigateFeedCompanyName(
-        r.ticker,
-        r.company_name,
-        secTitles.get(r.ticker) ?? null,
-        data?.issuer?.name,
-      );
-      const ws = (r.data as { cluster?: { worksheet_rows?: unknown[] } })?.cluster?.worksheet_rows;
-      const idea = ideaFromSummary(s);
-        const docUrl = String(r.url ?? "").trim() || null;
-      return {
-        id: `company:${r.ticker}`,
-        feed_at: eventAt,
-        feed_label: label,
-        ticker: r.ticker,
-        company_name: companyName,
-        company_id: r.company_id,
-        today_count: todayCount,
-        insiders: Array.isArray(s.insiders) ? s.insiders : [],
-        worksheet_rows: Array.isArray(ws) ? ws.slice(0, 24) : [],
-        url: docUrl,
-        pdf_url: data?.filing?.pdf_url ?? null,
-        index_url: data?.filing?.index_url ?? null,
-        accession_no: data?.filing?.accession_no ?? null,
-        cik: data?.issuer?.cik ?? null,
-        idea_score: idea.idea_score,
-        idea_best: idea.idea_best,
-        idea_reasons: idea.idea_reasons,
-      };
-    });
-    const body = {
-      items,
-      days,
-      mode: "company",
-      offset: page.offset,
-      limit: page.limit,
-      has_more: indexed.hasMore,
-      next_offset: indexed.nextOffset,
-      next_cursor: encodeFeedCursor(indexed.nextCursor),
-    };
-    writeFeedResponseCache(cacheKey, body);
-    sendJson(res, 200, body);
-    return;
-  }
+  const body = {
+    items: pageData.items,
+    days,
+    mode: "company",
+    offset: page.offset,
+    limit: page.limit,
+    has_more: pageData.has_more,
+    next_offset: pageData.next_offset ?? page.offset + pageData.items.length,
+    next_cursor: null as string | null,
+  };
+  writeFeedResponseCache(cacheKey, body);
+  sendJson(res, 200, body);
 }
 
 type TickerFeedKind = "politicians" | "institutions";
@@ -250,7 +201,6 @@ type TickerFeedKind = "politicians" | "institutions";
 async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, feedKind: TickerFeedKind) {
   const page = parseFeedPageParams(url, { limit: 40, maxLimit: 120 });
   const days = clampInt(url.searchParams.get("days"), 1, 365, feedKind === "politicians" ? 30 : 60);
-  const peopleKey = feedKind === "politicians" ? "politicians" : "institutions";
 
   const cacheKey = feedCacheKey({
     route: `${feedKind}_feed`,
@@ -265,82 +215,23 @@ async function handleTickerAggregatedFeed(res: http.ServerResponse, url: URL, fe
     return;
   }
 
-  const indexed = await loadFeedKindIndexPage({
+  const { loadFeedEntriesPage } = await import("../v2/reads.js");
+  const pageData = await loadFeedEntriesPage({
     feedKind,
-    days,
     limit: page.limit,
     offset: page.offset,
-    cursor: page.cursor,
   });
-  {
-    const secTitles = await getSecTickerTitleMap();
-    const items = [];
-    for (const r of indexed.rows) {
-      const s = r.summary ?? {};
-      const totalUsd = Number(s.total_usd) || 0;
-      const todayCount = Number(s.today_count) || 0;
-      const eventAt = String(s.event_at ?? r.event_at);
-      const usd = totalUsd > 0 ? formatUsdCompact(totalUsd) : "—";
-      const label = todayCount > 0 ? `${usd} (${todayCount})` : usd;
-      const data = r.data as {
-        issuer?: { name?: string | null; cik?: string | null };
-        filing?: { pdf_url?: string | null; index_url?: string | null; accession_no?: string | null };
-        cluster?: { worksheet_rows?: unknown[] };
-      } | null;
-      const companyName = resolveInvestigateFeedCompanyName(
-        r.ticker,
-        r.company_name,
-        secTitles.get(r.ticker) ?? null,
-        data?.issuer?.name,
-      );
-      let ws = (r.data as { cluster?: { worksheet_rows?: unknown[] } })?.cluster?.worksheet_rows;
-      if (feedKind === "politicians" && Array.isArray(ws)) {
-        ws = await enrichPoliticianWorksheetRows(ws as Record<string, unknown>[]);
-      }
-      const people = new Set<string>();
-      if (Array.isArray(ws)) {
-        for (const raw of ws) {
-          const w = raw as Record<string, unknown>;
-          const who = String(
-            w?.[feedKind === "politicians" ? "key" : "institution_name"] ?? w?.key ?? "",
-          ).trim();
-          if (who) people.add(who);
-        }
-      }
-      const idea = ideaFromSummary(s);
-      const docUrl = String(r.url ?? "").trim() || null;
-      items.push({
-        id: `ticker:${r.ticker}`,
-        feed_at: eventAt,
-        feed_label: label,
-        ticker: r.ticker,
-        company_name: companyName,
-        today_count: todayCount,
-        [peopleKey]: Array.from(people).slice(0, 20),
-        worksheet_rows: Array.isArray(ws) ? ws.slice(0, 24) : [],
-        url: docUrl,
-        pdf_url: data?.filing?.pdf_url ?? null,
-        index_url: data?.filing?.index_url ?? null,
-        accession_no: data?.filing?.accession_no ?? null,
-        cik: data?.issuer?.cik ?? null,
-        idea_score: idea.idea_score,
-        idea_best: idea.idea_best,
-        idea_reasons: idea.idea_reasons,
-      });
-    }
-    const body = {
-      items,
-      days,
-      offset: page.offset,
-      limit: page.limit,
-      has_more: indexed.hasMore,
-      next_offset: indexed.nextOffset,
-      next_cursor: encodeFeedCursor(indexed.nextCursor),
-    };
-    writeFeedResponseCache(cacheKey, body);
-    sendJson(res, 200, body);
-    return;
-  }
+  const body = {
+    items: pageData.items,
+    days,
+    offset: page.offset,
+    limit: page.limit,
+    has_more: pageData.has_more,
+    next_offset: pageData.next_offset ?? page.offset + pageData.items.length,
+    next_cursor: null as string | null,
+  };
+  writeFeedResponseCache(cacheKey, body);
+  sendJson(res, 200, body);
 }
 
 async function handlePoliticiansCluster(res: http.ServerResponse, url: URL) {
@@ -620,7 +511,14 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
   }
 
   const rows = await db.query<{ id: string; data: unknown; schema_type: string; schema_version: string }>(
-    `SELECT id, data, doc_kind AS schema_type, schema_version FROM documents WHERE id = $1 LIMIT 1`,
+    `SELECT
+       f.id::text,
+       NULL::jsonb AS data,
+       f.source_type AS schema_type,
+       'v2'::text AS schema_version
+     FROM filings f
+     WHERE f.id = $1
+     LIMIT 1`,
     [id],
   );
   if (!rows.length) {
@@ -638,23 +536,143 @@ async function handleInsiderCluster(res: http.ServerResponse, url: URL) {
 
 async function loadClusterDocs(feedKind: string, ticker: string, days: number) {
   const t = String(ticker ?? "").trim().toUpperCase();
-  return db.queryApi<{ id: string; event_at: string | null; ticker: string | null; url: string | null; data: any }>(
-    `SELECT id,
-            COALESCE(feed_at, event_at)::text AS event_at,
-            ticker,
-            url,
-            jsonb_build_object(
-              'cluster', COALESCE(data->'cluster', '{}'::jsonb),
-              'filing', data->'filing',
-              'issuer', data->'issuer'
-            ) AS data
-     FROM documents
-     WHERE feed_kind = $1
-       AND ticker_norm = $2
-       AND feed_at IS NOT NULL
-       AND feed_at >= now() - ($3 || ' days')::interval
-     ORDER BY feed_at DESC, parsed_at DESC
-     LIMIT 40`,
+  const filings = await db.queryApi<{
+    id: string;
+    event_at: string | null;
+    ticker: string | null;
+    url: string | null;
+    pdf_url: string | null;
+    accession_no: string | null;
+    cik: string | null;
+    issuer_name: string | null;
+    issuer_id: string;
+  }>(
+    `
+    SELECT
+      f.id::text,
+      f.event_at::text,
+      i.ticker,
+      f.url,
+      f.pdf_url,
+      f.accession_no,
+      i.cik,
+      i.name AS issuer_name,
+      i.id::text AS issuer_id
+    FROM filings f
+    JOIN issuers i ON i.id = f.issuer_id
+    WHERE f.feed_kind = $1::feed_kind
+      AND i.ticker = $2
+      AND f.event_at IS NOT NULL
+      AND f.event_at >= now() - ($3 || ' days')::interval
+    ORDER BY f.event_at DESC, f.parsed_at DESC
+    LIMIT 40
+    `,
     [feedKind, t, String(days)],
   );
+  if (!filings.length) return [];
+
+  const out = [];
+  for (const f of filings) {
+    const preview = await loadTxnPreviewForCluster(feedKind, f.issuer_id, 80);
+    out.push({
+      id: f.id,
+      event_at: f.event_at,
+      ticker: f.ticker,
+      url: f.url ?? f.pdf_url,
+      data: {
+        issuer: { name: f.issuer_name, ticker: f.ticker, cik: f.cik },
+        filing: {
+          accession_no: f.accession_no,
+          pdf_url: f.pdf_url,
+          index_url: f.url,
+          filed_at: f.event_at,
+        },
+        cluster: {
+          worksheet_rows: preview.rows,
+          context_sentences: [],
+        },
+      },
+    });
+  }
+  return out;
+}
+
+async function loadTxnPreviewForCluster(feedKind: string, issuerId: string, limit: number) {
+  if (feedKind === "insider") {
+    const rows = await db.queryApi<any>(
+      `
+      SELECT f.display_name, t.role, t.transaction_code, t.acquired_disposed,
+             t.amount_usd, t.shares, t.is_derivative, t.transaction_at::text AS ts
+      FROM insider_transactions t
+      JOIN filers f ON f.id = t.filer_id
+      WHERE t.issuer_id = $1
+      ORDER BY t.transaction_at DESC
+      LIMIT $2
+      `,
+      [issuerId, limit],
+    );
+    return {
+      rows: rows.map((r) => ({
+        key: r.role ? `${r.role} ${r.display_name}` : r.display_name,
+        insider_name: r.display_name,
+        role: r.role,
+        transaction_code: r.transaction_code,
+        acquired_disposed: r.acquired_disposed,
+        amount_usd: r.amount_usd != null ? Number(r.amount_usd) : null,
+        shares: r.shares != null ? Number(r.shares) : null,
+        is_derivative: Boolean(r.is_derivative),
+        ts: r.ts,
+      })),
+    };
+  }
+  if (feedKind === "politicians") {
+    const rows = await db.queryApi<any>(
+      `
+      SELECT f.display_name, t.chamber, t.committee, t.transaction_type,
+             t.amount_usd, t.amount_usd_mid, t.amount_range, t.asset_name,
+             t.description, t.transaction_at::text AS ts
+      FROM politician_transactions t
+      JOIN filers f ON f.id = t.filer_id
+      WHERE t.issuer_id = $1
+      ORDER BY t.transaction_at DESC
+      LIMIT $2
+      `,
+      [issuerId, limit],
+    );
+    return {
+      rows: rows.map((r) => ({
+        key: r.display_name,
+        chamber: r.chamber,
+        committee: r.committee,
+        transaction_type: r.transaction_type,
+        amount_usd: r.amount_usd != null ? Number(r.amount_usd) : null,
+        amount_usd_mid: r.amount_usd_mid != null ? Number(r.amount_usd_mid) : null,
+        amount_range: r.amount_range,
+        asset_name: r.asset_name,
+        description: r.description,
+        ts: r.ts,
+      })),
+    };
+  }
+  const rows = await db.queryApi<any>(
+    `
+    SELECT f.display_name, t.activity, t.amount_usd, t.shares, t.transaction_at::text AS ts
+    FROM institution_transactions t
+    JOIN filers f ON f.id = t.filer_id
+    WHERE t.issuer_id = $1
+    ORDER BY t.transaction_at DESC
+    LIMIT $2
+    `,
+    [issuerId, limit],
+  );
+  return {
+    rows: rows.map((r) => ({
+      key: r.display_name,
+      institution_name: r.display_name,
+      activity: r.activity,
+      amount_usd: r.amount_usd != null ? Number(r.amount_usd) : null,
+      shares: r.shares != null ? Number(r.shares) : null,
+      ts: r.ts,
+    })),
+  };
 }

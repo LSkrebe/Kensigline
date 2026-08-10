@@ -3,15 +3,20 @@ import type { ResearchDocExtractV2 } from "./extract.js";
 import { slimResearchDocumentData } from "./research-data-slim.js";
 import { formatUsdCompact } from "../shared/money.js";
 import { scoreResearchDocument } from "../core/idea-score.js";
-import { isoTimestampFromDb } from "../shared/db-time.js";
 import { invalidateTickerContextCache } from "../core/ticker-context-cache.js";
-import { scheduleCompanyDossierRefresh, scheduleInvestorDossierRefresh, slugifyInvestorName } from "../core/dossier-cache.js";
+import { scheduleCompanyDossierRefresh } from "../core/dossier-cache.js";
 import { invalidateAnalyseModelCache } from "../analyse/build-model.js";
 import { isPlausibleTrackedFiler } from "../research/market/tracked-investors-filter.js";
 import { parseEventTimeMs, sanitizeEventAtForFeed, FEED_FUTURE_GRACE_DAYS } from "../shared/document-activity-at.js";
-import { syncFeedIndexForDocument } from "../shared/feed-index.js";
-import { lookupPoliticianCommittee, lookupPoliticianCommittees, formatPoliticianDisplayName } from "../politicians/committees.js";
+import { lookupPoliticianCommittees, formatPoliticianDisplayName } from "../politicians/committees.js";
 import { isOlderThanRetentionWindow } from "../shared/ingest-policy.js";
+import {
+  ensureIssuer,
+  insertFiling,
+  insertResearchEvent,
+  replaceResearchDrivers,
+  upsertFeedEntry,
+} from "../v2/canonical.js";
 
 const GOV_LINK_THRESHOLD = () => Number(process.env.GOV_CONTRACT_LINK_THRESHOLD ?? 0.72);
 
@@ -33,7 +38,7 @@ export async function insertResearchDocument(args: {
   publishedAt: string | null;
 }): Promise<string | null> {
   const dup = await db.one<{ id: string }>(
-    `SELECT id FROM documents WHERE content_sha256 = $1 LIMIT 1`,
+    `SELECT id FROM filings WHERE content_sha256 = $1 LIMIT 1`,
     [args.contentSha256],
   );
   if (dup?.id) return null;
@@ -72,215 +77,113 @@ export async function insertResearchDocument(args: {
     ...(catalystAt ? { catalyst_at: catalystAt } : {}),
   };
   const slimData = slimResearchDocumentData(storedOut);
+  const idea = scoreResearchDocument({
+    analysis: args.out.analysis,
+    source_key: args.out.source_key,
+    feed_kind: "research",
+    event_at: eventAt,
+    data: slimData,
+  });
 
-  const row = await db.one<{ id: string }>(
-    `
-    INSERT INTO documents (
-      queue_id, doc_kind, schema_version, source_key, analysis, event_at,
-      feed_kind, feed_label, ticker, ticker_norm, feed_at, program_keys, link_confidence, show_on_ticker,
-      url, title, published_at, content_sha256, data
-    )
-    VALUES (
-      $1, $2, 'v1', $3, $4, $5,
-      'research', $3, $6, $6, $7::timestamptz, $8, $9, $10,
-      $11, $12, $13, $14, $15::jsonb
-    )
-    RETURNING id
-    `,
-    [
-      args.queueId,
-      mapQueueSourceToDocKind(args.sourceType),
-      args.out.source_key,
-      args.out.analysis,
-      eventAt,
-      ticker,
-      eventAt,
-      args.out.program_keys,
-      linkConf,
-      showOnTicker,
-      args.url,
-      args.out.title,
-      publishedAt,
-      args.contentSha256,
-      JSON.stringify(slimData),
-    ],
-  );
+  const issuer = ticker
+    ? await ensureIssuer({ ticker, name: ticker })
+    : null;
 
-  if (row?.id) {
-    void syncFeedIndexForDocument(row.id).catch(() => {});
+  const filingId = await insertFiling({
+    queueId: args.queueId,
+    sourceType: args.sourceType,
+    feedKind: "research",
+    form: mapQueueSourceToDocKind(args.sourceType),
+    issuerId: issuer?.id ?? null,
+    url: args.url,
+    title: args.out.title,
+    sourceKey: args.out.source_key,
+    analysis: args.out.analysis,
+    filedAt: publishedAt,
+    eventAt,
+    contentSha256: args.contentSha256,
+    signalScore: idea.idea_score,
+    signalLabel: idea.idea_best ? "best" : null,
+    signalReasons: idea.idea_reasons,
+    programKeys: args.out.program_keys,
+    showOnTicker,
+  });
+
+  await insertResearchEvent({
+    filingId,
+    issuerId: issuer?.id ?? null,
+    sourceKey: args.out.source_key,
+    analysis: args.out.analysis,
+    eventAt,
+    programKeys: args.out.program_keys,
+    showOnTicker,
+    forwardRevenueGrowthPct:
+      typeof (slimData as { forward_revenue_growth_pct?: number }).forward_revenue_growth_pct === "number"
+        ? (slimData as { forward_revenue_growth_pct: number }).forward_revenue_growth_pct
+        : null,
+    signalScore: idea.idea_score,
+    signalLabel: idea.idea_best ? "best" : null,
+    signalReasons: idea.idea_reasons,
+  });
+
+  const drivers = Array.isArray(args.out.business_drivers) ? args.out.business_drivers : [];
+  if (drivers.length) {
+    await replaceResearchDrivers(
+      filingId,
+      issuer?.id ?? null,
+      drivers.map((d) => ({
+        label: String(d.label ?? "").trim() || "driver",
+        driverKind: d.driver_kind ?? null,
+        rollsUpToRevenue: d.rolls_up_to_revenue ?? null,
+        valueUsdMillions:
+          d.value_usd_millions != null
+            ? Number(d.value_usd_millions)
+            : d.value != null
+              ? Number(d.value)
+              : null,
+        unit: d.unit ?? null,
+        period: d.period ?? null,
+      })),
+    );
+  }
+
+  if (issuer && showOnTicker) {
+    await upsertFeedEntry({
+      feedKind: "research",
+      issuerId: issuer.id,
+      filingId,
+      feedAt: eventAt,
+      feedLabel: args.out.source_key,
+      sourceKey: args.out.source_key,
+      signalScore: idea.idea_score,
+      signalLabel: idea.idea_best ? "best" : null,
+      signalReasons: idea.idea_reasons,
+      paperDocCount: 1,
+    });
   }
 
   if (ticker) {
     void invalidateTickerContextCache(ticker);
     invalidateAnalyseModelCache(ticker);
-    scheduleCompanyDossierRefresh(ticker, async (tick) => {
-      const { buildCompanyDossierPayload } = await import("../research/company-dossier.js");
-      return buildCompanyDossierPayload(tick);
-    });
+    if (process.env.DOSSIER_CACHE_REFRESH_ON_INGEST !== "0") {
+      scheduleCompanyDossierRefresh(ticker, async (tick) => {
+        const { buildCompanyDossierPayload } = await import("../research/company-dossier.js");
+        return buildCompanyDossierPayload(tick);
+      });
+    }
   }
 
-  return row?.id ?? null;
+  return filingId;
 }
 
-export async function syncInsiderTransactionsFromDocument(documentId: string, ticker: string, data: any) {
-  const t = ticker.trim().toUpperCase();
-  const rows = data?.cluster?.worksheet_rows;
-  if (!Array.isArray(rows) || !rows.length) return;
+/** @deprecated Writers use v2/canonical replace*Transactions. Kept as no-op for old call sites. */
+export async function syncInsiderTransactionsFromDocument(_documentId: string, _ticker: string, _data: any) {}
 
-  const fallbackAt =
-    data?.cluster?.cluster_end_at ??
-    data?.cluster?.cluster_start_at ??
-    data?.filing?.filed_at ??
-    null;
+/** @deprecated Writers use v2/canonical replacePoliticianTransactions. */
+export async function syncPoliticianTransactionsFromDocument(_documentId: string, _ticker: string, _data: any) {}
 
-  await db.query(`DELETE FROM insider_transactions WHERE document_id = $1`, [documentId]);
-
-  const names: string[] = [];
-  const roles: Array<string | null> = [];
-  const codes: Array<string | null> = [];
-  const amounts: Array<number | null> = [];
-  const ats: string[] = [];
-  for (const r of rows) {
-    const name = String(r?.insider_name ?? r?.person ?? r?.key ?? "Insider").trim();
-    const role = String(r?.key ?? "").trim() || null;
-    const code = String(r?.transaction_code ?? r?.code ?? "").trim().toUpperCase() || null;
-    const amt = r?.amount_usd != null ? Number(r.amount_usd) : null;
-    const at = r?.ts ? String(r.ts) : fallbackAt ? String(fallbackAt) : null;
-    if (!at) continue;
-    names.push(name);
-    roles.push(role);
-    codes.push(code);
-    amounts.push(Number.isFinite(amt as number) ? (amt as number) : null);
-    ats.push(at);
-  }
-
-  if (names.length) {
-    await db.query(
-      `
-      INSERT INTO insider_transactions (document_id, ticker, insider_role, insider_name, transaction_code, amount_usd, transaction_at)
-      SELECT $1, $2, role, name, code, amount_usd, at::timestamptz
-      FROM unnest(
-        $3::text[],
-        $4::text[],
-        $5::text[],
-        $6::float8[],
-        $7::text[]
-      ) AS t(role, name, code, amount_usd, at)
-      `,
-      [documentId, t, roles, names, codes, amounts, ats],
-    );
-  }
-
-  void invalidateTickerContextCache(t);
-
-  // Historical drain: skip expensive dossier rebuilds (turn back on after waitlist).
-  if (String(process.env.DOSSIER_CACHE_REFRESH_ON_INGEST ?? "1").trim() === "0") return;
-
-  scheduleCompanyDossierRefresh(t, async (tick) => {
-    const { buildCompanyDossierPayload } = await import("../research/company-dossier.js");
-    return buildCompanyDossierPayload(tick);
-  });
-  for (const name of names) {
-    const slug = slugifyInvestorName(name);
-    if (!slug) continue;
-    scheduleInvestorDossierRefresh(slug, "insider", async (s, m) => {
-      const { buildInvestorDossierPayload } = await import("../investigate/investor-dossier.js");
-      return buildInvestorDossierPayload(s, m);
-    });
-  }
-}
-
-export async function syncPoliticianTransactionsFromDocument(documentId: string, ticker: string, data: any) {
-  const t = ticker.trim().toUpperCase();
-  const rows = data?.cluster?.worksheet_rows;
-  if (!Array.isArray(rows) || !rows.length) return;
-
-  const fallbackAt =
-    data?.cluster?.cluster_end_at ??
-    data?.cluster?.cluster_start_at ??
-    data?.filing?.filed_at ??
-    null;
-
-  await db.query(`DELETE FROM politician_transactions WHERE document_id = $1`, [documentId]);
-
-  for (const r of rows) {
-    const name = String(r?.key ?? "Politician").trim();
-    const chamber = r?.chamber ? String(r.chamber).trim() : null;
-    const committee =
-      (r?.committee != null ? String(r.committee).trim() : "") ||
-      (await lookupPoliticianCommittee(name)) ||
-      null;
-    const txnType = String(r?.transaction_type ?? r?.type ?? "").trim().toUpperCase() || null;
-    const amt = r?.amount_usd_mid != null ? Number(r.amount_usd_mid) : null;
-    const at = r?.ts ? String(r.ts) : fallbackAt ? String(fallbackAt) : null;
-    if (!at) continue;
-    await db.query(
-      `
-      INSERT INTO politician_transactions (document_id, ticker, politician_name, chamber, committee, transaction_type, amount_usd_mid, transaction_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz)
-      `,
-      [documentId, t, name, chamber, committee, txnType, Number.isFinite(amt as number) ? amt : null, at],
-    );
-  }
-  void invalidateTickerContextCache(t);
-  scheduleCompanyDossierRefresh(t, async (tick) => {
-    const { buildCompanyDossierPayload } = await import("../research/company-dossier.js");
-    return buildCompanyDossierPayload(tick);
-  });
-  for (const r of rows) {
-    const name = String(r?.key ?? "").trim();
-    const slug = slugifyInvestorName(name);
-    if (!slug) continue;
-    scheduleInvestorDossierRefresh(slug, "politicians", async (s, m) => {
-      const { buildInvestorDossierPayload } = await import("../investigate/investor-dossier.js");
-      return buildInvestorDossierPayload(s, m);
-    });
-  }
-}
-
-export async function syncInstitutionFilingsFromDocument(documentId: string, ticker: string, data: any) {
-  const t = ticker.trim().toUpperCase();
-  const rows = data?.cluster?.worksheet_rows;
-  if (!Array.isArray(rows) || !rows.length) return;
-
-  const fallbackAt =
-    data?.cluster?.cluster_end_at ??
-    data?.cluster?.cluster_start_at ??
-    data?.filing?.filed_at ??
-    null;
-
-  await db.query(`DELETE FROM institution_filings_13f WHERE document_id = $1`, [documentId]);
-
-  for (const r of rows) {
-    const filer = String(r?.institution_name ?? r?.key ?? "").trim();
-    const activity = String(r?.activity ?? "").trim() || null;
-    const amt = r?.amount_usd != null ? Number(r.amount_usd) : null;
-    const at = r?.ts ? String(r.ts) : fallbackAt ? String(fallbackAt) : null;
-    if (!at) continue;
-    if (!isPlausibleTrackedFiler(filer, Number.isFinite(amt as number) ? (amt as number) : null)) continue;
-    await db.query(
-      `
-      INSERT INTO institution_filings_13f (document_id, ticker, filer, activity, amount_usd, filed_at)
-      VALUES ($1, $2, $3, $4, $5, $6::timestamptz)
-      `,
-      [documentId, t, filer, activity, Number.isFinite(amt as number) ? amt : null, at],
-    );
-  }
-  void invalidateTickerContextCache(t);
-  scheduleCompanyDossierRefresh(t, async (tick) => {
-    const { buildCompanyDossierPayload } = await import("../research/company-dossier.js");
-    return buildCompanyDossierPayload(tick);
-  });
-  for (const r of rows) {
-    const filer = String(r?.institution_name ?? r?.key ?? "").trim();
-    const slug = slugifyInvestorName(filer);
-    if (!slug) continue;
-    scheduleInvestorDossierRefresh(slug, "institutions", async (s, m) => {
-      const { buildInvestorDossierPayload } = await import("../investigate/investor-dossier.js");
-      return buildInvestorDossierPayload(s, m);
-    });
-  }
-}
+/** @deprecated Writers use v2/canonical replaceInstitutionTransactions. */
+export async function syncInstitutionFilingsFromDocument(_documentId: string, _ticker: string, _data: any) {}
 
 export type PaperDocumentRow = {
   id: string;
@@ -294,137 +197,6 @@ export type PaperDocumentRow = {
   idea_reasons?: string[];
 };
 
-function clusterDocFallbackAt(data: any, eventAt: string | null): string | null {
-  return (
-    isoTimestampFromDb(eventAt) ??
-    isoTimestampFromDb(data?.cluster?.cluster_end_at) ??
-    isoTimestampFromDb(data?.cluster?.cluster_start_at) ??
-    isoTimestampFromDb(data?.filing?.filed_at) ??
-    null
-  );
-}
-
-async function loadInsiderFlowsFromDocuments(ticker: string, limit = 80) {
-  const t = ticker.trim().toUpperCase();
-  const docs = await db.query<{ data: any; event_at: string | null; url: string | null }>(
-    `
-    SELECT data, event_at::text AS event_at, url
-    FROM documents
-    WHERE ticker_norm = $1 AND feed_kind = 'insider'
-    ORDER BY feed_at DESC NULLS LAST, parsed_at DESC
-    LIMIT 40
-    `,
-    [t],
-  );
-  const out: Array<{
-    key: string;
-    person: string;
-    date: string;
-    amount: string;
-    transactionCode: string | null;
-    url: string | null;
-  }> = [];
-  for (const d of docs) {
-    const fallbackAt = clusterDocFallbackAt(d.data, d.event_at);
-    const docUrl = d.url ? String(d.url).trim() : null;
-    const rows = Array.isArray(d.data?.cluster?.worksheet_rows) ? d.data.cluster.worksheet_rows : [];
-    for (const r of rows) {
-      const at = r?.ts ? String(r.ts) : fallbackAt;
-      if (!at) continue;
-      const amt = r?.amount_usd != null ? Number(r.amount_usd) : null;
-      out.push({
-        key: String(r?.key ?? r?.insider_role ?? "Insider").trim() || "Insider",
-        person: String(r?.insider_name ?? r?.person ?? r?.key ?? "Insider").trim(),
-        date: at,
-        amount: amt != null && Number.isFinite(amt) && amt > 0 ? formatUsdCompact(amt) : "—",
-        transactionCode: r?.transaction_code ?? r?.code ?? null,
-        url: docUrl,
-      });
-    }
-  }
-  return out.slice(0, limit);
-}
-
-async function loadPoliticianFlowsFromDocuments(ticker: string, limit = 80) {
-  const t = ticker.trim().toUpperCase();
-  const docs = await db.query<{ data: any; event_at: string | null; url: string | null }>(
-    `
-    SELECT data, event_at::text AS event_at, url
-    FROM documents
-    WHERE ticker_norm = $1 AND feed_kind = 'politicians'
-    ORDER BY feed_at DESC NULLS LAST, parsed_at DESC
-    LIMIT 40
-    `,
-    [t],
-  );
-  const out: Array<{
-    name: string;
-    chamber: string;
-    committee: string | null;
-    date: string;
-    amount: string;
-    transactionType: string | null;
-    url: string | null;
-  }> = [];
-  for (const d of docs) {
-    const fallbackAt = clusterDocFallbackAt(d.data, d.event_at);
-    const docUrl = d.url ? String(d.url).trim() : null;
-    const rows = Array.isArray(d.data?.cluster?.worksheet_rows) ? d.data.cluster.worksheet_rows : [];
-    for (const r of rows) {
-      const at = r?.ts ? String(r.ts) : fallbackAt;
-      if (!at) continue;
-      const amt = r?.amount_usd_mid != null ? Number(r.amount_usd_mid) : null;
-      const name = formatPoliticianDisplayName(String(r?.key ?? r?.politician_name ?? "").trim());
-      if (!name) continue;
-      out.push({
-        name,
-        chamber: r?.chamber ? String(r.chamber).trim() : "house",
-        committee: r?.committee ? String(r.committee).trim() : null,
-        date: at,
-        amount: amt != null && Number.isFinite(amt) && amt > 0 ? formatUsdCompact(amt) : "—",
-        transactionType: r?.transaction_type ?? r?.type ?? null,
-        url: docUrl,
-      });
-    }
-  }
-  return out.slice(0, limit);
-}
-
-async function loadFilings13fFromDocuments(ticker: string, limit = 40) {
-  const t = ticker.trim().toUpperCase();
-  const docs = await db.query<{ data: any; event_at: string | null; url: string | null }>(
-    `
-    SELECT data, event_at::text AS event_at, url
-    FROM documents
-    WHERE ticker_norm = $1 AND feed_kind = 'institutions'
-    ORDER BY feed_at DESC NULLS LAST, parsed_at DESC
-    LIMIT 40
-    `,
-    [t],
-  );
-  const out: Array<{ filer: string; activity: string | null; date: string; amount: string; url: string | null }> = [];
-  for (const d of docs) {
-    const fallbackAt = clusterDocFallbackAt(d.data, d.event_at);
-    const docUrl = d.url ? String(d.url).trim() : null;
-    const rows = Array.isArray(d.data?.cluster?.worksheet_rows) ? d.data.cluster.worksheet_rows : [];
-    for (const r of rows) {
-      const at = r?.ts ? String(r.ts) : fallbackAt;
-      if (!at) continue;
-      const amt = r?.amount_usd != null ? Number(r.amount_usd) : null;
-      const filer = String(r?.institution_name ?? r?.key ?? "").trim();
-      if (!isPlausibleTrackedFiler(filer, Number.isFinite(amt as number) ? (amt as number) : null)) continue;
-      out.push({
-        filer,
-        activity: r?.activity ? String(r.activity).trim() : null,
-        date: at,
-        amount: amt != null && Number.isFinite(amt) && amt > 0 ? formatUsdCompact(amt) : "—",
-        url: docUrl,
-      });
-    }
-  }
-  return out.slice(0, limit);
-}
-
 export async function loadInsiderFlowsForTicker(ticker: string, limit = 80) {
   const t = ticker.trim().toUpperCase();
   const rows = await db.query<{
@@ -437,21 +209,22 @@ export async function loadInsiderFlowsForTicker(ticker: string, limit = 80) {
   }>(
     `
     SELECT
-      it.insider_role,
-      it.insider_name,
+      it.role AS insider_role,
+      f.display_name AS insider_name,
       it.transaction_code,
       it.amount_usd::text,
       it.transaction_at::text,
-      d.url
+      fil.url
     FROM insider_transactions it
-    LEFT JOIN documents d ON d.id = it.document_id
-    WHERE it.ticker = $1
+    JOIN filers f ON f.id = it.filer_id
+    JOIN issuers i ON i.id = it.issuer_id
+    LEFT JOIN filings fil ON fil.id = it.filing_id
+    WHERE i.ticker = $1
     ORDER BY it.transaction_at DESC
     LIMIT $2
     `,
     [t, limit],
   );
-  if (!rows.length) return loadInsiderFlowsFromDocuments(t, limit);
   return rows.map((r) => ({
     key: r.insider_role ?? "Insider",
     person: r.insider_name,
@@ -475,42 +248,37 @@ export async function loadPoliticianFlowsForTicker(ticker: string, limit = 80) {
   }>(
     `
     SELECT
-      pt.politician_name,
+      f.display_name AS politician_name,
       pt.chamber,
       pt.committee,
       pt.transaction_type,
       pt.amount_usd_mid::text,
       pt.transaction_at::text,
-      d.url
+      fil.url
     FROM politician_transactions pt
-    LEFT JOIN documents d ON d.id = pt.document_id
-    WHERE pt.ticker = $1
+    JOIN filers f ON f.id = pt.filer_id
+    JOIN issuers i ON i.id = pt.issuer_id
+    LEFT JOIN filings fil ON fil.id = pt.filing_id
+    WHERE i.ticker = $1
     ORDER BY pt.transaction_at DESC
     LIMIT $2
     `,
     [t, limit],
   );
-  if (!rows.length) {
-    const fromDocs = await loadPoliticianFlowsFromDocuments(t, limit);
-    const committees = await lookupPoliticianCommittees(fromDocs.map((r) => r.name));
-    return fromDocs.map((r) => {
-      const name = formatPoliticianDisplayName(r.name);
-      return {
-        ...r,
-        name,
-        committee: r.committee || committees.get(r.name) || committees.get(name) || null,
-      };
-    });
-  }
-  return rows.map((r) => ({
-    name: formatPoliticianDisplayName(r.politician_name),
-    chamber: r.chamber ?? "house",
-    committee: r.committee ?? null,
-    date: r.transaction_at,
-    amount: r.amount_usd_mid != null && Number(r.amount_usd_mid) > 0 ? formatUsdCompact(Number(r.amount_usd_mid)) : "—",
-    transactionType: r.transaction_type,
-    url: r.url ? String(r.url).trim() : null,
-  }));
+  if (!rows.length) return [];
+  const committees = await lookupPoliticianCommittees(rows.map((r) => r.politician_name));
+  return rows.map((r) => {
+    const name = formatPoliticianDisplayName(r.politician_name);
+    return {
+      name,
+      chamber: r.chamber ?? "house",
+      committee: r.committee || committees.get(r.politician_name) || committees.get(name) || null,
+      date: r.transaction_at,
+      amount: r.amount_usd_mid != null && Number(r.amount_usd_mid) > 0 ? formatUsdCompact(Number(r.amount_usd_mid)) : "—",
+      transactionType: r.transaction_type,
+      url: r.url ? String(r.url).trim() : null,
+    };
+  });
 }
 
 export async function loadFilings13fForTicker(ticker: string, limit = 40) {
@@ -524,20 +292,21 @@ export async function loadFilings13fForTicker(ticker: string, limit = 40) {
   }>(
     `
     SELECT
-      f.filer,
-      f.activity,
-      f.amount_usd::text,
-      f.filed_at::text,
-      d.url
-    FROM institution_filings_13f f
-    LEFT JOIN documents d ON d.id = f.document_id
-    WHERE f.ticker = $1
-    ORDER BY f.filed_at DESC
+      f.display_name AS filer,
+      it.activity,
+      it.amount_usd::text,
+      it.transaction_at::text AS filed_at,
+      fil.url
+    FROM institution_transactions it
+    JOIN filers f ON f.id = it.filer_id
+    JOIN issuers i ON i.id = it.issuer_id
+    LEFT JOIN filings fil ON fil.id = it.filing_id
+    WHERE i.ticker = $1
+    ORDER BY it.transaction_at DESC
     LIMIT $2
     `,
     [t, limit],
   );
-  if (!rows.length) return loadFilings13fFromDocuments(t, limit);
   return rows
     .map((r) => ({
       filer: r.filer,
@@ -561,22 +330,34 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
     title: string | null;
     analysis: string | null;
     program_keys: string[] | null;
-    program_drug: string | null;
     feed_kind: string | null;
-    program_phase: string | null;
-    data: any;
+    signal_score: number | null;
+    signal_label: string | null;
+    signal_reasons: string[] | null;
   }>(
     `
-    SELECT id, source_key, event_at::text, url, title, analysis, program_keys, program_drug, feed_kind, program_phase, data
-    FROM documents
-    WHERE ticker_norm = $1
-      AND feed_kind = 'research'
-      AND show_on_ticker IS NOT FALSE
+    SELECT
+      f.id::text,
+      f.source_key,
+      f.event_at::text,
+      f.url,
+      f.title,
+      f.analysis,
+      f.program_keys,
+      f.feed_kind::text,
+      f.signal_score,
+      f.signal_label,
+      f.signal_reasons
+    FROM filings f
+    JOIN issuers i ON i.id = f.issuer_id
+    WHERE i.ticker = $1
+      AND f.feed_kind = 'research'
+      AND f.show_on_ticker IS NOT FALSE
       AND (
-        (analysis IS NOT NULL AND length(trim(analysis)) > 0)
-        OR (title IS NOT NULL AND length(trim(title)) > 0)
+        (f.analysis IS NOT NULL AND length(trim(f.analysis)) > 0)
+        OR (f.title IS NOT NULL AND length(trim(f.title)) > 0)
       )
-    ORDER BY COALESCE(feed_at, event_at) DESC NULLS LAST, parsed_at DESC
+    ORDER BY f.event_at DESC NULLS LAST, f.parsed_at DESC
     LIMIT $2
     `,
     [t, limit],
@@ -588,15 +369,11 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
       analysis: r.analysis,
       source_key: r.source_key,
       feed_kind: r.feed_kind,
-      program_phase: r.program_phase,
       event_at: r.event_at,
-      data: r.data,
     });
-    const taggedKeys = Array.isArray(r.program_keys)
+    const programKeys = Array.isArray(r.program_keys)
       ? r.program_keys.map((k) => String(k ?? "").trim()).filter(Boolean)
       : [];
-    const drugKey = String(r.program_drug ?? "").trim();
-    const programKeys = taggedKeys.length ? taggedKeys : drugKey ? [drugKey] : [];
     return {
       id: r.id,
       source: String(r.source_key ?? "Other"),
@@ -604,9 +381,9 @@ export async function loadPaperDocumentsForTicker(ticker: string, limit = 120): 
       url: r.url,
       analysis: String(r.analysis ?? r.title ?? "").trim() || String(r.source_key ?? "Filing"),
       programKeys,
-      idea_score: idea.idea_score,
-      idea_best: idea.idea_best,
-      idea_reasons: idea.idea_reasons,
+      idea_score: r.signal_score ?? idea.idea_score,
+      idea_best: r.signal_label != null ? Boolean(r.signal_label) : idea.idea_best,
+      idea_reasons: r.signal_reasons?.length ? r.signal_reasons : idea.idea_reasons,
     };
   });
 }
@@ -622,12 +399,22 @@ export async function loadInstitutionShareSnapshotsForTicker(
   limit = 400,
 ): Promise<InstitutionShareSnapshot[]> {
   const t = ticker.trim().toUpperCase();
-  const rows = await db.query<{ data: unknown; event_at: string | null }>(
+  const rows = await db.query<{
+    filer: string;
+    shares: string | null;
+    as_of: string;
+  }>(
     `
-    SELECT data, event_at::text
-    FROM documents
-    WHERE ticker_norm = $1 AND feed_kind = 'institutions'
-    ORDER BY feed_at DESC NULLS LAST
+    SELECT
+      f.display_name AS filer,
+      it.shares::text,
+      it.transaction_at::text AS as_of
+    FROM institution_transactions it
+    JOIN filers f ON f.id = it.filer_id
+    JOIN issuers i ON i.id = it.issuer_id
+    WHERE i.ticker = $1
+      AND it.shares IS NOT NULL
+    ORDER BY it.transaction_at DESC
     LIMIT $2
     `,
     [t, limit],
@@ -635,31 +422,13 @@ export async function loadInstitutionShareSnapshotsForTicker(
 
   const out: InstitutionShareSnapshot[] = [];
   for (const row of rows) {
-    const data = row.data as {
-      cluster?: { worksheet_rows?: Array<Record<string, unknown>> };
-    } | null;
-    const worksheet = data?.cluster?.worksheet_rows;
-    if (!Array.isArray(worksheet) || !worksheet.length) continue;
-
-    const filer = String(worksheet[0]?.institution_name ?? worksheet[0]?.key ?? "Institution").trim();
-    let shares = 0;
-    let anyShares = false;
-    for (const r of worksheet) {
-      const n = r?.shares != null ? Number(r.shares) : null;
-      if (n != null && Number.isFinite(n) && n > 0) {
-        shares += n;
-        anyShares = true;
-      }
-    }
-    if (!anyShares) continue;
-
-    const rowTs = worksheet
-      .map((r) => String(r?.ts ?? "").trim())
-      .filter(Boolean)
-      .sort()
-      .at(-1);
-    const asOf = rowTs ?? row.event_at ?? new Date().toISOString();
-    out.push({ filer, shares, asOf });
+    const shares = row.shares != null ? Number(row.shares) : NaN;
+    if (!Number.isFinite(shares) || shares <= 0) continue;
+    out.push({
+      filer: String(row.filer ?? "Institution").trim(),
+      shares,
+      asOf: row.as_of,
+    });
   }
   return out;
 }
@@ -677,13 +446,14 @@ export async function loadInsiderOwnershipFilingsForTicker(
   const t = ticker.trim().toUpperCase();
   const rows = await db.query<{ url: string | null; event_at: string | null; source_key: string | null }>(
     `
-    SELECT url, event_at::text, source_key
-    FROM documents
-    WHERE ticker_norm = $1
-      AND feed_kind = 'insider'
-      AND source_key IN ('Form 3', 'Form 5')
-      AND url IS NOT NULL
-    ORDER BY feed_at DESC NULLS LAST
+    SELECT f.url, f.event_at::text, f.source_key
+    FROM filings f
+    JOIN issuers i ON i.id = f.issuer_id
+    WHERE i.ticker = $1
+      AND f.feed_kind = 'insider'
+      AND f.source_key IN ('Form 3', 'Form 5')
+      AND f.url IS NOT NULL
+    ORDER BY f.event_at DESC NULLS LAST
     LIMIT $2
     `,
     [t, limit],
