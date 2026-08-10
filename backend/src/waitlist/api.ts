@@ -12,17 +12,10 @@ function normalizeEmail(raw: unknown): string | null {
   return email;
 }
 
-function notifyTo(): string | null {
-  const explicit = String(process.env.WAITLIST_NOTIFY_TO ?? "").trim().toLowerCase();
-  if (explicit && EMAIL_RE.test(explicit)) return explicit;
-  const ua = String(process.env.SEC_USER_AGENT ?? "");
-  const m = ua.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
-  return m?.[0]?.toLowerCase() ?? null;
-}
-
 /**
  * Public: POST /api/waitlist { email }
- * No DB. Emails you the signup via FormSubmit (no Brevo login needed).
+ * Kept as a lightweight ack. Real notify is browser → FormSubmit (see WaitlistPage)
+ * so we don't depend on Brevo login or datacenter IPs hitting CF-challenged endpoints.
  */
 export async function handleWaitlistJoin(req: http.IncomingMessage, res: http.ServerResponse) {
   let body: Record<string, unknown>;
@@ -39,39 +32,5 @@ export async function handleWaitlistJoin(req: http.IncomingMessage, res: http.Se
     return;
   }
 
-  // Respond immediately — notify must not block UX or touch ingest workers.
   sendJson(res, 200, { ok: true });
-
-  const to = notifyTo();
-  if (!to) {
-    console.warn("[waitlist] WAITLIST_NOTIFY_TO unset; signup not emailed", { email });
-    return;
-  }
-
-  void notifyViaFormSubmit(to, email).catch((err) => console.error("[waitlist] notify_failed", err));
-}
-
-async function notifyViaFormSubmit(to: string, signupEmail: string) {
-  // FormSubmit: free, no account. First hit emails `to` an activation link — click once.
-  const url = `https://formsubmit.co/ajax/${encodeURIComponent(to)}`;
-  const r = await fetch(url, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      accept: "application/json",
-    },
-    body: JSON.stringify({
-      email: signupEmail,
-      _subject: `Mercerline waitlist: ${signupEmail}`,
-      _template: "table",
-      message: `New waitlist signup: ${signupEmail}`,
-      source: "mercerline.com/waitlist",
-    }),
-  });
-  const text = await r.text().catch(() => "");
-  if (!r.ok) {
-    console.error("[waitlist] formsubmit_failed", r.status, text.slice(0, 400));
-    return;
-  }
-  console.info("[waitlist] formsubmit_ok", { to, signupEmail, body: text.slice(0, 200) });
 }

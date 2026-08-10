@@ -3,11 +3,13 @@ import { WAITLIST, WAITLIST_PAGE_META } from './marketingContent.js'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
-import { fetchJsonSafe } from './api.js'
 import './IntroPage.css'
 import './IntroPage.marketing.css'
 import './SignInPage.css'
 import './WaitlistPage.css'
+
+/** Where waitlist pings land (FormSubmit from the browser — avoids Hetzner/Brevo). */
+const WAITLIST_NOTIFY_TO = 'lukas.skrebe@gmail.com'
 
 export function WaitlistPage() {
   const [email, setEmail] = useState('')
@@ -31,13 +33,30 @@ export function WaitlistPage() {
     }
     setBusy(true)
     try {
-      const r = await fetchJsonSafe('/api/waitlist', {
+      // Browser → FormSubmit (datacenter IPs get CF-challenged; browsers usually work).
+      const r = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(WAITLIST_NOTIFY_TO)}`, {
         method: 'POST',
-        body: { email: trimmed },
-        timeoutMs: 8000,
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          email: trimmed,
+          _subject: `Mercerline waitlist: ${trimmed}`,
+          _template: 'table',
+          message: `New waitlist signup: ${trimmed}`,
+          source: 'mercerline.com/waitlist',
+        }),
       })
-      if (!r?.ok) {
+      const data = await r.json().catch(() => null)
+      if (!r.ok) {
         setError('Could not join right now. Try again in a moment.')
+        setBusy(false)
+        return
+      }
+      // First-ever submit may only activate FormSubmit — still show success.
+      if (data?.success === 'false' || data?.message?.toLowerCase?.().includes('activate')) {
+        setDone(true)
         setBusy(false)
         return
       }
