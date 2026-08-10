@@ -49,18 +49,13 @@ export function WaitlistPage() {
         }),
       })
       const data = await r.json().catch(() => null)
-      if (!r.ok) {
-        setError('Could not join right now. Try again in a moment.')
-        setBusy(false)
-        return
-      }
-      // First-ever submit may only activate FormSubmit — still show success.
-      if (data?.success === 'false' || data?.message?.toLowerCase?.().includes('activate')) {
+      const msg = String(data?.message ?? '').toLowerCase()
+      const activatedPending = msg.includes('activate') || data?.success === 'false' || data?.success === false
+      if (r.ok || activatedPending) {
         setDone(true)
-        setBusy(false)
         return
       }
-      setDone(true)
+      setError('Could not join right now. Try again in a moment.')
     } catch {
       setError('Could not join right now. Try again in a moment.')
     } finally {
