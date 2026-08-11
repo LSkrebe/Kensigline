@@ -1,5 +1,5 @@
 import { runWithWorkerDb } from "../core/db.js";
-import { countReadyQueue } from "./queue-pending.js";
+import { readyQueueAbove } from "./queue-pending.js";
 import { reclaimStaleParsing, requeueTransientDead } from "./queue.js";
 
 function sleep(ms: number) {
@@ -86,20 +86,21 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
 
   const maybeRunBackfill = async () => {
     if (stopped || !opts.enqueueBackfill || !opts.sourceTypes?.length) return;
+    // Single-flight includes the low-water probe — 12 parse workers must not
+    // stampede COUNT/LIMIT probes through the transaction pooler.
     if (backfillRunning) return;
     if (Date.now() - lastBackfillAt < backfillIntervalMs) return;
-
-    const pending = await runWithWorkerDb(() => countReadyQueue(opts.sourceTypes!));
-    // Keep the parse queue fed — waiting for empty causes starve/fill cycles.
-    const lowWater = Math.max(
-      0,
-      envNum(opts.envPrefix, "BACKFILL_QUEUE_LOW_WATER", Number(process.env.BACKFILL_QUEUE_LOW_WATER ?? 80) || 80),
-    );
-    if (pending > lowWater) return;
 
     backfillRunning = true;
     lastBackfillAt = Date.now();
     try {
+      const lowWater = Math.max(
+        0,
+        envNum(opts.envPrefix, "BACKFILL_QUEUE_LOW_WATER", Number(process.env.BACKFILL_QUEUE_LOW_WATER ?? 80) || 80),
+      );
+      const above = await runWithWorkerDb(() => readyQueueAbove(opts.sourceTypes!, lowWater));
+      // Keep the parse queue fed — waiting for empty causes starve/fill cycles.
+      if (above) return;
       await runWithWorkerDb(() => opts.enqueueBackfill!());
     } catch (e) {
       console.error(`[${opts.name}] backfill_failed`, e);

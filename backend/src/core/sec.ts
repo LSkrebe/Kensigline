@@ -220,14 +220,6 @@ function parseAtomEntries(atomXml: string) {
   return out;
 }
 
-function accessionKeyFromArchivesIndexUrl(u: string) {
-  // Example:
-  // https://www.sec.gov/Archives/edgar/data/65433/000151028126000158/0001510281-26-000158-index.htm
-  const m = u.match(/\/Archives\/edgar\/data\/\d+\/(\d{10}\d{2}\d{6})\/(\d{10}-\d{2}-\d{6})-index\.html?$/i);
-  if (!m) return null;
-  return { accessionNoDash: m[1]!, accession: m[2]! };
-}
-
 function indexJsonFromArchivesIndexUrl(u: string) {
   // https://www.sec.gov/Archives/edgar/data/<cik>/<accNoDash>/<acc>-index.htm
   // -> https://www.sec.gov/Archives/edgar/data/<cik>/<accNoDash>/index.json
@@ -251,10 +243,9 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
   const pageSize = Number.isFinite(opts.pageSize) ? Math.max(20, Math.min(100, opts.pageSize!)) : 100;
   const pages = Math.max(1, Math.min(20, opts.pages));
 
-  const queue_ids: string[] = [];
+  const seen = new Set<string>();
+  const urls: string[] = [];
   let found = 0;
-  let enqueued = 0;
-  let skipped_existing = 0;
 
   for (let p = 0; p < pages; p++) {
     const start = p * pageSize;
@@ -264,53 +255,18 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
     for (const it of entries) {
       found += 1;
       const filingUrl = indexJsonFromArchivesIndexUrl(it.href) ?? it.href;
-
-      // Hard dedupe: the SEC sometimes presents the same accession under different /data/<cik>/ paths.
-      // We dedupe by accession folder + accession number when possible.
-      const acc = accessionKeyFromArchivesIndexUrl(filingUrl);
-      const existing = acc
-        ? await db.one<{ id: string }>(
-            `
-            SELECT id FROM document_queue
-            WHERE (url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
-               OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%')
-              AND source_type = 'sec_form4'
-            UNION ALL
-            SELECT id FROM filings
-            WHERE url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
-               OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%'
-            LIMIT 1
-            `,
-            [acc.accessionNoDash, acc.accession],
-          )
-        : await db.one<{ id: string }>(
-            `
-            SELECT id FROM document_queue WHERE url = $1 AND source_type = 'sec_form4'
-            UNION ALL
-            SELECT id FROM filings WHERE url = $1
-            LIMIT 1
-            `,
-            [filingUrl],
-          );
-      if (existing) {
-        skipped_existing += 1;
-        continue;
-      }
-
-      const r = await db.one<{ id: string }>(
-        `
-        INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)
-        VALUES ($1, $2, 'ready_to_parse', 10, 0, now())
-        RETURNING id
-        `,
-        [filingUrl, "sec_form4"],
-      );
-      if (r?.id) {
-        queue_ids.push(r.id);
-        enqueued += 1;
-      }
+      if (seen.has(filingUrl)) continue;
+      seen.add(filingUrl);
+      urls.push(filingUrl);
     }
   }
+
+  // Exact-URL + unique constraint — no LIKE accession scans (those seq-scanned under load).
+  const { queue_ids, enqueued, skipped_existing } = await enqueueQueueUrlsBatch({
+    urls,
+    sourceType: "sec_form4",
+    priority: 10,
+  });
 
   return { pages, found, enqueued, skipped_existing, queue_ids };
 }
@@ -334,10 +290,9 @@ export async function enqueueCurrentFilingFeed(opts: {
 
   if (!formType) throw new Error("form_type_required");
 
-  const queue_ids: string[] = [];
+  const seen = new Set<string>();
+  const urls: string[] = [];
   let found = 0;
-  let enqueued = 0;
-  let skipped_existing = 0;
 
   for (let p = 0; p < pages; p++) {
     const start = p * pageSize;
@@ -349,47 +304,66 @@ export async function enqueueCurrentFilingFeed(opts: {
     for (const it of entries) {
       found += 1;
       const filingUrl = indexJsonFromArchivesIndexUrl(it.href) ?? it.href;
-
-      const acc = accessionKeyFromArchivesIndexUrl(filingUrl);
-      const existing = acc
-        ? await db.one<{ id: string }>(
-            `
-            SELECT id FROM document_queue
-            WHERE (url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%'
-               OR url LIKE '%' || '/' || $1 || '/' || $2 || '-index.%' || '%')
-              AND source_type = $3
-            LIMIT 1
-            `,
-            [acc.accessionNoDash, acc.accession, sourceType],
-          )
-        : await db.one<{ id: string }>(
-            `
-            SELECT id FROM document_queue WHERE url = $1 AND source_type = $2
-            LIMIT 1
-            `,
-            [filingUrl, sourceType],
-          );
-      if (existing) {
-        skipped_existing += 1;
-        continue;
-      }
-
-      const r = await db.one<{ id: string }>(
-        `
-        INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)
-        VALUES ($1, $2, 'ready_to_parse', $3, 0, now())
-        RETURNING id
-        `,
-        [filingUrl, sourceType, priority],
-      );
-      if (r?.id) {
-        queue_ids.push(r.id);
-        enqueued += 1;
-      }
+      if (seen.has(filingUrl)) continue;
+      seen.add(filingUrl);
+      urls.push(filingUrl);
     }
   }
 
+  const { queue_ids, enqueued, skipped_existing } = await enqueueQueueUrlsBatch({
+    urls,
+    sourceType,
+    priority,
+  });
+
   return { pages, found, enqueued, skipped_existing, queue_ids };
+}
+
+/** Batch enqueue with exact-URL existence checks + ON CONFLICT (pooler-safe). */
+async function enqueueQueueUrlsBatch(opts: {
+  urls: string[];
+  sourceType: string;
+  priority: number;
+}): Promise<{ queue_ids: string[]; enqueued: number; skipped_existing: number }> {
+  const queue_ids: string[] = [];
+  let enqueued = 0;
+  let skipped_existing = 0;
+  if (!opts.urls.length) return { queue_ids, enqueued, skipped_existing };
+
+  const chunkSize = Math.max(50, Math.min(500, Number(process.env.BACKFILL_ENQUEUE_CHUNK ?? 200) || 200));
+  for (let i = 0; i < opts.urls.length; i += chunkSize) {
+    const chunk = opts.urls.slice(i, i + chunkSize);
+    const existingRows = await db.query<{ url: string }>(
+      `SELECT url FROM document_queue WHERE source_type = $2 AND url = ANY($1::text[])`,
+      [chunk, opts.sourceType],
+    );
+    const existing = new Set(existingRows.map((r) => r.url));
+    const missing = chunk.filter((u) => !existing.has(u));
+    if (missing.length) {
+      const filed = await db.query<{ url: string }>(`SELECT url FROM filings WHERE url = ANY($1::text[])`, [missing]);
+      for (const r of filed) existing.add(r.url);
+    }
+
+    const toInsert = chunk.filter((u) => !existing.has(u));
+    skipped_existing += chunk.length - toInsert.length;
+    if (!toInsert.length) continue;
+
+    const inserted = await db.query<{ id: string }>(
+      `
+      INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)
+      SELECT u, $2, 'ready_to_parse', $3, 0, now()
+      FROM unnest($1::text[]) AS u
+      ON CONFLICT (url, source_type) DO NOTHING
+      RETURNING id
+      `,
+      [toInsert, opts.sourceType, opts.priority],
+    );
+    for (const r of inserted) queue_ids.push(r.id);
+    enqueued += inserted.length;
+    skipped_existing += Math.max(0, toInsert.length - inserted.length);
+  }
+
+  return { queue_ids, enqueued, skipped_existing };
 }
 
 let secTickerTitleMapCache: { at: number; map: Map<string, string> } | null = null;

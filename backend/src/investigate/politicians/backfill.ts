@@ -31,6 +31,11 @@ function isoDate(d: Date): string {
 export async function runPoliticiansHistoricalBackfill(pipeline: string): Promise<{ enqueued: number }> {
   if (!backfillEnabled()) return { enqueued: 0 };
 
+  // Once every stream has hit the age floor, stop — do not log/DB-poll every tick forever.
+  if ((await getIngestCursor(pipeline, "historical_done")) === "1") {
+    return { enqueued: 0 };
+  }
+
   let enqueued = 0;
   const maxPerBatch = Math.max(10, Math.min(500, Number(process.env.BACKFILL_POLITICIANS_MAX_PER_BATCH ?? 120)));
   const senateWindowDays = politiciansBackfillSenateWindowDays();
@@ -65,8 +70,10 @@ export async function runPoliticiansHistoricalBackfill(pipeline: string): Promis
     } catch (e) {
       console.error(`[${pipeline}] backfill house year=${houseYear} failed`, e);
     }
-    await setIngestCursor(pipeline, "house_year", String(houseYear - 1));
+    houseYear -= 1;
+    await setIngestCursor(pipeline, "house_year", String(houseYear));
   }
+  const houseDone = houseYear < minHouseYear;
 
   const senateEndRaw = await getIngestCursor(pipeline, "senate_window_end");
   let senateEnd = parseIsoDate(senateEndRaw);
@@ -79,6 +86,7 @@ export async function runPoliticiansHistoricalBackfill(pipeline: string): Promis
   const senateStart = new Date(senateEnd);
   senateStart.setUTCDate(senateStart.getUTCDate() - senateWindowDays);
 
+  let senateDone = false;
   if (senateEnd.getTime() >= minDate.getTime()) {
     try {
       const session = await openSenateSession();
@@ -115,16 +123,15 @@ export async function runPoliticiansHistoricalBackfill(pipeline: string): Promis
     nextEnd.setUTCDate(nextEnd.getUTCDate() - 1);
     await setIngestCursor(pipeline, "senate_window_end", isoDate(nextEnd));
   } else {
-    console.log(
-      `[${pipeline}] backfill senate reached min age (${backfillMaxAgeDays()}d); stopping at ${isoDate(senateEnd)}`,
-    );
+    senateDone = true;
   }
 
   const ogeStartRaw = await getIngestCursor(pipeline, "oge_api_start");
   let ogeStart = ogeStartRaw != null && ogeStartRaw !== "" ? Number(ogeStartRaw) : 0;
   if (!Number.isFinite(ogeStart) || ogeStart < 0) ogeStart = 0;
   const ogeDoneRaw = await getIngestCursor(pipeline, "oge_backfill_done");
-  if (ogeDoneRaw !== "1") {
+  let ogeDone = ogeDoneRaw === "1";
+  if (!ogeDone) {
     try {
       const page = await listOge278tPdfsFromOffsetWithRetry({
         start: ogeStart,
@@ -151,6 +158,7 @@ export async function runPoliticiansHistoricalBackfill(pipeline: string): Promis
         `[${pipeline}] backfill oge start=${ogeStart} next=${page.nextStart} discovered=${page.listings.length} enqueued=${ogeEnq} done=${page.done}`,
       );
       if (page.done) {
+        ogeDone = true;
         await setIngestCursor(pipeline, "oge_backfill_done", "1");
       } else {
         await setIngestCursor(pipeline, "oge_api_start", String(page.nextStart));
@@ -158,6 +166,13 @@ export async function runPoliticiansHistoricalBackfill(pipeline: string): Promis
     } catch (e) {
       console.error(`[${pipeline}] backfill oge start=${ogeStart} failed`, e);
     }
+  }
+
+  if (houseDone && senateDone && ogeDone) {
+    await setIngestCursor(pipeline, "historical_done", "1");
+    console.log(
+      `[${pipeline}] historical backfill complete (age floor ${backfillMaxAgeDays()}d); idle until reset`,
+    );
   }
 
   return { enqueued };
