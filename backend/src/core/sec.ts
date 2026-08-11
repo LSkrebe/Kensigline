@@ -580,10 +580,20 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
     }
 
     const chunk = filings.slice(i, i + chunkSize);
-    const urls = chunk.map((f) => {
+    // master.idx can list the same accession more than once — dedupe before insert
+    // or a single multi-row INSERT hits document_queue_url_source_unique.
+    const urls: string[] = [];
+    const seenUrl = new Set<string>();
+    for (const f of chunk) {
       const cik10 = String(Number(f.cik)).padStart(10, "0");
-      return accessionToIndexJsonUrl(cik10, f.accession);
-    });
+      const url = accessionToIndexJsonUrl(cik10, f.accession);
+      if (seenUrl.has(url)) {
+        skipped_existing += 1;
+        continue;
+      }
+      seenUrl.add(url);
+      urls.push(url);
+    }
 
     const existingRows = await db.query<{ url: string }>(
       `
@@ -609,19 +619,19 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
     }
 
     if (toInsert.length) {
+      // ON CONFLICT: live enqueue can race this backfill path under max concurrency.
       const inserted = await db.query<{ id: string }>(
         `
         INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)
         SELECT u, $2, 'ready_to_parse', $3, 0, now()
         FROM unnest($1::text[]) AS u
-        WHERE NOT EXISTS (
-          SELECT 1 FROM document_queue q WHERE q.url = u AND q.source_type = $2
-        )
+        ON CONFLICT (url, source_type) DO NOTHING
         RETURNING id
         `,
         [toInsert, sourceType, priority],
       );
       enqueued += inserted.length;
+      skipped_existing += Math.max(0, toInsert.length - inserted.length);
     }
 
     if (truncated) break;

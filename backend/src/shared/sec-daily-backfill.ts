@@ -104,9 +104,20 @@ export async function runSecDailyIndexBackfill(opts: {
           foundAnyIndex = foundAnyIndex || r.found > 0 || r.index_missing === false;
           enqueued += r.enqueued;
           skipped_existing += r.skipped_existing;
+          // Only real per-day caps hold the cursor — never benign races/dupes.
           if (r.truncated) truncated = true;
-        } catch (e) {
+        } catch (e: any) {
+          const code = String(e?.code ?? "");
+          const msg = String(e?.message ?? e);
+          // Unique / already-queued must not freeze the historical walk.
+          if (code === "23505" || /duplicate key|unique constraint/i.test(msg)) {
+            console.warn(
+              `[${opts.pipeline}] backfill_day_dup form=${spec.form} day=${dayLabel} (skip, cursor ok)`,
+            );
+            continue;
+          }
           console.error(`[${opts.pipeline}] backfill_day_failed form=${spec.form} day=${dayLabel}`, e);
+          // Hold cursor on real failures (timeouts, unknown) so we retry the day — no holes.
           truncated = true;
         }
       }
