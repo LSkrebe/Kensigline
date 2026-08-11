@@ -8,9 +8,9 @@ function envInt(key: string, fallback: number, min: number, max: number): number
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
-/** How far back idle backfill may walk (days). Ceiling 2y for waitlist historical drain. */
+/** How far back idle backfill may walk (days). Hard ceiling: 1 year. */
 export function backfillMaxAgeDays(): number {
-  return envInt("BACKFILL_MAX_AGE_DAYS", 365, 30, 730);
+  return envInt("BACKFILL_MAX_AGE_DAYS", 365, 30, 365);
 }
 
 function parseIsoDateUtc(raw: string): Date | null {
