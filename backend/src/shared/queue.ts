@@ -74,6 +74,7 @@ export async function failQueueWithBackoff(queueId: string, err: unknown): Promi
  */
 export async function reclaimStaleParsing(opts?: { olderThanMinutes?: number }): Promise<number> {
   const minutes = Math.max(1, Math.min(24 * 60, Math.floor(opts?.olderThanMinutes ?? 10)));
+  // Partial index document_queue_parsing_updated_idx keeps this cheap under load.
   const rows = await db.query<{ id: string }>(
     `
     UPDATE document_queue
@@ -81,8 +82,15 @@ export async function reclaimStaleParsing(opts?: { olderThanMinutes?: number }):
         last_error = 'reclaimed_stale_parsing',
         next_attempt_at = now(),
         updated_at = now()
-    WHERE status = 'parsing'
-      AND updated_at < now() - ($1 || ' minutes')::interval
+    WHERE id IN (
+      SELECT id
+      FROM document_queue
+      WHERE status = 'parsing'
+        AND updated_at < now() - ($1 || ' minutes')::interval
+      ORDER BY updated_at ASC
+      LIMIT 200
+      FOR UPDATE SKIP LOCKED
+    )
     RETURNING id
     `,
     [String(minutes)],
@@ -110,21 +118,24 @@ export async function requeueTransientDead(opts?: { limit?: number }): Promise<n
       WHERE status = 'dead'
         AND attempts < 12
         AND (
-          last_error ILIKE '%timeout%'
-          OR last_error ILIKE '%ECHECKOUT%'
+          -- Network / SEC / pooler only. Do NOT requeue Postgres statement timeouts —
+          -- that creates a death spiral when the DB is already overloaded.
+          last_error ILIKE '%ECHECKOUT%'
           OR last_error ILIKE '%ECONN%'
           OR last_error ILIKE '%ETIMEDOUT%'
-          OR last_error ILIKE '%429%'
-          OR last_error ILIKE '%rate%'
+          OR last_error ILIKE '%fetch failed%'
           OR last_error ILIKE '%fetch_failed%'
           OR last_error ILIKE '%network%'
-          OR last_error ILIKE '%reclaimed_stale%'
           OR last_error ILIKE '%socket%'
+          OR last_error ILIKE '%429%'
           OR last_error ILIKE '%503%'
           OR last_error ILIKE '%502%'
-          OR last_error ILIKE '%canceling statement%'
+          OR last_error ILIKE '%sec_blocked%'
           OR last_error ILIKE '%too many clients%'
           OR last_error ILIKE '%remaining connection%'
+          OR last_error ILIKE '%authentication did not complete%'
+          OR (last_error ILIKE '%timeout%' AND last_error NOT ILIKE '%statement timeout%')
+          OR (last_error ILIKE '%reclaimed_stale%' AND last_error NOT ILIKE '%statement timeout%')
         )
       ORDER BY updated_at ASC
       LIMIT $1

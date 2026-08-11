@@ -143,6 +143,15 @@ CREATE INDEX document_queue_next_attempt_idx
   ON document_queue (next_attempt_at)
   WHERE next_attempt_at IS NOT NULL;
 
+-- Stale-parse reclaim (status='parsing' is NOT covered by claim_idx).
+CREATE INDEX document_queue_parsing_updated_idx
+  ON document_queue (updated_at)
+  WHERE status = 'parsing';
+
+CREATE INDEX document_queue_dead_updated_idx
+  ON document_queue (updated_at)
+  WHERE status = 'dead';
+
 -- --- Filings (thin header — no data jsonb) ---
 CREATE TABLE filings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -186,6 +195,9 @@ CREATE INDEX filings_feed_kind_event_idx
   WHERE feed_kind IS NOT NULL AND event_at IS NOT NULL;
 
 CREATE INDEX filings_url_idx ON filings (url) WHERE url IS NOT NULL;
+CREATE INDEX filings_parsed_at_idx ON filings (parsed_at DESC);
+-- Bundle-level dedupe for keys stored as `${sha}:${ticker}` (avoids LIKE seq-scans).
+CREATE INDEX filings_bundle_sha_idx ON filings (split_part(content_sha256, ':', 1));
 
 -- Compatibility: documents as a view over filings for gradual cutover reads
 -- (writers must target filings directly; data jsonb is always null)

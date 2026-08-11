@@ -424,9 +424,10 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
     const { url: primaryUrl, bundle } = await fetch13fFilingBundle(indexUrl);
     const baseSha256 = sha256NormalizedText(bundle);
 
+    // Use filings_url_idx — one 13F index URL fans out to many `${sha}:${ticker}` rows.
     const existing = await db.one<{ id: string }>(
-      `SELECT id FROM filings WHERE feed_kind='institutions' AND content_sha256 LIKE ($1 || ':%') LIMIT 1`,
-      [baseSha256],
+      `SELECT id FROM filings WHERE url = $1 LIMIT 1`,
+      [primaryUrl],
     );
     if (existing?.id) {
       await markQueueParsed(queueId, "duplicate_sha");

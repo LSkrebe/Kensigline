@@ -51,8 +51,8 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     2_000,
     envNum(opts.envPrefix, "BACKFILL_INTERVAL_MS", d.backfillIntervalMs ?? 60_000),
   );
-  const reclaimEveryMs = Math.max(60_000, envNum(opts.envPrefix, "RECLAIM_INTERVAL_MS", 3 * 60_000));
-  const reclaimOlderMinutes = Math.max(5, envNum(opts.envPrefix, "RECLAIM_STALE_MINUTES", 10));
+  const reclaimEveryMs = Math.max(60_000, envNum(opts.envPrefix, "RECLAIM_INTERVAL_MS", 5 * 60_000));
+  const reclaimOlderMinutes = Math.max(5, envNum(opts.envPrefix, "RECLAIM_STALE_MINUTES", 30));
 
   console.log(
     `[${opts.name}] enqueueEveryMs=${enqueueEveryMs} parseConcurrency=${parseConcurrency} backfillIntervalMs=${backfillIntervalMs}`,
@@ -68,7 +68,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     runWithWorkerDb(() =>
       Promise.all([
         reclaimStaleParsing({ olderThanMinutes: reclaimOlderMinutes }),
-        requeueTransientDead({ limit: 200 }),
+        requeueTransientDead({ limit: 25 }),
       ]),
     )
       .then(([stale, requeued]) => {

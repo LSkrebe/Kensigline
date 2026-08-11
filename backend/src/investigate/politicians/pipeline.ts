@@ -358,9 +358,10 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
           : await loadHouseFiling(url);
     const { contentSha256, filing, model } = loaded;
 
+    // Use filings_url_idx — one PTR URL fans out to many `${sha}:${ticker}` rows.
     const existing = await db.one<{ id: string }>(
-      `SELECT id FROM filings WHERE feed_kind='politicians' AND content_sha256 LIKE ($1 || ':%') LIMIT 1`,
-      [contentSha256],
+      `SELECT id FROM filings WHERE url = $1 LIMIT 1`,
+      [url],
     );
     if (existing?.id) {
       await markQueueParsed(queueId, "duplicate_sha");
