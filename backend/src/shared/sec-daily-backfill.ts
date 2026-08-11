@@ -48,10 +48,22 @@ function prevUtcDay(d: Date): Date {
   return out;
 }
 
+function isBenignUniqueError(err: unknown): boolean {
+  const e = err as { code?: string; message?: string };
+  const code = String(e?.code ?? "");
+  const msg = String(e?.message ?? err);
+  return code === "23505" || /duplicate key|unique constraint/i.test(msg);
+}
+
 /**
  * When the parse queue is low, walk SEC daily master.idx backwards and enqueue.
- * Walks multiple already-done days per call so skip-heavy history does not starve parsers.
- * Does not advance the cursor when a form day was truncated by limit — prevents holes.
+ *
+ * Progress is tracked as:
+ * - `sec_daily` → current day (YYYYMMDD)
+ * - `sec_daily_form` → next form index within that day (0..forms.length)
+ *
+ * So a pooler blip on Form 5 does not re-scan Form 4 for the same day forever,
+ * and unique races never freeze the walk.
  */
 export async function runSecDailyIndexBackfill(opts: {
   pipeline: string;
@@ -63,10 +75,16 @@ export async function runSecDailyIndexBackfill(opts: {
 
   return withGlobalBackfillLock(async () => {
     const cursorKey = opts.cursorKey ?? "sec_daily";
+    const formCursorKey = `${cursorKey}_form`;
     const configured = Number(opts.limitPerForm ?? backfillSecLimitPerForm());
     const limitPerForm = Number.isFinite(configured) ? Math.max(0, Math.min(50_000, Math.floor(configured))) : 0;
     const maxDays = Math.max(1, Math.min(14, Number(process.env.BACKFILL_DAYS_PER_TICK ?? 5) || 5));
     const targetEnqueue = Math.max(50, Math.min(5_000, Number(process.env.BACKFILL_TARGET_ENQUEUE ?? 400) || 400));
+    // Cap forms per tick so one pipeline cannot hold the global lock across a huge multi-form day.
+    const maxFormsPerTick = Math.max(
+      1,
+      Math.min(opts.forms.length, Number(process.env.BACKFILL_FORMS_PER_TICK ?? opts.forms.length) || opts.forms.length),
+    );
 
     let day = parseYyyymmdd((await getIngestCursor(opts.pipeline, cursorKey)) ?? "");
     if (!day) {
@@ -74,16 +92,22 @@ export async function runSecDailyIndexBackfill(opts: {
       day.setUTCHours(0, 0, 0, 0);
     }
 
+    let formIdx = Number(await getIngestCursor(opts.pipeline, formCursorKey));
+    if (!Number.isFinite(formIdx) || formIdx < 0) formIdx = 0;
+    if (formIdx > opts.forms.length) formIdx = 0;
+
     const minDate = effectiveBackfillMinDate();
     let totalEnqueued = 0;
     let totalSkipped = 0;
     let lastDayLabel = "";
     let truncated = false;
     let daysWalked = 0;
+    let formsThisTick = 0;
 
     for (let i = 0; i < maxDays; i++) {
       if (day.getTime() < minDate.getTime()) break;
       if (totalEnqueued >= targetEnqueue) break;
+      if (formsThisTick >= maxFormsPerTick) break;
 
       const dayLabel = yyyymmdd(day);
       lastDayLabel = dayLabel;
@@ -92,7 +116,16 @@ export async function runSecDailyIndexBackfill(opts: {
       let foundAnyIndex = false;
       truncated = false;
 
-      for (const spec of opts.forms) {
+      while (formIdx < opts.forms.length) {
+        if (formsThisTick >= maxFormsPerTick) {
+          // Resume mid-day next tick — cursor held on purpose (progress saved in form idx).
+          truncated = true;
+          break;
+        }
+
+        const spec = opts.forms[formIdx]!;
+        formsThisTick += 1;
+
         try {
           const r = await enqueueFilingsFromDailyIndexDay({
             dayUtc: day,
@@ -104,21 +137,30 @@ export async function runSecDailyIndexBackfill(opts: {
           foundAnyIndex = foundAnyIndex || r.found > 0 || r.index_missing === false;
           enqueued += r.enqueued;
           skipped_existing += r.skipped_existing;
-          // Only real per-day caps hold the cursor — never benign races/dupes.
-          if (r.truncated) truncated = true;
-        } catch (e: any) {
-          const code = String(e?.code ?? "");
-          const msg = String(e?.message ?? e);
-          // Unique / already-queued must not freeze the historical walk.
-          if (code === "23505" || /duplicate key|unique constraint/i.test(msg)) {
+
+          if (r.truncated) {
+            // Real per-day cap — stay on this form/day.
+            truncated = true;
+            await setIngestCursor(opts.pipeline, formCursorKey, String(formIdx));
+            break;
+          }
+
+          formIdx += 1;
+          await setIngestCursor(opts.pipeline, formCursorKey, String(formIdx));
+        } catch (e: unknown) {
+          if (isBenignUniqueError(e)) {
             console.warn(
               `[${opts.pipeline}] backfill_day_dup form=${spec.form} day=${dayLabel} (skip, cursor ok)`,
             );
+            formIdx += 1;
+            await setIngestCursor(opts.pipeline, formCursorKey, String(formIdx));
             continue;
           }
           console.error(`[${opts.pipeline}] backfill_day_failed form=${spec.form} day=${dayLabel}`, e);
-          // Hold cursor on real failures (timeouts, unknown) so we retry the day — no holes.
+          // Transient/unknown: retry same form next tick (do not rewind earlier forms).
           truncated = true;
+          await setIngestCursor(opts.pipeline, formCursorKey, String(formIdx));
+          break;
         }
       }
 
@@ -126,14 +168,16 @@ export async function runSecDailyIndexBackfill(opts: {
       totalSkipped += skipped_existing;
       daysWalked += 1;
 
-      if (truncated) {
+      if (truncated || formIdx < opts.forms.length) {
         console.warn(
-          `[${opts.pipeline}] backfill day=${dayLabel} truncated enqueued=${enqueued} skipped=${skipped_existing} (cursor held)`,
+          `[${opts.pipeline}] backfill day=${dayLabel} form_idx=${formIdx}/${opts.forms.length} enqueued=${enqueued} skipped=${skipped_existing} (cursor held)`,
         );
         break;
       }
 
       const nextDay = prevUtcDay(day);
+      formIdx = 0;
+      await setIngestCursor(opts.pipeline, formCursorKey, "0");
       await setIngestCursor(opts.pipeline, cursorKey, yyyymmdd(nextDay));
       if (enqueued > 0 || foundAnyIndex) {
         console.log(

@@ -598,12 +598,19 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
     const existingRows = await db.query<{ url: string }>(
       `
       SELECT url FROM document_queue WHERE source_type = $2 AND url = ANY($1::text[])
-      UNION
-      SELECT url FROM filings WHERE url = ANY($1::text[])
       `,
       [urls, sourceType],
     );
     const existing = new Set(existingRows.map((r) => r.url));
+    // Also skip URLs already materialized as filings (queue row may have been retained as parsed).
+    if (urls.some((u) => !existing.has(u))) {
+      const missing = urls.filter((u) => !existing.has(u));
+      const filed = await db.query<{ url: string }>(
+        `SELECT url FROM filings WHERE url = ANY($1::text[])`,
+        [missing],
+      );
+      for (const r of filed) existing.add(r.url);
+    }
 
     const toInsert: string[] = [];
     for (const url of urls) {
