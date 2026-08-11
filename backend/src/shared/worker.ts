@@ -61,6 +61,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   let stopped = false;
   let enqueueTimer: ReturnType<typeof setInterval> | undefined;
   let reclaimTimer: ReturnType<typeof setInterval> | undefined;
+  let backfillTimer: ReturnType<typeof setInterval> | undefined;
   let lastBackfillAt = 0;
   let backfillRunning = false;
 
@@ -107,6 +108,16 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     }
   };
 
+  // Independent of parse success — under pooler blips parse loops error before
+  // reaching maybeRunBackfill, which previously froze historical cursors forever.
+  if (opts.enqueueBackfill) {
+    void maybeRunBackfill();
+    backfillTimer = setInterval(() => {
+      if (stopped) return;
+      void maybeRunBackfill();
+    }, backfillIntervalMs);
+  }
+
   if (opts.enqueue) {
     const runEnqueue = () =>
       runWithWorkerDb(() => opts.enqueue!()).catch((e) => console.error(`[${opts.name}] enqueue_failed`, e));
@@ -135,6 +146,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
           }
         } catch (e) {
           console.error(`[${opts.name}] parse_loop_failed`, e);
+          void maybeRunBackfill();
           await sleep(2_000);
         }
       }
@@ -146,6 +158,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
       stopped = true;
       if (enqueueTimer) clearInterval(enqueueTimer);
       if (reclaimTimer) clearInterval(reclaimTimer);
+      if (backfillTimer) clearInterval(backfillTimer);
     },
   };
 }
