@@ -31,8 +31,10 @@ function isoDate(d: Date): string {
 export async function runPoliticiansHistoricalBackfill(pipeline: string): Promise<{ enqueued: number }> {
   if (!backfillEnabled()) return { enqueued: 0 };
 
-  // Once every stream has hit the age floor, stop — do not log/DB-poll every tick forever.
-  if ((await getIngestCursor(pipeline, "historical_done")) === "1") {
+  // Once every stream has hit the age floor for the *current* window, idle.
+  // Value is the age-days setting so expanding BACKFILL_MAX_AGE_DAYS auto-resumes.
+  const ageDays = backfillMaxAgeDays();
+  if ((await getIngestCursor(pipeline, "historical_done")) === String(ageDays)) {
     return { enqueued: 0 };
   }
 
@@ -169,9 +171,9 @@ export async function runPoliticiansHistoricalBackfill(pipeline: string): Promis
   }
 
   if (houseDone && senateDone && ogeDone) {
-    await setIngestCursor(pipeline, "historical_done", "1");
+    await setIngestCursor(pipeline, "historical_done", String(ageDays));
     console.log(
-      `[${pipeline}] historical backfill complete (age floor ${backfillMaxAgeDays()}d); idle until reset`,
+      `[${pipeline}] historical backfill complete (age floor ${ageDays}d); idle until reset`,
     );
   }
 
