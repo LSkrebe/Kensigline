@@ -24,7 +24,19 @@ export function backfillParseSlotMax(): number {
   return Math.min(16, envInt("BACKFILL_PARSE_SLOT_MAX", 16, 1, 16));
 }
 
-/** Pure allocation — finished pipelines donate parse slots to active ones by days remaining. */
+/** `short_first` finishes the smaller backlog before flooding the slow 13F walk. */
+export function backfillWeightMode(): "days" | "short_first" {
+  const raw = String(process.env.BACKFILL_WEIGHT_MODE ?? "short_first").trim().toLowerCase();
+  return raw === "days" || raw === "long_first" ? "days" : "short_first";
+}
+
+function pipelineWeight(s: PipelineBackfillStatus, mode: "days" | "short_first"): number {
+  const days = Math.max(1, s.daysRemaining);
+  if (mode === "short_first") return (1 / days) * s.weightMultiplier;
+  return days * s.weightMultiplier;
+}
+
+/** Pure allocation — finished pipelines donate parse slots to active ones. */
 export function computeBackfillCapacity(statuses: PipelineBackfillStatus[]): Map<BackfillPipelineId, PipelineCapacity> {
   const doneMin = envInt("BACKFILL_DONE_PARSE_MIN", 1, 1, 4);
   const slotMax = backfillParseSlotMax();
@@ -51,7 +63,8 @@ export function computeBackfillCapacity(statuses: PipelineBackfillStatus[]): Map
   const reservedForDone = done.length * doneMin;
   const pool = Math.max(active.length, totalBudget - reservedForDone);
 
-  const weights = active.map((s) => Math.max(1, s.daysRemaining) * s.weightMultiplier);
+  const mode = backfillWeightMode();
+  const weights = active.map((s) => pipelineWeight(s, mode));
   const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
 
   const shares = active.map((s, i) => ({

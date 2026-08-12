@@ -35,7 +35,7 @@ const PIPELINES: PipelineDef[] = [
     ingestPipeline: "investigate/institutions",
     envPrefix: "INSTITUTIONS",
     defaultMaxParse: 1,
-    weightMultiplier: Number(process.env.INSTITUTIONS_BACKFILL_WEIGHT ?? 1.5) || 1.5,
+    weightMultiplier: Number(process.env.INSTITUTIONS_BACKFILL_WEIGHT ?? 1) || 1,
     usesSecDaily: true,
   },
   {
