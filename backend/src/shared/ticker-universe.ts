@@ -4,7 +4,7 @@ function clampInt(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, Math.floor(n)));
 }
 
-/** Tickers with parsed documents or a companies row. */
+/** Tickers with parsed content, companies/issuers rows, or feed index entries. */
 export async function loadTickerUniverse(max = 500): Promise<string[]> {
   const cap = clampInt(max, 1, 5000);
   const rows = await db.query<{ t: string }>(
@@ -13,9 +13,14 @@ export async function loadTickerUniverse(max = 500): Promise<string[]> {
     FROM (
       SELECT upper(trim(ticker)) AS ticker_norm FROM companies WHERE ticker IS NOT NULL
       UNION ALL
+      SELECT upper(trim(ticker)) AS ticker_norm FROM issuers WHERE ticker IS NOT NULL
+      UNION ALL
       SELECT ticker_norm FROM documents WHERE ticker_norm IS NOT NULL
       UNION ALL
-      SELECT ticker_norm FROM feed_market_latest
+      SELECT upper(trim(i.ticker)) AS ticker_norm
+      FROM feed_entries e
+      JOIN issuers i ON i.id = e.issuer_id
+      WHERE i.ticker IS NOT NULL
     ) x
     WHERE length(ticker_norm) BETWEEN 1 AND 6
       AND ticker_norm ~ '^[A-Z]{1,6}$'
