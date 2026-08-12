@@ -33,6 +33,17 @@ function envNum(prefix: string, key: string, fallback: number) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function queueLowWater(prefix: string): number {
+  return Math.max(
+    0,
+    envNum(prefix, "BACKFILL_QUEUE_LOW_WATER", Number(process.env.BACKFILL_QUEUE_LOW_WATER ?? 80) || 80),
+  );
+}
+
+function liveEnqueueGated(prefix: string): boolean {
+  return String(process.env[`${prefix}_ENQUEUE_GATE_LIVE`] ?? process.env.ENQUEUE_GATE_LIVE ?? "1").trim() !== "0";
+}
+
 /**
  * High-throughput pipeline worker.
  * Parallelism = sum of PARSE_CONCURRENCY (HTTP/SEC in flight).
@@ -94,10 +105,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     backfillRunning = true;
     lastBackfillAt = Date.now();
     try {
-      const lowWater = Math.max(
-        0,
-        envNum(opts.envPrefix, "BACKFILL_QUEUE_LOW_WATER", Number(process.env.BACKFILL_QUEUE_LOW_WATER ?? 80) || 80),
-      );
+      const lowWater = queueLowWater(opts.envPrefix);
       const above = await runWithWorkerDb(() => readyQueueAbove(opts.sourceTypes!, lowWater));
       // Keep the parse queue fed — waiting for empty causes starve/fill cycles.
       if (above) return;
@@ -120,8 +128,26 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   }
 
   if (opts.enqueue) {
-    const runEnqueue = () =>
-      runWithWorkerDb(() => opts.enqueue!()).catch((e) => console.error(`[${opts.name}] enqueue_failed`, e));
+    let lastLiveSkipLog = 0;
+    const runEnqueue = async () => {
+      try {
+        if (opts.sourceTypes?.length && liveEnqueueGated(opts.envPrefix)) {
+          const lowWater = queueLowWater(opts.envPrefix);
+          const above = await runWithWorkerDb(() => readyQueueAbove(opts.sourceTypes!, lowWater));
+          if (above) {
+            const now = Date.now();
+            if (now - lastLiveSkipLog > 60_000) {
+              console.log(`[${opts.name}] live_enqueue_skipped ready_above_low_water=${lowWater}`);
+              lastLiveSkipLog = now;
+            }
+            return;
+          }
+        }
+        await runWithWorkerDb(() => opts.enqueue!());
+      } catch (e) {
+        console.error(`[${opts.name}] enqueue_failed`, e);
+      }
+    };
     if (opts.bootstrapEnqueue !== false) void runEnqueue();
     enqueueTimer = setInterval(() => {
       if (stopped) return;
