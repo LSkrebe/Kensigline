@@ -134,9 +134,11 @@ async function secRateLimit() {
 
 function looksLikeSecBotBlock(body: string) {
   const t = body.toLowerCase();
+  // Only the explicit fair-access / undeclared-tool interstitial — not ordinary SEC HTML
+  // pages that happen to mention "reference id" + "sec.gov".
   return (
     t.includes("your request originates from an undeclared automated tool") ||
-    t.includes("reference id") && t.includes("sec.gov")
+    (t.includes("undeclared automated tool") && t.includes("reference id"))
   );
 }
 
