@@ -17,6 +17,7 @@ export function startResearchWorker() {
   return startPipelineWorker({
     name: "research/market",
     envPrefix: "RESEARCH",
+    backfillPipelineId: "research",
     sourceTypes: [...QUEUE_SOURCES.researchMarket],
     defaults: {
       enqueueEveryMs: 180_000,

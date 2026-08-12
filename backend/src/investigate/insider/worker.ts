@@ -8,6 +8,7 @@ export function startInsiderWorker() {
   return startPipelineWorker({
     name: "investigate/insider",
     envPrefix: "INSIDER",
+    backfillPipelineId: "insider",
     sourceTypes: [...QUEUE_SOURCES.investigateInsider],
     defaults: {
       enqueueEveryMs: 60_000,

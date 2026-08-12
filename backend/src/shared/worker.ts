@@ -1,4 +1,10 @@
 import { runWithWorkerDb } from "../core/db.js";
+import {
+  backfillDynamicCapacityEnabled,
+  backfillParseSlotMax,
+  getPipelineCapacity,
+  type BackfillPipelineId,
+} from "./backfill-capacity.js";
 import { readyQueueAbove } from "./queue-pending.js";
 import { reclaimStaleParsing, requeueTransientDead } from "./queue.js";
 
@@ -11,6 +17,8 @@ export type ParseNextResult = { processed: boolean; reason?: string };
 export type PipelineWorkerOpts = {
   name: string;
   envPrefix: string;
+  /** When set, parse/live/backfill capacity may be redistributed while historical backfill runs. */
+  backfillPipelineId?: BackfillPipelineId;
   parseNext: () => Promise<ParseNextResult>;
   enqueue?: () => Promise<void>;
   /** When the parse queue is empty, run historical backfill (one step per call). */
@@ -54,10 +62,12 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   const enqueueEveryMs = Math.max(5_000, envNum(opts.envPrefix, "ENQUEUE_INTERVAL_MS", d.enqueueEveryMs ?? 120_000));
   const parsePollMs = Math.max(200, envNum(opts.envPrefix, "PARSE_POLL_MS", d.parsePollMs ?? 6_000));
   const parseThrottleMs = Math.max(0, envNum(opts.envPrefix, "PARSE_THROTTLE_MS", d.parseThrottleMs ?? 750));
-  const parseConcurrency = Math.max(
+  const configuredParseConcurrency = Math.max(
     1,
     Math.min(16, envNum(opts.envPrefix, "PARSE_CONCURRENCY", d.parseConcurrency ?? 1)),
   );
+  const dynamicCapacity = backfillDynamicCapacityEnabled() && opts.backfillPipelineId != null;
+  const parseLoopCount = dynamicCapacity ? backfillParseSlotMax() : configuredParseConcurrency;
   const backfillIntervalMs = Math.max(
     2_000,
     envNum(opts.envPrefix, "BACKFILL_INTERVAL_MS", d.backfillIntervalMs ?? 60_000),
@@ -66,7 +76,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   const reclaimOlderMinutes = Math.max(5, envNum(opts.envPrefix, "RECLAIM_STALE_MINUTES", 30));
 
   console.log(
-    `[${opts.name}] enqueueEveryMs=${enqueueEveryMs} parseConcurrency=${parseConcurrency} backfillIntervalMs=${backfillIntervalMs}`,
+    `[${opts.name}] enqueueEveryMs=${enqueueEveryMs} parseConcurrency=${configuredParseConcurrency} parseLoops=${parseLoopCount} dynamicCapacity=${dynamicCapacity ? 1 : 0} backfillIntervalMs=${backfillIntervalMs}`,
   );
 
   let stopped = false;
@@ -97,6 +107,9 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
 
   const maybeRunBackfill = async () => {
     if (stopped || !opts.enqueueBackfill || !opts.sourceTypes?.length) return;
+    if (dynamicCapacity && opts.backfillPipelineId && !getPipelineCapacity(opts.backfillPipelineId).historicalBackfill) {
+      return;
+    }
     // Single-flight includes the low-water probe — 12 parse workers must not
     // stampede COUNT/LIMIT probes through the transaction pooler.
     if (backfillRunning) return;
@@ -131,6 +144,9 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     let lastLiveSkipLog = 0;
     const runEnqueue = async () => {
       try {
+        if (dynamicCapacity && opts.backfillPipelineId && !getPipelineCapacity(opts.backfillPipelineId).liveEnqueue) {
+          return;
+        }
         if (opts.sourceTypes?.length && liveEnqueueGated(opts.envPrefix)) {
           const lowWater = queueLowWater(opts.envPrefix);
           const above = await runWithWorkerDb(() => readyQueueAbove(opts.sourceTypes!, lowWater));
@@ -155,12 +171,19 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     }, enqueueEveryMs);
   }
 
-  for (let w = 0; w < parseConcurrency; w++) {
+  for (let w = 0; w < parseLoopCount; w++) {
     (async () => {
       // Tiny stagger so claim storms don't all hit the pooler on the same tick.
       await sleep(w * 40);
       for (;;) {
         if (stopped) return;
+        if (dynamicCapacity && opts.backfillPipelineId) {
+          const effective = getPipelineCapacity(opts.backfillPipelineId).parseConcurrency;
+          if (w >= effective) {
+            await sleep(parsePollMs);
+            continue;
+          }
+        }
         try {
           const r = await runWithWorkerDb(() => opts.parseNext());
           if (r.processed === false && r.reason === "no_work") {

@@ -10,6 +10,7 @@ export function startInstitutionsWorker() {
   return startPipelineWorker({
     name: "investigate/institutions",
     envPrefix: "INSTITUTIONS",
+    backfillPipelineId: "institutions",
     sourceTypes: [...QUEUE_SOURCES.investigateInstitutions],
     defaults: {
       enqueueEveryMs: 300_000,

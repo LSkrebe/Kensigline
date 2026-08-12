@@ -19,6 +19,7 @@ export function startPoliticiansWorker() {
   return startPipelineWorker({
     name: "investigate/politicians",
     envPrefix: "POLITICIANS",
+    backfillPipelineId: "politicians",
     sourceTypes: [...QUEUE_SOURCES.investigatePoliticians],
     defaults: {
       enqueueEveryMs: 180_000,

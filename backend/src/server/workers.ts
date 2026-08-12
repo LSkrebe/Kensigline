@@ -10,6 +10,7 @@ import { startPoliticianCommitteeRefreshWorker } from "../politicians/committees
 import { startBarsRefreshWorker } from "../core/bars-worker.js";
 import { startRetentionWorker, runRetentionPurgeOnce } from "../core/retention.js";
 import { runWithWorkerDb } from "../core/db.js";
+import { startBackfillCapacityAllocator } from "../shared/backfill-capacity.js";
 
 export type Stoppable = { stop(): void };
 
@@ -23,6 +24,8 @@ function envEnabled(key: string, defaultOn = true): boolean {
 /** All background workers — add new pipelines here. */
 export function startAllWorkers(): Stoppable[] {
   const workers: Stoppable[] = [];
+
+  workers.push(startBackfillCapacityAllocator());
 
   if (envEnabled("INSIDER_WORKER_ENABLED", true)) workers.push(startInsiderWorker());
   if (envEnabled("OUTCOMES_WORKER_ENABLED", true)) workers.push(startOutcomesWorker());
