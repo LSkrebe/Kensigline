@@ -2860,9 +2860,9 @@ function mapTrackedInvestorsFromApi(rows) {
   if (!Array.isArray(rows)) return null
   return rows
     .map((r) => {
-      const latestAt = r.latestAt ?? r.latest_at
-      const dateAt = latestAt ? new Date(latestAt).getTime() : 0
-      const typeKey = r.type ?? r.typeKey ?? 'insider'
+    const latestAt = r.latestAt ?? r.latest_at
+    const dateAt = latestAt ? new Date(latestAt).getTime() : 0
+    const typeKey = r.type ?? r.typeKey ?? 'insider'
       const normalizedKey =
         typeKey === 'politician' ? 'politician' : typeKey === 'institution' ? 'institution' : 'insider'
       const name = formatPoliticianDisplayName(
@@ -2925,7 +2925,7 @@ function mapTrackedInvestorsFromApi(rows) {
         codeTone = 'neutral'
       }
 
-      return {
+    return {
         id: r.id ?? `${typeKey}|${displayName}`,
         name: displayName,
         type: r.typeLabel ?? r.type_label ?? (normalizedKey === 'institution' ? 'Institution' : typeKey),
@@ -2937,10 +2937,10 @@ function mapTrackedInvestorsFromApi(rows) {
         codeTone: codeTone ?? 'neutral',
         amount: r.amount ?? formatTxnAmountUsd(totalUsd),
         totalUsd: Number.isFinite(totalUsd) ? totalUsd : 0,
-        dateAt,
-        date: formatTrackedInvestorDate(dateAt),
-      }
-    })
+      dateAt,
+      date: formatTrackedInvestorDate(dateAt),
+    }
+  })
     .filter(Boolean)
 }
 
@@ -2954,29 +2954,29 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
     const net = Number(x.totalUsd)
     const code = Number.isFinite(net) && net < 0 ? 'S' : x.latestCode ?? 'P'
     return {
-      id: `insider|${x.id}`,
-      name: x.personName ?? x.label,
-      type: 'Insider',
-      typeKey: 'insider',
+    id: `insider|${x.id}`,
+    name: x.personName ?? x.label,
+    type: 'Insider',
+    typeKey: 'insider',
       source: 'F4',
       code,
       codeTone: Number.isFinite(net) && net < 0 ? 'sell' : insiderTxnCodeTone(code, x.latestAd),
-      amount: x.total,
-      totalUsd: x.totalUsd,
-      dateAt: x.latestAt,
-      date: formatTrackedInvestorDate(x.latestAt),
+    amount: x.total,
+    totalUsd: x.totalUsd,
+    dateAt: x.latestAt,
+    date: formatTrackedInvestorDate(x.latestAt),
     }
   })
   const politicianRows = aggregateContextPoliticians(politicians, days).map((x) => {
     const net = Number(x.totalUsd)
     const code = Number.isFinite(net) && net < 0 ? 'S' : x.latestCode ?? '—'
     return {
-      ...x,
+    ...x,
       source: 'PTR',
       code,
       codeTone: Number.isFinite(net) && net < 0 ? 'sell' : insiderTxnCodeTone(code),
-      dateAt: x.latestAt,
-      date: formatTrackedInvestorDate(x.latestAt),
+    dateAt: x.latestAt,
+    date: formatTrackedInvestorDate(x.latestAt),
     }
   })
   const institutionRows = aggregateContextInstitutions(filings13f, days).map((x) => {
@@ -2988,12 +2988,12 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
           ? { code: 'INC', tone: 'buy' }
           : institutionTxnFromActivity(x.latestActivity)
     return {
-      ...x,
+    ...x,
       source: '13F',
       code: txn.code,
       codeTone: txn.tone,
-      dateAt: x.latestAt,
-      date: formatTrackedInvestorDate(x.latestAt),
+    dateAt: x.latestAt,
+    date: formatTrackedInvestorDate(x.latestAt),
     }
   })
   return sanitizeTrackedInvestorRows([...insiderRows, ...politicianRows, ...institutionRows]).sort(
@@ -4618,28 +4618,28 @@ const CompanySnapshotCard = forwardRef(function CompanySnapshotCard(
         <div className="contextCompanyTicker">{ticker}</div>
         <div className={['contextCompanyPrice', showPrice ? '' : 'contextCompanyPrice--empty'].filter(Boolean).join(' ')}>
           {showPrice ? `$${Number(price).toFixed(2)}` : '—'}
-        </div>
+      </div>
       </div>
       <div className="contextCompanyMeta">{sectorLabel}</div>
       <div className="contextCompanyMeta contextCompanyMeta--domicile">{domicileLabel}</div>
       <div className="contextCompanyMeta">{mcapLabel}</div>
       {children}
       <div className={['contextCompanyEarnings', lead ? '' : 'contextCompanyEarnings--empty'].filter(Boolean).join(' ')}>
-        <span className="contextCompanyEarningsK">LEAD</span>
+          <span className="contextCompanyEarningsK">LEAD</span>
         <span className="contextCompanyEarningsV">{lead ? lead.label ?? lead.name ?? EMPTY : '—'}</span>
-      </div>
-      <div
-        className={[
-          'contextCompanyEarnings',
+        </div>
+        <div
+          className={[
+            'contextCompanyEarnings',
           earnings?.soon ? 'contextCompanyEarnings--soon' : '',
           earnings ? '' : 'contextCompanyEarnings--empty',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        <span className="contextCompanyEarningsK">EARNINGS</span>
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <span className="contextCompanyEarningsK">EARNINGS</span>
         <span className="contextCompanyEarningsV">{earnings ? earnings.label : '—'}</span>
-      </div>
+        </div>
     </div>
   )
 })
@@ -5494,13 +5494,13 @@ function ResearchFeedTickerList({
                 {String(it.ticker ?? '').trim().toUpperCase() || '—'}
               </span>
               <span className="feedCell feedCellCompany kvFeedMain">{it.company ?? '—'}</span>
-              <span className="feedCell feedCellCount mono kvFeedDim">
+                <span className="feedCell feedCellCount mono kvFeedDim">
                 {showDocumentCount && feedCountVisible(it.count) ? (
                   <span className="feedCountTag">{it.count}</span>
                 ) : (
                   <span className="feedCountTag feedCountTag--empty" aria-hidden="true">
                     {'\u00a0'}
-                  </span>
+                </span>
                 )}
               </span>
               <span className="feedCell feedCellWhen mono kvFeedDim">{feedWhenLabel(it)}</span>
@@ -7590,41 +7590,41 @@ function ResearchPaperPanel({
   const flowFilings13f = presentationReady ? filings13f : []
 
   const paperBody = (
-    <div
-      ref={paperBodyRef}
-      className={[
-        'researchPaperBody',
+      <div
+        ref={paperBodyRef}
+        className={[
+          'researchPaperBody',
         embedded ? 'researchPaperBody--embedded' : 'scrollThin',
-        !presentationReady && backendUp ? 'researchPaperBody--pending' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
-      <div className="researchPaperDoc" key={t}>
-        {!presentationReady && backendUp ? (
-          <div className="researchPaperLoading mono dim" role="status">
-            Loading company research…
-          </div>
-        ) : safePresentation?.title ? (
-          <ResearchPaperStructuredView
-            key={`${t}-${paperDocuments.map((d) => d.id).join('|')}`}
-            ticker={ticker}
-            documents={paperDocuments}
-            insiders={flowInsiders}
-            politicians={flowPoliticians}
-            filings13f={flowFilings13f}
-            paperSourceFilters={paperSourceFilters}
-          />
-        ) : backendUp ? (
-          <div className="researchThesisBody researchThesisBody--live">
-            <p className="researchThesisP researchThesisP--live mono dim">
-              Research explore data is not available yet for this view (API error or empty response). Check that the
-              backend is running and the database has been ingested.
-            </p>
-          </div>
-        ) : null}
+          !presentationReady && backendUp ? 'researchPaperBody--pending' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <div className="researchPaperDoc" key={t}>
+          {!presentationReady && backendUp ? (
+            <div className="researchPaperLoading mono dim" role="status">
+              Loading company research…
+            </div>
+          ) : safePresentation?.title ? (
+            <ResearchPaperStructuredView
+              key={`${t}-${paperDocuments.map((d) => d.id).join('|')}`}
+              ticker={ticker}
+              documents={paperDocuments}
+              insiders={flowInsiders}
+              politicians={flowPoliticians}
+              filings13f={flowFilings13f}
+              paperSourceFilters={paperSourceFilters}
+            />
+          ) : backendUp ? (
+            <div className="researchThesisBody researchThesisBody--live">
+              <p className="researchThesisP researchThesisP--live mono dim">
+                Research explore data is not available yet for this view (API error or empty response). Check that the
+                backend is running and the database has been ingested.
+              </p>
+            </div>
+          ) : null}
+        </div>
       </div>
-    </div>
   )
 
   if (embedded) {
@@ -8876,7 +8876,7 @@ function CompactFeed({
               {!programsTimeline ? (
                 <span className="feedCell feedCellCount mono kvFeedDim">
                   {feedCountVisible(row.count) ? (
-                    <span className="feedCountTag">{row.count}</span>
+                  <span className="feedCountTag">{row.count}</span>
                   ) : (
                     <span className="feedCountTag feedCountTag--empty" aria-hidden="true">
                       {'\u00a0'}
@@ -8897,7 +8897,7 @@ function CompactFeed({
               {!programsTimeline ? (
                 <span className="feedCell feedCellCount mono kvFeedDim">
                   {feedCountVisible(row.count) ? (
-                    <span className="feedCountTag">{row.count}</span>
+                  <span className="feedCountTag">{row.count}</span>
                   ) : (
                     <span className="feedCountTag feedCountTag--empty" aria-hidden="true">
                       {'\u00a0'}
@@ -10361,14 +10361,14 @@ function KensiglineTerminal() {
     async function run() {
       // Cold bars may fill in the background — poll a couple times before giving up.
       for (let attempt = 0; attempt < 3; attempt += 1) {
-        if (!alive || researchBarsFetchGenRef.current !== gen) return
+      if (!alive || researchBarsFetchGenRef.current !== gen) return
         const got = await fetchBarsOnce()
-        if (!alive || researchBarsFetchGenRef.current !== gen) return
+      if (!alive || researchBarsFetchGenRef.current !== gen) return
         if (got?.closes?.length) {
           barsCacheRef.current.set(tick, { closes: got.closes, days: got.days })
           setResearchBarsSeries(got.closes)
           setResearchBarsDays(got.days)
-          setResearchBarsTicker(tick)
+        setResearchBarsTicker(tick)
           setResearchBarsLoading(false)
           return
         }
@@ -10607,9 +10607,9 @@ function KensiglineTerminal() {
       rounds += 1
       try {
         for (let attempt = 0; attempt < 2; attempt += 1) {
-          if (!alive || researchExploreFetchGenRef.current !== gen) return
+      if (!alive || researchExploreFetchGenRef.current !== gen) return
           const r = await fetchExploreOnce()
-          const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
+      const respTicker = String(r.data?.ticker ?? tick).trim().toUpperCase()
           if (r.ok && r.data && respTicker === tick && explorePayloadHasContent(r.data)) {
             acceptExplore(r.data)
             return
@@ -10627,15 +10627,15 @@ function KensiglineTerminal() {
         if (explorePayloadHasContent(session)) {
           researchExploreCacheRef.current.set(tick, session)
           setResearchExploreLive(session)
-          setResearchExploreTicker(tick)
-          return
-        }
-        setResearchExploreLive({
-          ok: false,
-          ticker: tick,
-          _exploreRetrying: true,
-        })
         setResearchExploreTicker(tick)
+        return
+      }
+      setResearchExploreLive({
+          ok: false,
+        ticker: tick,
+          _exploreRetrying: true,
+      })
+      setResearchExploreTicker(tick)
       } finally {
         inFlight = false
       }
@@ -10645,7 +10645,7 @@ function KensiglineTerminal() {
       const prior = researchExploreCacheRef.current.get(tick)
       if (explorePayloadHasContent(prior)) {
         setResearchExploreLive(prior)
-        setResearchExploreTicker(tick)
+      setResearchExploreTicker(tick)
       } else {
         setResearchExploreLive({ ok: false, ticker: tick, _exploreRetrying: true })
         setResearchExploreTicker(tick)
@@ -10688,13 +10688,13 @@ function KensiglineTerminal() {
 
     async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        const page = await fetchFeedPage('/api/insider/feed', {
-          limit,
-          offset,
-          extra: { mode: 'company', days: 30 },
-        })
-        if (!alive) return
-        const mapped = page.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
+      const page = await fetchFeedPage('/api/insider/feed', {
+        limit,
+        offset,
+        extra: { mode: 'company', days: 30 },
+      })
+      if (!alive) return
+      const mapped = page.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
         if (page.ok) {
           insiderFeedFailRef.current = 0
           setInsiderFeedLive((prev) => {
@@ -10709,10 +10709,10 @@ function KensiglineTerminal() {
             }
             return mapped
           })
-          setInsiderFeedHasMore(page.hasMore)
-          insiderFeedOffsetRef.current = page.nextOffset
+      setInsiderFeedHasMore(page.hasMore)
+      insiderFeedOffsetRef.current = page.nextOffset
           insiderFeedCursorRef.current = page.nextCursor
-          if (!append) {
+      if (!append) {
             persistFeedCache(cacheKey, {
               items: mapped,
               hasMore: page.hasMore,
@@ -10783,13 +10783,13 @@ function KensiglineTerminal() {
 
     async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        const page = await fetchFeedPage('/api/institutions/feed', {
-          limit,
-          offset,
-          extra: { days: 60 },
-        })
-        if (!alive) return
-        const mapped = page.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
+      const page = await fetchFeedPage('/api/institutions/feed', {
+        limit,
+        offset,
+        extra: { days: 60 },
+      })
+      if (!alive) return
+      const mapped = page.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
         if (page.ok) {
           institutionsFeedFailRef.current = 0
           setInstitutionsFeedLive((prev) => {
@@ -10803,10 +10803,10 @@ function KensiglineTerminal() {
             }
             return mapped
           })
-          setInstitutionsFeedHasMore(page.hasMore)
-          institutionsFeedOffsetRef.current = page.nextOffset
+      setInstitutionsFeedHasMore(page.hasMore)
+      institutionsFeedOffsetRef.current = page.nextOffset
           institutionsFeedCursorRef.current = page.nextCursor
-          if (!append) {
+      if (!append) {
             persistFeedCache(cacheKey, {
               items: mapped,
               hasMore: page.hasMore,
@@ -10875,13 +10875,13 @@ function KensiglineTerminal() {
 
     async function run({ append = false, offset = 0, limit = FEED_INITIAL_PAGE_SIZE } = {}) {
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        const page = await fetchFeedPage('/api/politicians/feed', {
-          limit,
-          offset,
-          extra: { days: 30 },
-        })
-        if (!alive) return
-        const mapped = page.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
+      const page = await fetchFeedPage('/api/politicians/feed', {
+        limit,
+        offset,
+        extra: { days: 30 },
+      })
+      if (!alive) return
+      const mapped = page.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
         if (page.ok) {
           politiciansFeedFailRef.current = 0
           setPoliticiansFeedLive((prev) => {
@@ -10895,10 +10895,10 @@ function KensiglineTerminal() {
             }
             return mapped
           })
-          setPoliticiansFeedHasMore(page.hasMore)
-          politiciansFeedOffsetRef.current = page.nextOffset
+      setPoliticiansFeedHasMore(page.hasMore)
+      politiciansFeedOffsetRef.current = page.nextOffset
           politiciansFeedCursorRef.current = page.nextCursor
-          if (!append) {
+      if (!append) {
             persistFeedCache(cacheKey, {
               items: mapped,
               hasMore: page.hasMore,
@@ -12372,15 +12372,15 @@ function KensiglineTerminal() {
           chartRange: analysePriceRange,
           onChartRangeChange: setAnalysePriceRange,
           chartSlot: (
-            <MiniPriceChart
-              series={researchPriceSeries}
+          <MiniPriceChart
+            series={researchPriceSeries}
               seriesDays={researchPriceDays}
-              label={researchTick || 'PRICE'}
-              showMeta={false}
-              chartRange={analysePriceRange}
+            label={researchTick || 'PRICE'}
+            showMeta={false}
+            chartRange={analysePriceRange}
               onChartRangeChange={setAnalysePriceRange}
-              trimLeadingPlateau
-              quarterlyRevenueOverlay={analyseQuarterlyRevenue}
+            trimLeadingPlateau
+            quarterlyRevenueOverlay={analyseQuarterlyRevenue}
               hideAxisLabels
               flushEdges
               showHoverTooltip
@@ -12410,14 +12410,14 @@ function KensiglineTerminal() {
   )
 
   return (
-    <div
-      className={[
+        <div
+          className={[
         'terminalShell',
         isPhone ? 'terminalShell--phone' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
       <div className="terminalWorkspace">
         <main
           ref={terminalMainRef}
@@ -12433,7 +12433,7 @@ function KensiglineTerminal() {
           ) : null}
           {shell === 'macro' ? (
             <MacroCalendarPanel
-              backendUp={backendUp}
+            backendUp={backendUp}
               onMacroClick={onMacroClick}
               onBrandClick={onExploreHomeClick}
             />
@@ -12444,7 +12444,7 @@ function KensiglineTerminal() {
             ) : exploreSubview === 'eventDetail' ? (
               <ExploreEventPage
                 eventId={terminalRoute.eventId}
-                backendUp={backendUp}
+            backendUp={backendUp}
                 macroActive={macroActive}
                 onMacroClick={onMacroClick}
                 settingsActive={settingsActive}
@@ -12467,7 +12467,7 @@ function KensiglineTerminal() {
               />
             ) : exploreSubview === 'investors' ? (
               <ExploreInvestorsPage
-                backendUp={backendUp}
+            backendUp={backendUp}
                 macroActive={macroActive}
                 onMacroClick={onMacroClick}
                 settingsActive={settingsActive}
@@ -12478,7 +12478,7 @@ function KensiglineTerminal() {
               />
             ) : (
               <ExplorePage
-                backendUp={backendUp}
+            backendUp={backendUp}
                 macroActive={macroActive}
                 onMacroClick={onMacroClick}
                 settingsActive={settingsActive}
