@@ -50,14 +50,22 @@ let secBlockedUntil = 0;
 let lastCooldownLogUntil = 0;
 const secRecentReqAt: number[] = [];
 
-/** Soft cooldown after 429/5xx — default 10m so we stop poking SEC until it cools. */
-function secSoftBlockMs(): number {
-  return Math.max(5_000, Math.min(900_000, Number(process.env.SEC_BLOCK_MS ?? 600_000) || 600_000));
+/** Long pause after true rate limit (429) / bot ban — default 10m. */
+function secRateLimitCooldownMs(): number {
+  const raw = Number(process.env.SEC_RATE_LIMIT_COOLDOWN_MS ?? process.env.SEC_BLOCK_MS ?? 600_000);
+  return Math.max(30_000, Math.min(900_000, Number.isFinite(raw) ? raw : 600_000));
 }
 
-/** Harder cooldown after undeclared-bot / 403-style blocks. */
+/** Short pause after transient 403/5xx — same idea as the old soft block. */
+function secTransientBlockMs(): number {
+  const raw = Number(process.env.SEC_SOFT_BLOCK_MS ?? 15_000);
+  return Math.max(5_000, Math.min(60_000, Number.isFinite(raw) ? raw : 15_000));
+}
+
+/** Bot / undeclared-tool block — same long cool-down as rate limit. */
 function secBotBlockMs(): number {
-  return Math.max(5_000, Math.min(900_000, Number(process.env.SEC_BOT_BLOCK_MS ?? 600_000) || 600_000));
+  const raw = Number(process.env.SEC_BOT_BLOCK_MS ?? process.env.SEC_RATE_LIMIT_COOLDOWN_MS ?? 600_000);
+  return Math.max(30_000, Math.min(900_000, Number.isFinite(raw) ? raw : 600_000));
 }
 
 function armSecCooldown(blockMs: number, reason: string, url?: string) {
@@ -68,6 +76,27 @@ function armSecCooldown(blockMs: number, reason: string, url?: string) {
   console.warn(
     `[sec] cooldown reason=${reason} ms=${blockMs} (~${mins}m)${url ? ` url=${url.slice(0, 120)}` : ""}`,
   );
+}
+
+function armSecSoftBlock(blockMs: number, reason: string, url?: string) {
+  secBlockedUntil = Math.max(secBlockedUntil, Date.now() + blockMs);
+  console.warn(
+    `[sec] soft_block reason=${reason} ms=${blockMs}${url ? ` url=${url.slice(0, 120)}` : ""}`,
+  );
+}
+
+function reactToSecHttpError(status: number, body: string, url: string) {
+  if (status === 429 || looksLikeSecBotBlock(body)) {
+    armSecCooldown(
+      status === 429 ? secRateLimitCooldownMs() : secBotBlockMs(),
+      status === 429 ? "rate_limit_429" : `http_${status}_bot`,
+      url,
+    );
+    return;
+  }
+  if (status === 403 || status >= 500) {
+    armSecSoftBlock(secTransientBlockMs(), `http_${status}`, url);
+  }
 }
 
 async function secRateLimit() {
@@ -131,9 +160,7 @@ async function secFetchJson(url: string) {
   const ctype = String(res.headers.get("content-type") ?? "").toLowerCase();
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    if (res.status === 403 || res.status === 429 || res.status >= 500) {
-      armSecCooldown(secSoftBlockMs(), `http_${res.status}`, url);
-    }
+    reactToSecHttpError(res.status, txt, url);
     throw new Error(`sec_fetch_failed ${res.status} ${url} ${txt.slice(0, 200)}`);
   }
   if (!ctype.includes("application/json")) {
@@ -153,7 +180,7 @@ async function secFetchJson(url: string) {
       }
     }
     if (ctype.includes("text/html")) {
-      armSecCooldown(secSoftBlockMs(), "html_body", url);
+      armSecSoftBlock(secTransientBlockMs(), "html_body", url);
     }
     throw new Error(`sec_expected_json_got_${ctype || "unknown"}`);
   }
@@ -175,9 +202,7 @@ async function secFetchText(url: string) {
   });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
-    if (res.status === 403 || res.status === 429 || res.status >= 500) {
-      armSecCooldown(secSoftBlockMs(), `http_${res.status}`, url);
-    }
+    reactToSecHttpError(res.status, txt, url);
     throw new Error(`sec_fetch_failed ${res.status} ${url} ${txt.slice(0, 200)}`);
   }
   const txt = await res.text();
