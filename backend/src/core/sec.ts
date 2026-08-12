@@ -47,7 +47,29 @@ function requireSecUserAgent() {
 
 let lastSecRequestAt = 0;
 let secBlockedUntil = 0;
+let lastCooldownLogUntil = 0;
 const secRecentReqAt: number[] = [];
+
+/** Soft cooldown after 429/5xx — default 10m so we stop poking SEC until it cools. */
+function secSoftBlockMs(): number {
+  return Math.max(5_000, Math.min(900_000, Number(process.env.SEC_BLOCK_MS ?? 600_000) || 600_000));
+}
+
+/** Harder cooldown after undeclared-bot / 403-style blocks. */
+function secBotBlockMs(): number {
+  return Math.max(5_000, Math.min(900_000, Number(process.env.SEC_BOT_BLOCK_MS ?? 600_000) || 600_000));
+}
+
+function armSecCooldown(blockMs: number, reason: string, url?: string) {
+  secBlockedUntil = Math.max(secBlockedUntil, Date.now() + blockMs);
+  // Drop the recent-request window so we don't burst the moment cooldown lifts.
+  secRecentReqAt.length = 0;
+  const mins = (blockMs / 60_000).toFixed(1);
+  console.warn(
+    `[sec] cooldown reason=${reason} ms=${blockMs} (~${mins}m)${url ? ` url=${url.slice(0, 120)}` : ""}`,
+  );
+}
+
 async function secRateLimit() {
   // SEC fair-access guide allows up to ~10 req/s. Default min-interval of 1500ms
   // caps the whole process at ~0.67 rps (~57k/day) — fine for polite browsing,
@@ -68,7 +90,13 @@ async function secRateLimit() {
     secRecentReqAt.length >= maxRps ? (secRecentReqAt[0] ?? now) + windowMs - now : 0;
 
   const wait = Math.max(0, blockedWait, baseWait, rpsWait);
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  if (wait > 0) {
+    if (blockedWait > 5_000 && secBlockedUntil !== lastCooldownLogUntil) {
+      lastCooldownLogUntil = secBlockedUntil;
+      console.warn(`[sec] waiting_cooldown ms=${Math.round(blockedWait)}`);
+    }
+    await new Promise((r) => setTimeout(r, wait));
+  }
 
   const at = Date.now();
   secRecentReqAt.push(at);
@@ -104,18 +132,14 @@ async function secFetchJson(url: string) {
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     if (res.status === 403 || res.status === 429 || res.status >= 500) {
-      const blockMs = Math.max(5_000, Math.min(60_000, Number(process.env.SEC_BLOCK_MS ?? 15_000) || 15_000));
-      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + blockMs);
-      console.warn(`[sec] soft_block status=${res.status} ms=${blockMs} url=${url.slice(0, 120)}`);
+      armSecCooldown(secSoftBlockMs(), `http_${res.status}`, url);
     }
     throw new Error(`sec_fetch_failed ${res.status} ${url} ${txt.slice(0, 200)}`);
   }
   if (!ctype.includes("application/json")) {
     const txt = await res.text().catch(() => "");
     if (looksLikeSecBotBlock(txt)) {
-      const blockMs = Math.max(5_000, Math.min(120_000, Number(process.env.SEC_BOT_BLOCK_MS ?? 30_000) || 30_000));
-      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + blockMs);
-      console.warn(`[sec] bot_block ms=${blockMs}`);
+      armSecCooldown(secBotBlockMs(), "bot_block", url);
       throw new Error("sec_blocked_undeclared_automated_tool");
     }
     // SEC sometimes mislabels JSON responses (e.g. `text/html`) even when the body is JSON.
@@ -129,8 +153,7 @@ async function secFetchJson(url: string) {
       }
     }
     if (ctype.includes("text/html")) {
-      const blockMs = Math.max(5_000, Math.min(60_000, Number(process.env.SEC_BLOCK_MS ?? 15_000) || 15_000));
-      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + blockMs);
+      armSecCooldown(secSoftBlockMs(), "html_body", url);
     }
     throw new Error(`sec_expected_json_got_${ctype || "unknown"}`);
   }
@@ -153,17 +176,13 @@ async function secFetchText(url: string) {
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
     if (res.status === 403 || res.status === 429 || res.status >= 500) {
-      const blockMs = Math.max(5_000, Math.min(60_000, Number(process.env.SEC_BLOCK_MS ?? 15_000) || 15_000));
-      secBlockedUntil = Math.max(secBlockedUntil, Date.now() + blockMs);
-      console.warn(`[sec] soft_block status=${res.status} ms=${blockMs} url=${url.slice(0, 120)}`);
+      armSecCooldown(secSoftBlockMs(), `http_${res.status}`, url);
     }
     throw new Error(`sec_fetch_failed ${res.status} ${url} ${txt.slice(0, 200)}`);
   }
   const txt = await res.text();
   if (looksLikeSecBotBlock(txt)) {
-    const blockMs = Math.max(5_000, Math.min(120_000, Number(process.env.SEC_BOT_BLOCK_MS ?? 30_000) || 30_000));
-    secBlockedUntil = Math.max(secBlockedUntil, Date.now() + blockMs);
-    console.warn(`[sec] bot_block ms=${blockMs}`);
+    armSecCooldown(secBotBlockMs(), "bot_block", url);
     throw new Error("sec_blocked_undeclared_automated_tool");
   }
   return txt;
