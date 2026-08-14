@@ -99,8 +99,20 @@ function staticCapacity(def: PipelineDef): PipelineCapacity {
   };
 }
 
+function doneMinCapacity(): PipelineCapacity {
+  return {
+    parseConcurrency: Math.max(1, envInt("BACKFILL_DONE_PARSE_MIN", 1, 1, 4)),
+    liveEnqueue: false,
+    historicalBackfill: false,
+  };
+}
+
+/** Safe boot defaults — research/politicians finish first; avoid full static caps before DB refresh. */
 let capacityById = new Map<BackfillPipelineId, PipelineCapacity>(
-  PIPELINES.map((p) => [p.id, staticCapacity(p)]),
+  PIPELINES.map((p) => [
+    p.id,
+    p.id === "research" || p.id === "politicians" ? doneMinCapacity() : staticCapacity(p),
+  ]),
 );
 
 export function getPipelineCapacity(id: BackfillPipelineId): PipelineCapacity {
@@ -169,6 +181,26 @@ async function refreshCapacity(): Promise<void> {
   }
 }
 
+/** Load cursor-based allocation before workers start — avoids restart with full static caps starving the pool. */
+export async function bootstrapBackfillCapacity(opts?: { timeoutMs?: number }): Promise<void> {
+  if (!backfillDynamicCapacityEnabled()) return;
+
+  const timeoutMs = Math.max(5_000, opts?.timeoutMs ?? 45_000);
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      await runWithWorkerDb(refreshCapacity);
+      console.log("[backfill-capacity] bootstrap ok");
+      return;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn("[backfill-capacity] bootstrap retry", msg);
+      await new Promise((r) => setTimeout(r, 2_000));
+    }
+  }
+  console.warn("[backfill-capacity] bootstrap timeout — continuing with boot defaults");
+}
+
 export function startBackfillCapacityAllocator(): { stop(): void } {
   if (!backfillDynamicCapacityEnabled()) {
     console.log("[backfill-capacity] disabled (BACKFILL_DYNAMIC_CAPACITY=0 or BACKFILL_ENABLED=0)");
@@ -184,7 +216,6 @@ export function startBackfillCapacityAllocator(): { stop(): void } {
   };
 
   console.log(`[backfill-capacity] enabled refreshMs=${refreshMs}`);
-  tick();
   const timer = setInterval(tick, refreshMs);
 
   return {

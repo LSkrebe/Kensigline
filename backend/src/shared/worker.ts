@@ -52,6 +52,11 @@ function liveEnqueueGated(prefix: string): boolean {
   return String(process.env[`${prefix}_ENQUEUE_GATE_LIVE`] ?? process.env.ENQUEUE_GATE_LIVE ?? "1").trim() !== "0";
 }
 
+function pipelinePoolIdle(id: BackfillPipelineId): boolean {
+  const c = getPipelineCapacity(id);
+  return !c.liveEnqueue && !c.historicalBackfill;
+}
+
 /**
  * High-throughput pipeline worker.
  * Parallelism = sum of PARSE_CONCURRENCY (HTTP/SEC in flight).
@@ -86,8 +91,9 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   let lastBackfillAt = 0;
   let backfillRunning = false;
 
-  const runReclaim = () =>
-    runWithWorkerDb(() =>
+  const runReclaim = () => {
+    if (dynamicCapacity && opts.backfillPipelineId && pipelinePoolIdle(opts.backfillPipelineId)) return;
+    return runWithWorkerDb(() =>
       Promise.all([
         reclaimStaleParsing({ olderThanMinutes: reclaimOlderMinutes }),
         requeueTransientDead({ limit: 25 }),
@@ -98,6 +104,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
         if (requeued > 0) console.warn(`[${opts.name}] requeued_transient_dead count=${requeued}`);
       })
       .catch((e) => console.error(`[${opts.name}] reclaim_failed`, e));
+  };
 
   void runReclaim();
   reclaimTimer = setInterval(() => {
@@ -107,6 +114,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
 
   const maybeRunBackfill = async () => {
     if (stopped || !opts.enqueueBackfill || !opts.sourceTypes?.length) return;
+    if (dynamicCapacity && opts.backfillPipelineId && pipelinePoolIdle(opts.backfillPipelineId)) return;
     if (dynamicCapacity && opts.backfillPipelineId && !getPipelineCapacity(opts.backfillPipelineId).historicalBackfill) {
       return;
     }

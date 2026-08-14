@@ -7,7 +7,7 @@
 import "./load-env.js";
 import { startAllWorkers, stopAllWorkers } from "./server/workers.js";
 
-const workers = startAllWorkers();
+const workers = await startAllWorkers();
 console.log(`[workers-main] started ${workers.length} workers`);
 
 function shutdown() {

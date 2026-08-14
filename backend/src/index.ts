@@ -50,7 +50,7 @@ const port = Number(process.env.PORT ?? "3001");
 void getSecTickerTitleMap().catch(() => {});
 /** Set WORKERS_ENABLED=0 for API-only process (pair with workers-main). */
 const workersEnabled = String(process.env.WORKERS_ENABLED ?? "1").trim() !== "0";
-const workers = workersEnabled ? startAllWorkers() : [];
+const workers = workersEnabled ? await startAllWorkers() : [];
 if (!workersEnabled) console.log("[workers] disabled (WORKERS_ENABLED=0)");
 
 const server = http.createServer(async (req, res) => {
