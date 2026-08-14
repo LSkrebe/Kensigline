@@ -895,14 +895,39 @@ export async function enqueueLatestFilingsForTicker(opts: {
   return { ticker, cik, forms: formsWanted, found, enqueued, skipped_existing, queue_ids };
 }
 
+type FilingIndexJson = { directory?: { item?: Array<{ name?: string; size?: number }> } };
+
+async function fetchFilingPrimaryFromIndex(
+  indexJsonUrl: string,
+  idx: FilingIndexJson,
+): Promise<{ url: string; text: string }> {
+  const items: Array<{ name?: string; size?: number }> = idx?.directory?.item ?? [];
+  const rows = items
+    .map((it) => ({ name: String(it?.name ?? ""), size: Number(it?.size ?? 0) }))
+    .filter((it) => it.name);
+
+  const candidates = rows
+    .filter((it) => !/-index\.html?$/i.test(it.name))
+    .filter((it) => /\.(html?|txt)$/i.test(it.name))
+    .sort((a, b) => (b.size || 0) - (a.size || 0));
+
+  const pick = candidates[0]?.name ?? rows.find((it) => /\.txt$/i.test(it.name))?.name ?? null;
+  if (!pick) throw new Error("filing_primary_doc_not_found_in_index");
+  const base = indexJsonUrl.replace(/\/index\.json$/, "");
+  const url = `${base}/${pick}`;
+  const text = await secFetchText(url);
+  return { url, text };
+}
+
 /** Primary cover doc plus information-table XML for 13F parsing (no LLM). */
 export async function fetch13fFilingBundle(indexJsonUrl: string): Promise<{ url: string; text: string; bundle: string }> {
-  const primary = await fetchFilingPrimaryText(indexJsonUrl);
   if (!indexJsonUrl.endsWith("/index.json")) {
+    const primary = await fetchFilingPrimaryText(indexJsonUrl);
     return { url: primary.url, text: primary.text, bundle: primary.text };
   }
 
-  const idx = (await secFetchJson(indexJsonUrl)) as { directory?: { item?: Array<{ name?: string; size?: number }> } };
+  const idx = (await secFetchJson(indexJsonUrl)) as FilingIndexJson;
+  const primary = await fetchFilingPrimaryFromIndex(indexJsonUrl, idx);
   const items = (idx?.directory?.item ?? [])
     .map((it) => ({ name: String(it?.name ?? ""), size: Number(it?.size ?? 0) }))
     .filter((it) => it.name);
@@ -937,24 +962,8 @@ export async function fetchFilingPrimaryText(indexJsonUrl: string): Promise<{ ur
     return { url: indexJsonUrl, text: txt };
   }
 
-  const idx = (await secFetchJson(indexJsonUrl)) as any;
-  const items: Array<{ name?: string; size?: number }> = idx?.directory?.item ?? [];
-  const rows = items
-    .map((it) => ({ name: String(it?.name ?? ""), size: Number(it?.size ?? 0) }))
-    .filter((it) => it.name);
-
-  // Prefer the main HTML/TXT filing doc; avoid the index page itself.
-  const candidates = rows
-    .filter((it) => !/-index\.html?$/i.test(it.name))
-    .filter((it) => /\.(html?|txt)$/i.test(it.name))
-    .sort((a, b) => (b.size || 0) - (a.size || 0));
-
-  const pick = candidates[0]?.name ?? rows.find((it) => /\.txt$/i.test(it.name))?.name ?? null;
-  if (!pick) throw new Error("filing_primary_doc_not_found_in_index");
-  const base = indexJsonUrl.replace(/\/index\.json$/, "");
-  const url = `${base}/${pick}`;
-  const text = await secFetchText(url);
-  return { url, text };
+  const idx = (await secFetchJson(indexJsonUrl)) as FilingIndexJson;
+  return fetchFilingPrimaryFromIndex(indexJsonUrl, idx);
 }
 
 export async function fetchForm4Text(url: string): Promise<string> {
