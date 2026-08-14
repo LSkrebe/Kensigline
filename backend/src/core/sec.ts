@@ -56,10 +56,20 @@ function secRateLimitCooldownMs(): number {
   return Math.max(30_000, Math.min(900_000, Number.isFinite(raw) ? raw : 600_000));
 }
 
-/** Short pause after transient 403/5xx — same idea as the old soft block. */
+/** Short pause after transient 403/5xx (not 503 — see secSoftBlock503Ms). */
 function secTransientBlockMs(): number {
   const raw = Number(process.env.SEC_SOFT_BLOCK_MS ?? 15_000);
   return Math.max(5_000, Math.min(60_000, Number.isFinite(raw) ? raw : 15_000));
+}
+
+/** SEC 503 overload — shorter retry; still capped by SEC_MAX_RPS / MIN_INTERVAL globally. */
+function secSoftBlock503Ms(): number {
+  const raw = Number(process.env.SEC_SOFT_BLOCK_503_MS ?? 5_000);
+  return Math.max(1_000, Math.min(60_000, Number.isFinite(raw) ? raw : 5_000));
+}
+
+function secSoftBlockMsForStatus(status: number): number {
+  return status === 503 ? secSoftBlock503Ms() : secTransientBlockMs();
 }
 
 /** Bot / undeclared-tool block — same long cool-down as rate limit. */
@@ -95,7 +105,7 @@ function reactToSecHttpError(status: number, body: string, url: string) {
     return;
   }
   if (status === 403 || status >= 500) {
-    armSecSoftBlock(secTransientBlockMs(), `http_${status}`, url);
+    armSecSoftBlock(secSoftBlockMsForStatus(status), `http_${status}`, url);
   }
 }
 
