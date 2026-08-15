@@ -74,6 +74,11 @@ function isBenignUniqueError(err: unknown): boolean {
   return code === "23505" || /duplicate key|unique constraint/i.test(msg);
 }
 
+function isPoolBlip(err: unknown): boolean {
+  const msg = String(err instanceof Error ? err.message : err);
+  return /ECHECKOUTTIMEOUT|authentication did not complete|connection terminated|08006/i.test(msg);
+}
+
 /**
  * When the parse queue is low, walk SEC daily master.idx backwards and enqueue.
  *
@@ -213,6 +218,7 @@ export async function runSecDailyIndexBackfill(opts: {
             continue;
           }
           console.error(`[${opts.pipeline}] backfill_day_failed form=${spec.form} day=${dayLabel}`, e);
+          if (isPoolBlip(e)) throw e;
           // Transient/unknown: retry same form next tick (do not rewind earlier forms).
           truncated = true;
           await setIngestCursor(opts.pipeline, formCursorKey, String(formIdx));

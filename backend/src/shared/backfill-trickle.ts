@@ -17,7 +17,13 @@ export function computeAdaptiveWalkTrickle(opts: {
   if (ready <= low) return cap;
   if (ready >= high) return 0;
 
-  const headroom = high - ready;
+  // Above low water the queue must drain before we add more work. Only trickle in a
+  // narrow band just above low; at prod levels (~5k ready) this is scan-only (0).
   const span = high - low;
-  return Math.max(0, Math.min(cap, Math.ceil((cap * headroom) / span)));
+  const buffer = Math.max(1, Math.floor(span * 0.15));
+  const trickleCeiling = low + buffer;
+  if (ready > trickleCeiling) return 0;
+
+  const headroom = trickleCeiling - ready;
+  return Math.max(0, Math.min(cap, Math.ceil((cap * headroom) / buffer)));
 }
