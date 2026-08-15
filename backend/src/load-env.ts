@@ -9,3 +9,6 @@ import dotenv from "dotenv";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "../..");
 dotenv.config({ path: path.join(repoRoot, ".env") });
+
+import { installProcessGuards } from "./process-guards.js";
+installProcessGuards();

@@ -156,10 +156,13 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   // Independent of parse success — under pooler blips parse loops error before
   // reaching maybeRunBackfill, which previously froze historical cursors forever.
   if (opts.enqueueBackfill) {
-    void maybeRunBackfill();
+    const runBackfillTick = () => {
+      void maybeRunBackfill().catch((e) => console.error(`[${opts.name}] backfill_tick_failed`, e));
+    };
+    runBackfillTick();
     backfillTimer = setInterval(() => {
       if (stopped) return;
-      void maybeRunBackfill();
+      runBackfillTick();
     }, backfillIntervalMs);
   }
 
@@ -214,12 +217,12 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
             await sleep(parsePollMs);
           } else {
             // Top up the queue while parsers are busy (low-water backfill).
-            void maybeRunBackfill();
+            void maybeRunBackfill().catch((e) => console.error(`[${opts.name}] backfill_tick_failed`, e));
             await sleep(parseThrottleMs);
           }
         } catch (e) {
           console.error(`[${opts.name}] parse_loop_failed`, e);
-          void maybeRunBackfill();
+          void maybeRunBackfill().catch((e) => console.error(`[${opts.name}] backfill_tick_failed`, e));
           await sleep(2_000);
         }
       }

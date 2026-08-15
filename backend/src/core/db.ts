@@ -68,6 +68,11 @@ const workerQueryConcurrency = Math.max(
   Math.min(20, Number(process.env.WORKER_QUERY_CONCURRENCY ?? 6) || 6),
 );
 
+const DEFAULT_WORKER_TIMEOUT_MS = Math.max(
+  1_000,
+  Math.min(120_000, Number(process.env.DATABASE_WORKER_STATEMENT_TIMEOUT_MS ?? 25_000) || 25_000),
+);
+
 function makePool(max: number, label: string): Pool {
   const p = new Pool({
     connectionString: databaseUrl,
@@ -87,7 +92,7 @@ const apiPool = makePool(apiPoolMax, "api");
 const workerPool = makePool(workerPoolMax, "worker");
 
 console.info(
-  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency}`,
+  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency} workerStatementTimeoutMs=${DEFAULT_WORKER_TIMEOUT_MS}`,
 );
 
 type DbLane = "api" | "worker";
@@ -167,16 +172,14 @@ async function withClientTimeout<T>(
 
 export const db = {
   async query<T = any>(text: string, params: any[] = []): Promise<T[]> {
-    return withWorkerQuerySlot(async () => {
-      const r = await activePool().query(text, params);
+    return withClientTimeout(DEFAULT_WORKER_TIMEOUT_MS, async (client) => {
+      const r = await client.query(text, params);
       return r.rows as T[];
     });
   },
   async one<T = any>(text: string, params: any[] = []): Promise<T | null> {
-    return withWorkerQuerySlot(async () => {
-      const r = await activePool().query(text, params);
-      return (r.rows[0] as T | undefined) ?? null;
-    });
+    const rows = await db.query<T>(text, params);
+    return rows[0] ?? null;
   },
   /** API/read path — hard-cap statement time so one slow query cannot pin the pool. */
   async queryApi<T = any>(text: string, params: any[] = [], timeoutMs = DEFAULT_API_TIMEOUT_MS): Promise<T[]> {
