@@ -96,6 +96,7 @@ export async function runSecDailyIndexBackfill(opts: {
     const { walkOnly } = getBackfillTickMode();
     const cursorKey = opts.cursorKey ?? "sec_daily";
     const formCursorKey = `${cursorKey}_form`;
+    const chunkCursorKey = `${formCursorKey}_chunk`;
     const configured = Number(opts.limitPerForm ?? backfillSecLimitPerForm());
     const limitPerForm = Number.isFinite(configured) ? Math.max(0, Math.min(50_000, Math.floor(configured))) : 0;
     const maxDays = walkOnly
@@ -119,6 +120,9 @@ export async function runSecDailyIndexBackfill(opts: {
     let formIdx = Number(await getIngestCursor(opts.pipeline, formCursorKey));
     if (!Number.isFinite(formIdx) || formIdx < 0) formIdx = 0;
     if (formIdx > opts.forms.length) formIdx = 0;
+
+    let chunkIdx = Number(await getIngestCursor(opts.pipeline, chunkCursorKey));
+    if (!Number.isFinite(chunkIdx) || chunkIdx < 0) chunkIdx = 0;
 
     const minDate = effectiveBackfillMinDate();
     let totalEnqueued = 0;
@@ -166,6 +170,7 @@ export async function runSecDailyIndexBackfill(opts: {
             priority: spec.priority ?? 1,
             limit: remaining,
             scanOnly: walkOnly && walkTrickle <= 0,
+            startChunkIndex: chunkIdx,
           });
           foundAnyIndex = foundAnyIndex || r.found > 0 || r.index_missing === false;
           enqueued += r.enqueued;
@@ -174,6 +179,8 @@ export async function runSecDailyIndexBackfill(opts: {
           if (r.truncated) {
             truncated = true;
             dayIncomplete = true;
+            chunkIdx = r.nextChunkIndex;
+            await setIngestCursor(opts.pipeline, chunkCursorKey, String(chunkIdx));
             await setIngestCursor(opts.pipeline, formCursorKey, String(formIdx));
             // Walk trickle: finish sibling form same tick so one fat 13F-HR day does not block 13F-HR/A.
             if (
@@ -191,6 +198,8 @@ export async function runSecDailyIndexBackfill(opts: {
           }
 
           formIdx += 1;
+          chunkIdx = 0;
+          await setIngestCursor(opts.pipeline, chunkCursorKey, "0");
           await setIngestCursor(opts.pipeline, formCursorKey, String(formIdx));
         } catch (e: unknown) {
           if (isBenignUniqueError(e)) {
@@ -198,6 +207,8 @@ export async function runSecDailyIndexBackfill(opts: {
               `[${opts.pipeline}] backfill_day_dup form=${spec.form} day=${dayLabel} (skip, cursor ok)`,
             );
             formIdx += 1;
+            chunkIdx = 0;
+            await setIngestCursor(opts.pipeline, chunkCursorKey, "0");
             await setIngestCursor(opts.pipeline, formCursorKey, String(formIdx));
             continue;
           }
@@ -222,6 +233,8 @@ export async function runSecDailyIndexBackfill(opts: {
 
       const nextDay = prevUtcDay(day);
       formIdx = 0;
+      chunkIdx = 0;
+      await setIngestCursor(opts.pipeline, chunkCursorKey, "0");
       await setIngestCursor(opts.pipeline, formCursorKey, "0");
       await setIngestCursor(opts.pipeline, cursorKey, yyyymmdd(nextDay));
       if (enqueued > 0 || foundAnyIndex || (walkOnly && skipped_existing > 0)) {

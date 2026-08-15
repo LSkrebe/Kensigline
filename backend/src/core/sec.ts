@@ -557,6 +557,8 @@ export type EnqueueDailyIndexDayResult = {
   index_missing: boolean;
   /** True when a hard limit stopped early — caller must NOT advance the day cursor. */
   truncated: boolean;
+  /** Chunk to resume on when truncated; 0 when this form/day pass finished. */
+  nextChunkIndex: number;
 };
 
 /** Enqueue one form type from a single SEC daily master.idx (historical backfill). */
@@ -569,6 +571,8 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
   limit?: number;
   /** Count skips only — do not insert; truncate when any new URL would be enqueued. */
   scanOnly?: boolean;
+  /** Resume mid-day scan — chunk index (BACKFILL_ENQUEUE_CHUNK sized steps through master.idx). */
+  startChunkIndex?: number;
 }): Promise<EnqueueDailyIndexDayResult> {
   const form = String(opts.form ?? "").trim();
   const sourceType = String(opts.sourceType ?? "").trim() || "sec_filing";
@@ -595,6 +599,7 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
       skipped_existing: 0,
       index_missing: true,
       truncated: false,
+      nextChunkIndex: 0,
     };
   }
 
@@ -607,8 +612,15 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
   // Batch existence checks + inserts. Per-row round-trips through the transaction
   // pooler melted Supabase (ECHECKOUTTIMEOUT) and capped historical drain.
   const chunkSize = Math.max(50, Math.min(500, Number(process.env.BACKFILL_ENQUEUE_CHUNK ?? 200) || 200));
+  const totalChunks = filings.length > 0 ? Math.ceil(filings.length / chunkSize) : 0;
+  let startChunk = Math.max(0, Math.floor(Number(opts.startChunkIndex ?? 0) || 0));
+  if (startChunk >= totalChunks) startChunk = 0;
 
-  for (let i = 0; i < filings.length; i += chunkSize) {
+  let stopChunk = startChunk;
+
+  for (let ci = startChunk; ci < totalChunks; ci++) {
+    stopChunk = ci;
+    const i = ci * chunkSize;
     if (limit > 0 && enqueued >= limit) {
       truncated = true;
       break;
@@ -683,7 +695,17 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
     if (truncated) break;
   }
 
-  return { day, form, sourceType, found, enqueued, skipped_existing, index_missing: false, truncated };
+  return {
+    day,
+    form,
+    sourceType,
+    found,
+    enqueued,
+    skipped_existing,
+    index_missing: false,
+    truncated,
+    nextChunkIndex: truncated ? stopChunk : 0,
+  };
 }
 
 /**

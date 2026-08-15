@@ -1,11 +1,12 @@
 import { runWithWorkerDb } from "../core/db.js";
+import { computeAdaptiveWalkTrickle } from "./backfill-trickle.js";
 import {
   backfillDynamicCapacityEnabled,
   backfillParseSlotMax,
   getPipelineCapacity,
   type BackfillPipelineId,
 } from "./backfill-capacity.js";
-import { readyQueueAbove } from "./queue-pending.js";
+import { countReadyQueue, readyQueueAbove } from "./queue-pending.js";
 import { runWithBackfillTickMode } from "./sec-daily-backfill.js";
 import { reclaimStaleParsing, requeueTransientDead } from "./queue.js";
 
@@ -101,6 +102,13 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   let backfillTimer: ReturnType<typeof setInterval> | undefined;
   let lastBackfillAt = 0;
   let backfillRunning = false;
+  let backfillFailStreak = 0;
+  let backfillBackoffMs = 0;
+
+  function isPoolBlip(err: unknown): boolean {
+    const msg = String(err instanceof Error ? err.message : err);
+    return /ECHECKOUTTIMEOUT|authentication did not complete|connection terminated|08006/i.test(msg);
+  }
 
   const runReclaim = () => {
     if (dynamicCapacity && opts.backfillPipelineId && pipelinePoolIdle(opts.backfillPipelineId)) return;
@@ -132,21 +140,37 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     // Single-flight includes the low-water probe — 12 parse workers must not
     // stampede COUNT/LIMIT probes through the transaction pooler.
     if (backfillRunning) return;
-    if (Date.now() - lastBackfillAt < backfillIntervalMs) return;
+    const waitMs = backfillIntervalMs + backfillBackoffMs;
+    if (Date.now() - lastBackfillAt < waitMs) return;
 
     backfillRunning = true;
     lastBackfillAt = Date.now();
     try {
       const lowWater = queueLowWater(opts.envPrefix);
       const highWater = queueHighWater(opts.envPrefix);
-      const aboveHigh = await runWithWorkerDb(() => readyQueueAbove(opts.sourceTypes!, highWater));
-      if (aboveHigh) return;
+      const ready = await runWithWorkerDb(() => countReadyQueue(opts.sourceTypes!));
+      if (ready >= highWater) return;
 
-      const aboveLow = await runWithWorkerDb(() => readyQueueAbove(opts.sourceTypes!, lowWater));
-      const walkOnly = aboveLow;
-      await runWithWorkerDb(() => runWithBackfillTickMode({ walkOnly }, () => opts.enqueueBackfill!()));
+      const walkOnly = ready > lowWater;
+      const walkTrickle = walkOnly
+        ? computeAdaptiveWalkTrickle({ ready, lowWater, highWater })
+        : undefined;
+
+      await runWithWorkerDb(() =>
+        runWithBackfillTickMode(
+          { walkOnly, ...(walkTrickle !== undefined ? { walkTrickle } : {}) },
+          () => opts.enqueueBackfill!(),
+        ),
+      );
+      backfillFailStreak = 0;
+      backfillBackoffMs = 0;
     } catch (e) {
       console.error(`[${opts.name}] backfill_failed`, e);
+      if (isPoolBlip(e)) {
+        backfillFailStreak += 1;
+        backfillBackoffMs = Math.min(120_000, backfillIntervalMs * 2 ** Math.min(backfillFailStreak, 4));
+        console.warn(`[${opts.name}] backfill_backoff_ms=${backfillBackoffMs} streak=${backfillFailStreak}`);
+      }
     } finally {
       backfillRunning = false;
     }
