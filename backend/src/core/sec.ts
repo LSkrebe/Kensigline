@@ -567,14 +567,19 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
   priority?: number;
   /** Max *new* enqueues for this form/day. 0 / omitted = no cap (full day, no holes). */
   limit?: number;
+  /** Count skips only — do not insert; truncate when any new URL would be enqueued. */
+  scanOnly?: boolean;
 }): Promise<EnqueueDailyIndexDayResult> {
   const form = String(opts.form ?? "").trim();
   const sourceType = String(opts.sourceType ?? "").trim() || "sec_filing";
+  const scanOnly = opts.scanOnly === true;
   const priority = Number.isFinite(opts.priority) ? Math.max(0, Math.min(100, Number(opts.priority))) : 1;
   const rawLimit = Number(opts.limit);
   // 0 = unlimited. Positive caps new inserts only — we still scan the full master.idx so skips don't create holes.
   const limit =
-    Number.isFinite(rawLimit) && rawLimit > 0 ? Math.max(1, Math.min(50_000, Math.floor(rawLimit))) : 0;
+    scanOnly || !(Number.isFinite(rawLimit) && rawLimit > 0)
+      ? 0
+      : Math.max(1, Math.min(50_000, Math.floor(rawLimit)));
   const day = yyyymmdd(opts.dayUtc);
 
   let master: string;
@@ -656,6 +661,10 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
     }
 
     if (toInsert.length) {
+      if (scanOnly) {
+        truncated = true;
+        break;
+      }
       // ON CONFLICT: live enqueue can race this backfill path under max concurrency.
       const inserted = await db.query<{ id: string }>(
         `

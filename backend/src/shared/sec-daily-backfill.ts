@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { enqueueFilingsFromDailyIndexDay } from "../core/sec.js";
 import { effectiveBackfillMinDate, backfillSecLimitPerForm } from "./ingest-policy.js";
 import { getIngestCursor, setIngestCursor } from "./ingest-cursor.js";
@@ -7,6 +8,19 @@ export type SecDailyFormSpec = {
   sourceType: string;
   priority?: number;
 };
+
+export type BackfillTickMode = { walkOnly: boolean };
+
+const backfillTickStore = new AsyncLocalStorage<BackfillTickMode>();
+
+function getBackfillTickMode(): BackfillTickMode {
+  return backfillTickStore.getStore() ?? { walkOnly: false };
+}
+
+/** Set walk-only vs enqueue mode for one backfill tick (queue between low/high water). */
+export function runWithBackfillTickMode<T>(mode: BackfillTickMode, fn: () => T): T {
+  return backfillTickStore.run(mode, fn);
+}
 
 function backfillEnabled(): boolean {
   return String(process.env.BACKFILL_ENABLED ?? "1").trim() !== "0";
@@ -74,11 +88,14 @@ export async function runSecDailyIndexBackfill(opts: {
   if (!backfillEnabled() || !opts.forms.length) return { ran: false, enqueued: 0, skipped_existing: 0 };
 
   return withGlobalBackfillLock(async () => {
+    const { walkOnly } = getBackfillTickMode();
     const cursorKey = opts.cursorKey ?? "sec_daily";
     const formCursorKey = `${cursorKey}_form`;
     const configured = Number(opts.limitPerForm ?? backfillSecLimitPerForm());
     const limitPerForm = Number.isFinite(configured) ? Math.max(0, Math.min(50_000, Math.floor(configured))) : 0;
-    const maxDays = Math.max(1, Math.min(14, Number(process.env.BACKFILL_DAYS_PER_TICK ?? 5) || 5));
+    const maxDays = walkOnly
+      ? Math.max(1, Math.min(14, Number(process.env.BACKFILL_DAYS_PER_TICK_WALK ?? 6) || 6))
+      : Math.max(1, Math.min(14, Number(process.env.BACKFILL_DAYS_PER_TICK ?? 5) || 5));
     const targetEnqueue = Math.max(50, Math.min(5_000, Number(process.env.BACKFILL_TARGET_ENQUEUE ?? 400) || 400));
     // Cap forms per tick so one pipeline cannot hold the global lock across a huge multi-form day.
     const maxFormsPerTick = Math.max(
@@ -106,7 +123,7 @@ export async function runSecDailyIndexBackfill(opts: {
 
     for (let i = 0; i < maxDays; i++) {
       if (day.getTime() < minDate.getTime()) break;
-      if (totalEnqueued >= targetEnqueue) break;
+      if (!walkOnly && totalEnqueued >= targetEnqueue) break;
       if (formsThisTick >= maxFormsPerTick) break;
 
       const dayLabel = yyyymmdd(day);
@@ -132,7 +149,8 @@ export async function runSecDailyIndexBackfill(opts: {
             form: spec.form,
             sourceType: spec.sourceType,
             priority: spec.priority ?? 1,
-            limit: limitPerForm,
+            limit: walkOnly ? 0 : limitPerForm,
+            scanOnly: walkOnly,
           });
           foundAnyIndex = foundAnyIndex || r.found > 0 || r.index_missing === false;
           enqueued += r.enqueued;
@@ -170,7 +188,7 @@ export async function runSecDailyIndexBackfill(opts: {
 
       if (truncated || formIdx < opts.forms.length) {
         console.warn(
-          `[${opts.pipeline}] backfill day=${dayLabel} form_idx=${formIdx}/${opts.forms.length} enqueued=${enqueued} skipped=${skipped_existing} (cursor held)`,
+          `[${opts.pipeline}] backfill day=${dayLabel} form_idx=${formIdx}/${opts.forms.length} enqueued=${enqueued} skipped=${skipped_existing}${walkOnly ? " walk_only=1" : ""} (cursor held)`,
         );
         break;
       }
@@ -179,9 +197,9 @@ export async function runSecDailyIndexBackfill(opts: {
       formIdx = 0;
       await setIngestCursor(opts.pipeline, formCursorKey, "0");
       await setIngestCursor(opts.pipeline, cursorKey, yyyymmdd(nextDay));
-      if (enqueued > 0 || foundAnyIndex) {
+      if (enqueued > 0 || foundAnyIndex || (walkOnly && skipped_existing > 0)) {
         console.log(
-          `[${opts.pipeline}] backfill day=${dayLabel} enqueued=${enqueued} skipped=${skipped_existing} next=${yyyymmdd(nextDay)}`,
+          `[${opts.pipeline}] backfill day=${dayLabel} enqueued=${enqueued} skipped=${skipped_existing}${walkOnly ? " walk_only=1" : ""} next=${yyyymmdd(nextDay)}`,
         );
       }
       day = nextDay;
@@ -189,7 +207,7 @@ export async function runSecDailyIndexBackfill(opts: {
 
     if (daysWalked > 0) {
       console.log(
-        `[${opts.pipeline}] backfill_tick days=${daysWalked} enqueued=${totalEnqueued} skipped=${totalSkipped} target=${targetEnqueue}`,
+        `[${opts.pipeline}] backfill_tick days=${daysWalked} enqueued=${totalEnqueued} skipped=${totalSkipped} target=${targetEnqueue}${walkOnly ? " walk_only=1" : ""}`,
       );
     }
 

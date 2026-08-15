@@ -6,6 +6,7 @@ import {
   type BackfillPipelineId,
 } from "./backfill-capacity.js";
 import { readyQueueAbove } from "./queue-pending.js";
+import { runWithBackfillTickMode } from "./sec-daily-backfill.js";
 import { reclaimStaleParsing, requeueTransientDead } from "./queue.js";
 
 function sleep(ms: number) {
@@ -46,6 +47,16 @@ function queueLowWater(prefix: string): number {
     0,
     envNum(prefix, "BACKFILL_QUEUE_LOW_WATER", Number(process.env.BACKFILL_QUEUE_LOW_WATER ?? 80) || 80),
   );
+}
+
+/** Hard stop — above this, backfill pauses entirely. Between low and high: walk-only ticks. */
+function queueHighWater(prefix: string): number {
+  const low = queueLowWater(prefix);
+  const global = Number(process.env.BACKFILL_QUEUE_HIGH_WATER ?? 0);
+  const prefixed = Number(process.env[`${prefix}_BACKFILL_QUEUE_HIGH_WATER`] ?? 0);
+  const raw = Number.isFinite(prefixed) && prefixed > 0 ? prefixed : global;
+  if (Number.isFinite(raw) && raw > low) return Math.floor(raw);
+  return low + 800;
 }
 
 function liveEnqueueGated(prefix: string): boolean {
@@ -127,10 +138,14 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     lastBackfillAt = Date.now();
     try {
       const lowWater = queueLowWater(opts.envPrefix);
-      const above = await runWithWorkerDb(() => readyQueueAbove(opts.sourceTypes!, lowWater));
-      // Keep the parse queue fed — waiting for empty causes starve/fill cycles.
-      if (above) return;
-      await runWithWorkerDb(() => opts.enqueueBackfill!());
+      const highWater = queueHighWater(opts.envPrefix);
+      const aboveHigh = await runWithWorkerDb(() => readyQueueAbove(opts.sourceTypes!, highWater));
+      if (aboveHigh) return;
+
+      const aboveLow = await runWithWorkerDb(() => readyQueueAbove(opts.sourceTypes!, lowWater));
+      const walkOnly = aboveLow;
+      // Below low: enqueue new filings. Between low and high: advance cursor on skip-only days only.
+      await runWithWorkerDb(() => runWithBackfillTickMode({ walkOnly }, () => opts.enqueueBackfill!()));
     } catch (e) {
       console.error(`[${opts.name}] backfill_failed`, e);
     } finally {
