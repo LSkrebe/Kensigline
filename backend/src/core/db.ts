@@ -146,6 +146,39 @@ export async function withWorkerLane<T>(fn: () => Promise<T> | T): Promise<T> {
   return runWithWorkerDb(fn);
 }
 
+function workerDbHeadroomReserve(): number {
+  return Math.max(
+    1,
+    Math.min(
+      workerQueryConcurrency - 1,
+      Number(process.env.WORKER_DB_HEADROOM_RESERVE ?? 2) || 2,
+    ),
+  );
+}
+
+export function workerDbLoad(): {
+  inFlight: number;
+  slotWaiters: number;
+  poolIdle: number;
+  poolWaiting: number;
+} {
+  return {
+    inFlight: workerQueriesInFlight,
+    slotWaiters: workerQueryWaiters.length,
+    poolIdle: workerPool.idleCount,
+    poolWaiting: workerPool.waitingCount,
+  };
+}
+
+/** True when backfill/reclaim can take SQL slots without starving parse loops. */
+export function workerDbHasHeadroom(slotsNeeded = 1): boolean {
+  const needed = Math.max(1, Math.floor(slotsNeeded));
+  const reserve = workerDbHeadroomReserve();
+  if (workerQueriesInFlight + needed + reserve > workerQueryConcurrency) return false;
+  if (workerPool.waitingCount > 0 && workerPool.idleCount === 0) return false;
+  return true;
+}
+
 function activePool(): Pool {
   return dbLane.getStore() === "worker" ? workerPool : apiPool;
 }

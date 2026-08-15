@@ -1,4 +1,4 @@
-import { runWithWorkerDb } from "../core/db.js";
+import { runWithWorkerDb, workerDbHasHeadroom, workerDbLoad } from "../core/db.js";
 import { backfillMaxAgeDays, effectiveBackfillMinDate } from "./ingest-policy.js";
 import { getIngestCursor } from "./ingest-cursor.js";
 import {
@@ -210,8 +210,18 @@ export function startBackfillCapacityAllocator(): { stop(): void } {
   const refreshMs = Math.max(30_000, envInt("BACKFILL_CAPACITY_REFRESH_MS", 120_000, 30_000, 600_000));
   let stopped = false;
 
+  let lastRefreshDeferLog = 0;
+
   const tick = () => {
     if (stopped) return;
+    if (!workerDbHasHeadroom(1)) {
+      const now = Date.now();
+      if (now - lastRefreshDeferLog > 120_000) {
+        console.log("[backfill-capacity] refresh_deferred pool_busy", workerDbLoad());
+        lastRefreshDeferLog = now;
+      }
+      return;
+    }
     void runWithWorkerDb(refreshCapacity).catch((e) => console.error("[backfill-capacity] refresh_failed", e));
   };
 

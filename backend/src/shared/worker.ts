@@ -1,4 +1,4 @@
-import { runWithWorkerDb } from "../core/db.js";
+import { runWithWorkerDb, workerDbHasHeadroom, workerDbLoad } from "../core/db.js";
 import { computeAdaptiveWalkTrickle } from "./backfill-trickle.js";
 import {
   backfillDynamicCapacityEnabled,
@@ -104,6 +104,8 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   let backfillRunning = false;
   let backfillFailStreak = 0;
   let backfillBackoffMs = 0;
+  let lastBackfillDeferLog = 0;
+  let lastReclaimDeferLog = 0;
 
   function isPoolBlip(err: unknown): boolean {
     const msg = String(err instanceof Error ? err.message : err);
@@ -112,6 +114,14 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
 
   const runReclaim = () => {
     if (dynamicCapacity && opts.backfillPipelineId && pipelinePoolIdle(opts.backfillPipelineId)) return;
+    if (!workerDbHasHeadroom(1)) {
+      const now = Date.now();
+      if (now - lastReclaimDeferLog > 120_000) {
+        console.log(`[${opts.name}] reclaim_deferred pool_busy`, workerDbLoad());
+        lastReclaimDeferLog = now;
+      }
+      return;
+    }
     return runWithWorkerDb(() =>
       Promise.all([
         reclaimStaleParsing({ olderThanMinutes: reclaimOlderMinutes }),
@@ -142,6 +152,14 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     if (backfillRunning) return;
     const waitMs = backfillIntervalMs + backfillBackoffMs;
     if (Date.now() - lastBackfillAt < waitMs) return;
+    if (!workerDbHasHeadroom(2)) {
+      const now = Date.now();
+      if (now - lastBackfillDeferLog > 60_000) {
+        console.log(`[${opts.name}] backfill_deferred pool_busy`, workerDbLoad());
+        lastBackfillDeferLog = now;
+      }
+      return;
+    }
 
     backfillRunning = true;
     lastBackfillAt = Date.now();
