@@ -62,6 +62,11 @@ function prevUtcDay(d: Date): Date {
   return out;
 }
 
+/** Max new enqueues per tick when queue is above low water (walk-only with trickle). 0 = scan-only. */
+function walkTrickleCap(): number {
+  return Math.max(0, Math.min(500, Number(process.env.BACKFILL_WALK_TRICKLE ?? 50) || 50));
+}
+
 function isBenignUniqueError(err: unknown): boolean {
   const e = err as { code?: string; message?: string };
   const code = String(e?.code ?? "");
@@ -97,6 +102,8 @@ export async function runSecDailyIndexBackfill(opts: {
       ? Math.max(1, Math.min(14, Number(process.env.BACKFILL_DAYS_PER_TICK_WALK ?? 6) || 6))
       : Math.max(1, Math.min(14, Number(process.env.BACKFILL_DAYS_PER_TICK ?? 5) || 5));
     const targetEnqueue = Math.max(50, Math.min(5_000, Number(process.env.BACKFILL_TARGET_ENQUEUE ?? 400) || 400));
+    const walkTrickle = walkOnly ? walkTrickleCap() : 0;
+    const tickTarget = walkOnly ? walkTrickle : targetEnqueue;
     // Cap forms per tick so one pipeline cannot hold the global lock across a huge multi-form day.
     const maxFormsPerTick = Math.max(
       1,
@@ -123,7 +130,7 @@ export async function runSecDailyIndexBackfill(opts: {
 
     for (let i = 0; i < maxDays; i++) {
       if (day.getTime() < minDate.getTime()) break;
-      if (!walkOnly && totalEnqueued >= targetEnqueue) break;
+      if (tickTarget > 0 && totalEnqueued >= tickTarget) break;
       if (formsThisTick >= maxFormsPerTick) break;
 
       const dayLabel = yyyymmdd(day);
@@ -144,13 +151,19 @@ export async function runSecDailyIndexBackfill(opts: {
         formsThisTick += 1;
 
         try {
+          const remaining =
+            walkOnly && walkTrickle > 0
+              ? Math.max(1, tickTarget - totalEnqueued)
+              : walkOnly
+                ? 0
+                : limitPerForm;
           const r = await enqueueFilingsFromDailyIndexDay({
             dayUtc: day,
             form: spec.form,
             sourceType: spec.sourceType,
             priority: spec.priority ?? 1,
-            limit: walkOnly ? 0 : limitPerForm,
-            scanOnly: walkOnly,
+            limit: remaining,
+            scanOnly: walkOnly && walkTrickle <= 0,
           });
           foundAnyIndex = foundAnyIndex || r.found > 0 || r.index_missing === false;
           enqueued += r.enqueued;
@@ -188,7 +201,7 @@ export async function runSecDailyIndexBackfill(opts: {
 
       if (truncated || formIdx < opts.forms.length) {
         console.warn(
-          `[${opts.pipeline}] backfill day=${dayLabel} form_idx=${formIdx}/${opts.forms.length} enqueued=${enqueued} skipped=${skipped_existing}${walkOnly ? " walk_only=1" : ""} (cursor held)`,
+          `[${opts.pipeline}] backfill day=${dayLabel} form_idx=${formIdx}/${opts.forms.length} enqueued=${enqueued} skipped=${skipped_existing}${walkOnly ? ` walk_only=1 trickle=${walkTrickle}` : ""} (cursor held)`,
         );
         break;
       }
@@ -199,7 +212,7 @@ export async function runSecDailyIndexBackfill(opts: {
       await setIngestCursor(opts.pipeline, cursorKey, yyyymmdd(nextDay));
       if (enqueued > 0 || foundAnyIndex || (walkOnly && skipped_existing > 0)) {
         console.log(
-          `[${opts.pipeline}] backfill day=${dayLabel} enqueued=${enqueued} skipped=${skipped_existing}${walkOnly ? " walk_only=1" : ""} next=${yyyymmdd(nextDay)}`,
+          `[${opts.pipeline}] backfill day=${dayLabel} enqueued=${enqueued} skipped=${skipped_existing}${walkOnly ? ` walk_only=1 trickle=${walkTrickle}` : ""} next=${yyyymmdd(nextDay)}`,
         );
       }
       day = nextDay;
@@ -207,7 +220,7 @@ export async function runSecDailyIndexBackfill(opts: {
 
     if (daysWalked > 0) {
       console.log(
-        `[${opts.pipeline}] backfill_tick days=${daysWalked} enqueued=${totalEnqueued} skipped=${totalSkipped} target=${targetEnqueue}${walkOnly ? " walk_only=1" : ""}`,
+        `[${opts.pipeline}] backfill_tick days=${daysWalked} enqueued=${totalEnqueued} skipped=${totalSkipped} target=${tickTarget}${walkOnly ? ` walk_only=1 trickle=${walkTrickle}` : ""}`,
       );
     }
 

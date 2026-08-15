@@ -57,7 +57,7 @@ const apiPoolMax = Math.max(2, Math.min(16, Number(process.env.DATABASE_POOL_MAX
 /** Background ingest / parse / outcomes — capped independently. */
 const workerPoolMax = Math.max(
   1,
-  Math.min(16, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 8) || 8),
+  Math.min(20, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 8) || 8),
 );
 /**
  * Max concurrent worker-lane SQL checkouts.
@@ -65,7 +65,7 @@ const workerPoolMax = Math.max(
  */
 const workerQueryConcurrency = Math.max(
   1,
-  Math.min(16, Number(process.env.WORKER_QUERY_CONCURRENCY ?? 6) || 6),
+  Math.min(20, Number(process.env.WORKER_QUERY_CONCURRENCY ?? 6) || 6),
 );
 
 function makePool(max: number, label: string): Pool {

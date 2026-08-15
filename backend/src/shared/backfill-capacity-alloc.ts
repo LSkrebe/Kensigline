@@ -21,7 +21,7 @@ function envInt(key: string, fallback: number, min: number, max: number): number
 }
 
 export function backfillParseSlotMax(): number {
-  return Math.min(16, envInt("BACKFILL_PARSE_SLOT_MAX", 16, 1, 16));
+  return envInt("BACKFILL_PARSE_SLOT_MAX", 20, 1, 24);
 }
 
 /** `short_first` finishes the smaller backlog before flooding the slow 13F walk. */
