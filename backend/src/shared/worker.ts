@@ -5,7 +5,7 @@ import {
   getPipelineCapacity,
   type BackfillPipelineId,
 } from "./backfill-capacity.js";
-import { readyQueueAbove } from "./queue-pending.js";
+import { countReadyQueue, readyQueueAbove } from "./queue-pending.js";
 import { runWithBackfillTickMode } from "./sec-daily-backfill.js";
 import { reclaimStaleParsing, requeueTransientDead } from "./queue.js";
 
@@ -144,8 +144,21 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
 
       const aboveLow = await runWithWorkerDb(() => readyQueueAbove(opts.sourceTypes!, lowWater));
       const walkOnly = aboveLow;
-      // Below low: enqueue new filings. Between low and high: advance cursor on skip-only days only.
-      await runWithWorkerDb(() => runWithBackfillTickMode({ walkOnly }, () => opts.enqueueBackfill!()));
+      let walkTrickle: number | undefined;
+      if (walkOnly) {
+        const cap = Math.max(0, Math.min(500, Number(process.env.BACKFILL_WALK_TRICKLE ?? 50) || 50));
+        const ready = await runWithWorkerDb(() => countReadyQueue(opts.sourceTypes!));
+        const pauseAbove = Math.max(
+          lowWater + 1,
+          Number(process.env.BACKFILL_WALK_TRICKLE_PAUSE_ABOVE ?? 5500) || 5500,
+        );
+        walkTrickle = ready >= pauseAbove ? Math.max(15, Math.floor(cap * 0.6)) : cap;
+      }
+      await runWithWorkerDb(() =>
+        runWithBackfillTickMode({ walkOnly, ...(walkTrickle !== undefined ? { walkTrickle } : {}) }, () =>
+          opts.enqueueBackfill!(),
+        ),
+      );
     } catch (e) {
       console.error(`[${opts.name}] backfill_failed`, e);
     } finally {

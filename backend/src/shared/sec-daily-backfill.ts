@@ -9,7 +9,7 @@ export type SecDailyFormSpec = {
   priority?: number;
 };
 
-export type BackfillTickMode = { walkOnly: boolean };
+export type BackfillTickMode = { walkOnly: boolean; walkTrickle?: number };
 
 const backfillTickStore = new AsyncLocalStorage<BackfillTickMode>();
 
@@ -102,7 +102,7 @@ export async function runSecDailyIndexBackfill(opts: {
       ? Math.max(1, Math.min(14, Number(process.env.BACKFILL_DAYS_PER_TICK_WALK ?? 6) || 6))
       : Math.max(1, Math.min(14, Number(process.env.BACKFILL_DAYS_PER_TICK ?? 5) || 5));
     const targetEnqueue = Math.max(50, Math.min(5_000, Number(process.env.BACKFILL_TARGET_ENQUEUE ?? 400) || 400));
-    const walkTrickle = walkOnly ? walkTrickleCap() : 0;
+    const walkTrickle = walkOnly ? (getBackfillTickMode().walkTrickle ?? walkTrickleCap()) : 0;
     const tickTarget = walkOnly ? walkTrickle : targetEnqueue;
     // Cap forms per tick so one pipeline cannot hold the global lock across a huge multi-form day.
     const maxFormsPerTick = Math.max(
@@ -127,6 +127,7 @@ export async function runSecDailyIndexBackfill(opts: {
     let truncated = false;
     let daysWalked = 0;
     let formsThisTick = 0;
+    let dayIncomplete = false;
 
     for (let i = 0; i < maxDays; i++) {
       if (day.getTime() < minDate.getTime()) break;
@@ -139,6 +140,7 @@ export async function runSecDailyIndexBackfill(opts: {
       let skipped_existing = 0;
       let foundAnyIndex = false;
       truncated = false;
+      dayIncomplete = false;
 
       while (formIdx < opts.forms.length) {
         if (formsThisTick >= maxFormsPerTick) {
@@ -170,9 +172,21 @@ export async function runSecDailyIndexBackfill(opts: {
           skipped_existing += r.skipped_existing;
 
           if (r.truncated) {
-            // Real per-day cap — stay on this form/day.
             truncated = true;
+            dayIncomplete = true;
             await setIngestCursor(opts.pipeline, formCursorKey, String(formIdx));
+            // Walk trickle: finish sibling form same tick so one fat 13F-HR day does not block 13F-HR/A.
+            if (
+              walkOnly &&
+              walkTrickle > 0 &&
+              formIdx + 1 < opts.forms.length &&
+              formsThisTick < maxFormsPerTick
+            ) {
+              formIdx += 1;
+              await setIngestCursor(opts.pipeline, formCursorKey, String(formIdx));
+              truncated = false;
+              continue;
+            }
             break;
           }
 
@@ -199,7 +213,7 @@ export async function runSecDailyIndexBackfill(opts: {
       totalSkipped += skipped_existing;
       daysWalked += 1;
 
-      if (truncated || formIdx < opts.forms.length) {
+      if (dayIncomplete || truncated || formIdx < opts.forms.length) {
         console.warn(
           `[${opts.pipeline}] backfill day=${dayLabel} form_idx=${formIdx}/${opts.forms.length} enqueued=${enqueued} skipped=${skipped_existing}${walkOnly ? ` walk_only=1 trickle=${walkTrickle}` : ""} (cursor held)`,
         );
