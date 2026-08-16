@@ -68,6 +68,16 @@ const workerQueryConcurrency = Math.max(
   Math.min(20, Number(process.env.WORKER_QUERY_CONCURRENCY ?? 6) || 6),
 );
 
+/** Slots reserved for backfill / reclaim — parse cannot consume these. */
+const backfillReservedSlots = Math.max(
+  1,
+  Math.min(
+    workerQueryConcurrency - 1,
+    Number(process.env.BACKFILL_DB_RESERVED_SLOTS ?? 2) || 2,
+  ),
+);
+const parseSlotMax = workerQueryConcurrency - backfillReservedSlots;
+
 /** 0 = no cap (burst backfill scans). Set DATABASE_WORKER_STATEMENT_TIMEOUT_MS to enable. */
 function workerStatementTimeoutMs(): number {
   const raw = Number(process.env.DATABASE_WORKER_STATEMENT_TIMEOUT_MS ?? 0);
@@ -96,31 +106,52 @@ const apiPool = makePool(apiPoolMax, "api");
 const workerPool = makePool(workerPoolMax, "worker");
 
 console.info(
-  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency} workerStatementTimeoutMs=${WORKER_TIMEOUT_MS || "off"}`,
+  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency} parseSlotMax=${parseSlotMax} backfillReservedSlots=${backfillReservedSlots} workerStatementTimeoutMs=${WORKER_TIMEOUT_MS || "off"}`,
 );
 
 type DbLane = "api" | "worker";
+type WorkerSlotKind = "parse" | "backfill";
+
 const dbLane = new AsyncLocalStorage<DbLane>();
+const workerSlotKind = new AsyncLocalStorage<WorkerSlotKind>();
 
 let workerQueriesInFlight = 0;
+let parseSlotsInFlight = 0;
+let backfillSlotsInFlight = 0;
 const workerQueryWaiters: Array<() => void> = [];
 
+function canAcquireSlot(kind: WorkerSlotKind): boolean {
+  if (workerQueriesInFlight >= workerQueryConcurrency) return false;
+  if (kind === "backfill") return backfillSlotsInFlight < backfillReservedSlots;
+  return parseSlotsInFlight < parseSlotMax;
+}
+
+function tryAcquireSlot(kind: WorkerSlotKind): boolean {
+  if (!canAcquireSlot(kind)) return false;
+  workerQueriesInFlight += 1;
+  if (kind === "backfill") backfillSlotsInFlight += 1;
+  else parseSlotsInFlight += 1;
+  return true;
+}
+
 async function acquireWorkerQuerySlot(): Promise<void> {
-  if (workerQueriesInFlight < workerQueryConcurrency) {
-    workerQueriesInFlight += 1;
-    return;
+  if (dbLane.getStore() !== "worker") return;
+  const kind = workerSlotKind.getStore() ?? "parse";
+  for (;;) {
+    if (tryAcquireSlot(kind)) return;
+    await new Promise<void>((resolve) => workerQueryWaiters.push(resolve));
   }
-  // Slot is transferred by releaseWorkerQuerySlot (inFlight unchanged).
-  await new Promise<void>((resolve) => workerQueryWaiters.push(resolve));
 }
 
 function releaseWorkerQuerySlot(): void {
-  const next = workerQueryWaiters.shift();
-  if (next) {
-    next();
-    return;
+  if (dbLane.getStore() === "worker") {
+    const kind = workerSlotKind.getStore() ?? "parse";
+    if (kind === "backfill") backfillSlotsInFlight = Math.max(0, backfillSlotsInFlight - 1);
+    else parseSlotsInFlight = Math.max(0, parseSlotsInFlight - 1);
+    workerQueriesInFlight = Math.max(0, workerQueriesInFlight - 1);
   }
-  workerQueriesInFlight = Math.max(0, workerQueriesInFlight - 1);
+  const waiters = workerQueryWaiters.splice(0);
+  for (const w of waiters) w();
 }
 
 async function withWorkerQuerySlot<T>(fn: () => Promise<T>): Promise<T> {
@@ -133,12 +164,14 @@ async function withWorkerQuerySlot<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-/**
- * Run background work on the worker pool.
- * HTTP/SEC inside may run wide; SQL is gated by WORKER_QUERY_CONCURRENCY.
- */
+/** Parse / live enqueue — capped so backfill always keeps reserved slots. */
 export async function runWithWorkerDb<T>(fn: () => Promise<T> | T): Promise<T> {
-  return await dbLane.run("worker", fn);
+  return await workerSlotKind.run("parse", () => dbLane.run("worker", fn));
+}
+
+/** Historical walk, reclaim, capacity refresh — uses reserved backfill slots. */
+export async function runWithWorkerDbBackfill<T>(fn: () => Promise<T> | T): Promise<T> {
+  return await workerSlotKind.run("backfill", () => dbLane.run("worker", fn));
 }
 
 /** Alias kept for call sites that switched during the throttle era. */
@@ -146,37 +179,26 @@ export async function withWorkerLane<T>(fn: () => Promise<T> | T): Promise<T> {
   return runWithWorkerDb(fn);
 }
 
-function workerDbHeadroomReserve(): number {
-  return Math.max(
-    1,
-    Math.min(
-      workerQueryConcurrency - 1,
-      Number(process.env.WORKER_DB_HEADROOM_RESERVE ?? 2) || 2,
-    ),
-  );
-}
-
 export function workerDbLoad(): {
   inFlight: number;
+  parseInFlight: number;
+  backfillInFlight: number;
+  parseSlotMax: number;
+  backfillReservedSlots: number;
   slotWaiters: number;
   poolIdle: number;
   poolWaiting: number;
 } {
   return {
     inFlight: workerQueriesInFlight,
+    parseInFlight: parseSlotsInFlight,
+    backfillInFlight: backfillSlotsInFlight,
+    parseSlotMax,
+    backfillReservedSlots,
     slotWaiters: workerQueryWaiters.length,
     poolIdle: workerPool.idleCount,
     poolWaiting: workerPool.waitingCount,
   };
-}
-
-/** True when backfill/reclaim can take SQL slots without starving parse loops. */
-export function workerDbHasHeadroom(slotsNeeded = 1): boolean {
-  const needed = Math.max(1, Math.floor(slotsNeeded));
-  const reserve = workerDbHeadroomReserve();
-  if (workerQueriesInFlight + needed + reserve > workerQueryConcurrency) return false;
-  if (workerPool.waitingCount > 0 && workerPool.idleCount === 0) return false;
-  return true;
 }
 
 function activePool(): Pool {

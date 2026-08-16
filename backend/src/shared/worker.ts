@@ -1,4 +1,4 @@
-import { runWithWorkerDb, workerDbHasHeadroom, workerDbLoad } from "../core/db.js";
+import { runWithWorkerDb, runWithWorkerDbBackfill } from "../core/db.js";
 import { computeAdaptiveWalkTrickle } from "./backfill-trickle.js";
 import {
   backfillDynamicCapacityEnabled,
@@ -104,8 +104,6 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   let backfillRunning = false;
   let backfillFailStreak = 0;
   let backfillBackoffMs = 0;
-  let lastBackfillDeferLog = 0;
-  let lastReclaimDeferLog = 0;
 
   function isPoolBlip(err: unknown): boolean {
     const msg = String(err instanceof Error ? err.message : err);
@@ -114,15 +112,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
 
   const runReclaim = () => {
     if (dynamicCapacity && opts.backfillPipelineId && pipelinePoolIdle(opts.backfillPipelineId)) return;
-    if (!workerDbHasHeadroom(1)) {
-      const now = Date.now();
-      if (now - lastReclaimDeferLog > 120_000) {
-        console.log(`[${opts.name}] reclaim_deferred pool_busy`, workerDbLoad());
-        lastReclaimDeferLog = now;
-      }
-      return;
-    }
-    return runWithWorkerDb(() =>
+    return runWithWorkerDbBackfill(() =>
       Promise.all([
         reclaimStaleParsing({ olderThanMinutes: reclaimOlderMinutes }),
         requeueTransientDead({ limit: 25 }),
@@ -152,21 +142,13 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     if (backfillRunning) return;
     const waitMs = backfillIntervalMs + backfillBackoffMs;
     if (Date.now() - lastBackfillAt < waitMs) return;
-    if (!workerDbHasHeadroom(2)) {
-      const now = Date.now();
-      if (now - lastBackfillDeferLog > 60_000) {
-        console.log(`[${opts.name}] backfill_deferred pool_busy`, workerDbLoad());
-        lastBackfillDeferLog = now;
-      }
-      return;
-    }
 
     backfillRunning = true;
     lastBackfillAt = Date.now();
     try {
       const lowWater = queueLowWater(opts.envPrefix);
       const highWater = queueHighWater(opts.envPrefix);
-      const ready = await runWithWorkerDb(() => countReadyQueue(opts.sourceTypes!));
+      const ready = await runWithWorkerDbBackfill(() => countReadyQueue(opts.sourceTypes!));
       if (ready >= highWater) return;
 
       const walkOnly = ready > lowWater;
@@ -174,7 +156,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
         ? computeAdaptiveWalkTrickle({ ready, lowWater, highWater })
         : undefined;
 
-      await runWithWorkerDb(() =>
+      await runWithWorkerDbBackfill(() =>
         runWithBackfillTickMode(
           { walkOnly, ...(walkTrickle !== undefined ? { walkTrickle } : {}) },
           () => opts.enqueueBackfill!(),

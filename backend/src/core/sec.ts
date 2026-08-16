@@ -649,8 +649,8 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
       [urls, sourceType],
     );
     const existing = new Set(existingRows.map((r) => r.url));
-    // Also skip URLs already materialized as filings (queue row may have been retained as parsed).
-    if (urls.some((u) => !existing.has(u))) {
+    // Walk-only: queue check is enough — skip filings probe to lighten pool load.
+    if (!scanOnly && urls.some((u) => !existing.has(u))) {
       const missing = urls.filter((u) => !existing.has(u));
       const filed = await db.query<{ url: string }>(
         `SELECT url FROM filings WHERE url = ANY($1::text[])`,
