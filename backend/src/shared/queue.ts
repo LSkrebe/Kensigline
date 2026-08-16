@@ -2,6 +2,27 @@ import { db } from "../core/db.js";
 
 export type QueueClaim = { id: string; url: string; source_type?: string };
 
+export function isPoolBlipError(err: unknown): boolean {
+  const msg = String(err instanceof Error ? err.message : err);
+  return /ECHECKOUTTIMEOUT|authentication did not complete|connection terminated|08006|timeout/i.test(msg);
+}
+
+/** Re-queue after pool checkout blip — do not burn parse attempts/backoff. */
+export async function requeuePoolBlip(queueId: string, err: unknown): Promise<void> {
+  const msg = String((err as { message?: string })?.message ?? err).slice(0, 2000);
+  await db.query(
+    `
+    UPDATE document_queue
+    SET status = 'ready_to_parse',
+        last_error = $2,
+        next_attempt_at = now() + interval '3 seconds',
+        updated_at = now()
+    WHERE id = $1
+    `,
+    [queueId, `pool_blip: ${msg}`],
+  );
+}
+
 /** Claim next queue row for given source types (SKIP LOCKED). */
 export async function claimQueueItem(sourceTypes: string[]): Promise<QueueClaim | null> {
   if (!sourceTypes.length) return null;
@@ -49,6 +70,10 @@ export async function markQueueDead(queueId: string, reason: string) {
 }
 
 export async function failQueueWithBackoff(queueId: string, err: unknown): Promise<"failed" | "dead"> {
+  if (isPoolBlipError(err)) {
+    await requeuePoolBlip(queueId, err);
+    return "failed";
+  }
   const msg = String((err as any)?.message ?? err);
   const attempts = await db.one<{ attempts: number }>(
     `UPDATE document_queue SET attempts = attempts + 1 WHERE id = $1 RETURNING attempts`,

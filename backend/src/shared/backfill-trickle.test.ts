@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { computeAdaptiveWalkTrickle } from "./backfill-trickle.js";
+import { computeAdaptiveWalkTrickle, computeGapFillLimit } from "./backfill-trickle.js";
 
 export function runBackfillTrickleTests() {
   process.env.BACKFILL_WALK_TRICKLE = "50";
@@ -20,6 +20,11 @@ export function runBackfillTrickleTests() {
 
   const fat = computeAdaptiveWalkTrickle({ ready: 6500, lowWater: low, highWater: high });
   assert.equal(fat, 0);
+
+  assert.equal(computeGapFillLimit({ ready: 7000, lowWater: low, highWater: high, drainPerMin: 10 }), 0);
+  assert.equal(computeGapFillLimit({ ready: 5500, lowWater: low, highWater: high, drainPerMin: -5 }), 1);
+  assert.equal(computeGapFillLimit({ ready: 5500, lowWater: low, highWater: high, drainPerMin: 20 }), 19);
+  assert.equal(computeGapFillLimit({ ready: 5500, lowWater: low, highWater: high, drainPerMin: 40 }), 25);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

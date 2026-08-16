@@ -9,7 +9,7 @@ export type SecDailyFormSpec = {
   priority?: number;
 };
 
-export type BackfillTickMode = { walkOnly: boolean; walkTrickle?: number };
+export type BackfillTickMode = { walkOnly: boolean; walkTrickle?: number; gapFillLimit?: number };
 
 const backfillTickStore = new AsyncLocalStorage<BackfillTickMode>();
 
@@ -74,10 +74,7 @@ function isBenignUniqueError(err: unknown): boolean {
   return code === "23505" || /duplicate key|unique constraint/i.test(msg);
 }
 
-function isPoolBlip(err: unknown): boolean {
-  const msg = String(err instanceof Error ? err.message : err);
-  return /ECHECKOUTTIMEOUT|authentication did not complete|connection terminated|08006/i.test(msg);
-}
+import { isPoolBlipError } from "./queue.js";
 
 /**
  * When the parse queue is low, walk SEC daily master.idx backwards and enqueue.
@@ -109,7 +106,8 @@ export async function runSecDailyIndexBackfill(opts: {
       : Math.max(1, Math.min(14, Number(process.env.BACKFILL_DAYS_PER_TICK ?? 5) || 5));
     const targetEnqueue = Math.max(50, Math.min(5_000, Number(process.env.BACKFILL_TARGET_ENQUEUE ?? 400) || 400));
     const walkTrickle = walkOnly ? (getBackfillTickMode().walkTrickle ?? walkTrickleCap()) : 0;
-    const tickTarget = walkOnly ? walkTrickle : targetEnqueue;
+    const gapFillLimit = walkOnly ? (getBackfillTickMode().gapFillLimit ?? 0) : 0;
+    const tickTarget = walkOnly ? (walkTrickle > 0 ? walkTrickle : gapFillLimit) : targetEnqueue;
     // Cap forms per tick so one pipeline cannot hold the global lock across a huge multi-form day.
     const maxFormsPerTick = Math.max(
       1,
@@ -176,6 +174,7 @@ export async function runSecDailyIndexBackfill(opts: {
             limit: remaining,
             scanOnly: walkOnly && walkTrickle <= 0,
             startChunkIndex: chunkIdx,
+            ...(walkOnly && walkTrickle <= 0 && gapFillLimit > 0 ? { gapFillLimit } : {}),
           });
           foundAnyIndex = foundAnyIndex || r.found > 0 || r.index_missing === false;
           enqueued += r.enqueued;
@@ -190,7 +189,7 @@ export async function runSecDailyIndexBackfill(opts: {
             // Walk trickle: finish sibling form same tick so one fat 13F-HR day does not block 13F-HR/A.
             if (
               walkOnly &&
-              walkTrickle > 0 &&
+              (walkTrickle > 0 || gapFillLimit > 0) &&
               formIdx + 1 < opts.forms.length &&
               formsThisTick < maxFormsPerTick
             ) {
@@ -218,7 +217,7 @@ export async function runSecDailyIndexBackfill(opts: {
             continue;
           }
           console.error(`[${opts.pipeline}] backfill_day_failed form=${spec.form} day=${dayLabel}`, e);
-          if (isPoolBlip(e)) throw e;
+          if (isPoolBlipError(e)) throw e;
           // Transient/unknown: retry same form next tick (do not rewind earlier forms).
           truncated = true;
           await setIngestCursor(opts.pipeline, formCursorKey, String(formIdx));
@@ -232,7 +231,7 @@ export async function runSecDailyIndexBackfill(opts: {
 
       if (dayIncomplete || truncated || formIdx < opts.forms.length) {
         console.warn(
-          `[${opts.pipeline}] backfill day=${dayLabel} form_idx=${formIdx}/${opts.forms.length} enqueued=${enqueued} skipped=${skipped_existing}${walkOnly ? ` walk_only=1 trickle=${walkTrickle}` : ""} (cursor held)`,
+          `[${opts.pipeline}] backfill day=${dayLabel} form_idx=${formIdx}/${opts.forms.length} enqueued=${enqueued} skipped=${skipped_existing}${walkOnly ? ` walk_only=1 trickle=${walkTrickle}${gapFillLimit > 0 && walkTrickle <= 0 ? ` gap_fill=${gapFillLimit}` : ""}` : ""} (cursor held)`,
         );
         break;
       }
@@ -245,7 +244,7 @@ export async function runSecDailyIndexBackfill(opts: {
       await setIngestCursor(opts.pipeline, cursorKey, yyyymmdd(nextDay));
       if (enqueued > 0 || foundAnyIndex || (walkOnly && skipped_existing > 0)) {
         console.log(
-          `[${opts.pipeline}] backfill day=${dayLabel} enqueued=${enqueued} skipped=${skipped_existing}${walkOnly ? ` walk_only=1 trickle=${walkTrickle}` : ""} next=${yyyymmdd(nextDay)}`,
+          `[${opts.pipeline}] backfill day=${dayLabel} enqueued=${enqueued} skipped=${skipped_existing}${walkOnly ? ` walk_only=1 trickle=${walkTrickle}${gapFillLimit > 0 && walkTrickle <= 0 ? ` gap_fill=${gapFillLimit}` : ""}` : ""} next=${yyyymmdd(nextDay)}`,
         );
       }
       day = nextDay;
@@ -253,7 +252,7 @@ export async function runSecDailyIndexBackfill(opts: {
 
     if (daysWalked > 0) {
       console.log(
-        `[${opts.pipeline}] backfill_tick days=${daysWalked} enqueued=${totalEnqueued} skipped=${totalSkipped} target=${tickTarget}${walkOnly ? ` walk_only=1 trickle=${walkTrickle}` : ""}`,
+        `[${opts.pipeline}] backfill_tick days=${daysWalked} enqueued=${totalEnqueued} skipped=${totalSkipped} target=${tickTarget}${walkOnly ? ` walk_only=1 trickle=${walkTrickle}${gapFillLimit > 0 && walkTrickle <= 0 ? ` gap_fill=${gapFillLimit}` : ""}` : ""}`,
       );
     }
 

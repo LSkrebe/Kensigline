@@ -573,6 +573,8 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
   scanOnly?: boolean;
   /** Resume mid-day scan — chunk index (BACKFILL_ENQUEUE_CHUNK sized steps through master.idx). */
   startChunkIndex?: number;
+  /** Max inserts per tick when scanOnly fills queue gaps (trickle=0 walk). */
+  gapFillLimit?: number;
 }): Promise<EnqueueDailyIndexDayResult> {
   const form = String(opts.form ?? "").trim();
   const sourceType = String(opts.sourceType ?? "").trim() || "sec_filing";
@@ -674,9 +676,11 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
 
     if (toInsert.length) {
       if (scanOnly) {
-        // Queue is fat (trickle=0) but this chunk has gaps — enqueue one so the day walk
-        // does not freeze until the parse queue drains to low water.
-        const micro = toInsert.slice(0, 1);
+        const gapN = Math.max(
+          1,
+          Math.min(toInsert.length, Math.floor(Number(opts.gapFillLimit ?? 1) || 1)),
+        );
+        const micro = toInsert.slice(0, gapN);
         const inserted = await db.query<{ id: string }>(
           `
           INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)

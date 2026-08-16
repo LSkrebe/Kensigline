@@ -1,5 +1,6 @@
 import { runWithWorkerDb, runWithWorkerDbBackfill } from "../core/db.js";
-import { computeAdaptiveWalkTrickle } from "./backfill-trickle.js";
+import { computeAdaptiveWalkTrickle, computeGapFillLimit } from "./backfill-trickle.js";
+import { isPoolBlipError } from "./queue.js";
 import {
   backfillDynamicCapacityEnabled,
   backfillParseSlotMax,
@@ -104,10 +105,21 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   let backfillRunning = false;
   let backfillFailStreak = 0;
   let backfillBackoffMs = 0;
+  let lastReadySample = { ready: 0, at: 0 };
+
+  function sampleQueueDrain(ready: number): number {
+    const now = Date.now();
+    let drainPerMin = 0;
+    if (lastReadySample.at > 0) {
+      const mins = (now - lastReadySample.at) / 60_000;
+      if (mins >= 0.15) drainPerMin = (lastReadySample.ready - ready) / mins;
+    }
+    lastReadySample = { ready, at: now };
+    return drainPerMin;
+  }
 
   function isPoolBlip(err: unknown): boolean {
-    const msg = String(err instanceof Error ? err.message : err);
-    return /ECHECKOUTTIMEOUT|authentication did not complete|connection terminated|08006/i.test(msg);
+    return isPoolBlipError(err);
   }
 
   const runReclaim = () => {
@@ -151,14 +163,23 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
       const ready = await runWithWorkerDbBackfill(() => countReadyQueue(opts.sourceTypes!));
       if (ready >= highWater) return;
 
+      const drainPerMin = sampleQueueDrain(ready);
       const walkOnly = ready > lowWater;
       const walkTrickle = walkOnly
         ? computeAdaptiveWalkTrickle({ ready, lowWater, highWater })
         : undefined;
+      const gapFillLimit =
+        walkOnly && (walkTrickle ?? 0) <= 0
+          ? computeGapFillLimit({ ready, lowWater, highWater, drainPerMin })
+          : undefined;
 
       await runWithWorkerDbBackfill(() =>
         runWithBackfillTickMode(
-          { walkOnly, ...(walkTrickle !== undefined ? { walkTrickle } : {}) },
+          {
+            walkOnly,
+            ...(walkTrickle !== undefined ? { walkTrickle } : {}),
+            ...(gapFillLimit !== undefined && gapFillLimit > 0 ? { gapFillLimit } : {}),
+          },
           () => opts.enqueueBackfill!(),
         ),
       );
@@ -222,8 +243,8 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
 
   for (let w = 0; w < parseLoopCount; w++) {
     (async () => {
-      // Tiny stagger so claim storms don't all hit the pooler on the same tick.
-      await sleep(w * 40);
+      // Stagger parse loops so claim storms don't stampede the pooler.
+      await sleep(w * 100);
       for (;;) {
         if (stopped) return;
         if (dynamicCapacity && opts.backfillPipelineId) {
@@ -246,7 +267,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
         } catch (e) {
           console.error(`[${opts.name}] parse_loop_failed`, e);
           void maybeRunBackfill().catch((e) => console.error(`[${opts.name}] backfill_tick_failed`, e));
-          await sleep(2_000);
+          await sleep(isPoolBlipError(e) ? 500 : 2_000);
         }
       }
     })().catch((e) => console.error(`[${opts.name}] parse_loop_outer_failed`, e));
