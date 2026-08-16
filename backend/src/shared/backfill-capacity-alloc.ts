@@ -67,6 +67,15 @@ function doneCapacity(doneMin: number): PipelineCapacity {
   return { parseConcurrency: doneMin, liveEnqueue: false, historicalBackfill: false };
 }
 
+/** All historical walks finished — max out parse for drain; live stays off. */
+function drainCapacity(maxParse: number, slotMax: number): PipelineCapacity {
+  return {
+    parseConcurrency: Math.max(1, Math.min(slotMax, maxParse)),
+    liveEnqueue: false,
+    historicalBackfill: false,
+  };
+}
+
 function waitingCapacity(doneMin: number): PipelineCapacity {
   return { parseConcurrency: doneMin, liveEnqueue: false, historicalBackfill: false };
 }
@@ -89,6 +98,15 @@ export function computeSequentialBackfillCapacity(
       current = id;
       break;
     }
+  }
+
+  if (!current) {
+    for (const id of ALL_PIPELINE_IDS) {
+      const s = byId.get(id);
+      if (!s) continue;
+      result.set(id, drainCapacity(s.maxParse, slotMax));
+    }
+    return result;
   }
 
   for (const id of ALL_PIPELINE_IDS) {
@@ -127,11 +145,16 @@ export function computeParallelBackfillCapacity(
   const active = statuses.filter((s) => !s.done);
   const done = statuses.filter((s) => s.done);
 
+  if (active.length === 0) {
+    for (const s of done) {
+      result.set(s.id, drainCapacity(s.maxParse, slotMax));
+    }
+    return result;
+  }
+
   for (const s of done) {
     result.set(s.id, doneCapacity(doneMin));
   }
-
-  if (active.length === 0) return result;
 
   const reservedForDone = done.length * doneMin;
   const pool = Math.max(active.length, totalBudget - reservedForDone);

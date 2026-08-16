@@ -67,6 +67,18 @@ export function runBackfillCapacityTests() {
   assert.equal(seq.get("institutions")?.historicalBackfill, false);
 
   assert.equal(backfillScheduleMode(), "sequential");
+
+  const allDone: PipelineBackfillStatus[] = [
+    { id: "insider", done: true, daysRemaining: 0, maxParse: 10, weightMultiplier: 1 },
+    { id: "institutions", done: true, daysRemaining: 0, maxParse: 6, weightMultiplier: 1 },
+    { id: "research", done: true, daysRemaining: 0, maxParse: 6, weightMultiplier: 1 },
+    { id: "politicians", done: true, daysRemaining: 0, maxParse: 4, weightMultiplier: 1 },
+  ];
+  process.env.BACKFILL_SCHEDULE = "parallel";
+  const drain = computeBackfillCapacity(allDone);
+  assert.equal(drain.get("institutions")?.parseConcurrency, 6);
+  assert.equal(drain.get("institutions")?.liveEnqueue, false);
+  assert.equal(drain.get("insider")?.parseConcurrency, 10);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -7,6 +7,7 @@ import {
   getPipelineCapacity,
   type BackfillPipelineId,
 } from "./backfill-capacity.js";
+import { backfillAllowsLiveEnqueue } from "./backfill-capacity-alloc.js";
 import { countReadyQueue, readyQueueAbove } from "./queue-pending.js";
 import { runWithBackfillTickMode } from "./sec-daily-backfill.js";
 import { reclaimStaleParsing, requeueTransientDead } from "./queue.js";
@@ -218,6 +219,8 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     let lastLiveSkipLog = 0;
     const runEnqueue = async () => {
       try {
+        // Hard off during backfill sessions — never auto-flip live when queue drains.
+        if (!backfillAllowsLiveEnqueue()) return;
         if (dynamicCapacity && opts.backfillPipelineId && !getPipelineCapacity(opts.backfillPipelineId).liveEnqueue) {
           return;
         }
