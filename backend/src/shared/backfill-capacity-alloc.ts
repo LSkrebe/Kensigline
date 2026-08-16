@@ -14,6 +14,8 @@ export type PipelineBackfillStatus = {
   weightMultiplier: number;
 };
 
+const ALL_PIPELINE_IDS: BackfillPipelineId[] = ["research", "politicians", "insider", "institutions"];
+
 function envInt(key: string, fallback: number, min: number, max: number): number {
   const n = Number(process.env[key] ?? fallback);
   if (!Number.isFinite(n)) return fallback;
@@ -22,6 +24,31 @@ function envInt(key: string, fallback: number, min: number, max: number): number
 
 export function backfillParseSlotMax(): number {
   return envInt("BACKFILL_PARSE_SLOT_MAX", 20, 1, 24);
+}
+
+/** When false (default), backfill never enables live SEC/RSS enqueue — gate stays env-controlled. */
+export function backfillAllowsLiveEnqueue(): boolean {
+  return String(process.env.BACKFILL_LIVE_ENQUEUE ?? "0").trim() === "1";
+}
+
+/** `parallel` = current multi-pipeline walk; `sequential` = one pipeline at a time (catch-up runs). */
+export function backfillScheduleMode(): "parallel" | "sequential" {
+  const raw = String(process.env.BACKFILL_SCHEDULE ?? "parallel").trim().toLowerCase();
+  return raw === "sequential" ? "sequential" : "parallel";
+}
+
+export function parseBackfillSequence(): BackfillPipelineId[] {
+  const raw = String(process.env.BACKFILL_SEQUENCE ?? "research,politicians,insider,institutions").trim();
+  const valid = new Set<BackfillPipelineId>(ALL_PIPELINE_IDS);
+  const ordered: BackfillPipelineId[] = [];
+  for (const part of raw.split(",")) {
+    const id = part.trim() as BackfillPipelineId;
+    if (valid.has(id) && !ordered.includes(id)) ordered.push(id);
+  }
+  for (const id of ALL_PIPELINE_IDS) {
+    if (!ordered.includes(id)) ordered.push(id);
+  }
+  return ordered;
 }
 
 /** `short_first` finishes the smaller backlog before flooding the slow 13F walk. */
@@ -36,10 +63,60 @@ function pipelineWeight(s: PipelineBackfillStatus, mode: "days" | "short_first")
   return days * s.weightMultiplier;
 }
 
-/** Pure allocation — finished pipelines donate parse slots to active ones. */
-export function computeBackfillCapacity(statuses: PipelineBackfillStatus[]): Map<BackfillPipelineId, PipelineCapacity> {
+function doneCapacity(doneMin: number): PipelineCapacity {
+  return { parseConcurrency: doneMin, liveEnqueue: false, historicalBackfill: false };
+}
+
+function waitingCapacity(doneMin: number): PipelineCapacity {
+  return { parseConcurrency: doneMin, liveEnqueue: false, historicalBackfill: false };
+}
+
+/** One pipeline at a time — full parse budget to the current step in BACKFILL_SEQUENCE. */
+export function computeSequentialBackfillCapacity(
+  statuses: PipelineBackfillStatus[],
+): Map<BackfillPipelineId, PipelineCapacity> {
   const doneMin = envInt("BACKFILL_DONE_PARSE_MIN", 1, 1, 4);
   const slotMax = backfillParseSlotMax();
+  const allowLive = backfillAllowsLiveEnqueue();
+  const sequence = parseBackfillSequence();
+  const byId = new Map(statuses.map((s) => [s.id, s]));
+  const result = new Map<BackfillPipelineId, PipelineCapacity>();
+
+  let current: BackfillPipelineId | null = null;
+  for (const id of sequence) {
+    const s = byId.get(id);
+    if (s && !s.done) {
+      current = id;
+      break;
+    }
+  }
+
+  for (const id of ALL_PIPELINE_IDS) {
+    const s = byId.get(id);
+    if (!s) continue;
+    if (s.done) {
+      result.set(id, doneCapacity(doneMin));
+    } else if (id === current) {
+      result.set(id, {
+        parseConcurrency: slotMax,
+        liveEnqueue: allowLive,
+        historicalBackfill: true,
+      });
+    } else {
+      result.set(id, waitingCapacity(doneMin));
+    }
+  }
+
+  return result;
+}
+
+/** Multi-pipeline walk — finished pipelines donate parse slots to active ones. */
+export function computeParallelBackfillCapacity(
+  statuses: PipelineBackfillStatus[],
+): Map<BackfillPipelineId, PipelineCapacity> {
+  const doneMin = envInt("BACKFILL_DONE_PARSE_MIN", 1, 1, 4);
+  const slotMax = backfillParseSlotMax();
+  const allowLive = backfillAllowsLiveEnqueue();
 
   let totalBudget = envInt("BACKFILL_PARSE_BUDGET_TOTAL", 0, 0, 64);
   if (totalBudget <= 0) {
@@ -51,11 +128,7 @@ export function computeBackfillCapacity(statuses: PipelineBackfillStatus[]): Map
   const done = statuses.filter((s) => s.done);
 
   for (const s of done) {
-    result.set(s.id, {
-      parseConcurrency: doneMin,
-      liveEnqueue: false,
-      historicalBackfill: false,
-    });
+    result.set(s.id, doneCapacity(doneMin));
   }
 
   if (active.length === 0) return result;
@@ -103,10 +176,17 @@ export function computeBackfillCapacity(statuses: PipelineBackfillStatus[]): Map
   for (const { id, effective } of assigned) {
     result.set(id, {
       parseConcurrency: effective,
-      liveEnqueue: true,
+      liveEnqueue: allowLive,
       historicalBackfill: true,
     });
   }
 
   return result;
+}
+
+export function computeBackfillCapacity(statuses: PipelineBackfillStatus[]): Map<BackfillPipelineId, PipelineCapacity> {
+  if (backfillScheduleMode() === "sequential") {
+    return computeSequentialBackfillCapacity(statuses);
+  }
+  return computeParallelBackfillCapacity(statuses);
 }

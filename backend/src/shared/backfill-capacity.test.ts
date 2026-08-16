@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import {
+  backfillScheduleMode,
   backfillWeightMode,
   computeBackfillCapacity,
+  computeSequentialBackfillCapacity,
   type PipelineBackfillStatus,
 } from "./backfill-capacity-alloc.js";
 
@@ -10,6 +12,8 @@ export function runBackfillCapacityTests() {
   process.env.BACKFILL_DONE_PARSE_MIN = "1";
   process.env.BACKFILL_PARSE_SLOT_MAX = "16";
   process.env.BACKFILL_WEIGHT_MODE = "short_first";
+  process.env.BACKFILL_LIVE_ENQUEUE = "0";
+  process.env.BACKFILL_SCHEDULE = "parallel";
 
   const current: PipelineBackfillStatus[] = [
     { id: "insider", done: false, daysRemaining: 229, maxParse: 10, weightMultiplier: 1 },
@@ -22,6 +26,7 @@ export function runBackfillCapacityTests() {
   assert.equal(alloc.get("research")?.parseConcurrency, 1);
   assert.equal(alloc.get("research")?.liveEnqueue, false);
   assert.equal(alloc.get("politicians")?.historicalBackfill, false);
+  assert.equal(alloc.get("insider")?.liveEnqueue, false);
 
   const insider = alloc.get("insider")!.parseConcurrency;
   const institutions = alloc.get("institutions")!.parseConcurrency;
@@ -46,6 +51,22 @@ export function runBackfillCapacityTests() {
   assert.equal(daysMode.get("institutions")!.parseConcurrency, 15);
 
   assert.equal(backfillWeightMode(), "days");
+
+  process.env.BACKFILL_SCHEDULE = "sequential";
+  process.env.BACKFILL_SEQUENCE = "research,politicians,insider,institutions";
+  const seq = computeSequentialBackfillCapacity([
+    { id: "research", done: false, daysRemaining: 30, maxParse: 6, weightMultiplier: 1 },
+    { id: "politicians", done: true, daysRemaining: 0, maxParse: 4, weightMultiplier: 1 },
+    { id: "insider", done: false, daysRemaining: 30, maxParse: 10, weightMultiplier: 1 },
+    { id: "institutions", done: false, daysRemaining: 30, maxParse: 6, weightMultiplier: 1 },
+  ]);
+  assert.equal(seq.get("research")?.historicalBackfill, true);
+  assert.equal(seq.get("research")?.parseConcurrency, 16);
+  assert.equal(seq.get("research")?.liveEnqueue, false);
+  assert.equal(seq.get("insider")?.historicalBackfill, false);
+  assert.equal(seq.get("institutions")?.historicalBackfill, false);
+
+  assert.equal(backfillScheduleMode(), "sequential");
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

@@ -2,8 +2,11 @@ import { runWithWorkerDbBackfill } from "../core/db.js";
 import { backfillMaxAgeDays, effectiveBackfillMinDate } from "./ingest-policy.js";
 import { getIngestCursor } from "./ingest-cursor.js";
 import {
+  backfillAllowsLiveEnqueue,
   backfillParseSlotMax,
+  backfillScheduleMode,
   computeBackfillCapacity,
+  parseBackfillSequence,
   type BackfillPipelineId,
   type PipelineBackfillStatus,
   type PipelineCapacity,
@@ -11,6 +14,11 @@ import {
 
 export type { BackfillPipelineId, PipelineBackfillStatus, PipelineCapacity } from "./backfill-capacity-alloc.js";
 export { backfillParseSlotMax, computeBackfillCapacity } from "./backfill-capacity-alloc.js";
+export {
+  backfillAllowsLiveEnqueue,
+  backfillScheduleMode,
+  parseBackfillSequence,
+} from "./backfill-capacity-alloc.js";
 
 type PipelineDef = {
   id: BackfillPipelineId;
@@ -215,7 +223,7 @@ export function startBackfillCapacityAllocator(): { stop(): void } {
     void runWithWorkerDbBackfill(refreshCapacity).catch((e) => console.error("[backfill-capacity] refresh_failed", e));
   };
 
-  console.log(`[backfill-capacity] enabled refreshMs=${refreshMs}`);
+  console.log(`[backfill-capacity] enabled refreshMs=${refreshMs} schedule=${backfillScheduleMode()} liveEnqueue=${backfillAllowsLiveEnqueue() ? 1 : 0} sequence=${parseBackfillSequence().join(">")}`);
   const timer = setInterval(tick, refreshMs);
 
   return {
