@@ -674,6 +674,21 @@ export async function enqueueFilingsFromDailyIndexDay(opts: {
 
     if (toInsert.length) {
       if (scanOnly) {
+        // Queue is fat (trickle=0) but this chunk has gaps — enqueue one so the day walk
+        // does not freeze until the parse queue drains to low water.
+        const micro = toInsert.slice(0, 1);
+        const inserted = await db.query<{ id: string }>(
+          `
+          INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)
+          SELECT u, $2, 'ready_to_parse', $3, 0, now()
+          FROM unnest($1::text[]) AS u
+          ON CONFLICT (url, source_type) DO NOTHING
+          RETURNING id
+          `,
+          [micro, sourceType, priority],
+        );
+        enqueued += inserted.length;
+        skipped_existing += Math.max(0, micro.length - inserted.length);
         truncated = true;
         break;
       }
