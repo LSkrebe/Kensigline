@@ -11,6 +11,7 @@ import {
   type PipelineBackfillStatus,
   type PipelineCapacity,
 } from "./backfill-capacity-alloc.js";
+import { ingestModeSummary } from "./ingest-mode.js";
 
 export type { BackfillPipelineId, PipelineBackfillStatus, PipelineCapacity } from "./backfill-capacity-alloc.js";
 export { backfillParseSlotMax, computeBackfillCapacity } from "./backfill-capacity-alloc.js";
@@ -223,7 +224,7 @@ export function startBackfillCapacityAllocator(): { stop(): void } {
     void runWithWorkerDbBackfill(refreshCapacity).catch((e) => console.error("[backfill-capacity] refresh_failed", e));
   };
 
-  console.log(`[backfill-capacity] enabled refreshMs=${refreshMs} schedule=${backfillScheduleMode()} liveEnqueue=${backfillAllowsLiveEnqueue() ? 1 : 0} sequence=${parseBackfillSequence().join(">")}`);
+  console.log(`[backfill-capacity] ${ingestModeSummary()} enabled refreshMs=${refreshMs} schedule=${backfillScheduleMode()} liveEnqueue=${backfillAllowsLiveEnqueue() ? 1 : 0} sequence=${parseBackfillSequence().join(">")}`);
   const timer = setInterval(tick, refreshMs);
 
   return {

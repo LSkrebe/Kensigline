@@ -1,3 +1,11 @@
+import {
+  catchupParseSlotCap,
+  drainParseSlotCap,
+  ingestMode,
+  liveEnqueuePermitted,
+  liveParseSlotCap,
+} from "./ingest-mode.js";
+
 export type BackfillPipelineId = "insider" | "institutions" | "research" | "politicians";
 
 export type PipelineCapacity = {
@@ -23,6 +31,10 @@ function envInt(key: string, fallback: number, min: number, max: number): number
 }
 
 export function backfillParseSlotMax(): number {
+  const mode = ingestMode();
+  if (mode === "live") return liveParseSlotCap();
+  if (mode === "catchup") return catchupParseSlotCap();
+  if (mode === "drain") return drainParseSlotCap();
   return envInt("BACKFILL_PARSE_SLOT_MAX", 20, 1, 24);
 }
 
@@ -76,7 +88,19 @@ function drainCapacity(maxParse: number, slotMax: number): PipelineCapacity {
   };
 }
 
-function waitingCapacity(doneMin: number): PipelineCapacity {
+/** Steady-state live — capped parse, live enqueue when permitted. */
+function liveCapacity(maxParse: number, slotMax: number): PipelineCapacity {
+  return {
+    parseConcurrency: Math.max(1, Math.min(slotMax, maxParse)),
+    liveEnqueue: liveEnqueuePermitted(),
+    historicalBackfill: false,
+  };
+}
+
+function waitingCapacity(doneMin: number, maxParse?: number, slotMax?: number): PipelineCapacity {
+  if (ingestMode() === "catchup" && maxParse != null && slotMax != null) {
+    return drainCapacity(maxParse, slotMax);
+  }
   return { parseConcurrency: doneMin, liveEnqueue: false, historicalBackfill: false };
 }
 
@@ -104,7 +128,10 @@ export function computeSequentialBackfillCapacity(
     for (const id of ALL_PIPELINE_IDS) {
       const s = byId.get(id);
       if (!s) continue;
-      result.set(id, drainCapacity(s.maxParse, slotMax));
+      result.set(
+        id,
+        ingestMode() === "live" ? liveCapacity(s.maxParse, slotMax) : drainCapacity(s.maxParse, slotMax),
+      );
     }
     return result;
   }
@@ -121,7 +148,8 @@ export function computeSequentialBackfillCapacity(
         historicalBackfill: true,
       });
     } else {
-      result.set(id, waitingCapacity(doneMin));
+      const s = byId.get(id)!;
+      result.set(id, waitingCapacity(doneMin, s.maxParse, slotMax));
     }
   }
 
@@ -147,7 +175,10 @@ export function computeParallelBackfillCapacity(
 
   if (active.length === 0) {
     for (const s of done) {
-      result.set(s.id, drainCapacity(s.maxParse, slotMax));
+      result.set(
+        s.id,
+        ingestMode() === "live" ? liveCapacity(s.maxParse, slotMax) : drainCapacity(s.maxParse, slotMax),
+      );
     }
     return result;
   }

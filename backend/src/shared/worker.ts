@@ -7,7 +7,15 @@ import {
   getPipelineCapacity,
   type BackfillPipelineId,
 } from "./backfill-capacity.js";
-import { backfillAllowsLiveEnqueue } from "./backfill-capacity-alloc.js";
+import {
+  backfillWalkEnabled,
+  effectiveQueueHighWater,
+  effectiveQueueLowWater,
+  ingestModeSummary,
+  liveEnqueueGated as modeLiveEnqueueGated,
+  liveEnqueuePermitted,
+  liveQueueGateLowWater,
+} from "./ingest-mode.js";
 import { countReadyQueue, readyQueueAbove } from "./queue-pending.js";
 import { runWithBackfillTickMode } from "./sec-daily-backfill.js";
 import { reclaimStaleParsing, requeueTransientDead } from "./queue.js";
@@ -46,24 +54,16 @@ function envNum(prefix: string, key: string, fallback: number) {
 }
 
 function queueLowWater(prefix: string): number {
-  return Math.max(
-    0,
-    envNum(prefix, "BACKFILL_QUEUE_LOW_WATER", Number(process.env.BACKFILL_QUEUE_LOW_WATER ?? 80) || 80),
-  );
+  return effectiveQueueLowWater(prefix);
 }
 
 /** Hard stop — above this, backfill pauses entirely. Between low and high: walk-only ticks. */
 function queueHighWater(prefix: string): number {
-  const low = queueLowWater(prefix);
-  const global = Number(process.env.BACKFILL_QUEUE_HIGH_WATER ?? 0);
-  const prefixed = Number(process.env[`${prefix}_BACKFILL_QUEUE_HIGH_WATER`] ?? 0);
-  const raw = Number.isFinite(prefixed) && prefixed > 0 ? prefixed : global;
-  if (Number.isFinite(raw) && raw > low) return Math.floor(raw);
-  return low + 800;
+  return effectiveQueueHighWater(prefix);
 }
 
 function liveEnqueueGated(prefix: string): boolean {
-  return String(process.env[`${prefix}_ENQUEUE_GATE_LIVE`] ?? process.env.ENQUEUE_GATE_LIVE ?? "1").trim() !== "0";
+  return modeLiveEnqueueGated(prefix);
 }
 
 function pipelinePoolIdle(id: BackfillPipelineId): boolean {
@@ -95,7 +95,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   const reclaimOlderMinutes = Math.max(5, envNum(opts.envPrefix, "RECLAIM_STALE_MINUTES", 30));
 
   console.log(
-    `[${opts.name}] enqueueEveryMs=${enqueueEveryMs} parseConcurrency=${configuredParseConcurrency} parseLoops=${parseLoopCount} dynamicCapacity=${dynamicCapacity ? 1 : 0} backfillIntervalMs=${backfillIntervalMs}`,
+    `[${opts.name}] ${ingestModeSummary()} enqueueEveryMs=${enqueueEveryMs} parseConcurrency=${configuredParseConcurrency} parseLoops=${parseLoopCount} dynamicCapacity=${dynamicCapacity ? 1 : 0} backfillIntervalMs=${backfillIntervalMs}`,
   );
 
   let stopped = false;
@@ -149,6 +149,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
 
   const maybeRunBackfill = async () => {
     if (stopped || !opts.enqueueBackfill || !opts.sourceTypes?.length) return;
+    if (!backfillWalkEnabled()) return;
     if (dynamicCapacity && opts.backfillPipelineId && pipelinePoolIdle(opts.backfillPipelineId)) return;
     if (dynamicCapacity && opts.backfillPipelineId && !getPipelineCapacity(opts.backfillPipelineId).historicalBackfill) {
       return;
@@ -219,13 +220,13 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     let lastLiveSkipLog = 0;
     const runEnqueue = async () => {
       try {
-        // Hard off during backfill sessions — never auto-flip live when queue drains.
-        if (!backfillAllowsLiveEnqueue()) return;
+        // Hard off during backfill/catchup/drain — never auto-flip live when queue drains.
+        if (!liveEnqueuePermitted()) return;
         if (dynamicCapacity && opts.backfillPipelineId && !getPipelineCapacity(opts.backfillPipelineId).liveEnqueue) {
           return;
         }
         if (opts.sourceTypes?.length && liveEnqueueGated(opts.envPrefix)) {
-          const lowWater = queueLowWater(opts.envPrefix);
+          const lowWater = liveQueueGateLowWater(opts.envPrefix);
           const above = await runWithWorkerDb(() => readyQueueAbove(opts.sourceTypes!, lowWater));
           if (above) {
             const now = Date.now();

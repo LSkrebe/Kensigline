@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Pool } from "pg";
+import { ingestMode, liveApiPoolMin, liveWorkerPoolMax, liveWorkerQueryConcurrency } from "../shared/ingest-mode.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -53,11 +54,19 @@ const connectTimeoutMs = Math.max(2_000, Number(process.env.DATABASE_CONNECT_TIM
 const idleTimeoutMs = Math.max(5_000, Number(process.env.DATABASE_IDLE_TIMEOUT_MS ?? 30_000) || 30_000);
 
 /** Interactive API / billing — kept separate so ingest workers cannot starve sign-in. */
-const apiPoolMax = Math.max(2, Math.min(16, Number(process.env.DATABASE_POOL_MAX ?? 8) || 8));
+const apiPoolMax = Math.max(
+  ingestMode() === "live" ? liveApiPoolMin() : 2,
+  Math.min(16, Number(process.env.DATABASE_POOL_MAX ?? 8) || 8),
+);
 /** Background ingest / parse / outcomes — capped independently. */
 const workerPoolMax = Math.max(
   1,
-  Math.min(20, Number(process.env.DATABASE_WORKER_POOL_MAX ?? 8) || 8),
+  Math.min(
+    20,
+    ingestMode() === "live"
+      ? liveWorkerPoolMax()
+      : Number(process.env.DATABASE_WORKER_POOL_MAX ?? 8) || 8,
+  ),
 );
 /**
  * Max concurrent worker-lane SQL checkouts.
@@ -65,7 +74,12 @@ const workerPoolMax = Math.max(
  */
 const workerQueryConcurrency = Math.max(
   1,
-  Math.min(20, Number(process.env.WORKER_QUERY_CONCURRENCY ?? 6) || 6),
+  Math.min(
+    20,
+    ingestMode() === "live"
+      ? liveWorkerQueryConcurrency()
+      : Number(process.env.WORKER_QUERY_CONCURRENCY ?? 6) || 6,
+  ),
 );
 
 /** Slots reserved for backfill / reclaim — parse cannot consume these. */
@@ -106,7 +120,7 @@ const apiPool = makePool(apiPoolMax, "api");
 const workerPool = makePool(workerPoolMax, "worker");
 
 console.info(
-  `[db] apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency} parseSlotMax=${parseSlotMax} backfillReservedSlots=${backfillReservedSlots} workerStatementTimeoutMs=${WORKER_TIMEOUT_MS || "off"}`,
+  `[db] ingest=${ingestMode()} apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency} parseSlotMax=${parseSlotMax} backfillReservedSlots=${backfillReservedSlots} workerStatementTimeoutMs=${WORKER_TIMEOUT_MS || "off"}`,
 );
 
 type DbLane = "api" | "worker";
