@@ -106,16 +106,19 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   let backfillFailStreak = 0;
   let backfillBackoffMs = 0;
   let lastReadySample = { ready: 0, at: 0 };
+  let drainEma = 0;
 
   function sampleQueueDrain(ready: number): number {
     const now = Date.now();
-    let drainPerMin = 0;
     if (lastReadySample.at > 0) {
       const mins = (now - lastReadySample.at) / 60_000;
-      if (mins >= 0.15) drainPerMin = (lastReadySample.ready - ready) / mins;
+      if (mins >= 0.15) {
+        const instant = (lastReadySample.ready - ready) / mins;
+        drainEma = drainEma === 0 ? instant : drainEma * 0.65 + instant * 0.35;
+      }
     }
     lastReadySample = { ready, at: now };
-    return drainPerMin;
+    return drainEma;
   }
 
   function isPoolBlip(err: unknown): boolean {
@@ -164,13 +167,14 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
       if (ready >= highWater) return;
 
       const drainPerMin = sampleQueueDrain(ready);
+      const ticksPerMin = 60_000 / backfillIntervalMs;
       const walkOnly = ready > lowWater;
       const walkTrickle = walkOnly
         ? computeAdaptiveWalkTrickle({ ready, lowWater, highWater })
         : undefined;
       const gapFillLimit =
         walkOnly && (walkTrickle ?? 0) <= 0
-          ? computeGapFillLimit({ ready, lowWater, highWater, drainPerMin })
+          ? computeGapFillLimit({ ready, lowWater, highWater, drainPerMin, ticksPerMin })
           : undefined;
 
       await runWithWorkerDbBackfill(() =>
