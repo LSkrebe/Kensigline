@@ -45,6 +45,7 @@ import { handleAlertsActorWatchlistGet, handleAlertsActorWatchlistPatch } from "
 import { handleSupportContact } from "./support/api.js";
 import { handleWaitlistJoin } from "./waitlist/api.js";
 import { getSecTickerTitleMap } from "./core/sec.js";
+import { getIngestQueueSnapshot } from "./shared/ingest-status.js";
 
 const port = Number(process.env.PORT ?? "3001");
 void getSecTickerTitleMap().catch(() => {});
@@ -71,6 +72,12 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && url.pathname === "/health") {
       sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname === "/health/ingest") {
+      const snap = await getIngestQueueSnapshot(String(url.searchParams.get("source") ?? "sec_13f"));
+      sendJson(res, 200, snap);
       return;
     }
 
