@@ -53,6 +53,39 @@ function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | und
 const connectTimeoutMs = Math.max(2_000, Number(process.env.DATABASE_CONNECT_TIMEOUT_MS ?? 8_000) || 8_000);
 const idleTimeoutMs = Math.max(5_000, Number(process.env.DATABASE_IDLE_TIMEOUT_MS ?? 30_000) || 30_000);
 
+function envFlag(key: string): boolean {
+  return String(process.env[key] ?? "0").trim() === "1";
+}
+
+/** Worker lane URL — session pooler (5432) avoids transaction-pool checkout storms on long 13F parses. */
+function resolveWorkerDatabaseUrl(apiUrl: string): string {
+  const explicit = String(process.env.DATABASE_WORKER_URL ?? "").trim();
+  if (explicit) return explicit;
+
+  if (envFlag("WORKER_DB_DIRECT")) {
+    try {
+      const u = new URL(apiUrl.replace(/^postgres:/i, "postgresql:"));
+      const user = u.username || "";
+      const projectRef = user.includes(".") ? user.split(".")[1] : user.replace(/^postgres$/i, "");
+      if (projectRef) {
+        u.hostname = `db.${projectRef}.supabase.co`;
+        u.port = "5432";
+        return u.toString();
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  if (envFlag("WORKER_DB_SESSION_POOLER")) {
+    return apiUrl.replace(/:6543(\/|$)/, ":5432$1");
+  }
+
+  return apiUrl;
+}
+
+const workerDatabaseUrl = resolveWorkerDatabaseUrl(databaseUrl);
+
 /** Interactive API / billing — kept separate so ingest workers cannot starve sign-in. */
 const apiPoolMax = Math.max(
   ingestMode() === "live" ? liveApiPoolMin() : 2,
@@ -101,10 +134,10 @@ function workerStatementTimeoutMs(): number {
 
 const WORKER_TIMEOUT_MS = workerStatementTimeoutMs();
 
-function makePool(max: number, label: string): Pool {
+function makePool(max: number, label: string, connectionString: string): Pool {
   const p = new Pool({
-    connectionString: databaseUrl,
-    ssl: sslOption(databaseUrl!),
+    connectionString,
+    ssl: sslOption(connectionString),
     max,
     connectionTimeoutMillis: connectTimeoutMs,
     idleTimeoutMillis: idleTimeoutMs,
@@ -116,11 +149,17 @@ function makePool(max: number, label: string): Pool {
   return p;
 }
 
-const apiPool = makePool(apiPoolMax, "api");
-const workerPool = makePool(workerPoolMax, "worker");
+const apiPool = makePool(apiPoolMax, "api", databaseUrl);
+const workerPool = makePool(workerPoolMax, "worker", workerDatabaseUrl);
+
+const workerPoolMode = envFlag("WORKER_DB_DIRECT")
+  ? "direct"
+  : envFlag("WORKER_DB_SESSION_POOLER")
+    ? "session"
+    : "transaction";
 
 console.info(
-  `[db] ingest=${ingestMode()} apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency} parseSlotMax=${parseSlotMax} backfillReservedSlots=${backfillReservedSlots} workerStatementTimeoutMs=${WORKER_TIMEOUT_MS || "off"}`,
+  `[db] ingest=${ingestMode()} workerPoolMode=${workerPoolMode} apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency} parseSlotMax=${parseSlotMax} backfillReservedSlots=${backfillReservedSlots} workerStatementTimeoutMs=${WORKER_TIMEOUT_MS || "off"}`,
 );
 
 type DbLane = "api" | "worker";
