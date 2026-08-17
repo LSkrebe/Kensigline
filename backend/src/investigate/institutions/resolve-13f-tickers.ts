@@ -99,57 +99,99 @@ async function loadNameIndex(): Promise<Map<string, string>> {
   return byName;
 }
 
-async function lookupCusipTicker(cusip: string): Promise<string | null> {
-  await ensureCusipTickerMapTable();
-  const exact = await db.one<{ ticker: string }>(`SELECT ticker FROM cusip_ticker_map WHERE cusip = $1 LIMIT 1`, [cusip]);
-  if (exact?.ticker) return String(exact.ticker).toUpperCase();
+async function lookupCusipTickersBatch(cusips: string[]): Promise<Map<string, string>> {
+  const uniq = [...new Set(cusips.filter(Boolean))];
+  const result = new Map<string, string>();
+  if (!uniq.length) return result;
 
-  if (cusip.length >= 6) {
-    const prefix = cusip.slice(0, 6);
-    const row = await db.one<{ ticker: string }>(
-      `SELECT ticker FROM cusip_ticker_map WHERE left(cusip, 6) = $1 ORDER BY updated_at DESC LIMIT 1`,
-      [prefix],
-    );
-    if (row?.ticker) return String(row.ticker).toUpperCase();
+  await ensureCusipTickerMapTable();
+  const exactRows = await db.query<{ cusip: string; ticker: string }>(
+    `SELECT cusip, ticker FROM cusip_ticker_map WHERE cusip = ANY($1::text[])`,
+    [uniq],
+  );
+  for (const row of exactRows) {
+    result.set(row.cusip, String(row.ticker).toUpperCase());
   }
-  return null;
+
+  const missing = uniq.filter((c) => !result.has(c));
+  const prefixes = [...new Set(missing.filter((c) => c.length >= 6).map((c) => c.slice(0, 6)))];
+  if (prefixes.length) {
+    const prefixRows = await db.query<{ prefix: string; ticker: string }>(
+      `
+      SELECT DISTINCT ON (left(cusip, 6))
+        left(cusip, 6) AS prefix,
+        ticker
+      FROM cusip_ticker_map
+      WHERE left(cusip, 6) = ANY($1::text[])
+      ORDER BY left(cusip, 6), updated_at DESC
+      `,
+      [prefixes],
+    );
+    const byPrefix = new Map(prefixRows.map((r) => [r.prefix, String(r.ticker).toUpperCase()]));
+    for (const c of missing) {
+      if (c.length >= 6) {
+        const t = byPrefix.get(c.slice(0, 6));
+        if (t) result.set(c, t);
+      }
+    }
+  }
+  return result;
 }
 
-export async function learnCusipTicker(cusip: string | null | undefined, ticker: string, source: string): Promise<void> {
-  const c = normalizeCusip(cusip);
-  const t = String(ticker ?? "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9.-]/g, "");
-  if (!c || !t || t.length > 8) return;
+export async function learnCusipTickersBatch(
+  entries: Array<{ cusip: string | null | undefined; ticker: string; source: string }>,
+): Promise<void> {
+  const uniq = new Map<string, { cusip: string; ticker: string; source: string }>();
+  for (const e of entries) {
+    const cusip = normalizeCusip(e.cusip);
+    const ticker = String(e.ticker ?? "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9.-]/g, "");
+    if (!cusip || !ticker || ticker.length > 8) continue;
+    uniq.set(cusip, { cusip, ticker, source: e.source });
+  }
+  if (!uniq.size) return;
+
   await ensureCusipTickerMapTable();
+  const rows = [...uniq.values()];
   await db.query(
     `
     INSERT INTO cusip_ticker_map (cusip, ticker, source, updated_at)
-    VALUES ($1, $2, $3, now())
+    SELECT c, t, s, now()
+    FROM UNNEST($1::text[], $2::text[], $3::text[]) AS u(c, t, s)
     ON CONFLICT (cusip) DO UPDATE
       SET ticker = EXCLUDED.ticker, source = EXCLUDED.source, updated_at = now()
     `,
-    [c, t, source],
+    [rows.map((r) => r.cusip), rows.map((r) => r.ticker), rows.map((r) => r.source)],
   );
+}
+
+export async function learnCusipTicker(cusip: string | null | undefined, ticker: string, source: string): Promise<void> {
+  await learnCusipTickersBatch([{ cusip, ticker, source }]);
 }
 
 export async function resolveHoldingsToTickers(
   holdings: Parsed13fHolding[],
 ): Promise<{ mapped: Mapped13fHolding[]; unmapped: Parsed13fHolding[]; stats: Resolve13fStats }> {
   const byName = await loadNameIndex();
+  const normalized = holdings.map((h) => ({ h, cusip: normalizeCusip(h.cusip) }));
+  const cusipLookup = await lookupCusipTickersBatch(
+    normalized.map((n) => n.cusip).filter((c): c is string => c != null),
+  );
+
   const mapped: Mapped13fHolding[] = [];
   const unmapped: Parsed13fHolding[] = [];
+  const learns: Array<{ cusip: string; ticker: string; source: string }> = [];
   let cusip_hits = 0;
   let name_hits = 0;
 
-  for (const h of holdings) {
-    const cusip = normalizeCusip(h.cusip);
+  for (const { h, cusip } of normalized) {
     let ticker: string | null = null;
     let resolve_source: Mapped13fHolding["resolve_source"] | null = null;
 
     if (cusip) {
-      ticker = await lookupCusipTicker(cusip);
+      ticker = cusipLookup.get(cusip) ?? null;
       if (ticker) {
         resolve_source = "cusip";
         cusip_hits += 1;
@@ -163,7 +205,7 @@ export async function resolveHoldingsToTickers(
         ticker = fromName;
         resolve_source = "name";
         name_hits += 1;
-        if (cusip) void learnCusipTicker(cusip, fromName, "name_resolve");
+        if (cusip) learns.push({ cusip, ticker: fromName, source: "name_resolve" });
       }
     }
 
@@ -173,6 +215,8 @@ export async function resolveHoldingsToTickers(
       unmapped.push(h);
     }
   }
+
+  await learnCusipTickersBatch(learns);
 
   return {
     mapped,
@@ -191,31 +235,47 @@ export async function resolveHoldingsToTickers(
   };
 }
 
+/** Prior share counts for filer+ticker (most recent institutions doc per ticker). */
+export async function loadPriorFilerHoldingsBatch(
+  filerName: string,
+  tickers: string[],
+): Promise<Map<string, { shares: number | null; activity: string | null }>> {
+  const filer = String(filerName ?? "").trim();
+  const uniq = [...new Set(tickers.map((t) => String(t ?? "").trim().toUpperCase()).filter(Boolean))];
+  const out = new Map<string, { shares: number | null; activity: string | null }>();
+  if (!filer || !uniq.length) return out;
+
+  const rows = await db.query<{ ticker: string; shares: string | null; activity: string | null }>(
+    `
+    SELECT DISTINCT ON (UPPER(d.ticker))
+      UPPER(d.ticker) AS ticker,
+      r->>'shares' AS shares,
+      r->>'activity' AS activity
+    FROM documents d
+    CROSS JOIN LATERAL jsonb_array_elements(COALESCE(d.data->'cluster'->'worksheet_rows', '[]'::jsonb)) r
+    WHERE d.feed_kind = 'institutions'
+      AND UPPER(d.ticker) = ANY($1::text[])
+      AND LOWER(COALESCE(r->>'institution_name', r->>'key', '')) = LOWER($2)
+    ORDER BY UPPER(d.ticker), d.parsed_at DESC NULLS LAST
+    `,
+    [uniq, filer],
+  );
+  for (const row of rows) {
+    out.set(row.ticker, {
+      shares: row.shares != null && Number.isFinite(Number(row.shares)) ? Number(row.shares) : null,
+      activity: row.activity ? String(row.activity) : null,
+    });
+  }
+  return out;
+}
+
 /** Prior share count + activity for filer+ticker (most recent institutions doc). */
 export async function loadPriorFilerHolding(args: {
   filerName: string;
   ticker: string;
 }): Promise<{ shares: number | null; activity: string | null } | null> {
-  const filer = String(args.filerName ?? "").trim();
-  const ticker = String(args.ticker ?? "").trim().toUpperCase();
-  if (!filer || !ticker) return null;
-
-  const row = await db.one<{ shares: string | null; activity: string | null }>(
-    `
-    SELECT r->>'shares' AS shares, r->>'activity' AS activity
-    FROM documents d
-    CROSS JOIN LATERAL jsonb_array_elements(COALESCE(d.data->'cluster'->'worksheet_rows', '[]'::jsonb)) r
-    WHERE d.feed_kind = 'institutions'
-      AND UPPER(COALESCE(d.ticker, '')) = $1
-      AND LOWER(COALESCE(r->>'institution_name', r->>'key', '')) = LOWER($2)
-    ORDER BY d.parsed_at DESC NULLS LAST
-    LIMIT 1
-    `,
-    [ticker, filer],
-  );
-  if (!row) return null;
-  const shares = row.shares != null && Number.isFinite(Number(row.shares)) ? Number(row.shares) : null;
-  return { shares, activity: row.activity ? String(row.activity) : null };
+  const batch = await loadPriorFilerHoldingsBatch(args.filerName, [args.ticker]);
+  return batch.get(String(args.ticker ?? "").trim().toUpperCase()) ?? null;
 }
 
 export function activityFromShareDelta(args: {

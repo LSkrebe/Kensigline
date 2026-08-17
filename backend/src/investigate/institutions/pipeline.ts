@@ -24,8 +24,8 @@ import {
   activityFromShareDelta,
   ensureCusipTickerMapTable,
   institutionsLlmFallbackEnabled,
-  learnCusipTicker,
-  loadPriorFilerHolding,
+  learnCusipTickersBatch,
+  loadPriorFilerHoldingsBatch,
   resolveHoldingsToTickers,
   type Mapped13fHolding,
 } from "./resolve-13f-tickers.js";
@@ -294,10 +294,14 @@ async function attachActivities(
   mapped: Mapped13fHolding[],
   asOf: string | null,
 ): Promise<{ rows: HoldingRow[]; unchanged_holdings: number }> {
+  const priors = await loadPriorFilerHoldingsBatch(
+    filerName,
+    mapped.map((h) => h.ticker),
+  );
   const rows: HoldingRow[] = [];
   let unchanged_holdings = 0;
   for (const h of mapped) {
-    const prior = await loadPriorFilerHolding({ filerName, ticker: h.ticker });
+    const prior = priors.get(h.ticker.toUpperCase()) ?? null;
     const { activity, unchanged } = activityFromShareDelta({
       shares: h.shares,
       priorShares: prior?.shares ?? null,
@@ -340,6 +344,7 @@ async function persistInstitutionHoldings(args: {
     filerType: "institution",
     displayName: args.filerName,
   });
+  const cusipLearns: Array<{ cusip: string | null | undefined; ticker: string; source: string }> = [];
 
   for (const [ticker, rows] of byTicker.entries()) {
     const contentSha256 = `${args.baseSha256}:${ticker}`;
@@ -405,9 +410,10 @@ async function persistInstitutionHoldings(args: {
     });
     parsedIds.push(filingId);
     for (const r of rows) {
-      if (r.cusip) void learnCusipTicker(r.cusip, ticker, "13f_persist");
+      if (r.cusip) cusipLearns.push({ cusip: r.cusip, ticker, source: "13f_persist" });
     }
   }
+  await learnCusipTickersBatch(cusipLearns);
   return parsedIds;
 }
 
@@ -469,6 +475,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
     let llm_model: string | null = null;
     let activity_source: string = "share_delta";
     let resolvedFiler = filerName;
+    const llmCusipLearns: Array<{ cusip: string | null | undefined; ticker: string; source: string }> = [];
 
     if (mapped.length >= 1) {
       const attached = await attachActivities(filerName, mapped, asOf);
@@ -503,7 +510,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
           ticker,
           resolve_source: "llm",
         });
-        if (h?.cusip) void learnCusipTicker(String(h.cusip), ticker, "llm_residual");
+        if (h?.cusip) llmCusipLearns.push({ cusip: String(h.cusip), ticker, source: "llm_residual" });
       }
 
       // Prefer share-delta activity even on LLM ticker residual.
@@ -512,6 +519,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
       unchanged_holdings = attached.unchanged_holdings;
       stats.mapped = holdings.length;
       stats.unmapped = Math.max(0, parsedHoldings.length - holdings.length);
+      await learnCusipTickersBatch(llmCusipLearns);
     } else {
       await markQueueDead(
         queueId,
