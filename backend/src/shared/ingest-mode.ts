@@ -55,8 +55,16 @@ export function liveEnqueuePermitted(): boolean {
 
 export function backfillWalkEnabled(): boolean {
   const mode = ingestMode();
-  if (mode === "drain" || mode === "live") return false;
-  return String(process.env.BACKFILL_ENABLED ?? "1").trim() !== "0";
+  if (mode === "drain") return false;
+  if (String(process.env.BACKFILL_ENABLED ?? "1").trim() === "0") return false;
+  // Live: optional idle gap-fill via SEC daily index (queue low/high water gated in worker).
+  if (mode === "live") return String(process.env.LIVE_GAP_FILL_ENABLED ?? "1").trim() !== "0";
+  return true;
+}
+
+/** In live mode, how far back idle gap-fill may walk (days). */
+export function liveGapFillMaxAgeDays(): number {
+  return envInt("LIVE_GAP_FILL_DAYS", 14, 3, 30);
 }
 
 /** Max parse loops per pipeline in live mode (API pool headroom). */

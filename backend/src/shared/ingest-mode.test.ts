@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { computeBackfillCapacity } from "./backfill-capacity-alloc.js";
 import {
+  backfillWalkEnabled,
   effectiveParseSlotMax,
   effectiveQueueHighWater,
   effectiveQueueLowWater,
@@ -44,6 +45,11 @@ export function runIngestModeTests() {
   process.env.LIVE_ENQUEUE_ENABLED = "1";
   assert.equal(liveEnqueuePermitted(), true);
   assert.equal(effectiveParseSlotMax(), 6);
+
+  process.env.LIVE_GAP_FILL_ENABLED = "1";
+  assert.equal(backfillWalkEnabled(), true);
+  process.env.LIVE_GAP_FILL_ENABLED = "0";
+  assert.equal(backfillWalkEnabled(), false);
 
   const liveDone = computeBackfillCapacity([
     { id: "insider", done: true, daysRemaining: 0, maxParse: 8, weightMultiplier: 1 },

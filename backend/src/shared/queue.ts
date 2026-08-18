@@ -150,6 +150,8 @@ export async function requeueTransientDead(opts?: { limit?: number }): Promise<n
       FROM document_queue
       WHERE status = 'dead'
         AND attempts < 12
+        AND last_error NOT ILIKE 'permanent_404:%'
+        AND last_error NOT ILIKE '%sec_fetch_failed 404%'
         AND (
           -- Network / SEC / pooler only. Do NOT requeue Postgres statement timeouts —
           -- that creates a death spiral when the DB is already overloaded.

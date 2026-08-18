@@ -25,7 +25,9 @@ function parseIsoDateUtc(raw: string): Date | null {
 export function effectiveBackfillMinDate(): Date {
   const rolling = new Date();
   rolling.setUTCHours(0, 0, 0, 0);
-  rolling.setUTCDate(rolling.getUTCDate() - backfillMaxAgeDays());
+  const mode = String(process.env.INGEST_MODE ?? "").trim().toLowerCase();
+  const ageDays = mode === "live" ? envInt("LIVE_GAP_FILL_DAYS", 14, 3, 30) : backfillMaxAgeDays();
+  rolling.setUTCDate(rolling.getUTCDate() - ageDays);
 
   const configured = parseIsoDateUtc(String(process.env.BACKFILL_MIN_DATE ?? "2012-01-01").trim());
   if (!configured) return rolling;
