@@ -10,14 +10,25 @@ import {
   QUEUE_PRIORITY_LIVE_SEC,
   secFormNeedsStructuredLlm,
 } from "../../shared/ingest-policy.js";
+import { ingestMode } from "../../shared/ingest-mode.js";
 
 const DEFAULT_SEC_FORMS = "8-K,10-Q,10-K,6-K,20-F,S-1,S-3,S-4,DEF 14A,424B5,SC 13D,SC 13G";
+const DEFAULT_LIVE_SEC_FORMS = "8-K,10-Q,10-K,6-K";
 
 /** Earnings / periodic — live structured LLM + higher backfill tier within idle queue. */
 const EARNINGS_SEC_FORMS = new Set(["10-Q", "10-K", "20-F", "6-K", "8-K"]);
 
 export function researchSecFormList(): string[] {
   return String(researchEnv("SEC_FORMS", DEFAULT_SEC_FORMS))
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Live polling — high-signal forms only (full list on backfill / gap-fill). */
+export function researchSecFormListForLive(): string[] {
+  const raw = String(researchEnv("LIVE_SEC_FORMS", DEFAULT_LIVE_SEC_FORMS)).trim();
+  return raw
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
@@ -62,7 +73,7 @@ export function researchSecFormsForBackfill(forms: string[]): string[] {
 /** Pull fresh SEC filings into the research document pipeline. */
 export async function enqueueResearchSecFilings(opts?: { pages?: number }) {
   const pages = Math.max(1, Math.min(20, Number(opts?.pages ?? researchEnv("FEED_PAGES", "3"))));
-  const forms = researchSecFormList();
+  const forms = ingestMode() === "live" ? researchSecFormListForLive() : researchSecFormList();
   const out: Awaited<ReturnType<typeof enqueueCurrentFilingFeed>>[] = [];
   for (const formType of forms) {
     const r = await enqueueCurrentFilingFeed({

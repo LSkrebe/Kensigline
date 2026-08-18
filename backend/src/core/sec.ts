@@ -48,7 +48,24 @@ function requireSecUserAgent() {
 let lastSecRequestAt = 0;
 let secBlockedUntil = 0;
 let lastCooldownLogUntil = 0;
+/** After a long 429 cooldown, cap RPS briefly so parallel workers do not instantly re-trigger. */
+let secRampUntil = 0;
 const secRecentReqAt: number[] = [];
+
+/** Ms remaining on SEC 429/bot global cooldown (0 = clear). */
+export function secCooldownRemainingMs(): number {
+  return Math.max(0, secBlockedUntil - Date.now());
+}
+
+function secPostCooldownMaxRps(): number {
+  const raw = Number(process.env.SEC_POST_COOLDOWN_MAX_RPS ?? 4);
+  return Math.max(1, Math.min(10, Number.isFinite(raw) ? raw : 4));
+}
+
+function secPostCooldownRampMs(): number {
+  const raw = Number(process.env.SEC_POST_COOLDOWN_RAMP_MS ?? 45_000);
+  return Math.max(10_000, Math.min(120_000, Number.isFinite(raw) ? raw : 45_000));
+}
 
 /** Long pause after true rate limit (429) / bot ban — default 10m. */
 function secRateLimitCooldownMs(): number {
@@ -114,27 +131,36 @@ async function secRateLimit() {
   // caps the whole process at ~0.67 rps (~57k/day) — fine for polite browsing,
   // lethal for historical drain. Override with SEC_MIN_INTERVAL_MS / SEC_MAX_RPS.
   const minMs = Math.max(0, Number(process.env.SEC_MIN_INTERVAL_MS ?? 120));
-  const maxRps = Math.max(1, Math.min(10, Number(process.env.SEC_MAX_RPS ?? 8)));
+  const configuredMaxRps = Math.max(1, Math.min(10, Number(process.env.SEC_MAX_RPS ?? 8)));
 
-  const now = Date.now();
-  const blockedWait = secBlockedUntil ? secBlockedUntil - now : 0;
-  const baseWait = lastSecRequestAt ? minMs - (now - lastSecRequestAt) : 0;
+  for (;;) {
+    const now = Date.now();
+    const maxRps =
+      now < secRampUntil ? Math.min(configuredMaxRps, secPostCooldownMaxRps()) : configuredMaxRps;
+    const blockedWait = secBlockedUntil ? secBlockedUntil - now : 0;
+    const baseWait = lastSecRequestAt ? minMs - (now - lastSecRequestAt) : 0;
 
-  // Hard cap: never exceed maxRps in any rolling 1s window.
-  // Keep the last N request timestamps and wait until one falls out of the window.
-  const windowMs = 1000;
-  const cutoff = now - windowMs;
-  while (secRecentReqAt.length && (secRecentReqAt[0] ?? 0) <= cutoff) secRecentReqAt.shift();
-  const rpsWait =
-    secRecentReqAt.length >= maxRps ? (secRecentReqAt[0] ?? now) + windowMs - now : 0;
+    const windowMs = 1000;
+    const cutoff = now - windowMs;
+    while (secRecentReqAt.length && (secRecentReqAt[0] ?? 0) <= cutoff) secRecentReqAt.shift();
+    const rpsWait =
+      secRecentReqAt.length >= maxRps ? (secRecentReqAt[0] ?? now) + windowMs - now : 0;
 
-  const wait = Math.max(0, blockedWait, baseWait, rpsWait);
-  if (wait > 0) {
-    if (blockedWait > 5_000 && secBlockedUntil !== lastCooldownLogUntil) {
+    const wait = Math.max(0, blockedWait, baseWait, rpsWait);
+    if (wait <= 0) break;
+
+    const hadLongCooldown = blockedWait > 5_000;
+    if (hadLongCooldown && secBlockedUntil !== lastCooldownLogUntil) {
       lastCooldownLogUntil = secBlockedUntil;
       console.warn(`[sec] waiting_cooldown ms=${Math.round(blockedWait)}`);
     }
     await new Promise((r) => setTimeout(r, wait));
+    if (hadLongCooldown) {
+      secRampUntil = Date.now() + secPostCooldownRampMs();
+      console.warn(
+        `[sec] post_cooldown_ramp maxRps=${secPostCooldownMaxRps()} ms=${secPostCooldownRampMs()}`,
+      );
+    }
   }
 
   const at = Date.now();
@@ -288,6 +314,10 @@ function indexJsonFromArchivesIndexUrl(u: string) {
   return `https://www.sec.gov/Archives/edgar/data/${cik}/${accNoDash}/index.json`;
 }
 
+function emptyFeedResult(pages: number): EnqueueCurrentFeedResult {
+  return { pages, found: 0, enqueued: 0, skipped_existing: 0, queue_ids: [] };
+}
+
 /**
  * Enqueue Form 4 filings from SEC "current filings" Atom feed.
  * This is much less bursty than crawling index.json at scale.
@@ -298,6 +328,7 @@ function indexJsonFromArchivesIndexUrl(u: string) {
 export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: number }): Promise<EnqueueCurrentFeedResult> {
   const pageSize = Number.isFinite(opts.pageSize) ? Math.max(20, Math.min(100, opts.pageSize!)) : 100;
   const pages = Math.max(1, Math.min(20, opts.pages));
+  if (secCooldownRemainingMs() > 0) return emptyFeedResult(pages);
 
   const seen = new Set<string>();
   const urls: string[] = [];
@@ -345,6 +376,7 @@ export async function enqueueCurrentFilingFeed(opts: {
   const priority = Number.isFinite(opts.priority) ? Math.max(0, Math.min(100, Number(opts.priority))) : 5;
 
   if (!formType) throw new Error("form_type_required");
+  if (secCooldownRemainingMs() > 0) return emptyFeedResult(pages);
 
   const seen = new Set<string>();
   const urls: string[] = [];
