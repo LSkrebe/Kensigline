@@ -3,20 +3,29 @@ export function isPermanentQueueError(msg: string): boolean {
   return /sec_fetch_failed 404|fetch_failed 404|permanent_404/i.test(msg);
 }
 
-/** Fast retry: network blips, SEC 503 overload, fetch timeouts (not Postgres statement timeout). */
+/**
+ * SEC 429 / bot / undeclared-tool — must match SEC client cool-down (SEC_RATE_LIMIT_COOLDOWN_MS).
+ * Never fast-retry these; hammering after a 429 risks a longer ban.
+ */
+export function isSecBanRiskQueueError(msg: string): boolean {
+  return /429|sec_blocked|undeclared_automated|sec_fetch_failed 403|rate_limit|http_403/i.test(msg);
+}
+
+/** Fast retry: SEC 503 overload, network blips, fetch timeouts (not Postgres statement timeout). */
 export function isFastRetryQueueError(msg: string): boolean {
-  if (isPermanentQueueError(msg)) return false;
+  if (isPermanentQueueError(msg) || isSecBanRiskQueueError(msg)) return false;
   const m = msg.toLowerCase();
   if (m.includes("statement timeout")) return false;
   return (
-    /503|502|fetch_failed|fetch failed|sec_fetch_failed|etimedout|econn|network|socket|reclaimed_stale/.test(m) ||
+    /sec_fetch_failed 503|sec_fetch_failed 502|fetch_failed 503|fetch_failed 502/.test(m) ||
+    /etimedout|econn|network|socket|reclaimed_stale/.test(m) ||
     (/timeout/.test(m) && !m.includes("statement timeout"))
   );
 }
 
-/** SEC rate limit / bot block — retry sooner than old minute-scale backoff, not instant (global cooldown). */
+/** @deprecated use isSecBanRiskQueueError */
 export function isSecRateLimitQueueError(msg: string): boolean {
-  return /429|sec_blocked|rate_limit/i.test(msg);
+  return isSecBanRiskQueueError(msg);
 }
 
 export type QueueRetryPlan = { delaySec: number; maxAttempts: number; permanent: boolean };
@@ -27,18 +36,25 @@ function envNum(key: string, fallback: number, min: number, max: number): number
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
+/** Same default as sec.ts secRateLimitCooldownMs — keep queue retry aligned with client pause. */
+export function secBanSafeRetryDelaySec(attempt: number): number {
+  const raw = Number(process.env.SEC_RATE_LIMIT_COOLDOWN_MS ?? process.env.SEC_BLOCK_MS ?? 600_000);
+  const ms = Math.max(30_000, Math.min(900_000, Number.isFinite(raw) ? raw : 600_000));
+  const cooldownSec = Math.ceil(ms / 1000);
+  // Small jitter so a batch of 429s don't retry in the same second when cooldown lifts.
+  const jitter = Math.min(120, Math.max(0, attempt - 1) * 15);
+  return cooldownSec + jitter;
+}
+
 /** Compute retry delay (seconds) and attempt budget from error + attempt count. */
 export function planQueueRetry(attempt: number, msg: string): QueueRetryPlan {
   const n = Math.max(1, attempt);
   if (isPermanentQueueError(msg)) {
     return { delaySec: 0, maxAttempts: n, permanent: true };
   }
-  if (isSecRateLimitQueueError(msg)) {
-    const base = envNum("QUEUE_429_RETRY_BASE_SEC", 15, 5, 120);
-    const cap = envNum("QUEUE_429_RETRY_MAX_SEC", 60, base, 300);
-    const maxAttempts = envNum("QUEUE_TRANSIENT_MAX_ATTEMPTS", 12, 6, 24);
-    const delaySec = Math.min(cap, base * 2 ** Math.min(3, n - 1));
-    return { delaySec, maxAttempts, permanent: false };
+  if (isSecBanRiskQueueError(msg)) {
+    const maxAttempts = envNum("QUEUE_429_MAX_ATTEMPTS", 6, 3, 12);
+    return { delaySec: secBanSafeRetryDelaySec(n), maxAttempts, permanent: false };
   }
   if (isFastRetryQueueError(msg)) {
     const base = envNum("QUEUE_FAST_RETRY_BASE_SEC", 1, 1, 30);
