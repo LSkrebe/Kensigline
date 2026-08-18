@@ -10,7 +10,7 @@ function envInt(key: string, fallback: number, min: number, max: number): number
 
 /** How far back idle backfill may walk (days). Hard ceiling: 1 year. */
 export function backfillMaxAgeDays(): number {
-  return envInt("BACKFILL_MAX_AGE_DAYS", 365, 30, 365);
+  return envInt("BACKFILL_MAX_AGE_DAYS", 365, 7, 365);
 }
 
 function parseIsoDateUtc(raw: string): Date | null {
