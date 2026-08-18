@@ -402,24 +402,65 @@ async function enqueueQueueUrlsBatch(opts: {
 let secTickerTitleMapCache: { at: number; map: Map<string, string> } | null = null;
 const SEC_TICKER_TITLE_MAP_TTL_MS = 24 * 60 * 60 * 1000;
 
+type CompanyTickerRow = { cik_str?: number; ticker?: string; title?: string };
+
+type CompanyTickersBundle = {
+  at: number;
+  titleMap: Map<string, string>;
+  byTicker: Map<string, { cik: string; title?: string }>;
+};
+
+let companyTickersBundle: CompanyTickersBundle | null = null;
+let companyTickersInflight: Promise<CompanyTickersBundle> | null = null;
+
+function buildCompanyTickersBundle(data: Record<string, CompanyTickerRow>): CompanyTickersBundle {
+  const titleMap = new Map<string, string>();
+  const byTicker = new Map<string, { cik: string; title?: string }>();
+  for (const k of Object.keys(data)) {
+    const row = data[k];
+    const t = String(row?.ticker ?? "").trim().toUpperCase();
+    const title = String(row?.title ?? "").trim();
+    const cikNum = Number(row?.cik_str);
+    if (!t || !Number.isFinite(cikNum)) continue;
+    const cik = String(cikNum).padStart(10, "0");
+    if (title) titleMap.set(t, title);
+    byTicker.set(t, title ? { cik, title } : { cik });
+  }
+  return { at: Date.now(), titleMap, byTicker };
+}
+
+/** One fetch per TTL / single-flight — shared by title map + CIK resolve. */
+async function loadCompanyTickersBundle(): Promise<CompanyTickersBundle> {
+  const now = Date.now();
+  if (companyTickersBundle && now - companyTickersBundle.at < SEC_TICKER_TITLE_MAP_TTL_MS) {
+    return companyTickersBundle;
+  }
+  if (!companyTickersInflight) {
+    companyTickersInflight = (async () => {
+      try {
+        const data = (await secFetchJson("https://www.sec.gov/files/company_tickers.json")) as Record<
+          string,
+          CompanyTickerRow
+        >;
+        companyTickersBundle = buildCompanyTickersBundle(data);
+        secTickerTitleMapCache = { at: companyTickersBundle.at, map: companyTickersBundle.titleMap };
+        return companyTickersBundle;
+      } catch (err) {
+        if (companyTickersBundle) return companyTickersBundle;
+        throw err;
+      } finally {
+        companyTickersInflight = null;
+      }
+    })();
+  }
+  return companyTickersInflight;
+}
+
 /** Cached ticker → SEC company title (company_tickers.json). */
 export async function getSecTickerTitleMap(): Promise<Map<string, string>> {
-  const now = Date.now();
-  if (secTickerTitleMapCache && now - secTickerTitleMapCache.at < SEC_TICKER_TITLE_MAP_TTL_MS) {
-    return secTickerTitleMapCache.map;
-  }
-
   try {
-    const data = await secFetchJson("https://www.sec.gov/files/company_tickers.json");
-    const map = new Map<string, string>();
-    for (const k of Object.keys(data)) {
-      const row = (data as any)[k];
-      const t = String(row?.ticker ?? "").trim().toUpperCase();
-      const title = String(row?.title ?? "").trim();
-      if (t && title) map.set(t, title);
-    }
-    secTickerTitleMapCache = { at: now, map };
-    return map;
+    const bundle = await loadCompanyTickersBundle();
+    return bundle.titleMap;
   } catch {
     if (secTickerTitleMapCache) return secTickerTitleMapCache.map;
     return new Map();
@@ -427,21 +468,13 @@ export async function getSecTickerTitleMap(): Promise<Map<string, string>> {
 }
 
 /**
- * Resolve a ticker → CIK using SEC's published mapping.
- * Data source: https://www.sec.gov/files/company_tickers.json
+ * Resolve a ticker → CIK using SEC's published mapping (cached — never hammers company_tickers.json).
  */
 export async function resolveCikForTicker(tickerInput: string): Promise<{ cik: string; title?: string }> {
   const ticker = normalizeTicker(tickerInput);
-  const data = await secFetchJson("https://www.sec.gov/files/company_tickers.json");
-  for (const k of Object.keys(data)) {
-    const row = (data as any)[k];
-    const t = String(row?.ticker ?? "").toUpperCase();
-    if (t === ticker) {
-      const cikNum = Number(row?.cik_str);
-      const cik = String(cikNum).padStart(10, "0");
-      return { cik, title: row?.title };
-    }
-  }
+  const bundle = await loadCompanyTickersBundle();
+  const hit = bundle.byTicker.get(ticker);
+  if (hit) return hit;
   throw new Error(`ticker_not_found ${ticker}`);
 }
 

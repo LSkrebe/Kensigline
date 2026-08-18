@@ -16,11 +16,19 @@ function envInt(key: string, fallback: number, min: number, max: number): number
 }
 
 export function secMaxRps(): number {
-  return envInt("SEC_MAX_RPS", 10, 1, 10);
+  // Default 9 — headroom under SEC's published 10 req/s fair-access cap.
+  return envInt("SEC_MAX_RPS", 9, 1, 10);
 }
 
 export function secMinIntervalMs(): number {
-  return envInt("SEC_MIN_INTERVAL_MS", 100, 0, 2000);
+  return envInt("SEC_MIN_INTERVAL_MS", 0, 0, 2000);
+}
+
+/** Even spacing so we don't burst 10 requests in 200ms then go idle. */
+export function secEffectiveMinIntervalMs(maxRps: number): number {
+  const configured = secMinIntervalMs();
+  const evenPace = Math.max(1, Math.ceil(1000 / Math.max(1, maxRps)));
+  return Math.max(configured, evenPace);
 }
 
 export function secMaxInFlight(): number {
@@ -58,7 +66,7 @@ export async function acquireSecSlot(): Promise<void> {
     pruneRecentStarts(now);
     const maxRps = secMaxRps();
     const maxInFlight = secMaxInFlight();
-    const minMs = secMinIntervalMs();
+    const minMs = secEffectiveMinIntervalMs(maxRps);
 
     if (secInFlight >= maxInFlight) {
       await sleep(20);
