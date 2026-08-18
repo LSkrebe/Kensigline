@@ -20,6 +20,8 @@ export type PipelineBackfillStatus = {
   daysRemaining: number;
   maxParse: number;
   weightMultiplier: number;
+  /** Ready-to-parse backlog — used for sequential catch-up parse drain. */
+  backlogReady?: number;
 };
 
 const ALL_PIPELINE_IDS: BackfillPipelineId[] = ["research", "politicians", "insider", "institutions"];
@@ -129,6 +131,27 @@ export function computeSequentialBackfillCapacity(
   }
 
   if (!current) {
+    const mode = ingestMode();
+    if (mode === "catchup") {
+      for (const id of parseBackfillSequence()) {
+        const s = byId.get(id);
+        if (s && (s.backlogReady ?? 0) > 0) {
+          for (const pid of ALL_PIPELINE_IDS) {
+            const ps = byId.get(pid);
+            if (!ps) continue;
+            result.set(
+              pid,
+              pid === id ? drainCapacity(ps.maxParse, slotMax) : doneCapacity(doneMin),
+            );
+          }
+          return result;
+        }
+      }
+      for (const id of ALL_PIPELINE_IDS) {
+        if (byId.has(id)) result.set(id, doneCapacity(doneMin));
+      }
+      return result;
+    }
     for (const id of ALL_PIPELINE_IDS) {
       const s = byId.get(id);
       if (!s) continue;

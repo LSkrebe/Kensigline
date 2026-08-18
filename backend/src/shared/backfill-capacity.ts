@@ -1,6 +1,8 @@
 import { runWithWorkerDbBackfill } from "../core/db.js";
 import { backfillMaxAgeDays, effectiveBackfillMinDate } from "./ingest-policy.js";
 import { getIngestCursor } from "./ingest-cursor.js";
+import { QUEUE_SOURCES } from "../pipelines/registry.js";
+import { countReadyQueue } from "./queue-pending.js";
 import {
   backfillAllowsLiveEnqueue,
   backfillParseSlotMax,
@@ -11,7 +13,7 @@ import {
   type PipelineBackfillStatus,
   type PipelineCapacity,
 } from "./backfill-capacity-alloc.js";
-import { ingestModeSummary } from "./ingest-mode.js";
+import { ingestMode, ingestModeSummary } from "./ingest-mode.js";
 
 export type { BackfillPipelineId, PipelineBackfillStatus, PipelineCapacity } from "./backfill-capacity-alloc.js";
 export { backfillParseSlotMax, computeBackfillCapacity } from "./backfill-capacity-alloc.js";
@@ -66,6 +68,13 @@ const PIPELINES: PipelineDef[] = [
 ];
 
 const pipelineById = new Map(PIPELINES.map((p) => [p.id, p]));
+
+const PIPELINE_QUEUE_SOURCES: Record<BackfillPipelineId, string[]> = {
+  insider: [...QUEUE_SOURCES.investigateInsider],
+  institutions: [...QUEUE_SOURCES.investigateInstitutions],
+  research: [...QUEUE_SOURCES.researchMarket],
+  politicians: [...QUEUE_SOURCES.investigatePoliticians],
+};
 
 function envInt(key: string, fallback: number, min: number, max: number): number {
   const n = Number(process.env[key] ?? fallback);
@@ -130,38 +139,49 @@ export function getPipelineCapacity(id: BackfillPipelineId): PipelineCapacity {
 
 async function loadPipelineStatus(def: PipelineDef): Promise<PipelineBackfillStatus> {
   const minDate = effectiveBackfillMinDate();
+  let status: PipelineBackfillStatus;
 
   if (def.usesSecDaily) {
     const cursor = await getIngestCursor(def.ingestPipeline, "sec_daily");
     const cursorDate = parseYyyymmdd(cursor);
     if (!cursorDate) {
-      return {
+      status = {
         id: def.id,
         done: false,
         daysRemaining: backfillMaxAgeDays(),
         maxParse: maxParseForPipeline(def),
         weightMultiplier: def.weightMultiplier,
       };
+    } else {
+      const done = cursorDate.getTime() <= minDate.getTime();
+      status = {
+        id: def.id,
+        done,
+        daysRemaining: done ? 0 : calendarDaysBetween(cursorDate, minDate),
+        maxParse: maxParseForPipeline(def),
+        weightMultiplier: def.weightMultiplier,
+      };
     }
-    const done = cursorDate.getTime() <= minDate.getTime();
-    return {
+  } else {
+    const ageDays = backfillMaxAgeDays();
+    const done = (await getIngestCursor(def.ingestPipeline, "historical_done")) === String(ageDays);
+    status = {
       id: def.id,
       done,
-      daysRemaining: done ? 0 : calendarDaysBetween(cursorDate, minDate),
+      daysRemaining: done ? 0 : backfillMaxAgeDays(),
       maxParse: maxParseForPipeline(def),
       weightMultiplier: def.weightMultiplier,
     };
   }
 
-  const ageDays = backfillMaxAgeDays();
-  const done = (await getIngestCursor(def.ingestPipeline, "historical_done")) === String(ageDays);
-  return {
-    id: def.id,
-    done,
-    daysRemaining: done ? 0 : backfillMaxAgeDays(),
-    maxParse: maxParseForPipeline(def),
-    weightMultiplier: def.weightMultiplier,
-  };
+  if (ingestMode() === "catchup" && backfillScheduleMode() === "sequential") {
+    try {
+      status.backlogReady = await countReadyQueue(PIPELINE_QUEUE_SOURCES[def.id]);
+    } catch {
+      // keep allocator running if backlog probe fails
+    }
+  }
+  return status;
 }
 
 function capacitySignature(map: Map<BackfillPipelineId, PipelineCapacity>): string {

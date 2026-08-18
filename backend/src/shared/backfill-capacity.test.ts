@@ -70,6 +70,18 @@ export function runBackfillCapacityTests() {
 
   assert.equal(backfillScheduleMode(), "sequential");
 
+  process.env.INGEST_MODE = "catchup";
+  process.env.BACKFILL_SEQUENCE = "institutions,research,politicians,insider";
+  const catchupParseDrain = computeSequentialBackfillCapacity([
+    { id: "institutions", done: true, daysRemaining: 0, maxParse: 8, weightMultiplier: 1, backlogReady: 500 },
+    { id: "research", done: true, daysRemaining: 0, maxParse: 6, weightMultiplier: 1, backlogReady: 100 },
+    { id: "politicians", done: true, daysRemaining: 0, maxParse: 4, weightMultiplier: 1, backlogReady: 0 },
+    { id: "insider", done: true, daysRemaining: 0, maxParse: 10, weightMultiplier: 1, backlogReady: 50 },
+  ]);
+  assert.equal(catchupParseDrain.get("institutions")?.parseConcurrency, 8);
+  assert.equal(catchupParseDrain.get("research")?.parseConcurrency, 1);
+  assert.equal(catchupParseDrain.get("insider")?.parseConcurrency, 1);
+
   const allDone: PipelineBackfillStatus[] = [
     { id: "insider", done: true, daysRemaining: 0, maxParse: 10, weightMultiplier: 1 },
     { id: "institutions", done: true, daysRemaining: 0, maxParse: 6, weightMultiplier: 1 },
