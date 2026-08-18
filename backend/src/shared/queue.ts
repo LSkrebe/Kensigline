@@ -1,4 +1,5 @@
 import { db } from "../core/db.js";
+import { planQueueRetry } from "./queue-retry.js";
 
 export type QueueClaim = { id: string; url: string; source_type?: string };
 
@@ -75,20 +76,25 @@ export async function failQueueWithBackoff(queueId: string, err: unknown): Promi
     return "failed";
   }
   const msg = String((err as any)?.message ?? err);
+  const plan = planQueueRetry(1, msg);
+  if (plan.permanent) {
+    await markQueueDead(queueId, msg);
+    return "dead";
+  }
   const attempts = await db.one<{ attempts: number }>(
     `UPDATE document_queue SET attempts = attempts + 1 WHERE id = $1 RETURNING attempts`,
     [queueId],
   );
   const n = attempts?.attempts ?? 1;
-  const backoffMinutes = Math.min(60, 2 ** Math.min(5, n));
-  const status = n >= 6 ? "dead" : "failed";
+  const retry = planQueueRetry(n, msg);
+  const status = n >= retry.maxAttempts ? "dead" : "failed";
   await db.query(
     `
     UPDATE document_queue
-    SET status = $2, last_error = $3, next_attempt_at = now() + ($4 || ' minutes')::interval, updated_at = now()
+    SET status = $2, last_error = $3, next_attempt_at = now() + ($4 || ' seconds')::interval, updated_at = now()
     WHERE id = $1
     `,
-    [queueId, status, msg.slice(0, 2000), String(backoffMinutes)],
+    [queueId, status, msg.slice(0, 2000), String(retry.delaySec)],
   );
   return status;
 }

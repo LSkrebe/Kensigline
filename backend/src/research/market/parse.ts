@@ -22,6 +22,7 @@ import { LLM_BUDGETS } from "../../core/llm-budgets.js";
 import { isBackfillPriority, needsStructuredResearchLlm } from "../../shared/ingest-policy.js";
 import { normalizeSourceKey } from "../../shared/source-keys.js";
 import { buildParseMeta, logParseOutcome } from "../../shared/parse-meta.js";
+import { failQueueWithBackoff } from "../../shared/queue.js";
 import {
   attachNearDupKey,
   computeResearchNearDupKey,
@@ -386,22 +387,7 @@ export async function parseNextResearchQueueItem(): Promise<ParseNextResult> {
     ]);
     return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "unknown_source" };
   } catch (err: any) {
-    const msg = String(err?.message ?? err);
-    const attempts = await db.one<{ attempts: number }>(
-      `UPDATE document_queue SET attempts = attempts + 1 WHERE id = $1 RETURNING attempts`,
-      [queueId],
-    );
-    const n = attempts?.attempts ?? 1;
-    const backoffMinutes = Math.min(60, 2 ** Math.min(5, n));
-    const status = n >= 6 ? "dead" : "failed";
-    await db.query(
-      `
-      UPDATE document_queue
-      SET status = $2, last_error = $3, next_attempt_at = now() + ($4 || ' minutes')::interval, updated_at = now()
-      WHERE id = $1
-      `,
-      [queueId, status, msg.slice(0, 2000), String(backoffMinutes)],
-    );
+    await failQueueWithBackoff(queueId, err);
     return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "error" };
   }
 }
