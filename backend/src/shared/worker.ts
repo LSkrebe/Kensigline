@@ -11,6 +11,7 @@ import {
   backfillWalkEnabled,
   effectiveQueueHighWater,
   effectiveQueueLowWater,
+  ingestMode,
   ingestModeSummary,
   liveEnqueueGated as modeLiveEnqueueGated,
   liveEnqueuePermitted,
@@ -91,8 +92,14 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     2_000,
     envNum(opts.envPrefix, "BACKFILL_INTERVAL_MS", d.backfillIntervalMs ?? 60_000),
   );
-  const reclaimEveryMs = Math.max(60_000, envNum(opts.envPrefix, "RECLAIM_INTERVAL_MS", 5 * 60_000));
-  const reclaimOlderMinutes = Math.max(5, envNum(opts.envPrefix, "RECLAIM_STALE_MINUTES", 30));
+  const reclaimEveryMs = Math.max(
+    60_000,
+    envNum(opts.envPrefix, "RECLAIM_INTERVAL_MS", ingestMode() === "live" ? 120_000 : 120_000),
+  );
+  const reclaimOlderMinutes = Math.max(
+    5,
+    envNum(opts.envPrefix, "RECLAIM_STALE_MINUTES", ingestMode() === "live" ? 10 : 15),
+  );
 
   console.log(
     `[${opts.name}] ${ingestModeSummary()} enqueueEveryMs=${enqueueEveryMs} parseConcurrency=${configuredParseConcurrency} parseLoops=${parseLoopCount} dynamicCapacity=${dynamicCapacity ? 1 : 0} backfillIntervalMs=${backfillIntervalMs}`,
@@ -127,10 +134,12 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
   }
 
   const runReclaim = () => {
-    if (dynamicCapacity && opts.backfillPipelineId && pipelinePoolIdle(opts.backfillPipelineId)) return;
     return runWithWorkerDbBackfill(() =>
       Promise.all([
-        reclaimStaleParsing({ olderThanMinutes: reclaimOlderMinutes }),
+        reclaimStaleParsing({
+          olderThanMinutes: reclaimOlderMinutes,
+          ...(opts.sourceTypes?.length ? { sourceTypes: opts.sourceTypes } : {}),
+        }),
         requeueTransientDead({ limit: 25 }),
       ]),
     )
