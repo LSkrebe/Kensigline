@@ -61,10 +61,12 @@ export function runBackfillCapacityTests() {
     { id: "institutions", done: false, daysRemaining: 30, maxParse: 6, weightMultiplier: 1 },
   ]);
   assert.equal(seq.get("research")?.historicalBackfill, true);
-  assert.equal(seq.get("research")?.parseConcurrency, 16);
+  assert.equal(seq.get("research")?.parseConcurrency, 6);
   assert.equal(seq.get("research")?.liveEnqueue, false);
   assert.equal(seq.get("insider")?.historicalBackfill, false);
+  assert.equal(seq.get("insider")?.parseConcurrency, 1);
   assert.equal(seq.get("institutions")?.historicalBackfill, false);
+  assert.equal(seq.get("institutions")?.parseConcurrency, 1);
 
   assert.equal(backfillScheduleMode(), "sequential");
 

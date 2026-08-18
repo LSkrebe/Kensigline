@@ -35,7 +35,9 @@ export function runIngestModeTests() {
     { id: "insider", done: false, daysRemaining: 30, maxParse: 10, weightMultiplier: 1 },
     { id: "institutions", done: false, daysRemaining: 30, maxParse: 10, weightMultiplier: 1 },
   ]);
-  assert.equal(catchupSeq.get("institutions")?.parseConcurrency, 10);
+  assert.equal(catchupSeq.get("insider")?.parseConcurrency, 10);
+  assert.equal(catchupSeq.get("insider")?.historicalBackfill, true);
+  assert.equal(catchupSeq.get("institutions")?.parseConcurrency, 1);
   assert.equal(catchupSeq.get("institutions")?.liveEnqueue, false);
 
   process.env.INGEST_MODE = "live";

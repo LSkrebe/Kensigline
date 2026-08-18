@@ -98,6 +98,10 @@ function liveCapacity(maxParse: number, slotMax: number): PipelineCapacity {
 }
 
 function waitingCapacity(doneMin: number, maxParse?: number, slotMax?: number): PipelineCapacity {
+  // Sequential catch-up: only the active walker gets full parse — waiting pipelines stay minimal.
+  if (ingestMode() === "catchup" && backfillScheduleMode() === "sequential") {
+    return { parseConcurrency: doneMin, liveEnqueue: false, historicalBackfill: false };
+  }
   if (ingestMode() === "catchup" && maxParse != null && slotMax != null) {
     return drainCapacity(maxParse, slotMax);
   }
@@ -143,7 +147,7 @@ export function computeSequentialBackfillCapacity(
       result.set(id, doneCapacity(doneMin));
     } else if (id === current) {
       result.set(id, {
-        parseConcurrency: slotMax,
+        parseConcurrency: Math.max(1, Math.min(slotMax, s.maxParse)),
         liveEnqueue: allowLive,
         historicalBackfill: true,
       });
