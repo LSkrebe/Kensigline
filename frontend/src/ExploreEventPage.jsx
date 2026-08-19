@@ -137,22 +137,31 @@ function EventFilingRow({ row, onCompanyClick, onInvestorClick }) {
         <span className="drpt-docMain">
           <span className="drpt-docKind">{title}</span>
         </span>
-        {row.hideTxn ? null : txnLabel ? (
-          <span className={`drpt-docTxn drpt-docTxn--${txnTone}`}>{txnLabel}</span>
-        ) : (
-          <span className="drpt-docTxn drpt-docTxn--empty">—</span>
-        )}
-        <span
+        <div
           className={[
-            'drpt-docAmt',
-            row.hideTxn && row.moveLabel ? (row.moveUp ? 'isUp' : 'isDown') : '',
+            'drpt-docTrail',
+            'drpt-docTrail--noDate',
+            row.hideTxn ? 'drpt-docTrail--noTxn' : '',
           ]
             .filter(Boolean)
             .join(' ')}
         >
-          {row.amountLabel || row.moveLabel || '—'}
-        </span>
-        <time className="drpt-docDate">{row.dateLabel || '—'}</time>
+          {row.hideTxn ? null : txnLabel ? (
+            <span className={`drpt-docTxn drpt-docTxn--${txnTone}`}>{txnLabel}</span>
+          ) : (
+            <span className="drpt-docTxn drpt-docTxn--empty">—</span>
+          )}
+          <span
+            className={[
+              'drpt-docAmt',
+              row.hideTxn && row.moveLabel ? (row.moveUp ? 'isUp' : 'isDown') : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
+            {row.amountLabel || row.moveLabel || '—'}
+          </span>
+        </div>
       </Tag>
     </li>
   )
@@ -188,8 +197,9 @@ function EventCompanyRow({ company, onCompanyClick }) {
         <span className="drpt-docMain">
           <span className="drpt-docKind">{company.name || ticker}</span>
         </span>
-        <span className="drpt-docAmt">{moveLabel}</span>
-        <time className="drpt-docDate">Today</time>
+        <div className="drpt-docTrail drpt-docTrail--noTxn drpt-docTrail--noDate">
+          <span className="drpt-docAmt">{moveLabel}</span>
+        </div>
       </Tag>
     </li>
   )
@@ -281,12 +291,9 @@ export function ExploreEventPage({
                 settingsActive={settingsActive}
                 onSettingsClick={onSettingsClick}
                 onBrandClick={onBrandClick}
-                collapsibleSearch
-                showSearch
+                hideDate
                 showClose={!!onCloseClick}
                 onCloseClick={onCloseClick}
-                searchPlaceholder="Search company, investor"
-                searchPlaceholderMobile="Search"
               />
             </div>
             <div className="drpt-expanded">

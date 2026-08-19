@@ -515,10 +515,10 @@ function DeepChartRange({ value, onChange }) {
   )
 }
 
-function DeepModelTable({ model, title, historicalOnly = false, maxHistCols = null, fit = false }) {
+function DeepModelTable({ model, title, maxHistCols = null, fit = false }) {
   if (!model?.quarters?.length) return null
   const estFrom = model.estimateFromIndex ?? model.quarters.length
-  const rows = historicalOnly ? model.businessDrivers ?? [] : model.historicalModel ?? []
+  const rows = model.historicalModel ?? []
   if (!rows.length) return null
 
   if (!fit) {
@@ -528,7 +528,7 @@ function DeepModelTable({ model, title, historicalOnly = false, maxHistCols = nu
           rows={rows}
           quarters={model.quarters}
           estimateFromIndex={estFrom}
-          showEstimates={!historicalOnly}
+          showEstimates
         />
       </div>
     )
@@ -540,7 +540,7 @@ function DeepModelTable({ model, title, historicalOnly = false, maxHistCols = nu
     histStart = histQs.length - maxHistCols
     histQs = histQs.slice(histStart)
   }
-  const estQs = historicalOnly ? [] : model.quarters.slice(estFrom)
+  const estQs = model.quarters.slice(estFrom)
 
   return (
     <div className="drpt-tableWrap drpt-tableWrap--fit">
@@ -567,7 +567,7 @@ function DeepModelTable({ model, title, historicalOnly = false, maxHistCols = nu
         <tbody>
           {rows.map((row) => {
             const histVals = row.values.slice(histStart, estFrom)
-            const estVals = historicalOnly ? [] : row.values.slice(estFrom)
+            const estVals = row.values.slice(estFrom)
             return (
               <tr key={row.label}>
                 <td>{row.label}</td>
@@ -743,72 +743,6 @@ function DeepChronology({ entries = [], visibleLimit = null }) {
         )
       })}
     </ol>
-  )
-}
-
-function DeepBusinessDriversSnapshot({ model }) {
-  if (!model?.quarters?.length) {
-    return <p className="drpt-empty">No business drivers yet.</p>
-  }
-  const estFrom = model.estimateFromIndex ?? model.quarters.length
-  const histQs = model.quarters.slice(0, estFrom)
-  const rows = model.businessDrivers ?? []
-  if (!rows.length) {
-    return <p className="drpt-empty">No business drivers yet.</p>
-  }
-
-  const cards = rows
-    .map((row) => {
-      const histVals = row.values.slice(0, estFrom)
-      let latestIdx = -1
-      for (let i = histVals.length - 1; i >= 0; i -= 1) {
-        const raw = histVals[i]
-        if (raw != null && raw !== '—' && String(raw).trim() !== '') {
-          latestIdx = i
-          break
-        }
-      }
-      if (latestIdx < 0) return null
-      const trailStart = Math.max(0, latestIdx - 3)
-      const trail = histVals
-        .slice(trailStart, latestIdx + 1)
-        .map((v) => formatAnalyseGridValue(v, row))
-        .filter((v) => v && v !== '—')
-      return {
-        key: row.label,
-        label: row.label,
-        value: formatAnalyseGridValue(histVals[latestIdx], row),
-        period: histQs[latestIdx] ?? 'Latest',
-        trail,
-      }
-    })
-    .filter(Boolean)
-
-  if (!cards.length) {
-    return <p className="drpt-empty">No business drivers yet.</p>
-  }
-
-  return (
-    <div
-      className={['drpt-driverGrid', cards.length === 1 ? 'drpt-driverGrid--count1' : '']
-        .filter(Boolean)
-        .join(' ')}
-      style={{
-        // Equal-height rows so N cards always fill the section beside Documents.
-        gridTemplateRows: `repeat(${Math.max(1, Math.ceil(cards.length / (cards.length === 1 ? 1 : 2)))}, minmax(0, 1fr))`,
-      }}
-    >
-      {cards.map((card) => (
-        <div className="drpt-driverCard" key={card.key}>
-          <span className="drpt-metricLabel">{card.label}</span>
-          <span className="drpt-metricValue">{card.value}</span>
-          {card.period ? <span className="drpt-metricPeriod">{card.period}</span> : null}
-          {card.trail.length > 1 ? (
-            <span className="drpt-driverTrail">{card.trail.join(' → ')}</span>
-          ) : null}
-        </div>
-      ))}
-    </div>
   )
 }
 
@@ -1428,13 +1362,30 @@ export function DeepCompanyReport({
           )}
         </DeepSection>
 
-        <div className="drpt-row drpt-row--model">
-          <DeepSection label="Model" title="Business drivers">
-            {modelLoading && !resolvedModel ? (
-              <p className="drpt-empty drpt-loading">Loading business drivers…</p>
-            ) : (
-              <DeepBusinessDriversSnapshot model={resolvedModel} />
-            )}
+        <div className="drpt-row drpt-row--archive">
+          <DeepSection
+            label="Flow"
+            title="Tracked investors & filers"
+            headExtra={
+              <span className="drpt-sectionCount">
+                {trackedInvestorsLoading
+                  ? 'Loading…'
+                  : formatCountLabel(trackedInvestors.length, 'investor')}
+              </span>
+            }
+          >
+            <div className="drpt-docPanel drpt-scroll">
+              <DeepExpandablePanel totalCount={trackedInvestorsLoading ? 0 : trackedInvestors.length}>
+                {(limit) => (
+                  <DeepInvestorList
+                    rows={trackedInvestors}
+                    visibleLimit={limit}
+                    loading={trackedInvestorsLoading}
+                    onInvestorClick={onInvestorClick}
+                  />
+                )}
+              </DeepExpandablePanel>
+            </div>
           </DeepSection>
 
           <DeepSection
@@ -1459,31 +1410,6 @@ export function DeepCompanyReport({
             </div>
           </DeepSection>
         </div>
-
-        <DeepSection
-          label="Flow"
-          title="Tracked investors & filers"
-          headExtra={
-            <span className="drpt-sectionCount">
-              {trackedInvestorsLoading
-                ? 'Loading…'
-                : formatCountLabel(trackedInvestors.length, 'investor')}
-            </span>
-          }
-        >
-          <div className="drpt-docPanel drpt-scroll">
-            <DeepExpandablePanel totalCount={trackedInvestorsLoading ? 0 : trackedInvestors.length}>
-              {(limit) => (
-                <DeepInvestorList
-                  rows={trackedInvestors}
-                  visibleLimit={limit}
-                  loading={trackedInvestorsLoading}
-                  onInvestorClick={onInvestorClick}
-                />
-              )}
-            </DeepExpandablePanel>
-          </div>
-        </DeepSection>
     </DeepReportShell>
   )
 }
