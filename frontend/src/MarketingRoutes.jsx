@@ -15,14 +15,19 @@ export default function MarketingRoutes() {
   const publicCompany = matchPublicCompanyPath(marketingPath)
 
   useEffect(() => {
-    if (!waitlist) return
     const p = marketingPath.replace(/\/$/, '') || '/'
+    if (!waitlist && p === '/waitlist') {
+      navigateMarketing('/')
+      return
+    }
+    if (!waitlist) return
     if (p === '/sign-in' || p === '/subscribe') {
       navigateMarketing('/waitlist')
     }
   }, [waitlist, marketingPath])
 
   if (publicCompany) return <PublicCompanyPage ticker={publicCompany.ticker} />
+  if (!waitlist && marketingPath === '/waitlist') return <IntroPage />
   if (marketingPath === '/waitlist') return <WaitlistPage />
   if (waitlist && (marketingPath === '/sign-in' || marketingPath === '/subscribe')) {
     return <WaitlistPage />

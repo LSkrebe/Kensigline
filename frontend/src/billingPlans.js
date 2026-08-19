@@ -6,11 +6,10 @@ export const FOUNDERS_MONTHLY_USD = 49
 export const FOUNDERS_YEARLY_USD = 499
 
 /**
- * Defaults until /api/billing/pricing responds.
- * Waitlist is on by default while historical drain is in progress (match WAITLIST_MODE on API).
+ * Defaults until /api/billing/pricing responds (match WAITLIST_MODE / FOUNDERS_PRICING on API).
  */
-export const DEFAULT_WAITLIST = true
-export const DEFAULT_FOUNDERS = false
+export const DEFAULT_WAITLIST = false
+export const DEFAULT_FOUNDERS = true
 
 export function formatUsd(n) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
