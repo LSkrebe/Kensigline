@@ -73,11 +73,12 @@ export function liveParseSlotCap(): number {
 }
 
 export function liveWorkerPoolMax(): number {
-  return envInt("LIVE_DATABASE_WORKER_POOL_MAX", 10, 4, 16);
+  // Session pooler (Supabase 5432) is ~15 — db.ts applies DATABASE_SESSION_POOL_HEADROOM.
+  return envInt("LIVE_DATABASE_WORKER_POOL_MAX", 11, 4, 16);
 }
 
 export function liveWorkerQueryConcurrency(): number {
-  return envInt("LIVE_WORKER_QUERY_CONCURRENCY", 8, 2, 16);
+  return envInt("LIVE_WORKER_QUERY_CONCURRENCY", 11, 2, 16);
 }
 
 export function liveApiPoolMin(): number {

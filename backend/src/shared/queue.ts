@@ -5,7 +5,9 @@ export type QueueClaim = { id: string; url: string; source_type?: string };
 
 export function isPoolBlipError(err: unknown): boolean {
   const msg = String(err instanceof Error ? err.message : err);
-  return /ECHECKOUTTIMEOUT|authentication did not complete|connection terminated|08006|timeout/i.test(msg);
+  return /ECHECKOUTTIMEOUT|EMAXCONNSESSION|too many clients|authentication did not complete|connection terminated|08006|timeout/i.test(
+    msg,
+  );
 }
 
 /** Re-queue after pool checkout blip — do not burn parse attempts/backoff. */

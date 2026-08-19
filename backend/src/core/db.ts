@@ -86,13 +86,36 @@ function resolveWorkerDatabaseUrl(apiUrl: string): string {
 
 const workerDatabaseUrl = resolveWorkerDatabaseUrl(databaseUrl);
 
+function envInt(key: string, fallback: number, min: number, max: number): number {
+  const n = Number(process.env[key] ?? fallback);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.floor(n)));
+}
+
+/** Supabase session pooler (5432) default — leave headroom for teardown lag / admin. */
+function sessionPoolWorkerBudget(): number | null {
+  if (!envFlag("WORKER_DB_SESSION_POOLER") && !envFlag("WORKER_DB_DIRECT")) return null;
+  const budget = envInt("DATABASE_SESSION_POOL_MAX", 15, 4, 64);
+  const headroom = envInt("DATABASE_SESSION_POOL_HEADROOM", 4, 0, 12);
+  return Math.max(1, budget - headroom);
+}
+
 /** Interactive API / billing — kept separate so ingest workers cannot starve sign-in. */
 const apiPoolMax = Math.max(
   ingestMode() === "live" ? liveApiPoolMin() : 2,
   Math.min(16, Number(process.env.DATABASE_POOL_MAX ?? 8) || 8),
 );
-/** Background ingest / parse / outcomes — capped independently. */
-const workerPoolMax = Math.max(
+
+const requestedWorkerQueryConcurrency = Math.max(
+  1,
+  Math.min(
+    20,
+    ingestMode() === "live"
+      ? liveWorkerQueryConcurrency()
+      : Number(process.env.WORKER_QUERY_CONCURRENCY ?? 6) || 6,
+  ),
+);
+const requestedWorkerPoolMax = Math.max(
   1,
   Math.min(
     20,
@@ -101,18 +124,20 @@ const workerPoolMax = Math.max(
       : Number(process.env.DATABASE_WORKER_POOL_MAX ?? 8) || 8,
   ),
 );
+
+const sessionBudget = sessionPoolWorkerBudget();
 /**
  * Max concurrent worker-lane SQL checkouts.
  * Parse loops can be numerous (HTTP/SEC in parallel); only this many hit Postgres at once.
  */
 const workerQueryConcurrency = Math.max(
   1,
-  Math.min(
-    20,
-    ingestMode() === "live"
-      ? liveWorkerQueryConcurrency()
-      : Number(process.env.WORKER_QUERY_CONCURRENCY ?? 6) || 6,
-  ),
+  sessionBudget != null ? Math.min(requestedWorkerQueryConcurrency, sessionBudget) : requestedWorkerQueryConcurrency,
+);
+/** Background ingest / parse / outcomes — never exceed query concurrency or session budget. */
+const workerPoolMax = Math.max(
+  1,
+  Math.min(requestedWorkerPoolMax, workerQueryConcurrency),
 );
 
 /** Slots reserved for backfill / reclaim — parse cannot consume these. */
@@ -159,7 +184,7 @@ const workerPoolMode = envFlag("WORKER_DB_DIRECT")
     : "transaction";
 
 console.info(
-  `[db] ingest=${ingestMode()} workerPoolMode=${workerPoolMode} apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency} parseSlotMax=${parseSlotMax} backfillReservedSlots=${backfillReservedSlots} workerStatementTimeoutMs=${WORKER_TIMEOUT_MS || "off"}`,
+  `[db] ingest=${ingestMode()} workerPoolMode=${workerPoolMode} apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency} parseSlotMax=${parseSlotMax} backfillReservedSlots=${backfillReservedSlots} sessionPoolBudget=${sessionBudget ?? "n/a"} workerStatementTimeoutMs=${WORKER_TIMEOUT_MS || "off"}`,
 );
 
 type DbLane = "api" | "worker";

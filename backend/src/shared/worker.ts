@@ -236,7 +236,7 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
         }
         if (opts.sourceTypes?.length && liveEnqueueGated(opts.envPrefix)) {
           const lowWater = liveQueueGateLowWater(opts.envPrefix);
-          const above = await runWithWorkerDb(() => readyQueueAbove(opts.sourceTypes!, lowWater));
+          const above = await runWithWorkerDbBackfill(() => readyQueueAbove(opts.sourceTypes!, lowWater));
           if (above) {
             const now = Date.now();
             if (now - lastLiveSkipLog > 60_000) {
@@ -246,7 +246,8 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
             return;
           }
         }
-        await runWithWorkerDb(() => opts.enqueue!());
+        // Backfill lane — live enqueue must not steal parse DB slots from parsers.
+        await runWithWorkerDbBackfill(() => opts.enqueue!());
       } catch (e) {
         console.error(`[${opts.name}] enqueue_failed`, e);
       }
