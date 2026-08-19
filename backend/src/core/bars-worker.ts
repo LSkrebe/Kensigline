@@ -40,12 +40,13 @@ export async function listBarRefreshCandidates(limit = 40): Promise<PriorityRow[
   return db.query<PriorityRow>(
     `
     WITH event_tickers AS (
-      SELECT ticker_norm AS ticker, max(feed_at) AS latest_event_at
-      FROM feed_ticker_latest
-      WHERE ticker_norm IS NOT NULL
-        AND length(ticker_norm) BETWEEN 1 AND 6
-        AND feed_at >= now() - interval '120 days'
-      GROUP BY ticker_norm
+      SELECT upper(trim(i.ticker)) AS ticker, max(e.feed_at) AS latest_event_at
+      FROM feed_entries e
+      JOIN issuers i ON i.id = e.issuer_id
+      WHERE i.ticker IS NOT NULL
+        AND length(trim(i.ticker)) BETWEEN 1 AND 6
+        AND e.feed_at >= now() - interval '120 days'
+      GROUP BY upper(trim(i.ticker))
     )
     SELECT
       e.ticker,

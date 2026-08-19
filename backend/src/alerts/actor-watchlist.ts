@@ -121,36 +121,51 @@ export async function listActorKeysForDocument(documentId: string): Promise<{ ac
   await ensureAlertTables();
   const out = new Map<string, { actor_key: string; display_name: string; mode: ActorAlertMode }>();
 
-  const insiders = await db.query<{ insider_name: string }>(
-    `SELECT DISTINCT insider_name FROM insider_transactions WHERE document_id = $1::uuid`,
+  const insiders = await db.query<{ display_name: string }>(
+    `
+    SELECT DISTINCT f.display_name
+    FROM insider_transactions t
+    JOIN filers f ON f.id = t.filer_id
+    WHERE t.filing_id = $1::uuid
+    `,
     [documentId],
   );
   for (const row of insiders) {
-    const name = String(row.insider_name ?? "").trim();
+    const name = String(row.display_name ?? "").trim();
     if (!name) continue;
     const actor_key = actorCanonicalKey(name, "insider");
     if (!actor_key) continue;
     out.set(actor_key, { actor_key, display_name: name, mode: "insider" });
   }
 
-  const politicians = await db.query<{ politician_name: string }>(
-    `SELECT DISTINCT politician_name FROM politician_transactions WHERE document_id = $1::uuid`,
+  const politicians = await db.query<{ display_name: string }>(
+    `
+    SELECT DISTINCT f.display_name
+    FROM politician_transactions t
+    JOIN filers f ON f.id = t.filer_id
+    WHERE t.filing_id = $1::uuid
+    `,
     [documentId],
   );
   for (const row of politicians) {
-    const name = String(row.politician_name ?? "").trim();
+    const name = String(row.display_name ?? "").trim();
     if (!name) continue;
     const actor_key = actorCanonicalKey(name, "politicians");
     if (!actor_key) continue;
     out.set(actor_key, { actor_key, display_name: name, mode: "politicians" });
   }
 
-  const institutions = await db.query<{ filer: string }>(
-    `SELECT DISTINCT filer FROM institution_filings_13f WHERE document_id = $1::uuid`,
+  const institutions = await db.query<{ display_name: string }>(
+    `
+    SELECT DISTINCT f.display_name
+    FROM institution_transactions t
+    JOIN filers f ON f.id = t.filer_id
+    WHERE t.filing_id = $1::uuid
+    `,
     [documentId],
   );
   for (const row of institutions) {
-    const name = String(row.filer ?? "").trim();
+    const name = String(row.display_name ?? "").trim();
     if (!name) continue;
     const actor_key = actorCanonicalKey(name, "institutions");
     if (!actor_key) continue;

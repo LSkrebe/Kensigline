@@ -155,16 +155,18 @@ function resolveEarningsWatchBrief(slide, day) {
 
 /**
  * @param {string | null | undefined} eventId
+ * @param {{ day?: object | null, slides?: object[] | null }} [ctx]
  * @returns {object | null}
  */
-export function resolveExploreEventBrief(eventId) {
+export function resolveExploreEventBrief(eventId, ctx = {}) {
   const id = String(eventId ?? '').trim()
   if (!id) return null
 
-  const slide = (buildExploreDailyRecap()?.slides ?? []).find((s) => s.id === id) ?? null
+  const slides = ctx.slides ?? buildExploreDailyRecap()?.slides ?? []
+  const slide = slides.find((s) => s.id === id) ?? null
   if (!slide) return null
 
-  const day = buildExploreRecapMockDay()
+  const day = ctx.day ?? buildExploreRecapMockDay()
 
   if (slide.typeId === 'earnings_watch') {
     return resolveEarningsWatchBrief(slide, day)

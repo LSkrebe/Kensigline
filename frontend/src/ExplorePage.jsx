@@ -5,6 +5,7 @@ import {
   EXPLORE_DIRECTORY_BLOCK,
   HOME_DIRECTORY_PREVIEW,
 } from './exploreDirectoryMock.js'
+import { loadExploreDailyRecap, loadExploreDirectoryBundle } from './exploreApi.js'
 import { ExploreDirectoryCompanyRow, ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
@@ -141,9 +142,30 @@ export function ExplorePage({
   onInvestorRowClick = null,
   onEventClick = null,
 }) {
-  const recap = useMemo(() => buildExploreDailyRecap(), [])
-  const homePreview = useMemo(() => buildExploreDirectoryHomePreview(), [])
-  const homeSearchPool = useMemo(() => buildExploreDirectoryHomeLatest(), [])
+  const [recap, setRecap] = useState(() => buildExploreDailyRecap())
+  const [homePreview, setHomePreview] = useState(() => buildExploreDirectoryHomePreview())
+  const [homeSearchPool, setHomeSearchPool] = useState(() => buildExploreDirectoryHomeLatest())
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const preferLive = backendUp !== false
+      const [recapOut, dirOut] = await Promise.all([
+        loadExploreDailyRecap({ preferLive }),
+        loadExploreDirectoryBundle({ preferLive }),
+      ])
+      if (cancelled) return
+      if (recapOut?.slides) setRecap(recapOut)
+      if (dirOut) {
+        setHomePreview(dirOut.homePreview)
+        setHomeSearchPool(dirOut.homeLatest)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [backendUp])
+
   const [searchQuery, setSearchQuery] = useState('')
   const pageRef = useRef(null)
   const dockRef = useRef(null)

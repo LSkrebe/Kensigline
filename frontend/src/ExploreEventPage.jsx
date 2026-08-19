@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { resolveExploreEventBrief } from './exploreEventBrief.js'
+import { loadExploreEventBriefContext } from './exploreApi.js'
 import { MiniPriceChart, PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 import './DeepReport.css'
@@ -217,7 +218,20 @@ export function ExploreEventPage({
   onCompanyClick = null,
   onInvestorClick = null,
 }) {
-  const brief = useMemo(() => resolveExploreEventBrief(eventId), [eventId])
+  const [briefCtx, setBriefCtx] = useState({ day: null, slides: null })
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const ctx = await loadExploreEventBriefContext({ preferLive: backendUp !== false })
+      if (!cancelled) setBriefCtx(ctx)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [eventId, backendUp])
+
+  const brief = useMemo(() => resolveExploreEventBrief(eventId, briefCtx), [eventId, briefCtx])
   const slide = brief?.slide ?? null
   const title = slide?.headline || 'Event brief'
   const kicker = slide?.kicker || 'Recap event'

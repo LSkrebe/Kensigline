@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useEffect, useState } from 'react'
+import { loadExploreDirectoryBundle } from './exploreApi.js'
 import { buildExploreDirectoryFullList } from './exploreDirectoryMock.js'
 import { ExploreDirectoryListPage } from './ExploreDirectoryListPage.jsx'
 
@@ -12,7 +13,19 @@ export function ExploreInvestorsPage({
   onCloseClick = null,
   onInvestorRowClick = null,
 }) {
-  const rows = useMemo(() => buildExploreDirectoryFullList('investors'), [])
+  const [rows, setRows] = useState(() => buildExploreDirectoryFullList('investors'))
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const bundle = await loadExploreDirectoryBundle({ preferLive: backendUp !== false })
+      if (cancelled) return
+      if (bundle?.fullInvestors?.length) setRows(bundle.fullInvestors)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [backendUp])
 
   return (
     <ExploreDirectoryListPage

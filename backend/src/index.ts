@@ -43,6 +43,7 @@ import { handleAlertsPreferencesGet, handleAlertsPreferencesPatch } from "./aler
 import { handleAlertsWatchlistGet, handleAlertsWatchlistPatch } from "./alerts/watchlist-api.js";
 import { handleAlertsActorWatchlistGet, handleAlertsActorWatchlistPatch } from "./alerts/actor-watchlist-api.js";
 import { handleSupportContact } from "./support/api.js";
+import { handleExploreDirectory, handleExploreRecap } from "./explore/api.js";
 import { handleWaitlistJoin } from "./waitlist/api.js";
 import { getSecTickerTitleMap } from "./core/sec.js";
 import { getIngestQueueSnapshot } from "./shared/ingest-status.js";
@@ -599,6 +600,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (await tryDiscoverRoutes(req, res, url)) return;
+
+    if (route(req, url, "GET", "/api/explore/recap")) {
+      await handleExploreRecap(res);
+      return;
+    }
+    if (route(req, url, "GET", "/api/explore/directory")) {
+      await handleExploreDirectory(res);
+      return;
+    }
 
     if (route(req, url, "GET", "/api/dossier/company")) {
       const ticker = String(url.searchParams.get("ticker") ?? "").trim();

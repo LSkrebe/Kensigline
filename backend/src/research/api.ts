@@ -17,7 +17,6 @@ import {
   readFeedResponseCache,
   writeFeedResponseCache,
 } from "../shared/feed-response-cache.js";
-import { loadMarketFeedIndexPage, loadInvestigateRollupsByTicker } from "../shared/feed-index.js";
 import { decodeFeedCursor, encodeFeedCursor } from "../shared/ticker-feed-aggregate.js";
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {

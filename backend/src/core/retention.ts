@@ -14,6 +14,11 @@ function envInt(key: string, fallback: number, min: number, max: number): number
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
+async function tableExists(table: string): Promise<boolean> {
+  const row = await db.one<{ ok: boolean }>(`SELECT to_regclass($1) IS NOT NULL AS ok`, [`public.${table}`]);
+  return Boolean(row?.ok);
+}
+
 export function retentionMaxAgeDays(): number {
   return backfillMaxAgeDays();
 }
@@ -53,75 +58,92 @@ export async function runRetentionPurgeOnce(opts?: {
     feed_market_latest: 0,
   };
 
-  // Documents: purge old rows. Keep research+business_drivers a bit longer only if extra > 0.
+  const useFilings = await tableExists("filings");
+  const contentTable = useFilings ? "filings" : "documents";
+  const activityAt = useFilings
+    ? "COALESCE(filed_at, event_at, parsed_at)"
+    : "COALESCE(published_at, event_at, feed_at, parsed_at)";
+
+  // Documents/filings: purge old rows. Keep research+business_drivers a bit longer only if extra > 0 (v1 only).
   for (;;) {
-    const rows = await db.query<{ id: string }>(
-      `
-      DELETE FROM documents
-      WHERE id IN (
-        SELECT id
-        FROM documents
-        WHERE COALESCE(published_at, event_at, feed_at, parsed_at) < now() - ($1 || ' days')::interval
-          AND NOT (
+    const analyseGuard = useFilings
+      ? "TRUE"
+      : `NOT (
             feed_kind = 'research'
             AND $2::int > 0
             AND data ? 'business_drivers'
             AND jsonb_typeof(data->'business_drivers') = 'array'
             AND jsonb_array_length(data->'business_drivers') > 0
             AND COALESCE(published_at, event_at, feed_at, parsed_at) >= now() - ($3 || ' days')::interval
-          )
-        ORDER BY COALESCE(published_at, event_at, feed_at, parsed_at) ASC NULLS FIRST
+          )`;
+    const rows = await db.query<{ id: string }>(
+      `
+      DELETE FROM ${contentTable}
+      WHERE id IN (
+        SELECT id
+        FROM ${contentTable}
+        WHERE ${activityAt} < now() - ($1 || ' days')::interval
+          AND ${analyseGuard}
+        ORDER BY ${activityAt} ASC NULLS FIRST
         LIMIT $4
       )
       RETURNING id
       `,
-      [String(maxAge), analyseExtra, String(analyseAge), batch],
+      useFilings
+        ? [String(maxAge), String(analyseExtra), String(analyseAge), batch]
+        : [String(maxAge), analyseExtra, String(analyseAge), batch],
     );
     out.documents += rows.length;
     if (rows.length < batch) break;
   }
 
-  // Orphan feed index rows (in case FK was missing historically).
-  const ft = await db.query<{ n: string }>(
-    `
-    WITH d AS (
-      DELETE FROM feed_ticker_latest f
-      WHERE NOT EXISTS (SELECT 1 FROM documents d WHERE d.id = f.document_id)
-         OR f.feed_at < now() - ($1 || ' days')::interval
-      RETURNING 1
-    )
-    SELECT count(*)::text AS n FROM d
-    `,
-    [String(maxAge)],
-  );
-  out.feed_ticker_latest = Number(ft[0]?.n ?? 0) || 0;
+  // Legacy feed index tables (v1). Skipped on schema v2 — feed_entries holds latest per issuer.
+  if (await tableExists("feed_ticker_latest")) {
+    const ft = await db.query<{ n: string }>(
+      `
+      WITH d AS (
+        DELETE FROM feed_ticker_latest f
+        WHERE NOT EXISTS (SELECT 1 FROM documents d WHERE d.id = f.document_id)
+           OR f.feed_at < now() - ($1 || ' days')::interval
+        RETURNING 1
+      )
+      SELECT count(*)::text AS n FROM d
+      `,
+      [String(maxAge)],
+    );
+    out.feed_ticker_latest = Number(ft[0]?.n ?? 0) || 0;
+  }
 
-  const fm = await db.query<{ n: string }>(
-    `
-    WITH d AS (
-      DELETE FROM feed_market_latest f
-      WHERE NOT EXISTS (SELECT 1 FROM documents d WHERE d.id = f.document_id)
-         OR f.feed_at < now() - ($1 || ' days')::interval
-      RETURNING 1
-    )
-    SELECT count(*)::text AS n FROM d
-    `,
-    [String(maxAge)],
-  );
-  out.feed_market_latest = Number(fm[0]?.n ?? 0) || 0;
+  if (await tableExists("feed_market_latest")) {
+    const fm = await db.query<{ n: string }>(
+      `
+      WITH d AS (
+        DELETE FROM feed_market_latest f
+        WHERE NOT EXISTS (SELECT 1 FROM documents d WHERE d.id = f.document_id)
+           OR f.feed_at < now() - ($1 || ' days')::interval
+        RETURNING 1
+      )
+      SELECT count(*)::text AS n FROM d
+      `,
+      [String(maxAge)],
+    );
+    out.feed_market_latest = Number(fm[0]?.n ?? 0) || 0;
+  }
 
-  const cs = await db.query<{ n: string }>(
-    `
-    WITH d AS (
-      DELETE FROM feed_cluster_snapshot
-      WHERE updated_at < now() - ($1 || ' days')::interval
-      RETURNING 1
-    )
-    SELECT count(*)::text AS n FROM d
-    `,
-    [String(maxAge)],
-  );
-  out.cluster_snapshots = Number(cs[0]?.n ?? 0) || 0;
+  if (await tableExists("feed_cluster_snapshot")) {
+    const cs = await db.query<{ n: string }>(
+      `
+      WITH d AS (
+        DELETE FROM feed_cluster_snapshot
+        WHERE updated_at < now() - ($1 || ' days')::interval
+        RETURNING 1
+      )
+      SELECT count(*)::text AS n FROM d
+      `,
+      [String(maxAge)],
+    );
+    out.cluster_snapshots = Number(cs[0]?.n ?? 0) || 0;
+  }
 
   // Price bars: keep chart history within the same window (enough for 1Y–2Y charts).
   const bars = await db.query<{ n: string }>(

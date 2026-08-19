@@ -294,6 +294,23 @@ function sortEventsNewestFirst(events) {
   })
 }
 
+/** Build directory views from live API event rows (same shape as mock seeds). */
+export function buildExploreDirectoryFromEvents(companyEvents = [], investorEvents = []) {
+  const companyEventsLabeled = mapCompanyEventRows(companyEvents)
+  const investorEventsLabeled = mapActorEventRows(investorEvents)
+  const sortedCompany = sortEventsNewestFirst(companyEventsLabeled)
+  const sortedInvestor = sortEventsNewestFirst(investorEventsLabeled)
+
+  return {
+    companyEvents: sortedCompany,
+    investorEvents: sortedInvestor,
+    actorEvents: sortedInvestor,
+    companies: aggregateExploreSameDayEvents(sortedCompany, (row) => `${row.ticker}|${row.date}`),
+    investors: aggregateExploreSameDayEvents(sortedInvestor, (row) => `${row.name}|${row.ticker}|${row.date}`),
+    actors: aggregateExploreSameDayEvents(sortedInvestor, (row) => `${row.name}|${row.ticker}|${row.date}`),
+  }
+}
+
 /**
  * Collapse same-day events for one company or actor into one row with +N suffix.
  * @param {Array} events

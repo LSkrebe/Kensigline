@@ -28,6 +28,7 @@ import {
   stubActorRowFromExploreInvestor,
 } from './exploreDirectoryNav.js'
 import { buildExploreDirectoryFullList } from './exploreDirectoryMock.js'
+import { loadExploreDirectoryBundle } from './exploreApi.js'
 import {
   isTerminalAppPath,
   navigateExploreBack,
@@ -11102,7 +11103,23 @@ function KensiglineTerminal() {
     return sortFeedRowsTodayEventsFirst(rows)
   }, [institutionsActorFeedBase, institutionsFeedQuery])
 
-  const exploreInvestorDirectoryRows = useMemo(() => buildExploreDirectoryFullList('investors'), [])
+  const [exploreInvestorDirectoryRows, setExploreInvestorDirectoryRows] = useState(() =>
+    buildExploreDirectoryFullList('investors'),
+  )
+
+  useEffect(() => {
+    if (!backendUp) return undefined
+    let cancelled = false
+    ;(async () => {
+      const bundle = await loadExploreDirectoryBundle({ preferLive: true })
+      if (!cancelled && bundle?.fullInvestors?.length) {
+        setExploreInvestorDirectoryRows(bundle.fullInvestors)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [backendUp])
 
   const exploreActorFeeds = useMemo(
     () => ({
