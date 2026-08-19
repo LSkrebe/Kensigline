@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { EXPLORE_DIRECTORY_BLOCK } from './exploreDirectoryMock.js'
 import { ExploreDirectoryListCompanyRow, ExploreDirectoryListInvestorRow } from './ExploreDirectoryRows.jsx'
+import { filterExploreDirectoryListRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
+import { useExploreScrollList } from './useExploreScrollList.js'
 import './DeepReport.css'
 import './ExplorePage.css'
 
@@ -88,25 +90,24 @@ export function ExploreDirectoryListPage({
   const pageRef = useRef(null)
   const dockRef = useRef(null)
   const spacerRef = useRef(null)
-  const sentinelRef = useRef(null)
   const compact = useExploreDirCompactLayout()
   const pageSize = compact ? EXPLORE_DIR_COMPACT_STEP : EXPLORE_DIRECTORY_BLOCK
-  const [visibleCount, setVisibleCount] = useState(pageSize)
+  const [searchQuery, setSearchQuery] = useState('')
+  const normalizedQuery = normalizeExploreSearchQuery(searchQuery)
 
-  const visibleRows = useMemo(() => rows.slice(0, visibleCount), [rows, visibleCount])
-  const hasMore = visibleCount < rows.length
-  const remaining = Math.max(0, rows.length - visibleCount)
-
-  const loadMore = useCallback(
-    (step = pageSize) => {
-      setVisibleCount((n) => Math.min(rows.length, n + step))
-    },
-    [pageSize, rows.length],
+  const filteredRows = useMemo(
+    () => filterExploreDirectoryListRows(rows, searchQuery, kind),
+    [rows, searchQuery, kind],
   )
 
-  useEffect(() => {
-    setVisibleCount(pageSize)
-  }, [kind, rows, pageSize])
+  const { visibleRows, hasMore, remaining, loadMore, sentinelRef } = useExploreScrollList({
+    rows: filteredRows,
+    pageSize,
+    compact,
+    scrollRootRef: pageRef,
+    loadStep: compact ? EXPLORE_DIR_COMPACT_STEP : EXPLORE_DIRECTORY_BLOCK,
+    resetKey: `${kind}:${normalizedQuery}`,
+  })
 
   useEffect(() => {
     const page = pageRef.current
@@ -144,23 +145,7 @@ export function ExploreDirectoryListPage({
     }
   }, [kind])
 
-  // Wide window: infinite scroll. Compact ≤960px: click +10 (dossier-style).
-  useEffect(() => {
-    if (compact) return undefined
-    const root = pageRef.current
-    const sentinel = sentinelRef.current
-    if (!root || !sentinel || !hasMore) return undefined
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) loadMore(EXPLORE_DIRECTORY_BLOCK)
-      },
-      { root, rootMargin: '160px 0px', threshold: 0 },
-    )
-
-    io.observe(sentinel)
-    return () => io.disconnect()
-  }, [compact, hasMore, loadMore, visibleCount])
+  const searching = normalizedQuery.length > 0
 
   return (
     <div className="exploreDirShell" ref={pageRef}>
@@ -185,6 +170,8 @@ export function ExploreDirectoryListPage({
                 onCloseClick={onCloseClick}
                 searchPlaceholder={copy.searchPlaceholder}
                 searchPlaceholderMobile={copy.searchPlaceholder}
+                searchValue={searchQuery}
+                onSearchChange={setSearchQuery}
               />
             </div>
             <div className="drpt-expanded">
@@ -206,18 +193,25 @@ export function ExploreDirectoryListPage({
         <div ref={spacerRef} className="drpt-collapseSpacer" aria-hidden="true" />
 
         <div className="exploreDirPaper">
-          <div className={['exploreDirListPanel', compact && hasMore ? 'exploreDirListPanel--truncated' : '']
-            .filter(Boolean)
-            .join(' ')}
+          <div
+            className={['exploreDirListPanel', compact && hasMore ? 'exploreDirListPanel--truncated' : '']
+              .filter(Boolean)
+              .join(' ')}
           >
             <ul className="exploreDirectoryList">
-              {kind === 'investors'
-                ? visibleRows.map((row) => (
+              {visibleRows.length ? (
+                kind === 'investors' ? (
+                  visibleRows.map((row) => (
                     <ExploreDirectoryListInvestorRow key={row.id} row={row} onClick={onInvestorRowClick} />
                   ))
-                : visibleRows.map((row) => (
+                ) : (
+                  visibleRows.map((row) => (
                     <ExploreDirectoryListCompanyRow key={row.id} row={row} onClick={onCompanyRowClick} />
-                  ))}
+                  ))
+                )
+              ) : (
+                <li className="exploreDirectoryEmpty mono">{searching ? 'No matches' : 'No rows'}</li>
+              )}
             </ul>
             {compact && hasMore ? (
               <ExploreDirShowMoreButton

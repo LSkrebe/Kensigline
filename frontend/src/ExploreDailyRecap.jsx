@@ -220,6 +220,8 @@ export function ExploreDailyRecap({
   onBrandClick = null,
   onRequestCollapse,
   onOpenEvent = null,
+  searchValue = '',
+  onSearchChange = null,
 }) {
   const trackRef = useRef(null)
   const jumpingRef = useRef(false)
@@ -366,6 +368,8 @@ export function ExploreDailyRecap({
             showSearch
             searchPlaceholder="Search company, investor"
             searchPlaceholderMobile="Search"
+            searchValue={searchValue}
+            onSearchChange={onSearchChange}
           />
         </div>
 

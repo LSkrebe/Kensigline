@@ -256,6 +256,24 @@
   border-top: none;
 }
 
+.exploreHomeListPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.exploreDirectoryEmpty {
+  padding: 18px 0 6px;
+  color: var(--explore-muted, rgba(255, 255, 255, 0.42));
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  list-style: none;
+}
+
+.exploreHomeShowMore {
+  margin-top: 4px;
+}
+
 .exploreDirectoryRow--investor.exploreDirectoryRow--list .exploreDirectoryRowBtn,
 .exploreDirectoryRow--investor.exploreDirectoryRow--list:not(:has(.exploreDirectoryRowBtn)),
 .exploreDirectoryRow--actor.exploreDirectoryRow--list .exploreDirectoryRowBtn,
@@ -309,19 +327,9 @@
   pointer-events: none;
 }
 
-.exploreDirShowMore {
-  display: none;
-}
-
 @media (max-width: 960px) {
   .exploreDirListPanel--truncated {
     padding-bottom: 28px;
-  }
-
-  .exploreDirShowMore {
-    display: flex;
-    width: 100%;
-    margin-top: 8px;
   }
 
   .exploreDirShell {

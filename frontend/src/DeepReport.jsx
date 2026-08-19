@@ -241,8 +241,7 @@ const TRACKED_INVESTOR_SOURCE = {
 }
 
 function DeepDocTxnBadge({ code, tone = 'neutral' }) {
-  const compact = useDeepCompactLayout()
-  const label = compact ? deepTxnCodeShort(code) : deepTxnCodeWord(code)
+  const label = deepTxnCodeWord(code)
   if (!label) {
     return <span className="drpt-docTxn drpt-docTxn--empty">—</span>
   }
@@ -288,9 +287,11 @@ function DeepFlowRow({
       <span className="drpt-docMain">
         <span className="drpt-docKind">{title}</span>
       </span>
-      {hideTxn ? null : <DeepDocTxnBadge code={txnCode} tone={txnTone} />}
-      <span className="drpt-docAmt">{amount ?? '—'}</span>
-      <time className="drpt-docDate">{date ?? '—'}</time>
+      <div className={['drpt-docTrail', hideTxn ? 'drpt-docTrail--noTxn' : ''].filter(Boolean).join(' ')}>
+        {hideTxn ? null : <DeepDocTxnBadge code={txnCode} tone={txnTone} />}
+        <span className="drpt-docAmt">{amount ?? '—'}</span>
+        <time className="drpt-docDate">{date ?? '—'}</time>
+      </div>
     </Tag>
   )
 }
@@ -325,7 +326,7 @@ function DeepShowMoreButton({ remaining, onClick }) {
   return (
     <button
       type="button"
-      className="drpt-showMore"
+      className="drpt-showMore exploreDirShowMore"
       onClick={onClick}
       aria-label={`Show ${step} more`}
     >

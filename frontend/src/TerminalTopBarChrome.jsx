@@ -144,6 +144,8 @@ export function TerminalTopBarActions({
   collapsibleSearch = false,
   showClose = false,
   onCloseClick = null,
+  searchValue = '',
+  onSearchChange = null,
 }) {
   const now = useTerminalTopBarClock(clockAt)
   const compactSearch = useCompactSearchLayout()
@@ -169,11 +171,14 @@ export function TerminalTopBarActions({
     const input = searchInputRef.current
     if (input) input.focus()
     const onKey = (e) => {
-      if (e.key === 'Escape') setSearchOpen(false)
+      if (e.key === 'Escape') {
+        onSearchChange?.('')
+        setSearchOpen(false)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [searchOpen])
+  }, [searchOpen, onSearchChange])
 
   const showSearchField = showSearch && (!useCollapsibleSearch || searchOpen)
   const showSearchToggle = showSearch && useCollapsibleSearch && !searchOpen
@@ -199,6 +204,8 @@ export function TerminalTopBarActions({
             aria-label={activeSearchPlaceholder}
             spellCheck={false}
             autoComplete="off"
+            value={searchValue}
+            onChange={(e) => onSearchChange?.(e.target.value)}
           />
           {useCollapsibleSearch && searchOpen ? (
             <button
@@ -367,6 +374,8 @@ export function TerminalTopBarChrome({
   collapsibleSearch = false,
   showClose = false,
   onCloseClick = null,
+  searchValue = '',
+  onSearchChange = null,
 }) {
   return (
     <div className={['terminalTopBarChrome', className].filter(Boolean).join(' ')}>
@@ -391,6 +400,8 @@ export function TerminalTopBarChrome({
         collapsibleSearch={collapsibleSearch}
         showClose={showClose}
         onCloseClick={onCloseClick}
+        searchValue={searchValue}
+        onSearchChange={onSearchChange}
       />
     </div>
   )

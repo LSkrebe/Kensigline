@@ -576,6 +576,10 @@
   display: none;
 }
 
+.exploreDirShowMore {
+  display: none;
+}
+
 .drpt-expandPanel--truncated .drpt-docItem:last-child .drpt-docRow {
   border-bottom: none;
 }
@@ -1348,20 +1352,15 @@
   align-items: center;
   gap: 10px;
   margin: 0;
-  padding: 8px 14px 4px;
+  min-height: 36px;
+  padding: 8px 14px;
+  box-sizing: border-box;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   font-family: var(--drpt-mono);
   font-size: 9px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--drpt-dim);
-}
-
-.drpt-docList > .drpt-docYear:first-child {
-  padding-top: 8px;
-}
-
-.drpt-docList > .drpt-docYear:not(:first-child) {
-  padding-top: 10px;
 }
 
 .drpt-docYear span {
@@ -1425,16 +1424,26 @@ button.drpt-docRow {
 }
 
 .drpt-docRow--flow {
-  /* Fixed trail cols so txn/money/date line up across rows */
-  grid-template-columns: 52px minmax(0, 1fr) 7.25rem 8.5rem 4.5rem;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
   align-items: center;
+}
+
+.drpt-docTrail {
+  display: grid;
+  grid-template-columns: 7.25rem 8.5rem 4.5rem;
+  gap: 0 12px;
+  align-items: center;
+  justify-self: end;
+  min-width: 0;
+}
+
+.drpt-docTrail--noTxn {
+  grid-template-columns: 8.5rem 4.5rem;
 }
 
 .drpt-docRow--flow .drpt-docCode,
 .drpt-docRow--flow .drpt-docMain,
-.drpt-docRow--flow .drpt-docTxn,
-.drpt-docRow--flow .drpt-docAmt,
-.drpt-docRow--flow .drpt-docDate {
+.drpt-docRow--flow .drpt-docTrail {
   align-self: center;
   line-height: 1.25;
 }
@@ -1451,17 +1460,22 @@ button.drpt-docRow {
 }
 
 .drpt-docRow--flowTight {
-  grid-template-columns: 36px minmax(0, 1fr) 4.5rem 7rem 3.25rem;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   gap: 8px 6px;
   align-items: center;
 }
 
-.drpt-docRow--flowTight.drpt-docRow--flowNoTxn {
-  grid-template-columns: 36px minmax(0, 1fr) 7rem 3.25rem;
+.drpt-docRow--flowTight .drpt-docTrail {
+  grid-template-columns: 7rem 3.25rem;
+  gap: 0 6px;
+}
+
+.drpt-docRow--flowTight .drpt-docTrail:not(.drpt-docTrail--noTxn) {
+  grid-template-columns: 4.5rem 7rem 3.25rem;
 }
 
 .drpt-docRow--flow.drpt-docRow--flowNoTxn {
-  grid-template-columns: 52px minmax(0, 1fr) 8.5rem 4.5rem;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
 }
 
 .drpt-docRow--flowTight .drpt-docTxn,
@@ -1569,8 +1583,14 @@ button.drpt-docRow {
 }
 
 .drpt-chronoSep {
-  margin: 14px 0 10px;
-  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  min-height: 36px;
+  padding: 8px 14px;
+  box-sizing: border-box;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   font-family: var(--drpt-mono);
   font-size: 9px;
   letter-spacing: 0.1em;
@@ -1847,30 +1867,58 @@ button.drpt-docRow {
     overflow-y: visible;
   }
 
-  .drpt-showMore {
+  .drpt-expandPanel--truncated {
+    padding-bottom: 0;
+  }
+
+  .exploreDirListPanel--truncated,
+  .exploreHomeListPanel--truncated {
+    padding-bottom: 28px;
+  }
+
+  .drpt-showMore,
+  .exploreDirShowMore {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 2px;
     width: 100%;
-    margin: 0;
-    padding: 11px 14px;
+    margin: 4px 0 0;
+    padding: 0;
     border: none;
-    border-top: 1px solid var(--drpt-border);
     background: transparent;
-    color: var(--drpt-dim);
+    color: rgba(255, 255, 255, 0.44);
     cursor: pointer;
     font-family: var(--drpt-mono);
     font-size: 11px;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.04em;
     line-height: 1;
-    transition: background 0.12s, color 0.12s;
+    transition: color 0.12s;
   }
 
-  .drpt-showMore:hover {
-    background: rgba(255, 255, 255, 0.03);
-    color: var(--drpt-muted);
+  /* Dossier lists: load-more is another row, same footprint as drpt-docRow. */
+  .drpt-expandPanel .drpt-showMore {
+    min-height: 36px;
+    margin: 0;
+    padding: 8px 10px;
+    box-sizing: border-box;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .exploreDirListPanel .exploreDirShowMore,
+  .exploreHomeListPanel .exploreDirShowMore {
+    margin-top: 8px;
+  }
+
+  .exploreHomeListPanel .exploreHomeShowMore {
+    margin-top: 4px;
+  }
+
+  .drpt-showMore:hover,
+  .exploreDirShowMore:hover {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.62);
   }
 
   .drpt-showMoreChip {
@@ -1880,7 +1928,7 @@ button.drpt-docRow {
   }
 
   .drpt-showMoreSign {
-    color: var(--drpt-accent);
+    color: rgba(255, 255, 255, 0.78);
     font-size: 12px;
     font-weight: 500;
     line-height: 1;
@@ -1889,14 +1937,23 @@ button.drpt-docRow {
   .drpt-showMoreLabel {
     min-width: 1.5ch;
     text-align: center;
+    color: rgba(255, 255, 255, 0.44);
   }
 
-  .drpt-investorPanel .drpt-showMore {
-    margin: 4px -8px -8px;
-    width: calc(100% + 16px);
+  .drpt-showMore:hover .drpt-showMoreSign {
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  .drpt-showMore:hover .drpt-showMoreLabel {
+    color: rgba(255, 255, 255, 0.62);
   }
 
   /* Align all deep list rows with compact flow spacing + short date column */
+  .drpt-docYear,
+  .drpt-chronoSep {
+    padding-inline: 10px;
+  }
+
   .drpt-docRow {
     column-gap: 8px;
     padding-inline: 10px;
@@ -1919,15 +1976,31 @@ button.drpt-docRow {
     min-width: 0;
   }
 
-  /* 5-col flow rows: fixed trail cols keep txn/money/date aligned */
-  .drpt-docRow--flow {
-    grid-template-columns: 32px minmax(0, 1fr) 2.5rem 7.5rem 3rem;
-    column-gap: 8px;
+  /* Flow rows: fixed trail cols aligned like desktop, scaled for compact width */
+  .drpt-docRow--flow,
+  .drpt-docRow--flowTight {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    column-gap: 10px;
   }
 
-  .drpt-docRow--flow.drpt-docRow--flowNoTxn {
-    grid-template-columns: 32px minmax(0, 1fr) 7.5rem 3rem;
-    column-gap: 8px;
+  .drpt-docTrail {
+    grid-template-columns: 5.75rem 7.5rem 3rem;
+    gap: 0 12px;
+    justify-self: end;
+  }
+
+  .drpt-docTrail--noTxn {
+    grid-template-columns: 7.5rem 3rem;
+  }
+
+  .drpt-docRow--flowTight .drpt-docTrail {
+    grid-template-columns: 7rem 3rem;
+    gap: 0 10px;
+  }
+
+  .drpt-docRow--flowTight .drpt-docTrail:not(.drpt-docTrail--noTxn) {
+    grid-template-columns: 4.75rem 7rem 3rem;
+    gap: 0 10px;
   }
 
   .drpt-docRow--flow .drpt-docCode {
@@ -1941,6 +2014,12 @@ button.drpt-docRow {
   .drpt-docRow--flow .drpt-docAmt,
   .drpt-docRow--flow .drpt-docDate {
     font-size: 9px;
+  }
+
+  .drpt-docRow--flow .drpt-docAmt {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .drpt-row--market {

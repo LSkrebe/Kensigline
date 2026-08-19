@@ -1,7 +1,7 @@
 import { MOCK_SEMIS_BY_TICKER } from './mockWeekData.js'
 import { exploreActorDocCode, mapActorEventRows, mapCompanyEventRows } from './exploreEventLabels.js'
 
-const HOME_DIRECTORY_PREVIEW = 12
+export const HOME_DIRECTORY_PREVIEW = 12
 export const EXPLORE_DIRECTORY_BLOCK = 20
 
 function companyName(ticker) {
@@ -163,6 +163,13 @@ function buildExploreCompanyEventSeed() {
   const d5 = isoDaysAgo(5)
   const d8 = isoDaysAgo(8)
   const d12 = isoDaysAgo(12)
+  const d15 = isoDaysAgo(15)
+  const d18 = isoDaysAgo(18)
+  const d21 = isoDaysAgo(21)
+  const d25 = isoDaysAgo(25)
+  const d30 = isoDaysAgo(30)
+  const d35 = isoDaysAgo(35)
+  const d40 = isoDaysAgo(40)
 
   return mapCompanyEventRows(
     [
@@ -196,6 +203,20 @@ function buildExploreCompanyEventSeed() {
       { id: 'c-qcom-2', date: d8, ticker: 'QCOM', docType: 'transcript', trail: '+0.7%', up: true },
       { id: 'c-smci-2', date: d12, ticker: 'SMCI', docType: '10k', trail: '+3.8%', up: true },
       { id: 'c-asml-2', date: d12, ticker: 'ASML', docType: 'proxy', trail: '+1.1%', up: true },
+      { id: 'c-crm-1', date: d15, ticker: 'CRM', docType: 'earnings', trail: '+1.2%', up: true },
+      { id: 'c-orcl-1', date: d15, ticker: 'ORCL', docType: '8k', trail: '+0.4%', up: true },
+      { id: 'c-adbe-1', date: d18, ticker: 'ADBE', docType: 'transcript', trail: '-0.8%', up: false },
+      { id: 'c-now-1', date: d18, ticker: 'NOW', docType: '8k_earnings', trail: '+2.0%', up: true },
+      { id: 'c-panw-1', date: d21, ticker: 'PANW', docType: 'earnings', trail: '+3.1%', up: true },
+      { id: 'c-crwd-1', date: d21, ticker: 'CRWD', docType: '8k', trail: '+1.7%', up: true },
+      { id: 'c-snps-1', date: d25, ticker: 'SNPS', docType: '10q', trail: '+0.9%', up: true },
+      { id: 'c-cdns-1', date: d25, ticker: 'CDNS', docType: '8k', trail: '+1.3%', up: true },
+      { id: 'c-mchp-1', date: d30, ticker: 'MCHP', docType: 'guidance', trail: '-1.0%', up: false },
+      { id: 'c-txn-1', date: d30, ticker: 'TXN', docType: 'earnings', trail: '+0.5%', up: true },
+      { id: 'c-adi-1', date: d35, ticker: 'ADI', docType: 'transcript', trail: '+1.1%', up: true },
+      { id: 'c-nxpi-1', date: d35, ticker: 'NXPI', docType: '8k', trail: '-0.6%', up: false },
+      { id: 'c-mpwr-1', date: d40, ticker: 'MPWR', docType: '8k_earnings', trail: '+2.8%', up: true },
+      { id: 'c-stx-1', date: d40, ticker: 'STX', docType: '10q', trail: '+0.7%', up: true },
     ].map((row) => ({
       ...row,
       name: companyName(row.ticker),
@@ -212,6 +233,13 @@ function buildExploreInvestorEventSeed() {
   const d6 = isoDaysAgo(6)
   const d10 = isoDaysAgo(10)
   const d14 = isoDaysAgo(14)
+  const d15 = isoDaysAgo(15)
+  const d18 = isoDaysAgo(18)
+  const d21 = isoDaysAgo(21)
+  const d25 = isoDaysAgo(25)
+  const d30 = isoDaysAgo(30)
+  const d35 = isoDaysAgo(35)
+  const d40 = isoDaysAgo(40)
 
   return mapActorEventRows([
     { id: 'a-jh-1', date: today, name: 'Jensen Huang', ticker: 'NVDA', docType: 'form4_purchase', trail: '+$5.2M', up: true },
@@ -241,6 +269,20 @@ function buildExploreInvestorEventSeed() {
     { id: 'a-mm-1', date: d10, name: 'Michael McCaul', ticker: 'AVGO', docType: 'ptr_purchase', trail: '+$350K', up: true },
     { id: 'a-jg-2', date: d14, name: 'Josh Gottheimer', ticker: 'NVDA', docType: 'ptr_purchase', trail: '+$520K', up: true },
     { id: 'a-mb-2', date: d14, name: 'Mary Barra', ticker: 'GM', docType: 'form4_purchase', trail: '+$640K', up: true },
+    { id: 'a-po-1', date: d15, name: 'Patricia Owens', ticker: 'CRM', docType: 'form4_purchase', trail: '+$310K', up: true },
+    { id: 'a-sa-1', date: d15, name: 'Sarah Adams', ticker: 'ORCL', docType: 'ptr_purchase', trail: '+$190K', up: true },
+    { id: 'a-fm-1', date: d18, name: 'Fidelity Management', ticker: 'ADBE', docType: '13f_add', trail: '+$88M', up: true },
+    { id: 'a-cp-1', date: d18, name: 'Catherine Porter', ticker: 'NOW', docType: 'ptr', trail: '+$240K', up: true },
+    { id: 'a-jp-1', date: d21, name: 'James Porter', ticker: 'PANW', docType: 'form4', trail: '+$760K', up: true },
+    { id: 'a-kw-1', date: d21, name: 'Ken West', ticker: 'CRWD', docType: 'ptr_purchase', trail: '+$130K', up: true },
+    { id: 'a-ge-1', date: d25, name: 'Geode Capital', ticker: 'SNPS', docType: '13f_add', trail: '+$54M', up: true },
+    { id: 'a-hl-1', date: d25, name: 'Helena Liu', ticker: 'CDNS', docType: 'form4_purchase', trail: '+$420K', up: true },
+    { id: 'a-rd-1', date: d30, name: 'Renaissance Technologies', ticker: 'MCHP', docType: '13f_trim', trail: '-$72M', up: false },
+    { id: 'a-al-1', date: d30, name: 'Alex Lane', ticker: 'TXN', docType: 'ptr_sale', trail: '-$95K', up: false },
+    { id: 'a-nc-1', date: d35, name: 'Northern Trust', ticker: 'ADI', docType: '13f_add', trail: '+$41M', up: true },
+    { id: 'a-dw-1', date: d35, name: 'Debbie Walsh', ticker: 'NXPI', docType: 'form4', trail: '+$280K', up: true },
+    { id: 'a-cs-1', date: d40, name: 'Capital Group', ticker: 'MPWR', docType: '13f_add', trail: '+$63M', up: true },
+    { id: 'a-bn-1', date: d40, name: 'Brian Nguyen', ticker: 'STX', docType: 'ptr_purchase', trail: '+$110K', up: true },
   ])
 }
 
@@ -306,6 +348,16 @@ export function buildExploreDirectoryMock() {
     investors: aggregateExploreSameDayEvents(investorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`),
     /** @deprecated Use investors */
     actors: aggregateExploreSameDayEvents(investorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`),
+  }
+}
+
+/** Newest aggregated rows for Explore home sections (all dates). */
+export function buildExploreDirectoryHomeLatest(directory = buildExploreDirectoryMock()) {
+  const investorEvents = directory.investorEvents ?? directory.actorEvents ?? []
+
+  return {
+    companies: aggregateExploreSameDayEvents(directory.companyEvents, (row) => `${row.ticker}|${row.date}`),
+    investors: aggregateExploreSameDayEvents(investorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`),
   }
 }
 
