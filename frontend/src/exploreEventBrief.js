@@ -162,11 +162,14 @@ export function resolveExploreEventBrief(eventId, ctx = {}) {
   const id = String(eventId ?? '').trim()
   if (!id) return null
 
-  const slides = ctx.slides ?? buildExploreDailyRecap()?.slides ?? []
+  const useMock = ctx.mock === true
+  const slides = useMock
+    ? ctx.slides ?? buildExploreDailyRecap()?.slides ?? []
+    : ctx.slides ?? []
   const slide = slides.find((s) => s.id === id) ?? null
   if (!slide) return null
 
-  const day = ctx.day ?? buildExploreRecapMockDay()
+  const day = useMock ? ctx.day ?? buildExploreRecapMockDay() : ctx.day ?? { filings: [], earningsSoon: [] }
 
   if (slide.typeId === 'earnings_watch') {
     return resolveEarningsWatchBrief(slide, day)

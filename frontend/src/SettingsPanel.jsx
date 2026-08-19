@@ -4,6 +4,7 @@ import { useActorAlertWatchlist } from './alertsActorWatchlist.js'
 import { useAlertWatchlist, WATCHLIST_MAX_DEFAULT } from './alertsWatchlist.js'
 import { useDigestPreference } from './alertsPreferences.js'
 import { useAuth } from './AuthContext.jsx'
+import { isDataModePending, isLiveDataMode } from './dataMode.js'
 import { AuthSignIn } from './AuthSignIn.jsx'
 import { actorModeLabel } from './investigateActorKey.js'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
@@ -385,15 +386,24 @@ export function SettingsPanel({
             busy={digestBusy}
             onChange={(next) => void setDigestEnabled(next)}
           />
-          <SettingsField label="Session" valueTone={backendUp ? 'good' : 'neutral'}>
+          <SettingsField
+            label="Session"
+            valueTone={isLiveDataMode(backendUp) ? 'good' : 'neutral'}
+          >
             <span className="stgSessionPill">
               <span
                 className={
-                  backendUp ? 'stgStatusDot stgStatusDot--good' : 'stgStatusDot stgStatusDot--offline'
+                  isLiveDataMode(backendUp)
+                    ? 'stgStatusDot stgStatusDot--good'
+                    : 'stgStatusDot stgStatusDot--offline'
                 }
                 aria-hidden="true"
               />
-              {backendUp ? 'Live' : 'Offline'}
+              {isLiveDataMode(backendUp)
+                ? 'Live'
+                : isDataModePending(backendUp)
+                  ? 'Connecting…'
+                  : 'Offline'}
             </span>
           </SettingsField>
         </SettingsSection>

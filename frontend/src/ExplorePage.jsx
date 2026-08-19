@@ -6,6 +6,7 @@ import {
   HOME_DIRECTORY_PREVIEW,
 } from './exploreDirectoryMock.js'
 import { loadExploreDailyRecap, loadExploreDirectoryBundle } from './exploreApi.js'
+import { EMPTY_EXPLORE_RECAP, isMockDataMode } from './dataMode.js'
 import { ExploreDirectoryCompanyRow, ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
@@ -132,7 +133,7 @@ function ExploreDirectorySection({
 }
 
 export function ExplorePage({
-  backendUp = true,
+  backendUp = null,
   macroActive = false,
   onMacroClick,
   settingsActive = false,
@@ -142,23 +143,28 @@ export function ExplorePage({
   onInvestorRowClick = null,
   onEventClick = null,
 }) {
-  const [recap, setRecap] = useState(() => buildExploreDailyRecap())
-  const [homePreview, setHomePreview] = useState(() => buildExploreDirectoryHomePreview())
-  const [homeSearchPool, setHomeSearchPool] = useState(() => buildExploreDirectoryHomeLatest())
+  const [recap, setRecap] = useState(() =>
+    isMockDataMode(backendUp) ? buildExploreDailyRecap() : EMPTY_EXPLORE_RECAP,
+  )
+  const [homePreview, setHomePreview] = useState(() =>
+    isMockDataMode(backendUp) ? buildExploreDirectoryHomePreview() : { companies: [], investors: [] },
+  )
+  const [homeSearchPool, setHomeSearchPool] = useState(() =>
+    isMockDataMode(backendUp) ? buildExploreDirectoryHomeLatest() : { companies: [], investors: [] },
+  )
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const preferLive = backendUp !== false
       const [recapOut, dirOut] = await Promise.all([
-        loadExploreDailyRecap({ preferLive }),
-        loadExploreDirectoryBundle({ preferLive }),
+        loadExploreDailyRecap(backendUp),
+        loadExploreDirectoryBundle(backendUp),
       ])
       if (cancelled) return
-      if (recapOut?.slides) setRecap(recapOut)
+      if (recapOut) setRecap(recapOut)
       if (dirOut) {
-        setHomePreview(dirOut.homePreview)
-        setHomeSearchPool(dirOut.homeLatest)
+        setHomePreview(dirOut.homePreview ?? { companies: [], investors: [] })
+        setHomeSearchPool(dirOut.homeLatest ?? { companies: [], investors: [] })
       }
     })()
     return () => {

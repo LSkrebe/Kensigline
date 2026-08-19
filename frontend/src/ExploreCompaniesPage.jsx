@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import { isMockDataMode } from './dataMode.js'
 import { loadExploreDirectoryBundle } from './exploreApi.js'
 import { buildExploreDirectoryFullList } from './exploreDirectoryMock.js'
 import { ExploreDirectoryListPage } from './ExploreDirectoryListPage.jsx'
 
 export function ExploreCompaniesPage({
-  backendUp = true,
+  backendUp = null,
   macroActive = false,
   onMacroClick,
   settingsActive = false,
@@ -13,14 +14,16 @@ export function ExploreCompaniesPage({
   onCloseClick = null,
   onCompanyRowClick = null,
 }) {
-  const [rows, setRows] = useState(() => buildExploreDirectoryFullList('companies'))
+  const [rows, setRows] = useState(() =>
+    isMockDataMode(backendUp) ? buildExploreDirectoryFullList('companies') : [],
+  )
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const bundle = await loadExploreDirectoryBundle({ preferLive: backendUp !== false })
+      const bundle = await loadExploreDirectoryBundle(backendUp)
       if (cancelled) return
-      if (bundle?.fullCompanies?.length) setRows(bundle.fullCompanies)
+      setRows(bundle.fullCompanies ?? [])
     })()
     return () => {
       cancelled = true

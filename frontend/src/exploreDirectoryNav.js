@@ -131,6 +131,7 @@ export function resolveExploreInvestorDossier({
   directoryRows = [],
   focus = null,
   cached = null,
+  liveOnly = false,
 }) {
   const slug = String(investorSlug ?? '').trim().toLowerCase()
   if (!slug) return null
@@ -214,6 +215,8 @@ export function resolveExploreInvestorDossier({
       fromFeed: false,
     }
   }
+
+  if (liveOnly) return null
 
   const name = exploreInvestorNameFromSlug(slug)
   return {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { buildExploreDailyRecap } from './exploreRecapMock.js'
+import { EMPTY_EXPLORE_RECAP } from './dataMode.js'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 
@@ -211,8 +211,8 @@ function jumpToPhysicalSlide(el, physicalIdx) {
 }
 
 export function ExploreDailyRecap({
-  recap = buildExploreDailyRecap(),
-  backendUp = true,
+  recap = EMPTY_EXPLORE_RECAP,
+  backendUp = null,
   macroActive = false,
   onMacroClick,
   settingsActive = false,

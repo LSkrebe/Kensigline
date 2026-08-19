@@ -208,7 +208,7 @@ function EventCompanyRow({ company, onCompanyClick }) {
 
 export function ExploreEventPage({
   eventId = null,
-  backendUp = true,
+  backendUp = null,
   macroActive = false,
   onMacroClick,
   settingsActive = false,
@@ -218,12 +218,12 @@ export function ExploreEventPage({
   onCompanyClick = null,
   onInvestorClick = null,
 }) {
-  const [briefCtx, setBriefCtx] = useState({ day: null, slides: null })
+  const [briefCtx, setBriefCtx] = useState({ day: null, slides: [], mock: false, pending: true })
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const ctx = await loadExploreEventBriefContext({ preferLive: backendUp !== false })
+      const ctx = await loadExploreEventBriefContext(backendUp)
       if (!cancelled) setBriefCtx(ctx)
     })()
     return () => {

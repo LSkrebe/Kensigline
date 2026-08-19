@@ -27,8 +27,8 @@ import {
   resolveExploreInvestorDossier,
   stubActorRowFromExploreInvestor,
 } from './exploreDirectoryNav.js'
-import { buildExploreDirectoryFullList } from './exploreDirectoryMock.js'
 import { loadExploreDirectoryBundle } from './exploreApi.js'
+import { isLiveDataMode, isMockDataMode } from './dataMode.js'
 import {
   isTerminalAppPath,
   navigateExploreBack,
@@ -4544,7 +4544,7 @@ function mergeCompanyPayload(prev, payload) {
 function resolveCompanySnapshot({ ticker, company, backendUp, price = null }) {
   const t = String(ticker ?? '').trim().toUpperCase() || '—'
 
-  if (backendUp) {
+  if (isLiveDataMode(backendUp)) {
     const c = company && typeof company === 'object' ? company : null
     let resolvedPrice = Number(price)
     if (!(Number.isFinite(resolvedPrice) && resolvedPrice > 0)) {
@@ -4558,6 +4558,17 @@ function resolveCompanySnapshot({ ticker, company, backendUp, price = null }) {
       domicile: contextCountryLabel(c?.country) ?? '—',
       mcap: formatCompanySnapshotMcap(c?.mcap ?? ''),
       earnings: c?.earnings_date ? contextEarningsFromDate(c.earnings_date) : null,
+    }
+  }
+
+  if (!isMockDataMode(backendUp)) {
+    return {
+      ticker: t,
+      price: Number.isFinite(Number(price)) && Number(price) > 0 ? Number(price) : null,
+      sector: '—',
+      domicile: '—',
+      mcap: '—',
+      earnings: null,
     }
   }
 
@@ -7001,12 +7012,13 @@ function buildPaperTimelineItems({ documents = [], insiders = [], politicians = 
 
 function resolveResearchPresentation({ ticker, titleText, backendUp, livePresentation, memo }) {
   const u = String(ticker ?? '').toUpperCase()
-  if (backendUp) {
+  if (isLiveDataMode(backendUp)) {
     if (!livePresentation || typeof livePresentation !== 'object') return null
     // Prefer live explore payload whenever it exists (docs may arrive without a title).
     if (livePresentation.title || Array.isArray(livePresentation.documents)) return livePresentation
     return null
   }
+  if (!isMockDataMode(backendUp)) return null
   if (u === 'ASML') return mockAsmlPresentation()
   return mockOfflinePresentation(memo, titleText, ticker)
 }
@@ -7567,8 +7579,9 @@ function ResearchPaperPanel({
   const t = String(ticker ?? '').toUpperCase()
   const dataTick = String(dataTicker ?? '').trim().toUpperCase()
   const presentationReady =
-    !backendUp ||
-    (Boolean(dataTick) &&
+    isMockDataMode(backendUp) ||
+    (isLiveDataMode(backendUp) &&
+      Boolean(dataTick) &&
       dataTick === t &&
       (Boolean(presentation?.title) || Boolean(fullName && fullName.toUpperCase() !== '—')))
   const safePresentation = presentationReady ? presentation : null
@@ -7596,13 +7609,13 @@ function ResearchPaperPanel({
         className={[
           'researchPaperBody',
         embedded ? 'researchPaperBody--embedded' : 'scrollThin',
-          !presentationReady && backendUp ? 'researchPaperBody--pending' : '',
+          !presentationReady && isLiveDataMode(backendUp) ? 'researchPaperBody--pending' : '',
         ]
           .filter(Boolean)
           .join(' ')}
       >
         <div className="researchPaperDoc" key={t}>
-          {!presentationReady && backendUp ? (
+          {!presentationReady && isLiveDataMode(backendUp) ? (
             <div className="researchPaperLoading mono dim" role="status">
               Loading company research…
             </div>
@@ -7616,7 +7629,7 @@ function ResearchPaperPanel({
               filings13f={flowFilings13f}
               paperSourceFilters={paperSourceFilters}
             />
-          ) : backendUp ? (
+          ) : isLiveDataMode(backendUp) ? (
             <div className="researchThesisBody researchThesisBody--live">
               <p className="researchThesisP researchThesisP--live mono dim">
                 Research explore data is not available yet for this view (API error or empty response). Check that the
@@ -8611,9 +8624,9 @@ function HistoricalOutcomesPanel({ mode, backendUp, personDisplay = null, panelC
     }
   }, [mode])
 
-  const ins = backendUp ? live : MOCK_HISTORICAL_INSIDER
+  const ins = isMockDataMode(backendUp) ? MOCK_HISTORICAL_INSIDER : live
 
-  const outcomesLoading = backendUp && !outcomesLoaded
+  const outcomesLoading = isLiveDataMode(backendUp) && !outcomesLoaded
 
   return (
     <section
@@ -9641,7 +9654,7 @@ function KensiglineTerminal() {
   )
 
   const [researchCompanyContextLoading, setResearchCompanyContextLoading] = useState(false)
-  const [backendUp, setBackendUp] = useState(false)
+  const [backendUp, setBackendUp] = useState(null)
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
   const [insiderFeedLive, setInsiderFeedLive] = useState(null)
@@ -9684,11 +9697,12 @@ function KensiglineTerminal() {
   const institutionsFeedCursorRef = useRef(null)
   const [institutionsClusterLive, setInstitutionsClusterLive] = useState(null)
   const researchDataset = useMemo(
-    () => (backendUp ? null : mockDatasetForTicker(researchTicker)),
+    () => (isMockDataMode(backendUp) ? mockDatasetForTicker(researchTicker) : null),
     [backendUp, researchTicker],
   )
   const researchFeedItems = useMemo(() => {
-    if (!backendUp) return offlineResearchFeed()
+    if (isMockDataMode(backendUp)) return offlineResearchFeed()
+    if (!isLiveDataMode(backendUp)) return []
     const liveRows =
       Array.isArray(researchFeedLive) ? researchFeedLive : []
     const injected = Array.isArray(researchFeedInjected) ? researchFeedInjected : []
@@ -9700,8 +9714,7 @@ function KensiglineTerminal() {
       seen.add(ticker)
       merged.push(row)
     }
-    // Backend up but empty DB — keep directories / company list screenshot-ready.
-    if (!merged.length) return researchFeedLive !== null ? offlineResearchFeed() : []
+    if (!merged.length) return []
     return sortFeedRowsByAtDesc(
       merged.map((x) => {
         const ticker = String(x.ticker ?? '').toUpperCase()
@@ -9724,7 +9737,7 @@ function KensiglineTerminal() {
   }, [backendUp, researchFeedLive, researchFeedInjected])
 
   useEffect(() => {
-    if (!backendUp) return
+    if (!isLiveDataMode(backendUp)) return
     if (!Array.isArray(researchFeedLive) || !researchFeedInjected.length) return
     const liveTickers = new Set(researchFeedLive.map((x) => String(x.ticker ?? '').toUpperCase()))
     setResearchFeedInjected((prev) => prev.filter((row) => !liveTickers.has(String(row.ticker ?? '').toUpperCase())))
@@ -9751,7 +9764,7 @@ function KensiglineTerminal() {
   }, [researchTick])
 
   const researchExploreResolved = useMemo(() => {
-    if (!backendUp || !researchTick) return null
+    if (!isLiveDataMode(backendUp) || !researchTick) return null
     if (researchExploreTicker !== researchTick || !researchExploreLive) return null
     // Still hunting — keep sections on Loading (never flash empty).
     if (researchExploreLive._exploreRetrying) return null
@@ -9764,7 +9777,7 @@ function KensiglineTerminal() {
   }, [backendUp, researchTick, researchExploreTicker, researchExploreLive])
 
   const researchCompanyResolved = useMemo(() => {
-    if (!backendUp || !researchTick) return null
+    if (!isLiveDataMode(backendUp) || !researchTick) return null
     if (researchCompanyTicker !== researchTick || !researchCompanyLive) return null
     return researchCompanyLive
   }, [backendUp, researchTick, researchCompanyTicker, researchCompanyLive])
@@ -9776,20 +9789,22 @@ function KensiglineTerminal() {
     }
     const fromFeed = researchFeedItems.find((x) => String(x.ticker ?? '').toUpperCase() === researchTick)?.name
     if (fromFeed && isPlausibleFeedCompanyName(fromFeed, researchTick)) return fromFeed
-    if (backendUp) return researchTick || '—'
+    if (isLiveDataMode(backendUp)) return researchTick || '—'
+    if (!isMockDataMode(backendUp)) return researchTick || '—'
     const companyEnt = researchDataset?.entities?.find((e) => String(e?.type ?? '').toLowerCase() === 'company')
     const mockName = companyEnt?.name ?? researchTick
     return isPlausibleFeedCompanyName(mockName, researchTick) ? formatCompanyDisplayName(mockName) : researchTick
   }, [researchFeedItems, researchDataset?.entities, researchTick, researchExploreResolved?.company_name, backendUp])
 
   const researchPriceSeries = useMemo(() => {
-    if (backendUp) {
+    if (isLiveDataMode(backendUp)) {
       if (researchBarsTicker === researchTick && Array.isArray(researchBarsSeries) && researchBarsSeries.length) {
         return researchBarsSeries
       }
       return []
     }
-    return researchDataset?.price ?? []
+    if (isMockDataMode(backendUp)) return researchDataset?.price ?? []
+    return []
   }, [researchBarsSeries, researchBarsTicker, researchTick, researchDataset?.price, backendUp])
 
   const researchPriceDays = useMemo(() => {
@@ -9800,7 +9815,7 @@ function KensiglineTerminal() {
   }, [backendUp, researchBarsDays, researchBarsTicker, researchTick])
 
   const contextMock = useMemo(() => {
-    if (backendUp) return null
+    if (!isMockDataMode(backendUp)) return null
     return contextMockForTicker(researchTicker, researchPriceSeries)
   }, [backendUp, researchTicker, researchPriceSeries])
 
@@ -9824,13 +9839,14 @@ function KensiglineTerminal() {
   )
 
   const contextFundamentals = useMemo(() => {
-    if (backendUp) {
+    if (isLiveDataMode(backendUp)) {
       const fromCompany = researchCompanyResolved?.fundamentals
         ? mapFundamentalsFromApi(researchCompanyResolved.fundamentals)
         : null
       if (fromCompany) return fromCompany
       return mapFundamentalsFromAnalyseModel(analyseLivePayload?.model)
     }
+    if (!isMockDataMode(backendUp)) return null
     return contextMock?.fundamentals ?? null
   }, [
     backendUp,
@@ -9841,8 +9857,9 @@ function KensiglineTerminal() {
 
   const analyseQuarterlyRevenue = useMemo(
     () => {
-      if (backendUp && analyseLivePayload?.revenueOverlay) return analyseLivePayload.revenueOverlay
-      if (backendUp) return null
+      if (isLiveDataMode(backendUp) && analyseLivePayload?.revenueOverlay) return analyseLivePayload.revenueOverlay
+      if (isLiveDataMode(backendUp)) return null
+      if (!isMockDataMode(backendUp)) return null
       return analyseMockQuarterlyRevenueOverlay(researchTicker)
     },
     [backendUp, researchTicker, analyseLivePayload],
@@ -9853,16 +9870,17 @@ function KensiglineTerminal() {
   }, [researchPriceSeries, analysePriceRange, researchPriceDays])
 
   const contextEarnings = useMemo(() => {
-    if (backendUp) {
+    if (isLiveDataMode(backendUp)) {
       return researchCompanyResolved?.earnings_date
         ? contextEarningsFromDate(researchCompanyResolved.earnings_date)
         : null
     }
+    if (!isMockDataMode(backendUp)) return null
     return contextMock?.earnings ?? null
   }, [backendUp, researchCompanyResolved?.earnings_date, contextMock?.earnings])
 
   const researchPaperMemo = useMemo(() => {
-    if (backendUp) return null
+    if (!isMockDataMode(backendUp)) return null
     return buildThesisMemo({
       ticker: researchTicker,
       companyName: researchCompanyName,
@@ -9922,7 +9940,7 @@ function KensiglineTerminal() {
       const d = new Date(raw ?? 0)
       return Number.isFinite(d.getTime()) ? d : new Date()
     }
-    if (backendUp) {
+    if (isLiveDataMode(backendUp)) {
       const live = researchExploreResolved?.flows
       if (!live || typeof live !== 'object') {
         return { insiders: [], politicians: [], filings13f: [] }
@@ -9942,6 +9960,9 @@ function KensiglineTerminal() {
         })),
       }
     }
+    if (!isMockDataMode(backendUp)) {
+      return { insiders: [], politicians: [], filings13f: [] }
+    }
     return {
       insiders: contextMock?.insiders ?? [],
       politicians: contextMock?.politicians ?? [],
@@ -9950,8 +9971,8 @@ function KensiglineTerminal() {
   }, [backendUp, researchExploreResolved?.flows, contextMock])
 
   const deepExploreReady =
-    !backendUp ||
-    (Boolean(researchTick) && researchExploreTicker === researchTick)
+    isMockDataMode(backendUp) ||
+    (isLiveDataMode(backendUp) && Boolean(researchTick) && researchExploreTicker === researchTick)
 
   const deepPaperTimelineEntries = useMemo(() => {
     const livePres =
@@ -10008,7 +10029,7 @@ function KensiglineTerminal() {
 
   const researchFeedAfterSourceFilter = useMemo(() => {
     const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters)
-    if (backendUp) {
+    if (isLiveDataMode(backendUp)) {
       return researchFilteredFeed
         .filter((row) => researchFeedRowPassesSourceFilter(row, enabled))
         .map((row) => normalizeResearchFeedRow(row, []))
@@ -10043,7 +10064,7 @@ function KensiglineTerminal() {
     contextFlowRows,
   ])
 
-  const researchFeedLoading = backendUp && researchFeedLive === null
+  const researchFeedLoading = isLiveDataMode(backendUp) && researchFeedLive === null
   const researchFeedEmptyLabel = useMemo(() => {
     if (String(researchQuery ?? '').trim()) return 'No matching companies.'
     const enabled = effectiveResearchPaperSourceFilters(researchPaperSourceFilters)
@@ -10170,6 +10191,8 @@ function KensiglineTerminal() {
         const now = Date.now()
         setBackendLastOkAt(now)
         setBackendUp(true)
+      } else {
+        setBackendUp((prev) => (prev === null ? false : prev))
       }
     }
     ping()
@@ -10192,14 +10215,14 @@ function KensiglineTerminal() {
   }, [backendLastOkAt])
 
   useEffect(() => {
-    if (!backendUp) return
+    if (!isLiveDataMode(backendUp)) return
     prefetchMacroCalendar()
   }, [backendUp])
 
   useEffect(() => {
     let alive = true
     async function run() {
-      if (!backendUp) return
+      if (!isLiveDataMode(backendUp)) return
       // Dossier opens need the pool — don't compete with a heavy stats aggregate.
       if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
       const r = await fetchJsonSafe('/api/stats', { timeoutMs: 3500 })
@@ -10232,7 +10255,7 @@ function KensiglineTerminal() {
   }, [backendUp])
 
   useEffect(() => {
-    if (!backendUp) return
+    if (!isLiveDataMode(backendUp)) return
     // Don't refresh market feed while a dossier is open — frees pooler for explore/bars.
     if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
     let cancelled = false
@@ -10289,7 +10312,7 @@ function KensiglineTerminal() {
   }, [backendUp, researchFeedRefresh, exploreSubview])
 
   const loadMoreResearchFeed = useCallback(async () => {
-    if (!backendUp || researchFeedLoadingMore || !researchFeedHasMore) return
+    if (!isLiveDataMode(backendUp) || researchFeedLoadingMore || !researchFeedHasMore) return
     setResearchFeedLoadingMore(true)
     const page = await fetchFeedPage('/api/research/feed', {
       limit: FEED_PAGE_SIZE,
@@ -10307,14 +10330,13 @@ function KensiglineTerminal() {
   }, [backendUp, researchFeedHasMore, researchFeedLoadingMore])
 
   useEffect(() => {
-    if (!backendUp) {
+    if (isMockDataMode(backendUp)) {
       setResearchFeedInjected([])
-      return
     }
   }, [backendUp])
 
   useEffect(() => {
-    if (!backendUp) return
+    if (!isLiveDataMode(backendUp)) return
     // Only load bars on company dossier — home/directories must not burn the pooler on ASML.
     if (exploreSubview !== 'companyDetail') return
     const tick = researchTick
@@ -10395,7 +10417,7 @@ function KensiglineTerminal() {
   }, [backendUp, researchTick, exploreSubview])
 
   useEffect(() => {
-    if (!backendUp) return
+    if (!isLiveDataMode(backendUp)) return
     // Company meta only on company dossier — not on home/ASML leak.
     if (exploreSubview !== 'companyDetail') return
     const tick = researchTick
@@ -10472,7 +10494,7 @@ function KensiglineTerminal() {
   }, [backendUp, researchTick, exploreSubview])
 
   useEffect(() => {
-    if (!backendUp || !researchTicker) {
+    if (!isLiveDataMode(backendUp) || !researchTicker) {
       setAnalyseModelLoading(false)
       return
     }
@@ -10530,7 +10552,7 @@ function KensiglineTerminal() {
   }, [backendUp, researchTicker, exploreSubview, researchExploreResolved])
 
   useEffect(() => {
-    if (!backendUp) return
+    if (!isLiveDataMode(backendUp)) return
     // Company dossier only — never contend with investor feed boosts.
     if (exploreSubview !== 'companyDetail') return
     const tick = researchTick
@@ -10674,7 +10696,7 @@ function KensiglineTerminal() {
   }, [backendUp, researchTick, exploreSubview])
 
   useEffect(() => {
-    if (!backendUp) return
+    if (!isLiveDataMode(backendUp)) return
     // Company dossier must not compete with explore for the DB pool.
     // Investor dossier uses /api/dossier/investor — don't burn pooler on feed pages.
     if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
@@ -10752,7 +10774,7 @@ function KensiglineTerminal() {
   }, [backendUp, exploreSubview])
 
   const loadMoreInsiderFeed = useCallback(async () => {
-    if (!backendUp || insiderFeedLoadingMore || !insiderFeedHasMore) return
+    if (!isLiveDataMode(backendUp) || insiderFeedLoadingMore || !insiderFeedHasMore) return
     setInsiderFeedLoadingMore(true)
     const page = await fetchFeedPage('/api/insider/feed', {
       limit: FEED_PAGE_SIZE,
@@ -10771,7 +10793,7 @@ function KensiglineTerminal() {
   }, [backendUp, insiderFeedHasMore, insiderFeedLoadingMore])
 
   useEffect(() => {
-    if (!backendUp) return
+    if (!isLiveDataMode(backendUp)) return
     if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
     let alive = true
     const cacheKey = 'investigate:institutions:60'
@@ -10844,7 +10866,7 @@ function KensiglineTerminal() {
   }, [backendUp, exploreSubview])
 
   const loadMoreInstitutionsFeed = useCallback(async () => {
-    if (!backendUp || institutionsFeedLoadingMore || !institutionsFeedHasMore) return
+    if (!isLiveDataMode(backendUp) || institutionsFeedLoadingMore || !institutionsFeedHasMore) return
     setInstitutionsFeedLoadingMore(true)
     const page = await fetchFeedPage('/api/institutions/feed', {
       limit: FEED_PAGE_SIZE,
@@ -10863,7 +10885,7 @@ function KensiglineTerminal() {
   }, [backendUp, institutionsFeedHasMore, institutionsFeedLoadingMore])
 
   useEffect(() => {
-    if (!backendUp) return
+    if (!isLiveDataMode(backendUp)) return
     if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
     let alive = true
     const cacheKey = 'investigate:politicians:30'
@@ -10936,7 +10958,7 @@ function KensiglineTerminal() {
   }, [backendUp, exploreSubview])
 
   const loadMorePoliticiansFeed = useCallback(async () => {
-    if (!backendUp || politiciansFeedLoadingMore || !politiciansFeedHasMore) return
+    if (!isLiveDataMode(backendUp) || politiciansFeedLoadingMore || !politiciansFeedHasMore) return
     setPoliticiansFeedLoadingMore(true)
     const page = await fetchFeedPage('/api/politicians/feed', {
       limit: FEED_PAGE_SIZE,
@@ -10982,7 +11004,7 @@ function KensiglineTerminal() {
   const insiderFeedRowsBase = useMemo(
     () =>
       applyFeedTodayEventCounts(
-        !backendUp
+        isMockDataMode(backendUp)
           ? INSIDER_FEED_ROWS
           : Array.isArray(insiderFeedLive)
             ? insiderFeedLive
@@ -10998,7 +11020,7 @@ function KensiglineTerminal() {
 
   const insiderActorFeedBase = useMemo(() => {
     const actors = buildInvestigateActorFeed(insiderFeedRowsTxnFiltered, 'insider')
-    if (!backendUp) {
+    if (isMockDataMode(backendUp)) {
       return polishOfflineInvestigateActorFeed(actors).map(normalizeInvestigateActorFeedRow)
     }
     return actors
@@ -11027,7 +11049,7 @@ function KensiglineTerminal() {
   const politiciansFeedRowsBase = useMemo(
     () =>
       applyFeedTodayEventCounts(
-        !backendUp
+        isMockDataMode(backendUp)
           ? POLITICIAN_FEED_ROWS
           : Array.isArray(politiciansFeedLive)
             ? politiciansFeedLive
@@ -11043,7 +11065,7 @@ function KensiglineTerminal() {
 
   const politiciansActorFeedBase = useMemo(() => {
     const actors = buildInvestigateActorFeed(politiciansFeedRowsTxnFiltered, 'politicians')
-    if (!backendUp) {
+    if (isMockDataMode(backendUp)) {
       return polishOfflineInvestigateActorFeed(actors).map(normalizeInvestigateActorFeedRow)
     }
     return actors
@@ -11072,7 +11094,7 @@ function KensiglineTerminal() {
   const institutionsFeedRowsBase = useMemo(
     () =>
       applyFeedTodayEventCounts(
-        !backendUp
+        isMockDataMode(backendUp)
           ? INSTITUTION_FEED_ROWS
           : Array.isArray(institutionsFeedLive)
             ? institutionsFeedLive
@@ -11088,7 +11110,7 @@ function KensiglineTerminal() {
 
   const institutionsActorFeedBase = useMemo(() => {
     const actors = buildInvestigateActorFeed(institutionsFeedRowsTxnFiltered, 'institutions')
-    if (!backendUp) {
+    if (isMockDataMode(backendUp)) {
       return polishOfflineInvestigateActorFeed(actors).map(normalizeInvestigateActorFeedRow)
     }
     return actors
@@ -11103,18 +11125,14 @@ function KensiglineTerminal() {
     return sortFeedRowsTodayEventsFirst(rows)
   }, [institutionsActorFeedBase, institutionsFeedQuery])
 
-  const [exploreInvestorDirectoryRows, setExploreInvestorDirectoryRows] = useState(() =>
-    buildExploreDirectoryFullList('investors'),
-  )
+  const [exploreInvestorDirectoryRows, setExploreInvestorDirectoryRows] = useState([])
 
   useEffect(() => {
-    if (!backendUp) return undefined
     let cancelled = false
     ;(async () => {
-      const bundle = await loadExploreDirectoryBundle({ preferLive: true })
-      if (!cancelled && bundle?.fullInvestors?.length) {
-        setExploreInvestorDirectoryRows(bundle.fullInvestors)
-      }
+      const bundle = await loadExploreDirectoryBundle(backendUp)
+      if (cancelled) return
+      setExploreInvestorDirectoryRows(bundle?.fullInvestors ?? [])
     })()
     return () => {
       cancelled = true
@@ -11155,6 +11173,7 @@ function KensiglineTerminal() {
       directoryRows: exploreInvestorDirectoryRows,
       focus: exploreInvestorFocus,
       cached: paintCache,
+      liveOnly: isLiveDataMode(backendUp),
     })
   }, [
     terminalRoute.view,
@@ -11162,6 +11181,7 @@ function KensiglineTerminal() {
     exploreActorFeeds,
     exploreInvestorDirectoryRows,
     exploreInvestorFocus,
+    backendUp,
   ])
 
   useEffect(() => {
@@ -11194,6 +11214,7 @@ function KensiglineTerminal() {
             ? { slug, mode: cached.mode, actorRow: cached.actorRow }
             : null),
         cached: actorDossierIsRich(cached?.actorRow) ? cached : null,
+        liveOnly: isLiveDataMode(backendUp),
       })
       if (!resolved) return
       if (resolved.fromFeed && resolved.index != null) {
@@ -11539,7 +11560,7 @@ function KensiglineTerminal() {
 
   // One-shot investor dossier — replaces 3× feed boost + N cluster calls.
   useEffect(() => {
-    if (!backendUp || exploreSubview !== 'investorDetail') return
+    if (!isLiveDataMode(backendUp) || exploreSubview !== 'investorDetail') return
     const slug = terminalRoute.investorSlug
     if (!slug) return
     if (actorDossierIsRich(effectiveActorRow)) {
@@ -11622,7 +11643,7 @@ function KensiglineTerminal() {
 
   // Follow-up pages until rich (or hunt budget exhausted).
   useEffect(() => {
-    if (!backendUp || exploreSubview !== 'investorDetail') return
+    if (!isLiveDataMode(backendUp) || exploreSubview !== 'investorDetail') return
     if (!investorBoostDone) return
     if (actorDossierIsRich(effectiveActorRow)) return
     if (investorFeedExpandCount >= 3) return
@@ -11659,7 +11680,7 @@ function KensiglineTerminal() {
 
   // When feed aggregation grows past a thin focus/stub, promote the richer actor.
   useEffect(() => {
-    if (!backendUp || exploreSubview !== 'investorDetail') return
+    if (!isLiveDataMode(backendUp) || exploreSubview !== 'investorDetail') return
     const slug = terminalRoute.investorSlug
     if (!slug) return
     const hit = findExploreInvestorInFeeds(slug, exploreActorFeeds)
@@ -11683,7 +11704,7 @@ function KensiglineTerminal() {
 
   // Enrich thin investor dossiers via company cluster worksheets (kills +$1 stubs).
   useEffect(() => {
-    if (!backendUp || exploreSubview !== 'investorDetail') return
+    if (!isLiveDataMode(backendUp) || exploreSubview !== 'investorDetail') return
     const slug = terminalRoute.investorSlug
     const actor = effectiveActorRow
     if (!slug || !actor?.actorName) return
@@ -11858,7 +11879,7 @@ function KensiglineTerminal() {
   // Insider cluster: case worksheet + context
   useEffect(() => {
     let alive = true
-    if (!backendUp || !investigateOpen) {
+    if (!isLiveDataMode(backendUp) || !investigateOpen) {
       setInsiderClusterLive(null)
       return () => {
         alive = false
@@ -11907,7 +11928,7 @@ function KensiglineTerminal() {
   // Politicians cluster: case worksheet + context
   useEffect(() => {
     let alive = true
-    if (!backendUp || !investigateOpen) {
+    if (!isLiveDataMode(backendUp) || !investigateOpen) {
       setPoliticiansClusterLive(null)
       return () => {
         alive = false
@@ -11946,7 +11967,7 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     let alive = true
-    if (!backendUp || !investigateOpen) {
+    if (!isLiveDataMode(backendUp) || !investigateOpen) {
       setInstitutionsClusterLive(null)
       return () => {
         alive = false
@@ -12015,7 +12036,7 @@ function KensiglineTerminal() {
     const ticker = selectedTicker ? String(selectedTicker).toUpperCase() : null
     const gen = ++barsFetchGenRef.current
 
-    if (!backendUp || !ticker) {
+    if (!isLiveDataMode(backendUp) || !ticker) {
       setBarsLive(null)
       setBarsLiveTicker(null)
       return () => {
@@ -12101,7 +12122,7 @@ function KensiglineTerminal() {
     const ticker = selectedTicker ? String(selectedTicker).toUpperCase() : null
     const gen = ++companyFetchGenRef.current
 
-    if (!backendUp || !ticker) {
+    if (!isLiveDataMode(backendUp) || !ticker) {
       setCompanyLive(null)
       setCompanyLiveTicker(null)
       return () => {
@@ -12140,7 +12161,7 @@ function KensiglineTerminal() {
 
   const dailySeries = useMemo(() => {
     if (Array.isArray(daily) && daily.length >= 40) return daily
-    if (!backendUp) return buildMockDailySeries(71, 160)
+    if (isMockDataMode(backendUp)) return buildMockDailySeries(71, 160)
     return []
   }, [daily, backendUp])
 

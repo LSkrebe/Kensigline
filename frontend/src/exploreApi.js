@@ -1,4 +1,10 @@
 import { fetchJsonSafe } from './api.js'
+import {
+  EMPTY_EXPLORE_DIRECTORY,
+  EMPTY_EXPLORE_RECAP,
+  isLiveDataMode,
+  isMockDataMode,
+} from './dataMode.js'
 import { evaluateExploreRecap } from './exploreRecapEvaluate.js'
 import {
   buildExploreDirectoryFromEvents,
@@ -75,30 +81,32 @@ export async function enrichRecapDayWithBars(day) {
   return { ...day, filings, earningsSoon }
 }
 
-export async function fetchExploreRecapDay({ preferLive = true } = {}) {
-  if (!preferLive) return null
+export async function fetchExploreRecapDay(backendUp) {
+  if (!isLiveDataMode(backendUp)) return null
   const res = await fetchJsonSafe('/api/explore/recap', { timeoutMs: 14_000 })
   if (!res.ok || !res.data?.ok) return null
   return enrichRecapDayWithBars(res.data)
 }
 
-export async function loadExploreDailyRecap({ preferLive = true } = {}) {
-  try {
-    const day = await fetchExploreRecapDay({ preferLive })
-    if (day?.filings) {
-      const recap = evaluateExploreRecap(day)
-      setExploreRecapCache(day, recap)
-      return recap
-    }
-  } catch {
-    /* fall through */
+export async function loadExploreDailyRecap(backendUp) {
+  if (isMockDataMode(backendUp)) {
+    return buildExploreDailyRecap()
   }
-  const recap = buildExploreDailyRecap()
-  return recap
+  if (!isLiveDataMode(backendUp)) {
+    return EMPTY_EXPLORE_RECAP
+  }
+
+  const day = await fetchExploreRecapDay(backendUp)
+  if (day?.filings) {
+    const recap = evaluateExploreRecap(day)
+    setExploreRecapCache(day, recap)
+    return recap
+  }
+  return EMPTY_EXPLORE_RECAP
 }
 
-export async function fetchExploreDirectoryEvents({ preferLive = true } = {}) {
-  if (!preferLive) return null
+export async function fetchExploreDirectoryEvents(backendUp) {
+  if (!isLiveDataMode(backendUp)) return null
   const res = await fetchJsonSafe('/api/explore/directory', { timeoutMs: 14_000 })
   if (!res.ok || !res.data?.ok) return null
   return {
@@ -107,33 +115,38 @@ export async function fetchExploreDirectoryEvents({ preferLive = true } = {}) {
   }
 }
 
-export async function loadExploreDirectoryBundle({ preferLive = true } = {}) {
-  try {
-    const events = await fetchExploreDirectoryEvents({ preferLive })
-    if (events && (events.companyEvents.length || events.investorEvents.length)) {
-      const directory = buildExploreDirectoryFromEvents(events.companyEvents, events.investorEvents)
-      return {
-        directory,
-        homePreview: buildExploreDirectoryHomePreview(directory),
-        homeLatest: buildExploreDirectoryHomeLatest(directory),
-        fullCompanies: buildExploreDirectoryFullList('companies', directory),
-        fullInvestors: buildExploreDirectoryFullList('investors', directory),
-        live: true,
-      }
+export async function loadExploreDirectoryBundle(backendUp) {
+  if (isMockDataMode(backendUp)) {
+    const mockDirectory = buildExploreDirectoryMock()
+    return {
+      directory: mockDirectory,
+      homePreview: buildExploreDirectoryHomePreview(mockDirectory),
+      homeLatest: buildExploreDirectoryHomeLatest(mockDirectory),
+      fullCompanies: buildExploreDirectoryFullList('companies', mockDirectory),
+      fullInvestors: buildExploreDirectoryFullList('investors', mockDirectory),
+      live: false,
     }
-  } catch {
-    /* offline fallback */
   }
 
-  const mockDirectory = buildExploreDirectoryMock()
-  return {
-    directory: mockDirectory,
-    homePreview: buildExploreDirectoryHomePreview(mockDirectory),
-    homeLatest: buildExploreDirectoryHomeLatest(mockDirectory),
-    fullCompanies: buildExploreDirectoryFullList('companies', mockDirectory),
-    fullInvestors: buildExploreDirectoryFullList('investors', mockDirectory),
-    live: false,
+  if (!isLiveDataMode(backendUp)) {
+    return { ...EMPTY_EXPLORE_DIRECTORY, live: false, pending: true }
   }
+
+  const events = await fetchExploreDirectoryEvents(backendUp)
+  if (events) {
+    const directory = buildExploreDirectoryFromEvents(events.companyEvents, events.investorEvents)
+    return {
+      directory,
+      homePreview: buildExploreDirectoryHomePreview(directory),
+      homeLatest: buildExploreDirectoryHomeLatest(directory),
+      fullCompanies: buildExploreDirectoryFullList('companies', directory),
+      fullInvestors: buildExploreDirectoryFullList('investors', directory),
+      live: true,
+      pending: false,
+    }
+  }
+
+  return { ...EMPTY_EXPLORE_DIRECTORY, live: true, pending: false, error: true }
 }
 
 let cachedRecapDay = null
@@ -148,14 +161,22 @@ export function getExploreRecapCache() {
   return { day: cachedRecapDay, slides: cachedRecapSlides }
 }
 
-export async function loadExploreEventBriefContext({ preferLive = true } = {}) {
-  let { day, slides } = getExploreRecapCache()
+export async function loadExploreEventBriefContext(backendUp) {
+  if (isMockDataMode(backendUp)) {
+    const recap = buildExploreDailyRecap()
+    return { day: null, slides: recap?.slides ?? [], mock: true }
+  }
 
-  if ((!day || !slides?.length) && preferLive) {
-    const recap = await loadExploreDailyRecap({ preferLive })
-    day = cachedRecapDay ?? (await fetchExploreRecapDay({ preferLive }))
+  if (!isLiveDataMode(backendUp)) {
+    return { day: null, slides: [], mock: false, pending: true }
+  }
+
+  let { day, slides } = getExploreRecapCache()
+  if (!day || !slides?.length) {
+    const recap = await loadExploreDailyRecap(backendUp)
+    day = cachedRecapDay
     slides = recap?.slides ?? cachedRecapSlides ?? []
   }
 
-  return { day, slides }
+  return { day, slides, mock: false, pending: false }
 }

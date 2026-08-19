@@ -3,6 +3,7 @@ import {
   analyseMockModelForTicker,
   formatAnalyseGridValue,
 } from './analyseMockData.js'
+import { isLiveDataMode, isMockDataMode } from './dataMode.js'
 import { AnalyseModelGrid } from './AnalyseModelGrid.jsx'
 import { resolveDocumentOpenUrl } from './documentOpenUrl.js'
 import {
@@ -1289,8 +1290,9 @@ export function DeepCompanyReport({
   const t = String(ticker ?? '').trim().toUpperCase()
   const displayName = String(companyName ?? '').trim() || t || 'Company'
   const resolvedModel = useMemo(() => {
-    if (backendUp) return model ?? null
-    return analyseMockModelForTicker(t)
+    if (isLiveDataMode(backendUp)) return model ?? null
+    if (isMockDataMode(backendUp)) return analyseMockModelForTicker(t)
+    return null
   }, [backendUp, model, t])
 
   const eventCount = countTimelineItems(timelineEntries)
