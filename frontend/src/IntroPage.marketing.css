@@ -671,7 +671,17 @@
 .lpShot {
   max-width: var(--lp-max);
   margin: 0 auto;
-  padding: 0 var(--lp-pad) clamp(48px, 8vh, 80px);
+  padding: clamp(56px, 9vh, 88px) var(--lp-pad) clamp(48px, 8vh, 80px);
+  border-top: 1px solid var(--lp-line);
+}
+
+.lpShotHead {
+  max-width: 36rem;
+  margin-bottom: clamp(24px, 4vh, 36px);
+}
+
+.lpShotHead .lpSectionLead {
+  margin-top: 0;
 }
 
 .lpShotFrame {
@@ -748,6 +758,13 @@
   font-size: 14px;
   line-height: 1.6;
   color: var(--lp-muted);
+}
+
+@media (max-width: 960px) {
+  .lpPillars {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
 }
 
 /* Sources */
@@ -1078,7 +1095,6 @@
     width: min(100%, 280px);
   }
 
-  .lpPillars,
   .lpInclude,
   .lpPlans,
   .lpFaq {

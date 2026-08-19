@@ -5,7 +5,7 @@ import { DEFAULT_PRICING, formatUsd } from './billingPlans.js'
 export const PRODUCT_NAME = 'Mercerline'
 
 export const INTRO_PAGE_META = {
-  title: 'Mercerline - See who filed before the timeline moves',
+  title: 'Mercerline - See who filed before the story breaks',
   description:
     'Track insider, politician, and fund filings on US equities as they clear. Open investor dossiers and company context when a disclosure matters.',
   path: '/',
@@ -90,12 +90,14 @@ export function heroLeadParts(pricing = DEFAULT_PRICING) {
   }
 }
 
+const HERO_HEADLINE = 'See who filed before the story breaks'
+
 export function heroCopy(pricing = DEFAULT_PRICING) {
   if (pricing.waitlist) {
     return {
       eyebrow: null,
       brand: 'Mercerline',
-      headline: 'See who filed before the timeline moves.',
+      headline: HERO_HEADLINE,
       lead: null,
       ctaPrimary: 'Join waitlist',
       ctaSecondary: 'See product',
@@ -106,7 +108,7 @@ export function heroCopy(pricing = DEFAULT_PRICING) {
     return {
       eyebrow: null,
       brand: 'Mercerline',
-      headline: 'See who filed before the timeline moves.',
+      headline: HERO_HEADLINE,
       lead: null,
       ctaPrimary: 'Get 50% off',
       ctaSecondary: 'See product',
@@ -116,7 +118,7 @@ export function heroCopy(pricing = DEFAULT_PRICING) {
   return {
     eyebrow: 'US equity disclosures',
     brand: 'Mercerline',
-    headline: 'See who filed before the timeline moves.',
+    headline: HERO_HEADLINE,
     lead: heroLead(pricing),
     ctaPrimary: 'Get started',
     ctaSecondary: 'See product',
@@ -131,15 +133,15 @@ export const HERO = heroCopy()
  * Portrait: United States Congress bioguide photo (P000197).
  */
 export const ORIGIN_STORY = {
-  kicker: 'Why this exists',
-  title: 'The NVDA disclosure everyone saw too late',
+  kicker: 'Sound familiar?',
+  title: 'The trade most people only saw in the news',
   lead: [
-    { text: 'Nov 22, 2023', tone: 'date' },
-    { text: ': a House PTR showed Paul Pelosi buying NVIDIA call options in the ' },
-    { text: '$1M–$5M', tone: 'money' },
+    { text: 'On Nov 22, 2023', tone: 'date' },
+    { text: ', a House PTR showed Paul Pelosi buying NVIDIA call options in the ' },
+    { text: '$1M to $5M', tone: 'money' },
     { text: ' band. Twelve months later NVDA was up ' },
     { text: '~+200%', tone: 'up' },
-    { text: ' — and most people only found out from a viral screenshot.' },
+    { text: ', and most people only heard about it once it hit the news.' },
   ],
   person: {
     name: 'Nancy Pelosi',
@@ -150,11 +152,11 @@ export const ORIGIN_STORY = {
   },
   trade: {
     filed: 'Nov 22, 2023',
-    detail: 'NVDA calls, $1–5M',
+    detail: 'NVDA calls, $1 to 5M',
     outcome: '+~200% / 12mo',
   },
   closer:
-    'Mercerline exists for that gap: see the disclosure when it clears, open the investor dossier, and keep Form 4, PTR, and 13F on one rail.',
+    'The filing was public on day one. The story broke months later. Mercerline is built for that window, when the disclosure exists but most people still have not seen it.',
 }
 
 const SHOT_SIZES =
@@ -173,7 +175,19 @@ function shotMeta(name, alt) {
   }
 }
 
-/** Marketing product screenshots (1440×900 @2x captures). */
+/** Screenshot section labels for the intro page. */
+export const EXPLORE_SHOT = {
+  kicker: 'Explore',
+  title: 'See what filed as it clears',
+  lead: 'The daily recap shows new Form 4, PTR, and 13F filings in one place, updated as they come in.',
+}
+
+export const INVESTOR_SHOT = {
+  kicker: 'Investor dossier',
+  title: 'Open the investor behind the filing',
+  lead: 'You get trade history, track record, and related tickers on one page instead of jumping across different sites.',
+}
+
 export const MARKETING_SHOTS = {
   hero: shotMeta(
     'hero',
@@ -181,7 +195,7 @@ export const MARKETING_SHOTS = {
   ),
   deepInvestor: shotMeta(
     'deep-investor',
-    'Mercerline investor dossier for Nancy Pelosi with PTR trades and track-record chart',
+    'Mercerline investor dossier with PTR trades, track-record chart, and disclosure history',
   ),
   deepCompany: shotMeta(
     'deep-company',
@@ -205,31 +219,32 @@ export const INTRO_SCREENSHOTS = {
 
 export const PILLARS = [
   {
-    id: 'investors',
-    title: 'Investor dossiers first',
-    body: 'Open a filer — insider, politician, or institution — and stay on one rail of disclosures, related tickers, and outcomes.',
-  },
-  {
     id: 'recap',
     title: 'Daily disclosure recap',
-    body: 'Form 4, PTR, and 13F flow that cleared the bar, assembled each session so you start from what actually filed.',
+    body: 'Form 4, PTR, and 13F that cleared the bar, assembled each session so you see what filed instead of what went viral.',
+  },
+  {
+    id: 'investors',
+    title: 'Investor dossiers',
+    body: 'Open the filer, whether insider, politician, or institution, and stay on one rail of disclosures, related tickers, and outcomes.',
   },
   {
     id: 'companies',
-    title: 'Company context on demand',
-    body: 'Jump from a disclosure into the issuer — price, filings, and fundamentals — only when the ticker deserves it.',
+    title: 'Company context when it matters',
+    body: 'Jump from a disclosure into the issuer with price, filings, and fundamentals, only when the ticker deserves a closer look.',
   },
 ]
 
 export const PRODUCT = {
-  kicker: 'Product',
-  title: 'Built around who filed',
-  lead: 'Start with the disclosure. Drill the investor. Open the company only when the name matters.',
+  kicker: 'How it works',
+  title: 'Track the filing. Know the filer.',
+  lead: 'Insiders, politicians, and big funds are all on the same rail, from the daily recap to the dossier.',
 }
 
 export const SOURCES = {
   kicker: 'Coverage',
   title: 'What we track',
+  lead: 'Form 4, politician PTR, 13F, earnings, press, and macro data, without piecing together five different sites.',
   items: [
     'Form 4',
     'House PTR',
@@ -273,7 +288,7 @@ export function introFaq(pricing = DEFAULT_PRICING) {
     return [
       {
         q: 'What is Mercerline for?',
-        a: 'Tracking US equity disclosures — insider Form 4, politician PTR, and institution 13F — with investor dossiers and company context when you need it.',
+        a: 'Tracking US equity disclosures, including insider Form 4, politician PTR, and institution 13F, with investor dossiers and company context when you need it.',
       },
       {
         q: 'When does access open?',
@@ -292,7 +307,7 @@ export function introFaq(pricing = DEFAULT_PRICING) {
   return [
     {
       q: 'What is Mercerline for?',
-      a: 'Tracking US equity disclosures — insider Form 4, politician PTR, and institution 13F — with investor dossiers and company context when you need it.',
+      a: 'Tracking US equity disclosures, including insider Form 4, politician PTR, and institution 13F, with investor dossiers and company context when you need it.',
     },
     {
       q: 'What do I get on day one?',

@@ -10,6 +10,8 @@ import {
   ORIGIN_STORY,
   PILLARS,
   PRODUCT,
+  EXPLORE_SHOT,
+  INVESTOR_SHOT,
   SOURCES,
 } from './marketingContent.js'
 import { navigateMarketing } from './marketingRoute.js'
@@ -238,12 +240,6 @@ export function IntroPage() {
         <div ref={spacerRef} className="lpHeroCollapseSpacer" aria-hidden="true" />
 
         <main className="lpMain">
-          <section className="lpShot" aria-label="Product preview">
-            <div className="lpShotFrame">
-              <IntroTerminalPreview shot="hero" staticResearch eager />
-            </div>
-          </section>
-
           <section className="lpStory" aria-labelledby="lp-story-title">
             <div className="lpStoryInner">
               <div className="lpStoryCopy">
@@ -315,9 +311,16 @@ export function IntroPage() {
             </ul>
           </section>
 
-          <section className="lpShot" aria-label="Investor dossier preview">
+          <section className="lpShot" aria-labelledby="lp-explore-shot-title">
+            <div className="lpShotHead">
+              <p className="lpEyebrow">{EXPLORE_SHOT.kicker}</p>
+              <h2 id="lp-explore-shot-title" className="lpSectionTitle">
+                {EXPLORE_SHOT.title}
+              </h2>
+              {EXPLORE_SHOT.lead ? <p className="lpSectionLead">{EXPLORE_SHOT.lead}</p> : null}
+            </div>
             <div className="lpShotFrame">
-              <IntroTerminalPreview shot="deepInvestor" staticResearch />
+              <IntroTerminalPreview shot="hero" staticResearch eager />
             </div>
           </section>
 
@@ -325,12 +328,26 @@ export function IntroPage() {
             <div className="lpSectionHead">
               <p className="lpEyebrow">{SOURCES.kicker}</p>
               <h2 className="lpSectionTitle">{SOURCES.title}</h2>
+              {SOURCES.lead ? <p className="lpSectionLead">{SOURCES.lead}</p> : null}
             </div>
             <ul className="lpSourceList">
               {SOURCES.items.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
+          </section>
+
+          <section className="lpShot" aria-labelledby="lp-investor-shot-title">
+            <div className="lpShotHead">
+              <p className="lpEyebrow">{INVESTOR_SHOT.kicker}</p>
+              <h2 id="lp-investor-shot-title" className="lpSectionTitle">
+                {INVESTOR_SHOT.title}
+              </h2>
+              {INVESTOR_SHOT.lead ? <p className="lpSectionLead">{INVESTOR_SHOT.lead}</p> : null}
+            </div>
+            <div className="lpShotFrame">
+              <IntroTerminalPreview shot="deepInvestor" staticResearch />
+            </div>
           </section>
 
           <section id="faq" className="lpSection">
@@ -349,13 +366,15 @@ export function IntroPage() {
           </section>
 
           <section className="lpCtaBand">
-            <h2 className="lpCtaTitle">{waitlist ? 'Get notified when we open' : 'Start tracking disclosures'}</h2>
+            <h2 className="lpCtaTitle">
+              {waitlist ? 'Get notified when we open' : 'See the next filing before the story breaks'}
+            </h2>
             <p className="lpCtaLead">
               {waitlist
-                ? 'Leave your email — we’ll write when access is ready.'
+                ? 'Leave your email and we will write when access is ready.'
                 : pricing.founders && pricing.monthlyListUsd ? (
                 <>
-                  Full access day one from{' '}
+                  Full access from day one at{' '}
                   <span className="lpHeroListPrice">{formatUsd(pricing.monthlyListUsd)}/mo</span>{' '}
                   <span className="lpHeroPrice">{formatUsd(pricing.monthlyUsd)}/mo</span>
                 </>
