@@ -3,7 +3,7 @@ import http from "node:http";
 import { URL } from "node:url";
 import { bindCorsOrigin, corsResponseHeaders } from "./core/cors.js";
 import { json, notFound, readRawBody, route, sendJson } from "./core/http.js";
-import { db } from "./core/db.js";
+import { db, workerDbLoad } from "./core/db.js";
 import { getDailyCloseBars } from "./core/bars.js";
 import { getCompanySnapshot } from "./core/company.js";
 import { getCompanyFullCached } from "./core/ticker-context-cache.js";
@@ -46,7 +46,8 @@ import { handleSupportContact } from "./support/api.js";
 import { handleExploreDirectory, handleExploreRecap } from "./explore/api.js";
 import { handleWaitlistJoin } from "./waitlist/api.js";
 import { getSecTickerTitleMap } from "./core/sec.js";
-import { getIngestQueueSnapshot } from "./shared/ingest-status.js";
+import { getIngestQueueSnapshot, startIngestHealthCacheWarmer } from "./shared/ingest-status.js";
+import { ingestMode, ingestModeSummary } from "./shared/ingest-mode.js";
 
 const port = Number(process.env.PORT ?? "3001");
 void getSecTickerTitleMap().catch(() => {});
@@ -54,6 +55,7 @@ void getSecTickerTitleMap().catch(() => {});
 const workersEnabled = String(process.env.WORKERS_ENABLED ?? "1").trim() !== "0";
 const workers = workersEnabled ? await startAllWorkers() : [];
 if (!workersEnabled) console.log("[workers] disabled (WORKERS_ENABLED=0)");
+startIngestHealthCacheWarmer();
 
 const server = http.createServer(async (req, res) => {
   try {
@@ -77,8 +79,26 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/health/ingest") {
-      const snap = await getIngestQueueSnapshot(String(url.searchParams.get("source") ?? "sec_13f"));
-      sendJson(res, 200, snap);
+      const source = String(url.searchParams.get("source") ?? "sec_13f");
+      const bypassCache = url.searchParams.get("fresh") === "1";
+      try {
+        const snap = await getIngestQueueSnapshot(source, { bypassCache });
+        const ok = !snap.stale && !("degraded" in snap && snap.degraded);
+        sendJson(res, 200, { ok, ...snap });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[health/ingest]", msg);
+        sendJson(res, 200, {
+          ok: false,
+          degraded: true,
+          source_type: source,
+          mode: ingestMode(),
+          mode_summary: ingestModeSummary(),
+          worker_db: workerDbLoad(),
+          error: msg,
+          at: new Date().toISOString(),
+        });
+      }
       return;
     }
 

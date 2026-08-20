@@ -307,6 +307,21 @@ async function withClientTimeout<T>(
   });
 }
 
+/** API lane only — never competes with worker parse/backfill slots. */
+async function withApiClientTimeout<T>(
+  timeoutMs: number,
+  fn: (client: { query: Pool["query"] }) => Promise<T>,
+): Promise<T> {
+  const client = await apiPool.connect();
+  try {
+    const ms = Math.max(500, Math.floor(timeoutMs));
+    await client.query(`SET LOCAL statement_timeout = ${ms}`);
+    return await fn(client);
+  } finally {
+    client.release();
+  }
+}
+
 export const db = {
   async query<T = any>(text: string, params: any[] = []): Promise<T[]> {
     if (WORKER_TIMEOUT_MS <= 0) {
@@ -326,7 +341,7 @@ export const db = {
   },
   /** API/read path — hard-cap statement time so one slow query cannot pin the pool. */
   async queryApi<T = any>(text: string, params: any[] = [], timeoutMs = DEFAULT_API_TIMEOUT_MS): Promise<T[]> {
-    return withClientTimeout(timeoutMs, async (client) => {
+    return withApiClientTimeout(timeoutMs, async (client) => {
       const r = await client.query(text, params);
       return r.rows as T[];
     });

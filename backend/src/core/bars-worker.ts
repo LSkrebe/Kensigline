@@ -1,4 +1,4 @@
-import { db, runWithWorkerDb } from "./db.js";
+import { db, runWithWorkerDbBackfill } from "./db.js";
 import { getDailyCloseBars } from "./bars.js";
 
 type PriorityRow = {
@@ -28,17 +28,23 @@ function daysAgoIso(days: number): string {
   return isoDayUTC(d);
 }
 
+function recencyHours(): number {
+  return envInt("BARS_REFRESH_RECENCY_HOURS", 24, 1, 168);
+}
+
 /**
  * Price-chart bar fetch priority (uses bars_ticker_meta — never GROUP BY bars):
  *  1 = event ticker with no bars yet
  *  2 = event ticker with stale bars
  *  3 = due for light refresh
- * Within each tier: newest feed activity first.
+ * Within each tier: recent feed activity (default 24h) first, then newest event time.
  */
 export async function listBarRefreshCandidates(limit = 40): Promise<PriorityRow[]> {
   const cap = Math.max(1, Math.min(200, limit));
-  return db.query<PriorityRow>(
-    `
+  const recentHours = recencyHours();
+  return runWithWorkerDbBackfill(async () =>
+    db.query<PriorityRow>(
+      `
     WITH event_tickers AS (
       SELECT upper(trim(i.ticker)) AS ticker, max(e.feed_at) AS latest_event_at
       FROM feed_entries e
@@ -65,10 +71,14 @@ export async function listBarRefreshCandidates(limit = 40): Promise<PriorityRow[
       b.ticker IS NULL
       OR coalesce(b.bar_count, 0) < 5
       OR b.last_bar_day < CURRENT_DATE
-    ORDER BY priority ASC, e.latest_event_at DESC NULLS LAST
+    ORDER BY
+      priority ASC,
+      (e.latest_event_at >= now() - make_interval(hours => $2::int)) DESC,
+      e.latest_event_at DESC NULLS LAST
     LIMIT $1
     `,
-    [cap],
+      [cap, recentHours],
+    ),
   );
 }
 
@@ -124,7 +134,8 @@ export function startBarsRefreshWorker() {
     if (stopped || running) return;
     running = true;
     try {
-      const out = await runWithWorkerDb(() => runBarsRefreshOnce());
+      // Backfill slot for candidate read only — parse slots and API pool stay untouched.
+      const out = await runBarsRefreshOnce();
       if (out.refreshed > 0 || out.skipped > 0) {
         console.log(`[bars-worker] refreshed=${out.refreshed} skipped=${out.skipped}`);
       }
