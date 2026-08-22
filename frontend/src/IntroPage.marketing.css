@@ -382,21 +382,23 @@
   color: var(--lp-dim);
 }
 
+.lpHeroExpandedFooter {
+  display: none;
+}
+
 .lpMain {
   position: relative;
   z-index: 1;
-  padding-top: clamp(56px, 9vh, 88px);
-  background:
-    linear-gradient(180deg, rgba(8, 8, 9, 0.55), rgba(8, 8, 9, 0.96)),
-    var(--lp-bg);
+  padding-top: 0;
+  background: var(--lp-bg);
 }
 
-/* Origin / FOMO story — same rule + vertical padding as .lpSection */
+/* Origin / FOMO story — no rule above; sits flush after hero collapse spacer */
 .lpStory {
   max-width: var(--lp-max);
   margin: 0 auto;
-  padding: clamp(56px, 9vh, 88px) var(--lp-pad);
-  border-top: 1px solid var(--lp-line);
+  padding: clamp(32px, 5vh, 48px) var(--lp-pad) clamp(56px, 9vh, 88px);
+  border-top: none;
 }
 
 .lpStoryInner {
@@ -1057,7 +1059,61 @@
 
 @media (max-width: 900px) {
   .lp {
-    --lp-hero-expanded-h: clamp(440px, 72vh, 640px);
+    /* Leave ~110px below hero so the next section peeks without overlap hacks */
+    --lp-hero-expanded-h: clamp(360px, calc(100dvh - 110px), 560px);
+  }
+
+  .lpHeroExpandedInner {
+    padding-bottom: 44px;
+  }
+
+  .lpHeroExpandedFooter {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    position: absolute;
+    left: var(--lp-pad);
+    right: var(--lp-pad);
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 4;
+    opacity: var(--lp-expanded-opacity);
+    pointer-events: auto;
+  }
+
+  .lpHeroNavBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.12s;
+  }
+
+  .lpHeroNavBtnGlyph {
+    display: inline-block;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  .lpHeroNavBtn:hover {
+    color: rgba(255, 255, 255, 0.88);
+  }
+
+  .lpHeroNavBtn--collapse {
+    grid-column: 3;
+    justify-self: end;
+  }
+
+  .lpHeroDock--compact .lpHeroExpandedFooter {
+    display: none;
   }
 
   .lpNavLinks {

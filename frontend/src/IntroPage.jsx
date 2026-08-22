@@ -87,6 +87,18 @@ export function IntroPage() {
     if (window.history?.pushState) window.history.pushState(null, '', window.location.pathname)
   }, [])
 
+  const collapseHero = useCallback((e) => {
+    e?.preventDefault()
+    const page = pageRef.current
+    const spacer = spacerRef.current
+    if (!page || !spacer) return
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    page.scrollTo({
+      top: spacer.offsetHeight,
+      behavior: reduced ? 'instant' : 'smooth',
+    })
+  }, [])
+
   useEffect(() => {
     applyPageMeta(INTRO_PAGE_META)
     markAppReady()
@@ -235,6 +247,19 @@ export function IntroPage() {
                 </p>
               ) : null}
             </div>
+          </div>
+
+          <div className="lpHeroExpandedFooter">
+            <button
+              type="button"
+              className="lpHeroNavBtn lpHeroNavBtn--collapse"
+              aria-label="Collapse hero"
+              onClick={collapseHero}
+            >
+              <span className="lpHeroNavBtnGlyph mono" aria-hidden="true">
+                ↓
+              </span>
+            </button>
           </div>
         </div>
         <div ref={spacerRef} className="lpHeroCollapseSpacer" aria-hidden="true" />
