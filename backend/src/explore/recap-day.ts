@@ -218,6 +218,8 @@ export type ExploreDirectoryEvent = {
   date: string;
   ticker: string;
   name?: string;
+  /** Canonical filers.slug — use for dossier URLs, not slugify(display name). */
+  actorSlug?: string;
   docType: string;
   trail: string;
   up: boolean;
@@ -234,6 +236,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       ticker: string;
       name: string;
       actor_name: string;
+      actor_slug: string;
       code: string | null;
       acquired_disposed: string | null;
       amount_usd: number | null;
@@ -245,6 +248,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
         upper(trim(i.ticker)) AS ticker,
         coalesce(nullif(trim(i.name), ''), upper(trim(i.ticker))) AS name,
         f.display_name AS actor_name,
+        f.slug AS actor_slug,
         t.transaction_code AS code,
         t.acquired_disposed,
         t.amount_usd::float8 AS amount_usd
@@ -266,6 +270,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       ticker: string;
       name: string;
       actor_name: string;
+      actor_slug: string;
       transaction_type: string | null;
       amount_usd: number | null;
     }>(
@@ -276,6 +281,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
         upper(trim(i.ticker)) AS ticker,
         coalesce(nullif(trim(i.name), ''), upper(trim(i.ticker))) AS name,
         f.display_name AS actor_name,
+        f.slug AS actor_slug,
         t.transaction_type,
         coalesce(t.amount_usd, t.amount_usd_mid)::float8 AS amount_usd
       FROM politician_transactions t
@@ -299,6 +305,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       ticker: string;
       name: string;
       actor_name: string;
+      actor_slug: string;
       activity: string | null;
       amount_usd: number | null;
       shares: number | null;
@@ -310,6 +317,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
         upper(trim(i.ticker)) AS ticker,
         coalesce(nullif(trim(i.name), ''), upper(trim(i.ticker))) AS name,
         f.display_name AS actor_name,
+        f.slug AS actor_slug,
         t.activity,
         t.amount_usd::float8 AS amount_usd,
         t.shares::float8 AS shares
@@ -404,6 +412,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       id: `a-${row.id}`,
       date: row.filing_date,
       name: row.actor_name,
+      actorSlug: row.actor_slug,
       ticker: row.ticker,
       docType: insiderDocType(side),
       trail: formatTrailUsd(signed),
@@ -418,6 +427,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       id: `a-${row.id}`,
       date: row.filing_date,
       name: row.actor_name,
+      actorSlug: row.actor_slug,
       ticker: row.ticker,
       docType: politicianDocType(side),
       trail: formatTrailUsd(signed),
@@ -432,6 +442,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       id: `a-${row.id}`,
       date: row.filing_date,
       name: row.actor_name,
+      actorSlug: row.actor_slug,
       ticker: row.ticker,
       docType: institutionDocType(side),
       trail: formatInstitutionTrail(row.activity, row.shares),

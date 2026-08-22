@@ -520,8 +520,20 @@ export async function buildInvestorDossierPayload(
   preferred: InvestorMode | null,
 ): Promise<Record<string, unknown>> {
   const { buildFilerDossierPayload } = await import("../v2/reads.js");
-  const mode = preferred ?? "insider";
-  return buildFilerDossierPayload(slug, mode);
+  const order: InvestorMode[] = preferred
+    ? [preferred, "insider", "politicians", "institutions"].filter(
+        (m, i, arr) => arr.indexOf(m) === i,
+      ) as InvestorMode[]
+    : ["insider", "politicians", "institutions"];
+
+  let last: Record<string, unknown> | null = null;
+  for (const mode of order) {
+    const payload = await buildFilerDossierPayload(slug, mode);
+    last = payload;
+    const actor = payload.actor as { transactions?: unknown[] } | null | undefined;
+    if (payload.ok && actor?.transactions?.length) return payload;
+  }
+  return last ?? { ok: true, slug, mode: preferred ?? "insider", empty: true, actor: null };
 }
 
 /**

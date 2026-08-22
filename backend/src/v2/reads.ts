@@ -418,16 +418,105 @@ export async function buildIssuerExplorePayload(tickerInput: string) {
   };
 }
 
-export async function buildFilerDossierPayload(slug: string, mode: string) {
-  const filer = await db.one<any>(
+function slugifyFilerSlug(raw: string): string {
+  return String(raw ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function filerNameMatchesSlug(name: string, slug: string): boolean {
+  const target = slugifyFilerSlug(slug);
+  if (!target || !name) return false;
+  const cleaned = String(name).trim();
+  const candidates = [cleaned];
+  if (cleaned.includes(",")) {
+    const [last, rest] = cleaned.split(",").map((p) => p.trim());
+    if (last && rest) {
+      candidates.push(`${rest} ${last}`, `${last} ${rest}`);
+    }
+  }
+  for (const raw of candidates) {
+    const ns = slugifyFilerSlug(raw);
+    if (!ns) continue;
+    if (ns === target) return true;
+    const parts = target.split("-").filter(Boolean);
+    if (parts.length >= 2) {
+      const rev = [...parts].reverse().join("-");
+      if (ns === rev) return true;
+    }
+  }
+  return false;
+}
+
+async function resolveFilerBySlug(slug: string) {
+  const target = slugifyFilerSlug(slug);
+  if (!target) return null;
+
+  let filer = await db.one<any>(
     `
     SELECT id::text, display_name, slug, detail, detail_secondary, filer_type::text
     FROM filers
     WHERE slug = $1
     LIMIT 1
     `,
-    [slug],
+    [target],
   );
+  if (filer) return filer;
+
+  const parts = target.split("-").filter(Boolean);
+  if (parts.length >= 2) {
+    const reversed = [...parts].reverse().join("-");
+    filer = await db.one<any>(
+      `
+      SELECT id::text, display_name, slug, detail, detail_secondary, filer_type::text
+      FROM filers
+      WHERE slug = $1
+      LIMIT 1
+      `,
+      [reversed],
+    );
+    if (filer) return filer;
+  }
+
+  const surname = parts[parts.length - 1];
+  if (surname && surname.length >= 3) {
+    const candidates = await db.query<any>(
+      `
+      SELECT id::text, display_name, slug, detail, detail_secondary, filer_type::text
+      FROM filers
+      WHERE display_name ILIKE $1
+      LIMIT 24
+      `,
+      [`%${surname}%`],
+    );
+    for (const row of candidates) {
+      if (filerNameMatchesSlug(row.display_name, target)) return row;
+    }
+
+    const aliasRows = await db.query<any>(
+      `
+      SELECT f.id::text, f.display_name, f.slug, f.detail, f.detail_secondary, f.filer_type::text, a.raw_name
+      FROM filer_aliases a
+      JOIN filers f ON f.id = a.filer_id
+      WHERE a.raw_name ILIKE $1
+      LIMIT 24
+      `,
+      [`%${surname}%`],
+    );
+    for (const row of aliasRows) {
+      if (slugifyFilerSlug(row.raw_name) === target || filerNameMatchesSlug(row.display_name, target)) {
+        return row;
+      }
+    }
+  }
+
+  return null;
+}
+
+export async function buildFilerDossierPayload(slug: string, mode: string) {
+  const filer = await resolveFilerBySlug(slug);
   if (!filer) {
     return { ok: true, slug, mode, empty: true, actor: null };
   }
@@ -547,7 +636,10 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
       ticker: t.ticker,
       company: t.company,
       companyRow: null,
-      showMoney: amountUsd != null && amountUsd > 1,
+      showMoney:
+        (amountUsd != null && amountUsd > 1) ||
+        (t.shares != null && Number(t.shares) > 0) ||
+        Boolean(String(t.amount_range ?? "").trim()),
       ts: t.ts,
       source,
     };
@@ -555,7 +647,7 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
 
   return {
     ok: true,
-    slug,
+    slug: filer.slug,
     mode: source,
     actor: {
       id: filer.id,

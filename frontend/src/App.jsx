@@ -1325,7 +1325,10 @@ function buildActorCaseFeedRows(actorRow, filters, chartRange) {
     const row = caseSheetRowToCompanyCaseFeedRow(txn.sheetRow, {
       ticker: txn.ticker,
       company: txn.company,
-      showMoney: txn.showMoney,
+      showMoney:
+        txn.showMoney ||
+        Number(txn.sheetRow?.shares) > 0 ||
+        Boolean(String(txn.sheetRow?.amountRange ?? '').trim()),
       mode: txnMode,
       documentUrl: txn.companyRow?.caseSheet?.documentUrl ?? txn.companyRow?.url ?? null,
       cik: txn.companyRow?.caseSheet?.cik ?? null,
@@ -4156,7 +4159,11 @@ function insiderTxnCodeTone(code, ad) {
 function formatInsiderTxnValue(row) {
   if (row?.amountUsd != null && Number.isFinite(Number(row.amountUsd))) {
     const x = Number(row.amountUsd)
-    if (x === 0) return String(row.acquiredDisposed ?? '').toUpperCase() === 'D' ? '−$0' : '—'
+    if (x === 0) {
+      const sh = formatSharesCompact(row?.shares)
+      if (sh) return sh
+      return String(row.acquiredDisposed ?? '').toUpperCase() === 'D' ? '−$0' : '—'
+    }
     const compact = formatUsdCompact(Math.abs(x))
     if (!compact) return '—'
     const sign = String(row.acquiredDisposed ?? '').toUpperCase() === 'D' ? '−' : '+'
@@ -4482,7 +4489,9 @@ function caseSheetRowToPoliticianTxnFeedRow(r, { showMoney }) {
 }
 
 function caseSheetRowToTxnFeedRow(r, { showMoney }) {
-  if (!showMoney) return null
+  const hasShares = Number(r?.shares) > 0
+  const hasRange = Boolean(String(r?.amountRange ?? '').trim())
+  if (!showMoney && !hasShares && !hasRange) return null
   const whoRole = r?.role ? String(r.role).toUpperCase() : insiderRoleFromKey(r?.key)
   const whoName = String(r?.surname ?? insiderSurnameFromKey(r?.key) ?? '')
     .trim()
@@ -11481,11 +11490,9 @@ function KensiglineTerminal() {
         const mode =
           next.source === 'politicians' || next.source === 'institutions' ? next.source : 'insider'
         setExploreInvestorFocus({ slug, mode, actorRow: next })
-        if (actorDossierIsRich(next)) {
-          writeInvestorDossierCache(slug, next, mode)
-          setInvestorBoostDoneForSlug(slug)
-          return
-        }
+        writeInvestorDossierCache(slug, next, mode)
+        setInvestorBoostDoneForSlug(slug)
+        return
       }
       // Soft fallback: one mode feed page only (not 3 parallel boosts).
       const mode =
@@ -12197,7 +12204,10 @@ function KensiglineTerminal() {
       const preferredMode = row?.docType
         ? exploreInvestorModeFromDocType(row.docType)
         : exploreInvestorModeFromTypeKey(row?.typeKey ?? row?.type)
-      const slug = exploreInvestorSlug(name)
+      const slug =
+        String(row?.actorSlug ?? '')
+          .trim()
+          .toLowerCase() || exploreInvestorSlug(name)
       const hit = findExploreInvestorInFeedsByName(name, preferredMode, exploreActorFeeds)
       const tick = String(row?.ticker ?? researchTick ?? '').trim().toUpperCase() || null
       let actorRow = hit?.row ?? stubActorRowFromExploreInvestor({ ...row, ticker: tick }, preferredMode)
@@ -12218,7 +12228,7 @@ function KensiglineTerminal() {
       } else {
         exploreActorFeedHandlers.setInvestigateMode(preferredMode)
       }
-      navigateExploreInvestorDetail(name)
+      navigateExploreInvestorDetail(name, slug)
     },
     [
       exploreActorFeeds,

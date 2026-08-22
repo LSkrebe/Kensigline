@@ -97,8 +97,11 @@ export function exploreCompanyDetailPath(ticker) {
   return t ? `/explore/companies/${t}` : EXPLORE_COMPANIES_PATH
 }
 
-export function exploreInvestorDetailPath(name) {
-  const slug = exploreInvestorSlug(name)
+export function exploreInvestorDetailPath(name, slugHint = null) {
+  const slug =
+    String(slugHint ?? '')
+      .trim()
+      .toLowerCase() || exploreInvestorSlug(name)
   return slug ? `/explore/investors/${slug}` : EXPLORE_INVESTORS_PATH
 }
 
@@ -139,8 +142,8 @@ export function navigateExploreCompanyDetail(ticker) {
   navigateTerminal(exploreCompanyDetailPath(ticker))
 }
 
-export function navigateExploreInvestorDetail(name) {
-  navigateTerminal(exploreInvestorDetailPath(name))
+export function navigateExploreInvestorDetail(name, slugHint = null) {
+  navigateTerminal(exploreInvestorDetailPath(name, slugHint))
 }
 
 /** @deprecated Use navigateExploreInvestorDetail */

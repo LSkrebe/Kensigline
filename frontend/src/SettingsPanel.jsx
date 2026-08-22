@@ -8,6 +8,8 @@ import './ExplorePage.css'
 import './SettingsPage.css'
 
 const SUPPORT_EMAIL = 'research@mercerline.com'
+/** FormSubmit inbox — same path as waitlist; lands in founders Gmail (no Brevo/Hetzner). */
+const SUPPORT_NOTIFY_TO = 'lm.skrebe@gmail.com'
 
 function formatBillingStatus(status) {
   const s = String(status ?? 'none').trim()
@@ -108,9 +110,9 @@ function SettingsSection({ label, title, headAside = null, children, footer, pan
   )
 }
 
-function SettingsField({ label, sublabel, children, valueTone }) {
+function SettingsField({ label, sublabel, children, valueTone, className = '' }) {
   return (
-    <div className="stgField">
+    <div className={['stgField', className].filter(Boolean).join(' ')}>
       {sublabel ? (
         <div className="stgFieldLabelGroup">
           <span className="stgFieldLabel">{label}</span>
@@ -137,6 +139,9 @@ export function SettingsPanel({
 }) {
   const { configured, loading, user, signOut } = useAuth()
   const [portalBusy, setPortalBusy] = useState(false)
+  const [supportMessage, setSupportMessage] = useState('')
+  const [supportBusy, setSupportBusy] = useState(false)
+  const [supportStatus, setSupportStatus] = useState(null)
   const [billing, setBilling] = useState(null)
   const [billingLoading, setBillingLoading] = useState(false)
   const signedIn = Boolean(configured && !loading && user)
@@ -149,6 +154,46 @@ export function SettingsPanel({
       window.location.href = res.data.url
     }
   }, [])
+
+  const onSendSupport = useCallback(async () => {
+    const message = supportMessage.trim()
+    if (!message || supportBusy) return
+    setSupportBusy(true)
+    setSupportStatus(null)
+    const fromEmail = String(user?.email ?? '').trim()
+    try {
+      const r = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(SUPPORT_NOTIFY_TO)}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          email: fromEmail || 'unknown',
+          _replyto: fromEmail || undefined,
+          _subject: `Mercerline support${fromEmail ? `: ${fromEmail}` : ''}`,
+          _template: 'table',
+          message,
+          source: 'mercerline.com/settings',
+          billing_status: billing?.status ?? 'unknown',
+          billing_plan: billing?.plan ?? 'unknown',
+        }),
+      })
+      const data = await r.json().catch(() => null)
+      const msg = String(data?.message ?? '').toLowerCase()
+      const activatedPending = msg.includes('activate') || data?.success === 'false' || data?.success === false
+      if (r.ok || activatedPending) {
+        setSupportMessage('')
+        setSupportStatus({ ok: true, text: 'Sent — we reply by email.' })
+        return
+      }
+      setSupportStatus({ ok: false, text: 'Could not send right now. Try again or email us directly.' })
+    } catch {
+      setSupportStatus({ ok: false, text: 'Could not send right now. Try again or email us directly.' })
+    } finally {
+      setSupportBusy(false)
+    }
+  }, [billing?.plan, billing?.status, supportBusy, supportMessage, user?.email])
 
   useEffect(() => {
     if (!signedIn) {
@@ -222,6 +267,9 @@ export function SettingsPanel({
                   : 'Offline'}
             </span>
           </SettingsField>
+          <SettingsField label=" " className="stgField--spacer" aria-hidden="true">
+            <span aria-hidden="true">&nbsp;</span>
+          </SettingsField>
         </SettingsSection>
 
         <SettingsSection
@@ -256,13 +304,40 @@ export function SettingsPanel({
       </SettingsSection>
 
       <SettingsSection label="Support" title="Talk to the founders">
-        <p className="stgEmpty">
-          Questions, bugs, or ideas — email{' '}
-          <a className="stgSupportLink mono" href={`mailto:${SUPPORT_EMAIL}`}>
-            {SUPPORT_EMAIL}
-          </a>
-          .
-        </p>
+        <textarea
+          className="stgSupportTextarea mono"
+          rows={3}
+          maxLength={4000}
+          placeholder="Bug, billing, or idea…"
+          value={supportMessage}
+          onChange={(e) => {
+            setSupportMessage(e.target.value)
+            if (supportStatus) setSupportStatus(null)
+          }}
+          aria-label="Message to founders"
+        />
+        <div className="stgSupportActions">
+          <p
+            className={[
+              'stgSupportHint mono',
+              supportStatus?.ok === true ? 'isOk' : '',
+              supportStatus?.ok === false ? 'isBad' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            role={supportStatus ? 'status' : undefined}
+          >
+            {supportStatus ? supportStatus.text : SUPPORT_EMAIL}
+          </p>
+          <button
+            type="button"
+            className="stgBtn"
+            disabled={supportBusy || !supportMessage.trim()}
+            onClick={() => void onSendSupport()}
+          >
+            {supportBusy ? 'Sending…' : 'Send'}
+          </button>
+        </div>
       </SettingsSection>
     </SettingsPageShell>
   )

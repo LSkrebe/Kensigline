@@ -117,6 +117,8 @@ export function findExploreInvestorDirectoryRowBySlug(slug, directoryRows = []) 
   const target = String(slug ?? '').trim().toLowerCase()
   if (!target) return null
   for (const row of directoryRows) {
+    const rowSlug = String(row?.actorSlug ?? '').trim().toLowerCase()
+    if (rowSlug && rowSlug === target) return row
     if (exploreInvestorSlug(row?.name) === target) return row
   }
   return null
@@ -210,8 +212,12 @@ export function resolveExploreInvestorDossier({
   if (dir) {
     if (isPlaceholderInvestorName(dir.name)) return null
     const mode = exploreInvestorModeFromDocType(dir.docType)
+    const canonicalSlug =
+      String(dir.actorSlug ?? '')
+        .trim()
+        .toLowerCase() || slug
     return {
-      slug,
+      slug: canonicalSlug,
       mode,
       index: null,
       actorRow: stubActorRowFromExploreInvestor(dir, mode),
