@@ -1730,32 +1730,83 @@ button.drpt-docRow {
     --drpt-page-pad-x: 18px;
   }
 
-  .drpt-stickWrap {
-    --deep-expanded-h: clamp(200px, calc(21vh + 56px), 252px);
+  .drpt-stickWrap,
+  .exploreDirShell .drpt-stickWrap {
+    --deep-expanded-h: clamp(280px, calc(34vh + 72px), 400px);
   }
 
+  .drpt-expanded,
+  .exploreDirShell .drpt-expanded {
+    overflow: visible;
+  }
+
+  /* Stacked header: wrap long titles, stack price/meta below (no side-by-side truncation). */
   .drpt-topbar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: var(--drpt-topbar-row-h) auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
     grid-template-areas:
-      'identity price'
-      'meta meta';
-    align-items: end;
-    gap: 10px 16px;
-    padding: 16px var(--drpt-page-pad-x) 14px;
+      'identity'
+      'price'
+      'meta';
+    align-items: start;
+    gap: 8px 0;
+    padding: 16px var(--drpt-page-pad-x) 16px;
   }
 
   .drpt-topbar--noMeta {
-    grid-template-rows: var(--drpt-topbar-row-h);
-    grid-template-areas: 'identity price';
-    gap: 0 16px;
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      'identity'
+      'price';
+  }
+
+  .drpt-topbar--directory {
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      'identity'
+      'meta';
+  }
+
+  .drpt-topbar--directory.drpt-topbar--noMeta {
+    grid-template-rows: auto;
+    grid-template-areas: 'identity';
   }
 
   .drpt-topbarIdentity {
     grid-area: identity;
     min-width: 0;
-    min-height: var(--drpt-topbar-row-h);
-    align-self: end;
+    min-height: 0;
+    align-self: start;
+    justify-content: flex-start;
+  }
+
+  .drpt-topbarTitleRow {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 6px 12px;
+  }
+
+  .drpt-topbarTicker,
+  .drpt-topbar--investor .drpt-topbarTicker,
+  .drpt-topbar--actor .drpt-topbarTicker {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    flex-shrink: 1;
+    line-height: 1.12;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
+  }
+
+  .drpt-topbarName {
+    display: block;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    flex: 1 1 100%;
+    max-width: 100%;
+    font-size: 14px;
   }
 
   .drpt-topbarMeta {
@@ -1771,18 +1822,45 @@ button.drpt-docRow {
 
   .drpt-topbarPrice {
     grid-area: price;
+    justify-content: flex-start;
+    align-items: flex-start;
+    height: auto;
+    min-height: 0;
+  }
+
+  .drpt-topbarAside {
+    height: auto;
+    min-height: 0;
   }
 
   .drpt-topbarPrice--empty {
     display: none;
   }
 
-  .drpt-topbarName {
-    display: none;
-  }
-
   .drpt-topbar--directory .drpt-topbarMeta span {
     white-space: normal;
+  }
+
+  .drpt-sectionHead {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px 12px;
+  }
+
+  .drpt-sectionTitle {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    max-width: 100%;
+  }
+
+  .exploreEventSectionTitleBtn {
+    align-items: flex-start;
+    max-width: 100%;
+  }
+
+  .exploreEventSectionTitleBtn .drpt-sectionTitle {
+    margin: 0;
   }
 
   .drpt-price {

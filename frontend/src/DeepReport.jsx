@@ -1230,7 +1230,7 @@ function CompanyTopBar({
     .filter((bit) => bit && bit !== '—' && bit !== '-' && bit !== '–' && bit !== '--')
 
   return (
-    <header className={['drpt-topbar', metaBits.length ? '' : 'drpt-topbar--noMeta'].filter(Boolean).join(' ')}>
+    <header className={['drpt-topbar', 'drpt-topbar--company', metaBits.length ? '' : 'drpt-topbar--noMeta'].filter(Boolean).join(' ')}>
       <div className="drpt-topbarIdentity">
         <p className="drpt-kicker">Company dossier</p>
         <div className="drpt-topbarTitleRow">
