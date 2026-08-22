@@ -111,16 +111,15 @@ export function ExplorePage({
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const [recapOut, dirOut] = await Promise.all([
-        loadExploreDailyRecap(backendUp),
-        loadExploreDirectoryBundle(backendUp),
-      ])
+      const dirOut = await loadExploreDirectoryBundle(backendUp)
       if (cancelled) return
-      if (recapOut) setRecap(recapOut)
       if (dirOut) {
         setHomePreview(dirOut.homePreview ?? { companies: [], investors: [] })
         setHomeSearchPool(dirOut.homeLatest ?? { companies: [], investors: [] })
       }
+      const recapOut = await loadExploreDailyRecap(backendUp)
+      if (cancelled) return
+      if (recapOut) setRecap(recapOut)
     })()
     return () => {
       cancelled = true

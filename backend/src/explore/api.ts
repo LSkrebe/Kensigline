@@ -11,6 +11,23 @@ type CacheEntry<T> = { at: number; payload: T };
 
 let recapCache: CacheEntry<Awaited<ReturnType<typeof buildExploreRecapDayPayload>>> | null = null;
 let directoryCache: CacheEntry<Awaited<ReturnType<typeof buildExploreDirectoryEvents>>> | null = null;
+let exploreBuildChain: Promise<void> = Promise.resolve();
+
+/** One heavy explore build at a time — parallel /recap + /directory requests share a 4-slot API pool. */
+async function withExploreBuildLock<T>(fn: () => Promise<T>): Promise<T> {
+  let release!: () => void;
+  const slot = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const prev = exploreBuildChain;
+  exploreBuildChain = prev.then(() => slot);
+  await prev;
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
+}
 
 function readCache<T>(entry: CacheEntry<T> | null): T | null {
   if (!entry) return null;
@@ -25,7 +42,7 @@ export async function handleExploreRecap(res: http.ServerResponse) {
       sendJson(res, 200, cached);
       return;
     }
-    const payload = await buildExploreRecapDayPayload();
+    const payload = await withExploreBuildLock(() => buildExploreRecapDayPayload());
     recapCache = { at: Date.now(), payload };
     sendJson(res, 200, payload);
   } catch (err) {
@@ -42,7 +59,7 @@ export async function handleExploreDirectory(res: http.ServerResponse) {
       sendJson(res, 200, { ok: true, ...cached });
       return;
     }
-    const payload = await buildExploreDirectoryEvents();
+    const payload = await withExploreBuildLock(() => buildExploreDirectoryEvents());
     directoryCache = { at: Date.now(), payload };
     sendJson(res, 200, { ok: true, ...payload });
   } catch (err) {

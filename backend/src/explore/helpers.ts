@@ -1,7 +1,7 @@
 import { db } from "../core/db.js";
 
 /** Explore home queries can be heavy; prod API pool is small and ingest competes for DB time. */
-export const EXPLORE_HOME_QUERY_TIMEOUT_MS = 25_000;
+export const EXPLORE_HOME_QUERY_TIMEOUT_MS = 45_000;
 
 export function exploreQueryApi<T = unknown>(
   text: string,

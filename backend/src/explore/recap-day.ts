@@ -34,9 +34,8 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
   const lookback = Math.max(1, Math.min(21, opts?.lookbackDays ?? 7));
   const dayKey = todayUtcIso();
 
-  // Cap parallel checkouts — prod API pool is small (often 4); 5-way Promise.all deadlocks + bars.
-  const [insiders, politicians] = await Promise.all([
-    exploreQueryApi<{
+  // Sequential checkouts — recap runs after directory; keep one connection per step under a 4-slot pool.
+  const insiders = await exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -61,20 +60,20 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
         t.transaction_code AS code,
         t.acquired_disposed,
         t.amount_usd::float8 AS amount_usd,
-        fil.title AS headline
+        NULL::text AS headline
       FROM insider_transactions t
       JOIN filers f ON f.id = t.filer_id
       JOIN issuers i ON i.id = t.issuer_id
-      JOIN filings fil ON fil.id = t.filing_id
       WHERE i.ticker IS NOT NULL
         AND length(trim(i.ticker)) BETWEEN 1 AND 6
         AND t.transaction_at >= (now() AT TIME ZONE 'UTC')::date - ($1::int || ' days')::interval
       ORDER BY t.transaction_at DESC
-      LIMIT 500
+      LIMIT 250
       `,
       [lookback],
-    ),
-    exploreQueryApi<{
+    );
+
+  const politicians = await exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -106,11 +105,9 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       LIMIT 300
       `,
       [lookback],
-    ),
-  ]);
+    );
 
-  const [institutions, companyFilings] = await Promise.all([
-    exploreQueryApi<{
+  const institutions = await exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -140,8 +137,9 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       LIMIT 300
       `,
       [lookback],
-    ),
-    exploreQueryApi<{
+    );
+
+  const companyFilings = await exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -174,8 +172,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       LIMIT 200
       `,
       [lookback],
-    ),
-  ]);
+    );
 
   const earningsRows = await exploreQueryApi<{ ticker: string; name: string; earnings_date: string; days_ahead: string }>(
     `
@@ -284,7 +281,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
     ...filings.map((f) => String(f.ticker ?? "")),
     ...earningsRows.map((r) => r.ticker),
   ];
-  const barMap = await loadBarClosesByTicker(tickers, 260);
+  const barMap = await loadBarClosesByTicker(tickers, 48);
 
   for (const f of filings) {
     const t = String(f.ticker ?? "").toUpperCase();
@@ -328,7 +325,7 @@ export type ExploreDirectoryEvent = {
 };
 
 export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number }) {
-  const lookback = Math.max(7, Math.min(60, opts?.lookbackDays ?? 45));
+  const lookback = Math.max(7, Math.min(30, opts?.lookbackDays ?? 21));
 
   const [insiders, politicians] = await Promise.all([
     exploreQueryApi<{
