@@ -57,16 +57,16 @@ function ExploreStoryRow({ slide, onOpenEvent }) {
   )
 }
 
-export function ExploreStoryCards({ slides = [], onOpenEvent = null }) {
+export function ExploreStoryCards({ slides = [], onOpenEvent = null, sectionKicker = 'Latest' }) {
   if (!slides.length) return null
 
   return (
-    <section className="exploreStorySection" aria-label="More stories today">
+    <section className="exploreStorySection" aria-label="Headlines">
       <header className="exploreStorySectionHead">
         <span className="exploreDirectorySectionHeadCopy">
-          <span className="exploreDirectorySectionKicker mono">Today</span>
+          <span className="exploreDirectorySectionKicker mono">{sectionKicker}</span>
           <span className="exploreDirectorySectionTitleRow">
-            <span className="exploreDirectorySectionTitle">More stories</span>
+            <span className="exploreDirectorySectionTitle">Headlines</span>
           </span>
         </span>
       </header>

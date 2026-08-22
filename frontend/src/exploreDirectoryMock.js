@@ -20,19 +20,62 @@ function todayIso() {
   return isoDaysAgo(0)
 }
 
-function formatExploreRecency(iso) {
+export function todayIsoUtc() {
+  const d = new Date()
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
+}
+
+function isoDaysBefore(iso, days, utc = false) {
+  const d = utc ? new Date(`${iso}T12:00:00Z`) : new Date(`${iso}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return iso
+  if (utc) d.setUTCDate(d.getUTCDate() - days)
+  else d.setDate(d.getDate() - days)
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * Pick the newest calendar day with activity, falling back from today when quiet.
+ * @param {string[]} dates ISO date strings
+ * @param {{ today?: string, maxLookback?: number, utc?: boolean }} [opts]
+ */
+export function resolveExploreDisplayDay(dates, opts = {}) {
+  const utc = opts.utc === true
+  const today = opts.today ?? (utc ? todayIsoUtc() : todayIso())
+  const maxLookback = Math.max(0, opts.maxLookback ?? 14)
+  const dateSet = new Set(
+    (Array.isArray(dates) ? dates : [])
+      .map((d) => String(d ?? '').slice(0, 10))
+      .filter(Boolean),
+  )
+
+  if (dateSet.has(today)) {
+    return { displayDayKey: today, requestedDayKey: today, isFallback: false }
+  }
+
+  for (let i = 1; i <= maxLookback; i += 1) {
+    const candidate = isoDaysBefore(today, i, utc)
+    if (dateSet.has(candidate)) {
+      return { displayDayKey: candidate, requestedDayKey: today, isFallback: true }
+    }
+  }
+
+  return { displayDayKey: today, requestedDayKey: today, isFallback: false }
+}
+
+export function formatExploreRecency(iso, opts = {}) {
   const date = String(iso ?? '').trim()
   if (!date) return null
-  const today = todayIso()
+  const utc = opts.utc === true
+  const today = opts.today ?? (utc ? todayIsoUtc() : todayIso())
   if (date === today) return 'Today'
-  const then = new Date(`${date}T12:00:00`)
-  const now = new Date(`${today}T12:00:00`)
+  const then = utc ? new Date(`${date}T12:00:00Z`) : new Date(`${date}T12:00:00`)
+  const now = utc ? new Date(`${today}T12:00:00Z`) : new Date(`${today}T12:00:00`)
   const days = Math.max(0, Math.round((now - then) / 86400000))
   if (days === 1) return '1d ago'
   if (days < 14) return `${days}d ago`
-  const mm = String(then.getMonth() + 1).padStart(2, '0')
-  const dd = String(then.getDate()).padStart(2, '0')
-  return `${mm}-${dd}`
+  const mm = String(then.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(then.getUTCDate()).padStart(2, '0')
+  return utc ? `${mm}-${dd}` : `${String(then.getMonth() + 1).padStart(2, '0')}-${String(then.getDate()).padStart(2, '0')}`
 }
 
 /** Parse compact disclosure notional strings like +$5.2M or -$640K into signed USD. */
@@ -378,23 +421,42 @@ export function buildExploreDirectoryHomeLatest(directory = buildExploreDirector
   }
 }
 
-/** ~12 newest events from today for Explore home preview. */
-export function buildExploreDirectoryHomePreview(directory = buildExploreDirectoryMock()) {
-  const today = todayIso()
-
-  const todayCompanyEvents = directory.companyEvents.filter((row) => row.date === today)
+/** ~12 newest events from the display day for Explore home preview. */
+export function buildExploreDirectoryHomePreview(directory = buildExploreDirectoryMock(), opts = {}) {
   const investorEvents = directory.investorEvents ?? directory.actorEvents ?? []
-  const todayInvestorEvents = investorEvents.filter((row) => row.date === today)
+  const allDates = [
+    ...directory.companyEvents.map((row) => row.date),
+    ...investorEvents.map((row) => row.date),
+  ]
+  const resolved =
+    opts.displayDayKey != null
+      ? {
+          displayDayKey: opts.displayDayKey,
+          requestedDayKey: opts.today ?? (opts.utc ? todayIsoUtc() : todayIso()),
+          isFallback: opts.displayDayKey !== (opts.today ?? (opts.utc ? todayIsoUtc() : todayIso())),
+        }
+      : resolveExploreDisplayDay(allDates, {
+          today: opts.today,
+          maxLookback: opts.maxLookback ?? 14,
+          utc: opts.utc === true,
+        })
+
+  const { displayDayKey, requestedDayKey, isFallback } = resolved
+  const dayCompanyEvents = directory.companyEvents.filter((row) => row.date === displayDayKey)
+  const dayInvestorEvents = investorEvents.filter((row) => row.date === displayDayKey)
 
   return {
-    companies: aggregateExploreSameDayEvents(todayCompanyEvents, (row) => `${row.ticker}|${row.date}`).slice(
+    companies: aggregateExploreSameDayEvents(dayCompanyEvents, (row) => `${row.ticker}|${row.date}`).slice(
       0,
       HOME_DIRECTORY_PREVIEW,
     ),
-    investors: aggregateExploreSameDayEvents(todayInvestorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`).slice(
+    investors: aggregateExploreSameDayEvents(dayInvestorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`).slice(
       0,
       HOME_DIRECTORY_PREVIEW,
     ),
+    displayDayKey,
+    requestedDayKey,
+    isFallback,
   }
 }
 

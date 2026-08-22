@@ -12,6 +12,8 @@ import {
   buildExploreDirectoryHomeLatest,
   buildExploreDirectoryHomePreview,
   buildExploreDirectoryMock,
+  resolveExploreDisplayDay,
+  todayIsoUtc,
 } from './exploreDirectoryMock.js'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 
@@ -81,6 +83,26 @@ export async function enrichRecapDayWithBars(day) {
   return { ...day, filings, earningsSoon }
 }
 
+function scopeRecapDayToDisplayDay(day) {
+  if (!day || typeof day !== 'object') return day
+  const dates = (day.filings ?? []).map((f) => f.filingDate)
+  const { displayDayKey, requestedDayKey, isFallback } = resolveExploreDisplayDay(dates, {
+    today: todayIsoUtc(),
+    maxLookback: 7,
+    utc: true,
+  })
+  const filings = (day.filings ?? []).filter(
+    (f) => String(f?.filingDate ?? '').slice(0, 10) === displayDayKey,
+  )
+  return {
+    ...day,
+    dayKey: displayDayKey,
+    requestedDayKey,
+    isFallback,
+    filings,
+  }
+}
+
 export async function fetchExploreRecapDay(backendUp) {
   if (!isLiveDataMode(backendUp)) return null
   const res = await fetchJsonSafe('/api/explore/recap', { timeoutMs: 14_000 })
@@ -97,10 +119,17 @@ export async function loadExploreDailyRecap(backendUp) {
   }
 
   const day = await fetchExploreRecapDay(backendUp)
-  if (day?.filings) {
-    const recap = evaluateExploreRecap(day)
-    setExploreRecapCache(day, recap)
-    return recap
+  if (day) {
+    const scopedDay = scopeRecapDayToDisplayDay(day)
+    const recap = evaluateExploreRecap(scopedDay)
+    const out = {
+      ...recap,
+      displayDayKey: scopedDay.dayKey,
+      requestedDayKey: scopedDay.requestedDayKey,
+      isFallback: scopedDay.isFallback,
+    }
+    setExploreRecapCache(scopedDay, out)
+    return out
   }
   return EMPTY_EXPLORE_RECAP
 }
@@ -135,12 +164,15 @@ export async function loadExploreDirectoryBundle(backendUp) {
   const events = await fetchExploreDirectoryEvents(backendUp)
   if (events) {
     const directory = buildExploreDirectoryFromEvents(events.companyEvents, events.investorEvents)
+    const homePreview = buildExploreDirectoryHomePreview(directory, { utc: true, maxLookback: 14 })
     return {
       directory,
-      homePreview: buildExploreDirectoryHomePreview(directory),
+      homePreview,
       homeLatest: buildExploreDirectoryHomeLatest(directory),
       fullCompanies: buildExploreDirectoryFullList('companies', directory),
       fullInvestors: buildExploreDirectoryFullList('investors', directory),
+      displayDayKey: homePreview.displayDayKey,
+      isFallback: homePreview.isFallback,
       live: true,
       pending: false,
     }

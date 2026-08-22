@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   buildExploreDirectoryHomeLatest,
   buildExploreDirectoryHomePreview,
+  formatExploreRecency,
   HOME_DIRECTORY_PREVIEW,
 } from './exploreDirectoryMock.js'
 import { loadExploreDailyRecap, loadExploreDirectoryBundle } from './exploreApi.js'
-import { EMPTY_EXPLORE_RECAP, isMockDataMode } from './dataMode.js'
+import { EMPTY_EXPLORE_RECAP, isLiveDataMode, isMockDataMode } from './dataMode.js'
 import { ExploreDirectoryCompanyRow, ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
 import { ExploreStoryCards } from './ExploreStoryCards.jsx'
@@ -129,7 +130,17 @@ export function ExplorePage({
   const spacerRef = useRef(null)
   const normalizedQuery = normalizeExploreSearchQuery(searchQuery)
   const searching = normalizedQuery.length > 0
-  const sectionKicker = searching ? 'Matches' : 'Latest'
+  const useUtcDates = isLiveDataMode(backendUp)
+  const displayMeta = useMemo(() => {
+    const displayDayKey = recap?.displayDayKey ?? homePreview?.displayDayKey ?? null
+    const isFallback = recap?.isFallback === true || homePreview?.isFallback === true
+    return { displayDayKey, isFallback }
+  }, [recap, homePreview])
+  const fallbackDayLabel = useMemo(() => {
+    if (!displayMeta.isFallback || !displayMeta.displayDayKey) return null
+    return formatExploreRecency(displayMeta.displayDayKey, { utc: useUtcDates })
+  }, [displayMeta.displayDayKey, displayMeta.isFallback, useUtcDates])
+  const sectionKicker = searching ? 'Matches' : fallbackDayLabel ?? 'Latest'
   const previewLimit = HOME_DIRECTORY_PREVIEW
 
   const investorRows = useMemo(() => {
@@ -235,7 +246,7 @@ export function ExplorePage({
         <div ref={spacerRef} className="exploreRecapCollapseSpacer" aria-hidden="true" />
         <div className="explorePageBody">
           {!searching ? (
-            <ExploreStoryCards slides={storyPreviewSlides} onOpenEvent={openRecapEvent} />
+            <ExploreStoryCards slides={storyPreviewSlides} onOpenEvent={openRecapEvent} sectionKicker={sectionKicker} />
           ) : null}
 
           <ExploreDirectorySection

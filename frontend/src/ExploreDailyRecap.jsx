@@ -124,15 +124,19 @@ function ExploreRecapFeatureChart({ series, ticker }) {
   )
 }
 
-function ExploreRecapEmptySlide() {
+function ExploreRecapEmptySlide({ isFallback = false }) {
   return (
     <article className="exploreRecapSlide exploreRecapSlide--event">
       <div className="exploreRecapSlideInner exploreRecapSlideInner--event">
         <div className="exploreRecapEventCopy">
           <p className="exploreRecapSlideKicker mono">Daily recap</p>
-          <h2 className="exploreRecapEventTitle">No notable filings today</h2>
+          <h2 className="exploreRecapEventTitle">
+            {isFallback ? 'No notable filings recently' : 'No notable filings today'}
+          </h2>
           <p className="exploreRecapEventSummary">
-            When something clears the bar, it will lead here first.
+            {isFallback
+              ? 'When fresh activity clears the bar, it will lead here first.'
+              : 'When something clears the bar, it will lead here first.'}
           </p>
         </div>
       </div>
@@ -190,7 +194,7 @@ function ExploreRecapSlideView({ slide, onOpenEvent }) {
 
 function renderRecapSlideAt(recap, logicalIdx, onOpenEvent) {
   const slides = Array.isArray(recap?.slides) ? recap.slides : []
-  if (!slides.length) return <ExploreRecapEmptySlide />
+  if (!slides.length) return <ExploreRecapEmptySlide isFallback={recap?.isFallback === true} />
   const slide = slides[logicalIdx]
   if (!slide) return null
   return <ExploreRecapSlideView key={slide.id} slide={slide} onOpenEvent={onOpenEvent} />
