@@ -3,8 +3,6 @@ import { toBlob } from 'html-to-image'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { isCaptureMode } from './captureMode.js'
-import { useAlertWatchlist } from './alertsWatchlist.js'
-import { useActorAlertWatchlist } from './alertsActorWatchlist.js'
 import { investigateActorCanonicalKey } from './investigateActorKey.js'
 import { SettingsPanel } from './SettingsPanel.jsx'
 import './App.css'
@@ -5159,137 +5157,6 @@ const INSTITUTION_FEED_ROWS = sortFeedRowsByAtDesc(
   ),
 )
 
-function ContextAlertToggle({ ticker, className = '' }) {
-  const { loading, user } = useAuth()
-  const sym = String(ticker ?? '').trim().toUpperCase()
-  const signedIn = Boolean(user)
-  const { tickers, maxTickers, combinedCount, atLimit, canAdd, loaded, busyTicker, toggle } = useAlertWatchlist({
-    enabled: signedIn,
-  })
-  const active = sym && tickers.includes(sym)
-  const busy = busyTicker === sym
-  const limitBlocked = Boolean(sym && !active && atLimit && !canAdd(sym))
-  const disabled = !sym || busy || loading || !signedIn || limitBlocked
-
-  return (
-    <button
-      type="button"
-      className={['contextAlertToggle', active ? 'isActive' : '', className].filter(Boolean).join(' ')}
-      aria-pressed={active || undefined}
-      aria-label={
-        !signedIn
-          ? 'Sign in to enable ticker email alerts'
-          : limitBlocked
-            ? `Watchlist full - ${maxTickers} alerts maximum`
-            : active
-              ? `Email alerts on for ${sym}`
-              : `Enable email alerts for ${sym}`
-      }
-      title={
-        !signedIn
-          ? 'Sign in to enable alerts'
-          : limitBlocked
-            ? `Watchlist full (${combinedCount}/${maxTickers}). Remove an alert in Settings.`
-            : active
-              ? 'Alerts on - email when new documents arrive'
-              : 'Alert me when new documents arrive'
-      }
-      disabled={disabled}
-      onClick={() => {
-        if (!sym || busy) return
-        if (!signedIn) return
-        void toggle(sym)
-      }}
-    >
-      <svg className="contextAlertToggleIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"
-        />
-        <path
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M13.73 21a2 2 0 01-3.46 0"
-        />
-      </svg>
-      {loaded && active ? <span className="contextAlertToggleDot" aria-hidden="true" /> : null}
-    </button>
-  )
-}
-
-function ContextActorAlertToggle({ actorKey, displayName, mode = 'insider', className = '' }) {
-  const { loading, user } = useAuth()
-  const key = String(actorKey ?? '').trim().toLowerCase()
-  const signedIn = Boolean(user)
-  const { maxActors, combinedCount, atLimit, canAdd, loaded, busyKey, isSubscribed, toggle } = useActorAlertWatchlist({
-    enabled: signedIn,
-  })
-  const active = key && isSubscribed(key)
-  const busy = busyKey === key
-  const limitBlocked = Boolean(key && !active && atLimit && !canAdd(key))
-  const disabled = !key || busy || loading || !signedIn || limitBlocked
-  const name = String(displayName ?? '').trim() || 'this actor'
-
-  return (
-    <button
-      type="button"
-      className={['contextAlertToggle', active ? 'isActive' : '', className].filter(Boolean).join(' ')}
-      aria-pressed={active || undefined}
-      aria-label={
-        !signedIn
-          ? 'Sign in to enable actor email alerts'
-          : limitBlocked
-            ? `Watchlist full - ${maxActors} alerts maximum`
-            : active
-              ? `Email alerts on for ${name}`
-              : `Enable email alerts for ${name}`
-      }
-      title={
-        !signedIn
-          ? 'Sign in to enable alerts'
-          : limitBlocked
-            ? `Watchlist full (${combinedCount}/${maxActors}). Remove an alert in Settings.`
-            : active
-              ? 'Alerts on - email when new transactions arrive'
-              : 'Alert me when this actor has new transactions'
-      }
-      disabled={disabled}
-      onClick={() => {
-        if (!key || busy) return
-        if (!signedIn) return
-        void toggle(key, { display_name: displayName, mode })
-      }}
-    >
-      <svg className="contextAlertToggleIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"
-        />
-        <path
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M13.73 21a2 2 0 01-3.46 0"
-        />
-      </svg>
-      {loaded && active ? <span className="contextAlertToggleDot" aria-hidden="true" /> : null}
-    </button>
-  )
-}
-
 function MainContextPanel({
   ticker,
   price,
@@ -5370,7 +5237,6 @@ function MainContextPanel({
           >
             <PanelScreenshotIcon />
           </button>
-          <ContextAlertToggle ticker={t} />
         </div>
       </header>
       <div className="mainContextPanelBody scrollThin">
@@ -9116,7 +8982,6 @@ function CaseKvFeed({
   highlightCompanyQuery = '',
   personDisplay = null,
   personMode = 'insider',
-  actorAlert = null,
   panelClassName = '',
 }) {
   const listRef = useRef(null)
@@ -9337,14 +9202,6 @@ function CaseKvFeed({
       <header className="feedCompactHeader">
         <div className="panelTitle feedCompactTitle">{title}</div>
         <div className="feedCompactHeaderEnd">
-          {actorAlert?.key ? (
-            <ContextActorAlertToggle
-              actorKey={actorAlert.key}
-              displayName={actorAlert.displayName}
-              mode={actorAlert.mode}
-              className="casePanelAlertToggle"
-            />
-          ) : null}
           {!scrollMode ? (
             <div className="feedCompactMeta feedCompactMeta--paginationOnly">
               <span className="feedPageInd">{total ? `${page + 1}/${totalPages}` : '0/0'}</span>
@@ -12259,20 +12116,6 @@ function KensiglineTerminal() {
     () => actorPersonDisplayFromRow(effectiveActorRow),
     [effectiveActorRow],
   )
-
-  const investigateCaseActorAlert = useMemo(() => {
-    const displayName = String(effectiveActorRow?.actorName ?? historicalOutcomesPerson?.fullName ?? '').trim()
-    if (!displayName) return null
-    const mode =
-      investigateMode === 'politicians'
-        ? 'politicians'
-        : investigateMode === 'institutions'
-          ? 'institutions'
-          : 'insider'
-    const key = investigateActorCanonicalKey(displayName, mode)
-    if (!key) return null
-    return { key, displayName, mode }
-  }, [effectiveActorRow?.actorName, historicalOutcomesPerson?.fullName, investigateMode])
 
   useEffect(() => {
     setInsiderCaseTradeIdx(0)

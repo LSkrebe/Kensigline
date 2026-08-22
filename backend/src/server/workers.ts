@@ -4,8 +4,6 @@ import { startPoliticiansWorker } from "../investigate/politicians/worker.js";
 import { startInstitutionsWorker } from "../investigate/institutions/worker.js";
 import { startOutcomesWorker } from "../core/outcomes-worker.js";
 import { runOutcomesRecomputeOnce } from "../core/outcomes-worker.js";
-import { startAlertsWorker } from "../alerts/worker.js";
-import { startContextAlertsWorker } from "../alerts/context-alerts-worker.js";
 import { startPoliticianCommitteeRefreshWorker } from "../politicians/committees.js";
 import { startBarsRefreshWorker } from "../core/bars-worker.js";
 import { startRetentionWorker, runRetentionPurgeOnce } from "../core/retention.js";
@@ -33,10 +31,6 @@ export async function startAllWorkers(): Promise<Stoppable[]> {
   if (envEnabled("POLITICIANS_WORKER_ENABLED", true)) workers.push(startPoliticiansWorker());
   if (envEnabled("INSTITUTIONS_WORKER_ENABLED", true)) workers.push(startInstitutionsWorker());
   if (envEnabled("RESEARCH_WORKER_ENABLED", true)) workers.push(startResearchWorker());
-  if (envEnabled("ALERTS_WORKER_ENABLED", true)) {
-    workers.push(startAlertsWorker());
-    workers.push(startContextAlertsWorker());
-  }
   if (envEnabled("POLITICIAN_COMMITTEES_WORKER_ENABLED", true)) {
     workers.push(startPoliticianCommitteeRefreshWorker());
   }
@@ -45,7 +39,7 @@ export async function startAllWorkers(): Promise<Stoppable[]> {
   if (envEnabled("RETENTION_WORKER_ENABLED", true)) workers.push(startRetentionWorker());
 
   console.info(
-    `[workers] started=${workers.length} institutions=${envEnabled("INSTITUTIONS_WORKER_ENABLED", true)} outcomes=${envEnabled("OUTCOMES_WORKER_ENABLED", true)} alerts=${envEnabled("ALERTS_WORKER_ENABLED", true)}`,
+    `[workers] started=${workers.length} institutions=${envEnabled("INSTITUTIONS_WORKER_ENABLED", true)} outcomes=${envEnabled("OUTCOMES_WORKER_ENABLED", true)}`,
   );
 
   // Default off: startup recompute was pinning the DB pool and crashing the API under memory spikes.
