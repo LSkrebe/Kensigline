@@ -111,7 +111,6 @@ export function ExplorePage({
         homeLoading: false,
       }
     }
-    hydrateMemoryCacheFromSession(backendUp)
     const cached = peekExploreHomeSnapshot(backendUp)
     if (cached?.recap && cached?.homePreview) {
       return {
@@ -140,7 +139,6 @@ export function ExplorePage({
 
   useEffect(() => {
     let cancelled = false
-    hydrateMemoryCacheFromSession(backendUp)
     const cached = peekExploreHomeSnapshot(backendUp)
     if (cached?.recap && cached?.homePreview) {
       setRecap(cached.recap)
