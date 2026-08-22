@@ -1,4 +1,4 @@
-import { clearAuthTokenCache, fetchJsonSafe } from './api.js'
+import { clearAuthTokenCache, fetchJsonSafe, waitForAuthToken } from './api.js'
 import {
   EMPTY_EXPLORE_DIRECTORY,
   EMPTY_EXPLORE_RECAP,
@@ -19,8 +19,10 @@ import { buildExploreDailyRecap } from './exploreRecapMock.js'
 
 /** Client-side explore home cache — survives subview navigation within the session. */
 const EXPLORE_HOME_CACHE_TTL_MS = 5 * 60_000
-const EXPLORE_HOME_SESSION_KEY = 'mercerline:explore:home:v3'
+const EXPLORE_HOME_SESSION_KEY = 'mercerline:explore:home:v4'
 const EXPLORE_HOME_SESSION_TTL_MS = 10 * 60_000
+/** Paint stale session instantly while revalidating (matches backend stale window). */
+const EXPLORE_HOME_SESSION_STALE_MS = 30 * 60_000
 
 function readExploreHomeSession() {
   if (typeof window === 'undefined' || !window.sessionStorage) return null
@@ -28,9 +30,10 @@ function readExploreHomeSession() {
     const raw = window.sessionStorage.getItem(EXPLORE_HOME_SESSION_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (!parsed?.at || Date.now() - parsed.at > EXPLORE_HOME_SESSION_TTL_MS) return null
-    if (!parsed.recap || !parsed.directory) return null
-    return parsed
+    if (!parsed?.at || !parsed.recap || !parsed.directory) return null
+    const age = Date.now() - parsed.at
+    if (age > EXPLORE_HOME_SESSION_STALE_MS) return null
+    return { ...parsed, stale: age > EXPLORE_HOME_SESSION_TTL_MS }
   } catch {
     return null
   }
@@ -56,17 +59,43 @@ function hydrateMemoryCacheFromSession(backendUp) {
   return session
 }
 
+function snapshotFromSession(backendUp) {
+  const session = readExploreHomeSession()
+  if (!session || !isLiveDataMode(backendUp)) return null
+  recapResultCacheEntry = { at: session.at, backendUp, recap: session.recap }
+  directoryCacheEntry = { at: session.at, backendUp, bundle: session.directory }
+  return {
+    recap: session.recap,
+    homePreview: session.directory.homePreview,
+    homeLatest: session.directory.homeLatest,
+    fullInvestors: session.directory.fullInvestors,
+    fullCompanies: session.directory.fullCompanies,
+    fromCache: true,
+    stale: session.stale === true,
+  }
+}
+
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-/** Retry once after auth settles — explore mounts can race the bearer cache. */
+/** Retry when auth/session or DB blips race the first paint after idle. */
 async function fetchJsonWithAuthRetry(path, opts = {}) {
-  let res = await fetchJsonSafe(path, opts)
-  if (res.ok || (res.status !== 401 && res.status !== 0)) return res
-  clearAuthTokenCache()
-  await sleep(250)
-  return fetchJsonSafe(path, opts)
+  const attempts = Math.max(1, Number(opts.authRetries ?? 5) || 5)
+  let last = null
+  for (let i = 0; i < attempts; i++) {
+    if (i > 0) {
+      clearAuthTokenCache()
+      await waitForAuthToken(Math.min(2500, 600 + i * 400))
+      await sleep(120 + i * 220)
+    } else {
+      await waitForAuthToken(1200)
+    }
+    last = await fetchJsonSafe(path, opts)
+    if (last.ok) return last
+    if (last.status !== 401 && last.status !== 0 && last.status !== 503) return last
+  }
+  return last
 }
 
 function pctMoveFromSeries(series, lookback = 5) {
@@ -192,11 +221,13 @@ export function peekExploreHomeSnapshot(backendUp) {
   if (!isLiveDataMode(backendUp)) return null
   let hasRecap = cacheEntryFresh(recapResultCacheEntry, backendUp)
   let hasDir = cacheEntryFresh(directoryCacheEntry, backendUp)
+  let stale = false
   if (!hasRecap || !hasDir) {
-    const session = hydrateMemoryCacheFromSession(backendUp)
-    if (session) {
+    const sessionSnap = snapshotFromSession(backendUp)
+    if (sessionSnap) {
       hasRecap = true
       hasDir = true
+      stale = sessionSnap.stale === true
     }
   }
   if (!hasRecap && !hasDir) return null
@@ -207,6 +238,7 @@ export function peekExploreHomeSnapshot(backendUp) {
     fullInvestors: hasDir ? directoryCacheEntry.bundle.fullInvestors : null,
     fullCompanies: hasDir ? directoryCacheEntry.bundle.fullCompanies : null,
     fromCache: true,
+    stale,
   }
 }
 
@@ -380,21 +412,43 @@ export async function loadExploreHomeBundle(backendUp, opts = {}) {
   if (!opts.force) {
     const cached = peekExploreHomeSnapshot(backendUp)
     if (cached?.recap && cached?.homePreview) {
+      const needsRefresh = cached.stale === true
+      if (!needsRefresh) {
+        return {
+          recap: cached.recap,
+          directory: directoryCacheEntry.bundle,
+          fromCache: true,
+        }
+      }
+      void refreshExploreHomeBundle(backendUp)
       return {
         recap: cached.recap,
         directory: directoryCacheEntry.bundle,
         fromCache: true,
+        stale: true,
       }
     }
   }
 
+  return fetchExploreHomeBundleFresh(backendUp)
+}
+
+async function fetchExploreHomeBundleFresh(backendUp) {
   if (homeInflight) return homeInflight
 
   homeInflight = (async () => {
     try {
-      const processed = await fetchExploreHome(backendUp)
+      let processed = await fetchExploreHome(backendUp)
+      if (!processed) {
+        await sleep(1200)
+        processed = await fetchExploreHome(backendUp)
+      }
       if (processed) {
         return { recap: processed.recap, directory: processed.directory, fromCache: false }
+      }
+      const staleSnap = snapshotFromSession(backendUp)
+      if (staleSnap?.recap && directoryCacheEntry?.bundle) {
+        return { recap: staleSnap.recap, directory: directoryCacheEntry.bundle, fromCache: true, stale: true }
       }
       return {
         recap: EMPTY_EXPLORE_RECAP,
@@ -407,6 +461,17 @@ export async function loadExploreHomeBundle(backendUp, opts = {}) {
   })()
 
   return homeInflight
+}
+
+function refreshExploreHomeBundle(backendUp) {
+  if (!isLiveDataMode(backendUp)) return Promise.resolve(null)
+  return fetchExploreHomeBundleFresh(backendUp)
+}
+
+/** Warm explore home as soon as backend + auth are ready (before Explore mount). */
+export function prefetchExploreHome(backendUp) {
+  if (!isLiveDataMode(backendUp)) return Promise.resolve(null)
+  return loadExploreHomeBundle(backendUp, { force: false })
 }
 
 let cachedRecapDay = null

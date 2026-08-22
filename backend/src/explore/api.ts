@@ -38,10 +38,12 @@ function writeHomeCache(payload: HomePayload) {
   homeCache = { at: Date.now(), payload };
 }
 
-/** One home build at a time; recap + directory share one checkout sequence. */
+/** Recap + directory are independent query sets — build in parallel for faster cold cache. */
 async function buildExploreHomePayload(): Promise<HomePayload> {
-  const recap = await buildExploreRecapDayPayload();
-  const directory = await buildExploreDirectoryEvents();
+  const [recap, directory] = await Promise.all([
+    buildExploreRecapDayPayload(),
+    buildExploreDirectoryEvents(),
+  ]);
   return { recap, directory };
 }
 

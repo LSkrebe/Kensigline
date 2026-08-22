@@ -6,7 +6,7 @@ import {
   HOME_DIRECTORY_PREVIEW,
 } from './exploreDirectoryMock.js'
 import { loadExploreHomeBundle, peekExploreHomeSnapshot } from './exploreApi.js'
-import { EMPTY_EXPLORE_RECAP, isLiveDataMode, isMockDataMode } from './dataMode.js'
+import { EMPTY_EXPLORE_RECAP, isDataModePending, isLiveDataMode, isMockDataMode } from './dataMode.js'
 import { ExploreDirectoryCompanyRow, ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
 import { ExploreStoryCards } from './ExploreStoryCards.jsx'
@@ -124,7 +124,7 @@ export function ExplorePage({
       recap: null,
       homePreview: null,
       homeSearchPool: null,
-      homeLoading: isLiveDataMode(backendUp),
+      homeLoading: isLiveDataMode(backendUp) || isDataModePending(backendUp),
     }
   }, [backendUp])
 
@@ -139,19 +139,43 @@ export function ExplorePage({
 
   useEffect(() => {
     let cancelled = false
+
+    if (isMockDataMode(backendUp)) {
+      setRecap(buildExploreDailyRecap())
+      setHomePreview(buildExploreDirectoryHomePreview())
+      setHomeSearchPool(buildExploreDirectoryHomeLatest())
+      setHomeLoading(false)
+      return
+    }
+
+    if (isDataModePending(backendUp)) {
+      setHomeLoading(true)
+      return
+    }
+
+    if (!isLiveDataMode(backendUp)) {
+      setHomeLoading(false)
+      return
+    }
+
+    if (!authUserId) {
+      setHomeLoading(true)
+      return
+    }
+
     const cached = peekExploreHomeSnapshot(backendUp)
     if (cached?.recap && cached?.homePreview) {
       setRecap(cached.recap)
       setHomePreview(cached.homePreview)
       setHomeSearchPool(cached.homeLatest ?? { companies: [], investors: [] })
       setHomeLoading(false)
-    } else if (isLiveDataMode(backendUp)) {
+    } else {
       setHomeLoading(true)
     }
 
     void loadExploreHomeBundle(backendUp, { force: false }).then((bundle) => {
-      if (cancelled || !bundle) return
-      if (bundle.recap) setRecap(bundle.recap)
+      if (cancelled || !bundle?.recap) return
+      setRecap(bundle.recap)
       if (bundle.directory) {
         setHomePreview(bundle.directory.homePreview ?? { companies: [], investors: [] })
         setHomeSearchPool(bundle.directory.homeLatest ?? { companies: [], investors: [] })

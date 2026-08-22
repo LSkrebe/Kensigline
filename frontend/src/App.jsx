@@ -25,7 +25,7 @@ import {
   resolveExploreInvestorDossier,
   stubActorRowFromExploreInvestor,
 } from './exploreDirectoryNav.js'
-import { loadExploreDirectoryBundle, peekExploreHomeSnapshot } from './exploreApi.js'
+import { loadExploreDirectoryBundle, peekExploreHomeSnapshot, prefetchExploreHome } from './exploreApi.js'
 import { isLiveDataMode, isMockDataMode } from './dataMode.js'
 import {
   isTerminalAppPath,
@@ -10119,6 +10119,11 @@ function KensiglineTerminal() {
     if (!isLiveDataMode(backendUp)) return
     prefetchMacroCalendar()
   }, [backendUp])
+
+  useEffect(() => {
+    if (!isLiveDataMode(backendUp) || !user?.id) return
+    prefetchExploreHome(backendUp)
+  }, [backendUp, user?.id])
 
   useEffect(() => {
     let alive = true

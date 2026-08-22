@@ -77,6 +77,18 @@ async function resolveAuthToken(timeoutMs) {
   return tok
 }
 
+/** Wait for Supabase session — explore mounts often race auth hydration. */
+export async function waitForAuthToken(maxWaitMs = 4500) {
+  const deadline = Date.now() + maxWaitMs
+  while (Date.now() < deadline) {
+    const remaining = deadline - Date.now()
+    const tok = await resolveAuthToken(Math.max(200, Math.min(1200, remaining)))
+    if (tok) return tok
+    await new Promise((r) => setTimeout(r, 180))
+  }
+  return null
+}
+
 export function getBackendBase() {
   /* Vite dev proxy forwards /api → API_BASE_URL from vite.config (see server.proxy). */
   if (import.meta.env.DEV && typeof window !== 'undefined') return ''
