@@ -1432,6 +1432,15 @@ button.drpt-docRow {
   color: var(--drpt-accent);
 }
 
+@media (max-width: 960px) {
+  .drpt-docRow--flow .drpt-docMain {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    word-break: break-word;
+  }
+}
+
 .drpt-docMain {
   min-width: 0;
   font-size: 12px;

@@ -18,6 +18,7 @@ import {
   MIN_PARSED_13F_HOLDINGS,
   parse13fHoldings,
   parse13fMeta,
+  resolve13fFilerDisplayName,
   type Parsed13fHolding,
 } from "./parse-13f.js";
 import {
@@ -449,7 +450,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
 
     const parsedHoldings = parse13fHoldings(bundle);
     const meta = parse13fMeta(bundle, primaryUrl);
-    const filerName = String(meta.filer_name ?? "").trim() || "Institution";
+    const filerName = resolve13fFilerDisplayName(meta, primaryUrl);
     const asOf = formatIso(meta.period_of_report) ?? formatIso(meta.filed_at);
 
     if (!parsedHoldings.length) {

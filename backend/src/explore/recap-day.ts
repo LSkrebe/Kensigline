@@ -1,6 +1,7 @@
 import {
   companyDocType,
   exploreQueryApi,
+  formatInstitutionTrail,
   formatTrailPct,
   formatTrailUsd,
   insiderDocType,
@@ -15,6 +16,9 @@ import {
   tryExploreBars,
   tryExploreQuery,
 } from "./helpers.js";
+import { getSecTickerTitleMap } from "../core/sec.js";
+import { formatCompanyDisplayName } from "../research/feed-display.js";
+import { isPlausibleTrackedFiler } from "../research/market/tracked-investors-filter.js";
 
 type RecapFiling = Record<string, unknown>;
 
@@ -297,6 +301,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       actor_name: string;
       activity: string | null;
       amount_usd: number | null;
+      shares: number | null;
     }>(
       `
       SELECT
@@ -306,12 +311,14 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
         coalesce(nullif(trim(i.name), ''), upper(trim(i.ticker))) AS name,
         f.display_name AS actor_name,
         t.activity,
-        t.amount_usd::float8 AS amount_usd
+        t.amount_usd::float8 AS amount_usd,
+        t.shares::float8 AS shares
       FROM institution_transactions t
       JOIN filers f ON f.id = t.filer_id
       JOIN issuers i ON i.id = t.issuer_id
       WHERE i.ticker IS NOT NULL
         AND t.transaction_at >= (now() AT TIME ZONE 'UTC')::date - ($1::int || ' days')::interval
+        AND lower(trim(f.display_name)) NOT IN ('institution', 'institutions', 'unknown', 'filer', 'insider', 'politician')
       ORDER BY t.transaction_at DESC
       LIMIT 120
       `,
@@ -357,6 +364,19 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
 
   const companyTickers = companyFilings.map((r) => r.ticker);
   const barMap = await tryExploreBars(companyTickers, 8);
+  const secTitles = await getSecTickerTitleMap().catch(() => new Map<string, string>());
+
+  function resolveCompanyDisplayName(ticker: string, dbName: string): string {
+    const tick = String(ticker ?? "").trim().toUpperCase();
+    const sec = secTitles.get(tick);
+    if (sec) {
+      const formatted = formatCompanyDisplayName(sec);
+      if (formatted && formatted.toUpperCase() !== tick) return formatted;
+    }
+    const n = String(dbName ?? "").trim();
+    if (n && n.toUpperCase() !== tick) return n;
+    return sec ? formatCompanyDisplayName(sec) : tick;
+  }
 
   /** @type {ExploreDirectoryEvent[]} */
   const companyEvents: ExploreDirectoryEvent[] = companyFilings.map((row) => {
@@ -367,7 +387,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       id: `c-${row.id}`,
       date: row.filing_date,
       ticker: row.ticker,
-      name: row.name,
+      name: resolveCompanyDisplayName(row.ticker, row.name),
       docType,
       trail: formatTrailPct(move),
       up: (move ?? 0) >= 0,
@@ -406,16 +426,16 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
   }
 
   for (const row of institutions) {
+    if (!isPlausibleTrackedFiler(row.actor_name, row.amount_usd)) continue;
     const side = institutionSide(row.activity);
-    const signed = side === "sell" ? -(row.amount_usd ?? 0) : row.amount_usd ?? 0;
     investorEvents.push({
       id: `a-${row.id}`,
       date: row.filing_date,
       name: row.actor_name,
       ticker: row.ticker,
       docType: institutionDocType(side),
-      trail: formatTrailUsd(signed),
-      up: signed >= 0,
+      trail: formatInstitutionTrail(row.activity, row.shares),
+      up: side !== "sell",
     });
   }
 

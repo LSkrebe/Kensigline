@@ -1,5 +1,6 @@
 import { MOCK_SEMIS_BY_TICKER } from './mockWeekData.js'
 import { exploreActorDocCode, mapActorEventRows, mapCompanyEventRows } from './exploreEventLabels.js'
+import { isPlausibleExploreInvestorRow } from './exploreInvestorFilter.js'
 
 export const HOME_DIRECTORY_PREVIEW = 12
 export const EXPLORE_DIRECTORY_BLOCK = 20
@@ -349,7 +350,7 @@ function sortEventsNewestFirst(events) {
 /** Build directory views from live API event rows (same shape as mock seeds). */
 export function buildExploreDirectoryFromEvents(companyEvents = [], investorEvents = []) {
   const companyEventsLabeled = mapCompanyEventRows(companyEvents)
-  const investorEventsLabeled = mapActorEventRows(investorEvents)
+  const investorEventsLabeled = mapActorEventRows(investorEvents).filter(isPlausibleExploreInvestorRow)
   const sortedCompany = sortEventsNewestFirst(companyEventsLabeled)
   const sortedInvestor = sortEventsNewestFirst(investorEventsLabeled)
 

@@ -19,7 +19,7 @@ import { buildExploreDailyRecap } from './exploreRecapMock.js'
 
 /** Client-side explore home cache — survives subview navigation within the session. */
 const EXPLORE_HOME_CACHE_TTL_MS = 5 * 60_000
-const EXPLORE_HOME_SESSION_KEY = 'mercerline:explore:home'
+const EXPLORE_HOME_SESSION_KEY = 'mercerline:explore:home:v2'
 const EXPLORE_HOME_SESSION_TTL_MS = 10 * 60_000
 
 function readExploreHomeSession() {

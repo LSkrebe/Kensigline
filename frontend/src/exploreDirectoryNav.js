@@ -1,3 +1,5 @@
+import { isPlaceholderInvestorName } from './exploreInvestorFilter.js'
+
 export function exploreInvestorSlug(name) {
   return String(name ?? '')
     .trim()
@@ -134,7 +136,7 @@ export function resolveExploreInvestorDossier({
   liveOnly = false,
 }) {
   const slug = String(investorSlug ?? '').trim().toLowerCase()
-  if (!slug) return null
+  if (!slug || isPlaceholderInvestorName(slug.replace(/-+/g, ' '))) return null
 
   const feedHit = findExploreInvestorInFeeds(slug, feeds)
   const focusOk = focus?.slug === slug && focus?.actorRow
@@ -206,6 +208,7 @@ export function resolveExploreInvestorDossier({
 
   const dir = findExploreInvestorDirectoryRowBySlug(slug, directoryRows)
   if (dir) {
+    if (isPlaceholderInvestorName(dir.name)) return null
     const mode = exploreInvestorModeFromDocType(dir.docType)
     return {
       slug,

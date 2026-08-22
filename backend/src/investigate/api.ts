@@ -4,11 +4,8 @@ import { db } from "../core/db.js";
 import { enqueueLatestForm4ForTicker } from "../core/sec.js";
 import { json, notFound, route, sendJson } from "../core/http.js";
 import { formatUsdCompact } from "../shared/money.js";
-import {
-  collectAssetNamesFromClusterData,
-  resolveInvestigateFeedCompanyName,
-  resolveResearchFeedCompanyName,
-} from "../research/feed-display.js";
+import { isPlaceholderInvestorName } from "../research/market/tracked-investors-filter.js";
+import { resolveResearchFeedCompanyName } from "../research/feed-display.js";
 import { getSecTickerTitleMap } from "../core/sec.js";
 import {
   clampInt,
@@ -361,6 +358,9 @@ async function handleInstitutionsCluster(res: http.ServerResponse, url: URL) {
     return;
   }
 
+  const secTitles = await getSecTickerTitleMap();
+  const issuerName = resolveResearchFeedCompanyName(ticker, secTitles.get(ticker) ?? null);
+
   let minAt: string | null = null;
   let maxAt: string | null = null;
   const worksheet_rows: Array<{
@@ -383,7 +383,8 @@ async function handleInstitutionsCluster(res: http.ServerResponse, url: URL) {
     const rows = (d.data as any)?.cluster?.worksheet_rows;
     if (Array.isArray(rows)) {
       for (const r of rows) {
-        const name = String(r?.institution_name ?? r?.key ?? "").trim() || "Institution";
+        const name = String(r?.institution_name ?? r?.key ?? "").trim();
+        if (!name || isPlaceholderInvestorName(name)) continue;
         institutions.add(name);
         worksheet_rows.push({
           key: name,
@@ -408,7 +409,7 @@ async function handleInstitutionsCluster(res: http.ServerResponse, url: URL) {
     data: {
       schema_type: "institution_cluster",
       schema_version: "v1",
-      issuer: { name: null, ticker, cik: null },
+      issuer: { name: issuerName, ticker, cik: null },
       filing: {
         form_type: "13F",
         accession_no: latest?.filing?.accession_no ?? null,

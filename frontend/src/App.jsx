@@ -494,18 +494,22 @@ function institutionCaseSheetFromClusterLive(cluster, fallback) {
     filedAt: cluster?.filing?.filed_at ?? fallback?.at ?? null,
     documentUrl: caseSheetDocumentUrl(cluster, fallback),
     cik: cluster?.issuer?.cik ?? null,
-    rows: wsRows.map((r) => {
-      const filer = String(r?.institution_name ?? r?.key ?? '').trim() || 'Institution'
-      return {
-        key: filer,
-        institution_name: filer,
-        surname: filer,
-        activity: r?.activity != null ? String(r.activity) : null,
-        amountUsd: r?.amount_usd != null ? Number(r.amount_usd) : null,
-        ts: r?.ts != null ? String(r.ts) : null,
-        url: trimNonEmpty(r?.url) || null,
-      }
-    }),
+    rows: wsRows
+      .map((r) => {
+        const filer = String(r?.institution_name ?? r?.key ?? '').trim()
+        if (!filer || isPlaceholderInvestorName(filer)) return null
+        return {
+          key: filer,
+          institution_name: filer,
+          surname: filer,
+          activity: r?.activity != null ? String(r.activity) : null,
+          amountUsd: r?.amount_usd != null ? Number(r.amount_usd) : null,
+          shares: r?.shares != null ? Number(r.shares) : null,
+          ts: r?.ts != null ? String(r.ts) : null,
+          url: trimNonEmpty(r?.url) || null,
+        }
+      })
+      .filter(Boolean),
   }
 }
 
@@ -4307,10 +4311,11 @@ function politicianCaseRowHasTxn(r) {
 
 function institutionCaseRowHasTxn(r) {
   if (isSyntheticDollarStub(r)) return false
-  const amt = Number(r?.amountUsd ?? 0)
-  if (!(Number.isFinite(amt) && amt > 1)) return false
-  if (isAbsurdTrackedUsd(amt)) return false
-  return true
+  const activity = String(r?.activity ?? '').trim()
+  if (activity && activity !== '—') return true
+  const shares = Number(r?.shares ?? 0)
+  if (Number.isFinite(shares) && shares > 0) return true
+  return false
 }
 
 function institutionActivityCode(activity) {
@@ -4385,14 +4390,16 @@ function formatPoliticianTxnValue(r) {
 }
 
 function formatInstitutionTxnValue(r) {
-  const amt = Number(r?.amountUsd ?? 0)
-  if (!(Number.isFinite(amt) && amt > 0) || isAbsurdTrackedUsd(amt)) return '—'
-  const compact = formatUsdCompact(amt)
-  if (!compact) return '—'
   const activity = String(r?.activity ?? '').trim()
-  const sign =
-    activity === 'Reduced stake' ? '−' : activity === 'Increased stake' || activity === 'New position' ? '+' : ''
-  return `${sign}${compact} position`
+  if (activity) return activity
+  const shares = Number(r?.shares ?? 0)
+  if (Number.isFinite(shares) && shares > 0) {
+    if (shares >= 1e9) return `${(shares / 1e9).toFixed(1)}B sh`
+    if (shares >= 1e6) return `${(shares / 1e6).toFixed(1)}M sh`
+    if (shares >= 1e3) return `${Math.round(shares / 1e3)}K sh`
+    return `${Math.round(shares)} sh`
+  }
+  return '—'
 }
 
 function institutionDisplayShortName(fullName) {
@@ -12343,7 +12350,7 @@ function KensiglineTerminal() {
   const onExploreInvestorClick = useCallback(
     (row) => {
       const name = String(row?.name ?? '').trim()
-      if (!name) return
+      if (!name || isPlaceholderInvestorName(name)) return
       const preferredMode = row?.docType
         ? exploreInvestorModeFromDocType(row.docType)
         : exploreInvestorModeFromTypeKey(row?.typeKey ?? row?.type)

@@ -120,6 +120,22 @@ export function institutionSide(activity: string | null): "buy" | "sell" | null 
   return null;
 }
 
+/** 13F directory trail — share count or activity, not position market value. */
+export function formatInstitutionTrail(activity: string | null, shares: number | null | undefined): string {
+  if (shares != null && Number.isFinite(Number(shares)) && Number(shares) > 0) {
+    const s = Number(shares);
+    if (s >= 1e9) return `${(s / 1e9).toFixed(1)}B sh`;
+    if (s >= 1e6) return `${(s / 1e6).toFixed(1)}M sh`;
+    if (s >= 1e3) return `${Math.round(s / 1e3)}K sh`;
+    return `${Math.round(s)} sh`;
+  }
+  const a = String(activity ?? "").trim().toLowerCase();
+  if (a.includes("new")) return "New";
+  if (a.includes("increase") || a.includes("add")) return "Added";
+  if (a.includes("reduce") || a.includes("decrease") || a.includes("trim")) return "Trimmed";
+  return "—";
+}
+
 export function insiderDocType(side: "buy" | "sell" | null): string {
   if (side === "buy") return "form4_purchase";
   if (side === "sell") return "form4_sale";

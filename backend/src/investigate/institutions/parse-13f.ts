@@ -107,10 +107,59 @@ function parseIsoFromUsDate(s: string | null): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
 }
 
+function isPlaceholder13fFilerName(name: string | null | undefined): boolean {
+  const s = String(name ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!s) return true;
+  return /^(institutions?|insiders?|politicians?|filers?|unknown|n\/?a|null|undefined|none)$/i.test(s);
+}
+
+/** Stable display name for a 13F filer — never returns generic "Institution". */
+export function resolve13fFilerDisplayName(meta: Parsed13fMeta, indexUrl?: string | null): string {
+  const parsed = String(meta.filer_name ?? "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (parsed && !isPlaceholder13fFilerName(parsed)) return parsed;
+
+  const cik = String(meta.cik ?? "")
+    .replace(/\D/g, "")
+    .padStart(10, "0");
+  if (cik && cik !== "0000000000") return `CIK ${cik.replace(/^0+/, "") || cik}`;
+
+  const acc = String(meta.accession_no ?? "").trim();
+  if (acc) return `13F ${acc}`;
+
+  const fromUrl = indexUrlFromMeta(meta, indexUrl);
+  if (fromUrl) return `13F ${fromUrl.accession}`;
+
+  return `13F filer ${Date.now().toString(36)}`;
+}
+
+function indexUrlFromMeta(meta: Parsed13fMeta, indexUrl?: string | null) {
+  const acc = String(meta.accession_no ?? "").trim();
+  const cik = String(meta.cik ?? "").replace(/\D/g, "");
+  if (acc && cik) {
+    const accNoDash = acc.replace(/-/g, "");
+    return { cik, accession: acc, indexJson: `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accNoDash}/index.json` };
+  }
+  const url = String(indexUrl ?? "").trim();
+  const m = url.match(/\/Archives\/edgar\/data\/(\d+)\/(\d{18})\//i);
+  if (m) {
+    const accNoDash = m[2]!;
+    const accession = `${accNoDash.slice(0, 10)}-${accNoDash.slice(10, 12)}-${accNoDash.slice(12)}`;
+    return { cik: m[1]!, accession, indexJson: url.replace(/\/[^/]+$/, "/index.json") };
+  }
+  return null;
+}
+
 export function parse13fMeta(text: string, indexUrl?: string): Parsed13fMeta {
   const t = String(text ?? "");
   const filer_name =
     extractXmlTag(t, "reportingManagerName") ??
+    extractXmlTag(t, "companyConformedName") ??
+    extractXmlTag(t, "filerName") ??
+    extractXmlTag(t, "name") ??
     t.match(/reporting\s+manager[:\s]+([^\n<]{3,120})/i)?.[1]?.trim() ??
     t.match(/<(?:\w+:)?name>([^<]{3,120})<\/(?:\w+:)?name>/i)?.[1]?.trim() ??
     null;
