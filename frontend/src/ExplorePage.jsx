@@ -18,6 +18,7 @@ import {
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { navigateExploreCompanies, navigateExploreEventDetail, navigateExploreInvestors } from './terminalRoute.js'
+import { useAuth } from './AuthContext.jsx'
 import './DeepReport.css'
 import './ExplorePage.css'
 
@@ -95,6 +96,8 @@ export function ExplorePage({
   onInvestorRowClick = null,
   onEventClick = null,
 }) {
+  const { user } = useAuth()
+  const authUserId = user?.id ?? null
   const [recap, setRecap] = useState(() =>
     isMockDataMode(backendUp) ? buildExploreDailyRecap() : EMPTY_EXPLORE_RECAP,
   )
@@ -122,7 +125,7 @@ export function ExplorePage({
     return () => {
       cancelled = true
     }
-  }, [backendUp])
+  }, [backendUp, authUserId])
 
   const [searchQuery, setSearchQuery] = useState('')
   const pageRef = useRef(null)

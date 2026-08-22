@@ -1,4 +1,4 @@
-import { fetchJsonSafe } from './api.js'
+import { clearAuthTokenCache, fetchJsonSafe } from './api.js'
 import {
   EMPTY_EXPLORE_DIRECTORY,
   EMPTY_EXPLORE_RECAP,
@@ -16,6 +16,19 @@ import {
   todayIsoUtc,
 } from './exploreDirectoryMock.js'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+/** Retry once after auth settles — explore mounts can race the bearer cache. */
+async function fetchJsonWithAuthRetry(path, opts = {}) {
+  let res = await fetchJsonSafe(path, opts)
+  if (res.ok || (res.status !== 401 && res.status !== 0)) return res
+  clearAuthTokenCache()
+  await sleep(250)
+  return fetchJsonSafe(path, opts)
+}
 
 function pctMoveFromSeries(series, lookback = 5) {
   const arr = Array.isArray(series) ? series.filter(Number.isFinite) : []
@@ -105,7 +118,7 @@ function scopeRecapDayToDisplayDay(day) {
 
 export async function fetchExploreRecapDay(backendUp) {
   if (!isLiveDataMode(backendUp)) return null
-  const res = await fetchJsonSafe('/api/explore/recap', { timeoutMs: 14_000 })
+  const res = await fetchJsonWithAuthRetry('/api/explore/recap', { timeoutMs: 14_000 })
   if (!res.ok || !res.data?.ok) return null
   return enrichRecapDayWithBars(res.data)
 }
@@ -136,7 +149,7 @@ export async function loadExploreDailyRecap(backendUp) {
 
 export async function fetchExploreDirectoryEvents(backendUp) {
   if (!isLiveDataMode(backendUp)) return null
-  const res = await fetchJsonSafe('/api/explore/directory', { timeoutMs: 14_000 })
+  const res = await fetchJsonWithAuthRetry('/api/explore/directory', { timeoutMs: 14_000 })
   if (!res.ok || !res.data?.ok) return null
   return {
     companyEvents: Array.isArray(res.data.companyEvents) ? res.data.companyEvents : [],

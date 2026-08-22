@@ -78,6 +78,17 @@ async function resolveAuthToken(timeoutMs) {
 }
 
 export function getBackendBase() {
+  /* Vite dev proxy forwards /api → API_BASE_URL from vite.config (see server.proxy). */
+  if (import.meta.env.DEV && typeof window !== 'undefined') return ''
+
+  /* Deployed SPA hosts always talk to the public API — ignore localhost baked at build time. */
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname
+    if (/mercerline\.com$/i.test(host) || /\.workers\.dev$/i.test(host)) {
+      return 'https://api.mercerline.com'
+    }
+  }
+
   /* Must use direct `import.meta.env.*` so Vite `define` injects root `.env` values (not only VITE_). */
   const configured = String(
     import.meta.env.API_BASE_URL ||
@@ -85,13 +96,8 @@ export function getBackendBase() {
       import.meta.env.VITE_API_BASE_URL ||
       '',
   ).replace(/\/$/, '')
-  if (configured) return configured
-  /* Vite dev proxy forwards /api → API_BASE_URL from vite.config (see server.proxy). */
-  if (import.meta.env.DEV && typeof window !== 'undefined') return ''
-  /* Production builds must hit the public API — never localhost. */
-  if (typeof window !== 'undefined' && /mercerline\.com$/i.test(window.location.hostname)) {
-    return 'https://api.mercerline.com'
-  }
+  if (configured && !/localhost|127\.0\.0\.1/i.test(configured)) return configured
+
   return 'http://localhost:3001'
 }
 

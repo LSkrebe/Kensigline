@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from './AuthContext.jsx'
 import { isMockDataMode } from './dataMode.js'
 import { loadExploreDirectoryBundle } from './exploreApi.js'
 import { buildExploreDirectoryFullList } from './exploreDirectoryMock.js'
@@ -14,6 +15,8 @@ export function ExploreInvestorsPage({
   onCloseClick = null,
   onInvestorRowClick = null,
 }) {
+  const { user } = useAuth()
+  const authUserId = user?.id ?? null
   const [rows, setRows] = useState(() =>
     isMockDataMode(backendUp) ? buildExploreDirectoryFullList('investors') : [],
   )
@@ -28,7 +31,7 @@ export function ExploreInvestorsPage({
     return () => {
       cancelled = true
     }
-  }, [backendUp])
+  }, [backendUp, authUserId])
 
   return (
     <ExploreDirectoryListPage
