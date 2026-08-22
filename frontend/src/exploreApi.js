@@ -118,7 +118,7 @@ function scopeRecapDayToDisplayDay(day) {
 
 export async function fetchExploreRecapDay(backendUp) {
   if (!isLiveDataMode(backendUp)) return null
-  const res = await fetchJsonWithAuthRetry('/api/explore/recap', { timeoutMs: 14_000 })
+  const res = await fetchJsonWithAuthRetry('/api/explore/recap', { timeoutMs: 30_000 })
   if (!res.ok || !res.data?.ok) return null
   return enrichRecapDayWithBars(res.data)
 }
@@ -149,7 +149,7 @@ export async function loadExploreDailyRecap(backendUp) {
 
 export async function fetchExploreDirectoryEvents(backendUp) {
   if (!isLiveDataMode(backendUp)) return null
-  const res = await fetchJsonWithAuthRetry('/api/explore/directory', { timeoutMs: 14_000 })
+  const res = await fetchJsonWithAuthRetry('/api/explore/directory', { timeoutMs: 30_000 })
   if (!res.ok || !res.data?.ok) return null
   return {
     companyEvents: Array.isArray(res.data.companyEvents) ? res.data.companyEvents : [],

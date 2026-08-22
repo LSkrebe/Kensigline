@@ -1,6 +1,6 @@
-import { db } from "../core/db.js";
 import {
   companyDocType,
+  exploreQueryApi,
   formatTrailPct,
   formatTrailUsd,
   insiderDocType,
@@ -36,7 +36,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
 
   // Cap parallel checkouts — prod API pool is small (often 4); 5-way Promise.all deadlocks + bars.
   const [insiders, politicians] = await Promise.all([
-    db.queryApi<{
+    exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -74,7 +74,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       `,
       [lookback],
     ),
-    db.queryApi<{
+    exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -110,7 +110,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
   ]);
 
   const [institutions, companyFilings] = await Promise.all([
-    db.queryApi<{
+    exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -141,7 +141,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       `,
       [lookback],
     ),
-    db.queryApi<{
+    exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -177,7 +177,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
     ),
   ]);
 
-  const earningsRows = await db.queryApi<{ ticker: string; name: string; earnings_date: string; days_ahead: string }>(
+  const earningsRows = await exploreQueryApi<{ ticker: string; name: string; earnings_date: string; days_ahead: string }>(
     `
     SELECT
       upper(trim(ticker)) AS ticker,
@@ -331,7 +331,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
   const lookback = Math.max(7, Math.min(60, opts?.lookbackDays ?? 45));
 
   const [insiders, politicians] = await Promise.all([
-    db.queryApi<{
+    exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -361,7 +361,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       `,
       [lookback],
     ),
-    db.queryApi<{
+    exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -392,7 +392,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
   ]);
 
   const [institutions, companyFilings] = await Promise.all([
-    db.queryApi<{
+    exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -420,7 +420,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       `,
       [lookback],
     ),
-    db.queryApi<{
+    exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;

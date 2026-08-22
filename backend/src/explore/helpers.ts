@@ -1,5 +1,16 @@
 import { db } from "../core/db.js";
 
+/** Explore home queries can be heavy; prod API pool is small and ingest competes for DB time. */
+export const EXPLORE_HOME_QUERY_TIMEOUT_MS = 25_000;
+
+export function exploreQueryApi<T = unknown>(
+  text: string,
+  params: unknown[] = [],
+  timeoutMs = EXPLORE_HOME_QUERY_TIMEOUT_MS,
+): Promise<T[]> {
+  return db.queryApi<T>(text, params, timeoutMs);
+}
+
 export function todayUtcIso(): string {
   const d = new Date();
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
@@ -38,7 +49,7 @@ export async function loadBarClosesByTicker(tickers: string[], maxPoints = 260):
   const uniq = [...new Set(tickers.map((t) => String(t ?? "").trim().toUpperCase()).filter(Boolean))].slice(0, 40);
   if (!uniq.length) return out;
 
-  const rows = await db.queryApi<{ ticker: string; close: string }>(
+  const rows = await exploreQueryApi<{ ticker: string; close: string }>(
     `
     SELECT ticker, close::text
     FROM (
