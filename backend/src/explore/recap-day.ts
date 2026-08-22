@@ -31,7 +31,7 @@ function earningsProximityLabel(daysAhead: number): string | null {
 }
 
 export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number }) {
-  const lookback = Math.max(1, Math.min(21, opts?.lookbackDays ?? 7));
+  const lookback = Math.max(1, Math.min(14, opts?.lookbackDays ?? 3));
   const dayKey = todayUtcIso();
 
   // Sequential checkouts — recap runs after directory; keep one connection per step under a 4-slot pool.
@@ -68,7 +68,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
         AND length(trim(i.ticker)) BETWEEN 1 AND 6
         AND t.transaction_at >= (now() AT TIME ZONE 'UTC')::date - ($1::int || ' days')::interval
       ORDER BY t.transaction_at DESC
-      LIMIT 250
+      LIMIT 120
       `,
       [lookback],
     );
@@ -102,7 +102,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
         AND length(trim(i.ticker)) BETWEEN 1 AND 6
         AND t.transaction_at >= (now() AT TIME ZONE 'UTC')::date - ($1::int || ' days')::interval
       ORDER BY t.transaction_at DESC
-      LIMIT 300
+      LIMIT 40
       `,
       [lookback],
     );
@@ -129,15 +129,10 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       JOIN issuers i ON i.id = f.issuer_id
       WHERE i.ticker IS NOT NULL
         AND length(trim(i.ticker)) BETWEEN 1 AND 6
-        AND (
-          f.feed_kind = 'research'::feed_kind
-          OR coalesce(f.form, '') ILIKE '8-K%'
-          OR coalesce(f.form, '') ILIKE '10-Q%'
-          OR coalesce(f.form, '') ILIKE '10-K%'
-        )
+        AND f.feed_kind = 'research'::feed_kind
         AND coalesce(f.event_at, f.filed_at, f.parsed_at) >= (now() AT TIME ZONE 'UTC')::date - ($1::int || ' days')::interval
       ORDER BY coalesce(f.event_at, f.filed_at, f.parsed_at) DESC
-      LIMIT 200
+      LIMIT 80
       `,
       [lookback],
     );
