@@ -2,17 +2,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   buildExploreDirectoryHomeLatest,
   buildExploreDirectoryHomePreview,
-  EXPLORE_DIRECTORY_BLOCK,
   HOME_DIRECTORY_PREVIEW,
 } from './exploreDirectoryMock.js'
 import { loadExploreDailyRecap, loadExploreDirectoryBundle } from './exploreApi.js'
 import { EMPTY_EXPLORE_RECAP, isMockDataMode } from './dataMode.js'
 import { ExploreDirectoryCompanyRow, ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
+import { ExploreStoryCards } from './ExploreStoryCards.jsx'
+import {
+  EXPLORE_RECAP_HERO_MAX,
+  EXPLORE_RECAP_MAX_SLIDES,
+  splitExploreRecapSlides,
+} from './exploreRecapCatalog.js'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { navigateExploreCompanies, navigateExploreEventDetail, navigateExploreInvestors } from './terminalRoute.js'
-import { useExploreScrollList } from './useExploreScrollList.js'
 import './DeepReport.css'
 import './ExplorePage.css'
 
@@ -21,8 +25,7 @@ const COLLAPSE_RANGE_FALLBACK = 1
 const EXPLORE_EXPANDED_FADE_END = 0.92
 /** Keep compact strip dark until near the end so the hero photo doesn't morph mid-collapse. */
 const EXPLORE_COMPACT_FADE_START = 0.62
-const EXPLORE_COMPACT_MQ = '(max-width: 960px)'
-const EXPLORE_HOME_COMPACT_STEP = 10
+const EXPLORE_HOME_STORY_PREVIEW = Math.max(0, EXPLORE_RECAP_MAX_SLIDES - EXPLORE_RECAP_HERO_MAX)
 
 function collapseProgressVars(progress) {
   const p = Math.min(1, Math.max(0, progress))
@@ -38,39 +41,6 @@ function collapseProgressVars(progress) {
   }
 }
 
-function useExploreCompactLayout() {
-  const [compact, setCompact] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(EXPLORE_COMPACT_MQ).matches,
-  )
-
-  useEffect(() => {
-    const mq = window.matchMedia(EXPLORE_COMPACT_MQ)
-    const onChange = () => setCompact(mq.matches)
-    onChange()
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-
-  return compact
-}
-
-function ExploreHomeShowMoreButton({ remaining, onClick }) {
-  const step = Math.min(EXPLORE_HOME_COMPACT_STEP, remaining)
-  return (
-    <button
-      type="button"
-      className="drpt-showMore exploreDirShowMore exploreHomeShowMore"
-      onClick={onClick}
-      aria-label={`Show ${step} more`}
-    >
-      <span className="drpt-showMoreChip" aria-hidden="true">
-        <span className="drpt-showMoreSign">+</span>
-        <span className="drpt-showMoreLabel">{step}</span>
-      </span>
-    </button>
-  )
-}
-
 function ExploreDirectorySection({
   title,
   kicker,
@@ -78,19 +48,9 @@ function ExploreDirectorySection({
   rows,
   RowComponent,
   onRowClick,
-  scrollRootRef,
-  compact,
-  pageSize,
-  resetKey = '',
+  previewLimit,
 }) {
-  const { visibleRows, hasMore, remaining, loadMore, sentinelRef } = useExploreScrollList({
-    rows,
-    pageSize,
-    compact,
-    scrollRootRef,
-    loadStep: compact ? EXPLORE_HOME_COMPACT_STEP : EXPLORE_DIRECTORY_BLOCK,
-    resetKey,
-  })
+  const previewRows = useMemo(() => rows.slice(0, previewLimit), [rows, previewLimit])
 
   return (
     <section className="exploreDirectorySection">
@@ -110,23 +70,14 @@ function ExploreDirectorySection({
           </span>
         </span>
       </button>
-      <div className={['exploreHomeListPanel', compact && hasMore ? 'exploreHomeListPanel--truncated' : '']
-        .filter(Boolean)
-        .join(' ')}
-      >
+      <div className="exploreHomeListPanel">
         <ul className="exploreDirectoryList">
-          {visibleRows.length ? (
-            visibleRows.map((row) => <RowComponent key={row.id} row={row} onClick={onRowClick} />)
+          {previewRows.length ? (
+            previewRows.map((row) => <RowComponent key={row.id} row={row} onClick={onRowClick} />)
           ) : (
             <li className="exploreDirectoryEmpty mono">No matches</li>
           )}
         </ul>
-        {compact && hasMore ? (
-          <ExploreHomeShowMoreButton remaining={remaining} onClick={() => loadMore(EXPLORE_HOME_COMPACT_STEP)} />
-        ) : null}
-        {!compact && hasMore ? (
-          <div ref={sentinelRef} className="exploreDirScrollSentinel" aria-hidden="true" />
-        ) : null}
       </div>
     </section>
   )
@@ -176,11 +127,10 @@ export function ExplorePage({
   const pageRef = useRef(null)
   const dockRef = useRef(null)
   const spacerRef = useRef(null)
-  const compact = useExploreCompactLayout()
   const normalizedQuery = normalizeExploreSearchQuery(searchQuery)
   const searching = normalizedQuery.length > 0
   const sectionKicker = searching ? 'Matches' : 'Latest'
-  const pageSize = compact ? EXPLORE_HOME_COMPACT_STEP : HOME_DIRECTORY_PREVIEW
+  const previewLimit = HOME_DIRECTORY_PREVIEW
 
   const investorRows = useMemo(() => {
     if (!searching) return homePreview.investors
@@ -201,6 +151,24 @@ export function ExplorePage({
       if (slide?.id) navigateExploreEventDetail(slide.id)
     },
     [onEventClick],
+  )
+
+  const { heroSlides, storySlides } = useMemo(
+    () => splitExploreRecapSlides(recap?.slides),
+    [recap?.slides],
+  )
+
+  const heroRecap = useMemo(
+    () => ({
+      ...recap,
+      slides: heroSlides,
+    }),
+    [recap, heroSlides],
+  )
+
+  const storyPreviewSlides = useMemo(
+    () => storySlides.slice(0, EXPLORE_HOME_STORY_PREVIEW),
+    [storySlides],
   )
 
   const requestRecapCollapse = useCallback(() => {
@@ -251,7 +219,7 @@ export function ExplorePage({
       <div className="exploreRecapStickWrap">
         <div ref={dockRef} className="exploreRecapDock">
           <ExploreDailyRecap
-            recap={recap}
+            recap={heroRecap}
             backendUp={backendUp}
             macroActive={macroActive}
             onMacroClick={onMacroClick}
@@ -266,6 +234,10 @@ export function ExplorePage({
         </div>
         <div ref={spacerRef} className="exploreRecapCollapseSpacer" aria-hidden="true" />
         <div className="explorePageBody">
+          {!searching ? (
+            <ExploreStoryCards slides={storyPreviewSlides} onOpenEvent={openRecapEvent} />
+          ) : null}
+
           <ExploreDirectorySection
             key={`investors-${sectionKicker}-${normalizedQuery}`}
             title="Investors"
@@ -274,10 +246,7 @@ export function ExplorePage({
             rows={investorRows}
             RowComponent={ExploreDirectoryInvestorRow}
             onRowClick={onInvestorRowClick}
-            scrollRootRef={pageRef}
-            compact={compact}
-            pageSize={pageSize}
-            resetKey={normalizedQuery}
+            previewLimit={previewLimit}
           />
 
           <ExploreDirectorySection
@@ -288,10 +257,7 @@ export function ExplorePage({
             rows={companyRows}
             RowComponent={ExploreDirectoryCompanyRow}
             onRowClick={onCompanyRowClick}
-            scrollRootRef={pageRef}
-            compact={compact}
-            pageSize={pageSize}
-            resetKey={normalizedQuery}
+            previewLimit={previewLimit}
           />
         </div>
       </div>

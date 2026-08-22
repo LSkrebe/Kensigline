@@ -5,6 +5,9 @@
   --explore-directory-ticker-w: 52px;
   --explore-directory-trail-w: 64px;
   --explore-directory-col-gap: 14px;
+  --explore-story-spark-w: 120px;
+  --explore-story-spark-h: 48px;
+  --explore-story-move-w: 68px;
   height: 100%;
   min-height: 0;
   display: flex;
@@ -54,6 +57,116 @@
   flex: 1 0 auto;
   min-height: max(42vh, 280px);
   padding: 28px var(--explore-page-pad-x) 48px;
+}
+
+/* Story list — one narrative row per slide, below the hero carousel */
+.exploreStorySection {
+  margin-bottom: 36px;
+}
+
+.exploreStorySectionHead {
+  margin: 0 0 14px;
+}
+
+.exploreStoryList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.exploreStoryRow {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.exploreStoryRowBtn {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--explore-directory-col-gap);
+  width: 100%;
+  margin: 0;
+  padding: 14px 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-height: 0;
+}
+
+.exploreStoryRowCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+}
+
+.exploreStoryRowTitle {
+  display: block;
+  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  font-size: clamp(17px, 2vw, 20px);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.exploreStoryRowSummary {
+  max-width: 54ch;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.exploreStoryRowTrail {
+  display: grid;
+  grid-template-columns: var(--explore-story-spark-w) var(--explore-story-move-w);
+  align-items: center;
+  column-gap: var(--explore-directory-col-gap);
+  flex: 0 0 auto;
+}
+
+.exploreStoryRowTrail:not(:has(.exploreStoryRowChart)) {
+  grid-template-columns: var(--explore-story-move-w);
+}
+
+.exploreStoryRowChart {
+  width: var(--explore-story-spark-w);
+  height: var(--explore-story-spark-h);
+  flex: 0 0 auto;
+  overflow: hidden;
+  contain: layout style paint;
+}
+
+.exploreStoryRowChart .researchMiniPrice,
+.exploreStoryRowChart .researchMiniPrice--chartOnly {
+  display: block;
+  width: 100%;
+  height: var(--explore-story-spark-h);
+  margin: 0;
+  padding: 0;
+}
+
+.exploreStoryRowChart .researchMiniPriceWrap {
+  width: 100%;
+  height: var(--explore-story-spark-h);
+  min-height: var(--explore-story-spark-h);
+  max-height: var(--explore-story-spark-h);
+  overflow: hidden;
+  padding: 0;
+}
+
+.exploreStoryRowChart .graphSvg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  vertical-align: top;
 }
 
 .exploreDirectorySection + .exploreDirectorySection {
@@ -1260,10 +1373,30 @@
     --explore-directory-ticker-w: 44px;
     --explore-directory-trail-w: 48px;
     --explore-directory-col-gap: 10px;
+    --explore-story-spark-w: 120px;
+    --explore-story-spark-h: 48px;
   }
 
   .explorePageBody {
     padding: 20px var(--explore-page-pad-x) 36px;
+  }
+
+  .exploreStorySection {
+    margin-bottom: 28px;
+  }
+
+  .exploreStoryRowBtn {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 14px 0;
+  }
+
+  .exploreStoryRowChart {
+    display: none;
+  }
+
+  .exploreStoryRowTrail {
+    grid-template-columns: var(--explore-story-move-w);
+    justify-items: end;
   }
 
   .explorePage .exploreDirectoryDate,

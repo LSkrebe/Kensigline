@@ -200,8 +200,25 @@ export const EXPLORE_RECAP_CATALOG_BY_ID = Object.fromEntries(
   EXPLORE_RECAP_CATALOG.map((entry) => [entry.id, entry]),
 )
 
-/** Hard ceiling for carousel dots / slides — keep the strip scannable. */
+/** Hard ceiling for ranked recap slides — hero + story cards share this pool. */
 export const EXPLORE_RECAP_MAX_SLIDES = 12
+
+/** Headline carousel — biggest events only; rest become story cards below. */
+export const EXPLORE_RECAP_HERO_MAX = 3
+
+/**
+ * Split ranked slides into sticky hero carousel vs compact story cards.
+ * @param {import('./exploreRecapEvaluate.js').RecapSlide[]} slides
+ * @param {number} [heroMax]
+ */
+export function splitExploreRecapSlides(slides, heroMax = EXPLORE_RECAP_HERO_MAX) {
+  const list = Array.isArray(slides) ? slides : []
+  const cap = Math.max(1, Math.min(list.length, Math.floor(heroMax) || EXPLORE_RECAP_HERO_MAX))
+  return {
+    heroSlides: list.slice(0, cap),
+    storySlides: list.slice(cap),
+  }
+}
 
 export function recapSlideTier(typeId) {
   return EXPLORE_RECAP_CATALOG_BY_ID[typeId]?.tier ?? 99
