@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { resolveExploreEventBrief } from './exploreEventBrief.js'
-import { loadExploreEventBriefContext } from './exploreApi.js'
+import { loadExploreEventBriefContext, peekExploreHomeSnapshot } from './exploreApi.js'
 import { MiniPriceChart, PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 import './DeepReport.css'
@@ -222,10 +222,18 @@ export function ExploreEventPage({
 
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
-      const ctx = await loadExploreEventBriefContext(backendUp)
+    const cached = peekExploreHomeSnapshot(backendUp)
+    if (cached?.recap?.slides?.length) {
+      setBriefCtx({
+        day: null,
+        slides: cached.recap.slides,
+        mock: false,
+        pending: false,
+      })
+    }
+    void loadExploreEventBriefContext(backendUp).then((ctx) => {
       if (!cancelled) setBriefCtx(ctx)
-    })()
+    })
     return () => {
       cancelled = true
     }
@@ -311,7 +319,15 @@ export function ExploreEventPage({
               />
             </div>
             <div className="drpt-expanded">
-              <header className={['drpt-topbar', metaBits.length ? '' : 'drpt-topbar--noMeta'].filter(Boolean).join(' ')}>
+              <header
+                className={[
+                  'drpt-topbar',
+                  'drpt-topbar--event',
+                  metaBits.length ? '' : 'drpt-topbar--noMeta',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
                 <div className="drpt-topbarIdentity">
                   <p className="drpt-kicker">{kicker}</p>
                   <div className="drpt-topbarTitleRow">

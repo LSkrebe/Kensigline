@@ -3,48 +3,127 @@ import { sendJson } from "../core/http.js";
 import { buildExploreDirectoryEvents, buildExploreRecapDayPayload } from "./recap-day.js";
 
 const EXPLORE_HOME_CACHE_TTL_MS = Math.max(
-  30_000,
-  Math.min(300_000, Number(process.env.EXPLORE_HOME_CACHE_MS ?? 90_000) || 90_000),
+  60_000,
+  Math.min(600_000, Number(process.env.EXPLORE_HOME_CACHE_MS ?? 300_000) || 300_000),
 );
+/** Serve stale home payloads instantly while revalidating in the background. */
+const EXPLORE_HOME_STALE_TTL_MS = Math.max(
+  EXPLORE_HOME_CACHE_TTL_MS,
+  Number(process.env.EXPLORE_HOME_STALE_MS ?? 1_800_000) || 1_800_000,
+);
+
+type RecapPayload = Awaited<ReturnType<typeof buildExploreRecapDayPayload>>;
+type DirectoryPayload = Awaited<ReturnType<typeof buildExploreDirectoryEvents>>;
+type HomePayload = { recap: RecapPayload; directory: DirectoryPayload };
 
 type CacheEntry<T> = { at: number; payload: T };
 
-let recapCache: CacheEntry<Awaited<ReturnType<typeof buildExploreRecapDayPayload>>> | null = null;
-let directoryCache: CacheEntry<Awaited<ReturnType<typeof buildExploreDirectoryEvents>>> | null = null;
-let exploreBuildChain: Promise<void> = Promise.resolve();
+let homeCache: CacheEntry<HomePayload> | null = null;
+let homeBuildChain: Promise<HomePayload> | null = null;
+let homeRefreshScheduled = false;
 
-/** One heavy explore build at a time — parallel /recap + /directory requests share a 4-slot API pool. */
-async function withExploreBuildLock<T>(fn: () => Promise<T>): Promise<T> {
-  let release!: () => void;
-  const slot = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const prev = exploreBuildChain;
-  exploreBuildChain = prev.then(() => slot);
-  await prev;
-  try {
-    return await fn();
-  } finally {
-    release();
-  }
-}
-
-function readCache<T>(entry: CacheEntry<T> | null): T | null {
+function readFresh<T>(entry: CacheEntry<T> | null): T | null {
   if (!entry) return null;
   if (Date.now() - entry.at >= EXPLORE_HOME_CACHE_TTL_MS) return null;
   return entry.payload;
 }
 
-export async function handleExploreRecap(res: http.ServerResponse) {
+function readStale<T>(entry: CacheEntry<T> | null): T | null {
+  if (!entry) return null;
+  if (Date.now() - entry.at >= EXPLORE_HOME_STALE_TTL_MS) return null;
+  return entry.payload;
+}
+
+function writeHomeCache(payload: HomePayload) {
+  homeCache = { at: Date.now(), payload };
+}
+
+/** One home build at a time; recap + directory share one checkout sequence. */
+async function buildExploreHomePayload(): Promise<HomePayload> {
+  const recap = await buildExploreRecapDayPayload();
+  const directory = await buildExploreDirectoryEvents();
+  return { recap, directory };
+}
+
+async function getExploreHomeFresh(): Promise<HomePayload> {
+  if (homeBuildChain) return homeBuildChain;
+
+  homeBuildChain = (async () => {
+    try {
+      const payload = await buildExploreHomePayload();
+      writeHomeCache(payload);
+      return payload;
+    } finally {
+      homeBuildChain = null;
+    }
+  })();
+
+  return homeBuildChain;
+}
+
+function scheduleExploreHomeRefresh() {
+  if (homeRefreshScheduled || homeBuildChain) return;
+  homeRefreshScheduled = true;
+  void getExploreHomeFresh()
+    .catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("[explore/home] background_refresh_failed", msg);
+    })
+    .finally(() => {
+      homeRefreshScheduled = false;
+    });
+}
+
+function homeJson(payload: HomePayload, meta: { cached?: boolean; stale?: boolean } = {}) {
+  return {
+    ok: true,
+    cached: meta.cached === true,
+    stale: meta.stale === true,
+    recap: payload.recap,
+    companyEvents: payload.directory.companyEvents,
+    investorEvents: payload.directory.investorEvents,
+  };
+}
+
+export async function handleExploreHome(res: http.ServerResponse) {
   try {
-    const cached = readCache(recapCache);
-    if (cached) {
-      sendJson(res, 200, cached);
+    const fresh = readFresh(homeCache);
+    if (fresh) {
+      sendJson(res, 200, homeJson(fresh, { cached: true }));
       return;
     }
-    const payload = await withExploreBuildLock(() => buildExploreRecapDayPayload());
-    recapCache = { at: Date.now(), payload };
-    sendJson(res, 200, payload);
+
+    const stale = readStale(homeCache);
+    if (stale) {
+      sendJson(res, 200, homeJson(stale, { stale: true }));
+      scheduleExploreHomeRefresh();
+      return;
+    }
+
+    const payload = await getExploreHomeFresh();
+    sendJson(res, 200, homeJson(payload));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[explore/home]", msg);
+    sendJson(res, 500, { ok: false, error: "explore_home_failed", message: msg });
+  }
+}
+
+export async function handleExploreRecap(res: http.ServerResponse) {
+  try {
+    const fresh = readFresh(homeCache);
+    if (fresh) {
+      sendJson(res, 200, fresh.recap);
+      return;
+    }
+    const stale = readStale(homeCache);
+    if (stale) {
+      sendJson(res, 200, stale.recap);
+      scheduleExploreHomeRefresh();
+      return;
+    }
+    const payload = await getExploreHomeFresh();
+    sendJson(res, 200, payload.recap);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[explore/recap]", msg);
@@ -54,17 +133,34 @@ export async function handleExploreRecap(res: http.ServerResponse) {
 
 export async function handleExploreDirectory(res: http.ServerResponse) {
   try {
-    const cached = readCache(directoryCache);
-    if (cached) {
-      sendJson(res, 200, { ok: true, ...cached });
+    const fresh = readFresh(homeCache);
+    if (fresh) {
+      sendJson(res, 200, { ok: true, ...fresh.directory });
       return;
     }
-    const payload = await withExploreBuildLock(() => buildExploreDirectoryEvents());
-    directoryCache = { at: Date.now(), payload };
-    sendJson(res, 200, { ok: true, ...payload });
+    const stale = readStale(homeCache);
+    if (stale) {
+      sendJson(res, 200, { ok: true, ...stale.directory });
+      scheduleExploreHomeRefresh();
+      return;
+    }
+    const payload = await getExploreHomeFresh();
+    sendJson(res, 200, { ok: true, ...payload.directory });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[explore/directory]", msg);
     sendJson(res, 500, { ok: false, error: "explore_directory_failed", message: msg });
   }
+}
+
+/** Warm explore home after boot so first visitor isn't paying cold-query cost. */
+export function prewarmExploreHome() {
+  if (readFresh(homeCache) || homeBuildChain) return;
+  console.log("[explore/home] prewarm_start");
+  void getExploreHomeFresh()
+    .then(() => console.log("[explore/home] prewarm_ok"))
+    .catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("[explore/home] prewarm_failed", msg);
+    });
 }

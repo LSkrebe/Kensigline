@@ -5,7 +5,7 @@ import {
   formatExploreRecency,
   HOME_DIRECTORY_PREVIEW,
 } from './exploreDirectoryMock.js'
-import { loadExploreDailyRecap, loadExploreDirectoryBundle } from './exploreApi.js'
+import { loadExploreHomeBundle, peekExploreHomeSnapshot } from './exploreApi.js'
 import { EMPTY_EXPLORE_RECAP, isLiveDataMode, isMockDataMode } from './dataMode.js'
 import { ExploreDirectoryCompanyRow, ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
@@ -51,6 +51,7 @@ function ExploreDirectorySection({
   RowComponent,
   onRowClick,
   previewLimit,
+  loading = false,
 }) {
   const previewRows = useMemo(() => rows.slice(0, previewLimit), [rows, previewLimit])
 
@@ -76,6 +77,8 @@ function ExploreDirectorySection({
         <ul className="exploreDirectoryList">
           {previewRows.length ? (
             previewRows.map((row) => <RowComponent key={row.id} row={row} onClick={onRowClick} />)
+          ) : loading ? (
+            <li className="exploreDirectoryEmpty mono exploreDirectoryEmpty--loading">Loading…</li>
           ) : (
             <li className="exploreDirectoryEmpty mono">No matches</li>
           )}
@@ -98,29 +101,66 @@ export function ExplorePage({
 }) {
   const { user } = useAuth()
   const authUserId = user?.id ?? null
-  const [recap, setRecap] = useState(() =>
-    isMockDataMode(backendUp) ? buildExploreDailyRecap() : EMPTY_EXPLORE_RECAP,
+
+  const initialSnapshot = useMemo(() => {
+    if (isMockDataMode(backendUp)) {
+      return {
+        recap: buildExploreDailyRecap(),
+        homePreview: buildExploreDirectoryHomePreview(),
+        homeSearchPool: buildExploreDirectoryHomeLatest(),
+        homeLoading: false,
+      }
+    }
+    hydrateMemoryCacheFromSession(backendUp)
+    const cached = peekExploreHomeSnapshot(backendUp)
+    if (cached?.recap && cached?.homePreview) {
+      return {
+        recap: cached.recap,
+        homePreview: cached.homePreview,
+        homeSearchPool: cached.homeLatest ?? { companies: [], investors: [] },
+        homeLoading: false,
+      }
+    }
+    return {
+      recap: null,
+      homePreview: null,
+      homeSearchPool: null,
+      homeLoading: isLiveDataMode(backendUp),
+    }
+  }, [backendUp])
+
+  const [recap, setRecap] = useState(initialSnapshot.recap ?? EMPTY_EXPLORE_RECAP)
+  const [homePreview, setHomePreview] = useState(
+    () => initialSnapshot.homePreview ?? { companies: [], investors: [] },
   )
-  const [homePreview, setHomePreview] = useState(() =>
-    isMockDataMode(backendUp) ? buildExploreDirectoryHomePreview() : { companies: [], investors: [] },
+  const [homeSearchPool, setHomeSearchPool] = useState(
+    () => initialSnapshot.homeSearchPool ?? { companies: [], investors: [] },
   )
-  const [homeSearchPool, setHomeSearchPool] = useState(() =>
-    isMockDataMode(backendUp) ? buildExploreDirectoryHomeLatest() : { companies: [], investors: [] },
-  )
+  const [homeLoading, setHomeLoading] = useState(initialSnapshot.homeLoading)
 
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
-      const dirOut = await loadExploreDirectoryBundle(backendUp)
-      if (cancelled) return
-      if (dirOut) {
-        setHomePreview(dirOut.homePreview ?? { companies: [], investors: [] })
-        setHomeSearchPool(dirOut.homeLatest ?? { companies: [], investors: [] })
+    hydrateMemoryCacheFromSession(backendUp)
+    const cached = peekExploreHomeSnapshot(backendUp)
+    if (cached?.recap && cached?.homePreview) {
+      setRecap(cached.recap)
+      setHomePreview(cached.homePreview)
+      setHomeSearchPool(cached.homeLatest ?? { companies: [], investors: [] })
+      setHomeLoading(false)
+    } else if (isLiveDataMode(backendUp)) {
+      setHomeLoading(true)
+    }
+
+    void loadExploreHomeBundle(backendUp, { force: false }).then((bundle) => {
+      if (cancelled || !bundle) return
+      if (bundle.recap) setRecap(bundle.recap)
+      if (bundle.directory) {
+        setHomePreview(bundle.directory.homePreview ?? { companies: [], investors: [] })
+        setHomeSearchPool(bundle.directory.homeLatest ?? { companies: [], investors: [] })
       }
-      const recapOut = await loadExploreDailyRecap(backendUp)
-      if (cancelled) return
-      if (recapOut) setRecap(recapOut)
-    })()
+      setHomeLoading(false)
+    })
+
     return () => {
       cancelled = true
     }
@@ -233,6 +273,7 @@ export function ExplorePage({
         <div ref={dockRef} className="exploreRecapDock">
           <ExploreDailyRecap
             recap={heroRecap}
+            loading={homeLoading}
             backendUp={backendUp}
             macroActive={macroActive}
             onMacroClick={onMacroClick}
@@ -260,6 +301,7 @@ export function ExplorePage({
             RowComponent={ExploreDirectoryInvestorRow}
             onRowClick={onInvestorRowClick}
             previewLimit={previewLimit}
+            loading={homeLoading}
           />
 
           <ExploreDirectorySection
@@ -271,6 +313,7 @@ export function ExplorePage({
             RowComponent={ExploreDirectoryCompanyRow}
             onRowClick={onCompanyRowClick}
             previewLimit={previewLimit}
+            loading={homeLoading}
           />
         </div>
       </div>

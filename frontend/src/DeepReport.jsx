@@ -1172,8 +1172,8 @@ function ActorTopBar({
   const metaBits = [
     detail || null,
     detailSecondary || null,
-    loading ? 'Loading…' : formatCountLabel(tradeCount, 'transaction'),
-    loading ? null : formatCountLabel(companyCount, 'company', 'companies'),
+    !loading || tradeCount > 0 ? formatCountLabel(tradeCount, 'transaction') : null,
+    !loading || companyCount > 0 ? formatCountLabel(companyCount, 'company', 'companies') : null,
   ].filter(Boolean)
 
   return (

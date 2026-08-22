@@ -124,6 +124,20 @@ function ExploreRecapFeatureChart({ series, ticker }) {
   )
 }
 
+function ExploreRecapLoadingSlide() {
+  return (
+    <article className="exploreRecapSlide exploreRecapSlide--event exploreRecapSlide--loading" aria-busy="true">
+      <div className="exploreRecapSlideInner exploreRecapSlideInner--event">
+        <div className="exploreRecapEventCopy">
+          <p className="exploreRecapSlideKicker mono">Daily recap</p>
+          <h2 className="exploreRecapEventTitle exploreRecapEventTitle--loading">Loading today&apos;s recap</h2>
+          <p className="exploreRecapEventSummary">Pulling the latest filings from the desk.</p>
+        </div>
+      </div>
+    </article>
+  )
+}
+
 function ExploreRecapEmptySlide({ isFallback = false }) {
   return (
     <article className="exploreRecapSlide exploreRecapSlide--event">
@@ -192,7 +206,8 @@ function ExploreRecapSlideView({ slide, onOpenEvent }) {
   )
 }
 
-function renderRecapSlideAt(recap, logicalIdx, onOpenEvent) {
+function renderRecapSlideAt(recap, logicalIdx, onOpenEvent, loading = false) {
+  if (loading) return <ExploreRecapLoadingSlide />
   const slides = Array.isArray(recap?.slides) ? recap.slides : []
   if (!slides.length) return <ExploreRecapEmptySlide isFallback={recap?.isFallback === true} />
   const slide = slides[logicalIdx]
@@ -216,6 +231,7 @@ function jumpToPhysicalSlide(el, physicalIdx) {
 
 export function ExploreDailyRecap({
   recap = EMPTY_EXPLORE_RECAP,
+  loading = false,
   backendUp = null,
   macroActive = false,
   onMacroClick,
@@ -232,12 +248,13 @@ export function ExploreDailyRecap({
   const activeIdxRef = useRef(0)
   const [activeIdx, setActiveIdx] = useState(0)
   const compactLayout = useExploreCompactLayout()
-  const slideCount = useMemo(() => Math.max(1, getRecapSlideCount(recap)), [recap])
+  const slideCount = useMemo(() => (loading ? 1 : Math.max(1, getRecapSlideCount(recap))), [recap, loading])
   const slidesContentKey = useMemo(() => {
+    if (loading) return 'loading'
     const slides = Array.isArray(recap?.slides) ? recap.slides : []
     return slides.map((s) => String(s?.id ?? '')).join('|')
-  }, [recap])
-  const hasSlides = getRecapSlideCount(recap) > 0
+  }, [recap, loading])
+  const hasSlides = !loading && getRecapSlideCount(recap) > 0
   const loopEnabled = hasSlides && slideCount > 1
 
   activeIdxRef.current = activeIdx
@@ -382,17 +399,17 @@ export function ExploreDailyRecap({
             <div className="exploreRecapTrack" ref={trackRef}>
               {loopEnabled ? (
                 <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true">
-                  {renderRecapSlideAt(recap, slideCount - 1, onOpenEvent)}
+                  {renderRecapSlideAt(recap, slideCount - 1, onOpenEvent, loading)}
                 </div>
               ) : null}
               {Array.from({ length: slideCount }, (_, i) => (
-                <div key={hasSlides ? recap.slides[i]?.id ?? i : 'empty'} className="exploreRecapSlideWrap">
-                  {renderRecapSlideAt(recap, i, onOpenEvent)}
+                <div key={hasSlides ? recap.slides[i]?.id ?? i : loading ? 'loading' : 'empty'} className="exploreRecapSlideWrap">
+                  {renderRecapSlideAt(recap, i, onOpenEvent, loading)}
                 </div>
               ))}
               {loopEnabled ? (
                 <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true">
-                  {renderRecapSlideAt(recap, 0, onOpenEvent)}
+                  {renderRecapSlideAt(recap, 0, onOpenEvent, loading)}
                 </div>
               ) : null}
             </div>

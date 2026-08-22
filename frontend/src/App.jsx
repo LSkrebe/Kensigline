@@ -27,7 +27,7 @@ import {
   resolveExploreInvestorDossier,
   stubActorRowFromExploreInvestor,
 } from './exploreDirectoryNav.js'
-import { loadExploreDirectoryBundle } from './exploreApi.js'
+import { loadExploreDirectoryBundle, peekExploreHomeSnapshot } from './exploreApi.js'
 import { isLiveDataMode, isMockDataMode } from './dataMode.js'
 import {
   isTerminalAppPath,
@@ -1275,23 +1275,47 @@ function isRealDisplayedActorTxn(txn) {
   const r = txn?.sheetRow
   if (!r || isSyntheticDollarStub(r)) return false
   const usd = Number(r.amountUsd)
+  const mode = txn.source ?? 'insider'
+  if (mode === 'institutions' && isAbsurdTrackedUsd(usd)) return false
   if (Number.isFinite(usd) && usd > 1) return true
   if (String(r.amountRange ?? '').trim()) return true
   if (Number(r.shares) > 0) return true
   return false
 }
 
+function dedupeInstitutionActorTxns(transactions) {
+  const byTicker = new Map()
+  for (const txn of transactions ?? []) {
+    const tick = String(txn?.ticker ?? '').trim().toUpperCase()
+    if (!tick) continue
+    const ts = new Date(txn?.ts ?? txn?.sheetRow?.ts ?? 0).getTime()
+    const prev = byTicker.get(tick)
+    const prevTs = prev ? new Date(prev?.ts ?? prev?.sheetRow?.ts ?? 0).getTime() : -Infinity
+    if (!prev || ts >= prevTs) byTicker.set(tick, txn)
+  }
+  return [...byTicker.values()]
+}
+
 function stripSyntheticActorTxns(actorRow) {
   if (!actorRow?.transactions?.length) return actorRow
-  const transactions = actorRow.transactions.filter(isRealDisplayedActorTxn)
-  if (transactions.length === actorRow.transactions.length) return actorRow
+  let transactions = actorRow.transactions.filter(isRealDisplayedActorTxn)
+  const mode = actorRow.source ?? actorRow.__investigateSource ?? 'insider'
+  if (mode === 'institutions') {
+    transactions = dedupeInstitutionActorTxns(transactions)
+  }
+  if (transactions.length === actorRow.transactions.length && mode !== 'institutions') return actorRow
   return normalizeInvestigateActorFeedRow({ ...actorRow, transactions })
 }
 
 function buildActorCaseFeedRows(actorRow, filters, chartRange) {
   if (!actorRow?.transactions?.length) return []
+  const mode = actorRow.source ?? actorRow.__investigateSource ?? 'insider'
+  const txns =
+    mode === 'institutions'
+      ? dedupeInstitutionActorTxns(actorRow.transactions)
+      : actorRow.transactions
   const trades = []
-  for (const txn of actorRow.transactions) {
+  for (const txn of txns) {
     if (!isRealDisplayedActorTxn(txn)) continue
     const txnMode = txn.source ?? actorRow.source ?? 'insider'
     const enabled = investigateTxnFiltersForMode(filters, txnMode)
@@ -1475,6 +1499,8 @@ function actorDossierIsRich(actorRow) {
   let real = 0
   for (const t of txns) {
     const usd = Number(t?.sheetRow?.amountUsd)
+    const mode = t?.source ?? actorRow?.source ?? 'insider'
+    if (mode === 'institutions' && isAbsurdTrackedUsd(usd)) continue
     if (Number.isFinite(usd) && usd > 1) real += 1
     else if (t?.companyRow) real += 1
   }
@@ -1596,7 +1622,7 @@ function buildActorTxnsFromCompanyFlows({ name, mode, ticker, companyName, flows
       if (!investorNamesLikelyMatch(filer, name)) continue
       const ts = row.date ? new Date(row.date).toISOString() : null
       const amountUsd = parseTxnAmountUsd(row.amount)
-      if (!(amountUsd > 1)) continue
+      if (!(amountUsd > 1) || isAbsurdTrackedUsd(amountUsd)) continue
       out.push({
         sheetRow: {
           institution_name: filer,
@@ -4282,7 +4308,9 @@ function politicianCaseRowHasTxn(r) {
 function institutionCaseRowHasTxn(r) {
   if (isSyntheticDollarStub(r)) return false
   const amt = Number(r?.amountUsd ?? 0)
-  return Number.isFinite(amt) && amt > 1
+  if (!(Number.isFinite(amt) && amt > 1)) return false
+  if (isAbsurdTrackedUsd(amt)) return false
+  return true
 }
 
 function institutionActivityCode(activity) {
@@ -4358,13 +4386,13 @@ function formatPoliticianTxnValue(r) {
 
 function formatInstitutionTxnValue(r) {
   const amt = Number(r?.amountUsd ?? 0)
-  if (!(Number.isFinite(amt) && amt > 0)) return '—'
+  if (!(Number.isFinite(amt) && amt > 0) || isAbsurdTrackedUsd(amt)) return '—'
   const compact = formatUsdCompact(amt)
   if (!compact) return '—'
   const activity = String(r?.activity ?? '').trim()
   const sign =
     activity === 'Reduced stake' ? '−' : activity === 'Increased stake' || activity === 'New position' ? '+' : ''
-  return `${sign}${compact}`
+  return `${sign}${compact} position`
 }
 
 function institutionDisplayShortName(fullName) {
@@ -11129,11 +11157,14 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
-      const bundle = await loadExploreDirectoryBundle(backendUp)
+    const cached = peekExploreHomeSnapshot(backendUp)
+    if (cached?.fullInvestors?.length) {
+      setExploreInvestorDirectoryRows(cached.fullInvestors)
+    }
+    void loadExploreDirectoryBundle(backendUp).then((bundle) => {
       if (cancelled) return
       setExploreInvestorDirectoryRows(bundle?.fullInvestors ?? [])
-    })()
+    })
     return () => {
       cancelled = true
     }

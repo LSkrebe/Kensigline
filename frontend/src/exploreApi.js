@@ -17,6 +17,45 @@ import {
 } from './exploreDirectoryMock.js'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 
+/** Client-side explore home cache — survives subview navigation within the session. */
+const EXPLORE_HOME_CACHE_TTL_MS = 5 * 60_000
+const EXPLORE_HOME_SESSION_KEY = 'mercerline:explore:home'
+const EXPLORE_HOME_SESSION_TTL_MS = 10 * 60_000
+
+function readExploreHomeSession() {
+  if (typeof window === 'undefined' || !window.sessionStorage) return null
+  try {
+    const raw = window.sessionStorage.getItem(EXPLORE_HOME_SESSION_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed?.at || Date.now() - parsed.at > EXPLORE_HOME_SESSION_TTL_MS) return null
+    if (!parsed.recap || !parsed.directory) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writeExploreHomeSession(recap, directory) {
+  if (typeof window === 'undefined' || !window.sessionStorage) return
+  try {
+    window.sessionStorage.setItem(
+      EXPLORE_HOME_SESSION_KEY,
+      JSON.stringify({ at: Date.now(), recap, directory }),
+    )
+  } catch {
+    /* quota */
+  }
+}
+
+function hydrateMemoryCacheFromSession(backendUp) {
+  const session = readExploreHomeSession()
+  if (!session || !isLiveDataMode(backendUp)) return null
+  recapResultCacheEntry = { at: session.at, backendUp, recap: session.recap }
+  directoryCacheEntry = { at: session.at, backendUp, bundle: session.directory }
+  return session
+}
+
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
@@ -51,9 +90,25 @@ async function fetchBarsCloses(ticker, days = 260) {
   return bars.map((b) => Number(b?.close)).filter(Number.isFinite)
 }
 
-/** Fill missing price series on recap day payload (backend may already attach bars). */
+function filingsNeedBarEnrichment(day) {
+  const filings = day?.filings ?? []
+  const earnings = day?.earningsSoon ?? []
+  if (!filings.length && !earnings.length) return false
+  const filingNeeds = filings.some((f) => {
+    const series = Array.isArray(f?.priceSeries) ? f.priceSeries.filter(Number.isFinite) : []
+    return series.length < 2
+  })
+  const earnNeeds = earnings.some((e) => {
+    const series = Array.isArray(e?.priceSeries) ? e.priceSeries.filter(Number.isFinite) : []
+    return series.length < 2
+  })
+  return filingNeeds || earnNeeds
+}
+
+/** Fill missing price series on recap day payload (backend usually attaches bars already). */
 export async function enrichRecapDayWithBars(day) {
   if (!day || typeof day !== 'object') return day
+  if (!filingsNeedBarEnrichment(day)) return day
 
   const tickers = new Set()
   for (const f of day.filings ?? []) {
@@ -70,10 +125,12 @@ export async function enrichRecapDayWithBars(day) {
     return !Array.isArray(series) || series.length < 2
   })
 
+  if (!needBars.length) return day
+
   const seriesMap = new Map()
   await Promise.all(
-    needBars.slice(0, 20).map(async (t) => {
-      const closes = await fetchBarsCloses(t)
+    needBars.slice(0, 12).map(async (t) => {
+      const closes = await fetchBarsCloses(t, 48)
       if (closes.length) seriesMap.set(t, closes)
     }),
   )
@@ -116,6 +173,76 @@ function scopeRecapDayToDisplayDay(day) {
   }
 }
 
+function cacheEntryFresh(entry, backendUp) {
+  return (
+    entry &&
+    entry.backendUp === backendUp &&
+    Date.now() - entry.at < EXPLORE_HOME_CACHE_TTL_MS
+  )
+}
+
+let directoryCacheEntry = null
+let recapResultCacheEntry = null
+let directoryInflight = null
+let recapInflight = null
+let homeInflight = null
+
+/** Instant paint when returning to Explore home within the session cache window. */
+export function peekExploreHomeSnapshot(backendUp) {
+  if (!isLiveDataMode(backendUp)) return null
+  let hasRecap = cacheEntryFresh(recapResultCacheEntry, backendUp)
+  let hasDir = cacheEntryFresh(directoryCacheEntry, backendUp)
+  if (!hasRecap || !hasDir) {
+    const session = hydrateMemoryCacheFromSession(backendUp)
+    if (session) {
+      hasRecap = true
+      hasDir = true
+    }
+  }
+  if (!hasRecap && !hasDir) return null
+  return {
+    recap: hasRecap ? recapResultCacheEntry.recap : null,
+    homePreview: hasDir ? directoryCacheEntry.bundle.homePreview : null,
+    homeLatest: hasDir ? directoryCacheEntry.bundle.homeLatest : null,
+    fullInvestors: hasDir ? directoryCacheEntry.bundle.fullInvestors : null,
+    fullCompanies: hasDir ? directoryCacheEntry.bundle.fullCompanies : null,
+    fromCache: true,
+  }
+}
+
+function processExploreHomeResponse(data, backendUp) {
+  const day = data?.recap ?? null
+  if (!day) return null
+
+  const scopedDay = scopeRecapDayToDisplayDay(day)
+  const recap = evaluateExploreRecap(scopedDay)
+  const recapOut = {
+    ...recap,
+    displayDayKey: scopedDay.dayKey,
+    requestedDayKey: scopedDay.requestedDayKey,
+    isFallback: scopedDay.isFallback,
+  }
+  setExploreRecapCache(scopedDay, recapOut)
+  recapResultCacheEntry = { at: Date.now(), backendUp, recap: recapOut }
+
+  const events = {
+    companyEvents: Array.isArray(data.companyEvents) ? data.companyEvents : [],
+    investorEvents: Array.isArray(data.investorEvents) ? data.investorEvents : [],
+  }
+  const directoryBundle = buildDirectoryBundleFromEvents(events)
+  directoryCacheEntry = { at: Date.now(), backendUp, bundle: directoryBundle }
+  writeExploreHomeSession(recapOut, directoryBundle)
+
+  return { recap: recapOut, directory: directoryBundle }
+}
+
+export async function fetchExploreHome(backendUp) {
+  if (!isLiveDataMode(backendUp)) return null
+  const res = await fetchJsonWithAuthRetry('/api/explore/home', { timeoutMs: 45_000 })
+  if (!res.ok || !res.data?.ok) return null
+  return processExploreHomeResponse(res.data, backendUp)
+}
+
 export async function fetchExploreRecapDay(backendUp) {
   if (!isLiveDataMode(backendUp)) return null
   const res = await fetchJsonWithAuthRetry('/api/explore/recap', { timeoutMs: 45_000 })
@@ -123,7 +250,7 @@ export async function fetchExploreRecapDay(backendUp) {
   return enrichRecapDayWithBars(res.data)
 }
 
-export async function loadExploreDailyRecap(backendUp) {
+export async function loadExploreDailyRecap(backendUp, opts = {}) {
   if (isMockDataMode(backendUp)) {
     return buildExploreDailyRecap()
   }
@@ -131,20 +258,35 @@ export async function loadExploreDailyRecap(backendUp) {
     return EMPTY_EXPLORE_RECAP
   }
 
-  const day = await fetchExploreRecapDay(backendUp)
-  if (day) {
-    const scopedDay = scopeRecapDayToDisplayDay(day)
-    const recap = evaluateExploreRecap(scopedDay)
-    const out = {
-      ...recap,
-      displayDayKey: scopedDay.dayKey,
-      requestedDayKey: scopedDay.requestedDayKey,
-      isFallback: scopedDay.isFallback,
-    }
-    setExploreRecapCache(scopedDay, out)
-    return out
+  if (!opts.force && cacheEntryFresh(recapResultCacheEntry, backendUp)) {
+    return recapResultCacheEntry.recap
   }
-  return EMPTY_EXPLORE_RECAP
+
+  if (recapInflight) return recapInflight
+
+  recapInflight = (async () => {
+    try {
+      const day = await fetchExploreRecapDay(backendUp)
+      if (day) {
+        const scopedDay = scopeRecapDayToDisplayDay(day)
+        const recap = evaluateExploreRecap(scopedDay)
+        const out = {
+          ...recap,
+          displayDayKey: scopedDay.dayKey,
+          requestedDayKey: scopedDay.requestedDayKey,
+          isFallback: scopedDay.isFallback,
+        }
+        setExploreRecapCache(scopedDay, out)
+        recapResultCacheEntry = { at: Date.now(), backendUp, recap: out }
+        return out
+      }
+      return EMPTY_EXPLORE_RECAP
+    } finally {
+      recapInflight = null
+    }
+  })()
+
+  return recapInflight
 }
 
 export async function fetchExploreDirectoryEvents(backendUp) {
@@ -157,7 +299,23 @@ export async function fetchExploreDirectoryEvents(backendUp) {
   }
 }
 
-export async function loadExploreDirectoryBundle(backendUp) {
+function buildDirectoryBundleFromEvents(events) {
+  const directory = buildExploreDirectoryFromEvents(events.companyEvents, events.investorEvents)
+  const homePreview = buildExploreDirectoryHomePreview(directory, { utc: true, maxLookback: 14 })
+  return {
+    directory,
+    homePreview,
+    homeLatest: buildExploreDirectoryHomeLatest(directory),
+    fullCompanies: buildExploreDirectoryFullList('companies', directory),
+    fullInvestors: buildExploreDirectoryFullList('investors', directory),
+    displayDayKey: homePreview.displayDayKey,
+    isFallback: homePreview.isFallback,
+    live: true,
+    pending: false,
+  }
+}
+
+export async function loadExploreDirectoryBundle(backendUp, opts = {}) {
   if (isMockDataMode(backendUp)) {
     const mockDirectory = buildExploreDirectoryMock()
     return {
@@ -174,24 +332,81 @@ export async function loadExploreDirectoryBundle(backendUp) {
     return { ...EMPTY_EXPLORE_DIRECTORY, live: false, pending: true }
   }
 
-  const events = await fetchExploreDirectoryEvents(backendUp)
-  if (events) {
-    const directory = buildExploreDirectoryFromEvents(events.companyEvents, events.investorEvents)
-    const homePreview = buildExploreDirectoryHomePreview(directory, { utc: true, maxLookback: 14 })
+  if (!opts.force && cacheEntryFresh(directoryCacheEntry, backendUp)) {
+    return directoryCacheEntry.bundle
+  }
+
+  if (directoryInflight) return directoryInflight
+
+  directoryInflight = (async () => {
+    try {
+      const events = await fetchExploreDirectoryEvents(backendUp)
+      if (events) {
+        const bundle = buildDirectoryBundleFromEvents(events)
+        directoryCacheEntry = { at: Date.now(), backendUp, bundle }
+        return bundle
+      }
+      return { ...EMPTY_EXPLORE_DIRECTORY, live: true, pending: false, error: true }
+    } finally {
+      directoryInflight = null
+    }
+  })()
+
+  return directoryInflight
+}
+
+export async function loadExploreHomeBundle(backendUp, opts = {}) {
+  if (isMockDataMode(backendUp)) {
+    const recap = buildExploreDailyRecap()
+    const mockDirectory = buildExploreDirectoryMock()
     return {
-      directory,
-      homePreview,
-      homeLatest: buildExploreDirectoryHomeLatest(directory),
-      fullCompanies: buildExploreDirectoryFullList('companies', directory),
-      fullInvestors: buildExploreDirectoryFullList('investors', directory),
-      displayDayKey: homePreview.displayDayKey,
-      isFallback: homePreview.isFallback,
-      live: true,
-      pending: false,
+      recap,
+      directory: {
+        directory: mockDirectory,
+        homePreview: buildExploreDirectoryHomePreview(mockDirectory),
+        homeLatest: buildExploreDirectoryHomeLatest(mockDirectory),
+        fullCompanies: buildExploreDirectoryFullList('companies', mockDirectory),
+        fullInvestors: buildExploreDirectoryFullList('investors', mockDirectory),
+        live: false,
+      },
+      fromCache: false,
     }
   }
 
-  return { ...EMPTY_EXPLORE_DIRECTORY, live: true, pending: false, error: true }
+  if (!isLiveDataMode(backendUp)) {
+    return { recap: EMPTY_EXPLORE_RECAP, directory: EMPTY_EXPLORE_DIRECTORY, pending: true }
+  }
+
+  if (!opts.force) {
+    const cached = peekExploreHomeSnapshot(backendUp)
+    if (cached?.recap && cached?.homePreview) {
+      return {
+        recap: cached.recap,
+        directory: directoryCacheEntry.bundle,
+        fromCache: true,
+      }
+    }
+  }
+
+  if (homeInflight) return homeInflight
+
+  homeInflight = (async () => {
+    try {
+      const processed = await fetchExploreHome(backendUp)
+      if (processed) {
+        return { recap: processed.recap, directory: processed.directory, fromCache: false }
+      }
+      return {
+        recap: EMPTY_EXPLORE_RECAP,
+        directory: { ...EMPTY_EXPLORE_DIRECTORY, live: true, pending: false, error: true },
+        fromCache: false,
+      }
+    } finally {
+      homeInflight = null
+    }
+  })()
+
+  return homeInflight
 }
 
 let cachedRecapDay = null
