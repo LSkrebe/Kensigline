@@ -107,38 +107,6 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       [lookback],
     );
 
-  const institutions = await exploreQueryApi<{
-      id: string;
-      filing_date: string;
-      ticker: string;
-      company_name: string;
-      actor_id: string;
-      actor_name: string;
-      activity: string | null;
-      amount_usd: number | null;
-    }>(
-      `
-      SELECT
-        t.id::text,
-        t.transaction_at::date::text AS filing_date,
-        upper(trim(i.ticker)) AS ticker,
-        coalesce(nullif(trim(i.name), ''), upper(trim(i.ticker))) AS company_name,
-        f.slug AS actor_id,
-        f.display_name AS actor_name,
-        t.activity,
-        t.amount_usd::float8 AS amount_usd
-      FROM institution_transactions t
-      JOIN filers f ON f.id = t.filer_id
-      JOIN issuers i ON i.id = t.issuer_id
-      WHERE i.ticker IS NOT NULL
-        AND length(trim(i.ticker)) BETWEEN 1 AND 6
-        AND t.transaction_at >= (now() AT TIME ZONE 'UTC')::date - ($1::int || ' days')::interval
-      ORDER BY t.transaction_at DESC
-      LIMIT 300
-      `,
-      [lookback],
-    );
-
   const companyFilings = await exploreQueryApi<{
       id: string;
       filing_date: string;
@@ -230,27 +198,6 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       amountUsd: row.amount_usd,
       code: side === "buy" ? "P" : side === "sell" ? "S" : null,
       headline: row.headline,
-      priceSeries: [],
-      dayMovePct: null,
-      filingDate: row.filing_date,
-    });
-  }
-
-  for (const row of institutions) {
-    const side = institutionSide(row.activity);
-    filings.push({
-      id: row.id,
-      doc: recapDocLabel("institutions", side),
-      side,
-      ticker: row.ticker,
-      companyName: row.company_name,
-      actorId: row.actor_id,
-      actorName: row.actor_name,
-      actorRole: "Institutional filer",
-      actorMode: "institutions",
-      amountUsd: row.amount_usd,
-      code: null,
-      headline: null,
       priceSeries: [],
       dayMovePct: null,
       filingDate: row.filing_date,
