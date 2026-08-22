@@ -34,8 +34,9 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
   const lookback = Math.max(1, Math.min(21, opts?.lookbackDays ?? 7));
   const dayKey = todayUtcIso();
 
-  const [insiders, politicians, institutions, companyFilings, earningsRows] = await Promise.all([
-    db.query<{
+  // Cap parallel checkouts — prod API pool is small (often 4); 5-way Promise.all deadlocks + bars.
+  const [insiders, politicians] = await Promise.all([
+    db.queryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -73,7 +74,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       `,
       [lookback],
     ),
-    db.query<{
+    db.queryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -106,7 +107,10 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       `,
       [lookback],
     ),
-    db.query<{
+  ]);
+
+  const [institutions, companyFilings] = await Promise.all([
+    db.queryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -137,7 +141,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       `,
       [lookback],
     ),
-    db.query<{
+    db.queryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -171,23 +175,24 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       `,
       [lookback],
     ),
-    db.query<{ ticker: string; name: string; earnings_date: string; days_ahead: string }>(
-      `
-      SELECT
-        upper(trim(ticker)) AS ticker,
-        coalesce(nullif(trim(name), ''), upper(trim(ticker))) AS name,
-        earnings_date::text AS earnings_date,
-        (earnings_date - current_date)::text AS days_ahead
-      FROM companies
-      WHERE ticker IS NOT NULL
-        AND earnings_date IS NOT NULL
-        AND earnings_date >= current_date
-        AND earnings_date <= current_date + 14
-      ORDER BY earnings_date ASC
-      LIMIT 24
-      `,
-    ),
   ]);
+
+  const earningsRows = await db.queryApi<{ ticker: string; name: string; earnings_date: string; days_ahead: string }>(
+    `
+    SELECT
+      upper(trim(ticker)) AS ticker,
+      coalesce(nullif(trim(name), ''), upper(trim(ticker))) AS name,
+      earnings_date::text AS earnings_date,
+      (earnings_date - current_date)::text AS days_ahead
+    FROM companies
+    WHERE ticker IS NOT NULL
+      AND earnings_date IS NOT NULL
+      AND earnings_date >= current_date
+      AND earnings_date <= current_date + 14
+    ORDER BY earnings_date ASC
+    LIMIT 24
+    `,
+  );
 
   /** @type {RecapFiling[]} */
   const filings: RecapFiling[] = [];
@@ -325,8 +330,8 @@ export type ExploreDirectoryEvent = {
 export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number }) {
   const lookback = Math.max(7, Math.min(60, opts?.lookbackDays ?? 45));
 
-  const [insiders, politicians, institutions, companyFilings] = await Promise.all([
-    db.query<{
+  const [insiders, politicians] = await Promise.all([
+    db.queryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -356,7 +361,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       `,
       [lookback],
     ),
-    db.query<{
+    db.queryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -384,7 +389,10 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       `,
       [lookback],
     ),
-    db.query<{
+  ]);
+
+  const [institutions, companyFilings] = await Promise.all([
+    db.queryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -412,7 +420,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       `,
       [lookback],
     ),
-    db.query<{
+    db.queryApi<{
       id: string;
       filing_date: string;
       ticker: string;

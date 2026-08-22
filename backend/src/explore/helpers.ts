@@ -38,7 +38,7 @@ export async function loadBarClosesByTicker(tickers: string[], maxPoints = 260):
   const uniq = [...new Set(tickers.map((t) => String(t ?? "").trim().toUpperCase()).filter(Boolean))].slice(0, 40);
   if (!uniq.length) return out;
 
-  const rows = await db.query<{ ticker: string; close: string }>(
+  const rows = await db.queryApi<{ ticker: string; close: string }>(
     `
     SELECT ticker, close::text
     FROM (
