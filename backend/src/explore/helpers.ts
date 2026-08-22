@@ -11,6 +11,30 @@ export function exploreQueryApi<T = unknown>(
   return db.queryApi<T>(text, params, timeoutMs);
 }
 
+/** Skip a single explore query under pool pressure instead of failing the whole payload. */
+export async function tryExploreQuery<T>(
+  label: string,
+  fn: () => Promise<T[]>,
+): Promise<T[]> {
+  try {
+    return await fn();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[explore] ${label}_skipped`, msg);
+    return [];
+  }
+}
+
+export async function tryExploreBars(tickers: string[], maxPoints = 48): Promise<Map<string, number[]>> {
+  try {
+    return await loadBarClosesByTicker(tickers, maxPoints);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[explore] bars_skipped", msg);
+    return new Map();
+  }
+}
+
 export function todayUtcIso(): string {
   const d = new Date();
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
