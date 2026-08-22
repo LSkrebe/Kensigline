@@ -59,6 +59,15 @@ export function resolveExploreDisplayDay(dates, opts = {}) {
     }
   }
 
+  const floor = isoDaysBefore(today, maxLookback, utc)
+  const newestInWindow = [...dateSet]
+    .filter((d) => d <= today && d >= floor)
+    .sort()
+    .pop()
+  if (newestInWindow) {
+    return { displayDayKey: newestInWindow, requestedDayKey: today, isFallback: true }
+  }
+
   return { displayDayKey: today, requestedDayKey: today, isFallback: false }
 }
 

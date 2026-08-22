@@ -36,7 +36,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
   const dayKey = todayUtcIso();
 
   // Sequential checkouts — recap runs after directory; keep one connection per step under a 4-slot pool.
-  const insiders = await tryExploreQuery("insiders", () => exploreQueryApi<{
+  const insiders = await tryExploreQuery("recap.insiders", () => exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -68,13 +68,14 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       WHERE i.ticker IS NOT NULL
         AND length(trim(i.ticker)) BETWEEN 1 AND 6
         AND t.transaction_at >= (now() AT TIME ZONE 'UTC')::date - ($1::int || ' days')::interval
+        AND t.transaction_at::date <= (now() AT TIME ZONE 'UTC')::date
       ORDER BY t.transaction_at DESC
       LIMIT 120
       `,
       [lookback],
     ));
 
-  const politicians = await tryExploreQuery("politicians", () => exploreQueryApi<{
+  const politicians = await tryExploreQuery("recap.politicians", () => exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -102,43 +103,14 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       WHERE i.ticker IS NOT NULL
         AND length(trim(i.ticker)) BETWEEN 1 AND 6
         AND t.transaction_at >= (now() AT TIME ZONE 'UTC')::date - ($1::int || ' days')::interval
+        AND t.transaction_at::date <= (now() AT TIME ZONE 'UTC')::date
       ORDER BY t.transaction_at DESC
       LIMIT 40
       `,
       [lookback],
     ));
 
-  const companyFilings = await tryExploreQuery("company_filings", () => exploreQueryApi<{
-      id: string;
-      filing_date: string;
-      ticker: string;
-      company_name: string;
-      form: string | null;
-      feed_kind: string | null;
-      headline: string | null;
-    }>(
-      `
-      SELECT
-        f.id::text,
-        coalesce(f.event_at, f.filed_at, f.parsed_at)::date::text AS filing_date,
-        upper(trim(i.ticker)) AS ticker,
-        coalesce(nullif(trim(i.name), ''), upper(trim(i.ticker))) AS company_name,
-        f.form,
-        f.feed_kind::text AS feed_kind,
-        coalesce(f.title, f.source_key) AS headline
-      FROM filings f
-      JOIN issuers i ON i.id = f.issuer_id
-      WHERE i.ticker IS NOT NULL
-        AND length(trim(i.ticker)) BETWEEN 1 AND 6
-        AND f.feed_kind = 'research'::feed_kind
-        AND coalesce(f.event_at, f.filed_at, f.parsed_at) >= (now() AT TIME ZONE 'UTC')::date - ($1::int || ' days')::interval
-      ORDER BY coalesce(f.event_at, f.filed_at, f.parsed_at) DESC
-      LIMIT 80
-      `,
-      [lookback],
-    ));
-
-  const earningsRows = await tryExploreQuery("earnings", () => exploreQueryApi<{ ticker: string; name: string; earnings_date: string; days_ahead: string }>(
+  const earningsRows = await tryExploreQuery("recap.earnings", () => exploreQueryApi<{ ticker: string; name: string; earnings_date: string; days_ahead: string }>(
     `
     SELECT
       upper(trim(ticker)) AS ticker,
@@ -193,26 +165,6 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       actorMode: "politicians",
       amountUsd: row.amount_usd,
       code: side === "buy" ? "P" : side === "sell" ? "S" : null,
-      headline: row.headline,
-      priceSeries: [],
-      dayMovePct: null,
-      filingDate: row.filing_date,
-    });
-  }
-
-  for (const row of companyFilings) {
-    filings.push({
-      id: row.id,
-      doc: row.form?.toUpperCase().startsWith("10-") ? row.form.toUpperCase() : "8-K",
-      side: null,
-      ticker: row.ticker,
-      companyName: row.company_name,
-      actorId: null,
-      actorName: null,
-      actorRole: null,
-      actorMode: null,
-      amountUsd: null,
-      code: null,
       headline: row.headline,
       priceSeries: [],
       dayMovePct: null,

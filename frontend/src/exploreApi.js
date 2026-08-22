@@ -118,7 +118,7 @@ function scopeRecapDayToDisplayDay(day) {
 
 export async function fetchExploreRecapDay(backendUp) {
   if (!isLiveDataMode(backendUp)) return null
-  const res = await fetchJsonWithAuthRetry('/api/explore/recap', { timeoutMs: 30_000 })
+  const res = await fetchJsonWithAuthRetry('/api/explore/recap', { timeoutMs: 45_000 })
   if (!res.ok || !res.data?.ok) return null
   return enrichRecapDayWithBars(res.data)
 }
