@@ -454,16 +454,19 @@ export function buildExploreDirectoryHomePreview(directory = buildExploreDirecto
   const { displayDayKey, requestedDayKey, isFallback } = resolved
   const dayCompanyEvents = directory.companyEvents.filter((row) => row.date === displayDayKey)
   const dayInvestorEvents = investorEvents.filter((row) => row.date === displayDayKey)
+  const latestInvestorRows = aggregateExploreSameDayEvents(
+    sortEventsNewestFirst(investorEvents),
+    (row) => `${row.name}|${row.ticker}|${row.date}`,
+  )
+  const dayInvestorRows = aggregateExploreSameDayEvents(dayInvestorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`)
+  const investorPreviewSource = dayInvestorRows.length ? dayInvestorRows : latestInvestorRows
 
   return {
     companies: aggregateExploreSameDayEvents(dayCompanyEvents, (row) => `${row.ticker}|${row.date}`).slice(
       0,
       HOME_DIRECTORY_PREVIEW,
     ),
-    investors: aggregateExploreSameDayEvents(dayInvestorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`).slice(
-      0,
-      HOME_DIRECTORY_PREVIEW,
-    ),
+    investors: investorPreviewSource.slice(0, HOME_DIRECTORY_PREVIEW),
     displayDayKey,
     requestedDayKey,
     isFallback,

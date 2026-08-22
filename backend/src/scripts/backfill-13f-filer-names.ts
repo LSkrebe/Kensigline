@@ -1,19 +1,21 @@
 /**
- * Repair 13F rows that were ingested under the generic "Institution" filer.
- * Re-fetches filing bundles from SEC, resolves real filer names, and re-links transactions.
+ * Repair 13F rows ingested under the generic "Institution" filer.
+ * Default: instant split by CIK/accession from filing URL (no SEC fetch).
+ * Optional: --fetch-sec tries to resolve human-readable names from EDGAR (slow).
  *
  *   npx tsx src/scripts/backfill-13f-filer-names.ts
- *   npx tsx src/scripts/backfill-13f-filer-names.ts --dry-run
+ *   npx tsx src/scripts/backfill-13f-filer-names.ts --fetch-sec --limit=20
  */
 import "../load-env.js";
 import { pool } from "../core/db.js";
-import { fetch13fFilingBundle } from "../core/sec.js";
-import { parse13fMeta, resolve13fFilerDisplayName } from "../investigate/institutions/parse-13f.js";
+import { fetchFilingPrimaryText } from "../core/sec.js";
+import { parse13fMeta, resolve13fFilerDisplayName, type Parsed13fMeta } from "../investigate/institutions/parse-13f.js";
 import { ensureFiler } from "../v2/canonical.js";
 import { isPlaceholderInvestorName } from "../research/market/tracked-investors-filter.js";
 
 const dryRun = process.argv.includes("--dry-run");
-const limit = Number(process.argv.find((a) => a.startsWith("--limit="))?.split("=")[1] ?? 200);
+const fetchSec = process.argv.includes("--fetch-sec");
+const limit = Number(process.argv.find((a) => a.startsWith("--limit="))?.split("=")[1] ?? 500);
 
 function indexJsonFromFilingUrl(url: string | null, accessionNo: string | null): string | null {
   const u = String(url ?? "").trim();
@@ -29,6 +31,53 @@ function indexJsonFromFilingUrl(url: string | null, accessionNo: string | null):
     return `https://www.sec.gov/Archives/edgar/data/${m[1]}/${accNoDash}/index.json`;
   }
   return null;
+}
+
+function metaFromIndexUrl(indexJson: string, accessionNo: string | null): Parsed13fMeta {
+  const cikM = indexJson.match(/\/data\/(\d+)\//);
+  const accNoDashM = indexJson.match(/\/(\d{18})\//);
+  let accession_no = String(accessionNo ?? "").trim() || null;
+  if (!accession_no && accNoDashM) {
+    const d = accNoDashM[1]!;
+    accession_no = `${d.slice(0, 10)}-${d.slice(10, 12)}-${d.slice(12)}`;
+  }
+  const cik = cikM ? String(cikM[1]).replace(/\D/g, "").padStart(10, "0") : null;
+  return { filer_name: null, cik, accession_no, filed_at: null, period_of_report: null };
+}
+
+async function resolveFilerName(g: {
+  accession_no: string | null;
+  url: string | null;
+}): Promise<string | null> {
+  const indexJson = indexJsonFromFilingUrl(g.url, g.accession_no);
+  if (!indexJson) {
+    return g.accession_no ? `13F ${g.accession_no}` : null;
+  }
+
+  const baseMeta = metaFromIndexUrl(indexJson, g.accession_no);
+
+  if (fetchSec) {
+    try {
+      const { text } = await fetchFilingPrimaryText(indexJson);
+      const meta = parse13fMeta(text, indexJson);
+      const name = resolve13fFilerDisplayName(
+        {
+          filer_name: meta.filer_name ?? baseMeta.filer_name,
+          cik: meta.cik ?? baseMeta.cik,
+          accession_no: meta.accession_no ?? baseMeta.accession_no,
+          filed_at: meta.filed_at,
+          period_of_report: meta.period_of_report,
+        },
+        indexJson,
+      );
+      if (!isPlaceholderInvestorName(name)) return name;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("sec_fetch_failed", g.accession_no, msg);
+    }
+  }
+
+  return resolve13fFilerDisplayName(baseMeta, indexJson);
 }
 
 async function main() {
@@ -55,31 +104,17 @@ async function main() {
     [limit],
   );
 
-  console.log("groups_to_repair", groups.rows.length, dryRun ? "(dry-run)" : "");
+  console.log("groups_to_repair", groups.rows.length, {
+    dryRun,
+    fetchSec,
+  });
 
   let updatedTxns = 0;
   let repairedGroups = 0;
 
   for (const g of groups.rows) {
-    const indexJson = indexJsonFromFilingUrl(g.url, g.accession_no);
-    if (!indexJson) {
-      console.warn("skip_no_index_url", g.accession_no, g.url);
-      continue;
-    }
-
-    let filerName: string;
-    try {
-      const { bundle } = await fetch13fFilingBundle(indexJson);
-      const meta = parse13fMeta(bundle, indexJson);
-      filerName = resolve13fFilerDisplayName(meta, indexJson);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.warn("skip_fetch_failed", g.accession_no, msg);
-      if (g.accession_no) filerName = `13F ${g.accession_no}`;
-      else continue;
-    }
-
-    if (isPlaceholderInvestorName(filerName)) {
+    const filerName = await resolveFilerName(g);
+    if (!filerName || isPlaceholderInvestorName(filerName)) {
       console.warn("skip_still_placeholder", g.accession_no, filerName);
       continue;
     }
@@ -97,7 +132,6 @@ async function main() {
     }
 
     const filer = await ensureFiler({ filerType: "institution", displayName: filerName });
-    const filingIds = g.filing_ids;
     const r = await pool.query(
       `
       UPDATE institution_transactions t
@@ -106,13 +140,13 @@ async function main() {
       WHERE fil.id = t.filing_id
         AND fil.id = ANY($2::uuid[])
       `,
-      [filer.id, filingIds],
+      [filer.id, g.filing_ids],
     );
     updatedTxns += r.rowCount ?? 0;
     repairedGroups++;
   }
 
-  console.log("done", { repairedGroups, updatedTxns, dryRun });
+  console.log("done", { repairedGroups, updatedTxns, dryRun, fetchSec });
   await pool.end();
 }
 
