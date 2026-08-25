@@ -4,11 +4,16 @@ Frontend: **Settings** side tab (`activeTab=settings`).
 
 Whop checkout (embedded), membership status, webhooks, and referral tracking (`?r=`). Auth identity lives in `core/supabase-auth.ts`.
 
-Apply DB migration after `billing.sql`:
+Attribution funnel (`?r=` clicks → signups → checkouts → paid) lives in `../attribution/` and `billing_accounts.referral_ref`.
+
+Apply DB migrations after `billing.sql`:
 
 ```bash
 psql "$DATABASE_URL" -f backend/db/billing-whop.sql
+psql "$DATABASE_URL" -f backend/db/attribution.sql
 ```
+
+Owner-only summary: `GET /api/attribution/summary` (Bearer token with `billing_exempt` / owner role).
 
 Whop dashboard setup:
 

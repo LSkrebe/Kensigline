@@ -41,6 +41,11 @@ import { clampInt } from "./shared/feed-helpers.js";
 import { startAllWorkers, stopAllWorkers } from "./server/workers.js";
 import { handleExploreDirectory, handleExploreHome, handleExploreRecap, prewarmExploreHome } from "./explore/api.js";
 import { handleWaitlistJoin } from "./waitlist/api.js";
+import {
+  handleAttributionSignup,
+  handleAttributionSummary,
+  handleAttributionVisit,
+} from "./attribution/api.js";
 import { getSecTickerTitleMap } from "./core/sec.js";
 import { getIngestQueueSnapshot, startIngestHealthCacheWarmer } from "./shared/ingest-status.js";
 import { ingestMode, ingestModeSummary } from "./shared/ingest-mode.js";
@@ -138,6 +143,29 @@ const server = http.createServer(async (req, res) => {
 
     if (route(req, url, "POST", "/api/waitlist")) {
       await handleWaitlistJoin(req, res);
+      return;
+    }
+
+    if (route(req, url, "POST", "/api/attribution/visit")) {
+      await handleAttributionVisit(req, res);
+      return;
+    }
+
+    if (route(req, url, "POST", "/api/attribution/signup")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleAttributionSignup(req, res);
+      return;
+    }
+
+    if (route(req, url, "GET", "/api/attribution/summary")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleAttributionSummary(req, res);
       return;
     }
 

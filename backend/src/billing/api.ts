@@ -20,6 +20,7 @@ import {
   rememberBillingAccess,
   syncFromWhopMembership,
 } from "./store.js";
+import { logAttributionCheckout } from "../attribution/api.js";
 import { handleBillingWebhook } from "./webhook.js";
 
 export { handleBillingWebhook };
@@ -152,6 +153,14 @@ export async function handleBillingCheckout(req: http.IncomingMessage, res: http
 
   const ref = String(body.ref ?? body.r ?? "").trim().slice(0, 32) || null;
   const origin = frontendOrigin();
+
+  if (ref) {
+    try {
+      await logAttributionCheckout(user.sub, ref);
+    } catch (err) {
+      console.warn("[attribution] checkout log failed", err);
+    }
+  }
 
   try {
     const client = getWhop();

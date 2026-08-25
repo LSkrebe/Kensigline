@@ -1,26 +1,79 @@
-const REF_KEY = 'ml.ref'
+import { fetchJsonSafe } from './api.js'
 
-/** Capture ?r= from URL (e.g. ig47, yt12) and persist for checkout metadata. */
-export function captureReferralRef() {
+const REF_KEY = 'ml.ref'
+const VISITOR_KEY = 'ml.ref.vid'
+const VISIT_LOGGED_PREFIX = 'ml.ref.logged.'
+
+function storage() {
   if (typeof window === 'undefined') return null
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
+}
+
+/** Capture ?r= from URL (e.g. ig47, yt12) and persist until checkout. */
+export function captureReferralRef() {
+  const store = storage()
+  if (!store) return null
   try {
     const params = new URLSearchParams(window.location.search)
     const fromUrl = params.get('r')?.trim().slice(0, 32)
     if (fromUrl) {
-      sessionStorage.setItem(REF_KEY, fromUrl)
+      store.setItem(REF_KEY, fromUrl)
+      void logAttributionVisit(fromUrl)
       return fromUrl
     }
-    return sessionStorage.getItem(REF_KEY)
+    return store.getItem(REF_KEY)
   } catch {
     return null
   }
 }
 
 export function peekReferralRef() {
-  if (typeof window === 'undefined') return null
+  const store = storage()
+  if (!store) return null
   try {
-    return sessionStorage.getItem(REF_KEY)
+    return store.getItem(REF_KEY)
   } catch {
     return null
   }
+}
+
+function visitorId(store) {
+  let id = store.getItem(VISITOR_KEY)
+  if (!id) {
+    id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `v_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+    store.setItem(VISITOR_KEY, id)
+  }
+  return id
+}
+
+/** Log one visit per ref per browser (deduped locally). */
+async function logAttributionVisit(ref) {
+  const store = storage()
+  if (!store || !ref) return
+  const dedupeKey = `${VISIT_LOGGED_PREFIX}${ref}`
+  if (store.getItem(dedupeKey)) return
+  store.setItem(dedupeKey, '1')
+  await fetchJsonSafe('/api/attribution/visit', {
+    method: 'POST',
+    body: { ref, visitor_id: visitorId(store) },
+    timeoutMs: 8000,
+  })
+}
+
+/** Call after sign-in when a referral ref is present (first-touch signup). */
+export async function recordAttributionSignup(ref) {
+  const normalized = String(ref ?? '').trim().slice(0, 32)
+  if (!normalized) return
+  await fetchJsonSafe('/api/attribution/signup', {
+    method: 'POST',
+    body: { ref: normalized },
+    timeoutMs: 8000,
+  })
 }
