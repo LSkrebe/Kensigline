@@ -1,4 +1,11 @@
-/* Subscribe checkout page */
+.whopCheckoutEmbed {
+  margin-top: 1.25rem;
+  min-height: 420px;
+}
+
+.whopCheckoutStart {
+  margin-top: 1.25rem;
+}
 
 .subPage {
   background-color: var(--lp-bg);

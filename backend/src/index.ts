@@ -24,7 +24,7 @@ import {
   handleBillingWebhook,
 } from "./billing/api.js";
 import { billingGateBlocksRequest } from "./billing/gate.js";
-import { isFoundersPricingEnabled, isWaitlistModeEnabled, stripeConfigured, stripeMode } from "./billing/config.js";
+import { isFoundersPricingEnabled, isWaitlistModeEnabled, whopConfigured } from "./billing/config.js";
 import {
   researchLimitFromSearchParams,
   handleResearchEvents,
@@ -677,8 +677,8 @@ const server = http.createServer(async (req, res) => {
 server.listen(port, () => {
   console.log(`Backend listening on http://localhost:${port}`);
   console.log(`[marketing] Waitlist mode: ${isWaitlistModeEnabled() ? "on" : "off"}`);
-  if (stripeConfigured()) {
-    console.log(`[billing] Stripe mode: ${stripeMode()}`);
+  if (whopConfigured()) {
+    console.log("[billing] Whop configured");
     console.log(`[billing] Founders pricing: ${isFoundersPricingEnabled() ? "on" : "off"}`);
   }
   prewarmExploreHome();

@@ -2,7 +2,7 @@ import type http from "node:http";
 import { URL } from "node:url";
 import { bearerToken, verifySupabaseAccessToken } from "../core/supabase-auth.js";
 import { sendJson } from "../core/http.js";
-import { hasBillingAccess, stripeConfigured } from "./config.js";
+import { hasBillingAccess, whopConfigured } from "./config.js";
 import {
   getBillingByUserId,
   peekBillingAccessCache,
@@ -46,7 +46,7 @@ export async function billingGateBlocksRequest(
   if (!url.pathname.startsWith("/api/")) return false;
   if (BILLING_EXEMPT_PATHS.has(url.pathname)) return false;
 
-  if (!stripeConfigured()) {
+  if (!whopConfigured()) {
     sendJson(res, 503, { ok: false, error: "billing_not_configured" });
     return true;
   }

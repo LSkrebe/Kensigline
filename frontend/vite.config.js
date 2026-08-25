@@ -35,6 +35,11 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.SUPABASE_ANON_KEY': JSON.stringify(supabaseAnon),
       'import.meta.env.API_BASE_URL': JSON.stringify(apiBase),
       'import.meta.env.VITE_BILLING_GATE': JSON.stringify(pick('VITE_BILLING_GATE')),
+      'import.meta.env.VITE_WAITLIST_MODE': JSON.stringify(pick('VITE_WAITLIST_MODE')),
+      'import.meta.env.VITE_WHOP_COMPANY_ID': JSON.stringify(pick('VITE_WHOP_COMPANY_ID')),
+      'import.meta.env.VITE_WHOP_ENV': JSON.stringify(
+        pick('WHOP_SANDBOX') === '1' || pick('VITE_WHOP_ENV') === 'sandbox' ? 'sandbox' : 'production',
+      ),
     },
   }
 })

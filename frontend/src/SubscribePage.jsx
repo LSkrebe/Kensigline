@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchJsonSafe, getBackendBase } from './api.js'
+import { WhopCheckoutPanel } from './WhopCheckoutPanel.jsx'
 import { useAuth } from './AuthContext.jsx'
 import { formatUsd } from './billingPlans.js'
 import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
@@ -26,48 +26,19 @@ export function SubscribePage() {
   const faq = subscribeFaq(pricing)
   const [selected, setSelected] = useState('yearly')
   const [checkoutMsg, setCheckoutMsg] = useState('')
-  const [checkoutBusy, setCheckoutBusy] = useState(false)
 
   useEffect(() => {
     applyPageMeta(subscribePageMeta(pricing))
     markAppReady()
   }, [pricing])
 
-  const onCheckout = useCallback(async (planId) => {
+  const onSelectPlan = useCallback((planId) => {
     setSelected(planId)
     setCheckoutMsg('')
-    setCheckoutBusy(true)
     try {
       sessionStorage.setItem('mercerline_checkout_plan', planId)
     } catch {
       /* ignore */
-    }
-    const res = await fetchJsonSafe('/api/billing/checkout', {
-      method: 'POST',
-      body: { plan: planId },
-      timeoutMs: 20000,
-    })
-    setCheckoutBusy(false)
-    if (res.ok && res.data?.url) {
-      window.location.href = res.data.url
-      return
-    }
-    const err = res.data?.error
-    const detail = res.data?.message
-    if (res.status === 0 || err === 'network_error') {
-      setCheckoutMsg(
-        `Cannot reach the API (${getBackendBase() || 'same origin'}/api). Check API_BASE_URL.`,
-      )
-    } else if (err === 'stripe_not_configured') {
-      setCheckoutMsg('Billing is not configured yet.')
-    } else if (err === 'invalid_plan') {
-      setCheckoutMsg('Unknown plan.')
-    } else if (res.status === 401) {
-      setCheckoutMsg('Session expired — sign in again.')
-    } else if (err === 'checkout_failed' && detail) {
-      setCheckoutMsg(`Checkout failed: ${detail}`)
-    } else {
-      setCheckoutMsg(`Could not start checkout (HTTP ${res.status}${err ? `: ${err}` : ''}).`)
     }
   }, [])
 
@@ -145,19 +116,23 @@ export function SubscribePage() {
                   <button
                     type="button"
                     className={`lpBtn ${plan.featured ? 'lpBtn--primary' : 'lpBtn--ghost'} lpPlanCta`}
-                    disabled={checkoutBusy}
-                    onClick={() => void onCheckout(plan.id)}
+                    onClick={() => onSelectPlan(plan.id)}
                   >
-                    {checkoutBusy && isSelected
-                      ? 'Opening checkout…'
+                    {isSelected
+                      ? 'Selected'
                       : plan.featured
-                        ? 'Continue with yearly'
-                        : 'Continue with monthly'}
+                        ? 'Choose yearly'
+                        : 'Choose monthly'}
                   </button>
                 </article>
               )
             })}
           </div>
+          <WhopCheckoutPanel
+            selectedPlan={selected}
+            userEmail={user?.email ?? null}
+            onError={setCheckoutMsg}
+          />
           {checkoutMsg ? (
             <p className="subError" role="alert">
               {checkoutMsg}

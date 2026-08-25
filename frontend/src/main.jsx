@@ -4,6 +4,9 @@ import './index.css'
 import './marketingEnter.css'
 import AppRouter from './AppRouter.jsx'
 import { AuthProvider } from './AuthContext.jsx'
+import { installWhopPixel } from './whopPixel.js'
+
+installWhopPixel()
 
 // Small runtime error boundary so the app doesn't go fully black in prod/dev.
 // Keeps mocks and lets users continue navigating even if one panel crashes.

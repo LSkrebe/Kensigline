@@ -16,13 +16,13 @@
   "type": "module",
   "dependencies": {
     "@napi-rs/canvas": "^0.1.100",
+    "@whop/sdk": "^1.0.13",
     "dotenv": "^17.4.2",
     "jose": "^6.2.3",
     "jsonrepair": "^3.14.0",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^5.7.284",
     "pg": "^8.20.0",
-    "stripe": "^22.1.1",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {

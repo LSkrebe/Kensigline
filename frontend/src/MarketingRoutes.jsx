@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { IntroPage } from './IntroPage.jsx'
 import { SignInPage } from './SignInPage.jsx'
+import { JoinPage } from './JoinPage.jsx'
 import { WaitlistPage } from './WaitlistPage.jsx'
 import { PublicCompanyPage } from './PublicCompanyPage.jsx'
 import { navigateMarketing, useMarketingPath } from './marketingRoute.js'
@@ -21,7 +22,7 @@ export default function MarketingRoutes() {
       return
     }
     if (!waitlist) return
-    if (p === '/sign-in' || p === '/subscribe') {
+    if (p === '/sign-in' || p === '/subscribe' || p === '/join') {
       navigateMarketing('/waitlist')
     }
   }, [waitlist, marketingPath])
@@ -29,9 +30,10 @@ export default function MarketingRoutes() {
   if (publicCompany) return <PublicCompanyPage ticker={publicCompany.ticker} />
   if (!waitlist && marketingPath === '/waitlist') return <IntroPage />
   if (marketingPath === '/waitlist') return <WaitlistPage />
-  if (waitlist && (marketingPath === '/sign-in' || marketingPath === '/subscribe')) {
+  if (waitlist && (marketingPath === '/sign-in' || marketingPath === '/subscribe' || marketingPath === '/join')) {
     return <WaitlistPage />
   }
+  if (marketingPath === '/join') return <JoinPage />
   if (marketingPath === '/sign-in') return <SignInPage />
   return <IntroPage />
 }

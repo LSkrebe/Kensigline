@@ -58,7 +58,7 @@ export const INTRO_FOOTER = {
   terms:
     'By using Mercerline you agree this is a research and information product only. Nothing here is investment, legal, or tax advice; no broker, adviser, or fiduciary relationship is created. Markets involve risk of loss. You are solely responsible for decisions you make.',
   privacy:
-    'We process account, billing, and product-usage data to operate the service. Payment is handled by Stripe. Do not submit sensitive personal data you are not authorized to share. Contact research@mercerline.com for data requests.',
+    'We process account, billing, and product-usage data to operate the service. Payment is handled by Whop. Do not submit sensitive personal data you are not authorized to share. Contact research@mercerline.com for data requests.',
   ip: 'Site content, branding, and software are owned by Mercerline or its licensors. Unauthorized scraping, redistribution, or resale is prohibited. DMCA notices: research@mercerline.com.',
 }
 
@@ -315,7 +315,7 @@ export function introFaq(pricing = DEFAULT_PRICING) {
     },
     {
       q: 'Can I cancel?',
-      a: `Yes. ${formatUsd(pricing.monthlyUsd)}/mo or ${formatUsd(pricing.yearlyUsd)}/yr with Stripe. Manage billing anytime in Settings.`,
+      a: `Yes. ${formatUsd(pricing.monthlyUsd)}/mo or ${formatUsd(pricing.yearlyUsd)}/yr with Whop. Manage billing anytime in Settings.`,
     },
     {
       q: 'Is this investment advice?',
@@ -362,7 +362,7 @@ export function subscribeCopy(pricing = DEFAULT_PRICING) {
     eyebrow: 'Subscribe',
     headline: 'Choose your plan',
     lead: 'Full disclosure access from day one.',
-    reassurance: 'Secure Stripe checkout. Cancel anytime.',
+    reassurance: 'Secure Whop checkout. Cancel anytime.',
   }
 }
 

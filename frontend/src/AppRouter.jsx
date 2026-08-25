@@ -7,6 +7,8 @@ import MarketingRoutes from './MarketingRoutes.jsx'
 import { PublicCompanyPage } from './PublicCompanyPage.jsx'
 import { matchPublicCompanyPath } from './publicCompany.js'
 import { readMarketingPath, navigateMarketing } from './marketingRoute.js'
+import { clearCheckoutReceiptId, peekCheckoutReceiptId } from './WhopCheckoutPanel.jsx'
+import { captureReferralRef } from './referralRef.js'
 import { useSubscription } from './useSubscription.js'
 import { useBillingPricing } from './useBillingPricing.js'
 
@@ -33,6 +35,10 @@ export default function AppRouter() {
   )
 
   useEffect(() => {
+    captureReferralRef()
+  }, [])
+
+  useEffect(() => {
     const onPop = () => setPath(readMarketingPath())
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
@@ -49,7 +55,7 @@ export default function AppRouter() {
   useEffect(() => {
     if (!waitlistMode || captureMode) return
     const p = path.replace(/\/$/, '') || '/'
-    if (p === '/sign-in' || p === '/subscribe' || (signedIn && p !== '/' && p !== '/waitlist' && !publicCompany)) {
+    if (p === '/sign-in' || p === '/subscribe' || p === '/join' || (signedIn && p !== '/' && p !== '/waitlist' && !publicCompany)) {
       navigateMarketing('/waitlist')
       setPath('/waitlist')
     }
@@ -80,9 +86,17 @@ export default function AppRouter() {
     }
 
     if (checkout === 'success') {
-      void fetchJsonSafe('/api/billing/refresh', { method: 'POST', timeoutMs: 20000 })
+      const receiptId = peekCheckoutReceiptId()
+      void fetchJsonSafe('/api/billing/refresh', {
+        method: 'POST',
+        body: receiptId ? { receiptId } : {},
+        timeoutMs: 20000,
+      })
         .then(() => refresh())
-        .finally(cleanUrl)
+        .finally(() => {
+          clearCheckoutReceiptId()
+          cleanUrl()
+        })
     } else {
       cleanUrl()
     }

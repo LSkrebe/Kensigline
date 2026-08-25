@@ -1,29 +1,32 @@
-import Stripe from "stripe";
+import { WhopClient } from "@whop/sdk";
 
 import type { SupabaseJwtUser } from "../core/supabase-auth.js";
 import type { BillingRow } from "./store.js";
 
-/** Display amounts (USD). Stripe price IDs are separate env vars. */
+/** Display amounts (USD). Whop plan IDs are separate env vars. */
 export const STANDARD_MONTHLY_USD = 99;
 export const STANDARD_YEARLY_USD = 999;
 export const FOUNDERS_MONTHLY_USD = 49;
 export const FOUNDERS_YEARLY_USD = 499;
 
+export function whopConfigured(): boolean {
+  return Boolean(String(process.env.WHOP_API_KEY ?? "").trim());
+}
+
+/** @deprecated alias — gate + status still reference billing provider configured. */
 export function stripeConfigured(): boolean {
-  return Boolean(String(process.env.STRIPE_SECRET_KEY ?? "").trim());
+  return whopConfigured();
 }
 
-export function stripeMode(): "live" | "test" | "unknown" {
-  const key = String(process.env.STRIPE_SECRET_KEY ?? "").trim();
-  if (key.startsWith("sk_live_")) return "live";
-  if (key.startsWith("sk_test_")) return "test";
-  return "unknown";
+export function getWhop(): WhopClient {
+  const apiKey = String(process.env.WHOP_API_KEY ?? "").trim();
+  if (!apiKey) throw new Error("WHOP_API_KEY is required");
+  return new WhopClient({ token: apiKey });
 }
 
-export function getStripe(): Stripe {
-  const key = String(process.env.STRIPE_SECRET_KEY ?? "").trim();
-  if (!key) throw new Error("STRIPE_SECRET_KEY is required");
-  return new Stripe(key);
+export function whopCompanyId(): string | null {
+  const id = String(process.env.WHOP_COMPANY_ID ?? "").trim();
+  return id || null;
 }
 
 export function frontendOrigin(): string {
@@ -45,33 +48,31 @@ export function isWaitlistModeEnabled(): boolean {
   return String(process.env.WAITLIST_MODE ?? "").trim() === "1";
 }
 
-function envPrice(name: string): string {
+function envPlan(name: string): string {
   return String(process.env[name] ?? "").trim();
 }
 
-export function priceIdForPlan(plan: string): string | null {
+export function planIdForPlan(plan: string): string | null {
   if (plan !== "monthly" && plan !== "yearly") return null;
 
   if (isFoundersPricingEnabled()) {
     const founders =
-      plan === "monthly" ? envPrice("STRIPE_PRICE_ID_MONTHLY_FOUNDERS") : envPrice("STRIPE_PRICE_ID_YEARLY_FOUNDERS");
+      plan === "monthly" ? envPlan("WHOP_PLAN_ID_MONTHLY_FOUNDERS") : envPlan("WHOP_PLAN_ID_YEARLY_FOUNDERS");
     if (founders) return founders;
   }
 
-  const standard = plan === "monthly" ? envPrice("STRIPE_PRICE_ID_MONTHLY") : envPrice("STRIPE_PRICE_ID_YEARLY");
+  const standard = plan === "monthly" ? envPlan("WHOP_PLAN_ID_MONTHLY") : envPlan("WHOP_PLAN_ID_YEARLY");
   return standard || null;
 }
 
-export function planFromPriceId(priceId: string | null | undefined): string | null {
-  if (!priceId) return null;
+export function planFromWhopPlanId(planId: string | null | undefined): string | null {
+  if (!planId) return null;
   const monthly = new Set(
-    [envPrice("STRIPE_PRICE_ID_MONTHLY"), envPrice("STRIPE_PRICE_ID_MONTHLY_FOUNDERS")].filter(Boolean),
+    [envPlan("WHOP_PLAN_ID_MONTHLY"), envPlan("WHOP_PLAN_ID_MONTHLY_FOUNDERS")].filter(Boolean),
   );
-  const yearly = new Set(
-    [envPrice("STRIPE_PRICE_ID_YEARLY"), envPrice("STRIPE_PRICE_ID_YEARLY_FOUNDERS")].filter(Boolean),
-  );
-  if (monthly.has(priceId)) return "monthly";
-  if (yearly.has(priceId)) return "yearly";
+  const yearly = new Set([envPlan("WHOP_PLAN_ID_YEARLY"), envPlan("WHOP_PLAN_ID_YEARLY_FOUNDERS")].filter(Boolean));
+  if (monthly.has(planId)) return "monthly";
+  if (yearly.has(planId)) return "yearly";
   return null;
 }
 
@@ -88,13 +89,14 @@ export function publicPricingPayload() {
     currency: "usd" as const,
     monthly_usd: monthlyUsd,
     yearly_usd: yearlyUsd,
-    /** Struck-through reference when founders is on; yearly list is always monthly×12 when standard. */
     monthly_list_usd: founders ? STANDARD_MONTHLY_USD : null,
     yearly_list_usd: founders ? STANDARD_YEARLY_USD : STANDARD_MONTHLY_USD * 12,
+    whop_configured: whopConfigured(),
   };
 }
 
-export const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
+/** Whop statuses that grant app access. */
+export const ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "completed"]);
 
 export function isActiveStatus(status: string | null | undefined): boolean {
   return ACTIVE_SUBSCRIPTION_STATUSES.has(String(status ?? "").toLowerCase());
@@ -115,4 +117,8 @@ export function billingAccessPayload(user: SupabaseJwtUser) {
     plan: "owner",
     current_period_end: null,
   };
+}
+
+export function whopPortalUrl(): string {
+  return String(process.env.WHOP_PORTAL_URL ?? "https://whop.com/hub/memberships").trim();
 }

@@ -57,7 +57,7 @@ function settingsStatusTone(status) {
 }
 
 const INVOICES_EMPTY_HINT =
-  'Download invoices and update your payment method in Stripe via Manage billing.'
+  'Download invoices and update your payment method in Whop via Manage billing.'
 
 function SettingsStrip({ backendUp, onSettingsClick, onBrandClick = null }) {
   return (

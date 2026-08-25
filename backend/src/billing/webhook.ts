@@ -1,35 +1,48 @@
 import type http from "node:http";
-import type Stripe from "stripe";
-import { getStripe } from "./config.js";
-import { syncFromStripeSubscription } from "./store.js";
+import { unwrapWebhook } from "@whop/sdk/helpers";
+
+import { syncFromWhopMembership, markWebhookDeliverySeen, type WhopMembershipLike } from "./store.js";
+
+type WhopWebhookEvent = {
+  type?: string;
+  id?: string;
+  data?: Record<string, unknown>;
+};
 
 export async function handleBillingWebhook(req: http.IncomingMessage, res: http.ServerResponse, rawBody: Buffer) {
-  const secret = String(process.env.STRIPE_WEBHOOK_SECRET ?? "").trim();
+  const secret = String(process.env.WHOP_WEBHOOK_SECRET ?? "").trim();
   if (!secret) {
     res.writeHead(503, { "content-type": "text/plain" });
     res.end("webhook_not_configured");
     return;
   }
 
-  const sig = req.headers["stripe-signature"];
-  if (!sig || Array.isArray(sig)) {
-    res.writeHead(400, { "content-type": "text/plain" });
-    res.end("missing_signature");
-    return;
+  const raw = rawBody.toString("utf8");
+  const headers: Record<string, string> = {};
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (typeof v === "string") headers[k] = v;
+    else if (Array.isArray(v) && v[0]) headers[k] = v[0];
   }
 
-  let event: Stripe.Event;
+  let event: WhopWebhookEvent;
   try {
-    event = getStripe().webhooks.constructEvent(rawBody, sig, secret);
+    event = unwrapWebhook<WhopWebhookEvent>(raw, { headers, key: secret });
   } catch (err) {
     console.warn("[billing] webhook signature failed", err);
-    res.writeHead(400, { "content-type": "text/plain" });
+    res.writeHead(401, { "content-type": "text/plain" });
     res.end("invalid_signature");
     return;
   }
 
+  const deliveryId = headers["webhook-id"] ?? event.id ?? "";
+  if (!markWebhookDeliverySeen(deliveryId)) {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ received: true, duplicate: true }));
+    return;
+  }
+
   try {
-    await dispatchStripeEvent(event);
+    await dispatchWhopEvent(event);
     res.writeHead(200, { "content-type": "application/json" });
     res.end(JSON.stringify({ received: true }));
   } catch (err) {
@@ -39,29 +52,44 @@ export async function handleBillingWebhook(req: http.IncomingMessage, res: http.
   }
 }
 
-async function dispatchStripeEvent(event: Stripe.Event) {
-  const stripe = getStripe();
+function asMembership(data: Record<string, unknown> | undefined): WhopMembershipLike | null {
+  if (!data || typeof data !== "object") return null;
+  if (typeof data.id !== "string") return null;
+  return data as WhopMembershipLike;
+}
 
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const userId = session.client_reference_id || session.metadata?.supabase_user_id || null;
-      const subId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
-      if (subId) {
-        const sub = await stripe.subscriptions.retrieve(subId);
-        await syncFromStripeSubscription(sub, userId);
+function metaUserId(data: Record<string, unknown> | undefined): string | null {
+  const meta = data?.metadata;
+  if (!meta || typeof meta !== "object") return null;
+  const uid = (meta as Record<string, unknown>).supabase_user_id;
+  return typeof uid === "string" && uid.trim() ? uid.trim() : null;
+}
+
+async function dispatchWhopEvent(event: WhopWebhookEvent) {
+  const type = String(event.type ?? "").trim();
+  const data = event.data;
+
+  switch (type) {
+    case "payment.succeeded": {
+      const userId = metaUserId(data);
+      const membership = asMembership(data?.membership as Record<string, unknown> | undefined);
+      if (membership) {
+        await syncFromWhopMembership(membership, userId);
+        return;
+      }
+      if (data && typeof data.membership_id === "string") {
+        // Payment-only payload — refresh will pick up membership on next status poll.
+        console.info("[billing] payment.succeeded", data.membership_id, userId ?? "no_user_hint");
       }
       break;
     }
-    case "customer.subscription.created":
-    case "customer.subscription.updated": {
-      const sub = event.data.object as Stripe.Subscription;
-      await syncFromStripeSubscription(sub, sub.metadata?.supabase_user_id ?? null);
-      break;
-    }
-    case "customer.subscription.deleted": {
-      const sub = event.data.object as Stripe.Subscription;
-      await syncFromStripeSubscription(sub, sub.metadata?.supabase_user_id ?? null);
+    case "membership.activated":
+    case "membership.deactivated":
+    case "membership.updated": {
+      const membership = asMembership(data);
+      if (membership) {
+        await syncFromWhopMembership(membership, metaUserId(data));
+      }
       break;
     }
     default:
