@@ -144,16 +144,49 @@ function isMoneyOrPctExploreTrail(trail) {
   return false
 }
 
+function formatExplorePositionCount(count) {
+  const n = Number(count)
+  if (!Number.isFinite(n) || n < 1) return null
+  return `${Math.trunc(n)} pos`
+}
+
+function normalizeExploreInvestorTrail(trail, row) {
+  const t = String(trail ?? '').trim()
+  if (!t || t === '—') return null
+
+  const positionsMatch = t.match(/^(\d+)\s+positions?$/i)
+  if (positionsMatch) {
+    return { trail: formatExplorePositionCount(positionsMatch[1]), muted: true }
+  }
+
+  if (row?.docType && t.toUpperCase() === exploreActorDocCode(row.docType)) {
+    return { trail: '$0', muted: false }
+  }
+
+  if (isMoneyOrPctExploreTrail(t)) {
+    return { trail: t, muted: false }
+  }
+
+  return { trail: t, muted: true }
+}
+
 function resolveExploreRowTrail(row, kind = 'company') {
   if (isMeaningfulExploreTrail(row?.trail)) {
     const trail = String(row.trail).trim()
+    if (kind === 'investor') {
+      const normalized = normalizeExploreInvestorTrail(trail, row)
+      if (normalized) return normalized
+    }
+    if (kind === 'company' && row?.docType && trail === exploreCompanyDocCode(row.docType)) {
+      return { trail: '—', muted: true }
+    }
     return { trail, muted: !isMoneyOrPctExploreTrail(trail) }
   }
   if (kind === 'company' && row?.docType) {
-    return { trail: exploreCompanyDocCode(row.docType), muted: true }
+    return { trail: '—', muted: true }
   }
   if (kind === 'investor' && row?.docType) {
-    return { trail: exploreActorDocCode(row.docType), muted: true }
+    return { trail: '$0', muted: false }
   }
   return { trail: '—', muted: true }
 }
@@ -183,7 +216,7 @@ function mapExploreHomePreviewRow(row, kind) {
     event: row.event,
     trail,
     trailMuted: muted,
-    up: muted ? false : row.up ?? true,
+    up: trail === '$0' ? true : muted ? false : row.up ?? true,
     extraSameDay: row.extraSameDay ?? 0,
     date: row.date,
   }
@@ -364,7 +397,7 @@ function aggregateExploreInvestorsForHome(events) {
       trail: hasUsdTrail
         ? formatExploreNetFlowUsd(netFlow)
         : group.length > 1
-          ? `${group.length} positions`
+          ? formatExplorePositionCount(group.length)
           : lead.trail,
       up: hasUsdTrail ? netFlow >= 0 : lead.up,
       event: group.length > 1 && all13f ? '13F institution filings' : lead.event,
@@ -378,13 +411,15 @@ function mapAggregatedInvestorToHomeRow(row) {
   const count = Number.isFinite(Number(row.positionCount)) ? Math.max(1, Number(row.positionCount)) : 1
   const hasUsd = row.netFlowLabel && row.netFlowLabel !== '—'
   const tickers = Array.isArray(row.tickers) ? row.tickers.filter(Boolean) : []
-  const rawTrail = hasUsd ? row.netFlowLabel : count > 1 ? `${count} positions` : row.trail ?? '—'
+  const rawTrail = hasUsd
+    ? row.netFlowLabel
+    : count > 1
+      ? formatExplorePositionCount(count)
+      : row.trail ?? '—'
   const trailRow = { ...row, trail: rawTrail }
   const resolved = hasUsd
     ? { trail: rawTrail, muted: false }
-    : count > 1
-      ? { trail: rawTrail, muted: true }
-      : resolveExploreRowTrail(trailRow, 'investor')
+    : resolveExploreRowTrail(trailRow, 'investor')
   return {
     id: row.id,
     name: row.name,
@@ -395,7 +430,7 @@ function mapAggregatedInvestorToHomeRow(row) {
     event: exploreActorEventLabel(row.docType),
     trail: resolved.trail,
     trailMuted: resolved.muted,
-    up: resolved.muted ? false : (row.netFlowUsd ?? 0) >= 0,
+    up: resolved.trail === '$0' ? true : resolved.muted ? false : (row.netFlowUsd ?? 0) >= 0,
     extraSameDay: Math.max(0, count - 1),
     date: row.lastDate,
   }

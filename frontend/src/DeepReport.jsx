@@ -1194,10 +1194,10 @@ function ActorTopBar({
       ) : null}
       {showReturn ? (
         <div className="drpt-topbarPrice drpt-topbarAside">
-          <span className="drpt-price">{formatReturnFraction(rangeReturnPct)}</span>
           {secondary ? (
             <span className={['drpt-priceChange', up ? 'isUp' : 'isDown'].join(' ')}>{secondary}</span>
           ) : null}
+          <span className="drpt-price">{formatReturnFraction(rangeReturnPct)}</span>
         </div>
       ) : null}
     </header>
@@ -1221,13 +1221,17 @@ function CompanyTopBar({
   const up = ch != null ? ch >= 0 : true
   const showPrice = price != null && Number.isFinite(Number(price))
   const metaBits = [
-    sector || null,
     domicile || null,
     mcap || null,
+    sector || null,
     earnings?.label ? `Earnings ${earnings.label}` : null,
   ]
     .map((bit) => (bit == null ? '' : String(bit).trim()))
     .filter((bit) => bit && bit !== '—' && bit !== '-' && bit !== '–' && bit !== '--')
+
+  const tickerLabel = String(ticker ?? '').trim().toUpperCase()
+  const nameLabel = String(displayName ?? '').trim()
+  const showName = nameLabel && nameLabel.toUpperCase() !== tickerLabel
 
   return (
     <header className={['drpt-topbar', 'drpt-topbar--company', metaBits.length ? '' : 'drpt-topbar--noMeta'].filter(Boolean).join(' ')}>
@@ -1235,7 +1239,7 @@ function CompanyTopBar({
         <p className="drpt-kicker">Company dossier</p>
         <div className="drpt-topbarTitleRow">
           <h1 className="drpt-topbarTicker">{ticker || '—'}</h1>
-          <span className="drpt-topbarName">{displayName}</span>
+          {showName ? <span className="drpt-topbarName">{displayName}</span> : null}
         </div>
       </div>
       {metaBits.length ? (
@@ -1247,7 +1251,6 @@ function CompanyTopBar({
       ) : null}
       {showPrice ? (
         <div className="drpt-topbarPrice drpt-topbarAside">
-          <span className="drpt-price">${Number(price).toFixed(2)}</span>
           {ch != null && chPct != null ? (
             <span className={['drpt-priceChange', up ? 'isUp' : 'isDown'].join(' ')}>
               {up ? '+' : ''}
@@ -1255,6 +1258,7 @@ function CompanyTopBar({
               {chPct.toFixed(2)}%)
             </span>
           ) : null}
+          <span className="drpt-price">${Number(price).toFixed(2)}</span>
         </div>
       ) : null}
     </header>

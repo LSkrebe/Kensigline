@@ -1097,6 +1097,212 @@
   padding: 8px 0 56px;
 }
 
+/* ── Event brief body (Explore-home rhythm) ── */
+
+.exploreEventBody {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  width: 100%;
+  padding: 28px 0 64px;
+  box-sizing: border-box;
+}
+
+.exploreEventBody > .exploreDirectorySection:first-child {
+  margin-top: 0;
+}
+
+.exploreEventMarketRow {
+  margin-bottom: 0;
+  gap: 24px 28px;
+  align-items: stretch;
+}
+
+.exploreEventContextAside {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-self: stretch;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.exploreEventContextPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  padding-top: 2px;
+  box-sizing: border-box;
+}
+
+.exploreEventContextTitle {
+  margin: 0;
+  font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  font-size: clamp(28px, 3.2vw, 38px);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.exploreEventContextLead {
+  margin: 0;
+  font-size: clamp(15px, 1.5vw, 17px);
+  line-height: 1.58;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.exploreEventContextChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: auto 0 0;
+  padding: 8px 0 0;
+  list-style: none;
+}
+
+.exploreEventContextChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.exploreEventContextChip.isUp {
+  border-color: rgba(92, 184, 138, 0.22);
+  color: rgba(92, 184, 138, 0.92);
+}
+
+.exploreEventContextChip.isDown {
+  border-color: rgba(212, 114, 106, 0.22);
+  color: rgba(212, 114, 106, 0.92);
+}
+
+.exploreEventShell .drpt-topbar--event .exploreEventHeroKicker {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.exploreEventBody > .exploreEventFactsSection {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.exploreEventFactsSection .drpt-metricGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.exploreEventFactsSection .drpt-metricCard {
+  min-height: 96px;
+  padding: 14px 16px;
+  gap: 5px;
+}
+
+.exploreEventFactsSection .drpt-metricValue {
+  font-size: 16px;
+}
+
+.exploreEventFactsSection .drpt-metricValue.isUp {
+  color: var(--drpt-up);
+}
+
+.exploreEventFactsSection .drpt-metricValue.isDown {
+  color: var(--drpt-down);
+}
+
+.exploreEventBody .drpt-section {
+  margin-bottom: 0;
+}
+
+.exploreEventBody .exploreDirectorySection + .exploreDirectorySection,
+.exploreEventBody .exploreEventListSection + .exploreEventListSection {
+  margin-top: 0;
+}
+
+.exploreEventBody .exploreDirectoryTicker {
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.exploreEventMarketSingle .drpt-section + .drpt-section {
+  margin-top: 28px;
+}
+
+.exploreEventMarketRow .drpt-sectionHead .drpt-sectionTitle,
+.exploreEventMarketSingle .drpt-sectionHead .drpt-sectionTitle {
+  margin-bottom: 0;
+}
+
+.exploreEventMarketSingle .drpt-sectionTitle {
+  margin-bottom: 14px;
+}
+
+.exploreEventBody .drpt-figure--chart {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
+.exploreEventListHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 14px;
+}
+
+.exploreEventListCount {
+  flex: 0 0 auto;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+@media (max-width: 960px) {
+  .exploreEventBody {
+    gap: 36px;
+    padding-top: 22px;
+  }
+
+  .exploreEventMarketRow {
+    gap: 28px;
+  }
+
+  .exploreEventMarketRow .exploreEventContextAside {
+    order: -1;
+    align-self: auto;
+    min-height: 0;
+    padding-top: 0;
+  }
+
+  .exploreEventMarketRow .exploreEventContextPanel {
+    height: auto;
+    min-height: 0;
+  }
+
+  .exploreEventContextChips {
+    margin-top: 4px;
+  }
+
+  .exploreEventFactsSection .drpt-metricGrid {
+    gap: 8px;
+  }
+
+  .exploreEventFactsSection .drpt-metricCard {
+    min-height: 84px;
+    padding: 12px 14px;
+  }
+}
+
 .exploreEventSectionTitleBtn {
   display: inline-flex;
   align-items: flex-start;

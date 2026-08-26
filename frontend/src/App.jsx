@@ -25,7 +25,7 @@ import {
   resolveExploreInvestorDossier,
   stubActorRowFromExploreInvestor,
 } from './exploreDirectoryNav.js'
-import { loadExploreDirectoryBundle, peekExploreHomeSnapshot, prefetchExploreHome } from './exploreApi.js'
+import { loadExploreDirectoryBundle, lookupExploreDirectoryCompanyName, peekExploreHomeSnapshot, prefetchExploreHome } from './exploreApi.js'
 import { isLiveDataMode, isMockDataMode } from './dataMode.js'
 import {
   isTerminalAppPath,
@@ -9597,6 +9597,7 @@ function KensiglineTerminal() {
   const [researchExploreLive, setResearchExploreLive] = useState(null)
   const [researchExploreTicker, setResearchExploreTicker] = useState(null)
   const [researchCompanyLive, setResearchCompanyLive] = useState(null)
+  const [exploreCompanyNameHints, setExploreCompanyNameHints] = useState({})
   const [researchCompanyTicker, setResearchCompanyTicker] = useState(null)
 
   const [researchTicker, setResearchTicker] = useState(RESEARCH_TICKER_MARKET)
@@ -9744,18 +9745,32 @@ function KensiglineTerminal() {
   }, [backendUp, researchTick, researchCompanyTicker, researchCompanyLive])
 
   const researchCompanyName = useMemo(() => {
+    const fromHint = String(exploreCompanyNameHints[researchTick] ?? '').trim()
+    const fromDirectory = lookupExploreDirectoryCompanyName(researchTick, backendUp)
     const fromExplore = String(researchExploreResolved?.company_name ?? '').trim()
-    if (fromExplore && isPlausibleFeedCompanyName(fromExplore, researchTick)) {
-      return formatCompanyDisplayName(fromExplore)
-    }
+    const fromCompany = String(researchCompanyResolved?.name ?? '').trim()
     const fromFeed = researchFeedItems.find((x) => String(x.ticker ?? '').toUpperCase() === researchTick)?.name
-    if (fromFeed && isPlausibleFeedCompanyName(fromFeed, researchTick)) return fromFeed
+    const candidates = [fromHint, fromDirectory, fromExplore, fromCompany, fromFeed]
+    for (const raw of candidates) {
+      const name = String(raw ?? '').trim()
+      if (name && isPlausibleFeedCompanyName(name, researchTick)) {
+        return formatCompanyDisplayName(name)
+      }
+    }
     if (isLiveDataMode(backendUp)) return researchTick || '—'
     if (!isMockDataMode(backendUp)) return researchTick || '—'
     const companyEnt = researchDataset?.entities?.find((e) => String(e?.type ?? '').toLowerCase() === 'company')
     const mockName = companyEnt?.name ?? researchTick
     return isPlausibleFeedCompanyName(mockName, researchTick) ? formatCompanyDisplayName(mockName) : researchTick
-  }, [researchFeedItems, researchDataset?.entities, researchTick, researchExploreResolved?.company_name, backendUp])
+  }, [
+    exploreCompanyNameHints,
+    researchFeedItems,
+    researchDataset?.entities,
+    researchTick,
+    researchExploreResolved?.company_name,
+    researchCompanyResolved?.name,
+    backendUp,
+  ])
 
   const researchPriceSeries = useMemo(() => {
     if (isLiveDataMode(backendUp)) {
@@ -12255,6 +12270,12 @@ function KensiglineTerminal() {
     (row) => {
       const ticker = String(row?.ticker ?? '').trim().toUpperCase()
       if (!ticker) return
+      const name = String(row?.name ?? '').trim()
+      if (name && isPlausibleFeedCompanyName(name, ticker)) {
+        setExploreCompanyNameHints((prev) =>
+          prev[ticker] === name ? prev : { ...prev, [ticker]: name },
+        )
+      }
       setResearchTicker(ticker)
       setDeepResearchMode('company')
       navigateExploreCompanyDetail(ticker)

@@ -106,31 +106,32 @@ function resolveEarningsWatchBrief(slide, day) {
 
   const catalog = EXPLORE_RECAP_CATALOG_BY_ID[slide.typeId] ?? null
   const facts = [
-    { key: 'source', label: 'Source', value: 'Earnings', period: 'Calendar' },
-    nearest
-      ? {
-          key: 'nearest',
-          label: 'Nearest report',
-          value: nearest.proximityLabel || nearest.earningsLabel || '—',
-          period: nearest.ticker,
-        }
-      : null,
+    {
+      key: 'source',
+      label: 'Source',
+      value: 'Earnings',
+      period: 'Calendar',
+    },
+    {
+      key: 'nearest',
+      label: 'Nearest report',
+      value: nearest ? nearest.proximityLabel || nearest.earningsLabel || '—' : '—',
+      period: nearest?.ticker || '—',
+    },
     {
       key: 'names',
       label: 'On the watchlist',
-      value: String(sorted.length),
+      value: sorted.length ? String(sorted.length) : '—',
       period: 'Before earnings',
     },
-    slide.moveLabel
-      ? {
-          key: 'lead',
-          label: 'Lead name',
-          value: slide.ticker || '—',
-          period: slide.moveLabel,
-          up: slide.moveUp,
-        }
-      : null,
-  ].filter(Boolean)
+    {
+      key: 'lead',
+      label: 'Lead name',
+      value: slide.ticker || '—',
+      period: slide.moveLabel || '—',
+      up: slide.moveLabel ? slide.moveUp : undefined,
+    },
+  ]
 
   return {
     slide,
@@ -237,33 +238,32 @@ export function resolveExploreEventBrief(eventId, ctx = {}) {
     })
 
   const facts = [
-    slide.source
-      ? { key: 'source', label: 'Source', value: slide.source, period: 'Document' }
-      : null,
-    slide.moveLabel
-      ? {
-          key: 'move',
-          label: 'Session move',
-          value: slide.moveLabel,
-          period: 'Today',
-          up: slide.moveUp,
-        }
-      : null,
-    totalUsd > 0
-      ? {
-          key: 'notional',
-          label: 'Disclosed notional',
-          value: formatUsd(totalUsd),
-          period: 'In event',
-        }
-      : null,
+    {
+      key: 'source',
+      label: 'Source',
+      value: slide.source || '—',
+      period: 'Document',
+    },
+    {
+      key: 'move',
+      label: 'Session move',
+      value: slide.moveLabel || '—',
+      period: 'Today',
+      up: slide.moveLabel != null ? slide.moveUp : undefined,
+    },
+    {
+      key: 'notional',
+      label: 'Disclosed notional',
+      value: totalUsd > 0 ? formatUsd(totalUsd) : '—',
+      period: 'In event',
+    },
     {
       key: 'filings',
       label: 'Filings',
-      value: String(Math.max(1, members.length)),
+      value: members.length ? String(members.length) : '—',
       period: people.length > 1 ? `${people.length} people` : 'In event',
     },
-  ].filter(Boolean)
+  ]
 
   return {
     slide,

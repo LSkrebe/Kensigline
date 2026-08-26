@@ -2,6 +2,8 @@
  * Schema v2 read helpers — FE-compatible payloads from typed tables (no documents.data).
  */
 import { db } from "../core/db.js";
+import { getSecTickerTitleMap } from "../core/sec.js";
+import { resolveResearchFeedCompanyName } from "../research/feed-display.js";
 import { normalizeTicker } from "./canonical.js";
 
 function moneyLabel(n: number | null | undefined): string {
@@ -254,7 +256,12 @@ export async function buildIssuerExplorePayload(tickerInput: string) {
     `SELECT id::text, name, ticker FROM issuers WHERE ticker = $1 LIMIT 1`,
     [ticker],
   );
-  const companyName = issuer?.name ?? ticker;
+  const secTitles = await getSecTickerTitleMap().catch(() => new Map<string, string>());
+  const companyName = resolveResearchFeedCompanyName(
+    ticker,
+    issuer?.name ?? null,
+    secTitles.get(ticker) ?? null,
+  );
 
   const docs = issuer
     ? await db.query<any>(

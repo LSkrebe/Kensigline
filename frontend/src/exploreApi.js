@@ -16,6 +16,7 @@ import {
   todayIsoUtc,
 } from './exploreDirectoryMock.js'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
+import { buildExploreRecapMockDay } from './exploreRecapMockDay.js'
 
 /** Client-side explore home cache — survives subview navigation within the session. */
 const EXPLORE_HOME_CACHE_TTL_MS = 5 * 60_000
@@ -215,6 +216,26 @@ let recapResultCacheEntry = null
 let directoryInflight = null
 let recapInflight = null
 let homeInflight = null
+
+/** Company display name from cached Explore directory rows (matches home / list pages). */
+export function lookupExploreDirectoryCompanyName(ticker, backendUp) {
+  const snap = peekExploreHomeSnapshot(backendUp)
+  if (!snap) return null
+  const t = String(ticker ?? '').trim().toUpperCase()
+  if (!t) return null
+  const rows = [
+    ...(snap.fullCompanies ?? []),
+    ...(snap.homePreview?.companies ?? []),
+    ...(snap.homeLatest?.companies ?? []),
+  ]
+  for (const row of rows) {
+    if (String(row?.ticker ?? '').trim().toUpperCase() === t) {
+      const name = String(row?.name ?? '').trim()
+      if (name) return name
+    }
+  }
+  return null
+}
 
 /** Instant paint when returning to Explore home within the session cache window. */
 export function peekExploreHomeSnapshot(backendUp) {
@@ -492,7 +513,12 @@ export function getExploreRecapCache() {
 export async function loadExploreEventBriefContext(backendUp) {
   if (isMockDataMode(backendUp)) {
     const recap = buildExploreDailyRecap()
-    return { day: null, slides: recap?.slides ?? [], mock: true }
+    return {
+      day: buildExploreRecapMockDay(),
+      slides: recap?.slides ?? [],
+      mock: true,
+      pending: false,
+    }
   }
 
   if (!isLiveDataMode(backendUp)) {
@@ -501,10 +527,9 @@ export async function loadExploreEventBriefContext(backendUp) {
 
   let { day, slides } = getExploreRecapCache()
   if (!day || !slides?.length) {
-    const recap = await loadExploreDailyRecap(backendUp)
-    day = cachedRecapDay
-    slides = recap?.slides ?? cachedRecapSlides ?? []
+    await loadExploreDailyRecap(backendUp)
+    ;({ day, slides } = getExploreRecapCache())
   }
 
-  return { day, slides, mock: false, pending: false }
+  return { day, slides: slides ?? [], mock: false, pending: false }
 }

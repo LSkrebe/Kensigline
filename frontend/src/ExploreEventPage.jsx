@@ -1,11 +1,11 @@
 /**
- * Event brief — mid-depth page between Explore recap and full company/investor dossiers.
- * Same dock/paper shell as directory + deep pages; event-scoped body only.
+ * Event brief — between Explore recap and full dossiers.
+ * Collapsing hero; body follows Explore home rhythm (story → context → directory lists).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { resolveExploreEventBrief } from './exploreEventBrief.js'
-import { loadExploreEventBriefContext, peekExploreHomeSnapshot } from './exploreApi.js'
+import { loadExploreEventBriefContext, peekExploreHomeSnapshot, getExploreRecapCache } from './exploreApi.js'
 import { MiniPriceChart, PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 import './DeepReport.css'
@@ -29,6 +29,130 @@ function exploreEventCollapseProgressVars(progress) {
   }
 }
 
+function filingRowMeta(row) {
+  const parts = []
+  if (row.sideLabel) parts.push(row.sideLabel)
+  if (row.actorName && row.companyName) parts.push(row.companyName)
+  else if (row.doc) parts.push(row.doc)
+  if (row.dateLabel) parts.push(row.dateLabel)
+  return parts.join(' · ') || 'Filing'
+}
+
+function filingRowTrail(row) {
+  return row.amountLabel || row.moveLabel || '—'
+}
+
+function filingRowTrailTone(row) {
+  if (row.side === 'buy') return 'isUp'
+  if (row.side === 'sell') return 'isDown'
+  if (row.hideTxn && row.moveUp != null) return row.moveUp ? 'isUp' : 'isDown'
+  if (!row.amountLabel && !row.moveLabel) return 'isFlat'
+  return ''
+}
+
+function EventDirectoryRow({
+  code,
+  name,
+  meta,
+  trail,
+  trailTone = '',
+  rowKind = 'investor',
+  onClick = null,
+  openLabel = null,
+}) {
+  const inner = (
+    <>
+      <span className="exploreDirectoryTicker mono">{code}</span>
+      <div className="exploreDirectoryCopy">
+        <span className="exploreDirectoryName">{name}</span>
+        {meta ? <span className="exploreDirectoryMeta mono">{meta}</span> : null}
+      </div>
+      <span className={['exploreDirectoryAmount mono', trailTone].filter(Boolean).join(' ')}>
+        {trail}
+      </span>
+    </>
+  )
+
+  if (onClick) {
+    return (
+      <li className={`exploreDirectoryRow exploreDirectoryRow--${rowKind}`}>
+        <button
+          type="button"
+          className="exploreDirectoryRowBtn"
+          onClick={onClick}
+          aria-label={openLabel}
+        >
+          {inner}
+        </button>
+      </li>
+    )
+  }
+
+  return (
+    <li className={`exploreDirectoryRow exploreDirectoryRow--${rowKind}`}>
+      {inner}
+    </li>
+  )
+}
+
+function EventFilingDirectoryRow({ row, onCompanyClick, onInvestorClick }) {
+  const openInvestor = Boolean(row.actorName && onInvestorClick && !row.openCompany)
+  const openCompany = Boolean(row.ticker && onCompanyClick && (row.openCompany || !row.actorName))
+  const name = row.actorName || row.headline || row.companyName || 'Filing'
+
+  const open = () => {
+    if (openInvestor) {
+      onInvestorClick({
+        name: row.actorName,
+        typeKey: row.typeKey,
+        docType: row.doc,
+      })
+      return
+    }
+    if (openCompany) {
+      onCompanyClick({ ticker: row.ticker, name: row.companyName })
+    }
+  }
+
+  const onClick = openInvestor || openCompany ? open : null
+
+  return (
+    <EventDirectoryRow
+      code={row.code || '—'}
+      name={name}
+      meta={filingRowMeta(row)}
+      trail={filingRowTrail(row)}
+      trailTone={filingRowTrailTone(row)}
+      rowKind={row.openCompany && !row.actorName ? 'company' : 'investor'}
+      onClick={onClick}
+      openLabel={
+        onClick
+          ? openInvestor
+            ? `Open ${row.actorName} dossier`
+            : `Open ${row.ticker} dossier`
+          : null
+      }
+    />
+  )
+}
+
+function EventListSection({ kicker, title, countLabel, children }) {
+  return (
+    <section className="exploreDirectorySection exploreEventListSection">
+      <header className="exploreEventListHead">
+        <span className="exploreDirectorySectionHeadCopy">
+          <span className="exploreDirectorySectionKicker mono">{kicker}</span>
+          <span className="exploreDirectorySectionTitleRow">
+            <span className="exploreDirectorySectionTitle">{title}</span>
+          </span>
+        </span>
+        {countLabel ? <span className="exploreEventListCount mono">{countLabel}</span> : null}
+      </header>
+      <ul className="exploreDirectoryList">{children}</ul>
+    </section>
+  )
+}
+
 function EventChartRange({ value, onChange }) {
   return (
     <div className="drpt-chartRange researchPriceRange" role="group" aria-label="Chart range">
@@ -47,162 +171,190 @@ function EventChartRange({ value, onChange }) {
   )
 }
 
-function EventSection({ label, title, onTitleClick = null, titleOpenLabel = null, children, headExtra = null }) {
-  const titleClickable = typeof onTitleClick === 'function' && title
-  return (
-    <section className="drpt-section">
-      {label ? <p className="drpt-sectionLabel">{label}</p> : null}
-      {title || headExtra ? (
-        <div className="drpt-sectionHead">
-          {titleClickable ? (
-            <button
-              type="button"
-              className="exploreEventSectionTitleBtn"
-              onClick={onTitleClick}
-              aria-label={titleOpenLabel || `Open ${title}`}
-            >
-              <span className="drpt-sectionTitle">{title}</span>
-              <span className="exploreEventSectionChevron mono" aria-hidden="true">
-                &gt;
-              </span>
-            </button>
-          ) : title ? (
-            <h2 className="drpt-sectionTitle">{title}</h2>
-          ) : null}
-          {headExtra}
-        </div>
-      ) : null}
-      {children}
-    </section>
-  )
-}
+function EventContextChips({ slide, primary }) {
+  const items = [
+    slide?.source ? { key: 'source', label: slide.source } : null,
+    primary?.ticker ? { key: 'ticker', label: primary.ticker } : null,
+    slide?.moveLabel
+      ? { key: 'move', label: slide.moveLabel, up: slide.moveUp, down: slide.moveUp === false }
+      : null,
+  ].filter(Boolean)
 
-function eventTxnTone(side) {
-  if (side === 'buy') return 'buy'
-  if (side === 'sell') return 'sell'
-  return 'neutral'
-}
-
-function EventFilingRow({ row, onCompanyClick, onInvestorClick }) {
-  const openInvestor = Boolean(row.actorName && onInvestorClick && !row.openCompany)
-  const openCompany = Boolean(row.ticker && onCompanyClick && (row.openCompany || !row.actorName))
-  const clickable = openInvestor || openCompany
-  const title = row.actorName || row.headline || row.companyName || 'Filing'
-  const txnLabel = row.hideTxn
-    ? null
-    : row.side === 'buy'
-      ? 'BUY'
-      : row.side === 'sell'
-        ? 'SELL'
-        : null
-  const txnTone = eventTxnTone(row.side)
-
-  const open = () => {
-    if (openInvestor) {
-      onInvestorClick({
-        name: row.actorName,
-        typeKey: row.typeKey,
-        docType: row.doc,
-      })
-      return
-    }
-    if (openCompany) {
-      onCompanyClick({ ticker: row.ticker, name: row.companyName })
-    }
-  }
-
-  const Tag = clickable ? 'button' : 'div'
+  if (!items.length) return null
 
   return (
-    <li className="drpt-docItem">
-      <Tag
-        type={clickable ? 'button' : undefined}
-        className={[
-          'drpt-docRow',
-          'drpt-docRow--flow',
-          row.hideTxn ? 'drpt-docRow--flowNoTxn' : '',
-          clickable ? 'drpt-docRow--link' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        onClick={clickable ? open : undefined}
-        aria-label={
-          clickable
-            ? openInvestor
-              ? `Open ${row.actorName} dossier`
-              : `Open ${row.ticker} dossier`
-            : undefined
-        }
-      >
-        <span className="drpt-docCode">{row.code || '—'}</span>
-        <span className="drpt-docMain">
-          <span className="drpt-docKind">{title}</span>
-        </span>
-        <div
-          className={[
-            'drpt-docTrail',
-            'drpt-docTrail--noDate',
-            row.hideTxn ? 'drpt-docTrail--noTxn' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
-          {row.hideTxn ? null : txnLabel ? (
-            <span className={`drpt-docTxn drpt-docTxn--${txnTone}`}>{txnLabel}</span>
-          ) : (
-            <span className="drpt-docTxn drpt-docTxn--empty">—</span>
-          )}
+    <ul className="exploreEventContextChips">
+      {items.map((item) => (
+        <li key={item.key}>
           <span
             className={[
-              'drpt-docAmt',
-              row.hideTxn && row.moveLabel ? (row.moveUp ? 'isUp' : 'isDown') : '',
+              'exploreEventContextChip mono',
+              item.up ? 'isUp' : '',
+              item.down ? 'isDown' : '',
             ]
               .filter(Boolean)
               .join(' ')}
           >
-            {row.amountLabel || row.moveLabel || '—'}
+            {item.label}
           </span>
-        </div>
-      </Tag>
-    </li>
+        </li>
+      ))}
+    </ul>
   )
 }
 
-function EventCompanyRow({ company, onCompanyClick }) {
-  const ticker = company.ticker
-  const canOpen = Boolean(onCompanyClick && ticker)
-  const Tag = canOpen ? 'button' : 'div'
-  const moveLabel =
-    company.dayMovePct != null && Number.isFinite(company.dayMovePct)
-      ? `${company.dayMovePct >= 0 ? '+' : ''}${company.dayMovePct.toFixed(1)}%`
-      : '—'
+function EventContextPanel({ brief, slide, primary }) {
+  const summary = brief?.summary
+  const headline = slide?.headline
+  const hasChips = Boolean(slide?.source || primary?.ticker || slide?.moveLabel)
+
+  if (!headline && !summary && !hasChips) return null
 
   return (
-    <li className="drpt-docItem">
-      <Tag
-        type={canOpen ? 'button' : undefined}
-        className={[
-          'drpt-docRow',
-          'drpt-docRow--flow',
-          'drpt-docRow--flowNoTxn',
-          canOpen ? 'drpt-docRow--link' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-        onClick={
-          canOpen ? () => onCompanyClick({ ticker, name: company.name }) : undefined
-        }
-        aria-label={canOpen ? `Open ${ticker} dossier` : undefined}
-      >
-        <span className="drpt-docCode">{ticker}</span>
-        <span className="drpt-docMain">
-          <span className="drpt-docKind">{company.name || ticker}</span>
-        </span>
-        <div className="drpt-docTrail drpt-docTrail--noTxn drpt-docTrail--noDate">
-          <span className="drpt-docAmt">{moveLabel}</span>
-        </div>
-      </Tag>
-    </li>
+    <div className="exploreEventContextPanel">
+      {headline ? <h2 className="exploreEventContextTitle">{headline}</h2> : null}
+      {summary ? <p className="exploreEventContextLead">{summary}</p> : null}
+      <EventContextChips slide={slide} primary={primary} />
+    </div>
+  )
+}
+
+const DEFAULT_EVENT_FACT_SLOTS = [
+  { key: 'source', label: 'Source', period: 'Document' },
+  { key: 'move', label: 'Session move', period: 'Today' },
+  { key: 'notional', label: 'Disclosed notional', period: 'In event' },
+  { key: 'filings', label: 'Filings', period: 'In event' },
+]
+
+function normalizeEventFacts(facts = []) {
+  const list = Array.isArray(facts) ? facts : []
+  const slots = list.length
+    ? list.map(({ key, label, period }) => ({ key, label, period }))
+    : DEFAULT_EVENT_FACT_SLOTS
+  const byKey = new Map(list.map((fact) => [fact.key, fact]))
+  return slots.map((slot) => {
+    const fact = byKey.get(slot.key)
+    return {
+      key: slot.key,
+      label: fact?.label ?? slot.label,
+      value: fact?.value ?? '—',
+      period: fact?.period ?? slot.period,
+      up: fact?.up,
+    }
+  })
+}
+
+function EventFactsSection({ facts = [] }) {
+  const tiles = normalizeEventFacts(facts)
+
+  return (
+    <section className="drpt-section exploreEventFactsSection">
+      <p className="drpt-sectionLabel">Snapshot</p>
+      <div className="drpt-sectionHead">
+        <h2 className="drpt-sectionTitle">Event facts</h2>
+      </div>
+      <div className="drpt-metricGrid">
+        {tiles.map((fact) => (
+          <div className="drpt-metricCard" key={fact.key}>
+            <span className="drpt-metricLabel">{fact.label}</span>
+            <span
+              className={[
+                'drpt-metricValue',
+                fact.up === true ? 'isUp' : '',
+                fact.up === false ? 'isDown' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {fact.value}
+            </span>
+            {fact.period ? <span className="drpt-metricPeriod">{fact.period}</span> : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function EventMarketBlock({
+  brief,
+  slide,
+  primary,
+  chartRange,
+  onChartRangeChange,
+  onCompanyClick,
+  openPrimaryCompany,
+}) {
+  const hasChart = brief.chartSeries?.length > 0
+  const hasContext = Boolean(
+    brief.summary ||
+      slide?.headline ||
+      slide?.source ||
+      primary?.ticker ||
+      slide?.moveLabel,
+  )
+  if (!hasChart && !hasContext) return null
+
+  const chartTicker = brief.chartTicker || primary?.ticker || 'Price'
+  const titleClickable = Boolean(primary && onCompanyClick)
+
+  const chartSection = hasChart ? (
+    <section className="drpt-section">
+      <p className="drpt-sectionLabel">Market</p>
+      <div className="drpt-sectionHead">
+        {titleClickable ? (
+          <button
+            type="button"
+            className="exploreEventSectionTitleBtn"
+            onClick={openPrimaryCompany}
+            aria-label={`Open ${primary.ticker} dossier`}
+          >
+            <span className="drpt-sectionTitle">{chartTicker}</span>
+            <span className="exploreEventSectionChevron mono" aria-hidden="true">
+              &gt;
+            </span>
+          </button>
+        ) : (
+          <h2 className="drpt-sectionTitle">{chartTicker}</h2>
+        )}
+        <EventChartRange value={chartRange} onChange={onChartRangeChange} />
+      </div>
+      <div className="drpt-figure drpt-figure--chart">
+        <MiniPriceChart
+          series={brief.chartSeries}
+          label={chartTicker}
+          showMeta={false}
+          chartRange={chartRange}
+          onChartRangeChange={onChartRangeChange}
+          trimLeadingPlateau
+          hideAxisLabels
+          flushEdges
+          showHoverTooltip
+        />
+      </div>
+    </section>
+  ) : null
+
+  const contextAside = hasContext ? (
+    <aside className="exploreEventContextAside" aria-label="Event context">
+      <EventContextPanel brief={brief} slide={slide} primary={primary} />
+    </aside>
+  ) : null
+
+  if (hasChart && hasContext) {
+    return (
+      <div className="drpt-row drpt-row--market exploreEventMarketRow">
+        {chartSection}
+        {contextAside}
+      </div>
+    )
+  }
+
+  return (
+    <div className="exploreEventMarketSingle">
+      {chartSection}
+      {contextAside}
+    </div>
   )
 }
 
@@ -223,12 +375,14 @@ export function ExploreEventPage({
   useEffect(() => {
     let cancelled = false
     const cached = peekExploreHomeSnapshot(backendUp)
-    if (cached?.recap?.slides?.length) {
+    const recapCache = getExploreRecapCache()
+    const slides = cached?.recap?.slides ?? recapCache.slides ?? []
+    if (slides.length) {
       setBriefCtx({
-        day: null,
-        slides: cached.recap.slides,
+        day: recapCache.day,
+        slides,
         mock: false,
-        pending: false,
+        pending: !recapCache.day,
       })
     }
     void loadExploreEventBriefContext(backendUp).then((ctx) => {
@@ -241,7 +395,6 @@ export function ExploreEventPage({
 
   const brief = useMemo(() => resolveExploreEventBrief(eventId, briefCtx), [eventId, briefCtx])
   const slide = brief?.slide ?? null
-  const title = slide?.headline || 'Event brief'
   const kicker = slide?.kicker || 'Recap event'
   const primary = brief?.primaryCompany ?? null
   const [chartRange, setChartRange] = useState('6M')
@@ -294,7 +447,12 @@ export function ExploreEventPage({
     onCompanyClick({ ticker: primary.ticker, name: primary.name })
   }, [onCompanyClick, primary])
 
-  const metaBits = [brief?.catalog?.title, slide?.source, primary?.ticker].filter(Boolean)
+  const metaBits = [
+    primary?.name && primary?.ticker
+      ? `${primary.name} (${primary.ticker})`
+      : primary?.name || primary?.ticker,
+    !primary?.name && !primary?.ticker && brief?.people?.[0]?.name ? brief.people[0].name : null,
+  ].filter(Boolean)
 
   return (
     <div className="exploreDirShell exploreEventShell" ref={pageRef}>
@@ -329,10 +487,7 @@ export function ExploreEventPage({
                   .join(' ')}
               >
                 <div className="drpt-topbarIdentity">
-                  <p className="drpt-kicker">{kicker}</p>
-                  <div className="drpt-topbarTitleRow">
-                    <h1 className="drpt-topbarTicker">{title}</h1>
-                  </div>
+                  <p className="drpt-kicker exploreEventHeroKicker">{kicker}</p>
                 </div>
                 {metaBits.length ? (
                   <div className="drpt-topbarMeta">
@@ -366,113 +521,108 @@ export function ExploreEventPage({
               <p className="exploreEventEmptyLead">This recap event could not be found.</p>
             </div>
           ) : (
-            <div className="exploreEventBrief">
-              <div className="drpt-row--market">
-                <EventSection
-                  label="Market"
-                  title={primary?.ticker || 'Price'}
-                  onTitleClick={primary && onCompanyClick ? openPrimaryCompany : null}
-                  titleOpenLabel={primary ? `Open ${primary.ticker} dossier` : null}
-                  headExtra={
-                    brief.chartSeries?.length ? (
-                      <EventChartRange value={chartRange} onChange={setChartRange} />
-                    ) : null
-                  }
-                >
-                  {brief.chartSeries?.length ? (
-                    <div className="drpt-figure drpt-figure--chart">
-                      <MiniPriceChart
-                        series={brief.chartSeries}
-                        label={brief.chartTicker || 'PRICE'}
-                        showMeta={false}
-                        chartRange={chartRange}
-                        onChartRangeChange={setChartRange}
-                        trimLeadingPlateau
-                        hideAxisLabels
-                        flushEdges
-                        showHoverTooltip
-                      />
-                    </div>
-                  ) : (
-                    <div className="drpt-figure drpt-figure--chart">
-                      <p className="exploreEventEmptyLead graphEmpty mono dim">No price series for this event.</p>
-                    </div>
-                  )}
-                </EventSection>
+            <div className="exploreEventBody">
+              <EventMarketBlock
+                brief={brief}
+                slide={slide}
+                primary={primary}
+                chartRange={chartRange}
+                onChartRangeChange={setChartRange}
+                onCompanyClick={onCompanyClick}
+                openPrimaryCompany={openPrimaryCompany}
+              />
 
-                <EventSection label="Snapshot" title="Event facts">
-                  <div className="drpt-metricGrid">
-                    {brief.facts.map((fact) => (
-                      <div className="drpt-metricCard" key={fact.key}>
-                        <span className="drpt-metricLabel">{fact.label}</span>
-                        <span
-                          className={[
-                            'drpt-metricValue',
-                            fact.up === true ? 'isUp' : '',
-                            fact.up === false ? 'isDown' : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' ')}
-                        >
-                          {fact.value}
-                        </span>
-                        {fact.period ? (
-                          <span className="drpt-metricPeriod">{fact.period}</span>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </EventSection>
-              </div>
+              <EventFactsSection facts={brief.facts} />
 
               {brief.filingRows.length ? (
-                <EventSection
-                  label={brief.listLabel || 'In this event'}
+                <EventListSection
+                  kicker={brief.listLabel || 'In this event'}
                   title={brief.listTitle || 'Filings'}
-                  headExtra={
-                    <span className="drpt-sectionCount">
-                      {brief.listCountLabel ||
-                        `${brief.filingRows.length} filing${brief.filingRows.length === 1 ? '' : 's'}`}
-                    </span>
+                  countLabel={
+                    brief.listCountLabel ||
+                    `${brief.filingRows.length} filing${brief.filingRows.length === 1 ? '' : 's'}`
                   }
                 >
-                  <div className="drpt-docPanel">
-                    <ol className="drpt-docList">
-                      {brief.filingRows.map((row) => (
-                        <EventFilingRow
-                          key={row.id}
-                          row={row}
-                          onCompanyClick={onCompanyClick}
-                          onInvestorClick={onInvestorClick}
-                        />
-                      ))}
-                    </ol>
-                  </div>
-                </EventSection>
+                  {brief.filingRows.map((row) => (
+                    <EventFilingDirectoryRow
+                      key={row.id}
+                      row={row}
+                      onCompanyClick={onCompanyClick}
+                      onInvestorClick={onInvestorClick}
+                    />
+                  ))}
+                </EventListSection>
               ) : null}
 
-              {!brief.hideCompaniesSection && brief.companies.length > 1 ? (
-                <EventSection
-                  label="Also involved"
-                  title="Companies"
-                  headExtra={
-                    <span className="drpt-sectionCount">
-                      {brief.companies.length} companies
-                    </span>
-                  }
+              {brief.people?.length > 1 ? (
+                <EventListSection
+                  kicker="Also involved"
+                  title="People"
+                  countLabel={String(brief.people.length)}
                 >
-                  <div className="drpt-docPanel">
-                    <ol className="drpt-docList">
-                      {brief.companies.map((co) => (
-                        <EventCompanyRow
-                          key={co.ticker}
-                          company={co}
-                          onCompanyClick={onCompanyClick}
-                        />
-                      ))}
-                    </ol>
-                  </div>
-                </EventSection>
+                  {brief.people.map((person) => (
+                    <EventDirectoryRow
+                      key={person.id}
+                      code="F4"
+                      name={person.name}
+                      meta={person.role || 'Insider'}
+                      trail="—"
+                      trailTone="isFlat"
+                      onClick={
+                        onInvestorClick
+                          ? () =>
+                              onInvestorClick({
+                                name: person.name,
+                                typeKey: person.typeKey,
+                              })
+                          : null
+                      }
+                      openLabel={`Open ${person.name} dossier`}
+                    />
+                  ))}
+                </EventListSection>
+              ) : null}
+
+              {!brief.hideCompaniesSection && brief.companies?.length > 1 ? (
+                <EventListSection
+                  kicker="Also involved"
+                  title="Companies"
+                  countLabel={String(brief.companies.length)}
+                >
+                  {brief.companies.map((company) => {
+                    const moveLabel =
+                      company.dayMovePct != null && Number.isFinite(company.dayMovePct)
+                        ? `${company.dayMovePct >= 0 ? '+' : ''}${company.dayMovePct.toFixed(1)}%`
+                        : '—'
+                    return (
+                      <EventDirectoryRow
+                        key={company.ticker}
+                        code={company.ticker}
+                        name={company.name || company.ticker}
+                        meta="In event"
+                        trail={moveLabel}
+                        trailTone={
+                          company.dayMovePct != null
+                            ? company.dayMovePct >= 0
+                              ? 'isUp'
+                              : 'isDown'
+                            : 'isFlat'
+                        }
+                        rowKind="company"
+                        onClick={
+                          onCompanyClick
+                            ? () =>
+                                onCompanyClick({
+                                  ticker: company.ticker,
+                                  name: company.name,
+                                })
+                            : null
+                        }
+                        openLabel={`Open ${company.ticker} dossier`}
+                      />
+                    )
+                  })}
+                </EventListSection>
               ) : null}
             </div>
           )}
