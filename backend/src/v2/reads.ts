@@ -7,6 +7,7 @@ import { normalizeTicker } from "./canonical.js";
 function moneyLabel(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(Number(n))) return "—";
   const v = Number(n);
+  if (v === 0) return "—";
   const abs = Math.abs(v);
   if (abs >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(2)}B`;
   if (abs >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
@@ -287,6 +288,8 @@ export async function buildIssuerExplorePayload(tickerInput: string) {
           f.display_name AS key,
           t.transaction_at::text AS date,
           t.amount_usd,
+          t.shares,
+          t.acquired_disposed AS "acquiredDisposed",
           t.transaction_code AS "transactionCode",
           fil.url
         FROM insider_transactions t
@@ -349,6 +352,8 @@ export async function buildIssuerExplorePayload(tickerInput: string) {
       type: "insider",
       typeLabel: "Insider",
       amountUsd: r.amount_usd != null ? Number(r.amount_usd) : null,
+      shares: r.shares != null ? Number(r.shares) : null,
+      acquiredDisposed: r.acquiredDisposed ?? null,
       amount: moneyLabel(r.amount_usd),
       latestAt: r.date,
       transactionCode: r.transactionCode,
@@ -395,7 +400,9 @@ export async function buildIssuerExplorePayload(tickerInput: string) {
         date: r.date,
         amount: moneyLabel(r.amount_usd),
         amountUsd: r.amount_usd != null ? Number(r.amount_usd) : null,
+        shares: r.shares != null ? Number(r.shares) : null,
         transactionCode: r.transactionCode,
+        acquiredDisposed: r.acquiredDisposed ?? null,
         url: r.url,
       })),
       politicians: politicians.map((r) => ({

@@ -2968,6 +2968,13 @@ function mapTrackedInvestorsFromApi(rows) {
         codeTone = 'neutral'
       }
 
+      const amountFmt = formatTrackedInvestorAmount({
+        ...r,
+        amountUsd: Number.isFinite(totalUsd) ? totalUsd : null,
+        totalUsd,
+        code,
+      })
+
     return {
         id: r.id ?? `${typeKey}|${displayName}`,
         name: displayName,
@@ -2978,7 +2985,9 @@ function mapTrackedInvestorsFromApi(rows) {
           (normalizedKey === 'politician' ? 'PTR' : normalizedKey === 'institution' ? '13F' : 'F4'),
         code,
         codeTone: codeTone ?? 'neutral',
-        amount: r.amount ?? formatTxnAmountUsd(totalUsd),
+        amount: amountFmt.text,
+        amountMuted: amountFmt.muted,
+        shares: r.shares != null ? Number(r.shares) : null,
         totalUsd: Number.isFinite(totalUsd) ? totalUsd : 0,
       dateAt,
       date: formatTrackedInvestorDate(dateAt),
@@ -2996,6 +3005,7 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
   const insiderRows = aggregateContextInsiders(insiders, days).map((x) => {
     const net = Number(x.totalUsd)
     const code = Number.isFinite(net) && net < 0 ? 'S' : x.latestCode ?? 'P'
+    const amountFmt = formatTrackedInvestorAmount({ amountUsd: x.totalUsd, totalUsd: x.totalUsd, code, amount: x.total })
     return {
     id: `insider|${x.id}`,
     name: x.personName ?? x.label,
@@ -3004,7 +3014,8 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
       source: 'F4',
       code,
       codeTone: Number.isFinite(net) && net < 0 ? 'sell' : insiderTxnCodeTone(code, x.latestAd),
-    amount: x.total,
+    amount: amountFmt.text,
+    amountMuted: amountFmt.muted,
     totalUsd: x.totalUsd,
     dateAt: x.latestAt,
     date: formatTrackedInvestorDate(x.latestAt),
@@ -3013,11 +3024,14 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
   const politicianRows = aggregateContextPoliticians(politicians, days).map((x) => {
     const net = Number(x.totalUsd)
     const code = Number.isFinite(net) && net < 0 ? 'S' : x.latestCode ?? '—'
+    const amountFmt = formatTrackedInvestorAmount({ amountUsd: x.totalUsd, totalUsd: x.totalUsd, code, amount: x.amount })
     return {
     ...x,
       source: 'PTR',
       code,
       codeTone: Number.isFinite(net) && net < 0 ? 'sell' : insiderTxnCodeTone(code),
+    amount: amountFmt.text,
+    amountMuted: amountFmt.muted,
     dateAt: x.latestAt,
     date: formatTrackedInvestorDate(x.latestAt),
     }
@@ -3030,11 +3044,19 @@ function buildContextTrackedInvestors({ insiders = [], politicians = [], filings
         : Number.isFinite(net) && net > 0
           ? { code: 'INC', tone: 'buy' }
           : institutionTxnFromActivity(x.latestActivity)
+    const amountFmt = formatTrackedInvestorAmount({
+      amountUsd: x.totalUsd,
+      totalUsd: x.totalUsd,
+      code: txn.code,
+      amount: x.amount,
+    })
     return {
     ...x,
       source: '13F',
       code: txn.code,
       codeTone: txn.tone,
+    amount: amountFmt.text,
+    amountMuted: amountFmt.muted,
     dateAt: x.latestAt,
     date: formatTrackedInvestorDate(x.latestAt),
     }
@@ -4088,6 +4110,30 @@ function formatSharesCompact(n) {
   return `${Math.round(x)} sh`
 }
 
+/** Tracked-investor / deep-page amount: shares when no USD, muted dash for $0/null awards. */
+function formatTrackedInvestorAmount(row) {
+  const shares = row?.shares
+  const sh = formatSharesCompact(shares)
+  const usdRaw = row?.amountUsd ?? row?.amount_usd ?? row?.totalUsd
+  const usd = usdRaw != null && Number.isFinite(Number(usdRaw)) ? Number(usdRaw) : null
+
+  if (sh) {
+    return { text: sh, muted: !(usd != null && Math.abs(usd) > 1) }
+  }
+
+  if (usd != null && Math.abs(usd) > 1) {
+    return { text: formatTxnAmountUsd(usd), muted: false }
+  }
+
+  const pre = String(row?.amount ?? '').trim()
+  if (pre && pre !== '—' && pre !== '-' && pre !== '$0') {
+    const parsed = parseTxnAmountUsd(pre)
+    if (parsed > 1) return { text: pre, muted: false }
+  }
+
+  return { text: '—', muted: true }
+}
+
 function isBogusInsiderWorksheetKey(key) {
   const k = String(key ?? '').trim()
   if (!k || k === 'Insider' || k === '—') return true
@@ -4173,7 +4219,7 @@ function formatInsiderTxnValue(row) {
     if (x === 0) {
       const sh = formatSharesCompact(row?.shares)
       if (sh) return sh
-      return String(row.acquiredDisposed ?? '').toUpperCase() === 'D' ? '−$0' : '—'
+      return '—'
     }
     const compact = formatUsdCompact(Math.abs(x))
     if (!compact) return '—'

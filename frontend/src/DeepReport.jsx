@@ -255,6 +255,7 @@ function DeepFlowRow({
   txnCode,
   txnTone,
   amount,
+  amountMuted = false,
   date,
   tightTrail = false,
   onClick = null,
@@ -290,7 +291,9 @@ function DeepFlowRow({
       </span>
       <div className={['drpt-docTrail', hideTxn ? 'drpt-docTrail--noTxn' : ''].filter(Boolean).join(' ')}>
         {hideTxn ? null : <DeepDocTxnBadge code={txnCode} tone={txnTone} />}
-        <span className="drpt-docAmt">{amount ?? '—'}</span>
+        <span className={['drpt-docAmt', amountMuted ? 'drpt-docAmt--muted' : ''].filter(Boolean).join(' ')}>
+          {amount ?? '—'}
+        </span>
         <time className="drpt-docDate">{date ?? '—'}</time>
       </div>
     </Tag>
@@ -783,6 +786,7 @@ function DeepInvestorList({ rows = [], visibleLimit = null, onInvestorClick = nu
                     : deepTxnCodeTone(row.code))
               }
               amount={row.amount}
+              amountMuted={row.amountMuted === true}
               date={row.date}
               onClick={onInvestorClick ? () => onInvestorClick(row) : null}
             />
@@ -1024,6 +1028,13 @@ function tradeRowMeta(row) {
   const code = String(row?.code ?? '').trim().toUpperCase() || '—'
   const amount = row?.value ?? row?.v ?? null
   const date = row?.when ?? '—'
+  const amountStr = String(amount ?? '').trim()
+  const amountMuted =
+    !amountStr ||
+    amountStr === '—' ||
+    amountStr === '-' ||
+    amountStr === '$0' ||
+    /\bsh$/.test(amountStr)
 
   if (row?.layout === 'txnCompany') {
     const company = String(row?.companyName ?? '').trim()
@@ -1033,6 +1044,7 @@ function tradeRowMeta(row) {
       code,
       codeTone: row.codeTone ?? deepTxnCodeTone(code, row.acquiredDisposed),
       amount,
+      amountMuted,
       date,
     }
   }
@@ -1044,6 +1056,7 @@ function tradeRowMeta(row) {
     code,
     codeTone: row.codeTone ?? deepTxnCodeTone(code, row.acquiredDisposed),
     amount,
+    amountMuted,
     date,
   }
 }
@@ -1081,6 +1094,7 @@ function DeepTradeLog({ rows = [], visibleLimit = null, loading = false }) {
               txnCode={meta.code}
               txnTone={meta.codeTone}
               amount={meta.amount}
+              amountMuted={meta.amountMuted === true}
               date={meta.date}
               href={href}
               openLabel={`Open filing for ${meta.ticker !== '—' ? meta.ticker : meta.title}`}
