@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { resolveExploreEventBrief } from './exploreEventBrief.js'
 import { loadExploreEventBriefContext, peekExploreHomeSnapshot, getExploreRecapCache } from './exploreApi.js'
-import { MiniPriceChart, PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
+import { MiniPriceChart, availablePriceRanges, coercePriceRangeFromOptions } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 import './DeepReport.css'
 import './ExplorePage.css'
@@ -153,10 +153,11 @@ function EventListSection({ kicker, title, countLabel, children }) {
   )
 }
 
-function EventChartRange({ value, onChange }) {
+function EventChartRange({ value, onChange, options }) {
+  if (!options?.length) return null
   return (
     <div className="drpt-chartRange researchPriceRange" role="group" aria-label="Chart range">
-      {PRICE_RANGE_OPTS.map((r) => (
+      {options.map((r) => (
         <button
           key={r}
           type="button"
@@ -282,6 +283,7 @@ function EventMarketBlock({
   primary,
   chartRange,
   onChartRangeChange,
+  chartRangeOptions,
   onCompanyClick,
   openPrimaryCompany,
 }) {
@@ -317,7 +319,7 @@ function EventMarketBlock({
         ) : (
           <h2 className="drpt-sectionTitle">{chartTicker}</h2>
         )}
-        <EventChartRange value={chartRange} onChange={onChartRangeChange} />
+        <EventChartRange value={chartRange} onChange={onChartRangeChange} options={chartRangeOptions} />
       </div>
       <div className="drpt-figure drpt-figure--chart">
         <MiniPriceChart
@@ -398,13 +400,17 @@ export function ExploreEventPage({
   const kicker = slide?.kicker || 'Recap event'
   const primary = brief?.primaryCompany ?? null
   const [chartRange, setChartRange] = useState('6M')
+  const chartRangeOptions = useMemo(
+    () => availablePriceRanges(brief?.chartSeries ?? [], brief?.chartSeriesDays ?? null),
+    [brief?.chartSeries, brief?.chartSeriesDays],
+  )
   const pageRef = useRef(null)
   const dockRef = useRef(null)
   const spacerRef = useRef(null)
 
   useEffect(() => {
-    setChartRange('6M')
-  }, [eventId])
+    setChartRange((prev) => coercePriceRangeFromOptions(prev, chartRangeOptions))
+  }, [eventId, chartRangeOptions])
 
   useEffect(() => {
     const page = pageRef.current
@@ -528,6 +534,7 @@ export function ExploreEventPage({
                 primary={primary}
                 chartRange={chartRange}
                 onChartRangeChange={setChartRange}
+                chartRangeOptions={chartRangeOptions}
                 onCompanyClick={onCompanyClick}
                 openPrimaryCompany={openPrimaryCompany}
               />

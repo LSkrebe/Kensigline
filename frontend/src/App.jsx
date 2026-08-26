@@ -40,7 +40,7 @@ import {
 } from './terminalRoute.js'
 import { formatCountLabel } from './formatCountLabel.js'
 import { resolveDocumentOpenUrl } from './documentOpenUrl.js'
-import { MiniPriceChart, priceChangeForRange } from './MiniPriceChart.jsx'
+import { MiniPriceChart, priceChangeForRange, availablePriceRanges, coercePriceRange, coercePriceRangeFromOptions } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
 import {
   buildMockResearchFeedRows,
@@ -5250,6 +5250,10 @@ function MainContextPanel({
   const [priceRange, setPriceRange] = useState('6M')
   const [snapshotBusy, setSnapshotBusy] = useState(false)
   const snapshotRef = useRef(null)
+
+  useEffect(() => {
+    setPriceRange((prev) => coercePriceRange(prev, priceSeries))
+  }, [priceSeries])
   const trackedInvestors = useMemo(
     () =>
       buildContextTrackedInvestors({
@@ -8195,6 +8199,17 @@ function GraphPanel({
   const priceRange = chartRangeProp ?? internalRange
   const setPriceRange = onChartRangeChange ?? setInternalRange
 
+  const rangeOptions = useMemo(
+    () => availablePriceRanges(series, dates),
+    [series, dates],
+  )
+
+  useEffect(() => {
+    if (!showRangeSelector || metaMode !== 'range') return
+    const next = coercePriceRangeFromOptions(priceRange, rangeOptions)
+    if (next !== priceRange) setPriceRange(next)
+  }, [rangeOptions, priceRange, setPriceRange, showRangeSelector, metaMode])
+
   useLayoutEffect(() => {
     const el = wrapRef.current
     if (!el) return
@@ -8375,9 +8390,9 @@ function GraphPanel({
         <div className="graphPanelTitleWrap">
           <div className="panelTitle">{title}</div>
         </div>
-        {showRangeSelector && metaMode === 'range' ? (
+        {showRangeSelector && metaMode === 'range' && rangeOptions.length ? (
           <div className="researchPriceRange graphPriceRange" role="group" aria-label="Chart range">
-            {PRICE_RANGE_OPTS.map((r) => (
+            {rangeOptions.map((r) => (
               <button
                 key={r}
                 type="button"
@@ -9844,6 +9859,15 @@ function KensiglineTerminal() {
   const analysePriceChange = useMemo(() => {
     return priceChangeForRange(researchPriceSeries, analysePriceRange, researchPriceDays)
   }, [researchPriceSeries, analysePriceRange, researchPriceDays])
+
+  const analyseChartRangeOptions = useMemo(
+    () => availablePriceRanges(researchPriceSeries, researchPriceDays),
+    [researchPriceSeries, researchPriceDays],
+  )
+
+  useEffect(() => {
+    setAnalysePriceRange((prev) => coercePriceRange(prev, researchPriceSeries, researchPriceDays))
+  }, [researchPriceSeries, researchPriceDays])
 
   const contextEarnings = useMemo(() => {
     if (isLiveDataMode(backendUp)) {
@@ -12385,6 +12409,7 @@ function KensiglineTerminal() {
             researchBarsLoading &&
             !(Array.isArray(researchPriceSeries) && researchPriceSeries.length),
           chartRange: analysePriceRange,
+          chartRangeOptions: analyseChartRangeOptions,
           onChartRangeChange: setAnalysePriceRange,
           chartSlot: (
           <MiniPriceChart

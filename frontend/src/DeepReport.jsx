@@ -13,7 +13,7 @@ import {
 } from './deepOutcomes.js'
 import { DeepCompactChrome } from './DeepCompactChrome.jsx'
 import { formatCountLabel } from './formatCountLabel.js'
-import { PRICE_RANGE_OPTS, priceRangeLabel } from './MiniPriceChart.jsx'
+import { PRICE_RANGE_OPTS, priceRangeLabel, availablePriceRangesFromTimestamps, coercePriceRangeFromOptions } from './MiniPriceChart.jsx'
 import {
   normalizeResearchPaperSourceKey,
   RESEARCH_PAPER_SOURCE_CATALOG,
@@ -498,10 +498,11 @@ function DeepModelExportButton({ ticker, companyName, model }) {
   )
 }
 
-function DeepChartRange({ value, onChange }) {
+function DeepChartRange({ value, onChange, options = PRICE_RANGE_OPTS }) {
+  if (!options.length) return null
   return (
     <div className="drpt-chartRange researchPriceRange" role="group" aria-label="Chart range">
-      {PRICE_RANGE_OPTS.map((r) => (
+      {options.map((r) => (
         <button
           key={r}
           type="button"
@@ -1287,6 +1288,7 @@ export function DeepCompanyReport({
   chartSlot,
   chartLoading = false,
   chartRange = '6M',
+  chartRangeOptions = PRICE_RANGE_OPTS,
   onChartRangeChange,
   chrome,
   onInvestorClick = null,
@@ -1328,7 +1330,7 @@ export function DeepCompanyReport({
             title="Price & earnings"
             headExtra={
               onChartRangeChange ? (
-                <DeepChartRange value={chartRange} onChange={onChartRangeChange} />
+                <DeepChartRange value={chartRange} onChange={onChartRangeChange} options={chartRangeOptions} />
               ) : null
             }
           >
@@ -1451,6 +1453,16 @@ export function DeepActorReport({
       ),
     [caseRows],
   )
+
+  const chartRangeOptions = useMemo(
+    () => availablePriceRangesFromTimestamps(tradeRows.map((row) => row?.ts).filter(Boolean)),
+    [tradeRows],
+  )
+
+  useEffect(() => {
+    setChartRange((prev) => coercePriceRangeFromOptions(prev, chartRangeOptions))
+  }, [chartRangeOptions])
+
   const sectionsLoading = Boolean(caseRowsLoading)
   // While hunting, hide thin stub trades — same as company dossier waiting on explore.
   const showSectionLoading = sectionsLoading
@@ -1541,7 +1553,7 @@ export function DeepActorReport({
           <DeepSection
             label="Track record"
             title="Trading history"
-            headExtra={<DeepChartRange value={chartRange} onChange={setChartRange} />}
+            headExtra={<DeepChartRange value={chartRange} onChange={setChartRange} options={chartRangeOptions} />}
           >
             <div className="drpt-figure drpt-figure--chart">
               <DeepTrackRecordChartPanel

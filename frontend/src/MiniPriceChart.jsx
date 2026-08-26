@@ -99,6 +99,76 @@ export function priceRangeWindowStart(range, ref = new Date()) {
   return start
 }
 
+function parseSeriesDay(iso, ref = new Date()) {
+  if (iso == null || iso === '') return null
+  const d = iso instanceof Date ? new Date(iso.getTime()) : new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+/** Earliest/latest calendar days covered by a price series. */
+export function getPriceSeriesDateBounds(series, seriesDays = null, ref = new Date()) {
+  const arr = Array.isArray(series) ? series : []
+  const days =
+    Array.isArray(seriesDays) && seriesDays.length === arr.length ? seriesDays : null
+
+  if (days?.length) {
+    const start = parseSeriesDay(days[0], ref)
+    const end = parseSeriesDay(days[days.length - 1], ref)
+    if (start && end) return { start, end }
+  }
+
+  if (!arr.length) return { start: null, end: null }
+
+  const end = new Date(ref)
+  end.setHours(0, 0, 0, 0)
+  if (arr.length === 1) return { start: end, end }
+
+  const start = new Date(end)
+  start.setDate(start.getDate() - (arr.length - 1))
+  return { start, end }
+}
+
+/** Ranges we can fully cover: oldest bar on/before the window start. */
+export function availablePriceRangesForStart(dataStart, ref = new Date()) {
+  if (!dataStart) return []
+  const matched = PRICE_RANGE_OPTS.filter((range) => {
+    const windowStart = priceRangeWindowStart(range, ref)
+    if (!windowStart) return true
+    return dataStart.getTime() <= windowStart.getTime()
+  })
+  return matched.length ? matched : ['1M']
+}
+
+/** Preset ranges supported by a price series (or trade timestamps). */
+export function availablePriceRanges(series, seriesDays = null, ref = new Date()) {
+  const { start } = getPriceSeriesDateBounds(series, seriesDays, ref)
+  return availablePriceRangesForStart(start, ref)
+}
+
+export function availablePriceRangesFromTimestamps(timestamps, ref = new Date()) {
+  const times = (Array.isArray(timestamps) ? timestamps : [])
+    .map((ts) => new Date(ts).getTime())
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b)
+  if (!times.length) return []
+  const start = new Date(times[0])
+  start.setHours(0, 0, 0, 0)
+  return availablePriceRangesForStart(start, ref)
+}
+
+export function coercePriceRangeFromOptions(range, allowed) {
+  const opts = Array.isArray(allowed) ? allowed.filter(Boolean) : []
+  if (!opts.length) return range
+  if (opts.includes(range)) return range
+  return opts[opts.length - 1]
+}
+
+export function coercePriceRange(range, series, seriesDays = null, ref = new Date()) {
+  return coercePriceRangeFromOptions(range, availablePriceRanges(series, seriesDays, ref))
+}
+
 /** First→last $ / % change over the same window the chart uses. */
 export function priceChangeForRange(series, range, seriesDays = null) {
   const rows = slicePriceSeriesByRange(series, range, seriesDays)
@@ -217,6 +287,17 @@ export function MiniPriceChart({
   const setPriceRange = onChartRangeChange ?? setInternalRange
   const compactChart = useCompactChartLayout()
   const hoverEnabled = showHoverTooltip && !compactChart
+
+  const rangeOptions = useMemo(
+    () => availablePriceRanges(series, seriesDays),
+    [series, seriesDays],
+  )
+
+  useEffect(() => {
+    if (!rangeOptions.length) return
+    const next = coercePriceRangeFromOptions(priceRange, rangeOptions)
+    if (next !== priceRange) setPriceRange(next)
+  }, [rangeOptions, priceRange, setPriceRange])
 
   useLayoutEffect(() => {
     if (layoutSize?.w && layoutSize?.h) {
@@ -443,7 +524,7 @@ export function MiniPriceChart({
       className={['researchMiniPrice', showMeta ? '' : 'researchMiniPrice--chartOnly'].filter(Boolean).join(' ')}
       aria-label="Price chart"
     >
-      {showRangeSelector ? (
+      {showRangeSelector && rangeOptions.length ? (
         <div
           className={[
             'researchPriceRangeBar',
@@ -461,7 +542,7 @@ export function MiniPriceChart({
             </div>
           ) : null}
           <div className="researchPriceRange" role="group" aria-label="Chart range">
-            {PRICE_RANGE_OPTS.map((r) => (
+            {rangeOptions.map((r) => (
               <button
                 key={r}
                 type="button"
