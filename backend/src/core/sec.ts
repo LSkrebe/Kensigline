@@ -478,6 +478,31 @@ export async function resolveCikForTicker(tickerInput: string): Promise<{ cik: s
   throw new Error(`ticker_not_found ${ticker}`);
 }
 
+const cikInstitutionNameCache = new Map<string, string>();
+
+/** True when a filer label is our CIK fallback (e.g. "CIK 2149024") rather than a real name. */
+export function isCikPlaceholderDisplayName(name: string | null | undefined): boolean {
+  return /^CIK\s+\d{1,10}$/i.test(String(name ?? "").trim());
+}
+
+/** SEC submissions name for a 13F filer CIK — cached in-process. */
+export async function resolveInstitutionNameFromCik(cikInput: string): Promise<string | null> {
+  const digits = String(cikInput ?? "").replace(/\D/g, "");
+  if (!digits) return null;
+  const cik10 = digits.padStart(10, "0");
+  const cached = cikInstitutionNameCache.get(cik10);
+  if (cached) return cached;
+
+  try {
+    const subs = (await secFetchJson(`https://data.sec.gov/submissions/CIK${cik10}.json`)) as { name?: string };
+    const name = subs?.name ? String(subs.name).trim() : null;
+    if (name) cikInstitutionNameCache.set(cik10, name);
+    return name;
+  } catch {
+    return null;
+  }
+}
+
 type Submissions = {
   cik: string;
   name?: string;

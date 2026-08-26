@@ -18,9 +18,10 @@ import {
   MIN_PARSED_13F_HOLDINGS,
   parse13fHoldings,
   parse13fMeta,
-  resolve13fFilerDisplayName,
+  resolve13fFilerDisplayNameAsync,
   type Parsed13fHolding,
 } from "./parse-13f.js";
+import { isCikPlaceholderDisplayName } from "../../core/sec.js";
 import {
   activityFromShareDelta,
   ensureCusipTickerMapTable,
@@ -450,7 +451,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
 
     const parsedHoldings = parse13fHoldings(bundle);
     const meta = parse13fMeta(bundle, primaryUrl);
-    const filerName = resolve13fFilerDisplayName(meta, primaryUrl);
+    const filerName = await resolve13fFilerDisplayNameAsync(meta, primaryUrl);
     const asOf = formatIso(meta.period_of_report) ?? formatIso(meta.filed_at);
 
     if (!parsedHoldings.length) {
@@ -494,6 +495,9 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
       path = "institutions/13f-llm-residual";
       activity_source = llmPath === "enrich" ? "llm_enrich" : "llm_full";
       resolvedFiler = String(out.filer?.name ?? "").trim() || filerName;
+      if (isCikPlaceholderDisplayName(resolvedFiler)) {
+        resolvedFiler = await resolve13fFilerDisplayNameAsync(meta, primaryUrl);
+      }
 
       const llmMapped: Mapped13fHolding[] = [];
       for (const h of out.holdings ?? []) {

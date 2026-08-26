@@ -1,3 +1,6 @@
+import { isCikPlaceholderDisplayName, resolveInstitutionNameFromCik } from "../../core/sec.js";
+import { formatCompanyDisplayName } from "../../research/feed-display.js";
+
 export type Parsed13fHolding = {
   issuer_name: string;
   cusip: string | null;
@@ -134,6 +137,23 @@ export function resolve13fFilerDisplayName(meta: Parsed13fMeta, indexUrl?: strin
   if (fromUrl) return `13F ${fromUrl.accession}`;
 
   return `13F filer ${Date.now().toString(36)}`;
+}
+
+/** Like resolve13fFilerDisplayName but resolves CIK placeholders via SEC submissions. */
+export async function resolve13fFilerDisplayNameAsync(
+  meta: Parsed13fMeta,
+  indexUrl?: string | null,
+): Promise<string> {
+  const sync = resolve13fFilerDisplayName(meta, indexUrl);
+  if (!isCikPlaceholderDisplayName(sync)) return sync;
+
+  const cik = sync.replace(/^CIK\s+/i, "").trim();
+  const fromSec = await resolveInstitutionNameFromCik(cik);
+  if (fromSec) {
+    const formatted = formatCompanyDisplayName(fromSec);
+    return formatted || fromSec;
+  }
+  return sync;
 }
 
 function indexUrlFromMeta(meta: Parsed13fMeta, indexUrl?: string | null) {
