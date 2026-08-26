@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { clearAuthTokenCache, setAuthTokenCache } from './api.js'
+import { clearAuthTokenCache, hasStoredAuthSession, setAuthTokenCache } from './api.js'
 import { completeAuthFromUrl } from './authCallback.js'
 import { peekReferralRef, recordAttributionSignup } from './referralRef.js'
 import { supabase } from './supabaseClient.js'
@@ -56,7 +56,10 @@ async function attemptSignIn(email, password, timeoutMs) {
 export function AuthProvider({ children }) {
   const configured = Boolean(supabase)
   const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => {
+    if (!supabase) return false
+    return !hasStoredAuthSession()
+  })
 
   useEffect(() => {
     if (!supabase) {
@@ -66,7 +69,7 @@ export function AuthProvider({ children }) {
       return
     }
     let cancelled = false
-    const bootTimeoutMs = 6000
+    const bootTimeoutMs = 2500
     const timeoutId = window.setTimeout(() => {
       if (!cancelled) setLoading(false)
     }, bootTimeoutMs)

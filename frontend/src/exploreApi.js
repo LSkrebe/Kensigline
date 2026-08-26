@@ -270,7 +270,10 @@ function processExploreHomeResponse(data, backendUp) {
 
 export async function fetchExploreHome(backendUp) {
   if (!isLiveDataMode(backendUp)) return null
-  const res = await fetchJsonWithAuthRetry('/api/explore/home', { timeoutMs: 45_000 })
+  let res = await fetchJsonSafe('/api/explore/home', { timeoutMs: 20_000 })
+  if (!res.ok && (res.status === 401 || res.status === 0)) {
+    res = await fetchJsonWithAuthRetry('/api/explore/home', { timeoutMs: 20_000, authRetries: 2 })
+  }
   if (!res.ok || !res.data?.ok) return null
   return processExploreHomeResponse(res.data, backendUp)
 }

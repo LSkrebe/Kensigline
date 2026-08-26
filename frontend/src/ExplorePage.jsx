@@ -18,7 +18,6 @@ import {
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { navigateExploreCompanies, navigateExploreEventDetail, navigateExploreInvestors } from './terminalRoute.js'
-import { useAuth } from './AuthContext.jsx'
 import './DeepReport.css'
 import './ExplorePage.css'
 
@@ -99,9 +98,6 @@ export function ExplorePage({
   onInvestorRowClick = null,
   onEventClick = null,
 }) {
-  const { user } = useAuth()
-  const authUserId = user?.id ?? null
-
   const initialSnapshot = useMemo(() => {
     if (isMockDataMode(backendUp)) {
       return {
@@ -158,11 +154,6 @@ export function ExplorePage({
       return
     }
 
-    if (!authUserId) {
-      setHomeLoading(true)
-      return
-    }
-
     const cached = peekExploreHomeSnapshot(backendUp)
     if (cached?.recap && cached?.homePreview) {
       setRecap(cached.recap)
@@ -186,7 +177,7 @@ export function ExplorePage({
     return () => {
       cancelled = true
     }
-  }, [backendUp, authUserId])
+  }, [backendUp])
 
   const [searchQuery, setSearchQuery] = useState('')
   const pageRef = useRef(null)

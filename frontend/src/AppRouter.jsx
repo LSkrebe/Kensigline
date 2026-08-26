@@ -104,6 +104,11 @@ export default function AppRouter() {
 
   useEffect(() => {
     if (!signedIn || waitlistMode) return
+    void import('./exploreApi.js').then(({ prefetchExploreHome }) => prefetchExploreHome(true))
+  }, [signedIn, waitlistMode])
+
+  useEffect(() => {
+    if (!signedIn || waitlistMode) return
     /* Warm the terminal chunk while auth/billing settle so Suspense doesn't stall. */
     void import('./App.jsx')
   }, [signedIn, waitlistMode])

@@ -40,6 +40,11 @@ function supabaseTokenFromLocalStorage() {
   }
 }
 
+/** True when localStorage already holds a Supabase session (fast boot path). */
+export function hasStoredAuthSession() {
+  return Boolean(supabaseTokenFromLocalStorage())
+}
+
 async function resolveAuthToken(timeoutMs) {
   const now = Date.now()
   const fromStorage = supabaseTokenFromLocalStorage()

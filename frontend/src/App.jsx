@@ -1416,7 +1416,12 @@ function buildActorTxnFromTrackedInvestorRow(row, { ticker, companyName, mode })
       sheetRow: {
         institution_name: name,
         key: name,
-        activity: code === 'RED' || code === 'S' ? 'Reduced stake' : 'Increased stake',
+        activity:
+          code === 'RED' || code === 'S'
+            ? 'Reduced stake'
+            : code === 'NEW'
+              ? 'New position'
+              : 'Increased stake',
         amountUsd: parsed,
         ts,
       },
@@ -1594,7 +1599,7 @@ function buildActorTxnsFromCompanyFlows({ name, mode, ticker, companyName, flows
       const person = formatPoliticianDisplayName(row.person ?? row.name ?? row.politician_name)
       if (!investorNamesLikelyMatch(person, name)) continue
       const ts = row.date ? new Date(row.date).toISOString() : null
-      const amountUsd = parseTxnAmountUsd(row.amount)
+      const amountUsd = flowUsdFromRow(row)
       const amountRange = row.amountRange ?? (amountUsd > 0 ? null : String(row.amount ?? '').trim() || null)
       // Real PTR data only — never invent a $1 placeholder.
       if (!(amountUsd > 1) && !amountRange) continue
@@ -1626,7 +1631,7 @@ function buildActorTxnsFromCompanyFlows({ name, mode, ticker, companyName, flows
       const filer = String(row.filer ?? row.institution_name ?? row.name ?? '').trim()
       if (!investorNamesLikelyMatch(filer, name)) continue
       const ts = row.date ? new Date(row.date).toISOString() : null
-      const amountUsd = parseTxnAmountUsd(row.amount)
+      const amountUsd = flowUsdFromRow(row)
       if (!(amountUsd > 1) || isAbsurdTrackedUsd(amountUsd)) continue
       out.push({
         sheetRow: {
@@ -1652,7 +1657,7 @@ function buildActorTxnsFromCompanyFlows({ name, mode, ticker, companyName, flows
     if (!investorNamesLikelyMatch(person, name)) continue
     const ts = row.date ? new Date(row.date).toISOString() : null
     const code = String(row.transactionCode ?? row.code ?? 'P').trim().toUpperCase() || 'P'
-    const amountUsd = parseTxnAmountUsd(row.amount)
+    const amountUsd = flowUsdFromRow(row)
     if (!(amountUsd > 1)) continue
     out.push({
       sheetRow: {
@@ -2669,6 +2674,12 @@ function parseTxnAmountUsd(amount) {
   return n
 }
 
+function flowUsdFromRow(row) {
+  const direct = Number(row?.amountUsd ?? row?.amount_usd ?? row?.amount_usd_mid)
+  if (Number.isFinite(direct) && direct > 0) return direct
+  return parseTxnAmountUsd(row?.amount)
+}
+
 function formatTxnAmountUsd(n) {
   const x = Number(n)
   if (!Number.isFinite(x) || x === 0) return EMPTY
@@ -2715,7 +2726,7 @@ function institutionFlowSign(row) {
 function signedFlowUsd(row, signFn) {
   const sign = signFn(row)
   if (!sign) return 0
-  const usd = parseTxnAmountUsd(row?.amount)
+  const usd = flowUsdFromRow(row)
   if (usd <= 0) return 0
   return sign * usd
 }
@@ -4385,7 +4396,7 @@ function applyInvestigateTxnFilterToFeedRow(row, enabledCodes, mode) {
 function formatPoliticianTxnValue(r) {
   const range = String(r?.amountRange ?? '').trim()
   if (range) return compactUsdRangeLabel(range)
-  const amt = Number(r?.amountUsd ?? 0)
+  const amt = Number(r?.amountUsd ?? r?.amount_usd_mid ?? r?.amount_usd ?? 0)
   if (!(Number.isFinite(amt) && amt > 0)) return '—'
   const code = politicianTxnCodeFromRaw(r?.transactionType ?? r?.transactionCode)
   const compact = formatUsdCompact(amt)
@@ -4395,7 +4406,7 @@ function formatPoliticianTxnValue(r) {
 }
 
 function formatInstitutionTxnValue(r) {
-  const amt = Number(r?.amountUsd ?? 0)
+  const amt = Number(r?.amountUsd ?? r?.amount_usd ?? 0)
   if (Number.isFinite(amt) && amt > 1) {
     const compact = formatUsdCompact(amt)
     if (compact) return compact
@@ -10124,9 +10135,9 @@ function KensiglineTerminal() {
   }, [backendUp])
 
   useEffect(() => {
-    if (!isLiveDataMode(backendUp) || !user?.id) return
+    if (!isLiveDataMode(backendUp)) return
     prefetchExploreHome(backendUp)
-  }, [backendUp, user?.id])
+  }, [backendUp])
 
   useEffect(() => {
     let alive = true

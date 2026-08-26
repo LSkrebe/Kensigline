@@ -1,5 +1,5 @@
 import { MOCK_SEMIS_BY_TICKER } from './mockWeekData.js'
-import { exploreActorDocCode, exploreActorEventLabel, mapActorEventRows, mapCompanyEventRows } from './exploreEventLabels.js'
+import { exploreActorDocCode, exploreActorEventLabel, exploreCompanyDocCode, exploreCompanyEventLabel, mapActorEventRows, mapCompanyEventRows } from './exploreEventLabels.js'
 import { isPlausibleExploreInvestorRow } from './exploreInvestorFilter.js'
 
 export const HOME_DIRECTORY_PREVIEW = 12
@@ -131,6 +131,42 @@ function formatExplorePublishDate(iso) {
   return `${mm}-${dd}`
 }
 
+function isMeaningfulExploreTrail(trail) {
+  const t = String(trail ?? '').trim()
+  return Boolean(t && t !== '—')
+}
+
+function exploreRowDisplayTrail(row, kind = 'company') {
+  if (isMeaningfulExploreTrail(row?.trail)) return row.trail
+  if (kind === 'company' && row?.docType) return exploreCompanyDocCode(row.docType)
+  if (kind === 'investor' && row?.docType) return exploreActorDocCode(row.docType)
+  return '—'
+}
+
+/** Prefer rows with $/%/share trails over empty placeholders in home preview. */
+function rankExploreHomeRows(rows, kind = 'company') {
+  const list = Array.isArray(rows) ? rows : []
+  const valued = list.filter((row) => isMeaningfulExploreTrail(exploreRowDisplayTrail(row, kind)))
+  const rest = list.filter((row) => !valued.includes(row))
+  return [...valued, ...rest]
+}
+
+function mapExploreHomePreviewRow(row, kind) {
+  return {
+    id: row.id,
+    ticker: row.ticker,
+    name: row.name,
+    actorSlug: row.actorSlug,
+    tickers: row.tickers,
+    docType: row.docType,
+    event: row.event,
+    trail: exploreRowDisplayTrail(row, kind),
+    up: row.up ?? true,
+    extraSameDay: row.extraSameDay ?? 0,
+    date: row.date,
+  }
+}
+
 function aggregateCompaniesByTicker(events) {
   const sorted = sortEventsNewestFirst(events)
   const byTicker = new Map()
@@ -152,6 +188,8 @@ function aggregateCompaniesByTicker(events) {
       ticker: newest.ticker,
       name: newest.name,
       event: newest.event,
+      trail: newest.trail,
+      up: newest.up,
       extraSameDay: Math.max(0, sameDayCount - 1),
       lastDate: latestDate,
       publishedDateLabel: formatExplorePublishDate(latestDate),
@@ -208,6 +246,63 @@ function aggregateInvestorsByName(events) {
   return out
 }
 
+function parsePctTrail(trail) {
+  const m = String(trail ?? '').match(/([+\-−]?[\d.]+)\s*%/)
+  if (!m) return null
+  return Number(m[1].replace('−', '-'))
+}
+
+/** One Explore home row per company ticker (may combine multiple filings that day). */
+function aggregateExploreCompaniesForHome(events) {
+  const sorted = sortEventsNewestFirst(events)
+  const byTicker = new Map()
+
+  for (const ev of sorted) {
+    const tick = String(ev.ticker ?? '').trim().toUpperCase()
+    if (!tick) continue
+    if (!byTicker.has(tick)) byTicker.set(tick, [])
+    byTicker.get(tick).push(ev)
+  }
+
+  const out = []
+  for (const group of byTicker.values()) {
+    const lead = group[0]
+    const extraSameDay = Math.max(0, group.length - 1)
+    const docTypes = [...new Set(group.map((e) => e.docType).filter(Boolean))]
+    const pcts = group.map((e) => parsePctTrail(e.trail)).filter((n) => n != null && Number.isFinite(n))
+    const avgPct = pcts.length ? pcts.reduce((a, b) => a + b, 0) / pcts.length : null
+
+    out.push({
+      ...lead,
+      extraSameDay,
+      event:
+        group.length > 1
+          ? docTypes.length > 1
+            ? `${group.length} company filings`
+            : `${group.length} ${exploreCompanyEventLabel(docTypes[0] ?? '').replace(/ filing$/, ' filings')}`
+          : lead.event,
+      trail: avgPct != null ? `${avgPct >= 0 ? '+' : ''}${avgPct.toFixed(1)}%` : lead.trail,
+      up: avgPct != null ? avgPct >= 0 : lead.up,
+    })
+  }
+
+  return sortEventsNewestFirst(out)
+}
+
+function mapAggregatedCompanyToHomeRow(row) {
+  return {
+    id: row.id,
+    ticker: row.ticker,
+    name: row.name,
+    docType: row.docType,
+    event: row.event,
+    trail: exploreRowDisplayTrail(row, 'company'),
+    up: row.up ?? true,
+    extraSameDay: row.extraSameDay ?? 0,
+    date: row.lastDate,
+  }
+}
+
 /** One Explore home row per investor (may span multiple tickers / filings that day). */
 function aggregateExploreInvestorsForHome(events) {
   const sorted = sortEventsNewestFirst(events)
@@ -259,6 +354,8 @@ function mapAggregatedInvestorToHomeRow(row) {
   const count = Number.isFinite(Number(row.positionCount)) ? Math.max(1, Number(row.positionCount)) : 1
   const hasUsd = row.netFlowLabel && row.netFlowLabel !== '—'
   const tickers = Array.isArray(row.tickers) ? row.tickers.filter(Boolean) : []
+  const rawTrail = hasUsd ? row.netFlowLabel : count > 1 ? `${count} positions` : row.trail ?? '—'
+  const trailRow = { ...row, trail: rawTrail }
   return {
     id: row.id,
     name: row.name,
@@ -267,7 +364,7 @@ function mapAggregatedInvestorToHomeRow(row) {
     tickers: tickers.length > 1 ? tickers : undefined,
     docType: row.docType,
     event: exploreActorEventLabel(row.docType),
-    trail: hasUsd ? row.netFlowLabel : count > 1 ? `${count} positions` : row.trail ?? '—',
+    trail: exploreRowDisplayTrail(trailRow, 'investor'),
     up: (row.netFlowUsd ?? 0) >= 0,
     extraSameDay: Math.max(0, count - 1),
     date: row.lastDate,
@@ -493,7 +590,7 @@ export function buildExploreDirectoryHomeLatest(directory = buildExploreDirector
   const investorEvents = directory.investorEvents ?? directory.actorEvents ?? []
 
   return {
-    companies: aggregateExploreSameDayEvents(directory.companyEvents, (row) => `${row.ticker}|${row.date}`),
+    companies: aggregateCompaniesByTicker(directory.companyEvents).map(mapAggregatedCompanyToHomeRow),
     investors: aggregateInvestorsByName(investorEvents).map(mapAggregatedInvestorToHomeRow),
   }
 }
@@ -521,16 +618,24 @@ export function buildExploreDirectoryHomePreview(directory = buildExploreDirecto
   const { displayDayKey, requestedDayKey, isFallback } = resolved
   const dayCompanyEvents = directory.companyEvents.filter((row) => row.date === displayDayKey)
   const dayInvestorEvents = investorEvents.filter((row) => row.date === displayDayKey)
+  const dayCompanyRows = aggregateExploreCompaniesForHome(dayCompanyEvents)
+  const latestCompanyRows = aggregateExploreCompaniesForHome(
+    sortEventsNewestFirst(directory.companyEvents).slice(0, 120),
+  )
+  const companyPreviewSource = dayCompanyRows.length ? dayCompanyRows : latestCompanyRows
   const dayInvestorRows = aggregateExploreInvestorsForHome(dayInvestorEvents)
   const latestInvestorRows = aggregateExploreInvestorsForHome(investorEvents)
   const investorPreviewSource = dayInvestorRows.length ? dayInvestorRows : latestInvestorRows
 
   return {
-    companies: aggregateExploreSameDayEvents(dayCompanyEvents, (row) => `${row.ticker}|${row.date}`).slice(
-      0,
-      HOME_DIRECTORY_PREVIEW,
-    ),
-    investors: investorPreviewSource.slice(0, HOME_DIRECTORY_PREVIEW),
+    companies: rankExploreHomeRows(
+      companyPreviewSource.map((row) => mapExploreHomePreviewRow(row, 'company')),
+      'company',
+    ).slice(0, HOME_DIRECTORY_PREVIEW),
+    investors: rankExploreHomeRows(
+      investorPreviewSource.map((row) => mapExploreHomePreviewRow(row, 'investor')),
+      'investor',
+    ).slice(0, HOME_DIRECTORY_PREVIEW),
     displayDayKey,
     requestedDayKey,
     isFallback,
