@@ -322,6 +322,7 @@
   color: rgba(212, 114, 106, 0.92);
 }
 
+.exploreDirectoryMove.isFlat,
 .exploreDirectoryAmount.isFlat {
   color: rgba(255, 255, 255, 0.42);
 }

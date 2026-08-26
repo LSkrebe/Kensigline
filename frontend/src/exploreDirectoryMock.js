@@ -136,11 +136,31 @@ function isMeaningfulExploreTrail(trail) {
   return Boolean(t && t !== '—')
 }
 
+function isMoneyOrPctExploreTrail(trail) {
+  const t = String(trail ?? '').trim()
+  if (!t) return false
+  if (/^[+\-−]?\$/.test(t)) return true
+  if (/^[+\-−]?[\d.]+\s*%/.test(t)) return true
+  return false
+}
+
+function resolveExploreRowTrail(row, kind = 'company') {
+  if (isMeaningfulExploreTrail(row?.trail)) {
+    const trail = String(row.trail).trim()
+    return { trail, muted: !isMoneyOrPctExploreTrail(trail) }
+  }
+  if (kind === 'company' && row?.docType) {
+    return { trail: exploreCompanyDocCode(row.docType), muted: true }
+  }
+  if (kind === 'investor' && row?.docType) {
+    return { trail: exploreActorDocCode(row.docType), muted: true }
+  }
+  return { trail: '—', muted: true }
+}
+
+/** @deprecated use resolveExploreRowTrail */
 function exploreRowDisplayTrail(row, kind = 'company') {
-  if (isMeaningfulExploreTrail(row?.trail)) return row.trail
-  if (kind === 'company' && row?.docType) return exploreCompanyDocCode(row.docType)
-  if (kind === 'investor' && row?.docType) return exploreActorDocCode(row.docType)
-  return '—'
+  return resolveExploreRowTrail(row, kind).trail
 }
 
 /** Prefer rows with $/%/share trails over empty placeholders in home preview. */
@@ -152,6 +172,7 @@ function rankExploreHomeRows(rows, kind = 'company') {
 }
 
 function mapExploreHomePreviewRow(row, kind) {
+  const { trail, muted } = resolveExploreRowTrail(row, kind)
   return {
     id: row.id,
     ticker: row.ticker,
@@ -160,8 +181,9 @@ function mapExploreHomePreviewRow(row, kind) {
     tickers: row.tickers,
     docType: row.docType,
     event: row.event,
-    trail: exploreRowDisplayTrail(row, kind),
-    up: row.up ?? true,
+    trail,
+    trailMuted: muted,
+    up: muted ? false : row.up ?? true,
     extraSameDay: row.extraSameDay ?? 0,
     date: row.date,
   }
@@ -290,14 +312,16 @@ function aggregateExploreCompaniesForHome(events) {
 }
 
 function mapAggregatedCompanyToHomeRow(row) {
+  const { trail, muted } = resolveExploreRowTrail(row, 'company')
   return {
     id: row.id,
     ticker: row.ticker,
     name: row.name,
     docType: row.docType,
     event: row.event,
-    trail: exploreRowDisplayTrail(row, 'company'),
-    up: row.up ?? true,
+    trail,
+    trailMuted: muted,
+    up: muted ? false : row.up ?? true,
     extraSameDay: row.extraSameDay ?? 0,
     date: row.lastDate,
   }
@@ -356,6 +380,11 @@ function mapAggregatedInvestorToHomeRow(row) {
   const tickers = Array.isArray(row.tickers) ? row.tickers.filter(Boolean) : []
   const rawTrail = hasUsd ? row.netFlowLabel : count > 1 ? `${count} positions` : row.trail ?? '—'
   const trailRow = { ...row, trail: rawTrail }
+  const resolved = hasUsd
+    ? { trail: rawTrail, muted: false }
+    : count > 1
+      ? { trail: rawTrail, muted: true }
+      : resolveExploreRowTrail(trailRow, 'investor')
   return {
     id: row.id,
     name: row.name,
@@ -364,8 +393,9 @@ function mapAggregatedInvestorToHomeRow(row) {
     tickers: tickers.length > 1 ? tickers : undefined,
     docType: row.docType,
     event: exploreActorEventLabel(row.docType),
-    trail: exploreRowDisplayTrail(trailRow, 'investor'),
-    up: (row.netFlowUsd ?? 0) >= 0,
+    trail: resolved.trail,
+    trailMuted: resolved.muted,
+    up: resolved.muted ? false : (row.netFlowUsd ?? 0) >= 0,
     extraSameDay: Math.max(0, count - 1),
     date: row.lastDate,
   }

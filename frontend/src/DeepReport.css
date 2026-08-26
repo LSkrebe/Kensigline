@@ -788,10 +788,6 @@
   white-space: nowrap;
 }
 
-.drpt-docAmt--muted {
-  color: rgba(255, 255, 255, 0.28);
-}
-
 .drpt-row--market .drpt-metricCard {
   min-height: 0;
   height: auto;
