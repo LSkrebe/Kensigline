@@ -1097,6 +1097,20 @@
   padding: 8px 0 56px;
 }
 
+/* Event hero only shows kicker + meta (+ optional move) — keep expanded dock compact. */
+.exploreEventShell .drpt-stickWrap {
+  --deep-expanded-h: clamp(152px, calc(12vh + 56px), 188px);
+}
+
+.exploreEventShell .drpt-topbar--event {
+  padding: 18px var(--drpt-page-pad-x) 16px;
+  gap: 6px 20px;
+}
+
+.exploreEventShell .drpt-topbar--event .drpt-topbarIdentity {
+  min-height: auto;
+}
+
 /* ── Event brief body (Explore-home rhythm) ── */
 
 .exploreEventBody {
@@ -1268,6 +1282,10 @@
 }
 
 @media (max-width: 960px) {
+  .exploreEventShell .drpt-stickWrap {
+    --deep-expanded-h: clamp(168px, calc(16vh + 56px), 204px);
+  }
+
   .exploreEventBody {
     gap: 36px;
     padding-top: 22px;
