@@ -1,5 +1,5 @@
 import { MOCK_SEMIS_BY_TICKER } from './mockWeekData.js'
-import { exploreActorDocCode, mapActorEventRows, mapCompanyEventRows } from './exploreEventLabels.js'
+import { exploreActorDocCode, exploreActorEventLabel, mapActorEventRows, mapCompanyEventRows } from './exploreEventLabels.js'
 import { isPlausibleExploreInvestorRow } from './exploreInvestorFilter.js'
 
 export const HOME_DIRECTORY_PREVIEW = 12
@@ -189,6 +189,7 @@ function aggregateInvestorsByName(events) {
     out.push({
       id: `ac-${String(ev.name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       name: ev.name,
+      actorSlug: ev.actorSlug,
       ticker: ev.ticker,
       tickers: tickerLists.get(ev.name) ?? [ev.ticker],
       docType: ev.docType,
@@ -205,6 +206,72 @@ function aggregateInvestorsByName(events) {
   }
 
   return out
+}
+
+/** One Explore home row per investor (may span multiple tickers / filings that day). */
+function aggregateExploreInvestorsForHome(events) {
+  const sorted = sortEventsNewestFirst(events)
+  const byName = new Map()
+
+  for (const ev of sorted) {
+    const key = String(ev.name ?? '').trim()
+    if (!key) continue
+    if (!byName.has(key)) byName.set(key, [])
+    byName.get(key).push(ev)
+  }
+
+  const out = []
+  for (const group of byName.values()) {
+    const lead = group[0]
+    const extraSameDay = Math.max(0, group.length - 1)
+    const tickers = [...new Set(group.map((e) => e.ticker).filter(Boolean))]
+    let netFlow = 0
+    let hasUsdTrail = false
+    for (const ev of group) {
+      const usd = parseExploreTrailUsd(ev.trail)
+      if (usd != null) {
+        hasUsdTrail = true
+        netFlow += usd
+      }
+    }
+    const all13f = group.every((e) => String(e.docType ?? '').startsWith('13f'))
+    const modeCode = exploreActorDocCode(lead.docType)
+
+    out.push({
+      ...lead,
+      ticker: group.length > 1 ? modeCode : lead.ticker,
+      tickers: tickers.length > 1 ? tickers : undefined,
+      extraSameDay,
+      trail: hasUsdTrail
+        ? formatExploreNetFlowUsd(netFlow)
+        : group.length > 1
+          ? `${group.length} positions`
+          : lead.trail,
+      up: hasUsdTrail ? netFlow >= 0 : lead.up,
+      event: group.length > 1 && all13f ? '13F institution filings' : lead.event,
+    })
+  }
+
+  return sortEventsNewestFirst(out)
+}
+
+function mapAggregatedInvestorToHomeRow(row) {
+  const count = Number.isFinite(Number(row.positionCount)) ? Math.max(1, Number(row.positionCount)) : 1
+  const hasUsd = row.netFlowLabel && row.netFlowLabel !== '—'
+  const tickers = Array.isArray(row.tickers) ? row.tickers.filter(Boolean) : []
+  return {
+    id: row.id,
+    name: row.name,
+    actorSlug: row.actorSlug,
+    ticker: tickers.length > 1 ? row.modeCode : row.ticker,
+    tickers: tickers.length > 1 ? tickers : undefined,
+    docType: row.docType,
+    event: exploreActorEventLabel(row.docType),
+    trail: hasUsd ? row.netFlowLabel : count > 1 ? `${count} positions` : row.trail ?? '—',
+    up: (row.netFlowUsd ?? 0) >= 0,
+    extraSameDay: Math.max(0, count - 1),
+    date: row.lastDate,
+  }
 }
 
 /** Company-level filings only (no Form 4, PTR, or 13F). */
@@ -427,7 +494,7 @@ export function buildExploreDirectoryHomeLatest(directory = buildExploreDirector
 
   return {
     companies: aggregateExploreSameDayEvents(directory.companyEvents, (row) => `${row.ticker}|${row.date}`),
-    investors: aggregateExploreSameDayEvents(investorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`),
+    investors: aggregateInvestorsByName(investorEvents).map(mapAggregatedInvestorToHomeRow),
   }
 }
 
@@ -454,11 +521,8 @@ export function buildExploreDirectoryHomePreview(directory = buildExploreDirecto
   const { displayDayKey, requestedDayKey, isFallback } = resolved
   const dayCompanyEvents = directory.companyEvents.filter((row) => row.date === displayDayKey)
   const dayInvestorEvents = investorEvents.filter((row) => row.date === displayDayKey)
-  const latestInvestorRows = aggregateExploreSameDayEvents(
-    sortEventsNewestFirst(investorEvents),
-    (row) => `${row.name}|${row.ticker}|${row.date}`,
-  )
-  const dayInvestorRows = aggregateExploreSameDayEvents(dayInvestorEvents, (row) => `${row.name}|${row.ticker}|${row.date}`)
+  const dayInvestorRows = aggregateExploreInvestorsForHome(dayInvestorEvents)
+  const latestInvestorRows = aggregateExploreInvestorsForHome(investorEvents)
   const investorPreviewSource = dayInvestorRows.length ? dayInvestorRows : latestInvestorRows
 
   return {

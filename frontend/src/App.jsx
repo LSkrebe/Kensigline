@@ -4395,8 +4395,11 @@ function formatPoliticianTxnValue(r) {
 }
 
 function formatInstitutionTxnValue(r) {
-  const activity = String(r?.activity ?? '').trim()
-  if (activity) return activity
+  const amt = Number(r?.amountUsd ?? 0)
+  if (Number.isFinite(amt) && amt > 1) {
+    const compact = formatUsdCompact(amt)
+    if (compact) return compact
+  }
   const shares = Number(r?.shares ?? 0)
   if (Number.isFinite(shares) && shares > 0) {
     if (shares >= 1e9) return `${(shares / 1e9).toFixed(1)}B sh`

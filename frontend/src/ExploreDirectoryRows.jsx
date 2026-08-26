@@ -9,13 +9,18 @@ export function ExploreDirectoryEventMeta({ event, extraSameDay = 0 }) {
 
 function ExploreDirectoryRowContent({ row, kind }) {
   const trailClass = kind === 'investor' ? 'exploreDirectoryAmount' : 'exploreDirectoryMove'
+  const tickers = kind === 'investor' && Array.isArray(row.tickers) ? row.tickers.filter(Boolean) : []
 
   return (
     <>
       <span className="exploreDirectoryTicker mono">{row.ticker}</span>
       <div className="exploreDirectoryCopy">
         <span className="exploreDirectoryName">{row.name}</span>
-        <ExploreDirectoryEventMeta event={row.event} extraSameDay={row.extraSameDay} />
+        {tickers.length > 1 ? (
+          <ExploreDirectoryInvestorTickers tickers={tickers} />
+        ) : (
+          <ExploreDirectoryEventMeta event={row.event} extraSameDay={row.extraSameDay} />
+        )}
       </div>
       <span className={[trailClass, 'mono', row.up ? 'isUp' : 'isDown'].join(' ')}>{row.trail}</span>
     </>
