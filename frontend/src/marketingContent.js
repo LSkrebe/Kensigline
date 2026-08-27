@@ -483,7 +483,14 @@ export function subscribeCopy(pricing = DEFAULT_PRICING) {
       headline: 'Early access offer',
       lead: null,
       reassurance: '50% off with your rate locked in',
-      checkoutCta: 'Claim 50% off',
+      planCta: {
+        monthly: 'Lock in 50% off',
+        yearly: 'Lock in 50% off',
+      },
+      closing: {
+        title: 'Stay ahead of the headline',
+        cta: 'Pick your plan',
+      },
     }
   }
   return {
@@ -491,7 +498,14 @@ export function subscribeCopy(pricing = DEFAULT_PRICING) {
     headline: 'Choose your plan',
     lead: 'Full disclosure access from day one.',
     reassurance: 'Secure Whop checkout. Cancel anytime.',
-    checkoutCta: 'Continue to payment',
+    planCta: {
+      monthly: 'Continue with monthly',
+      yearly: 'Continue with yearly',
+    },
+    closing: {
+      title: 'Track disclosures while they still matter',
+      cta: 'See plans',
+    },
   }
 }
 

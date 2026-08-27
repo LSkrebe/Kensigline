@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { WhopCheckoutPanel } from './WhopCheckoutPanel.jsx'
 import { useAuth } from './AuthContext.jsx'
 import { formatUsd } from './billingPlans.js'
@@ -18,13 +18,18 @@ import { useBillingPricing } from './useBillingPricing.js'
 import './IntroPage.marketing.css'
 import './SubscribePage.css'
 
+const NAV_OFFSET = 64
+
 export function SubscribePage() {
+  const pageRef = useRef(null)
   const { user, signOut } = useAuth()
   const pricing = useBillingPricing()
   const plans = pricing.plans
   const copy = subscribeCopy(pricing)
   const faq = subscribeFaq(pricing)
-  const [selected, setSelected] = useState('yearly')
+  const [checkoutPlan, setCheckoutPlan] = useState(null)
+  const [checkoutAttempt, setCheckoutAttempt] = useState(0)
+  const [checkoutBusy, setCheckoutBusy] = useState(false)
   const [checkoutMsg, setCheckoutMsg] = useState('')
 
   useEffect(() => {
@@ -32,8 +37,9 @@ export function SubscribePage() {
     markAppReady()
   }, [pricing])
 
-  const onSelectPlan = useCallback((planId) => {
-    setSelected(planId)
+  const onCheckout = useCallback((planId) => {
+    setCheckoutPlan(planId)
+    setCheckoutAttempt((n) => n + 1)
     setCheckoutMsg('')
     try {
       sessionStorage.setItem('mercerline_checkout_plan', planId)
@@ -48,8 +54,25 @@ export function SubscribePage() {
     returnToIntroAfterSignOut()
   }, [signOut])
 
+  const scrollToPricing = useCallback((e) => {
+    e?.preventDefault()
+    const scroller = pageRef.current
+    const target = document.getElementById('subscribe-pricing')
+    if (!scroller || !target) return
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const top =
+      target.getBoundingClientRect().top -
+      scroller.getBoundingClientRect().top +
+      scroller.scrollTop -
+      NAV_OFFSET
+    scroller.scrollTo({ top: Math.max(0, top), behavior: reduced ? 'instant' : 'smooth' })
+    if (window.history?.pushState) window.history.pushState(null, '', '#subscribe-pricing')
+  }, [])
+
+  const accentBtn = pricing.founders ? 'lpBtn--accent' : 'lpBtn--primary'
+
   return (
-    <div className="lp subPage">
+    <div ref={pageRef} className="lp subPage">
       <header className="lpNav">
         <div className="lpNavInner">
           <a className="lpBrand" href="/" aria-label="Mercerline home">
@@ -92,48 +115,43 @@ export function SubscribePage() {
           </ul>
 
           <div className="lpPlans">
-            {plans.map((plan) => {
-              const isSelected = selected === plan.id
-              return (
-                <article
-                  key={plan.id}
-                  className={[
-                    'lpPlan',
-                    plan.featured ? 'lpPlan--featured' : '',
-                    isSelected ? 'lpPlan--selected' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
+            {plans.map((plan) => (
+              <article
+                key={plan.id}
+                className={['lpPlan', plan.featured ? 'lpPlan--featured' : ''].filter(Boolean).join(' ')}
+              >
+                <h2 className="lpPlanName">{plan.name}</h2>
+                <p className="lpPlanPrice">
+                  {plan.listPriceUsd ? (
+                    <span className="lpPlanListPrice">{formatUsd(plan.listPriceUsd)}</span>
+                  ) : null}
+                  <span className="lpPlanAmount">{formatUsd(plan.priceUsd)}</span>
+                  <span className="lpPlanInterval">/{plan.intervalLabel}</span>
+                </p>
+                <button
+                  type="button"
+                  className={`lpBtn ${plan.featured ? 'lpBtn--primary' : 'lpBtn--ghost'} lpPlanCta`}
+                  disabled={checkoutBusy}
+                  onClick={() => onCheckout(plan.id)}
                 >
-                  <h2 className="lpPlanName">{plan.name}</h2>
-                  <p className="lpPlanPrice">
-                    {plan.listPriceUsd ? (
-                      <span className="lpPlanListPrice">{formatUsd(plan.listPriceUsd)}</span>
-                    ) : null}
-                    <span className="lpPlanAmount">{formatUsd(plan.priceUsd)}</span>
-                    <span className="lpPlanInterval">/{plan.intervalLabel}</span>
-                  </p>
-                  <button
-                    type="button"
-                    className={`lpBtn ${plan.featured ? 'lpBtn--primary' : 'lpBtn--ghost'} lpPlanCta`}
-                    onClick={() => onSelectPlan(plan.id)}
-                  >
-                    {isSelected
-                      ? 'Selected'
-                      : plan.featured
-                        ? 'Choose yearly'
-                        : 'Choose monthly'}
-                  </button>
-                </article>
-              )
-            })}
+                  {checkoutBusy && checkoutPlan === plan.id
+                    ? 'Opening checkout…'
+                    : (copy.planCta?.[plan.id] ??
+                      (plan.featured ? 'Continue with yearly' : 'Continue with monthly'))}
+                </button>
+              </article>
+            ))}
           </div>
-          <WhopCheckoutPanel
-            selectedPlan={selected}
-            userEmail={user?.email ?? null}
-            onError={setCheckoutMsg}
-            startLabel={copy.checkoutCta}
-          />
+          {checkoutPlan ? (
+            <WhopCheckoutPanel
+              key={`${checkoutPlan}-${checkoutAttempt}`}
+              autoStart
+              selectedPlan={checkoutPlan}
+              userEmail={user?.email ?? null}
+              onBusyChange={setCheckoutBusy}
+              onError={setCheckoutMsg}
+            />
+          ) : null}
           {checkoutMsg ? (
             <p className="subError" role="alert">
               {checkoutMsg}
@@ -181,6 +199,24 @@ export function SubscribePage() {
               </article>
             ))}
           </div>
+        </section>
+
+        <section className="lpCtaBand">
+          <h2 className="lpCtaTitle">{copy.closing.title}</h2>
+          <p className="lpCtaLead">
+            {pricing.founders && pricing.monthlyListUsd ? (
+              <>
+                Full access from day one at{' '}
+                <span className="lpHeroListPrice">{formatUsd(pricing.monthlyListUsd)}/mo</span>{' '}
+                <span className="lpHeroPrice">{formatUsd(pricing.monthlyUsd)}/mo</span>
+              </>
+            ) : (
+              'Full access from day one.'
+            )}
+          </p>
+          <button type="button" className={`lpBtn ${accentBtn}`} onClick={scrollToPricing}>
+            {copy.closing.cta}
+          </button>
         </section>
       </main>
 

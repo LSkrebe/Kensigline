@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { WhopCheckoutEmbed } from '@whop/checkout/react'
 import { fetchJsonSafe, getBackendBase } from './api.js'
 import { peekReferralRef } from './referralRef.js'
@@ -27,13 +27,21 @@ export function WhopCheckoutPanel({
   userEmail = null,
   onComplete = null,
   onError = null,
+  onBusyChange = null,
   startLabel = 'Continue to payment',
+  autoStart = false,
 }) {
   const [sessionId, setSessionId] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const autoStartedRef = useRef(false)
 
   useEffect(() => {
+    onBusyChange?.(busy)
+  }, [busy, onBusyChange])
+
+  useEffect(() => {
+    autoStartedRef.current = false
     setSessionId(null)
     setErr('')
   }, [selectedPlan])
@@ -70,6 +78,12 @@ export function WhopCheckoutPanel({
     onError?.(msg)
   }, [selectedPlan, busy, sessionId, onError])
 
+  useEffect(() => {
+    if (!autoStart || !selectedPlan || autoStartedRef.current) return
+    autoStartedRef.current = true
+    void startCheckout()
+  }, [autoStart, selectedPlan, startCheckout])
+
   const handleComplete = useCallback(
     (_planId, receiptId) => {
       if (receiptId) {
@@ -85,6 +99,14 @@ export function WhopCheckoutPanel({
   )
 
   if (!sessionId) {
+    if (autoStart) {
+      return err ? (
+        <p className="subError" role="alert">
+          {err}
+        </p>
+      ) : null
+    }
+
     return (
       <div className="whopCheckoutStart">
         <button

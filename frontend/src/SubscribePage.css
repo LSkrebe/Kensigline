@@ -23,12 +23,6 @@
   max-width: var(--lp-max);
   margin: 0 auto;
   width: 100%;
-  /* Same air as intro CTA band bottom before the footer */
-  padding-bottom: clamp(56px, 9vh, 88px);
-}
-
-.subPage #subscribe-faq {
-  padding-bottom: 0;
 }
 
 /* Top band — same centered rhythm as intro hero */
@@ -118,8 +112,6 @@
   font-family: inherit;
   cursor: pointer;
 }
-
-/* FAQ uses default .lpSection padding from IntroPage.marketing.css */
 
 @media (max-width: 900px) {
   .subTitle {
