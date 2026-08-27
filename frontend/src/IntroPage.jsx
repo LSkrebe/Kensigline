@@ -251,19 +251,28 @@ export function IntroPage() {
                 </p>
               ) : null}
             </div>
-          </div>
-
-          <div className="lpHeroExpandedFooter">
-            <button
-              type="button"
-              className="lpHeroNavBtn lpHeroNavBtn--collapse"
-              aria-label="Collapse hero"
-              onClick={collapseHero}
-            >
-              <span className="lpHeroNavBtnGlyph mono" aria-hidden="true">
-                ↓
-              </span>
-            </button>
+            <div className="lpHeroExpandedFooter">
+              <button
+                type="button"
+                className="lpHeroNavBtn lpHeroNavBtn--collapse lpHeroNavBtn--collapseStart"
+                aria-label="Collapse hero"
+                onClick={collapseHero}
+              >
+                <span className="lpHeroNavBtnGlyph mono" aria-hidden="true">
+                  ↓
+                </span>
+              </button>
+              <button
+                type="button"
+                className="lpHeroNavBtn lpHeroNavBtn--collapse lpHeroNavBtn--collapseEnd"
+                aria-label="Collapse hero"
+                onClick={collapseHero}
+              >
+                <span className="lpHeroNavBtnGlyph mono" aria-hidden="true">
+                  ↓
+                </span>
+              </button>
+            </div>
           </div>
         </div>
         <div ref={spacerRef} className="lpHeroCollapseSpacer" aria-hidden="true" />
