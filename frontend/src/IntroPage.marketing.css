@@ -386,6 +386,142 @@
   display: none;
 }
 
+/* Tracked-company validation strip — dual logo marquees below hero */
+.lpCompanyMarquee {
+  position: relative;
+  z-index: 1;
+  padding: clamp(12px, 2vh, 18px) 0 clamp(14px, 2.2vh, 20px);
+  background: var(--lp-bg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.lpCompanyMarqueeInner {
+  width: 100%;
+  max-width: var(--lp-max);
+  margin: 0 auto;
+  padding: 0 var(--lp-pad);
+}
+
+.lpMarqueeRow {
+  position: relative;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 7%,
+    #000 93%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    #000 7%,
+    #000 93%,
+    transparent 100%
+  );
+}
+
+.lpMarqueeRow::before,
+.lpMarqueeRow::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: min(36px, 7%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.lpMarqueeRow::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--lp-bg) 0%, rgba(8, 8, 9, 0.55) 55%, transparent 100%);
+}
+
+.lpMarqueeRow::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--lp-bg) 0%, rgba(8, 8, 9, 0.55) 55%, transparent 100%);
+}
+
+.lpMarqueeRow + .lpMarqueeRow {
+  margin-top: 8px;
+}
+
+.lpMarqueeTrack {
+  --lp-marquee-copies: 6;
+  display: flex;
+  width: max-content;
+  gap: 8px;
+  padding: 1px 0;
+  animation: lpMarqueeLtr 90s linear infinite;
+  will-change: transform;
+}
+
+.lpMarqueeTrack--reverse {
+  animation-name: lpMarqueeRtl;
+  animation-duration: 98s;
+}
+
+.lpMarqueeItem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.lpMarqueeLogo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+@keyframes lpMarqueeLtr {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% / var(--lp-marquee-copies)));
+  }
+}
+
+@keyframes lpMarqueeRtl {
+  from {
+    transform: translateX(calc(-100% / var(--lp-marquee-copies)));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lpMarqueeTrack {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: auto;
+  }
+
+  .lpMarqueeRow {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+
+  .lpMarqueeRow::before,
+  .lpMarqueeRow::after {
+    display: none;
+  }
+
+  .lpMarqueeRow + .lpMarqueeRow {
+    margin-top: 8px;
+  }
+}
+
 .lpMain {
   position: relative;
   z-index: 1;
@@ -731,6 +867,216 @@
   font-size: 15px;
   line-height: 1.6;
   color: var(--lp-muted);
+}
+
+/* Member reviews — social proof after product pillars, before screenshots */
+.lpReviews {
+  padding-top: clamp(48px, 8vh, 72px);
+  padding-bottom: clamp(48px, 8vh, 72px);
+}
+
+.lpReviewAggregate {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.lpReviewAggregateLabel {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.lpReviewCarousel {
+  margin-top: 28px;
+}
+
+.lpReviewViewport {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  scrollbar-width: none;
+  gap: 12px;
+  scroll-padding-inline: 0;
+}
+
+.lpReviewViewport::-webkit-scrollbar {
+  display: none;
+}
+
+.lpReviewSlide {
+  flex: 0 0 calc(100% - 12px);
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.lpReviewCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 100%;
+  height: 100%;
+  padding: 20px 18px 18px;
+  border: 1px solid var(--lp-line);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.lpReviewStars {
+  display: flex;
+  gap: 2px;
+  line-height: 1;
+}
+
+.lpReviewStar {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.16);
+}
+
+.lpReviewStar--on {
+  color: #e8c547;
+}
+
+.lpReviewStar--partial {
+  position: relative;
+  color: rgba(255, 255, 255, 0.16);
+}
+
+.lpReviewStar--partial::before {
+  content: '★';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--lp-star-fill, 90%);
+  overflow: hidden;
+  color: #e8c547;
+}
+
+.lpReviewQuote {
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+.lpReviewQuote p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.lpReviewQuote p::before {
+  content: '\201C';
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.lpReviewQuote p::after {
+  content: '\201D';
+  color: rgba(255, 255, 255, 0.32);
+}
+
+.lpReviewMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lpReviewAvatar {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0;
+  background: #141416;
+}
+
+.lpReviewIdentity {
+  min-width: 0;
+}
+
+.lpReviewNameRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.lpReviewName {
+  display: block;
+  font-style: normal;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--lp-fg);
+}
+
+.lpReviewVerifiedBadge {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.lpReviewRole {
+  margin: 4px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.lpReviewDots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+  pointer-events: none;
+}
+
+.lpReviewDot {
+  width: 6px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.lpReviewDot--active {
+  background: rgba(255, 255, 255, 0.72);
+  transform: scale(1.15);
+}
+
+@media (min-width: 900px) {
+  .lpReviewDots {
+    display: none;
+  }
+
+  .lpReviewViewport {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    overflow: hidden;
+    scroll-snap-type: none;
+  }
+
+  .lpReviewSlide {
+    flex: none;
+    scroll-snap-align: none;
+  }
+
+  .lpReviewCard {
+    padding: 22px 20px 20px;
+  }
+
+  .lpReviewQuote p {
+    font-size: 13px;
+  }
 }
 
 /* Pillars */

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
+import { IntroCompanyMarquee } from './IntroCompanyMarquee.jsx'
+import { IntroReviewsSection } from './IntroReviewsSection.jsx'
 import { formatUsd } from './billingPlans.js'
 import {
   heroCopy,
   heroLeadParts,
+  introClosingCopy,
   introFaq,
   INTRO_FOOTER,
   INTRO_PAGE_META,
@@ -46,6 +49,7 @@ export function IntroPage() {
   const spacerRef = useRef(null)
   const pricing = useBillingPricing()
   const hero = heroCopy(pricing)
+  const closing = introClosingCopy(pricing)
   const faq = introFaq(pricing)
   const leadParts = heroLeadParts(pricing)
   const waitlist = pricing.waitlist
@@ -264,6 +268,8 @@ export function IntroPage() {
         </div>
         <div ref={spacerRef} className="lpHeroCollapseSpacer" aria-hidden="true" />
 
+        <IntroCompanyMarquee />
+
         <main className="lpMain">
           <section className="lpStory" aria-labelledby="lp-story-title">
             <div className="lpStoryInner">
@@ -336,6 +342,8 @@ export function IntroPage() {
             </ul>
           </section>
 
+          <IntroReviewsSection />
+
           <section className="lpShot" aria-labelledby="lp-explore-shot-title">
             <div className="lpShotHead">
               <p className="lpEyebrow">{EXPLORE_SHOT.kicker}</p>
@@ -391,9 +399,7 @@ export function IntroPage() {
           </section>
 
           <section className="lpCtaBand">
-            <h2 className="lpCtaTitle">
-              {waitlist ? 'Get notified when we open' : 'See the next filing before the story breaks'}
-            </h2>
+            <h2 className="lpCtaTitle">{closing.title}</h2>
             <p className="lpCtaLead">
               {waitlist
                 ? 'Leave your email and we will write when access is ready.'
@@ -412,7 +418,7 @@ export function IntroPage() {
               href={primaryHref}
               onClick={goPrimary}
             >
-              {hero.ctaPrimary}
+              {closing.ctaPrimary}
             </a>
           </section>
         </main>

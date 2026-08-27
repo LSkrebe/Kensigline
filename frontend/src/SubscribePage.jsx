@@ -132,6 +132,7 @@ export function SubscribePage() {
             selectedPlan={selected}
             userEmail={user?.email ?? null}
             onError={setCheckoutMsg}
+            startLabel={copy.checkoutCta}
           />
           {checkoutMsg ? (
             <p className="subError" role="alert">

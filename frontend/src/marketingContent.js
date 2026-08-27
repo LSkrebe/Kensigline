@@ -126,7 +126,91 @@ export function heroCopy(pricing = DEFAULT_PRICING) {
   }
 }
 
+/** Bottom-of-page CTA on intro — same intent as hero, distinct wording. */
+export function introClosingCopy(pricing = DEFAULT_PRICING) {
+  if (pricing.waitlist) {
+    return {
+      title: 'Be first when access opens',
+      ctaPrimary: 'Save my spot',
+    }
+  }
+  if (pricing.founders) {
+    return {
+      title: 'Stay ahead of the headline',
+      ctaPrimary: 'Claim 50% off',
+    }
+  }
+  return {
+    title: 'Track disclosures while they still matter',
+    ctaPrimary: 'Open Mercerline',
+  }
+}
+
 export const HERO = heroCopy()
+
+/** Intro validation strip — recognizable issuers in the coverage universe. */
+export const INTRO_TRACKED_COMPANIES = {
+  rowA: [
+    { ticker: 'NVDA', name: 'NVIDIA' },
+    { ticker: 'AAPL', name: 'Apple' },
+    { ticker: 'MSFT', name: 'Microsoft' },
+    { ticker: 'GOOGL', name: 'Alphabet' },
+    { ticker: 'AMZN', name: 'Amazon' },
+    { ticker: 'META', name: 'Meta' },
+    { ticker: 'TSLA', name: 'Tesla' },
+    { ticker: 'V', name: 'Visa' },
+    { ticker: 'MA', name: 'Mastercard' },
+    { ticker: 'WMT', name: 'Walmart' },
+    { ticker: 'COST', name: 'Costco' },
+    { ticker: 'PEP', name: 'PepsiCo' },
+    { ticker: 'KO', name: 'Coca-Cola' },
+    { ticker: 'MCD', name: "McDonald's" },
+    { ticker: 'ADBE', name: 'Adobe' },
+    { ticker: 'PYPL', name: 'PayPal' },
+    { ticker: 'UBER', name: 'Uber' },
+    { ticker: 'ABNB', name: 'Airbnb' },
+    { ticker: 'SPOT', name: 'Spotify' },
+    { ticker: 'NFLX', name: 'Netflix' },
+    { ticker: 'TGT', name: 'Target' },
+    { ticker: 'HD', name: 'Home Depot' },
+    { ticker: 'DASH', name: 'DoorDash' },
+    { ticker: 'HOOD', name: 'Robinhood' },
+    { ticker: 'NET', name: 'Cloudflare' },
+    { ticker: 'SNAP', name: 'Snap' },
+  ],
+  rowB: [
+    { ticker: 'AMD', name: 'AMD' },
+    { ticker: 'ASML', name: 'ASML' },
+    { ticker: 'TSM', name: 'TSMC' },
+    { ticker: 'AVGO', name: 'Broadcom' },
+    { ticker: 'CRM', name: 'Salesforce' },
+    { ticker: 'QCOM', name: 'Qualcomm' },
+    { ticker: 'MU', name: 'Micron' },
+    { ticker: 'DIS', name: 'Disney' },
+    { ticker: 'SMCI', name: 'Super Micro' },
+    { ticker: 'LRCX', name: 'Lam Research' },
+    { ticker: 'AMAT', name: 'Applied Materials' },
+    { ticker: 'KLAC', name: 'KLA' },
+    { ticker: 'MRVL', name: 'Marvell' },
+    { ticker: 'SHOP', name: 'Shopify' },
+    { ticker: 'COIN', name: 'Coinbase' },
+    { ticker: 'RBLX', name: 'Roblox' },
+    { ticker: 'SBUX', name: 'Starbucks' },
+    { ticker: 'NKE', name: 'Nike' },
+    { ticker: 'CMG', name: 'Chipotle' },
+    { ticker: 'SNPS', name: 'Synopsys' },
+    { ticker: 'ARM', name: 'Arm Holdings' },
+    { ticker: 'TXN', name: 'Texas Instruments' },
+    { ticker: 'ADI', name: 'Analog Devices' },
+    { ticker: 'CDNS', name: 'Cadence' },
+    { ticker: 'FTNT', name: 'Fortinet' },
+    { ticker: 'ZS', name: 'Zscaler' },
+  ],
+}
+
+export function introCompanyLogoSrc(ticker) {
+  return `/intro/company-logos/${String(ticker ?? '').trim().toUpperCase()}.png`
+}
 
 /**
  * FOMO origin beat — concrete PTR story that explains why the niche exists.
@@ -239,6 +323,49 @@ export const PRODUCT = {
   kicker: 'How it works',
   title: 'Track the filing. Know the filer.',
   lead: 'Insiders, politicians, and big funds are all on the same rail, from the daily recap to the dossier.',
+}
+
+/** Member quotes — swap avatarSrc when real photos are ready. */
+export const INTRO_REVIEWS = {
+  kicker: 'Reviews',
+  title: 'What members are saying',
+  lead: 'Real members who see filings before the news.',
+  aggregateRating: 4.9,
+  items: [
+    {
+      id: 'lucas',
+      name: 'Lucas S.',
+      role: 'Active investor',
+      verified: true,
+      rating: 5,
+      quote:
+        'I used to find politician trades days too late. Now I see the filing, who filed, and the stock on one page that same morning.',
+      avatarSrc: '/intro/reviews/lucas.png',
+      avatarAlt: 'Lucas S.',
+    },
+    {
+      id: 'jhon',
+      name: 'Jhon J.',
+      role: 'Swing trader',
+      verified: true,
+      rating: 5,
+      quote:
+        'The investor page is what I use most. One click shows all their trades and related stocks. I do not need ten tabs open anymore.',
+      avatarSrc: '/intro/reviews/jhon.png',
+      avatarAlt: 'Jhon J.',
+    },
+    {
+      id: 'faust',
+      name: 'Faust R.',
+      role: 'Long-term investor',
+      verified: true,
+      rating: 5,
+      quote:
+        'The daily recap changed how I watch chip stocks. I see who filed before prices move. Not days later when everyone else finds out.',
+      avatarSrc: '/intro/reviews/faust.png',
+      avatarAlt: 'Faust R.',
+    },
+  ],
 }
 
 export const SOURCES = {
@@ -356,6 +483,7 @@ export function subscribeCopy(pricing = DEFAULT_PRICING) {
       headline: 'Early access offer',
       lead: null,
       reassurance: '50% off with your rate locked in',
+      checkoutCta: 'Claim 50% off',
     }
   }
   return {
@@ -363,6 +491,7 @@ export function subscribeCopy(pricing = DEFAULT_PRICING) {
     headline: 'Choose your plan',
     lead: 'Full disclosure access from day one.',
     reassurance: 'Secure Whop checkout. Cancel anytime.',
+    checkoutCta: 'Continue to payment',
   }
 }
 

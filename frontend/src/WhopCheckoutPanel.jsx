@@ -22,7 +22,13 @@ export function clearCheckoutReceiptId() {
   }
 }
 
-export function WhopCheckoutPanel({ selectedPlan, userEmail = null, onComplete = null, onError = null }) {
+export function WhopCheckoutPanel({
+  selectedPlan,
+  userEmail = null,
+  onComplete = null,
+  onError = null,
+  startLabel = 'Continue to payment',
+}) {
   const [sessionId, setSessionId] = useState(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -87,7 +93,7 @@ export function WhopCheckoutPanel({ selectedPlan, userEmail = null, onComplete =
           disabled={!selectedPlan || busy}
           onClick={() => void startCheckout()}
         >
-          {busy ? 'Preparing checkout…' : 'Continue to payment'}
+          {busy ? 'Preparing checkout…' : startLabel}
         </button>
         {err ? (
           <p className="subError" role="alert">
