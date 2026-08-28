@@ -351,8 +351,8 @@
 .lpHeroLead {
   margin: 0 auto 14px;
   max-width: 46ch;
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--lp-muted);
 }
 
@@ -1462,7 +1462,6 @@
 
   .lpHeroLead {
     margin-bottom: 12px;
-    font-size: 13px;
     margin-inline: auto;
   }
 
