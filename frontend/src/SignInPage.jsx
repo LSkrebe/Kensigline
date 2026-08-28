@@ -53,6 +53,18 @@ export function SignInPage() {
           </h1>
           <p className="authLead">{SIGN_IN.lead}</p>
           <AuthSignIn variant="intro" />
+          <p className="authFootnote">
+            New here?{' '}
+            <a
+              href="/#pricing"
+              onClick={(e) => {
+                e.preventDefault()
+                navigateMarketing('/#pricing')
+              }}
+            >
+              See plans and pricing
+            </a>
+          </p>
         </section>
       </main>
     </div>

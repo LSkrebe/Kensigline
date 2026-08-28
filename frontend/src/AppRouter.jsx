@@ -2,11 +2,12 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { isCaptureMode } from './captureMode.js'
-import { SubscribePage } from './SubscribePage.jsx'
+import { IntroPage } from './IntroPage.jsx'
 import MarketingRoutes from './MarketingRoutes.jsx'
 import { PublicCompanyPage } from './PublicCompanyPage.jsx'
 import { matchPublicCompanyPath } from './publicCompany.js'
 import { readMarketingPath, navigateMarketing } from './marketingRoute.js'
+import { activateCheckoutSession } from './checkoutActivate.js'
 import { clearCheckoutReceiptId, peekCheckoutReceiptId } from './WhopCheckoutPanel.jsx'
 import { captureReferralRef } from './referralRef.js'
 import { useSubscription } from './useSubscription.js'
@@ -47,22 +48,22 @@ export default function AppRouter() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (window.location.pathname.replace(/\/$/, '') === '/subscribe') {
-      window.history.replaceState(null, '', waitlistMode ? '/waitlist' : '/')
+      window.history.replaceState(null, '', waitlistMode ? '/waitlist' : '/#pricing')
       setPath(waitlistMode ? '/waitlist' : '/')
     }
   }, [waitlistMode])
 
   useEffect(() => {
-    if (!waitlistMode || captureMode) return
+    if (waitlistMode || captureMode) return
     const p = path.replace(/\/$/, '') || '/'
-    if (p === '/sign-in' || p === '/subscribe' || p === '/join' || (signedIn && p !== '/' && p !== '/waitlist' && !publicCompany)) {
-      navigateMarketing('/waitlist')
-      setPath('/waitlist')
+    if (p === '/subscribe' || p === '/join') {
+      navigateMarketing(p === '/join' ? '/#pricing' : '/')
+      setPath('/')
     }
-  }, [waitlistMode, captureMode, path, signedIn, publicCompany])
+  }, [waitlistMode, captureMode, path])
 
   useEffect(() => {
-    if (showMarketing || publicCompany) return
+    if (waitlistMode || captureMode) return
     const p = path.replace(/\/$/, '') || '/'
     if (p.startsWith('/settings')) document.title = 'Settings - Mercerline'
     else if (p.startsWith('/macro')) document.title = 'Macro - Mercerline'
@@ -70,10 +71,10 @@ export default function AppRouter() {
     else if (p.startsWith('/explore/companies')) document.title = 'Companies - Mercerline'
     else if (p.startsWith('/explore')) document.title = 'Explore - Mercerline'
     else document.title = 'Mercerline'
-  }, [showMarketing, publicCompany, path, signedIn, active])
+  }, [waitlistMode, captureMode, path, signedIn, active])
 
   useEffect(() => {
-    if (!signedIn || !BILLING_GATE_ENABLED || waitlistMode) return
+    if (waitlistMode) return
     const params = new URLSearchParams(window.location.search)
     const checkout = params.get('checkout')
     if (checkout !== 'success' && checkout !== 'cancel') return
@@ -87,20 +88,25 @@ export default function AppRouter() {
 
     if (checkout === 'success') {
       const receiptId = peekCheckoutReceiptId()
-      void fetchJsonSafe('/api/billing/refresh', {
-        method: 'POST',
-        body: receiptId ? { receiptId } : {},
-        timeoutMs: 20000,
-      })
-        .then(() => refresh())
-        .finally(() => {
-          clearCheckoutReceiptId()
-          cleanUrl()
-        })
+      void (async () => {
+        if (receiptId) {
+          await activateCheckoutSession(receiptId)
+          await refresh()
+        } else if (user) {
+          await fetchJsonSafe('/api/billing/refresh', {
+            method: 'POST',
+            body: {},
+            timeoutMs: 20000,
+          })
+          await refresh()
+        }
+        clearCheckoutReceiptId()
+        cleanUrl()
+      })()
     } else {
       cleanUrl()
     }
-  }, [signedIn, refresh, waitlistMode])
+  }, [waitlistMode, refresh, user])
 
   useEffect(() => {
     if (!signedIn || waitlistMode) return
@@ -109,18 +115,15 @@ export default function AppRouter() {
 
   useEffect(() => {
     if (!signedIn || waitlistMode) return
-    /* Warm the terminal chunk while auth/billing settle so Suspense doesn't stall. */
     void import('./App.jsx')
   }, [signedIn, waitlistMode])
 
-  /* Public SEO company pages stay outside auth + paywall. */
   if (publicCompany && !waitlistMode) {
     return <PublicCompanyPage ticker={publicCompany.ticker} />
   }
 
   if (showMarketing || waitlistMode) return <MarketingRoutes />
 
-  /* Wait until billing status is for THIS user — no stale access / no premature paywall. */
   if (loading || (BILLING_GATE_ENABLED && !captureMode && (!gateReady || subLoading))) {
     return (
       <div className="terminalShell terminalShell--boot" aria-busy="true" aria-label="Loading">
@@ -129,7 +132,7 @@ export default function AppRouter() {
     )
   }
 
-  if (BILLING_GATE_ENABLED && !active && !captureMode) return <SubscribePage />
+  if (BILLING_GATE_ENABLED && !active && !captureMode) return <IntroPage />
 
   return (
     <Suspense

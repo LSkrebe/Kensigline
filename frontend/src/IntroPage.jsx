@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
 import { IntroCompanyMarquee } from './IntroCompanyMarquee.jsx'
 import { IntroReviewsSection } from './IntroReviewsSection.jsx'
+import { WhopCheckoutPanel } from './WhopCheckoutPanel.jsx'
+import { useAuth } from './AuthContext.jsx'
 import { formatUsd } from './billingPlans.js'
 import {
   heroCopy,
@@ -12,30 +14,34 @@ import {
   INTRO_PAGE_META,
   ORIGIN_STORY,
   PILLARS,
+  pricingCopy,
   PRODUCT,
   EXPLORE_SHOT,
   INVESTOR_SHOT,
   SOURCES,
+  SUBSCRIBE_FEATURES,
+  subscribeCopy,
+  subscribeFaq,
+  SUBSCRIBE_PREVIEW,
 } from './marketingContent.js'
-import { navigateMarketing } from './marketingRoute.js'
+import { navigateMarketing, returnToIntroAfterSignOut } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
 import { useBillingPricing } from './useBillingPricing.js'
 import './IntroPage.marketing.css'
+import './SubscribePage.css'
 
 const COLLAPSE_RANGE_FALLBACK = 1
 const LP_EXPANDED_FADE_END = 0.92
-/** Keep compact strip dark until near the end so the hero photo doesn't morph mid-collapse. */
 const LP_COMPACT_FADE_START = 0.62
 const NAV_OFFSET = 64
+const PRICING_SECTION_ID = 'pricing'
 
 function collapseProgressVars(progress) {
   const p = Math.min(1, Math.max(0, progress))
   const expandedOpacity = p <= LP_EXPANDED_FADE_END ? 1 - p / LP_EXPANDED_FADE_END : 0
   const compactOpacity =
-    p <= LP_COMPACT_FADE_START
-      ? 0
-      : (p - LP_COMPACT_FADE_START) / (1 - LP_COMPACT_FADE_START)
+    p <= LP_COMPACT_FADE_START ? 0 : (p - LP_COMPACT_FADE_START) / (1 - LP_COMPACT_FADE_START)
   return {
     '--lp-collapse': String(p),
     '--lp-expanded-opacity': String(expandedOpacity),
@@ -43,32 +49,50 @@ function collapseProgressVars(progress) {
   }
 }
 
+function mergeFaq(intro, subscribe) {
+  const seen = new Set()
+  return [...intro, ...subscribe].filter((item) => {
+    if (seen.has(item.q)) return false
+    seen.add(item.q)
+    return true
+  })
+}
+
 export function IntroPage() {
   const pageRef = useRef(null)
   const dockRef = useRef(null)
   const spacerRef = useRef(null)
+  const { user, signOut, signInWithOAuth } = useAuth()
   const pricing = useBillingPricing()
   const hero = heroCopy(pricing)
   const closing = introClosingCopy(pricing)
-  const faq = introFaq(pricing)
+  const subscribe = subscribeCopy(pricing)
+  const pricingHead = pricingCopy(pricing)
+  const faq = useMemo(
+    () => mergeFaq(introFaq(pricing), subscribeFaq(pricing)),
+    [pricing],
+  )
   const leadParts = heroLeadParts(pricing)
+  const plans = pricing.plans
   const waitlist = pricing.waitlist
   const accentBtn = waitlist ? 'lpBtn--waitlist' : pricing.founders ? 'lpBtn--accent' : 'lpBtn--primary'
   const accentNote = waitlist ? 'lpHeroNote--waitlist' : pricing.founders ? 'lpHeroNote--accent' : ''
   const accentEyebrow = waitlist ? 'lpEyebrow--waitlist' : pricing.founders ? 'lpEyebrow--accent' : ''
 
-  const goToSignIn = useCallback((e) => {
-    e?.preventDefault()
-    navigateMarketing('/sign-in')
-  }, [])
+  const [checkoutPlan, setCheckoutPlan] = useState(null)
+  const [checkoutAttempt, setCheckoutAttempt] = useState(0)
+  const [checkoutBusy, setCheckoutBusy] = useState(false)
+  const [checkoutMsg, setCheckoutMsg] = useState('')
 
   const goToWaitlist = useCallback((e) => {
     e?.preventDefault()
     navigateMarketing('/waitlist')
   }, [])
 
-  const goPrimary = waitlist ? goToWaitlist : goToSignIn
-  const primaryHref = waitlist ? '/waitlist' : '/sign-in'
+  const goToSignIn = useCallback((e) => {
+    e?.preventDefault()
+    void signInWithOAuth('google')
+  }, [signInWithOAuth])
 
   const scrollToSection = useCallback((sectionId, e) => {
     e?.preventDefault()
@@ -84,6 +108,11 @@ export function IntroPage() {
     scroller.scrollTo({ top: Math.max(0, top), behavior: reduced ? 'instant' : 'smooth' })
     if (window.history?.pushState) window.history.pushState(null, '', `#${sectionId}`)
   }, [])
+
+  const scrollToPricing = useCallback(
+    (e) => scrollToSection(PRICING_SECTION_ID, e),
+    [scrollToSection],
+  )
 
   const scrollToTop = useCallback((e) => {
     e?.preventDefault()
@@ -102,6 +131,27 @@ export function IntroPage() {
       behavior: reduced ? 'instant' : 'smooth',
     })
   }, [])
+
+  const onCheckout = useCallback((planId) => {
+    setCheckoutPlan(planId)
+    setCheckoutAttempt((n) => n + 1)
+    setCheckoutMsg('')
+    try {
+      sessionStorage.setItem('mercerline_checkout_plan', planId)
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  const onSignOut = useCallback(async () => {
+    const { error } = await signOut()
+    if (error) return
+    returnToIntroAfterSignOut()
+  }, [signOut])
+
+  const goPrimary = waitlist ? goToWaitlist : scrollToPricing
+  const goBelowHero = waitlist ? (e) => scrollToSection('product', e) : collapseHero
+  const primaryHref = waitlist ? '/waitlist' : `#${PRICING_SECTION_ID}`
 
   useEffect(() => {
     applyPageMeta(INTRO_PAGE_META)
@@ -134,6 +184,13 @@ export function IntroPage() {
       el?.remove()
     }
   }, [pricing.monthlyUsd])
+
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, '')
+    if (hash === PRICING_SECTION_ID) {
+      requestAnimationFrame(() => scrollToSection(PRICING_SECTION_ID))
+    }
+  }, [scrollToSection])
 
   useEffect(() => {
     const page = pageRef.current
@@ -195,16 +252,32 @@ export function IntroPage() {
               <span className="lpBrandName">MERCERLINE</span>
             </a>
             <nav className="lpNavLinks" aria-label="Page">
-              <a href="#product" onClick={(e) => scrollToSection('product', e)}>
+              <a className="lpNavLinkDesktop" href="#product" onClick={(e) => scrollToSection('product', e)}>
                 Product
               </a>
-              <a href="#faq" onClick={(e) => scrollToSection('faq', e)}>
+              {!waitlist ? (
+                <a href={`#${PRICING_SECTION_ID}`} onClick={scrollToPricing}>
+                  Pricing
+                </a>
+              ) : null}
+              <a className="lpNavLinkDesktop" href="#faq" onClick={(e) => scrollToSection('faq', e)}>
                 FAQ
               </a>
+              {!user && !waitlist ? (
+                <a href="#" onClick={goToSignIn}>
+                  Sign in
+                </a>
+              ) : null}
             </nav>
-            <a className="lpNavCta" href={primaryHref} onClick={goPrimary}>
-              {waitlist ? 'Join waitlist' : 'Sign in'}
-            </a>
+            {user ? (
+              <button type="button" className="lpNavCta lpNavCta--button" onClick={() => void onSignOut()}>
+                Sign out
+              </button>
+            ) : waitlist ? (
+              <a className="lpNavCta" href="/waitlist" onClick={goToWaitlist}>
+                Join waitlist
+              </a>
+            ) : null}
           </div>
 
           <div className="lpHeroExpanded">
@@ -230,25 +303,19 @@ export function IntroPage() {
                 </p>
               ) : null}
               <div className="lpHeroActions">
-                <a
-                  className={`lpBtn ${accentBtn}`}
-                  href={primaryHref}
-                  onClick={goPrimary}
-                >
+                <a className={`lpBtn ${accentBtn}`} href={primaryHref} onClick={goPrimary}>
                   {hero.ctaPrimary}
                 </a>
                 <a
                   className="lpBtn lpBtn--ghost"
-                  href="#product"
-                  onClick={(e) => scrollToSection('product', e)}
+                  href={waitlist ? '#product' : '#story'}
+                  onClick={goBelowHero}
                 >
                   {hero.ctaSecondary}
                 </a>
               </div>
               {hero.note ? (
-                <p className={['lpHeroNote', accentNote].filter(Boolean).join(' ')}>
-                  {hero.note}
-                </p>
+                <p className={['lpHeroNote', accentNote].filter(Boolean).join(' ')}>{hero.note}</p>
               ) : null}
             </div>
             <div className="lpHeroExpandedFooter">
@@ -280,7 +347,7 @@ export function IntroPage() {
         <IntroCompanyMarquee />
 
         <main className="lpMain">
-          <section className="lpStory" aria-labelledby="lp-story-title">
+          <section id="story" className="lpStory" aria-labelledby="lp-story-title">
             <div className="lpStoryInner">
               <div className="lpStoryCopy">
                 <p className="lpEyebrow">{ORIGIN_STORY.kicker}</p>
@@ -392,6 +459,110 @@ export function IntroPage() {
             </div>
           </section>
 
+          {!waitlist ? (
+            <section
+              id={PRICING_SECTION_ID}
+              className={['subHero', 'lpPricing', pricing.founders ? 'subHero--founders' : '']
+                .filter(Boolean)
+                .join(' ')}
+              aria-labelledby="lp-pricing-title"
+            >
+              <p className="lpEyebrow">{pricingHead.kicker}</p>
+              <h2 id="lp-pricing-title" className="subTitle">
+                {subscribe.headline || pricingHead.title}
+              </h2>
+              {subscribe.lead || pricingHead.sub ? (
+                <p className="subLead">{subscribe.lead || pricingHead.sub}</p>
+              ) : null}
+              {subscribe.reassurance ? (
+                <p
+                  className={['lpHeroNote', pricing.founders ? 'lpHeroNote--accent' : '']
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {subscribe.reassurance}
+                </p>
+              ) : null}
+
+              <ul className="lpSourceList subFeaturesList" aria-label="Included with either plan">
+                {SUBSCRIBE_FEATURES.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+
+              <div className="lpPlans">
+                {plans.map((plan) => (
+                  <article
+                    key={plan.id}
+                    className={['lpPlan', plan.featured ? 'lpPlan--featured' : ''].filter(Boolean).join(' ')}
+                  >
+                    <h3 className="lpPlanName">{plan.name}</h3>
+                    <p className="lpPlanPrice">
+                      {plan.listPriceUsd ? (
+                        <span className="lpPlanListPrice">{formatUsd(plan.listPriceUsd)}</span>
+                      ) : null}
+                      <span className="lpPlanAmount">{formatUsd(plan.priceUsd)}</span>
+                      <span className="lpPlanInterval">/{plan.intervalLabel}</span>
+                    </p>
+                    <button
+                      type="button"
+                      className={`lpBtn ${plan.featured ? 'lpBtn--primary' : 'lpBtn--ghost'} lpPlanCta`}
+                      disabled={checkoutBusy}
+                      onClick={() => onCheckout(plan.id)}
+                    >
+                      {checkoutBusy && checkoutPlan === plan.id
+                        ? 'Opening checkout…'
+                        : (subscribe.planCta?.[plan.id] ??
+                          (plan.featured ? 'Continue with yearly' : 'Continue with monthly'))}
+                    </button>
+                  </article>
+                ))}
+              </div>
+
+              {checkoutPlan ? (
+                <WhopCheckoutPanel
+                  key={`${checkoutPlan}-${checkoutAttempt}`}
+                  autoStart
+                  selectedPlan={checkoutPlan}
+                  userEmail={user?.email ?? null}
+                  onBusyChange={setCheckoutBusy}
+                  onError={setCheckoutMsg}
+                />
+              ) : null}
+              {checkoutMsg ? (
+                <p className="subError" role="alert">
+                  {checkoutMsg}
+                </p>
+              ) : null}
+              <p className={pricing.founders ? 'lpFinePrint subFoundersFine' : 'lpFinePrint'}>
+                {pricing.founders
+                  ? 'This limited-time offer ends when early access closes'
+                  : `Save ${formatUsd(pricing.yearlySaveUsd)} on yearly. Cancel anytime.`}
+              </p>
+            </section>
+          ) : null}
+
+          {!waitlist ? (
+            <section className="lpSection subPreview" aria-label="Product preview">
+              <div className="lpSectionHead">
+                <p className="lpEyebrow">{SUBSCRIBE_PREVIEW.kicker}</p>
+                <h2 className="lpSectionTitle">{SUBSCRIBE_PREVIEW.title}</h2>
+                <p className="lpSectionLead">{SUBSCRIBE_PREVIEW.lead}</p>
+              </div>
+              <ul className="lpPillars">
+                {SUBSCRIBE_PREVIEW.pillars.map((p) => (
+                  <li key={p.id} className="lpPillar">
+                    <h3 className="lpPillarTitle">{p.title}</h3>
+                    <p className="lpPillarBody">{p.body}</p>
+                  </li>
+                ))}
+              </ul>
+              <div className="lpShotFrame lpShotFrame--tight">
+                <IntroTerminalPreview shot="investorsDirectory" staticResearch />
+              </div>
+            </section>
+          ) : null}
+
           <section id="faq" className="lpSection">
             <div className="lpSectionHead">
               <p className="lpEyebrow">FAQ</p>
@@ -410,25 +581,27 @@ export function IntroPage() {
           <section className="lpCtaBand">
             <h2 className="lpCtaTitle">{closing.title}</h2>
             <p className="lpCtaLead">
-              {waitlist
-                ? 'Leave your email and we will write when access is ready.'
-                : pricing.founders && pricing.monthlyListUsd ? (
+              {waitlist ? (
+                'Leave your email and we will write when access is ready.'
+              ) : pricing.founders && pricing.monthlyListUsd ? (
                 <>
                   Full access from day one at{' '}
                   <span className="lpHeroListPrice">{formatUsd(pricing.monthlyListUsd)}/mo</span>{' '}
                   <span className="lpHeroPrice">{formatUsd(pricing.monthlyUsd)}/mo</span>
                 </>
               ) : (
-                'Full access from day one.'
+                'Full access from day one — pay and start immediately.'
               )}
             </p>
-            <a
-              className={`lpBtn ${accentBtn}`}
-              href={primaryHref}
-              onClick={goPrimary}
-            >
-              {closing.ctaPrimary}
-            </a>
+            {waitlist ? (
+              <a className={`lpBtn ${accentBtn}`} href="/waitlist" onClick={goToWaitlist}>
+                {closing.ctaPrimary}
+              </a>
+            ) : (
+              <button type="button" className={`lpBtn ${accentBtn}`} onClick={scrollToPricing}>
+                {closing.ctaPrimary}
+              </button>
+            )}
           </section>
         </main>
 

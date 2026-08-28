@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { WhopCheckoutEmbed } from '@whop/checkout/react'
 import { fetchJsonSafe, getBackendBase } from './api.js'
+import { activateCheckoutSession } from './checkoutActivate.js'
 import { peekReferralRef } from './referralRef.js'
 
 const WHOP_ENV = import.meta.env.VITE_WHOP_ENV === 'sandbox' ? 'sandbox' : 'production'
@@ -69,8 +70,10 @@ export function WhopCheckoutPanel({
       msg = 'Billing is not configured yet.'
     } else if (code === 'waitlist_mode') {
       msg = 'Access is waitlist-only right now.'
+    } else if (code === 'supabase_admin_not_configured') {
+      msg = 'Checkout is not fully configured yet.'
     } else if (res.status === 401) {
-      msg = 'Session expired — sign in again.'
+      msg = 'Could not start checkout — try again.'
     } else if (code === 'checkout_failed' && res.data?.message) {
       msg = `Checkout failed: ${res.data.message}`
     }
@@ -92,10 +95,19 @@ export function WhopCheckoutPanel({
         } catch {
           /* ignore */
         }
+        void activateCheckoutSession(receiptId).then((result) => {
+          if (!result.ok) {
+            const msg = 'Payment received — finishing setup. Refresh if access does not open.'
+            setErr(msg)
+            onError?.(msg)
+          }
+          onComplete?.(receiptId, result)
+        })
+        return
       }
       onComplete?.(receiptId)
     },
-    [onComplete],
+    [onComplete, onError],
   )
 
   if (!sessionId) {

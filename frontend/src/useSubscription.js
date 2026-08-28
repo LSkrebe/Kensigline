@@ -3,6 +3,15 @@ import { clearAuthTokenCache, fetchJsonSafe } from './api.js'
 
 const BILLING_CACHE_PREFIX = 'ml.billing.status.v1:'
 
+export function clearBillingCache(userId) {
+  if (!userId) return
+  try {
+    sessionStorage.removeItem(BILLING_CACHE_PREFIX + userId)
+  } catch {
+    /* ignore */
+  }
+}
+
 function readBillingCache(userId) {
   try {
     const raw = sessionStorage.getItem(BILLING_CACHE_PREFIX + userId)

@@ -26,8 +26,11 @@ export function useMarketingPath() {
 export function navigateMarketing(path) {
   if (typeof window === 'undefined') return
   const next = path.startsWith('/') ? path : `/${path}`
-  if (normalizeMarketingPath(window.location.pathname) === normalizeMarketingPath(next)) return
-  window.history.pushState(null, '', next)
+  const url = new URL(next, window.location.origin)
+  const samePath = normalizeMarketingPath(window.location.pathname) === normalizeMarketingPath(url.pathname)
+  const sameHash = window.location.hash === url.hash
+  if (samePath && sameHash) return
+  window.history.pushState(null, '', `${url.pathname}${url.search}${url.hash}`)
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 

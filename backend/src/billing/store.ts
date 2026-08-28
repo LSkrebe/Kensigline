@@ -1,4 +1,5 @@
 import { db } from "../core/db.js";
+import { ensureSupabaseUserForEmail } from "../core/supabase-admin.js";
 import { isActiveStatus, planFromWhopPlanId } from "./config.js";
 
 export type BillingRow = {
@@ -137,6 +138,13 @@ export async function syncFromWhopMembership(
   const email = membership.user?.email?.trim().toLowerCase() ?? null;
   if (!userId && email) {
     userId = (await getBillingByEmail(email))?.user_id ?? null;
+  }
+  if (!userId && email) {
+    try {
+      userId = await ensureSupabaseUserForEmail(email);
+    } catch (err) {
+      console.warn("[billing] sync membership: provision user failed", err);
+    }
   }
   if (!userId) {
     console.warn("[billing] sync membership: missing supabase user id", membershipId);

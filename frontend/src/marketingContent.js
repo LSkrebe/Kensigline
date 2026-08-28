@@ -50,7 +50,7 @@ export const WAITLIST = {
 export const SIGN_IN = {
   eyebrow: 'Welcome back',
   headline: 'Sign in',
-  lead: 'Open your disclosure workspace. New here? Create an account in the same form.',
+  lead: 'Continue with Google — use the same email you paid with on Whop.',
 }
 
 export const INTRO_FOOTER = {
@@ -111,18 +111,18 @@ export function heroCopy(pricing = DEFAULT_PRICING) {
       headline: HERO_HEADLINE,
       lead: null,
       ctaPrimary: 'Get 50% off',
-      ctaSecondary: 'See product',
+      ctaSecondary: 'Learn more',
       note: 'Limited early access offer',
     }
   }
   return {
-    eyebrow: 'US equity disclosures',
+    eyebrow: null,
     brand: 'Mercerline',
     headline: HERO_HEADLINE,
     lead: heroLead(pricing),
-    ctaPrimary: 'Get started',
-    ctaSecondary: 'See product',
-    note: 'Open the investor behind each filing when it matters',
+    ctaPrimary: 'See pricing',
+    ctaSecondary: 'Learn more',
+    note: 'Pay once — start using Mercerline immediately',
   }
 }
 
@@ -137,12 +137,12 @@ export function introClosingCopy(pricing = DEFAULT_PRICING) {
   if (pricing.founders) {
     return {
       title: 'Stay ahead of the headline',
-      ctaPrimary: 'Claim 50% off',
+      ctaPrimary: 'Pick your plan',
     }
   }
   return {
     title: 'Track disclosures while they still matter',
-    ctaPrimary: 'Open Mercerline',
+    ctaPrimary: 'Pick your plan',
   }
 }
 
@@ -445,6 +445,10 @@ export function introFaq(pricing = DEFAULT_PRICING) {
       a: `Yes. ${formatUsd(pricing.monthlyUsd)}/mo or ${formatUsd(pricing.yearlyUsd)}/yr with Whop. Manage billing anytime in Settings.`,
     },
     {
+      q: 'Already a member?',
+      a: 'Choose Sign in in the menu — Google opens instantly. Use the same email as your Whop checkout.',
+    },
+    {
       q: 'Is this investment advice?',
       a: 'No. Mercerline is a research workspace only.',
     },
@@ -544,7 +548,7 @@ export function subscribeFaq(pricing = DEFAULT_PRICING) {
     },
     {
       q: 'What happens after I pay?',
-      a: 'You land in Explore with investor dossiers, company context, and the macro calendar unlocked.',
+      a: 'You go straight into Mercerline — Explore, investor dossiers, company context, and the macro calendar unlock immediately.',
     },
     {
       q: 'Why choose yearly?',

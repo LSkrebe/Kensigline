@@ -249,19 +249,12 @@
   margin-left: auto;
 }
 
-.lpHeroDock .lpNavLinks {
-  opacity: var(--lp-compact-opacity);
-  pointer-events: none;
-}
-
-.lpHeroDock--compact .lpNavLinks {
-  pointer-events: auto;
-}
-
 .lpNavLinks a {
   font-size: 13px;
   color: var(--lp-muted);
   text-decoration: none;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .lpNavLinks a:hover {
@@ -321,30 +314,31 @@
 }
 
 .lpHeroBrand {
-  margin: 0 auto 18px;
+  margin: 0 auto 14px;
   font-family: var(--lp-serif);
-  font-size: clamp(2.85rem, 7.2vw, 4.5rem);
+  font-size: 12px;
   font-weight: 400;
   line-height: 1;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
+  color: var(--lp-dim);
 }
 
 .lpHeroTitle {
-  margin: 0 auto 20px;
-  max-width: min(100%, 36rem);
+  margin: 0 auto 18px;
+  max-width: min(100%, 14em);
   font-family: var(--lp-serif);
-  font-size: clamp(1.45rem, 3.2vw, 1.95rem);
+  font-size: clamp(2.35rem, 6.2vw, 4.1rem);
   font-weight: 400;
-  line-height: 1.25;
-  letter-spacing: -0.015em;
-  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.04;
+  letter-spacing: -0.024em;
+  color: var(--lp-fg);
+  text-wrap: balance;
 }
 
 @media (min-width: 900px) {
   .lpHeroTitle {
-    max-width: none;
-    white-space: nowrap;
+    max-width: 15em;
   }
 }
 
@@ -1468,11 +1462,27 @@
   }
 
   .lpNavLinks {
+    gap: 18px;
+    margin-left: auto;
+  }
+
+  .lpNavLinkDesktop {
     display: none;
+  }
+
+  .lpNavLinks a {
+    font-size: 12px;
   }
 
   .lpHeroChrome .lpNavCta {
     margin-left: auto;
+    flex-shrink: 0;
+    padding: 0 12px;
+    font-size: 12px;
+  }
+
+  .lpHeroChrome {
+    gap: 10px;
   }
 
   .lpFootInner {
@@ -1485,8 +1495,15 @@
   }
 
   .lpHeroTitle {
-    max-width: min(100%, 28rem);
-    white-space: normal;
+    max-width: min(100%, 12em);
+    font-size: clamp(2rem, 8.5vw, 2.65rem);
+    line-height: 1.06;
+  }
+
+  .lpHeroBrand {
+    margin-bottom: 12px;
+    font-size: 11px;
+    letter-spacing: 0.2em;
   }
 
   .lpHeroLead {
@@ -1521,4 +1538,22 @@
   .lpCtaBand .lpBtn {
     width: min(100%, 280px);
   }
+}
+
+.lpNavCta--button {
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.lpPricing {
+  scroll-margin-top: calc(var(--lp-hero-collapsed-h, 64px) + 12px);
+}
+
+.lpPricing .subTitle {
+  max-width: 20ch;
+}
+
+.lpShotFrame--tight {
+  margin-top: 28px;
 }

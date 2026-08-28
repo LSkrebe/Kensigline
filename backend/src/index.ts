@@ -16,6 +16,7 @@ import {
 } from "./core/outcomes.js";
 import { bearerToken, supabaseAuthConfigured, verifySupabaseAccessToken } from "./core/supabase-auth.js";
 import {
+  handleBillingActivate,
   handleBillingCheckout,
   handleBillingPortal,
   handleBillingPricing,
@@ -174,11 +175,16 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 503, { ok: false, error: "waitlist_mode" });
         return;
       }
-      if (!supabaseAuthConfigured()) {
-        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+      await handleBillingCheckout(req, res);
+      return;
+    }
+
+    if (route(req, url, "POST", "/api/billing/activate")) {
+      if (isWaitlistModeEnabled()) {
+        sendJson(res, 503, { ok: false, error: "waitlist_mode" });
         return;
       }
-      await handleBillingCheckout(req, res);
+      await handleBillingActivate(req, res);
       return;
     }
 

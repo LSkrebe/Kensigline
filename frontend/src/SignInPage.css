@@ -35,6 +35,80 @@
   color: var(--lp-muted);
 }
 
+.authFootnote {
+  margin: 24px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--lp-muted);
+  text-align: center;
+}
+
+.authFootnote a {
+  color: var(--lp-fg);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.authFootnote a:hover {
+  color: var(--lp-accent);
+}
+
+.authOAuthBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0;
+  background: #fff;
+  color: #1f1f1f;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.authOAuthBtn:hover:not(:disabled) {
+  background: #f8f8f8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.authOAuthBtn:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.authOAuthIcon {
+  flex-shrink: 0;
+}
+
+.authSignInDivider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 16px;
+  color: var(--lp-muted);
+  font-size: 12px;
+  text-transform: lowercase;
+}
+
+.authSignInDivider::before,
+.authSignInDivider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.authSignInBtn--full {
+  width: 100%;
+  justify-content: center;
+}
+
 .authPage .authSignIn--intro {
   width: 100%;
 }

@@ -13,6 +13,7 @@ const BILLING_EXEMPT_PATHS = new Set([
   "/api/billing/pricing",
   "/api/billing/status",
   "/api/billing/checkout",
+  "/api/billing/activate",
   "/api/billing/portal",
   "/api/billing/refresh",
   "/api/auth/me",
