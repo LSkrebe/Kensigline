@@ -322,7 +322,7 @@ export const PRODUCT = {
   lead: 'Insiders, politicians, and big funds are all on the same rail, from the daily recap to the dossier.',
 }
 
-/** Member quotes — swap avatarSrc when real photos are ready. */
+/** Member quotes for intro reviews section. */
 export const INTRO_REVIEWS = {
   kicker: 'Reviews',
   title: 'What members are saying',
@@ -337,8 +337,6 @@ export const INTRO_REVIEWS = {
       rating: 5,
       quote:
         'I used to find politician trades days too late. Now I see the filing, who filed, and the stock on one page that same morning.',
-      avatarSrc: '/intro/reviews/lucas.png',
-      avatarAlt: 'Lucas S.',
     },
     {
       id: 'jhon',
@@ -348,8 +346,6 @@ export const INTRO_REVIEWS = {
       rating: 5,
       quote:
         'The investor page is what I use most. One click shows all their trades and related stocks. I do not need ten tabs open anymore.',
-      avatarSrc: '/intro/reviews/jhon.png',
-      avatarAlt: 'Jhon J.',
     },
     {
       id: 'faust',
@@ -359,8 +355,6 @@ export const INTRO_REVIEWS = {
       rating: 5,
       quote:
         'The daily recap changed how I watch chip stocks. I see who filed before prices move. Not days later when everyone else finds out.',
-      avatarSrc: '/intro/reviews/faust.png',
-      avatarAlt: 'Faust R.',
     },
   ],
 }
@@ -398,12 +392,12 @@ export const PLAN_FEATURES = [
 /** Compact labels for subscribe — same chip treatment as intro Coverage. */
 export const SUBSCRIBE_FEATURES = {
   items: [
-    'Daily disclosure recap',
-    'Investors directory',
+    'Daily recap',
+    'Investor list',
     'Investor dossiers',
     'Company dossiers',
     'Macro calendar',
-    'Historical outcomes',
+    'Track record',
   ],
 }
 
@@ -550,10 +544,6 @@ export function subscribeFaq(pricing = DEFAULT_PRICING) {
       a: pricing.founders
         ? `Lock in founders pricing and save ${formatUsd(pricing.yearlySaveUsd)} vs paying monthly for twelve months.`
         : `${formatUsd(pricing.yearlySaveUsd)} less than paying monthly for twelve months.`,
-    },
-    {
-      q: 'Can I cancel anytime?',
-      a: 'Yes. Manage or cancel from Settings. Access stays active through the billed period.',
     },
   ]
 }

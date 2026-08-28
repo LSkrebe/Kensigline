@@ -351,8 +351,8 @@
 .lpHeroLead {
   margin: 0 auto 14px;
   max-width: 46ch;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.55;
   color: var(--lp-muted);
 }
 
@@ -901,26 +901,15 @@
 
 .lpReviewViewport {
   display: flex;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
-  touch-action: pan-x;
-  scrollbar-width: none;
-  gap: 12px;
-  scroll-padding-inline: 0;
-}
-
-.lpReviewViewport::-webkit-scrollbar {
-  display: none;
+  flex-direction: column;
+  gap: 20px;
+  overflow: visible;
 }
 
 .lpReviewSlide {
-  flex: 0 0 calc(100% - 12px);
+  flex: none;
+  width: 100%;
   min-width: 0;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
 }
 
 .lpReviewCard {
@@ -928,8 +917,6 @@
   flex-direction: column;
   justify-content: space-between;
   gap: 16px;
-  min-height: 100%;
-  height: 100%;
   padding: 20px 18px 18px;
   border: 1px solid var(--lp-line);
   border-radius: 0;
@@ -989,22 +976,9 @@
 }
 
 .lpReviewMeta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
   margin: 0;
   padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.lpReviewAvatar {
-  flex: 0 0 auto;
-  width: 48px;
-  height: 48px;
-  object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0;
-  background: #141416;
 }
 
 .lpReviewIdentity {
@@ -1023,7 +997,7 @@
   font-style: normal;
   font-size: 13px;
   letter-spacing: 0.04em;
-  color: var(--lp-fg);
+  color: rgba(255, 255, 255, 0.38);
 }
 
 .lpReviewVerifiedBadge {
@@ -1039,45 +1013,16 @@
   color: rgba(255, 255, 255, 0.38);
 }
 
-.lpReviewDots {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 14px;
-  pointer-events: none;
-}
-
-.lpReviewDot {
-  width: 6px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.2);
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.lpReviewDot--active {
-  background: rgba(255, 255, 255, 0.72);
-  transform: scale(1.15);
-}
-
 @media (min-width: 900px) {
-  .lpReviewDots {
-    display: none;
-  }
-
   .lpReviewViewport {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
     overflow: hidden;
-    scroll-snap-type: none;
-  }
-
-  .lpReviewSlide {
-    flex: none;
-    scroll-snap-align: none;
   }
 
   .lpReviewCard {
+    height: 100%;
     padding: 22px 20px 20px;
   }
 
@@ -1462,6 +1407,8 @@
 
   .lpHeroLead {
     margin-bottom: 12px;
+    font-size: 12px;
+    line-height: 1.5;
     margin-inline: auto;
   }
 
@@ -1484,6 +1431,10 @@
     gap: 28px;
   }
 
+  .lpReviewViewport {
+    gap: 24px;
+  }
+
   .lpCtaBand {
     text-align: center;
     padding-top: clamp(64px, 10vh, 96px);
@@ -1503,6 +1454,12 @@
 
 .lpPricing {
   scroll-margin-top: calc(var(--lp-hero-collapsed-h, 64px) + 12px);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--lp-max);
+  margin-inline: auto;
+  padding: clamp(56px, 10vh, 96px) var(--lp-pad) clamp(48px, 8vh, 80px);
+  text-align: center;
 }
 
 .lpPricing .subTitle {

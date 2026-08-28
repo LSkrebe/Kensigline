@@ -1,7 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
 import { INTRO_REVIEWS } from './marketingContent.js'
-
-const PLACEHOLDER_AVATAR = '/intro/reviews/placeholder.svg'
 
 function StarRating({ rating = 5, max = 5, className = '' }) {
   const fullStars = Math.floor(rating)
@@ -61,24 +58,6 @@ function VerifiedBadge() {
   )
 }
 
-function ReviewAvatar({ src, alt }) {
-  const [failed, setFailed] = useState(false)
-  const resolved = failed || !src ? PLACEHOLDER_AVATAR : src
-
-  return (
-    <img
-      className="lpReviewAvatar"
-      src={resolved}
-      alt={alt}
-      width={48}
-      height={48}
-      loading="lazy"
-      decoding="async"
-      onError={() => setFailed(true)}
-    />
-  )
-}
-
 function ReviewCard({ review }) {
   return (
     <article className="lpReviewCard">
@@ -87,7 +66,6 @@ function ReviewCard({ review }) {
         <p>{review.quote}</p>
       </blockquote>
       <footer className="lpReviewMeta">
-        <ReviewAvatar src={review.avatarSrc} alt={review.avatarAlt ?? review.name} />
         <div className="lpReviewIdentity">
           <div className="lpReviewNameRow">
             <cite className="lpReviewName">{review.name}</cite>
@@ -102,42 +80,6 @@ function ReviewCard({ review }) {
 
 export function IntroReviewsSection() {
   const reviews = INTRO_REVIEWS.items
-  const viewportRef = useRef(null)
-  const [activeIndex, setActiveIndex] = useState(0)
-
-  useEffect(() => {
-    const viewport = viewportRef.current
-    if (!viewport || reviews.length <= 1) return undefined
-
-    const slides = viewport.querySelectorAll('.lpReviewSlide')
-    const syncActive = () => {
-      const viewportRect = viewport.getBoundingClientRect()
-      const viewportCenter = viewportRect.left + viewportRect.width / 2
-      let closestIndex = 0
-      let closestDistance = Number.POSITIVE_INFINITY
-
-      slides.forEach((slide, index) => {
-        const slideRect = slide.getBoundingClientRect()
-        const slideCenter = slideRect.left + slideRect.width / 2
-        const distance = Math.abs(slideCenter - viewportCenter)
-        if (distance < closestDistance) {
-          closestDistance = distance
-          closestIndex = index
-        }
-      })
-
-      setActiveIndex(closestIndex)
-    }
-
-    syncActive()
-    viewport.addEventListener('scroll', syncActive, { passive: true })
-    window.addEventListener('resize', syncActive)
-
-    return () => {
-      viewport.removeEventListener('scroll', syncActive)
-      window.removeEventListener('resize', syncActive)
-    }
-  }, [reviews.length])
 
   return (
     <section className="lpSection lpReviews" aria-labelledby="lp-reviews-title">
@@ -158,23 +100,13 @@ export function IntroReviewsSection() {
       </div>
 
       <div className="lpReviewCarousel">
-        <div ref={viewportRef} className="lpReviewViewport" role="list">
+        <div className="lpReviewViewport" role="list">
           {reviews.map((review) => (
             <div key={review.id} className="lpReviewSlide" role="listitem">
               <ReviewCard review={review} />
             </div>
           ))}
         </div>
-        {reviews.length > 1 ? (
-          <div className="lpReviewDots" aria-hidden="true">
-            {reviews.map((review, index) => (
-              <span
-                key={review.id}
-                className={`lpReviewDot${index === activeIndex ? ' lpReviewDot--active' : ''}`}
-              />
-            ))}
-          </div>
-        ) : null}
       </div>
     </section>
   )
