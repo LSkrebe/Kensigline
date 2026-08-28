@@ -318,33 +318,10 @@ export function IntroPage() {
                 <p className={['lpHeroNote', accentNote].filter(Boolean).join(' ')}>{hero.note}</p>
               ) : null}
             </div>
-            <div className="lpHeroExpandedFooter">
-              <button
-                type="button"
-                className="lpHeroNavBtn lpHeroNavBtn--collapse lpHeroNavBtn--collapseStart"
-                aria-label="Collapse hero"
-                onClick={collapseHero}
-              >
-                <span className="lpHeroNavBtnGlyph mono" aria-hidden="true">
-                  ↓
-                </span>
-              </button>
-              <button
-                type="button"
-                className="lpHeroNavBtn lpHeroNavBtn--collapse lpHeroNavBtn--collapseEnd"
-                aria-label="Collapse hero"
-                onClick={collapseHero}
-              >
-                <span className="lpHeroNavBtnGlyph mono" aria-hidden="true">
-                  ↓
-                </span>
-              </button>
-            </div>
+            <IntroCompanyMarquee />
           </div>
         </div>
         <div ref={spacerRef} className="lpHeroCollapseSpacer" aria-hidden="true" />
-
-        <IntroCompanyMarquee />
 
         <main className="lpMain">
           <section id="story" className="lpStory" aria-labelledby="lp-story-title">
