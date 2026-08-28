@@ -12,7 +12,7 @@
   --lp-max: 1120px;
   --lp-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --lp-sans: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
-  --lp-hero-expanded-h: clamp(430px, 60vh, 640px);
+  --lp-hero-expanded-h: clamp(440px, 60vh, 640px);
   --lp-hero-collapsed-h: 64px;
 
   box-sizing: border-box;
@@ -1412,26 +1412,7 @@
 
 @media (max-width: 900px) {
   .lp {
-    /* Leave room below hero so the next section peeks; cap height on tall phones */
-    --lp-hero-expanded-h: clamp(390px, calc(100dvh - 80px), 540px);
-  }
-
-  .lpCompanyMarquee {
-    padding: 5px 0 8px;
-  }
-
-  .lpMarqueeItem {
-    width: 36px;
-    height: 36px;
-    padding: 6px;
-  }
-
-  .lpMarqueeRow + .lpMarqueeRow {
-    margin-top: 6px;
-  }
-
-  .lpHeroNote {
-    font-size: 11px;
+    --lp-hero-expanded-h: clamp(400px, calc(100dvh - 72px), 580px);
   }
 
   .lpNavLinks {
@@ -1512,18 +1493,6 @@
 
   .lpCtaBand .lpBtn {
     width: min(100%, 280px);
-  }
-}
-
-@media (max-height: 720px) {
-  .lp {
-    --lp-hero-expanded-h: clamp(350px, calc(100dvh - 80px), 490px);
-  }
-}
-
-@media (max-width: 900px) and (max-height: 720px) {
-  .lp {
-    --lp-hero-expanded-h: clamp(330px, calc(100dvh - 92px), 450px);
   }
 }
 
