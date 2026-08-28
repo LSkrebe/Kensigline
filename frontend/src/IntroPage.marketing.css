@@ -12,7 +12,7 @@
   --lp-max: 1120px;
   --lp-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --lp-sans: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
-  --lp-hero-expanded-h: clamp(440px, 60vh, 640px);
+  --lp-hero-expanded-h: clamp(400px, 58vh, 620px);
   --lp-hero-collapsed-h: 64px;
 
   box-sizing: border-box;
@@ -1339,10 +1339,10 @@
 
 .lpFootLine {
   margin: 0;
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.42);
+  font-size: 8px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.32);
   line-height: 1.4;
 }
 
@@ -1412,7 +1412,26 @@
 
 @media (max-width: 900px) {
   .lp {
-    --lp-hero-expanded-h: clamp(400px, calc(100dvh - 72px), 580px);
+    /* Leave room below hero so the next section peeks; cap height on tall phones */
+    --lp-hero-expanded-h: clamp(360px, calc(100dvh - 110px), 440px);
+  }
+
+  .lpCompanyMarquee {
+    padding: 4px 0 6px;
+  }
+
+  .lpMarqueeItem {
+    width: 32px;
+    height: 32px;
+    padding: 5px;
+  }
+
+  .lpMarqueeRow + .lpMarqueeRow {
+    margin-top: 4px;
+  }
+
+  .lpHeroNote {
+    font-size: 11px;
   }
 
   .lpNavLinks {
@@ -1493,6 +1512,18 @@
 
   .lpCtaBand .lpBtn {
     width: min(100%, 280px);
+  }
+}
+
+@media (max-height: 720px) {
+  .lp {
+    --lp-hero-expanded-h: clamp(320px, calc(100dvh - 96px), 420px);
+  }
+}
+
+@media (max-width: 900px) and (max-height: 720px) {
+  .lp {
+    --lp-hero-expanded-h: clamp(300px, calc(100dvh - 108px), 380px);
   }
 }
 

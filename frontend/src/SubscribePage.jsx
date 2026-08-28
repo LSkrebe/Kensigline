@@ -223,15 +223,7 @@ export function SubscribePage() {
       <footer className="lpFoot" role="contentinfo">
         <div className="lpFootInner lpFootInner--legal">
           <p className="lpFootLine">{SUBSCRIBE_FOOTER.line}</p>
-          <p className="lpFootLegalText">
-            <span className="lpFootLegalLabel">Terms</span> {SUBSCRIBE_FOOTER.terms}
-          </p>
-          <p className="lpFootLegalText">
-            <span className="lpFootLegalLabel">Privacy</span> {SUBSCRIBE_FOOTER.privacy}
-          </p>
-          <p className="lpFootLegalText">
-            <span className="lpFootLegalLabel">IP / DMCA</span> {SUBSCRIBE_FOOTER.ip}
-          </p>
+          <p className="lpFootLegalText">{SUBSCRIBE_FOOTER.legal}</p>
         </div>
       </footer>
     </div>

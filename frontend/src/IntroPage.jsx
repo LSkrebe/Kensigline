@@ -62,6 +62,7 @@ export function IntroPage() {
   const pageRef = useRef(null)
   const dockRef = useRef(null)
   const spacerRef = useRef(null)
+  const checkoutRef = useRef(null)
   const { user, signOut, signInWithOAuth } = useAuth()
   const pricing = useBillingPricing()
   const hero = heroCopy(pricing)
@@ -142,6 +143,29 @@ export function IntroPage() {
       /* ignore */
     }
   }, [])
+
+  useEffect(() => {
+    if (!checkoutPlan) return undefined
+    let cancelled = false
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (cancelled) return
+        const scroller = pageRef.current
+        const target = checkoutRef.current
+        if (!scroller || !target) return
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        const top =
+          target.getBoundingClientRect().top -
+          scroller.getBoundingClientRect().top +
+          scroller.scrollTop -
+          NAV_OFFSET
+        scroller.scrollTo({ top: Math.max(0, top), behavior: reduced ? 'instant' : 'smooth' })
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [checkoutPlan, checkoutAttempt])
 
   const onSignOut = useCallback(async () => {
     const { error } = await signOut()
@@ -496,16 +520,18 @@ export function IntroPage() {
                 ))}
               </div>
 
-              {checkoutPlan ? (
-                <WhopCheckoutPanel
-                  key={`${checkoutPlan}-${checkoutAttempt}`}
-                  autoStart
-                  selectedPlan={checkoutPlan}
-                  userEmail={user?.email ?? null}
-                  onBusyChange={setCheckoutBusy}
-                  onError={setCheckoutMsg}
-                />
-              ) : null}
+              <div ref={checkoutRef} id="intro-checkout">
+                {checkoutPlan ? (
+                  <WhopCheckoutPanel
+                    key={`${checkoutPlan}-${checkoutAttempt}`}
+                    autoStart
+                    selectedPlan={checkoutPlan}
+                    userEmail={user?.email ?? null}
+                    onBusyChange={setCheckoutBusy}
+                    onError={setCheckoutMsg}
+                  />
+                ) : null}
+              </div>
               {checkoutMsg ? (
                 <p className="subError" role="alert">
                   {checkoutMsg}
@@ -585,15 +611,7 @@ export function IntroPage() {
         <footer className="lpFoot" role="contentinfo">
           <div className="lpFootInner lpFootInner--legal">
             <p className="lpFootLine">{INTRO_FOOTER.line}</p>
-            <p className="lpFootLegalText">
-              <span className="lpFootLegalLabel">Terms</span> {INTRO_FOOTER.terms}
-            </p>
-            <p className="lpFootLegalText">
-              <span className="lpFootLegalLabel">Privacy</span> {INTRO_FOOTER.privacy}
-            </p>
-            <p className="lpFootLegalText">
-              <span className="lpFootLegalLabel">IP / DMCA</span> {INTRO_FOOTER.ip}
-            </p>
+            <p className="lpFootLegalText">{INTRO_FOOTER.legal}</p>
           </div>
         </footer>
       </div>
