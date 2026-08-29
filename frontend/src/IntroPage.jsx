@@ -15,7 +15,6 @@ import {
   INTRO_FOOTER,
   INTRO_PAGE_META,
   pricingCopy,
-  SUBSCRIBE_FEATURES,
   subscribeCopy,
 } from './marketingContent.js'
 import { navigateMarketing, returnToIntroAfterSignOut } from './marketingRoute.js'
@@ -409,29 +408,6 @@ export function IntroPage() {
                 {subscribe.lead || pricingHead.sub ? (
                   <p className="lpSectionLead">{subscribe.lead || pricingHead.sub}</p>
                 ) : null}
-              </div>
-
-              <div className="lpPricingIncludes">
-                {subscribe.reassurance ? (
-                  <p
-                    className={[
-                      'lpPricingFeature',
-                      'lpPricingFeature--banner',
-                      pricing.founders ? 'lpPricingFeature--featured' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                  >
-                    {subscribe.reassurance}
-                  </p>
-                ) : null}
-                <ul className="lpPricingFeatureGrid" aria-label="Included with either plan">
-                  {SUBSCRIBE_FEATURES.items.map((item) => (
-                    <li key={item} className="lpPricingFeature">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
               </div>
 
               <div className="lpPlans">

@@ -56,10 +56,6 @@ export function IntroReviewChart({ ticker, filedIso, chartEnd }) {
 
   if (!geometry) return null
 
-  const filingPoint = geometry.points[0]
-  const filingTopPct = (filingPoint.y / H) * 100
-  const filingLeftPct = (filingPoint.x / W) * 100
-
   return (
     <div className="lpReviewChartWrap">
       <svg
@@ -70,11 +66,6 @@ export function IntroReviewChart({ ticker, filedIso, chartEnd }) {
       >
         <path d={geometry.line} className="lpReviewChartLine" />
       </svg>
-      <span
-        className="lpReviewChartMarker"
-        style={{ left: `${filingLeftPct}%`, top: `${filingTopPct}%` }}
-        aria-hidden="true"
-      />
     </div>
   )
 }

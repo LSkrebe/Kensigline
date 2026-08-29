@@ -1127,24 +1127,92 @@
   object-position: top center;
 }
 
+.lpHowDots {
+  display: none;
+}
+
 @media (max-width: 899px) {
+  .lpHowItWorks {
+    overflow: hidden;
+  }
+
+  .lpHowRows {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 12px;
+    margin-inline: calc(-1 * var(--lp-pad));
+    padding-inline: var(--lp-pad);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-padding-inline: var(--lp-pad);
+  }
+
+  .lpHowRows::-webkit-scrollbar {
+    display: none;
+  }
+
   .lpHowRow,
   .lpHowRow--flip {
-    grid-template-columns: 1fr;
-    padding: clamp(32px, 5vh, 44px) 0;
+    flex: 0 0 calc(100% - 40px);
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+    display: block;
+    padding: 0;
+    border: none;
+    background: transparent;
+    overflow: visible;
   }
 
   .lpHowRow:first-child {
     padding-top: 0;
   }
 
-  .lpHowRow--flip .lpHowCopy,
-  .lpHowRow--flip .lpHowFrame {
-    order: unset;
+  .lpHowCopy {
+    display: none;
   }
 
-  .lpHowStepNum {
-    font-size: clamp(2.75rem, 14vw, 3.75rem);
+  .lpHowFrame {
+    aspect-ratio: 16 / 10;
+    border: 1px solid rgba(158, 196, 212, 0.18);
+    box-shadow:
+      0 20px 48px rgba(0, 0, 0, 0.35),
+      0 0 32px rgba(158, 196, 212, 0.05);
+  }
+
+  .lpHowFrame::before {
+    display: none;
+  }
+
+  .lpHowFrame .mktHeroShot {
+    margin: 0;
+    height: 100%;
+  }
+
+  .lpHowDots {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .lpHowDot {
+    width: 18px;
+    height: 3px;
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.28);
+    transition: background 0.2s ease, opacity 0.2s ease;
+  }
+
+  .lpHowDot--active {
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: none;
   }
 }
 
@@ -1251,17 +1319,6 @@
   stroke-linejoin: round;
 }
 
-.lpReviewChartMarker {
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--lp-accent);
-  border: 1.5px solid rgba(8, 8, 9, 0.95);
-  pointer-events: none;
-}
-
 .lpReviewCardQuote {
   margin: 0;
   flex: 1 1 auto;
@@ -1291,6 +1348,64 @@
   font-size: 13px;
   letter-spacing: 0.04em;
   color: rgba(255, 255, 255, 0.52);
+}
+
+.lpReviewDots {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .lpReviews {
+    overflow: hidden;
+  }
+
+  .lpReviewGrid {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 12px;
+    margin-inline: calc(-1 * var(--lp-pad));
+    padding-inline: var(--lp-pad);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-padding-inline: var(--lp-pad);
+  }
+
+  .lpReviewGrid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .lpReviewCard {
+    flex: 0 0 calc(100% - 40px);
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+    min-height: clamp(320px, 52vh, 400px);
+  }
+
+  .lpReviewDots {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  .lpReviewDot {
+    width: 18px;
+    height: 3px;
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.28);
+    transition: background 0.2s ease;
+  }
+
+  .lpReviewDot--active {
+    background: rgba(255, 255, 255, 0.95);
+  }
 }
 
 @media (min-width: 900px) {
@@ -1830,10 +1945,6 @@
     min-width: 0;
     max-width: none;
     padding-inline: 8px;
-  }
-
-  .lpHowRows {
-    gap: 40px;
   }
 
   .lpInclude,

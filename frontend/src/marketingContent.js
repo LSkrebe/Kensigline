@@ -419,7 +419,7 @@ export const INTRO_COVERAGE = {
 /** Member quotes for intro reviews section. */
 export const INTRO_REVIEWS = {
   title: 'What members are saying',
-  lead: 'What they noticed in the app, and what they did after.',
+  lead: 'Real members, real filings they spotted in Mercerline, and the trades they made after seeing them in the feed.',
   items: [
     {
       id: 'lucas',
@@ -608,7 +608,7 @@ export function pricingCopy(pricing = DEFAULT_PRICING) {
   kicker: 'Pricing',
     title: 'Simple pricing. Full access.',
     sub: pricing.founders
-      ? 'Founders pricing, early access rate. Most members choose yearly.'
+      ? 'Founders pricing at the early access rate, 50% off locked in. Full access from day one. Most members choose yearly.'
       : `Most members choose yearly and save ${formatUsd(pricing.yearlySaveUsd)}.`,
     monthlyNote: 'Billed monthly, cancel anytime',
     yearlyNote: 'Billed annually',
@@ -628,8 +628,8 @@ export function subscribeCopy(pricing = DEFAULT_PRICING) {
     return {
       eyebrow: null,
       headline: 'Early access offer',
-      lead: null,
-      reassurance: '50% off with your rate locked in',
+      lead: 'Founders pricing at the early access rate, 50% off locked in. Full access from day one. Most members choose yearly.',
+      reassurance: null,
       planCta: {
         monthly: 'Lock in 50% off',
         yearly: 'Lock in 50% off',
