@@ -94,9 +94,9 @@
   content: '';
   position: absolute;
   inset: 0;
-  background-image: url('/mercerline_background_1.png');
+  background-image: var(--ml-bg-expanded, url('/mercerline_background_1.png'));
   background-size: cover;
-  background-position: center top;
+  background-position: var(--ml-bg-expanded-position, center top);
   background-repeat: no-repeat;
   opacity: 0.88;
 }
@@ -121,9 +121,9 @@
   content: '';
   position: absolute;
   inset: 0;
-  background-image: url('/mercerline_background_2.png');
+  background-image: var(--ml-bg-compact, url('/mercerline_background_2.png'));
   background-size: cover;
-  background-position: center top;
+  background-position: var(--ml-bg-compact-position, center top);
   background-repeat: no-repeat;
   opacity: 0.9;
 }
@@ -204,9 +204,9 @@
   position: absolute;
   inset: 0;
   z-index: 0;
-  background-image: url('/mercerline_background_2.png');
+  background-image: var(--ml-bg-compact, url('/mercerline_background_2.png'));
   background-size: cover;
-  background-position: center top;
+  background-position: var(--ml-bg-compact-position, center top);
   background-repeat: no-repeat;
   opacity: 0.9;
   pointer-events: none;

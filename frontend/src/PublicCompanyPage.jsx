@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext.jsx'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { matchPublicCompanyPath, publicCompanyPageMeta } from './publicCompany.js'
+import { pageBackgroundStyle } from './pageBackgrounds.js'
 import { markAppReady } from './marketingShell.js'
 import './DeepReport.css'
 import './PublicCompanyPage.css'
@@ -173,7 +174,7 @@ export function PublicCompanyPage({ ticker: tickerProp = null }) {
   const showName = Boolean(name && name !== ticker)
 
   return (
-    <article className="drpt pubCo">
+    <article className="drpt pubCo" style={pageBackgroundStyle('publicCompany')}>
       <div className="pubCoChromeBar">
         <div className="pubCoChromeBg" aria-hidden="true" />
         <div className="pubCoChrome">

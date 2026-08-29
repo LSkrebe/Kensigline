@@ -13,6 +13,7 @@ import {
 } from './marketingContent.js'
 import { returnToIntroAfterSignOut } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
+import { pageBackgroundStyle } from './pageBackgrounds.js'
 import { markAppReady } from './marketingShell.js'
 import { useBillingPricing } from './useBillingPricing.js'
 import './IntroPage.marketing.css'
@@ -72,7 +73,7 @@ export function SubscribePage() {
   const accentBtn = pricing.founders ? 'lpBtn--accent' : 'lpBtn--primary'
 
   return (
-    <div ref={pageRef} className="lp subPage">
+    <div ref={pageRef} className="lp subPage" style={pageBackgroundStyle('subscribe')}>
       <header className="lpNav">
         <div className="lpNavInner">
           <a className="lpBrand" href="/" aria-label="Mercerline home">

@@ -13,7 +13,7 @@
   --drpt-accent: rgba(168, 196, 255, 0.82);
   --drpt-up: #5cb88a;
   --drpt-down: #d4726a;
-  --terminal-panel-bg-image: url('/mercerline_background_1.png');
+  --terminal-panel-bg-image: var(--ml-bg-expanded, url('/mercerline_background_1.png'));
   --drpt-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --drpt-mono: 'IBM Plex Mono', ui-monospace, monospace;
   --drpt-sans: system-ui, -apple-system, sans-serif;
@@ -110,9 +110,9 @@
   right: 0;
   top: 0;
   height: var(--deep-expanded-h);
-  background-image: url('/mercerline_background_1.png');
+  background-image: var(--ml-bg-expanded, url('/mercerline_background_1.png'));
   background-size: 150% auto;
-  background-position: center 48%;
+  background-position: var(--ml-bg-expanded-position, center 48%);
   background-repeat: no-repeat;
   opacity: 0.75;
   pointer-events: none;
@@ -178,9 +178,9 @@
   content: '';
   position: absolute;
   inset: 0;
-  background-image: url('/mercerline_background_2.png');
+  background-image: var(--ml-bg-compact, url('/mercerline_background_2.png'));
   background-size: cover;
-  background-position: center top;
+  background-position: var(--ml-bg-compact-position, center top);
   background-repeat: no-repeat;
   opacity: 0.92;
   pointer-events: none;

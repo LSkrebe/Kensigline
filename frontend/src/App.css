@@ -123,6 +123,8 @@
   color: var(--text);
   overflow: hidden;
   min-width: 0;
+  --terminal-panel-bg-image: var(--ml-bg-expanded, url('/mercerline_background_1.png'));
+  --terminal-panel-bg-image-alt: var(--ml-bg-compact, url('/mercerline_background_2.png'));
 }
 
 .terminalShell--boot {

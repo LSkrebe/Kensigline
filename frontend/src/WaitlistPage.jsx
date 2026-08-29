@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { WAITLIST, WAITLIST_PAGE_META } from './marketingContent.js'
 import { navigateMarketing } from './marketingRoute.js'
+import { pageBackgroundStyle } from './pageBackgrounds.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
 import './IntroPage.css'
@@ -64,7 +65,7 @@ export function WaitlistPage() {
   }
 
   return (
-    <div className="lp authPage waitlistPage">
+    <div className="lp authPage waitlistPage" style={pageBackgroundStyle('waitlist')}>
       <header className="lpNav">
         <div className="lpNavInner">
           <a

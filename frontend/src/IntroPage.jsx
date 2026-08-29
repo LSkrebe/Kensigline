@@ -21,7 +21,7 @@ import {
 import { navigateMarketing, returnToIntroAfterSignOut } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
-import { useBillingPricing } from './useBillingPricing.js'
+import { pageBackgroundStyle } from './pageBackgrounds.js'
 import './IntroPage.marketing.css'
 import './IntroPage.motion.css'
 import './SubscribePage.css'
@@ -297,7 +297,7 @@ export function IntroPage() {
   }, [])
 
   return (
-    <div ref={pageRef} className="lp">
+    <div ref={pageRef} className="lp" style={pageBackgroundStyle('intro')}>
       <div className="lpHeroStickWrap">
         <div ref={dockRef} className="lpHeroDock lpHeroDock--expanded">
           <div className="lpHeroExpandedBg" aria-hidden="true" />

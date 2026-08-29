@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { AuthSignIn } from './AuthSignIn.jsx'
 import { SIGN_IN, SIGN_IN_PAGE_META } from './marketingContent.js'
 import { navigateMarketing } from './marketingRoute.js'
+import { pageBackgroundStyle } from './pageBackgrounds.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
 import './IntroPage.css'
@@ -15,7 +16,7 @@ export function SignInPage() {
   }, [])
 
   return (
-    <div className="lp authPage">
+    <div className="lp authPage" style={pageBackgroundStyle('signIn')}>
       <header className="lpNav">
         <div className="lpNavInner">
           <a

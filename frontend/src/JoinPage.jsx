@@ -6,6 +6,7 @@ import { WhopCheckoutPanel } from './WhopCheckoutPanel.jsx'
 import { useBillingPricing } from './useBillingPricing.js'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
+import { pageBackgroundStyle } from './pageBackgrounds.js'
 import { markAppReady } from './marketingShell.js'
 import './IntroPage.marketing.css'
 import './SubscribePage.css'
@@ -32,7 +33,7 @@ export function JoinPage() {
   }
 
   return (
-    <div className="lp subPage">
+    <div className="lp subPage" style={pageBackgroundStyle('subscribe')}>
       <header className="lpNav">
         <div className="lpNavInner">
           <a className="lpBrand" href="/" aria-label="Mercerline home">

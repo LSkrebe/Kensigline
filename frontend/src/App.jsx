@@ -7,6 +7,7 @@ import { investigateActorCanonicalKey } from './investigateActorKey.js'
 import { SettingsPanel } from './SettingsPanel.jsx'
 import './App.css'
 import { markAppReady } from './marketingShell.js'
+import { pageBackgroundStyle, terminalPageBackgroundKey } from './pageBackgrounds.js'
 import { MacroCalendarPanel } from './MacroCalendarPanel.jsx'
 import { prefetchMacroCalendar } from './macroClient.js'
 import { DeepResearchLayout } from './DeepResearchLayout.jsx'
@@ -12366,6 +12367,10 @@ function KensiglineTerminal() {
 
   const investigateTerminalSkin = investigateMode
   const deepPageMode = exploreSubview === 'investorDetail' ? 'investor' : 'company'
+  const terminalBgStyle = useMemo(
+    () => pageBackgroundStyle(terminalPageBackgroundKey(shell, exploreSubview)),
+    [shell, exploreSubview],
+  )
 
   const deepDossierPage = (
     <DeepResearchLayout>
@@ -12457,6 +12462,7 @@ function KensiglineTerminal() {
           ]
             .filter(Boolean)
             .join(' ')}
+          style={terminalBgStyle}
         >
       <div className="terminalWorkspace">
         <main
