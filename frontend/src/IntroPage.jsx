@@ -31,7 +31,6 @@ const LP_EXPANDED_FADE_END = 0.92
 const LP_COMPACT_FADE_START = 0.62
 const NAV_OFFSET = 64
 const PRICING_SECTION_ID = 'pricing'
-const INTRO_SCROLL_KEY = 'mercerline_intro_scroll_y'
 
 function isIntroPageReload() {
   const nav = performance.getEntriesByType('navigation')[0]
@@ -103,8 +102,10 @@ export function IntroPage() {
 
     const scrollToPlan = (index) => {
       const slide = slides[index]
-      if (!slide || !mq.matches) return
-      slide.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'instant' })
+      const trackEl = plansTrackRef.current
+      if (!slide || !trackEl || !mq.matches) return
+      const targetLeft = slide.offsetLeft - (trackEl.clientWidth - slide.offsetWidth) / 2
+      trackEl.scrollTo({ left: Math.max(0, targetLeft), behavior: 'instant' })
       setActivePlan(index)
     }
 
@@ -249,61 +250,13 @@ export function IntroPage() {
     const page = pageRef.current
     if (!page) return undefined
 
-    let scrollRaf = 0
-    const saveScroll = () => {
-      try {
-        sessionStorage.setItem(INTRO_SCROLL_KEY, String(Math.round(page.scrollTop)))
-      } catch {
-        /* ignore */
-      }
+    page.scrollTo({ top: 0, behavior: 'instant' })
+    if (window.location.hash && window.history?.replaceState) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
     }
-    const onScroll = () => {
-      if (scrollRaf) cancelAnimationFrame(scrollRaf)
-      scrollRaf = requestAnimationFrame(saveScroll)
-    }
-    page.addEventListener('scroll', onScroll, { passive: true })
 
-    return () => {
-      page.removeEventListener('scroll', onScroll)
-      if (scrollRaf) cancelAnimationFrame(scrollRaf)
-    }
+    return undefined
   }, [])
-
-  useEffect(() => {
-    const page = pageRef.current
-
-    const applyHashScroll = () => {
-      const hash = window.location.hash.replace(/^#/, '')
-      if (hash === PRICING_SECTION_ID) {
-        requestAnimationFrame(() => scrollToSection(PRICING_SECTION_ID))
-      }
-    }
-
-    if (isIntroPageReload()) {
-      if (window.location.hash && window.history?.replaceState) {
-        window.history.replaceState(null, '', window.location.pathname + window.location.search)
-      }
-      if (page) {
-        let restored = 0
-        try {
-          const saved = sessionStorage.getItem(INTRO_SCROLL_KEY)
-          if (saved != null) restored = Math.max(0, Number(saved) || 0)
-        } catch {
-          /* ignore */
-        }
-        requestAnimationFrame(() => {
-          page.scrollTo({ top: restored, behavior: 'instant' })
-        })
-      }
-      return undefined
-    }
-
-    applyHashScroll()
-
-    const onPopState = () => applyHashScroll()
-    window.addEventListener('popstate', onPopState)
-    return () => window.removeEventListener('popstate', onPopState)
-  }, [scrollToSection])
 
   useEffect(() => {
     const page = pageRef.current
