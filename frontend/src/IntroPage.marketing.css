@@ -314,12 +314,25 @@
 }
 
 .lpHeroShotFrame {
+  position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
-  border: none;
+  border: 1px solid rgba(158, 196, 212, 0.14);
   background: #080809;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.4),
+    0 0 28px rgba(158, 196, 212, 0.05),
+    inset 0 1px 0 rgba(158, 196, 212, 0.08);
   overflow: hidden;
+}
+
+.lpHeroShotFrame::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(158, 196, 212, 0.06), transparent 38%);
+  pointer-events: none;
+  z-index: 1;
 }
 
 .lpHeroShotFrame .mktHeroShot {
@@ -1938,7 +1951,13 @@
   }
 
   .lpHeroShotFrame {
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+    box-shadow:
+      0 16px 40px rgba(0, 0, 0, 0.32),
+      0 0 22px rgba(158, 196, 212, 0.04);
+  }
+
+  .lpHeroShotFrame::before {
+    background: linear-gradient(180deg, rgba(158, 196, 212, 0.04), transparent 32%);
   }
 
   .lpNavLinks {
