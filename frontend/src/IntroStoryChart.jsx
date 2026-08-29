@@ -150,8 +150,8 @@ export function IntroStoryDiagram({ person, timeline, outcome }) {
               className="lpStoryConnector lpStoryConnector--news"
             />
 
-            <path d={geometry.area} fill="url(#lpStoryChartArea)" />
-            <path d={geometry.line} className="lpStoryChartLine" />
+            <path d={geometry.area} className="lpStoryChartArea" fill="url(#lpStoryChartArea)" />
+            <path d={geometry.line} className="lpStoryChartLine" pathLength="1" />
           </svg>
 
           <span

@@ -63,7 +63,17 @@ html.app-ready .mktEnterSeq--7 {
   transform: translateY(-12px);
 }
 
+.lpHeroChrome.mktEnterNav {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+
 html.app-ready .introNav.mktEnterNav {
+  animation: mktEnterUp 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 0.02s;
+}
+
+html.app-ready .lpHeroChrome.mktEnterNav {
   animation: mktEnterUp 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
   animation-delay: 0.02s;
 }
@@ -94,7 +104,8 @@ html.app-ready .mktHeroShot.mktEnterSeq {
 
 @media (prefers-reduced-motion: reduce) {
   .mktEnterSeq,
-  .introNav.mktEnterNav {
+  .introNav.mktEnterNav,
+  .lpHeroChrome.mktEnterNav {
     opacity: 1;
     transform: none;
     animation: none !important;

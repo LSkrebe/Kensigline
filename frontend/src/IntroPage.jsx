@@ -4,6 +4,7 @@ import { IntroCoverageSection } from './IntroCoverageSection.jsx'
 import { IntroHowItWorksSection } from './IntroHowItWorksSection.jsx'
 import { IntroStorySection } from './IntroStorySection.jsx'
 import { IntroReviewsSection } from './IntroReviewsSection.jsx'
+import { IntroReveal, clearIntroRevealMemory } from './IntroReveal.jsx'
 import { WhopCheckoutPanel } from './WhopCheckoutPanel.jsx'
 import { useAuth } from './AuthContext.jsx'
 import { formatUsd } from './billingPlans.js'
@@ -22,6 +23,7 @@ import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
 import { useBillingPricing } from './useBillingPricing.js'
 import './IntroPage.marketing.css'
+import './IntroPage.motion.css'
 import './SubscribePage.css'
 
 const COLLAPSE_RANGE_FALLBACK = 1
@@ -71,6 +73,62 @@ export function IntroPage() {
   const [checkoutAttempt, setCheckoutAttempt] = useState(0)
   const [checkoutBusy, setCheckoutBusy] = useState(false)
   const [checkoutMsg, setCheckoutMsg] = useState('')
+  const plansTrackRef = useRef(null)
+  const defaultPlanIndex = useMemo(() => {
+    const idx = plans.findIndex((plan) => plan.featured)
+    return idx >= 0 ? idx : 0
+  }, [plans])
+  const [activePlan, setActivePlan] = useState(defaultPlanIndex)
+
+  useEffect(() => {
+    const track = plansTrackRef.current
+    if (!track || waitlist) return undefined
+
+    const mq = window.matchMedia('(max-width: 899px)')
+    const slides = [...track.querySelectorAll('.lpPlan')]
+    if (!slides.length) return undefined
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!mq.matches) return
+        const best = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
+        if (!best) return
+        const idx = Number(best.target.getAttribute('data-plan-index'))
+        if (!Number.isNaN(idx)) setActivePlan(idx)
+      },
+      { root: track, threshold: [0.5, 0.75] },
+    )
+
+    const scrollToPlan = (index) => {
+      const slide = slides[index]
+      if (!slide || !mq.matches) return
+      slide.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'instant' })
+      setActivePlan(index)
+    }
+
+    const attach = () => {
+      observer.disconnect()
+      if (!mq.matches) {
+        setActivePlan(0)
+        return
+      }
+      slides.forEach((slide) => observer.observe(slide))
+      if (defaultPlanIndex > 0) {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => scrollToPlan(defaultPlanIndex))
+        })
+      }
+    }
+
+    attach()
+    mq.addEventListener('change', attach)
+    return () => {
+      observer.disconnect()
+      mq.removeEventListener('change', attach)
+    }
+  }, [defaultPlanIndex, plans.length, waitlist])
 
   const goToWaitlist = useCallback((e) => {
     e?.preventDefault()
@@ -157,6 +215,7 @@ export function IntroPage() {
   useEffect(() => {
     applyPageMeta(INTRO_PAGE_META)
     markAppReady()
+    if (isIntroPageReload()) clearIntroRevealMemory()
 
     const schema = {
       '@context': 'https://schema.org',
@@ -291,7 +350,7 @@ export function IntroPage() {
           <div className="lpHeroExpandedBg" aria-hidden="true" />
           <div className="lpHeroCompactBg" aria-hidden="true" />
 
-          <div className="lpHeroChrome">
+          <div className="lpHeroChrome mktEnterNav">
             <a className="lpBrand" href="/" aria-label="Mercerline home" onClick={scrollToTop}>
               <span className="lpBrandLogoClip">
                 <img
@@ -338,14 +397,14 @@ export function IntroPage() {
             <div className="lpHeroSplit">
               <div className="lpHeroExpandedInner">
                 {hero.eyebrow ? (
-                  <p className={['lpEyebrow', accentEyebrow].filter(Boolean).join(' ')}>
+                  <p className={['lpEyebrow', 'mktEnterSeq', 'mktEnterSeq--1', accentEyebrow].filter(Boolean).join(' ')}>
                     {hero.eyebrow}
                   </p>
                 ) : null}
-                <p className="lpHeroBrand">{hero.brand}</p>
-                <h1 className="lpHeroTitle">{hero.headline}</h1>
+                <p className="lpHeroBrand mktEnterSeq mktEnterSeq--2">{hero.brand}</p>
+                <h1 className="lpHeroTitle mktEnterSeq mktEnterSeq--3">{hero.headline}</h1>
                 {hero.lead || leadParts.listPrice || (waitlist && leadParts.prefix) ? (
-                  <p className="lpHeroLead">
+                  <p className="lpHeroLead mktEnterSeq mktEnterSeq--4">
                     {leadParts.listPrice ? (
                       <>
                         {leadParts.prefix}
@@ -357,7 +416,7 @@ export function IntroPage() {
                     )}
                   </p>
                 ) : null}
-                <div className="lpHeroActions">
+                <div className="lpHeroActions mktEnterSeq mktEnterSeq--5">
                   <a className={`lpBtn ${accentBtn}`} href={primaryHref} onClick={goPrimary}>
                     {hero.ctaPrimary}
                   </a>
@@ -370,10 +429,10 @@ export function IntroPage() {
                   </a>
                 </div>
                 {hero.note ? (
-                  <p className={['lpHeroNote', accentNote].filter(Boolean).join(' ')}>{hero.note}</p>
+                  <p className={['lpHeroNote', 'mktEnterSeq', 'mktEnterSeq--6', accentNote].filter(Boolean).join(' ')}>{hero.note}</p>
                 ) : null}
               </div>
-              <div className="lpHeroShot">
+              <div className="lpHeroShot mktEnterSeq mktEnterSeq--7 mktHeroShot">
                 <div className="lpHeroShotFrame">
                   <IntroTerminalPreview shot="hero" staticResearch eager />
                 </div>
@@ -400,7 +459,7 @@ export function IntroPage() {
                 .join(' ')}
               aria-labelledby="lp-pricing-title"
             >
-              <div className="lpSectionHead lpSectionHead--center lpPricingHead">
+              <IntroReveal revealKey="pricing-head" className="lpSectionHead lpSectionHead--center lpPricingHead">
                 <p className="lpEyebrow">{pricingHead.kicker}</p>
                 <h2 id="lp-pricing-title" className="lpSectionTitle">
                   {subscribe.headline || pricingHead.title}
@@ -408,12 +467,14 @@ export function IntroPage() {
                 {subscribe.lead || pricingHead.sub ? (
                   <p className="lpSectionLead">{subscribe.lead || pricingHead.sub}</p>
                 ) : null}
-              </div>
+              </IntroReveal>
 
-              <div className="lpPlans">
-                {plans.map((plan) => (
+              <IntroReveal revealKey="pricing-plans" delay={80}>
+                <div className="lpPlans" ref={plansTrackRef}>
+                {plans.map((plan, index) => (
                   <article
                     key={plan.id}
+                    data-plan-index={index}
                     className={['lpPlan', plan.featured ? 'lpPlan--featured' : ''].filter(Boolean).join(' ')}
                   >
                     <div className="lpPlanHead">
@@ -445,6 +506,18 @@ export function IntroPage() {
                     </button>
                   </article>
                 ))}
+                </div>
+              </IntroReveal>
+
+              <div className="lpPlanDots" aria-hidden="true">
+                {plans.map((plan, index) => (
+                  <span
+                    key={plan.id}
+                    className={['lpPlanDot', index === activePlan ? 'lpPlanDot--active' : '']
+                      .filter(Boolean)
+                      .join(' ')}
+                  />
+                ))}
               </div>
 
               <div ref={checkoutRef} id="intro-checkout">
@@ -473,21 +546,23 @@ export function IntroPage() {
           ) : null}
 
           <section id="faq" className="lpSection">
-            <div className="lpSectionHead">
+            <IntroReveal revealKey="faq-head" className="lpSectionHead">
               <p className="lpEyebrow">FAQ</p>
               <h2 className="lpSectionTitle">Questions</h2>
-            </div>
-            <div className="lpFaq">
-              {faq.map((item) => (
-                <article key={item.q} className="lpFaqItem">
-                  <h3 className="lpFaqQ">{item.q}</h3>
-                  <p className="lpFaqA">{item.a}</p>
-                </article>
-              ))}
-            </div>
+            </IntroReveal>
+            <IntroReveal revealKey="faq-list" delay={80}>
+              <div className="lpFaq lpRevealStagger">
+                {faq.map((item) => (
+                  <article key={item.q} className="lpFaqItem">
+                    <h3 className="lpFaqQ">{item.q}</h3>
+                    <p className="lpFaqA">{item.a}</p>
+                  </article>
+                ))}
+              </div>
+            </IntroReveal>
           </section>
 
-          <section className="lpCtaBand">
+          <IntroReveal as="section" revealKey="cta" className="lpCtaBand">
             <h2 className="lpCtaTitle">{closing.title}</h2>
             <p className="lpCtaLead">
               {waitlist ? (
@@ -511,7 +586,7 @@ export function IntroPage() {
                 {closing.ctaPrimary}
               </button>
             )}
-          </section>
+          </IntroReveal>
         </main>
 
         <footer className="lpFoot" role="contentinfo">

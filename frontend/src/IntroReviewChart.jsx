@@ -64,7 +64,7 @@ export function IntroReviewChart({ ticker, filedIso, chartEnd }) {
         preserveAspectRatio="none"
         aria-hidden="true"
       >
-        <path d={geometry.line} className="lpReviewChartLine" />
+        <path d={geometry.line} className="lpReviewChartLine" pathLength="1" />
       </svg>
     </div>
   )

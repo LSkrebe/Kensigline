@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
 import { HOW_IT_WORKS } from './marketingContent.js'
+import { IntroReveal } from './IntroReveal.jsx'
 
 /** Three-step walkthrough — copy and screenshots side by side. */
 export function IntroHowItWorksSection() {
@@ -48,15 +49,16 @@ export function IntroHowItWorksSection() {
 
   return (
     <section id="product" className="lpSection lpHowItWorks lpSection--ruled" aria-labelledby="lp-how-title">
-      <div className="lpSectionHead lpSectionHead--center">
+      <IntroReveal revealKey="how-head" className="lpSectionHead lpSectionHead--center">
         <p className="lpEyebrow">{HOW_IT_WORKS.kicker}</p>
         <h2 id="lp-how-title" className="lpSectionTitle">
           {HOW_IT_WORKS.title}
         </h2>
         {HOW_IT_WORKS.lead ? <p className="lpSectionLead">{HOW_IT_WORKS.lead}</p> : null}
-      </div>
+      </IntroReveal>
 
-      <ol className="lpHowRows" ref={trackRef}>
+      <IntroReveal revealKey="how-track" delay={60}>
+        <ol className="lpHowRows" ref={trackRef}>
         {steps.map((step, index) => (
           <li
             key={step.id}
@@ -77,7 +79,8 @@ export function IntroHowItWorksSection() {
             </div>
           </li>
         ))}
-      </ol>
+        </ol>
+      </IntroReveal>
 
       <div className="lpHowDots" aria-hidden="true">
         {steps.map((step, index) => (

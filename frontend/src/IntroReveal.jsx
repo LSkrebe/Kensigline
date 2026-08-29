@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 
-/** Persists across StrictMode remounts so reveal animations do not replay. */
-const revealedKeys = new Set()
-
 function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
@@ -20,9 +17,37 @@ function isInScrollView(el, root, eager) {
   return rect.bottom > rootRect.top + margin && rect.top < rootRect.bottom - margin
 }
 
+function revealWhenReady(el, eager, setVisible) {
+  const scrollRoot =
+    el.closest('.lp') ?? el.closest('.introPage') ?? el.closest('.subscribePage')
+
+  if (isInScrollView(el, scrollRoot, eager)) {
+    setVisible(true)
+    return undefined
+  }
+
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (!entry?.isIntersecting) return
+      setVisible(true)
+      observer.disconnect()
+    },
+    {
+      root: scrollRoot,
+      threshold: 0.12,
+      rootMargin: '0px 0px -4% 0px',
+    },
+  )
+
+  observer.observe(el)
+  return () => observer.disconnect()
+}
+
+/** No-op kept for IntroPage reload hook (animations always replay on refresh). */
+export function clearIntroRevealMemory() {}
+
 /**
  * Fade/slide sections in on scroll - improves scanability vs one long wall of text.
- * Pass a stable `revealKey` when the section can remount (avoids StrictMode double-fade).
  */
 export function IntroReveal({
   as: Tag = 'div',
@@ -30,62 +55,43 @@ export function IntroReveal({
   className = '',
   delay = 0,
   eager = false,
-  revealKey,
+  revealKey: _revealKey,
   ...rest
 }) {
   const ref = useRef(null)
-  const wasRevealed = useRef(Boolean(revealKey && revealedKeys.has(revealKey)))
-  const [visible, setVisible] = useState(() => wasRevealed.current)
+  const [visible, setVisible] = useState(false)
 
   useEffect(() => {
     const el = ref.current
-    if (!el) return
+    if (!el) return undefined
 
     if (prefersReducedMotion()) {
       setVisible(true)
-      if (revealKey) revealedKeys.add(revealKey)
-      return
+      return undefined
     }
 
-    if (revealKey && revealedKeys.has(revealKey)) {
-      setVisible(true)
-      return
+    let cancelled = false
+    let disconnectObserver = undefined
+    let frame = 0
+
+    const start = () => {
+      if (cancelled) return
+      disconnectObserver = revealWhenReady(el, eager, setVisible)
     }
 
-    const scrollRoot = el.closest('.introPage') ?? el.closest('.subscribePage')
+    // Wait for intro scroll restore / layout before first reveal check.
+    frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(start)
+    })
 
-    if (isInScrollView(el, scrollRoot, eager)) {
-      if (revealKey) revealedKeys.add(revealKey)
-      setVisible(true)
-      return
+    return () => {
+      cancelled = true
+      if (frame) cancelAnimationFrame(frame)
+      disconnectObserver?.()
     }
+  }, [eager])
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry?.isIntersecting) return
-        if (revealKey) revealedKeys.add(revealKey)
-        setVisible(true)
-        observer.disconnect()
-      },
-      {
-        root: scrollRoot,
-        threshold: 0.05,
-        rootMargin: '0px 0px 8% 0px',
-      },
-    )
-
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [eager, revealKey])
-
-  const classes = [
-    'introReveal',
-    visible ? 'introReveal--in' : '',
-    wasRevealed.current ? 'introReveal--instant' : '',
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ')
+  const classes = ['introReveal', visible ? 'introReveal--in' : '', className].filter(Boolean).join(' ')
 
   return (
     <Tag ref={ref} className={classes} style={{ '--reveal-delay': `${delay}ms` }} {...rest}>

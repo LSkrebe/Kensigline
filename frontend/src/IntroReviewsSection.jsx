@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { introCompanyLogoSrc, INTRO_REVIEWS } from './marketingContent.js'
 import { IntroReviewChart } from './IntroReviewChart.jsx'
+import { IntroReveal } from './IntroReveal.jsx'
 
 function ReviewCard({ review, index }) {
   const { catch: memberCatch } = review
@@ -86,19 +87,21 @@ export function IntroReviewsSection() {
 
   return (
     <section className="lpSection lpReviews lpSection--ruled" aria-labelledby="lp-reviews-title">
-      <div className="lpSectionHead lpSectionHead--center">
+      <IntroReveal revealKey="reviews-head" className="lpSectionHead lpSectionHead--center">
         <p className="lpEyebrow">Reviews</p>
         <h2 id="lp-reviews-title" className="lpSectionTitle">
           {INTRO_REVIEWS.title}
         </h2>
         {INTRO_REVIEWS.lead ? <p className="lpSectionLead">{INTRO_REVIEWS.lead}</p> : null}
-      </div>
+      </IntroReveal>
 
-      <div className="lpReviewGrid" ref={trackRef}>
-        {items.map((review, index) => (
-          <ReviewCard key={review.id} review={review} index={index} />
-        ))}
-      </div>
+      <IntroReveal revealKey="reviews-grid" delay={80}>
+        <div className="lpReviewGrid" ref={trackRef}>
+          {items.map((review, index) => (
+            <ReviewCard key={review.id} review={review} index={index} />
+          ))}
+        </div>
+      </IntroReveal>
 
       <div className="lpReviewDots" aria-hidden="true">
         {items.map((review, index) => (
