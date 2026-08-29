@@ -22,6 +22,7 @@ import { navigateMarketing, returnToIntroAfterSignOut } from './marketingRoute.j
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
 import { pageBackgroundStyle } from './pageBackgrounds.js'
+import { useBillingPricing } from './useBillingPricing.js'
 import './IntroPage.marketing.css'
 import './IntroPage.motion.css'
 import './SubscribePage.css'
