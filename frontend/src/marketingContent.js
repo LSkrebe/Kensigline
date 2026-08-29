@@ -50,7 +50,16 @@ export const WAITLIST = {
 export const SIGN_IN = {
   eyebrow: 'Welcome back',
   headline: 'Sign in',
-  lead: 'Continue with Google — use the same email you paid with on Whop.',
+  lead: 'Use Google or your email and password. Sign in with the same email you used at checkout on Whop.',
+}
+
+export const SIGN_IN_GATE_MESSAGES = {
+  no_subscription: {
+    title: 'No active subscription',
+    body: 'This account does not have an active Mercerline membership. Subscribe below or sign in with the email you used at checkout.',
+    signedInBody: (email) =>
+      `You're signed in as ${email || 'this account'}, but it doesn't have an active membership. View plans below or sign out to try another account.`,
+  },
 }
 
 export const INTRO_FOOTER = {

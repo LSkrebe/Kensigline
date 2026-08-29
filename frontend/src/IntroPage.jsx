@@ -55,7 +55,7 @@ export function IntroPage() {
   const dockRef = useRef(null)
   const spacerRef = useRef(null)
   const checkoutRef = useRef(null)
-  const { user, signOut, signInWithOAuth } = useAuth()
+  const { user, signOut } = useAuth()
   const pricing = useBillingPricing()
   const hero = heroCopy(pricing)
   const closing = introClosingCopy(pricing)
@@ -139,8 +139,8 @@ export function IntroPage() {
 
   const goToSignIn = useCallback((e) => {
     e?.preventDefault()
-    void signInWithOAuth('google')
-  }, [signInWithOAuth])
+    navigateMarketing('/sign-in')
+  }, [])
 
   const scrollToSection = useCallback((sectionId, e) => {
     e?.preventDefault()

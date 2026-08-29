@@ -33,7 +33,6 @@ export function AuthSignIn({ variant = 'settings', onSuccess }) {
   const { configured, signInWithPassword, signUpWithPassword, signInWithOAuth } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const isIntro = variant === 'intro'
@@ -74,62 +73,48 @@ export function AuthSignIn({ variant = 'settings', onSuccess }) {
           <span>or</span>
         </div>
 
-        {!showPassword ? (
-          <button
-            type="button"
-            className="authSignInBtn authSignInBtn--ghost authSignInBtn--full"
-            disabled={busy}
-            onClick={() => {
-              setShowPassword(true)
-              setMsg('')
-            }}
-          >
-            Sign in with email & password
-          </button>
-        ) : (
-          <form
-            className="authSignInForm"
-            onSubmit={async (e) => {
-              e.preventDefault()
-              setBusy(true)
-              setMsg('')
-              const { error } = await signInWithPassword(email, password)
-              setBusy(false)
-              if (error) setMsg(error.message || String(error))
-              else onSuccess?.()
-            }}
-          >
-            <label className="authSignInLabel">
-              <span className="authSignInLabelText">Email</span>
-              <input
-                className="authSignInInput mono"
-                type="email"
-                name="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </label>
-            <label className="authSignInLabel">
-              <span className="authSignInLabelText">Password</span>
-              <input
-                className="authSignInInput mono"
-                type="password"
-                name="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </label>
-            <div className="authSignInActions">
-              <button type="submit" className="authSignInBtn authSignInBtn--primary" disabled={busy}>
-                Sign in
-              </button>
-            </div>
-          </form>
-        )}
+        <form
+          className="authSignInForm"
+          onSubmit={async (e) => {
+            e.preventDefault()
+            setBusy(true)
+            setMsg('')
+            const { error } = await signInWithPassword(email, password)
+            setBusy(false)
+            if (error) setMsg(error.message || String(error))
+            else onSuccess?.()
+          }}
+        >
+          <label className="authSignInLabel">
+            <span className="authSignInLabelText">Email</span>
+            <input
+              className="authSignInInput mono"
+              type="email"
+              name="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </label>
+          <label className="authSignInLabel">
+            <span className="authSignInLabelText">Password</span>
+            <input
+              className="authSignInInput mono"
+              type="password"
+              name="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </label>
+          <div className="authSignInActions">
+            <button type="submit" className="authSignInBtn authSignInBtn--primary authSignInBtn--full" disabled={busy}>
+              Sign in with email
+            </button>
+          </div>
+        </form>
 
         {msg ? (
           <p className="authSignInMsg mono" role="status">

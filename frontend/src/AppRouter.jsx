@@ -2,14 +2,15 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { isCaptureMode } from './captureMode.js'
-import { IntroPage } from './IntroPage.jsx'
 import MarketingRoutes from './MarketingRoutes.jsx'
 import { PublicCompanyPage } from './PublicCompanyPage.jsx'
+import { SignInPage } from './SignInPage.jsx'
 import { matchPublicCompanyPath } from './publicCompany.js'
 import { readMarketingPath, navigateMarketing } from './marketingRoute.js'
 import { activateCheckoutSession } from './checkoutActivate.js'
 import { clearCheckoutReceiptId, peekCheckoutReceiptId } from './WhopCheckoutPanel.jsx'
 import { captureReferralRef } from './referralRef.js'
+import { markAppReady } from './marketingShell.js'
 import { useSubscription } from './useSubscription.js'
 import { useBillingPricing } from './useBillingPricing.js'
 
@@ -36,6 +37,7 @@ export default function AppRouter() {
   )
 
   useEffect(() => {
+    markAppReady()
     captureReferralRef()
   }, [])
 
@@ -109,14 +111,38 @@ export default function AppRouter() {
   }, [waitlistMode, refresh, user])
 
   useEffect(() => {
-    if (!signedIn || waitlistMode) return
-    void import('./exploreApi.js').then(({ prefetchExploreHome }) => prefetchExploreHome(true))
-  }, [signedIn, waitlistMode])
+    if (!signedIn || waitlistMode || captureMode) return
+    let alive = true
+    void fetchJsonSafe('/health', { timeoutMs: 3500 }).then((r) => {
+      if (!alive) return
+      if (r.ok && r.data?.ok) {
+        void import('./exploreApi.js').then(({ prefetchExploreHome }) => prefetchExploreHome(true))
+      }
+    })
+    return () => {
+      alive = false
+    }
+  }, [signedIn, waitlistMode, captureMode])
 
   useEffect(() => {
     if (!signedIn || waitlistMode) return
     void import('./App.jsx')
   }, [signedIn, waitlistMode])
+
+  useEffect(() => {
+    if (!signedIn || waitlistMode || captureMode || !BILLING_GATE_ENABLED) return
+    if (!gateReady || subLoading || active) return
+    const p = readMarketingPath()
+    if (p !== '/sign-in') {
+      if (window.history?.replaceState) {
+        window.history.replaceState(null, '', '/sign-in?reason=no_subscription')
+        window.dispatchEvent(new PopStateEvent('popstate'))
+      } else {
+        navigateMarketing('/sign-in?reason=no_subscription')
+      }
+      setPath('/sign-in')
+    }
+  }, [signedIn, waitlistMode, captureMode, gateReady, subLoading, active])
 
   if (publicCompany && !waitlistMode) {
     return <PublicCompanyPage ticker={publicCompany.ticker} />
@@ -132,7 +158,9 @@ export default function AppRouter() {
     )
   }
 
-  if (BILLING_GATE_ENABLED && !active && !captureMode) return <IntroPage />
+  if (BILLING_GATE_ENABLED && !active && !captureMode) {
+    return <SignInPage gateReason="no_subscription" />
+  }
 
   return (
     <Suspense

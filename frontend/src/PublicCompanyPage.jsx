@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
-import { useAuth } from './AuthContext.jsx'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { matchPublicCompanyPath, publicCompanyPageMeta } from './publicCompany.js'
@@ -53,7 +52,6 @@ function PublicSection({ label, title, children, headExtra = null }) {
 }
 
 export function PublicCompanyPage({ ticker: tickerProp = null }) {
-  const { signInWithOAuth } = useAuth()
   const matched = useMemo(() => {
     if (tickerProp) {
       const t = String(tickerProp).trim().toUpperCase()
@@ -168,7 +166,7 @@ export function PublicCompanyPage({ ticker: tickerProp = null }) {
   }
   const goSignIn = (e) => {
     e.preventDefault()
-    void signInWithOAuth('google')
+    navigateMarketing('/sign-in')
   }
 
   const showName = Boolean(name && name !== ticker)

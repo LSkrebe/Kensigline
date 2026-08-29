@@ -9543,6 +9543,16 @@ function KensiglineTerminal() {
   const exploreSubview = shell === 'explore' ? (terminalRoute.view ?? 'home') : 'home'
   const exploreSubviewRef = useRef(exploreSubview)
   exploreSubviewRef.current = exploreSubview
+  const [exploreHomeFeedsReady, setExploreHomeFeedsReady] = useState(exploreSubview !== 'home')
+  useEffect(() => {
+    if (exploreSubview !== 'home') {
+      setExploreHomeFeedsReady(true)
+      return
+    }
+    setExploreHomeFeedsReady(false)
+    const t = setTimeout(() => setExploreHomeFeedsReady(true), 3500)
+    return () => clearTimeout(t)
+  }, [exploreSubview])
   const macroActive = shell === 'macro'
   const settingsActive = shell === 'settings'
   const [researchPhonePane, setResearchPhonePane] = useState('paper')
@@ -10217,8 +10227,9 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     if (!isLiveDataMode(backendUp)) return
+    if (exploreSubview === 'home' && !exploreHomeFeedsReady) return
     prefetchMacroCalendar()
-  }, [backendUp])
+  }, [backendUp, exploreSubview, exploreHomeFeedsReady])
 
   useEffect(() => {
     if (!isLiveDataMode(backendUp)) return
@@ -10231,6 +10242,7 @@ function KensiglineTerminal() {
       if (!isLiveDataMode(backendUp)) return
       // Dossier opens need the pool — don't compete with a heavy stats aggregate.
       if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
+      if (exploreSubview === 'home' && !exploreHomeFeedsReady) return
       const r = await fetchJsonSafe('/api/stats', { timeoutMs: 3500 })
       if (!alive) return
       if (r.ok && r.data?.ok) setBackendStats(r.data)
@@ -10241,7 +10253,7 @@ function KensiglineTerminal() {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp, exploreSubview])
+  }, [backendUp, exploreSubview, exploreHomeFeedsReady])
 
   useEffect(() => {
     if (backendUp) return
@@ -10264,6 +10276,7 @@ function KensiglineTerminal() {
     if (!isLiveDataMode(backendUp)) return
     // Don't refresh market feed while a dossier is open — frees pooler for explore/bars.
     if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
+    if (exploreSubview === 'home' && !exploreHomeFeedsReady) return
     let cancelled = false
     const cacheKey = 'research:market'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10315,7 +10328,7 @@ function KensiglineTerminal() {
       cancelled = true
       clearInterval(t)
     }
-  }, [backendUp, researchFeedRefresh, exploreSubview])
+  }, [backendUp, researchFeedRefresh, exploreSubview, exploreHomeFeedsReady])
 
   const loadMoreResearchFeed = useCallback(async () => {
     if (!isLiveDataMode(backendUp) || researchFeedLoadingMore || !researchFeedHasMore) return
@@ -10706,6 +10719,7 @@ function KensiglineTerminal() {
     // Company dossier must not compete with explore for the DB pool.
     // Investor dossier uses /api/dossier/investor — don't burn pooler on feed pages.
     if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
+    if (exploreSubview === 'home' && !exploreHomeFeedsReady) return
     let alive = true
     const cacheKey = 'investigate:insider:company:30'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10777,7 +10791,7 @@ function KensiglineTerminal() {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp, exploreSubview])
+  }, [backendUp, exploreSubview, exploreHomeFeedsReady])
 
   const loadMoreInsiderFeed = useCallback(async () => {
     if (!isLiveDataMode(backendUp) || insiderFeedLoadingMore || !insiderFeedHasMore) return
@@ -10801,6 +10815,7 @@ function KensiglineTerminal() {
   useEffect(() => {
     if (!isLiveDataMode(backendUp)) return
     if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
+    if (exploreSubview === 'home' && !exploreHomeFeedsReady) return
     let alive = true
     const cacheKey = 'investigate:institutions:60'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10869,7 +10884,7 @@ function KensiglineTerminal() {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp, exploreSubview])
+  }, [backendUp, exploreSubview, exploreHomeFeedsReady])
 
   const loadMoreInstitutionsFeed = useCallback(async () => {
     if (!isLiveDataMode(backendUp) || institutionsFeedLoadingMore || !institutionsFeedHasMore) return
@@ -10893,6 +10908,7 @@ function KensiglineTerminal() {
   useEffect(() => {
     if (!isLiveDataMode(backendUp)) return
     if (exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail') return
+    if (exploreSubview === 'home' && !exploreHomeFeedsReady) return
     let alive = true
     const cacheKey = 'investigate:politicians:30'
     const hadCache = applyFeedCache(cacheKey, (hit) => {
@@ -10961,7 +10977,7 @@ function KensiglineTerminal() {
       alive = false
       clearInterval(t)
     }
-  }, [backendUp, exploreSubview])
+  }, [backendUp, exploreSubview, exploreHomeFeedsReady])
 
   const loadMorePoliticiansFeed = useCallback(async () => {
     if (!isLiveDataMode(backendUp) || politiciansFeedLoadingMore || !politiciansFeedHasMore) return
