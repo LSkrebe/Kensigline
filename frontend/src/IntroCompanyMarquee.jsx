@@ -7,7 +7,7 @@ function buildMarqueeLoop(tickers) {
   return Array.from({ length: MARQUEE_COPIES }, () => tickers).flat()
 }
 
-function MarqueeRow({ tickers, reverse = false }) {
+export function MarqueeRow({ tickers, reverse = false }) {
   const loop = buildMarqueeLoop(tickers)
   return (
     <div className="lpMarqueeRow">
@@ -36,10 +36,13 @@ function MarqueeRow({ tickers, reverse = false }) {
 }
 
 /** Dual slow marquees of recognizable tracked company logos (intro validation strip). */
-export function IntroCompanyMarquee() {
+export function IntroCompanyMarquee({ embedded = false }) {
   const { rowA, rowB } = INTRO_TRACKED_COMPANIES
   return (
-    <section className="lpCompanyMarquee" aria-label="Companies we track">
+    <section
+      className={['lpCompanyMarquee', embedded ? 'lpCompanyMarquee--embedded' : ''].filter(Boolean).join(' ')}
+      aria-label="Companies we track"
+    >
       <div className="lpCompanyMarqueeInner">
         <MarqueeRow tickers={rowA} />
         <MarqueeRow tickers={rowB} reverse />

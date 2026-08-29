@@ -16,9 +16,9 @@ export function subscribePageMeta(pricing = DEFAULT_PRICING) {
   return {
     title: 'Subscribe - Mercerline',
     description: `Subscribe to Mercerline from ${formatUsd(pricing.monthlyUsd)}/mo. Track insider, politician, and fund filings with investor dossiers and company context.`,
-    path: '/subscribe',
-    ogImage: '/og-image.png',
-  }
+  path: '/subscribe',
+  ogImage: '/og-image.png',
+}
 }
 
 /** @deprecated Prefer subscribePageMeta(pricing) */
@@ -35,8 +35,8 @@ export const WAITLIST_PAGE_META = {
   title: 'Join the waitlist - Mercerline',
   description: 'Join the Mercerline waitlist. We’ll email you when access opens.',
   path: '/waitlist',
-  ogImage: '/og-image.png',
-}
+    ogImage: '/og-image.png',
+  }
 
 export const WAITLIST = {
   eyebrow: 'Early access',
@@ -56,7 +56,7 @@ export const SIGN_IN = {
 export const INTRO_FOOTER = {
   line: '© Mercerline, Not investment advice, All rights reserved',
   legal:
-    'Mercerline is a research and information product only — not investment, legal, or tax advice; no broker, adviser, or fiduciary relationship is created, and you are solely responsible for your decisions. We process account, billing, and usage data to operate the service; payments are handled by Whop. Site content and software are owned by Mercerline or its licensors; unauthorized scraping, redistribution, or resale is prohibited. Contact research@mercerline.com for privacy or DMCA requests.',
+    'Mercerline is a research and information product only, not investment, legal, or tax advice; no broker, adviser, or fiduciary relationship is created, and you are solely responsible for your decisions. We process account, billing, and usage data to operate the service; payments are handled by Whop. Site content and software are owned by Mercerline or its licensors; unauthorized scraping, redistribution, or resale is prohibited. Contact research@mercerline.com for privacy or DMCA requests.',
 }
 
 export function heroLead(pricing = DEFAULT_PRICING) {
@@ -119,7 +119,7 @@ export function heroCopy(pricing = DEFAULT_PRICING) {
     lead: heroLead(pricing),
     ctaPrimary: 'See pricing',
     ctaSecondary: 'Learn more',
-    note: 'Pay once — start using Mercerline immediately',
+    note: 'Pay once, start using Mercerline immediately',
   }
 }
 
@@ -214,16 +214,9 @@ export function introCompanyLogoSrc(ticker) {
  * Portrait: United States Congress bioguide photo (P000197).
  */
 export const ORIGIN_STORY = {
-  kicker: 'Sound familiar?',
-  title: 'The trade most people only saw in the news',
-  lead: [
-    { text: 'On Nov 22, 2023', tone: 'date' },
-    { text: ', a House PTR showed Paul Pelosi buying NVIDIA call options in the ' },
-    { text: '$1M to $5M', tone: 'money' },
-    { text: ' band. Twelve months later NVDA was up ' },
-    { text: '~+200%', tone: 'up' },
-    { text: ', and most people only heard about it once it hit the news.' },
-  ],
+  kicker: 'The window',
+  title: 'Public on day one. Headline months later.',
+  tagline: 'Mercerline catches the filing when it clears, not when the headline lands.',
   person: {
     name: 'Nancy Pelosi',
     chamber: 'U.S. House',
@@ -233,11 +226,60 @@ export const ORIGIN_STORY = {
   },
   trade: {
     filed: 'Nov 22, 2023',
+    filedIso: '2023-11-22',
     detail: 'NVDA calls, $1 to 5M',
-    outcome: '+~200% / 12mo',
   },
-  closer:
-    'The filing was public on day one. The story broke months later. Mercerline is built for that window, when the disclosure exists but most people still have not seen it.',
+  timeline: {
+    filing: {
+      date: '2023-11-22',
+      label: 'Filing',
+    },
+    news: {
+      date: '2024-06-05',
+      label: 'News',
+      name: 'News',
+    },
+    end: {
+      date: '2024-11-22',
+    },
+  },
+  outcome: {
+    ticker: 'NVDA',
+    move: '+~191%',
+    period: '12 mo',
+    note: 'Mercerline members saw the filing on day one.',
+    chartCaption: 'NVDA split-adjusted daily closes',
+  },
+}
+
+/** Deeper value block — after product walkthrough, before social proof. */
+export const INTRO_DEPTH = {
+  kicker: 'The gap',
+  title: 'Filings are public. Attention is not.',
+  lead: 'Mercerline assembles what cleared overnight so you open one workspace instead of five tabs.',
+  shot: 'deepInvestor',
+  points: [
+    {
+      id: 'recap',
+      label: 'Daily recap',
+      body: 'Form 4, PTR, and 13F in one feed, updated as disclosures clear.',
+    },
+    {
+      id: 'filers',
+      label: 'Investor rail',
+      body: 'Open the filer for trade history, related tickers, and outcomes.',
+    },
+    {
+      id: 'context',
+      label: 'Company context',
+      body: 'Jump into the issuer when a filing clears the bar.',
+    },
+    {
+      id: 'sources',
+      label: 'Coverage',
+      body: 'SEC EDGAR, earnings, press, and macro data across US, EU, UK, and CN.',
+    },
+  ],
 }
 
 const SHOT_SIZES =
@@ -322,12 +364,62 @@ export const PRODUCT = {
   lead: 'Insiders, politicians, and big funds are all on the same rail, from the daily recap to the dossier.',
 }
 
+/** Visual 3-step walkthrough on intro — labels only, screenshots carry the story. */
+export const HOW_IT_WORKS = {
+  kicker: 'How it works',
+  title: 'Your morning edge in three steps',
+  lead: 'Filings are public. Mercerline puts them on one screen before the headline.',
+  steps: [
+    {
+      id: 'recap',
+      label: 'Recap clears',
+      title: 'See what filed overnight',
+      body: 'Form 4, PTR, and 13F land in one feed as disclosures clear. Open Mercerline before the market and you already know who moved.',
+      shot: 'hero',
+    },
+    {
+      id: 'filer',
+      label: 'Open the filer',
+      title: 'Trade history on one page',
+      body: 'Click the filer for every trade, related tickers, and outcomes. No digging through EDGAR or waiting for a tweet thread.',
+      shot: 'deepInvestor',
+    },
+    {
+      id: 'directory',
+      label: 'Browse the rail',
+      title: 'Every insider, politician, and fund',
+      body: 'Scan the full investor rail when you want context. Politicians, insiders, and funds on one screen.',
+      shot: 'investorsDirectory',
+    },
+  ],
+}
+
+/** @deprecated Removed from intro pricing — coverage lives in INTRO_DEPTH */
+export const COVERAGE_NOTE = null
+
+export const COVERAGE_STRIP = {
+  label: 'Tracking disclosures across 500+ issuers',
+}
+
+/** Standalone coverage section — header, dual marquees, proof band between rows. */
+export const INTRO_COVERAGE = {
+  kicker: 'Coverage',
+  title: 'Every name that matters, already in the feed',
+  lead: 'Mercerline tracks disclosures across 500+ US issuers, from mega-cap tech to the names that file after hours.',
+  stats: [
+    { value: '500+', label: 'Issuers tracked' },
+    { value: 'Daily', label: 'Recap clears', featured: true },
+    {
+      value: '10+',
+      label: 'Disclosure types',
+    },
+  ],
+}
+
 /** Member quotes for intro reviews section. */
 export const INTRO_REVIEWS = {
-  kicker: 'Reviews',
   title: 'What members are saying',
-  lead: 'Real members who see filings before the news.',
-  aggregateRating: 4.9,
+  lead: 'What they noticed in the app, and what they did after.',
   items: [
     {
       id: 'lucas',
@@ -336,7 +428,16 @@ export const INTRO_REVIEWS = {
       verified: true,
       rating: 5,
       quote:
-        'I used to find politician trades days too late. Now I see the filing, who filed, and the stock on one page that same morning.',
+        'I was scrolling the morning recap with my coffee and Pelosi’s NVDA filing was just sitting there. Bought some that week and didn’t think about it again until the chart looked ridiculous.',
+      catch: {
+        ticker: 'NVDA',
+        filer: 'Nancy Pelosi',
+        filed: 'Nov 22, 2023',
+        filedIso: '2023-11-22',
+        chartEnd: '2024-11-22',
+        move: '+191%',
+        period: '12 mo',
+      },
     },
     {
       id: 'jhon',
@@ -345,7 +446,16 @@ export const INTRO_REVIEWS = {
       verified: true,
       rating: 5,
       quote:
-        'The investor page is what I use most. One click shows all their trades and related stocks. I do not need ten tabs open anymore.',
+        'Opened the app before work and Zuckerberg’s META buy was right at the top of the feed. I took a small swing on it and somehow ended up holding most of it for months.',
+      catch: {
+        ticker: 'META',
+        filer: 'Mark Zuckerberg',
+        filed: 'Feb 8, 2024',
+        filedIso: '2024-02-08',
+        chartEnd: '2024-12-11',
+        move: '+35%',
+        period: '10 mo',
+      },
     },
     {
       id: 'faust',
@@ -354,7 +464,16 @@ export const INTRO_REVIEWS = {
       verified: true,
       rating: 5,
       quote:
-        'The daily recap changed how I watch chip stocks. I see who filed before prices move. Not days later when everyone else finds out.',
+        'Almost skipped the recap but Lisa Su filing AMD made me stop mid-scroll. Threw in a small position and it turned into one of the better chip trades I’ve had this year.',
+      catch: {
+        ticker: 'AMD',
+        filer: 'Lisa Su',
+        filed: 'Apr 9, 2025',
+        filedIso: '2025-04-09',
+        chartEnd: '2025-08-29',
+        move: '+68%',
+        period: '5 mo',
+      },
     },
   ],
 }
@@ -401,6 +520,41 @@ export const SUBSCRIBE_FEATURES = {
   ],
 }
 
+/** Purchase-focused FAQ for intro — objections only, not product tour copy. */
+export function introConversionFaq(pricing = DEFAULT_PRICING) {
+  if (pricing.waitlist) {
+    return introFaq(pricing)
+  }
+  return [
+    {
+      q: 'What happens after I pay?',
+      a: 'You go straight into Mercerline. Explore, investor dossiers, company context, and the macro calendar unlock immediately.',
+    },
+    {
+      q: 'Can I cancel?',
+      a: `Yes. ${formatUsd(pricing.monthlyUsd)}/mo or ${formatUsd(pricing.yearlyUsd)}/yr with Whop. Manage billing anytime in Settings.`,
+    },
+    {
+      q: 'Already a member?',
+      a: 'Choose Sign in in the menu. Google opens instantly. Use the same email as your Whop checkout.',
+    },
+    {
+      q: 'Why choose yearly?',
+      a: pricing.founders
+        ? `Lock in founders pricing and save ${formatUsd(pricing.yearlySaveUsd)} vs paying monthly for twelve months.`
+        : `${formatUsd(pricing.yearlySaveUsd)} less than paying monthly for twelve months.`,
+    },
+    {
+      q: 'Can I switch monthly and yearly later?',
+      a: 'Yes. Change plans anytime from billing settings in Mercerline.',
+    },
+    {
+      q: 'Is this investment advice?',
+      a: 'No. Mercerline is a research workspace only.',
+    },
+  ]
+}
+
 export function introFaq(pricing = DEFAULT_PRICING) {
   if (pricing.waitlist) {
     return [
@@ -430,20 +584,20 @@ export function introFaq(pricing = DEFAULT_PRICING) {
     {
       q: 'What do I get on day one?',
       a: 'Full access to Explore, investor and company dossiers, and the macro calendar.',
-    },
-    {
-      q: 'Can I cancel?',
+  },
+  {
+    q: 'Can I cancel?',
       a: `Yes. ${formatUsd(pricing.monthlyUsd)}/mo or ${formatUsd(pricing.yearlyUsd)}/yr with Whop. Manage billing anytime in Settings.`,
     },
     {
       q: 'Already a member?',
-      a: 'Choose Sign in in the menu — Google opens instantly. Use the same email as your Whop checkout.',
+      a: 'Choose Sign in in the menu. Google opens instantly. Use the same email as your Whop checkout.',
     },
     {
       q: 'Is this investment advice?',
-      a: 'No. Mercerline is a research workspace only.',
-    },
-  ]
+    a: 'No. Mercerline is a research workspace only.',
+  },
+]
 }
 
 /** @deprecated Prefer introFaq(pricing) */
@@ -451,7 +605,7 @@ export const INTRO_FAQ = introFaq()
 
 export function pricingCopy(pricing = DEFAULT_PRICING) {
   return {
-    kicker: 'Pricing',
+  kicker: 'Pricing',
     title: 'Simple pricing. Full access.',
     sub: pricing.founders
       ? 'Founders pricing, early access rate. Most members choose yearly.'
@@ -534,10 +688,10 @@ export function subscribeFaq(pricing = DEFAULT_PRICING) {
     {
       q: 'Can I switch monthly and yearly later?',
       a: 'Yes. Change plans anytime from billing settings in Mercerline.',
-    },
-    {
-      q: 'What happens after I pay?',
-      a: 'You go straight into Mercerline — Explore, investor dossiers, company context, and the macro calendar unlock immediately.',
+  },
+  {
+    q: 'What happens after I pay?',
+      a: 'You go straight into Mercerline. Explore, investor dossiers, company context, and the macro calendar unlock immediately.',
     },
     {
       q: 'Why choose yearly?',
