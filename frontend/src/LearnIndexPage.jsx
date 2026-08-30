@@ -42,6 +42,8 @@ export function LearnIndexPage() {
 
       <PublicContentCta
         body="Members get the full daily recap, investor dossiers, and company context inside Explore."
+        secondaryLabel="Browse research"
+        secondaryHref="/research"
       />
     </PublicContentLayout>
   )

@@ -49,7 +49,9 @@ export function PublicContentCta({
   title = 'See the full disclosure rail',
   body,
   primaryLabel = 'Get started',
-  secondaryLabel = 'Sign in',
+  primaryHref = '/#pricing',
+  secondaryLabel = 'Learn more',
+  secondaryHref = '/learn',
   onPrimary,
   onSecondary,
 }) {
@@ -60,20 +62,20 @@ export function PublicContentCta({
       <div className="pubContentCtaActions">
         <a
           className="lpBtn lpBtn--accent"
-          href="/#pricing"
+          href={primaryHref}
           onClick={(e) => {
             e.preventDefault()
-            onPrimary?.(e) ?? navigateMarketing('/#pricing')
+            onPrimary?.(e) ?? navigateMarketing(primaryHref)
           }}
         >
           {primaryLabel}
         </a>
         <a
           className="lpBtn lpBtn--ghost pubContentCtaSecondary"
-          href="/sign-in"
+          href={secondaryHref}
           onClick={(e) => {
             e.preventDefault()
-            onSecondary?.(e) ?? navigateMarketing('/sign-in')
+            onSecondary?.(e) ?? navigateMarketing(secondaryHref)
           }}
         >
           {secondaryLabel}
