@@ -102,7 +102,7 @@ export function ResearchTickerPage({ ticker: tickerProp = null }) {
                 data.latest_close != null ? `Last close: $${Number(data.latest_close).toFixed(2)}` : null,
               ]
                 .filter(Boolean)
-                .join(' · ') || 'Basic issuer metadata only on public pages.'}
+                .join(', ') || 'Basic issuer metadata only on public pages.'}
             </p>
           </section>
 
@@ -118,7 +118,7 @@ export function ResearchTickerPage({ ticker: tickerProp = null }) {
                     navigateMarketing(`/research/${latest.dayKey}`)
                   }}
                 >
-                  Read the daily highlight →
+                  Read the daily highlight
                 </a>
               </p>
             </section>
@@ -132,8 +132,6 @@ export function ResearchTickerPage({ ticker: tickerProp = null }) {
           <PublicContentCta
             title={`Full ${ticker} dossier in Mercerline`}
             body="Price history, filings archive, financial model, and tracked investor flow — the same deep company view used inside the app."
-            primaryLabel="Sign in"
-            secondaryLabel="View pricing"
           />
         </>
       ) : null}

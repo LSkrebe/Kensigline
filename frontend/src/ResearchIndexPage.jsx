@@ -89,7 +89,7 @@ export function ResearchIndexPage() {
                   }}
                 >
                   <span className="pubContentListMeta">
-                    {formatDayLabel(item.dayKey)} · {item.doc}
+                    {formatDayLabel(item.dayKey)}, {item.doc}
                   </span>
                   <span className="pubContentListTitle">{item.title}</span>
                   <span className="pubContentListDesc">{item.ticker}</span>

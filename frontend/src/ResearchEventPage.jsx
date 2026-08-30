@@ -89,7 +89,7 @@ export function ResearchEventPage({ dayKey: dayKeyProp = null }) {
       {!loading && event ? (
         <article>
           <header className="pubContentHero">
-            <p className="pubContentEventKicker">Event of the day · {formatDayLabel(event.dayKey)}</p>
+            <p className="pubContentEventKicker">Event of the day, {formatDayLabel(event.dayKey)}</p>
             <span className="pubContentEventDoc">{event.doc}</span>
             <h1 className="pubContentTitle">{event.headline}</h1>
             <p className="pubContentLead">{event.summary}</p>

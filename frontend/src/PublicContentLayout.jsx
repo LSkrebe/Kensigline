@@ -26,13 +26,13 @@ export function PublicContentLayout({
             <span className="lpBrandName">MERCERLINE</span>
           </a>
           <nav className="pubContentNavLinks" aria-label="Public sections">
-            <a href="/learn" onClick={(e) => { e.preventDefault(); navigateMarketing('/learn') }}>
+            <a className="pubContentNavLinkDesktop" href="/learn" onClick={(e) => { e.preventDefault(); navigateMarketing('/learn') }}>
               Learn
             </a>
-            <a href="/research" onClick={(e) => { e.preventDefault(); navigateMarketing('/research') }}>
+            <a className="pubContentNavLinkDesktop" href="/research" onClick={(e) => { e.preventDefault(); navigateMarketing('/research') }}>
               Research
             </a>
-            <a href="/sign-in" onClick={(e) => { e.preventDefault(); navigateMarketing('/sign-in') }}>
+            <a className="pubContentNavSignIn" href="/sign-in" onClick={(e) => { e.preventDefault(); navigateMarketing('/sign-in') }}>
               Sign in
             </a>
           </nav>
@@ -45,7 +45,14 @@ export function PublicContentLayout({
   )
 }
 
-export function PublicContentCta({ title = 'See the full disclosure rail', body, primaryLabel = 'Sign in', secondaryLabel = 'View pricing', onPrimary, onSecondary }) {
+export function PublicContentCta({
+  title = 'See the full disclosure rail',
+  body,
+  primaryLabel = 'Get started',
+  secondaryLabel = 'Sign in',
+  onPrimary,
+  onSecondary,
+}) {
   return (
     <aside className="pubContentCta" aria-label="Mercerline membership">
       <h2 className="pubContentCtaTitle">{title}</h2>
@@ -53,20 +60,20 @@ export function PublicContentCta({ title = 'See the full disclosure rail', body,
       <div className="pubContentCtaActions">
         <a
           className="lpBtn lpBtn--accent"
-          href="/sign-in"
+          href="/#pricing"
           onClick={(e) => {
             e.preventDefault()
-            onPrimary?.(e) ?? navigateMarketing('/sign-in')
+            onPrimary?.(e) ?? navigateMarketing('/#pricing')
           }}
         >
           {primaryLabel}
         </a>
         <a
-          className="lpBtn lpBtn--ghost"
-          href="/#pricing"
+          className="lpBtn lpBtn--ghost pubContentCtaSecondary"
+          href="/sign-in"
           onClick={(e) => {
             e.preventDefault()
-            onSecondary?.(e) ?? navigateMarketing('/#pricing')
+            onSecondary?.(e) ?? navigateMarketing('/sign-in')
           }}
         >
           {secondaryLabel}

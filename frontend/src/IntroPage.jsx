@@ -314,7 +314,7 @@ export function IntroPage() {
                 Product
               </a>
               {!waitlist ? (
-                <a href={`#${PRICING_SECTION_ID}`} onClick={scrollToPricing}>
+                <a className="lpNavLinkDesktop" href={`#${PRICING_SECTION_ID}`} onClick={scrollToPricing}>
                   Pricing
                 </a>
               ) : null}
