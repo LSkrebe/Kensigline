@@ -2,7 +2,9 @@
 # Local preview: npm run build && npx wrangler pages dev dist
 name = "mercerline"
 compatibility_date = "2025-01-01"
+main = "worker/index.js"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
