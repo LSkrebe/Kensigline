@@ -1,6 +1,29 @@
 /** Proxy /api/* on mercerline.com → api.mercerline.com (Hetzner). Static assets otherwise. */
 const API_ORIGIN = 'https://api.mercerline.com'
 
+/**
+ * Hermes and similar tools often cannot set Authorization headers.
+ * Accept ?key= or ?content_api_key= on internal content routes, forward as headers,
+ * and strip from the upstream URL so keys are less likely to appear in origin logs.
+ */
+function prepareInternalContentProxy(url, headers) {
+  if (!url.pathname.startsWith('/api/internal/content')) {
+    return url.pathname + url.search
+  }
+
+  const key = url.searchParams.get('key') ?? url.searchParams.get('content_api_key')
+  if (!key) return url.pathname + url.search
+
+  const upstream = new URL(url.pathname + url.search, API_ORIGIN)
+  upstream.searchParams.delete('key')
+  upstream.searchParams.delete('content_api_key')
+
+  headers.set('Authorization', `Bearer ${key}`)
+  headers.set('X-Content-Api-Key', key)
+
+  return upstream.pathname + upstream.search
+}
+
 export default {
   /**
    * @param {Request} request
@@ -10,9 +33,10 @@ export default {
     const url = new URL(request.url)
 
     if (url.pathname.startsWith('/api/')) {
-      const target = new URL(url.pathname + url.search, API_ORIGIN)
       const headers = new Headers(request.headers)
       headers.delete('host')
+      const targetPath = prepareInternalContentProxy(url, headers)
+      const target = new URL(targetPath, API_ORIGIN)
       return fetch(
         new Request(target, {
           method: request.method,

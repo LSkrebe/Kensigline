@@ -152,8 +152,13 @@ function notConfigured(res: http.ServerResponse) {
   sendJson(res, 503, { ok: false, error: "content_api_not_configured" });
 }
 
-export async function handleInternalContent(req: http.IncomingMessage, res: http.ServerResponse, pathname: string) {
-  if (!contentApiAuthorized(req)) {
+export async function handleInternalContent(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  pathname: string,
+  url: URL,
+) {
+  if (!contentApiAuthorized(req, url)) {
     unauthorized(res);
     return true;
   }

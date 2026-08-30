@@ -145,7 +145,7 @@ const server = http.createServer(async (req, res) => {
         sendJson(res, 503, { ok: false, error: "content_api_not_configured" });
         return;
       }
-      const handled = await handleInternalContent(req, res, url.pathname);
+      const handled = await handleInternalContent(req, res, url.pathname, url);
       if (handled) return;
       sendJson(res, 404, { ok: false, error: "not_found" });
       return;
