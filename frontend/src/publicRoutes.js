@@ -91,7 +91,7 @@ export function learnLessonPageMeta(lesson) {
 export const LEARN_INDEX_META = {
   title: 'Learn - Mercerline',
   description:
-    'Guides on US equity disclosures — Form 4, PTR, 13F — and how to research filings with Mercerline before the headline.',
+    'In depth guides on US equity disclosures including Form 4, PTR, and 13F, and how to research filings with Mercerline before the headline.',
   path: '/learn',
   ogImage: '/og-image.png',
 }

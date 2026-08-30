@@ -63,13 +63,17 @@ export function LearnLessonPage({ slug: slugProp = null }) {
         {lesson.sections.map((section) => (
           <section className="pubContentCard" key={section.heading}>
             <h2>{section.heading}</h2>
-            <p>{section.body}</p>
+            {(section.paragraphs ?? (section.body ? [section.body] : [])).map((para) => (
+              <p key={para.slice(0, 48)}>{para}</p>
+            ))}
           </section>
         ))}
 
         <section className="pubContentCard">
           <h2>{lesson.mercerline.heading}</h2>
-          <p>{lesson.mercerline.body}</p>
+          {(lesson.mercerline.paragraphs ?? (lesson.mercerline.body ? [lesson.mercerline.body] : [])).map((para) => (
+            <p key={para.slice(0, 48)}>{para}</p>
+          ))}
           {lesson.mercerline.bullets?.length ? (
             <ul>
               {lesson.mercerline.bullets.map((item) => (

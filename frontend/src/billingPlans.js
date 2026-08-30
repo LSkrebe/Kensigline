@@ -86,6 +86,9 @@ export function buildPricing({
 
 export const DEFAULT_PRICING = buildPricing({ waitlist: DEFAULT_WAITLIST, founders: DEFAULT_FOUNDERS })
 
+/** Standard list pricing for SEO, llms.txt, JSON-LD, and other crawler-facing copy. */
+export const SEO_PRICING = buildPricing({ waitlist: false, founders: false })
+
 /** @deprecated Prefer useBillingPricing / DEFAULT_PRICING — kept for static imports. */
 export const MONTHLY_PRICE_USD = DEFAULT_PRICING.monthlyUsd
 export const YEARLY_PRICE_USD = DEFAULT_PRICING.yearlyUsd

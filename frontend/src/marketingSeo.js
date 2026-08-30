@@ -3,7 +3,7 @@
  * Positioning: own the narrow category (US equity disclosure intelligence), not generic finance.
  */
 
-import { DEFAULT_PRICING, formatUsd } from './billingPlans.js'
+import { formatUsd, SEO_PRICING } from './billingPlans.js'
 import { HOW_IT_WORKS, INTRO_DEPTH, ORIGIN_STORY, PILLARS, PRODUCT, introFaq } from './marketingContent.js'
 import { LEARN_LESSONS } from './learn/learnContent.js'
 import { RESEARCH_TICKERS } from './publicRoutes.js'
@@ -58,7 +58,7 @@ function faqJsonLdItems(faqItems) {
 }
 
 /** JSON-LD @graph for intro — Organization, WebSite, SoftwareApplication, FAQPage. */
-export function buildMarketingJsonLd(pricing = DEFAULT_PRICING) {
+export function buildMarketingJsonLd(pricing = SEO_PRICING) {
   const faq = introFaq(pricing)
   const origin = SITE_URL.replace(/\/$/, '')
 
@@ -187,13 +187,11 @@ export function publicCompanyDescription({ ticker, name }) {
 }
 
 /** Static HTML inside #root for non-JS crawlers (synced into index.html at build). */
-export function renderSeoBootHtml(pricing = DEFAULT_PRICING) {
+export function renderSeoBootHtml(pricing = SEO_PRICING) {
   const faq = introFaq(pricing)
   const priceLine = pricing.waitlist
     ? 'Join the waitlist for early access.'
-    : pricing.founders && pricing.monthlyListUsd
-      ? `Founders pricing: ${formatUsd(pricing.monthlyUsd)}/mo (list ${formatUsd(pricing.monthlyListUsd)}/mo).`
-      : `From ${formatUsd(pricing.monthlyUsd)}/mo.`
+    : `${formatUsd(pricing.monthlyUsd)}/mo or ${formatUsd(pricing.yearlyUsd)}/yr.`
 
   const tickerLinks = RESEARCH_TICKERS.map(
     (t) => `<li><a href="/research/ticker/${t}">${escapeHtml(t)} disclosure context</a></li>`,
@@ -313,13 +311,11 @@ export function renderSeoBootHtml(pricing = DEFAULT_PRICING) {
 }
 
 /** Plain-text index for AI crawlers (llms.txt). */
-export function renderLlmsTxt(pricing = DEFAULT_PRICING) {
+export function renderLlmsTxt(pricing = SEO_PRICING) {
   const faq = introFaq(pricing)
   const priceLine = pricing.waitlist
     ? 'Waitlist open — join at /waitlist'
-    : pricing.founders && pricing.monthlyListUsd
-      ? `Founders: ${formatUsd(pricing.monthlyUsd)}/mo (list ${formatUsd(pricing.monthlyListUsd)}/mo), ${formatUsd(pricing.yearlyUsd)}/yr`
-      : `${formatUsd(pricing.monthlyUsd)}/mo, ${formatUsd(pricing.yearlyUsd)}/yr`
+    : `${formatUsd(pricing.monthlyUsd)}/mo, ${formatUsd(pricing.yearlyUsd)}/yr`
 
   const faqBlock = faq.map((item) => `- Q: ${item.q}\n  A: ${item.a}`).join('\n')
 

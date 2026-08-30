@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renderLlmsTxt, renderSeoBootHtml, SITE_DESCRIPTION, NICHE_TAGLINE, SITE_URL } from '../src/marketingSeo.js'
-import { DEFAULT_PRICING } from '../src/billingPlans.js'
+import { SEO_PRICING } from '../src/billingPlans.js'
 import { RESEARCH_TICKERS } from '../src/publicRoutes.js'
 import { LEARN_LESSONS } from '../src/learn/learnContent.js'
 
@@ -14,7 +14,7 @@ const frontendRoot = path.resolve(__dirname, '..')
 const publicDir = path.join(frontendRoot, 'public')
 const distDir = path.join(frontendRoot, 'dist')
 
-const pricing = DEFAULT_PRICING
+const pricing = SEO_PRICING
 const distOnly = process.argv.includes('--dist')
 
 if (!distOnly) {
@@ -74,14 +74,14 @@ ${RESEARCH_TICKERS.map(
 </urlset>
 `
   fs.writeFileSync(path.join(publicDir, 'sitemap.xml'), sitemap, 'utf8')
-  console.log('[sync-seo] Updated public/llms.txt and public/sitemap.xml')
+  patchIndexBoot(path.join(frontendRoot, 'index.html'))
+  console.log('[sync-seo] Updated public/llms.txt, public/sitemap.xml, and index.html SEO boot')
 }
 
-function patchDistIndex() {
-  const indexPath = path.join(distDir, 'index.html')
+function patchIndexBoot(indexPath) {
   if (!fs.existsSync(indexPath)) {
-    console.error('[sync-seo] dist/index.html not found — run vite build first')
-    process.exit(1)
+    console.warn(`[sync-seo] Skipping missing ${indexPath}`)
+    return
   }
 
   let index = fs.readFileSync(indexPath, 'utf8')
@@ -93,8 +93,8 @@ function patchDistIndex() {
   const endIdx = index.indexOf(bootEnd)
 
   if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx) {
-    console.error('[sync-seo] Missing SEO_BOOT markers in dist/index.html')
-    process.exit(1)
+    console.warn(`[sync-seo] Missing SEO_BOOT markers in ${indexPath}`)
+    return
   }
 
   index =
@@ -126,6 +126,16 @@ function patchDistIndex() {
   }
 
   fs.writeFileSync(indexPath, index, 'utf8')
+}
+
+function patchDistIndex() {
+  const indexPath = path.join(distDir, 'index.html')
+  if (!fs.existsSync(indexPath)) {
+    console.error('[sync-seo] dist/index.html not found — run vite build first')
+    process.exit(1)
+  }
+
+  patchIndexBoot(indexPath)
   console.log('[sync-seo] Patched dist/index.html crawler markup')
 }
 

@@ -1866,6 +1866,24 @@
   color: var(--lp-accent);
 }
 
+.lpFootLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 8px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.lpFootLinks a {
+  color: rgba(158, 196, 212, 0.72);
+  text-decoration: none;
+}
+
+.lpFootLinks a:hover {
+  color: var(--lp-accent);
+}
+
 .lpFootLegalText {
   margin: 0;
   font-size: 9px;

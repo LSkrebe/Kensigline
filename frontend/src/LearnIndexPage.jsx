@@ -18,7 +18,7 @@ export function LearnIndexPage() {
         <p className="lpEyebrow">Learn</p>
         <h1 className="pubContentTitle">Disclosure research guides</h1>
         <p className="pubContentLead">
-          Short lessons on Form 4, PTR, and 13F filings — and how to use Mercerline before the headline.
+          In depth guides on Form 4, PTR, and 13F filings, and how to use Mercerline before the headline.
         </p>
       </div>
 

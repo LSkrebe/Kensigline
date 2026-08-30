@@ -222,7 +222,7 @@ export function IntroPage() {
     markAppReady()
     if (isIntroPageReload()) clearIntroRevealMemory()
 
-    const schema = buildMarketingJsonLd(pricing)
+    const schema = buildMarketingJsonLd()
 
     let el = document.head.querySelector('script[data-intro-schema]')
     if (!el) {
@@ -236,7 +236,7 @@ export function IntroPage() {
     return () => {
       el?.remove()
     }
-  }, [pricing])
+  }, [])
 
   useEffect(() => {
     const page = pageRef.current
@@ -536,13 +536,11 @@ export function IntroPage() {
 
         <footer className="lpFoot" role="contentinfo">
           <div className="lpFootInner lpFootInner--legal">
-            <p className="lpFootLine">
-              {INTRO_FOOTER.line}
-              {' · '}
+            <p className="lpFootLine">{INTRO_FOOTER.line}</p>
+            <p className="lpFootLinks">
               <a href="/learn" onClick={(e) => { e.preventDefault(); navigateMarketing('/learn') }}>
                 Learn
               </a>
-              {' · '}
               <a href="/research" onClick={(e) => { e.preventDefault(); navigateMarketing('/research') }}>
                 Research
               </a>

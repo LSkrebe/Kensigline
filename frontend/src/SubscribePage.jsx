@@ -34,9 +34,9 @@ export function SubscribePage() {
   const [checkoutMsg, setCheckoutMsg] = useState('')
 
   useEffect(() => {
-    applyPageMeta(subscribePageMeta(pricing))
+    applyPageMeta(subscribePageMeta())
     markAppReady()
-  }, [pricing])
+  }, [])
 
   const onCheckout = useCallback((planId) => {
     setCheckoutPlan(planId)

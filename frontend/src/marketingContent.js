@@ -1,10 +1,10 @@
 /** Marketing copy — landing / auth / checkout (not in-app chrome). */
 
-import { DEFAULT_PRICING, formatUsd } from './billingPlans.js'
+import { DEFAULT_PRICING, formatUsd, SEO_PRICING } from './billingPlans.js'
 
 export const PRODUCT_NAME = 'Mercerline'
 
-export function subscribePageMeta(pricing = DEFAULT_PRICING) {
+export function subscribePageMeta(pricing = SEO_PRICING) {
   return {
     title: 'Subscribe - Mercerline',
     description: `Subscribe to Mercerline from ${formatUsd(pricing.monthlyUsd)}/mo. Track insider, politician, and fund filings with investor dossiers and company context.`,
