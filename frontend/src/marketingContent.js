@@ -4,14 +4,6 @@ import { DEFAULT_PRICING, formatUsd } from './billingPlans.js'
 
 export const PRODUCT_NAME = 'Mercerline'
 
-export const INTRO_PAGE_META = {
-  title: 'Mercerline - See who filed before the story breaks',
-  description:
-    'Track insider, politician, and fund filings on US equities as they clear. Open investor dossiers and company context when a disclosure matters.',
-  path: '/',
-  ogImage: '/og-image.png',
-}
-
 export function subscribePageMeta(pricing = DEFAULT_PRICING) {
   return {
     title: 'Subscribe - Mercerline',
@@ -24,12 +16,7 @@ export function subscribePageMeta(pricing = DEFAULT_PRICING) {
 /** @deprecated Prefer subscribePageMeta(pricing) */
 export const SUBSCRIBE_PAGE_META = subscribePageMeta()
 
-export const SIGN_IN_PAGE_META = {
-  title: 'Sign in - Mercerline',
-  description: 'Sign in to Mercerline to track US equity disclosures.',
-  path: '/sign-in',
-  ogImage: '/og-image.png',
-}
+/** @deprecated Use signInPageMeta() from marketingSeo.js */
 
 export const WAITLIST_PAGE_META = {
   title: 'Join the waitlist - Mercerline',

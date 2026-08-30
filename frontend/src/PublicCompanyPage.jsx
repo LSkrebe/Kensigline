@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
+import { buildPublicCompanyJsonLd } from './marketingSeo.js'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { matchPublicCompanyPath, publicCompanyPageMeta } from './publicCompany.js'
@@ -74,6 +75,22 @@ export function PublicCompanyPage({ ticker: tickerProp = null }) {
     // Always set crawlable meta immediately so API blips don't look like empty/404 pages.
     applyPageMeta(publicCompanyPageMeta({ ticker, name: null }))
   }, [ticker])
+
+  useEffect(() => {
+    if (!ticker) return
+    const schema = buildPublicCompanyJsonLd({ ticker, name: company?.name ?? null })
+    let el = document.head.querySelector('script[data-public-company-schema]')
+    if (!el) {
+      el = document.createElement('script')
+      el.setAttribute('type', 'application/ld+json')
+      el.setAttribute('data-public-company-schema', 'true')
+      document.head.appendChild(el)
+    }
+    el.textContent = JSON.stringify(schema)
+    return () => {
+      el?.remove()
+    }
+  }, [ticker, company?.name])
 
   useEffect(() => {
     if (!ticker) return

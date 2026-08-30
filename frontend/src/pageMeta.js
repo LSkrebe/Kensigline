@@ -20,15 +20,18 @@ function upsertMeta(attr, key, content) {
   el.setAttribute('content', content)
 }
 
-function upsertLink(rel, href) {
+function upsertLink(rel, href, extras = {}) {
   if (!href || typeof document === 'undefined') return
-  let el = document.head.querySelector(`link[rel="${rel}"]`)
+  const type = extras.type ? `[type="${extras.type}"]` : ''
+  let el = document.head.querySelector(`link[rel="${rel}"]${type}`)
   if (!el) {
     el = document.createElement('link')
     el.setAttribute('rel', rel)
+    if (extras.type) el.setAttribute('type', extras.type)
     document.head.appendChild(el)
   }
   el.setAttribute('href', href)
+  if (extras.title) el.setAttribute('title', extras.title)
 }
 
 /** Per-route SEO: title, description, canonical, Open Graph, Twitter. */
@@ -70,4 +73,5 @@ export function applyPageMeta({
   upsertMeta('name', 'twitter:image', imageUrl)
   upsertMeta('name', 'twitter:image:alt', title || 'Mercerline')
   upsertLink('canonical', url)
+  upsertLink('alternate', `${origin}/llms.txt`, { type: 'text/plain', title: 'LLM site summary' })
 }

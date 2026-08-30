@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from 'react'
 import { AuthSignIn } from './AuthSignIn.jsx'
 import { useAuth } from './AuthContext.jsx'
-import { SIGN_IN, SIGN_IN_GATE_MESSAGES, SIGN_IN_PAGE_META } from './marketingContent.js'
+import { SIGN_IN, SIGN_IN_GATE_MESSAGES } from './marketingContent.js'
+import { signInPageMeta } from './marketingSeo.js'
 import { navigateMarketing, returnToIntroAfterSignOut } from './marketingRoute.js'
 import { pageBackgroundStyle } from './pageBackgrounds.js'
 import { applyPageMeta } from './pageMeta.js'
@@ -23,7 +24,7 @@ export function SignInPage({ gateReason: gateReasonProp = null }) {
   const signedInEmail = useMemo(() => String(user?.email ?? '').trim(), [user?.email])
 
   useEffect(() => {
-    applyPageMeta(SIGN_IN_PAGE_META)
+    applyPageMeta(signInPageMeta())
     markAppReady()
   }, [])
 

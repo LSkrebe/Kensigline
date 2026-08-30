@@ -9,12 +9,15 @@ import { WhopCheckoutPanel } from './WhopCheckoutPanel.jsx'
 import { useAuth } from './AuthContext.jsx'
 import { formatUsd } from './billingPlans.js'
 import {
+  buildMarketingJsonLd,
+  introPageMeta,
+} from './marketingSeo.js'
+import {
   heroCopy,
   heroLeadParts,
   introClosingCopy,
   introConversionFaq,
   INTRO_FOOTER,
-  INTRO_PAGE_META,
   pricingCopy,
   subscribeCopy,
 } from './marketingContent.js'
@@ -215,23 +218,11 @@ export function IntroPage() {
   const primaryHref = waitlist ? '/waitlist' : `#${PRICING_SECTION_ID}`
 
   useEffect(() => {
-    applyPageMeta(INTRO_PAGE_META)
+    applyPageMeta(introPageMeta())
     markAppReady()
     if (isIntroPageReload()) clearIntroRevealMemory()
 
-    const schema = {
-      '@context': 'https://schema.org',
-      '@type': 'SoftwareApplication',
-      name: 'Mercerline',
-      applicationCategory: 'FinanceApplication',
-      operatingSystem: 'Web',
-      description: INTRO_PAGE_META.description,
-      offers: {
-        '@type': 'Offer',
-        price: String(pricing.monthlyUsd),
-        priceCurrency: 'USD',
-      },
-    }
+    const schema = buildMarketingJsonLd(pricing)
 
     let el = document.head.querySelector('script[data-intro-schema]')
     if (!el) {
@@ -245,7 +236,7 @@ export function IntroPage() {
     return () => {
       el?.remove()
     }
-  }, [pricing.monthlyUsd])
+  }, [pricing])
 
   useEffect(() => {
     const page = pageRef.current

@@ -31,8 +31,8 @@ export function publicCompanyPageMeta({ ticker, name }) {
   return {
     title: `${label} - Mercerline`,
     description: n
-      ? `${n} (${t}) company overview on Mercerline — price, earnings date, and key fundamentals. Track US equity disclosures when you sign in.`
-      : `${t} company overview on Mercerline — price, earnings date, and key fundamentals. Track US equity disclosures when you sign in.`,
+      ? `${n} (${t}) on Mercerline — price, earnings, and fundamentals. Track insider Form 4, politician PTR, and 13F filings when you sign in.`
+      : `${t} on Mercerline — price, earnings, and fundamentals. Track insider Form 4, politician PTR, and 13F filings when you sign in.`,
     path: `/companies/${t}`,
     ogImage: '/og-image.png',
   }

@@ -7,7 +7,7 @@
     "dev": "vite",
     "dev:host": "vite --host",
     "phone-tunnel": "npx cloudflared tunnel --url http://127.0.0.1:5173",
-    "build": "vite build",
+    "build": "node scripts/sync-seo.mjs && vite build && node scripts/sync-seo.mjs --dist",
     "lint": "eslint .",
     "preview": "vite preview",
     "pages:preview": "npm run build && wrangler pages dev dist"
