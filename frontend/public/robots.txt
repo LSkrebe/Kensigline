@@ -1,5 +1,9 @@
 User-agent: *
 Allow: /
+Allow: /learn
+Allow: /learn/
+Allow: /research
+Allow: /research/
 Allow: /companies/
 Allow: /og-image.png
 Allow: /llms.txt

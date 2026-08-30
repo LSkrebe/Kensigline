@@ -13,13 +13,22 @@ Mercerline is built for a narrow monopoly: same-day US equity disclosure intelli
 - Following politician stock disclosures (House PTR, Senate PTR)
 - Monitoring 13F institutional filings
 - Opening one investor dossier instead of juggling EDGAR, news, and spreadsheets
-- Researching a specific ticker’s disclosure history (see /companies/TICKER pages)
+- Researching a specific ticker’s disclosure history (see /research/ticker/TICKER pages)
 
 ## Site
 - Home: https://mercerline.com/
+- Learn: https://mercerline.com/learn
+- Research: https://mercerline.com/research
 - Sign in: https://mercerline.com/sign-in
 - Pricing: https://mercerline.com/#pricing
 - Contact: research@mercerline.com
+
+## Learn guides
+- https://mercerline.com/learn/form-4-insider-filings — What is a Form 4?
+- https://mercerline.com/learn/politician-ptr-disclosures — Reading politician PTR filings
+- https://mercerline.com/learn/13f-institutional-filings — What 13F filings tell you
+- https://mercerline.com/learn/why-filings-beat-headlines — Why filings beat headlines
+- https://mercerline.com/learn/using-mercerline-daily-recap — Using the daily recap
 
 ## Product
 - Daily disclosure recap (Form 4, PTR, 13F as they clear)
@@ -36,22 +45,25 @@ Mercerline is built for a narrow monopoly: same-day US equity disclosure intelli
 ## Coverage
 Form 4, House PTR, Senate PTR, Executive PTR, 13F, SEC EDGAR, earnings transcripts, press, 8-K, macro US/EU/UK/CN. 500+ US issuers tracked.
 
-## Public company pages
-- https://mercerline.com/companies/NVDA
-- https://mercerline.com/companies/AAPL
-- https://mercerline.com/companies/MSFT
-- https://mercerline.com/companies/GOOGL
-- https://mercerline.com/companies/AMZN
-- https://mercerline.com/companies/META
-- https://mercerline.com/companies/TSLA
-- https://mercerline.com/companies/AVGO
-- https://mercerline.com/companies/AMD
-- https://mercerline.com/companies/ASML
-- https://mercerline.com/companies/TSM
-- https://mercerline.com/companies/INTC
-- https://mercerline.com/companies/JPM
-- https://mercerline.com/companies/XOM
-- https://mercerline.com/companies/LLY
+## Public research
+One global filing headline per day at https://mercerline.com/research — full daily recap inside the product.
+
+## Ticker pages
+- https://mercerline.com/research/ticker/NVDA
+- https://mercerline.com/research/ticker/AAPL
+- https://mercerline.com/research/ticker/MSFT
+- https://mercerline.com/research/ticker/GOOGL
+- https://mercerline.com/research/ticker/AMZN
+- https://mercerline.com/research/ticker/META
+- https://mercerline.com/research/ticker/TSLA
+- https://mercerline.com/research/ticker/AVGO
+- https://mercerline.com/research/ticker/AMD
+- https://mercerline.com/research/ticker/ASML
+- https://mercerline.com/research/ticker/TSM
+- https://mercerline.com/research/ticker/INTC
+- https://mercerline.com/research/ticker/JPM
+- https://mercerline.com/research/ticker/XOM
+- https://mercerline.com/research/ticker/LLY
 
 ## FAQ
 - Q: What is Mercerline for?

@@ -1857,6 +1857,15 @@
   line-height: 1.4;
 }
 
+.lpFootLine a {
+  color: rgba(158, 196, 212, 0.72);
+  text-decoration: none;
+}
+
+.lpFootLine a:hover {
+  color: var(--lp-accent);
+}
+
 .lpFootLegalText {
   margin: 0;
   font-size: 9px;

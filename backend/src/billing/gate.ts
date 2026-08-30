@@ -19,6 +19,7 @@ const BILLING_EXEMPT_PATHS = new Set([
   "/api/auth/me",
   "/api/public/company",
   "/api/public/bars",
+  "/api/public/research",
   "/api/waitlist",
 ]);
 

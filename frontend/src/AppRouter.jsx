@@ -3,9 +3,8 @@ import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { isCaptureMode } from './captureMode.js'
 import MarketingRoutes from './MarketingRoutes.jsx'
-import { PublicCompanyPage } from './PublicCompanyPage.jsx'
+import { PublicMarketingRoutes, isPublicMarketingPath } from './PublicMarketingRoutes.jsx'
 import { SignInPage } from './SignInPage.jsx'
-import { matchPublicCompanyPath } from './publicCompany.js'
 import { readMarketingPath, navigateMarketing } from './marketingRoute.js'
 import { activateCheckoutSession } from './checkoutActivate.js'
 import { clearCheckoutReceiptId, peekCheckoutReceiptId } from './WhopCheckoutPanel.jsx'
@@ -29,7 +28,7 @@ export default function AppRouter() {
   const pricing = useBillingPricing()
   const waitlistMode = WAITLIST_BUILD || pricing.waitlist === true
   const [path, setPath] = useState(readMarketingPath)
-  const publicCompany = matchPublicCompanyPath(path)
+  const publicMarketing = isPublicMarketingPath(path)
   const showMarketing = !captureMode && (waitlistMode || !configured || !user)
   const { loading: subLoading, active, refresh, gateReady } = useSubscription(
     signedIn && BILLING_GATE_ENABLED && !waitlistMode,
@@ -144,8 +143,8 @@ export default function AppRouter() {
     }
   }, [signedIn, waitlistMode, captureMode, gateReady, subLoading, active])
 
-  if (publicCompany && !waitlistMode) {
-    return <PublicCompanyPage ticker={publicCompany.ticker} />
+  if (publicMarketing && !waitlistMode) {
+    return <PublicMarketingRoutes path={path} />
   }
 
   if (showMarketing || waitlistMode) return <MarketingRoutes />

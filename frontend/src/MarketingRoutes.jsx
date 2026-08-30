@@ -2,9 +2,8 @@ import { useEffect } from 'react'
 import { IntroPage } from './IntroPage.jsx'
 import { SignInPage } from './SignInPage.jsx'
 import { WaitlistPage } from './WaitlistPage.jsx'
-import { PublicCompanyPage } from './PublicCompanyPage.jsx'
+import { PublicMarketingRoutes, isPublicMarketingPath } from './PublicMarketingRoutes.jsx'
 import { navigateMarketing, useMarketingPath } from './marketingRoute.js'
-import { matchPublicCompanyPath } from './publicCompany.js'
 import { useBillingPricing } from './useBillingPricing.js'
 
 /** Logged-out marketing pages — single sales page at `/`. */
@@ -12,7 +11,6 @@ export default function MarketingRoutes() {
   const marketingPath = useMarketingPath()
   const pricing = useBillingPricing()
   const waitlist = pricing.waitlist
-  const publicCompany = matchPublicCompanyPath(marketingPath)
 
   useEffect(() => {
     const p = marketingPath.replace(/\/$/, '') || '/'
@@ -29,7 +27,9 @@ export default function MarketingRoutes() {
     }
   }, [waitlist, marketingPath])
 
-  if (publicCompany) return <PublicCompanyPage ticker={publicCompany.ticker} />
+  if (isPublicMarketingPath(marketingPath)) {
+    return <PublicMarketingRoutes path={marketingPath} />
+  }
   if (!waitlist && marketingPath === '/sign-in') return <SignInPage />
   if (!waitlist && marketingPath === '/waitlist') return <IntroPage />
   if (marketingPath === '/waitlist') return <WaitlistPage />

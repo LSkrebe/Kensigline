@@ -1,39 +1,7 @@
-/** Curated public company SEO routes — keep in sync with sitemap.xml. */
-export const PUBLIC_COMPANY_TICKERS = [
-  'NVDA',
-  'AAPL',
-  'MSFT',
-  'GOOGL',
-  'AMZN',
-  'META',
-  'TSLA',
-  'AVGO',
-  'AMD',
-  'ASML',
-  'TSM',
-  'INTC',
-  'JPM',
-  'XOM',
-  'LLY',
-]
-
-export function matchPublicCompanyPath(pathname = '/') {
-  const raw = String(pathname || '/').replace(/\/$/, '') || '/'
-  const m = raw.match(/^\/companies\/([A-Za-z0-9.-]+)$/i)
-  if (!m) return null
-  return { ticker: String(m[1]).trim().toUpperCase(), path: `/companies/${String(m[1]).trim().toUpperCase()}` }
-}
-
-export function publicCompanyPageMeta({ ticker, name }) {
-  const t = String(ticker ?? '').trim().toUpperCase()
-  const n = String(name ?? '').trim()
-  const label = n ? `${n} (${t})` : t
-  return {
-    title: `${label} - Mercerline`,
-    description: n
-      ? `${n} (${t}) on Mercerline — price, earnings, and fundamentals. Track insider Form 4, politician PTR, and 13F filings when you sign in.`
-      : `${t} on Mercerline — price, earnings, and fundamentals. Track insider Form 4, politician PTR, and 13F filings when you sign in.`,
-    path: `/companies/${t}`,
-    ogImage: '/og-image.png',
-  }
-}
+/** @deprecated Import from publicRoutes.js */
+export {
+  RESEARCH_TICKERS,
+  PUBLIC_COMPANY_TICKERS,
+  matchLegacyCompanyPath as matchPublicCompanyPath,
+  researchTickerPageMeta as publicCompanyPageMeta,
+} from './publicRoutes.js'

@@ -5,7 +5,8 @@
 
 import { DEFAULT_PRICING, formatUsd } from './billingPlans.js'
 import { HOW_IT_WORKS, INTRO_DEPTH, ORIGIN_STORY, PILLARS, PRODUCT, introFaq } from './marketingContent.js'
-import { PUBLIC_COMPANY_TICKERS } from './publicCompany.js'
+import { LEARN_LESSONS } from './learn/learnContent.js'
+import { RESEARCH_TICKERS } from './publicRoutes.js'
 
 export const SITE_URL = 'https://mercerline.com'
 export const SITE_NAME = 'Mercerline'
@@ -115,11 +116,15 @@ export function buildMarketingJsonLd(pricing = DEFAULT_PRICING) {
 }
 
 export function buildPublicCompanyJsonLd({ ticker, name }) {
+  return buildResearchTickerJsonLd({ ticker, name: name ?? null })
+}
+
+export function buildResearchTickerJsonLd({ ticker, name }) {
   const t = String(ticker ?? '').trim().toUpperCase()
   const n = String(name ?? '').trim()
   const label = n ? `${n} (${t})` : t
   const origin = SITE_URL.replace(/\/$/, '')
-  const url = `${origin}/companies/${t}`
+  const url = `${origin}/research/ticker/${t}`
 
   return {
     '@context': 'https://schema.org',
@@ -127,7 +132,7 @@ export function buildPublicCompanyJsonLd({ ticker, name }) {
       {
         '@type': 'WebPage',
         '@id': `${url}#webpage`,
-        name: `${label} - ${SITE_NAME}`,
+        name: `${label} disclosures - ${SITE_NAME}`,
         url,
         description: publicCompanyDescription({ ticker: t, name: n }),
         isPartOf: { '@id': `${origin}/#website` },
@@ -142,11 +147,43 @@ export function buildPublicCompanyJsonLd({ ticker, name }) {
   }
 }
 
+export function buildResearchEventJsonLd(event) {
+  const origin = SITE_URL.replace(/\/$/, '')
+  const day = String(event?.dayKey ?? event?.slug ?? '').trim()
+  const url = `${origin}/research/${day}`
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: String(event?.headline ?? 'Daily disclosure highlight'),
+    description: String(event?.summary ?? '').slice(0, 300),
+    datePublished: day,
+    author: { '@id': `${origin}/#organization` },
+    publisher: { '@id': `${origin}/#organization` },
+    mainEntityOfPage: url,
+    url,
+  }
+}
+
+export function buildLearnArticleJsonLd(lesson) {
+  const origin = SITE_URL.replace(/\/$/, '')
+  const url = `${origin}/learn/${lesson.slug}`
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'LearningResource',
+    name: lesson.title,
+    description: lesson.description,
+    url,
+    learningResourceType: 'Guide',
+    publisher: { '@id': `${origin}/#organization` },
+    isPartOf: { '@id': `${origin}/#website` },
+  }
+}
+
 export function publicCompanyDescription({ ticker, name }) {
   const t = String(ticker ?? '').trim().toUpperCase()
   const n = String(name ?? '').trim()
   const label = n ? `${n} (${t})` : t
-  return `${label} on Mercerline — price, earnings, and fundamentals. Track insider Form 4, politician PTR, and 13F filings when you sign in.`
+  return `${label} on Mercerline — public disclosure context for Form 4, PTR, and 13F filings. Sign in for the full dossier rail.`
 }
 
 /** Static HTML inside #root for non-JS crawlers (synced into index.html at build). */
@@ -158,8 +195,12 @@ export function renderSeoBootHtml(pricing = DEFAULT_PRICING) {
       ? `Founders pricing: ${formatUsd(pricing.monthlyUsd)}/mo (list ${formatUsd(pricing.monthlyListUsd)}/mo).`
       : `From ${formatUsd(pricing.monthlyUsd)}/mo.`
 
-  const companyLinks = PUBLIC_COMPANY_TICKERS.map(
-    (t) => `<li><a href="/companies/${t}">${escapeHtml(t)} filings &amp; overview</a></li>`,
+  const tickerLinks = RESEARCH_TICKERS.map(
+    (t) => `<li><a href="/research/ticker/${t}">${escapeHtml(t)} disclosure context</a></li>`,
+  ).join('\n          ')
+
+  const learnLinks = LEARN_LESSONS.map(
+    (l) => `<li><a href="/learn/${l.slug}">${escapeHtml(l.title)}</a></li>`,
   ).join('\n          ')
 
   const faqHtml = faq
@@ -187,6 +228,10 @@ export function renderSeoBootHtml(pricing = DEFAULT_PRICING) {
 
         <nav aria-label="Site">
           <a href="/">Home</a>
+          |
+          <a href="/learn">Learn</a>
+          |
+          <a href="/research">Research</a>
           |
           <a href="/sign-in">Sign in</a>
           |
@@ -233,10 +278,23 @@ export function renderSeoBootHtml(pricing = DEFAULT_PRICING) {
           <p>${escapeHtml(priceLine)} Full access to Explore, investor dossiers, company context, and macro calendar.</p>
         </section>
 
-        <section aria-labelledby="seo-companies">
-          <h2 id="seo-companies">Company overviews</h2>
+        <section aria-labelledby="seo-learn">
+          <h2 id="seo-learn">Learn</h2>
           <ul>
-            ${companyLinks}
+            ${learnLinks}
+          </ul>
+        </section>
+
+        <section aria-labelledby="seo-research">
+          <h2 id="seo-research">Research</h2>
+          <p>Daily US equity disclosure highlights — one public filing story per day.</p>
+          <p><a href="/research">Browse research index</a></p>
+        </section>
+
+        <section aria-labelledby="seo-companies">
+          <h2 id="seo-companies">Ticker pages</h2>
+          <ul>
+            ${tickerLinks}
           </ul>
         </section>
 
@@ -280,13 +338,18 @@ Mercerline is built for a narrow monopoly: same-day US equity disclosure intelli
 - Following politician stock disclosures (House PTR, Senate PTR)
 - Monitoring 13F institutional filings
 - Opening one investor dossier instead of juggling EDGAR, news, and spreadsheets
-- Researching a specific ticker’s disclosure history (see /companies/TICKER pages)
+- Researching a specific ticker’s disclosure history (see /research/ticker/TICKER pages)
 
 ## Site
 - Home: ${SITE_URL}/
+- Learn: ${SITE_URL}/learn
+- Research: ${SITE_URL}/research
 - Sign in: ${SITE_URL}/sign-in
 - Pricing: ${SITE_URL}/#pricing
 - Contact: ${SITE_EMAIL}
+
+## Learn guides
+${LEARN_LESSONS.map((l) => `- ${SITE_URL}/learn/${l.slug} — ${l.title}`).join('\n')}
 
 ## Product
 - Daily disclosure recap (Form 4, PTR, 13F as they clear)
@@ -303,8 +366,11 @@ Mercerline is built for a narrow monopoly: same-day US equity disclosure intelli
 ## Coverage
 Form 4, House PTR, Senate PTR, Executive PTR, 13F, SEC EDGAR, earnings transcripts, press, 8-K, macro US/EU/UK/CN. 500+ US issuers tracked.
 
-## Public company pages
-${PUBLIC_COMPANY_TICKERS.map((t) => `- ${SITE_URL}/companies/${t}`).join('\n')}
+## Public research
+One global filing headline per day at ${SITE_URL}/research — full daily recap inside the product.
+
+## Ticker pages
+${RESEARCH_TICKERS.map((t) => `- ${SITE_URL}/research/ticker/${t}`).join('\n')}
 
 ## FAQ
 ${faqBlock}

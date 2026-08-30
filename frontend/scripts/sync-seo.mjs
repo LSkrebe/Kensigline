@@ -6,7 +6,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renderLlmsTxt, renderSeoBootHtml, SITE_DESCRIPTION, NICHE_TAGLINE, SITE_URL } from '../src/marketingSeo.js'
 import { DEFAULT_PRICING } from '../src/billingPlans.js'
-import { PUBLIC_COMPANY_TICKERS } from '../src/publicCompany.js'
+import { RESEARCH_TICKERS } from '../src/publicRoutes.js'
+import { LEARN_LESSONS } from '../src/learn/learnContent.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const frontendRoot = path.resolve(__dirname, '..')
@@ -42,12 +43,32 @@ function syncPublicAssets() {
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
-${PUBLIC_COMPANY_TICKERS.map(
-  (t) => `  <url>
-    <loc>${SITE_URL}/companies/${t}</loc>
+  <url>
+    <loc>${SITE_URL}/learn</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>${SITE_URL}/research</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <priority>0.85</priority>
+  </url>
+${LEARN_LESSONS.map(
+  (l) => `  <url>
+    <loc>${SITE_URL}/learn/${l.slug}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.65</priority>
+  </url>`,
+).join('\n')}
+${RESEARCH_TICKERS.map(
+  (t) => `  <url>
+    <loc>${SITE_URL}/research/ticker/${t}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.75</priority>
   </url>`,
 ).join('\n')}
 </urlset>

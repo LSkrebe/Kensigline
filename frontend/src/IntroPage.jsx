@@ -536,7 +536,17 @@ export function IntroPage() {
 
         <footer className="lpFoot" role="contentinfo">
           <div className="lpFootInner lpFootInner--legal">
-            <p className="lpFootLine">{INTRO_FOOTER.line}</p>
+            <p className="lpFootLine">
+              {INTRO_FOOTER.line}
+              {' · '}
+              <a href="/learn" onClick={(e) => { e.preventDefault(); navigateMarketing('/learn') }}>
+                Learn
+              </a>
+              {' · '}
+              <a href="/research" onClick={(e) => { e.preventDefault(); navigateMarketing('/research') }}>
+                Research
+              </a>
+            </p>
             <p className="lpFootLegalText">{INTRO_FOOTER.legal}</p>
           </div>
         </footer>

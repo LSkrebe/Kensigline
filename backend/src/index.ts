@@ -7,6 +7,11 @@ import { db, workerDbLoad } from "./core/db.js";
 import { getDailyCloseBars } from "./core/bars.js";
 import { getCompanySnapshot } from "./core/company.js";
 import { getCompanyFullCached } from "./core/ticker-context-cache.js";
+import {
+  buildPublicResearchEvent,
+  buildPublicResearchIndex,
+  buildPublicResearchTicker,
+} from "./public/research.js";
 import { handleAnalyseModel } from "./analyse/api.js";
 import {
   getLatestOutcomes,
@@ -517,6 +522,38 @@ const server = http.createServer(async (req, res) => {
       )}`;
       const out = await getDailyCloseBars({ ticker, fromDay, toDay });
       sendJson(res, 200, out);
+      return;
+    }
+
+    if (route(req, url, "GET", "/api/public/research")) {
+      const day = String(url.searchParams.get("day") ?? "").trim();
+      const ticker = String(url.searchParams.get("ticker") ?? "").trim();
+      try {
+        if (ticker) {
+          const out = await buildPublicResearchTicker(ticker);
+          if (!out.ok) {
+            sendJson(res, 400, out);
+            return;
+          }
+          sendJson(res, 200, out);
+          return;
+        }
+        if (day) {
+          const out = await buildPublicResearchEvent(day);
+          if (!out.ok) {
+            sendJson(res, out.error === "invalid_day" ? 400 : 404, out);
+            return;
+          }
+          sendJson(res, 200, out);
+          return;
+        }
+        const out = await buildPublicResearchIndex();
+        sendJson(res, 200, out);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[public/research]", msg);
+        sendJson(res, 503, { ok: false, error: "research_unavailable" });
+      }
       return;
     }
 

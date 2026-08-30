@@ -1,0 +1,269 @@
+/* Public Learn + Research pages */
+
+.pubContent {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.pubContentNav .lpNavInner {
+  gap: 16px;
+}
+
+.pubContentNavLinks {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-left: auto;
+  font-size: 13px;
+}
+
+.pubContentNavLinks a {
+  color: var(--lp-muted);
+  text-decoration: none;
+}
+
+.pubContentNavLinks a:hover {
+  color: var(--lp-fg);
+}
+
+.pubContentTrail {
+  max-width: var(--lp-max);
+  width: 100%;
+  margin: 0 auto;
+  padding: 12px var(--lp-pad) 0;
+  font-size: 12px;
+  color: var(--lp-dim);
+}
+
+.pubContentTrail a {
+  color: var(--lp-accent);
+  text-decoration: none;
+}
+
+.pubContentMain {
+  flex: 1 0 auto;
+  max-width: var(--lp-max);
+  width: 100%;
+  margin: 0 auto;
+  padding: clamp(32px, 6vh, 56px) var(--lp-pad) clamp(48px, 8vh, 72px);
+}
+
+.pubContentHero {
+  max-width: 42rem;
+  margin-bottom: clamp(28px, 5vh, 40px);
+}
+
+.pubContentHero .lpEyebrow {
+  margin-bottom: 8px;
+}
+
+.pubContentTitle {
+  margin: 0 0 12px;
+  font-family: var(--lp-serif);
+  font-size: clamp(1.85rem, 5vw, 2.75rem);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.pubContentLead {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--lp-muted);
+}
+
+.pubContentCard {
+  border: 1px solid var(--lp-line);
+  background: rgba(8, 8, 9, 0.72);
+  padding: clamp(20px, 3vw, 28px);
+  margin-bottom: 16px;
+}
+
+.pubContentCard h2 {
+  margin: 0 0 10px;
+  font-family: var(--lp-serif);
+  font-size: 1.35rem;
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+.pubContentCard p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--lp-muted);
+}
+
+.pubContentCard p + p {
+  margin-top: 10px;
+}
+
+.pubContentCard ul {
+  margin: 12px 0 0;
+  padding-left: 1.1rem;
+  color: var(--lp-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.pubContentList {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pubContentListItem {
+  border: 1px solid var(--lp-line);
+  background: rgba(8, 8, 9, 0.55);
+}
+
+.pubContentListItem a {
+  display: block;
+  padding: 16px 18px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.pubContentListItem a:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.pubContentListTitle {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--lp-serif);
+  font-size: 1.15rem;
+  color: var(--lp-fg);
+}
+
+.pubContentListMeta {
+  display: block;
+  font-size: 12px;
+  color: var(--lp-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pubContentListDesc {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--lp-muted);
+}
+
+.pubContentEventKicker {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lp-accent);
+}
+
+.pubContentEventDoc {
+  display: inline-block;
+  margin-bottom: 12px;
+  padding: 4px 8px;
+  border: 1px solid rgba(158, 196, 212, 0.25);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lp-accent);
+}
+
+.pubContentTickerRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 16px;
+  margin-bottom: 16px;
+}
+
+.pubContentTicker {
+  font-family: var(--lp-mono, ui-monospace, monospace);
+  font-size: 1.5rem;
+  letter-spacing: 0.06em;
+}
+
+.pubContentTickerName {
+  font-size: 14px;
+  color: var(--lp-muted);
+}
+
+.pubContentRelated {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--lp-line);
+}
+
+.pubContentRelated h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lp-dim);
+}
+
+.pubContentRelatedLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pubContentRelatedLinks a {
+  font-size: 13px;
+  color: var(--lp-accent);
+  text-decoration: none;
+}
+
+.pubContentRelatedLinks a:hover {
+  text-decoration: underline;
+}
+
+.pubContentCta {
+  margin-top: 32px;
+  padding: 20px 22px;
+  border: 1px solid rgba(158, 196, 212, 0.2);
+  background: rgba(158, 196, 212, 0.06);
+}
+
+.pubContentCtaTitle {
+  margin: 0 0 8px;
+  font-family: var(--lp-serif);
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+.pubContentCtaBody {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--lp-muted);
+}
+
+.pubContentCtaActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pubContentStatus {
+  font-size: 14px;
+  color: var(--lp-dim);
+}
+
+@media (max-width: 640px) {
+  .pubContentNavLinks {
+    gap: 12px;
+    font-size: 12px;
+  }
+
+  .pubContentCtaActions .lpBtn {
+    flex: 1 1 140px;
+  }
+}
