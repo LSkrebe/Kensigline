@@ -96,17 +96,19 @@ function buildContext(f: RecapFiling): string {
   return "US equity disclosures are public, but scattered across EDGAR and separate feeds. Mercerline assembles what cleared so you can open one workspace instead of five tabs.";
 }
 
-function toPublicEvent(f: RecapFiling, dayKey: string): PublicResearchEvent {
+function toPublicEvent(f: RecapFiling): PublicResearchEvent | null {
+  const filingDate = String(f.filingDate ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(filingDate)) return null;
   return {
-    slug: dayKey,
-    dayKey,
+    slug: filingDate,
+    dayKey: filingDate,
     doc: String(f.doc ?? "Filing"),
     side: f.side != null ? String(f.side) : null,
     ticker: String(f.ticker ?? "").toUpperCase(),
     companyName: String(f.companyName ?? f.ticker ?? "").trim(),
     actorName: f.actorName != null ? String(f.actorName).trim() : null,
     actorMode: f.actorMode != null ? String(f.actorMode) : null,
-    filingDate: String(f.filingDate ?? dayKey),
+    filingDate,
     headline: buildHeadline(f),
     summary: buildSummary(f),
     context: buildContext(f),
@@ -149,13 +151,21 @@ export async function buildPublicResearchIndex(opts?: { lookbackDays?: number })
   const byDay = groupFilingsByDay(filings);
   const todayKey = recap.dayKey;
   const todayRows = byDay.get(todayKey) ?? filings.filter((f) => String(f.filingDate) === todayKey);
-  const todayPick = pickTopFiling(todayRows.length ? todayRows : filings);
+  const todayPick = pickTopFiling(todayRows);
   const archive = buildArchive(byDay);
+
+  const latestDay = archive[0]?.dayKey ?? null;
+  const latestRows = latestDay ? (byDay.get(latestDay) ?? []) : [];
+  const latestPick = !todayPick && latestRows.length ? pickTopFiling(latestRows) : null;
+
+  const today = todayPick ? toPublicEvent(todayPick) : null;
+  const featured = latestPick ? toPublicEvent(latestPick) : null;
 
   return {
     ok: true,
     dayKey: todayKey,
-    today: todayPick ? toPublicEvent(todayPick, todayKey) : null,
+    today,
+    featured: today ? null : featured,
     archive,
   };
 }
@@ -170,7 +180,9 @@ export async function buildPublicResearchEvent(dayKey: string, opts?: { lookback
   const rows = filings.filter((f) => String(f.filingDate) === day);
   const pick = pickTopFiling(rows);
   if (!pick) return { ok: false as const, error: "not_found" };
-  return { ok: true as const, event: toPublicEvent(pick, day) };
+  const event = toPublicEvent(pick);
+  if (!event) return { ok: false as const, error: "not_found" };
+  return { ok: true as const, event };
 }
 
 export async function buildPublicResearchTicker(tickerRaw: string, opts?: { lookbackDays?: number }) {
@@ -194,6 +206,6 @@ export async function buildPublicResearchTicker(tickerRaw: string, opts?: { look
     country: snap?.country ?? null,
     earnings_date: snap?.earnings_date ?? null,
     latest_close: snap?.latest_close ?? null,
-    latestEvent: latest ? toPublicEvent(latest, String(latest.filingDate ?? recap.dayKey)) : null,
+    latestEvent: latest ? toPublicEvent(latest) : null,
   };
 }

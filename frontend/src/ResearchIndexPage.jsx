@@ -36,6 +36,8 @@ export function ResearchIndexPage() {
   }, [])
 
   const today = data?.today ?? null
+  const featured = data?.featured ?? null
+  const headline = today ?? featured
   const archive = Array.isArray(data?.archive) ? data.archive : []
 
   return (
@@ -51,25 +53,25 @@ export function ResearchIndexPage() {
 
       {loading ? <p className="pubContentStatus">Loading…</p> : null}
 
-      {!loading && today ? (
+      {!loading && headline ? (
         <section className="pubContentCard">
-          <p className="pubContentEventKicker">Today&apos;s headline</p>
+          <p className="pubContentEventKicker">{today ? "Today's headline" : 'Latest highlight'}</p>
           <h2>
             <a
-              href={`/research/${today.slug}`}
+              href={`/research/${headline.slug}`}
               onClick={(e) => {
                 e.preventDefault()
-                navigateMarketing(`/research/${today.slug}`)
+                navigateMarketing(`/research/${headline.slug}`)
               }}
             >
-              {today.headline}
+              {headline.headline}
             </a>
           </h2>
-          <p>{today.summary}</p>
+          <p>{headline.summary}</p>
         </section>
       ) : null}
 
-      {!loading && !today ? (
+      {!loading && !headline ? (
         <p className="pubContentStatus">No public headline is available yet today. Check back after filings clear.</p>
       ) : null}
 

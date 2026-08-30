@@ -57,6 +57,7 @@ function hydrateMemoryCacheFromSession(backendUp) {
   if (!session || !isLiveDataMode(backendUp)) return null
   recapResultCacheEntry = { at: session.at, backendUp, recap: session.recap }
   directoryCacheEntry = { at: session.at, backendUp, bundle: session.directory }
+  markExploreHomeReady()
   return session
 }
 
@@ -216,6 +217,36 @@ let recapResultCacheEntry = null
 let directoryInflight = null
 let recapInflight = null
 let homeInflight = null
+let exploreHomeReady = false
+let exploreHomeReadyPromise = null
+let exploreHomeReadyResolve = null
+
+function ensureExploreHomeReadyPromise() {
+  if (!exploreHomeReadyPromise) {
+    exploreHomeReadyPromise = new Promise((resolve) => {
+      exploreHomeReadyResolve = resolve
+    })
+  }
+  return exploreHomeReadyPromise
+}
+
+export function markExploreHomeReady() {
+  if (exploreHomeReady) return
+  exploreHomeReady = true
+  exploreHomeReadyResolve?.()
+}
+
+export function waitForExploreHomeReady(backendUp) {
+  if (!isLiveDataMode(backendUp)) {
+    markExploreHomeReady()
+    return Promise.resolve()
+  }
+  if (exploreHomeReady || peekExploreHomeSnapshot(backendUp)) {
+    markExploreHomeReady()
+    return Promise.resolve()
+  }
+  return ensureExploreHomeReadyPromise()
+}
 
 /** Company display name from cached Explore directory rows (matches home / list pages). */
 export function lookupExploreDirectoryCompanyName(ticker, backendUp) {
@@ -267,16 +298,31 @@ function processExploreHomeResponse(data, backendUp) {
   const day = data?.recap ?? null
   if (!day) return null
 
-  const scopedDay = scopeRecapDayToDisplayDay(day)
-  const recap = evaluateExploreRecap(scopedDay)
-  const recapOut = {
-    ...recap,
-    displayDayKey: scopedDay.dayKey,
-    requestedDayKey: scopedDay.requestedDayKey,
-    isFallback: scopedDay.isFallback,
+  const serverEval = data?.recapEvaluated
+  let recapOut
+
+  if (serverEval?.slides?.length) {
+    recapOut = {
+      slides: serverEval.slides,
+      displayDayKey: serverEval.displayDayKey ?? day.dayKey,
+      requestedDayKey: serverEval.requestedDayKey ?? day.dayKey,
+      isFallback: serverEval.isFallback === true,
+    }
+    setExploreRecapCache({ ...day, dayKey: recapOut.displayDayKey }, recapOut)
+  } else {
+    const scopedDay = scopeRecapDayToDisplayDay(day)
+    const recap = evaluateExploreRecap(scopedDay)
+    recapOut = {
+      ...recap,
+      displayDayKey: scopedDay.dayKey,
+      requestedDayKey: scopedDay.requestedDayKey,
+      isFallback: scopedDay.isFallback,
+    }
+    setExploreRecapCache(scopedDay, recapOut)
   }
-  setExploreRecapCache(scopedDay, recapOut)
+
   recapResultCacheEntry = { at: Date.now(), backendUp, recap: recapOut }
+  markExploreHomeReady()
 
   const events = {
     companyEvents: Array.isArray(data.companyEvents) ? data.companyEvents : [],
@@ -480,6 +526,7 @@ async function fetchExploreHomeBundleFresh(backendUp) {
         fromCache: false,
       }
     } finally {
+      markExploreHomeReady()
       homeInflight = null
     }
   })()

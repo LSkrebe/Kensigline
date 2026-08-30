@@ -1,6 +1,7 @@
 import type http from "node:http";
 import { sendJson } from "../core/http.js";
 import { buildExploreDirectoryEvents, buildExploreRecapDayPayload } from "./recap-day.js";
+import { evaluateRecapForHome, type EvaluatedRecapHome } from "./recap-evaluate-home.js";
 
 const EXPLORE_HOME_CACHE_TTL_MS = Math.max(
   60_000,
@@ -14,7 +15,11 @@ const EXPLORE_HOME_STALE_TTL_MS = Math.max(
 
 type RecapPayload = Awaited<ReturnType<typeof buildExploreRecapDayPayload>>;
 type DirectoryPayload = Awaited<ReturnType<typeof buildExploreDirectoryEvents>>;
-type HomePayload = { recap: RecapPayload; directory: DirectoryPayload };
+type HomePayload = {
+  recap: RecapPayload;
+  directory: DirectoryPayload;
+  recapEvaluated: EvaluatedRecapHome | null;
+};
 
 type CacheEntry<T> = { at: number; payload: T };
 
@@ -44,7 +49,8 @@ async function buildExploreHomePayload(): Promise<HomePayload> {
     buildExploreRecapDayPayload(),
     buildExploreDirectoryEvents(),
   ]);
-  return { recap, directory };
+  const recapEvaluated = await evaluateRecapForHome(recap as Record<string, unknown>);
+  return { recap, directory, recapEvaluated };
 }
 
 async function getExploreHomeFresh(): Promise<HomePayload> {
@@ -82,6 +88,7 @@ function homeJson(payload: HomePayload, meta: { cached?: boolean; stale?: boolea
     cached: meta.cached === true,
     stale: meta.stale === true,
     recap: payload.recap,
+    recapEvaluated: payload.recapEvaluated,
     companyEvents: payload.directory.companyEvents,
     investorEvents: payload.directory.investorEvents,
   };

@@ -26,7 +26,7 @@ import {
   resolveExploreInvestorDossier,
   stubActorRowFromExploreInvestor,
 } from './exploreDirectoryNav.js'
-import { loadExploreDirectoryBundle, lookupExploreDirectoryCompanyName, peekExploreHomeSnapshot, prefetchExploreHome } from './exploreApi.js'
+import { loadExploreDirectoryBundle, lookupExploreDirectoryCompanyName, peekExploreHomeSnapshot, prefetchExploreHome, waitForExploreHomeReady } from './exploreApi.js'
 import { isLiveDataMode, isMockDataMode } from './dataMode.js'
 import {
   isTerminalAppPath,
@@ -9544,15 +9544,6 @@ function KensiglineTerminal() {
   const exploreSubviewRef = useRef(exploreSubview)
   exploreSubviewRef.current = exploreSubview
   const [exploreHomeFeedsReady, setExploreHomeFeedsReady] = useState(exploreSubview !== 'home')
-  useEffect(() => {
-    if (exploreSubview !== 'home') {
-      setExploreHomeFeedsReady(true)
-      return
-    }
-    setExploreHomeFeedsReady(false)
-    const t = setTimeout(() => setExploreHomeFeedsReady(true), 3500)
-    return () => clearTimeout(t)
-  }, [exploreSubview])
   const macroActive = shell === 'macro'
   const settingsActive = shell === 'settings'
   const [researchPhonePane, setResearchPhonePane] = useState('paper')
@@ -10230,6 +10221,25 @@ function KensiglineTerminal() {
     if (exploreSubview === 'home' && !exploreHomeFeedsReady) return
     prefetchMacroCalendar()
   }, [backendUp, exploreSubview, exploreHomeFeedsReady])
+
+  useEffect(() => {
+    if (exploreSubview !== 'home') {
+      setExploreHomeFeedsReady(true)
+      return
+    }
+    if (!isLiveDataMode(backendUp)) {
+      setExploreHomeFeedsReady(true)
+      return
+    }
+    setExploreHomeFeedsReady(Boolean(peekExploreHomeSnapshot(backendUp)))
+    let cancelled = false
+    void waitForExploreHomeReady(backendUp).then(() => {
+      if (!cancelled) setExploreHomeFeedsReady(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [exploreSubview, backendUp])
 
   useEffect(() => {
     if (!isLiveDataMode(backendUp)) return

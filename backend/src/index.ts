@@ -55,6 +55,8 @@ import {
 import { getSecTickerTitleMap } from "./core/sec.js";
 import { getIngestQueueSnapshot, startIngestHealthCacheWarmer } from "./shared/ingest-status.js";
 import { ingestMode, ingestModeSummary } from "./shared/ingest-mode.js";
+import { handleInternalContent } from "./internal/content.js";
+import { contentApiConfigured } from "./internal/auth.js";
 
 const port = Number(process.env.PORT ?? "3001");
 void getSecTickerTitleMap().catch(() => {});
@@ -135,6 +137,17 @@ const server = http.createServer(async (req, res) => {
 
     if (route(req, url, "GET", "/api/billing/pricing")) {
       handleBillingPricing(req, res);
+      return;
+    }
+
+    if (req.method === "GET" && url.pathname.startsWith("/api/internal/content")) {
+      if (!contentApiConfigured()) {
+        sendJson(res, 503, { ok: false, error: "content_api_not_configured" });
+        return;
+      }
+      const handled = await handleInternalContent(req, res, url.pathname);
+      if (handled) return;
+      sendJson(res, 404, { ok: false, error: "not_found" });
       return;
     }
 
