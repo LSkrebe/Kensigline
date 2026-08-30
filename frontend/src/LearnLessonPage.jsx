@@ -106,7 +106,7 @@ export function LearnLessonPage({ slug: slugProp = null }) {
         <PublicContentCta
           title="Apply this in Mercerline"
           body="Sign in for the daily recap and dossiers described in this guide."
-          secondaryLabel="Browse research"
+          secondaryLabel="Research"
           secondaryHref="/research"
         />
       </article>
