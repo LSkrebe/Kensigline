@@ -1,8 +1,11 @@
 import type pg from "pg";
 import { isPlaceholderInvestorName } from "../research/market/tracked-investors-filter.js";
+import { mapPoolLimit, prepareMaintenanceClient } from "./lib/maintenance-db.js";
 
 export type RelabelOpts = {
   dryRun?: boolean;
+  /** Parallel issuer relabels per filer (default 3). */
+  parallelism?: number;
 };
 
 async function backfillFilerIssuer(
@@ -85,12 +88,14 @@ async function backfillFilerIssuer(
 }
 
 export async function relabelInstitutionActivities(
-  client: pg.PoolClient,
+  pool: pg.Pool,
+  coordinator: pg.PoolClient,
   opts: RelabelOpts,
 ): Promise<{ filersTouched: number; updatedRows: number }> {
   const dryRun = opts.dryRun === true;
+  const parallelism = Math.min(3, Math.max(1, opts.parallelism ?? 3));
 
-  const filersRes = await client.query<{ id: string; name: string }>(
+  const filersRes = await coordinator.query<{ id: string; name: string }>(
     `
     SELECT id::text AS id, display_name AS name
     FROM filers
@@ -104,28 +109,34 @@ export async function relabelInstitutionActivities(
   let filersTouched = 0;
 
   console.log(
-    `[relabel] filers=${realFilers.length} skipped_placeholders=${filersRes.rows.length - realFilers.length} dryRun=${dryRun}`,
+    `[relabel] filers=${realFilers.length} skipped_placeholders=${filersRes.rows.length - realFilers.length} parallelism=${parallelism} dryRun=${dryRun}`,
   );
 
   for (let i = 0; i < realFilers.length; i++) {
     const filer = realFilers[i]!;
-    const issuersRes = await client.query<{ issuer_id: string }>(
+    const issuersRes = await coordinator.query<{ issuer_id: string }>(
       `SELECT DISTINCT issuer_id::text AS issuer_id FROM institution_transactions WHERE filer_id = $1::uuid`,
       [filer.id],
     );
 
-    let filerTotal = 0;
-    for (const { issuer_id } of issuersRes.rows) {
-      filerTotal += await backfillFilerIssuer(client, filer.id, issuer_id, dryRun);
-    }
+    const counts = await mapPoolLimit(issuersRes.rows, parallelism, async ({ issuer_id }) => {
+      const client = await pool.connect();
+      try {
+        await prepareMaintenanceClient(client);
+        return backfillFilerIssuer(client, filer.id, issuer_id, dryRun);
+      } finally {
+        client.release();
+      }
+    });
 
+    const filerTotal = counts.reduce((a, n) => a + n, 0);
     if (filerTotal > 0) {
       filersTouched += 1;
       total += filerTotal;
       console.log(`[relabel] ${filer.name}: updated=${filerTotal}`);
     }
 
-    if ((i + 1) % 25 === 0) {
+    if ((i + 1) % 10 === 0) {
       console.log(`[relabel] progress ${i + 1}/${realFilers.length}`);
     }
   }

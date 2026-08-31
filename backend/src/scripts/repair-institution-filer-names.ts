@@ -9,13 +9,24 @@ import {
 import { formatCompanyDisplayName } from "../research/feed-display.js";
 import { ensureFiler } from "../v2/canonical.js";
 import { isPlaceholderInvestorName } from "../research/market/tracked-investors-filter.js";
+import { mapPoolLimit, prepareMaintenanceClient } from "./lib/maintenance-db.js";
 
 export type RepairOpts = {
   dryRun?: boolean;
   fetchSec?: boolean;
   batchSize?: number;
   maxRounds?: number;
+  /** Safe parallel accession repairs (default 2). */
+  parallelism?: number;
 };
+
+type GenericGroup = {
+  accession_no: string | null;
+  url: string | null;
+  txn_count: string;
+};
+
+const cikNameCache = new Map<string, string | null>();
 
 function indexJsonFromFilingUrl(url: string | null, accessionNo: string | null): string | null {
   const u = String(url ?? "").trim();
@@ -44,11 +55,20 @@ function metaFromIndexUrl(indexJson: string, accessionNo: string | null): Parsed
 }
 
 async function resolveFilerNameFromAccession(
-  g: { accession_no: string | null; url: string | null },
+  g: GenericGroup,
   fetchSec: boolean,
 ): Promise<string | null> {
+  const cacheKey = String(g.accession_no ?? g.url ?? "").trim();
+  if (cacheKey && cikNameCache.has(cacheKey)) {
+    return cikNameCache.get(cacheKey) ?? null;
+  }
+
   const indexJson = indexJsonFromFilingUrl(g.url, g.accession_no);
-  if (!indexJson) return g.accession_no ? `13F ${g.accession_no}` : null;
+  if (!indexJson) {
+    const fallback = g.accession_no ? `13F ${g.accession_no}` : null;
+    if (cacheKey) cikNameCache.set(cacheKey, fallback);
+    return fallback;
+  }
 
   const baseMeta = metaFromIndexUrl(indexJson, g.accession_no);
 
@@ -66,14 +86,37 @@ async function resolveFilerNameFromAccession(
         },
         indexJson,
       );
-      if (!isPlaceholderInvestorName(name) && !isCikPlaceholderDisplayName(name)) return name;
+      if (!isPlaceholderInvestorName(name) && !isCikPlaceholderDisplayName(name)) {
+        if (cacheKey) cikNameCache.set(cacheKey, name);
+        return name;
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn("[repair] sec_fetch_failed", g.accession_no, msg);
     }
   }
 
-  return resolve13fFilerDisplayNameAsync(baseMeta, indexJson);
+  const syncName = resolve13fFilerDisplayName(baseMeta, indexJson);
+  if (!isPlaceholderInvestorName(syncName) && !isCikPlaceholderDisplayName(syncName)) {
+    if (cacheKey) cikNameCache.set(cacheKey, syncName);
+    return syncName;
+  }
+
+  const cik = String(baseMeta.cik ?? syncName.replace(/^CIK\s+/i, "")).replace(/\D/g, "");
+  if (cik) {
+    const cachedCik = cikNameCache.get(`cik:${cik}`);
+    if (cachedCik !== undefined) {
+      if (cacheKey) cikNameCache.set(cacheKey, cachedCik);
+      return cachedCik;
+    }
+  }
+
+  const asyncName = await resolve13fFilerDisplayNameAsync(baseMeta, indexJson);
+  if (cik) {
+    cikNameCache.set(`cik:${cik}`, asyncName);
+  }
+  if (cacheKey) cikNameCache.set(cacheKey, asyncName);
+  return asyncName;
 }
 
 export async function countPlaceholderInstitutionTxns(client: pg.PoolClient): Promise<number> {
@@ -89,22 +132,18 @@ export async function countPlaceholderInstitutionTxns(client: pg.PoolClient): Pr
 }
 
 async function fetchGenericInstitutionBatch(client: pg.PoolClient, batchSize: number) {
-  return client.query<{
-    accession_no: string | null;
-    url: string | null;
-    filing_ids: string[];
-    txn_count: string;
-  }>(
+  return client.query<GenericGroup>(
     `
     SELECT
       fil.accession_no,
       min(fil.url) AS url,
-      array_agg(DISTINCT fil.id::text) AS filing_ids,
       count(t.id)::text AS txn_count
     FROM institution_transactions t
     JOIN filers f ON f.id = t.filer_id
     JOIN filings fil ON fil.id = t.filing_id
     WHERE lower(trim(f.display_name)) IN ('institution', 'institutions')
+      AND fil.accession_no IS NOT NULL
+      AND trim(fil.accession_no) <> ''
     GROUP BY fil.accession_no
     ORDER BY count(t.id) DESC
     LIMIT $1
@@ -113,63 +152,83 @@ async function fetchGenericInstitutionBatch(client: pg.PoolClient, batchSize: nu
   );
 }
 
+async function migrateAccessionGroup(
+  pool: pg.Pool,
+  g: GenericGroup,
+  dryRun: boolean,
+  fetchSec: boolean,
+): Promise<{ updated: number; skipped: boolean }> {
+  const filerName = await resolveFilerNameFromAccession(g, fetchSec);
+  if (!filerName || isPlaceholderInvestorName(filerName) || isCikPlaceholderDisplayName(filerName)) {
+    console.warn("[repair] skip_still_placeholder", g.accession_no, filerName);
+    return { updated: 0, skipped: true };
+  }
+
+  console.log("[repair] generic", {
+    accession: g.accession_no,
+    filerName,
+    txns: g.txn_count,
+  });
+
+  if (dryRun) return { updated: Number(g.txn_count), skipped: false };
+
+  const filer = await ensureFiler({ filerType: "institution", displayName: filerName });
+  const client = await pool.connect();
+  try {
+    await prepareMaintenanceClient(client);
+    const r = await client.query(
+      `
+      UPDATE institution_transactions t
+      SET filer_id = $1
+      FROM filings fil, filers pf
+      WHERE fil.id = t.filing_id
+        AND pf.id = t.filer_id
+        AND fil.accession_no = $2
+        AND lower(trim(pf.display_name)) IN ('institution', 'institutions')
+      `,
+      [filer.id, g.accession_no],
+    );
+    return { updated: r.rowCount ?? 0, skipped: false };
+  } finally {
+    client.release();
+  }
+}
+
 export async function repairAllGenericInstitutionGroups(
-  client: pg.PoolClient,
+  pool: pg.Pool,
+  coordinator: pg.PoolClient,
   opts: RepairOpts,
 ): Promise<{ repairedGroups: number; updatedTxns: number; skipped: number; rounds: number }> {
   const dryRun = opts.dryRun === true;
   const fetchSec = opts.fetchSec === true;
-  const batchSize = Math.max(1, opts.batchSize ?? 40);
+  const batchSize = Math.max(1, opts.batchSize ?? 80);
   const maxRounds = opts.maxRounds ?? Number.POSITIVE_INFINITY;
+  const parallelism = Math.min(3, Math.max(1, opts.parallelism ?? 2));
 
   let updatedTxns = 0;
   let repairedGroups = 0;
   let skipped = 0;
   let rounds = 0;
 
+  console.log(`[repair] generic parallelism=${parallelism} batchSize=${batchSize}`);
+
   for (;;) {
     if (rounds >= maxRounds) break;
-    const groups = await fetchGenericInstitutionBatch(client, batchSize);
+    const groups = await fetchGenericInstitutionBatch(coordinator, batchSize);
     if (!groups.rows.length) break;
     rounds += 1;
     console.log(`[repair] generic batch round=${rounds} groups=${groups.rows.length}`);
 
-    for (const g of groups.rows) {
-      const filerName = await resolveFilerNameFromAccession(g, fetchSec);
-      if (!filerName || isPlaceholderInvestorName(filerName) || isCikPlaceholderDisplayName(filerName)) {
-        skipped += 1;
-        console.warn("[repair] skip_still_placeholder", g.accession_no, filerName);
-        continue;
-      }
+    const results = await mapPoolLimit(groups.rows, parallelism, (g) =>
+      migrateAccessionGroup(pool, g, dryRun, fetchSec),
+    );
 
-      console.log("[repair] generic", {
-        accession: g.accession_no,
-        filerName,
-        filings: g.filing_ids.length,
-        txns: g.txn_count,
-      });
-
-      if (dryRun) {
+    for (const r of results) {
+      if (r.skipped) skipped += 1;
+      else {
         repairedGroups += 1;
-        continue;
+        updatedTxns += r.updated;
       }
-
-      const filer = await ensureFiler({ filerType: "institution", displayName: filerName });
-      const r = await client.query(
-        `
-        UPDATE institution_transactions t
-        SET filer_id = $1
-        FROM filings fil
-        WHERE fil.id = t.filing_id
-          AND fil.id = ANY($2::uuid[])
-          AND t.filer_id IN (
-            SELECT id FROM filers WHERE lower(trim(display_name)) IN ('institution', 'institutions')
-          )
-        `,
-        [filer.id, g.filing_ids],
-      );
-      updatedTxns += r.rowCount ?? 0;
-      repairedGroups += 1;
     }
 
     if (dryRun) break;
@@ -242,7 +301,12 @@ export async function repairAllCikNamedFilers(
 
     for (const row of filers.rows) {
       const cik = row.display_name.replace(/^CIK\s+/i, "").trim();
-      const raw = await resolveInstitutionNameFromCik(cik);
+      const cacheKey = `cik:${cik}`;
+      let raw = cikNameCache.has(cacheKey) ? cikNameCache.get(cacheKey) : null;
+      if (raw === undefined || raw === null) {
+        raw = await resolveInstitutionNameFromCik(cik);
+        cikNameCache.set(cacheKey, raw);
+      }
       if (!raw) {
         skipped += 1;
         console.warn("[repair] skip_no_sec_name", row.display_name);
