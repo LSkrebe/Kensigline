@@ -131,8 +131,10 @@ export async function countPlaceholderInstitutionTxns(client: pg.PoolClient): Pr
   return Number(r.rows[0]?.n ?? 0);
 }
 
-async function fetchGenericInstitutionBatch(client: pg.PoolClient, batchSize: number) {
-  return client.query<GenericGroup>(
+async function loadAllGenericGroups(client: pg.PoolClient): Promise<GenericGroup[]> {
+  console.log("[repair] loading all placeholder accession groups (one-time scan)...");
+  const started = Date.now();
+  const r = await client.query<GenericGroup>(
     `
     SELECT
       fil.accession_no,
@@ -146,10 +148,12 @@ async function fetchGenericInstitutionBatch(client: pg.PoolClient, batchSize: nu
       AND trim(fil.accession_no) <> ''
     GROUP BY fil.accession_no
     ORDER BY count(t.id) DESC
-    LIMIT $1
     `,
-    [batchSize],
   );
+  console.log(
+    `[repair] loaded groups=${r.rows.length} elapsed_sec=${((Date.now() - started) / 1000).toFixed(1)}`,
+  );
+  return r.rows;
 }
 
 async function migrateAccessionGroup(
@@ -212,14 +216,25 @@ export async function repairAllGenericInstitutionGroups(
 
   console.log(`[repair] generic parallelism=${parallelism} batchSize=${batchSize}`);
 
+  let pendingGroups: GenericGroup[] | null = null;
+  let cursor = 0;
+
   for (;;) {
     if (rounds >= maxRounds) break;
-    const groups = await fetchGenericInstitutionBatch(coordinator, batchSize);
-    if (!groups.rows.length) break;
-    rounds += 1;
-    console.log(`[repair] generic batch round=${rounds} groups=${groups.rows.length}`);
+    if (!pendingGroups) {
+      pendingGroups = await loadAllGenericGroups(coordinator);
+      cursor = 0;
+    }
+    if (cursor >= pendingGroups.length) break;
 
-    const results = await mapPoolLimit(groups.rows, parallelism, (g) =>
+    const groups = pendingGroups.slice(cursor, cursor + batchSize);
+    cursor += groups.length;
+    rounds += 1;
+    console.log(
+      `[repair] generic batch round=${rounds} groups=${groups.length} progress=${cursor}/${pendingGroups.length}`,
+    );
+
+    const results = await mapPoolLimit(groups, parallelism, (g) =>
       migrateAccessionGroup(pool, g, dryRun, fetchSec),
     );
 
