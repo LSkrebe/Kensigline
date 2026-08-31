@@ -22,6 +22,7 @@ import {
   type Parsed13fHolding,
 } from "./parse-13f.js";
 import { isCikPlaceholderDisplayName } from "../../core/sec.js";
+import { isPlaceholderInvestorName } from "../../research/market/tracked-investors-filter.js";
 import {
   activityFromShareDelta,
   ensureCusipTickerMapTable,
@@ -458,6 +459,20 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
     const filerName = await resolve13fFilerDisplayNameAsync(meta, primaryUrl);
     const asOf = formatIso(meta.period_of_report) ?? formatIso(meta.filed_at);
 
+    if (isPlaceholderInvestorName(filerName)) {
+      await markQueueDead(queueId, `skipped_placeholder_filer_name:${filerName}`);
+      logParseOutcome({
+        source_type: "sec_13f",
+        queue_id: queueId,
+        outcome: "skipped",
+        path: "institutions/13f-deterministic",
+        skip_reason: "placeholder_filer_name",
+        llm_used: false,
+        holdings_parsed: parsedHoldings.length,
+      });
+      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "placeholder_filer_name" };
+    }
+
     if (!parsedHoldings.length) {
       await markQueueDead(queueId, "skipped_no_holdings");
       logParseOutcome({
@@ -566,6 +581,27 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
         ...stats,
       });
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_holdings" };
+    }
+
+    const changedHoldings = holdings.filter((h) => !h.unchanged);
+    if (!changedHoldings.length) {
+      await markQueueParsed(queueId, "unchanged_quarter");
+      logParseOutcome({
+        source_type: "sec_13f",
+        queue_id: queueId,
+        outcome: "parsed",
+        path,
+        skip_reason: "unchanged_quarter",
+        llm_used,
+        unchanged_holdings,
+        ...stats,
+      });
+      return {
+        processed: true,
+        queue_id: queueId,
+        parsed_ids: [],
+        skip_reason: "unchanged_quarter",
+      };
     }
 
     const parseMeta = buildParseMeta({
