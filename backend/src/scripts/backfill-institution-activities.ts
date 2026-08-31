@@ -56,7 +56,7 @@ async function main() {
   await db.query(`SET statement_timeout = '180s'`);
 
   const filers = await db.query<{ id: string }>(
-    `SELECT DISTINCT filer_id::text AS id FROM institution_transactions ORDER BY filer_id`,
+    `SELECT filer_id::text AS id FROM institution_transactions GROUP BY filer_id ORDER BY filer_id`,
   );
 
   let total = 0;
