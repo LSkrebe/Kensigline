@@ -7,6 +7,8 @@
 import { db } from "../core/db.js";
 
 async function main() {
+  await db.query(`SET statement_timeout = 0`);
+
   const updated = await db.query<{ count: string }>(
     `
     WITH ranked AS (
