@@ -50,7 +50,7 @@ function NewsIcon() {
   )
 }
 
-function StoryCallout({ tone, leftPct, gain, name, photoUrl, photoAlt }) {
+function StoryCallout({ tone, leftPct, gain, name, photoUrl, photoAlt, brandLogo }) {
   return (
     <div
       className={`lpStoryCallout lpStoryCallout--${tone}`}
@@ -58,15 +58,29 @@ function StoryCallout({ tone, leftPct, gain, name, photoUrl, photoAlt }) {
     >
       <p className={`lpStoryCalloutGain lpStoryCalloutGain--${tone}`}>{gain}</p>
       {photoUrl ? (
-        <img
-          className="lpStoryAvatarPhoto"
-          src={photoUrl}
-          alt={photoAlt ?? ''}
-          width={56}
-          height={56}
-          loading="lazy"
-          decoding="async"
-        />
+        brandLogo ? (
+          <span className="lpStoryAvatarLogo" aria-hidden="true">
+            <img
+              className="lpStoryAvatarPhoto lpStoryAvatarPhoto--logo"
+              src={photoUrl}
+              alt={photoAlt ?? ''}
+              width={56}
+              height={56}
+              loading="lazy"
+              decoding="async"
+            />
+          </span>
+        ) : (
+          <img
+            className="lpStoryAvatarPhoto"
+            src={photoUrl}
+            alt={photoAlt ?? ''}
+            width={56}
+            height={56}
+            loading="lazy"
+            decoding="async"
+          />
+        )
       ) : (
         <NewsIcon />
       )}
@@ -75,7 +89,7 @@ function StoryCallout({ tone, leftPct, gain, name, photoUrl, photoAlt }) {
   )
 }
 
-/** Chart + callout diagram — Pelosi vs News on the same price path. */
+/** Chart + callout diagram — filing vs news on the same price path. */
 export function IntroStoryDiagram({ person, timeline, outcome }) {
   const full = ORIGIN_STORY_NVDA_PRICES
   const endIdx = dateIndex(full.dates, timeline.end.date)
@@ -101,7 +115,7 @@ export function IntroStoryDiagram({ person, timeline, outcome }) {
     <div
       className="lpStoryDiagram"
       role="img"
-      aria-label={`${outcome.ticker} rose ${gainFromFiling}% after Nancy Pelosi filed; News caught only ${gainFromNews}% of what was left`}
+      aria-label={`${outcome.ticker} rose ${gainFromFiling}% after the filing; News caught only ${gainFromNews}% of what was left`}
     >
       <div className="lpStoryStage">
         <div className="lpStoryCallouts">
@@ -112,6 +126,7 @@ export function IntroStoryDiagram({ person, timeline, outcome }) {
             name={person.name}
             photoUrl={person.photoUrl}
             photoAlt={person.photoAlt}
+            brandLogo={person.brandLogo}
           />
           <StoryCallout
             tone="news"

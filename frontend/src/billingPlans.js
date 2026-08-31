@@ -15,6 +15,21 @@ export function formatUsd(n) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
 }
 
+/** Note under the featured yearly plan price. */
+export function yearlyPlanNote(pricing) {
+  if (pricing?.founders) {
+    return 'Lock in founders rate for the year'
+  }
+  const perMonth = Math.round(pricing.yearlySaveUsd / 12)
+  return `Save ${formatUsd(perMonth)}/mo vs paying monthly`
+}
+
+/** Badge on the featured yearly plan card. */
+export function yearlyPlanBadgeLabel(pricing) {
+  const perMonth = Math.round(pricing.yearlySaveUsd / 12)
+  return `Save ${formatUsd(perMonth)}/mo`
+}
+
 export function pricingFromApi(data) {
   const waitlist = data?.waitlist === true
   const founders = !waitlist && data?.founders === true

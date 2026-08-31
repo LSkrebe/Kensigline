@@ -1,11 +1,17 @@
 /** Per-page Mercerline background art — each route gets a unique composition. */
 
+const DEFAULT_MOBILE_BG_SIZE = '220% auto'
+
 export const PAGE_BG = {
   intro: {
     expanded: '/backgrounds/ml_bg_intro.png',
     compact: '/backgrounds/ml_bg_intro.png',
     expandedPosition: '78% 12%',
     compactPosition: '22% 68%',
+    mobileExpandedSize: '210% auto',
+    mobileCompactSize: '210% auto',
+    mobileExpandedPosition: '78% 12%',
+    mobileCompactPosition: '22% 68%',
   },
   signIn: {
     expanded: '/backgrounds/ml_bg_sign_in.png',
@@ -36,6 +42,10 @@ export const PAGE_BG = {
     compact: '/backgrounds/ml_bg_explore_home.png',
     expandedPosition: '85% 45%',
     compactPosition: '15% 62%',
+    mobileExpandedSize: '260% auto',
+    mobileCompactSize: '260% auto',
+    mobileExpandedPosition: '85% 45%',
+    mobileCompactPosition: '15% 62%',
   },
   exploreCompanies: {
     expanded: '/backgrounds/ml_bg_explore_companies.png',
@@ -84,12 +94,23 @@ export const PAGE_BG = {
 /** CSS custom properties for hero / dock background layers. */
 export function pageBackgroundStyle(key) {
   const bg = PAGE_BG[key] ?? PAGE_BG.intro
-  return {
+  const style = {
     '--ml-bg-expanded': `url('${bg.expanded}')`,
     '--ml-bg-compact': `url('${bg.compact}')`,
     '--ml-bg-expanded-position': bg.expandedPosition,
     '--ml-bg-compact-position': bg.compactPosition,
+    '--ml-bg-expanded-size': bg.expandedSize ?? 'cover',
+    '--ml-bg-compact-size': bg.compactSize ?? 'cover',
+    '--ml-bg-mobile-expanded-size': bg.mobileExpandedSize ?? DEFAULT_MOBILE_BG_SIZE,
+    '--ml-bg-mobile-compact-size': bg.mobileCompactSize ?? DEFAULT_MOBILE_BG_SIZE,
   }
+  if (bg.mobileExpandedPosition) {
+    style['--ml-bg-mobile-expanded-position'] = bg.mobileExpandedPosition
+  }
+  if (bg.mobileCompactPosition) {
+    style['--ml-bg-mobile-compact-position'] = bg.mobileCompactPosition
+  }
+  return style
 }
 
 /** Resolve terminal app background key from shell + explore subview. */

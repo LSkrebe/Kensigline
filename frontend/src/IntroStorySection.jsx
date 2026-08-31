@@ -2,7 +2,7 @@ import { ORIGIN_STORY } from './marketingContent.js'
 import { IntroStoryDiagram } from './IntroStoryChart.jsx'
 import { IntroReveal } from './IntroReveal.jsx'
 
-/** FOMO origin beat — chart with Pelosi vs News callouts. */
+/** FOMO origin beat — chart with filing vs news callouts. */
 export function IntroStorySection() {
   const { person, timeline, outcome } = ORIGIN_STORY
 

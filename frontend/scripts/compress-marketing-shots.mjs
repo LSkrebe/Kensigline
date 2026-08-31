@@ -11,7 +11,7 @@ const widths = [768, 1200, 2400]
 const names = (
   process.env.SHOT
     ? [process.env.SHOT]
-    : ['hero', 'deep-investor', 'deep-company', 'investors-directory']
+    : ['hero', 'deep-event', 'deep-investor', 'deep-company', 'investors-directory']
 ).filter(Boolean)
 
 async function compressOne(name) {

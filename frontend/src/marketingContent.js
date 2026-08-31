@@ -205,20 +205,18 @@ export function introCompanyLogoSrc(ticker) {
   return `/intro/company-logos/${String(ticker ?? '').trim().toUpperCase()}.png`
 }
 
-/**
- * FOMO origin beat — concrete PTR story that explains why the niche exists.
- * Portrait: United States Congress bioguide photo (P000197).
- */
+/** FOMO origin beat — filing vs headline on the same price path. */
 export const ORIGIN_STORY = {
   kicker: 'The window',
   title: 'Public on day one. Headline months later.',
   tagline: 'Mercerline catches the filing when it clears, not when the headline lands.',
   person: {
-    name: 'Nancy Pelosi',
-    chamber: 'U.S. House',
+    name: 'Mercerline',
+    chamber: 'Filing alert',
     filing: 'Periodic Transaction Report',
-    photoUrl: 'https://unitedstates.github.io/images/congress/225x275/P000197.jpg',
-    photoAlt: 'Portrait of Nancy Pelosi',
+    photoUrl: '/mercerline_mark.png',
+    photoAlt: 'Mercerline',
+    brandLogo: true,
   },
   trade: {
     filed: 'Nov 22, 2023',
@@ -312,6 +310,10 @@ export const MARKETING_SHOTS = {
     'hero',
     'Mercerline Explore home with daily recap and investors directory above companies',
   ),
+  deepEvent: shotMeta(
+    'deep-event',
+    'Mercerline recap event brief for an NVDA House PTR purchase with price chart and filing context',
+  ),
   deepInvestor: shotMeta(
     'deep-investor',
     'Mercerline investor dossier with PTR trades, track-record chart, and disclosure history',
@@ -360,10 +362,10 @@ export const PRODUCT = {
   lead: 'Insiders, politicians, and big funds are all on the same rail, from the daily recap to the dossier.',
 }
 
-/** Visual 3-step walkthrough on intro — labels only, screenshots carry the story. */
+/** Visual 4-step walkthrough on intro — labels only, screenshots carry the story. */
 export const HOW_IT_WORKS = {
   kicker: 'How it works',
-  title: 'Your morning edge in three steps',
+  title: 'Your morning edge in four steps',
   lead: 'Filings are public. Mercerline puts them on one screen before the headline.',
   steps: [
     {
@@ -374,18 +376,25 @@ export const HOW_IT_WORKS = {
       shot: 'hero',
     },
     {
+      id: 'event',
+      label: 'Open the event',
+      title: 'One filing, full context',
+      body: 'Each recap card opens into a brief with the filing, price reaction, and everyone involved — before you commit to a dossier.',
+      shot: 'deepEvent',
+    },
+    {
       id: 'filer',
       label: 'Open the filer',
       title: 'Trade history on one page',
-      body: 'Click the filer for every trade, related tickers, and outcomes. No digging through EDGAR or waiting for a tweet thread.',
+      body: 'Click through to the filer for every trade, related tickers, and outcomes. No digging through EDGAR or waiting for a tweet thread.',
       shot: 'deepInvestor',
     },
     {
-      id: 'directory',
-      label: 'Browse the rail',
-      title: 'Every insider, politician, and fund',
-      body: 'Scan the full investor rail when you want context. Politicians, insiders, and funds on one screen.',
-      shot: 'investorsDirectory',
+      id: 'company',
+      label: 'Company context',
+      title: 'Price, filings, and fundamentals',
+      body: 'Jump into the issuer when a filing clears the bar — chart, financials, and disclosure history on one page.',
+      shot: 'deepCompany',
     },
   ],
 }

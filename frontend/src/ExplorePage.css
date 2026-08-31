@@ -542,7 +542,6 @@
   position: absolute;
   inset: 0;
   background-image: var(--ml-bg-compact, url('/mercerline_background_2.png'));
-  background-size: cover;
   background-position: var(--ml-bg-compact-position, center top);
   background-repeat: no-repeat;
   opacity: 0.92;
@@ -562,7 +561,6 @@
   position: absolute;
   inset: 0;
   background-image: var(--ml-bg-expanded, url('/mercerline_background_1.png'));
-  background-size: cover;
   background-position: var(--ml-bg-expanded-position, center top);
   background-repeat: no-repeat;
   opacity: 0.75;
@@ -1717,13 +1715,6 @@
 
   .exploreRecapFeatureCopy {
     flex: 0 0 auto;
-  }
-
-  .exploreRecapExpandedBg::before,
-  .exploreRecapExpandedBg::after,
-  .exploreRecapCompactBg::before {
-    background-size: cover;
-    background-position: center top;
   }
 
   .exploreRecapSlideFooter--compact {

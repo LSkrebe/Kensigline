@@ -19,6 +19,12 @@ const SHOTS = [
     settleMs: 1100,
   },
   {
+    name: 'deep-event',
+    path: '/explore/events/single-ptr-buy-ptr-pelosi-nvda?capture=1',
+    waitFor: '.exploreEventBody',
+    settleMs: 1200,
+  },
+  {
     name: 'deep-investor',
     path: '/explore/investors/nancy-pelosi?capture=1',
     waitFor: '.drpt-sectionTitle, .drpt-scroll',
@@ -42,13 +48,17 @@ const SHOTS = [
 
 async function selectChartRange(page, range) {
   const btn = page.locator('.drpt-chartRange .researchPriceRangeBtn', { hasText: range }).first()
-  await btn.waitFor({ state: 'visible', timeout: 15_000 })
-  await btn.click()
-  await page.waitForSelector(
-    `.drpt-chartRange .researchPriceRangeBtn.isActive:text-is("${range}")`,
-    { timeout: 10_000 },
-  )
-  await page.waitForTimeout(400)
+  try {
+    await btn.waitFor({ state: 'visible', timeout: 15_000 })
+    await btn.click()
+    await page.waitForSelector(
+      `.drpt-chartRange .researchPriceRangeBtn.isActive:text-is("${range}")`,
+      { timeout: 10_000 },
+    )
+    await page.waitForTimeout(400)
+  } catch {
+    console.warn(`chart range "${range}" not available — continuing without it`)
+  }
 }
 
 async function captureOne(page, shot) {
@@ -60,6 +70,7 @@ async function captureOne(page, shot) {
   await page.evaluate(() => {
     const scroller =
       document.querySelector('.drpt-scroll') ||
+      document.querySelector('.exploreDirShell') ||
       document.querySelector('.explorePage') ||
       document.querySelector('.terminalShell')
     if (scroller) scroller.scrollTop = 0

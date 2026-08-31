@@ -1,6 +1,7 @@
 import React, { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './pageBackgrounds.css'
 import './marketingEnter.css'
 import AppRouter from './AppRouter.jsx'
 import { AuthProvider } from './AuthContext.jsx'

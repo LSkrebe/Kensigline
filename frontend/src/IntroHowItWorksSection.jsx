@@ -3,7 +3,7 @@ import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
 import { HOW_IT_WORKS } from './marketingContent.js'
 import { IntroReveal } from './IntroReveal.jsx'
 
-/** Three-step walkthrough — copy and screenshots side by side. */
+/** Four-step walkthrough — copy and screenshots side by side. */
 export function IntroHowItWorksSection() {
   const { steps } = HOW_IT_WORKS
   const trackRef = useRef(null)

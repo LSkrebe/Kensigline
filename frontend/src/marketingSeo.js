@@ -355,9 +355,7 @@ ${LEARN_LESSONS.map((l) => `- ${SITE_URL}/learn/${l.slug} — ${l.title}`).join(
 - ${priceLine}
 
 ## How it works
-1. ${HOW_IT_WORKS.steps[0].title} — ${HOW_IT_WORKS.steps[0].body}
-2. ${HOW_IT_WORKS.steps[1].title} — ${HOW_IT_WORKS.steps[1].body}
-3. ${HOW_IT_WORKS.steps[2].title} — ${HOW_IT_WORKS.steps[2].body}
+${HOW_IT_WORKS.steps.map((s, i) => `${i + 1}. ${s.title} — ${s.body}`).join('\n')}
 
 ## Coverage
 Form 4, House PTR, Senate PTR, Executive PTR, 13F, SEC EDGAR, earnings transcripts, press, 8-K, macro US/EU/UK/CN. 500+ US issuers tracked.

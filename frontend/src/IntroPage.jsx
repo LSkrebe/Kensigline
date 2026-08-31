@@ -7,7 +7,7 @@ import { IntroReviewsSection } from './IntroReviewsSection.jsx'
 import { IntroReveal, clearIntroRevealMemory } from './IntroReveal.jsx'
 import { WhopCheckoutPanel } from './WhopCheckoutPanel.jsx'
 import { useAuth } from './AuthContext.jsx'
-import { formatUsd } from './billingPlans.js'
+import { formatUsd, yearlyPlanBadgeLabel, yearlyPlanNote } from './billingPlans.js'
 import {
   buildMarketingJsonLd,
   introPageMeta,
@@ -424,7 +424,9 @@ export function IntroPage() {
                   >
                     <div className="lpPlanHead">
                       <h3 className="lpPlanName">{plan.name}</h3>
-                      {plan.featured ? <span className="lpPlanBadge">Popular</span> : null}
+                      {plan.featured ? (
+                        <span className="lpPlanBadge">{yearlyPlanBadgeLabel(pricing)}</span>
+                      ) : null}
                     </div>
                     <p className="lpPlanPrice">
                       {plan.listPriceUsd ? (
@@ -434,7 +436,7 @@ export function IntroPage() {
                       <span className="lpPlanInterval">/{plan.intervalLabel}</span>
                     </p>
                     {plan.featured ? (
-                      <p className="lpPlanNote">Lock in founders rate for the year</p>
+                      <p className="lpPlanNote">{yearlyPlanNote(pricing)}</p>
                     ) : (
                       <p className="lpPlanNote">Cancel anytime</p>
                     )}
