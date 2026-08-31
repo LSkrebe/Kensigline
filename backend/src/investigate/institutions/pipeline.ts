@@ -37,7 +37,7 @@ type ParseNextResult =
   | { processed: false; reason: "no_work" }
   | { processed: false; reason: "busy"; queue_id: string }
   | { processed: false; reason: "skipped"; queue_id: string; skip_reason: string }
-  | { processed: true; queue_id: string; parsed_ids: string[]; ticker_count: number };
+  | { processed: true; queue_id: string; parsed_ids: string[]; ticker_count?: number; skip_reason?: string };
 
 const ACTIVITIES = new Set(["Increased stake", "New position", "Reduced stake"]);
 const ENRICH_HOLDINGS_LLM_LIMIT = 120;
