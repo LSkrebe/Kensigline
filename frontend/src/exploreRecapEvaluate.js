@@ -514,7 +514,18 @@ function evalCompanyFilingBurst(filings) {
 
 /** @returns {RecapSlide | null} */
 function evalFilingPriceReaction(filings) {
-  const withMove = filings.filter((f) => Number.isFinite(f.dayMovePct) && Math.abs(f.dayMovePct) >= 2.5)
+  const withMove = filings.filter((f) => {
+    if (!Number.isFinite(f.dayMovePct) || Math.abs(f.dayMovePct) < 2.5) return false
+    const hasActor =
+      (f.actorMode === 'insider' || f.actorMode === 'politicians') &&
+      Boolean(String(f.actorName ?? '').trim())
+    const hasSize = Number(f.amountUsd) >= 10_000
+    const hasSide = f.side === 'buy' || f.side === 'sell'
+    if (!hasActor || (!hasSize && !hasSide)) return false
+    if (Math.abs(f.dayMovePct) > 35 && !hasSize) return false
+    if (Math.abs(f.dayMovePct) > 50) return false
+    return true
+  })
   if (!withMove.length) return null
   const lead = withMove.slice().sort((a, b) => Math.abs(b.dayMovePct) - Math.abs(a.dayMovePct))[0]
   const company = companyPhrase(lead.companyName, lead.ticker)
@@ -529,7 +540,7 @@ function evalFilingPriceReaction(filings) {
     moveLabel: formatPct(lead.dayMovePct),
     moveUp: up,
     priceSeries: lead.priceSeries ?? [],
-    score: (catalog('filing_price_reaction')?.weight ?? 0) + Math.abs(lead.dayMovePct),
+    score: (catalog('filing_price_reaction')?.weight ?? 0) + Math.min(Math.abs(lead.dayMovePct), 16),
     memberIds: [lead.id],
   })
 }

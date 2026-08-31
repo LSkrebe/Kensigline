@@ -66,7 +66,19 @@
   overflow: hidden;
   isolation: isolate;
   background: var(--lp-bg);
-  border-bottom: 1px solid var(--lp-line);
+}
+
+.lpHeroDock::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--lp-line);
+  pointer-events: none;
+  z-index: 6;
+  opacity: clamp(0, (var(--lp-collapse) - 0.94) * 16.67, 1);
 }
 
 .lpHeroCollapseSpacer {

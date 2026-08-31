@@ -145,7 +145,15 @@ export function ExplorePage({
     }
 
     if (isDataModePending(backendUp)) {
-      setHomeLoading(true)
+      const cached = peekExploreHomeSnapshot(null)
+      if (cached?.recap && cached?.homePreview) {
+        setRecap(cached.recap)
+        setHomePreview(cached.homePreview)
+        setHomeSearchPool(cached.homeLatest ?? { companies: [], investors: [] })
+        setHomeLoading(false)
+      } else {
+        setHomeLoading(true)
+      }
       return
     }
 

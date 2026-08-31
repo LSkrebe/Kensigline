@@ -112,6 +112,11 @@ export default function AppRouter() {
   useEffect(() => {
     if (!signedIn || waitlistMode || captureMode) return
     let alive = true
+    void import('./exploreApi.js').then(({ hydrateExploreHomeFromSession, prefetchExploreHome }) => {
+      hydrateExploreHomeFromSession(null)
+      if (!alive) return
+      void prefetchExploreHome(true)
+    })
     void fetchJsonSafe('/health', { timeoutMs: 3500 }).then((r) => {
       if (!alive) return
       if (r.ok && r.data?.ok) {

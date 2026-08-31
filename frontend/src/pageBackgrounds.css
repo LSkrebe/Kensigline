@@ -1,14 +1,20 @@
 /* Shared Mercerline background sizing — zoom in on small viewports for less visual noise. */
 
 .lpHeroExpandedBg::before,
-.exploreRecapExpandedBg::before {
+.exploreRecapExpandedBg::before,
+.drpt-expandedBg::before {
   background-size: var(--ml-bg-expanded-size, cover);
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .lpHeroCompactBg::before,
 .lpNav::before,
-.exploreRecapCompactBg::before {
+.exploreRecapCompactBg::before,
+.drpt-compactBg::before {
   background-size: var(--ml-bg-compact-size, cover);
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 @media (max-width: 899px) {

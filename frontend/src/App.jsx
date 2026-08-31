@@ -1299,12 +1299,36 @@ function dedupeInstitutionActorTxns(transactions) {
   return [...byTicker.values()]
 }
 
+function institutionTxnActivity(txn) {
+  return String(txn?.sheetRow?.activity ?? txn?.activity ?? '').trim()
+}
+
+/** 13F holdings dumps can fan out to dozens of rows — show stake changes only when possible. */
+function filterInstitutionTradeLogTxns(transactions) {
+  const txns = dedupeInstitutionActorTxns(transactions)
+  const changes = txns.filter((txn) => {
+    const act = institutionTxnActivity(txn)
+    return act === 'Increased stake' || act === 'Reduced stake'
+  })
+  if (changes.length) return changes
+
+  const news = txns
+    .filter((txn) => institutionTxnActivity(txn) === 'New position')
+    .sort(
+      (a, b) =>
+        Math.abs(Number(b?.sheetRow?.amountUsd ?? b?.amountUsd ?? 0)) -
+        Math.abs(Number(a?.sheetRow?.amountUsd ?? a?.amountUsd ?? 0)),
+    )
+  if (news.length > 12) return news.slice(0, 12)
+  return txns
+}
+
 function stripSyntheticActorTxns(actorRow) {
   if (!actorRow?.transactions?.length) return actorRow
   let transactions = actorRow.transactions.filter(isRealDisplayedActorTxn)
   const mode = actorRow.source ?? actorRow.__investigateSource ?? 'insider'
   if (mode === 'institutions') {
-    transactions = dedupeInstitutionActorTxns(transactions)
+    transactions = filterInstitutionTradeLogTxns(transactions)
   }
   if (transactions.length === actorRow.transactions.length && mode !== 'institutions') return actorRow
   return normalizeInvestigateActorFeedRow({ ...actorRow, transactions })
@@ -1315,7 +1339,7 @@ function buildActorCaseFeedRows(actorRow, filters, chartRange) {
   const mode = actorRow.source ?? actorRow.__investigateSource ?? 'insider'
   const txns =
     mode === 'institutions'
-      ? dedupeInstitutionActorTxns(actorRow.transactions)
+      ? filterInstitutionTradeLogTxns(actorRow.transactions)
       : actorRow.transactions
   const trades = []
   for (const txn of txns) {

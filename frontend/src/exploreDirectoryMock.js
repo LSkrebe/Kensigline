@@ -197,11 +197,31 @@ function exploreRowDisplayTrail(row, kind = 'company') {
 }
 
 /** Prefer rows with $/%/share trails over empty placeholders in home preview. */
+function exploreRowActionScore(row, kind = 'company') {
+  const trail = exploreRowDisplayTrail(row, kind)
+  if (!isMeaningfulExploreTrail(trail)) return -1
+  let score = 0
+  const usd = parseExploreTrailUsd(trail)
+  if (usd != null) score += Math.log10(Math.max(Math.abs(usd), 1)) * 8
+  const doc = String(row.docType ?? row.event ?? '').toLowerCase()
+  if (doc.includes('purchase') || doc.includes('buy')) score += 28
+  if (doc.includes('ptr') && doc.includes('buy')) score += 32
+  if (doc.includes('increased')) score += 18
+  if (doc.includes('reduced') || doc.includes('sale') || doc.includes('sell')) score += 12
+  if (doc.includes('new position')) score -= 6
+  if (kind === 'investor' && row.up === true) score += 6
+  const date = String(row.date ?? row.lastDate ?? '')
+  if (date) score += Math.min(8, Math.max(0, 7 - Math.floor((Date.now() - Date.parse(date)) / 86_400_000)))
+  return score
+}
+
 function rankExploreHomeRows(rows, kind = 'company') {
   const list = Array.isArray(rows) ? rows : []
-  const valued = list.filter((row) => isMeaningfulExploreTrail(exploreRowDisplayTrail(row, kind)))
-  const rest = list.filter((row) => !valued.includes(row))
-  return [...valued, ...rest]
+  return [...list].sort((a, b) => {
+    const scoreDelta = exploreRowActionScore(b, kind) - exploreRowActionScore(a, kind)
+    if (scoreDelta !== 0) return scoreDelta
+    return String(b.date ?? b.lastDate ?? '').localeCompare(String(a.date ?? a.lastDate ?? ''))
+  })
 }
 
 function mapExploreHomePreviewRow(row, kind) {

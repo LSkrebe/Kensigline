@@ -89,8 +89,8 @@ export const EXPLORE_RECAP_CATALOG = [
     kind: 'ranking',
     kicker: 'Market reaction',
     documents: ['Form 4', '8-K', 'PTR'],
-    tier: 2,
-    weight: 58,
+    tier: 3,
+    weight: 40,
     notes: 'Uses daily closes only (no intraday)',
   },
   {

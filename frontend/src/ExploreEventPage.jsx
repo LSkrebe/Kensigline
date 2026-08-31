@@ -43,6 +43,7 @@ function filingRowTrail(row) {
 }
 
 function filingRowTrailTone(row) {
+  if (row.moveLabel && row.moveUp != null) return row.moveUp ? 'isUp' : 'isDown'
   if (row.side === 'buy') return 'isUp'
   if (row.side === 'sell') return 'isDown'
   if (row.hideTxn && row.moveUp != null) return row.moveUp ? 'isUp' : 'isDown'

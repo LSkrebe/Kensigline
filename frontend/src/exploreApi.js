@@ -52,20 +52,35 @@ function writeExploreHomeSession(recap, directory) {
   }
 }
 
+function canUseExploreSessionCache(backendUp) {
+  return backendUp !== false
+}
+
 function hydrateMemoryCacheFromSession(backendUp) {
+  if (!canUseExploreSessionCache(backendUp)) return null
   const session = readExploreHomeSession()
-  if (!session || !isLiveDataMode(backendUp)) return null
-  recapResultCacheEntry = { at: session.at, backendUp, recap: session.recap }
-  directoryCacheEntry = { at: session.at, backendUp, bundle: session.directory }
+  if (!session) return null
+  recapResultCacheEntry = { at: session.at, backendUp: backendUp === true ? true : backendUp, recap: session.recap }
+  directoryCacheEntry = { at: session.at, backendUp: backendUp === true ? true : backendUp, bundle: session.directory }
   markExploreHomeReady()
   return session
 }
 
+/** Restore explore home from sessionStorage before health probe finishes. */
+export function hydrateExploreHomeFromSession(backendUp = null) {
+  return hydrateMemoryCacheFromSession(backendUp)
+}
+
+if (typeof window !== 'undefined') {
+  hydrateMemoryCacheFromSession(null)
+}
+
 function snapshotFromSession(backendUp) {
+  if (!canUseExploreSessionCache(backendUp)) return null
   const session = readExploreHomeSession()
-  if (!session || !isLiveDataMode(backendUp)) return null
-  recapResultCacheEntry = { at: session.at, backendUp, recap: session.recap }
-  directoryCacheEntry = { at: session.at, backendUp, bundle: session.directory }
+  if (!session) return null
+  recapResultCacheEntry = { at: session.at, backendUp: backendUp === true ? true : backendUp, recap: session.recap }
+  directoryCacheEntry = { at: session.at, backendUp: backendUp === true ? true : backendUp, bundle: session.directory }
   return {
     recap: session.recap,
     homePreview: session.directory.homePreview,
@@ -207,7 +222,8 @@ function scopeRecapDayToDisplayDay(day) {
 function cacheEntryFresh(entry, backendUp) {
   return (
     entry &&
-    entry.backendUp === backendUp &&
+    entry.backendUp !== false &&
+    backendUp !== false &&
     Date.now() - entry.at < EXPLORE_HOME_CACHE_TTL_MS
   )
 }
@@ -270,7 +286,7 @@ export function lookupExploreDirectoryCompanyName(ticker, backendUp) {
 
 /** Instant paint when returning to Explore home within the session cache window. */
 export function peekExploreHomeSnapshot(backendUp) {
-  if (!isLiveDataMode(backendUp)) return null
+  if (backendUp === false) return null
   let hasRecap = cacheEntryFresh(recapResultCacheEntry, backendUp)
   let hasDir = cacheEntryFresh(directoryCacheEntry, backendUp)
   let stale = false
@@ -510,7 +526,6 @@ async function fetchExploreHomeBundleFresh(backendUp) {
     try {
       let processed = await fetchExploreHome(backendUp)
       if (!processed) {
-        await sleep(1200)
         processed = await fetchExploreHome(backendUp)
       }
       if (processed) {

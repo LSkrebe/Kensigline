@@ -125,3 +125,32 @@ export function terminalPageBackgroundKey(shell, exploreSubview) {
   if (exploreSubview === 'investorDetail') return 'dossierInvestor'
   return 'exploreHome'
 }
+
+const preloadedBgUrls = new Set()
+
+/** Warm-decode page background art before hero layers paint. */
+export function preloadPageBackgrounds() {
+  if (typeof window === 'undefined') return Promise.resolve()
+  const urls = [
+    ...new Set(
+      Object.values(PAGE_BG).flatMap((bg) => [bg.expanded, bg.compact].filter(Boolean)),
+    ),
+  ]
+  return Promise.all(
+    urls.map(
+      (url) =>
+        new Promise((resolve) => {
+          if (preloadedBgUrls.has(url)) {
+            resolve()
+            return
+          }
+          preloadedBgUrls.add(url)
+          const img = new Image()
+          img.decoding = 'async'
+          img.onload = () => resolve()
+          img.onerror = () => resolve()
+          img.src = url
+        }),
+    ),
+  )
+}

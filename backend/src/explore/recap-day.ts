@@ -40,7 +40,8 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
   const dayKey = todayUtcIso();
 
   // Sequential checkouts — recap runs after directory; keep one connection per step under a 4-slot pool.
-  const insiders = await tryExploreQuery("recap.insiders", () => exploreQueryApi<{
+  const [insiders, politicians, earningsRows] = await Promise.all([
+    tryExploreQuery("recap.insiders", () => exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -77,9 +78,9 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       LIMIT 120
       `,
       [lookback],
-    ));
+    )),
 
-  const politicians = await tryExploreQuery("recap.politicians", () => exploreQueryApi<{
+    tryExploreQuery("recap.politicians", () => exploreQueryApi<{
       id: string;
       filing_date: string;
       ticker: string;
@@ -112,9 +113,9 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       LIMIT 40
       `,
       [lookback],
-    ));
+    )),
 
-  const earningsRows = await tryExploreQuery("recap.earnings", () => exploreQueryApi<{ ticker: string; name: string; earnings_date: string; days_ahead: string }>(
+    tryExploreQuery("recap.earnings", () => exploreQueryApi<{ ticker: string; name: string; earnings_date: string; days_ahead: string }>(
     `
     SELECT
       upper(trim(ticker)) AS ticker,
@@ -129,7 +130,8 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
     ORDER BY earnings_date ASC
     LIMIT 24
     `,
-  ));
+    )),
+  ]);
 
   /** @type {RecapFiling[]} */
   const filings: RecapFiling[] = [];
@@ -437,6 +439,10 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
 
   for (const row of institutions) {
     if (!isPlausibleTrackedFiler(row.actor_name, row.amount_usd)) continue;
+    const activity = String(row.activity ?? "").trim();
+    if (activity !== "Increased stake" && activity !== "Reduced stake" && activity !== "New position") {
+      continue;
+    }
     const side = institutionSide(row.activity);
     investorEvents.push({
       id: `a-${row.id}`,

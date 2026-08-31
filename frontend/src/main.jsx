@@ -3,11 +3,14 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './pageBackgrounds.css'
 import './marketingEnter.css'
+import { preloadPageBackgrounds } from './pageBackgrounds.js'
 import AppRouter from './AppRouter.jsx'
 import { AuthProvider } from './AuthContext.jsx'
 import { installWhopPixel } from './whopPixel.js'
 
 installWhopPixel()
+
+void preloadPageBackgrounds()
 
 // Small runtime error boundary so the app doesn't go fully black in prod/dev.
 // Keeps mocks and lets users continue navigating even if one panel crashes.

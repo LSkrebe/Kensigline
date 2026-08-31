@@ -43,8 +43,20 @@
   height: var(--explore-recap-visual-h);
   margin-bottom: calc(var(--explore-recap-collapsed-h) - var(--explore-recap-visual-h));
   overflow: hidden;
-  box-shadow: 0 calc(var(--explore-collapse) * 1px) 0 rgba(255, 255, 255, calc(var(--explore-collapse) * 0.08));
   background: #080809;
+}
+
+.exploreRecapDock::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  z-index: 6;
+  opacity: clamp(0, (var(--explore-collapse) - 0.94) * 16.67, 1);
 }
 
 .exploreRecapCollapseSpacer {
@@ -844,7 +856,6 @@
   scroll-snap-stop: always;
   overflow: hidden;
   background: transparent;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   box-sizing: border-box;
 }
 
@@ -1172,7 +1183,7 @@
   flex-wrap: wrap;
   gap: 10px;
   margin: auto 0 0;
-  padding: 8px 0 0;
+  padding: 8px 0 20px;
   list-style: none;
 }
 
@@ -1307,6 +1318,7 @@
 
   .exploreEventContextChips {
     margin-top: 4px;
+    padding-bottom: 24px;
   }
 
   .exploreEventFactsSection .drpt-metricGrid {

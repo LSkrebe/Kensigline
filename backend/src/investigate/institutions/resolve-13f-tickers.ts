@@ -235,30 +235,31 @@ export async function resolveHoldingsToTickers(
   };
 }
 
-/** Prior share counts for filer+ticker (most recent institutions doc per ticker). */
+/** Prior share counts for filer+ticker (most recent institution tx before optional cutoff). */
 export async function loadPriorFilerHoldingsBatch(
-  filerName: string,
+  filerId: string,
   tickers: string[],
+  beforeAt?: string | null,
 ): Promise<Map<string, { shares: number | null; activity: string | null }>> {
-  const filer = String(filerName ?? "").trim();
+  const id = String(filerId ?? "").trim();
   const uniq = [...new Set(tickers.map((t) => String(t ?? "").trim().toUpperCase()).filter(Boolean))];
   const out = new Map<string, { shares: number | null; activity: string | null }>();
-  if (!filer || !uniq.length) return out;
+  if (!id || !uniq.length) return out;
 
   const rows = await db.query<{ ticker: string; shares: string | null; activity: string | null }>(
     `
-    SELECT DISTINCT ON (UPPER(d.ticker))
-      UPPER(d.ticker) AS ticker,
-      r->>'shares' AS shares,
-      r->>'activity' AS activity
-    FROM documents d
-    CROSS JOIN LATERAL jsonb_array_elements(COALESCE(d.data->'cluster'->'worksheet_rows', '[]'::jsonb)) r
-    WHERE d.feed_kind = 'institutions'
-      AND UPPER(d.ticker) = ANY($1::text[])
-      AND LOWER(COALESCE(r->>'institution_name', r->>'key', '')) = LOWER($2)
-    ORDER BY UPPER(d.ticker), d.parsed_at DESC NULLS LAST
+    SELECT DISTINCT ON (UPPER(i.ticker))
+      UPPER(i.ticker) AS ticker,
+      t.shares::text AS shares,
+      t.activity
+    FROM institution_transactions t
+    JOIN issuers i ON i.id = t.issuer_id
+    WHERE t.filer_id = $1::uuid
+      AND UPPER(i.ticker) = ANY($2::text[])
+      AND ($3::timestamptz IS NULL OR t.transaction_at < $3::timestamptz)
+    ORDER BY UPPER(i.ticker), t.transaction_at DESC NULLS LAST
     `,
-    [uniq, filer],
+    [id, uniq, beforeAt ?? null],
   );
   for (const row of rows) {
     out.set(row.ticker, {
@@ -269,12 +270,23 @@ export async function loadPriorFilerHoldingsBatch(
   return out;
 }
 
-/** Prior share count + activity for filer+ticker (most recent institutions doc). */
+/** Prior share count + activity for filer+ticker (most recent institution tx). */
 export async function loadPriorFilerHolding(args: {
-  filerName: string;
+  filerId?: string;
+  filerName?: string;
   ticker: string;
+  beforeAt?: string | null;
 }): Promise<{ shares: number | null; activity: string | null } | null> {
-  const batch = await loadPriorFilerHoldingsBatch(args.filerName, [args.ticker]);
+  let filerId = String(args.filerId ?? "").trim();
+  if (!filerId && args.filerName) {
+    const row = await db.one<{ id: string }>(
+      `SELECT id FROM filers WHERE lower(trim(display_name)) = lower(trim($1)) LIMIT 1`,
+      [String(args.filerName).trim()],
+    );
+    filerId = row?.id ?? "";
+  }
+  if (!filerId) return null;
+  const batch = await loadPriorFilerHoldingsBatch(filerId, [args.ticker], args.beforeAt ?? null);
   return batch.get(String(args.ticker ?? "").trim().toUpperCase()) ?? null;
 }
 

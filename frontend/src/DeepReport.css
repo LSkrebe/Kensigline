@@ -63,13 +63,25 @@
   height: var(--deep-dock-visual-h);
   margin-bottom: calc(var(--deep-collapsed-h) - var(--deep-dock-visual-h));
   overflow: hidden;
-  box-shadow: 0 calc(var(--deep-collapse) * 1px) 0 rgba(255, 255, 255, calc(var(--deep-collapse) * 0.08));
   background: color-mix(
     in srgb,
     transparent calc((1 - var(--deep-collapse)) * 100%),
     rgba(8, 8, 9, 0.96)
   );
   backdrop-filter: blur(calc(var(--deep-collapse) * 10px));
+}
+
+.drpt-dock::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  pointer-events: none;
+  z-index: 6;
+  opacity: clamp(0, (var(--deep-collapse) - 0.94) * 16.67, 1);
 }
 
 .drpt-collapseSpacer {
@@ -1773,7 +1785,7 @@ button.drpt-docRow {
 
   .drpt-stickWrap,
   .exploreDirShell .drpt-stickWrap {
-    --deep-expanded-h: clamp(280px, calc(34vh + 72px), 400px);
+    --deep-expanded-h: clamp(220px, calc(28vh + 56px), 320px);
   }
 
   .drpt-expanded,

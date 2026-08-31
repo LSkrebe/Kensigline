@@ -292,13 +292,15 @@ async function extractInstitutionFilingLlmResidual(args: {
 }
 
 async function attachActivities(
-  filerName: string,
+  filerId: string,
   mapped: Mapped13fHolding[],
   asOf: string | null,
 ): Promise<{ rows: HoldingRow[]; unchanged_holdings: number }> {
+  const beforeAt = asOf ? new Date(asOf).toISOString() : null;
   const priors = await loadPriorFilerHoldingsBatch(
-    filerName,
+    filerId,
     mapped.map((h) => h.ticker),
+    beforeAt,
   );
   const rows: HoldingRow[] = [];
   let unchanged_holdings = 0;
@@ -350,9 +352,11 @@ async function persistInstitutionHoldings(args: {
 
   for (const [ticker, rows] of byTicker.entries()) {
     const contentSha256 = `${args.baseSha256}:${ticker}`;
-    rows.sort((a, b) => String(b.as_of_date ?? "").localeCompare(String(a.as_of_date ?? "")));
+    const changedRows = rows.filter((r) => !r.unchanged);
+    if (!changedRows.length) continue;
+    changedRows.sort((a, b) => String(b.as_of_date ?? "").localeCompare(String(a.as_of_date ?? "")));
 
-    const worksheet_rows = rows.map((r) => ({
+    const worksheet_rows = changedRows.map((r) => ({
       key: args.filerName,
       institution_name: args.filerName,
       surname: args.filerName,
@@ -370,7 +374,7 @@ async function persistInstitutionHoldings(args: {
 
     const issuer = await ensureIssuer({
       ticker,
-      name: rows[0]?.issuer_name ?? ticker,
+      name: changedRows[0]?.issuer_name ?? ticker,
     });
 
     const filingId = await insertFiling({
@@ -478,9 +482,13 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
     let activity_source: string = "share_delta";
     let resolvedFiler = filerName;
     const llmCusipLearns: Array<{ cusip: string | null | undefined; ticker: string; source: string }> = [];
+    const institutionFiler = await ensureFiler({
+      filerType: "institution",
+      displayName: filerName,
+    });
 
     if (mapped.length >= 1) {
-      const attached = await attachActivities(filerName, mapped, asOf);
+      const attached = await attachActivities(institutionFiler.id, mapped, asOf);
       holdings = attached.rows;
       unchanged_holdings = attached.unchanged_holdings;
     } else if (institutionsLlmFallbackEnabled()) {
@@ -498,6 +506,10 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
       if (isCikPlaceholderDisplayName(resolvedFiler)) {
         resolvedFiler = await resolve13fFilerDisplayNameAsync(meta, primaryUrl);
       }
+      const llmFiler = await ensureFiler({
+        filerType: "institution",
+        displayName: resolvedFiler,
+      });
 
       const llmMapped: Mapped13fHolding[] = [];
       for (const h of out.holdings ?? []) {
@@ -519,7 +531,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
       }
 
       // Prefer share-delta activity even on LLM ticker residual.
-      const attached = await attachActivities(resolvedFiler, llmMapped, formatIso(out.filing?.filed_at) ?? asOf);
+      const attached = await attachActivities(llmFiler.id, llmMapped, formatIso(out.filing?.filed_at) ?? asOf);
       holdings = attached.rows;
       unchanged_holdings = attached.unchanged_holdings;
       stats.mapped = holdings.length;
