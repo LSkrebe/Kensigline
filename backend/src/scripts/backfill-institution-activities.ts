@@ -6,10 +6,10 @@
  */
 import { db } from "../core/db.js";
 
-async function main() {
-  await db.query(`SET statement_timeout = 0`);
+const FILER_BATCH = 40;
 
-  const updated = await db.query<{ count: string }>(
+async function backfillFiler(filerId: string): Promise<number> {
+  const updated = await db.query<{ id: string }>(
     `
     WITH ranked AS (
       SELECT
@@ -17,14 +17,15 @@ async function main() {
         t.shares,
         t.activity,
         LAG(t.shares) OVER (
-          PARTITION BY t.filer_id, t.issuer_id
+          PARTITION BY t.issuer_id
           ORDER BY t.transaction_at ASC, t.id ASC
         ) AS prior_shares,
         LAG(t.activity) OVER (
-          PARTITION BY t.filer_id, t.issuer_id
+          PARTITION BY t.issuer_id
           ORDER BY t.transaction_at ASC, t.id ASC
         ) AS prior_activity
       FROM institution_transactions t
+      WHERE t.filer_id = $1::uuid
     ),
     next_activity AS (
       SELECT
@@ -46,10 +47,39 @@ async function main() {
       AND coalesce(t.activity, '') IS DISTINCT FROM n.computed
     RETURNING t.id
     `,
+    [filerId],
+  );
+  return updated.length;
+}
+
+async function main() {
+  await db.query(`SET statement_timeout = '180s'`);
+
+  const filers = await db.query<{ id: string }>(
+    `SELECT DISTINCT filer_id::text AS id FROM institution_transactions ORDER BY filer_id`,
   );
 
-  const count = updated.length;
-  console.log(`[backfill-institution-activities] updated_rows=${count}`);
+  let total = 0;
+  let filersTouched = 0;
+
+  for (let i = 0; i < filers.length; i += FILER_BATCH) {
+    const batch = filers.slice(i, i + FILER_BATCH);
+    for (const { id } of batch) {
+      const n = await backfillFiler(id);
+      if (n > 0) {
+        filersTouched += 1;
+        total += n;
+        console.log(`[backfill-institution-activities] filer=${id} updated=${n}`);
+      }
+    }
+    console.log(
+      `[backfill-institution-activities] progress=${Math.min(i + FILER_BATCH, filers.length)}/${filers.length}`,
+    );
+  }
+
+  console.log(
+    `[backfill-institution-activities] done filers=${filers.length} touched=${filersTouched} updated_rows=${total}`,
+  );
 }
 
 main()
