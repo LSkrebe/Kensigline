@@ -25,6 +25,7 @@ import { isCikPlaceholderDisplayName } from "../../core/sec.js";
 import { isPlaceholderInvestorName } from "../../research/market/tracked-investors-filter.js";
 import {
   activityFromShareDelta,
+  consolidateMappedHoldingsByTicker,
   ensureCusipTickerMapTable,
   institutionsLlmFallbackEnabled,
   learnCusipTickersBatch,
@@ -52,6 +53,26 @@ type HoldingRow = {
   as_of_date: string | null;
   unchanged: boolean;
 };
+
+function consolidateHoldingRows(rows: HoldingRow[]): HoldingRow {
+  const first = rows[0]!;
+  const shares = rows.reduce((a, r) => a + (Number(r.shares) || 0), 0);
+  const value_usd = rows.reduce((a, r) => a + (Number(r.value_usd) || 0), 0);
+  let issuer_name = first.issuer_name ?? null;
+  for (const r of rows) {
+    if ((r.issuer_name?.length ?? 0) > (issuer_name?.length ?? 0)) issuer_name = r.issuer_name;
+  }
+  return {
+    ticker: first.ticker,
+    cusip: first.cusip,
+    activity: first.activity,
+    as_of_date: first.as_of_date,
+    shares: shares > 0 ? shares : null,
+    value_usd: value_usd > 0 ? value_usd : null,
+    issuer_name,
+    unchanged: false,
+  };
+}
 
 function extractJsonObject(text: string): any {
   let raw = String(text ?? "").trim();
@@ -355,27 +376,27 @@ async function persistInstitutionHoldings(args: {
     const contentSha256 = `${args.baseSha256}:${ticker}`;
     const changedRows = rows.filter((r) => !r.unchanged);
     if (!changedRows.length) continue;
-    changedRows.sort((a, b) => String(b.as_of_date ?? "").localeCompare(String(a.as_of_date ?? "")));
+    const consolidated = consolidateHoldingRows(changedRows);
+    const ts = consolidated.as_of_date ?? formatIso(args.filedAt);
 
-    const worksheet_rows = changedRows.map((r) => ({
+    const worksheet_row = {
       key: args.filerName,
       institution_name: args.filerName,
       surname: args.filerName,
-      activity: r.activity,
-      amount_usd: r.value_usd,
-      shares: r.shares,
-      cusip: r.cusip,
-      ts: r.as_of_date ?? formatIso(args.filedAt),
-    }));
+      activity: consolidated.activity,
+      amount_usd: consolidated.value_usd,
+      shares: consolidated.shares,
+      cusip: consolidated.cusip,
+      ts,
+    };
 
-    const sumUsd = worksheet_rows.reduce((a, r) => a + (Number(r.amount_usd ?? 0) || 0), 0);
-    const feedLabel = sumUsd > 0 ? `${Math.round(sumUsd)} (${worksheet_rows.length})` : `(${worksheet_rows.length})`;
-    const feedAt =
-      worksheet_rows.find((r) => r.ts)?.ts ?? formatIso(args.filedAt) ?? new Date().toISOString();
+    const sumUsd = Number(worksheet_row.amount_usd ?? 0) || 0;
+    const feedLabel = sumUsd > 0 ? `${Math.round(sumUsd)}` : "13F";
+    const feedAt = ts ?? formatIso(args.filedAt) ?? new Date().toISOString();
 
     const issuer = await ensureIssuer({
       ticker,
-      name: changedRows[0]?.issuer_name ?? ticker,
+      name: consolidated.issuer_name ?? ticker,
     });
 
     const filingId = await insertFiling({
@@ -396,16 +417,14 @@ async function persistInstitutionHoldings(args: {
     });
 
     const txnRows = [];
-    for (const r of worksheet_rows) {
-      const amt = r.amount_usd != null ? Number(r.amount_usd) : null;
-      txnRows.push({
-        filerId: institutionFiler.id,
-        activity: r.activity ? String(r.activity) : null,
-        amountUsd: Number.isFinite(amt as number) ? amt : null,
-        shares: r.shares != null ? Number(r.shares) : null,
-        transactionAt: String(r.ts ?? feedAt),
-      });
-    }
+    const amt = worksheet_row.amount_usd != null ? Number(worksheet_row.amount_usd) : null;
+    txnRows.push({
+      filerId: institutionFiler.id,
+      activity: worksheet_row.activity ? String(worksheet_row.activity) : null,
+      amountUsd: Number.isFinite(amt as number) ? amt : null,
+      shares: worksheet_row.shares != null ? Number(worksheet_row.shares) : null,
+      transactionAt: String(worksheet_row.ts ?? feedAt),
+    });
     await replaceInstitutionTransactions(filingId, issuer.id, txnRows);
     await upsertFeedEntry({
       feedKind: "institutions",
@@ -546,7 +565,11 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
       }
 
       // Prefer share-delta activity even on LLM ticker residual.
-      const attached = await attachActivities(llmFiler.id, llmMapped, formatIso(out.filing?.filed_at) ?? asOf);
+      const attached = await attachActivities(
+        llmFiler.id,
+        consolidateMappedHoldingsByTicker(llmMapped),
+        formatIso(out.filing?.filed_at) ?? asOf,
+      );
       holdings = attached.rows;
       unchanged_holdings = attached.unchanged_holdings;
       stats.mapped = holdings.length;

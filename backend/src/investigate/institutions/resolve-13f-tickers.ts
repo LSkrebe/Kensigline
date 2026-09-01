@@ -171,6 +171,40 @@ export async function learnCusipTicker(cusip: string | null | undefined, ticker:
   await learnCusipTickersBatch([{ cusip, ticker, source }]);
 }
 
+/** Sum share/value lines that resolved to the same ticker (multiple CUSIP rows). */
+export function consolidateMappedHoldingsByTicker(holdings: Mapped13fHolding[]): Mapped13fHolding[] {
+  const byTicker = new Map<string, Mapped13fHolding>();
+  for (const h of holdings) {
+    const tick = String(h.ticker ?? "")
+      .trim()
+      .toUpperCase();
+    if (!tick) continue;
+    const prev = byTicker.get(tick);
+    if (!prev) {
+      byTicker.set(tick, { ...h, ticker: tick });
+      continue;
+    }
+    const shares = (Number(prev.shares) || 0) + (Number(h.shares) || 0);
+    const value_usd = (Number(prev.value_usd) || 0) + (Number(h.value_usd) || 0);
+    const pickName =
+      h.resolve_source === "name" && prev.resolve_source !== "name"
+        ? h.issuer_name
+        : (prev.issuer_name?.length ?? 0) >= (h.issuer_name?.length ?? 0)
+          ? prev.issuer_name
+          : h.issuer_name;
+    byTicker.set(tick, {
+      ...prev,
+      ticker: tick,
+      shares: shares > 0 ? shares : null,
+      value_usd: value_usd > 0 ? value_usd : null,
+      issuer_name: pickName,
+      resolve_source: h.resolve_source === "name" ? "name" : prev.resolve_source,
+      cusip: prev.cusip ?? h.cusip,
+    });
+  }
+  return [...byTicker.values()];
+}
+
 export async function resolveHoldingsToTickers(
   holdings: Parsed13fHolding[],
 ): Promise<{ mapped: Mapped13fHolding[]; unmapped: Parsed13fHolding[]; stats: Resolve13fStats }> {
@@ -189,41 +223,48 @@ export async function resolveHoldingsToTickers(
   for (const { h, cusip } of normalized) {
     let ticker: string | null = null;
     let resolve_source: Mapped13fHolding["resolve_source"] | null = null;
+    const nameKey = normalizeIssuerKey(h.issuer_name);
+    const fromName = byName.get(nameKey) ?? null;
 
     if (cusip) {
-      ticker = cusipLookup.get(cusip) ?? null;
-      if (ticker) {
+      const fromCusip = cusipLookup.get(cusip) ?? null;
+      if (fromCusip && fromName && fromName !== fromCusip) {
+        // Learned CUSIP map disagrees with issuer title — trust the name index.
+        ticker = fromName;
+        resolve_source = "name";
+        name_hits += 1;
+      } else if (fromCusip) {
+        ticker = fromCusip;
         resolve_source = "cusip";
         cusip_hits += 1;
       }
     }
 
-    if (!ticker) {
-      const key = normalizeIssuerKey(h.issuer_name);
-      const fromName = byName.get(key) ?? null;
-      if (fromName) {
-        ticker = fromName;
-        resolve_source = "name";
-        name_hits += 1;
-        if (cusip) learns.push({ cusip, ticker: fromName, source: "name_resolve" });
-      }
+    if (!ticker && fromName) {
+      ticker = fromName;
+      resolve_source = "name";
+      name_hits += 1;
     }
 
     if (ticker && resolve_source) {
       mapped.push({ ...h, cusip, ticker, resolve_source });
+      if (cusip && fromName && fromName === ticker) {
+        learns.push({ cusip, ticker, source: "name_resolve" });
+      }
     } else {
       unmapped.push(h);
     }
   }
 
   await learnCusipTickersBatch(learns);
+  const consolidated = consolidateMappedHoldingsByTicker(mapped);
 
   return {
-    mapped,
+    mapped: consolidated,
     unmapped,
     stats: {
       holdings_parsed: holdings.length,
-      mapped: mapped.length,
+      mapped: consolidated.length,
       unmapped: unmapped.length,
       cusip_hits,
       name_hits,

@@ -532,6 +532,22 @@ async function resolveFilerBySlug(slug: string) {
   return null;
 }
 
+/** Collapse duplicate 13F rows (same filer+ticker+timestamp) from multi-line holdings. */
+function collapseInstitutionDossierTxns(txns: any[]): any[] {
+  const byKey = new Map<string, any>();
+  for (const t of txns) {
+    const key = `${String(t.ticker ?? "").toUpperCase()}|${t.ts ?? ""}`;
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, { ...t });
+      continue;
+    }
+    prev.shares = (Number(prev.shares) || 0) + (Number(t.shares) || 0);
+    prev.amount_usd = (Number(prev.amount_usd) || 0) + (Number(t.amount_usd) || 0);
+  }
+  return [...byKey.values()].sort((a, b) => String(b.ts ?? "").localeCompare(String(a.ts ?? "")));
+}
+
 export async function buildFilerDossierPayload(slug: string, mode: string) {
   const filer = await resolveFilerBySlug(slug);
   if (!filer) {
@@ -612,6 +628,7 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
       `,
       [filer.id],
     );
+    txns = collapseInstitutionDossierTxns(txns);
   }
 
   const transactions = txns.map((t) => {

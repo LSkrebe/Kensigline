@@ -1287,16 +1287,26 @@ function isRealDisplayedActorTxn(txn) {
 }
 
 function dedupeInstitutionActorTxns(transactions) {
-  const byTicker = new Map()
+  const byKey = new Map()
   for (const txn of transactions ?? []) {
     const tick = String(txn?.ticker ?? '').trim().toUpperCase()
     if (!tick) continue
     const ts = new Date(txn?.ts ?? txn?.sheetRow?.ts ?? 0).getTime()
-    const prev = byTicker.get(tick)
-    const prevTs = prev ? new Date(prev?.ts ?? prev?.sheetRow?.ts ?? 0).getTime() : -Infinity
-    if (!prev || ts >= prevTs) byTicker.set(tick, txn)
+    const key = `${tick}|${ts}`
+    const prev = byKey.get(key)
+    if (!prev) {
+      byKey.set(key, txn)
+      continue
+    }
+    const sumShares =
+      (Number(prev?.sheetRow?.shares ?? prev?.shares) || 0) +
+      (Number(txn?.sheetRow?.shares ?? txn?.shares) || 0)
+    byKey.set(key, {
+      ...txn,
+      sheetRow: sumShares > 0 ? { ...txn.sheetRow, shares: sumShares } : txn.sheetRow,
+    })
   }
-  return [...byTicker.values()]
+  return [...byKey.values()]
 }
 
 function institutionTxnActivity(txn) {
@@ -4477,17 +4487,17 @@ function formatPoliticianTxnValue(r) {
 }
 
 function formatInstitutionTxnValue(r) {
-  const amt = Number(r?.amountUsd ?? r?.amount_usd ?? 0)
-  if (Number.isFinite(amt) && amt > 1) {
-    const compact = formatUsdCompact(amt)
-    if (compact) return compact
-  }
   const shares = Number(r?.shares ?? 0)
   if (Number.isFinite(shares) && shares > 0) {
     if (shares >= 1e9) return `${(shares / 1e9).toFixed(1)}B sh`
     if (shares >= 1e6) return `${(shares / 1e6).toFixed(1)}M sh`
     if (shares >= 1e3) return `${Math.round(shares / 1e3)}K sh`
     return `${Math.round(shares)} sh`
+  }
+  const amt = Number(r?.amountUsd ?? r?.amount_usd ?? 0)
+  if (Number.isFinite(amt) && amt > 1 && amt <= 100_000_000) {
+    const compact = formatUsdCompact(amt)
+    if (compact) return compact
   }
   return '—'
 }

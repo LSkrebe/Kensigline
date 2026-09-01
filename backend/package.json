@@ -8,7 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "start:workers": "node dist/workers-main.js",
-    "test": "npm run build && tsx src/documents/smoke.ts && tsx src/documents/llm-cost-smoke.ts && tsx src/analyse/smoke.ts"
+    "test": "npm run build && tsx src/documents/smoke.ts && tsx src/documents/llm-cost-smoke.ts && tsx src/analyse/smoke.ts && tsx src/investigate/institutions/smoke.ts"
   },
   "keywords": [],
   "author": "",

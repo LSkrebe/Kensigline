@@ -3,6 +3,13 @@
  * No documents.data blobs.
  */
 import { db } from "../core/db.js";
+import {
+  assertSingleInstitutionTxnPerFiling,
+  consolidateInstitutionTxnRows,
+  type InstitutionTxnRow,
+} from "../investigate/institutions/institution-txn-guards.js";
+
+export type { InstitutionTxnRow };
 
 export function normalizeTicker(raw: string | null | undefined): string | null {
   const t = String(raw ?? "")
@@ -412,14 +419,6 @@ export async function replacePoliticianTransactions(
   }
 }
 
-export type InstitutionTxnRow = {
-  filerId: string;
-  activity?: string | null;
-  amountUsd?: number | null;
-  shares?: number | null;
-  transactionAt: string;
-};
-
 export async function replaceInstitutionTransactions(
   filingId: string,
   issuerId: string,
@@ -427,11 +426,14 @@ export async function replaceInstitutionTransactions(
 ) {
   await db.query(`DELETE FROM institution_transactions WHERE filing_id = $1`, [filingId]);
   if (!rows.length) return;
-  const filerIds = rows.map((r) => r.filerId);
-  const activities = rows.map((r) => r.activity ?? null);
-  const amounts = rows.map((r) => (Number.isFinite(r.amountUsd as number) ? r.amountUsd : null));
-  const shares = rows.map((r) => (Number.isFinite(r.shares as number) ? r.shares : null));
-  const ats = rows.map((r) => r.transactionAt);
+
+  const normalized = consolidateInstitutionTxnRows(rows);
+
+  const filerIds = normalized.map((r) => r.filerId);
+  const activities = normalized.map((r) => r.activity ?? null);
+  const amounts = normalized.map((r) => (Number.isFinite(r.amountUsd as number) ? r.amountUsd : null));
+  const shares = normalized.map((r) => (Number.isFinite(r.shares as number) ? r.shares : null));
+  const ats = normalized.map((r) => r.transactionAt);
   await db.query(
     `
     INSERT INTO institution_transactions (
@@ -443,6 +445,7 @@ export async function replaceInstitutionTransactions(
     `,
     [filingId, issuerId, filerIds, activities, amounts, shares, ats],
   );
+  await assertSingleInstitutionTxnPerFiling(filingId);
 }
 
 export async function insertResearchEvent(opts: {
