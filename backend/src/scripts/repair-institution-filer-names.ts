@@ -210,13 +210,13 @@ async function bulkMigrateResolvedGroups(
     return resolved.reduce((sum, row) => sum + row.txn_count, 0);
   }
 
+  await client.query(`DROP TABLE IF EXISTS _repair_acc_filer`);
   await client.query(`
-    CREATE TEMP TABLE IF NOT EXISTS _repair_acc_filer (
+    CREATE TEMP TABLE _repair_acc_filer (
       accession_no text PRIMARY KEY,
       filer_id uuid NOT NULL
-    ) ON COMMIT DROP
+    )
   `);
-  await client.query(`TRUNCATE _repair_acc_filer`);
 
   await client.query(
     `
