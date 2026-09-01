@@ -8,11 +8,11 @@ import { relabelInstitutionActivities } from "./relabel-institution-activities.j
 const dryRun = process.argv.includes("--dry-run");
 
 async function main() {
-  const pool = createMaintenancePool(3);
+  const pool = createMaintenancePool(5);
   const coordinator = await pool.connect();
   try {
     await prepareMaintenanceClient(coordinator);
-    const result = await relabelInstitutionActivities(pool, coordinator, { dryRun, parallelism: 3 });
+    const result = await relabelInstitutionActivities(pool, coordinator, { dryRun, parallelism: 4 });
     console.log("[backfill-institution-activities] done", result);
   } finally {
     coordinator.release();

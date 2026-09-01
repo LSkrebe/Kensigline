@@ -18,11 +18,12 @@ import { purgePlaceholderInstitutionTransactions } from "./purge-placeholder-ins
 
 const dryRun = process.argv.includes("--dry-run");
 const fetchSec = process.argv.includes("--fetch-sec");
+const relabelOnly = process.argv.includes("--relabel-only");
 const skipRelabel = process.argv.includes("--skip-relabel");
-const skipPurge = process.argv.includes("--skip-purge");
+const skipPurge = process.argv.includes("--skip-purge") || relabelOnly;
 const REPAIR_PARALLEL = 6;
 const RELABEL_PARALLEL = 4;
-const POOL_MAX = 7;
+const POOL_MAX = relabelOnly ? 5 : 7;
 const REPAIR_BATCH_SIZE = 300;
 
 async function printStats(client: pg.PoolClient, label: string) {
@@ -49,6 +50,7 @@ async function main() {
   console.log("[maintenance] start", {
     dryRun,
     fetchSec,
+    relabelOnly,
     skipRelabel,
     skipPurge,
     repairParallel: REPAIR_PARALLEL,
@@ -63,18 +65,22 @@ async function main() {
     await prepareMaintenanceClient(coordinator);
     await printStats(coordinator, "before");
 
-    console.log("[maintenance] phase=1 repair_generic_institution");
-    const generic = await repairAllGenericInstitutionGroups(pool, coordinator, {
-      dryRun,
-      fetchSec,
-      batchSize: REPAIR_BATCH_SIZE,
-      parallelism: REPAIR_PARALLEL,
-    });
-    console.log("[maintenance] phase=1 done", generic);
+    if (!relabelOnly) {
+      console.log("[maintenance] phase=1 repair_generic_institution");
+      const generic = await repairAllGenericInstitutionGroups(pool, coordinator, {
+        dryRun,
+        fetchSec,
+        batchSize: REPAIR_BATCH_SIZE,
+        parallelism: REPAIR_PARALLEL,
+      });
+      console.log("[maintenance] phase=1 done", generic);
 
-    console.log("[maintenance] phase=2 repair_cik_filers");
-    const cik = await repairAllCikNamedFilers(coordinator, { dryRun, batchSize: REPAIR_BATCH_SIZE });
-    console.log("[maintenance] phase=2 done", cik);
+      console.log("[maintenance] phase=2 repair_cik_filers");
+      const cik = await repairAllCikNamedFilers(coordinator, { dryRun, batchSize: REPAIR_BATCH_SIZE });
+      console.log("[maintenance] phase=2 done", cik);
+    } else {
+      console.log("[maintenance] skip phases 1-3 (--relabel-only)");
+    }
 
     if (!skipPurge) {
       console.log("[maintenance] phase=3 purge_unrecoverable_placeholder");
