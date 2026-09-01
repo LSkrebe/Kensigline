@@ -25,6 +25,9 @@ const EXPLORE_HOME_SESSION_KEY = 'mercerline:explore:home:v4'
 const EXPLORE_HOME_SESSION_TTL_MS = 10 * 60_000
 /** Paint stale session instantly while revalidating (matches backend stale window). */
 const EXPLORE_HOME_SESSION_STALE_MS = 30 * 60_000
+/** Longer-lived local paint for true cold opens (same device). */
+const EXPLORE_HOME_LOCAL_KEY = 'mercerline:explore:home:local:v1'
+const EXPLORE_HOME_LOCAL_TTL_MS = 24 * 60 * 60_000
 
 function readExploreHomeSession() {
   if (typeof window === 'undefined' || !window.sessionStorage) return null
@@ -51,6 +54,29 @@ function writeExploreHomeSession(recap, directory) {
   } catch {
     /* quota */
   }
+  try {
+    window.localStorage?.setItem(
+      EXPLORE_HOME_LOCAL_KEY,
+      JSON.stringify({ at: Date.now(), recap, directory }),
+    )
+  } catch {
+    /* quota */
+  }
+}
+
+function readExploreHomeLocal() {
+  if (typeof window === 'undefined' || !window.localStorage) return null
+  try {
+    const raw = window.localStorage.getItem(EXPLORE_HOME_LOCAL_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed?.at || !parsed.recap || !parsed.directory) return null
+    const age = Date.now() - parsed.at
+    if (age > EXPLORE_HOME_LOCAL_TTL_MS) return null
+    return { ...parsed, stale: age > EXPLORE_HOME_SESSION_TTL_MS }
+  } catch {
+    return null
+  }
 }
 
 function canUseExploreSessionCache(backendUp) {
@@ -59,7 +85,7 @@ function canUseExploreSessionCache(backendUp) {
 
 function hydrateMemoryCacheFromSession(backendUp) {
   if (!canUseExploreSessionCache(backendUp)) return null
-  const session = readExploreHomeSession()
+  const session = readExploreHomeSession() ?? readExploreHomeLocal()
   if (!session) return null
   recapResultCacheEntry = { at: session.at, backendUp: backendUp === true ? true : backendUp, recap: session.recap }
   directoryCacheEntry = { at: session.at, backendUp: backendUp === true ? true : backendUp, bundle: session.directory }
@@ -78,7 +104,7 @@ if (typeof window !== 'undefined') {
 
 function snapshotFromSession(backendUp) {
   if (!canUseExploreSessionCache(backendUp)) return null
-  const session = readExploreHomeSession()
+  const session = readExploreHomeSession() ?? readExploreHomeLocal()
   if (!session) return null
   recapResultCacheEntry = { at: session.at, backendUp: backendUp === true ? true : backendUp, recap: session.recap }
   directoryCacheEntry = { at: session.at, backendUp: backendUp === true ? true : backendUp, bundle: session.directory }
@@ -178,7 +204,7 @@ export async function enrichRecapDayWithBars(day) {
   const seriesMap = new Map()
   await Promise.all(
     needBars.slice(0, 12).map(async (t) => {
-      const closes = await fetchBarsCloses(t, 48)
+      const closes = await fetchBarsCloses(t, 365)
       if (closes.length) seriesMap.set(t, closes)
     }),
   )
@@ -580,6 +606,16 @@ export function setExploreRecapCache(day, recap) {
 
 export function getExploreRecapCache() {
   return { day: cachedRecapDay, slides: cachedRecapSlides }
+}
+
+export async function fetchExploreEventChartSeries(ticker, seedSeries = [], backendUp = null) {
+  const seed = Array.isArray(seedSeries) ? seedSeries.filter(Number.isFinite) : []
+  if (seed.length >= 180) return seed
+  if (backendUp === false) return seed
+  const t = String(ticker ?? '').trim().toUpperCase()
+  if (!t) return seed
+  const closes = await fetchBarsCloses(t, 365)
+  return closes.length >= 30 ? closes : seed.length ? seed : closes
 }
 
 export async function loadExploreEventBriefContext(backendUp) {

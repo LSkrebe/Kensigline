@@ -224,9 +224,18 @@ export function recapSlideTier(typeId) {
   return EXPLORE_RECAP_CATALOG_BY_ID[typeId]?.tier ?? 99
 }
 
-/** Sort key: lower tier first, then higher score. */
+/** Sort key: lower tier first, then higher score; $0 notional slides sink. */
 export function compareRecapSlides(a, b) {
+  const aZero = isZeroNotionalSlide(a)
+  const bZero = isZeroNotionalSlide(b)
+  if (aZero !== bZero) return aZero ? 1 : -1
   const tierDelta = recapSlideTier(a?.typeId) - recapSlideTier(b?.typeId)
   if (tierDelta !== 0) return tierDelta
   return (b?.score ?? 0) - (a?.score ?? 0)
+}
+
+function isZeroNotionalSlide(slide) {
+  const label = String(slide?.moveLabel ?? '').trim()
+  if (!label) return false
+  return label === '$0' || label === '+$0' || label === '-$0' || label === '$0.0'
 }

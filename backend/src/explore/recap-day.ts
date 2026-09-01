@@ -182,7 +182,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
     ...filings.map((f) => String(f.ticker ?? "")),
     ...earningsRows.map((r) => r.ticker),
   ];
-  const barMap = await tryExploreBars(tickers, 48);
+  const barMap = await tryExploreBars(tickers, 260);
 
   for (const f of filings) {
     const t = String(f.ticker ?? "").toUpperCase();
@@ -230,7 +230,7 @@ export type ExploreDirectoryEvent = {
 export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number }) {
   const lookback = Math.max(7, Math.min(21, opts?.lookbackDays ?? 14));
 
-  const [insiders, politicians] = await Promise.all([
+  const [insiders, politicians, institutions, companyFilings] = await Promise.all([
     tryExploreQuery("directory.insiders", () =>
       exploreQueryApi<{
       id: string;
@@ -263,7 +263,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       LIMIT 300
       `,
       [lookback],
-      12_000,
+      15_000,
     )),
     tryExploreQuery("directory.politicians", () =>
       exploreQueryApi<{
@@ -297,9 +297,6 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       [lookback],
       12_000,
     )),
-  ]);
-
-  const [institutions, companyFilings] = await Promise.all([
     tryExploreQuery("directory.institutions", () =>
       exploreQueryApi<{
       id: string;
@@ -333,7 +330,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       LIMIT 120
       `,
       [lookback],
-      8_000,
+      20_000,
     )),
     tryExploreQuery("directory.company_filings", () =>
       exploreQueryApi<{
@@ -368,7 +365,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       LIMIT 200
       `,
       [lookback],
-      12_000,
+      25_000,
     )),
   ]);
 

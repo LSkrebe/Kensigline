@@ -200,6 +200,7 @@ function exploreRowDisplayTrail(row, kind = 'company') {
 function exploreRowActionScore(row, kind = 'company') {
   const trail = exploreRowDisplayTrail(row, kind)
   if (!isMeaningfulExploreTrail(trail)) return -1
+  if (trail === '$0') return -1000
   let score = 0
   const usd = parseExploreTrailUsd(trail)
   if (usd != null) score += Math.log10(Math.max(Math.abs(usd), 1)) * 8

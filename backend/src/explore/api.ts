@@ -1,17 +1,16 @@
 import type http from "node:http";
 import { sendJson } from "../core/http.js";
-import { readExploreHomeSnapshot, writeExploreHomeSnapshot } from "./home-snapshot.js";
+import {
+  ensureExplorePerfIndexes,
+  readExploreHomeSnapshot,
+  writeExploreHomeSnapshot,
+} from "./home-snapshot.js";
 import { buildExploreDirectoryEvents, buildExploreRecapDayPayload } from "./recap-day.js";
 import { evaluateRecapForHome, type EvaluatedRecapHome } from "./recap-evaluate-home.js";
 
 const EXPLORE_HOME_CACHE_TTL_MS = Math.max(
   60_000,
   Math.min(600_000, Number(process.env.EXPLORE_HOME_CACHE_MS ?? 300_000) || 300_000),
-);
-/** Serve stale home payloads instantly while revalidating in the background. */
-const EXPLORE_HOME_STALE_TTL_MS = Math.max(
-  EXPLORE_HOME_CACHE_TTL_MS,
-  Number(process.env.EXPLORE_HOME_STALE_MS ?? 1_800_000) || 1_800_000,
 );
 
 type RecapPayload = Awaited<ReturnType<typeof buildExploreRecapDayPayload>>;
@@ -28,6 +27,7 @@ let homeCache: CacheEntry<HomePayload> | null = null;
 let homeBuildChain: Promise<HomePayload> | null = null;
 let homeRefreshScheduled = false;
 let snapshotHydrateChain: Promise<void> | null = null;
+let periodicRefreshTimer: ReturnType<typeof setInterval> | null = null;
 
 function readFresh<T>(entry: CacheEntry<T> | null): T | null {
   if (!entry) return null;
@@ -35,10 +35,15 @@ function readFresh<T>(entry: CacheEntry<T> | null): T | null {
   return entry.payload;
 }
 
-function readStale<T>(entry: CacheEntry<T> | null): T | null {
+/** Any in-memory payload — never expire for serving; background refresh when not fresh. */
+function readServeable<T>(entry: CacheEntry<T> | null): T | null {
   if (!entry) return null;
-  if (Date.now() - entry.at >= EXPLORE_HOME_STALE_TTL_MS) return null;
   return entry.payload;
+}
+
+function cacheIsFresh(entry: CacheEntry<unknown> | null): boolean {
+  if (!entry) return false;
+  return Date.now() - entry.at < EXPLORE_HOME_CACHE_TTL_MS;
 }
 
 function writeHomeCache(payload: HomePayload) {
@@ -62,14 +67,14 @@ function payloadFromSnapshot(raw: {
   };
 }
 
-/** Hydrate in-memory cache from Postgres on cold boot. */
+/** Hydrate in-memory cache from Postgres on cold boot — any snapshot age. */
 async function hydrateFromDurableSnapshot(): Promise<void> {
   if (snapshotHydrateChain) return snapshotHydrateChain;
 
   snapshotHydrateChain = (async () => {
     try {
       if (homeCache) return;
-      const row = await readExploreHomeSnapshot(EXPLORE_HOME_STALE_TTL_MS);
+      const row = await readExploreHomeSnapshot();
       if (!row) return;
       const payload = payloadFromSnapshot(row.payload);
       if (!payload) return;
@@ -139,6 +144,15 @@ function homeJson(payload: HomePayload, meta: { cached?: boolean; stale?: boolea
   };
 }
 
+async function resolveServeableHome(): Promise<{ payload: HomePayload; fresh: boolean } | null> {
+  await hydrateFromDurableSnapshot();
+  const freshPayload = readFresh(homeCache);
+  if (freshPayload) return { payload: freshPayload, fresh: true };
+  const serveable = readServeable(homeCache);
+  if (serveable) return { payload: serveable, fresh: false };
+  return null;
+}
+
 export type ExploreHomeCacheMeta = {
   ageMs: number | null;
   fresh: boolean;
@@ -155,25 +169,17 @@ export function getExploreHomeCacheMeta(): ExploreHomeCacheMeta {
   return {
     ageMs,
     fresh: ageMs < EXPLORE_HOME_CACHE_TTL_MS,
-    stale: ageMs >= EXPLORE_HOME_CACHE_TTL_MS && ageMs < EXPLORE_HOME_STALE_TTL_MS,
+    stale: ageMs >= EXPLORE_HOME_CACHE_TTL_MS,
     building: homeBuildChain != null,
   };
 }
 
 export async function handleExploreHome(res: http.ServerResponse) {
   try {
-    await hydrateFromDurableSnapshot();
-
-    const fresh = readFresh(homeCache);
-    if (fresh) {
-      sendJson(res, 200, homeJson(fresh, { cached: true }));
-      return;
-    }
-
-    const stale = readStale(homeCache);
-    if (stale) {
-      sendJson(res, 200, homeJson(stale, { stale: true }));
-      scheduleExploreHomeRefresh();
+    const hit = await resolveServeableHome();
+    if (hit) {
+      sendJson(res, 200, homeJson(hit.payload, hit.fresh ? { cached: true } : { stale: true }));
+      if (!hit.fresh) scheduleExploreHomeRefresh();
       return;
     }
 
@@ -188,17 +194,10 @@ export async function handleExploreHome(res: http.ServerResponse) {
 
 export async function handleExploreRecap(res: http.ServerResponse) {
   try {
-    await hydrateFromDurableSnapshot();
-
-    const fresh = readFresh(homeCache);
-    if (fresh) {
-      sendJson(res, 200, fresh.recap);
-      return;
-    }
-    const stale = readStale(homeCache);
-    if (stale) {
-      sendJson(res, 200, stale.recap);
-      scheduleExploreHomeRefresh();
+    const hit = await resolveServeableHome();
+    if (hit) {
+      sendJson(res, 200, hit.payload.recap);
+      if (!hit.fresh) scheduleExploreHomeRefresh();
       return;
     }
     const payload = await getExploreHomeFresh();
@@ -212,17 +211,10 @@ export async function handleExploreRecap(res: http.ServerResponse) {
 
 export async function handleExploreDirectory(res: http.ServerResponse) {
   try {
-    await hydrateFromDurableSnapshot();
-
-    const fresh = readFresh(homeCache);
-    if (fresh) {
-      sendJson(res, 200, { ok: true, ...fresh.directory });
-      return;
-    }
-    const stale = readStale(homeCache);
-    if (stale) {
-      sendJson(res, 200, { ok: true, ...stale.directory });
-      scheduleExploreHomeRefresh();
+    const hit = await resolveServeableHome();
+    if (hit) {
+      sendJson(res, 200, { ok: true, ...hit.payload.directory });
+      if (!hit.fresh) scheduleExploreHomeRefresh();
       return;
     }
     const payload = await getExploreHomeFresh();
@@ -234,16 +226,28 @@ export async function handleExploreDirectory(res: http.ServerResponse) {
   }
 }
 
+function startExploreHomePeriodicRefresh() {
+  if (periodicRefreshTimer) return;
+  periodicRefreshTimer = setInterval(() => {
+    if (cacheIsFresh(homeCache)) return;
+    scheduleExploreHomeRefresh();
+  }, EXPLORE_HOME_CACHE_TTL_MS);
+  periodicRefreshTimer.unref?.();
+}
+
 /** Warm explore home after boot so first visitor isn't paying cold-query cost. */
 export function prewarmExploreHome() {
+  void ensureExplorePerfIndexes();
+  startExploreHomePeriodicRefresh();
+
   void hydrateFromDurableSnapshot()
     .then(() => {
-      if (readFresh(homeCache)) {
+      if (cacheIsFresh(homeCache)) {
         console.log("[explore/home] prewarm_skip_fresh");
         return;
       }
-      if (readStale(homeCache)) {
-        console.log("[explore/home] prewarm_stale_served");
+      if (readServeable(homeCache)) {
+        console.log("[explore/home] prewarm_stale_ready");
         scheduleExploreHomeRefresh();
         return;
       }

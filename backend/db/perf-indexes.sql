@@ -29,6 +29,13 @@ CREATE INDEX IF NOT EXISTS companies_ticker_norm_idx
   ON companies (upper(trim(ticker)))
   WHERE ticker IS NOT NULL;
 
+CREATE INDEX IF NOT EXISTS institution_tx_transaction_at_desc_idx
+  ON institution_transactions (transaction_at DESC);
+
+CREATE INDEX IF NOT EXISTS filings_explore_event_at_desc_idx
+  ON filings (coalesce(event_at, filed_at, parsed_at) DESC)
+  WHERE issuer_id IS NOT NULL;
+
 -- Backfill normalized columns used by indexes / feed queries.
 UPDATE documents
 SET ticker_norm = upper(trim(ticker))

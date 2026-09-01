@@ -5,7 +5,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { resolveExploreEventBrief } from './exploreEventBrief.js'
-import { loadExploreEventBriefContext, peekExploreHomeSnapshot, getExploreRecapCache } from './exploreApi.js'
+import { loadExploreEventBriefContext, peekExploreHomeSnapshot, getExploreRecapCache, fetchExploreEventChartSeries } from './exploreApi.js'
+import { isLiveDataMode } from './dataMode.js'
 import { MiniPriceChart, availablePriceRanges, coercePriceRangeFromOptions } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 import './DeepReport.css'
@@ -282,13 +283,14 @@ function EventMarketBlock({
   brief,
   slide,
   primary,
+  chartSeries = [],
   chartRange,
   onChartRangeChange,
   chartRangeOptions,
   onCompanyClick,
   openPrimaryCompany,
 }) {
-  const hasChart = brief.chartSeries?.length > 0
+  const hasChart = chartSeries?.length > 0
   const hasContext = Boolean(
     brief.summary ||
       slide?.headline ||
@@ -324,7 +326,7 @@ function EventMarketBlock({
       </div>
       <div className="drpt-figure drpt-figure--chart">
         <MiniPriceChart
-          series={brief.chartSeries}
+          series={chartSeries}
           label={chartTicker}
           showMeta={false}
           chartRange={chartRange}
@@ -400,10 +402,11 @@ export function ExploreEventPage({
   const slide = brief?.slide ?? null
   const kicker = slide?.kicker || 'Recap event'
   const primary = brief?.primaryCompany ?? null
+  const [chartSeries, setChartSeries] = useState(() => brief?.chartSeries ?? [])
   const [chartRange, setChartRange] = useState('6M')
   const chartRangeOptions = useMemo(
-    () => availablePriceRanges(brief?.chartSeries ?? [], brief?.chartSeriesDays ?? null),
-    [brief?.chartSeries, brief?.chartSeriesDays],
+    () => availablePriceRanges(chartSeries, brief?.chartSeriesDays ?? null),
+    [chartSeries, brief?.chartSeriesDays],
   )
   const pageRef = useRef(null)
   const dockRef = useRef(null)
@@ -412,6 +415,22 @@ export function ExploreEventPage({
   useEffect(() => {
     setChartRange((prev) => coercePriceRangeFromOptions(prev, chartRangeOptions))
   }, [eventId, chartRangeOptions])
+
+  useEffect(() => {
+    const seed = brief?.chartSeries ?? []
+    const ticker = brief?.chartTicker || primary?.ticker
+    if (!ticker || !isLiveDataMode(backendUp)) {
+      setChartSeries(seed)
+      return undefined
+    }
+    let cancelled = false
+    void fetchExploreEventChartSeries(ticker, seed, backendUp).then((series) => {
+      if (!cancelled) setChartSeries(Array.isArray(series) ? series : seed)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [eventId, brief?.chartTicker, brief?.chartSeries, primary?.ticker, backendUp])
 
   useEffect(() => {
     const page = pageRef.current
@@ -533,6 +552,7 @@ export function ExploreEventPage({
                 brief={brief}
                 slide={slide}
                 primary={primary}
+                chartSeries={chartSeries}
                 chartRange={chartRange}
                 onChartRangeChange={setChartRange}
                 chartRangeOptions={chartRangeOptions}
