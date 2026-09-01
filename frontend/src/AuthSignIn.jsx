@@ -117,7 +117,7 @@ export function AuthSignIn({ variant = 'settings', onSuccess }) {
         </form>
 
         {msg ? (
-          <p className="authSignInMsg mono" role="status">
+          <p className="authSignInMsg" role="alert">
             {msg}
           </p>
         ) : null}
@@ -187,7 +187,7 @@ export function AuthSignIn({ variant = 'settings', onSuccess }) {
         </div>
       </form>
       {msg ? (
-        <p className="authSignInMsg mono" role="status">
+        <p className="authSignInMsg" role="alert">
           {msg}
         </p>
       ) : null}

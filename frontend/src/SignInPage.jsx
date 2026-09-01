@@ -69,8 +69,8 @@ export function SignInPage({ gateReason: gateReasonProp = null }) {
         <section className="authCard" aria-labelledby="sign-in-title">
           {gateMessage ? (
             <div className="authNotice" role="status">
-              <p className="authNoticeTitle">{gateMessage.title}</p>
               <p className="authNoticeBody">
+                <span className="authNoticeLabel">{gateMessage.title}.</span>{' '}
                 {signedInEmail && typeof gateMessage.signedInBody === 'function'
                   ? gateMessage.signedInBody(signedInEmail)
                   : gateMessage.body}

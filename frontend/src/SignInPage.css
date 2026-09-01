@@ -54,24 +54,20 @@
 }
 
 .authNotice {
-  margin-bottom: 24px;
-  padding: 14px 16px;
-  border: 1px solid rgba(255, 180, 80, 0.35);
-  background: rgba(255, 180, 80, 0.08);
+  margin: 0 0 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.authNoticeTitle {
-  margin: 0 0 6px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #f5d08a;
+.authNoticeLabel {
+  color: var(--lp-fg);
 }
 
 .authNoticeBody {
   margin: 0;
   font-size: 13px;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.78);
+  line-height: 1.55;
+  color: var(--lp-muted);
 }
 
 .authNoticeActions {

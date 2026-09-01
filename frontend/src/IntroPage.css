@@ -1213,9 +1213,9 @@
 
 .authSignInMsg {
   margin: 12px 0 0;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.45;
-  color: rgba(255, 212, 120, 0.9);
+  color: var(--lp-muted, rgba(180, 195, 210, 0.85));
 }
 
 .authSignInNote {
