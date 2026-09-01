@@ -156,46 +156,89 @@ async function loadAllGenericGroups(client: pg.PoolClient): Promise<GenericGroup
   return r.rows;
 }
 
-async function migrateAccessionGroup(
-  pool: pg.Pool,
+type ResolvedAccessionGroup = {
+  accession_no: string;
+  filerName: string;
+  txn_count: number;
+};
+
+async function resolveAccessionGroup(
   g: GenericGroup,
-  dryRun: boolean,
   fetchSec: boolean,
-): Promise<{ updated: number; skipped: boolean }> {
+): Promise<ResolvedAccessionGroup | null> {
+  const accession = String(g.accession_no ?? "").trim();
+  if (!accession) return null;
+
   const filerName = await resolveFilerNameFromAccession(g, fetchSec);
   if (!filerName || isPlaceholderInvestorName(filerName) || isCikPlaceholderDisplayName(filerName)) {
     console.warn("[repair] skip_still_placeholder", g.accession_no, filerName);
-    return { updated: 0, skipped: true };
+    return null;
   }
 
-  console.log("[repair] generic", {
-    accession: g.accession_no,
+  return {
+    accession_no: accession,
     filerName,
-    txns: g.txn_count,
-  });
+    txn_count: Number(g.txn_count) || 0,
+  };
+}
 
-  if (dryRun) return { updated: Number(g.txn_count), skipped: false };
+/** One temp-table UPDATE per batch instead of per-accession round trips. */
+async function bulkMigrateResolvedGroups(
+  client: pg.PoolClient,
+  resolved: ResolvedAccessionGroup[],
+  dryRun: boolean,
+): Promise<number> {
+  if (!resolved.length) return 0;
 
-  const filer = await ensureFiler({ filerType: "institution", displayName: filerName });
-  const client = await pool.connect();
-  try {
-    await prepareMaintenanceClient(client);
-    const r = await client.query(
-      `
-      UPDATE institution_transactions t
-      SET filer_id = $1
-      FROM filings fil, filers pf
-      WHERE fil.id = t.filing_id
-        AND pf.id = t.filer_id
-        AND fil.accession_no = $2
-        AND lower(trim(pf.display_name)) IN ('institution', 'institutions')
-      `,
-      [filer.id, g.accession_no],
-    );
-    return { updated: r.rowCount ?? 0, skipped: false };
-  } finally {
-    client.release();
+  const nameToId = new Map<string, string>();
+  for (const name of new Set(resolved.map((r) => r.filerName))) {
+    const filer = await ensureFiler({ filerType: "institution", displayName: name });
+    nameToId.set(name, filer.id);
   }
+
+  const accessions: string[] = [];
+  const filerIds: string[] = [];
+  for (const row of resolved) {
+    const filerId = nameToId.get(row.filerName);
+    if (!filerId) continue;
+    accessions.push(row.accession_no);
+    filerIds.push(filerId);
+  }
+  if (!accessions.length) return 0;
+
+  if (dryRun) {
+    return resolved.reduce((sum, row) => sum + row.txn_count, 0);
+  }
+
+  await client.query(`
+    CREATE TEMP TABLE IF NOT EXISTS _repair_acc_filer (
+      accession_no text PRIMARY KEY,
+      filer_id uuid NOT NULL
+    ) ON COMMIT DROP
+  `);
+  await client.query(`TRUNCATE _repair_acc_filer`);
+
+  await client.query(
+    `
+    INSERT INTO _repair_acc_filer (accession_no, filer_id)
+    SELECT * FROM unnest($1::text[], $2::uuid[])
+    ON CONFLICT (accession_no) DO UPDATE SET filer_id = EXCLUDED.filer_id
+    `,
+    [accessions, filerIds],
+  );
+
+  const r = await client.query(
+    `
+    UPDATE institution_transactions t
+    SET filer_id = m.filer_id
+    FROM filings fil, filers pf, _repair_acc_filer m
+    WHERE fil.id = t.filing_id
+      AND pf.id = t.filer_id
+      AND fil.accession_no = m.accession_no
+      AND lower(trim(pf.display_name)) IN ('institution', 'institutions')
+    `,
+  );
+  return r.rowCount ?? 0;
 }
 
 export async function repairAllGenericInstitutionGroups(
@@ -205,9 +248,9 @@ export async function repairAllGenericInstitutionGroups(
 ): Promise<{ repairedGroups: number; updatedTxns: number; skipped: number; rounds: number }> {
   const dryRun = opts.dryRun === true;
   const fetchSec = opts.fetchSec === true;
-  const batchSize = Math.max(1, opts.batchSize ?? 80);
+  const batchSize = Math.max(1, opts.batchSize ?? 300);
   const maxRounds = opts.maxRounds ?? Number.POSITIVE_INFINITY;
-  const parallelism = Math.min(3, Math.max(1, opts.parallelism ?? 2));
+  const parallelism = Math.min(6, Math.max(1, opts.parallelism ?? 4));
 
   let updatedTxns = 0;
   let repairedGroups = 0;
@@ -234,16 +277,24 @@ export async function repairAllGenericInstitutionGroups(
       `[repair] generic batch round=${rounds} groups=${groups.length} progress=${cursor}/${pendingGroups.length}`,
     );
 
-    const results = await mapPoolLimit(groups, parallelism, (g) =>
-      migrateAccessionGroup(pool, g, dryRun, fetchSec),
-    );
+    const resolved = (
+      await mapPoolLimit(groups, parallelism, (g) => resolveAccessionGroup(g, fetchSec))
+    ).filter((row): row is ResolvedAccessionGroup => row != null);
 
-    for (const r of results) {
-      if (r.skipped) skipped += 1;
-      else {
-        repairedGroups += 1;
-        updatedTxns += r.updated;
-      }
+    skipped += groups.length - resolved.length;
+    if (resolved.length) {
+      const sample = resolved.slice(0, 3).map((row) => ({
+        accession: row.accession_no,
+        filerName: row.filerName,
+        txns: row.txn_count,
+      }));
+      console.log("[repair] generic batch_sample", sample);
+      const batchUpdated = await bulkMigrateResolvedGroups(coordinator, resolved, dryRun);
+      repairedGroups += resolved.length;
+      updatedTxns += batchUpdated;
+      console.log(
+        `[repair] generic batch_updated groups=${resolved.length} txns=${batchUpdated} skipped=${groups.length - resolved.length}`,
+      );
     }
 
     if (dryRun) break;

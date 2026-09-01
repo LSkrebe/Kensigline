@@ -93,7 +93,7 @@ export async function relabelInstitutionActivities(
   opts: RelabelOpts,
 ): Promise<{ filersTouched: number; updatedRows: number }> {
   const dryRun = opts.dryRun === true;
-  const parallelism = Math.min(3, Math.max(1, opts.parallelism ?? 3));
+  const parallelism = Math.min(4, Math.max(1, opts.parallelism ?? 3));
 
   const filersRes = await coordinator.query<{ id: string; name: string }>(
     `

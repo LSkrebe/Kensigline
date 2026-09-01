@@ -20,9 +20,10 @@ const dryRun = process.argv.includes("--dry-run");
 const fetchSec = process.argv.includes("--fetch-sec");
 const skipRelabel = process.argv.includes("--skip-relabel");
 const skipPurge = process.argv.includes("--skip-purge");
-const REPAIR_PARALLEL = 2;
-const RELABEL_PARALLEL = 3;
-const POOL_MAX = 3;
+const REPAIR_PARALLEL = 6;
+const RELABEL_PARALLEL = 4;
+const POOL_MAX = 7;
+const REPAIR_BATCH_SIZE = 300;
 
 async function printStats(client: pg.PoolClient, label: string) {
   const top = await client.query<{ name: string; n: string }>(
@@ -66,13 +67,13 @@ async function main() {
     const generic = await repairAllGenericInstitutionGroups(pool, coordinator, {
       dryRun,
       fetchSec,
-      batchSize: 80,
+      batchSize: REPAIR_BATCH_SIZE,
       parallelism: REPAIR_PARALLEL,
     });
     console.log("[maintenance] phase=1 done", generic);
 
     console.log("[maintenance] phase=2 repair_cik_filers");
-    const cik = await repairAllCikNamedFilers(coordinator, { dryRun, batchSize: 80 });
+    const cik = await repairAllCikNamedFilers(coordinator, { dryRun, batchSize: REPAIR_BATCH_SIZE });
     console.log("[maintenance] phase=2 done", cik);
 
     if (!skipPurge) {
