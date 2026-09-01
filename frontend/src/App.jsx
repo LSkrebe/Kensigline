@@ -27,7 +27,7 @@ import {
   stubActorRowFromExploreInvestor,
 } from './exploreDirectoryNav.js'
 import { loadExploreDirectoryBundle, lookupExploreDirectoryCompanyName, peekExploreHomeSnapshot, prefetchExploreHome, waitForExploreHomeReady } from './exploreApi.js'
-import { isLiveDataMode, isMockDataMode } from './dataMode.js'
+import { isExploreNetworkMode, isLiveDataMode, isMockDataMode } from './dataMode.js'
 import {
   isTerminalAppPath,
   navigateExploreBack,
@@ -10251,13 +10251,13 @@ function KensiglineTerminal() {
       setExploreHomeFeedsReady(true)
       return
     }
-    if (!isLiveDataMode(backendUp)) {
+    if (!isExploreNetworkMode(backendUp)) {
       setExploreHomeFeedsReady(true)
       return
     }
-    setExploreHomeFeedsReady(Boolean(peekExploreHomeSnapshot(backendUp)))
+    setExploreHomeFeedsReady(Boolean(peekExploreHomeSnapshot(backendUp ?? null)))
     let cancelled = false
-    void waitForExploreHomeReady(backendUp).then(() => {
+    void waitForExploreHomeReady(backendUp ?? null).then(() => {
       if (!cancelled) setExploreHomeFeedsReady(true)
     })
     return () => {
@@ -10266,8 +10266,8 @@ function KensiglineTerminal() {
   }, [exploreSubview, backendUp])
 
   useEffect(() => {
-    if (!isLiveDataMode(backendUp)) return
-    prefetchExploreHome(backendUp)
+    if (!isExploreNetworkMode(backendUp)) return
+    prefetchExploreHome(backendUp ?? null)
   }, [backendUp])
 
   useEffect(() => {

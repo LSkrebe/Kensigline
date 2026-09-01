@@ -117,21 +117,14 @@ export default function AppRouter() {
       if (!alive) return
       void prefetchExploreHome(true)
     })
-    void fetchJsonSafe('/health', { timeoutMs: 3500 }).then((r) => {
-      if (!alive) return
-      if (r.ok && r.data?.ok) {
-        void import('./exploreApi.js').then(({ prefetchExploreHome }) => prefetchExploreHome(true))
-      }
-    })
     return () => {
       alive = false
     }
   }, [signedIn, waitlistMode, captureMode])
 
   useEffect(() => {
-    if (!signedIn || waitlistMode) return
-    void import('./App.jsx')
-  }, [signedIn, waitlistMode])
+    if (user) void import('./App.jsx')
+  }, [user])
 
   useEffect(() => {
     if (!signedIn || waitlistMode || captureMode || !BILLING_GATE_ENABLED) return

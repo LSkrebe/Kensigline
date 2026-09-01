@@ -1,5 +1,6 @@
 import type http from "node:http";
 import { sendJson } from "../core/http.js";
+import { readExploreHomeSnapshot, writeExploreHomeSnapshot } from "./home-snapshot.js";
 import { buildExploreDirectoryEvents, buildExploreRecapDayPayload } from "./recap-day.js";
 import { evaluateRecapForHome, type EvaluatedRecapHome } from "./recap-evaluate-home.js";
 
@@ -26,6 +27,7 @@ type CacheEntry<T> = { at: number; payload: T };
 let homeCache: CacheEntry<HomePayload> | null = null;
 let homeBuildChain: Promise<HomePayload> | null = null;
 let homeRefreshScheduled = false;
+let snapshotHydrateChain: Promise<void> | null = null;
 
 function readFresh<T>(entry: CacheEntry<T> | null): T | null {
   if (!entry) return null;
@@ -41,6 +43,49 @@ function readStale<T>(entry: CacheEntry<T> | null): T | null {
 
 function writeHomeCache(payload: HomePayload) {
   homeCache = { at: Date.now(), payload };
+  void writeExploreHomeSnapshot(payload).catch((err) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[explore/home] snapshot_write_failed", msg);
+  });
+}
+
+function payloadFromSnapshot(raw: {
+  recap: unknown;
+  directory: unknown;
+  recapEvaluated: unknown;
+}): HomePayload | null {
+  if (!raw.recap || !raw.directory) return null;
+  return {
+    recap: raw.recap as RecapPayload,
+    directory: raw.directory as DirectoryPayload,
+    recapEvaluated: (raw.recapEvaluated as EvaluatedRecapHome | null) ?? null,
+  };
+}
+
+/** Hydrate in-memory cache from Postgres on cold boot. */
+async function hydrateFromDurableSnapshot(): Promise<void> {
+  if (snapshotHydrateChain) return snapshotHydrateChain;
+
+  snapshotHydrateChain = (async () => {
+    try {
+      if (homeCache) return;
+      const row = await readExploreHomeSnapshot(EXPLORE_HOME_STALE_TTL_MS);
+      if (!row) return;
+      const payload = payloadFromSnapshot(row.payload);
+      if (!payload) return;
+      homeCache = { at: row.at, payload };
+      console.log("[explore/home] snapshot_hydrated", {
+        age_ms: Date.now() - row.at,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn("[explore/home] snapshot_hydrate_failed", msg);
+    } finally {
+      snapshotHydrateChain = null;
+    }
+  })();
+
+  return snapshotHydrateChain;
 }
 
 /** Recap + directory are independent query sets — build in parallel for faster cold cache. */
@@ -94,8 +139,31 @@ function homeJson(payload: HomePayload, meta: { cached?: boolean; stale?: boolea
   };
 }
 
+export type ExploreHomeCacheMeta = {
+  ageMs: number | null;
+  fresh: boolean;
+  stale: boolean;
+  building: boolean;
+};
+
+export function getExploreHomeCacheMeta(): ExploreHomeCacheMeta {
+  const entry = homeCache;
+  if (!entry) {
+    return { ageMs: null, fresh: false, stale: false, building: homeBuildChain != null };
+  }
+  const ageMs = Math.max(0, Date.now() - entry.at);
+  return {
+    ageMs,
+    fresh: ageMs < EXPLORE_HOME_CACHE_TTL_MS,
+    stale: ageMs >= EXPLORE_HOME_CACHE_TTL_MS && ageMs < EXPLORE_HOME_STALE_TTL_MS,
+    building: homeBuildChain != null,
+  };
+}
+
 export async function handleExploreHome(res: http.ServerResponse) {
   try {
+    await hydrateFromDurableSnapshot();
+
     const fresh = readFresh(homeCache);
     if (fresh) {
       sendJson(res, 200, homeJson(fresh, { cached: true }));
@@ -120,6 +188,8 @@ export async function handleExploreHome(res: http.ServerResponse) {
 
 export async function handleExploreRecap(res: http.ServerResponse) {
   try {
+    await hydrateFromDurableSnapshot();
+
     const fresh = readFresh(homeCache);
     if (fresh) {
       sendJson(res, 200, fresh.recap);
@@ -142,6 +212,8 @@ export async function handleExploreRecap(res: http.ServerResponse) {
 
 export async function handleExploreDirectory(res: http.ServerResponse) {
   try {
+    await hydrateFromDurableSnapshot();
+
     const fresh = readFresh(homeCache);
     if (fresh) {
       sendJson(res, 200, { ok: true, ...fresh.directory });
@@ -164,12 +236,28 @@ export async function handleExploreDirectory(res: http.ServerResponse) {
 
 /** Warm explore home after boot so first visitor isn't paying cold-query cost. */
 export function prewarmExploreHome() {
-  if (readFresh(homeCache) || homeBuildChain) return;
-  console.log("[explore/home] prewarm_start");
-  void getExploreHomeFresh()
-    .then(() => console.log("[explore/home] prewarm_ok"))
+  void hydrateFromDurableSnapshot()
+    .then(() => {
+      if (readFresh(homeCache)) {
+        console.log("[explore/home] prewarm_skip_fresh");
+        return;
+      }
+      if (readStale(homeCache)) {
+        console.log("[explore/home] prewarm_stale_served");
+        scheduleExploreHomeRefresh();
+        return;
+      }
+      if (homeBuildChain) return;
+      console.log("[explore/home] prewarm_start");
+      return getExploreHomeFresh()
+        .then(() => console.log("[explore/home] prewarm_ok"))
+        .catch((err) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn("[explore/home] prewarm_failed", msg);
+        });
+    })
     .catch((err) => {
       const msg = err instanceof Error ? err.message : String(err);
-      console.warn("[explore/home] prewarm_failed", msg);
+      console.warn("[explore/home] prewarm_hydrate_failed", msg);
     });
 }

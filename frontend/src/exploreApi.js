@@ -2,6 +2,7 @@ import { clearAuthTokenCache, fetchJsonSafe, waitForAuthToken } from './api.js'
 import {
   EMPTY_EXPLORE_DIRECTORY,
   EMPTY_EXPLORE_RECAP,
+  isExploreNetworkMode,
   isLiveDataMode,
   isMockDataMode,
 } from './dataMode.js'
@@ -99,6 +100,7 @@ function sleep(ms) {
 /** Retry when auth/session or DB blips race the first paint after idle. */
 async function fetchJsonWithAuthRetry(path, opts = {}) {
   const attempts = Math.max(1, Number(opts.authRetries ?? 5) || 5)
+  const fastAuth = opts.fastAuth === true
   let last = null
   for (let i = 0; i < attempts; i++) {
     if (i > 0) {
@@ -106,7 +108,7 @@ async function fetchJsonWithAuthRetry(path, opts = {}) {
       await waitForAuthToken(Math.min(2500, 600 + i * 400))
       await sleep(120 + i * 220)
     } else {
-      await waitForAuthToken(1200)
+      await waitForAuthToken(fastAuth ? 400 : 1200)
     }
     last = await fetchJsonSafe(path, opts)
     if (last.ok) return last
@@ -253,13 +255,16 @@ export function markExploreHomeReady() {
 }
 
 export function waitForExploreHomeReady(backendUp) {
-  if (!isLiveDataMode(backendUp)) {
+  if (!isExploreNetworkMode(backendUp)) {
     markExploreHomeReady()
     return Promise.resolve()
   }
   if (exploreHomeReady || peekExploreHomeSnapshot(backendUp)) {
     markExploreHomeReady()
     return Promise.resolve()
+  }
+  if (homeInflight) {
+    return homeInflight.then(() => undefined)
   }
   return ensureExploreHomeReadyPromise()
 }
@@ -351,14 +356,19 @@ function processExploreHomeResponse(data, backendUp) {
   return { recap: recapOut, directory: directoryBundle }
 }
 
-export async function fetchExploreHome(backendUp) {
-  if (!isLiveDataMode(backendUp)) return null
+export async function fetchExploreHome(backendUp, opts = {}) {
+  if (!isExploreNetworkMode(backendUp)) return null
+  const storeUp = backendUp === true
   let res = await fetchJsonSafe('/api/explore/home', { timeoutMs: 20_000 })
   if (!res.ok && (res.status === 401 || res.status === 0)) {
-    res = await fetchJsonWithAuthRetry('/api/explore/home', { timeoutMs: 20_000, authRetries: 2 })
+    res = await fetchJsonWithAuthRetry('/api/explore/home', {
+      timeoutMs: 20_000,
+      authRetries: 2,
+      fastAuth: opts.fastAuth === true,
+    })
   }
   if (!res.ok || !res.data?.ok) return null
-  return processExploreHomeResponse(res.data, backendUp)
+  return processExploreHomeResponse(res.data, storeUp)
 }
 
 export async function fetchExploreRecapDay(backendUp) {
@@ -491,7 +501,7 @@ export async function loadExploreHomeBundle(backendUp, opts = {}) {
     }
   }
 
-  if (!isLiveDataMode(backendUp)) {
+  if (!isExploreNetworkMode(backendUp)) {
     return { recap: EMPTY_EXPLORE_RECAP, directory: EMPTY_EXPLORE_DIRECTORY, pending: true }
   }
 
@@ -524,7 +534,7 @@ async function fetchExploreHomeBundleFresh(backendUp) {
 
   homeInflight = (async () => {
     try {
-      let processed = await fetchExploreHome(backendUp)
+      let processed = await fetchExploreHome(backendUp, { fastAuth: true })
       if (!processed) {
         processed = await fetchExploreHome(backendUp)
       }
@@ -550,13 +560,13 @@ async function fetchExploreHomeBundleFresh(backendUp) {
 }
 
 function refreshExploreHomeBundle(backendUp) {
-  if (!isLiveDataMode(backendUp)) return Promise.resolve(null)
+  if (!isExploreNetworkMode(backendUp)) return Promise.resolve(null)
   return fetchExploreHomeBundleFresh(backendUp)
 }
 
 /** Warm explore home as soon as backend + auth are ready (before Explore mount). */
 export function prefetchExploreHome(backendUp) {
-  if (!isLiveDataMode(backendUp)) return Promise.resolve(null)
+  if (!isExploreNetworkMode(backendUp)) return Promise.resolve(null)
   return loadExploreHomeBundle(backendUp, { force: false })
 }
 

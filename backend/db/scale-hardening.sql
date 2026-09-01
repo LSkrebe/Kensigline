@@ -25,6 +25,12 @@ CREATE TABLE IF NOT EXISTS feed_cluster_snapshot (
   PRIMARY KEY (feed_kind, ticker_norm, days)
 );
 
+CREATE TABLE IF NOT EXISTS explore_home_snapshot (
+  cache_key text PRIMARY KEY,
+  payload jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 -- Backfill meta from existing bars (batched by callers if huge; fine while small/medium).
 INSERT INTO bars_ticker_meta (ticker, last_bar_day, bar_count, updated_at)
 SELECT ticker, max(day)::date, count(*)::int, now()

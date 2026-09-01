@@ -3,7 +3,7 @@ import http from "node:http";
 import { URL } from "node:url";
 import { bindCorsOrigin, corsResponseHeaders } from "./core/cors.js";
 import { json, notFound, readRawBody, route, sendJson } from "./core/http.js";
-import { db, workerDbLoad } from "./core/db.js";
+import { db, runWithApiBulkSlot, workerDbLoad } from "./core/db.js";
 import { getDailyCloseBars } from "./core/bars.js";
 import { getCompanySnapshot } from "./core/company.js";
 import { getCompanyFullCached } from "./core/ticker-context-cache.js";
@@ -45,7 +45,13 @@ import { tryDiscoverRoutes } from "./discover/api.js";
 import { handleCompanyDossier } from "./research/company-dossier.js";
 import { clampInt } from "./shared/feed-helpers.js";
 import { startAllWorkers, stopAllWorkers } from "./server/workers.js";
-import { handleExploreDirectory, handleExploreHome, handleExploreRecap, prewarmExploreHome } from "./explore/api.js";
+import {
+  getExploreHomeCacheMeta,
+  handleExploreDirectory,
+  handleExploreHome,
+  handleExploreRecap,
+  prewarmExploreHome,
+} from "./explore/api.js";
 import { handleWaitlistJoin } from "./waitlist/api.js";
 import {
   handleAttributionSignup,
@@ -83,7 +89,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && url.pathname === "/health") {
-      sendJson(res, 200, { ok: true });
+      const exploreHome = getExploreHomeCacheMeta();
+      sendJson(res, 200, {
+        ok: true,
+        explore_home_cache_age_ms: exploreHome.ageMs,
+        explore_home_cache_fresh: exploreHome.fresh,
+        explore_home_cache_stale: exploreHome.stale,
+        explore_home_cache_building: exploreHome.building,
+      });
       return;
     }
 
@@ -266,6 +279,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      await runWithApiBulkSlot(async () => {
       const queueRows = await db.queryApi<{ status: string; count: string }>(
         `
         SELECT status::text AS status, COUNT(*)::text AS count
@@ -455,6 +469,7 @@ const server = http.createServer(async (req, res) => {
       };
       if (!since) cacheMap.set(statsCacheKey, { at: Date.now(), body: statsBody });
       sendJson(res, 200, statsBody);
+      });
       return;
     }
 

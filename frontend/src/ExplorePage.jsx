@@ -6,7 +6,7 @@ import {
   HOME_DIRECTORY_PREVIEW,
 } from './exploreDirectoryMock.js'
 import { loadExploreHomeBundle, peekExploreHomeSnapshot } from './exploreApi.js'
-import { EMPTY_EXPLORE_RECAP, isDataModePending, isLiveDataMode, isMockDataMode } from './dataMode.js'
+import { EMPTY_EXPLORE_RECAP, isDataModePending, isExploreNetworkMode, isLiveDataMode, isMockDataMode } from './dataMode.js'
 import { ExploreDirectoryCompanyRow, ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
 import { ExploreStoryCards } from './ExploreStoryCards.jsx'
@@ -120,7 +120,7 @@ export function ExplorePage({
       recap: null,
       homePreview: null,
       homeSearchPool: null,
-      homeLoading: isLiveDataMode(backendUp) || isDataModePending(backendUp),
+      homeLoading: isExploreNetworkMode(backendUp) && !cached?.recap,
     }
   }, [backendUp])
 
@@ -154,6 +154,15 @@ export function ExplorePage({
       } else {
         setHomeLoading(true)
       }
+      void loadExploreHomeBundle(null, { force: false }).then((bundle) => {
+        if (cancelled || !bundle?.recap) return
+        setRecap(bundle.recap)
+        if (bundle.directory) {
+          setHomePreview(bundle.directory.homePreview ?? { companies: [], investors: [] })
+          setHomeSearchPool(bundle.directory.homeLatest ?? { companies: [], investors: [] })
+        }
+        setHomeLoading(false)
+      })
       return
     }
 

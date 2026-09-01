@@ -17,6 +17,11 @@ export function isDataModePending(backendUp) {
   return backendUp !== true && backendUp !== false
 }
 
+/** Signed-in network path — includes optimistic prefetch before /health confirms backend. */
+export function isExploreNetworkMode(backendUp) {
+  return backendUp !== false
+}
+
 export const EMPTY_EXPLORE_RECAP = Object.freeze({ slides: [] })
 
 export const EMPTY_EXPLORE_DIRECTORY = Object.freeze({

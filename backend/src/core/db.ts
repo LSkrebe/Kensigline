@@ -177,6 +177,41 @@ function makePool(max: number, label: string, connectionString: string): Pool {
 const apiPool = makePool(apiPoolMax, "api", databaseUrl);
 const workerPool = makePool(workerPoolMax, "worker", workerDatabaseUrl);
 
+/** Reserve API pool slots for interactive routes (explore, dossier, bars). */
+const apiInteractiveReserved = Math.max(
+  1,
+  Math.min(4, Number(process.env.API_INTERACTIVE_RESERVED_SLOTS ?? 2) || 2),
+);
+const apiBulkMax = Math.max(1, apiPoolMax - apiInteractiveReserved);
+let apiBulkInFlight = 0;
+const apiBulkWaiters: Array<() => void> = [];
+
+function releaseApiBulkSlot(): void {
+  apiBulkInFlight = Math.max(0, apiBulkInFlight - 1);
+  const waiters = apiBulkWaiters.splice(0);
+  for (const w of waiters) w();
+}
+
+async function acquireApiBulkSlot(): Promise<void> {
+  for (;;) {
+    if (apiBulkInFlight < apiBulkMax) {
+      apiBulkInFlight += 1;
+      return;
+    }
+    await new Promise<void>((resolve) => apiBulkWaiters.push(resolve));
+  }
+}
+
+/** Cap concurrent heavy read endpoints so explore/home keeps pool headroom. */
+export async function runWithApiBulkSlot<T>(fn: () => Promise<T>): Promise<T> {
+  await acquireApiBulkSlot();
+  try {
+    return await fn();
+  } finally {
+    releaseApiBulkSlot();
+  }
+}
+
 const workerPoolMode = envFlag("WORKER_DB_DIRECT")
   ? "direct"
   : envFlag("WORKER_DB_SESSION_POOLER")
@@ -184,7 +219,7 @@ const workerPoolMode = envFlag("WORKER_DB_DIRECT")
     : "transaction";
 
 console.info(
-  `[db] ingest=${ingestMode()} workerPoolMode=${workerPoolMode} apiPoolMax=${apiPoolMax} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency} parseSlotMax=${parseSlotMax} backfillReservedSlots=${backfillReservedSlots} sessionPoolBudget=${sessionBudget ?? "n/a"} workerStatementTimeoutMs=${WORKER_TIMEOUT_MS || "off"}`,
+  `[db] ingest=${ingestMode()} workerPoolMode=${workerPoolMode} apiPoolMax=${apiPoolMax} apiBulkMax=${apiBulkMax} apiInteractiveReserved=${apiInteractiveReserved} workerPoolMax=${workerPoolMax} workerQueryConcurrency=${workerQueryConcurrency} parseSlotMax=${parseSlotMax} backfillReservedSlots=${backfillReservedSlots} sessionPoolBudget=${sessionBudget ?? "n/a"} workerStatementTimeoutMs=${WORKER_TIMEOUT_MS || "off"}`,
 );
 
 type DbLane = "api" | "worker";
