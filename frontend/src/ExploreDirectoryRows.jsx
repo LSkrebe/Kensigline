@@ -7,6 +7,19 @@ export function ExploreDirectoryEventMeta({ event, extraSameDay = 0 }) {
   )
 }
 
+function exploreRowDateLabel(row) {
+  if (row.publishedDateLabel) return row.publishedDateLabel
+  if (row.lastDateLabel) return row.lastDateLabel
+  if (row.dateLabel) return row.dateLabel
+  const date = String(row.date ?? row.lastDate ?? '').trim()
+  if (!date) return '—'
+  const then = new Date(`${date}T12:00:00`)
+  if (Number.isNaN(then.getTime())) return '—'
+  const mm = String(then.getMonth() + 1).padStart(2, '0')
+  const dd = String(then.getDate()).padStart(2, '0')
+  return `${mm}-${dd}`
+}
+
 function ExploreDirectoryRowContent({ row, kind }) {
   const trailClass = kind === 'investor' ? 'exploreDirectoryAmount' : 'exploreDirectoryMove'
   const tickers = kind === 'investor' && Array.isArray(row.tickers) ? row.tickers.filter(Boolean) : []
@@ -24,6 +37,7 @@ function ExploreDirectoryRowContent({ row, kind }) {
         )}
       </div>
       <span className={[trailClass, 'mono', trailTone].join(' ')}>{row.trail}</span>
+      <span className="exploreDirectoryDate mono">{exploreRowDateLabel(row)}</span>
     </>
   )
 }

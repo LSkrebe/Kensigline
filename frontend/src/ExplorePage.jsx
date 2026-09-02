@@ -3,6 +3,7 @@ import {
   buildExploreDirectoryHomeLatest,
   buildExploreDirectoryHomePreview,
   formatExploreRecency,
+  formatExplorePublishDate,
   HOME_DIRECTORY_PREVIEW,
 } from './exploreDirectoryMock.js'
 import { loadExploreHomeBundle, peekExploreHomeSnapshot } from './exploreApi.js'
@@ -254,6 +255,11 @@ export function ExplorePage({
     [storySlides],
   )
 
+  const storyDateLabel = useMemo(
+    () => (displayMeta.displayDayKey ? formatExplorePublishDate(displayMeta.displayDayKey) : null),
+    [displayMeta.displayDayKey],
+  )
+
   const requestRecapCollapse = useCallback(() => {
     const page = pageRef.current
     const spacer = spacerRef.current
@@ -319,7 +325,12 @@ export function ExplorePage({
         <div ref={spacerRef} className="exploreRecapCollapseSpacer" aria-hidden="true" />
         <div className="explorePageBody">
           {!searching ? (
-            <ExploreStoryCards slides={storyPreviewSlides} onOpenEvent={openRecapEvent} sectionKicker={sectionKicker} />
+            <ExploreStoryCards
+              slides={storyPreviewSlides}
+              onOpenEvent={openRecapEvent}
+              sectionKicker={sectionKicker}
+              dateLabel={storyDateLabel}
+            />
           ) : null}
 
           <ExploreDirectorySection

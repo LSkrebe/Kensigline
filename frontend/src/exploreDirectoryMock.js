@@ -121,7 +121,7 @@ export function formatExploreNetFlowUsd(usd) {
   return `${sign}$${Math.round(abs)}`
 }
 
-function formatExplorePublishDate(iso) {
+export function formatExplorePublishDate(iso) {
   const date = String(iso ?? '').trim()
   if (!date) return '—'
   const then = new Date(`${date}T12:00:00`)

@@ -3,12 +3,11 @@ import { MiniPriceChart } from './MiniPriceChart.jsx'
 const EXPLORE_STORY_SPARK_W = 120
 const EXPLORE_STORY_SPARK_H = 48
 
-function ExploreStoryRow({ slide, onOpenEvent }) {
+function ExploreStoryRow({ slide, onOpenEvent, dateLabel }) {
   const openEvent = () => {
     if (typeof onOpenEvent === 'function') onOpenEvent(slide)
   }
   const hasChart = Array.isArray(slide.priceSeries) && slide.priceSeries.length > 1
-  const hasTrail = hasChart || slide.moveLabel
 
   return (
     <li className="exploreStoryRow">
@@ -27,37 +26,34 @@ function ExploreStoryRow({ slide, onOpenEvent }) {
             {slide.ticker ? <span className="exploreRecapMetaItem mono">{slide.ticker}</span> : null}
           </div>
         </div>
-        {hasTrail ? (
-          <div className="exploreStoryRowTrail">
-            {hasChart ? (
-              <div className="exploreStoryRowChart" aria-hidden="true">
-                <MiniPriceChart
-                  series={slide.priceSeries}
-                  label={slide.ticker}
-                  showMeta={false}
-                  chartRange="1M"
-                  trimLeadingPlateau
-                  hideAxisLabels
-                  lineOnly
-                  layoutSize={{ w: EXPLORE_STORY_SPARK_W, h: EXPLORE_STORY_SPARK_H }}
-                />
-              </div>
-            ) : null}
-            {slide.moveLabel ? (
-              <span
-                className={['exploreDirectoryMove mono', slide.moveUp ? 'isUp' : 'isDown'].join(' ')}
-              >
-                {slide.moveLabel}
-              </span>
-            ) : null}
+        {hasChart ? (
+          <div className="exploreStoryRowChart" aria-hidden="true">
+            <MiniPriceChart
+              series={slide.priceSeries}
+              label={slide.ticker}
+              showMeta={false}
+              chartRange="1M"
+              trimLeadingPlateau
+              hideAxisLabels
+              lineOnly
+              layoutSize={{ w: EXPLORE_STORY_SPARK_W, h: EXPLORE_STORY_SPARK_H }}
+            />
           </div>
         ) : null}
+        {slide.moveLabel ? (
+          <span
+            className={['exploreStoryRowMove', 'exploreDirectoryMove', 'mono', slide.moveUp ? 'isUp' : 'isDown'].join(' ')}
+          >
+            {slide.moveLabel}
+          </span>
+        ) : null}
+        {dateLabel ? <time className="exploreStoryRowDate exploreDirectoryDate mono">{dateLabel}</time> : null}
       </button>
     </li>
   )
 }
 
-export function ExploreStoryCards({ slides = [], onOpenEvent = null, sectionKicker = 'Latest' }) {
+export function ExploreStoryCards({ slides = [], onOpenEvent = null, sectionKicker = 'Latest', dateLabel = null }) {
   if (!slides.length) return null
 
   return (
@@ -72,7 +68,7 @@ export function ExploreStoryCards({ slides = [], onOpenEvent = null, sectionKick
       </header>
       <ul className="exploreStoryList">
         {slides.map((slide) => (
-          <ExploreStoryRow key={slide.id} slide={slide} onOpenEvent={onOpenEvent} />
+          <ExploreStoryRow key={slide.id} slide={slide} onOpenEvent={onOpenEvent} dateLabel={dateLabel} />
         ))}
       </ul>
     </section>
