@@ -365,11 +365,11 @@
   --explore-dir-pad-x: 32px;
   --drpt-page-pad-x: var(--explore-dir-pad-x);
   --explore-directory-ticker-w: 52px;
-  --explore-directory-trail-w: 88px;
-  --explore-directory-pos-w: 42px;
-  --explore-directory-amount-w: 76px;
-  --explore-directory-date-w: 88px;
-  --explore-directory-col-gap: 14px;
+  --explore-directory-trail-w: 76px;
+  --explore-directory-pos-w: 36px;
+  --explore-directory-amount-w: 66px;
+  --explore-directory-date-w: 76px;
+  --explore-directory-col-gap: 10px;
 
   width: 100%;
   height: 100%;
