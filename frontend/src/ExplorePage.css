@@ -428,6 +428,15 @@
     var(--explore-directory-date-w);
 }
 
+.exploreDirectoryRow--company.exploreDirectoryRow--list .exploreDirectoryRowBtn,
+.exploreDirectoryRow--company.exploreDirectoryRow--list:not(:has(.exploreDirectoryRowBtn)) {
+  grid-template-columns:
+    var(--explore-directory-ticker-w)
+    minmax(0, 1fr)
+    var(--explore-directory-amount-w)
+    var(--explore-directory-date-w);
+}
+
 .exploreDirectoryMeta--tickers {
   letter-spacing: 0.06em;
   white-space: nowrap;
@@ -462,11 +471,92 @@
   letter-spacing: 0.02em;
 }
 
+.exploreDirectoryRow--investor.exploreDirectoryRow--list .exploreDirectoryStat,
+.exploreDirectoryRow--actor.exploreDirectoryRow--list .exploreDirectoryStat {
+  padding-right: 8px;
+}
+
 .exploreDirScrollSentinel {
   flex: 0 0 auto;
   width: 100%;
   height: 1px;
   pointer-events: none;
+}
+
+@media (min-width: 961px) {
+  .exploreDirShell .exploreDirectoryTicker {
+    font-size: 12px;
+  }
+
+  .exploreDirShell .exploreDirectoryName {
+    font-size: 16px;
+    line-height: 1.3;
+  }
+
+  .exploreDirShell .exploreDirectoryMeta {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .exploreDirShell .exploreDirectoryMove,
+  .exploreDirShell .exploreDirectoryAmount,
+  .exploreDirShell .exploreDirectoryDate {
+    font-size: 12px;
+  }
+
+  .exploreDirShell .exploreDirectoryStat {
+    font-size: 11px;
+  }
+
+  .exploreDirShell .exploreDirectoryEmpty {
+    font-size: 13px;
+  }
+
+  .explorePageBody .exploreDirectorySectionKicker {
+    font-size: 11px;
+  }
+
+  .explorePageBody .exploreDirectorySectionTitle {
+    font-size: 24px;
+  }
+
+  .explorePageBody .exploreStoryRowTitle {
+    font-size: 21px;
+    line-height: 1.2;
+  }
+
+  .explorePageBody .exploreStoryRowSummary {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .explorePageBody .exploreRecapSlideKicker {
+    font-size: 11px;
+  }
+
+  .explorePageBody .exploreRecapMetaItem {
+    font-size: 11px;
+  }
+
+  .explorePageBody .exploreDirectoryTicker {
+    font-size: 12px;
+  }
+
+  .explorePageBody .exploreDirectoryName {
+    font-size: 16px;
+    line-height: 1.3;
+  }
+
+  .explorePageBody .exploreDirectoryMeta {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .explorePageBody .exploreDirectoryMove,
+  .explorePageBody .exploreDirectoryAmount,
+  .explorePageBody .exploreDirectoryDate {
+    font-size: 12px;
+  }
 }
 
 @media (max-width: 960px) {
@@ -497,6 +587,15 @@
   .exploreDirectoryRow--investor.exploreDirectoryRow--list:not(:has(.exploreDirectoryRowBtn)),
   .exploreDirectoryRow--actor.exploreDirectoryRow--list .exploreDirectoryRowBtn,
   .exploreDirectoryRow--actor.exploreDirectoryRow--list:not(:has(.exploreDirectoryRowBtn)) {
+    grid-template-columns:
+      var(--explore-directory-ticker-w)
+      minmax(0, 1fr)
+      var(--explore-directory-amount-w)
+      var(--explore-directory-date-w);
+  }
+
+  .exploreDirectoryRow--company.exploreDirectoryRow--list .exploreDirectoryRowBtn,
+  .exploreDirectoryRow--company.exploreDirectoryRow--list:not(:has(.exploreDirectoryRowBtn)) {
     grid-template-columns:
       var(--explore-directory-ticker-w)
       minmax(0, 1fr)

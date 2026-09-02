@@ -96,6 +96,9 @@ export function ExploreDirectoryInvestorRow({ row, onClick = null }) {
 export const ExploreDirectoryActorRow = ExploreDirectoryInvestorRow
 
 function ExploreDirectoryListCompanyContent({ row }) {
+  const trail = row.trail ?? '—'
+  const trailTone = trail === '—' ? 'isFlat' : row.up ? 'isUp' : 'isDown'
+
   return (
     <>
       <span className="exploreDirectoryTicker mono">{row.ticker}</span>
@@ -103,6 +106,7 @@ function ExploreDirectoryListCompanyContent({ row }) {
         <span className="exploreDirectoryName">{row.name}</span>
         <ExploreDirectoryEventMeta event={row.event} extraSameDay={row.extraSameDay} />
       </div>
+      <span className={['exploreDirectoryMove', 'mono', trailTone].join(' ')}>{trail}</span>
       <span className="exploreDirectoryDate mono">{row.publishedDateLabel}</span>
     </>
   )
