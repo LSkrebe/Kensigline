@@ -9,6 +9,7 @@ import { loadExploreEventBriefContext, peekExploreHomeSnapshot, getExploreRecapC
 import { isLiveDataMode } from './dataMode.js'
 import { MiniPriceChart, availablePriceRanges, coercePriceRangeFromOptions } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
+import { exploreActorEventLabel, exploreCompanyEventLabel } from './exploreEventLabels.js'
 import './DeepReport.css'
 import './ExplorePage.css'
 
@@ -30,13 +31,32 @@ function exploreEventCollapseProgressVars(progress) {
   }
 }
 
+function filingDocTypeKey(row) {
+  const doc = String(row.doc ?? '').trim().toLowerCase()
+  const side = row.side
+  if (doc.includes('form 4') || doc === 'form4') {
+    if (side === 'buy') return 'form4_purchase'
+    if (side === 'sell') return 'form4_sale'
+    return 'form4'
+  }
+  if (doc === 'ptr') {
+    if (side === 'buy') return 'ptr_purchase'
+    if (side === 'sell') return 'ptr_sale'
+    return 'ptr'
+  }
+  if (doc.includes('13f')) {
+    if (side === 'buy') return '13f_add'
+    if (side === 'sell') return '13f_trim'
+    return '13f'
+  }
+  if (doc.includes('earnings')) return 'earnings'
+  return doc.replace(/\s+/g, '_')
+}
+
 function filingRowMeta(row) {
-  const parts = []
-  if (row.sideLabel) parts.push(row.sideLabel)
-  if (row.actorName && row.companyName) parts.push(row.companyName)
-  else if (row.doc) parts.push(row.doc)
-  if (row.dateLabel) parts.push(row.dateLabel)
-  return parts.join(' · ') || 'Filing'
+  if (row.actorName) return exploreActorEventLabel(filingDocTypeKey(row))
+  if (row.openCompany || row.companyName) return exploreCompanyEventLabel(filingDocTypeKey(row))
+  return 'Filing'
 }
 
 function filingRowTrail(row) {
@@ -58,6 +78,7 @@ function EventDirectoryRow({
   meta,
   trail,
   trailTone = '',
+  dateLabel = '—',
   rowKind = 'investor',
   onClick = null,
   openLabel = null,
@@ -72,6 +93,7 @@ function EventDirectoryRow({
       <span className={['exploreDirectoryAmount mono', trailTone].filter(Boolean).join(' ')}>
         {trail}
       </span>
+      {dateLabel ? <span className="exploreDirectoryDate mono">{dateLabel}</span> : null}
     </>
   )
 
@@ -125,6 +147,7 @@ function EventFilingDirectoryRow({ row, onCompanyClick, onInvestorClick }) {
       meta={filingRowMeta(row)}
       trail={filingRowTrail(row)}
       trailTone={filingRowTrailTone(row)}
+      dateLabel={row.dateLabel ?? '—'}
       rowKind={row.openCompany && !row.actorName ? 'company' : 'investor'}
       onClick={onClick}
       openLabel={

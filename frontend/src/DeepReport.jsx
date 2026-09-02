@@ -249,6 +249,16 @@ function DeepDocTxnBadge({ code, tone = 'neutral' }) {
   return <span className={`drpt-docTxn drpt-docTxn--${tone}`}>{label}</span>
 }
 
+function deepAmountTone(txnTone, amount) {
+  const tone = String(txnTone ?? '')
+  if (tone === 'buy' || tone === 'instInc' || tone === 'instNew') return 'isUp'
+  if (tone === 'sell' || tone === 'instRed') return 'isDown'
+  const raw = String(amount ?? '').trim()
+  if (raw.startsWith('+')) return 'isUp'
+  if (raw.startsWith('-') || raw.startsWith('−')) return 'isDown'
+  return 'isFlat'
+}
+
 function DeepFlowRow({
   code,
   title,
@@ -284,42 +294,26 @@ function DeepFlowRow({
       onClick={hasClick && !hasHref ? onClick : undefined}
       aria-label={clickable ? openLabel || (hasHref ? `Open document for ${title}` : `Open ${title} dossier`) : undefined}
     >
-      <span className="drpt-docCode">{code}</span>
-      <span className="drpt-docMain">
+      <span className="drpt-docCode mono">{code}</span>
+      <div className="drpt-docCopy">
         <span className="drpt-docKind">{title}</span>
-      </span>
-      <div className={['drpt-docTrail', hideTxn ? 'drpt-docTrail--noTxn' : ''].filter(Boolean).join(' ')}>
-        {hideTxn ? null : <DeepDocTxnBadge code={txnCode} tone={txnTone} />}
-        <span className="drpt-docAmt">{amount ?? '—'}</span>
-        <time className="drpt-docDate">{date ?? '—'}</time>
       </div>
+      {hideTxn ? null : <DeepDocTxnBadge code={txnCode} tone={txnTone} />}
+      <span
+        className={['drpt-docAmt', 'mono', deepAmountTone(txnTone, amount)].filter(Boolean).join(' ')}
+      >
+        {amount ?? '—'}
+      </span>
+      <time className="drpt-docDate mono">{date ?? '—'}</time>
     </Tag>
   )
 }
 
 function sliceTimelineEntries(entries, limit) {
   if (limit == null || limit <= 0) return entries
-  if (limit >= countTimelineItems(entries)) return entries
-
-  const out = []
-  let itemCount = 0
-  let pendingSep = null
-
-  for (const entry of entries) {
-    if (entry.type === 'sep') {
-      pendingSep = entry
-      continue
-    }
-    if (itemCount >= limit) break
-    if (pendingSep) {
-      out.push(pendingSep)
-      pendingSep = null
-    }
-    out.push(entry)
-    itemCount += 1
-  }
-
-  return out
+  const items = entries.filter((e) => e?.type !== 'sep')
+  if (limit >= items.length) return entries
+  return items.slice(0, limit)
 }
 
 function DeepShowMoreButton({ remaining, onClick }) {
@@ -336,6 +330,132 @@ function DeepShowMoreButton({ remaining, onClick }) {
         <span className="drpt-showMoreLabel">{step}</span>
       </span>
     </button>
+  )
+}
+
+function DeepDocPanel({ children }) {
+  const compact = useDeepCompactLayout()
+  const contentRef = useRef(null)
+  const hTrackRef = useRef(null)
+  const ignoreTrackRef = useRef(false)
+  const ignoreContentRef = useRef(false)
+  const measureRafRef = useRef(0)
+  const syncHFromVRafRef = useRef(0)
+  const [hScrollWidth, setHScrollWidth] = useState(0)
+  const [showHScroll, setShowHScroll] = useState(false)
+
+  const getScrollMetrics = useCallback(() => {
+    const el = contentRef.current
+    const track = hTrackRef.current
+    if (!el) return null
+    const maxV = Math.max(0, el.scrollHeight - el.clientHeight)
+    const maxH = track ? Math.max(0, track.scrollWidth - track.clientWidth) : 0
+    return { el, track, maxV, maxH }
+  }, [])
+
+  const syncHFromV = useCallback(() => {
+    if (ignoreContentRef.current) return
+    const m = getScrollMetrics()
+    if (!m?.track || m.maxV <= 0 || m.maxH <= 0) return
+    const nextLeft = Math.round((m.el.scrollTop / m.maxV) * m.maxH)
+    if (Math.abs(m.track.scrollLeft - nextLeft) < 1) return
+    ignoreTrackRef.current = true
+    m.track.scrollLeft = nextLeft
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        ignoreTrackRef.current = false
+      })
+    })
+  }, [getScrollMetrics])
+
+  const syncVFromH = useCallback(() => {
+    if (ignoreTrackRef.current) return
+    const m = getScrollMetrics()
+    if (!m?.track || m.maxV <= 0 || m.maxH <= 0) return
+    const nextTop = Math.round((m.track.scrollLeft / m.maxH) * m.maxV)
+    if (Math.abs(m.el.scrollTop - nextTop) < 1) return
+    ignoreContentRef.current = true
+    m.el.scrollTop = nextTop
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        ignoreContentRef.current = false
+      })
+    })
+  }, [getScrollMetrics])
+
+  const onContentScroll = useCallback(() => {
+    if (syncHFromVRafRef.current) return
+    syncHFromVRafRef.current = requestAnimationFrame(() => {
+      syncHFromVRafRef.current = 0
+      syncHFromV()
+    })
+  }, [syncHFromV])
+
+  const measure = useCallback(() => {
+    if (compact) {
+      setShowHScroll(false)
+      setHScrollWidth(0)
+      return
+    }
+    const el = contentRef.current
+    if (!el) return
+    const maxScroll = el.scrollHeight - el.clientHeight
+    const overflow = maxScroll > 1
+    setShowHScroll(overflow)
+    if (overflow) {
+      const ratio = el.scrollHeight / el.clientHeight
+      const nextWidth = Math.ceil(el.clientWidth * ratio)
+      setHScrollWidth((prev) => (prev === nextWidth ? prev : nextWidth))
+    } else {
+      setHScrollWidth((prev) => (prev === 0 ? prev : 0))
+    }
+  }, [compact])
+
+  const scheduleMeasure = useCallback(() => {
+    if (measureRafRef.current) cancelAnimationFrame(measureRafRef.current)
+    measureRafRef.current = requestAnimationFrame(() => {
+      measureRafRef.current = 0
+      measure()
+    })
+  }, [measure])
+
+  useEffect(() => {
+    scheduleMeasure()
+    const el = contentRef.current
+    if (!el) return undefined
+
+    const ro = new ResizeObserver(scheduleMeasure)
+    ro.observe(el)
+
+    return () => {
+      ro.disconnect()
+      if (measureRafRef.current) cancelAnimationFrame(measureRafRef.current)
+      if (syncHFromVRafRef.current) cancelAnimationFrame(syncHFromVRafRef.current)
+    }
+  }, [scheduleMeasure])
+
+  useLayoutEffect(() => {
+    if (!showHScroll || compact) return undefined
+    syncHFromV()
+    return undefined
+  }, [showHScroll, hScrollWidth, compact, syncHFromV])
+
+  return (
+    <div className="drpt-docPanel">
+      <div ref={contentRef} className="drpt-docPanelScroll" onScroll={onContentScroll}>
+        {children}
+      </div>
+      {showHScroll && !compact ? (
+        <div
+          ref={hTrackRef}
+          className="drpt-docPanelHScroll"
+          onScroll={syncVFromH}
+          aria-hidden="true"
+        >
+          <div className="drpt-docPanelHScrollInner" style={{ width: hScrollWidth }} />
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -657,10 +777,10 @@ function countTimelineItems(entries = []) {
 }
 
 function DeepChronology({ entries = [], visibleLimit = null }) {
-  const displayEntries = useMemo(
-    () => sliceTimelineEntries(entries, visibleLimit),
-    [entries, visibleLimit],
-  )
+  const displayEntries = useMemo(() => {
+    const items = entries.filter((e) => e?.type !== 'sep')
+    return sliceTimelineEntries(items, visibleLimit)
+  }, [entries, visibleLimit])
 
   if (!entries.length) {
     return <p className="drpt-empty">No filings yet.</p>
@@ -668,13 +788,6 @@ function DeepChronology({ entries = [], visibleLimit = null }) {
   return (
     <ol className="drpt-docList">
       {displayEntries.map((entry) => {
-        if (entry.type === 'sep') {
-          return (
-            <li className="drpt-docYear" key={entry.key}>
-              <span>{entry.label}</span>
-            </li>
-          )
-        }
         const item = entry.row?.item
         if (!item) return null
 
@@ -692,25 +805,17 @@ function DeepChronology({ entries = [], visibleLimit = null }) {
           return (
             <li className="drpt-docItem" key={item.id}>
               <Tag
-                className={[
-                  'drpt-docRow',
-                  openUrl ? 'drpt-docRow--link' : '',
-                  meta.flagged ? 'drpt-docRow--notable' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
+                className={['drpt-docRow', openUrl ? 'drpt-docRow--link' : ''].filter(Boolean).join(' ')}
                 {...(openUrl
                   ? { href: openUrl, target: '_blank', rel: 'noopener noreferrer' }
                   : {})}
               >
-                <span className="drpt-docCode">{meta.source}</span>
-                <span className="drpt-docMain">
+                <span className="drpt-docCode mono">{meta.source}</span>
+                <div className="drpt-docCopy">
                   <span className="drpt-docKind">{meta.kind}</span>
-                  {meta.detail ? <span className="drpt-docDetail"> - {meta.detail}</span> : null}
-                </span>
-                <span className="drpt-docAside">
-                  <time className="drpt-docDate">{formatChronoDate(doc?.filedAt)}</time>
-                </span>
+                  {meta.detail ? <span className="drpt-docDetail mono">{meta.detail}</span> : null}
+                </div>
+                <time className="drpt-docDate mono">{formatChronoDate(doc?.filedAt)}</time>
               </Tag>
             </li>
           )
@@ -732,14 +837,12 @@ function DeepChronology({ entries = [], visibleLimit = null }) {
               className={openUrl ? 'drpt-docRow drpt-docRow--link' : 'drpt-docRow'}
               {...(openUrl ? { href: openUrl, target: '_blank', rel: 'noopener noreferrer' } : {})}
             >
-              <span className="drpt-docCode">{meta.source}</span>
-              <span className="drpt-docMain">
+              <span className="drpt-docCode mono">{meta.source}</span>
+              <div className="drpt-docCopy">
                 <span className="drpt-docKind">{meta.kind}</span>
-                {meta.detail ? <span className="drpt-docDetail"> - {meta.detail}</span> : null}
-              </span>
-              <span className="drpt-docAside">
-                <time className="drpt-docDate">{formatChronoDate(item.at)}</time>
-              </span>
+                {meta.detail ? <span className="drpt-docDetail mono">{meta.detail}</span> : null}
+              </div>
+              <time className="drpt-docDate mono">{formatChronoDate(item.at)}</time>
             </Tag>
           </li>
         )
@@ -1382,7 +1485,7 @@ export function DeepCompanyReport({
               </span>
             }
           >
-            <div className="drpt-docPanel drpt-scroll">
+            <DeepDocPanel>
               <DeepExpandablePanel totalCount={trackedInvestorsLoading ? 0 : trackedInvestors.length}>
                 {(limit) => (
                   <DeepInvestorList
@@ -1393,7 +1496,7 @@ export function DeepCompanyReport({
                   />
                 )}
               </DeepExpandablePanel>
-            </div>
+            </DeepDocPanel>
           </DeepSection>
 
           <DeepSection
@@ -1405,7 +1508,7 @@ export function DeepCompanyReport({
               </span>
             }
           >
-            <div className="drpt-docPanel drpt-scroll">
+            <DeepDocPanel>
               <DeepExpandablePanel totalCount={timelineLoading ? 0 : eventCount}>
                 {(limit) =>
                   timelineLoading ? (
@@ -1415,7 +1518,7 @@ export function DeepCompanyReport({
                   )
                 }
               </DeepExpandablePanel>
-            </div>
+            </DeepDocPanel>
           </DeepSection>
         </div>
     </DeepReportShell>
@@ -1584,7 +1687,7 @@ export function DeepActorReport({
               </span>
             }
           >
-            <div className="drpt-docPanel drpt-scroll">
+            <DeepDocPanel>
               <DeepExpandablePanel totalCount={showSectionLoading ? 0 : tradeRows.length}>
                 {(limit) => (
                   <DeepTradeLog
@@ -1594,7 +1697,7 @@ export function DeepActorReport({
                   />
                 )}
               </DeepExpandablePanel>
-            </div>
+            </DeepDocPanel>
           </DeepSection>
 
           <DeepSection
@@ -1608,7 +1711,7 @@ export function DeepActorReport({
               </span>
             }
           >
-            <div className="drpt-docPanel drpt-scroll">
+            <DeepDocPanel>
               <DeepExpandablePanel totalCount={showSectionLoading ? 0 : companies.length}>
                 {(limit) => (
                   <DeepTradedCompaniesList
@@ -1619,7 +1722,7 @@ export function DeepActorReport({
                   />
                 )}
               </DeepExpandablePanel>
-            </div>
+            </DeepDocPanel>
           </DeepSection>
         </div>
     </DeepReportShell>

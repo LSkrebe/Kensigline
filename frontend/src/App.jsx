@@ -6939,8 +6939,8 @@ function paperTimelineItemAt(item) {
   return Number.isFinite(d.getTime()) ? d : null
 }
 
-/** Paper timeline rows + separators (same rules as research FEED: `buildFeedDisplayRows`). */
-function buildPaperDisplayRows(timelineRows) {
+/** Paper timeline rows; optional date-band separators (TODAY / THIS MONTH / year). */
+function buildPaperDisplayRows(timelineRows, opts = {}) {
   const items = (timelineRows ?? []).map((item) => {
     const at = paperTimelineItemAt(item)
     return { id: item.id, at: at ?? item.at ?? null, item }
@@ -6955,6 +6955,9 @@ function buildPaperDisplayRows(timelineRows) {
   })
   const sorted = [...sortFeedRowsByAtDesc(dated), ...undated]
   if (!sorted.length) return []
+  if (opts.includeSeps === false) {
+    return sorted.map((row, idx) => ({ type: 'item', row, idx }))
+  }
   return buildFeedDisplayRows(sorted, { sepMode: 'today+years', exclusiveSeps: true })
 }
 
@@ -10025,7 +10028,7 @@ function KensiglineTerminal() {
       politicians: [],
       filings13f: [],
     })
-    return buildPaperDisplayRows(raw)
+    return buildPaperDisplayRows(raw, { includeSeps: false })
   }, [deepExploreReady, researchPresentation, researchExploreResolved?.presentation])
 
   const deepTrackedInvestors = useMemo(

@@ -43,6 +43,14 @@ function earningsProximityLabel(daysAhead) {
   return `${n}d`
 }
 
+function mockTodayDayKey() {
+  const d = new Date()
+  d.setHours(12, 0, 0, 0)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
+
 /**
  * Mock flow + filing rows + near earnings watch for a single calendar day.
  * Intentionally uneven so some catalog types fire and others stay omitted.
@@ -314,5 +322,5 @@ export function buildExploreRecapMockDay() {
     },
   ]
 
-  return { dayKey: 'mock-today', filings, earningsSoon }
+  return { dayKey: mockTodayDayKey(), filings, earningsSoon }
 }

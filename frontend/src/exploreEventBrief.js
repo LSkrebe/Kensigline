@@ -4,6 +4,7 @@
  */
 
 import { EXPLORE_RECAP_CATALOG_BY_ID } from './exploreRecapCatalog.js'
+import { formatExplorePublishDate } from './exploreDirectoryMock.js'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { buildExploreRecapMockDay } from './exploreRecapMockDay.js'
 
@@ -26,6 +27,34 @@ function sideLabel(side) {
   if (side === 'buy') return 'Purchase'
   if (side === 'sell') return 'Sale'
   return null
+}
+
+function isoFromDaysAhead(daysAhead) {
+  const d = new Date()
+  d.setHours(12, 0, 0, 0)
+  d.setDate(d.getDate() + (Number(daysAhead) || 0))
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
+
+function normalizeExploreDayKey(dayKey) {
+  const raw = String(dayKey ?? '').trim().slice(0, 10)
+  if (raw && formatExplorePublishDate(raw) !== '—') return raw
+  return isoFromDaysAhead(0)
+}
+
+function eventFilingDateLabel(filing, fallbackDayKey) {
+  const fallback = normalizeExploreDayKey(fallbackDayKey)
+  const raw = filing?.filingDate ?? filing?.filedAt ?? fallback
+  if (raw) {
+    const label = formatExplorePublishDate(String(raw).slice(0, 10))
+    if (label !== '—') return label
+  }
+  if (Number.isFinite(Number(filing?.daysAhead))) {
+    return formatExplorePublishDate(isoFromDaysAhead(filing.daysAhead))
+  }
+  return formatExplorePublishDate(fallback)
 }
 
 /** Short blue-label codes matching deep archive / flow rows. */
@@ -98,7 +127,7 @@ function resolveEarningsWatchBrief(slide, day) {
     moveLabel: formatPct(r.dayMovePct),
     moveUp: (r.dayMovePct ?? 0) >= 0,
     headline: null,
-    dateLabel: r.earningsLabel || r.proximityLabel || '—',
+    dateLabel: eventFilingDateLabel(r, isoFromDaysAhead(r.daysAhead ?? 0)),
     code: String(r.ticker ?? '').toUpperCase(),
     hideTxn: true,
     openCompany: true,
@@ -204,7 +233,8 @@ export function resolveExploreEventBrief(eventId, ctx = {}) {
   const primaryCompany = companies.find((c) => c.ticker === slide.ticker) ?? companies[0] ?? null
   /** One issuer → lead with doc type (like tracked investors). Many issuers → lead with ticker (like trade log). */
   const singleTicker = companies.length <= 1
-  const filingDateLabel = 'Today'
+
+  const displayDayKey = normalizeExploreDayKey(day?.dayKey)
 
   const filingRows = members
     .slice()
@@ -229,7 +259,7 @@ export function resolveExploreEventBrief(eventId, ctx = {}) {
         moveLabel: formatPct(f.dayMovePct),
         moveUp: (f.dayMovePct ?? 0) >= 0,
         headline: f.headline,
-        dateLabel: filingDateLabel,
+        dateLabel: eventFilingDateLabel(f, displayDayKey),
         /** First blue column: doc type when one ticker, else ticker. */
         code: singleTicker ? docCode : String(f.ticker ?? '').toUpperCase() || docCode,
         hideTxn: false,

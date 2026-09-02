@@ -1340,7 +1340,7 @@
 }
 
 .exploreEventFactsSection .drpt-metricGrid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1409,6 +1409,16 @@
   color: rgba(255, 255, 255, 0.38);
 }
 
+.exploreEventBody .exploreDirectoryRowBtn,
+.exploreEventBody .exploreDirectoryRow:not(:has(.exploreDirectoryRowBtn)) {
+  grid-template-columns:
+    var(--explore-directory-ticker-w, 52px)
+    minmax(0, 1fr)
+    var(--explore-directory-amount-w, 66px)
+    var(--explore-directory-date-w, 76px);
+  column-gap: var(--explore-directory-col-gap, 10px);
+}
+
 @media (max-width: 960px) {
   .exploreEventShell .drpt-stickWrap {
     --deep-expanded-h: clamp(168px, calc(16vh + 56px), 204px);
@@ -1441,12 +1451,22 @@
   }
 
   .exploreEventFactsSection .drpt-metricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
 
   .exploreEventFactsSection .drpt-metricCard {
     min-height: 84px;
     padding: 12px 14px;
+  }
+
+  .exploreEventBody .exploreDirectoryRowBtn,
+  .exploreEventBody .exploreDirectoryRow:not(:has(.exploreDirectoryRowBtn)) {
+    grid-template-columns:
+      44px
+      minmax(0, 1fr)
+      54px
+      48px;
   }
 }
 
