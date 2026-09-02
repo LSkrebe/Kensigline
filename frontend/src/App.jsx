@@ -27,6 +27,7 @@ import {
   stubActorRowFromExploreInvestor,
 } from './exploreDirectoryNav.js'
 import { loadExploreDirectoryBundle, lookupExploreDirectoryCompanyName, peekExploreHomeSnapshot, prefetchExploreHome, waitForExploreHomeReady } from './exploreApi.js'
+import { buildExploreDirectoryFullList } from './exploreDirectoryMock.js'
 import { isExploreNetworkMode, isLiveDataMode, isMockDataMode } from './dataMode.js'
 import {
   isTerminalAppPath,
@@ -9670,7 +9671,7 @@ function KensiglineTerminal() {
   )
 
   const [researchCompanyContextLoading, setResearchCompanyContextLoading] = useState(false)
-  const [backendUp, setBackendUp] = useState(null)
+  const [backendUp, setBackendUp] = useState(() => (isCaptureMode() ? false : null))
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
   const [insiderFeedLive, setInsiderFeedLive] = useState(null)
@@ -11194,7 +11195,9 @@ function KensiglineTerminal() {
     return sortFeedRowsTodayEventsFirst(rows)
   }, [institutionsActorFeedBase, institutionsFeedQuery])
 
-  const [exploreInvestorDirectoryRows, setExploreInvestorDirectoryRows] = useState([])
+  const [exploreInvestorDirectoryRows, setExploreInvestorDirectoryRows] = useState(() =>
+    isCaptureMode() ? buildExploreDirectoryFullList('investors') : [],
+  )
 
   useEffect(() => {
     let cancelled = false

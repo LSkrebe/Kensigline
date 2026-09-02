@@ -18,6 +18,7 @@ import {
 } from './exploreRecapCatalog.js'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
+import { isCaptureMode } from './captureMode.js'
 import { navigateExploreCompanies, navigateExploreEventDetail, navigateExploreInvestors } from './terminalRoute.js'
 import './DeepReport.css'
 import './ExplorePage.css'
@@ -100,7 +101,7 @@ export function ExplorePage({
   onEventClick = null,
 }) {
   const initialSnapshot = useMemo(() => {
-    if (isMockDataMode(backendUp)) {
+    if (isCaptureMode() || isMockDataMode(backendUp)) {
       return {
         recap: buildExploreDailyRecap(),
         homePreview: buildExploreDirectoryHomePreview(),

@@ -15,34 +15,39 @@ const SHOTS = [
   {
     name: 'hero',
     path: '/explore?capture=1',
-    waitFor: '.exploreDirectoryList, .explorePage',
-    settleMs: 1100,
+    waitFor: '.exploreRecapEventLayout, .exploreDirectoryRow',
+    forbidText: 'No notable filings today',
+    settleMs: 1500,
   },
   {
     name: 'deep-event',
     path: '/explore/events/single-ptr-buy-ptr-pelosi-nvda?capture=1',
-    waitFor: '.exploreEventBody',
-    settleMs: 1200,
+    waitFor: '.exploreEventBody .exploreDirectoryRow',
+    forbidText: 'No filings yet',
+    settleMs: 1500,
   },
   {
     name: 'deep-investor',
     path: '/explore/investors/nancy-pelosi?capture=1',
-    waitFor: '.drpt-sectionTitle, .drpt-scroll',
-    settleMs: 1200,
+    waitFor: '.drpt-docRow--flow, .drpt-sectionTitle',
+    forbidText: 'No trades in the selected window',
+    settleMs: 1500,
     chartRange: '1Y',
   },
   {
     name: 'deep-company',
     path: '/explore/companies/ASML?capture=1',
-    waitFor: '.drpt-sectionTitle',
-    settleMs: 900,
+    waitFor: '.drpt-sectionTitle, .drpt-docRow',
+    forbidText: 'No filings yet',
+    settleMs: 1200,
     chartRange: '1Y',
   },
   {
     name: 'investors-directory',
     path: '/explore/investors?capture=1',
-    waitFor: '.exploreDirectoryPage, .exploreDirectoryList, .explorePage',
-    settleMs: 900,
+    waitFor: '.exploreDirShell .exploreDirectoryRow',
+    forbidText: 'No rows',
+    settleMs: 1200,
   },
 ]
 
@@ -61,11 +66,22 @@ async function selectChartRange(page, range) {
   }
 }
 
+async function waitForCaptureReady(page, shot) {
+  await page.waitForSelector(shot.waitFor, { timeout: 60_000 })
+  if (shot.forbidText) {
+    await page.waitForFunction(
+      (text) => !document.body?.innerText?.includes(text),
+      shot.forbidText,
+      { timeout: 60_000 },
+    )
+  }
+}
+
 async function captureOne(page, shot) {
   const url = `${base}${shot.path}`
   await page.goto(url, { waitUntil: 'networkidle', timeout: 60_000 })
   await page.waitForSelector('.terminalShell', { timeout: 30_000 })
-  await page.waitForSelector(shot.waitFor, { timeout: 30_000 })
+  await waitForCaptureReady(page, shot)
   if (shot.chartRange) await selectChartRange(page, shot.chartRange)
   await page.evaluate(() => {
     const scroller =
