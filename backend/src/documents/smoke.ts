@@ -226,8 +226,12 @@ test("research feed company label uses DB name only", async () => {
     resolveResearchFeedCompanyName(
       "DVN",
       null,
-      issuerNameFromFlowAsset("Devon Energy Corporation Common Stock (DVN) E F : New O: Kevin Hern", "DVN"),
+      issuerNameFromFlowAsset("evon Energy Corporation Common Stock (DVN) E F : New O: Kevin Hern", "DVN"),
     ),
+    "DVN",
+  );
+  assert.equal(
+    issuerNameFromFlowAsset("D evon Energy Corporation Common Stock (DVN) E F : New O: Kevin Hern", "DVN"),
     "Devon Energy Corporation",
   );
   assert.equal(formatCompanyDisplayName("BERKSHIRE HATHAWAY INC DEL"), "Berkshire Hathaway");

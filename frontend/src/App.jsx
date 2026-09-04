@@ -2142,11 +2142,16 @@ function isPlausibleFeedCompanyName(name, ticker) {
   if (/\bclerk\s+of\s+the\s+house\b/i.test(n)) return false
   if (/\blegislative\s+resource\b/i.test(n)) return false
   if (/^id\s+owner\b/i.test(n)) return false
+  if (/^[a-z]/.test(n)) return false
   return true
 }
 
+function mergeSplitFlowAssetWords(text) {
+  return String(text ?? '').replace(/\b([A-Z])\s+([a-z][a-z]+)\b/g, '$1$2')
+}
+
 function issuerNameFromFlowAsset(asset, ticker) {
-  let s = String(asset ?? '').trim()
+  let s = mergeSplitFlowAssetWords(String(asset ?? '').trim())
   if (!s) return null
   s = s.replace(/\s+[EF]\s+[FS]\s*:.*$/i, '').trim()
   s = s.replace(/\s+New\s+O:.*$/i, '').trim()

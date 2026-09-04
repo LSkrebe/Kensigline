@@ -1,5 +1,6 @@
 import type http from "node:http";
 import { db } from "../core/db.js";
+import { getSecTickerTitleMap } from "../core/sec.js";
 import { sendJson } from "../core/http.js";
 import { formatPoliticianDisplayName } from "../politicians/committees.js";
 import {
@@ -162,7 +163,29 @@ function pushTxn(out: ActorTxn[], txn: ActorTxn) {
   out.push(txn);
 }
 
-async function loadFromStructuredTables(slug: string, mode: InvestorMode, limit: number): Promise<ActorTxn[]> {
+function resolveTxnCompanyLabel(
+  ticker: string,
+  secTitles: Map<string, string>,
+  dbName: string | null | undefined,
+  assetName?: string | null,
+): string {
+  const tick = String(ticker ?? "")
+    .trim()
+    .toUpperCase();
+  return resolveResearchFeedCompanyName(
+    tick,
+    secTitles.get(tick) ?? null,
+    dbName,
+    assetName ? issuerNameFromFlowAsset(assetName, tick) : null,
+  );
+}
+
+async function loadFromStructuredTables(
+  slug: string,
+  mode: InvestorMode,
+  limit: number,
+  secTitles: Map<string, string>,
+): Promise<ActorTxn[]> {
   const like = likePatternFromSlug(slug);
   const out: ActorTxn[] = [];
 
@@ -216,10 +239,7 @@ async function loadFromStructuredTables(slug: string, mode: InvestorMode, limit:
           ts,
         },
         ticker: tick,
-        company: resolveResearchFeedCompanyName(
-          tick,
-          String(r.company_name ?? "").trim() || null,
-        ),
+        company: resolveTxnCompanyLabel(tick, secTitles, r.company_name),
         companyRow: null,
         showMoney: true,
         ts,
@@ -283,10 +303,7 @@ async function loadFromStructuredTables(slug: string, mode: InvestorMode, limit:
           ts,
         },
         ticker: tick,
-        company: resolveResearchFeedCompanyName(
-          tick,
-          String(r.company_name ?? "").trim() || null,
-        ),
+        company: resolveTxnCompanyLabel(tick, secTitles, r.company_name),
         companyRow: null,
         showMoney: true,
         ts,
@@ -345,7 +362,7 @@ async function loadFromStructuredTables(slug: string, mode: InvestorMode, limit:
         ts,
       },
       ticker: tick,
-      company: String(r.company_name ?? "").trim() || tick,
+      company: resolveTxnCompanyLabel(tick, secTitles, r.company_name),
       companyRow: null,
       showMoney: true,
       ts,
@@ -356,7 +373,12 @@ async function loadFromStructuredTables(slug: string, mode: InvestorMode, limit:
 }
 
 /** Prefer structured tables first; feed index only if thin (and never summary::text ILIKE). */
-async function loadFromFeedIndex(slug: string, mode: InvestorMode, limit: number): Promise<{
+async function loadFromFeedIndex(
+  slug: string,
+  mode: InvestorMode,
+  limit: number,
+  secTitles: Map<string, string>,
+): Promise<{
   txns: ActorTxn[];
   displayName: string | null;
 }> {
@@ -431,11 +453,7 @@ async function loadFromFeedIndex(slug: string, mode: InvestorMode, limit: number
         const rowTicker =
           r.ticker != null ? String(r.ticker).trim().toUpperCase() || tick : tick;
         const assetRaw = r.asset_name != null ? String(r.asset_name) : null;
-        const company = resolveResearchFeedCompanyName(
-          rowTicker,
-          row.company_name,
-          issuerNameFromFlowAsset(assetRaw, rowTicker),
-        );
+        const company = resolveTxnCompanyLabel(rowTicker, secTitles, row.company_name, assetRaw);
         const code = txnSideCode(String(r.transaction_type ?? ""), "politicians");
         pushTxn(txns, {
           sheetRow: {
@@ -461,7 +479,7 @@ async function loadFromFeedIndex(slug: string, mode: InvestorMode, limit: number
       } else if (mode === "institutions") {
         const activity = String(r.activity ?? "").trim();
         if (activity === "Held") continue;
-        const company = resolveResearchFeedCompanyName(tick, row.company_name);
+        const company = resolveTxnCompanyLabel(tick, secTitles, row.company_name);
         const code = txnSideCode(activity, "institutions");
         pushTxn(txns, {
           sheetRow: {
@@ -479,7 +497,7 @@ async function loadFromFeedIndex(slug: string, mode: InvestorMode, limit: number
           source: "institutions",
         });
       } else {
-        const company = resolveResearchFeedCompanyName(tick, row.company_name);
+        const company = resolveTxnCompanyLabel(tick, secTitles, row.company_name);
         const code = txnSideCode(String(r.transaction_code ?? r.code ?? ""), "insider");
         pushTxn(txns, {
           sheetRow: {
@@ -553,9 +571,10 @@ function parseMode(raw: string | null | undefined): InvestorMode | null {
 }
 
 async function loadMode(slug: string, mode: InvestorMode, limit: number) {
+  const secTitles = await getSecTickerTitleMap().catch(() => new Map<string, string>());
   // Structured tables first (indexed name columns). Feed index only if thin —
   // never scan summary::text (that was timing out dossiers under pool pressure).
-  const fromTables = await loadFromStructuredTables(slug, mode, limit);
+  const fromTables = await loadFromStructuredTables(slug, mode, limit, secTitles);
   let txns = fromTables;
   let displayName: string | null =
     fromTables[0]?.sheetRow?.person != null
@@ -567,7 +586,7 @@ async function loadMode(slug: string, mode: InvestorMode, limit: number) {
           : null;
 
   if (txns.length < 6) {
-    const fromIndex = await loadFromFeedIndex(slug, mode, limit);
+    const fromIndex = await loadFromFeedIndex(slug, mode, limit, secTitles);
     txns = dedupeTxns([...txns, ...fromIndex.txns]);
     displayName = displayName || fromIndex.displayName;
   } else {

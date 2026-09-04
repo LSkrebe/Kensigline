@@ -109,6 +109,10 @@ function parseAssetType(text: string): string | null {
   return m?.[1]?.toUpperCase() ?? null;
 }
 
+function mergeSplitFlowAssetWords(text: string): string {
+  return String(text ?? "").replace(/\b([A-Z])\s+([a-z][a-z]+)\b/g, "$1$2");
+}
+
 function parseTxnTypeFromWindow(window: string): string | null {
   const typed =
     window.match(/\b([PSE])\s*(?:\(\s*partial\s*\))?\s+\d{1,2}\/\d{1,2}\/\d{4}/i) ??
@@ -137,13 +141,15 @@ function parseTransactionWindow(window: string, filed_at: string | null): HouseP
   if (!transaction_type && !ticker) return null;
 
   const asset_name =
-    window
-      .replace(amount_range, "")
-      .replace(/\d{1,2}\/\d{1,2}\/\d{4}/g, "")
-      .replace(/\b[SP]\b/g, "")
-      .replace(/\[[A-Z]{2,4}\]/gi, "")
-      .replace(/\s+/g, " ")
-      .trim()
+    mergeSplitFlowAssetWords(
+      window
+        .replace(amount_range, "")
+        .replace(/\d{1,2}\/\d{1,2}\/\d{4}/g, "")
+        .replace(/\b[SP]\b/g, "")
+        .replace(/\[[A-Z]{2,4}\]/gi, "")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
       .slice(0, 160) || null;
 
   return {

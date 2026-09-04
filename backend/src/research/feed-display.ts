@@ -63,12 +63,18 @@ export function isPlausibleCompanyDisplayName(name: string, ticker: string): boo
   if (/\bclerk\s+of\s+the\s+house\b/i.test(n)) return false;
   if (/\blegislative\s+resource\b/i.test(n)) return false;
   if (/^id\s+owner\b/i.test(n)) return false;
+  if (/^[a-z]/.test(n)) return false;
   return true;
+}
+
+/** Merge PDF line-break splits like "D evon" → "Devon". */
+function mergeSplitFlowAssetWords(text: string): string {
+  return String(text ?? "").replace(/\b([A-Z])\s+([a-z][a-z]+)\b/g, "$1$2");
 }
 
 /** PTR / flow worksheet asset label → issuer display name when possible. */
 export function issuerNameFromFlowAsset(asset: string | null | undefined, ticker: string): string | null {
-  let s = String(asset ?? "").trim();
+  let s = mergeSplitFlowAssetWords(String(asset ?? "").trim());
   if (!s) return null;
   s = s.replace(/\s+[EF]\s+[FS]\s*:.*$/i, "").trim();
   s = s.replace(/\s+New\s+O:.*$/i, "").trim();
