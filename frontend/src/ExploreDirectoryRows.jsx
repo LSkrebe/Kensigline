@@ -136,7 +136,7 @@ function ExploreDirectoryListCompanyContent({ row }) {
         </span>
         <ExploreDirectoryEventMeta event={row.event} extraSameDay={row.extraSameDay} />
       </div>
-      <span className={['exploreDirectoryMove', 'mono', trail === '—' ? 'isFlat' : row.up ? 'isUp' : 'isDown'].join(' ')}>
+      <span className={['exploreDirectoryMove', 'mono', row.trail === '—' ? 'isFlat' : row.up ? 'isUp' : 'isDown'].join(' ')}>
         {row.trail ?? '—'}
       </span>
       <span className="exploreDirectoryDate mono">{row.publishedDateLabel}</span>
