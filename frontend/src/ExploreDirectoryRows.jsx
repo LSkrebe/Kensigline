@@ -1,4 +1,8 @@
-import { parseExploreTrailUsd } from './exploreDirectoryMock.js'
+import {
+  exploreDirectoryNetFlowTone,
+  exploreDirectoryTrailTone,
+  formatExploreDirectoryTrailLabel,
+} from './exploreDirectoryTrail.js'
 
 export function ExploreDirectoryEventMeta({ event, extraSameDay = 0 }) {
   return (
@@ -22,23 +26,6 @@ function exploreRowDateLabel(row) {
   return `${mm}-${dd}`
 }
 
-function exploreDirectoryTrailTone(row) {
-  if (row.trailMuted) return 'isFlat'
-  const trail = String(row.trail ?? '').trim()
-  if (!trail || trail === '—') return 'isFlat'
-  if (/^[+\-−]?\$0(\.0+)?([KMB])?$/i.test(trail)) return 'isFlat'
-  const usd = parseExploreTrailUsd(trail)
-  if (usd === 0) return 'isFlat'
-  return row.up ? 'isUp' : 'isDown'
-}
-
-function exploreDirectoryNetFlowTone(row) {
-  const net = row.netFlowUsd ?? 0
-  const label = String(row.netFlowLabel ?? '').trim()
-  if (net === 0 || label === '$0' || label === '—') return 'isFlat'
-  return net > 0 ? 'isUp' : 'isDown'
-}
-
 function ExploreDirectoryRowContent({ row, kind }) {
   const trailClass = kind === 'investor' ? 'exploreDirectoryAmount' : 'exploreDirectoryMove'
   const tickers = kind === 'investor' && Array.isArray(row.tickers) ? row.tickers.filter(Boolean) : []
@@ -50,6 +37,7 @@ function ExploreDirectoryRowContent({ row, kind }) {
         : row.up
           ? 'isUp'
           : 'isDown'
+  const trailLabel = kind === 'investor' ? formatExploreDirectoryTrailLabel(row.trail) : row.trail
 
   return (
     <>
@@ -62,7 +50,7 @@ function ExploreDirectoryRowContent({ row, kind }) {
           <ExploreDirectoryEventMeta event={row.event} extraSameDay={row.extraSameDay} />
         )}
       </div>
-      <span className={[trailClass, 'mono', trailTone].join(' ')}>{row.trail}</span>
+      <span className={[trailClass, 'mono', trailTone].join(' ')}>{trailLabel}</span>
       <span className="exploreDirectoryDate mono">{exploreRowDateLabel(row)}</span>
     </>
   )
@@ -173,7 +161,9 @@ function ExploreDirectoryListInvestorContent({ row }) {
         <span className="exploreDirectoryStatCount">{count}</span>
         <span className="exploreDirectoryStatLabel">Pos.</span>
       </span>
-      <span className={['exploreDirectoryAmount mono', netTone].join(' ')}>{row.netFlowLabel ?? '—'}</span>
+      <span className={['exploreDirectoryAmount mono', netTone].join(' ')}>
+        {formatExploreDirectoryTrailLabel(row.netFlowLabel ?? '—')}
+      </span>
       <span className="exploreDirectoryDate mono">{row.lastDateLabel ?? '—'}</span>
     </>
   )

@@ -4,9 +4,8 @@ import { isMockDataMode } from './dataMode.js'
 import { loadExploreDirectoryBundle } from './exploreApi.js'
 import { buildExploreInvestorEvents } from './exploreDirectoryMock.js'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
-import { ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
-import { buildExploreWatchlistRows, extractExploreInvestorEvents } from './exploreWatchlistData.js'
-import { WATCHLIST_TXNS_PER_PERSON } from './exploreWatchlistCatalog.js'
+import { ExploreWatchlistPersonRow } from './ExploreWatchlistRows.jsx'
+import { buildExploreWatchlistPeople, extractExploreInvestorEvents } from './exploreWatchlistData.js'
 import { useCollapseScroll } from './collapseScroll.js'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 import { useExploreScrollList } from './useExploreScrollList.js'
@@ -84,7 +83,7 @@ export function ExploreWatchlistPage({
   const [searchQuery, setSearchQuery] = useState('')
   const [rowsLoading, setRowsLoading] = useState(() => !isMockDataMode(backendUp))
   const [rows, setRows] = useState(() =>
-    isMockDataMode(backendUp) ? buildExploreWatchlistRows(buildExploreInvestorEvents()) : [],
+    isMockDataMode(backendUp) ? buildExploreWatchlistPeople(buildExploreInvestorEvents()) : [],
   )
   const { pageRef, dockRef, spacerRef } = useCollapseScroll({
     progressVars: exploreWatchlistCollapseProgressVars,
@@ -96,7 +95,7 @@ export function ExploreWatchlistPage({
   useEffect(() => {
     let cancelled = false
     if (isMockDataMode(backendUp)) {
-      setRows(buildExploreWatchlistRows(buildExploreInvestorEvents()))
+      setRows(buildExploreWatchlistPeople(buildExploreInvestorEvents()))
       setRowsLoading(false)
       return
     }
@@ -105,7 +104,7 @@ export function ExploreWatchlistPage({
       const bundle = await loadExploreDirectoryBundle(backendUp)
       if (cancelled) return
       const events = extractExploreInvestorEvents(bundle)
-      setRows(buildExploreWatchlistRows(events))
+      setRows(buildExploreWatchlistPeople(events))
       setRowsLoading(false)
     })()
     return () => {
@@ -126,8 +125,6 @@ export function ExploreWatchlistPage({
     loadStep: compact ? EXPLORE_WATCHLIST_COMPACT_STEP : EXPLORE_DIRECTORY_BLOCK,
     resetKey: `watchlist:${normalizedQuery}`,
   })
-
-  const groupSize = WATCHLIST_TXNS_PER_PERSON
 
   return (
     <div className="exploreDirShell" ref={pageRef}>
@@ -182,17 +179,8 @@ export function ExploreWatchlistPage({
           >
             <ul className="exploreDirectoryList exploreWatchlistList">
               {visibleRows.length ? (
-                visibleRows.map((row, index) => (
-                  <ExploreDirectoryInvestorRow
-                    key={row.id}
-                    row={row}
-                    onClick={onInvestorRowClick}
-                    className={
-                      (index + 1) % groupSize === 0 && index < visibleRows.length - 1
-                        ? 'exploreWatchlistRowGroupEnd'
-                        : undefined
-                    }
-                  />
+                visibleRows.map((row) => (
+                  <ExploreWatchlistPersonRow key={row.id} row={row} onClick={onInvestorRowClick} />
                 ))
               ) : rowsLoading ? (
                 <li className="exploreDirectoryEmpty mono exploreDirectoryEmpty--loading">Loading…</li>

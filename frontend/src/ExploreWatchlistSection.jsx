@@ -1,6 +1,4 @@
-import { useMemo } from 'react'
-import { ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
-import { WATCHLIST_TXNS_PER_PERSON } from './exploreWatchlistCatalog.js'
+import { ExploreWatchlistPersonRow } from './ExploreWatchlistRows.jsx'
 
 export function ExploreWatchlistSection({
   kicker,
@@ -9,10 +7,6 @@ export function ExploreWatchlistSection({
   onRowClick = null,
   loading = false,
 }) {
-  const groupSize = WATCHLIST_TXNS_PER_PERSON
-
-  const previewRows = useMemo(() => rows, [rows])
-
   return (
     <section className="exploreDirectorySection exploreWatchlistSection">
       <button
@@ -32,19 +26,10 @@ export function ExploreWatchlistSection({
         </span>
       </button>
       <div className="exploreHomeListPanel">
-        <ul className="exploreDirectoryList">
-          {previewRows.length ? (
-            previewRows.map((row, index) => (
-              <ExploreDirectoryInvestorRow
-                key={row.id}
-                row={row}
-                onClick={onRowClick}
-                className={
-                  (index + 1) % groupSize === 0 && index < previewRows.length - 1
-                    ? 'exploreWatchlistRowGroupEnd'
-                    : undefined
-                }
-              />
+        <ul className="exploreDirectoryList exploreWatchlistList">
+          {rows.length ? (
+            rows.map((row) => (
+              <ExploreWatchlistPersonRow key={row.id} row={row} onClick={onRowClick} />
             ))
           ) : loading ? (
             <li className="exploreDirectoryEmpty mono exploreDirectoryEmpty--loading">Loading…</li>

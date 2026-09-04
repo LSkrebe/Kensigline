@@ -198,10 +198,16 @@
   margin-top: 36px;
 }
 
-.exploreDirectoryRow.exploreWatchlistRowGroupEnd {
-  margin-bottom: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+.exploreDirectoryRow--watchlist .exploreDirectoryRowBtn,
+.exploreDirectoryRow--watchlist:not(:has(.exploreDirectoryRowBtn)) {
+  grid-template-columns:
+    var(--explore-directory-ticker-w)
+    minmax(0, 1fr)
+    var(--explore-directory-trail-w);
+}
+
+.exploreWatchlistList .exploreDirectoryDate {
+  display: none;
 }
 
 .exploreDirectorySectionHead {

@@ -19,7 +19,7 @@ import {
   splitExploreRecapSlides,
 } from './exploreRecapCatalog.js'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
-import { buildExploreWatchlistRows, extractExploreInvestorEvents } from './exploreWatchlistData.js'
+import { buildExploreWatchlistPeople, extractExploreInvestorEvents } from './exploreWatchlistData.js'
 import { ExploreWatchlistSection } from './ExploreWatchlistSection.jsx'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { isCaptureMode } from './captureMode.js'
@@ -259,7 +259,7 @@ export function ExplorePage({
   }, [searching, homePreview.companies, homeSearchPool.companies, searchQuery])
 
   const watchlistRows = useMemo(() => {
-    const rows = buildExploreWatchlistRows(investorEvents)
+    const rows = buildExploreWatchlistPeople(investorEvents)
     if (!searching) return rows
     return filterExploreHomeRows(rows, searchQuery)
   }, [investorEvents, searchQuery, searching])

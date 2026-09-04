@@ -189,7 +189,7 @@ function normalizeExploreInvestorTrail(trail, row) {
   return { trail: t, muted: true }
 }
 
-function resolveExploreRowTrail(row, kind = 'company') {
+export function resolveExploreRowTrail(row, kind = 'company') {
   if (isMeaningfulExploreTrail(row?.trail)) {
     const trail = String(row.trail).trim()
     if (kind === 'investor') {
@@ -446,20 +446,29 @@ function aggregateExploreInvestorsForHome(events) {
     const baselineRow = group.find((e) => e.baseline13f || /^\d+\s+(holdings?|pos)$/i.test(String(e.trail ?? '')))
     const modeCode = exploreActorDocCode(lead.docType)
 
+    const baselineTrailRaw = baselineRow
+      ? String(baselineRow.trail ?? formatExploreHoldingsCount(tickers.length))
+      : null
+    const baselineHoldingsMatch = baselineTrailRaw?.match(/^(\d+)\s+holdings?$/i)
+    const baselineTrailNormalized = baselineTrailRaw
+      ? baselineHoldingsMatch
+        ? formatExploreHoldingsCount(baselineHoldingsMatch[1])
+        : baselineTrailRaw
+      : null
+
     out.push({
       ...lead,
       ticker: group.length > 1 ? modeCode : lead.ticker,
       tickers: tickers.length > 1 ? tickers : undefined,
       extraSameDay,
-      trail: baselineRow
-        ? String(baselineRow.trail ?? formatExploreHoldingsCount(tickers.length))
-        : hasUsdTrail
+      trail: baselineTrailNormalized
+        ?? (hasUsdTrail
           ? formatExploreNetFlowUsd(netFlow)
           : group.length > 1
             ? formatExplorePositionCount(
                 group.filter((e) => isInstitutionChangeActivity(e.activity)).length || group.length,
               )
-            : lead.trail,
+            : lead.trail),
       up: hasUsdTrail ? netFlow >= 0 : lead.up,
       event: group.length > 1 && all13f ? '13F institution filings' : lead.event,
     })
