@@ -225,6 +225,9 @@ export type ExploreDirectoryEvent = {
   docType: string;
   trail: string;
   up: boolean;
+  tickers?: string[];
+  positionCount?: number;
+  baseline13f?: boolean;
 };
 
 export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number }) {
@@ -404,6 +407,12 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
   /** @type {ExploreDirectoryEvent[]} */
   const investorEvents: ExploreDirectoryEvent[] = [];
 
+  /** Baseline 13F rows (filer's first filing) — one home row per filer/day, not N fake "new" lines. */
+  const baseline13f = new Map<
+    string,
+    { row: (typeof institutions)[0]; tickers: string[]; count: number }
+  >();
+
   for (const row of insiders) {
     const side = insiderSide(row.code, row.acquired_disposed);
     const signed = side === "sell" ? -(row.amount_usd ?? 0) : row.amount_usd ?? 0;
@@ -437,6 +446,17 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
   for (const row of institutions) {
     if (!isPlausibleTrackedFiler(row.actor_name, row.amount_usd)) continue;
     const activity = String(row.activity ?? "").trim();
+    if (activity === "Held") {
+      const key = `${row.actor_slug}|${row.filing_date}`;
+      const prev = baseline13f.get(key);
+      if (!prev) {
+        baseline13f.set(key, { row, tickers: [row.ticker], count: 1 });
+      } else {
+        prev.count += 1;
+        if (!prev.tickers.includes(row.ticker)) prev.tickers.push(row.ticker);
+      }
+      continue;
+    }
     if (activity !== "Increased stake" && activity !== "Reduced stake" && activity !== "New position") {
       continue;
     }
@@ -451,6 +471,22 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       trail: formatInstitutionTrail(row.activity, row.shares),
       up: side !== "sell",
     });
+  }
+
+  for (const { row, tickers, count } of baseline13f.values()) {
+    investorEvents.push({
+      id: `a-baseline-${row.actor_slug}-${row.filing_date}`,
+      date: row.filing_date,
+      name: row.actor_name,
+      actorSlug: row.actor_slug,
+      ticker: tickers[0] ?? row.ticker,
+      docType: "13f",
+      trail: `${count} holdings`,
+      up: true,
+      tickers,
+      positionCount: count,
+      baseline13f: true,
+    } as ExploreDirectoryEvent);
   }
 
   return { companyEvents, investorEvents };

@@ -800,6 +800,7 @@ const INSTITUTION_ACTIVITY_META = {
   'Increased stake': { code: 'INC', tone: 'instInc', label: 'Increased stake' },
   'New position': { code: 'NEW', tone: 'instNew', label: 'New position' },
   'Reduced stake': { code: 'RED', tone: 'instRed', label: 'Reduced stake' },
+  Held: { code: 'HLD', tone: 'neutral', label: 'Held' },
 }
 
 function institutionTxnFromActivity(activity) {
@@ -1317,22 +1318,29 @@ function institutionTxnActivity(txn) {
 
 /** 13F holdings dumps can fan out to dozens of rows — show stake changes only when possible. */
 function filterInstitutionTradeLogTxns(transactions) {
-  const txns = dedupeInstitutionActorTxns(transactions)
+  const txns = dedupeInstitutionActorTxns(transactions).filter((txn) => {
+    const act = institutionTxnActivity(txn)
+    return act && act !== 'Held'
+  })
   const changes = txns.filter((txn) => {
     const act = institutionTxnActivity(txn)
     return act === 'Increased stake' || act === 'Reduced stake'
   })
   if (changes.length) return changes
 
-  const news = txns
-    .filter((txn) => institutionTxnActivity(txn) === 'New position')
-    .sort(
+  const news = txns.filter((txn) => institutionTxnActivity(txn) === 'New position')
+  if (news.length) {
+    const sorted = [...news].sort(
       (a, b) =>
         Math.abs(Number(b?.sheetRow?.amountUsd ?? b?.amountUsd ?? 0)) -
-        Math.abs(Number(a?.sheetRow?.amountUsd ?? a?.amountUsd ?? 0)),
+        Math.abs(Number(a?.sheetRow?.amountUsd ?? a?.amountUsd ?? 0)) ||
+        Math.abs(Number(b?.sheetRow?.shares ?? b?.shares ?? 0)) -
+          Math.abs(Number(a?.sheetRow?.shares ?? a?.shares ?? 0)),
     )
-  if (news.length > 12) return news.slice(0, 12)
-  return txns
+    if (news.length > 12) return sorted.slice(0, 12)
+    return sorted
+  }
+  return txns.slice(0, 12)
 }
 
 function stripSyntheticActorTxns(actorRow) {

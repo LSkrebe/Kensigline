@@ -249,22 +249,27 @@ async function loadFromStructuredTables(slug: string, mode: InvestorMode, limit:
     filer: string;
     activity: string | null;
     amount_usd: string | null;
+    shares: string | null;
     filed_at: string;
     ticker: string;
     company_name: string | null;
   }>(
     `
     SELECT
-      f.filer,
-      f.activity,
-      f.amount_usd::text,
-      f.filed_at::text,
-      f.ticker,
-      c.name AS company_name
-    FROM institution_filings_13f f
-    LEFT JOIN companies c ON upper(trim(c.ticker)) = f.ticker
-    WHERE f.filer ILIKE $1
-    ORDER BY f.filed_at DESC
+      f.display_name AS filer,
+      t.activity,
+      t.amount_usd::text,
+      t.shares::text,
+      t.transaction_at::text AS filed_at,
+      upper(trim(i.ticker)) AS ticker,
+      coalesce(nullif(trim(c.name), ''), nullif(trim(i.name), ''), upper(trim(i.ticker))) AS company_name
+    FROM institution_transactions t
+    JOIN filers f ON f.id = t.filer_id
+    JOIN issuers i ON i.id = t.issuer_id
+    LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(i.ticker))
+    WHERE f.display_name ILIKE $1
+      AND coalesce(t.activity, '') <> 'Held'
+    ORDER BY t.transaction_at DESC
     LIMIT $2
     `,
     [like, limit],
@@ -277,14 +282,15 @@ async function loadFromStructuredTables(slug: string, mode: InvestorMode, limit:
       .toUpperCase();
     if (!tick) continue;
     const amountUsd = r.amount_usd != null ? Number(r.amount_usd) : NaN;
-    const code = txnSideCode(r.activity, "institutions");
     const ts = r.filed_at ? String(r.filed_at) : null;
+    const shares = r.shares != null ? Number(r.shares) : NaN;
     pushTxn(out, {
       sheetRow: {
         institution_name: r.filer,
         key: r.filer,
-        activity: code === "RED" ? "Reduced stake" : "Increased stake",
+        activity: String(r.activity ?? "").trim() || "Increased stake",
         amountUsd: Number.isFinite(amountUsd) && amountUsd > 1 ? amountUsd : null,
+        shares: Number.isFinite(shares) && shares > 0 ? shares : null,
         ts,
       },
       ticker: tick,

@@ -313,12 +313,27 @@ async function extractInstitutionFilingLlmResidual(args: {
   return { out: extractJsonObject(content), model: model ?? null, path: "full" };
 }
 
+async function filerHasPriorInstitutionTxns(filerId: string, beforeAt: string | null): Promise<boolean> {
+  const row = await db.one<{ n: string }>(
+    `
+    SELECT count(*)::text AS n
+    FROM institution_transactions
+    WHERE filer_id = $1::uuid
+      AND ($2::timestamptz IS NULL OR transaction_at < $2::timestamptz)
+    LIMIT 1
+    `,
+    [filerId, beforeAt ?? null],
+  );
+  return Number(row?.n ?? 0) > 0;
+}
+
 async function attachActivities(
   filerId: string,
   mapped: Mapped13fHolding[],
   asOf: string | null,
 ): Promise<{ rows: HoldingRow[]; unchanged_holdings: number }> {
   const beforeAt = asOf ? new Date(asOf).toISOString() : null;
+  const baselineIngest = !(await filerHasPriorInstitutionTxns(filerId, beforeAt));
   const priors = await loadPriorFilerHoldingsBatch(
     filerId,
     mapped.map((h) => h.ticker),
@@ -332,6 +347,7 @@ async function attachActivities(
       shares: h.shares,
       priorShares: prior?.shares ?? null,
       priorActivity: prior?.activity ?? null,
+      baselineIngest,
     });
     if (unchanged) unchanged_holdings += 1;
     rows.push({

@@ -15,6 +15,8 @@ function relabelActivityCte(filerIdParam = "$1::uuid"): string {
         t.id,
         t.shares,
         t.activity,
+        t.transaction_at,
+        MIN(t.transaction_at) OVER (PARTITION BY t.filer_id) AS filer_first_at,
         LAG(t.shares) OVER (
           PARTITION BY t.issuer_id
           ORDER BY t.transaction_at ASC, t.id ASC
@@ -30,11 +32,12 @@ function relabelActivityCte(filerIdParam = "$1::uuid"): string {
       SELECT
         id,
         CASE
+          WHEN prior_shares IS NULL AND transaction_at = filer_first_at THEN 'Held'
           WHEN prior_shares IS NULL OR NOT (prior_shares > 0) THEN 'New position'
           WHEN shares IS NULL OR NOT (shares > 0) THEN 'New position'
           WHEN shares > prior_shares THEN 'Increased stake'
           WHEN shares < prior_shares THEN 'Reduced stake'
-          WHEN prior_activity IN ('Increased stake', 'New position', 'Reduced stake') THEN prior_activity
+          WHEN prior_activity IN ('Increased stake', 'New position', 'Reduced stake', 'Held') THEN prior_activity
           ELSE 'New position'
         END AS computed
       FROM ranked

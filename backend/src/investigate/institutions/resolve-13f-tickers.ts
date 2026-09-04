@@ -2,7 +2,7 @@ import { db } from "../../core/db.js";
 import { getSecTickerTitleMap } from "../../core/sec.js";
 import type { Parsed13fHolding } from "./parse-13f.js";
 
-export type InstitutionActivity = "Increased stake" | "New position" | "Reduced stake";
+export type InstitutionActivity = "Increased stake" | "New position" | "Reduced stake" | "Held";
 
 export type Mapped13fHolding = Parsed13fHolding & {
   ticker: string;
@@ -335,9 +335,15 @@ export function activityFromShareDelta(args: {
   shares: number | null;
   priorShares: number | null;
   priorActivity: string | null;
+  /** Filer's first 13F in DB — report holdings as baseline, not new trades. */
+  baselineIngest?: boolean;
 }): { activity: InstitutionActivity; unchanged: boolean } {
   const shares = args.shares;
   const prior = args.priorShares;
+
+  if (args.baselineIngest) {
+    return { activity: "Held", unchanged: false };
+  }
 
   if (prior == null || !Number.isFinite(prior)) {
     return { activity: "New position", unchanged: false };
@@ -349,8 +355,8 @@ export function activityFromShareDelta(args: {
   if (shares < prior) return { activity: "Reduced stake", unchanged: false };
 
   const prev = String(args.priorActivity ?? "").trim();
-  if (prev === "Increased stake" || prev === "New position" || prev === "Reduced stake") {
-    return { activity: prev, unchanged: true };
+  if (prev === "Increased stake" || prev === "New position" || prev === "Reduced stake" || prev === "Held") {
+    return { activity: prev as InstitutionActivity, unchanged: true };
   }
   return { activity: "New position", unchanged: true };
 }

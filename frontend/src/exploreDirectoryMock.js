@@ -150,6 +150,17 @@ function formatExplorePositionCount(count) {
   return `${Math.trunc(n)} pos`
 }
 
+function formatExploreHoldingsCount(count) {
+  const n = Number(count)
+  if (!Number.isFinite(n) || n < 1) return null
+  return `${Math.trunc(n)} holdings`
+}
+
+function isInstitutionChangeActivity(activity) {
+  const a = String(activity ?? '').trim()
+  return a === 'Increased stake' || a === 'Reduced stake' || a === 'New position'
+}
+
 function normalizeExploreInvestorTrail(trail, row) {
   const t = String(trail ?? '').trim()
   if (!t || t === '—') return null
@@ -157,6 +168,11 @@ function normalizeExploreInvestorTrail(trail, row) {
   const positionsMatch = t.match(/^(\d+)\s+positions?$/i)
   if (positionsMatch) {
     return { trail: formatExplorePositionCount(positionsMatch[1]), muted: true }
+  }
+
+  const holdingsMatch = t.match(/^(\d+)\s+holdings?$/i)
+  if (holdingsMatch) {
+    return { trail: formatExploreHoldingsCount(holdingsMatch[1]), muted: true }
   }
 
   if (row?.docType && t.toUpperCase() === exploreActorDocCode(row.docType)) {
@@ -282,10 +298,22 @@ function aggregateInvestorsByName(events) {
   const netFlows = new Map()
 
   for (const ev of sorted) {
-    positionCounts.set(ev.name, (positionCounts.get(ev.name) ?? 0) + 1)
     if (!tickerLists.has(ev.name)) tickerLists.set(ev.name, [])
     const tickers = tickerLists.get(ev.name)
-    if (!tickers.includes(ev.ticker)) tickers.push(ev.ticker)
+    if (Array.isArray(ev.tickers) && ev.tickers.length) {
+      for (const tick of ev.tickers) {
+        if (tick && !tickers.includes(tick)) tickers.push(tick)
+      }
+    } else if (ev.ticker && !tickers.includes(ev.ticker)) {
+      tickers.push(ev.ticker)
+    }
+
+    if (ev.baseline13f || /^\d+\s+holdings?$/i.test(String(ev.trail ?? ''))) {
+      continue
+    }
+    if (isInstitutionChangeActivity(ev.activity) || !ev.activity) {
+      positionCounts.set(ev.name, (positionCounts.get(ev.name) ?? 0) + 1)
+    }
 
     const signedUsd = parseExploreTrailUsd(ev.trail)
     if (signedUsd != null) {
@@ -300,6 +328,7 @@ function aggregateInvestorsByName(events) {
     if (seen.has(ev.name)) continue
     seen.add(ev.name)
     const netFlowUsd = netFlows.get(ev.name) ?? 0
+    const baselineHoldings = ev.baseline13f || /^\d+\s+holdings?$/i.test(String(ev.trail ?? ''))
     out.push({
       id: `ac-${String(ev.name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       name: ev.name,
@@ -308,13 +337,16 @@ function aggregateInvestorsByName(events) {
       tickers: tickerLists.get(ev.name) ?? [ev.ticker],
       docType: ev.docType,
       modeCode: exploreActorDocCode(ev.docType),
-      positionCount: positionCounts.get(ev.name) ?? 1,
+      positionCount: baselineHoldings
+        ? ev.positionCount ?? (tickerLists.get(ev.name)?.length ?? 1)
+        : positionCounts.get(ev.name) ?? 1,
+      baseline13f: baselineHoldings,
       netFlowUsd,
       netFlowLabel: formatExploreNetFlowUsd(netFlowUsd),
       lastDate: ev.date,
       lastDateLabel: formatExplorePublishDate(ev.date),
       recency: formatExploreRecency(ev.date),
-      trail: ev.trail,
+      trail: baselineHoldings ? ev.trail : ev.trail,
       up: ev.up,
     })
   }
@@ -408,6 +440,7 @@ function aggregateExploreInvestorsForHome(events) {
       }
     }
     const all13f = group.every((e) => String(e.docType ?? '').startsWith('13f'))
+    const baselineRow = group.find((e) => e.baseline13f || /^\d+\s+holdings?$/i.test(String(e.trail ?? '')))
     const modeCode = exploreActorDocCode(lead.docType)
 
     out.push({
@@ -415,11 +448,15 @@ function aggregateExploreInvestorsForHome(events) {
       ticker: group.length > 1 ? modeCode : lead.ticker,
       tickers: tickers.length > 1 ? tickers : undefined,
       extraSameDay,
-      trail: hasUsdTrail
-        ? formatExploreNetFlowUsd(netFlow)
-        : group.length > 1
-          ? formatExplorePositionCount(group.length)
-          : lead.trail,
+      trail: baselineRow
+        ? String(baselineRow.trail ?? formatExploreHoldingsCount(tickers.length))
+        : hasUsdTrail
+          ? formatExploreNetFlowUsd(netFlow)
+          : group.length > 1
+            ? formatExplorePositionCount(
+                group.filter((e) => isInstitutionChangeActivity(e.activity)).length || group.length,
+              )
+            : lead.trail,
       up: hasUsdTrail ? netFlow >= 0 : lead.up,
       event: group.length > 1 && all13f ? '13F institution filings' : lead.event,
     })
@@ -429,14 +466,17 @@ function aggregateExploreInvestorsForHome(events) {
 }
 
 function mapAggregatedInvestorToHomeRow(row) {
+  const baselineHoldings = row.baseline13f === true || /^\d+\s+holdings?$/i.test(String(row.trail ?? ''))
   const count = Number.isFinite(Number(row.positionCount)) ? Math.max(1, Number(row.positionCount)) : 1
   const hasUsd = row.netFlowLabel && row.netFlowLabel !== '—'
   const tickers = Array.isArray(row.tickers) ? row.tickers.filter(Boolean) : []
-  const rawTrail = hasUsd
-    ? row.netFlowLabel
-    : count > 1
-      ? formatExplorePositionCount(count)
-      : row.trail ?? '—'
+  const rawTrail = baselineHoldings
+    ? String(row.trail ?? formatExploreHoldingsCount(count))
+    : hasUsd
+      ? row.netFlowLabel
+      : count > 1
+        ? formatExplorePositionCount(count)
+        : row.trail ?? '—'
   const trailRow = { ...row, trail: rawTrail }
   const resolved = hasUsd
     ? { trail: rawTrail, muted: false }
