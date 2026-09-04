@@ -13,6 +13,17 @@ import {
 } from "./helpers.js";
 import type { ExploreDirectoryEvent } from "./recap-day.js";
 import { EXPLORE_WATCHLIST_CATALOG } from "./watchlist-catalog.js";
+import { formatCompanyDisplayName } from "../research/feed-display.js";
+
+function watchlistCompanyName(row: RawTxnRow): string {
+  const ticker = String(row.ticker ?? "").trim().toUpperCase();
+  const raw = String(row.name ?? "").trim();
+  const formatted = formatCompanyDisplayName(raw);
+  const label = formatted || raw;
+  if (!label) return ticker;
+  if (label.toUpperCase() === ticker) return label;
+  return label;
+}
 
 type RawTxnRow = {
   id: string;
@@ -38,6 +49,7 @@ function politicianEvent(row: RawTxnRow): ExploreDirectoryEvent {
     name: row.actor_name,
     actorSlug: row.actor_slug,
     ticker: row.ticker,
+    companyName: watchlistCompanyName(row),
     docType: politicianDocType(side),
     trail: formatTrailUsd(signed),
     up: signed >= 0,
@@ -53,6 +65,7 @@ function insiderEvent(row: RawTxnRow): ExploreDirectoryEvent {
     name: row.actor_name,
     actorSlug: row.actor_slug,
     ticker: row.ticker,
+    companyName: watchlistCompanyName(row),
     docType: insiderDocType(side),
     trail: formatTrailUsd(signed),
     up: signed >= 0,
@@ -72,6 +85,7 @@ function institutionEvent(row: RawTxnRow): ExploreDirectoryEvent | null {
     name: row.actor_name,
     actorSlug: row.actor_slug,
     ticker: row.ticker,
+    companyName: watchlistCompanyName(row),
     docType: institutionDocType(side),
     trail: formatInstitutionTrail(activity, row.shares ?? null),
     up: side !== "sell",

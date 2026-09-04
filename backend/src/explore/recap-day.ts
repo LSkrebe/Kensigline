@@ -220,6 +220,7 @@ export type ExploreDirectoryEvent = {
   date: string;
   ticker: string;
   name?: string;
+  companyName?: string;
   /** Canonical filers.slug — use for dossier URLs, not slugify(display name). */
   actorSlug?: string;
   docType: string;
@@ -416,6 +417,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       name: row.actor_name,
       actorSlug: row.actor_slug,
       ticker: row.ticker,
+      companyName: formatCompanyDisplayName(row.name) || row.name || row.ticker,
       docType: insiderDocType(side),
       trail: formatTrailUsd(signed),
       up: signed >= 0,
@@ -431,6 +433,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       name: row.actor_name,
       actorSlug: row.actor_slug,
       ticker: row.ticker,
+      companyName: formatCompanyDisplayName(row.name) || row.name || row.ticker,
       docType: politicianDocType(side),
       trail: formatTrailUsd(signed),
       up: signed >= 0,
@@ -451,6 +454,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       name: row.actor_name,
       actorSlug: row.actor_slug,
       ticker: row.ticker,
+      companyName: formatCompanyDisplayName(row.name) || row.name || row.ticker,
       docType: institutionDocType(side),
       trail: formatInstitutionTrail(row.activity, row.shares),
       up: side !== "sell",

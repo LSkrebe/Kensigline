@@ -5,6 +5,7 @@ function watchlistEventRow(personRow, event) {
     ...personRow,
     id: event.id ?? `${personRow.id}-${event.ticker}-${event.date}`,
     ticker: event.ticker,
+    companyName: event.companyName,
     docType: event.docType,
     event: event.event,
     trail: event.trail,

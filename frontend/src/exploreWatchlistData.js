@@ -67,6 +67,7 @@ function mapWatchlistEventRow(ev) {
   return {
     id: labeled.id ?? `${labeled.ticker}-${labeled.date}`,
     ticker: labeled.ticker,
+    companyName: labeled.companyName ?? ev.companyName,
     docType: labeled.docType,
     event: labeled.event ?? exploreActorEventLabel(labeled.docType),
     trail,

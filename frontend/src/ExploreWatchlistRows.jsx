@@ -4,6 +4,7 @@ import { formatExploreDirectoryTrailLabel, exploreDirectoryTrailTone } from './e
 function ExploreWatchlistPersonRowContent({ row, hideName = false }) {
   const trailTone = exploreDirectoryTrailTone(row)
   const trailLabel = formatExploreDirectoryTrailLabel(row.trail)
+  const companySubtitle = String(row.companyName ?? '').trim()
 
   return (
     <>
@@ -17,6 +18,8 @@ function ExploreWatchlistPersonRowContent({ row, hideName = false }) {
               <span className="exploreDirectoryMetaMore"> +{row.tickers.length - 3}</span>
             ) : null}
           </span>
+        ) : hideName && companySubtitle ? (
+          <span className="exploreDirectoryMeta">{companySubtitle}</span>
         ) : (
           <ExploreDirectoryEventMeta event={row.event} extraSameDay={0} />
         )}
