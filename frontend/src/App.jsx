@@ -4196,19 +4196,15 @@ function formatUsdBandEndpoint(n) {
   return `$${Math.round(x)}`
 }
 
-/** `$100,001 - $250,000` → `$100K–$250K` so trade-log columns stay readable. */
+/** `$100,001 - $250,000` → `$100K` — PTR trade log shows range floor only. */
 function compactUsdRangeLabel(raw) {
   const s = String(raw ?? '').trim()
   if (!s) return ''
   const m = s.match(/^\$?\s*([\d,]+(?:\.\d+)?)\s*[-–—]\s*\$?\s*([\d,]+(?:\.\d+)?)\s*$/)
   if (!m) return s
-  const a = Number(String(m[1]).replace(/,/g, ''))
-  const b = Number(String(m[2]).replace(/,/g, ''))
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return s
-  const fa = formatUsdBandEndpoint(a)
-  const fb = formatUsdBandEndpoint(b)
-  if (!fa || !fb) return s
-  return `${fa} - ${fb}`
+  const floor = Number(String(m[1]).replace(/,/g, ''))
+  if (!Number.isFinite(floor) || floor <= 0) return s
+  return formatUsdBandEndpoint(floor) || s
 }
 
 function formatSharesCompact(n) {
