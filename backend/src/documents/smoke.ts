@@ -195,6 +195,7 @@ test("research feed company label uses DB name only", async () => {
   const {
     resolveResearchFeedCompanyName,
     formatCompanyDisplayName,
+    issuerNameFromFlowAsset,
   } = await import("../research/feed-display.js");
   assert.equal(resolveResearchFeedCompanyName("ADBE", "Adobe Inc."), "Adobe Inc.");
   assert.equal(resolveResearchFeedCompanyName("ADBE", null, "Adobe Inc."), "Adobe Inc.");
@@ -207,6 +208,28 @@ test("research feed company label uses DB name only", async () => {
     "IRa -> BLaCkROCK INfLaTIoN [MF] Monthly IRa -> EaTON VaNCE FLoATING [MF] Quarterly";
   assert.equal(resolveResearchFeedCompanyName("MF", ptrBlob), "MF");
   assert.equal(resolveResearchFeedCompanyName("MF", ptrBlob, "MFS Charter Income Trust"), "MFS Charter Income Trust");
+  assert.equal(
+    resolveResearchFeedCompanyName(
+      "CARR",
+      "ID Owner Asset Transaction Type Date Notification Date Amount Cap",
+    ),
+    "CARR",
+  );
+  assert.equal(
+    resolveResearchFeedCompanyName(
+      "ADBE",
+      "T R Clerk of the House of Representatives • Legislative Resource Center",
+    ),
+    "ADBE",
+  );
+  assert.equal(
+    resolveResearchFeedCompanyName(
+      "DVN",
+      null,
+      issuerNameFromFlowAsset("Devon Energy Corporation Common Stock (DVN) E F : New O: Kevin Hern", "DVN"),
+    ),
+    "Devon Energy Corporation",
+  );
   assert.equal(formatCompanyDisplayName("BERKSHIRE HATHAWAY INC DEL"), "Berkshire Hathaway");
 });
 

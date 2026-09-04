@@ -121,6 +121,8 @@ function parseTxnTypeFromWindow(window: string): string | null {
 }
 
 function parseTransactionWindow(window: string, filed_at: string | null): HousePtrTransaction | null {
+  if (/\b(owner\s+asset|transaction\s+type|notification\s+date|amount\s+cap)\b/i.test(window)) return null;
+  if (/\bclerk\s+of\s+the\s+house\b/i.test(window)) return null;
   const amount_range = parseAmountRange(window);
   if (!amount_range) return null;
 

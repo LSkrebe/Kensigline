@@ -1,6 +1,6 @@
 import { MOCK_SEMIS_BY_TICKER } from './mockWeekData.js'
 import { exploreActorDocCode, exploreActorEventLabel, exploreCompanyDocCode, exploreCompanyEventLabel, mapActorEventRows, mapCompanyEventRows } from './exploreEventLabels.js'
-import { isPlausibleExploreInvestorRow } from './exploreInvestorFilter.js'
+import { isPlausibleExploreInvestorRow, isExplorePositionCountOnlyHomeRow } from './exploreInvestorFilter.js'
 
 export const HOME_DIRECTORY_PREVIEW = 12
 export const EXPLORE_DIRECTORY_BLOCK = 20
@@ -484,7 +484,7 @@ function mapAggregatedInvestorToHomeRow(row) {
   const resolved = hasUsd
     ? { trail: rawTrail, muted: false }
     : resolveExploreRowTrail(trailRow, 'investor')
-  return {
+  const mapped = {
     id: row.id,
     name: row.name,
     actorSlug: row.actorSlug,
@@ -498,6 +498,7 @@ function mapAggregatedInvestorToHomeRow(row) {
     extraSameDay: Math.max(0, count - 1),
     date: row.lastDate,
   }
+  return isExplorePositionCountOnlyHomeRow(mapped) ? null : mapped
 }
 
 /** Company-level filings only (no Form 4, PTR, or 13F). */
@@ -720,7 +721,7 @@ export function buildExploreDirectoryHomeLatest(directory = buildExploreDirector
 
   return {
     companies: aggregateCompaniesByTicker(directory.companyEvents).map(mapAggregatedCompanyToHomeRow),
-    investors: aggregateInvestorsByName(investorEvents).map(mapAggregatedInvestorToHomeRow),
+    investors: aggregateInvestorsByName(investorEvents).map(mapAggregatedInvestorToHomeRow).filter(Boolean),
   }
 }
 
@@ -762,7 +763,9 @@ export function buildExploreDirectoryHomePreview(directory = buildExploreDirecto
       'company',
     ).slice(0, HOME_DIRECTORY_PREVIEW),
     investors: rankExploreHomeRows(
-      investorPreviewSource.map((row) => mapExploreHomePreviewRow(row, 'investor')),
+      investorPreviewSource
+        .map((row) => mapExploreHomePreviewRow(row, 'investor'))
+        .filter((row) => !isExplorePositionCountOnlyHomeRow(row)),
       'investor',
     ).slice(0, HOME_DIRECTORY_PREVIEW),
     displayDayKey,

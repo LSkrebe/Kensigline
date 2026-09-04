@@ -59,6 +59,10 @@ export function isPlausibleCompanyDisplayName(name: string, ticker: string): boo
   if (/\[[A-Z]{1,5}\]/.test(n)) return false;
   if ((n.match(/\s+/g) ?? []).length >= 9) return false;
   if (/\$\d/.test(n)) return false;
+  if (/\b(owner\s+asset|transaction\s+type|notification\s+date|amount\s+cap)\b/i.test(n)) return false;
+  if (/\bclerk\s+of\s+the\s+house\b/i.test(n)) return false;
+  if (/\blegislative\s+resource\b/i.test(n)) return false;
+  if (/^id\s+owner\b/i.test(n)) return false;
   return true;
 }
 
@@ -66,6 +70,10 @@ export function isPlausibleCompanyDisplayName(name: string, ticker: string): boo
 export function issuerNameFromFlowAsset(asset: string | null | undefined, ticker: string): string | null {
   let s = String(asset ?? "").trim();
   if (!s) return null;
+  s = s.replace(/\s+[EF]\s+[FS]\s*:.*$/i, "").trim();
+  s = s.replace(/\s+New\s+O:.*$/i, "").trim();
+  const parenLead = s.match(/^(.+?)\s*\([A-Z]{1,6}(?:\.[A-Z])?\)/);
+  if (parenLead?.[1]) s = parenLead[1].trim();
   s = s.replace(/\s*[\(\[][^\)\]]*[\)\]]\s*$/g, "").trim();
   s = s.replace(/\s*-\s*common stock.*$/i, "").trim();
   s = s.replace(/\s+common stock.*$/i, "").trim();

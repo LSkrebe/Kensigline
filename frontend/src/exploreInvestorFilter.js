@@ -22,3 +22,12 @@ export function isExploreBaselineHoldingsEvent(row) {
   if (row?.baseline13f === true) return true
   return /^\d+\s+(holdings?|pos)$/i.test(String(row?.trail ?? ''))
 }
+
+/** Aggregated institution rows that only show a position count (no $ trail). */
+export function isExplorePositionCountOnlyHomeRow(row) {
+  if (isExploreBaselineHoldingsEvent(row)) return true
+  const trail = String(row?.trail ?? '').trim()
+  if (/^\d+\s+(holdings?|pos(?:itions?)?)$/i.test(trail)) return true
+  if (row?.trailMuted === true && /^\d+\s+pos$/i.test(trail)) return true
+  return false
+}

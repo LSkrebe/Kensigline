@@ -1110,9 +1110,12 @@ function investigateActorTxnEntryFromCompanyRow(companyRow, sheetRow, mode) {
   const ticker = String(sheetRow?.assetTicker ?? companyRow?.ticker ?? '')
     .trim()
     .toUpperCase()
-  const company = String(
-    sheetRow?.assetName ?? companyRow?.company ?? companyRow?.caseSheet?.issuer ?? '',
-  ).trim()
+  const company = resolveActorTxnCompanyLabel(
+    ticker,
+    companyRow?.company,
+    companyRow?.caseSheet?.issuer,
+    sheetRow?.assetName,
+  )
   return {
     sheetRow,
     ticker,
@@ -1251,7 +1254,7 @@ function caseSheetRowToCompanyCaseFeedRow(r, { ticker, company, showMoney, mode,
         : caseSheetRowToTxnFeedRow(r, { showMoney })
   if (!base) return null
   const tick = String(ticker ?? '').trim().toUpperCase()
-  const companyName = String(company ?? '').trim() || tick
+  const companyName = resolveActorTxnCompanyLabel(tick, company)
   return {
     ...base,
     layout: 'txnCompany',
@@ -2135,7 +2138,41 @@ function isPlausibleFeedCompanyName(name, ticker) {
   if (/\[[A-Z]{1,5}\]/.test(n)) return false
   if ((n.match(/\s+/g) ?? []).length >= 9) return false
   if (/\$\d/.test(n)) return false
+  if (/\b(owner\s+asset|transaction\s+type|notification\s+date|amount\s+cap)\b/i.test(n)) return false
+  if (/\bclerk\s+of\s+the\s+house\b/i.test(n)) return false
+  if (/\blegislative\s+resource\b/i.test(n)) return false
+  if (/^id\s+owner\b/i.test(n)) return false
   return true
+}
+
+function issuerNameFromFlowAsset(asset, ticker) {
+  let s = String(asset ?? '').trim()
+  if (!s) return null
+  s = s.replace(/\s+[EF]\s+[FS]\s*:.*$/i, '').trim()
+  s = s.replace(/\s+New\s+O:.*$/i, '').trim()
+  const parenLead = s.match(/^(.+?)\s*\([A-Z]{1,6}(?:\.[A-Z])?\)/)
+  if (parenLead?.[1]) s = parenLead[1].trim()
+  s = s.replace(/\s*[\(\[][^\)\]]*[\)\]]\s*$/g, '').trim()
+  s = s.replace(/\s*-\s*common stock.*$/i, '').trim()
+  s = s.replace(/\s+common stock.*$/i, '').trim()
+  s = s.replace(/\s+ordinary shares.*$/i, '').trim()
+  s = s.replace(/\s+class\s+[a-z0-9]+.*$/i, '').trim()
+  const cleaned = s.trim()
+  if (!cleaned || !isPlausibleFeedCompanyName(cleaned, ticker)) return null
+  return formatCompanyDisplayName(cleaned)
+}
+
+function resolveActorTxnCompanyLabel(ticker, ...sources) {
+  const t = String(ticker ?? '').trim().toUpperCase()
+  for (const raw of sources) {
+    const fromAsset = issuerNameFromFlowAsset(raw, t)
+    if (fromAsset) return fromAsset
+    const candidate = String(raw ?? '').trim()
+    if (candidate && isPlausibleFeedCompanyName(candidate, t)) {
+      return formatCompanyDisplayName(candidate)
+    }
+  }
+  return t
 }
 
 function researchFeedRowLabel(item) {

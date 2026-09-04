@@ -2,6 +2,10 @@ import type http from "node:http";
 import { db } from "../core/db.js";
 import { sendJson } from "../core/http.js";
 import { formatPoliticianDisplayName } from "../politicians/committees.js";
+import {
+  issuerNameFromFlowAsset,
+  resolveResearchFeedCompanyName,
+} from "../research/feed-display.js";
 import { formatUsdCompact } from "../shared/money.js";
 
 type InvestorMode = "insider" | "politicians" | "institutions";
@@ -212,7 +216,10 @@ async function loadFromStructuredTables(slug: string, mode: InvestorMode, limit:
           ts,
         },
         ticker: tick,
-        company: String(r.company_name ?? "").trim() || tick,
+        company: resolveResearchFeedCompanyName(
+          tick,
+          String(r.company_name ?? "").trim() || null,
+        ),
         companyRow: null,
         showMoney: true,
         ts,
@@ -276,7 +283,10 @@ async function loadFromStructuredTables(slug: string, mode: InvestorMode, limit:
           ts,
         },
         ticker: tick,
-        company: String(r.company_name ?? "").trim() || tick,
+        company: resolveResearchFeedCompanyName(
+          tick,
+          String(r.company_name ?? "").trim() || null,
+        ),
         companyRow: null,
         showMoney: true,
         ts,
@@ -395,7 +405,6 @@ async function loadFromFeedIndex(slug: string, mode: InvestorMode, limit: number
       .trim()
       .toUpperCase();
     if (!tick) continue;
-    const company = String(row.company_name ?? "").trim() || tick;
     const ws = Array.isArray(row.ws) ? row.ws : [];
     for (const raw of ws) {
       const r = raw as Record<string, unknown>;
@@ -419,6 +428,14 @@ async function loadFromFeedIndex(slug: string, mode: InvestorMode, limit: number
       const amountRange = r.amount_range != null ? String(r.amount_range).trim() : "";
 
       if (mode === "politicians") {
+        const rowTicker =
+          r.ticker != null ? String(r.ticker).trim().toUpperCase() || tick : tick;
+        const assetRaw = r.asset_name != null ? String(r.asset_name) : null;
+        const company = resolveResearchFeedCompanyName(
+          rowTicker,
+          row.company_name,
+          issuerNameFromFlowAsset(assetRaw, rowTicker),
+        );
         const code = txnSideCode(String(r.transaction_type ?? ""), "politicians");
         pushTxn(txns, {
           sheetRow: {
@@ -432,9 +449,9 @@ async function loadFromFeedIndex(slug: string, mode: InvestorMode, limit: number
             amountRange: amountRange || null,
             ts,
             assetName: r.asset_name ?? null,
-            assetTicker: r.ticker != null ? String(r.ticker).toUpperCase() : tick,
+            assetTicker: rowTicker,
           },
-          ticker: r.ticker != null ? String(r.ticker).trim().toUpperCase() || tick : tick,
+          ticker: rowTicker,
           company,
           companyRow: null,
           showMoney: true,
@@ -444,6 +461,7 @@ async function loadFromFeedIndex(slug: string, mode: InvestorMode, limit: number
       } else if (mode === "institutions") {
         const activity = String(r.activity ?? "").trim();
         if (activity === "Held") continue;
+        const company = resolveResearchFeedCompanyName(tick, row.company_name);
         const code = txnSideCode(activity, "institutions");
         pushTxn(txns, {
           sheetRow: {
@@ -461,6 +479,7 @@ async function loadFromFeedIndex(slug: string, mode: InvestorMode, limit: number
           source: "institutions",
         });
       } else {
+        const company = resolveResearchFeedCompanyName(tick, row.company_name);
         const code = txnSideCode(String(r.transaction_code ?? r.code ?? ""), "insider");
         pushTxn(txns, {
           sheetRow: {
