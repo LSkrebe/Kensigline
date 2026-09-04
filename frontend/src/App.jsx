@@ -15,6 +15,7 @@ import { DeepPage } from './DeepCompanyPage.jsx'
 import { ExplorePage } from './ExplorePage.jsx'
 import { ExploreCompaniesPage } from './ExploreCompaniesPage.jsx'
 import { ExploreInvestorsPage } from './ExploreInvestorsPage.jsx'
+import { ExploreWatchlistPage } from './ExploreWatchlistPage.jsx'
 import { ExploreEventPage } from './ExploreEventPage.jsx'
 import {
   applyExploreInvestorFeedSelection,
@@ -12639,6 +12640,17 @@ function KensiglineTerminal() {
             ) : exploreSubview === 'investors' ? (
               <ExploreInvestorsPage
             backendUp={backendUp}
+                macroActive={macroActive}
+                onMacroClick={onMacroClick}
+                settingsActive={settingsActive}
+                onSettingsClick={onSettingsClick}
+                onBrandClick={onExploreHomeClick}
+                onCloseClick={onExploreDossierCloseClick}
+                onInvestorRowClick={onExploreInvestorClick}
+              />
+            ) : exploreSubview === 'watchlist' ? (
+              <ExploreWatchlistPage
+                backendUp={backendUp}
                 macroActive={macroActive}
                 onMacroClick={onMacroClick}
                 settingsActive={settingsActive}

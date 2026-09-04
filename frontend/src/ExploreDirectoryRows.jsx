@@ -1,3 +1,5 @@
+import { parseExploreTrailUsd } from './exploreDirectoryMock.js'
+
 export function ExploreDirectoryEventMeta({ event, extraSameDay = 0 }) {
   return (
     <span className="exploreDirectoryMeta mono">
@@ -20,10 +22,34 @@ function exploreRowDateLabel(row) {
   return `${mm}-${dd}`
 }
 
+function exploreDirectoryTrailTone(row) {
+  if (row.trailMuted) return 'isFlat'
+  const trail = String(row.trail ?? '').trim()
+  if (!trail || trail === '—') return 'isFlat'
+  if (/^[+\-−]?\$0(\.0+)?([KMB])?$/i.test(trail)) return 'isFlat'
+  const usd = parseExploreTrailUsd(trail)
+  if (usd === 0) return 'isFlat'
+  return row.up ? 'isUp' : 'isDown'
+}
+
+function exploreDirectoryNetFlowTone(row) {
+  const net = row.netFlowUsd ?? 0
+  const label = String(row.netFlowLabel ?? '').trim()
+  if (net === 0 || label === '$0' || label === '—') return 'isFlat'
+  return net > 0 ? 'isUp' : 'isDown'
+}
+
 function ExploreDirectoryRowContent({ row, kind }) {
   const trailClass = kind === 'investor' ? 'exploreDirectoryAmount' : 'exploreDirectoryMove'
   const tickers = kind === 'investor' && Array.isArray(row.tickers) ? row.tickers.filter(Boolean) : []
-  const trailTone = row.trailMuted ? 'isFlat' : row.up ? 'isUp' : 'isDown'
+  const trailTone =
+    kind === 'investor'
+      ? exploreDirectoryTrailTone(row)
+      : row.trailMuted
+        ? 'isFlat'
+        : row.up
+          ? 'isUp'
+          : 'isDown'
 
   return (
     <>
@@ -67,12 +93,13 @@ export function ExploreDirectoryCompanyRow({ row, onClick = null }) {
   )
 }
 
-export function ExploreDirectoryInvestorRow({ row, onClick = null }) {
+export function ExploreDirectoryInvestorRow({ row, onClick = null, className = null }) {
   const label = row.name
+  const rowClass = ['exploreDirectoryRow', 'exploreDirectoryRow--investor', className].filter(Boolean).join(' ')
 
   if (onClick) {
     return (
-      <li className="exploreDirectoryRow exploreDirectoryRow--investor">
+      <li className={rowClass}>
         <button
           type="button"
           className="exploreDirectoryRowBtn"
@@ -86,7 +113,7 @@ export function ExploreDirectoryInvestorRow({ row, onClick = null }) {
   }
 
   return (
-    <li className="exploreDirectoryRow exploreDirectoryRow--investor">
+    <li className={rowClass}>
       <ExploreDirectoryRowContent row={row} kind="investor" />
     </li>
   )
@@ -130,8 +157,7 @@ function ExploreDirectoryInvestorTickers({ tickers, max = INVESTOR_TICKER_PREVIE
 }
 
 function ExploreDirectoryListInvestorContent({ row }) {
-  const net = row.netFlowUsd ?? 0
-  const netTone = net > 0 ? 'isUp' : net < 0 ? 'isDown' : 'isFlat'
+  const netTone = exploreDirectoryNetFlowTone(row)
   const count = Number.isFinite(Number(row.positionCount))
     ? Math.max(0, Math.trunc(Number(row.positionCount)))
     : 0
@@ -145,7 +171,7 @@ function ExploreDirectoryListInvestorContent({ row }) {
       </div>
       <span className="exploreDirectoryStat mono">
         <span className="exploreDirectoryStatCount">{count}</span>
-        <span className="exploreDirectoryStatLabel">{row.baseline13f ? 'Holdings' : 'Pos.'}</span>
+        <span className="exploreDirectoryStatLabel">Pos.</span>
       </span>
       <span className={['exploreDirectoryAmount mono', netTone].join(' ')}>{row.netFlowLabel ?? '—'}</span>
       <span className="exploreDirectoryDate mono">{row.lastDateLabel ?? '—'}</span>

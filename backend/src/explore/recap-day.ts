@@ -481,7 +481,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       actorSlug: row.actor_slug,
       ticker: tickers[0] ?? row.ticker,
       docType: "13f",
-      trail: `${count} holdings`,
+      trail: `${count} pos`,
       up: true,
       tickers,
       positionCount: count,

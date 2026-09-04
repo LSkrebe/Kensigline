@@ -70,6 +70,7 @@ export default function AppRouter() {
     if (p.startsWith('/settings')) document.title = 'Settings - Mercerline'
     else if (p.startsWith('/macro')) document.title = 'Macro - Mercerline'
     else if (p.startsWith('/explore/investors')) document.title = 'Investors - Mercerline'
+    else if (p.startsWith('/explore/watchlist')) document.title = 'Watchlist - Mercerline'
     else if (p.startsWith('/explore/companies')) document.title = 'Companies - Mercerline'
     else if (p.startsWith('/explore')) document.title = 'Explore - Mercerline'
     else document.title = 'Mercerline'

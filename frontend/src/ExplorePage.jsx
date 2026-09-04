@@ -3,6 +3,7 @@ import { useCollapseScroll } from './collapseScroll.js'
 import {
   buildExploreDirectoryHomeLatest,
   buildExploreDirectoryHomePreview,
+  buildExploreInvestorEvents,
   formatExploreRecency,
   formatExplorePublishDate,
   HOME_DIRECTORY_PREVIEW,
@@ -18,9 +19,11 @@ import {
   splitExploreRecapSlides,
 } from './exploreRecapCatalog.js'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
+import { buildExploreWatchlistRows, extractExploreInvestorEvents } from './exploreWatchlistData.js'
+import { ExploreWatchlistSection } from './ExploreWatchlistSection.jsx'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { isCaptureMode } from './captureMode.js'
-import { navigateExploreCompanies, navigateExploreEventDetail, navigateExploreInvestors } from './terminalRoute.js'
+import { navigateExploreCompanies, navigateExploreEventDetail, navigateExploreInvestors, navigateExploreWatchlist } from './terminalRoute.js'
 import './DeepReport.css'
 import './ExplorePage.css'
 
@@ -134,7 +137,17 @@ export function ExplorePage({
   const [homeSearchPool, setHomeSearchPool] = useState(
     () => initialSnapshot.homeSearchPool ?? { companies: [], investors: [] },
   )
+  const [investorEvents, setInvestorEvents] = useState(() =>
+    isCaptureMode() || isMockDataMode(backendUp) ? buildExploreInvestorEvents() : [],
+  )
   const [homeLoading, setHomeLoading] = useState(initialSnapshot.homeLoading)
+
+  const syncDirectoryState = useCallback((directory) => {
+    if (!directory) return
+    setHomePreview(directory.homePreview ?? { companies: [], investors: [] })
+    setHomeSearchPool(directory.homeLatest ?? { companies: [], investors: [] })
+    setInvestorEvents(extractExploreInvestorEvents(directory))
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -143,6 +156,7 @@ export function ExplorePage({
       setRecap(buildExploreDailyRecap())
       setHomePreview(buildExploreDirectoryHomePreview())
       setHomeSearchPool(buildExploreDirectoryHomeLatest())
+      setInvestorEvents(buildExploreInvestorEvents())
       setHomeLoading(false)
       return
     }
@@ -164,19 +178,13 @@ export function ExplorePage({
           void loadExploreHomeBundle(null, { force: true }).then((fresh) => {
             if (cancelled || !fresh?.recap) return
             setRecap(fresh.recap)
-            if (fresh.directory) {
-              setHomePreview(fresh.directory.homePreview ?? { companies: [], investors: [] })
-              setHomeSearchPool(fresh.directory.homeLatest ?? { companies: [], investors: [] })
-            }
+            if (fresh.directory) syncDirectoryState(fresh.directory)
             setHomeLoading(false)
           })
           return
         }
         setRecap(bundle.recap)
-        if (bundle.directory) {
-          setHomePreview(bundle.directory.homePreview ?? { companies: [], investors: [] })
-          setHomeSearchPool(bundle.directory.homeLatest ?? { companies: [], investors: [] })
-        }
+        if (bundle.directory) syncDirectoryState(bundle.directory)
         setHomeLoading(false)
       })
       return
@@ -204,26 +212,20 @@ export function ExplorePage({
         void loadExploreHomeBundle(backendUp, { force: true }).then((fresh) => {
           if (cancelled || !fresh?.recap) return
           setRecap(fresh.recap)
-          if (fresh.directory) {
-            setHomePreview(fresh.directory.homePreview ?? { companies: [], investors: [] })
-            setHomeSearchPool(fresh.directory.homeLatest ?? { companies: [], investors: [] })
-          }
+          if (fresh.directory) syncDirectoryState(fresh.directory)
           setHomeLoading(false)
         })
         return
       }
       setRecap(bundle.recap)
-      if (bundle.directory) {
-        setHomePreview(bundle.directory.homePreview ?? { companies: [], investors: [] })
-        setHomeSearchPool(bundle.directory.homeLatest ?? { companies: [], investors: [] })
-      }
+      if (bundle.directory) syncDirectoryState(bundle.directory)
       setHomeLoading(false)
     })
 
     return () => {
       cancelled = true
     }
-  }, [backendUp])
+  }, [backendUp, syncDirectoryState])
 
   const [searchQuery, setSearchQuery] = useState('')
   const { pageRef, dockRef, spacerRef } = useCollapseScroll({
@@ -255,6 +257,12 @@ export function ExplorePage({
     if (!searching) return homePreview.companies
     return filterExploreHomeRows(homeSearchPool.companies, searchQuery)
   }, [searching, homePreview.companies, homeSearchPool.companies, searchQuery])
+
+  const watchlistRows = useMemo(() => {
+    const rows = buildExploreWatchlistRows(investorEvents)
+    if (!searching) return rows
+    return filterExploreHomeRows(rows, searchQuery)
+  }, [investorEvents, searchQuery, searching])
 
   const openRecapEvent = useCallback(
     (slide) => {
@@ -318,6 +326,15 @@ export function ExplorePage({
         </div>
         <div ref={spacerRef} className="exploreRecapCollapseSpacer" aria-hidden="true" />
         <div className="explorePageBody">
+          <ExploreWatchlistSection
+            key={`watchlist-${sectionKicker}-${normalizedQuery}`}
+            kicker={sectionKicker}
+            rows={watchlistRows}
+            onOpen={() => navigateExploreWatchlist()}
+            onRowClick={onInvestorRowClick}
+            loading={homeLoading}
+          />
+
           {!searching ? (
             <ExploreStoryCards
               slides={storyPreviewSlides}

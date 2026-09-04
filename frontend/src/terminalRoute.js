@@ -5,6 +5,7 @@ import { normalizeMarketingPath } from './marketingRoute.js'
 export const EXPLORE_HOME_PATH = '/explore'
 export const EXPLORE_COMPANIES_PATH = '/explore/companies'
 export const EXPLORE_INVESTORS_PATH = '/explore/investors'
+export const EXPLORE_WATCHLIST_PATH = '/explore/watchlist'
 export const EXPLORE_EVENTS_PATH = '/explore/events'
 export const SETTINGS_PATH = '/settings'
 export const MACRO_PATH = '/macro'
@@ -56,6 +57,7 @@ export function parseExploreRoute(pathname = readTerminalPath()) {
 
   if (path === EXPLORE_COMPANIES_PATH) return { view: 'companies' }
   if (path === EXPLORE_INVESTORS_PATH || path === '/explore/actors') return { view: 'investors' }
+  if (path === EXPLORE_WATCHLIST_PATH) return { view: 'watchlist' }
   if (path === EXPLORE_HOME_PATH) return { view: 'home' }
   return null
 }
@@ -89,6 +91,7 @@ export function isTerminalAppPath(pathname = readTerminalPath()) {
 export function explorePathForSubview(subview) {
   if (subview === 'companies') return EXPLORE_COMPANIES_PATH
   if (subview === 'investors' || subview === 'actors') return EXPLORE_INVESTORS_PATH
+  if (subview === 'watchlist') return EXPLORE_WATCHLIST_PATH
   return EXPLORE_HOME_PATH
 }
 
@@ -133,6 +136,10 @@ export function navigateExploreCompanies() {
 
 export function navigateExploreInvestors() {
   navigateTerminal(EXPLORE_INVESTORS_PATH)
+}
+
+export function navigateExploreWatchlist() {
+  navigateTerminal(EXPLORE_WATCHLIST_PATH)
 }
 
 /** @deprecated Use navigateExploreInvestors */
@@ -208,6 +215,7 @@ export function useNavigateExplore() {
   return useCallback((target) => {
     if (target === 'companies') navigateExploreCompanies()
     else if (target === 'investors' || target === 'actors') navigateExploreInvestors()
+    else if (target === 'watchlist') navigateExploreWatchlist()
     else navigateExploreHome()
   }, [])
 }

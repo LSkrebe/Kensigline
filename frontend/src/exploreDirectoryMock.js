@@ -151,9 +151,7 @@ function formatExplorePositionCount(count) {
 }
 
 function formatExploreHoldingsCount(count) {
-  const n = Number(count)
-  if (!Number.isFinite(n) || n < 1) return null
-  return `${Math.trunc(n)} holdings`
+  return formatExplorePositionCount(count)
 }
 
 function isInstitutionChangeActivity(activity) {
@@ -170,13 +168,18 @@ function normalizeExploreInvestorTrail(trail, row) {
     return { trail: formatExplorePositionCount(positionsMatch[1]), muted: true }
   }
 
+  const posMatch = t.match(/^(\d+)\s+pos$/i)
+  if (posMatch) {
+    return { trail: formatExplorePositionCount(posMatch[1]), muted: true }
+  }
+
   const holdingsMatch = t.match(/^(\d+)\s+holdings?$/i)
   if (holdingsMatch) {
     return { trail: formatExploreHoldingsCount(holdingsMatch[1]), muted: true }
   }
 
   if (row?.docType && t.toUpperCase() === exploreActorDocCode(row.docType)) {
-    return { trail: '$0', muted: false }
+    return { trail: '$0', muted: true }
   }
 
   if (isMoneyOrPctExploreTrail(t)) {
@@ -202,7 +205,7 @@ function resolveExploreRowTrail(row, kind = 'company') {
     return { trail: '—', muted: true }
   }
   if (kind === 'investor' && row?.docType) {
-    return { trail: '$0', muted: false }
+    return { trail: '$0', muted: true }
   }
   return { trail: '—', muted: true }
 }
@@ -253,7 +256,7 @@ function mapExploreHomePreviewRow(row, kind) {
     event: row.event,
     trail,
     trailMuted: muted,
-    up: trail === '$0' ? true : muted ? false : row.up ?? true,
+    up: muted || trail === '$0' ? false : row.up ?? true,
     extraSameDay: row.extraSameDay ?? 0,
     date: row.date,
   }
@@ -308,7 +311,7 @@ function aggregateInvestorsByName(events) {
       tickers.push(ev.ticker)
     }
 
-    if (ev.baseline13f || /^\d+\s+holdings?$/i.test(String(ev.trail ?? ''))) {
+    if (ev.baseline13f || /^\d+\s+(holdings?|pos)$/i.test(String(ev.trail ?? ''))) {
       continue
     }
     if (isInstitutionChangeActivity(ev.activity) || !ev.activity) {
@@ -328,7 +331,7 @@ function aggregateInvestorsByName(events) {
     if (seen.has(ev.name)) continue
     seen.add(ev.name)
     const netFlowUsd = netFlows.get(ev.name) ?? 0
-    const baselineHoldings = ev.baseline13f || /^\d+\s+holdings?$/i.test(String(ev.trail ?? ''))
+    const baselineHoldings = ev.baseline13f || /^\d+\s+(holdings?|pos)$/i.test(String(ev.trail ?? ''))
     out.push({
       id: `ac-${String(ev.name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       name: ev.name,
@@ -440,7 +443,7 @@ function aggregateExploreInvestorsForHome(events) {
       }
     }
     const all13f = group.every((e) => String(e.docType ?? '').startsWith('13f'))
-    const baselineRow = group.find((e) => e.baseline13f || /^\d+\s+holdings?$/i.test(String(e.trail ?? '')))
+    const baselineRow = group.find((e) => e.baseline13f || /^\d+\s+(holdings?|pos)$/i.test(String(e.trail ?? '')))
     const modeCode = exploreActorDocCode(lead.docType)
 
     out.push({
@@ -466,7 +469,7 @@ function aggregateExploreInvestorsForHome(events) {
 }
 
 function mapAggregatedInvestorToHomeRow(row) {
-  const baselineHoldings = row.baseline13f === true || /^\d+\s+holdings?$/i.test(String(row.trail ?? ''))
+  const baselineHoldings = row.baseline13f === true || /^\d+\s+(holdings?|pos)$/i.test(String(row.trail ?? ''))
   const count = Number.isFinite(Number(row.positionCount)) ? Math.max(1, Number(row.positionCount)) : 1
   const hasUsd = row.netFlowLabel && row.netFlowLabel !== '—'
   const tickers = Array.isArray(row.tickers) ? row.tickers.filter(Boolean) : []
@@ -491,7 +494,7 @@ function mapAggregatedInvestorToHomeRow(row) {
     event: exploreActorEventLabel(row.docType),
     trail: resolved.trail,
     trailMuted: resolved.muted,
-    up: resolved.trail === '$0' ? true : resolved.muted ? false : (row.netFlowUsd ?? 0) >= 0,
+    up: resolved.muted || resolved.trail === '$0' ? false : (row.netFlowUsd ?? 0) >= 0,
     extraSameDay: Math.max(0, count - 1),
     date: row.lastDate,
   }
