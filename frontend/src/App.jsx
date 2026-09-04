@@ -4196,15 +4196,56 @@ function formatUsdBandEndpoint(n) {
   return `$${Math.round(x)}`
 }
 
-/** `$100,001 - $250,000` → `$100K` — PTR trade log shows range floor only. */
+function parseUsdRangeEndpoints(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return { low: null, high: null }
+  const m = s.match(/^\$?\s*([\d,]+(?:\.\d+)?)\s*[-–—]\s*\$?\s*([\d,]+(?:\.\d+)?)\s*$/)
+  if (!m) return { low: null, high: null }
+  const low = Number(String(m[1]).replace(/,/g, ''))
+  const high = Number(String(m[2]).replace(/,/g, ''))
+  return {
+    low: Number.isFinite(low) && low > 0 ? low : null,
+    high: Number.isFinite(high) && high > 0 ? high : null,
+  }
+}
+
+/** `$1,001 - $15,000` → `$15K` — disclosed bands show ceiling (avoids `$1` on low buckets). */
 function compactUsdRangeLabel(raw) {
   const s = String(raw ?? '').trim()
   if (!s) return ''
-  const m = s.match(/^\$?\s*([\d,]+(?:\.\d+)?)\s*[-–—]\s*\$?\s*([\d,]+(?:\.\d+)?)\s*$/)
-  if (!m) return s
-  const floor = Number(String(m[1]).replace(/,/g, ''))
-  if (!Number.isFinite(floor) || floor <= 0) return s
-  return formatUsdBandEndpoint(floor) || s
+  const { low, high } = parseUsdRangeEndpoints(s)
+  const pick = high ?? low
+  if (pick != null) return formatUsdBandEndpoint(pick) || s
+  return s
+}
+
+function formatDisclosedTxnAmount(row, { signed = false } = {}) {
+  const range = String(row?.amountRange ?? row?.amount_range ?? '').trim()
+  if (range) {
+    const label = compactUsdRangeLabel(range)
+    if (label) return label
+  }
+  const amt = Number(row?.amountUsd ?? row?.amount_usd_mid ?? row?.amount_usd ?? 0)
+  if (Number.isFinite(amt) && amt > 0) {
+    const compact = formatUsdCompact(Math.abs(amt))
+    if (!compact) return '—'
+    if (!signed) return compact
+    const code = String(row?.transactionCode ?? row?.transactionType ?? row?.code ?? '').trim().toUpperCase()
+    const side = String(row?.acquiredDisposed ?? row?.acquired_disposed ?? '').toUpperCase()
+    const tone = politicianTxnCodeFromRaw(row?.transactionType ?? row?.transactionCode)
+    const isSell =
+      code === 'S' ||
+      code === 'F' ||
+      code === 'RED' ||
+      (code === 'D' && side === 'D') ||
+      tone === 'S' ||
+      amt < 0
+    const isBuy = code === 'P' || code === 'A' || code === 'INC' || tone === 'P'
+    const sign = isSell ? '−' : isBuy ? '+' : ''
+    return `${sign}${compact}`
+  }
+  const sh = formatSharesCompact(row?.shares)
+  return sh || '—'
 }
 
 function formatSharesCompact(n) {
@@ -4218,6 +4259,12 @@ function formatSharesCompact(n) {
 
 /** Tracked-investor / deep-page amount: shares when no USD, muted dash for $0/null awards. */
 function formatTrackedInvestorAmount(row) {
+  const range = String(row?.amountRange ?? row?.amount_range ?? '').trim()
+  if (range) {
+    const text = compactUsdRangeLabel(range)
+    if (text) return { text, muted: false }
+  }
+
   const shares = row?.shares
   const sh = formatSharesCompact(shares)
   const usdRaw = row?.amountUsd ?? row?.amount_usd ?? row?.totalUsd
@@ -4320,6 +4367,8 @@ function insiderTxnCodeTone(code, ad) {
 
 /** Option C value column: `+$1.2M`, `−$890K`, `12.4K sh`, `—`. */
 function formatInsiderTxnValue(row) {
+  const range = String(row?.amountRange ?? row?.amount_range ?? '').trim()
+  if (range) return compactUsdRangeLabel(range)
   if (row?.amountUsd != null && Number.isFinite(Number(row.amountUsd))) {
     const x = Number(row.amountUsd)
     if (x === 0) {
@@ -4546,15 +4595,7 @@ function applyInvestigateTxnFilterToFeedRow(row, enabledCodes, mode) {
 }
 
 function formatPoliticianTxnValue(r) {
-  const range = String(r?.amountRange ?? '').trim()
-  if (range) return compactUsdRangeLabel(range)
-  const amt = Number(r?.amountUsd ?? r?.amount_usd_mid ?? r?.amount_usd ?? 0)
-  if (!(Number.isFinite(amt) && amt > 0)) return '—'
-  const code = politicianTxnCodeFromRaw(r?.transactionType ?? r?.transactionCode)
-  const compact = formatUsdCompact(amt)
-  if (!compact) return '—'
-  const sign = code === 'S' ? '−' : code === 'P' ? '+' : ''
-  return `${sign}${compact}`
+  return formatDisclosedTxnAmount(r)
 }
 
 function formatInstitutionTxnValue(r) {
