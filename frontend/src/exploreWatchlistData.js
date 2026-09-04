@@ -140,6 +140,18 @@ function emptyWatchlistRow(person) {
   }
 }
 
+function mergeWatchlistEventSources(investorEvents = [], watchlistLatest = []) {
+  const seen = new Set()
+  const merged = []
+  for (const ev of [...watchlistLatest, ...investorEvents]) {
+    const key = String(ev?.id ?? `${ev?.name}|${ev?.ticker}|${ev?.date}|${ev?.docType}`)
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push(ev)
+  }
+  return merged
+}
+
 /** Pull raw investor events from an explore directory bundle. */
 export function extractExploreInvestorEvents(directoryBundle) {
   const inner = directoryBundle?.directory ?? directoryBundle
@@ -163,20 +175,20 @@ export function extractExploreWatchlistEvents(directoryBundle) {
 export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
   const people = opts.people ?? EXPLORE_WATCHLIST_CATALOG
   const txnsPerPerson = opts.txnsPerPerson ?? WATCHLIST_TXNS_PER_PERSON
-  const latestSource = opts.watchlistLatest?.length
-    ? opts.watchlistLatest
-    : investorEvents
-  const labeled = mapActorEventRows(latestSource).filter(isPlausibleExploreInvestorRow)
+  const watchlistLatest = Array.isArray(opts.watchlistLatest) ? opts.watchlistLatest : []
+  const mergedSource = mergeWatchlistEventSources(investorEvents, watchlistLatest)
+  const labeled = mapActorEventRows(mergedSource).filter(isPlausibleExploreInvestorRow)
   const sorted = sortEventsNewestFirst(labeled)
   const rows = []
 
   for (const person of people) {
-    const fromLatest = Array.isArray(opts.watchlistLatest) ? opts.watchlistLatest : []
-    const directLatest = fromLatest.find(
-      (ev) =>
-        String(ev?.name ?? '').trim() === person.name ||
-        watchlistEventMatchesPerson(ev, person),
-    )
+    const directLatest =
+      watchlistLatest.find(
+        (ev) =>
+          String(ev?.name ?? '').trim() === person.name ||
+          watchlistEventMatchesPerson(ev, person),
+      ) ??
+      sorted.find((ev) => watchlistEventMatchesPerson(ev, person))
 
     if (directLatest) {
       const lead = mapActorEventRows([directLatest]).filter(isPlausibleExploreInvestorRow)[0] ?? directLatest

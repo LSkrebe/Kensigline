@@ -1,4 +1,4 @@
-import { exploreInvestorSlug } from './exploreDirectoryNav.js'
+import { exploreInvestorModeFromDocType, exploreInvestorSlug } from './exploreDirectoryNav.js'
 import {
   EXPLORE_WATCHLIST_CATALOG,
   watchlistPersonSlugs,
@@ -46,7 +46,14 @@ export function normalizeWatchlistCompanyTicker(ticker) {
   return String(ticker ?? '').trim().toUpperCase()
 }
 
-export function resolveWatchlistCatalogPerson(slug, name) {
+export function normalizeWatchlistMode(mode) {
+  const m = String(mode ?? '').trim().toLowerCase()
+  if (m === 'politicians' || m === 'politician' || m === 'ptr') return 'politicians'
+  if (m === 'institutions' || m === 'institution' || m === '13f') return 'institutions'
+  return 'insiders'
+}
+
+export function resolveWatchlistCatalogPerson(slug, name, entry = null) {
   const needle = normalizeWatchlistPersonSlug(slug, name)
   const fromCatalog = EXPLORE_WATCHLIST_CATALOG.find(
     (person) =>
@@ -54,12 +61,18 @@ export function resolveWatchlistCatalogPerson(slug, name) {
       exploreInvestorSlug(person.name) === exploreInvestorSlug(name),
   )
   if (fromCatalog) return fromCatalog
+
+  const storedAliases = Array.isArray(entry?.slugAliases)
+    ? entry.slugAliases.map((s) => String(s).trim().toLowerCase()).filter(Boolean)
+    : []
+  const slugAliases = [...new Set([needle, ...storedAliases])]
+
   return {
     name: String(name ?? '').trim() || needle,
     slug: needle,
-    slugAliases: [needle],
-    mode: 'politicians',
-    docType: 'ptr',
+    slugAliases,
+    mode: normalizeWatchlistMode(entry?.mode ?? exploreInvestorModeFromDocType(entry?.docType)),
+    docType: entry?.docType ?? 'ptr',
   }
 }
 
@@ -85,7 +98,7 @@ export function saveUserWatchlistCompanies(userId, tickers) {
 }
 
 export function watchlistPeopleToCatalog(entries) {
-  return entries.map((entry) => resolveWatchlistCatalogPerson(entry.slug, entry.name))
+  return entries.map((entry) => resolveWatchlistCatalogPerson(entry.slug, entry.name, entry))
 }
 
 export function investorRowWatchlistSlug(row) {

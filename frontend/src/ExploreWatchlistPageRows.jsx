@@ -26,8 +26,7 @@ export function ExploreWatchlistPagePersonRow({ row, onEventClick = null }) {
   return (
     <>
       <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist exploreWatchlistPageNameRow">
-        <span className="exploreDirectoryTicker mono exploreWatchlistPageNameSpacer" aria-hidden="true" />
-        <div className="exploreDirectoryCopy">
+        <div className="exploreDirectoryCopy exploreWatchlistPageNameCopy">
           <span className="exploreDirectoryNameLine">
             <span className="exploreDirectoryName">{row.name}</span>
             <WatchlistRemoveButton

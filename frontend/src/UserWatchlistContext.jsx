@@ -1,11 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
+import { exploreInvestorModeFromDocType } from './exploreDirectoryNav.js'
 import {
   investorRowWatchlistSlug,
   loadUserWatchlistCompanies,
   loadUserWatchlistPeople,
   normalizeWatchlistCompanyTicker,
   normalizeWatchlistPersonSlug,
+  normalizeWatchlistMode,
   resolveWatchlistCatalogPerson,
   saveUserWatchlistCompanies,
   saveUserWatchlistPeople,
@@ -48,7 +50,7 @@ export function UserWatchlistProvider({ children }) {
   )
 
   const addPerson = useCallback(
-    (slug, name) => {
+    (slug, name, meta = {}) => {
       const normalized = normalizeWatchlistPersonSlug(slug, name)
       if (!normalized) return
       setPeopleEntries((prev) => {
@@ -56,7 +58,18 @@ export function UserWatchlistProvider({ children }) {
           return prev
         }
         const label = String(name ?? '').trim() || resolveWatchlistCatalogPerson(normalized, name).name
-        const next = [...prev, { slug: normalized, name: label }]
+        const actorSlug = String(meta.actorSlug ?? slug ?? '').trim().toLowerCase()
+        const slugAliases = [...new Set([...(Array.isArray(meta.slugAliases) ? meta.slugAliases : []), actorSlug].filter(Boolean))]
+        const next = [
+          ...prev,
+          {
+            slug: normalized,
+            name: label,
+            mode: meta.mode ? normalizeWatchlistMode(meta.mode) : undefined,
+            docType: meta.docType,
+            slugAliases: slugAliases.length ? slugAliases : undefined,
+          },
+        ]
         saveUserWatchlistPeople(userId, next)
         return next
       })
@@ -78,7 +91,14 @@ export function UserWatchlistProvider({ children }) {
 
   const addPersonFromRow = useCallback(
     (row) => {
-      addPerson(investorRowWatchlistSlug(row), row?.name)
+      const slug = investorRowWatchlistSlug(row)
+      const actorSlug = String(row?.actorSlug ?? '').trim().toLowerCase()
+      addPerson(slug, row?.name, {
+        mode: exploreInvestorModeFromDocType(row?.docType),
+        docType: row?.docType,
+        actorSlug: actorSlug || slug,
+        slugAliases: actorSlug && actorSlug !== slug ? [actorSlug] : [],
+      })
     },
     [addPerson],
   )

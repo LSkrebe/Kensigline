@@ -491,7 +491,6 @@
 .exploreWatchlistPageNameRow {
   display: grid;
   grid-template-columns:
-    var(--explore-directory-ticker-w)
     minmax(0, 1fr)
     var(--explore-directory-trail-w)
     var(--explore-directory-date-w);
@@ -500,12 +499,9 @@
   padding: 14px 0;
 }
 
-.exploreWatchlistPageNameRow .exploreDirectoryCopy {
+.exploreWatchlistPageNameRow .exploreDirectoryCopy,
+.exploreWatchlistPageNameCopy {
   min-width: 0;
-}
-
-.exploreWatchlistPageNameSpacer {
-  visibility: hidden;
 }
 
 .exploreDirectoryNameLine {
