@@ -1,3 +1,5 @@
+import { WatchlistRemoveButton } from './WatchlistToggleButton.jsx'
+import { useUserWatchlist } from './UserWatchlistContext.jsx'
 import { ExploreWatchlistPersonRow } from './ExploreWatchlistRows.jsx'
 
 function watchlistEventRow(personRow, event) {
@@ -17,13 +19,23 @@ function watchlistEventRow(personRow, event) {
 }
 
 export function ExploreWatchlistPagePersonRow({ row, onEventClick = null }) {
+  const { removePerson } = useUserWatchlist()
   const events = Array.isArray(row.events) ? row.events : []
   const modeLabel = row.empty ? '—' : row.modeLabel
 
   return (
     <>
       <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist exploreWatchlistPageNameRow">
-        <span className="exploreDirectoryName">{row.name}</span>
+        <span className="exploreDirectoryTicker mono exploreWatchlistPageNameSpacer" aria-hidden="true" />
+        <div className="exploreDirectoryCopy">
+          <span className="exploreDirectoryNameLine">
+            <span className="exploreDirectoryName">{row.name}</span>
+            <WatchlistRemoveButton
+              label={`Remove ${row.name} from watchlist`}
+              onClick={() => removePerson(row.actorSlug, row.name)}
+            />
+          </span>
+        </div>
         <span className="exploreDirectoryAmount mono" aria-hidden="true" />
         <span className="exploreDirectoryDate mono exploreDirectoryMeta">{modeLabel}</span>
       </li>

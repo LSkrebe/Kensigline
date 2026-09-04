@@ -500,9 +500,60 @@
   padding: 14px 0;
 }
 
-.exploreWatchlistPageNameRow .exploreDirectoryName {
-  grid-column: 1 / 3;
+.exploreWatchlistPageNameRow .exploreDirectoryCopy {
   min-width: 0;
+}
+
+.exploreWatchlistPageNameSpacer {
+  visibility: hidden;
+}
+
+.exploreDirectoryNameLine {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  width: fit-content;
+}
+
+.exploreDirectoryNameLine .exploreDirectoryName {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exploreWatchlistToggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.exploreWatchlistToggle:hover {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.exploreWatchlistToggle.isHidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.exploreWatchlistToggle--remove {
+  font-size: 15px;
 }
 
 .exploreDirectoryStat {

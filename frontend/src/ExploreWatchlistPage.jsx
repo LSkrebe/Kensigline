@@ -6,18 +6,15 @@ import { buildExploreInvestorEvents } from './exploreDirectoryMock.js'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { ExploreWatchlistPagePersonRow } from './ExploreWatchlistPageRows.jsx'
 import { buildExploreWatchlistPeople, extractExploreInvestorEvents, extractExploreWatchlistEvents } from './exploreWatchlistData.js'
+import { useUserWatchlist } from './UserWatchlistContext.jsx'
 import { useCollapseScroll } from './collapseScroll.js'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
-import { useExploreScrollList } from './useExploreScrollList.js'
-import { EXPLORE_DIRECTORY_BLOCK } from './exploreDirectoryMock.js'
 import './DeepReport.css'
 import './ExplorePage.css'
 
 const EXPLORE_WATCHLIST_COLLAPSE_RANGE_FALLBACK = 1
 const EXPLORE_WATCHLIST_EXPANDED_FADE_END = 0.88
 const EXPLORE_WATCHLIST_COMPACT_FADE_START = 0
-const EXPLORE_WATCHLIST_COMPACT_MQ = '(max-width: 960px)'
-const EXPLORE_WATCHLIST_COMPACT_STEP = 12
 
 function exploreWatchlistCollapseProgressVars(progress) {
   const p = Math.min(1, Math.max(0, progress))
@@ -33,39 +30,6 @@ function exploreWatchlistCollapseProgressVars(progress) {
   }
 }
 
-function useExploreWatchlistCompactLayout() {
-  const [compact, setCompact] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia(EXPLORE_WATCHLIST_COMPACT_MQ).matches,
-  )
-
-  useEffect(() => {
-    const mq = window.matchMedia(EXPLORE_WATCHLIST_COMPACT_MQ)
-    const onChange = () => setCompact(mq.matches)
-    onChange()
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-
-  return compact
-}
-
-function ExploreWatchlistShowMoreButton({ remaining, onClick }) {
-  const step = Math.min(EXPLORE_WATCHLIST_COMPACT_STEP, remaining)
-  return (
-    <button
-      type="button"
-      className="drpt-showMore exploreDirShowMore"
-      onClick={onClick}
-      aria-label={`Show ${step} more`}
-    >
-      <span className="drpt-showMoreChip" aria-hidden="true">
-        <span className="drpt-showMoreSign">+</span>
-        <span className="drpt-showMoreLabel">{step}</span>
-      </span>
-    </button>
-  )
-}
-
 export function ExploreWatchlistPage({
   backendUp = null,
   macroActive = false,
@@ -78,12 +42,13 @@ export function ExploreWatchlistPage({
 }) {
   const { user } = useAuth()
   const authUserId = user?.id ?? null
-  const compact = useExploreWatchlistCompactLayout()
-  const pageSize = compact ? EXPLORE_WATCHLIST_COMPACT_STEP : EXPLORE_DIRECTORY_BLOCK
+  const { watchlistPeople } = useUserWatchlist()
   const [searchQuery, setSearchQuery] = useState('')
   const [rowsLoading, setRowsLoading] = useState(() => !isMockDataMode(backendUp))
   const [rows, setRows] = useState(() =>
-    isMockDataMode(backendUp) ? buildExploreWatchlistPeople(buildExploreInvestorEvents()) : [],
+    isMockDataMode(backendUp)
+      ? buildExploreWatchlistPeople(buildExploreInvestorEvents(), { people: watchlistPeople })
+      : [],
   )
   const { pageRef, dockRef, spacerRef } = useCollapseScroll({
     progressVars: exploreWatchlistCollapseProgressVars,
@@ -95,7 +60,7 @@ export function ExploreWatchlistPage({
   useEffect(() => {
     let cancelled = false
     if (isMockDataMode(backendUp)) {
-      setRows(buildExploreWatchlistPeople(buildExploreInvestorEvents()))
+      setRows(buildExploreWatchlistPeople(buildExploreInvestorEvents(), { people: watchlistPeople }))
       setRowsLoading(false)
       return
     }
@@ -105,27 +70,20 @@ export function ExploreWatchlistPage({
       if (cancelled) return
       const events = extractExploreInvestorEvents(bundle)
       const latest = extractExploreWatchlistEvents(bundle)
-      setRows(buildExploreWatchlistPeople(events, { watchlistLatest: latest }))
+      setRows(buildExploreWatchlistPeople(events, { people: watchlistPeople, watchlistLatest: latest }))
       setRowsLoading(false)
     })()
     return () => {
       cancelled = true
     }
-  }, [backendUp, authUserId])
+  }, [backendUp, authUserId, watchlistPeople])
 
   const filteredRows = useMemo(
     () => filterExploreHomeRows(rows, searchQuery),
     [rows, searchQuery],
   )
 
-  const { visibleRows, hasMore, remaining, loadMore, sentinelRef } = useExploreScrollList({
-    rows: filteredRows,
-    pageSize,
-    compact,
-    scrollRootRef: pageRef,
-    loadStep: compact ? EXPLORE_WATCHLIST_COMPACT_STEP : EXPLORE_DIRECTORY_BLOCK,
-    resetKey: `watchlist:${normalizedQuery}`,
-  })
+  const searching = normalizedQuery.length > 0
 
   return (
     <div className="exploreDirShell" ref={pageRef}>
@@ -173,14 +131,10 @@ export function ExploreWatchlistPage({
         <div ref={spacerRef} className="drpt-collapseSpacer" aria-hidden="true" />
 
         <div className="exploreDirPaper">
-          <div
-            className={['exploreDirListPanel', compact && hasMore ? 'exploreDirListPanel--truncated' : '']
-              .filter(Boolean)
-              .join(' ')}
-          >
+          <div className="exploreDirListPanel">
             <ul className="exploreDirectoryList exploreWatchlistList">
-              {visibleRows.length ? (
-                visibleRows.map((row) => (
+              {filteredRows.length ? (
+                filteredRows.map((row) => (
                   <ExploreWatchlistPagePersonRow
                     key={row.id}
                     row={row}
@@ -201,14 +155,12 @@ export function ExploreWatchlistPage({
                 ))
               ) : rowsLoading ? (
                 <li className="exploreDirectoryEmpty mono exploreDirectoryEmpty--loading">Loading…</li>
-              ) : (
+              ) : searching ? (
                 <li className="exploreDirectoryEmpty mono">No matches</li>
+              ) : (
+                <li className="exploreDirectoryEmpty mono">No one on your watchlist yet</li>
               )}
             </ul>
-            {hasMore ? (
-              <ExploreWatchlistShowMoreButton remaining={remaining} onClick={loadMore} />
-            ) : null}
-            <div ref={sentinelRef} className="exploreDirScrollSentinel" aria-hidden="true" />
           </div>
         </div>
       </div>

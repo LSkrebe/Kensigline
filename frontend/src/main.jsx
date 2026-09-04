@@ -6,6 +6,7 @@ import './marketingEnter.css'
 import { preloadPageBackgrounds } from './pageBackgrounds.js'
 import AppRouter from './AppRouter.jsx'
 import { AuthProvider } from './AuthContext.jsx'
+import { UserWatchlistProvider } from './UserWatchlistContext.jsx'
 import { installWhopPixel } from './whopPixel.js'
 
 installWhopPixel()
@@ -69,7 +70,9 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <ErrorBoundary>
       <AuthProvider>
-        <AppRouter />
+        <UserWatchlistProvider>
+          <AppRouter />
+        </UserWatchlistProvider>
       </AuthProvider>
     </ErrorBoundary>
   </StrictMode>,

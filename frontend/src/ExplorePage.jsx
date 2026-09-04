@@ -21,6 +21,7 @@ import {
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { buildExploreWatchlistPeople, extractExploreInvestorEvents, extractExploreWatchlistEvents } from './exploreWatchlistData.js'
 import { ExploreWatchlistSection } from './ExploreWatchlistSection.jsx'
+import { useUserWatchlist } from './UserWatchlistContext.jsx'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { isCaptureMode } from './captureMode.js'
 import { navigateExploreCompanies, navigateExploreEventDetail, navigateExploreInvestors, navigateExploreWatchlist } from './terminalRoute.js'
@@ -104,6 +105,7 @@ export function ExplorePage({
   onInvestorRowClick = null,
   onEventClick = null,
 }) {
+  const { watchlistPeople } = useUserWatchlist()
   const initialSnapshot = useMemo(() => {
     if (isCaptureMode() || isMockDataMode(backendUp)) {
       return {
@@ -261,10 +263,10 @@ export function ExplorePage({
   }, [searching, homePreview.companies, homeSearchPool.companies, searchQuery])
 
   const watchlistRows = useMemo(() => {
-    const rows = buildExploreWatchlistPeople(investorEvents, { watchlistLatest: watchlistEvents })
+    const rows = buildExploreWatchlistPeople(investorEvents, { people: watchlistPeople, watchlistLatest: watchlistEvents })
     if (!searching) return rows
     return filterExploreHomeRows(rows, searchQuery)
-  }, [investorEvents, watchlistEvents, searchQuery, searching])
+  }, [investorEvents, watchlistEvents, watchlistPeople, searchQuery, searching])
 
   const openRecapEvent = useCallback(
     (slide) => {

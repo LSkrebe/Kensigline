@@ -3,6 +3,9 @@ import {
   exploreDirectoryTrailTone,
   formatExploreDirectoryTrailLabel,
 } from './exploreDirectoryTrail.js'
+import { WatchlistAddButton } from './WatchlistToggleButton.jsx'
+import { useUserWatchlist } from './UserWatchlistContext.jsx'
+import { investorRowWatchlistSlug, normalizeWatchlistCompanyTicker } from './userWatchlist.js'
 
 export function ExploreDirectoryEventMeta({ event, extraSameDay = 0 }) {
   return (
@@ -111,17 +114,31 @@ export function ExploreDirectoryInvestorRow({ row, onClick = null, className = n
 export const ExploreDirectoryActorRow = ExploreDirectoryInvestorRow
 
 function ExploreDirectoryListCompanyContent({ row }) {
-  const trail = row.trail ?? '—'
-  const trailTone = trail === '—' ? 'isFlat' : row.up ? 'isUp' : 'isDown'
+  const { hasCompany, addCompany } = useUserWatchlist()
+  const ticker = normalizeWatchlistCompanyTicker(row.ticker)
+  const onWatchlist = hasCompany(ticker)
 
   return (
     <>
       <span className="exploreDirectoryTicker mono">{row.ticker}</span>
       <div className="exploreDirectoryCopy">
-        <span className="exploreDirectoryName">{row.name}</span>
+        <span className="exploreDirectoryNameLine">
+          <span className="exploreDirectoryName">{row.name}</span>
+          <WatchlistAddButton
+            hidden={onWatchlist}
+            label={`Add ${row.name} to watchlist`}
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              addCompany(ticker, row.name)
+            }}
+          />
+        </span>
         <ExploreDirectoryEventMeta event={row.event} extraSameDay={row.extraSameDay} />
       </div>
-      <span className={['exploreDirectoryMove', 'mono', trailTone].join(' ')}>{trail}</span>
+      <span className={['exploreDirectoryMove', 'mono', trail === '—' ? 'isFlat' : row.up ? 'isUp' : 'isDown'].join(' ')}>
+        {row.trail ?? '—'}
+      </span>
       <span className="exploreDirectoryDate mono">{row.publishedDateLabel}</span>
     </>
   )
@@ -145,6 +162,9 @@ function ExploreDirectoryInvestorTickers({ tickers, max = INVESTOR_TICKER_PREVIE
 }
 
 function ExploreDirectoryListInvestorContent({ row }) {
+  const { hasPerson, addPersonFromRow } = useUserWatchlist()
+  const slug = investorRowWatchlistSlug(row)
+  const onWatchlist = hasPerson(slug, row.name)
   const netTone = exploreDirectoryNetFlowTone(row)
   const count = Number.isFinite(Number(row.positionCount))
     ? Math.max(0, Math.trunc(Number(row.positionCount)))
@@ -154,7 +174,18 @@ function ExploreDirectoryListInvestorContent({ row }) {
     <>
       <span className="exploreDirectoryTicker mono">{row.modeCode}</span>
       <div className="exploreDirectoryCopy">
-        <span className="exploreDirectoryName">{row.name}</span>
+        <span className="exploreDirectoryNameLine">
+          <span className="exploreDirectoryName">{row.name}</span>
+          <WatchlistAddButton
+            hidden={onWatchlist}
+            label={`Add ${row.name} to watchlist`}
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              addPersonFromRow(row)
+            }}
+          />
+        </span>
         <ExploreDirectoryInvestorTickers tickers={row.tickers} />
       </div>
       <span className="exploreDirectoryStat mono">
