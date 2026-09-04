@@ -50,6 +50,32 @@ function stripHonorific(name: string): string {
     .trim();
 }
 
+const POLITICIAN_NICKNAMES: Record<string, string> = {
+  tommy: "thomas",
+  tom: "thomas",
+  bill: "william",
+  jim: "james",
+  bob: "robert",
+  mike: "michael",
+};
+
+function expandSlugToken(token: string): string[] {
+  const t = String(token ?? "").trim().toLowerCase();
+  if (!t) return [];
+  const alias = POLITICIAN_NICKNAMES[t];
+  return alias && alias !== t ? [t, alias] : [t];
+}
+
+function slugTokensEquivalent(a: string, b: string): boolean {
+  const ta = String(a ?? "").trim().toLowerCase();
+  const tb = String(b ?? "").trim().toLowerCase();
+  if (!ta || !tb) return false;
+  if (ta === tb) return true;
+  const aVariants = expandSlugToken(ta);
+  const bVariants = expandSlugToken(tb);
+  return aVariants.some((av) => bVariants.includes(av));
+}
+
 function nameMatchesSlug(name: string, slug: string): boolean {
   const target = String(slug ?? "")
     .trim()
@@ -77,6 +103,17 @@ function nameMatchesSlug(name: string, slug: string): boolean {
     for (const raw of candidates) {
       const ns = slugifyName(raw);
       if (ns === rev || ns.includes(rev)) return true;
+    }
+    const targetLast = parts[parts.length - 1]!;
+    for (const raw of candidates) {
+      const ns = slugifyName(raw);
+      const nsParts = ns.split("-").filter(Boolean);
+      const nsLast = nsParts[nsParts.length - 1];
+      if (nsLast && nsLast === targetLast && nsLast.length >= 4) {
+        const targetFirst = parts[0]!;
+        const nsFirst = nsParts[0];
+        if (!targetFirst || !nsFirst || slugTokensEquivalent(targetFirst, nsFirst)) return true;
+      }
     }
   }
   return false;
@@ -137,17 +174,19 @@ async function loadFromStructuredTables(slug: string, mode: InvestorMode, limit:
     }>(
       `
       SELECT
-        it.insider_name,
-        it.insider_role,
-        it.transaction_code,
-        it.amount_usd::text,
-        it.transaction_at::text,
-        it.ticker,
-        c.name AS company_name
-      FROM insider_transactions it
-      LEFT JOIN companies c ON upper(trim(c.ticker)) = it.ticker
-      WHERE it.insider_name ILIKE $1
-      ORDER BY it.transaction_at DESC
+        f.display_name AS insider_name,
+        t.role AS insider_role,
+        t.transaction_code,
+        t.amount_usd::text,
+        t.transaction_at::text,
+        upper(trim(i.ticker)) AS ticker,
+        coalesce(nullif(trim(c.name), ''), upper(trim(i.ticker))) AS company_name
+      FROM insider_transactions t
+      JOIN filers f ON f.id = t.filer_id
+      JOIN issuers i ON i.id = t.issuer_id
+      LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(i.ticker))
+      WHERE f.display_name ILIKE $1
+      ORDER BY t.transaction_at DESC
       LIMIT $2
       `,
       [like, limit],
@@ -196,18 +235,20 @@ async function loadFromStructuredTables(slug: string, mode: InvestorMode, limit:
     }>(
       `
       SELECT
-        pt.politician_name,
-        pt.chamber,
-        pt.committee,
-        pt.transaction_type,
-        pt.amount_usd_mid::text,
-        pt.transaction_at::text,
-        pt.ticker,
-        c.name AS company_name
-      FROM politician_transactions pt
-      LEFT JOIN companies c ON upper(trim(c.ticker)) = pt.ticker
-      WHERE pt.politician_name ILIKE $1
-      ORDER BY pt.transaction_at DESC
+        f.display_name AS politician_name,
+        t.chamber,
+        t.committee,
+        t.transaction_type,
+        coalesce(t.amount_usd, t.amount_usd_mid)::text AS amount_usd_mid,
+        t.transaction_at::text,
+        upper(trim(i.ticker)) AS ticker,
+        coalesce(nullif(trim(c.name), ''), upper(trim(i.ticker))) AS company_name
+      FROM politician_transactions t
+      JOIN filers f ON f.id = t.filer_id
+      JOIN issuers i ON i.id = t.issuer_id
+      LEFT JOIN companies c ON upper(trim(c.ticker)) = upper(trim(i.ticker))
+      WHERE f.display_name ILIKE $1
+      ORDER BY t.transaction_at DESC
       LIMIT $2
       `,
       [like, limit],

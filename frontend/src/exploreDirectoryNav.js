@@ -11,6 +11,13 @@ export function exploreInvestorSlug(name) {
 /** @deprecated Use exploreInvestorSlug */
 export const exploreActorSlug = exploreInvestorSlug
 
+export function stripExploreInvestorHonorific(name) {
+  return String(name ?? '')
+    .trim()
+    .replace(/^(the\s+honorable|hon\.?|mr\.?|mrs\.?|ms\.?|dr\.?)\s+/i, '')
+    .trim()
+}
+
 /** Best-effort display name when only a URL slug is known. */
 export function exploreInvestorNameFromSlug(slug) {
   const s = String(slug ?? '').trim().replace(/-+/g, ' ')
@@ -44,6 +51,7 @@ export function exploreInvestorNameMatchesSlug(investorRow, slug) {
     const name = String(raw ?? '').trim()
     if (!name) continue
     if (exploreInvestorSlug(name) === target) return true
+    if (exploreInvestorSlug(stripExploreInvestorHonorific(name)) === target) return true
     // "PELOSI, NANCY" ↔ pelosi-nancy / nancy-pelosi
     if (name.includes(',')) {
       const [last, rest] = name.split(',').map((p) => p.trim())
@@ -51,7 +59,34 @@ export function exploreInvestorNameMatchesSlug(investorRow, slug) {
       if (last && rest && exploreInvestorSlug(`${last} ${rest}`) === target) return true
     }
   }
+
+  const targetParts = target.split('-').filter(Boolean)
+  const targetLast = targetParts[targetParts.length - 1]
+  if (targetLast && targetLast.length >= 4) {
+    for (const raw of candidates) {
+      const slugCandidate = exploreInvestorSlug(stripExploreInvestorHonorific(String(raw ?? '')))
+      const parts = slugCandidate.split('-').filter(Boolean)
+      if (parts[parts.length - 1] === targetLast) return true
+    }
+  }
+
   return false
+}
+
+export function watchlistCatalogEntryMatchesSlug(person, slug) {
+  const target = String(slug ?? '').trim().toLowerCase()
+  if (!target || !person) return false
+  const aliases = Array.isArray(person.slugAliases) ? person.slugAliases : []
+  const slugs = [
+    String(person.slug ?? '').trim().toLowerCase(),
+    exploreInvestorSlug(person.name),
+    ...aliases.map((s) => String(s).trim().toLowerCase()),
+  ].filter(Boolean)
+  if (slugs.includes(target)) return true
+  return exploreInvestorNameMatchesSlug(
+    { actorName: person.name, matchNames: person.matchNames ?? [] },
+    target,
+  )
 }
 
 /** @deprecated Use exploreInvestorNameMatchesSlug */

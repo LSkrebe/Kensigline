@@ -12428,16 +12428,20 @@ function KensiglineTerminal() {
 
   const onExploreInvestorClick = useCallback(
     (row) => {
-      const name = String(row?.name ?? '').trim()
+      const name = String(row?.feedName ?? row?.name ?? '').trim()
       if (!name || isPlaceholderInvestorName(name)) return
-      const preferredMode = row?.docType
-        ? exploreInvestorModeFromDocType(row.docType)
-        : exploreInvestorModeFromTypeKey(row?.typeKey ?? row?.type)
+      const preferredMode = row?.mode
+        ? exploreInvestorModeFromTypeKey(row.mode)
+        : row?.docType
+          ? exploreInvestorModeFromDocType(row.docType)
+          : exploreInvestorModeFromTypeKey(row?.typeKey ?? row?.type)
       const slug =
         String(row?.actorSlug ?? '')
           .trim()
           .toLowerCase() || exploreInvestorSlug(name)
-      const hit = findExploreInvestorInFeedsByName(name, preferredMode, exploreActorFeeds)
+      const hit =
+        findExploreInvestorInFeedsByName(name, preferredMode, exploreActorFeeds) ??
+        findExploreInvestorInFeeds(slug, exploreActorFeeds)
       const tick = String(row?.ticker ?? researchTick ?? '').trim().toUpperCase() || null
       let actorRow = hit?.row ?? stubActorRowFromExploreInvestor({ ...row, ticker: tick }, preferredMode)
       actorRow = enrichStubActorWithCompanyFlows(actorRow, {

@@ -1,11 +1,11 @@
-import { exploreInvestorSlug } from './exploreDirectoryNav.js'
+import { exploreInvestorSlug, stripExploreInvestorHonorific, watchlistCatalogEntryMatchesSlug } from './exploreDirectoryNav.js'
 import { exploreActorDocCode, exploreActorEventLabel, mapActorEventRows } from './exploreEventLabels.js'
 import { isPlausibleExploreInvestorRow } from './exploreInvestorFilter.js'
 import { resolveExploreRowTrail } from './exploreDirectoryMock.js'
 import {
   EXPLORE_WATCHLIST_CATALOG,
   WATCHLIST_TXNS_PER_PERSON,
-  watchlistPersonSlug,
+  watchlistPersonSlugs,
 } from './exploreWatchlistCatalog.js'
 
 function sortEventsNewestFirst(events) {
@@ -16,75 +16,55 @@ function sortEventsNewestFirst(events) {
   })
 }
 
-function isoDaysAgo(days) {
-  const d = new Date()
-  d.setHours(12, 0, 0, 0)
-  d.setDate(d.getDate() - days)
-  return d.toISOString().slice(0, 10)
-}
+function watchlistEventMatchesPerson(ev, person) {
+  const eventSlug = String(ev?.actorSlug ?? exploreInvestorSlug(ev?.name))
+    .trim()
+    .toLowerCase()
+  if (eventSlug && watchlistCatalogEntryMatchesSlug(person, eventSlug)) return true
 
-function watchlistNameMatches(eventName, person) {
-  const eventSlug = exploreInvestorSlug(eventName)
-  const targetSlug = watchlistPersonSlug(person)
-  if (!eventSlug || !targetSlug) return false
-  if (eventSlug === targetSlug) return true
+  const eventName = String(ev?.name ?? '').trim()
+  if (!eventName) return false
 
   const names = [person.name, ...(Array.isArray(person.matchNames) ? person.matchNames : [])]
   for (const raw of names) {
-    const name = String(raw ?? '').trim()
-    if (!name) continue
-    if (exploreInvestorSlug(name) === eventSlug) return true
-    if (name.includes(',')) {
-      const [last, rest] = name.split(',').map((p) => p.trim())
-      if (last && rest && exploreInvestorSlug(`${rest} ${last}`) === eventSlug) return true
-      if (last && rest && exploreInvestorSlug(`${last} ${rest}`) === eventSlug) return true
+    const catalogName = String(raw ?? '').trim()
+    if (!catalogName) continue
+    if (exploreInvestorSlug(catalogName) === exploreInvestorSlug(eventName)) return true
+    if (stripExploreInvestorHonorific(catalogName).toLowerCase() === stripExploreInvestorHonorific(eventName).toLowerCase()) {
+      return true
+    }
+    if (catalogName.includes(',')) {
+      const [last, rest] = catalogName.split(',').map((p) => p.trim())
+      if (last && rest) {
+        const flipped = `${rest} ${last}`
+        if (exploreInvestorSlug(flipped) === exploreInvestorSlug(eventName)) return true
+        if (stripExploreInvestorHonorific(flipped).toLowerCase() === stripExploreInvestorHonorific(eventName).toLowerCase()) {
+          return true
+        }
+      }
     }
   }
+
+  const catalogTokens = watchlistPersonSlugs(person).flatMap((s) => s.split('-').filter(Boolean))
+  const eventTokens = eventSlug.split('-').filter(Boolean)
+  const catalogLast = catalogTokens[catalogTokens.length - 1]
+  const eventLast = eventTokens[eventTokens.length - 1]
+  if (catalogLast && eventLast && catalogLast === eventLast && catalogLast.length >= 4) return true
+
   return false
 }
 
-function syntheticWatchlistTxn(person, index) {
-  const slug = watchlistPersonSlug(person)
-  const docType = person.docType ?? 'form4'
-  const ticker = String(person.defaultTicker ?? 'NVDA').trim().toUpperCase()
-  const isInstitution = String(docType).startsWith('13f')
-  const isSale = String(docType).includes('sale') || String(docType).includes('trim')
-  const dayOffset = index * 4 + 1
-  const tickers = ['NVDA', 'LRCX', 'MSFT', 'AMD', 'AVGO', 'AAPL']
-  const altTicker = tickers[(tickers.indexOf(ticker) + index) % tickers.length] ?? ticker
-
-  return {
-    id: `wl-synth-${slug}-${index}`,
-    date: isoDaysAgo(dayOffset),
-    name: person.name,
-    ticker: index === 0 ? ticker : altTicker,
-    docType,
-    event: exploreActorEventLabel(docType),
-    trail: isInstitution
-      ? isSale
-        ? '-$48M'
-        : '+$112M'
-      : isSale
-        ? '-$420K'
-        : '+$680K',
-    up: !isSale,
-  }
-}
-
-function pickWatchlistTxns(person, events, count) {
+function dedupeWatchlistEvents(events, limit) {
   const unique = []
   const seen = new Set()
   for (const ev of events) {
-    const key = `${ev.ticker}|${ev.date}|${ev.trail}|${ev.docType}`
+    const key = `${ev.id}|${ev.ticker}|${ev.date}|${ev.trail}|${ev.docType}`
     if (seen.has(key)) continue
     seen.add(key)
     unique.push(ev)
-    if (unique.length >= count) break
+    if (unique.length >= limit) break
   }
-  while (unique.length < count) {
-    unique.push(syntheticWatchlistTxn(person, unique.length))
-  }
-  return unique.slice(0, count)
+  return unique
 }
 
 /** Pull raw investor events from an explore directory bundle. */
@@ -95,7 +75,7 @@ export function extractExploreInvestorEvents(directoryBundle) {
 }
 
 /**
- * One home-style row per watchlist person (latest filing + "+N" when more activity).
+ * One row per catalog person with real directory events only (no synthetic padding).
  * @param {Array} investorEvents
  * @param {{ people?: Array, txnsPerPerson?: number }} [opts]
  */
@@ -107,20 +87,26 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
   const rows = []
 
   for (const person of people) {
-    const slug = watchlistPersonSlug(person)
-    const personEvents = sorted.filter((ev) => watchlistNameMatches(ev.name, person))
-    const txns = pickWatchlistTxns(person, personEvents, txnsPerPerson)
-    const lead = txns[0]
-    if (!lead) continue
+    const personEvents = sorted.filter((ev) => watchlistEventMatchesPerson(ev, person))
+    const txns = dedupeWatchlistEvents(personEvents, txnsPerPerson)
+    if (!txns.length) continue
 
+    const lead = txns[0]
     const tickers = [...new Set(txns.map((t) => String(t.ticker ?? '').trim().toUpperCase()).filter(Boolean))]
     const modeCode = exploreActorDocCode(lead.docType)
     const { trail, muted } = resolveExploreRowTrail(lead, 'investor')
+    const actorSlug =
+      String(lead.actorSlug ?? '')
+        .trim()
+        .toLowerCase() || watchlistPersonSlugs(person)[0]
 
     rows.push({
-      id: `wl-${slug}`,
+      id: `wl-${actorSlug}`,
       name: person.name,
-      actorSlug: slug,
+      feedName: String(lead.name ?? person.name).trim(),
+      actorSlug,
+      mode: person.mode,
+      typeKey: person.mode,
       ticker: tickers.length > 1 ? modeCode : lead.ticker,
       tickers: tickers.length > 1 ? tickers : undefined,
       docType: lead.docType,
