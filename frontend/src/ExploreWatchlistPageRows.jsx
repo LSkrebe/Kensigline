@@ -26,7 +26,7 @@ export function ExploreWatchlistPagePersonRow({ row, onEventClick = null }) {
   return (
     <>
       <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist exploreWatchlistPageNameRow">
-        <div className="exploreDirectoryCopy exploreWatchlistPageNameCopy">
+        <div className="exploreWatchlistPageNameLead">
           <span className="exploreDirectoryNameLine">
             <span className="exploreDirectoryName">{row.name}</span>
             <WatchlistRemoveButton
@@ -35,7 +35,7 @@ export function ExploreWatchlistPagePersonRow({ row, onEventClick = null }) {
             />
           </span>
         </div>
-        <span className="exploreDirectoryAmount mono" aria-hidden="true" />
+        <span className="exploreDirectoryAmount mono exploreWatchlistPageNameGap" aria-hidden="true" />
         <span className="exploreDirectoryDate mono exploreDirectoryMeta">{modeLabel}</span>
       </li>
       {events.map((event) => (

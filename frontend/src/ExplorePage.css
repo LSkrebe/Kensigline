@@ -491,6 +491,7 @@
 .exploreWatchlistPageNameRow {
   display: grid;
   grid-template-columns:
+    var(--explore-directory-ticker-w)
     minmax(0, 1fr)
     var(--explore-directory-trail-w)
     var(--explore-directory-date-w);
@@ -499,9 +500,24 @@
   padding: 14px 0;
 }
 
-.exploreWatchlistPageNameRow .exploreDirectoryCopy,
-.exploreWatchlistPageNameCopy {
+.exploreWatchlistPageNameLead {
+  grid-column: 1 / 3;
   min-width: 0;
+}
+
+.exploreWatchlistPageNameRow .exploreDirectoryNameLine {
+  width: 100%;
+  max-width: none;
+}
+
+.exploreWatchlistPageNameRow .exploreDirectoryNameLine .exploreDirectoryName {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.exploreWatchlistPageNameGap {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .exploreDirectoryNameLine {
