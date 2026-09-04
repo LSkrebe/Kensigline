@@ -117,6 +117,7 @@ function ExploreDirectoryListCompanyContent({ row }) {
   const { hasCompany, addCompany } = useUserWatchlist()
   const ticker = normalizeWatchlistCompanyTicker(row.ticker)
   const onWatchlist = hasCompany(ticker)
+  const trailLabel = row.trail ?? '—'
 
   return (
     <>
@@ -136,8 +137,8 @@ function ExploreDirectoryListCompanyContent({ row }) {
         </span>
         <ExploreDirectoryEventMeta event={row.event} extraSameDay={row.extraSameDay} />
       </div>
-      <span className={['exploreDirectoryMove', 'mono', row.trail === '—' ? 'isFlat' : row.up ? 'isUp' : 'isDown'].join(' ')}>
-        {row.trail ?? '—'}
+      <span className={['exploreDirectoryMove', 'mono', trailLabel === '—' ? 'isFlat' : row.up ? 'isUp' : 'isDown'].join(' ')}>
+        {trailLabel}
       </span>
       <span className="exploreDirectoryDate mono">{row.publishedDateLabel}</span>
     </>
