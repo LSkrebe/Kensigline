@@ -27,3 +27,13 @@ export function exploreDirectoryNetFlowTone(row) {
   if (net === 0 || label === '$0' || label === '—') return 'isFlat'
   return net > 0 ? 'isUp' : 'isDown'
 }
+
+/** Right-rail move labels on explore recap / headline rows. */
+export function exploreMoveLabelTone(moveLabel, moveUp = true) {
+  const label = formatExploreDirectoryTrailLabel(moveLabel)
+  if (!label || label === '—') return 'isFlat'
+  if (/^[+\-−]?\$0(\.0+)?([KMB])?$/i.test(label)) return 'isFlat'
+  const usd = parseExploreTrailUsd(label)
+  if (usd === 0) return 'isFlat'
+  return moveUp ? 'isUp' : 'isDown'
+}

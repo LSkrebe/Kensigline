@@ -1,4 +1,5 @@
 import { MiniPriceChart } from './MiniPriceChart.jsx'
+import { exploreMoveLabelTone } from './exploreDirectoryTrail.js'
 
 const EXPLORE_STORY_SPARK_W = 120
 const EXPLORE_STORY_SPARK_H = 48
@@ -42,7 +43,7 @@ function ExploreStoryRow({ slide, onOpenEvent, dateLabel }) {
         ) : null}
         {slide.moveLabel ? (
           <span
-            className={['exploreStoryRowMove', 'exploreDirectoryMove', 'mono', slide.moveUp ? 'isUp' : 'isDown'].join(' ')}
+            className={['exploreStoryRowMove', 'exploreDirectoryMove', 'mono', exploreMoveLabelTone(slide.moveLabel, slide.moveUp)].join(' ')}
           >
             {slide.moveLabel}
           </span>
