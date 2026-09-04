@@ -462,6 +462,139 @@
   text-overflow: ellipsis;
 }
 
+/* ── Watchlist page — expandable person groups ── */
+
+.exploreWatchlistPageList {
+  display: flex;
+  flex-direction: column;
+}
+
+.exploreWatchlistPageGroup {
+  list-style: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.exploreWatchlistPageGroupHead {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 14px 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.exploreWatchlistPageGroup.isEmpty .exploreWatchlistPageGroupHead {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.exploreWatchlistPageGroupChevron {
+  justify-self: center;
+  font-size: 13px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.exploreWatchlistPageGroupCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.exploreWatchlistPageGroupName {
+  font-size: 14px;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.exploreWatchlistPageGroupMeta {
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.exploreWatchlistPageGroupStat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.exploreWatchlistPageGroupAmount {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.exploreWatchlistPageGroupAmount.isUp {
+  color: rgba(92, 184, 138, 0.92);
+}
+
+.exploreWatchlistPageGroupAmount.isDown {
+  color: rgba(212, 114, 106, 0.92);
+}
+
+.exploreWatchlistPageGroupAmount.isFlat {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.exploreWatchlistPageGroupDate {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.38);
+  font-variant-numeric: tabular-nums;
+}
+
+.exploreWatchlistPageEventList {
+  margin: 0;
+  padding: 0 0 8px 32px;
+  list-style: none;
+}
+
+.exploreWatchlistPageEventRow {
+  list-style: none;
+}
+
+.exploreWatchlistPageEventBtn,
+.exploreWatchlistPageEventRow:not(:has(.exploreWatchlistPageEventBtn)) {
+  display: grid;
+  grid-template-columns:
+    var(--explore-directory-ticker-w)
+    minmax(0, 1fr)
+    var(--explore-directory-trail-w)
+    var(--explore-directory-date-w);
+  gap: var(--explore-directory-col-gap);
+  align-items: center;
+  width: 100%;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.exploreWatchlistPageEventBtn {
+  cursor: pointer;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.exploreWatchlistPageEventBtn:hover {
+  opacity: 0.88;
+}
+
 .exploreDirectoryStat {
   justify-self: end;
   display: inline-flex;

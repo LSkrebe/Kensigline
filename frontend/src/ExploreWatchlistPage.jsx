@@ -4,7 +4,7 @@ import { isMockDataMode } from './dataMode.js'
 import { loadExploreDirectoryBundle } from './exploreApi.js'
 import { buildExploreInvestorEvents } from './exploreDirectoryMock.js'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
-import { ExploreWatchlistPersonRow } from './ExploreWatchlistRows.jsx'
+import { ExploreWatchlistPagePersonRow } from './ExploreWatchlistPageRows.jsx'
 import { buildExploreWatchlistPeople, extractExploreInvestorEvents, extractExploreWatchlistEvents } from './exploreWatchlistData.js'
 import { useCollapseScroll } from './collapseScroll.js'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
@@ -178,10 +178,26 @@ export function ExploreWatchlistPage({
               .filter(Boolean)
               .join(' ')}
           >
-            <ul className="exploreDirectoryList exploreWatchlistList">
+            <ul className="exploreDirectoryList exploreWatchlistList exploreWatchlistPageList">
               {visibleRows.length ? (
                 visibleRows.map((row) => (
-                  <ExploreWatchlistPersonRow key={row.id} row={row} onClick={onInvestorRowClick} />
+                  <ExploreWatchlistPagePersonRow
+                    key={row.id}
+                    row={row}
+                    onEventClick={
+                      onInvestorRowClick
+                        ? (event) =>
+                            onInvestorRowClick({
+                              ...row,
+                              ticker: event.ticker,
+                              docType: event.docType,
+                              trail: event.trail,
+                              date: event.date,
+                              id: event.id,
+                            })
+                        : null
+                    }
+                  />
                 ))
               ) : rowsLoading ? (
                 <li className="exploreDirectoryEmpty mono exploreDirectoryEmpty--loading">Loading…</li>

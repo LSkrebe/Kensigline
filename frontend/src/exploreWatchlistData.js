@@ -54,6 +54,55 @@ function watchlistEventMatchesPerson(ev, person) {
   return false
 }
 
+function watchlistModeLabel(mode) {
+  if (mode === 'politicians') return 'Politician'
+  if (mode === 'insiders') return 'Insider'
+  if (mode === 'institutions') return 'Institution'
+  return 'Investor'
+}
+
+function mapWatchlistEventRow(ev) {
+  const labeled = mapActorEventRows([ev]).filter(isPlausibleExploreInvestorRow)[0] ?? ev
+  const { trail, muted } = resolveExploreRowTrail(labeled, 'investor')
+  return {
+    id: labeled.id ?? `${labeled.ticker}-${labeled.date}`,
+    ticker: labeled.ticker,
+    docType: labeled.docType,
+    event: labeled.event ?? exploreActorEventLabel(labeled.docType),
+    trail,
+    trailMuted: muted,
+    up: muted || trail === '$0' ? false : labeled.up ?? true,
+    date: labeled.date,
+    actorSlug: labeled.actorSlug,
+  }
+}
+
+function recentEventsForPerson(directLatest, personEvents, txnsPerPerson) {
+  const fromApi = Array.isArray(directLatest?.recentEvents) ? directLatest.recentEvents : null
+  const source = fromApi?.length ? fromApi : personEvents
+  return dedupeWatchlistEvents(
+    mapActorEventRows(source).filter(isPlausibleExploreInvestorRow),
+    txnsPerPerson,
+  ).map(mapWatchlistEventRow)
+}
+
+function attachWatchlistEvents(row, events) {
+  const lead = events[0]
+  const preserveGroupedTicker = Array.isArray(row.tickers) && row.tickers.length > 1
+  return {
+    ...row,
+    modeLabel: watchlistModeLabel(row.mode),
+    events,
+    ticker: preserveGroupedTicker ? row.ticker : lead?.ticker ?? row.ticker,
+    docType: lead?.docType ?? row.docType,
+    event: lead?.event ?? row.event,
+    trail: lead?.trail ?? row.trail,
+    trailMuted: lead?.trailMuted ?? row.trailMuted,
+    up: lead?.up ?? row.up,
+    date: lead?.date ?? row.date,
+  }
+}
+
 function dedupeWatchlistEvents(events, limit) {
   const unique = []
   const seen = new Set()
@@ -85,6 +134,8 @@ function emptyWatchlistRow(person) {
     extraSameDay: 0,
     date: null,
     empty: true,
+    events: [],
+    modeLabel: watchlistModeLabel(person.mode),
   }
 }
 
@@ -133,22 +184,29 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
         String(lead.actorSlug ?? '')
           .trim()
           .toLowerCase() || watchlistPersonSlugs(person)[0]
-      rows.push({
-        id: `wl-${actorSlug}`,
-        name: person.name,
-        feedName: String(lead.name ?? person.name).trim(),
-        actorSlug,
-        mode: person.mode,
-        typeKey: person.mode,
-        ticker: lead.ticker,
-        docType: lead.docType,
-        event: lead.event ?? exploreActorEventLabel(lead.docType),
-        trail,
-        trailMuted: muted,
-        up: muted || trail === '$0' ? false : lead.up ?? true,
-        extraSameDay: Math.max(0, Number(lead.extraSameDay ?? 0)),
-        date: lead.date,
-      })
+      const personEvents = sorted.filter((ev) => watchlistEventMatchesPerson(ev, person))
+      const events = recentEventsForPerson(directLatest, personEvents, txnsPerPerson)
+      rows.push(
+        attachWatchlistEvents(
+          {
+            id: `wl-${actorSlug}`,
+            name: person.name,
+            feedName: String(lead.name ?? person.name).trim(),
+            actorSlug,
+            mode: person.mode,
+            typeKey: person.mode,
+            ticker: lead.ticker,
+            docType: lead.docType,
+            event: lead.event ?? exploreActorEventLabel(lead.docType),
+            trail,
+            trailMuted: muted,
+            up: muted || trail === '$0' ? false : lead.up ?? true,
+            extraSameDay: Math.max(0, Number(lead.extraSameDay ?? 0)),
+            date: lead.date,
+          },
+          events,
+        ),
+      )
       continue
     }
 
@@ -160,6 +218,7 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
     }
 
     const lead = txns[0]
+    const events = txns.map(mapWatchlistEventRow)
     const tickers = [...new Set(txns.map((t) => String(t.ticker ?? '').trim().toUpperCase()).filter(Boolean))]
     const modeCode = exploreActorDocCode(lead.docType)
     const { trail, muted } = resolveExploreRowTrail(lead, 'investor')
@@ -168,23 +227,28 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
         .trim()
         .toLowerCase() || watchlistPersonSlugs(person)[0]
 
-    rows.push({
-      id: `wl-${actorSlug}`,
-      name: person.name,
-      feedName: String(lead.name ?? person.name).trim(),
-      actorSlug,
-      mode: person.mode,
-      typeKey: person.mode,
-      ticker: tickers.length > 1 ? modeCode : lead.ticker,
-      tickers: tickers.length > 1 ? tickers : undefined,
-      docType: lead.docType,
-      event: lead.event ?? exploreActorEventLabel(lead.docType),
-      trail,
-      trailMuted: muted,
-      up: muted || trail === '$0' ? false : lead.up ?? true,
-      extraSameDay: Math.max(0, lead.extraSameDay ?? txns.length - 1),
-      date: lead.date,
-    })
+    rows.push(
+      attachWatchlistEvents(
+        {
+          id: `wl-${actorSlug}`,
+          name: person.name,
+          feedName: String(lead.name ?? person.name).trim(),
+          actorSlug,
+          mode: person.mode,
+          typeKey: person.mode,
+          ticker: tickers.length > 1 ? modeCode : lead.ticker,
+          tickers: tickers.length > 1 ? tickers : undefined,
+          docType: lead.docType,
+          event: lead.event ?? exploreActorEventLabel(lead.docType),
+          trail,
+          trailMuted: muted,
+          up: muted || trail === '$0' ? false : lead.up ?? true,
+          extraSameDay: Math.max(0, lead.extraSameDay ?? txns.length - 1),
+          date: lead.date,
+        },
+        events,
+      ),
+    )
   }
 
   return rows

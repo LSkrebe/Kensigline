@@ -174,7 +174,37 @@ async function loadInstitutionRows(slugs: string[]): Promise<RawTxnRow[]> {
 
 export type ExploreWatchlistLatestEvent = ExploreDirectoryEvent & {
   extraSameDay?: number;
+  recentEvents?: ExploreDirectoryEvent[];
 };
+
+const WATCHLIST_RECENT_EVENTS_MAX = 3;
+
+function rowToEvent(person: (typeof EXPLORE_WATCHLIST_CATALOG)[number], row: RawTxnRow): ExploreDirectoryEvent | null {
+  return person.mode === "politicians"
+    ? politicianEvent(row)
+    : person.mode === "insiders"
+      ? insiderEvent(row)
+      : institutionEvent(row);
+}
+
+function collectRecentEvents(
+  person: (typeof EXPLORE_WATCHLIST_CATALOG)[number],
+  sorted: RawTxnRow[],
+  max = WATCHLIST_RECENT_EVENTS_MAX,
+): ExploreDirectoryEvent[] {
+  const out: ExploreDirectoryEvent[] = [];
+  const seen = new Set<string>();
+  for (const row of sorted) {
+    const candidate = rowToEvent(person, row);
+    if (!candidate) continue;
+    const key = `${candidate.id}|${candidate.ticker}|${candidate.date}|${candidate.trail}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(candidate);
+    if (out.length >= max) break;
+  }
+  return out;
+}
 
 /** Latest real transaction per watchlist catalog person (full history, all slug aliases). */
 export async function buildExploreWatchlistLatest(): Promise<ExploreWatchlistLatestEvent[]> {
@@ -214,25 +244,18 @@ export async function buildExploreWatchlistLatest(): Promise<ExploreWatchlistLat
       return String(b.id).localeCompare(String(a.id));
     });
 
-    let latest: RawTxnRow | null = null;
-    let event: ExploreDirectoryEvent | null = null;
-    for (const row of sorted) {
-      const candidate =
-        person.mode === "politicians"
-          ? politicianEvent(row)
-          : person.mode === "insiders"
-            ? insiderEvent(row)
-            : institutionEvent(row);
-      if (candidate) {
-        latest = row;
-        event = candidate;
-        break;
-      }
-    }
-    if (!latest || !event) continue;
+    const recentEvents = collectRecentEvents(person, sorted);
+    const event = recentEvents[0] ?? null;
+    if (!event) continue;
+
+    const latest = sorted.find((row) => {
+      const candidate = rowToEvent(person, row);
+      return candidate?.id === event.id;
+    });
+    if (!latest) continue;
 
     const sameDay = Math.max(0, countSameDayRows(matched, latest.filing_date) - 1);
-    out.push({ ...event, name: person.name, extraSameDay: sameDay });
+    out.push({ ...event, name: person.name, extraSameDay: sameDay, recentEvents });
   }
 
   return out;
