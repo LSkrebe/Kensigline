@@ -36,7 +36,8 @@ export function useExploreScrollList({
 
   const loadMore = useCallback(
     (amount = step) => {
-      setVisibleCount((n) => Math.min(rowsLengthRef.current, n + amount))
+      const delta = typeof amount === 'number' && Number.isFinite(amount) ? amount : step
+      setVisibleCount((n) => Math.min(rowsLengthRef.current, n + delta))
     },
     [step],
   )

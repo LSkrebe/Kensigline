@@ -1,20 +1,23 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './AuthContext.jsx'
 import { isMockDataMode } from './dataMode.js'
 import { loadExploreDirectoryBundle } from './exploreApi.js'
-import { buildExploreInvestorEvents } from './exploreDirectoryMock.js'
+import { buildExploreInvestorEvents, EXPLORE_DIRECTORY_BLOCK } from './exploreDirectoryMock.js'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { ExploreWatchlistPagePersonRow } from './ExploreWatchlistPageRows.jsx'
 import { buildExploreWatchlistPeople, extractExploreInvestorEvents, extractExploreWatchlistEvents } from './exploreWatchlistData.js'
 import { useUserWatchlist } from './UserWatchlistContext.jsx'
 import { useCollapseScroll } from './collapseScroll.js'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
+import { useExploreScrollList } from './useExploreScrollList.js'
 import './DeepReport.css'
 import './ExplorePage.css'
 
 const EXPLORE_WATCHLIST_COLLAPSE_RANGE_FALLBACK = 1
 const EXPLORE_WATCHLIST_EXPANDED_FADE_END = 0.88
 const EXPLORE_WATCHLIST_COMPACT_FADE_START = 0
+const EXPLORE_WATCHLIST_COMPACT_MQ = '(max-width: 960px)'
+const EXPLORE_WATCHLIST_COMPACT_STEP = 10
 
 function exploreWatchlistCollapseProgressVars(progress) {
   const p = Math.min(1, Math.max(0, progress))
@@ -30,6 +33,39 @@ function exploreWatchlistCollapseProgressVars(progress) {
   }
 }
 
+function useExploreWatchlistCompactLayout() {
+  const [compact, setCompact] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(EXPLORE_WATCHLIST_COMPACT_MQ).matches,
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia(EXPLORE_WATCHLIST_COMPACT_MQ)
+    const onChange = () => setCompact(mq.matches)
+    onChange()
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  return compact
+}
+
+function ExploreWatchlistShowMoreButton({ remaining, onClick }) {
+  const step = Math.min(EXPLORE_WATCHLIST_COMPACT_STEP, remaining)
+  return (
+    <button
+      type="button"
+      className="drpt-showMore exploreDirShowMore"
+      onClick={onClick}
+      aria-label={`Show ${step} more`}
+    >
+      <span className="drpt-showMoreChip" aria-hidden="true">
+        <span className="drpt-showMoreSign">+</span>
+        <span className="drpt-showMoreLabel">{step}</span>
+      </span>
+    </button>
+  )
+}
+
 export function ExploreWatchlistPage({
   backendUp = null,
   macroActive = false,
@@ -43,6 +79,8 @@ export function ExploreWatchlistPage({
   const { user } = useAuth()
   const authUserId = user?.id ?? null
   const { watchlistPeople } = useUserWatchlist()
+  const compact = useExploreWatchlistCompactLayout()
+  const pageSize = compact ? EXPLORE_WATCHLIST_COMPACT_STEP : EXPLORE_DIRECTORY_BLOCK
   const [searchQuery, setSearchQuery] = useState('')
   const [rowsLoading, setRowsLoading] = useState(() => !isMockDataMode(backendUp))
   const [rows, setRows] = useState(() =>
@@ -50,24 +88,55 @@ export function ExploreWatchlistPage({
       ? buildExploreWatchlistPeople(buildExploreInvestorEvents(), { people: watchlistPeople })
       : [],
   )
+  const bundleCacheRef = useRef(null)
+  const fetchKeyRef = useRef(`${backendUp}:${authUserId ?? ''}`)
   const { pageRef, dockRef, spacerRef } = useCollapseScroll({
     progressVars: exploreWatchlistCollapseProgressVars,
     resetKey: 'watchlist',
     rangeFallback: EXPLORE_WATCHLIST_COLLAPSE_RANGE_FALLBACK,
   })
   const normalizedQuery = normalizeExploreSearchQuery(searchQuery)
+  const watchlistPeopleKey = useMemo(
+    () =>
+      watchlistPeople
+        .map((person) => `${person.name}:${person.slug ?? ''}:${person.mode ?? ''}`)
+        .join('|'),
+    [watchlistPeople],
+  )
 
   useEffect(() => {
     let cancelled = false
+    const fetchKey = `${backendUp}:${authUserId ?? ''}`
+    if (fetchKeyRef.current !== fetchKey) {
+      fetchKeyRef.current = fetchKey
+      bundleCacheRef.current = null
+    }
+
     if (isMockDataMode(backendUp)) {
       setRows(buildExploreWatchlistPeople(buildExploreInvestorEvents(), { people: watchlistPeople }))
       setRowsLoading(false)
       return
     }
+
+    const rebuildFromCache = () => {
+      const bundle = bundleCacheRef.current
+      if (!bundle) return false
+      const events = extractExploreInvestorEvents(bundle)
+      const latest = extractExploreWatchlistEvents(bundle)
+      setRows(buildExploreWatchlistPeople(events, { people: watchlistPeople, watchlistLatest: latest }))
+      return true
+    }
+
+    if (rebuildFromCache()) {
+      setRowsLoading(false)
+      return
+    }
+
     setRowsLoading(true)
     ;(async () => {
       const bundle = await loadExploreDirectoryBundle(backendUp)
       if (cancelled) return
+      bundleCacheRef.current = bundle
       const events = extractExploreInvestorEvents(bundle)
       const latest = extractExploreWatchlistEvents(bundle)
       setRows(buildExploreWatchlistPeople(events, { people: watchlistPeople, watchlistLatest: latest }))
@@ -76,12 +145,21 @@ export function ExploreWatchlistPage({
     return () => {
       cancelled = true
     }
-  }, [backendUp, authUserId, watchlistPeople])
+  }, [backendUp, authUserId, watchlistPeopleKey, watchlistPeople])
 
   const filteredRows = useMemo(
     () => filterExploreHomeRows(rows, searchQuery),
     [rows, searchQuery],
   )
+
+  const { visibleRows, hasMore, remaining, loadMore, sentinelRef } = useExploreScrollList({
+    rows: filteredRows,
+    pageSize,
+    compact,
+    scrollRootRef: pageRef,
+    loadStep: compact ? EXPLORE_WATCHLIST_COMPACT_STEP : EXPLORE_DIRECTORY_BLOCK,
+    resetKey: `watchlist:${normalizedQuery}:${watchlistPeopleKey}`,
+  })
 
   const searching = normalizedQuery.length > 0
 
@@ -131,10 +209,14 @@ export function ExploreWatchlistPage({
         <div ref={spacerRef} className="drpt-collapseSpacer" aria-hidden="true" />
 
         <div className="exploreDirPaper">
-          <div className="exploreDirListPanel">
+          <div
+            className={['exploreDirListPanel', compact && hasMore ? 'exploreDirListPanel--truncated' : '']
+              .filter(Boolean)
+              .join(' ')}
+          >
             <ul className="exploreDirectoryList exploreWatchlistList">
-              {filteredRows.length ? (
-                filteredRows.map((row) => (
+              {visibleRows.length ? (
+                visibleRows.map((row) => (
                   <ExploreWatchlistPagePersonRow
                     key={row.id}
                     row={row}
@@ -161,6 +243,15 @@ export function ExploreWatchlistPage({
                 <li className="exploreDirectoryEmpty mono">No one on your watchlist yet</li>
               )}
             </ul>
+            {compact && hasMore ? (
+              <ExploreWatchlistShowMoreButton
+                remaining={remaining}
+                onClick={() => loadMore(EXPLORE_WATCHLIST_COMPACT_STEP)}
+              />
+            ) : null}
+            {!compact && hasMore ? (
+              <div ref={sentinelRef} className="exploreDirScrollSentinel" aria-hidden="true" />
+            ) : null}
           </div>
         </div>
       </div>
