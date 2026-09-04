@@ -1,14 +1,5 @@
-import { useState } from 'react'
 import { ExploreDirectoryEventMeta, exploreRowDateLabel } from './ExploreDirectoryRows.jsx'
 import { formatExploreDirectoryTrailLabel, exploreDirectoryTrailTone } from './exploreDirectoryTrail.js'
-
-function watchlistPersonSublabel(row) {
-  if (row.empty) return 'No filings yet'
-  const parts = [row.modeLabel].filter(Boolean)
-  const ticker = String(row.ticker ?? '').trim()
-  if (ticker && ticker !== '—') parts.push(ticker)
-  return parts.join(' · ')
-}
 
 function ExploreWatchlistPageEventRow({ event, onClick = null }) {
   const trailTone = exploreDirectoryTrailTone(event)
@@ -27,49 +18,36 @@ function ExploreWatchlistPageEventRow({ event, onClick = null }) {
 
   if (onClick) {
     return (
-      <li className="exploreWatchlistPageEventRow">
-        <button type="button" className="exploreWatchlistPageEventBtn" onClick={() => onClick(event)}>
+      <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist exploreWatchlistPageEventRow">
+        <button type="button" className="exploreDirectoryRowBtn" onClick={() => onClick(event)}>
           {content}
         </button>
       </li>
     )
   }
 
-  return <li className="exploreWatchlistPageEventRow">{content}</li>
+  return (
+    <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist exploreWatchlistPageEventRow">
+      <div className="exploreWatchlistPageEventInner">{content}</div>
+    </li>
+  )
 }
 
 export function ExploreWatchlistPagePersonRow({ row, onEventClick = null }) {
-  const [open, setOpen] = useState(false)
   const events = Array.isArray(row.events) ? row.events : []
-  const expandable = events.length > 0
-  const trailTone = exploreDirectoryTrailTone(row)
-  const trailLabel = formatExploreDirectoryTrailLabel(row.trail)
-  const sublabel = watchlistPersonSublabel(row)
+  const modeLabel = row.empty ? '—' : row.modeLabel
 
   return (
-    <li className={['exploreWatchlistPageGroup', open ? 'isOpen' : '', row.empty ? 'isEmpty' : ''].filter(Boolean).join(' ')}>
-      <button
-        type="button"
-        className="exploreWatchlistPageGroupHead"
-        aria-expanded={expandable ? open : undefined}
-        disabled={!expandable}
-        onClick={() => {
-          if (expandable) setOpen((v) => !v)
-        }}
-      >
-        <span className="exploreWatchlistPageGroupChevron mono" aria-hidden="true">
-          {expandable ? (open ? '−' : '+') : '·'}
-        </span>
-        <span className="exploreWatchlistPageGroupCopy">
-          <span className="exploreWatchlistPageGroupName">{row.name}</span>
-          <span className="exploreWatchlistPageGroupMeta mono">{sublabel}</span>
-        </span>
-        <span className="exploreWatchlistPageGroupStat">
-          <span className={['exploreWatchlistPageGroupAmount', 'mono', trailTone].join(' ')}>{trailLabel}</span>
-          <span className="exploreWatchlistPageGroupDate mono">{row.date ? exploreRowDateLabel(row) : '—'}</span>
-        </span>
-      </button>
-      {open && events.length ? (
+    <li className={['exploreWatchlistPageGroup', row.empty ? 'isEmpty' : ''].filter(Boolean).join(' ')}>
+      <div className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist exploreWatchlistPageGroupHead">
+        <span className="exploreDirectoryTicker mono exploreWatchlistPageGroupTicker" aria-hidden="true" />
+        <div className="exploreDirectoryCopy">
+          <span className="exploreDirectoryName">{row.name}</span>
+        </div>
+        <span className="exploreDirectoryAmount mono exploreWatchlistPageGroupSpacer" aria-hidden="true" />
+        <span className="exploreDirectoryDate mono exploreDirectoryMeta">{modeLabel}</span>
+      </div>
+      {events.length ? (
         <ul className="exploreWatchlistPageEventList">
           {events.map((event) => (
             <ExploreWatchlistPageEventRow
@@ -79,6 +57,8 @@ export function ExploreWatchlistPagePersonRow({ row, onEventClick = null }) {
             />
           ))}
         </ul>
+      ) : row.empty ? (
+        <p className="exploreWatchlistPageEmpty mono">No filings yet</p>
       ) : null}
     </li>
   )
