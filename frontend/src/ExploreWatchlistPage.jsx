@@ -178,7 +178,7 @@ export function ExploreWatchlistPage({
               .filter(Boolean)
               .join(' ')}
           >
-            <ul className="exploreDirectoryList exploreWatchlistList exploreWatchlistPageList">
+            <ul className="exploreDirectoryList exploreWatchlistList">
               {visibleRows.length ? (
                 visibleRows.map((row) => (
                   <ExploreWatchlistPagePersonRow

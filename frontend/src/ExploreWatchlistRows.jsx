@@ -1,7 +1,7 @@
 import { ExploreDirectoryEventMeta, exploreRowDateLabel } from './ExploreDirectoryRows.jsx'
 import { formatExploreDirectoryTrailLabel, exploreDirectoryTrailTone } from './exploreDirectoryTrail.js'
 
-function ExploreWatchlistPersonRowContent({ row }) {
+function ExploreWatchlistPersonRowContent({ row, hideName = false }) {
   const trailTone = exploreDirectoryTrailTone(row)
   const trailLabel = formatExploreDirectoryTrailLabel(row.trail)
 
@@ -9,7 +9,7 @@ function ExploreWatchlistPersonRowContent({ row }) {
     <>
       <span className="exploreDirectoryTicker mono">{row.ticker}</span>
       <div className="exploreDirectoryCopy">
-        <span className="exploreDirectoryName">{row.name}</span>
+        {hideName ? null : <span className="exploreDirectoryName">{row.name}</span>}
         {Array.isArray(row.tickers) && row.tickers.length > 1 ? (
           <span className="exploreDirectoryMeta exploreDirectoryMeta--tickers mono">
             {row.tickers.slice(0, 3).join(' ')}
@@ -27,7 +27,7 @@ function ExploreWatchlistPersonRowContent({ row }) {
   )
 }
 
-export function ExploreWatchlistPersonRow({ row, onClick = null }) {
+export function ExploreWatchlistPersonRow({ row, onClick = null, hideName = false }) {
   const label = row.name
 
   if (onClick) {
@@ -39,7 +39,7 @@ export function ExploreWatchlistPersonRow({ row, onClick = null }) {
           aria-label={`Open ${label}`}
           onClick={() => onClick(row)}
         >
-          <ExploreWatchlistPersonRowContent row={row} />
+          <ExploreWatchlistPersonRowContent row={row} hideName={hideName} />
         </button>
       </li>
     )
@@ -47,7 +47,7 @@ export function ExploreWatchlistPersonRow({ row, onClick = null }) {
 
   return (
     <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist">
-      <ExploreWatchlistPersonRowContent row={row} />
+      <ExploreWatchlistPersonRowContent row={row} hideName={hideName} />
     </li>
   )
 }

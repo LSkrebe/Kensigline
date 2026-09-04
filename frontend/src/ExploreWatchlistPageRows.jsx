@@ -1,36 +1,18 @@
-import { ExploreDirectoryEventMeta, exploreRowDateLabel } from './ExploreDirectoryRows.jsx'
-import { formatExploreDirectoryTrailLabel, exploreDirectoryTrailTone } from './exploreDirectoryTrail.js'
+import { ExploreWatchlistPersonRow } from './ExploreWatchlistRows.jsx'
 
-function ExploreWatchlistPageEventRow({ event, onClick = null }) {
-  const trailTone = exploreDirectoryTrailTone(event)
-  const trailLabel = formatExploreDirectoryTrailLabel(event.trail)
-
-  const content = (
-    <>
-      <span className="exploreDirectoryTicker mono">{event.ticker}</span>
-      <div className="exploreDirectoryCopy">
-        <ExploreDirectoryEventMeta event={event.event} extraSameDay={0} />
-      </div>
-      <span className={['exploreDirectoryAmount', 'mono', trailTone].join(' ')}>{trailLabel}</span>
-      <span className="exploreDirectoryDate mono">{exploreRowDateLabel(event)}</span>
-    </>
-  )
-
-  if (onClick) {
-    return (
-      <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist exploreWatchlistPageEventRow">
-        <button type="button" className="exploreDirectoryRowBtn" onClick={() => onClick(event)}>
-          {content}
-        </button>
-      </li>
-    )
+function watchlistEventRow(personRow, event) {
+  return {
+    ...personRow,
+    id: event.id ?? `${personRow.id}-${event.ticker}-${event.date}`,
+    ticker: event.ticker,
+    docType: event.docType,
+    event: event.event,
+    trail: event.trail,
+    trailMuted: event.trailMuted,
+    up: event.up,
+    date: event.date,
+    tickers: undefined,
   }
-
-  return (
-    <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist exploreWatchlistPageEventRow">
-      <div className="exploreWatchlistPageEventInner">{content}</div>
-    </li>
-  )
 }
 
 export function ExploreWatchlistPagePersonRow({ row, onEventClick = null }) {
@@ -38,28 +20,44 @@ export function ExploreWatchlistPagePersonRow({ row, onEventClick = null }) {
   const modeLabel = row.empty ? '—' : row.modeLabel
 
   return (
-    <li className={['exploreWatchlistPageGroup', row.empty ? 'isEmpty' : ''].filter(Boolean).join(' ')}>
-      <div className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist exploreWatchlistPageGroupHead">
-        <span className="exploreDirectoryTicker mono exploreWatchlistPageGroupTicker" aria-hidden="true" />
-        <div className="exploreDirectoryCopy">
-          <span className="exploreDirectoryName">{row.name}</span>
-        </div>
-        <span className="exploreDirectoryAmount mono exploreWatchlistPageGroupSpacer" aria-hidden="true" />
+    <>
+      <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist exploreWatchlistPageNameRow">
+        <span className="exploreDirectoryName">{row.name}</span>
+        <span className="exploreDirectoryAmount mono" aria-hidden="true" />
         <span className="exploreDirectoryDate mono exploreDirectoryMeta">{modeLabel}</span>
-      </div>
-      {events.length ? (
-        <ul className="exploreWatchlistPageEventList">
-          {events.map((event) => (
-            <ExploreWatchlistPageEventRow
-              key={event.id}
-              event={{ ...event, actorSlug: event.actorSlug ?? row.actorSlug, name: row.name }}
-              onClick={onEventClick}
-            />
-          ))}
-        </ul>
-      ) : row.empty ? (
-        <p className="exploreWatchlistPageEmpty mono">No filings yet</p>
+      </li>
+      {events.map((event) => (
+        <ExploreWatchlistPersonRow
+          key={event.id}
+          row={watchlistEventRow(row, event)}
+          hideName
+          onClick={
+            onEventClick
+              ? () =>
+                  onEventClick({
+                    ...row,
+                    ticker: event.ticker,
+                    docType: event.docType,
+                    trail: event.trail,
+                    date: event.date,
+                    id: event.id,
+                  })
+              : null
+          }
+        />
+      ))}
+      {row.empty ? (
+        <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist">
+          <span className="exploreDirectoryTicker mono" aria-hidden="true">
+            —
+          </span>
+          <div className="exploreDirectoryCopy">
+            <span className="exploreDirectoryMeta mono">No filings yet</span>
+          </div>
+          <span className="exploreDirectoryAmount mono">—</span>
+          <span className="exploreDirectoryDate mono">—</span>
+        </li>
       ) : null}
-    </li>
+    </>
   )
 }

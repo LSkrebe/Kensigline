@@ -462,24 +462,33 @@
   text-overflow: ellipsis;
 }
 
-/* ── Watchlist page — person groups with nested event rows ── */
+/* ── Watchlist page — flat explore rows ── */
 
-.exploreWatchlistPageList {
-  display: flex;
-  flex-direction: column;
+.exploreDirShell .exploreDirectoryRow--watchlist .exploreDirectoryRowBtn,
+.exploreDirShell .exploreDirectoryRow--watchlist:not(:has(.exploreDirectoryRowBtn)) {
+  display: grid;
+  grid-template-columns:
+    var(--explore-directory-ticker-w)
+    minmax(0, 1fr)
+    var(--explore-directory-trail-w)
+    var(--explore-directory-date-w);
+  align-items: center;
+  column-gap: var(--explore-directory-col-gap);
+  width: 100%;
+  margin: 0;
+  padding: 14px 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
 
-.exploreWatchlistPageGroup {
-  list-style: none;
-  padding: 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+.exploreDirShell .exploreDirectoryRow--watchlist .exploreDirectoryRowBtn {
+  cursor: pointer;
 }
 
-.exploreWatchlistPageGroup.isEmpty {
-  opacity: 0.72;
-}
-
-.exploreWatchlistPageGroupHead {
+.exploreWatchlistPageNameRow {
   display: grid;
   grid-template-columns:
     var(--explore-directory-ticker-w)
@@ -491,65 +500,9 @@
   padding: 14px 0;
 }
 
-.exploreWatchlistPageGroupTicker {
-  visibility: hidden;
-}
-
-.exploreWatchlistPageGroupSpacer {
-  visibility: hidden;
-}
-
-.exploreWatchlistPageEventList {
-  margin: 0;
-  padding: 0 0 8px;
-  list-style: none;
-}
-
-.exploreWatchlistPageEventList .exploreWatchlistPageEventRow {
-  border-bottom: none;
-}
-
-.exploreWatchlistPageEventList .exploreWatchlistPageEventRow:last-child {
-  padding-bottom: 4px;
-}
-
-.exploreWatchlistPageEventInner,
-.exploreWatchlistPageEventRow .exploreDirectoryRowBtn {
-  display: grid;
-  grid-template-columns:
-    var(--explore-directory-ticker-w)
-    minmax(0, 1fr)
-    var(--explore-directory-trail-w)
-    var(--explore-directory-date-w);
-  align-items: center;
-  column-gap: var(--explore-directory-col-gap);
-  width: 100%;
-  margin: 0;
-  padding: 10px 0 10px 12px;
-  border: none;
-  background: rgba(255, 255, 255, 0.015);
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  box-sizing: border-box;
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.exploreWatchlistPageEventRow .exploreDirectoryRowBtn {
-  cursor: pointer;
-}
-
-.exploreWatchlistPageEventRow .exploreDirectoryRowBtn:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.exploreWatchlistPageEmpty {
-  margin: 0;
-  padding: 0 0 12px 12px;
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.38);
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
+.exploreWatchlistPageNameRow .exploreDirectoryName {
+  grid-column: 1 / 3;
+  min-width: 0;
 }
 
 .exploreDirectoryStat {
