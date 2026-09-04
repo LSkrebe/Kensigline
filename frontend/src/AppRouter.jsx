@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { isCaptureMode } from './captureMode.js'
+import { lazyWithRetry } from './lazyWithRetry.js'
 import MarketingRoutes from './MarketingRoutes.jsx'
 import { PublicMarketingRoutes, isPublicMarketingPath } from './PublicMarketingRoutes.jsx'
 import { SignInPage } from './SignInPage.jsx'
@@ -13,7 +14,7 @@ import { markAppReady } from './marketingShell.js'
 import { useSubscription } from './useSubscription.js'
 import { useBillingPricing } from './useBillingPricing.js'
 
-const TerminalApp = lazy(() => import('./App.jsx'))
+const TerminalApp = lazyWithRetry(() => import('./App.jsx'))
 
 /** Set VITE_BILLING_GATE=0 in root `.env` to bypass locally. */
 const BILLING_GATE_ENABLED = import.meta.env.VITE_BILLING_GATE !== '0'

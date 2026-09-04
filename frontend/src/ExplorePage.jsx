@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCollapseScroll } from './collapseScroll.js'
 import {
   buildExploreDirectoryHomeLatest,
   buildExploreDirectoryHomePreview,
@@ -152,12 +153,25 @@ export function ExplorePage({
         setRecap(cached.recap)
         setHomePreview(cached.homePreview)
         setHomeSearchPool(cached.homeLatest ?? { companies: [], investors: [] })
-        setHomeLoading(false)
+        setHomeLoading(cached.stale === true)
       } else {
         setHomeLoading(true)
       }
       void loadExploreHomeBundle(null, { force: false }).then((bundle) => {
         if (cancelled || !bundle?.recap) return
+        if (bundle.stale) {
+          setHomeLoading(true)
+          void loadExploreHomeBundle(null, { force: true }).then((fresh) => {
+            if (cancelled || !fresh?.recap) return
+            setRecap(fresh.recap)
+            if (fresh.directory) {
+              setHomePreview(fresh.directory.homePreview ?? { companies: [], investors: [] })
+              setHomeSearchPool(fresh.directory.homeLatest ?? { companies: [], investors: [] })
+            }
+            setHomeLoading(false)
+          })
+          return
+        }
         setRecap(bundle.recap)
         if (bundle.directory) {
           setHomePreview(bundle.directory.homePreview ?? { companies: [], investors: [] })
@@ -178,13 +192,26 @@ export function ExplorePage({
       setRecap(cached.recap)
       setHomePreview(cached.homePreview)
       setHomeSearchPool(cached.homeLatest ?? { companies: [], investors: [] })
-      setHomeLoading(false)
+      setHomeLoading(cached.stale === true)
     } else {
       setHomeLoading(true)
     }
 
     void loadExploreHomeBundle(backendUp, { force: false }).then((bundle) => {
       if (cancelled || !bundle?.recap) return
+      if (bundle.stale) {
+        setHomeLoading(true)
+        void loadExploreHomeBundle(backendUp, { force: true }).then((fresh) => {
+          if (cancelled || !fresh?.recap) return
+          setRecap(fresh.recap)
+          if (fresh.directory) {
+            setHomePreview(fresh.directory.homePreview ?? { companies: [], investors: [] })
+            setHomeSearchPool(fresh.directory.homeLatest ?? { companies: [], investors: [] })
+          }
+          setHomeLoading(false)
+        })
+        return
+      }
       setRecap(bundle.recap)
       if (bundle.directory) {
         setHomePreview(bundle.directory.homePreview ?? { companies: [], investors: [] })
@@ -199,9 +226,11 @@ export function ExplorePage({
   }, [backendUp])
 
   const [searchQuery, setSearchQuery] = useState('')
-  const pageRef = useRef(null)
-  const dockRef = useRef(null)
-  const spacerRef = useRef(null)
+  const { pageRef, dockRef, spacerRef } = useCollapseScroll({
+    progressVars: collapseProgressVars,
+    resetKey: 'explore-home',
+    rangeFallback: COLLAPSE_RANGE_FALLBACK,
+  })
   const normalizedQuery = normalizeExploreSearchQuery(searchQuery)
   const searching = normalizedQuery.length > 0
   const useUtcDates = isLiveDataMode(backendUp)
@@ -266,43 +295,7 @@ export function ExplorePage({
     const spacer = spacerRef.current
     if (!page || !spacer) return
     page.scrollTo({ top: spacer.offsetHeight, behavior: 'smooth' })
-  }, [])
-
-  useEffect(() => {
-    const page = pageRef.current
-    const dock = dockRef.current
-    const spacer = spacerRef.current
-    if (!page || !dock) return undefined
-
-    let raf = 0
-
-    const syncCollapse = () => {
-      raf = 0
-      const range = spacer?.offsetHeight || COLLAPSE_RANGE_FALLBACK
-      const progress = Math.min(1, Math.max(0, page.scrollTop / range))
-      for (const [key, value] of Object.entries(collapseProgressVars(progress))) {
-        dock.style.setProperty(key, value)
-      }
-    }
-
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(syncCollapse)
-    }
-
-    const onResize = () => {
-      if (!raf) raf = requestAnimationFrame(syncCollapse)
-    }
-
-    page.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onResize)
-    syncCollapse()
-
-    return () => {
-      page.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onResize)
-      if (raf) cancelAnimationFrame(raf)
-    }
-  }, [])
+  }, [pageRef, spacerRef])
 
   return (
     <div className="explorePage" ref={pageRef}>

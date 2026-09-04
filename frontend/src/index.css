@@ -115,6 +115,17 @@ body {
   outline-offset: 2px;
 }
 
+.appShellErrorScreen .appShellContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.appShellBtn--secondary {
+  opacity: 0.72;
+}
+
 .appShellBootName {
   font-size: 11px;
   font-weight: 600;

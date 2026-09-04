@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCollapseScroll } from './collapseScroll.js'
 import {
   analyseMockModelForTicker,
   formatAnalyseGridValue,
@@ -41,51 +42,8 @@ function deepCollapseProgressVars(progress) {
   }
 }
 
-function useDeepCollapseScroll() {
-  const pageRef = useRef(null)
-  const dockRef = useRef(null)
-  const spacerRef = useRef(null)
-
-  useEffect(() => {
-    const page = pageRef.current
-    const dock = dockRef.current
-    const spacer = spacerRef.current
-    if (!page || !dock) return undefined
-
-    let raf = 0
-
-    const syncCollapse = () => {
-      raf = 0
-      const range = spacer?.offsetHeight || DEEP_COLLAPSE_RANGE_FALLBACK
-      const progress = Math.min(1, Math.max(0, page.scrollTop / range))
-      for (const [key, value] of Object.entries(deepCollapseProgressVars(progress))) {
-        dock.style.setProperty(key, value)
-      }
-    }
-
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(syncCollapse)
-    }
-
-    const onResize = () => {
-      if (!raf) raf = requestAnimationFrame(syncCollapse)
-    }
-
-    page.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onResize)
-    syncCollapse()
-
-    return () => {
-      page.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onResize)
-      if (raf) cancelAnimationFrame(raf)
-    }
-  }, [])
-
-  return { pageRef, dockRef, spacerRef }
-}
-
 function DeepReportShell({
+  scrollResetKey = 'deep',
   expandedHeader,
   compactLabel,
   compactPrice,
@@ -94,7 +52,11 @@ function DeepReportShell({
   chrome,
   children,
 }) {
-  const { pageRef, dockRef, spacerRef } = useDeepCollapseScroll()
+  const { pageRef, dockRef, spacerRef } = useCollapseScroll({
+    progressVars: deepCollapseProgressVars,
+    resetKey: scrollResetKey,
+    rangeFallback: DEEP_COLLAPSE_RANGE_FALLBACK,
+  })
 
   return (
     <article className="drpt" ref={pageRef}>
@@ -1395,6 +1357,7 @@ export function DeepCompanyReport({
   onChartRangeChange,
   chrome,
   onInvestorClick = null,
+  scrollResetKey = null,
 }) {
   const t = String(ticker ?? '').trim().toUpperCase()
   const displayName = String(companyName ?? '').trim() || t || 'Company'
@@ -1408,6 +1371,7 @@ export function DeepCompanyReport({
 
   return (
     <DeepReportShell
+      scrollResetKey={scrollResetKey ?? t}
       compactLabel={t}
       compactPrice={price}
       compactPriceChange={priceChange}
@@ -1536,6 +1500,7 @@ export function DeepActorReport({
   compactPriceChange = null,
   compactPriceChangePct = null,
   onCompanyClick = null,
+  scrollResetKey = null,
 }) {
   const [chartRange, setChartRange] = useState('6M')
   const name = String(personDisplay?.fullName ?? actorRow?.actorName ?? '').trim()
@@ -1631,6 +1596,7 @@ export function DeepActorReport({
 
   return (
     <DeepReportShell
+      scrollResetKey={scrollResetKey ?? name}
       compactLabel={actorCompactLabel}
       compactPrice={compactPrice}
       compactPriceChange={compactPriceChange}
@@ -1729,11 +1695,11 @@ export function DeepActorReport({
   )
 }
 
-export function DeepPage({ mode, company, investor, actor, chrome }) {
+export function DeepPage({ mode, company, investor, actor, chrome, scrollResetKey = null }) {
   const investorProps = investor ?? actor
   return mode === 'investor' || mode === 'actor' ? (
-    <DeepActorReport {...investorProps} chrome={chrome} />
+    <DeepActorReport {...investorProps} chrome={chrome} scrollResetKey={scrollResetKey} />
   ) : (
-    <DeepCompanyReport {...company} chrome={chrome} />
+    <DeepCompanyReport {...company} chrome={chrome} scrollResetKey={scrollResetKey} />
   )
 }

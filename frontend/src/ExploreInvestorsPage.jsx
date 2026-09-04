@@ -20,13 +20,21 @@ export function ExploreInvestorsPage({
   const [rows, setRows] = useState(() =>
     isMockDataMode(backendUp) ? buildExploreDirectoryFullList('investors') : [],
   )
+  const [rowsLoading, setRowsLoading] = useState(() => !isMockDataMode(backendUp))
 
   useEffect(() => {
     let cancelled = false
+    if (isMockDataMode(backendUp)) {
+      setRows(buildExploreDirectoryFullList('investors'))
+      setRowsLoading(false)
+      return
+    }
+    setRowsLoading(true)
     ;(async () => {
       const bundle = await loadExploreDirectoryBundle(backendUp)
       if (cancelled) return
       setRows(bundle.fullInvestors ?? [])
+      setRowsLoading(false)
     })()
     return () => {
       cancelled = true
@@ -37,6 +45,7 @@ export function ExploreInvestorsPage({
     <ExploreDirectoryListPage
       kind="investors"
       rows={rows}
+      rowsLoading={rowsLoading}
       backendUp={backendUp}
       macroActive={macroActive}
       onMacroClick={onMacroClick}

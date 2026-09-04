@@ -27,6 +27,10 @@ class ErrorBoundary extends React.Component {
   }
   render() {
     if (!this.state.hasError) return this.props.children
+    const msg = String(this.state.err?.message ?? this.state.err ?? '')
+    const chunkErr = /Failed to fetch dynamically imported module|Loading chunk|Importing a module script failed/i.test(
+      msg,
+    )
     return (
       <div className="appShellScreen appShellErrorScreen" role="alert">
         <div className="appShellContent">
@@ -40,8 +44,19 @@ class ErrorBoundary extends React.Component {
           />
           <p className="appShellBrandName">MERCERLINE</p>
           <p className="appShellMessage">Something went wrong.</p>
-          <p className="appShellHint">Reload the page to continue.</p>
-          <button type="button" className="appShellBtn" onClick={() => location.reload()}>
+          <p className="appShellHint">
+            {chunkErr
+              ? 'The app was updated. Try again or reload to fetch the latest version.'
+              : 'Reload the page to continue.'}
+          </p>
+          <button
+            type="button"
+            className="appShellBtn"
+            onClick={() => this.setState({ hasError: false, err: null })}
+          >
+            Try again
+          </button>
+          <button type="button" className="appShellBtn appShellBtn--secondary" onClick={() => location.reload()}>
             Reload
           </button>
         </div>

@@ -28,6 +28,7 @@ import {
 } from './exploreDirectoryNav.js'
 import { loadExploreDirectoryBundle, lookupExploreDirectoryCompanyName, peekExploreHomeSnapshot, prefetchExploreHome, waitForExploreHomeReady } from './exploreApi.js'
 import { buildExploreDirectoryFullList } from './exploreDirectoryMock.js'
+import { installManualScrollRestoration } from './collapseScroll.js'
 import { isExploreNetworkMode, isLiveDataMode, isMockDataMode } from './dataMode.js'
 import {
   isTerminalAppPath,
@@ -1537,20 +1538,16 @@ function enrichStubActorWithCompanyFlows(actorRow, { ticker, companyName, flows,
   })
 }
 
-/** True when dossier has real multi-trade history (not a synthetic +$1 name stub). */
+/** True when dossier has real trade history (not a synthetic +$1 name stub). */
 function actorDossierIsRich(actorRow) {
   const txns = actorRow?.transactions
   if (!Array.isArray(txns) || !txns.length) return false
-  if (txns.length >= 5) return true
-  let real = 0
-  for (const t of txns) {
-    const usd = Number(t?.sheetRow?.amountUsd)
-    const mode = t?.source ?? actorRow?.source ?? 'insider'
-    if (mode === 'institutions' && isAbsurdTrackedUsd(usd)) continue
-    if (Number.isFinite(usd) && usd > 1) real += 1
-    else if (t?.companyRow) real += 1
-  }
-  return real >= 2 || (txns.length >= 3 && real >= 1)
+  const mode = actorRow?.source ?? actorRow?.__investigateSource ?? 'insider'
+  const real = txns.filter(isRealDisplayedActorTxn)
+  if (mode === 'institutions') return real.length >= 1
+  if (real.length >= 5) return true
+  if (real.length >= 2) return true
+  return txns.length >= 3 && real.length >= 1
 }
 
 function explorePayloadHasContent(data) {
@@ -9692,6 +9689,40 @@ function KensiglineTerminal() {
   const researchBarsFetchGenRef = useRef(0)
   const researchCompanyFetchGenRef = useRef(0)
   const researchExploreFetchGenRef = useRef(0)
+
+  useEffect(() => {
+    installManualScrollRestoration()
+  }, [])
+
+  useEffect(() => {
+    const resetScrollers = () => {
+      document.querySelectorAll('.drpt, .explorePage, .exploreDirShell').forEach((el) => {
+        el.scrollTop = 0
+      })
+    }
+    resetScrollers()
+    requestAnimationFrame(() => requestAnimationFrame(resetScrollers))
+  }, [shell, exploreSubview, terminalRoute.ticker, terminalRoute.investorSlug, terminalRoute.eventId])
+
+  useLayoutEffect(() => {
+    if (exploreSubview !== 'investorDetail') return
+    const slug = terminalRoute.investorSlug
+    if (!slug) return
+    setExploreInvestorFocus((prev) => (prev?.slug === slug ? prev : null))
+  }, [exploreSubview, terminalRoute.investorSlug])
+
+  useLayoutEffect(() => {
+    if (exploreSubview !== 'companyDetail') return
+    const tick = researchTicker
+    const cached = analyseCacheRef.current.get(tick)
+    if (cached) {
+      setAnalyseLivePayload(cached)
+      setAnalyseModelLoading(false)
+    } else {
+      setAnalyseLivePayload(null)
+    }
+  }, [researchTicker, exploreSubview])
+
   const [researchBarsSeries, setResearchBarsSeries] = useState(null)
   const [researchBarsLoading, setResearchBarsLoading] = useState(false)
   const [researchBarsDays, setResearchBarsDays] = useState(null)
@@ -10249,7 +10280,7 @@ function KensiglineTerminal() {
     if (!backendLastOkAt) return
     const t = setInterval(() => {
       const staleMs = Date.now() - backendLastOkAt
-      if (staleMs > 15_000) setBackendUp(false)
+      if (staleMs > 45_000) setBackendUp(false)
     }, 1000)
     return () => clearInterval(t)
   }, [backendLastOkAt])
@@ -12438,9 +12469,16 @@ function KensiglineTerminal() {
     [shell, exploreSubview],
   )
 
+  const deepDossierScrollKey =
+    exploreSubview === 'investorDetail'
+      ? `inv-${terminalRoute.investorSlug ?? ''}`
+      : `co-${terminalRoute.ticker ?? researchTicker ?? ''}`
+
   const deepDossierPage = (
     <DeepResearchLayout>
       <DeepPage
+        key={deepDossierScrollKey}
+        scrollResetKey={deepDossierScrollKey}
         mode={deepPageMode}
         chrome={{
           backendUp,
@@ -12555,6 +12593,7 @@ function KensiglineTerminal() {
               deepDossierPage
             ) : exploreSubview === 'eventDetail' ? (
               <ExploreEventPage
+                key={terminalRoute.eventId}
                 eventId={terminalRoute.eventId}
             backendUp={backendUp}
                 macroActive={macroActive}

@@ -20,13 +20,21 @@ export function ExploreCompaniesPage({
   const [rows, setRows] = useState(() =>
     isMockDataMode(backendUp) ? buildExploreDirectoryFullList('companies') : [],
   )
+  const [rowsLoading, setRowsLoading] = useState(() => !isMockDataMode(backendUp))
 
   useEffect(() => {
     let cancelled = false
+    if (isMockDataMode(backendUp)) {
+      setRows(buildExploreDirectoryFullList('companies'))
+      setRowsLoading(false)
+      return
+    }
+    setRowsLoading(true)
     ;(async () => {
       const bundle = await loadExploreDirectoryBundle(backendUp)
       if (cancelled) return
       setRows(bundle.fullCompanies ?? [])
+      setRowsLoading(false)
     })()
     return () => {
       cancelled = true
@@ -37,6 +45,7 @@ export function ExploreCompaniesPage({
     <ExploreDirectoryListPage
       kind="companies"
       rows={rows}
+      rowsLoading={rowsLoading}
       backendUp={backendUp}
       macroActive={macroActive}
       onMacroClick={onMacroClick}

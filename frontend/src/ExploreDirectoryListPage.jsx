@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { EXPLORE_DIRECTORY_BLOCK } from './exploreDirectoryMock.js'
+import { useCollapseScroll } from './collapseScroll.js'
 import { ExploreDirectoryListCompanyRow, ExploreDirectoryListInvestorRow } from './ExploreDirectoryRows.jsx'
 import { filterExploreDirectoryListRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
@@ -76,6 +77,7 @@ function ExploreDirShowMoreButton({ remaining, onClick }) {
 export function ExploreDirectoryListPage({
   kind,
   rows = [],
+  rowsLoading = false,
   backendUp = true,
   macroActive = false,
   onMacroClick,
@@ -87,12 +89,14 @@ export function ExploreDirectoryListPage({
   onInvestorRowClick = null,
 }) {
   const copy = EXPLORE_DIR_COPY[kind] ?? EXPLORE_DIR_COPY.companies
-  const pageRef = useRef(null)
-  const dockRef = useRef(null)
-  const spacerRef = useRef(null)
   const compact = useExploreDirCompactLayout()
   const pageSize = compact ? EXPLORE_DIR_COMPACT_STEP : EXPLORE_DIRECTORY_BLOCK
   const [searchQuery, setSearchQuery] = useState('')
+  const { pageRef, dockRef, spacerRef } = useCollapseScroll({
+    progressVars: exploreDirCollapseProgressVars,
+    resetKey: kind,
+    rangeFallback: EXPLORE_DIR_COLLAPSE_RANGE_FALLBACK,
+  })
   const normalizedQuery = normalizeExploreSearchQuery(searchQuery)
 
   const filteredRows = useMemo(
@@ -108,42 +112,6 @@ export function ExploreDirectoryListPage({
     loadStep: compact ? EXPLORE_DIR_COMPACT_STEP : EXPLORE_DIRECTORY_BLOCK,
     resetKey: `${kind}:${normalizedQuery}`,
   })
-
-  useEffect(() => {
-    const page = pageRef.current
-    const dock = dockRef.current
-    const spacer = spacerRef.current
-    if (!page || !dock) return undefined
-
-    let raf = 0
-
-    const syncCollapse = () => {
-      raf = 0
-      const range = spacer?.offsetHeight || EXPLORE_DIR_COLLAPSE_RANGE_FALLBACK
-      const progress = Math.min(1, Math.max(0, page.scrollTop / range))
-      for (const [key, value] of Object.entries(exploreDirCollapseProgressVars(progress))) {
-        dock.style.setProperty(key, value)
-      }
-    }
-
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(syncCollapse)
-    }
-
-    const onResize = () => {
-      if (!raf) raf = requestAnimationFrame(syncCollapse)
-    }
-
-    page.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onResize)
-    syncCollapse()
-
-    return () => {
-      page.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onResize)
-      if (raf) cancelAnimationFrame(raf)
-    }
-  }, [kind])
 
   const searching = normalizedQuery.length > 0
 
@@ -210,7 +178,9 @@ export function ExploreDirectoryListPage({
                   ))
                 )
               ) : (
-                <li className="exploreDirectoryEmpty mono">{searching ? 'No matches' : 'No rows'}</li>
+                <li className="exploreDirectoryEmpty mono">
+                  {searching ? 'No matches' : rowsLoading ? 'Loading…' : 'No rows'}
+                </li>
               )}
             </ul>
             {compact && hasMore ? (

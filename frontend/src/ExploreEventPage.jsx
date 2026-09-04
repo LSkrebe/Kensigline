@@ -3,7 +3,8 @@
  * Collapsing hero; body follows Explore home rhythm (story → context → directory lists).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useCollapseScroll } from './collapseScroll.js'
 import { resolveExploreEventBrief } from './exploreEventBrief.js'
 import { loadExploreEventBriefContext, peekExploreHomeSnapshot, getExploreRecapCache, fetchExploreEventChartSeries } from './exploreApi.js'
 import { isLiveDataMode } from './dataMode.js'
@@ -399,6 +400,13 @@ export function ExploreEventPage({
   onInvestorClick = null,
 }) {
   const [briefCtx, setBriefCtx] = useState({ day: null, slides: [], mock: false, pending: true })
+  const [chartSeries, setChartSeries] = useState([])
+  const [chartRange, setChartRange] = useState('6M')
+
+  useLayoutEffect(() => {
+    setBriefCtx({ day: null, slides: [], mock: false, pending: true })
+    setChartSeries([])
+  }, [eventId])
 
   useEffect(() => {
     let cancelled = false
@@ -425,15 +433,15 @@ export function ExploreEventPage({
   const slide = brief?.slide ?? null
   const kicker = slide?.kicker || 'Recap event'
   const primary = brief?.primaryCompany ?? null
-  const [chartSeries, setChartSeries] = useState(() => brief?.chartSeries ?? [])
-  const [chartRange, setChartRange] = useState('6M')
   const chartRangeOptions = useMemo(
     () => availablePriceRanges(chartSeries, brief?.chartSeriesDays ?? null),
     [chartSeries, brief?.chartSeriesDays],
   )
-  const pageRef = useRef(null)
-  const dockRef = useRef(null)
-  const spacerRef = useRef(null)
+  const { pageRef, dockRef, spacerRef } = useCollapseScroll({
+    progressVars: exploreEventCollapseProgressVars,
+    resetKey: eventId,
+    rangeFallback: EXPLORE_EVENT_COLLAPSE_RANGE_FALLBACK,
+  })
 
   useEffect(() => {
     setChartRange((prev) => coercePriceRangeFromOptions(prev, chartRangeOptions))
@@ -454,42 +462,6 @@ export function ExploreEventPage({
       cancelled = true
     }
   }, [eventId, brief?.chartTicker, brief?.chartSeries, primary?.ticker, backendUp])
-
-  useEffect(() => {
-    const page = pageRef.current
-    const dock = dockRef.current
-    const spacer = spacerRef.current
-    if (!page || !dock) return undefined
-
-    let raf = 0
-
-    const syncCollapse = () => {
-      raf = 0
-      const range = spacer?.offsetHeight || EXPLORE_EVENT_COLLAPSE_RANGE_FALLBACK
-      const progress = Math.min(1, Math.max(0, page.scrollTop / range))
-      for (const [key, value] of Object.entries(exploreEventCollapseProgressVars(progress))) {
-        dock.style.setProperty(key, value)
-      }
-    }
-
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(syncCollapse)
-    }
-
-    const onResize = () => {
-      if (!raf) raf = requestAnimationFrame(syncCollapse)
-    }
-
-    page.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onResize)
-    syncCollapse()
-
-    return () => {
-      page.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onResize)
-      if (raf) cancelAnimationFrame(raf)
-    }
-  }, [eventId])
 
   const openPrimaryCompany = useCallback(() => {
     if (!primary || !onCompanyClick) return
