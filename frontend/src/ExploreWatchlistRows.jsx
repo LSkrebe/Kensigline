@@ -18,7 +18,7 @@ function ExploreWatchlistPersonRowContent({ row }) {
             ) : null}
           </span>
         ) : (
-          <ExploreDirectoryEventMeta event={row.event} extraSameDay={row.extraSameDay} />
+          <ExploreDirectoryEventMeta event={row.event} extraSameDay={0} />
         )}
       </div>
       <span className={['exploreDirectoryAmount', 'mono', trailTone].join(' ')}>{trailLabel}</span>
