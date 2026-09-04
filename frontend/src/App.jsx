@@ -1316,12 +1316,24 @@ function institutionTxnActivity(txn) {
   return String(txn?.sheetRow?.activity ?? txn?.activity ?? '').trim()
 }
 
+/** Bulk same-day NEW rows are usually a mislabeled baseline 13F ingest, not real trades. */
+function isInstitutionBaselineDump(transactions) {
+  const txns = transactions ?? []
+  const news = txns.filter((txn) => institutionTxnActivity(txn) === 'New position')
+  if (news.length < 8) return false
+  const days = new Set(
+    news.map((txn) => String(txn?.ts ?? txn?.sheetRow?.ts ?? '').slice(0, 10)).filter(Boolean),
+  )
+  return days.size <= 1
+}
+
 /** 13F holdings dumps can fan out to dozens of rows — show stake changes only when possible. */
 function filterInstitutionTradeLogTxns(transactions) {
   const txns = dedupeInstitutionActorTxns(transactions).filter((txn) => {
     const act = institutionTxnActivity(txn)
     return act && act !== 'Held'
   })
+  if (isInstitutionBaselineDump(txns)) return []
   const changes = txns.filter((txn) => {
     const act = institutionTxnActivity(txn)
     return act === 'Increased stake' || act === 'Reduced stake'

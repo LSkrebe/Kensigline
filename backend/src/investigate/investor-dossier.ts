@@ -401,12 +401,14 @@ async function loadFromFeedIndex(slug: string, mode: InvestorMode, limit: number
           source: "politicians",
         });
       } else if (mode === "institutions") {
-        const code = txnSideCode(String(r.activity ?? ""), "institutions");
+        const activity = String(r.activity ?? "").trim();
+        if (activity === "Held") continue;
+        const code = txnSideCode(activity, "institutions");
         pushTxn(txns, {
           sheetRow: {
             institution_name: pretty,
             key: pretty,
-            activity: code === "RED" ? "Reduced stake" : String(r.activity ?? "Changed stake"),
+            activity: code === "RED" ? "Reduced stake" : activity || "Changed stake",
             amountUsd: Number.isFinite(amountUsd) && amountUsd > 1 ? amountUsd : null,
             ts,
           },

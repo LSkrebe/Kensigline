@@ -623,6 +623,7 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
       JOIN issuers i ON i.id = t.issuer_id
       JOIN filers f ON f.id = t.filer_id
       WHERE t.filer_id = $1
+        AND coalesce(t.activity, '') <> 'Held'
       ORDER BY t.transaction_at DESC
       LIMIT 200
       `,
