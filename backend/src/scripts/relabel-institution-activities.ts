@@ -32,7 +32,8 @@ function relabelActivityCte(filerIdParam = "$1::uuid"): string {
       SELECT
         id,
         CASE
-          WHEN prior_shares IS NULL AND transaction_at = filer_first_at THEN 'Held'
+          WHEN prior_shares IS NULL
+            AND date_trunc('day', transaction_at) = date_trunc('day', filer_first_at) THEN 'Held'
           WHEN prior_shares IS NULL OR NOT (prior_shares > 0) THEN 'New position'
           WHEN shares IS NULL OR NOT (shares > 0) THEN 'New position'
           WHEN shares > prior_shares THEN 'Increased stake'
