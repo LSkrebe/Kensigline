@@ -13,5 +13,12 @@ export function isPlaceholderInvestorName(name) {
 }
 
 export function isPlausibleExploreInvestorRow(row) {
+  if (isExploreBaselineHoldingsEvent(row)) return false
   return !isPlaceholderInvestorName(row?.name ?? row?.actorName)
+}
+
+/** Baseline 13F ingest — holdings count only, no dossier trade history. */
+export function isExploreBaselineHoldingsEvent(row) {
+  if (row?.baseline13f === true) return true
+  return /^\d+\s+(holdings?|pos)$/i.test(String(row?.trail ?? ''))
 }

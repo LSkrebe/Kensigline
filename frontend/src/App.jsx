@@ -1353,6 +1353,20 @@ function filterInstitutionTradeLogTxns(transactions) {
     if (news.length > 12) return sorted.slice(0, 12)
     return sorted
   }
+
+  const held = dedupeInstitutionActorTxns(transactions).filter((txn) => institutionTxnActivity(txn) === 'Held')
+  if (held.length) {
+    return [...held]
+      .sort(
+        (a, b) =>
+          Math.abs(Number(b?.sheetRow?.amountUsd ?? b?.amountUsd ?? 0)) -
+            Math.abs(Number(a?.sheetRow?.amountUsd ?? a?.amountUsd ?? 0)) ||
+          Math.abs(Number(b?.sheetRow?.shares ?? b?.shares ?? 0)) -
+            Math.abs(Number(a?.sheetRow?.shares ?? a?.shares ?? 0)),
+      )
+      .slice(0, 12)
+  }
+
   return txns.slice(0, 12)
 }
 

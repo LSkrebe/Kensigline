@@ -329,9 +329,10 @@ function aggregateInvestorsByName(events) {
 
   for (const ev of sorted) {
     if (seen.has(ev.name)) continue
+    const baselineHoldings = ev.baseline13f || /^\d+\s+(holdings?|pos)$/i.test(String(ev.trail ?? ''))
+    if (baselineHoldings) continue
     seen.add(ev.name)
     const netFlowUsd = netFlows.get(ev.name) ?? 0
-    const baselineHoldings = ev.baseline13f || /^\d+\s+(holdings?|pos)$/i.test(String(ev.trail ?? ''))
     out.push({
       id: `ac-${String(ev.name).trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
       name: ev.name,
@@ -340,16 +341,14 @@ function aggregateInvestorsByName(events) {
       tickers: tickerLists.get(ev.name) ?? [ev.ticker],
       docType: ev.docType,
       modeCode: exploreActorDocCode(ev.docType),
-      positionCount: baselineHoldings
-        ? ev.positionCount ?? (tickerLists.get(ev.name)?.length ?? 1)
-        : positionCounts.get(ev.name) ?? 1,
-      baseline13f: baselineHoldings,
+      positionCount: positionCounts.get(ev.name) ?? 1,
+      baseline13f: false,
       netFlowUsd,
       netFlowLabel: formatExploreNetFlowUsd(netFlowUsd),
       lastDate: ev.date,
       lastDateLabel: formatExplorePublishDate(ev.date),
       recency: formatExploreRecency(ev.date),
-      trail: baselineHoldings ? ev.trail : ev.trail,
+      trail: ev.trail,
       up: ev.up,
     })
   }
@@ -430,47 +429,39 @@ function aggregateExploreInvestorsForHome(events) {
 
   const out = []
   for (const group of byName.values()) {
-    const lead = group[0]
-    const extraSameDay = Math.max(0, group.length - 1)
-    const tickers = [...new Set(group.map((e) => e.ticker).filter(Boolean))]
+    const changeEvents = group.filter(
+      (e) => !e.baseline13f && !/^\d+\s+(holdings?|pos)$/i.test(String(e.trail ?? '')),
+    )
+    if (!changeEvents.length) continue
+    const lead = changeEvents[0]
+    const extraSameDay = Math.max(0, changeEvents.length - 1)
+    const tickers = [...new Set(changeEvents.map((e) => e.ticker).filter(Boolean))]
     let netFlow = 0
     let hasUsdTrail = false
-    for (const ev of group) {
+    for (const ev of changeEvents) {
       const usd = parseExploreTrailUsd(ev.trail)
       if (usd != null) {
         hasUsdTrail = true
         netFlow += usd
       }
     }
-    const all13f = group.every((e) => String(e.docType ?? '').startsWith('13f'))
-    const baselineRow = group.find((e) => e.baseline13f || /^\d+\s+(holdings?|pos)$/i.test(String(e.trail ?? '')))
+    const all13f = changeEvents.every((e) => String(e.docType ?? '').startsWith('13f'))
     const modeCode = exploreActorDocCode(lead.docType)
-
-    const baselineTrailRaw = baselineRow
-      ? String(baselineRow.trail ?? formatExploreHoldingsCount(tickers.length))
-      : null
-    const baselineHoldingsMatch = baselineTrailRaw?.match(/^(\d+)\s+holdings?$/i)
-    const baselineTrailNormalized = baselineTrailRaw
-      ? baselineHoldingsMatch
-        ? formatExploreHoldingsCount(baselineHoldingsMatch[1])
-        : baselineTrailRaw
-      : null
 
     out.push({
       ...lead,
-      ticker: group.length > 1 ? modeCode : lead.ticker,
+      ticker: changeEvents.length > 1 ? modeCode : lead.ticker,
       tickers: tickers.length > 1 ? tickers : undefined,
       extraSameDay,
-      trail: baselineTrailNormalized
-        ?? (hasUsdTrail
-          ? formatExploreNetFlowUsd(netFlow)
-          : group.length > 1
-            ? formatExplorePositionCount(
-                group.filter((e) => isInstitutionChangeActivity(e.activity)).length || group.length,
-              )
-            : lead.trail),
+      trail: hasUsdTrail
+        ? formatExploreNetFlowUsd(netFlow)
+        : changeEvents.length > 1
+          ? formatExplorePositionCount(
+              changeEvents.filter((e) => isInstitutionChangeActivity(e.activity)).length || changeEvents.length,
+            )
+          : lead.trail,
       up: hasUsdTrail ? netFlow >= 0 : lead.up,
-      event: group.length > 1 && all13f ? '13F institution filings' : lead.event,
+      event: changeEvents.length > 1 && all13f ? '13F institution filings' : lead.event,
     })
   }
 

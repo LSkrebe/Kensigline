@@ -630,6 +630,28 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
       [filer.id],
     );
     txns = collapseInstitutionDossierTxns(txns);
+    if (!txns.length) {
+      txns = await db.query<any>(
+        `
+        SELECT
+          i.ticker,
+          i.name AS company,
+          t.transaction_at::text AS ts,
+          t.activity,
+          t.amount_usd,
+          t.shares,
+          f.display_name
+        FROM institution_transactions t
+        JOIN issuers i ON i.id = t.issuer_id
+        JOIN filers f ON f.id = t.filer_id
+        WHERE t.filer_id = $1
+          AND coalesce(t.activity, '') = 'Held'
+        ORDER BY coalesce(t.amount_usd, 0) DESC, t.transaction_at DESC
+        LIMIT 120
+        `,
+        [filer.id],
+      );
+    }
   }
 
   const transactions = txns.map((t) => {
