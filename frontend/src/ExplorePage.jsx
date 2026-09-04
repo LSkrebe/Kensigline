@@ -19,7 +19,7 @@ import {
   splitExploreRecapSlides,
 } from './exploreRecapCatalog.js'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
-import { buildExploreWatchlistPeople, extractExploreInvestorEvents } from './exploreWatchlistData.js'
+import { buildExploreWatchlistPeople, extractExploreInvestorEvents, extractExploreWatchlistEvents } from './exploreWatchlistData.js'
 import { ExploreWatchlistSection } from './ExploreWatchlistSection.jsx'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { isCaptureMode } from './captureMode.js'
@@ -140,6 +140,7 @@ export function ExplorePage({
   const [investorEvents, setInvestorEvents] = useState(() =>
     isCaptureMode() || isMockDataMode(backendUp) ? buildExploreInvestorEvents() : [],
   )
+  const [watchlistEvents, setWatchlistEvents] = useState(() => [])
   const [homeLoading, setHomeLoading] = useState(initialSnapshot.homeLoading)
 
   const syncDirectoryState = useCallback((directory) => {
@@ -147,6 +148,7 @@ export function ExplorePage({
     setHomePreview(directory.homePreview ?? { companies: [], investors: [] })
     setHomeSearchPool(directory.homeLatest ?? { companies: [], investors: [] })
     setInvestorEvents(extractExploreInvestorEvents(directory))
+    setWatchlistEvents(extractExploreWatchlistEvents(directory))
   }, [])
 
   useEffect(() => {
@@ -259,10 +261,10 @@ export function ExplorePage({
   }, [searching, homePreview.companies, homeSearchPool.companies, searchQuery])
 
   const watchlistRows = useMemo(() => {
-    const rows = buildExploreWatchlistPeople(investorEvents)
+    const rows = buildExploreWatchlistPeople(investorEvents, { watchlistLatest: watchlistEvents })
     if (!searching) return rows
     return filterExploreHomeRows(rows, searchQuery)
-  }, [investorEvents, searchQuery, searching])
+  }, [investorEvents, watchlistEvents, searchQuery, searching])
 
   const openRecapEvent = useCallback(
     (slide) => {
@@ -326,15 +328,6 @@ export function ExplorePage({
         </div>
         <div ref={spacerRef} className="exploreRecapCollapseSpacer" aria-hidden="true" />
         <div className="explorePageBody">
-          <ExploreWatchlistSection
-            key={`watchlist-${sectionKicker}-${normalizedQuery}`}
-            kicker={sectionKicker}
-            rows={watchlistRows}
-            onOpen={() => navigateExploreWatchlist()}
-            onRowClick={onInvestorRowClick}
-            loading={homeLoading}
-          />
-
           {!searching ? (
             <ExploreStoryCards
               slides={storyPreviewSlides}
@@ -343,6 +336,15 @@ export function ExplorePage({
               dateLabel={storyDateLabel}
             />
           ) : null}
+
+          <ExploreWatchlistSection
+            key={`watchlist-${sectionKicker}-${normalizedQuery}`}
+            kicker={sectionKicker}
+            rows={watchlistRows}
+            onOpen={() => navigateExploreWatchlist()}
+            onRowClick={onInvestorRowClick}
+            loading={homeLoading}
+          />
 
           <ExploreDirectorySection
             key={`investors-${sectionKicker}-${normalizedQuery}`}

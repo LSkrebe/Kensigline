@@ -5,7 +5,7 @@ import { loadExploreDirectoryBundle } from './exploreApi.js'
 import { buildExploreInvestorEvents } from './exploreDirectoryMock.js'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { ExploreWatchlistPersonRow } from './ExploreWatchlistRows.jsx'
-import { buildExploreWatchlistPeople, extractExploreInvestorEvents } from './exploreWatchlistData.js'
+import { buildExploreWatchlistPeople, extractExploreInvestorEvents, extractExploreWatchlistEvents } from './exploreWatchlistData.js'
 import { useCollapseScroll } from './collapseScroll.js'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 import { useExploreScrollList } from './useExploreScrollList.js'
@@ -104,7 +104,8 @@ export function ExploreWatchlistPage({
       const bundle = await loadExploreDirectoryBundle(backendUp)
       if (cancelled) return
       const events = extractExploreInvestorEvents(bundle)
-      setRows(buildExploreWatchlistPeople(events))
+      const latest = extractExploreWatchlistEvents(bundle)
+      setRows(buildExploreWatchlistPeople(events, { watchlistLatest: latest }))
       setRowsLoading(false)
     })()
     return () => {

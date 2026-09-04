@@ -203,11 +203,12 @@
   grid-template-columns:
     var(--explore-directory-ticker-w)
     minmax(0, 1fr)
-    var(--explore-directory-trail-w);
+    var(--explore-directory-trail-w)
+    var(--explore-directory-date-w);
 }
 
-.exploreWatchlistList .exploreDirectoryDate {
-  display: none;
+.exploreStorySection + .exploreWatchlistSection {
+  margin-top: 36px;
 }
 
 .exploreDirectorySectionHead {
@@ -1785,7 +1786,10 @@
   }
 
   .exploreStoryRowBtn {
-    grid-template-columns: minmax(0, 1fr) var(--explore-directory-trail-w);
+    grid-template-columns:
+      minmax(0, 1fr)
+      var(--explore-directory-trail-w)
+      var(--explore-directory-date-w);
     padding: 14px 0;
   }
 
@@ -1797,20 +1801,15 @@
     grid-column: 2;
   }
 
-  .explorePage .exploreStoryRowDate {
-    display: none;
-  }
-
   .explorePage .exploreDirectoryRow:not(.exploreDirectoryRow--list) .exploreDirectoryRowBtn,
-  .explorePage .exploreDirectoryRow:not(.exploreDirectoryRow--list):not(:has(.exploreDirectoryRowBtn)) {
+  .explorePage .exploreDirectoryRow:not(.exploreDirectoryRow--list):not(:has(.exploreDirectoryRowBtn)),
+  .explorePage .exploreDirectoryRow--watchlist .exploreDirectoryRowBtn,
+  .explorePage .exploreDirectoryRow--watchlist:not(:has(.exploreDirectoryRowBtn)) {
     grid-template-columns:
       var(--explore-directory-ticker-w)
       minmax(0, 1fr)
-      var(--explore-directory-trail-w);
-  }
-
-  .explorePage .exploreDirectoryDate {
-    display: none;
+      var(--explore-directory-trail-w)
+      var(--explore-directory-date-w);
   }
 
   .explorePage .exploreDirectoryDate,

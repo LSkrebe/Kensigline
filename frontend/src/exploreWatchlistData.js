@@ -67,6 +67,27 @@ function dedupeWatchlistEvents(events, limit) {
   return unique
 }
 
+function emptyWatchlistRow(person) {
+  const actorSlug = watchlistPersonSlugs(person)[0]
+  return {
+    id: `wl-${actorSlug}`,
+    name: person.name,
+    feedName: person.name,
+    actorSlug,
+    mode: person.mode,
+    typeKey: person.mode,
+    ticker: '—',
+    docType: person.docType,
+    event: 'No filings yet',
+    trail: '—',
+    trailMuted: true,
+    up: false,
+    extraSameDay: 0,
+    date: null,
+    empty: true,
+  }
+}
+
 /** Pull raw investor events from an explore directory bundle. */
 export function extractExploreInvestorEvents(directoryBundle) {
   const inner = directoryBundle?.directory ?? directoryBundle
@@ -74,22 +95,69 @@ export function extractExploreInvestorEvents(directoryBundle) {
   return inner.investorEvents ?? inner.directory?.investorEvents ?? []
 }
 
+/** Pull watchlist latest events from explore home API payload. */
+export function extractExploreWatchlistEvents(directoryBundle) {
+  if (Array.isArray(directoryBundle?.watchlistEvents)) return directoryBundle.watchlistEvents
+  if (Array.isArray(directoryBundle?.watchlistLatest)) return directoryBundle.watchlistLatest
+  return []
+}
+
 /**
- * One row per catalog person with real directory events only (no synthetic padding).
+ * One row per catalog person — real DB/API events only (no synthetic padding).
+ * Prefers watchlistLatest from API (full history); falls back to directory window.
  * @param {Array} investorEvents
- * @param {{ people?: Array, txnsPerPerson?: number }} [opts]
+ * @param {{ people?: Array, txnsPerPerson?: number, watchlistLatest?: Array }} [opts]
  */
 export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
   const people = opts.people ?? EXPLORE_WATCHLIST_CATALOG
   const txnsPerPerson = opts.txnsPerPerson ?? WATCHLIST_TXNS_PER_PERSON
-  const labeled = mapActorEventRows(investorEvents).filter(isPlausibleExploreInvestorRow)
+  const latestSource = opts.watchlistLatest?.length
+    ? opts.watchlistLatest
+    : investorEvents
+  const labeled = mapActorEventRows(latestSource).filter(isPlausibleExploreInvestorRow)
   const sorted = sortEventsNewestFirst(labeled)
   const rows = []
 
   for (const person of people) {
+    const fromLatest = Array.isArray(opts.watchlistLatest) ? opts.watchlistLatest : []
+    const directLatest = fromLatest.find(
+      (ev) =>
+        String(ev?.name ?? '').trim() === person.name ||
+        watchlistEventMatchesPerson(ev, person),
+    )
+
+    if (directLatest) {
+      const lead = mapActorEventRows([directLatest]).filter(isPlausibleExploreInvestorRow)[0] ?? directLatest
+      const { trail, muted } = resolveExploreRowTrail(lead, 'investor')
+      const actorSlug =
+        String(lead.actorSlug ?? '')
+          .trim()
+          .toLowerCase() || watchlistPersonSlugs(person)[0]
+      rows.push({
+        id: `wl-${actorSlug}`,
+        name: person.name,
+        feedName: String(lead.name ?? person.name).trim(),
+        actorSlug,
+        mode: person.mode,
+        typeKey: person.mode,
+        ticker: lead.ticker,
+        docType: lead.docType,
+        event: lead.event ?? exploreActorEventLabel(lead.docType),
+        trail,
+        trailMuted: muted,
+        up: muted || trail === '$0' ? false : lead.up ?? true,
+        extraSameDay: Math.max(0, Number(lead.extraSameDay ?? 0)),
+        date: lead.date,
+      })
+      continue
+    }
+
     const personEvents = sorted.filter((ev) => watchlistEventMatchesPerson(ev, person))
     const txns = dedupeWatchlistEvents(personEvents, txnsPerPerson)
-    if (!txns.length) continue
+    if (!txns.length) {
+      rows.push(emptyWatchlistRow(person))
+      continue
+    }
 
     const lead = txns[0]
     const tickers = [...new Set(txns.map((t) => String(t.ticker ?? '').trim().toUpperCase()).filter(Boolean))]
@@ -114,7 +182,7 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
       trail,
       trailMuted: muted,
       up: muted || trail === '$0' ? false : lead.up ?? true,
-      extraSameDay: Math.max(0, txns.length - 1),
+      extraSameDay: Math.max(0, lead.extraSameDay ?? txns.length - 1),
       date: lead.date,
     })
   }

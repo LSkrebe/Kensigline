@@ -1,10 +1,18 @@
 import { exploreInvestorSlug } from './exploreDirectoryNav.js'
 
 /**
- * Curated watchlist — matchNames / slugAliases must align with production filer display_name + slug.
- * People without live directory events are omitted from the watchlist (no synthetic rows).
+ * Default watchlist — politicians, insiders, and institutions with live DB coverage.
+ * slugAliases / matchNames align with production filer display_name + slug.
  */
 export const EXPLORE_WATCHLIST_CATALOG = [
+  {
+    name: 'Nancy Pelosi',
+    slug: 'nancy-pelosi',
+    slugAliases: ['hon-nancy-pelosi', 'the-honorable-nancy-pelosi'],
+    mode: 'politicians',
+    docType: 'ptr_purchase',
+    matchNames: ['Hon. Nancy Pelosi', 'Nancy Pelosi', 'The Honorable Nancy Pelosi'],
+  },
   {
     name: 'Tommy Tuberville',
     slug: 'tommy-tuberville',
@@ -19,7 +27,7 @@ export const EXPLORE_WATCHLIST_CATALOG = [
     slugAliases: ['the-honorable-markwayne-mullin'],
     mode: 'politicians',
     docType: 'ptr_purchase',
-    matchNames: ['The Honorable Markwayne Mullin'],
+    matchNames: ['The Honorable Markwayne Mullin', 'Markwayne Mullin'],
   },
   {
     name: 'Sheldon Whitehouse',
@@ -38,27 +46,62 @@ export const EXPLORE_WATCHLIST_CATALOG = [
     matchNames: ['The Honorable John Boozman'],
   },
   {
-    name: 'Shelley Capito',
-    slug: 'shelley-capito',
-    slugAliases: ['the-honorable-shelley-m-capito'],
+    name: 'Byron Donalds',
+    slug: 'byron-donalds',
+    slugAliases: ['hon-byron-donalds'],
     mode: 'politicians',
     docType: 'ptr_purchase',
-    matchNames: ['The Honorable Shelley M Capito'],
+    matchNames: ['Hon. Byron Donalds', 'Byron Donalds'],
   },
   {
-    name: 'Sean McMaster',
-    slug: 'sean-mcmaster',
-    mode: 'politicians',
-    docType: 'ptr_purchase',
-    matchNames: ['Sean McMaster'],
+    name: 'Jensen Huang',
+    slug: 'jensen-huang',
+    slugAliases: ['huang-jen-hsun'],
+    mode: 'insiders',
+    docType: 'form4_purchase',
+    matchNames: ['HUANG JEN HSUN', 'Jen-Hsun Huang', 'Jensen Huang'],
+  },
+  {
+    name: 'Tim Cook',
+    slug: 'tim-cook',
+    slugAliases: ['cook-timothy-d'],
+    mode: 'insiders',
+    docType: 'form4',
+    matchNames: ['COOK TIMOTHY D', 'Timothy D Cook', 'Tim Cook'],
+  },
+  {
+    name: 'Lisa Su',
+    slug: 'lisa-su',
+    slugAliases: ['su-lisa-t'],
+    mode: 'insiders',
+    docType: 'form4_purchase',
+    matchNames: ['Su Lisa T', 'Lisa Su', 'Lisa T Su'],
+  },
+  {
+    name: 'Vanguard Group',
+    slug: 'vanguard-group',
+    slugAliases: [
+      'vanguard',
+      'vanguard-capital-management',
+      'vanguard-asset-management',
+      'vanguard-global-advisers-llc',
+      'vanguard-portfolio-management',
+    ],
+    mode: 'institutions',
+    docType: '13f_add',
+    matchNames: [
+      'Vanguard Group',
+      'Vanguard Capital Management',
+      'Vanguard Asset Management',
+      'Vanguard Global Advisers, LLC',
+    ],
   },
   {
     name: 'BlackRock',
     slug: 'blackrock',
     slugAliases: ['cik-2012383'],
     mode: 'institutions',
-    docType: '13f_add',
-    defaultTicker: 'AVGO',
+    docType: '13f_trim',
     matchNames: ['BlackRock, Inc.', 'BlackRock Inc'],
   },
   {
@@ -66,27 +109,7 @@ export const EXPLORE_WATCHLIST_CATALOG = [
     slug: 'renaissance-technologies',
     mode: 'institutions',
     docType: '13f_trim',
-    defaultTicker: 'MCHP',
     matchNames: ['Renaissance Technologies LLC'],
-  },
-  {
-    name: 'Vanguard',
-    slug: 'vanguard',
-    slugAliases: [
-      'vanguard-capital-management',
-      'vanguard-asset-management',
-      'vanguard-global-advisers-llc',
-      'vanguard-group',
-    ],
-    mode: 'institutions',
-    docType: '13f_add',
-    defaultTicker: 'NVDA',
-    matchNames: [
-      'Vanguard Group',
-      'Vanguard Capital Management',
-      'Vanguard Asset Management',
-      'Vanguard Global Advisers, LLC',
-    ],
   },
 ]
 

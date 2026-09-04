@@ -374,6 +374,7 @@ function processExploreHomeResponse(data, backendUp) {
   const events = {
     companyEvents: Array.isArray(data.companyEvents) ? data.companyEvents : [],
     investorEvents: Array.isArray(data.investorEvents) ? data.investorEvents : [],
+    watchlistEvents: Array.isArray(data.watchlistEvents) ? data.watchlistEvents : [],
   }
   const directoryBundle = buildDirectoryBundleFromEvents(events)
   directoryCacheEntry = { at: Date.now(), backendUp, bundle: directoryBundle }
@@ -450,6 +451,7 @@ export async function fetchExploreDirectoryEvents(backendUp) {
   return {
     companyEvents: Array.isArray(res.data.companyEvents) ? res.data.companyEvents : [],
     investorEvents: Array.isArray(res.data.investorEvents) ? res.data.investorEvents : [],
+    watchlistEvents: Array.isArray(res.data.watchlistEvents) ? res.data.watchlistEvents : [],
   }
 }
 
@@ -462,6 +464,7 @@ function buildDirectoryBundleFromEvents(events) {
     homeLatest: buildExploreDirectoryHomeLatest(directory),
     fullCompanies: buildExploreDirectoryFullList('companies', directory),
     fullInvestors: buildExploreDirectoryFullList('investors', directory),
+    watchlistEvents: events.watchlistEvents ?? [],
     displayDayKey: homePreview.displayDayKey,
     isFallback: homePreview.isFallback,
     live: true,

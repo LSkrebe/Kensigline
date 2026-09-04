@@ -1,4 +1,4 @@
-import { ExploreDirectoryEventMeta } from './ExploreDirectoryRows.jsx'
+import { ExploreDirectoryEventMeta, exploreRowDateLabel } from './ExploreDirectoryRows.jsx'
 import { formatExploreDirectoryTrailLabel, exploreDirectoryTrailTone } from './exploreDirectoryTrail.js'
 
 function ExploreWatchlistPersonRowContent({ row }) {
@@ -22,6 +22,7 @@ function ExploreWatchlistPersonRowContent({ row }) {
         )}
       </div>
       <span className={['exploreDirectoryAmount', 'mono', trailTone].join(' ')}>{trailLabel}</span>
+      <span className="exploreDirectoryDate mono">{exploreRowDateLabel(row)}</span>
     </>
   )
 }

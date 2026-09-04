@@ -13,7 +13,7 @@ export function ExploreDirectoryEventMeta({ event, extraSameDay = 0 }) {
   )
 }
 
-function exploreRowDateLabel(row) {
+export function exploreRowDateLabel(row) {
   if (row.publishedDateLabel) return row.publishedDateLabel
   if (row.lastDateLabel) return row.lastDateLabel
   if (row.dateLabel) return row.dateLabel

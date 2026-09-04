@@ -96,13 +96,20 @@ async function fetchPdfBytes(url: string): Promise<Buffer> {
 
 const PTR_REPORTABLE_TYPES = new Set(["P", "S", "E"]);
 
-/** Stock rows for P/S/E — matches Investigate PTR transaction filters in the UI. */
+/** Stock + option rows for P/S/E — matches Investigate PTR transaction filters in the UI. */
 function filterReportableStockTransactions(txAll: PoliticianTxn[]) {
   return txAll.filter((t) => {
     const type = String(t?.transaction_type ?? "").trim().toUpperCase();
     if (!PTR_REPORTABLE_TYPES.has(type)) return false;
     const at = String(t?.asset_type ?? "").trim().toUpperCase();
-    return !at || at.includes("ST") || /\bCOMMON STOCK\b/i.test(String(t?.asset_name ?? ""));
+    return (
+      !at ||
+      at.includes("ST") ||
+      at.includes("OP") ||
+      /\bCOMMON STOCK\b/i.test(String(t?.asset_name ?? "")) ||
+      /\bCALL OPTION\b/i.test(String(t?.asset_name ?? "")) ||
+      /\bPUT OPTION\b/i.test(String(t?.asset_name ?? ""))
+    );
   });
 }
 
@@ -225,7 +232,9 @@ async function persistPoliticianFiling(opts: {
   if (!byTicker.size) return [];
 
   const parsedIds: string[] = [];
-  const filerName = String(filing.filer?.name ?? "").trim() || "POLITICIAN";
+  const filerName = String(filing.filer?.name ?? "").trim();
+  if (!filerName) return [];
+
   const filer = await ensureFiler({
     filerType: "politician",
     displayName: filerName,
@@ -390,6 +399,20 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_reportable_transactions" };
     }
 
+    const filerName = String(filing.filer?.name ?? "").trim();
+    if (!filerName) {
+      await markQueueDead(queueId, "skipped_missing_filer_name");
+      logParseOutcome({
+        source_type: source,
+        queue_id: queueId,
+        outcome: "skipped",
+        path: `deterministic/${source}`,
+        skip_reason: "missing_filer_name",
+        llm_used: false,
+      });
+      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "missing_filer_name" };
+    }
+
     const parsedIds = await persistPoliticianFiling({
       queueId,
       url,
@@ -402,13 +425,13 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
     });
 
     if (!parsedIds.length) {
-      await markQueueDead(queueId, "skipped_missing_tickers");
+      await markQueueDead(queueId, "skipped_missing_tickers_or_filer");
       logParseOutcome({
         source_type: source,
         queue_id: queueId,
         outcome: "skipped",
         path: `deterministic/${source}`,
-        skip_reason: "missing_tickers",
+        skip_reason: "missing_tickers_or_filer",
         llm_used: false,
       });
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "missing_tickers" };

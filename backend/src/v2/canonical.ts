@@ -95,6 +95,12 @@ export async function ensureFiler(opts: {
   detailSecondary?: string | null;
 }): Promise<{ id: string; slug: string; display_name: string }> {
   const displayName = String(opts.displayName ?? "").trim() || "Unknown";
+  if (
+    opts.filerType === "politician" &&
+    /^(politician|politicians|unknown|filer|member|insider|institution)$/i.test(displayName)
+  ) {
+    throw new Error(`invalid_politician_filer_name:${displayName}`);
+  }
   const rawKey = displayName.toLowerCase();
   const existing = await db.one<{ id: string; slug: string; display_name: string }>(
     `

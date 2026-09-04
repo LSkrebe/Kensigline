@@ -23,15 +23,19 @@ export function startPoliticiansWorker() {
     sourceTypes: [...QUEUE_SOURCES.investigatePoliticians],
     defaults: {
       enqueueEveryMs: 180_000,
-      parsePollMs: 5_000,
-      parseThrottleMs: 500,
-      parseConcurrency: 2,
+      parsePollMs: 3_000,
+      parseThrottleMs: 200,
+      parseConcurrency: 4,
       backfillIntervalMs: 120_000,
     },
     enqueue: async () => {
       const year = new Date().getFullYear();
-      const [houseRows, senateRows, ogeRows] = await Promise.all([
-        listHousePtrPdfsWithRetry({ filingYear: year, max: maxPerPoll }),
+      const houseYears = [year, year - 1];
+      const houseLists = await Promise.all(
+        houseYears.map((filingYear) => listHousePtrPdfsWithRetry({ filingYear, max: maxPerPoll })),
+      );
+      const houseRows = houseLists.flat();
+      const [senateRows, ogeRows] = await Promise.all([
         listSenatePtrReportsWithRetry({ max: maxPerPoll, lookbackDays: senateLookbackDays }),
         listOge278tPdfsWithRetry({ max: maxPerPoll, lookbackDays: ogeLookbackDays }),
       ]);
@@ -82,7 +86,7 @@ export function startPoliticiansWorker() {
       }
 
       console.log(
-        `politicians_enqueue year=${year} house_discovered=${houseRows.length} house_attempted=${houseEnq} senate_discovered=${senateRows.length} senate_attempted=${senateEnq} oge_discovered=${ogeRows.length} oge_attempted=${ogeEnq}`,
+        `politicians_enqueue years=${houseYears.join(",")} house_discovered=${houseRows.length} house_attempted=${houseEnq} senate_discovered=${senateRows.length} senate_attempted=${senateEnq} oge_discovered=${ogeRows.length} oge_attempted=${ogeEnq}`,
       );
     },
     enqueueBackfill: async () => {

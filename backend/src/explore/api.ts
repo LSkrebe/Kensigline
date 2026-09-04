@@ -6,6 +6,7 @@ import {
   writeExploreHomeSnapshot,
 } from "./home-snapshot.js";
 import { buildExploreDirectoryEvents, buildExploreRecapDayPayload } from "./recap-day.js";
+import { buildExploreWatchlistLatest } from "./watchlist.js";
 import { evaluateRecapForHome, type EvaluatedRecapHome } from "./recap-evaluate-home.js";
 
 const EXPLORE_HOME_CACHE_TTL_MS = Math.max(
@@ -19,6 +20,7 @@ type HomePayload = {
   recap: RecapPayload;
   directory: DirectoryPayload;
   recapEvaluated: EvaluatedRecapHome | null;
+  watchlistLatest: Awaited<ReturnType<typeof buildExploreWatchlistLatest>>;
 };
 
 type CacheEntry<T> = { at: number; payload: T };
@@ -64,6 +66,9 @@ function payloadFromSnapshot(raw: {
     recap: raw.recap as RecapPayload,
     directory: raw.directory as DirectoryPayload,
     recapEvaluated: (raw.recapEvaluated as EvaluatedRecapHome | null) ?? null,
+    watchlistLatest: Array.isArray((raw as { watchlistLatest?: unknown }).watchlistLatest)
+      ? ((raw as { watchlistLatest?: HomePayload["watchlistLatest"] }).watchlistLatest ?? [])
+      : [],
   };
 }
 
@@ -95,12 +100,13 @@ async function hydrateFromDurableSnapshot(): Promise<void> {
 
 /** Recap + directory are independent query sets — build in parallel for faster cold cache. */
 async function buildExploreHomePayload(): Promise<HomePayload> {
-  const [recap, directory] = await Promise.all([
+  const [recap, directory, watchlistLatest] = await Promise.all([
     buildExploreRecapDayPayload(),
     buildExploreDirectoryEvents(),
+    buildExploreWatchlistLatest(),
   ]);
   const recapEvaluated = await evaluateRecapForHome(recap as Record<string, unknown>);
-  return { recap, directory, recapEvaluated };
+  return { recap, directory, recapEvaluated, watchlistLatest };
 }
 
 async function getExploreHomeFresh(): Promise<HomePayload> {
@@ -141,6 +147,7 @@ function homeJson(payload: HomePayload, meta: { cached?: boolean; stale?: boolea
     recapEvaluated: payload.recapEvaluated,
     companyEvents: payload.directory.companyEvents,
     investorEvents: payload.directory.investorEvents,
+    watchlistEvents: payload.watchlistLatest,
   };
 }
 
@@ -213,12 +220,20 @@ export async function handleExploreDirectory(res: http.ServerResponse) {
   try {
     const hit = await resolveServeableHome();
     if (hit) {
-      sendJson(res, 200, { ok: true, ...hit.payload.directory });
+      sendJson(res, 200, {
+        ok: true,
+        ...hit.payload.directory,
+        watchlistEvents: hit.payload.watchlistLatest ?? [],
+      });
       if (!hit.fresh) scheduleExploreHomeRefresh();
       return;
     }
     const payload = await getExploreHomeFresh();
-    sendJson(res, 200, { ok: true, ...payload.directory });
+    sendJson(res, 200, {
+      ok: true,
+      ...payload.directory,
+      watchlistEvents: payload.watchlistLatest ?? [],
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[explore/directory]", msg);

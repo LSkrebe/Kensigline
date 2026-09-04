@@ -6,6 +6,7 @@ export type ExploreHomeSnapshotPayload = {
   recap: unknown;
   directory: unknown;
   recapEvaluated: unknown;
+  watchlistLatest?: unknown;
 };
 
 type SnapshotRow = {
