@@ -313,7 +313,7 @@ function EventMarketBlock({
   onChartRangeChange,
   chartRangeOptions,
   onCompanyClick,
-  openPrimaryCompany,
+  openChartCompany,
 }) {
   const hasChart = chartSeries?.length > 0
   const hasContext = Boolean(
@@ -325,8 +325,9 @@ function EventMarketBlock({
   )
   if (!hasChart && !hasContext) return null
 
-  const chartTicker = brief.chartTicker || primary?.ticker || 'Price'
-  const titleClickable = Boolean(primary && onCompanyClick)
+  const chartTickerRaw = brief.chartTicker || primary?.ticker || null
+  const chartTicker = chartTickerRaw || 'Price'
+  const titleClickable = Boolean(chartTickerRaw && onCompanyClick)
 
   const chartSection = hasChart ? (
     <section className="drpt-section">
@@ -336,8 +337,8 @@ function EventMarketBlock({
           <button
             type="button"
             className="exploreEventSectionTitleBtn"
-            onClick={openPrimaryCompany}
-            aria-label={`Open ${primary.ticker} dossier`}
+            onClick={openChartCompany}
+            aria-label={`Open ${chartTickerRaw} dossier`}
           >
             <span className="drpt-sectionTitle">{chartTicker}</span>
             <span className="exploreEventSectionChevron mono" aria-hidden="true">
@@ -479,10 +480,16 @@ export function ExploreEventPage({
     }
   }, [eventId, brief?.chartTicker, brief?.chartSeries, primary?.ticker, backendUp])
 
-  const openPrimaryCompany = useCallback(() => {
-    if (!primary || !onCompanyClick) return
-    onCompanyClick({ ticker: primary.ticker, name: primary.name })
-  }, [onCompanyClick, primary])
+  const openChartCompany = useCallback(() => {
+    if (!onCompanyClick) return
+    const ticker = String(brief?.chartTicker || primary?.ticker || '')
+      .trim()
+      .toUpperCase()
+    if (!ticker) return
+    const company =
+      brief?.companies?.find((c) => String(c.ticker ?? '').toUpperCase() === ticker) ?? primary
+    onCompanyClick({ ticker, name: company?.name || ticker })
+  }, [onCompanyClick, brief?.chartTicker, brief?.companies, primary])
 
   const metaBits = [
     primary?.name && primary?.ticker
@@ -570,7 +577,7 @@ export function ExploreEventPage({
                 onChartRangeChange={setChartRange}
                 chartRangeOptions={chartRangeOptions}
                 onCompanyClick={onCompanyClick}
-                openPrimaryCompany={openPrimaryCompany}
+                openChartCompany={openChartCompany}
               />
 
               <EventFactsSection facts={brief.facts} />
