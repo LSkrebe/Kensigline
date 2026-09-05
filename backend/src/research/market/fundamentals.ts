@@ -1,10 +1,10 @@
 import { loadTickerSecBundle, type TickerSecBundle } from "../../core/sec.js";
 import { quarterlyPnlFromCompanyFacts } from "../../analyse/quarterly-pnl.js";
-import { marginPctIfMeaningful, fcfMarginPctIfMeaningful } from "../../core/margin-utils.js";
+import { marginPctIfMeaningful } from "../../core/margin-utils.js";
 import { forwardRevenueGrowthFromDocuments } from "./guidance.js";
 
-/** Context panel + key metrics — trailing SEC quarters (8 ≈ 2Y history). */
-export const CONTEXT_FUNDAMENTAL_QUARTERS = 8;
+/** Context panel shows the latest N fiscal quarters (matches analyse 6M chart window). */
+export const CONTEXT_FUNDAMENTAL_QUARTERS = 2;
 
 export type MarketFundamentals = {
   periodLabels: string[];
@@ -13,7 +13,6 @@ export type MarketFundamentals = {
   grossMargin: (number | null)[];
   netMargin: (number | null)[];
   fcfMargin: (number | null)[];
-  fcfUsd: (number | null)[];
   netIncomeGrowth: (number | null)[];
   fcfGrowth: (number | null)[];
   netCash: (number | null)[];
@@ -25,20 +24,17 @@ export type MarketFundamentals = {
   };
 };
 
-const EMPTY_PERIODS = CONTEXT_FUNDAMENTAL_QUARTERS;
-
 const EMPTY: MarketFundamentals = {
   periodLabels: [],
-  revenueUsd: Array.from({ length: EMPTY_PERIODS }, () => null),
-  revenueGrowth: Array.from({ length: EMPTY_PERIODS }, () => null),
-  grossMargin: Array.from({ length: EMPTY_PERIODS }, () => null),
-  netMargin: Array.from({ length: EMPTY_PERIODS }, () => null),
-  fcfMargin: Array.from({ length: EMPTY_PERIODS }, () => null),
-  fcfUsd: Array.from({ length: EMPTY_PERIODS }, () => null),
-  netIncomeGrowth: Array.from({ length: EMPTY_PERIODS }, () => null),
-  fcfGrowth: Array.from({ length: EMPTY_PERIODS }, () => null),
-  netCash: Array.from({ length: EMPTY_PERIODS }, () => null),
-  sharesOutstanding: Array.from({ length: EMPTY_PERIODS }, () => null),
+  revenueUsd: [null, null],
+  revenueGrowth: [null, null],
+  grossMargin: [null, null],
+  netMargin: [null, null],
+  fcfMargin: [null, null],
+  netIncomeGrowth: [null, null],
+  fcfGrowth: [null, null],
+  netCash: [null, null],
+  sharesOutstanding: [null, null],
   forwardRevenueGrowth: null,
   sources: { historical: null, forward: null },
 };
@@ -65,7 +61,6 @@ function fundamentalsSeriesFromQuarterlyFacts(companyFacts: unknown, periods = C
   const grossMargin: (number | null)[] = [];
   const netMargin: (number | null)[] = [];
   const fcfMargin: (number | null)[] = [];
-  const fcfUsd: (number | null)[] = [];
   const netIncomeGrowth: (number | null)[] = [];
   const fcfGrowth: (number | null)[] = [];
   const netCash: (number | null)[] = [];
@@ -77,8 +72,7 @@ function fundamentalsSeriesFromQuarterlyFacts(companyFacts: unknown, periods = C
     revenueGrowth.push(pctChange(anchor.revenueUsd, prior?.revenueUsd ?? null));
     grossMargin.push(marginPctIfMeaningful(anchor.grossProfitUsd, anchor.revenueUsd));
     netMargin.push(marginPctIfMeaningful(anchor.netIncomeUsd, anchor.revenueUsd));
-    fcfMargin.push(fcfMarginPctIfMeaningful(anchor.fcfUsd, anchor.revenueUsd));
-    fcfUsd.push(anchor.fcfUsd);
+    fcfMargin.push(marginPctIfMeaningful(anchor.fcfUsd, anchor.revenueUsd));
     netIncomeGrowth.push(pctChange(anchor.netIncomeUsd, prior?.netIncomeUsd ?? null));
     fcfGrowth.push(pctChange(anchor.fcfUsd, prior?.fcfUsd ?? null));
     const cash = anchor.cashUsd;
@@ -97,7 +91,6 @@ function fundamentalsSeriesFromQuarterlyFacts(companyFacts: unknown, periods = C
     grossMargin: padSeries(grossMargin, periods),
     netMargin: padSeries(netMargin, periods),
     fcfMargin: padSeries(fcfMargin, periods),
-    fcfUsd: padSeries(fcfUsd, periods),
     netIncomeGrowth: padSeries(netIncomeGrowth, periods),
     fcfGrowth: padSeries(fcfGrowth, periods),
     netCash: padSeries(netCash, periods),
