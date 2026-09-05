@@ -3274,6 +3274,33 @@ function mapFundamentalsFromApi(fundamentals) {
   return mapped
 }
 
+function fundamentalsSeriesHasValue(arr) {
+  return Array.isArray(arr) && arr.some((v) => v != null && Number.isFinite(Number(v)))
+}
+
+function mergeFundamentalsSeries(primary, fallback) {
+  if (fundamentalsSeriesHasValue(primary)) return primary
+  if (fundamentalsSeriesHasValue(fallback)) return fallback
+  return primary ?? fallback ?? null
+}
+
+function mergeFundamentalsSnapshots(primary, fallback) {
+  if (!primary) return fallback ?? null
+  if (!fallback) return primary
+  return {
+    periodLabels: primary.periodLabels?.length ? primary.periodLabels : fallback.periodLabels,
+    forwardRevenueGrowth: primary.forwardRevenueGrowth ?? fallback.forwardRevenueGrowth ?? null,
+    revenueGrowth: mergeFundamentalsSeries(primary.revenueGrowth, fallback.revenueGrowth),
+    grossMargin: mergeFundamentalsSeries(primary.grossMargin, fallback.grossMargin),
+    netMargin: mergeFundamentalsSeries(primary.netMargin, fallback.netMargin),
+    fcfMargin: mergeFundamentalsSeries(primary.fcfMargin, fallback.fcfMargin),
+    netIncomeGrowth: mergeFundamentalsSeries(primary.netIncomeGrowth, fallback.netIncomeGrowth),
+    fcfGrowth: mergeFundamentalsSeries(primary.fcfGrowth, fallback.fcfGrowth),
+    netCash: mergeFundamentalsSeries(primary.netCash, fallback.netCash),
+    sharesOutstanding: mergeFundamentalsSeries(primary.sharesOutstanding, fallback.sharesOutstanding),
+  }
+}
+
 function findAnalyseModelRow(model, label) {
   const want = String(label ?? '')
     .trim()
@@ -10115,7 +10142,8 @@ function KensiglineTerminal() {
       const fromCompany = researchCompanyResolved?.fundamentals
         ? mapFundamentalsFromApi(researchCompanyResolved.fundamentals)
         : null
-      base = fromCompany ?? mapFundamentalsFromAnalyseModel(analyseLivePayload?.model)
+      const fromModel = mapFundamentalsFromAnalyseModel(analyseLivePayload?.model)
+      base = mergeFundamentalsSnapshots(fromCompany, fromModel) ?? fromCompany ?? fromModel
     } else if (isMockDataMode(backendUp)) {
       base = contextMock?.fundamentals ?? null
     }

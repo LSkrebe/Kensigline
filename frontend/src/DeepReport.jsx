@@ -489,13 +489,16 @@ function formatFundamentalCell(value, format) {
   return String(n)
 }
 
+const DEEP_METRIC_SLOT_COUNT = 4
+
 const FUNDAMENTAL_SNAPSHOT_ROWS = [
-  { key: 'forwardRevenueGrowth', label: 'Forward rev growth', kind: 'single', format: 'pct' },
+  { key: 'valuationDiscountPct', label: 'Vs historic valuation', kind: 'single', format: 'valuationDiscount' },
   { key: 'grossMargin', label: 'Gross margin', kind: 'sequence', format: 'pct' },
   { key: 'netMargin', label: 'Net margin', kind: 'sequence', format: 'pct' },
   { key: 'fcfMargin', label: 'FCF margin', kind: 'sequence', format: 'pct' },
-  { key: 'valuationDiscountPct', label: 'Vs historic valuation', kind: 'single', format: 'valuationDiscount' },
   { key: 'revenueGrowth', label: 'Rev growth (YoY)', kind: 'sequence', format: 'pct' },
+  { key: 'netCash', label: 'Net cash', kind: 'sequence', format: 'usd' },
+  { key: 'forwardRevenueGrowth', label: 'Forward rev growth', kind: 'single', format: 'pct' },
 ]
 
 function lookupSourceCatalog(source) {
@@ -716,7 +719,7 @@ function DeepFundamentalsSnapshot({ fundamentals, loading = false }) {
       value: formatFundamentalCell(value, row.format),
       period: period ?? 'Latest',
     }
-  }).filter(Boolean)
+  }).filter(Boolean).slice(0, DEEP_METRIC_SLOT_COUNT)
 
   if (!cards.length) {
     return loading ? (
