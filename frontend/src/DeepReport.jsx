@@ -491,6 +491,10 @@ function formatFundamentalCell(value, format) {
 
 const DEEP_METRIC_SLOT_COUNT = 4
 
+const DEEP_METRIC_MARGIN_KEYS = new Set(['grossMargin', 'netMargin', 'fcfMargin'])
+const MIN_METRIC_REVENUE_USD = 5_000_000
+const MAX_METRIC_MARGIN_PCT = 300
+
 /** Each slot picks the first row that has data — always four boxes when fundamentals exist. */
 const DEEP_METRIC_SLOTS = [
   [
@@ -498,8 +502,14 @@ const DEEP_METRIC_SLOTS = [
     { key: 'revenueGrowth', label: 'Rev growth (YoY)', kind: 'sequence', format: 'pct' },
     { key: 'netCash', label: 'Net cash', kind: 'sequence', format: 'usd' },
   ],
-  [{ key: 'grossMargin', label: 'Gross margin', kind: 'sequence', format: 'pct' }],
-  [{ key: 'netMargin', label: 'Net margin', kind: 'sequence', format: 'pct' }],
+  [
+    { key: 'grossMargin', label: 'Gross margin', kind: 'sequence', format: 'pct' },
+    { key: 'revenueGrowth', label: 'Rev growth (YoY)', kind: 'sequence', format: 'pct' },
+  ],
+  [
+    { key: 'netMargin', label: 'Net margin', kind: 'sequence', format: 'pct' },
+    { key: 'netIncomeGrowth', label: 'Net income growth', kind: 'sequence', format: 'pct' },
+  ],
   [
     { key: 'fcfMargin', label: 'FCF margin', kind: 'sequence', format: 'pct' },
     { key: 'netCash', label: 'Net cash', kind: 'sequence', format: 'usd' },
@@ -517,7 +527,10 @@ function buildDeepMetricCard(fundamentals, row) {
       period: 'Forward',
     }
   }
-  const { value, period } = latestSequenceValue(fundamentals, row.key)
+  const latest = DEEP_METRIC_MARGIN_KEYS.has(row.key)
+    ? latestMeaningfulSequenceValue(fundamentals, row.key)
+    : latestSequenceValue(fundamentals, row.key)
+  const { value, period } = latest
   if (value == null) return null
   const label =
     row.key === 'netCash' && Number(value) < 0 ? 'Net debt' : row.label
@@ -754,6 +767,24 @@ function latestSequenceValue(fundamentals, key) {
       const period = labels[i] ?? (i === arr.length - 1 ? 'Latest' : null)
       return { value: arr[i], period }
     }
+  }
+  return { value: null, period: null }
+}
+
+/** Prefer the latest quarter with enough revenue for margin % to be meaningful. */
+function latestMeaningfulSequenceValue(fundamentals, key) {
+  const arr = fundamentals?.[key]
+  const revenue = fundamentals?.revenueUsd
+  if (!Array.isArray(arr) || !arr.length) return { value: null, period: null }
+  for (let i = arr.length - 1; i >= 0; i -= 1) {
+    const v = arr[i]
+    if (v == null || !Number.isFinite(Number(v))) continue
+    const rev = revenue?.[i]
+    if (rev != null && Math.abs(Number(rev)) < MIN_METRIC_REVENUE_USD) continue
+    if (Math.abs(Number(v)) > MAX_METRIC_MARGIN_PCT) continue
+    const labels = fundamentals.periodLabels ?? []
+    const period = labels[i] ?? (i === arr.length - 1 ? 'Latest' : null)
+    return { value: v, period }
   }
   return { value: null, period: null }
 }

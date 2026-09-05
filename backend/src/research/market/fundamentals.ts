@@ -1,5 +1,6 @@
 import { loadTickerSecBundle, type TickerSecBundle } from "../../core/sec.js";
 import { quarterlyPnlFromCompanyFacts } from "../../analyse/quarterly-pnl.js";
+import { marginPctIfMeaningful } from "../../core/margin-utils.js";
 import { forwardRevenueGrowthFromDocuments } from "./guidance.js";
 
 /** Context panel shows the latest N fiscal quarters (matches analyse 6M chart window). */
@@ -7,6 +8,7 @@ export const CONTEXT_FUNDAMENTAL_QUARTERS = 2;
 
 export type MarketFundamentals = {
   periodLabels: string[];
+  revenueUsd: (number | null)[];
   revenueGrowth: (number | null)[];
   grossMargin: (number | null)[];
   netMargin: (number | null)[];
@@ -24,6 +26,7 @@ export type MarketFundamentals = {
 
 const EMPTY: MarketFundamentals = {
   periodLabels: [],
+  revenueUsd: [null, null],
   revenueGrowth: [null, null],
   grossMargin: [null, null],
   netMargin: [null, null],
@@ -46,10 +49,6 @@ function pctChange(current: number | null, prior: number | null): number | null 
   return Math.round(((current - prior) / Math.abs(prior)) * 1000) / 10;
 }
 
-function marginPct(numerator: number | null, revenue: number | null): number | null {
-  if (numerator == null || revenue == null || revenue === 0) return null;
-  return Math.round((numerator / revenue) * 1000) / 10;
-}
 
 function fundamentalsSeriesFromQuarterlyFacts(companyFacts: unknown, periods = CONTEXT_FUNDAMENTAL_QUARTERS): MarketFundamentals | null {
   const quarters = quarterlyPnlFromCompanyFacts(companyFacts, { quarters: periods });
@@ -57,6 +56,7 @@ function fundamentalsSeriesFromQuarterlyFacts(companyFacts: unknown, periods = C
 
   const anchors = quarters.slice(-periods);
   const periodLabels = anchors.map((q) => q.label);
+  const revenueUsd: (number | null)[] = [];
   const revenueGrowth: (number | null)[] = [];
   const grossMargin: (number | null)[] = [];
   const netMargin: (number | null)[] = [];
@@ -68,10 +68,11 @@ function fundamentalsSeriesFromQuarterlyFacts(companyFacts: unknown, periods = C
 
   for (const anchor of anchors) {
     const prior = quarters.find((q) => q.fy === anchor.fy - 1 && q.fp === anchor.fp);
+    revenueUsd.push(anchor.revenueUsd);
     revenueGrowth.push(pctChange(anchor.revenueUsd, prior?.revenueUsd ?? null));
-    grossMargin.push(marginPct(anchor.grossProfitUsd, anchor.revenueUsd));
-    netMargin.push(marginPct(anchor.netIncomeUsd, anchor.revenueUsd));
-    fcfMargin.push(marginPct(anchor.fcfUsd, anchor.revenueUsd));
+    grossMargin.push(marginPctIfMeaningful(anchor.grossProfitUsd, anchor.revenueUsd));
+    netMargin.push(marginPctIfMeaningful(anchor.netIncomeUsd, anchor.revenueUsd));
+    fcfMargin.push(marginPctIfMeaningful(anchor.fcfUsd, anchor.revenueUsd));
     netIncomeGrowth.push(pctChange(anchor.netIncomeUsd, prior?.netIncomeUsd ?? null));
     fcfGrowth.push(pctChange(anchor.fcfUsd, prior?.fcfUsd ?? null));
     const cash = anchor.cashUsd;
@@ -85,6 +86,7 @@ function fundamentalsSeriesFromQuarterlyFacts(companyFacts: unknown, periods = C
 
   return {
     periodLabels,
+    revenueUsd: padSeries(revenueUsd, periods),
     revenueGrowth: padSeries(revenueGrowth, periods),
     grossMargin: padSeries(grossMargin, periods),
     netMargin: padSeries(netMargin, periods),

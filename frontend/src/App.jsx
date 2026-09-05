@@ -3252,6 +3252,7 @@ function mapFundamentalsFromApi(fundamentals) {
         ? Number(fundamentals.forwardRevenueGrowth)
         : null,
     revenueGrowth: pickArray('revenueGrowth'),
+    revenueUsd: pickArray('revenueUsd'),
     grossMargin: pickArray('grossMargin'),
     netMargin: pickArray('netMargin'),
     fcfMargin: pickArray('fcfMargin'),
@@ -3271,11 +3272,44 @@ function mapFundamentalsFromApi(fundamentals) {
     mapped.sharesOutstanding,
   ].some((arr) => arr?.some((v) => v != null))
   if (!hasHistorical && mapped.forwardRevenueGrowth == null) return null
-  return mapped
+  return sanitizeFundamentalsMargins(mapped)
 }
 
 function fundamentalsSeriesHasValue(arr) {
   return Array.isArray(arr) && arr.some((v) => v != null && Number.isFinite(Number(v)))
+}
+
+const MIN_MARGIN_REVENUE_USD = 5_000_000
+const MAX_ABS_MARGIN_PCT = 300
+
+function marginPctIfMeaningful(numeratorUsd, revenueUsd) {
+  if (numeratorUsd == null || revenueUsd == null || revenueUsd === 0) return null
+  if (Math.abs(revenueUsd) < MIN_MARGIN_REVENUE_USD) return null
+  const pct = Math.round((numeratorUsd / revenueUsd) * 1000) / 10
+  if (Math.abs(pct) > MAX_ABS_MARGIN_PCT) return null
+  return pct
+}
+
+function sanitizeMarginSeries(margins, revenueUsd) {
+  if (!Array.isArray(margins)) return margins
+  return margins.map((value, i) => {
+    if (value == null || !Number.isFinite(Number(value))) return null
+    const rev = revenueUsd?.[i]
+    if (rev != null && Math.abs(Number(rev)) < MIN_MARGIN_REVENUE_USD) return null
+    if (Math.abs(Number(value)) > MAX_ABS_MARGIN_PCT) return null
+    return value
+  })
+}
+
+function sanitizeFundamentalsMargins(fundamentals) {
+  if (!fundamentals) return fundamentals
+  const revenueUsd = fundamentals.revenueUsd
+  return {
+    ...fundamentals,
+    grossMargin: sanitizeMarginSeries(fundamentals.grossMargin, revenueUsd),
+    netMargin: sanitizeMarginSeries(fundamentals.netMargin, revenueUsd),
+    fcfMargin: sanitizeMarginSeries(fundamentals.fcfMargin, revenueUsd),
+  }
 }
 
 function mergeFundamentalsSeries(primary, fallback) {
@@ -3297,6 +3331,7 @@ function mergeFundamentalsSnapshots(primary, fallback) {
   return {
     periodLabels: primary.periodLabels?.length ? primary.periodLabels : fallback.periodLabels,
     forwardRevenueGrowth: primary.forwardRevenueGrowth ?? fallback.forwardRevenueGrowth ?? null,
+    revenueUsd: mergeFundamentalsSeries(primary.revenueUsd, fallback.revenueUsd),
     revenueGrowth: mergeFundamentalsSeries(primary.revenueGrowth, fallback.revenueGrowth),
     grossMargin: mergeFundamentalsSeries(primary.grossMargin, fallback.grossMargin),
     netMargin: mergeFundamentalsSeries(primary.netMargin, fallback.netMargin),
@@ -3330,7 +3365,7 @@ function mapFundamentalsFromAnalyseModel(model) {
   const estFrom = Number(model.estimateFromIndex)
   const histEnd = Number.isFinite(estFrom) && estFrom > 0 ? estFrom : (model.quarters?.length ?? 0)
   if (histEnd < 1) return null
-  const take = Math.min(2, histEnd)
+  const take = Math.min(8, histEnd)
   const start = histEnd - take
   const periodLabels = (Array.isArray(model.quarters) ? model.quarters : [])
     .slice(start, histEnd)
@@ -3351,31 +3386,35 @@ function mapFundamentalsFromAnalyseModel(model) {
   let grossMargin = sliceNums(findAnalyseModelRow(model, 'Gross margin'))
   let revenueGrowth = sliceNums(findAnalyseModelRow(model, 'Revenue growth (YoY)'))
 
-  if (!grossMargin && revenue && grossProfit) {
-    grossMargin = revenue.map((rev, i) => {
-      const gp = grossProfit[i]
-      if (rev == null || gp == null || rev === 0) return null
-      return Math.round((gp / rev) * 1000) / 10
+  if (revenue && grossProfit) {
+    grossMargin = revenue.map((revM, i) => {
+      const gpM = grossProfit[i]
+      if (revM == null || gpM == null) return null
+      return marginPctIfMeaningful(gpM * 1e6, revM * 1e6)
     })
   }
 
   const netMargin =
     revenue && netIncome
-      ? revenue.map((rev, i) => {
-          const ni = netIncome[i]
-          if (rev == null || ni == null || rev === 0) return null
-          return Math.round((ni / rev) * 1000) / 10
+      ? revenue.map((revM, i) => {
+          const niM = netIncome[i]
+          if (revM == null || niM == null) return null
+          return marginPctIfMeaningful(niM * 1e6, revM * 1e6)
         })
       : null
 
   const fcfMargin =
     revenue && fcf
-      ? revenue.map((rev, i) => {
+      ? revenue.map((revM, i) => {
           const v = fcf[i]
-          if (rev == null || v == null || rev === 0) return null
-          return Math.round((v / rev) * 1000) / 10
+          if (revM == null || v == null) return null
+          return marginPctIfMeaningful(v * 1e6, revM * 1e6)
         })
       : null
+
+  const revenueUsd = revenue
+    ? revenue.map((revM) => (revM != null ? revM * 1e6 : null))
+    : null
 
   // Model cash/debt are in USD millions — expose dollars for the compact formatter.
   const netCash =
@@ -3392,6 +3431,7 @@ function mapFundamentalsFromAnalyseModel(model) {
   const mapped = {
     periodLabels: periodLabels.length ? periodLabels : null,
     forwardRevenueGrowth: null,
+    revenueUsd,
     revenueGrowth,
     grossMargin,
     netMargin,
@@ -3408,7 +3448,7 @@ function mapFundamentalsFromAnalyseModel(model) {
     mapped.fcfMargin,
     mapped.netCash,
   ].some((arr) => arr?.some((v) => v != null))
-  return hasHistorical ? mapped : null
+  return hasHistorical ? sanitizeFundamentalsMargins(mapped) : null
 }
 
 function parseAnalyseQuarterEndDate(label) {
@@ -3481,25 +3521,26 @@ function computeValuationDiscountPct(model, livePrice, priceSeries, priceDays) {
   if (!Number.isFinite(estFrom) || estFrom < 4) return null
 
   const currentLtmEps = sumAnalyseModelEpsRange(model, estFrom - 4, estFrom)
-  if (currentLtmEps == null || currentLtmEps <= 0) return null
-  const currentPe = price / currentLtmEps
+  if (currentLtmEps != null && currentLtmEps > 0) {
+    const currentPe = price / currentLtmEps
 
-  const peSamples = []
-  for (let col = 3; col < estFrom; col++) {
-    const ltmEps = sumAnalyseModelEpsRange(model, col - 3, col + 1)
-    if (ltmEps == null || ltmEps <= 0) continue
-    let quarterPrice = null
-    if (Array.isArray(priceSeries) && priceSeries.length) {
-      quarterPrice = priceAtAnalyseQuarter(model, col, priceSeries, priceDays)
+    const peSamples = []
+    for (let col = 3; col < estFrom; col++) {
+      const ltmEps = sumAnalyseModelEpsRange(model, col - 3, col + 1)
+      if (ltmEps == null || ltmEps <= 0) continue
+      let quarterPrice = null
+      if (Array.isArray(priceSeries) && priceSeries.length) {
+        quarterPrice = priceAtAnalyseQuarter(model, col, priceSeries, priceDays)
+      }
+      if (quarterPrice == null || quarterPrice <= 0) continue
+      peSamples.push(quarterPrice / ltmEps)
     }
-    if (quarterPrice == null || quarterPrice <= 0) continue
-    peSamples.push(quarterPrice / ltmEps)
-  }
 
-  if (peSamples.length >= 2) {
-    const avgPe = peSamples.reduce((sum, pe) => sum + pe, 0) / peSamples.length
-    if (Number.isFinite(avgPe) && avgPe > 0) {
-      return Math.round((1 - currentPe / avgPe) * 1000) / 10
+    if (peSamples.length >= 2) {
+      const avgPe = peSamples.reduce((sum, pe) => sum + pe, 0) / peSamples.length
+      if (Number.isFinite(avgPe) && avgPe > 0) {
+        return Math.round((1 - currentPe / avgPe) * 1000) / 10
+      }
     }
   }
 
@@ -10178,6 +10219,7 @@ function KensiglineTerminal() {
         : null
       const fromModel = mapFundamentalsFromAnalyseModel(analyseLivePayload?.model)
       base = mergeFundamentalsSnapshots(fromCompany, fromModel) ?? fromCompany ?? fromModel
+      base = sanitizeFundamentalsMargins(base)
     } else if (isMockDataMode(backendUp)) {
       base = contextMock?.fundamentals ?? null
     }
