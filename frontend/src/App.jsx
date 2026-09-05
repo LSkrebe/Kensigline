@@ -3372,7 +3372,7 @@ function mergeFundamentalsSnapshots(primary, fallback) {
 
   const periodLabels = orderedFundamentalPeriodLabels(primary.periodLabels, fallback.periodLabels)
   if (!periodLabels.length) {
-    return {
+    return sanitizeFundamentalsSnapshotMeta({
       periodLabels: primary.periodLabels?.length ? primary.periodLabels : fallback.periodLabels,
       forwardRevenueGrowth: primary.forwardRevenueGrowth ?? fallback.forwardRevenueGrowth ?? null,
       revenueUsd: mergeFundamentalsSeries(primary.revenueUsd, fallback.revenueUsd),
@@ -3385,7 +3385,8 @@ function mergeFundamentalsSnapshots(primary, fallback) {
       fcfGrowth: mergeFundamentalsSeries(primary.fcfGrowth, fallback.fcfGrowth),
       netCash: mergeFundamentalsSeries(primary.netCash, fallback.netCash),
       sharesOutstanding: mergeFundamentalsSeries(primary.sharesOutstanding, fallback.sharesOutstanding),
-    }
+      secPeriodLabels: primary.periodLabels ?? [],
+    })
   }
 
   const mergeKey = (key) =>
@@ -3395,7 +3396,7 @@ function mergeFundamentalsSnapshots(primary, fallback) {
       return fundamentalValueAtPeriod(fallback, key, label)
     })
 
-  return {
+  return sanitizeFundamentalsSnapshotMeta({
     periodLabels,
     forwardRevenueGrowth: primary.forwardRevenueGrowth ?? fallback.forwardRevenueGrowth ?? null,
     revenueUsd: mergeKey('revenueUsd'),
@@ -3408,7 +3409,14 @@ function mergeFundamentalsSnapshots(primary, fallback) {
     fcfGrowth: mergeKey('fcfGrowth'),
     netCash: mergeKey('netCash'),
     sharesOutstanding: mergeKey('sharesOutstanding'),
-  }
+    secPeriodLabels: primary.periodLabels ?? [],
+  })
+}
+
+function sanitizeFundamentalsSnapshotMeta(snapshot) {
+  if (!snapshot) return snapshot
+  const { secPeriodLabels, ...rest } = snapshot
+  return { ...rest, secPeriodLabels }
 }
 
 function findAnalyseModelRow(model, label) {

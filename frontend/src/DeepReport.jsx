@@ -522,22 +522,60 @@ const DEEP_METRIC_SLOTS = [
 
 function findKeyMetricAnchorIndex(fundamentals) {
   const revenue = fundamentals?.revenueUsd
-  if (!Array.isArray(revenue) || !revenue.length) {
-    return latestSequenceIndex(fundamentals, 'netCash')
-  }
-  for (let i = revenue.length - 1; i >= 0; i -= 1) {
-    const rev = revenue[i]
+  const labels = fundamentals?.periodLabels ?? []
+  const secLabels = new Set(
+    (fundamentals?.secPeriodLabels ?? []).map((l) =>
+      String(l ?? '')
+        .trim()
+        .toUpperCase(),
+    ),
+  )
+  const secHasMeaningfulRevenue =
+    secLabels.size > 0 &&
+    labels.some((label, i) => {
+      if (!secLabels.has(String(label ?? '').trim().toUpperCase())) return false
+      const rev = revenue?.[i]
+      return rev != null && Math.abs(Number(rev)) >= MIN_METRIC_REVENUE_USD
+    })
+
+  const tryIndex = (i) => {
+    const rev = revenue?.[i]
     if (rev == null || !Number.isFinite(Number(rev)) || Math.abs(Number(rev)) < MIN_METRIC_REVENUE_USD) {
-      continue
+      return false
     }
+    if (secHasMeaningfulRevenue) {
+      const label = String(labels[i] ?? '')
+        .trim()
+        .toUpperCase()
+      if (!secLabels.has(label)) return false
+    }
+    if (revenueQuarterLooksAnomalous(revenue, i)) return false
     const keys = ['netMargin', 'grossMargin', 'fcfMargin', 'fcfUsd', 'netCash', 'revenueGrowth']
-    const hasValue = keys.some((key) => {
+    return keys.some((key) => {
       const v = fundamentals?.[key]?.[i]
       return v != null && Number.isFinite(Number(v))
     })
-    if (hasValue) return i
+  }
+
+  if (Array.isArray(revenue) && revenue.length) {
+    for (let i = revenue.length - 1; i >= 0; i -= 1) {
+      if (tryIndex(i)) return i
+    }
   }
   return latestSequenceIndex(fundamentals, 'netCash')
+}
+
+/** Skip quarters where revenue spikes or collapses vs the prior meaningful quarter. */
+function revenueQuarterLooksAnomalous(revenue, index) {
+  const rev = revenue?.[index]
+  if (rev == null) return true
+  for (let j = index - 1; j >= 0; j -= 1) {
+    const prior = revenue?.[j]
+    if (prior == null || Math.abs(Number(prior)) < MIN_METRIC_REVENUE_USD) continue
+    const ratio = Number(rev) / Number(prior)
+    return ratio > 4 || ratio < 0.25
+  }
+  return false
 }
 
 function latestSequenceIndex(fundamentals, key) {
