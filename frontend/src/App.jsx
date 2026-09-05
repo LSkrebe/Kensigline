@@ -28,6 +28,7 @@ import {
   stubActorRowFromExploreInvestor,
 } from './exploreDirectoryNav.js'
 import { loadExploreDirectoryBundle, lookupExploreDirectoryCompanyName, peekExploreHomeSnapshot, prefetchExploreHome, waitForExploreHomeReady } from './exploreApi.js'
+import './clientDiagnostics.js'
 import { buildExploreDirectoryFullList } from './exploreDirectoryMock.js'
 import { installManualScrollRestoration } from './collapseScroll.js'
 import { isExploreNetworkMode, isLiveDataMode, isMockDataMode } from './dataMode.js'
@@ -3374,6 +3375,100 @@ function mapFundamentalsFromAnalyseModel(model) {
     mapped.netCash,
   ].some((arr) => arr?.some((v) => v != null))
   return hasHistorical ? mapped : null
+}
+
+function parseAnalyseQuarterEndDate(label) {
+  const m = String(label ?? '')
+    .trim()
+    .match(/^Q([1-4])'(\d{2})/i)
+  if (!m) return null
+  const q = Number(m[1])
+  const yy = Number(m[2])
+  if (!Number.isFinite(q) || q < 1 || q > 4 || !Number.isFinite(yy)) return null
+  const year = 2000 + yy
+  const month = q * 3
+  const lastDay = [31, 30, 30, 31][q - 1]
+  return `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+}
+
+function sumAnalyseModelEpsRange(model, start, end) {
+  const epsRow = findAnalyseModelRow(model, 'EPS ($)')
+  if (!epsRow?.values || end <= start) return null
+  let sum = 0
+  let count = 0
+  for (let i = start; i < end && i < epsRow.values.length; i++) {
+    const e = parseAnalyseModelNumber(epsRow.values[i])
+    if (e == null) return null
+    sum += e
+    count += 1
+  }
+  return count > 0 ? sum : null
+}
+
+function priceNearDay(priceSeries, priceDays, dayKey) {
+  if (!Array.isArray(priceSeries) || !priceSeries.length || !dayKey) return null
+  if (!Array.isArray(priceDays) || priceDays.length !== priceSeries.length) return null
+  let bestIdx = -1
+  for (let i = priceDays.length - 1; i >= 0; i--) {
+    if (String(priceDays[i]) <= dayKey) {
+      bestIdx = i
+      break
+    }
+  }
+  if (bestIdx < 0) return null
+  const n = Number(priceSeries[bestIdx])
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+function priceAtAnalyseQuarter(model, colIdx, priceSeries, priceDays) {
+  const label = model?.quarters?.[colIdx]
+  const endDay = parseAnalyseQuarterEndDate(label)
+  if (endDay) {
+    const fromDays = priceNearDay(priceSeries, priceDays, endDay)
+    if (fromDays != null) return fromDays
+  }
+  const estFrom = Number(model?.estimateFromIndex)
+  if (!Number.isFinite(estFrom) || estFrom <= colIdx) return null
+  const quartersFromEnd = estFrom - 1 - colIdx
+  const idx = priceSeries.length - 1 - quartersFromEnd * 63
+  if (idx < 0 || idx >= priceSeries.length) return null
+  const n = Number(priceSeries[idx])
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+/** Positive = discount vs trailing historical average P/E; negative = premium. */
+function computeValuationDiscountPct(model, livePrice, priceSeries, priceDays) {
+  if (!model?.historicalModel?.length || livePrice == null || livePrice <= 0) return null
+  const estFrom = Number(model.estimateFromIndex)
+  if (!Number.isFinite(estFrom) || estFrom < 4) return null
+
+  const currentLtmEps = sumAnalyseModelEpsRange(model, estFrom - 4, estFrom)
+  if (currentLtmEps == null || currentLtmEps <= 0) return null
+  const currentPe = livePrice / currentLtmEps
+
+  const peSamples = []
+  for (let col = 3; col < estFrom; col++) {
+    const ltmEps = sumAnalyseModelEpsRange(model, col - 3, col + 1)
+    if (ltmEps == null || ltmEps <= 0) continue
+    const price =
+      Array.isArray(priceSeries) && priceSeries.length
+        ? priceAtAnalyseQuarter(model, col, priceSeries, priceDays)
+        : null
+    if (price == null || price <= 0) continue
+    peSamples.push(price / ltmEps)
+  }
+
+  if (peSamples.length < 2) return null
+  const avgPe = peSamples.reduce((sum, pe) => sum + pe, 0) / peSamples.length
+  if (!Number.isFinite(avgPe) || avgPe <= 0) return null
+  return Math.round((1 - currentPe / avgPe) * 1000) / 10
+}
+
+function enrichFundamentalsWithValuationDiscount(fundamentals, model, livePrice, priceSeries, priceDays) {
+  if (!fundamentals) return fundamentals
+  const valuationDiscountPct = computeValuationDiscountPct(model, livePrice, priceSeries, priceDays)
+  if (valuationDiscountPct == null) return fundamentals
+  return { ...fundamentals, valuationDiscountPct }
 }
 
 function mapOwnershipFromApi(ownership) {
@@ -9810,7 +9905,7 @@ function KensiglineTerminal() {
 
   useEffect(() => {
     const resetScrollers = () => {
-      document.querySelectorAll('.drpt, .explorePage, .exploreDirShell').forEach((el) => {
+      document.querySelectorAll('.drpt, .exploreDirShell').forEach((el) => {
         el.scrollTop = 0
       })
     }
@@ -10015,20 +10110,30 @@ function KensiglineTerminal() {
   )
 
   const contextFundamentals = useMemo(() => {
+    let base = null
     if (isLiveDataMode(backendUp)) {
       const fromCompany = researchCompanyResolved?.fundamentals
         ? mapFundamentalsFromApi(researchCompanyResolved.fundamentals)
         : null
-      if (fromCompany) return fromCompany
-      return mapFundamentalsFromAnalyseModel(analyseLivePayload?.model)
+      base = fromCompany ?? mapFundamentalsFromAnalyseModel(analyseLivePayload?.model)
+    } else if (isMockDataMode(backendUp)) {
+      base = contextMock?.fundamentals ?? null
     }
-    if (!isMockDataMode(backendUp)) return null
-    return contextMock?.fundamentals ?? null
+    return enrichFundamentalsWithValuationDiscount(
+      base,
+      analyseLivePayload?.model,
+      contextLivePrice,
+      researchPriceSeries,
+      researchPriceDays,
+    )
   }, [
     backendUp,
     researchCompanyResolved?.fundamentals,
     analyseLivePayload?.model,
     contextMock?.fundamentals,
+    contextLivePrice,
+    researchPriceSeries,
+    researchPriceDays,
   ])
 
   const analyseQuarterlyRevenue = useMemo(

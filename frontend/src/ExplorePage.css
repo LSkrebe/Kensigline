@@ -858,6 +858,19 @@
   pointer-events: none;
 }
 
+.exploreRecapHero::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  opacity: var(--explore-expanded-opacity);
+  pointer-events: none;
+  z-index: 2;
+}
+
 .exploreRecapHero .exploreRecapTrack,
 .exploreRecapHero .exploreRecapSlideFooter {
   pointer-events: auto;

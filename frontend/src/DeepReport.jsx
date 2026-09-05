@@ -469,6 +469,11 @@ function formatFundamentalCell(value, format) {
   if (value == null || !Number.isFinite(Number(value))) return '—'
   const n = Number(value)
   if (format === 'pct') return `${n.toFixed(1)}%`
+  if (format === 'valuationDiscount') {
+    if (Math.abs(n) < 0.5) return 'In line'
+    if (n > 0) return `${n.toFixed(0)}% discount`
+    return `${Math.abs(n).toFixed(0)}% premium`
+  }
   if (format === 'usd') {
     const abs = Math.abs(n)
     if (abs >= 1e9) return `$${(n / 1e9).toFixed(1)}B`
@@ -489,7 +494,7 @@ const FUNDAMENTAL_SNAPSHOT_ROWS = [
   { key: 'grossMargin', label: 'Gross margin', kind: 'sequence', format: 'pct' },
   { key: 'netMargin', label: 'Net margin', kind: 'sequence', format: 'pct' },
   { key: 'fcfMargin', label: 'FCF margin', kind: 'sequence', format: 'pct' },
-  { key: 'netCash', label: 'Net cash', kind: 'sequence', format: 'usd' },
+  { key: 'valuationDiscountPct', label: 'Vs historic valuation', kind: 'single', format: 'valuationDiscount' },
   { key: 'revenueGrowth', label: 'Rev growth (YoY)', kind: 'sequence', format: 'pct' },
 ]
 

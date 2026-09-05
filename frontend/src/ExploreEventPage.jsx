@@ -7,6 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'reac
 import { useCollapseScroll } from './collapseScroll.js'
 import { resolveExploreEventBrief } from './exploreEventBrief.js'
 import { loadExploreEventBriefContext, peekExploreHomeSnapshot, getExploreRecapCache, fetchExploreEventChartSeries } from './exploreApi.js'
+import { logClientDiagnostic } from './clientDiagnostics.js'
 import { isLiveDataMode } from './dataMode.js'
 import { MiniPriceChart, availablePriceRanges, coercePriceRangeFromOptions } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
@@ -404,25 +405,32 @@ export function ExploreEventPage({
   const [chartRange, setChartRange] = useState('6M')
 
   useLayoutEffect(() => {
-    setBriefCtx({ day: null, slides: [], mock: false, pending: true })
-    setChartSeries([])
-  }, [eventId])
-
-  useEffect(() => {
-    let cancelled = false
     const cached = peekExploreHomeSnapshot(backendUp)
     const recapCache = getExploreRecapCache()
     const slides = cached?.recap?.slides ?? recapCache.slides ?? []
-    if (slides.length) {
-      setBriefCtx({
-        day: recapCache.day,
-        slides,
-        mock: false,
-        pending: !recapCache.day,
-      })
-    }
+    setBriefCtx({
+      day: recapCache.day,
+      slides,
+      mock: false,
+      pending: !slides.length,
+    })
+    setChartSeries([])
+  }, [eventId, backendUp])
+
+  useEffect(() => {
+    let cancelled = false
     void loadExploreEventBriefContext(backendUp).then((ctx) => {
-      if (!cancelled) setBriefCtx(ctx)
+      if (cancelled) return
+      setBriefCtx((prev) => {
+        const slides = ctx.slides?.length ? ctx.slides : prev.slides
+        if (!slides.length && ctx.pending) return { ...prev, pending: true }
+        return {
+          day: ctx.day ?? prev.day,
+          slides,
+          mock: ctx.mock === true,
+          pending: ctx.pending === true && !slides.length,
+        }
+      })
     })
     return () => {
       cancelled = true
@@ -430,6 +438,14 @@ export function ExploreEventPage({
   }, [eventId, backendUp])
 
   const brief = useMemo(() => resolveExploreEventBrief(eventId, briefCtx), [eventId, briefCtx])
+
+  useEffect(() => {
+    if (!eventId || brief || briefCtx.pending) return
+    logClientDiagnostic('explore.event_not_found', {
+      eventId: String(eventId),
+      slideCount: briefCtx.slides?.length ?? 0,
+    })
+  }, [eventId, brief, briefCtx.pending, briefCtx.slides?.length])
   const slide = brief?.slide ?? null
   const kicker = slide?.kicker || 'Recap event'
   const primary = brief?.primaryCompany ?? null
@@ -539,7 +555,9 @@ export function ExploreEventPage({
           {!brief ? (
             <div className="exploreEventEmpty">
               <p className="drpt-sectionLabel">Event brief</p>
-              <p className="exploreEventEmptyLead">This recap event could not be found.</p>
+              <p className="exploreEventEmptyLead">
+                {briefCtx.pending ? 'Loading event brief…' : 'This recap event could not be found.'}
+              </p>
             </div>
           ) : (
             <div className="exploreEventBody">

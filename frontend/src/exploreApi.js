@@ -1,4 +1,5 @@
 import { clearAuthTokenCache, fetchJsonSafe, waitForAuthToken } from './api.js'
+import { logClientDiagnostic } from './clientDiagnostics.js'
 import {
   EMPTY_EXPLORE_DIRECTORY,
   EMPTY_EXPLORE_RECAP,
@@ -89,6 +90,9 @@ function hydrateMemoryCacheFromSession(backendUp) {
   if (!session) return null
   recapResultCacheEntry = { at: session.at, backendUp: backendUp === true ? true : backendUp, recap: session.recap }
   directoryCacheEntry = { at: session.at, backendUp: backendUp === true ? true : backendUp, bundle: session.directory }
+  if (Array.isArray(session.recap?.slides) && session.recap.slides.length) {
+    cachedRecapSlides = session.recap.slides
+  }
   markExploreHomeReady()
   return session
 }
@@ -414,7 +418,11 @@ export async function loadExploreDailyRecap(backendUp, opts = {}) {
   }
 
   if (!opts.force && cacheEntryFresh(recapResultCacheEntry, backendUp)) {
-    return recapResultCacheEntry.recap
+    const cached = recapResultCacheEntry.recap
+    if (cached?.slides?.length && !cachedRecapSlides?.length) {
+      cachedRecapSlides = cached.slides
+    }
+    return cached
   }
 
   if (recapInflight) return recapInflight
@@ -435,6 +443,7 @@ export async function loadExploreDailyRecap(backendUp, opts = {}) {
         recapResultCacheEntry = { at: Date.now(), backendUp, recap: out }
         return out
       }
+      logClientDiagnostic('explore.recap_empty', { backendUp: backendUp === true })
       return EMPTY_EXPLORE_RECAP
     } finally {
       recapInflight = null
@@ -611,14 +620,12 @@ export function getExploreRecapCache() {
   return { day: cachedRecapDay, slides: cachedRecapSlides }
 }
 
-export async function fetchExploreEventChartSeries(ticker, seedSeries = [], backendUp = null) {
-  const seed = Array.isArray(seedSeries) ? seedSeries.filter(Number.isFinite) : []
-  if (seed.length >= 180) return seed
-  if (backendUp === false) return seed
-  const t = String(ticker ?? '').trim().toUpperCase()
-  if (!t) return seed
-  const closes = await fetchBarsCloses(t, 365)
-  return closes.length >= 30 ? closes : seed.length ? seed : closes
+function recapSlidesFromMemory(backendUp) {
+  const fromCache = cachedRecapSlides
+  if (Array.isArray(fromCache) && fromCache.length) return fromCache
+  const snap = peekExploreHomeSnapshot(backendUp)
+  const slides = snap?.recap?.slides
+  return Array.isArray(slides) && slides.length ? slides : []
 }
 
 export async function loadExploreEventBriefContext(backendUp) {
@@ -632,15 +639,36 @@ export async function loadExploreEventBriefContext(backendUp) {
     }
   }
 
+  const cachedSlides = recapSlidesFromMemory(backendUp)
   if (!isLiveDataMode(backendUp)) {
+    if (cachedSlides.length) {
+      return { day: cachedRecapDay, slides: cachedSlides, mock: false, pending: true }
+    }
     return { day: null, slides: [], mock: false, pending: true }
   }
 
   let { day, slides } = getExploreRecapCache()
+  if (!slides?.length) slides = cachedSlides
   if (!day || !slides?.length) {
     await loadExploreDailyRecap(backendUp)
     ;({ day, slides } = getExploreRecapCache())
+    if (!slides?.length) slides = recapSlidesFromMemory(backendUp)
   }
 
-  return { day, slides: slides ?? [], mock: false, pending: false }
+  return {
+    day: day ?? cachedRecapDay,
+    slides: slides ?? cachedSlides ?? [],
+    mock: false,
+    pending: false,
+  }
+}
+
+export async function fetchExploreEventChartSeries(ticker, seedSeries = [], backendUp = null) {
+  const seed = Array.isArray(seedSeries) ? seedSeries.filter(Number.isFinite) : []
+  if (seed.length >= 180) return seed
+  if (backendUp === false) return seed
+  const t = String(ticker ?? '').trim().toUpperCase()
+  if (!t) return seed
+  const closes = await fetchBarsCloses(t, 365)
+  return closes.length >= 30 ? closes : seed.length ? seed : closes
 }
