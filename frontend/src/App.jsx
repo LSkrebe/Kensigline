@@ -3256,6 +3256,7 @@ function mapFundamentalsFromApi(fundamentals) {
     grossMargin: pickArray('grossMargin'),
     netMargin: pickArray('netMargin'),
     fcfMargin: pickArray('fcfMargin'),
+    fcfUsd: pickArray('fcfUsd'),
     netIncomeGrowth: pickArray('netIncomeGrowth'),
     fcfGrowth: pickArray('fcfGrowth'),
     netCash: pickArray('netCash'),
@@ -3281,6 +3282,7 @@ function fundamentalsSeriesHasValue(arr) {
 
 const MIN_MARGIN_REVENUE_USD = 5_000_000
 const MAX_ABS_MARGIN_PCT = 300
+const MAX_FCF_MARGIN_PCT = 100
 
 function marginPctIfMeaningful(numeratorUsd, revenueUsd) {
   if (numeratorUsd == null || revenueUsd == null || revenueUsd === 0) return null
@@ -3290,13 +3292,13 @@ function marginPctIfMeaningful(numeratorUsd, revenueUsd) {
   return pct
 }
 
-function sanitizeMarginSeries(margins, revenueUsd) {
+function sanitizeMarginSeries(margins, revenueUsd, maxAbsPct = MAX_ABS_MARGIN_PCT) {
   if (!Array.isArray(margins)) return margins
   return margins.map((value, i) => {
     if (value == null || !Number.isFinite(Number(value))) return null
     const rev = revenueUsd?.[i]
     if (rev != null && Math.abs(Number(rev)) < MIN_MARGIN_REVENUE_USD) return null
-    if (Math.abs(Number(value)) > MAX_ABS_MARGIN_PCT) return null
+    if (Math.abs(Number(value)) > maxAbsPct) return null
     return value
   })
 }
@@ -3308,7 +3310,7 @@ function sanitizeFundamentalsMargins(fundamentals) {
     ...fundamentals,
     grossMargin: sanitizeMarginSeries(fundamentals.grossMargin, revenueUsd),
     netMargin: sanitizeMarginSeries(fundamentals.netMargin, revenueUsd),
-    fcfMargin: sanitizeMarginSeries(fundamentals.fcfMargin, revenueUsd),
+    fcfMargin: sanitizeMarginSeries(fundamentals.fcfMargin, revenueUsd, MAX_FCF_MARGIN_PCT),
   }
 }
 
@@ -3325,21 +3327,87 @@ function mergeFundamentalsSeries(primary, fallback) {
   return fundamentalsSeriesHasValue(merged) ? merged : primary
 }
 
+function parseQuarterLabelOrder(label) {
+  const m = String(label ?? '')
+    .trim()
+    .match(/^Q([1-4])'(\d{2})$/i)
+  if (!m) return null
+  const q = Number(m[1])
+  const year = 2000 + Number(m[2])
+  if (!Number.isFinite(q) || !Number.isFinite(year)) return null
+  return year * 10 + q
+}
+
+function orderedFundamentalPeriodLabels(...labelLists) {
+  const seen = new Map()
+  for (const labels of labelLists) {
+    for (const raw of labels ?? []) {
+      const label = String(raw)
+      const order = parseQuarterLabelOrder(label)
+      if (order == null) continue
+      if (!seen.has(order)) seen.set(order, label)
+    }
+  }
+  return [...seen.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, label]) => label)
+}
+
+function fundamentalValueAtPeriod(snapshot, key, periodLabel) {
+  const labels = snapshot?.periodLabels
+  const arr = snapshot?.[key]
+  if (!Array.isArray(labels) || !Array.isArray(arr)) return null
+  const want = String(periodLabel ?? '')
+    .trim()
+    .toUpperCase()
+  const idx = labels.findIndex((l) => String(l).trim().toUpperCase() === want)
+  if (idx < 0) return null
+  const v = arr[idx]
+  return v != null && Number.isFinite(Number(v)) ? Number(v) : null
+}
+
 function mergeFundamentalsSnapshots(primary, fallback) {
   if (!primary) return fallback ?? null
   if (!fallback) return primary
+
+  const periodLabels = orderedFundamentalPeriodLabels(primary.periodLabels, fallback.periodLabels)
+  if (!periodLabels.length) {
+    return {
+      periodLabels: primary.periodLabels?.length ? primary.periodLabels : fallback.periodLabels,
+      forwardRevenueGrowth: primary.forwardRevenueGrowth ?? fallback.forwardRevenueGrowth ?? null,
+      revenueUsd: mergeFundamentalsSeries(primary.revenueUsd, fallback.revenueUsd),
+      revenueGrowth: mergeFundamentalsSeries(primary.revenueGrowth, fallback.revenueGrowth),
+      grossMargin: mergeFundamentalsSeries(primary.grossMargin, fallback.grossMargin),
+      netMargin: mergeFundamentalsSeries(primary.netMargin, fallback.netMargin),
+      fcfMargin: mergeFundamentalsSeries(primary.fcfMargin, fallback.fcfMargin),
+      fcfUsd: mergeFundamentalsSeries(primary.fcfUsd, fallback.fcfUsd),
+      netIncomeGrowth: mergeFundamentalsSeries(primary.netIncomeGrowth, fallback.netIncomeGrowth),
+      fcfGrowth: mergeFundamentalsSeries(primary.fcfGrowth, fallback.fcfGrowth),
+      netCash: mergeFundamentalsSeries(primary.netCash, fallback.netCash),
+      sharesOutstanding: mergeFundamentalsSeries(primary.sharesOutstanding, fallback.sharesOutstanding),
+    }
+  }
+
+  const mergeKey = (key) =>
+    periodLabels.map((label) => {
+      const fromPrimary = fundamentalValueAtPeriod(primary, key, label)
+      if (fromPrimary != null) return fromPrimary
+      return fundamentalValueAtPeriod(fallback, key, label)
+    })
+
   return {
-    periodLabels: primary.periodLabels?.length ? primary.periodLabels : fallback.periodLabels,
+    periodLabels,
     forwardRevenueGrowth: primary.forwardRevenueGrowth ?? fallback.forwardRevenueGrowth ?? null,
-    revenueUsd: mergeFundamentalsSeries(primary.revenueUsd, fallback.revenueUsd),
-    revenueGrowth: mergeFundamentalsSeries(primary.revenueGrowth, fallback.revenueGrowth),
-    grossMargin: mergeFundamentalsSeries(primary.grossMargin, fallback.grossMargin),
-    netMargin: mergeFundamentalsSeries(primary.netMargin, fallback.netMargin),
-    fcfMargin: mergeFundamentalsSeries(primary.fcfMargin, fallback.fcfMargin),
-    netIncomeGrowth: mergeFundamentalsSeries(primary.netIncomeGrowth, fallback.netIncomeGrowth),
-    fcfGrowth: mergeFundamentalsSeries(primary.fcfGrowth, fallback.fcfGrowth),
-    netCash: mergeFundamentalsSeries(primary.netCash, fallback.netCash),
-    sharesOutstanding: mergeFundamentalsSeries(primary.sharesOutstanding, fallback.sharesOutstanding),
+    revenueUsd: mergeKey('revenueUsd'),
+    revenueGrowth: mergeKey('revenueGrowth'),
+    grossMargin: mergeKey('grossMargin'),
+    netMargin: mergeKey('netMargin'),
+    fcfMargin: mergeKey('fcfMargin'),
+    fcfUsd: mergeKey('fcfUsd'),
+    netIncomeGrowth: mergeKey('netIncomeGrowth'),
+    fcfGrowth: mergeKey('fcfGrowth'),
+    netCash: mergeKey('netCash'),
+    sharesOutstanding: mergeKey('sharesOutstanding'),
   }
 }
 
@@ -3408,9 +3476,14 @@ function mapFundamentalsFromAnalyseModel(model) {
       ? revenue.map((revM, i) => {
           const v = fcf[i]
           if (revM == null || v == null) return null
-          return marginPctIfMeaningful(v * 1e6, revM * 1e6)
+          const pct = marginPctIfMeaningful(v * 1e6, revM * 1e6)
+          if (pct == null) return null
+          if (Math.abs(pct) > MAX_FCF_MARGIN_PCT) return null
+          return pct
         })
       : null
+
+  const fcfUsd = fcf ? fcf.map((v) => (v != null ? v * 1e6 : null)) : null
 
   const revenueUsd = revenue
     ? revenue.map((revM) => (revM != null ? revM * 1e6 : null))
@@ -3436,6 +3509,7 @@ function mapFundamentalsFromAnalyseModel(model) {
     grossMargin,
     netMargin,
     fcfMargin,
+    fcfUsd,
     netIncomeGrowth: null,
     fcfGrowth: null,
     netCash,

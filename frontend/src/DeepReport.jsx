@@ -465,7 +465,7 @@ function formatChronoDate(at) {
   return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function formatFundamentalCell(value, format) {
+function formatFundamentalCell(value, format, signed = false) {
   if (value == null || !Number.isFinite(Number(value))) return '—'
   const n = Number(value)
   if (format === 'pct') return `${n.toFixed(1)}%`
@@ -476,10 +476,11 @@ function formatFundamentalCell(value, format) {
   }
   if (format === 'usd') {
     const abs = Math.abs(n)
-    if (abs >= 1e9) return `$${(n / 1e9).toFixed(1)}B`
-    if (abs >= 1e6) return `$${(n / 1e6).toFixed(1)}M`
-    if (abs >= 1e3) return `$${(n / 1e3).toFixed(0)}K`
-    return `$${n.toFixed(0)}`
+    const prefix = signed && n < 0 ? '-' : ''
+    if (abs >= 1e9) return `${prefix}$${(abs / 1e9).toFixed(1)}B`
+    if (abs >= 1e6) return `${prefix}$${(abs / 1e6).toFixed(1)}M`
+    if (abs >= 1e3) return `${prefix}$${(abs / 1e3).toFixed(0)}K`
+    return `${prefix}$${abs.toFixed(0)}`
   }
   if (format === 'shares') {
     if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`
@@ -494,6 +495,7 @@ const DEEP_METRIC_SLOT_COUNT = 4
 const DEEP_METRIC_MARGIN_KEYS = new Set(['grossMargin', 'netMargin', 'fcfMargin'])
 const MIN_METRIC_REVENUE_USD = 5_000_000
 const MAX_METRIC_MARGIN_PCT = 300
+const MAX_METRIC_FCF_MARGIN_PCT = 100
 
 /** Each slot picks the first row that has data — always four boxes when fundamentals exist. */
 const DEEP_METRIC_SLOTS = [
@@ -512,12 +514,58 @@ const DEEP_METRIC_SLOTS = [
   ],
   [
     { key: 'fcfMargin', label: 'FCF margin', kind: 'sequence', format: 'pct' },
+    { key: 'fcfUsd', label: 'Free cash flow', kind: 'sequence', format: 'usd', signed: true },
     { key: 'netCash', label: 'Net cash', kind: 'sequence', format: 'usd' },
     { key: 'forwardRevenueGrowth', label: 'Forward rev growth', kind: 'single', format: 'pct' },
   ],
 ]
 
-function buildDeepMetricCard(fundamentals, row) {
+function findKeyMetricAnchorIndex(fundamentals) {
+  const revenue = fundamentals?.revenueUsd
+  if (!Array.isArray(revenue) || !revenue.length) {
+    return latestSequenceIndex(fundamentals, 'netCash')
+  }
+  for (let i = revenue.length - 1; i >= 0; i -= 1) {
+    const rev = revenue[i]
+    if (rev == null || !Number.isFinite(Number(rev)) || Math.abs(Number(rev)) < MIN_METRIC_REVENUE_USD) {
+      continue
+    }
+    const keys = ['netMargin', 'grossMargin', 'fcfMargin', 'fcfUsd', 'netCash', 'revenueGrowth']
+    const hasValue = keys.some((key) => {
+      const v = fundamentals?.[key]?.[i]
+      return v != null && Number.isFinite(Number(v))
+    })
+    if (hasValue) return i
+  }
+  return latestSequenceIndex(fundamentals, 'netCash')
+}
+
+function latestSequenceIndex(fundamentals, key) {
+  const arr = fundamentals?.[key]
+  if (!Array.isArray(arr) || !arr.length) return -1
+  for (let i = arr.length - 1; i >= 0; i -= 1) {
+    if (arr[i] != null && Number.isFinite(Number(arr[i]))) return i
+  }
+  return -1
+}
+
+function sequenceValueAtAnchor(fundamentals, key, anchorIdx) {
+  if (anchorIdx < 0) return { value: null, period: null }
+  const arr = fundamentals?.[key]
+  if (!Array.isArray(arr) || anchorIdx >= arr.length) return { value: null, period: null }
+  const v = arr[anchorIdx]
+  if (v == null || !Number.isFinite(Number(v))) return { value: null, period: null }
+  if (DEEP_METRIC_MARGIN_KEYS.has(key)) {
+    const rev = fundamentals?.revenueUsd?.[anchorIdx]
+    if (rev != null && Math.abs(Number(rev)) < MIN_METRIC_REVENUE_USD) return { value: null, period: null }
+    const maxPct = key === 'fcfMargin' ? MAX_METRIC_FCF_MARGIN_PCT : MAX_METRIC_MARGIN_PCT
+    if (Math.abs(Number(v)) > maxPct) return { value: null, period: null }
+  }
+  const labels = fundamentals.periodLabels ?? []
+  return { value: v, period: labels[anchorIdx] ?? 'Latest' }
+}
+
+function buildDeepMetricCard(fundamentals, row, anchorIdx) {
   if (row.kind === 'single') {
     if (fundamentals[row.key] == null) return null
     return {
@@ -527,17 +575,14 @@ function buildDeepMetricCard(fundamentals, row) {
       period: 'Forward',
     }
   }
-  const latest = DEEP_METRIC_MARGIN_KEYS.has(row.key)
-    ? latestMeaningfulSequenceValue(fundamentals, row.key)
-    : latestSequenceValue(fundamentals, row.key)
-  const { value, period } = latest
+  const { value, period } = sequenceValueAtAnchor(fundamentals, row.key, anchorIdx)
   if (value == null) return null
   const label =
     row.key === 'netCash' && Number(value) < 0 ? 'Net debt' : row.label
   return {
     key: row.key,
     label,
-    value: formatFundamentalCell(value, row.format),
+    value: formatFundamentalCell(value, row.format, row.signed),
     period: period ?? 'Latest',
   }
 }
@@ -549,6 +594,7 @@ const DEEP_METRIC_EXTRA_ROWS = [
 ]
 
 function buildDeepMetricCards(fundamentals) {
+  const anchorIdx = findKeyMetricAnchorIndex(fundamentals)
   const cards = []
   const usedKeys = new Set()
 
@@ -556,7 +602,7 @@ function buildDeepMetricCards(fundamentals) {
     let card = null
     for (const row of slot) {
       if (usedKeys.has(row.key)) continue
-      card = buildDeepMetricCard(fundamentals, row)
+      card = buildDeepMetricCard(fundamentals, row, anchorIdx)
       if (card) break
     }
     if (card) {
@@ -569,7 +615,7 @@ function buildDeepMetricCards(fundamentals) {
     for (const row of DEEP_METRIC_EXTRA_ROWS) {
       if (cards.length >= DEEP_METRIC_SLOT_COUNT) break
       if (usedKeys.has(row.key)) continue
-      const card = buildDeepMetricCard(fundamentals, row)
+      const card = buildDeepMetricCard(fundamentals, row, anchorIdx)
       if (!card) continue
       cards.push(card)
       usedKeys.add(card.key)
@@ -756,37 +802,6 @@ function DeepModelTable({ model, title, maxHistCols = null, fit = false }) {
       </table>
     </div>
   )
-}
-
-function latestSequenceValue(fundamentals, key) {
-  const arr = fundamentals?.[key]
-  if (!Array.isArray(arr) || !arr.length) return { value: null, period: null }
-  for (let i = arr.length - 1; i >= 0; i -= 1) {
-    if (arr[i] != null && Number.isFinite(Number(arr[i]))) {
-      const labels = fundamentals.periodLabels ?? []
-      const period = labels[i] ?? (i === arr.length - 1 ? 'Latest' : null)
-      return { value: arr[i], period }
-    }
-  }
-  return { value: null, period: null }
-}
-
-/** Prefer the latest quarter with enough revenue for margin % to be meaningful. */
-function latestMeaningfulSequenceValue(fundamentals, key) {
-  const arr = fundamentals?.[key]
-  const revenue = fundamentals?.revenueUsd
-  if (!Array.isArray(arr) || !arr.length) return { value: null, period: null }
-  for (let i = arr.length - 1; i >= 0; i -= 1) {
-    const v = arr[i]
-    if (v == null || !Number.isFinite(Number(v))) continue
-    const rev = revenue?.[i]
-    if (rev != null && Math.abs(Number(rev)) < MIN_METRIC_REVENUE_USD) continue
-    if (Math.abs(Number(v)) > MAX_METRIC_MARGIN_PCT) continue
-    const labels = fundamentals.periodLabels ?? []
-    const period = labels[i] ?? (i === arr.length - 1 ? 'Latest' : null)
-    return { value: v, period }
-  }
-  return { value: null, period: null }
 }
 
 function DeepFundamentalsSnapshot({ fundamentals, loading = false }) {

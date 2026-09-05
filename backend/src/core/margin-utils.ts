@@ -13,3 +13,16 @@ export function marginPctIfMeaningful(
   if (Math.abs(pct) > MAX_ABS_MARGIN_PCT) return null;
   return pct;
 }
+
+/** Margin % above this (on FCF) is shown as dollar FCF instead. */
+export const MAX_FCF_MARGIN_PCT = 100;
+
+export function fcfMarginPctIfMeaningful(
+  fcfUsd: number | null,
+  revenueUsd: number | null,
+): number | null {
+  const pct = marginPctIfMeaningful(fcfUsd, revenueUsd);
+  if (pct == null) return null;
+  if (Math.abs(pct) > MAX_FCF_MARGIN_PCT) return null;
+  return pct;
+}
