@@ -30,15 +30,15 @@ const CAPEX_TAGS = [
 ];
 const FCF_TAGS = ["FreeCashFlow"];
 const CASH_TAGS = [
-  "CashCashEquivalentsAndShortTermInvestments",
   "CashAndCashEquivalentsAtCarryingValue",
   "CashAndShortTermInvestments",
+  "CashCashEquivalentsAndShortTermInvestments",
 ];
-const DEBT_TAGS = [
-  "LongTermDebtAndCapitalLeaseObligations",
+const DEBT_CURRENT_TAGS = ["DebtCurrent", "ShortTermBorrowings", "CommercialPaper"];
+const DEBT_LONG_TERM_TAGS = [
   "LongTermDebtNoncurrent",
   "LongTermDebt",
-  "DebtCurrent",
+  "LongTermDebtAndCapitalLeaseObligations",
 ];
 const SHARES_TAGS = [
   "WeightedAverageNumberOfSharesOutstandingBasic",
@@ -121,17 +121,16 @@ function fcfOnPeriod(
   return null;
 }
 
-function debtOnPeriod(debtRows: FactRow[], end: string): number | null {
-  let sum = 0;
-  let any = false;
-  for (const row of debtRows) {
-    const v = valueOnPeriod([row], end);
-    if (v != null) {
-      sum += Math.abs(v);
-      any = true;
-    }
-  }
-  return any ? sum : null;
+function totalDebtOnPeriod(
+  currentRows: FactRow[],
+  longTermRows: FactRow[],
+  end: string,
+): number | null {
+  const current = valueOnPeriod(currentRows, end);
+  const longTerm = valueOnPeriod(longTermRows, end);
+  if (current != null && longTerm != null) return Math.abs(current) + Math.abs(longTerm);
+  if (longTerm != null) return Math.abs(longTerm);
+  return current != null ? Math.abs(current) : null;
 }
 
 function toMillions(usd: number | null): number | null {
@@ -188,7 +187,8 @@ export function quarterlyPnlFromCompanyFacts(companyFacts: unknown, opts?: { qua
   const capexRows = pickFactSeries(companyFacts, CAPEX_TAGS);
   const fcfRows = pickFactSeries(companyFacts, FCF_TAGS);
   const cashRows = pickFactSeries(companyFacts, CASH_TAGS);
-  const debtRows = pickFactSeries(companyFacts, DEBT_TAGS);
+  const debtCurrentRows = pickFactSeries(companyFacts, DEBT_CURRENT_TAGS);
+  const debtLongTermRows = pickFactSeries(companyFacts, DEBT_LONG_TERM_TAGS);
   const sharesRows = pickFactSeries(companyFacts, SHARES_TAGS);
 
   return anchors.map((anchor) => {
@@ -207,7 +207,7 @@ export function quarterlyPnlFromCompanyFacts(companyFacts: unknown, opts?: { qua
     const netIncomeUsd = valueOnPeriod(netRows, end);
     const shares = valueOnPeriod(sharesRows, end);
     const cashUsd = valueOnPeriod(cashRows, end);
-    const debtUsd = debtOnPeriod(debtRows, end);
+    const debtUsd = totalDebtOnPeriod(debtCurrentRows, debtLongTermRows, end);
     const fcfUsd = fcfOnPeriod(fcfRows, ocfRows, capexRows, end);
 
     return {

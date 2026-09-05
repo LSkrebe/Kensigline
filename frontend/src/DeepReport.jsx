@@ -519,9 +519,11 @@ function buildDeepMetricCard(fundamentals, row) {
   }
   const { value, period } = latestSequenceValue(fundamentals, row.key)
   if (value == null) return null
+  const label =
+    row.key === 'netCash' && Number(value) < 0 ? 'Net debt' : row.label
   return {
     key: row.key,
-    label: row.label,
+    label,
     value: formatFundamentalCell(value, row.format),
     period: period ?? 'Latest',
   }

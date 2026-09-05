@@ -83,10 +83,12 @@ export function labelForCalendarQuarter(
     {
       val: 0,
       end: calendarQuarterEnd(calYear, calQuarter),
+      start: "",
       filed: "",
       fy: calYear,
       fp: `Q${calQuarter}`,
       form: estimate ? "10-Q" : "10-Q",
+      frame: null,
     },
     estimate,
   );
@@ -191,9 +193,11 @@ export function factRowFromSlot(slot: CalendarQuarterSlot): FactRow {
   return {
     val: 0,
     end: slot.end,
+    start: "",
     filed: "",
     fy: slot.calYear,
     fp: `Q${slot.calQuarter}`,
     form: "10-Q",
+    frame: null,
   };
 }
