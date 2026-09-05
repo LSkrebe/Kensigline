@@ -491,16 +491,20 @@ function formatFundamentalCell(value, format) {
 
 const DEEP_METRIC_SLOT_COUNT = 4
 
-const DEEP_METRIC_PRIMARY_ROWS = [
-  { key: 'valuationDiscountPct', label: 'Vs historic valuation', kind: 'single', format: 'valuationDiscount' },
-  { key: 'grossMargin', label: 'Gross margin', kind: 'sequence', format: 'pct' },
-  { key: 'netMargin', label: 'Net margin', kind: 'sequence', format: 'pct' },
-  { key: 'fcfMargin', label: 'FCF margin', kind: 'sequence', format: 'pct' },
-]
-
-const DEEP_METRIC_FALLBACK_ROWS = [
-  { key: 'revenueGrowth', label: 'Rev growth (YoY)', kind: 'sequence', format: 'pct' },
-  { key: 'forwardRevenueGrowth', label: 'Forward rev growth', kind: 'single', format: 'pct' },
+/** Each slot picks the first row that has data — always four boxes when fundamentals exist. */
+const DEEP_METRIC_SLOTS = [
+  [
+    { key: 'valuationDiscountPct', label: 'Vs historic valuation', kind: 'single', format: 'valuationDiscount' },
+    { key: 'revenueGrowth', label: 'Rev growth (YoY)', kind: 'sequence', format: 'pct' },
+    { key: 'netCash', label: 'Net cash', kind: 'sequence', format: 'usd' },
+  ],
+  [{ key: 'grossMargin', label: 'Gross margin', kind: 'sequence', format: 'pct' }],
+  [{ key: 'netMargin', label: 'Net margin', kind: 'sequence', format: 'pct' }],
+  [
+    { key: 'fcfMargin', label: 'FCF margin', kind: 'sequence', format: 'pct' },
+    { key: 'netCash', label: 'Net cash', kind: 'sequence', format: 'usd' },
+    { key: 'forwardRevenueGrowth', label: 'Forward rev growth', kind: 'single', format: 'pct' },
+  ],
 ]
 
 function buildDeepMetricCard(fundamentals, row) {
@@ -523,19 +527,41 @@ function buildDeepMetricCard(fundamentals, row) {
   }
 }
 
+const DEEP_METRIC_EXTRA_ROWS = [
+  { key: 'netCash', label: 'Net cash', kind: 'sequence', format: 'usd' },
+  { key: 'revenueGrowth', label: 'Rev growth (YoY)', kind: 'sequence', format: 'pct' },
+  { key: 'forwardRevenueGrowth', label: 'Forward rev growth', kind: 'single', format: 'pct' },
+]
+
 function buildDeepMetricCards(fundamentals) {
   const cards = []
-  const used = new Set()
-  const addRow = (row) => {
-    if (used.has(row.key) || cards.length >= DEEP_METRIC_SLOT_COUNT) return
-    const card = buildDeepMetricCard(fundamentals, row)
-    if (!card) return
-    cards.push(card)
-    used.add(row.key)
+  const usedKeys = new Set()
+
+  for (const slot of DEEP_METRIC_SLOTS) {
+    let card = null
+    for (const row of slot) {
+      if (usedKeys.has(row.key)) continue
+      card = buildDeepMetricCard(fundamentals, row)
+      if (card) break
+    }
+    if (card) {
+      cards.push(card)
+      usedKeys.add(card.key)
+    }
   }
-  for (const row of DEEP_METRIC_PRIMARY_ROWS) addRow(row)
-  for (const row of DEEP_METRIC_FALLBACK_ROWS) addRow(row)
-  return cards
+
+  if (cards.length < DEEP_METRIC_SLOT_COUNT) {
+    for (const row of DEEP_METRIC_EXTRA_ROWS) {
+      if (cards.length >= DEEP_METRIC_SLOT_COUNT) break
+      if (usedKeys.has(row.key)) continue
+      const card = buildDeepMetricCard(fundamentals, row)
+      if (!card) continue
+      cards.push(card)
+      usedKeys.add(card.key)
+    }
+  }
+
+  return cards.slice(0, DEEP_METRIC_SLOT_COUNT)
 }
 
 function lookupSourceCatalog(source) {

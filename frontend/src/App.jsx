@@ -10149,12 +10149,6 @@ function KensiglineTerminal() {
   )
 
   const contextFundamentals = useMemo(() => {
-    const deepPageLive =
-      isLiveDataMode(backendUp) && exploreSubview === 'companyDetail'
-    if (deepPageLive && (analyseModelLoading || researchCompanyContextLoading || researchBarsLoading)) {
-      return null
-    }
-
     let base = null
     if (isLiveDataMode(backendUp)) {
       const fromCompany = researchCompanyResolved?.fundamentals
@@ -10174,10 +10168,6 @@ function KensiglineTerminal() {
     )
   }, [
     backendUp,
-    exploreSubview,
-    analyseModelLoading,
-    researchCompanyContextLoading,
-    researchBarsLoading,
     researchCompanyResolved?.fundamentals,
     analyseLivePayload?.model,
     contextMock?.fundamentals,
@@ -12782,7 +12772,7 @@ function KensiglineTerminal() {
           fundamentalsLoading:
             backendUp &&
             !contextFundamentals &&
-            (researchCompanyContextLoading || analyseModelLoading || researchBarsLoading),
+            (researchCompanyContextLoading || analyseModelLoading),
           model: analyseLivePayload?.model ?? null,
           modelLoading: analyseModelLoading,
           backendUp,
