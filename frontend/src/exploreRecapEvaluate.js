@@ -14,6 +14,7 @@ import {
   priceReactionCopyKey,
   withRoleCopyKey,
 } from './exploreRecapCopy.js'
+import { formatUsdCompact } from './formatUsdCompact.js'
 
 /**
  * @typedef {object} RecapDayFiling
@@ -50,12 +51,7 @@ import {
  */
 
 function formatUsd(n) {
-  if (n == null || !Number.isFinite(Number(n))) return null
-  const v = Number(n)
-  const abs = Math.abs(v)
-  if (abs >= 1e6) return `$${(v / 1e6).toFixed(1)}M`
-  if (abs >= 1e3) return `$${(v / 1e3).toFixed(0)}K`
-  return `$${v.toFixed(0)}`
+  return formatUsdCompact(n)
 }
 
 function formatPct(pct) {

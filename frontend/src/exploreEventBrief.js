@@ -7,14 +7,10 @@ import { EXPLORE_RECAP_CATALOG_BY_ID } from './exploreRecapCatalog.js'
 import { formatExplorePublishDate } from './exploreDirectoryMock.js'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { buildExploreRecapMockDay } from './exploreRecapMockDay.js'
+import { formatUsdCompact } from './formatUsdCompact.js'
 
 function formatUsd(n) {
-  if (n == null || !Number.isFinite(Number(n))) return null
-  const v = Number(n)
-  const abs = Math.abs(v)
-  if (abs >= 1e6) return `$${(v / 1e6).toFixed(1)}M`
-  if (abs >= 1e3) return `$${(v / 1e3).toFixed(0)}K`
-  return `$${v.toFixed(0)}`
+  return formatUsdCompact(n)
 }
 
 function formatPct(pct) {

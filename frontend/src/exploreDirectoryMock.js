@@ -1,5 +1,6 @@
 import { MOCK_SEMIS_BY_TICKER } from './mockWeekData.js'
 import { exploreActorDocCode, exploreActorEventLabel, exploreCompanyDocCode, exploreCompanyEventLabel, mapActorEventRows, mapCompanyEventRows } from './exploreEventLabels.js'
+import { formatUsdCompact } from './formatUsdCompact.js'
 import { isPlausibleExploreInvestorRow, isExplorePositionCountOnlyHomeRow } from './exploreInvestorFilter.js'
 
 export const HOME_DIRECTORY_PREVIEW = 12
@@ -111,14 +112,7 @@ export function parseExploreTrailUsd(trail) {
 export function formatExploreNetFlowUsd(usd) {
   if (usd == null || !Number.isFinite(usd)) return '—'
   if (usd === 0) return '$0'
-
-  const abs = Math.abs(usd)
-  const sign = usd > 0 ? '+' : '−'
-
-  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(1)}B`
-  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`
-  if (abs >= 1e3) return `${sign}$${Math.round(abs / 1e3)}K`
-  return `${sign}$${Math.round(abs)}`
+  return formatUsdCompact(usd, { signed: true }) ?? '—'
 }
 
 export function formatExplorePublishDate(iso) {
