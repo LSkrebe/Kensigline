@@ -3465,30 +3465,42 @@ function priceAtAnalyseQuarter(model, colIdx, priceSeries, priceDays) {
 
 /** Positive = discount vs trailing historical average P/E; negative = premium. */
 function computeValuationDiscountPct(model, livePrice, priceSeries, priceDays) {
-  if (!model?.historicalModel?.length || livePrice == null || livePrice <= 0) return null
+  const price =
+    livePrice != null && livePrice > 0
+      ? livePrice
+      : model?.valuationConfig?.marketPrice ?? null
+  if (!model?.historicalModel?.length || price == null || price <= 0) return null
   const estFrom = Number(model.estimateFromIndex)
   if (!Number.isFinite(estFrom) || estFrom < 4) return null
 
   const currentLtmEps = sumAnalyseModelEpsRange(model, estFrom - 4, estFrom)
   if (currentLtmEps == null || currentLtmEps <= 0) return null
-  const currentPe = livePrice / currentLtmEps
+  const currentPe = price / currentLtmEps
 
   const peSamples = []
   for (let col = 3; col < estFrom; col++) {
     const ltmEps = sumAnalyseModelEpsRange(model, col - 3, col + 1)
     if (ltmEps == null || ltmEps <= 0) continue
-    const price =
-      Array.isArray(priceSeries) && priceSeries.length
-        ? priceAtAnalyseQuarter(model, col, priceSeries, priceDays)
-        : null
-    if (price == null || price <= 0) continue
-    peSamples.push(price / ltmEps)
+    let quarterPrice = null
+    if (Array.isArray(priceSeries) && priceSeries.length) {
+      quarterPrice = priceAtAnalyseQuarter(model, col, priceSeries, priceDays)
+    }
+    if (quarterPrice == null || quarterPrice <= 0) continue
+    peSamples.push(quarterPrice / ltmEps)
   }
 
-  if (peSamples.length < 2) return null
-  const avgPe = peSamples.reduce((sum, pe) => sum + pe, 0) / peSamples.length
-  if (!Number.isFinite(avgPe) || avgPe <= 0) return null
-  return Math.round((1 - currentPe / avgPe) * 1000) / 10
+  if (peSamples.length >= 2) {
+    const avgPe = peSamples.reduce((sum, pe) => sum + pe, 0) / peSamples.length
+    if (Number.isFinite(avgPe) && avgPe > 0) {
+      return Math.round((1 - currentPe / avgPe) * 1000) / 10
+    }
+  }
+
+  const priceTarget = model?.valuationConfig?.priceTarget
+  if (priceTarget != null && priceTarget > 0) {
+    return Math.round((1 - price / priceTarget) * 1000) / 10
+  }
+  return null
 }
 
 function enrichFundamentalsWithValuationDiscount(fundamentals, model, livePrice, priceSeries, priceDays) {
@@ -10137,6 +10149,12 @@ function KensiglineTerminal() {
   )
 
   const contextFundamentals = useMemo(() => {
+    const deepPageLive =
+      isLiveDataMode(backendUp) && exploreSubview === 'companyDetail'
+    if (deepPageLive && (analyseModelLoading || researchCompanyContextLoading || researchBarsLoading)) {
+      return null
+    }
+
     let base = null
     if (isLiveDataMode(backendUp)) {
       const fromCompany = researchCompanyResolved?.fundamentals
@@ -10156,6 +10174,10 @@ function KensiglineTerminal() {
     )
   }, [
     backendUp,
+    exploreSubview,
+    analyseModelLoading,
+    researchCompanyContextLoading,
+    researchBarsLoading,
     researchCompanyResolved?.fundamentals,
     analyseLivePayload?.model,
     contextMock?.fundamentals,
@@ -12760,7 +12782,7 @@ function KensiglineTerminal() {
           fundamentalsLoading:
             backendUp &&
             !contextFundamentals &&
-            (researchCompanyContextLoading || analyseModelLoading),
+            (researchCompanyContextLoading || analyseModelLoading || researchBarsLoading),
           model: analyseLivePayload?.model ?? null,
           modelLoading: analyseModelLoading,
           backendUp,

@@ -491,15 +491,52 @@ function formatFundamentalCell(value, format) {
 
 const DEEP_METRIC_SLOT_COUNT = 4
 
-const FUNDAMENTAL_SNAPSHOT_ROWS = [
+const DEEP_METRIC_PRIMARY_ROWS = [
   { key: 'valuationDiscountPct', label: 'Vs historic valuation', kind: 'single', format: 'valuationDiscount' },
   { key: 'grossMargin', label: 'Gross margin', kind: 'sequence', format: 'pct' },
   { key: 'netMargin', label: 'Net margin', kind: 'sequence', format: 'pct' },
   { key: 'fcfMargin', label: 'FCF margin', kind: 'sequence', format: 'pct' },
+]
+
+const DEEP_METRIC_FALLBACK_ROWS = [
   { key: 'revenueGrowth', label: 'Rev growth (YoY)', kind: 'sequence', format: 'pct' },
-  { key: 'netCash', label: 'Net cash', kind: 'sequence', format: 'usd' },
   { key: 'forwardRevenueGrowth', label: 'Forward rev growth', kind: 'single', format: 'pct' },
 ]
+
+function buildDeepMetricCard(fundamentals, row) {
+  if (row.kind === 'single') {
+    if (fundamentals[row.key] == null) return null
+    return {
+      key: row.key,
+      label: row.label,
+      value: formatFundamentalCell(fundamentals[row.key], row.format),
+      period: 'Forward',
+    }
+  }
+  const { value, period } = latestSequenceValue(fundamentals, row.key)
+  if (value == null) return null
+  return {
+    key: row.key,
+    label: row.label,
+    value: formatFundamentalCell(value, row.format),
+    period: period ?? 'Latest',
+  }
+}
+
+function buildDeepMetricCards(fundamentals) {
+  const cards = []
+  const used = new Set()
+  const addRow = (row) => {
+    if (used.has(row.key) || cards.length >= DEEP_METRIC_SLOT_COUNT) return
+    const card = buildDeepMetricCard(fundamentals, row)
+    if (!card) return
+    cards.push(card)
+    used.add(row.key)
+  }
+  for (const row of DEEP_METRIC_PRIMARY_ROWS) addRow(row)
+  for (const row of DEEP_METRIC_FALLBACK_ROWS) addRow(row)
+  return cards
+}
 
 function lookupSourceCatalog(source) {
   const key = normalizeResearchPaperSourceKey(source)
@@ -701,25 +738,7 @@ function DeepFundamentalsSnapshot({ fundamentals, loading = false }) {
     return <p className="drpt-empty">No key metrics yet.</p>
   }
 
-  const cards = FUNDAMENTAL_SNAPSHOT_ROWS.map((row) => {
-    if (row.kind === 'single') {
-      if (fundamentals[row.key] == null) return null
-      return {
-        key: row.key,
-        label: row.label,
-        value: formatFundamentalCell(fundamentals[row.key], row.format),
-        period: 'Forward',
-      }
-    }
-    const { value, period } = latestSequenceValue(fundamentals, row.key)
-    if (value == null) return null
-    return {
-      key: row.key,
-      label: row.label,
-      value: formatFundamentalCell(value, row.format),
-      period: period ?? 'Latest',
-    }
-  }).filter(Boolean).slice(0, DEEP_METRIC_SLOT_COUNT)
+  const cards = buildDeepMetricCards(fundamentals)
 
   if (!cards.length) {
     return loading ? (
