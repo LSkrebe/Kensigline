@@ -135,7 +135,10 @@ function buildHistoricalRows(
   }
 
   return [
-    numRow("Revenue", revenueMillions),
+    numRow(
+      "Revenue",
+      revenueMillions.map((v) => (v == null || v === 0 ? null : v)),
+    ),
     numRow("Gross profit", grossProfit),
     { label: "Gross margin", values: grossMargin, kind: "pct" },
     numRow("Operating expenses", opex),
