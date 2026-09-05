@@ -759,14 +759,13 @@ function latestSequenceValue(fundamentals, key) {
 }
 
 function DeepFundamentalsSnapshot({ fundamentals, loading = false }) {
-  if (loading && !fundamentals) {
+  const cards = fundamentals ? buildDeepMetricCards(fundamentals) : []
+  if (loading && cards.length < DEEP_METRIC_SLOT_COUNT) {
     return <p className="drpt-empty drpt-loading">Loading key metrics…</p>
   }
   if (!fundamentals) {
     return <p className="drpt-empty">No key metrics yet.</p>
   }
-
-  const cards = buildDeepMetricCards(fundamentals)
 
   if (!cards.length) {
     return loading ? (

@@ -3279,9 +3279,16 @@ function fundamentalsSeriesHasValue(arr) {
 }
 
 function mergeFundamentalsSeries(primary, fallback) {
-  if (fundamentalsSeriesHasValue(primary)) return primary
-  if (fundamentalsSeriesHasValue(fallback)) return fallback
-  return primary ?? fallback ?? null
+  if (!fundamentalsSeriesHasValue(primary)) return fallback ?? primary ?? null
+  if (!fundamentalsSeriesHasValue(fallback)) return primary
+  const len = Math.max(primary.length, fallback.length)
+  const merged = Array.from({ length: len }, (_, i) => {
+    const p = primary[i]
+    if (p != null && Number.isFinite(Number(p))) return p
+    const f = fallback[i]
+    return f != null && Number.isFinite(Number(f)) ? f : null
+  })
+  return fundamentalsSeriesHasValue(merged) ? merged : primary
 }
 
 function mergeFundamentalsSnapshots(primary, fallback) {
@@ -9962,14 +9969,29 @@ function KensiglineTerminal() {
   useLayoutEffect(() => {
     if (exploreSubview !== 'companyDetail') return
     const tick = researchTicker
+    if (!tick) return
+    if (!isLiveDataMode(backendUp)) {
+      setAnalyseModelLoading(false)
+      return
+    }
+
     const cached = analyseCacheRef.current.get(tick)
     if (cached) {
       setAnalyseLivePayload(cached)
       setAnalyseModelLoading(false)
-    } else {
-      setAnalyseLivePayload(null)
+      return
     }
-  }, [researchTicker, exploreSubview])
+
+    setAnalyseLivePayload(null)
+    setAnalyseModelLoading(true)
+    const gen = ++analyseFetchGenRef.current
+    void fetchAnalyseModel(tick).then((data) => {
+      if (analyseFetchGenRef.current !== gen) return
+      if (data) analyseCacheRef.current.set(tick, data)
+      setAnalyseLivePayload(data)
+      setAnalyseModelLoading(false)
+    })
+  }, [researchTicker, exploreSubview, backendUp])
 
   const [researchBarsSeries, setResearchBarsSeries] = useState(null)
   const [researchBarsLoading, setResearchBarsLoading] = useState(false)
@@ -10175,6 +10197,11 @@ function KensiglineTerminal() {
     researchPriceSeries,
     researchPriceDays,
   ])
+
+  const contextFundamentalsAwaitingFcf = useMemo(
+    () => !fundamentalsSeriesHasValue(contextFundamentals?.fcfMargin),
+    [contextFundamentals?.fcfMargin],
+  )
 
   const analyseQuarterlyRevenue = useMemo(
     () => {
@@ -10851,62 +10878,9 @@ function KensiglineTerminal() {
   }, [backendUp, researchTick, exploreSubview])
 
   useEffect(() => {
-    if (!isLiveDataMode(backendUp) || !researchTicker) {
-      setAnalyseModelLoading(false)
-      return
-    }
-    // Analyse only on company dossier.
-    if (exploreSubview !== 'companyDetail') {
-      setAnalyseModelLoading(false)
-      return
-    }
-    // Wait for explore (or timeout) so model doesn't starve Archive/Tracked.
-    if (!researchExploreResolved) {
-      setAnalyseModelLoading(true)
-      let alive = true
-      const tick = researchTicker
-      const gen = ++analyseFetchGenRef.current
-      const wait = setTimeout(() => {
-        if (!alive || analyseFetchGenRef.current !== gen) return
-        const cached = analyseCacheRef.current.get(tick)
-        if (cached) {
-          setAnalyseLivePayload(cached)
-          setAnalyseModelLoading(false)
-          return
-        }
-        void fetchAnalyseModel(tick).then((data) => {
-          if (!alive || analyseFetchGenRef.current !== gen) return
-          if (data) analyseCacheRef.current.set(tick, data)
-          setAnalyseLivePayload(data)
-          setAnalyseModelLoading(false)
-        })
-      }, 10_000)
-      return () => {
-        alive = false
-        clearTimeout(wait)
-      }
-    }
-    let alive = true
-    const gen = ++analyseFetchGenRef.current
-    const tick = researchTicker
-    const cached = analyseCacheRef.current.get(tick)
-    if (cached) {
-      setAnalyseLivePayload(cached)
-      setAnalyseModelLoading(false)
-    } else {
-      setAnalyseLivePayload(null)
-      setAnalyseModelLoading(true)
-    }
-    void fetchAnalyseModel(tick).then((data) => {
-      if (!alive || analyseFetchGenRef.current !== gen) return
-      if (data) analyseCacheRef.current.set(tick, data)
-      setAnalyseLivePayload(data)
-      setAnalyseModelLoading(false)
-    })
-    return () => {
-      alive = false
-    }
-  }, [backendUp, researchTicker, exploreSubview, researchExploreResolved])
+    if (exploreSubview === 'companyDetail') return
+    setAnalyseModelLoading(false)
+  }, [exploreSubview])
 
   useEffect(() => {
     if (!isLiveDataMode(backendUp)) return
@@ -12771,8 +12745,11 @@ function KensiglineTerminal() {
           fundamentals: contextFundamentals,
           fundamentalsLoading:
             backendUp &&
-            !contextFundamentals &&
-            (researchCompanyContextLoading || analyseModelLoading),
+            ((!contextFundamentals &&
+              (researchCompanyContextLoading || analyseModelLoading)) ||
+              (contextFundamentals &&
+                contextFundamentalsAwaitingFcf &&
+                analyseModelLoading)),
           model: analyseLivePayload?.model ?? null,
           modelLoading: analyseModelLoading,
           backendUp,
