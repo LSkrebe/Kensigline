@@ -50,10 +50,11 @@ function numRow(label: string, values: (number | null)[], extra: Partial<Analyse
 
 function buildHistoricalRows(
   points: QuarterlyPnlPoint[],
-  revenueMillions: number[],
+  revenueMillions: (number | null)[],
   estimateFrom: number,
   projection: ProjectedQuarterPnl[],
 ): AnalyseModelRow[] {
+  const MIN_REV_M = 5;
   const allPoints = points;
   const anchor = allPoints[allPoints.length - 1] ?? null;
 
@@ -72,10 +73,11 @@ function buildHistoricalRows(
   const epsGrowth: string[] = [];
 
   for (let i = 0; i < revenueMillions.length; i++) {
-    const revM = revenueMillions[i]!;
+    const revM = revenueMillions[i] ?? null;
     const isEstimate = i >= estimateFrom;
     const src = isEstimate ? null : allPoints[i] ?? null;
     const proj = isEstimate ? projection[i - estimateFrom] : null;
+    const canInfer = !isEstimate && revM != null && revM >= MIN_REV_M;
 
     let gpM = proj?.grossProfitM ?? toMillions(src?.grossProfitUsd ?? null);
     let opexM = proj?.opexM ?? toMillions(src?.operatingExpensesUsd ?? null);
@@ -88,23 +90,23 @@ function buildHistoricalRows(
       proj?.sharesM ??
       (src?.shares != null ? Math.round(src.shares / 1e6) : anchor?.shares != null ? Math.round(anchor.shares / 1e6) : null);
 
-    if (!isEstimate && gpM == null && revM > 0) gpM = Math.round(revM * 0.5);
-    if (!isEstimate && opexM == null && revM > 0) opexM = Math.round(revM * 0.3);
-    if (!isEstimate && oiM == null && gpM != null && opexM != null) oiM = gpM - opexM;
-    if (!isEstimate && niM == null && oiM != null) niM = Math.round(oiM * 0.77);
-    if (!isEstimate && fcfM == null && revM > 0) fcfM = Math.round(revM * 0.12);
+    if (canInfer && gpM == null) gpM = Math.round(revM * 0.5);
+    if (canInfer && opexM == null) opexM = Math.round(revM * 0.3);
+    if (canInfer && oiM == null && gpM != null && opexM != null) oiM = gpM - opexM;
+    if (canInfer && niM == null && oiM != null) niM = Math.round(oiM * 0.77);
+    if (canInfer && fcfM == null) fcfM = Math.round(revM * 0.12);
     if (cashM == null) cashM = cash[i - 1] ?? toMillions(anchor?.cashUsd ?? null);
     if (debtM == null) debtM = debt[i - 1] ?? toMillions(anchor?.debtUsd ?? null);
     if (shM == null) shM = shares[i - 1] ?? (anchor?.shares != null ? Math.round(anchor.shares / 1e6) : null);
 
     grossProfit.push(gpM);
     grossMargin.push(
-      proj != null ? pctStr(proj.grossMarginPct) : pctStr(revM > 0 && gpM != null ? (gpM / revM) * 100 : null),
+      proj != null ? pctStr(proj.grossMarginPct) : pctStr(revM != null && revM > 0 && gpM != null ? (gpM / revM) * 100 : null),
     );
     opex.push(opexM);
     opIncome.push(oiM);
     opMargin.push(
-      proj != null ? pctStr(proj.opMarginPct) : pctStr(revM > 0 && oiM != null ? (oiM / revM) * 100 : null),
+      proj != null ? pctStr(proj.opMarginPct) : pctStr(revM != null && revM > 0 && oiM != null ? (oiM / revM) * 100 : null),
     );
     netIncome.push(niM);
     eps.push(
@@ -120,7 +122,7 @@ function buildHistoricalRows(
     debt.push(debtM);
     fcf.push(fcfM);
 
-    const priorRev = i >= 4 ? revenueMillions[i - 4]! : null;
+    const priorRev = i >= 4 ? revenueMillions[i - 4] ?? null : null;
     revGrowth.push(growthYoYStr(revM, priorRev));
 
     const priorEps = i >= 4 ? parseFloat(String(eps[i - 4] ?? "")) : NaN;
@@ -152,17 +154,18 @@ function buildHistoricalRows(
 
 function buildDriverRows(
   drivers: Awaited<ReturnType<typeof aggregateBusinessDriversFromDocuments>>,
-  revenueMillions: number[],
+  revenueMillions: (number | null)[],
   estimateFrom: number,
 ): { rows: AnalyseModelRow[]; source: "documents" | "derived" } {
   const colCount = revenueMillions.length;
+  const revNum = (v: number | null | undefined) => (v != null && Number.isFinite(v) ? v : 0);
   const dashForward = (histValues: (number | string)[]): (number | string)[] => [
     ...histValues,
     ...Array(Math.max(0, colCount - estimateFrom)).fill("—"),
   ];
 
   if (!drivers.length) {
-    const histRev = revenueMillions.slice(0, estimateFrom);
+    const histRev = revenueMillions.slice(0, estimateFrom).map(revNum);
     return {
       rows: [
         {
@@ -186,14 +189,14 @@ function buildDriverRows(
   const nonRevenue = drivers.filter((d) => !d.rollsUpToRevenue);
 
   const knownSum = revenueDrivers.reduce((s, d) => s + (d.latestValue ?? 0), 0);
-  const anchorRev = revenueMillions[estimateFrom - 1] ?? revenueMillions[estimateFrom] ?? 0;
+  const anchorRev = revNum(revenueMillions[estimateFrom - 1]) || revNum(revenueMillions[estimateFrom]);
 
   const rows: AnalyseModelRow[] = [];
 
   for (const d of revenueDrivers) {
     const histValues: (number | string)[] = [];
     for (let idx = 0; idx < estimateFrom; idx++) {
-      const rev = revenueMillions[idx] ?? 0;
+      const rev = revNum(revenueMillions[idx]);
       if (knownSum > 0 && d.latestValue != null && anchorRev > 0 && idx === estimateFrom - 1) {
         histValues.push(Math.round((d.latestValue / knownSum) * rev));
       } else {
@@ -300,8 +303,8 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
 
   const actualRevM = histPoints.map((p) => toMillions(p.revenueUsd));
   const hasSec = filledHist.length >= 2;
-  const baseRevM = hasSec
-    ? actualRevM.map((v) => v ?? 0)
+  const baseRevM: (number | null)[] = hasSec
+    ? actualRevM
     : histPoints.map((_, i) => 800 + i * 50);
 
   const projection = buildBaseCaseQuarterlyProjection({
@@ -309,13 +312,15 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
     estimateCount,
   });
 
-  const revenueMillions =
+  const lastHistRev =
+    [...baseRevM].reverse().find((v) => v != null && v > 0) ?? 1000;
+  const revenueMillions: (number | null)[] =
     projection.length > 0
       ? revenueMillionsFromProjection(baseRevM, projection)
       : [
           ...baseRevM,
           ...Array.from({ length: estimateCount }, (_, i) =>
-            Math.round((baseRevM.at(-1) ?? 1000) * Math.pow(1.02, i + 1)),
+            Math.round(lastHistRev * Math.pow(1.02, i + 1)),
           ),
         ];
 
@@ -380,9 +385,9 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
     }),
   };
 
-  const overlayFromModel = revenueMillions.slice(0, estFrom).map((v, i, arr) => {
+  const overlayFromModel = revenueMillions.slice(0, estFrom).map((v, i) => {
     const prior = i >= 4 ? revenueMillions[i - 4] : null;
-    if (prior == null || prior === 0) return 0;
+    if (v == null || prior == null || prior === 0) return 0;
     return Math.round(((v - prior) / prior) * 1000) / 10;
   });
   const revenueOverlay: AnalyseRevenueOverlay = {

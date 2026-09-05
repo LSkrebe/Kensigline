@@ -182,6 +182,12 @@ export function histPointsForWindow(
 }
 
 export function pickProjectionAnchor(points: QuarterlyPnlPoint[]): QuarterlyPnlPoint | null {
+  const MIN_REV_M = 5;
+  for (let i = points.length - 1; i >= 0; i--) {
+    const p = points[i]!;
+    const revM = p.revenueUsd != null ? p.revenueUsd / 1e6 : 0;
+    if (revM >= MIN_REV_M) return p;
+  }
   for (let i = points.length - 1; i >= 0; i--) {
     const p = points[i]!;
     if (p.revenueUsd != null && p.revenueUsd > 0) return p;

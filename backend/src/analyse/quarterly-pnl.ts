@@ -135,7 +135,9 @@ function totalDebtOnPeriod(
 
 function toMillions(usd: number | null): number | null {
   if (usd == null || !Number.isFinite(usd)) return null;
-  return Math.round(usd / 1e6);
+  const m = usd / 1e6;
+  if (Math.abs(m) < 10) return Math.round(m * 10) / 10;
+  return Math.round(m);
 }
 
 function pctStr(n: number | null): string {

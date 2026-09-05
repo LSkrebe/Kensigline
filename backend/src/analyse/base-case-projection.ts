@@ -7,6 +7,7 @@
 
 import type { QuarterlyPnlPoint } from "./quarterly-pnl.js";
 import { toMillions } from "./quarterly-pnl.js";
+import { pickProjectionAnchor } from "./quarter-window.js";
 
 export const BASE_CASE_TAX_RATE = 0.23;
 export const GROWTH_PCT_MIN = -30;
@@ -90,7 +91,7 @@ export function buildBaseCaseQuarterlyProjection(input: BaseCaseProjectionInput)
     }));
   }
 
-  const anchor = [...hist].reverse().find((p) => (toMillions(p.revenueUsd) ?? 0) > 0) ?? hist[hist.length - 1];
+  const anchor = pickProjectionAnchor(historicalPoints.length ? historicalPoints : hist);
   if (!anchor || estimateCount <= 0) return [];
 
   const revM = hist.map((p) => toMillions(p.revenueUsd) ?? 0);
@@ -149,8 +150,8 @@ export function buildBaseCaseQuarterlyProjection(input: BaseCaseProjectionInput)
 }
 
 export function revenueMillionsFromProjection(
-  historicalRevM: number[],
+  historicalRevM: (number | null)[],
   projection: ProjectedQuarterPnl[],
-): number[] {
+): (number | null)[] {
   return [...historicalRevM, ...projection.map((p) => p.revenueM)];
 }
