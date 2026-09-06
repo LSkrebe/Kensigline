@@ -10,6 +10,7 @@ import {
 } from './exploreRecapCatalog.js'
 import {
   actorStoryCopyKey,
+  buildRecapCopySlots,
   pickRecapCopy,
   priceReactionCopyKey,
   withRoleCopyKey,
@@ -117,16 +118,16 @@ function uniqueActors(rows) {
   return out
 }
 
-function companyPhrase(name, ticker) {
-  const raw = String(name || ticker || 'the company').trim()
-  return raw.replace(/\.+$/, '')
+function recapSlots({ companyName, ticker, person, role, count }) {
+  return buildRecapCopySlots({ companyName, ticker, person, role, count })
 }
 
-function rolePlain(role) {
-  return String(role ?? '')
-    .replace(/\s*·\s*/g, ' at ')
-    .replace(/\s+/g, ' ')
-    .trim()
+function companyPhrase(name, ticker) {
+  return buildRecapCopySlots({ companyName: name, ticker }).company
+}
+
+function rolePlain(role, company) {
+  return buildRecapCopySlots({ role, companyName: company }).role
 }
 
 /** @returns {RecapSlide[]} */
@@ -138,7 +139,11 @@ function evalInsiderBuyingCluster(filings) {
     const total = rows.reduce((s, r) => s + (r.amountUsd ?? 0), 0)
     const lead = rows.slice().sort((a, b) => (b.amountUsd ?? 0) - (a.amountUsd ?? 0))[0]
     const company = companyPhrase(lead?.companyName, ticker)
-    const copy = pickRecapCopy('insider_buying_cluster', `buy-${ticker}`, { company })
+    const copy = pickRecapCopy(
+      'insider_buying_cluster',
+      `buy-${ticker}`,
+      recapSlots({ companyName: lead?.companyName, ticker, count: actors.length }),
+    )
     slides.push(
       baseSlide('insider_buying_cluster', {
         id: `cluster-buy-${ticker}`,
@@ -166,7 +171,11 @@ function evalInsiderSellingCluster(filings) {
     const total = rows.reduce((s, r) => s + (r.amountUsd ?? 0), 0)
     const lead = rows.slice().sort((a, b) => (b.amountUsd ?? 0) - (a.amountUsd ?? 0))[0]
     const company = companyPhrase(lead?.companyName, ticker)
-    const copy = pickRecapCopy('insider_selling_cluster', `sell-${ticker}`, { company })
+    const copy = pickRecapCopy(
+      'insider_selling_cluster',
+      `sell-${ticker}`,
+      recapSlots({ companyName: lead?.companyName, ticker, count: actors.length }),
+    )
     slides.push(
       baseSlide('insider_selling_cluster', {
         id: `cluster-sell-${ticker}`,
@@ -195,7 +204,11 @@ function evalPoliticianSideCluster(filings, side, typeId) {
     const total = rows.reduce((s, r) => s + (r.amountUsd ?? 0), 0)
     const lead = rows.slice().sort((a, b) => (b.amountUsd ?? 0) - (a.amountUsd ?? 0))[0]
     const company = companyPhrase(lead?.companyName, ticker)
-    const copy = pickRecapCopy(typeId, `ptr-${side}-${ticker}`, { company })
+    const copy = pickRecapCopy(
+      typeId,
+      `ptr-${side}-${ticker}`,
+      recapSlots({ companyName: lead?.companyName, ticker, count: actors.length }),
+    )
     slides.push(
       baseSlide(typeId, {
         id: `cluster-ptr-${side}-${ticker}`,
@@ -224,7 +237,11 @@ function evalMultiplePeopleOneCompany(filings, coveredTickers) {
     if (actors.length < 2) continue
     const lead = rows[0]
     const company = companyPhrase(lead?.companyName, ticker)
-    const copy = pickRecapCopy('multiple_people_one_company', `multi-${ticker}`, { company })
+    const copy = pickRecapCopy(
+      'multiple_people_one_company',
+      `multi-${ticker}`,
+      recapSlots({ companyName: lead?.companyName, ticker, count: actors.length }),
+    )
     slides.push(
       baseSlide('multiple_people_one_company', {
         id: `multi-people-${ticker}`,
@@ -255,11 +272,10 @@ function evalOnePersonMultipleCompanies(filings) {
       actorStoryCopyKey('one_person_multiple_companies', {
         actorMode: lead.actorMode,
         doc: lead.doc,
+        role: lead.actorRole,
       }),
       `person-multi-${actorId}`,
-      {
-        person: lead.actorName,
-      },
+      recapSlots({ person: lead.actorName, ticker: lead.ticker, count: tickers.length }),
     )
     slides.push(
       baseSlide('one_person_multiple_companies', {
@@ -288,18 +304,21 @@ function evalPersonActivity(filings, suppressedActors) {
     if (rows.length < 2) continue
     const lead = rows.slice().sort((a, b) => (b.amountUsd ?? 0) - (a.amountUsd ?? 0))[0]
     const total = rows.reduce((s, r) => s + (r.amountUsd ?? 0), 0)
-    const role = rolePlain(lead.actorRole)
+    const slots = recapSlots({
+      companyName: lead.companyName,
+      ticker: lead.ticker,
+      person: lead.actorName,
+      role: lead.actorRole,
+      count: rows.length,
+    })
     const copy = pickRecapCopy(
       actorStoryCopyKey('person_activity', {
-        role,
+        role: lead.actorRole,
         actorMode: lead.actorMode,
         doc: lead.doc,
       }),
       `person-${actorId}`,
-      {
-        person: lead.actorName,
-        role: role || undefined,
-      },
+      slots,
     )
     slides.push(
       baseSlide('person_activity', {
@@ -325,13 +344,13 @@ function evalLargestForm4(filings, side, typeId) {
   if (!pool.length) return null
   const lead = pool.slice().sort((a, b) => (b.amountUsd ?? 0) - (a.amountUsd ?? 0))[0]
   if (!lead?.amountUsd) return null
-  const role = rolePlain(lead.actorRole)
-  const company = companyPhrase(lead.companyName, lead.ticker)
-  const copy = pickRecapCopy(withRoleCopyKey(typeId, role), `largest-${side}-${lead.id}`, {
+  const slots = recapSlots({
+    companyName: lead.companyName,
+    ticker: lead.ticker,
     person: lead.actorName,
-    role: role || undefined,
-    company,
+    role: lead.actorRole,
   })
+  const copy = pickRecapCopy(withRoleCopyKey(typeId, slots.role), `largest-${side}-${lead.id}`, slots)
   return baseSlide(typeId, {
     id: `largest-${side}-${lead.id}`,
     headline: copy.headline,
@@ -351,15 +370,15 @@ function evalSingles(filings, suppressedIds) {
   const slides = []
   for (const f of filings) {
     if (suppressedIds.has(f.id)) continue
-    const role = rolePlain(f.actorRole)
-    const company = companyPhrase(f.companyName, f.ticker)
+    const slots = recapSlots({
+      companyName: f.companyName,
+      ticker: f.ticker,
+      person: f.actorName,
+      role: f.actorRole,
+    })
 
     if (f.doc === 'Form 4' && f.side === 'buy' && (f.amountUsd ?? 0) >= 400_000) {
-      const copy = pickRecapCopy(withRoleCopyKey('insider_purchase', role), `single-buy-${f.id}`, {
-        person: f.actorName,
-        role: role || undefined,
-        company,
-      })
+      const copy = pickRecapCopy(withRoleCopyKey('insider_purchase', slots.role), `single-buy-${f.id}`, slots)
       slides.push(
         baseSlide('insider_purchase', {
           id: `single-buy-${f.id}`,
@@ -377,11 +396,7 @@ function evalSingles(filings, suppressedIds) {
     }
 
     if (f.doc === 'Form 4' && f.side === 'sell' && (f.amountUsd ?? 0) >= 400_000) {
-      const copy = pickRecapCopy(withRoleCopyKey('insider_sale', role), `single-sell-${f.id}`, {
-        person: f.actorName,
-        role: role || undefined,
-        company,
-      })
+      const copy = pickRecapCopy(withRoleCopyKey('insider_sale', slots.role), `single-sell-${f.id}`, slots)
       slides.push(
         baseSlide('insider_sale', {
           id: `single-sell-${f.id}`,
@@ -399,10 +414,7 @@ function evalSingles(filings, suppressedIds) {
     }
 
     if (f.doc === 'PTR' && f.side === 'buy') {
-      const copy = pickRecapCopy('politician_purchase', `single-ptr-buy-${f.id}`, {
-        person: f.actorName,
-        company,
-      })
+      const copy = pickRecapCopy('politician_purchase', `single-ptr-buy-${f.id}`, slots)
       slides.push(
         baseSlide('politician_purchase', {
           id: `single-ptr-buy-${f.id}`,
@@ -420,10 +432,7 @@ function evalSingles(filings, suppressedIds) {
     }
 
     if (f.doc === 'PTR' && f.side === 'sell') {
-      const copy = pickRecapCopy('politician_sale', `single-ptr-sell-${f.id}`, {
-        person: f.actorName,
-        company,
-      })
+      const copy = pickRecapCopy('politician_sale', `single-ptr-sell-${f.id}`, slots)
       slides.push(
         baseSlide('politician_sale', {
           id: `single-ptr-sell-${f.id}`,
@@ -442,7 +451,7 @@ function evalSingles(filings, suppressedIds) {
 
     if (f.doc === '8-K') {
       // Always templated — never use freeform 8-K item text as the hook.
-      const copy = pickRecapCopy('material_8k', `single-8k-${f.id}`, { company })
+      const copy = pickRecapCopy('material_8k', `single-8k-${f.id}`, slots)
       slides.push(
         baseSlide('material_8k', {
           id: `single-8k-${f.id}`,
@@ -460,7 +469,7 @@ function evalSingles(filings, suppressedIds) {
     }
 
     if (f.doc === '10-Q') {
-      const copy = pickRecapCopy('quarterly_10q', `single-10q-${f.id}`, { company })
+      const copy = pickRecapCopy('quarterly_10q', `single-10q-${f.id}`, slots)
       slides.push(
         baseSlide('quarterly_10q', {
           id: `single-10q-${f.id}`,
@@ -489,7 +498,11 @@ function evalCompanyFilingBurst(filings) {
     if (docs.length < 2 && rows.length < 3) continue
     const lead = rows.find((r) => r.doc === '8-K') ?? rows[0]
     const company = companyPhrase(lead.companyName, ticker)
-    const copy = pickRecapCopy('company_filing_burst', `burst-${ticker}`, { company })
+    const copy = pickRecapCopy(
+      'company_filing_burst',
+      `burst-${ticker}`,
+      recapSlots({ companyName: lead.companyName, ticker, count: rows.length }),
+    )
     slides.push(
       baseSlide('company_filing_burst', {
         id: `burst-${ticker}`,
@@ -526,7 +539,11 @@ function evalFilingPriceReaction(filings) {
   const lead = withMove.slice().sort((a, b) => Math.abs(b.dayMovePct) - Math.abs(a.dayMovePct))[0]
   const company = companyPhrase(lead.companyName, lead.ticker)
   const up = lead.dayMovePct >= 0
-  const copy = pickRecapCopy(priceReactionCopyKey(up), `reaction-${lead.id}`, { company })
+  const copy = pickRecapCopy(
+    priceReactionCopyKey(up),
+    `reaction-${lead.id}`,
+    recapSlots({ companyName: lead.companyName, ticker: lead.ticker }),
+  )
   return baseSlide('filing_price_reaction', {
     id: `reaction-${lead.id}`,
     headline: copy.headline,
@@ -554,7 +571,11 @@ function evalEarningsWatch(earningsSoon) {
   const top = rows.slice(0, EARNINGS_WATCH_MAX)
   const lead = top[0]
   const company = companyPhrase(lead.companyName, lead.ticker)
-  const copy = pickRecapCopy('earnings_watch', `earnings-${lead.ticker}`, { company })
+  const copy = pickRecapCopy(
+    'earnings_watch',
+    `earnings-${lead.ticker}`,
+    recapSlots({ companyName: lead.companyName, ticker: lead.ticker, count: top.length }),
+  )
   const proximity = lead.proximityLabel || (lead.daysAhead === 0 ? 'Today' : `${lead.daysAhead}d`)
 
   return baseSlide('earnings_watch', {

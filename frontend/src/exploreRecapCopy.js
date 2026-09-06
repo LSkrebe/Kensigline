@@ -25,9 +25,9 @@ export const EXPLORE_RECAP_COPY = {
       'Bullish filings gather in a pack',
     ],
     summaries: [
-      'Open-market purchases arrived from more than one desk inside {company} in the same session.',
+      '{countWord} insiders at {company} filed open-market purchases in the same session.',
+      'Open-market purchases arrived from more than one desk inside {company} today.',
       'Several people close to {company} filed purchases that landed together.',
-      'The disclosure feed shows coordinated buying activity around {company}.',
       'Purchase filings from multiple insiders at {company} cleared on the same day.',
       'More than one insider at {company} stepped in with open-market buys today.',
       'Form 4 purchase activity around {company} came from separate desks in the same session.',
@@ -45,9 +45,9 @@ export const EXPLORE_RECAP_COPY = {
       'Selling pressure builds in the archive',
     ],
     summaries: [
+      '{countWord} insiders at {company} filed open-market sales in the same session.',
       'Several people close to {company} filed sales that landed on the same day.',
-      'Open-market sales arrived from more than one desk inside {company} in the same session.',
-      'The disclosure feed shows clustered selling activity around {company}.',
+      'Open-market sales arrived from more than one desk inside {company} today.',
       'Sale filings from multiple insiders at {company} cleared on the same day.',
       'More than one insider at {company} filed open-market sales today.',
       'Form 4 sale activity around {company} came from separate desks in the same session.',
@@ -185,13 +185,13 @@ export const EXPLORE_RECAP_COPY = {
       'The same filer clears again',
     ],
     summaries: [
-      '{person}, {role}, stacked more than one disclosure before the session closed.',
-      '{person}, {role}, showed up more than once in today’s filing feed.',
-      'Several disclosures tied to {person}, {role}, cleared on the same day.',
-      'The archive recorded repeated activity from {person}, {role}, today.',
-      'More than one filing linked to {person}, {role}, landed in the same session.',
-      '{person}, {role}, cleared multiple disclosures before the day wrapped.',
-      'Repeated paperwork from {person}, {role}, showed up in today’s feed.',
+      '{person}, {role} at {company}, stacked more than one disclosure before the session closed.',
+      '{person}, {role} at {company}, showed up more than once in today’s filing feed.',
+      'Several disclosures tied to {person}, {role} at {company}, cleared on the same day.',
+      'The archive recorded repeated activity from {person}, {role} at {company}, today.',
+      'More than one filing linked to {person}, {role} at {company}, landed in the same session.',
+      '{person}, {role} at {company}, cleared multiple disclosures before the day wrapped.',
+      'Repeated paperwork from {person}, {role} at {company}, showed up in today’s feed.',
     ],
   },
   person_activity_politician: {
@@ -265,13 +265,13 @@ export const EXPLORE_RECAP_COPY = {
       'The session’s lead purchase filing',
     ],
     summaries: [
-      '{person}, {role}, filed the session’s heaviest open-market buy today.',
-      'Among today’s purchases, the largest open-market filing came from {person}, {role}.',
-      '{person}, {role}, led the day’s purchase disclosures on size.',
-      'The top purchase filing of the session points to {person}, {role}.',
-      'No other purchase filing today matched {person}, {role}, on size.',
-      'The day’s largest Form 4 buy is linked to {person}, {role}.',
-      '{person}, {role}, posted the standout open-market purchase today.',
+      '{person}, {role} at {company}, led the day’s purchase disclosures on size.',
+      'Among today’s purchases, the largest open-market filing came from {person}, {role} at {company}.',
+      '{person}, {role} at {company}, filed the session’s heaviest open-market buy.',
+      'The top purchase filing of the session points to {person}, {role} at {company}.',
+      'No other purchase filing today matched {person}, {role} at {company} on size.',
+      'The day’s largest Form 4 buy is linked to {person}, {role} at {company}.',
+      '{person}, {role} at {company}, posted the standout open-market purchase today.',
     ],
   },
   largest_insider_sale: {
@@ -305,13 +305,13 @@ export const EXPLORE_RECAP_COPY = {
       'An exit that led the filing tape',
     ],
     summaries: [
-      '{person}, {role}, filed the session’s heaviest open-market sale today.',
-      'Among today’s sales, the largest open-market filing came from {person}, {role}.',
-      '{person}, {role}, led the day’s sale disclosures on size.',
-      'The top sale filing of the session points to {person}, {role}.',
-      'No other sale filing today matched {person}, {role}, on size.',
-      'The day’s largest Form 4 sale is linked to {person}, {role}.',
-      '{person}, {role}, posted the standout open-market sale today.',
+      '{person}, {role} at {company}, led the day’s sale disclosures on size.',
+      'Among today’s sales, the largest open-market filing came from {person}, {role} at {company}.',
+      '{person}, {role} at {company}, filed the session’s heaviest open-market sale.',
+      'The top sale filing of the session points to {person}, {role} at {company}.',
+      'No other sale filing today matched {person}, {role} at {company} on size.',
+      'The day’s largest Form 4 sale is linked to {person}, {role} at {company}.',
+      '{person}, {role} at {company}, posted the standout open-market sale today.',
     ],
   },
   insider_purchase: {
@@ -345,13 +345,13 @@ export const EXPLORE_RECAP_COPY = {
       'Inside buying shows up',
     ],
     summaries: [
-      '{person}, {role}, filed a purchase disclosure today.',
-      'A purchase disclosure from {person}, {role}, cleared in today’s feed.',
-      '{person}, {role}, filed an open-market buy.',
-      'The feed picked up a purchase filing from {person}, {role}.',
-      'An open-market purchase by {person}, {role}, cleared today.',
-      '{person}, {role}, showed up in a Form 4 purchase filing.',
-      'The archive recorded a buy filing from {person}, {role}.',
+      '{person}, {role} at {company}, filed a purchase disclosure today.',
+      'A purchase disclosure from {person}, {role} at {company}, cleared in today’s feed.',
+      '{person}, {role} at {company}, filed an open-market buy.',
+      'The feed picked up a purchase filing from {person}, {role} at {company}.',
+      'An open-market purchase by {person}, {role} at {company}, cleared today.',
+      '{person}, {role} at {company}, showed up in a Form 4 purchase filing.',
+      'The archive recorded a buy filing from {person}, {role} at {company}.',
     ],
   },
   insider_sale: {
@@ -385,13 +385,13 @@ export const EXPLORE_RECAP_COPY = {
       'An open-market exit lands',
     ],
     summaries: [
-      '{person}, {role}, filed a sale disclosure today.',
-      'A sale disclosure from {person}, {role}, cleared in today’s feed.',
-      '{person}, {role}, filed an open-market sale.',
-      'The feed picked up a sale filing from {person}, {role}.',
-      'An open-market sale by {person}, {role}, cleared today.',
-      '{person}, {role}, showed up in a Form 4 sale filing.',
-      'The archive recorded a sale filing from {person}, {role}.',
+      '{person}, {role} at {company}, filed a sale disclosure today.',
+      'A sale disclosure from {person}, {role} at {company}, cleared in today’s feed.',
+      '{person}, {role} at {company}, filed an open-market sale.',
+      'The feed picked up a sale filing from {person}, {role} at {company}.',
+      'An open-market sale by {person}, {role} at {company}, cleared today.',
+      '{person}, {role} at {company}, showed up in a Form 4 sale filing.',
+      'The archive recorded a sale filing from {person}, {role} at {company}.',
     ],
   },
   politician_purchase: {
@@ -564,6 +564,90 @@ function hashSeed(str) {
   return h >>> 0
 }
 
+/** Short company name for prose — trim legal suffixes; fall back to ticker when too long. */
+export function sanitizeRecapCompany(name, ticker) {
+  let s = String(name ?? '')
+    .trim()
+    .replace(/\.+$/, '')
+  if (!s) s = String(ticker ?? '').trim()
+  if (!s) return 'the company'
+
+  s = s
+    .replace(/,?\s*\b(Inc\.?|Incorporated|Corp\.?|Corporation|Ltd\.?|Limited|LLC|L\.P\.?|PLC|S\.A\.B\.?\s*de\s*C\.V\.?)\b\.?/gi, '')
+    .replace(/\s*\/\s*PA\s*\/?\s*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (s.length > 44 && ticker) return String(ticker).trim().toUpperCase()
+  return s || String(ticker ?? 'the company').trim().toUpperCase()
+}
+
+export function sanitizeRecapPerson(name) {
+  const s = String(name ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+  if (!s || /^(unknown|n\/a|null|undefined|—|-|–|--)$/i.test(s)) return ''
+  return s
+}
+
+/** Role title only — avoids "DIR at Company" when company is its own slot. */
+export function sanitizeRecapRoleTitle(role, company) {
+  const raw = String(role ?? '')
+    .replace(/\s*·\s*/g, ' at ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!raw) return ''
+
+  if (/^insider at /i.test(raw)) return ''
+  if (/^(house|senate|executive)\s*ptr$/i.test(raw)) return ''
+  if (/^ptr$/i.test(raw)) return ''
+  if (/form\s*278/i.test(raw)) return ''
+
+  const atIdx = raw.toLowerCase().indexOf(' at ')
+  if (atIdx > 0) {
+    const title = raw.slice(0, atIdx).trim()
+    const roleCompany = raw.slice(atIdx + 4).trim()
+    const companyNorm = String(company ?? '').trim().toLowerCase()
+    if (companyNorm && roleCompany.toLowerCase().includes(companyNorm.slice(0, 12))) {
+      return title
+    }
+    if (/^(dir|ceo|cfo|coo|pres|vp|off|gc|10%|10%-owner)/i.test(title) || title.length <= 24) {
+      return title
+    }
+  }
+
+  if (/member of congress|senator|representative/i.test(raw)) return raw
+  return raw.length > 36 ? raw.slice(0, 36).trim() : raw
+}
+
+export function formatRecapCount(n) {
+  const x = Math.floor(Number(n))
+  if (!Number.isFinite(x) || x < 2) return 'Multiple'
+  if (x === 2) return 'Two'
+  if (x === 3) return 'Three'
+  if (x === 4) return 'Four'
+  if (x === 5) return 'Five'
+  return 'Several'
+}
+
+/**
+ * Normalize slots passed into templates.
+ * @param {{ companyName?: string, ticker?: string, person?: string, role?: string, count?: number }} input
+ */
+export function buildRecapCopySlots(input = {}) {
+  const ticker = String(input.ticker ?? '').trim().toUpperCase()
+  const company = sanitizeRecapCompany(input.companyName, ticker)
+  const person = sanitizeRecapPerson(input.person)
+  const role = sanitizeRecapRoleTitle(input.role, company)
+  const count = Number.isFinite(Number(input.count)) ? Math.max(0, Math.floor(Number(input.count))) : 0
+  const countWord = formatRecapCount(count)
+  return { company, person, role, count, countWord, ticker }
+}
+
+function templateNeeds(template, key) {
+  return new RegExp(`\\{${key}\\}`).test(String(template ?? ''))
+}
+
 function fillSlots(template, slots) {
   return String(template ?? '')
     .replace(/\{(\w+)\}/g, (_, key) => {
@@ -572,31 +656,132 @@ function fillSlots(template, slots) {
     })
     .replace(/\s+,/g, ',')
     .replace(/,\s*,/g, ',')
+    .replace(/,\s*\./g, '.')
     .replace(/\s{2,}/g, ' ')
     .trim()
+}
+
+function polishRecapCopy(text) {
+  return String(text ?? '')
+    .replace(/\s+,/g, ',')
+    .replace(/,\s*,/g, ',')
+    .replace(/,\s*\./g, '.')
+    .replace(/\bat at\b/gi, 'at')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+\./g, '.')
+    .replace(/^\s*,\s*/g, '')
+    .replace(/,\s*$/g, '')
+    .trim()
+}
+
+function copyIsValid(text, slots, template) {
+  const body = polishRecapCopy(text)
+  if (!body || body.length < 12) return false
+  if (/\{[a-z]+\}/i.test(body)) return false
+  if (/,\s*,/.test(body)) return false
+  if (/\b(undefined|null)\b/i.test(body)) return false
+  if (/\bfrom\s+,/i.test(body)) return false
+  if (/\btied to\s+\./i.test(body)) return false
+  if (templateNeeds(template, 'person') && !slots.person) return false
+  if (templateNeeds(template, 'company') && !slots.company) return false
+  if (templateNeeds(template, 'role') && !slots.role) return false
+  if (templateNeeds(template, 'countWord') && (!slots.count || slots.count < 2)) return false
+  return true
+}
+
+function pickFromPool(items, seed, slots, kind) {
+  const list = Array.isArray(items) ? items.filter(Boolean) : []
+  if (!list.length) return ''
+
+  const valid = list.filter((t) => copyIsValid(fillSlots(t, slots), slots, t))
+  const pool = valid.length ? valid : list
+  const h = hashSeed(`${seed}|${kind}`)
+  return pool[h % pool.length]
+}
+
+function headlinePrefScore(text, slots) {
+  let score = 0
+  const body = String(text ?? '').toLowerCase()
+  const count = Number(slots.count ?? 0)
+  if (count === 2 && /(pack|c-suite|chorus|crowd)/.test(body)) score -= 2
+  if (count >= 3 && /(pack|cluster|crowd|pile)/.test(body)) score += 1
+  if (count >= 4 && /more than one/.test(body)) score -= 1
+  return score
+}
+
+function pickHeadline(pool, seed, slots) {
+  const headlines = pool?.headlines ?? []
+  if (!headlines.length) return ''
+
+  const ranked = headlines
+    .map((text, idx) => ({
+      text,
+      idx,
+      pref: headlinePrefScore(text, slots),
+      valid: copyIsValid(fillSlots(text, slots), slots, text),
+    }))
+    .filter((x) => x.valid)
+  const candidates = ranked.length ? ranked : headlines.map((text, idx) => ({ text, idx, pref: 0, valid: true }))
+  const h = hashSeed(`${seed}|headline`)
+  const bucket = candidates.sort((a, b) => b.pref - a.pref || a.idx - b.idx)
+  return bucket[h % bucket.length]?.text ?? headlines[0]
 }
 
 /**
  * Pick headline + summary for a catalog type.
  * @param {string} typeId catalog id (or tone-suffixed copy key)
  * @param {string} seed stable id for deterministic variant choice
- * @param {{ company?: string, person?: string, role?: string }} slots
+ * @param {{ company?: string, person?: string, role?: string, count?: number, countWord?: string, ticker?: string }} slots
  */
 export function pickRecapCopy(typeId, seed, slots = {}) {
+  const normalized =
+    slots.company != null || slots.person != null
+      ? buildRecapCopySlots({
+          companyName: slots.company,
+          ticker: slots.ticker,
+          person: slots.person,
+          role: slots.role,
+          count: slots.count,
+        })
+      : buildRecapCopySlots(slots)
+
   const pool = EXPLORE_RECAP_COPY[typeId]
   if (!pool?.headlines?.length) {
+    const fallbackSummary =
+      normalized.person && normalized.company
+        ? `${normalized.person} filed fresh disclosure tied to ${normalized.company}.`
+        : normalized.company
+          ? `Fresh disclosure tied to ${normalized.company}.`
+          : 'Fresh disclosure entered the feed.'
     return {
       headline: 'A filing worth a closer look',
-      summary: fillSlots('Fresh disclosure tied to {company}.', slots) || 'Fresh disclosure entered the feed.',
+      summary: polishRecapCopy(fallbackSummary),
     }
   }
-  const h = hashSeed(`${typeId}|${seed}`)
-  const headline = pool.headlines[h % pool.headlines.length]
-  const summary = fillSlots(pool.summaries[(h >>> 8) % pool.summaries.length], slots)
-  return { headline, summary }
+
+  const headline = pickHeadline(pool, seed, normalized)
+  const summaryTemplate = pickFromPool(pool.summaries, seed, normalized, 'summary')
+  const summary = polishRecapCopy(fillSlots(summaryTemplate, normalized))
+
+  const safeSummary =
+    copyIsValid(summary, normalized, summaryTemplate)
+      ? summary
+      : polishRecapCopy(
+          fillSlots(
+            normalized.person && normalized.company
+              ? '{person} filed disclosure tied to {company}.'
+              : '{company} drew fresh disclosure today.',
+            normalized,
+          ),
+        )
+
+  return {
+    headline: polishRecapCopy(fillSlots(headline, normalized)) || 'A filing worth a closer look',
+    summary: safeSummary || 'Fresh disclosure entered the feed.',
+  }
 }
 
-/** Prefer role-aware templates when role text is present (avoids awkward empty slots). */
+/** Prefer role-aware templates when a clean role title is available. */
 export function withRoleCopyKey(baseKey, role) {
   return role && String(role).trim() ? `${baseKey}_with_role` : baseKey
 }
@@ -608,14 +793,13 @@ export function withRoleCopyKey(baseKey, role) {
 export function actorStoryCopyKey(baseKey, { role, actorMode, doc } = {}) {
   const isPol = actorMode === 'politicians' || doc === 'PTR'
   const keyed = isPol ? `${baseKey}_politician` : baseKey
-  // Generic "House PTR" / "Senate PTR" labels read awkwardly in "{person}, {role}," slots.
+  const roleTitle = sanitizeRecapRoleTitle(role, '')
   const roleOk =
-    role &&
-    String(role).trim() &&
-    !/^(house|senate|executive)\s*ptr$/i.test(String(role).trim()) &&
-    !/^ptr$/i.test(String(role).trim()) &&
-    !/form\s*278/i.test(String(role).trim())
-  return withRoleCopyKey(keyed, roleOk ? role : '')
+    roleTitle &&
+    !/^(house|senate|executive)\s*ptr$/i.test(roleTitle) &&
+    !/^ptr$/i.test(roleTitle) &&
+    !/form\s*278/i.test(roleTitle)
+  return withRoleCopyKey(keyed, roleOk ? roleTitle : '')
 }
 
 /** @deprecated use withRoleCopyKey('person_activity', role) */
