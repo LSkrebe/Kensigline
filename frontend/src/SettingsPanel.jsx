@@ -132,6 +132,121 @@ function SettingsField({ label, sublabel, children, valueTone, className = '' })
   )
 }
 
+function formatMorningHour(hour) {
+  const h = Number(hour)
+  if (!Number.isFinite(h)) return '8:00 AM'
+  const normalized = ((Math.floor(h) % 24) + 24) % 24
+  const suffix = normalized >= 12 ? 'PM' : 'AM'
+  const hour12 = normalized % 12 === 0 ? 12 : normalized % 12
+  return `${hour12}:00 ${suffix}`
+}
+
+function DigestPreferencesSection({ email, signedIn }) {
+  const [prefs, setPrefs] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState(null)
+
+  const timezone =
+    typeof Intl !== 'undefined'
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+      : 'UTC'
+
+  useEffect(() => {
+    if (!signedIn) {
+      setPrefs(null)
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    void fetchJsonSafe('/api/alerts/preferences').then((res) => {
+      if (cancelled) return
+      setPrefs(res.ok ? res.data?.preferences ?? null : null)
+      setLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [signedIn])
+
+  const savePrefs = useCallback(
+    async (patch) => {
+      if (saving) return
+      setSaving(true)
+      setStatus(null)
+      const res = await fetchJsonSafe('/api/alerts/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          timezone,
+          ...patch,
+        }),
+      })
+      setSaving(false)
+      if (res.ok) {
+        setPrefs(res.data?.preferences ?? prefs)
+        setStatus({ ok: true, text: patch.enabled ? 'Daily brief enabled.' : 'Daily brief turned off.' })
+        return
+      }
+      setStatus({ ok: false, text: 'Could not update email preferences.' })
+    },
+    [prefs, saving, timezone],
+  )
+
+  const enabled = prefs?.enabled === true
+  const morningHour = prefs?.morning_hour ?? 8
+
+  return (
+    <SettingsSection
+      label="Email"
+      title="Daily brief"
+      footer={
+        <p className="stgMuted mono stgDigestFoot">
+          Insider flow, politician trades, and filing signals — same ranking as Explore, delivered each morning.
+        </p>
+      }
+    >
+      <SettingsField label="Delivery" sublabel={loading ? 'Loading…' : formatMorningHour(morningHour)} className="stgField--digest">
+        <label className="stgSwitch" aria-label="Daily email brief">
+          <input
+            type="checkbox"
+            className="stgSwitchInput"
+            checked={enabled}
+            disabled={loading || saving}
+            onChange={(e) => void savePrefs({ enabled: e.target.checked })}
+          />
+          <span className="stgSwitchTrack" aria-hidden="true">
+            <span className="stgSwitchThumb" />
+          </span>
+        </label>
+      </SettingsField>
+      <SettingsField label="Send to">
+        <span className="mono" title={email}>
+          {email}
+        </span>
+      </SettingsField>
+      <SettingsField label="Timezone" valueTone="neutral">
+        <span className="mono">{timezone}</span>
+      </SettingsField>
+      {status ? (
+        <p
+          className={[
+            'stgSupportHint mono',
+            status.ok === true ? 'isOk' : '',
+            status.ok === false ? 'isBad' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          role="status"
+        >
+          {status.text}
+        </p>
+      ) : null}
+    </SettingsSection>
+  )
+}
+
 export function SettingsPanel({
   backendUp = false,
   onSettingsClick,
@@ -302,6 +417,8 @@ export function SettingsPanel({
       <SettingsSection label="Billing" title="Invoices">
         <p className="stgEmpty">{INVOICES_EMPTY_HINT}</p>
       </SettingsSection>
+
+      <DigestPreferencesSection email={email} signedIn={signedIn} />
 
       <SettingsSection label="Support" title="Talk to the founders">
         <textarea

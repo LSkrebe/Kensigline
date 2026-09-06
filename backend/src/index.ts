@@ -53,6 +53,7 @@ import {
   prewarmExploreHome,
 } from "./explore/api.js";
 import { handleWaitlistJoin } from "./waitlist/api.js";
+import { handleAlertsPreferencesGet, handleAlertsPreferencesPut } from "./alerts/api.js";
 import {
   handleAttributionSignup,
   handleAttributionSummary,
@@ -234,6 +235,24 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       await handleBillingRefresh(req, res);
+      return;
+    }
+
+    if (route(req, url, "GET", "/api/alerts/preferences")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleAlertsPreferencesGet(req, res);
+      return;
+    }
+
+    if (route(req, url, "PUT", "/api/alerts/preferences")) {
+      if (!supabaseAuthConfigured()) {
+        sendJson(res, 503, { ok: false, error: "auth_not_configured" });
+        return;
+      }
+      await handleAlertsPreferencesPut(req, res);
       return;
     }
 

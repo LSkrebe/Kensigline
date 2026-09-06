@@ -21,6 +21,7 @@ const BILLING_EXEMPT_PATHS = new Set([
   "/api/public/bars",
   "/api/public/research",
   "/api/waitlist",
+  "/api/alerts/preferences",
 ]);
 
 /** When false, API data routes stay open (local dev). Default: on. */
