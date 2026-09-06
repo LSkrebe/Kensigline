@@ -4,7 +4,17 @@ export function resendApiKey(): string | null {
 }
 
 export function resendFromAddress(): string {
-  return String(process.env.RESEND_FROM ?? "research@mercerline.com").trim() || "research@mercerline.com";
+  const raw = String(process.env.RESEND_FROM ?? "research@mercerline.com").trim() || "research@mercerline.com";
+  if (raw.includes("<")) return raw;
+  const name = String(process.env.RESEND_FROM_NAME ?? "Mercerline").trim() || "Mercerline";
+  return `${name} <${raw}>`;
+}
+
+/** Bare mailbox for reply-to headers (no display name). */
+export function resendMailboxAddress(): string {
+  const raw = String(process.env.RESEND_FROM ?? "research@mercerline.com").trim() || "research@mercerline.com";
+  const m = raw.match(/<([^>]+)>/);
+  return (m?.[1] ?? raw).trim();
 }
 
 export function resendConfigured(): boolean {

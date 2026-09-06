@@ -1,6 +1,25 @@
 import { frontendOrigin } from "./config.js";
 import type { DigestContent, DigestSlide } from "./digest-content.js";
 
+/** Solid hex palette — Gmail dark mode inverts rgba(); these hold better. */
+const C = {
+  bg: "#080809",
+  bgCard: "#101114",
+  text: "#ececec",
+  textSoft: "#b8b8b8",
+  textMuted: "#8a8a8a",
+  textFaint: "#666666",
+  accent: "#a8c4ff",
+  border: "#2a2a2e",
+  borderSoft: "#1e1e22",
+  up: "#5cb88a",
+  down: "#d4726a",
+  btnBg: "#161618",
+  btnBorder: "#333338",
+};
+
+const DARK_BG_STYLE = `background-color:${C.bg};background-image:linear-gradient(${C.bg},${C.bg});`;
+
 function escHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -28,29 +47,29 @@ function eventUrl(slide: DigestSlide): string {
 }
 
 function moveColor(moveUp: boolean): string {
-  return moveUp ? "#5cb88a" : "#d4726a";
+  return moveUp ? C.up : C.down;
 }
 
 function renderHeroCard(slide: DigestSlide, index: number): string {
   const url = eventUrl(slide);
   const move = slide.moveLabel
-    ? `<span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:${moveColor(slide.moveUp)};letter-spacing:0.02em;">${escHtml(slide.moveLabel)}</span>`
+    ? `<span class="ml-text" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;color:${moveColor(slide.moveUp)};letter-spacing:0.02em;">${escHtml(slide.moveLabel)}</span>`
     : "";
   const ticker = slide.ticker
-    ? `<span style="display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(168,196,255,0.92);border:1px solid rgba(168,196,255,0.28);padding:3px 7px;margin-right:8px;">${escHtml(slide.ticker)}</span>`
+    ? `<span class="ml-accent" style="display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:${C.accent};border:1px solid #3d4f66;padding:3px 7px;margin-right:8px;">${escHtml(slide.ticker)}</span>`
     : "";
 
   return `
     <tr>
-      <td style="padding:${index === 0 ? "0" : "14px"} 0 0 0;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid rgba(255,255,255,0.10);background:linear-gradient(180deg,rgba(255,255,255,0.035) 0%,rgba(255,255,255,0.015) 100%);">
+      <td bgcolor="${C.bg}" style="padding:${index === 0 ? "0" : "14px"} 0 0 0;${DARK_BG_STYLE}">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bgCard}" style="border:1px solid ${C.border};background-color:${C.bgCard};background-image:linear-gradient(${C.bgCard},${C.bgCard});">
           <tr>
-            <td style="padding:20px 22px 18px 22px;">
-              <p style="margin:0 0 10px 0;font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:rgba(255,255,255,0.42);">${escHtml(slide.kicker)}</p>
-              <h2 style="margin:0 0 12px 0;font-family:Georgia,'Times New Roman',serif;font-size:22px;line-height:1.28;font-weight:400;color:rgba(255,255,255,0.94);">
-                <a href="${url}" style="color:rgba(255,255,255,0.94);text-decoration:none;">${escHtml(slide.headline)}</a>
+            <td bgcolor="${C.bgCard}" style="padding:20px 22px 18px 22px;background-color:${C.bgCard};background-image:linear-gradient(${C.bgCard},${C.bgCard});">
+              <p class="ml-muted" style="margin:0 0 10px 0;font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:${C.textMuted};">${escHtml(slide.kicker)}</p>
+              <h2 class="ml-text" style="margin:0 0 12px 0;font-family:Georgia,'Times New Roman',serif;font-size:22px;line-height:1.28;font-weight:400;color:${C.text};">
+                <a href="${url}" class="ml-text" style="color:${C.text};text-decoration:none;">${escHtml(slide.headline)}</a>
               </h2>
-              <p style="margin:0 0 14px 0;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:1.55;color:rgba(255,255,255,0.68);">${escHtml(slide.summary)}</p>
+              <p class="ml-soft" style="margin:0 0 14px 0;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:1.55;color:${C.textSoft};">${escHtml(slide.summary)}</p>
               <p style="margin:0;font-size:0;line-height:0;">${ticker}${move}</p>
             </td>
           </tr>
@@ -62,24 +81,24 @@ function renderHeroCard(slide: DigestSlide, index: number): string {
 function renderHeadlineRow(slide: DigestSlide): string {
   const url = eventUrl(slide);
   const move = slide.moveLabel
-    ? `<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:${moveColor(slide.moveUp)};white-space:nowrap;">${escHtml(slide.moveLabel)}</span>`
-    : `<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:rgba(255,255,255,0.28);">—</span>`;
+    ? `<span class="ml-text" style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:${moveColor(slide.moveUp)};white-space:nowrap;">${escHtml(slide.moveLabel)}</span>`
+    : `<span class="ml-faint" style="font-family:ui-monospace,Menlo,monospace;font-size:11px;color:${C.textFaint};">—</span>`;
 
   return `
     <tr>
-      <td style="padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.07);">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <td bgcolor="${C.bg}" style="padding:14px 0;border-bottom:1px solid ${C.borderSoft};${DARK_BG_STYLE}">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}">
           <tr>
-            <td style="width:72px;vertical-align:top;padding-right:12px;">
-              <span style="font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:rgba(168,196,255,0.78);">${escHtml(slide.ticker || "—")}</span>
+            <td bgcolor="${C.bg}" style="width:72px;vertical-align:top;padding-right:12px;background-color:${C.bg};">
+              <span class="ml-accent" style="font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:${C.accent};">${escHtml(slide.ticker || "—")}</span>
             </td>
-            <td style="vertical-align:top;padding-right:12px;">
-              <p style="margin:0 0 4px 0;font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.34);">${escHtml(slide.kicker)}</p>
-              <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:1.42;color:rgba(255,255,255,0.86);">
-                <a href="${url}" style="color:rgba(255,255,255,0.86);text-decoration:none;">${escHtml(slide.headline)}</a>
+            <td bgcolor="${C.bg}" style="vertical-align:top;padding-right:12px;background-color:${C.bg};">
+              <p class="ml-faint" style="margin:0 0 4px 0;font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:${C.textFaint};">${escHtml(slide.kicker)}</p>
+              <p class="ml-text" style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:1.42;color:${C.text};">
+                <a href="${url}" class="ml-text" style="color:${C.text};text-decoration:none;">${escHtml(slide.headline)}</a>
               </p>
             </td>
-            <td style="width:64px;vertical-align:top;text-align:right;">${move}</td>
+            <td bgcolor="${C.bg}" style="width:64px;vertical-align:top;text-align:right;background-color:${C.bg};">${move}</td>
           </tr>
         </table>
       </td>
@@ -133,6 +152,37 @@ export function buildDigestPlainText(content: DigestContent): string {
   return lines.join("\n");
 }
 
+function darkModeStyles(): string {
+  return `
+    :root { color-scheme: dark only; supported-color-schemes: dark; }
+    .ml-body, .ml-wrap, .ml-card { ${DARK_BG_STYLE} }
+    .ml-text { color: ${C.text} !important; }
+    .ml-soft { color: ${C.textSoft} !important; }
+    .ml-muted { color: ${C.textMuted} !important; }
+    .ml-faint { color: ${C.textFaint} !important; }
+    .ml-accent { color: ${C.accent} !important; }
+    @media (prefers-color-scheme: dark) {
+      .ml-body, .ml-wrap, .ml-card, .ml-cell { background-color: ${C.bg} !important; background-image: linear-gradient(${C.bg},${C.bg}) !important; }
+      .ml-text { color: ${C.text} !important; }
+      .ml-soft { color: ${C.textSoft} !important; }
+      .ml-muted { color: ${C.textMuted} !important; }
+      .ml-faint { color: ${C.textFaint} !important; }
+      .ml-accent { color: ${C.accent} !important; }
+    }
+    @media (prefers-color-scheme: light) {
+      .ml-body, .ml-wrap, .ml-card, .ml-cell { background-color: ${C.bg} !important; background-image: linear-gradient(${C.bg},${C.bg}) !important; }
+      .ml-text { color: ${C.text} !important; }
+      .ml-soft { color: ${C.textSoft} !important; }
+      .ml-muted { color: ${C.textMuted} !important; }
+      .ml-faint { color: ${C.textFaint} !important; }
+      .ml-accent { color: ${C.accent} !important; }
+    }
+    u + .body .ml-gmail-blend-screen { background: ${C.bg}; mix-blend-mode: screen; }
+    u + .body .ml-gmail-blend-difference { background: ${C.bg}; mix-blend-mode: difference; }
+    [data-ogsc] .ml-body, [data-ogsc] .ml-wrap, [data-ogsc] .ml-cell { background-color: ${C.bg} !important; }
+  `;
+}
+
 export function buildDigestHtml(content: DigestContent): string {
   const origin = frontendOrigin();
   const dateLabel = formatDigestDate(content.displayDayKey || content.dayKey);
@@ -140,86 +190,93 @@ export function buildDigestHtml(content: DigestContent): string {
   const heroHtml = content.heroSlides.map((s, i) => renderHeroCard(s, i)).join("");
   const headlinesHtml = content.headlineSlides.map(renderHeadlineRow).join("");
   const quietNote = content.isFallback
-    ? `<p style="margin:0 0 18px 0;font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.5;color:rgba(255,255,255,0.42);">Quiet session — showing the strongest signals from recent filings.</p>`
+    ? `<p class="ml-muted" style="margin:0 0 18px 0;font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.5;color:${C.textMuted};">Quiet session — showing the strongest signals from recent filings.</p>`
     : "";
 
   const headlinesSection = content.headlineSlides.length
     ? `
       <tr>
-        <td style="padding:28px 0 10px 0;">
-          <p style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.38);">Also on the tape</p>
+        <td bgcolor="${C.bg}" class="ml-cell" style="padding:28px 0 10px 0;${DARK_BG_STYLE}">
+          <p class="ml-faint" style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:${C.textFaint};">Also on the tape</p>
         </td>
       </tr>
       ${headlinesHtml}`
     : "";
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark">
-  <meta name="supported-color-schemes" content="dark">
+  <meta name="color-scheme" content="dark only">
+  <meta name="supported-color-schemes" content="dark only">
+  <meta name="x-apple-disable-message-reformatting">
   <title>${escHtml(buildDigestSubject(content))}</title>
+  <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+  <style type="text/css">${darkModeStyles()}</style>
 </head>
-<body style="margin:0;padding:0;background:#080809;color:rgba(255,255,255,0.88);">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${preheader}</div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#080809;">
-    <tr>
-      <td align="center" style="padding:28px 16px 40px 16px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;">
-          <tr>
-            <td style="padding:0 0 22px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="vertical-align:middle;">
-                    <img src="${origin}/mercerline_mark.png" width="28" height="28" alt="Mercerline" style="display:inline-block;vertical-align:middle;border:0;outline:none;">
-                    <span style="display:inline-block;vertical-align:middle;margin-left:10px;font-family:Georgia,'Times New Roman',serif;font-size:20px;letter-spacing:0.02em;color:rgba(255,255,255,0.92);">Mercerline</span>
-                  </td>
-                  <td style="vertical-align:middle;text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.34);">Daily Brief</td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:24px 0 6px 0;">
-              <p style="margin:0 0 8px 0;font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(168,196,255,0.72);">Market intelligence</p>
-              <h1 style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.22;font-weight:400;color:rgba(255,255,255,0.96);">${escHtml(dateLabel)}</h1>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0 18px 0;">
-              <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:rgba(255,255,255,0.62);">The stories that moved filings, flow, and price — ranked from today's Explore recap.</p>
-              ${quietNote}
-            </td>
-          </tr>
-          ${heroHtml}
-          ${headlinesSection}
-          <tr>
-            <td style="padding:32px 0 0 0;">
-              <table role="presentation" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.14);">
-                    <a href="${origin}/explore" style="display:inline-block;padding:12px 18px;font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(255,255,255,0.92);text-decoration:none;">Open Explore</a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:34px 0 0 0;border-top:1px solid rgba(255,255,255,0.08);">
-              <p style="margin:0 0 8px 0;font-family:ui-monospace,Menlo,monospace;font-size:10px;line-height:1.6;color:rgba(255,255,255,0.34);">
-                Sent by Mercerline · <a href="mailto:research@mercerline.com" style="color:rgba(168,196,255,0.72);text-decoration:none;">research@mercerline.com</a>
-              </p>
-              <p style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:10px;line-height:1.6;color:rgba(255,255,255,0.28);">
-                <a href="${origin}/settings" style="color:rgba(255,255,255,0.42);text-decoration:underline;">Manage email preferences</a>
-              </p>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
+<body class="ml-body body" bgcolor="${C.bg}" style="margin:0;padding:0;${DARK_BG_STYLE}color:${C.text};">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">${preheader}</div>
+  <div class="ml-gmail-blend-screen" style="display:block;">
+    <div class="ml-gmail-blend-difference" style="display:block;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}" class="ml-wrap" style="${DARK_BG_STYLE}">
+        <tr>
+          <td align="center" bgcolor="${C.bg}" class="ml-cell" style="padding:28px 16px 40px 16px;${DARK_BG_STYLE}">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}" class="ml-card" style="max-width:620px;${DARK_BG_STYLE}">
+              <tr>
+                <td bgcolor="${C.bg}" class="ml-cell" style="padding:0 0 22px 0;border-bottom:1px solid ${C.borderSoft};${DARK_BG_STYLE}">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}">
+                    <tr>
+                      <td bgcolor="${C.bg}" style="vertical-align:middle;background-color:${C.bg};">
+                        <img src="${origin}/mercerline_mark.png" width="28" height="28" alt="Mercerline" style="display:inline-block;vertical-align:middle;border:0;outline:none;">
+                        <span class="ml-text" style="display:inline-block;vertical-align:middle;margin-left:10px;font-family:Georgia,'Times New Roman',serif;font-size:20px;letter-spacing:0.02em;color:${C.text};">Mercerline</span>
+                      </td>
+                      <td bgcolor="${C.bg}" class="ml-faint" style="vertical-align:middle;text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${C.textFaint};background-color:${C.bg};">Daily Brief</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td bgcolor="${C.bg}" class="ml-cell" style="padding:24px 0 6px 0;${DARK_BG_STYLE}">
+                  <p class="ml-accent" style="margin:0 0 8px 0;font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${C.accent};">Market intelligence</p>
+                  <h1 class="ml-text" style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.22;font-weight:400;color:${C.text};">${escHtml(dateLabel)}</h1>
+                </td>
+              </tr>
+              <tr>
+                <td bgcolor="${C.bg}" class="ml-cell" style="padding:8px 0 18px 0;${DARK_BG_STYLE}">
+                  <p class="ml-soft" style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:${C.textSoft};">The stories that moved filings, flow, and price — ranked from today's Explore recap.</p>
+                  ${quietNote}
+                </td>
+              </tr>
+              ${heroHtml}
+              ${headlinesSection}
+              <tr>
+                <td bgcolor="${C.bg}" class="ml-cell" style="padding:32px 0 0 0;${DARK_BG_STYLE}">
+                  <table role="presentation" cellpadding="0" cellspacing="0" bgcolor="${C.btnBg}">
+                    <tr>
+                      <td bgcolor="${C.btnBg}" style="background-color:${C.btnBg};background-image:linear-gradient(${C.btnBg},${C.btnBg});border:1px solid ${C.btnBorder};">
+                        <a href="${origin}/explore" class="ml-text" style="display:inline-block;padding:12px 18px;font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:${C.text};text-decoration:none;">Open Explore</a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td bgcolor="${C.bg}" class="ml-cell" style="padding:34px 0 0 0;border-top:1px solid ${C.borderSoft};${DARK_BG_STYLE}">
+                  <p class="ml-faint" style="margin:0 0 8px 0;font-family:ui-monospace,Menlo,monospace;font-size:10px;line-height:1.6;color:${C.textFaint};">
+                    Sent by Mercerline · <a href="mailto:research@mercerline.com" class="ml-accent" style="color:${C.accent};text-decoration:none;">research@mercerline.com</a>
+                  </p>
+                  <p class="ml-faint" style="margin:0;font-family:ui-monospace,Menlo,monospace;font-size:10px;line-height:1.6;color:${C.textFaint};">
+                    <a href="${origin}/settings" class="ml-muted" style="color:${C.textMuted};text-decoration:underline;">Manage email preferences</a>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
 </body>
 </html>`;
 }

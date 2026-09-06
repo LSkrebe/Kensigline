@@ -1,4 +1,4 @@
-import { resendApiKey, resendFromAddress } from "./config.js";
+import { resendApiKey, resendFromAddress, resendMailboxAddress } from "./config.js";
 
 export type SendEmailInput = {
   to: string | string[];
@@ -31,7 +31,7 @@ export async function sendResendEmail(input: SendEmailInput): Promise<SendEmailR
       subject: input.subject,
       html: input.html,
       text: input.text,
-      reply_to: input.replyTo ?? resendFromAddress(),
+      reply_to: input.replyTo ?? resendMailboxAddress(),
     }),
   });
 
