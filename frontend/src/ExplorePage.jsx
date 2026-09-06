@@ -16,8 +16,8 @@ import { ExploreStoryCards } from './ExploreStoryCards.jsx'
 import {
   EXPLORE_RECAP_HERO_MAX,
   EXPLORE_RECAP_MAX_SLIDES,
-  splitExploreRecapSlides,
 } from './exploreRecapCatalog.js'
+import { splitExploreRecapSlides } from './exploreRecapHero.js'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { buildExploreWatchlistPeople, extractExploreInvestorEvents, extractExploreWatchlistEvents } from './exploreWatchlistData.js'
 import { ExploreWatchlistSection } from './ExploreWatchlistSection.jsx'
