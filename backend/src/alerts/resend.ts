@@ -27,21 +27,23 @@ export async function sendResendEmail(input: SendEmailInput): Promise<SendEmailR
   }
 
   const to = Array.isArray(input.to) ? input.to : [input.to];
+  const payload: Record<string, unknown> = {
+    from: resendFromAddress(),
+    to,
+    subject: input.subject,
+    html: input.html,
+    text: input.text,
+    reply_to: input.replyTo ?? resendMailboxAddress(),
+  };
+  if (input.attachments?.length) payload.attachments = input.attachments;
+
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      from: resendFromAddress(),
-      to,
-      subject: input.subject,
-      html: input.html,
-      text: input.text,
-      reply_to: input.replyTo ?? resendMailboxAddress(),
-      attachments: input.attachments,
-    }),
+    body: JSON.stringify(payload),
   });
 
   const data = (await res.json().catch(() => null)) as { id?: string; message?: string } | null;
