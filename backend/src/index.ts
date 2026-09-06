@@ -54,6 +54,7 @@ import {
 } from "./explore/api.js";
 import { handleWaitlistJoin } from "./waitlist/api.js";
 import { handleAlertsPreferencesGet, handleAlertsPreferencesPut } from "./alerts/api.js";
+import { handleDigestSparklinePng } from "./alerts/sparkline-route.js";
 import {
   handleAttributionSignup,
   handleAttributionSummary,
@@ -253,6 +254,11 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       await handleAlertsPreferencesPut(req, res);
+      return;
+    }
+
+    if (route(req, url, "GET", "/api/alerts/sparkline.png")) {
+      await handleDigestSparklinePng(req, res, url);
       return;
     }
 

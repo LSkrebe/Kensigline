@@ -22,6 +22,7 @@ const BILLING_EXEMPT_PATHS = new Set([
   "/api/public/research",
   "/api/waitlist",
   "/api/alerts/preferences",
+  "/api/alerts/sparkline.png",
 ]);
 
 /** When false, API data routes stay open (local dev). Default: on. */

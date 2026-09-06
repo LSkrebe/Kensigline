@@ -1,11 +1,19 @@
 import { resendApiKey, resendFromAddress, resendMailboxAddress } from "./config.js";
 
+export type ResendAttachment = {
+  filename: string;
+  content?: string;
+  path?: string;
+  content_id?: string;
+};
+
 export type SendEmailInput = {
   to: string | string[];
   subject: string;
   html: string;
   text?: string;
   replyTo?: string;
+  attachments?: ResendAttachment[];
 };
 
 export type SendEmailResult =
@@ -32,6 +40,7 @@ export async function sendResendEmail(input: SendEmailInput): Promise<SendEmailR
       html: input.html,
       text: input.text,
       reply_to: input.replyTo ?? resendMailboxAddress(),
+      attachments: input.attachments,
     }),
   });
 

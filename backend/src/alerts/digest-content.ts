@@ -1,3 +1,5 @@
+import { frontendOrigin } from "./config.js";
+import { sparklineSeriesParam } from "./digest-sparkline.js";
 import { buildExploreRecapDayPayload } from "../explore/recap-day.js";
 import { evaluateRecapForHome } from "../explore/recap-evaluate-home.js";
 import { splitRecapSlidesForHome } from "../explore/recap-split-home.js";
@@ -12,6 +14,7 @@ export type DigestSlide = {
   ticker: string;
   moveLabel: string | null;
   moveUp: boolean;
+  sparklineUrl: string | null;
 };
 
 export type DigestContent = {
@@ -23,7 +26,16 @@ export type DigestContent = {
   generatedAt: string;
 };
 
-function mapDigestSlide(raw: Record<string, unknown>): DigestSlide {
+async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide> {
+  const priceSeries = Array.isArray(raw.priceSeries)
+    ? raw.priceSeries.map((v) => Number(v)).filter((v) => Number.isFinite(v))
+    : [];
+  const moveUp = raw.moveUp === true;
+  const sparklineUrl =
+    priceSeries.length >= 2
+      ? `${frontendOrigin()}/api/alerts/sparkline.png?d=${encodeURIComponent(sparklineSeriesParam(priceSeries))}`
+      : null;
+
   return {
     id: String(raw.id ?? ""),
     typeId: String(raw.typeId ?? ""),
@@ -33,7 +45,8 @@ function mapDigestSlide(raw: Record<string, unknown>): DigestSlide {
     source: String(raw.source ?? ""),
     ticker: String(raw.ticker ?? "").trim().toUpperCase(),
     moveLabel: raw.moveLabel != null ? String(raw.moveLabel) : null,
-    moveUp: raw.moveUp === true,
+    moveUp,
+    sparklineUrl,
   };
 }
 
@@ -53,14 +66,22 @@ export async function buildDigestContent(opts?: {
   const allSlides = (evaluated?.slides ?? []) as Record<string, unknown>[];
   const split = await splitRecapSlidesForHome(allSlides, heroMax);
 
-  const heroSlides = split.heroSlides
-    .map((s) => mapDigestSlide(s as Record<string, unknown>))
-    .filter(usableSlide)
-    .slice(0, heroMax);
+  const heroSlides = (
+    await Promise.all(
+      split.heroSlides
+        .slice(0, heroMax)
+        .map((s) => mapDigestSlide(s as Record<string, unknown>)),
+    )
+  ).filter(usableSlide);
 
   const heroIds = new Set(heroSlides.map((s) => s.id));
-  const headlineSlides = split.storySlides
-    .map((s) => mapDigestSlide(s as Record<string, unknown>))
+  const headlineSlides = (
+    await Promise.all(
+      split.storySlides
+        .slice(0, headlineMax + heroMax)
+        .map((s) => mapDigestSlide(s as Record<string, unknown>)),
+    )
+  )
     .filter((s) => usableSlide(s) && !heroIds.has(s.id))
     .slice(0, headlineMax);
 

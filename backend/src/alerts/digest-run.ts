@@ -6,7 +6,7 @@ import {
   type DigestContent,
 } from "./digest-content.js";
 import {
-  buildDigestHtml,
+  buildDigestEmail,
   buildDigestPlainText,
   buildDigestSubject,
 } from "./digest-email.js";
@@ -31,11 +31,13 @@ export type DigestRunResult = {
 };
 
 async function sendDigestToEmail(email: string, content: DigestContent) {
+  const bundle = buildDigestEmail(content);
   const result = await sendResendEmail({
     to: email,
     subject: buildDigestSubject(content),
-    html: buildDigestHtml(content),
+    html: bundle.html,
     text: buildDigestPlainText(content),
+    attachments: bundle.attachments,
   });
   if (!result.ok) {
     throw new Error(`${result.error} (${result.status})`);
