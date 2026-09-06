@@ -20,7 +20,8 @@ const C = {
   btnBorder: "#333338",
 };
 
-const LOGO_CID = "mercerline-logo";
+/** Bust Gmail image cache when the hosted header asset changes. */
+const HEADER_ASSET_VERSION = "2";
 
 /** Tiny dark PNG — embedded so Gmail mobile doesn't depend on remote bg fetch. */
 const BG_DATA =
@@ -64,8 +65,8 @@ function darkCell(bg: string, extra = ""): string {
   return `background-color:${bg};${extra}`;
 }
 
-function heroBgStyle(heroBgUrl: string): string {
-  return `background-color:${C.bg};background-image:url('${heroBgUrl}');background-size:100% 100%;background-position:center;background-repeat:no-repeat;height:64px;min-height:64px;`;
+function headerImg(headerUrl: string): string {
+  return `<img src="${headerUrl}" width="620" height="100" alt="Mercerline Daily Brief" style="display:block;width:100%;max-width:620px;height:100px;border:0;margin:0;padding:0;">`;
 }
 
 function renderHeroCard(slide: DigestSlide, index: number): string {
@@ -130,7 +131,6 @@ function renderHeadlineRow(slide: DigestSlide): string {
       </td>
     </tr>`;
 }
-
 
 export function buildDigestSubject(content: DigestContent): string {
   const label = formatDigestDate(content.displayDayKey || content.dayKey);
@@ -206,7 +206,7 @@ function darkModeStyles(bgImageUrl: string): string {
 export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
   const origin = frontendOrigin();
   const bgImageUrl = `${origin}/email-digest-bg.png`;
-  const heroBgUrl = `${origin}/email-digest-hero.png`;
+  const headerUrl = `${origin}/email-digest-header.png?v=${HEADER_ASSET_VERSION}`;
   const dateLabel = formatDigestDate(content.displayDayKey || content.dayKey);
   const preheader = escHtml(buildDigestPreheader(content));
   const heroHtml = content.heroSlides.map((s, i) => renderHeroCard(s, i)).join("");
@@ -246,16 +246,8 @@ export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
           <td align="center" bgcolor="${C.bg}" class="ml-cell" background="${bgImageUrl}" style="padding:28px 16px 40px 16px;${darkCell(C.bg)}">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}" class="ml-card" background="${bgImageUrl}" style="max-width:620px;${darkCell(C.bg)}">
               <tr>
-                <td bgcolor="${C.bg}" background="${heroBgUrl}" valign="middle" style="padding:12px 20px;${heroBgStyle(heroBgUrl)}">
-                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td valign="middle" style="vertical-align:middle;">
-                        <img src="cid:${LOGO_CID}" width="28" height="28" alt="Mercerline" style="display:inline-block;vertical-align:middle;border:0;outline:none;">
-                        <span class="ml-text" style="display:inline-block;vertical-align:middle;margin-left:10px;font-family:Georgia,'Times New Roman',serif;font-size:20px;letter-spacing:0.02em;color:${C.text};">Mercerline</span>
-                      </td>
-                      <td valign="middle" class="ml-text-faint" style="vertical-align:middle;text-align:right;font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${C.textFaint};">Daily Brief</td>
-                    </tr>
-                  </table>
+                <td bgcolor="${C.bg}" style="padding:0;line-height:0;font-size:0;border-bottom:1px solid ${C.borderSoft};${darkCell(C.bg)}">
+                  ${headerImg(headerUrl)}
                 </td>
               </tr>
               <tr>
@@ -299,15 +291,7 @@ export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
 </body>
 </html>`;
 
-  const attachments: ResendAttachment[] = [
-    {
-      path: `${origin}/mercerline_mark.png`,
-      filename: "mercerline_mark.png",
-      content_id: LOGO_CID,
-    },
-  ];
-
-  return { html, attachments };
+  return { html, attachments: [] };
 }
 
 /** @deprecated Use buildDigestEmail().html */
