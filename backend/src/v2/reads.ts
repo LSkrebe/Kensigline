@@ -4,17 +4,14 @@
 import { db } from "../core/db.js";
 import { getSecTickerTitleMap } from "../core/sec.js";
 import { resolveResearchFeedCompanyName } from "../research/feed-display.js";
+import { formatUsdCompact } from "../shared/money.js";
 import { normalizeTicker } from "./canonical.js";
 
 function moneyLabel(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(Number(n))) return "—";
   const v = Number(n);
   if (v === 0) return "—";
-  const abs = Math.abs(v);
-  if (abs >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(2)}B`;
-  if (abs >= 1_000_000) return `$${(v / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000) return `$${(v / 1_000).toFixed(1)}K`;
-  return `$${v.toFixed(0)}`;
+  return formatUsdCompact(v);
 }
 
 export async function loadFeedEntriesPage(opts: {

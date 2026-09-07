@@ -277,14 +277,24 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
   const pages = Math.max(1, Math.min(20, opts.pages));
 
   const seen = new Set<string>();
-  const urls: string[] = [];
   let found = 0;
+  let enqueued = 0;
+  let skipped_existing = 0;
+  const queue_ids: string[] = [];
 
+  // Page-by-page: one SEC timeout must not wipe the whole live Form 4 cycle.
   for (let p = 0; p < pages; p++) {
     const start = p * pageSize;
     const url = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&owner=only&count=${pageSize}&output=atom&start=${start}`;
-    const atom = await secFetchText(url);
+    let atom: string;
+    try {
+      atom = await secFetchText(url);
+    } catch (e) {
+      console.warn(`[sec] form4_feed_page_failed start=${start}`, e instanceof Error ? e.message : e);
+      continue;
+    }
     const entries = parseAtomEntries(atom);
+    const urls: string[] = [];
     for (const it of entries) {
       found += 1;
       const filingUrl = indexJsonFromArchivesIndexUrl(it.href) ?? it.href;
@@ -292,14 +302,16 @@ export async function enqueueCurrentForm4Feed(opts: { pages: number; pageSize?: 
       seen.add(filingUrl);
       urls.push(filingUrl);
     }
+    if (!urls.length) continue;
+    const batch = await enqueueQueueUrlsBatch({
+      urls,
+      sourceType: "sec_form4",
+      priority: 10,
+    });
+    enqueued += batch.enqueued;
+    skipped_existing += batch.skipped_existing;
+    queue_ids.push(...batch.queue_ids);
   }
-
-  // Exact-URL + unique constraint — no LIKE accession scans (those seq-scanned under load).
-  const { queue_ids, enqueued, skipped_existing } = await enqueueQueueUrlsBatch({
-    urls,
-    sourceType: "sec_form4",
-    priority: 10,
-  });
 
   return { pages, found, enqueued, skipped_existing, queue_ids };
 }
@@ -332,7 +344,16 @@ export async function enqueueCurrentFilingFeed(opts: {
     const url = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=${encodeURIComponent(
       formType,
     )}&count=${pageSize}&output=atom&start=${start}`;
-    const atom = await secFetchText(url);
+    let atom: string;
+    try {
+      atom = await secFetchText(url);
+    } catch (e) {
+      console.warn(
+        `[sec] filing_feed_page_failed form=${formType} start=${start}`,
+        e instanceof Error ? e.message : e,
+      );
+      continue;
+    }
     const entries = parseAtomEntries(atom);
     for (const it of entries) {
       found += 1;
@@ -341,6 +362,10 @@ export async function enqueueCurrentFilingFeed(opts: {
       seen.add(filingUrl);
       urls.push(filingUrl);
     }
+  }
+
+  if (!urls.length) {
+    return { pages, found, enqueued: 0, skipped_existing: 0, queue_ids: [] };
   }
 
   const { queue_ids, enqueued, skipped_existing } = await enqueueQueueUrlsBatch({

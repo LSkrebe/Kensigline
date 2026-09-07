@@ -2,6 +2,7 @@ import { db } from "./db.js";
 import { loadTickerSecBundle, type TickerSecBundle } from "./sec.js";
 import { getDailyCloseBars } from "./bars.js";
 import { isPlausibleCompanyDisplayName } from "../research/feed-display.js";
+import { formatUsdCompact } from "../shared/money.js";
 
 function mustEnv(name: string) {
   const v = String(process.env[name] ?? "").trim();
@@ -36,16 +37,6 @@ function isoDayUTC(d: Date) {
   const m = String(d.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(d.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${dd}`;
-}
-
-function formatUsdCompact(n: number) {
-  const abs = Math.abs(n);
-  const sign = n < 0 ? "-" : "";
-  if (abs >= 1_000_000_000_000) return `${sign}$${(abs / 1_000_000_000_000).toFixed(2)}T`;
-  if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(2)}B`;
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(1)}K`;
-  return `${sign}$${Math.round(abs)}`;
 }
 
 /** Polygon ADR overviews often omit sic_description — infer a short industry label. */

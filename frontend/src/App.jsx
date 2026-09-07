@@ -44,6 +44,7 @@ import {
   useTerminalRoute,
 } from './terminalRoute.js'
 import { formatCountLabel } from './formatCountLabel.js'
+import { formatUsdCompact as formatUsdCompactShared } from './formatUsdCompact.js'
 import { resolveDocumentOpenUrl } from './documentOpenUrl.js'
 import { MiniPriceChart, priceChangeForRange, availablePriceRanges, coercePriceRange, coercePriceRangeFromOptions } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
@@ -2590,25 +2591,7 @@ function contextMockFundamentalsForTicker(ticker, profileFundamentals = null) {
 }
 
 function formatContextFundamentalUsdCompact(n) {
-  const x = Number(n)
-  if (!Number.isFinite(x) || x <= 0) return '—'
-  const trim = (s) => s.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '')
-  if (x >= 1e9) {
-    const v = x / 1e9
-    const body = v >= 100 ? String(Math.round(v)) : v >= 10 ? trim(v.toFixed(1)) : trim(v.toFixed(2))
-    return `$${body}B`
-  }
-  if (x >= 1e6) {
-    const v = x / 1e6
-    const body = v >= 100 ? String(Math.round(v)) : v >= 10 ? String(Math.round(v)) : trim(v.toFixed(1))
-    return `$${body}M`
-  }
-  if (x >= 1e3) {
-    const v = x / 1e3
-    const body = v >= 10 ? String(Math.round(v)) : trim(v.toFixed(1))
-    return `$${body}K`
-  }
-  return `$${Math.round(x)}`
+  return formatUsdCompactShared(n) ?? '—'
 }
 
 function formatContextFundamentalSharesCompact(n) {
@@ -2794,12 +2777,7 @@ function flowUsdFromRow(row) {
 function formatTxnAmountUsd(n) {
   const x = Number(n)
   if (!Number.isFinite(x) || x === 0) return EMPTY
-  const sign = x < 0 ? '-' : ''
-  const abs = Math.abs(x)
-  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(2)}B`
-  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`
-  if (abs >= 1e3) return `${sign}$${Math.round(abs / 1e3)}K`
-  return `${sign}$${Math.round(abs)}`
+  return formatUsdCompactShared(x) ?? EMPTY
 }
 
 function isWithinPastDays(date, days = CONTEXT_FLOW_MONTH_DAYS) {
@@ -4362,20 +4340,22 @@ function seededJitter(seed, max) {
 function formatUsdCompact(n) {
   const x = Number(n)
   if (!Number.isFinite(x) || x <= 0) return ''
-  if (x >= 1e9) return `$${(x / 1e9).toFixed(2)}B`
-  if (x >= 1e6) return `$${(x / 1e6).toFixed(2)}M`
-  if (x >= 1e3) return `$${(x / 1e3).toFixed(1)}K`
-  return `$${Math.round(x)}`
+  return formatUsdCompactShared(x) ?? ''
 }
 
 /** Band endpoints for PTR-style ranges — round units, no trailing .0 */
 function formatUsdBandEndpoint(n) {
   const x = Number(n)
   if (!Number.isFinite(x) || x <= 0) return ''
-  if (x >= 1e9) return `$${Math.round(x / 1e9)}B`
-  if (x >= 1e6) return `$${Math.round(x / 1e6)}M`
-  if (x >= 1e3) return `$${Math.round(x / 1e3)}K`
-  return `$${Math.round(x)}`
+  const abs = Math.abs(x)
+  if (abs >= 1e9) return `$${Math.round(abs / 1e9)}B`
+  if (abs >= 1e6) return `$${Math.round(abs / 1e6)}M`
+  if (abs >= 1e3) {
+    const k = Math.round(abs / 1e3)
+    if (k >= 1000) return `$${Math.round(abs / 1e6)}M`
+    return `$${k}K`
+  }
+  return `$${Math.round(abs)}`
 }
 
 function parseUsdRangeEndpoints(raw) {

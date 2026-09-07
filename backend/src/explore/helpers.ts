@@ -47,7 +47,11 @@ export function formatTrailUsd(usd: number | null | undefined): string {
   const sign = v >= 0 ? "+" : "−";
   if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(1)}B`;
   if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `${sign}$${Math.round(abs / 1e3)}K`;
+  if (abs >= 1e3) {
+    const k = Math.round(abs / 1e3);
+    if (k >= 1000) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
+    return `${sign}$${k}K`;
+  }
   return `${sign}$${Math.round(abs)}`;
 }
 
