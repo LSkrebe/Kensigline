@@ -216,7 +216,7 @@ export async function recomputeInsiderOutcomes(opts?: { lookbackDays?: number; m
     INSERT INTO outcomes (company_id, mode, as_of_date, data)
     VALUES ($1, $2, $3::date, $4::jsonb)
     ON CONFLICT (company_id, mode, as_of_date)
-    DO UPDATE SET data = EXCLUDED.data, created_at = now()
+    DO UPDATE SET data = EXCLUDED.data
     `,
     [globalCompanyId, "insider", asOf, data],
   );
@@ -338,7 +338,7 @@ export async function recomputePoliticiansOutcomes(opts?: { lookbackDays?: numbe
     INSERT INTO outcomes (company_id, mode, as_of_date, data)
     VALUES ($1, $2, $3::date, $4::jsonb)
     ON CONFLICT (company_id, mode, as_of_date)
-    DO UPDATE SET data = EXCLUDED.data, created_at = now()
+    DO UPDATE SET data = EXCLUDED.data
     `,
     [globalCompanyId, "politicians", asOf, data],
   );
@@ -432,7 +432,7 @@ export async function recomputeResearchOutcomes(opts?: { lookbackDays?: number; 
     INSERT INTO outcomes (company_id, mode, as_of_date, data)
     VALUES ($1, $2, $3::date, $4::jsonb)
     ON CONFLICT (company_id, mode, as_of_date)
-    DO UPDATE SET data = EXCLUDED.data, created_at = now()
+    DO UPDATE SET data = EXCLUDED.data
     `,
     [globalCompanyId, "research", asOf, data],
   );
