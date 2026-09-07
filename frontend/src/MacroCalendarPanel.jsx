@@ -16,7 +16,7 @@ import {
   parseMonthKey,
   shiftMonthKey,
 } from './macroCalendarData.js'
-import { readFilterSet, UI_PREF_KEYS, writeFilterSet } from './uiPreferences.js'
+import { readBoolPref, readFilterSet, UI_PREF_KEYS, writeBoolPref, writeFilterSet } from './uiPreferences.js'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 import './ExplorePage.css'
 import './MacroCalendarPage.css'
@@ -56,7 +56,7 @@ const MACRO_REGION_FILTER_DEFAULT = new Set(MACRO_REGION_FILTER_TYPES.map((t) =>
 
 const MACRO_FILTER_SECTIONS = [
   { id: 'region', label: 'Coverage', title: 'Region', types: MACRO_REGION_FILTER_TYPES },
-  { id: 'impact', label: 'Releases', title: 'Impact', types: MACRO_IMPACT_FILTER_TYPES, padRows: 1 },
+  { id: 'impact', label: 'Releases', title: 'Impact', types: MACRO_IMPACT_FILTER_TYPES },
 ]
 
 function MacroFilterIcon() {
@@ -100,7 +100,14 @@ function toggleFilterSet(setter, id) {
   })
 }
 
-function MacroFilterPicker({ sections, enabled, onToggle, ariaLabel }) {
+function MacroFilterPicker({
+  sections,
+  enabled,
+  onToggle,
+  ariaLabel,
+  showMarketHolidays = true,
+  onToggleMarketHolidays = null,
+}) {
   return (
     <div className="mcalFilter scrollThin" role="group" aria-label={ariaLabel}>
       <header className="mcalFilterHero">
@@ -153,6 +160,27 @@ function MacroFilterPicker({ sections, enabled, onToggle, ariaLabel }) {
                     </label>
                   )
                 })}
+                {section.id === 'impact' && typeof onToggleMarketHolidays === 'function' ? (
+                  <label className="mcalFilterRow">
+                    <span className="mcalFilterRowMain">
+                      <span className="mcalFilterRowLabel">Market holidays</span>
+                      <span className="mcalFilterRowCode mcalFilterRowCode--holiday">MKT</span>
+                    </span>
+                    <span className="mcalFilterRowControl">
+                      <span className="mcalSwitch">
+                        <input
+                          type="checkbox"
+                          className="mcalSwitchInput"
+                          checked={Boolean(showMarketHolidays)}
+                          onChange={onToggleMarketHolidays}
+                        />
+                        <span className="mcalSwitchTrack" aria-hidden="true">
+                          <span className="mcalSwitchThumb" />
+                        </span>
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
                 {Array.from({ length: section.padRows ?? 0 }, (_, padIdx) => (
                   <div
                     key={`pad-${section.id}-${padIdx}`}
@@ -260,10 +288,14 @@ function MacroMonthEventPill({ event }) {
   )
 }
 
-function MacroMonthDayCell({ cell }) {
+function holidayStatusLabel(status) {
+  return status === 'early-close' ? 'Early close' : 'Closed'
+}
+
+function MacroMonthDayCell({ cell, holiday = null }) {
   const events = Array.isArray(cell?.events) ? cell.events : []
   const outside = cell.kind === 'outside'
-  const quiet = !outside && !events.length
+  const quiet = !outside && !events.length && !holiday
 
   return (
     <div
@@ -272,6 +304,9 @@ function MacroMonthDayCell({ cell }) {
         outside ? 'macroCalMonthCell--outside' : '',
         cell.isToday ? 'macroCalMonthCell--today' : '',
         quiet ? 'macroCalMonthCell--quiet' : '',
+        holiday ? 'macroCalMonthCell--holiday' : '',
+        holiday?.status === 'early-close' ? 'macroCalMonthCell--earlyClose' : '',
+        holiday?.status === 'closed' ? 'macroCalMonthCell--closed' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -279,7 +314,13 @@ function MacroMonthDayCell({ cell }) {
       aria-label={
         outside
           ? undefined
-          : `${cell.dayNum}${cell.isToday ? ', today' : ''}${events.length ? `, ${events.length} releases` : ', no releases'}`
+          : [
+              `${cell.dayNum}${cell.isToday ? ', today' : ''}`,
+              holiday ? `${holidayStatusLabel(holiday.status)}: ${holiday.name}` : null,
+              events.length ? `${events.length} releases` : holiday ? null : 'no releases',
+            ]
+              .filter(Boolean)
+              .join(', ')
       }
     >
       <div className="macroCalMonthCellHead">
@@ -293,6 +334,18 @@ function MacroMonthDayCell({ cell }) {
       </div>
       {!outside ? (
         <div className="macroCalMonthCellBody">
+          {holiday ? (
+            <div
+              className={[
+                'macroCalMonthHoliday',
+                holiday.status === 'early-close' ? 'macroCalMonthHoliday--early' : 'macroCalMonthHoliday--closed',
+              ].join(' ')}
+              title={`${holidayStatusLabel(holiday.status)} · ${holiday.name}`}
+            >
+              <span className="macroCalMonthHolidayStatus mono">{holidayStatusLabel(holiday.status)}</span>
+              <span className="macroCalMonthHolidayName">{holiday.name}</span>
+            </div>
+          ) : null}
           {events.map((event) => (
             <MacroMonthEventPill key={event.id} event={event} />
           ))}
@@ -302,7 +355,7 @@ function MacroMonthDayCell({ cell }) {
   )
 }
 
-function MacroMonthGrid({ cells }) {
+function MacroMonthGrid({ cells, holidaysByDate = null }) {
   return (
     <div className="macroCalMonth" role="grid" aria-label="Macro calendar month">
       <div className="macroCalMonthWeekdays" aria-hidden="true">
@@ -314,7 +367,11 @@ function MacroMonthGrid({ cells }) {
       </div>
       <div className="macroCalMonthGrid">
         {cells.map((cell) => (
-          <MacroMonthDayCell key={cell.date} cell={cell} />
+          <MacroMonthDayCell
+            key={cell.date}
+            cell={cell}
+            holiday={cell.kind === 'in-month' ? holidaysByDate?.get?.(cell.date) ?? null : null}
+          />
         ))}
       </div>
     </div>
@@ -324,6 +381,7 @@ function MacroMonthGrid({ cells }) {
 export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandClick = null }) {
   const [viewMonth, setViewMonth] = useState(() => currentMonthKey())
   const [liveMacro, setLiveMacro] = useState(null)
+  const [liveHolidays, setLiveHolidays] = useState([])
   const [fetching, setFetching] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterSnapshot, setFilterSnapshot] = useState(null)
@@ -332,6 +390,9 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
   )
   const [impactFilters, setImpactFilters] = useState(() =>
     readFilterSet(UI_PREF_KEYS.macroImpactFilters, MACRO_IMPACT_FILTER_DEFAULT),
+  )
+  const [showMarketHolidays, setShowMarketHolidays] = useState(() =>
+    readBoolPref(UI_PREF_KEYS.macroShowMarketHolidays, true),
   )
 
   const monthParsed = useMemo(() => parseMonthKey(viewMonth), [viewMonth])
@@ -350,8 +411,13 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
   }, [impactFilters])
 
   useEffect(() => {
+    writeBoolPref(UI_PREF_KEYS.macroShowMarketHolidays, showMarketHolidays)
+  }, [showMarketHolidays])
+
+  useEffect(() => {
     if (!backendUp) {
       setLiveMacro(null)
+      setLiveHolidays([])
       setFetching(false)
       return undefined
     }
@@ -360,6 +426,7 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
     const cached = peekMacroCalendarCache(fetchOpts)
     if (cached && Array.isArray(cached.macro)) {
       setLiveMacro(cached.macro)
+      setLiveHolidays(Array.isArray(cached.market_holidays) ? cached.market_holidays : [])
     }
 
     let alive = true
@@ -368,7 +435,8 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
       if (!alive) return
       setFetching(false)
       if (Array.isArray(data?.macro)) setLiveMacro(data.macro)
-      else setLiveMacro(cached ?? [])
+      else setLiveMacro(cached?.macro ?? [])
+      setLiveHolidays(Array.isArray(data?.market_holidays) ? data.market_holidays : cached?.market_holidays ?? [])
     })
     return () => {
       alive = false
@@ -392,6 +460,15 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
 
   const daysByDate = useMemo(() => new Map(filteredDays.map((day) => [day.date, day])), [filteredDays])
 
+  const holidaysByDate = useMemo(() => {
+    if (!showMarketHolidays) return new Map()
+    const map = new Map()
+    for (const h of liveHolidays ?? []) {
+      if (h?.date) map.set(h.date, h)
+    }
+    return map
+  }, [liveHolidays, showMarketHolidays])
+
   const gridCells = useMemo(() => {
     if (!monthParsed) return []
     return buildMacroMonthGrid(monthParsed.year, monthParsed.month, daysByDate)
@@ -401,6 +478,15 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
     () => gridCells.some((cell) => cell.kind === 'in-month' && cell.events.length > 0),
     [gridCells],
   )
+
+  const hasVisibleHolidays = useMemo(
+    () =>
+      showMarketHolidays &&
+      gridCells.some((cell) => cell.kind === 'in-month' && holidaysByDate.has(cell.date)),
+    [gridCells, holidaysByDate, showMarketHolidays],
+  )
+
+  const showGrid = hasVisibleEvents || hasVisibleHolidays
 
   const macroFilterEnabled = useMemo(() => {
     const merged = new Set()
@@ -426,9 +512,10 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
     setFilterSnapshot({
       region: cloneFilterSet(regionFilters),
       impact: cloneFilterSet(impactFilters),
+      holidays: showMarketHolidays,
     })
     setFilterOpen(true)
-  }, [regionFilters, impactFilters])
+  }, [regionFilters, impactFilters, showMarketHolidays])
 
   const confirmFilters = useCallback(() => {
     setFilterSnapshot(null)
@@ -439,6 +526,7 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
     if (filterSnapshot) {
       setRegionFilters(filterSnapshot.region)
       setImpactFilters(filterSnapshot.impact)
+      setShowMarketHolidays(Boolean(filterSnapshot.holidays))
     }
     setFilterSnapshot(null)
     setFilterOpen(false)
@@ -472,16 +560,20 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
           <div className="mcalMain" aria-hidden={filterOpen || undefined}>
             {loading ? (
               <p className="mcalEmpty">Loading macro calendar…</p>
-            ) : !hasVisibleEvents ? (
+            ) : !showGrid ? (
               <p className="mcalEmpty">No macro releases this month.</p>
             ) : null}
-            {monthParsed && !loading && hasVisibleEvents ? <MacroMonthGrid cells={gridCells} /> : null}
+            {monthParsed && !loading && showGrid ? (
+              <MacroMonthGrid cells={gridCells} holidaysByDate={holidaysByDate} />
+            ) : null}
           </div>
           {filterOpen ? (
             <MacroFilterPicker
               sections={MACRO_FILTER_SECTIONS}
               enabled={macroFilterEnabled}
               onToggle={onMacroFilterToggle}
+              showMarketHolidays={showMarketHolidays}
+              onToggleMarketHolidays={() => setShowMarketHolidays((v) => !v)}
               ariaLabel="Macro calendar filters"
             />
           ) : null}

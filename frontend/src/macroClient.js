@@ -49,7 +49,7 @@ export async function fetchMacroCalendar(opts = {}) {
   inflight = (async () => {
     const res = await fetchJsonSafe(path, { timeoutMs: 20_000 })
     if (!res.ok || !res.data?.ok) {
-      const empty = { ok: true, month: opts.month ?? currentMonthKey(), macro: [] }
+      const empty = { ok: true, month: opts.month ?? currentMonthKey(), macro: [], market_holidays: [] }
       cached = { at: Date.now(), key, data: empty }
       return empty
     }

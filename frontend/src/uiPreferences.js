@@ -7,6 +7,7 @@ export const UI_PREF_KEYS = {
   investigateTxnFilters: (mode) => `${PREFIX}investigate-txn:${mode}`,
   macroRegionFilters: `${PREFIX}macro:region-filters`,
   macroImpactFilters: `${PREFIX}macro:impact-filters`,
+  macroShowMarketHolidays: `${PREFIX}macro:show-market-holidays`,
   discoverMacroRegionFilters: `${PREFIX}discover:macro-region-filters`,
   discoverMacroImpactFilters: `${PREFIX}discover:macro-impact-filters`,
   chartRange: (lane) => `${PREFIX}chart-range:${lane}`,
@@ -103,4 +104,21 @@ export function readChartRange(lane, allowedRanges, fallback) {
 
 export function writeChartRange(lane, range) {
   writeChoice(UI_PREF_KEYS.chartRange(lane), range)
+}
+
+export function readBoolPref(storageKey, fallback = true) {
+  if (!canUseStorage()) return fallback
+  try {
+    const raw = window.localStorage.getItem(storageKey)
+    if (raw == null) return fallback
+    if (raw === '1' || raw === 'true') return true
+    if (raw === '0' || raw === 'false') return false
+    return fallback
+  } catch {
+    return fallback
+  }
+}
+
+export function writeBoolPref(storageKey, value) {
+  writeChoice(storageKey, value ? '1' : '0')
 }

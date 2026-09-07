@@ -806,6 +806,9 @@ server.listen(port, () => {
     console.log(`[billing] Founders pricing: ${isFoundersPricingEnabled() ? "on" : "off"}`);
   }
   prewarmExploreHome();
+  void import("./discover/market-holidays.js")
+    .then(({ prefetchMarketHolidays }) => prefetchMarketHolidays())
+    .catch((e) => console.warn("[market-holidays] prefetch_skip", e instanceof Error ? e.message : e));
 });
 
 function shutdown() {
