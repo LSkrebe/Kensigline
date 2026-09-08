@@ -9,7 +9,7 @@ export function subscribePageMeta(pricing = SEO_PRICING) {
     title: 'Subscribe - Mercerline',
     description: `Subscribe to Mercerline from ${formatUsd(pricing.monthlyUsd)}/mo. Track insider, politician, and fund filings with investor dossiers and company context.`,
   path: '/subscribe',
-  ogImage: '/og-image.png',
+  ogImage: '/og-image.png?v=20260908',
 }
 }
 
@@ -22,7 +22,7 @@ export const WAITLIST_PAGE_META = {
   title: 'Join the waitlist - Mercerline',
   description: 'Join the Mercerline waitlist. We’ll email you when access opens.',
   path: '/waitlist',
-    ogImage: '/og-image.png',
+    ogImage: '/og-image.png?v=20260908',
   }
 
 export const WAITLIST = {

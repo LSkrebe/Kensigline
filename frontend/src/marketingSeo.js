@@ -27,7 +27,7 @@ export function introPageMeta() {
     title: `${SITE_NAME} - ${NICHE_TAGLINE}`,
     description: SITE_DESCRIPTION,
     path: '/',
-    ogImage: '/og-image.png',
+    ogImage: '/og-image.png?v=20260908',
   }
 }
 
@@ -37,7 +37,7 @@ export function signInPageMeta() {
     description:
       'Sign in to Mercerline — the disclosure workspace for Form 4, PTR, and 13F filings on US equities.',
     path: '/sign-in',
-    ogImage: '/og-image.png',
+    ogImage: '/og-image.png?v=20260908',
   }
 }
 

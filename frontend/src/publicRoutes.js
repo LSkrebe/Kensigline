@@ -64,7 +64,7 @@ export function researchTickerPageMeta({ ticker, name }) {
     title: `${label} disclosures - Mercerline Research`,
     description: `${label} on Mercerline — public disclosure context for Form 4, PTR, and 13F filings. Sign in for the full dossier rail.`,
     path: `/research/ticker/${t}`,
-    ogImage: '/og-image.png',
+    ogImage: '/og-image.png?v=20260908',
   }
 }
 
@@ -75,7 +75,7 @@ export function researchEventPageMeta(event) {
     title: `${headline} - Mercerline Research`,
     description: String(event?.summary ?? headline).slice(0, 160),
     path: day ? `/research/${day}` : '/research',
-    ogImage: '/og-image.png',
+    ogImage: '/og-image.png?v=20260908',
   }
 }
 
@@ -84,7 +84,7 @@ export function learnLessonPageMeta(lesson) {
     title: `${lesson.title} - Mercerline Learn`,
     description: lesson.description,
     path: `/learn/${lesson.slug}`,
-    ogImage: '/og-image.png',
+    ogImage: '/og-image.png?v=20260908',
   }
 }
 
@@ -93,7 +93,7 @@ export const LEARN_INDEX_META = {
   description:
     'In depth guides on US equity disclosures including Form 4, PTR, and 13F, and how to research filings with Mercerline before the headline.',
   path: '/learn',
-  ogImage: '/og-image.png',
+  ogImage: '/og-image.png?v=20260908',
 }
 
 export const RESEARCH_INDEX_META = {
@@ -101,5 +101,5 @@ export const RESEARCH_INDEX_META = {
   description:
     'Daily US equity disclosure highlights — one public filing story per day from Mercerline’s recap, with full dossiers inside the product.',
   path: '/research',
-  ogImage: '/og-image.png',
+  ogImage: '/og-image.png?v=20260908',
 }

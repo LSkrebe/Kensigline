@@ -1,5 +1,5 @@
 const DEFAULT_SITE_URL = 'https://mercerline.com'
-const DEFAULT_OG_IMAGE = '/og-image.png'
+const DEFAULT_OG_IMAGE = '/og-image.png?v=20260908'
 
 function siteOrigin() {
   if (typeof window !== 'undefined' && window.location?.origin) {
