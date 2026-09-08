@@ -1,4 +1,4 @@
-/** DEEP actor dossier — mock realized track record from case trade rows. */
+/** DEEP actor dossier — estimated track record from case trade rows. */
 
 function hashSeed(str) {
   let h = 2166136261
@@ -42,6 +42,23 @@ function tradeDetailLabel(trade) {
   return [tick, code].filter(Boolean).join(' · ') || 'Trade'
 }
 
+function daysBetween(aTs, bTs) {
+  const a = new Date(aTs).getTime()
+  const b = new Date(bTs).getTime()
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0
+  return Math.max(0, (b - a) / 86_400_000)
+}
+
+/** Seeded mark-to-market for an open buy as of `asOfTs` (fractional return). */
+function mockUnrealizedPnl(buyTrade, asOfTs, actorName) {
+  const days = daysBetween(buyTrade.ts, asOfTs)
+  const seed = hashSeed(`${actorName}|${buyTrade.ticker}|${buyTrade.ts}|mark|${Math.floor(days)}`)
+  const drift = (seededJitter(seed, 1) - 0.42) * 0.035
+  const vol = (seededJitter(seed + 7, 1) - 0.5) * 0.02
+  const scale = Math.sqrt(Math.max(1, days) / 21)
+  return Math.max(-0.35, Math.min(0.55, (drift + vol) * scale))
+}
+
 function mockRoundTripPnl(trade, actorName, buyTrade, sellIndex) {
   const seed = hashSeed(`${actorName}|${buyTrade.ticker}|${buyTrade.ts}|${trade.ts}|sell|${sellIndex}`)
   const lose = seededJitter(seed + 11, 10) < 2.8
@@ -54,6 +71,14 @@ function mockOrphanSellPnl(trade, actorName, index) {
   return (seededJitter(seed, 7) - 3.5) * 0.012
 }
 
+function sumOpenUnrealized(openBuys, asOfTs, actorName) {
+  let total = 0
+  for (const queue of openBuys.values()) {
+    for (const buy of queue) total += mockUnrealizedPnl(buy, asOfTs, actorName)
+  }
+  return total
+}
+
 function normalizeTrackTradeRow(row) {
   if (!row || (row.type !== 'trade' && !String(row.layout ?? '').startsWith('txn'))) return null
   const ts = row.ts ?? null
@@ -63,6 +88,10 @@ function normalizeTrackTradeRow(row) {
   return { ts, ticker, code, when: row.when ?? formatTrackDate(ts) }
 }
 
+/**
+ * Equity-style curve: realized closed P&L + marked open buys.
+ * Buy-only politicians no longer render a flat zero line.
+ */
 export function buildMockActorTrackRecord(tradeRows, actorName = '') {
   const trades = (tradeRows ?? [])
     .map(normalizeTrackTradeRow)
@@ -74,9 +103,11 @@ export function buildMockActorTrackRecord(tradeRows, actorName = '') {
   }
 
   const openBuys = new Map()
-  let cumulative = 0
+  let realizedCum = 0
   let sellIndex = 0
   const realized = []
+
+  const markedAt = (asOfTs) => realizedCum + sumOpenUnrealized(openBuys, asOfTs, actorName)
 
   const points = [
     {
@@ -91,8 +122,8 @@ export function buildMockActorTrackRecord(tradeRows, actorName = '') {
 
   for (const trade of trades) {
     const code = trade.code
-    let delta = null
     let eventKind = 'other'
+    const before = markedAt(trade.ts)
 
     if (isBuyCode(code)) {
       const key = trade.ticker || '—'
@@ -104,6 +135,7 @@ export function buildMockActorTrackRecord(tradeRows, actorName = '') {
       eventKind = 'sell'
       const key = trade.ticker || '—'
       const queue = openBuys.get(key) ?? []
+      let delta
       if (queue.length) {
         const buyTrade = queue.shift()
         openBuys.set(key, queue)
@@ -112,13 +144,14 @@ export function buildMockActorTrackRecord(tradeRows, actorName = '') {
         delta = mockOrphanSellPnl(trade, actorName, sellIndex)
       }
       sellIndex += 1
-      cumulative += delta
+      realizedCum += delta
       realized.push(delta)
     }
 
+    const after = markedAt(trade.ts)
     points.push({
-      cumulative,
-      delta,
+      cumulative: after,
+      delta: after - before,
       ts: trade.ts,
       dateLabel: trade.when || formatTrackDate(trade.ts),
       detailLabel: tradeDetailLabel(trade),
@@ -126,19 +159,36 @@ export function buildMockActorTrackRecord(tradeRows, actorName = '') {
     })
   }
 
+  // Final mark so open books don't freeze at the last trade stamp.
+  const lastTs = trades[trades.length - 1].ts
+  const endTs = new Date().toISOString()
+  const endMarked = markedAt(endTs)
+  if (endMarked !== points[points.length - 1].cumulative && openBuys.size) {
+    points.push({
+      cumulative: endMarked,
+      delta: endMarked - points[points.length - 1].cumulative,
+      ts: endTs,
+      dateLabel: formatTrackDate(endTs),
+      detailLabel: 'Mark to market',
+      eventKind: 'mark',
+    })
+  }
+
   const wins = realized.filter((r) => r > 0).length
   const sorted = [...realized].sort((a, b) => a - b)
   const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : null
+  const openCount = [...openBuys.values()].reduce((n, q) => n + q.length, 0)
+  const finalCum = points[points.length - 1]?.cumulative ?? 0
 
   return {
     points,
     stats: {
-      winRate: realized.length ? `${Math.round((wins / realized.length) * 100)}%` : '—',
+      winRate: realized.length ? `${Math.round((wins / realized.length) * 100)}%` : openCount ? '—' : '—',
       medianReturn: formatReturnFraction(median),
       tradeCount: String(trades.length),
-      cumulativeReturn: formatReturnFraction(cumulative),
-      cumulativeReturnRaw: cumulative,
-      roundTrips: String(realized.length),
+      cumulativeReturn: formatReturnFraction(finalCum),
+      cumulativeReturnRaw: finalCum,
+      roundTrips: realized.length ? String(realized.length) : openCount ? `${openCount} open` : '0',
     },
   }
 }

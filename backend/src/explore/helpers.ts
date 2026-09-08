@@ -55,6 +55,27 @@ export function formatTrailUsd(usd: number | null | undefined): string {
   return `${sign}$${Math.round(abs)}`;
 }
 
+/** PTR band → `+$1M–$5M`. Falls back to mid compact when range is missing. */
+export function formatTrailUsdRange(
+  rangeRaw: string | null | undefined,
+  midUsd: number | null | undefined,
+): string {
+  const s = String(rangeRaw ?? "").trim();
+  const m = s.match(/^\$?\s*([\d,]+(?:\.\d+)?)\s*[-–—]\s*\$?\s*([\d,]+(?:\.\d+)?)\s*$/);
+  if (m) {
+    const low = Number(String(m[1]).replace(/,/g, ""));
+    const high = Number(String(m[2]).replace(/,/g, ""));
+    if (Number.isFinite(low) && Number.isFinite(high) && low > 0 && high > 0) {
+      const strip = (x: number) => formatTrailUsd(x).replace(/^[+−]/, "");
+      const a = strip(low);
+      const b = strip(high);
+      const sign = (midUsd ?? high) >= 0 ? "+" : "−";
+      return a === b ? `${sign}${a}` : `${sign}${a}–${b}`;
+    }
+  }
+  return formatTrailUsd(midUsd);
+}
+
 export function formatTrailPct(pct: number | null | undefined): string {
   if (pct == null || !Number.isFinite(Number(pct))) return "—";
   const v = Number(pct);

@@ -1145,7 +1145,12 @@ function DeepActorMetrics({ trackRecord, chartRange = '6M', loading = false }) {
   const cards = [
     { key: 'win', label: 'Win rate', value: stats.winRate, period: 'Round trips' },
     { key: 'median', label: 'Median gain', value: stats.medianReturn, period: 'Per exit' },
-    { key: 'trips', label: 'Round trips', value: stats.roundTrips ?? '—', period: 'Realized' },
+    {
+      key: 'trips',
+      label: 'Round trips',
+      value: stats.roundTrips ?? '—',
+      period: String(stats.roundTrips ?? '').includes('open') ? 'Marked' : 'Realized',
+    },
     { key: 'cum', label: 'Net P&L', value: stats.cumulativeReturn, period: rangeLabel },
   ]
 

@@ -177,21 +177,34 @@ function DigestPreferencesSection({ email, signedIn }) {
       setStatus(null)
       const res = await fetchJsonSafe('/api/alerts/preferences', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        timeoutMs: 12_000,
+        body: {
           timezone,
+          ...(email && email !== '—' ? { email } : {}),
           ...patch,
-        }),
+        },
       })
       setSaving(false)
       if (res.ok) {
         setPrefs(res.data?.preferences ?? prefs)
-        setStatus({ ok: true, text: patch.enabled ? 'Daily brief enabled.' : 'Daily brief turned off.' })
+        setStatus({
+          ok: true,
+          text: patch.enabled === false ? 'Daily brief turned off.' : 'Daily brief enabled.',
+        })
         return
       }
-      setStatus({ ok: false, text: 'Could not update email preferences.' })
+      const code = String(res.data?.error ?? '')
+      const detail =
+        code === 'email_required'
+          ? 'Sign in again so we can attach your email.'
+          : code === 'unauthorized'
+            ? 'Session expired — sign in again.'
+            : code
+              ? `Could not update email preferences (${code}).`
+              : 'Could not update email preferences.'
+      setStatus({ ok: false, text: detail })
     },
-    [prefs, saving, timezone],
+    [email, prefs, saving, timezone],
   )
 
   const enabled = prefs?.enabled === true

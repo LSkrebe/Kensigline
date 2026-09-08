@@ -4371,11 +4371,17 @@ function parseUsdRangeEndpoints(raw) {
   }
 }
 
-/** `$1,001 - $15,000` → `$15K` — disclosed bands show ceiling (avoids `$1` on low buckets). */
+/** `$1,001 - $15,000` → `$1K–$15K` when both ends exist (PTR bands are ranges, not point values). */
 function compactUsdRangeLabel(raw) {
   const s = String(raw ?? '').trim()
   if (!s) return ''
   const { low, high } = parseUsdRangeEndpoints(s)
+  if (low != null && high != null) {
+    const a = formatUsdBandEndpoint(low)
+    const b = formatUsdBandEndpoint(high)
+    if (a && b) return a === b ? a : `${a}–${b}`
+    return b || a || s
+  }
   const pick = high ?? low
   if (pick != null) return formatUsdBandEndpoint(pick) || s
   return s

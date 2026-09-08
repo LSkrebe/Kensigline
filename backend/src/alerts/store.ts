@@ -35,7 +35,7 @@ export async function upsertAlertPreferences(input: {
   const timezone = String(input.timezone ?? "UTC").trim() || "UTC";
   const morningHour = clampHour(input.morningHour ?? 8);
   const maxItems = clampMaxItems(input.maxItems ?? 12);
-  const enabled = input.enabled === true;
+  const enabled = input.enabled === true ? true : input.enabled === false ? false : true;
 
   const rows = await db.query<AlertPreferencesRow>(
     `
@@ -43,7 +43,10 @@ export async function upsertAlertPreferences(input: {
     VALUES ($1, $2, $3, $4, $5, $6, now())
     ON CONFLICT (user_id) DO UPDATE SET
       email = EXCLUDED.email,
-      enabled = COALESCE($3, alert_preferences.enabled),
+      enabled = CASE
+        WHEN $3::boolean IS NOT NULL THEN EXCLUDED.enabled
+        ELSE alert_preferences.enabled
+      END,
       timezone = EXCLUDED.timezone,
       morning_hour = EXCLUDED.morning_hour,
       max_items = EXCLUDED.max_items,
@@ -71,7 +74,8 @@ export async function patchAlertPreferences(input: {
     return upsertAlertPreferences({
       userId: input.userId,
       email: input.email,
-      enabled: input.enabled ?? false,
+      // First-time prefs: daily brief on unless explicitly disabled.
+      enabled: input.enabled !== false,
       ...(input.timezone ? { timezone: input.timezone } : {}),
       ...(input.morningHour != null ? { morningHour: input.morningHour } : {}),
     });

@@ -3,6 +3,7 @@ import {
   exploreQueryApi,
   formatInstitutionTrail,
   formatTrailUsd,
+  formatTrailUsdRange,
   insiderDocType,
   insiderSide,
   institutionDocType,
@@ -34,6 +35,7 @@ type RawTxnRow = {
   actor_slug: string;
   transaction_type?: string | null;
   amount_usd?: number | null;
+  amount_range?: string | null;
   activity?: string | null;
   shares?: number | null;
   code?: string | null;
@@ -51,7 +53,7 @@ function politicianEvent(row: RawTxnRow): ExploreDirectoryEvent {
     ticker: row.ticker,
     companyName: watchlistCompanyName(row),
     docType: politicianDocType(side),
-    trail: formatTrailUsd(signed),
+    trail: formatTrailUsdRange(row.amount_range, signed),
     up: signed >= 0,
   };
 }
@@ -114,7 +116,8 @@ async function loadPoliticianRows(slugs: string[]): Promise<RawTxnRow[]> {
         f.display_name AS actor_name,
         f.slug AS actor_slug,
         t.transaction_type,
-        coalesce(t.amount_usd, t.amount_usd_mid)::float8 AS amount_usd
+        coalesce(t.amount_usd, t.amount_usd_mid)::float8 AS amount_usd,
+        nullif(trim(t.amount_range), '') AS amount_range
       FROM politician_transactions t
       JOIN filers f ON f.id = t.filer_id
       JOIN issuers i ON i.id = t.issuer_id
