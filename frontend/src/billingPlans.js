@@ -8,7 +8,7 @@ export const FOUNDERS_YEARLY_USD = 499
 /**
  * Defaults until /api/billing/pricing responds (match WAITLIST_MODE / FOUNDERS_PRICING on API).
  */
-export const DEFAULT_WAITLIST = false
+export const DEFAULT_WAITLIST = true
 export const DEFAULT_FOUNDERS = true
 
 export function formatUsd(n) {
