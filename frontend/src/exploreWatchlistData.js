@@ -61,6 +61,19 @@ function watchlistModeLabel(mode) {
   return 'Investor'
 }
 
+/** Never default sells to green — prefer explicit `up`, else trail/docType. */
+function resolveWatchlistTrailUp(row, trail, muted) {
+  if (muted || trail === '$0' || trail === '—') return false
+  if (typeof row?.up === 'boolean') return row.up
+  const t = String(trail ?? '').trim()
+  if (/^[−\-]/.test(t)) return false
+  if (t.startsWith('+')) return true
+  const doc = String(row?.docType ?? row?.event ?? '').toLowerCase()
+  if (/(sale|sell|trim|reduc|dispos)/.test(doc)) return false
+  if (/(purchase|buy|add|increas)/.test(doc)) return true
+  return false
+}
+
 function mapWatchlistEventRow(ev) {
   const labeled = mapActorEventRows([ev]).filter(isPlausibleExploreInvestorRow)[0] ?? ev
   const { trail, muted } = resolveExploreRowTrail(labeled, 'investor')
@@ -72,7 +85,7 @@ function mapWatchlistEventRow(ev) {
     event: labeled.event ?? exploreActorEventLabel(labeled.docType),
     trail,
     trailMuted: muted,
-    up: muted || trail === '$0' ? false : labeled.up ?? true,
+    up: resolveWatchlistTrailUp(labeled, trail, muted),
     date: labeled.date,
     actorSlug: labeled.actorSlug,
   }
@@ -213,7 +226,7 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
             event: lead.event ?? exploreActorEventLabel(lead.docType),
             trail,
             trailMuted: muted,
-            up: muted || trail === '$0' ? false : lead.up ?? true,
+            up: resolveWatchlistTrailUp(lead, trail, muted),
             extraSameDay: Math.max(0, Number(lead.extraSameDay ?? 0)),
             date: lead.date,
           },
@@ -255,7 +268,7 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
           event: lead.event ?? exploreActorEventLabel(lead.docType),
           trail,
           trailMuted: muted,
-          up: muted || trail === '$0' ? false : lead.up ?? true,
+          up: resolveWatchlistTrailUp(lead, trail, muted),
           extraSameDay: Math.max(0, lead.extraSameDay ?? txns.length - 1),
           date: lead.date,
         },

@@ -1652,6 +1652,7 @@ export function DeepActorReport({
   const companies = useMemo(() => {
     if (showSectionLoading) return []
     const map = new Map()
+    // tradeRows are newest-first — keep first lastDate, never overwrite with older rows.
     for (const r of tradeRows) {
       const tick = String(r.ticker ?? '').trim().toUpperCase()
       if (!tick) continue
@@ -1664,12 +1665,17 @@ export function DeepActorReport({
           name: companyName || tick,
           tradeCount: 1,
           lastDate: when || null,
+          lastTs: Number.isFinite(new Date(r.ts).getTime()) ? new Date(r.ts).getTime() : 0,
         })
         continue
       }
       prev.tradeCount += 1
-      if (companyName) prev.name = companyName
-      if (when) prev.lastDate = when
+      if (companyName && (!prev.name || prev.name === tick)) prev.name = companyName
+      const ts = new Date(r.ts).getTime()
+      if (when && Number.isFinite(ts) && ts > (prev.lastTs ?? 0)) {
+        prev.lastDate = when
+        prev.lastTs = ts
+      }
     }
     return [...map.values()].sort((a, b) => b.tradeCount - a.tradeCount || a.ticker.localeCompare(b.ticker))
   }, [tradeRows, showSectionLoading])

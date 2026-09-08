@@ -152,9 +152,16 @@ export function insiderSide(code: string | null, acquired: string | null): "buy"
 }
 
 export function politicianSide(type: string | null): "buy" | "sell" | null {
-  const t = String(type ?? "").trim().toLowerCase();
-  if (t.includes("purchase") || t.includes("buy")) return "buy";
-  if (t.includes("sale") || t.includes("sell")) return "sell";
+  const raw = String(type ?? "").trim();
+  if (!raw) return null;
+  const t = raw.toLowerCase();
+  // PTR rows often store bare codes (P/S/A/D), not the words "purchase"/"sale".
+  if (t === "p" || t === "a" || t.includes("purchase") || t.includes("buy") || t === "acquired") {
+    return "buy";
+  }
+  if (t === "s" || t === "d" || t.includes("sale") || t.includes("sell") || t === "disposed") {
+    return "sell";
+  }
   return null;
 }
 

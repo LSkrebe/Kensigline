@@ -240,6 +240,17 @@ function rankExploreHomeRows(rows, kind = 'company') {
 
 function mapExploreHomePreviewRow(row, kind) {
   const { trail, muted } = resolveExploreRowTrail(row, kind)
+  const t = String(trail ?? '').trim()
+  let up = false
+  if (!(muted || t === '$0' || t === '—')) {
+    if (typeof row.up === 'boolean') up = row.up
+    else if (/^[−\-]/.test(t)) up = false
+    else if (t.startsWith('+')) up = true
+    else {
+      const doc = String(row?.docType ?? row?.event ?? '').toLowerCase()
+      up = /(purchase|buy|add|increas)/.test(doc) && !/(sale|sell|trim|reduc)/.test(doc)
+    }
+  }
   return {
     id: row.id,
     ticker: row.ticker,
@@ -250,7 +261,7 @@ function mapExploreHomePreviewRow(row, kind) {
     event: row.event,
     trail,
     trailMuted: muted,
-    up: muted || trail === '$0' ? false : row.up ?? true,
+    up,
     extraSameDay: row.extraSameDay ?? 0,
     date: row.date,
   }
