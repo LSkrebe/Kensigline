@@ -440,9 +440,51 @@ function slugifyFilerSlug(raw: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+const FILER_SLUG_HONORIFICS = new Set([
+  "hon",
+  "honorable",
+  "the",
+  "rep",
+  "representative",
+  "sen",
+  "senator",
+  "dr",
+  "mr",
+  "mrs",
+  "ms",
+]);
+
+/** Strip leading honorific tokens so URL `nancy-pelosi` matches DB `hon-nancy-pelosi`. */
+function stripFilerSlugHonorifics(slug: string): string {
+  const parts = String(slug ?? "")
+    .split("-")
+    .filter(Boolean);
+  while (parts.length) {
+    const head = parts[0];
+    if (!head || !FILER_SLUG_HONORIFICS.has(head)) break;
+    parts.shift();
+  }
+  return parts.join("-");
+}
+
+function slugPartsContain(nameSlug: string, targetSlug: string): boolean {
+  const np = String(nameSlug ?? "")
+    .split("-")
+    .filter(Boolean);
+  const tp = String(targetSlug ?? "")
+    .split("-")
+    .filter(Boolean);
+  if (!tp.length || tp.length > np.length) return false;
+  for (let i = 0; i <= np.length - tp.length; i++) {
+    if (np.slice(i, i + tp.length).join("-") === targetSlug) return true;
+  }
+  return false;
+}
+
 function filerNameMatchesSlug(name: string, slug: string): boolean {
   const target = slugifyFilerSlug(slug);
   if (!target || !name) return false;
+  const targetCore = stripFilerSlugHonorifics(target) || target;
   const cleaned = String(name).trim();
   const candidates = [cleaned];
   if (cleaned.includes(",")) {
@@ -454,11 +496,13 @@ function filerNameMatchesSlug(name: string, slug: string): boolean {
   for (const raw of candidates) {
     const ns = slugifyFilerSlug(raw);
     if (!ns) continue;
-    if (ns === target) return true;
-    const parts = target.split("-").filter(Boolean);
+    const nsCore = stripFilerSlugHonorifics(ns) || ns;
+    if (ns === target || nsCore === target || nsCore === targetCore) return true;
+    if (slugPartsContain(ns, target) || slugPartsContain(nsCore, targetCore)) return true;
+    const parts = targetCore.split("-").filter(Boolean);
     if (parts.length >= 2) {
       const rev = [...parts].reverse().join("-");
-      if (ns === rev) return true;
+      if (ns === rev || nsCore === rev) return true;
     }
   }
   return false;
@@ -468,14 +512,26 @@ async function resolveFilerBySlug(slug: string) {
   const target = slugifyFilerSlug(slug);
   if (!target) return null;
 
+  const slugLookups = Array.from(
+    new Set(
+      [
+        target,
+        stripFilerSlugHonorifics(target),
+        `hon-${stripFilerSlugHonorifics(target) || target}`,
+        `the-honorable-${stripFilerSlugHonorifics(target) || target}`,
+      ].filter(Boolean),
+    ),
+  );
+
   let filer = await db.one<any>(
     `
     SELECT id::text, display_name, slug, detail, detail_secondary, filer_type::text
     FROM filers
-    WHERE slug = $1
+    WHERE slug = ANY($1::text[])
+    ORDER BY CASE WHEN slug = $2 THEN 0 WHEN slug = $3 THEN 1 ELSE 2 END
     LIMIT 1
     `,
-    [target],
+    [slugLookups, target, stripFilerSlugHonorifics(target) || target],
   );
   if (filer) return filer;
 

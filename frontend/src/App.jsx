@@ -1112,11 +1112,12 @@ function investigateActorTxnEntryFromCompanyRow(companyRow, sheetRow, mode) {
   const ticker = String(sheetRow?.assetTicker ?? companyRow?.ticker ?? '')
     .trim()
     .toUpperCase()
+  // Prefer per-trade asset name — parent feed row issuer is often wrong for multi-ticker worksheets.
   const company = resolveActorTxnCompanyLabel(
     ticker,
+    sheetRow?.assetName,
     companyRow?.company,
     companyRow?.caseSheet?.issuer,
-    sheetRow?.assetName,
   )
   return {
     sheetRow,
@@ -11563,6 +11564,12 @@ function KensiglineTerminal() {
       }
       setExploreInvestorFocus((prev) => {
         if (prev?.slug === resolved.slug) {
+          const prevIsApi = prev?.actorRow?.__dossierSource === 'api'
+          const nextIsApi = resolved.actorRow?.__dossierSource === 'api'
+          if (prevIsApi && !nextIsApi) return prev
+          if (nextIsApi && !prevIsApi) {
+            return { slug: resolved.slug, mode: resolved.mode, actorRow: resolved.actorRow }
+          }
           const prevN = prev?.actorRow?.transactions?.length ?? 0
           const nextN = resolved.actorRow?.transactions?.length ?? 0
           if (
@@ -11599,7 +11606,8 @@ function KensiglineTerminal() {
         : investigateMode === 'institutions'
           ? institutionsSelected
           : insiderSelected)
-    if (row && exploreSubview === 'investorDetail') {
+    // API dossier is complete — do not merge company-context scraps that reshuffle the log.
+    if (row && exploreSubview === 'investorDetail' && row.__dossierSource !== 'api') {
       row = enrichStubActorWithCompanyFlows(row, {
         ticker: researchTick,
         companyName: researchCompanyName,
@@ -11894,15 +11902,11 @@ function KensiglineTerminal() {
     investigateMode,
   ])
 
-  // One-shot investor dossier — replaces 3× feed boost + N cluster calls.
+  // Authoritative investor dossier — always fetch in live mode (never skip on partial feed "rich").
   useEffect(() => {
     if (!isLiveDataMode(backendUp) || exploreSubview !== 'investorDetail') return
     const slug = terminalRoute.investorSlug
     if (!slug) return
-    if (actorDossierIsRich(effectiveActorRow)) {
-      setInvestorBoostDoneForSlug(slug)
-      return
-    }
     let alive = true
     const gen = ++investorBoostGenRef.current
     const modeHint =
@@ -11918,7 +11922,10 @@ function KensiglineTerminal() {
       if (!alive || investorBoostGenRef.current !== gen) return
       const actor = r.data?.actor
       if (r.ok && actor?.transactions?.length) {
-        const next = normalizeInvestigateActorFeedRow(stripSyntheticActorTxns(actor))
+        const next = normalizeInvestigateActorFeedRow({
+          ...stripSyntheticActorTxns(actor),
+          __dossierSource: 'api',
+        })
         const mode =
           next.source === 'politicians' || next.source === 'institutions' ? next.source : 'insider'
         setExploreInvestorFocus({ slug, mode, actorRow: next })
@@ -11979,6 +11986,7 @@ function KensiglineTerminal() {
   useEffect(() => {
     if (!isLiveDataMode(backendUp) || exploreSubview !== 'investorDetail') return
     if (!investorBoostDone) return
+    if (effectiveActorRow?.__dossierSource === 'api') return
     if (actorDossierIsRich(effectiveActorRow)) return
     if (investorFeedExpandCount >= 3) return
     if (investorModeFeedPending || investorModeLoadingMore) return
@@ -12013,6 +12021,7 @@ function KensiglineTerminal() {
   ])
 
   // When feed aggregation grows past a thin focus/stub, promote the richer actor.
+  // Never overwrite an authoritative API dossier with progressive feed scraps.
   useEffect(() => {
     if (!isLiveDataMode(backendUp) || exploreSubview !== 'investorDetail') return
     const slug = terminalRoute.investorSlug
@@ -12022,6 +12031,7 @@ function KensiglineTerminal() {
     const nextN = hit.row.transactions.length
     const nextRich = actorDossierIsRich(hit.row)
     setExploreInvestorFocus((prev) => {
+      if (prev?.slug === slug && prev?.actorRow?.__dossierSource === 'api') return prev
       if (prev?.slug !== slug) {
         return { slug, mode: hit.mode, actorRow: hit.row }
       }
@@ -12042,6 +12052,7 @@ function KensiglineTerminal() {
     const slug = terminalRoute.investorSlug
     const actor = effectiveActorRow
     if (!slug || !actor?.actorName) return
+    if (actor.__dossierSource === 'api') return
     if (actorDossierIsRich(actor)) return
     let alive = true
     const mode =
@@ -12122,6 +12133,7 @@ function KensiglineTerminal() {
       if (!alive || !extras.length) return
       setExploreInvestorFocus((prev) => {
         if (prev?.slug && prev.slug !== slug) return prev
+        if (prev?.slug === slug && prev?.actorRow?.__dossierSource === 'api') return prev
         const base = prev?.slug === slug ? prev.actorRow : actor
         const merged = mergeActorTransactions(base?.transactions, extras)
         const next = normalizeInvestigateActorFeedRow({ ...(base ?? actor), transactions: merged })

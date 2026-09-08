@@ -61,12 +61,26 @@ export function exploreInvestorNameMatchesSlug(investorRow, slug) {
   }
 
   const targetParts = target.split('-').filter(Boolean)
-  const targetLast = targetParts[targetParts.length - 1]
-  if (targetLast && targetLast.length >= 4) {
+  // Require full multi-part slug match after honorific strip — last-name-only
+  // would map nancy-pelosi → any other Pelosi.
+  if (targetParts.length >= 2) {
     for (const raw of candidates) {
       const slugCandidate = exploreInvestorSlug(stripExploreInvestorHonorific(String(raw ?? '')))
+      if (slugCandidate === target) return true
       const parts = slugCandidate.split('-').filter(Boolean)
-      if (parts[parts.length - 1] === targetLast) return true
+      if (parts.length < targetParts.length) continue
+      for (let i = 0; i <= parts.length - targetParts.length; i++) {
+        if (parts.slice(i, i + targetParts.length).join('-') === target) return true
+      }
+    }
+  } else {
+    const targetLast = targetParts[0]
+    if (targetLast && targetLast.length >= 4) {
+      for (const raw of candidates) {
+        const slugCandidate = exploreInvestorSlug(stripExploreInvestorHonorific(String(raw ?? '')))
+        const parts = slugCandidate.split('-').filter(Boolean)
+        if (parts[parts.length - 1] === targetLast) return true
+      }
     }
   }
 
@@ -181,6 +195,28 @@ export function resolveExploreInvestorDossier({
   const feedN = feedHit?.row?.transactions?.length ?? 0
   const focusN = focusOk ? focus.actorRow.transactions?.length ?? 0 : 0
   const cachedN = cachedOk ? cached.actorRow.transactions.length : 0
+  const focusIsApi = focusOk && focus.actorRow?.__dossierSource === 'api'
+  const cachedIsApi = cachedOk && cached.actorRow?.__dossierSource === 'api'
+
+  // Authoritative API dossier always wins over progressive feed aggregation.
+  if (focusIsApi && focusN > 0) {
+    return {
+      slug,
+      mode: focus.mode || feedHit?.mode || 'insider',
+      index: feedHit?.index ?? null,
+      actorRow: focus.actorRow,
+      fromFeed: false,
+    }
+  }
+  if (cachedIsApi && cachedN > 0 && cachedN >= focusN) {
+    return {
+      slug,
+      mode: cached.mode || focus?.mode || feedHit?.mode || 'insider',
+      index: feedHit?.index ?? null,
+      actorRow: cached.actorRow,
+      fromFeed: false,
+    }
+  }
 
   // Always prefer the richest live feed aggregation when it beats focus/cache.
   if (feedHit && feedN > 0 && feedN >= focusN && feedN >= cachedN) {

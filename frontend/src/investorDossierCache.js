@@ -62,10 +62,14 @@ export function writeInvestorDossierCache(slug, actorRow, mode) {
     .toLowerCase()
   if (!key || !(actorRow?.transactions?.length > 0)) return
   const prev = memory.get(key)
+  const nextIsApi = actorRow?.__dossierSource === 'api'
+  const prevIsApi = prev?.actorRow?.__dossierSource === 'api'
+  // Authoritative API payload always replaces progressive feed/mock caches.
+  if (!nextIsApi && prevIsApi) return
   const nextScore = txnRichness(actorRow)
   const prevScore = txnRichness(prev?.actorRow)
-  // Never overwrite a richer cache with a thinner stub.
-  if (prevScore > nextScore) return
+  // Never overwrite a richer cache with a thinner stub (unless this is API).
+  if (!nextIsApi && prevScore > nextScore) return
   const payload = { at: Date.now(), mode: mode || actorRow.source || 'insider', actorRow }
   memory.set(key, payload)
   writeSession(key, actorRow, payload.mode)
