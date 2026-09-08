@@ -40,22 +40,34 @@ export function todayUtcIso(): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 }
 
+function trimFixed(n: number, digits = 1): string {
+  const s = n.toFixed(digits);
+  return s.replace(/\.0+$/, "").replace(/(\.\d*[1-9])0+$/, "$1");
+}
+
+function millionsLeg(abs: number): string {
+  const m = abs / 1e6;
+  if (m >= 10) return String(Math.round(m));
+  if (Math.abs(m - Math.round(m)) < 1e-9) return String(Math.round(m));
+  return trimFixed(Math.round(m * 10) / 10, 1);
+}
+
 export function formatTrailUsd(usd: number | null | undefined): string {
   if (usd == null || !Number.isFinite(Number(usd))) return "—";
   const v = Number(usd);
   const abs = Math.abs(v);
   const sign = v >= 0 ? "+" : "−";
-  if (abs >= 1e9) return `${sign}$${(abs / 1e9).toFixed(1)}B`;
-  if (abs >= 1e6) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
+  if (abs >= 1e9) return `${sign}$${trimFixed(abs / 1e9, 1)}B`;
+  if (abs >= 1e6) return `${sign}$${trimFixed(abs / 1e6, 1)}M`;
   if (abs >= 1e3) {
     const k = Math.round(abs / 1e3);
-    if (k >= 1000) return `${sign}$${(abs / 1e6).toFixed(1)}M`;
+    if (k >= 1000) return `${sign}$${trimFixed(abs / 1e6, 1)}M`;
     return `${sign}$${k}K`;
   }
   return `${sign}$${Math.round(abs)}`;
 }
 
-/** PTR band → `+$1M–$5M`. Falls back to mid compact when range is missing. */
+/** PTR band → `+$1-5M` / `+$0.5-1M` / `+$1-15K`. Falls back to mid compact. */
 export function formatTrailUsdRange(
   rangeRaw: string | null | undefined,
   midUsd: number | null | undefined,
@@ -66,11 +78,19 @@ export function formatTrailUsdRange(
     const low = Number(String(m[1]).replace(/,/g, ""));
     const high = Number(String(m[2]).replace(/,/g, ""));
     if (Number.isFinite(low) && Number.isFinite(high) && low > 0 && high > 0) {
-      const strip = (x: number) => formatTrailUsd(x).replace(/^[+−]/, "");
-      const a = strip(low);
-      const b = strip(high);
+      const lo = Math.min(low, high);
+      const hi = Math.max(low, high);
       const sign = (midUsd ?? high) >= 0 ? "+" : "−";
-      return a === b ? `${sign}${a}` : `${sign}${a}–${b}`;
+      if (hi >= 1e6 || lo >= 500_000) {
+        return `${sign}$${millionsLeg(lo)}-${millionsLeg(hi)}M`;
+      }
+      if (hi >= 1e3) {
+        const a = Math.max(1, Math.round(lo / 1e3));
+        const b = Math.max(a, Math.round(hi / 1e3));
+        if (b >= 1000) return `${sign}$${millionsLeg(lo)}-${millionsLeg(hi)}M`;
+        return `${sign}$${a}-${b}K`;
+      }
+      return `${sign}$${Math.round(lo)}-${Math.round(hi)}`;
     }
   }
   return formatTrailUsd(midUsd);

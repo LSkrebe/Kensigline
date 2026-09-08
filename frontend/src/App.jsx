@@ -44,7 +44,7 @@ import {
   useTerminalRoute,
 } from './terminalRoute.js'
 import { formatCountLabel } from './formatCountLabel.js'
-import { formatUsdCompact as formatUsdCompactShared } from './formatUsdCompact.js'
+import { compactUsdRangeLabel, formatUsdCompact as formatUsdCompactShared } from './formatUsdCompact.js'
 import { resolveDocumentOpenUrl } from './documentOpenUrl.js'
 import { MiniPriceChart, priceChangeForRange, availablePriceRanges, coercePriceRange, coercePriceRangeFromOptions } from './MiniPriceChart.jsx'
 import { mockAtDaysAgo, mockDateOnlyDaysAgo, mockFlowAtFromRaw } from './mockDates.js'
@@ -4343,54 +4343,23 @@ function formatUsdCompact(n) {
   return formatUsdCompactShared(x) ?? ''
 }
 
-/** Band endpoints for PTR-style ranges — round units, no trailing .0 */
-function formatUsdBandEndpoint(n) {
-  const x = Number(n)
-  if (!Number.isFinite(x) || x <= 0) return ''
-  const abs = Math.abs(x)
-  if (abs >= 1e9) return `$${Math.round(abs / 1e9)}B`
-  if (abs >= 1e6) return `$${Math.round(abs / 1e6)}M`
-  if (abs >= 1e3) {
-    const k = Math.round(abs / 1e3)
-    if (k >= 1000) return `$${Math.round(abs / 1e6)}M`
-    return `$${k}K`
-  }
-  return `$${Math.round(abs)}`
-}
-
-function parseUsdRangeEndpoints(raw) {
-  const s = String(raw ?? '').trim()
-  if (!s) return { low: null, high: null }
-  const m = s.match(/^\$?\s*([\d,]+(?:\.\d+)?)\s*[-–—]\s*\$?\s*([\d,]+(?:\.\d+)?)\s*$/)
-  if (!m) return { low: null, high: null }
-  const low = Number(String(m[1]).replace(/,/g, ''))
-  const high = Number(String(m[2]).replace(/,/g, ''))
-  return {
-    low: Number.isFinite(low) && low > 0 ? low : null,
-    high: Number.isFinite(high) && high > 0 ? high : null,
-  }
-}
-
-/** `$1,001 - $15,000` → `$1K–$15K` when both ends exist (PTR bands are ranges, not point values). */
-function compactUsdRangeLabel(raw) {
-  const s = String(raw ?? '').trim()
-  if (!s) return ''
-  const { low, high } = parseUsdRangeEndpoints(s)
-  if (low != null && high != null) {
-    const a = formatUsdBandEndpoint(low)
-    const b = formatUsdBandEndpoint(high)
-    if (a && b) return a === b ? a : `${a}–${b}`
-    return b || a || s
-  }
-  const pick = high ?? low
-  if (pick != null) return formatUsdBandEndpoint(pick) || s
-  return s
-}
-
 function formatDisclosedTxnAmount(row, { signed = false } = {}) {
   const range = String(row?.amountRange ?? row?.amount_range ?? '').trim()
   if (range) {
-    const label = compactUsdRangeLabel(range)
+    let sign = ''
+    if (signed) {
+      const code = String(row?.transactionCode ?? row?.transactionType ?? row?.code ?? '').trim().toUpperCase()
+      const side = String(row?.acquiredDisposed ?? row?.acquired_disposed ?? '').toUpperCase()
+      const tone = politicianTxnCodeFromRaw(row?.transactionType ?? row?.transactionCode)
+      const isSell =
+        code === 'S' ||
+        code === 'F' ||
+        code === 'RED' ||
+        (code === 'D' && side === 'D') ||
+        tone === 'S'
+      sign = isSell ? '−' : '+'
+    }
+    const label = compactUsdRangeLabel(range, signed ? { sign } : {})
     if (label) return label
   }
   const amt = Number(row?.amountUsd ?? row?.amount_usd_mid ?? row?.amount_usd ?? 0)

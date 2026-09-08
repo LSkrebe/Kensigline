@@ -4,6 +4,7 @@ import {
   formatInstitutionTrail,
   formatTrailPct,
   formatTrailUsd,
+  formatTrailUsdRange,
   insiderDocType,
   insiderSide,
   institutionDocType,
@@ -279,6 +280,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       actor_slug: string;
       transaction_type: string | null;
       amount_usd: number | null;
+      amount_range: string | null;
     }>(
       `
       SELECT
@@ -289,7 +291,8 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
         f.display_name AS actor_name,
         f.slug AS actor_slug,
         t.transaction_type,
-        coalesce(t.amount_usd, t.amount_usd_mid)::float8 AS amount_usd
+        coalesce(t.amount_usd, t.amount_usd_mid)::float8 AS amount_usd,
+        nullif(trim(t.amount_range), '') AS amount_range
       FROM politician_transactions t
       JOIN filers f ON f.id = t.filer_id
       JOIN issuers i ON i.id = t.issuer_id
@@ -435,7 +438,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       ticker: row.ticker,
       companyName: formatCompanyDisplayName(row.name) || row.name || row.ticker,
       docType: politicianDocType(side),
-      trail: formatTrailUsd(signed),
+      trail: formatTrailUsdRange(row.amount_range, signed),
       up: signed >= 0,
     });
   }

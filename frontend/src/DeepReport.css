@@ -23,8 +23,8 @@
   --drpt-page-pad-x: 32px;
   --drpt-row-ticker-w: 52px;
   --drpt-row-txn-w: 4.75rem;
-  --drpt-row-amount-w: 66px;
-  --drpt-row-date-w: 76px;
+  --drpt-row-amount-w: 5.75rem;
+  --drpt-row-date-w: 3.25rem;
   --drpt-row-col-gap: 10px;
 
   flex: 1 1 auto;
@@ -2250,11 +2250,11 @@ button.drpt-docRow {
   }
 
   .drpt .drpt-docRow--flow:not(.drpt-docRow--flowNoTxn) {
-    grid-template-columns: 44px minmax(0, 1fr) 4.25rem 54px 48px;
+    grid-template-columns: 44px minmax(0, 1fr) 3.5rem 4.75rem 2.75rem;
   }
 
   .drpt .drpt-docRow--flow.drpt-docRow--flowNoTxn {
-    grid-template-columns: 44px minmax(0, 1fr) 54px 48px;
+    grid-template-columns: 44px minmax(0, 1fr) 4.75rem 2.75rem;
   }
 
   .drpt .drpt-docRow--flow .drpt-docCode {
