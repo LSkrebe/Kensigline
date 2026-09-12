@@ -606,6 +606,11 @@
 }
 
 @media (min-width: 961px) {
+  .explorePage {
+    /* Match trail width so date sits as far from the amount as the amount does from the spark. */
+    --explore-directory-date-w: 5.5rem;
+  }
+
   .exploreDirShell .exploreDirectoryTicker {
     font-size: 12px;
   }
