@@ -212,10 +212,11 @@ function DeepDocTxnBadge({ code, tone = 'neutral' }) {
 }
 
 function deepAmountTone(txnTone, amount) {
+  const raw = String(amount ?? '').trim()
+  if (!raw || /^[-–—−]+$/.test(raw)) return 'isFlat'
   const tone = String(txnTone ?? '')
   if (tone === 'buy' || tone === 'instInc' || tone === 'instNew') return 'isUp'
   if (tone === 'sell' || tone === 'instRed') return 'isDown'
-  const raw = String(amount ?? '').trim()
   if (raw.startsWith('+')) return 'isUp'
   if (raw.startsWith('-') || raw.startsWith('−')) return 'isDown'
   return 'isFlat'

@@ -21,7 +21,9 @@ function AnalyseModelGridCell({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const inputRef = useRef(null)
+  const display = formatAnalyseGridValue(value, row)
   const tone = analyseGridCellTone(value, row.kind)
+  const empty = !display || /^[-–—−]+$/.test(String(display).trim())
 
   const startEdit = useCallback(() => {
     if (!editable) return
@@ -55,7 +57,7 @@ function AnalyseModelGridCell({
     modified ? 'analyseModelGridCell--modified' : '',
     tone === 'pos' ? 'analyseModelGridCell--pos' : '',
     tone === 'neg' ? 'analyseModelGridCell--neg' : '',
-    value === '—' ? 'analyseModelGridCell--empty' : '',
+    empty ? 'analyseModelGridCell--empty' : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -98,14 +100,14 @@ function AnalyseModelGridCell({
           }
         }}
       >
-        {formatAnalyseGridValue(value, row)}
+        {display}
       </span>
     )
   }
 
   return (
     <span className={className} role="cell">
-      {formatAnalyseGridValue(value, row)}
+      {display}
     </span>
   )
 }

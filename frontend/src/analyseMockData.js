@@ -767,10 +767,11 @@ export function formatAnalyseGridValue(v, row = null) {
 }
 
 export function analyseGridCellTone(value, kind) {
+  const s = String(value ?? '').trim()
+  if (!s || /^[-–—−]+$/.test(s)) return null
   if (kind !== 'growth') return null
-  const s = String(value ?? '')
   if (s.startsWith('+')) return 'pos'
-  if (s.startsWith('-')) return 'neg'
+  if (s.startsWith('-') || s.startsWith('−')) return 'neg'
   return null
 }
 

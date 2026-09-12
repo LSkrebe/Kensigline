@@ -11,6 +11,7 @@ import { logClientDiagnostic } from './clientDiagnostics.js'
 import { isLiveDataMode } from './dataMode.js'
 import { MiniPriceChart, availablePriceRanges, coercePriceRangeFromOptions } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
+import { isExplorePlaceholderLabel } from './exploreDirectoryTrail.js'
 import { exploreActorEventLabel, exploreCompanyEventLabel } from './exploreEventLabels.js'
 import './DeepReport.css'
 import './ExplorePage.css'
@@ -66,6 +67,7 @@ function filingRowTrail(row) {
 }
 
 function filingRowTrailTone(row) {
+  if (isExplorePlaceholderLabel(filingRowTrail(row))) return 'isFlat'
   if (row.moveLabel && row.moveUp != null) return row.moveUp ? 'isUp' : 'isDown'
   if (row.side === 'buy') return 'isUp'
   if (row.side === 'sell') return 'isDown'

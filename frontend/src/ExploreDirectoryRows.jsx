@@ -2,6 +2,7 @@ import {
   exploreDirectoryNetFlowTone,
   exploreDirectoryTrailTone,
   formatExploreDirectoryTrailLabel,
+  isExplorePlaceholderLabel,
 } from './exploreDirectoryTrail.js'
 import { WatchlistAddButton } from './WatchlistToggleButton.jsx'
 import { useUserWatchlist } from './UserWatchlistContext.jsx'
@@ -32,15 +33,16 @@ export function exploreRowDateLabel(row) {
 function ExploreDirectoryRowContent({ row, kind }) {
   const trailClass = kind === 'investor' ? 'exploreDirectoryAmount' : 'exploreDirectoryMove'
   const tickers = kind === 'investor' && Array.isArray(row.tickers) ? row.tickers.filter(Boolean) : []
-  const trailTone =
-    kind === 'investor'
+  const trailLabel = kind === 'investor' ? formatExploreDirectoryTrailLabel(row.trail) : row.trail
+  const trailTone = isExplorePlaceholderLabel(trailLabel)
+    ? 'isFlat'
+    : kind === 'investor'
       ? exploreDirectoryTrailTone(row)
       : row.trailMuted
         ? 'isFlat'
         : row.up
           ? 'isUp'
           : 'isDown'
-  const trailLabel = kind === 'investor' ? formatExploreDirectoryTrailLabel(row.trail) : row.trail
 
   return (
     <>
@@ -137,7 +139,7 @@ function ExploreDirectoryListCompanyContent({ row }) {
         </span>
         <ExploreDirectoryEventMeta event={row.event} extraSameDay={row.extraSameDay} />
       </div>
-      <span className={['exploreDirectoryMove', 'mono', trailLabel === '—' ? 'isFlat' : row.up ? 'isUp' : 'isDown'].join(' ')}>
+      <span className={['exploreDirectoryMove', 'mono', isExplorePlaceholderLabel(trailLabel) ? 'isFlat' : row.up ? 'isUp' : 'isDown'].join(' ')}>
         {trailLabel}
       </span>
       <span className="exploreDirectoryDate mono">{row.publishedDateLabel}</span>

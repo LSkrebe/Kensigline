@@ -1,5 +1,11 @@
 import { parseExploreTrailUsd } from './exploreDirectoryMock.js'
 
+/** Empty table placeholders (`—`, `-`, en/em/minus) stay muted, never up/down. */
+export function isExplorePlaceholderLabel(value) {
+  const s = String(value ?? '').trim()
+  return !s || /^[-–—−]+$/.test(s)
+}
+
 /** Normalize position-count trails for display (holdings → pos). */
 export function formatExploreDirectoryTrailLabel(trail) {
   const t = String(trail ?? '').trim()
@@ -14,7 +20,7 @@ export function formatExploreDirectoryTrailLabel(trail) {
 export function exploreDirectoryTrailTone(row) {
   if (row.trailMuted) return 'isFlat'
   const trail = formatExploreDirectoryTrailLabel(row.trail)
-  if (!trail || trail === '—') return 'isFlat'
+  if (isExplorePlaceholderLabel(trail)) return 'isFlat'
   if (/^[+\-−]?\$0(\.0+)?([KMB])?$/i.test(trail)) return 'isFlat'
   const usd = parseExploreTrailUsd(trail)
   if (usd === 0) return 'isFlat'
@@ -24,14 +30,14 @@ export function exploreDirectoryTrailTone(row) {
 export function exploreDirectoryNetFlowTone(row) {
   const net = row.netFlowUsd ?? 0
   const label = formatExploreDirectoryTrailLabel(row.netFlowLabel)
-  if (net === 0 || label === '$0' || label === '—') return 'isFlat'
+  if (net === 0 || label === '$0' || isExplorePlaceholderLabel(label)) return 'isFlat'
   return net > 0 ? 'isUp' : 'isDown'
 }
 
 /** Right-rail move labels on explore recap / headline rows. */
 export function exploreMoveLabelTone(moveLabel, moveUp = true) {
   const label = formatExploreDirectoryTrailLabel(moveLabel)
-  if (!label || label === '—') return 'isFlat'
+  if (isExplorePlaceholderLabel(label)) return 'isFlat'
   if (/^[+\-−]?\$0(\.0+)?([KMB])?$/i.test(label)) return 'isFlat'
   const usd = parseExploreTrailUsd(label)
   if (usd === 0) return 'isFlat'
