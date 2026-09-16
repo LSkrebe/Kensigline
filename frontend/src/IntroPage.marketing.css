@@ -2288,3 +2288,38 @@
  .lpPlan--featured,.lpCtaBand .lpBtn { animation:lpAmbientFrame 10s ease-in-out infinite; }
 }
 @media(max-width:599px) { .lpOnePlacePortrait { width:48px; height:56px; } .lpOnePlaceSource:last-child .lpOnePlacePortrait { padding:5px; } }
+
+/* Slow ambient accents complement the existing scroll reveals. */
+@keyframes lpPreviewLight {
+  0%,100% { transform:translateX(-35%); opacity:.15; }
+  50% { transform:translateX(35%); opacity:.45; }
+}
+@keyframes lpMarkerRipple {
+  0% { transform:scale(.65); opacity:0; }
+  25% { opacity:.28; }
+  85%,100% { transform:scale(2.2); opacity:0; }
+}
+@keyframes lpCtaHalo {
+  0%,100% { transform:translateX(-8%); opacity:.3; }
+  50% { transform:translateX(8%); opacity:.65; }
+}
+@media(prefers-reduced-motion:no-preference) {
+ .lpHeroShotFrame::after,.lpHowFrame::after {
+  content:''; position:absolute; inset:0 -40%; pointer-events:none; z-index:2;
+  background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.06) 50%,transparent 65%);
+  animation:lpPreviewLight 18s ease-in-out infinite;
+ }
+ .lpHowRow:nth-child(2) .lpHowFrame::after { animation-delay:-9s; }
+ .lpStoryMarker::after {
+  content:''; position:absolute; inset:-7px; border:1px solid currentColor;
+  border-radius:50%; pointer-events:none; animation:lpMarkerRipple 6s ease-out infinite;
+ }
+ .lpStoryMarker--news::after { animation-delay:-3s; }
+ .lpCtaBand { position:relative; isolation:isolate; overflow:hidden; }
+ .lpCtaBand::before {
+  content:''; position:absolute; inset:0; z-index:-1; pointer-events:none;
+  background:radial-gradient(ellipse at center,rgba(255,255,255,.07),transparent 65%);
+  animation:lpCtaHalo 16s ease-in-out infinite;
+ }
+ .lpCtaBand .lpBtn { animation:none; }
+}
