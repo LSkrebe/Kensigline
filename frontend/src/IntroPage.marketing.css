@@ -2267,3 +2267,24 @@
  .lpOnePlaceDestination { padding:20px 25px; }
 }
 .lpQuestions .lpSectionHead { margin-left:auto; margin-right:auto; }
+
+/* Neutral surfaces; ambient motion stays on decoration, never the reading text. */
+.lpOnePlaceSource { border-color:rgba(255,255,255,.16); background:linear-gradient(145deg,rgba(255,255,255,.045),transparent); }
+.lpOnePlacePortrait { width:72px; height:80px; object-fit:cover; border-radius:4px; border:1px solid rgba(255,255,255,.2); box-shadow:0 0 25px rgba(255,255,255,.13); }
+.lpOnePlaceSource:last-child .lpOnePlacePortrait { object-fit:contain; background:#161616; padding:10px; }
+.lpOnePlaceLines { stroke:rgba(255,255,255,.3); }
+.lpOnePlaceDestination { border-color:rgba(255,255,255,.25); background:radial-gradient(ellipse at top,rgba(255,255,255,.07),transparent); box-shadow:0 0 50px rgba(255,255,255,.04); }
+.lpOnePlaceMark { width:44px; height:32px; object-fit:contain; grid-row:span 2; filter:drop-shadow(0 0 8px rgba(255,255,255,.4)); }
+@keyframes lpAmbientGlow { 0%,100% { filter:drop-shadow(0 0 4px rgba(255,255,255,.12)); } 50% { filter:drop-shadow(0 0 13px rgba(255,255,255,.32)); } }
+@keyframes lpAmbientFrame { 0%,100% { box-shadow:0 12px 40px rgba(0,0,0,.3),0 0 15px rgba(255,255,255,.025); } 50% { box-shadow:0 12px 40px rgba(0,0,0,.3),0 0 35px rgba(255,255,255,.085); } }
+@keyframes lpAmbientFlow { to { stroke-dashoffset:-80; } }
+@media(prefers-reduced-motion:no-preference) {
+ .lpOnePlacePortrait,.lpOnePlaceMark,.lpStoryAvatarLogo,.lpStoryMarker { animation:lpAmbientGlow 7s ease-in-out infinite; }
+ .lpOnePlaceSource:nth-child(2) .lpOnePlacePortrait { animation-delay:-2s; }
+ .lpOnePlaceSource:nth-child(3) .lpOnePlacePortrait { animation-delay:-4s; }
+ .lpHeroShotFrame,.lpHowFrame,.lpOnePlaceDestination { animation:lpAmbientFrame 9s ease-in-out infinite; }
+ .lpHowRow:nth-child(2) .lpHowFrame { animation-delay:-4s; }
+ .lpOnePlaceLines path { stroke-dasharray:4 7; animation:lpAmbientFlow 12s linear infinite; }
+ .lpPlan--featured,.lpCtaBand .lpBtn { animation:lpAmbientFrame 10s ease-in-out infinite; }
+}
+@media(max-width:599px) { .lpOnePlacePortrait { width:48px; height:56px; } .lpOnePlaceSource:last-child .lpOnePlacePortrait { padding:5px; } }

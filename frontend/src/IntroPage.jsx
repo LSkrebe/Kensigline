@@ -395,11 +395,11 @@ export function IntroPage() {
             <div className="lpOnePlace" aria-label="Insiders, politicians, and institutions together in one watchlist">
               <div className="lpOnePlaceSources">
                 {[
-                  ['Insiders', 'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8M4 21v-3a8 8 0 0 1 16 0v3'],
-                  ['Politicians', 'M3 10h18M12 3l9 7H3l9-7M5 10v9m7-9v9m7-9v9M3 21h18'],
-                  ['Institutions', 'M5 21V3h14v18M9 7h1m4 0h1M9 11h1m4 0h1M9 15h1m4 0h1M10 21v-3h4v3'],
-                ].map(([label,path]) => <div className="lpOnePlaceSource" key={label}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path}/></svg>
+                  ['Insiders', 'Jensen Huang', "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e6/Jen-Hsun_Huang_2025.jpg/330px-Jen-Hsun_Huang_2025.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"],
+                  ['Politicians', 'Nancy Pelosi', "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/P000197.jpg"],
+                  ['Institutions', 'BlackRock', "https://www.google.com/s2/favicons?domain=blackrock.com&sz=128"],
+                ].map(([label,name,src]) => <div className="lpOnePlaceSource" key={label}>
+                  <img className="lpOnePlacePortrait" src={src} alt={name} title={name} loading="lazy" referrerPolicy="no-referrer" />
                   <span>{label}</span>
                 </div>)}
               </div>
@@ -407,7 +407,7 @@ export function IntroPage() {
                 <path d="M150 0V30Q150 50 180 50H420Q450 50 450 80V100M450 0V100M750 0V30Q750 50 720 50H480Q450 50 450 80" />
               </svg>
               <div className="lpOnePlaceDestination">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4V3Z"/><path d="m9 10 2 2 4-4"/></svg>
+                <img className="lpOnePlaceMark" src="/mercerline_mark.png" alt="" width="44" height="32" />
                 <span>One watchlist</span>
                 <small>MERCERLINE</small>
               </div>
