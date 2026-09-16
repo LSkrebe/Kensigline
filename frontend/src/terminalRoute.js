@@ -55,7 +55,7 @@ export function parseExploreRoute(pathname = readTerminalPath()) {
     }
   }
 
-  if (path === EXPLORE_COMPANIES_PATH) return { view: 'companies' }
+  if (path === EXPLORE_COMPANIES_PATH) return { view: 'home' }
   if (path === EXPLORE_INVESTORS_PATH || path === '/explore/actors') return { view: 'investors' }
   if (path === EXPLORE_WATCHLIST_PATH) return { view: 'watchlist' }
   if (path === EXPLORE_HOME_PATH) return { view: 'home' }
@@ -89,7 +89,7 @@ export function isTerminalAppPath(pathname = readTerminalPath()) {
 }
 
 export function explorePathForSubview(subview) {
-  if (subview === 'companies') return EXPLORE_COMPANIES_PATH
+  if (subview === 'companies') return EXPLORE_HOME_PATH
   if (subview === 'investors' || subview === 'actors') return EXPLORE_INVESTORS_PATH
   if (subview === 'watchlist') return EXPLORE_WATCHLIST_PATH
   return EXPLORE_HOME_PATH
@@ -131,7 +131,7 @@ export function navigateExploreHome({ replace = false } = {}) {
 }
 
 export function navigateExploreCompanies() {
-  navigateTerminal(EXPLORE_COMPANIES_PATH)
+  navigateTerminal(EXPLORE_HOME_PATH)
 }
 
 export function navigateExploreInvestors() {

@@ -305,6 +305,9 @@ export async function getDailyCloseBars(opts: {
   const toDay = String(opts.toDay ?? "").trim();
   if (!ticker) throw new Error("ticker_required");
 
+  const verified=await db.oneApi<{bars:BarRow[]}>("SELECT bars FROM disclosure_price_history WHERE ticker=$1 AND basis='split_adjusted_close'",[ticker]).catch(()=>null);
+  const verifiedBars=verified?.bars?.filter(b=>b.day>=fromDay&&b.day<=toDay)??[];
+  if(verifiedBars.length>=2)return {ticker,source:'polygon' as const,items:verifiedBars};
   const cached = await readBarsRange(ticker, fromDay, toDay);
 
   if (opts.forceRefresh) {

@@ -1,5 +1,7 @@
 export type InstitutionTxnRow = {
   filerId: string;
+  instrumentType?: string | null;
+  dataQualityVersion?: number;
   activity?: string | null;
   amountUsd?: number | null;
   shares?: number | null;
@@ -15,6 +17,8 @@ export function consolidateInstitutionTxnRows(rows: InstitutionTxnRow[]): Instit
   return [
     {
       filerId: first.filerId,
+      instrumentType: new Set(rows.map(r=>r.instrumentType)).size === 1 ? first.instrumentType ?? null : "mixed",
+      dataQualityVersion: Math.min(...rows.map(r=>r.dataQualityVersion ?? 0)),
       activity: first.activity ?? null,
       amountUsd: amountUsd > 0 ? amountUsd : first.amountUsd ?? null,
       shares: shares > 0 ? shares : first.shares ?? null,

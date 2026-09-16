@@ -27,7 +27,7 @@ function parseUsDateToIso(s: string | null): string | null {
   const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!m) return null;
   const iso = `${m[3]}-${m[1]!.padStart(2, "0")}-${m[2]!.padStart(2, "0")}`;
-  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
+  return Number.isFinite(Date.parse(iso)) && new Date(iso).toISOString().slice(0,10)===iso ? iso : null;
 }
 
 function mapTxnType(label: string | null): string | null {
@@ -64,6 +64,8 @@ function normalizeOgeName(raw: string | null): string | null {
 }
 
 function parseFilerFromText(text: string): { name: string | null; office: string | null } {
+  const paper=text.match(/Filer[’']?s\s+Name\s+(?:Pa[^\n]*\n)?([^\n]+?)(?:\s+Page\s+\d|\n)/i);
+  if(paper?.[1] && !/description|transaction|amount/i.test(paper[1]))return {name:normalizeOgeName(paper[1]),office:null};
   // Electronic Integrity.gov forms: "Filer's Information Last, First Title, Agency"
   const info = text.match(
     /Filer's\s+Information\s+([^\n]+?)(?:\s+Electronic\s+Signature|\s+Agency\s+Ethics|\s+Transactions\b)/i,
@@ -133,7 +135,7 @@ function buildContextSentences(
 
 function normalizePdfText(pdfText: string): string {
   return String(pdfText ?? "")
-    .replace(/\u00a0/g, " ")
+    .replace(/\u00a0/g, " ").replace(/[|]/g," ")
     .replace(/[ \t]+/g, " ")
     .replace(/\r\n/g, "\n");
 }
@@ -148,15 +150,11 @@ export function parseOge278tPdfText(pdfText: string, pdfUrl: string): ParsedOge2
   const filed_at = parseFiledAt(text, pdfUrl);
   const filing_id = filingIdFromUrl(pdfUrl);
   const transactions: Oge278tTransaction[] = [];
-  const seen = new Set<string>();
 
-  // Prefer the worksheet region so privacy-act prose cannot seed false rows.
-  const tableStart = Math.max(
-    text.search(/\bDESCRIPTION\b[\s\S]{0,80}\bTYPE\b[\s\S]{0,80}\bAMOUNT\b/i),
-    text.search(/\b#\s+DESCRIPTION\b/i),
-    0,
-  );
-  let tableText = tableStart >= 0 ? text.slice(tableStart) : text;
+
+  // Headers are inconsistently recognised on scans; never discard earlier pages because
+  // a later page happens to contain the first legible DESCRIPTION header.
+  let tableText = text;
   // Flattened headers often put "OVER 30 DAYS AGO" before row 1 — strip so "30" is not a row index.
   tableText = tableText.replace(/\bNOTIFICATION\s+RECEIVED\s+OVER\s+\d{1,3}\s+DAYS\s+AGO\b/gi, " ");
   tableText = tableText.replace(/#\s*DESCRIPTION\s+TYPE\s+DATE\b/gi, " ");
@@ -165,7 +163,7 @@ export function parseOge278tPdfText(pdfText: string, pdfUrl: string): ParsedOge2
   // 1   Corning, Inc. (GLW)   Purchase   05/13/2026   No   $50,001 - $100,000
   // Word boundaries on type labels — /Purchase/i would otherwise hit "purchases" in boilerplate.
   const rowRe =
-    /\b(\d{1,3})\s+(.{3,160}?)\s+\b(Purchase|Sale|Exchange)\b\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+\b(Yes|No)\b\s+(\$[\d,]+(?:\.\d{2})?\s*-\s*\$[\d,]+(?:\.\d{2})?)/gi;
+    /\b(\d{1,5})\s+([^\n\f]{3,200}?)\s+[\[\]_:]*\b(Purchase|Sale|Exchange)\b\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+\b(Yes|No)\b\s*(\$[\d,]+(?:\.\d{2})?\s*-\s*\$[\d,]+(?:\.\d{2})?)/gi;
 
   for (const m of tableText.matchAll(rowRe)) {
     const asset_name = String(m[2] ?? "")
@@ -183,19 +181,18 @@ export function parseOge278tPdfText(pdfText: string, pdfUrl: string): ParsedOge2
     const amount_range = String(m[6] ?? "")
       .replace(/\s+/g, " ")
       .trim();
+    const bounds=amount_range.replace(/[$,\s]/g,'').split('-').map(Number);
+    const validRanges=new Set(['1001:15000','15001:50000','50001:100000','100001:250000','250001:500000','500001:1000000','1000001:5000000','5000001:25000000','25000001:50000000']);
+    if(!validRanges.has(bounds.join(':')))continue;
     const ticker = parseTickerFromAsset(asset_name);
 
-    const key = `${transaction_date ?? ""}|${ticker ?? asset_name}|${transaction_type ?? ""}|${amount_range}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    if (!transaction_type) continue;
+    if (!transaction_type || !transaction_date) continue;
 
     transactions.push({
       owner: null,
       asset_name: asset_name || null,
       ticker,
-      asset_type: ticker || /stock/i.test(asset_name) ? "ST" : null,
+      asset_type: /bond|note|treasury|municipal|debenture|option|warrant|fund|ETF/i.test(asset_name) ? null : ticker || /stock/i.test(asset_name) ? "ST" : null,
       transaction_type,
       transaction_date,
       notification_date: filed_at,

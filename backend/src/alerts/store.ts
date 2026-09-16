@@ -20,8 +20,17 @@ const SELECT_PREFS = `
 `;
 
 export async function getAlertPreferences(userId: string): Promise<AlertPreferencesRow | null> {
-  const rows = await db.query<AlertPreferencesRow>(`${SELECT_PREFS} WHERE user_id = $1 LIMIT 1`, [userId]);
+  const rows = await db.queryApi<AlertPreferencesRow>(`${SELECT_PREFS} WHERE user_id = $1 LIMIT 1`, [userId]);
   return rows[0] ?? null;
+}
+
+/** Bootstrap once; concurrent page loads must never overwrite an opt-out. */
+export async function ensureAlertPreferences(userId: string, email: string, timezone = 'UTC'): Promise<AlertPreferencesRow> {
+  await db.queryApi(`INSERT INTO alert_preferences (user_id, email, enabled, timezone)
+    VALUES ($1, $2, true, $3) ON CONFLICT (user_id) DO NOTHING`, [userId, email, timezone]);
+  const row = await getAlertPreferences(userId);
+  if (!row) throw new Error('alert_preferences_bootstrap_failed');
+  return row;
 }
 
 export async function upsertAlertPreferences(input: {
@@ -37,7 +46,7 @@ export async function upsertAlertPreferences(input: {
   const maxItems = clampMaxItems(input.maxItems ?? 12);
   const enabled = input.enabled === true ? true : input.enabled === false ? false : true;
 
-  const rows = await db.query<AlertPreferencesRow>(
+  const rows = await db.queryApi<AlertPreferencesRow>(
     `
     INSERT INTO alert_preferences (user_id, email, enabled, timezone, morning_hour, max_items, updated_at)
     VALUES ($1, $2, $3, $4, $5, $6, now())
@@ -81,7 +90,7 @@ export async function patchAlertPreferences(input: {
     });
   }
 
-  const rows = await db.query<AlertPreferencesRow>(
+  const rows = await db.queryApi<AlertPreferencesRow>(
     `
     UPDATE alert_preferences SET
       email = $2,

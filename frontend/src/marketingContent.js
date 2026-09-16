@@ -41,6 +41,7 @@ export const SIGN_IN = {
 }
 
 export const SIGN_IN_GATE_MESSAGES = {
+  checkout_sign_in: {title: 'Sign in after checkout', body: 'Sign in with the same email you used at checkout.'},
   no_subscription: {
     title: 'No active subscription',
     body: 'This account does not have an active Mercerline membership. Subscribe below or sign in with the email you used at checkout.',
@@ -320,7 +321,7 @@ export const MARKETING_SHOTS = {
   ),
   deepCompany: shotMeta(
     'deep-company',
-    'Mercerline company dossier with price chart, fundamentals, and financial model',
+    'Mercerline company dossier with price chart and disclosure history',
   ),
   investorsDirectory: shotMeta(
     'investors-directory',
@@ -362,40 +363,14 @@ export const PRODUCT = {
   lead: 'Insiders, politicians, and big funds are all on the same rail, from the daily recap to the dossier.',
 }
 
-/** Visual 4-step walkthrough on intro — labels only, screenshots carry the story. */
+/** Focused previews, rather than a tour of every page. */
 export const HOW_IT_WORKS = {
-  kicker: 'How it works',
-  title: 'Your morning edge in four steps',
-  lead: 'Filings are public. Mercerline puts them on one screen before the headline.',
+  kicker: 'Inside Mercerline',
+  title: 'Start with the trade. Follow what happens next.',
+  lead: 'Two views of the same question: what did they disclose, and how has the stock performed since?',
   steps: [
-    {
-      id: 'recap',
-      label: 'Recap clears',
-      title: 'See what filed overnight',
-      body: 'Form 4, PTR, and 13F land in one feed as disclosures clear. Open Mercerline before the market and you already know who moved.',
-      shot: 'hero',
-    },
-    {
-      id: 'event',
-      label: 'Open the event',
-      title: 'One filing, full context',
-      body: 'Each recap card opens into a brief with the filing, price reaction, and everyone involved — before you commit to a dossier.',
-      shot: 'deepEvent',
-    },
-    {
-      id: 'filer',
-      label: 'Open the filer',
-      title: 'Trade history on one page',
-      body: 'Click through to the filer for every trade, related tickers, and outcomes. No digging through EDGAR or waiting for a tweet thread.',
-      shot: 'deepInvestor',
-    },
-    {
-      id: 'company',
-      label: 'Company context',
-      title: 'Price, filings, and fundamentals',
-      body: 'Jump into the issuer when a filing clears the bar — chart, financials, and disclosure history on one page.',
-      shot: 'deepCompany',
-    },
+    { id:'recap', label:'The daily view', title:'Know what deserves a closer look.', body:'Browse insider, politician, and institutional disclosures together. Follow the names you care about and open the events behind the activity.', shot:'hero' },
+    { id:'filer', label:'The investor view', title:'A trade is only the beginning.', body:'Put a disclosure beside the investor’s history. See percentage performance over time, revisit earlier activity, and follow the underlying companies.', shot:'deepInvestor' },
   ],
 }
 
@@ -421,67 +396,7 @@ export const INTRO_COVERAGE = {
   ],
 }
 
-/** Member quotes for intro reviews section. */
-export const INTRO_REVIEWS = {
-  title: 'What members are saying',
-  lead: 'Real members, real filings they spotted in Mercerline, and the trades they made after seeing them in the feed.',
-  items: [
-    {
-      id: 'lucas',
-      name: 'Lucas S.',
-      role: 'Active investor',
-      verified: true,
-      rating: 5,
-      quote:
-        'I was scrolling the morning recap with my coffee and Pelosi’s NVDA filing was just sitting there. Bought some that week and didn’t think about it again until the chart looked ridiculous.',
-      catch: {
-        ticker: 'NVDA',
-        filer: 'Nancy Pelosi',
-        filed: 'Nov 22, 2023',
-        filedIso: '2023-11-22',
-        chartEnd: '2024-11-22',
-        move: '+191%',
-        period: '12 mo',
-      },
-    },
-    {
-      id: 'jhon',
-      name: 'Jhon J.',
-      role: 'Swing trader',
-      verified: true,
-      rating: 5,
-      quote:
-        'Opened the app before work and Zuckerberg’s META buy was right at the top of the feed. I took a small swing on it and somehow ended up holding most of it for months.',
-      catch: {
-        ticker: 'META',
-        filer: 'Mark Zuckerberg',
-        filed: 'Feb 8, 2024',
-        filedIso: '2024-02-08',
-        chartEnd: '2024-12-11',
-        move: '+35%',
-        period: '10 mo',
-      },
-    },
-    {
-      id: 'faust',
-      name: 'Faust R.',
-      role: 'Long-term investor',
-      verified: true,
-      rating: 5,
-      quote:
-        'Almost skipped the recap but Lisa Su filing AMD made me stop mid-scroll. Threw in a small position and it turned into one of the better chip trades I’ve had this year.',
-      catch: {
-        ticker: 'AMD',
-        filer: 'Lisa Su',
-        filed: 'Apr 9, 2025',
-        filedIso: '2025-04-09',
-        chartEnd: '2025-08-29',
-        move: '+68%',
-        period: '5 mo',
-      },
-    },
-  ],
-}
+export const INTRO_REVIEWS = { title: '', lead: '', items: [] }
 
 export const SOURCES = {
   kicker: 'Coverage',

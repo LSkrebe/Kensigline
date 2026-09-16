@@ -22,3 +22,6 @@ pnpm-debug.log*
 .DS_Store
 .idea/
 .vscode/
+
+# Local source archives for repeatable repair
+backend/.cache/

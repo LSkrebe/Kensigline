@@ -17,35 +17,15 @@ export type ParsedHousePtr = {
   transactions: HousePtrTransaction[];
   context_sentences: string[];
   confident_rows: number;
+  is_amendment?: boolean;
 };
-
-const AMOUNT_RANGE_RE = /\$[\d,]+(?:\.\d{2})?\s*-\s*\$?[\d,]+(?:\.\d{2})?/g;
 
 function parseUsDateToIso(s: string | null): string | null {
   const raw = String(s ?? "").trim();
   const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (!m) return null;
   const iso = `${m[3]}-${m[1]!.padStart(2, "0")}-${m[2]!.padStart(2, "0")}`;
-  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
-}
-
-function mapTxnType(label: string | null): string | null {
-  const t = String(label ?? "").trim().toLowerCase();
-  if (!t) return null;
-  if (t === "p" || t.startsWith("p ") || t.includes("purchase") || t.includes("buy")) return "P";
-  if (t === "s" || t.startsWith("s ") || t.includes("sale") || t.includes("sell")) return "S";
-  if (t === "e" || t.includes("exchange")) return "E";
-  return null;
-}
-
-function parseTickerFromText(text: string): string | null {
-  const paren = text.match(/\(([A-Z]{1,6}(?:\.[A-Z])?)\)/)?.[1];
-  if (paren) return paren.toUpperCase();
-  const dash = text.match(/--\s*([A-Z]{1,6})\s*--/)?.[1];
-  if (dash) return dash.toUpperCase();
-  const tagged = text.match(/\b(?:ticker|symbol)\s*[:#-]\s*([A-Z]{1,6}(?:\.[A-Z])?)\b/i)?.[1];
-  if (tagged) return tagged.toUpperCase();
-  return null;
+  return Number.isFinite(Date.parse(iso)) && new Date(iso).toISOString().slice(0,10)===iso ? iso : null;
 }
 
 function normalizeAmountRange(raw: string): string {
@@ -55,11 +35,6 @@ function normalizeAmountRange(raw: string): string {
     .replace(/\s*-\s*\$?\s*/g, " - $")
     .replace(/\$\s*\$/g, "$")
     .trim();
-}
-
-function parseAmountRange(text: string): string | null {
-  const m = text.match(/\$[\d,]+(?:\.\d{2})?\s*-\s*\$?[\d,]+(?:\.\d{2})?/);
-  return m ? normalizeAmountRange(m[0]) : null;
 }
 
 export function normalizePtrPdfText(text: string): string {
@@ -99,76 +74,9 @@ function parseStateDistrict(text: string): string | null {
 function parseFiledAt(text: string): string | null {
   const cleaned = flatPtrText(text);
   const m =
-    cleaned.match(/(?:Date\s+of\s+Notification|Notification\s+Date|Filed)[:\s]+(\d{1,2}\/\d{1,2}\/\d{4})/i) ??
-    cleaned.match(/\bDate:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
+    cleaned.match(/Digitally Signed:.{1,200}?,\s*(\d{1,2}\/\d{1,2}\/\d{4})/i) ??
+    cleaned.match(/\bFiled(?:\s+on)?[:\s]+(\d{1,2}\/\d{1,2}\/\d{4})/i);
   return m ? parseUsDateToIso(m[1] ?? null) : null;
-}
-
-function parseAssetType(text: string): string | null {
-  const m = text.match(/\[([A-Z]{2,4})\]/i);
-  return m?.[1]?.toUpperCase() ?? null;
-}
-
-function mergeSplitFlowAssetWords(text: string): string {
-  return String(text ?? "").replace(/\b([A-Z])\s+([a-z][a-z]+)\b/g, "$1$2");
-}
-
-function parseTxnTypeFromWindow(window: string): string | null {
-  const typed =
-    window.match(/\b([PSE])\s*(?:\(\s*partial\s*\))?\s+\d{1,2}\/\d{1,2}\/\d{4}/i) ??
-    window.match(/\b([PSE])\s+\d{1,2}\/\d{1,2}\/\d{4}/);
-  if (typed?.[1]) return mapTxnType(typed[1]);
-  if (/\bpurchase\b/i.test(window)) return "P";
-  if (/\bsale\b/i.test(window) || /\bsold\b/i.test(window)) return "S";
-  if (/\bexchange\b/i.test(window)) return "E";
-  return null;
-}
-
-function parseTransactionWindow(window: string, filed_at: string | null): HousePtrTransaction | null {
-  if (/\b(owner\s+asset|transaction\s+type|notification\s+date|amount\s+cap)\b/i.test(window)) return null;
-  if (/\bclerk\s+of\s+the\s+house\b/i.test(window)) return null;
-  const amount_range = parseAmountRange(window);
-  if (!amount_range) return null;
-
-  const dates = [...window.matchAll(/(\d{1,2}\/\d{1,2}\/\d{4})/g)].map((d) => d[1] ?? "");
-  const transaction_date = parseUsDateToIso(dates[0] ?? null);
-  const notification_date = parseUsDateToIso(dates[1] ?? null) ?? filed_at;
-
-  const ticker = parseTickerFromText(window);
-  const transaction_type = parseTxnTypeFromWindow(window);
-  const asset_type = parseAssetType(window);
-
-  if (!transaction_type && !ticker) return null;
-
-  const asset_name =
-    mergeSplitFlowAssetWords(
-      window
-        .replace(amount_range, "")
-        .replace(/\d{1,2}\/\d{1,2}\/\d{4}/g, "")
-        .replace(/\b[SP]\b/g, "")
-        .replace(/\[[A-Z]{2,4}\]/gi, "")
-        .replace(/\s+/g, " ")
-        .trim(),
-    )
-      .slice(0, 160) || null;
-
-  return {
-    owner: null,
-    asset_name,
-    ticker,
-    asset_type: asset_type ?? (/\bstock\b/i.test(window) ? "ST" : null),
-    transaction_type,
-    transaction_date,
-    notification_date,
-    amount_range,
-    description: transaction_type
-      ? transaction_type === "P"
-        ? "Purchase"
-        : transaction_type === "S"
-          ? "Sale"
-          : "Exchange"
-      : null,
-  };
 }
 
 function buildContextSentences(
@@ -184,7 +92,7 @@ function buildContextSentences(
       ? `Disclosed tickers include ${tickers.slice(0, 6).join(", ")}${tickers.length > 6 ? ", and others" : ""}.`
       : "The filing lists purchase activity in reportable securities.",
     filedAt
-      ? `The report was filed on ${filedAt} via the House Clerk disclosure system.`
+      ? `The report was signed on ${filedAt} via the House Clerk disclosure system.`
       : "The report was filed via the U.S. House financial disclosure system.",
   ];
 }
@@ -196,32 +104,36 @@ export function parseHousePtrPdfText(pdfText: string, pdfUrl: string): ParsedHou
   const filerName = parseFilerName(flat);
   const filed_at = parseFiledAt(flat);
   const transactions: HousePtrTransaction[] = [];
-  const seen = new Set<string>();
 
-  for (const m of flat.matchAll(AMOUNT_RANGE_RE)) {
-    const idx = m.index ?? 0;
-    const window = flat.slice(Math.max(0, idx - 380), Math.min(flat.length, idx + m[0].length + 100));
-    const row = parseTransactionWindow(window, filed_at);
-    if (!row) continue;
 
-    const key = `${row.transaction_date ?? ""}|${row.ticker ?? ""}|${row.transaction_type ?? ""}|${row.amount_range}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    transactions.push(row);
-  }
-
-  // Fallback: line-based pass for PDFs that still have readable newlines.
-  if (!transactions.length) {
-    for (const rawLine of normalizePtrPdfText(pdfText).split(/\n/)) {
-      const line = rawLine.replace(/\s+/g, " ").trim();
-      if (line.length < 12) continue;
-      const row = parseTransactionWindow(line, filed_at);
-      if (!row) continue;
-      const key = `${row.transaction_date ?? ""}|${row.ticker ?? ""}|${row.transaction_type ?? ""}|${row.amount_range}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      transactions.push(row);
-    }
+  // Anchor each row to its asset-type, action, two dates and amount range.
+  // Overlapping character windows can silently attach the previous row's ticker/date.
+  const rowPattern = /\[([A-Z]{2,4})\]\s+([PSE])\s*(?:\(\s*partial\s*\))?\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(\$[\d,]+(?:\.\d{2})?\s*-\s*\$?[\d,]+(?:\.\d{2})?)/g;
+  let previousEnd = 0;
+  for (const match of flat.matchAll(rowPattern)) {
+    const start = match.index ?? 0;
+    const prefix = flat.slice(previousEnd, start).split('$200?').at(-1) ?? '';
+    const ownerMatches = [...prefix.matchAll(/\b(SP|JT|DC|SELF)\s+/g)];
+    const owner = ownerMatches.at(-1);
+    const asset = (owner ? prefix.slice(owner.index! + owner[0].length) : prefix.split('$200?').at(-1) ?? prefix).trim();
+    const ticker = asset.match(/\(([A-Z]{1,6}(?:\.[A-Z])?)\)\s*$/)?.[1] ?? null;
+    const end = start + match[0].length;
+    const tail = flat.slice(end);
+    const description = tail.match(/^(?:\s*F\s*S:\s*\w+)?\s*D:\s*(.*?)(?=\s+(?:SP|JT|DC|SELF)\s|\s+Filing ID|\s+\* For|$)/)?.[1]?.trim() ?? null;
+    const assetType = match[1]!;
+    const row: HousePtrTransaction = {
+      owner: owner?.[1] ?? null,
+      asset_name: `${asset.slice(-200)} [${assetType}]`,
+      ticker,
+      asset_type: assetType,
+      transaction_type: match[2]!,
+      transaction_date: parseUsDateToIso(match[3]!),
+      notification_date: parseUsDateToIso(match[4]!),
+      amount_range: normalizeAmountRange(match[5]!),
+      description,
+    };
+    previousEnd = end;
+    if(row.transaction_date && row.notification_date)transactions.push(row);
   }
 
   const confident_rows = transactions.filter((t) => t.ticker && t.transaction_type && t.amount_range).length;
@@ -238,6 +150,7 @@ export function parseHousePtrPdfText(pdfText: string, pdfUrl: string): ParsedHou
     transactions,
     context_sentences: buildContextSentences(filerName, filed_at, purchases),
     confident_rows,
+    is_amendment: /\b(amendment|amended)\b/i.test(pdfText),
   };
 }
 

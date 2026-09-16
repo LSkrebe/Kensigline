@@ -7,6 +7,7 @@ export type Parsed13fHolding = {
   title_of_class: string | null;
   value_usd: number | null;
   shares: number | null;
+  instrument_type?: string;
 };
 
 export type Parsed13fMeta = {
@@ -15,6 +16,7 @@ export type Parsed13fMeta = {
   accession_no: string | null;
   filed_at: string | null;
   period_of_report: string | null;
+  is_amendment?: boolean;
 };
 
 function stripXml(s: string): string {
@@ -43,7 +45,7 @@ function parseNumber(raw: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function parseXmlInfoTables(text: string): Parsed13fHolding[] {
+function parseXmlInfoTables(text: string, multiplier: number | null): Parsed13fHolding[] {
   const holdings: Parsed13fHolding[] = [];
   const seen = new Set<string>();
 
@@ -56,19 +58,22 @@ function parseXmlInfoTables(text: string): Parsed13fHolding[] {
     const title_of_class = extractXmlTag(block, "titleOfClass");
     const valueThousands = parseNumber(extractXmlTag(block, "value"));
     const shares = parseNumber(extractXmlTag(block, "sshPrnamt"));
-    const value_usd = valueThousands != null ? valueThousands * 1000 : null;
+    const value_usd = valueThousands != null && multiplier != null ? valueThousands * multiplier : null;
 
-    const key = `${issuer_name}|${cusip ?? ""}|${value_usd ?? ""}|${shares ?? ""}`;
+    const option = extractXmlTag(block, "putCall")?.toLowerCase();
+    const units = extractXmlTag(block, "sshPrnamtType");
+    const instrument_type = option === "put" || option === "call" ? option : units === "SH" ? "shares" : "other";
+    const key = `${issuer_name}|${cusip ?? ""}|${title_of_class ?? ""}|${instrument_type}|${value_usd ?? ""}|${shares ?? ""}|${extractXmlTag(block, "investmentDiscretion")}|${extractXmlTag(block, "otherManager")}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
-    holdings.push({ issuer_name, cusip, title_of_class, value_usd, shares });
+    holdings.push({ issuer_name, cusip, title_of_class, value_usd, shares, instrument_type });
   }
 
   return holdings;
 }
 
-function parseHtmlOrTextTableRows(text: string): Parsed13fHolding[] {
+function parseHtmlOrTextTableRows(text: string, multiplier: number | null): Parsed13fHolding[] {
   const holdings: Parsed13fHolding[] = [];
   const seen = new Set<string>();
   const plain = String(text ?? "")
@@ -94,7 +99,7 @@ function parseHtmlOrTextTableRows(text: string): Parsed13fHolding[] {
       issuer_name,
       cusip,
       title_of_class: null,
-      value_usd: valueThousands != null ? valueThousands * 1000 : null,
+      value_usd: valueThousands != null && multiplier != null ? valueThousands * multiplier : null,
       shares,
     });
   }
@@ -104,7 +109,8 @@ function parseHtmlOrTextTableRows(text: string): Parsed13fHolding[] {
 
 function parseIsoFromUsDate(s: string | null): string | null {
   const raw = String(s ?? "").trim();
-  const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0,10);
+  const m = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
   if (!m) return null;
   const iso = `${m[3]}-${m[1]!.padStart(2, "0")}-${m[2]!.padStart(2, "0")}`;
   return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
@@ -176,6 +182,7 @@ function indexUrlFromMeta(meta: Parsed13fMeta, indexUrl?: string | null) {
 export function parse13fMeta(text: string, indexUrl?: string): Parsed13fMeta {
   const t = String(text ?? "");
   const filer_name =
+    t.match(/COMPANY CONFORMED NAME:\s*([^\r\n<]+)/i)?.[1]?.trim() ??
     extractXmlTag(t, "reportingManagerName") ??
     extractXmlTag(t, "companyConformedName") ??
     extractXmlTag(t, "filerName") ??
@@ -198,24 +205,34 @@ export function parse13fMeta(text: string, indexUrl?: string): Parsed13fMeta {
     null;
 
   const filed_at =
+    t.match(/FILED AS OF DATE:\s*(\d{4})(\d{2})(\d{2})/i)?.slice(1).join("-") ??
+    t.match(/Filing Date\s*<\/div>\s*<div[^>]*>\s*(\d{4}-\d{2}-\d{2})/i)?.[1] ??
     parseIsoFromUsDate(extractXmlTag(t, "filingDate")) ??
     parseIsoFromUsDate(t.match(/filed\s+as\s+of[:\s]+(\d{1,2}\/\d{1,2}\/\d{4})/i)?.[1] ?? null) ??
     null;
 
   const period_of_report =
+    t.match(/CONFORMED PERIOD OF REPORT:\s*(\d{4})(\d{2})(\d{2})/i)?.slice(1).join("-") ??
+    parseIsoFromUsDate(extractXmlTag(t, "reportCalendarOrQuarter")) ??
     parseIsoFromUsDate(extractXmlTag(t, "periodOfReport")) ??
     parseIsoFromUsDate(t.match(/report\s+for\s+the\s+calendar\s+year[^\d]*(\d{1,2}\/\d{1,2}\/\d{4})/i)?.[1] ?? null) ??
     null;
 
-  return { filer_name, cik, accession_no, filed_at, period_of_report };
+  const is_amendment = /^(true|1|yes)$/i.test(extractXmlTag(t, "isAmendment") ?? "") || /CONFORMED SUBMISSION TYPE:\s*13F-(?:HR|NT)\/A\b/i.test(t) || /13F-(?:HR|NT)\/A/i.test(extractXmlTag(t, "submissionType") ?? "");
+  return { filer_name, cik, accession_no, filed_at, period_of_report, is_amendment };
 }
 
 /** Parse 13F information-table rows from XML and plain/HTML text. */
-export function parse13fHoldings(text: string): Parsed13fHolding[] {
-  const xml = parseXmlInfoTables(text);
-  if (xml.length >= 3) return xml;
+export function parse13fHoldings(text: string, filedAt?: string | null): Parsed13fHolding[] {
+  const date = filedAt ?? parse13fMeta(text).filed_at;
+  // SEC Release 22.4.1: filings submitted from 2023-01-03 report dollars, not thousands.
+  // Never guess units from the magnitude of a position.
+  const multiplier = date ? (date.slice(0,10) < '2023-01-03' ? 1000 : 1)
+    : /X0202|nearest dollar/i.test(text) ? 1 : /in thousands|value[^<]*\(x?\$?1000\)/i.test(text) ? 1000 : null;
+  const xml = parseXmlInfoTables(text, multiplier);
+  if (xml.length) return xml;
 
-  const rows = parseHtmlOrTextTableRows(text);
+  const rows = parseHtmlOrTextTableRows(text, multiplier);
   if (rows.length > xml.length) return rows;
   return xml.length ? xml : rows;
 }

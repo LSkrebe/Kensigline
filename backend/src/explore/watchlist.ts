@@ -178,7 +178,7 @@ async function loadInstitutionRows(slugs: string[]): Promise<RawTxnRow[]> {
       FROM institution_transactions t
       JOIN filers f ON f.id = t.filer_id
       JOIN issuers i ON i.id = t.issuer_id
-      WHERE f.slug = ANY($1::text[])
+      WHERE t.data_quality_version>=1 AND f.slug = ANY($1::text[])
         AND i.ticker IS NOT NULL
         AND t.activity IN ('Increased stake', 'Reduced stake', 'New position')
       ORDER BY t.transaction_at DESC, t.id DESC

@@ -7,7 +7,7 @@ function hasEnoughText(t: string) {
   const s = String(t ?? "").trim();
   if (s.length < 700) return false;
   // Heuristic: at least some date-like tokens and table-ish headers.
-  const dates = (s.match(/\b\d{2}\/\d{2}\/\d{4}\b/g) ?? []).length;
+  const dates = (s.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/g) ?? []).length;
   const hasHdr = /\bTRANSACTIONS\b|\bTransaction Type\b|\bPeriodic Transaction Report\b/i.test(s);
   return dates >= 1 && hasHdr;
 }
@@ -15,10 +15,11 @@ function hasEnoughText(t: string) {
 async function pdfParseText(buf: Buffer): Promise<string> {
   // Fast text-layer extraction via pdf.js (works when the PDF contains selectable text).
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  const u8 = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+  const u8 = new Uint8Array(buf);
   const loadingTask: any = getDocument({ data: u8 });
   const pdf: any = await loadingTask.promise;
-  const pages = Math.min(6, Number(pdf?.numPages ?? 0) || 0);
+  const pages = Number(pdf?.numPages ?? 0) || 0;
+  if (pages > 500) { await pdf.destroy(); throw new Error("pdf_page_limit_exceeded"); }
   let text = "";
   for (let i = 1; i <= pages; i++) {
     const page: any = await pdf.getPage(i);
@@ -30,12 +31,16 @@ async function pdfParseText(buf: Buffer): Promise<string> {
     }
     text += "\n";
   }
+  await pdf.destroy();
   return text.trim();
 }
 
 async function tryCmd(cmd: string, args: string[], input?: Buffer): Promise<{ ok: boolean; stdout: Buffer; stderr: Buffer }> {
   return await new Promise((resolve) => {
-    const p = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"] });
+    const p = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], env: {...process.env, OMP_THREAD_LIMIT:"1"} });
+    const deadline=setTimeout(()=>p.kill("SIGKILL"),180000);
+    p.once("close",()=>clearTimeout(deadline));
+    p.once("error",()=>clearTimeout(deadline));
     const out: Buffer[] = [];
     const err: Buffer[] = [];
     p.stdout.on("data", (d) => out.push(Buffer.from(d)));
@@ -79,19 +84,18 @@ async function ocrFallback(buf: Buffer): Promise<string | null> {
     const pdfPath = join(dir, "in.pdf");
     await writeFile(pdfPath, buf);
 
-    // Render first 2 pages to images (fast + usually enough).
-    const render = await tryCmd("pdftoppm", ["-png", "-f", "1", "-l", "2", pdfPath, join(dir, "page")]);
-    if (!render.ok) return null;
-
-    // OCR each rendered image.
-    let text = "";
-    for (const p of ["page-1.png", "page-2.png"]) {
-      const imgPath = join(dir, p);
-      const outBase = join(dir, p.replace(/\.png$/i, ""));
-      const ocr = await tryCmd("tesseract", [imgPath, outBase, "-l", "eng", "--dpi", "300"]);
-      if (!ocr.ok) continue;
-      const t = await readFile(`${outBase}.txt`, "utf8").catch(() => "");
-      if (t) text += `\n${t}`;
+    const info=await tryCmd('pdfinfo',[pdfPath]);
+    const pages=Number(info.stdout.toString().match(/^Pages:\s+(\d+)/m)?.[1]);
+    if(!info.ok||!pages||pages>500)return null;
+    let text='';
+    for(let page=1;page<=pages;page++){
+      const base=join(dir,'page');
+      const render=await tryCmd('pdftoppm',['-r','300','-f',String(page),'-l',String(page),'-singlefile','-png',pdfPath,base]);
+      if(!render.ok)throw Error('pdf_page_render_failed');
+      const ocr=await tryCmd('tesseract',[base+'.png',base,'-l','eng','--psm','3']);
+      if(!ocr.ok)throw Error('pdf_page_ocr_failed');
+      text+='\f'+await readFile(base+'.txt','utf8');
+      await rm(base+'.png',{force:true});
     }
     return text.trim() || null;
   } finally {
@@ -107,10 +111,11 @@ async function jsOcrFallback(buf: Buffer): Promise<string | null> {
     const { createCanvas } = await import("@napi-rs/canvas");
     const { createWorker } = await import("tesseract.js");
 
-    const u8 = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+    const u8 = new Uint8Array(buf);
     const loadingTask: any = getDocument({ data: u8 });
     const pdf: any = await loadingTask.promise;
-    const pages = Math.min(2, Number(pdf?.numPages ?? 0) || 0);
+    const pages = Number(pdf?.numPages ?? 0) || 0;
+    if(pages>500){await pdf.destroy();return null;}
     if (!pages) return null;
 
     const worker: any = await createWorker("eng");
@@ -128,11 +133,12 @@ async function jsOcrFallback(buf: Buffer): Promise<string | null> {
           const t = String(r?.data?.text ?? "").trim();
           if (t) text += `\n${t}`;
         } catch {
-          // Skip pages that fail to render in pdf.js canvas mode.
+          throw Error("pdf_page_render_failed");
         }
       }
     } finally {
       await worker.terminate().catch(() => {});
+      await pdf.destroy();
     }
     return text.trim() || null;
   } catch {
@@ -149,15 +155,15 @@ export async function extractPdfTextWithFallback(
   const t1 = await pdftotextFallback(buf).catch(() => null);
   if (t1 && hasEnoughText(t1)) return { text: t1, method: "pdftotext" };
 
-  // OCR: prefer JS OCR (portable), then system OCR if available.
-  const t2 = await jsOcrFallback(buf).catch(() => null);
+  // Prefer full-document system OCR; never accept an arbitrary two-page prefix.
+  const t2 = await ocrFallback(buf).catch(() => null);
   if (t2 && hasEnoughText(t2)) return { text: t2, method: "ocr" };
 
-  const t3 = await ocrFallback(buf).catch(() => null);
+  const t3 = await jsOcrFallback(buf).catch(() => null);
   if (t3 && hasEnoughText(t3)) return { text: t3, method: "ocr" };
 
-  // Still return best-effort text for the LLM to attempt.
-  const best = [t1, t0, t2, t3].find((x) => String(x ?? "").trim().length > 0) ?? "";
+  // Preserve the richest extraction for deterministic parsers; never invoke an LLM.
+  const best = [t1, t0, t2, t3].sort((a,b)=>String(b??"").length-String(a??"").length)[0] ?? "";
   return { text: best, method: t1 ? "pdftotext" : t2 || t3 ? "ocr" : "pdf-parse" };
 }
 

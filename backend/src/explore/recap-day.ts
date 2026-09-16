@@ -330,7 +330,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       FROM institution_transactions t
       JOIN filers f ON f.id = t.filer_id
       JOIN issuers i ON i.id = t.issuer_id
-      WHERE i.ticker IS NOT NULL
+      WHERE t.data_quality_version>=1 AND i.ticker IS NOT NULL
         AND t.transaction_at >= (now() AT TIME ZONE 'UTC')::date - ($1::int || ' days')::interval
         AND lower(trim(f.display_name)) NOT IN ('institution', 'institutions', 'unknown', 'filer', 'insider', 'politician')
       ORDER BY t.transaction_at DESC

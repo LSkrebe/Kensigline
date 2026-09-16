@@ -1,5 +1,6 @@
 import { db } from "../../core/db.js";
-import { fetchForm4Text } from "../../core/sec.js";
+import { fetchForm4Text, fetchSecText } from "../../core/sec.js";
+import { ownershipIndexUrl, parseSecFilingDate } from '../../core/filing-date.js';
 import { sha256NormalizedText } from "../../core/text-hash.js";
 import { sanitizeEventAtForFeed } from "../../shared/document-activity-at.js";
 import { logParseOutcome } from "../../shared/parse-meta.js";
@@ -110,7 +111,8 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
     const issuerTicker = firstXmlTagText(xml, "issuerTradingSymbol");
     const issuerCik = firstXmlTagText(xml, "issuerCik");
     const accessionNo = firstXmlTagText(xml, "accessionNumber");
-    const filedAt = firstXmlTagText(xml, "periodOfReport") ?? firstXmlTagText(xml, "dateOfOriginalSubmission");
+    const indexUrl = ownershipIndexUrl(url);
+    const filedAt = indexUrl ? await fetchSecText(indexUrl).then(parseSecFilingDate).catch(() => null) : null;
 
     const allTxns = extractAllFormTransactions(xml);
     const owners = extractFormReportingOwners(xml);
@@ -219,7 +221,7 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
       queueId,
       sourceType: queueSourceType,
       feedKind: "insider",
-      form: formSourceKey,
+      form: /\/A$/i.test(firstXmlTagText(xml,"documentType") ?? "") ? `${formSourceKey}/A` : formSourceKey,
       issuerId: issuer.id,
       url,
       indexUrl: url.endsWith("/index.json") ? url : null,
@@ -233,7 +235,7 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
     });
 
     const txnRows = [];
-    for (const r of out.cluster.worksheet_rows) {
+    for (const [ordinal, r] of out.cluster.worksheet_rows.entries()) {
       const name = String(r.insider_name ?? r.key ?? "Insider").trim();
       const filer = await ensureFiler({
         filerType: "insider",
@@ -243,6 +245,14 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
       if (!r.ts) continue;
       txnRows.push({
         filerId: filer.id,
+        performanceMeta: allTxns[ordinal] ? {
+          version: 1, price: allTxns[ordinal]!.price, securityTitle: allTxns[ordinal]!.security_title,
+          sharesAfter: allTxns[ordinal]!.shares_after, ownership: allTxns[ordinal]!.ownership,
+          ownershipNature: allTxns[ordinal]!.ownership_nature, footnoteIds: allTxns[ordinal]!.footnote_ids,
+          ordinal, jointOwners: owners.length > 1,
+          amendment: /\/A$/i.test(firstXmlTagText(xml,"documentType") ?? ""),
+          originalFiledDate: firstXmlTagText(xml,"dateOfOriginalSubmission"),
+        } : null,
         role: r.role ? String(r.role) : null,
         transactionCode: r.transaction_code ? String(r.transaction_code) : null,
         acquiredDisposed: r.acquired_disposed ? String(r.acquired_disposed) : null,

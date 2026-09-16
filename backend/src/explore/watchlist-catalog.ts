@@ -63,30 +63,24 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
     mode: "insiders",
   },
   {
-    id: "vanguard",
-    name: "Vanguard Group",
-    slugs: [
-      "vanguard-group",
-      "vanguard",
-      "vanguard-capital-management",
-      "vanguard-asset-management",
-      "vanguard-global-advisers-llc",
-      "vanguard-portfolio-management",
-    ],
-    mode: "institutions",
+    id: "elon-musk",
+    name: "Elon Musk",
+    slugs: ["elon-musk", "musk-elon"],
+    mode: "insiders",
   },
   {
-    id: "blackrock",
-    name: "BlackRock",
-    slugs: ["blackrock", "cik-2012383"],
-    mode: "institutions",
+    id: "satya-nadella",
+    name: "Satya Nadella",
+    slugs: ["satya-nadella", "nadella-satya"],
+    mode: "insiders",
   },
   {
-    id: "renaissance-technologies",
-    name: "Renaissance Technologies",
-    slugs: ["renaissance-technologies"],
-    mode: "institutions",
+    id: "jamie-dimon",
+    name: "Jamie Dimon",
+    slugs: ["jamie-dimon", "dimon-james"],
+    mode: "insiders",
   },
+
 ];
 
 export function allWatchlistSlugs(): string[] {

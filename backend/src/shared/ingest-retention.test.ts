@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {isOlderThanRetentionWindow} from './ingest-policy.js';
+test('live discovery window cannot discard delayed or reprocessed disclosures',()=>{const before=process.env.INGEST_MODE;process.env.INGEST_MODE='live';try{assert.equal(isOlderThanRetentionWindow(new Date(Date.now()-90*86400000)),false);assert.equal(isOlderThanRetentionWindow(new Date(Date.now()-800*86400000)),true);}finally{if(before==null)delete process.env.INGEST_MODE;else process.env.INGEST_MODE=before;}});

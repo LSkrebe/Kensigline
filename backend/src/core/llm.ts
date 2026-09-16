@@ -140,6 +140,7 @@ function usesOpenAiCompatibleApi(provider: string): boolean {
 }
 
 export async function llmChat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<LlmChatResult> {
+  if (process.env.AI_RUNTIME_ENABLED !== "1") throw new Error("ai_runtime_disabled");
   const provider = getProvider();
   const result =
     provider === "ollama"

@@ -606,7 +606,8 @@
   border: 1px solid var(--drpt-border);
   background: rgba(255, 255, 255, 0.02);
   overflow: hidden;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -616,7 +617,8 @@
   max-height: min(400px, 48vh);
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -632,7 +634,8 @@
   height: 10px;
   overflow-x: auto;
   overflow-y: hidden;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.06);
 }
@@ -683,7 +686,8 @@
 .drpt-scroll {
   overflow-y: auto;
   overflow-x: hidden;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
@@ -2323,3 +2327,118 @@ button.drpt-docRow {
   }
 }
 /* deploy 1786279290 */
+
+.appConnectionStatus {position:fixed;bottom:14px;left:50%;transform:translateX(-50%);max-width:calc(100% - 28px);z-index:2000;background:#fff9e8;color:#544216;border:1px solid #d9c89c;padding:10px 16px;font-size:13px;border-radius:6px;text-align:center;}
+.researchMiniPriceTooltip {pointer-events:none;}
+
+/* Dossiers share Explore's image-led identities and quiet, divided rows. */
+.drpt-expanded .drpt-dossierHero {
+  align-items: end;
+  gap: 16px 32px;
+}
+.drpt-dossierHero .drpt-topbarIdentity { gap: 16px; }
+.drpt-dossierIdentityLine { display: flex; align-items: center; gap: 12px; }
+.drpt-dossierIdentityLine .drpt-kicker { margin: 0; }
+.drpt-dossierImage, .drpt-rowImage {
+  display: inline-flex; flex: 0 0 auto; width: 40px; height: 44px;
+  align-items: center; justify-content: center; overflow: hidden;
+  border-radius: 4px; background: rgba(255,255,255,.04); color: var(--drpt-muted);
+}
+.drpt-dossierImage img, .drpt-rowImage img { width: 100%; height: 100%; object-fit: cover; }
+.drpt-dossierImage--logo img, .drpt-rowImage--logo img { object-fit: contain; }
+.drpt-dossierHero .drpt-topbarTicker {
+  font-family: var(--drpt-serif); font-weight: 400; font-size: clamp(32px, 3.5vw, 46px);
+  line-height: 1.12; white-space: normal; overflow-wrap: anywhere;
+}
+.drpt-dossierHero .drpt-topbarMeta { flex-wrap: wrap; }
+.drpt-dossierHero .drpt-topbarMeta span:nth-child(n) { display: inline; }
+.drpt-dossierHero .drpt-topbarPrice { align-self: end; }
+.drpt-row.drpt-row--single { grid-template-columns: minmax(0, 1fr); }
+.drpt:has(.drpt-dossierHero) .drpt-metricGrid { gap: 0; }
+.drpt:has(.drpt-dossierHero) .drpt-metricCard {
+  border: 0; border-bottom: 1px solid var(--drpt-border); background: transparent;
+  padding: 14px 16px 14px 0; box-sizing: border-box;
+}
+.drpt-docRow--portrait .drpt-docCopy { gap: 6px; }
+.drpt-docRow--portrait .drpt-docAmt { color: var(--drpt-muted); }
+.drpt-rowSubline { font-family: var(--drpt-mono); font-size: 10px; color: var(--drpt-dim); letter-spacing: .05em; }
+.drpt-docRow--portrait { min-height: 84px; }
+@media (max-width: 900px) {
+  .drpt-dossierHero .drpt-topbarIdentity { gap: 12px; }
+  .drpt-dossierHero .drpt-topbarTicker { font-size: 34px; }
+  .drpt-docRow--portrait { min-height: 80px; }
+}
+
+.drpt .drpt-docRow--portrait .drpt-docAmt { color: var(--drpt-muted); }
+.drpt .drpt-docRow--portrait { min-height: 84px; box-sizing: border-box; }
+.drpt-rowCompactDate { display: none; }
+@media (max-width: 900px) {
+  .drpt .drpt-docRow--flow.drpt-docRow--portrait:not(.drpt-docRow--flowNoTxn) {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    grid-template-areas: 'image copy amount' 'image copy txn';
+    gap: 6px 12px; min-height: 84px;
+  }
+  .drpt-docRow--portrait .drpt-rowImage { grid-area: image; }
+  .drpt-docRow--portrait .drpt-docCopy { grid-area: copy; }
+  .drpt-docRow--portrait .drpt-docAmt { grid-area: amount; align-self: end; }
+  .drpt-docRow--portrait .drpt-docTxn { grid-area: txn; justify-self: end; align-self: start; }
+  .drpt-docRow--portrait .drpt-docDate { display: none; }
+  .drpt-rowCompactDate { display: inline; }
+}
+
+.drpt-dossierIdentityLabels { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.drpt-dossierRole { font-family: var(--drpt-mono); font-size: 12px; color: var(--drpt-muted); }
+.drpt-row.drpt-row--investorMarket { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+.drpt-row--investorMarket > .drpt-section > .drpt-metricGrid,
+.drpt-row--investorMarket > .drpt-section > .drpt-empty {
+  height: auto; min-height: 0; max-height: none;
+}
+.drpt-row--investorMarket .drpt-metricGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: auto;
+}
+.drpt-row--investorMarket .drpt-metricCard { min-height: 96px; }
+@media (max-width: 900px) {
+  .drpt-row--investorMarket .drpt-metricGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Shared event-style facts and quiet loading states. */
+.drpt:has(.drpt-dossierHero) .drpt-metricGrid {
+  border-top: 1px solid rgba(255,255,255,.14);
+  border-bottom: 1px solid rgba(255,255,255,.14);
+}
+.drpt:has(.drpt-dossierHero) .drpt-metricCard {
+  border: 0; border-right: 1px solid rgba(255,255,255,.1);
+  border-radius: 0; background: transparent; padding: 20px;
+  min-height: 96px; gap: 10px;
+}
+.drpt:has(.drpt-dossierHero) .drpt-metricCard:last-child { border-right: 0; }
+.drpt:has(.drpt-dossierHero) .drpt-metricValue { font-size: 22px; }
+.drpt:has(.drpt-dossierHero) .drpt-metricValue.isUp { color: rgba(92,184,138,.92); }
+.drpt:has(.drpt-dossierHero) .drpt-metricValue.isDown { color: rgba(212,114,106,.92); }
+.drpt .drpt-row--market > .drpt-section > .drpt-empty,
+.drpt .drpt-row--market .drpt-figure--empty,
+.drpt .drpt-marketAside {
+  border: 0; background: transparent; box-shadow: none;
+  padding: 24px 0;
+}
+.drpt .drpt-empty, .drpt .drpt-figure--empty > .drpt-empty,
+.drpt .drpt-row--market .drpt-figure--chart .graphEmpty {
+  padding: 24px 0; color: rgba(255,255,255,.42); font-size: 12px;
+}
+.drpt .drpt-activityList.exploreDirPaper {
+  padding: 0; margin: 0; list-style: none; overflow: visible;
+  height: auto; max-height: none; min-height: 0; border: 0;
+}
+.drpt .explorePersonRow--investorOnly .explorePersonPortrait img { object-fit: cover; padding: 0; }
+@media (max-width: 900px) {
+  .drpt:has(.drpt-dossierHero) .drpt-metricCard { padding: 18px 12px; }
+  .drpt:has(.drpt-dossierHero) .drpt-metricCard:nth-child(2n) { border-right: 0; }
+  .drpt:has(.drpt-dossierHero) .drpt-metricCard:nth-child(n+3) { border-top: 1px solid rgba(255,255,255,.1); }
+}
+@media (prefers-reduced-motion: reduce) { .drpt-loading { animation: none; } }
+
+@media (min-width: 961px) {
+  .drpt .drpt-activityList .explorePersonRow--investorOnly .explorePersonRowBtn {
+    grid-template-columns: 56px minmax(0, 1fr) minmax(110px, .35fr);
+  }
+}

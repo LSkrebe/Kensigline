@@ -31,15 +31,6 @@ function is278tType(typeHtml: string): boolean {
   return false;
 }
 
-function isTargetLevel(row: OgeApiRow): boolean {
-  const level = String(row.level ?? "").trim();
-  if (level === "Level I" || level === "Level II") return true;
-  // Presidents/VP often arrive as n/a — keep Trump-class coverage like Open Cabinet.
-  const name = String(row.name ?? "");
-  if (/\bTrump\b/i.test(name)) return true;
-  return false;
-}
-
 function extractPdfUrl(typeHtml: string): string | null {
   const t = String(typeHtml ?? "");
   const m = t.match(/href=['"]([^'"]+\.pdf)['"]/i);
@@ -77,7 +68,6 @@ function daysAgoUtc(days: number): Date {
 function parseListing(row: OgeApiRow): Oge278tListing | null {
   const typeHtml = String(row.type ?? "");
   if (!is278tType(typeHtml)) return null;
-  if (!isTargetLevel(row)) return null;
   const pdf_url = extractPdfUrl(typeHtml);
   if (!pdf_url) return null;
   return {
@@ -151,7 +141,7 @@ export async function listOge278tPdfs(opts: {
     }
 
     if (start + rows.length >= total) break;
-    if (oldestOnPage && oldestOnPage.getTime() < minDate.getTime()) break;
+    // API ordering is not a contractual guarantee; an old row cannot terminate discovery.
   }
 
   return out.slice(0, max);
@@ -174,7 +164,9 @@ export async function listOge278tPdfsFromOffset(opts: {
   const seen = new Set<string>();
   let hitFloor = false;
 
+  let consumed=0;
   for (const row of rows) {
+    consumed++;
     const listing = parseListing(row);
     if (!listing) continue;
     if (listing.doc_date && minDocDate) {
@@ -190,8 +182,8 @@ export async function listOge278tPdfsFromOffset(opts: {
     if (listings.length >= max) break;
   }
 
-  const nextStart = start + rows.length;
-  const done = !rows.length || nextStart >= total || hitFloor;
+  const nextStart = start + consumed;
+  const done = !rows.length || nextStart >= total;
   return { listings, nextStart, done };
 }
 

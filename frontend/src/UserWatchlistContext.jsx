@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useRef } from 'react'
+import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { exploreInvestorModeFromDocType } from './exploreDirectoryNav.js'
 import {
@@ -19,6 +20,8 @@ const UserWatchlistContext = createContext(null)
 export function UserWatchlistProvider({ children }) {
   const { user } = useAuth()
   const userId = user?.id ?? null
+  const activeUser=useRef(userId);activeUser.current=userId
+  const [syncError,setSyncError]=useState(null)
   const [peopleEntries, setPeopleEntries] = useState(() => loadUserWatchlistPeople(userId))
   const [companyTickers, setCompanyTickers] = useState(() => loadUserWatchlistCompanies(userId))
 
@@ -26,6 +29,21 @@ export function UserWatchlistProvider({ children }) {
     setPeopleEntries(loadUserWatchlistPeople(userId))
     setCompanyTickers(loadUserWatchlistCompanies(userId))
   }, [userId])
+
+  useEffect(()=>{
+    if(!userId)return
+    let alive=true
+    void fetchJsonSafe('/api/tracker/watchlist',{timeoutMs:12000}).then(response=>{
+      if(!alive||!response.ok)return
+      setPeopleEntries(previous=>{
+        const remote=(response.data?.items??[]).map(p=>({slug:normalizeWatchlistPersonSlug(p.slug,p.name),name:p.name,mode:p.category==='politician'?'politicians':p.category==='institution'?'institutions':'insider',slugAliases:[p.slug]}))
+        const remoteSlugs=new Set(remote.map(p=>p.slug))
+        const next=[...remote,...previous.filter(p=>!remoteSlugs.has(p.slug))]
+        saveUserWatchlistPeople(userId,next);return next
+      })
+    })
+    return()=>{alive=false}
+  },[userId])
 
   const peopleSlugSet = useMemo(
     () => new Set(peopleEntries.map((entry) => normalizeWatchlistPersonSlug(entry.slug, entry.name))),
@@ -50,9 +68,15 @@ export function UserWatchlistProvider({ children }) {
   )
 
   const addPerson = useCallback(
-    (slug, name, meta = {}) => {
+    async (slug, name, meta = {}) => {
       const normalized = normalizeWatchlistPersonSlug(slug, name)
       if (!normalized) return
+      if(userId){
+        const response=await fetchJsonSafe('/api/tracker/watchlist',{method:'PUT',body:{slug:meta.actorSlug||slug},timeoutMs:12000})
+        if(activeUser.current!==userId)return
+        if(!response.ok){setSyncError(response.data?.error==='watchlist_limit'?'Watchlist is full (50 people).':'Could not save this follow. Please try again.');return}
+        setSyncError(null)
+      }
       setPeopleEntries((prev) => {
         if (prev.some((entry) => normalizeWatchlistPersonSlug(entry.slug, entry.name) === normalized)) {
           return prev
@@ -78,15 +102,22 @@ export function UserWatchlistProvider({ children }) {
   )
 
   const removePerson = useCallback(
-    (slug, name) => {
+    async (slug, name) => {
       const normalized = normalizeWatchlistPersonSlug(slug, name)
+      const existing=peopleEntries.find(p=>normalizeWatchlistPersonSlug(p.slug,p.name)===normalized)
+      if(userId){
+        const response=await fetchJsonSafe('/api/tracker/watchlist',{method:'DELETE',body:{slug:existing?.slugAliases?.[0]||slug},timeoutMs:12000})
+        if(activeUser.current!==userId)return
+        if(!response.ok&&response.status!==404){setSyncError('Could not remove this follow. Please try again.');return}
+        setSyncError(null)
+      }
       setPeopleEntries((prev) => {
         const next = prev.filter((entry) => normalizeWatchlistPersonSlug(entry.slug, entry.name) !== normalized)
         saveUserWatchlistPeople(userId, next)
         return next
       })
     },
-    [userId],
+    [userId,peopleEntries],
   )
 
   const addPersonFromRow = useCallback(
@@ -156,7 +187,7 @@ export function UserWatchlistProvider({ children }) {
     ],
   )
 
-  return <UserWatchlistContext.Provider value={value}>{children}</UserWatchlistContext.Provider>
+  return <UserWatchlistContext.Provider value={value}>{children}{syncError&&<div className="appConnectionStatus" role="status">{syncError} <button type="button" onClick={()=>setSyncError(null)}>Dismiss</button></div>}</UserWatchlistContext.Provider>
 }
 
 export function useUserWatchlist() {

@@ -79,7 +79,11 @@ export function resolveWatchlistCatalogPerson(slug, name, entry = null) {
 export function loadUserWatchlistPeople(userId) {
   const key = storageKey(PEOPLE_KEY_PREFIX, userId)
   const stored = readJson(key, null)
-  if (Array.isArray(stored) && stored.length) return stored
+  if (Array.isArray(stored) && stored.length) {
+    const oldDefaults = ['nancy-pelosi','tommy-tuberville','markwayne-mullin','sheldon-whitehouse','john-boozman','byron-donalds','jensen-huang','tim-cook','lisa-su','vanguard-group','blackrock','renaissance-technologies']
+    if (stored.length !== oldDefaults.length || !oldDefaults.every(slug => stored.some(p => p.slug === slug))) return stored
+    // Update untouched starter lists; preserve customized watchlists.
+  }
   const defaults = defaultWatchlistPeopleEntries()
   writeJson(key, defaults)
   return defaults

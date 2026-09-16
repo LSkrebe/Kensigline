@@ -32,7 +32,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url)
 
-    if (url.pathname.startsWith('/api/')) {
+    if (url.pathname.startsWith('/api/') || url.pathname === '/health' || url.pathname.startsWith('/health/')) {
       const headers = new Headers(request.headers)
       headers.delete('host')
       const targetPath = prepareInternalContentProxy(url, headers)
@@ -47,12 +47,17 @@ export default {
       )
     }
 
+    const aliases = {'/activity':'/explore','/people':'/explore/investors','/watchlist':'/explore/watchlist','/account':'/settings','/pricing':'/#pricing','/methodology':'/learn/form-4-insider-filings'};
+    const cleanPath = url.pathname.replace(/\/$/,'') || '/';
+    if (aliases[cleanPath]) return Response.redirect(new URL(aliases[cleanPath],url.origin),302);
+    if (cleanPath.startsWith('/people/')) return Response.redirect(new URL('/explore/investors/'+cleanPath.slice(8),url.origin),302);
     const response = await env.ASSETS.fetch(request)
     const contentType = response.headers.get('content-type') ?? ''
     if (contentType.includes('text/html')) {
       const headers = new Headers(response.headers)
       headers.set('Cache-Control', 'no-cache, must-revalidate')
       headers.set('CDN-Cache-Control', 'no-cache')
+      if (/^\/(activity|people|watchlist|account|explore|sign-in|settings|subscribe)(\/|$)/.test(url.pathname)) headers.set('X-Robots-Tag', 'noindex, follow')
       return new Response(response.body, { status: response.status, headers })
     }
 

@@ -257,6 +257,9 @@ function mapExploreHomePreviewRow(row, kind) {
     name: row.name,
     actorSlug: row.actorSlug,
     tickers: row.tickers,
+    companyName: row.companyName,
+    companies: row.companies,
+    performanceEventIds: row.performanceEventIds,
     docType: row.docType,
     event: row.event,
     trail,
@@ -456,7 +459,9 @@ function aggregateExploreInvestorsForHome(events) {
     out.push({
       ...lead,
       ticker: changeEvents.length > 1 ? modeCode : lead.ticker,
-      tickers: tickers.length > 1 ? tickers : undefined,
+      tickers,
+      companies: tickers.map(ticker=>({ticker,name:changeEvents.find(e=>e.ticker===ticker)?.companyName||ticker})),
+      performanceEventIds: changeEvents.map(e => e.id),
       extraSameDay,
       trail: hasUsdTrail
         ? formatExploreNetFlowUsd(netFlow)
@@ -781,7 +786,10 @@ export function buildExploreDirectoryHomePreview(directory = buildExploreDirecto
 
 export function buildExploreDirectoryFullList(kind, directory = buildExploreDirectoryMock()) {
   if (kind === 'investors' || kind === 'actors') {
-    return aggregateInvestorsByName(directory.investorEvents ?? directory.actorEvents ?? [])
+    return sortEventsNewestFirst(directory.investorEvents ?? directory.actorEvents ?? []).map(event => ({
+      ...mapExploreHomePreviewRow(event, 'investor'),
+      performanceEventIds: [event.id],
+    }))
   }
   return aggregateCompaniesByTicker(directory.companyEvents)
 }

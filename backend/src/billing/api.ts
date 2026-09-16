@@ -3,8 +3,6 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseJwtUser } from "../core/supabase-auth.js";
 import { bearerToken, verifySupabaseAccessToken } from "../core/supabase-auth.js";
 import {
-  ensureSupabaseUserForEmail,
-  generateMagicLinkToken,
   supabaseAdminConfigured,
 } from "../core/supabase-admin.js";
 import { json, sendJson } from "../core/http.js";
@@ -28,6 +26,7 @@ import {
   syncFromWhopMembership,
 } from "./store.js";
 import { logAttributionCheckout } from "../attribution/api.js";
+import { membershipBelongsToUser } from './membership-owner.js';
 import { handleBillingWebhook } from "./webhook.js";
 
 export { handleBillingWebhook };
@@ -248,107 +247,31 @@ export async function handleBillingRefresh(req: http.IncomingMessage, res: http.
       const membershipId = payment.membership?.id ?? null;
       if (membershipId) {
         const membership = await client.memberships.retrieve({ id: membershipId });
+        if (!membershipBelongsToUser(membership, user)) {
+          sendJson(res, 403, {ok:false,error:'membership_not_owned'});
+          return;
+        }
         await syncFromWhopMembership(membership, user.sub);
       }
     } else if (row?.whop_membership_id) {
       const membership = await client.memberships.retrieve({ id: row.whop_membership_id });
+      if (!membershipBelongsToUser(membership, user)) {
+        sendJson(res, 403, {ok:false,error:'membership_not_owned'});
+        return;
+      }
       await syncFromWhopMembership(membership, user.sub);
     }
   } catch (err) {
     console.warn("[billing] refresh failed", err);
+    sendJson(res,503,{ok:false,error:'billing_temporarily_unavailable'});
+    return;
   }
 
   const updated = await getBillingByUserId(user.sub);
   sendJson(res, 200, billingStatusPayload(updated));
 }
 
-/** Post-checkout: provision Supabase user + return magic-link token for instant sign-in. */
+/** Post-checkout requires normal authentication; receipts never mint login tokens. */
 export async function handleBillingActivate(req: http.IncomingMessage, res: http.ServerResponse) {
-  if (isWaitlistModeEnabled()) {
-    sendJson(res, 503, { ok: false, error: "waitlist_mode" });
-    return;
-  }
-  if (!whopConfigured()) {
-    sendJson(res, 503, { ok: false, error: "whop_not_configured" });
-    return;
-  }
-  if (!supabaseAdminConfigured()) {
-    sendJson(res, 503, { ok: false, error: "supabase_admin_not_configured" });
-    return;
-  }
-
-  let body: { receiptId?: string };
-  try {
-    body = (await json(req)) ?? {};
-  } catch {
-    sendJson(res, 400, { ok: false, error: "invalid_json" });
-    return;
-  }
-
-  const receiptId = String(body.receiptId ?? "").trim();
-  if (!receiptId) {
-    sendJson(res, 400, { ok: false, error: "missing_receipt" });
-    return;
-  }
-
-  try {
-    const client = getWhop();
-    const payment = await client.payments.retrieve({ id: receiptId });
-    const membershipId = payment.membership?.id ?? null;
-    if (!membershipId) {
-      sendJson(res, 404, { ok: false, error: "membership_not_found" });
-      return;
-    }
-
-    const membership = await client.memberships.retrieve({ id: membershipId });
-    const membershipLike = membership as import("./store.js").WhopMembershipLike;
-    const email = membershipLike.user?.email?.trim().toLowerCase() ?? null;
-    if (!email) {
-      sendJson(res, 422, { ok: false, error: "missing_checkout_email" });
-      return;
-    }
-
-    const userId = await ensureSupabaseUserForEmail(email);
-    if (!userId) {
-      sendJson(res, 500, { ok: false, error: "provision_failed" });
-      return;
-    }
-
-    await syncFromWhopMembership(membershipLike, userId);
-    const row = await getBillingByUserId(userId);
-
-    const ref =
-      whopMetaString(membershipLike.metadata ?? null, "ref") ??
-      whopMetaString(membershipLike.metadata ?? null, "r");
-    if (ref) {
-      try {
-        await logAttributionCheckout(userId, ref);
-      } catch (err) {
-        console.warn("[attribution] activate checkout log failed", err);
-      }
-    }
-
-    if (!row || !isActiveStatus(row.status)) {
-      sendJson(res, 202, { ok: false, error: "membership_pending", pending: true });
-      return;
-    }
-
-    const tokens = await generateMagicLinkToken(email);
-    if (!tokens) {
-      sendJson(res, 500, { ok: false, error: "magic_link_failed" });
-      return;
-    }
-
-    sendJson(res, 200, {
-      ok: true,
-      active: true,
-      user_id: userId,
-      email: tokens.email,
-      token_hash: tokens.token_hash,
-    });
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[billing] activate failed", err);
-    sendJson(res, 500, { ok: false, error: "activate_failed", message: msg });
-  }
+  return handleBillingRefresh(req, res);
 }

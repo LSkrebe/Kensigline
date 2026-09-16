@@ -9,6 +9,10 @@ export type FormXmlTransaction = {
   security_title: string | null;
   acquired_disposed: string | null;
   is_derivative: boolean;
+  shares_after?: number | null;
+  ownership?: string | null;
+  ownership_nature?: string | null;
+  footnote_ids?: string[];
 };
 
 export type FormXmlOwner = {
@@ -60,6 +64,10 @@ function parseTransactionBlock(block: string, isDerivative: boolean): FormXmlTra
     security_title: title,
     acquired_disposed: ad || null,
     is_derivative: isDerivative,
+    shares_after: parseNumberLoose(firstXmlTagText(block, "sharesOwnedFollowingTransaction")),
+    ownership: firstXmlTagText(block, "directOrIndirectOwnership"),
+    ownership_nature: firstXmlTagText(block, "natureOfOwnership"),
+    footnote_ids: [...block.matchAll(/<footnoteId\b[^>]*id=["']([^"']+)["']/gi)].map(m => m[1]!),
   };
 }
 

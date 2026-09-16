@@ -223,7 +223,7 @@ async function loadTxnPreview(
         t.transaction_at::text AS ts
       FROM institution_transactions t
       JOIN filers f ON f.id = t.filer_id
-      WHERE t.issuer_id = $1
+      WHERE t.data_quality_version>=1 AND t.issuer_id = $1
       ORDER BY t.transaction_at DESC
       LIMIT $2
       `,
@@ -341,7 +341,7 @@ export async function buildIssuerExplorePayload(tickerInput: string) {
         FROM institution_transactions t
         JOIN filers f ON f.id = t.filer_id
         LEFT JOIN filings fil ON fil.id = t.filing_id
-        WHERE t.issuer_id = $1
+        WHERE t.data_quality_version>=1 AND t.issuer_id = $1
         ORDER BY t.transaction_at DESC
         LIMIT 40
         `,
@@ -620,10 +620,18 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
       `
       SELECT
         i.ticker,
+        t.id::text AS transaction_id,
+        t.filing_id::text,
+        fil.filed_at::text AS filed_at,
+        fil.parsed_at::text AS observed_at,
+        coalesce(fil.pdf_url, fil.url, fil.index_url) AS document_url,
+        fil.form,
         i.name AS company,
         t.transaction_at::text AS ts,
         t.role,
         t.transaction_code,
+        t.is_derivative,
+        t.performance_meta,
         t.acquired_disposed,
         t.amount_usd,
         t.shares,
@@ -631,9 +639,10 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
       FROM insider_transactions t
       JOIN issuers i ON i.id = t.issuer_id
       JOIN filers f ON f.id = t.filer_id
+      LEFT JOIN filings fil ON fil.id = t.filing_id
       WHERE t.filer_id = $1
       ORDER BY t.transaction_at DESC
-      LIMIT 200
+      LIMIT 1200
       `,
       [filer.id],
     );
@@ -642,6 +651,12 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
       `
       SELECT
         i.ticker,
+        t.id::text AS transaction_id,
+        t.filing_id::text,
+        fil.filed_at::text AS filed_at,
+        fil.parsed_at::text AS observed_at,
+        coalesce(fil.pdf_url, fil.url, fil.index_url) AS document_url,
+        fil.form,
         i.name AS company,
         t.transaction_at::text AS ts,
         t.chamber,
@@ -651,13 +666,15 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
         t.amount_usd_mid,
         t.amount_range,
         t.asset_name,
+        t.description,
         f.display_name
       FROM politician_transactions t
       JOIN issuers i ON i.id = t.issuer_id
       JOIN filers f ON f.id = t.filer_id
+      LEFT JOIN filings fil ON fil.id = t.filing_id
       WHERE t.filer_id = $1
       ORDER BY t.transaction_at DESC
-      LIMIT 200
+      LIMIT 1200
       `,
       [filer.id],
     );
@@ -666,39 +683,56 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
       `
       SELECT
         i.ticker,
+        t.id::text AS transaction_id,
+        t.filing_id::text,
+        fil.filed_at::text AS filed_at,
+        fil.parsed_at::text AS observed_at,
+        coalesce(fil.pdf_url, fil.url, fil.index_url) AS document_url,
+        fil.form,
         i.name AS company,
         t.transaction_at::text AS ts,
         t.activity,
+        t.instrument_type, t.data_quality_version,
         t.amount_usd,
         t.shares,
         f.display_name
       FROM institution_transactions t
       JOIN issuers i ON i.id = t.issuer_id
       JOIN filers f ON f.id = t.filer_id
-      WHERE t.filer_id = $1
-        AND coalesce(t.activity, '') <> 'Held'
+      LEFT JOIN filings fil ON fil.id = t.filing_id
+      WHERE t.data_quality_version>=1 AND t.filer_id = $1
+        AND t.data_quality_version>=1
       ORDER BY t.transaction_at DESC
-      LIMIT 200
+      LIMIT 1200
       `,
       [filer.id],
     );
-    txns = collapseInstitutionDossierTxns(txns);
+    // Preserve separate security classes and filing rows. A holdings snapshot is not a trade.
+
     if (!txns.length) {
       txns = await db.query<any>(
         `
         SELECT
           i.ticker,
+        t.id::text AS transaction_id,
+        t.filing_id::text,
+        fil.filed_at::text AS filed_at,
+        fil.parsed_at::text AS observed_at,
+        coalesce(fil.pdf_url, fil.url, fil.index_url) AS document_url,
+        fil.form,
           i.name AS company,
           t.transaction_at::text AS ts,
           t.activity,
+        t.instrument_type, t.data_quality_version,
           t.amount_usd,
           t.shares,
           f.display_name
         FROM institution_transactions t
         JOIN issuers i ON i.id = t.issuer_id
         JOIN filers f ON f.id = t.filer_id
-        WHERE t.filer_id = $1
-          AND coalesce(t.activity, '') = 'Held'
+      LEFT JOIN filings fil ON fil.id = t.filing_id
+        WHERE t.data_quality_version>=1 AND t.filer_id = $1
+          AND coalesce(t.activity, '') = 'Held' AND t.data_quality_version>=1
         ORDER BY coalesce(t.amount_usd, 0) DESC, t.transaction_at DESC
         LIMIT 120
         `,
@@ -731,6 +765,7 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
               amountUsd,
               amountRange: t.amount_range,
               assetName: t.asset_name,
+              description: t.description,
               ts: t.ts,
             }
           : {
@@ -741,6 +776,7 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
               shares: t.shares != null ? Number(t.shares) : null,
               ts: t.ts,
             };
+    Object.assign(sheetRow, { performanceMeta: t.performance_meta ?? null, instrumentType: t.instrument_type ?? null, quality: source === "institutions" && Number(t.data_quality_version ?? 0)<1 ? "legacy_unverified" : "source_linked", transactionId: t.transaction_id, filingId: t.filing_id, filedAt: t.filed_at, observedAt: t.observed_at, documentUrl: t.document_url, form: t.form, isDerivative: t.is_derivative === true || /\[OP\]/.test(String(t.asset_name ?? "")) });
     return {
       sheetRow,
       ticker: t.ticker,
@@ -755,8 +791,18 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
     };
   });
 
+  const { enrichDossierPerformance } = await import("../performance/dossier.js");
+  // Search outside the displayed history window too: amendments can revise rows omitted by LIMIT.
+  const transactionTable = source === "institutions" ? "institution_transactions" : source === "politicians" ? "politician_transactions" : "insider_transactions";
+  const amendmentMeta = source === "insider" ? "t.performance_meta" : "NULL::jsonb";
+  const amendments = await db.query<any>(`SELECT DISTINCT i.ticker, t.transaction_at::date::text AS date,
+    fil.filed_at::date::text AS "filedAt", fil.form, ${amendmentMeta} AS meta
+    FROM ${transactionTable} t JOIN filings fil ON fil.id=t.filing_id JOIN issuers i ON i.id=t.issuer_id
+    WHERE t.filer_id=$1 AND (fil.form ILIKE '%/A' ${source === "insider" ? "OR t.performance_meta->>'amendment'='true'" : ""})`, [filer.id]);
+  const performance = await enrichDossierPerformance(transactions,source,amendments.map(a=>({...a,category:source==='institutions'?'institution':source==='politicians'?'politician':'insider'})));
   return {
     ok: true,
+    dossierSchemaVersion: 10,
     slug: filer.slug,
     mode: source,
     actor: {
@@ -771,6 +817,7 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
       at: transactions[0]?.ts ?? null,
       count: transactions.length,
       transactions,
+      performance,
     },
   };
 }

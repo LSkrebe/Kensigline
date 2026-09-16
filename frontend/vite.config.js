@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       port: 5173,
+      watch: process.env.VITE_POLL_WATCH === '1' ? { usePolling: true, interval: 500 } : undefined,
       // Cloudflare / other dev tunnels use a random *.trycloudflare.com host each run.
       allowedHosts: true,
       proxy: {

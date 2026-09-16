@@ -689,3 +689,37 @@
     gap: 8px;
   }
 }
+
+.mcalPageHeading { padding:32px var(--mcal-pad-x); }
+.mcalPageHeading h1 { font-family:var(--mcal-serif); font-size:42px; font-weight:400; margin:12px 0 0; }
+.mcalEmpty { min-height:0; justify-content:flex-start; text-align:left; padding:24px var(--mcal-pad-x); gap:16px; font-size:12px; }
+.mcalRetry { color:rgba(255,255,255,.75); background:transparent; border:1px solid rgba(255,255,255,.14); padding:10px 16px; cursor:pointer; }
+.mcalFilterPanel { border:0; border-top:1px solid rgba(255,255,255,.14); background:transparent; }
+.mcalFilterPanelBody { padding:0; }
+.mcalFilterRow { min-height:62px; box-sizing:border-box; }
+.mcalFilterRow--spacer { display:none; }
+.mcalFilterSectionTitle { font-size:28px; }
+.mcalFilterRowCode { background:transparent; border:0; }
+.macroCalMonthEvent { border-radius:0; background:transparent; }
+@media(max-width:900px) { .mcalPageHeading h1 { font-size:34px; } }
+.mcalAgenda { padding:0 var(--mcal-pad-x) 48px; }
+.mcalAgendaDay { display:grid; grid-template-columns:80px minmax(0,1fr); gap:24px; border-top:1px solid rgba(255,255,255,.14); margin-bottom:28px; }
+.mcalAgendaDate { padding-top:22px; color:rgba(255,255,255,.45); }
+.mcalAgendaDate > span { font-size:11px; }
+.mcalAgendaDate h2 { font-family:var(--mcal-serif); font-weight:400; font-size:36px; color:rgba(255,255,255,.9); margin:6px 0; }
+.mcalAgendaEvents { list-style:none; padding:0; margin:0; min-width:0; }
+.mcalAgendaEvent { display:grid; grid-template-columns:90px minmax(0,1fr) 40px 76px; align-items:center; gap:20px; min-height:68px; padding:14px 0; box-sizing:border-box; border-bottom:1px solid rgba(255,255,255,.07); }
+.mcalAgendaEvent:last-child { border-bottom:0; }
+.mcalAgendaTime,.mcalAgendaRegion { font-size:11px; color:rgba(255,255,255,.42); }
+.mcalAgendaTitle { font-family:var(--mcal-mono); font-size:14px; line-height:1.5; overflow-wrap:anywhere; }
+.mcalAgendaImpact { font-size:10px; text-transform:uppercase; text-align:right; color:rgba(255,255,255,.4); }
+.mcalAgendaImpact--high { color:rgba(212,114,106,.92); }
+.mcalAgendaImpact--medium { color:rgba(202,177,115,.85); }
+@media(max-width:900px) {
+ .mcalAgendaDay { grid-template-columns:48px minmax(0,1fr); gap:16px; }
+ .mcalAgendaEvent { grid-template-columns:minmax(0,1fr) auto; gap:6px 12px; }
+ .mcalAgendaTitle { grid-column:1; grid-row:1; font-size:13px; }
+ .mcalAgendaTime { grid-column:1; grid-row:2; }
+ .mcalAgendaRegion { grid-column:2; grid-row:2; text-align:right; }
+ .mcalAgendaImpact { grid-column:2; grid-row:1; }
+}

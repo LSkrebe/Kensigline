@@ -5,23 +5,8 @@ import { activateCheckoutSession } from './checkoutActivate.js'
 import { peekReferralRef } from './referralRef.js'
 
 const WHOP_ENV = import.meta.env.VITE_WHOP_ENV === 'sandbox' ? 'sandbox' : 'production'
-const CHECKOUT_RECEIPT_KEY = 'ml.checkout.receipt'
-
-export function peekCheckoutReceiptId() {
-  try {
-    return sessionStorage.getItem(CHECKOUT_RECEIPT_KEY)
-  } catch {
-    return null
-  }
-}
-
-export function clearCheckoutReceiptId() {
-  try {
-    sessionStorage.removeItem(CHECKOUT_RECEIPT_KEY)
-  } catch {
-    /* ignore */
-  }
-}
+import {CHECKOUT_RECEIPT_KEY,peekCheckoutReceiptId,clearCheckoutReceiptId} from './checkoutReceipt.js'
+export {peekCheckoutReceiptId,clearCheckoutReceiptId} from './checkoutReceipt.js'
 
 export function WhopCheckoutPanel({
   selectedPlan,

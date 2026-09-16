@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {ExplorePerformanceSlide} from './ExplorePerformance.jsx'
 import { EMPTY_EXPLORE_RECAP } from './dataMode.js'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
@@ -212,6 +213,7 @@ function renderRecapSlideAt(recap, logicalIdx, onOpenEvent, loading = false) {
   if (!slides.length) return <ExploreRecapEmptySlide isFallback={recap?.isFallback === true} />
   const slide = slides[logicalIdx]
   if (!slide) return null
+  if (slide.kind === 'performance') return <ExplorePerformanceSlide slide={slide} />
   return <ExploreRecapSlideView key={slide.id} slide={slide} onOpenEvent={onOpenEvent} />
 }
 
@@ -238,7 +240,6 @@ export function ExploreDailyRecap({
   settingsActive = false,
   onSettingsClick,
   onBrandClick = null,
-  onRequestCollapse,
   onOpenEvent = null,
   searchValue = '',
   onSearchChange = null,
@@ -370,7 +371,7 @@ export function ExploreDailyRecap({
   }
 
   return (
-    <section className="exploreRecap" aria-label="Daily recap">
+    <section className={`exploreRecap ${recap.slides?.[0]?.kind==='performance'?'exploreRecap--performance':''}`} aria-label="Daily overview">
       <div className="exploreRecapViewport">
         <div className="exploreRecapExpandedBg" aria-hidden="true" />
 
@@ -398,7 +399,7 @@ export function ExploreDailyRecap({
           <div className="exploreRecapExpanded">
             <div className="exploreRecapTrack" ref={trackRef}>
               {loopEnabled ? (
-                <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true">
+                <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true" inert>
                   {renderRecapSlideAt(recap, slideCount - 1, onOpenEvent, loading)}
                 </div>
               ) : null}
@@ -408,7 +409,7 @@ export function ExploreDailyRecap({
                 </div>
               ))}
               {loopEnabled ? (
-                <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true">
+                <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true" inert>
                   {renderRecapSlideAt(recap, 0, onOpenEvent, loading)}
                 </div>
               ) : null}
@@ -420,7 +421,7 @@ export function ExploreDailyRecap({
               .filter(Boolean)
               .join(' ')}
           >
-            {!compactLayout && slideCount > 1 ? (
+            {slideCount > 1 ? (
               <button
                 type="button"
                 className="exploreRecapNavBtn exploreRecapNavBtn--prev"
@@ -435,38 +436,23 @@ export function ExploreDailyRecap({
             >
               <div
                 className="exploreRecapDotsList"
-                role={compactLayout ? 'group' : 'tablist'}
+                role="group"
                 aria-label="Recap sections"
               >
-                {Array.from({ length: slideCount }, (_, i) =>
-                  compactLayout ? (
-                    <span
-                      key={i}
-                      className={['exploreRecapDot', i === activeIdx ? 'isActive' : ''].filter(Boolean).join(' ')}
-                      aria-hidden="true"
-                    />
-                  ) : (
+                {Array.from({ length: slideCount }, (_, i) => (
                     <button
                       key={i}
                       type="button"
                       className={['exploreRecapDot', i === activeIdx ? 'isActive' : ''].filter(Boolean).join(' ')}
-                      aria-label={`Go to recap section ${i + 1}`}
+                      aria-label={recap.slides?.[i]?.label || `Go to recap section ${i + 1}`}
+                      aria-pressed={i === activeIdx}
                       onClick={() => scrollToSlide(i)}
                     />
                   ),
                 )}
               </div>
             </div>
-            {compactLayout ? (
-              <button
-                type="button"
-                className="exploreRecapNavBtn exploreRecapNavBtn--collapse"
-                aria-label="Collapse recap"
-                onClick={onRequestCollapse}
-              >
-                <ExploreRecapNavArrow direction="down" />
-              </button>
-            ) : slideCount > 1 ? (
+            {slideCount > 1 ? (
               <button
                 type="button"
                 className="exploreRecapNavBtn exploreRecapNavBtn--next"

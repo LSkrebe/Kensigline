@@ -654,7 +654,7 @@ export async function handleInvestorDossier(
   } = await import("../core/dossier-cache.js");
 
   const pgCached = await readInvestorDossierCache(slug, modeKey);
-  if (pgCached?.ok && pgCached.actor) {
+  if (pgCached?.ok && pgCached.actor && pgCached.dossierSchemaVersion === 10) {
     dossierMemoryCache.set(memKey, { at: Date.now(), payload: pgCached });
     sendJson(res, 200, pgCached);
     scheduleInvestorDossierRefresh(slug, modeKey, (s, m) =>

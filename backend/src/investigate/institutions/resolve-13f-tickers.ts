@@ -72,11 +72,14 @@ async function loadNameIndex(): Promise<Map<string, string>> {
   if (nameIndexCache && now - nameIndexCache.at < NAME_INDEX_TTL_MS) return nameIndexCache.byName;
 
   const byName = new Map<string, string>();
+  const ambiguous = new Set<string>();
   const setIfAbsent = (key: string, ticker: string) => {
     if (!key || key.length < 3) return;
     const t = ticker.trim().toUpperCase().replace(/[^A-Z0-9.-]/g, "");
     if (!t || t.length > 8) return;
-    if (!byName.has(key)) byName.set(key, t);
+    if (ambiguous.has(key)) return;
+    if (byName.has(key) && byName.get(key)!==t) { byName.delete(key); ambiguous.add(key); }
+    else byName.set(key, t);
   };
 
   try {
@@ -106,35 +109,13 @@ async function lookupCusipTickersBatch(cusips: string[]): Promise<Map<string, st
 
   await ensureCusipTickerMapTable();
   const exactRows = await db.query<{ cusip: string; ticker: string }>(
-    `SELECT cusip, ticker FROM cusip_ticker_map WHERE cusip = ANY($1::text[])`,
+    `SELECT cusip, ticker FROM cusip_ticker_map WHERE cusip = ANY($1::text[]) AND source = 'sec_class_verified'`,
     [uniq],
   );
   for (const row of exactRows) {
     result.set(row.cusip, String(row.ticker).toUpperCase());
   }
 
-  const missing = uniq.filter((c) => !result.has(c));
-  const prefixes = [...new Set(missing.filter((c) => c.length >= 6).map((c) => c.slice(0, 6)))];
-  if (prefixes.length) {
-    const prefixRows = await db.query<{ prefix: string; ticker: string }>(
-      `
-      SELECT DISTINCT ON (left(cusip, 6))
-        left(cusip, 6) AS prefix,
-        ticker
-      FROM cusip_ticker_map
-      WHERE left(cusip, 6) = ANY($1::text[])
-      ORDER BY left(cusip, 6), updated_at DESC
-      `,
-      [prefixes],
-    );
-    const byPrefix = new Map(prefixRows.map((r) => [r.prefix, String(r.ticker).toUpperCase()]));
-    for (const c of missing) {
-      if (c.length >= 6) {
-        const t = byPrefix.get(c.slice(0, 6));
-        if (t) result.set(c, t);
-      }
-    }
-  }
   return result;
 }
 
@@ -195,6 +176,7 @@ export function consolidateMappedHoldingsByTicker(holdings: Mapped13fHolding[]):
     byTicker.set(tick, {
       ...prev,
       ticker: tick,
+      instrument_type: prev.instrument_type === h.instrument_type && prev.cusip === h.cusip ? prev.instrument_type ?? "other" : "mixed",
       shares: shares > 0 ? shares : null,
       value_usd: value_usd > 0 ? value_usd : null,
       issuer_name: pickName,
@@ -256,7 +238,8 @@ export async function resolveHoldingsToTickers(
     }
   }
 
-  await learnCusipTickersBatch(learns);
+  // Name matching cannot establish a security-class identifier. Do not promote it
+  // into an authoritative CUSIP mapping.
   const consolidated = consolidateMappedHoldingsByTicker(mapped);
 
   return {

@@ -13,7 +13,6 @@ import { prefetchMacroCalendar } from './macroClient.js'
 import { DeepResearchLayout } from './DeepResearchLayout.jsx'
 import { DeepPage } from './DeepCompanyPage.jsx'
 import { ExplorePage } from './ExplorePage.jsx'
-import { ExploreCompaniesPage } from './ExploreCompaniesPage.jsx'
 import { ExploreInvestorsPage } from './ExploreInvestorsPage.jsx'
 import { ExploreWatchlistPage } from './ExploreWatchlistPage.jsx'
 import { ExploreEventPage } from './ExploreEventPage.jsx'
@@ -1261,6 +1260,9 @@ function caseSheetRowToCompanyCaseFeedRow(r, { ticker, company, showMoney, mode,
   return {
     ...base,
     layout: 'txnCompany',
+    id: r?.transactionId ?? base.id,
+    isDerivative: r?.isDerivative === true,
+    assetName: r?.assetName ?? null,
     ticker: tick,
     companyName,
     matchCompanies: [tick, companyName],
@@ -1408,9 +1410,9 @@ function buildActorCaseFeedRows(actorRow, filters, chartRange) {
         Number(txn.sheetRow?.shares) > 0 ||
         Boolean(String(txn.sheetRow?.amountRange ?? '').trim()),
       mode: txnMode,
-      documentUrl: txn.companyRow?.caseSheet?.documentUrl ?? txn.companyRow?.url ?? null,
+      documentUrl: txn.sheetRow?.documentUrl ?? txn.companyRow?.caseSheet?.documentUrl ?? txn.companyRow?.url ?? null,
       cik: txn.companyRow?.caseSheet?.cik ?? null,
-      filingId: txn.companyRow?.caseSheet?.filingId ?? null,
+      filingId: txn.sheetRow?.filingId ?? txn.companyRow?.caseSheet?.filingId ?? null,
     })
     if (row) trades.push(row)
   }
@@ -9921,6 +9923,7 @@ function KensiglineTerminal() {
 
   const [researchCompanyContextLoading, setResearchCompanyContextLoading] = useState(false)
   const [backendUp, setBackendUp] = useState(() => (isCaptureMode() ? false : null))
+  const [backendUnavailable, setBackendUnavailable] = useState(false)
   const [backendLastOkAt, setBackendLastOkAt] = useState(0)
   const [backendStats, setBackendStats] = useState(null)
   const [insiderFeedLive, setInsiderFeedLive] = useState(null)
@@ -10546,8 +10549,10 @@ function KensiglineTerminal() {
         const now = Date.now()
         setBackendLastOkAt(now)
         setBackendUp(true)
+        setBackendUnavailable(false)
       } else {
-        setBackendUp((prev) => (prev === null ? false : prev))
+        setBackendUnavailable(true)
+        setBackendUp((prev) => (prev === false ? null : prev))
       }
     }
     ping()
@@ -10558,13 +10563,13 @@ function KensiglineTerminal() {
     }
   }, [])
 
-  // Hysteresis: only drop to MOCK if backend hasn't responded in a while.
+  // Keep live data semantics during an outage; never substitute demonstration data.
   useEffect(() => {
     if (isCaptureMode()) return
     if (!backendLastOkAt) return
     const t = setInterval(() => {
       const staleMs = Date.now() - backendLastOkAt
-      if (staleMs > 45_000) setBackendUp(false)
+      if (staleMs > 45_000) setBackendUp(null)
     }, 1000)
     return () => clearInterval(t)
   }, [backendLastOkAt])
@@ -11915,7 +11920,7 @@ function KensiglineTerminal() {
       investorDossierMode ??
       null
 
-    void (async () => {
+    const refreshDossier = async () => {
       const qs = new URLSearchParams({ slug })
       if (modeHint) qs.set('mode', String(modeHint))
       const r = await fetchJsonSafe(`/api/dossier/investor?${qs}`, { timeoutMs: 12_000 })
@@ -11974,10 +11979,13 @@ function KensiglineTerminal() {
         setInsiderFeedLive((prev) => mergeFeedPages(prev ?? [], mapped, { append: true }))
       }
       if (alive && investorBoostGenRef.current === gen) setInvestorBoostDoneForSlug(slug)
-    })()
+    }
+    void refreshDossier()
+    const dailyRefresh=setInterval(()=>void refreshDossier(),60000)
 
     return () => {
       alive = false
+      clearInterval(dailyRefresh)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [backendUp, exploreSubview, terminalRoute.investorSlug])
@@ -12817,6 +12825,7 @@ function KensiglineTerminal() {
             .join(' ')}
           style={terminalBgStyle}
         >
+      {backendUnavailable && <div role="status" className="appConnectionStatus">Live connection unavailable. Displayed records may be cached. Retrying…</div>}
       <div className="terminalWorkspace">
         <main
           ref={terminalMainRef}
@@ -12853,17 +12862,6 @@ function KensiglineTerminal() {
                 onCloseClick={onExploreDossierCloseClick}
                 onCompanyClick={onExploreCompanyClick}
                 onInvestorClick={onExploreInvestorClick}
-              />
-            ) : exploreSubview === 'companies' ? (
-              <ExploreCompaniesPage
-                backendUp={backendUp}
-                macroActive={macroActive}
-                onMacroClick={onMacroClick}
-                settingsActive={settingsActive}
-                onSettingsClick={onSettingsClick}
-                onBrandClick={onExploreHomeClick}
-                onCloseClick={onExploreDossierCloseClick}
-                onCompanyRowClick={onExploreCompanyClick}
               />
             ) : exploreSubview === 'investors' ? (
               <ExploreInvestorsPage

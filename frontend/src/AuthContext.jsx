@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { clearAuthTokenCache, hasStoredAuthSession, setAuthTokenCache } from './api.js'
+import { fetchJsonSafe, clearAuthTokenCache, hasStoredAuthSession, setAuthTokenCache } from './api.js'
 import { completeAuthFromUrl } from './authCallback.js'
 import { peekReferralRef, recordAttributionSignup } from './referralRef.js'
 import { supabase } from './supabaseClient.js'
@@ -56,10 +56,7 @@ async function attemptSignIn(email, password, timeoutMs) {
 export function AuthProvider({ children }) {
   const configured = Boolean(supabase)
   const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(() => {
-    if (!supabase) return false
-    return !hasStoredAuthSession()
-  })
+  const [loading, setLoading] = useState(Boolean(supabase))
 
   useEffect(() => {
     if (!supabase) {
@@ -112,6 +109,13 @@ export function AuthProvider({ children }) {
       sub.subscription.unsubscribe()
     }
   }, [])
+
+  // Initialize default-on delivery after sign-in, preserving any existing opt-out.
+  useEffect(() => {
+    if (!session?.user?.id) return
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    void fetchJsonSafe(`/api/alerts/preferences?timezone=${encodeURIComponent(timezone)}`)
+  }, [session?.user?.id])
 
   const signInWithPassword = useCallback(async (email, password) => {
     if (!supabase) return { data: null, error: new Error('supabase_not_configured') }

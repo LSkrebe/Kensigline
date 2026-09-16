@@ -36,7 +36,7 @@ export function bindCorsOrigin(req: http.IncomingMessage, res: http.ServerRespon
 export function corsResponseHeaders(res: http.ServerResponse): Record<string, string> {
   const origin = (res as ResWithCors).__corsOrigin;
   const headers: Record<string, string> = {
-    "access-control-allow-methods": "GET,POST,PATCH,OPTIONS",
+    "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "access-control-allow-headers": "content-type,authorization",
   };
   if (origin) {

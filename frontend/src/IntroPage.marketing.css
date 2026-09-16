@@ -2213,3 +2213,42 @@
 .lpShotFrame--tight {
   margin-top: 28px;
 }
+
+/* Focused product excerpts keep the story readable without a full-screen tour. */
+.mktProductExcerpt { aspect-ratio: 1.8; overflow:hidden; position:relative; margin:0; }
+.mktProductExcerpt picture { display:block; width:100%; }
+.mktProductExcerpt .mktHeroShotImg { width:100%; height:auto; max-height:none; object-fit:cover; object-position:top; }
+.mktProductExcerpt::after { content:''; position:absolute; inset:auto 0 0; height:20%; background:linear-gradient(transparent,#080808); pointer-events:none; }
+.lpQuestionRows { margin-top:48px; }
+.lpQuestionRow { display:grid; grid-template-columns:48px 1fr 1fr; gap:28px; padding:32px 0; border-top:1px solid rgba(255,255,255,.12); }
+.lpQuestionRow h3 { margin:0; font:400 clamp(24px,3vw,34px)/1.2 Georgia,serif; }
+.lpQuestionRow p { margin:0; color:#999; font-size:16px; line-height:1.7; }
+.lpQuestionsNote { margin-top:32px; max-width:760px; font-size:14px; }
+@media(max-width:899px) {
+ .lpHowRows { display:flex; flex-direction:column; overflow:visible; gap:48px; scroll-snap-type:none; }
+ .lpHowRow,.lpHowRow--flip { flex:none; width:100%; min-width:0; grid-template-columns:1fr; }
+ .lpHowDots { display:none; }
+ .lpQuestionRow { grid-template-columns:28px 1fr; gap:16px; padding:28px 0; }
+ .lpQuestionRow p { grid-column:2; font-size:15px; }
+}
+.mktFocusPreview { margin:0; padding:clamp(20px,3vw,32px); color:#ddd; background:#0b0c0d; border:1px solid #252629; text-align:left; }
+.mktFocusPreview header,.mktFocusRow { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.mktFocusPreview header { padding-bottom:20px; border-bottom:1px solid #26272a; font:18px Georgia,serif; }
+.mktFocusTag,.mktFocusEyebrow,.mktFocusPreview footer { font:10px/1.5 monospace; color:#777; letter-spacing:.08em; }
+.mktFocusEyebrow { margin:24px 0 8px; text-transform:uppercase; }
+.mktFocusPreview h3 { margin:0 0 20px; font:400 clamp(22px,2.6vw,32px)/1.2 Georgia,serif; }
+.mktFocusRow { padding:20px 0; border-top:1px solid #252629; font:12px/1.6 monospace; }
+.mktFocusRow img { width:36px; height:42px; object-fit:cover; border-radius:3px; }
+.mktFocusRow>div:not(.mktFocusValue) { flex:1; }
+.mktFocusRow strong { font-weight:400; }
+.mktFocusRow small { display:block; color:#777; font-size:10px; }
+.mktFocusValue { text-align:right; color:#cf7167; }
+.mktFocusPreview footer { padding-top:18px; border-top:1px solid #252629; }
+@media(max-width:480px) { .mktFocusPreview { padding:18px; } .mktFocusTag { font-size:8px; } .mktFocusRow { gap:10px; font-size:11px; } .mktFocusRow small { font-size:9px; } }
+.lpHowFrame:has(.mktFocusPreview),.lpHeroShotFrame:has(.mktFocusPreview) { aspect-ratio:auto; height:auto; max-height:none; }
+@media(max-width:899px) {
+ .lpHowTitle,.lpHowBody { display:block; }
+ .lpHowTitle { margin:12px 0; }
+ .lpHowCopy { text-align:left; margin-bottom:24px; }
+ .lpHowBody { max-width:none; }
+}

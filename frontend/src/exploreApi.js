@@ -22,12 +22,12 @@ import { buildExploreRecapMockDay } from './exploreRecapMockDay.js'
 
 /** Client-side explore home cache — survives subview navigation within the session. */
 const EXPLORE_HOME_CACHE_TTL_MS = 5 * 60_000
-const EXPLORE_HOME_SESSION_KEY = 'mercerline:explore:home:v4'
+const EXPLORE_HOME_SESSION_KEY = 'mercerline:explore:home:v8'
 const EXPLORE_HOME_SESSION_TTL_MS = 10 * 60_000
 /** Paint stale session instantly while revalidating (matches backend stale window). */
 const EXPLORE_HOME_SESSION_STALE_MS = 30 * 60_000
 /** Longer-lived local paint for true cold opens (same device). */
-const EXPLORE_HOME_LOCAL_KEY = 'mercerline:explore:home:local:v1'
+const EXPLORE_HOME_LOCAL_KEY = 'mercerline:explore:home:local:v5'
 const EXPLORE_HOME_LOCAL_TTL_MS = 24 * 60 * 60_000
 
 function readExploreHomeSession() {
@@ -50,7 +50,7 @@ function writeExploreHomeSession(recap, directory) {
   try {
     window.sessionStorage.setItem(
       EXPLORE_HOME_SESSION_KEY,
-      JSON.stringify({ at: Date.now(), recap, directory }),
+      JSON.stringify({ at: Date.now(), recap, directory, day: cachedRecapDay }),
     )
   } catch {
     /* quota */
@@ -58,7 +58,7 @@ function writeExploreHomeSession(recap, directory) {
   try {
     window.localStorage?.setItem(
       EXPLORE_HOME_LOCAL_KEY,
-      JSON.stringify({ at: Date.now(), recap, directory }),
+      JSON.stringify({ at: Date.now(), recap, directory, day: cachedRecapDay }),
     )
   } catch {
     /* quota */
@@ -91,6 +91,7 @@ function hydrateMemoryCacheFromSession(backendUp) {
   recapResultCacheEntry = { at: session.at, backendUp: backendUp === true ? true : backendUp, recap: session.recap }
   directoryCacheEntry = { at: session.at, backendUp: backendUp === true ? true : backendUp, bundle: session.directory }
   if (Array.isArray(session.recap?.slides) && session.recap.slides.length) {
+    cachedRecapDay = session.day ?? null
     cachedRecapSlides = session.recap.slides
   }
   markExploreHomeReady()
@@ -100,10 +101,6 @@ function hydrateMemoryCacheFromSession(backendUp) {
 /** Restore explore home from sessionStorage before health probe finishes. */
 export function hydrateExploreHomeFromSession(backendUp = null) {
   return hydrateMemoryCacheFromSession(backendUp)
-}
-
-if (typeof window !== 'undefined') {
-  hydrateMemoryCacheFromSession(null)
 }
 
 function snapshotFromSession(backendUp) {
@@ -611,6 +608,11 @@ export function prefetchExploreHome(backendUp) {
 let cachedRecapDay = null
 let cachedRecapSlides = null
 
+// Hydrate only after every cache binding (including ready state) is initialized.
+if (typeof window !== 'undefined') {
+  hydrateMemoryCacheFromSession(null)
+}
+
 export function setExploreRecapCache(day, recap) {
   cachedRecapDay = day ?? null
   cachedRecapSlides = recap?.slides ?? null
@@ -649,10 +651,21 @@ export async function loadExploreEventBriefContext(backendUp) {
 
   let { day, slides } = getExploreRecapCache()
   if (!slides?.length) slides = cachedSlides
-  if (!day || !slides?.length) {
-    await loadExploreDailyRecap(backendUp)
+  const complete = (d, ss) => {
+    if (!d || !ss?.length) return false
+    const ids = new Set((d.filings ?? []).map(f => String(f.id)))
+    return ss.every(slide => (slide.memberIds ?? []).every(id => ids.has(String(id))))
+  }
+  if (!complete(day, slides)) {
+    // Fetch slides and their member records together. A cached headline alone
+    // cannot satisfy an event-detail request.
+    await fetchExploreHome(backendUp)
     ;({ day, slides } = getExploreRecapCache())
-    if (!slides?.length) slides = recapSlidesFromMemory(backendUp)
+    if (!complete(day, slides)) {
+      await loadExploreDailyRecap(backendUp, { force: true })
+      ;({ day, slides } = getExploreRecapCache())
+    }
+    if (!slides?.length) slides = cachedSlides
   }
 
   return {

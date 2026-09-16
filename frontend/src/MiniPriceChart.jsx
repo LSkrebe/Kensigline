@@ -286,7 +286,7 @@ export function MiniPriceChart({
   const priceRange = chartRangeProp ?? internalRange
   const setPriceRange = onChartRangeChange ?? setInternalRange
   const compactChart = useCompactChartLayout()
-  const hoverEnabled = showHoverTooltip && !compactChart
+  const hoverEnabled = showHoverTooltip
 
   const rangeOptions = useMemo(
     () => availablePriceRanges(series, seriesDays),
@@ -313,9 +313,13 @@ export function MiniPriceChart({
       setSize((prev) => (prev?.w !== w || prev?.h !== h ? { w, h } : prev))
     }
     measure()
-    const ro = new ResizeObserver(() => requestAnimationFrame(measure))
+    let frame = 0
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(measure)
+    })
     ro.observe(wrap)
-    return () => ro.disconnect()
+    return () => { ro.disconnect(); cancelAnimationFrame(frame) }
   }, [layoutSize?.w, layoutSize?.h])
 
   const w = size?.w ?? 0

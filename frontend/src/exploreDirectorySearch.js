@@ -38,6 +38,8 @@ export function filterExploreDirectoryListRows(rows, query, kind) {
     (row) =>
       includesToken(row.name, token) ||
       includesToken(row.modeCode, token) ||
+      includesToken(row.companyName, token) ||
+      includesToken(row.event, token) ||
       includesToken(row.ticker, token) ||
       (Array.isArray(row.tickers) && row.tickers.some((t) => includesToken(t, token))),
   )

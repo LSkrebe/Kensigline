@@ -29,7 +29,6 @@ const ACCESS_TTL_MS = Math.max(
 );
 
 const accessCache = new Map<string, AccessCacheEntry>();
-const webhookSeen = new Set<string>();
 
 function cacheKey(userId: string) {
   return String(userId ?? "").trim();
@@ -57,17 +56,6 @@ export function invalidateBillingAccessCache(userId: string) {
   const key = cacheKey(userId);
   if (!key) return;
   accessCache.delete(key);
-}
-
-export function markWebhookDeliverySeen(deliveryId: string): boolean {
-  const id = String(deliveryId ?? "").trim();
-  if (!id) return true;
-  if (webhookSeen.has(id)) return false;
-  webhookSeen.add(id);
-  if (webhookSeen.size > 5000) {
-    webhookSeen.clear();
-  }
-  return true;
 }
 
 const BILLING_SELECT = `
@@ -128,6 +116,9 @@ export async function syncFromWhopMembership(
     return;
   }
 
+  if (!planFromWhopPlanId(membership.plan?.id)) {
+    throw new Error('unrecognized_membership_plan');
+  }
   const meta = membership.metadata ?? null;
   let userId =
     userIdHint ||
@@ -144,11 +135,12 @@ export async function syncFromWhopMembership(
       userId = await ensureSupabaseUserForEmail(email);
     } catch (err) {
       console.warn("[billing] sync membership: provision user failed", err);
+      throw err;
     }
   }
   if (!userId) {
     console.warn("[billing] sync membership: missing supabase user id", membershipId);
-    return;
+    throw new Error('billing_user_unresolved');
   }
 
   const planId = membership.plan?.id ?? null;

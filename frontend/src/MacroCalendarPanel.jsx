@@ -9,7 +9,6 @@ import {
   buildMacroMonthGrid,
   currentMonthKey,
   formatMacroMonthTitle,
-  getMacroMonthDays,
   MACRO_IMPACT_FILTER_DEFAULT,
   MACRO_IMPACT_FILTER_TYPES,
   MACRO_WEEKDAY_LABELS,
@@ -356,33 +355,34 @@ function MacroMonthDayCell({ cell, holiday = null }) {
 }
 
 function MacroMonthGrid({ cells, holidaysByDate = null }) {
-  return (
-    <div className="macroCalMonth" role="grid" aria-label="Macro calendar month">
-      <div className="macroCalMonthWeekdays" aria-hidden="true">
-        {MACRO_WEEKDAY_LABELS.map((label) => (
-          <span key={label} className="macroCalMonthWeekday mono dim">
-            {label}
-          </span>
-        ))}
-      </div>
-      <div className="macroCalMonthGrid">
-        {cells.map((cell) => (
-          <MacroMonthDayCell
-            key={cell.date}
-            cell={cell}
-            holiday={cell.kind === 'in-month' ? holidaysByDate?.get?.(cell.date) ?? null : null}
-          />
-        ))}
-      </div>
-    </div>
-  )
+  const days = cells.filter(cell => cell.kind === 'in-month' && (cell.events.length || holidaysByDate?.has(cell.date)))
+  return <div className="mcalAgenda" aria-label="Macro calendar month">
+    {days.map(cell => {
+      const holiday = holidaysByDate?.get(cell.date)
+      const date = new Date(`${cell.date}T12:00:00`)
+      return <section className="mcalAgendaDay" key={cell.date}>
+        <header className="mcalAgendaDate"><span className="mono">{date.toLocaleDateString('en-US',{weekday:'short'})}</span><h2>{cell.dayNum}</h2>{cell.isToday ? <span className="mono">Today</span> : null}</header>
+        <ul className="mcalAgendaEvents">
+          {holiday ? <li className="mcalAgendaEvent"><span className="mcalAgendaTime mono">Market</span><span className="mcalAgendaTitle">{holiday.name}</span><span className="mcalAgendaRegion mono">US</span><span className="mcalAgendaImpact mono">{holidayStatusLabel(holiday.status)}</span></li> : null}
+          {cell.events.slice().sort((a,b)=>a.time.localeCompare(b.time)).map(event => <li className="mcalAgendaEvent" key={event.id}>
+            <time className="mcalAgendaTime mono" title="Eastern Time">{event.time} ET</time>
+            <span className="mcalAgendaTitle">{event.title}</span>
+            <span className="mcalAgendaRegion mono">{event.region}</span>
+            <span className={`mcalAgendaImpact mcalAgendaImpact--${event.impact} mono`}>{event.impact}</span>
+          </li>)}
+        </ul>
+      </section>
+    })}
+  </div>
 }
 
 export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandClick = null }) {
   const [viewMonth, setViewMonth] = useState(() => currentMonthKey())
   const [liveMacro, setLiveMacro] = useState(null)
   const [liveHolidays, setLiveHolidays] = useState([])
-  const [fetching, setFetching] = useState(false)
+  const [fetching, setFetching] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
+  const [retry, setRetry] = useState(0)
   const [filterOpen, setFilterOpen] = useState(false)
   const [filterSnapshot, setFilterSnapshot] = useState(null)
   const [regionFilters, setRegionFilters] = useState(() =>
@@ -415,13 +415,6 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
   }, [showMarketHolidays])
 
   useEffect(() => {
-    if (!backendUp) {
-      setLiveMacro(null)
-      setLiveHolidays([])
-      setFetching(false)
-      return undefined
-    }
-
     const fetchOpts = { month: viewMonth }
     const cached = peekMacroCalendarCache(fetchOpts)
     if (cached && Array.isArray(cached.macro)) {
@@ -429,7 +422,9 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
       setLiveHolidays(Array.isArray(cached.market_holidays) ? cached.market_holidays : [])
     }
 
+    if (!cached) { setLiveMacro(null); setLiveHolidays([]) }
     let alive = true
+    setFetchError(false)
     setFetching(true)
     void fetchMacroCalendar(fetchOpts).then((data) => {
       if (!alive) return
@@ -437,11 +432,11 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
       if (Array.isArray(data?.macro)) setLiveMacro(data.macro)
       else setLiveMacro(cached?.macro ?? [])
       setLiveHolidays(Array.isArray(data?.market_holidays) ? data.market_holidays : cached?.market_holidays ?? [])
-    })
+    }).catch(() => { if (alive) { setFetching(false); setFetchError(true) } })
     return () => {
       alive = false
     }
-  }, [backendUp, viewMonth])
+  }, [viewMonth, retry])
 
   useEffect(() => {
     if (backendUp) prefetchMacroCalendar({ month: viewMonth })
@@ -449,8 +444,7 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
 
   const macroSource = useMemo(() => {
     if (!monthParsed) return []
-    if (backendUp) return Array.isArray(liveMacro) ? liveMacro : []
-    return getMacroMonthDays(monthParsed.year, monthParsed.month)
+    return Array.isArray(liveMacro) ? liveMacro : []
   }, [backendUp, liveMacro, monthParsed])
 
   const filteredDays = useMemo(
@@ -532,7 +526,7 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
     setFilterOpen(false)
   }, [filterSnapshot])
 
-  const loading = backendUp && fetching && liveMacro == null
+  const loading = fetching && liveMacro == null
 
   return (
     <div
@@ -558,10 +552,13 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
             .join(' ')}
         >
           <div className="mcalMain" aria-hidden={filterOpen || undefined}>
+            <header className="mcalPageHeading"><p className="mcalFilterKicker">Economic releases</p><h1>Macro calendar</h1></header>
             {loading ? (
               <p className="mcalEmpty">Loading macro calendar…</p>
+            ) : fetchError ? (
+              <div className="mcalEmpty" role="status"><span>Calendar unavailable. Try again.</span><button className="mcalRetry" onClick={() => setRetry(n => n + 1)}>Retry</button></div>
             ) : !showGrid ? (
-              <p className="mcalEmpty">No macro releases this month.</p>
+              <p className="mcalEmpty">{macroSource.some(day => day.events?.length) ? 'No releases match your filters.' : 'No scheduled releases available for this month.'}</p>
             ) : null}
             {monthParsed && !loading && showGrid ? (
               <MacroMonthGrid cells={gridCells} holidaysByDate={holidaysByDate} />

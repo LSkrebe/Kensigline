@@ -35,13 +35,11 @@ Mercerline is built for a narrow monopoly: same-day US equity disclosure intelli
 - Investor dossiers: insiders, politicians, institutions
 - Company context: price, fundamentals, filings on demand
 - Macro calendar: US, EU, UK, China
-- $99/mo, $999/yr
+- $49/mo, $499/yr
 
 ## How it works
-1. See what filed overnight — Form 4, PTR, and 13F land in one feed as disclosures clear. Open Mercerline before the market and you already know who moved.
-2. One filing, full context — Each recap card opens into a brief with the filing, price reaction, and everyone involved — before you commit to a dossier.
-3. Trade history on one page — Click through to the filer for every trade, related tickers, and outcomes. No digging through EDGAR or waiting for a tweet thread.
-4. Price, filings, and fundamentals — Jump into the issuer when a filing clears the bar — chart, financials, and disclosure history on one page.
+1. Know what deserves a closer look. — Browse insider, politician, and institutional disclosures together. Follow the names you care about and open the events behind the activity.
+2. A trade is only the beginning. — Put a disclosure beside the investor’s history. See percentage performance over time, revisit earlier activity, and follow the underlying companies.
 
 ## Coverage
 Form 4, House PTR, Senate PTR, Executive PTR, 13F, SEC EDGAR, earnings transcripts, press, 8-K, macro US/EU/UK/CN. 500+ US issuers tracked.
@@ -72,7 +70,7 @@ One global filing headline per day at https://mercerline.com/research — full d
 - Q: What do I get on day one?
   A: Full access to Explore, investor and company dossiers, and the macro calendar.
 - Q: Can I cancel?
-  A: Yes. $99/mo or $999/yr with Whop. Manage billing anytime in Settings.
+  A: Yes. $49/mo or $499/yr with Whop. Manage billing anytime in Settings.
 - Q: Already a member?
   A: Choose Sign in in the menu. Google opens instantly. Use the same email as your Whop checkout.
 - Q: Is this investment advice?

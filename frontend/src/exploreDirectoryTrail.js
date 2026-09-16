@@ -43,3 +43,14 @@ export function exploreMoveLabelTone(moveLabel, moveUp = true) {
   if (usd === 0) return 'isFlat'
   return moveUp ? 'isUp' : 'isDown'
 }
+
+/** Expand compact dollar labels while retaining disclosed ranges and signs. */
+export function expandExploreAmountLabel(trail) {
+  const label = formatExploreDirectoryTrailLabel(trail)
+  const match = label.match(/^([+−-]?)\$([\d,.]+)([KMB])?(?:[-–]([\d,.]+)([KMB])?)?$/i)
+  if (!match) return label
+  const [, sign, low, lowUnit, high, highUnit] = match
+  const expand = (value, unit) => (Number(value.replaceAll(',', '')) * ({K:1e3,M:1e6,B:1e9}[unit?.toUpperCase()] ?? 1)).toLocaleString('en-US', {maximumFractionDigits:2})
+  const commonUnit = highUnit || lowUnit
+  return `${sign}$${expand(low, lowUnit || commonUnit)}${high ? `–${expand(high, highUnit || commonUnit)}` : ''}`
+}

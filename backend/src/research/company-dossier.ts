@@ -52,6 +52,35 @@ export async function buildCompanyDossierPayload(ticker: string): Promise<Record
   };
 }
 
+const responseCache = new Map<string, {at: number; payload: Record<string, unknown>}>();
+const pendingResponses = new Map<string, Promise<Record<string, unknown>>>();
+
+async function companyResponse(t: string): Promise<Record<string, unknown>> {
+  const hit = responseCache.get(t);
+  if (hit && Date.now() - hit.at < 30_000) return hit.payload;
+  const pending = pendingResponses.get(t);
+  if (pending) return pending;
+  const request = (async () => {
+    const cached = await readCompanyDossierCache(t);
+    if (cached?.ok && cached.explore && cached.company) {
+      scheduleCompanyDossierRefresh(t, buildCompanyDossierPayload);
+      return cached;
+    }
+    const payload = await buildCompanyDossierPayload(t);
+    void writeCompanyDossierCache(t, payload).catch(() => {});
+    return payload;
+  })();
+  pendingResponses.set(t, request);
+  try {
+    const payload = await request;
+    if (payload.ok && (payload.explore as {ok?: boolean})?.ok !== false) {
+      if (responseCache.size >= 100) responseCache.delete(responseCache.keys().next().value!);
+      responseCache.set(t, {at: Date.now(), payload});
+    }
+    return payload;
+  } finally { pendingResponses.delete(t); }
+}
+
 /**
  * Company open: prefer materialized cache, rebuild in background when missing/stale-path.
  */
@@ -64,15 +93,5 @@ export async function handleCompanyDossier(res: http.ServerResponse, ticker: str
     return;
   }
 
-  const cached = await readCompanyDossierCache(t);
-  if (cached?.ok && cached.explore && cached.company) {
-    sendJson(res, 200, cached);
-    // Soft refresh in background so ingest catches up without blocking open.
-    scheduleCompanyDossierRefresh(t, buildCompanyDossierPayload);
-    return;
-  }
-
-  const payload = await buildCompanyDossierPayload(t);
-  void writeCompanyDossierCache(t, payload).catch(() => {});
-  sendJson(res, 200, payload);
+  sendJson(res, 200, await companyResponse(t));
 }

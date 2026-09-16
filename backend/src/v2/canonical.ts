@@ -32,6 +32,7 @@ export async function ensureIssuer(opts: {
   ticker?: string | null;
   name?: string | null;
   cik?: string | null;
+  preserveName?: boolean;
 }): Promise<{ id: string; ticker: string | null; name: string }> {
   const ticker = normalizeTicker(opts.ticker);
   const name = String(opts.name ?? ticker ?? "Unknown").trim() || "Unknown";
@@ -43,12 +44,12 @@ export async function ensureIssuer(opts: {
       INSERT INTO issuers (ticker, name, cik, updated_at)
       VALUES ($1, $2, $3, now())
       ON CONFLICT (ticker) DO UPDATE SET
-        name = COALESCE(NULLIF(EXCLUDED.name, ''), issuers.name),
+        name = CASE WHEN $4::boolean AND issuers.name<>issuers.ticker THEN issuers.name ELSE COALESCE(NULLIF(EXCLUDED.name, ''), issuers.name) END,
         cik = COALESCE(EXCLUDED.cik, issuers.cik),
         updated_at = now()
       RETURNING id, ticker, name
       `,
-      [ticker, name, cik],
+      [ticker, name, cik, opts.preserveName===true],
     );
     if (row) {
       // Keep legacy companies row in sync for cutover reads.
@@ -336,6 +337,7 @@ export async function upsertFeedEntry(opts: {
 }
 
 export type InsiderTxnRow = {
+  performanceMeta?: Record<string, unknown> | null;
   filerId: string;
   role?: string | null;
   transactionCode?: string | null;
@@ -365,14 +367,14 @@ export async function replaceInsiderTransactions(
     `
     INSERT INTO insider_transactions (
       filing_id, issuer_id, filer_id, role, transaction_code, acquired_disposed,
-      amount_usd, shares, is_derivative, transaction_at
+      amount_usd, shares, is_derivative, transaction_at, performance_meta
     )
-    SELECT $1, $2, filer_id, role, code, ad, amount_usd, shares, is_derivative, at::timestamptz
+    SELECT $1, $2, filer_id, role, code, ad, amount_usd, shares, is_derivative, at::timestamptz, meta::jsonb
     FROM unnest(
-      $3::uuid[], $4::text[], $5::text[], $6::text[], $7::float8[], $8::float8[], $9::boolean[], $10::text[]
-    ) AS t(filer_id, role, code, ad, amount_usd, shares, is_derivative, at)
+      $3::uuid[], $4::text[], $5::text[], $6::text[], $7::float8[], $8::float8[], $9::boolean[], $10::text[], $11::text[]
+    ) AS t(filer_id, role, code, ad, amount_usd, shares, is_derivative, at, meta)
     `,
-    [filingId, issuerId, filerIds, roles, codes, ads, amounts, shares, deriv, ats],
+    [filingId, issuerId, filerIds, roles, codes, ads, amounts, shares, deriv, ats, rows.map(r=>r.performanceMeta ? JSON.stringify(r.performanceMeta) : null)],
   );
 }
 
@@ -443,13 +445,13 @@ export async function replaceInstitutionTransactions(
   await db.query(
     `
     INSERT INTO institution_transactions (
-      filing_id, issuer_id, filer_id, activity, amount_usd, shares, transaction_at
+      filing_id, issuer_id, filer_id, activity, amount_usd, shares, transaction_at, instrument_type, data_quality_version
     )
-    SELECT $1, $2, filer_id, activity, amount_usd, shares, at::timestamptz
-    FROM unnest($3::uuid[], $4::text[], $5::float8[], $6::float8[], $7::text[])
-      AS t(filer_id, activity, amount_usd, shares, at)
+    SELECT $1, $2, filer_id, activity, amount_usd, shares, at::timestamptz, instrument_type, data_quality_version
+    FROM unnest($3::uuid[], $4::text[], $5::float8[], $6::float8[], $7::text[], $8::text[], $9::int[])
+      AS t(filer_id, activity, amount_usd, shares, at, instrument_type, data_quality_version)
     `,
-    [filingId, issuerId, filerIds, activities, amounts, shares, ats],
+    [filingId, issuerId, filerIds, activities, amounts, shares, ats, normalized.map(r=>r.instrumentType ?? null), normalized.map(r=>r.dataQualityVersion ?? 0)],
   );
   await assertSingleInstitutionTxnPerFiling(filingId);
 }

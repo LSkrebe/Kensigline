@@ -1,3 +1,4 @@
+import {resolveStockNames} from './resolve-stock.js';
 import { db } from "../../core/db.js";
 import {
   fetchSenatePtrHtml,
@@ -54,6 +55,7 @@ type PoliticianFiling = {
   filing_id: string | null;
   filed_at: string | null;
   source: PoliticianPtrSource;
+  is_amendment?: boolean;
   pdf_url: string | null;
   transactions: PoliticianTxn[];
   context_sentences: string[];
@@ -102,14 +104,7 @@ function filterReportableStockTransactions(txAll: PoliticianTxn[]) {
     const type = String(t?.transaction_type ?? "").trim().toUpperCase();
     if (!PTR_REPORTABLE_TYPES.has(type)) return false;
     const at = String(t?.asset_type ?? "").trim().toUpperCase();
-    return (
-      !at ||
-      at.includes("ST") ||
-      at.includes("OP") ||
-      /\bCOMMON STOCK\b/i.test(String(t?.asset_name ?? "")) ||
-      /\bCALL OPTION\b/i.test(String(t?.asset_name ?? "")) ||
-      /\bPUT OPTION\b/i.test(String(t?.asset_name ?? ""))
-    );
+    return at === "ST" || at === "OP";
   });
 }
 
@@ -145,6 +140,7 @@ async function loadHouseFiling(url: string): Promise<{ filing: PoliticianFiling;
         filing_id: parsed.filing_id ?? filingId,
         filed_at: parsed.filed_at,
         source: "house_ptr",
+        is_amendment: Boolean(parsed.is_amendment),
         pdf_url: url,
         transactions: parsed.transactions,
         context_sentences: parsed.context_sentences,
@@ -169,6 +165,7 @@ async function loadOge278tFiling(url: string): Promise<{ filing: PoliticianFilin
   const { text: pdfText } = await extractPdfTextWithFallback(pdf);
 
   const parsed = parseOge278tPdfText(pdfText, url);
+  parsed.transactions=resolveStockNames(parsed.transactions,await getSecTickerTitleMap());
   if (parsed.confident_rows >= MIN_OGE_278T_CONFIDENT_ROWS || parsed.transactions.length) {
     return {
       contentSha256,
@@ -200,11 +197,12 @@ function promptVersionForSource(source: PoliticianPtrSource): string {
   return "house_ptr_v1";
 }
 
-async function persistPoliticianFiling(opts: {
+export async function persistPoliticianFiling(opts: {
   queueId: string;
   url: string;
   chamber: Chamber;
   source: PoliticianPtrSource;
+  is_amendment?: boolean;
   promptVersion: string;
   model: string | null;
   contentSha256: string;
@@ -215,6 +213,7 @@ async function persistPoliticianFiling(opts: {
     console.info("[retention] skip politician filing outside 2y window", filing.filed_at);
     return [];
   }
+  if (chamber === "house" && !filing.filed_at) throw new Error("house_ptr_missing_signature_date");
   const txP = filterReportableStockTransactions(filing.transactions);
   if (!txP.length) return [];
 
@@ -261,7 +260,7 @@ async function persistPoliticianFiling(opts: {
         amount_usd_mid: amt.mid,
         amount_usd_low: amt.low,
         amount_usd_high: amt.high,
-        asset_name: t?.asset_name ?? null,
+        asset_name: t?.asset_name ? /\[(ST|OP)\]/.test(t.asset_name) ? t.asset_name : t.asset_name+(t.asset_type==='ST'?' [ST]':t.asset_type==='OP'?' [OP]':'') : null,
         ticker,
         description: t?.description ?? null,
       };
@@ -270,9 +269,9 @@ async function persistPoliticianFiling(opts: {
     const sumMid = worksheet_rows.reduce((a: number, r: any) => a + (Number(r?.amount_usd_mid ?? 0) || 0), 0);
     const feedLabel = sumMid > 0 ? `${Math.round(sumMid)} (${worksheet_rows.length})` : `(${worksheet_rows.length})`;
     const feedAt =
+      formatIso(filing.filed_at) ??
       formatIso(txs[0]?.notification_date) ??
       formatIso(txs[0]?.transaction_date) ??
-      formatIso(filing.filed_at) ??
       new Date().toISOString();
 
     const issuer = await ensureIssuer({
@@ -284,7 +283,7 @@ async function persistPoliticianFiling(opts: {
       queueId,
       sourceType: source,
       feedKind: "politicians",
-      form: "PTR",
+      form: filing.is_amendment ? "PTR/A" : "PTR",
       issuerId: issuer.id,
       url,
       pdfUrl: url,
@@ -296,7 +295,7 @@ async function persistPoliticianFiling(opts: {
           ? filing.context_sentences.map((s) => String(s)).filter(Boolean)[0] ?? feedLabel
           : feedLabel,
       ),
-      filedAt: formatIso(filing.filed_at) ?? feedAt,
+      filedAt: formatIso(filing.filed_at),
       eventAt: feedAt,
       contentSha256: docSha,
     });
@@ -357,7 +356,8 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
   const url = next.url;
   const source = String(next.source_type ?? "").trim() as PoliticianPtrSource;
   const chamber = chamberForSource(source);
-
+  // Long scanned reports must not be reclaimed while their OCR is still running.
+  const heartbeat=setInterval(()=>void db.query("UPDATE document_queue SET updated_at=now() WHERE id=$1 AND status='parsing'",[queueId]).catch(()=>{}),60000);
   try {
     const loaded =
       source === "senate_ptr"
@@ -470,5 +470,5 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
       llm_used: false,
     });
     return { processed: false, reason: "busy", queue_id: queueId };
-  }
+  } finally {clearInterval(heartbeat);}
 }

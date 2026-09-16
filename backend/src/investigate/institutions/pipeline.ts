@@ -52,6 +52,7 @@ type HoldingRow = {
   shares: number | null;
   as_of_date: string | null;
   unchanged: boolean;
+  instrument_type?: string;
 };
 
 function consolidateHoldingRows(rows: HoldingRow[]): HoldingRow {
@@ -63,6 +64,7 @@ function consolidateHoldingRows(rows: HoldingRow[]): HoldingRow {
     if ((r.issuer_name?.length ?? 0) > (issuer_name?.length ?? 0)) issuer_name = r.issuer_name;
   }
   return {
+    instrument_type: new Set(rows.map(r => r.instrument_type ?? "other")).size === 1 ? first.instrument_type ?? "other" : "mixed",
     ticker: first.ticker,
     cusip: first.cusip,
     activity: first.activity,
@@ -352,6 +354,7 @@ async function attachActivities(
     if (unchanged) unchanged_holdings += 1;
     rows.push({
       ticker: h.ticker,
+      instrument_type: h.instrument_type ?? "other",
       issuer_name: h.issuer_name,
       cusip: h.cusip,
       activity,
@@ -373,6 +376,7 @@ async function persistInstitutionHoldings(args: {
   filedAt: string | null;
   holdings: HoldingRow[];
   parseMeta: DocumentParseMeta;
+  isAmendment: boolean;
 }): Promise<string[]> {
   const byTicker = new Map<string, HoldingRow[]>();
   for (const h of args.holdings) {
@@ -390,7 +394,7 @@ async function persistInstitutionHoldings(args: {
 
   for (const [ticker, rows] of byTicker.entries()) {
     const contentSha256 = `${args.baseSha256}:${ticker}`;
-    const changedRows = rows.filter((r) => !r.unchanged);
+    const changedRows = rows; // Retain unchanged positions: each quarter is a snapshot.
     if (!changedRows.length) continue;
     const consolidated = consolidateHoldingRows(changedRows);
     const ts = consolidated.as_of_date ?? formatIso(args.filedAt);
@@ -413,13 +417,14 @@ async function persistInstitutionHoldings(args: {
     const issuer = await ensureIssuer({
       ticker,
       name: consolidated.issuer_name ?? ticker,
+      preserveName: true,
     });
 
     const filingId = await insertFiling({
       queueId: args.queueId,
       sourceType: "sec_13f",
       feedKind: "institutions",
-      form: "13F",
+      form: args.isAmendment ? "13F/A" : "13F",
       issuerId: issuer.id,
       url: args.primaryUrl,
       indexUrl: args.primaryUrl,
@@ -436,6 +441,8 @@ async function persistInstitutionHoldings(args: {
     const amt = worksheet_row.amount_usd != null ? Number(worksheet_row.amount_usd) : null;
     txnRows.push({
       filerId: institutionFiler.id,
+      instrumentType: consolidated.instrument_type ?? "other",
+      dataQualityVersion: 1,
       activity: worksheet_row.activity ? String(worksheet_row.activity) : null,
       amountUsd: Number.isFinite(amt as number) ? amt : null,
       shares: worksheet_row.shares != null ? Number(worksheet_row.shares) : null,
@@ -492,7 +499,8 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
     const parsedHoldings = parse13fHoldings(bundle);
     const meta = parse13fMeta(bundle, primaryUrl);
     const filerName = await resolve13fFilerDisplayNameAsync(meta, primaryUrl);
-    const asOf = formatIso(meta.period_of_report) ?? formatIso(meta.filed_at);
+    const asOf = formatIso(meta.period_of_report);
+    if (!asOf || !meta.filed_at) throw new Error("13f_missing_verified_dates");
 
     if (isPlaceholderInvestorName(filerName)) {
       await markQueueDead(queueId, `skipped_placeholder_filer_name:${filerName}`);
@@ -622,7 +630,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "no_holdings" };
     }
 
-    const changedHoldings = holdings.filter((h) => !h.unchanged);
+    const changedHoldings = holdings;
     if (!changedHoldings.length) {
       await markQueueParsed(queueId, "unchanged_quarter");
       logParseOutcome({
@@ -666,6 +674,7 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
       filerName: resolvedFiler,
       accessionNo: meta.accession_no,
       filedAt: meta.filed_at ?? meta.period_of_report,
+      isAmendment: Boolean(meta.is_amendment),
       holdings,
       parseMeta,
     });

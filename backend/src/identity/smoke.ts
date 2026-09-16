@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {namedPortraits,leadershipLinks} from './portrait-parser.js';
+import {imageNameKey} from './name-key.js';
+import {publicIPv4,publicGet} from './public-fetch.js';
+assert.equal(imageNameKey('Carillo Brooke'),imageNameKey('Brooke E. Carillo'));
+assert.notEqual(imageNameKey('Brooke Carillo'),imageNameKey('Brooke Carrillo'));
+const html='<img src="/brooke.jpg" alt="Brooke E. Carillo"><img src="/other.jpg" alt="Brooke Smith"><img src="/logo.png" alt="Brooke Carillo">';
+assert.deepEqual(namedPortraits(html,'https://example.com/team','Carillo Brooke'),['https://example.com/brooke.jpg']);
+assert.deepEqual(namedPortraits(html,'https://example.com/team','Carillo'),[]);
+assert.deepEqual(leadershipLinks('<a href="https://evil.test/leadership">Team</a><a href="/leadership">Leadership</a>','https://example.com'),['https://example.com/leadership']);
+for(const ip of ['127.0.0.1','10.0.0.1','169.254.169.254','192.168.1.1','172.16.1.1','100.64.1.1','::1'])assert.equal(publicIPv4(ip),false);
+for(const url of ['http://example.com','https://127.0.0.1','https://user:pass@example.com','https://example.com:444'])await assert.rejects(publicGet(url));
+console.log('Image matching and source safety checks passed');

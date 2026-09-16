@@ -1,3 +1,5 @@
+import {ExplorePersonRow} from './ExplorePersonRow.jsx'
+import {useExplorePerformance,buildPerformanceSlides} from './ExplorePerformance.jsx'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useCollapseScroll } from './collapseScroll.js'
 import {
@@ -10,13 +12,9 @@ import {
 } from './exploreDirectoryMock.js'
 import { loadExploreHomeBundle, peekExploreHomeSnapshot } from './exploreApi.js'
 import { EMPTY_EXPLORE_RECAP, isDataModePending, isExploreNetworkMode, isLiveDataMode, isMockDataMode } from './dataMode.js'
-import { ExploreDirectoryCompanyRow, ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
+import { ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
 import { ExploreStoryCards } from './ExploreStoryCards.jsx'
-import {
-  EXPLORE_RECAP_HERO_MAX,
-  EXPLORE_RECAP_MAX_SLIDES,
-} from './exploreRecapCatalog.js'
 import { splitExploreRecapSlides } from './exploreRecapHero.js'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { buildExploreWatchlistPeople, extractExploreInvestorEvents, extractExploreWatchlistEvents } from './exploreWatchlistData.js'
@@ -24,7 +22,7 @@ import { ExploreWatchlistSection } from './ExploreWatchlistSection.jsx'
 import { useUserWatchlist } from './UserWatchlistContext.jsx'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { isCaptureMode } from './captureMode.js'
-import { navigateExploreCompanies, navigateExploreEventDetail, navigateExploreInvestors, navigateExploreWatchlist } from './terminalRoute.js'
+import { navigateExploreEventDetail, navigateExploreInvestors, navigateExploreWatchlist } from './terminalRoute.js'
 import './DeepReport.css'
 import './ExplorePage.css'
 
@@ -33,7 +31,6 @@ const COLLAPSE_RANGE_FALLBACK = 1
 const EXPLORE_EXPANDED_FADE_END = 0.92
 /** Keep compact strip dark until near the end so the hero photo doesn't morph mid-collapse. */
 const EXPLORE_COMPACT_FADE_START = 0.62
-const EXPLORE_HOME_STORY_PREVIEW = Math.max(0, EXPLORE_RECAP_MAX_SLIDES - EXPLORE_RECAP_HERO_MAX)
 
 function collapseProgressVars(progress) {
   const p = Math.min(1, Math.max(0, progress))
@@ -284,18 +281,9 @@ export function ExplorePage({
     [recap?.slides],
   )
 
-  const heroRecap = useMemo(
-    () => ({
-      ...recap,
-      slides: heroSlides,
-    }),
-    [recap, heroSlides],
-  )
-
-  const storyPreviewSlides = useMemo(
-    () => storySlides.slice(0, EXPLORE_HOME_STORY_PREVIEW),
-    [storySlides],
-  )
+  const performance = useExplorePerformance()
+  const heroRecap = useMemo(() => ({slides:buildPerformanceSlides(performance,[...investorEvents,...watchlistEvents])}),[performance,investorEvents,watchlistEvents])
+  const storyPreviewSlides = useMemo(() => [...heroSlides,...storySlides].slice(0,8),[heroSlides,storySlides])
 
   const storyDateLabel = useMemo(
     () => (displayMeta.displayDayKey ? formatExplorePublishDate(displayMeta.displayDayKey) : null),
@@ -315,7 +303,7 @@ export function ExplorePage({
         <div ref={dockRef} className="exploreRecapDock">
           <ExploreDailyRecap
             recap={heroRecap}
-            loading={homeLoading}
+            loading={false}
             backendUp={backendUp}
             macroActive={macroActive}
             onMacroClick={onMacroClick}
@@ -339,6 +327,7 @@ export function ExplorePage({
             />
           ) : null}
 
+
           <ExploreWatchlistSection
             key={`watchlist-${sectionKicker}-${normalizedQuery}`}
             kicker={sectionKicker}
@@ -354,23 +343,12 @@ export function ExplorePage({
             kicker={sectionKicker}
             onOpen={() => navigateExploreInvestors()}
             rows={investorRows}
-            RowComponent={ExploreDirectoryInvestorRow}
+            RowComponent={ExplorePersonRow}
             onRowClick={onInvestorRowClick}
             previewLimit={previewLimit}
             loading={homeLoading}
           />
 
-          <ExploreDirectorySection
-            key={`companies-${sectionKicker}-${normalizedQuery}`}
-            title="Companies"
-            kicker={sectionKicker}
-            onOpen={() => navigateExploreCompanies()}
-            rows={companyRows}
-            RowComponent={ExploreDirectoryCompanyRow}
-            onRowClick={onCompanyRowClick}
-            previewLimit={previewLimit}
-            loading={homeLoading}
-          />
         </div>
       </div>
     </div>

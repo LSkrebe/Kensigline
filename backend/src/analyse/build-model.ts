@@ -291,24 +291,11 @@ export async function buildAnalyseModel(args: BuildArgs): Promise<{
   let histPoints = histPointsForWindow(quarterWindow, byCalendar, args.sharesOutstanding);
 
   const filledHist = histPoints.filter((p) => (toMillions(p.revenueUsd) ?? 0) > 0);
-  if (filledHist.length < 2) {
-    partial = true;
-    histPoints = histPoints.map((p, i) => ({
-      ...p,
-      revenueUsd: p.revenueUsd ?? (800 + i * 50) * 1e6,
-      grossProfitUsd: p.grossProfitUsd ?? (800 + i * 50) * 1e6 * 0.52,
-      operatingExpensesUsd: p.operatingExpensesUsd ?? (800 + i * 50) * 1e6 * 0.25,
-      operatingIncomeUsd: p.operatingIncomeUsd ?? (800 + i * 50) * 1e6 * 0.27,
-      netIncomeUsd: p.netIncomeUsd ?? (800 + i * 50) * 1e6 * 0.21,
-      fcfUsd: p.fcfUsd ?? (800 + i * 50) * 1e6 * 0.12,
-    }));
-  }
+  if (filledHist.length < 2) throw new Error("verified_financial_history_unavailable");
 
   const actualRevM = histPoints.map((p) => toMillions(p.revenueUsd));
-  const hasSec = filledHist.length >= 2;
-  const baseRevM: (number | null)[] = hasSec
-    ? actualRevM
-    : histPoints.map((_, i) => 800 + i * 50);
+  const hasSec = true;
+  const baseRevM: (number | null)[] = actualRevM;
 
   const projection = buildBaseCaseQuarterlyProjection({
     historicalPoints: histPoints,

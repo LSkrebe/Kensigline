@@ -6,7 +6,7 @@ import { SPARKLINE_DISPLAY_H, SPARKLINE_DISPLAY_W } from "./digest-sparkline.js"
 /** Off-black palette — Gmail iOS inverts near #000/#fff; images are safer for bg. */
 const C = {
   bg: "#0d0d10",
-  bgCard: "#141418",
+  bgCard: "#0d0d10",
   text: "#ececec",
   textSoft: "#b8b8b8",
   textMuted: "#8a8a8a",
@@ -14,15 +14,11 @@ const C = {
   accent: "#a8c4ff",
   border: "#2a2a2e",
   borderSoft: "#1e1e22",
-  up: "#5cb88a",
-  down: "#d4726a",
+  up: "#50aa84",
+  down: "#d86259",
   btnBg: "#161618",
   btnBorder: "#333338",
 };
-
-/** Tiny dark PNG — embedded so Gmail mobile doesn't depend on remote bg fetch. */
-const BG_DATA =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAAECAIAAADd19YuAAAAKElEQVR42u3VMQ0AAAzDsJ4df8IDUktGkCdpDwBmRQIAjBAAjBAA9jyOwuph+QZaBQAAAABJRU5ErkJggg==";
 
 export type DigestEmailBundle = {
   html: string;
@@ -59,7 +55,7 @@ function moveColor(slide: DigestSlide): string {
 }
 
 function darkCell(bg: string, extra = ""): string {
-  return `background-color:${bg};${extra}`;
+  return `background-color:${bg};background-image:linear-gradient(${bg},${bg});${extra}`;
 }
 
 function renderHeaderRow(origin: string): string {
@@ -94,9 +90,9 @@ function renderHeroCard(slide: DigestSlide, index: number): string {
   return `
     <tr>
       <td bgcolor="${C.bg}" style="padding:${index === 0 ? "0" : "14px"} 0 0 0;${darkCell(C.bg)}">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bgCard}" style="border:1px solid ${C.border};${darkCell(C.bgCard)}">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bgCard}" style="border-bottom:1px solid ${C.border};${darkCell(C.bgCard)}">
           <tr>
-            <td bgcolor="${C.bgCard}" style="padding:20px 22px 16px 22px;${darkCell(C.bgCard)}">
+            <td bgcolor="${C.bgCard}" style="padding:24px 0 24px 0;${darkCell(C.bgCard)}">
               <p style="margin:0 0 10px 0;font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:${C.textMuted};">${escHtml(slide.kicker)}</p>
               <h2 style="margin:0 0 12px 0;font-family:Georgia,'Times New Roman',serif;font-size:22px;line-height:1.28;font-weight:400;color:${C.text};">
                 <a href="${url}" style="color:${C.text};text-decoration:none;">${escHtml(slide.headline)}</a>
@@ -192,7 +188,7 @@ export function buildDigestPlainText(content: DigestContent): string {
 }
 
 function darkModeStyles(bgImageUrl: string): string {
-  const bgStack = `url('${BG_DATA}'),url('${bgImageUrl}')`;
+  const bgStack = `linear-gradient(${C.bg},${C.bg})`;
   return `
     :root { color-scheme: light only; supported-color-schemes: light; }
     body, .ml-body, .ml-wrap, .ml-card, .ml-cell {
@@ -208,8 +204,9 @@ function darkModeStyles(bgImageUrl: string): string {
     .ml-accent { color: ${C.accent} !important; }
     .ml-up { color: ${C.up} !important; }
     .ml-down { color: ${C.down} !important; }
-    u + .body .gmail-blend-screen { background:${C.bg}; mix-blend-mode:screen; }
-    u + .body .gmail-blend-difference { background:${C.bg}; mix-blend-mode:difference; }
+    table { border-collapse:collapse; }
+    a { color:inherit; }
+    @media(max-width:480px) { .ml-cell { padding:12px 20px 28px !important; } h1 { font-size:25px !important; } }
   `;
 }
 
@@ -228,8 +225,8 @@ export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
     ? `
       <tr>
         <td bgcolor="${C.bg}" style="padding:36px 0 0 0;border-top:1px solid ${C.borderSoft};${darkCell(C.bg)}">
-          <p style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:18px;line-height:1.3;font-weight:400;color:${C.textSoft};">More headlines</p>
-          <p style="margin:0 0 16px 0;font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:${C.textFaint};">Also on the tape</p>
+          <p style="margin:0 0 6px 0;font-family:Georgia,'Times New Roman',serif;font-size:18px;line-height:1.3;font-weight:400;color:${C.textSoft};">More to watch</p>
+          <p style="margin:0 0 16px 0;font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:${C.textFaint};">Recent disclosures</p>
         </td>
       </tr>
       ${headlinesHtml}`
@@ -248,8 +245,7 @@ export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
 </head>
 <body class="ml-body body" bgcolor="${C.bg}" style="margin:0;padding:0;${darkCell(C.bg)}color:${C.text};">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">${preheader}</div>
-  <div class="gmail-blend-screen" style="display:block;${darkCell(C.bg)}">
-    <div class="gmail-blend-difference" style="display:block;${darkCell(C.bg)}">
+
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}" class="ml-wrap" background="${bgImageUrl}" style="${darkCell(C.bg)}">
         <tr>
           <td align="center" bgcolor="${C.bg}" class="ml-cell" background="${bgImageUrl}" style="padding:28px 16px 40px 16px;${darkCell(C.bg)}">
@@ -257,9 +253,9 @@ export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
               ${renderHeaderRow(origin)}
               <tr>
                 <td bgcolor="${C.bg}" style="padding:24px 0 18px 0;border-bottom:1px solid ${C.borderSoft};${darkCell(C.bg)}">
-                  <p class="ml-accent" style="margin:0 0 8px 0;font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${C.accent};">Market intelligence</p>
+                  <p class="ml-accent" style="margin:0 0 8px 0;font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${C.accent};">Your daily brief</p>
                   <h1 class="ml-text" style="margin:0 0 14px 0;font-family:Georgia,'Times New Roman',serif;font-size:28px;line-height:1.22;font-weight:400;color:${C.text};">${escHtml(dateLabel)}</h1>
-                  <p class="ml-text-soft" style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:${C.textSoft};">The stories that moved filings, flow, and price from today's Explore recap.</p>
+                  <p class="ml-text-soft" style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:1.55;color:${C.textSoft};">Who disclosed a trade, and what happened next.</p>
                   ${quietNote}
                 </td>
               </tr>
@@ -291,8 +287,6 @@ export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
           </td>
         </tr>
       </table>
-    </div>
-  </div>
 </body>
 </html>`;
 

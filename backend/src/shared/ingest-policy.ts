@@ -40,7 +40,11 @@ export function isOlderThanRetentionWindow(iso: string | Date | null | undefined
   if (iso == null) return false;
   const d = iso instanceof Date ? iso : new Date(String(iso));
   if (Number.isNaN(d.getTime())) return false;
-  return d.getTime() < effectiveBackfillMinDate().getTime();
+  // Discovery's short live gap-fill window is not a retention rule. Delayed disclosures
+  // and deliberately requeued historical filings still belong in the two-year archive.
+  const floor=new Date();floor.setUTCHours(0,0,0,0);
+  floor.setUTCDate(floor.getUTCDate()-envInt('DISCLOSURE_RETENTION_DAYS',730,365,3650));
+  return d.getTime() < floor.getTime();
 }
 
 /** Parse queue tiers (higher = parsed first). Live ingest always beats idle backfill. */

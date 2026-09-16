@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {bindCorsOrigin,corsResponseHeaders,resolveCorsOrigin} from './cors.js';
+process.env.FRONTEND_URL='https://mercerline.com';
+test('the real app can create and remove watchlist entries across origins',()=>{const res={} as any;bindCorsOrigin({headers:{origin:'https://mercerline.com'}} as any,res);const h=corsResponseHeaders(res);assert.equal(h['access-control-allow-origin'],'https://mercerline.com');for(const method of ['GET','PUT','DELETE'])assert.ok(h['access-control-allow-methods']?.split(',').includes(method));assert.equal(resolveCorsOrigin('https://notmercerline.com'),null)});

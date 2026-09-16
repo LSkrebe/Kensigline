@@ -12151,3 +12151,7 @@ body {
     height: 0;
   }
 }
+
+/* SVG aspect ratios must not contribute to the size being measured by the chart. */
+.researchMiniPriceWrap { position:relative; }
+.researchMiniPriceWrap > .graphSvg { position:absolute; inset:0; width:100%; height:100%; }

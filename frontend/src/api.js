@@ -1,5 +1,11 @@
 import { supabase } from './supabaseClient.js'
 
+// Only shared product reads: never retain preferences, billing or watchlist responses.
+const productReads = /^\/api\/(?:explore\/(?:home|directory|recap|performance)|dossier\/(?:investor|company)|bars|disclosure-prices)(?:\?|$)/
+const readCache = new Map()
+const pendingReads = new Map()
+const READ_TTL_MS = 15_000
+
 let cachedAuthToken = null
 let cachedAuthTokenAt = 0
 const AUTH_TOKEN_TTL_MS = 90_000
@@ -8,6 +14,8 @@ const AUTH_TOKEN_TTL_MS = 90_000
 export function clearAuthTokenCache() {
   cachedAuthToken = null
   cachedAuthTokenAt = 0
+  readCache.clear()
+  pendingReads.clear()
 }
 
 /** Prefer the live session token so billing checks never use another user’s JWT. */
@@ -98,11 +106,11 @@ export function getBackendBase() {
   /* Vite dev proxy forwards /api → API_BASE_URL from vite.config (see server.proxy). */
   if (import.meta.env.DEV && typeof window !== 'undefined') return ''
 
-  /* Deployed SPA hosts always talk to the public API — ignore localhost baked at build time. */
+  /* Deployed hosts use their same-origin Worker proxy for reads and writes. */
   if (typeof window !== 'undefined') {
     const host = window.location.hostname
-    if (/mercerline\.com$/i.test(host) || /\.workers\.dev$/i.test(host)) {
-      return 'https://api.mercerline.com'
+    if (/^(www\.)?mercerline\.com$/i.test(host) || /\.workers\.dev$/i.test(host)) {
+      return ''
     }
   }
 
@@ -128,6 +136,27 @@ export async function fetchJsonSafe(path, { timeoutMs = 4500, headers: extraHead
   const tok = await resolveAuthToken(timeoutMs)
   if (tok) headers.set('Authorization', `Bearer ${tok}`)
 
+  const key = method === 'GET' && body == null && productReads.test(path)
+    ? JSON.stringify([base, path, [...headers.entries()], timeoutMs]) : null
+  const hit = key && readCache.get(key)
+  if (hit && Date.now() - hit.at < READ_TTL_MS) return hit.result
+  if (key && pendingReads.has(key)) return pendingReads.get(key)
+  const request = performJsonRequest(base, path, {headers, method, body, timeoutMs})
+  if (!key) return request
+  pendingReads.set(key, request)
+  try {
+    const result = await request
+    if (result.ok && result.data?.ok !== false && pendingReads.get(key) === request) {
+      if (readCache.size >= 100) readCache.delete(readCache.keys().next().value)
+      readCache.set(key, {at: Date.now(), result})
+    }
+    return result
+  } finally {
+    if (pendingReads.get(key) === request) pendingReads.delete(key)
+  }
+}
+
+async function performJsonRequest(base, path, {headers, method, body, timeoutMs}) {
   const ctrl = new AbortController()
   const t = setTimeout(() => ctrl.abort(), timeoutMs)
   try {

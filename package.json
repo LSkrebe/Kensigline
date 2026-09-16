@@ -9,8 +9,9 @@
     "dev:api": "npm run dev --prefix backend",
     "dev:ui": "npm run dev --prefix frontend",
     "build": "npm run build --prefix backend && npm run build --prefix frontend",
-    "test": "npm test --prefix backend",
-    "start": "npm run build && concurrently -k -n api,ui -c cyan,magenta \"npm run start --prefix backend\" \"npm run preview --prefix frontend -- --host 127.0.0.1 --port 5173\""
+    "test": "npm test --prefix backend && npm run test:integrity",
+    "start": "npm run build && concurrently -k -n api,ui -c cyan,magenta \"npm run start --prefix backend\" \"npm run preview --prefix frontend -- --host 127.0.0.1 --port 5173\"",
+    "test:integrity": "node --import ./backend/node_modules/tsx/dist/loader.mjs --test backend/src/performance/cohort.test.ts backend/src/shared/ingest-retention.test.ts backend/src/performance/calculate.test.ts backend/src/performance/daily.test.ts backend/src/core/disclosure-bulk-prices.test.ts backend/src/core/senate-parse.test.ts backend/src/investigate/politicians/oge-278t-parse.test.ts backend/src/core/cors.test.ts backend/src/tracker/outcomes.test.ts backend/src/investigate/institutions/parse-13f.test.ts backend/src/billing/membership-owner.test.ts backend/src/billing/webhook-delivery.test.ts backend/src/core/statement-timeout.test.ts backend/src/core/filing-date.test.ts backend/src/core/ai-runtime.test.ts backend/src/investigate/politicians/house-ptr-parse.test.ts frontend/src/disclosureReturn.test.js frontend/src/routePath.test.js && node --experimental-vm-modules --test frontend/src/exploreApi.test.js"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

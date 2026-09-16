@@ -1,5 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { Pool } from "pg";
+import { readFileSync } from "node:fs";
+import { withStatementTimeout } from './statement-timeout.js';
 import { ingestMode, liveApiPoolMin, liveWorkerPoolMax, liveWorkerQueryConcurrency } from "../shared/ingest-mode.js";
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -25,12 +27,14 @@ function supabaseRejectUnauthorized(): boolean {
 }
 
 /** TLS for Supabase (and optional DATABASE_SSL=1). Local Postgres stays non-SSL unless forced. */
-function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | undefined {
+function sslOption(url: string): boolean | { rejectUnauthorized: boolean; ca?: string } | undefined {
+  const caFile=process.env.DATABASE_SSL_CA_FILE;
+  const ca=caFile?{ca:readFileSync(caFile,"utf8")}:{};
   if (process.env.DATABASE_SSL === "0" || process.env.DATABASE_SSL === "false") {
     return undefined;
   }
   if (process.env.DATABASE_SSL === "1" || process.env.DATABASE_SSL === "true") {
-    return { rejectUnauthorized: true };
+    return { rejectUnauthorized: true, ...ca };
   }
   try {
     const normalized = url.replace(/^postgres:/i, "postgresql:");
@@ -42,7 +46,7 @@ function sslOption(url: string): boolean | { rejectUnauthorized: boolean } | und
       host.endsWith(".supabase.com")
     ) {
       const rejectUnauthorized = supabaseRejectUnauthorized();
-      return { rejectUnauthorized };
+      return { rejectUnauthorized, ...ca };
     }
   } catch {
     // ignore malformed URL
@@ -331,14 +335,7 @@ async function withClientTimeout<T>(
   fn: (client: { query: Pool["query"] }) => Promise<T>,
 ): Promise<T> {
   return withWorkerQuerySlot(async () => {
-    const client = await activePool().connect();
-    try {
-      const ms = Math.max(500, Math.floor(timeoutMs));
-      await client.query(`SET LOCAL statement_timeout = ${ms}`);
-      return await fn(client);
-    } finally {
-      client.release();
-    }
+    return withStatementTimeout(activePool(), timeoutMs, fn);
   });
 }
 
@@ -347,17 +344,13 @@ async function withApiClientTimeout<T>(
   timeoutMs: number,
   fn: (client: { query: Pool["query"] }) => Promise<T>,
 ): Promise<T> {
-  const client = await apiPool.connect();
-  try {
-    const ms = Math.max(500, Math.floor(timeoutMs));
-    await client.query(`SET LOCAL statement_timeout = ${ms}`);
-    return await fn(client);
-  } finally {
-    client.release();
-  }
+  return withStatementTimeout(apiPool, timeoutMs, fn);
 }
 
 export const db = {
+  async transactionApi<T>(fn:(client:{query:Pool["query"]})=>Promise<T>):Promise<T> {
+    return withApiClientTimeout(DEFAULT_API_TIMEOUT_MS,fn);
+  },
   async query<T = any>(text: string, params: any[] = []): Promise<T[]> {
     if (WORKER_TIMEOUT_MS <= 0) {
       return withWorkerQuerySlot(async () => {

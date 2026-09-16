@@ -1,6 +1,6 @@
-import { WatchlistRemoveButton } from './WatchlistToggleButton.jsx'
 import { useUserWatchlist } from './UserWatchlistContext.jsx'
-import { ExploreWatchlistPersonRow } from './ExploreWatchlistRows.jsx'
+import { ExplorePersonRow, ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
+import portraits from './explorePortraits.json'
 
 function watchlistEventRow(personRow, event) {
   return {
@@ -15,6 +15,8 @@ function watchlistEventRow(personRow, event) {
     up: event.up,
     date: event.date,
     tickers: undefined,
+    events: [event],
+    performanceEventIds: [event.id],
   }
 }
 
@@ -24,25 +26,20 @@ export function ExploreWatchlistPagePersonRow({ row, onEventClick = null }) {
   const modeLabel = row.empty ? '—' : row.modeLabel
 
   return (
-    <>
-      <li className="exploreDirectoryRow exploreDirectoryRow--investor exploreDirectoryRow--watchlist exploreWatchlistPageNameRow">
-        <div className="exploreWatchlistPageNameLead">
-          <span className="exploreDirectoryNameLine">
-            <span className="exploreDirectoryName">{row.name}</span>
-            <WatchlistRemoveButton
-              label={`Remove ${row.name} from watchlist`}
-              onClick={() => removePerson(row.actorSlug, row.name)}
-            />
-          </span>
-        </div>
-        <span className="exploreDirectoryAmount mono exploreWatchlistPageNameGap" aria-hidden="true" />
-        <span className="exploreDirectoryDate mono exploreDirectoryMeta">{modeLabel}</span>
-      </li>
+    <li className="exploreWatchlistGroup">
+      <div className="exploreWatchlistGroupHeader">
+        <ImageOrInitials src={portraits[normalizeInvestorName(row.name)]?.src} name={row.name} className="explorePersonPortrait"/>
+        <span className="explorePersonCopy"><span className="exploreDirectoryName">{row.name}</span><span className="explorePersonMeta mono">{modeLabel}</span></span>
+        <button type="button" className="exploreInvestorSave" aria-label={`Remove ${row.name} from watchlist`} title={`Remove ${row.name} from watchlist`} onClick={() => removePerson(row.actorSlug, row.name)}>
+          <svg width="16" height="18" viewBox="0 0 20 22" fill="none" aria-hidden="true"><path d="M5 3h10v16l-5-3-5 3V3Z" stroke="currentColor" strokeWidth="1.25"/><path d="M7 10h6" stroke="currentColor" strokeWidth="1.25"/></svg>
+        </button>
+      </div>
+      <ul className="exploreWatchlistGroupTransactions">
       {events.map((event) => (
-        <ExploreWatchlistPersonRow
+        <ExplorePersonRow
           key={event.id}
           row={watchlistEventRow(row, event)}
-          hideName
+          companyOnly
           onClick={
             onEventClick
               ? () =>
@@ -70,6 +67,7 @@ export function ExploreWatchlistPagePersonRow({ row, onEventClick = null }) {
           <span className="exploreDirectoryDate mono">—</span>
         </li>
       ) : null}
-    </>
+      </ul>
+    </li>
   )
 }

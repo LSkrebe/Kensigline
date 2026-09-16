@@ -578,3 +578,16 @@
     padding: 20px var(--stg-pad-x) 36px;
   }
 }
+
+.stgPageHeading { margin: 12px 0 40px; }
+.stgPageHeading h1 { font-family:var(--stg-serif); font-size:42px; font-weight:400; margin:12px 0 0; }
+.stgRow { gap:32px; }
+.stgPanel { border:0; border-top:1px solid rgba(255,255,255,.14); background:transparent; }
+.stgPanelBody { padding:0; }
+.stgPanelFoot { padding:14px 0; }
+.stgField { min-height:58px; box-sizing:border-box; }
+.stgField--spacer { display:none; }
+.stgSectionTitle { font-size:28px; }
+.stgEmpty { padding:24px 0; background:transparent; border:0; }
+.stgSupportTextarea { background:transparent; }
+@media(max-width:900px) { .stgPageHeading h1 { font-size:34px; } }

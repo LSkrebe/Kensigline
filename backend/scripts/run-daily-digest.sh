@@ -22,6 +22,14 @@ if [[ -f .env ]]; then
   set +a
 fi
 
+# Use the same verified DB connection and deterministic runtime as the API.
+export DATABASE_SSL_REJECT_UNAUTHORIZED=1
+export DATABASE_SSL_CA_FILE="${APP_DIR}/backend/certs/supabase-root-2021.crt"
+export AI_RUNTIME_ENABLED=0
+# Prevent overlapping hourly invocations from delivering the same brief twice.
+exec 9>"${LOG_DIR}/digest.lock"
+flock -n 9 || exit 0
+
 echo "[digest-wrapper] start ${STAMP}" | tee -a "$LOG_FILE"
 node backend/dist/scripts/send-daily-digest.js "${EXTRA_ARGS[@]}" 2>&1 | tee -a "$LOG_FILE"
 echo "[digest-wrapper] done" | tee -a "$LOG_FILE"

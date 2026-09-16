@@ -1,0 +1,1 @@
+export function imageNameKey(name:string){return name.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/^(the honorable|honorable|hon\.?|mr\.?|mrs\.?|ms\.?|dr\.?)\s+/,'').match(/[a-z]+/g)?.filter(w=>w.length>1&&!['jr','sr'].includes(w)).sort().join(' ')??'';}

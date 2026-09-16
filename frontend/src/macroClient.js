@@ -49,14 +49,12 @@ export async function fetchMacroCalendar(opts = {}) {
   inflight = (async () => {
     const res = await fetchJsonSafe(path, { timeoutMs: 20_000 })
     if (!res.ok || !res.data?.ok) {
-      const empty = { ok: true, month: opts.month ?? currentMonthKey(), macro: [], market_holidays: [] }
-      cached = { at: Date.now(), key, data: empty }
-      return empty
+      throw new Error('Macro calendar unavailable')
     }
     cached = { at: Date.now(), key, data: res.data }
     return res.data
   })().finally(() => {
-    inflight = null
+    if (inflightKey === key) inflight = null
   })
 
   return inflight
@@ -64,5 +62,5 @@ export async function fetchMacroCalendar(opts = {}) {
 
 /** Warm the client cache as soon as the API is up. */
 export function prefetchMacroCalendar(opts = {}) {
-  void fetchMacroCalendar({ ...MACRO_CALENDAR_DEFAULTS, ...opts })
+  void fetchMacroCalendar({ ...MACRO_CALENDAR_DEFAULTS, ...opts }).catch(() => {})
 }

@@ -1047,6 +1047,13 @@ export async function fetch13fFilingBundle(indexJsonUrl: string): Promise<{ url:
   }
 
   const idx = (await secFetchJson(indexJsonUrl)) as FilingIndexJson;
+  // The complete submission preserves verified SEC header dates and every XML table.
+  const submission = idx.directory?.item?.find(it => /^\d{10}-\d{2}-\d{6}\.txt$/.test(String(it.name ?? '')));
+  if (submission?.name) {
+    const url = indexJsonUrl.replace(/index\.json$/, submission.name);
+    const text = await secFetchText(url);
+    return { url, text, bundle: text };
+  }
   const primary = await fetchFilingPrimaryFromIndex(indexJsonUrl, idx);
   const items = (idx?.directory?.item ?? [])
     .map((it) => ({ name: String(it?.name ?? ""), size: Number(it?.size ?? 0) }))

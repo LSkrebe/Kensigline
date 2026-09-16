@@ -43,6 +43,10 @@ function ReviewCard({ review, index }) {
 }
 
 export function IntroReviewsSection() {
+  return INTRO_REVIEWS.items.length ? <OriginalIntroReviewsSection /> : null
+}
+
+function OriginalIntroReviewsSection() {
   const trackRef = useRef(null)
   const [activeReview, setActiveReview] = useState(0)
   const { items } = INTRO_REVIEWS

@@ -70,7 +70,7 @@ function parseUsDateToIso(s: string | null): string | null {
   const dd = m[2]!.padStart(2, "0");
   const yyyy = m[3]!;
   const iso = `${yyyy}-${mm}-${dd}`;
-  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null;
+  return Number.isFinite(Date.parse(iso)) && new Date(iso).toISOString().slice(0,10)===iso ? iso : null;
 }
 
 function parseFiledAtFromHtml(html: string): string | null {
@@ -102,7 +102,7 @@ function parseTickerFromCell(cell: string): string | null {
   const yahoo = cell.match(/finance\.yahoo\.com\/quote\/([A-Za-z0-9.\-^]+)/i)?.[1];
   if (yahoo) return String(yahoo).trim().toUpperCase();
   const plain = stripHtml(cell);
-  if (/^[A-Z]{1,6}$/.test(plain)) return plain;
+  if (/^[A-Z]{1,6}(?:[.-][A-Z])?$/.test(plain)) return plain;
   return null;
 }
 
@@ -123,12 +123,13 @@ export function parseSenatePtrHtml(html: string, viewUrl: string): ParsedSenateP
     const owner = stripHtml(cells[2] ?? "") || null;
     const ticker = parseTickerFromCell(cells[3] ?? "");
     const asset_name = stripHtml(cells[4] ?? "") || null;
-    const asset_type = stripHtml(cells[5] ?? "") || null;
+    const rawType=stripHtml(cells[5]??'');
+    const asset_type=/^(stock|ST)$/i.test(rawType)?'ST':/^(stock option|option|OP)$/i.test(rawType)?'OP':rawType||null;
     const txnLabel = stripHtml(cells[6] ?? "") || null;
     const amount_range = stripHtml(cells[7] ?? "") || null;
     const transaction_type = mapSenateTxnType(txnLabel);
 
-    if (!transaction_type && !ticker && !asset_name) continue;
+    if (!transaction_type || !transaction_date || !asset_name) continue;
 
     transactions.push({
       owner,

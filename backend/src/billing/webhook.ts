@@ -1,7 +1,10 @@
 import type http from "node:http";
 import { unwrapWebhook } from "@whop/sdk/helpers";
 
-import { syncFromWhopMembership, markWebhookDeliverySeen, type WhopMembershipLike } from "./store.js";
+import { syncFromWhopMembership, type WhopMembershipLike } from "./store.js";
+import { createWebhookDeliveryProcessor } from './webhook-delivery.js';
+
+const processDelivery = createWebhookDeliveryProcessor();
 
 type WhopWebhookEvent = {
   type?: string;
@@ -35,16 +38,10 @@ export async function handleBillingWebhook(req: http.IncomingMessage, res: http.
   }
 
   const deliveryId = headers["webhook-id"] ?? event.id ?? "";
-  if (!markWebhookDeliverySeen(deliveryId)) {
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ received: true, duplicate: true }));
-    return;
-  }
-
   try {
-    await dispatchWhopEvent(event);
+    const duplicate = await processDelivery(deliveryId, () => dispatchWhopEvent(event));
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify({ received: true }));
+    res.end(JSON.stringify({ received: true, duplicate }));
   } catch (err) {
     console.error("[billing] webhook handler error", err);
     res.writeHead(500, { "content-type": "text/plain" });

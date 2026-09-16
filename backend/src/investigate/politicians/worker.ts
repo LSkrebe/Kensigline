@@ -31,14 +31,18 @@ export function startPoliticiansWorker() {
     enqueue: async () => {
       const year = new Date().getFullYear();
       const houseYears = [year, year - 1];
-      const houseLists = await Promise.all(
-        houseYears.map((filingYear) => listHousePtrPdfsWithRetry({ filingYear, max: maxPerPoll })),
-      );
-      const houseRows = houseLists.flat();
-      const [senateRows, ogeRows] = await Promise.all([
-        listSenatePtrReportsWithRetry({ max: maxPerPoll, lookbackDays: senateLookbackDays }),
-        listOge278tPdfsWithRetry({ max: maxPerPoll, lookbackDays: ogeLookbackDays }),
+      const discoveries=await Promise.allSettled([
+        Promise.all(houseYears.map(filingYear=>listHousePtrPdfsWithRetry({filingYear,max:maxPerPoll}))).then(lists=>lists.flat()),
+        listSenatePtrReportsWithRetry({max:maxPerPoll,lookbackDays:senateLookbackDays}),
+        listOge278tPdfsWithRetry({max:maxPerPoll,lookbackDays:ogeLookbackDays}),
       ]);
+      const rows=(index:number):any[]=>{
+        const result=discoveries[index]!;
+        if(result.status==='fulfilled')return result.value;
+        console.warn('politicians_discovery_failed',['house','senate','executive'][index],String(result.reason));
+        return [];
+      };
+      const houseRows=rows(0),senateRows=rows(1),ogeRows=rows(2);
 
       let houseEnq = 0;
       for (const r of houseRows) {

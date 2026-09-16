@@ -108,6 +108,8 @@ function attachWatchlistEvents(row, events) {
     modeLabel: watchlistModeLabel(row.mode),
     events,
     ticker: preserveGroupedTicker ? row.ticker : lead?.ticker ?? row.ticker,
+    companyName: lead?.companyName ?? row.companyName,
+    companies: events.map(e=>({ticker:e.ticker,name:e.companyName||e.ticker})).filter((e,i,a)=>a.findIndex(x=>x.ticker===e.ticker)===i),
     docType: lead?.docType ?? row.docType,
     event: lead?.event ?? row.event,
     trail: lead?.trail ?? row.trail,

@@ -1,6 +1,6 @@
 import { db } from "../core/db.js";
 
-const SNAPSHOT_KEY = "home_v1";
+const SNAPSHOT_KEY = "home_v3_source_verified";
 
 export type ExploreHomeSnapshotPayload = {
   recap: unknown;

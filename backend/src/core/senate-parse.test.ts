@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {parseSenatePtrHtml} from './senate.js';
+const html=(date='6/23/2026',type='Stock')=>`<h2>Test Senator</h2>Filed 07/01/2026<table><tr>${['1',date,'Spouse','BRK.B','Berkshire Hathaway',type,'Sale (Partial)','$15,001 - $50,000'].map(v=>`<td>${v}</td>`).join('')}</tr></table>`;
+test('Senate stock labels and share-class tickers normalize without losing partial sales',()=>{const p=parseSenatePtrHtml(html(),'');assert.equal(p.transactions.length,1);assert.equal(p.transactions[0]!.asset_type,'ST');assert.equal(p.transactions[0]!.ticker,'BRK.B');assert.equal(p.transactions[0]!.description,'Sale (Partial)');});
+test('invalid Senate dates cannot fall back to the reporting date',()=>assert.equal(parseSenatePtrHtml(html('2/30/2026'),'').transactions.length,0));
+test('private stock is not converted to a listed-stock classification',()=>assert.equal(parseSenatePtrHtml(html('6/23/2026','Non-Public Stock'),'').transactions[0]!.asset_type,'Non-Public Stock'));

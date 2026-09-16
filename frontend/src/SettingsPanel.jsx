@@ -82,7 +82,7 @@ function SettingsPageShell({ backendUp, onSettingsClick, onBrandClick = null, ch
     <div className="stgShell">
       <SettingsStrip backendUp={backendUp} onSettingsClick={onSettingsClick} onBrandClick={onBrandClick} />
       <div className="stgScroll scrollThin">
-        <div className="stgPaper">{children}</div>
+        <div className="stgPaper"><header className="stgPageHeading"><p className="stgSectionLabel">Preferences</p><h1>Settings</h1></header>{children}</div>
       </div>
     </div>
   )
@@ -160,15 +160,16 @@ function DigestPreferencesSection({ email, signedIn }) {
     }
     let cancelled = false
     setLoading(true)
-    void fetchJsonSafe('/api/alerts/preferences').then((res) => {
+    void fetchJsonSafe(`/api/alerts/preferences?timezone=${encodeURIComponent(timezone)}`).then((res) => {
       if (cancelled) return
       setPrefs(res.ok ? res.data?.preferences ?? null : null)
+      setStatus(res.ok ? null : { ok: false, text: 'Could not load email preferences. Reload to try again.' })
       setLoading(false)
     })
     return () => {
       cancelled = true
     }
-  }, [signedIn])
+  }, [signedIn, email, timezone])
 
   const savePrefs = useCallback(
     async (patch) => {
@@ -214,11 +215,7 @@ function DigestPreferencesSection({ email, signedIn }) {
     <SettingsSection
       label="Email"
       title="Daily brief"
-      footer={
-        <p className="stgMuted mono stgDigestFoot">
-          Insider flow, politician trades, and filing signals — same ranking as Explore, delivered each morning.
-        </p>
-      }
+
     >
       <SettingsField label="Delivery" sublabel={loading ? 'Loading…' : formatMorningHour(morningHour)} className="stgField--digest">
         <label className="stgSwitch" aria-label="Daily email brief">
@@ -226,7 +223,7 @@ function DigestPreferencesSection({ email, signedIn }) {
             type="checkbox"
             className="stgSwitchInput"
             checked={enabled}
-            disabled={loading || saving}
+            disabled={loading || saving || !prefs}
             onChange={(e) => void savePrefs({ enabled: e.target.checked })}
           />
           <span className="stgSwitchTrack" aria-hidden="true">

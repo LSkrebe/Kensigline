@@ -660,7 +660,7 @@ async function loadTxnPreviewForCluster(feedKind: string, issuerId: string, limi
     SELECT f.display_name, t.activity, t.amount_usd, t.shares, t.transaction_at::text AS ts
     FROM institution_transactions t
     JOIN filers f ON f.id = t.filer_id
-    WHERE t.issuer_id = $1
+    WHERE t.data_quality_version>=1 AND t.issuer_id = $1
     ORDER BY t.transaction_at DESC
     LIMIT $2
     `,

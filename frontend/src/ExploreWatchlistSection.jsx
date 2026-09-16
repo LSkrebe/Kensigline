@@ -1,4 +1,4 @@
-import { ExploreWatchlistPersonRow } from './ExploreWatchlistRows.jsx'
+import { ExplorePersonRow } from './ExplorePersonRow.jsx'
 
 export function ExploreWatchlistSection({
   kicker,
@@ -29,7 +29,7 @@ export function ExploreWatchlistSection({
         <ul className="exploreDirectoryList exploreWatchlistList">
           {rows.length ? (
             rows.map((row) => (
-              <ExploreWatchlistPersonRow key={row.id} row={row} onClick={onRowClick} />
+              <ExplorePersonRow key={row.id} row={row} onClick={onRowClick} />
             ))
           ) : loading ? (
             <li className="exploreDirectoryEmpty mono exploreDirectoryEmpty--loading">Loading…</li>

@@ -59,12 +59,12 @@ async function logAttributionVisit(ref) {
   if (!store || !ref) return
   const dedupeKey = `${VISIT_LOGGED_PREFIX}${ref}`
   if (store.getItem(dedupeKey)) return
-  store.setItem(dedupeKey, '1')
-  await fetchJsonSafe('/api/attribution/visit', {
+  const result = await fetchJsonSafe('/api/attribution/visit', {
     method: 'POST',
     body: { ref, visitor_id: visitorId(store) },
     timeoutMs: 8000,
   })
+  if (result.ok) store.setItem(dedupeKey, '1')
 }
 
 /** Call after sign-in when a referral ref is present (first-touch signup). */

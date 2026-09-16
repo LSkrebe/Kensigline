@@ -21,8 +21,12 @@ export function route(req: http.IncomingMessage, url: URL, method: string, pathn
 
 export async function readRawBody(req: http.IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
+  let bytes=0;
   for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buffer=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk);
+    bytes+=buffer.length;
+    if(bytes>1024*1024)throw new Error("body_too_large");
+    chunks.push(buffer);
   }
   return Buffer.concat(chunks);
 }

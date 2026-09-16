@@ -19,6 +19,7 @@ const TerminalApp = lazyWithRetry(() => import('./App.jsx'))
 /** Set VITE_BILLING_GATE=0 in root `.env` to bypass locally. */
 const BILLING_GATE_ENABLED = import.meta.env.VITE_BILLING_GATE !== '0'
 /** Build-time waitlist lock; API `waitlist` flag is the live source of truth. */
+const LOCAL_PREVIEW = import.meta.env.DEV && import.meta.env.VITE_LOCAL_PREVIEW === '1'
 const WAITLIST_BUILD = import.meta.env.VITE_WAITLIST_MODE === '1'
 
 export default function AppRouter() {
@@ -30,7 +31,7 @@ export default function AppRouter() {
   const waitlistMode = WAITLIST_BUILD || pricing.waitlist === true
   const [path, setPath] = useState(readMarketingPath)
   const publicMarketing = isPublicMarketingPath(path)
-  const showMarketing = !captureMode && (waitlistMode || !configured || !user)
+  const showMarketing = !LOCAL_PREVIEW && !captureMode && (waitlistMode || !configured || !user)
   const { loading: subLoading, active, refresh, gateReady } = useSubscription(
     signedIn && BILLING_GATE_ENABLED && !waitlistMode,
     userId,
@@ -93,7 +94,8 @@ export default function AppRouter() {
       const receiptId = peekCheckoutReceiptId()
       void (async () => {
         if (receiptId) {
-          await activateCheckoutSession(receiptId)
+          const result = await activateCheckoutSession(receiptId)
+          if (!result.ok || result.requiresSignIn) return
           await refresh()
         } else if (user) {
           await fetchJsonSafe('/api/billing/refresh', {
@@ -129,7 +131,7 @@ export default function AppRouter() {
   }, [user])
 
   useEffect(() => {
-    if (!signedIn || waitlistMode || captureMode || !BILLING_GATE_ENABLED) return
+    if (LOCAL_PREVIEW || !signedIn || waitlistMode || captureMode || !BILLING_GATE_ENABLED) return
     if (!gateReady || subLoading || active) return
     const p = readMarketingPath()
     if (p !== '/sign-in') {
@@ -147,9 +149,9 @@ export default function AppRouter() {
     return <PublicMarketingRoutes path={path} />
   }
 
-  if (showMarketing || waitlistMode) return <MarketingRoutes />
+  if (showMarketing || (!LOCAL_PREVIEW && waitlistMode)) return <MarketingRoutes />
 
-  if (loading || (BILLING_GATE_ENABLED && !captureMode && (!gateReady || subLoading))) {
+  if (!LOCAL_PREVIEW && (loading || (BILLING_GATE_ENABLED && !captureMode && (!gateReady || subLoading)))) {
     return (
       <div className="terminalShell terminalShell--boot" aria-busy="true" aria-label="Loading">
         <div className="terminalBootBar" />
@@ -157,7 +159,7 @@ export default function AppRouter() {
     )
   }
 
-  if (BILLING_GATE_ENABLED && !active && !captureMode) {
+  if (!LOCAL_PREVIEW && BILLING_GATE_ENABLED && !active && !captureMode) {
     return <SignInPage gateReason="no_subscription" />
   }
 

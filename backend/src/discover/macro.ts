@@ -119,16 +119,10 @@ export function loadTemplateMacroMonth(year: number, month: number): DiscoverMac
   });
 }
 
-/** Yahoo Finance when reachable; otherwise weekday templates for the month. */
+/** Source-backed calendar only; propagate failures instead of inventing dates. */
 export async function loadMacroMonth(year: number, month: number): Promise<DiscoverMacroDay[]> {
-  try {
-    const { loadLiveMacroMonth } = await import("./macro-live.js");
-    const live = await loadLiveMacroMonth(year, month);
-    if (live.some((day) => day.events.length > 0)) return live;
-  } catch (e) {
-    console.warn("macro_live_month_failed", e);
-  }
-  return loadTemplateMacroMonth(year, month);
+  const { loadLiveMacroMonth } = await import("./macro-live.js");
+  return loadLiveMacroMonth(year, month);
 }
 
 /** Yahoo Finance economic calendar when reachable; otherwise weekday templates. */

@@ -1,58 +1,20 @@
-import { fetchJsonSafe, setAuthTokenCache } from './api.js'
-import { supabase } from './supabaseClient.js'
+import { fetchJsonSafe } from './api.js'
 import { clearBillingCache } from './useSubscription.js'
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms))
-}
-
-/**
- * After Whop checkout: provision account server-side and sign in without email click.
- * Retries while Whop membership is still activating.
- */
+/** Receipt refresh is always bound to the authenticated account. */
 export async function activateCheckoutSession(receiptId) {
-  const id = String(receiptId ?? '').trim()
-  if (!id) return { ok: false, error: 'missing_receipt' }
-  if (!supabase) return { ok: false, error: 'supabase_not_configured' }
-
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const res = await fetchJsonSafe('/api/billing/activate', {
-      method: 'POST',
-      body: { receiptId: id },
-      timeoutMs: 25_000,
-    })
-
-    if (res.status === 202 || res.data?.pending) {
-      await sleep(Math.min(2500, 800 + attempt * 300))
-      continue
+  const id=String(receiptId??'').trim()
+  if(!id) return {ok:false,error:'missing_receipt'}
+  for(let attempt=0;attempt<10;attempt++) {
+    const res=await fetchJsonSafe('/api/billing/activate',{method:'POST',body:{receiptId:id},timeoutMs:25000})
+    if(res.status===401) {
+      window.location.assign('/sign-in?reason=checkout_sign_in')
+      return {ok:true,requiresSignIn:true}
     }
-
-    if (!res.ok || !res.data?.token_hash) {
-      return {
-        ok: false,
-        error: res.data?.error ?? 'activate_failed',
-        status: res.status,
-      }
-    }
-
-    const { error, data } = await supabase.auth.verifyOtp({
-      token_hash: res.data.token_hash,
-      type: 'email',
-    })
-
-    if (error) {
-      return { ok: false, error: error.message }
-    }
-
-    if (data?.session?.access_token) {
-      setAuthTokenCache(data.session.access_token)
-    }
-
-    const userId = res.data.user_id ?? data?.user?.id ?? null
-    if (userId) clearBillingCache(userId)
-
-    return { ok: true, userId }
+    if(res.ok && res.data?.active) {clearBillingCache();return {ok:true}}
+    if(res.status===403) return {ok:false,error:'Use the same account as your checkout.'}
+    if(!res.ok && res.status!==503 && res.status!==202) return {ok:false,error:res.data?.error??'activate_failed'}
+    await new Promise(r=>setTimeout(r,1500))
   }
-
-  return { ok: false, error: 'activate_timeout' }
+  return {ok:false,error:'activation_pending'}
 }
