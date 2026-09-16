@@ -2274,9 +2274,9 @@
 .lpOnePlaceSource:last-child .lpOnePlacePortrait { object-fit:contain; background:#161616; padding:10px; }
 .lpOnePlaceLines { stroke:rgba(255,255,255,.3); }
 .lpOnePlaceDestination { border-color:rgba(255,255,255,.25); background:radial-gradient(ellipse at top,rgba(255,255,255,.07),transparent); box-shadow:0 0 50px rgba(255,255,255,.04); }
-.lpOnePlaceMark { width:44px; height:32px; object-fit:contain; grid-row:span 2; filter:drop-shadow(0 0 8px rgba(255,255,255,.4)); }
+.lpOnePlaceMark { width:76px; height:64px; object-fit:contain; grid-row:span 2; filter:drop-shadow(0 0 8px rgba(255,255,255,.4)); }
 @keyframes lpAmbientGlow { 0%,100% { filter:drop-shadow(0 0 4px rgba(255,255,255,.12)); } 50% { filter:drop-shadow(0 0 13px rgba(255,255,255,.32)); } }
-@keyframes lpAmbientFrame { 0%,100% { box-shadow:0 12px 40px rgba(0,0,0,.3),0 0 15px rgba(255,255,255,.025); } 50% { box-shadow:0 12px 40px rgba(0,0,0,.3),0 0 35px rgba(255,255,255,.085); } }
+@keyframes lpAmbientFrame { 0%,100% { box-shadow:0 12px 40px rgba(0,0,0,.3),0 0 15px rgba(255,255,255,.025); } 50% { box-shadow:0 12px 40px rgba(0,0,0,.3),0 0 40px rgba(255,255,255,.16); } }
 @keyframes lpAmbientFlow { to { stroke-dashoffset:-80; } }
 @media(prefers-reduced-motion:no-preference) {
  .lpOnePlacePortrait,.lpOnePlaceMark,.lpStoryAvatarLogo,.lpStoryMarker { animation:lpAmbientGlow 7s ease-in-out infinite; }
@@ -2291,8 +2291,8 @@
 
 /* Slow ambient accents complement the existing scroll reveals. */
 @keyframes lpPreviewLight {
-  0%,100% { transform:translateX(-35%); opacity:.15; }
-  50% { transform:translateX(35%); opacity:.45; }
+  0%,100% { transform:translateX(-35%); opacity:.45; }
+  50% { transform:translateX(35%); opacity:.85; }
 }
 @keyframes lpMarkerRipple {
   0% { transform:scale(.65); opacity:0; }
@@ -2300,16 +2300,16 @@
   85%,100% { transform:scale(2.2); opacity:0; }
 }
 @keyframes lpCtaHalo {
-  0%,100% { transform:translateX(-8%); opacity:.3; }
-  50% { transform:translateX(8%); opacity:.65; }
+  0%,100% { transform:translateX(-15%); opacity:.4; }
+  50% { transform:translateX(15%); opacity:.9; }
 }
 @media(prefers-reduced-motion:no-preference) {
  .lpHeroShotFrame::after,.lpHowFrame::after {
   content:''; position:absolute; inset:0 -40%; pointer-events:none; z-index:2;
-  background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.06) 50%,transparent 65%);
-  animation:lpPreviewLight 18s ease-in-out infinite;
+  background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.14) 50%,transparent 65%);
+  animation:lpPreviewLight 10s ease-in-out infinite;
  }
- .lpHowRow:nth-child(2) .lpHowFrame::after { animation-delay:-9s; }
+ .lpHowRow:nth-child(2) .lpHowFrame::after { animation-delay:-5s; }
  .lpStoryMarker::after {
   content:''; position:absolute; inset:-7px; border:1px solid currentColor;
   border-radius:50%; pointer-events:none; animation:lpMarkerRipple 6s ease-out infinite;
@@ -2318,8 +2318,14 @@
  .lpCtaBand { position:relative; isolation:isolate; overflow:hidden; }
  .lpCtaBand::before {
   content:''; position:absolute; inset:0; z-index:-1; pointer-events:none;
-  background:radial-gradient(ellipse at center,rgba(255,255,255,.07),transparent 65%);
-  animation:lpCtaHalo 16s ease-in-out infinite;
+  background:radial-gradient(ellipse at center,rgba(255,255,255,.12),transparent 65%);
+  animation:lpCtaHalo 10s ease-in-out infinite;
  }
  .lpCtaBand .lpBtn { animation:none; }
+}
+
+.lpOnePlaceDestination { grid-template-columns:76px 1fr; gap:7px 22px; }
+@media(max-width:599px) {
+ .lpOnePlaceDestination { grid-template-columns:60px 1fr; gap:7px 14px; padding:20px; }
+ .lpOnePlaceMark { width:60px; height:52px; }
 }
