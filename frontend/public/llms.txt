@@ -38,8 +38,8 @@ Mercerline is built for a narrow monopoly: same-day US equity disclosure intelli
 - $49/mo, $499/yr
 
 ## How it works
-1. Know what deserves a closer look. — Browse insider, politician, and institutional disclosures together. Follow the names you care about and open the events behind the activity.
-2. A trade is only the beginning. — Put a disclosure beside the investor’s history. See percentage performance over time, revisit earlier activity, and follow the underlying companies.
+1. Know what deserves a closer look. — The people you follow. Their latest disclosures, together.
+2. A trade is only the beginning. — The investor, their track record, and the trades behind it.
 
 ## Coverage
 Form 4, House PTR, Senate PTR, Executive PTR, 13F, SEC EDGAR, earnings transcripts, press, 8-K, macro US/EU/UK/CN. 500+ US issuers tracked.
