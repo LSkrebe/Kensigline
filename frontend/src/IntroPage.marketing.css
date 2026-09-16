@@ -2247,3 +2247,23 @@
 .lpQuestions .lpSectionHead { text-align:center; }
 .lpQuestions .lpSectionLead { margin-left:auto; margin-right:auto; }
 @media(max-width:899px) { .lpHowFrame { order:-1; } .lpHowCopy { margin-top:22px; } }
+
+/* A single visual for cross-source coverage, rather than another screen or chart. */
+.lpOnePlace { max-width:900px; margin:0 auto 48px; padding:20px 0; }
+.lpOnePlaceSources { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; }
+.lpOnePlaceSource { display:flex; flex-direction:column; align-items:center; gap:22px; padding:34px 12px; border:1px solid rgba(158,196,212,.16); background:linear-gradient(145deg,rgba(158,196,212,.045),transparent); color:#c8ccce; font:400 clamp(13px,2vw,20px)/1.2 monospace; }
+.lpOnePlaceSource svg { width:44px; height:44px; color:#9ec4d4; }
+.lpOnePlaceLines { display:block; width:100%; height:90px; stroke:rgba(158,196,212,.35); stroke-width:1; }
+.lpOnePlaceDestination { width:max-content; max-width:100%; margin:auto; display:grid; grid-template-columns:32px 1fr; align-items:center; gap:7px 16px; padding:24px 36px; border:1px solid rgba(158,196,212,.4); background:radial-gradient(ellipse at top,rgba(158,196,212,.1),transparent); box-shadow:0 0 60px rgba(158,196,212,.05); }
+.lpOnePlaceDestination svg { width:30px; height:34px; grid-row:span 2; color:#9ec4d4; }
+.lpOnePlaceDestination span { font:400 clamp(24px,3vw,34px)/1.1 Georgia,serif; color:#eee; }
+.lpOnePlaceDestination small { font:10px/1.4 monospace; letter-spacing:.18em; color:#858b90; }
+@media(max-width:599px) {
+ .lpOnePlace { margin-bottom:32px; }
+ .lpOnePlaceSources { gap:8px; }
+ .lpOnePlaceSource { padding:24px 3px; gap:16px; font-size:11px; }
+ .lpOnePlaceSource svg { width:32px; height:32px; }
+ .lpOnePlaceLines { height:65px; }
+ .lpOnePlaceDestination { padding:20px 25px; }
+}
+.lpQuestions .lpSectionHead { margin-left:auto; margin-right:auto; }

@@ -392,11 +392,30 @@ export function IntroPage() {
 
           <IntroHowItWorksSection />
           <section className="lpSection lpSection--ruled lpQuestions" aria-labelledby="lp-questions-title">
-            <div className="lpQuestionsVisual"><IntroTerminalPreview shot="history" staticResearch /></div>
+            <div className="lpOnePlace" aria-label="Insiders, politicians, and institutions together in one watchlist">
+              <div className="lpOnePlaceSources">
+                {[
+                  ['Insiders', 'M12 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8M4 21v-3a8 8 0 0 1 16 0v3'],
+                  ['Politicians', 'M3 10h18M12 3l9 7H3l9-7M5 10v9m7-9v9m7-9v9M3 21h18'],
+                  ['Institutions', 'M5 21V3h14v18M9 7h1m4 0h1M9 11h1m4 0h1M9 15h1m4 0h1M10 21v-3h4v3'],
+                ].map(([label,path]) => <div className="lpOnePlaceSource" key={label}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={path}/></svg>
+                  <span>{label}</span>
+                </div>)}
+              </div>
+              <svg className="lpOnePlaceLines" viewBox="0 0 900 100" preserveAspectRatio="none" fill="none" aria-hidden="true">
+                <path d="M150 0V30Q150 50 180 50H420Q450 50 450 80V100M450 0V100M750 0V30Q750 50 720 50H480Q450 50 450 80" />
+              </svg>
+              <div className="lpOnePlaceDestination">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4V3Z"/><path d="m9 10 2 2 4-4"/></svg>
+                <span>One watchlist</span>
+                <small>MERCERLINE</small>
+              </div>
+            </div>
             <div className="lpSectionHead">
-              <p className="lpEyebrow">Beyond the filing</p>
-              <h2 id="lp-questions-title" className="lpSectionTitle">Follow what happens next.</h2>
-              <p className="lpSectionLead">Daily percentage performance. The trade history underneath.</p>
+              <p className="lpEyebrow">All together</p>
+              <h2 id="lp-questions-title" className="lpSectionTitle">Follow the people. Skip the tab hopping.</h2>
+              <p className="lpSectionLead">Three worlds of disclosed trades. One place to keep up.</p>
             </div>
           </section>
 
