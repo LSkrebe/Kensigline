@@ -392,19 +392,12 @@ export function IntroPage() {
 
           <IntroHowItWorksSection />
           <section className="lpSection lpSection--ruled lpQuestions" aria-labelledby="lp-questions-title">
+            <div className="lpQuestionsVisual"><IntroTerminalPreview shot="history" staticResearch /></div>
             <div className="lpSectionHead">
-              <p className="lpEyebrow">Beyond the headline</p>
-              <h2 id="lp-questions-title" className="lpSectionTitle">Less searching. Better questions.</h2>
-              <p className="lpSectionLead">A disclosure tells you what was reported. The history helps you decide what deserves your attention.</p>
+              <p className="lpEyebrow">Beyond the filing</p>
+              <h2 id="lp-questions-title" className="lpSectionTitle">Follow what happens next.</h2>
+              <p className="lpSectionLead">Daily percentage performance. The trade history underneath.</p>
             </div>
-            <div className="lpQuestionRows">
-              {[
-                ['01', 'What did they actually disclose?', 'The investor, the company, the transaction date, and the reported amount. Start with the record behind the story.'],
-                ['02', 'What happened to the stock afterward?', 'Follow daily closing-price performance while the story develops. Percentage returns make different securities easier to compare.'],
-                ['03', 'Is this part of a bigger pattern?', 'Explore earlier transactions, revisit the investor’s history, and keep the people you follow together in your watchlist.'],
-              ].map(([number,title,body])=><article className="lpQuestionRow" key={number}><span className="lpEyebrow">{number}</span><h3>{title}</h3><p>{body}</p></article>)}
-            </div>
-            <p className="lpSectionLead lpQuestionsNote">Public disclosures can arrive after a trade. Stock returns show what happened to the security; they are not a claim about an investor’s personal profit.</p>
           </section>
 
           {!waitlist ? <IntroCoverageSection /> : null}

@@ -367,10 +367,10 @@ export const PRODUCT = {
 export const HOW_IT_WORKS = {
   kicker: 'Inside Mercerline',
   title: 'Start with the trade. Follow what happens next.',
-  lead: 'Two views of the same question: what did they disclose, and how has the stock performed since?',
+  lead: '',
   steps: [
-    { id:'recap', label:'The daily view', title:'Know what deserves a closer look.', body:'Browse insider, politician, and institutional disclosures together. Follow the names you care about and open the events behind the activity.', shot:'hero' },
-    { id:'filer', label:'The investor view', title:'A trade is only the beginning.', body:'Put a disclosure beside the investor’s history. See percentage performance over time, revisit earlier activity, and follow the underlying companies.', shot:'deepInvestor' },
+    { id:'recap', label:'The daily view', title:'Know what deserves a closer look.', body:'The people you follow. Their latest disclosures, together.', shot:'watchlist' },
+    { id:'filer', label:'The investor view', title:'A trade is only the beginning.', body:'The investor, their track record, and the trades behind it.', shot:'deepInvestor' },
   ],
 }
 
