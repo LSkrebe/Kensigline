@@ -35,7 +35,7 @@ Mercerline is built for a narrow monopoly: same-day US equity disclosure intelli
 - Investor dossiers: insiders, politicians, institutions
 - Company context: price, fundamentals, filings on demand
 - Macro calendar: US, EU, UK, China
-- $49/mo, $499/yr
+- $24.99/mo, $199.99/yr
 
 ## How it works
 1. Know what deserves a closer look. — The people you follow. Their latest disclosures, together.
@@ -70,7 +70,7 @@ One global filing headline per day at https://mercerline.com/research — full d
 - Q: What do I get on day one?
   A: Full access to Explore, investor and company dossiers, and the macro calendar.
 - Q: Can I cancel?
-  A: Yes. $49/mo or $499/yr with Whop. Manage billing anytime in Settings.
+  A: Yes. $24.99/mo or $199.99/yr with Whop. Manage billing anytime in Settings.
 - Q: Already a member?
   A: Choose Sign in in the menu. Google opens instantly. Use the same email as your Whop checkout.
 - Q: Is this investment advice?

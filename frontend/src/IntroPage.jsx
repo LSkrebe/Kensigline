@@ -513,8 +513,8 @@ export function IntroPage() {
               ) : null}
               <p className={pricing.founders ? 'lpFinePrint subFoundersFine' : 'lpFinePrint'}>
                 {pricing.founders
-                  ? 'This limited-time offer ends when early access closes'
-                  : `Save ${formatUsd(pricing.yearlySaveUsd)} on yearly. Cancel anytime.`}
+                  ? `Founders pricing — yearly saves ${formatUsd(pricing.yearlySaveUsd)} vs monthly. Ends when early access closes.`
+                  : `Save ${formatUsd(pricing.yearlySaveUsd)} on yearly vs paying monthly. Cancel anytime.`}
               </p>
             </section>
           ) : null}

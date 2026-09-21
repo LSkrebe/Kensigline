@@ -3,11 +3,11 @@ import { WhopClient } from "@whop/sdk";
 import type { SupabaseJwtUser } from "../core/supabase-auth.js";
 import type { BillingRow } from "./store.js";
 
-/** Display amounts (USD). Whop plan IDs are separate env vars. */
-export const STANDARD_MONTHLY_USD = 99;
-export const STANDARD_YEARLY_USD = 999;
-export const FOUNDERS_MONTHLY_USD = 49;
-export const FOUNDERS_YEARLY_USD = 499;
+/** Display amounts (USD). Whop plan IDs are separate env vars — keep Whop plan prices in sync. */
+export const STANDARD_MONTHLY_USD = 49.99;
+export const STANDARD_YEARLY_USD = 399.99;
+export const FOUNDERS_MONTHLY_USD = 24.99;
+export const FOUNDERS_YEARLY_USD = 199.99;
 
 export function whopConfigured(): boolean {
   return Boolean(String(process.env.WHOP_API_KEY ?? "").trim());

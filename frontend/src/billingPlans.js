@@ -1,9 +1,9 @@
 /** Display amounts + checkout plan ids. Live amounts come from GET /api/billing/pricing. */
 
-export const STANDARD_MONTHLY_USD = 99
-export const STANDARD_YEARLY_USD = 999
-export const FOUNDERS_MONTHLY_USD = 49
-export const FOUNDERS_YEARLY_USD = 499
+export const STANDARD_MONTHLY_USD = 49.99
+export const STANDARD_YEARLY_USD = 399.99
+export const FOUNDERS_MONTHLY_USD = 24.99
+export const FOUNDERS_YEARLY_USD = 199.99
 
 /**
  * Defaults until /api/billing/pricing responds (match WAITLIST_MODE / FOUNDERS_PRICING on API).
@@ -11,22 +11,34 @@ export const FOUNDERS_YEARLY_USD = 499
 export const DEFAULT_WAITLIST = false
 export const DEFAULT_FOUNDERS = true
 
+/** Round money to cents. */
+export function moneyCents(n) {
+  return Math.round(Number(n) * 100) / 100
+}
+
 export function formatUsd(n) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n)
+  const v = moneyCents(n)
+  const hasCents = Math.abs(v % 1) > 1e-9
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(v)
 }
 
 /** Note under the featured yearly plan price. */
 export function yearlyPlanNote(pricing) {
+  const perMonth = moneyCents((pricing?.yearlySaveUsd ?? 0) / 12)
   if (pricing?.founders) {
-    return 'Lock in founders rate for the year'
+    return `Lock in founders — save ${formatUsd(perMonth)}/mo vs monthly`
   }
-  const perMonth = Math.round(pricing.yearlySaveUsd / 12)
   return `Save ${formatUsd(perMonth)}/mo vs paying monthly`
 }
 
 /** Badge on the featured yearly plan card. */
 export function yearlyPlanBadgeLabel(pricing) {
-  const perMonth = Math.round(pricing.yearlySaveUsd / 12)
+  const perMonth = moneyCents((pricing?.yearlySaveUsd ?? 0) / 12)
   return `Save ${formatUsd(perMonth)}/mo`
 }
 
@@ -64,7 +76,7 @@ export function buildPricing({
   const monthlyList = monthlyListUsd ?? (foundersOn ? STANDARD_MONTHLY_USD : null)
   const yearlyList =
     yearlyListUsd ?? (foundersOn ? STANDARD_YEARLY_USD : STANDARD_MONTHLY_USD * 12)
-  const yearlySave = Math.max(0, monthly * 12 - yearly)
+  const yearlySave = moneyCents(Math.max(0, monthly * 12 - yearly))
 
   const plans = [
     {
@@ -82,7 +94,7 @@ export function buildPricing({
       priceUsd: yearly,
       listPriceUsd: yearlyList,
       intervalLabel: 'year',
-      billedNote: `Save ${formatUsd(yearlySave)} vs paying monthly, billed annually`,
+      billedNote: `Save ${formatUsd(yearlySave)} vs paying monthly (${formatUsd(moneyCents(yearlySave / 12))}/mo), billed annually`,
       featured: true,
     },
   ]
