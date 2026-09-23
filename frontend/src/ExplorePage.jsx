@@ -1,94 +1,34 @@
-import {ExplorePersonRow} from './ExplorePersonRow.jsx'
-import {useExplorePerformance,buildPerformanceSlides} from './ExplorePerformance.jsx'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useCollapseScroll } from './collapseScroll.js'
 import {
   buildExploreDirectoryHomeLatest,
   buildExploreDirectoryHomePreview,
   buildExploreInvestorEvents,
-  formatExploreRecency,
-  formatExplorePublishDate,
-  HOME_DIRECTORY_PREVIEW,
 } from './exploreDirectoryMock.js'
 import { loadExploreHomeBundle, peekExploreHomeSnapshot } from './exploreApi.js'
 import { EMPTY_EXPLORE_RECAP, isDataModePending, isExploreNetworkMode, isLiveDataMode, isMockDataMode } from './dataMode.js'
-import { ExploreDirectoryInvestorRow } from './ExploreDirectoryRows.jsx'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
-import { ExploreStoryCards } from './ExploreStoryCards.jsx'
-import { splitExploreRecapSlides } from './exploreRecapHero.js'
+import { ExploreFeaturedCards } from './ExploreFeaturedCards.jsx'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
 import { buildExploreWatchlistPeople, extractExploreInvestorEvents, extractExploreWatchlistEvents } from './exploreWatchlistData.js'
-import { ExploreWatchlistSection } from './ExploreWatchlistSection.jsx'
+import { EXPLORE_WATCHLIST_CATALOG } from './exploreWatchlistCatalog.js'
+import { ExploreWatchlistSection, selectExploreFeatured } from './ExploreWatchlistSection.jsx'
 import { useUserWatchlist } from './UserWatchlistContext.jsx'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { isCaptureMode } from './captureMode.js'
-import { navigateExploreEventDetail, navigateExploreInvestors, navigateExploreWatchlist } from './terminalRoute.js'
 import './DeepReport.css'
 import './ExplorePage.css'
 
-const COLLAPSE_RANGE_FALLBACK = 1
-/** Scroll progress (0–1) at which recap hero / expanded bg finishes fading. */
-const EXPLORE_EXPANDED_FADE_END = 0.92
-/** Keep compact strip dark until near the end so the hero photo doesn't morph mid-collapse. */
-const EXPLORE_COMPACT_FADE_START = 0.62
+const EXPLORE_COLLAPSE_RANGE_FALLBACK = 1
+const EXPLORE_EXPANDED_FADE_END = 0.72
 
-function collapseProgressVars(progress) {
+function exploreCollapseProgressVars(progress) {
   const p = Math.min(1, Math.max(0, progress))
   const expandedOpacity = p <= EXPLORE_EXPANDED_FADE_END ? 1 - p / EXPLORE_EXPANDED_FADE_END : 0
-  const compactOpacity =
-    p <= EXPLORE_COMPACT_FADE_START
-      ? 0
-      : (p - EXPLORE_COMPACT_FADE_START) / (1 - EXPLORE_COMPACT_FADE_START)
   return {
     '--explore-collapse': String(p),
     '--explore-expanded-opacity': String(expandedOpacity),
-    '--explore-compact-opacity': String(compactOpacity),
   }
-}
-
-function ExploreDirectorySection({
-  title,
-  kicker,
-  onOpen,
-  rows,
-  RowComponent,
-  onRowClick,
-  previewLimit,
-  loading = false,
-}) {
-  const previewRows = useMemo(() => rows.slice(0, previewLimit), [rows, previewLimit])
-
-  return (
-    <section className="exploreDirectorySection">
-      <button
-        type="button"
-        className="exploreDirectorySectionHead"
-        aria-label={`Open ${title}`}
-        onClick={onOpen}
-      >
-        <span className="exploreDirectorySectionHeadCopy">
-          <span className="exploreDirectorySectionKicker mono">{kicker}</span>
-          <span className="exploreDirectorySectionTitleRow">
-            <span className="exploreDirectorySectionTitle">{title}</span>
-            <span className="exploreDirectorySectionChevron mono" aria-hidden="true">
-              &gt;
-            </span>
-          </span>
-        </span>
-      </button>
-      <div className="exploreHomeListPanel">
-        <ul className="exploreDirectoryList">
-          {previewRows.length ? (
-            previewRows.map((row) => <RowComponent key={row.id} row={row} onClick={onRowClick} />)
-          ) : loading ? (
-            <li className="exploreDirectoryEmpty mono exploreDirectoryEmpty--loading">Loading…</li>
-          ) : (
-            <li className="exploreDirectoryEmpty mono">No matches</li>
-          )}
-        </ul>
-      </div>
-    </section>
-  )
 }
 
 export function ExplorePage({
@@ -129,11 +69,11 @@ export function ExplorePage({
     }
   }, [backendUp])
 
-  const [recap, setRecap] = useState(initialSnapshot.recap ?? EMPTY_EXPLORE_RECAP)
-  const [homePreview, setHomePreview] = useState(
+  const [, setRecap] = useState(initialSnapshot.recap ?? EMPTY_EXPLORE_RECAP)
+  const [, setHomePreview] = useState(
     () => initialSnapshot.homePreview ?? { companies: [], investors: [] },
   )
-  const [homeSearchPool, setHomeSearchPool] = useState(
+  const [, setHomeSearchPool] = useState(
     () => initialSnapshot.homeSearchPool ?? { companies: [], investors: [] },
   )
   const [investorEvents, setInvestorEvents] = useState(() =>
@@ -229,126 +169,71 @@ export function ExplorePage({
   }, [backendUp, syncDirectoryState])
 
   const [searchQuery, setSearchQuery] = useState('')
-  const { pageRef, dockRef, spacerRef } = useCollapseScroll({
-    progressVars: collapseProgressVars,
-    resetKey: 'explore-home',
-    rangeFallback: COLLAPSE_RANGE_FALLBACK,
-  })
+  const [range, setRange] = useState('6M')
   const normalizedQuery = normalizeExploreSearchQuery(searchQuery)
   const searching = normalizedQuery.length > 0
-  const useUtcDates = isLiveDataMode(backendUp)
-  const displayMeta = useMemo(() => {
-    const displayDayKey = recap?.displayDayKey ?? homePreview?.displayDayKey ?? null
-    const isFallback = recap?.isFallback === true || homePreview?.isFallback === true
-    return { displayDayKey, isFallback }
-  }, [recap, homePreview])
-  const fallbackDayLabel = useMemo(() => {
-    if (!displayMeta.isFallback || !displayMeta.displayDayKey) return null
-    return formatExploreRecency(displayMeta.displayDayKey, { utc: useUtcDates })
-  }, [displayMeta.displayDayKey, displayMeta.isFallback, useUtcDates])
-  const sectionKicker = searching ? 'Matches' : fallbackDayLabel ?? 'Latest'
-  const previewLimit = HOME_DIRECTORY_PREVIEW
-
-  const investorRows = useMemo(() => {
-    if (!searching) return homePreview.investors
-    return filterExploreHomeRows(homeSearchPool.investors, searchQuery)
-  }, [searching, homePreview.investors, homeSearchPool.investors, searchQuery])
-
-  const companyRows = useMemo(() => {
-    if (!searching) return homePreview.companies
-    return filterExploreHomeRows(homeSearchPool.companies, searchQuery)
-  }, [searching, homePreview.companies, homeSearchPool.companies, searchQuery])
 
   const watchlistRows = useMemo(() => {
-    const rows = buildExploreWatchlistPeople(investorEvents, { people: watchlistPeople, watchlistLatest: watchlistEvents })
+    const people = isMockDataMode(backendUp) ? EXPLORE_WATCHLIST_CATALOG : watchlistPeople
+    const rows = buildExploreWatchlistPeople(investorEvents, { people, watchlistLatest: watchlistEvents })
     if (!searching) return rows
     return filterExploreHomeRows(rows, searchQuery)
-  }, [investorEvents, watchlistEvents, watchlistPeople, searchQuery, searching])
+  }, [backendUp, investorEvents, watchlistEvents, watchlistPeople, searchQuery, searching])
 
-  const openRecapEvent = useCallback(
-    (slide) => {
-      if (typeof onEventClick === 'function') {
-        onEventClick(slide)
-        return
-      }
-      if (slide?.id) navigateExploreEventDetail(slide.id)
-    },
-    [onEventClick],
-  )
+  const featured = useMemo(() => selectExploreFeatured(watchlistRows, range), [watchlistRows, range])
+  const { pageRef, dockRef, spacerRef } = useCollapseScroll({
+    progressVars: exploreCollapseProgressVars,
+    resetKey: 'explore',
+    rangeFallback: EXPLORE_COLLAPSE_RANGE_FALLBACK,
+  })
+  const heroRef = useRef(null)
 
-  const { heroSlides, storySlides } = useMemo(
-    () => splitExploreRecapSlides(recap?.slides),
-    [recap?.slides],
-  )
-
-  const performance = useExplorePerformance()
-  const heroRecap = useMemo(() => ({slides:buildPerformanceSlides(performance,[...investorEvents,...watchlistEvents])}),[performance,investorEvents,watchlistEvents])
-  const storyPreviewSlides = useMemo(() => [...heroSlides,...storySlides].slice(0,8),[heroSlides,storySlides])
-
-  const storyDateLabel = useMemo(
-    () => (displayMeta.displayDayKey ? formatExplorePublishDate(displayMeta.displayDayKey) : null),
-    [displayMeta.displayDayKey],
-  )
-
-  const requestRecapCollapse = useCallback(() => {
+  useLayoutEffect(() => {
     const page = pageRef.current
-    const spacer = spacerRef.current
-    if (!page || !spacer) return
-    page.scrollTo({ top: spacer.offsetHeight, behavior: 'smooth' })
-  }, [pageRef, spacerRef])
+    const dock = dockRef.current
+    const hero = heroRef.current
+    if (!page || !dock || !hero) return undefined
+    const sync = () => {
+      const bar = dock.querySelector('.exploreRecapChromeBar')
+      const height = (bar?.offsetHeight || 56) + hero.scrollHeight
+      page.style.setProperty('--explore-recap-expanded-h', `${height}px`)
+    }
+    sync()
+    const observer = new ResizeObserver(sync)
+    observer.observe(hero)
+    return () => observer.disconnect()
+  }, [dockRef, featured, pageRef])
 
   return (
     <div className="explorePage" ref={pageRef}>
       <div className="exploreRecapStickWrap">
-        <div ref={dockRef} className="exploreRecapDock">
+        <div className="exploreRecapDock" ref={dockRef}>
           <ExploreDailyRecap
-            recap={heroRecap}
-            loading={false}
             backendUp={backendUp}
             macroActive={macroActive}
             onMacroClick={onMacroClick}
             settingsActive={settingsActive}
             onSettingsClick={onSettingsClick}
             onBrandClick={onBrandClick}
-            onRequestCollapse={requestRecapCollapse}
-            onOpenEvent={openRecapEvent}
             searchValue={searchQuery}
             onSearchChange={setSearchQuery}
           />
+          <div className="exploreFeaturedHero">
+            <div className="exploreFeaturedSheet" ref={heroRef}>
+              <ExploreFeaturedCards rows={featured} range={range} loading={homeLoading} onCardClick={onInvestorRowClick} />
+            </div>
+          </div>
         </div>
-        <div ref={spacerRef} className="exploreRecapCollapseSpacer" aria-hidden="true" />
+        <div className="exploreRecapCollapseSpacer" ref={spacerRef} aria-hidden="true" />
         <div className="explorePageBody">
-          {!searching ? (
-            <ExploreStoryCards
-              slides={storyPreviewSlides}
-              onOpenEvent={openRecapEvent}
-              sectionKicker={sectionKicker}
-              dateLabel={storyDateLabel}
-            />
-          ) : null}
-
-
           <ExploreWatchlistSection
-            key={`watchlist-${sectionKicker}-${normalizedQuery}`}
-            kicker={sectionKicker}
+            key={`watchlist-${normalizedQuery}`}
             rows={watchlistRows}
-            onOpen={() => navigateExploreWatchlist()}
+            range={range}
+            onRangeChange={setRange}
             onRowClick={onInvestorRowClick}
             loading={homeLoading}
           />
-
-          <ExploreDirectorySection
-            key={`investors-${sectionKicker}-${normalizedQuery}`}
-            title="Investors"
-            kicker={sectionKicker}
-            onOpen={() => navigateExploreInvestors()}
-            rows={investorRows}
-            RowComponent={ExplorePersonRow}
-            onRowClick={onInvestorRowClick}
-            previewLimit={previewLimit}
-            loading={homeLoading}
-          />
-
         </div>
       </div>
     </div>

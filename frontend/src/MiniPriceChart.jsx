@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState, useEffect } from 'react'
+import { SkeletonChart } from './AppSkeleton.jsx'
 
 const COMPACT_CHART_MQ = '(max-width: 960px)'
 
@@ -584,9 +585,11 @@ export function MiniPriceChart({
         onPointerLeave={hoverEnabled ? clearHover : undefined}
       >
         {!vals.length ? (
+          loading ? <SkeletonChart /> : (
           <div className="graphEmpty mono dim" role="status">
-            {loading ? 'Loading price…' : 'No price data.'}
+            No price data.
           </div>
+          )
         ) : !size ? null : (
           <svg
             className="graphSvg"

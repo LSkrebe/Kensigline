@@ -3,6 +3,7 @@ import { WhopCheckoutEmbed } from '@whop/checkout/react'
 import { fetchJsonSafe, getBackendBase } from './api.js'
 import { activateCheckoutSession } from './checkoutActivate.js'
 import { peekReferralRef } from './referralRef.js'
+import { SkeletonStatus } from './AppSkeleton.jsx'
 
 const WHOP_ENV = import.meta.env.VITE_WHOP_ENV === 'sandbox' ? 'sandbox' : 'production'
 import {CHECKOUT_RECEIPT_KEY,peekCheckoutReceiptId,clearCheckoutReceiptId} from './checkoutReceipt.js'
@@ -133,7 +134,12 @@ export function WhopCheckoutPanel({
         skipRedirect
         prefill={userEmail ? { email: userEmail } : undefined}
         onComplete={handleComplete}
-        fallback={<p className="mono exploreDirectoryEmpty--loading">Loading checkout…</p>}
+        fallback={
+          <SkeletonStatus label="Loading checkout" className="appSkelEvent">
+            <span className="appSkel appSkel--title" />
+            <span className="appSkel appSkel--chart" />
+          </SkeletonStatus>
+        }
       />
     </div>
   )

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { exploreInvestorSlug } from './exploreDirectoryNav.js'
 import { normalizeMarketingPath } from './marketingRoute.js'
+import { isInvestorExploreSlug, isRetiredProductPath } from './retiredProductPaths.js'
 
 export const EXPLORE_HOME_PATH = '/explore'
 export const EXPLORE_COMPANIES_PATH = '/explore/companies'
@@ -12,14 +13,10 @@ export const MACRO_PATH = '/macro'
 /** @deprecated Use EXPLORE_INVESTORS_PATH */
 export const EXPLORE_ACTORS_PATH = EXPLORE_INVESTORS_PATH
 
-function rewriteLegacyExploreActorsPath(pathname) {
-  const path = normalizeMarketingPath(pathname)
-  const detail = path.match(/^\/explore\/actors\/([^/]+)$/i)
-  if (detail) {
-    return `/explore/investors/${detail[1]}`
-  }
-  if (path === '/explore/actors') return EXPLORE_INVESTORS_PATH
-  return null
+function dossierSegment(value) {
+  return decodeURIComponent(String(value ?? ''))
+    .trim()
+    .toLowerCase()
 }
 
 export function readTerminalPath() {
@@ -30,22 +27,7 @@ export function readTerminalPath() {
 /** @returns {{ view: string, ticker?: string, investorSlug?: string, eventId?: string } | null} */
 export function parseExploreRoute(pathname = readTerminalPath()) {
   const path = normalizeMarketingPath(pathname)
-
-  const companyDetail = path.match(/^\/explore\/companies\/([A-Za-z0-9.-]+)$/i)
-  if (companyDetail) {
-    return {
-      view: 'companyDetail',
-      ticker: String(companyDetail[1]).trim().toUpperCase(),
-    }
-  }
-
-  const investorDetail = path.match(/^\/explore\/(?:investors|actors)\/([^/]+)$/i)
-  if (investorDetail) {
-    return {
-      view: 'investorDetail',
-      investorSlug: decodeURIComponent(investorDetail[1]).trim().toLowerCase(),
-    }
-  }
+  if (isRetiredProductPath(path)) return null
 
   const eventDetail = path.match(/^\/explore\/events\/([^/]+)$/i)
   if (eventDetail) {
@@ -55,21 +37,27 @@ export function parseExploreRoute(pathname = readTerminalPath()) {
     }
   }
 
-  if (path === EXPLORE_COMPANIES_PATH) return { view: 'home' }
-  if (path === EXPLORE_INVESTORS_PATH || path === '/explore/actors') return { view: 'investors' }
   if (path === EXPLORE_WATCHLIST_PATH) return { view: 'watchlist' }
   if (path === EXPLORE_HOME_PATH) return { view: 'home' }
+
+  const dossier = path.match(/^\/explore\/([^/]+)$/i)
+  if (dossier) {
+    const segment = dossierSegment(dossier[1])
+    if (!segment || segment === 'events' || !isInvestorExploreSlug(segment)) return null
+    return { view: 'investorDetail', investorSlug: segment }
+  }
   return null
 }
 
 /**
- * App shell route: Explore tree, Settings, or Macro.
- * @returns {{ shell: 'explore' | 'settings' | 'macro', view?: string, ticker?: string, investorSlug?: string } | null}
+ * App shell route: Explore tree or Settings.
+ * Retired company, directory, macro, and people URLs are not routes.
+ * @returns {{ shell: 'explore' | 'settings', view?: string, ticker?: string, investorSlug?: string } | null}
  */
 export function parseTerminalRoute(pathname = readTerminalPath()) {
   const path = normalizeMarketingPath(pathname)
+  if (isRetiredProductPath(path)) return null
   if (path === SETTINGS_PATH) return { shell: 'settings', view: 'settings' }
-  if (path === MACRO_PATH) return { shell: 'macro', view: 'macro' }
   const explore = parseExploreRoute(path)
   if (explore) return { shell: 'explore', ...explore }
   return null
@@ -90,14 +78,14 @@ export function isTerminalAppPath(pathname = readTerminalPath()) {
 
 export function explorePathForSubview(subview) {
   if (subview === 'companies') return EXPLORE_HOME_PATH
-  if (subview === 'investors' || subview === 'actors') return EXPLORE_INVESTORS_PATH
+  if (subview === 'investors' || subview === 'actors') return EXPLORE_HOME_PATH
   if (subview === 'watchlist') return EXPLORE_WATCHLIST_PATH
   return EXPLORE_HOME_PATH
 }
 
 export function exploreCompanyDetailPath(ticker) {
-  const t = String(ticker ?? '').trim().toUpperCase()
-  return t ? `/explore/companies/${t}` : EXPLORE_COMPANIES_PATH
+  const t = String(ticker ?? '').trim().toLowerCase()
+  return t ? `/explore/${encodeURIComponent(t)}` : EXPLORE_HOME_PATH
 }
 
 export function exploreInvestorDetailPath(name, slugHint = null) {
@@ -105,7 +93,7 @@ export function exploreInvestorDetailPath(name, slugHint = null) {
     String(slugHint ?? '')
       .trim()
       .toLowerCase() || exploreInvestorSlug(name)
-  return slug ? `/explore/investors/${slug}` : EXPLORE_INVESTORS_PATH
+  return slug ? `/explore/${encodeURIComponent(slug)}` : EXPLORE_HOME_PATH
 }
 
 /** @deprecated Use exploreInvestorDetailPath */
@@ -130,13 +118,9 @@ export function navigateExploreHome({ replace = false } = {}) {
   navigateTerminal(EXPLORE_HOME_PATH, { replace })
 }
 
-export function navigateExploreCompanies() {
-  navigateTerminal(EXPLORE_HOME_PATH)
-}
+export function navigateExploreCompanies() {}
 
-export function navigateExploreInvestors() {
-  navigateTerminal(EXPLORE_INVESTORS_PATH)
-}
+export function navigateExploreInvestors() {}
 
 export function navigateExploreWatchlist() {
   navigateTerminal(EXPLORE_WATCHLIST_PATH)
@@ -145,12 +129,12 @@ export function navigateExploreWatchlist() {
 /** @deprecated Use navigateExploreInvestors */
 export const navigateExploreActors = navigateExploreInvestors
 
-export function navigateExploreCompanyDetail(ticker) {
-  navigateTerminal(exploreCompanyDetailPath(ticker))
-}
+export function navigateExploreCompanyDetail() {}
 
 export function navigateExploreInvestorDetail(name, slugHint = null) {
-  navigateTerminal(exploreInvestorDetailPath(name, slugHint))
+  const path = exploreInvestorDetailPath(name, slugHint)
+  if (isRetiredProductPath(path)) return
+  navigateTerminal(path)
 }
 
 /** @deprecated Use navigateExploreInvestorDetail */
@@ -164,29 +148,23 @@ export function navigateSettings({ replace = false } = {}) {
   navigateTerminal(SETTINGS_PATH, { replace })
 }
 
-export function navigateMacro({ replace = false } = {}) {
-  navigateTerminal(MACRO_PATH, { replace })
-}
+export function navigateMacro() {}
 
 export function navigateExploreBack() {
   if (typeof window === 'undefined') return
   window.history.back()
 }
 
+function resolveTerminalRoute(pathname = readTerminalPath()) {
+  if (isRetiredProductPath(pathname)) return { shell: 'retired' }
+  return parseTerminalRoute(pathname) ?? { shell: 'explore', view: 'home' }
+}
+
 export function useTerminalRoute() {
-  const [route, setRoute] = useState(
-    () => parseTerminalRoute(readTerminalPath()) ?? { shell: 'explore', view: 'home' },
-  )
+  const [route, setRoute] = useState(() => resolveTerminalRoute())
 
   useEffect(() => {
-    const sync = () => {
-      const path = readTerminalPath()
-      const rewritten = rewriteLegacyExploreActorsPath(path)
-      if (rewritten && typeof window !== 'undefined') {
-        window.history.replaceState(null, '', rewritten)
-      }
-      setRoute(parseTerminalRoute(readTerminalPath()) ?? { shell: 'explore', view: 'home' })
-    }
+    const sync = () => setRoute(resolveTerminalRoute())
     sync()
     window.addEventListener('popstate', sync)
     return () => window.removeEventListener('popstate', sync)

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { SkeletonList } from './AppSkeleton.jsx'
 import {
   fetchMacroCalendar,
   peekMacroCalendarCache,
@@ -554,7 +555,7 @@ export function MacroCalendarPanel({ backendUp = false, onMacroClick, onBrandCli
           <div className="mcalMain" aria-hidden={filterOpen || undefined}>
             <header className="mcalPageHeading"><p className="mcalFilterKicker">Economic releases</p><h1>Macro calendar</h1></header>
             {loading ? (
-              <p className="mcalEmpty">Loading macro calendar…</p>
+              <SkeletonList count={4} />
             ) : fetchError ? (
               <div className="mcalEmpty" role="status"><span>Calendar unavailable. Try again.</span><button className="mcalRetry" onClick={() => setRetry(n => n + 1)}>Retry</button></div>
             ) : !showGrid ? (

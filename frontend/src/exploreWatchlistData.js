@@ -152,6 +152,7 @@ function emptyWatchlistRow(person) {
     empty: true,
     events: [],
     modeLabel: watchlistModeLabel(person.mode),
+    chamber: person.chamber || undefined,
   }
 }
 
@@ -231,6 +232,7 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
             up: resolveWatchlistTrailUp(lead, trail, muted),
             extraSameDay: Math.max(0, Number(lead.extraSameDay ?? 0)),
             date: lead.date,
+            chamber: person.chamber || undefined,
           },
           events,
         ),
@@ -273,6 +275,7 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
           up: resolveWatchlistTrailUp(lead, trail, muted),
           extraSameDay: Math.max(0, lead.extraSameDay ?? txns.length - 1),
           date: lead.date,
+          chamber: person.chamber || undefined,
         },
         events,
       ),

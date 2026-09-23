@@ -76,13 +76,24 @@ export function resolveWatchlistCatalogPerson(slug, name, entry = null) {
   }
 }
 
+const STARTER_LISTS = [
+  ['nancy-pelosi', 'tommy-tuberville', 'markwayne-mullin', 'sheldon-whitehouse', 'john-boozman', 'byron-donalds', 'jensen-huang', 'tim-cook', 'lisa-su', 'vanguard-group', 'blackrock', 'renaissance-technologies'],
+  ['nancy-pelosi', 'tommy-tuberville', 'markwayne-mullin', 'sheldon-whitehouse', 'john-boozman', 'byron-donalds', 'jensen-huang', 'tim-cook', 'lisa-su', 'elon-musk', 'satya-nadella', 'jamie-dimon'],
+  ['nancy-pelosi', 'tommy-tuberville', 'markwayne-mullin', 'sheldon-whitehouse', 'john-boozman', 'byron-donalds', 'jensen-huang', 'tim-cook', 'lisa-su', 'elon-musk', 'satya-nadella', 'jamie-dimon', 'vanguard-group', 'renaissance-technologies', 'state-street-global-advisors', 'fidelity-management', 'capital-group'],
+]
+
+function isUntouchedStarterList(stored) {
+  const slugs = new Set(stored.map((person) => String(person?.slug ?? '').toLowerCase()))
+  return STARTER_LISTS.some(
+    (list) => slugs.size === list.length && list.every((slug) => slugs.has(slug)),
+  )
+}
+
 export function loadUserWatchlistPeople(userId) {
   const key = storageKey(PEOPLE_KEY_PREFIX, userId)
   const stored = readJson(key, null)
-  if (Array.isArray(stored) && stored.length) {
-    const oldDefaults = ['nancy-pelosi','tommy-tuberville','markwayne-mullin','sheldon-whitehouse','john-boozman','byron-donalds','jensen-huang','tim-cook','lisa-su','vanguard-group','blackrock','renaissance-technologies']
-    if (stored.length !== oldDefaults.length || !oldDefaults.every(slug => stored.some(p => p.slug === slug))) return stored
-    // Update untouched starter lists; preserve customized watchlists.
+  if (Array.isArray(stored) && stored.length && !isUntouchedStarterList(stored)) {
+    return stored.filter((person) => String(person?.slug ?? '').toLowerCase() !== 'blackrock')
   }
   const defaults = defaultWatchlistPeopleEntries()
   writeJson(key, defaults)

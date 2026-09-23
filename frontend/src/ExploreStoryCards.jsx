@@ -1,5 +1,5 @@
 import {ImageOrInitials} from './ExplorePersonRow.jsx'
-import logos from './exploreLogos.json'
+import { companyLogoFallback, companyLogoSrc } from './localImages.js'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { exploreMoveLabelTone } from './exploreDirectoryTrail.js'
 
@@ -22,7 +22,7 @@ function ExploreStoryRow({ slide, onOpenEvent, dateLabel }) {
       >
         <div className="exploreStoryRowCopy">
           <div className="exploreStoryHeading">
-            <ImageOrInitials src={slide.ticker?(logos[slide.ticker]??`https://financialmodelingprep.com/image-stock/${encodeURIComponent(slide.ticker)}.png`):null} name={slide.ticker||slide.source} className="exploreStoryLogo" logo/>
+            <ImageOrInitials src={slide.ticker?companyLogoSrc(slide.ticker):null} fallbackSrc={slide.ticker?companyLogoFallback(slide.ticker):null} name={slide.ticker||slide.source} className="exploreStoryLogo" logo/>
             <div className="exploreStoryHeadingText">
               <p className="exploreRecapSlideKicker mono">{slide.kicker}</p>
               <span className="exploreStoryRowTitle">{slide.headline}</span>

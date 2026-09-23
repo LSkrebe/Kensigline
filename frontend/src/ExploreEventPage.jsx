@@ -15,7 +15,8 @@ import { isExplorePlaceholderLabel } from './exploreDirectoryTrail.js'
 import { exploreActorEventLabel, exploreCompanyEventLabel } from './exploreEventLabels.js'
 import {ImageOrInitials,normalizeInvestorName} from './ExplorePersonRow.jsx'
 import portraits from './explorePortraits.json'
-import logos from './exploreLogos.json'
+import { companyLogoFallback, companyLogoSrc } from './localImages.js'
+import { SkeletonList, SkeletonStatus } from './AppSkeleton.jsx'
 import './DeepReport.css'
 import './ExplorePage.css'
 
@@ -94,13 +95,13 @@ function EventDirectoryRow({
 }) {
   const inner = (
     <>
-      <ImageOrInitials src={rowKind==='company'?logos[ticker??code]:portraits[normalizeInvestorName(name)]?.src} name={rowKind==='company'?(ticker??code):name} className="explorePersonPortrait" logo={rowKind==='company'}/>
+      <ImageOrInitials src={rowKind==='company'?companyLogoSrc(ticker??code):portraits[normalizeInvestorName(name)]?.src} fallbackSrc={rowKind==='company'?companyLogoFallback(ticker??code):null} name={rowKind==='company'?(ticker??code):name} className="explorePersonPortrait" logo={rowKind==='company'}/>
       <div className="exploreDirectoryCopy">
         <span className="exploreDirectoryName">{name}</span>
         {meta ? <span className={`exploreDirectoryMeta exploreEventFilingAction mono ${/sale|trim|sell/i.test(meta)?'isDown':/purchase|buy|add/i.test(meta)?'isUp':''}`}>{meta}</span> : null}
         <span className="explorePersonMeta mono">{dateLabel}{ticker?`, ${ticker}`:''}</span>
       </div>
-      <span className="exploreEventFilingCompany"><ImageOrInitials src={logos[ticker??code]??(ticker?`https://financialmodelingprep.com/image-stock/${encodeURIComponent(ticker)}.png`:null)} name={ticker??code} className="explorePersonLogo" logo/><span>{companyName||ticker||code}</span></span>
+      <span className="exploreEventFilingCompany"><ImageOrInitials src={companyLogoSrc(ticker??code)} fallbackSrc={companyLogoFallback(ticker??code)} name={ticker??code} className="explorePersonLogo" logo/><span>{companyName||ticker||code}</span></span>
       <span className={['exploreDirectoryAmount mono', rowKind==='company'?trailTone:''].filter(Boolean).join(' ')}>
         {trail}
       </span>
@@ -469,7 +470,7 @@ export function ExploreEventPage({
                   .join(' ')}
               >
                 <div className="exploreEventHeading">
-                  <ImageOrInitials src={heroTicker?(logos[heroTicker]??`https://financialmodelingprep.com/image-stock/${encodeURIComponent(heroTicker)}.png`):(brief?.people?.[0]?.name?portraits[normalizeInvestorName(brief.people[0].name)]?.src:null)} name={heroTicker||brief?.people?.[0]?.name||'Event'} className="exploreEventHeroImage" logo={Boolean(heroTicker)}/>
+                  <ImageOrInitials src={heroTicker?companyLogoSrc(heroTicker):(brief?.people?.[0]?.name?portraits[normalizeInvestorName(brief.people[0].name)]?.src:null)} fallbackSrc={heroTicker?companyLogoFallback(heroTicker):null} name={heroTicker||brief?.people?.[0]?.name||'Event'} className="exploreEventHeroImage" logo={Boolean(heroTicker)}/>
                   <div><p className="drpt-kicker">{kicker}</p><div className="exploreEventHeroMeta mono">{metaBits.join(', ')}</div></div>
                 </div>
                 <h1 className="exploreEventTitle">{slide?.headline||'Event brief'}</h1>
@@ -482,12 +483,17 @@ export function ExploreEventPage({
 
         <div className="exploreDirPaper">
           {!brief ? (
+            briefCtx.pending ? (
+              <SkeletonStatus label="Loading event brief" className="appSkelEvent">
+                <span className="appSkel appSkel--title" />
+                <span className="appSkel appSkel--sub" />
+                <span className="appSkel appSkel--chart" />
+              </SkeletonStatus>
+            ) : (
             <div className="exploreEventEmpty">
-              <p className="drpt-sectionLabel">Event brief</p>
-              <p className="exploreEventEmptyLead">
-                {briefCtx.pending ? 'Loading event brief…' : 'This recap event could not be found.'}
-              </p>
+              <p className="exploreEventEmptyLead">This recap event could not be found.</p>
             </div>
+            )
           ) : (
             <div className="exploreEventBody">
               <EventFactsSection facts={brief.facts} />
@@ -513,7 +519,7 @@ export function ExploreEventPage({
                     `${brief.filingRows.length} filing${brief.filingRows.length === 1 ? '' : 's'}`) : null
                   }
                 >
-                  {!brief.filingRows.length?<li className="exploreEventFilingsStatus mono">{briefCtx.pending?'Loading filings…':'Filings could not be loaded.'}</li>:null}
+                  {!brief.filingRows.length ? (briefCtx.pending ? <SkeletonList count={3} tag="li" /> : <li className="exploreEventFilingsStatus">Filings could not be loaded.</li>) : null}
                   {brief.filingRows.map((row) => (
                     <EventFilingDirectoryRow
                       key={row.id}

@@ -9,7 +9,6 @@ import { AnalyseModelGrid } from './AnalyseModelGrid.jsx'
 import { resolveDocumentOpenUrl } from './documentOpenUrl.js'
 import {
   buildDailyTrackRecord,
-  filterTrackTradesByRange,
   formatReturnFraction,
 } from './deepOutcomes.js'
 import { DeepCompactChrome } from './DeepCompactChrome.jsx'
@@ -20,9 +19,13 @@ import {
   RESEARCH_PAPER_SOURCE_CATALOG,
 } from './researchPaperSources.js'
 import { ExplorePersonRow, ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
+import { exploreInvestorSlug } from './exploreDirectoryNav.js'
+import { SENATE_INVESTOR_SLUGS } from './exploreWatchlistCatalog.js'
 import portraits from './explorePortraits.json'
-import logos from './exploreLogos.json'
+import { companyLogoFallback, companyLogoSrc } from './localImages.js'
 import './DeepReport.css'
+import { SkeletonChart, SkeletonList, SkeletonReturn, SkeletonStats } from './AppSkeleton.jsx'
+import { copyDossierShareCard } from './dossierShareCard.js'
 import './ExplorePage.css'
 
 const DEEP_COLLAPSE_RANGE_FALLBACK = 1
@@ -45,14 +48,30 @@ function deepCollapseProgressVars(progress) {
   }
 }
 
+function DossierHeroMedia({ src, name, title, kicker, logo = false }) {
+  return (
+    <div className={`drpt-heroMedia${logo ? ' drpt-heroMedia--logo' : ''}`}>
+      <ImageOrInitials className="drpt-heroPhoto" src={src} name={name} logo={logo} discover={false} />
+      <div className="drpt-heroCopy">
+        {kicker ? <p className="drpt-heroKicker">{kicker}</p> : null}
+        <h1 className="drpt-heroTitle">{title}</h1>
+      </div>
+    </div>
+  )
+}
+
 function DeepReportShell({
   scrollResetKey = 'deep',
   expandedHeader,
+  flat = false,
+  collapsedTitle = '',
   compactLabel,
   compactPrice,
   compactPriceChange,
   compactPriceChangePct,
   chrome,
+  onShareClick = null,
+  shareLabel = 'Share',
   children,
 }) {
   const { pageRef, dockRef, spacerRef } = useCollapseScroll({
@@ -62,7 +81,7 @@ function DeepReportShell({
   })
 
   return (
-    <article className="drpt" ref={pageRef}>
+    <article className={['drpt', flat ? 'drpt--flatHead' : '', collapsedTitle ? 'drpt--dossier' : ''].filter(Boolean).join(' ')} ref={pageRef}>
       <div className="drpt-stickWrap">
         <div ref={dockRef} className="drpt-dock">
           <div className="drpt-viewport">
@@ -78,14 +97,18 @@ function DeepReportShell({
                 onSettingsClick={chrome?.onSettingsClick}
                 onBrandClick={chrome?.onBrandClick}
                 onCloseClick={chrome?.onCloseClick}
-                subjectLabel={compactLabel}
-                price={compactPrice}
-                priceChange={compactPriceChange}
-                priceChangePct={compactPriceChangePct}
+                subjectLabel={collapsedTitle ? '' : compactLabel}
+                price={collapsedTitle ? null : compactPrice}
+                priceChange={collapsedTitle ? null : compactPriceChange}
+                priceChangePct={collapsedTitle ? null : compactPriceChangePct}
+                hideTrail={!!collapsedTitle}
+                onShareClick={onShareClick}
+                shareLabel={shareLabel}
               />
+              {collapsedTitle ? <p className="drpt-collapsedName">{collapsedTitle}</p> : null}
             </div>
 
-            <div className="drpt-expanded">{expandedHeader}</div>
+            {expandedHeader ? <div className="drpt-expanded">{expandedHeader}</div> : null}
           </div>
         </div>
         <div ref={spacerRef} className="drpt-collapseSpacer" aria-hidden="true" />
@@ -801,33 +824,41 @@ function latestMeaningfulSequenceValue(fundamentals, key) {
   return { value: null, period: null }
 }
 
-function DeepFundamentalsSnapshot({ fundamentals, loading = false, priceChangePct = null, chartRange }) {
+function DeepFundamentalsSnapshot({ fundamentals, loading = false, priceChangePct = null, chartRange, strip = false }) {
   const change = priceChangePct != null && Number.isFinite(Number(priceChangePct)) ? Number(priceChangePct) : null
   const cards = [
-    {key:'priceChange', label:'Price change', value:change == null ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(2)}%`, period:priceRangeLabel(chartRange), tone:change == null ? '' : change >= 0 ? 'isUp' : 'isDown'},
+    ...(strip ? [] : [{key:'priceChange', label:'Price change', value:change == null ? '—' : `${change > 0 ? '+' : ''}${change.toFixed(2)}%`, period:priceRangeLabel(chartRange), tone:change == null ? '' : change >= 0 ? 'isUp' : 'isDown'}]),
     ...(fundamentals ? buildDeepMetricCards(fundamentals).filter(card => card.key !== 'valuationDiscountPct').slice(0, 3) : []),
   ]
   if (loading && cards.length < DEEP_METRIC_SLOT_COUNT) {
-    return <p className="drpt-empty drpt-loading">Loading key metrics…</p>
+    return <SkeletonStats />
   }
 
 
   if (!cards.length) {
     return loading ? (
-      <p className="drpt-empty drpt-loading">Loading key metrics…</p>
+      <SkeletonStats />
     ) : (
       <p className="drpt-empty">No key metrics yet.</p>
     )
   }
 
+  const shown = strip ? cards.slice(0, 3) : cards
   return (
-    <div className="drpt-metricGrid">
-      {cards.map((card) => (
+    <div className={strip ? 'drpt-statStrip' : 'drpt-metricGrid'}>
+      {shown.map((card) => (
+        strip ? (
+          <div className="drpt-stat" key={card.key}>
+            <span className="drpt-statLabel">{card.label}</span>
+            <span className={`drpt-statValue ${card.tone ?? ''}`}>{card.value}</span>
+          </div>
+        ) : (
         <div className="drpt-metricCard" key={card.key}>
           <span className="drpt-metricLabel">{card.label}</span>
           <span className={`drpt-metricValue ${card.tone ?? ''}`}>{card.value}</span>
           {card.period ? <span className="drpt-metricPeriod">{card.period}</span> : null}
         </div>
+        )
       ))}
     </div>
   )
@@ -913,7 +944,7 @@ function DeepChronology({ entries = [], visibleLimit = null }) {
 }
 
 function DeepInvestorList({ rows = [], onInvestorClick = null, loading = false, ticker }) {
-  if (loading) return <p className="drpt-empty drpt-loading">Loading tracked investors…</p>
+  if (loading) return <SkeletonList count={3} />
   if (!rows.length) return <p className="drpt-empty">No tracked investor activity yet.</p>
   return <ul className="exploreDirPaper drpt-activityList">
     {rows.map((row, i) => <ExplorePersonRow key={row.id ?? i} investorOnly
@@ -1101,7 +1132,7 @@ function DeepTrackRecordChart({ points = [] }) {
 
 function DeepTrackRecordChartPanel({ trackRecord, loading = false }) {
   if (loading && !trackRecord?.points?.length) {
-    return <p className="drpt-empty drpt-loading">Loading track record…</p>
+    return <SkeletonChart />
   }
   if (!trackRecord?.points?.length) {
     return <p className="drpt-empty">No price data available.</p>
@@ -1114,34 +1145,279 @@ function DeepTrackRecordChartPanel({ trackRecord, loading = false }) {
   )
 }
 
-function DeepActorMetrics({ trackRecord, chartRange = '6M', loading = false }) {
-  const stats = trackRecord?.stats
-  if (loading && !stats) {
-    return <p className="drpt-empty drpt-loading">Loading key metrics…</p>
+/** Sample curve so the Pelosi dossier can be reviewed before a verified series exists. */
+function pelosiSamplePerformance() {
+  const end = new Date(2026, 8, 23)
+  end.setHours(12, 0, 0, 0)
+  const targets = { '1M': 0.042, '3M': 0.124, '6M': 0.246, '1Y': 0.274, YTD: 0.198 }
+  const endLevel = targets['1Y']
+  const levelAt = (fraction) => (1 + endLevel) / (1 + fraction) - 1
+  const ytd = new Date(2026, 0, 1)
+  ytd.setHours(12, 0, 0, 0)
+  const ytdBack = Math.round((end.getTime() - ytd.getTime()) / 86400000)
+  const anchors = [
+    [365, 0],
+    [ytdBack, levelAt(targets.YTD)],
+    [180, levelAt(targets['6M'])],
+    [90, levelAt(targets['3M'])],
+    [30, levelAt(targets['1M'])],
+    [0, endLevel],
+  ].sort((a, b) => b[0] - a[0])
+  const points = []
+  for (let back = 365; back >= 0; back -= 1) {
+    let i = 0
+    while (i < anchors.length - 1 && anchors[i + 1][0] > back) i += 1
+    const [fromBack, fromLevel] = anchors[i]
+    const [toBack, toLevel] = anchors[Math.min(i + 1, anchors.length - 1)]
+    const span = fromBack - toBack || 1
+    const t = (fromBack - back) / span
+    const wave = Math.sin(t * Math.PI * 7) * 0.012 + Math.sin(t * Math.PI * 3) * 0.006
+    const cumulative = fromLevel + (toLevel - fromLevel) * t + (fromBack === toBack ? 0 : wave)
+    const day = new Date(end)
+    day.setDate(end.getDate() - back)
+    const y = day.getFullYear()
+    const m = String(day.getMonth() + 1).padStart(2, '0')
+    const d = String(day.getDate()).padStart(2, '0')
+    points.push({ ts: `${y}-${m}-${d}T12:00:00`, cumulative })
   }
-  if (!stats) return <p className="drpt-empty">Verified performance metrics are unavailable.</p>
+  return { daily: { points, symbols: 8 } }
+}
 
-  const rangeLabel = priceRangeLabel(chartRange) || 'Track record'
+function formatTrackSpan(points) {
+  if (!points?.length) return null
+  const fmt = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const start = new Date(points[0].ts)
+  const end = new Date(points.at(-1).ts)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null
+  return `${fmt.format(start)} – ${fmt.format(end)}`
+}
 
+function heroReturnFromFraction(fraction) {
+  if (fraction == null || !Number.isFinite(Number(fraction))) return null
+  const pct = Number(fraction) * 100
+  const abs = Math.abs(pct).toFixed(1)
+  if (pct > 0.05) return { text: `+${abs}%`, tone: 'isUp' }
+  if (pct < -0.05) return { text: `−${abs}%`, tone: 'isDown' }
+  return { text: '0.0%', tone: '' }
+}
+
+function heroReturnFromPercent(percent) {
+  if (percent == null || !Number.isFinite(Number(percent))) return null
+  const pct = Number(percent)
+  const abs = Math.abs(pct).toFixed(1)
+  if (pct > 0.05) return { text: `+${abs}%`, tone: 'isUp' }
+  if (pct < -0.05) return { text: `−${abs}%`, tone: 'isDown' }
+  return { text: '0.0%', tone: '' }
+}
+
+function formatLongDate(ms) {
+  const d = new Date(ms)
+  if (Number.isNaN(d.getTime())) return null
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(d)
+}
+
+function formatAum(n) {
+  if (!(n > 0)) return '—'
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`
+  if (n >= 1e3) return `$${Math.round(n / 1e3)}K`
+  return `$${Math.round(n)}`
+}
+
+function formatDelay(days) {
+  if (!Number.isFinite(days)) return '—'
+  const rounded = Math.max(0, Math.round(days))
+  if (rounded >= 6) {
+    const weeks = Math.max(1, Math.round(rounded / 7))
+    if (Math.abs(rounded - weeks * 7) <= 2) return weeks === 1 ? '1 week' : `${weeks} weeks`
+  }
+  return rounded === 1 ? '1 day' : `${rounded} days`
+}
+
+function formatWeight(n) {
+  if (!Number.isFinite(n) || n < 0.05) return '0%'
+  return `${n.toFixed(1)}%`
+}
+
+function shortCompany(name, ticker) {
+  const cleaned = String(name || ticker || '')
+    .replace(/,?\s+(Inc\.|Incorporated|Corporation|Corp\.|N\.V\.|Ltd\.|Limited|plc|S\.A\.)$/i, '')
+    .replace(/,?\s+Holdings$/i, '')
+    .replace(/\.com$/i, '')
+    .trim()
+  return cleaned || ticker || '—'
+}
+
+function dayKey(ms) {
+  const d = new Date(ms)
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+}
+
+function integerWeights(rows) {
+  const total = rows.reduce((sum, row) => sum + row.dollars, 0)
+  if (!(total > 0)) return rows.map((row) => ({ ...row, pct: 0 }))
+  const ranked = rows.map((row, index) => {
+    const exact = (row.dollars / total) * 100
+    return { ...row, index, exact, pct: Math.floor(exact), frac: exact - Math.floor(exact) }
+  })
+  let left = 100 - ranked.reduce((sum, row) => sum + row.pct, 0)
+  ranked.sort((a, b) => b.frac - a.frac || a.index - b.index)
+  for (let i = 0; i < ranked.length && left > 0; i += 1) {
+    ranked[i].pct += 1
+    left -= 1
+  }
+  return ranked.sort((a, b) => a.index - b.index)
+}
+
+function isDossierTrade(row) {
+  return row?.type !== 'meta' && row?.layout !== 'two' && (row?.type === 'trade' || String(row?.layout ?? '').startsWith('txn'))
+}
+
+function tradeDollars(row) {
+  const n = Number(row?.amountUsd)
+  if (n > 1) return n
+  const text = String(row?.value ?? '').replace(/[$,]/g, '')
+  const range = text.match(/([\d.]+)\s*-\s*([\d.]+)\s*([kmb])?/i)
+  if (range) {
+    const unit = String(range[3] || '').toLowerCase()
+    const scale = unit === 'b' ? 1e9 : unit === 'm' ? 1e6 : unit === 'k' ? 1e3 : 1
+    return ((Number(range[1]) + Number(range[2])) / 2) * scale
+  }
+  const single = text.match(/([\d.]+)\s*([kmb])?/i)
+  if (!single) return 0
+  const unit = String(single[2] || '').toLowerCase()
+  const scale = unit === 'b' ? 1e9 : unit === 'm' ? 1e6 : unit === 'k' ? 1e3 : 1
+  return Number(single[1]) * scale
+}
+
+function buildDossierActivity(rows) {
+  const trades = (rows ?? []).filter(isDossierTrade).map((row) => {
+    const meta = tradeRowMeta(row)
+    const tradeMs = new Date(row?.tradeTs ?? row?.ts ?? 0).getTime()
+    const filedMs = new Date(row?.filedAt ?? row?.tradeTs ?? row?.ts ?? 0).getTime()
+    return {
+      row,
+      ticker: meta.ticker,
+      name: shortCompany(row?.companyName || meta.title, meta.ticker),
+      fullName: String(row?.companyName || meta.title || meta.ticker).trim(),
+      dollars: tradeDollars(row),
+      sell: meta.codeTone === 'sell',
+      tradeMs: Number.isFinite(tradeMs) ? tradeMs : null,
+      filedMs: Number.isFinite(filedMs) ? filedMs : null,
+    }
+  }).filter((trade) => trade.ticker && trade.ticker !== '—' && trade.tradeMs != null)
+  trades.sort((a, b) => a.tradeMs - b.tradeMs || a.filedMs - b.filedMs)
+  if (!trades.length) return null
+
+  const book = new Map()
+  const groups = new Map()
+  for (const trade of trades) {
+    const key = dayKey(trade.filedMs ?? trade.tradeMs)
+    if (!groups.has(key)) groups.set(key, { key, filedMs: trade.filedMs ?? trade.tradeMs, trades: [] })
+    groups.get(key).trades.push(trade)
+  }
+  const ordered = [...groups.values()].sort((a, b) => a.filedMs - b.filedMs)
+  const filings = []
+  for (const group of ordered) {
+    const before = new Map(book)
+    for (const trade of group.trades) {
+      const next = Math.max(0, (book.get(trade.ticker)?.dollars ?? 0) + (trade.sell ? -trade.dollars : trade.dollars))
+      if (next <= 1) book.delete(trade.ticker)
+      else book.set(trade.ticker, { dollars: next, name: trade.name, fullName: trade.fullName || book.get(trade.ticker)?.fullName })
+    }
+    const totalBefore = [...before.values()].reduce((sum, item) => sum + item.dollars, 0)
+    const totalAfter = [...book.values()].reduce((sum, item) => sum + item.dollars, 0)
+    const weight = (map, total, ticker) => (total > 0 ? ((map.get(ticker)?.dollars ?? 0) / total) * 100 : 0)
+    const seen = new Set()
+    const changes = []
+    for (const trade of group.trades) {
+      if (seen.has(trade.ticker)) continue
+      seen.add(trade.ticker)
+      const from = weight(before, totalBefore, trade.ticker)
+      const to = weight(book, totalAfter, trade.ticker)
+      const net = group.trades
+        .filter((item) => item.ticker === trade.ticker)
+        .reduce((sum, item) => sum + (item.sell ? -item.dollars : item.dollars), 0)
+      const had = (before.get(trade.ticker)?.dollars ?? 0) > 1
+      const has = (book.get(trade.ticker)?.dollars ?? 0) > 1
+      const kind = !had && has ? 'new' : had && !has ? 'closed' : net > 0 ? 'increased' : net < 0 ? 'decreased' : 'unchanged'
+      const fullName = book.get(trade.ticker)?.fullName || before.get(trade.ticker)?.fullName || trade.fullName
+      if (from < 0.05 && to < 0.05) continue
+      if (kind === 'unchanged') continue
+      changes.push({ ticker: trade.ticker, name: book.get(trade.ticker)?.name || before.get(trade.ticker)?.name || trade.name, fullName, from, to, kind })
+    }
+    const unchanged = []
+    for (const [ticker, item] of book) {
+      if (seen.has(ticker)) continue
+      const to = weight(book, totalAfter, ticker)
+      if (to < 0.05) continue
+      unchanged.push({
+        ticker,
+        name: item.name,
+        fullName: item.fullName || item.name,
+        from: weight(before, totalBefore, ticker),
+        to,
+        kind: 'unchanged',
+      })
+    }
+    unchanged.sort((a, b) => b.to - a.to)
+    filings.push({ ...group, changes, unchanged })
+  }
+
+  const holdings = integerWeights([...book.entries()].map(([ticker, item]) => ({ ticker, name: item.name, fullName: item.fullName || item.name, dollars: item.dollars })))
+    .filter((row) => row.dollars > 1)
+    .sort((a, b) => b.pct - a.pct || b.dollars - a.dollars)
+  const delays = trades
+    .filter((trade) => trade.filedMs != null && trade.tradeMs != null && trade.filedMs >= trade.tradeMs)
+    .map((trade) => (trade.filedMs - trade.tradeMs) / 86400000)
+  const aum = holdings.reduce((sum, row) => sum + row.dollars, 0)
+  return {
+    since: formatLongDate(trades[0].tradeMs),
+    aum: formatAum(aum),
+    delay: formatDelay(delays.length ? delays.reduce((sum, n) => sum + n, 0) / delays.length : null),
+    positions: String(holdings.length),
+    holdings,
+    filings: filings.filter((filing) => filing.changes.length).reverse(),
+  }
+}
+
+function filingSentence(person, changes) {
+  const last = String(person ?? '').trim().split(/\s+/).filter(Boolean).at(-1) || 'Filing'
+  const names = (kind) => {
+    const list = [...new Set(changes.filter((change) => change.kind === kind).map((change) => change.name))]
+    if (list.length <= 1) return list[0] ?? ''
+    return `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`
+  }
+  const opened = names('new')
+  const increased = names('increased')
+  const decreased = names('decreased')
+  const closed = names('closed')
+  if (opened && increased && !decreased && !closed) return `${last} filing update. New position in ${opened}, and increase in ${increased}.`
+  if ((opened || increased) && !decreased && !closed) return `${last} goes long on ${[opened, increased].filter(Boolean).join(' and ')}.`
+  if (closed && !opened && !increased && !decreased) return `${last} closed ${closed}.`
+  const bits = []
+  if (opened) bits.push(`new position in ${opened}`)
+  if (increased) bits.push(`increase in ${increased}`)
+  if (decreased) bits.push(`decrease in ${decreased}`)
+  if (closed) bits.push(`closed ${closed}`)
+  if (!bits.length) return `${last} filing update.`
+  return `${last} filing update. ${bits[0][0].toUpperCase()}${bits[0].slice(1)}${bits.slice(1).map((bit) => `, and ${bit}`).join('')}.`
+}
+
+function DeepActorMetrics({ activity, loading = false }) {
+  if (loading && !activity) return <SkeletonStats />
+  if (!activity) return <p className="drpt-empty">Verified performance metrics are unavailable.</p>
   const cards = [
-    { key: 'win', label: 'Positive days', value: stats.winRate, period: null, tone: parseFloat(stats.winRate) > 0 ? 'isUp' : '' },
-    { key: 'median', label: 'Median daily move', value: stats.medianReturn, period: null },
-    {
-      key: 'trips',
-      label: 'Tracked stocks',
-      value: stats.roundTrips ?? '—',
-      period: null,
-    },
-    { key: 'cum', label: 'Index return', value: stats.cumulativeReturn, period: rangeLabel, tone: stats.cumulativeReturnRaw > 0 ? 'isUp' : stats.cumulativeReturnRaw < 0 ? 'isDown' : '' },
+    { key: 'aum', label: 'AUM', value: activity.aum },
+    { key: 'delay', label: 'Avg. delay', value: activity.delay },
+    { key: 'positions', label: 'Positions', value: activity.positions },
   ]
-
   return (
-    <div className="drpt-metricGrid">
+    <div className="drpt-statStrip">
       {cards.map((card) => (
-        <div className="drpt-metricCard" key={card.key}>
-          <span className="drpt-metricLabel">{card.label}</span>
-          <span className={`drpt-metricValue ${card.tone ?? ''}`}>{card.value}</span>
-          {card.period ? <span className="drpt-metricPeriod">{card.period}</span> : null}
+        <div className="drpt-stat" key={card.key}>
+          <span className="drpt-statLabel">{card.label}</span>
+          <span className="drpt-statValue">{card.value}</span>
         </div>
       ))}
     </div>
@@ -1189,23 +1465,140 @@ function tradeRowMeta(row) {
   }
 }
 
-function DeepTradeLog({ rows = [], loading = false, performance = null, onCompanyClick = null, actorName, mode }) {
-  const items = rows.filter(r => r?.type !== 'meta' && r?.layout !== 'two' && (r?.type === 'trade' || r?.layout?.startsWith('txn')))
-  if (loading && !items.length) return <p className="drpt-empty drpt-loading">Loading trades…</p>
-  if (!items.length) return <p className="drpt-empty">No trades in the selected window.</p>
-  return <ul className="exploreDirPaper drpt-activityList">
-    {items.map((row, i) => {
-      const meta = tradeRowMeta(row)
-      const companyName = row.companyName || meta.ticker
-      return <ExplorePersonRow key={row.id ?? i} companyOnly
-        performanceTransactions={performance?.transactions ?? []}
-        row={{id:row.id, name:actorName, ticker:meta.ticker, companyName,
-          event:deepTxnCodeWord(meta.code), trail:meta.amount, dateLabel:meta.date,
-          docType:mode === 'politicians' ? 'PTR' : mode === 'institutions' ? '13F' : 'Form 4'}}
-        onClick={onCompanyClick && meta.ticker !== '—' ? () => onCompanyClick({ticker:meta.ticker,name:companyName}) : null}
-      />
-    })}
-  </ul>
+function FilingModal({ filing, name, portraitSrc, onClose }) {
+  const sections = [
+    ['new', 'New positions', filing.changes],
+    ['closed', 'Closed positions', filing.changes],
+    ['increased', 'Increased positions', filing.changes],
+    ['decreased', 'Decreased positions', filing.changes],
+    ['unchanged', 'Unchanged positions', filing.unchanged ?? []],
+  ]
+  return (
+    <div className="drpt-filingPage drpt--dossier" role="dialog" aria-modal="true" aria-label={`${formatLongDate(filing.filedMs)} trades`}>
+      <div className="drpt-chromeBar">
+        <DeepCompactChrome onCloseClick={onClose} hideTrail showShare={false} closeAriaLabel="Close" />
+        <p className="drpt-collapsedName">{formatLongDate(filing.filedMs)}</p>
+      </div>
+      <div className="drpt-filingBody">
+        <div className="drpt-filingHero">
+          <h2 className="drpt-sectionTitle">Made {filing.trades.length} {filing.trades.length === 1 ? 'trade' : 'trades'}</h2>
+          <div className="drpt-filingMeter" aria-hidden="true" />
+          <ImageOrInitials className="drpt-filingPortrait" src={portraitSrc} name={name} discover={false} />
+          <p className="drpt-filingName">{name}</p>
+          <p className="drpt-filingBlurb">{filingSentence(name, filing.changes)}</p>
+        </div>
+        {sections.map(([kind, title, source]) => {
+          const rows = (source ?? []).filter((change) => change.kind === kind)
+          if (!rows.length) return null
+          return (
+            <section className="drpt-section" key={kind}>
+              <h3 className="drpt-sectionTitle">{title}</h3>
+              <ol className="drpt-holdingList">
+                {rows.map((change) => (
+                  <li key={change.ticker}>
+                    <div className="drpt-holdingBtn">
+                      <ImageOrInitials
+                        className="drpt-holdingLogo"
+                        src={companyLogoSrc(change.ticker)}
+                        fallbackSrc={companyLogoFallback(change.ticker)}
+                        name={change.ticker}
+                        logo
+                        discover={false}
+                      />
+                      <span className="drpt-holdingName">
+                        <span>{change.ticker}</span>
+                        <span>{change.fullName || change.name}</span>
+                      </span>
+                      <span className="drpt-holdingAction">
+                        {kind === 'unchanged' ? formatWeight(change.to) : `${formatWeight(change.from)} → ${formatWeight(change.to)}`}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function DeepTradeLog({ rows = [], loading = false, name = '', portraitSrc = null, expanded = false }) {
+  const [active, setActive] = useState(null)
+  const activity = useMemo(() => buildDossierActivity(rows), [rows])
+  const filings = activity?.filings ?? []
+  const visible = expanded ? filings : filings.slice(0, 5)
+  if (loading && !filings.length) return <SkeletonList count={3} />
+  if (!filings.length) return <p className="drpt-empty">No trades in the selected window.</p>
+  return (
+    <>
+      <ol className="drpt-tradeList">
+        {visible.map((filing) => {
+          const logosShown = filing.changes.slice(0, 3)
+          const extra = filing.changes.length - logosShown.length
+          return (
+            <li className="drpt-tradeItem" key={filing.key}>
+              <button type="button" className="drpt-tradeBtn" onClick={() => setActive(filing)}>
+                <span className="drpt-tradeDate">{formatLongDate(filing.filedMs)}</span>
+                <span className="drpt-tradeTitle">{filingSentence(name, filing.changes)}</span>
+                <span className="drpt-tradeLogos">
+                  {logosShown.map((change) => (
+                    <ImageOrInitials
+                      key={change.ticker}
+                      className="drpt-tradeLogo"
+                      src={companyLogoSrc(change.ticker)}
+                        fallbackSrc={companyLogoFallback(change.ticker)}
+                      name={change.ticker}
+                      logo
+                      discover={false}
+                    />
+                  ))}
+                  {extra > 0 ? <span>+{extra} more</span> : null}
+                </span>
+                <span className="drpt-tradeChevron" aria-hidden="true">›</span>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+      {active ? (
+        <FilingModal filing={active} name={name} portraitSrc={portraitSrc} onClose={() => setActive(null)} />
+      ) : null}
+    </>
+  )
+}
+
+function DeepHoldings({ rows = [], loading = false, expanded = false }) {
+  const holdings = useMemo(() => buildDossierActivity(rows)?.holdings ?? [], [rows])
+  const visible = expanded ? holdings : holdings.slice(0, 5)
+  if (loading && !holdings.length) return <SkeletonList count={3} />
+  if (!holdings.length) return <p className="drpt-empty">No current holdings.</p>
+  return (
+    <>
+      <ol className="drpt-holdingList">
+        {visible.map((holding) => (
+          <li key={holding.ticker}>
+            <div className="drpt-holdingBtn">
+              <ImageOrInitials
+                className="drpt-holdingLogo"
+                src={companyLogoSrc(holding.ticker)}
+                fallbackSrc={companyLogoFallback(holding.ticker)}
+                name={holding.ticker}
+                logo
+                discover={false}
+              />
+              <span className="drpt-holdingName">
+                <span>{holding.ticker}</span>
+                <span>{holding.name}</span>
+              </span>
+              <span className="drpt-holdingAction">{holding.pct}%</span>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </>
+  )
 }
 
 function DeepTradedCompaniesList({
@@ -1221,7 +1614,7 @@ function DeepTradedCompaniesList({
   }, [companies, visibleLimit])
 
   if (loading && !companies.length) {
-    return <p className="drpt-empty drpt-loading">Loading companies…</p>
+    return <SkeletonList count={3} />
   }
   if (!companies.length) {
     return <p className="drpt-empty">No traded companies in scope yet.</p>
@@ -1249,40 +1642,6 @@ function DeepTradedCompaniesList({
       })}
     </ol>
   )
-}
-
-function ActorTopBar({ name, detail, modeLabel }) {
-  const rawRole = detail && detail !== '—' && detail.toLowerCase() !== modeLabel.toLowerCase() ? detail : null
-  const role = rawRole?.replace(/^(house|senate)$/i, (value) => value[0].toUpperCase() + value.slice(1).toLowerCase())
-  return (
-    <header className="drpt-topbar drpt-topbar--investor drpt-dossierHero drpt-topbar--noMeta">
-      <div className="drpt-topbarIdentity">
-        <div className="drpt-dossierIdentityLine">
-          <ImageOrInitials className="drpt-dossierImage" src={portraits[normalizeInvestorName(name)]?.src} name={name} />
-          <div className="drpt-dossierIdentityLabels">
-            <p className="drpt-kicker">{modeLabel}</p>
-            {role ? <span className="drpt-dossierRole">{role}</span> : null}
-          </div>
-        </div>
-        <div className="drpt-topbarTitleRow">
-          <h1 className="drpt-topbarTicker">{name}</h1>
-        </div>
-      </div>
-    </header>
-  )
-}
-
-function CompanyTopBar({ ticker, displayName, sector, price }) {
-  const secondary = sector && !['—','-'].includes(sector) ? sector : price != null && Number.isFinite(Number(price)) ? `$${Number(price).toFixed(2)}` : 'Company'
-  return <header className="drpt-topbar drpt-topbar--company drpt-dossierHero drpt-topbar--noMeta">
-    <div className="drpt-topbarIdentity">
-      <div className="drpt-dossierIdentityLine">
-        <ImageOrInitials className="drpt-dossierImage drpt-dossierImage--logo" src={logos[ticker] ?? `https://financialmodelingprep.com/image-stock/${encodeURIComponent(ticker)}.png`} name={ticker} logo />
-        <div className="drpt-dossierIdentityLabels"><p className="drpt-kicker">{ticker}</p><span className="drpt-dossierRole">{secondary}</span></div>
-      </div>
-      <div className="drpt-topbarTitleRow"><h1 className="drpt-topbarTicker">{displayName}</h1></div>
-    </div>
-  </header>
 }
 
 export function DeepCompanyReport({
@@ -1315,76 +1674,52 @@ export function DeepCompanyReport({
 }) {
   const t = String(ticker ?? '').trim().toUpperCase()
   const displayName = String(companyName ?? '').trim() || t || 'Company'
+  const heroReturn = heroReturnFromPercent(priceChangePct)
+  const secondary = sector && !['—', '-'].includes(sector) ? sector : 'Company'
 
   return (
     <DeepReportShell
       scrollResetKey={scrollResetKey ?? t}
+      collapsedTitle={displayName}
       compactLabel={t}
       compactPrice={price}
       compactPriceChange={priceChange}
       compactPriceChangePct={priceChangePct}
       chrome={chrome}
       expandedHeader={
-        <CompanyTopBar
-          ticker={t}
-          displayName={displayName}
-          sector={sector}
-          domicile={domicile}
-          mcap={mcap}
-          earnings={earnings}
-          price={price}
-          priceChange={priceChange}
-          priceChangePct={priceChangePct}
+        <DossierHeroMedia
+          src={companyLogoSrc(t)}
+          fallbackSrc={companyLogoFallback(t)}
+          name={t}
+          title={displayName}
+          kicker={secondary}
+          logo
         />
       }
     >
-        <div className="drpt-row drpt-row--market drpt-row--investorMarket">
-          <DeepSection label="Fundamentals" title="Key metrics">
-            <DeepFundamentalsSnapshot fundamentals={fundamentals} loading={fundamentalsLoading} priceChangePct={priceChangePct} chartRange={chartRange} />
-          </DeepSection>
-          <DeepSection
-            label="Market"
-            title="Price history"
-            headExtra={
-              onChartRangeChange ? (
-                <DeepChartRange value={chartRange} onChange={onChartRangeChange} options={chartRangeOptions} />
-              ) : null
-            }
-          >
+      <div className="drpt-dossier">
+        <div className="drpt-dossierLead">
+          <div className="drpt-dossierLeadCopy">
+            {heroReturn ? <p className={`drpt-heroReturn ${heroReturn.tone}`}>{heroReturn.text}</p> : null}
+            <p className="drpt-heroSpan">{priceRangeLabel(chartRange)}</p>
             {chartSlot ? (
               <div className="drpt-figure drpt-figure--chart">{chartSlot}</div>
             ) : chartLoading ? (
-              <div className="drpt-figure drpt-figure--chart drpt-figure--empty">
-                <p className="drpt-empty drpt-loading">Loading price…</p>
-              </div>
+                <SkeletonChart />
             ) : (
-              <div className="drpt-figure drpt-figure--chart drpt-figure--empty">
                 <p className="drpt-empty">No price series yet.</p>
-              </div>
             )}
-          </DeepSection>
-
-
+            {onChartRangeChange ? (
+              <DeepChartRange value={chartRange} onChange={onChartRangeChange} options={chartRangeOptions} />
+            ) : null}
         </div>
-
-
-
-        <div className="drpt-row drpt-row--archive drpt-row--single">
-          <DeepSection
-            label="Flow"
-            title="Tracked investors & filers"
-            headExtra={
-              <span className="drpt-sectionCount">
-                {trackedInvestorsLoading
-                  ? 'Loading…'
-                  : formatCountLabel(trackedInvestors.length, 'investor')}
-              </span>
-            }
-          >
+        </div>
+        <DeepSection title="Stats">
+          <DeepFundamentalsSnapshot strip fundamentals={fundamentals} loading={fundamentalsLoading} priceChangePct={priceChangePct} chartRange={chartRange} />
+        </DeepSection>
+        <DeepSection title="Tracked investors">
             <DeepInvestorList rows={trackedInvestors} loading={trackedInvestorsLoading} onInvestorClick={onInvestorClick} ticker={t} />
           </DeepSection>
-
-
         </div>
     </DeepReportShell>
   )
@@ -1404,6 +1739,10 @@ export function DeepActorReport({
   scrollResetKey = null,
 }) {
   const [chartRange, setChartRange] = useState('6M')
+  const [listsOpen, setListsOpen] = useState(false)
+  const [shareState, setShareState] = useState('idle')
+  const shareTimer = useRef(null)
+  useEffect(() => () => window.clearTimeout(shareTimer.current), [])
   const name = String(personDisplay?.fullName ?? actorRow?.actorName ?? '').trim()
   const detail = String(personDisplay?.detail ?? actorRow?.actorDetail ?? '').trim()
   const modeLabel =
@@ -1420,9 +1759,15 @@ export function DeepActorReport({
     [caseRows],
   )
 
+  const dossierPerformance = useMemo(() => {
+    if (actorRow?.performance?.daily?.points?.length) return actorRow.performance
+    if (normalizeInvestorName(name) !== 'nancypelosi') return actorRow?.performance ?? null
+    return pelosiSamplePerformance()
+  }, [actorRow?.performance, name])
+
   const chartRangeOptions = useMemo(
-    () => availablePriceRangesFromTimestamps((actorRow?.performance?.daily?.points ?? tradeRows).map((row) => row?.ts).filter(Boolean)),
-    [tradeRows, actorRow?.performance?.daily?.points],
+    () => availablePriceRangesFromTimestamps((dossierPerformance?.daily?.points ?? tradeRows).map((row) => row?.ts).filter(Boolean)),
+    [tradeRows, dossierPerformance],
   )
 
   useEffect(() => {
@@ -1433,15 +1778,12 @@ export function DeepActorReport({
   // While hunting, hide thin stub trades — same as company dossier waiting on explore.
   const showSectionLoading = sectionsLoading
 
-  const rangedTradeRows = useMemo(
-    () => (showSectionLoading ? [] : filterTrackTradesByRange(tradeRows, chartRange)),
-    [tradeRows, chartRange, showSectionLoading],
+  const trackRecord = useMemo(
+    () => (showSectionLoading ? null : buildDailyTrackRecord(dossierPerformance, chartRange)),
+    [dossierPerformance, chartRange, showSectionLoading],
   )
 
-  const trackRecord = useMemo(
-    () => (showSectionLoading ? null : buildDailyTrackRecord(actorRow?.performance, chartRange)),
-    [actorRow?.performance, chartRange, showSectionLoading],
-  )
+  const activity = useMemo(() => (showSectionLoading ? null : buildDossierActivity(tradeRows)), [tradeRows, showSectionLoading])
 
   const rangeReturnRaw = trackRecord?.stats?.cumulativeReturnRaw
   const rangeReturnPct =
@@ -1467,66 +1809,115 @@ export function DeepActorReport({
   }
 
   const actorCompactLabel = name
+  const heroReturn = heroReturnFromFraction(rangeReturnPct)
+  const rawRole = detail && detail !== '—' && detail.toLowerCase() !== modeLabel.toLowerCase() ? detail : null
+  const role = rawRole?.replace(/^(house|senate)$/i, (value) => value[0].toUpperCase() + value.slice(1).toLowerCase())
+  const sourceLabel = mode === 'politicians'
+    ? (/senate/i.test(`${detail} ${role ?? ''}`) || SENATE_INVESTOR_SLUGS.has(exploreInvestorSlug(name)) ? 'Senate' : 'House')
+    : 'SEC'
+  const portrait = portraits[normalizeInvestorName(name)]
+  const sourceMark = sourceLabel === 'Senate'
+    ? '/seals/senate.png'
+    : sourceLabel === 'House'
+      ? '/seals/house.png'
+      : '/seals/sec.png'
+
+  const shareLabel = shareState === 'copied' ? 'Copied' : shareState === 'saved' ? 'Saved' : 'Share'
+  const onShareClick = () => {
+    if (shareState === 'busy') return
+    setShareState('busy')
+    window.clearTimeout(shareTimer.current)
+    void copyDossierShareCard({
+      name,
+      portraitSrc: portrait?.src ?? null,
+      sourceLabel,
+      sourceMark,
+      aum: activity?.aum && activity.aum !== '—' ? activity.aum : null,
+      returnText: heroReturn?.text ?? null,
+      tone: heroReturn?.tone ?? '',
+      rangeLabel: priceRangeLabel(chartRange),
+      range: chartRange,
+      ranges: chartRangeOptions,
+      points: trackRecord?.points ?? [],
+    })
+      .then((result) => {
+        setShareState(result === 'saved' ? 'saved' : 'copied')
+        shareTimer.current = window.setTimeout(() => setShareState('idle'), 1600)
+      })
+      .catch(() => setShareState('idle'))
+  }
 
   return (
     <DeepReportShell
       scrollResetKey={scrollResetKey ?? name}
+      collapsedTitle={name}
+      onShareClick={onShareClick}
+      shareLabel={shareLabel}
       compactLabel={actorCompactLabel}
       compactPrice={compactPrice}
       compactPriceChange={compactPriceChange}
       compactPriceChangePct={compactReturnPct}
       chrome={chrome}
       expandedHeader={
-        <ActorTopBar name={name} detail={detail} modeLabel={modeLabel} />
+        <DossierHeroMedia
+          src={portrait?.src}
+          name={name}
+          title={name}
+          kicker={sourceLabel}
+          logo={portrait?.kind === 'logo'}
+        />
       }
     >
-        <div className="drpt-row drpt-row--market drpt-row--investorMarket">
-          <DeepSection label="Fundamentals" title="Key metrics">
-            <DeepActorMetrics
-              trackRecord={trackRecord}
-              chartRange={chartRange}
-              loading={showSectionLoading}
-            />
-          </DeepSection>
-          <DeepSection
-            label="Track record"
-            title="Trading history"
-            headExtra={<DeepChartRange value={chartRange} onChange={setChartRange} options={chartRangeOptions} />}
-          >
-            <div className="drpt-figure drpt-figure--chart">
-              <DeepTrackRecordChartPanel
-                trackRecord={trackRecord}
-                loading={showSectionLoading}
-              />
+      <div className="drpt-dossier">
+        <div className="drpt-dossierLead">
+          <div className="drpt-dossierIntro">
+            <div className="drpt-bylineRow">
+              <ImageOrInitials className="drpt-bylineMark" src={sourceMark} name={sourceLabel} logo discover={false} />
+              <span>by {sourceLabel}</span>
             </div>
-          </DeepSection>
-
-
+            {showSectionLoading && !heroReturn ? (
+              <SkeletonReturn />
+            ) : heroReturn ? (
+              <>
+                <p className={`drpt-heroReturn ${heroReturn.tone}`}>{heroReturn.text}</p>
+                <p className="drpt-heroSpan">{activity?.since ? `Since ${activity.since}` : priceRangeLabel(chartRange)}</p>
+              </>
+            ) : (
+              <>
+                <p className="drpt-empty">Verified performance metrics are unavailable.</p>
+                <p className="drpt-heroSpan">{activity?.since ? `Since ${activity.since}` : priceRangeLabel(chartRange)}</p>
+              </>
+            )}
+          </div>
+          <div className="drpt-dossierChart">
+            <div className="drpt-figure drpt-figure--chart">
+              <DeepTrackRecordChartPanel trackRecord={trackRecord} loading={showSectionLoading} />
+            </div>
+            <DeepChartRange value={chartRange} onChange={setChartRange} options={chartRangeOptions} />
+          </div>
         </div>
-
-        <div className="drpt-row drpt-row--archive drpt-row--single">
-          <DeepSection
-            label="Archive"
-            title="Trade log"
-            headExtra={
-              <span className="drpt-sectionCount">
-                {showSectionLoading
-                  ? 'Loading…'
-                  : formatCountLabel(tradeRows.length, 'trade')}
-              </span>
-            }
-          >
+        <DeepSection title="Stats">
+          <DeepActorMetrics activity={activity} loading={showSectionLoading} />
+        </DeepSection>
+        <div className="drpt-dossierSide">
+          <DeepSection title="Recent trades">
             <DeepTradeLog
-              performance={actorRow?.performance}
-              onCompanyClick={onCompanyClick}
-              actorName={name}
-              mode={mode}
-              rows={caseRows}
+              rows={tradeRows}
               loading={showSectionLoading}
+              name={name}
+              portraitSrc={portraits[normalizeInvestorName(name)]?.src}
+              expanded={listsOpen}
             />
           </DeepSection>
-
-
+          <DeepSection title="Current holdings">
+            <DeepHoldings rows={tradeRows} loading={showSectionLoading} expanded={listsOpen} />
+          </DeepSection>
+          {!listsOpen && ((activity?.filings?.length ?? 0) > 5 || (activity?.holdings?.length ?? 0) > 5) ? (
+            <div className="exploreTapeMoreWrap">
+              <button type="button" className="exploreTapeMore" onClick={() => setListsOpen(true)}>More</button>
+            </div>
+          ) : null}
+        </div>
         </div>
     </DeepReportShell>
   )

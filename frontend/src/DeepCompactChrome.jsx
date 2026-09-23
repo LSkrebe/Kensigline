@@ -12,6 +12,11 @@ export function DeepCompactChrome({
   price = null,
   priceChange = null,
   priceChangePct = null,
+  hideTrail = false,
+  showShare = true,
+  shareLabel = 'Share',
+  onShareClick = null,
+  closeAriaLabel = 'Close dossier',
 }) {
   const label = String(subjectLabel ?? '').trim()
   const ch = priceChange != null && Number.isFinite(Number(priceChange)) ? Number(priceChange) : null
@@ -50,13 +55,19 @@ export function DeepCompactChrome({
     <div className="deepCompactChrome terminalTopBarChrome exploreRecapChrome">
       <TerminalTopBarBrand logoSrc="/mercerline_mark.png" onBrandClick={onBrandClick} />
       <TerminalTopBarActions
-        leading={trail}
+        leading={hideTrail ? null : trail}
         macroActive={macroActive}
         onMacroClick={onMacroClick}
         settingsActive={settingsActive}
         onSettingsClick={onSettingsClick}
         hideDate
+        hideSettings
         showClose={!!onCloseClick}
+        closeAsArrow
+        showShare={showShare}
+        shareLabel={shareLabel}
+        onShareClick={onShareClick}
+        closeAriaLabel={closeAriaLabel}
         onCloseClick={onCloseClick}
       />
     </div>

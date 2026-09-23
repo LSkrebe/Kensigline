@@ -545,39 +545,24 @@ button.terminalTopBarBrand:focus-visible {
 .exploreRecapChrome .terminalTopBarIconBtn,
 .deepCompactChrome .terminalTopBarIconBtn {
   box-sizing: border-box;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 0;
   border-radius: 0;
-  background: rgba(10, 11, 13, 0.82);
-  color: rgba(255, 255, 255, 0.52);
+  background: transparent;
+  color: #fff;
   opacity: 1;
 }
 
 .exploreRecapChrome .terminalTopBarIconBtn:hover,
-.deepCompactChrome .terminalTopBarIconBtn:hover {
-  color: rgba(255, 255, 255, 0.82);
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(12, 13, 16, 0.9);
-}
-
+.deepCompactChrome .terminalTopBarIconBtn:hover,
 .exploreRecapChrome .terminalTopBarIconBtn.isActive,
-.deepCompactChrome .terminalTopBarIconBtn.isActive {
-  color: rgba(255, 255, 255, 0.94);
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(14, 15, 18, 0.96);
-}
-
+.deepCompactChrome .terminalTopBarIconBtn.isActive,
 .exploreRecapChrome .terminalTopBarIconBtn.isClose:not(.mcalStripCancelBtn),
-.deepCompactChrome .terminalTopBarIconBtn.isClose {
-  color: rgba(255, 255, 255, 0.52);
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(10, 11, 13, 0.82);
-}
-
+.deepCompactChrome .terminalTopBarIconBtn.isClose,
 .exploreRecapChrome .terminalTopBarIconBtn.isClose:not(.mcalStripCancelBtn):hover,
 .deepCompactChrome .terminalTopBarIconBtn.isClose:hover {
-  color: rgba(255, 255, 255, 0.82);
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(12, 13, 16, 0.9);
+  color: #fff;
+  border: 0;
+  background: transparent;
 }
 
 .exploreRecapChrome .terminalTopBarIconBtn:focus-visible,

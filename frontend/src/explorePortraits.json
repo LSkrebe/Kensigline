@@ -24,8 +24,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "sheldonwhitehouse": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/W000802.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/sheldon-whitehouse.jpg",
+    "source": "local"
   },
   "whitehouse": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/W000802.jpg",
@@ -228,16 +228,16 @@
     "source": "https://github.com/unitedstates/images"
   },
   "richardblumenthal": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/B001277.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/richard-blumenthal.jpg",
+    "source": "local"
   },
   "blumenthal": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/B001277.jpg",
     "source": "https://github.com/unitedstates/images"
   },
   "johnboozman": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/B001236.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/john-boozman.jpg",
+    "source": "local"
   },
   "boozman": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/B001236.jpg",
@@ -792,8 +792,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "michaelmccaul": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/M001157.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/michael-mccaul.jpg",
+    "source": "local"
   },
   "mccaul": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/M001157.jpg",
@@ -932,8 +932,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "nancypelosi": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/P000197.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/nancy-pelosi.jpg",
+    "source": "local"
   },
   "pelosi": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/P000197.jpg",
@@ -1312,8 +1312,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "suzandelbene": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/D000617.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/suzan-delbene.jpg",
+    "source": "local"
   },
   "delbene": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/D000617.jpg",
@@ -2036,8 +2036,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "rokhanna": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/K000389.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/ro-khanna.jpg",
+    "source": "local"
   },
   "khanna": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/K000389.jpg",
@@ -2208,8 +2208,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "joshgottheimer": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/G000583.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/josh-gottheimer.jpg",
+    "source": "local"
   },
   "gottheimer": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/G000583.jpg",
@@ -2352,8 +2352,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "kevinhern": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/H001082.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/kevin-hern.jpg",
+    "source": "local"
   },
   "hern": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/H001082.jpg",
@@ -2708,8 +2708,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "dancrenshaw": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/C001120.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/dan-crenshaw.jpg",
+    "source": "local"
   },
   "crenshaw": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/C001120.jpg",
@@ -2796,8 +2796,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "rickscott": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/S001217.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/rick-scott.jpg",
+    "source": "local"
   },
   "joshhawley": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/H001089.jpg",
@@ -2892,8 +2892,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "tommytuberville": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/T000278.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/tommy-tuberville.jpg",
+    "source": "local"
   },
   "tuberville": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/T000278.jpg",
@@ -2972,8 +2972,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "byrondonalds": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/D000032.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/byron-donalds.jpg",
+    "source": "local"
   },
   "donalds": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/D000032.jpg",
@@ -3092,8 +3092,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "lisamcclain": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/M001136.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/lisa-mcclain.jpg",
+    "source": "local"
   },
   "mcclain": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/M001136.jpg",
@@ -3796,12 +3796,12 @@
     "source": "https://github.com/unitedstates/images"
   },
   "danielsgoldman": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/G000599.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/daniel-goldman.jpg",
+    "source": "local"
   },
   "dangoldman": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/G000599.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/daniel-goldman.jpg",
+    "source": "local"
   },
   "goldman": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/G000601.jpg",
@@ -4152,8 +4152,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "gilbertcisneros": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/C001123.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/gilbert-cisneros.jpg",
+    "source": "local"
   },
   "cisneros": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/C001123.jpg",
@@ -4352,8 +4352,8 @@
     "source": "https://github.com/unitedstates/images"
   },
   "jeffersonshreve": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/S001229.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/jefferson-shreve.jpg",
+    "source": "local"
   },
   "shreve": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/S001229.jpg",
@@ -4616,12 +4616,12 @@
     "source": "https://github.com/unitedstates/images"
   },
   "robertpbresnahanjr": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/B001327.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/rob-bresnahan.jpg",
+    "source": "local"
   },
   "robertbresnahan": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/B001327.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/rob-bresnahan.jpg",
+    "source": "local"
   },
   "bresnahan": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/B001327.jpg",
@@ -4876,28 +4876,28 @@
     "source": "https://github.com/unitedstates/images"
   },
   "jensenhuang": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e6/Jen-Hsun_Huang_2025.jpg/330px-Jen-Hsun_Huang_2025.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Jensen_Huang"
+    "src": "/investors/jensen-huang.jpg",
+    "source": "local"
   },
   "huangjenhsun": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e6/Jen-Hsun_Huang_2025.jpg/330px-Jen-Hsun_Huang_2025.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Jensen_Huang"
+    "src": "/investors/jensen-huang.jpg",
+    "source": "local"
   },
   "timcook": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f7/Tim_Cook_March_2026_%28cropped_2%29.jpg/330px-Tim_Cook_March_2026_%28cropped_2%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Tim_Cook"
+    "src": "/investors/tim-cook.jpg",
+    "source": "local"
   },
   "cooktimothyd": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f7/Tim_Cook_March_2026_%28cropped_2%29.jpg/330px-Tim_Cook_March_2026_%28cropped_2%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Tim_Cook"
+    "src": "/investors/tim-cook.jpg",
+    "source": "local"
   },
   "lisasu": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/de/SXSW-2024-alih-OB7A0861-Lisa_Su_%28cropped_2%29.jpg/330px-SXSW-2024-alih-OB7A0861-Lisa_Su_%28cropped_2%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Lisa_Su"
+    "src": "/investors/lisa-su.jpg",
+    "source": "local"
   },
   "sulisat": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/de/SXSW-2024-alih-OB7A0861-Lisa_Su_%28cropped_2%29.jpg/330px-SXSW-2024-alih-OB7A0861-Lisa_Su_%28cropped_2%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Lisa_Su"
+    "src": "/investors/lisa-su.jpg",
+    "source": "local"
   },
   "donaldjtrump": {
     "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/330px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
@@ -4908,24 +4908,24 @@
     "source": "https://en.wikipedia.org/wiki/Donald_Trump"
   },
   "markwaynemullin": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/M001190.jpg",
-    "source": "https://bioguide.congress.gov/search/bio/M001190"
+    "src": "/investors/markwayne-mullin.jpg",
+    "source": "local"
   },
   "satyanadella": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/78/MS-Exec-Nadella-Satya-2017-08-31-22_%28cropped%29.jpg/330px-MS-Exec-Nadella-Satya-2017-08-31-22_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Satya_Nadella"
+    "src": "/investors/satya-nadella.jpg",
+    "source": "local"
   },
   "nadellasatya": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/78/MS-Exec-Nadella-Satya-2017-08-31-22_%28cropped%29.jpg/330px-MS-Exec-Nadella-Satya-2017-08-31-22_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Satya_Nadella"
+    "src": "/investors/satya-nadella.jpg",
+    "source": "local"
   },
   "jamiedimon": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/00/Chancellor_Rachel_Reeves_meets_Jamie_Dimon_%2854838700663%29_%28cropped%29_%28cropped%29.jpg/330px-Chancellor_Rachel_Reeves_meets_Jamie_Dimon_%2854838700663%29_%28cropped%29_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Jamie_Dimon"
+    "src": "/investors/jamie-dimon.jpg",
+    "source": "local"
   },
   "dimonjames": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/00/Chancellor_Rachel_Reeves_meets_Jamie_Dimon_%2854838700663%29_%28cropped%29_%28cropped%29.jpg/330px-Chancellor_Rachel_Reeves_meets_Jamie_Dimon_%2854838700663%29_%28cropped%29_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Jamie_Dimon"
+    "src": "/investors/jamie-dimon.jpg",
+    "source": "local"
   },
   "jeffbezos": {
     "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/260202-D-PM193-2205_SECWAR_Arsenal_of_Freedom_Tour_-_Florida_%283x4_cropped_on_Bezos_and_rotated%29.jpg/330px-260202-D-PM193-2205_SECWAR_Arsenal_of_Freedom_Tour_-_Florida_%283x4_cropped_on_Bezos_and_rotated%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
@@ -5001,37 +5001,144 @@
     "kind": "logo"
   },
   "renaissancetechnologies": {
-    "src": "https://www.google.com/s2/favicons?domain=rentec.com&sz=128",
-    "source": "https://rentec.com",
-    "kind": "logo"
+    "src": "/investors/renaissance-technologies.jpg",
+    "source": "local"
   },
   "renaissancetechnologiesllc": {
-    "src": "https://www.google.com/s2/favicons?domain=rentec.com&sz=128",
-    "source": "https://rentec.com",
-    "kind": "logo"
+    "src": "/investors/renaissance-technologies.jpg",
+    "source": "local"
   },
   "jenhsunhuang": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e6/Jen-Hsun_Huang_2025.jpg/330px-Jen-Hsun_Huang_2025.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Jensen_Huang"
+    "src": "/investors/jensen-huang.jpg",
+    "source": "local"
   },
   "timothydcook": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f7/Tim_Cook_March_2026_%28cropped_2%29.jpg/330px-Tim_Cook_March_2026_%28cropped_2%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Tim_Cook"
+    "src": "/investors/tim-cook.jpg",
+    "source": "local"
   },
   "lisatsu": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/de/SXSW-2024-alih-OB7A0861-Lisa_Su_%28cropped_2%29.jpg/330px-SXSW-2024-alih-OB7A0861-Lisa_Su_%28cropped_2%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Lisa_Su"
+    "src": "/investors/lisa-su.jpg",
+    "source": "local"
   },
   "jamesdimon": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/00/Chancellor_Rachel_Reeves_meets_Jamie_Dimon_%2854838700663%29_%28cropped%29_%28cropped%29.jpg/330px-Chancellor_Rachel_Reeves_meets_Jamie_Dimon_%2854838700663%29_%28cropped%29_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Jamie_Dimon"
+    "src": "/investors/jamie-dimon.jpg",
+    "source": "local"
   },
   "elonmusk": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5e/Elon_Musk_-_54820081119_%28cropped%29.jpg/330px-Elon_Musk_-_54820081119_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Elon_Musk"
+    "src": "/investors/elon-musk.jpg",
+    "source": "local"
   },
   "muskelon": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5e/Elon_Musk_-_54820081119_%28cropped%29.jpg/330px-Elon_Musk_-_54820081119_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Elon_Musk"
+    "src": "/investors/elon-musk.jpg",
+    "source": "local"
+  },
+  "alexkarp": {
+    "src": "/investors/alex-karp.jpg",
+    "source": "local"
+  },
+  "andyjassy": {
+    "src": "/investors/andy-jassy.jpg",
+    "source": "local"
+  },
+  "appaloosa": {
+    "src": "/investors/appaloosa.jpg",
+    "source": "local"
+  },
+  "baupost": {
+    "src": "/investors/baupost.jpg",
+    "source": "local"
+  },
+  "berkshirehathaway": {
+    "src": "/investors/berkshire-hathaway.jpg",
+    "source": "local"
+  },
+  "bridgewater": {
+    "src": "/investors/bridgewater.jpg",
+    "source": "local"
+  },
+  "citadeladvisors": {
+    "src": "/investors/citadel-advisors.jpg",
+    "source": "local"
+  },
+  "coatue": {
+    "src": "/investors/coatue.png",
+    "source": "local",
+    "kind": "logo"
+  },
+  "colettekress": {
+    "src": "/investors/colette-kress.png",
+    "source": "local"
+  },
+  "danielgoldman": {
+    "src": "/investors/daniel-goldman.jpg",
+    "source": "local"
+  },
+  "elliottmanagement": {
+    "src": "/investors/elliott-management.jpg",
+    "source": "local"
+  },
+  "hocktan": {
+    "src": "/investors/hock-tan.png",
+    "source": "local"
+  },
+  "icahncapital": {
+    "src": "/investors/icahn-capital.jpg",
+    "source": "local"
+  },
+  "larryellison": {
+    "src": "/investors/larry-ellison.png",
+    "source": "local"
+  },
+  "lonepine": {
+    "src": "/investors/lone-pine.png",
+    "source": "local",
+    "kind": "logo"
+  },
+  "marcbenioff": {
+    "src": "/investors/marc-benioff.jpg",
+    "source": "local"
+  },
+  "marjorietaylorgreene": {
+    "src": "/investors/marjorie-taylor-greene.jpg",
+    "source": "local"
+  },
+  "markzuckerberg": {
+    "src": "/investors/mark-zuckerberg.jpg",
+    "source": "local"
+  },
+  "marybarra": {
+    "src": "/investors/mary-barra.jpg",
+    "source": "local"
+  },
+  "pershingsquare": {
+    "src": "/investors/pershing-square.jpg",
+    "source": "local"
+  },
+  "reedhastings": {
+    "src": "/investors/reed-hastings.jpg",
+    "source": "local"
+  },
+  "robbresnahan": {
+    "src": "/investors/rob-bresnahan.jpg",
+    "source": "local"
+  },
+  "thirdpoint": {
+    "src": "/investors/third-point.svg",
+    "source": "local",
+    "kind": "logo"
+  },
+  "tigerglobal": {
+    "src": "/investors/tiger-global.png",
+    "source": "local",
+    "kind": "logo"
+  },
+  "vikingglobal": {
+    "src": "/investors/viking-global.png",
+    "source": "local",
+    "kind": "logo"
+  },
+  "duquesnefamilyoffice": {
+    "src": "/investors/duquesne-family-office.jpg",
+    "source": "https://www.bowdoin.edu/news/2017/02/stanley-druckenmiller-75-h07-on-the-economy-politics-and-education.html"
   }
 }

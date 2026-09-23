@@ -3,7 +3,8 @@ import { fetchJsonSafe } from './api.js'
 import { useAuth } from './AuthContext.jsx'
 import { isDataModePending, isLiveDataMode } from './dataMode.js'
 import { AuthSignIn } from './AuthSignIn.jsx'
-import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
+import { DeepCompactChrome } from './DeepCompactChrome.jsx'
+import { SkeletonField, SkeletonStatus } from './AppSkeleton.jsx'
 import './ExplorePage.css'
 import './SettingsPage.css'
 
@@ -62,17 +63,15 @@ const INVOICES_EMPTY_HINT =
 function SettingsStrip({ backendUp, onSettingsClick, onBrandClick = null }) {
   return (
     <div className="stgDock">
-      <div className="exploreRecapCompactBg" aria-hidden="true" />
-      <TerminalTopBarChrome
-        className="exploreRecapChrome"
-        logoSrc="/mercerline_mark.png"
+      <DeepCompactChrome
         backendUp={backendUp}
-        settingsActive
-        onSettingsClick={onSettingsClick}
         onBrandClick={onBrandClick}
-        hideDate
-        hideMacro
+        onCloseClick={onSettingsClick}
+        hideTrail
+        showShare={false}
+        closeAriaLabel="Close"
       />
+      <p className="stgCollapsedName">Settings</p>
     </div>
   )
 }
@@ -82,18 +81,17 @@ function SettingsPageShell({ backendUp, onSettingsClick, onBrandClick = null, ch
     <div className="stgShell">
       <SettingsStrip backendUp={backendUp} onSettingsClick={onSettingsClick} onBrandClick={onBrandClick} />
       <div className="stgScroll scrollThin">
-        <div className="stgPaper"><header className="stgPageHeading"><p className="stgSectionLabel">Preferences</p><h1>Settings</h1></header>{children}</div>
+        <div className="stgPaper">{children}</div>
       </div>
     </div>
   )
 }
 
-function SettingsSection({ label, title, headAside = null, children, footer, panelClassName = '' }) {
+function SettingsSection({ title, headAside = null, children, footer, panelClassName = '' }) {
   const hasBody = children != null && children !== false
   const flushTable = panelClassName.includes('flushTable')
   return (
     <section className="stgSection">
-      {label ? <p className="stgSectionLabel">{label}</p> : null}
       {title || headAside ? (
         <header className="stgSectionHead">
           {title ? <h2 className="stgSectionTitle">{title}</h2> : null}
@@ -212,12 +210,22 @@ function DigestPreferencesSection({ email, signedIn }) {
   const morningHour = prefs?.morning_hour ?? 8
 
   return (
-    <SettingsSection
-      label="Email"
-      title="Daily brief"
-
-    >
-      <SettingsField label="Delivery" sublabel={loading ? 'Loading…' : formatMorningHour(morningHour)} className="stgField--digest">
+    <section className="stgCard">
+      <p className="stgCardLabel">Daily brief</p>
+      <p className="stgCardValue">{loading ? <SkeletonField /> : formatMorningHour(morningHour)}</p>
+      <p className="stgCardMeta" title={email}>{email}</p>
+      <p className="stgCardMeta">{timezone}</p>
+      {status ? (
+        <p
+          className={['stgSupportHint', status.ok === true ? 'isOk' : '', status.ok === false ? 'isBad' : '']
+            .filter(Boolean)
+            .join(' ')}
+          role="status"
+        >
+          {status.text}
+        </p>
+      ) : null}
+      <div className="stgCardAction">
         <label className="stgSwitch" aria-label="Daily email brief">
           <input
             type="checkbox"
@@ -230,30 +238,8 @@ function DigestPreferencesSection({ email, signedIn }) {
             <span className="stgSwitchThumb" />
           </span>
         </label>
-      </SettingsField>
-      <SettingsField label="Send to">
-        <span className="mono" title={email}>
-          {email}
-        </span>
-      </SettingsField>
-      <SettingsField label="Timezone" valueTone="neutral">
-        <span className="mono">{timezone}</span>
-      </SettingsField>
-      {status ? (
-        <p
-          className={[
-            'stgSupportHint mono',
-            status.ok === true ? 'isOk' : '',
-            status.ok === false ? 'isBad' : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-          role="status"
-        >
-          {status.text}
-        </p>
-      ) : null}
-    </SettingsSection>
+      </div>
+    </section>
   )
 }
 
@@ -340,11 +326,12 @@ export function SettingsPanel({
   if (!signedIn) {
     return (
       <SettingsPageShell backendUp={backendUp} onSettingsClick={onSettingsClick} onBrandClick={onBrandClick}>
-        <SettingsSection label="Access" title="Sign in" panelClassName="stgSignInPanel">
+        <SettingsSection title="Sign in" panelClassName="stgSignInPanel">
           {loading ? (
-            <p className="stgMuted mono" aria-live="polite">
-              Loading session…
-            </p>
+            <SkeletonStatus label="Loading session" className="appSkelReturn">
+              <span className="appSkel appSkel--title" />
+              <span className="appSkel appSkel--sub" />
+            </SkeletonStatus>
           ) : (
             <AuthSignIn variant="settings" />
           )}
@@ -355,52 +342,35 @@ export function SettingsPanel({
 
   const email = user.email ?? '—'
 
+  const sessionLive = isLiveDataMode(backendUp)
+  const billingTone = billing?.active ? 'good' : settingsStatusTone(billing?.status)
+
   return (
     <SettingsPageShell backendUp={backendUp} onSettingsClick={onSettingsClick} onBrandClick={onBrandClick}>
-      <div className="stgRow">
-        <SettingsSection
-          label="Profile"
-          title="Account"
-          footer={
-            <button type="button" className="stgBtn stgBtn--danger" onClick={() => void signOut()}>
+      <div className="stgCards">
+        <section className="stgCard">
+          <p className="stgCardLabel">Account</p>
+          <h2 className="stgCardTitle" title={email}>{email}</h2>
+          <p className={['stgCardMeta', sessionLive ? 'isLive' : ''].filter(Boolean).join(' ')}>
+            {sessionLive ? 'Live' : isDataModePending(backendUp) ? 'Connecting…' : 'Offline'}
+          </p>
+          <div className="stgCardAction">
+            <button type="button" className="stgBtn" onClick={() => void signOut()}>
               Sign out
             </button>
-          }
-        >
-          <SettingsField label="Email">
-            <span className="mono" title={email}>
-              {email}
-            </span>
-          </SettingsField>
-          <SettingsField
-            label="Session"
-            valueTone={isLiveDataMode(backendUp) ? 'good' : 'neutral'}
-          >
-            <span className="stgSessionPill">
-              <span
-                className={
-                  isLiveDataMode(backendUp)
-                    ? 'stgStatusDot stgStatusDot--good'
-                    : 'stgStatusDot stgStatusDot--offline'
-                }
-                aria-hidden="true"
-              />
-              {isLiveDataMode(backendUp)
-                ? 'Live'
-                : isDataModePending(backendUp)
-                  ? 'Connecting…'
-                  : 'Offline'}
-            </span>
-          </SettingsField>
-          <SettingsField label=" " className="stgField--spacer" aria-hidden="true">
-            <span aria-hidden="true">&nbsp;</span>
-          </SettingsField>
-        </SettingsSection>
+          </div>
+        </section>
 
-        <SettingsSection
-          label="Billing"
-          title="Subscription"
-          footer={
+        <section className="stgCard">
+          <p className="stgCardLabel">Subscription</p>
+          <p className={['stgCardValue', billingLoading ? '' : `is-${billingTone}`].filter(Boolean).join(' ')}>
+            {billingLoading ? <SkeletonField /> : formatBillingStatus(billing?.status)}
+          </p>
+          <p className="stgCardMeta">{billingLoading ? <SkeletonField /> : formatPlan(billing?.plan)}</p>
+          <p className="stgCardMeta">
+            {billingLoading ? <SkeletonField /> : `Renews ${formatPeriodEnd(billing?.current_period_end)}`}
+          </p>
+          <div className="stgCardAction">
             <button
               type="button"
               className="stgBtn"
@@ -409,31 +379,21 @@ export function SettingsPanel({
             >
               {portalBusy ? 'Opening…' : 'Manage billing'}
             </button>
-          }
-        >
-          <SettingsField
-            label="Status"
-            valueTone={billing?.active ? 'good' : settingsStatusTone(billing?.status)}
-          >
-            {billingLoading ? 'Loading…' : formatBillingStatus(billing?.status)}
-          </SettingsField>
-          <SettingsField label="Plan">{billingLoading ? '…' : formatPlan(billing?.plan)}</SettingsField>
-          <SettingsField label="Renews">
-            {billingLoading ? '…' : formatPeriodEnd(billing?.current_period_end)}
-          </SettingsField>
-        </SettingsSection>
-      </div>
+          </div>
+        </section>
 
-      <SettingsSection label="Billing" title="Invoices">
-        <p className="stgEmpty">{INVOICES_EMPTY_HINT}</p>
-      </SettingsSection>
+        <DigestPreferencesSection email={email} signedIn={signedIn} />
 
-      <DigestPreferencesSection email={email} signedIn={signedIn} />
+        <section className="stgCard stgCard--wide">
+          <p className="stgCardLabel">Invoices</p>
+          <p className="stgCardMeta">{INVOICES_EMPTY_HINT}</p>
+        </section>
 
-      <SettingsSection label="Support" title="Talk to the founders">
+        <section className="stgCard stgCard--wide stgComposer">
+          <p className="stgCardLabel">Talk to the founders</p>
         <textarea
-          className="stgSupportTextarea mono"
-          rows={3}
+          className="stgSupportTextarea"
+          rows={4}
           maxLength={4000}
           placeholder="Bug, billing, or idea…"
           value={supportMessage}
@@ -446,7 +406,7 @@ export function SettingsPanel({
         <div className="stgSupportActions">
           <p
             className={[
-              'stgSupportHint mono',
+              'stgSupportHint',
               supportStatus?.ok === true ? 'isOk' : '',
               supportStatus?.ok === false ? 'isBad' : '',
             ]
@@ -465,7 +425,8 @@ export function SettingsPanel({
             {supportBusy ? 'Sending…' : 'Send'}
           </button>
         </div>
-      </SettingsSection>
+      </section>
+      </div>
     </SettingsPageShell>
   )
 }

@@ -5,15 +5,14 @@ import { useAuth } from './AuthContext.jsx'
 import { isCaptureMode } from './captureMode.js'
 import { investigateActorCanonicalKey } from './investigateActorKey.js'
 import { SettingsPanel } from './SettingsPanel.jsx'
+import { SkeletonList, SkeletonRow, SkeletonStatus } from './AppSkeleton.jsx'
 import './App.css'
 import { markAppReady } from './marketingShell.js'
 import { pageBackgroundStyle, terminalPageBackgroundKey } from './pageBackgrounds.js'
-import { MacroCalendarPanel } from './MacroCalendarPanel.jsx'
-import { prefetchMacroCalendar } from './macroClient.js'
 import { DeepResearchLayout } from './DeepResearchLayout.jsx'
 import { DeepPage } from './DeepCompanyPage.jsx'
 import { ExplorePage } from './ExplorePage.jsx'
-import { ExploreInvestorsPage } from './ExploreInvestorsPage.jsx'
+import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 import { ExploreWatchlistPage } from './ExploreWatchlistPage.jsx'
 import { ExploreEventPage } from './ExploreEventPage.jsx'
 import {
@@ -34,14 +33,13 @@ import { isExploreNetworkMode, isLiveDataMode, isMockDataMode } from './dataMode
 import {
   isTerminalAppPath,
   navigateExploreBack,
-  navigateExploreCompanyDetail,
   navigateExploreEventDetail,
   navigateExploreHome,
   navigateExploreInvestorDetail,
-  navigateMacro,
   navigateSettings,
   useTerminalRoute,
 } from './terminalRoute.js'
+import { isRetiredProductPath } from './retiredProductPaths.js'
 import { formatCountLabel } from './formatCountLabel.js'
 import { compactUsdRangeLabel, formatUsdCompact as formatUsdCompactShared } from './formatUsdCompact.js'
 import { resolveDocumentOpenUrl } from './documentOpenUrl.js'
@@ -168,10 +166,12 @@ const mockIdeaFields = mockIdeaFieldsForRow
 const EMPTY = '-'
 
 function PanelStatusMessage({ label, className = 'panelStatusMessage' }) {
-  const text = String(label ?? '').trim() || '\u00a0'
+  const text = String(label ?? '').trim()
+  if (/^loading more/i.test(text)) return <SkeletonRow />
+  if (/^loading/i.test(text)) return <SkeletonList count={3} />
   return (
     <p className={[className, 'mono', 'dim'].filter(Boolean).join(' ')} role="status" aria-live="polite">
-      {text}
+      {text || '\u00a0'}
     </p>
   )
 }
@@ -4832,6 +4832,9 @@ function caseSheetRowToPoliticianTxnFeedRow(r, { showMoney }) {
     when,
     codeTone: insiderTxnCodeTone(code, code === 'S' ? 'D' : 'A'),
     ts: r?.ts ?? null,
+    tradeTs: r?.ts ?? null,
+    filedAt: r?.filedAt ?? null,
+    amountUsd: Number(r?.amountUsd) > 1 ? Number(r.amountUsd) : null,
   }
 }
 
@@ -5398,7 +5401,7 @@ function politicianCaseForRowIndex(i) {
   const chamber = i % 5 === 0 ? 'senate' : i % 7 === 0 ? 'executive' : 'house'
   const showcasePelosi = primaryPolitician === 'Nancy Pelosi'
   const sourceRows = showcasePelosi
-    ? Array.from({ length: 18 }, (_, k) => {
+    ? Array.from({ length: 16 }, (_, k) => {
         const ts = new Date()
         // Keep denser activity inside ~1Y so capture charts / metrics look populated.
         ts.setDate(ts.getDate() - (4 + k * 18 + ((i * 3 + k) % 5)))
@@ -5414,19 +5417,51 @@ function politicianCaseForRowIndex(i) {
     const who = people[idx % people.length]
     const surname = lastName(who)
     // Alternate buy/sell so track-record charts realize multiple round trips.
-    const transactionType = showcasePelosi
-      ? (idx % 2 === 1 ? 'S' : 'P')
+    const pelosiBook = [
+      ['NVDA', 'NVIDIA Corporation'],
+      ['GOOGL', 'Alphabet Inc.'],
+      ['AVGO', 'Broadcom Inc.'],
+      ['PANW', 'Palo Alto Networks, Inc.'],
+      ['INTC', 'Intel Corporation'],
+      ['AAPL', 'Apple Inc.'],
+      ['MSFT', 'Microsoft Corporation'],
+      ['AMZN', 'Amazon.com, Inc.'],
+      ['CRWD', 'CrowdStrike Holdings, Inc.'],
+      ['VST', 'Vistra Corp.'],
+    ]
+    const pelosiPair = pelosiBook[idx % pelosiBook.length]
+    let showcaseTicker = pelosiPair[0]
+    let showcaseName = pelosiPair[1]
+    let transactionType = showcasePelosi
+      ? 'P'
       : PTR_TXN_CODES_CYCLE[(i + idx) % PTR_TXN_CODES_CYCLE.length]
+    if (showcasePelosi && idx === 11) {
+      showcaseTicker = 'AAPL'
+      showcaseName = 'Apple Inc.'
+      transactionType = 'S'
+    }
+    if (showcasePelosi && idx === 15) {
+      showcaseTicker = 'MSFT'
+      showcaseName = 'Microsoft Corporation'
+      transactionType = 'S'
+    }
     const amountRange = PTR_AMOUNT_RANGES_MOCK[(i + idx * 2) % PTR_AMOUNT_RANGES_MOCK.length]
-    const amountUsd = Number(r?.amountUsd ?? 0)
-    const tickers = ['NVDA', 'NVDA', 'NVDA', 'AAPL', 'MSFT', 'NVDA']
-    const showcaseTicker = tickers[idx % tickers.length]
-    const showcaseName =
-      showcaseTicker === 'AAPL'
-        ? 'Apple Inc.'
-        : showcaseTicker === 'MSFT'
-          ? 'Microsoft Corporation'
-          : 'NVIDIA Corporation'
+    const amountUsd = showcasePelosi
+      ? Math.round((transactionType === 'S' ? 35_000 : 90_000) + seededJitter(i * 41 + idx * 17, transactionType === 'S' ? 50_000 : 380_000))
+      : Number(r?.amountUsd ?? 0)
+    let filedAt = r?.filedAt ?? null
+    let tradeTs = r?.ts ?? null
+    if (showcasePelosi) {
+      const cluster = Math.floor(idx / 4)
+      const filed = new Date()
+      filed.setDate(filed.getDate() - [26, 74, 132, 198][cluster])
+      filed.setHours(16, 0, 0, 0)
+      const trade = new Date(filed)
+      trade.setDate(trade.getDate() - (12 - (idx % 4)))
+      trade.setHours(11, 0, 0, 0)
+      filedAt = filed.toISOString()
+      tradeTs = trade.toISOString()
+    }
     return {
       ...r,
       key: who,
@@ -5436,8 +5471,11 @@ function politicianCaseForRowIndex(i) {
       transactionType,
       assetTicker: showcasePelosi ? showcaseTicker : base.ticker,
       assetName: showcasePelosi ? showcaseName : (base.company ?? base.caseSheet?.issuer),
-      amountRange: amountUsd > 0 ? amountRange : null,
+      amountUsd: amountUsd > 1 ? amountUsd : r?.amountUsd,
+      amountRange: showcasePelosi ? null : amountUsd > 0 ? amountRange : null,
       acquiredDisposed: transactionType === 'S' ? 'D' : 'A',
+      ts: tradeTs,
+      filedAt,
     }
   })
   return {
@@ -7880,9 +7918,11 @@ function ResearchPaperPanel({
       >
         <div className="researchPaperDoc" key={t}>
           {!presentationReady && isLiveDataMode(backendUp) ? (
-            <div className="researchPaperLoading mono dim" role="status">
-              Loading company research…
-            </div>
+            <SkeletonStatus label="Loading company research" className="appSkelEvent">
+              <span className="appSkel appSkel--title" />
+              <span className="appSkel appSkel--sub" />
+              <span className="appSkel appSkel--chart" />
+            </SkeletonStatus>
           ) : safePresentation?.title ? (
             <ResearchPaperStructuredView
               key={`${t}-${paperDocuments.map((d) => d.id).join('|')}`}
@@ -10261,6 +10301,7 @@ function KensiglineTerminal() {
   )
 
   useEffect(() => {
+    if (isRetiredProductPath()) return
     if (!isTerminalAppPath()) navigateExploreHome({ replace: true })
   }, [])
 
@@ -10573,12 +10614,6 @@ function KensiglineTerminal() {
     }, 1000)
     return () => clearInterval(t)
   }, [backendLastOkAt])
-
-  useEffect(() => {
-    if (!isLiveDataMode(backendUp)) return
-    if (exploreSubview === 'home' && !exploreHomeFeedsReady) return
-    prefetchMacroCalendar()
-  }, [backendUp, exploreSubview, exploreHomeFeedsReady])
 
   useEffect(() => {
     if (exploreSubview !== 'home') {
@@ -11612,7 +11647,7 @@ function KensiglineTerminal() {
           ? institutionsSelected
           : insiderSelected)
     // API dossier is complete — do not merge company-context scraps that reshuffle the log.
-    if (row && exploreSubview === 'investorDetail' && row.__dossierSource !== 'api') {
+    if (row && exploreSubview === 'investorDetail' && row.__dossierSource !== 'api' && !(row.transactions?.length > 8)) {
       row = enrichStubActorWithCompanyFlows(row, {
         ticker: researchTick,
         companyName: researchCompanyName,
@@ -12616,11 +12651,6 @@ function KensiglineTerminal() {
     [investigateMode, isPhone],
   )
 
-  const onMacroClick = useCallback(() => {
-    if (shell === 'macro') navigateExploreHome()
-    else navigateMacro()
-  }, [shell])
-
   const onSettingsClick = useCallback(() => {
     if (shell === 'settings') navigateExploreHome()
     else navigateSettings()
@@ -12637,23 +12667,6 @@ function KensiglineTerminal() {
   const onExploreEventClick = useCallback((slide) => {
     if (slide?.id) navigateExploreEventDetail(slide.id)
   }, [])
-
-  const onExploreCompanyClick = useCallback(
-    (row) => {
-      const ticker = String(row?.ticker ?? '').trim().toUpperCase()
-      if (!ticker) return
-      const name = String(row?.name ?? '').trim()
-      if (name && isPlausibleFeedCompanyName(name, ticker)) {
-        setExploreCompanyNameHints((prev) =>
-          prev[ticker] === name ? prev : { ...prev, [ticker]: name },
-        )
-      }
-      setResearchTicker(ticker)
-      setDeepResearchMode('company')
-      navigateExploreCompanyDetail(ticker)
-    },
-    [],
-  )
 
   const onExploreInvestorClick = useCallback(
     (row) => {
@@ -12707,7 +12720,7 @@ function KensiglineTerminal() {
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
         return
       }
-      if (e.key === 'Escape' && (shell === 'settings' || shell === 'macro')) {
+      if (e.key === 'Escape' && shell === 'settings') {
         e.preventDefault()
         navigateExploreHome()
       }
@@ -12737,7 +12750,6 @@ function KensiglineTerminal() {
         chrome={{
           backendUp,
           macroActive,
-          onMacroClick,
           settingsActive,
           onSettingsClick,
           onBrandClick: onExploreHomeClick,
@@ -12809,11 +12821,19 @@ function KensiglineTerminal() {
           compactPrice: null,
           compactPriceChange: null,
           compactPriceChangePct: null,
-          onCompanyClick: onExploreCompanyClick,
+          onCompanyClick: null,
         }}
       />
     </DeepResearchLayout>
   )
+
+  if (shell === 'retired') {
+    return (
+      <main className="terminalRetired">
+        <h1>Not found</h1>
+      </main>
+    )
+  }
 
   return (
         <div
@@ -12839,13 +12859,6 @@ function KensiglineTerminal() {
               onBrandClick={onExploreHomeClick}
             />
           ) : null}
-          {shell === 'macro' ? (
-            <MacroCalendarPanel
-            backendUp={backendUp}
-              onMacroClick={onMacroClick}
-              onBrandClick={onExploreHomeClick}
-            />
-          ) : null}
           {shell === 'explore' ? (
             exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail' ? (
               deepDossierPage
@@ -12855,30 +12868,16 @@ function KensiglineTerminal() {
                 eventId={terminalRoute.eventId}
             backendUp={backendUp}
                 macroActive={macroActive}
-                onMacroClick={onMacroClick}
                 settingsActive={settingsActive}
                 onSettingsClick={onSettingsClick}
                 onBrandClick={onExploreHomeClick}
                 onCloseClick={onExploreDossierCloseClick}
-                onCompanyClick={onExploreCompanyClick}
                 onInvestorClick={onExploreInvestorClick}
-              />
-            ) : exploreSubview === 'investors' ? (
-              <ExploreInvestorsPage
-            backendUp={backendUp}
-                macroActive={macroActive}
-                onMacroClick={onMacroClick}
-                settingsActive={settingsActive}
-                onSettingsClick={onSettingsClick}
-                onBrandClick={onExploreHomeClick}
-                onCloseClick={onExploreDossierCloseClick}
-                onInvestorRowClick={onExploreInvestorClick}
               />
             ) : exploreSubview === 'watchlist' ? (
               <ExploreWatchlistPage
                 backendUp={backendUp}
                 macroActive={macroActive}
-                onMacroClick={onMacroClick}
                 settingsActive={settingsActive}
                 onSettingsClick={onSettingsClick}
                 onBrandClick={onExploreHomeClick}
@@ -12889,11 +12888,9 @@ function KensiglineTerminal() {
               <ExplorePage
             backendUp={backendUp}
                 macroActive={macroActive}
-                onMacroClick={onMacroClick}
                 settingsActive={settingsActive}
                 onSettingsClick={onSettingsClick}
                 onBrandClick={onExploreHomeClick}
-                onCompanyRowClick={onExploreCompanyClick}
                 onInvestorRowClick={onExploreInvestorClick}
                 onEventClick={onExploreEventClick}
               />

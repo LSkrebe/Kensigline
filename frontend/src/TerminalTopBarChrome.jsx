@@ -137,12 +137,18 @@ export function TerminalTopBarActions({
   searchPlaceholderMobile = null,
   leading = null,
   iconLeading = null,
-  hideMacro = false,
+  hideMacro = true,
   hideSettings = false,
   macroCloseClassName = '',
   macroCloseAriaLabel = null,
   collapsibleSearch = false,
   showClose = false,
+  closeAsArrow = false,
+  showShare = false,
+  shareLabel = 'Share',
+  onShareClick = null,
+  closeAriaLabel = 'Close dossier',
+  settingsAsText = false,
   onCloseClick = null,
   searchValue = '',
   onSearchChange = null,
@@ -196,6 +202,17 @@ export function TerminalTopBarActions({
     >
       {showSearchField ? (
         <label className="exploreRecapCompactSearch">
+          {useCollapsibleSearch && searchOpen ? null : (
+            <svg className="exploreRecapCompactSearchIcon" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="10" cy="10" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
+              <path
+                d="M14.5 14.5 L19 19"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="square"
+              />
+            </svg>
+          )}
           <input
             ref={searchInputRef}
             className="exploreRecapCompactSearchInput"
@@ -224,17 +241,7 @@ export function TerminalTopBarActions({
                 />
               </svg>
             </button>
-          ) : (
-            <svg className="exploreRecapCompactSearchIcon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="10" cy="10" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.75" />
-              <path
-                d="M14.5 14.5 L19 19"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="square"
-              />
-            </svg>
-          )}
+          ) : null}
         </label>
       ) : null}
       {!showSearch && !hideDate ? (
@@ -255,21 +262,37 @@ export function TerminalTopBarActions({
           </button>
         ) : null}
         {iconLeading}
+        {showShare ? (
+          <button type="button" className="terminalTopBarShareBtn" aria-label={shareLabel} onClick={onShareClick ?? undefined}>
+            {shareLabel}
+          </button>
+        ) : null}
         {showClose && onCloseClick ? (
           <button
             type="button"
             className="terminalTopBarIconBtn isClose"
-            aria-label="Close dossier"
+            aria-label={closeAriaLabel}
             onClick={onCloseClick}
           >
             <svg className="terminalTopBarIcon terminalTopBarIcon--close" viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="square"
-                d="M7 7l10 10M17 7L7 17"
-              />
+              {closeAsArrow ? (
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="square"
+                  strokeLinejoin="miter"
+                  d="M5 12h13M13 6l6 6-6 6"
+                />
+              ) : (
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="square"
+                  d="M7 7l10 10M17 7L7 17"
+                />
+              )}
             </svg>
           </button>
         ) : null}
@@ -312,6 +335,23 @@ export function TerminalTopBarActions({
           </button>
         ) : null}
         {!hideSettings ? (
+          settingsAsText && !settingsActive ? (
+            <button type="button" className="exploreSettingsBtn" aria-label="Settings" onClick={onSettingsClick}>
+              <svg className="exploreSettingsBtnIcon" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="square"
+                  d="M4 7h12M4 12h16M4 17h9"
+                />
+                <circle cx="18" cy="7" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <circle cx="14" cy="12" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <circle cx="17" cy="17" r="2" fill="none" stroke="currentColor" strokeWidth="1.5" />
+              </svg>
+              <span className="exploreSettingsBtnLabel">Settings</span>
+            </button>
+          ) : (
           <button
             type="button"
             className={settingsActive ? 'terminalTopBarIconBtn isClose' : 'terminalTopBarIconBtn'}
@@ -344,6 +384,7 @@ export function TerminalTopBarActions({
               </svg>
             )}
           </button>
+          )
         ) : null}
       </div>
     </div>
@@ -364,7 +405,7 @@ export function TerminalTopBarChrome({
   searchPlaceholderMobile = null,
   logoSrc = '/mercerline_logo.png',
   className = '',
-  hideMacro = false,
+  hideMacro = true,
   hideSettings = false,
   leading = null,
   iconLeading = null,
@@ -373,6 +414,9 @@ export function TerminalTopBarChrome({
   onBrandClick = null,
   collapsibleSearch = false,
   showClose = false,
+  closeAsArrow = false,
+  showShare = false,
+  settingsAsText = false,
   onCloseClick = null,
   searchValue = '',
   onSearchChange = null,
@@ -399,6 +443,9 @@ export function TerminalTopBarChrome({
         macroCloseAriaLabel={macroCloseAriaLabel}
         collapsibleSearch={collapsibleSearch}
         showClose={showClose}
+        closeAsArrow={closeAsArrow}
+        showShare={showShare}
+        settingsAsText={settingsAsText}
         onCloseClick={onCloseClick}
         searchValue={searchValue}
         onSearchChange={onSearchChange}

@@ -6,6 +6,7 @@ import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
 import { buildResearchTickerJsonLd } from './marketingSeo.js'
+import { SkeletonStatus } from './AppSkeleton.jsx'
 
 function formatDateLabel(iso) {
   const s = String(iso ?? '').trim()
@@ -88,7 +89,12 @@ export function ResearchTickerPage({ ticker: tickerProp = null }) {
         </p>
       </header>
 
-      {loading ? <p className="pubContentStatus">Loading…</p> : null}
+      {loading ? (
+        <SkeletonStatus label="Loading" className="appSkelEvent">
+          <span className="appSkel appSkel--title" />
+          <span className="appSkel appSkel--sub" />
+        </SkeletonStatus>
+      ) : null}
 
       {!loading && data ? (
         <>

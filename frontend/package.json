@@ -4,10 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "cache-images": "node scripts/cache-images.mjs",
+    "dev": "node scripts/cache-images.mjs && vite",
     "dev:host": "vite --host",
     "phone-tunnel": "npx cloudflared tunnel --url http://127.0.0.1:5173",
-    "build": "node scripts/sync-seo.mjs && vite build && node scripts/sync-seo.mjs --dist",
+    "build": "node scripts/cache-images.mjs && node scripts/sync-seo.mjs && vite build && node scripts/sync-seo.mjs --dist",
     "lint": "eslint .",
     "preview": "vite preview",
     "pages:preview": "npm run build && wrangler pages dev dist"

@@ -3,6 +3,7 @@ import {ExplorePerformanceSlide} from './ExplorePerformance.jsx'
 import { EMPTY_EXPLORE_RECAP } from './dataMode.js'
 import { MiniPriceChart } from './MiniPriceChart.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
+import { SkeletonStatus } from './AppSkeleton.jsx'
 
 const EXPLORE_COMPACT_MQ = '(max-width: 960px)'
 
@@ -130,9 +131,10 @@ function ExploreRecapLoadingSlide() {
     <article className="exploreRecapSlide exploreRecapSlide--event exploreRecapSlide--loading" aria-busy="true">
       <div className="exploreRecapSlideInner exploreRecapSlideInner--event">
         <div className="exploreRecapEventCopy">
-          <p className="exploreRecapSlideKicker mono">Daily recap</p>
-          <h2 className="exploreRecapEventTitle exploreRecapEventTitle--loading">Loading today&apos;s recap</h2>
-          <p className="exploreRecapEventSummary">Pulling the latest filings from the desk.</p>
+          <SkeletonStatus label="Loading today's recap">
+            <span className="appSkel appSkel--recapTitle" />
+            <span className="appSkel appSkel--recapLine" />
+          </SkeletonStatus>
         </div>
       </div>
     </article>
@@ -232,238 +234,35 @@ function jumpToPhysicalSlide(el, physicalIdx) {
 }
 
 export function ExploreDailyRecap({
-  recap = EMPTY_EXPLORE_RECAP,
-  loading = false,
   backendUp = null,
   macroActive = false,
   onMacroClick,
   settingsActive = false,
   onSettingsClick,
   onBrandClick = null,
-  onOpenEvent = null,
   searchValue = '',
   onSearchChange = null,
 }) {
-  const trackRef = useRef(null)
-  const jumpingRef = useRef(false)
-  const activeIdxRef = useRef(0)
-  const [activeIdx, setActiveIdx] = useState(0)
-  const compactLayout = useExploreCompactLayout()
-  const slideCount = useMemo(() => (loading ? 1 : Math.max(1, getRecapSlideCount(recap))), [recap, loading])
-  const slidesContentKey = useMemo(() => {
-    if (loading) return 'loading'
-    const slides = Array.isArray(recap?.slides) ? recap.slides : []
-    return slides.map((s) => String(s?.id ?? '')).join('|')
-  }, [recap, loading])
-  const hasSlides = !loading && getRecapSlideCount(recap) > 0
-  const loopEnabled = hasSlides && slideCount > 1
-
-  activeIdxRef.current = activeIdx
-
-  const syncActiveFromScroll = useCallback(() => {
-    const el = trackRef.current
-    if (!el || el.clientWidth <= 0 || jumpingRef.current) return
-    const physicalIdx = Math.round(el.scrollLeft / el.clientWidth)
-    const logicalIdx = logicalIndexFromPhysical(physicalIdx, slideCount)
-    setActiveIdx(Math.max(0, Math.min(slideCount - 1, logicalIdx)))
-  }, [slideCount])
-
-  const settleLoopPosition = useCallback(() => {
-    const el = trackRef.current
-    if (!el || el.clientWidth <= 0 || !loopEnabled || jumpingRef.current) return
-
-    const physicalIdx = Math.round(el.scrollLeft / el.clientWidth)
-    if (physicalIdx === 0) {
-      jumpingRef.current = true
-      jumpToPhysicalSlide(el, slideCount)
-      requestAnimationFrame(() => {
-        jumpingRef.current = false
-        syncActiveFromScroll()
-      })
-      return
-    }
-    if (physicalIdx === slideCount + 1) {
-      jumpingRef.current = true
-      jumpToPhysicalSlide(el, 1)
-      requestAnimationFrame(() => {
-        jumpingRef.current = false
-        syncActiveFromScroll()
-      })
-    }
-  }, [loopEnabled, slideCount, syncActiveFromScroll])
-
-  useEffect(() => {
-    const el = trackRef.current
-    if (!el) return undefined
-
-    let scrollEndTimer
-    const onScroll = () => {
-      syncActiveFromScroll()
-      clearTimeout(scrollEndTimer)
-      scrollEndTimer = window.setTimeout(() => {
-        settleLoopPosition()
-      }, 140)
-    }
-    const onScrollEnd = () => {
-      clearTimeout(scrollEndTimer)
-      settleLoopPosition()
-      syncActiveFromScroll()
-    }
-    const onResize = () => {
-      const track = trackRef.current
-      if (!track || track.clientWidth <= 0) return
-      const physicalIdx = loopEnabled ? activeIdxRef.current + 1 : activeIdxRef.current
-      jumpToPhysicalSlide(track, physicalIdx)
-      syncActiveFromScroll()
-    }
-
-    el.addEventListener('scroll', onScroll, { passive: true })
-    if ('onscrollend' in el) {
-      el.addEventListener('scrollend', onScrollEnd)
-    }
-    window.addEventListener('resize', onResize)
-
-    return () => {
-      el.removeEventListener('scroll', onScroll)
-      if ('onscrollend' in el) {
-        el.removeEventListener('scrollend', onScrollEnd)
-      }
-      window.removeEventListener('resize', onResize)
-      clearTimeout(scrollEndTimer)
-    }
-  }, [loopEnabled, settleLoopPosition, syncActiveFromScroll])
-
-  useEffect(() => {
-    const el = trackRef.current
-    if (!el || el.clientWidth <= 0) return
-    jumpingRef.current = true
-    if (loopEnabled) {
-      jumpToPhysicalSlide(el, 1)
-      setActiveIdx(0)
-      activeIdxRef.current = 0
-    } else {
-      jumpToPhysicalSlide(el, 0)
-      setActiveIdx(0)
-      activeIdxRef.current = 0
-    }
-    requestAnimationFrame(() => {
-      jumpingRef.current = false
-    })
-    /* Reset only when slide content/count changes — not on parent re-renders. */
-  }, [slidesContentKey, loopEnabled, slideCount])
-
-  const scrollToSlide = (idx) => {
-    const el = trackRef.current
-    if (!el || el.clientWidth <= 0) return
-    const next = Math.max(0, Math.min(slideCount - 1, idx))
-    const current = activeIdxRef.current
-
-    let physicalIdx = loopEnabled ? next + 1 : next
-    // Wrap through clones so arrow nav matches trackpad (one-step, then snap).
-    if (loopEnabled && current === slideCount - 1 && next === 0) {
-      physicalIdx = slideCount + 1
-    } else if (loopEnabled && current === 0 && next === slideCount - 1) {
-      physicalIdx = 0
-    }
-
-    // Let scroll drive the active dot — same path as trackpad swipes.
-    el.scrollTo({ left: physicalIdx * el.clientWidth, behavior: 'smooth' })
-  }
-
   return (
-    <section className={`exploreRecap ${recap.slides?.[0]?.kind==='performance'?'exploreRecap--performance':''}`} aria-label="Daily overview">
-      <div className="exploreRecapViewport">
-        <div className="exploreRecapExpandedBg" aria-hidden="true" />
-
-        <div className="exploreRecapChromeBar">
-          <div className="exploreRecapCompactBg" aria-hidden="true" />
-          <TerminalTopBarChrome
-            className="exploreRecapChrome"
-            logoSrc="/mercerline_mark.png"
-            backendUp={backendUp}
-            macroActive={macroActive}
-            onMacroClick={onMacroClick}
-            settingsActive={settingsActive}
-            onSettingsClick={onSettingsClick}
-            onBrandClick={onBrandClick}
-            collapsibleSearch
-            showSearch
-            searchPlaceholder="Search company, investor"
-            searchPlaceholderMobile="Search"
-            searchValue={searchValue}
-            onSearchChange={onSearchChange}
-          />
-        </div>
-
-        <div className="exploreRecapHero">
-          <div className="exploreRecapExpanded">
-            <div className="exploreRecapTrack" ref={trackRef}>
-              {loopEnabled ? (
-                <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true" inert>
-                  {renderRecapSlideAt(recap, slideCount - 1, onOpenEvent, loading)}
-                </div>
-              ) : null}
-              {Array.from({ length: slideCount }, (_, i) => (
-                <div key={hasSlides ? recap.slides[i]?.id ?? i : loading ? 'loading' : 'empty'} className="exploreRecapSlideWrap">
-                  {renderRecapSlideAt(recap, i, onOpenEvent, loading)}
-                </div>
-              ))}
-              {loopEnabled ? (
-                <div className="exploreRecapSlideWrap exploreRecapSlideWrap--loopClone" aria-hidden="true" inert>
-                  {renderRecapSlideAt(recap, 0, onOpenEvent, loading)}
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          <div
-            className={['exploreRecapSlideFooter', compactLayout ? 'exploreRecapSlideFooter--compact' : '']
-              .filter(Boolean)
-              .join(' ')}
-          >
-            {slideCount > 1 ? (
-              <button
-                type="button"
-                className="exploreRecapNavBtn exploreRecapNavBtn--prev"
-                aria-label="Previous recap section"
-                onClick={() => scrollToSlide(activeIdx - 1 < 0 ? slideCount - 1 : activeIdx - 1)}
-              >
-                <ExploreRecapNavArrow direction="left" />
-              </button>
-            ) : null}
-            <div
-              className={['exploreRecapDots', compactLayout ? 'exploreRecapDots--static' : ''].filter(Boolean).join(' ')}
-            >
-              <div
-                className="exploreRecapDotsList"
-                role="group"
-                aria-label="Recap sections"
-              >
-                {Array.from({ length: slideCount }, (_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      className={['exploreRecapDot', i === activeIdx ? 'isActive' : ''].filter(Boolean).join(' ')}
-                      aria-label={recap.slides?.[i]?.label || `Go to recap section ${i + 1}`}
-                      aria-pressed={i === activeIdx}
-                      onClick={() => scrollToSlide(i)}
-                    />
-                  ),
-                )}
-              </div>
-            </div>
-            {slideCount > 1 ? (
-              <button
-                type="button"
-                className="exploreRecapNavBtn exploreRecapNavBtn--next"
-                aria-label="Next recap section"
-                onClick={() => scrollToSlide((activeIdx + 1) % slideCount)}
-              >
-                <ExploreRecapNavArrow direction="right" />
-              </button>
-            ) : null}
-          </div>
-        </div>
+    <section className="exploreRecap exploreRecap--flat" aria-label="Explore">
+      <div className="exploreRecapChromeBar">
+        <div className="exploreRecapCompactBg" aria-hidden="true" />
+        <TerminalTopBarChrome
+          className="exploreRecapChrome"
+          logoSrc="/mercerline_mark.png"
+          backendUp={backendUp}
+          macroActive={macroActive}
+          onMacroClick={onMacroClick}
+          settingsActive={settingsActive}
+          onSettingsClick={onSettingsClick}
+          onBrandClick={onBrandClick}
+          hideDate
+          showSearch
+          settingsAsText
+          searchPlaceholder="Search"
+          searchValue={searchValue}
+          onSearchChange={onSearchChange}
+        />
       </div>
     </section>
   )

@@ -10,6 +10,7 @@ import { useUserWatchlist } from './UserWatchlistContext.jsx'
 import { useCollapseScroll } from './collapseScroll.js'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
 import { useExploreScrollList } from './useExploreScrollList.js'
+import { SkeletonRow } from './AppSkeleton.jsx'
 import './DeepReport.css'
 import './ExplorePage.css'
 
@@ -180,8 +181,6 @@ export function ExploreWatchlistPage({
                 settingsActive={settingsActive}
                 onSettingsClick={onSettingsClick}
                 onBrandClick={onBrandClick}
-                collapsibleSearch
-                showSearch
                 showClose={!!onCloseClick}
                 onCloseClick={onCloseClick}
                 searchPlaceholder="Search watchlist"
@@ -236,7 +235,7 @@ export function ExploreWatchlistPage({
                   />
                 ))
               ) : rowsLoading ? (
-                <li className="exploreDirectoryEmpty mono exploreDirectoryEmpty--loading">Loading…</li>
+                Array.from({ length: 4 }, (_, index) => <SkeletonRow key={index} tag="li" />)
               ) : searching ? (
                 <li className="exploreDirectoryEmpty mono">No matches</li>
               ) : (

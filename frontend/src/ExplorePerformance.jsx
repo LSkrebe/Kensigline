@@ -1,14 +1,33 @@
 import {useEffect,useState} from 'react'
 import {fetchJsonSafe} from './api.js'
+import {isMockDataMode} from './dataMode.js'
 import {exploreInvestorDetailPath,navigateExploreInvestorDetail} from './terminalRoute.js'
 import {stripExploreInvestorHonorific} from './exploreDirectoryNav.js'
 import {ImageOrInitials} from './ExplorePersonRow.jsx'
 import portraits from './explorePortraits.json'
 
+const MOCK_EXPLORE_PERFORMANCE = {
+  ok: true,
+  end: '2026-09-22',
+  groups: [
+    { kind: 'politicians', returnFraction: 0.184, investors: 6 },
+    { kind: 'insiders', returnFraction: 0.312, investors: 6 },
+    { kind: 'institutions', returnFraction: 0.091, investors: 8 },
+  ],
+}
+
 export {buildPerformanceSlides} from './explorePerformanceHero.js'
 export function useExplorePerformance(){
-  const [data,setData]=useState(null)
-  useEffect(()=>{let alive=true;const refresh=async()=>{const r=await fetchJsonSafe('/api/explore/performance',{timeoutMs:60000});if(alive&&r.ok&&r.data?.ok)setData(r.data)};void refresh();const timer=setInterval(refresh,60000);return()=>{alive=false;clearInterval(timer)}},[])
+  const mock = isMockDataMode(false)
+  const [data,setData]=useState(() => (mock ? MOCK_EXPLORE_PERFORMANCE : null))
+  useEffect(()=>{
+    if (mock) return undefined
+    let alive=true
+    const refresh=async()=>{const r=await fetchJsonSafe('/api/explore/performance',{timeoutMs:60000});if(alive&&r.ok&&r.data?.ok)setData(r.data)}
+    void refresh()
+    const timer=setInterval(refresh,60000)
+    return()=>{alive=false;clearInterval(timer)}
+  },[mock])
   return data
 }
 export function ExplorePerformanceSlide({slide}){

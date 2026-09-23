@@ -6,6 +6,7 @@ import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
 import { buildResearchEventJsonLd } from './marketingSeo.js'
+import { SkeletonStatus } from './AppSkeleton.jsx'
 
 function formatDayLabel(dayKey) {
   const m = String(dayKey ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
@@ -80,7 +81,12 @@ export function ResearchEventPage({ dayKey: dayKeyProp = null }) {
         </>
       }
     >
-      {loading ? <p className="pubContentStatus">Loading…</p> : null}
+      {loading ? (
+        <SkeletonStatus label="Loading" className="appSkelEvent">
+          <span className="appSkel appSkel--title" />
+          <span className="appSkel appSkel--sub" />
+        </SkeletonStatus>
+      ) : null}
 
       {!loading && missing ? (
         <p className="pubContentStatus">No public research page is available for this date.</p>

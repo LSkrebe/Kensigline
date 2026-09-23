@@ -2,7 +2,7 @@ import {lookupInvestorImage} from './investorImageLookup.js'
 import {useEffect,useRef,useState} from 'react'
 import {selectEventPerformance} from './exploreEventPerformance.js'
 import portraits from './explorePortraits.json'
-import logos from './exploreLogos.json'
+import { companyLogoFallback, companyLogoSrc } from './localImages.js'
 import {fetchJsonSafe} from './api.js'
 import {MiniPriceChart} from './MiniPriceChart.jsx'
 import {exploreRowDateLabel} from './ExploreDirectoryRows.jsx'
@@ -29,20 +29,20 @@ function investorPerformance(row){
   const promise=new Promise(resolve=>{performanceQueue.push(async()=>{try{const r=await fetchJsonSafe(`/api/dossier/investor?${qs}`,{timeoutMs:20000});resolve(r.ok?r.data?.actor?.performance?.transactions??[]:[])}catch{resolve([])}});pumpPerformance()})
   performanceCache.set(key,{at:Date.now(),promise});return promise
 }
-export function ImageOrInitials({src,name,className,logo=false}){
-  const [failed,setFailed]=useState(false),[discovered,setDiscovered]=useState(null)
+export function ImageOrInitials({src,name,className,logo=false,discover=true,fallbackSrc=null}){
+  const [failed,setFailed]=useState(false),[usedFallback,setUsedFallback]=useState(false),[discovered,setDiscovered]=useState(null)
   const imageRef=useRef(null)
-  useEffect(()=>{setFailed(false);setDiscovered(null)},[src,name])
+  useEffect(()=>{setFailed(false);setUsedFallback(false);setDiscovered(null)},[src,name,fallbackSrc])
   useEffect(()=>{
-    if(logo||(src&&!failed))return
+    if(!discover||logo||(src&&!failed))return
     let alive=true,started=false
     const observer=new IntersectionObserver(entries=>{if(started||!entries.some(e=>e.isIntersecting))return;started=true;void lookupInvestorImage(name).then(value=>{if(alive)setDiscovered(value)})},{rootMargin:'200px'})
     if(imageRef.current)observer.observe(imageRef.current)
     return()=>{alive=false;observer.disconnect()}
-  },[name,src,logo,failed])
-  const imageSrc=(!failed&&src)||discovered
+  },[name,src,logo,failed,discover])
+  const imageSrc=(!failed&&src)||(usedFallback&&fallbackSrc)||discovered
   const letters=String(name??'').replace(/^(hon\.?|mr\.?|mrs\.?)\s+/i,'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('').toUpperCase()||'—'
-  return <span ref={imageRef} className={className} aria-hidden="true">{imageSrc?<img src={imageSrc} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={()=>{if(imageSrc===discovered)setDiscovered(null);else setFailed(true)}}/>:<span className="mono">{logo?String(name??'').slice(0,3):letters}</span>}</span>
+  return <span ref={imageRef} className={className} aria-hidden="true">{imageSrc?<img src={imageSrc} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={()=>{if(imageSrc===discovered)setDiscovered(null);else if(!usedFallback&&fallbackSrc&&imageSrc===src)setUsedFallback(true);else{setFailed(true);setUsedFallback(false)}}}/>:<span className="mono">{logo?String(name??'').slice(0,3):letters}</span>}</span>
 }
 export function ExplorePersonRow({row,onClick=null,companyOnly=false,investorOnly=false,performanceTransactions=null,trailingAction=null}){
   const ref=useRef(null),[series,setSeries]=useState([]),[performance,setPerformance]=useState(null)
@@ -80,7 +80,7 @@ export function ExplorePersonRow({row,onClick=null,companyOnly=false,investorOnl
   const eventTone=/sale|sell|sold|decreas|dispos|exit|reduc/i.test(event)?'isDown':/purchas|buy|bought|increas|acquir|add|new position/i.test(event)?'isUp':'isFlat'
   const companyLabel=tickers.length>1?(row.companies?.length?row.companies.map(c=>c.name||c.ticker).join(' · '):tickers.join(' · ')):(String(row.companyName??'').trim()||ticker||'—')
   const transaction=<span className="explorePersonTransaction mono">
-    <span className="explorePersonLogos">{tickers.slice(0,3).map(t=><ImageOrInitials key={t} src={logos[t]??`https://financialmodelingprep.com/image-stock/${encodeURIComponent(t)}.png`} name={t} className="explorePersonLogo" logo/>)}</span>
+    <span className="explorePersonLogos">{tickers.slice(0,3).map(t=><ImageOrInitials key={t} src={companyLogoSrc(t)} fallbackSrc={companyLogoFallback(t)} name={t} className="explorePersonLogo" logo/>)}</span>
     <span className={`explorePersonAction ${eventTone}`}>{event}</span>{tickers.length>3?<span>+{tickers.length-3}</span>:null}
   </span>
   const investorType=/ptr/i.test(row.docType??'')?'Politician':/13f/i.test(row.docType??'')?'Institution':'Insider'
@@ -90,7 +90,7 @@ export function ExplorePersonRow({row,onClick=null,companyOnly=false,investorOnl
   const returnTitle=performance?`${performance.count>1?'Equal-weight average stock return since these transactions':'Stock return since transaction'} through ${performance.asOf}`:'Transaction performance unavailable'
   const compactIdentity=companyOnly||investorOnly
   const content=<>
-    <ImageOrInitials src={companyOnly?(logos[ticker]??(ticker?`https://financialmodelingprep.com/image-stock/${encodeURIComponent(ticker)}.png`:null)):portrait} name={companyOnly?ticker:row.name} className="explorePersonPortrait" logo={companyOnly}/>
+    <ImageOrInitials src={companyOnly?companyLogoSrc(ticker):portrait} fallbackSrc={companyOnly?companyLogoFallback(ticker):null} name={companyOnly?ticker:row.name} className="explorePersonPortrait" logo={companyOnly}/>
     <span className="explorePersonCopy">
       <span className="explorePersonMobileTransaction">{compactIdentity?<span className={`explorePersonAction mono ${eventTone}`}>{event}</span>:transaction}</span>
       <span className="exploreDirectoryName">{companyOnly?companyLabel:row.name}</span>

@@ -1,4 +1,6 @@
 /** Proxy /api/* on mercerline.com → api.mercerline.com (Hetzner). Static assets otherwise. */
+import { isRetiredProductPath } from '../src/retiredProductPaths.js'
+
 const API_ORIGIN = 'https://api.mercerline.com'
 
 /**
@@ -47,10 +49,12 @@ export default {
       )
     }
 
-    const aliases = {'/activity':'/explore','/people':'/explore/investors','/watchlist':'/explore/watchlist','/account':'/settings','/pricing':'/#pricing','/methodology':'/learn/form-4-insider-filings'};
+    const aliases = {'/watchlist':'/explore/watchlist','/account':'/settings','/pricing':'/#pricing','/methodology':'/learn/form-4-insider-filings'};
     const cleanPath = url.pathname.replace(/\/$/,'') || '/';
+    if (isRetiredProductPath(cleanPath)) {
+      return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } })
+    }
     if (aliases[cleanPath]) return Response.redirect(new URL(aliases[cleanPath],url.origin),302);
-    if (cleanPath.startsWith('/people/')) return Response.redirect(new URL('/explore/investors/'+cleanPath.slice(8),url.origin),302);
     const response = await env.ASSETS.fetch(request)
     const contentType = response.headers.get('content-type') ?? ''
     if (contentType.includes('text/html')) {

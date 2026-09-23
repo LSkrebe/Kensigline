@@ -20,10 +20,12 @@
   overflow: hidden;
   background: #080809;
   color: rgba(255, 255, 255, 0.92);
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
 .stgDock {
   --explore-page-pad-x: var(--stg-pad-x);
+  --explore-compact-chrome-size: 32px;
   flex: 0 0 var(--stg-strip-h);
   position: sticky;
   top: 0;
@@ -33,20 +35,57 @@
   flex-shrink: 0;
   overflow: hidden;
   isolation: isolate;
-  border-bottom: 1px solid var(--stg-border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: #080809;
+}
+
+.stgDock .deepCompactChrome,
+.stgDock .terminalTopBarChrome.exploreRecapChrome {
+  position: relative;
+  z-index: 1;
   background: transparent;
 }
 
-.stgDock .exploreRecapCompactBg {
+.stgCollapsedName {
   position: absolute;
-  inset: 0;
-  z-index: 0;
-  opacity: 1;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  max-width: min(220px, calc(100% - 160px));
+  margin: 0;
+  overflow: hidden;
+  color: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
 }
 
-.stgDock .exploreRecapChrome {
-  position: relative;
-  z-index: 1;
+@media (max-width: 899px) {
+  .stgDock .terminalTopBarChrome.exploreRecapChrome {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .stgDock .terminalTopBarActions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .stgDock .terminalTopBarBrand { display: none; }
+  .stgDock .terminalTopBarIconBtn.isClose {
+    position: absolute;
+    left: var(--explore-page-pad-x, 18px);
+    top: 50%;
+    z-index: 5;
+    transform: translateY(-50%);
+  }
+  .stgDock .exploreRecapChrome .terminalTopBarIconBtn.isClose .terminalTopBarIcon {
+    transform: scaleX(-1);
+  }
 }
 
 .stgScroll {
@@ -59,16 +98,18 @@
 }
 
 .stgPaper {
-  padding: 28px var(--stg-pad-x) 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 8px var(--stg-pad-x) 48px;
   box-sizing: border-box;
 }
 
 .stgRow {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 28px;
-  align-items: stretch;
-  margin-bottom: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 42px;
+  margin-bottom: 42px;
 }
 
 .stgRow .stgSection {
@@ -88,21 +129,14 @@
 }
 
 .stgSection {
-  margin-bottom: 36px;
+  margin-bottom: 42px;
 }
 
 .stgSection:last-child {
   margin-bottom: 0;
 }
 
-.stgSectionLabel {
-  margin: 0 0 6px;
-  font-family: var(--stg-mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.42);
-}
+.stgSectionLabel { display: none; }
 
 .stgSectionHead {
   display: flex;
@@ -114,11 +148,12 @@
 
 .stgSectionTitle {
   margin: 0;
-  font-family: var(--stg-serif);
+  font-family: inherit;
   font-size: 22px;
-  font-weight: 400;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   line-height: 1.15;
-  color: rgba(255, 255, 255, 0.92);
+  color: #fff;
 }
 
 .stgSectionMeta {
@@ -152,35 +187,29 @@
 }
 
 .stgField {
-  display: grid;
-  grid-template-columns: minmax(96px, 0.34fr) minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
-  min-height: 38px;
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 0;
+  margin-top: 22px;
+  padding: 0;
+  border: 0;
+  font-size: 15px;
   line-height: 1.3;
 }
 
-.stgField:last-child {
-  border-bottom: none;
-}
-
-.stgField--spacer {
-  opacity: 0;
-  pointer-events: none;
-  user-select: none;
-  border-bottom: none;
+.stgField:first-child {
+  margin-top: 0;
 }
 
 .stgFieldLabel {
-  font-family: var(--stg-mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.42);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .stgFieldLabelGroup {
@@ -201,10 +230,13 @@
 
 .stgFieldValue {
   min-width: 0;
-  text-align: right;
-  font-family: var(--stg-mono);
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.86);
+  max-width: 100%;
+  text-align: left;
+  font-family: inherit;
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -242,18 +274,18 @@
 .stgSessionPill {
   display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 8px;
-  width: 100%;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  text-transform: none;
+  font-weight: 650;
 }
 
 .stgStatusDot {
   width: 7px;
   height: 7px;
   flex-shrink: 0;
-  border-radius: 0;
+  border-radius: 50%;
   box-sizing: border-box;
   border: 1px solid transparent;
 }
@@ -294,33 +326,33 @@
 
 .stgSwitchTrack {
   display: block;
-  width: 34px;
-  height: 18px;
-  border-radius: 0;
-  background: rgba(10, 11, 13, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   box-sizing: border-box;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .stgSwitchThumb {
   display: block;
-  width: 12px;
-  height: 12px;
-  margin: 2px;
-  border-radius: 0;
-  background: rgba(255, 255, 255, 0.45);
+  width: 18px;
+  height: 18px;
+  margin: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
   transition: transform 0.15s ease, background 0.15s ease;
 }
 
 .stgSwitchInput:checked + .stgSwitchTrack {
-  background: rgba(14, 15, 18, 0.96);
-  border-color: rgba(168, 196, 255, 0.35);
+  background: rgba(92, 184, 138, 0.16);
+  border-color: rgba(92, 184, 138, 0.92);
 }
 
 .stgSwitchInput:checked + .stgSwitchTrack .stgSwitchThumb {
-  transform: translateX(16px);
-  background: rgba(168, 196, 255, 0.88);
+  transform: translateX(18px);
+  background: rgba(92, 184, 138, 0.92);
 }
 
 .stgSwitchInput:focus-visible + .stgSwitchTrack {
@@ -337,28 +369,26 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 30px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 0;
-  background: rgba(10, 11, 13, 0.82);
-  color: rgba(255, 255, 255, 0.72);
-  font-family: var(--stg-mono);
-  font-size: 9px;
+  min-width: 112px;
+  margin: 0;
+  padding: 12px 28px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 16px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.86);
+  font-family: inherit;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-transform: none;
   cursor: pointer;
-  transition:
-    color 0.15s ease,
-    background 0.15s ease,
-    border-color 0.15s ease;
 }
 
 .stgBtn:hover:not(:disabled) {
-  color: rgba(255, 255, 255, 0.92);
-  background: rgba(12, 13, 16, 0.9);
-  border-color: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .stgBtn--danger {
@@ -367,9 +397,9 @@
 }
 
 .stgBtn--danger:hover:not(:disabled) {
-  color: rgba(255, 220, 215, 0.96);
-  background: rgba(212, 114, 106, 0.14);
-  border-color: rgba(212, 114, 106, 0.55);
+  color: #fff;
+  background: transparent;
+  border-color: rgba(212, 114, 106, 0.92);
 }
 
 .stgBtn:disabled {
@@ -382,13 +412,14 @@
   width: 100%;
   box-sizing: border-box;
   margin: 10px 0 0;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0;
-  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 16px;
+  background: transparent;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 11px;
+  font-family: inherit;
+  font-size: 15px;
   line-height: 1.4;
-  padding: 8px 10px;
+  padding: 14px 16px;
   outline: none;
   resize: vertical;
   min-height: 64px;
@@ -415,9 +446,9 @@
   margin: 0;
   flex: 1;
   min-width: 0;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.38);
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  color: rgba(255, 255, 255, 0.45);
   text-align: left;
 }
 
@@ -437,21 +468,26 @@
 }
 
 .stgField--digest .stgFieldValue {
-  justify-content: flex-end;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  overflow: visible;
+  white-space: normal;
 }
 
 .stgEmpty {
   margin: 0;
-  padding: 20px 14px 22px;
-  min-height: 7.5rem;
+  padding: 8px 0 0;
+  min-height: 0;
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  font-family: var(--stg-mono);
-  font-size: 11px;
+  display: block;
+  font-family: inherit;
+  font-size: 15px;
   line-height: 1.45;
-  color: rgba(255, 255, 255, 0.42);
-  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: -0.01em;
 }
 
 .stgMuted {
@@ -556,11 +592,38 @@
 
 .stgSignInPanel .authSignIn--settings {
   width: 100%;
-  padding: 18px 14px;
-  border: 1px solid var(--stg-border);
+  max-width: 420px;
+  padding: 0;
+  border: 0;
   border-radius: 0;
-  background: var(--stg-surface);
+  background: transparent;
   box-sizing: border-box;
+}
+.stgShell .authSignInBtn {
+  min-width: 112px;
+  height: auto;
+  padding: 12px 28px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 16px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.86);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-transform: none;
+}
+.stgShell .authSignInBtn--primary {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+.stgShell .authSignInInput {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 16px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 15px;
 }
 
 @media (max-width: 960px) {
@@ -570,24 +633,116 @@
   }
 
   .stgRow {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 36px;
+    gap: 42px;
   }
 
   .stgPaper {
-    padding: 20px var(--stg-pad-x) 36px;
+    padding: 8px var(--stg-pad-x) 36px;
   }
 }
 
-.stgPageHeading { margin: 12px 0 40px; }
-.stgPageHeading h1 { font-family:var(--stg-serif); font-size:42px; font-weight:400; margin:12px 0 0; }
-.stgRow { gap:32px; }
-.stgPanel { border:0; border-top:1px solid rgba(255,255,255,.14); background:transparent; }
-.stgPanelBody { padding:0; }
-.stgPanelFoot { padding:14px 0; }
-.stgField { min-height:58px; box-sizing:border-box; }
-.stgField--spacer { display:none; }
-.stgSectionTitle { font-size:28px; }
-.stgEmpty { padding:24px 0; background:transparent; border:0; }
-.stgSupportTextarea { background:transparent; }
-@media(max-width:900px) { .stgPageHeading h1 { font-size:34px; } }
+.stgPageHeading { display: none; }
+.stgSectionTitle,
+.stgField,
+.stgFieldLabel,
+.stgFieldValue,
+.stgBtn,
+.stgEmpty,
+.stgSupportTextarea,
+.stgSupportHint { font-family: system-ui, -apple-system, sans-serif; }
+.stgSectionTitle { font-size: 22px; font-weight: 700; }
+
+.stgPaper > .stgSection { margin-bottom: 0; }
+
+.stgCards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.stgCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  padding: 18px 16px 16px;
+  border-radius: 18px;
+  background: #141416;
+  box-sizing: border-box;
+}
+
+.stgCardLabel {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.stgCardTitle {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.stgCardValue {
+  margin: 0;
+  color: #fff;
+  font-size: 34px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.stgCardValue.is-good { color: rgba(92, 184, 138, 0.92); }
+.stgCardValue.is-bad { color: rgba(212, 114, 106, 0.92); }
+
+.stgCardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.stgCardMeta.isLive { color: rgba(92, 184, 138, 0.92); }
+
+.stgCardAction {
+  margin-top: auto;
+  padding-top: 8px;
+}
+
+.stgCard .stgSupportHint { margin: 0; }
+
+.stgComposer { align-items: stretch; }
+
+.stgComposer .stgSupportTextarea {
+  width: 100%;
+  margin-top: 4px;
+  min-height: 96px;
+}
+
+.stgComposer .stgSupportActions { margin-bottom: 0; }
+
+@media (min-width: 900px) {
+  .stgCards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .stgCard--wide { grid-column: 1 / -1; }
+}
+.stgPanel { border: 0; background: transparent; }
+.stgPanelBody { padding: 0; }
+.stgPanelFoot { margin-top: 28px; padding: 0; border-top: 0; justify-content: flex-start; }
+.stgSectionHead { margin-bottom: 22px; }
+.stgShell .mono { font-family: inherit; letter-spacing: -0.02em; text-transform: none; }
+.stgBtn { border-radius: 16px; }
+.stgSupportTextarea { border-radius: 16px; background: transparent; }

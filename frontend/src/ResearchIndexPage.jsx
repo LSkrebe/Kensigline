@@ -5,6 +5,7 @@ import { RESEARCH_INDEX_META } from './publicRoutes.js'
 import { navigateMarketing } from './marketingRoute.js'
 import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
+import { SkeletonStatus } from './AppSkeleton.jsx'
 
 function formatDayLabel(dayKey) {
   const m = String(dayKey ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
@@ -51,7 +52,12 @@ export function ResearchIndexPage() {
         </p>
       </div>
 
-      {loading ? <p className="pubContentStatus">Loading…</p> : null}
+      {loading ? (
+        <SkeletonStatus label="Loading" className="appSkelEvent">
+          <span className="appSkel appSkel--title" />
+          <span className="appSkel appSkel--sub" />
+        </SkeletonStatus>
+      ) : null}
 
       {!loading && headline ? (
         <section className="pubContentCard">

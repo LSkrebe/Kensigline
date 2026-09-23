@@ -218,6 +218,17 @@ export function resolveExploreInvestorDossier({
     }
   }
 
+  // Mock feeds are the page source. A longer cache from an older session should not bury them.
+  if (!liveOnly && feedHit && feedN >= 8 && feedN >= focusN) {
+    return {
+      slug,
+      mode: feedHit.mode,
+      index: feedHit.index,
+      actorRow: feedHit.row,
+      fromFeed: true,
+    }
+  }
+
   // Always prefer the richest live feed aggregation when it beats focus/cache.
   if (feedHit && feedN > 0 && feedN >= focusN && feedN >= cachedN) {
     return {

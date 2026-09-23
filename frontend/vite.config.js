@@ -2,6 +2,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { isRetiredProductPath } from './src/retiredProductPaths.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -19,7 +20,25 @@ export default defineConfig(({ mode }) => {
 
   return {
     envDir: repoRoot,
-    plugins: [react()],
+    plugins: [
+      react(),
+      {
+        name: 'retired-product-paths',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            const pathname = String(req.url ?? '').split('?')[0]
+            if ((req.method === 'GET' || req.method === 'HEAD') && isRetiredProductPath(pathname)) {
+              res.statusCode = 404
+              res.setHeader('content-type', 'text/plain; charset=utf-8')
+              res.setHeader('cache-control', 'no-store')
+              res.end('Not found')
+              return
+            }
+            next()
+          })
+        },
+      },
+    ],
     server: {
       host: '0.0.0.0',
       port: 5173,
