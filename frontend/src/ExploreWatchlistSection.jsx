@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
 import { PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
+import { FORCE_MOCK_DATA } from './dataMode.js'
 import portraits from './explorePortraits.json'
 import { SkeletonList } from './AppSkeleton.jsx'
 
@@ -325,7 +326,18 @@ const POPULARITY = {
   'suzan-delbene': 1,
 }
 
+function activityTs(row) {
+  const raw = row?.date ?? row?.lastEventAt ?? row?.filedAt ?? ''
+  const t = Date.parse(String(raw).slice(0, 10))
+  return Number.isFinite(t) ? t : 0
+}
+
 function returnFor(row, range) {
+  // Live prod: never invent returns. Only show a % when the row carries a real one.
+  if (!FORCE_MOCK_DATA) {
+    const live = row?.returnFraction ?? row?.performanceReturn
+    return Number.isFinite(Number(live)) ? Number(live) : null
+  }
   const table = MOCK_RETURNS[range] ?? MOCK_RETURNS['6M']
   const value = table[row.actorSlug]
   if (Number.isFinite(value)) return value
@@ -421,7 +433,7 @@ function ExploreTapeRow({ row, rank, range, plain = false, invested = false, onC
   const portrait = portraits[normalizeInvestorName(row.name)]
   const logo = portrait?.kind === 'logo'
   const perf = formatReturn(returnFor(row, range))
-  const investedLabel = invested ? formatInvested(investedFor(row.actorSlug)) : null
+  const investedLabel = FORCE_MOCK_DATA && invested ? formatInvested(investedFor(row.actorSlug)) : null
   const content = (
     <>
       <span className="exploreTapeRank">{rank}</span>
@@ -503,7 +515,11 @@ export function explorePerformerReturn(row, range = '6M') {
 }
 
 export function selectExploreFeatured(rows, range = '6M') {
-  return [...tapePeople(rows)]
+  const people = [...tapePeople(rows)]
+  if (!FORCE_MOCK_DATA) {
+    return people.sort((a, b) => activityTs(b) - activityTs(a) || String(a.name).localeCompare(String(b.name))).slice(0, 3)
+  }
+  return people
     .sort((a, b) => (returnFor(b, range) ?? -Infinity) - (returnFor(a, range) ?? -Infinity))
     .slice(0, 3)
 }
@@ -547,14 +563,21 @@ export function ExploreWatchlistSection({
   const [popularCount, setPopularCount] = useState(TAPE_PAGE)
   const [sharedCount, setSharedCount] = useState(TAPE_PAGE)
   const people = useMemo(() => tapePeople(rows), [rows])
-  const performers = useMemo(
-    () => [...people].sort((a, b) => (returnFor(b, range) ?? -Infinity) - (returnFor(a, range) ?? -Infinity)),
-    [people, range],
-  )
-  const popular = useMemo(
-    () => [...people].sort((a, b) => popularityOf(b.actorSlug) - popularityOf(a.actorSlug)),
-    [people],
-  )
+  const performers = useMemo(() => {
+    const list = [...people]
+    if (!FORCE_MOCK_DATA) {
+      return list.sort((a, b) => activityTs(b) - activityTs(a) || String(a.name).localeCompare(String(b.name)))
+    }
+    return list.sort((a, b) => (returnFor(b, range) ?? -Infinity) - (returnFor(a, range) ?? -Infinity))
+  }, [people, range])
+  const popular = useMemo(() => {
+    const list = [...people]
+    if (!FORCE_MOCK_DATA) {
+      // Live: same chronological tape — no invented popularity ranks.
+      return list.sort((a, b) => activityTs(b) - activityTs(a) || String(a.name).localeCompare(String(b.name)))
+    }
+    return list.sort((a, b) => popularityOf(b.actorSlug) - popularityOf(a.actorSlug))
+  }, [people])
   const performerLimit = Math.min(TAPE_MAX, narrow ? performerCount : sharedCount)
   const popularLimit = Math.min(TAPE_MAX, narrow ? popularCount : sharedCount)
   const morePerformers = performerLimit < TAPE_MAX && performers.length > performerLimit

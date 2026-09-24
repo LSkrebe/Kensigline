@@ -3,13 +3,8 @@
  *   true  → live API data only
  *   false → offline mock/demo data only
  *   null  → pending (health probe); show loading, not mock
- *
- * Temporary while the Explore redesign is being tested. Live reads stay off
- * until curated ingest + cohort performance are verified in production.
- * Keep true for this ship — UI still uses mock tape returns while backend
- * catch-up runs (catalog-gated ingest, cohort scoped to tracked universe).
  */
-export const FORCE_MOCK_DATA = true
+export const FORCE_MOCK_DATA = false
 
 export function isLiveDataMode(backendUp) {
   if (FORCE_MOCK_DATA) return false

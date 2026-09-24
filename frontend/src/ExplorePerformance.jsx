@@ -1,6 +1,6 @@
 import {useEffect,useState} from 'react'
 import {fetchJsonSafe} from './api.js'
-import {isMockDataMode} from './dataMode.js'
+import {FORCE_MOCK_DATA,isMockDataMode} from './dataMode.js'
 import {exploreInvestorDetailPath,navigateExploreInvestorDetail} from './terminalRoute.js'
 import {stripExploreInvestorHonorific} from './exploreDirectoryNav.js'
 import {ImageOrInitials} from './ExplorePersonRow.jsx'
@@ -17,15 +17,18 @@ const MOCK_EXPLORE_PERFORMANCE = {
 }
 
 export {buildPerformanceSlides} from './explorePerformanceHero.js'
-export function useExplorePerformance(){
-  const mock = isMockDataMode(false)
+export function useExplorePerformance(backendUp = true){
+  const mock = FORCE_MOCK_DATA || isMockDataMode(backendUp)
   const [data,setData]=useState(() => (mock ? MOCK_EXPLORE_PERFORMANCE : null))
   useEffect(()=>{
-    if (mock) return undefined
+    if (mock) {
+      setData(MOCK_EXPLORE_PERFORMANCE)
+      return undefined
+    }
     let alive=true
     const refresh=async()=>{const r=await fetchJsonSafe('/api/explore/performance',{timeoutMs:60000});if(alive&&r.ok&&r.data?.ok)setData(r.data)}
     void refresh()
-    const timer=setInterval(refresh,60000)
+    const timer=setInterval(refresh,5*60*1000)
     return()=>{alive=false;clearInterval(timer)}
   },[mock])
   return data
