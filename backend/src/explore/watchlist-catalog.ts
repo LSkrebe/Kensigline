@@ -19,7 +19,7 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "josh-gottheimer",
     name: "Josh Gottheimer",
-    slugs: ["josh-gottheimer"],
+    slugs: ["josh-gottheimer", "hon-josh-gottheimer"],
     mode: "politicians",
     matchNames: ["Josh Gottheimer", "Joshua Gottheimer"],
   },
@@ -40,7 +40,7 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "gilbert-cisneros",
     name: "Gilbert Cisneros",
-    slugs: ["gilbert-cisneros"],
+    slugs: ["gilbert-cisneros", "hon-gilbert-cisneros"],
     mode: "politicians",
     matchNames: ["Gilbert Cisneros", "Gilbert R. Cisneros"],
   },
@@ -110,14 +110,14 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "rob-bresnahan",
     name: "Rob Bresnahan",
-    slugs: ["rob-bresnahan"],
+    slugs: ["rob-bresnahan", "hon-rob-bresnahan"],
     mode: "politicians",
     matchNames: ["Rob Bresnahan", "Robert Bresnahan", "Robert P. Bresnahan"],
   },
   {
     id: "kevin-hern",
     name: "Kevin Hern",
-    slugs: ["kevin-hern"],
+    slugs: ["kevin-hern", "hon-kevin-hern"],
     mode: "politicians",
     matchNames: ["Kevin Hern"],
   },
@@ -257,7 +257,7 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "berkshire-hathaway",
     name: "Berkshire Hathaway",
-    slugs: ["berkshire-hathaway"],
+    slugs: ["berkshire-hathaway", "berkshire-hathaway-inc"],
     mode: "institutions",
     matchNames: ["Berkshire Hathaway", "Berkshire Hathaway Inc", "Berkshire Hathaway Inc."],
   },
@@ -417,4 +417,24 @@ export function shouldIngestFiler(name: string | null | undefined, slug?: string
   if (!trackedUniverseOnly()) return true;
   if (slug && isTrackedUniverseSlug(slug)) return true;
   return isTrackedUniverseName(name);
+}
+
+/** Map a DB filer identity onto the Explore catalog id used by the frontend. */
+export function catalogIdForFiler(slug: string | null | undefined, name?: string | null): string | null {
+  const s = String(slug ?? "").trim().toLowerCase();
+  if (s) {
+    for (const entry of EXPLORE_WATCHLIST_CATALOG) {
+      if (entry.id === s || entry.slugs.some((x) => x.toLowerCase() === s)) return entry.id;
+    }
+  }
+  const key = normalizeTrackedName(name);
+  if (!key) return s || null;
+  for (const entry of EXPLORE_WATCHLIST_CATALOG) {
+    if (normalizeTrackedName(entry.name) === key) return entry.id;
+    if (entry.matchNames.some((n) => normalizeTrackedName(n) === key)) return entry.id;
+    const tracked = normalizeTrackedName(entry.name);
+    const trackedParts = tracked.split(" ").filter(Boolean);
+    if (trackedParts.length >= 2 && trackedParts.every((p) => key.includes(p))) return entry.id;
+  }
+  return s || null;
 }

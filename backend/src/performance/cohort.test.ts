@@ -21,6 +21,12 @@ test('available history starts after disclosure and does not annualize shorter r
  assert.equal(availableHistoryReturns([{kind:'institutions',filer_id:'a',ticker:'X',first_day:'2026-09-11'}],bars,'2025-09-11','2026-09-11')[2]!.returnFraction,null);
 });
 
+test('available history uses last bar on or before window end when exact end is missing',()=>{
+ const bars=new Map([['X',[{day:'2025-09-11',close:100},{day:'2026-06-01',close:110},{day:'2026-09-10',close:121}]]]);
+ const result=availableHistoryReturns([{kind:'insiders',filer_id:'a',ticker:'X',first_day:'2025-09-11'}],bars,'2025-09-11','2026-09-11');
+ assert.ok(Math.abs(result[0]!.returnFraction!-0.21)<1e-12);
+});
+
 test('leaders rank investor averages with deterministic ties, not individual winning stocks',()=>{
  const rows=[{kind:'insiders',filer_id:'a',ticker:'X'},{kind:'insiders',filer_id:'a',ticker:'Y'},{kind:'insiders',filer_id:'b',ticker:'Z'},{kind:'insiders',filer_id:'c',ticker:'Z'}];
  const result=averageInvestorReturns(rows,new Map([['X',1],['Y',-1],['Z',0.2]]));

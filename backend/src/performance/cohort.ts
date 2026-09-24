@@ -1,6 +1,7 @@
 import { completedDay } from "./calendar.js";
 import {
   allWatchlistSlugs,
+  catalogIdForFiler,
   EXPLORE_WATCHLIST_CATALOG,
   normalizeTrackedName,
 } from "../explore/watchlist-catalog.js";
@@ -94,7 +95,14 @@ export function availableHistoryReturns(
     const bars = histories.get(e.ticker) ?? [];
     const baseline = [start, e.first_day ?? start].sort().at(-1)!;
     const first = bars.find((b) => b.day >= baseline && b.day <= end && b.close > 0);
-    const last = bars.find((b) => b.day === end && b.close > 0);
+    // Use the last available session on/before the window end — bars may lag SPY's calendar.
+    let last: { day: string; close: number } | undefined;
+    for (let i = bars.length - 1; i >= 0; i--) {
+      const bar = bars[i]!;
+      if (bar.day > end || !(bar.close > 0)) continue;
+      last = bar;
+      break;
+    }
     if (!first || !last || first.day >= last.day) continue;
     const key = e.kind + ":" + e.filer_id + ":" + e.ticker;
     values.set(key, last.close / first.close - 1);
@@ -171,8 +179,12 @@ async function build() {
     WHERE e.filer_id IS NOT NULL
       AND (
         lower(f.slug) = ANY($3::text[])
-        OR lower(regexp_replace(coalesce(f.display_name, ''), '[^a-zA-Z0-9]+', ' ', 'g')) = ANY($4::text[])
-        OR lower(regexp_replace(coalesce(f.display_name, ''), '[^a-zA-Z0-9]+', '', 'g')) = ANY(
+        OR lower(trim(regexp_replace(
+              regexp_replace(coalesce(f.display_name, ''), '^(the[[:space:]]+)?(honorable|hon\\.?|mr\\.?|mrs\\.?|ms\\.?)[[:space:]]+', '', 'i'),
+              '[^a-zA-Z0-9]+', ' ', 'g'))) = ANY($4::text[])
+        OR lower(regexp_replace(
+              regexp_replace(coalesce(f.display_name, ''), '^(the[[:space:]]+)?(honorable|hon\\.?|mr\\.?|mrs\\.?|ms\\.?)[[:space:]]+', '', 'i'),
+              '[^a-zA-Z0-9]+', '', 'g')) = ANY(
           SELECT replace(n, ' ', '') FROM unnest($4::text[]) AS n
         )
       )`,
@@ -216,14 +228,16 @@ async function build() {
   const members = [...byFiler.values()]
     .flatMap((m) => {
       const f = identities.get(m.filerId);
-      if (!f?.slug) return [];
+      if (!f) return [];
+      const slug = catalogIdForFiler(f.slug, f.display_name) ?? f.slug;
+      if (!slug) return [];
       const returnFraction = m.returns["1Y"] ?? m.returns["6M"] ?? m.returns["3M"] ?? null;
       return [
         {
           kind: m.kind,
           filerId: m.filerId,
           name: f.display_name,
-          slug: f.slug,
+          slug,
           stocks: m.stocks,
           returnFraction,
           returns: m.returns,
@@ -242,12 +256,14 @@ async function build() {
     leaders: g.leaders.flatMap((l) => {
       const f = identities.get(l.filerId);
       const full = byFiler.get(l.filerId);
-      return f?.slug
+      if (!f) return [];
+      const slug = catalogIdForFiler(f.slug, f.display_name) ?? f.slug;
+      return slug
         ? [
             {
               ...l,
               name: f.display_name,
-              slug: f.slug,
+              slug,
               returns: full?.returns ?? { "1Y": l.returnFraction },
             },
           ]
