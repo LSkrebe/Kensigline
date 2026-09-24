@@ -21,6 +21,7 @@ import {
 import { getSecTickerTitleMap } from "../../core/sec.js";
 import { isOlderThanRetentionWindow } from "../../shared/ingest-policy.js";
 import { shouldIngestFiler } from "../../explore/watchlist-catalog.js";
+import { parseUsdAmountRange } from "../../shared/amount-range.js";
 import { lookupPoliticianCommittee } from "../../politicians/committees.js";
 import {
   ensureFiler,
@@ -74,19 +75,8 @@ function stripNullBytes(s: string | null | undefined): string | null {
   return cleaned || null;
 }
 
-function parseUsdAmountRange(s: string | null): { low: number | null; high: number | null; mid: number | null; raw: string | null } {
-  const raw = s ? String(s).trim() : null;
-  if (!raw) return { low: null, high: null, mid: null, raw: null };
-  const cleaned = raw.replace(/\s+/g, " ").trim();
-  const m = cleaned.match(/\$([\d,]+(?:\.\d+)?)\s*-\s*\$?([\d,]+(?:\.\d+)?)/);
-  if (!m) return { low: null, high: null, mid: null, raw: cleaned };
-  const low = Number(String(m[1]).replace(/,/g, ""));
-  const high = Number(String(m[2]).replace(/,/g, ""));
-  const lo = Number.isFinite(low) ? low : null;
-  const hi = Number.isFinite(high) ? high : null;
-  const mid = lo != null && hi != null ? (lo + hi) / 2 : null;
-  return { low: lo, high: hi, mid, raw: cleaned };
-}
+export { parseUsdAmountRange } from "../../shared/amount-range.js";
+
 
 async function fetchPdfBytes(url: string): Promise<Buffer> {
   const r = await fetch(url, {

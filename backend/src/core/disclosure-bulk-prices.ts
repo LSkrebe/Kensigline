@@ -43,6 +43,12 @@ export async function refreshDailyMarket(force=false) {
   await db.queryApi('DELETE FROM investor_dossier_cache');
   await db.queryApi('DELETE FROM company_dossier_cache');
   lastCompleted=day;console.info('[daily-market] completed',JSON.stringify({day,updated:updates.size,missing}));
+  try {
+    const { refreshCohortPerformanceSnapshot } = await import('../performance/cohort.js');
+    await refreshCohortPerformanceSnapshot();
+  } catch (err) {
+    console.warn('[daily-market] cohort_refresh_failed', err instanceof Error ? err.message : err);
+  }
   return {day,updated:updates.size,missing};
  } finally {active=false;}
 }

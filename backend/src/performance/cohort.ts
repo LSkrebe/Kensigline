@@ -1,7 +1,14 @@
 import { completedDay } from "./calendar.js";
 import { allWatchlistSlugs } from "../explore/watchlist-catalog.js";
+import {
+  ensureExploreHomeSnapshotTable,
+} from "../explore/home-snapshot.js";
+import { db } from "../core/db.js";
 
 type Exposure = { kind: string; filer_id: string; ticker: string; first_day?: string };
+
+const COHORT_SNAPSHOT_KEY = "cohort_1y_v1";
+
 export function averageInvestorReturns(exposures: Exposure[], returns: Map<string, number>) {
   const people = new Map<string, { kind: string; filerId: string; stocks: Map<string, number> }>();
   for (const e of exposures) {
@@ -26,7 +33,7 @@ export function averageInvestorReturns(exposures: Exposure[], returns: Map<strin
       kind,
       returnFraction: values.length ? values.reduce((a, b) => a + b, 0) / values.length : null,
       investors: values.length,
-      leaders: ranked.slice(0, 1),
+      leaders: ranked.slice(0, 3),
     };
   });
 }
@@ -61,11 +68,42 @@ export function availableHistoryReturns(
   }
   return averageInvestorReturns(eligible, values);
 }
+
 let cached: any = null,
   refreshed = 0,
   pending: Promise<any> | null = null;
+
+export function invalidateCohortCache() {
+  cached = null;
+  refreshed = 0;
+}
+
+async function readCohortSnapshot() {
+  await ensureExploreHomeSnapshotTable();
+  const row = await db.oneApi<{ payload: any; updated_at: string }>(
+    `SELECT payload, updated_at::text FROM explore_home_snapshot WHERE cache_key = $1 LIMIT 1`,
+    [COHORT_SNAPSHOT_KEY],
+    8_000,
+  );
+  if (!row?.payload || typeof row.payload !== "object") return null;
+  return row.payload;
+}
+
+async function writeCohortSnapshot(payload: unknown) {
+  await ensureExploreHomeSnapshotTable();
+  await db.queryApi(
+    `
+    INSERT INTO explore_home_snapshot (cache_key, payload, updated_at)
+    VALUES ($1, $2::jsonb, now())
+    ON CONFLICT (cache_key) DO UPDATE
+      SET payload = EXCLUDED.payload, updated_at = now()
+    `,
+    [COHORT_SNAPSHOT_KEY, JSON.stringify(payload)],
+    15_000,
+  );
+}
+
 async function build() {
-  const { db } = await import("../core/db.js");
   const asOf = completedDay();
   const catalogSlugs = allWatchlistSlugs();
   const dates = await db.queryApi<{ day: string }>(
@@ -126,22 +164,48 @@ async function build() {
     period: "1Y",
     start,
     end,
+    asOf,
     groups: namedGroups,
     methodology:
-      "Available history within the trailing calendar year for Mercerline curated investors only. Each security starts at the later of the window start, its first eligible transaction date and its first available close. Shorter histories are not annualized. Each investor equally weighted; each distinct priced disclosed stock equally weighted within that investor. Available disclosure archive through the end of the period. Split-adjusted price returns, no dividends. Disclosed-stock reference, not actual holdings or personal P&L. Unpriced securities excluded.",
+      "Available history within the trailing calendar year for Mercerline curated investors only. Each security starts at the later of the window start, its first eligible transaction date and its first available close. Shorter histories are not annualized. Each investor equally weighted; each distinct priced disclosed stock equally weighted within that investor. Available disclosure archive through the end of the period. Split-adjusted price returns, no dividends. Disclosed-stock reference, not actual holdings or personal P&L. Unpriced securities excluded. PTR sizing uses range midpoints where disclosed.",
   };
 }
+
+/** Rebuild + persist cohort snapshot (call after daily market refresh). */
+export async function refreshCohortPerformanceSnapshot() {
+  const payload = await build();
+  cached = payload;
+  refreshed = Date.now();
+  try {
+    await writeCohortSnapshot(payload);
+  } catch (err) {
+    console.warn("[cohort] snapshot_write_failed", err instanceof Error ? err.message : err);
+  }
+  return payload;
+}
+
 export async function getCohortPerformance() {
   if (cached && Date.now() - refreshed < 1800000) return cached;
-  if (!pending)
-    pending = build()
-      .then((v) => {
-        cached = v;
-        refreshed = Date.now();
-        return v;
-      })
-      .finally(() => {
-        pending = null;
-      });
+  if (!pending) {
+    pending = (async () => {
+      try {
+        const snap = await readCohortSnapshot();
+        if (snap?.ok && snap?.end) {
+          cached = snap;
+          refreshed = Date.now();
+          return snap;
+        }
+      } catch (err) {
+        console.warn("[cohort] snapshot_read_failed", err instanceof Error ? err.message : err);
+      }
+      const payload = await build();
+      cached = payload;
+      refreshed = Date.now();
+      void writeCohortSnapshot(payload).catch(() => undefined);
+      return payload;
+    })().finally(() => {
+      pending = null;
+    });
+  }
   return pending;
 }

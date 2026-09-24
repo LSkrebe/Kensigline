@@ -763,6 +763,7 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
               committee: t.committee,
               transactionType: t.transaction_type,
               amountUsd,
+              amountUsdMid: amountUsd,
               amountRange: t.amount_range,
               assetName: t.asset_name,
               description: t.description,

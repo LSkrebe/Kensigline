@@ -1,7 +1,7 @@
 import {marketSession} from "./calendar.js";
 /** Deterministic disclosure analytics. A market return is never labeled personal P&L. */
 export type Bar = {day:string;close:number;unadjustedClose?:number};
-export type Tx = {id:string;ticker:string;category:string;action:string;instrument:string;date:string|null;filedAt:string|null;observedAt:string|null;filingId:string;sourceUrl:string|null;amountRange?:string|null;shares?:number|null;meta?:any;form?:string|null;description?:string|null;quality?:string};
+export type Tx = {id:string;ticker:string;category:string;action:string;instrument:string;date:string|null;filedAt:string|null;observedAt:string|null;filingId:string;sourceUrl:string|null;amountRange?:string|null;amountMid?:number|null;shares?:number|null;meta?:any;form?:string|null;description?:string|null;quality?:string};
 /** An amendment can correct the date or ticker itself; quarantine the referenced filing too. */
 export type AmendmentRef = Pick<Tx,'ticker'|'date'|'filedAt'|'form'|'meta'|'category'>;
 export function flagAmendmentConflicts(txs:Tx[], external:AmendmentRef[]=[]):Tx[] {
@@ -52,7 +52,7 @@ export function calculateTransaction(tx:Tx,rawBars:Bar[],rawMarket:Bar[],clock:'
     delayDays:date&&filed&&filed>=date?delta(filed,date):null,
     disclosedPrice:Number.isFinite(meta.price)&&meta.price>0?meta.price:null,
     priceQualification:meta.footnoteIds?.length?'Reported price; see filing footnotes (may be a weighted average).':null,
-    amountRange:tx.amountRange??null,shares:tx.shares??null,
+    amountRange:tx.amountRange??null,amountMid:Number.isFinite(tx.amountMid)?tx.amountMid:null,shares:tx.shares??null,
     positionStatus:tx.category==='institution'?'Quarter-end snapshot; current holding unknown':'Current holding unknown',
     realizedPnl:null,unrealizedPnl:null,returnFraction:null,excessFraction:null,points:[],windows:{},reason:null};
   if(meta.sharesAfter!=null && Number.isFinite(meta.sharesAfter) && meta.sharesAfter>=0 && !meta.jointOwners && !amendment && !meta.amendmentConflict) {
