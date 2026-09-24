@@ -13,7 +13,6 @@ import { DeepResearchLayout } from './DeepResearchLayout.jsx'
 import { DeepPage } from './DeepCompanyPage.jsx'
 import { ExplorePage } from './ExplorePage.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
-import { ExploreWatchlistPage } from './ExploreWatchlistPage.jsx'
 import { ExploreEventPage } from './ExploreEventPage.jsx'
 import {
   applyExploreInvestorFeedSelection,
@@ -33,6 +32,7 @@ import { isExploreNetworkMode, isLiveDataMode, isMockDataMode } from './dataMode
 import {
   isTerminalAppPath,
   navigateExploreBack,
+  navigateExploreCompanyDetail,
   navigateExploreEventDetail,
   navigateExploreHome,
   navigateExploreInvestorDetail,
@@ -12714,6 +12714,14 @@ function KensiglineTerminal() {
     ],
   )
 
+  const onExploreCompanyClick = useCallback((row) => {
+    const ticker = String(row?.ticker ?? '').trim().toUpperCase()
+    if (!ticker) return
+    setResearchTicker(ticker)
+    setDeepResearchMode('company')
+    navigateExploreCompanyDetail(ticker)
+  }, [])
+
   useEffect(() => {
     function onKey(e) {
       const el = e.target
@@ -12821,7 +12829,7 @@ function KensiglineTerminal() {
           compactPrice: null,
           compactPriceChange: null,
           compactPriceChangePct: null,
-          onCompanyClick: null,
+          onCompanyClick: onExploreCompanyClick,
         }}
       />
     </DeepResearchLayout>
@@ -12873,16 +12881,7 @@ function KensiglineTerminal() {
                 onBrandClick={onExploreHomeClick}
                 onCloseClick={onExploreDossierCloseClick}
                 onInvestorClick={onExploreInvestorClick}
-              />
-            ) : exploreSubview === 'watchlist' ? (
-              <ExploreWatchlistPage
-                backendUp={backendUp}
-                macroActive={macroActive}
-                settingsActive={settingsActive}
-                onSettingsClick={onSettingsClick}
-                onBrandClick={onExploreHomeClick}
-                onCloseClick={onExploreDossierCloseClick}
-                onInvestorRowClick={onExploreInvestorClick}
+                onCompanyClick={onExploreCompanyClick}
               />
             ) : (
               <ExplorePage

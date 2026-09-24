@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { exploreInvestorSlug } from './exploreDirectoryNav.js'
 import { normalizeMarketingPath } from './marketingRoute.js'
-import { isInvestorExploreSlug, isRetiredProductPath } from './retiredProductPaths.js'
+import {
+  isCompanyExploreTicker,
+  isInvestorExploreSlug,
+  isRetiredProductPath,
+} from './retiredProductPaths.js'
 
 export const EXPLORE_HOME_PATH = '/explore'
 export const EXPLORE_COMPANIES_PATH = '/explore/companies'
@@ -37,21 +41,28 @@ export function parseExploreRoute(pathname = readTerminalPath()) {
     }
   }
 
-  if (path === EXPLORE_WATCHLIST_PATH) return { view: 'watchlist' }
+  // Personal watchlist retired — curated universe lives on Explore home.
+  if (path === EXPLORE_WATCHLIST_PATH) return { view: 'home' }
   if (path === EXPLORE_HOME_PATH) return { view: 'home' }
 
   const dossier = path.match(/^\/explore\/([^/]+)$/i)
   if (dossier) {
     const segment = dossierSegment(dossier[1])
-    if (!segment || segment === 'events' || !isInvestorExploreSlug(segment)) return null
-    return { view: 'investorDetail', investorSlug: segment }
+    if (!segment || segment === 'events') return null
+    if (isInvestorExploreSlug(segment)) {
+      return { view: 'investorDetail', investorSlug: segment }
+    }
+    if (isCompanyExploreTicker(segment)) {
+      return { view: 'companyDetail', ticker: segment.toUpperCase().replace(/-/g, '.') }
+    }
+    return null
   }
   return null
 }
 
 /**
  * App shell route: Explore tree or Settings.
- * Retired company, directory, macro, and people URLs are not routes.
+ * Retired directory, macro, people, and personal-watchlist URLs are not routes.
  * @returns {{ shell: 'explore' | 'settings', view?: string, ticker?: string, investorSlug?: string } | null}
  */
 export function parseTerminalRoute(pathname = readTerminalPath()) {
@@ -79,12 +90,15 @@ export function isTerminalAppPath(pathname = readTerminalPath()) {
 export function explorePathForSubview(subview) {
   if (subview === 'companies') return EXPLORE_HOME_PATH
   if (subview === 'investors' || subview === 'actors') return EXPLORE_HOME_PATH
-  if (subview === 'watchlist') return EXPLORE_WATCHLIST_PATH
+  if (subview === 'watchlist') return EXPLORE_HOME_PATH
   return EXPLORE_HOME_PATH
 }
 
 export function exploreCompanyDetailPath(ticker) {
-  const t = String(ticker ?? '').trim().toLowerCase()
+  const t = String(ticker ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\./g, '-')
   return t ? `/explore/${encodeURIComponent(t)}` : EXPLORE_HOME_PATH
 }
 
@@ -123,13 +137,17 @@ export function navigateExploreCompanies() {}
 export function navigateExploreInvestors() {}
 
 export function navigateExploreWatchlist() {
-  navigateTerminal(EXPLORE_WATCHLIST_PATH)
+  navigateExploreHome()
 }
 
 /** @deprecated Use navigateExploreInvestors */
 export const navigateExploreActors = navigateExploreInvestors
 
-export function navigateExploreCompanyDetail() {}
+export function navigateExploreCompanyDetail(ticker, { replace = false } = {}) {
+  const path = exploreCompanyDetailPath(ticker)
+  if (isRetiredProductPath(path)) return
+  navigateTerminal(path, { replace })
+}
 
 export function navigateExploreInvestorDetail(name, slugHint = null) {
   const path = exploreInvestorDetailPath(name, slugHint)

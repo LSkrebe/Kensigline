@@ -17,31 +17,30 @@ function isKnownInvestorSlug(segment) {
   return EXPLORE_WATCHLIST_CATALOG.some((person) => watchlistPersonSlugs(person).includes(segment))
 }
 
-/** Sample investors shown on Explore beyond the catalog. Their dossier URLs stay. */
-const EXTRA_INVESTOR_SLUGS = new Set([
-  'dan-crenshaw',
-  'josh-gottheimer',
-  'ro-khanna',
-  'maria-cantwell',
-  'amy-klobuchar',
-  'bernie-sanders',
-  'john-barrasso',
-  'mitch-mcconnell',
-  'chuck-schumer',
-  'elizabeth-warren',
-  'ted-cruz',
-  'jeff-bezos',
-])
-
 export function isInvestorExploreSlug(segment) {
   const slug = segmentOf(segment)
   if (!slug) return false
-  return isKnownInvestorSlug(slug) || EXTRA_INVESTOR_SLUGS.has(slug)
+  return isKnownInvestorSlug(slug)
+}
+
+/**
+ * Company dossier segments: ticker-like paths that are not curated investor slugs.
+ * Examples: /explore/nvda, /explore/brk.b, /explore/brk-b
+ */
+export function isCompanyExploreTicker(segment) {
+  const ticker = segmentOf(segment)
+  if (!ticker) return false
+  if (isInvestorExploreSlug(ticker)) return false
+  if (['events', 'watchlist', 'companies', 'investors', 'actors', 'settings'].includes(ticker)) {
+    return false
+  }
+  return /^[a-z][a-z0-9.-]{0,9}$/i.test(ticker)
 }
 
 /**
  * Removed product URLs. They are not pages and must not bounce to Explore.
- * Live routes stay: /explore, /explore/:investor, /explore/events/:id, /explore/watchlist, /settings.
+ * Live routes: /explore, /explore/:investor|/explore/:ticker, /explore/events/:id, /settings.
+ * Personal /explore/watchlist is retired — curated universe is the only list.
  */
 export function isRetiredProductPath(pathname = '/') {
   const path = cleanPath(pathname)
@@ -55,5 +54,6 @@ export function isRetiredProductPath(pathname = '/') {
   if (!one) return false
   const segment = segmentOf(one[1])
   if (!segment || segment === 'events' || segment === 'watchlist') return false
-  return !isInvestorExploreSlug(segment)
+  if (isInvestorExploreSlug(segment) || isCompanyExploreTicker(segment)) return false
+  return true
 }

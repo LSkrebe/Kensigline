@@ -24,7 +24,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "sheldonwhitehouse": {
-    "src": "/investors/sheldon-whitehouse.jpg",
+    "src": "/investors/sheldon-whitehouse.png",
     "source": "local"
   },
   "whitehouse": {
@@ -228,7 +228,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "richardblumenthal": {
-    "src": "/investors/richard-blumenthal.jpg",
+    "src": "/investors/richard-blumenthal.png",
     "source": "local"
   },
   "blumenthal": {
@@ -236,7 +236,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "johnboozman": {
-    "src": "/investors/john-boozman.jpg",
+    "src": "/investors/john-boozman.png",
     "source": "local"
   },
   "boozman": {
@@ -788,11 +788,12 @@
     "source": "https://github.com/unitedstates/images"
   },
   "michaeltmccaul": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/M001157.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/michael-mccaul.png",
+    "source": "local",
+    "hero": "#596b77"
   },
   "michaelmccaul": {
-    "src": "/investors/michael-mccaul.jpg",
+    "src": "/investors/michael-mccaul.png",
     "source": "local"
   },
   "mccaul": {
@@ -932,12 +933,13 @@
     "source": "https://github.com/unitedstates/images"
   },
   "nancypelosi": {
-    "src": "/investors/nancy-pelosi.jpg",
+    "src": "/investors/nancy-pelosi.png",
     "source": "local"
   },
   "pelosi": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/P000197.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/nancy-pelosi.png",
+    "hero": "#5a7a8d",
+    "source": "local"
   },
   "garycpeters": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/P000595.jpg",
@@ -1308,11 +1310,12 @@
     "source": "https://github.com/unitedstates/images"
   },
   "suzankdelbene": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/D000617.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/suzan-delbene.png",
+    "source": "local",
+    "hero": "#595a69"
   },
   "suzandelbene": {
-    "src": "/investors/suzan-delbene.jpg",
+    "src": "/investors/suzan-delbene.png",
     "source": "local"
   },
   "delbene": {
@@ -2036,7 +2039,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "rokhanna": {
-    "src": "/investors/ro-khanna.jpg",
+    "src": "/investors/ro-khanna.png",
     "source": "local"
   },
   "khanna": {
@@ -2208,7 +2211,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "joshgottheimer": {
-    "src": "/investors/josh-gottheimer.jpg",
+    "src": "/investors/josh-gottheimer.png",
     "source": "local"
   },
   "gottheimer": {
@@ -2352,7 +2355,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "kevinhern": {
-    "src": "/investors/kevin-hern.jpg",
+    "src": "/investors/kevin-hern.png",
     "source": "local"
   },
   "hern": {
@@ -2708,7 +2711,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "dancrenshaw": {
-    "src": "/investors/dan-crenshaw.jpg",
+    "src": "/investors/dan-crenshaw.png",
     "source": "local"
   },
   "crenshaw": {
@@ -2796,7 +2799,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "rickscott": {
-    "src": "/investors/rick-scott.jpg",
+    "src": "/investors/rick-scott.png",
     "source": "local"
   },
   "joshhawley": {
@@ -2892,7 +2895,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "tommytuberville": {
-    "src": "/investors/tommy-tuberville.jpg",
+    "src": "/investors/tommy-tuberville.png",
     "source": "local"
   },
   "tuberville": {
@@ -2972,7 +2975,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "byrondonalds": {
-    "src": "/investors/byron-donalds.jpg",
+    "src": "/investors/byron-donalds.png",
     "source": "local"
   },
   "donalds": {
@@ -3092,7 +3095,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "lisamcclain": {
-    "src": "/investors/lisa-mcclain.jpg",
+    "src": "/investors/lisa-mcclain.png",
     "source": "local"
   },
   "mcclain": {
@@ -3796,8 +3799,9 @@
     "source": "https://github.com/unitedstates/images"
   },
   "danielsgoldman": {
-    "src": "/investors/daniel-goldman.jpg",
-    "source": "local"
+    "src": "/investors/daniel-goldman.png",
+    "source": "local",
+    "hero": "#595a69"
   },
   "dangoldman": {
     "src": "/investors/daniel-goldman.jpg",
@@ -4152,7 +4156,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "gilbertcisneros": {
-    "src": "/investors/gilbert-cisneros.jpg",
+    "src": "/investors/gilbert-cisneros.png",
     "source": "local"
   },
   "cisneros": {
@@ -4352,7 +4356,7 @@
     "source": "https://github.com/unitedstates/images"
   },
   "jeffersonshreve": {
-    "src": "/investors/jefferson-shreve.jpg",
+    "src": "/investors/jefferson-shreve.png",
     "source": "local"
   },
   "shreve": {
@@ -4620,8 +4624,9 @@
     "source": "local"
   },
   "robertbresnahan": {
-    "src": "/investors/rob-bresnahan.jpg",
-    "source": "local"
+    "src": "/investors/rob-bresnahan.png",
+    "source": "local",
+    "hero": "#5a5a69"
   },
   "bresnahan": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/B001327.jpg",
@@ -4876,28 +4881,31 @@
     "source": "https://github.com/unitedstates/images"
   },
   "jensenhuang": {
-    "src": "/investors/jensen-huang.jpg",
+    "src": "/investors/jensen-huang.png",
     "source": "local"
   },
   "huangjenhsun": {
-    "src": "/investors/jensen-huang.jpg",
+    "src": "/investors/jensen-huang.png",
+    "hero": "#3d4b23",
     "source": "local"
   },
   "timcook": {
-    "src": "/investors/tim-cook.jpg",
+    "src": "/investors/tim-cook.png",
     "source": "local"
   },
   "cooktimothyd": {
-    "src": "/investors/tim-cook.jpg",
-    "source": "local"
+    "src": "/investors/tim-cook.png",
+    "source": "local",
+    "hero": "#6f3e6f"
   },
   "lisasu": {
-    "src": "/investors/lisa-su.jpg",
+    "src": "/investors/lisa-su.png",
     "source": "local"
   },
   "sulisat": {
-    "src": "/investors/lisa-su.jpg",
-    "source": "local"
+    "src": "/investors/lisa-su.png",
+    "source": "local",
+    "hero": "#3c5d92"
   },
   "donaldjtrump": {
     "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/330px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
@@ -4908,24 +4916,26 @@
     "source": "https://en.wikipedia.org/wiki/Donald_Trump"
   },
   "markwaynemullin": {
-    "src": "/investors/markwayne-mullin.jpg",
+    "src": "/investors/markwayne-mullin.png",
     "source": "local"
   },
   "satyanadella": {
-    "src": "/investors/satya-nadella.jpg",
+    "src": "/investors/satya-nadella.png",
     "source": "local"
   },
   "nadellasatya": {
-    "src": "/investors/satya-nadella.jpg",
-    "source": "local"
+    "src": "/investors/satya-nadella.png",
+    "source": "local",
+    "hero": "#674f67"
   },
   "jamiedimon": {
-    "src": "/investors/jamie-dimon.jpg",
+    "src": "/investors/jamie-dimon.png",
     "source": "local"
   },
   "dimonjames": {
-    "src": "/investors/jamie-dimon.jpg",
-    "source": "local"
+    "src": "/investors/jamie-dimon.png",
+    "source": "local",
+    "hero": "#a47801"
   },
   "jeffbezos": {
     "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fc/260202-D-PM193-2205_SECWAR_Arsenal_of_Freedom_Tour_-_Florida_%283x4_cropped_on_Bezos_and_rotated%29.jpg/330px-260202-D-PM193-2205_SECWAR_Arsenal_of_Freedom_Tour_-_Florida_%283x4_cropped_on_Bezos_and_rotated%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
@@ -5001,7 +5011,7 @@
     "kind": "logo"
   },
   "renaissancetechnologies": {
-    "src": "/investors/renaissance-technologies.jpg",
+    "src": "/investors/renaissance-technologies.png",
     "source": "local"
   },
   "renaissancetechnologiesllc": {
@@ -5009,55 +5019,59 @@
     "source": "local"
   },
   "jenhsunhuang": {
-    "src": "/investors/jensen-huang.jpg",
-    "source": "local"
+    "src": "/investors/jensen-huang.png",
+    "source": "local",
+    "hero": "#3d4b23"
   },
   "timothydcook": {
-    "src": "/investors/tim-cook.jpg",
-    "source": "local"
+    "src": "/investors/tim-cook.png",
+    "source": "local",
+    "hero": "#6f3e6f"
   },
   "lisatsu": {
-    "src": "/investors/lisa-su.jpg",
-    "source": "local"
+    "src": "/investors/lisa-su.png",
+    "source": "local",
+    "hero": "#3c5d92"
   },
   "jamesdimon": {
     "src": "/investors/jamie-dimon.jpg",
     "source": "local"
   },
   "elonmusk": {
-    "src": "/investors/elon-musk.jpg",
+    "src": "/investors/elon-musk.png",
     "source": "local"
   },
   "muskelon": {
-    "src": "/investors/elon-musk.jpg",
-    "source": "local"
+    "src": "/investors/elon-musk.png",
+    "source": "local",
+    "hero": "#685d8e"
   },
   "alexkarp": {
-    "src": "/investors/alex-karp.jpg",
+    "src": "/investors/alex-karp.png",
     "source": "local"
   },
   "andyjassy": {
-    "src": "/investors/andy-jassy.jpg",
+    "src": "/investors/andy-jassy.png",
     "source": "local"
   },
   "appaloosa": {
-    "src": "/investors/appaloosa.jpg",
+    "src": "/investors/appaloosa.png",
     "source": "local"
   },
   "baupost": {
-    "src": "/investors/baupost.jpg",
+    "src": "/investors/baupost.png",
     "source": "local"
   },
   "berkshirehathaway": {
-    "src": "/investors/berkshire-hathaway.jpg",
+    "src": "/investors/berkshire-hathaway.png",
     "source": "local"
   },
   "bridgewater": {
-    "src": "/investors/bridgewater.jpg",
+    "src": "/investors/bridgewater.png",
     "source": "local"
   },
   "citadeladvisors": {
-    "src": "/investors/citadel-advisors.jpg",
+    "src": "/investors/citadel-advisors.png",
     "source": "local"
   },
   "coatue": {
@@ -5070,11 +5084,11 @@
     "source": "local"
   },
   "danielgoldman": {
-    "src": "/investors/daniel-goldman.jpg",
+    "src": "/investors/daniel-goldman.png",
     "source": "local"
   },
   "elliottmanagement": {
-    "src": "/investors/elliott-management.jpg",
+    "src": "/investors/elliott-management.png",
     "source": "local"
   },
   "hocktan": {
@@ -5082,7 +5096,7 @@
     "source": "local"
   },
   "icahncapital": {
-    "src": "/investors/icahn-capital.jpg",
+    "src": "/investors/icahn-capital.png",
     "source": "local"
   },
   "larryellison": {
@@ -5095,35 +5109,35 @@
     "kind": "logo"
   },
   "marcbenioff": {
-    "src": "/investors/marc-benioff.jpg",
+    "src": "/investors/marc-benioff.png",
     "source": "local"
   },
   "marjorietaylorgreene": {
-    "src": "/investors/marjorie-taylor-greene.jpg",
+    "src": "/investors/marjorie-taylor-greene.png",
     "source": "local"
   },
   "markzuckerberg": {
-    "src": "/investors/mark-zuckerberg.jpg",
+    "src": "/investors/mark-zuckerberg.png",
     "source": "local"
   },
   "marybarra": {
-    "src": "/investors/mary-barra.jpg",
+    "src": "/investors/mary-barra.png",
     "source": "local"
   },
   "pershingsquare": {
-    "src": "/investors/pershing-square.jpg",
+    "src": "/investors/pershing-square.png",
     "source": "local"
   },
   "reedhastings": {
-    "src": "/investors/reed-hastings.jpg",
+    "src": "/investors/reed-hastings.png",
     "source": "local"
   },
   "robbresnahan": {
-    "src": "/investors/rob-bresnahan.jpg",
+    "src": "/investors/rob-bresnahan.png",
     "source": "local"
   },
   "thirdpoint": {
-    "src": "/investors/third-point.svg",
+    "src": "/investors/third-point.png",
     "source": "local",
     "kind": "logo"
   },
@@ -5138,7 +5152,187 @@
     "kind": "logo"
   },
   "duquesnefamilyoffice": {
-    "src": "/investors/duquesne-family-office.jpg",
-    "source": "https://www.bowdoin.edu/news/2017/02/stanley-druckenmiller-75-h07-on-the-economy-politics-and-education.html"
+    "src": "/investors/duquesne-family-office.png",
+    "source": "local"
+  },
+  "honnancypelosi": {
+    "src": "/investors/nancy-pelosi.png",
+    "hero": "#5a7a8d",
+    "source": "local"
+  },
+  "thehonorablenancypelosi": {
+    "src": "/investors/nancy-pelosi.png",
+    "hero": "#5a7a8d",
+    "source": "local"
+  },
+  "joshuagottheimer": {
+    "src": "/investors/josh-gottheimer.png",
+    "hero": "#443f38",
+    "source": "local"
+  },
+  "rohitkhanna": {
+    "src": "/investors/ro-khanna.png",
+    "hero": "#3b4255",
+    "source": "local"
+  },
+  "gilbertrcisneros": {
+    "src": "/investors/gilbert-cisneros.png",
+    "hero": "#484b68",
+    "source": "local"
+  },
+  "mrthomashtuberville": {
+    "src": "/investors/tommy-tuberville.png",
+    "hero": "#593f59",
+    "source": "local"
+  },
+  "thomastuberville": {
+    "src": "/investors/tommy-tuberville.png",
+    "hero": "#593f59",
+    "source": "local"
+  },
+  "thomashtuberville": {
+    "src": "/investors/tommy-tuberville.png",
+    "hero": "#593f59",
+    "source": "local"
+  },
+  "danielcrenshaw": {
+    "src": "/investors/dan-crenshaw.png",
+    "hero": "#574588",
+    "source": "local"
+  },
+  "thehonorablemarkwaynemullin": {
+    "src": "/investors/markwayne-mullin.png",
+    "hero": "#595a69",
+    "source": "local"
+  },
+  "thehonorablesheldonwhitehouse": {
+    "src": "/investors/sheldon-whitehouse.png",
+    "hero": "#595a69",
+    "source": "local"
+  },
+  "robertpbresnahan": {
+    "src": "/investors/rob-bresnahan.png",
+    "hero": "#5a5a69",
+    "source": "local"
+  },
+  "richardscott": {
+    "src": "/investors/rick-scott.png",
+    "hero": "#2c2b33",
+    "source": "local"
+  },
+  "thehonorablejohnboozman": {
+    "src": "/investors/john-boozman.png",
+    "hero": "#595470",
+    "source": "local"
+  },
+  "honbyrondonalds": {
+    "src": "/investors/byron-donalds.png",
+    "hero": "#32557d",
+    "source": "local"
+  },
+  "zuckerbergmark": {
+    "src": "/investors/mark-zuckerberg.png",
+    "hero": "#462c50",
+    "source": "local"
+  },
+  "lawrencejellison": {
+    "src": "/investors/larry-ellison.png",
+    "hero": "#703e70",
+    "source": "local"
+  },
+  "ellisonlawrence": {
+    "src": "/investors/larry-ellison.png",
+    "hero": "#703e70",
+    "source": "local"
+  },
+  "andrewjassy": {
+    "src": "/investors/andy-jassy.png",
+    "hero": "#6e416e",
+    "source": "local"
+  },
+  "alexanderkarp": {
+    "src": "/investors/alex-karp.png",
+    "hero": "#8e4891",
+    "source": "local"
+  },
+  "hocketan": {
+    "src": "/investors/hock-tan.png",
+    "hero": "#655167",
+    "source": "local"
+  },
+  "marytbarra": {
+    "src": "/investors/mary-barra.png",
+    "hero": "#605865",
+    "source": "local"
+  },
+  "wilmotreedhastings": {
+    "src": "/investors/reed-hastings.png",
+    "hero": "#0a2e6b",
+    "source": "local"
+  },
+  "pershingsquarecapitalmanagement": {
+    "src": "/investors/pershing-square.png",
+    "hero": "#563b29",
+    "source": "local"
+  },
+  "appaloosamanagement": {
+    "src": "/investors/appaloosa.png",
+    "hero": "#655266",
+    "source": "local"
+  },
+  "citadel": {
+    "src": "/investors/citadel-advisors.png",
+    "hero": "#026fac",
+    "source": "local"
+  },
+  "bridgewaterassociates": {
+    "src": "/investors/bridgewater.png",
+    "hero": "#664f68",
+    "source": "local"
+  },
+  "elliottinvestmentmanagement": {
+    "src": "/investors/elliott-management.png",
+    "hero": "#674d69",
+    "source": "local"
+  },
+  "thirdpointmanagement": {
+    "src": "/investors/third-point.png",
+    "hero": "#1c1e26",
+    "source": "local",
+    "kind": "logo"
+  },
+  "thebaupostgroup": {
+    "src": "/investors/baupost.png",
+    "hero": "#615666",
+    "source": "local"
+  },
+  "tigerglobalmanagement": {
+    "src": "/investors/tiger-global.png",
+    "hero": "#595b69",
+    "source": "local",
+    "kind": "logo"
+  },
+  "coatuemanagement": {
+    "src": "/investors/coatue.png",
+    "hero": "#58586c",
+    "source": "local",
+    "kind": "logo"
+  },
+  "vikingglobalinvestors": {
+    "src": "/investors/viking-global.png",
+    "hero": "#003e80",
+    "source": "local",
+    "kind": "logo"
+  },
+  "lonepinecapital": {
+    "src": "/investors/lone-pine.png",
+    "hero": "#42833c",
+    "source": "local",
+    "kind": "logo"
+  },
+  "carlicahn": {
+    "src": "/investors/icahn-capital.png",
+    "hero": "#665067",
+    "source": "local"
   }
 }

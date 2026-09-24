@@ -13,7 +13,6 @@ import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDir
 import { buildExploreWatchlistPeople, extractExploreInvestorEvents, extractExploreWatchlistEvents } from './exploreWatchlistData.js'
 import { EXPLORE_WATCHLIST_CATALOG } from './exploreWatchlistCatalog.js'
 import { ExploreWatchlistSection, selectExploreFeatured } from './ExploreWatchlistSection.jsx'
-import { useUserWatchlist } from './UserWatchlistContext.jsx'
 import { buildExploreDailyRecap } from './exploreRecapMock.js'
 import { isCaptureMode } from './captureMode.js'
 import './DeepReport.css'
@@ -42,7 +41,6 @@ export function ExplorePage({
   onInvestorRowClick = null,
   onEventClick = null,
 }) {
-  const { watchlistPeople } = useUserWatchlist()
   const initialSnapshot = useMemo(() => {
     if (isCaptureMode() || isMockDataMode(backendUp)) {
       return {
@@ -174,11 +172,12 @@ export function ExplorePage({
   const searching = normalizedQuery.length > 0
 
   const watchlistRows = useMemo(() => {
-    const people = isMockDataMode(backendUp) ? EXPLORE_WATCHLIST_CATALOG : watchlistPeople
+    // Curated universe is the only Explore list — personal watchlist is retired.
+    const people = EXPLORE_WATCHLIST_CATALOG
     const rows = buildExploreWatchlistPeople(investorEvents, { people, watchlistLatest: watchlistEvents })
     if (!searching) return rows
     return filterExploreHomeRows(rows, searchQuery)
-  }, [backendUp, investorEvents, watchlistEvents, watchlistPeople, searchQuery, searching])
+  }, [investorEvents, watchlistEvents, searchQuery, searching])
 
   const featured = useMemo(() => selectExploreFeatured(watchlistRows, range), [watchlistRows, range])
   const { pageRef, dockRef, spacerRef } = useCollapseScroll({

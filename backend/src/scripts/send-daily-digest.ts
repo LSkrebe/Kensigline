@@ -1,5 +1,7 @@
 /**
- * Daily digest sender — run hourly from cron (sends when local morning_hour matches).
+ * Activity brief sender — run hourly from cron.
+ * Sends only when there are real disclosures (not quiet/fallback days).
+ * At most one email per user per local calendar day.
  *
  * Usage:
  *   node dist/scripts/send-daily-digest.js

@@ -69,7 +69,7 @@ export default function AppRouter() {
     if (waitlistMode || captureMode) return
     const p = path.replace(/\/$/, '') || '/'
     if (p.startsWith('/settings')) document.title = 'Settings - Mercerline'
-    else if (p.startsWith('/explore/watchlist')) document.title = 'Watchlist - Mercerline'
+    else if (p.startsWith('/explore/watchlist')) document.title = 'Explore - Mercerline'
     else if (p.startsWith('/explore')) document.title = 'Explore - Mercerline'
     else document.title = 'Mercerline'
   }, [waitlistMode, captureMode, path, signedIn, active])

@@ -4,6 +4,10 @@ function Bar({ className = '' }) {
   return <span className={`appSkel ${className}`} aria-hidden="true" />
 }
 
+function EmptyBar({ className = '' }) {
+  return <span className={`appEmptyBar ${className}`} aria-hidden="true" />
+}
+
 export function SkeletonStatus({ label = 'Loading', className = '', children }) {
   return (
     <div className={className} role="status" aria-live="polite" aria-busy="true" aria-label={label}>
@@ -67,4 +71,57 @@ export function SkeletonReturn() {
 
 export function SkeletonField() {
   return <Bar className="appSkel--field" />
+}
+
+/** Quiet empty panels — same footprint as skeletons, no pulse. */
+export function EmptyChart({ label = 'No price data' }) {
+  return (
+    <div className="appEmpty appEmpty--chart" role="status">
+      <EmptyBar className="appEmpty--chartShape" />
+      <span className="appEmptyLabel">{label}</span>
+    </div>
+  )
+}
+
+export function EmptyReturn({ label = 'Performance unavailable' }) {
+  return (
+    <div className="appEmpty appEmpty--return" role="status">
+      <EmptyBar className="appEmpty--returnShape" />
+      <EmptyBar className="appEmpty--sinceShape" />
+      <span className="appEmptyLabel appEmptyLabel--overlay">{label}</span>
+    </div>
+  )
+}
+
+export function EmptyStats({ label = 'Metrics unavailable' }) {
+  return (
+    <div className="appEmpty appEmpty--stats" role="status" aria-label={label}>
+      {Array.from({ length: 3 }, (_, index) => (
+        <div className="appEmptyStat" key={index}>
+          <EmptyBar className="appEmpty--statLabel" />
+          <EmptyBar className="appEmpty--statValue" />
+        </div>
+      ))}
+      <span className="appEmptyLabel appEmptyLabel--overlay">{label}</span>
+    </div>
+  )
+}
+
+export function EmptyList({ label = 'Nothing here yet' }) {
+  return (
+    <div className="appEmpty appEmpty--list" role="status">
+      <div className="appEmptyListGhost" aria-hidden="true">
+        {Array.from({ length: 2 }, (_, index) => (
+          <div className="appEmptyListRow" key={index}>
+            <EmptyBar className="appEmpty--listAvatar" />
+            <span className="appEmptyListStack">
+              <EmptyBar className="appEmpty--listTitle" />
+              <EmptyBar className="appEmpty--listSub" />
+            </span>
+          </div>
+        ))}
+      </div>
+      <span className="appEmptyLabel appEmptyLabel--overlay">{label}</span>
+    </div>
+  )
 }

@@ -20,6 +20,7 @@ import {
 } from "./oge-278t-parse.js";
 import { getSecTickerTitleMap } from "../../core/sec.js";
 import { isOlderThanRetentionWindow } from "../../shared/ingest-policy.js";
+import { shouldIngestFiler } from "../../explore/watchlist-catalog.js";
 import { lookupPoliticianCommittee } from "../../politicians/committees.js";
 import {
   ensureFiler,
@@ -411,6 +412,19 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
         llm_used: false,
       });
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "missing_filer_name" };
+    }
+
+    if (!shouldIngestFiler(filerName)) {
+      await markQueueDead(queueId, "skipped_outside_tracked_universe");
+      logParseOutcome({
+        source_type: source,
+        queue_id: queueId,
+        outcome: "skipped",
+        path: `deterministic/${source}`,
+        skip_reason: "outside_tracked_universe",
+        llm_used: false,
+      });
+      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "outside_tracked_universe" };
     }
 
     const parsedIds = await persistPoliticianFiling({

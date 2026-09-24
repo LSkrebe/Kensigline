@@ -23,6 +23,7 @@ import {
   type InsiderClusterOut,
 } from "./narrative.js";
 import { isOlderThanRetentionWindow } from "../../shared/ingest-policy.js";
+import { shouldIngestFiler } from "../../explore/watchlist-catalog.js";
 import {
   ensureFiler,
   ensureIssuer,
@@ -117,6 +118,19 @@ export async function parseNextInsiderQueueItem(): Promise<ParseNextResult> {
     const allTxns = extractAllFormTransactions(xml);
     const owners = extractFormReportingOwners(xml);
     const primaryOwner = owners[0] ?? extractFormReportingOwner(xml);
+
+    if (!shouldIngestFiler(primaryOwner?.name)) {
+      await markQueueDead(queueId, "skipped_outside_tracked_universe");
+      logParseOutcome({
+        source_type: next.source_type,
+        queue_id: queueId,
+        outcome: "skipped",
+        path: "deterministic/insider",
+        skip_reason: "outside_tracked_universe",
+        llm_used: false,
+      });
+      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "outside_tracked_universe" };
+    }
 
     let worksheetRows = buildWorksheetRowsFromTransactions(allTxns, primaryOwner);
 

@@ -14,9 +14,7 @@ import { sendResendEmail } from "./resend.js";
 import {
   listEnabledAlertPreferences,
   localDateKey,
-  localHour,
   logDigestSent,
-  type AlertPreferencesRow,
   wasDigestSent,
 } from "./store.js";
 
@@ -45,18 +43,16 @@ async function sendDigestToEmail(email: string, content: DigestContent) {
   return result.id;
 }
 
-function recipientsDueNow(rows: AlertPreferencesRow[], now = new Date()) {
-  return rows.filter((row) => {
-    const tz = row.timezone || "UTC";
-    const hour = localHour(tz, now);
-    return hour === row.morning_hour;
-  });
-}
-
+/**
+ * Activity-driven brief: when the hourly job finds real disclosures, email every
+ * opted-in user once for that local calendar day. No morning-hour gate — if
+ * nothing filed (or only quiet fallback), we skip entirely.
+ */
 export async function runDailyDigest(opts?: {
   testEmail?: string;
   force?: boolean;
   now?: Date;
+  content?: DigestContent;
 }): Promise<DigestRunResult> {
   if (!digestEnabled()) {
     return { ok: false, sent: 0, skipped: 0, failed: 0, reason: "digest_disabled" };
@@ -65,9 +61,9 @@ export async function runDailyDigest(opts?: {
     return { ok: false, sent: 0, skipped: 0, failed: 0, reason: "resend_not_configured" };
   }
 
-  const content = await buildDigestContent();
+  const content = opts?.content ?? (await buildDigestContent());
   if (!digestHasContent(content)) {
-    return { ok: true, sent: 0, skipped: 0, failed: 0, reason: "empty_day" };
+    return { ok: true, sent: 0, skipped: 0, failed: 0, reason: "empty_or_quiet" };
   }
 
   const testEmail = String(opts?.testEmail ?? "").trim();
@@ -78,15 +74,15 @@ export async function runDailyDigest(opts?: {
 
   const now = opts?.now ?? new Date();
   const enabled = await listEnabledAlertPreferences();
-  const due = opts?.force ? enabled : recipientsDueNow(enabled, now);
 
   let sent = 0;
   let skipped = 0;
   let failed = 0;
 
-  for (const row of due) {
+  for (const row of enabled) {
     const tz = row.timezone || "UTC";
-    const slotKey = `daily:${localDateKey(tz, now)}`;
+    // One brief per local day when activity exists — not a fixed morning slot.
+    const slotKey = `activity:${localDateKey(tz, now)}`;
     if (!opts?.force && (await wasDigestSent(row.user_id, slotKey))) {
       skipped += 1;
       continue;

@@ -23,6 +23,7 @@ import {
 } from "./parse-13f.js";
 import { isCikPlaceholderDisplayName } from "../../core/sec.js";
 import { isPlaceholderInvestorName } from "../../research/market/tracked-investors-filter.js";
+import { shouldIngestFiler } from "../../explore/watchlist-catalog.js";
 import {
   activityFromShareDelta,
   consolidateMappedHoldingsByTicker,
@@ -514,6 +515,20 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
         holdings_parsed: parsedHoldings.length,
       });
       return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "placeholder_filer_name" };
+    }
+
+    if (!shouldIngestFiler(filerName)) {
+      await markQueueDead(queueId, "skipped_outside_tracked_universe");
+      logParseOutcome({
+        source_type: "sec_13f",
+        queue_id: queueId,
+        outcome: "skipped",
+        path: "institutions/13f-deterministic",
+        skip_reason: "outside_tracked_universe",
+        llm_used: false,
+        holdings_parsed: parsedHoldings.length,
+      });
+      return { processed: false, reason: "skipped", queue_id: queueId, skip_reason: "outside_tracked_universe" };
     }
 
     if (!parsedHoldings.length) {

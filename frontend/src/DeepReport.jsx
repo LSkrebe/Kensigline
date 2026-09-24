@@ -24,7 +24,7 @@ import { SENATE_INVESTOR_SLUGS } from './exploreWatchlistCatalog.js'
 import portraits from './explorePortraits.json'
 import { companyLogoFallback, companyLogoSrc } from './localImages.js'
 import './DeepReport.css'
-import { SkeletonChart, SkeletonList, SkeletonReturn, SkeletonStats } from './AppSkeleton.jsx'
+import { EmptyChart, EmptyList, EmptyReturn, EmptyStats, SkeletonChart, SkeletonList, SkeletonReturn, SkeletonStats } from './AppSkeleton.jsx'
 import { copyDossierShareCard } from './dossierShareCard.js'
 import './ExplorePage.css'
 
@@ -48,10 +48,20 @@ function deepCollapseProgressVars(progress) {
   }
 }
 
-function DossierHeroMedia({ src, name, title, kicker, logo = false }) {
+function DossierHeroMedia({ src, heroColor = null, name, title, kicker, logo = false }) {
+  const flat = Boolean(heroColor)
   return (
-    <div className={`drpt-heroMedia${logo ? ' drpt-heroMedia--logo' : ''}`}>
-      <ImageOrInitials className="drpt-heroPhoto" src={src} name={name} logo={logo} discover={false} />
+    <div
+      className={`drpt-heroMedia${logo && !flat ? ' drpt-heroMedia--logo' : ''}${flat ? ' drpt-heroMedia--flat' : ''}`}
+      style={flat ? { '--drpt-hero-flat': heroColor } : undefined}
+    >
+      <span className="drpt-heroPhoto" aria-hidden="true">
+        {src ? (
+          <img src={src} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+        ) : (
+          <ImageOrInitials className="drpt-heroPhotoInner" src={null} name={name} logo={logo} discover={false} />
+        )}
+      </span>
       <div className="drpt-heroCopy">
         {kicker ? <p className="drpt-heroKicker">{kicker}</p> : null}
         <h1 className="drpt-heroTitle">{title}</h1>
@@ -839,7 +849,7 @@ function DeepFundamentalsSnapshot({ fundamentals, loading = false, priceChangePc
     return loading ? (
       <SkeletonStats />
     ) : (
-      <p className="drpt-empty">No key metrics yet.</p>
+      <EmptyStats label="No key metrics yet" />
     )
   }
 
@@ -1135,7 +1145,7 @@ function DeepTrackRecordChartPanel({ trackRecord, loading = false }) {
     return <SkeletonChart />
   }
   if (!trackRecord?.points?.length) {
-    return <p className="drpt-empty">No price data available.</p>
+    return <EmptyChart label="No price data" />
   }
 
   return (
@@ -1406,12 +1416,17 @@ function filingSentence(person, changes) {
 
 function DeepActorMetrics({ activity, loading = false }) {
   if (loading && !activity) return <SkeletonStats />
-  if (!activity) return <p className="drpt-empty">Verified performance metrics are unavailable.</p>
+  if (!activity) return <EmptyStats label="Metrics unavailable" />
   const cards = [
     { key: 'aum', label: 'AUM', value: activity.aum },
     { key: 'delay', label: 'Avg. delay', value: activity.delay },
     { key: 'positions', label: 'Positions', value: activity.positions },
   ]
+  const blank = cards.every((card) => {
+    const v = card.value
+    return v == null || v === '—' || v === '-' || v === '' || v === 0 || v === '0'
+  })
+  if (blank) return <EmptyStats label="Metrics unavailable" />
   return (
     <div className="drpt-statStrip">
       {cards.map((card) => (
@@ -1465,7 +1480,7 @@ function tradeRowMeta(row) {
   }
 }
 
-function FilingModal({ filing, name, portraitSrc, onClose }) {
+function FilingModal({ filing, name, portraitSrc, heroColor = null, onClose }) {
   const sections = [
     ['new', 'New positions', filing.changes],
     ['closed', 'Closed positions', filing.changes],
@@ -1473,6 +1488,7 @@ function FilingModal({ filing, name, portraitSrc, onClose }) {
     ['decreased', 'Decreased positions', filing.changes],
     ['unchanged', 'Unchanged positions', filing.unchanged ?? []],
   ]
+  const meterColor = heroColor || 'rgba(92, 184, 138, 0.95)'
   return (
     <div className="drpt-filingPage drpt--dossier" role="dialog" aria-modal="true" aria-label={`${formatLongDate(filing.filedMs)} trades`}>
       <div className="drpt-chromeBar">
@@ -1482,7 +1498,13 @@ function FilingModal({ filing, name, portraitSrc, onClose }) {
       <div className="drpt-filingBody">
         <div className="drpt-filingHero">
           <h2 className="drpt-sectionTitle">Made {filing.trades.length} {filing.trades.length === 1 ? 'trade' : 'trades'}</h2>
-          <div className="drpt-filingMeter" aria-hidden="true" />
+          <div
+            className="drpt-filingMeter"
+            aria-hidden="true"
+            style={{
+              '--drpt-filing-meter': meterColor,
+            }}
+          />
           <ImageOrInitials className="drpt-filingPortrait" src={portraitSrc} name={name} discover={false} />
           <p className="drpt-filingName">{name}</p>
           <p className="drpt-filingBlurb">{filingSentence(name, filing.changes)}</p>
@@ -1524,13 +1546,13 @@ function FilingModal({ filing, name, portraitSrc, onClose }) {
   )
 }
 
-function DeepTradeLog({ rows = [], loading = false, name = '', portraitSrc = null, expanded = false }) {
+function DeepTradeLog({ rows = [], loading = false, name = '', portraitSrc = null, heroColor = null, expanded = false }) {
   const [active, setActive] = useState(null)
   const activity = useMemo(() => buildDossierActivity(rows), [rows])
   const filings = activity?.filings ?? []
   const visible = expanded ? filings : filings.slice(0, 5)
   if (loading && !filings.length) return <SkeletonList count={3} />
-  if (!filings.length) return <p className="drpt-empty">No trades in the selected window.</p>
+  if (!filings.length) return <EmptyList label="No trades yet" />
   return (
     <>
       <ol className="drpt-tradeList">
@@ -1563,7 +1585,7 @@ function DeepTradeLog({ rows = [], loading = false, name = '', portraitSrc = nul
         })}
       </ol>
       {active ? (
-        <FilingModal filing={active} name={name} portraitSrc={portraitSrc} onClose={() => setActive(null)} />
+        <FilingModal filing={active} name={name} portraitSrc={portraitSrc} heroColor={heroColor} onClose={() => setActive(null)} />
       ) : null}
     </>
   )
@@ -1573,7 +1595,7 @@ function DeepHoldings({ rows = [], loading = false, expanded = false }) {
   const holdings = useMemo(() => buildDossierActivity(rows)?.holdings ?? [], [rows])
   const visible = expanded ? holdings : holdings.slice(0, 5)
   if (loading && !holdings.length) return <SkeletonList count={3} />
-  if (!holdings.length) return <p className="drpt-empty">No current holdings.</p>
+  if (!holdings.length) return <EmptyList label="No holdings yet" />
   return (
     <>
       <ol className="drpt-holdingList">
@@ -1707,7 +1729,7 @@ export function DeepCompanyReport({
             ) : chartLoading ? (
                 <SkeletonChart />
             ) : (
-                <p className="drpt-empty">No price series yet.</p>
+                <EmptyChart label="No price data" />
             )}
             {onChartRangeChange ? (
               <DeepChartRange value={chartRange} onChange={onChartRangeChange} options={chartRangeOptions} />
@@ -1829,7 +1851,8 @@ export function DeepActorReport({
     window.clearTimeout(shareTimer.current)
     void copyDossierShareCard({
       name,
-      portraitSrc: portrait?.src ?? null,
+      portraitSrc: portrait?.src || null,
+      heroColor: portrait?.hero || null,
       sourceLabel,
       sourceMark,
       aum: activity?.aum && activity.aum !== '—' ? activity.aum : null,
@@ -1861,6 +1884,7 @@ export function DeepActorReport({
       expandedHeader={
         <DossierHeroMedia
           src={portrait?.src}
+          heroColor={portrait?.hero || null}
           name={name}
           title={name}
           kicker={sourceLabel}
@@ -1883,10 +1907,7 @@ export function DeepActorReport({
                 <p className="drpt-heroSpan">{activity?.since ? `Since ${activity.since}` : priceRangeLabel(chartRange)}</p>
               </>
             ) : (
-              <>
-                <p className="drpt-empty">Verified performance metrics are unavailable.</p>
-                <p className="drpt-heroSpan">{activity?.since ? `Since ${activity.since}` : priceRangeLabel(chartRange)}</p>
-              </>
+              <EmptyReturn label="Performance unavailable" />
             )}
           </div>
           <div className="drpt-dossierChart">
@@ -1894,7 +1915,7 @@ export function DeepActorReport({
               <DeepTrackRecordChartPanel trackRecord={trackRecord} loading={showSectionLoading} />
             </div>
             <DeepChartRange value={chartRange} onChange={setChartRange} options={chartRangeOptions} />
-          </div>
+        </div>
         </div>
         <DeepSection title="Stats">
           <DeepActorMetrics activity={activity} loading={showSectionLoading} />
@@ -1905,7 +1926,8 @@ export function DeepActorReport({
               rows={tradeRows}
               loading={showSectionLoading}
               name={name}
-              portraitSrc={portraits[normalizeInvestorName(name)]?.src}
+              portraitSrc={portrait?.src}
+              heroColor={portrait?.hero || null}
               expanded={listsOpen}
             />
           </DeepSection>

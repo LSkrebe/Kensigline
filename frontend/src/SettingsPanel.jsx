@@ -130,14 +130,7 @@ function SettingsField({ label, sublabel, children, valueTone, className = '' })
   )
 }
 
-function formatMorningHour(hour) {
-  const h = Number(hour)
-  if (!Number.isFinite(h)) return '8:00 AM'
-  const normalized = ((Math.floor(h) % 24) + 24) % 24
-  const suffix = normalized >= 12 ? 'PM' : 'AM'
-  const hour12 = normalized % 12 === 0 ? 12 : normalized % 12
-  return `${hour12}:00 ${suffix}`
-}
+
 
 function DigestPreferencesSection({ email, signedIn }) {
   const [prefs, setPrefs] = useState(null)
@@ -188,7 +181,7 @@ function DigestPreferencesSection({ email, signedIn }) {
         setPrefs(res.data?.preferences ?? prefs)
         setStatus({
           ok: true,
-          text: patch.enabled === false ? 'Daily brief turned off.' : 'Daily brief enabled.',
+          text: patch.enabled === false ? 'Filing brief turned off.' : 'Filing brief enabled.',
         })
         return
       }
@@ -207,12 +200,11 @@ function DigestPreferencesSection({ email, signedIn }) {
   )
 
   const enabled = prefs?.enabled === true
-  const morningHour = prefs?.morning_hour ?? 8
 
   return (
     <section className="stgCard">
-      <p className="stgCardLabel">Daily brief</p>
-      <p className="stgCardValue">{loading ? <SkeletonField /> : formatMorningHour(morningHour)}</p>
+      <p className="stgCardLabel">Filing brief</p>
+      <p className="stgCardValue">{loading ? <SkeletonField /> : 'When new filings land'}</p>
       <p className="stgCardMeta" title={email}>{email}</p>
       <p className="stgCardMeta">{timezone}</p>
       {status ? (
@@ -226,7 +218,7 @@ function DigestPreferencesSection({ email, signedIn }) {
         </p>
       ) : null}
       <div className="stgCardAction">
-        <label className="stgSwitch" aria-label="Daily email brief">
+        <label className="stgSwitch" aria-label="Filing email brief">
           <input
             type="checkbox"
             className="stgSwitchInput"

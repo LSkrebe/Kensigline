@@ -100,5 +100,7 @@ export function digestItemCount(content: DigestContent): number {
 }
 
 export function digestHasContent(content: DigestContent): boolean {
+  // Skip quiet/fallback days — only send when there is real activity.
+  if (content.isFallback) return false;
   return digestItemCount(content) > 0;
 }

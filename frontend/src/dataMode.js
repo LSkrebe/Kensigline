@@ -5,7 +5,9 @@
  *   null  → pending (health probe); show loading, not mock
  *
  * Temporary while the Explore redesign is being tested. Live reads stay off
- * until this is set back to false.
+ * until curated ingest + cohort performance are verified in production.
+ * Keep true for this ship — UI still uses mock tape returns while backend
+ * catch-up runs (catalog-gated ingest, cohort scoped to tracked universe).
  */
 export const FORCE_MOCK_DATA = true
 

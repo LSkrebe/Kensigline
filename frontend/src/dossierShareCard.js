@@ -78,14 +78,14 @@ function opaqueBox(canvas) {
   return { minX, minY, maxX, maxY }
 }
 
-function tintMark(img) {
+function tintMark(img, fill = '#141414') {
   const canvas = document.createElement('canvas')
   canvas.width = img.width
   canvas.height = img.height
   const ctx = canvas.getContext('2d')
   ctx.drawImage(img, 0, 0)
   ctx.globalCompositeOperation = 'source-in'
-  ctx.fillStyle = '#141414'
+  ctx.fillStyle = fill
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   return canvas
 }
@@ -132,7 +132,7 @@ function drawChart(ctx, points, x, y, w, h, color) {
   ctx.stroke()
 }
 
-function drawPills(ctx, ranges, active, centerX, y) {
+function drawPills(ctx, ranges, active, centerX, y, { onDark = false } = {}) {
   const list = (ranges?.length ? ranges : active ? [active] : []).map((range) => String(range))
   if (!list.length) return y
   ctx.font = '600 24px system-ui, -apple-system, sans-serif'
@@ -147,10 +147,16 @@ function drawPills(ctx, ranges, active, centerX, y) {
   for (const item of items) {
     if (item.selected) {
       roundRect(ctx, cursor, y, item.width, 44, 22)
-      ctx.fillStyle = '#141414'
+      ctx.fillStyle = onDark ? '#ffffff' : '#141414'
       ctx.fill()
     }
-    ctx.fillStyle = item.selected ? '#ffffff' : '#3a3a3a'
+    ctx.fillStyle = item.selected
+      ? onDark
+        ? '#141414'
+        : '#ffffff'
+      : onDark
+        ? 'rgba(255,255,255,0.55)'
+        : '#3a3a3a'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(item.label, cursor + item.width / 2, y + 22)
@@ -189,6 +195,7 @@ function formatCardDate(ts) {
 export async function renderDossierShareCard({
   name,
   portraitSrc,
+  heroColor = null,
   sourceLabel,
   sourceMark,
   aum,
@@ -206,12 +213,16 @@ export async function renderDossierShareCard({
   const up = tone === 'isUp'
   const down = tone === 'isDown'
   const accent = up ? '#1c9a4a' : down ? '#d4534a' : '#6d6d6d'
+  const panelColor = typeof heroColor === 'string' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(heroColor.trim())
+    ? heroColor.trim()
+    : '#f6f6f4'
+  const onDark = panelColor !== '#f6f6f4'
 
   ctx.clearRect(0, 0, CARD_W, CARD_H)
   roundRect(ctx, 0, 0, CARD_W, CARD_H, RADIUS)
   ctx.save()
   ctx.clip()
-  ctx.fillStyle = '#f6f6f4'
+  ctx.fillStyle = panelColor
   ctx.fillRect(0, 0, CARD_W, CARD_H)
 
   ctx.save()
@@ -335,8 +346,9 @@ export async function renderDossierShareCard({
   let logoDrawW = logoH
   let mark = null
   let box = null
+  const brandFill = onDark ? '#ffffff' : '#141414'
   try {
-    mark = tintMark(await loadBitmap('/mercerline_mark.png'))
+    mark = tintMark(await loadBitmap('/mercerline_mark.png'), brandFill)
     box = opaqueBox(mark)
     logoDrawW = (logoH * (box.maxX - box.minX + 1)) / (box.maxY - box.minY + 1)
   } catch {
@@ -350,7 +362,7 @@ export async function renderDossierShareCard({
     const scale = logoH / srcH
     ctx.drawImage(mark, brandX - box.minX * scale, brandBase - logoH - box.minY * scale, mark.width * scale, mark.height * scale)
   }
-  ctx.fillStyle = '#141414'
+  ctx.fillStyle = brandFill
   ctx.font = `400 ${wordSize}px "Instrument Serif", Georgia, serif`
   ctx.textBaseline = 'alphabetic'
   ctx.fillText(word, brandX + logoDrawW + 10, brandBase)
@@ -359,7 +371,7 @@ export async function renderDossierShareCard({
   const end = formatCardDate(points?.at(-1)?.ts)
   const span = start && end ? `${start}  –  ${end}` : ''
   ctx.textBaseline = 'top'
-  ctx.fillStyle = '#8a8a86'
+  ctx.fillStyle = onDark ? 'rgba(255,255,255,0.58)' : '#8a8a86'
   ctx.font = '500 24px system-ui, -apple-system, sans-serif'
   ctx.fillText([rangeLabel, span].filter(Boolean).join('   '), rightX, topY + 92)
 
@@ -368,8 +380,8 @@ export async function renderDossierShareCard({
   const note = `${rangeLabel || 'This range'} ${returnText || '—'} for ${windowLabel}. The line is that window rebased to its first day, priced from disclosed positions. AUM is the reconstructed value of the current disclosed book, not money copied into an account. ${filingSource[0].toUpperCase()}${filingSource.slice(1)} are released after the trade, so this is not a same-day record. Not a recommendation. Past performance is not a guarantee of future results.`
   const pillsY = CARD_H - 168
   drawChart(ctx, points ?? [], rightX, topY + 146, rightEdge - rightX, pillsY - 20 - (topY + 146), accent)
-  const pillsBottom = drawPills(ctx, ranges, range, (rightX + rightEdge) / 2, pillsY)
-  ctx.fillStyle = '#8d8d89'
+  const pillsBottom = drawPills(ctx, ranges, range, (rightX + rightEdge) / 2, pillsY, { onDark })
+  ctx.fillStyle = onDark ? 'rgba(255,255,255,0.48)' : '#8d8d89'
   ctx.font = '400 15px system-ui, -apple-system, sans-serif'
   drawWrapped(ctx, note, rightX, pillsBottom + 14, rightEdge - rightX, 19)
   ctx.restore()

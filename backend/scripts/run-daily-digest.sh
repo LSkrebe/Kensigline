@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Hourly digest runner — sends when each user's local morning_hour matches.
+# Hourly activity-brief runner — emails when tracked investors filed (skips quiet days).
+# At most one send per user per local calendar day.
 #
 # Usage (on Hetzner):
 #   bash backend/scripts/run-daily-digest.sh

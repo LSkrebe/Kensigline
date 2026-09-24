@@ -49,7 +49,13 @@ export default {
       )
     }
 
-    const aliases = {'/watchlist':'/explore/watchlist','/account':'/settings','/pricing':'/#pricing','/methodology':'/learn/form-4-insider-filings'};
+    const aliases = {
+      '/watchlist': '/explore',
+      '/explore/watchlist': '/explore',
+      '/account': '/settings',
+      '/pricing': '/#pricing',
+      '/methodology': '/learn/form-4-insider-filings',
+    };
     const cleanPath = url.pathname.replace(/\/$/,'') || '/';
     if (isRetiredProductPath(cleanPath)) {
       return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex' } })
