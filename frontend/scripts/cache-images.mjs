@@ -150,11 +150,12 @@ async function wikiThumb(title) {
 async function saveInvestor(person, legislators) {
   const have = existingInvestorFile(person.slug)
   if (have) {
-    const kind = portraits[portraitKey(person.name)]?.kind
+    const prev = portraits[portraitKey(person.name)] || {}
     portraits[portraitKey(person.name)] = {
       src: `/investors/${path.basename(have)}`,
       source: 'local',
-      ...(kind === 'logo' ? { kind: 'logo' } : {}),
+      ...(prev.hero ? { hero: prev.hero } : {}),
+      ...(prev.kind === 'logo' ? { kind: 'logo' } : {}),
     }
     return 'kept'
   }
@@ -171,7 +172,13 @@ async function saveInvestor(person, legislators) {
   if (!ext) return 'not-image'
   const filename = `${person.slug}.${ext}`
   fs.writeFileSync(path.join(investorDir, filename), bytes)
-  portraits[portraitKey(person.name)] = { src: `/investors/${filename}`, source: 'local' }
+  const prev = portraits[portraitKey(person.name)] || {}
+  portraits[portraitKey(person.name)] = {
+    src: `/investors/${filename}`,
+    source: 'local',
+    ...(prev.hero ? { hero: prev.hero } : {}),
+    ...(prev.kind === 'logo' ? { kind: 'logo' } : {}),
+  }
   return 'saved'
 }
 

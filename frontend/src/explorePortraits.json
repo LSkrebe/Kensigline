@@ -5108,8 +5108,8 @@
   "coatue": {
     "src": "/investors/coatue.png",
     "source": "local",
-    "kind": "logo",
-    "hero": "#58586c"
+    "hero": "#58586c",
+    "kind": "logo"
   },
   "colettekress": {
     "src": "/investors/colette-kress.png",
@@ -5144,8 +5144,8 @@
   "lonepine": {
     "src": "/investors/lone-pine.png",
     "source": "local",
-    "kind": "logo",
-    "hero": "#42833c"
+    "hero": "#42833c",
+    "kind": "logo"
   },
   "marcbenioff": {
     "src": "/investors/marc-benioff.png",
@@ -5185,20 +5185,20 @@
   "thirdpoint": {
     "src": "/investors/third-point.png",
     "source": "local",
-    "kind": "logo",
-    "hero": "#1c1e26"
+    "hero": "#1c1e26",
+    "kind": "logo"
   },
   "tigerglobal": {
     "src": "/investors/tiger-global.png",
     "source": "local",
-    "kind": "logo",
-    "hero": "#595b69"
+    "hero": "#595b69",
+    "kind": "logo"
   },
   "vikingglobal": {
     "src": "/investors/viking-global.png",
     "source": "local",
-    "kind": "logo",
-    "hero": "#003e80"
+    "hero": "#003e80",
+    "kind": "logo"
   },
   "duquesnefamilyoffice": {
     "src": "/investors/duquesne-family-office.png",
