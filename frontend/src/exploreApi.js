@@ -461,6 +461,42 @@ export async function fetchExploreDirectoryEvents(backendUp) {
   }
 }
 
+/** Cohort payload for Explore performance surfaces. */
+export async function fetchExplorePerformance(backendUp) {
+  if (!isLiveDataMode(backendUp)) return null
+  const res = await fetchJsonWithAuthRetry('/api/explore/performance', { timeoutMs: 60_000 })
+  if (!res.ok || !res.data?.ok) return null
+  return res.data
+}
+
+/** Per-filer disclosed-stock returns for Explore cards / tape (null when unpriced). */
+export async function fetchExplorePerformanceMembers(backendUp) {
+  const data = await fetchExplorePerformance(backendUp)
+  if (!data) return null
+  const bySlug = new Map()
+  const push = (slug, returns, fallback) => {
+    const key = String(slug ?? '').toLowerCase().trim()
+    if (!key) return
+    const next = { ...(bySlug.get(key) ?? {}) }
+    if (returns && typeof returns === 'object') {
+      for (const [range, value] of Object.entries(returns)) {
+        if (Number.isFinite(Number(value))) next[range] = Number(value)
+      }
+    }
+    if (Number.isFinite(Number(fallback)) && next['1Y'] == null) next['1Y'] = Number(fallback)
+    bySlug.set(key, next)
+  }
+  for (const member of data.members ?? []) {
+    push(member?.slug, member?.returns, member?.returnFraction)
+  }
+  for (const group of data.groups ?? []) {
+    for (const leader of group?.leaders ?? []) {
+      push(leader?.slug, leader?.returns, leader?.returnFraction)
+    }
+  }
+  return Object.fromEntries(bySlug)
+}
+
 function buildDirectoryBundleFromEvents(events) {
   const directory = buildExploreDirectoryFromEvents(events.companyEvents, events.investorEvents)
   const homePreview = buildExploreDirectoryHomePreview(directory, { utc: true, maxLookback: 14 })

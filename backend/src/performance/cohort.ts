@@ -9,7 +9,10 @@ import { db } from "../core/db.js";
 
 type Exposure = { kind: string; filer_id: string; ticker: string; first_day?: string };
 
-const COHORT_SNAPSHOT_KEY = "cohort_1y_v1";
+const COHORT_SNAPSHOT_KEY = "cohort_multi_v1";
+
+const EXPLORE_RETURN_RANGES = ["1M", "3M", "6M", "1Y", "YTD"] as const;
+type ExploreReturnRange = (typeof EXPLORE_RETURN_RANGES)[number];
 
 function catalogNameKeys(): string[] {
   const keys = new Set<string>();
@@ -45,6 +48,7 @@ export function averageInvestorReturns(exposures: Exposure[], returns: Map<strin
       returnFraction: values.length ? values.reduce((a, b) => a + b, 0) / values.length : null,
       investors: values.length,
       leaders: ranked.slice(0, 3),
+      members: ranked,
     };
   });
 }
@@ -57,6 +61,25 @@ export function annualWindow(days: string[]) {
   const start = ordered.find((day) => day >= target.toISOString().slice(0, 10));
   if (!start || new Date(start + "T00:00:00Z").getTime() - target.getTime() > 7 * 86400000)
     throw Error("annual_history_pending");
+  return { start, end };
+}
+
+/** Calendar trailing windows aligned to available market days (same end as 1Y). */
+export function exploreReturnWindow(days: string[], range: ExploreReturnRange) {
+  const ordered = [...new Set(days)].sort();
+  const end = ordered.at(-1);
+  if (!end) throw Error("market_history_pending");
+  if (range === "1Y") return annualWindow(ordered);
+  if (range === "YTD") {
+    const yearStart = `${end.slice(0, 4)}-01-01`;
+    const start = ordered.find((day) => day >= yearStart) ?? ordered[0]!;
+    return { start, end };
+  }
+  const months = range === "1M" ? 1 : range === "3M" ? 3 : 6;
+  const target = new Date(end + "T00:00:00Z");
+  target.setUTCMonth(target.getUTCMonth() - months);
+  const want = target.toISOString().slice(0, 10);
+  const start = ordered.find((day) => day >= want) ?? ordered[0]!;
   return { start, end };
 }
 export function availableHistoryReturns(
@@ -156,13 +179,33 @@ async function build() {
     [start, end, catalogSlugs, catalogNames],
     30000,
   );
-  const groups = availableHistoryReturns(
-    exposures,
-    new Map(prices.map((p) => [p.ticker, p.bars])),
-    start,
-    end,
-  );
-  const ids = groups.flatMap((g) => g.leaders.map((l) => l.filerId));
+  const dayList = dates.map((d) => d.day);
+  const histories = new Map(prices.map((p) => [p.ticker, p.bars]));
+  const byFiler = new Map<
+    string,
+    { kind: string; filerId: string; stocks: number; returns: Partial<Record<ExploreReturnRange, number>> }
+  >();
+  let groups1y = availableHistoryReturns(exposures, histories, start, end);
+
+  for (const range of EXPLORE_RETURN_RANGES) {
+    const win = exploreReturnWindow(dayList, range);
+    const groups =
+      range === "1Y" ? groups1y : availableHistoryReturns(exposures, histories, win.start, win.end);
+    if (range === "1Y") groups1y = groups;
+    for (const g of groups) {
+      for (const m of g.members ?? g.leaders) {
+        const prev = byFiler.get(m.filerId);
+        byFiler.set(m.filerId, {
+          kind: g.kind,
+          filerId: m.filerId,
+          stocks: Math.max(prev?.stocks ?? 0, m.stocks),
+          returns: { ...(prev?.returns ?? {}), [range]: m.returnFraction },
+        });
+      }
+    }
+  }
+
+  const ids = [...byFiler.keys()];
   const filers = ids.length
     ? await db.queryApi<{ id: string; display_name: string; slug: string }>(
         "SELECT id,display_name,slug FROM filers WHERE id=ANY($1::uuid[])",
@@ -170,11 +213,45 @@ async function build() {
       )
     : [];
   const identities = new Map(filers.map((f) => [f.id, f]));
-  const namedGroups = groups.map((g) => ({
-    ...g,
+  const members = [...byFiler.values()]
+    .flatMap((m) => {
+      const f = identities.get(m.filerId);
+      if (!f?.slug) return [];
+      const returnFraction = m.returns["1Y"] ?? m.returns["6M"] ?? m.returns["3M"] ?? null;
+      return [
+        {
+          kind: m.kind,
+          filerId: m.filerId,
+          name: f.display_name,
+          slug: f.slug,
+          stocks: m.stocks,
+          returnFraction,
+          returns: m.returns,
+        },
+      ];
+    })
+    .sort(
+      (a, b) =>
+        (b.returnFraction ?? Number.NEGATIVE_INFINITY) - (a.returnFraction ?? Number.NEGATIVE_INFINITY) ||
+        a.slug.localeCompare(b.slug),
+    );
+  const namedGroups = groups1y.map((g) => ({
+    kind: g.kind,
+    returnFraction: g.returnFraction,
+    investors: g.investors,
     leaders: g.leaders.flatMap((l) => {
       const f = identities.get(l.filerId);
-      return f?.slug ? [{ ...l, name: f.display_name, slug: f.slug }] : [];
+      const full = byFiler.get(l.filerId);
+      return f?.slug
+        ? [
+            {
+              ...l,
+              name: f.display_name,
+              slug: f.slug,
+              returns: full?.returns ?? { "1Y": l.returnFraction },
+            },
+          ]
+        : [];
     }),
   }));
   return {
@@ -184,8 +261,9 @@ async function build() {
     end,
     asOf,
     groups: namedGroups,
+    members,
     methodology:
-      "Available history within the trailing calendar year for Mercerline curated investors only. Each security starts at the later of the window start, its first eligible transaction date and its first available close. Shorter histories are not annualized. Each investor equally weighted; each distinct priced disclosed stock equally weighted within that investor. Available disclosure archive through the end of the period. Split-adjusted price returns, no dividends. Disclosed-stock reference, not actual holdings or personal P&L. Unpriced securities excluded. PTR sizing uses range midpoints where disclosed.",
+      "Available history within each Explore range for Mercerline curated investors only. Each security starts at the later of the window start, its first eligible transaction date and its first available close. Shorter histories are not annualized. Each investor equally weighted; each distinct priced disclosed stock equally weighted within that investor. Available disclosure archive through the end of the period. Split-adjusted price returns, no dividends. Disclosed-stock reference, not actual holdings or personal P&L. Unpriced securities excluded. PTR sizing uses range midpoints where disclosed.",
   };
 }
 

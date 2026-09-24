@@ -335,6 +335,8 @@ function activityTs(row) {
 function returnFor(row, range) {
   // Live prod: never invent returns. Only show a % when the row carries a real one.
   if (!FORCE_MOCK_DATA) {
+    const byRange = row?.returnsByRange?.[range]
+    if (Number.isFinite(Number(byRange))) return Number(byRange)
     const live = row?.returnFraction ?? row?.performanceReturn
     return Number.isFinite(Number(live)) ? Number(live) : null
   }
@@ -342,6 +344,11 @@ function returnFor(row, range) {
   const value = table[row.actorSlug]
   if (Number.isFinite(value)) return value
   return extraReturn(row.actorSlug)
+}
+
+function peopleWithReturns(people, range) {
+  const withNumbers = people.filter((row) => returnFor(row, range) != null)
+  return withNumbers.length ? withNumbers : people
 }
 
 function formatReturn(fraction) {
@@ -432,13 +439,14 @@ function formatInvested(amount) {
 function ExploreTapeRow({ row, rank, range, plain = false, invested = false, onClick }) {
   const portrait = portraits[normalizeInvestorName(row.name)]
   const logo = portrait?.kind === 'logo'
+  const thumb = portrait?.thumb || portrait?.src
   const perf = formatReturn(returnFor(row, range))
   const investedLabel = FORCE_MOCK_DATA && invested ? formatInvested(investedFor(row.actorSlug)) : null
   const content = (
     <>
       <span className="exploreTapeRank">{rank}</span>
       <span className={`exploreTapeAvatar${logo ? ' isLogo' : ''}`}>
-        <ImageOrInitials src={portrait?.src} name={row.name} className="explorePersonPortrait" logo={logo} discover={false} />
+        <ImageOrInitials src={thumb} name={row.name} className="explorePersonPortrait" logo={logo} discover={false} />
       </span>
       <span className="exploreTapeCopy">
         {investedLabel ? (
@@ -515,12 +523,9 @@ export function explorePerformerReturn(row, range = '6M') {
 }
 
 export function selectExploreFeatured(rows, range = '6M') {
-  const people = [...tapePeople(rows)]
-  if (!FORCE_MOCK_DATA) {
-    return people.sort((a, b) => activityTs(b) - activityTs(a) || String(a.name).localeCompare(String(b.name))).slice(0, 3)
-  }
+  const people = peopleWithReturns([...tapePeople(rows)], range)
   return people
-    .sort((a, b) => (returnFor(b, range) ?? -Infinity) - (returnFor(a, range) ?? -Infinity))
+    .sort((a, b) => (returnFor(b, range) ?? -Infinity) - (returnFor(a, range) ?? -Infinity) || String(a.name).localeCompare(String(b.name)))
     .slice(0, 3)
 }
 
@@ -564,16 +569,17 @@ export function ExploreWatchlistSection({
   const [sharedCount, setSharedCount] = useState(TAPE_PAGE)
   const people = useMemo(() => tapePeople(rows), [rows])
   const performers = useMemo(() => {
-    const list = [...people]
-    if (!FORCE_MOCK_DATA) {
-      return list.sort((a, b) => activityTs(b) - activityTs(a) || String(a.name).localeCompare(String(b.name)))
-    }
-    return list.sort((a, b) => (returnFor(b, range) ?? -Infinity) - (returnFor(a, range) ?? -Infinity))
+    const list = peopleWithReturns([...people], range)
+    return list.sort(
+      (a, b) =>
+        (returnFor(b, range) ?? -Infinity) - (returnFor(a, range) ?? -Infinity) ||
+        String(a.name).localeCompare(String(b.name)),
+    )
   }, [people, range])
   const popular = useMemo(() => {
-    const list = [...people]
+    const list = peopleWithReturns([...people], POPULAR_RANGE)
     if (!FORCE_MOCK_DATA) {
-      // Live: same chronological tape — no invented popularity ranks.
+      // Live: people with measurable returns, ordered by recent disclosure activity.
       return list.sort((a, b) => activityTs(b) - activityTs(a) || String(a.name).localeCompare(String(b.name)))
     }
     return list.sort((a, b) => popularityOf(b.actorSlug) - popularityOf(a.actorSlug))

@@ -25,4 +25,5 @@ test('leaders rank investor averages with deterministic ties, not individual win
  const rows=[{kind:'insiders',filer_id:'a',ticker:'X'},{kind:'insiders',filer_id:'a',ticker:'Y'},{kind:'insiders',filer_id:'b',ticker:'Z'},{kind:'insiders',filer_id:'c',ticker:'Z'}];
  const result=averageInvestorReturns(rows,new Map([['X',1],['Y',-1],['Z',0.2]]));
  assert.equal(result[0]!.leaders[0]!.filerId,'b');assert.equal(result[0]!.leaders[0]!.returnFraction,0.2);assert.deepEqual(result[1]!.leaders,[]);
+ assert.equal(result[0]!.members.length,3);
 });

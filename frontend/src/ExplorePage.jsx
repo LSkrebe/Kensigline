@@ -5,7 +5,7 @@ import {
   buildExploreDirectoryHomePreview,
   buildExploreInvestorEvents,
 } from './exploreDirectoryMock.js'
-import { loadExploreHomeBundle, peekExploreHomeSnapshot } from './exploreApi.js'
+import { fetchExplorePerformanceMembers, loadExploreHomeBundle, peekExploreHomeSnapshot } from './exploreApi.js'
 import { EMPTY_EXPLORE_RECAP, isDataModePending, isExploreNetworkMode, isLiveDataMode, isMockDataMode } from './dataMode.js'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
 import { ExploreFeaturedCards } from './ExploreFeaturedCards.jsx'
@@ -78,6 +78,7 @@ export function ExplorePage({
     isCaptureMode() || isMockDataMode(backendUp) ? buildExploreInvestorEvents() : [],
   )
   const [watchlistEvents, setWatchlistEvents] = useState(() => [])
+  const [returnsBySlug, setReturnsBySlug] = useState(() => ({}))
   const [homeLoading, setHomeLoading] = useState(initialSnapshot.homeLoading)
 
   const syncDirectoryState = useCallback((directory) => {
@@ -166,6 +167,20 @@ export function ExplorePage({
     }
   }, [backendUp, syncDirectoryState])
 
+  useEffect(() => {
+    let cancelled = false
+    if (isMockDataMode(backendUp) || isDataModePending(backendUp) || !isLiveDataMode(backendUp)) {
+      setReturnsBySlug({})
+      return undefined
+    }
+    void fetchExplorePerformanceMembers(backendUp).then((map) => {
+      if (!cancelled && map) setReturnsBySlug(map)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [backendUp])
+
   const [searchQuery, setSearchQuery] = useState('')
   const [range, setRange] = useState('6M')
   const normalizedQuery = normalizeExploreSearchQuery(searchQuery)
@@ -174,10 +189,16 @@ export function ExplorePage({
   const watchlistRows = useMemo(() => {
     // Curated universe is the only Explore list — personal watchlist is retired.
     const people = EXPLORE_WATCHLIST_CATALOG
-    const rows = buildExploreWatchlistPeople(investorEvents, { people, watchlistLatest: watchlistEvents })
+    const rows = buildExploreWatchlistPeople(investorEvents, { people, watchlistLatest: watchlistEvents }).map(
+      (row) => {
+        const returnsByRange = returnsBySlug[String(row.actorSlug ?? '').toLowerCase()]
+        if (!returnsByRange) return row
+        return { ...row, returnsByRange }
+      },
+    )
     if (!searching) return rows
     return filterExploreHomeRows(rows, searchQuery)
-  }, [investorEvents, watchlistEvents, searchQuery, searching])
+  }, [investorEvents, watchlistEvents, searchQuery, searching, returnsBySlug])
 
   const featured = useMemo(() => selectExploreFeatured(watchlistRows, range), [watchlistRows, range])
   const { pageRef, dockRef, spacerRef } = useCollapseScroll({

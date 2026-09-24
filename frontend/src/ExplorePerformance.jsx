@@ -1,6 +1,6 @@
 import {useEffect,useState} from 'react'
-import {fetchJsonSafe} from './api.js'
 import {FORCE_MOCK_DATA,isMockDataMode} from './dataMode.js'
+import {fetchExplorePerformance} from './exploreApi.js'
 import {exploreInvestorDetailPath,navigateExploreInvestorDetail} from './terminalRoute.js'
 import {stripExploreInvestorHonorific} from './exploreDirectoryNav.js'
 import {ImageOrInitials} from './ExplorePersonRow.jsx'
@@ -26,11 +26,14 @@ export function useExplorePerformance(backendUp = true){
       return undefined
     }
     let alive=true
-    const refresh=async()=>{const r=await fetchJsonSafe('/api/explore/performance',{timeoutMs:60000});if(alive&&r.ok&&r.data?.ok)setData(r.data)}
+    const refresh=async()=>{
+      const payload = await fetchExplorePerformance(backendUp)
+      if (alive && payload?.ok) setData(payload)
+    }
     void refresh()
     const timer=setInterval(refresh,5*60*1000)
     return()=>{alive=false;clearInterval(timer)}
-  },[mock])
+  },[mock, backendUp])
   return data
 }
 export function ExplorePerformanceSlide({slide}){

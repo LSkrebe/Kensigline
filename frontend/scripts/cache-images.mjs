@@ -151,8 +151,12 @@ async function saveInvestor(person, legislators) {
   const have = existingInvestorFile(person.slug)
   if (have) {
     const prev = portraits[portraitKey(person.name)] || {}
+    const base = path.basename(have).replace(/\.(png|jpe?g|webp)$/i, '')
+    const webpRel = `/investors/${base}.webp`
+    const thumbRel = `/investors/thumbs/${base}.webp`
     portraits[portraitKey(person.name)] = {
-      src: `/investors/${path.basename(have)}`,
+      src: fs.existsSync(path.join(investorDir, `${base}.webp`)) ? webpRel : `/investors/${path.basename(have)}`,
+      ...(fs.existsSync(path.join(investorDir, 'thumbs', `${base}.webp`)) ? { thumb: thumbRel } : {}),
       source: 'local',
       ...(prev.hero ? { hero: prev.hero } : {}),
       ...(prev.kind === 'logo' ? { kind: 'logo' } : {}),
@@ -163,18 +167,21 @@ async function saveInvestor(person, legislators) {
   if (person.mode === 'politicians' && legislators) {
     const hit = matchLegislator(legislators, person.name)
     const bio = hit?.id?.bioguide
-    if (bio) url = `https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/${bio}.jpg`
+    if (bio) url = `https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/original/${bio}.jpg`
   }
   if (!url) url = await wikiThumb(person.name.replace(/ /g, '_'))
   if (!url) return 'no-source'
   const { bytes } = await fetchBytes(url)
-  const ext = isPng(bytes) ? 'png' : isJpeg(bytes) ? 'jpg' : isSvg(bytes) ? 'svg' : null
-  if (!ext) return 'not-image'
-  const filename = `${person.slug}.${ext}`
-  fs.writeFileSync(path.join(investorDir, filename), bytes)
+  const sharp = (await import('sharp')).default
+  const cardPath = path.join(investorDir, `${person.slug}.webp`)
+  const thumbPath = path.join(investorDir, 'thumbs', `${person.slug}.webp`)
+  fs.mkdirSync(path.dirname(thumbPath), { recursive: true })
+  await sharp(bytes).resize(512, 512, { fit: 'cover', position: 'attention', kernel: sharp.kernel.lanczos3 }).webp({ quality: 78, effort: 4 }).toFile(cardPath)
+  await sharp(bytes).resize(128, 128, { fit: 'cover', position: 'attention' }).webp({ quality: 72, effort: 4 }).toFile(thumbPath)
   const prev = portraits[portraitKey(person.name)] || {}
   portraits[portraitKey(person.name)] = {
-    src: `/investors/${filename}`,
+    src: `/investors/${person.slug}.webp`,
+    thumb: `/investors/thumbs/${person.slug}.webp`,
     source: 'local',
     ...(prev.hero ? { hero: prev.hero } : {}),
     ...(prev.kind === 'logo' ? { kind: 'logo' } : {}),
