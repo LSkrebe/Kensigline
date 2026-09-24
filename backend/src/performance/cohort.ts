@@ -1,13 +1,24 @@
 import { completedDay } from "./calendar.js";
-import { allWatchlistSlugs } from "../explore/watchlist-catalog.js";
 import {
-  ensureExploreHomeSnapshotTable,
-} from "../explore/home-snapshot.js";
+  allWatchlistSlugs,
+  EXPLORE_WATCHLIST_CATALOG,
+  normalizeTrackedName,
+} from "../explore/watchlist-catalog.js";
+import { ensureExploreHomeSnapshotTable } from "../explore/home-snapshot.js";
 import { db } from "../core/db.js";
 
 type Exposure = { kind: string; filer_id: string; ticker: string; first_day?: string };
 
 const COHORT_SNAPSHOT_KEY = "cohort_1y_v1";
+
+function catalogNameKeys(): string[] {
+  const keys = new Set<string>();
+  for (const entry of EXPLORE_WATCHLIST_CATALOG) {
+    keys.add(normalizeTrackedName(entry.name));
+    for (const n of entry.matchNames) keys.add(normalizeTrackedName(n));
+  }
+  return [...keys].filter(Boolean);
+}
 
 export function averageInvestorReturns(exposures: Exposure[], returns: Map<string, number>) {
   const people = new Map<string, { kind: string; filerId: string; stocks: Map<string, number> }>();
@@ -106,6 +117,7 @@ async function writeCohortSnapshot(payload: unknown) {
 async function build() {
   const asOf = completedDay();
   const catalogSlugs = allWatchlistSlugs();
+  const catalogNames = catalogNameKeys();
   const dates = await db.queryApi<{ day: string }>(
     `SELECT b->>'day' AS "day" FROM disclosure_price_history h CROSS JOIN LATERAL jsonb_array_elements(h.bars) b WHERE h.ticker='SPY' AND b->>'day'<=$1 ORDER BY "day" DESC LIMIT 380`,
     [asOf],
@@ -134,8 +146,14 @@ async function build() {
     JOIN issuers i ON i.id=e.issuer_id
     JOIN filers f ON f.id=e.filer_id
     WHERE e.filer_id IS NOT NULL
-      AND lower(f.slug) = ANY($3::text[])`,
-    [start, end, catalogSlugs],
+      AND (
+        lower(f.slug) = ANY($3::text[])
+        OR lower(regexp_replace(coalesce(f.display_name, ''), '[^a-zA-Z0-9]+', ' ', 'g')) = ANY($4::text[])
+        OR lower(regexp_replace(coalesce(f.display_name, ''), '[^a-zA-Z0-9]+', '', 'g')) = ANY(
+          SELECT replace(n, ' ', '') FROM unnest($4::text[]) AS n
+        )
+      )`,
+    [start, end, catalogSlugs, catalogNames],
     30000,
   );
   const groups = availableHistoryReturns(
