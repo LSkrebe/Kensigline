@@ -469,29 +469,33 @@ export async function fetchExplorePerformance(backendUp) {
   return res.data
 }
 
-/** Per-filer disclosed-stock returns for Explore cards / tape (null when unpriced). */
+/** Per-filer disclosed-stock returns + invested totals for Explore cards / tape. */
 export async function fetchExplorePerformanceMembers(backendUp) {
   const data = await fetchExplorePerformance(backendUp)
   if (!data) return null
   const bySlug = new Map()
-  const push = (slug, returns, fallback) => {
+  const push = (slug, returns, fallback, investedUsd = null) => {
     const key = String(slug ?? '').toLowerCase().trim()
     if (!key) return
-    const next = { ...(bySlug.get(key) ?? {}) }
+    const prev = bySlug.get(key) ?? { returns: {}, investedUsd: null }
+    const nextReturns = { ...prev.returns }
     if (returns && typeof returns === 'object') {
       for (const [range, value] of Object.entries(returns)) {
-        if (Number.isFinite(Number(value))) next[range] = Number(value)
+        if (Number.isFinite(Number(value))) nextReturns[range] = Number(value)
       }
     }
-    if (Number.isFinite(Number(fallback)) && next['1Y'] == null) next['1Y'] = Number(fallback)
-    bySlug.set(key, next)
+    if (Number.isFinite(Number(fallback)) && nextReturns['1Y'] == null) nextReturns['1Y'] = Number(fallback)
+    const nextInvested = Number.isFinite(Number(investedUsd))
+      ? Math.max(Number(investedUsd), Number(prev.investedUsd) || 0)
+      : prev.investedUsd
+    bySlug.set(key, { returns: nextReturns, investedUsd: nextInvested })
   }
   for (const member of data.members ?? []) {
-    push(member?.slug, member?.returns, member?.returnFraction)
+    push(member?.slug, member?.returns, member?.returnFraction, member?.investedUsd)
   }
   for (const group of data.groups ?? []) {
     for (const leader of group?.leaders ?? []) {
-      push(leader?.slug, leader?.returns, leader?.returnFraction)
+      push(leader?.slug, leader?.returns, leader?.returnFraction, leader?.investedUsd)
     }
   }
   return Object.fromEntries(bySlug)

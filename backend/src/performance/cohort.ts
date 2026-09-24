@@ -10,7 +10,7 @@ import { db } from "../core/db.js";
 
 type Exposure = { kind: string; filer_id: string; ticker: string; first_day?: string };
 
-const COHORT_SNAPSHOT_KEY = "cohort_multi_v1";
+const COHORT_SNAPSHOT_KEY = "cohort_multi_v2";
 
 const EXPLORE_RETURN_RANGES = ["1M", "3M", "6M", "1Y", "YTD"] as const;
 type ExploreReturnRange = (typeof EXPLORE_RETURN_RANGES)[number];
@@ -225,30 +225,121 @@ async function build() {
       )
     : [];
   const identities = new Map(filers.map((f) => [f.id, f]));
-  const members = [...byFiler.values()]
-    .flatMap((m) => {
-      const f = identities.get(m.filerId);
-      if (!f) return [];
-      const slug = catalogIdForFiler(f.slug, f.display_name) ?? f.slug;
-      if (!slug) return [];
-      const returnFraction = m.returns["1Y"] ?? m.returns["6M"] ?? m.returns["3M"] ?? null;
-      return [
-        {
-          kind: m.kind,
-          filerId: m.filerId,
-          name: f.display_name,
-          slug,
-          stocks: m.stocks,
-          returnFraction,
-          returns: m.returns,
-        },
-      ];
-    })
-    .sort(
-      (a, b) =>
-        (b.returnFraction ?? Number.NEGATIVE_INFINITY) - (a.returnFraction ?? Number.NEGATIVE_INFINITY) ||
-        a.slug.localeCompare(b.slug),
+
+  // Disclosed capital put to work in-window (range midpoints / Form 4 / 13F notionals). Not AUM.
+  const investedRows = await db.queryApi<{ filer_id: string; invested_usd: number }>(
+    `
+    WITH catalog AS (
+      SELECT id FROM filers f
+      WHERE lower(f.slug) = ANY($3::text[])
+         OR lower(trim(regexp_replace(
+              regexp_replace(coalesce(f.display_name, ''), '^(the[[:space:]]+)?(honorable|hon\\.?|mr\\.?|mrs\\.?|ms\\.?)[[:space:]]+', '', 'i'),
+              '[^a-zA-Z0-9]+', ' ', 'g'))) = ANY($4::text[])
+    ),
+    sums AS (
+      SELECT t.filer_id, sum(coalesce(t.amount_usd_mid, t.amount_usd, 0))::float8 AS invested_usd
+      FROM politician_transactions t
+      WHERE t.filer_id IN (SELECT id FROM catalog)
+        AND t.transaction_at >= $1::date
+        AND t.transaction_at < $2::date + interval '1 day'
+        AND coalesce(t.amount_usd_mid, t.amount_usd, 0) > 0
+      GROUP BY t.filer_id
+      UNION ALL
+      SELECT t.filer_id, sum(abs(coalesce(t.amount_usd, 0)))::float8
+      FROM insider_transactions t
+      WHERE t.filer_id IN (SELECT id FROM catalog)
+        AND t.transaction_at >= $1::date
+        AND t.transaction_at < $2::date + interval '1 day'
+        AND coalesce(t.amount_usd, 0) <> 0
+      GROUP BY t.filer_id
+      UNION ALL
+      SELECT t.filer_id, sum(abs(coalesce(t.amount_usd, 0)))::float8
+      FROM institution_transactions t
+      WHERE t.filer_id IN (SELECT id FROM catalog)
+        AND t.transaction_at >= $1::date
+        AND t.transaction_at < $2::date + interval '1 day'
+        AND t.data_quality_version >= 1
+        AND coalesce(t.amount_usd, 0) <> 0
+      GROUP BY t.filer_id
+    )
+    SELECT filer_id, sum(invested_usd)::float8 AS invested_usd
+    FROM sums
+    GROUP BY filer_id
+    HAVING sum(invested_usd) > 0
+    `,
+    [start, end, catalogSlugs, catalogNames],
+    30_000,
+  );
+  const investedByFiler = new Map(investedRows.map((r) => [r.filer_id, Number(r.invested_usd)]));
+
+  // Include invested-only filers so Most Popular can rank beyond return coverage.
+  const extraInvestedIds = investedRows.map((r) => r.filer_id).filter((id) => !identities.has(id));
+  if (extraInvestedIds.length) {
+    const extra = await db.queryApi<{ id: string; display_name: string; slug: string }>(
+      "SELECT id,display_name,slug FROM filers WHERE id=ANY($1::uuid[])",
+      [extraInvestedIds],
     );
+    for (const f of extra) identities.set(f.id, f);
+  }
+
+  const memberIds = new Set([...byFiler.keys(), ...investedByFiler.keys()]);
+  const rawMembers = [...memberIds].flatMap((filerId) => {
+    const f = identities.get(filerId);
+    if (!f) return [];
+    const slug = catalogIdForFiler(f.slug, f.display_name) ?? f.slug;
+    if (!slug) return [];
+    const perf = byFiler.get(filerId);
+    const investedUsd = investedByFiler.get(filerId);
+    const returnFraction = perf
+      ? (perf.returns["1Y"] ?? perf.returns["6M"] ?? perf.returns["3M"] ?? null)
+      : null;
+    let kind = perf?.kind ?? null;
+    if (!kind) {
+      const entry = EXPLORE_WATCHLIST_CATALOG.find((e) => e.id === slug);
+      kind =
+        entry?.mode === "politicians"
+          ? "politicians"
+          : entry?.mode === "insiders"
+            ? "insiders"
+            : "institutions";
+    }
+    return [
+      {
+        kind,
+        filerId,
+        name: f.display_name,
+        slug,
+        stocks: perf?.stocks ?? 0,
+        returnFraction,
+        returns: perf?.returns ?? {},
+        investedUsd: Number.isFinite(investedUsd) ? investedUsd : null,
+      },
+    ];
+  });
+  // One Explore row per catalog id — keep the stronger return / invested totals.
+  const bySlug = new Map<string, (typeof rawMembers)[number]>();
+  for (const m of rawMembers) {
+    const prev = bySlug.get(m.slug);
+    if (!prev) {
+      bySlug.set(m.slug, m);
+      continue;
+    }
+    bySlug.set(m.slug, {
+      ...prev,
+      stocks: Math.max(prev.stocks, m.stocks),
+      returnFraction:
+        (m.returnFraction ?? Number.NEGATIVE_INFINITY) > (prev.returnFraction ?? Number.NEGATIVE_INFINITY)
+          ? m.returnFraction
+          : prev.returnFraction,
+      returns: { ...prev.returns, ...m.returns },
+      investedUsd: Math.max(prev.investedUsd ?? 0, m.investedUsd ?? 0) || null,
+    });
+  }
+  const members = [...bySlug.values()].sort(
+    (a, b) =>
+      (b.returnFraction ?? Number.NEGATIVE_INFINITY) - (a.returnFraction ?? Number.NEGATIVE_INFINITY) ||
+      a.slug.localeCompare(b.slug),
+  );
   const namedGroups = groups1y.map((g) => ({
     kind: g.kind,
     returnFraction: g.returnFraction,

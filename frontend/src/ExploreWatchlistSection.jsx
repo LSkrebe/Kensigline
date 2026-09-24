@@ -351,6 +351,28 @@ function peopleWithReturns(people, range) {
   return withNumbers.length ? withNumbers : people
 }
 
+function hasAnyReturn(row) {
+  const byRange = row?.returnsByRange
+  if (byRange && typeof byRange === 'object') {
+    for (const value of Object.values(byRange)) {
+      if (Number.isFinite(Number(value))) return true
+    }
+  }
+  return returnFor(row, '1Y') != null || returnFor(row, '6M') != null
+}
+
+function investedOf(row) {
+  const live = Number(row?.investedUsd)
+  if (Number.isFinite(live) && live > 0) return live
+  if (FORCE_MOCK_DATA) return investedFor(row.actorSlug) ?? 0
+  return 0
+}
+
+function peopleWithInvested(people) {
+  const withNumbers = people.filter((row) => investedOf(row) > 0)
+  return withNumbers.length ? withNumbers : people
+}
+
 function formatReturn(fraction) {
   if (fraction == null || !Number.isFinite(fraction)) return null
   const pct = fraction * 100
@@ -441,7 +463,11 @@ function ExploreTapeRow({ row, rank, range, plain = false, invested = false, onC
   const logo = portrait?.kind === 'logo'
   const thumb = portrait?.thumb || portrait?.src
   const perf = formatReturn(returnFor(row, range))
-  const investedLabel = FORCE_MOCK_DATA && invested ? formatInvested(investedFor(row.actorSlug)) : null
+  const liveInvested = Number.isFinite(Number(row?.investedUsd)) ? Number(row.investedUsd) : null
+  const investedAmount = invested
+    ? liveInvested ?? (FORCE_MOCK_DATA ? investedFor(row.actorSlug) : null)
+    : null
+  const investedLabel = investedAmount != null ? formatInvested(investedAmount) : null
   const content = (
     <>
       <span className="exploreTapeRank">{rank}</span>
@@ -493,7 +519,7 @@ function ExploreTapeList({ rows, range, plain = false, invested = false, onRowCl
 }
 
 const POPULAR_RANGE = '6M'
-const TAPE_PAGE = 10
+const TAPE_PAGE = 12
 const TAPE_MAX = 99
 const TAPE_NARROW = '(max-width: 899px)'
 
@@ -569,7 +595,9 @@ export function ExploreWatchlistSection({
   const [sharedCount, setSharedCount] = useState(TAPE_PAGE)
   const people = useMemo(() => tapePeople(rows), [rows])
   const performers = useMemo(() => {
-    const list = peopleWithReturns([...people], range)
+    // Include anyone with a measurable return in any window so range toggles don't shrink the tape to a handful.
+    const withAny = people.filter(hasAnyReturn)
+    const list = withAny.length ? withAny : [...people]
     return list.sort(
       (a, b) =>
         (returnFor(b, range) ?? -Infinity) - (returnFor(a, range) ?? -Infinity) ||
@@ -577,17 +605,20 @@ export function ExploreWatchlistSection({
     )
   }, [people, range])
   const popular = useMemo(() => {
-    const list = peopleWithReturns([...people], POPULAR_RANGE)
-    if (!FORCE_MOCK_DATA) {
-      // Live: people with measurable returns, ordered by recent disclosure activity.
-      return list.sort((a, b) => activityTs(b) - activityTs(a) || String(a.name).localeCompare(String(b.name)))
-    }
-    return list.sort((a, b) => popularityOf(b.actorSlug) - popularityOf(a.actorSlug))
+    const list = peopleWithInvested([...people])
+    return list.sort(
+      (a, b) =>
+        investedOf(b) - investedOf(a) ||
+        activityTs(b) - activityTs(a) ||
+        String(a.name).localeCompare(String(b.name)),
+    )
   }, [people])
+  // Page in 12 at a time so desktop always has a More control once the curated list is longer.
   const performerLimit = Math.min(TAPE_MAX, narrow ? performerCount : sharedCount)
   const popularLimit = Math.min(TAPE_MAX, narrow ? popularCount : sharedCount)
   const morePerformers = performerLimit < TAPE_MAX && performers.length > performerLimit
   const morePopular = popularLimit < TAPE_MAX && popular.length > popularLimit
+  const showSharedMore = !narrow && (morePerformers || morePopular)
 
   return (
     <>
@@ -637,7 +668,7 @@ export function ExploreWatchlistSection({
           ) : null}
         </section>
       </div>
-      {!narrow && (morePerformers || morePopular) ? (
+      {!narrow && showSharedMore ? (
         <ExploreTapeMore onClick={() => setSharedCount((count) => Math.min(TAPE_MAX, count + TAPE_PAGE))} />
       ) : null}
     </>

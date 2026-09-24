@@ -191,9 +191,13 @@ export function ExplorePage({
     const people = EXPLORE_WATCHLIST_CATALOG
     const rows = buildExploreWatchlistPeople(investorEvents, { people, watchlistLatest: watchlistEvents }).map(
       (row) => {
-        const returnsByRange = returnsBySlug[String(row.actorSlug ?? '').toLowerCase()]
-        if (!returnsByRange) return row
-        return { ...row, returnsByRange }
+        const metrics = returnsBySlug[String(row.actorSlug ?? '').toLowerCase()]
+        if (!metrics) return row
+        return {
+          ...row,
+          returnsByRange: metrics.returns ?? metrics,
+          investedUsd: metrics.investedUsd ?? null,
+        }
       },
     )
     if (!searching) return rows
