@@ -1,11 +1,10 @@
 import { navigateMarketing } from './marketingRoute.js'
-import { pageBackgroundStyle } from './pageBackgrounds.js'
 import './IntroPage.css'
 import './IntroPage.marketing.css'
 import './PublicContent.css'
 
 export function PublicContentLayout({
-  backgroundKey = 'signIn',
+  backgroundKey: _backgroundKey = 'signIn',
   children,
   trail = null,
   navExtra = null,
@@ -16,7 +15,7 @@ export function PublicContentLayout({
   }
 
   return (
-    <div className="lp pubContent" style={pageBackgroundStyle(backgroundKey)}>
+    <div className="lp pubContent">
       <header className="lpNav pubContentNav">
         <div className="lpNavInner">
           <a className="lpBrand" href="/" aria-label="Mercerline home" onClick={goHome}>

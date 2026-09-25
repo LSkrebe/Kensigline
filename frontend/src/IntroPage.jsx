@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { IntroTerminalPreview } from './IntroTerminalPreview.jsx'
 import { IntroCoverageSection } from './IntroCoverageSection.jsx'
 import { IntroHowItWorksSection } from './IntroHowItWorksSection.jsx'
+import { IntroLeadersSection } from './IntroLeadersSection.jsx'
 import { IntroStorySection } from './IntroStorySection.jsx'
 import { IntroReviewsSection } from './IntroReviewsSection.jsx'
+import { IntroTogetherSection } from './IntroTogetherSection.jsx'
+import { IntroCarouselNav } from './IntroCarouselNav.jsx'
 import { IntroReveal, clearIntroRevealMemory } from './IntroReveal.jsx'
 import { WhopCheckoutPanel } from './WhopCheckoutPanel.jsx'
 import { useAuth } from './AuthContext.jsx'
@@ -26,6 +29,7 @@ import { applyPageMeta } from './pageMeta.js'
 import { markAppReady } from './marketingShell.js'
 import { pageBackgroundStyle } from './pageBackgrounds.js'
 import { useBillingPricing } from './useBillingPricing.js'
+import { useIntroSnapCarousel } from './useIntroSnapCarousel.js'
 import './IntroPage.marketing.css'
 import './IntroPage.motion.css'
 import './SubscribePage.css'
@@ -81,59 +85,19 @@ export function IntroPage() {
     const idx = plans.findIndex((plan) => plan.featured)
     return idx >= 0 ? idx : 0
   }, [plans])
-  const [activePlan, setActivePlan] = useState(defaultPlanIndex)
+  const {
+    active: activePlan,
+    scrollTo: scrollToPlan,
+    narrow: plansNarrow,
+  } = useIntroSnapCarousel(plansTrackRef, '.lpPlan', [plans.length, waitlist])
 
   useEffect(() => {
-    const track = plansTrackRef.current
-    if (!track || waitlist) return undefined
-
-    const mq = window.matchMedia('(max-width: 899px)')
-    const slides = [...track.querySelectorAll('.lpPlan')]
-    if (!slides.length) return undefined
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!mq.matches) return
-        const best = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
-        if (!best) return
-        const idx = Number(best.target.getAttribute('data-plan-index'))
-        if (!Number.isNaN(idx)) setActivePlan(idx)
-      },
-      { root: track, threshold: [0.5, 0.75] },
-    )
-
-    const scrollToPlan = (index) => {
-      const slide = slides[index]
-      const trackEl = plansTrackRef.current
-      if (!slide || !trackEl || !mq.matches) return
-      const targetLeft = slide.offsetLeft - (trackEl.clientWidth - slide.offsetWidth) / 2
-      trackEl.scrollTo({ left: Math.max(0, targetLeft), behavior: 'instant' })
-      setActivePlan(index)
-    }
-
-    const attach = () => {
-      observer.disconnect()
-      if (!mq.matches) {
-        setActivePlan(0)
-        return
-      }
-      slides.forEach((slide) => observer.observe(slide))
-      if (defaultPlanIndex > 0) {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => scrollToPlan(defaultPlanIndex))
-        })
-      }
-    }
-
-    attach()
-    mq.addEventListener('change', attach)
-    return () => {
-      observer.disconnect()
-      mq.removeEventListener('change', attach)
-    }
-  }, [defaultPlanIndex, plans.length, waitlist])
+    if (waitlist || !plansNarrow || defaultPlanIndex <= 0) return undefined
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => scrollToPlan(defaultPlanIndex, 'instant'))
+    })
+    return () => cancelAnimationFrame(id)
+  }, [defaultPlanIndex, plansNarrow, scrollToPlan, waitlist])
 
   const goToWaitlist = useCallback((e) => {
     e?.preventDefault()
@@ -212,10 +176,10 @@ export function IntroPage() {
   }, [signOut])
 
   const goPrimary = waitlist ? goToWaitlist : scrollToPricing
-  const goBelowHero = waitlist
-    ? (e) => scrollToSection('product', e)
-    : (e) => scrollToSection('story', e)
+  const secondarySection = waitlist ? 'product' : pricing.founders ? 'leaders' : 'product'
+  const goBelowHero = useCallback((e) => scrollToSection(secondarySection, e), [scrollToSection, secondarySection])
   const primaryHref = waitlist ? '/waitlist' : `#${PRICING_SECTION_ID}`
+  const secondaryHref = `#${secondarySection}`
 
   useEffect(() => {
     applyPageMeta(introPageMeta())
@@ -367,7 +331,7 @@ export function IntroPage() {
                   </a>
                   <a
                     className="lpBtn lpBtn--ghost"
-                    href={waitlist ? '#product' : '#story'}
+                    href={secondaryHref}
                     onClick={goBelowHero}
                   >
                     {hero.ctaSecondary}
@@ -390,34 +354,11 @@ export function IntroPage() {
         <main className="lpMain">
           <IntroStorySection />
 
+          <IntroTogetherSection />
+
           <IntroHowItWorksSection />
-          <section className="lpSection lpSection--ruled lpQuestions" aria-labelledby="lp-questions-title">
-            <div className="lpOnePlace" aria-label="Insiders, politicians, and institutions together in one watchlist">
-              <div className="lpOnePlaceSources">
-                {[
-                  ['Insiders', 'Jensen Huang', "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e6/Jen-Hsun_Huang_2025.jpg/330px-Jen-Hsun_Huang_2025.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail"],
-                  ['Politicians', 'Nancy Pelosi', "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/P000197.jpg"],
-                  ['Institutions', 'BlackRock', "https://www.google.com/s2/favicons?domain=blackrock.com&sz=128"],
-                ].map(([label,name,src]) => <div className="lpOnePlaceSource" key={label}>
-                  <img className="lpOnePlacePortrait" src={src} alt={name} title={name} loading="lazy" referrerPolicy="no-referrer" />
-                  <span>{label}</span>
-                </div>)}
-              </div>
-              <svg className="lpOnePlaceLines" viewBox="0 0 900 100" preserveAspectRatio="none" fill="none" aria-hidden="true">
-                <path d="M150 0V30Q150 50 180 50H420Q450 50 450 80V100M450 0V100M750 0V30Q750 50 720 50H480Q450 50 450 80" />
-              </svg>
-              <div className="lpOnePlaceDestination">
-                <img className="lpOnePlaceMark" src="/mercerline_mark.png" alt="" width="44" height="32" />
-                <span>One watchlist</span>
-                <small>MERCERLINE</small>
-              </div>
-            </div>
-            <div className="lpSectionHead">
-              <p className="lpEyebrow">All together</p>
-              <h2 id="lp-questions-title" className="lpSectionTitle">Follow the people. Skip the tab hopping.</h2>
-              <p className="lpSectionLead">Three worlds of disclosed trades. One place to keep up.</p>
-            </div>
-          </section>
+
+          <IntroLeadersSection />
 
           {!waitlist ? <IntroCoverageSection /> : null}
 
@@ -441,7 +382,7 @@ export function IntroPage() {
                 ) : null}
               </IntroReveal>
 
-              <IntroReveal revealKey="pricing-plans" delay={80}>
+              <IntroReveal revealKey="pricing-plans" delay={80} className="lpPricingCarousel">
                 <div className="lpPlans" ref={plansTrackRef}>
                 {plans.map((plan, index) => (
                   <article
@@ -481,18 +422,16 @@ export function IntroPage() {
                   </article>
                 ))}
                 </div>
-              </IntroReveal>
-
-              <div className="lpPlanDots" aria-hidden="true">
-                {plans.map((plan, index) => (
-                  <span
-                    key={plan.id}
-                    className={['lpPlanDot', index === activePlan ? 'lpPlanDot--active' : '']
-                      .filter(Boolean)
-                      .join(' ')}
+                {plansNarrow ? (
+                  <IntroCarouselNav
+                    count={plans.length}
+                    active={activePlan}
+                    onSelect={(index) => scrollToPlan(index)}
+                    labels={plans.map((plan) => plan.name)}
+                    label="Plans"
                   />
-                ))}
-              </div>
+                ) : null}
+              </IntroReveal>
 
               <div ref={checkoutRef} id="intro-checkout">
                 {checkoutPlan ? (
@@ -513,23 +452,29 @@ export function IntroPage() {
               ) : null}
               <p className={pricing.founders ? 'lpFinePrint subFoundersFine' : 'lpFinePrint'}>
                 {pricing.founders
-                  ? `Founders pricing — yearly saves ${formatUsd(pricing.yearlySaveUsd)} vs monthly. Ends when early access closes.`
+                  ? `Founders pricing, yearly saves ${formatUsd(pricing.yearlySaveUsd)} vs monthly. Ends when early access closes.`
                   : `Save ${formatUsd(pricing.yearlySaveUsd)} on yearly vs paying monthly. Cancel anytime.`}
               </p>
             </section>
           ) : null}
 
-          <section id="faq" className="lpSection">
-            <IntroReveal revealKey="faq-head" className="lpSectionHead">
+          <section id="faq" className="lpSection lpFaqSection lpSection--ruled">
+            <IntroReveal revealKey="faq-head" className="lpSectionHead lpSectionHead--center">
               <p className="lpEyebrow">FAQ</p>
-              <h2 className="lpSectionTitle">Questions</h2>
+              <h2 className="lpSectionTitle">Before you subscribe</h2>
+              <p className="lpSectionLead">Access, billing, and what Mercerline is not.</p>
             </IntroReveal>
             <IntroReveal revealKey="faq-list" delay={80}>
-              <div className="lpFaq lpRevealStagger">
-                {faq.map((item) => (
+              <div className="lpFaq">
+                {faq.map((item, index) => (
                   <article key={item.q} className="lpFaqItem">
-                    <h3 className="lpFaqQ">{item.q}</h3>
-                    <p className="lpFaqA">{item.a}</p>
+                    <span className="lpFaqIndex" aria-hidden="true">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
+                    <div className="lpFaqCopy">
+                      <h3 className="lpFaqQ">{item.q}</h3>
+                      <p className="lpFaqA">{item.a}</p>
+                    </div>
                   </article>
                 ))}
               </div>

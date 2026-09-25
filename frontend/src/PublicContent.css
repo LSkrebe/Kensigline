@@ -1,9 +1,14 @@
-/* Public Learn + Research pages */
+/* Public Learn + Research — simple Explore-adjacent chrome */
 
 .pubContent {
+  --lp-surface: #141416;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  background: #080809;
+  color: var(--lp-fg, rgba(255, 255, 255, 0.92));
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 .pubContentNav .lpNavInner {
@@ -19,49 +24,53 @@
 }
 
 .pubContentNavLinks a {
-  color: var(--lp-muted);
+  color: var(--lp-muted, rgba(200, 208, 218, 0.72));
   text-decoration: none;
 }
 
 .pubContentNavLinks a:hover {
-  color: var(--lp-fg);
+  color: var(--lp-fg, #fff);
 }
 
 .pubContentTrail {
-  max-width: var(--lp-max);
+  max-width: 720px;
   width: 100%;
   margin: 0 auto;
-  padding: 12px var(--lp-pad) 0;
+  padding: 12px var(--lp-pad, 24px) 0;
   font-size: 12px;
-  color: var(--lp-dim);
+  color: var(--lp-dim, rgba(255, 255, 255, 0.42));
 }
 
 .pubContentTrail a {
-  color: var(--lp-accent);
+  color: rgba(168, 196, 255, 0.92);
   text-decoration: none;
 }
 
 .pubContentMain {
   flex: 1 0 auto;
-  max-width: var(--lp-max);
+  max-width: 720px;
   width: 100%;
   margin: 0 auto;
-  padding: clamp(32px, 6vh, 56px) var(--lp-pad) clamp(48px, 8vh, 72px);
+  padding: clamp(36px, 7vh, 64px) var(--lp-pad, 24px) clamp(56px, 10vh, 88px);
 }
 
 .pubContentHero {
-  max-width: 42rem;
   margin-bottom: clamp(28px, 5vh, 40px);
 }
 
 .pubContentHero .lpEyebrow {
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lp-dim, rgba(255, 255, 255, 0.42));
 }
 
 .pubContentTitle {
   margin: 0 0 12px;
-  font-family: var(--lp-serif);
-  font-size: clamp(1.85rem, 5vw, 2.75rem);
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: clamp(2rem, 5vw, 2.75rem);
   font-weight: 400;
   line-height: 1.08;
   letter-spacing: -0.02em;
@@ -69,53 +78,55 @@
 
 .pubContentLead {
   margin: 0;
-  max-width: 46ch;
+  max-width: 40ch;
   font-size: 15px;
-  line-height: 1.65;
-  color: var(--lp-muted);
+  line-height: 1.55;
+  color: var(--lp-muted, rgba(200, 208, 218, 0.72));
 }
 
 .pubContentCard {
-  border: 1px solid var(--lp-line);
-  background: rgba(8, 8, 9, 0.72);
-  padding: clamp(20px, 3vw, 28px);
-  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: var(--lp-surface);
+  padding: clamp(20px, 3vw, 26px);
+  margin-bottom: 12px;
 }
 
 .pubContentCard h2 {
   margin: 0 0 10px;
-  font-size: 1.1rem;
-  font-weight: 500;
-  line-height: 1.35;
-  letter-spacing: -0.01em;
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
 }
 
 .pubContentCard h2 a {
-  color: var(--lp-fg);
+  color: inherit;
   text-decoration: none;
 }
 
 .pubContentCard h2 a:hover {
-  color: var(--lp-accent);
+  color: rgba(168, 196, 255, 0.95);
 }
 
 .pubContentCard p {
   margin: 0;
   font-size: 14px;
-  line-height: 1.65;
-  color: var(--lp-muted);
+  line-height: 1.6;
+  color: var(--lp-muted, rgba(200, 208, 218, 0.72));
 }
 
 .pubContentCard p + p {
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .pubContentCard h3 {
   margin: 18px 0 8px;
-  font-size: 13px;
-  letter-spacing: 0.06em;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--lp-dim);
+  color: var(--lp-dim, rgba(255, 255, 255, 0.42));
   font-weight: 500;
 }
 
@@ -124,31 +135,45 @@
 }
 
 .pubContentCard ul {
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   padding-left: 1.1rem;
-  color: var(--lp-muted);
+  color: var(--lp-muted, rgba(200, 208, 218, 0.72));
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.55;
+}
+
+.pubContentEventKicker {
+  margin: 0 0 8px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lp-dim, rgba(255, 255, 255, 0.42));
 }
 
 .pubContentList {
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .pubContentListItem {
-  border: 1px solid var(--lp-line);
-  background: rgba(8, 8, 9, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  background: var(--lp-surface);
+  overflow: hidden;
 }
 
 .pubContentListItem a {
-  display: block;
-  padding: 20px 22px;
+  display: grid;
+  gap: 4px;
+  padding: 18px 20px;
   text-decoration: none;
   color: inherit;
+  transition: background 0.15s ease;
 }
 
 .pubContentListItem a:hover {
@@ -156,153 +181,69 @@
 }
 
 .pubContentListMeta {
-  display: block;
-  margin: 0 0 10px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
   font-size: 11px;
-  color: var(--lp-dim);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  line-height: 1.3;
+  color: var(--lp-dim, rgba(255, 255, 255, 0.42));
 }
 
 .pubContentListTitle {
-  display: block;
-  margin: 0 0 10px;
-  font-size: 1.05rem;
-  font-weight: 500;
-  line-height: 1.4;
-  letter-spacing: -0.01em;
-  color: var(--lp-fg);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--lp-fg, #fff);
 }
 
 .pubContentListDesc {
-  display: block;
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--lp-muted);
-}
-
-.pubContentEventKicker {
-  margin: 0 0 8px;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--lp-accent);
-}
-
-.pubContentEventDoc {
-  display: inline-block;
-  margin-bottom: 12px;
-  padding: 4px 8px;
-  border: 1px solid rgba(158, 196, 212, 0.25);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--lp-accent);
-}
-
-.pubContentTickerRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 10px 16px;
-  margin-bottom: 16px;
-}
-
-.pubContentTicker {
-  font-family: var(--lp-mono, ui-monospace, monospace);
-  font-size: 1.5rem;
-  letter-spacing: 0.06em;
-}
-
-.pubContentTickerName {
   font-size: 14px;
-  color: var(--lp-muted);
+  line-height: 1.5;
+  color: var(--lp-muted, rgba(200, 208, 218, 0.72));
 }
 
-.pubContentRelated {
-  margin-top: 28px;
-  padding-top: 20px;
-  border-top: 1px solid var(--lp-line);
-}
-
-.pubContentRelated h3 {
-  margin: 0 0 12px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--lp-dim);
-}
-
-.pubContentRelatedLinks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.pubContentRelatedLinks a {
-  font-size: 13px;
-  color: var(--lp-accent);
-  text-decoration: none;
-}
-
-.pubContentRelatedLinks a:hover {
-  text-decoration: underline;
+.pubContentStatus {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: var(--lp-muted, rgba(200, 208, 218, 0.72));
 }
 
 .pubContentCta {
-  margin-top: 32px;
-  padding: 20px 22px;
-  border: 1px solid rgba(158, 196, 212, 0.2);
-  background: rgba(158, 196, 212, 0.06);
+  margin-top: clamp(36px, 6vh, 52px);
+  padding: 28px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: linear-gradient(165deg, rgba(168, 196, 255, 0.08), var(--lp-surface));
+  text-align: center;
 }
 
 .pubContentCtaTitle {
   margin: 0 0 8px;
-  font-family: var(--lp-serif);
-  font-size: 1.25rem;
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: clamp(1.4rem, 3vw, 1.75rem);
   font-weight: 400;
 }
 
 .pubContentCtaBody {
-  margin: 0 0 16px;
+  margin: 0 auto 18px;
+  max-width: 36ch;
   font-size: 14px;
-  line-height: 1.6;
-  color: var(--lp-muted);
+  line-height: 1.55;
+  color: var(--lp-muted, rgba(200, 208, 218, 0.72));
 }
 
 .pubContentCtaActions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
-  align-items: center;
 }
 
-.pubContentCtaSecondary {
-  margin-left: auto;
-}
-
-.pubContentStatus {
-  font-size: 14px;
-  color: var(--lp-dim);
-}
-
-@media (max-width: 640px) {
+@media (max-width: 599px) {
   .pubContentNavLinkDesktop {
     display: none;
   }
 
-  .pubContentNavLinks {
-    gap: 12px;
-    font-size: 12px;
-  }
-
-  .pubContentCtaActions .lpBtn {
-    flex: 1 1 140px;
-  }
-
-  .pubContentCtaSecondary {
-    margin-left: 0;
+  .pubContentListItem a {
+    padding: 16px;
   }
 }

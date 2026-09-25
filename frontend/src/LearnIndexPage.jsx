@@ -16,9 +16,9 @@ export function LearnIndexPage() {
     <PublicContentLayout backgroundKey="signIn">
       <div className="pubContentHero">
         <p className="lpEyebrow">Learn</p>
-        <h1 className="pubContentTitle">Disclosure research guides</h1>
+        <h1 className="pubContentTitle">How filings work</h1>
         <p className="pubContentLead">
-          In depth guides on Form 4, PTR, and 13F filings, and how to use Mercerline before the headline.
+          Short guides on Form 4, PTR, and 13F - then open Explore for the live feed.
         </p>
       </div>
 
@@ -41,7 +41,7 @@ export function LearnIndexPage() {
       </ul>
 
       <PublicContentCta
-        body="Members get the full daily recap, investor dossiers, and company context inside Explore."
+        body="Full Explore rankings, dossiers, and filing briefs for members."
         secondaryLabel="Research"
         secondaryHref="/research"
       />

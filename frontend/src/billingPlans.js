@@ -31,7 +31,7 @@ export function formatUsd(n) {
 export function yearlyPlanNote(pricing) {
   const perMonth = moneyCents((pricing?.yearlySaveUsd ?? 0) / 12)
   if (pricing?.founders) {
-    return `Lock in founders — save ${formatUsd(perMonth)}/mo vs monthly`
+    return `Lock in founders, save ${formatUsd(perMonth)}/mo vs monthly`
   }
   return `Save ${formatUsd(perMonth)}/mo vs paying monthly`
 }

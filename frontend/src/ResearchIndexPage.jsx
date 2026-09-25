@@ -45,10 +45,9 @@ export function ResearchIndexPage() {
     <PublicContentLayout backgroundKey="publicCompany">
       <div className="pubContentHero">
         <p className="lpEyebrow">Research</p>
-        <h1 className="pubContentTitle">Daily disclosure highlights</h1>
+        <h1 className="pubContentTitle">Filing highlights</h1>
         <p className="pubContentLead">
-          One public filing story per day from Mercerline’s recap — enough context to understand the category,
-          with the full rail inside for members.
+          One public story a day. Members get the full rail in Explore.
         </p>
       </div>
 
@@ -109,8 +108,8 @@ export function ResearchIndexPage() {
       ) : null}
 
       <PublicContentCta
-        title="See every filing as it clears"
-        body="Explore shows the full daily recap, investor dossiers, and company context — not just one headline."
+        title="Open Explore"
+        body="Ranked filers, dossiers, and filing briefs - not just one headline."
       />
     </PublicContentLayout>
   )

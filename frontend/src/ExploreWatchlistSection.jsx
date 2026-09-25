@@ -548,6 +548,42 @@ export function explorePerformerReturn(row, range = '6M') {
   return returnFor(row, range)
 }
 
+/** Sample disclosed tickers for intro Leaders holdings cells (pre-backfill). */
+const HOLDINGS = {
+  'lisa-su': ['AMD', 'NVDA', 'AVGO', 'TSM', 'ASML'],
+  'jensen-huang': ['NVDA', 'AVGO', 'TSM', 'AMD'],
+  'nancy-pelosi': ['NVDA', 'AAPL', 'GOOGL', 'AMZN', 'MSFT', 'CRM'],
+  'berkshire-hathaway': ['AAPL', 'AMZN', 'KO', 'AXP', 'OXY', 'BAC'],
+  'alex-karp': ['PLTR', 'NVDA', 'MSFT', 'AMZN'],
+  'mark-zuckerberg': ['META', 'NVDA', 'GOOGL', 'AMZN', 'AAPL'],
+  'tim-cook': ['AAPL', 'NVDA', 'MSFT', 'AVGO'],
+  'satya-nadella': ['MSFT', 'NVDA', 'AMD', 'AVGO'],
+  'dan-crenshaw': ['NVDA', 'MU', 'LRCX', 'AVGO'],
+  'hock-tan': ['AVGO', 'NVDA', 'TSM', 'AMD', 'QCOM'],
+  'appaloosa': ['NVDA', 'META', 'AMZN', 'GOOGL', 'MSFT'],
+  'pershing-square': ['GOOGL', 'CMG', 'HLT', 'QSR', 'BN'],
+  'citadel-advisors': ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'GOOGL'],
+  'tiger-global': ['META', 'SE', 'SHOP', 'COIN', 'SNOW'],
+  'jamie-dimon': ['JPM', 'AAPL', 'MSFT', 'BAC'],
+}
+
+export function exploreHoldingsFor(slug) {
+  const key = String(slug ?? '').toLowerCase()
+  return HOLDINGS[key] ? [...HOLDINGS[key]] : []
+}
+
+export function exploreMockReturnsTable(range = '1Y') {
+  return MOCK_RETURNS[range] ?? MOCK_RETURNS['6M'] ?? {}
+}
+
+export function explorePopularityScore(slug) {
+  return popularityOf(String(slug ?? '').toLowerCase())
+}
+
+export function formatExploreTapeReturn(fraction) {
+  return formatReturn(fraction)
+}
+
 export function selectExploreFeatured(rows, range = '6M') {
   const people = peopleWithReturns([...tapePeople(rows)], range)
   return people

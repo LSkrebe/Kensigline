@@ -77,19 +77,28 @@ export function ExploreFeaturedCards({ rows = [], range = '6M', onCardClick = nu
   const syncActive = useCallback(() => {
     const el = scrollerRef.current
     if (!el) return
-    const card = el.querySelector('.exploreFeaturedCard')
-    if (!card) return
-    const step = card.getBoundingClientRect().width + 12
-    if (step <= 0) return
-    setActive(Math.max(0, Math.min(rows.length - 1, Math.round(el.scrollLeft / step))))
-  }, [rows.length])
+    const cards = [...el.querySelectorAll('.exploreFeaturedCard')]
+    if (!cards.length) return
+    const pad = parseFloat(getComputedStyle(el).paddingLeft) || 0
+    const x = el.scrollLeft + pad + 8
+    let best = 0
+    let bestDist = Infinity
+    cards.forEach((card, index) => {
+      const dist = Math.abs(card.offsetLeft - x)
+      if (dist < bestDist) {
+        bestDist = dist
+        best = index
+      }
+    })
+    setActive(best)
+  }, [])
 
   const scrollTo = (index) => {
     const el = scrollerRef.current
-    const card = el?.querySelector('.exploreFeaturedCard')
+    const card = el?.querySelectorAll('.exploreFeaturedCard')?.[index]
     if (!el || !card) return
-    const step = card.getBoundingClientRect().width + 12
-    el.scrollTo({ left: index * step, behavior: 'smooth' })
+    const pad = parseFloat(getComputedStyle(el).paddingLeft) || 0
+    el.scrollTo({ left: Math.max(0, card.offsetLeft - pad), behavior: 'smooth' })
   }
 
   if (!rows.length) {

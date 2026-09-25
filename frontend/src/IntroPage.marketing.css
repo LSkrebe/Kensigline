@@ -1,19 +1,26 @@
-/* Landing page — professional marketing layout (not in-app chrome) */
+/* Landing page - Explore/app visual language (same sections, product chrome) */
 
 .lp {
   --lp-bg: #080809;
+  --lp-surface: #141416;
   --lp-fg: rgba(255, 255, 255, 0.92);
-  --lp-muted: rgba(200, 208, 218, 0.68);
-  --lp-dim: rgba(255, 255, 255, 0.4);
+  --lp-muted: rgba(200, 208, 218, 0.72);
+  --lp-dim: rgba(255, 255, 255, 0.42);
   --lp-line: rgba(255, 255, 255, 0.1);
-  --lp-accent: #9ec4d4;
+  --lp-accent: rgba(168, 196, 255, 0.92);
+  --lp-accent-soft: rgba(168, 196, 255, 0.14);
+  --lp-up: #5cb88a;
+  --lp-down: #d4726a;
   --lp-waitlist-accent: #e4c07a;
   --lp-pad: clamp(24px, 5vw, 56px);
   --lp-max: 1120px;
-  --lp-section-pad-y: clamp(64px, 10vh, 96px);
+  --lp-section-pad-y: clamp(56px, 9vh, 88px);
   --lp-story-peek: clamp(72px, 11vh, 112px);
+  --lp-radius: 18px;
+  --lp-radius-sm: 12px;
   --lp-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
-  --lp-sans: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+  --lp-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --lp-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
   --lp-hero-expanded-h: min(clamp(580px, 80vh, 860px), calc(100dvh - var(--lp-story-peek)));
   --lp-hero-collapsed-h: 64px;
 
@@ -32,6 +39,7 @@
   background-image: none;
   color: var(--lp-fg);
   font-family: var(--lp-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
 .lp *,
@@ -40,7 +48,7 @@
   box-sizing: border-box;
 }
 
-/* Hero dock — Explore-style expand / collapse */
+/* Hero dock - Explore-style expand / collapse */
 .lpHeroStickWrap {
   flex: 1 0 auto;
   display: flex;
@@ -87,7 +95,7 @@
   pointer-events: none;
 }
 
-/* Expanded photo stays full hero size; dock clips it — no cover re-scale mid-collapse */
+/* Expanded photo stays full hero size; dock clips it - no cover re-scale mid-collapse */
 .lpHeroExpandedBg {
   position: absolute;
   left: 0;
@@ -195,7 +203,7 @@
   line-height: 1;
 }
 
-/* Classic sticky nav — sign-in / subscribe (collapsed-hero atmosphere) */
+/* Classic sticky nav - sign-in / subscribe (collapsed-hero atmosphere) */
 .lpNav {
   position: sticky;
   top: 0;
@@ -326,12 +334,10 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
-  border: 1px solid rgba(158, 196, 212, 0.14);
-  background: #080809;
-  box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.4),
-    0 0 28px rgba(158, 196, 212, 0.05),
-    inset 0 1px 0 rgba(158, 196, 212, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--lp-radius);
+  background: var(--lp-surface);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
   overflow: hidden;
 }
 
@@ -339,7 +345,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(158, 196, 212, 0.06), transparent 38%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 36%);
   pointer-events: none;
   z-index: 1;
 }
@@ -418,6 +424,7 @@
 
 .lpEyebrow {
   margin: 0 0 10px;
+  font-family: var(--lp-mono);
   font-size: 11px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -456,7 +463,7 @@
 .lpHeroLead {
   margin: 0 0 12px;
   max-width: 46ch;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.55;
   color: var(--lp-muted);
 }
@@ -487,7 +494,7 @@
   color: var(--lp-dim);
 }
 
-/* Tracked-company validation strip — dual logo marquees */
+/* Tracked-company validation strip - dual logo marquees */
 .lpCompanyMarquee {
   position: relative;
   z-index: 1;
@@ -708,12 +715,11 @@
 }
 
 .lpStoryCalloutGain--filing {
-  color: #9ef0bc;
-  font-size: clamp(1.35rem, 4.2vw, 1.75rem);
-  text-shadow:
-    0 0 6px rgba(142, 228, 176, 0.95),
-    0 0 18px rgba(125, 206, 160, 0.7),
-    0 0 36px rgba(125, 206, 160, 0.45);
+  color: var(--lp-up);
+  font-family: var(--lp-sans);
+  font-weight: 700;
+  font-size: clamp(1.25rem, 4vw, 1.6rem);
+  letter-spacing: -0.03em;
 }
 
 .lpStoryCalloutGain--news {
@@ -728,6 +734,7 @@
   object-fit: cover;
   object-position: center top;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--lp-radius-sm);
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -737,9 +744,9 @@
   width: clamp(48px, 14vw, 56px);
   height: clamp(48px, 14vw, 56px);
   overflow: hidden;
-  border: 1px solid rgba(125, 206, 160, 0.32);
-  background: #080809;
-  box-shadow: 0 0 14px rgba(125, 206, 160, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--lp-radius-sm);
+  background: var(--lp-surface);
 }
 
 .lpStoryAvatarPhoto--logo {
@@ -765,7 +772,8 @@
   height: clamp(48px, 14vw, 56px);
   padding: 10px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--lp-radius-sm);
+  background: var(--lp-surface);
   box-sizing: border-box;
 }
 
@@ -825,8 +833,8 @@
 }
 
 .lpStoryMarker--filing {
-  background: var(--lp-accent);
-  box-shadow: 0 0 10px rgba(158, 196, 212, 0.55);
+  background: var(--lp-up);
+  box-shadow: none;
 }
 
 .lpStoryMarker--news {
@@ -839,7 +847,7 @@
 }
 
 .lpStoryConnector--filing {
-  stroke: rgba(158, 196, 212, 0.5);
+  stroke: rgba(92, 184, 138, 0.55);
 }
 
 .lpStoryConnector--news {
@@ -848,7 +856,7 @@
 
 .lpStoryChartLine {
   fill: none;
-  stroke: rgba(125, 206, 160, 0.9);
+  stroke: var(--lp-up);
   stroke-width: 1.75;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -889,21 +897,23 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 44px;
-  padding: 0 22px;
+  height: 42px;
+  padding: 0 20px;
   font-family: inherit;
-  font-size: 13px;
-  letter-spacing: 0.02em;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   text-decoration: none;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  border-radius: var(--lp-radius-sm);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .lpBtn--primary {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   color: #0a0b0c;
-  border-color: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.94);
 }
 
 .lpBtn--primary:hover {
@@ -917,8 +927,8 @@
 }
 
 .lpBtn--accent:hover {
-  background: #b4d4e0;
-  border-color: #b4d4e0;
+  background: rgba(188, 210, 255, 0.98);
+  border-color: rgba(188, 210, 255, 0.98);
 }
 
 .lpBtn--waitlist {
@@ -951,15 +961,15 @@
 .lpBtn--ghost {
   background: transparent;
   color: var(--lp-fg);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .lpBtn--ghost:hover {
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.36);
+  background: rgba(255, 255, 255, 0.05);
 }
 
-/* Product shot — same content width as sections */
+/* Product shot - same content width as sections */
 .lpShot {
   max-width: var(--lp-max);
   margin: 0 auto;
@@ -978,8 +988,9 @@
 
 .lpShotFrame {
   border: 1px solid var(--lp-line);
-  background: #080809;
-  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.55);
+  border-radius: var(--lp-radius);
+  background: var(--lp-surface);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
   overflow: hidden;
 }
 
@@ -1023,98 +1034,64 @@
   margin-inline: auto;
 }
 
-/* Visual 3-step walkthrough */
+/* Product - side-by-side shots, labels under images */
 .lpHowItWorks {
   padding-top: var(--lp-section-pad-y);
   padding-bottom: var(--lp-section-pad-y);
 }
 
-.lpHowRows {
+.lpHowGrid {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(14px, 2.5vw, 22px);
+  align-items: start;
+}
+
+.lpHowCard {
   display: flex;
   flex-direction: column;
-  gap: 0;
-}
-
-.lpHowRow {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: clamp(24px, 4vw, 48px);
-  align-items: center;
-  padding: clamp(36px, 6vh, 52px) 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.lpHowRow:first-child {
-  border-top: none;
-  padding-top: 0;
-}
-
-.lpHowRow--flip .lpHowCopy {
-  order: 2;
-}
-
-.lpHowRow--flip .lpHowFrame {
-  order: 1;
-}
-
-.lpHowCopy {
+  gap: 12px;
   min-width: 0;
-  position: relative;
 }
 
-.lpHowStepNum {
-  margin: 0 0 4px;
-  font-family: var(--lp-serif);
-  font-size: clamp(3.25rem, 7vw, 5rem);
-  font-weight: 400;
-  line-height: 0.95;
-  letter-spacing: -0.04em;
-  color: rgba(158, 196, 212, 0.12);
-  text-shadow:
-    0 0 24px rgba(158, 196, 212, 0.18),
-    0 0 48px rgba(158, 196, 212, 0.08);
-  pointer-events: none;
-  user-select: none;
+.lpHowCardFoot {
+  padding: 0 2px;
 }
 
 .lpHowLabel {
-  margin: 0 0 10px;
+  margin: 0 0 4px;
+  font-family: var(--lp-mono);
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--lp-accent);
-  text-shadow: 0 0 12px rgba(158, 196, 212, 0.28);
+  color: var(--lp-dim);
 }
 
 .lpHowTitle {
-  margin: 0 0 12px;
-  font-family: var(--lp-serif);
-  font-size: clamp(1.5rem, 2.8vw, 2rem);
-  font-weight: 400;
-  line-height: 1.15;
+  margin: 0 0 4px;
+  font-family: var(--lp-sans);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .lpHowBody {
   margin: 0;
-  max-width: 42ch;
-  font-size: 15px;
-  line-height: 1.65;
+  font-size: 13px;
+  line-height: 1.45;
   color: var(--lp-muted);
 }
 
 .lpHowFrame {
   position: relative;
-  border: 1px solid rgba(158, 196, 212, 0.18);
-  background: #080809;
-  box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.4),
-    0 0 40px rgba(158, 196, 212, 0.06),
-    inset 0 1px 0 rgba(158, 196, 212, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--lp-radius);
+  background: var(--lp-surface);
   overflow: hidden;
-  aspect-ratio: 16 / 10;
   min-width: 0;
 }
 
@@ -1122,21 +1099,20 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(158, 196, 212, 0.08), transparent 42%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 40%);
   pointer-events: none;
   z-index: 1;
 }
 
 .lpHowFrame .mktHeroShot {
   margin: 0;
-  height: 100%;
 }
 
 .lpHowFrame .mktHeroShotImg {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  object-fit: contain;
   object-position: top center;
 }
 
@@ -1148,16 +1124,17 @@
 
 @media (max-width: 899px) {
   .lpHowItWorks {
-    overflow: hidden;
+    overflow-x: clip;
   }
 
-  .lpHowRows {
+  .lpHowGrid {
     display: flex;
     flex-direction: row;
     align-items: stretch;
     gap: 12px;
     margin-inline: calc(-1 * var(--lp-pad));
     padding-inline: var(--lp-pad);
+    padding-block-end: 2px;
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
@@ -1168,68 +1145,349 @@
     scroll-padding-inline: var(--lp-pad);
   }
 
-  .lpHowRows::-webkit-scrollbar {
+  .lpHowGrid::-webkit-scrollbar {
     display: none;
   }
 
-  .lpHowRow,
-  .lpHowRow--flip {
+  .lpHowCard {
     flex: 0 0 calc(100% - 40px);
     scroll-snap-align: center;
     scroll-snap-stop: always;
-    display: block;
-    padding: 0;
-    border: none;
-    background: transparent;
-    overflow: visible;
-  }
-
-  .lpHowRow:first-child {
-    padding-top: 0;
-  }
-
-  .lpHowStepNum,
-  .lpHowBody {
-    display: none;
-  }
-
-  .lpHowCopy {
-    display: block;
-    margin-top: 14px;
-    margin-bottom: 18px;
-    padding-inline: 4px;
-    text-align: center;
-  }
-
-  .lpHowTitle {
-    display: none;
-  }
-
-  .lpHowLabel {
-    margin: 0;
   }
 
   .lpHowFrame {
-    aspect-ratio: 16 / 10;
-    border: 1px solid rgba(158, 196, 212, 0.18);
-    box-shadow:
-      0 20px 48px rgba(0, 0, 0, 0.35),
-      0 0 32px rgba(158, 196, 212, 0.05);
+    border-radius: 18px;
+  }
+}
+
+/* Together - reuse Explore featured cards */
+.lpTogetherExplore {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.lpTogetherExplore .exploreFeaturedScroller {
+  padding-inline: 0;
+}
+
+.lpHowCarousel .lpCarouselNav,
+.lpPricingCarousel .lpCarouselNav,
+.lpTogetherExplore .exploreFeaturedNav {
+  margin-top: 14px;
+}
+
+@media (max-width: 899px) {
+  .lpCarouselNav.exploreFeaturedNav {
+    display: flex;
+  }
+}
+
+@media (max-width: 899px) {
+  .lpTogether {
+    overflow-x: clip;
   }
 
-  .lpHowFrame::before {
+  .lpTogetherExplore .exploreFeaturedScroller {
+    display: flex;
+    grid-template-columns: none;
+    gap: 12px;
+    margin-inline: calc(-1 * var(--lp-pad));
+    padding-inline: var(--lp-pad);
+    padding-bottom: 4px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-padding-inline: var(--lp-pad);
+  }
+
+  .lpTogetherExplore .exploreFeaturedScroller::-webkit-scrollbar {
     display: none;
   }
 
-  .lpHowFrame .mktHeroShot {
-    margin: 0;
-    height: 100%;
+  .lpTogetherExplore .exploreFeaturedCard {
+    flex: 0 0 78%;
+    width: auto;
+    max-height: 380px;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+}
+
+/* Coverage - visual face columns */
+.lpCoverageSection .lpSectionHead {
+  margin-bottom: clamp(28px, 4vh, 40px);
+}
+
+.lpCoverageGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 3vw, 28px);
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.lpCoverageCol {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.lpCoverageColLabel {
+  margin: 0;
+  font-family: var(--lp-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lp-dim);
+  text-align: center;
+}
+
+.lpCoverageFaces {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lpCoverageFace {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  aspect-ratio: 1;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #141416;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.lpCoverageFace:hover,
+.lpCoverageFace:focus-visible,
+.lpCoverageFace.isActive {
+  border-color: rgba(255, 255, 255, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  outline: none;
+  z-index: 2;
+}
+
+.lpCoverageFaceImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: #141416;
+  transition: filter 160ms ease, transform 160ms ease;
+}
+
+.lpCoverageFaceImg img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 12%;
+}
+
+.lpCoverageFace.isLogo .lpCoverageFaceImg img {
+  object-fit: cover;
+  object-position: center;
+}
+
+.lpCoverageFace::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.78) 0%,
+    rgba(0, 0, 0, 0.42) 42%,
+    rgba(0, 0, 0, 0.18) 100%
+  );
+  opacity: 0;
+  transition: opacity 160ms ease;
+  pointer-events: none;
+}
+
+.lpCoverageFace:hover::after,
+.lpCoverageFace:focus-visible::after,
+.lpCoverageFace.isActive::after {
+  opacity: 1;
+}
+
+.lpCoverageFace:hover .lpCoverageFaceImg,
+.lpCoverageFace:focus-visible .lpCoverageFaceImg,
+.lpCoverageFace.isActive .lpCoverageFaceImg {
+  filter: brightness(0.78);
+}
+
+.lpCoverageTip {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 160ms ease, transform 160ms ease;
+  pointer-events: none;
+  text-align: left;
+}
+
+.lpCoverageTip.isOpen,
+.lpCoverageFace:hover .lpCoverageTip,
+.lpCoverageFace:focus-visible .lpCoverageTip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.lpCoverageTipName {
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+}
+
+.lpCoverageTipPnl {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
+.lpCoverageTipPnl.isUp { color: rgba(92, 184, 138, 0.98); }
+.lpCoverageTipPnl.isDown { color: rgba(212, 114, 106, 0.98); }
+.lpCoverageTipPnl.isFlat { color: rgba(255, 255, 255, 0.82); }
+
+@media (max-width: 899px) {
+  .lpCoverageGrid {
+    grid-template-columns: 1fr;
+    gap: clamp(28px, 5vh, 40px);
+    max-width: min(420px, 100%);
   }
 
+  .lpCoverageFaces {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .lpCoverageTipName {
+    font-size: 14px;
+  }
+
+  .lpCoverageTipPnl {
+    font-size: 20px;
+  }
+}
+
+/* Leaders - wider tape + holdings mosaic */
+.lpLeadersTape {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.lpLeadersTape .exploreTapeList {
+  margin: 0;
+}
+
+.lpLeadersTape .lpLeaderRowBtn {
+  grid-template-columns: 28px 76px minmax(0, 1fr) 68px;
+  gap: 18px;
+}
+
+.lpLeaderHoldings {
+  display: grid;
+  grid-template-columns: repeat(2, 30px);
+  grid-template-rows: repeat(2, 30px);
+  gap: 4px;
+  justify-self: end;
+  flex-shrink: 0;
+}
+
+.lpLeaderHolding {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 7px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lpLeaderHolding img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.lpLeaderHolding--more {
+  font-family: var(--lp-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+@media (max-width: 699px) {
+  .lpLeadersTape .lpLeaderRowBtn {
+    grid-template-columns: 24px 64px minmax(0, 1fr) 60px;
+    gap: 12px;
+    padding: 16px 0;
+  }
+
+  .lpLeaderHoldings {
+    grid-template-columns: repeat(2, 26px);
+    grid-template-rows: repeat(2, 26px);
+  }
+
+  .lpLeaderHolding {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+  }
+}
+
+.lpHowFrame .mktHeroShot {
+  margin: 0;
+}
+
+.lpHowFrame .mktHeroShotImg {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  object-position: top center;
+}
+
+.lpHowDots,
+.lpReviewDots,
+.lpPlanDots {
+  display: none;
+}
+
+@media (max-width: 899px) {
   .lpHowDots {
     display: flex;
     justify-content: center;
-    align-items: center;
     gap: 8px;
     margin-top: 16px;
   }
@@ -1237,14 +1495,12 @@
   .lpHowDot {
     width: 18px;
     height: 3px;
-    border-radius: 0;
-    background: rgba(255, 255, 255, 0.28);
-    transition: background 0.2s ease, opacity 0.2s ease;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
   }
 
   .lpHowDot--active {
-    background: rgba(255, 255, 255, 0.95);
-    box-shadow: none;
+    background: rgba(255, 255, 255, 0.92);
   }
 }
 
@@ -1282,7 +1538,8 @@
   min-height: clamp(300px, 36vh, 360px);
   padding: 0;
   border: 1px solid var(--lp-line);
-  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--lp-radius);
+  background: var(--lp-surface);
   overflow: hidden;
 }
 
@@ -1292,7 +1549,7 @@
   gap: 16px;
   padding: 22px 18px 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(125, 206, 160, 0.06), transparent);
+  background: transparent;
 }
 
 .lpReviewCatchHero {
@@ -1310,20 +1567,18 @@
   flex-shrink: 0;
   padding: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--lp-radius-sm);
   background: rgba(255, 255, 255, 0.04);
 }
 
 .lpReviewCatchMove {
   margin: 0;
-  font-family: var(--lp-serif);
-  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-family: var(--lp-sans);
+  font-size: clamp(1.35rem, 3.2vw, 1.75rem);
+  font-weight: 700;
   line-height: 1;
-  letter-spacing: -0.02em;
-  color: #9ef0bc;
-  text-shadow:
-    0 0 6px rgba(142, 228, 176, 0.95),
-    0 0 18px rgba(125, 206, 160, 0.7),
-    0 0 36px rgba(125, 206, 160, 0.45);
+  letter-spacing: -0.03em;
+  color: var(--lp-up);
 }
 
 .lpReviewCatchChart {
@@ -1345,7 +1600,7 @@
 
 .lpReviewChartLine {
   fill: none;
-  stroke: rgba(125, 206, 160, 0.85);
+  stroke: var(--lp-up);
   stroke-width: 1.5;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -1540,7 +1795,8 @@
   gap: 8px;
   padding: 28px 26px;
   border: 1px solid var(--lp-line);
-  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--lp-radius);
+  background: var(--lp-surface);
   text-align: left;
 }
 
@@ -1598,32 +1854,12 @@
     margin-top: auto;
     flex-shrink: 0;
   }
-
-  .lpPlanDots {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    margin-top: 16px;
-  }
-
-  .lpPlanDot {
-    width: 18px;
-    height: 3px;
-    border-radius: 0;
-    background: rgba(255, 255, 255, 0.28);
-    transition: background 0.2s ease;
-  }
-
-  .lpPlanDot--active {
-    background: rgba(255, 255, 255, 0.95);
-  }
 }
 
 .lpPlan--featured {
-  border-color: rgba(158, 196, 212, 0.35);
-  background: linear-gradient(165deg, rgba(158, 196, 212, 0.12), rgba(8, 8, 9, 0.35));
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 255, 255, 0.22);
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.06), var(--lp-surface));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
 .lpPlanHead {
@@ -1637,8 +1873,10 @@
 .lpPlanBadge {
   margin: 0;
   flex-shrink: 0;
-  padding: 3px 7px;
-  border: 1px solid rgba(125, 206, 160, 0.35);
+  padding: 4px 8px;
+  border: 1px solid rgba(92, 184, 138, 0.4);
+  border-radius: 999px;
+  font-family: var(--lp-mono);
   font-size: 9px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1768,9 +2006,6 @@
 
 .lpCoverageStat--featured .lpCoverageStatValue {
   color: var(--lp-accent);
-  text-shadow:
-    0 0 8px rgba(158, 196, 212, 0.45),
-    0 0 20px rgba(158, 196, 212, 0.25);
 }
 
 .lpCoverageStatValue {
@@ -1783,6 +2018,7 @@
 }
 
 .lpCoverageStatLabel {
+  font-family: var(--lp-mono);
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1802,34 +2038,62 @@
   }
 }
 
-/* FAQ — same hairline-top rhythm as product pillars */
+/* FAQ - numbered stack, same section language as the rest of the page */
+.lpFaqSection .lpSectionHead {
+  margin-bottom: clamp(28px, 4vh, 40px);
+}
+
 .lpFaq {
-    width: 100%;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 28px 48px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .lpFaqItem {
-  padding-top: 20px;
-  border-top: 1px solid var(--lp-line);
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding: 22px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lpFaqItem:last-child {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.lpFaqIndex {
+  font-family: var(--lp-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--lp-dim);
+  padding-top: 5px;
+}
+
+.lpFaqCopy {
+  min-width: 0;
 }
 
 .lpFaqQ {
   margin: 0 0 8px;
-  font-family: var(--lp-serif);
-  font-size: 1.2rem;
-  font-weight: 400;
+  font-size: clamp(16px, 2.2vw, 18px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: var(--lp-fg);
 }
 
 .lpFaqA {
   margin: 0;
   font-size: 14px;
-  line-height: 1.6;
+  line-height: 1.65;
   color: var(--lp-muted);
 }
 
-/* CTA band — extra top air so it doesn’t sit tight under FAQ */
+/* CTA band - extra top air so it doesn’t sit tight under FAQ */
 .lpCtaBand {
   max-width: var(--lp-max);
   margin: 0 auto;
@@ -2028,13 +2292,11 @@
   }
 
   .lpHeroShotFrame {
-    box-shadow:
-      0 16px 40px rgba(0, 0, 0, 0.32),
-      0 0 22px rgba(158, 196, 212, 0.04);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
   }
 
   .lpHeroShotFrame::before {
-    background: linear-gradient(180deg, rgba(158, 196, 212, 0.04), transparent 32%);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 32%);
   }
 
   .lpNavLinks {
@@ -2107,13 +2369,14 @@
     gap: 20px;
   }
 
-  .lpInclude,
-  .lpFaq {
+  .lpInclude {
     grid-template-columns: 1fr;
   }
 
-  .lpFaq {
-    gap: 28px;
+  .lpFaqItem {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 12px;
+    padding: 18px 0;
   }
 
   .lpCtaBand {
@@ -2167,8 +2430,10 @@
 .lpPricingFeature {
   padding: 12px 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--lp-radius-sm);
   background: rgba(255, 255, 255, 0.02);
-  font-size: 12px;
+  font-family: var(--lp-mono);
+  font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   text-align: center;
@@ -2181,9 +2446,8 @@
 }
 
 .lpPricingFeature--featured {
-  border-color: rgba(158, 196, 212, 0.28);
+  border-color: rgba(168, 196, 255, 0.35);
   color: var(--lp-accent);
-  text-shadow: 0 0 12px rgba(158, 196, 212, 0.32);
 }
 
 @media (max-width: 899px) {
@@ -2241,91 +2505,131 @@
 /* Current product screenshots keep their native proportions. */
 .lpHeroShotFrame,.lpHowFrame { aspect-ratio:auto; height:auto; max-height:none; }
 .lpHeroShotFrame .mktHeroShotImg,.lpHowFrame .mktHeroShotImg { width:100%; height:auto; display:block; }
-.lpQuestionsVisual { border:1px solid rgba(158,196,212,.14); overflow:hidden; margin-bottom:32px; }
+.lpQuestionsVisual { border:1px solid rgba(255,255,255,.12); border-radius:var(--lp-radius); overflow:hidden; margin-bottom:32px; background:var(--lp-surface); }
 .lpQuestionsVisual .mktHeroShot { margin:0; }
 .lpQuestionsVisual .mktHeroShotImg { display:block; width:100%; height:auto; }
 .lpQuestions .lpSectionHead { text-align:center; }
 .lpQuestions .lpSectionLead { margin-left:auto; margin-right:auto; }
 @media(max-width:899px) { .lpHowFrame { order:-1; } .lpHowCopy { margin-top:22px; } }
 
-/* A single visual for cross-source coverage, rather than another screen or chart. */
+/* Cross-source coverage diagram - tape/card language, no teal glow */
 .lpOnePlace { max-width:900px; margin:0 auto 48px; padding:20px 0; }
-.lpOnePlaceSources { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; }
-.lpOnePlaceSource { display:flex; flex-direction:column; align-items:center; gap:22px; padding:34px 12px; border:1px solid rgba(158,196,212,.16); background:linear-gradient(145deg,rgba(158,196,212,.045),transparent); color:#c8ccce; font:400 clamp(13px,2vw,20px)/1.2 monospace; }
-.lpOnePlaceSource svg { width:44px; height:44px; color:#9ec4d4; }
-.lpOnePlaceLines { display:block; width:100%; height:90px; stroke:rgba(158,196,212,.35); stroke-width:1; }
-.lpOnePlaceDestination { width:max-content; max-width:100%; margin:auto; display:grid; grid-template-columns:32px 1fr; align-items:center; gap:7px 16px; padding:24px 36px; border:1px solid rgba(158,196,212,.4); background:radial-gradient(ellipse at top,rgba(158,196,212,.1),transparent); box-shadow:0 0 60px rgba(158,196,212,.05); }
-.lpOnePlaceDestination svg { width:30px; height:34px; grid-row:span 2; color:#9ec4d4; }
-.lpOnePlaceDestination span { font:400 clamp(24px,3vw,34px)/1.1 Georgia,serif; color:#eee; }
-.lpOnePlaceDestination small { font:10px/1.4 monospace; letter-spacing:.18em; color:#858b90; }
+.lpOnePlaceSources { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.lpOnePlaceSource {
+  display:flex; flex-direction:column; align-items:center; gap:16px;
+  padding:28px 12px;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:var(--lp-radius);
+  background:var(--lp-surface);
+  color:var(--lp-muted);
+  font:500 clamp(13px,2vw,16px)/1.2 var(--lp-sans);
+}
+.lpOnePlaceSource svg { width:40px; height:40px; color:var(--lp-accent); }
+.lpOnePlaceLines { display:block; width:100%; height:72px; stroke:rgba(255,255,255,.22); stroke-width:1; }
+.lpOnePlaceDestination {
+  width:max-content; max-width:100%; margin:auto;
+  display:grid; grid-template-columns:76px 1fr; align-items:center; gap:7px 22px;
+  padding:22px 28px;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:var(--lp-radius);
+  background:var(--lp-surface);
+  box-shadow:0 12px 32px rgba(0,0,0,.35);
+}
+.lpOnePlaceDestination svg { width:30px; height:34px; grid-row:span 2; color:var(--lp-accent); }
+.lpOnePlaceDestination span { font:400 clamp(22px,3vw,30px)/1.1 var(--lp-serif); color:var(--lp-fg); }
+.lpOnePlaceDestination small { font:10px/1.4 var(--lp-mono); letter-spacing:.14em; text-transform:uppercase; color:var(--lp-dim); }
 @media(max-width:599px) {
  .lpOnePlace { margin-bottom:32px; }
  .lpOnePlaceSources { gap:8px; }
- .lpOnePlaceSource { padding:24px 3px; gap:16px; font-size:11px; }
- .lpOnePlaceSource svg { width:32px; height:32px; }
- .lpOnePlaceLines { height:65px; }
- .lpOnePlaceDestination { padding:20px 25px; }
+ .lpOnePlaceSource { padding:20px 6px; gap:12px; font-size:12px; }
+ .lpOnePlaceSource svg { width:28px; height:28px; }
+ .lpOnePlaceLines { height:56px; }
+ .lpOnePlaceDestination { grid-template-columns:60px 1fr; gap:7px 14px; padding:18px 16px; }
+ .lpOnePlaceMark { width:60px; height:52px; }
 }
 .lpQuestions .lpSectionHead { margin-left:auto; margin-right:auto; }
 
-/* Neutral surfaces; ambient motion stays on decoration, never the reading text. */
-.lpOnePlaceSource { border-color:rgba(255,255,255,.16); background:linear-gradient(145deg,rgba(255,255,255,.045),transparent); }
-.lpOnePlacePortrait { width:72px; height:80px; object-fit:cover; border-radius:4px; border:1px solid rgba(255,255,255,.2); box-shadow:0 0 25px rgba(255,255,255,.13); }
-.lpOnePlaceSource:last-child .lpOnePlacePortrait { object-fit:contain; background:#161616; padding:10px; }
-.lpOnePlaceLines { stroke:rgba(255,255,255,.3); }
-.lpOnePlaceDestination { border-color:rgba(255,255,255,.25); background:radial-gradient(ellipse at top,rgba(255,255,255,.07),transparent); box-shadow:0 0 50px rgba(255,255,255,.04); }
-.lpOnePlaceMark { width:76px; height:64px; object-fit:contain; grid-row:span 2; filter:drop-shadow(0 0 8px rgba(255,255,255,.4)); }
-@keyframes lpAmbientGlow { 0%,100% { filter:drop-shadow(0 0 4px rgba(255,255,255,.12)); } 50% { filter:drop-shadow(0 0 13px rgba(255,255,255,.32)); } }
-@keyframes lpAmbientFrame { 0%,100% { box-shadow:0 12px 40px rgba(0,0,0,.3),0 0 15px rgba(255,255,255,.025); } 50% { box-shadow:0 12px 40px rgba(0,0,0,.3),0 0 40px rgba(255,255,255,.16); } }
-@keyframes lpAmbientFlow { to { stroke-dashoffset:-80; } }
-@media(prefers-reduced-motion:no-preference) {
- .lpOnePlacePortrait,.lpOnePlaceMark,.lpStoryAvatarLogo,.lpStoryMarker { animation:lpAmbientGlow 7s ease-in-out infinite; }
- .lpOnePlaceSource:nth-child(2) .lpOnePlacePortrait { animation-delay:-2s; }
- .lpOnePlaceSource:nth-child(3) .lpOnePlacePortrait { animation-delay:-4s; }
- .lpHeroShotFrame,.lpHowFrame,.lpOnePlaceDestination { animation:lpAmbientFrame 9s ease-in-out infinite; }
- .lpHowRow:nth-child(2) .lpHowFrame { animation-delay:-4s; }
- .lpOnePlaceLines path { stroke-dasharray:4 7; animation:lpAmbientFlow 12s linear infinite; }
- .lpPlan--featured,.lpCtaBand .lpBtn { animation:lpAmbientFrame 10s ease-in-out infinite; }
+.lpOnePlacePortrait {
+  width:72px; height:80px; object-fit:cover;
+  border-radius:var(--lp-radius-sm);
+  border:1px solid rgba(255,255,255,.14);
 }
-@media(max-width:599px) { .lpOnePlacePortrait { width:48px; height:56px; } .lpOnePlaceSource:last-child .lpOnePlacePortrait { padding:5px; } }
+.lpOnePlaceSource:last-child .lpOnePlacePortrait { object-fit:contain; background:#0e0e10; padding:10px; }
+.lpOnePlaceMark { width:76px; height:64px; object-fit:contain; grid-row:span 2; }
 
-/* Slow ambient accents complement the existing scroll reveals. */
+/* Soft ambient motion - product chrome, not neon marketing */
+@keyframes lpAmbientGlow {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(168, 196, 255, 0.08)); }
+  50% { filter: drop-shadow(0 0 14px rgba(168, 196, 255, 0.22)); }
+}
+@keyframes lpAmbientFrame {
+  0%, 100% { box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.06); }
+  50% { box-shadow: 0 18px 48px rgba(0, 0, 0, 0.48), 0 0 28px rgba(168, 196, 255, 0.08); }
+}
+@keyframes lpAmbientFlow {
+  to { stroke-dashoffset: -80; }
+}
 @keyframes lpPreviewLight {
-  0%,100% { transform:translateX(-35%); opacity:.45; }
-  50% { transform:translateX(35%); opacity:.85; }
+  0%, 100% { transform: translateX(-30%); opacity: 0.25; }
+  50% { transform: translateX(30%); opacity: 0.55; }
 }
 @keyframes lpMarkerRipple {
-  0% { transform:scale(.65); opacity:0; }
-  25% { opacity:.28; }
-  85%,100% { transform:scale(2.2); opacity:0; }
+  0% { transform: scale(0.7); opacity: 0; }
+  30% { opacity: 0.35; }
+  100% { transform: scale(2.1); opacity: 0; }
 }
 @keyframes lpCtaHalo {
-  0%,100% { transform:translateX(-15%); opacity:.4; }
-  50% { transform:translateX(15%); opacity:.9; }
-}
-@media(prefers-reduced-motion:no-preference) {
- .lpHeroShotFrame::after,.lpHowFrame::after {
-  content:''; position:absolute; inset:0 -40%; pointer-events:none; z-index:2;
-  background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.14) 50%,transparent 65%);
-  animation:lpPreviewLight 10s ease-in-out infinite;
- }
- .lpHowRow:nth-child(2) .lpHowFrame::after { animation-delay:-5s; }
- .lpStoryMarker::after {
-  content:''; position:absolute; inset:-7px; border:1px solid currentColor;
-  border-radius:50%; pointer-events:none; animation:lpMarkerRipple 6s ease-out infinite;
- }
- .lpStoryMarker--news::after { animation-delay:-3s; }
- .lpCtaBand { position:relative; isolation:isolate; overflow:hidden; }
- .lpCtaBand::before {
-  content:''; position:absolute; inset:0; z-index:-1; pointer-events:none;
-  background:radial-gradient(ellipse at center,rgba(255,255,255,.12),transparent 65%);
-  animation:lpCtaHalo 10s ease-in-out infinite;
- }
- .lpCtaBand .lpBtn { animation:none; }
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.04); }
 }
 
-.lpOnePlaceDestination { grid-template-columns:76px 1fr; gap:7px 22px; }
-@media(max-width:599px) {
- .lpOnePlaceDestination { grid-template-columns:60px 1fr; gap:7px 14px; padding:20px; }
- .lpOnePlaceMark { width:60px; height:52px; }
+@media (prefers-reduced-motion: no-preference) {
+  .lpTogetherExplore .exploreFeaturedCard,
+  .lpStoryAvatarLogo,
+  .lpStoryNewsIcon,
+  .lpStoryMarker {
+    animation: lpAmbientGlow 8s ease-in-out infinite;
+  }
+  .lpTogetherExplore .exploreFeaturedCard:nth-child(2) { animation-delay: -2.5s; }
+  .lpTogetherExplore .exploreFeaturedCard:nth-child(3) { animation-delay: -5s; }
+  .lpHeroShotFrame,
+  .lpHowFrame {
+    animation: lpAmbientFrame 10s ease-in-out infinite;
+  }
+  .lpHowCard:nth-child(2) .lpHowFrame { animation-delay: -5s; }
+  .lpHeroShotFrame::after,
+  .lpHowFrame::after {
+    content: '';
+    position: absolute;
+    inset: 0 -35%;
+    pointer-events: none;
+    z-index: 2;
+    background: linear-gradient(110deg, transparent 38%, rgba(168, 196, 255, 0.1) 50%, transparent 62%);
+    animation: lpPreviewLight 11s ease-in-out infinite;
+  }
+  .lpHowCard:nth-child(2) .lpHowFrame::after { animation-delay: -5.5s; }
+  .lpStoryMarker::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    pointer-events: none;
+    animation: lpMarkerRipple 7s ease-out infinite;
+  }
+  .lpStoryMarker--news::after { animation-delay: -3.5s; }
+  .lpCtaBand {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .lpCtaBand::before {
+    content: '';
+    position: absolute;
+    inset: -20%;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, rgba(168, 196, 255, 0.1), transparent 62%);
+    animation: lpCtaHalo 12s ease-in-out infinite;
+  }
 }
