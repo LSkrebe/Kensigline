@@ -57,15 +57,6 @@ function darkCell(extra = ""): string {
   return `background-color:${C.bg};background-image:linear-gradient(${C.bg},${C.bg});${extra}`;
 }
 
-function sourceLabel(source: string): string {
-  const s = String(source ?? "").trim().toLowerCase();
-  if (s === "ptr" || s.includes("politic")) return "PTR";
-  if (s === "form4" || s === "form_4" || s.includes("insider") || s.includes("form 4")) return "Form 4";
-  if (s === "13f" || s.includes("institut")) return "13F";
-  if (!s) return "";
-  return s.toUpperCase().slice(0, 8);
-}
-
 function portraitImg(slide: DigestSlide): string {
   const src = slide.portraitUrl;
   if (!src) {
@@ -73,6 +64,17 @@ function portraitImg(slide: DigestSlide): string {
     return `<div style="width:48px;height:56px;border-radius:4px;background:#1a1a1e;color:${C.text};font-family:ui-sans-serif,system-ui,sans-serif;font-size:15px;font-weight:700;line-height:56px;text-align:center;">${letter}</div>`;
   }
   return `<img src="${escHtml(src)}" width="48" height="56" alt="" style="display:block;width:48px;height:56px;border-radius:4px;object-fit:cover;object-position:center 18%;border:0;outline:none;">`;
+}
+
+function companyLogoImg(slide: DigestSlide): string {
+  const src = slide.companyLogoUrl;
+  const letter = escHtml(
+    String(slide.companyName || slide.ticker || "?").trim().slice(0, 1).toUpperCase() || "?",
+  );
+  if (!src) {
+    return `<div style="width:40px;height:40px;border-radius:6px;background:#1a1a1e;color:${C.text};font-family:ui-sans-serif,system-ui,sans-serif;font-size:13px;font-weight:700;line-height:40px;text-align:center;">${letter}</div>`;
+  }
+  return `<img src="${escHtml(src)}" width="40" height="40" alt="" style="display:block;width:40px;height:40px;border-radius:6px;object-fit:contain;background:#111114;border:0;outline:none;">`;
 }
 
 function renderHeader(origin: string): string {
@@ -85,7 +87,6 @@ function renderHeader(origin: string): string {
               <img src="${origin}/mercerline_mark.png" width="24" height="24" alt="" style="display:inline-block;vertical-align:middle;border:0;outline:none;">
               <span style="display:inline-block;vertical-align:middle;margin-left:10px;font-family:Georgia,'Times New Roman',serif;font-size:17px;letter-spacing:0.02em;color:${C.text} !important;">Mercerline</span>
             </td>
-            <td valign="middle" align="right" style="vertical-align:middle;text-align:right;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${C.textMuted} !important;">Filing brief</td>
           </tr>
         </table>
       </td>
@@ -115,29 +116,21 @@ function renderFilingHero(dateLabel: string, count: number): string {
 }
 
 /**
- * Dossier date-page pattern: profile row, then event row.
- * No middle dots, no prose.
+ * Profile (face + name / type) → hairline → company (logo + name / move).
+ * Blank space between cards. No Form 4 / source labels.
  */
 function renderTradeRow(slide: DigestSlide): string {
   const url = eventUrl(slide);
   const name = slide.kicker || "Investor";
-  const action = slide.headline || "Disclosure";
-  const source = sourceLabel(slide.source);
-  const ticker = String(slide.ticker || "").trim().toUpperCase();
+  const investorType = slide.investorType;
+  const company = slide.companyName || slide.ticker || "Company";
   const move = slide.moveLabel
-    ? `<span style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;font-weight:700;letter-spacing:-0.02em;color:${moveColor(slide)} !important;white-space:nowrap;">${escHtml(slide.moveLabel)}</span>`
-    : "";
-
-  const eventMetaLeft = ticker
-    ? `<span style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;letter-spacing:0.04em;color:${C.textSoft} !important;">${escHtml(ticker)}</span>`
-    : "";
-  const eventMetaRight = source
-    ? `<span style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;letter-spacing:0.06em;color:${C.textSoft} !important;">${escHtml(source)}</span>`
+    ? `<p style="margin:4px 0 0 0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:14px;line-height:1.2;font-weight:700;letter-spacing:-0.02em;color:${moveColor(slide)} !important;">${escHtml(slide.moveLabel)}</p>`
     : "";
 
   return `
     <tr>
-      <td style="padding:18px 0;border-bottom:1px solid ${C.border};${darkCell()}">
+      <td style="padding:0 0 28px 0;${darkCell()}">
         <a href="${url}" style="text-decoration:none;color:inherit;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
@@ -146,24 +139,29 @@ function renderTradeRow(slide: DigestSlide): string {
               </td>
               <td valign="middle" style="vertical-align:middle;">
                 <p style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.2;font-weight:650;letter-spacing:-0.02em;color:${C.text} !important;">${escHtml(name)}</p>
+                ${
+                  investorType
+                    ? `<p style="margin:5px 0 0 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.2;font-weight:500;letter-spacing:-0.01em;color:${C.textMuted} !important;">${escHtml(investorType)}</p>`
+                    : ""
+                }
               </td>
             </tr>
             <tr>
-              <td colspan="2" style="padding-top:14px;">
+              <td colspan="2" style="padding:14px 0 14px 0;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
-                    <td valign="top" style="vertical-align:top;padding-right:12px;">
-                      <p style="margin:0 0 6px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.3;font-weight:600;letter-spacing:-0.01em;color:${C.text} !important;">${escHtml(action)}</p>
-                      <table role="presentation" cellpadding="0" cellspacing="0">
-                        <tr>
-                          ${eventMetaLeft ? `<td style="padding-right:12px;">${eventMetaLeft}</td>` : ""}
-                          ${eventMetaRight ? `<td>${eventMetaRight}</td>` : ""}
-                        </tr>
-                      </table>
-                    </td>
-                    <td width="64" valign="top" align="right" style="vertical-align:top;text-align:right;white-space:nowrap;padding-top:2px;">${move}</td>
+                    <td height="1" style="height:1px;line-height:1px;font-size:0;background:${C.border};">&nbsp;</td>
                   </tr>
                 </table>
+              </td>
+            </tr>
+            <tr>
+              <td width="60" valign="middle" style="vertical-align:middle;padding-right:12px;">
+                ${companyLogoImg(slide)}
+              </td>
+              <td valign="middle" style="vertical-align:middle;">
+                <p style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.2;font-weight:600;letter-spacing:-0.01em;color:${C.text} !important;">${escHtml(company)}</p>
+                ${move}
               </td>
             </tr>
           </table>
@@ -182,7 +180,9 @@ export function buildDigestSubject(content: DigestContent): string {
 export function buildDigestPreheader(content: DigestContent): string {
   const first = content.heroSlides[0] ?? content.headlineSlides[0];
   if (!first) return "New filings from your tracked investors.";
-  const text = [first.kicker, first.headline, first.ticker].filter(Boolean).join(" ");
+  const text = [first.kicker, first.companyName || first.ticker, first.moveLabel]
+    .filter(Boolean)
+    .join(" ");
   return text.length > 120 ? `${text.slice(0, 117)}…` : text;
 }
 
@@ -197,9 +197,9 @@ export function buildDigestPlainText(content: DigestContent): string {
   const all = [...content.heroSlides, ...content.headlineSlides];
   for (const slide of all) {
     lines.push(slide.kicker || "Investor");
-    lines.push(slide.headline || "Disclosure");
-    const bits = [slide.ticker, sourceLabel(slide.source), slide.moveLabel].filter(Boolean);
-    if (bits.length) lines.push(bits.join("  "));
+    if (slide.investorType) lines.push(slide.investorType);
+    lines.push(slide.companyName || slide.ticker || "Company");
+    if (slide.moveLabel) lines.push(slide.moveLabel);
     lines.push(eventUrl(slide));
     lines.push("");
   }

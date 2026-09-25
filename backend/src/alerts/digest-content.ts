@@ -16,11 +16,14 @@ export type DigestSlide = {
   summary: string;
   source: string;
   ticker: string;
+  companyName: string | null;
+  investorType: string | null;
   moveLabel: string | null;
   moveUp: boolean;
   sparklineUrl: string | null;
   actorSlug: string | null;
   portraitUrl: string | null;
+  companyLogoUrl: string | null;
 };
 
 export type DigestContent = {
@@ -49,6 +52,35 @@ function portraitUrlFor(slug: string | null): string | null {
   return `${frontendOrigin()}/investors/${encodeURIComponent(slug)}.webp`;
 }
 
+function companyLogoUrlFor(ticker: string | null | undefined): string | null {
+  const t = String(ticker ?? "")
+    .trim()
+    .toUpperCase();
+  if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(t)) return null;
+  return `${frontendOrigin()}/intro/company-logos/${encodeURIComponent(t)}.png`;
+}
+
+function catalogEntryForSlug(slug: string | null): (typeof EXPLORE_WATCHLIST_CATALOG)[number] | null {
+  if (!slug) return null;
+  const key = slug.toLowerCase();
+  return (
+    EXPLORE_WATCHLIST_CATALOG.find((entry) => entry.id === key || entry.slugs.some((s) => s.toLowerCase() === key)) ??
+    null
+  );
+}
+
+function investorTypeLabel(mode: string | null | undefined, source: string): string | null {
+  const m = String(mode ?? "").toLowerCase();
+  if (m === "politicians" || m === "politician") return "Politician";
+  if (m === "insiders" || m === "insider") return "Insider";
+  if (m === "institutions" || m === "institution") return "Institution";
+  const s = String(source ?? "").toLowerCase();
+  if (s.includes("ptr") || s.includes("politic")) return "Politician";
+  if (s.includes("form") || s.includes("insider")) return "Insider";
+  if (s.includes("13f") || s.includes("institut")) return "Institution";
+  return null;
+}
+
 async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide> {
   const priceSeries = Array.isArray(raw.priceSeries)
     ? raw.priceSeries.map((v) => Number(v)).filter((v) => Number.isFinite(v))
@@ -65,6 +97,11 @@ async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide
     catalogSlugForName(kicker) ||
     catalogSlugForName(String(raw.actorName ?? "")) ||
     null;
+  const catalog = catalogEntryForSlug(actorSlug) ?? catalogEntryForSlug(catalogSlugForName(kicker));
+  const ticker = String(raw.ticker ?? "").trim().toUpperCase();
+  const companyName =
+    String(raw.companyName ?? raw.issuerName ?? raw.company ?? "").trim() || (ticker ? ticker : null);
+  const source = String(raw.source ?? "");
 
   return {
     id: String(raw.id ?? ""),
@@ -72,13 +109,16 @@ async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide
     kicker,
     headline: String(raw.headline ?? "").trim(),
     summary: String(raw.summary ?? "").trim(),
-    source: String(raw.source ?? ""),
-    ticker: String(raw.ticker ?? "").trim().toUpperCase(),
+    source,
+    ticker,
+    companyName,
+    investorType: investorTypeLabel(catalog?.mode ?? String(raw.actorMode ?? raw.mode ?? ""), source),
     moveLabel: raw.moveLabel != null ? String(raw.moveLabel) : null,
     moveUp,
     sparklineUrl,
     actorSlug,
     portraitUrl: portraitUrlFor(actorSlug),
+    companyLogoUrl: companyLogoUrlFor(ticker),
   };
 }
 

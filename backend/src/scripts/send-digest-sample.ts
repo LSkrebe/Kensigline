@@ -35,19 +35,48 @@ function mockSlide(partial: Partial<DigestSlide> & Pick<DigestSlide, "id" | "hea
           ? "jensen-huang"
           : kicker === "Stanley Druckenmiller"
             ? "duquesne-family-office"
-            : null);
+            : kicker === "Coatue"
+              ? "coatue"
+              : null);
   const origin = process.env.FRONTEND_ORIGIN?.replace(/\/$/, "") || "https://mercerline.com";
+  const ticker = String(partial.ticker ?? "NVDA").trim().toUpperCase();
+  const source = partial.source ?? "ptr";
+  const investorType =
+    partial.investorType ??
+    (source === "ptr"
+      ? "Politician"
+      : source === "form4"
+        ? "Insider"
+        : source === "13f"
+          ? "Institution"
+          : null);
+  const companyName =
+    partial.companyName ??
+    (ticker === "NVDA"
+      ? "NVIDIA"
+      : ticker === "AAPL"
+        ? "Apple"
+        : ticker === "TSM"
+          ? "TSMC"
+          : ticker === "META"
+            ? "Meta"
+            : ticker === "AMZN"
+              ? "Amazon"
+              : ticker);
   return {
     typeId: "trade",
     kicker,
     summary: "",
-    source: "ptr",
-    ticker: "NVDA",
+    source,
+    ticker,
+    companyName,
+    investorType,
     moveLabel: null,
     moveUp: true,
     sparklineUrl: null,
     actorSlug,
     portraitUrl: actorSlug ? `${origin}/investors/${actorSlug}.webp` : null,
+    companyLogoUrl: ticker ? `${origin}/intro/company-logos/${ticker}.png` : null,
     ...partial,
   };
 }
