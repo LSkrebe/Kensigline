@@ -66,13 +66,6 @@ function sourceLabel(source: string): string {
   return s.toUpperCase().slice(0, 8);
 }
 
-/** One short meta line under the action — never prose. */
-function rowMeta(slide: DigestSlide): string {
-  const bits = [slide.kicker, slide.ticker, sourceLabel(slide.source)].filter(Boolean);
-  // Dedupe if kicker already equals ticker somehow
-  return [...new Set(bits)].join(" · ");
-}
-
 function portraitImg(slide: DigestSlide): string {
   const src = slide.portraitUrl;
   if (!src) {
@@ -111,10 +104,9 @@ function renderFilingHero(dateLabel: string, count: number): string {
             <td align="center" style="padding:0;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:240px;margin:0 auto;">
                 <tr>
-                  <td height="2" style="height:2px;line-height:2px;font-size:0;background:linear-gradient(90deg,rgba(92,184,138,0.25),${C.meter},rgba(92,184,138,0.25));border-radius:999px;">&nbsp;</td>
+                  <td height="2" style="height:2px;line-height:2px;font-size:0;background:${C.meter};border-radius:999px;">&nbsp;</td>
                 </tr>
               </table>
-              <div style="width:10px;height:10px;margin:-6px auto 0 auto;border:2px solid #b4e6cc;border-radius:50%;background:${C.meter};box-shadow:0 0 0 3px ${C.bg};"></div>
             </td>
           </tr>
         </table>
@@ -123,31 +115,56 @@ function renderFilingHero(dateLabel: string, count: number): string {
 }
 
 /**
- * Dossier date-page row: portrait | action + meta | move %.
- * No prose summary, no sparkline.
+ * Dossier date-page pattern: profile row, then event row.
+ * No middle dots, no prose.
  */
 function renderTradeRow(slide: DigestSlide): string {
   const url = eventUrl(slide);
+  const name = slide.kicker || "Investor";
+  const action = slide.headline || "Disclosure";
+  const source = sourceLabel(slide.source);
+  const ticker = String(slide.ticker || "").trim().toUpperCase();
   const move = slide.moveLabel
     ? `<span style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;font-weight:700;letter-spacing:-0.02em;color:${moveColor(slide)} !important;white-space:nowrap;">${escHtml(slide.moveLabel)}</span>`
-    : `<span style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:${C.textFaint} !important;">-</span>`;
-  const meta = rowMeta(slide);
-  const action = slide.headline || slide.kicker || "Disclosure";
+    : "";
+
+  const eventMetaLeft = ticker
+    ? `<span style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;letter-spacing:0.04em;color:${C.textSoft} !important;">${escHtml(ticker)}</span>`
+    : "";
+  const eventMetaRight = source
+    ? `<span style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;letter-spacing:0.06em;color:${C.textSoft} !important;">${escHtml(source)}</span>`
+    : "";
 
   return `
     <tr>
-      <td style="padding:16px 0;border-bottom:1px solid ${C.border};${darkCell()}">
+      <td style="padding:18px 0;border-bottom:1px solid ${C.border};${darkCell()}">
         <a href="${url}" style="text-decoration:none;color:inherit;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
             <tr>
               <td width="60" valign="middle" style="vertical-align:middle;padding-right:12px;">
                 ${portraitImg(slide)}
               </td>
-              <td valign="middle" style="vertical-align:middle;padding-right:12px;">
-                <p style="margin:0 0 4px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.25;font-weight:650;letter-spacing:-0.02em;color:${C.text} !important;">${escHtml(action)}</p>
-                <p style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:12px;line-height:1.3;font-weight:500;color:${C.textMuted} !important;">${escHtml(meta)}</p>
+              <td valign="middle" style="vertical-align:middle;">
+                <p style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.2;font-weight:650;letter-spacing:-0.02em;color:${C.text} !important;">${escHtml(name)}</p>
               </td>
-              <td width="64" valign="middle" align="right" style="vertical-align:middle;text-align:right;white-space:nowrap;">${move}</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="padding-top:14px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td valign="top" style="vertical-align:top;padding-right:12px;">
+                      <p style="margin:0 0 6px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.3;font-weight:600;letter-spacing:-0.01em;color:${C.text} !important;">${escHtml(action)}</p>
+                      <table role="presentation" cellpadding="0" cellspacing="0">
+                        <tr>
+                          ${eventMetaLeft ? `<td style="padding-right:12px;">${eventMetaLeft}</td>` : ""}
+                          ${eventMetaRight ? `<td>${eventMetaRight}</td>` : ""}
+                        </tr>
+                      </table>
+                    </td>
+                    <td width="64" valign="top" align="right" style="vertical-align:top;text-align:right;white-space:nowrap;padding-top:2px;">${move}</td>
+                  </tr>
+                </table>
+              </td>
             </tr>
           </table>
         </a>
@@ -158,14 +175,14 @@ function renderTradeRow(slide: DigestSlide): string {
 export function buildDigestSubject(content: DigestContent): string {
   const n = content.heroSlides.length + content.headlineSlides.length;
   const label = formatDigestDate(content.displayDayKey || content.dayKey);
-  if (n <= 0) return `Mercerline · ${label}`;
-  return `Mercerline · ${n} new disclosure${n === 1 ? "" : "s"} · ${label}`;
+  if (n <= 0) return `Mercerline - ${label}`;
+  return `Mercerline - ${n} new disclosure${n === 1 ? "" : "s"} - ${label}`;
 }
 
 export function buildDigestPreheader(content: DigestContent): string {
   const first = content.heroSlides[0] ?? content.headlineSlides[0];
   if (!first) return "New filings from your tracked investors.";
-  const text = [first.headline, first.kicker, first.ticker].filter(Boolean).join(" · ");
+  const text = [first.kicker, first.headline, first.ticker].filter(Boolean).join(" ");
   return text.length > 120 ? `${text.slice(0, 117)}…` : text;
 }
 
@@ -179,8 +196,10 @@ export function buildDigestPlainText(content: DigestContent): string {
 
   const all = [...content.heroSlides, ...content.headlineSlides];
   for (const slide of all) {
-    lines.push(slide.headline || slide.kicker);
-    lines.push(rowMeta(slide) + (slide.moveLabel ? `  ${slide.moveLabel}` : ""));
+    lines.push(slide.kicker || "Investor");
+    lines.push(slide.headline || "Disclosure");
+    const bits = [slide.ticker, sourceLabel(slide.source), slide.moveLabel].filter(Boolean);
+    if (bits.length) lines.push(bits.join("  "));
     lines.push(eventUrl(slide));
     lines.push("");
   }
