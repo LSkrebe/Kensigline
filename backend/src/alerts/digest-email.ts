@@ -97,7 +97,7 @@ function renderHeader(origin: string): string {
 }
 
 function renderHero(dateLabel: string, count: number): string {
-  const title = count === 1 ? "1 new disclosure" : `${count} new disclosures`;
+  const title = count === 1 ? "1 new event" : `${count} new events`;
   return `
     <tr>
       <td style="padding:0 0 8px 0;${cell()}">
@@ -115,7 +115,8 @@ function renderTradeCard(slide: DigestSlide): string {
   const url = eventUrl(slide);
   const name = slide.kicker || "Investor";
   const type = slide.investorType;
-  const company = slide.companyName || slide.ticker || "Company";
+  const ticker = String(slide.ticker || "").trim().toUpperCase() || "—";
+  const action = slide.actionLabel;
   const move = slide.moveLabel
     ? `<span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:16px;font-weight:700;letter-spacing:-0.02em;color:${moveColor(slide)};">${escHtml(slide.moveLabel)}</span>`
     : "";
@@ -163,9 +164,14 @@ function renderTradeCard(slide: DigestSlide): string {
                       ${companyLogoImg(slide)}
                     </td>
                     <td valign="middle" style="vertical-align:middle;">
-                      <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;line-height:1.2;font-weight:650;letter-spacing:-0.015em;color:${C.ink};">
-                        ${escHtml(company)}
+                      <p style="margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:16px;line-height:1.2;font-weight:700;letter-spacing:0.02em;color:${C.ink};">
+                        ${escHtml(ticker)}
                       </p>
+                      ${
+                        action
+                          ? `<p style="margin:5px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.2;font-weight:500;color:${C.muted};">${escHtml(action)}</p>`
+                          : ""
+                      }
                     </td>
                     <td width="78" valign="middle" align="right" style="vertical-align:middle;text-align:right;white-space:nowrap;padding-left:8px;">
                       ${move}
@@ -195,13 +201,13 @@ export function buildDigestSubject(content: DigestContent): string {
   const n = content.heroSlides.length + content.headlineSlides.length;
   const label = formatDigestDate(content.displayDayKey || content.dayKey);
   if (n <= 0) return `Mercerline - ${label}`;
-  return `Mercerline - ${n} new disclosure${n === 1 ? "" : "s"} - ${label}`;
+  return `Mercerline - ${n} new event${n === 1 ? "" : "s"} - ${label}`;
 }
 
 export function buildDigestPreheader(content: DigestContent): string {
   const first = content.heroSlides[0] ?? content.headlineSlides[0];
-  if (!first) return "New filings from your tracked investors.";
-  const text = [first.kicker, first.companyName || first.ticker, first.moveLabel]
+  if (!first) return "New events from your tracked investors.";
+  const text = [first.kicker, first.ticker, first.actionLabel, first.moveLabel]
     .filter(Boolean)
     .join(" ");
   return text.length > 120 ? `${text.slice(0, 117)}…` : text;
@@ -211,7 +217,7 @@ export function buildDigestPlainText(content: DigestContent): string {
   const lines: string[] = [];
   const label = formatDigestDate(content.displayDayKey || content.dayKey);
   const n = content.heroSlides.length + content.headlineSlides.length;
-  lines.push(`Mercerline - ${n} new disclosure${n === 1 ? "" : "s"}`);
+  lines.push(`Mercerline - ${n} new event${n === 1 ? "" : "s"}`);
   lines.push(label);
   lines.push("");
 
@@ -219,9 +225,8 @@ export function buildDigestPlainText(content: DigestContent): string {
   for (const slide of all) {
     lines.push(slide.kicker || "Investor");
     if (slide.investorType) lines.push(slide.investorType);
-    lines.push(
-      `${slide.companyName || slide.ticker || "Company"}${slide.moveLabel ? `  ${slide.moveLabel}` : ""}`,
-    );
+    const tickerLine = [slide.ticker || "—", slide.actionLabel, slide.moveLabel].filter(Boolean).join("  ");
+    lines.push(tickerLine);
     lines.push(eventUrl(slide));
     lines.push("");
   }
@@ -280,7 +285,7 @@ export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
           ${renderHero(dateLabel, count)}
           ${
             cardsHtml ||
-            `<tr><td style="padding:28px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:${C.muted};${cell()}">No new disclosures today.</td></tr>`
+            `<tr><td style="padding:28px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:${C.muted};${cell()}">No new events today.</td></tr>`
           }
           ${renderCta(origin)}
           <tr>

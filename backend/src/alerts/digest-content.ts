@@ -18,6 +18,7 @@ export type DigestSlide = {
   ticker: string;
   companyName: string | null;
   investorType: string | null;
+  actionLabel: string | null;
   moveLabel: string | null;
   moveUp: boolean;
   sparklineUrl: string | null;
@@ -81,6 +82,51 @@ function investorTypeLabel(mode: string | null | undefined, source: string): str
   return null;
 }
 
+/** Short one-word action under the ticker. */
+function actionLabelFromRaw(raw: Record<string, unknown>): string | null {
+  const typeId = String(raw.typeId ?? "").toLowerCase();
+  const headline = String(raw.headline ?? "").toLowerCase();
+  const side = String(raw.side ?? "").toLowerCase();
+  const activity = String(raw.activity ?? raw.docType ?? "").toLowerCase();
+  const text = `${typeId} ${headline} ${activity}`;
+
+  if (/new position|opened .+ position|open(ed)? position|\bnew\b/.test(headline) && /position|stake|13f/.test(text)) {
+    return "New";
+  }
+  if (activity.includes("new position") || (typeId.includes("13f_add") && /new/.test(headline))) {
+    return "New";
+  }
+  if (
+    typeId.includes("13f_trim") ||
+    /reduced stake|trimmed|decreas|reduc(ed|e)\b/.test(text) ||
+    (typeId.includes("13f") && side === "sell")
+  ) {
+    return "Decrease";
+  }
+  if (
+    typeId.includes("13f_add") ||
+    /increased stake|added|increas/.test(text) ||
+    (typeId.includes("13f") && side === "buy")
+  ) {
+    return "Increase";
+  }
+  if (typeId.includes("sale") || typeId.includes("sell") || side === "sell" || /\bsold\b|\bsale\b/.test(headline)) {
+    return "Sell";
+  }
+  if (
+    typeId.includes("purchase") ||
+    typeId.includes("buy") ||
+    side === "buy" ||
+    /\bbought\b|\bpurchase\b/.test(headline)
+  ) {
+    return "Buy";
+  }
+  if (/trim|reduc|decreas/.test(headline)) return "Decrease";
+  if (/increas|added/.test(headline)) return "Increase";
+  if (/\bnew\b|opened/.test(headline)) return "New";
+  return null;
+}
+
 async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide> {
   const priceSeries = Array.isArray(raw.priceSeries)
     ? raw.priceSeries.map((v) => Number(v)).filter((v) => Number.isFinite(v))
@@ -113,6 +159,7 @@ async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide
     ticker,
     companyName,
     investorType: investorTypeLabel(catalog?.mode ?? String(raw.actorMode ?? raw.mode ?? ""), source),
+    actionLabel: actionLabelFromRaw(raw),
     moveLabel: raw.moveLabel != null ? String(raw.moveLabel) : null,
     moveUp,
     sparklineUrl,
