@@ -57,19 +57,19 @@ export const INTRO_FOOTER = {
 }
 
 export function heroLead(pricing = DEFAULT_PRICING) {
-  return `Track insider, politician, and fund filings on US equities as they clear from ${formatUsd(pricing.monthlyUsd)}/mo.`
+  return `Watch who filed, what they bought, and how it performed — curated politicians, insiders, and funds from ${formatUsd(pricing.monthlyUsd)}/mo.`
 }
 
 /** Lead with optional struck list price for founders mode. */
 export function heroLeadParts(pricing = DEFAULT_PRICING) {
   if (pricing.waitlist) {
     return {
-      prefix: 'Track insider, politician, and fund filings on US equities as they clear.',
+      prefix: 'Watch who filed, what they bought, and how it performed — curated politicians, insiders, and funds.',
       listPrice: null,
       price: null,
     }
   }
-  const prefix = 'Track insider, politician, and fund filings on US equities as they clear from '
+  const prefix = 'Watch who filed, what they bought, and how it performed — curated politicians, insiders, and funds from '
   if (pricing.founders && pricing.monthlyListUsd) {
     return {
       prefix,
@@ -78,13 +78,13 @@ export function heroLeadParts(pricing = DEFAULT_PRICING) {
     }
   }
   return {
-    prefix: `${prefix}${formatUsd(pricing.monthlyUsd)}/mo.`,
+    prefix,
     listPrice: null,
-    price: null,
+    price: `${formatUsd(pricing.monthlyUsd)}/mo.`,
   }
 }
 
-const HERO_HEADLINE = 'See who filed before the story breaks'
+const HERO_HEADLINE = 'See who bought before the headline hits'
 
 export function heroCopy(pricing = DEFAULT_PRICING) {
   if (pricing.waitlist) {
@@ -104,9 +104,9 @@ export function heroCopy(pricing = DEFAULT_PRICING) {
       brand: 'Mercerline',
       headline: HERO_HEADLINE,
       lead: null,
-      ctaPrimary: 'Get 50% off',
-      ctaSecondary: 'Learn more',
-      note: 'Limited early access offer',
+      ctaPrimary: 'Start now — 50% off',
+      ctaSecondary: 'See how it works',
+      note: 'Founders pricing · cancel anytime',
     }
   }
   return {
@@ -114,9 +114,9 @@ export function heroCopy(pricing = DEFAULT_PRICING) {
     brand: 'Mercerline',
     headline: HERO_HEADLINE,
     lead: heroLead(pricing),
-    ctaPrimary: 'See pricing',
-    ctaSecondary: 'Learn more',
-    note: 'Pay once, start using Mercerline immediately',
+    ctaPrimary: 'Start tracking',
+    ctaSecondary: 'See how it works',
+    note: 'Pay once · open Explore immediately',
   }
 }
 
@@ -130,9 +130,13 @@ export function introClosingCopy(pricing = DEFAULT_PRICING) {
   }
   if (pricing.founders) {
     return {
-      title: 'Stay ahead of the headline',
+      title: 'See who is ahead — then subscribe',
       ctaPrimary: 'Pick your plan',
     }
+  }
+  return {
+    title: 'Stop refreshing EDGAR. Start tracking winners.',
+    ctaPrimary: 'Start tracking',
   }
   return {
     title: 'Track disclosures while they still matter',
@@ -250,29 +254,29 @@ export const ORIGIN_STORY = {
 /** Deeper value block — after product walkthrough, before social proof. */
 export const INTRO_DEPTH = {
   kicker: 'The gap',
-  title: 'Filings are public. Attention is not.',
-  lead: 'Mercerline assembles what cleared overnight so you open one workspace instead of five tabs.',
+  title: 'Filings are public. Rankings are not.',
+  lead: 'Autopilot Explore surfaces who is ahead on real returns — then one tap opens the dossier behind the number.',
   shot: 'deepInvestor',
   points: [
     {
       id: 'recap',
-      label: 'Daily recap',
-      body: 'Form 4, PTR, and 13F in one feed, updated as disclosures clear.',
+      label: 'Explore ranking',
+      body: 'Politicians, insiders, and funds sorted by performance, not noise.',
     },
     {
       id: 'filers',
-      label: 'Investor rail',
-      body: 'Open the filer for trade history, related tickers, and outcomes.',
+      label: 'Stock vs options',
+      body: 'Buys labeled clearly so a derivative does not look like a cash equity.',
     },
     {
       id: 'context',
-      label: 'Company context',
-      body: 'Jump into the issuer when a filing clears the bar.',
+      label: 'Filing brief',
+      body: 'Email when tracked names disclose — portraits and short change rows.',
     },
     {
       id: 'sources',
       label: 'Coverage',
-      body: 'SEC EDGAR, earnings, press, and macro data across US, EU, UK, and CN.',
+      body: 'Form 4, PTR, and 13F on a curated ~50 investor universe.',
     },
   ],
 }
@@ -296,14 +300,14 @@ function shotMeta(name, alt) {
 /** Screenshot section labels for the intro page. */
 export const EXPLORE_SHOT = {
   kicker: 'Explore',
-  title: 'See what filed as it clears',
-  lead: 'The daily recap shows new Form 4, PTR, and 13F filings in one place, updated as they come in.',
+  title: 'Who is winning — then what just filed',
+  lead: 'Ranked performers with live returns, featured portraits, and today’s disclosures in one Autopilot-style feed.',
 }
 
 export const INVESTOR_SHOT = {
   kicker: 'Investor dossier',
-  title: 'Open the investor behind the filing',
-  lead: 'You get trade history, track record, and related tickers on one page instead of jumping across different sites.',
+  title: 'Open the person behind the %',
+  lead: 'Trade history, stock vs option labels, amounts, and the track record on one scroll.',
 }
 
 export const MARKETING_SHOTS = {
@@ -342,35 +346,35 @@ export const INTRO_SCREENSHOTS = {
 export const PILLARS = [
   {
     id: 'recap',
-    title: 'Daily disclosure recap',
-    body: 'Form 4, PTR, and 13F that cleared the bar, assembled each session so you see what filed instead of what went viral.',
+    title: 'Autopilot Explore',
+    body: 'Ranked politicians, insiders, and funds with live returns — so you open the winners first, not the loudest names.',
   },
   {
     id: 'investors',
     title: 'Investor dossiers',
-    body: 'Open the filer, whether insider, politician, or institution, and stay on one rail of disclosures, related tickers, and outcomes.',
+    body: 'Every disclosure behind the number: Form 4, PTR, 13F, stock vs options, amounts, and outcomes on one rail.',
   },
   {
     id: 'companies',
-    title: 'Company context when it matters',
-    body: 'Jump from a disclosure into the issuer with price, filings, and fundamentals, only when the ticker deserves a closer look.',
+    title: 'Filing brief email',
+    body: 'When they disclose, you get a short dark brief with portraits and the move — not another EDGAR tab.',
   },
 ]
 
 export const PRODUCT = {
   kicker: 'How it works',
-  title: 'Track the filing. Know the filer.',
-  lead: 'Insiders, politicians, and big funds are all on the same rail, from the daily recap to the dossier.',
+  title: 'Ranked filers. Real returns. One feed.',
+  lead: 'Politicians, insiders, and funds on one Autopilot-style Explore — portraits, performance, and the trades behind them.',
 }
 
 /** Focused previews, rather than a tour of every page. */
 export const HOW_IT_WORKS = {
   kicker: 'Inside Mercerline',
-  title: 'Start with the trade. Follow what happens next.',
+  title: 'Open Explore. See who is winning. Drill in.',
   lead: '',
   steps: [
-    { id:'recap', label:'The daily view', title:'Know what deserves a closer look.', body:'The people you follow. Their latest disclosures, together.', shot:'watchlist' },
-    { id:'filer', label:'The investor view', title:'A trade is only the beginning.', body:'The investor, their track record, and the trades behind it.', shot:'deepInvestor' },
+    { id:'recap', label:'Explore', title:'Top performers and today’s filings, ranked.', body:'Featured cards, return chips, and the people worth opening first.', shot:'watchlist' },
+    { id:'filer', label:'Dossier', title:'Every disclosure behind the number.', body:'Stock buys vs options, amounts, and the track record on one scroll.', shot:'deepInvestor' },
   ],
 }
 
@@ -378,20 +382,20 @@ export const HOW_IT_WORKS = {
 export const COVERAGE_NOTE = null
 
 export const COVERAGE_STRIP = {
-  label: 'Tracking disclosures across 500+ issuers',
+  label: 'Curated politicians, insiders, and active funds — not the whole market noise',
 }
 
 /** Standalone coverage section — header, dual marquees, proof band between rows. */
 export const INTRO_COVERAGE = {
   kicker: 'Coverage',
-  title: 'Every name that matters, already in the feed',
-  lead: 'Mercerline tracks disclosures across 500+ US issuers, from mega-cap tech to the names that file after hours.',
+  title: 'The names that move markets, already tracked',
+  lead: 'A curated universe of politicians, corporate insiders, and active managers — Form 4, PTR, and 13F in one place.',
   stats: [
-    { value: '500+', label: 'Issuers tracked' },
-    { value: 'Daily', label: 'Recap clears', featured: true },
+    { value: '~50', label: 'Tracked investors' },
+    { value: 'Live', label: 'Filing brief email', featured: true },
     {
-      value: '10+',
-      label: 'Disclosure types',
+      value: '3',
+      label: 'Disclosure rails',
     },
   ],
 }
@@ -420,23 +424,23 @@ export const SOURCES = {
 }
 
 export const PLAN_FEATURES = [
-  'Explore home with daily disclosure recap',
+  'Explore with ranked performers and live returns',
   'Investor dossiers (Form 4, PTR, 13F)',
-  'Company dossiers when you need issuer context',
-  'Macro calendar across four regions',
-  'Historical outcomes after filings',
+  'Company context when a ticker shows up',
+  'Filing brief email when they disclose',
+  'Stock vs option labeling done right',
   'Settings and self-serve billing',
 ]
 
 /** Compact labels for subscribe — same chip treatment as intro Coverage. */
 export const SUBSCRIBE_FEATURES = {
   items: [
-    'Daily recap',
-    'Investor list',
+    'Ranked Explore',
     'Investor dossiers',
     'Company dossiers',
-    'Macro calendar',
-    'Track record',
+    'Filing brief email',
+    'Live returns',
+    'Self-serve billing',
   ],
 }
 
@@ -480,7 +484,7 @@ export function introFaq(pricing = DEFAULT_PRICING) {
     return [
       {
         q: 'What is Mercerline for?',
-        a: 'Tracking US equity disclosures, including insider Form 4, politician PTR, and institution 13F, with investor dossiers and company context when you need it.',
+        a: 'Autopilot-style Explore for US equity disclosures — ranked politicians, insiders, and funds with Form 4, PTR, and 13F.',
       },
       {
         q: 'When does access open?',
@@ -488,7 +492,7 @@ export function introFaq(pricing = DEFAULT_PRICING) {
       },
       {
         q: 'What will I get on day one?',
-        a: 'Full access to Explore, investor and company dossiers, and the macro calendar.',
+        a: 'Full access to Explore rankings, investor and company dossiers, and the filing brief email.',
       },
       {
         q: 'Is this investment advice?',
@@ -499,14 +503,14 @@ export function introFaq(pricing = DEFAULT_PRICING) {
   return [
     {
       q: 'What is Mercerline for?',
-      a: 'Tracking US equity disclosures, including insider Form 4, politician PTR, and institution 13F, with investor dossiers and company context when you need it.',
+      a: 'Autopilot-style Explore for US equity disclosures — ranked politicians, insiders, and funds with Form 4, PTR, and 13F, plus dossiers when you drill in.',
     },
     {
       q: 'What do I get on day one?',
-      a: 'Full access to Explore, investor and company dossiers, and the macro calendar.',
-  },
-  {
-    q: 'Can I cancel?',
+      a: 'Full access to Explore rankings, investor and company dossiers, and the filing brief email.',
+    },
+    {
+      q: 'Can I cancel?',
       a: `Yes. ${formatUsd(pricing.monthlyUsd)}/mo or ${formatUsd(pricing.yearlyUsd)}/yr with Whop. Manage billing anytime in Settings.`,
     },
     {
@@ -515,9 +519,9 @@ export function introFaq(pricing = DEFAULT_PRICING) {
     },
     {
       q: 'Is this investment advice?',
-    a: 'No. Mercerline is a research workspace only.',
-  },
-]
+      a: 'No. Mercerline is a research workspace only.',
+    },
+  ]
 }
 
 /** @deprecated Prefer introFaq(pricing) */
@@ -555,7 +559,7 @@ export function subscribeCopy(pricing = DEFAULT_PRICING) {
         yearly: 'Lock in 50% off',
       },
       closing: {
-        title: 'Stay ahead of the headline',
+        title: 'See who is ahead — then subscribe',
         cta: 'Pick your plan',
       },
     }
@@ -563,14 +567,14 @@ export function subscribeCopy(pricing = DEFAULT_PRICING) {
   return {
     eyebrow: 'Subscribe',
     headline: 'Choose your plan',
-    lead: 'Full disclosure access from day one.',
+    lead: 'Full Explore access from day one — ranked filers, dossiers, filing brief.',
     reassurance: 'Secure Whop checkout. Cancel anytime.',
     planCta: {
       monthly: 'Continue with monthly',
       yearly: 'Continue with yearly',
     },
     closing: {
-      title: 'Track disclosures while they still matter',
+      title: 'Stop refreshing EDGAR. Start tracking winners.',
       cta: 'See plans',
     },
   }

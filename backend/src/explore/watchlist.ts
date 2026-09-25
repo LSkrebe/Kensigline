@@ -124,6 +124,7 @@ async function loadPoliticianRows(slugs: string[]): Promise<RawTxnRow[]> {
       WHERE f.slug = ANY($1::text[])
         AND i.ticker IS NOT NULL
         AND f.slug <> 'politician'
+        AND t.asset_name LIKE '%[ST]%'
       ORDER BY t.transaction_at DESC, t.id DESC
       `,
       [slugs],

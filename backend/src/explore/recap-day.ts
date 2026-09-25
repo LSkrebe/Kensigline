@@ -108,6 +108,7 @@ export async function buildExploreRecapDayPayload(opts?: { lookbackDays?: number
       JOIN issuers i ON i.id = t.issuer_id
       WHERE i.ticker IS NOT NULL
         AND length(trim(i.ticker)) BETWEEN 1 AND 6
+        AND t.asset_name LIKE '%[ST]%'
         AND t.transaction_at >= (now() AT TIME ZONE 'UTC')::date - ($1::int || ' days')::interval
         AND t.transaction_at::date <= (now() AT TIME ZONE 'UTC')::date
       ORDER BY t.transaction_at DESC
@@ -297,6 +298,7 @@ export async function buildExploreDirectoryEvents(opts?: { lookbackDays?: number
       JOIN filers f ON f.id = t.filer_id
       JOIN issuers i ON i.id = t.issuer_id
       WHERE i.ticker IS NOT NULL
+        AND t.asset_name LIKE '%[ST]%'
         AND t.transaction_at >= (now() AT TIME ZONE 'UTC')::date - ($1::int || ' days')::interval
       ORDER BY t.transaction_at DESC
       LIMIT 200

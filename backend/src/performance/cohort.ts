@@ -240,6 +240,7 @@ async function build() {
       SELECT t.filer_id, sum(coalesce(t.amount_usd_mid, t.amount_usd, 0))::float8 AS invested_usd
       FROM politician_transactions t
       WHERE t.filer_id IN (SELECT id FROM catalog)
+        AND t.asset_name LIKE '%[ST]%'
         AND t.transaction_at >= $1::date
         AND t.transaction_at < $2::date + interval '1 day'
         AND coalesce(t.amount_usd_mid, t.amount_usd, 0) > 0

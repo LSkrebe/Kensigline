@@ -186,13 +186,19 @@ export function parseOge278tPdfText(pdfText: string, pdfUrl: string): ParsedOge2
     if(!validRanges.has(bounds.join(':')))continue;
     const ticker = parseTickerFromAsset(asset_name);
 
+    const isOption = /\b(option|warrant|call|put)\b/i.test(asset_name);
+    const isNonStock = /bond|note|treasury|municipal|debenture|fund|ETF/i.test(asset_name);
+    let asset_type: string | null = null;
+    if (isOption) asset_type = "OP";
+    else if (!isNonStock && (ticker || /stock/i.test(asset_name))) asset_type = "ST";
+
     if (!transaction_type || !transaction_date) continue;
 
     transactions.push({
       owner: null,
       asset_name: asset_name || null,
       ticker,
-      asset_type: /bond|note|treasury|municipal|debenture|option|warrant|fund|ETF/i.test(asset_name) ? null : ticker || /stock/i.test(asset_name) ? "ST" : null,
+      asset_type,
       transaction_type,
       transaction_date,
       notification_date: filed_at,

@@ -3,6 +3,10 @@ import { sparklineSeriesParam } from "./digest-sparkline.js";
 import { buildExploreRecapDayPayload } from "../explore/recap-day.js";
 import { evaluateRecapForHome } from "../explore/recap-evaluate-home.js";
 import { splitRecapSlidesForHome } from "../explore/recap-split-home.js";
+import {
+  EXPLORE_WATCHLIST_CATALOG,
+  normalizeTrackedName,
+} from "../explore/watchlist-catalog.js";
 
 export type DigestSlide = {
   id: string;
@@ -15,6 +19,8 @@ export type DigestSlide = {
   moveLabel: string | null;
   moveUp: boolean;
   sparklineUrl: string | null;
+  actorSlug: string | null;
+  portraitUrl: string | null;
 };
 
 export type DigestContent = {
@@ -26,6 +32,23 @@ export type DigestContent = {
   generatedAt: string;
 };
 
+function catalogSlugForName(raw: string | null | undefined): string | null {
+  const key = normalizeTrackedName(raw);
+  if (!key) return null;
+  for (const entry of EXPLORE_WATCHLIST_CATALOG) {
+    if (normalizeTrackedName(entry.name) === key) return entry.id;
+    if (entry.matchNames.some((n) => normalizeTrackedName(n) === key)) return entry.id;
+    const parts = normalizeTrackedName(entry.name).split(" ").filter(Boolean);
+    if (parts.length >= 2 && parts.every((p) => key.includes(p))) return entry.id;
+  }
+  return null;
+}
+
+function portraitUrlFor(slug: string | null): string | null {
+  if (!slug) return null;
+  return `${frontendOrigin()}/investors/${encodeURIComponent(slug)}.webp`;
+}
+
 async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide> {
   const priceSeries = Array.isArray(raw.priceSeries)
     ? raw.priceSeries.map((v) => Number(v)).filter((v) => Number.isFinite(v))
@@ -36,10 +59,17 @@ async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide
       ? `${frontendOrigin()}/api/alerts/sparkline.png?d=${encodeURIComponent(sparklineSeriesParam(priceSeries))}`
       : null;
 
+  const kicker = String(raw.kicker ?? raw.actorName ?? "Today");
+  const actorSlug =
+    (raw.actorSlug != null ? String(raw.actorSlug).trim().toLowerCase() : "") ||
+    catalogSlugForName(kicker) ||
+    catalogSlugForName(String(raw.actorName ?? "")) ||
+    null;
+
   return {
     id: String(raw.id ?? ""),
     typeId: String(raw.typeId ?? ""),
-    kicker: String(raw.kicker ?? "Today"),
+    kicker,
     headline: String(raw.headline ?? "").trim(),
     summary: String(raw.summary ?? "").trim(),
     source: String(raw.source ?? ""),
@@ -47,6 +77,8 @@ async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide
     moveLabel: raw.moveLabel != null ? String(raw.moveLabel) : null,
     moveUp,
     sparklineUrl,
+    actorSlug,
+    portraitUrl: portraitUrlFor(actorSlug),
   };
 }
 

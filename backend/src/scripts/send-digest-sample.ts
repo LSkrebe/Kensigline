@@ -24,15 +24,30 @@ function readArg(flag: string): string | null {
 }
 
 function mockSlide(partial: Partial<DigestSlide> & Pick<DigestSlide, "id" | "headline">): DigestSlide {
+  const kicker = partial.kicker ?? "Nancy Pelosi";
+  const actorSlug =
+    partial.actorSlug ??
+    (kicker === "Nancy Pelosi"
+      ? "nancy-pelosi"
+      : kicker === "Berkshire Hathaway"
+        ? "berkshire-hathaway"
+        : kicker === "Jensen Huang"
+          ? "jensen-huang"
+          : kicker === "Stanley Druckenmiller"
+            ? "duquesne-family-office"
+            : null);
+  const origin = process.env.FRONTEND_ORIGIN?.replace(/\/$/, "") || "https://mercerline.com";
   return {
     typeId: "trade",
-    kicker: "Nancy Pelosi",
+    kicker,
     summary: "",
     source: "ptr",
     ticker: "NVDA",
     moveLabel: null,
     moveUp: true,
     sparklineUrl: null,
+    actorSlug,
+    portraitUrl: actorSlug ? `${origin}/investors/${actorSlug}.webp` : null,
     ...partial,
   };
 }

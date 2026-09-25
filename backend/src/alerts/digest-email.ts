@@ -3,19 +3,22 @@ import type { ResendAttachment } from "./resend.js";
 import type { DigestContent, DigestSlide } from "./digest-content.js";
 import { SPARKLINE_DISPLAY_H, SPARKLINE_DISPLAY_W } from "./digest-sparkline.js";
 
-/** Match Explore / filing date page — #080809, white type, hairline rules. */
+/**
+ * Filing-brief email — keep dark #080809 shell, but use near-solid type so
+ * mail clients cannot crush translucent whites into unreadable gray-on-black.
+ */
 const C = {
   bg: "#080809",
   text: "#ffffff",
-  textSoft: "rgba(255,255,255,0.72)",
-  textMuted: "rgba(255,255,255,0.42)",
-  textFaint: "rgba(255,255,255,0.28)",
-  border: "rgba(255,255,255,0.12)",
-  borderSoft: "rgba(255,255,255,0.08)",
-  up: "rgba(92,184,138,0.92)",
-  down: "rgba(212,114,106,0.92)",
-  meter: "rgba(92,184,138,0.95)",
-  btnBorder: "rgba(255,255,255,0.22)",
+  textSoft: "#e8e8ea",
+  textMuted: "#c4c4c8",
+  textFaint: "#a0a0a6",
+  border: "rgba(255,255,255,0.18)",
+  borderSoft: "rgba(255,255,255,0.12)",
+  up: "#5cb88a",
+  down: "#d4726a",
+  meter: "#5cb88a",
+  btnBorder: "rgba(255,255,255,0.28)",
 };
 
 export type DigestEmailBundle = {
@@ -55,6 +58,15 @@ function darkCell(extra = ""): string {
   return `background-color:${C.bg};background-image:linear-gradient(${C.bg},${C.bg});${extra}`;
 }
 
+function portraitImg(slide: DigestSlide): string {
+  const src = slide.portraitUrl;
+  if (!src) {
+    const letter = escHtml(String(slide.kicker || "?").trim().slice(0, 1).toUpperCase() || "?");
+    return `<div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.1);color:${C.text};font-family:ui-sans-serif,system-ui,sans-serif;font-size:16px;font-weight:700;line-height:44px;text-align:center;">${letter}</div>`;
+  }
+  return `<img src="${escHtml(src)}" width="44" height="44" alt="" style="display:block;width:44px;height:44px;border-radius:12px;object-fit:cover;border:0;outline:none;">`;
+}
+
 function renderHeader(origin: string): string {
   return `
     <tr>
@@ -72,25 +84,22 @@ function renderHeader(origin: string): string {
     </tr>`;
 }
 
-/** Centered date-page style hero (title + meter). */
 function renderFilingHero(dateLabel: string, count: number): string {
-  const title =
-    count === 1 ? "1 new disclosure" : `${count} new disclosures`;
+  const title = count === 1 ? "1 new disclosure" : `${count} new disclosures`;
   return `
     <tr>
       <td align="center" style="padding:36px 0 8px 0;text-align:center;${darkCell()}">
         <p style="margin:0 0 18px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:13px;font-weight:500;letter-spacing:-0.01em;color:${C.textMuted};">${escHtml(dateLabel)}</p>
         <h1 style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-0.03em;color:${C.text};">${escHtml(title)}</h1>
-        <!-- meter -->
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:26px 0 0 0;">
           <tr>
             <td align="center" style="padding:0;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:280px;margin:0 auto;">
                 <tr>
-                  <td height="2" style="height:2px;line-height:2px;font-size:0;background:linear-gradient(90deg,rgba(92,184,138,0.08),rgba(92,184,138,0.95),rgba(92,184,138,0.08));border-radius:999px;">&nbsp;</td>
+                  <td height="2" style="height:2px;line-height:2px;font-size:0;background:linear-gradient(90deg,rgba(92,184,138,0.2),${C.meter},rgba(92,184,138,0.2));border-radius:999px;">&nbsp;</td>
                 </tr>
               </table>
-              <div style="width:12px;height:12px;margin:-7px auto 0 auto;border:2px solid rgba(180,230,204,0.95);border-radius:50%;background:${C.meter};box-shadow:0 0 0 3px ${C.bg};"></div>
+              <div style="width:12px;height:12px;margin:-7px auto 0 auto;border:2px solid #b4e6cc;border-radius:50%;background:${C.meter};box-shadow:0 0 0 3px ${C.bg};"></div>
             </td>
           </tr>
         </table>
@@ -98,27 +107,28 @@ function renderFilingHero(dateLabel: string, count: number): string {
     </tr>`;
 }
 
-/** Trade / filing list row — date-page section rhythm. */
+/** Compact profile-change row: portrait | copy | move. */
 function renderTradeRow(slide: DigestSlide): string {
   const url = eventUrl(slide);
   const move = slide.moveLabel
-    ? `<span style="font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:14px;font-weight:650;color:${moveColor(slide)};white-space:nowrap;">${escHtml(slide.moveLabel)}</span>`
+    ? `<span style="font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:14px;font-weight:700;color:${moveColor(slide)};white-space:nowrap;">${escHtml(slide.moveLabel)}</span>`
     : `<span style="font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:14px;color:${C.textFaint};">—</span>`;
   const sparkline = slide.sparklineUrl
     ? `<img src="${slide.sparklineUrl}" width="${SPARKLINE_DISPLAY_W}" height="${SPARKLINE_DISPLAY_H}" alt="" style="display:block;border:0;outline:none;margin:10px 0 0 0;width:${SPARKLINE_DISPLAY_W}px;height:${SPARKLINE_DISPLAY_H}px;">`
     : "";
-  const ticker = slide.ticker
-    ? `<span style="font-family:ui-monospace,Menlo,monospace;font-size:11px;font-weight:600;letter-spacing:0.06em;color:${C.textMuted};">${escHtml(slide.ticker)}</span>`
-    : "";
+  const meta = [slide.kicker, slide.ticker].filter(Boolean).join(" · ");
 
   return `
     <tr>
-      <td style="padding:22px 0;border-bottom:1px solid ${C.border};${darkCell()}">
+      <td style="padding:18px 0;border-bottom:1px solid ${C.border};${darkCell()}">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
-            <td valign="top" style="vertical-align:top;padding-right:16px;">
-              <p style="margin:0 0 6px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.02em;color:${C.textMuted};">${escHtml(slide.kicker)}${ticker ? ` · ${ticker}` : ""}</p>
-              <p style="margin:0 0 8px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:17px;line-height:1.35;font-weight:650;letter-spacing:-0.02em;">
+            <td width="52" valign="top" style="vertical-align:top;padding-right:12px;">
+              <a href="${url}" style="text-decoration:none;">${portraitImg(slide)}</a>
+            </td>
+            <td valign="top" style="vertical-align:top;padding-right:12px;">
+              <p style="margin:0 0 4px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:12px;font-weight:600;letter-spacing:0.01em;color:${C.textMuted};">${escHtml(meta)}</p>
+              <p style="margin:0 0 6px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.35;font-weight:650;letter-spacing:-0.02em;">
                 <a href="${url}" style="color:${C.text};text-decoration:none;">${escHtml(slide.headline)}</a>
               </p>
               ${
@@ -128,7 +138,7 @@ function renderTradeRow(slide: DigestSlide): string {
               }
               ${sparkline}
             </td>
-            <td width="88" valign="top" align="right" style="vertical-align:top;text-align:right;white-space:nowrap;">${move}</td>
+            <td width="72" valign="top" align="right" style="vertical-align:top;text-align:right;white-space:nowrap;">${move}</td>
           </tr>
         </table>
       </td>
@@ -138,20 +148,23 @@ function renderTradeRow(slide: DigestSlide): string {
 function renderHeadlineRow(slide: DigestSlide): string {
   const url = eventUrl(slide);
   const move = slide.moveLabel
-    ? `<span style="font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:13px;font-weight:650;color:${moveColor(slide)};">${escHtml(slide.moveLabel)}</span>`
+    ? `<span style="font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:13px;font-weight:700;color:${moveColor(slide)};">${escHtml(slide.moveLabel)}</span>`
     : "";
   return `
     <tr>
-      <td style="padding:16px 0;border-bottom:1px solid ${C.borderSoft};${darkCell()}">
+      <td style="padding:14px 0;border-bottom:1px solid ${C.borderSoft};${darkCell()}">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
+            <td width="44" valign="middle" style="vertical-align:middle;padding-right:10px;">
+              <a href="${url}" style="text-decoration:none;">${portraitImg(slide)}</a>
+            </td>
             <td valign="middle" style="vertical-align:middle;padding-right:12px;">
-              <p style="margin:0 0 4px 0;font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:${C.textFaint};">${escHtml(slide.kicker)}${slide.ticker ? ` · ${escHtml(slide.ticker)}` : ""}</p>
+              <p style="margin:0 0 3px 0;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:0.04em;color:${C.textMuted};">${escHtml(slide.kicker)}${slide.ticker ? ` · ${escHtml(slide.ticker)}` : ""}</p>
               <p style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.4;font-weight:600;letter-spacing:-0.02em;">
                 <a href="${url}" style="color:${C.text};text-decoration:none;">${escHtml(slide.headline)}</a>
               </p>
             </td>
-            <td width="72" valign="middle" align="right" style="vertical-align:middle;text-align:right;">${move}</td>
+            <td width="64" valign="middle" align="right" style="vertical-align:middle;text-align:right;">${move}</td>
           </tr>
         </table>
       </td>
@@ -213,6 +226,7 @@ function darkModeStyles(): string {
     body, .ml-body { background-color:${C.bg} !important; color:${C.text} !important; }
     a { color:inherit; }
     table { border-collapse:collapse; }
+    img { border:0; outline:none; }
     @media(max-width:480px) {
       .ml-pad { padding-left:20px !important; padding-right:20px !important; }
       h1 { font-size:22px !important; }
