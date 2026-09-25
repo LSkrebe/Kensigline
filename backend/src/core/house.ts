@@ -91,14 +91,25 @@ async function postHouseMemberSearch(opts: { filingYear: number; lastName?: stri
   return await r.text();
 }
 
-export async function listHousePtrPdfs(opts: { filingYear: number; max?: number }): Promise<HousePtrListing[]> {
-  const html = await postHouseMemberSearch({ filingYear: opts.filingYear, lastName: "" });
+export async function listHousePtrPdfs(opts: {
+  filingYear: number;
+  max?: number;
+  lastName?: string;
+}): Promise<HousePtrListing[]> {
+  const html = await postHouseMemberSearch({
+    filingYear: opts.filingYear,
+    lastName: opts.lastName ?? "",
+  });
   const rows = parseHouseMemberSearchHtml(html, opts.filingYear);
   const max = Math.max(1, Math.min(2000, Number(opts.max ?? 400)));
   return rows.slice(0, max);
 }
 
-export async function listHousePtrPdfsWithRetry(opts: { filingYear: number; max?: number }): Promise<HousePtrListing[]> {
+export async function listHousePtrPdfsWithRetry(opts: {
+  filingYear: number;
+  max?: number;
+  lastName?: string;
+}): Promise<HousePtrListing[]> {
   const tries = 3;
   for (let i = 0; i < tries; i++) {
     try {

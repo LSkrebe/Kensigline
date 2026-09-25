@@ -528,19 +528,32 @@ export async function resolveInstitutionNameFromCik(cikInput: string): Promise<s
   }
 }
 
+type SubmissionsFilingArrays = {
+  accessionNumber?: string[];
+  filingDate?: string[];
+  reportDate?: string[];
+  acceptanceDateTime?: string[];
+  form?: string[];
+  primaryDocument?: string[];
+};
+
 type Submissions = {
   cik: string;
   name?: string;
   filings?: {
-    recent?: {
-      accessionNumber?: string[];
-      filingDate?: string[];
-      reportDate?: string[];
-      acceptanceDateTime?: string[];
-      form?: string[];
-      primaryDocument?: string[];
-    };
+    recent?: SubmissionsFilingArrays;
+    files?: Array<{ name?: string; filingCount?: number }>;
   };
+};
+
+type EnqueueCikFilingsResult = {
+  cik: string;
+  name: string | null;
+  forms: string[];
+  found: number;
+  enqueued: number;
+  skipped_existing: number;
+  pages: number;
 };
 
 function accessionToArchivePath(cik10: string, accession: string) {
@@ -1013,6 +1026,107 @@ export async function enqueueLatestFilingsForTicker(opts: {
   }
 
   return { ticker, cik, forms: formsWanted, found, enqueued, skipped_existing, queue_ids };
+}
+
+function padCik10(cik: string): string {
+  const digits = String(cik ?? "").replace(/\D/g, "");
+  return digits.padStart(10, "0").slice(-10);
+}
+
+function normalizeFormWanted(forms: string[]): Set<string> {
+  return new Set(forms.map((f) => String(f).trim().toUpperCase()).filter(Boolean));
+}
+
+function formMatchesWanted(form: string, wanted: Set<string>): boolean {
+  const f = String(form ?? "").trim().toUpperCase();
+  if (!f) return false;
+  if (wanted.has(f)) return true;
+  // Accept amendments when base form requested (4 ↔ 4/A, 13F-HR ↔ 13F-HR/A).
+  const base = f.replace(/\/A$/, "");
+  return wanted.has(base);
+}
+
+/**
+ * Enqueue every matching filing for a filer CIK via submissions recent + historical files.
+ * Used for curated full-history (insider Form 3/4/5, institution 13F) without daily-index flood.
+ */
+export async function enqueueAllSecFilingsForCik(opts: {
+  cik: string;
+  forms: string[];
+  sourceType: string;
+  priority?: number;
+  minFilingDate?: string | null;
+}): Promise<EnqueueCikFilingsResult> {
+  const cik10 = padCik10(opts.cik);
+  const formsWanted = normalizeFormWanted(opts.forms);
+  const sourceType = String(opts.sourceType ?? "").trim() || "sec_filing";
+  const priority = Number.isFinite(opts.priority) ? Math.floor(opts.priority!) : 1;
+  const minMs = opts.minFilingDate
+    ? Date.parse(`${String(opts.minFilingDate).trim()}T00:00:00Z`)
+    : NaN;
+
+  const root = (await secFetchJson(`https://data.sec.gov/submissions/CIK${cik10}.json`)) as Submissions;
+  const pages: SubmissionsFilingArrays[] = [];
+  if (root.filings?.recent) pages.push(root.filings.recent);
+  for (const file of root.filings?.files ?? []) {
+    const name = String(file?.name ?? "").trim();
+    if (!name) continue;
+    const extra = (await secFetchJson(`https://data.sec.gov/submissions/${name}`)) as SubmissionsFilingArrays;
+    pages.push(extra);
+  }
+
+  let found = 0;
+  let enqueued = 0;
+  let skipped_existing = 0;
+
+  for (const page of pages) {
+    const forms = page.form ?? [];
+    const accs = page.accessionNumber ?? [];
+    const dates = page.filingDate ?? [];
+    for (let i = 0; i < forms.length; i++) {
+      if (!formMatchesWanted(String(forms[i] ?? ""), formsWanted)) continue;
+      const accession = accs[i];
+      if (!accession) continue;
+      const filed = dates[i] ? Date.parse(`${dates[i]}T00:00:00Z`) : NaN;
+      if (Number.isFinite(minMs) && Number.isFinite(filed) && filed < minMs) continue;
+      found += 1;
+      const indexUrl = accessionToIndexJsonUrl(cik10, accession);
+      const existing = await db.one<{ id: string }>(
+        `
+        SELECT id FROM document_queue WHERE url = $1 AND source_type = $2
+        UNION ALL
+        SELECT id FROM filings WHERE url = $1
+        LIMIT 1
+        `,
+        [indexUrl, sourceType],
+      );
+      if (existing) {
+        skipped_existing += 1;
+        continue;
+      }
+      const r = await db.one<{ id: string }>(
+        `
+        INSERT INTO document_queue (url, source_type, status, priority, attempts, next_attempt_at)
+        VALUES ($1, $2, 'ready_to_parse', $3, 0, now())
+        ON CONFLICT (url, source_type) DO NOTHING
+        RETURNING id
+        `,
+        [indexUrl, sourceType, priority],
+      );
+      if (r?.id) enqueued += 1;
+      else skipped_existing += 1;
+    }
+  }
+
+  return {
+    cik: cik10,
+    name: root.name ? String(root.name) : null,
+    forms: [...formsWanted],
+    found,
+    enqueued,
+    skipped_existing,
+    pages: pages.length,
+  };
 }
 
 type FilingIndexJson = { directory?: { item?: Array<{ name?: string; size?: number }> } };

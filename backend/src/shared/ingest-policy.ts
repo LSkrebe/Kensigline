@@ -8,9 +8,13 @@ function envInt(key: string, fallback: number, min: number, max: number): number
   return Math.max(min, Math.min(max, Math.floor(n)));
 }
 
-/** How far back idle backfill may walk (days). Hard ceiling: 1 year. */
+/**
+ * How far back idle backfill may walk (days).
+ * Default 365 for light catch-up; raise toward BACKFILL_MIN_DATE (e.g. 5475 ≈ 15y)
+ * for curated full-history runs. Hard ceiling ~20y so env typos cannot unbounded-walk.
+ */
 export function backfillMaxAgeDays(): number {
-  return envInt("BACKFILL_MAX_AGE_DAYS", 365, 7, 365);
+  return envInt("BACKFILL_MAX_AGE_DAYS", 365, 7, 7300);
 }
 
 function parseIsoDateUtc(raw: string): Date | null {
