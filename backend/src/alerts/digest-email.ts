@@ -3,22 +3,18 @@ import type { ResendAttachment } from "./resend.js";
 import type { DigestContent, DigestSlide } from "./digest-content.js";
 
 /**
- * Filing brief for inboxes.
- * Force a stable light canvas — Gmail/Apple dark-mode inversion wrecks custom dark HTML.
- * Brand mark is a baked dark-tile PNG so it never washes out.
+ * Filing brief — intentional dark canvas with solid colors only.
+ * Gmail dark mode inverts light templates; baked mark + CTA images stay readable.
  */
 const C = {
-  page: "#e8e7e2",
-  paper: "#ffffff",
-  card: "#f7f6f2",
-  ink: "#111111",
-  muted: "#5f675f",
-  rule: "#ddd9d0",
-  cardBorder: "#cfcabe",
-  up: "#0f7a45",
-  down: "#c0352b",
-  cta: "#111111",
-  ctaText: "#ffffff",
+  bg: "#080809",
+  card: "#141416",
+  ink: "#ffffff",
+  muted: "#b8b8bc",
+  rule: "#2a2a2e",
+  cardBorder: "#2e2e32",
+  up: "#5cb88a",
+  down: "#d4726a",
 };
 
 export type DigestEmailBundle = {
@@ -54,11 +50,11 @@ function moveColor(slide: DigestSlide): string {
   return slide.moveUp ? C.up : C.down;
 }
 
-function paper(extra = ""): string {
-  return `background-color:${C.paper};${extra}`;
+function cell(extra = ""): string {
+  return `background-color:${C.bg};${extra}`;
 }
 
-function cardBg(extra = ""): string {
+function cardCell(extra = ""): string {
   return `background-color:${C.card};${extra}`;
 }
 
@@ -66,7 +62,7 @@ function portraitImg(slide: DigestSlide): string {
   const src = slide.portraitUrl;
   if (!src) {
     const letter = escHtml(String(slide.kicker || "?").trim().slice(0, 1).toUpperCase() || "?");
-    return `<div style="width:48px;height:56px;border-radius:4px;background-color:#ebe8e1;color:${C.ink};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;line-height:56px;text-align:center;">${letter}</div>`;
+    return `<div style="width:48px;height:56px;border-radius:4px;background-color:#1c1c20;color:${C.ink};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;line-height:56px;text-align:center;">${letter}</div>`;
   }
   return `<img src="${escHtml(src)}" width="48" height="56" alt="" style="display:block;width:48px;height:56px;border-radius:4px;object-fit:cover;object-position:center 18%;border:0;">`;
 }
@@ -77,15 +73,15 @@ function companyLogoImg(slide: DigestSlide): string {
     String(slide.companyName || slide.ticker || "?").trim().slice(0, 1).toUpperCase() || "?",
   );
   if (!src) {
-    return `<div style="width:40px;height:40px;border-radius:6px;background-color:#ebe8e1;color:${C.ink};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;line-height:40px;text-align:center;">${letter}</div>`;
+    return `<div style="width:40px;height:40px;border-radius:6px;background-color:#1c1c20;color:${C.ink};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;line-height:40px;text-align:center;">${letter}</div>`;
   }
-  return `<img src="${escHtml(src)}" width="40" height="40" alt="" style="display:block;width:40px;height:40px;border-radius:6px;object-fit:contain;background-color:#ffffff;border:1px solid ${C.rule};">`;
+  return `<img src="${escHtml(src)}" width="40" height="40" alt="" style="display:block;width:40px;height:40px;border-radius:6px;object-fit:contain;background-color:#ffffff;border:0;">`;
 }
 
 function renderHeader(origin: string): string {
   return `
     <tr>
-      <td style="padding:0 0 28px 0;${paper()}">
+      <td style="padding:0 0 26px 0;${cell()}">
         <table role="presentation" cellpadding="0" cellspacing="0">
           <tr>
             <td valign="middle" style="vertical-align:middle;padding-right:12px;">
@@ -104,7 +100,7 @@ function renderHero(dateLabel: string, count: number): string {
   const title = count === 1 ? "1 new disclosure" : `${count} new disclosures`;
   return `
     <tr>
-      <td style="padding:0 0 8px 0;${paper()}">
+      <td style="padding:0 0 8px 0;${cell()}">
         <p style="margin:0 0 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.3;font-weight:500;color:${C.muted};">
           ${escHtml(dateLabel)}
         </p>
@@ -115,9 +111,6 @@ function renderHero(dateLabel: string, count: number): string {
     </tr>`;
 }
 
-/**
- * One disclosure = one bordered card: person, rule, company + move.
- */
 function renderTradeCard(slide: DigestSlide): string {
   const url = eventUrl(slide);
   const name = slide.kicker || "Investor";
@@ -125,15 +118,15 @@ function renderTradeCard(slide: DigestSlide): string {
   const company = slide.companyName || slide.ticker || "Company";
   const move = slide.moveLabel
     ? `<span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:16px;font-weight:700;letter-spacing:-0.02em;color:${moveColor(slide)};">${escHtml(slide.moveLabel)}</span>`
-    : `<span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;color:${C.muted};">View</span>`;
+    : "";
 
   return `
     <tr>
-      <td style="padding:16px 0 0 0;${paper()}">
+      <td style="padding:16px 0 0 0;${cell()}">
         <a href="${url}" style="text-decoration:none;color:${C.ink};display:block;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.card}" style="border:1px solid ${C.cardBorder};border-radius:12px;overflow:hidden;${cardBg()}">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.card}" style="border:1px solid ${C.cardBorder};border-radius:12px;overflow:hidden;${cardCell()}">
             <tr>
-              <td style="padding:16px 16px 14px 16px;${cardBg()}">
+              <td style="padding:16px 16px 14px 16px;${cardCell()}">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
                     <td width="60" valign="middle" style="vertical-align:middle;padding-right:14px;">
@@ -154,7 +147,7 @@ function renderTradeCard(slide: DigestSlide): string {
               </td>
             </tr>
             <tr>
-              <td style="padding:0 16px;${cardBg()}">
+              <td style="padding:0 16px;${cardCell()}">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
                     <td height="1" style="height:1px;line-height:1px;font-size:0;background-color:${C.rule};">&nbsp;</td>
@@ -163,7 +156,7 @@ function renderTradeCard(slide: DigestSlide): string {
               </td>
             </tr>
             <tr>
-              <td style="padding:14px 16px 16px 16px;${cardBg()}">
+              <td style="padding:14px 16px 16px 16px;${cardCell()}">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
                     <td width="54" valign="middle" style="vertical-align:middle;padding-right:14px;">
@@ -190,16 +183,10 @@ function renderTradeCard(slide: DigestSlide): string {
 function renderCta(origin: string): string {
   return `
     <tr>
-      <td style="padding:26px 0 0 0;${paper()}">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td align="center" bgcolor="${C.cta}" style="background-color:${C.cta};border-radius:11px;">
-              <a class="ml-cta" href="${origin}/explore" style="display:inline-block;width:100%;padding:15px 18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.2;font-weight:700;letter-spacing:-0.01em;color:${C.ctaText} !important;text-decoration:none;text-align:center;box-sizing:border-box;">
-                Open Explore
-              </a>
-            </td>
-          </tr>
-        </table>
+      <td style="padding:26px 0 0 0;${cell()}">
+        <a href="${origin}/explore" style="text-decoration:none;display:block;">
+          <img src="${origin}/digest-cta.png" width="492" height="48" alt="Open Explore" style="display:block;width:100%;max-width:492px;height:auto;border:0;border-radius:11px;">
+        </a>
       </td>
     </tr>`;
 }
@@ -249,17 +236,16 @@ export function buildDigestPlainText(content: DigestContent): string {
 
 function styles(): string {
   return `
-    :root { color-scheme: light only; supported-color-schemes: light; }
-    body, .ml-body, .ml-shell, .ml-card {
-      background-color:${C.page} !important;
+    :root { color-scheme: dark; supported-color-schemes: dark; }
+    body, .ml-body, .ml-shell {
+      background-color:${C.bg} !important;
       color:${C.ink} !important;
     }
-    a { text-decoration:none; }
-    a.ml-cta { color:${C.ctaText} !important; }
+    a { text-decoration:none; color:inherit; }
     table { border-collapse:collapse; }
     img { border:0; outline:none; text-decoration:none; }
     @media (max-width:480px) {
-      .ml-pad { padding-left:14px !important; padding-right:14px !important; }
+      .ml-pad { padding-left:16px !important; padding-right:16px !important; }
       h1 { font-size:24px !important; }
     }
   `;
@@ -278,40 +264,27 @@ export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light only">
-  <meta name="supported-color-schemes" content="light">
+  <meta name="color-scheme" content="dark">
+  <meta name="supported-color-schemes" content="dark">
   <meta name="x-apple-disable-message-reformatting">
   <title>${escHtml(buildDigestSubject(content))}</title>
   <style type="text/css">${styles()}</style>
-  <!--[if mso]>
-  <style type="text/css">
-    body, table, td { background-color:${C.page} !important; }
-  </style>
-  <![endif]-->
 </head>
-<body class="ml-body" bgcolor="${C.page}" style="margin:0;padding:0;background-color:${C.page};color:${C.ink};">
+<body class="ml-body" bgcolor="${C.bg}" style="margin:0;padding:0;background-color:${C.bg};color:${C.ink};">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">${preheader}</div>
-  <table role="presentation" class="ml-shell" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.page}" style="background-color:${C.page};">
+  <table role="presentation" class="ml-shell" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}" style="background-color:${C.bg};">
     <tr>
-      <td align="center" class="ml-pad" bgcolor="${C.page}" style="padding:24px 16px 40px 16px;background-color:${C.page};">
-        <table role="presentation" class="ml-card" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.paper}" style="max-width:540px;background-color:${C.paper};border-radius:16px;overflow:hidden;">
-          <tr>
-            <td style="padding:28px 24px 30px 24px;${paper()}">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                ${renderHeader(origin)}
-                ${renderHero(dateLabel, count)}
-                ${
-                  cardsHtml ||
-                  `<tr><td style="padding:28px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:${C.muted};${paper()}">No new disclosures today.</td></tr>`
-                }
-                ${renderCta(origin)}
-              </table>
-            </td>
-          </tr>
-        </table>
+      <td align="center" class="ml-pad" bgcolor="${C.bg}" style="padding:28px 16px 40px 16px;background-color:${C.bg};">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;">
+          ${renderHeader(origin)}
+          ${renderHero(dateLabel, count)}
+          ${
+            cardsHtml ||
+            `<tr><td style="padding:28px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:${C.muted};${cell()}">No new disclosures today.</td></tr>`
+          }
+          ${renderCta(origin)}
           <tr>
-            <td align="center" style="padding:18px 10px 0 10px;text-align:center;background-color:${C.page};">
+            <td align="center" style="padding:22px 8px 0 8px;text-align:center;${cell()}">
               <p style="margin:0 0 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;color:${C.muted};">Sent when tracked investors file.</p>
               <p style="margin:0 0 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;">
                 <a href="mailto:research@mercerline.com" style="color:${C.muted};text-decoration:none;">research@mercerline.com</a>
