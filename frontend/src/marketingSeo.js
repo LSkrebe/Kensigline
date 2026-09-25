@@ -267,13 +267,13 @@ export function renderSeoBootHtml(pricing = SEO_PRICING) {
           <h2 id="seo-coverage">Coverage</h2>
           <p>
             Form 4, House PTR, Senate PTR, Executive PTR, 13F, SEC EDGAR, earnings transcripts, press, 8-K,
-            and macro calendars for the US, EU, UK, and China.
+            Form 4, House PTR, Senate PTR, Executive PTR, 13F, and SEC EDGAR on a curated investor universe.
           </p>
         </section>
 
         <section aria-labelledby="seo-pricing">
           <h2 id="seo-pricing">Pricing</h2>
-          <p>${escapeHtml(priceLine)} Full access to Explore, investor dossiers, company context, and macro calendar.</p>
+          <p>${escapeHtml(priceLine)} Full access to Explore rankings, investor dossiers, and the filing brief.</p>
         </section>
 
         <section aria-labelledby="seo-learn">
