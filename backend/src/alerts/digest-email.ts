@@ -8,12 +8,13 @@ import type { DigestContent, DigestSlide } from "./digest-content.js";
  * Brand mark is a baked dark-tile PNG so it never washes out.
  */
 const C = {
-  page: "#ecece8",
+  page: "#e8e7e2",
   paper: "#ffffff",
+  card: "#f7f6f2",
   ink: "#111111",
-  muted: "#66706a",
-  rule: "#e6e4de",
-  cardBorder: "#ddd9d0",
+  muted: "#5f675f",
+  rule: "#ddd9d0",
+  cardBorder: "#cfcabe",
   up: "#0f7a45",
   down: "#c0352b",
   cta: "#111111",
@@ -55,6 +56,10 @@ function moveColor(slide: DigestSlide): string {
 
 function paper(extra = ""): string {
   return `background-color:${C.paper};${extra}`;
+}
+
+function cardBg(extra = ""): string {
+  return `background-color:${C.card};${extra}`;
 }
 
 function portraitImg(slide: DigestSlide): string {
@@ -124,11 +129,11 @@ function renderTradeCard(slide: DigestSlide): string {
 
   return `
     <tr>
-      <td style="padding:14px 0 0 0;${paper()}">
+      <td style="padding:16px 0 0 0;${paper()}">
         <a href="${url}" style="text-decoration:none;color:${C.ink};display:block;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.paper}" style="border:1px solid ${C.cardBorder};border-radius:12px;overflow:hidden;${paper()}">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.card}" style="border:1px solid ${C.cardBorder};border-radius:12px;overflow:hidden;${cardBg()}">
             <tr>
-              <td style="padding:16px 16px 14px 16px;${paper()}">
+              <td style="padding:16px 16px 14px 16px;${cardBg()}">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
                     <td width="60" valign="middle" style="vertical-align:middle;padding-right:14px;">
@@ -149,7 +154,7 @@ function renderTradeCard(slide: DigestSlide): string {
               </td>
             </tr>
             <tr>
-              <td style="padding:0 16px;${paper()}">
+              <td style="padding:0 16px;${cardBg()}">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
                     <td height="1" style="height:1px;line-height:1px;font-size:0;background-color:${C.rule};">&nbsp;</td>
@@ -158,7 +163,7 @@ function renderTradeCard(slide: DigestSlide): string {
               </td>
             </tr>
             <tr>
-              <td style="padding:14px 16px 16px 16px;${paper()}">
+              <td style="padding:14px 16px 16px 16px;${cardBg()}">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
                     <td width="54" valign="middle" style="vertical-align:middle;padding-right:14px;">
@@ -189,16 +194,9 @@ function renderCta(origin: string): string {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td align="center" bgcolor="${C.cta}" style="background-color:${C.cta};border-radius:11px;">
-              <!--[if mso]>
-              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${origin}/explore" style="height:46px;v-text-anchor:middle;width:100%;" arcsize="12%" fillcolor="${C.cta}" stroke="f">
-              <center style="color:${C.ctaText};font-family:sans-serif;font-size:14px;font-weight:700;">Open Explore</center>
-              </v:roundrect>
-              <![endif]-->
-              <!--[if !mso]><!-- -->
-              <a href="${origin}/explore" style="display:block;width:100%;padding:15px 18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;letter-spacing:-0.01em;color:${C.ctaText};text-decoration:none;text-align:center;box-sizing:border-box;">
+              <a class="ml-cta" href="${origin}/explore" style="display:inline-block;width:100%;padding:15px 18px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.2;font-weight:700;letter-spacing:-0.01em;color:${C.ctaText} !important;text-decoration:none;text-align:center;box-sizing:border-box;">
                 Open Explore
               </a>
-              <!--<![endif]-->
             </td>
           </tr>
         </table>
@@ -256,7 +254,8 @@ function styles(): string {
       background-color:${C.page} !important;
       color:${C.ink} !important;
     }
-    a { color:inherit !important; text-decoration:none; }
+    a { text-decoration:none; }
+    a.ml-cta { color:${C.ctaText} !important; }
     table { border-collapse:collapse; }
     img { border:0; outline:none; text-decoration:none; }
     @media (max-width:480px) {
