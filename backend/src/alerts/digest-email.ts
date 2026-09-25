@@ -1,24 +1,23 @@
 import { frontendOrigin } from "./config.js";
 import type { ResendAttachment } from "./resend.js";
 import type { DigestContent, DigestSlide } from "./digest-content.js";
-import { SPARKLINE_DISPLAY_H, SPARKLINE_DISPLAY_W } from "./digest-sparkline.js";
 
 /**
- * Filing-brief email — keep dark #080809 shell, but use near-solid type so
- * mail clients cannot crush translucent whites into unreadable gray-on-black.
+ * Filing-brief email — dossier date-row density, solid near-white type.
+ * Avoid translucent whites; mail clients crush them into unreadable gray.
  */
 const C = {
   bg: "#080809",
   text: "#ffffff",
-  textSoft: "#e8e8ea",
-  textMuted: "#c4c4c8",
-  textFaint: "#a0a0a6",
-  border: "rgba(255,255,255,0.18)",
-  borderSoft: "rgba(255,255,255,0.12)",
+  textSoft: "#f5f5f7",
+  textMuted: "#ececee",
+  textFaint: "#d0d0d4",
+  border: "#2a2a2e",
+  borderSoft: "#1e1e22",
   up: "#5cb88a",
   down: "#d4726a",
   meter: "#5cb88a",
-  btnBorder: "rgba(255,255,255,0.28)",
+  btnBorder: "#3a3a40",
 };
 
 export type DigestEmailBundle = {
@@ -58,26 +57,42 @@ function darkCell(extra = ""): string {
   return `background-color:${C.bg};background-image:linear-gradient(${C.bg},${C.bg});${extra}`;
 }
 
+function sourceLabel(source: string): string {
+  const s = String(source ?? "").trim().toLowerCase();
+  if (s === "ptr" || s.includes("politic")) return "PTR";
+  if (s === "form4" || s === "form_4" || s.includes("insider") || s.includes("form 4")) return "Form 4";
+  if (s === "13f" || s.includes("institut")) return "13F";
+  if (!s) return "";
+  return s.toUpperCase().slice(0, 8);
+}
+
+/** One short meta line under the action — never prose. */
+function rowMeta(slide: DigestSlide): string {
+  const bits = [slide.kicker, slide.ticker, sourceLabel(slide.source)].filter(Boolean);
+  // Dedupe if kicker already equals ticker somehow
+  return [...new Set(bits)].join(" · ");
+}
+
 function portraitImg(slide: DigestSlide): string {
   const src = slide.portraitUrl;
   if (!src) {
     const letter = escHtml(String(slide.kicker || "?").trim().slice(0, 1).toUpperCase() || "?");
-    return `<div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.1);color:${C.text};font-family:ui-sans-serif,system-ui,sans-serif;font-size:16px;font-weight:700;line-height:44px;text-align:center;">${letter}</div>`;
+    return `<div style="width:48px;height:56px;border-radius:4px;background:#1a1a1e;color:${C.text};font-family:ui-sans-serif,system-ui,sans-serif;font-size:15px;font-weight:700;line-height:56px;text-align:center;">${letter}</div>`;
   }
-  return `<img src="${escHtml(src)}" width="44" height="44" alt="" style="display:block;width:44px;height:44px;border-radius:12px;object-fit:cover;border:0;outline:none;">`;
+  return `<img src="${escHtml(src)}" width="48" height="56" alt="" style="display:block;width:48px;height:56px;border-radius:4px;object-fit:cover;object-position:center 18%;border:0;outline:none;">`;
 }
 
 function renderHeader(origin: string): string {
   return `
     <tr>
-      <td style="padding:18px 0 16px 0;border-bottom:1px solid ${C.borderSoft};${darkCell()}">
+      <td style="padding:16px 0 14px 0;border-bottom:1px solid ${C.borderSoft};${darkCell()}">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr>
             <td valign="middle" style="vertical-align:middle;">
-              <img src="${origin}/mercerline_mark.png" width="26" height="26" alt="" style="display:inline-block;vertical-align:middle;border:0;outline:none;">
-              <span style="display:inline-block;vertical-align:middle;margin-left:10px;font-family:Georgia,'Times New Roman',serif;font-size:18px;letter-spacing:0.02em;color:${C.text};">Mercerline</span>
+              <img src="${origin}/mercerline_mark.png" width="24" height="24" alt="" style="display:inline-block;vertical-align:middle;border:0;outline:none;">
+              <span style="display:inline-block;vertical-align:middle;margin-left:10px;font-family:Georgia,'Times New Roman',serif;font-size:17px;letter-spacing:0.02em;color:${C.text} !important;">Mercerline</span>
             </td>
-            <td valign="middle" align="right" style="vertical-align:middle;text-align:right;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.04em;color:${C.textMuted};">Filing brief</td>
+            <td valign="middle" align="right" style="vertical-align:middle;text-align:right;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${C.textMuted} !important;">Filing brief</td>
           </tr>
         </table>
       </td>
@@ -88,18 +103,18 @@ function renderFilingHero(dateLabel: string, count: number): string {
   const title = count === 1 ? "1 new disclosure" : `${count} new disclosures`;
   return `
     <tr>
-      <td align="center" style="padding:36px 0 8px 0;text-align:center;${darkCell()}">
-        <p style="margin:0 0 18px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:13px;font-weight:500;letter-spacing:-0.01em;color:${C.textMuted};">${escHtml(dateLabel)}</p>
-        <h1 style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:26px;line-height:1.2;font-weight:700;letter-spacing:-0.03em;color:${C.text};">${escHtml(title)}</h1>
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:26px 0 0 0;">
+      <td align="center" style="padding:28px 0 6px 0;text-align:center;${darkCell()}">
+        <p style="margin:0 0 12px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:13px;font-weight:500;letter-spacing:-0.01em;color:${C.textMuted} !important;">${escHtml(dateLabel)}</p>
+        <h1 style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:24px;line-height:1.2;font-weight:700;letter-spacing:-0.03em;color:${C.text} !important;">${escHtml(title)}</h1>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:22px 0 0 0;">
           <tr>
             <td align="center" style="padding:0;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:280px;margin:0 auto;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:240px;margin:0 auto;">
                 <tr>
-                  <td height="2" style="height:2px;line-height:2px;font-size:0;background:linear-gradient(90deg,rgba(92,184,138,0.2),${C.meter},rgba(92,184,138,0.2));border-radius:999px;">&nbsp;</td>
+                  <td height="2" style="height:2px;line-height:2px;font-size:0;background:linear-gradient(90deg,rgba(92,184,138,0.25),${C.meter},rgba(92,184,138,0.25));border-radius:999px;">&nbsp;</td>
                 </tr>
               </table>
-              <div style="width:12px;height:12px;margin:-7px auto 0 auto;border:2px solid #b4e6cc;border-radius:50%;background:${C.meter};box-shadow:0 0 0 3px ${C.bg};"></div>
+              <div style="width:10px;height:10px;margin:-6px auto 0 auto;border:2px solid #b4e6cc;border-radius:50%;background:${C.meter};box-shadow:0 0 0 3px ${C.bg};"></div>
             </td>
           </tr>
         </table>
@@ -107,66 +122,35 @@ function renderFilingHero(dateLabel: string, count: number): string {
     </tr>`;
 }
 
-/** Compact profile-change row: portrait | copy | move. */
+/**
+ * Dossier date-page row: portrait | action + meta | move %.
+ * No prose summary, no sparkline.
+ */
 function renderTradeRow(slide: DigestSlide): string {
   const url = eventUrl(slide);
   const move = slide.moveLabel
-    ? `<span style="font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:14px;font-weight:700;color:${moveColor(slide)};white-space:nowrap;">${escHtml(slide.moveLabel)}</span>`
-    : `<span style="font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:14px;color:${C.textFaint};">—</span>`;
-  const sparkline = slide.sparklineUrl
-    ? `<img src="${slide.sparklineUrl}" width="${SPARKLINE_DISPLAY_W}" height="${SPARKLINE_DISPLAY_H}" alt="" style="display:block;border:0;outline:none;margin:10px 0 0 0;width:${SPARKLINE_DISPLAY_W}px;height:${SPARKLINE_DISPLAY_H}px;">`
-    : "";
-  const meta = [slide.kicker, slide.ticker].filter(Boolean).join(" · ");
+    ? `<span style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;font-weight:700;letter-spacing:-0.02em;color:${moveColor(slide)} !important;white-space:nowrap;">${escHtml(slide.moveLabel)}</span>`
+    : `<span style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;color:${C.textFaint} !important;">-</span>`;
+  const meta = rowMeta(slide);
+  const action = slide.headline || slide.kicker || "Disclosure";
 
   return `
     <tr>
-      <td style="padding:18px 0;border-bottom:1px solid ${C.border};${darkCell()}">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td width="52" valign="top" style="vertical-align:top;padding-right:12px;">
-              <a href="${url}" style="text-decoration:none;">${portraitImg(slide)}</a>
-            </td>
-            <td valign="top" style="vertical-align:top;padding-right:12px;">
-              <p style="margin:0 0 4px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:12px;font-weight:600;letter-spacing:0.01em;color:${C.textMuted};">${escHtml(meta)}</p>
-              <p style="margin:0 0 6px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.35;font-weight:650;letter-spacing:-0.02em;">
-                <a href="${url}" style="color:${C.text};text-decoration:none;">${escHtml(slide.headline)}</a>
-              </p>
-              ${
-                slide.summary
-                  ? `<p style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:14px;line-height:1.45;color:${C.textSoft};">${escHtml(slide.summary)}</p>`
-                  : ""
-              }
-              ${sparkline}
-            </td>
-            <td width="72" valign="top" align="right" style="vertical-align:top;text-align:right;white-space:nowrap;">${move}</td>
-          </tr>
-        </table>
-      </td>
-    </tr>`;
-}
-
-function renderHeadlineRow(slide: DigestSlide): string {
-  const url = eventUrl(slide);
-  const move = slide.moveLabel
-    ? `<span style="font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:13px;font-weight:700;color:${moveColor(slide)};">${escHtml(slide.moveLabel)}</span>`
-    : "";
-  return `
-    <tr>
-      <td style="padding:14px 0;border-bottom:1px solid ${C.borderSoft};${darkCell()}">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-          <tr>
-            <td width="44" valign="middle" style="vertical-align:middle;padding-right:10px;">
-              <a href="${url}" style="text-decoration:none;">${portraitImg(slide)}</a>
-            </td>
-            <td valign="middle" style="vertical-align:middle;padding-right:12px;">
-              <p style="margin:0 0 3px 0;font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:0.04em;color:${C.textMuted};">${escHtml(slide.kicker)}${slide.ticker ? ` · ${escHtml(slide.ticker)}` : ""}</p>
-              <p style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.4;font-weight:600;letter-spacing:-0.02em;">
-                <a href="${url}" style="color:${C.text};text-decoration:none;">${escHtml(slide.headline)}</a>
-              </p>
-            </td>
-            <td width="64" valign="middle" align="right" style="vertical-align:middle;text-align:right;">${move}</td>
-          </tr>
-        </table>
+      <td style="padding:16px 0;border-bottom:1px solid ${C.border};${darkCell()}">
+        <a href="${url}" style="text-decoration:none;color:inherit;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td width="60" valign="middle" style="vertical-align:middle;padding-right:12px;">
+                ${portraitImg(slide)}
+              </td>
+              <td valign="middle" style="vertical-align:middle;padding-right:12px;">
+                <p style="margin:0 0 4px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:15px;line-height:1.25;font-weight:650;letter-spacing:-0.02em;color:${C.text} !important;">${escHtml(action)}</p>
+                <p style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:12px;line-height:1.3;font-weight:500;color:${C.textMuted} !important;">${escHtml(meta)}</p>
+              </td>
+              <td width="64" valign="middle" align="right" style="vertical-align:middle;text-align:right;white-space:nowrap;">${move}</td>
+            </tr>
+          </table>
+        </a>
       </td>
     </tr>`;
 }
@@ -181,7 +165,7 @@ export function buildDigestSubject(content: DigestContent): string {
 export function buildDigestPreheader(content: DigestContent): string {
   const first = content.heroSlides[0] ?? content.headlineSlides[0];
   if (!first) return "New filings from your tracked investors.";
-  const text = [first.headline, first.summary].filter(Boolean).join(". ");
+  const text = [first.headline, first.kicker, first.ticker].filter(Boolean).join(" · ");
   return text.length > 120 ? `${text.slice(0, 117)}…` : text;
 }
 
@@ -189,26 +173,15 @@ export function buildDigestPlainText(content: DigestContent): string {
   const lines: string[] = [];
   const label = formatDigestDate(content.displayDayKey || content.dayKey);
   const n = content.heroSlides.length + content.headlineSlides.length;
-  lines.push(`Mercerline — ${n} new disclosure${n === 1 ? "" : "s"}`);
+  lines.push(`Mercerline - ${n} new disclosure${n === 1 ? "" : "s"}`);
   lines.push(label);
   lines.push("");
 
-  for (const slide of content.heroSlides) {
-    lines.push(slide.kicker.toUpperCase());
-    lines.push(slide.headline);
-    if (slide.summary) lines.push(slide.summary);
-    if (slide.ticker) lines.push(`${slide.ticker}${slide.moveLabel ? ` · ${slide.moveLabel}` : ""}`);
+  const all = [...content.heroSlides, ...content.headlineSlides];
+  for (const slide of all) {
+    lines.push(slide.headline || slide.kicker);
+    lines.push(rowMeta(slide) + (slide.moveLabel ? `  ${slide.moveLabel}` : ""));
     lines.push(eventUrl(slide));
-    lines.push("");
-  }
-
-  if (content.headlineSlides.length) {
-    lines.push("Also filed");
-    lines.push("");
-    for (const slide of content.headlineSlides) {
-      lines.push(`${slide.ticker || "—"} · ${slide.headline}${slide.moveLabel ? ` (${slide.moveLabel})` : ""}`);
-      lines.push(eventUrl(slide));
-    }
     lines.push("");
   }
 
@@ -223,12 +196,19 @@ export function buildDigestPlainText(content: DigestContent): string {
 function darkModeStyles(): string {
   return `
     :root { color-scheme: dark; supported-color-schemes: dark; }
-    body, .ml-body { background-color:${C.bg} !important; color:${C.text} !important; }
-    a { color:inherit; }
+    body, .ml-body, .ml-shell, .ml-card {
+      background-color:${C.bg} !important;
+      background-image:linear-gradient(${C.bg},${C.bg}) !important;
+      color:${C.text} !important;
+    }
+    a { color:inherit !important; text-decoration:none; }
     table { border-collapse:collapse; }
     img { border:0; outline:none; }
+    .ml-text { color:${C.text} !important; }
+    .ml-muted { color:${C.textMuted} !important; }
+    .ml-faint { color:${C.textFaint} !important; }
     @media(max-width:480px) {
-      .ml-pad { padding-left:20px !important; padding-right:20px !important; }
+      .ml-pad { padding-left:18px !important; padding-right:18px !important; }
       h1 { font-size:22px !important; }
     }
   `;
@@ -238,19 +218,9 @@ export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
   const origin = frontendOrigin();
   const dateLabel = formatDigestDate(content.displayDayKey || content.dayKey);
   const preheader = escHtml(buildDigestPreheader(content));
-  const count = content.heroSlides.length + content.headlineSlides.length;
-  const rowsHtml = content.heroSlides.map((s) => renderTradeRow(s)).join("");
-  const moreHtml = content.headlineSlides.map((s) => renderHeadlineRow(s)).join("");
-
-  const moreSection = content.headlineSlides.length
-    ? `
-      <tr>
-        <td style="padding:36px 0 8px 0;${darkCell()}">
-          <p style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:13px;font-weight:650;letter-spacing:-0.01em;color:${C.textMuted};">Also filed</p>
-        </td>
-      </tr>
-      ${moreHtml}`
-    : "";
+  const slides = [...content.heroSlides, ...content.headlineSlides];
+  const count = slides.length;
+  const rowsHtml = slides.map((s) => renderTradeRow(s)).join("");
 
   const html = `<!DOCTYPE html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml">
@@ -262,41 +232,46 @@ export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
   <meta name="x-apple-disable-message-reformatting">
   <title>${escHtml(buildDigestSubject(content))}</title>
   <style type="text/css">${darkModeStyles()}</style>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td { background-color:${C.bg} !important; }
+  </style>
+  <![endif]-->
 </head>
 <body class="ml-body" bgcolor="${C.bg}" style="margin:0;padding:0;${darkCell()}color:${C.text};">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all;">${preheader}</div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}" style="${darkCell()}">
+  <table role="presentation" class="ml-shell" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}" style="${darkCell()}">
     <tr>
-      <td align="center" class="ml-pad" bgcolor="${C.bg}" style="padding:24px 22px 40px 22px;${darkCell()}">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}" style="max-width:560px;${darkCell()}">
+      <td align="center" class="ml-pad" bgcolor="${C.bg}" style="padding:20px 20px 36px 20px;${darkCell()}">
+        <table role="presentation" class="ml-card" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}" style="max-width:560px;${darkCell()}">
           ${renderHeader(origin)}
-          ${renderFilingHero(dateLabel, Math.max(count, content.heroSlides.length))}
+          ${renderFilingHero(dateLabel, count)}
+          <tr>
+            <td style="padding:22px 0 0 0;${darkCell()}"></td>
+          </tr>
+          ${
+            rowsHtml ||
+            `<tr><td style="padding:20px 0;font-family:ui-sans-serif,system-ui,sans-serif;font-size:14px;color:${C.textMuted} !important;${darkCell()}">No new disclosures in this brief.</td></tr>`
+          }
           <tr>
             <td style="padding:28px 0 0 0;${darkCell()}">
-              <p style="margin:0 0 4px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:13px;font-weight:650;letter-spacing:-0.01em;color:${C.textMuted};">Recent trades</p>
-            </td>
-          </tr>
-          ${rowsHtml || `<tr><td style="padding:24px 0;color:${C.textMuted};font-family:ui-sans-serif,system-ui,sans-serif;font-size:14px;${darkCell()}">No new disclosures in this brief.</td></tr>`}
-          ${moreSection}
-          <tr>
-            <td style="padding:32px 0 0 0;${darkCell()}">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${C.btnBorder};border-radius:14px;${darkCell()}">
                 <tr>
                   <td align="center" style="border-radius:14px;${darkCell()}">
-                    <a href="${origin}/explore" style="display:block;width:100%;padding:14px 18px;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:13px;font-weight:650;letter-spacing:-0.01em;color:${C.text};text-decoration:none;text-align:center;box-sizing:border-box;">Open Explore</a>
+                    <a href="${origin}/explore" style="display:block;width:100%;padding:14px 18px;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:13px;font-weight:650;letter-spacing:-0.01em;color:${C.text} !important;text-decoration:none;text-align:center;box-sizing:border-box;">Open Explore</a>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
           <tr>
-            <td align="center" style="padding:28px 0 0 0;text-align:center;${darkCell()}">
-              <p style="margin:0 0 8px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:11px;line-height:1.5;color:${C.textFaint};">Sent when tracked investors file — not on a fixed daily schedule.</p>
-              <p style="margin:0 0 12px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:11px;">
-                <a href="mailto:research@mercerline.com" style="color:${C.textMuted};text-decoration:none;">research@mercerline.com</a>
+            <td align="center" style="padding:24px 0 0 0;text-align:center;${darkCell()}">
+              <p style="margin:0 0 8px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:12px;line-height:1.5;color:${C.textFaint} !important;">Sent when tracked investors file.</p>
+              <p style="margin:0 0 10px 0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:12px;">
+                <a href="mailto:research@mercerline.com" style="color:${C.textMuted} !important;text-decoration:none;">research@mercerline.com</a>
               </p>
-              <p style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:11px;">
-                <a href="${origin}/settings" style="color:${C.textMuted};text-decoration:underline;">Manage email preferences</a>
+              <p style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;font-size:12px;">
+                <a href="${origin}/settings" style="color:${C.textMuted} !important;text-decoration:underline;">Manage email preferences</a>
               </p>
             </td>
           </tr>
