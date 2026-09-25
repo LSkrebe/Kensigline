@@ -452,7 +452,7 @@ export function introConversionFaq(pricing = DEFAULT_PRICING) {
   return [
     {
       q: 'What happens after I pay?',
-      a: 'You go straight into Mercerline. Explore, investor dossiers, company context, and the macro calendar unlock immediately.',
+      a: 'You go straight into Mercerline. Explore rankings, investor dossiers, and the filing brief unlock immediately.',
     },
     {
       q: 'Can I cancel?',
@@ -586,13 +586,13 @@ export const SUBSCRIBE = subscribeCopy()
 /** Product plane under plans — frames the investors directory screenshot. */
 export const SUBSCRIBE_PREVIEW = {
   kicker: 'What you unlock',
-  title: 'Everything you need to track disclosures',
-  lead: 'Every plan includes Explore with investor directories first, deep investor and company dossiers, and the macro calendar from day one.',
+  title: 'Everything you need to track winners',
+  lead: 'Every plan includes Autopilot Explore rankings, investor dossiers, and the filing brief from day one.',
   pillars: [
     {
       id: 'directory',
-      title: 'Investors directory',
-      body: 'Browse insider Form 4, politician PTR, and institution 13F disclosures in one searchable list.',
+      title: 'Explore rankings',
+      body: 'Politicians, insiders, and funds sorted by live returns — not noise.',
     },
     {
       id: 'dossiers',
@@ -601,8 +601,8 @@ export const SUBSCRIBE_PREVIEW = {
     },
     {
       id: 'explore',
-      title: 'Explore',
-      body: 'Start each session from the daily disclosure recap, then drill when a filing clears the bar.',
+      title: 'Filing brief',
+      body: 'Email when tracked names disclose — portraits and short change rows, not another EDGAR tab.',
     },
   ],
 }
@@ -615,7 +615,7 @@ export function subscribeFaq(pricing = DEFAULT_PRICING) {
   },
   {
     q: 'What happens after I pay?',
-      a: 'You go straight into Mercerline. Explore, investor dossiers, company context, and the macro calendar unlock immediately.',
+      a: 'You go straight into Mercerline. Explore rankings, investor dossiers, and the filing brief unlock immediately.',
     },
     {
       q: 'Why choose yearly?',
