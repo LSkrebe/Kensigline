@@ -338,7 +338,7 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "coatue",
     name: "Coatue",
-    slugs: ["coatue", "coatue-management"],
+    slugs: ["coatue", "coatue-management", "coatue-management-llc"],
     mode: "institutions",
     matchNames: ["Coatue", "Coatue Management", "COATUE MANAGEMENT LLC"],
   },
