@@ -479,7 +479,7 @@ function finiteUsd(value) {
   return Number.isFinite(n) ? n : null
 }
 
-/** Prefer the realistic twin when one filer is ~1000× inflated vs another. */
+/** Prefer the realistic twin when one filer is inflated / double-counted vs another. */
 function mergeInvestedUsd(a, b) {
   const left = finiteUsd(a)
   const right = finiteUsd(b)
@@ -488,6 +488,7 @@ function mergeInvestedUsd(a, b) {
   const hi = Math.max(left, right)
   const lo = Math.min(left, right)
   const ratio = hi / lo
+  if (hi >= 200_000_000_000 && ratio >= 8) return lo
   if (ratio > 80 && ratio < 2000) return lo
   return hi
 }

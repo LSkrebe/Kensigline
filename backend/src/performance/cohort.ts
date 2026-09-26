@@ -24,7 +24,7 @@ function catalogNameKeys(): string[] {
   return [...keys].filter(Boolean);
 }
 
-/** Prefer the realistic twin when one filer is ~1000× inflated vs another. */
+/** Prefer the realistic twin when one filer is inflated / double-counted vs another. */
 function mergeInvestedUsd(a: number | null | undefined, b: number | null | undefined): number | null {
   const left = a != null && Number.isFinite(a) && a > 0 ? a : null;
   const right = b != null && Number.isFinite(b) && b > 0 ? b : null;
@@ -33,6 +33,8 @@ function mergeInvestedUsd(a: number | null | undefined, b: number | null | undef
   const hi = Math.max(left, right);
   const lo = Math.min(left, right);
   const ratio = hi / lo;
+  // Common failure: one twin kept raw 13F dollars, the other is 10–1000× inflated or summed.
+  if (hi >= 200_000_000_000 && ratio >= 8) return lo;
   if (ratio > 80 && ratio < 2000) return lo;
   return hi;
 }
@@ -284,29 +286,38 @@ async function build() {
         AND coalesce(t.amount_usd, 0) <> 0
       GROUP BY t.filer_id
       UNION ALL
-      SELECT filer_id, sum(norm_usd)::float8
+      SELECT d.filer_id, sum(d.norm_usd)::float8
       FROM (
-        SELECT
+        SELECT DISTINCT ON (t.filer_id, t.issuer_id)
           t.filer_id,
           CASE
-            WHEN coalesce(t.shares, 0) > 0
-              AND abs(coalesce(t.amount_usd, 0)) / t.shares > 50000
+            WHEN abs(coalesce(t.amount_usd, 0)) > 1e11
             THEN abs(coalesce(t.amount_usd, 0)) / 1000.0
-            WHEN abs(coalesce(t.amount_usd, 0)) > 5e11
+            WHEN coalesce(t.shares, 0) > 0
+              AND abs(coalesce(t.amount_usd, 0)) / t.shares > 100000
+              AND abs(coalesce(t.amount_usd, 0)) > 1e9
             THEN abs(coalesce(t.amount_usd, 0)) / 1000.0
             ELSE abs(coalesce(t.amount_usd, 0))
-          END AS norm_usd,
-          t.transaction_at::date AS day,
-          max(t.transaction_at::date) OVER (PARTITION BY t.filer_id) AS latest_day
+          END AS norm_usd
         FROM institution_transactions t
+        INNER JOIN (
+          SELECT filer_id, max(transaction_at::date) AS latest_day
+          FROM institution_transactions
+          WHERE filer_id IN (SELECT id FROM catalog)
+            AND transaction_at >= $1::date
+            AND transaction_at < $2::date + interval '1 day'
+            AND data_quality_version >= 1
+            AND coalesce(amount_usd, 0) <> 0
+          GROUP BY filer_id
+        ) latest
+          ON latest.filer_id = t.filer_id
+         AND t.transaction_at::date = latest.latest_day
         WHERE t.filer_id IN (SELECT id FROM catalog)
-          AND t.transaction_at >= $1::date
-          AND t.transaction_at < $2::date + interval '1 day'
           AND t.data_quality_version >= 1
           AND coalesce(t.amount_usd, 0) <> 0
-      ) inst
-      WHERE day = latest_day
-      GROUP BY filer_id
+        ORDER BY t.filer_id, t.issuer_id, abs(coalesce(t.amount_usd, 0)) DESC
+      ) d
+      GROUP BY d.filer_id
     )
     SELECT filer_id, sum(invested_usd)::float8 AS invested_usd
     FROM sums
