@@ -4935,8 +4935,7 @@
     "src": "/investors/jensen-huang.webp",
     "thumb": "/investors/thumbs/jensen-huang.webp",
     "source": "local",
-    "hero": "#3d4b23",
-    "position": "center 35%"
+    "hero": "#3d4b23"
   },
   "huangjenhsun": {
     "src": "/investors/jensen-huang.webp",
@@ -4978,8 +4977,7 @@
     "src": "/investors/donald-trump.webp",
     "thumb": "/investors/thumbs/donald-trump.webp",
     "source": "local",
-    "hero": "#6e5f54",
-    "position": "center 36%"
+    "hero": "#6e5f54"
   },
   "markwaynemullin": {
     "src": "/investors/markwayne-mullin.webp",
@@ -5177,8 +5175,7 @@
     "src": "/investors/coatue.webp",
     "thumb": "/investors/thumbs/coatue.webp",
     "source": "local",
-    "hero": "#58586c",
-    "position": "center 28%"
+    "hero": "#58586c"
   },
   "colettekress": {
     "src": "/investors/colette-kress.webp",
@@ -5196,15 +5193,13 @@
     "src": "/investors/elliott-management.webp",
     "thumb": "/investors/thumbs/elliott-management.webp",
     "source": "local",
-    "hero": "#674d69",
-    "position": "center 42%"
+    "hero": "#674d69"
   },
   "hocktan": {
     "src": "/investors/hock-tan.webp",
     "thumb": "/investors/thumbs/hock-tan.webp",
     "source": "local",
-    "hero": "#655167",
-    "position": "center 42%"
+    "hero": "#655167"
   },
   "icahncapital": {
     "src": "/investors/icahn-capital.webp",
@@ -5222,15 +5217,13 @@
     "src": "/investors/lone-pine.webp",
     "thumb": "/investors/thumbs/lone-pine.webp",
     "source": "local",
-    "hero": "#42833c",
-    "position": "center 38%"
+    "hero": "#42833c"
   },
   "marcbenioff": {
     "src": "/investors/marc-benioff.webp",
     "thumb": "/investors/thumbs/marc-benioff.webp",
     "source": "local",
-    "hero": "#2f5f8a",
-    "position": "center 22%"
+    "hero": "#2f5f8a"
   },
   "marjorietaylorgreene": {
     "src": "/investors/marjorie-taylor-greene.webp",
@@ -5278,15 +5271,13 @@
     "src": "/investors/tiger-global.webp",
     "thumb": "/investors/thumbs/tiger-global.webp",
     "source": "local",
-    "hero": "#595b69",
-    "position": "62% 28%"
+    "hero": "#595b69"
   },
   "vikingglobal": {
     "src": "/investors/viking-global.webp",
     "thumb": "/investors/thumbs/viking-global.webp",
     "source": "local",
-    "hero": "#003e80",
-    "position": "center 40%"
+    "hero": "#003e80"
   },
   "duquesnefamilyoffice": {
     "src": "/investors/duquesne-family-office.webp",
