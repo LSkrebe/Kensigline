@@ -1475,8 +1475,11 @@ function filingSentence(person, changes) {
   const last = String(person ?? '').trim().split(/\s+/).filter(Boolean).at(-1) || 'Filing'
   const names = (kind) => {
     const list = [...new Set(changes.filter((change) => change.kind === kind).map((change) => change.name))]
-    if (list.length <= 1) return list[0] ?? ''
-    return `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`
+    if (!list.length) return ''
+    if (list.length === 1) return list[0]
+    if (list.length === 2) return `${list[0]} and ${list[1]}`
+    const extra = list.length - 2
+    return `${list[0]}, ${list[1]}, and ${extra} more`
   }
   const opened = names('new')
   const increased = names('increased')
