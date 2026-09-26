@@ -1,14 +1,14 @@
 import {lookupInvestorImage} from './investorImageLookup.js'
 import {useEffect,useRef,useState} from 'react'
 import {selectEventPerformance} from './exploreEventPerformance.js'
-import portraits from './explorePortraits.json'
+import { lookupExplorePortrait, normalizeInvestorName } from './explorePortraitLookup.js'
 import { companyLogoFallback, companyLogoSrc } from './localImages.js'
 import {fetchJsonSafe} from './api.js'
 import {MiniPriceChart} from './MiniPriceChart.jsx'
 import {exploreRowDateLabel} from './ExploreDirectoryRows.jsx'
 import {formatExploreDirectoryTrailLabel,expandExploreAmountLabel} from './exploreDirectoryTrail.js'
 
-export const normalizeInvestorName=name=>String(name??'').toLowerCase().replace(/^(hon\.?|mr\.?|mrs\.?|ms\.?|dr\.?)\s+/,'').replace(/[^a-z0-9]/g,'')
+export { normalizeInvestorName } from './explorePortraitLookup.js'
 const chartCache=new Map()
 const queue=[];let active=0
 function pump(){while(active<3&&queue.length){active++;const work=queue.shift();work().finally(()=>{active--;pump()})}}
@@ -38,7 +38,9 @@ export function ExplorePersonRow({row,onClick=null,companyOnly=false,investorOnl
   const candidates=Array.isArray(row.tickers)?row.tickers:[]
   const tickers=[...new Set((candidates.length?candidates:[row.ticker]).map(t=>String(t).trim().toUpperCase()).filter(t=>/^[A-Z][A-Z0-9.-]{0,9}$/.test(t)&&!['F4','F13','PTR','13F','F4/A'].includes(t)))]
   const ticker=tickers.length===1?tickers[0]:null
-  const portrait=portraits[normalizeInvestorName(row.name)]?.src
+  const portraitEntry=lookupExplorePortrait(row.name, row.actorSlug)
+  const portrait=portraitEntry?.src
+  const logo=portraitEntry?.kind==='logo'
   useEffect(()=>{
     let alive=true,started=false
     setSeries([])
@@ -78,7 +80,7 @@ export function ExplorePersonRow({row,onClick=null,companyOnly=false,investorOnl
   const returnTitle=performance?`${performance.count>1?'Equal-weight average stock return since these transactions':'Stock return since transaction'} through ${performance.asOf}`:'Transaction performance unavailable'
   const compactIdentity=companyOnly||investorOnly
   const content=<>
-    <ImageOrInitials src={companyOnly?companyLogoSrc(ticker):portrait} fallbackSrc={companyOnly?companyLogoFallback(ticker):null} name={companyOnly?ticker:row.name} className="explorePersonPortrait" logo={companyOnly}/>
+    <ImageOrInitials src={companyOnly?companyLogoSrc(ticker):portrait} fallbackSrc={companyOnly?companyLogoFallback(ticker):null} name={companyOnly?ticker:row.name} className="explorePersonPortrait" logo={companyOnly||logo}/>
     <span className="explorePersonCopy">
       <span className="explorePersonMobileTransaction">{compactIdentity?<span className={`explorePersonAction mono ${eventTone}`}>{event}</span>:transaction}</span>
       <span className="exploreDirectoryName">{companyOnly?companyLabel:row.name}</span>

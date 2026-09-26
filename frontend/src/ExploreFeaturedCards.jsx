@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
+import { ImageOrInitials } from './ExplorePersonRow.jsx'
 import { explorePerformerReturn } from './ExploreWatchlistSection.jsx'
 import { SENATE_INVESTOR_SLUGS } from './exploreWatchlistCatalog.js'
-import portraits from './explorePortraits.json'
+import { investorTypeLabel, lookupExplorePortrait } from './explorePortraitLookup.js'
 import { SkeletonStatus } from './AppSkeleton.jsx'
 
 const NARROW = '(max-width: 899px)'
@@ -13,10 +13,6 @@ function formatPnl(fraction) {
   const text = `${value > 0 ? '+' : ''}${(value * 100).toFixed(2)}%`
   const tone = value > 0.0005 ? 'isUp' : value < -0.0005 ? 'isDown' : 'isFlat'
   return { text, tone }
-}
-
-function portraitFor(name) {
-  return portraits[normalizeInvestorName(name)] ?? null
 }
 
 const SENATE = new Set([
@@ -119,17 +115,21 @@ export function ExploreFeaturedCards({ rows = [], range = '6M', onCardClick = nu
     <section className="exploreFeatured" aria-label="Top performers">
       <div className="exploreFeaturedScroller" ref={scrollerRef} onScroll={narrow ? syncActive : undefined}>
         {rows.map((row) => {
-          const portrait = portraitFor(row.name)
-          const logo = portrait?.kind === 'logo'
+          const portrait = lookupExplorePortrait(row.name, row.actorSlug)
+          const typeLabel = investorTypeLabel(row.mode ?? row.modeLabel)
+          const isInstitution = typeLabel === 'Institution' || portrait?.kind === 'logo'
+          const logo = isInstitution || portrait?.kind === 'logo'
+          const heroColor = portrait?.hero || null
           const source = featuredSource(row)
           const pnl = formatPnl(explorePerformerReturn(row, range))
           return (
             <button
               type="button"
-              className={`exploreFeaturedCard${logo ? ' isLogo' : ''}`}
+              className={`exploreFeaturedCard${logo ? ' isLogo' : ''}${isInstitution ? ' isInstitution' : ''}`}
               key={row.actorSlug || row.id}
               aria-label={`Open ${row.name}`}
               onClick={() => onCardClick?.(row)}
+              style={isInstitution && heroColor ? { '--explore-featured-flat': heroColor } : undefined}
             >
               <ImageOrInitials
                 src={portrait?.src}
@@ -139,7 +139,7 @@ export function ExploreFeaturedCards({ rows = [], range = '6M', onCardClick = nu
                 discover={false}
               />
               <span className="exploreFeaturedCopy">
-                <span className="exploreFeaturedBadge">Featured</span>
+                <span className="exploreFeaturedBadge">{typeLabel}</span>
                 <span className="exploreFeaturedTitle">{row.name}</span>
                 <span className={`exploreFeaturedPnl${pnl ? ` ${pnl.tone}` : ''}`}>{pnl ? pnl.text : '—'}</span>
                 <span className="exploreFeaturedBy">

@@ -208,6 +208,35 @@
   object-position: center;
   border-radius: 0;
 }
+/* Institutions: flat dossier hero color + centered logo (no full-bleed crop). */
+.exploreFeaturedCard.isInstitution {
+  background: var(--explore-featured-flat, #1a1a1c);
+}
+.exploreFeaturedCard.isInstitution .exploreFeaturedPhoto {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  inset: 18% 16% 34%;
+  width: auto;
+  height: auto;
+}
+.exploreFeaturedCard.isInstitution .exploreFeaturedPhoto img,
+.exploreFeaturedCard.isInstitution .exploreFeaturedPhoto .mono {
+  width: auto;
+  height: auto;
+  max-width: 72%;
+  max-height: 58%;
+  object-fit: contain;
+  object-position: center;
+  border-radius: 0;
+}
+.exploreFeaturedCard.isInstitution .exploreFeaturedPhoto .mono {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: rgba(255, 255, 255, 0.92);
+}
 .exploreFeaturedPhoto img {
   width: 100%;
   height: 100%;

@@ -21,6 +21,7 @@ import {
 import { ExplorePersonRow, ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
 import { exploreInvestorSlug } from './exploreDirectoryNav.js'
 import { EXECUTIVE_INVESTOR_SLUGS, SENATE_INVESTOR_SLUGS } from './exploreWatchlistCatalog.js'
+import { investorTypeLabel, lookupExplorePortrait } from './explorePortraitLookup.js'
 import portraits from './explorePortraits.json'
 import { companyLogoFallback, companyLogoSrc } from './localImages.js'
 import './DeepReport.css'
@@ -52,7 +53,13 @@ function DossierHeroMedia({ src, heroColor = null, name, title, kicker, logo = f
   const flat = Boolean(heroColor)
   return (
     <div
-      className={`drpt-heroMedia${logo && !flat ? ' drpt-heroMedia--logo' : ''}${flat ? ' drpt-heroMedia--flat' : ''}`}
+      className={[
+        'drpt-heroMedia',
+        logo ? 'drpt-heroMedia--logo' : '',
+        flat ? 'drpt-heroMedia--flat' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       style={flat ? { '--drpt-hero-flat': heroColor } : undefined}
     >
       <span className="drpt-heroPhoto" aria-hidden="true">
@@ -1834,6 +1841,7 @@ export function DeepActorReport({
   const heroReturn = heroReturnFromFraction(rangeReturnPct)
   const rawRole = detail && detail !== '—' && detail.toLowerCase() !== modeLabel.toLowerCase() ? detail : null
   const role = rawRole?.replace(/^(house|senate)$/i, (value) => value[0].toUpperCase() + value.slice(1).toLowerCase())
+  const typeLabel = investorTypeLabel(mode)
   const sourceLabel = mode === 'politicians'
     ? (/executive|oge/i.test(`${detail} ${role ?? ''}`) || EXECUTIVE_INVESTOR_SLUGS.has(exploreInvestorSlug(name))
       ? 'Executive'
@@ -1841,7 +1849,7 @@ export function DeepActorReport({
         ? 'Senate'
         : 'House')
     : 'SEC'
-  const portrait = portraits[normalizeInvestorName(name)]
+  const portrait = lookupExplorePortrait(name, exploreInvestorSlug(name)) || portraits[normalizeInvestorName(name)]
   const sourceMark = sourceLabel === 'Senate'
     ? '/seals/senate.png'
     : sourceLabel === 'House'
@@ -1891,7 +1899,7 @@ export function DeepActorReport({
           heroColor={portrait?.hero || null}
           name={name}
           title={name}
-          kicker={sourceLabel}
+          kicker={typeLabel}
           logo={portrait?.kind === 'logo'}
         />
       }

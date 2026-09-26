@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
+import { lookupExplorePortrait } from './explorePortraitLookup.js'
 import { PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
 import { FORCE_MOCK_DATA } from './dataMode.js'
 import portraits from './explorePortraits.json'
@@ -455,8 +456,8 @@ function formatInvested(amount) {
 }
 
 function ExploreTapeRow({ row, rank, range, plain = false, invested = false, onClick }) {
-  const portrait = portraits[normalizeInvestorName(row.name)]
-  const logo = portrait?.kind === 'logo'
+  const portrait = lookupExplorePortrait(row.name, row.actorSlug) || portraits[normalizeInvestorName(row.name)]
+  const logo = portrait?.kind === 'logo' || String(row.mode ?? row.modeLabel ?? '').toLowerCase().includes('institution')
   const thumb = portrait?.thumb || portrait?.src
   const perf = formatReturn(returnFor(row, range))
   const liveInvested = finiteUsd(row?.investedUsd)

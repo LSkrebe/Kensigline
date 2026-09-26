@@ -2475,7 +2475,7 @@ button.drpt-docRow {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #10243a;
+  background: transparent;
 }
 .drpt-heroMedia--logo .drpt-heroPhoto img {
   width: auto;
@@ -2484,6 +2484,13 @@ button.drpt-docRow {
   max-height: min(140px, 42%);
   object-fit: contain;
   object-position: center;
+}
+.drpt-heroMedia--flat.drpt-heroMedia--logo .drpt-heroPhoto {
+  background: transparent;
+}
+.drpt-heroMedia--flat.drpt-heroMedia--logo .drpt-heroPhoto img {
+  max-width: min(220px, 42%);
+  max-height: min(120px, 36%);
 }
 .drpt-heroCopy {
   position: relative;
