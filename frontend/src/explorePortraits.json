@@ -5989,5 +5989,12 @@
     "thumb": "/investors/thumbs/icahn-capital.webp",
     "source": "local",
     "hero": "#665067"
+  },
+  "benioffmarc": {
+    "src": "/investors/marc-benioff.webp",
+    "thumb": "/investors/thumbs/marc-benioff.webp",
+    "source": "local",
+    "hero": "#2f5f8a",
+    "position": "center 22%"
   }
 }

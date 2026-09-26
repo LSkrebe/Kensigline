@@ -11912,13 +11912,16 @@ function KensiglineTerminal() {
   const investorBoostDone =
     Boolean(terminalRoute.investorSlug) && investorBoostDoneForSlug === terminalRoute.investorSlug
 
+  // Keep loading until rich trades exist. Never end on boostDone alone (that painted +$1 stubs).
+  // On dossier detail, mode feeds are intentionally not loaded (early-return elsewhere), so
+  // feedLive===null must not block hunt exhaustion forever after the API boost finishes.
   const investorHuntExhausted =
     investorBoostDone &&
-    !investorModeFeedPending &&
     !investorModeLoadingMore &&
-    (investorFeedExpandCount >= 3 || !investorModeHasMore)
+    (investorFeedExpandCount >= 3 ||
+      !investorModeHasMore ||
+      investorModeFeedPending)
 
-  // Keep loading until rich trades exist. Never end on boostDone alone (that painted +$1 stubs).
   const investorCaseRowsLoading =
     backendUp &&
     exploreSubview === 'investorDetail' &&
@@ -12795,6 +12798,7 @@ function KensiglineTerminal() {
           compactPriceChange: null,
           compactPriceChangePct: null,
           onCompanyClick: onExploreCompanyClick,
+          investorSlug: terminalRoute.investorSlug,
         }}
       />
     </DeepResearchLayout>

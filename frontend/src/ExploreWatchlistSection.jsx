@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
+import { ExplorePersonRow, ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
 import { lookupExplorePortrait } from './explorePortraitLookup.js'
 import { PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
 import { FORCE_MOCK_DATA } from './dataMode.js'
@@ -589,6 +589,51 @@ export function selectExploreFeatured(rows, range = '6M') {
   return peopleWithReturns([...tapePeople(rows)], range).slice(0, 3)
 }
 
+/** Newest Explore filings across the curated universe (~4; more if same calendar day). */
+export function selectMostRecentExploreEvents(rows, minCount = 4) {
+  const events = []
+  for (const row of rows ?? []) {
+    if (!row || row.empty) continue
+    const list = Array.isArray(row.events) && row.events.length ? row.events : [row]
+    for (const ev of list) {
+      const date = String(ev?.date ?? row.date ?? '').trim()
+      if (!date || date === '—') continue
+      events.push({
+        ...ev,
+        id: ev.id ?? `${row.actorSlug}-${ev.ticker}-${date}`,
+        name: row.name,
+        feedName: row.feedName ?? row.name,
+        actorSlug: row.actorSlug,
+        filerSlug: row.filerSlug,
+        mode: row.mode,
+        typeKey: row.typeKey ?? row.mode,
+        modeLabel: row.modeLabel,
+        chamber: row.chamber,
+        date,
+      })
+    }
+  }
+  events.sort((a, b) => {
+    const dateCmp = String(b.date ?? '').localeCompare(String(a.date ?? ''))
+    if (dateCmp !== 0) return dateCmp
+    return String(b.id ?? '').localeCompare(String(a.id ?? ''))
+  })
+  if (!events.length) return []
+  const out = []
+  const seen = new Set()
+  for (const ev of events) {
+    const key = `${ev.actorSlug}|${ev.ticker}|${ev.date}|${ev.trail}|${ev.docType}`
+    if (seen.has(key)) continue
+    if (out.length >= minCount) {
+      const cutoff = String(out[minCount - 1]?.date ?? '')
+      if (String(ev.date ?? '') !== cutoff) break
+    }
+    seen.add(key)
+    out.push(ev)
+  }
+  return out
+}
+
 function useNarrowTape() {
   const [narrow, setNarrow] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia(TAPE_NARROW).matches : false,
@@ -650,9 +695,37 @@ export function ExploreWatchlistSection({
   const morePerformers = performerLimit < performers.length && performers.length > performerLimit
   const morePopular = popularLimit < popular.length && popular.length > popularLimit
   const showSharedMore = !narrow && (morePerformers || morePopular)
+  const recentEvents = useMemo(() => selectMostRecentExploreEvents(rows, 4), [rows])
 
   return (
     <>
+      <section className="exploreRecentEvents" aria-label="Most recent events">
+        <div className="exploreTapeHead">
+          <h2 className="exploreTapeTitle">Most recent events</h2>
+        </div>
+        {loading && !recentEvents.length ? (
+          <SkeletonList count={4} />
+        ) : !recentEvents.length ? (
+          <p className="exploreDirectoryEmpty">No recent events</p>
+        ) : (
+          <ul className="exploreRecentEventsGrid">
+            {recentEvents.map((row, index) => (
+              <li
+                key={row.id ?? `${row.actorSlug}-${row.ticker}-${row.date}-${index}`}
+                className={
+                  recentEvents.length % 2 === 1 && index === recentEvents.length - 1
+                    ? 'exploreRecentEventsItem isFull'
+                    : 'exploreRecentEventsItem'
+                }
+              >
+                <ul className="exploreRecentEventsInner">
+                  <ExplorePersonRow row={row} onClick={onRowClick} />
+                </ul>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
       <div className="exploreTapeBoard">
         <section className="exploreTapeSection" aria-label="Top Performers">
           <div className="exploreTapeHead">

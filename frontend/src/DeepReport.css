@@ -2797,6 +2797,66 @@ button.drpt-docRow {
   padding: 0;
   list-style: none;
 }
+.drpt-tradeList--changes {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.drpt-tradeDay {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.drpt-tradeDayHead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 16px;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.drpt-tradeDayHead .drpt-tradeDate {
+  grid-column: 1;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  font-weight: 600;
+}
+.drpt-tradeDayHead .drpt-tradeTitle {
+  grid-column: 1;
+  margin: 0;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.drpt-tradeDayHead .drpt-tradeChevron {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 22px;
+}
+.drpt-tradeChangeGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@media (min-width: 900px) {
+  .drpt-tradeChangeGrid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .drpt-tradeChangeItem.isFull {
+    grid-column: 1 / -1;
+  }
+}
 .drpt-tradeItem { position: relative; padding-left: 18px; }
 .drpt-tradeItem::before {
   content: '';
@@ -3066,64 +3126,23 @@ button.drpt-docRow {
 }
 .drpt-dossierChart { min-width: 0; }
 @media (min-width: 900px) {
-  .drpt-dossier:has(.drpt-dossierSide) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: 56px;
-    align-items: start;
-  }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierLead {
-    grid-column: 1 / -1;
+  .drpt-dossier .drpt-dossierLead {
     display: grid;
     grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
     column-gap: 40px;
     align-items: end;
   }
-  .drpt-dossier:has(.drpt-dossierSide) > .drpt-section,
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide {
-    grid-column: 1 / -1;
-  }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: 22px;
-    align-items: stretch;
-    grid-auto-flow: dense;
-  }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section,
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section > .drpt-sectionHead,
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section > .drpt-tradeList,
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section > .drpt-holdingList {
-    display: contents;
-  }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section > .drpt-sectionHead .drpt-sectionTitle {
-    margin: 42px 0 16px;
-  }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section:first-child .drpt-sectionTitle {
-    grid-column: 1;
-    grid-row: 1;
-  }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section:nth-child(2) .drpt-sectionTitle {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section > .drpt-tradeList > .drpt-tradeItem { grid-column: 1; }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section > .drpt-holdingList > li { grid-column: 2; }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section > .drpt-tradeList > .drpt-tradeItem,
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section > .drpt-holdingList > li {
-    display: flex;
-  }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section > .drpt-tradeList .drpt-tradeBtn,
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .drpt-section > .drpt-holdingList .drpt-holdingBtn {
-    flex: 1 1 auto;
-    height: 100%;
-  }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-dossierSide > .exploreTapeMoreWrap {
-    grid-column: 1 / -1;
-  }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-figure--chart {
+  .drpt-dossier .drpt-figure--chart {
     height: 240px;
     min-height: 240px;
   }
-  .drpt-dossier:has(.drpt-dossierSide) .drpt-bylineRow { margin-bottom: 12px; }
+  .drpt-dossier .drpt-bylineRow { margin-bottom: 12px; }
+  .drpt-holdingList {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 10px;
+  }
+  .drpt-holdingList > li:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }

@@ -837,6 +837,7 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
     WHERE t.filer_id=$1 AND (fil.form ILIKE '%/A' ${source === "insider" ? "OR t.performance_meta->>'amendment'='true'" : ""})`, [filer.id]);
   const performance = await enrichDossierPerformance(performanceInput,source,amendments.map(a=>({...a,category:source==='institutions'?'institution':source==='politicians'?'politician':'insider'})));
   const catalogSlug = catalogIdForFiler(filer.slug, filer.display_name) ?? filer.slug;
+  const catalogEntry = EXPLORE_WATCHLIST_CATALOG.find((entry) => entry.id === catalogSlug) ?? null;
   return {
     ok: true,
     dossierSchemaVersion: 10,
@@ -845,10 +846,10 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
     actor: {
       id: filer.id,
       actorKey: catalogSlug,
-      actorName: filer.display_name,
+      actorName: catalogEntry?.name ?? filer.display_name,
       actorDetail: filer.detail,
       actorDetailSecondary: filer.detail_secondary,
-      matchNames: [filer.display_name],
+      matchNames: [...new Set([filer.display_name, catalogEntry?.name, ...(catalogEntry?.matchNames ?? [])].filter(Boolean))],
       source,
       sources: [source],
       at: tradeLog[0]?.ts ?? null,

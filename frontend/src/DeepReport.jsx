@@ -20,7 +20,7 @@ import {
 } from './researchPaperSources.js'
 import { ExplorePersonRow, ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
 import { exploreInvestorSlug } from './exploreDirectoryNav.js'
-import { EXECUTIVE_INVESTOR_SLUGS, SENATE_INVESTOR_SLUGS } from './exploreWatchlistCatalog.js'
+import { EXECUTIVE_INVESTOR_SLUGS, SENATE_INVESTOR_SLUGS, lookupWatchlistPerson } from './exploreWatchlistCatalog.js'
 import { investorTypeLabel, lookupExplorePortrait } from './explorePortraitLookup.js'
 import portraits from './explorePortraits.json'
 import { companyLogoFallback, companyLogoSrc } from './localImages.js'
@@ -1493,7 +1493,6 @@ function FilingModal({ filing, name, portraitSrc, heroColor = null, onClose }) {
     ['closed', 'Closed positions', filing.changes],
     ['increased', 'Increased positions', filing.changes],
     ['decreased', 'Decreased positions', filing.changes],
-    ['unchanged', 'Unchanged positions', filing.unchanged ?? []],
   ]
   const meterColor = heroColor || 'rgba(92, 184, 138, 0.95)'
   return (
@@ -1504,7 +1503,7 @@ function FilingModal({ filing, name, portraitSrc, heroColor = null, onClose }) {
       </div>
       <div className="drpt-filingBody">
         <div className="drpt-filingHero">
-          <h2 className="drpt-sectionTitle">Made {filing.trades.length} {filing.trades.length === 1 ? 'trade' : 'trades'}</h2>
+          <h2 className="drpt-sectionTitle">Made {filing.changes.length} {filing.changes.length === 1 ? 'change' : 'changes'}</h2>
           <div
             className="drpt-filingMeter"
             aria-hidden="true"
@@ -1539,7 +1538,7 @@ function FilingModal({ filing, name, portraitSrc, heroColor = null, onClose }) {
                         <span>{change.fullName || change.name}</span>
                       </span>
                       <span className="drpt-holdingAction">
-                        {kind === 'unchanged' ? formatWeight(change.to) : `${formatWeight(change.from)} → ${formatWeight(change.to)}`}
+                        {`${formatWeight(change.from)} → ${formatWeight(change.to)}`}
                       </span>
                     </div>
                   </li>
@@ -1562,31 +1561,46 @@ function DeepTradeLog({ rows = [], loading = false, name = '', portraitSrc = nul
   if (!filings.length) return <EmptyList label="No trades yet" />
   return (
     <>
-      <ol className="drpt-tradeList">
+      <ol className="drpt-tradeList drpt-tradeList--changes">
         {visible.map((filing) => {
-          const logosShown = filing.changes.slice(0, 3)
-          const extra = filing.changes.length - logosShown.length
+          const changes = filing.changes ?? []
           return (
-            <li className="drpt-tradeItem" key={filing.key}>
-              <button type="button" className="drpt-tradeBtn" onClick={() => setActive(filing)}>
+            <li className="drpt-tradeDay" key={filing.key}>
+              <button type="button" className="drpt-tradeDayHead" onClick={() => setActive(filing)}>
                 <span className="drpt-tradeDate">{formatLongDate(filing.filedMs)}</span>
-                <span className="drpt-tradeTitle">{filingSentence(name, filing.changes)}</span>
-                <span className="drpt-tradeLogos">
-                  {logosShown.map((change) => (
-                    <ImageOrInitials
-                      key={change.ticker}
-                      className="drpt-tradeLogo"
-                      src={companyLogoSrc(change.ticker)}
-                        fallbackSrc={companyLogoFallback(change.ticker)}
-                      name={change.ticker}
-                      logo
-                      discover={false}
-                    />
-                  ))}
-                  {extra > 0 ? <span>+{extra} more</span> : null}
-                </span>
+                <span className="drpt-tradeTitle">{filingSentence(name, changes)}</span>
                 <span className="drpt-tradeChevron" aria-hidden="true">›</span>
               </button>
+              <ol className="drpt-tradeChangeGrid">
+                {changes.map((change, index) => (
+                  <li
+                    key={`${filing.key}-${change.ticker}`}
+                    className={
+                      changes.length % 2 === 1 && index === changes.length - 1
+                        ? 'drpt-tradeChangeItem isFull'
+                        : 'drpt-tradeChangeItem'
+                    }
+                  >
+                    <button type="button" className="drpt-holdingBtn" onClick={() => setActive(filing)}>
+                      <ImageOrInitials
+                        className="drpt-holdingLogo"
+                        src={companyLogoSrc(change.ticker)}
+                        fallbackSrc={companyLogoFallback(change.ticker)}
+                        name={change.ticker}
+                        logo
+                        discover={false}
+                      />
+                      <span className="drpt-holdingName">
+                        <span>{change.ticker}</span>
+                        <span>{change.fullName || change.name}</span>
+                      </span>
+                      <span className="drpt-holdingAction">
+                        {`${formatWeight(change.from)} → ${formatWeight(change.to)}`}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
             </li>
           )
         })}
@@ -1766,13 +1780,25 @@ export function DeepActorReport({
   compactPriceChangePct = null,
   onCompanyClick = null,
   scrollResetKey = null,
+  investorSlug = null,
 }) {
   const [chartRange, setChartRange] = useState('6M')
   const [listsOpen, setListsOpen] = useState(false)
   const [shareState, setShareState] = useState('idle')
   const shareTimer = useRef(null)
   useEffect(() => () => window.clearTimeout(shareTimer.current), [])
-  const name = String(personDisplay?.fullName ?? actorRow?.actorName ?? '').trim()
+  const catalogPerson = useMemo(
+    () =>
+      lookupWatchlistPerson(investorSlug) ||
+      lookupWatchlistPerson(personDisplay?.fullName) ||
+      lookupWatchlistPerson(actorRow?.actorName),
+    [investorSlug, personDisplay?.fullName, actorRow?.actorName],
+  )
+  const catalogSlug = catalogPerson?.slug || String(investorSlug ?? '').trim().toLowerCase() || null
+  // Prefer curated Explore label so SEC legal names never flash in the hero.
+  const name =
+    String(catalogPerson?.name ?? '').trim() ||
+    String(personDisplay?.fullName ?? actorRow?.actorName ?? '').trim()
   const detail = String(personDisplay?.detail ?? actorRow?.actorDetail ?? '').trim()
   const modeLabel =
     mode === 'politicians' ? 'Politician' : mode === 'institutions' ? 'Institution' : 'Insider'
@@ -1843,13 +1869,17 @@ export function DeepActorReport({
   const role = rawRole?.replace(/^(house|senate)$/i, (value) => value[0].toUpperCase() + value.slice(1).toLowerCase())
   const typeLabel = investorTypeLabel(mode)
   const sourceLabel = mode === 'politicians'
-    ? (/executive|oge/i.test(`${detail} ${role ?? ''}`) || EXECUTIVE_INVESTOR_SLUGS.has(exploreInvestorSlug(name))
+    ? (/executive|oge/i.test(`${detail} ${role ?? ''}`) || EXECUTIVE_INVESTOR_SLUGS.has(catalogSlug || exploreInvestorSlug(name))
       ? 'Executive'
-      : /senate/i.test(`${detail} ${role ?? ''}`) || SENATE_INVESTOR_SLUGS.has(exploreInvestorSlug(name))
+      : /senate/i.test(`${detail} ${role ?? ''}`) || SENATE_INVESTOR_SLUGS.has(catalogSlug || exploreInvestorSlug(name))
         ? 'Senate'
         : 'House')
     : 'SEC'
-  const portrait = lookupExplorePortrait(name, exploreInvestorSlug(name)) || portraits[normalizeInvestorName(name)]
+  const portrait =
+    lookupExplorePortrait(name, catalogSlug) ||
+    lookupExplorePortrait(actorRow?.actorName, catalogSlug) ||
+    portraits[normalizeInvestorName(name)] ||
+    portraits[normalizeInvestorName(catalogSlug)]
   const sourceMark = sourceLabel === 'Senate'
     ? '/seals/senate.png'
     : sourceLabel === 'House'
@@ -1932,26 +1962,24 @@ export function DeepActorReport({
         <DeepSection title="Stats">
           <DeepActorMetrics activity={activity} loading={showSectionLoading} />
         </DeepSection>
-        <div className="drpt-dossierSide">
-          <DeepSection title="Recent trades">
-            <DeepTradeLog
-              rows={tradeRows}
-              loading={showSectionLoading}
-              name={name}
-              portraitSrc={portrait?.src}
-              heroColor={portrait?.hero || null}
-              expanded={listsOpen}
-            />
-          </DeepSection>
-          <DeepSection title="Current holdings">
-            <DeepHoldings rows={tradeRows} loading={showSectionLoading} expanded={listsOpen} />
-          </DeepSection>
-          {!listsOpen && ((activity?.filings?.length ?? 0) > 5 || (activity?.holdings?.length ?? 0) > 5) ? (
-            <div className="exploreTapeMoreWrap">
-              <button type="button" className="exploreTapeMore" onClick={() => setListsOpen(true)}>More</button>
-            </div>
-          ) : null}
-        </div>
+        <DeepSection title="Current holdings">
+          <DeepHoldings rows={tradeRows} loading={showSectionLoading} expanded={listsOpen} />
+        </DeepSection>
+        <DeepSection title="Recent trades">
+          <DeepTradeLog
+            rows={tradeRows}
+            loading={showSectionLoading}
+            name={name}
+            portraitSrc={portrait?.src}
+            heroColor={portrait?.hero || null}
+            expanded={listsOpen}
+          />
+        </DeepSection>
+        {!listsOpen && ((activity?.filings?.length ?? 0) > 5 || (activity?.holdings?.length ?? 0) > 5) ? (
+          <div className="exploreTapeMoreWrap">
+            <button type="button" className="exploreTapeMore" onClick={() => setListsOpen(true)}>More</button>
+          </div>
+        ) : null}
         </div>
     </DeepReportShell>
   )

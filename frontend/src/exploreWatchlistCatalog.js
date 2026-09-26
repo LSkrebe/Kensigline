@@ -79,3 +79,18 @@ export function watchlistPersonSlugs(person) {
   const aliases = Array.isArray(person?.slugAliases) ? person.slugAliases : []
   return [...new Set([base, ...aliases.map((s) => String(s).trim().toLowerCase()).filter(Boolean)])]
 }
+
+/** Resolve curated catalog entry by any known slug / alias. */
+export function lookupWatchlistPerson(slugOrName) {
+  const raw = String(slugOrName ?? '').trim()
+  if (!raw) return null
+  const slug = raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+  const nameKey = raw.toLowerCase()
+  for (const person of EXPLORE_WATCHLIST_CATALOG) {
+    if (watchlistPersonSlugs(person).includes(slug)) return person
+    if (String(person.name).trim().toLowerCase() === nameKey) return person
+    const matches = Array.isArray(person.matchNames) ? person.matchNames : []
+    if (matches.some((n) => String(n).trim().toLowerCase() === nameKey)) return person
+  }
+  return null
+}
