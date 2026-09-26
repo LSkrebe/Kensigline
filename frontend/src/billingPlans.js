@@ -36,10 +36,12 @@ export function yearlyPlanNote(pricing) {
   return `Save ${formatUsd(perMonth)}/mo vs paying monthly`
 }
 
-/** Badge on the featured yearly plan card. */
+/** Badge on the featured yearly plan card — effective monthly from the yearly total. */
 export function yearlyPlanBadgeLabel(pricing) {
-  const perMonth = moneyCents((pricing?.yearlySaveUsd ?? 0) / 12)
-  return `Save ${formatUsd(perMonth)}/mo`
+  const yearly = Number(pricing?.yearlyUsd)
+  if (!Number.isFinite(yearly) || yearly <= 0) return null
+  const perMonth = moneyCents(yearly / 12)
+  return `${formatUsd(perMonth)}/mo`
 }
 
 export function pricingFromApi(data) {

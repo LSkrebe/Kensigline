@@ -2052,8 +2052,8 @@
 
 .lpFaq {
   width: 100%;
-  max-width: 720px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 0;

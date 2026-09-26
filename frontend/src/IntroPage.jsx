@@ -398,7 +398,7 @@ export function IntroPage() {
                   >
                     <div className="lpPlanHead">
                       <h3 className="lpPlanName">{plan.name}</h3>
-                      {plan.featured ? (
+                      {plan.featured && yearlyPlanBadgeLabel(pricing) ? (
                         <span className="lpPlanBadge">{yearlyPlanBadgeLabel(pricing)}</span>
                       ) : null}
                     </div>
