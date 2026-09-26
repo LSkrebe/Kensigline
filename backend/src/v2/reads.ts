@@ -519,7 +519,12 @@ async function resolveFilerBySlug(slug: string) {
   const catalogAliases: string[] = [];
   for (const entry of EXPLORE_WATCHLIST_CATALOG) {
     const ids = [entry.id, ...entry.slugs].map((s) => s.toLowerCase());
-    if (ids.includes(target) || ids.some((s) => stripFilerSlugHonorifics(s) === stripFilerSlugHonorifics(target))) {
+    if (
+      ids.includes(target) ||
+      ids.some((s) => stripFilerSlugHonorifics(s) === stripFilerSlugHonorifics(target)) ||
+      // Catalog short id should still expand to longer DB institution slugs.
+      ids.some((s) => target === s || target.startsWith(`${s}-`) || s.startsWith(`${target}-`))
+    ) {
       catalogAliases.push(...ids);
     }
   }
@@ -536,18 +541,28 @@ async function resolveFilerBySlug(slug: string) {
     ),
   );
 
+  // Prefer the twin with real rows. Rank by quality 13F/politician/insider counts,
+  // then any institution rows (legacy), then explicit -institution-* slug, then exact match.
   let filer = await db.one<any>(
     `
     SELECT id::text, display_name, slug, detail, detail_secondary, filer_type::text
     FROM filers
     WHERE slug = ANY($1::text[])
+       OR EXISTS (
+         SELECT 1
+         FROM unnest($1::text[]) AS a(alias)
+         WHERE filers.slug LIKE a.alias || '-institution-%'
+       )
     ORDER BY (
       (SELECT count(*)::int FROM institution_transactions t
         WHERE t.filer_id = filers.id AND coalesce(t.data_quality_version, 0) >= 1) +
       (SELECT count(*)::int FROM politician_transactions t WHERE t.filer_id = filers.id) +
       (SELECT count(*)::int FROM insider_transactions t WHERE t.filer_id = filers.id)
     ) DESC,
-    CASE WHEN slug = $2 THEN 0 WHEN slug = $3 THEN 1 ELSE 2 END
+    (SELECT count(*)::int FROM institution_transactions t WHERE t.filer_id = filers.id) DESC,
+    CASE WHEN slug LIKE '%-institution-%' THEN 0 ELSE 1 END,
+    CASE WHEN slug = $2 THEN 0 WHEN slug = $3 THEN 1 ELSE 2 END,
+    length(slug) DESC
     LIMIT 1
     `,
     [slugLookups, target, stripFilerSlugHonorifics(target) || target],
@@ -562,6 +577,12 @@ async function resolveFilerBySlug(slug: string) {
       SELECT id::text, display_name, slug, detail, detail_secondary, filer_type::text
       FROM filers
       WHERE slug = $1
+      ORDER BY (
+        (SELECT count(*)::int FROM institution_transactions t
+          WHERE t.filer_id = filers.id AND coalesce(t.data_quality_version, 0) >= 1) +
+        (SELECT count(*)::int FROM politician_transactions t WHERE t.filer_id = filers.id) +
+        (SELECT count(*)::int FROM insider_transactions t WHERE t.filer_id = filers.id)
+      ) DESC
       LIMIT 1
       `,
       [reversed],
@@ -573,9 +594,16 @@ async function resolveFilerBySlug(slug: string) {
   if (surname && surname.length >= 3) {
     const candidates = await db.query<any>(
       `
-      SELECT id::text, display_name, slug, detail, detail_secondary, filer_type::text
+      SELECT id::text, display_name, slug, detail, detail_secondary, filer_type::text,
+        (
+          (SELECT count(*)::int FROM institution_transactions t
+            WHERE t.filer_id = filers.id AND coalesce(t.data_quality_version, 0) >= 1) +
+          (SELECT count(*)::int FROM politician_transactions t WHERE t.filer_id = filers.id) +
+          (SELECT count(*)::int FROM insider_transactions t WHERE t.filer_id = filers.id)
+        ) AS txn_score
       FROM filers
       WHERE display_name ILIKE $1
+      ORDER BY txn_score DESC, CASE WHEN slug LIKE '%-institution-%' THEN 0 ELSE 1 END
       LIMIT 24
       `,
       [`%${surname}%`],
@@ -586,10 +614,17 @@ async function resolveFilerBySlug(slug: string) {
 
     const aliasRows = await db.query<any>(
       `
-      SELECT f.id::text, f.display_name, f.slug, f.detail, f.detail_secondary, f.filer_type::text, a.raw_name
+      SELECT f.id::text, f.display_name, f.slug, f.detail, f.detail_secondary, f.filer_type::text, a.raw_name,
+        (
+          (SELECT count(*)::int FROM institution_transactions t
+            WHERE t.filer_id = f.id AND coalesce(t.data_quality_version, 0) >= 1) +
+          (SELECT count(*)::int FROM politician_transactions t WHERE t.filer_id = f.id) +
+          (SELECT count(*)::int FROM insider_transactions t WHERE t.filer_id = f.id)
+        ) AS txn_score
       FROM filer_aliases a
       JOIN filers f ON f.id = a.filer_id
       WHERE a.raw_name ILIKE $1
+      ORDER BY txn_score DESC, CASE WHEN f.slug LIKE '%-institution-%' THEN 0 ELSE 1 END
       LIMIT 24
       `,
       [`%${surname}%`],

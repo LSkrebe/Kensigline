@@ -331,7 +331,12 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "tiger-global",
     name: "Tiger Global",
-    slugs: ["tiger-global", "tiger-global-management-llc", "tiger-global-management"],
+    slugs: [
+      "tiger-global",
+      "tiger-global-management-llc",
+      "tiger-global-management",
+      "tiger-global-management-llc-institution-2ef6ec",
+    ],
     mode: "institutions",
     matchNames: ["Tiger Global", "Tiger Global Management", "Tiger Global Management LLC"],
   },

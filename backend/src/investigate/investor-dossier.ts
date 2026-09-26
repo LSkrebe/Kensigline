@@ -641,21 +641,30 @@ export async function handleInvestorDossier(
   const modeKey = preferred ?? "any";
   const memKey = `${modeKey}:${slug}`;
 
-  const mem = dossierMemoryCache.get(memKey);
-  const memActor = mem?.payload?.actor as { transactions?: unknown[] } | undefined;
-  const memHasTxns = Array.isArray(memActor?.transactions) && memActor.transactions.length > 0;
-  if (mem && memHasTxns && Date.now() - mem.at < DOSSIER_CACHE_TTL_MS) {
-    sendJson(res, 200, mem.payload);
-    return;
+  // Skip process memory for unscoped `any` — it may hold a thin twin-filer stub.
+  // Mode-specific mem hits are still fine after a rich build.
+  if (modeKey !== "any") {
+    const mem = dossierMemoryCache.get(memKey);
+    const memActor = mem?.payload?.actor as { transactions?: unknown[] } | undefined;
+    const memHasTxns = Array.isArray(memActor?.transactions) && memActor.transactions.length > 0;
+    if (mem && memHasTxns && Date.now() - mem.at < DOSSIER_CACHE_TTL_MS) {
+      sendJson(res, 200, mem.payload);
+      return;
+    }
   }
 
   const {
     readInvestorDossierCache,
+    readRichestInvestorDossierCache,
     scheduleInvestorDossierRefresh,
     writeInvestorDossierCache,
   } = await import("../core/dossier-cache.js");
 
-  const pgCached = await readInvestorDossierCache(slug, modeKey);
+  // Always consider sibling mode caches — thin `any` stubs (wrong twin filer) must not
+  // outrank a rich institutions payload for the same catalog slug.
+  const pgCached =
+    (await readRichestInvestorDossierCache(slug, preferred)) ??
+    (await readInvestorDossierCache(slug, modeKey));
   const cachedActor = pgCached?.actor as { transactions?: unknown[] } | null | undefined;
   const cachedHasTxns = Array.isArray(cachedActor?.transactions) && cachedActor.transactions.length > 0;
   if (pgCached?.ok && cachedHasTxns && pgCached.dossierSchemaVersion === 10) {
@@ -674,12 +683,18 @@ export async function handleInvestorDossier(
     if (payload.ok && hasTxns && !(payload as { empty?: boolean }).empty) {
       dossierMemoryCache.set(memKey, { at: Date.now(), payload });
       void writeInvestorDossierCache(slug, modeKey, payload).catch(() => {});
+      // Keep the unscoped `any` slot aligned with the richest live build so Explore
+      // deep links without mode= don't resurrect empty twin-filer stubs.
+      if (modeKey !== "any") {
+        void writeInvestorDossierCache(slug, "any", payload).catch(() => {});
+      }
       if (preferred && payload.mode && payload.mode !== preferred) {
         void writeInvestorDossierCache(slug, String(payload.mode), payload).catch(() => {});
       }
       // Also cache under catalog slug + resolved mode for Explore deep links.
       if (payload.slug && payload.slug !== slug) {
         void writeInvestorDossierCache(String(payload.slug), modeKey, payload).catch(() => {});
+        void writeInvestorDossierCache(String(payload.slug), "any", payload).catch(() => {});
         if (payload.mode) void writeInvestorDossierCache(String(payload.slug), String(payload.mode), payload).catch(() => {});
       }
     }

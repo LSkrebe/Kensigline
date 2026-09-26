@@ -102,6 +102,49 @@ export async function readInvestorDossierCache(
   return row.payload;
 }
 
+/** Prefer the richest cached mode for a catalog slug (avoids thin `any` stubs). */
+export async function readRichestInvestorDossierCache(
+  slug: string,
+  preferredMode?: string | null,
+): Promise<CachePayload | null> {
+  const s = slugifyInvestorName(slug);
+  if (!s) return null;
+  await ensureDossierCacheTables();
+  const preferred = String(preferredMode ?? "")
+    .trim()
+    .toLowerCase();
+  const modes = preferred
+    ? [preferred, "institutions", "insider", "politicians", "any"]
+    : ["institutions", "insider", "politicians", "any"];
+  const uniqueModes = [...new Set(modes)];
+  const rows = await db
+    .queryApi<{ mode: string; payload: CachePayload }>(
+      `
+      SELECT mode, payload
+      FROM investor_dossier_cache
+      WHERE slug = $1 AND mode = ANY($2::text[])
+      `,
+      [s, uniqueModes],
+      4_000,
+    )
+    .catch(() => [] as { mode: string; payload: CachePayload }[]);
+
+  let best: CachePayload | null = null;
+  let bestN = -1;
+  for (const row of rows ?? []) {
+    const payload = row?.payload;
+    if (!payload || typeof payload !== "object" || (payload as { ok?: boolean }).ok === false) continue;
+    if ((payload as { dossierSchemaVersion?: number }).dossierSchemaVersion !== 10) continue;
+    const actor = (payload as { actor?: { transactions?: unknown[] } }).actor;
+    const n = Array.isArray(actor?.transactions) ? actor.transactions.length : 0;
+    if (n > bestN) {
+      best = payload;
+      bestN = n;
+    }
+  }
+  return bestN > 0 ? best : null;
+}
+
 export async function writeInvestorDossierCache(
   slug: string,
   mode: string,
