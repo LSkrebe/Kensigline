@@ -3193,17 +3193,20 @@ button.drpt-docRow {
 .drpt-holdingName {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   min-width: 0;
   gap: 2px;
 }
+.drpt-holdingName > .drpt-holdingDaily {
+  margin-bottom: 2px;
+}
 .drpt-holdingName > .drpt-holdingTicker,
-.drpt-holdingName > span:first-child:not(.drpt-holdingDate) {
+.drpt-holdingName > span.drpt-holdingTicker {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
-.drpt-dossier .drpt-holdingName > .drpt-holdingTicker,
-.drpt-dossier .drpt-holdingName > span:first-child:not(.drpt-holdingDate) {
+.drpt-dossier .drpt-holdingName > .drpt-holdingTicker {
   font-size: 19px;
   letter-spacing: -0.03em;
   line-height: 1.2;
@@ -3212,8 +3215,7 @@ button.drpt-docRow {
   order: -1;
   margin-bottom: 2px;
 }
-.drpt-holdingName > .drpt-holdingCompany,
-.drpt-holdingName > span:last-child:not(.drpt-holdingTicker) {
+.drpt-holdingName > .drpt-holdingCompany {
   overflow: hidden;
   color: rgba(255, 255, 255, 0.45);
   font-size: 12px;

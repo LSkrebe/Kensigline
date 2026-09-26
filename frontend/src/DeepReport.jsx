@@ -24,6 +24,7 @@ import { EXECUTIVE_INVESTOR_SLUGS, SENATE_INVESTOR_SLUGS, lookupWatchlistPerson 
 import { investorTypeLabel, lookupExplorePortrait } from './explorePortraitLookup.js'
 import portraits from './explorePortraits.json'
 import { companyLogoFallback, companyLogoSrc } from './localImages.js'
+import { fetchJsonSafe } from './api.js'
 import './DeepReport.css'
 import { EmptyChart, EmptyList, EmptyReturn, EmptyStats, SkeletonChart, SkeletonList, SkeletonReturn, SkeletonStats } from './AppSkeleton.jsx'
 import { copyDossierShareCard } from './dossierShareCard.js'
@@ -1615,8 +1616,8 @@ function DeepTradeLog({ rows = [], loading = false, name = '', expanded = false 
                         discover={false}
                       />
                       <span className="drpt-holdingName">
-                        <span>{change.ticker}</span>
-                        <span>{change.fullName || change.name}</span>
+                        <span className="drpt-holdingTicker">{change.ticker}</span>
+                        <span className="drpt-holdingCompany">{change.fullName || change.name}</span>
                       </span>
                       <span className="drpt-holdingAction">
                         {`${formatWeight(change.from)} → ${formatWeight(change.to)}`}
@@ -1633,33 +1634,113 @@ function DeepTradeLog({ rows = [], loading = false, name = '', expanded = false 
   )
 }
 
+function formatDailyCloseReturn(closes) {
+  const series = (closes ?? []).filter((value) => Number.isFinite(value) && value > 0)
+  if (series.length < 2) return null
+  const last = series[series.length - 1]
+  const prev = series[series.length - 2]
+  if (!(prev > 0)) return null
+  const pct = ((last - prev) / prev) * 100
+  const abs = Math.abs(pct).toFixed(1)
+  if (pct > 0.05) return { text: `+${abs}%`, tone: 'isUp' }
+  if (pct < -0.05) return { text: `−${abs}%`, tone: 'isDown' }
+  return { text: '0.0%', tone: 'isFlat' }
+}
+
+const holdingBarsCache = new Map()
+const holdingBarsQueue = []
+let holdingBarsActive = 0
+function pumpHoldingBars() {
+  while (holdingBarsActive < 3 && holdingBarsQueue.length) {
+    holdingBarsActive += 1
+    const work = holdingBarsQueue.shift()
+    work().finally(() => {
+      holdingBarsActive -= 1
+      pumpHoldingBars()
+    })
+  }
+}
+function fetchHoldingCloses(ticker) {
+  const key = String(ticker ?? '').trim().toUpperCase()
+  if (!key) return Promise.resolve([])
+  const cached = holdingBarsCache.get(key)
+  if (cached && Date.now() - cached.at < 120_000) return cached.promise
+  const promise = new Promise((resolve) => {
+    holdingBarsQueue.push(async () => {
+      try {
+        const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(key)}&days=5`, { timeoutMs: 12_000 })
+        resolve(r.ok ? (r.data?.items ?? []).map((b) => Number(b.close)).filter((v) => Number.isFinite(v) && v > 0) : [])
+      } catch {
+        resolve([])
+      }
+    })
+    pumpHoldingBars()
+  })
+  holdingBarsCache.set(key, { at: Date.now(), promise })
+  return promise
+}
+
 function DeepHoldings({ rows = [], loading = false, expanded = false }) {
   const holdings = useMemo(() => buildDossierActivity(rows)?.holdings ?? [], [rows])
-  const visible = expanded ? holdings : holdings.slice(0, 12)
+  const visible = useMemo(
+    () => (expanded ? holdings : holdings.slice(0, 12)),
+    [holdings, expanded],
+  )
+  const visibleTickersKey = useMemo(
+    () => visible.map((row) => String(row.ticker ?? '').trim().toUpperCase()).filter(Boolean).join(','),
+    [visible],
+  )
+  const [dailyByTicker, setDailyByTicker] = useState({})
+  useEffect(() => {
+    let alive = true
+    const tickers = visibleTickersKey ? visibleTickersKey.split(',') : []
+    if (!tickers.length) {
+      setDailyByTicker({})
+      return undefined
+    }
+    void Promise.all(
+      tickers.map(async (ticker) => {
+        const closes = await fetchHoldingCloses(ticker)
+        return [ticker, formatDailyCloseReturn(closes)]
+      }),
+    ).then((entries) => {
+      if (!alive) return
+      setDailyByTicker(Object.fromEntries(entries))
+    })
+    return () => {
+      alive = false
+    }
+  }, [visibleTickersKey])
   if (loading && !holdings.length) return <SkeletonList count={3} />
   if (!holdings.length) return <EmptyList label="No holdings yet" />
   return (
     <>
       <ol className="drpt-holdingList">
-        {visible.map((holding) => (
-          <li key={holding.ticker}>
-            <div className="drpt-holdingBtn">
-              <ImageOrInitials
-                className="drpt-holdingLogo"
-                src={companyLogoSrc(holding.ticker)}
-                fallbackSrc={companyLogoFallback(holding.ticker)}
-                name={holding.ticker}
-                logo
-                discover={false}
-              />
-              <span className="drpt-holdingName">
-                <span>{holding.ticker}</span>
-                <span>{holding.name}</span>
-              </span>
-              <span className="drpt-holdingAction">{holding.pct}%</span>
-            </div>
-          </li>
-        ))}
+        {visible.map((holding) => {
+          const daily = dailyByTicker[String(holding.ticker).toUpperCase()]
+          return (
+            <li key={holding.ticker}>
+              <div className="drpt-holdingBtn">
+                <ImageOrInitials
+                  className="drpt-holdingLogo"
+                  src={companyLogoSrc(holding.ticker)}
+                  fallbackSrc={companyLogoFallback(holding.ticker)}
+                  name={holding.ticker}
+                  logo
+                  discover={false}
+                />
+                <span className="drpt-holdingName">
+                  {daily ? (
+                    <span className={`exploreTapeReturn drpt-holdingDaily ${daily.tone}`}>{daily.text}</span>
+                  ) : null}
+                  <span className="drpt-holdingTicker">{holding.ticker}</span>
+                  <span className="drpt-holdingCompany">{holding.name}</span>
+                </span>
+                <span className="drpt-holdingAction">{holding.pct}%</span>
+              </div>
+            </li>
+          )
+        })}
       </ol>
     </>
   )
