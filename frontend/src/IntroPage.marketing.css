@@ -106,24 +106,18 @@
   opacity: var(--lp-expanded-opacity);
   pointer-events: none;
   overflow: hidden;
-  background-color: var(--lp-bg);
+  background-color: var(--lp-hero-flat-expanded, #16171f);
 }
 
 .lpHeroExpandedBg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--ml-bg-expanded, url('/mercerline_background_1.png'));
-  background-position: var(--ml-bg-expanded-position, center top);
-  background-repeat: no-repeat;
-  opacity: 0.88;
+  content: none;
 }
 
 .lpHeroExpandedBg::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(8, 8, 9, 0.28) 0%, rgba(8, 8, 9, 0.72) 100%);
+  background: linear-gradient(180deg, rgba(8, 8, 9, 0.08) 0%, rgba(8, 8, 9, 0.35) 100%);
 }
 
 .lpHeroCompactBg {
@@ -133,23 +127,29 @@
   opacity: var(--lp-compact-opacity);
   pointer-events: none;
   overflow: hidden;
+  background-color: var(--lp-hero-flat-compact, #101118);
 }
 
 .lpHeroCompactBg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: var(--ml-bg-compact, url('/mercerline_background_2.png'));
-  background-position: var(--ml-bg-compact-position, center top);
-  background-repeat: no-repeat;
-  opacity: 0.9;
+  content: none;
 }
 
 .lpHeroCompactBg::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(8, 8, 9, 0.5) 0%, rgba(8, 8, 9, 0.78) 100%);
+  background: linear-gradient(180deg, rgba(8, 8, 9, 0.12) 0%, rgba(8, 8, 9, 0.4) 100%);
+}
+
+/* Founders mode: warm charcoal so gold CTAs sit cleaner than cool slate. */
+.lp--founders {
+  --lp-hero-flat-expanded: #1c1814;
+  --lp-hero-flat-compact: #14110e;
+}
+
+.lp--waitlist {
+  --lp-hero-flat-expanded: #1a1812;
+  --lp-hero-flat-compact: #12100c;
 }
 
 .lpHeroChrome {
@@ -221,10 +221,9 @@
   position: absolute;
   inset: 0;
   z-index: 0;
-  background-image: var(--ml-bg-compact, url('/mercerline_background_2.png'));
-  background-position: var(--ml-bg-compact-position, center top);
-  background-repeat: no-repeat;
-  opacity: 0.9;
+  background-image: none;
+  background-color: var(--lp-hero-flat-compact, #101118);
+  opacity: 1;
   pointer-events: none;
 }
 
@@ -233,7 +232,7 @@
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: linear-gradient(180deg, rgba(8, 8, 9, 0.5) 0%, rgba(8, 8, 9, 0.78) 100%);
+  background: linear-gradient(180deg, rgba(8, 8, 9, 0.12) 0%, rgba(8, 8, 9, 0.4) 100%);
   pointer-events: none;
 }
 

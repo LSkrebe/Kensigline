@@ -337,11 +337,17 @@ function activityTs(row) {
 
 function returnFor(row, range) {
   // Live prod: never invent returns. Only show a % when the row carries a real one.
+  // Drop absurd fractions (broken bars / bad splits) so intro + Explore boards stay sane.
+  const sane = (value) => {
+    const n = Number(value)
+    if (!Number.isFinite(n)) return null
+    if (Math.abs(n) > 5) return null
+    return n
+  }
   if (!FORCE_MOCK_DATA) {
-    const byRange = row?.returnsByRange?.[range]
-    if (Number.isFinite(Number(byRange))) return Number(byRange)
-    const live = row?.returnFraction ?? row?.performanceReturn
-    return Number.isFinite(Number(live)) ? Number(live) : null
+    const byRange = sane(row?.returnsByRange?.[range])
+    if (byRange != null) return byRange
+    return sane(row?.returnFraction ?? row?.performanceReturn)
   }
   const table = MOCK_RETURNS[range] ?? MOCK_RETURNS['6M']
   const value = table[row.actorSlug]
@@ -830,15 +836,15 @@ export function ExploreWatchlistSection({
             <h2 className="exploreTapeTitle">Top Performers</h2>
             <div className="exploreTapeRanges" role="group" aria-label="Chart range">
               {PRICE_RANGE_OPTS.map((option) => (
-                <button
+      <button
                   key={option}
-                  type="button"
+        type="button"
                   className={option === range ? 'exploreTapeRange isActive' : 'exploreTapeRange'}
                   aria-pressed={option === range}
                   onClick={() => setRange(option)}
                 >
                   {option}
-                </button>
+      </button>
               ))}
             </div>
           </div>

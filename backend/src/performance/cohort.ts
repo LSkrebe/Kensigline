@@ -10,7 +10,7 @@ import { db } from "../core/db.js";
 
 type Exposure = { kind: string; filer_id: string; ticker: string; first_day?: string };
 
-const COHORT_SNAPSHOT_KEY = "cohort_multi_v4";
+const COHORT_SNAPSHOT_KEY = "cohort_multi_v5";
 
 const EXPLORE_RETURN_RANGES = ["1M", "3M", "6M", "1Y", "YTD"] as const;
 type ExploreReturnRange = (typeof EXPLORE_RETURN_RANGES)[number];
@@ -104,6 +104,10 @@ export function availableHistoryReturns(
   start: string,
   end: string,
 ) {
+  // Equal-weight averages blow up when one ticker has broken bars (penny→dollars, bad splits).
+  // Cap single-name moves so Explore / intro leaderboards stay believable.
+  const MAX_ABS_RETURN = 3; // 300%
+  const MIN_BASE_CLOSE = 0.5;
   const values = new Map<string, number>();
   const eligible: Exposure[] = [];
   for (const e of exposures) {
@@ -119,8 +123,11 @@ export function availableHistoryReturns(
       break;
     }
     if (!first || !last || first.day >= last.day) continue;
+    if (!(first.close >= MIN_BASE_CLOSE)) continue;
+    const ret = last.close / first.close - 1;
+    if (!Number.isFinite(ret) || Math.abs(ret) > MAX_ABS_RETURN) continue;
     const key = e.kind + ":" + e.filer_id + ":" + e.ticker;
-    values.set(key, last.close / first.close - 1);
+    values.set(key, ret);
     eligible.push({ ...e, ticker: key });
   }
   return averageInvestorReturns(eligible, values);

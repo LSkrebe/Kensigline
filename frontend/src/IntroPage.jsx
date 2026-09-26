@@ -253,7 +253,13 @@ export function IntroPage() {
   }, [])
 
   return (
-    <div ref={pageRef} className="lp" style={pageBackgroundStyle('intro')}>
+    <div
+      ref={pageRef}
+      className={['lp', pricing.founders ? 'lp--founders' : '', waitlist ? 'lp--waitlist' : '']
+        .filter(Boolean)
+        .join(' ')}
+      style={pageBackgroundStyle('intro')}
+    >
       <div className="lpHeroStickWrap">
         <div ref={dockRef} className="lpHeroDock lpHeroDock--expanded">
           <div className="lpHeroExpandedBg" aria-hidden="true" />
