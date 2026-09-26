@@ -25,3 +25,7 @@ pnpm-debug.log*
 
 # Local source archives for repeatable repair
 backend/.cache/
+
+# local scratch
+tmp/
+backend/tmp/
