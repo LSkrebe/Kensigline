@@ -541,7 +541,13 @@ async function resolveFilerBySlug(slug: string) {
     SELECT id::text, display_name, slug, detail, detail_secondary, filer_type::text
     FROM filers
     WHERE slug = ANY($1::text[])
-    ORDER BY CASE WHEN slug = $2 THEN 0 WHEN slug = $3 THEN 1 ELSE 2 END
+    ORDER BY (
+      (SELECT count(*)::int FROM institution_transactions t
+        WHERE t.filer_id = filers.id AND coalesce(t.data_quality_version, 0) >= 1) +
+      (SELECT count(*)::int FROM politician_transactions t WHERE t.filer_id = filers.id) +
+      (SELECT count(*)::int FROM insider_transactions t WHERE t.filer_id = filers.id)
+    ) DESC,
+    CASE WHEN slug = $2 THEN 0 WHEN slug = $3 THEN 1 ELSE 2 END
     LIMIT 1
     `,
     [slugLookups, target, stripFilerSlugHonorifics(target) || target],
