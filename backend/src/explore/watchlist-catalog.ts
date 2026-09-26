@@ -356,9 +356,9 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "lone-pine",
     name: "Lone Pine",
-    slugs: ["lone-pine", "lone-pine-capital"],
+    slugs: ["lone-pine", "lone-pine-capital", "lone-pine-capital-llc"],
     mode: "institutions",
-    matchNames: ["Lone Pine", "Lone Pine Capital"],
+    matchNames: ["Lone Pine", "Lone Pine Capital", "LONE PINE CAPITAL LLC"],
   },
   {
     id: "icahn-capital",

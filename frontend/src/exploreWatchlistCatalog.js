@@ -52,7 +52,7 @@ export const EXPLORE_WATCHLIST_CATALOG = [
   { name: 'Tiger Global', slug: 'tiger-global', slugAliases: ['tiger-global-management-llc', 'tiger-global-management'], mode: 'institutions', docType: '13f', matchNames: ['Tiger Global', 'Tiger Global Management'] },
   { name: 'Coatue', slug: 'coatue', slugAliases: ['coatue-management'], mode: 'institutions', docType: '13f', matchNames: ['Coatue', 'Coatue Management'] },
   { name: 'Viking Global', slug: 'viking-global', slugAliases: ['viking-global-investors-lp', 'viking-global-investors-lp-institution-d70de6'], mode: 'institutions', docType: '13f', matchNames: ['Viking Global', 'Viking Global Investors'] },
-  { name: 'Lone Pine', slug: 'lone-pine', slugAliases: ['lone-pine-capital'], mode: 'institutions', docType: '13f', matchNames: ['Lone Pine', 'Lone Pine Capital'] },
+  { name: 'Lone Pine', slug: 'lone-pine', slugAliases: ['lone-pine-capital', 'lone-pine-capital-llc'], mode: 'institutions', docType: '13f', matchNames: ['Lone Pine', 'Lone Pine Capital', 'LONE PINE CAPITAL LLC'] },
   { name: 'Icahn Capital', slug: 'icahn-capital', slugAliases: ['icahn-carl-c-institution-1589ad', 'icahn-carl-c'], mode: 'institutions', docType: '13f', matchNames: ['Icahn Capital', 'Carl Icahn', 'Icahn Carl C'] },
 ]
 

@@ -168,7 +168,15 @@ async function build() {
     WHERE t.transaction_code IN ('P','S') AND t.is_derivative=false AND t.transaction_at<$2::date+interval '1 day' AND t.transaction_at>=$1::date-interval '2 years' GROUP BY t.filer_id,t.issuer_id
     UNION ALL
     SELECT 'politicians',t.filer_id,t.issuer_id,min(t.transaction_at)::date::text FROM politician_transactions t
-    WHERE t.asset_name LIKE '%[ST]%' AND t.transaction_type ~* '^(p|purchase|buy|s|sale|sell)( |$)' AND t.transaction_at<$2::date+interval '1 day' AND t.transaction_at>=$1::date-interval '2 years' GROUP BY t.filer_id,t.issuer_id
+    WHERE t.issuer_id IS NOT NULL
+      AND (
+        t.asset_name LIKE '%[ST]%'
+        OR (
+          t.asset_name NOT LIKE '%[OP]%'
+          AND t.asset_name ~* '(common stock|ordinary shares|class [a-c] common|\\([A-Z]{1,5}\\))'
+        )
+      )
+      AND t.transaction_type ~* '^(p|purchase|buy|s|sale|sell)( |$)' AND t.transaction_at<$2::date+interval '1 day' AND t.transaction_at>=$1::date-interval '2 years' GROUP BY t.filer_id,t.issuer_id
     UNION ALL
     SELECT 'institutions',t.filer_id,t.issuer_id,min(t.transaction_at)::date::text FROM institution_transactions t
     WHERE t.data_quality_version>=1 AND t.instrument_type='shares' AND t.transaction_at<$2::date+interval '1 day' AND t.transaction_at>=$1::date-interval '2 years' GROUP BY t.filer_id,t.issuer_id
@@ -240,7 +248,14 @@ async function build() {
       SELECT t.filer_id, sum(coalesce(t.amount_usd_mid, t.amount_usd, 0))::float8 AS invested_usd
       FROM politician_transactions t
       WHERE t.filer_id IN (SELECT id FROM catalog)
-        AND t.asset_name LIKE '%[ST]%'
+        AND t.issuer_id IS NOT NULL
+        AND (
+          t.asset_name LIKE '%[ST]%'
+          OR (
+            t.asset_name NOT LIKE '%[OP]%'
+            AND t.asset_name ~* '(common stock|ordinary shares|class [a-c] common|\\([A-Z]{1,5}\\))'
+          )
+        )
         AND t.transaction_at >= $1::date
         AND t.transaction_at < $2::date + interval '1 day'
         AND coalesce(t.amount_usd_mid, t.amount_usd, 0) > 0

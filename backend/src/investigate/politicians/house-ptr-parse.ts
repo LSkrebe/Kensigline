@@ -179,11 +179,19 @@ export function parseHousePtrPdfText(pdfText: string, pdfUrl: string): ParsedHou
         ticker && !/^(NEW|INC|LLC|THE|FOR|AND|STOCK|TRUST|BOND|NOTE|SR|NT)$/i.test(ticker)
           ? ticker
           : null;
+      const looksLikeStock =
+        !!cleanTicker ||
+        /\b(common stock|ordinary shares|class [a-c] common)\b/i.test(asset);
+      const assetType = looksLikeStock ? "ST" : null;
       pushTxn(transactions, {
         owner: owner?.[1]?.toUpperCase() ?? null,
-        asset_name: asset || null,
+        asset_name: asset
+          ? assetType && !/\[(ST|OP)\]/.test(asset)
+            ? `${asset} [${assetType}]`
+            : asset
+          : null,
         ticker: cleanTicker,
-        asset_type: cleanTicker ? "ST" : null,
+        asset_type: assetType,
         transaction_type: match[1]!,
         transaction_date: parseUsDateToIso(match[2]!),
         notification_date: parseUsDateToIso(match[3]!),
