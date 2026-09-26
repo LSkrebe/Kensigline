@@ -2052,8 +2052,8 @@
 
 .lpFaq {
   width: 100%;
-  max-width: none;
-  margin: 0;
+  max-width: 720px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -2122,14 +2122,14 @@
   color: var(--lp-muted);
 }
 
-/* Footer */
+/* Footer — same flat field as the intro hero (incl. founders warm charcoal). */
 .lpFoot {
   position: relative;
   isolation: isolate;
   flex-shrink: 0;
   overflow: hidden;
   border-top: 1px solid var(--lp-line);
-  background-color: var(--lp-bg);
+  background-color: var(--lp-hero-flat-expanded, #16171f);
 }
 
 .lpFoot::before {
