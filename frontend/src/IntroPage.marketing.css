@@ -2122,14 +2122,14 @@
   color: var(--lp-muted);
 }
 
-/* Footer — same flat field as the intro hero (incl. founders warm charcoal). */
+/* Footer — match collapsed hero flat field (darker than expanded). */
 .lpFoot {
   position: relative;
   isolation: isolate;
   flex-shrink: 0;
   overflow: hidden;
   border-top: 1px solid var(--lp-line);
-  background-color: var(--lp-hero-flat-expanded, #16171f);
+  background-color: var(--lp-hero-flat-compact, #101118);
 }
 
 .lpFoot::before {
