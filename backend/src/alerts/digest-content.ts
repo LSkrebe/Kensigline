@@ -4,6 +4,7 @@ import { buildExploreRecapDayPayload } from "../explore/recap-day.js";
 import { evaluateRecapForHome } from "../explore/recap-evaluate-home.js";
 import { splitRecapSlidesForHome } from "../explore/recap-split-home.js";
 import {
+  catalogIdForFiler,
   EXPLORE_WATCHLIST_CATALOG,
   normalizeTrackedName,
 } from "../explore/watchlist-catalog.js";
@@ -138,11 +139,16 @@ async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide
       : null;
 
   const kicker = String(raw.kicker ?? raw.actorName ?? "Today");
-  const actorSlug =
+  const rawSlug =
     (raw.actorSlug != null ? String(raw.actorSlug).trim().toLowerCase() : "") ||
     catalogSlugForName(kicker) ||
     catalogSlugForName(String(raw.actorName ?? "")) ||
     null;
+  const actorSlug =
+    catalogIdForFiler(rawSlug, kicker) ||
+    catalogIdForFiler(rawSlug, String(raw.actorName ?? "")) ||
+    catalogSlugForName(kicker) ||
+    rawSlug;
   const catalog = catalogEntryForSlug(actorSlug) ?? catalogEntryForSlug(catalogSlugForName(kicker));
   const ticker = String(raw.ticker ?? "").trim().toUpperCase();
   const companyName =
@@ -152,7 +158,7 @@ async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide
   return {
     id: String(raw.id ?? ""),
     typeId: String(raw.typeId ?? ""),
-    kicker,
+    kicker: catalog?.name ?? kicker,
     headline: String(raw.headline ?? "").trim(),
     summary: String(raw.summary ?? "").trim(),
     source,

@@ -96,7 +96,15 @@ function institutionEvent(row: RawTxnRow): ExploreDirectoryEvent | null {
 
 function slugMatches(actorSlug: string, slugs: string[]): boolean {
   const s = String(actorSlug ?? "").trim().toLowerCase();
-  return slugs.some((alias) => alias.toLowerCase() === s);
+  if (!s) return false;
+  const bare = s.replace(/-institution-[a-f0-9]+$/i, "").replace(/-politician-[a-f0-9]+$/i, "").replace(/-insider-[a-f0-9]+$/i, "");
+  return slugs.some((alias) => {
+    const a = String(alias ?? "").trim().toLowerCase();
+    if (!a) return false;
+    if (s === a || bare === a) return true;
+    if (s.startsWith(`${a}-`) || bare.startsWith(`${a}-`)) return true;
+    return false;
+  });
 }
 
 function countSameDayRows(rows: RawTxnRow[], date: string): number {
@@ -121,7 +129,14 @@ async function loadPoliticianRows(slugs: string[]): Promise<RawTxnRow[]> {
       FROM politician_transactions t
       JOIN filers f ON f.id = t.filer_id
       JOIN issuers i ON i.id = t.issuer_id
-      WHERE f.slug = ANY($1::text[])
+      WHERE (
+          f.slug = ANY($1::text[])
+          OR regexp_replace(f.slug, '-(institution|politician|insider)-[a-f0-9]+$', '') = ANY($1::text[])
+          OR EXISTS (
+            SELECT 1 FROM unnest($1::text[]) AS a(alias)
+            WHERE f.slug = a.alias OR f.slug LIKE a.alias || '-%'
+          )
+        )
         AND i.ticker IS NOT NULL
         AND f.slug <> 'politician'
         AND t.asset_name LIKE '%[ST]%'
@@ -151,7 +166,14 @@ async function loadInsiderRows(slugs: string[]): Promise<RawTxnRow[]> {
       FROM insider_transactions t
       JOIN filers f ON f.id = t.filer_id
       JOIN issuers i ON i.id = t.issuer_id
-      WHERE f.slug = ANY($1::text[])
+      WHERE (
+          f.slug = ANY($1::text[])
+          OR regexp_replace(f.slug, '-(institution|politician|insider)-[a-f0-9]+$', '') = ANY($1::text[])
+          OR EXISTS (
+            SELECT 1 FROM unnest($1::text[]) AS a(alias)
+            WHERE f.slug = a.alias OR f.slug LIKE a.alias || '-%'
+          )
+        )
         AND i.ticker IS NOT NULL
       ORDER BY t.transaction_at DESC, t.id DESC
       `,
@@ -179,7 +201,15 @@ async function loadInstitutionRows(slugs: string[]): Promise<RawTxnRow[]> {
       FROM institution_transactions t
       JOIN filers f ON f.id = t.filer_id
       JOIN issuers i ON i.id = t.issuer_id
-      WHERE t.data_quality_version>=1 AND f.slug = ANY($1::text[])
+      WHERE t.data_quality_version>=1
+        AND (
+          f.slug = ANY($1::text[])
+          OR regexp_replace(f.slug, '-(institution|politician|insider)-[a-f0-9]+$', '') = ANY($1::text[])
+          OR EXISTS (
+            SELECT 1 FROM unnest($1::text[]) AS a(alias)
+            WHERE f.slug = a.alias OR f.slug LIKE a.alias || '-%'
+          )
+        )
         AND i.ticker IS NOT NULL
         AND t.activity IN ('Increased stake', 'Reduced stake', 'New position')
       ORDER BY t.transaction_at DESC, t.id DESC

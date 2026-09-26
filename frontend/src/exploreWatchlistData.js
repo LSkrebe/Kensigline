@@ -206,13 +206,17 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
       ) ??
       sorted.find((ev) => watchlistEventMatchesPerson(ev, person))
 
+    // Always use the curated catalog id for Explore joins (PnL / portraits / nav).
+    // DB filer slugs (hon-*, donald-j-trump) stay on filerSlug only.
+    const actorSlug = watchlistPersonSlugs(person)[0]
+    const filerSlug =
+      String(directLatest?.actorSlug ?? '')
+        .trim()
+        .toLowerCase() || null
+
     if (directLatest) {
       const lead = mapActorEventRows([directLatest]).filter(isPlausibleExploreInvestorRow)[0] ?? directLatest
       const { trail, muted } = resolveExploreRowTrail(lead, 'investor')
-      const actorSlug =
-        String(lead.actorSlug ?? '')
-          .trim()
-          .toLowerCase() || watchlistPersonSlugs(person)[0]
       const personEvents = sorted.filter((ev) => watchlistEventMatchesPerson(ev, person))
       const events = recentEventsForPerson(directLatest, personEvents, txnsPerPerson)
       rows.push(
@@ -222,6 +226,7 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
             name: person.name,
             feedName: String(lead.name ?? person.name).trim(),
             actorSlug,
+            filerSlug: filerSlug && filerSlug !== actorSlug ? filerSlug : undefined,
             mode: person.mode,
             typeKey: person.mode,
             ticker: lead.ticker,
@@ -252,10 +257,7 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
     const tickers = [...new Set(txns.map((t) => String(t.ticker ?? '').trim().toUpperCase()).filter(Boolean))]
     const modeCode = exploreActorDocCode(lead.docType)
     const { trail, muted } = resolveExploreRowTrail(lead, 'investor')
-    const actorSlug =
-      String(lead.actorSlug ?? '')
-        .trim()
-        .toLowerCase() || watchlistPersonSlugs(person)[0]
+    const leadFilerSlug = String(lead.actorSlug ?? '').trim().toLowerCase() || null
 
     rows.push(
       attachWatchlistEvents(
@@ -264,6 +266,7 @@ export function buildExploreWatchlistPeople(investorEvents = [], opts = {}) {
           name: person.name,
           feedName: String(lead.name ?? person.name).trim(),
           actorSlug,
+          filerSlug: leadFilerSlug && leadFilerSlug !== actorSlug ? leadFilerSlug : undefined,
           mode: person.mode,
           typeKey: person.mode,
           ticker: tickers.length > 1 ? modeCode : lead.ticker,

@@ -22,7 +22,7 @@ const MOCK_RETURNS = {
     'josh-gottheimer': 0.014,
     'citadel-advisors': 0.011,
     'pershing-square': 0.022,
-    'ro-khanna': 0.009,
+    'donald-trump': 0.009,
     'tim-cook': -0.012,
     'alex-karp': 0.041,
     'jamie-dimon': 0.015,
@@ -30,7 +30,7 @@ const MOCK_RETURNS = {
     'hock-tan': 0.018,
     'larry-ellison': -0.008,
     'marjorie-taylor-greene': 0.006,
-    'michael-mccaul': 0.004,
+    'april-mcclain-delaney': 0.004,
     'andy-jassy': -0.016,
     'bridgewater': 0.007,
     'icahn-capital': -0.021,
@@ -42,12 +42,12 @@ const MOCK_RETURNS = {
     'tommy-tuberville': -0.021,
     'colette-kress': 0.017,
     'markwayne-mullin': 0.019,
-    'richard-blumenthal': -0.011,
+    'jared-moskowitz': -0.011,
     'daniel-goldman': 0.005,
     'sheldon-whitehouse': -0.006,
     'byron-donalds': 0.051,
     'jefferson-shreve': -0.009,
-    'rick-scott': 0.013,
+    'julia-letlow': 0.013,
     'john-boozman': 0.008,
     'kevin-hern': -0.018,
     'elliott-management': 0.016,
@@ -74,7 +74,7 @@ const MOCK_RETURNS = {
     'josh-gottheimer': 0.037,
     'citadel-advisors': 0.029,
     'pershing-square': 0.058,
-    'ro-khanna': 0.033,
+    'donald-trump': 0.033,
     'tim-cook': 0.018,
     'alex-karp': 0.062,
     'jamie-dimon': 0.022,
@@ -82,7 +82,7 @@ const MOCK_RETURNS = {
     'hock-tan': 0.041,
     'larry-ellison': 0.019,
     'marjorie-taylor-greene': 0.014,
-    'michael-mccaul': 0.027,
+    'april-mcclain-delaney': 0.027,
     'andy-jassy': -0.023,
     'bridgewater': 0.016,
     'icahn-capital': -0.031,
@@ -94,12 +94,12 @@ const MOCK_RETURNS = {
     'tommy-tuberville': -0.041,
     'colette-kress': 0.026,
     'markwayne-mullin': -0.058,
-    'richard-blumenthal': -0.022,
+    'jared-moskowitz': -0.022,
     'daniel-goldman': 0.008,
     'sheldon-whitehouse': -0.034,
     'byron-donalds': -0.028,
     'jefferson-shreve': 0.031,
-    'rick-scott': -0.015,
+    'julia-letlow': -0.015,
     'john-boozman': 0.011,
     'kevin-hern': -0.027,
     'elliott-management': 0.018,
@@ -127,7 +127,7 @@ const MOCK_RETURNS = {
     'josh-gottheimer': 0.142,
     'citadel-advisors': 0.128,
     'pershing-square': 0.117,
-    'ro-khanna': 0.109,
+    'donald-trump': 0.109,
     'tiger-global': 0.093,
     'duquesne-family-office': 0.088,
     'tim-cook': 0.087,
@@ -139,7 +139,7 @@ const MOCK_RETURNS = {
     'larry-ellison': 0.058,
     'marjorie-taylor-greene': 0.051,
     'third-point': 0.047,
-    'michael-mccaul': 0.044,
+    'april-mcclain-delaney': 0.044,
     'andy-jassy': 0.038,
     'bridgewater': 0.031,
     'viking-global': 0.029,
@@ -157,12 +157,12 @@ const MOCK_RETURNS = {
     'suzan-delbene': -0.033,
     'colette-kress': -0.036,
     'markwayne-mullin': -0.042,
-    'richard-blumenthal': -0.055,
+    'jared-moskowitz': -0.055,
     'daniel-goldman': -0.063,
     'sheldon-whitehouse': -0.071,
     'byron-donalds': -0.084,
     'jefferson-shreve': -0.092,
-    'rick-scott': -0.101,
+    'julia-letlow': -0.101,
     'john-boozman': -0.112,
     'kevin-hern': -0.121,
   },
@@ -178,7 +178,7 @@ const MOCK_RETURNS = {
     'josh-gottheimer': 0.154,
     'citadel-advisors': 0.132,
     'pershing-square': 0.168,
-    'ro-khanna': 0.119,
+    'donald-trump': 0.119,
     'tim-cook': 0.196,
     'alex-karp': 0.243,
     'jamie-dimon': 0.084,
@@ -186,7 +186,7 @@ const MOCK_RETURNS = {
     'hock-tan': 0.207,
     'larry-ellison': 0.096,
     'marjorie-taylor-greene': 0.072,
-    'michael-mccaul': 0.061,
+    'april-mcclain-delaney': 0.061,
     'andy-jassy': 0.044,
     'bridgewater': 0.038,
     'icahn-capital': -0.027,
@@ -198,12 +198,12 @@ const MOCK_RETURNS = {
     'tommy-tuberville': -0.018,
     'colette-kress': 0.087,
     'markwayne-mullin': -0.127,
-    'richard-blumenthal': 0.026,
+    'jared-moskowitz': 0.026,
     'daniel-goldman': 0.041,
     'sheldon-whitehouse': 0.029,
     'byron-donalds': -0.044,
     'jefferson-shreve': 0.112,
-    'rick-scott': 0.067,
+    'julia-letlow': 0.067,
     'john-boozman': 0.062,
     'kevin-hern': -0.036,
     'elliott-management': 0.049,
@@ -230,7 +230,7 @@ const MOCK_RETURNS = {
     'josh-gottheimer': 0.074,
     'citadel-advisors': 0.066,
     'pershing-square': 0.081,
-    'ro-khanna': 0.058,
+    'donald-trump': 0.058,
     'tim-cook': 0.061,
     'alex-karp': 0.109,
     'jamie-dimon': 0.027,
@@ -238,7 +238,7 @@ const MOCK_RETURNS = {
     'hock-tan': 0.097,
     'larry-ellison': 0.042,
     'marjorie-taylor-greene': 0.031,
-    'michael-mccaul': 0.024,
+    'april-mcclain-delaney': 0.024,
     'andy-jassy': 0.016,
     'bridgewater': 0.021,
     'icahn-capital': -0.014,
@@ -250,12 +250,12 @@ const MOCK_RETURNS = {
     'tommy-tuberville': -0.009,
     'colette-kress': 0.037,
     'markwayne-mullin': -0.072,
-    'richard-blumenthal': -0.018,
+    'jared-moskowitz': -0.018,
     'daniel-goldman': 0.009,
     'sheldon-whitehouse': 0.012,
     'byron-donalds': -0.033,
     'jefferson-shreve': 0.047,
-    'rick-scott': 0.022,
+    'julia-letlow': 0.022,
     'john-boozman': 0.044,
     'kevin-hern': -0.026,
     'elliott-management': 0.015,
@@ -289,7 +289,7 @@ const POPULARITY = {
   'josh-gottheimer': 64,
   'tommy-tuberville': 61,
   'dan-crenshaw': 58,
-  'ro-khanna': 55,
+  'donald-trump': 55,
   'renaissance-technologies': 52,
   'bridgewater': 49,
   'alex-karp': 46,
@@ -297,8 +297,8 @@ const POPULARITY = {
   'markwayne-mullin': 40,
   'icahn-capital': 38,
   'andy-jassy': 36,
-  'michael-mccaul': 34,
-  'richard-blumenthal': 32,
+  'april-mcclain-delaney': 34,
+  'jared-moskowitz': 32,
   'byron-donalds': 30,
   'mary-barra': 28,
   'marc-benioff': 26,
@@ -307,7 +307,7 @@ const POPULARITY = {
   'gilbert-cisneros': 20,
   'daniel-goldman': 18,
   'sheldon-whitehouse': 16,
-  'rick-scott': 15,
+  'julia-letlow': 15,
   'jefferson-shreve': 14,
   'john-boozman': 13,
   'kevin-hern': 12,
@@ -347,18 +347,12 @@ function returnFor(row, range) {
 }
 
 function peopleWithReturns(people, range) {
-  const withNumbers = people.filter((row) => returnFor(row, range) != null)
-  return withNumbers.length ? withNumbers : people
-}
-
-function hasAnyReturn(row) {
-  const byRange = row?.returnsByRange
-  if (byRange && typeof byRange === 'object') {
-    for (const value of Object.values(byRange)) {
-      if (Number.isFinite(Number(value))) return true
-    }
-  }
-  return returnFor(row, '1Y') != null || returnFor(row, '6M') != null
+  // Keep the full curated list; sort people with measurable returns first.
+  return [...people].sort(
+    (a, b) =>
+      (returnFor(b, range) ?? -Infinity) - (returnFor(a, range) ?? -Infinity) ||
+      String(a.name).localeCompare(String(b.name)),
+  )
 }
 
 function investedOf(row) {
@@ -366,11 +360,6 @@ function investedOf(row) {
   if (Number.isFinite(live) && live > 0) return live
   if (FORCE_MOCK_DATA) return investedFor(row.actorSlug) ?? 0
   return 0
-}
-
-function peopleWithInvested(people) {
-  const withNumbers = people.filter((row) => investedOf(row) > 0)
-  return withNumbers.length ? withNumbers : people
 }
 
 function formatReturn(fraction) {
@@ -399,7 +388,7 @@ const INVESTED = {
   'josh-gottheimer': 1_520_000,
   'tommy-tuberville': 1_280_000,
   'dan-crenshaw': 980_000,
-  'ro-khanna': 1_140_000,
+  'donald-trump': 1_140_000,
   'renaissance-technologies': 9_800_000,
   'bridgewater': 8_350_000,
   'alex-karp': 2_760_000,
@@ -407,8 +396,8 @@ const INVESTED = {
   'markwayne-mullin': 860_000,
   'icahn-capital': 4_920_000,
   'andy-jassy': 1_860_000,
-  'michael-mccaul': 740_000,
-  'richard-blumenthal': 690_000,
+  'april-mcclain-delaney': 740_000,
+  'jared-moskowitz': 690_000,
   'byron-donalds': 640_000,
   'mary-barra': 1_120_000,
   'marc-benioff': 1_540_000,
@@ -417,7 +406,7 @@ const INVESTED = {
   'gilbert-cisneros': 610_000,
   'daniel-goldman': 480_000,
   'sheldon-whitehouse': 510_000,
-  'rick-scott': 890_000,
+  'julia-letlow': 890_000,
   'jefferson-shreve': 1_760_000,
   'john-boozman': 430_000,
   'kevin-hern': 390_000,
@@ -585,10 +574,7 @@ export function formatExploreTapeReturn(fraction) {
 }
 
 export function selectExploreFeatured(rows, range = '6M') {
-  const people = peopleWithReturns([...tapePeople(rows)], range)
-  return people
-    .sort((a, b) => (returnFor(b, range) ?? -Infinity) - (returnFor(a, range) ?? -Infinity) || String(a.name).localeCompare(String(b.name)))
-    .slice(0, 3)
+  return peopleWithReturns([...tapePeople(rows)], range).slice(0, 3)
 }
 
 function useNarrowTape() {
@@ -631,18 +617,15 @@ export function ExploreWatchlistSection({
   const [sharedCount, setSharedCount] = useState(TAPE_PAGE)
   const people = useMemo(() => tapePeople(rows), [rows])
   const performers = useMemo(() => {
-    // Include anyone with a measurable return in any window so range toggles don't shrink the tape to a handful.
-    const withAny = people.filter(hasAnyReturn)
-    const list = withAny.length ? withAny : [...people]
-    return list.sort(
+    // Always show the full curated universe; measurable returns sort to the top.
+    return [...people].sort(
       (a, b) =>
         (returnFor(b, range) ?? -Infinity) - (returnFor(a, range) ?? -Infinity) ||
         String(a.name).localeCompare(String(b.name)),
     )
   }, [people, range])
   const popular = useMemo(() => {
-    const list = peopleWithInvested([...people])
-    return list.sort(
+    return [...people].sort(
       (a, b) =>
         investedOf(b) - investedOf(a) ||
         activityTs(b) - activityTs(a) ||

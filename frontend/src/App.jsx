@@ -11958,7 +11958,7 @@ function KensiglineTerminal() {
     const refreshDossier = async () => {
       const qs = new URLSearchParams({ slug })
       if (modeHint) qs.set('mode', String(modeHint))
-      const r = await fetchJsonSafe(`/api/dossier/investor?${qs}`, { timeoutMs: 12_000 })
+      const r = await fetchJsonSafe(`/api/dossier/investor?${qs}`, { timeoutMs: 60_000 })
       if (!alive || investorBoostGenRef.current !== gen) return
       const actor = r.data?.actor
       if (r.ok && actor?.transactions?.length) {
@@ -11973,46 +11973,7 @@ function KensiglineTerminal() {
         setInvestorBoostDoneForSlug(slug)
         return
       }
-      // Soft fallback: one mode feed page only (not 3 parallel boosts).
-      const mode =
-        modeHint === 'politicians' || modeHint === 'institutions' ? modeHint : 'insider'
-      if (mode === 'politicians') {
-        const page = await fetchFeedPage('/api/politicians/feed', {
-          limit: 80,
-          offset: 0,
-          extra: { days: 30 },
-        })
-        if (!alive || investorBoostGenRef.current !== gen || !page.ok) {
-          setInvestorBoostDoneForSlug(slug)
-          return
-        }
-        const mapped = page.items.map(mapPoliticianFeedItem).filter((x) => x.id && x.ticker && x.at)
-        setPoliticiansFeedLive((prev) => mergeFeedPages(prev ?? [], mapped, { append: true }))
-      } else if (mode === 'institutions') {
-        const page = await fetchFeedPage('/api/institutions/feed', {
-          limit: 80,
-          offset: 0,
-          extra: { days: 60 },
-        })
-        if (!alive || investorBoostGenRef.current !== gen || !page.ok) {
-          setInvestorBoostDoneForSlug(slug)
-          return
-        }
-        const mapped = page.items.map(mapInstitutionFeedItem).filter((x) => x.id && x.ticker && x.at)
-        setInstitutionsFeedLive((prev) => mergeFeedPages(prev ?? [], mapped, { append: true }))
-      } else {
-        const page = await fetchFeedPage('/api/insider/feed', {
-          limit: 80,
-          offset: 0,
-          extra: { mode: 'company', days: 30 },
-        })
-        if (!alive || investorBoostGenRef.current !== gen || !page.ok) {
-          setInvestorBoostDoneForSlug(slug)
-          return
-        }
-        const mapped = page.items.map(mapInsiderCompanyFeedItem).filter((x) => x.id && x.ticker && x.at)
-        setInsiderFeedLive((prev) => mergeFeedPages(prev ?? [], mapped, { append: true }))
-      }
+      // Hard miss / timeout: stop loading. Do not scrape an unrelated feed as a fake dossier.
       if (alive && investorBoostGenRef.current === gen) setInvestorBoostDoneForSlug(slug)
     }
     void refreshDossier()

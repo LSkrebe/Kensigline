@@ -6,7 +6,7 @@ import {
   buildExploreInvestorEvents,
 } from './exploreDirectoryMock.js'
 import { fetchExplorePerformanceMembers, loadExploreHomeBundle, peekExploreHomeSnapshot } from './exploreApi.js'
-import { EMPTY_EXPLORE_RECAP, isDataModePending, isExploreNetworkMode, isLiveDataMode, isMockDataMode } from './dataMode.js'
+import { EMPTY_EXPLORE_RECAP, isDataModePending, isLiveDataMode, isMockDataMode } from './dataMode.js'
 import { ExploreDailyRecap } from './ExploreDailyRecap.jsx'
 import { ExploreFeaturedCards } from './ExploreFeaturedCards.jsx'
 import { filterExploreHomeRows, normalizeExploreSearchQuery } from './exploreDirectorySearch.js'
@@ -50,20 +50,29 @@ export function ExplorePage({
         homeLoading: false,
       }
     }
+    // Pending health: paint loading only — never flash cached/mock rows.
+    if (isDataModePending(backendUp)) {
+      return {
+        recap: null,
+        homePreview: null,
+        homeSearchPool: null,
+        homeLoading: true,
+      }
+    }
     const cached = peekExploreHomeSnapshot(backendUp)
     if (cached?.recap && cached?.homePreview) {
       return {
         recap: cached.recap,
         homePreview: cached.homePreview,
         homeSearchPool: cached.homeLatest ?? { companies: [], investors: [] },
-        homeLoading: false,
+        homeLoading: cached.stale === true,
       }
     }
     return {
       recap: null,
       homePreview: null,
       homeSearchPool: null,
-      homeLoading: isExploreNetworkMode(backendUp) && !cached?.recap,
+      homeLoading: isLiveDataMode(backendUp),
     }
   }, [backendUp])
 
@@ -79,6 +88,7 @@ export function ExplorePage({
   )
   const [watchlistEvents, setWatchlistEvents] = useState(() => [])
   const [returnsBySlug, setReturnsBySlug] = useState(() => ({}))
+  const [returnsReady, setReturnsReady] = useState(() => isMockDataMode(backendUp) || isCaptureMode())
   const [homeLoading, setHomeLoading] = useState(initialSnapshot.homeLoading)
 
   const syncDirectoryState = useCallback((directory) => {
@@ -98,40 +108,19 @@ export function ExplorePage({
       setHomeSearchPool(buildExploreDirectoryHomeLatest())
       setInvestorEvents(buildExploreInvestorEvents())
       setHomeLoading(false)
+      setReturnsReady(true)
       return
     }
 
     if (isDataModePending(backendUp)) {
-      const cached = peekExploreHomeSnapshot(null)
-      if (cached?.recap && cached?.homePreview) {
-        setRecap(cached.recap)
-        setHomePreview(cached.homePreview)
-        setHomeSearchPool(cached.homeLatest ?? { companies: [], investors: [] })
-        setHomeLoading(cached.stale === true)
-      } else {
-        setHomeLoading(true)
-      }
-      void loadExploreHomeBundle(null, { force: false }).then((bundle) => {
-        if (cancelled || !bundle?.recap) return
-        if (bundle.stale) {
-          setHomeLoading(true)
-          void loadExploreHomeBundle(null, { force: true }).then((fresh) => {
-            if (cancelled || !fresh?.recap) return
-            setRecap(fresh.recap)
-            if (fresh.directory) syncDirectoryState(fresh.directory)
-            setHomeLoading(false)
-          })
-          return
-        }
-        setRecap(bundle.recap)
-        if (bundle.directory) syncDirectoryState(bundle.directory)
-        setHomeLoading(false)
-      })
+      setHomeLoading(true)
+      setReturnsReady(false)
       return
     }
 
     if (!isLiveDataMode(backendUp)) {
       setHomeLoading(false)
+      setReturnsReady(true)
       return
     }
 
@@ -169,13 +158,30 @@ export function ExplorePage({
 
   useEffect(() => {
     let cancelled = false
-    if (isMockDataMode(backendUp) || isDataModePending(backendUp) || !isLiveDataMode(backendUp)) {
+    if (isMockDataMode(backendUp) || isCaptureMode()) {
       setReturnsBySlug({})
+      setReturnsReady(true)
       return undefined
     }
-    void fetchExplorePerformanceMembers(backendUp).then((map) => {
-      if (!cancelled && map) setReturnsBySlug(map)
-    })
+    if (isDataModePending(backendUp) || !isLiveDataMode(backendUp)) {
+      setReturnsBySlug({})
+      setReturnsReady(false)
+      return undefined
+    }
+    setReturnsReady(false)
+    void fetchExplorePerformanceMembers(backendUp)
+      .then((map) => {
+        if (!cancelled) {
+          setReturnsBySlug(map && typeof map === 'object' ? map : {})
+          setReturnsReady(true)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setReturnsBySlug({})
+          setReturnsReady(true)
+        }
+      })
     return () => {
       cancelled = true
     }
@@ -185,13 +191,17 @@ export function ExplorePage({
   const [range, setRange] = useState('6M')
   const normalizedQuery = normalizeExploreSearchQuery(searchQuery)
   const searching = normalizedQuery.length > 0
+  const exploreReady = !isDataModePending(backendUp) && !homeLoading && returnsReady
 
   const watchlistRows = useMemo(() => {
     // Curated universe is the only Explore list — personal watchlist is retired.
     const people = EXPLORE_WATCHLIST_CATALOG
     const rows = buildExploreWatchlistPeople(investorEvents, { people, watchlistLatest: watchlistEvents }).map(
       (row) => {
-        const metrics = returnsBySlug[String(row.actorSlug ?? '').toLowerCase()]
+        const catalogKey = String(row.actorSlug ?? '').toLowerCase()
+        const metrics =
+          returnsBySlug[catalogKey] ||
+          (row.filerSlug ? returnsBySlug[String(row.filerSlug).toLowerCase()] : null)
         if (!metrics) return row
         return {
           ...row,
@@ -226,7 +236,7 @@ export function ExplorePage({
     const observer = new ResizeObserver(sync)
     observer.observe(hero)
     return () => observer.disconnect()
-  }, [dockRef, featured, pageRef])
+  }, [dockRef, featured, pageRef, exploreReady])
 
   return (
     <div className="explorePage" ref={pageRef}>
@@ -244,7 +254,12 @@ export function ExplorePage({
           />
           <div className="exploreFeaturedHero">
             <div className="exploreFeaturedSheet" ref={heroRef}>
-              <ExploreFeaturedCards rows={featured} range={range} loading={homeLoading} onCardClick={onInvestorRowClick} />
+              <ExploreFeaturedCards
+                rows={exploreReady ? featured : []}
+                range={range}
+                loading={!exploreReady}
+                onCardClick={onInvestorRowClick}
+              />
             </div>
           </div>
         </div>
@@ -252,11 +267,11 @@ export function ExplorePage({
         <div className="explorePageBody">
           <ExploreWatchlistSection
             key={`watchlist-${normalizedQuery}`}
-            rows={watchlistRows}
+            rows={exploreReady ? watchlistRows : []}
             range={range}
             onRangeChange={setRange}
             onRowClick={onInvestorRowClick}
-            loading={homeLoading}
+            loading={!exploreReady}
           />
         </div>
       </div>

@@ -1,6 +1,7 @@
 import {completedDay} from '../performance/calendar.js';
 export {completedDay} from '../performance/calendar.js';
 import type http from "node:http";
+import { EXPLORE_WATCHLIST_CATALOG } from "../explore/watchlist-catalog.js";
 import { db } from "./db.js";
 import { sendJson } from "./http.js";
 
@@ -78,12 +79,22 @@ async function refresh(ticker: string) {
   failures.delete(ticker);
 }
 
+function ingestIsBackfill(): boolean {
+  return String(process.env.INGEST_MODE ?? "live").trim().toLowerCase() === "backfill";
+}
+
+function pricePendingCap(): number {
+  // During backfill, keep the serial Polygon chain tiny so parse workers stay responsive.
+  if (ingestIsBackfill()) return Math.max(2, Number(process.env.DISCLOSURE_PRICE_PENDING_MAX_BACKFILL ?? 8) || 8);
+  return Math.max(8, Number(process.env.DISCLOSURE_PRICE_PENDING_MAX ?? 40) || 40);
+}
+
 export function queueDisclosurePriceRefresh(ticker: string): boolean {
   if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(ticker)) return false;
   if (pending.has(ticker)) return true;
   if (
     Date.now() - (failures.get(ticker) ?? 0) <= 15 * 60_000 ||
-    pending.size >= 120
+    pending.size >= pricePendingCap()
   )
     return false;
   const job = providerQueue
@@ -147,31 +158,65 @@ export async function handleDisclosurePrices(
   });
 }
 
-/** Keep histories already used by customers fresh without running the retired bars pipeline. */
+/** Keep histories already used by customers fresh without flooding Polygon during backfill. */
 export function startDisclosurePriceWorker() {
+  if (String(process.env.DISCLOSURE_PRICE_WORKER_ENABLED ?? "1").trim() === "0") {
+    console.info("[disclosure-prices] worker disabled");
+    return { stop() {} };
+  }
   let busy = false;
+  const curatedSlugs = EXPLORE_WATCHLIST_CATALOG.map((e) => e.id);
+  const curatedNames = EXPLORE_WATCHLIST_CATALOG.map((e) => e.name);
   const run = async () => {
     if (busy) return;
     busy = true;
     try {
-      const rows = await db.queryApi<{ ticker: string }>(
-        `SELECT i.ticker FROM issuers i LEFT JOIN disclosure_price_history p ON p.ticker=i.ticker
-        WHERE i.ticker ~ '^[A-Z][A-Z0-9.-]{0,9}$' AND i.ticker<>ALL($2::text[]) AND
-          (p.ticker IS NULL OR p.as_of_day<$1::date OR p.bars->-1->>'unadjustedClose' IS NULL)
-        AND (EXISTS(SELECT 1 FROM politician_transactions t WHERE t.issuer_id=i.id)
-          OR EXISTS(SELECT 1 FROM insider_transactions t WHERE t.issuer_id=i.id)
-          OR EXISTS(SELECT 1 FROM institution_transactions t WHERE t.issuer_id=i.id))
-        ORDER BY (i.ticker='SPY') DESC,EXISTS(SELECT 1 FROM politician_transactions t WHERE t.issuer_id=i.id) DESC,p.fetched_at NULLS FIRST,i.ticker LIMIT 100`,[completedDay(),[...pending.keys(),...failures.keys()]],
-      );
+      const backfill = ingestIsBackfill();
+      const limit = backfill
+        ? Math.max(1, Math.min(20, Number(process.env.DISCLOSURE_PRICE_SWEEP_LIMIT_BACKFILL ?? 6) || 6))
+        : Math.max(5, Math.min(40, Number(process.env.DISCLOSURE_PRICE_SWEEP_LIMIT ?? 20) || 20));
+      const blocked = [...pending.keys(), ...failures.keys()];
+      const rows = backfill
+        ? await db.queryApi<{ ticker: string }>(
+            `WITH curated AS (
+              SELECT f.id FROM filers f
+              WHERE f.slug = ANY($3::text[])
+                 OR lower(f.display_name) = ANY(SELECT lower(x) FROM unnest($4::text[]) x)
+            )
+            SELECT i.ticker FROM issuers i
+            LEFT JOIN disclosure_price_history p ON p.ticker=i.ticker
+            WHERE i.ticker ~ '^[A-Z][A-Z0-9.-]{0,9}$'
+              AND i.ticker<>ALL($2::text[])
+              AND (p.ticker IS NULL OR p.as_of_day<$1::date OR p.bars->-1->>'unadjustedClose' IS NULL)
+              AND (
+                i.ticker='SPY'
+                OR EXISTS(SELECT 1 FROM politician_transactions t JOIN curated c ON c.id=t.filer_id WHERE t.issuer_id=i.id)
+                OR EXISTS(SELECT 1 FROM insider_transactions t JOIN curated c ON c.id=t.filer_id WHERE t.issuer_id=i.id)
+                OR EXISTS(SELECT 1 FROM institution_transactions t JOIN curated c ON c.id=t.filer_id WHERE t.issuer_id=i.id)
+              )
+            ORDER BY (i.ticker='SPY') DESC, p.fetched_at NULLS FIRST, i.ticker
+            LIMIT $5`,
+            [completedDay(), blocked, curatedSlugs, curatedNames, limit],
+          )
+        : await db.queryApi<{ ticker: string }>(
+            `SELECT i.ticker FROM issuers i LEFT JOIN disclosure_price_history p ON p.ticker=i.ticker
+            WHERE i.ticker ~ '^[A-Z][A-Z0-9.-]{0,9}$' AND i.ticker<>ALL($2::text[]) AND
+              (p.ticker IS NULL OR p.as_of_day<$1::date OR p.bars->-1->>'unadjustedClose' IS NULL)
+            AND (EXISTS(SELECT 1 FROM politician_transactions t WHERE t.issuer_id=i.id)
+              OR EXISTS(SELECT 1 FROM insider_transactions t WHERE t.issuer_id=i.id)
+              OR EXISTS(SELECT 1 FROM institution_transactions t WHERE t.issuer_id=i.id))
+            ORDER BY (i.ticker='SPY') DESC,EXISTS(SELECT 1 FROM politician_transactions t WHERE t.issuer_id=i.id) DESC,p.fetched_at NULLS FIRST,i.ticker LIMIT $3`,
+            [completedDay(), blocked, limit],
+          );
       for (const row of rows) queueDisclosurePriceRefresh(row.ticker);
-    } catch (error) {
+    } catch {
       console.warn("[disclosure-prices] refresh sweep failed");
     } finally {
       busy = false;
     }
   };
-  const initial = setTimeout(() => void run(), 30_000);
-  const timer = setInterval(() => void run(), 5 * 60_000);
+  const initial = setTimeout(() => void run(), ingestIsBackfill() ? 120_000 : 30_000);
+  const timer = setInterval(() => void run(), ingestIsBackfill() ? 10 * 60_000 : 5 * 60_000);
   return {
     stop() {
       clearTimeout(initial);

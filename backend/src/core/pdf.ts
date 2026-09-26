@@ -5,10 +5,14 @@ import { join } from "node:path";
 
 function hasEnoughText(t: string) {
   const s = String(t ?? "").trim();
-  if (s.length < 700) return false;
-  // Heuristic: at least some date-like tokens and table-ish headers.
-  const dates = (s.match(/\b\d{1,2}\/\d{1,2}\/\d{4}\b/g) ?? []).length;
-  const hasHdr = /\bTRANSACTIONS\b|\bTransaction Type\b|\bPeriodic Transaction Report\b/i.test(s);
+  // Short electronic PTRs exist; don't demand 700 chars before accepting text-layer/pdftotext.
+  if (s.length < 180) return false;
+  // Accept 2-digit and 4-digit US dates (scanned OCR often uses MM/DD/YY).
+  const dates = (s.match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g) ?? []).length;
+  const hasHdr =
+    /\bTRANSACTIONS\b|\bTransaction Type\b|\bPeriodic Transaction Report\b|\bP\s*erioDic\s*t\s*ranSaction\b|\bFiling ID\b|\bDigitally Signed\b/i.test(
+      s,
+    );
   return dates >= 1 && hasHdr;
 }
 

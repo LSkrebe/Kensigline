@@ -53,6 +53,14 @@ export async function refreshDailyMarket(force=false) {
  } finally {active=false;}
 }
 export function startDailyMarketWorker(){
+ // During curated backfill, skip the all-issuer daily market sweep — it queues thousands
+ // of Polygon refreshes and starves parse. Bars for curated tickers still come from
+ // disclosure-price worker + on-demand dossier/API paths.
+ if(String(process.env.INGEST_MODE??'live').trim().toLowerCase()==='backfill'
+   && String(process.env.DAILY_MARKET_DURING_BACKFILL??'0').trim()!=='1'){
+  console.info('[daily-market] skipped while INGEST_MODE=backfill');
+  return {stop(){}};
+ }
  const run=()=>void refreshDailyMarket().catch(e=>console.warn('[daily-market]',e.message));
  const initial=setTimeout(run,5000),timer=setInterval(run,5*60000);
  return {stop(){clearTimeout(initial);clearInterval(timer);}};

@@ -116,6 +116,11 @@ function filingFromSenate(parsed: ParsedSenatePtr, viewUrl: string): PoliticianF
 }
 
 async function loadHouseFiling(url: string): Promise<{ filing: PoliticianFiling; contentSha256: string; model: string | null }> {
+  // Annual financial disclosures are not PTRs — don't burn parse/OCR on them.
+  if (/\/financial-pdfs\//i.test(url)) {
+    throw new Error("house_not_ptr_financial_disclosure");
+  }
+
   const pdf = await fetchPdfBytes(url);
   const contentSha256 = createHash("sha256").update(pdf).digest("hex");
   const filingId = (url.match(/\/(\d+)\.pdf$/i) ?? [])[1] ?? null;
@@ -139,7 +144,31 @@ async function loadHouseFiling(url: string): Promise<{ filing: PoliticianFiling;
     };
   }
 
-  throw new Error("house_ptr_low_confidence_parse");
+  // Readable PTR (filer / signature / filing id) but no stock rows we can use —
+  // return empty so downstream marks skipped_no_reportable, not poison low_confidence.
+  const readable =
+    Boolean(parsed.filer.name) ||
+    Boolean(parsed.filed_at) ||
+    /periodic\s*transaction|digitally\s*signed|filing\s*id\s*#?\s*\d+/i.test(pdfText);
+  if (readable) {
+    return {
+      contentSha256,
+      model: null,
+      filing: {
+        filer: parsed.filer,
+        filing_id: parsed.filing_id ?? filingId,
+        filed_at: parsed.filed_at,
+        source: "house_ptr",
+        is_amendment: Boolean(parsed.is_amendment),
+        pdf_url: url,
+        transactions: [],
+        context_sentences: [],
+      },
+    };
+  }
+
+  // Image-only / garbage scan — permanent for our electronic pipeline.
+  throw new Error("house_ptr_unreadable_scan");
 }
 
 async function loadSenateFiling(url: string): Promise<{ filing: PoliticianFiling; contentSha256: string; model: string | null }> {
@@ -454,7 +483,7 @@ export async function parseNextPoliticiansQueueItem(): Promise<ParseNextResult> 
   } catch (err: any) {
     const msg = String(err?.message ?? err);
     // Permanent poison — don't burn retries on broken unicode payloads.
-    if (/poison_|house_ptr_low_confidence|oge_278t_low_confidence/i.test(msg)) {
+    if (/poison_|house_ptr_low_confidence|house_ptr_unreadable_scan|house_not_ptr_financial|oge_278t_low_confidence/i.test(msg)) {
       await markQueueDead(queueId, msg.slice(0, 2000));
       logParseOutcome({
         source_type: source,

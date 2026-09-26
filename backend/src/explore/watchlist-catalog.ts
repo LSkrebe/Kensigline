@@ -24,18 +24,18 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
     matchNames: ["Josh Gottheimer", "Joshua Gottheimer"],
   },
   {
-    id: "ro-khanna",
-    name: "Ro Khanna",
-    slugs: ["ro-khanna"],
+    id: "donald-trump",
+    name: "Donald Trump",
+    slugs: ["donald-trump", "donald-j-trump", "trump"],
     mode: "politicians",
-    matchNames: ["Ro Khanna", "Rohit Khanna"],
+    matchNames: ["Donald Trump", "Donald J Trump", "Donald J. Trump", "Trump, Donald"],
   },
   {
-    id: "michael-mccaul",
-    name: "Michael McCaul",
-    slugs: ["michael-mccaul"],
+    id: "april-mcclain-delaney",
+    name: "April McClain Delaney",
+    slugs: ["april-mcclain-delaney", "hon-april-mcclain-delaney"],
     mode: "politicians",
-    matchNames: ["Michael McCaul", "Michael T. McCaul"],
+    matchNames: ["April McClain Delaney", "Hon. April McClain Delaney", "McClain Delaney, Hon. April"],
   },
   {
     id: "gilbert-cisneros",
@@ -47,9 +47,9 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "lisa-mcclain",
     name: "Lisa McClain",
-    slugs: ["lisa-mcclain"],
+    slugs: ["lisa-mcclain", "hon-lisa-mcclain"],
     mode: "politicians",
-    matchNames: ["Lisa McClain"],
+    matchNames: ["Lisa McClain", "Hon. Lisa McClain"],
   },
   {
     id: "tommy-tuberville",
@@ -61,30 +61,30 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "dan-crenshaw",
     name: "Dan Crenshaw",
-    slugs: ["dan-crenshaw"],
+    slugs: ["dan-crenshaw", "hon-daniel-crenshaw", "daniel-crenshaw"],
     mode: "politicians",
-    matchNames: ["Dan Crenshaw", "Daniel Crenshaw"],
+    matchNames: ["Dan Crenshaw", "Daniel Crenshaw", "Hon. Daniel Crenshaw"],
   },
   {
     id: "jefferson-shreve",
     name: "Jefferson Shreve",
-    slugs: ["jefferson-shreve"],
+    slugs: ["jefferson-shreve", "hon-jefferson-shreve"],
     mode: "politicians",
-    matchNames: ["Jefferson Shreve"],
+    matchNames: ["Jefferson Shreve", "Hon. Jefferson Shreve", "Shreve, Hon. Jefferson"],
   },
   {
-    id: "richard-blumenthal",
-    name: "Richard Blumenthal",
-    slugs: ["richard-blumenthal"],
+    id: "jared-moskowitz",
+    name: "Jared Moskowitz",
+    slugs: ["jared-moskowitz", "hon-jared-moskowitz"],
     mode: "politicians",
-    matchNames: ["Richard Blumenthal"],
+    matchNames: ["Jared Moskowitz", "Hon. Jared Moskowitz", "Moskowitz, Hon. Jared"],
   },
   {
     id: "marjorie-taylor-greene",
     name: "Marjorie Taylor Greene",
-    slugs: ["marjorie-taylor-greene"],
+    slugs: ["marjorie-taylor-greene", "hon-marjorie-taylor-greene", "greene-marjorie-taylor"],
     mode: "politicians",
-    matchNames: ["Marjorie Taylor Greene"],
+    matchNames: ["Marjorie Taylor Greene", "Hon. Marjorie Taylor Greene", "Greene, Hon. Marjorie Taylor"],
   },
   {
     id: "markwayne-mullin",
@@ -96,9 +96,9 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "daniel-goldman",
     name: "Daniel Goldman",
-    slugs: ["daniel-goldman"],
+    slugs: ["daniel-goldman", "hon-daniel-goldman", "hon-daniel-s-goldman"],
     mode: "politicians",
-    matchNames: ["Daniel Goldman", "Daniel S. Goldman"],
+    matchNames: ["Daniel Goldman", "Daniel S. Goldman", "Hon. Daniel Goldman", "Goldman, Hon. Daniel"],
   },
   {
     id: "sheldon-whitehouse",
@@ -122,11 +122,11 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
     matchNames: ["Kevin Hern"],
   },
   {
-    id: "rick-scott",
-    name: "Rick Scott",
-    slugs: ["rick-scott"],
+    id: "julia-letlow",
+    name: "Julia Letlow",
+    slugs: ["julia-letlow", "hon-julia-letlow"],
     mode: "politicians",
-    matchNames: ["Rick Scott", "Richard Scott"],
+    matchNames: ["Julia Letlow", "Hon. Julia Letlow", "Letlow, Hon. Julia"],
   },
   {
     id: "john-boozman",
@@ -145,9 +145,9 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "suzan-delbene",
     name: "Suzan DelBene",
-    slugs: ["suzan-delbene"],
+    slugs: ["suzan-delbene", "hon-suzan-k-delbene"],
     mode: "politicians",
-    matchNames: ["Suzan DelBene", "Suzan K. DelBene"],
+    matchNames: ["Suzan DelBene", "Suzan K. DelBene", "Hon. Suzan K. DelBene"],
   },
   {
     id: "jensen-huang",
@@ -180,16 +180,16 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "mark-zuckerberg",
     name: "Mark Zuckerberg",
-    slugs: ["mark-zuckerberg"],
+    slugs: ["mark-zuckerberg", "zuckerberg-mark"],
     mode: "insiders",
     matchNames: ["Mark Zuckerberg", "Zuckerberg Mark"],
   },
   {
     id: "larry-ellison",
     name: "Larry Ellison",
-    slugs: ["larry-ellison"],
+    slugs: ["larry-ellison", "ellison-lawrence-joseph"],
     mode: "insiders",
-    matchNames: ["Larry Ellison", "Lawrence J. Ellison", "Ellison Lawrence"],
+    matchNames: ["Larry Ellison", "Lawrence J. Ellison", "Ellison Lawrence", "ELLISON LAWRENCE JOSEPH"],
   },
   {
     id: "lisa-su",
@@ -201,30 +201,30 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "andy-jassy",
     name: "Andy Jassy",
-    slugs: ["andy-jassy"],
+    slugs: ["andy-jassy", "jassy-andrew-r", "andrew-jassy"],
     mode: "insiders",
-    matchNames: ["Andy Jassy", "Andrew Jassy"],
+    matchNames: ["Andy Jassy", "Andrew Jassy", "Jassy Andrew R", "Andrew R Jassy"],
   },
   {
     id: "alex-karp",
     name: "Alex Karp",
-    slugs: ["alex-karp"],
+    slugs: ["alex-karp", "karp-alexander-c", "alexander-karp"],
     mode: "insiders",
-    matchNames: ["Alex Karp", "Alexander Karp"],
+    matchNames: ["Alex Karp", "Alexander Karp", "Karp Alexander C", "Alexander C. Karp"],
   },
   {
     id: "hock-tan",
     name: "Hock Tan",
-    slugs: ["hock-tan"],
+    slugs: ["hock-tan", "tan-hock-e"],
     mode: "insiders",
-    matchNames: ["Hock Tan", "Hock E. Tan"],
+    matchNames: ["Hock Tan", "Hock E. Tan", "TAN HOCK E"],
   },
   {
     id: "marc-benioff",
     name: "Marc Benioff",
-    slugs: ["marc-benioff"],
+    slugs: ["marc-benioff", "benioff-marc"],
     mode: "insiders",
-    matchNames: ["Marc Benioff"],
+    matchNames: ["Marc Benioff", "Benioff Marc"],
   },
   {
     id: "jamie-dimon",
@@ -236,128 +236,136 @@ export const EXPLORE_WATCHLIST_CATALOG: ExploreWatchlistCatalogEntry[] = [
   {
     id: "mary-barra",
     name: "Mary Barra",
-    slugs: ["mary-barra"],
+    slugs: ["mary-barra", "barra-mary-t"],
     mode: "insiders",
-    matchNames: ["Mary Barra", "Mary T. Barra"],
+    matchNames: ["Mary Barra", "Mary T. Barra", "Barra Mary T"],
   },
   {
     id: "reed-hastings",
     name: "Reed Hastings",
-    slugs: ["reed-hastings"],
+    slugs: ["reed-hastings", "hastings-reed"],
     mode: "insiders",
-    matchNames: ["Reed Hastings", "Wilmot Reed Hastings"],
+    matchNames: ["Reed Hastings", "Wilmot Reed Hastings", "HASTINGS REED"],
   },
   {
     id: "colette-kress",
     name: "Colette Kress",
-    slugs: ["colette-kress"],
+    slugs: ["colette-kress", "kress-colette"],
     mode: "insiders",
-    matchNames: ["Colette Kress"],
+    matchNames: ["Colette Kress", "Kress Colette"],
   },
   {
     id: "berkshire-hathaway",
     name: "Berkshire Hathaway",
-    slugs: ["berkshire-hathaway", "berkshire-hathaway-inc"],
+    slugs: ["berkshire-hathaway", "berkshire-hathaway-inc", "berkshire-hathaway-inc-institution-813696"],
     mode: "institutions",
-    matchNames: ["Berkshire Hathaway", "Berkshire Hathaway Inc", "Berkshire Hathaway Inc."],
+    matchNames: ["Berkshire Hathaway", "Berkshire Hathaway Inc", "Berkshire Hathaway Inc.", "BERKSHIRE HATHAWAY INC"],
   },
   {
     id: "pershing-square",
     name: "Pershing Square",
-    slugs: ["pershing-square"],
+    slugs: [
+      "pershing-square",
+      "pershing-square-capital-management-l-p-institution-dde950",
+      "pershing-square-capital-management",
+    ],
     mode: "institutions",
-    matchNames: ["Pershing Square", "Pershing Square Capital Management"],
+    matchNames: ["Pershing Square", "Pershing Square Capital Management", "Pershing Square Capital Management, L.P."],
   },
   {
     id: "duquesne-family-office",
     name: "Duquesne Family Office",
-    slugs: ["duquesne-family-office"],
+    slugs: ["duquesne-family-office", "duquesne-family-office-llc"],
     mode: "institutions",
-    matchNames: ["Duquesne Family Office"],
+    matchNames: ["Duquesne Family Office", "Duquesne Family Office LLC"],
   },
   {
     id: "appaloosa",
     name: "Appaloosa",
-    slugs: ["appaloosa"],
+    slugs: ["appaloosa", "appaloosa-lp"],
     mode: "institutions",
-    matchNames: ["Appaloosa", "Appaloosa Management"],
+    matchNames: ["Appaloosa", "Appaloosa Management", "Appaloosa LP"],
   },
   {
     id: "citadel-advisors",
     name: "Citadel Advisors",
-    slugs: ["citadel-advisors"],
+    slugs: ["citadel-advisors", "citadel-advisors-llc"],
     mode: "institutions",
-    matchNames: ["Citadel Advisors", "Citadel"],
+    matchNames: ["Citadel Advisors", "Citadel", "CITADEL ADVISORS LLC"],
   },
   {
     id: "renaissance-technologies",
     name: "Renaissance Technologies",
     slugs: ["renaissance-technologies"],
     mode: "institutions",
-    matchNames: ["Renaissance Technologies"],
+    matchNames: ["Renaissance Technologies", "RENAISSANCE TECHNOLOGIES LLC"],
   },
   {
     id: "bridgewater",
     name: "Bridgewater",
-    slugs: ["bridgewater"],
+    slugs: ["bridgewater", "bridgewater-associates-lp"],
     mode: "institutions",
-    matchNames: ["Bridgewater", "Bridgewater Associates"],
+    matchNames: ["Bridgewater", "Bridgewater Associates", "Bridgewater Associates, LP"],
   },
   {
     id: "elliott-management",
     name: "Elliott Management",
-    slugs: ["elliott-management"],
+    slugs: ["elliott-management", "elliott-management-corp", "elliott-investment-management-l-p"],
     mode: "institutions",
-    matchNames: ["Elliott Management", "Elliott Investment Management"],
+    matchNames: ["Elliott Management", "Elliott Investment Management", "ELLIOTT MANAGEMENT CORP"],
   },
   {
     id: "third-point",
     name: "Third Point",
-    slugs: ["third-point"],
+    slugs: ["third-point", "third-point-llc"],
     mode: "institutions",
-    matchNames: ["Third Point", "Third Point Management"],
+    matchNames: ["Third Point", "Third Point Management", "Third Point LLC"],
   },
   {
     id: "baupost",
     name: "Baupost",
-    slugs: ["baupost"],
+    slugs: ["baupost", "baupost-group-llc-ma", "the-baupost-group"],
     mode: "institutions",
-    matchNames: ["Baupost", "The Baupost Group"],
+    matchNames: ["Baupost", "The Baupost Group", "Baupost Group LLC MA", "BAUPOST GROUP LLC/MA"],
   },
   {
     id: "tiger-global",
     name: "Tiger Global",
-    slugs: ["tiger-global"],
+    slugs: ["tiger-global", "tiger-global-management-llc", "tiger-global-management"],
     mode: "institutions",
-    matchNames: ["Tiger Global", "Tiger Global Management"],
+    matchNames: ["Tiger Global", "Tiger Global Management", "Tiger Global Management LLC"],
   },
   {
     id: "coatue",
     name: "Coatue",
-    slugs: ["coatue"],
+    slugs: ["coatue", "coatue-management"],
     mode: "institutions",
-    matchNames: ["Coatue", "Coatue Management"],
+    matchNames: ["Coatue", "Coatue Management", "COATUE MANAGEMENT LLC"],
   },
   {
     id: "viking-global",
     name: "Viking Global",
-    slugs: ["viking-global"],
+    slugs: [
+      "viking-global",
+      "viking-global-investors-lp",
+      "viking-global-investors-lp-institution-d70de6",
+    ],
     mode: "institutions",
-    matchNames: ["Viking Global", "Viking Global Investors"],
+    matchNames: ["Viking Global", "Viking Global Investors", "Viking Global Investors LP"],
   },
   {
     id: "lone-pine",
     name: "Lone Pine",
-    slugs: ["lone-pine"],
+    slugs: ["lone-pine", "lone-pine-capital"],
     mode: "institutions",
     matchNames: ["Lone Pine", "Lone Pine Capital"],
   },
   {
     id: "icahn-capital",
     name: "Icahn Capital",
-    slugs: ["icahn-capital"],
+    slugs: ["icahn-capital", "icahn-carl-c-institution-1589ad", "icahn-carl-c"],
     mode: "institutions",
-    matchNames: ["Icahn Capital", "Carl Icahn"],
+    matchNames: ["Icahn Capital", "Carl Icahn", "Icahn Carl C", "ICAHN CARL C"],
   },
 ];
 
@@ -419,22 +427,39 @@ export function shouldIngestFiler(name: string | null | undefined, slug?: string
   return isTrackedUniverseName(name);
 }
 
+function nameKeysForEntry(entry: ExploreWatchlistCatalogEntry): string[] {
+  const keys = [normalizeTrackedName(entry.name), ...entry.matchNames.map(normalizeTrackedName)];
+  for (const slug of entry.slugs) keys.push(normalizeTrackedName(slug.replace(/-/g, " ")));
+  return [...new Set(keys.filter(Boolean))];
+}
+
+function nameKeyMatchesFiler(filerKey: string, trackedKey: string): boolean {
+  if (!filerKey || !trackedKey) return false;
+  if (filerKey === trackedKey) return true;
+  if (filerKey.includes(trackedKey) || trackedKey.includes(filerKey)) return true;
+  const parts = trackedKey.split(" ").filter(Boolean);
+  return parts.length >= 2 && parts.every((p) => filerKey.includes(p));
+}
+
 /** Map a DB filer identity onto the Explore catalog id used by the frontend. */
 export function catalogIdForFiler(slug: string | null | undefined, name?: string | null): string | null {
   const s = String(slug ?? "").trim().toLowerCase();
   if (s) {
     for (const entry of EXPLORE_WATCHLIST_CATALOG) {
       if (entry.id === s || entry.slugs.some((x) => x.toLowerCase() === s)) return entry.id;
+      // Institution slugs often append `-institution-<hex>`; accept prefix.
+      const bare = s.replace(/-institution-[a-f0-9]+$/i, "");
+      if (bare !== s && (entry.id === bare || entry.slugs.some((x) => x.toLowerCase() === bare))) return entry.id;
+      if (entry.slugs.some((x) => {
+        const a = x.toLowerCase();
+        return s === a || s.startsWith(`${a}-`) || a.startsWith(`${s}-`);
+      })) return entry.id;
     }
   }
   const key = normalizeTrackedName(name);
   if (!key) return s || null;
   for (const entry of EXPLORE_WATCHLIST_CATALOG) {
-    if (normalizeTrackedName(entry.name) === key) return entry.id;
-    if (entry.matchNames.some((n) => normalizeTrackedName(n) === key)) return entry.id;
-    const tracked = normalizeTrackedName(entry.name);
-    const trackedParts = tracked.split(" ").filter(Boolean);
-    if (trackedParts.length >= 2 && trackedParts.every((p) => key.includes(p))) return entry.id;
+    if (nameKeysForEntry(entry).some((tracked) => nameKeyMatchesFiler(key, tracked))) return entry.id;
   }
   return s || null;
 }

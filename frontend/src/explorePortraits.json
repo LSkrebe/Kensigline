@@ -3130,8 +3130,10 @@
     "hero": "#4a5c6e"
   },
   "mcclain": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/M001136.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/april-mcclain-delaney.webp",
+    "source": "local",
+    "thumb": "/investors/thumbs/april-mcclain-delaney.webp",
+    "hero": "#ad7762"
   },
   "michellefischbach": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/F000470.jpg",
@@ -3334,12 +3336,16 @@
     "source": "https://github.com/unitedstates/images"
   },
   "julialetlow": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/L000595.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/julia-letlow.webp",
+    "thumb": "/investors/thumbs/julia-letlow.webp",
+    "source": "local",
+    "hero": "#8c5a3b"
   },
   "letlow": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/L000595.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/julia-letlow.webp",
+    "source": "local",
+    "thumb": "/investors/thumbs/julia-letlow.webp",
+    "hero": "#422716"
   },
   "troyacarter": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/C001125.jpg",
@@ -3578,12 +3584,16 @@
     "source": "https://github.com/unitedstates/images"
   },
   "jaredmoskowitz": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/M001217.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/jared-moskowitz.webp",
+    "thumb": "/investors/thumbs/jared-moskowitz.webp",
+    "source": "local",
+    "hero": "#4a6e84"
   },
   "moskowitz": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/M001217.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/jared-moskowitz.webp",
+    "source": "local",
+    "thumb": "/investors/thumbs/jared-moskowitz.webp",
+    "hero": "#3d7cab"
   },
   "richardmccormick": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/M001218.jpg",
@@ -4441,8 +4451,10 @@
     "source": "https://github.com/unitedstates/images"
   },
   "aprilmcclaindelaney": {
-    "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/M001232.jpg",
-    "source": "https://github.com/unitedstates/images"
+    "src": "/investors/april-mcclain-delaney.webp",
+    "thumb": "/investors/thumbs/april-mcclain-delaney.webp",
+    "source": "local",
+    "hero": "#3f5f7a"
   },
   "mcclaindelaney": {
     "src": "https://raw.githubusercontent.com/unitedstates/images/gh-pages/congress/225x275/M001232.jpg",
@@ -4956,12 +4968,16 @@
     "thumb": "/investors/thumbs/lisa-su.webp"
   },
   "donaldjtrump": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/330px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Donald_Trump"
+    "src": "/investors/donald-trump.webp",
+    "source": "local",
+    "thumb": "/investors/thumbs/donald-trump.webp",
+    "hero": "#6e5f54"
   },
   "donaldtrump": {
-    "src": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/16/Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg/330px-Official_Presidential_Portrait_of_President_Donald_J._Trump_%282025%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
-    "source": "https://en.wikipedia.org/wiki/Donald_Trump"
+    "src": "/investors/donald-trump.webp",
+    "thumb": "/investors/thumbs/donald-trump.webp",
+    "source": "local",
+    "hero": "#6e5f54"
   },
   "markwaynemullin": {
     "src": "/investors/markwayne-mullin.webp",
@@ -5487,5 +5503,59 @@
     "hero": "#665067",
     "source": "local",
     "thumb": "/investors/thumbs/icahn-capital.webp"
+  },
+  "trump": {
+    "src": "/investors/donald-trump.webp",
+    "thumb": "/investors/thumbs/donald-trump.webp",
+    "source": "local",
+    "hero": "#6e5f54"
+  },
+  "donald": {
+    "src": "/investors/donald-trump.webp",
+    "thumb": "/investors/thumbs/donald-trump.webp",
+    "source": "local",
+    "hero": "#7e6c60"
+  },
+  "honaprilmcclaindelaney": {
+    "src": "/investors/april-mcclain-delaney.webp",
+    "thumb": "/investors/thumbs/april-mcclain-delaney.webp",
+    "source": "local",
+    "hero": "#3f5f7a"
+  },
+  "april": {
+    "src": "/investors/april-mcclain-delaney.webp",
+    "thumb": "/investors/thumbs/april-mcclain-delaney.webp",
+    "source": "local",
+    "hero": "#ad7762"
+  },
+  "delaney": {
+    "src": "/investors/april-mcclain-delaney.webp",
+    "thumb": "/investors/thumbs/april-mcclain-delaney.webp",
+    "source": "local",
+    "hero": "#ad7762"
+  },
+  "honjaredmoskowitz": {
+    "src": "/investors/jared-moskowitz.webp",
+    "thumb": "/investors/thumbs/jared-moskowitz.webp",
+    "source": "local",
+    "hero": "#4a6e84"
+  },
+  "jared": {
+    "src": "/investors/jared-moskowitz.webp",
+    "thumb": "/investors/thumbs/jared-moskowitz.webp",
+    "source": "local",
+    "hero": "#3d7cab"
+  },
+  "honjulialetlow": {
+    "src": "/investors/julia-letlow.webp",
+    "thumb": "/investors/thumbs/julia-letlow.webp",
+    "source": "local",
+    "hero": "#8c5a3b"
+  },
+  "julia": {
+    "src": "/investors/julia-letlow.webp",
+    "thumb": "/investors/thumbs/julia-letlow.webp",
+    "source": "local",
+    "hero": "#422716"
   }
 }

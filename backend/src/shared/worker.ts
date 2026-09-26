@@ -93,12 +93,13 @@ export function startPipelineWorker(opts: PipelineWorkerOpts) {
     envNum(opts.envPrefix, "BACKFILL_INTERVAL_MS", d.backfillIntervalMs ?? 60_000),
   );
   const reclaimEveryMs = Math.max(
-    60_000,
-    envNum(opts.envPrefix, "RECLAIM_INTERVAL_MS", ingestMode() === "live" ? 120_000 : 120_000),
+    30_000,
+    envNum(opts.envPrefix, "RECLAIM_INTERVAL_MS", ingestMode() === "live" ? 120_000 : 60_000),
   );
+  // Backfill: reclaim hung PDF/13F parses faster so one stuck house_ptr can't pin slots.
   const reclaimOlderMinutes = Math.max(
-    5,
-    envNum(opts.envPrefix, "RECLAIM_STALE_MINUTES", ingestMode() === "live" ? 10 : 15),
+    2,
+    envNum(opts.envPrefix, "RECLAIM_STALE_MINUTES", ingestMode() === "live" ? 10 : 5),
   );
 
   console.log(

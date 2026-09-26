@@ -20,7 +20,7 @@ import {
 } from './researchPaperSources.js'
 import { ExplorePersonRow, ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
 import { exploreInvestorSlug } from './exploreDirectoryNav.js'
-import { SENATE_INVESTOR_SLUGS } from './exploreWatchlistCatalog.js'
+import { EXECUTIVE_INVESTOR_SLUGS, SENATE_INVESTOR_SLUGS } from './exploreWatchlistCatalog.js'
 import portraits from './explorePortraits.json'
 import { companyLogoFallback, companyLogoSrc } from './localImages.js'
 import './DeepReport.css'
@@ -1835,7 +1835,11 @@ export function DeepActorReport({
   const rawRole = detail && detail !== '—' && detail.toLowerCase() !== modeLabel.toLowerCase() ? detail : null
   const role = rawRole?.replace(/^(house|senate)$/i, (value) => value[0].toUpperCase() + value.slice(1).toLowerCase())
   const sourceLabel = mode === 'politicians'
-    ? (/senate/i.test(`${detail} ${role ?? ''}`) || SENATE_INVESTOR_SLUGS.has(exploreInvestorSlug(name)) ? 'Senate' : 'House')
+    ? (/executive|oge/i.test(`${detail} ${role ?? ''}`) || EXECUTIVE_INVESTOR_SLUGS.has(exploreInvestorSlug(name))
+      ? 'Executive'
+      : /senate/i.test(`${detail} ${role ?? ''}`) || SENATE_INVESTOR_SLUGS.has(exploreInvestorSlug(name))
+        ? 'Senate'
+        : 'House')
     : 'SEC'
   const portrait = portraits[normalizeInvestorName(name)]
   const sourceMark = sourceLabel === 'Senate'

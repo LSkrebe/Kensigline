@@ -3,7 +3,12 @@ import {db} from '../core/db.js';
 import {queueDisclosurePriceRefresh,completedDay} from '../core/disclosure-prices.js';
 import {calculateTransaction,flagAmendmentConflicts,reconcileLots,summarizeTransactions,type Tx,type Bar,type AmendmentRef} from './calculate.js';
 export async function enrichDossierPerformance(transactions:any[],source:string,amendments:AmendmentRef[]=[]) {
-  const txs:Tx[]=flagAmendmentConflicts(transactions.map(t=>{
+  // Cap chart/summary work so heavy filers (hundreds of PTRs) stay interactive.
+  const PERF_TXN_CAP = 180;
+  const ranked = [...transactions].sort((a, b) => String(b?.ts ?? '').localeCompare(String(a?.ts ?? '')));
+  const forPerf = ranked.length > PERF_TXN_CAP ? ranked.slice(0, PERF_TXN_CAP) : ranked;
+
+  const txs:Tx[]=flagAmendmentConflicts(forPerf.map(t=>{
     const s=t.sheetRow,m=s.performanceMeta??{};
     const category=source==='politicians'?'politician':source==='institutions'?'institution':'insider';
     const code=String(s.transactionCode??s.transactionType??'');
@@ -23,6 +28,6 @@ export async function enrichDossierPerformance(transactions:any[],source:string,
   const strip=(r:any)=>{const {points,...rest}=r;return rest;};
   return {version:2,daily:buildDailyDisclosureIndex(results,histories,market),transactions:results.map(strip),disclosures:disclosures.map(strip),positions,
     summaries:[30,90,180].flatMap(h=>['buy','sell','holding'].map(a=>summarizeTransactions(results,h,a))),
-    coverage:{records:txs.length,priced:results.filter(r=>r.returnFraction!=null).length,unpriced:results.filter(r=>r.returnFraction==null).length,pendingTickers:needs.length,limit:1200,historyComplete:false},
+    coverage:{records:txs.length,sourceRecords:transactions.length,priced:results.filter(r=>r.returnFraction!=null).length,unpriced:results.filter(r=>r.returnFraction==null).length,pendingTickers:needs.length,limit:PERF_TXN_CAP,historyComplete:false},
     methodology:'Security price returns from a reported execution price only when its split basis is verified; otherwise from the transaction-day close (next observed market session on a holiday). 13F uses quarter-end close. No dividends, fees or taxes. Equal-weight outcomes use one close-to-close ticker/date/action observation and a fixed horizon. Sales show subsequent stock movement, not short profit. PTR dollar bands use the midpoint of the disclosed range for sizing only; the band text remains the filing fact. Position P&L is withheld unless a disclosed-lot FIFO model can reconcile all available Form 4 transactions from a verified zero balance (Closed / Open at last disclosure).'};
 }

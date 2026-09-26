@@ -22,10 +22,15 @@ export type ParsedHousePtr = {
 
 function parseUsDateToIso(s: string | null): string | null {
   const raw = String(s ?? "").trim();
-  const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
   if (!m) return null;
-  const iso = `${m[3]}-${m[1]!.padStart(2, "0")}-${m[2]!.padStart(2, "0")}`;
-  return Number.isFinite(Date.parse(iso)) && new Date(iso).toISOString().slice(0,10)===iso ? iso : null;
+  let y = Number(m[3]);
+  if (y < 100) y += y >= 70 ? 1900 : 2000;
+  const mo = Number(m[1]);
+  const day = Number(m[2]);
+  if (mo < 1 || mo > 12 || day < 1 || day > 31) return null;
+  const iso = `${y}-${String(mo).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return Number.isFinite(Date.parse(`${iso}T00:00:00Z`)) ? iso : null;
 }
 
 function normalizeAmountRange(raw: string): string {
@@ -53,6 +58,7 @@ function parseFilerName(text: string): string | null {
   const cleaned = flatPtrText(text);
   const patterns = [
     /\bName:\s*(.+?)(?:\s+Status:|\s+State\/District:|$)/i,
+    /\bfiler information\s+name:\s*(.+?)(?:\s+Status:|\s+State\/District:|$)/i,
     /\bDigitally Signed:\s*(.+?)(?:\s*,|$)/i,
     /\bFiler:\s*(.+?)(?:\s+Status:|$)/i,
     /\bMember:\s*(.+?)(?:\s+Status:|$)/i,
@@ -74,8 +80,8 @@ function parseStateDistrict(text: string): string | null {
 function parseFiledAt(text: string): string | null {
   const cleaned = flatPtrText(text);
   const m =
-    cleaned.match(/Digitally Signed:.{1,200}?,\s*(\d{1,2}\/\d{1,2}\/\d{4})/i) ??
-    cleaned.match(/\bFiled(?:\s+on)?[:\s]+(\d{1,2}\/\d{1,2}\/\d{4})/i);
+    cleaned.match(/Digitally Signed:.{1,200}?,\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/i) ??
+    cleaned.match(/\bFiled(?:\s+on)?[:\s]+(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
   return m ? parseUsDateToIso(m[1] ?? null) : null;
 }
 
@@ -97,7 +103,14 @@ function buildContextSentences(
   ];
 }
 
-/** Parse House PTR PDF text; returns confident_rows for LLM fallback gating. */
+function pushTxn(
+  transactions: HousePtrTransaction[],
+  row: HousePtrTransaction,
+) {
+  if (row.transaction_date && row.notification_date && row.transaction_type) transactions.push(row);
+}
+
+/** Parse House PTR PDF text (electronic Clerk forms, modern + older layouts). */
 export function parseHousePtrPdfText(pdfText: string, pdfUrl: string): ParsedHousePtr {
   const flat = flatPtrText(pdfText);
   const filing_id = (pdfUrl.match(/\/(\d+)\.pdf$/i) ?? [])[1] ?? null;
@@ -105,23 +118,27 @@ export function parseHousePtrPdfText(pdfText: string, pdfUrl: string): ParsedHou
   const filed_at = parseFiledAt(flat);
   const transactions: HousePtrTransaction[] = [];
 
-
-  // Anchor each row to its asset-type, action, two dates and amount range.
-  // Overlapping character windows can silently attach the previous row's ticker/date.
-  const rowPattern = /\[([A-Z]{2,4})\]\s+([PSE])\s*(?:\(\s*partial\s*\))?\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(\d{1,2}\/\d{1,2}\/\d{4})\s+(\$[\d,]+(?:\.\d{2})?\s*-\s*\$?[\d,]+(?:\.\d{2})?)/g;
+  // Modern electronic rows: ... (TICKER) [ST] P 07/24/2026 07/24/2026 $1,001 - $15,000
+  const modernPattern =
+    /\[([A-Z]{2,4})\]\s*([PSE])\s*(?:\(\s*partial\s*\))?\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\$[\d,]+(?:\.\d{2})?\s*-\s*\$?[\d,]+(?:\.\d{2})?)/g;
   let previousEnd = 0;
-  for (const match of flat.matchAll(rowPattern)) {
+  for (const match of flat.matchAll(modernPattern)) {
     const start = match.index ?? 0;
-    const prefix = flat.slice(previousEnd, start).split('$200?').at(-1) ?? '';
+    const prefix = flat.slice(previousEnd, start).split("$200?").at(-1) ?? "";
     const ownerMatches = [...prefix.matchAll(/\b(SP|JT|DC|SELF)\s+/g)];
     const owner = ownerMatches.at(-1);
-    const asset = (owner ? prefix.slice(owner.index! + owner[0].length) : prefix.split('$200?').at(-1) ?? prefix).trim();
+    const asset = (
+      owner ? prefix.slice(owner.index! + owner[0].length) : (prefix.split("$200?").at(-1) ?? prefix)
+    ).trim();
     const ticker = asset.match(/\(([A-Z]{1,6}(?:\.[A-Z])?)\)\s*$/)?.[1] ?? null;
     const end = start + match[0].length;
     const tail = flat.slice(end);
-    const description = tail.match(/^(?:\s*F\s*S:\s*\w+)?\s*D:\s*(.*?)(?=\s+(?:SP|JT|DC|SELF)\s|\s+Filing ID|\s+\* For|$)/)?.[1]?.trim() ?? null;
+    const description =
+      tail
+        .match(/^(?:\s*F\s*S:\s*\w+)?\s*D:\s*(.*?)(?=\s+(?:SP|JT|DC|SELF)\s|\s+Filing ID|\s+\* For|$)/)?.[1]
+        ?.trim() ?? null;
     const assetType = match[1]!;
-    const row: HousePtrTransaction = {
+    pushTxn(transactions, {
       owner: owner?.[1] ?? null,
       asset_name: `${asset.slice(-200)} [${assetType}]`,
       ticker,
@@ -131,9 +148,50 @@ export function parseHousePtrPdfText(pdfText: string, pdfUrl: string): ParsedHou
       notification_date: parseUsDateToIso(match[4]!),
       amount_range: normalizeAmountRange(match[5]!),
       description,
-    };
+    });
     previousEnd = end;
-    if(row.transaction_date && row.notification_date)transactions.push(row);
+  }
+
+  // Older electronic rows without [ST] markers:
+  // "advanced Micro Devices Inc SR NT S 09/28/2016 10/3/2016 $1,001 - $15,000"
+  if (!transactions.length) {
+    const legacyPattern =
+      /\b([PSE])\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\$[\d,]+(?:\.\d{2})?\s*-\s*\$?[\d,]+(?:\.\d{2})?)/g;
+    let prev = 0;
+    for (const match of flat.matchAll(legacyPattern)) {
+      const start = match.index ?? 0;
+      const prefix = flat.slice(prev, start);
+      // Skip certification / header noise
+      if (/certif|digitally signed|penalty|initial public/i.test(prefix.slice(-80))) {
+        prev = start + match[0].length;
+        continue;
+      }
+      const ownerMatches = [...prefix.matchAll(/\b(SP|JT|DC|SELF)\s+/gi)];
+      const owner = ownerMatches.at(-1);
+      let asset = (owner ? prefix.slice(owner.index! + owner[0].length) : prefix).trim();
+      asset = asset.replace(/^.*?\b(?:owner\s+)?asset\b/i, "").trim().slice(-200);
+      const ticker =
+        asset.match(/\(([A-Z]{1,6}(?:\.[A-Z])?)\)/)?.[1] ??
+        asset.match(/\b([A-Z]{1,5})\s*$/)?.[1] ??
+        null;
+      // Reject likely non-tickers (common words)
+      const cleanTicker =
+        ticker && !/^(NEW|INC|LLC|THE|FOR|AND|STOCK|TRUST|BOND|NOTE|SR|NT)$/i.test(ticker)
+          ? ticker
+          : null;
+      pushTxn(transactions, {
+        owner: owner?.[1]?.toUpperCase() ?? null,
+        asset_name: asset || null,
+        ticker: cleanTicker,
+        asset_type: cleanTicker ? "ST" : null,
+        transaction_type: match[1]!,
+        transaction_date: parseUsDateToIso(match[2]!),
+        notification_date: parseUsDateToIso(match[3]!),
+        amount_range: normalizeAmountRange(match[4]!),
+        description: null,
+      });
+      prev = start + match[0].length;
+    }
   }
 
   const confident_rows = transactions.filter((t) => t.ticker && t.transaction_type && t.amount_range).length;

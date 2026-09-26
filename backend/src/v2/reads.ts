@@ -3,6 +3,10 @@
  */
 import { db } from "../core/db.js";
 import { getSecTickerTitleMap } from "../core/sec.js";
+import {
+  catalogIdForFiler,
+  EXPLORE_WATCHLIST_CATALOG,
+} from "../explore/watchlist-catalog.js";
 import { resolveResearchFeedCompanyName } from "../research/feed-display.js";
 import { formatUsdCompact } from "../shared/money.js";
 import { normalizeTicker } from "./canonical.js";
@@ -512,6 +516,14 @@ async function resolveFilerBySlug(slug: string) {
   const target = slugifyFilerSlug(slug);
   if (!target) return null;
 
+  const catalogAliases: string[] = [];
+  for (const entry of EXPLORE_WATCHLIST_CATALOG) {
+    const ids = [entry.id, ...entry.slugs].map((s) => s.toLowerCase());
+    if (ids.includes(target) || ids.some((s) => stripFilerSlugHonorifics(s) === stripFilerSlugHonorifics(target))) {
+      catalogAliases.push(...ids);
+    }
+  }
+
   const slugLookups = Array.from(
     new Set(
       [
@@ -519,6 +531,7 @@ async function resolveFilerBySlug(slug: string) {
         stripFilerSlugHonorifics(target),
         `hon-${stripFilerSlugHonorifics(target) || target}`,
         `the-honorable-${stripFilerSlugHonorifics(target) || target}`,
+        ...catalogAliases,
       ].filter(Boolean),
     ),
   );
@@ -792,6 +805,16 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
     };
   });
 
+  // Prefer share/[ST] rows for performance; keep full trade list for the UI log.
+  const tradeLog = source === "institutions" ? collapseInstitutionDossierTxns(transactions) : transactions;
+  const forPerformance =
+    source === "politicians"
+      ? tradeLog.filter((t) => /\[ST\]/i.test(String(t?.sheetRow?.assetName ?? ""))).slice(0, 400)
+      : source === "insider"
+        ? tradeLog.filter((t) => t?.sheetRow?.isDerivative !== true).slice(0, 400)
+        : tradeLog.slice(0, 400);
+  const performanceInput = forPerformance.length ? forPerformance : tradeLog.slice(0, 180);
+
   const { enrichDossierPerformance } = await import("../performance/dossier.js");
   // Search outside the displayed history window too: amendments can revise rows omitted by LIMIT.
   const transactionTable = source === "institutions" ? "institution_transactions" : source === "politicians" ? "politician_transactions" : "insider_transactions";
@@ -800,24 +823,25 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
     fil.filed_at::date::text AS "filedAt", fil.form, ${amendmentMeta} AS meta
     FROM ${transactionTable} t JOIN filings fil ON fil.id=t.filing_id JOIN issuers i ON i.id=t.issuer_id
     WHERE t.filer_id=$1 AND (fil.form ILIKE '%/A' ${source === "insider" ? "OR t.performance_meta->>'amendment'='true'" : ""})`, [filer.id]);
-  const performance = await enrichDossierPerformance(transactions,source,amendments.map(a=>({...a,category:source==='institutions'?'institution':source==='politicians'?'politician':'insider'})));
+  const performance = await enrichDossierPerformance(performanceInput,source,amendments.map(a=>({...a,category:source==='institutions'?'institution':source==='politicians'?'politician':'insider'})));
+  const catalogSlug = catalogIdForFiler(filer.slug, filer.display_name) ?? filer.slug;
   return {
     ok: true,
     dossierSchemaVersion: 10,
-    slug: filer.slug,
+    slug: catalogSlug,
     mode: source,
     actor: {
       id: filer.id,
-      actorKey: filer.slug,
+      actorKey: catalogSlug,
       actorName: filer.display_name,
       actorDetail: filer.detail,
       actorDetailSecondary: filer.detail_secondary,
       matchNames: [filer.display_name],
       source,
       sources: [source],
-      at: transactions[0]?.ts ?? null,
-      count: transactions.length,
-      transactions,
+      at: tradeLog[0]?.ts ?? null,
+      count: tradeLog.length,
+      transactions: tradeLog,
       performance,
     },
   };
