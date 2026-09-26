@@ -31,7 +31,7 @@ export const CURATED_INSTITUTION_CIKS: Record<string, string[]> = {
   "berkshire-hathaway": ["0001067983"],
   "pershing-square": ["0001336528"],
   "duquesne-family-office": ["0001536411"],
-  "appaloosa": ["0001656456", "0001029205"],
+  "appaloosa": ["0001656456"],
   "citadel-advisors": ["0001423053"],
   "renaissance-technologies": ["0001037389"],
   "bridgewater": ["0001350694"],
@@ -39,9 +39,9 @@ export const CURATED_INSTITUTION_CIKS: Record<string, string[]> = {
   "third-point": ["0001040273"],
   "baupost": ["0001061768"],
   "tiger-global": ["0001167483"],
-  "coatue": ["0001535392"],
-  "viking-global": ["0001107973"],
-  "lone-pine": ["0001066107"],
+  "coatue": ["0001135730"], // COATUE MANAGEMENT LLC (not Mangrove)
+  "viking-global": ["0001103804"], // VIKING GLOBAL INVESTORS LP
+  "lone-pine": ["0001061165"], // LONE PINE CAPITAL LLC
   "icahn-capital": ["0000921669"],
 };
 

@@ -19,23 +19,26 @@ function pickFirst(m: RegExpMatchArray | null, idx: number) {
 }
 
 function parseHouseMemberSearchHtml(html: string, filingYear: number): HousePtrListing[] {
-  // The response HTML is a small table with rows containing:
-  // - memberName cell
-  // - office cell
-  // - filing year
-  // - link to a PDF (PTR)
-  // We keep parsing deliberately simple and resilient.
+  // Current House HTML puts the member name inside the PDF <a> text:
+  //   <td class="memberName"><a href="public_disc/ptr-pdfs/2025/….pdf">Pelosi, Hon.. Nancy </a></td>
+  // Prefer PTR pdfs (periodic transaction reports); skip annual FD financial-pdfs.
   const rows = html.split(/<\/tr>/gi);
   const out: HousePtrListing[] = [];
   for (const r of rows) {
-    const href = pickFirst(r.match(/href="([^"]+\.pdf)"/i), 1);
+    const link = r.match(/href="([^"]+\.pdf)"[^>]*>\s*([^<]+?)\s*</i);
+    const href = pickFirst(link, 1);
     if (!href) continue;
+    // Periodic Transaction Reports only — FD annual books are not trade history.
+    if (!/ptr-pdfs/i.test(href)) continue;
+
     const pdfPath = href.startsWith("http") ? href : href.startsWith("/") ? href : `/${href}`;
     const pdf_url = pdfPath.startsWith("http") ? pdfPath : absHouseUrl(pdfPath);
     const filing_id = pickFirst(pdf_url.match(/\/(\d+)\.pdf$/i), 1);
     if (!filing_id) continue;
 
-    const name = pickFirst(r.match(/class="memberName"[\s\S]*?>\s*([^<\n]+?)\s*</i), 1);
+    const nameFromLink = pickFirst(link, 2)?.replace(/\s+/g, " ").trim() || null;
+    const nameFallback = pickFirst(r.match(/class="memberName"[\s\S]*?>\s*([^<\n]+?)\s*</i), 1);
+    const name = (nameFromLink && nameFromLink !== " " ? nameFromLink : nameFallback) || null;
     const office = pickFirst(r.match(/data-label="Office"[\s\S]*?>\s*([^<\n]+?)\s*</i), 1);
     out.push({ filing_id, pdf_url, name, office, filing_year: filingYear });
   }
