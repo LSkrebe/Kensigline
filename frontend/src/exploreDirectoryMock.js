@@ -2,6 +2,7 @@ import { MOCK_SEMIS_BY_TICKER } from './mockWeekData.js'
 import { exploreActorDocCode, exploreActorEventLabel, exploreCompanyDocCode, exploreCompanyEventLabel, mapActorEventRows, mapCompanyEventRows } from './exploreEventLabels.js'
 import { formatUsdCompact } from './formatUsdCompact.js'
 import { isPlausibleExploreInvestorRow, isExplorePositionCountOnlyHomeRow } from './exploreInvestorFilter.js'
+import { CAPTURE_FEATURED_SLUGS, captureShotSet } from './captureMode.js'
 
 export const HOME_DIRECTORY_PREVIEW = 12
 export const EXPLORE_DIRECTORY_BLOCK = 20
@@ -596,13 +597,36 @@ function buildExploreInvestorEventSeed() {
   const d35 = isoDaysAgo(35)
   const d40 = isoDaysAgo(40)
 
-  return mapActorEventRows([
+  const captureHeroToday = [
+    { id: 'a-dt-1', date: today, name: 'Donald Trump', ticker: 'NVDA', docType: 'ptr_purchase', trail: '+$1.8M', up: true },
+    { id: 'a-em-1', date: today, name: 'Elon Musk', ticker: 'TSLA', docType: 'form4_purchase', trail: '+$12.4M', up: true },
+    { id: 'a-bh-1', date: today, name: 'Berkshire Hathaway', ticker: 'AAPL', docType: '13f_add', trail: '+$640M', up: true },
+    { id: 'a-jd-1', date: today, name: 'Jamie Dimon', ticker: 'JPM', docType: 'form4', trail: '+$2.1M', up: true },
+    { id: 'a-ca-1', date: today, name: 'Citadel Advisors', ticker: 'NVDA', docType: '13f_add', trail: '+$118M', up: true },
+  ]
+  const captureProductToday = [
+    { id: 'a-np-1', date: today, name: 'Nancy Pelosi', ticker: 'NVDA', docType: 'ptr_purchase', trail: '+$2.4M', up: true },
+    { id: 'a-mz-1', date: today, name: 'Mark Zuckerberg', ticker: 'META', docType: 'form4_purchase', trail: '+$4.8M', up: true },
     { id: 'a-jh-1', date: today, name: 'Jensen Huang', ticker: 'NVDA', docType: 'form4_purchase', trail: '+$5.2M', up: true },
+    { id: 'a-mtg-1', date: today, name: 'Marjorie Taylor Greene', ticker: 'MSFT', docType: 'ptr_purchase', trail: '+$640K', up: true },
+    { id: 'a-ls-1', date: today, name: 'Lisa Su', ticker: 'AMD', docType: 'form4_purchase', trail: '+$1.9M', up: true },
+  ]
+
+  const set = captureShotSet()
+  const todayHead =
+    set === 'product' ? captureProductToday : set === 'hero' ? captureHeroToday : captureHeroToday
+
+  // Keep older seed rows, but drop same-day headliners from the other cast so Recent
+  // events read as one coherent screenshot.
+  const otherFeatured = new Set(
+    (set === 'product' ? CAPTURE_FEATURED_SLUGS.hero : CAPTURE_FEATURED_SLUGS.product) ?? [],
+  )
+  const base = [
     { id: 'a-jh-2', date: today, name: 'Jensen Huang', ticker: 'NVDA', docType: 'form4_purchase', trail: '+$5.2M', up: true },
     { id: 'a-ck-1', date: today, name: 'Colette Kress', ticker: 'NVDA', docType: 'form4_purchase', trail: '+$8.1M', up: true },
     { id: 'a-ck-2', date: today, name: 'Colette Kress', ticker: 'NVDA', docType: 'form4', trail: '+$8.1M', up: true },
-    { id: 'a-ls-1', date: today, name: 'Lisa Su', ticker: 'AMD', docType: 'form4_purchase', trail: '+$1.9M', up: true },
-    { id: 'a-np-1', date: today, name: 'Nancy Pelosi', ticker: 'NVDA', docType: 'ptr_purchase', trail: '+$2.4M', up: true },
+    { id: 'a-ls-2', date: today, name: 'Lisa Su', ticker: 'AMD', docType: 'form4_purchase', trail: '+$1.9M', up: true },
+    { id: 'a-np-2', date: today, name: 'Nancy Pelosi', ticker: 'NVDA', docType: 'ptr_purchase', trail: '+$2.4M', up: true },
     { id: 'a-dc-1', date: today, name: 'Dan Crenshaw', ticker: 'LRCX', docType: 'ptr_purchase', trail: '+$640K', up: true },
     { id: 'a-vg-1', date: today, name: 'Berkshire Hathaway', ticker: 'NVDA', docType: '13f_add', trail: '+$412M', up: true },
     { id: 'a-br-1', date: today, name: 'Pershing Square', ticker: 'AVGO', docType: '13f_trim', trail: '-$186M', up: false },
@@ -614,9 +638,9 @@ function buildExploreInvestorEventSeed() {
     { id: 'a-ss-1', date: today, name: 'Citadel Advisors', ticker: 'MSFT', docType: '13f_add', trail: '+$96M', up: true },
     { id: 'a-jh-3', date: d1, name: 'Jensen Huang', ticker: 'NVDA', docType: 'form4_purchase', trail: '+$4.1M', up: true },
     { id: 'a-ck-3', date: d1, name: 'Colette Kress', ticker: 'NVDA', docType: 'form4_purchase', trail: '+$2.2M', up: true },
-    { id: 'a-np-2', date: d2, name: 'Nancy Pelosi', ticker: 'NVDA', docType: 'ptr', trail: '+$1.8M', up: true },
+    { id: 'a-np-3', date: d2, name: 'Nancy Pelosi', ticker: 'NVDA', docType: 'ptr', trail: '+$1.8M', up: true },
     { id: 'a-vg-2', date: d2, name: 'Berkshire Hathaway', ticker: 'NVDA', docType: '13f_add', trail: '+$220M', up: true },
-    { id: 'a-ls-2', date: d4, name: 'Lisa Su', ticker: 'AMD', docType: 'form4_purchase', trail: '+$900K', up: true },
+    { id: 'a-ls-3', date: d4, name: 'Lisa Su', ticker: 'AMD', docType: 'form4_purchase', trail: '+$900K', up: true },
     { id: 'a-br-2', date: d4, name: 'Pershing Square', ticker: 'TSM', docType: '13f_add', trail: '+$96M', up: true },
     { id: 'a-dc-2', date: d6, name: 'Dan Crenshaw', ticker: 'AMAT', docType: 'ptr_purchase', trail: '+$410K', up: true },
     { id: 'a-tc-2', date: d6, name: 'Tim Cook', ticker: 'AAPL', docType: 'form4_sale', trail: '-$4.2M', up: false },
@@ -638,7 +662,27 @@ function buildExploreInvestorEventSeed() {
     { id: 'a-dw-1', date: d35, name: 'Suzan DelBene', ticker: 'NXPI', docType: 'form4', trail: '+$280K', up: true },
     { id: 'a-cs-1', date: d40, name: 'Icahn Capital', ticker: 'MPWR', docType: '13f_add', trail: '+$63M', up: true },
     { id: 'a-bn-1', date: d40, name: 'Kevin Hern', ticker: 'STX', docType: 'ptr_purchase', trail: '+$110K', up: true },
-  ])
+  ]
+
+  const slugOf = (name) =>
+    String(name ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+
+  const filteredBase = set
+    ? base.filter((row) => {
+        if (row.date !== today) return true
+        return !otherFeatured.has(slugOf(row.name))
+      })
+    : base
+
+  // Prefer capture headliners first (same-day), then the rest of the catalog seed.
+  const headIds = new Set(todayHead.map((row) => row.id))
+  const withoutDupes = filteredBase.filter((row) => !headIds.has(row.id) && !(row.date === today && todayHead.some((h) => h.name === row.name)))
+
+  return mapActorEventRows([...todayHead, ...withoutDupes])
 }
 
 function sortEventsNewestFirst(events) {

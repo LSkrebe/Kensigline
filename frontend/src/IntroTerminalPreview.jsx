@@ -1,7 +1,7 @@
 const screenshots = {
-  hero: ['explore', 'Explore: disclosed performance, recent activity, and headlines'],
+  hero: ['explore', 'Explore: Donald Trump, Elon Musk, and Berkshire among featured performers'],
   deepInvestor: ['investor', 'Nancy Pelosi investor dossier with key metrics and daily performance'],
-  watchlist: ['watchlist', 'Watchlist with investor profiles and company disclosures'],
+  watchlist: ['watchlist', 'Explore: Nancy Pelosi, Mark Zuckerberg, and Jensen Huang with recent filings'],
   history: ['history', 'Daily percentage performance and trade history in the investor dossier'],
 }
 

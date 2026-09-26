@@ -146,7 +146,8 @@ export default function AppRouter() {
     return <PublicMarketingRoutes path={path} />
   }
 
-  if (showMarketing || (!LOCAL_PREVIEW && waitlistMode)) return <MarketingRoutes />
+  // Marketing screenshots need the live terminal shell even when waitlist/billing is on.
+  if ((showMarketing || (!LOCAL_PREVIEW && waitlistMode)) && !captureMode) return <MarketingRoutes />
 
   if (!LOCAL_PREVIEW && (loading || (BILLING_GATE_ENABLED && !captureMode && (!gateReady || subLoading)))) {
     return (

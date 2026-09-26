@@ -1,8 +1,9 @@
-/** Capture marketing terminal screenshots (1440×900 @2x → 2880×1800). */
+/** Capture intro marketing shots → public/intro/current-*.webp (+ optional PNGs). */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
+import sharp from 'sharp'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const introDir = join(__dirname, '..', 'public', 'intro')
@@ -11,43 +12,38 @@ const base = process.env.HERO_PREVIEW_URL?.replace(/\/$/, '') ?? 'http://127.0.0
 const VIEWPORT_CSS = { width: 1440, height: 900 }
 const DEVICE_SCALE = 2
 
+/**
+ * IntroTerminalPreview mapping:
+ *   hero          → current-explore.webp
+ *   watchlist     → current-watchlist.webp  (second Explore cast)
+ *   deepInvestor  → current-investor.webp   (best of product cast)
+ */
 const SHOTS = [
   {
     name: 'hero',
-    path: '/explore?capture=1',
-    waitFor: '.exploreRecapEventLayout, .exploreDirectoryRow',
-    forbidText: 'No notable filings today',
-    settleMs: 1500,
+    current: 'explore',
+    path: '/explore?capture=hero',
+    waitFor: '.exploreFeaturedCard, .exploreTapeSection',
+    forbidText: 'No recent events',
+    settleMs: 1800,
   },
   {
-    name: 'deep-event',
-    path: '/explore/events/single-ptr-buy-ptr-pelosi-nvda?capture=1',
-    waitFor: '.exploreEventBody .exploreDirectoryRow',
-    forbidText: 'No filings yet',
-    settleMs: 1500,
+    name: 'explore-product',
+    current: 'watchlist',
+    path: '/explore?capture=product',
+    waitFor: '.exploreFeaturedCard, .exploreTapeSection',
+    forbidText: 'No recent events',
+    settleMs: 1800,
   },
   {
     name: 'deep-investor',
-    path: '/explore/investors/nancy-pelosi?capture=1',
-    waitFor: '.drpt-docRow--flow, .drpt-sectionTitle',
+    current: 'investor',
+    path: '/explore/nancy-pelosi?capture=product',
+    waitFor: '.drpt-heroPhoto img, .drpt-sectionTitle',
     forbidText: 'No trades in the selected window',
-    settleMs: 1500,
+    settleMs: 2200,
     chartRange: '1Y',
-  },
-  {
-    name: 'deep-company',
-    path: '/explore/companies/ASML?capture=1',
-    waitFor: '.drpt-sectionTitle, .drpt-docRow',
-    forbidText: 'No filings yet',
-    settleMs: 1200,
-    chartRange: '1Y',
-  },
-  {
-    name: 'investors-directory',
-    path: '/explore/investors?capture=1',
-    waitFor: '.exploreDirShell .exploreDirectoryRow',
-    forbidText: 'No rows',
-    settleMs: 1200,
+    waitHeroImage: true,
   },
 ]
 
@@ -75,11 +71,44 @@ async function waitForCaptureReady(page, shot) {
       { timeout: 60_000 },
     )
   }
+  // Featured cards should show real names, not skeleton-only.
+  if (shot.path.includes('/explore?')) {
+    await page.waitForFunction(
+      () => {
+        const cards = [...document.querySelectorAll('.exploreFeaturedTitle')]
+        return cards.length >= 3 && cards.every((el) => (el.textContent || '').trim().length > 2)
+      },
+      { timeout: 60_000 },
+    )
+  }
+  if (shot.waitHeroImage) {
+    await page.waitForFunction(
+      () => {
+        const img = document.querySelector('.drpt-heroPhoto img')
+        return Boolean(img && img.complete && img.naturalWidth > 20)
+      },
+      { timeout: 60_000 },
+    )
+  }
+}
+
+async function writeOutputs(png, shot) {
+  const pngPath = join(introDir, `${shot.name}.png`)
+  await writeFile(pngPath, png)
+  console.log(`wrote ${pngPath} (${png.length} bytes)`)
+
+  if (shot.current) {
+    const webp = await sharp(png).webp({ quality: 90, effort: 6 }).toBuffer()
+    const webpPath = join(introDir, `current-${shot.current}.webp`)
+    await writeFile(webpPath, webp)
+    console.log(`wrote ${webpPath} (${webp.length} bytes)`)
+  }
 }
 
 async function captureOne(page, shot) {
   const url = `${base}${shot.path}`
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 60_000 })
+  console.log(`capturing ${shot.name} ← ${url}`)
+  await page.goto(url, { waitUntil: 'networkidle', timeout: 90_000 })
   await page.waitForSelector('.terminalShell', { timeout: 30_000 })
   await waitForCaptureReady(page, shot)
   if (shot.chartRange) await selectChartRange(page, shot.chartRange)
@@ -93,12 +122,16 @@ async function captureOne(page, shot) {
   })
   await page.waitForTimeout(shot.settleMs)
 
+  // Hide toasts / paywalls that can flash over marketing shots.
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('.toast, .paywall, .authGate, [data-capture-hide]')) {
+      el.style.visibility = 'hidden'
+    }
+  })
+
   const shell = page.locator('.terminalShell')
   const png = await shell.screenshot({ type: 'png' })
-  const outPath = join(introDir, `${shot.name}.png`)
-  await writeFile(outPath, png)
-  console.log(`wrote ${outPath} (${png.length} bytes)`)
-  return outPath
+  await writeOutputs(png, shot)
 }
 
 async function main() {
@@ -110,7 +143,9 @@ async function main() {
   })
 
   const only = process.env.SHOT
-  const list = only ? SHOTS.filter((s) => s.name === only) : SHOTS
+  const list = only
+    ? SHOTS.filter((s) => s.name === only || s.current === only)
+    : SHOTS
   if (!list.length) throw new Error(`Unknown SHOT=${only}`)
 
   for (const shot of list) {

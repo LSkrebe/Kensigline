@@ -3,10 +3,20 @@ import { ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
 import { lookupExplorePortrait } from './explorePortraitLookup.js'
 import { PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
 import { FORCE_MOCK_DATA } from './dataMode.js'
+import {
+  CAPTURE_FEATURED_SLUGS,
+  CAPTURE_INVESTED_USD,
+  captureShotSet,
+  isCaptureMode,
+} from './captureMode.js'
 import portraits from './explorePortraits.json'
 import { SkeletonList } from './AppSkeleton.jsx'
 import { companyLogoFallback, companyLogoSrc } from './localImages.js'
 import { exploreRowDateLabel } from './ExploreDirectoryRows.jsx'
+
+function useMockExploreMetrics() {
+  return FORCE_MOCK_DATA || isCaptureMode()
+}
 
 /**
  * Sample returns by dossier chart range, while Explore is on mock data.
@@ -119,18 +129,18 @@ const MOCK_RETURNS = {
   },
   '6M': {
     'jensen-huang': 0.563,
-    'berkshire-hathaway': 0.341,
+    'elon-musk': 0.318,
+    'berkshire-hathaway': 0.289,
+    'donald-trump': 0.248,
     'nancy-pelosi': 0.246,
     'lisa-su': 0.221,
     'mark-zuckerberg': 0.198,
-    'elon-musk': 0.176,
     'dan-crenshaw': 0.164,
     'satya-nadella': 0.154,
     'appaloosa': 0.136,
     'josh-gottheimer': 0.142,
     'citadel-advisors': 0.128,
     'pershing-square': 0.117,
-    'donald-trump': 0.109,
     'tiger-global': 0.093,
     'duquesne-family-office': 0.088,
     'tim-cook': 0.087,
@@ -344,7 +354,7 @@ function returnFor(row, range) {
     if (Math.abs(n) > 5) return null
     return n
   }
-  if (!FORCE_MOCK_DATA) {
+  if (!useMockExploreMetrics()) {
     const byRange = sane(row?.returnsByRange?.[range])
     if (byRange != null) return byRange
     return sane(row?.returnFraction ?? row?.performanceReturn)
@@ -367,7 +377,12 @@ function peopleWithReturns(people, range) {
 function investedOf(row) {
   const live = finiteUsd(row?.investedUsd)
   if (live != null && live > 0) return live
-  if (FORCE_MOCK_DATA) return investedFor(row.actorSlug) ?? 0
+  if (useMockExploreMetrics()) {
+    const set = captureShotSet()
+    const boosted = set ? CAPTURE_INVESTED_USD[set]?.[row.actorSlug] : null
+    if (boosted != null) return boosted
+    return investedFor(row.actorSlug) ?? 0
+  }
   // Null / missing sorts last — never treat as a real $0 position.
   return -1
 }
@@ -532,8 +547,13 @@ function ExploreTapeRow({ row, rank, range, plain = false, invested = false, eve
   const investedAmount = invested
     ? (liveInvested != null && liveInvested > 0
         ? liveInvested
-        : FORCE_MOCK_DATA
-          ? investedFor(row.actorSlug)
+        : useMockExploreMetrics()
+          ? (() => {
+              const set = captureShotSet()
+              const boosted = set ? CAPTURE_INVESTED_USD[set]?.[row.actorSlug] : null
+              if (boosted != null) return boosted
+              return investedFor(row.actorSlug)
+            })()
           : null)
     : null
   const investedLabel = investedAmount != null && investedAmount > 0 ? formatInvested(investedAmount) : null
@@ -663,7 +683,15 @@ export function formatExploreTapeReturn(fraction) {
 }
 
 export function selectExploreFeatured(rows, range = '6M') {
-  return peopleWithReturns([...tapePeople(rows)], range).slice(0, 3)
+  const people = tapePeople(rows)
+  const set = captureShotSet()
+  const curated = set ? CAPTURE_FEATURED_SLUGS[set] : null
+  if (curated?.length) {
+    const bySlug = new Map(people.map((row) => [String(row.actorSlug ?? '').toLowerCase(), row]))
+    const picked = curated.map((slug) => bySlug.get(slug)).filter(Boolean)
+    if (picked.length) return picked
+  }
+  return peopleWithReturns([...people], range).slice(0, 3)
 }
 
 /** Newest Explore filings across the curated universe — one row per person (~4+). */
@@ -721,7 +749,23 @@ export function selectMostRecentExploreEvents(rows, minCount = 4) {
     }
   }
 
+  const captureOrder = (() => {
+    const set = captureShotSet()
+    if (!set) return null
+    const featured = CAPTURE_FEATURED_SLUGS[set] ?? []
+    // Follow featured with the rest of that shot's invested cast so Recent feels full.
+    const extras = Object.keys(CAPTURE_INVESTED_USD[set] ?? {}).filter((slug) => !featured.includes(slug))
+    return [...featured, ...extras]
+  })()
+
   const out = [...byPerson.values()].sort((a, b) => {
+    if (captureOrder) {
+      const ai = captureOrder.indexOf(String(a.actorSlug ?? '').toLowerCase())
+      const bi = captureOrder.indexOf(String(b.actorSlug ?? '').toLowerCase())
+      const aRank = ai >= 0 ? ai : 999
+      const bRank = bi >= 0 ? bi : 999
+      if (aRank !== bRank) return aRank - bRank
+    }
     const dateCmp = String(b.date ?? '').localeCompare(String(a.date ?? ''))
     if (dateCmp !== 0) return dateCmp
     return String(a.name ?? '').localeCompare(String(b.name ?? ''))
@@ -729,6 +773,8 @@ export function selectMostRecentExploreEvents(rows, minCount = 4) {
 
   if (out.length <= minCount) return out
   const cutoff = String(out[minCount - 1]?.date ?? '')
+  // In capture mode keep the curated cast even when their filing day is older.
+  if (captureOrder) return out.slice(0, Math.max(minCount, captureOrder.length))
   return out.filter((ev, index) => index < minCount || String(ev.date ?? '') === cutoff)
 }
 

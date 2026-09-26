@@ -5,6 +5,7 @@ import {
   formatAnalyseGridValue,
 } from './analyseMockData.js'
 import { isLiveDataMode, isMockDataMode } from './dataMode.js'
+import { isCaptureMode } from './captureMode.js'
 import { AnalyseModelGrid } from './AnalyseModelGrid.jsx'
 import { resolveDocumentOpenUrl } from './documentOpenUrl.js'
 import {
@@ -2028,7 +2029,7 @@ export function DeepActorReport({
       expandedHeader={
         <DossierHeroMedia
           src={portrait?.src}
-          heroColor={portrait?.hero || null}
+          heroColor={isCaptureMode() ? null : portrait?.hero || null}
           name={name}
           title={name}
           kicker={typeLabel}
