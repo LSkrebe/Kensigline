@@ -1473,103 +1473,162 @@ function tradeRowMeta(row) {
   }
 }
 
-function FilingModal({ filing, name, portraitSrc, heroColor = null, onClose }) {
-  const meterColor = heroColor || 'rgba(92, 184, 138, 0.95)'
+function filingSentence(person, changes) {
+  const last = String(person ?? '').trim().split(/\s+/).filter(Boolean).at(-1) || 'Filing'
+  const names = (kind) => {
+    const list = [...new Set(changes.filter((change) => change.kind === kind).map((change) => change.name))]
+    if (list.length <= 1) return list[0] ?? ''
+    return `${list.slice(0, -1).join(', ')} and ${list.at(-1)}`
+  }
+  const opened = names('new')
+  const increased = names('increased')
+  const decreased = names('decreased')
+  const closed = names('closed')
+  if (opened && increased && !decreased && !closed) return `${last} filing update. New position in ${opened}, and increase in ${increased}.`
+  if ((opened || increased) && !decreased && !closed) return `${last} goes long on ${[opened, increased].filter(Boolean).join(' and ')}.`
+  if (closed && !opened && !increased && !decreased) return `${last} closed ${closed}.`
+  const bits = []
+  if (opened) bits.push(`new position in ${opened}`)
+  if (increased) bits.push(`increase in ${increased}`)
+  if (decreased) bits.push(`decrease in ${decreased}`)
+  if (closed) bits.push(`closed ${closed}`)
+  if (!bits.length) return `${last} filing update.`
+  return `${last} filing update. ${bits[0][0].toUpperCase()}${bits[0].slice(1)}${bits.slice(1).map((bit) => `, and ${bit}`).join('')}.`
+}
+
+function filingSublabel(changes) {
+  const n = changes?.length ?? 0
+  if (!n) return 'No changes'
+  const kinds = {
+    new: 0,
+    increased: 0,
+    decreased: 0,
+    closed: 0,
+  }
+  for (const change of changes) {
+    if (kinds[change.kind] != null) kinds[change.kind] += 1
+  }
+  const parts = []
+  if (kinds.new) parts.push(`${kinds.new} new`)
+  if (kinds.increased) parts.push(`${kinds.increased} increased`)
+  if (kinds.decreased) parts.push(`${kinds.decreased} decreased`)
+  if (kinds.closed) parts.push(`${kinds.closed} closed`)
+  if (parts.length) return parts.join(', ')
+  return `${n} ${n === 1 ? 'change' : 'changes'}`
+}
+
+function TradeDayLogos({ tickers = [] }) {
+  const unique = [...new Set(tickers.map((t) => String(t).trim().toUpperCase()).filter(Boolean))]
+  if (!unique.length) return <span className="exploreTapeHoldings exploreTapeHoldings--empty" aria-hidden="true" />
+  if (unique.length === 1) {
+    const ticker = unique[0]
+    return (
+      <span className="exploreTapeHoldings exploreTapeHoldings--single" aria-hidden="true">
+        <ImageOrInitials
+          src={companyLogoSrc(ticker)}
+          fallbackSrc={companyLogoFallback(ticker)}
+          name={ticker}
+          className="exploreTapeHolding exploreTapeHolding--span"
+          logo
+          discover={false}
+        />
+      </span>
+    )
+  }
+  const visible = unique.length > 4 ? unique.slice(0, 3) : unique.slice(0, 4)
+  const extra = unique.length > 4 ? unique.length - 3 : 0
+  const placeholders = Math.max(0, 4 - visible.length - (extra > 0 ? 1 : 0))
   return (
-    <div className="drpt-filingPage drpt--dossier" role="dialog" aria-modal="true" aria-label={`${formatLongDate(filing.filedMs)} trades`}>
-      <div className="drpt-chromeBar">
-        <DeepCompactChrome onCloseClick={onClose} hideTrail showShare={false} closeAriaLabel="Close" />
-        <p className="drpt-collapsedName">{formatLongDate(filing.filedMs)}</p>
-      </div>
-      <div className="drpt-filingBody">
-        <div className="drpt-filingHero">
-          <h2 className="drpt-sectionTitle">{filing.changes.length} {filing.changes.length === 1 ? 'change' : 'changes'}</h2>
-          <div
-            className="drpt-filingMeter"
-            aria-hidden="true"
-            style={{
-              '--drpt-filing-meter': meterColor,
-            }}
-          />
-          <ImageOrInitials className="drpt-filingPortrait" src={portraitSrc} name={name} discover={false} />
-          <p className="drpt-filingName">{name}</p>
-        </div>
-        <section className="drpt-section">
-          <ol className="drpt-holdingList">
-            {filing.changes.map((change) => (
-              <li key={change.ticker}>
-                <div className="drpt-holdingBtn">
-                  <ImageOrInitials
-                    className="drpt-holdingLogo"
-                    src={companyLogoSrc(change.ticker)}
-                    fallbackSrc={companyLogoFallback(change.ticker)}
-                    name={change.ticker}
-                    logo
-                    discover={false}
-                  />
-                  <span className="drpt-holdingName">
-                    <span>{change.ticker}</span>
-                    <span>{change.fullName || change.name}</span>
-                  </span>
-                  <span className="drpt-holdingAction">
-                    {`${formatWeight(change.from)} → ${formatWeight(change.to)}`}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </section>
-      </div>
-    </div>
+    <span className="exploreTapeHoldings" aria-hidden="true">
+      {visible.map((ticker) => (
+        <ImageOrInitials
+          key={ticker}
+          src={companyLogoSrc(ticker)}
+          fallbackSrc={companyLogoFallback(ticker)}
+          name={ticker}
+          className="exploreTapeHolding"
+          logo
+          discover={false}
+        />
+      ))}
+      {extra > 0 ? <span className="exploreTapeHolding exploreTapeHolding--more">+{extra}</span> : null}
+      {Array.from({ length: placeholders }, (_, index) => (
+        <span key={`pad-${index}`} className="exploreTapeHolding exploreTapeHolding--empty" />
+      ))}
+    </span>
   )
 }
 
-function DeepTradeLog({ rows = [], loading = false, name = '', portraitSrc = null, heroColor = null, expanded = false }) {
-  const [active, setActive] = useState(null)
+function DeepTradeLog({ rows = [], loading = false, name = '', expanded = false }) {
   const activity = useMemo(() => buildDossierActivity(rows), [rows])
   const filings = activity?.filings ?? []
-  const changeRows = useMemo(() => {
-    const out = []
-    for (const filing of filings) {
-      for (const change of filing.changes ?? []) {
-        out.push({ filing, change })
-      }
-    }
-    return out
-  }, [filings])
-  const visible = expanded ? changeRows : changeRows.slice(0, 12)
-  if (loading && !changeRows.length) return <SkeletonList count={3} />
-  if (!changeRows.length) return <EmptyList label="No trades yet" />
+  const visible = expanded ? filings : filings.slice(0, 8)
+  const [openKeys, setOpenKeys] = useState(() => new Set())
+  useEffect(() => {
+    setOpenKeys(new Set())
+  }, [rows])
+  if (loading && !filings.length) return <SkeletonList count={3} />
+  if (!filings.length) return <EmptyList label="No trades yet" />
   return (
-    <>
-      <ol className="drpt-tradeList drpt-tradeList--flat">
-        {visible.map(({ filing, change }) => (
-          <li key={`${filing.key}-${change.ticker}`}>
-            <button type="button" className="drpt-holdingBtn" onClick={() => setActive(filing)}>
-              <ImageOrInitials
-                className="drpt-holdingLogo"
-                src={companyLogoSrc(change.ticker)}
-                fallbackSrc={companyLogoFallback(change.ticker)}
-                name={change.ticker}
-                logo
-                discover={false}
-              />
-              <span className="drpt-holdingName">
-                <span className="drpt-holdingDate">{formatTapeDate(filing.filedMs)}</span>
-                <span className="drpt-holdingTicker">{change.ticker}</span>
-                <span className="drpt-holdingCompany">{change.fullName || change.name}</span>
+    <ol className="drpt-tradeList drpt-tradeList--days">
+      {visible.map((filing) => {
+        const changes = filing.changes ?? []
+        const tickers = changes.map((change) => change.ticker)
+        const open = openKeys.has(filing.key)
+        return (
+          <li className={`drpt-tradeDay${open ? ' isOpen' : ''}`} key={filing.key}>
+            <button
+              type="button"
+              className="drpt-tradeDayHead"
+              aria-expanded={open}
+              onClick={() =>
+                setOpenKeys((prev) => {
+                  const next = new Set(prev)
+                  if (next.has(filing.key)) next.delete(filing.key)
+                  else next.add(filing.key)
+                  return next
+                })
+              }
+            >
+              <TradeDayLogos tickers={tickers} />
+              <span className="drpt-tradeDayCopy">
+                <span className="drpt-tradeTitle">{filingSentence(name, changes)}</span>
+                <span className="drpt-tradeMeta">{filingSublabel(changes)}</span>
               </span>
-              <span className="drpt-holdingAction">
-                {`${formatWeight(change.from)} → ${formatWeight(change.to)}`}
+              <span className="drpt-tradeDate">{formatTapeDate(filing.filedMs)}</span>
+              <span className="drpt-tradeChevron" aria-hidden="true">
+                ›
               </span>
             </button>
+            {open ? (
+              <ol className="drpt-holdingList drpt-tradeDayBody">
+                {changes.map((change) => (
+                  <li key={`${filing.key}-${change.ticker}`}>
+                    <div className="drpt-holdingBtn">
+                      <ImageOrInitials
+                        className="drpt-holdingLogo"
+                        src={companyLogoSrc(change.ticker)}
+                        fallbackSrc={companyLogoFallback(change.ticker)}
+                        name={change.ticker}
+                        logo
+                        discover={false}
+                      />
+                      <span className="drpt-holdingName">
+                        <span>{change.ticker}</span>
+                        <span>{change.fullName || change.name}</span>
+                      </span>
+                      <span className="drpt-holdingAction">
+                        {`${formatWeight(change.from)} → ${formatWeight(change.to)}`}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : null}
           </li>
-        ))}
-      </ol>
-      {active ? (
-        <FilingModal filing={active} name={name} portraitSrc={portraitSrc} heroColor={heroColor} onClose={() => setActive(null)} />
-      ) : null}
-    </>
+        )
+      })}
+    </ol>
   )
 }
 
@@ -1931,13 +1990,11 @@ export function DeepActorReport({
             rows={tradeRows}
             loading={showSectionLoading}
             name={name}
-            portraitSrc={portrait?.src}
-            heroColor={portrait?.hero || null}
             expanded={listsOpen}
           />
         </DeepSection>
         {!listsOpen &&
-        ((activity?.filings ?? []).reduce((n, f) => n + (f.changes?.length ?? 0), 0) > 12 ||
+        ((activity?.filings?.length ?? 0) > 8 ||
           (activity?.holdings?.length ?? 0) > 12) ? (
           <div className="exploreTapeMoreWrap">
             <button type="button" className="exploreTapeMore" onClick={() => setListsOpen(true)}>More</button>
