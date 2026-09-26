@@ -2925,9 +2925,16 @@
   object-fit: cover;
 }
 .exploreTapeHolding--more {
-  font-size: 10px;
-  letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.7);
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 2px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.72);
   background: rgba(255, 255, 255, 0.05);
 }
 .exploreTapeChevron {
@@ -3017,6 +3024,7 @@
   }
   .exploreTapeHolding { width: 26px; height: 26px; border-radius: 6px; }
   .exploreTapeHolding--span { width: 56px; height: 56px; border-radius: 9px; }
+  .exploreTapeHolding--more { font-size: 8px; }
   .exploreTapeAvatar, .exploreTapeAvatar .explorePersonPortrait { width: 68px; height: 68px; border-radius: 16px; }
   .exploreTapeAvatar .explorePersonPortrait img { border-radius: 16px; }
   .exploreTapeName { font-size: 17px; }
