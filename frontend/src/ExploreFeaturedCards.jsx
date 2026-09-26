@@ -117,19 +117,16 @@ export function ExploreFeaturedCards({ rows = [], range = '6M', onCardClick = nu
         {rows.map((row) => {
           const portrait = lookupExplorePortrait(row.name, row.actorSlug)
           const typeLabel = investorTypeLabel(row.mode ?? row.modeLabel)
-          const isInstitution = typeLabel === 'Institution' || portrait?.kind === 'logo'
-          const logo = isInstitution || portrait?.kind === 'logo'
-          const heroColor = portrait?.hero || null
+          const logo = portrait?.kind === 'logo'
           const source = featuredSource(row)
           const pnl = formatPnl(explorePerformerReturn(row, range))
           return (
             <button
               type="button"
-              className={`exploreFeaturedCard${logo ? ' isLogo' : ''}${isInstitution ? ' isInstitution' : ''}`}
+              className={`exploreFeaturedCard${logo ? ' isLogo' : ''}`}
               key={row.actorSlug || row.id}
               aria-label={`Open ${row.name}`}
               onClick={() => onCardClick?.(row)}
-              style={isInstitution && heroColor ? { '--explore-featured-flat': heroColor } : undefined}
             >
               <ImageOrInitials
                 src={portrait?.src}

@@ -457,7 +457,7 @@ function formatInvested(amount) {
 
 function ExploreTapeRow({ row, rank, range, plain = false, invested = false, onClick }) {
   const portrait = lookupExplorePortrait(row.name, row.actorSlug) || portraits[normalizeInvestorName(row.name)]
-  const logo = portrait?.kind === 'logo' || String(row.mode ?? row.modeLabel ?? '').toLowerCase().includes('institution')
+  const logo = portrait?.kind === 'logo'
   const thumb = portrait?.thumb || portrait?.src
   const perf = formatReturn(returnFor(row, range))
   const liveInvested = finiteUsd(row?.investedUsd)

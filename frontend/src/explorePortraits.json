@@ -5086,15 +5086,13 @@
     "src": "/investors/renaissance-technologies.webp",
     "thumb": "/investors/thumbs/renaissance-technologies.webp",
     "source": "local",
-    "hero": "#4a3f55",
-    "kind": "logo"
+    "hero": "#4a3f55"
   },
   "renaissancetechnologiesllc": {
     "src": "/investors/renaissance-technologies.webp",
     "thumb": "/investors/thumbs/renaissance-technologies.webp",
     "source": "local",
-    "hero": "#4a3f55",
-    "kind": "logo"
+    "hero": "#4a3f55"
   },
   "jenhsunhuang": {
     "src": "/investors/jensen-huang.webp",
@@ -5147,43 +5145,37 @@
     "src": "/investors/appaloosa.webp",
     "thumb": "/investors/thumbs/appaloosa.webp",
     "source": "local",
-    "hero": "#655266",
-    "kind": "logo"
+    "hero": "#655266"
   },
   "baupost": {
     "src": "/investors/baupost.webp",
     "thumb": "/investors/thumbs/baupost.webp",
     "source": "local",
-    "hero": "#615666",
-    "kind": "logo"
+    "hero": "#615666"
   },
   "berkshirehathaway": {
     "src": "/investors/berkshire-hathaway.webp",
     "thumb": "/investors/thumbs/berkshire-hathaway.webp",
     "source": "local",
-    "hero": "#2f3528",
-    "kind": "logo"
+    "hero": "#2f3528"
   },
   "bridgewater": {
     "src": "/investors/bridgewater.webp",
     "thumb": "/investors/thumbs/bridgewater.webp",
     "source": "local",
-    "hero": "#664f68",
-    "kind": "logo"
+    "hero": "#664f68"
   },
   "citadeladvisors": {
     "src": "/investors/citadel-advisors.webp",
     "thumb": "/investors/thumbs/citadel-advisors.webp",
     "source": "local",
-    "hero": "#026fac",
-    "kind": "logo"
+    "hero": "#026fac"
   },
   "coatue": {
     "src": "/investors/coatue.webp",
     "thumb": "/investors/thumbs/coatue.webp",
     "source": "local",
-    "hero": "#58586c",
-    "kind": "logo"
+    "hero": "#58586c"
   },
   "colettekress": {
     "src": "/investors/colette-kress.webp",
@@ -5201,8 +5193,7 @@
     "src": "/investors/elliott-management.webp",
     "thumb": "/investors/thumbs/elliott-management.webp",
     "source": "local",
-    "hero": "#674d69",
-    "kind": "logo"
+    "hero": "#674d69"
   },
   "hocktan": {
     "src": "/investors/hock-tan.webp",
@@ -5214,8 +5205,7 @@
     "src": "/investors/icahn-capital.webp",
     "thumb": "/investors/thumbs/icahn-capital.webp",
     "source": "local",
-    "hero": "#665067",
-    "kind": "logo"
+    "hero": "#665067"
   },
   "larryellison": {
     "src": "/investors/larry-ellison.webp",
@@ -5227,8 +5217,7 @@
     "src": "/investors/lone-pine.webp",
     "thumb": "/investors/thumbs/lone-pine.webp",
     "source": "local",
-    "hero": "#42833c",
-    "kind": "logo"
+    "hero": "#42833c"
   },
   "marcbenioff": {
     "src": "/investors/marc-benioff.webp",
@@ -5258,8 +5247,7 @@
     "src": "/investors/pershing-square.webp",
     "thumb": "/investors/thumbs/pershing-square.webp",
     "source": "local",
-    "hero": "#563b29",
-    "kind": "logo"
+    "hero": "#563b29"
   },
   "reedhastings": {
     "src": "/investors/reed-hastings.webp",
@@ -5277,29 +5265,25 @@
     "src": "/investors/third-point.webp",
     "thumb": "/investors/thumbs/third-point.webp",
     "source": "local",
-    "hero": "#1c1e26",
-    "kind": "logo"
+    "hero": "#1c1e26"
   },
   "tigerglobal": {
     "src": "/investors/tiger-global.webp",
     "thumb": "/investors/thumbs/tiger-global.webp",
     "source": "local",
-    "hero": "#595b69",
-    "kind": "logo"
+    "hero": "#595b69"
   },
   "vikingglobal": {
     "src": "/investors/viking-global.webp",
     "thumb": "/investors/thumbs/viking-global.webp",
     "source": "local",
-    "hero": "#003e80",
-    "kind": "logo"
+    "hero": "#003e80"
   },
   "duquesnefamilyoffice": {
     "src": "/investors/duquesne-family-office.webp",
     "thumb": "/investors/thumbs/duquesne-family-office.webp",
     "source": "local",
-    "hero": "#3a4a5c",
-    "kind": "logo"
+    "hero": "#3a4a5c"
   },
   "honnancypelosi": {
     "src": "/investors/nancy-pelosi.webp",
@@ -5443,85 +5427,73 @@
     "src": "/investors/pershing-square.webp",
     "thumb": "/investors/thumbs/pershing-square.webp",
     "source": "local",
-    "hero": "#563b29",
-    "kind": "logo"
+    "hero": "#563b29"
   },
   "appaloosamanagement": {
     "src": "/investors/appaloosa.webp",
     "thumb": "/investors/thumbs/appaloosa.webp",
     "source": "local",
-    "hero": "#655266",
-    "kind": "logo"
+    "hero": "#655266"
   },
   "citadel": {
     "src": "/investors/citadel-advisors.webp",
     "thumb": "/investors/thumbs/citadel-advisors.webp",
     "source": "local",
-    "hero": "#026fac",
-    "kind": "logo"
+    "hero": "#026fac"
   },
   "bridgewaterassociates": {
     "src": "/investors/bridgewater.webp",
     "thumb": "/investors/thumbs/bridgewater.webp",
     "source": "local",
-    "hero": "#664f68",
-    "kind": "logo"
+    "hero": "#664f68"
   },
   "elliottinvestmentmanagement": {
     "src": "/investors/elliott-management.webp",
     "thumb": "/investors/thumbs/elliott-management.webp",
     "source": "local",
-    "hero": "#674d69",
-    "kind": "logo"
+    "hero": "#674d69"
   },
   "thirdpointmanagement": {
     "src": "/investors/third-point.webp",
     "thumb": "/investors/thumbs/third-point.webp",
     "source": "local",
-    "hero": "#1c1e26",
-    "kind": "logo"
+    "hero": "#1c1e26"
   },
   "thebaupostgroup": {
     "src": "/investors/baupost.webp",
     "thumb": "/investors/thumbs/baupost.webp",
     "source": "local",
-    "hero": "#615666",
-    "kind": "logo"
+    "hero": "#615666"
   },
   "tigerglobalmanagement": {
     "src": "/investors/tiger-global.webp",
     "thumb": "/investors/thumbs/tiger-global.webp",
     "source": "local",
-    "hero": "#595b69",
-    "kind": "logo"
+    "hero": "#595b69"
   },
   "coatuemanagement": {
     "src": "/investors/coatue.webp",
     "thumb": "/investors/thumbs/coatue.webp",
     "source": "local",
-    "hero": "#58586c",
-    "kind": "logo"
+    "hero": "#58586c"
   },
   "vikingglobalinvestors": {
     "src": "/investors/viking-global.webp",
     "thumb": "/investors/thumbs/viking-global.webp",
     "source": "local",
-    "hero": "#003e80",
-    "kind": "logo"
+    "hero": "#003e80"
   },
   "lonepinecapital": {
     "src": "/investors/lone-pine.webp",
     "thumb": "/investors/thumbs/lone-pine.webp",
     "source": "local",
-    "hero": "#42833c",
-    "kind": "logo"
+    "hero": "#42833c"
   },
   "carlicahn": {
     "src": "/investors/icahn-capital.webp",
     "thumb": "/investors/thumbs/icahn-capital.webp",
     "source": "local",
-    "hero": "#665067",
-    "kind": "logo"
+    "hero": "#665067"
   },
   "trump": {
     "src": "/investors/donald-trump.webp",
@@ -5581,504 +5553,432 @@
     "src": "/investors/berkshire-hathaway.webp",
     "thumb": "/investors/thumbs/berkshire-hathaway.webp",
     "source": "local",
-    "hero": "#2f3528",
-    "kind": "logo"
+    "hero": "#2f3528"
   },
   "berkshirehathawayincinstitution813696": {
     "src": "/investors/berkshire-hathaway.webp",
     "thumb": "/investors/thumbs/berkshire-hathaway.webp",
     "source": "local",
-    "hero": "#2f3528",
-    "kind": "logo"
+    "hero": "#2f3528"
   },
   "berkshirehathawayllc": {
     "src": "/investors/berkshire-hathaway.webp",
     "thumb": "/investors/thumbs/berkshire-hathaway.webp",
     "source": "local",
-    "hero": "#2f3528",
-    "kind": "logo"
+    "hero": "#2f3528"
   },
   "berkshirehathawaylp": {
     "src": "/investors/berkshire-hathaway.webp",
     "thumb": "/investors/thumbs/berkshire-hathaway.webp",
     "source": "local",
-    "hero": "#2f3528",
-    "kind": "logo"
+    "hero": "#2f3528"
   },
   "berkshirehathawayltd": {
     "src": "/investors/berkshire-hathaway.webp",
     "thumb": "/investors/thumbs/berkshire-hathaway.webp",
     "source": "local",
-    "hero": "#2f3528",
-    "kind": "logo"
+    "hero": "#2f3528"
   },
   "pershingsquarecapitalmanagementlpinstitutiondde950": {
     "src": "/investors/pershing-square.webp",
     "thumb": "/investors/thumbs/pershing-square.webp",
     "source": "local",
-    "hero": "#563b29",
-    "kind": "logo"
+    "hero": "#563b29"
   },
   "pershingsquarellc": {
     "src": "/investors/pershing-square.webp",
     "thumb": "/investors/thumbs/pershing-square.webp",
     "source": "local",
-    "hero": "#563b29",
-    "kind": "logo"
+    "hero": "#563b29"
   },
   "pershingsquarelp": {
     "src": "/investors/pershing-square.webp",
     "thumb": "/investors/thumbs/pershing-square.webp",
     "source": "local",
-    "hero": "#563b29",
-    "kind": "logo"
+    "hero": "#563b29"
   },
   "pershingsquareinc": {
     "src": "/investors/pershing-square.webp",
     "thumb": "/investors/thumbs/pershing-square.webp",
     "source": "local",
-    "hero": "#563b29",
-    "kind": "logo"
+    "hero": "#563b29"
   },
   "pershingsquareltd": {
     "src": "/investors/pershing-square.webp",
     "thumb": "/investors/thumbs/pershing-square.webp",
     "source": "local",
-    "hero": "#563b29",
-    "kind": "logo"
+    "hero": "#563b29"
   },
   "duquesnefamilyofficellc": {
     "src": "/investors/duquesne-family-office.webp",
     "thumb": "/investors/thumbs/duquesne-family-office.webp",
     "source": "local",
-    "hero": "#3a4a5c",
-    "kind": "logo"
+    "hero": "#3a4a5c"
   },
   "duquesnefamilyofficelp": {
     "src": "/investors/duquesne-family-office.webp",
     "thumb": "/investors/thumbs/duquesne-family-office.webp",
     "source": "local",
-    "hero": "#3a4a5c",
-    "kind": "logo"
+    "hero": "#3a4a5c"
   },
   "duquesnefamilyofficeinc": {
     "src": "/investors/duquesne-family-office.webp",
     "thumb": "/investors/thumbs/duquesne-family-office.webp",
     "source": "local",
-    "hero": "#3a4a5c",
-    "kind": "logo"
+    "hero": "#3a4a5c"
   },
   "duquesnefamilyofficeltd": {
     "src": "/investors/duquesne-family-office.webp",
     "thumb": "/investors/thumbs/duquesne-family-office.webp",
     "source": "local",
-    "hero": "#3a4a5c",
-    "kind": "logo"
+    "hero": "#3a4a5c"
   },
   "appaloosalp": {
     "src": "/investors/appaloosa.webp",
     "thumb": "/investors/thumbs/appaloosa.webp",
     "source": "local",
-    "hero": "#655266",
-    "kind": "logo"
+    "hero": "#655266"
   },
   "appaloosallc": {
     "src": "/investors/appaloosa.webp",
     "thumb": "/investors/thumbs/appaloosa.webp",
     "source": "local",
-    "hero": "#655266",
-    "kind": "logo"
+    "hero": "#655266"
   },
   "appaloosainc": {
     "src": "/investors/appaloosa.webp",
     "thumb": "/investors/thumbs/appaloosa.webp",
     "source": "local",
-    "hero": "#655266",
-    "kind": "logo"
+    "hero": "#655266"
   },
   "appaloosaltd": {
     "src": "/investors/appaloosa.webp",
     "thumb": "/investors/thumbs/appaloosa.webp",
     "source": "local",
-    "hero": "#655266",
-    "kind": "logo"
+    "hero": "#655266"
   },
   "citadeladvisorsllc": {
     "src": "/investors/citadel-advisors.webp",
     "thumb": "/investors/thumbs/citadel-advisors.webp",
     "source": "local",
-    "hero": "#026fac",
-    "kind": "logo"
+    "hero": "#026fac"
   },
   "citadeladvisorslp": {
     "src": "/investors/citadel-advisors.webp",
     "thumb": "/investors/thumbs/citadel-advisors.webp",
     "source": "local",
-    "hero": "#026fac",
-    "kind": "logo"
+    "hero": "#026fac"
   },
   "citadeladvisorsinc": {
     "src": "/investors/citadel-advisors.webp",
     "thumb": "/investors/thumbs/citadel-advisors.webp",
     "source": "local",
-    "hero": "#026fac",
-    "kind": "logo"
+    "hero": "#026fac"
   },
   "citadeladvisorsltd": {
     "src": "/investors/citadel-advisors.webp",
     "thumb": "/investors/thumbs/citadel-advisors.webp",
     "source": "local",
-    "hero": "#026fac",
-    "kind": "logo"
+    "hero": "#026fac"
   },
   "renaissancetechnologieslp": {
     "src": "/investors/renaissance-technologies.webp",
     "thumb": "/investors/thumbs/renaissance-technologies.webp",
     "source": "local",
-    "hero": "#4a3f55",
-    "kind": "logo"
+    "hero": "#4a3f55"
   },
   "renaissancetechnologiesinc": {
     "src": "/investors/renaissance-technologies.webp",
     "thumb": "/investors/thumbs/renaissance-technologies.webp",
     "source": "local",
-    "hero": "#4a3f55",
-    "kind": "logo"
+    "hero": "#4a3f55"
   },
   "renaissancetechnologiesltd": {
     "src": "/investors/renaissance-technologies.webp",
     "thumb": "/investors/thumbs/renaissance-technologies.webp",
     "source": "local",
-    "hero": "#4a3f55",
-    "kind": "logo"
+    "hero": "#4a3f55"
   },
   "bridgewaterassociateslp": {
     "src": "/investors/bridgewater.webp",
     "thumb": "/investors/thumbs/bridgewater.webp",
     "source": "local",
-    "hero": "#664f68",
-    "kind": "logo"
+    "hero": "#664f68"
   },
   "bridgewaterllc": {
     "src": "/investors/bridgewater.webp",
     "thumb": "/investors/thumbs/bridgewater.webp",
     "source": "local",
-    "hero": "#664f68",
-    "kind": "logo"
+    "hero": "#664f68"
   },
   "bridgewaterlp": {
     "src": "/investors/bridgewater.webp",
     "thumb": "/investors/thumbs/bridgewater.webp",
     "source": "local",
-    "hero": "#664f68",
-    "kind": "logo"
+    "hero": "#664f68"
   },
   "bridgewaterinc": {
     "src": "/investors/bridgewater.webp",
     "thumb": "/investors/thumbs/bridgewater.webp",
     "source": "local",
-    "hero": "#664f68",
-    "kind": "logo"
+    "hero": "#664f68"
   },
   "bridgewaterltd": {
     "src": "/investors/bridgewater.webp",
     "thumb": "/investors/thumbs/bridgewater.webp",
     "source": "local",
-    "hero": "#664f68",
-    "kind": "logo"
+    "hero": "#664f68"
   },
   "elliottmanagementcorp": {
     "src": "/investors/elliott-management.webp",
     "thumb": "/investors/thumbs/elliott-management.webp",
     "source": "local",
-    "hero": "#674d69",
-    "kind": "logo"
+    "hero": "#674d69"
   },
   "elliottinvestmentmanagementlp": {
     "src": "/investors/elliott-management.webp",
     "thumb": "/investors/thumbs/elliott-management.webp",
     "source": "local",
-    "hero": "#674d69",
-    "kind": "logo"
+    "hero": "#674d69"
   },
   "elliottmanagementllc": {
     "src": "/investors/elliott-management.webp",
     "thumb": "/investors/thumbs/elliott-management.webp",
     "source": "local",
-    "hero": "#674d69",
-    "kind": "logo"
+    "hero": "#674d69"
   },
   "elliottmanagementlp": {
     "src": "/investors/elliott-management.webp",
     "thumb": "/investors/thumbs/elliott-management.webp",
     "source": "local",
-    "hero": "#674d69",
-    "kind": "logo"
+    "hero": "#674d69"
   },
   "elliottmanagementinc": {
     "src": "/investors/elliott-management.webp",
     "thumb": "/investors/thumbs/elliott-management.webp",
     "source": "local",
-    "hero": "#674d69",
-    "kind": "logo"
+    "hero": "#674d69"
   },
   "elliottmanagementltd": {
     "src": "/investors/elliott-management.webp",
     "thumb": "/investors/thumbs/elliott-management.webp",
     "source": "local",
-    "hero": "#674d69",
-    "kind": "logo"
+    "hero": "#674d69"
   },
   "thirdpointllc": {
     "src": "/investors/third-point.webp",
     "thumb": "/investors/thumbs/third-point.webp",
     "source": "local",
-    "hero": "#1c1e26",
-    "kind": "logo"
+    "hero": "#1c1e26"
   },
   "thirdpointlp": {
     "src": "/investors/third-point.webp",
     "thumb": "/investors/thumbs/third-point.webp",
     "source": "local",
-    "hero": "#1c1e26",
-    "kind": "logo"
+    "hero": "#1c1e26"
   },
   "thirdpointinc": {
     "src": "/investors/third-point.webp",
     "thumb": "/investors/thumbs/third-point.webp",
     "source": "local",
-    "hero": "#1c1e26",
-    "kind": "logo"
+    "hero": "#1c1e26"
   },
   "thirdpointltd": {
     "src": "/investors/third-point.webp",
     "thumb": "/investors/thumbs/third-point.webp",
     "source": "local",
-    "hero": "#1c1e26",
-    "kind": "logo"
+    "hero": "#1c1e26"
   },
   "baupostgroupllcma": {
     "src": "/investors/baupost.webp",
     "thumb": "/investors/thumbs/baupost.webp",
     "source": "local",
-    "hero": "#615666",
-    "kind": "logo"
+    "hero": "#615666"
   },
   "baupostllc": {
     "src": "/investors/baupost.webp",
     "thumb": "/investors/thumbs/baupost.webp",
     "source": "local",
-    "hero": "#615666",
-    "kind": "logo"
+    "hero": "#615666"
   },
   "baupostlp": {
     "src": "/investors/baupost.webp",
     "thumb": "/investors/thumbs/baupost.webp",
     "source": "local",
-    "hero": "#615666",
-    "kind": "logo"
+    "hero": "#615666"
   },
   "baupostinc": {
     "src": "/investors/baupost.webp",
     "thumb": "/investors/thumbs/baupost.webp",
     "source": "local",
-    "hero": "#615666",
-    "kind": "logo"
+    "hero": "#615666"
   },
   "baupostltd": {
     "src": "/investors/baupost.webp",
     "thumb": "/investors/thumbs/baupost.webp",
     "source": "local",
-    "hero": "#615666",
-    "kind": "logo"
+    "hero": "#615666"
   },
   "tigerglobalmanagementllc": {
     "src": "/investors/tiger-global.webp",
     "thumb": "/investors/thumbs/tiger-global.webp",
     "source": "local",
-    "hero": "#595b69",
-    "kind": "logo"
+    "hero": "#595b69"
   },
   "tigergloballlc": {
     "src": "/investors/tiger-global.webp",
     "thumb": "/investors/thumbs/tiger-global.webp",
     "source": "local",
-    "hero": "#595b69",
-    "kind": "logo"
+    "hero": "#595b69"
   },
   "tigergloballp": {
     "src": "/investors/tiger-global.webp",
     "thumb": "/investors/thumbs/tiger-global.webp",
     "source": "local",
-    "hero": "#595b69",
-    "kind": "logo"
+    "hero": "#595b69"
   },
   "tigerglobalinc": {
     "src": "/investors/tiger-global.webp",
     "thumb": "/investors/thumbs/tiger-global.webp",
     "source": "local",
-    "hero": "#595b69",
-    "kind": "logo"
+    "hero": "#595b69"
   },
   "tigergloballtd": {
     "src": "/investors/tiger-global.webp",
     "thumb": "/investors/thumbs/tiger-global.webp",
     "source": "local",
-    "hero": "#595b69",
-    "kind": "logo"
+    "hero": "#595b69"
   },
   "coatuemanagementllc": {
     "src": "/investors/coatue.webp",
     "thumb": "/investors/thumbs/coatue.webp",
     "source": "local",
-    "hero": "#58586c",
-    "kind": "logo"
+    "hero": "#58586c"
   },
   "coatuellc": {
     "src": "/investors/coatue.webp",
     "thumb": "/investors/thumbs/coatue.webp",
     "source": "local",
-    "hero": "#58586c",
-    "kind": "logo"
+    "hero": "#58586c"
   },
   "coatuelp": {
     "src": "/investors/coatue.webp",
     "thumb": "/investors/thumbs/coatue.webp",
     "source": "local",
-    "hero": "#58586c",
-    "kind": "logo"
+    "hero": "#58586c"
   },
   "coatueinc": {
     "src": "/investors/coatue.webp",
     "thumb": "/investors/thumbs/coatue.webp",
     "source": "local",
-    "hero": "#58586c",
-    "kind": "logo"
+    "hero": "#58586c"
   },
   "coatueltd": {
     "src": "/investors/coatue.webp",
     "thumb": "/investors/thumbs/coatue.webp",
     "source": "local",
-    "hero": "#58586c",
-    "kind": "logo"
+    "hero": "#58586c"
   },
   "vikingglobalinvestorslp": {
     "src": "/investors/viking-global.webp",
     "thumb": "/investors/thumbs/viking-global.webp",
     "source": "local",
-    "hero": "#003e80",
-    "kind": "logo"
+    "hero": "#003e80"
   },
   "vikingglobalinvestorslpinstitutiond70de6": {
     "src": "/investors/viking-global.webp",
     "thumb": "/investors/thumbs/viking-global.webp",
     "source": "local",
-    "hero": "#003e80",
-    "kind": "logo"
+    "hero": "#003e80"
   },
   "vikinggloballlc": {
     "src": "/investors/viking-global.webp",
     "thumb": "/investors/thumbs/viking-global.webp",
     "source": "local",
-    "hero": "#003e80",
-    "kind": "logo"
+    "hero": "#003e80"
   },
   "vikinggloballp": {
     "src": "/investors/viking-global.webp",
     "thumb": "/investors/thumbs/viking-global.webp",
     "source": "local",
-    "hero": "#003e80",
-    "kind": "logo"
+    "hero": "#003e80"
   },
   "vikingglobalinc": {
     "src": "/investors/viking-global.webp",
     "thumb": "/investors/thumbs/viking-global.webp",
     "source": "local",
-    "hero": "#003e80",
-    "kind": "logo"
+    "hero": "#003e80"
   },
   "vikinggloballtd": {
     "src": "/investors/viking-global.webp",
     "thumb": "/investors/thumbs/viking-global.webp",
     "source": "local",
-    "hero": "#003e80",
-    "kind": "logo"
+    "hero": "#003e80"
   },
   "lonepinecapitalllc": {
     "src": "/investors/lone-pine.webp",
     "thumb": "/investors/thumbs/lone-pine.webp",
     "source": "local",
-    "hero": "#42833c",
-    "kind": "logo"
+    "hero": "#42833c"
   },
   "lonepinellc": {
     "src": "/investors/lone-pine.webp",
     "thumb": "/investors/thumbs/lone-pine.webp",
     "source": "local",
-    "hero": "#42833c",
-    "kind": "logo"
+    "hero": "#42833c"
   },
   "lonepinelp": {
     "src": "/investors/lone-pine.webp",
     "thumb": "/investors/thumbs/lone-pine.webp",
     "source": "local",
-    "hero": "#42833c",
-    "kind": "logo"
+    "hero": "#42833c"
   },
   "lonepineinc": {
     "src": "/investors/lone-pine.webp",
     "thumb": "/investors/thumbs/lone-pine.webp",
     "source": "local",
-    "hero": "#42833c",
-    "kind": "logo"
+    "hero": "#42833c"
   },
   "lonepineltd": {
     "src": "/investors/lone-pine.webp",
     "thumb": "/investors/thumbs/lone-pine.webp",
     "source": "local",
-    "hero": "#42833c",
-    "kind": "logo"
+    "hero": "#42833c"
   },
   "icahncarlcinstitution1589ad": {
     "src": "/investors/icahn-capital.webp",
     "thumb": "/investors/thumbs/icahn-capital.webp",
     "source": "local",
-    "hero": "#665067",
-    "kind": "logo"
+    "hero": "#665067"
   },
   "icahncarlc": {
     "src": "/investors/icahn-capital.webp",
     "thumb": "/investors/thumbs/icahn-capital.webp",
     "source": "local",
-    "hero": "#665067",
-    "kind": "logo"
+    "hero": "#665067"
   },
   "icahncapitalllc": {
     "src": "/investors/icahn-capital.webp",
     "thumb": "/investors/thumbs/icahn-capital.webp",
     "source": "local",
-    "hero": "#665067",
-    "kind": "logo"
+    "hero": "#665067"
   },
   "icahncapitallp": {
     "src": "/investors/icahn-capital.webp",
     "thumb": "/investors/thumbs/icahn-capital.webp",
     "source": "local",
-    "hero": "#665067",
-    "kind": "logo"
+    "hero": "#665067"
   },
   "icahncapitalinc": {
     "src": "/investors/icahn-capital.webp",
     "thumb": "/investors/thumbs/icahn-capital.webp",
     "source": "local",
-    "hero": "#665067",
-    "kind": "logo"
+    "hero": "#665067"
   },
   "icahncapitalltd": {
     "src": "/investors/icahn-capital.webp",
     "thumb": "/investors/thumbs/icahn-capital.webp",
     "source": "local",
-    "hero": "#665067",
-    "kind": "logo"
+    "hero": "#665067"
   }
 }
