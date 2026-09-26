@@ -134,6 +134,7 @@ export function ExploreFeaturedCards({ rows = [], range = '6M', onCardClick = nu
                 className="exploreFeaturedPhoto"
                 logo={logo}
                 discover={false}
+                objectPosition={portrait?.position || null}
               />
               <span className="exploreFeaturedCopy">
                 <span className="exploreFeaturedBadge">{typeLabel}</span>

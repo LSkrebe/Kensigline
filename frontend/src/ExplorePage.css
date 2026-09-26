@@ -213,7 +213,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 12%;
+  object-position: center 22%;
 }
 .exploreFeaturedCopy {
   position: relative;
@@ -2422,7 +2422,7 @@
   display:grid; grid-template-columns:56px minmax(160px,1.15fr) minmax(170px,1fr) minmax(100px,.55fr) minmax(100px,.45fr); align-items:center; gap:var(--explore-directory-col-gap); padding:20px 0; width:100%;
 }
 .explorePersonPortrait { width:56px; height:64px; border-radius:4px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:rgba(255,255,255,.055); color:rgba(255,255,255,.4); border:1px solid rgba(255,255,255,.06); font-size:16px; }
-.explorePersonPortrait img { width:100%; height:100%; object-fit:cover; object-position:center 20%; }
+.explorePersonPortrait img { width:100%; height:100%; object-fit:cover; object-position:center 28%; }
 .explorePersonCopy { min-width:0; display:flex; flex-direction:column; gap:6px; }
 .explorePersonCopy .exploreDirectoryName { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .explorePersonCompany { color:rgba(255,255,255,.4); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2823,7 +2823,7 @@
   border: 0;
   background: rgba(255, 255, 255, 0.06);
 }
-.exploreTapeAvatar .explorePersonPortrait img { object-position: center 18%; border-radius: 18px; }
+.exploreTapeAvatar .explorePersonPortrait img { object-position: center 28%; border-radius: 18px; }
 .exploreTapeAvatar.isLogo .explorePersonPortrait {
   background: rgba(255, 255, 255, 0.06);
 }

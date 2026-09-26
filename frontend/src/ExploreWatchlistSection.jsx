@@ -473,7 +473,7 @@ function ExploreTapeRow({ row, rank, range, plain = false, invested = false, onC
     <>
       <span className="exploreTapeRank">{rank}</span>
       <span className={`exploreTapeAvatar${logo ? ' isLogo' : ''}`}>
-        <ImageOrInitials src={thumb} name={row.name} className="explorePersonPortrait" logo={logo} discover={false} />
+        <ImageOrInitials src={thumb} name={row.name} className="explorePersonPortrait" logo={logo} discover={false} objectPosition={portrait?.position || null} />
       </span>
       <span className="exploreTapeCopy">
         {investedLabel ? (

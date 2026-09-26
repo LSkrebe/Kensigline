@@ -18,7 +18,7 @@ function prices(ticker){
   const promise=new Promise(resolve=>{queue.push(async()=>{try{const r=await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(ticker)}&days=35`,{timeoutMs:12000});resolve(r.ok?(r.data?.items??[]).map(b=>Number(b.close)).filter(v=>Number.isFinite(v)&&v>0):[])}catch{resolve([])}});pump()})
   chartCache.set(ticker,{at:Date.now(),promise});return promise
 }
-export function ImageOrInitials({src,name,className,logo=false,discover=true,fallbackSrc=null}){
+export function ImageOrInitials({src,name,className,logo=false,discover=true,fallbackSrc=null,objectPosition=null}){
   const [failed,setFailed]=useState(false),[usedFallback,setUsedFallback]=useState(false),[discovered,setDiscovered]=useState(null)
   const imageRef=useRef(null)
   useEffect(()=>{setFailed(false);setUsedFallback(false);setDiscovered(null)},[src,name,fallbackSrc])
@@ -31,7 +31,8 @@ export function ImageOrInitials({src,name,className,logo=false,discover=true,fal
   },[name,src,logo,failed,discover])
   const imageSrc=(!failed&&src)||(usedFallback&&fallbackSrc)||discovered
   const letters=String(name??'').replace(/^(hon\.?|mr\.?|mrs\.?)\s+/i,'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('').toUpperCase()||'—'
-  return <span ref={imageRef} className={className} aria-hidden="true">{imageSrc?<img src={imageSrc} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={()=>{if(imageSrc===discovered)setDiscovered(null);else if(!usedFallback&&fallbackSrc&&imageSrc===src)setUsedFallback(true);else{setFailed(true);setUsedFallback(false)}}}/>:<span className="mono">{logo?String(name??'').slice(0,3):letters}</span>}</span>
+  const imgStyle=objectPosition?{objectPosition}:undefined
+  return <span ref={imageRef} className={className} aria-hidden="true">{imageSrc?<img src={imageSrc} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" style={imgStyle} onError={()=>{if(imageSrc===discovered)setDiscovered(null);else if(!usedFallback&&fallbackSrc&&imageSrc===src)setUsedFallback(true);else{setFailed(true);setUsedFallback(false)}}}/>:<span className="mono">{logo?String(name??'').slice(0,3):letters}</span>}</span>
 }
 export function ExplorePersonRow({row,onClick=null,companyOnly=false,investorOnly=false,performanceTransactions=null,trailingAction=null}){
   const ref=useRef(null),[series,setSeries]=useState([]),[performance,setPerformance]=useState(null)
@@ -41,6 +42,7 @@ export function ExplorePersonRow({row,onClick=null,companyOnly=false,investorOnl
   const portraitEntry=lookupExplorePortrait(row.name, row.actorSlug)
   const portrait=portraitEntry?.src
   const logo=portraitEntry?.kind==='logo'
+  const objectPosition=portraitEntry?.position||null
   useEffect(()=>{
     let alive=true,started=false
     setSeries([])
@@ -80,7 +82,7 @@ export function ExplorePersonRow({row,onClick=null,companyOnly=false,investorOnl
   const returnTitle=performance?`${performance.count>1?'Equal-weight average stock return since these transactions':'Stock return since transaction'} through ${performance.asOf}`:'Transaction performance unavailable'
   const compactIdentity=companyOnly||investorOnly
   const content=<>
-    <ImageOrInitials src={companyOnly?companyLogoSrc(ticker):portrait} fallbackSrc={companyOnly?companyLogoFallback(ticker):null} name={companyOnly?ticker:row.name} className="explorePersonPortrait" logo={companyOnly||logo}/>
+    <ImageOrInitials src={companyOnly?companyLogoSrc(ticker):portrait} fallbackSrc={companyOnly?companyLogoFallback(ticker):null} name={companyOnly?ticker:row.name} className="explorePersonPortrait" logo={companyOnly||logo} objectPosition={companyOnly?null:objectPosition}/>
     <span className="explorePersonCopy">
       <span className="explorePersonMobileTransaction">{compactIdentity?<span className={`explorePersonAction mono ${eventTone}`}>{event}</span>:transaction}</span>
       <span className="exploreDirectoryName">{companyOnly?companyLabel:row.name}</span>
