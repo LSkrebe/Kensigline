@@ -1592,10 +1592,10 @@ function DeepTradeLog({ rows = [], loading = false, name = '', expanded = false 
             >
               <TradeDayLogos tickers={tickers} />
               <span className="drpt-tradeDayCopy">
+                <span className="drpt-tradeDate">{formatTapeDate(filing.filedMs)}</span>
                 <span className="drpt-tradeTitle">{filingSentence(name, changes)}</span>
                 <span className="drpt-tradeMeta">{filingSublabel(changes)}</span>
               </span>
-              <span className="drpt-tradeDate">{formatTapeDate(filing.filedMs)}</span>
               <span className="drpt-tradeChevron" aria-hidden="true">
                 ›
               </span>

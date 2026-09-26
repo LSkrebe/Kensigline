@@ -2815,7 +2815,7 @@ button.drpt-docRow {
 }
 .drpt-tradeDayHead {
   display: grid;
-  grid-template-columns: 68px minmax(0, 1fr) auto 18px;
+  grid-template-columns: 68px minmax(0, 1fr) 18px;
   align-items: center;
   gap: 16px;
   width: 100%;
@@ -2836,7 +2836,15 @@ button.drpt-docRow {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: 2px;
+}
+.drpt-tradeDate {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin-bottom: 2px;
 }
 .drpt-tradeTitle {
   margin: 0;
@@ -2856,15 +2864,6 @@ button.drpt-docRow {
   font-weight: 600;
   line-height: 1.2;
 }
-.drpt-tradeDate {
-  color: rgba(255, 255, 255, 0.42);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
-  white-space: nowrap;
-  justify-self: end;
-}
 .drpt-tradeChevron {
   justify-self: end;
   color: rgba(255, 255, 255, 0.34);
@@ -2882,7 +2881,7 @@ button.drpt-docRow {
 }
 @media (max-width: 640px) {
   .drpt-tradeDayHead {
-    grid-template-columns: 56px minmax(0, 1fr) auto 16px;
+    grid-template-columns: 56px minmax(0, 1fr) 16px;
     gap: 12px;
     padding: 16px 0;
   }
@@ -3102,20 +3101,14 @@ button.drpt-docRow {
   height: 22px;
   overflow: hidden;
   border-radius: 6px;
-  background: #fff;
+  background: #141518;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .drpt-tradeLogo img,
 .drpt-holdingLogo img {
   width: 16px;
   height: 16px;
   object-fit: contain;
-}
-.drpt-tradeChevron {
-  grid-column: 2;
-  grid-row: 1 / span 3;
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 22px;
-  line-height: 1;
 }
 .drpt-holdingBtn {
   grid-template-columns: 36px minmax(0, 1fr) auto;
@@ -3134,7 +3127,12 @@ button.drpt-docRow {
   gap: 16px;
 }
 .drpt-dossier .drpt-holdingLogo { width: 76px; height: 76px; border-radius: 18px; }
-.drpt-dossier .drpt-holdingLogo img { width: 44px; height: 44px; }
+.drpt-dossier .drpt-holdingLogo img {
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  box-sizing: border-box;
+}
 .drpt-holdingName {
   display: flex;
   flex-direction: column;
