@@ -2,7 +2,7 @@ import {lookupInvestorImage} from './investorImageLookup.js'
 import {useEffect,useRef,useState} from 'react'
 import {selectEventPerformance} from './exploreEventPerformance.js'
 import { lookupExplorePortrait, normalizeInvestorName } from './explorePortraitLookup.js'
-import { companyLogoFallback, companyLogoSrc } from './localImages.js'
+import { companyLogoDefault, companyLogoFallback, companyLogoSrc } from './localImages.js'
 import {fetchJsonSafe} from './api.js'
 import {MiniPriceChart} from './MiniPriceChart.jsx'
 import {exploreRowDateLabel} from './ExploreDirectoryRows.jsx'
@@ -18,21 +18,29 @@ function prices(ticker){
   const promise=new Promise(resolve=>{queue.push(async()=>{try{const r=await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(ticker)}&days=35`,{timeoutMs:12000});resolve(r.ok?(r.data?.items??[]).map(b=>Number(b.close)).filter(v=>Number.isFinite(v)&&v>0):[])}catch{resolve([])}});pump()})
   chartCache.set(ticker,{at:Date.now(),promise});return promise
 }
-export function ImageOrInitials({src,name,className,logo=false,discover=true,fallbackSrc=null,objectPosition=null}){
-  const [failed,setFailed]=useState(false),[usedFallback,setUsedFallback]=useState(false),[discovered,setDiscovered]=useState(null)
+export function ImageOrInitials({src,name,className,logo=false,discover=true,fallbackSrc=null,defaultSrc=null,objectPosition=null}){
+  const [phase,setPhase]=useState(0)
+  const [discovered,setDiscovered]=useState(null)
   const imageRef=useRef(null)
-  useEffect(()=>{setFailed(false);setUsedFallback(false);setDiscovered(null)},[src,name,fallbackSrc])
+  const ultimate=defaultSrc||(logo?companyLogoDefault():null)
+  useEffect(()=>{setPhase(0);setDiscovered(null)},[src,name,fallbackSrc,defaultSrc,ultimate])
   useEffect(()=>{
-    if(!discover||logo||(src&&!failed))return
+    if(!discover||logo||(src&&phase===0))return
     let alive=true,started=false
     const observer=new IntersectionObserver(entries=>{if(started||!entries.some(e=>e.isIntersecting))return;started=true;void lookupInvestorImage(name).then(value=>{if(alive)setDiscovered(value)})},{rootMargin:'200px'})
     if(imageRef.current)observer.observe(imageRef.current)
     return()=>{alive=false;observer.disconnect()}
-  },[name,src,logo,failed,discover])
-  const imageSrc=(!failed&&src)||(usedFallback&&fallbackSrc)||discovered
+  },[name,src,logo,phase,discover])
+  // Prefer fallback/default after primary fails — never keep a dead src (browser broken-image icon).
+  const imageSrc=phase===0?((src||discovered)||null):phase===1?(fallbackSrc||null):phase===2?(ultimate||null):null
   const letters=String(name??'').replace(/^(hon\.?|mr\.?|mrs\.?)\s+/i,'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('').toUpperCase()||'—'
   const imgStyle=objectPosition?{objectPosition}:undefined
-  return <span ref={imageRef} className={className} aria-hidden="true">{imageSrc?<img src={imageSrc} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" style={imgStyle} onError={()=>{if(imageSrc===discovered)setDiscovered(null);else if(!usedFallback&&fallbackSrc&&imageSrc===src)setUsedFallback(true);else{setFailed(true);setUsedFallback(false)}}}/>:<span className="mono">{logo?String(name??'').slice(0,3):letters}</span>}</span>
+  return <span ref={imageRef} className={className} aria-hidden="true">{imageSrc?<img src={imageSrc} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" style={imgStyle} onError={()=>{
+    if(phase===0&&imageSrc===discovered){setDiscovered(null);return}
+    if(phase===0&&fallbackSrc){setPhase(1);return}
+    if(phase<=1&&ultimate&&imageSrc!==ultimate){setPhase(2);return}
+    setPhase(3)
+  }}/>:<span className="mono">{logo?String(name??'').slice(0,3):letters}</span>}</span>
 }
 export function ExplorePersonRow({row,onClick=null,companyOnly=false,investorOnly=false,performanceTransactions=null,trailingAction=null}){
   const ref=useRef(null),[series,setSeries]=useState([]),[performance,setPerformance]=useState(null)
@@ -70,13 +78,13 @@ export function ExplorePersonRow({row,onClick=null,companyOnly=false,investorOnl
   },[performanceKey,performanceTransactions,row])
   const event=String(row.event??'').replace(/^(Form 4|PTR|13F)\s*/i,'').replace(/^(insider|politician|institution)\s*/i,'')||'Disclosure'
   const eventTone=/sale|sell|sold|decreas|dispos|exit|reduc/i.test(event)?'isDown':/purchas|buy|bought|increas|acquir|add|new position/i.test(event)?'isUp':'isFlat'
-  const companyLabel=tickers.length>1?(row.companies?.length?row.companies.map(c=>c.name||c.ticker).join(' · '):tickers.join(' · ')):(String(row.companyName??'').trim()||ticker||'—')
+  const companyLabel=tickers.length>1?(row.companies?.length?row.companies.map(c=>c.name||c.ticker).join(', '):tickers.join(', ')):(String(row.companyName??'').trim()||ticker||'—')
   const transaction=<span className="explorePersonTransaction mono">
     <span className="explorePersonLogos">{tickers.slice(0,3).map(t=><ImageOrInitials key={t} src={companyLogoSrc(t)} fallbackSrc={companyLogoFallback(t)} name={t} className="explorePersonLogo" logo/>)}</span>
     <span className={`explorePersonAction ${eventTone}`}>{event}</span>{tickers.length>3?<span>+{tickers.length-3}</span>:null}
   </span>
   const investorType=/ptr/i.test(row.docType??'')?'Politician':/13f/i.test(row.docType??'')?'Institution':'Insider'
-  const dateTicker=`${exploreRowDateLabel(row)}, ${tickers.join(' · ')||'—'}`
+  const dateTicker=`${exploreRowDateLabel(row)}${tickers.length?`, ${tickers.join(', ')}`:''}`
   const pct=performance?performance.fraction*100:null
   const returnText=pct==null?'—':`${pct>0?'+':pct<0?'−':''}${Math.abs(pct).toFixed(2)}%`
   const returnTitle=performance?`${performance.count>1?'Equal-weight average stock return since these transactions':'Stock return since transaction'} through ${performance.asOf}`:'Transaction performance unavailable'

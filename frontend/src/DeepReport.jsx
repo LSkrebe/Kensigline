@@ -1546,11 +1546,9 @@ function DeepTradeLog({ rows = [], loading = false, name = '', portraitSrc = nul
                 discover={false}
               />
               <span className="drpt-holdingName">
-                <span>{change.ticker}</span>
-                <span className="drpt-holdingSub">
-                  <span className="drpt-holdingDate">{formatLongDate(filing.filedMs)}</span>
-                  <span>{change.fullName || change.name}</span>
-                </span>
+                <span className="drpt-holdingDate">{formatLongDate(filing.filedMs)}</span>
+                <span className="drpt-holdingTicker">{change.ticker}</span>
+                <span className="drpt-holdingCompany">{change.fullName || change.name}</span>
               </span>
               <span className="drpt-holdingAction">
                 {`${formatWeight(change.from)} → ${formatWeight(change.to)}`}

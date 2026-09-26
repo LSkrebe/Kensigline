@@ -2817,6 +2817,21 @@ button.drpt-docRow {
   color: rgba(255, 255, 255, 0.42);
   font-size: 12px;
   font-weight: 600;
+  line-height: 1.2;
+}
+.drpt-holdingTicker {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.95);
+}
+.drpt-holdingCompany {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .drpt-tradeItem { position: relative; padding-left: 18px; }
 .drpt-tradeItem::before {
@@ -3041,17 +3056,24 @@ button.drpt-docRow {
   min-width: 0;
   gap: 2px;
 }
-.drpt-holdingName span:first-child {
+.drpt-holdingName > .drpt-holdingTicker,
+.drpt-holdingName > span:first-child:not(.drpt-holdingDate) {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
-.drpt-dossier .drpt-holdingName span:first-child {
+.drpt-dossier .drpt-holdingName > .drpt-holdingTicker,
+.drpt-dossier .drpt-holdingName > span:first-child:not(.drpt-holdingDate) {
   font-size: 19px;
   letter-spacing: -0.03em;
   line-height: 1.2;
 }
-.drpt-holdingName span:last-child {
+.drpt-dossier .drpt-holdingName > .drpt-holdingDate {
+  order: -1;
+  margin-bottom: 2px;
+}
+.drpt-holdingName > .drpt-holdingCompany,
+.drpt-holdingName > span:last-child:not(.drpt-holdingTicker) {
   overflow: hidden;
   color: rgba(255, 255, 255, 0.45);
   font-size: 12px;

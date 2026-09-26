@@ -5,6 +5,8 @@ import { PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
 import { FORCE_MOCK_DATA } from './dataMode.js'
 import portraits from './explorePortraits.json'
 import { SkeletonList } from './AppSkeleton.jsx'
+import { companyLogoFallback, companyLogoSrc } from './localImages.js'
+import { exploreRowDateLabel } from './ExploreDirectoryRows.jsx'
 
 /**
  * Sample returns by dossier chart range, while Explore is on mock data.
@@ -455,7 +457,46 @@ function formatInvested(amount) {
   return `$${Math.round(value)}`
 }
 
-function ExploreTapeRow({ row, rank, range, plain = false, invested = false, onClick }) {
+function investorTypeLabel(row) {
+  const labeled = String(row?.modeLabel ?? '').trim()
+  if (labeled && !/^[A-Z0-9.-]{1,10}$/i.test(labeled)) return labeled
+  if (row?.mode === 'politicians' || /ptr/i.test(row?.docType ?? '')) return 'Politician'
+  if (row?.mode === 'institutions' || /13f/i.test(row?.docType ?? '')) return 'Institution'
+  if (row?.mode === 'insiders' || /form\s*4/i.test(row?.docType ?? '')) return 'Insider'
+  return labeled || 'Investor'
+}
+
+function eventTickers(row) {
+  const fromList = Array.isArray(row?.tickers) ? row.tickers : []
+  const single = row?.ticker ? [row.ticker] : []
+  return [...new Set([...fromList, ...single].map((t) => String(t).trim().toUpperCase()).filter((t) => /^[A-Z][A-Z0-9.-]{0,9}$/.test(t)))]
+}
+
+function TapeHoldingsGrid({ tickers = [] }) {
+  const total = tickers.length
+  if (!total) return null
+  const showOverflow = total > 4
+  const visible = showOverflow ? tickers.slice(0, 3) : tickers.slice(0, 4)
+  const extra = showOverflow ? total - 3 : 0
+  return (
+    <span className="exploreTapeHoldings" aria-hidden="true">
+      {visible.map((ticker) => (
+        <ImageOrInitials
+          key={ticker}
+          src={companyLogoSrc(ticker)}
+          fallbackSrc={companyLogoFallback(ticker)}
+          name={ticker}
+          className="exploreTapeHolding"
+          logo
+          discover={false}
+        />
+      ))}
+      {extra > 0 ? <span className="exploreTapeHolding exploreTapeHolding--more">+{extra}</span> : null}
+    </span>
+  )
+}
+
+function ExploreTapeRow({ row, rank, range, plain = false, invested = false, eventRow = false, onClick }) {
   const portrait = lookupExplorePortrait(row.name, row.actorSlug) || portraits[normalizeInvestorName(row.name)]
   const logo = portrait?.kind === 'logo'
   const thumb = portrait?.thumb || portrait?.src
@@ -469,6 +510,9 @@ function ExploreTapeRow({ row, rank, range, plain = false, invested = false, onC
           : null)
     : null
   const investedLabel = investedAmount != null && investedAmount > 0 ? formatInvested(investedAmount) : null
+  const dateLabel = eventRow ? exploreRowDateLabel(row) : null
+  const tickers = eventRow ? eventTickers(row) : []
+  const typeLabel = investorTypeLabel(row)
   const content = (
     <>
       <span className="exploreTapeRank">{rank}</span>
@@ -476,36 +520,39 @@ function ExploreTapeRow({ row, rank, range, plain = false, invested = false, onC
         <ImageOrInitials src={thumb} name={row.name} className="explorePersonPortrait" logo={logo} discover={false} objectPosition={portrait?.position || null} />
       </span>
       <span className="exploreTapeCopy">
+        {dateLabel && dateLabel !== '—' ? <span className="exploreTapeDate">{dateLabel}</span> : null}
         {investedLabel ? (
           <span className="exploreTapeInvested">
             <span className="exploreTapeInvestedValue isUp">{investedLabel}</span>
             <span className="exploreTapeInvestedLabel">Invested</span>
           </span>
         ) : null}
-        {!invested && perf ? <span className={`exploreTapeReturn ${plain ? 'isPlain' : ''} ${perf.tone}`}>{perf.text}</span> : null}
+        {!invested && !eventRow && perf ? <span className={`exploreTapeReturn ${plain ? 'isPlain' : ''} ${perf.tone}`}>{perf.text}</span> : null}
         <span className="exploreTapeName">{row.name}</span>
-        <span className="exploreTapeMeta">{row.modeLabel || 'Investor'}</span>
+        <span className="exploreTapeMeta">{typeLabel}</span>
       </span>
-      <span className="exploreTapeChevron" aria-hidden="true">
-        ›
-      </span>
+      {eventRow ? (
+        tickers.length ? <TapeHoldingsGrid tickers={tickers} /> : <span className="exploreTapeChevron" aria-hidden="true">›</span>
+      ) : (
+        <span className="exploreTapeChevron" aria-hidden="true">›</span>
+      )}
     </>
   )
 
   return (
     <li className="exploreTapeRow">
       {onClick ? (
-        <button type="button" className="exploreTapeRowBtn" aria-label={`Open ${row.name}`} onClick={() => onClick(row)}>
+        <button type="button" className={`exploreTapeRowBtn${eventRow ? ' exploreTapeRowBtn--event' : ''}`} aria-label={`Open ${row.name}`} onClick={() => onClick(row)}>
           {content}
         </button>
       ) : (
-        <div className="exploreTapeRowBtn">{content}</div>
+        <div className={`exploreTapeRowBtn${eventRow ? ' exploreTapeRowBtn--event' : ''}`}>{content}</div>
       )}
     </li>
   )
 }
 
-function ExploreTapeList({ rows, range, plain = false, invested = false, onRowClick, loading, empty }) {
+function ExploreTapeList({ rows, range, plain = false, invested = false, eventRow = false, onRowClick, loading, empty }) {
   if (!rows.length) {
     if (loading) return <SkeletonList count={4} />
     return <p className="exploreDirectoryEmpty">{empty}</p>
@@ -513,7 +560,7 @@ function ExploreTapeList({ rows, range, plain = false, invested = false, onRowCl
   return (
     <ul className="exploreTapeList">
       {rows.map((row, index) => (
-        <ExploreTapeRow key={row.id} row={row} rank={index + 1} range={range} plain={plain} invested={invested} onClick={onRowClick} />
+        <ExploreTapeRow key={row.id} row={row} rank={index + 1} range={range} plain={plain} invested={invested} eventRow={eventRow} onClick={onRowClick} />
       ))}
     </ul>
   )
@@ -702,10 +749,11 @@ export function ExploreWatchlistSection({
         id: ev.id ?? `${ev.actorSlug}-${ev.ticker}-${ev.date}-${index}`,
         name: ev.name || ev.feedName || 'Investor',
         actorSlug: ev.actorSlug,
-        modeLabel: [ev.ticker, ev.modeLabel || ev.docType].filter(Boolean).join(' · ') || 'Filing',
+        modeLabel: investorTypeLabel(ev),
         mode: ev.mode,
         typeKey: ev.typeKey,
         ticker: ev.ticker,
+        tickers: eventTickers(ev),
         date: ev.date,
         feedName: ev.feedName ?? ev.name,
         filerSlug: ev.filerSlug,
@@ -718,13 +766,14 @@ export function ExploreWatchlistSection({
 
   return (
     <>
-      <section className="exploreTapeSection exploreRecentEvents" aria-label="Most recent events">
+      <section className="exploreTapeSection exploreRecentEvents" aria-label="Recent events">
         <div className="exploreTapeHead">
-          <h2 className="exploreTapeTitle">Most recent events</h2>
+          <h2 className="exploreTapeTitle">Recent events</h2>
         </div>
         <ExploreTapeList
           rows={recentTapeRows}
           range={range}
+          eventRow
           onRowClick={onRowClick}
           loading={loading}
           empty="No recent events"
