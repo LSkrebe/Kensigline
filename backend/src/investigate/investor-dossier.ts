@@ -642,7 +642,9 @@ export async function handleInvestorDossier(
   const memKey = `${modeKey}:${slug}`;
 
   const mem = dossierMemoryCache.get(memKey);
-  if (mem && Date.now() - mem.at < DOSSIER_CACHE_TTL_MS) {
+  const memActor = mem?.payload?.actor as { transactions?: unknown[] } | undefined;
+  const memHasTxns = Array.isArray(memActor?.transactions) && memActor.transactions.length > 0;
+  if (mem && memHasTxns && Date.now() - mem.at < DOSSIER_CACHE_TTL_MS) {
     sendJson(res, 200, mem.payload);
     return;
   }
@@ -654,7 +656,9 @@ export async function handleInvestorDossier(
   } = await import("../core/dossier-cache.js");
 
   const pgCached = await readInvestorDossierCache(slug, modeKey);
-  if (pgCached?.ok && pgCached.actor && pgCached.dossierSchemaVersion === 10) {
+  const cachedActor = pgCached?.actor as { transactions?: unknown[] } | null | undefined;
+  const cachedHasTxns = Array.isArray(cachedActor?.transactions) && cachedActor.transactions.length > 0;
+  if (pgCached?.ok && cachedHasTxns && pgCached.dossierSchemaVersion === 10) {
     dossierMemoryCache.set(memKey, { at: Date.now(), payload: pgCached });
     sendJson(res, 200, pgCached);
     scheduleInvestorDossierRefresh(slug, modeKey, (s, m) =>
@@ -665,11 +669,18 @@ export async function handleInvestorDossier(
 
   try {
     const payload = await buildInvestorDossierPayload(slug, preferred);
-    if (payload.ok && !(payload as { empty?: boolean }).empty) {
+    const actor = payload.actor as { transactions?: unknown[] } | null | undefined;
+    const hasTxns = Array.isArray(actor?.transactions) && actor.transactions.length > 0;
+    if (payload.ok && hasTxns && !(payload as { empty?: boolean }).empty) {
       dossierMemoryCache.set(memKey, { at: Date.now(), payload });
       void writeInvestorDossierCache(slug, modeKey, payload).catch(() => {});
       if (preferred && payload.mode && payload.mode !== preferred) {
         void writeInvestorDossierCache(slug, String(payload.mode), payload).catch(() => {});
+      }
+      // Also cache under catalog slug + resolved mode for Explore deep links.
+      if (payload.slug && payload.slug !== slug) {
+        void writeInvestorDossierCache(String(payload.slug), modeKey, payload).catch(() => {});
+        if (payload.mode) void writeInvestorDossierCache(String(payload.slug), String(payload.mode), payload).catch(() => {});
       }
     }
     sendJson(res, 200, payload);

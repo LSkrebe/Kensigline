@@ -191,7 +191,8 @@ export function ExplorePage({
   const [range, setRange] = useState('6M')
   const normalizedQuery = normalizeExploreSearchQuery(searchQuery)
   const searching = normalizedQuery.length > 0
-  const exploreReady = !isDataModePending(backendUp) && !homeLoading && returnsReady
+  // Tape/featured only need the precomputed cohort — don't block on home/recap.
+  const exploreReady = !isDataModePending(backendUp) && returnsReady
 
   const watchlistRows = useMemo(() => {
     // Curated universe is the only Explore list — personal watchlist is retired.

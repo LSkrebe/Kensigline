@@ -464,9 +464,19 @@ export async function fetchExploreDirectoryEvents(backendUp) {
 /** Cohort payload for Explore performance surfaces. */
 export async function fetchExplorePerformance(backendUp) {
   if (!isLiveDataMode(backendUp)) return null
-  const res = await fetchJsonWithAuthRetry('/api/explore/performance', { timeoutMs: 60_000 })
+  const res = await fetchJsonWithAuthRetry('/api/explore/performance', {
+    timeoutMs: 12_000,
+    authRetries: 2,
+    fastAuth: true,
+  })
   if (!res.ok || !res.data?.ok) return null
   return res.data
+}
+
+function finiteUsd(value) {
+  if (value == null || value === '') return null
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : null
 }
 
 /** Per-filer disclosed-stock returns + invested totals for Explore cards / tape. */
@@ -485,9 +495,13 @@ export async function fetchExplorePerformanceMembers(backendUp) {
       }
     }
     if (Number.isFinite(Number(fallback)) && nextReturns['1Y'] == null) nextReturns['1Y'] = Number(fallback)
-    const nextInvested = Number.isFinite(Number(investedUsd))
-      ? Math.max(Number(investedUsd), Number(prev.investedUsd) || 0)
-      : prev.investedUsd
+    // Number(null)===0 — never treat missing invested as a real zero.
+    const incoming = finiteUsd(investedUsd)
+    const prevInvested = finiteUsd(prev.investedUsd)
+    const nextInvested =
+      incoming != null
+        ? Math.max(incoming, prevInvested ?? 0)
+        : prevInvested
     bySlug.set(key, { returns: nextReturns, investedUsd: nextInvested })
   }
   for (const member of data.members ?? []) {

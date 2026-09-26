@@ -807,9 +807,15 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
 
   // Prefer share/[ST] rows for performance; keep full trade list for the UI log.
   const tradeLog = source === "institutions" ? collapseInstitutionDossierTxns(transactions) : transactions;
+  const stockish = (t: any) => {
+    const asset = String(t?.sheetRow?.assetName ?? "");
+    if (/\[ST\]/i.test(asset)) return true;
+    if (/\[OP\]/i.test(asset)) return false;
+    return /\b(common stock|ordinary shares|class [a-c] common)\b|\([A-Z]{1,5}\)/i.test(asset);
+  };
   const forPerformance =
     source === "politicians"
-      ? tradeLog.filter((t) => /\[ST\]/i.test(String(t?.sheetRow?.assetName ?? ""))).slice(0, 400)
+      ? tradeLog.filter(stockish).slice(0, 400)
       : source === "insider"
         ? tradeLog.filter((t) => t?.sheetRow?.isDerivative !== true).slice(0, 400)
         : tradeLog.slice(0, 400);

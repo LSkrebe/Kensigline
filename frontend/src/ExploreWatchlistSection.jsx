@@ -356,10 +356,17 @@ function peopleWithReturns(people, range) {
 }
 
 function investedOf(row) {
-  const live = Number(row?.investedUsd)
-  if (Number.isFinite(live) && live > 0) return live
+  const live = finiteUsd(row?.investedUsd)
+  if (live != null && live > 0) return live
   if (FORCE_MOCK_DATA) return investedFor(row.actorSlug) ?? 0
-  return 0
+  // Null / missing sorts last — never treat as a real $0 position.
+  return -1
+}
+
+function finiteUsd(value) {
+  if (value == null || value === '') return null
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : null
 }
 
 function formatReturn(fraction) {
@@ -452,11 +459,15 @@ function ExploreTapeRow({ row, rank, range, plain = false, invested = false, onC
   const logo = portrait?.kind === 'logo'
   const thumb = portrait?.thumb || portrait?.src
   const perf = formatReturn(returnFor(row, range))
-  const liveInvested = Number.isFinite(Number(row?.investedUsd)) ? Number(row.investedUsd) : null
+  const liveInvested = finiteUsd(row?.investedUsd)
   const investedAmount = invested
-    ? liveInvested ?? (FORCE_MOCK_DATA ? investedFor(row.actorSlug) : null)
+    ? (liveInvested != null && liveInvested > 0
+        ? liveInvested
+        : FORCE_MOCK_DATA
+          ? investedFor(row.actorSlug)
+          : null)
     : null
-  const investedLabel = investedAmount != null ? formatInvested(investedAmount) : null
+  const investedLabel = investedAmount != null && investedAmount > 0 ? formatInvested(investedAmount) : null
   const content = (
     <>
       <span className="exploreTapeRank">{rank}</span>
@@ -508,8 +519,8 @@ function ExploreTapeList({ rows, range, plain = false, invested = false, onRowCl
 }
 
 const POPULAR_RANGE = '6M'
-const TAPE_PAGE = 12
-const TAPE_MAX = 99
+const TAPE_PAGE = 25
+const TAPE_MAX = 50
 const TAPE_NARROW = '(max-width: 899px)'
 
 /** The mock catalog is the full Explore list. Nothing extra is appended. */
@@ -632,11 +643,11 @@ export function ExploreWatchlistSection({
         String(a.name).localeCompare(String(b.name)),
     )
   }, [people])
-  // Page in 12 at a time so desktop always has a More control once the curated list is longer.
+  // Page 25, then More reveals the rest of the curated 50.
   const performerLimit = Math.min(TAPE_MAX, narrow ? performerCount : sharedCount)
   const popularLimit = Math.min(TAPE_MAX, narrow ? popularCount : sharedCount)
-  const morePerformers = performerLimit < TAPE_MAX && performers.length > performerLimit
-  const morePopular = popularLimit < TAPE_MAX && popular.length > popularLimit
+  const morePerformers = performerLimit < performers.length && performers.length > performerLimit
+  const morePopular = popularLimit < popular.length && popular.length > popularLimit
   const showSharedMore = !narrow && (morePerformers || morePopular)
 
   return (
