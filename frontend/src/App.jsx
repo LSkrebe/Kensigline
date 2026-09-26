@@ -9999,7 +9999,7 @@ function KensiglineTerminal() {
     }
     resetScrollers()
     requestAnimationFrame(() => requestAnimationFrame(resetScrollers))
-  }, [shell, exploreSubview, terminalRoute.ticker, terminalRoute.investorSlug, terminalRoute.eventId])
+  }, [shell, exploreSubview, terminalRoute.ticker, terminalRoute.investorSlug])
 
   useLayoutEffect(() => {
     if (exploreSubview !== 'investorDetail') return
