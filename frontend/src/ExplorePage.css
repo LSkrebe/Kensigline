@@ -2886,6 +2886,10 @@
   height: 68px;
   visibility: hidden;
 }
+.exploreTapeHoldings--single {
+  grid-template-columns: 64px;
+  grid-template-rows: 64px;
+}
 .exploreTapeHolding {
   display: inline-flex;
   width: 30px;
@@ -2900,6 +2904,15 @@
   font-weight: 600;
   letter-spacing: -0.02em;
   color: rgba(255, 255, 255, 0.55);
+}
+.exploreTapeHolding--span {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+}
+.exploreTapeHolding--empty {
+  border-color: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.04);
 }
 .exploreTapeHolding img {
   width: 100%;
@@ -2993,7 +3006,12 @@
     grid-template-columns: repeat(2, 26px);
     grid-template-rows: repeat(2, 26px);
   }
+  .exploreTapeHoldings--single {
+    grid-template-columns: 56px;
+    grid-template-rows: 56px;
+  }
   .exploreTapeHolding { width: 26px; height: 26px; border-radius: 6px; }
+  .exploreTapeHolding--span { width: 56px; height: 56px; border-radius: 9px; }
   .exploreTapeAvatar, .exploreTapeAvatar .explorePersonPortrait { width: 68px; height: 68px; border-radius: 16px; }
   .exploreTapeAvatar .explorePersonPortrait img { border-radius: 16px; }
   .exploreTapeName { font-size: 17px; }

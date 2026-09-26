@@ -475,31 +475,44 @@ function eventTickers(row) {
 function TapeHoldingsGrid({ tickers = [] }) {
   const unique = [...new Set(tickers.map((t) => String(t).trim().toUpperCase()).filter(Boolean))]
   if (!unique.length) return null
-  let cells = []
-  if (unique.length === 1) cells = [unique[0], unique[0], unique[0], unique[0]]
-  else if (unique.length === 2) cells = [unique[0], unique[1], unique[0], unique[1]]
-  else if (unique.length === 3) cells = [unique[0], unique[1], unique[2], unique[0]]
-  else if (unique.length === 4) cells = unique.slice(0, 4)
-  else cells = [...unique.slice(0, 3), `+${unique.length - 3}`]
+
+  if (unique.length === 1) {
+    const ticker = unique[0]
+    return (
+      <span className="exploreTapeHoldings exploreTapeHoldings--single" aria-hidden="true">
+        <ImageOrInitials
+          src={companyLogoSrc(ticker)}
+          fallbackSrc={companyLogoFallback(ticker)}
+          name={ticker}
+          className="exploreTapeHolding exploreTapeHolding--span"
+          logo
+          discover={false}
+        />
+      </span>
+    )
+  }
+
+  const visible = unique.length > 4 ? unique.slice(0, 3) : unique.slice(0, 4)
+  const extra = unique.length > 4 ? unique.length - 3 : 0
+  const placeholders = Math.max(0, 4 - visible.length - (extra > 0 ? 1 : 0))
+
   return (
     <span className="exploreTapeHoldings" aria-hidden="true">
-      {cells.map((cell, index) =>
-        String(cell).startsWith('+') ? (
-          <span key={`more-${cell}`} className="exploreTapeHolding exploreTapeHolding--more">
-            {cell}
-          </span>
-        ) : (
-          <ImageOrInitials
-            key={`${cell}-${index}`}
-            src={companyLogoSrc(cell)}
-            fallbackSrc={companyLogoFallback(cell)}
-            name={cell}
-            className="exploreTapeHolding"
-            logo
-            discover={false}
-          />
-        ),
-      )}
+      {visible.map((ticker) => (
+        <ImageOrInitials
+          key={ticker}
+          src={companyLogoSrc(ticker)}
+          fallbackSrc={companyLogoFallback(ticker)}
+          name={ticker}
+          className="exploreTapeHolding"
+          logo
+          discover={false}
+        />
+      ))}
+      {extra > 0 ? <span className="exploreTapeHolding exploreTapeHolding--more">+{extra}</span> : null}
+      {Array.from({ length: placeholders }, (_, index) => (
+        <span key={`pad-${index}`} className="exploreTapeHolding exploreTapeHolding--empty" />
+      ))}
     </span>
   )
 }
