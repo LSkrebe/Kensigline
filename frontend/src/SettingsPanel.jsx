@@ -204,7 +204,7 @@ function DigestPreferencesSection({ email, signedIn }) {
   return (
     <section className="stgCard">
       <p className="stgCardLabel">Filing brief</p>
-      <p className="stgCardValue">{loading ? <SkeletonField /> : 'When new filings land'}</p>
+      <p className="stgCardValue">{loading ? <SkeletonField /> : 'Email digest'}</p>
       <p className="stgCardMeta" title={email}>{email}</p>
       <p className="stgCardMeta">{timezone}</p>
       {status ? (
