@@ -5,7 +5,6 @@ import {
   formatAnalyseGridValue,
 } from './analyseMockData.js'
 import { isLiveDataMode, isMockDataMode } from './dataMode.js'
-import { isCaptureMode } from './captureMode.js'
 import { AnalyseModelGrid } from './AnalyseModelGrid.jsx'
 import { resolveDocumentOpenUrl } from './documentOpenUrl.js'
 import {
@@ -1166,40 +1165,114 @@ function DeepTrackRecordChartPanel({ trackRecord, loading = false }) {
 
 /** Sample curve so the Pelosi dossier can be reviewed before a verified series exists. */
 function pelosiSamplePerformance() {
+  // Weekday equity path with filing shocks + clustered vol — not sine waves.
   const end = new Date(2026, 8, 23)
   end.setHours(12, 0, 0, 0)
   const targets = { '1M': 0.042, '3M': 0.124, '6M': 0.246, '1Y': 0.274, YTD: 0.198 }
-  const endLevel = targets['1Y']
-  const levelAt = (fraction) => (1 + endLevel) / (1 + fraction) - 1
+
+  let seed = 0xc0ffee11
+  const rand = () => {
+    seed = (Math.imul(seed ^ (seed >>> 16), 0x45d9f3b) + 0x27d4eb2d) | 0
+    return ((seed >>> 0) % 1_000_000) / 1_000_000
+  }
+  const gauss = () => {
+    const u = Math.max(1e-9, rand())
+    const v = Math.max(1e-9, rand())
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(Math.PI * 2 * v)
+  }
+
+  const shocks = new Map([
+    [340, 0.028],
+    [301, -0.031],
+    [268, 0.041],
+    [229, -0.019],
+    [191, 0.036],
+    [152, -0.027],
+    [118, 0.048],
+    [89, -0.016],
+    [61, 0.022],
+    [38, -0.014],
+    [19, 0.018],
+    [7, -0.008],
+  ])
+
   const ytd = new Date(2026, 0, 1)
   ytd.setHours(12, 0, 0, 0)
   const ytdBack = Math.round((end.getTime() - ytd.getTime()) / 86400000)
+
+  // Absolute cumulative anchors so range chips stay honest vs Explore mocks.
   const anchors = [
     [365, 0],
-    [ytdBack, levelAt(targets.YTD)],
-    [180, levelAt(targets['6M'])],
-    [90, levelAt(targets['3M'])],
-    [30, levelAt(targets['1M'])],
-    [0, endLevel],
+    [ytdBack, targets['1Y'] - targets.YTD],
+    [180, targets['1Y'] - targets['6M']],
+    [90, targets['1Y'] - targets['3M']],
+    [30, targets['1Y'] - targets['1M']],
+    [0, targets['1Y']],
   ].sort((a, b) => b[0] - a[0])
-  const points = []
-  for (let back = 365; back >= 0; back -= 1) {
+
+  const guideAt = (back) => {
     let i = 0
     while (i < anchors.length - 1 && anchors[i + 1][0] > back) i += 1
     const [fromBack, fromLevel] = anchors[i]
     const [toBack, toLevel] = anchors[Math.min(i + 1, anchors.length - 1)]
     const span = fromBack - toBack || 1
-    const t = (fromBack - back) / span
-    const wave = Math.sin(t * Math.PI * 7) * 0.012 + Math.sin(t * Math.PI * 3) * 0.006
-    const cumulative = fromLevel + (toLevel - fromLevel) * t + (fromBack === toBack ? 0 : wave)
+    const t = Math.min(1, Math.max(0, (fromBack - back) / span))
+    const eased = t * t * (3 - 2 * t)
+    return fromLevel + (toLevel - fromLevel) * eased
+  }
+
+  const points = []
+  let residual = 0
+  for (let back = 365; back >= 0; back -= 1) {
     const day = new Date(end)
     day.setDate(end.getDate() - back)
+    const dow = day.getDay()
+    if (dow === 0 || dow === 6) continue
+
+    const vol = back > 220 ? 0.0072 : back > 100 ? 0.0058 : 0.0044
+    residual += gauss() * vol
+    if (rand() < 0.04) residual += (rand() < 0.5 ? -1 : 1) * (0.01 + rand() * 0.02)
+    const shock = shocks.get(back)
+    if (shock != null) residual += shock
+    // Pull noise back toward the guide so the book still finishes near disclosed returns.
+    residual *= 0.965
+    const guide = guideAt(back)
+    const cumulative = guide + residual * 0.72
     const y = day.getFullYear()
     const m = String(day.getMonth() + 1).padStart(2, '0')
     const d = String(day.getDate()).padStart(2, '0')
-    points.push({ ts: `${y}-${m}-${d}T12:00:00`, cumulative })
+    points.push({ ts: `${y}-${m}-${d}T12:00:00`, cumulative, back })
   }
-  return { daily: { points, symbols: 8 } }
+
+  const pinNearest = (backDays, value) => {
+    let best = 0
+    let bestDist = Infinity
+    for (let i = 0; i < points.length; i += 1) {
+      const dist = Math.abs(points[i].back - backDays)
+      if (dist < bestDist) {
+        best = i
+        bestDist = dist
+      }
+    }
+    points[best].cumulative = value
+    for (const j of [best - 1, best + 1]) {
+      if (!points[j]) continue
+      points[j].cumulative = points[j].cumulative * 0.5 + value * 0.5
+    }
+  }
+  pinNearest(365, 0)
+  pinNearest(ytdBack, targets['1Y'] - targets.YTD)
+  pinNearest(180, targets['1Y'] - targets['6M'])
+  pinNearest(90, targets['1Y'] - targets['3M'])
+  pinNearest(30, targets['1Y'] - targets['1M'])
+  pinNearest(0, targets['1Y'])
+
+  return {
+    daily: {
+      points: points.map(({ ts, cumulative }) => ({ ts, cumulative })),
+      symbols: 8,
+    },
+  }
 }
 
 function formatTrackSpan(points) {
@@ -2029,7 +2102,7 @@ export function DeepActorReport({
       expandedHeader={
         <DossierHeroMedia
           src={portrait?.src}
-          heroColor={isCaptureMode() ? null : portrait?.hero || null}
+          heroColor={portrait?.hero || null}
           name={name}
           title={name}
           kicker={typeLabel}

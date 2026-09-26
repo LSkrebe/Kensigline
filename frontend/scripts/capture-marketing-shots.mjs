@@ -39,11 +39,11 @@ const SHOTS = [
     name: 'deep-investor',
     current: 'investor',
     path: '/explore/nancy-pelosi?capture=product',
-    waitFor: '.drpt-heroPhoto img, .drpt-sectionTitle',
+    waitFor: '.drpt-heroMedia--flat, .drpt-sectionTitle',
     forbidText: 'No trades in the selected window',
     settleMs: 2200,
     chartRange: '1Y',
-    waitHeroImage: true,
+    waitFlatHero: true,
   },
 ]
 
@@ -79,6 +79,13 @@ async function waitForCaptureReady(page, shot) {
         return cards.length >= 3 && cards.every((el) => (el.textContent || '').trim().length > 2)
       },
       { timeout: 60_000 },
+    )
+  }
+  if (shot.waitFlatHero) {
+    await page.waitForSelector('.drpt-heroMedia--flat', { timeout: 30_000 })
+    await page.waitForFunction(
+      () => Boolean(document.querySelector('.drpt-heroReturn')?.textContent?.trim()),
+      { timeout: 30_000 },
     )
   }
   if (shot.waitHeroImage) {
