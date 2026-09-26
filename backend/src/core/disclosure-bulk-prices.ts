@@ -39,9 +39,8 @@ export async function refreshDailyMarket(force=false) {
   for(let i=0;i<entries.length;i+=100)await db.queryApi(`INSERT INTO disclosure_price_history(ticker,provider,basis,as_of_day,fetched_at,bars)
    SELECT x.ticker,'polygon','split_adjusted_close',$2::date,now(),x.bars FROM jsonb_to_recordset($1::jsonb) x(ticker text,bars jsonb)
    ON CONFLICT(ticker) DO UPDATE SET bars=EXCLUDED.bars,as_of_day=EXCLUDED.as_of_day,fetched_at=now(),provider=EXCLUDED.provider,basis=EXCLUDED.basis`,[JSON.stringify(entries.slice(i,i+100)),day],30000);
-  // Dossier materializations embed prices; fresh daily prices must replace these snapshots.
-  await db.queryApi('DELETE FROM investor_dossier_cache');
-  await db.queryApi('DELETE FROM company_dossier_cache');
+  // Do not wipe investor_dossier_cache here — cold rebuilds starve Explore/dossier under load.
+  // Cohort snapshot is refreshed below; dossiers refresh lazily on next open.
   lastCompleted=day;console.info('[daily-market] completed',JSON.stringify({day,updated:updates.size,missing}));
   try {
     const { refreshCohortPerformanceSnapshot } = await import('../performance/cohort.js');

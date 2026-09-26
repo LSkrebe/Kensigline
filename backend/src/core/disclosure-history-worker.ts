@@ -34,7 +34,7 @@ export async function backfillDailyHistory(batch=5){
    await db.queryApi('INSERT INTO disclosure_history_days(day,symbols) VALUES($1::date,$2) ON CONFLICT(day) DO UPDATE SET completed_at=now(),symbols=EXCLUDED.symbols',[day,symbols]);
    console.info('[daily-history]',JSON.stringify({day,symbols}));await pause();
   }
-  await db.queryApi('DELETE FROM investor_dossier_cache');
+  // Leave investor_dossier_cache intact — history backfill must not force cold dossier rebuilds.
  }finally{busy=false;}
 }
 export function startDisclosureHistoryWorker(){

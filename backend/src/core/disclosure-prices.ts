@@ -74,8 +74,8 @@ async function refresh(ticker: string) {
     as_of_day=EXCLUDED.as_of_day,fetched_at=EXCLUDED.fetched_at,bars=EXCLUDED.bars`,
     [ticker, bars.at(-1)!.day, JSON.stringify(bars)],
   );
-  // Cached dossier responses contain price-derived values: invalidate them after new closes.
-  await db.queryApi("DELETE FROM investor_dossier_cache WHERE payload->'actor'->'performance'->'daily'->>'asOf' IS DISTINCT FROM $1",[bars.at(-1)!.day]);
+  // Keep dossier cache warm — live rebuilds are expensive. Stale performance asOf is
+  // corrected on next dossier open / scheduled refresh, not by nuking every ticker update.
   failures.delete(ticker);
 }
 

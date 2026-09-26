@@ -24,7 +24,7 @@ import {
   resolveExploreInvestorDossier,
   stubActorRowFromExploreInvestor,
 } from './exploreDirectoryNav.js'
-import { loadExploreDirectoryBundle, lookupExploreDirectoryCompanyName, peekExploreHomeSnapshot, prefetchExploreHome, waitForExploreHomeReady } from './exploreApi.js'
+import { fetchJsonWithAuthRetry, loadExploreDirectoryBundle, lookupExploreDirectoryCompanyName, peekExploreHomeSnapshot, prefetchExploreHome, waitForExploreHomeReady } from './exploreApi.js'
 import './clientDiagnostics.js'
 import { buildExploreDirectoryFullList } from './exploreDirectoryMock.js'
 import { installManualScrollRestoration } from './collapseScroll.js'
@@ -11958,7 +11958,11 @@ function KensiglineTerminal() {
     const refreshDossier = async () => {
       const qs = new URLSearchParams({ slug })
       if (modeHint) qs.set('mode', String(modeHint))
-      const r = await fetchJsonSafe(`/api/dossier/investor?${qs}`, { timeoutMs: 60_000 })
+      const r = await fetchJsonWithAuthRetry(`/api/dossier/investor?${qs}`, {
+        timeoutMs: 60_000,
+        authRetries: 3,
+        fastAuth: true,
+      })
       if (!alive || investorBoostGenRef.current !== gen) return
       const actor = r.data?.actor
       if (r.ok && actor?.transactions?.length) {

@@ -18,17 +18,6 @@ function prices(ticker){
   const promise=new Promise(resolve=>{queue.push(async()=>{try{const r=await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(ticker)}&days=35`,{timeoutMs:12000});resolve(r.ok?(r.data?.items??[]).map(b=>Number(b.close)).filter(v=>Number.isFinite(v)&&v>0):[])}catch{resolve([])}});pump()})
   chartCache.set(ticker,{at:Date.now(),promise});return promise
 }
-const performanceCache=new Map()
-const performanceQueue=[];let performanceActive=0
-function pumpPerformance(){while(performanceActive<2&&performanceQueue.length){performanceActive++;performanceQueue.shift()().finally(()=>{performanceActive--;pumpPerformance()})}}
-function investorPerformance(row){
-  const mode=/ptr/i.test(row.docType??'')?'politicians':/13f/i.test(row.docType??'')?'institutions':'insider'
-  const qs=new URLSearchParams({mode,...(row.actorSlug?{slug:row.actorSlug}:{name:row.name})})
-  const key=qs.toString(),cached=performanceCache.get(key)
-  if(cached&&Date.now()-cached.at<120000)return cached.promise
-  const promise=new Promise(resolve=>{performanceQueue.push(async()=>{try{const r=await fetchJsonSafe(`/api/dossier/investor?${qs}`,{timeoutMs:20000});resolve(r.ok?r.data?.actor?.performance?.transactions??[]:[])}catch{resolve([])}});pumpPerformance()})
-  performanceCache.set(key,{at:Date.now(),promise});return promise
-}
 export function ImageOrInitials({src,name,className,logo=false,discover=true,fallbackSrc=null}){
   const [failed,setFailed]=useState(false),[usedFallback,setUsedFallback]=useState(false),[discovered,setDiscovered]=useState(null)
   const imageRef=useRef(null)
@@ -62,20 +51,19 @@ export function ExplorePersonRow({row,onClick=null,companyOnly=false,investorOnl
     const timer=setInterval(resized,120000)
     return()=>{alive=false;observer.disconnect();mq.removeEventListener('change',resized);clearInterval(timer)}
   },[ticker,investorOnly])
-  const performanceKey=JSON.stringify([row.actorSlug,row.name,row.docType,row.performanceEventIds,row.events?.[0]?.id,row.id])
+  const performanceKey=JSON.stringify([
+    performanceTransactions === null ? null : 'txns',
+    row.actorSlug,row.name,row.docType,row.performanceEventIds,row.events?.[0]?.id,row.id,
+  ])
+  // Never hit /api/dossier/investor from list rows — that stampedes cold rebuilds.
+  // Per-event % only when the parent already has performanceTransactions.
   useEffect(()=>{
     if (performanceTransactions !== null) {
       setPerformance(selectEventPerformance(row, performanceTransactions))
       return
     }
-    let alive=true,visible=false
     setPerformance(null)
-    const refresh=()=>{if(visible)void investorPerformance(row).then(t=>{if(alive)setPerformance(selectEventPerformance(row,t))})}
-    const observer=new IntersectionObserver(entries=>{visible=entries.some(e=>e.isIntersecting);if(visible)refresh()},{rootMargin:'160px'})
-    if(ref.current)observer.observe(ref.current)
-    const timer=setInterval(refresh,120000)
-    return()=>{alive=false;observer.disconnect();clearInterval(timer)}
-  },[performanceKey,performanceTransactions])
+  },[performanceKey,performanceTransactions,row])
   const event=String(row.event??'').replace(/^(Form 4|PTR|13F)\s*/i,'').replace(/^(insider|politician|institution)\s*/i,'')||'Disclosure'
   const eventTone=/sale|sell|sold|decreas|dispos|exit|reduc/i.test(event)?'isDown':/purchas|buy|bought|increas|acquir|add|new position/i.test(event)?'isUp':'isFlat'
   const companyLabel=tickers.length>1?(row.companies?.length?row.companies.map(c=>c.name||c.ticker).join(' · '):tickers.join(' · ')):(String(row.companyName??'').trim()||ticker||'—')

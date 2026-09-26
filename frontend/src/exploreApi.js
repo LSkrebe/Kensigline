@@ -125,7 +125,7 @@ function sleep(ms) {
 }
 
 /** Retry when auth/session or DB blips race the first paint after idle. */
-async function fetchJsonWithAuthRetry(path, opts = {}) {
+export async function fetchJsonWithAuthRetry(path, opts = {}) {
   const attempts = Math.max(1, Number(opts.authRetries ?? 5) || 5)
   const fastAuth = opts.fastAuth === true
   let last = null
