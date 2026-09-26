@@ -10,7 +10,7 @@ import { db } from "../core/db.js";
 
 type Exposure = { kind: string; filer_id: string; ticker: string; first_day?: string };
 
-const COHORT_SNAPSHOT_KEY = "cohort_multi_v3";
+const COHORT_SNAPSHOT_KEY = "cohort_multi_v4";
 
 const EXPLORE_RETURN_RANGES = ["1M", "3M", "6M", "1Y", "YTD"] as const;
 type ExploreReturnRange = (typeof EXPLORE_RETURN_RANGES)[number];
@@ -249,9 +249,10 @@ async function build() {
     : [];
   const identities = new Map(filers.map((f) => [f.id, f]));
 
-  // Disclosed capital put to work in-window (range midpoints / Form 4 / 13F notionals). Not AUM.
-  // Institution rows: latest filing-day portfolio total. Some historical 13Fs were ingested with an
-  // extra ×1000 (dollars treated as thousands) — undo that when $/share is absurd.
+  // Disclosed capital put to work. Politicians/insiders use a 3Y lookback from the cohort
+  // end so Most Popular still labels people whose latest PTR/Form 4 sits just outside the
+  // 1Y return window (common for quieter House filers). Institutions: latest filing-day
+  // portfolio total, with a unit fix when historical 13Fs were stored 1000× high.
   const investedRows = await db.queryApi<{ filer_id: string; invested_usd: number }>(
     `
     WITH catalog AS (
@@ -273,7 +274,7 @@ async function build() {
             AND t.asset_name ~* '(common stock|ordinary shares|class [a-c] common|\\([A-Z]{1,5}\\))'
           )
         )
-        AND t.transaction_at >= $1::date
+        AND t.transaction_at >= ($2::date - interval '3 years')
         AND t.transaction_at < $2::date + interval '1 day'
         AND coalesce(t.amount_usd_mid, t.amount_usd, 0) > 0
       GROUP BY t.filer_id
@@ -281,7 +282,7 @@ async function build() {
       SELECT t.filer_id, sum(abs(coalesce(t.amount_usd, 0)))::float8
       FROM insider_transactions t
       WHERE t.filer_id IN (SELECT id FROM catalog)
-        AND t.transaction_at >= $1::date
+        AND t.transaction_at >= ($2::date - interval '3 years')
         AND t.transaction_at < $2::date + interval '1 day'
         AND coalesce(t.amount_usd, 0) <> 0
       GROUP BY t.filer_id
