@@ -497,8 +497,8 @@ export async function parseNextInstitutionsQueueItem(): Promise<ParseNextResult>
       return { processed: true, queue_id: queueId, parsed_ids: [existing.id], ticker_count: 1 };
     }
 
-    const parsedHoldings = parse13fHoldings(bundle);
     const meta = parse13fMeta(bundle, primaryUrl);
+    const parsedHoldings = parse13fHoldings(bundle, meta.filed_at);
     const filerName = await resolve13fFilerDisplayNameAsync(meta, primaryUrl);
     const asOf = formatIso(meta.period_of_report);
     if (!asOf || !meta.filed_at) throw new Error("13f_missing_verified_dates");

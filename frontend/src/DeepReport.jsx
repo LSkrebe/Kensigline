@@ -1233,13 +1233,11 @@ function formatLongDate(ms) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(d)
 }
 
-/** Same MM-DD template as Explore recent-events rows. */
+/** US short date with year — same template as Explore tape / directory rows. */
 function formatTapeDate(ms) {
   const d = new Date(ms)
   if (Number.isNaN(d.getTime())) return null
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${mm}-${dd}`
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(d)
 }
 
 function formatAum(n) {

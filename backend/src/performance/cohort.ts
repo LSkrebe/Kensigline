@@ -10,7 +10,7 @@ import { db } from "../core/db.js";
 
 type Exposure = { kind: string; filer_id: string; ticker: string; first_day?: string };
 
-const COHORT_SNAPSHOT_KEY = "cohort_multi_v2";
+const COHORT_SNAPSHOT_KEY = "cohort_multi_v3";
 
 const EXPLORE_RETURN_RANGES = ["1M", "3M", "6M", "1Y", "YTD"] as const;
 type ExploreReturnRange = (typeof EXPLORE_RETURN_RANGES)[number];
@@ -22,6 +22,19 @@ function catalogNameKeys(): string[] {
     for (const n of entry.matchNames) keys.add(normalizeTrackedName(n));
   }
   return [...keys].filter(Boolean);
+}
+
+/** Prefer the realistic twin when one filer is ~1000× inflated vs another. */
+function mergeInvestedUsd(a: number | null | undefined, b: number | null | undefined): number | null {
+  const left = a != null && Number.isFinite(a) && a > 0 ? a : null;
+  const right = b != null && Number.isFinite(b) && b > 0 ? b : null;
+  if (left == null) return right;
+  if (right == null) return left;
+  const hi = Math.max(left, right);
+  const lo = Math.min(left, right);
+  const ratio = hi / lo;
+  if (ratio > 80 && ratio < 2000) return lo;
+  return hi;
 }
 
 export function averageInvestorReturns(exposures: Exposure[], returns: Map<string, number>) {
@@ -235,6 +248,8 @@ async function build() {
   const identities = new Map(filers.map((f) => [f.id, f]));
 
   // Disclosed capital put to work in-window (range midpoints / Form 4 / 13F notionals). Not AUM.
+  // Institution rows: latest filing-day portfolio total. Some historical 13Fs were ingested with an
+  // extra ×1000 (dollars treated as thousands) — undo that when $/share is absurd.
   const investedRows = await db.queryApi<{ filer_id: string; invested_usd: number }>(
     `
     WITH catalog AS (
@@ -269,14 +284,29 @@ async function build() {
         AND coalesce(t.amount_usd, 0) <> 0
       GROUP BY t.filer_id
       UNION ALL
-      SELECT t.filer_id, sum(abs(coalesce(t.amount_usd, 0)))::float8
-      FROM institution_transactions t
-      WHERE t.filer_id IN (SELECT id FROM catalog)
-        AND t.transaction_at >= $1::date
-        AND t.transaction_at < $2::date + interval '1 day'
-        AND t.data_quality_version >= 1
-        AND coalesce(t.amount_usd, 0) <> 0
-      GROUP BY t.filer_id
+      SELECT filer_id, sum(norm_usd)::float8
+      FROM (
+        SELECT
+          t.filer_id,
+          CASE
+            WHEN coalesce(t.shares, 0) > 0
+              AND abs(coalesce(t.amount_usd, 0)) / t.shares > 50000
+            THEN abs(coalesce(t.amount_usd, 0)) / 1000.0
+            WHEN abs(coalesce(t.amount_usd, 0)) > 5e11
+            THEN abs(coalesce(t.amount_usd, 0)) / 1000.0
+            ELSE abs(coalesce(t.amount_usd, 0))
+          END AS norm_usd,
+          t.transaction_at::date AS day,
+          max(t.transaction_at::date) OVER (PARTITION BY t.filer_id) AS latest_day
+        FROM institution_transactions t
+        WHERE t.filer_id IN (SELECT id FROM catalog)
+          AND t.transaction_at >= $1::date
+          AND t.transaction_at < $2::date + interval '1 day'
+          AND t.data_quality_version >= 1
+          AND coalesce(t.amount_usd, 0) <> 0
+      ) inst
+      WHERE day = latest_day
+      GROUP BY filer_id
     )
     SELECT filer_id, sum(invested_usd)::float8 AS invested_usd
     FROM sums
@@ -332,7 +362,7 @@ async function build() {
       },
     ];
   });
-  // One Explore row per catalog id — keep the stronger return / invested totals.
+  // One Explore row per catalog id — keep the stronger return; prefer sane invested (not 1000× twins).
   const bySlug = new Map<string, (typeof rawMembers)[number]>();
   for (const m of rawMembers) {
     const prev = bySlug.get(m.slug);
@@ -348,7 +378,7 @@ async function build() {
           ? m.returnFraction
           : prev.returnFraction,
       returns: { ...prev.returns, ...m.returns },
-      investedUsd: Math.max(prev.investedUsd ?? 0, m.investedUsd ?? 0) || null,
+      investedUsd: mergeInvestedUsd(prev.investedUsd, m.investedUsd),
     });
   }
   const members = [...bySlug.values()].sort(

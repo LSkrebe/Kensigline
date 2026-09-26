@@ -23,11 +23,9 @@ export function exploreRowDateLabel(row) {
   if (row.dateLabel) return row.dateLabel
   const date = String(row.date ?? row.lastDate ?? '').trim()
   if (!date) return '—'
-  const then = new Date(`${date}T12:00:00`)
+  const then = new Date(`${date.slice(0, 10)}T12:00:00`)
   if (Number.isNaN(then.getTime())) return '—'
-  const mm = String(then.getMonth() + 1).padStart(2, '0')
-  const dd = String(then.getDate()).padStart(2, '0')
-  return `${mm}-${dd}`
+  return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function ExploreDirectoryRowContent({ row, kind }) {

@@ -479,6 +479,19 @@ function finiteUsd(value) {
   return Number.isFinite(n) ? n : null
 }
 
+/** Prefer the realistic twin when one filer is ~1000× inflated vs another. */
+function mergeInvestedUsd(a, b) {
+  const left = finiteUsd(a)
+  const right = finiteUsd(b)
+  if (left == null || left <= 0) return right != null && right > 0 ? right : null
+  if (right == null || right <= 0) return left
+  const hi = Math.max(left, right)
+  const lo = Math.min(left, right)
+  const ratio = hi / lo
+  if (ratio > 80 && ratio < 2000) return lo
+  return hi
+}
+
 /** Per-filer disclosed-stock returns + invested totals for Explore cards / tape. */
 export async function fetchExplorePerformanceMembers(backendUp) {
   const data = await fetchExplorePerformance(backendUp)
@@ -495,14 +508,10 @@ export async function fetchExplorePerformanceMembers(backendUp) {
       }
     }
     if (Number.isFinite(Number(fallback)) && nextReturns['1Y'] == null) nextReturns['1Y'] = Number(fallback)
-    // Number(null)===0 — never treat missing invested as a real zero.
-    const incoming = finiteUsd(investedUsd)
-    const prevInvested = finiteUsd(prev.investedUsd)
-    const nextInvested =
-      incoming != null
-        ? Math.max(incoming, prevInvested ?? 0)
-        : prevInvested
-    bySlug.set(key, { returns: nextReturns, investedUsd: nextInvested })
+    bySlug.set(key, {
+      returns: nextReturns,
+      investedUsd: mergeInvestedUsd(prev.investedUsd, investedUsd),
+    })
   }
   for (const member of data.members ?? []) {
     push(member?.slug, member?.returns, member?.returnFraction, member?.investedUsd)
