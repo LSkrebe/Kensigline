@@ -2345,7 +2345,7 @@ button.drpt-docRow {
   border-radius: 4px; background: rgba(255,255,255,.04); color: var(--drpt-muted);
 }
 .drpt-dossierImage img, .drpt-rowImage img { width: 100%; height: 100%; object-fit: cover; }
-.drpt-dossierImage--logo img, .drpt-rowImage--logo img { object-fit: contain; }
+.drpt-dossierImage--logo img, .drpt-rowImage--logo img { object-fit: cover; padding: 0; }
 .drpt-dossierHero .drpt-topbarTicker {
   font-family: var(--drpt-serif); font-weight: 400; font-size: clamp(32px, 3.5vw, 46px);
   line-height: 1.12; white-space: normal; overflow-wrap: anywhere;
@@ -2466,7 +2466,7 @@ button.drpt-docRow {
   width: 100%;
   height: 100%;
 }
-.drpt-heroPhoto img { width: 100%; height: 100%; object-fit: cover; object-position: center 28%; }
+.drpt-heroPhoto img { width: 100%; height: 100%; object-fit: cover; object-position: center 22%; }
 .drpt-heroMedia--flat {
   background: var(--drpt-hero-flat, #1a1a1c);
 }
@@ -2585,7 +2585,7 @@ button.drpt-docRow {
   font-weight: 700;
   color: rgba(255, 255, 255, 0.72);
 }
-.drpt-coverPhoto img { width: 100%; height: 100%; object-fit: cover; object-position: center 18%; }
+.drpt-coverPhoto img { width: 100%; height: 100%; object-fit: cover; object-position: center 22%; }
 .drpt-coverCopy {
   position: absolute;
   right: 0;
@@ -2784,12 +2784,12 @@ button.drpt-docRow {
   height: 28px;
   overflow: hidden;
   border-radius: 50%;
-  background: #fff;
+  background: #141518;
 }
 .drpt-bylineMark img {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .drpt-tradeList,
 .drpt-holdingList {
@@ -3095,8 +3095,8 @@ button.drpt-docRow {
 .drpt-tradeLogo,
 .drpt-holdingLogo {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
   width: 22px;
   height: 22px;
   overflow: hidden;
@@ -3106,16 +3106,19 @@ button.drpt-docRow {
 }
 .drpt-tradeLogo img,
 .drpt-holdingLogo img {
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  box-sizing: border-box;
+  object-fit: cover;
+  object-position: center;
 }
 .drpt-holdingBtn {
   grid-template-columns: 36px minmax(0, 1fr) auto;
   gap: 12px;
 }
 .drpt-holdingLogo { width: 36px; height: 36px; border-radius: 10px; }
-.drpt-holdingLogo img { width: 22px; height: 22px; }
 .drpt-dossier .drpt-tradeBtn,
 .drpt-dossier .drpt-holdingBtn {
   min-height: 116px;
@@ -3127,12 +3130,6 @@ button.drpt-docRow {
   gap: 16px;
 }
 .drpt-dossier .drpt-holdingLogo { width: 76px; height: 76px; border-radius: 18px; }
-.drpt-dossier .drpt-holdingLogo img {
-  width: 100%;
-  height: 100%;
-  padding: 12px;
-  box-sizing: border-box;
-}
 .drpt-holdingName {
   display: flex;
   flex-direction: column;

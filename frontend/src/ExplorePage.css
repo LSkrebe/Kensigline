@@ -2422,7 +2422,7 @@
   display:grid; grid-template-columns:56px minmax(160px,1.15fr) minmax(170px,1fr) minmax(100px,.55fr) minmax(100px,.45fr); align-items:center; gap:var(--explore-directory-col-gap); padding:20px 0; width:100%;
 }
 .explorePersonPortrait { width:56px; height:64px; border-radius:4px; overflow:hidden; display:flex; align-items:center; justify-content:center; flex-shrink:0; background:rgba(255,255,255,.055); color:rgba(255,255,255,.4); border:1px solid rgba(255,255,255,.06); font-size:16px; }
-.explorePersonPortrait img { width:100%; height:100%; object-fit:cover; object-position:center 28%; }
+.explorePersonPortrait img { width:100%; height:100%; object-fit:cover; object-position:center 22%; }
 .explorePersonCopy { min-width:0; display:flex; flex-direction:column; gap:6px; }
 .explorePersonCopy .exploreDirectoryName { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .explorePersonCompany { color:rgba(255,255,255,.4); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2432,7 +2432,7 @@
 .explorePersonTransaction > span:not(.explorePersonLogos) { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .explorePersonLogos { display:flex; align-items:center; gap:3px; }
 .explorePersonLogo { display:inline-flex; width:19px; height:19px; border-radius:3px; align-items:center; justify-content:center; overflow:hidden; background:rgba(255,255,255,.07); font-size:7px; }
-.explorePersonLogo img { width:100%; height:100%; object-fit:contain; }
+.explorePersonLogo img { width:100%; height:100%; object-fit:cover; object-position:center; }
 .explorePersonChart { display:block; height:48px; overflow:hidden; pointer-events:none; }
 .explorePersonChart.isEmpty { visibility:hidden; }
 @media(max-width:960px) {
@@ -2508,7 +2508,7 @@
 /* Headline typography stays editorial; image and financial columns match activity rows. */
 .explorePage .exploreStoryRowBtn { grid-template-columns:56px minmax(0,1fr) 140px 100px; gap:var(--explore-directory-col-gap); padding:22px 0; }
 .exploreStoryLogo { display:flex; align-items:center; justify-content:center; width:56px; height:56px; border-radius:4px; overflow:hidden; background:rgba(255,255,255,.05); color:rgba(255,255,255,.4); font-size:11px; }
-.exploreStoryLogo img { width:100%; height:100%; object-fit:contain; }
+.exploreStoryLogo img { width:100%; height:100%; object-fit:cover; object-position:center; }
 .explorePage .exploreStoryRowCopy { grid-column:2; }
 .explorePage .exploreStoryRowChart { grid-column:3; }
 .explorePage .exploreStoryRowMove { grid-column:4; }
@@ -2578,7 +2578,7 @@
 .exploreDirPaper .exploreWatchlistGroupHeader { display:flex; align-items:center; gap:16px; padding:32px 0 16px; list-style:none; }
 .exploreWatchlistGroupHeader .explorePersonCopy { flex:1; }
 .exploreDirPaper .explorePersonRow--company .explorePersonRowBtn { display:grid; grid-template-columns:56px minmax(0,1fr) minmax(100px,.35fr) minmax(110px,.35fr); align-items:center; gap:24px; padding:22px 0; width:100%; }
-.explorePersonRow--company .explorePersonPortrait img { object-fit:contain; object-position:center; padding:7px; }
+.explorePersonRow--company .explorePersonPortrait img { object-fit:cover; object-position:center; padding:0; }
 .exploreDirPaper .explorePersonRow--company .explorePersonAction.isUp { color:rgba(92,184,138,.92); }
 .exploreDirPaper .explorePersonRow--company .explorePersonAction.isDown { color:rgba(212,114,106,.92); }
 @media(max-width:960px){
@@ -2684,7 +2684,7 @@
 .exploreEventHeading > div { min-width:0; }
 .exploreEventHeading .drpt-kicker { margin:0 0 9px; }
 .exploreEventHeroImage { display:flex; align-items:center; justify-content:center; flex:0 0 64px; width:64px; height:72px; overflow:hidden; border-radius:4px; background:rgba(255,255,255,.05); color:rgba(255,255,255,.4); }
-.exploreEventHeroImage img { width:100%; height:100%; object-fit:contain; }
+.exploreEventHeroImage img { width:100%; height:100%; object-fit:cover; object-position:center; }
 .exploreEventTitle { font-family:'Instrument Serif',Georgia,serif; font-size:clamp(28px,3.3vw,44px); font-weight:400; line-height:1.08; margin:0; }
 .exploreEventHeroMeta { color:rgba(255,255,255,.45); font-size:11px; }
 .exploreEventHeroSummary { color:rgba(255,255,255,.55); font-size:13px; line-height:1.6; margin:0; max-width:900px; }
@@ -2832,7 +2832,7 @@
   border: 0;
   background: rgba(255, 255, 255, 0.06);
 }
-.exploreTapeAvatar .explorePersonPortrait img { object-position: center 28%; border-radius: 18px; }
+.exploreTapeAvatar .explorePersonPortrait img { object-position: center 22%; border-radius: 18px; }
 .exploreTapeAvatar.isLogo .explorePersonPortrait {
   background: rgba(255, 255, 255, 0.06);
 }
@@ -2895,8 +2895,8 @@
   width: 30px;
   height: 30px;
   border-radius: 7px;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: stretch;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -2915,9 +2915,14 @@
   background: rgba(255, 255, 255, 0.04);
 }
 .exploreTapeHolding img {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
+}
+.exploreTapeHolding--span img {
+  object-fit: cover;
 }
 .exploreTapeHolding--more {
   font-size: 10px;
