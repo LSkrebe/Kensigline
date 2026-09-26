@@ -1399,11 +1399,15 @@ function buildActorCaseFeedRows(actorRow, filters, chartRange) {
       ? filterInstitutionTradeLogTxns(actorRow.transactions)
       : actorRow.transactions
   const trades = []
+  let skippedByFilter = 0
   for (const txn of txns) {
     if (!isRealDisplayedActorTxn(txn)) continue
     const txnMode = txn.source ?? actorRow.source ?? 'insider'
     const enabled = investigateTxnFiltersForMode(filters, txnMode)
-    if (!investigateCaseRowPassesTxnFilter(txn.sheetRow, enabled, txnMode)) continue
+    if (!investigateCaseRowPassesTxnFilter(txn.sheetRow, enabled, txnMode)) {
+      skippedByFilter += 1
+      continue
+    }
     const row = caseSheetRowToCompanyCaseFeedRow(txn.sheetRow, {
       ticker: txn.ticker,
       company: txn.company,
@@ -1417,6 +1421,25 @@ function buildActorCaseFeedRows(actorRow, filters, chartRange) {
       filingId: txn.sheetRow?.filingId ?? txn.companyRow?.caseSheet?.filingId ?? null,
     })
     if (row) trades.push(row)
+  }
+  // Held-only books get wiped by activity filters that omit Held — still paint the dossier.
+  if (!trades.length && skippedByFilter > 0 && mode === 'institutions') {
+    for (const txn of txns) {
+      if (!isRealDisplayedActorTxn(txn)) continue
+      const row = caseSheetRowToCompanyCaseFeedRow(txn.sheetRow, {
+        ticker: txn.ticker,
+        company: txn.company,
+        showMoney:
+          txn.showMoney ||
+          Number(txn.sheetRow?.shares) > 0 ||
+          Boolean(String(txn.sheetRow?.amountRange ?? '').trim()),
+        mode: 'institutions',
+        documentUrl: txn.sheetRow?.documentUrl ?? txn.companyRow?.caseSheet?.documentUrl ?? txn.companyRow?.url ?? null,
+        cik: txn.companyRow?.caseSheet?.cik ?? null,
+        filingId: txn.sheetRow?.filingId ?? txn.companyRow?.caseSheet?.filingId ?? null,
+      })
+      if (row) trades.push(row)
+    }
   }
   trades.sort((a, b) => new Date(b.ts ?? 0).getTime() - new Date(a.ts ?? 0).getTime())
   return appendCaseTxnTimeline([], filterCaseTradesForPriceRange(trades, chartRange), 'today+years', {

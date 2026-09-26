@@ -2808,7 +2808,7 @@
   cursor: pointer;
 }
 .exploreTapeRowBtn--event {
-  grid-template-columns: 28px 76px minmax(0, 1fr) 68px;
+  grid-template-columns: 28px 76px minmax(0, 1fr) 68px 18px;
 }
 .exploreTapeRowBtn:hover .exploreTapeName,
 .exploreTapeRowBtn:focus-visible .exploreTapeName { color: #fff; }
@@ -2880,6 +2880,11 @@
   gap: 4px;
   justify-self: end;
   flex-shrink: 0;
+}
+.exploreTapeHoldings--empty {
+  width: 68px;
+  height: 68px;
+  visibility: hidden;
 }
 .exploreTapeHolding {
   display: inline-flex;
@@ -2983,7 +2988,7 @@
 @media (max-width: 640px) {
   .exploreTapeHead { gap: 8px; }
   .exploreTapeRowBtn { grid-template-columns: 28px 68px minmax(0, 1fr) 16px; gap: 14px; padding: 18px 0; }
-  .exploreTapeRowBtn--event { grid-template-columns: 28px 68px minmax(0, 1fr) 60px; }
+  .exploreTapeRowBtn--event { grid-template-columns: 28px 68px minmax(0, 1fr) 60px 16px; }
   .exploreTapeHoldings {
     grid-template-columns: repeat(2, 26px);
     grid-template-rows: repeat(2, 26px);

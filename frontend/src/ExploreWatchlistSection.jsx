@@ -473,25 +473,33 @@ function eventTickers(row) {
 }
 
 function TapeHoldingsGrid({ tickers = [] }) {
-  const total = tickers.length
-  if (!total) return null
-  const showOverflow = total > 4
-  const visible = showOverflow ? tickers.slice(0, 3) : tickers.slice(0, 4)
-  const extra = showOverflow ? total - 3 : 0
+  const unique = [...new Set(tickers.map((t) => String(t).trim().toUpperCase()).filter(Boolean))]
+  if (!unique.length) return null
+  let cells = []
+  if (unique.length === 1) cells = [unique[0], unique[0], unique[0], unique[0]]
+  else if (unique.length === 2) cells = [unique[0], unique[1], unique[0], unique[1]]
+  else if (unique.length === 3) cells = [unique[0], unique[1], unique[2], unique[0]]
+  else if (unique.length === 4) cells = unique.slice(0, 4)
+  else cells = [...unique.slice(0, 3), `+${unique.length - 3}`]
   return (
     <span className="exploreTapeHoldings" aria-hidden="true">
-      {visible.map((ticker) => (
-        <ImageOrInitials
-          key={ticker}
-          src={companyLogoSrc(ticker)}
-          fallbackSrc={companyLogoFallback(ticker)}
-          name={ticker}
-          className="exploreTapeHolding"
-          logo
-          discover={false}
-        />
-      ))}
-      {extra > 0 ? <span className="exploreTapeHolding exploreTapeHolding--more">+{extra}</span> : null}
+      {cells.map((cell, index) =>
+        String(cell).startsWith('+') ? (
+          <span key={`more-${cell}`} className="exploreTapeHolding exploreTapeHolding--more">
+            {cell}
+          </span>
+        ) : (
+          <ImageOrInitials
+            key={`${cell}-${index}`}
+            src={companyLogoSrc(cell)}
+            fallbackSrc={companyLogoFallback(cell)}
+            name={cell}
+            className="exploreTapeHolding"
+            logo
+            discover={false}
+          />
+        ),
+      )}
     </span>
   )
 }
@@ -532,7 +540,10 @@ function ExploreTapeRow({ row, rank, range, plain = false, invested = false, eve
         <span className="exploreTapeMeta">{typeLabel}</span>
       </span>
       {eventRow ? (
-        tickers.length ? <TapeHoldingsGrid tickers={tickers} /> : <span className="exploreTapeChevron" aria-hidden="true">›</span>
+        <>
+          {tickers.length ? <TapeHoldingsGrid tickers={tickers} /> : <span className="exploreTapeHoldings exploreTapeHoldings--empty" aria-hidden="true" />}
+          <span className="exploreTapeChevron" aria-hidden="true">›</span>
+        </>
       ) : (
         <span className="exploreTapeChevron" aria-hidden="true">›</span>
       )}
@@ -636,7 +647,7 @@ export function selectExploreFeatured(rows, range = '6M') {
   return peopleWithReturns([...tapePeople(rows)], range).slice(0, 3)
 }
 
-/** Newest Explore filings across the curated universe (~4; more if same calendar day). */
+/** Newest Explore filings across the curated universe — one row per person (~4+). */
 export function selectMostRecentExploreEvents(rows, minCount = 4) {
   const events = []
   for (const row of rows ?? []) {
@@ -645,6 +656,7 @@ export function selectMostRecentExploreEvents(rows, minCount = 4) {
     for (const ev of list) {
       const date = String(ev?.date ?? row.date ?? '').trim()
       if (!date || date === '—') continue
+      const tickers = eventTickers({ ...ev, ticker: ev.ticker ?? row.ticker, tickers: ev.tickers ?? row.tickers })
       events.push({
         ...ev,
         id: ev.id ?? `${row.actorSlug}-${ev.ticker}-${date}`,
@@ -657,6 +669,8 @@ export function selectMostRecentExploreEvents(rows, minCount = 4) {
         modeLabel: row.modeLabel,
         chamber: row.chamber,
         date,
+        tickers,
+        ticker: tickers[0] || ev.ticker || row.ticker,
       })
     }
   }
@@ -666,19 +680,37 @@ export function selectMostRecentExploreEvents(rows, minCount = 4) {
     return String(b.id ?? '').localeCompare(String(a.id ?? ''))
   })
   if (!events.length) return []
-  const out = []
-  const seen = new Set()
+
+  // One row per investor: newest date, logos for every ticker in that day's filings.
+  const byPerson = new Map()
   for (const ev of events) {
-    const key = `${ev.actorSlug}|${ev.ticker}|${ev.date}|${ev.trail}|${ev.docType}`
-    if (seen.has(key)) continue
-    if (out.length >= minCount) {
-      const cutoff = String(out[minCount - 1]?.date ?? '')
-      if (String(ev.date ?? '') !== cutoff) break
+    const key = String(ev.actorSlug ?? ev.name ?? '').toLowerCase()
+    if (!key) continue
+    const prev = byPerson.get(key)
+    if (!prev) {
+      byPerson.set(key, {
+        ...ev,
+        tickers: [...(ev.tickers ?? [])],
+      })
+      continue
     }
-    seen.add(key)
-    out.push(ev)
+    if (String(ev.date ?? '') === String(prev.date ?? '')) {
+      const merged = new Set([...(prev.tickers ?? []), ...(ev.tickers ?? [])])
+      if (ev.ticker) merged.add(String(ev.ticker).toUpperCase())
+      prev.tickers = [...merged].filter(Boolean)
+      prev.ticker = prev.tickers[0] || prev.ticker
+    }
   }
-  return out
+
+  const out = [...byPerson.values()].sort((a, b) => {
+    const dateCmp = String(b.date ?? '').localeCompare(String(a.date ?? ''))
+    if (dateCmp !== 0) return dateCmp
+    return String(a.name ?? '').localeCompare(String(b.name ?? ''))
+  })
+
+  if (out.length <= minCount) return out
+  const cutoff = String(out[minCount - 1]?.date ?? '')
+  return out.filter((ev, index) => index < minCount || String(ev.date ?? '') === cutoff)
 }
 
 function useNarrowTape() {

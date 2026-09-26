@@ -2803,6 +2803,23 @@ button.drpt-docRow {
 .drpt-tradeList--flat {
   gap: 10px;
 }
+@media (min-width: 900px) {
+  .drpt-dossier .drpt-holdingList,
+  .drpt-dossier .drpt-tradeList--flat {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 22px;
+    row-gap: 0;
+  }
+  .drpt-dossier .drpt-holdingList > li,
+  .drpt-dossier .drpt-tradeList--flat > li {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .drpt-dossier .drpt-holdingList > li:nth-last-child(1):nth-child(odd),
+  .drpt-dossier .drpt-tradeList--flat > li:nth-last-child(1):nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
 .drpt-holdingSub {
   display: flex;
   flex-wrap: wrap;

@@ -733,6 +733,9 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
       [filer.id],
     );
   } else {
+    // Quality-gated Held snapshots plus any real stake changes (even if still quality 0).
+    // Some filers (e.g. Icahn) only have Held at quality>=1 while New/Inc/Red sit at 0 —
+    // excluding those left dossiers empty after the FE trade-log filter drops Held.
     txns = await db.query<any>(
       `
       SELECT
@@ -754,8 +757,11 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
       JOIN issuers i ON i.id = t.issuer_id
       JOIN filers f ON f.id = t.filer_id
       LEFT JOIN filings fil ON fil.id = t.filing_id
-      WHERE t.data_quality_version>=1 AND t.filer_id = $1
-        AND t.data_quality_version>=1
+      WHERE t.filer_id = $1
+        AND (
+          coalesce(t.data_quality_version, 0) >= 1
+          OR coalesce(t.activity, '') IN ('New position', 'Increased stake', 'Reduced stake')
+        )
       ORDER BY t.transaction_at DESC
       LIMIT 1200
       `,
@@ -785,8 +791,8 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
         JOIN issuers i ON i.id = t.issuer_id
         JOIN filers f ON f.id = t.filer_id
       LEFT JOIN filings fil ON fil.id = t.filing_id
-        WHERE t.data_quality_version>=1 AND t.filer_id = $1
-          AND coalesce(t.activity, '') = 'Held' AND t.data_quality_version>=1
+        WHERE t.filer_id = $1
+          AND coalesce(t.activity, '') = 'Held'
         ORDER BY coalesce(t.amount_usd, 0) DESC, t.transaction_at DESC
         LIMIT 120
         `,

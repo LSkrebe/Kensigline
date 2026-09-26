@@ -1233,6 +1233,15 @@ function formatLongDate(ms) {
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(d)
 }
 
+/** Same MM-DD template as Explore recent-events rows. */
+function formatTapeDate(ms) {
+  const d = new Date(ms)
+  if (Number.isNaN(d.getTime())) return null
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${mm}-${dd}`
+}
+
 function formatAum(n) {
   if (!(n > 0)) return '—'
   if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`
@@ -1528,7 +1537,7 @@ function DeepTradeLog({ rows = [], loading = false, name = '', portraitSrc = nul
     }
     return out
   }, [filings])
-  const visible = expanded ? changeRows : changeRows.slice(0, 5)
+  const visible = expanded ? changeRows : changeRows.slice(0, 12)
   if (loading && !changeRows.length) return <SkeletonList count={3} />
   if (!changeRows.length) return <EmptyList label="No trades yet" />
   return (
@@ -1546,7 +1555,7 @@ function DeepTradeLog({ rows = [], loading = false, name = '', portraitSrc = nul
                 discover={false}
               />
               <span className="drpt-holdingName">
-                <span className="drpt-holdingDate">{formatLongDate(filing.filedMs)}</span>
+                <span className="drpt-holdingDate">{formatTapeDate(filing.filedMs)}</span>
                 <span className="drpt-holdingTicker">{change.ticker}</span>
                 <span className="drpt-holdingCompany">{change.fullName || change.name}</span>
               </span>
@@ -1566,7 +1575,7 @@ function DeepTradeLog({ rows = [], loading = false, name = '', portraitSrc = nul
 
 function DeepHoldings({ rows = [], loading = false, expanded = false }) {
   const holdings = useMemo(() => buildDossierActivity(rows)?.holdings ?? [], [rows])
-  const visible = expanded ? holdings : holdings.slice(0, 5)
+  const visible = expanded ? holdings : holdings.slice(0, 12)
   if (loading && !holdings.length) return <SkeletonList count={3} />
   if (!holdings.length) return <EmptyList label="No holdings yet" />
   return (
@@ -1928,8 +1937,8 @@ export function DeepActorReport({
           />
         </DeepSection>
         {!listsOpen &&
-        ((activity?.filings ?? []).reduce((n, f) => n + (f.changes?.length ?? 0), 0) > 5 ||
-          (activity?.holdings?.length ?? 0) > 5) ? (
+        ((activity?.filings ?? []).reduce((n, f) => n + (f.changes?.length ?? 0), 0) > 12 ||
+          (activity?.holdings?.length ?? 0) > 12) ? (
           <div className="exploreTapeMoreWrap">
             <button type="button" className="exploreTapeMore" onClick={() => setListsOpen(true)}>More</button>
           </div>
