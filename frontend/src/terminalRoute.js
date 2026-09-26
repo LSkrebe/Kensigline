@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { exploreInvestorSlug } from './exploreDirectoryNav.js'
+import { EXPLORE_WATCHLIST_CATALOG, watchlistPersonSlugs } from './exploreWatchlistCatalog.js'
 import { normalizeMarketingPath } from './marketingRoute.js'
 import {
   isCompanyExploreTicker,
@@ -23,22 +24,39 @@ function dossierSegment(value) {
     .toLowerCase()
 }
 
+/** Best-effort investor slug from a retired event id (e.g. nancy-pelosi-nvda-…). */
+function investorSlugFromRetiredEventId(eventId) {
+  const raw = dossierSegment(eventId)
+  if (!raw) return null
+  const catalogSlugs = EXPLORE_WATCHLIST_CATALOG.flatMap((person) => watchlistPersonSlugs(person))
+  const sorted = [...catalogSlugs].sort((a, b) => b.length - a.length)
+  for (const slug of sorted) {
+    if (raw === slug || raw.startsWith(`${slug}-`)) return slug
+  }
+  return null
+}
+
 export function readTerminalPath() {
   if (typeof window === 'undefined') return '/'
   return normalizeMarketingPath(window.location.pathname)
 }
 
-/** @returns {{ view: string, ticker?: string, investorSlug?: string, eventId?: string } | null} */
+/** @returns {{ view: string, ticker?: string, investorSlug?: string } | null} */
 export function parseExploreRoute(pathname = readTerminalPath()) {
   const path = normalizeMarketingPath(pathname)
   if (isRetiredProductPath(path)) return null
 
+  // Event detail pages are retired — bounce to investor dossier when derivable, else home.
   const eventDetail = path.match(/^\/explore\/events\/([^/]+)$/i)
   if (eventDetail) {
-    return {
-      view: 'eventDetail',
-      eventId: decodeURIComponent(eventDetail[1]).trim(),
+    const investorSlug = investorSlugFromRetiredEventId(eventDetail[1])
+    if (investorSlug && isInvestorExploreSlug(investorSlug)) {
+      return { view: 'investorDetail', investorSlug }
     }
+    return { view: 'home' }
+  }
+  if (path === EXPLORE_EVENTS_PATH || path.startsWith(`${EXPLORE_EVENTS_PATH}/`)) {
+    return { view: 'home' }
   }
 
   // Personal watchlist retired — curated universe lives on Explore home.
@@ -74,7 +92,7 @@ export function parseTerminalRoute(pathname = readTerminalPath()) {
   return null
 }
 
-/** @returns {'home' | 'companies' | 'investors' | 'companyDetail' | 'investorDetail' | 'eventDetail' | null} */
+/** @returns {'home' | 'companies' | 'investors' | 'companyDetail' | 'investorDetail' | null} */
 export function parseExploreSubview(pathname = readTerminalPath()) {
   return parseExploreRoute(pathname)?.view ?? null
 }
@@ -113,10 +131,9 @@ export function exploreInvestorDetailPath(name, slugHint = null) {
 /** @deprecated Use exploreInvestorDetailPath */
 export const exploreActorDetailPath = exploreInvestorDetailPath
 
-export function exploreEventDetailPath(eventId) {
-  const id = String(eventId ?? '').trim()
-  if (!id) return EXPLORE_HOME_PATH
-  return `${EXPLORE_EVENTS_PATH}/${encodeURIComponent(id)}`
+/** @deprecated Event detail pages are retired. */
+export function exploreEventDetailPath(_eventId) {
+  return EXPLORE_HOME_PATH
 }
 
 export function navigateTerminal(path, { replace = false } = {}) {
@@ -158,8 +175,14 @@ export function navigateExploreInvestorDetail(name, slugHint = null) {
 /** @deprecated Use navigateExploreInvestorDetail */
 export const navigateExploreActorDetail = navigateExploreInvestorDetail
 
+/** @deprecated Event detail pages are retired — open investor or Explore home instead. */
 export function navigateExploreEventDetail(eventId) {
-  navigateTerminal(exploreEventDetailPath(eventId))
+  const investorSlug = investorSlugFromRetiredEventId(eventId)
+  if (investorSlug && isInvestorExploreSlug(investorSlug)) {
+    navigateTerminal(exploreInvestorDetailPath(investorSlug, investorSlug), { replace: true })
+    return
+  }
+  navigateExploreHome({ replace: true })
 }
 
 export function navigateSettings({ replace = false } = {}) {
@@ -173,6 +196,23 @@ export function navigateExploreBack() {
   window.history.back()
 }
 
+function rewriteRetiredEventUrl(pathname = readTerminalPath()) {
+  const path = normalizeMarketingPath(pathname)
+  const eventDetail = path.match(/^\/explore\/events\/([^/]+)$/i)
+  if (!eventDetail) {
+    if (path === EXPLORE_EVENTS_PATH) {
+      navigateTerminal(EXPLORE_HOME_PATH, { replace: true })
+    }
+    return
+  }
+  const investorSlug = investorSlugFromRetiredEventId(eventDetail[1])
+  if (investorSlug && isInvestorExploreSlug(investorSlug)) {
+    navigateTerminal(exploreInvestorDetailPath(investorSlug, investorSlug), { replace: true })
+    return
+  }
+  navigateTerminal(EXPLORE_HOME_PATH, { replace: true })
+}
+
 function resolveTerminalRoute(pathname = readTerminalPath()) {
   if (isRetiredProductPath(pathname)) return { shell: 'retired' }
   return parseTerminalRoute(pathname) ?? { shell: 'explore', view: 'home' }
@@ -182,7 +222,10 @@ export function useTerminalRoute() {
   const [route, setRoute] = useState(() => resolveTerminalRoute())
 
   useEffect(() => {
-    const sync = () => setRoute(resolveTerminalRoute())
+    const sync = () => {
+      rewriteRetiredEventUrl()
+      setRoute(resolveTerminalRoute())
+    }
     sync()
     window.addEventListener('popstate', sync)
     return () => window.removeEventListener('popstate', sync)
@@ -198,7 +241,6 @@ export function useExploreRoute() {
     view: route.view ?? 'home',
     ticker: route.ticker,
     investorSlug: route.investorSlug,
-    eventId: route.eventId,
   }
 }
 

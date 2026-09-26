@@ -2733,32 +2733,10 @@
 .exploreEventBody .drpt-figure--chart { height:300px; min-height:300px; max-height:300px; }
 .exploreEventBody .drpt-figure--chart > .researchMiniPrice { flex:1; min-height:0; display:flex; flex-direction:column; margin:0; }
 
-/* Phone: sections stack. Desktop: Top Performers left, Most Popular right. */
+/* Recent events share the tape list aesthetic with Top Performers / Most Popular. */
 .exploreRecentEvents {
   margin: 0 0 42px;
   min-width: 0;
-}
-.exploreRecentEventsGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0 28px;
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-}
-.exploreRecentEventsInner {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.exploreRecentEventsItem { min-width: 0; }
-@media (min-width: 900px) {
-  .exploreRecentEventsGrid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-  .exploreRecentEventsItem.isFull {
-    grid-column: 1 / -1;
-  }
 }
 .exploreTapeBoard {
   display: grid;

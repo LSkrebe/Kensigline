@@ -13,7 +13,6 @@ import { DeepResearchLayout } from './DeepResearchLayout.jsx'
 import { DeepPage } from './DeepCompanyPage.jsx'
 import { ExplorePage } from './ExplorePage.jsx'
 import { TerminalTopBarChrome } from './TerminalTopBarChrome.jsx'
-import { ExploreEventPage } from './ExploreEventPage.jsx'
 import {
   applyExploreInvestorFeedSelection,
   exploreInvestorModeFromDocType,
@@ -33,7 +32,6 @@ import {
   isTerminalAppPath,
   navigateExploreBack,
   navigateExploreCompanyDetail,
-  navigateExploreEventDetail,
   navigateExploreHome,
   navigateExploreInvestorDetail,
   navigateSettings,
@@ -1338,11 +1336,15 @@ function isInstitutionBaselineDump(transactions) {
 
 /** 13F holdings dumps can fan out to dozens of rows — show stake changes only when possible. */
 function filterInstitutionTradeLogTxns(transactions) {
-  const txns = dedupeInstitutionActorTxns(transactions).filter((txn) => {
+  const all = dedupeInstitutionActorTxns(transactions)
+  let txns = all.filter((txn) => {
     const act = institutionTxnActivity(txn)
     return act && act !== 'Held'
   })
-  if (isInstitutionBaselineDump(txns)) return []
+  // Same-day NEW baseline is noise, but never wipe real Increased/Reduced rows with it.
+  if (isInstitutionBaselineDump(txns)) {
+    txns = txns.filter((txn) => institutionTxnActivity(txn) !== 'New position')
+  }
   const changes = txns.filter((txn) => {
     const act = institutionTxnActivity(txn)
     return act === 'Increased stake' || act === 'Reduced stake'
@@ -1362,7 +1364,7 @@ function filterInstitutionTradeLogTxns(transactions) {
     return sorted
   }
 
-  const held = dedupeInstitutionActorTxns(transactions).filter((txn) => institutionTxnActivity(txn) === 'Held')
+  const held = all.filter((txn) => institutionTxnActivity(txn) === 'Held')
   if (held.length) {
     return [...held]
       .sort(
@@ -11912,13 +11914,18 @@ function KensiglineTerminal() {
   const investorBoostDone =
     Boolean(terminalRoute.investorSlug) && investorBoostDoneForSlug === terminalRoute.investorSlug
 
-  // Keep loading until rich trades exist. Never end on boostDone alone (that painted +$1 stubs).
-  // On dossier detail, mode feeds are intentionally not loaded (early-return elsewhere), so
-  // feedLive===null must not block hunt exhaustion forever after the API boost finishes.
+  // Keep loading until rich trades exist, API dossier settles, or hunt budget ends.
+  // API settle must end skeletons even when strip/trade-log filters leave a thin row —
+  // otherwise boostDone + feed-has-more loops forever (e.g. institution Held dumps).
+  const investorApiSettled =
+    investorBoostDone &&
+    (exploreInvestorFocus?.actorRow?.__dossierSource === 'api' ||
+      effectiveActorRow?.__dossierSource === 'api')
   const investorHuntExhausted =
     investorBoostDone &&
     !investorModeLoadingMore &&
-    (investorFeedExpandCount >= 3 ||
+    (investorApiSettled ||
+      investorFeedExpandCount >= 3 ||
       !investorModeHasMore ||
       investorModeFeedPending)
 
@@ -11969,8 +11976,16 @@ function KensiglineTerminal() {
       if (!alive || investorBoostGenRef.current !== gen) return
       const actor = r.data?.actor
       if (r.ok && actor?.transactions?.length) {
+        const stripped = stripSyntheticActorTxns(actor)
+        // Prefer stripped trade-log rows when present; otherwise keep raw API txns so
+        // Held-heavy 13F books still count as rich and end section skeletons.
+        const useRow =
+          (stripped?.transactions?.length ?? 0) > 0
+            ? stripped
+            : normalizeInvestigateActorFeedRow(actor)
         const next = normalizeInvestigateActorFeedRow({
-          ...stripSyntheticActorTxns(actor),
+          ...useRow,
+          performance: actor.performance ?? useRow?.performance ?? null,
           __dossierSource: 'api',
         })
         const mode =
@@ -12632,10 +12647,6 @@ function KensiglineTerminal() {
     navigateExploreHome()
   }, [])
 
-  const onExploreEventClick = useCallback((slide) => {
-    if (slide?.id) navigateExploreEventDetail(slide.id)
-  }, [])
-
   const onExploreInvestorClick = useCallback(
     (row) => {
       const name = String(row?.feedName ?? row?.name ?? '').trim()
@@ -12839,19 +12850,6 @@ function KensiglineTerminal() {
           {shell === 'explore' ? (
             exploreSubview === 'companyDetail' || exploreSubview === 'investorDetail' ? (
               deepDossierPage
-            ) : exploreSubview === 'eventDetail' ? (
-              <ExploreEventPage
-                key={terminalRoute.eventId}
-                eventId={terminalRoute.eventId}
-            backendUp={backendUp}
-                macroActive={macroActive}
-                settingsActive={settingsActive}
-                onSettingsClick={onSettingsClick}
-                onBrandClick={onExploreHomeClick}
-                onCloseClick={onExploreDossierCloseClick}
-                onInvestorClick={onExploreInvestorClick}
-                onCompanyClick={onExploreCompanyClick}
-              />
             ) : (
               <ExplorePage
             backendUp={backendUp}
@@ -12860,7 +12858,6 @@ function KensiglineTerminal() {
                 onSettingsClick={onSettingsClick}
                 onBrandClick={onExploreHomeClick}
                 onInvestorRowClick={onExploreInvestorClick}
-                onEventClick={onExploreEventClick}
               />
             )
           ) : null}

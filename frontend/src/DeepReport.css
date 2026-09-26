@@ -2796,66 +2796,27 @@ button.drpt-docRow {
   margin: 0;
   padding: 0;
   list-style: none;
-}
-.drpt-tradeList--changes {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 10px;
 }
-.drpt-tradeDay {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.drpt-tradeList--flat {
+  gap: 10px;
 }
-.drpt-tradeDayHead {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 16px;
-  width: 100%;
-  margin: 0 0 12px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.drpt-tradeDayHead .drpt-tradeDate {
-  grid-column: 1;
+.drpt-holdingSub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
   color: rgba(255, 255, 255, 0.55);
   font-size: 13px;
+  font-weight: 500;
+  white-space: normal;
+}
+.drpt-holdingDate {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 12px;
   font-weight: 600;
-}
-.drpt-tradeDayHead .drpt-tradeTitle {
-  grid-column: 1;
-  margin: 0;
-  color: #fff;
-  font-size: 16px;
-  font-weight: 650;
-  line-height: 1.35;
-}
-.drpt-tradeDayHead .drpt-tradeChevron {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 22px;
-}
-.drpt-tradeChangeGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-@media (min-width: 900px) {
-  .drpt-tradeChangeGrid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-  .drpt-tradeChangeItem.isFull {
-    grid-column: 1 / -1;
-  }
 }
 .drpt-tradeItem { position: relative; padding-left: 18px; }
 .drpt-tradeItem::before {
@@ -2987,17 +2948,6 @@ button.drpt-docRow {
 }
 .drpt-filingBody .drpt-section { margin-top: 42px; }
 .drpt-filingBody .drpt-section .drpt-sectionTitle { text-align: left; }
-@media (min-width: 900px) {
-  .drpt-filingBlurb { text-align: center; }
-  .drpt-filingBody .drpt-holdingList {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: 22px;
-  }
-  .drpt-filingBody .drpt-holdingList > li:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
-  }
-}
 .drpt-tradeBtn,
 .drpt-holdingBtn {
   display: grid;
@@ -3108,6 +3058,13 @@ button.drpt-docRow {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.drpt-holdingName .drpt-holdingSub {
+  overflow: visible;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  text-overflow: unset;
+  white-space: normal;
+}
 .drpt-holdingAction {
   color: rgba(255, 255, 255, 0.72);
   font-size: 13px;
@@ -3137,12 +3094,4 @@ button.drpt-docRow {
     min-height: 240px;
   }
   .drpt-dossier .drpt-bylineRow { margin-bottom: 12px; }
-  .drpt-holdingList {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 10px;
-  }
-  .drpt-holdingList > li:last-child:nth-child(odd) {
-    grid-column: 1 / -1;
-  }
 }

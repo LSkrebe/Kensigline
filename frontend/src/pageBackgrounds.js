@@ -121,7 +121,6 @@ export function terminalPageBackgroundKey(shell, exploreSubview) {
   if (exploreSubview === 'companies') return 'exploreCompanies'
   if (exploreSubview === 'investors') return 'exploreInvestors'
   if (exploreSubview === 'watchlist') return 'exploreInvestors'
-  if (exploreSubview === 'eventDetail') return 'exploreEvent'
   if (exploreSubview === 'companyDetail') return 'dossierCompany'
   if (exploreSubview === 'investorDetail') return 'dossierInvestor'
   return 'exploreHome'

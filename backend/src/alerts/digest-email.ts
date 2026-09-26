@@ -43,7 +43,11 @@ function formatDigestDate(dayKey: string): string {
 }
 
 function eventUrl(slide: DigestSlide): string {
-  return `${frontendOrigin()}/explore/events/${encodeURIComponent(slide.id)}`;
+  const slug = String(slide.actorSlug ?? "")
+    .trim()
+    .toLowerCase();
+  if (slug) return `${frontendOrigin()}/explore/${encodeURIComponent(slug)}`;
+  return `${frontendOrigin()}/explore`;
 }
 
 function moveColor(slide: DigestSlide): string {

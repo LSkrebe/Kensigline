@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ExplorePersonRow, ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
+import { ImageOrInitials, normalizeInvestorName } from './ExplorePersonRow.jsx'
 import { lookupExplorePortrait } from './explorePortraitLookup.js'
 import { PRICE_RANGE_OPTS } from './MiniPriceChart.jsx'
 import { FORCE_MOCK_DATA } from './dataMode.js'
@@ -696,35 +696,39 @@ export function ExploreWatchlistSection({
   const morePopular = popularLimit < popular.length && popular.length > popularLimit
   const showSharedMore = !narrow && (morePerformers || morePopular)
   const recentEvents = useMemo(() => selectMostRecentExploreEvents(rows, 4), [rows])
+  const recentTapeRows = useMemo(
+    () =>
+      recentEvents.map((ev, index) => ({
+        id: ev.id ?? `${ev.actorSlug}-${ev.ticker}-${ev.date}-${index}`,
+        name: ev.name || ev.feedName || 'Investor',
+        actorSlug: ev.actorSlug,
+        modeLabel: [ev.ticker, ev.modeLabel || ev.docType].filter(Boolean).join(' · ') || 'Filing',
+        mode: ev.mode,
+        typeKey: ev.typeKey,
+        ticker: ev.ticker,
+        date: ev.date,
+        feedName: ev.feedName ?? ev.name,
+        filerSlug: ev.filerSlug,
+        chamber: ev.chamber,
+        docType: ev.docType,
+        trail: ev.trail,
+      })),
+    [recentEvents],
+  )
 
   return (
     <>
-      <section className="exploreRecentEvents" aria-label="Most recent events">
+      <section className="exploreTapeSection exploreRecentEvents" aria-label="Most recent events">
         <div className="exploreTapeHead">
           <h2 className="exploreTapeTitle">Most recent events</h2>
         </div>
-        {loading && !recentEvents.length ? (
-          <SkeletonList count={4} />
-        ) : !recentEvents.length ? (
-          <p className="exploreDirectoryEmpty">No recent events</p>
-        ) : (
-          <ul className="exploreRecentEventsGrid">
-            {recentEvents.map((row, index) => (
-              <li
-                key={row.id ?? `${row.actorSlug}-${row.ticker}-${row.date}-${index}`}
-                className={
-                  recentEvents.length % 2 === 1 && index === recentEvents.length - 1
-                    ? 'exploreRecentEventsItem isFull'
-                    : 'exploreRecentEventsItem'
-                }
-              >
-                <ul className="exploreRecentEventsInner">
-                  <ExplorePersonRow row={row} onClick={onRowClick} />
-                </ul>
-              </li>
-            ))}
-          </ul>
-        )}
+        <ExploreTapeList
+          rows={recentTapeRows}
+          range={range}
+          onRowClick={onRowClick}
+          loading={loading}
+          empty="No recent events"
+        />
       </section>
       <div className="exploreTapeBoard">
         <section className="exploreTapeSection" aria-label="Top Performers">
@@ -732,15 +736,15 @@ export function ExploreWatchlistSection({
             <h2 className="exploreTapeTitle">Top Performers</h2>
             <div className="exploreTapeRanges" role="group" aria-label="Chart range">
               {PRICE_RANGE_OPTS.map((option) => (
-      <button
+                <button
                   key={option}
-        type="button"
+                  type="button"
                   className={option === range ? 'exploreTapeRange isActive' : 'exploreTapeRange'}
                   aria-pressed={option === range}
                   onClick={() => setRange(option)}
                 >
                   {option}
-      </button>
+                </button>
               ))}
             </div>
           </div>

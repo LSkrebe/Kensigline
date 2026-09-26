@@ -39,7 +39,6 @@ export function ExplorePage({
   onBrandClick = null,
   onCompanyRowClick = null,
   onInvestorRowClick = null,
-  onEventClick = null,
 }) {
   const initialSnapshot = useMemo(() => {
     if (isCaptureMode() || isMockDataMode(backendUp)) {

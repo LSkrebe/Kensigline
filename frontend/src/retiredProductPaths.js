@@ -39,7 +39,8 @@ export function isCompanyExploreTicker(segment) {
 
 /**
  * Removed product URLs. They are not pages and must not bounce to Explore.
- * Live routes: /explore, /explore/:investor|/explore/:ticker, /explore/events/:id, /settings.
+ * Live routes: /explore, /explore/:investor|/explore/:ticker, /settings.
+ * /explore/events and /explore/events/:id rewrite to Explore home (or investor when derivable).
  * Personal /explore/watchlist is retired — curated universe is the only list.
  */
 export function isRetiredProductPath(pathname = '/') {
