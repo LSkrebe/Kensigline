@@ -12,18 +12,19 @@ import { scrollIntroToPricing } from './introScroll.js'
 import { INTRO_LEADERS } from './marketingContent.js'
 import './ExplorePage.css'
 
+/** Same mosaic markup as Explore tape / DeepReport — shared ExplorePage.css tokens. */
 function HoldingsGrid({ tickers = [] }) {
   const unique = [...new Set((tickers ?? []).map((t) => String(t).trim().toUpperCase()).filter(Boolean))]
   if (!unique.length) return null
 
   if (unique.length === 1) {
     return (
-      <span className="lpLeaderHoldings lpLeaderHoldings--single" aria-hidden="true">
+      <span className="exploreTapeHoldings exploreTapeHoldings--single" aria-hidden="true">
         <ImageOrInitials
           src={companyLogoSrc(unique[0])}
           fallbackSrc={companyLogoFallback(unique[0])}
           name={unique[0]}
-          className="lpLeaderHolding lpLeaderHolding--span"
+          className="exploreTapeHolding exploreTapeHolding--span"
           logo
           discover={false}
         />
@@ -36,21 +37,21 @@ function HoldingsGrid({ tickers = [] }) {
   const placeholders = Math.max(0, 4 - visible.length - (extra > 0 ? 1 : 0))
 
   return (
-    <span className="lpLeaderHoldings" aria-hidden="true">
+    <span className="exploreTapeHoldings" aria-hidden="true">
       {visible.map((ticker) => (
         <ImageOrInitials
           key={ticker}
           src={companyLogoSrc(ticker)}
           fallbackSrc={companyLogoFallback(ticker)}
           name={ticker}
-          className="lpLeaderHolding"
+          className="exploreTapeHolding"
           logo
           discover={false}
         />
       ))}
-      {extra > 0 ? <span className="lpLeaderHolding lpLeaderHolding--more">+{extra}</span> : null}
+      {extra > 0 ? <span className="exploreTapeHolding exploreTapeHolding--more">+{extra}</span> : null}
       {Array.from({ length: placeholders }, (_, index) => (
-        <span key={`pad-${index}`} className="lpLeaderHolding lpLeaderHolding--empty" />
+        <span key={`pad-${index}`} className="exploreTapeHolding exploreTapeHolding--empty" />
       ))}
     </span>
   )

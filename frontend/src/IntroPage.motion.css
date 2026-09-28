@@ -271,7 +271,12 @@
   }
 
   .lpPlan:hover,
-  .lpReviewCard:hover {
+  .lpReviewCard:hover,
+  .lpTogetherExplore .exploreFeaturedCard:hover,
+  .lpTogetherExplore .exploreFeaturedCard:focus-visible,
+  .lpHeroShotFrame:hover,
+  .lpHowFrame:hover,
+  .lpShotFrame:hover {
     transform: none;
   }
 }

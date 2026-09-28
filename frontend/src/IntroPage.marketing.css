@@ -987,6 +987,7 @@
 }
 
 .lpShotFrame {
+  position: relative;
   border: 1px solid var(--lp-line);
   border-radius: var(--lp-radius);
   background: var(--lp-surface);
@@ -1393,7 +1394,7 @@
   }
 }
 
-/* Leaders - wider tape + holdings mosaic (match Explore tape logo footprint) */
+/* Leaders — same --row-logo tokens + square portraits as Explore tape */
 .lpLeadersTape {
   --row-logo: 76px;
   --row-logo-radius: 18px;
@@ -1413,7 +1414,7 @@
   gap: 18px;
 }
 
-/* Force square rounded portraits — ExplorePage portrait defaults are tall rectangles. */
+/* Square rounded portraits (Explore default .explorePersonPortrait is tall). */
 .lpLeadersTape .exploreTapeAvatar,
 .lpLeadersTape .exploreTapeAvatar .explorePersonPortrait {
   width: var(--row-logo);
@@ -1440,84 +1441,15 @@
   object-position: center;
 }
 
-.lpLeaderHoldings {
-  box-sizing: border-box;
-  display: grid;
-  grid-template-columns: repeat(2, var(--row-logo-cell));
-  grid-template-rows: repeat(2, var(--row-logo-cell));
-  gap: var(--row-logo-gap);
-  width: var(--row-logo);
-  height: var(--row-logo);
-  min-width: var(--row-logo);
-  min-height: var(--row-logo);
-  max-width: var(--row-logo);
-  max-height: var(--row-logo);
+.lpLeadersTape .exploreTapeHoldings {
   justify-self: end;
-  flex-shrink: 0;
-  overflow: hidden;
 }
 
-.lpLeaderHoldings--single {
-  grid-template-columns: var(--row-logo);
-  grid-template-rows: var(--row-logo);
-}
-
-.lpLeaderHolding {
-  box-sizing: border-box;
-  display: inline-flex;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  border-radius: var(--row-logo-cell-radius);
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.lpLeaderHolding--span {
-  border-radius: var(--row-logo-radius);
-  font-size: 18px;
-}
-
-.lpLeaderHolding--empty {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.lpLeaderHolding img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.lpLeaderHolding--more {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  padding: 0 2px;
-  font-family: var(--lp-mono);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.72);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-@media (max-width: 699px) {
+@media (max-width: 640px) {
   .lpLeadersTape {
-    --row-logo: 64px;
+    --row-logo: 68px;
     --row-logo-radius: 16px;
-    --row-logo-cell-radius: 8px;
+    --row-logo-cell-radius: 9px;
   }
 
   .lpLeadersTape .lpLeaderRowBtn {
@@ -1526,7 +1458,9 @@
     padding: 16px 0;
   }
 
-  .lpLeaderHolding--more { font-size: 10px; }
+  .lpLeadersTape .exploreTapeName {
+    font-size: 17px;
+  }
 }
 
 .lpHowFrame .mktHeroShot {
