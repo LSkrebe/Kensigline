@@ -496,19 +496,43 @@ function eventTickers(row) {
 function TapeHoldingsGrid({ tickers = [] }) {
   const unique = [...new Set(tickers.map((t) => String(t).trim().toUpperCase()).filter(Boolean))]
   if (!unique.length) return null
-  const ticker = unique[0]
-  const extra = unique.length - 1
+
+  if (unique.length === 1) {
+    return (
+      <span className="exploreTapeHoldings exploreTapeHoldings--single" aria-hidden="true">
+        <ImageOrInitials
+          src={companyLogoSrc(unique[0])}
+          fallbackSrc={companyLogoFallback(unique[0])}
+          name={unique[0]}
+          className="exploreTapeHolding exploreTapeHolding--span"
+          logo
+          discover={false}
+        />
+      </span>
+    )
+  }
+
+  const visible = unique.length > 4 ? unique.slice(0, 3) : unique.slice(0, 4)
+  const extra = unique.length > 4 ? unique.length - 3 : 0
+  const placeholders = Math.max(0, 4 - visible.length - (extra > 0 ? 1 : 0))
+
   return (
-    <span className="exploreTapeHoldings exploreTapeHoldings--single" aria-hidden="true">
-      <ImageOrInitials
-        src={companyLogoSrc(ticker)}
-        fallbackSrc={companyLogoFallback(ticker)}
-        name={ticker}
-        className="exploreTapeHolding exploreTapeHolding--span"
-        logo
-        discover={false}
-      />
-      {extra > 0 ? <span className="exploreTapeHoldingBadge">+{extra}</span> : null}
+    <span className="exploreTapeHoldings" aria-hidden="true">
+      {visible.map((ticker) => (
+        <ImageOrInitials
+          key={ticker}
+          src={companyLogoSrc(ticker)}
+          fallbackSrc={companyLogoFallback(ticker)}
+          name={ticker}
+          className="exploreTapeHolding"
+          logo
+          discover={false}
+        />
+      ))}
+      {extra > 0 ? <span className="exploreTapeHolding exploreTapeHolding--more">+{extra}</span> : null}
+      {Array.from({ length: placeholders }, (_, index) => (
+        <span key={`pad-${index}`} className="exploreTapeHolding exploreTapeHolding--empty" />
+      ))}
     </span>
   )
 }

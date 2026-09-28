@@ -1408,29 +1408,47 @@
 }
 
 .lpLeaderHoldings {
-  position: relative;
-  display: block;
+  display: grid;
+  grid-template-columns: repeat(2, 36px);
+  grid-template-rows: repeat(2, 36px);
+  gap: 4px;
   width: 76px;
   height: 76px;
   justify-self: end;
   flex-shrink: 0;
 }
 
-.lpLeaderHolding,
-.lpLeaderHolding--span {
+.lpLeaderHoldings--single {
+  grid-template-columns: 76px;
+  grid-template-rows: 76px;
+}
+
+.lpLeaderHolding {
   display: inline-flex;
-  width: 76px;
-  height: 76px;
-  border-radius: 18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 18px;
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: -0.02em;
   color: rgba(255, 255, 255, 0.55);
+}
+
+.lpLeaderHolding--span {
+  width: 76px;
+  height: 76px;
+  border-radius: 18px;
+  font-size: 18px;
+}
+
+.lpLeaderHolding--empty {
+  border-color: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .lpLeaderHolding img {
@@ -1439,23 +1457,20 @@
   object-fit: cover;
 }
 
-.lpLeaderHoldingBadge {
-  position: absolute;
-  right: -6px;
-  bottom: -6px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 5px;
-  border-radius: 11px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(18, 18, 20, 0.96);
-  color: rgba(255, 255, 255, 0.82);
+.lpLeaderHolding--more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 2px;
   font-family: var(--lp-mono);
   font-size: 11px;
   font-weight: 700;
-  line-height: 20px;
-  text-align: center;
+  line-height: 1;
+  letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 @media (max-width: 699px) {
@@ -1466,11 +1481,24 @@
   }
 
   .lpLeaderHoldings {
+    grid-template-columns: repeat(2, 30px);
+    grid-template-rows: repeat(2, 30px);
     width: 64px;
     height: 64px;
   }
 
-  .lpLeaderHolding,
+  .lpLeaderHoldings--single {
+    grid-template-columns: 64px;
+    grid-template-rows: 64px;
+  }
+
+  .lpLeaderHolding {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 8px;
+  }
+
   .lpLeaderHolding--span {
     width: 64px;
     height: 64px;
@@ -1478,14 +1506,7 @@
     font-size: 16px;
   }
 
-  .lpLeaderHoldingBadge {
-    min-width: 20px;
-    height: 20px;
-    line-height: 18px;
-    font-size: 10px;
-    right: -5px;
-    bottom: -5px;
-  }
+  .lpLeaderHolding--more { font-size: 10px; }
 }
 
 .lpHowFrame .mktHeroShot {

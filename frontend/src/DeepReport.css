@@ -2871,10 +2871,12 @@ button.drpt-docRow {
 .drpt-tradeDayHead:hover .drpt-tradeTitle,
 .drpt-tradeDayHead:focus-visible .drpt-tradeTitle { color: #fff; }
 .drpt-tradeDayHead:focus-visible { outline: 1px solid rgba(255, 255, 255, 0.65); outline-offset: 2px; }
-/* Trade-day chip matches dossier holding logos (76px). */
+/* Trade-day mosaic / single chip matches dossier holding logos (76px). */
 .drpt-tradeDayHead .exploreTapeHoldings {
-  position: relative;
-  display: block;
+  display: grid;
+  grid-template-columns: repeat(2, 36px);
+  grid-template-rows: repeat(2, 36px);
+  gap: 4px;
   width: 76px;
   height: 76px;
   justify-self: start;
@@ -2882,28 +2884,22 @@ button.drpt-docRow {
 .drpt-tradeDayHead .exploreTapeHoldings--empty {
   visibility: hidden;
 }
-.drpt-tradeDayHead .exploreTapeHolding,
+.drpt-tradeDayHead .exploreTapeHoldings--single {
+  grid-template-columns: 76px;
+  grid-template-rows: 76px;
+}
+.drpt-tradeDayHead .exploreTapeHolding {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
 .drpt-tradeDayHead .exploreTapeHolding--span {
   width: 76px;
   height: 76px;
   border-radius: 18px;
 }
-.drpt-tradeDayHead .exploreTapeHoldingBadge {
-  position: absolute;
-  right: -6px;
-  bottom: -6px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 5px;
-  border-radius: 11px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(18, 18, 20, 0.96);
-  color: rgba(255, 255, 255, 0.82);
+.drpt-tradeDayHead .exploreTapeHolding--more {
   font-size: 11px;
-  font-weight: 700;
-  line-height: 20px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
 }
 .drpt-tradeDayCopy {
   min-width: 0;
@@ -2961,23 +2957,26 @@ button.drpt-docRow {
     min-height: 104px;
   }
   .drpt-tradeDayHead .exploreTapeHoldings {
+    grid-template-columns: repeat(2, 32px);
+    grid-template-rows: repeat(2, 32px);
     width: 68px;
     height: 68px;
   }
-  .drpt-tradeDayHead .exploreTapeHolding,
+  .drpt-tradeDayHead .exploreTapeHoldings--single {
+    grid-template-columns: 68px;
+    grid-template-rows: 68px;
+  }
+  .drpt-tradeDayHead .exploreTapeHolding {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
   .drpt-tradeDayHead .exploreTapeHolding--span {
     width: 68px;
     height: 68px;
     border-radius: 16px;
   }
-  .drpt-tradeDayHead .exploreTapeHoldingBadge {
-    min-width: 20px;
-    height: 20px;
-    line-height: 18px;
-    font-size: 10px;
-    right: -5px;
-    bottom: -5px;
-  }
+  .drpt-tradeDayHead .exploreTapeHolding--more { font-size: 10px; }
   .drpt-tradeTitle { font-size: 15px; }
   .drpt-dossier .drpt-holdingBtn {
     grid-template-columns: 68px minmax(0, 1fr) auto;

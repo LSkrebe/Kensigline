@@ -2874,8 +2874,10 @@
   color: rgba(255, 255, 255, 0.42);
 }
 .exploreTapeHoldings {
-  position: relative;
-  display: block;
+  display: grid;
+  grid-template-columns: repeat(2, 36px);
+  grid-template-rows: repeat(2, 36px);
+  gap: 4px;
   width: 76px;
   height: 76px;
   justify-self: end;
@@ -2884,21 +2886,34 @@
 .exploreTapeHoldings--empty {
   visibility: hidden;
 }
-.exploreTapeHolding,
-.exploreTapeHolding--span {
+.exploreTapeHoldings--single {
+  grid-template-columns: 76px;
+  grid-template-rows: 76px;
+}
+.exploreTapeHolding {
   display: inline-flex;
-  width: 76px;
-  height: 76px;
-  border-radius: 18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   align-items: stretch;
   justify-content: stretch;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 18px;
+  font-size: 9px;
   font-weight: 600;
   letter-spacing: -0.02em;
   color: rgba(255, 255, 255, 0.55);
+}
+.exploreTapeHolding--span {
+  width: 76px;
+  height: 76px;
+  border-radius: 18px;
+  font-size: 18px;
+}
+.exploreTapeHolding--empty {
+  border-color: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.04);
 }
 .exploreTapeHolding img {
   display: block;
@@ -2907,22 +2922,18 @@
   object-fit: cover;
   object-position: center;
 }
-.exploreTapeHoldingBadge {
-  position: absolute;
-  right: -6px;
-  bottom: -6px;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 5px;
-  border-radius: 11px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(18, 18, 20, 0.96);
-  color: rgba(255, 255, 255, 0.82);
+.exploreTapeHolding--more {
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 2px;
   font-size: 11px;
   font-weight: 700;
-  line-height: 20px;
-  text-align: center;
+  line-height: 1;
+  letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.05);
 }
 .exploreTapeChevron {
   justify-self: end;
@@ -3002,24 +3013,28 @@
   .exploreTapeRowBtn { grid-template-columns: 28px 68px minmax(0, 1fr) 16px; gap: 14px; padding: 18px 0; }
   .exploreTapeRowBtn--event { grid-template-columns: 28px 68px minmax(0, 1fr) 68px 16px; }
   .exploreTapeHoldings {
+    grid-template-columns: repeat(2, 32px);
+    grid-template-rows: repeat(2, 32px);
     width: 68px;
     height: 68px;
   }
-  .exploreTapeHolding,
+  .exploreTapeHoldings--single {
+    grid-template-columns: 68px;
+    grid-template-rows: 68px;
+  }
+  .exploreTapeHolding {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    font-size: 8px;
+  }
   .exploreTapeHolding--span {
     width: 68px;
     height: 68px;
     border-radius: 16px;
     font-size: 16px;
   }
-  .exploreTapeHoldingBadge {
-    min-width: 20px;
-    height: 20px;
-    line-height: 18px;
-    font-size: 10px;
-    right: -5px;
-    bottom: -5px;
-  }
+  .exploreTapeHolding--more { font-size: 10px; }
   .exploreTapeAvatar, .exploreTapeAvatar .explorePersonPortrait { width: 68px; height: 68px; border-radius: 16px; }
   .exploreTapeAvatar .explorePersonPortrait img { border-radius: 16px; }
   .exploreTapeName { font-size: 17px; }
