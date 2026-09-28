@@ -338,6 +338,7 @@
   background: var(--lp-surface);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
   overflow: hidden;
+  pointer-events: auto;
 }
 
 .lpHeroShotFrame::before {
@@ -1392,8 +1393,13 @@
   }
 }
 
-/* Leaders - wider tape + holdings mosaic */
+/* Leaders - wider tape + holdings mosaic (match Explore tape logo footprint) */
 .lpLeadersTape {
+  --row-logo: 76px;
+  --row-logo-radius: 18px;
+  --row-logo-gap: 4px;
+  --row-logo-cell: calc((var(--row-logo) - var(--row-logo-gap)) / 2);
+  --row-logo-cell-radius: 10px;
   max-width: 920px;
   margin: 0 auto;
 }
@@ -1403,16 +1409,38 @@
 }
 
 .lpLeadersTape .lpLeaderRowBtn {
-  grid-template-columns: 28px var(--row-logo, 76px) minmax(0, 1fr) var(--row-logo, 76px);
+  grid-template-columns: 28px var(--row-logo) minmax(0, 1fr) var(--row-logo);
   gap: 18px;
 }
 
+/* Force square rounded portraits — ExplorePage portrait defaults are tall rectangles. */
+.lpLeadersTape .exploreTapeAvatar,
+.lpLeadersTape .exploreTapeAvatar .explorePersonPortrait {
+  width: var(--row-logo);
+  height: var(--row-logo);
+  border-radius: var(--row-logo-radius);
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.lpLeadersTape .exploreTapeAvatar .explorePersonPortrait {
+  border: 0;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.lpLeadersTape .exploreTapeAvatar .explorePersonPortrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 22%;
+  border-radius: var(--row-logo-radius);
+}
+
+.lpLeadersTape .exploreTapeAvatar.isLogo .explorePersonPortrait img {
+  object-position: center;
+}
+
 .lpLeaderHoldings {
-  --row-logo: 76px;
-  --row-logo-radius: 18px;
-  --row-logo-gap: 4px;
-  --row-logo-cell: calc((var(--row-logo) - var(--row-logo-gap)) / 2);
-  --row-logo-cell-radius: 10px;
   box-sizing: border-box;
   display: grid;
   grid-template-columns: repeat(2, var(--row-logo-cell));
@@ -1486,16 +1514,16 @@
 }
 
 @media (max-width: 699px) {
-  .lpLeadersTape .lpLeaderRowBtn {
-    grid-template-columns: 24px 64px minmax(0, 1fr) 64px;
-    gap: 12px;
-    padding: 16px 0;
-  }
-
-  .lpLeaderHoldings {
+  .lpLeadersTape {
     --row-logo: 64px;
     --row-logo-radius: 16px;
     --row-logo-cell-radius: 8px;
+  }
+
+  .lpLeadersTape .lpLeaderRowBtn {
+    grid-template-columns: 24px var(--row-logo) minmax(0, 1fr) var(--row-logo);
+    gap: 12px;
+    padding: 16px 0;
   }
 
   .lpLeaderHolding--more { font-size: 10px; }
