@@ -2658,6 +2658,45 @@ button.drpt-docRow {
 .drpt-dossier .drpt-stat + .drpt-stat { padding-left: 20px; }
 .drpt-dossier .drpt-statLabel { font-size: 14px; }
 .drpt-dossier .drpt-statValue { margin-top: 10px; font-size: 36px; }
+@media (max-width: 640px) {
+  .drpt-dossier .drpt-statStrip {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'aum aum'
+      'delay positions';
+  }
+  .drpt-dossier .drpt-stat[data-stat='aum'] { grid-area: aum; }
+  .drpt-dossier .drpt-stat[data-stat='delay'] { grid-area: delay; }
+  .drpt-dossier .drpt-stat[data-stat='positions'] { grid-area: positions; }
+  .drpt-dossier .drpt-stat {
+    padding: 18px 0;
+    text-align: left;
+  }
+  .drpt-dossier .drpt-stat + .drpt-stat {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .drpt-dossier .drpt-stat[data-stat='aum'] {
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .drpt-dossier .drpt-stat[data-stat='delay'] {
+    padding-right: 14px;
+    padding-top: 16px;
+  }
+  .drpt-dossier .drpt-stat[data-stat='positions'] {
+    padding-left: 14px;
+    padding-top: 16px;
+    border-left: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .drpt-dossier .drpt-statValue {
+    margin-top: 6px;
+    font-size: 28px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+}
 .drpt-dossier .drpt-section { margin-top: 42px; padding-top: 0; border-top: 0; }
 .drpt-dossier .drpt-sectionTitle { font-family: var(--drpt-sans); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; }
 @media (min-width: 900px) {
@@ -2908,6 +2947,24 @@ button.drpt-docRow {
   margin: 0 0 12px;
   padding: 0 0 8px;
 }
+/* Expanded filing rows match collapsed mosaic cell size — not full holding logos. */
+.drpt-tradeDayBody .drpt-holdingBtn {
+  position: relative;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 12px;
+  min-height: 0;
+  padding: 12px 0;
+}
+.drpt-tradeDayBody .drpt-holdingLogo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+.drpt-tradeDayBody .drpt-holdingName > .drpt-holdingTicker,
+.drpt-dossier .drpt-tradeDayBody .drpt-holdingName > .drpt-holdingTicker {
+  font-size: 15px;
+  letter-spacing: -0.02em;
+}
 @media (max-width: 640px) {
   .drpt-tradeDayHead {
     grid-template-columns: 68px minmax(0, 1fr) 16px;
@@ -2940,12 +2997,33 @@ button.drpt-docRow {
   }
   .drpt-tradeDayHead .exploreTapeHolding--more { font-size: 10px; }
   .drpt-tradeTitle { font-size: 15px; }
+  .drpt-tradeDayBody .drpt-holdingBtn {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px 0;
+  }
+  .drpt-tradeDayBody .drpt-holdingLogo {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
   .drpt-dossier .drpt-holdingBtn {
     grid-template-columns: 68px minmax(0, 1fr) auto;
     min-height: 104px;
     padding: 18px 0;
   }
   .drpt-dossier .drpt-holdingLogo { width: 68px; height: 68px; border-radius: 16px; }
+  /* Keep expanded trade-day logos at mosaic size even under dossier overrides. */
+  .drpt-dossier .drpt-tradeDayBody .drpt-holdingBtn {
+    grid-template-columns: 32px minmax(0, 1fr) auto;
+    min-height: 0;
+    padding: 10px 0;
+  }
+  .drpt-dossier .drpt-tradeDayBody .drpt-holdingLogo {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
 }
 .drpt-holdingSub {
   display: flex;
@@ -3175,21 +3253,113 @@ button.drpt-docRow {
   object-position: center;
 }
 .drpt-holdingBtn {
+  position: relative;
+  display: grid;
   grid-template-columns: 36px minmax(0, 1fr) auto;
   gap: 12px;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 .drpt-holdingLogo { width: 36px; height: 36px; border-radius: 10px; }
 .drpt-dossier .drpt-tradeBtn,
 .drpt-dossier .drpt-holdingBtn {
   min-height: 116px;
   padding: 20px 0;
-  border-bottom-color: rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 .drpt-dossier .drpt-holdingBtn {
   grid-template-columns: 76px minmax(0, 1fr) auto;
   gap: 16px;
 }
 .drpt-dossier .drpt-holdingLogo { width: 76px; height: 76px; border-radius: 18px; }
+.drpt-dossier .drpt-tradeDayBody .drpt-holdingBtn {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 12px;
+  min-height: 0;
+  padding: 12px 0;
+}
+.drpt-dossier .drpt-tradeDayBody .drpt-holdingLogo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.drpt-companyPeek {
+  position: fixed;
+  z-index: 40;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0;
+  background: rgba(10, 10, 12, 0.96);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+}
+.drpt-companyPeekHead {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+.drpt-companyPeekLogo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.drpt-companyPeekLogo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.drpt-companyPeekCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.drpt-companyPeekTicker {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.drpt-companyPeekName {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.drpt-companyPeekDetail {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.drpt-companyPeekDaily {
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+.drpt-companyPeekDaily.isUp { color: #3dd68c; }
+.drpt-companyPeekDaily.isDown { color: #f0958c; }
+.drpt-companyPeekDaily.isFlat { color: rgba(255, 255, 255, 0.55); }
+.drpt-companyPeekChart {
+  margin-top: 10px;
+  height: 78px;
+}
+.drpt-companyPeekEmpty {
+  margin: 18px 0 0;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 12px;
+}
 .drpt-holdingName {
   display: flex;
   flex-direction: column;

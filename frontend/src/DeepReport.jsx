@@ -13,7 +13,7 @@ import {
 } from './deepOutcomes.js'
 import { DeepCompactChrome } from './DeepCompactChrome.jsx'
 import { formatCountLabel } from './formatCountLabel.js'
-import { PRICE_RANGE_OPTS, priceRangeLabel, availablePriceRangesFromTimestamps, coercePriceRangeFromOptions } from './MiniPriceChart.jsx'
+import { PRICE_RANGE_OPTS, priceRangeLabel, availablePriceRangesFromTimestamps, coercePriceRangeFromOptions, MiniPriceChart } from './MiniPriceChart.jsx'
 import {
   normalizeResearchPaperSourceKey,
   RESEARCH_PAPER_SOURCE_CATALOG,
@@ -998,6 +998,9 @@ function DeepTrackRecordChart({ points = [] }) {
   const [size, setSize] = useState(null)
   const [hoverIdx, setHoverIdx] = useState(null)
   const [hoverPos, setHoverPos] = useState(null)
+  const [pinned, setPinned] = useState(false)
+  const pinnedRef = useRef(false)
+  pinnedRef.current = pinned
 
   const vals = useMemo(() => points.map((p) => p.cumulative), [points])
 
@@ -1024,6 +1027,18 @@ function DeepTrackRecordChart({ points = [] }) {
       window.removeEventListener('resize', measure)
     }
   }, [])
+
+  useEffect(() => {
+    if (!pinned) return undefined
+    const onDoc = (event) => {
+      if (wrapRef.current?.contains(event.target)) return
+      setPinned(false)
+      setHoverIdx(null)
+      setHoverPos(null)
+    }
+    document.addEventListener('pointerdown', onDoc, true)
+    return () => document.removeEventListener('pointerdown', onDoc, true)
+  }, [pinned])
 
   const w = size?.w ?? 0
   const h = size?.h ?? 0
@@ -1083,6 +1098,7 @@ function DeepTrackRecordChart({ points = [] }) {
   }
 
   function clearHover() {
+    if (pinnedRef.current) return
     setHoverIdx(null)
     setHoverPos(null)
   }
@@ -1103,6 +1119,14 @@ function DeepTrackRecordChart({ points = [] }) {
       aria-label="Daily disclosed-stock percentage index"
       onPointerMove={hoverEnabled ? (e) => updateHoverFromClient(e.clientX, e.clientY) : undefined}
       onPointerLeave={hoverEnabled ? clearHover : undefined}
+      onPointerDown={
+        hoverEnabled
+          ? (e) => {
+              updateHoverFromClient(e.clientX, e.clientY)
+              setPinned(true)
+            }
+          : undefined
+      }
     >
       {size ? (
         <svg
@@ -1496,7 +1520,7 @@ function DeepActorMetrics({ activity, loading = false }) {
   return (
     <div className="drpt-statStrip">
       {cards.map((card) => (
-        <div className="drpt-stat" key={card.key}>
+        <div className="drpt-stat" data-stat={card.key} key={card.key}>
           <span className="drpt-statLabel">{card.label}</span>
           <span className="drpt-statValue">{card.value}</span>
         </div>
@@ -1593,6 +1617,253 @@ function filingSublabel(changes) {
   return `${n} ${n === 1 ? 'change' : 'changes'}`
 }
 
+const holdingBarsCache = new Map()
+const holdingBarsQueue = []
+let holdingBarsActive = 0
+function pumpHoldingBars() {
+  while (holdingBarsActive < 3 && holdingBarsQueue.length) {
+    holdingBarsActive += 1
+    const work = holdingBarsQueue.shift()
+    work().finally(() => {
+      holdingBarsActive -= 1
+      pumpHoldingBars()
+    })
+  }
+}
+function fetchHoldingBars(ticker, days = 5) {
+  const key = `${String(ticker ?? '').trim().toUpperCase()}|${days}`
+  if (!String(ticker ?? '').trim()) return Promise.resolve([])
+  const cached = holdingBarsCache.get(key)
+  if (cached && Date.now() - cached.at < 120_000) return cached.promise
+  const promise = new Promise((resolve) => {
+    holdingBarsQueue.push(async () => {
+      try {
+        const r = await fetchJsonSafe(
+          `/api/bars?ticker=${encodeURIComponent(String(ticker).trim().toUpperCase())}&days=${days}`,
+          { timeoutMs: 12_000 },
+        )
+        const items = r.ok ? (r.data?.items ?? []) : []
+        resolve(
+          items
+            .map((b) => ({
+              close: Number(b.close),
+              day: String(b.day ?? b.date ?? b.ts ?? '').slice(0, 10),
+            }))
+            .filter((row) => Number.isFinite(row.close) && row.close > 0),
+        )
+      } catch {
+        resolve([])
+      }
+    })
+    pumpHoldingBars()
+  })
+  holdingBarsCache.set(key, { at: Date.now(), promise })
+  return promise
+}
+function fetchHoldingCloses(ticker) {
+  return fetchHoldingBars(ticker, 5).then((rows) => rows.map((row) => row.close))
+}
+
+function useCompanyPeekController() {
+  const [peek, setPeek] = useState(null)
+  const peekRef = useRef(null)
+  const leaveTimer = useRef(null)
+  peekRef.current = peek
+
+  const cancelLeave = useCallback(() => {
+    window.clearTimeout(leaveTimer.current)
+  }, [])
+
+  const close = useCallback(() => {
+    cancelLeave()
+    setPeek(null)
+  }, [cancelLeave])
+
+  const openHover = useCallback((next) => {
+    cancelLeave()
+    setPeek((prev) => {
+      if (prev?.pinned && prev.key !== next.key) return prev
+      if (prev?.pinned && prev.key === next.key) return prev
+      return { ...next, pinned: false }
+    })
+  }, [cancelLeave])
+
+  const leaveHover = useCallback((key) => {
+    cancelLeave()
+    leaveTimer.current = window.setTimeout(() => {
+      setPeek((prev) => {
+        if (!prev || prev.key !== key) return prev
+        if (prev.pinned) return prev
+        return null
+      })
+    }, 140)
+  }, [cancelLeave])
+
+  const togglePin = useCallback((next) => {
+    cancelLeave()
+    setPeek((prev) => {
+      if (prev?.pinned && prev.key === next.key) return null
+      return { ...next, pinned: true }
+    })
+  }, [cancelLeave])
+
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), [])
+
+  useEffect(() => {
+    if (!peek?.pinned) return undefined
+    const onDoc = (event) => {
+      const node = peekRef.current?.anchor
+      if (node?.contains?.(event.target)) return
+      if (event.target?.closest?.('.drpt-companyPeek')) return
+      setPeek(null)
+    }
+    document.addEventListener('pointerdown', onDoc, true)
+    return () => document.removeEventListener('pointerdown', onDoc, true)
+  }, [peek?.pinned, peek?.key])
+
+  return { peek, openHover, leaveHover, togglePin, close, cancelLeave }
+}
+
+function DeepCompanyPeek({ peek, onPointerEnter = null, onPointerLeave = null }) {
+  const ticker = String(peek?.ticker ?? '').trim().toUpperCase()
+  const [bars, setBars] = useState([])
+  const [pos, setPos] = useState(null)
+  useEffect(() => {
+    let alive = true
+    if (!ticker) {
+      setBars([])
+      return undefined
+    }
+    void fetchHoldingBars(ticker, 180).then((rows) => {
+      if (alive) setBars(rows)
+    })
+    return () => {
+      alive = false
+    }
+  }, [ticker])
+
+  useLayoutEffect(() => {
+    const anchor = peek?.anchor
+    if (!anchor || typeof anchor.getBoundingClientRect !== 'function') {
+      setPos(null)
+      return undefined
+    }
+    const place = () => {
+      const rect = anchor.getBoundingClientRect()
+      const width = Math.min(280, Math.max(200, window.innerWidth - 24))
+      let left = rect.left
+      if (left + width > window.innerWidth - 12) left = Math.max(12, window.innerWidth - width - 12)
+      if (left < 12) left = 12
+      const estimatedH = 180
+      const preferAbove = rect.top >= estimatedH + 16
+      const top = preferAbove ? Math.max(12, rect.top - estimatedH - 8) : Math.min(window.innerHeight - estimatedH - 12, rect.bottom + 8)
+      setPos({ top, left, width })
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
+  }, [peek?.anchor, peek?.key, ticker])
+
+  if (!peek || !ticker || !pos) return null
+  const series = bars.map((row) => row.close)
+  const seriesDays = bars.map((row) => row.day)
+  const daily = formatDailyCloseReturn(series)
+
+  return (
+    <div
+      className="drpt-companyPeek"
+      role="dialog"
+      aria-label={`${ticker} preview`}
+      style={{ top: pos.top, left: pos.left, width: pos.width }}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+    >
+      <div className="drpt-companyPeekHead">
+        <ImageOrInitials
+          className="drpt-companyPeekLogo"
+          src={companyLogoSrc(ticker)}
+          fallbackSrc={companyLogoFallback(ticker)}
+          name={ticker}
+          logo
+          discover={false}
+        />
+        <div className="drpt-companyPeekCopy">
+          <span className="drpt-companyPeekTicker">{ticker}</span>
+          <span className="drpt-companyPeekName">{peek.name || ticker}</span>
+        </div>
+        {peek.detail ? <span className="drpt-companyPeekDetail">{peek.detail}</span> : null}
+      </div>
+      {daily ? (
+        <p className={`drpt-companyPeekDaily ${daily.tone}`}>{daily.text} today</p>
+      ) : null}
+      <div className="drpt-companyPeekChart">
+        {series.length >= 2 ? (
+          <MiniPriceChart
+            series={series}
+            seriesDays={seriesDays}
+            showMeta={false}
+            hideAxisLabels
+            lineOnly
+            flushEdges
+            layoutSize={{ w: Math.max(160, pos.width - 24), h: 78 }}
+            chartRange="6M"
+          />
+        ) : (
+          <p className="drpt-companyPeekEmpty">No price series</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function DeepCompanyPeekRow({
+  peekKey,
+  ticker,
+  name,
+  detail = null,
+  peek,
+  openHover,
+  leaveHover,
+  togglePin,
+  className = 'drpt-holdingBtn',
+  children,
+}) {
+  const rowRef = useRef(null)
+  const active = peek?.key === peekKey
+  const payload = {
+    key: peekKey,
+    ticker,
+    name,
+    detail,
+    anchor: null,
+  }
+  return (
+    <div
+      ref={rowRef}
+      className={`${className}${active ? ' isPeekOpen' : ''}`}
+      onPointerEnter={(event) => {
+        if (event.pointerType === 'touch') return
+        openHover({ ...payload, anchor: rowRef.current })
+      }}
+      onPointerLeave={(event) => {
+        if (event.pointerType === 'touch') return
+        leaveHover(peekKey)
+      }}
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        togglePin({ ...payload, anchor: rowRef.current })
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
 function TradeDayLogos({ tickers = [] }) {
   const unique = [...new Set(tickers.map((t) => String(t).trim().toUpperCase()).filter(Boolean))]
   if (!unique.length) return <span className="exploreTapeHoldings exploreTapeHoldings--empty" aria-hidden="true" />
@@ -1635,10 +1906,17 @@ function TradeDayLogos({ tickers = [] }) {
   )
 }
 
-function DeepTradeLog({ rows = [], loading = false, name = '', expanded = false }) {
+function DeepTradeLog({
+  rows = [],
+  loading = false,
+  name = '',
+  peek = null,
+  openHover = null,
+  leaveHover = null,
+  togglePin = null,
+}) {
   const activity = useMemo(() => buildDossierActivity(rows), [rows])
   const filings = activity?.filings ?? []
-  const visible = expanded ? filings : filings.slice(0, 8)
   const [openKeys, setOpenKeys] = useState(() => new Set())
   useEffect(() => {
     setOpenKeys(new Set())
@@ -1647,7 +1925,7 @@ function DeepTradeLog({ rows = [], loading = false, name = '', expanded = false 
   if (!filings.length) return <EmptyList label="No trades yet" />
   return (
     <ol className="drpt-tradeList drpt-tradeList--days">
-      {visible.map((filing) => {
+      {filings.map((filing) => {
         const changes = filing.changes ?? []
         const tickers = changes.map((change) => change.ticker)
         const open = openKeys.has(filing.key)
@@ -1678,27 +1956,38 @@ function DeepTradeLog({ rows = [], loading = false, name = '', expanded = false 
             </button>
             {open ? (
               <ol className="drpt-holdingList drpt-tradeDayBody">
-                {changes.map((change) => (
-                  <li key={`${filing.key}-${change.ticker}`}>
-                    <div className="drpt-holdingBtn">
-                      <ImageOrInitials
-                        className="drpt-holdingLogo"
-                        src={companyLogoSrc(change.ticker)}
-                        fallbackSrc={companyLogoFallback(change.ticker)}
-                        name={change.ticker}
-                        logo
-                        discover={false}
-                      />
-                      <span className="drpt-holdingName">
-                        <span className="drpt-holdingTicker">{change.ticker}</span>
-                        <span className="drpt-holdingCompany">{change.fullName || change.name}</span>
-                      </span>
-                      <span className="drpt-holdingAction">
-                        {`${formatWeight(change.from)} → ${formatWeight(change.to)}`}
-                      </span>
-                    </div>
-                  </li>
-                ))}
+                {changes.map((change) => {
+                  const peekKey = `trade:${filing.key}:${change.ticker}`
+                  const detail = `${formatWeight(change.from)} → ${formatWeight(change.to)}`
+                  return (
+                    <li key={peekKey}>
+                      <DeepCompanyPeekRow
+                        peekKey={peekKey}
+                        ticker={change.ticker}
+                        name={change.fullName || change.name}
+                        detail={detail}
+                        peek={peek}
+                        openHover={openHover}
+                        leaveHover={leaveHover}
+                        togglePin={togglePin}
+                      >
+                        <ImageOrInitials
+                          className="drpt-holdingLogo"
+                          src={companyLogoSrc(change.ticker)}
+                          fallbackSrc={companyLogoFallback(change.ticker)}
+                          name={change.ticker}
+                          logo
+                          discover={false}
+                        />
+                        <span className="drpt-holdingName">
+                          <span className="drpt-holdingTicker">{change.ticker}</span>
+                          <span className="drpt-holdingCompany">{change.fullName || change.name}</span>
+                        </span>
+                        <span className="drpt-holdingAction">{detail}</span>
+                      </DeepCompanyPeekRow>
+                    </li>
+                  )
+                })}
               </ol>
             ) : null}
           </li>
@@ -1721,48 +2010,18 @@ function formatDailyCloseReturn(closes) {
   return { text: '0.0%', tone: 'isFlat' }
 }
 
-const holdingBarsCache = new Map()
-const holdingBarsQueue = []
-let holdingBarsActive = 0
-function pumpHoldingBars() {
-  while (holdingBarsActive < 3 && holdingBarsQueue.length) {
-    holdingBarsActive += 1
-    const work = holdingBarsQueue.shift()
-    work().finally(() => {
-      holdingBarsActive -= 1
-      pumpHoldingBars()
-    })
-  }
-}
-function fetchHoldingCloses(ticker) {
-  const key = String(ticker ?? '').trim().toUpperCase()
-  if (!key) return Promise.resolve([])
-  const cached = holdingBarsCache.get(key)
-  if (cached && Date.now() - cached.at < 120_000) return cached.promise
-  const promise = new Promise((resolve) => {
-    holdingBarsQueue.push(async () => {
-      try {
-        const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(key)}&days=5`, { timeoutMs: 12_000 })
-        resolve(r.ok ? (r.data?.items ?? []).map((b) => Number(b.close)).filter((v) => Number.isFinite(v) && v > 0) : [])
-      } catch {
-        resolve([])
-      }
-    })
-    pumpHoldingBars()
-  })
-  holdingBarsCache.set(key, { at: Date.now(), promise })
-  return promise
-}
-
-function DeepHoldings({ rows = [], loading = false, expanded = false }) {
+function DeepHoldings({
+  rows = [],
+  loading = false,
+  peek = null,
+  openHover = null,
+  leaveHover = null,
+  togglePin = null,
+}) {
   const holdings = useMemo(() => buildDossierActivity(rows)?.holdings ?? [], [rows])
-  const visible = useMemo(
-    () => (expanded ? holdings : holdings.slice(0, 12)),
-    [holdings, expanded],
-  )
   const visibleTickersKey = useMemo(
-    () => visible.map((row) => String(row.ticker ?? '').trim().toUpperCase()).filter(Boolean).join(','),
-    [visible],
+    () => holdings.map((row) => String(row.ticker ?? '').trim().toUpperCase()).filter(Boolean).join(','),
+    [holdings],
   )
   const [dailyByTicker, setDailyByTicker] = useState({})
   useEffect(() => {
@@ -1788,35 +2047,45 @@ function DeepHoldings({ rows = [], loading = false, expanded = false }) {
   if (loading && !holdings.length) return <SkeletonList count={3} />
   if (!holdings.length) return <EmptyList label="No holdings yet" />
   return (
-    <>
-      <ol className="drpt-holdingList">
-        {visible.map((holding) => {
-          const daily = dailyByTicker[String(holding.ticker).toUpperCase()]
-          return (
-            <li key={holding.ticker}>
-              <div className="drpt-holdingBtn">
-                <ImageOrInitials
-                  className="drpt-holdingLogo"
-                  src={companyLogoSrc(holding.ticker)}
-                  fallbackSrc={companyLogoFallback(holding.ticker)}
-                  name={holding.ticker}
-                  logo
-                  discover={false}
-                />
-                <span className="drpt-holdingName">
-                  {daily ? (
-                    <span className={`exploreTapeReturn drpt-holdingDaily ${daily.tone}`}>{daily.text}</span>
-                  ) : null}
-                  <span className="drpt-holdingTicker">{holding.ticker}</span>
-                  <span className="drpt-holdingCompany">{holding.name}</span>
-                </span>
-                <span className="drpt-holdingAction">{holding.pct}%</span>
-              </div>
-            </li>
-          )
-        })}
-      </ol>
-    </>
+    <ol className="drpt-holdingList">
+      {holdings.map((holding) => {
+        const ticker = String(holding.ticker).toUpperCase()
+        const daily = dailyByTicker[ticker]
+        const peekKey = `holding:${ticker}`
+        const detail = `${holding.pct}%`
+        return (
+          <li key={ticker}>
+            <DeepCompanyPeekRow
+              peekKey={peekKey}
+              ticker={ticker}
+              name={holding.name}
+              detail={detail}
+              peek={peek}
+              openHover={openHover}
+              leaveHover={leaveHover}
+              togglePin={togglePin}
+            >
+              <ImageOrInitials
+                className="drpt-holdingLogo"
+                src={companyLogoSrc(ticker)}
+                fallbackSrc={companyLogoFallback(ticker)}
+                name={ticker}
+                logo
+                discover={false}
+              />
+              <span className="drpt-holdingName">
+                {daily ? (
+                  <span className={`exploreTapeReturn drpt-holdingDaily ${daily.tone}`}>{daily.text}</span>
+                ) : null}
+                <span className="drpt-holdingTicker">{ticker}</span>
+                <span className="drpt-holdingCompany">{holding.name}</span>
+              </span>
+              <span className="drpt-holdingAction">{detail}</span>
+            </DeepCompanyPeekRow>
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 
@@ -1959,9 +2228,9 @@ export function DeepActorReport({
   investorSlug = null,
 }) {
   const [chartRange, setChartRange] = useState('6M')
-  const [listsOpen, setListsOpen] = useState(false)
   const [shareState, setShareState] = useState('idle')
   const shareTimer = useRef(null)
+  const { peek, openHover, leaveHover, togglePin, cancelLeave } = useCompanyPeekController()
   useEffect(() => () => window.clearTimeout(shareTimer.current), [])
   const catalogPerson = useMemo(
     () =>
@@ -2139,22 +2408,32 @@ export function DeepActorReport({
           <DeepActorMetrics activity={activity} loading={showSectionLoading} />
         </DeepSection>
         <DeepSection title="Current holdings">
-          <DeepHoldings rows={tradeRows} loading={showSectionLoading} expanded={listsOpen} />
+          <DeepHoldings
+            rows={tradeRows}
+            loading={showSectionLoading}
+            peek={peek}
+            openHover={openHover}
+            leaveHover={leaveHover}
+            togglePin={togglePin}
+          />
         </DeepSection>
         <DeepSection title="Recent trades">
           <DeepTradeLog
             rows={tradeRows}
             loading={showSectionLoading}
             name={name}
-            expanded={listsOpen}
+            peek={peek}
+            openHover={openHover}
+            leaveHover={leaveHover}
+            togglePin={togglePin}
           />
         </DeepSection>
-        {!listsOpen &&
-        ((activity?.filings?.length ?? 0) > 8 ||
-          (activity?.holdings?.length ?? 0) > 12) ? (
-          <div className="exploreTapeMoreWrap">
-            <button type="button" className="exploreTapeMore" onClick={() => setListsOpen(true)}>More</button>
-          </div>
+        {peek ? (
+          <DeepCompanyPeek
+            peek={peek}
+            onPointerEnter={cancelLeave}
+            onPointerLeave={() => leaveHover(peek.key)}
+          />
         ) : null}
         </div>
     </DeepReportShell>
