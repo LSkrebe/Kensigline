@@ -9,6 +9,12 @@
   --explore-story-spark-w: 108px;
   --explore-story-spark-h: 48px;
   --explore-story-move-w: 68px;
+  /* Same footprint as dossier holding logos / person avatars. */
+  --row-logo: 76px;
+  --row-logo-radius: 18px;
+  --row-logo-gap: 4px;
+  --row-logo-cell: calc((var(--row-logo) - var(--row-logo-gap)) / 2);
+  --row-logo-cell-radius: 10px;
   height: 100%;
   min-height: 0;
   display: flex;
@@ -2794,7 +2800,7 @@
 .exploreTapeRow { min-width: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
 .exploreTapeRowBtn {
   display: grid;
-  grid-template-columns: 28px 76px minmax(0, 1fr) 18px;
+  grid-template-columns: 28px var(--row-logo) minmax(0, 1fr) 18px;
   align-items: center;
   gap: 16px;
   width: 100%;
@@ -2808,7 +2814,7 @@
   cursor: pointer;
 }
 .exploreTapeRowBtn--event {
-  grid-template-columns: 28px 76px minmax(0, 1fr) 76px 18px;
+  grid-template-columns: 28px var(--row-logo) minmax(0, 1fr) var(--row-logo) 18px;
 }
 .exploreTapeRowBtn:hover .exploreTapeName,
 .exploreTapeRowBtn:focus-visible .exploreTapeName { color: #fff; }
@@ -2824,15 +2830,15 @@
   text-align: right;
   color: rgba(255, 255, 255, 0.38);
 }
-.exploreTapeAvatar { width: 76px; height: 76px; flex: 0 0 auto; }
+.exploreTapeAvatar { width: var(--row-logo); height: var(--row-logo); flex: 0 0 auto; }
 .exploreTapeAvatar .explorePersonPortrait {
-  width: 76px;
-  height: 76px;
-  border-radius: 18px;
+  width: var(--row-logo);
+  height: var(--row-logo);
+  border-radius: var(--row-logo-radius);
   border: 0;
   background: rgba(255, 255, 255, 0.06);
 }
-.exploreTapeAvatar .explorePersonPortrait img { object-position: center 22%; border-radius: 18px; }
+.exploreTapeAvatar .explorePersonPortrait img { object-position: center 22%; border-radius: var(--row-logo-radius); }
 .exploreTapeAvatar.isLogo .explorePersonPortrait {
   background: rgba(255, 255, 255, 0.06);
 }
@@ -2874,27 +2880,36 @@
   color: rgba(255, 255, 255, 0.42);
 }
 .exploreTapeHoldings {
+  box-sizing: border-box;
   display: grid;
-  grid-template-columns: repeat(2, 36px);
-  grid-template-rows: repeat(2, 36px);
-  gap: 4px;
-  width: 76px;
-  height: 76px;
+  grid-template-columns: repeat(2, var(--row-logo-cell));
+  grid-template-rows: repeat(2, var(--row-logo-cell));
+  gap: var(--row-logo-gap);
+  width: var(--row-logo);
+  height: var(--row-logo);
+  min-width: var(--row-logo);
+  min-height: var(--row-logo);
+  max-width: var(--row-logo);
+  max-height: var(--row-logo);
   justify-self: end;
   flex-shrink: 0;
+  overflow: hidden;
 }
 .exploreTapeHoldings--empty {
   visibility: hidden;
 }
 .exploreTapeHoldings--single {
-  grid-template-columns: 76px;
-  grid-template-rows: 76px;
+  grid-template-columns: var(--row-logo);
+  grid-template-rows: var(--row-logo);
 }
 .exploreTapeHolding {
+  box-sizing: border-box;
   display: inline-flex;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  border-radius: var(--row-logo-cell-radius);
   align-items: stretch;
   justify-content: stretch;
   overflow: hidden;
@@ -2906,14 +2921,12 @@
   color: rgba(255, 255, 255, 0.55);
 }
 .exploreTapeHolding--span {
-  width: 76px;
-  height: 76px;
-  border-radius: 18px;
+  border-radius: var(--row-logo-radius);
   font-size: 18px;
 }
 .exploreTapeHolding--empty {
-  border-color: rgba(255, 255, 255, 0.04);
-  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
 }
 .exploreTapeHolding img {
   display: block;
@@ -2933,7 +2946,7 @@
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.72);
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.08);
 }
 .exploreTapeChevron {
   justify-self: end;
@@ -3009,34 +3022,17 @@
   .exploreTapeRange { padding: 5px 6px; font-size: 10px; }
 }
 @media (max-width: 640px) {
+  .explorePage {
+    --row-logo: 68px;
+    --row-logo-radius: 16px;
+    --row-logo-cell-radius: 9px;
+  }
   .exploreTapeHead { gap: 8px; }
-  .exploreTapeRowBtn { grid-template-columns: 28px 68px minmax(0, 1fr) 16px; gap: 14px; padding: 18px 0; }
-  .exploreTapeRowBtn--event { grid-template-columns: 28px 68px minmax(0, 1fr) 68px 16px; }
-  .exploreTapeHoldings {
-    grid-template-columns: repeat(2, 32px);
-    grid-template-rows: repeat(2, 32px);
-    width: 68px;
-    height: 68px;
-  }
-  .exploreTapeHoldings--single {
-    grid-template-columns: 68px;
-    grid-template-rows: 68px;
-  }
-  .exploreTapeHolding {
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-    font-size: 8px;
-  }
-  .exploreTapeHolding--span {
-    width: 68px;
-    height: 68px;
-    border-radius: 16px;
-    font-size: 16px;
-  }
+  .exploreTapeRowBtn { grid-template-columns: 28px var(--row-logo) minmax(0, 1fr) 16px; gap: 14px; padding: 18px 0; }
+  .exploreTapeRowBtn--event { grid-template-columns: 28px var(--row-logo) minmax(0, 1fr) var(--row-logo) 16px; }
   .exploreTapeHolding--more { font-size: 10px; }
-  .exploreTapeAvatar, .exploreTapeAvatar .explorePersonPortrait { width: 68px; height: 68px; border-radius: 16px; }
-  .exploreTapeAvatar .explorePersonPortrait img { border-radius: 16px; }
+  .exploreTapeAvatar, .exploreTapeAvatar .explorePersonPortrait { width: var(--row-logo); height: var(--row-logo); border-radius: var(--row-logo-radius); }
+  .exploreTapeAvatar .explorePersonPortrait img { border-radius: var(--row-logo-radius); }
   .exploreTapeName { font-size: 17px; }
   .exploreTapeTitle { font-size: 20px; }
   .exploreTapeRange { padding: 5px 6px; font-size: 10px; }

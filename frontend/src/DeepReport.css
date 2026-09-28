@@ -1,4 +1,5 @@
 /* DEEP report — single scroll paper layout */
+/* logo-mosaic-v3: 2x2 footprint locked to --row-logo */
 
 .drpt,
 .exploreDirShell {
@@ -13,6 +14,12 @@
   --drpt-accent: rgba(168, 196, 255, 0.82);
   --drpt-up: #5cb88a;
   --drpt-down: #d4726a;
+  /* Shared row-logo footprint: holdings, trade mosaics, single chips. */
+  --row-logo: 76px;
+  --row-logo-radius: 18px;
+  --row-logo-gap: 4px;
+  --row-logo-cell: calc((var(--row-logo) - var(--row-logo-gap)) / 2);
+  --row-logo-cell-radius: 10px;
   --terminal-panel-bg-image: var(--ml-bg-expanded, url('/mercerline_background_1.png'));
   --drpt-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --drpt-mono: 'IBM Plex Mono', ui-monospace, monospace;
@@ -2854,7 +2861,7 @@ button.drpt-docRow {
 }
 .drpt-tradeDayHead {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) 18px;
+  grid-template-columns: var(--row-logo) minmax(0, 1fr) 18px;
   align-items: center;
   gap: 16px;
   width: 100%;
@@ -2871,32 +2878,39 @@ button.drpt-docRow {
 .drpt-tradeDayHead:hover .drpt-tradeTitle,
 .drpt-tradeDayHead:focus-visible .drpt-tradeTitle { color: #fff; }
 .drpt-tradeDayHead:focus-visible { outline: 1px solid rgba(255, 255, 255, 0.65); outline-offset: 2px; }
-/* Trade-day mosaic / single chip matches dossier holding logos (76px). */
+/* Trade-day 2×2 mosaic / single chip — same outer size as holding logos. */
 .drpt-tradeDayHead .exploreTapeHoldings {
+  box-sizing: border-box;
   display: grid;
-  grid-template-columns: repeat(2, 36px);
-  grid-template-rows: repeat(2, 36px);
-  gap: 4px;
-  width: 76px;
-  height: 76px;
+  grid-template-columns: repeat(2, var(--row-logo-cell));
+  grid-template-rows: repeat(2, var(--row-logo-cell));
+  gap: var(--row-logo-gap);
+  width: var(--row-logo);
+  height: var(--row-logo);
+  min-width: var(--row-logo);
+  min-height: var(--row-logo);
+  max-width: var(--row-logo);
+  max-height: var(--row-logo);
   justify-self: start;
+  overflow: hidden;
 }
 .drpt-tradeDayHead .exploreTapeHoldings--empty {
   visibility: hidden;
 }
 .drpt-tradeDayHead .exploreTapeHoldings--single {
-  grid-template-columns: 76px;
-  grid-template-rows: 76px;
+  grid-template-columns: var(--row-logo);
+  grid-template-rows: var(--row-logo);
 }
 .drpt-tradeDayHead .exploreTapeHolding {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  border-radius: var(--row-logo-cell-radius);
 }
 .drpt-tradeDayHead .exploreTapeHolding--span {
-  width: 76px;
-  height: 76px;
-  border-radius: 18px;
+  border-radius: var(--row-logo-radius);
 }
 .drpt-tradeDayHead .exploreTapeHolding--more {
   font-size: 11px;
@@ -2950,40 +2964,30 @@ button.drpt-docRow {
   padding: 0 0 8px;
 }
 @media (max-width: 640px) {
+  .drpt,
+  .exploreDirShell {
+    --row-logo: 68px;
+    --row-logo-radius: 16px;
+    --row-logo-cell-radius: 9px;
+  }
   .drpt-tradeDayHead {
-    grid-template-columns: 68px minmax(0, 1fr) 16px;
+    grid-template-columns: var(--row-logo) minmax(0, 1fr) 16px;
     gap: 14px;
     padding: 18px 0;
     min-height: 104px;
   }
-  .drpt-tradeDayHead .exploreTapeHoldings {
-    grid-template-columns: repeat(2, 32px);
-    grid-template-rows: repeat(2, 32px);
-    width: 68px;
-    height: 68px;
-  }
-  .drpt-tradeDayHead .exploreTapeHoldings--single {
-    grid-template-columns: 68px;
-    grid-template-rows: 68px;
-  }
-  .drpt-tradeDayHead .exploreTapeHolding {
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-  }
-  .drpt-tradeDayHead .exploreTapeHolding--span {
-    width: 68px;
-    height: 68px;
-    border-radius: 16px;
-  }
   .drpt-tradeDayHead .exploreTapeHolding--more { font-size: 10px; }
   .drpt-tradeTitle { font-size: 15px; }
   .drpt-dossier .drpt-holdingBtn {
-    grid-template-columns: 68px minmax(0, 1fr) auto;
+    grid-template-columns: var(--row-logo) minmax(0, 1fr) auto;
     min-height: 104px;
     padding: 18px 0;
   }
-  .drpt-dossier .drpt-holdingLogo { width: 68px; height: 68px; border-radius: 16px; }
+  .drpt-dossier .drpt-holdingLogo {
+    width: var(--row-logo);
+    height: var(--row-logo);
+    border-radius: var(--row-logo-radius);
+  }
 }
 .drpt-holdingSub {
   display: flex;
@@ -3236,10 +3240,14 @@ button.drpt-docRow {
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 .drpt-dossier .drpt-holdingBtn {
-  grid-template-columns: 76px minmax(0, 1fr) auto;
+  grid-template-columns: var(--row-logo) minmax(0, 1fr) auto;
   gap: 16px;
 }
-.drpt-dossier .drpt-holdingLogo { width: 76px; height: 76px; border-radius: 18px; }
+.drpt-dossier .drpt-holdingLogo {
+  width: var(--row-logo);
+  height: var(--row-logo);
+  border-radius: var(--row-logo-radius);
+}
 .drpt-holdingName {
   display: flex;
   flex-direction: column;
