@@ -1,42 +1,85 @@
-/* Focused auth page */
+/* Auth page — match intro sales (founders warm charcoal + Explore-adjacent chrome). */
+
+.authPage.lp--founders {
+  --lp-hero-flat-expanded: #1c1814;
+  --lp-hero-flat-compact: #14110e;
+}
 
 .authPage {
   display: flex;
   flex-direction: column;
-  background-color: var(--lp-bg);
+  min-height: 100dvh;
+  background-color: var(--lp-hero-flat-expanded, #1c1814);
+  color: var(--lp-fg);
+}
+
+.authPage .lpNav {
+  background-color: transparent;
 }
 
 .authMain {
+  position: relative;
   flex: 1 1 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(40px, 8vh, 72px) var(--lp-pad);
-  background-color: var(--lp-bg);
+  padding: clamp(40px, 8vh, 88px) var(--lp-pad);
+  isolation: isolate;
+  overflow: hidden;
+  background-color: var(--lp-hero-flat-expanded, #1c1814);
+}
+
+.authMain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 8, 9, 0.08) 0%,
+    rgba(8, 8, 9, 0.28) 45%,
+    rgba(8, 8, 9, 0.55) 100%
+  );
+  pointer-events: none;
 }
 
 .authCard {
+  position: relative;
+  z-index: 1;
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
+}
+
+.authBrand {
+  margin: 0 0 18px;
+  font-family: var(--lp-serif);
+  font-size: clamp(2.4rem, 6vw, 3.25rem);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--lp-fg);
 }
 
 .authTitle {
   margin: 0 0 12px;
   font-family: var(--lp-serif);
-  font-size: clamp(2rem, 4vw, 2.5rem);
+  font-size: clamp(1.85rem, 3.8vw, 2.35rem);
   font-weight: 400;
   line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--lp-fg);
 }
 
 .authLead {
   margin: 0 0 28px;
-  font-size: 14px;
+  font-family: var(--lp-sans);
+  font-size: 15px;
   line-height: 1.55;
   color: var(--lp-muted);
 }
 
 .authFootnote {
-  margin: 24px 0 0;
+  margin: 28px 0 0;
   font-size: 13px;
   line-height: 1.5;
   color: var(--lp-muted);
@@ -50,22 +93,23 @@
 }
 
 .authFootnote a:hover {
-  color: var(--lp-accent);
+  color: var(--lp-waitlist-accent);
 }
 
 .authNotice {
-  margin: 0 0 20px;
+  margin: 0 0 22px;
   padding-bottom: 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .authNoticeLabel {
   color: var(--lp-fg);
+  font-weight: 600;
 }
 
 .authNoticeBody {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.55;
   color: var(--lp-muted);
 }
@@ -92,12 +136,13 @@
   height: 48px;
   padding: 0 16px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 0;
+  border-radius: var(--lp-radius-sm);
   background: #fff;
   color: #1f1f1f;
-  font-family: inherit;
+  font-family: var(--lp-sans);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   cursor: pointer;
   transition: background 0.15s ease, box-shadow 0.15s ease;
 }
@@ -120,9 +165,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 20px 0 16px;
-  color: var(--lp-muted);
+  margin: 22px 0 18px;
+  color: var(--lp-dim);
+  font-family: var(--lp-sans);
   font-size: 12px;
+  letter-spacing: 0.04em;
   text-transform: lowercase;
 }
 
@@ -147,10 +194,31 @@
   gap: 14px;
 }
 
+.authPage .authSignInLabelText {
+  font-family: var(--lp-sans);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--lp-dim);
+}
+
 .authPage .authSignInInput {
-  height: 44px;
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.16);
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--lp-radius-sm);
+  background: rgba(8, 8, 9, 0.35);
+  color: var(--lp-fg);
+  font-family: var(--lp-sans);
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.authPage .authSignInInput:focus {
+  outline: none;
+  border-color: rgba(228, 192, 122, 0.55);
+  box-shadow: 0 0 0 1px rgba(228, 192, 122, 0.28);
 }
 
 .authPage .authSignInActions {
@@ -162,7 +230,24 @@
 
 .authPage .authSignInBtn {
   width: 100%;
-  height: 44px;
+  height: 46px;
+  border-radius: var(--lp-radius-sm);
+  font-family: var(--lp-sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+.authPage .authSignInBtn--primary {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(255, 255, 255, 0.94);
+  color: #0a0b0c;
+}
+
+.authPage .authSignInBtn--primary:hover:not(:disabled) {
+  background: #fff;
+  border-color: #fff;
 }
 
 .authPage .authSignInBtn--ghost {
@@ -170,6 +255,26 @@
   align-self: flex-start;
   height: auto;
   padding: 8px 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--lp-muted);
+}
+
+.authPage .authSignInBtn--ghost:hover:not(:disabled) {
+  color: var(--lp-fg);
+  background: transparent;
+  border-color: transparent;
+}
+
+.authPage .authNoticeActions .authSignInBtn--primary {
+  background: var(--lp-waitlist-accent);
+  border-color: var(--lp-waitlist-accent);
+  color: #0a0b0c;
+}
+
+.authPage .authNoticeActions .authSignInBtn--primary:hover:not(:disabled) {
+  background: #efd09a;
+  border-color: #efd09a;
 }
 
 .authPage .lpNavInner {
@@ -178,4 +283,23 @@
 
 .authPage .lpNavLinks {
   display: none;
+}
+
+.authPage .lpNavCta {
+  border-radius: var(--lp-radius-sm);
+}
+
+.authPage .lpEyebrow {
+  margin-bottom: 8px;
+  color: var(--lp-waitlist-accent);
+}
+
+@media (max-width: 640px) {
+  .authBrand {
+    font-size: 2.15rem;
+  }
+
+  .authTitle {
+    font-size: 1.75rem;
+  }
 }

@@ -35,7 +35,7 @@ export function SignInPage({ gateReason: gateReasonProp = null }) {
   }
 
   return (
-    <div className="lp authPage" style={pageBackgroundStyle('signIn')}>
+    <div className="lp authPage lp--founders" style={pageBackgroundStyle('signIn')}>
       <header className="lpNav">
         <div className="lpNavInner">
           <a
@@ -94,6 +94,9 @@ export function SignInPage({ gateReason: gateReasonProp = null }) {
               ) : null}
             </div>
           ) : null}
+          <p className="authBrand" aria-hidden="true">
+            Mercerline
+          </p>
           <p className="lpEyebrow">{SIGN_IN.eyebrow}</p>
           <h1 id="sign-in-title" className="authTitle">
             {SIGN_IN.headline}

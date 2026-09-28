@@ -88,7 +88,7 @@ export function AuthSignIn({ variant = 'settings', onSuccess }) {
           <label className="authSignInLabel">
             <span className="authSignInLabelText">Email</span>
             <input
-              className="authSignInInput mono"
+              className="authSignInInput"
               type="email"
               name="email"
               autoComplete="email"
@@ -100,7 +100,7 @@ export function AuthSignIn({ variant = 'settings', onSuccess }) {
           <label className="authSignInLabel">
             <span className="authSignInLabelText">Password</span>
             <input
-              className="authSignInInput mono"
+              className="authSignInInput"
               type="password"
               name="password"
               autoComplete="current-password"
