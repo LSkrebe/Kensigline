@@ -8,7 +8,6 @@
 import "../load-env.js";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { sparklineSeriesParam } from "../alerts/digest-sparkline.js";
 import { digestTestRecipient } from "../alerts/config.js";
 import type { DigestContent, DigestSlide } from "../alerts/digest-content.js";
 import {
@@ -22,11 +21,6 @@ function readArg(flag: string): string | null {
   const idx = process.argv.indexOf(flag);
   if (idx === -1) return null;
   return String(process.argv[idx + 1] ?? "").trim() || null;
-}
-
-function mockSparklineUrl(series: number[]): string {
-  const origin = process.env.FRONTEND_URL?.replace(/\/$/, "") || "https://mercerline.com";
-  return `${origin}/api/alerts/sparkline.png?d=${encodeURIComponent(sparklineSeriesParam(series))}`;
 }
 
 function mockSlide(partial: Partial<DigestSlide> & Pick<DigestSlide, "id" | "headline">): DigestSlide {
@@ -80,6 +74,9 @@ function mockSlide(partial: Partial<DigestSlide> & Pick<DigestSlide, "id" | "hea
     actionLabel: null,
     moveLabel: null,
     moveUp: true,
+    weightChangeLabel: null,
+    perfLabel: null,
+    perfTone: null,
     sparklineUrl: null,
     actorSlug,
     portraitUrl: actorSlug ? `${origin}/investors/${actorSlug}.webp` : null,
@@ -104,9 +101,10 @@ function mockDigestContent(): DigestContent {
         source: "ptr",
         ticker: "NVDA",
         actionLabel: "Buy",
-        moveLabel: "+4.2%",
+        weightChangeLabel: "0% → 2.4%",
+        perfLabel: "+18.6%",
+        perfTone: "up",
         moveUp: true,
-        sparklineUrl: mockSparklineUrl([100, 102, 101, 105, 108, 107, 112, 115, 114, 118, 122, 121, 126]),
       }),
       mockSlide({
         id: "mock-buffett-aapl",
@@ -116,9 +114,10 @@ function mockDigestContent(): DigestContent {
         source: "13f",
         ticker: "AAPL",
         actionLabel: "Decrease",
-        moveLabel: "−1.8%",
+        weightChangeLabel: "6.8% → 4.1%",
+        perfLabel: "+9.2%",
+        perfTone: "up",
         moveUp: false,
-        sparklineUrl: mockSparklineUrl([180, 179, 181, 178, 176, 175, 174, 172, 173, 171, 169, 168, 166]),
       }),
       mockSlide({
         id: "mock-huang-tsm",
@@ -128,9 +127,10 @@ function mockDigestContent(): DigestContent {
         source: "form4",
         ticker: "TSM",
         actionLabel: "Buy",
-        moveLabel: "+2.1%",
+        weightChangeLabel: "0% → 1.1%",
+        perfLabel: "+24.3%",
+        perfTone: "up",
         moveUp: true,
-        sparklineUrl: mockSparklineUrl([90, 91, 89, 92, 94, 93, 95, 97, 96, 98, 99, 101, 103]),
       }),
     ],
     headlineSlides: [
@@ -142,9 +142,10 @@ function mockDigestContent(): DigestContent {
         source: "13f",
         ticker: "META",
         actionLabel: "Increase",
-        moveLabel: "+0.9%",
+        weightChangeLabel: "2.0% → 3.5%",
+        perfLabel: "+11.4%",
+        perfTone: "up",
         moveUp: true,
-        sparklineUrl: mockSparklineUrl([450, 452, 448, 455, 458, 456, 460, 462, 461, 465, 468, 467, 470]),
       }),
       mockSlide({
         id: "mock-coatue-amzn",
@@ -154,9 +155,10 @@ function mockDigestContent(): DigestContent {
         source: "13f",
         ticker: "AMZN",
         actionLabel: "New",
-        moveLabel: "−0.4%",
+        weightChangeLabel: "0% → 1.8%",
+        perfLabel: "−3.1%",
+        perfTone: "down",
         moveUp: false,
-        sparklineUrl: mockSparklineUrl([190, 191, 189, 188, 190, 187, 186, 185, 186, 184, 183, 184, 182]),
       }),
     ],
   };

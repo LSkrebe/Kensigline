@@ -1,5 +1,4 @@
 import { frontendOrigin } from "./config.js";
-import { sparklineSeriesParam } from "./digest-sparkline.js";
 import { buildExploreRecapDayPayload } from "../explore/recap-day.js";
 import { evaluateRecapForHome } from "../explore/recap-evaluate-home.js";
 import { splitRecapSlidesForHome } from "../explore/recap-split-home.js";
@@ -8,6 +7,7 @@ import {
   EXPLORE_WATCHLIST_CATALOG,
   normalizeTrackedName,
 } from "../explore/watchlist-catalog.js";
+import { getCohortPerformance } from "../performance/cohort.js";
 
 export type DigestSlide = {
   id: string;
@@ -20,8 +20,14 @@ export type DigestSlide = {
   companyName: string | null;
   investorType: string | null;
   actionLabel: string | null;
+  /** @deprecated Prefer weightChangeLabel for company row */
   moveLabel: string | null;
   moveUp: boolean;
+  /** Portfolio weight change like holdings timeline: 1.2% → 3.4% */
+  weightChangeLabel: string | null;
+  /** Actor 1Y return chip, Explore tape style */
+  perfLabel: string | null;
+  perfTone: "up" | "down" | "flat" | null;
   sparklineUrl: string | null;
   actorSlug: string | null;
   portraitUrl: string | null;
@@ -128,15 +134,11 @@ function actionLabelFromRaw(raw: Record<string, unknown>): string | null {
   return null;
 }
 
-async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide> {
-  const priceSeries = Array.isArray(raw.priceSeries)
-    ? raw.priceSeries.map((v) => Number(v)).filter((v) => Number.isFinite(v))
-    : [];
+async function mapDigestSlide(
+  raw: Record<string, unknown>,
+  perfBySlug: Map<string, number>,
+): Promise<DigestSlide> {
   const moveUp = raw.moveUp === true;
-  const sparklineUrl =
-    priceSeries.length >= 2
-      ? `${frontendOrigin()}/api/alerts/sparkline.png?d=${encodeURIComponent(sparklineSeriesParam(priceSeries))}`
-      : null;
 
   const kicker = String(raw.kicker ?? raw.actorName ?? "Today");
   const rawSlug =
@@ -154,6 +156,7 @@ async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide
   const companyName =
     String(raw.companyName ?? raw.issuerName ?? raw.company ?? "").trim() || (ticker ? ticker : null);
   const source = String(raw.source ?? "");
+  const perf = formatPerfReturn(actorSlug ? perfBySlug.get(actorSlug) : null);
 
   return {
     id: String(raw.id ?? ""),
@@ -168,11 +171,62 @@ async function mapDigestSlide(raw: Record<string, unknown>): Promise<DigestSlide
     actionLabel: actionLabelFromRaw(raw),
     moveLabel: raw.moveLabel != null ? String(raw.moveLabel) : null,
     moveUp,
-    sparklineUrl,
+    weightChangeLabel: weightChangeFromRaw(raw),
+    perfLabel: perf?.label ?? null,
+    perfTone: perf?.tone ?? null,
+    sparklineUrl: null,
     actorSlug,
     portraitUrl: portraitUrlFor(actorSlug),
     companyLogoUrl: companyLogoUrlFor(ticker),
   };
+}
+
+function formatWeightPct(n: number): string {
+  if (!Number.isFinite(n) || n < 0.05) return "0%";
+  return `${n.toFixed(1)}%`;
+}
+
+/** Holdings-style stake change: 1.2% → 3.4% */
+function weightChangeFromRaw(raw: Record<string, unknown>): string | null {
+  const from = Number(raw.weightFrom ?? raw.fromWeight ?? raw.weight_from);
+  const to = Number(raw.weightTo ?? raw.toWeight ?? raw.weight_to);
+  if (Number.isFinite(from) && Number.isFinite(to)) {
+    return `${formatWeightPct(from)} → ${formatWeightPct(to)}`;
+  }
+  const direct = String(raw.weightChangeLabel ?? "").trim();
+  return direct || null;
+}
+
+function formatPerfReturn(fraction: number | null | undefined): {
+  label: string;
+  tone: "up" | "down" | "flat";
+} | null {
+  if (fraction == null || !Number.isFinite(fraction)) return null;
+  const pct = fraction * 100;
+  const abs = Math.abs(pct).toFixed(1);
+  if (pct > 0.05) return { label: `+${abs}%`, tone: "up" };
+  if (pct < -0.05) return { label: `−${abs}%`, tone: "down" };
+  return { label: "0.0%", tone: "flat" };
+}
+
+async function loadPerfBySlug(): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  try {
+    const snap = (await getCohortPerformance()) as {
+      members?: Array<{ slug?: string; returnFraction?: number | null; returns?: Record<string, number> }>;
+    };
+    for (const m of snap?.members ?? []) {
+      const slug = String(m.slug ?? "")
+        .trim()
+        .toLowerCase();
+      if (!slug) continue;
+      const value = m.returns?.["1Y"] ?? m.returnFraction;
+      if (typeof value === "number" && Number.isFinite(value)) map.set(slug, value);
+    }
+  } catch (err) {
+    console.warn("[digest] cohort_perf_failed", err instanceof Error ? err.message : err);
+  }
+  return map;
 }
 
 function usableSlide(slide: DigestSlide): boolean {
@@ -186,7 +240,10 @@ export async function buildDigestContent(opts?: {
   const heroMax = Math.max(1, Math.min(5, opts?.heroMax ?? 5));
   const headlineMax = Math.max(0, Math.min(8, opts?.headlineMax ?? 4));
 
-  const recap = await buildExploreRecapDayPayload({ lookbackDays: 7 });
+  const [recap, perfBySlug] = await Promise.all([
+    buildExploreRecapDayPayload({ lookbackDays: 7 }),
+    loadPerfBySlug(),
+  ]);
   const evaluated = await evaluateRecapForHome(recap as Record<string, unknown>);
   const allSlides = (evaluated?.slides ?? []) as Record<string, unknown>[];
   const split = await splitRecapSlidesForHome(allSlides, heroMax);
@@ -195,7 +252,7 @@ export async function buildDigestContent(opts?: {
     await Promise.all(
       split.heroSlides
         .slice(0, heroMax)
-        .map((s) => mapDigestSlide(s as Record<string, unknown>)),
+        .map((s) => mapDigestSlide(s as Record<string, unknown>, perfBySlug)),
     )
   ).filter(usableSlide);
 
@@ -204,7 +261,7 @@ export async function buildDigestContent(opts?: {
     await Promise.all(
       split.storySlides
         .slice(0, headlineMax + heroMax)
-        .map((s) => mapDigestSlide(s as Record<string, unknown>)),
+        .map((s) => mapDigestSlide(s as Record<string, unknown>, perfBySlug)),
     )
   )
     .filter((s) => usableSlide(s) && !heroIds.has(s.id))

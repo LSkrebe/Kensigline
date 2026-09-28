@@ -15,6 +15,9 @@ const C = {
   cardBorder: "#2e2e32",
   up: "#5cb88a",
   down: "#d4726a",
+  upBg: "rgba(92, 184, 138, 0.12)",
+  downBg: "rgba(212, 114, 106, 0.12)",
+  flatBg: "rgba(255, 255, 255, 0.06)",
 };
 
 export type DigestEmailBundle = {
@@ -54,10 +57,6 @@ function eventUrl(slide: DigestSlide): string {
   return `${frontendOrigin()}/explore`;
 }
 
-function moveColor(slide: DigestSlide): string {
-  return slide.moveUp ? C.up : C.down;
-}
-
 function cell(extra = ""): string {
   return `background-color:${C.bg};${extra}`;
 }
@@ -75,12 +74,6 @@ function portraitImg(slide: DigestSlide): string {
   return `<img src="${escHtml(src)}" width="48" height="48" alt="" style="display:block;width:48px;height:48px;border-radius:12px;object-fit:cover;object-position:center 22%;border:0;">`;
 }
 
-function sparklineImg(slide: DigestSlide): string {
-  const src = slide.sparklineUrl;
-  if (!src) return "";
-  return `<img src="${escHtml(src)}" width="92" height="34" alt="" style="display:block;width:92px;height:34px;border:0;">`;
-}
-
 function companyLogoImg(slide: DigestSlide): string {
   const src = slide.companyLogoUrl;
   const letter = escHtml(
@@ -90,6 +83,16 @@ function companyLogoImg(slide: DigestSlide): string {
     return `<div style="width:40px;height:40px;border-radius:6px;background-color:#1c1c20;color:${C.ink};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;line-height:40px;text-align:center;">${letter}</div>`;
   }
   return `<img src="${escHtml(src)}" width="40" height="40" alt="" style="display:block;width:40px;height:40px;border-radius:6px;object-fit:contain;background-color:#ffffff;border:0;">`;
+}
+
+/** Explore tape-style return chip with tinted fill. */
+function perfBadge(slide: DigestSlide): string {
+  const label = String(slide.perfLabel ?? "").trim();
+  if (!label) return "";
+  const tone = slide.perfTone;
+  const color = tone === "down" ? C.down : tone === "flat" ? C.muted : C.up;
+  const bg = tone === "down" ? C.downBg : tone === "flat" ? C.flatBg : C.upBg;
+  return `<span style="display:inline-block;padding:5px 8px;border-radius:4px;background-color:${bg};font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;font-weight:700;letter-spacing:-0.02em;line-height:1;color:${color};white-space:nowrap;">${escHtml(label)}</span>`;
 }
 
 function renderHeader(origin: string): string {
@@ -130,9 +133,10 @@ function renderTradeCard(slide: DigestSlide): string {
   const type = slide.investorType;
   const ticker = String(slide.ticker || "").trim().toUpperCase() || "-";
   const action = slide.actionLabel;
-  const spark = sparklineImg(slide);
-  const move = slide.moveLabel
-    ? `<span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:16px;font-weight:700;letter-spacing:-0.02em;color:${moveColor(slide)};">${escHtml(slide.moveLabel)}</span>`
+  const badge = perfBadge(slide);
+  const weight = String(slide.weightChangeLabel ?? "").trim();
+  const weightHtml = weight
+    ? `<span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:14px;font-weight:600;letter-spacing:-0.02em;color:${C.muted};white-space:nowrap;">${escHtml(weight)}</span>`
     : "";
 
   return `
@@ -158,8 +162,8 @@ function renderTradeCard(slide: DigestSlide): string {
                       }
                     </td>
                     ${
-                      spark
-                        ? `<td width="100" valign="middle" align="right" style="vertical-align:middle;text-align:right;padding-left:10px;">${spark}</td>`
+                      badge
+                        ? `<td width="88" valign="middle" align="right" style="vertical-align:middle;text-align:right;padding-left:10px;">${badge}</td>`
                         : ""
                     }
                   </tr>
@@ -192,8 +196,8 @@ function renderTradeCard(slide: DigestSlide): string {
                           : ""
                       }
                     </td>
-                    <td width="78" valign="middle" align="right" style="vertical-align:middle;text-align:right;white-space:nowrap;padding-left:8px;">
-                      ${move}
+                    <td valign="middle" align="right" style="vertical-align:middle;text-align:right;white-space:nowrap;padding-left:8px;">
+                      ${weightHtml}
                     </td>
                   </tr>
                 </table>
@@ -209,8 +213,8 @@ function renderCta(origin: string): string {
   return `
     <tr>
       <td style="padding:26px 0 0 0;${cell()}">
-        <a href="${origin}/explore" style="text-decoration:none;display:block;">
-          <img src="${origin}/digest-cta.png" width="492" height="48" alt="Open Explore" style="display:block;width:100%;max-width:492px;height:auto;border:0;border-radius:11px;">
+        <a href="${origin}/explore" style="display:block;width:100%;box-sizing:border-box;padding:15px 16px;border:1px solid ${C.cardBorder};border-radius:12px;background-color:${C.card};text-align:center;text-decoration:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;letter-spacing:-0.01em;line-height:1.2;color:${C.ink};">
+          Open Explore
         </a>
       </td>
     </tr>`;
@@ -251,7 +255,7 @@ function subjectVerb(action: string | null | undefined): string {
 export function buildDigestPreheader(content: DigestContent): string {
   const first = content.heroSlides[0] ?? content.headlineSlides[0];
   if (!first) return "New filings from tracked investors";
-  const text = [first.kicker, first.ticker, first.actionLabel, first.moveLabel]
+  const text = [first.kicker, first.ticker, first.actionLabel, first.weightChangeLabel || first.perfLabel]
     .filter(Boolean)
     .join(" ");
   return text.length > 120 ? `${text.slice(0, 117)}...` : text;
@@ -266,7 +270,10 @@ export function buildDigestPlainText(content: DigestContent): string {
   for (const slide of all) {
     lines.push(slide.kicker || "Investor");
     if (slide.investorType) lines.push(slide.investorType);
-    const tickerLine = [slide.ticker || "-", slide.actionLabel, slide.moveLabel].filter(Boolean).join("  ");
+    if (slide.perfLabel) lines.push(slide.perfLabel);
+    const tickerLine = [slide.ticker || "-", slide.actionLabel, slide.weightChangeLabel]
+      .filter(Boolean)
+      .join("  ");
     lines.push(tickerLine);
     lines.push(eventUrl(slide));
     lines.push("");
@@ -326,12 +333,12 @@ export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
           ${renderHero(dateLabelShort, count)}
           ${
             cardsHtml ||
-            `<tr><td style="padding:28px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:${C.muted};${cell()}">No filings today.</td></tr>`
+            `<tr><td style="padding:28px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:${C.muted};${cell()}">No filings today</td></tr>`
           }
           ${renderCta(origin)}
           <tr>
             <td align="center" style="padding:22px 8px 0 8px;text-align:center;${cell()}">
-              <p style="margin:0 0 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;color:${C.muted};">Sent when tracked investors file.</p>
+              <p style="margin:0 0 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;color:${C.muted};">Sent when tracked investors file</p>
               <p style="margin:0 0 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;">
                 <a href="mailto:research@mercerline.com" style="color:${C.muted};text-decoration:none;">research@mercerline.com</a>
               </p>
