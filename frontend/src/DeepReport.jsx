@@ -1364,9 +1364,11 @@ function formatWeight(n) {
 
 function shortCompany(name, ticker) {
   const cleaned = String(name || ticker || '')
-    .replace(/,?\s+(Inc\.|Incorporated|Corporation|Corp\.|N\.V\.|Ltd\.|Limited|plc|S\.A\.)$/i, '')
+    .replace(/,?\s+(Inc\.?|Incorporated|Corporation|Corp\.?|N\.V\.|Ltd\.?|Limited|plc|S\.A\.)$/i, '')
     .replace(/,?\s+Holdings$/i, '')
+    .replace(/\s*\/[a-z]{2,}\s*$/i, '')
     .replace(/\.com$/i, '')
+    .replace(/[,\s.]+$/g, '')
     .trim()
   return cleaned || ticker || '—'
 }
@@ -1570,30 +1572,69 @@ function tradeRowMeta(row) {
   }
 }
 
+function joinCompanyNames(names) {
+  if (!names.length) return ''
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names.slice(0, -1).join(', ')}, and ${names.at(-1)}`
+}
+
+/** Cap total company names in the sentence; one shared "and N more" at the end. */
 function filingSentence(person, changes) {
   const last = String(person ?? '').trim().split(/\s+/).filter(Boolean).at(-1) || 'Filing'
-  const names = (kind) => {
-    const list = [...new Set(changes.filter((change) => change.kind === kind).map((change) => change.name))]
-    if (!list.length) return ''
-    if (list.length === 1) return list[0]
-    if (list.length === 2) return `${list[0]} and ${list[1]}`
-    const extra = list.length - 2
-    return `${list[0]}, ${list[1]}, and ${extra} more`
+  const MAX_NAMES = 3
+  const groups = [
+    { kind: 'new', lead: 'new position in' },
+    { kind: 'increased', lead: 'increase in' },
+    { kind: 'decreased', lead: 'decrease in' },
+    { kind: 'closed', lead: 'closed' },
+  ]
+    .map(({ kind, lead }) => ({
+      kind,
+      lead,
+      names: [
+        ...new Set(
+          changes
+            .filter((change) => change.kind === kind)
+            .map((change) => shortCompany(change.name || change.fullName, change.ticker)),
+        ),
+      ].filter((name) => name && name !== '—'),
+    }))
+    .filter((group) => group.names.length)
+
+  if (!groups.length) return `${last} filing update.`
+
+  const totalNames = groups.reduce((sum, group) => sum + group.names.length, 0)
+  let budget = MAX_NAMES
+  const parts = []
+  let used = 0
+  for (const group of groups) {
+    if (budget <= 0) break
+    const shown = group.names.slice(0, budget)
+    budget -= shown.length
+    used += shown.length
+    parts.push(`${group.lead} ${joinCompanyNames(shown)}`)
   }
-  const opened = names('new')
-  const increased = names('increased')
-  const decreased = names('decreased')
-  const closed = names('closed')
-  if (opened && increased && !decreased && !closed) return `${last} filing update. New position in ${opened}, and increase in ${increased}.`
-  if ((opened || increased) && !decreased && !closed) return `${last} goes long on ${[opened, increased].filter(Boolean).join(' and ')}.`
-  if (closed && !opened && !increased && !decreased) return `${last} closed ${closed}.`
-  const bits = []
-  if (opened) bits.push(`new position in ${opened}`)
-  if (increased) bits.push(`increase in ${increased}`)
-  if (decreased) bits.push(`decrease in ${decreased}`)
-  if (closed) bits.push(`closed ${closed}`)
-  if (!bits.length) return `${last} filing update.`
-  return `${last} filing update. ${bits[0][0].toUpperCase()}${bits[0].slice(1)}${bits.slice(1).map((bit) => `, and ${bit}`).join('')}.`
+  const more = Math.max(0, totalNames - used)
+  const moreBit = more > 0 ? `, and ${more} more` : ''
+
+  const kinds = new Set(groups.map((group) => group.kind))
+  const onlyClosed = kinds.size === 1 && kinds.has('closed')
+  const onlyLong = [...kinds].every((kind) => kind === 'new' || kind === 'increased')
+
+  if (onlyClosed) {
+    return `${last} closed ${joinCompanyNames(groups[0].names.slice(0, MAX_NAMES))}${moreBit}.`
+  }
+  if (onlyLong) {
+    const longNames = groups.flatMap((group) => group.names).slice(0, MAX_NAMES)
+    const longMore = Math.max(0, totalNames - longNames.length)
+    const longMoreBit = longMore > 0 ? `, and ${longMore} more` : ''
+    return `${last} goes long on ${joinCompanyNames(longNames)}${longMoreBit}.`
+  }
+
+  const head = `${parts[0][0].toUpperCase()}${parts[0].slice(1)}`
+  const rest = parts.slice(1).map((part) => `, and ${part}`).join('')
+  return `${last} filing update. ${head}${rest}${moreBit}.`
 }
 
 function filingSublabel(changes) {
@@ -1735,32 +1776,34 @@ function DeepTradeLog({ rows = [], loading = false, name = '' }) {
                 ›
               </span>
             </button>
-            {open ? (
-              <ol className="drpt-holdingList drpt-tradeDayBody">
-                {changes.map((change) => {
-                  const detail = `${formatWeight(change.from)} → ${formatWeight(change.to)}`
-                  return (
-                    <li key={`${filing.key}-${change.ticker}`}>
-                      <div className="drpt-holdingBtn">
-                        <ImageOrInitials
-                          className="drpt-holdingLogo"
-                          src={companyLogoSrc(change.ticker)}
-                          fallbackSrc={companyLogoFallback(change.ticker)}
-                          name={change.ticker}
-                          logo
-                          discover={false}
-                        />
-                        <span className="drpt-holdingName">
-                          <span className="drpt-holdingTicker">{change.ticker}</span>
-                          <span className="drpt-holdingCompany">{change.fullName || change.name}</span>
-                        </span>
-                        <span className="drpt-holdingAction">{detail}</span>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ol>
-            ) : null}
+            <div className="drpt-tradeDayPanel" aria-hidden={!open}>
+              <div className="drpt-tradeDayPanelInner">
+                <ol className="drpt-holdingList drpt-tradeDayBody">
+                  {changes.map((change) => {
+                    const detail = `${formatWeight(change.from)} → ${formatWeight(change.to)}`
+                    return (
+                      <li key={`${filing.key}-${change.ticker}`}>
+                        <div className="drpt-holdingBtn">
+                          <ImageOrInitials
+                            className="drpt-holdingLogo"
+                            src={companyLogoSrc(change.ticker)}
+                            fallbackSrc={companyLogoFallback(change.ticker)}
+                            name={change.ticker}
+                            logo
+                            discover={false}
+                          />
+                          <span className="drpt-holdingName">
+                            <span className="drpt-holdingTicker">{change.ticker}</span>
+                            <span className="drpt-holdingCompany">{change.fullName || change.name}</span>
+                          </span>
+                          <span className="drpt-holdingAction">{detail}</span>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ol>
+              </div>
+            </div>
           </li>
         )
       })}

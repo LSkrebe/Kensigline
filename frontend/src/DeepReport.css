@@ -2954,14 +2954,33 @@ button.drpt-docRow {
   font-size: 22px;
   line-height: 1;
   font-weight: 300;
-  transition: transform 0.15s ease;
+  transition: transform 0.28s ease;
 }
 .drpt-tradeDay.isOpen .drpt-tradeChevron {
   transform: rotate(90deg);
 }
+.drpt-tradeDayPanel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+}
+.drpt-tradeDay.isOpen .drpt-tradeDayPanel {
+  grid-template-rows: 1fr;
+}
+.drpt-tradeDayPanelInner {
+  overflow: hidden;
+  min-height: 0;
+}
 .drpt-tradeDayBody {
   margin: 0 0 12px;
   padding: 0 0 8px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.22s ease, transform 0.28s ease;
+}
+.drpt-tradeDay.isOpen .drpt-tradeDayBody {
+  opacity: 1;
+  transform: translateY(0);
 }
 @media (max-width: 640px) {
   .drpt,
