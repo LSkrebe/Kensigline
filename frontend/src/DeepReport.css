@@ -2871,33 +2871,39 @@ button.drpt-docRow {
 .drpt-tradeDayHead:hover .drpt-tradeTitle,
 .drpt-tradeDayHead:focus-visible .drpt-tradeTitle { color: #fff; }
 .drpt-tradeDayHead:focus-visible { outline: 1px solid rgba(255, 255, 255, 0.65); outline-offset: 2px; }
-/* Same footprint as dossier holding logos / Explore tape avatars. */
+/* Trade-day chip matches dossier holding logos (76px). */
 .drpt-tradeDayHead .exploreTapeHoldings {
-  grid-template-columns: repeat(2, 36px);
-  grid-template-rows: repeat(2, 36px);
-  gap: 4px;
+  position: relative;
+  display: block;
+  width: 76px;
+  height: 76px;
   justify-self: start;
 }
 .drpt-tradeDayHead .exploreTapeHoldings--empty {
-  width: 76px;
-  height: 76px;
+  visibility: hidden;
 }
-.drpt-tradeDayHead .exploreTapeHoldings--single {
-  grid-template-columns: 76px;
-  grid-template-rows: 76px;
-}
-.drpt-tradeDayHead .exploreTapeHolding {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-}
+.drpt-tradeDayHead .exploreTapeHolding,
 .drpt-tradeDayHead .exploreTapeHolding--span {
   width: 76px;
   height: 76px;
   border-radius: 18px;
 }
-.drpt-tradeDayHead .exploreTapeHolding--more {
+.drpt-tradeDayHead .exploreTapeHoldingBadge {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(18, 18, 20, 0.96);
+  color: rgba(255, 255, 255, 0.82);
   font-size: 11px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 .drpt-tradeDayCopy {
   min-width: 0;
@@ -2947,24 +2953,6 @@ button.drpt-docRow {
   margin: 0 0 12px;
   padding: 0 0 8px;
 }
-/* Expanded filing rows match collapsed mosaic cell size — not full holding logos. */
-.drpt-tradeDayBody .drpt-holdingBtn {
-  position: relative;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
-  gap: 12px;
-  min-height: 0;
-  padding: 12px 0;
-}
-.drpt-tradeDayBody .drpt-holdingLogo {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-}
-.drpt-tradeDayBody .drpt-holdingName > .drpt-holdingTicker,
-.drpt-dossier .drpt-tradeDayBody .drpt-holdingName > .drpt-holdingTicker {
-  font-size: 15px;
-  letter-spacing: -0.02em;
-}
 @media (max-width: 640px) {
   .drpt-tradeDayHead {
     grid-template-columns: 68px minmax(0, 1fr) 16px;
@@ -2973,57 +2961,30 @@ button.drpt-docRow {
     min-height: 104px;
   }
   .drpt-tradeDayHead .exploreTapeHoldings {
-    grid-template-columns: repeat(2, 32px);
-    grid-template-rows: repeat(2, 32px);
-  }
-  .drpt-tradeDayHead .exploreTapeHoldings--empty,
-  .drpt-tradeDayHead .exploreTapeHoldings--single {
-    grid-template-columns: 68px;
-    grid-template-rows: 68px;
-  }
-  .drpt-tradeDayHead .exploreTapeHoldings--empty {
     width: 68px;
     height: 68px;
   }
-  .drpt-tradeDayHead .exploreTapeHolding {
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-  }
+  .drpt-tradeDayHead .exploreTapeHolding,
   .drpt-tradeDayHead .exploreTapeHolding--span {
     width: 68px;
     height: 68px;
     border-radius: 16px;
   }
-  .drpt-tradeDayHead .exploreTapeHolding--more { font-size: 10px; }
+  .drpt-tradeDayHead .exploreTapeHoldingBadge {
+    min-width: 20px;
+    height: 20px;
+    line-height: 18px;
+    font-size: 10px;
+    right: -5px;
+    bottom: -5px;
+  }
   .drpt-tradeTitle { font-size: 15px; }
-  .drpt-tradeDayBody .drpt-holdingBtn {
-    grid-template-columns: 32px minmax(0, 1fr) auto;
-    gap: 10px;
-    padding: 10px 0;
-  }
-  .drpt-tradeDayBody .drpt-holdingLogo {
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-  }
   .drpt-dossier .drpt-holdingBtn {
     grid-template-columns: 68px minmax(0, 1fr) auto;
     min-height: 104px;
     padding: 18px 0;
   }
   .drpt-dossier .drpt-holdingLogo { width: 68px; height: 68px; border-radius: 16px; }
-  /* Keep expanded trade-day logos at mosaic size even under dossier overrides. */
-  .drpt-dossier .drpt-tradeDayBody .drpt-holdingBtn {
-    grid-template-columns: 32px minmax(0, 1fr) auto;
-    min-height: 0;
-    padding: 10px 0;
-  }
-  .drpt-dossier .drpt-tradeDayBody .drpt-holdingLogo {
-    width: 32px;
-    height: 32px;
-    border-radius: 9px;
-  }
 }
 .drpt-holdingSub {
   display: flex;
@@ -3280,86 +3241,6 @@ button.drpt-docRow {
   gap: 16px;
 }
 .drpt-dossier .drpt-holdingLogo { width: 76px; height: 76px; border-radius: 18px; }
-.drpt-dossier .drpt-tradeDayBody .drpt-holdingBtn {
-  grid-template-columns: 36px minmax(0, 1fr) auto;
-  gap: 12px;
-  min-height: 0;
-  padding: 12px 0;
-}
-.drpt-dossier .drpt-tradeDayBody .drpt-holdingLogo {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-}
-
-.drpt-companyPeek {
-  position: fixed;
-  z-index: 40;
-  padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 0;
-  background: rgba(10, 10, 12, 0.96);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-  pointer-events: auto;
-}
-.drpt-companyPeekHead {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: center;
-}
-.drpt-companyPeekLogo {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  overflow: hidden;
-}
-.drpt-companyPeekLogo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.drpt-companyPeekCopy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.drpt-companyPeekTicker {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-.drpt-companyPeekName {
-  overflow: hidden;
-  color: rgba(255, 255, 255, 0.48);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.drpt-companyPeekDetail {
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 12px;
-  font-weight: 650;
-  white-space: nowrap;
-}
-.drpt-companyPeekDaily {
-  margin: 10px 0 0;
-  font-size: 13px;
-  font-weight: 650;
-}
-.drpt-companyPeekDaily.isUp { color: #3dd68c; }
-.drpt-companyPeekDaily.isDown { color: #f0958c; }
-.drpt-companyPeekDaily.isFlat { color: rgba(255, 255, 255, 0.55); }
-.drpt-companyPeekChart {
-  margin-top: 10px;
-  height: 78px;
-}
-.drpt-companyPeekEmpty {
-  margin: 18px 0 0;
-  color: rgba(255, 255, 255, 0.42);
-  font-size: 12px;
-}
 .drpt-holdingName {
   display: flex;
   flex-direction: column;
