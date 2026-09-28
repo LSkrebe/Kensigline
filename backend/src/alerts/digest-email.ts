@@ -128,7 +128,7 @@ function renderTradeCard(slide: DigestSlide): string {
   const url = eventUrl(slide);
   const name = slide.kicker || "Investor";
   const type = slide.investorType;
-  const ticker = String(slide.ticker || "").trim().toUpperCase() || "—";
+  const ticker = String(slide.ticker || "").trim().toUpperCase() || "-";
   const action = slide.actionLabel;
   const spark = sparklineImg(slide);
   const move = slide.moveLabel
@@ -217,33 +217,56 @@ function renderCta(origin: string): string {
 }
 
 export function buildDigestSubject(content: DigestContent): string {
-  const n = content.heroSlides.length + content.headlineSlides.length;
+  const slides = [...content.heroSlides, ...content.headlineSlides];
+  const n = slides.length;
   const short = formatDigestDateShort(content.displayDayKey || content.dayKey);
-  if (n <= 0) return `Mercerline · ${short}`;
-  return `${filingCountLabel(n)} · ${short}`;
+  if (n <= 0) return `Mercerline filing brief ${short}`;
+
+  const first = slides[0]!;
+  const name = String(first.kicker || "Investor").trim() || "Investor";
+  const ticker = String(first.ticker || "").trim().toUpperCase();
+  const verb = subjectVerb(first.actionLabel);
+  const hook = ticker ? `${name} ${verb} ${ticker}` : `${name} ${verb}`;
+  if (n === 1) return hook;
+  return `${hook} and ${n - 1} more`;
+}
+
+function subjectVerb(action: string | null | undefined): string {
+  switch (String(action ?? "").trim()) {
+    case "Buy":
+      return "bought";
+    case "Sell":
+      return "sold";
+    case "Increase":
+      return "added";
+    case "Decrease":
+      return "trimmed";
+    case "New":
+      return "opened";
+    default:
+      return "filed";
+  }
 }
 
 export function buildDigestPreheader(content: DigestContent): string {
   const first = content.heroSlides[0] ?? content.headlineSlides[0];
-  if (!first) return "New events from your tracked investors.";
+  if (!first) return "New filings from tracked investors";
   const text = [first.kicker, first.ticker, first.actionLabel, first.moveLabel]
     .filter(Boolean)
     .join(" ");
-  return text.length > 120 ? `${text.slice(0, 117)}…` : text;
+  return text.length > 120 ? `${text.slice(0, 117)}...` : text;
 }
 
 export function buildDigestPlainText(content: DigestContent): string {
   const lines: string[] = [];
-  const short = formatDigestDateShort(content.displayDayKey || content.dayKey);
-  const n = content.heroSlides.length + content.headlineSlides.length;
-  lines.push(`${filingCountLabel(n)} · ${short}`);
+  lines.push(buildDigestSubject(content));
   lines.push("");
 
   const all = [...content.heroSlides, ...content.headlineSlides];
   for (const slide of all) {
     lines.push(slide.kicker || "Investor");
     if (slide.investorType) lines.push(slide.investorType);
-    const tickerLine = [slide.ticker || "—", slide.actionLabel, slide.moveLabel].filter(Boolean).join("  ");
+    const tickerLine = [slide.ticker || "-", slide.actionLabel, slide.moveLabel].filter(Boolean).join("  ");
     lines.push(tickerLine);
     lines.push(eventUrl(slide));
     lines.push("");
