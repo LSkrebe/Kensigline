@@ -11,6 +11,7 @@
     "digest:send": "tsx src/scripts/send-daily-digest.ts",
     "digest:test": "tsx src/scripts/send-daily-digest.ts --test",
     "digest:sample": "tsx src/scripts/send-digest-sample.ts",
+    "digest:enable-all": "tsx src/scripts/enable-digests-all.ts",
     "test": "npm run build && tsx src/documents/smoke.ts && tsx src/documents/llm-cost-smoke.ts && tsx src/analyse/smoke.ts && tsx src/investigate/institutions/smoke.ts"
   },
   "keywords": [],

@@ -136,7 +136,7 @@ function actionLabelFromRaw(raw: Record<string, unknown>): string | null {
 
 async function mapDigestSlide(
   raw: Record<string, unknown>,
-  perfBySlug: Map<string, number>,
+  cohortBySlug: Map<string, { returnFraction: number | null; investedUsd: number | null }>,
 ): Promise<DigestSlide> {
   const moveUp = raw.moveUp === true;
 
@@ -156,7 +156,13 @@ async function mapDigestSlide(
   const companyName =
     String(raw.companyName ?? raw.issuerName ?? raw.company ?? "").trim() || (ticker ? ticker : null);
   const source = String(raw.source ?? "");
-  const perf = formatPerfReturn(actorSlug ? perfBySlug.get(actorSlug) : null);
+  const cohort = actorSlug ? cohortBySlug.get(actorSlug) : undefined;
+  const perf = formatPerfReturn(cohort?.returnFraction ?? null);
+  const actionLabel = actionLabelFromRaw(raw);
+  const amountUsd = Number(raw.amountUsd ?? raw.amount_usd);
+  const weightChangeLabel =
+    weightChangeFromRaw(raw) ||
+    estimateWeightChange(actionLabel, amountUsd, cohort?.investedUsd ?? null);
 
   return {
     id: String(raw.id ?? ""),
@@ -168,10 +174,10 @@ async function mapDigestSlide(
     ticker,
     companyName,
     investorType: investorTypeLabel(catalog?.mode ?? String(raw.actorMode ?? raw.mode ?? ""), source),
-    actionLabel: actionLabelFromRaw(raw),
+    actionLabel,
     moveLabel: raw.moveLabel != null ? String(raw.moveLabel) : null,
     moveUp,
-    weightChangeLabel: weightChangeFromRaw(raw),
+    weightChangeLabel,
     perfLabel: perf?.label ?? null,
     perfTone: perf?.tone ?? null,
     sparklineUrl: null,
@@ -197,6 +203,27 @@ function weightChangeFromRaw(raw: Record<string, unknown>): string | null {
   return direct || null;
 }
 
+/** Rough stake size from filing dollars vs known book when exact from/to missing. */
+function estimateWeightChange(
+  action: string | null,
+  amountUsd: number,
+  investedUsd: number | null,
+): string | null {
+  if (!(amountUsd > 0) || !(investedUsd != null && investedUsd > 0)) return null;
+  const w = (amountUsd / investedUsd) * 100;
+  if (!(w >= 0.05) || w > 100) return null;
+  const slice = formatWeightPct(w);
+  switch (action) {
+    case "New":
+    case "Buy":
+      return `0% → ${slice}`;
+    case "Sell":
+      return `${slice} → 0%`;
+    default:
+      return null;
+  }
+}
+
 function formatPerfReturn(fraction: number | null | undefined): {
   label: string;
   tone: "up" | "down" | "flat";
@@ -209,19 +236,31 @@ function formatPerfReturn(fraction: number | null | undefined): {
   return { label: "0.0%", tone: "flat" };
 }
 
-async function loadPerfBySlug(): Promise<Map<string, number>> {
-  const map = new Map<string, number>();
+async function loadCohortBySlug(): Promise<
+  Map<string, { returnFraction: number | null; investedUsd: number | null }>
+> {
+  const map = new Map<string, { returnFraction: number | null; investedUsd: number | null }>();
   try {
     const snap = (await getCohortPerformance()) as {
-      members?: Array<{ slug?: string; returnFraction?: number | null; returns?: Record<string, number> }>;
+      members?: Array<{
+        slug?: string;
+        returnFraction?: number | null;
+        investedUsd?: number | null;
+        returns?: Record<string, number>;
+      }>;
     };
     for (const m of snap?.members ?? []) {
       const slug = String(m.slug ?? "")
         .trim()
         .toLowerCase();
       if (!slug) continue;
-      const value = m.returns?.["1Y"] ?? m.returnFraction;
-      if (typeof value === "number" && Number.isFinite(value)) map.set(slug, value);
+      const value = m.returns?.["1Y"] ?? m.returnFraction ?? null;
+      const invested =
+        typeof m.investedUsd === "number" && Number.isFinite(m.investedUsd) ? m.investedUsd : null;
+      map.set(slug, {
+        returnFraction: typeof value === "number" && Number.isFinite(value) ? value : null,
+        investedUsd: invested,
+      });
     }
   } catch (err) {
     console.warn("[digest] cohort_perf_failed", err instanceof Error ? err.message : err);
@@ -240,9 +279,9 @@ export async function buildDigestContent(opts?: {
   const heroMax = Math.max(1, Math.min(5, opts?.heroMax ?? 5));
   const headlineMax = Math.max(0, Math.min(8, opts?.headlineMax ?? 4));
 
-  const [recap, perfBySlug] = await Promise.all([
+  const [recap, cohortBySlug] = await Promise.all([
     buildExploreRecapDayPayload({ lookbackDays: 7 }),
-    loadPerfBySlug(),
+    loadCohortBySlug(),
   ]);
   const evaluated = await evaluateRecapForHome(recap as Record<string, unknown>);
   const allSlides = (evaluated?.slides ?? []) as Record<string, unknown>[];
@@ -252,7 +291,7 @@ export async function buildDigestContent(opts?: {
     await Promise.all(
       split.heroSlides
         .slice(0, heroMax)
-        .map((s) => mapDigestSlide(s as Record<string, unknown>, perfBySlug)),
+        .map((s) => mapDigestSlide(s as Record<string, unknown>, cohortBySlug)),
     )
   ).filter(usableSlide);
 
@@ -261,7 +300,7 @@ export async function buildDigestContent(opts?: {
     await Promise.all(
       split.storySlides
         .slice(0, headlineMax + heroMax)
-        .map((s) => mapDigestSlide(s as Record<string, unknown>, perfBySlug)),
+        .map((s) => mapDigestSlide(s as Record<string, unknown>, cohortBySlug)),
     )
   )
     .filter((s) => usableSlide(s) && !heroIds.has(s.id))

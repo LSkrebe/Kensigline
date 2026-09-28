@@ -120,6 +120,47 @@ export async function listEnabledAlertPreferences(): Promise<AlertPreferencesRow
   return db.query<AlertPreferencesRow>(`${SELECT_PREFS} WHERE enabled = true ORDER BY user_id`);
 }
 
+/**
+ * Turn filing brief on for every billed member (and any existing prefs rows).
+ * New inserts default enabled=true; this also flips prior opt-outs back on.
+ */
+export async function enableDigestForAllMembers(): Promise<{ upserted: number; enabled: number }> {
+  const upsertedRows = await db.query<{ n: string }>(
+    `
+    WITH src AS (
+      SELECT user_id::text AS user_id, lower(trim(email)) AS email
+      FROM billing_accounts
+      WHERE email IS NOT NULL AND length(trim(email)) > 0
+    ),
+    upserted AS (
+      INSERT INTO alert_preferences (user_id, email, enabled, timezone, updated_at)
+      SELECT user_id, email, true, 'UTC', now()
+      FROM src
+      ON CONFLICT (user_id) DO UPDATE SET
+        email = EXCLUDED.email,
+        enabled = true,
+        updated_at = now()
+      RETURNING 1
+    )
+    SELECT count(*)::text AS n FROM upserted
+    `,
+  );
+
+  const enabledRows = await db.query<{ n: string }>(
+    `
+    UPDATE alert_preferences
+    SET enabled = true, updated_at = now()
+    WHERE enabled IS DISTINCT FROM true
+    RETURNING 1
+    `,
+  );
+
+  return {
+    upserted: Number(upsertedRows[0]?.n ?? 0) || 0,
+    enabled: enabledRows.length,
+  };
+}
+
 export async function wasDigestSent(userId: string, slotKey: string): Promise<boolean> {
   const rows = await db.query<{ n: string }>(
     `SELECT 1::text AS n FROM alert_digest_log WHERE user_id = $1 AND slot_key = $2 LIMIT 1`,

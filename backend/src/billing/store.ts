@@ -1,6 +1,7 @@
 import { db } from "../core/db.js";
 import { ensureSupabaseUserForEmail } from "../core/supabase-admin.js";
 import { isActiveStatus, planFromWhopPlanId } from "./config.js";
+import { ensureAlertPreferences } from "../alerts/store.js";
 
 export type BillingRow = {
   user_id: string;
@@ -173,6 +174,15 @@ export async function syncFromWhopMembership(
     [userId, email, membershipId, whopUserId, referralRef, manageUrl, status, plan, planId, periodEnd],
   );
   invalidateBillingAccessCache(userId);
+
+  // Filing brief on by default for every member.
+  if (email) {
+    try {
+      await ensureAlertPreferences(userId, email);
+    } catch (err) {
+      console.warn("[billing] digest_prefs_bootstrap_failed", err instanceof Error ? err.message : err);
+    }
+  }
 }
 
 export function billingStatusPayload(row: BillingRow | null) {
