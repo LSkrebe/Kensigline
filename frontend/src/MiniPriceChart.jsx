@@ -591,6 +591,7 @@ export function MiniPriceChart({
           </div>
           )
         ) : !size ? null : (
+          <div key={priceRange} className="appMotionChart" style={{ width: '100%', height: '100%' }}>
           <svg
             className="graphSvg"
             viewBox={`0 0 ${w} ${h}`}
@@ -680,6 +681,7 @@ export function MiniPriceChart({
               </g>
             ) : null}
           </svg>
+          </div>
         )}
         {activeIdx != null && hoverPos && hoverEnabled ? (
           <div

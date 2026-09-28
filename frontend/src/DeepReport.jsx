@@ -1172,7 +1172,7 @@ function DeepTrackRecordChart({ points = [] }) {
   )
 }
 
-function DeepTrackRecordChartPanel({ trackRecord, loading = false }) {
+function DeepTrackRecordChartPanel({ trackRecord, loading = false, animKey = null }) {
   if (loading && !trackRecord?.points?.length) {
     return <SkeletonChart />
   }
@@ -1181,7 +1181,7 @@ function DeepTrackRecordChartPanel({ trackRecord, loading = false }) {
   }
 
   return (
-    <div className="researchMiniPrice researchMiniPrice--chartOnly">
+    <div key={animKey ?? 'chart'} className="researchMiniPrice researchMiniPrice--chartOnly appMotionChart">
       <DeepTrackRecordChart points={trackRecord.points} />
     </div>
   )
@@ -1987,7 +1987,7 @@ export function DeepCompanyReport({
             {heroReturn ? <p className={`drpt-heroReturn ${heroReturn.tone}`}>{heroReturn.text}</p> : null}
             <p className="drpt-heroSpan">{priceRangeLabel(chartRange)}</p>
             {chartSlot ? (
-              <div className="drpt-figure drpt-figure--chart">{chartSlot}</div>
+              <div key={chartRange} className="drpt-figure drpt-figure--chart appMotionChart">{chartSlot}</div>
             ) : chartLoading ? (
                 <SkeletonChart />
             ) : (
@@ -2194,7 +2194,7 @@ export function DeepActorReport({
           </div>
           <div className="drpt-dossierChart">
             <div className="drpt-figure drpt-figure--chart">
-              <DeepTrackRecordChartPanel trackRecord={trackRecord} loading={showSectionLoading} />
+              <DeepTrackRecordChartPanel trackRecord={trackRecord} loading={showSectionLoading} animKey={chartRange} />
             </div>
             <DeepChartRange value={chartRange} onChange={setChartRange} options={chartRangeOptions} />
         </div>

@@ -1,0 +1,201 @@
+/* Shared light motion — charts, ranges, lists, more buttons. Keep simple. */
+
+@keyframes appMotionFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes appMotionFade {
+  from { opacity: 0.28; }
+  to { opacity: 1; }
+}
+
+@keyframes appMotionPop {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Chart surface: soft crossfade when range/content remounts. */
+.appMotionChart {
+  animation: appMotionFade 0.34s ease both;
+}
+
+.appMotionEnter {
+  animation: appMotionFadeUp 0.32s ease both;
+}
+
+/* Timeframe / range pills */
+.researchPriceRangeBtn,
+.exploreTapeRange {
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.14s ease,
+    box-shadow 0.18s ease;
+}
+
+.researchPriceRangeBtn:hover:not(.isActive),
+.exploreTapeRange:hover:not(.isActive) {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.researchPriceRangeBtn:active,
+.exploreTapeRange:active {
+  transform: scale(0.94);
+}
+
+.researchPriceRangeBtn.isActive,
+.exploreTapeRange.isActive {
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+/* More / load-more controls */
+.exploreTapeMore,
+.drpt-showMore,
+.exploreDirShowMore {
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.14s ease,
+    opacity 0.18s ease;
+}
+
+.exploreTapeMore:active,
+.drpt-showMore:active,
+.exploreDirShowMore:active {
+  transform: scale(0.97);
+}
+
+.drpt-showMoreSign,
+.drpt-showMoreLabel {
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+
+.drpt-showMore:active .drpt-showMoreSign {
+  transform: scale(1.08);
+}
+
+/* List / row enter — runs when nodes are inserted (e.g. More, first paint). */
+.exploreTapeList > .exploreTapeRow,
+.drpt-tradeList--days > .drpt-tradeDay,
+.drpt-holdingList > li,
+.drpt-docList > li,
+.appSkelList > .appSkelRow,
+.appSkelStats > .appSkelStat,
+.exploreDirectoryList > li,
+.exploreStoryList > li {
+  animation: appMotionFadeUp 0.34s ease both;
+}
+
+.exploreTapeList > .exploreTapeRow:nth-child(1),
+.drpt-tradeList--days > .drpt-tradeDay:nth-child(1),
+.drpt-holdingList > li:nth-child(1),
+.drpt-docList > li:nth-child(1),
+.appSkelList > .appSkelRow:nth-child(1) { animation-delay: 0ms; }
+.exploreTapeList > .exploreTapeRow:nth-child(2),
+.drpt-tradeList--days > .drpt-tradeDay:nth-child(2),
+.drpt-holdingList > li:nth-child(2),
+.drpt-docList > li:nth-child(2),
+.appSkelList > .appSkelRow:nth-child(2) { animation-delay: 28ms; }
+.exploreTapeList > .exploreTapeRow:nth-child(3),
+.drpt-tradeList--days > .drpt-tradeDay:nth-child(3),
+.drpt-holdingList > li:nth-child(3),
+.drpt-docList > li:nth-child(3),
+.appSkelList > .appSkelRow:nth-child(3) { animation-delay: 56ms; }
+.exploreTapeList > .exploreTapeRow:nth-child(4),
+.drpt-tradeList--days > .drpt-tradeDay:nth-child(4),
+.drpt-holdingList > li:nth-child(4),
+.drpt-docList > li:nth-child(4),
+.appSkelList > .appSkelRow:nth-child(4) { animation-delay: 84ms; }
+.exploreTapeList > .exploreTapeRow:nth-child(5),
+.drpt-tradeList--days > .drpt-tradeDay:nth-child(5),
+.drpt-holdingList > li:nth-child(5),
+.drpt-docList > li:nth-child(5),
+.appSkelList > .appSkelRow:nth-child(5) { animation-delay: 112ms; }
+.exploreTapeList > .exploreTapeRow:nth-child(6),
+.drpt-tradeList--days > .drpt-tradeDay:nth-child(6),
+.drpt-holdingList > li:nth-child(6),
+.drpt-docList > li:nth-child(6),
+.appSkelList > .appSkelRow:nth-child(6) { animation-delay: 140ms; }
+.exploreTapeList > .exploreTapeRow:nth-child(n + 7),
+.drpt-tradeList--days > .drpt-tradeDay:nth-child(n + 7),
+.drpt-holdingList > li:nth-child(n + 7),
+.drpt-docList > li:nth-child(n + 7),
+.appSkelList > .appSkelRow:nth-child(n + 7) { animation-delay: 160ms; }
+
+/* Row press / hover polish */
+.exploreTapeRowBtn,
+.drpt-tradeDayHead,
+.drpt-holdingBtn,
+.drpt-docRow {
+  transition: opacity 0.18s ease;
+}
+
+.exploreTapeRowBtn .exploreTapeName,
+.drpt-tradeDayHead .drpt-tradeTitle,
+.drpt-holdingBtn .drpt-holdingTicker {
+  transition: color 0.16s ease;
+}
+
+/* Stats / hero return when content lands */
+.drpt-heroReturn,
+.drpt-statStrip,
+.appSkel--chart {
+  animation: appMotionFadeUp 0.36s ease both;
+}
+
+/* Skeleton → quieter pulse already; soften mount */
+.appSkelList,
+.appSkelStats,
+.appSkelReturn {
+  animation: appMotionFade 0.28s ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .appMotionChart,
+  .appMotionEnter,
+  .exploreTapeList > .exploreTapeRow,
+  .drpt-tradeList--days > .drpt-tradeDay,
+  .drpt-holdingList > li,
+  .drpt-docList > li,
+  .appSkelList > .appSkelRow,
+  .appSkelStats > .appSkelStat,
+  .exploreDirectoryList > li,
+  .exploreStoryList > li,
+  .drpt-heroReturn,
+  .drpt-statStrip,
+  .appSkel--chart,
+  .appSkelList,
+  .appSkelStats,
+  .appSkelReturn,
+  .drpt-tradeDayPanel,
+  .drpt-tradeDayBody,
+  .drpt-tradeChevron {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .researchPriceRangeBtn:active,
+  .exploreTapeRange:active,
+  .exploreTapeMore:active,
+  .drpt-showMore:active,
+  .exploreDirShowMore:active {
+    transform: none;
+  }
+}
