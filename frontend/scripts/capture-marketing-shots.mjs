@@ -44,6 +44,8 @@ const SHOTS = [
     settleMs: 2200,
     chartRange: '1Y',
     waitFlatHero: true,
+    /** Collapsed chrome + Stats + Current holdings title in frame (not top-of-hero). */
+    scrollToCollapsedHoldings: true,
   },
 ]
 
@@ -60,6 +62,47 @@ async function selectChartRange(page, range) {
   } catch {
     console.warn(`chart range "${range}" not available — continuing without it`)
   }
+}
+
+/** Scroll dossier so the sticky hero collapses and Stats + holdings title sit in frame. */
+async function scrollDossierCollapsedHoldings(page) {
+  await page.evaluate(() => {
+    const scroller = document.querySelector('.drpt')
+    if (!scroller) return
+    const spacer = document.querySelector('.drpt-collapseSpacer')
+    const collapseRange = Math.max(spacer?.offsetHeight || 0, 280)
+    scroller.scrollTop = collapseRange + 8
+
+    const titles = [...document.querySelectorAll('.drpt-sectionTitle')]
+    const stats = titles.find((el) => /^stats$/i.test((el.textContent || '').trim()))
+    const holdings = titles.find((el) => /current holdings/i.test(el.textContent || ''))
+    const target = stats || holdings
+    if (!target) return
+
+    const scrollerRect = scroller.getBoundingClientRect()
+    const targetRect = target.getBoundingClientRect()
+    const collapsedChrome = 56
+    const pad = 18
+    scroller.scrollTop += targetRect.top - scrollerRect.top - collapsedChrome - pad
+  })
+
+  await page.waitForFunction(
+    () => {
+      const dock = document.querySelector('.drpt-dock')
+      if (!dock) return true
+      const collapse = Number(getComputedStyle(dock).getPropertyValue('--deep-collapse').trim() || 0)
+      const stats = [...document.querySelectorAll('.drpt-sectionTitle')].find((el) =>
+        /^stats$/i.test((el.textContent || '').trim()),
+      )
+      if (!stats) return collapse >= 0.95
+      const top = stats.getBoundingClientRect().top
+      return collapse >= 0.95 && top > 40 && top < 220
+    },
+    { timeout: 8_000 },
+  ).catch(() => {
+    console.warn('dossier collapse framing settle timed out — capturing anyway')
+  })
+  await page.waitForTimeout(350)
 }
 
 async function waitForCaptureReady(page, shot) {
@@ -119,14 +162,19 @@ async function captureOne(page, shot) {
   await page.waitForSelector('.terminalShell', { timeout: 30_000 })
   await waitForCaptureReady(page, shot)
   if (shot.chartRange) await selectChartRange(page, shot.chartRange)
-  await page.evaluate(() => {
-    const scroller =
-      document.querySelector('.drpt-scroll') ||
-      document.querySelector('.exploreDirShell') ||
-      document.querySelector('.explorePage') ||
-      document.querySelector('.terminalShell')
-    if (scroller) scroller.scrollTop = 0
-  })
+  if (shot.scrollToCollapsedHoldings) {
+    await scrollDossierCollapsedHoldings(page)
+  } else {
+    await page.evaluate(() => {
+      const scroller =
+        document.querySelector('.drpt') ||
+        document.querySelector('.drpt-scroll') ||
+        document.querySelector('.exploreDirShell') ||
+        document.querySelector('.explorePage') ||
+        document.querySelector('.terminalShell')
+      if (scroller) scroller.scrollTop = 0
+    })
+  }
   await page.waitForTimeout(shot.settleMs)
 
   // Hide toasts / paywalls that can flash over marketing shots.
