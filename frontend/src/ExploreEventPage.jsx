@@ -308,7 +308,7 @@ function EventMarketBlock({
         )}
         <EventChartRange value={chartRange} onChange={onChartRangeChange} options={chartRangeOptions} />
       </div>
-      <div className="drpt-figure drpt-figure--chart">
+      <div key={chartRange} className="drpt-figure drpt-figure--chart appMotionChart">
         <MiniPriceChart
           series={chartSeries}
           label={chartTicker}
@@ -438,7 +438,7 @@ export function ExploreEventPage({
   ].filter(Boolean)
 
   return (
-    <div className="exploreDirShell exploreEventShell" ref={pageRef}>
+    <div className="exploreDirShell exploreEventShell appPageEnter" ref={pageRef}>
       <div className="drpt-stickWrap">
         <div ref={dockRef} className="drpt-dock">
           <div className="drpt-viewport">

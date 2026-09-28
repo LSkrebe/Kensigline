@@ -8794,6 +8794,7 @@ function GraphPanel({
             No chart data.
           </div>
         ) : (
+          <div key={rangeKey || priceRange} className="appMotionChart" style={{ width: '100%', height: '100%' }}>
           <svg className="graphSvg" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" role="img">
             <defs>
               <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
@@ -8846,7 +8847,7 @@ function GraphPanel({
               )
             })}
 
-            <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
+            <path className="graphPath" style={GRAPH_SVG_PATH} d={path} pathLength="1" vectorEffect="non-scaling-stroke" />
 
             {markerX.map((x, i) => (
               <path
@@ -8867,6 +8868,7 @@ function GraphPanel({
               />
             ) : null}
           </svg>
+          </div>
         )}
       </div>
     </section>

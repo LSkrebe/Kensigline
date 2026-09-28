@@ -99,7 +99,7 @@ function DeepReportShell({
   })
 
   return (
-    <article className={['drpt', flat ? 'drpt--flatHead' : '', collapsedTitle ? 'drpt--dossier' : ''].filter(Boolean).join(' ')} ref={pageRef}>
+    <article className={['drpt', 'appPageEnter', flat ? 'drpt--flatHead' : '', collapsedTitle ? 'drpt--dossier' : ''].filter(Boolean).join(' ')} ref={pageRef}>
       <div className="drpt-stickWrap">
         <div ref={dockRef} className="drpt-dock">
           <div className="drpt-viewport">
@@ -1144,7 +1144,13 @@ function DeepTrackRecordChart({ points = [] }) {
         </defs>
         {areaPath ? <path className="graphArea" d={areaPath} fill={`url(#${gradId})`} /> : null}
         {linePath ? (
-          <path className="graphPath" style={OUTCOME_GRAPH_PATH} d={linePath} vectorEffect="non-scaling-stroke" />
+          <path
+            className="graphPath"
+            style={OUTCOME_GRAPH_PATH}
+            d={linePath}
+            pathLength="1"
+            vectorEffect="non-scaling-stroke"
+          />
         ) : null}
         {activeIdx != null && hoverEnabled ? (
           <g className="graphHoverMarker" aria-hidden="true">
@@ -2193,7 +2199,7 @@ export function DeepActorReport({
             )}
           </div>
           <div className="drpt-dossierChart">
-            <div className="drpt-figure drpt-figure--chart">
+            <div className="drpt-figure drpt-figure--chart appMotionChart" key={chartRange}>
               <DeepTrackRecordChartPanel trackRecord={trackRecord} loading={showSectionLoading} animKey={chartRange} />
             </div>
             <DeepChartRange value={chartRange} onChange={setChartRange} options={chartRangeOptions} />

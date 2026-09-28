@@ -1,4 +1,4 @@
-/* Shared light motion — charts, ranges, lists, more buttons. Keep simple. */
+/* Shared light motion — charts, ranges, lists, more buttons, page enter. */
 
 @keyframes appMotionFadeUp {
   from {
@@ -27,9 +27,70 @@
   }
 }
 
-/* Chart surface: soft crossfade when range/content remounts. */
-.appMotionChart {
-  animation: appMotionFade 0.34s ease both;
+@keyframes appMotionStrokeDraw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes appMotionAreaIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes appPageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Page shell enter (Explore, dossier, event, settings). */
+.appPageEnter {
+  animation: appPageEnter 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.appPageEnter .drpt-dossierLead,
+.appPageEnter .drpt-section,
+.appPageEnter .exploreRecapStickWrap,
+.appPageEnter .explorePageBody > *,
+.appPageEnter .exploreDirPaper > *,
+.appPageEnter .exploreEventBody > * {
+  animation: appMotionFadeUp 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.appPageEnter .drpt-dossierLead { animation-delay: 0.04s; }
+.appPageEnter .drpt-section:nth-of-type(1) { animation-delay: 0.1s; }
+.appPageEnter .drpt-section:nth-of-type(2) { animation-delay: 0.16s; }
+.appPageEnter .drpt-section:nth-of-type(3) { animation-delay: 0.22s; }
+.appPageEnter .drpt-section:nth-of-type(4) { animation-delay: 0.28s; }
+.appPageEnter .explorePageBody > *:nth-child(1) { animation-delay: 0.06s; }
+.appPageEnter .explorePageBody > *:nth-child(2) { animation-delay: 0.12s; }
+.appPageEnter .explorePageBody > *:nth-child(3) { animation-delay: 0.18s; }
+.appPageEnter .explorePageBody > *:nth-child(4) { animation-delay: 0.24s; }
+.appPageEnter .exploreDirPaper > *:nth-child(1),
+.appPageEnter .exploreEventBody > *:nth-child(1) { animation-delay: 0.06s; }
+.appPageEnter .exploreDirPaper > *:nth-child(2),
+.appPageEnter .exploreEventBody > *:nth-child(2) { animation-delay: 0.12s; }
+.appPageEnter .exploreDirPaper > *:nth-child(3),
+.appPageEnter .exploreEventBody > *:nth-child(3) { animation-delay: 0.18s; }
+
+/* Chart: line draws on; area fades in after. Remount on range switch. */
+.appMotionChart .graphPath,
+.appMotionChart path.graphPath {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: appMotionStrokeDraw 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.appMotionChart .graphArea,
+.appMotionChart path.graphArea {
+  opacity: 0;
+  animation: appMotionAreaIn 0.55s ease forwards;
+  animation-delay: 0.32s;
 }
 
 .appMotionEnter {
@@ -170,6 +231,17 @@
 @media (prefers-reduced-motion: reduce) {
   .appMotionChart,
   .appMotionEnter,
+  .appPageEnter,
+  .appPageEnter .drpt-dossierLead,
+  .appPageEnter .drpt-section,
+  .appPageEnter .exploreRecapStickWrap,
+  .appPageEnter .explorePageBody > *,
+  .appPageEnter .exploreDirPaper > *,
+  .appPageEnter .exploreEventBody > *,
+  .appMotionChart .graphPath,
+  .appMotionChart path.graphPath,
+  .appMotionChart .graphArea,
+  .appMotionChart path.graphArea,
   .exploreTapeList > .exploreTapeRow,
   .drpt-tradeList--days > .drpt-tradeDay,
   .drpt-holdingList > li,
@@ -189,6 +261,16 @@
   .drpt-tradeChevron {
     animation: none !important;
     transition: none !important;
+  }
+
+  .appMotionChart .graphPath,
+  .appMotionChart path.graphPath {
+    stroke-dashoffset: 0 !important;
+  }
+
+  .appMotionChart .graphArea,
+  .appMotionChart path.graphArea {
+    opacity: 1 !important;
   }
 
   .researchPriceRangeBtn:active,

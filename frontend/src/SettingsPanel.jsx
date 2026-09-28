@@ -78,7 +78,7 @@ function SettingsStrip({ backendUp, onSettingsClick, onBrandClick = null }) {
 
 function SettingsPageShell({ backendUp, onSettingsClick, onBrandClick = null, children }) {
   return (
-    <div className="stgShell">
+    <div className="stgShell appPageEnter">
       <SettingsStrip backendUp={backendUp} onSettingsClick={onSettingsClick} onBrandClick={onBrandClick} />
       <div className="stgScroll scrollThin">
         <div className="stgPaper">{children}</div>

@@ -239,7 +239,7 @@ export function ExplorePage({
   }, [dockRef, featured, pageRef, exploreReady])
 
   return (
-    <div className="explorePage" ref={pageRef}>
+    <div className="explorePage appPageEnter" ref={pageRef}>
       <div className="exploreRecapStickWrap">
         <div className="exploreRecapDock" ref={dockRef}>
           <ExploreDailyRecap

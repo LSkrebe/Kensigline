@@ -666,7 +666,7 @@ export function MiniPriceChart({
               <path className="analyseQuarterlyRevenueStep" d={quarterlyRevenueGeom} vectorEffect="non-scaling-stroke" />
             ) : null}
 
-            <path className="graphPath" style={GRAPH_SVG_PATH} d={path} vectorEffect="non-scaling-stroke" />
+            <path className="graphPath" style={GRAPH_SVG_PATH} d={path} pathLength="1" vectorEffect="non-scaling-stroke" />
 
             {activeIdx != null && hoverEnabled ? (
               <g className="graphHoverMarker" aria-hidden="true">
