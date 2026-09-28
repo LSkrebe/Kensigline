@@ -8,6 +8,7 @@
 import "../load-env.js";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { sparklineSeriesParam } from "../alerts/digest-sparkline.js";
 import { digestTestRecipient } from "../alerts/config.js";
 import type { DigestContent, DigestSlide } from "../alerts/digest-content.js";
 import {
@@ -21,6 +22,11 @@ function readArg(flag: string): string | null {
   const idx = process.argv.indexOf(flag);
   if (idx === -1) return null;
   return String(process.argv[idx + 1] ?? "").trim() || null;
+}
+
+function mockSparklineUrl(series: number[]): string {
+  const origin = process.env.FRONTEND_URL?.replace(/\/$/, "") || "https://mercerline.com";
+  return `${origin}/api/alerts/sparkline.png?d=${encodeURIComponent(sparklineSeriesParam(series))}`;
 }
 
 function mockSlide(partial: Partial<DigestSlide> & Pick<DigestSlide, "id" | "headline">): DigestSlide {
@@ -38,7 +44,7 @@ function mockSlide(partial: Partial<DigestSlide> & Pick<DigestSlide, "id" | "hea
             : kicker === "Coatue"
               ? "coatue"
               : null);
-  const origin = process.env.FRONTEND_ORIGIN?.replace(/\/$/, "") || "https://mercerline.com";
+  const origin = process.env.FRONTEND_URL?.replace(/\/$/, "") || "https://mercerline.com";
   const ticker = String(partial.ticker ?? "NVDA").trim().toUpperCase();
   const source = partial.source ?? "ptr";
   const investorType =
@@ -100,6 +106,7 @@ function mockDigestContent(): DigestContent {
         actionLabel: "Buy",
         moveLabel: "+4.2%",
         moveUp: true,
+        sparklineUrl: mockSparklineUrl([100, 102, 101, 105, 108, 107, 112, 115, 114, 118, 122, 121, 126]),
       }),
       mockSlide({
         id: "mock-buffett-aapl",
@@ -111,6 +118,7 @@ function mockDigestContent(): DigestContent {
         actionLabel: "Decrease",
         moveLabel: "−1.8%",
         moveUp: false,
+        sparklineUrl: mockSparklineUrl([180, 179, 181, 178, 176, 175, 174, 172, 173, 171, 169, 168, 166]),
       }),
       mockSlide({
         id: "mock-huang-tsm",
@@ -122,6 +130,7 @@ function mockDigestContent(): DigestContent {
         actionLabel: "Buy",
         moveLabel: "+2.1%",
         moveUp: true,
+        sparklineUrl: mockSparklineUrl([90, 91, 89, 92, 94, 93, 95, 97, 96, 98, 99, 101, 103]),
       }),
     ],
     headlineSlides: [
@@ -135,6 +144,7 @@ function mockDigestContent(): DigestContent {
         actionLabel: "Increase",
         moveLabel: "+0.9%",
         moveUp: true,
+        sparklineUrl: mockSparklineUrl([450, 452, 448, 455, 458, 456, 460, 462, 461, 465, 468, 467, 470]),
       }),
       mockSlide({
         id: "mock-coatue-amzn",
@@ -146,6 +156,7 @@ function mockDigestContent(): DigestContent {
         actionLabel: "New",
         moveLabel: "−0.4%",
         moveUp: false,
+        sparklineUrl: mockSparklineUrl([190, 191, 189, 188, 190, 187, 186, 185, 186, 184, 183, 184, 182]),
       }),
     ],
   };

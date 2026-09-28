@@ -30,16 +30,20 @@ function escHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function formatDigestDate(dayKey: string): string {
+/** Short subject / hero date — e.g. Mon 28 Sep */
+function formatDigestDateShort(dayKey: string): string {
   const d = new Date(`${dayKey}T12:00:00Z`);
   if (Number.isNaN(d.getTime())) return dayKey;
   return d.toLocaleDateString("en-GB", {
-    weekday: "long",
+    weekday: "short",
     day: "numeric",
-    month: "long",
-    year: "numeric",
+    month: "short",
     timeZone: "UTC",
   });
+}
+
+function filingCountLabel(n: number): string {
+  return n === 1 ? "1 filing" : `${n} filings`;
 }
 
 function eventUrl(slide: DigestSlide): string {
@@ -66,9 +70,15 @@ function portraitImg(slide: DigestSlide): string {
   const src = slide.portraitUrl;
   if (!src) {
     const letter = escHtml(String(slide.kicker || "?").trim().slice(0, 1).toUpperCase() || "?");
-    return `<div style="width:48px;height:56px;border-radius:4px;background-color:#1c1c20;color:${C.ink};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;line-height:56px;text-align:center;">${letter}</div>`;
+    return `<div style="width:48px;height:48px;border-radius:12px;background-color:#1c1c20;color:${C.ink};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;line-height:48px;text-align:center;">${letter}</div>`;
   }
-  return `<img src="${escHtml(src)}" width="48" height="56" alt="" style="display:block;width:48px;height:56px;border-radius:4px;object-fit:cover;object-position:center 18%;border:0;">`;
+  return `<img src="${escHtml(src)}" width="48" height="48" alt="" style="display:block;width:48px;height:48px;border-radius:12px;object-fit:cover;object-position:center 22%;border:0;">`;
+}
+
+function sparklineImg(slide: DigestSlide): string {
+  const src = slide.sparklineUrl;
+  if (!src) return "";
+  return `<img src="${escHtml(src)}" width="92" height="34" alt="" style="display:block;width:92px;height:34px;border:0;">`;
 }
 
 function companyLogoImg(slide: DigestSlide): string {
@@ -100,16 +110,15 @@ function renderHeader(origin: string): string {
     </tr>`;
 }
 
-function renderHero(dateLabel: string, count: number): string {
-  const title = count === 1 ? "1 new event" : `${count} new events`;
+function renderHero(dateLabelShort: string, count: number): string {
   return `
     <tr>
       <td style="padding:0 0 8px 0;${cell()}">
         <p style="margin:0 0 8px 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:13px;line-height:1.3;font-weight:500;color:${C.muted};">
-          ${escHtml(dateLabel)}
+          ${escHtml(dateLabelShort)}
         </p>
         <h1 style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:28px;line-height:1.12;font-weight:700;letter-spacing:-0.035em;color:${C.ink};">
-          ${escHtml(title)}
+          ${escHtml(filingCountLabel(count))}
         </h1>
       </td>
     </tr>`;
@@ -121,6 +130,7 @@ function renderTradeCard(slide: DigestSlide): string {
   const type = slide.investorType;
   const ticker = String(slide.ticker || "").trim().toUpperCase() || "—";
   const action = slide.actionLabel;
+  const spark = sparklineImg(slide);
   const move = slide.moveLabel
     ? `<span style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:16px;font-weight:700;letter-spacing:-0.02em;color:${moveColor(slide)};">${escHtml(slide.moveLabel)}</span>`
     : "";
@@ -147,6 +157,11 @@ function renderTradeCard(slide: DigestSlide): string {
                           : ""
                       }
                     </td>
+                    ${
+                      spark
+                        ? `<td width="100" valign="middle" align="right" style="vertical-align:middle;text-align:right;padding-left:10px;">${spark}</td>`
+                        : ""
+                    }
                   </tr>
                 </table>
               </td>
@@ -203,9 +218,9 @@ function renderCta(origin: string): string {
 
 export function buildDigestSubject(content: DigestContent): string {
   const n = content.heroSlides.length + content.headlineSlides.length;
-  const label = formatDigestDate(content.displayDayKey || content.dayKey);
-  if (n <= 0) return `Mercerline - ${label}`;
-  return `Mercerline - ${n} new event${n === 1 ? "" : "s"} - ${label}`;
+  const short = formatDigestDateShort(content.displayDayKey || content.dayKey);
+  if (n <= 0) return `Mercerline · ${short}`;
+  return `${filingCountLabel(n)} · ${short}`;
 }
 
 export function buildDigestPreheader(content: DigestContent): string {
@@ -219,10 +234,9 @@ export function buildDigestPreheader(content: DigestContent): string {
 
 export function buildDigestPlainText(content: DigestContent): string {
   const lines: string[] = [];
-  const label = formatDigestDate(content.displayDayKey || content.dayKey);
+  const short = formatDigestDateShort(content.displayDayKey || content.dayKey);
   const n = content.heroSlides.length + content.headlineSlides.length;
-  lines.push(`Mercerline - ${n} new event${n === 1 ? "" : "s"}`);
-  lines.push(label);
+  lines.push(`${filingCountLabel(n)} · ${short}`);
   lines.push("");
 
   const all = [...content.heroSlides, ...content.headlineSlides];
@@ -262,7 +276,7 @@ function styles(): string {
 
 export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
   const origin = frontendOrigin();
-  const dateLabel = formatDigestDate(content.displayDayKey || content.dayKey);
+  const dateLabelShort = formatDigestDateShort(content.displayDayKey || content.dayKey);
   const preheader = escHtml(buildDigestPreheader(content));
   const slides = [...content.heroSlides, ...content.headlineSlides];
   const count = slides.length;
@@ -286,10 +300,10 @@ export function buildDigestEmail(content: DigestContent): DigestEmailBundle {
       <td align="center" class="ml-pad" bgcolor="${C.bg}" style="padding:28px 16px 40px 16px;background-color:${C.bg};">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;">
           ${renderHeader(origin)}
-          ${renderHero(dateLabel, count)}
+          ${renderHero(dateLabelShort, count)}
           ${
             cardsHtml ||
-            `<tr><td style="padding:28px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:${C.muted};${cell()}">No new events today.</td></tr>`
+            `<tr><td style="padding:28px 0 0 0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;color:${C.muted};${cell()}">No filings today.</td></tr>`
           }
           ${renderCta(origin)}
           <tr>
