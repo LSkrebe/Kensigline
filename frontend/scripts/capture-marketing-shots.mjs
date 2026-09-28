@@ -64,39 +64,31 @@ async function selectChartRange(page, range) {
   }
 }
 
-/** Scroll dossier so the sticky hero collapses and Stats + holdings title sit in frame. */
+/** Scroll dossier so the sticky hero collapses but the chart + Stats stay in frame. */
 async function scrollDossierCollapsedHoldings(page) {
   await page.evaluate(() => {
     const scroller = document.querySelector('.drpt')
     if (!scroller) return
     const spacer = document.querySelector('.drpt-collapseSpacer')
-    const collapseRange = Math.max(spacer?.offsetHeight || 0, 280)
-    scroller.scrollTop = collapseRange + 8
-
-    const titles = [...document.querySelectorAll('.drpt-sectionTitle')]
-    const stats = titles.find((el) => /^stats$/i.test((el.textContent || '').trim()))
-    const holdings = titles.find((el) => /current holdings/i.test(el.textContent || ''))
-    const target = stats || holdings
-    if (!target) return
-
-    const scrollerRect = scroller.getBoundingClientRect()
-    const targetRect = target.getBoundingClientRect()
-    const collapsedChrome = 56
-    const pad = 18
-    scroller.scrollTop += targetRect.top - scrollerRect.top - collapsedChrome - pad
+    const collapseRange = Math.max(spacer?.offsetHeight || 0, 1)
+    // Fully collapse the hero chrome — stop there so the chart still fills the viewport.
+    scroller.scrollTop = collapseRange
   })
 
   await page.waitForFunction(
     () => {
       const dock = document.querySelector('.drpt-dock')
+      const chart =
+        document.querySelector('.drpt-dossierChart') ||
+        document.querySelector('.drpt-figure--chart') ||
+        document.querySelector('.drpt-heroReturn')
       if (!dock) return true
       const collapse = Number(getComputedStyle(dock).getPropertyValue('--deep-collapse').trim() || 0)
-      const stats = [...document.querySelectorAll('.drpt-sectionTitle')].find((el) =>
-        /^stats$/i.test((el.textContent || '').trim()),
-      )
-      if (!stats) return collapse >= 0.95
-      const top = stats.getBoundingClientRect().top
-      return collapse >= 0.95 && top > 40 && top < 220
+      if (collapse < 0.95) return false
+      if (!chart) return true
+      const rect = chart.getBoundingClientRect()
+      // Chart should still be on screen under the collapsed bar.
+      return rect.bottom > 80 && rect.top < window.innerHeight * 0.72
     },
     { timeout: 8_000 },
   ).catch(() => {
