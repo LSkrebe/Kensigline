@@ -134,7 +134,7 @@ export async function readRichestInvestorDossierCache(
   for (const row of rows ?? []) {
     const payload = row?.payload;
     if (!payload || typeof payload !== "object" || (payload as { ok?: boolean }).ok === false) continue;
-    if ((payload as { dossierSchemaVersion?: number }).dossierSchemaVersion !== 10) continue;
+    if ((payload as { dossierSchemaVersion?: number }).dossierSchemaVersion !== 11) continue;
     const actor = (payload as { actor?: { transactions?: unknown[] } }).actor;
     const n = Array.isArray(actor?.transactions) ? actor.transactions.length : 0;
     if (n > bestN) {

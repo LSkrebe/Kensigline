@@ -813,6 +813,10 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
             acquiredDisposed: t.acquired_disposed,
             amountUsd,
             shares: t.shares != null ? Number(t.shares) : null,
+            sharesAfter:
+              t.performance_meta?.sharesAfter != null
+                ? Number(t.performance_meta.sharesAfter)
+                : null,
             ts: t.ts,
           }
         : source === "politicians"
@@ -881,7 +885,7 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
   const catalogEntry = EXPLORE_WATCHLIST_CATALOG.find((entry) => entry.id === catalogSlug) ?? null;
   return {
     ok: true,
-    dossierSchemaVersion: 10,
+    dossierSchemaVersion: 11,
     slug: catalogSlug,
     mode: source,
     actor: {

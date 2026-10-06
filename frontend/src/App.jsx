@@ -1255,6 +1255,14 @@ function caseSheetRowToCompanyCaseFeedRow(r, { ticker, company, showMoney, mode,
   if (!base) return null
   const tick = String(ticker ?? '').trim().toUpperCase()
   const companyName = resolveActorTxnCompanyLabel(tick, company)
+  const sharesAfter =
+    r?.sharesAfter != null
+      ? Number(r.sharesAfter)
+      : r?.performanceMeta?.sharesAfter != null
+        ? Number(r.performanceMeta.sharesAfter)
+        : base.sharesAfter != null
+          ? Number(base.sharesAfter)
+          : null
   return {
     ...base,
     layout: 'txnCompany',
@@ -1264,6 +1272,18 @@ function caseSheetRowToCompanyCaseFeedRow(r, { ticker, company, showMoney, mode,
     ticker: tick,
     companyName,
     matchCompanies: [tick, companyName],
+    amountUsd:
+      base.amountUsd != null
+        ? base.amountUsd
+        : Number(r?.amountUsd) > 1
+          ? Number(r.amountUsd)
+          : null,
+    shares: base.shares != null ? base.shares : Number(r?.shares) > 0 ? Number(r.shares) : null,
+    sharesAfter: Number.isFinite(sharesAfter) && sharesAfter >= 0 ? sharesAfter : null,
+    performanceMeta: r?.performanceMeta ?? base.performanceMeta ?? null,
+    acquiredDisposed: r?.acquiredDisposed ?? base.acquiredDisposed ?? null,
+    filedAt: r?.filedAt ?? base.filedAt ?? null,
+    tradeTs: r?.ts ?? base.tradeTs ?? base.ts ?? null,
     __source: mode,
     url: trimNonEmpty(r?.url) || trimNonEmpty(documentUrl) || null,
     documentUrl: trimNonEmpty(documentUrl) || trimNonEmpty(r?.url) || null,
@@ -4877,6 +4897,11 @@ function caseSheetRowToTxnFeedRow(r, { showMoney }) {
   ]
   const code = String(r?.transactionCode ?? '').trim().toUpperCase() || '—'
   const when = r?.ts ? formatFeedDate(r.ts) : ''
+  const sharesAfterRaw = r?.sharesAfter ?? r?.performanceMeta?.sharesAfter
+  const sharesAfter =
+    sharesAfterRaw == null || sharesAfterRaw === ''
+      ? null
+      : Number(sharesAfterRaw)
   return {
     type: 'trade',
     layout: 'txn',
@@ -4891,6 +4916,13 @@ function caseSheetRowToTxnFeedRow(r, { showMoney }) {
     when,
     isDerivative: Boolean(r?.isDerivative),
     codeTone: insiderTxnCodeTone(code, r?.acquiredDisposed),
+    acquiredDisposed: r?.acquiredDisposed ?? null,
+    amountUsd: Number(r?.amountUsd) > 1 ? Number(r.amountUsd) : null,
+    shares: Number(r?.shares) > 0 ? Number(r.shares) : null,
+    sharesAfter: Number.isFinite(sharesAfter) && sharesAfter >= 0 ? sharesAfter : null,
+    performanceMeta: r?.performanceMeta ?? null,
+    filedAt: r?.filedAt ?? null,
+    tradeTs: r?.ts ?? null,
     ts: r?.ts ?? null,
   }
 }

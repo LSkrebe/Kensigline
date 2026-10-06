@@ -2,6 +2,10 @@ import {buildDailyDisclosureIndex} from './daily.js';
 import {db} from '../core/db.js';
 import {queueDisclosurePriceRefresh,completedDay} from '../core/disclosure-prices.js';
 import {calculateTransaction,flagAmendmentConflicts,reconcileLots,summarizeTransactions,type Tx,type Bar,type AmendmentRef} from './calculate.js';
+import {instrumentFromSecurityTitle} from './instrument.js';
+
+export {instrumentFromSecurityTitle} from './instrument.js';
+
 export async function enrichDossierPerformance(transactions:any[],source:string,amendments:AmendmentRef[]=[]) {
   // Cap chart/summary work so heavy filers (hundreds of PTRs) stay interactive.
   const PERF_TXN_CAP = 180;
@@ -13,7 +17,10 @@ export async function enrichDossierPerformance(transactions:any[],source:string,
     const category=source==='politicians'?'politician':source==='institutions'?'institution':'insider';
     const code=String(s.transactionCode??s.transactionType??'');
     const action=category==='institution'?'holding':category==='insider'?(code==='P'?'buy':code==='S'?'sell':'other'):/^(p|purchase|buy)(\b|$)/i.test(code)?'buy':/^(s|sale|sell)(\b|$)/i.test(code)?'sell':'other';
-    const instrument=s.isDerivative?'derivative':category==='institution'?(s.instrumentType??'unclassified'):category==='politician'?/\[ST\]/i.test(s.assetName??'')?'shares':'unclassified':m.securityTitle&&/preferred|convertible|warrant|unit|debenture|note|class [a-z]/i.test(m.securityTitle)?'unclassified':'shares';
+    const instrument=
+      category==='institution' ? (s.instrumentType ?? 'unclassified')
+      : category==='politician' ? (/\[ST\]/i.test(s.assetName ?? '') ? 'shares' : 'unclassified')
+      : instrumentFromSecurityTitle(m.securityTitle, s.isDerivative === true);
     return {id:s.transactionId,ticker:t.ticker,category,action,instrument,date:t.ts,filedAt:s.filedAt,observedAt:s.observedAt,filingId:s.filingId,sourceUrl:s.documentUrl,amountRange:s.amountRange,amountMid:s.amountUsdMid??s.amountUsd??null,shares:s.shares,meta:{...m,dateBasis:category==='politician'?'report_signature':'filing'},form:s.form,description:s.description,quality:s.quality};
   }),amendments);
   const tickers=[...new Set(['SPY',...txs.filter(t=>t.instrument==='shares'&&t.quality!=='legacy_unverified').map(t=>t.ticker)])];

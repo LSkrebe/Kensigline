@@ -28,6 +28,7 @@ import { fetchJsonSafe } from './api.js'
 import './DeepReport.css'
 import { EmptyChart, EmptyList, EmptyReturn, EmptyStats, SkeletonChart, SkeletonList, SkeletonReturn, SkeletonStats } from './AppSkeleton.jsx'
 import { copyDossierShareCard } from './dossierShareCard.js'
+import { buildDossierActivity } from './dossierActivity.js'
 import './ExplorePage.css'
 
 const DEEP_COLLAPSE_RANGE_FALLBACK = 1
@@ -1332,35 +1333,10 @@ function heroReturnFromPercent(percent) {
   return { text: '0.0%', tone: '' }
 }
 
-function formatLongDate(ms) {
-  const d = new Date(ms)
-  if (Number.isNaN(d.getTime())) return null
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(d)
-}
-
-/** US short date with year — same template as Explore tape / directory rows. */
 function formatTapeDate(ms) {
   const d = new Date(ms)
   if (Number.isNaN(d.getTime())) return null
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(d)
-}
-
-function formatAum(n) {
-  if (!(n > 0)) return '—'
-  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`
-  if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`
-  if (n >= 1e3) return `$${Math.round(n / 1e3)}K`
-  return `$${Math.round(n)}`
-}
-
-function formatDelay(days) {
-  if (!Number.isFinite(days)) return '—'
-  const rounded = Math.max(0, Math.round(days))
-  if (rounded >= 6) {
-    const weeks = Math.max(1, Math.round(rounded / 7))
-    if (Math.abs(rounded - weeks * 7) <= 2) return weeks === 1 ? '1 week' : `${weeks} weeks`
-  }
-  return rounded === 1 ? '1 day' : `${rounded} days`
 }
 
 function formatWeight(n) {
@@ -1379,137 +1355,37 @@ function shortCompany(name, ticker) {
   return cleaned || ticker || '—'
 }
 
-function dayKey(ms) {
-  const d = new Date(ms)
-  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-}
+function tradeRowMeta(row) {
+  const tick = String(row?.ticker ?? '').trim().toUpperCase()
+  const code = String(row?.code ?? '').trim().toUpperCase() || '—'
+  const amount = row?.value ?? row?.v ?? null
+  const date = row?.when ?? '—'
 
-function integerWeights(rows) {
-  const total = rows.reduce((sum, row) => sum + row.dollars, 0)
-  if (!(total > 0)) return rows.map((row) => ({ ...row, pct: 0 }))
-  const ranked = rows.map((row, index) => {
-    const exact = (row.dollars / total) * 100
-    return { ...row, index, exact, pct: Math.floor(exact), frac: exact - Math.floor(exact) }
-  })
-  let left = 100 - ranked.reduce((sum, row) => sum + row.pct, 0)
-  ranked.sort((a, b) => b.frac - a.frac || a.index - b.index)
-  for (let i = 0; i < ranked.length && left > 0; i += 1) {
-    ranked[i].pct += 1
-    left -= 1
-  }
-  return ranked.sort((a, b) => a.index - b.index)
-}
-
-function isDossierTrade(row) {
-  return row?.type !== 'meta' && row?.layout !== 'two' && (row?.type === 'trade' || String(row?.layout ?? '').startsWith('txn'))
-}
-
-function tradeDollars(row) {
-  const n = Number(row?.amountUsd)
-  if (n > 1) return n
-  const text = String(row?.value ?? '').replace(/[$,]/g, '')
-  const range = text.match(/([\d.]+)\s*-\s*([\d.]+)\s*([kmb])?/i)
-  if (range) {
-    const unit = String(range[3] || '').toLowerCase()
-    const scale = unit === 'b' ? 1e9 : unit === 'm' ? 1e6 : unit === 'k' ? 1e3 : 1
-    return ((Number(range[1]) + Number(range[2])) / 2) * scale
-  }
-  const single = text.match(/([\d.]+)\s*([kmb])?/i)
-  if (!single) return 0
-  const unit = String(single[2] || '').toLowerCase()
-  const scale = unit === 'b' ? 1e9 : unit === 'm' ? 1e6 : unit === 'k' ? 1e3 : 1
-  return Number(single[1]) * scale
-}
-
-function buildDossierActivity(rows) {
-  const trades = (rows ?? []).filter(isDossierTrade).map((row) => {
-    const meta = tradeRowMeta(row)
-    const tradeMs = new Date(row?.tradeTs ?? row?.ts ?? 0).getTime()
-    const filedMs = new Date(row?.filedAt ?? row?.tradeTs ?? row?.ts ?? 0).getTime()
+  if (row?.layout === 'txnCompany') {
+    const company = String(row?.companyName ?? '').trim()
     return {
-      row,
-      ticker: meta.ticker,
-      name: shortCompany(row?.companyName || meta.title, meta.ticker),
-      fullName: String(row?.companyName || meta.title || meta.ticker).trim(),
-      dollars: tradeDollars(row),
-      sell: meta.codeTone === 'sell',
-      tradeMs: Number.isFinite(tradeMs) ? tradeMs : null,
-      filedMs: Number.isFinite(filedMs) ? filedMs : null,
+      ticker: tick || '—',
+      title: company || tick || 'Trade',
+      code,
+      codeTone: row.codeTone ?? deepTxnCodeTone(code, row.acquiredDisposed),
+      amount,
+      date,
     }
-  }).filter((trade) => trade.ticker && trade.ticker !== '—' && trade.tradeMs != null)
-  trades.sort((a, b) => a.tradeMs - b.tradeMs || a.filedMs - b.filedMs)
-  if (!trades.length) return null
-
-  const book = new Map()
-  const groups = new Map()
-  for (const trade of trades) {
-    const key = dayKey(trade.filedMs ?? trade.tradeMs)
-    if (!groups.has(key)) groups.set(key, { key, filedMs: trade.filedMs ?? trade.tradeMs, trades: [] })
-    groups.get(key).trades.push(trade)
-  }
-  const ordered = [...groups.values()].sort((a, b) => a.filedMs - b.filedMs)
-  const filings = []
-  for (const group of ordered) {
-    const before = new Map(book)
-    for (const trade of group.trades) {
-      const next = Math.max(0, (book.get(trade.ticker)?.dollars ?? 0) + (trade.sell ? -trade.dollars : trade.dollars))
-      if (next <= 1) book.delete(trade.ticker)
-      else book.set(trade.ticker, { dollars: next, name: trade.name, fullName: trade.fullName || book.get(trade.ticker)?.fullName })
-    }
-    const totalBefore = [...before.values()].reduce((sum, item) => sum + item.dollars, 0)
-    const totalAfter = [...book.values()].reduce((sum, item) => sum + item.dollars, 0)
-    const weight = (map, total, ticker) => (total > 0 ? ((map.get(ticker)?.dollars ?? 0) / total) * 100 : 0)
-    const seen = new Set()
-    const changes = []
-    for (const trade of group.trades) {
-      if (seen.has(trade.ticker)) continue
-      seen.add(trade.ticker)
-      const from = weight(before, totalBefore, trade.ticker)
-      const to = weight(book, totalAfter, trade.ticker)
-      const net = group.trades
-        .filter((item) => item.ticker === trade.ticker)
-        .reduce((sum, item) => sum + (item.sell ? -item.dollars : item.dollars), 0)
-      const had = (before.get(trade.ticker)?.dollars ?? 0) > 1
-      const has = (book.get(trade.ticker)?.dollars ?? 0) > 1
-      const kind = !had && has ? 'new' : had && !has ? 'closed' : net > 0 ? 'increased' : net < 0 ? 'decreased' : 'unchanged'
-      const fullName = book.get(trade.ticker)?.fullName || before.get(trade.ticker)?.fullName || trade.fullName
-      if (from < 0.05 && to < 0.05) continue
-      if (kind === 'unchanged') continue
-      changes.push({ ticker: trade.ticker, name: book.get(trade.ticker)?.name || before.get(trade.ticker)?.name || trade.name, fullName, from, to, kind })
-    }
-    const unchanged = []
-    for (const [ticker, item] of book) {
-      if (seen.has(ticker)) continue
-      const to = weight(book, totalAfter, ticker)
-      if (to < 0.05) continue
-      unchanged.push({
-        ticker,
-        name: item.name,
-        fullName: item.fullName || item.name,
-        from: weight(before, totalBefore, ticker),
-        to,
-        kind: 'unchanged',
-      })
-    }
-    unchanged.sort((a, b) => b.to - a.to)
-    filings.push({ ...group, changes, unchanged })
   }
 
-  const holdings = integerWeights([...book.entries()].map(([ticker, item]) => ({ ticker, name: item.name, fullName: item.fullName || item.name, dollars: item.dollars })))
-    .filter((row) => row.dollars > 1)
-    .sort((a, b) => b.pct - a.pct || b.dollars - a.dollars)
-  const delays = trades
-    .filter((trade) => trade.filedMs != null && trade.tradeMs != null && trade.filedMs >= trade.tradeMs)
-    .map((trade) => (trade.filedMs - trade.tradeMs) / 86400000)
-  const aum = holdings.reduce((sum, row) => sum + row.dollars, 0)
+  const who = String(row?.who ?? row?.k ?? '').trim()
   return {
-    since: formatLongDate(trades[0].tradeMs),
-    aum: formatAum(aum),
-    delay: formatDelay(delays.length ? delays.reduce((sum, n) => sum + n, 0) / delays.length : null),
-    positions: String(holdings.length),
-    holdings,
-    filings: filings.filter((filing) => filing.changes.length).reverse(),
+    ticker: tick || '—',
+    title: tick || who || 'Trade',
+    code,
+    codeTone: row.codeTone ?? deepTxnCodeTone(code, row.acquiredDisposed),
+    amount,
+    date,
   }
+}
+
+function activityFromRows(rows) {
+  return buildDossierActivity(rows, { tradeRowMeta })
 }
 
 function DeepActorMetrics({ activity, loading = false }) {
@@ -1547,35 +1423,6 @@ function mockTradeDocumentUrl(row) {
     accession: row?.accession ?? row?.filingId ?? null,
     cik: row?.cik ?? null,
   })
-}
-
-function tradeRowMeta(row) {
-  const tick = String(row?.ticker ?? '').trim().toUpperCase()
-  const code = String(row?.code ?? '').trim().toUpperCase() || '—'
-  const amount = row?.value ?? row?.v ?? null
-  const date = row?.when ?? '—'
-
-  if (row?.layout === 'txnCompany') {
-    const company = String(row?.companyName ?? '').trim()
-    return {
-      ticker: tick || '—',
-      title: company || tick || 'Trade',
-      code,
-      codeTone: row.codeTone ?? deepTxnCodeTone(code, row.acquiredDisposed),
-      amount,
-      date,
-    }
-  }
-
-  const who = String(row?.who ?? row?.k ?? '').trim()
-  return {
-    ticker: tick || '—',
-    title: tick || who || 'Trade',
-    code,
-    codeTone: row.codeTone ?? deepTxnCodeTone(code, row.acquiredDisposed),
-    amount,
-    date,
-  }
 }
 
 function joinCompanyNames(names) {
@@ -1743,7 +1590,7 @@ function TradeDayLogos({ tickers = [] }) {
 }
 
 function DeepTradeLog({ rows = [], loading = false, name = '' }) {
-  const activity = useMemo(() => buildDossierActivity(rows), [rows])
+  const activity = useMemo(() => activityFromRows(rows), [rows])
   const filings = activity?.filings ?? []
   const [openKeys, setOpenKeys] = useState(() => new Set())
   useEffect(() => {
@@ -1831,7 +1678,7 @@ function formatDailyCloseReturn(closes) {
 }
 
 function DeepHoldings({ rows = [], loading = false }) {
-  const holdings = useMemo(() => buildDossierActivity(rows)?.holdings ?? [], [rows])
+  const holdings = useMemo(() => activityFromRows(rows)?.holdings ?? [], [rows])
   const visibleTickersKey = useMemo(
     () => holdings.map((row) => String(row.ticker ?? '').trim().toUpperCase()).filter(Boolean).join(','),
     [holdings],
@@ -2084,7 +1931,7 @@ export function DeepActorReport({
     [dossierPerformance, chartRange, showSectionLoading],
   )
 
-  const activity = useMemo(() => (showSectionLoading ? null : buildDossierActivity(tradeRows)), [tradeRows, showSectionLoading])
+  const activity = useMemo(() => (showSectionLoading ? null : activityFromRows(tradeRows)), [tradeRows, showSectionLoading])
 
   const rangeReturnRaw = trackRecord?.stats?.cumulativeReturnRaw
   const rangeReturnPct =
@@ -2203,7 +2050,7 @@ export function DeepActorReport({
               <DeepTrackRecordChartPanel trackRecord={trackRecord} loading={showSectionLoading} animKey={chartRange} />
             </div>
             <DeepChartRange value={chartRange} onChange={setChartRange} options={chartRangeOptions} />
-        </div>
+          </div>
         </div>
         <DeepSection title="Stats">
           <DeepActorMetrics activity={activity} loading={showSectionLoading} />
