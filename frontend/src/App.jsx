@@ -1628,6 +1628,8 @@ function enrichStubActorWithCompanyFlows(actorRow, { ticker, companyName, flows,
 
 /** True when dossier has real trade history (not a synthetic +$1 name stub). */
 function actorDossierIsRich(actorRow) {
+  if (actorRow?.activity?.filings?.length > 0 || actorRow?.activity?.holdings?.length > 0) return true
+  if (actorRow?.activity?.aum && actorRow.activity.aum !== '—' && actorRow.activity.aum !== '-') return true
   const txns = actorRow?.transactions
   if (!Array.isArray(txns) || !txns.length) return false
   const mode = actorRow?.source ?? actorRow?.__investigateSource ?? 'insider'
@@ -11909,6 +11911,15 @@ function KensiglineTerminal() {
     // directory stub — so seeded company-flow trades and feed hits paint immediately.
     // Pass full history here; DeepActorReport applies its own chart-range filter.
     if (exploreSubview === 'investorDetail' && effectiveActorRow) {
+      // API dossiers ship precomputed activity — skip O(n) case-row rebuild on open.
+      if (
+        effectiveActorRow.__dossierSource === 'api' &&
+        (effectiveActorRow.activity?.filings?.length > 0 ||
+          effectiveActorRow.activity?.holdings?.length > 0 ||
+          effectiveActorRow.performance?.daily?.points?.length > 0)
+      ) {
+        return []
+      }
       const filters = investigateIsPoliticians
         ? investigatePoliticianTxnFilters
         : investigateIsInstitutions
@@ -12043,6 +12054,7 @@ function KensiglineTerminal() {
         const next = normalizeInvestigateActorFeedRow({
           ...useRow,
           performance: actor.performance ?? useRow?.performance ?? null,
+          activity: actor.activity ?? useRow?.activity ?? null,
           __dossierSource: 'api',
         })
         const mode =
@@ -12056,7 +12068,7 @@ function KensiglineTerminal() {
       if (alive && investorBoostGenRef.current === gen) setInvestorBoostDoneForSlug(slug)
     }
     void refreshDossier()
-    const dailyRefresh=setInterval(()=>void refreshDossier(),60000)
+    const dailyRefresh = setInterval(() => void refreshDossier(), 5 * 60_000)
 
     return () => {
       alive = false

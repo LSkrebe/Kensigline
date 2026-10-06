@@ -667,7 +667,7 @@ export async function handleInvestorDossier(
     (await readInvestorDossierCache(slug, modeKey));
   const cachedActor = pgCached?.actor as { transactions?: unknown[] } | null | undefined;
   const cachedHasTxns = Array.isArray(cachedActor?.transactions) && cachedActor.transactions.length > 0;
-  if (pgCached?.ok && cachedHasTxns && pgCached.dossierSchemaVersion === 11) {
+  if (pgCached?.ok && cachedHasTxns && pgCached.dossierSchemaVersion === 12) {
     dossierMemoryCache.set(memKey, { at: Date.now(), payload: pgCached });
     sendJson(res, 200, pgCached);
     scheduleInvestorDossierRefresh(slug, modeKey, (s, m) =>

@@ -881,11 +881,37 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
     FROM ${transactionTable} t JOIN filings fil ON fil.id=t.filing_id JOIN issuers i ON i.id=t.issuer_id
     WHERE t.filer_id=$1 AND (fil.form ILIKE '%/A' ${source === "insider" ? "OR t.performance_meta->>'amendment'='true'" : ""})`, [filer.id]);
   const performance = await enrichDossierPerformance(performanceInput,source,amendments.map(a=>({...a,category:source==='institutions'?'institution':source==='politicians'?'politician':'insider'})));
+  const { activityRowsFromDossierTxns, buildDossierActivity, formatHoldingDailyReturn } = await import("../performance/activity.js");
+  let activity = buildDossierActivity(activityRowsFromDossierTxns(tradeLog));
+  if (activity?.holdings?.length) {
+    const tickers = [...new Set(activity.holdings.map((h) => h.ticker).filter(Boolean))];
+    if (tickers.length) {
+      const priceRows = await db.queryApi<{ ticker: string; bars: Array<{ close?: number }> }>(
+        `SELECT ticker, bars FROM disclosure_price_history WHERE ticker = ANY($1::text[]) AND basis = 'split_adjusted_close'`,
+        [tickers],
+        4_000,
+      ).catch(() => [] as { ticker: string; bars: Array<{ close?: number }> }[]);
+      const closesByTicker = new Map<string, number[]>();
+      for (const row of priceRows ?? []) {
+        const closes = (row.bars ?? [])
+          .map((b) => Number(b?.close))
+          .filter((n) => Number.isFinite(n) && n > 0);
+        if (closes.length) closesByTicker.set(String(row.ticker).toUpperCase(), closes.slice(-5));
+      }
+      activity = {
+        ...activity,
+        holdings: activity.holdings.map((h) => ({
+          ...h,
+          daily: formatHoldingDailyReturn(closesByTicker.get(h.ticker) ?? []) ?? null,
+        })),
+      };
+    }
+  }
   const catalogSlug = catalogIdForFiler(filer.slug, filer.display_name) ?? filer.slug;
   const catalogEntry = EXPLORE_WATCHLIST_CATALOG.find((entry) => entry.id === catalogSlug) ?? null;
   return {
     ok: true,
-    dossierSchemaVersion: 11,
+    dossierSchemaVersion: 12,
     slug: catalogSlug,
     mode: source,
     actor: {
@@ -901,6 +927,7 @@ export async function buildFilerDossierPayload(slug: string, mode: string) {
       count: tradeLog.length,
       transactions: tradeLog,
       performance,
+      activity,
     },
   };
 }

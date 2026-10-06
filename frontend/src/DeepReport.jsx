@@ -24,7 +24,6 @@ import { EXECUTIVE_INVESTOR_SLUGS, SENATE_INVESTOR_SLUGS, lookupWatchlistPerson 
 import { investorTypeLabel, lookupExplorePortrait } from './explorePortraitLookup.js'
 import portraits from './explorePortraits.json'
 import { companyLogoFallback, companyLogoSrc } from './localImages.js'
-import { fetchJsonSafe } from './api.js'
 import './DeepReport.css'
 import { EmptyChart, EmptyList, EmptyReturn, EmptyStats, SkeletonChart, SkeletonList, SkeletonReturn, SkeletonStats } from './AppSkeleton.jsx'
 import { copyDossierShareCard } from './dossierShareCard.js'
@@ -1511,39 +1510,6 @@ function filingSublabel(changes) {
   return `${n} ${n === 1 ? 'change' : 'changes'}`
 }
 
-const holdingBarsCache = new Map()
-const holdingBarsQueue = []
-let holdingBarsActive = 0
-function pumpHoldingBars() {
-  while (holdingBarsActive < 3 && holdingBarsQueue.length) {
-    holdingBarsActive += 1
-    const work = holdingBarsQueue.shift()
-    work().finally(() => {
-      holdingBarsActive -= 1
-      pumpHoldingBars()
-    })
-  }
-}
-function fetchHoldingCloses(ticker) {
-  const key = String(ticker ?? '').trim().toUpperCase()
-  if (!key) return Promise.resolve([])
-  const cached = holdingBarsCache.get(key)
-  if (cached && Date.now() - cached.at < 120_000) return cached.promise
-  const promise = new Promise((resolve) => {
-    holdingBarsQueue.push(async () => {
-      try {
-        const r = await fetchJsonSafe(`/api/bars?ticker=${encodeURIComponent(key)}&days=5`, { timeoutMs: 12_000 })
-        resolve(r.ok ? (r.data?.items ?? []).map((b) => Number(b.close)).filter((v) => Number.isFinite(v) && v > 0) : [])
-      } catch {
-        resolve([])
-      }
-    })
-    pumpHoldingBars()
-  })
-  holdingBarsCache.set(key, { at: Date.now(), promise })
-  return promise
-}
-
 /** 2×2 mosaic (or one full chip) sized to match normal row logos. */
 function TradeDayLogos({ tickers = [] }) {
   const unique = [...new Set(tickers.map((t) => String(t).trim().toUpperCase()).filter(Boolean))]
@@ -1589,13 +1555,12 @@ function TradeDayLogos({ tickers = [] }) {
   )
 }
 
-function DeepTradeLog({ rows = [], loading = false, name = '' }) {
-  const activity = useMemo(() => activityFromRows(rows), [rows])
+function DeepTradeLog({ activity = null, loading = false, name = '' }) {
   const filings = activity?.filings ?? []
   const [openKeys, setOpenKeys] = useState(() => new Set())
   useEffect(() => {
     setOpenKeys(new Set())
-  }, [rows])
+  }, [activity])
   if (loading && !filings.length) return <SkeletonList count={3} />
   if (!filings.length) return <EmptyList label="No trades yet" />
   return (
@@ -1664,53 +1629,15 @@ function DeepTradeLog({ rows = [], loading = false, name = '' }) {
   )
 }
 
-function formatDailyCloseReturn(closes) {
-  const series = (closes ?? []).filter((value) => Number.isFinite(value) && value > 0)
-  if (series.length < 2) return null
-  const last = series[series.length - 1]
-  const prev = series[series.length - 2]
-  if (!(prev > 0)) return null
-  const pct = ((last - prev) / prev) * 100
-  const abs = Math.abs(pct).toFixed(1)
-  if (pct > 0.05) return { text: `+${abs}%`, tone: 'isUp' }
-  if (pct < -0.05) return { text: `−${abs}%`, tone: 'isDown' }
-  return { text: '0.0%', tone: 'isFlat' }
-}
-
-function DeepHoldings({ rows = [], loading = false }) {
-  const holdings = useMemo(() => activityFromRows(rows)?.holdings ?? [], [rows])
-  const visibleTickersKey = useMemo(
-    () => holdings.map((row) => String(row.ticker ?? '').trim().toUpperCase()).filter(Boolean).join(','),
-    [holdings],
-  )
-  const [dailyByTicker, setDailyByTicker] = useState({})
-  useEffect(() => {
-    let alive = true
-    const tickers = visibleTickersKey ? visibleTickersKey.split(',') : []
-    if (!tickers.length) {
-      setDailyByTicker({})
-      return undefined
-    }
-    void Promise.all(
-      tickers.map(async (ticker) => {
-        const closes = await fetchHoldingCloses(ticker)
-        return [ticker, formatDailyCloseReturn(closes)]
-      }),
-    ).then((entries) => {
-      if (!alive) return
-      setDailyByTicker(Object.fromEntries(entries))
-    })
-    return () => {
-      alive = false
-    }
-  }, [visibleTickersKey])
+function DeepHoldings({ activity = null, loading = false }) {
+  const holdings = activity?.holdings ?? []
   if (loading && !holdings.length) return <SkeletonList count={3} />
   if (!holdings.length) return <EmptyList label="No holdings yet" />
   return (
     <ol className="drpt-holdingList">
       {holdings.map((holding) => {
         const ticker = String(holding.ticker).toUpperCase()
-        const daily = dailyByTicker[ticker]
+        const daily = holding.daily ?? null
         return (
           <li key={ticker}>
             <div className="drpt-holdingBtn">
@@ -1914,7 +1841,10 @@ export function DeepActorReport({
   }, [actorRow?.performance, name])
 
   const chartRangeOptions = useMemo(
-    () => availablePriceRangesFromTimestamps((dossierPerformance?.daily?.points ?? tradeRows).map((row) => row?.ts).filter(Boolean)),
+    () =>
+      availablePriceRangesFromTimestamps(
+        (dossierPerformance?.daily?.points ?? tradeRows).map((row) => row?.ts).filter(Boolean),
+      ),
     [tradeRows, dossierPerformance],
   )
 
@@ -1922,8 +1852,17 @@ export function DeepActorReport({
     setChartRange((prev) => coercePriceRangeFromOptions(prev, chartRangeOptions))
   }, [chartRangeOptions])
 
-  const sectionsLoading = Boolean(caseRowsLoading)
-  // While hunting, hide thin stub trades — same as company dossier waiting on explore.
+  const precomputedActivity =
+    actorRow?.activity &&
+    (actorRow.activity.filings?.length > 0 ||
+      actorRow.activity.holdings?.length > 0 ||
+      (actorRow.activity.aum && actorRow.activity.aum !== '—'))
+      ? actorRow.activity
+      : null
+  const hasPrefetchedDossier = Boolean(
+    precomputedActivity || dossierPerformance?.daily?.points?.length,
+  )
+  const sectionsLoading = Boolean(caseRowsLoading) && !hasPrefetchedDossier
   const showSectionLoading = sectionsLoading
 
   const trackRecord = useMemo(
@@ -1931,7 +1870,11 @@ export function DeepActorReport({
     [dossierPerformance, chartRange, showSectionLoading],
   )
 
-  const activity = useMemo(() => (showSectionLoading ? null : activityFromRows(tradeRows)), [tradeRows, showSectionLoading])
+  const activity = useMemo(() => {
+    if (showSectionLoading) return null
+    if (precomputedActivity) return precomputedActivity
+    return activityFromRows(tradeRows)
+  }, [showSectionLoading, precomputedActivity, tradeRows])
 
   const rangeReturnRaw = trackRecord?.stats?.cumulativeReturnRaw
   const rangeReturnPct =
@@ -2056,10 +1999,10 @@ export function DeepActorReport({
           <DeepActorMetrics activity={activity} loading={showSectionLoading} />
         </DeepSection>
         <DeepSection title="Current holdings">
-          <DeepHoldings rows={tradeRows} loading={showSectionLoading} />
+          <DeepHoldings activity={activity} loading={showSectionLoading} />
         </DeepSection>
         <DeepSection title="Recent trades">
-          <DeepTradeLog rows={tradeRows} loading={showSectionLoading} name={name} />
+          <DeepTradeLog activity={activity} loading={showSectionLoading} name={name} />
         </DeepSection>
         </div>
     </DeepReportShell>
