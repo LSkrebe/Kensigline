@@ -90,8 +90,8 @@ export function IntroStoryDiagram({ points }) {
             <path d={geometry.area} className="lpStoryChartArea" fill="url(#lpStoryChartArea)" />
             <line className="lpStoryAxis" x1={AXIS_X} y1={PAD_TOP} x2={AXIS_X} y2={AXIS_Y} />
             <line className="lpStoryAxis" x1={AXIS_X} y1={AXIS_Y} x2={W - PAD_RIGHT} y2={AXIS_Y} />
-            <path d={geometry.marketLine} className="lpStoryChartLine lpStoryChartLine--market" pathLength="1" />
-            <path d={geometry.investorLine} className="lpStoryChartLine" pathLength="1" />
+            <path d={geometry.marketLine} className="lpStoryChartLine lpStoryChartLine--market" />
+            <path d={geometry.investorLine} className="lpStoryChartLine" />
           </svg>
         </div>
       </div>

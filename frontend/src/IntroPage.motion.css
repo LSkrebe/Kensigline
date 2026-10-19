@@ -92,11 +92,11 @@
   }
 }
 
-/* Story chart — line draw only; callouts stay anchored (no per-profile motion) */
+/* Story chart lines are the full month. A dash draw stops short of the last close. */
 .introReveal--in .lpStoryChartLine {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: lpStrokeDraw 1.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  stroke-dasharray: none;
+  stroke-dashoffset: 0;
+  animation: none;
 }
 
 .introReveal--in .lpStoryChartArea {
@@ -254,6 +254,7 @@
 
   .introReveal--in .lpStoryChartLine,
   .introReveal--in .lpReviewChartLine {
+    stroke-dasharray: none;
     stroke-dashoffset: 0;
     animation: none;
   }
