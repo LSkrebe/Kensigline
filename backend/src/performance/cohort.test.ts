@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {averageInvestorReturns,annualWindow,availableHistoryReturns} from './cohort.js';
+import {averageInvestorReturns,annualWindow,availableHistoryReturns,cohortWindowSeries} from './cohort.js';
 test('cohorts weight investors equally, deduplicate stocks and omit unpriced securities',()=>{
  const rows=[{kind:'insiders',filer_id:'a',ticker:'X'},{kind:'insiders',filer_id:'a',ticker:'X'},{kind:'insiders',filer_id:'a',ticker:'Y'},{kind:'insiders',filer_id:'b',ticker:'Y'},{kind:'politicians',filer_id:'c',ticker:'missing'}];
  const groups=averageInvestorReturns(rows,new Map([['X',0.1],['Y',0.3]]));
@@ -32,4 +32,22 @@ test('leaders rank investor averages with deterministic ties, not individual win
  const result=averageInvestorReturns(rows,new Map([['X',1],['Y',-1],['Z',0.2]]));
  assert.equal(result[0]!.leaders[0]!.filerId,'b');assert.equal(result[0]!.leaders[0]!.returnFraction,0.2);assert.deepEqual(result[1]!.leaders,[]);
  assert.equal(result[0]!.members.length,3);
+});
+
+test('month window starts at zero and tracks investors against the market',()=>{
+ const bars=new Map([
+  ['SPY',[{day:'2026-09-01',close:100},{day:'2026-09-02',close:110},{day:'2026-09-03',close:120}]],
+  ['X',[{day:'2026-09-01',close:50},{day:'2026-09-02',close:55},{day:'2026-09-03',close:60}]],
+ ]);
+ const series=cohortWindowSeries(
+  [{kind:'insiders',filer_id:'a',ticker:'X',first_day:'2026-09-01'}],
+  bars,
+  ['2026-09-01','2026-09-02','2026-09-03'],
+  '2026-09-01',
+  '2026-09-03',
+ );
+ assert.equal(series?.points[0]?.investors,0);
+ assert.equal(series?.points[0]?.spy,0);
+ assert.ok(Math.abs(series!.points.at(-1)!.investors-0.2)<1e-12);
+ assert.ok(Math.abs(series!.points.at(-1)!.spy-0.2)<1e-12);
 });

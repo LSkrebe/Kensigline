@@ -616,8 +616,8 @@ function ExploreTapeList({ rows, range, plain = false, invested = false, eventRo
 }
 
 const POPULAR_RANGE = '6M'
-const TAPE_PAGE = 25
-const TAPE_MAX = 50
+const TAPE_PAGE = 20
+const TAPE_MAX = 40
 const TAPE_NARROW = '(max-width: 899px)'
 
 /** The mock catalog is the full Explore list. Nothing extra is appended. */
@@ -832,7 +832,7 @@ export function ExploreWatchlistSection({
         String(a.name).localeCompare(String(b.name)),
     )
   }, [people])
-  // Page 25, then More reveals the rest of the curated 50.
+  // First 20, then More reveals the rest of the curated 40.
   const performerLimit = Math.min(TAPE_MAX, narrow ? performerCount : sharedCount)
   const popularLimit = Math.min(TAPE_MAX, narrow ? popularCount : sharedCount)
   const morePerformers = performerLimit < performers.length && performers.length > performerLimit

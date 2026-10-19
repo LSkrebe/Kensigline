@@ -133,6 +133,42 @@ export function availableHistoryReturns(
   return averageInvestorReturns(eligible, values);
 }
 
+/** Daily equal-weight path for the Explore 1M window, plus SPY over the same sessions.
+ * Both series start at 0 on the window open. Same stock rules as availableHistoryReturns.
+ */
+export function cohortWindowSeries(
+  exposures: Exposure[],
+  histories: Map<string, { day: string; close: number }[]>,
+  marketDays: string[],
+  start: string,
+  end: string,
+) {
+  const spy = [...(histories.get("SPY") ?? [])].filter((b) => b.close > 0).sort((a, b) => a.day.localeCompare(b.day));
+  const spyBase = spy.find((b) => b.day >= start && b.day <= end);
+  if (!spyBase) return null;
+  const days = [...new Set(marketDays)].filter((d) => d > start && d <= end).sort();
+  const points: { day: string; investors: number; spy: number }[] = [{ day: start, investors: 0, spy: 0 }];
+  for (const day of days) {
+    const groups = availableHistoryReturns(exposures, histories, start, day);
+    const people = groups.flatMap((g) => g.members ?? []);
+    if (!people.length) continue;
+    const investors = people.reduce((sum, person) => sum + person.returnFraction, 0) / people.length;
+    let spyLast: { day: string; close: number } | undefined;
+    for (let i = spy.length - 1; i >= 0; i--) {
+      const bar = spy[i]!;
+      if (bar.day > day) continue;
+      spyLast = bar;
+      break;
+    }
+    if (!spyLast || spyLast.day <= spyBase.day) continue;
+    const market = spyLast.close / spyBase.close - 1;
+    if (!Number.isFinite(investors) || !Number.isFinite(market)) continue;
+    points.push({ day, investors, spy: market });
+  }
+  if (points.length < 3) return null;
+  return { range: "1M" as const, start, end: points[points.length - 1]!.day, points };
+}
+
 let cached: any = null,
   refreshed = 0,
   pending: Promise<any> | null = null;
@@ -426,12 +462,15 @@ async function build() {
         : [];
     }),
   }));
+  const month = exploreReturnWindow(dayList, "1M");
+  const window = cohortWindowSeries(exposures, histories, dayList, month.start, month.end);
   return {
     ok: true,
     period: "1Y",
     start,
     end,
     asOf,
+    window,
     groups: namedGroups,
     members,
     methodology:
@@ -458,7 +497,7 @@ export async function getCohortPerformance() {
     pending = (async () => {
       try {
         const snap = await readCohortSnapshot();
-        if (snap?.ok && snap?.end) {
+        if (snap?.ok && snap?.end && Array.isArray(snap?.window?.points) && snap.window.points.length >= 3) {
           cached = snap;
           refreshed = Date.now();
           return snap;

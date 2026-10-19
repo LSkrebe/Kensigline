@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS explore_home_snapshot (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE feed_cluster_snapshot ENABLE ROW LEVEL SECURITY;
+ALTER TABLE explore_home_snapshot ENABLE ROW LEVEL SECURITY;
+
 -- Backfill meta from existing bars (batched by callers if huge; fine while small/medium).
 INSERT INTO bars_ticker_meta (ticker, last_bar_day, bar_count, updated_at)
 SELECT ticker, max(day)::date, count(*)::int, now()

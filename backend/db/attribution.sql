@@ -24,4 +24,7 @@ CREATE TABLE IF NOT EXISTS user_attribution (
 
 CREATE INDEX IF NOT EXISTS user_attribution_ref_idx ON user_attribution (ref);
 
+ALTER TABLE attribution_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_attribution ENABLE ROW LEVEL SECURITY;
+
 COMMIT;

@@ -77,9 +77,9 @@ export function resolveWatchlistCatalogPerson(slug, name, entry = null) {
 }
 
 const STARTER_LISTS = [
-  ['nancy-pelosi', 'tommy-tuberville', 'markwayne-mullin', 'sheldon-whitehouse', 'john-boozman', 'byron-donalds', 'jensen-huang', 'tim-cook', 'lisa-su', 'vanguard-group', 'blackrock', 'renaissance-technologies'],
+  ['nancy-pelosi', 'tommy-tuberville', 'markwayne-mullin', 'sheldon-whitehouse', 'john-boozman', 'byron-donalds', 'jensen-huang', 'tim-cook', 'lisa-su', 'vanguard-group', 'blackrock', 'berkshire-hathaway'],
   ['nancy-pelosi', 'tommy-tuberville', 'markwayne-mullin', 'sheldon-whitehouse', 'john-boozman', 'byron-donalds', 'jensen-huang', 'tim-cook', 'lisa-su', 'elon-musk', 'satya-nadella', 'jamie-dimon'],
-  ['nancy-pelosi', 'tommy-tuberville', 'markwayne-mullin', 'sheldon-whitehouse', 'john-boozman', 'byron-donalds', 'jensen-huang', 'tim-cook', 'lisa-su', 'elon-musk', 'satya-nadella', 'jamie-dimon', 'vanguard-group', 'renaissance-technologies', 'state-street-global-advisors', 'fidelity-management', 'capital-group'],
+  ['nancy-pelosi', 'tommy-tuberville', 'markwayne-mullin', 'sheldon-whitehouse', 'john-boozman', 'byron-donalds', 'jensen-huang', 'tim-cook', 'lisa-su', 'elon-musk', 'satya-nadella', 'jamie-dimon', 'vanguard-group', 'berkshire-hathaway', 'state-street-global-advisors', 'fidelity-management', 'capital-group'],
 ]
 
 function isUntouchedStarterList(stored) {

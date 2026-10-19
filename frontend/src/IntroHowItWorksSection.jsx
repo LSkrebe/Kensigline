@@ -18,6 +18,7 @@ export function IntroHowItWorksSection() {
         <h2 id="lp-how-title" className="lpSectionTitle">
           {HOW_IT_WORKS.title}
         </h2>
+        {HOW_IT_WORKS.lead ? <p className="lpSectionLead">{HOW_IT_WORKS.lead}</p> : null}
       </IntroReveal>
 
       <IntroReveal revealKey="how-track" delay={60} className="lpHowCarousel">

@@ -318,7 +318,7 @@ export function IntroPage() {
                 ) : null}
                 <p className="lpHeroBrand mktEnterSeq mktEnterSeq--2">{hero.brand}</p>
                 <h1 className="lpHeroTitle mktEnterSeq mktEnterSeq--3">{hero.headline}</h1>
-                {hero.lead || leadParts.listPrice || (waitlist && leadParts.prefix) ? (
+                {leadParts.listPrice || (waitlist && leadParts.prefix) ? (
                   <p className="lpHeroLead mktEnterSeq mktEnterSeq--4">
                     {leadParts.listPrice ? (
                       <>
@@ -494,12 +494,12 @@ export function IntroPage() {
                 'Leave your email and we will write when access is ready.'
               ) : pricing.founders && pricing.monthlyListUsd ? (
                 <>
-                  Full access from day one at{' '}
+                  {closing.sub}{' '}
                   <span className="lpHeroListPrice">{formatUsd(pricing.monthlyListUsd)}/mo</span>{' '}
                   <span className="lpHeroPrice">{formatUsd(pricing.monthlyUsd)}/mo</span>
                 </>
               ) : (
-                'Full access from day one. Pay and start immediately.'
+                closing.sub
               )}
             </p>
             {waitlist ? (

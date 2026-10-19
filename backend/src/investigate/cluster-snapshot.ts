@@ -22,7 +22,8 @@ export async function ensureClusterSnapshotTable(): Promise<void> {
           payload jsonb NOT NULL,
           updated_at timestamptz NOT NULL DEFAULT now(),
           PRIMARY KEY (feed_kind, ticker_norm, days)
-        )
+        );
+        ALTER TABLE feed_cluster_snapshot ENABLE ROW LEVEL SECURITY
         `,
       )
       .then(() => undefined)

@@ -16,11 +16,8 @@ export const CURATED_INSIDER_ISSUER_TICKERS: Record<string, string[]> = {
   "lisa-su": ["AMD"],
   "andy-jassy": ["AMZN"],
   "alex-karp": ["PLTR"],
-  "hock-tan": ["AVGO"],
-  "marc-benioff": ["CRM"],
   "jamie-dimon": ["JPM"],
   "mary-barra": ["GM"],
-  "reed-hastings": ["NFLX"],
 };
 
 /**
@@ -32,16 +29,9 @@ export const CURATED_INSTITUTION_CIKS: Record<string, string[]> = {
   "pershing-square": ["0001336528"],
   "duquesne-family-office": ["0001536411"],
   "appaloosa": ["0001656456"],
-  "citadel-advisors": ["0001423053"],
-  "renaissance-technologies": ["0001037389"],
-  "bridgewater": ["0001350694"],
   "elliott-management": ["0001791786", "0001048445"],
-  "third-point": ["0001040273"],
   "baupost": ["0001061768"],
-  "tiger-global": ["0001167483"],
-  "coatue": ["0001135730"], // COATUE MANAGEMENT LLC (not Mangrove)
   "viking-global": ["0001103804"], // VIKING GLOBAL INVESTORS LP
-  "lone-pine": ["0001061165"], // LONE PINE CAPITAL LLC
   "icahn-capital": ["0000921669"],
 };
 

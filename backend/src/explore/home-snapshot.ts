@@ -27,7 +27,8 @@ export async function ensureExploreHomeSnapshotTable(): Promise<void> {
           cache_key text PRIMARY KEY,
           payload jsonb NOT NULL,
           updated_at timestamptz NOT NULL DEFAULT now()
-        )
+        );
+        ALTER TABLE explore_home_snapshot ENABLE ROW LEVEL SECURITY
         `,
         [],
         12_000,

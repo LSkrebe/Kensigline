@@ -9,7 +9,8 @@ export const FOUNDERS_YEARLY_USD = 199.99
  * Defaults until /api/billing/pricing responds (match WAITLIST_MODE / FOUNDERS_PRICING on API).
  */
 export const DEFAULT_WAITLIST = false
-export const DEFAULT_FOUNDERS = true
+/** Off until FOUNDERS_PRICING=1. Founder prices and copy stay in place for a later switch. */
+export const DEFAULT_FOUNDERS = false
 
 /** Round money to cents. */
 export function moneyCents(n) {

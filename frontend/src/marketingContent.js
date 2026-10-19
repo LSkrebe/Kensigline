@@ -56,10 +56,6 @@ export const INTRO_FOOTER = {
     'Mercerline is a research and information product only, not investment, legal, or tax advice; no broker, adviser, or fiduciary relationship is created, and you are solely responsible for your decisions. We process account, billing, and usage data to operate the service; payments are handled by Whop. Site content and software are owned by Mercerline or its licensors; unauthorized scraping, redistribution, or resale is prohibited. Contact research@mercerline.com for privacy or DMCA requests.',
 }
 
-export function heroLead(pricing = DEFAULT_PRICING) {
-  return `Curated politicians, insiders, and funds from ${formatUsd(pricing.monthlyUsd)}/mo.`
-}
-
 /** Lead with optional struck list price for founders mode. */
 export function heroLeadParts(pricing = DEFAULT_PRICING) {
   if (pricing.waitlist) {
@@ -78,9 +74,9 @@ export function heroLeadParts(pricing = DEFAULT_PRICING) {
     }
   }
   return {
-    prefix,
+    prefix: null,
     listPrice: null,
-    price: `${formatUsd(pricing.monthlyUsd)}/mo.`,
+    price: null,
   }
 }
 
@@ -113,10 +109,10 @@ export function heroCopy(pricing = DEFAULT_PRICING) {
     eyebrow: null,
     brand: 'Mercerline',
     headline: HERO_HEADLINE,
-    lead: heroLead(pricing),
+    lead: null,
     ctaPrimary: 'Open Explore',
     ctaSecondary: 'See how it works',
-    note: 'Pay once, ranked filers immediately',
+    note: `From ${formatUsd(pricing.monthlyUsd)}/mo, cancel anytime`,
   }
 }
 
@@ -125,22 +121,21 @@ export function introClosingCopy(pricing = DEFAULT_PRICING) {
   if (pricing.waitlist) {
     return {
       title: 'Be first when access opens',
+      sub: null,
       ctaPrimary: 'Save my spot',
     }
   }
   if (pricing.founders) {
     return {
-      title: 'See who is ahead - then subscribe',
-      ctaPrimary: 'Pick your plan',
+      title: 'Stop missing the filings that move first',
+      sub: 'Full Explore access starts the second you subscribe',
+      ctaPrimary: 'Get full access now',
     }
   }
   return {
-    title: 'Stop refreshing EDGAR. Start tracking winners.',
-    ctaPrimary: 'Start tracking',
-  }
-  return {
-    title: 'Track disclosures while they still matter',
-    ctaPrimary: 'Pick your plan',
+    title: 'Stop missing the filings that move first',
+    sub: 'Full Explore access starts the second you subscribe',
+    ctaPrimary: 'Get full access now',
   }
 }
 
@@ -210,11 +205,11 @@ export function introCompanyLogoSrc(ticker) {
   return `/intro/company-logos/${String(ticker ?? '').trim().toUpperCase()}.png`
 }
 
-/** FOMO origin beat - filing vs headline on the same price path. */
+/** Opening beat — tracked investors vs the S&P over the past month. */
 export const ORIGIN_STORY = {
   kicker: 'The window',
-  title: 'Public on day one. Headline months later.',
-  tagline: 'Mercerline surfaces the filing when it clears - before the story breaks.',
+  title: 'The tracked investors, this past month.',
+  tagline: 'Tracked investors against the S&P.',
   person: {
     name: 'Mercerline',
     chamber: 'Filing alert',
@@ -276,7 +271,7 @@ export const INTRO_DEPTH = {
     {
       id: 'sources',
       label: 'Coverage',
-      body: 'Form 4, PTR, and 13F on a curated ~50 investor universe.',
+      body: 'Form 4, PTR, and 13F on a curated 40 investor universe.',
     },
   ],
 }
@@ -371,7 +366,7 @@ export const PRODUCT = {
 export const HOW_IT_WORKS = {
   kicker: 'Product',
   title: 'Open Explore. Drill in.',
-  lead: null,
+  lead: 'Ranked returns first, then the dossier behind every number.',
   steps: [
     { id: 'recap', title: 'Who is ahead', body: 'Ranked returns and today’s filings.', shot: 'watchlist' },
     { id: 'filer', title: 'Behind the %', body: 'Stock vs options and history.', shot: 'deepInvestor' },
@@ -566,8 +561,9 @@ export function subscribeCopy(pricing = DEFAULT_PRICING) {
         yearly: 'Lock in 50% off',
       },
       closing: {
-        title: 'See who is ahead - then subscribe',
-        cta: 'Pick your plan',
+        title: 'Stop missing the filings that move first',
+        sub: 'Full Explore access starts the second you subscribe',
+        cta: 'Get full access now',
       },
     }
   }
@@ -581,8 +577,9 @@ export function subscribeCopy(pricing = DEFAULT_PRICING) {
       yearly: 'Continue with yearly',
     },
     closing: {
-      title: 'Stop refreshing EDGAR. Start tracking winners.',
-      cta: 'See plans',
+      title: 'Stop missing the filings that move first',
+      sub: 'Full Explore access starts the second you subscribe',
+      cta: 'Get full access now',
     },
   }
 }

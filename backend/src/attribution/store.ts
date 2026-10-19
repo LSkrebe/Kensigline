@@ -52,6 +52,8 @@ async function ensureAttributionTables(): Promise<void> {
       await db.query(`
         CREATE INDEX IF NOT EXISTS user_attribution_ref_idx ON user_attribution (ref)
       `);
+      await db.query(`ALTER TABLE attribution_events ENABLE ROW LEVEL SECURITY`);
+      await db.query(`ALTER TABLE user_attribution ENABLE ROW LEVEL SECURITY`);
     })().catch((err) => {
       tablesReady = null;
       throw err;

@@ -10,6 +10,7 @@ export async function backfillDailyHistory(batch=5){
  if(busy)return;busy=true;
  try{
   await db.queryApi('CREATE TABLE IF NOT EXISTS disclosure_history_days(day date PRIMARY KEY,completed_at timestamptz NOT NULL DEFAULT now(),symbols integer NOT NULL)');
+  await db.queryApi('ALTER TABLE disclosure_history_days ENABLE ROW LEVEL SECURITY');
   const target=completedDay();
   const done=new Set((await db.queryApi<{day:string}>('SELECT day::text FROM disclosure_history_days')).map(r=>r.day));
   const floor=new Date(Date.parse(target)-730*86400000).toISOString().slice(0,10);

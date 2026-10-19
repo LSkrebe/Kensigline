@@ -227,7 +227,7 @@ export async function people(opts: {
     `SELECT a.id::text,a.slug,a.display_name as name,a.filer_type::text as category,a.detail FROM filers a
  WHERE ($1='' OR a.display_name ILIKE '%'||$1||'%' ESCAPE '\\') AND ($2::text IS NULL OR a.filer_type::text=$2)
 
- ORDER BY CASE WHEN lower(a.display_name)=lower($1) THEN 0 ELSE 1 END,CASE WHEN a.slug=ANY(ARRAY['hon-nancy-pelosi','huang-jen-hsun','cook-timothy-d','su-lisa-t','vanguard-portfolio-management','cik-2012383','renaissance-technologies','hon-josh-gottheimer','sheldon-whitehouse','hon-ro-khanna']) THEN 0 ELSE 1 END,lower(a.display_name),a.id LIMIT 31 OFFSET $3`,
+ ORDER BY CASE WHEN lower(a.display_name)=lower($1) THEN 0 ELSE 1 END,CASE WHEN a.slug=ANY(ARRAY['hon-nancy-pelosi','huang-jen-hsun','cook-timothy-d','su-lisa-t','vanguard-portfolio-management','cik-2012383','berkshire-hathaway','hon-josh-gottheimer','sheldon-whitehouse','hon-ro-khanna']) THEN 0 ELSE 1 END,lower(a.display_name),a.id LIMIT 31 OFFSET $3`,
     [q, opts.kind, opts.offset],
   );
 }

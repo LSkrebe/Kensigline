@@ -207,12 +207,12 @@ export function SubscribePage() {
           <p className="lpCtaLead">
             {pricing.founders && pricing.monthlyListUsd ? (
               <>
-                Full access from day one at{' '}
+                {copy.closing.sub}{' '}
                 <span className="lpHeroListPrice">{formatUsd(pricing.monthlyListUsd)}/mo</span>{' '}
                 <span className="lpHeroPrice">{formatUsd(pricing.monthlyUsd)}/mo</span>
               </>
             ) : (
-              'Full access from day one.'
+              copy.closing.sub
             )}
           </p>
           <button type="button" className={`lpBtn ${accentBtn}`} onClick={scrollToPricing}>

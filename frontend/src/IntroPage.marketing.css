@@ -15,14 +15,18 @@
   --lp-pad: clamp(24px, 5vw, 56px);
   --lp-max: 1120px;
   --lp-section-pad-y: clamp(56px, 9vh, 88px);
-  --lp-story-peek: clamp(72px, 11vh, 112px);
+  --lp-story-peek: clamp(96px, 14vh, 140px);
   --lp-radius: 18px;
   --lp-radius-sm: 12px;
   --lp-serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
   --lp-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --lp-mono: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+  /* svh = visible first paint; dvh alone can hide the story peek behind mobile chrome */
   --lp-hero-expanded-h: min(clamp(580px, 80vh, 860px), calc(100dvh - var(--lp-story-peek)));
+  --lp-hero-expanded-h: min(clamp(580px, 80vh, 860px), calc(100svh - var(--lp-story-peek)));
   --lp-hero-collapsed-h: 64px;
+  --lp-hero-flat-expanded: #1c1814;
+  --lp-hero-flat-compact: #14110e;
 
   box-sizing: border-box;
   min-height: 100dvh;
@@ -106,7 +110,7 @@
   opacity: var(--lp-expanded-opacity);
   pointer-events: none;
   overflow: hidden;
-  background-color: var(--lp-hero-flat-expanded, #16171f);
+  background-color: var(--lp-hero-flat-expanded, #1c1814);
 }
 
 .lpHeroExpandedBg::before {
@@ -127,7 +131,7 @@
   opacity: var(--lp-compact-opacity);
   pointer-events: none;
   overflow: hidden;
-  background-color: var(--lp-hero-flat-compact, #101118);
+  background-color: var(--lp-hero-flat-compact, #14110e);
 }
 
 .lpHeroCompactBg::before {
@@ -222,7 +226,7 @@
   inset: 0;
   z-index: 0;
   background-image: none;
-  background-color: var(--lp-hero-flat-compact, #101118);
+  background-color: var(--lp-hero-flat-compact, #14110e);
   opacity: 1;
   pointer-events: none;
 }
@@ -258,6 +262,14 @@
   overflow: hidden;
   white-space: nowrap;
   transform: translateY(calc((1 - var(--lp-compact-opacity)) * 4px));
+}
+
+@media (min-width: 900px) {
+  .lpHeroDock .lpBrandName {
+    opacity: 1;
+    max-width: 11em;
+    transform: none;
+  }
 }
 
 .lpNavLinks {
@@ -480,6 +492,7 @@
   white-space: nowrap;
 }
 
+
 .lpHeroActions {
   display: flex;
   flex-wrap: wrap;
@@ -662,20 +675,25 @@
   background: var(--lp-bg);
 }
 
-/* Origin story */
+/* Origin story — tight top so eyebrow/title sit in the hero peek strip */
 .lpStory {
   max-width: var(--lp-max);
   margin: 0 auto;
-  padding: clamp(16px, 2.5vh, 28px) var(--lp-pad) calc(var(--lp-section-pad-y) + 12px);
+  padding: clamp(16px, 2.5vh, 28px) var(--lp-pad) var(--lp-section-pad-y);
+  border-top: 1px solid var(--lp-line);
+}
+
+.lpStory .lpSectionHead {
+  margin-bottom: clamp(28px, 4vh, 40px);
 }
 
 .lpStoryCaption {
-  margin: 12px 0 0;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  line-height: 1.5;
+  margin: 14px 0 0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  line-height: 1.55;
   text-align: center;
-  color: rgba(255, 255, 255, 0.36);
+  color: var(--lp-dim);
 }
 
 .lpStoryDiagram {
@@ -690,21 +708,28 @@
 
 .lpStoryCallouts {
   position: relative;
-  min-height: 120px;
-  margin-bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  min-height: 0;
+  margin-bottom: 10px;
 }
 
 .lpStoryCallout {
-  position: absolute;
-  bottom: 0;
-  transform: translateX(-50%);
+  position: static;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
   width: max-content;
   max-width: min(46vw, 168px);
-  text-align: center;
+  text-align: left;
+}
+
+.lpStoryCallout--news {
+  align-items: flex-end;
+  text-align: right;
 }
 
 .lpStoryCalloutGain {
@@ -854,17 +879,80 @@
   stroke: rgba(255, 255, 255, 0.22);
 }
 
+.lpStoryLegend {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 36px;
+  margin: 2px 0 16px;
+}
+
+.lpStoryLegendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.lpStoryLegendMark {
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--lp-up);
+  flex: none;
+}
+
+.lpStoryLegendMark--market {
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.lpStoryLegendName,
+.lpStoryLegendValue {
+  font-size: 14px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.lpStoryLegendName {
+  color: rgba(255, 255, 255, 0.62);
+  font-weight: 500;
+}
+
+.lpStoryLegendValue {
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.lpStoryLegendValue--investors {
+  color: var(--lp-up);
+}
+
+.lpStoryAxis {
+  stroke: #fff;
+  stroke-width: 1.25;
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
 .lpStoryChartLine {
   fill: none;
   stroke: var(--lp-up);
   stroke-width: 1.75;
-  stroke-linecap: round;
+  stroke-linecap: butt;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.lpStoryChartLine--market {
+  stroke: rgba(255, 255, 255, 0.38);
+  stroke-width: 1.5;
 }
 
 @media (max-width: 899px) {
   .lpStoryCallouts {
-    min-height: 114px;
+    min-height: 0;
   }
 
   .lpStoryCallout--filing {
@@ -878,8 +966,8 @@
 
 @media (max-width: 520px) {
   .lpStoryCallouts {
-    min-height: 110px;
-    margin-bottom: 2px;
+    min-height: 0;
+    margin-bottom: 8px;
   }
 
   .lpStoryCallout {
@@ -2100,26 +2188,32 @@
 }
 
 .lpCtaTitle {
-  margin: 0 0 10px;
+  margin: 0 auto 12px;
+  max-width: 18em;
   font-family: var(--lp-serif);
   font-size: clamp(1.8rem, 3.5vw, 2.4rem);
   font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
 }
 
 .lpCtaLead {
-  margin: 0 0 24px;
+  margin: 0 auto 24px;
+  max-width: 42ch;
   font-size: 15px;
+  line-height: 1.55;
   color: var(--lp-muted);
 }
 
-/* Footer — match collapsed hero flat field (darker than expanded). */
+/* Footer — same field as the rest of the page. */
 .lpFoot {
   position: relative;
   isolation: isolate;
   flex-shrink: 0;
   overflow: hidden;
   border-top: 1px solid var(--lp-line);
-  background-color: var(--lp-hero-flat-compact, #101118);
+  background-color: transparent;
 }
 
 .lpFoot::before {
@@ -2261,8 +2355,9 @@
 
 @media (max-width: 900px) {
   .lp {
-    --lp-story-peek: clamp(80px, 14vh, 120px);
+    --lp-story-peek: clamp(100px, 16vh, 140px);
     --lp-hero-expanded-h: calc(100dvh - var(--lp-story-peek));
+    --lp-hero-expanded-h: calc(100svh - var(--lp-story-peek));
   }
 
   .lpHeroExpandedInner {
