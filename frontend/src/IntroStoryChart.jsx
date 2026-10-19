@@ -49,7 +49,7 @@ export function IntroStoryLegend({ investorGain, marketGain }) {
       <p className="lpStoryLegendItem">
         <span className="lpStoryLegendMark" aria-hidden="true" />
         <span className="lpStoryLegendName">Investors</span>
-        <span className="lpStoryLegendValue lpStoryLegendValue--investors">{investorGain}</span>
+        <span className="lpStoryLegendValue">{investorGain}</span>
       </p>
       <p className="lpStoryLegendItem">
         <span className="lpStoryLegendMark lpStoryLegendMark--market" aria-hidden="true" />

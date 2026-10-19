@@ -48,7 +48,7 @@ export function IntroStorySection() {
     <section id="story" className="lpStory" aria-labelledby="lp-story-title">
       <IntroReveal revealKey="story-head" className="lpSectionHead lpSectionHead--center">
         <p className="lpEyebrow">{ORIGIN_STORY.kicker}</p>
-        <h2 id="lp-story-title" className="lpSectionTitle">
+        <h2 id="lp-story-title" className={move ? 'lpSectionTitle lpSectionTitle--up' : 'lpSectionTitle'}>
           {title}
         </h2>
         {move ? <IntroStoryLegend investorGain={move} marketGain={formatSignedPct(last?.spy)} /> : null}

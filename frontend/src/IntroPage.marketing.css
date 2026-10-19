@@ -920,13 +920,9 @@
 }
 
 .lpStoryLegendValue {
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--lp-fg);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-}
-
-.lpStoryLegendValue--investors {
-  color: var(--lp-up);
 }
 
 .lpStoryAxis {
@@ -1595,6 +1591,10 @@
   font-size: clamp(1.75rem, 3.5vw, 2.35rem);
   font-weight: 400;
   line-height: 1.15;
+}
+
+.lpSectionTitle--up {
+  color: var(--lp-up);
 }
 
 .lpSectionLead {
