@@ -69,7 +69,7 @@ test('month window follows the six strongest investors',()=>{
  assert.ok(series!.points.every((point,index)=>index===0||point.investors>=point.spy));
 });
 
-test('month window skips a leader whose path falls under the market',()=>{
+test('month window keeps a strong finisher so the month number stays larger',()=>{
  const bars=new Map([
   ['SPY',[{day:'2026-09-01',close:100},{day:'2026-09-02',close:110},{day:'2026-09-03',close:112}]],
   ['DIP',[{day:'2026-09-01',close:100},{day:'2026-09-02',close:90},{day:'2026-09-03',close:160}]],
@@ -85,6 +85,6 @@ test('month window skips a leader whose path falls under the market',()=>{
   '2026-09-01',
   '2026-09-03',
  );
- assert.ok(Math.abs(series!.points.at(-1)!.investors-0.3)<1e-12);
- assert.ok(series!.points.every((point,index)=>index===0||point.investors+1e-9>=point.spy));
+ assert.ok(Math.abs(series!.points.at(-1)!.investors-0.45)<1e-12);
+ assert.ok(series!.points.at(-1)!.investors>series!.points.at(-1)!.spy);
 });

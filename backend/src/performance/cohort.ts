@@ -133,19 +133,13 @@ export function availableHistoryReturns(
   return averageInvestorReturns(eligible, values);
 }
 
-const WINDOW_LEADERS = 6;
+const WINDOW_LEADERS = 3;
 
 type WindowPoint = { day: string; investors: number; spy: number };
 
-function staysAheadOfMarket(points: WindowPoint[]) {
-  const last = points[points.length - 1];
-  if (!last || !(last.investors > last.spy)) return false;
-  return points.every((point, index) => index === 0 || point.investors + 1e-9 >= point.spy);
-}
-
 /** Daily path for the intro month chart, plus SPY. Both series start at 0.
- * Roster is whoever stayed ahead of the S&P on every session, strongest first, up to six.
- * Rebuilt after each close and stored as one snapshot row.
+ * Roster is the investors with the strongest gain over the month, so the headline
+ * is the best real number we can show. Rebuilt after each close into one snapshot row.
  */
 export function cohortWindowSeries(
   exposures: Exposure[],
@@ -185,20 +179,15 @@ export function cohortWindowSeries(
     .flatMap((g) => g.members ?? [])
     .filter((person) => Number.isFinite(person.returnFraction))
     .sort((a, b) => b.returnFraction - a.returnFraction || a.filerId.localeCompare(b.filerId));
-  const chosen: string[] = [];
-  let series: ReturnType<typeof pathFor> = null;
-  for (const person of ranked) {
-    if (chosen.length >= WINDOW_LEADERS) break;
-    const trialIds = new Set([...chosen, person.filerId]);
-    const trial = pathFor(exposures.filter((row) => trialIds.has(row.filer_id)));
-    if (!trial || !staysAheadOfMarket(trial.points)) continue;
-    chosen.push(person.filerId);
-    series = trial;
+  if (!ranked.length) return null;
+  const count = Math.min(WINDOW_LEADERS, ranked.length);
+  const ids = new Set(ranked.slice(0, count).map((person) => person.filerId));
+  const series = pathFor(exposures.filter((row) => ids.has(row.filer_id)));
+  if (series) {
+    const last = series.points[series.points.length - 1]!;
+    if (last.investors > last.spy || count === 1) return series;
   }
-  if (series) return series;
-  const best = ranked[0];
-  if (!best) return null;
-  return pathFor(exposures.filter((row) => row.filer_id === best.filerId));
+  return pathFor(exposures.filter((row) => row.filer_id === ranked[0]!.filerId));
 }
 
 let cached: any = null,
@@ -506,7 +495,7 @@ async function build() {
     groups: namedGroups,
     members,
     methodology:
-      "Available history within each Explore range for Mercerline curated investors only. Each security starts at the later of the window start, its first eligible transaction date and its first available close. Shorter histories are not annualized. Each investor equally weighted; each distinct priced disclosed stock equally weighted within that investor. The past-month window is rebuilt after each close from the investors who stayed ahead of the S&P that month, strongest first, up to six, and replaces the previous snapshot. Available disclosure archive through the end of the period. Split-adjusted price returns, no dividends. Disclosed-stock reference, not actual holdings or personal P&L. Unpriced securities excluded. PTR sizing uses range midpoints where disclosed.",
+      "Available history within each Explore range for Mercerline curated investors only. Each security starts at the later of the window start, its first eligible transaction date and its first available close. Shorter histories are not annualized. Each investor equally weighted; each distinct priced disclosed stock equally weighted within that investor. The past-month window is rebuilt after each close from the three strongest investors that month and replaces the previous snapshot. Available disclosure archive through the end of the period. Split-adjusted price returns, no dividends. Disclosed-stock reference, not actual holdings or personal P&L. Unpriced securities excluded. PTR sizing uses range midpoints where disclosed.",
   };
 }
 
