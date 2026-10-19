@@ -43,12 +43,12 @@ function buildGeometry(points) {
   return { investorLine, marketLine: lineFor('spy'), area }
 }
 
-function StoryLegend({ name, investorGain, marketGain }) {
+export function IntroStoryLegend({ investorGain, marketGain }) {
   return (
     <div className="lpStoryLegend">
       <p className="lpStoryLegendItem">
         <span className="lpStoryLegendMark" aria-hidden="true" />
-        <span className="lpStoryLegendName">{name}</span>
+        <span className="lpStoryLegendName">Investors</span>
         <span className="lpStoryLegendValue lpStoryLegendValue--investors">{investorGain}</span>
       </p>
       <p className="lpStoryLegendItem">
@@ -60,8 +60,8 @@ function StoryLegend({ name, investorGain, marketGain }) {
   )
 }
 
-/** Two closes over the same month: tracked investors in green, the S&P in gray. */
-export function IntroStoryDiagram({ person, points }) {
+/** Two closes over the same month: leading investors in green, the S&P in gray. */
+export function IntroStoryDiagram({ points }) {
   const series = Array.isArray(points) ? points.filter((point) => Number.isFinite(point?.investors) && Number.isFinite(point?.spy)) : []
   const geometry = series.length >= 2 ? buildGeometry(series) : null
   const last = series[series.length - 1]
@@ -76,11 +76,9 @@ export function IntroStoryDiagram({ person, points }) {
     <div
       className="lpStoryDiagram"
       role="img"
-      aria-label={`Tracked investors ${investorGain} this past month. The S&P ${marketGain} over the same days.`}
+      aria-label={`Investors ${investorGain} this past month. The S&P ${marketGain} over the same days.`}
     >
       <div className="lpStoryStage">
-        <StoryLegend name={person.name} investorGain={investorGain} marketGain={marketGain} />
-
         <div className="lpStoryChartWrap">
           <svg className="lpStoryChartSvg" viewBox={`0 0 ${W} ${CHART_H}`} preserveAspectRatio="none" aria-hidden="true">
             <defs>

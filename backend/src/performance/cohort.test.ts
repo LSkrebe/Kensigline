@@ -51,3 +51,40 @@ test('month window starts at zero and tracks investors against the market',()=>{
  assert.ok(Math.abs(series!.points.at(-1)!.investors-0.2)<1e-12);
  assert.ok(Math.abs(series!.points.at(-1)!.spy-0.2)<1e-12);
 });
+
+test('month window follows the six strongest investors',()=>{
+ const spy=[{day:'2026-09-01',close:100},{day:'2026-09-02',close:105},{day:'2026-09-03',close:110}];
+ const flat=(close:number)=>[{day:'2026-09-01',close:100},{day:'2026-09-02',close},{day:'2026-09-03',close}];
+ const bars=new Map<string,{day:string;close:number}[]>([['SPY',spy]]);
+ const exposures=[];
+ for (let i=0;i<6;i++) {
+  const ticker='W'+i;
+  bars.set(ticker,flat(140));
+  exposures.push({kind:'insiders',filer_id:'w'+i,ticker,first_day:'2026-09-01'});
+ }
+ bars.set('L',flat(50));
+ exposures.push({kind:'insiders',filer_id:'lag',ticker:'L',first_day:'2026-09-01'});
+ const series=cohortWindowSeries(exposures,bars,['2026-09-01','2026-09-02','2026-09-03'],'2026-09-01','2026-09-03');
+ assert.ok(Math.abs(series!.points.at(-1)!.investors-0.4)<1e-12);
+ assert.ok(series!.points.every((point,index)=>index===0||point.investors>=point.spy));
+});
+
+test('month window skips a leader whose path falls under the market',()=>{
+ const bars=new Map([
+  ['SPY',[{day:'2026-09-01',close:100},{day:'2026-09-02',close:110},{day:'2026-09-03',close:112}]],
+  ['DIP',[{day:'2026-09-01',close:100},{day:'2026-09-02',close:90},{day:'2026-09-03',close:160}]],
+  ['STEADY',[{day:'2026-09-01',close:100},{day:'2026-09-02',close:120},{day:'2026-09-03',close:130}]],
+ ]);
+ const series=cohortWindowSeries(
+  [
+   {kind:'insiders',filer_id:'dip',ticker:'DIP',first_day:'2026-09-01'},
+   {kind:'insiders',filer_id:'steady',ticker:'STEADY',first_day:'2026-09-01'},
+  ],
+  bars,
+  ['2026-09-01','2026-09-02','2026-09-03'],
+  '2026-09-01',
+  '2026-09-03',
+ );
+ assert.ok(Math.abs(series!.points.at(-1)!.investors-0.3)<1e-12);
+ assert.ok(series!.points.every((point,index)=>index===0||point.investors+1e-9>=point.spy));
+});

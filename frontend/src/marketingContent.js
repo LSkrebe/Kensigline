@@ -209,7 +209,6 @@ export function introCompanyLogoSrc(ticker) {
 export const ORIGIN_STORY = {
   kicker: 'The window',
   title: 'The tracked investors, this past month.',
-  tagline: 'Tracked investors against the S&P.',
   person: {
     name: 'Mercerline',
     chamber: 'Filing alert',

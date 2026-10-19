@@ -238,7 +238,6 @@ export function renderSeoBootHtml(pricing = SEO_PRICING) {
 
         <section aria-labelledby="seo-story">
           <h2 id="seo-story">${escapeHtml(ORIGIN_STORY.title)}</h2>
-          <p>${escapeHtml(ORIGIN_STORY.tagline)}</p>
         </section>
 
         <section aria-labelledby="seo-product">

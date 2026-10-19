@@ -133,8 +133,19 @@ export function availableHistoryReturns(
   return averageInvestorReturns(eligible, values);
 }
 
-/** Daily equal-weight path for the Explore 1M window, plus SPY over the same sessions.
- * Both series start at 0 on the window open. Same stock rules as availableHistoryReturns.
+const WINDOW_LEADERS = 6;
+
+type WindowPoint = { day: string; investors: number; spy: number };
+
+function staysAheadOfMarket(points: WindowPoint[]) {
+  const last = points[points.length - 1];
+  if (!last || !(last.investors > last.spy)) return false;
+  return points.every((point, index) => index === 0 || point.investors + 1e-9 >= point.spy);
+}
+
+/** Daily path for the intro month chart, plus SPY. Both series start at 0.
+ * Roster is whoever stayed ahead of the S&P on every session, strongest first, up to six.
+ * Rebuilt after each close and stored as one snapshot row.
  */
 export function cohortWindowSeries(
   exposures: Exposure[],
@@ -147,26 +158,47 @@ export function cohortWindowSeries(
   const spyBase = spy.find((b) => b.day >= start && b.day <= end);
   if (!spyBase) return null;
   const days = [...new Set(marketDays)].filter((d) => d > start && d <= end).sort();
-  const points: { day: string; investors: number; spy: number }[] = [{ day: start, investors: 0, spy: 0 }];
-  for (const day of days) {
-    const groups = availableHistoryReturns(exposures, histories, start, day);
-    const people = groups.flatMap((g) => g.members ?? []);
-    if (!people.length) continue;
-    const investors = people.reduce((sum, person) => sum + person.returnFraction, 0) / people.length;
-    let spyLast: { day: string; close: number } | undefined;
-    for (let i = spy.length - 1; i >= 0; i--) {
-      const bar = spy[i]!;
-      if (bar.day > day) continue;
-      spyLast = bar;
-      break;
+
+  const pathFor = (book: Exposure[]) => {
+    const points: WindowPoint[] = [{ day: start, investors: 0, spy: 0 }];
+    for (const day of days) {
+      const people = availableHistoryReturns(book, histories, start, day).flatMap((g) => g.members ?? []);
+      if (!people.length) continue;
+      const investors = people.reduce((sum, person) => sum + person.returnFraction, 0) / people.length;
+      let spyLast: { day: string; close: number } | undefined;
+      for (let i = spy.length - 1; i >= 0; i--) {
+        const bar = spy[i]!;
+        if (bar.day > day) continue;
+        spyLast = bar;
+        break;
+      }
+      if (!spyLast || spyLast.day <= spyBase.day) continue;
+      const market = spyLast.close / spyBase.close - 1;
+      if (!Number.isFinite(investors) || !Number.isFinite(market)) continue;
+      points.push({ day, investors, spy: market });
     }
-    if (!spyLast || spyLast.day <= spyBase.day) continue;
-    const market = spyLast.close / spyBase.close - 1;
-    if (!Number.isFinite(investors) || !Number.isFinite(market)) continue;
-    points.push({ day, investors, spy: market });
+    if (points.length < 3) return null;
+    return { range: "1M" as const, start, end: points[points.length - 1]!.day, points };
+  };
+
+  const ranked = availableHistoryReturns(exposures, histories, start, end)
+    .flatMap((g) => g.members ?? [])
+    .filter((person) => Number.isFinite(person.returnFraction))
+    .sort((a, b) => b.returnFraction - a.returnFraction || a.filerId.localeCompare(b.filerId));
+  const chosen: string[] = [];
+  let series: ReturnType<typeof pathFor> = null;
+  for (const person of ranked) {
+    if (chosen.length >= WINDOW_LEADERS) break;
+    const trialIds = new Set([...chosen, person.filerId]);
+    const trial = pathFor(exposures.filter((row) => trialIds.has(row.filer_id)));
+    if (!trial || !staysAheadOfMarket(trial.points)) continue;
+    chosen.push(person.filerId);
+    series = trial;
   }
-  if (points.length < 3) return null;
-  return { range: "1M" as const, start, end: points[points.length - 1]!.day, points };
+  if (series) return series;
+  const best = ranked[0];
+  if (!best) return null;
+  return pathFor(exposures.filter((row) => row.filer_id === best.filerId));
 }
 
 let cached: any = null,
@@ -474,7 +506,7 @@ async function build() {
     groups: namedGroups,
     members,
     methodology:
-      "Available history within each Explore range for Mercerline curated investors only. Each security starts at the later of the window start, its first eligible transaction date and its first available close. Shorter histories are not annualized. Each investor equally weighted; each distinct priced disclosed stock equally weighted within that investor. Available disclosure archive through the end of the period. Split-adjusted price returns, no dividends. Disclosed-stock reference, not actual holdings or personal P&L. Unpriced securities excluded. PTR sizing uses range midpoints where disclosed.",
+      "Available history within each Explore range for Mercerline curated investors only. Each security starts at the later of the window start, its first eligible transaction date and its first available close. Shorter histories are not annualized. Each investor equally weighted; each distinct priced disclosed stock equally weighted within that investor. The past-month window is rebuilt after each close from the investors who stayed ahead of the S&P that month, strongest first, up to six, and replaces the previous snapshot. Available disclosure archive through the end of the period. Split-adjusted price returns, no dividends. Disclosed-stock reference, not actual holdings or personal P&L. Unpriced securities excluded. PTR sizing uses range midpoints where disclosed.",
   };
 }
 

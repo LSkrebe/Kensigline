@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchExplorePerformance } from './exploreApi.js'
 import { ORIGIN_STORY } from './marketingContent.js'
-import { formatSignedPct, IntroStoryDiagram } from './IntroStoryChart.jsx'
+import { formatSignedPct, IntroStoryDiagram, IntroStoryLegend } from './IntroStoryChart.jsx'
 import { IntroReveal } from './IntroReveal.jsx'
 
 let windowCache = null
@@ -24,7 +24,6 @@ function loadWindow() {
 
 /** Past-month investors vs the S&P. Same cohort snapshot the leaderboard reads. */
 export function IntroStorySection() {
-  const { person } = ORIGIN_STORY
   const [points, setPoints] = useState(windowCache)
 
   useEffect(() => {
@@ -52,11 +51,11 @@ export function IntroStorySection() {
         <h2 id="lp-story-title" className="lpSectionTitle">
           {title}
         </h2>
-        <p className="lpSectionLead">{ORIGIN_STORY.tagline}</p>
+        {move ? <IntroStoryLegend investorGain={move} marketGain={formatSignedPct(last?.spy)} /> : null}
       </IntroReveal>
 
       <IntroReveal revealKey="story-chart" delay={80}>
-        <IntroStoryDiagram person={person} points={points} />
+        <IntroStoryDiagram points={points} />
       </IntroReveal>
     </section>
   )

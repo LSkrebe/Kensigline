@@ -885,7 +885,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 10px 36px;
-  margin: 2px 0 16px;
+  margin: 0;
 }
 
 .lpStoryLegendItem {
