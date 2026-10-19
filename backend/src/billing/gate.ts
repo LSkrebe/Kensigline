@@ -20,6 +20,7 @@ const BILLING_EXEMPT_PATHS = new Set([
   "/api/public/company",
   "/api/public/bars",
   "/api/public/research",
+  "/api/explore/performance",
   "/api/waitlist",
   "/api/alerts/preferences",
   "/api/alerts/sparkline.png",
