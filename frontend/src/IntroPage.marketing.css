@@ -687,13 +687,37 @@
   margin-bottom: clamp(28px, 4vh, 40px);
 }
 
-.lpStoryCaption {
-  margin: 14px 0 0;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  line-height: 1.55;
-  text-align: center;
-  color: var(--lp-dim);
+.lpStoryPlaceholderBar {
+  display: block;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.lpStoryPlaceholderBar--title {
+  width: min(280px, 68%);
+  height: 0.55em;
+  margin: 0.22em auto 0.08em;
+}
+
+.lpStoryPlaceholderBar--legend {
+  width: 132px;
+  height: 12px;
+}
+
+.lpStoryDiagram--pending .lpStoryAxis {
+  stroke: rgba(255, 255, 255, 0.28);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lpStoryPlaceholderBar {
+    animation: lpStoryPlaceholder 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes lpStoryPlaceholder {
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .lpStoryDiagram {

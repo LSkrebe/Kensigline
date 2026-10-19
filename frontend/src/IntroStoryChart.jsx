@@ -69,7 +69,16 @@ export function IntroStoryDiagram({ points }) {
   const marketGain = formatSignedPct(last?.spy)
 
   if (!geometry || !investorGain || !marketGain) {
-    return <p className="lpStoryCaption">The month's closes load with the leaderboard.</p>
+    return (
+      <div className="lpStoryDiagram lpStoryDiagram--pending" aria-hidden="true">
+        <div className="lpStoryChartWrap">
+          <svg className="lpStoryChartSvg" viewBox={`0 0 ${W} ${CHART_H}`} preserveAspectRatio="none">
+            <line className="lpStoryAxis" x1={AXIS_X} y1={PAD_TOP} x2={AXIS_X} y2={AXIS_Y} />
+            <line className="lpStoryAxis" x1={AXIS_X} y1={AXIS_Y} x2={W - PAD_RIGHT} y2={AXIS_Y} />
+          </svg>
+        </div>
+      </div>
+    )
   }
 
   return (

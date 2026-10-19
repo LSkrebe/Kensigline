@@ -42,16 +42,24 @@ export function IntroStorySection() {
 
   const last = points?.[points.length - 1]
   const move = formatSignedPct(last?.investors)
-  const title = move ? `${move} this past month` : ORIGIN_STORY.title
+  const market = formatSignedPct(last?.spy)
+  const title = move ? `${move} this past month` : null
 
   return (
-    <section id="story" className="lpStory" aria-labelledby="lp-story-title">
+    <section id="story" className="lpStory" aria-labelledby={title ? 'lp-story-title' : undefined} aria-label={title ? undefined : ORIGIN_STORY.kicker}>
       <IntroReveal revealKey="story-head" className="lpSectionHead lpSectionHead--center">
         <p className="lpEyebrow">{ORIGIN_STORY.kicker}</p>
-        <h2 id="lp-story-title" className={move ? 'lpSectionTitle lpSectionTitle--up' : 'lpSectionTitle'}>
-          {title}
+        <h2 id="lp-story-title" className={title ? 'lpSectionTitle lpSectionTitle--up' : 'lpSectionTitle'}>
+          {title ?? <span className="lpStoryPlaceholderBar lpStoryPlaceholderBar--title" aria-hidden="true" />}
         </h2>
-        {move ? <IntroStoryLegend investorGain={move} marketGain={formatSignedPct(last?.spy)} /> : null}
+        {move && market ? (
+          <IntroStoryLegend investorGain={move} marketGain={market} />
+        ) : (
+          <div className="lpStoryLegend" aria-hidden="true">
+            <span className="lpStoryPlaceholderBar lpStoryPlaceholderBar--legend" />
+            <span className="lpStoryPlaceholderBar lpStoryPlaceholderBar--legend" />
+          </div>
+        )}
       </IntroReveal>
 
       <IntroReveal revealKey="story-chart" delay={80}>
