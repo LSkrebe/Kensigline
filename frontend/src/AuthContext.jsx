@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { fetchJsonSafe, clearAuthTokenCache, hasStoredAuthSession, setAuthTokenCache } from './api.js'
 import { completeAuthFromUrl } from './authCallback.js'
-import { peekReferralRef, recordAttributionSignup } from './referralRef.js'
+import { DIRECT_REF, peekReferralRef, recordAttributionSignup } from './referralRef.js'
 import { supabase } from './supabaseClient.js'
 
 const AuthContext = createContext(undefined)
@@ -79,8 +79,7 @@ export function AuthProvider({ children }) {
       setLoading(false)
       if (event === 'SIGNED_OUT') clearAuthTokenCache()
       if (event === 'SIGNED_IN' && next?.user) {
-        const ref = peekReferralRef()
-        if (ref) void recordAttributionSignup(ref)
+        void recordAttributionSignup(peekReferralRef() || DIRECT_REF)
       }
     })
 

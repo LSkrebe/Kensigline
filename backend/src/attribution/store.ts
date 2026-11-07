@@ -113,6 +113,8 @@ export async function attributionSummary(): Promise<AttributionSummaryRow[]> {
       WHERE referral_ref IS NOT NULL AND referral_ref <> ''
       UNION
       SELECT DISTINCT ref FROM user_attribution
+      UNION
+      SELECT 'direct'::text AS ref
     )
     SELECT
       r.ref,
@@ -130,7 +132,10 @@ export async function attributionSummary(): Promise<AttributionSummaryRow[]> {
       ), 0) AS checkouts,
       COALESCE((
         SELECT COUNT(*)::int FROM billing_accounts b
-        WHERE b.referral_ref = r.ref
+        WHERE (
+          (r.ref = 'direct' AND (b.referral_ref IS NULL OR b.referral_ref = '' OR b.referral_ref = 'direct'))
+          OR b.referral_ref = r.ref
+        )
           AND b.status IN ('active', 'trialing', 'completed')
       ), 0) AS paid
     FROM refs r
@@ -138,6 +143,36 @@ export async function attributionSummary(): Promise<AttributionSummaryRow[]> {
     ORDER BY paid DESC, signups DESC, checkouts DESC, visits DESC, r.ref ASC
     `,
     [],
+    8_000,
+  );
+}
+
+export type AttributionDayRow = {
+  ref: string;
+  visits: number;
+  signups: number;
+  checkouts: number;
+};
+
+/** Funnel counts for [start, end) by referral ref. */
+export async function attributionDaySummary(
+  start: Date,
+  end: Date,
+): Promise<AttributionDayRow[]> {
+  await ensureAttributionTables();
+  return db.queryApi<AttributionDayRow>(
+    `
+    SELECT
+      e.ref,
+      COUNT(*) FILTER (WHERE e.event = 'visit')::int AS visits,
+      COUNT(*) FILTER (WHERE e.event = 'signup')::int AS signups,
+      COUNT(*) FILTER (WHERE e.event = 'checkout')::int AS checkouts
+    FROM attribution_events e
+    WHERE e.created_at >= $1 AND e.created_at < $2
+    GROUP BY e.ref
+    ORDER BY visits DESC, signups DESC, checkouts DESC, e.ref ASC
+    `,
+    [start.toISOString(), end.toISOString()],
     8_000,
   );
 }

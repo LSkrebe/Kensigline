@@ -2694,11 +2694,6 @@
   30% { opacity: 0.35; }
   100% { transform: scale(2.1); opacity: 0; }
 }
-@keyframes lpCtaHalo {
-  0%, 100% { opacity: 0.35; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.04); }
-}
-
 @media (prefers-reduced-motion: no-preference) {
   .lpTogetherExplore .exploreFeaturedCard,
   .lpStoryAvatarLogo,
@@ -2734,18 +2729,4 @@
     animation: lpMarkerRipple 7s ease-out infinite;
   }
   .lpStoryMarker--news::after { animation-delay: -3.5s; }
-  .lpCtaBand {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
-  }
-  .lpCtaBand::before {
-    content: '';
-    position: absolute;
-    inset: -20%;
-    z-index: -1;
-    pointer-events: none;
-    background: radial-gradient(ellipse at center, rgba(168, 196, 255, 0.1), transparent 62%);
-    animation: lpCtaHalo 12s ease-in-out infinite;
-  }
 }

@@ -55,6 +55,14 @@ export default {
       '/account': '/settings',
       '/pricing': '/#pricing',
       '/methodology': '/learn/form-4-insider-filings',
+      // Social referral short links → ?r= (attribution via referralRef.js)
+      '/yt': '/?r=yt',
+      '/youtube': '/?r=yt',
+      '/twt': '/?r=twt',
+      '/twitter': '/?r=twt',
+      '/x': '/?r=twt',
+      '/ig': '/?r=ig',
+      '/instagram': '/?r=ig',
     };
     const cleanPath = url.pathname.replace(/\/$/,'') || '/';
     if (isRetiredProductPath(cleanPath)) {

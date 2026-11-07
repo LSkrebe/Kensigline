@@ -25,13 +25,29 @@ export default defineConfig(({ mode }) => {
       {
         name: 'retired-product-paths',
         configureServer(server) {
+          const referralAliases = {
+            '/yt': '/?r=yt',
+            '/youtube': '/?r=yt',
+            '/twt': '/?r=twt',
+            '/twitter': '/?r=twt',
+            '/x': '/?r=twt',
+            '/ig': '/?r=ig',
+            '/instagram': '/?r=ig',
+          }
           server.middlewares.use((req, res, next) => {
-            const pathname = String(req.url ?? '').split('?')[0]
+            const pathname = String(req.url ?? '').split('?')[0].replace(/\/$/, '') || '/'
             if ((req.method === 'GET' || req.method === 'HEAD') && isRetiredProductPath(pathname)) {
               res.statusCode = 404
               res.setHeader('content-type', 'text/plain; charset=utf-8')
               res.setHeader('cache-control', 'no-store')
               res.end('Not found')
+              return
+            }
+            const alias = referralAliases[pathname]
+            if ((req.method === 'GET' || req.method === 'HEAD') && alias) {
+              res.statusCode = 302
+              res.setHeader('Location', alias)
+              res.end()
               return
             }
             next()

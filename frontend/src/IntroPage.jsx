@@ -293,7 +293,7 @@ export function IntroPage() {
               </a>
               {!user && !waitlist ? (
                 <a href="#" onClick={goToSignIn}>
-                  Sign in
+                  Log in
                 </a>
               ) : null}
             </nav>
