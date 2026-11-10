@@ -1,12 +1,15 @@
 import { sendResendEmail } from "../alerts/resend.js";
 import { attributionDaySummary, attributionSummary, type AttributionDayRow, type AttributionSummaryRow } from "./store.js";
 
-const KNOWN_REFS: Record<string, string> = {
-  yt: "YouTube (mercerline.com/yt)",
-  twt: "Twitter/X (mercerline.com/twt)",
-  ig: "Instagram (mercerline.com/ig)",
-  direct: "Direct / no referral",
-};
+/** Fixed email buckets — always four rows. */
+const REPORT_BUCKETS = [
+  { key: "yt", label: "YouTube", refs: new Set(["yt"]) },
+  { key: "ig", label: "Instagram", refs: new Set(["ig"]) },
+  { key: "twt", label: "Twitter", refs: new Set(["twt"]) },
+  { key: "other", label: "Other", refs: null as Set<string> | null },
+] as const;
+
+type ReportBucketKey = (typeof REPORT_BUCKETS)[number]["key"];
 
 export function attributionReportRecipient(): string {
   return String(process.env.ATTRIBUTION_REPORT_TO ?? "lukas.skrebe@gmail.com").trim() || "lukas.skrebe@gmail.com";
@@ -24,11 +27,47 @@ export function previousUtcDayWindow(now = new Date()): { start: Date; end: Date
   return { start, end, label };
 }
 
-function labelRef(ref: string): string {
-  return KNOWN_REFS[ref] ?? `Other (?r=${ref})`;
+function bucketKeyForRef(ref: string): ReportBucketKey {
+  const r = String(ref ?? "").trim().toLowerCase();
+  for (const b of REPORT_BUCKETS) {
+    if (b.refs?.has(r)) return b.key;
+  }
+  return "other";
 }
 
-function sumDay(rows: AttributionDayRow[]) {
+type DayBucketRow = { label: string; visits: number; signups: number; checkouts: number };
+type AllBucketRow = DayBucketRow & { paid: number };
+
+function rollupDay(rows: AttributionDayRow[]): DayBucketRow[] {
+  const map = new Map<ReportBucketKey, DayBucketRow>();
+  for (const b of REPORT_BUCKETS) {
+    map.set(b.key, { label: b.label, visits: 0, signups: 0, checkouts: 0 });
+  }
+  for (const r of rows) {
+    const row = map.get(bucketKeyForRef(r.ref))!;
+    row.visits += r.visits;
+    row.signups += r.signups;
+    row.checkouts += r.checkouts;
+  }
+  return REPORT_BUCKETS.map((b) => map.get(b.key)!);
+}
+
+function rollupAll(rows: AttributionSummaryRow[]): AllBucketRow[] {
+  const map = new Map<ReportBucketKey, AllBucketRow>();
+  for (const b of REPORT_BUCKETS) {
+    map.set(b.key, { label: b.label, visits: 0, signups: 0, checkouts: 0, paid: 0 });
+  }
+  for (const r of rows) {
+    const row = map.get(bucketKeyForRef(r.ref))!;
+    row.visits += r.visits;
+    row.signups += r.signups;
+    row.checkouts += r.checkouts;
+    row.paid += r.paid;
+  }
+  return REPORT_BUCKETS.map((b) => map.get(b.key)!);
+}
+
+function sumDay(rows: DayBucketRow[]) {
   return rows.reduce(
     (acc, r) => {
       acc.visits += r.visits;
@@ -40,7 +79,7 @@ function sumDay(rows: AttributionDayRow[]) {
   );
 }
 
-function sumAll(rows: AttributionSummaryRow[]) {
+function sumAll(rows: AllBucketRow[]) {
   return rows.reduce(
     (acc, r) => {
       acc.visits += r.visits;
@@ -61,15 +100,12 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function dayTableHtml(rows: AttributionDayRow[]): string {
-  if (!rows.length) {
-    return `<p style="margin:0 0 12px;color:#555">No attribution events this day.</p>`;
-  }
+function dayTableHtml(rows: DayBucketRow[]): string {
   const body = rows
     .map(
       (r) =>
         `<tr>
-          <td style="padding:6px 10px;border-bottom:1px solid #eee">${escapeHtml(labelRef(r.ref))}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee">${escapeHtml(r.label)}</td>
           <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.visits}</td>
           <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.signups}</td>
           <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.checkouts}</td>
@@ -98,15 +134,12 @@ function dayTableHtml(rows: AttributionDayRow[]): string {
   </table>`;
 }
 
-function allTimeTableHtml(rows: AttributionSummaryRow[]): string {
-  if (!rows.length) {
-    return `<p style="margin:0 0 12px;color:#555">No all-time attribution data yet.</p>`;
-  }
+function allTimeTableHtml(rows: AllBucketRow[]): string {
   const body = rows
     .map(
       (r) =>
         `<tr>
-          <td style="padding:6px 10px;border-bottom:1px solid #eee">${escapeHtml(labelRef(r.ref))}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee">${escapeHtml(r.label)}</td>
           <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.visits}</td>
           <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.signups}</td>
           <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.checkouts}</td>
@@ -138,22 +171,20 @@ function allTimeTableHtml(rows: AttributionSummaryRow[]): string {
   </table>`;
 }
 
-function dayTableText(rows: AttributionDayRow[]): string {
-  if (!rows.length) return "No attribution events this day.\n";
+function dayTableText(rows: DayBucketRow[]): string {
   const lines = ["Source | Visits | Signups | Checkouts", "-------|--------|---------|----------"];
   for (const r of rows) {
-    lines.push(`${labelRef(r.ref)} | ${r.visits} | ${r.signups} | ${r.checkouts}`);
+    lines.push(`${r.label} | ${r.visits} | ${r.signups} | ${r.checkouts}`);
   }
   const t = sumDay(rows);
   lines.push(`Total | ${t.visits} | ${t.signups} | ${t.checkouts}`);
   return `${lines.join("\n")}\n`;
 }
 
-function allTimeTableText(rows: AttributionSummaryRow[]): string {
-  if (!rows.length) return "No all-time attribution data yet.\n";
+function allTimeTableText(rows: AllBucketRow[]): string {
   const lines = ["Source | Visits | Signups | Checkouts | Paid", "-------|--------|---------|-----------|-----"];
   for (const r of rows) {
-    lines.push(`${labelRef(r.ref)} | ${r.visits} | ${r.signups} | ${r.checkouts} | ${r.paid}`);
+    lines.push(`${r.label} | ${r.visits} | ${r.signups} | ${r.checkouts} | ${r.paid}`);
   }
   const t = sumAll(rows);
   lines.push(`Total | ${t.visits} | ${t.signups} | ${t.checkouts} | ${t.paid}`);
@@ -176,28 +207,29 @@ export async function runAttributionDailyReport(opts?: {
   const to = String(opts?.to ?? attributionReportRecipient()).trim();
   if (!to) return { ok: false, reason: "no_recipient" };
 
-  const [dayRows, allRows] = await Promise.all([
+  const [dayRaw, allRaw] = await Promise.all([
     attributionDaySummary(start, end),
     attributionSummary(),
   ]);
+  const dayRows = rollupDay(dayRaw);
+  const allRows = rollupAll(allRaw);
 
   const subject = `Mercerline attribution ${label} (UTC)`;
   const links = [
     "https://mercerline.com/yt",
-    "https://mercerline.com/twt",
     "https://mercerline.com/ig",
-    "https://mercerline.com/ (direct)",
+    "https://mercerline.com/twt",
   ].join(" · ");
 
   const html = `<!DOCTYPE html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#111;line-height:1.45;padding:20px">
   <h1 style="font-size:18px;margin:0 0 4px">Mercerline attribution</h1>
-  <p style="margin:0 0 16px;color:#555;font-size:13px">Day ${escapeHtml(label)} · UTC 00:00–24:00 · systematic counts, no commentary</p>
+  <p style="margin:0 0 16px;color:#555;font-size:13px">Day ${escapeHtml(label)} · UTC 00:00–24:00 · YouTube / Instagram / Twitter / Other</p>
   <h2 style="font-size:15px;margin:0 0 8px">Yesterday</h2>
   ${dayTableHtml(dayRows)}
   <h2 style="font-size:15px;margin:20px 0 8px">All time</h2>
   ${allTimeTableHtml(allRows)}
-  <p style="margin:20px 0 0;font-size:12px;color:#777">Tracked links: ${escapeHtml(links)}</p>
+  <p style="margin:20px 0 0;font-size:12px;color:#777">Tracked links: ${escapeHtml(links)} · everything else → Other</p>
 </body></html>`;
 
   const text = [
@@ -207,7 +239,7 @@ export async function runAttributionDailyReport(opts?: {
     dayTableText(dayRows),
     "ALL TIME",
     allTimeTableText(allRows),
-    `Tracked links: ${links}`,
+    `Tracked links: ${links} · everything else → Other`,
   ].join("\n");
 
   const sent = await sendResendEmail({ to, subject, html, text });

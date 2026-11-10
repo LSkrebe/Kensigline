@@ -4,7 +4,7 @@ Frontend: **Settings** side tab (`activeTab=settings`).
 
 Whop checkout (embedded), membership status, webhooks, and referral tracking (`?r=`). Auth identity lives in `core/supabase-auth.ts`.
 
-Attribution funnel (`?r=` / short links `/yt` `/twt` `/ig` → signups → checkouts → paid) lives in `../attribution/` and `billing_accounts.referral_ref`. Organic traffic is logged as `direct`. Daily owner email: `scripts/send-attribution-daily.ts` / `scripts/run-attribution-report.sh`.
+Attribution funnel (`?r=` / short links `/yt` `/twt` `/ig` → signups → checkouts → paid) lives in `../attribution/` and `billing_accounts.referral_ref`. Organic traffic is logged as `direct`. Daily owner email rolls up to YouTube / Instagram / Twitter / Other: `scripts/send-attribution-daily.ts` / `scripts/run-attribution-report.sh`.
 
 Apply DB migrations after `billing.sql`:
 
