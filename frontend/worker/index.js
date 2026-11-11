@@ -37,6 +37,9 @@ export default {
     if (url.pathname.startsWith('/api/') || url.pathname === '/health' || url.pathname.startsWith('/health/')) {
       const headers = new Headers(request.headers)
       headers.delete('host')
+      // Ensure PPP geo reaches api.mercerline.com when the SPA proxies through this worker.
+      const cfCountry = request.headers.get('CF-IPCountry') || request.cf?.country
+      if (cfCountry) headers.set('CF-IPCountry', String(cfCountry))
       const targetPath = prepareInternalContentProxy(url, headers)
       const target = new URL(targetPath, API_ORIGIN)
       return fetch(

@@ -19,7 +19,6 @@ import {
 } from "./billing/api.js";
 import { billingGateBlocksRequest } from "./billing/gate.js";
 import {
-  isFoundersPricingEnabled,
   isWaitlistModeEnabled,
   whopConfigured,
 } from "./billing/config.js";
@@ -312,10 +311,7 @@ server.listen(port, process.env.HOST || "0.0.0.0", () => {
     `[marketing] Waitlist mode: ${isWaitlistModeEnabled() ? "on" : "off"}`,
   );
   if (whopConfigured()) {
-    console.log("[billing] Whop configured");
-    console.log(
-      `[billing] Founders pricing: ${isFoundersPricingEnabled() ? "on" : "off"}`,
-    );
+    console.log("[billing] Whop configured (PPP tiers via CF-IPCountry)");
   }
 });
 

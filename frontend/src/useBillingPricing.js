@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchJsonSafe } from './api.js'
 import { DEFAULT_PRICING, pricingFromApi } from './billingPlans.js'
 
-/** Live pricing + marketing mode from backend (FOUNDERS_PRICING / WAITLIST_MODE). */
+/** Live pricing + marketing mode from backend (PPP geo tier / WAITLIST_MODE). */
 export function useBillingPricing() {
   const [pricing, setPricing] = useState(DEFAULT_PRICING)
 

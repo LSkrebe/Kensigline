@@ -12,8 +12,10 @@ import {
   getWhop,
   isActiveStatus,
   isWaitlistModeEnabled,
-  planIdForPlan,
+  planIdForTierPlan,
   publicPricingPayload,
+  resolveConfiguredTier,
+  resolveVisitorPricing,
   whopCompanyId,
   whopConfigured,
   whopPortalUrl,
@@ -36,9 +38,9 @@ function whopMetaString(meta: Record<string, unknown> | null | undefined, key: s
   return typeof v === "string" && v.trim() ? v.trim() : null;
 }
 
-/** Public pricing for marketing pages (kill-switch aware). */
-export function handleBillingPricing(_req: http.IncomingMessage, res: http.ServerResponse) {
-  sendJson(res, 200, publicPricingPayload());
+/** Public pricing for marketing pages (geo + waitlist aware). */
+export function handleBillingPricing(req: http.IncomingMessage, res: http.ServerResponse) {
+  sendJson(res, 200, publicPricingPayload(req));
 }
 
 async function requireUser(req: http.IncomingMessage): Promise<SupabaseJwtUser | null> {
@@ -150,9 +152,17 @@ export async function handleBillingCheckout(req: http.IncomingMessage, res: http
   }
 
   const plan = String(body.plan ?? "").trim();
-  const planId = planIdForPlan(plan);
-  if (!planId) {
+  if (plan !== "monthly" && plan !== "yearly") {
     sendJson(res, 400, { ok: false, error: "invalid_plan" });
+    return;
+  }
+
+  // Server geo only — ignore any client-sent tier/country/price.
+  const detected = resolveVisitorPricing(req.headers);
+  const tier = resolveConfiguredTier(detected.tier);
+  const planId = planIdForTierPlan(tier, plan);
+  if (!planId) {
+    sendJson(res, 503, { ok: false, error: "whop_plan_not_configured" });
     return;
   }
 
@@ -177,8 +187,8 @@ export async function handleBillingCheckout(req: http.IncomingMessage, res: http
   try {
     const client = getWhop();
     const idempotencyKey = user
-      ? `checkout-${user.sub}-${plan}-${Date.now() >> 16}`
-      : `checkout-public-${purchaseToken}-${plan}`;
+      ? `checkout-${user.sub}-${plan}-t${tier}-${Date.now() >> 16}`
+      : `checkout-public-${purchaseToken}-${plan}-t${tier}`;
     const checkout = await client.checkoutConfigurations.create(
       {
         account_id: companyId,
@@ -188,6 +198,8 @@ export async function handleBillingCheckout(req: http.IncomingMessage, res: http
         metadata: {
           ...(user?.sub ? { supabase_user_id: user.sub } : { purchase_token: purchaseToken ?? "" }),
           ...(ref ? { ref } : {}),
+          pricing_tier: String(tier),
+          ...(detected.country ? { billing_country: detected.country } : {}),
         },
       },
       { headers: { "Idempotency-Key": idempotencyKey } },
@@ -198,6 +210,8 @@ export async function handleBillingCheckout(req: http.IncomingMessage, res: http
       sessionId: checkout.id,
       planId,
       plan,
+      tier,
+      country: detected.country,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

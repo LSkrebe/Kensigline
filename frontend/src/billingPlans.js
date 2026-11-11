@@ -1,16 +1,13 @@
 /** Display amounts + checkout plan ids. Live amounts come from GET /api/billing/pricing. */
 
-export const STANDARD_MONTHLY_USD = 49.99
-export const STANDARD_YEARLY_USD = 399.99
-export const FOUNDERS_MONTHLY_USD = 24.99
-export const FOUNDERS_YEARLY_USD = 199.99
+/** Tier 1 defaults until /api/billing/pricing responds. */
+export const STANDARD_MONTHLY_USD = 48.4
+export const STANDARD_YEARLY_USD = 484
 
 /**
- * Defaults until /api/billing/pricing responds (match WAITLIST_MODE / FOUNDERS_PRICING on API).
+ * Defaults until /api/billing/pricing responds (match WAITLIST_MODE on API).
  */
 export const DEFAULT_WAITLIST = false
-/** Off until FOUNDERS_PRICING=1. Founder prices and copy stay in place for a later switch. */
-export const DEFAULT_FOUNDERS = false
 
 /** Round money to cents. */
 export function moneyCents(n) {
@@ -31,9 +28,6 @@ export function formatUsd(n) {
 /** Note under the featured yearly plan price. */
 export function yearlyPlanNote(pricing) {
   const perMonth = moneyCents((pricing?.yearlySaveUsd ?? 0) / 12)
-  if (pricing?.founders) {
-    return `Lock in founders, save ${formatUsd(perMonth)}/mo vs monthly`
-  }
   return `Save ${formatUsd(perMonth)}/mo vs paying monthly`
 }
 
@@ -47,38 +41,34 @@ export function yearlyPlanBadgeLabel(pricing) {
 
 export function pricingFromApi(data) {
   const waitlist = data?.waitlist === true
-  const founders = !waitlist && data?.founders === true
   const monthlyUsd = Number(data?.monthly_usd)
   const yearlyUsd = Number(data?.yearly_usd)
+  const tier = Number(data?.tier)
   return buildPricing({
     waitlist,
-    founders,
-    monthlyUsd: Number.isFinite(monthlyUsd) ? monthlyUsd : founders ? FOUNDERS_MONTHLY_USD : STANDARD_MONTHLY_USD,
-    yearlyUsd: Number.isFinite(yearlyUsd) ? yearlyUsd : founders ? FOUNDERS_YEARLY_USD : STANDARD_YEARLY_USD,
-    monthlyListUsd: data?.monthly_list_usd != null ? Number(data.monthly_list_usd) : founders ? STANDARD_MONTHLY_USD : null,
+    tier: tier === 1 || tier === 2 || tier === 3 || tier === 4 ? tier : 1,
+    country: typeof data?.country === 'string' ? data.country : null,
+    monthlyUsd: Number.isFinite(monthlyUsd) ? monthlyUsd : STANDARD_MONTHLY_USD,
+    yearlyUsd: Number.isFinite(yearlyUsd) ? yearlyUsd : STANDARD_YEARLY_USD,
+    monthlyListUsd: data?.monthly_list_usd != null ? Number(data.monthly_list_usd) : null,
     yearlyListUsd:
-      data?.yearly_list_usd != null
-        ? Number(data.yearly_list_usd)
-        : founders
-          ? STANDARD_YEARLY_USD
-          : STANDARD_MONTHLY_USD * 12,
+      data?.yearly_list_usd != null ? Number(data.yearly_list_usd) : STANDARD_MONTHLY_USD * 12,
   })
 }
 
 export function buildPricing({
   waitlist = DEFAULT_WAITLIST,
-  founders = DEFAULT_FOUNDERS,
+  tier = 1,
+  country = null,
   monthlyUsd,
   yearlyUsd,
   monthlyListUsd,
   yearlyListUsd,
 } = {}) {
-  const foundersOn = !waitlist && founders
-  const monthly = monthlyUsd ?? (foundersOn ? FOUNDERS_MONTHLY_USD : STANDARD_MONTHLY_USD)
-  const yearly = yearlyUsd ?? (foundersOn ? FOUNDERS_YEARLY_USD : STANDARD_YEARLY_USD)
-  const monthlyList = monthlyListUsd ?? (foundersOn ? STANDARD_MONTHLY_USD : null)
-  const yearlyList =
-    yearlyListUsd ?? (foundersOn ? STANDARD_YEARLY_USD : STANDARD_MONTHLY_USD * 12)
+  const monthly = monthlyUsd ?? STANDARD_MONTHLY_USD
+  const yearly = yearlyUsd ?? STANDARD_YEARLY_USD
+  const monthlyList = monthlyListUsd ?? null
+  const yearlyList = yearlyListUsd ?? STANDARD_MONTHLY_USD * 12
   const yearlySave = moneyCents(Math.max(0, monthly * 12 - yearly))
 
   const plans = [
@@ -104,7 +94,10 @@ export function buildPricing({
 
   return {
     waitlist: Boolean(waitlist),
-    founders: foundersOn,
+    /** Always false — founders pricing removed; kept for existing UI branches. */
+    founders: false,
+    tier,
+    country,
     monthlyUsd: monthly,
     yearlyUsd: yearly,
     monthlyListUsd: monthlyList,
@@ -114,7 +107,7 @@ export function buildPricing({
   }
 }
 
-export const DEFAULT_PRICING = buildPricing({ waitlist: DEFAULT_WAITLIST, founders: DEFAULT_FOUNDERS })
+export const DEFAULT_PRICING = buildPricing({ waitlist: DEFAULT_WAITLIST })
 
 /** Standard list pricing for SEO, llms.txt, JSON-LD, and other crawler-facing copy. */
 export const SEO_PRICING = DEFAULT_PRICING
