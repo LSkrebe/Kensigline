@@ -46,8 +46,10 @@ function CoverageFace({ row, range, active, onActivate, onDeactivate }) {
 
 /** Face grid - hover/focus reveals name + yearly PnL. */
 export function IntroCoverageSection() {
-  const { people, range } = useIntroExplorePeople()
+  const { people, loading, range } = useIntroExplorePeople()
   const columns = selectIntroCoverage(people, 4, range)
+  const hasFaces = columns.some((col) => col.faces?.length)
+  const pending = loading || !hasFaces
   const [active, setActive] = useState(null)
 
   return (
@@ -61,20 +63,37 @@ export function IntroCoverageSection() {
       </IntroReveal>
 
       <IntroReveal revealKey="coverage-grid" delay={70}>
-        <div className="lpCoverageGrid">
-          {columns.map((col) => (
+        <div className="lpCoverageGrid" aria-busy={pending || undefined}>
+          {(pending
+            ? [
+                { id: 'politicians', label: 'Politicians' },
+                { id: 'insiders', label: 'Insiders' },
+                { id: 'institutions', label: 'Funds' },
+              ]
+            : columns
+          ).map((col) => (
             <div className="lpCoverageCol" key={col.id}>
               <div className="lpCoverageFaces">
-                {col.faces.map((face) => (
-                  <CoverageFace
-                    key={face.actorSlug || face.id}
-                    row={face}
-                    range={range}
-                    active={active}
-                    onActivate={setActive}
-                    onDeactivate={() => setActive(null)}
-                  />
-                ))}
+                {pending
+                  ? Array.from({ length: 4 }, (_, index) => (
+                      <span
+                        key={`${col.id}-skel-${index}`}
+                        className="lpCoverageFace lpCoverageFace--skel"
+                        aria-hidden="true"
+                      >
+                        <span className="lpStoryPlaceholderBar lpCoverageFaceSkel" />
+                      </span>
+                    ))
+                  : col.faces.map((face) => (
+                      <CoverageFace
+                        key={face.actorSlug || face.id}
+                        row={face}
+                        range={range}
+                        active={active}
+                        onActivate={setActive}
+                        onDeactivate={() => setActive(null)}
+                      />
+                    ))}
               </div>
               <p className="lpCoverageColLabel">{col.label}</p>
             </div>

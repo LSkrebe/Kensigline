@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchExplorePerformanceMembers } from './exploreApi.js'
 import {
-  exploreMockReturnsTable,
   explorePerformerReturn,
   explorePopularityScore,
 } from './ExploreWatchlistSection.jsx'
@@ -17,23 +16,15 @@ function catalogRows() {
   return buildExploreWatchlistPeople([], { people: EXPLORE_WATCHLIST_CATALOG })
 }
 
+/** Attach live returns only — no mock fill. */
 function mergeReturns(liveMap) {
-  const mock = exploreMockReturnsTable(INTRO_PERF_RANGE)
-  const ranges = ['1M', '3M', '6M', '1Y', 'YTD']
-  const mockByRange = Object.fromEntries(ranges.map((range) => [range, exploreMockReturnsTable(range)]))
+  if (!liveMap || typeof liveMap !== 'object') return []
 
   return catalogRows().map((row) => {
     const slug = String(row.actorSlug ?? '').toLowerCase()
-    const live = liveMap?.[slug]
-    const returnsByRange = { ...(live?.returns && typeof live.returns === 'object' ? live.returns : {}) }
-    for (const range of ranges) {
-      if (Number.isFinite(Number(returnsByRange[range]))) continue
-      const mockValue = mockByRange[range]?.[slug]
-      if (Number.isFinite(Number(mockValue))) returnsByRange[range] = Number(mockValue)
-    }
-    if (!Number.isFinite(Number(returnsByRange[INTRO_PERF_RANGE])) && Number.isFinite(Number(mock[slug]))) {
-      returnsByRange[INTRO_PERF_RANGE] = Number(mock[slug])
-    }
+    const live = liveMap[slug]
+    const returnsByRange =
+      live?.returns && typeof live.returns === 'object' ? { ...live.returns } : {}
     return {
       ...row,
       returnsByRange,

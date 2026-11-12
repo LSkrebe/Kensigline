@@ -23,7 +23,7 @@ export function IntroTogetherSection() {
         <ExploreFeaturedCards
           rows={rows}
           range={range}
-          loading={loading && !rows.length}
+          loading={loading || !rows.length}
           onCardClick={() => scrollIntroToPricing()}
         />
       </IntroReveal>

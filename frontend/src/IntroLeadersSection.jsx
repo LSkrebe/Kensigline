@@ -4,6 +4,7 @@ import {
   explorePerformerReturn,
   formatExploreTapeReturn,
 } from './ExploreWatchlistSection.jsx'
+import { SkeletonList, SkeletonStatus } from './AppSkeleton.jsx'
 import portraits from './explorePortraits.json'
 import { companyLogoFallback, companyLogoSrc } from './localImages.js'
 import { IntroReveal } from './IntroReveal.jsx'
@@ -59,8 +60,9 @@ function HoldingsGrid({ tickers = [] }) {
 
 /** Explore tape rows - wider list with holdings mosaic on the right. */
 export function IntroLeadersSection() {
-  const { people, range } = useIntroExplorePeople()
+  const { people, loading, range } = useIntroExplorePeople()
   const rows = selectIntroLeaders(people, 6, range)
+  const pending = loading || !rows.length
 
   return (
     <section id="leaders" className="lpSection lpLeadersSection lpSection--ruled" aria-labelledby="lp-leaders-title">
@@ -73,42 +75,48 @@ export function IntroLeadersSection() {
       </IntroReveal>
 
       <IntroReveal revealKey="leaders-list" delay={70} className="lpLeadersTape">
-        <ul className="exploreTapeList" aria-label="Top yearly performers">
-          {rows.map((row, index) => {
-            const portrait = portraits[normalizeInvestorName(row.name)]
-            const logo = portrait?.kind === 'logo'
-            const thumb = portrait?.thumb || portrait?.src
-            const perf = formatExploreTapeReturn(explorePerformerReturn(row, range))
-            const holdings = exploreHoldingsFor(row.actorSlug)
-            return (
-              <li className="exploreTapeRow" key={row.actorSlug || row.id}>
-                <button
-                  type="button"
-                  className="exploreTapeRowBtn lpLeaderRowBtn"
-                  aria-label={`${row.name}, see pricing`}
-                  onClick={() => scrollIntroToPricing()}
-                >
-                  <span className="exploreTapeRank">{index + 1}</span>
-                  <span className={`exploreTapeAvatar${logo ? ' isLogo' : ''}`}>
-                    <ImageOrInitials
-                      src={thumb}
-                      name={row.name}
-                      className="explorePersonPortrait"
-                      logo={logo}
-                      discover={false}
-                    />
-                  </span>
-                  <span className="exploreTapeCopy">
-                    {perf ? <span className={`exploreTapeReturn ${perf.tone}`}>{perf.text}</span> : null}
-                    <span className="exploreTapeName">{row.name}</span>
-                    <span className="exploreTapeMeta">{row.modeLabel || 'Investor'}</span>
-                  </span>
-                  <HoldingsGrid tickers={holdings} />
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+        {pending ? (
+          <SkeletonStatus label="Loading top performers" className="exploreTapeList">
+            <SkeletonList count={6} tag="div" />
+          </SkeletonStatus>
+        ) : (
+          <ul className="exploreTapeList" aria-label="Top yearly performers">
+            {rows.map((row, index) => {
+              const portrait = portraits[normalizeInvestorName(row.name)]
+              const logo = portrait?.kind === 'logo'
+              const thumb = portrait?.thumb || portrait?.src
+              const perf = formatExploreTapeReturn(explorePerformerReturn(row, range))
+              const holdings = exploreHoldingsFor(row.actorSlug)
+              return (
+                <li className="exploreTapeRow" key={row.actorSlug || row.id}>
+                  <button
+                    type="button"
+                    className="exploreTapeRowBtn lpLeaderRowBtn"
+                    aria-label={`${row.name}, see pricing`}
+                    onClick={() => scrollIntroToPricing()}
+                  >
+                    <span className="exploreTapeRank">{index + 1}</span>
+                    <span className={`exploreTapeAvatar${logo ? ' isLogo' : ''}`}>
+                      <ImageOrInitials
+                        src={thumb}
+                        name={row.name}
+                        className="explorePersonPortrait"
+                        logo={logo}
+                        discover={false}
+                      />
+                    </span>
+                    <span className="exploreTapeCopy">
+                      {perf ? <span className={`exploreTapeReturn ${perf.tone}`}>{perf.text}</span> : null}
+                      <span className="exploreTapeName">{row.name}</span>
+                      <span className="exploreTapeMeta">{row.modeLabel || 'Investor'}</span>
+                    </span>
+                    <HoldingsGrid tickers={holdings} />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
       </IntroReveal>
     </section>
   )
