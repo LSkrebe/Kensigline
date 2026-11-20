@@ -487,7 +487,7 @@ export async function landingDayStats(start: Date, end: Date): Promise<LandingDa
       FROM analytics_sessions
       WHERE started_at >= $1 AND started_at < $2
     ),
-    returning AS (
+    returning_visitors_cte AS (
       SELECT COUNT(*)::int AS n FROM (
         SELECT s.visitor_id
         FROM sess s
@@ -507,7 +507,7 @@ export async function landingDayStats(start: Date, end: Date): Promise<LandingDa
     SELECT
       COALESCE((SELECT COUNT(DISTINCT visitor_id)::int FROM sess), 0) AS unique_visitors,
       COALESCE((SELECT COUNT(*)::int FROM sess), 0) AS sessions,
-      COALESCE((SELECT n FROM returning), 0) AS returning_visitors,
+      COALESCE((SELECT n FROM returning_visitors_cte), 0) AS returning_visitors,
       COALESCE((SELECT ROUND(AVG(active_ms))::int FROM sess), 0) AS avg_active_ms,
       COALESCE((SELECT ROUND(AVG(duration_ms))::int FROM sess), 0) AS avg_duration_ms,
       COALESCE((SELECT ROUND(AVG(max_scroll_pct))::int FROM sess), 0) AS avg_scroll_pct,
