@@ -19,13 +19,26 @@ import {
 
 /** Fixed email buckets — always four rows. */
 const REPORT_BUCKETS = [
-  { key: "yt", label: "YouTube", refs: new Set(["yt"]) },
-  { key: "ig", label: "Instagram", refs: new Set(["ig"]) },
-  { key: "twt", label: "Twitter / X", refs: new Set(["twt"]) },
-  { key: "other", label: "Other", refs: null as Set<string> | null },
+  { key: "yt", label: "YouTube", color: "#FF0033", refs: new Set(["yt"]) },
+  { key: "ig", label: "Instagram", color: "#E1306C", refs: new Set(["ig"]) },
+  { key: "twt", label: "X / Twitter", color: "#1D9BF0", refs: new Set(["twt"]) },
+  { key: "other", label: "Other", color: "#8B8B93", refs: null as Set<string> | null },
 ] as const;
 
 type ReportBucketKey = (typeof REPORT_BUCKETS)[number]["key"];
+
+const C = {
+  bg: "#080809",
+  card: "#141416",
+  ink: "#ffffff",
+  muted: "#9a9aa2",
+  rule: "#2a2a2e",
+  barTrack: "#1c1c20",
+  accent: "#e8e8ea",
+  good: "#5cb88a",
+  warn: "#d4a05a",
+  bad: "#d4726a",
+};
 
 export function attributionReportRecipient(): string {
   return String(process.env.ATTRIBUTION_REPORT_TO ?? "lukas.skrebe@gmail.com").trim() || "lukas.skrebe@gmail.com";
@@ -43,13 +56,20 @@ function bucketKeyForRef(ref: string): ReportBucketKey {
   return "other";
 }
 
-type DayBucketRow = { label: string; visits: number; signups: number; checkouts: number; paid: number };
-type AllBucketRow = DayBucketRow;
+type DayBucketRow = {
+  key: ReportBucketKey;
+  label: string;
+  color: string;
+  visits: number;
+  signups: number;
+  checkouts: number;
+  paid: number;
+};
 
 function rollupDay(rows: AttributionDayRow[]): DayBucketRow[] {
   const map = new Map<ReportBucketKey, DayBucketRow>();
   for (const b of REPORT_BUCKETS) {
-    map.set(b.key, { label: b.label, visits: 0, signups: 0, checkouts: 0, paid: 0 });
+    map.set(b.key, { key: b.key, label: b.label, color: b.color, visits: 0, signups: 0, checkouts: 0, paid: 0 });
   }
   for (const r of rows) {
     const row = map.get(bucketKeyForRef(r.ref))!;
@@ -61,10 +81,10 @@ function rollupDay(rows: AttributionDayRow[]): DayBucketRow[] {
   return REPORT_BUCKETS.map((b) => map.get(b.key)!);
 }
 
-function rollupAll(rows: AttributionSummaryRow[]): AllBucketRow[] {
-  const map = new Map<ReportBucketKey, AllBucketRow>();
+function rollupAll(rows: AttributionSummaryRow[]): DayBucketRow[] {
+  const map = new Map<ReportBucketKey, DayBucketRow>();
   for (const b of REPORT_BUCKETS) {
-    map.set(b.key, { label: b.label, visits: 0, signups: 0, checkouts: 0, paid: 0 });
+    map.set(b.key, { key: b.key, label: b.label, color: b.color, visits: 0, signups: 0, checkouts: 0, paid: 0 });
   }
   for (const r of rows) {
     const row = map.get(bucketKeyForRef(r.ref))!;
@@ -102,66 +122,120 @@ function fmtMs(ms: number): string {
   if (n < 60) return `${n}s`;
   const m = Math.floor(n / 60);
   const s = n % 60;
-  return `${m}m ${s}s`;
+  return s ? `${m}m ${s}s` : `${m}m`;
 }
 
-function pct(num: number, den: number): string {
+function pctNum(num: number, den: number): number {
+  if (!den) return 0;
+  return Math.max(0, Math.min(100, (100 * num) / den));
+}
+
+function pctLabel(num: number, den: number): string {
   if (!den) return "—";
-  return `${((100 * num) / den).toFixed(den < 20 ? 0 : 1)}%`;
+  const p = pctNum(num, den);
+  return `${p.toFixed(den < 20 ? 0 : 1)}%`;
 }
 
-function rate(num: number, den: number): string {
-  if (!den) return "0 / 0";
-  return `${num} / ${den} (${pct(num, den)})`;
-}
-
-function sourceTableHtml(rows: DayBucketRow[], includePaid: boolean): string {
-  const body = rows
-    .map(
-      (r) =>
-        `<tr>
-          <td style="padding:6px 10px;border-bottom:1px solid #eee">${escapeHtml(r.label)}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.visits}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.signups}</td>
-          <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.checkouts}</td>
-          ${includePaid ? `<td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.paid}</td>` : ""}
-        </tr>`,
-    )
-    .join("");
-  const t = sumDay(rows);
-  return `<table style="border-collapse:collapse;width:100%;max-width:640px;font-size:14px">
-    <thead>
-      <tr style="text-align:left;background:#f6f6f6">
-        <th style="padding:6px 10px">Source</th>
-        <th style="padding:6px 10px;text-align:right">Visits</th>
-        <th style="padding:6px 10px;text-align:right">Signups</th>
-        <th style="padding:6px 10px;text-align:right">Checkouts</th>
-        ${includePaid ? `<th style="padding:6px 10px;text-align:right">Paid</th>` : ""}
-      </tr>
-    </thead>
-    <tbody>${body}</tbody>
-    <tfoot>
-      <tr style="font-weight:600">
-        <td style="padding:8px 10px">Total</td>
-        <td style="padding:8px 10px;text-align:right">${t.visits}</td>
-        <td style="padding:8px 10px;text-align:right">${t.signups}</td>
-        <td style="padding:8px 10px;text-align:right">${t.checkouts}</td>
-        ${includePaid ? `<td style="padding:8px 10px;text-align:right">${t.paid}</td>` : ""}
-      </tr>
-    </tfoot>
+/** Email-safe horizontal bar (nested table). */
+function barHtml(value: number, max: number, color: string, height = 10): string {
+  const width = max > 0 ? Math.max(value > 0 ? 4 : 0, Math.round((100 * value) / max)) : 0;
+  const rest = Math.max(0, 100 - width);
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">
+    <tr>
+      ${width > 0 ? `<td width="${width}%" style="background-color:${color};height:${height}px;font-size:0;line-height:0;">&nbsp;</td>` : ""}
+      ${rest > 0 ? `<td width="${rest}%" style="background-color:${C.barTrack};height:${height}px;font-size:0;line-height:0;">&nbsp;</td>` : ""}
+    </tr>
   </table>`;
 }
 
-function engagementBySourceHtml(rows: SourceEngagementRow[]): string {
-  if (!rows.length) {
-    return `<p style="font-size:14px;color:#555">No session data for this day.</p>`;
-  }
-  const rolled = new Map<ReportBucketKey, { label: string; visitors: number; sessions: number; activeSum: number; activeN: number; pricing: number; buys: number }>();
+function kpiCard(label: string, value: string, sub?: string): string {
+  return `<td width="25%" valign="top" style="padding:4px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background-color:${C.card};border:1px solid ${C.rule};border-radius:10px">
+      <tr><td style="padding:14px 12px">
+        <div style="font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:${C.muted};margin:0 0 6px">${escapeHtml(label)}</div>
+        <div style="font-size:26px;font-weight:700;color:${C.ink};line-height:1.1;margin:0">${escapeHtml(value)}</div>
+        ${sub ? `<div style="font-size:12px;color:${C.muted};margin-top:6px">${escapeHtml(sub)}</div>` : ""}
+      </td></tr>
+    </table>
+  </td>`;
+}
+
+function sectionTitle(title: string): string {
+  return `<div style="font-size:12px;letter-spacing:0.1em;text-transform:uppercase;color:${C.muted};margin:24px 0 10px">${escapeHtml(title)}</div>`;
+}
+
+function cardWrap(inner: string): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background-color:${C.card};border:1px solid ${C.rule};border-radius:12px">
+    <tr><td style="padding:16px">${inner}</td></tr>
+  </table>`;
+}
+
+function funnelHtml(steps: Array<{ label: string; value: number; color: string }>): string {
+  const max = Math.max(...steps.map((s) => s.value), 1);
+  const rows = steps
+    .map((s, i) => {
+      const prev = i === 0 ? s.value : steps[i - 1]!.value;
+      const drop = i === 0 ? "" : ` · ${pctLabel(s.value, prev)} of previous`;
+      return `<tr>
+        <td style="padding:8px 0 2px;font-size:13px;color:${C.ink}">${escapeHtml(s.label)}</td>
+        <td style="padding:8px 0 2px;font-size:13px;color:${C.ink};text-align:right;font-weight:700">${s.value}</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding:0 0 10px">${barHtml(s.value, max, s.color, 12)}
+          <div style="font-size:11px;color:${C.muted};margin-top:4px">${pctLabel(s.value, max)} of top${escapeHtml(drop)}</div>
+        </td>
+      </tr>`;
+    })
+    .join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">${rows}</table>`;
+}
+
+function sourceBarsHtml(
+  rows: DayBucketRow[],
+  metric: "visits" | "paid",
+): string {
+  const max = Math.max(...rows.map((r) => r[metric]), 1);
+  const body = rows
+    .map(
+      (r) => `<tr>
+      <td width="28%" style="padding:7px 8px 7px 0;font-size:13px;color:${C.ink};white-space:nowrap">${escapeHtml(r.label)}</td>
+      <td style="padding:7px 0">${barHtml(r[metric], max, r.color, 10)}</td>
+      <td width="44" style="padding:7px 0 7px 10px;font-size:13px;color:${C.ink};text-align:right;font-weight:600">${r[metric]}</td>
+    </tr>`,
+    )
+    .join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">${body}</table>`;
+}
+
+type EngBucket = {
+  key: ReportBucketKey;
+  label: string;
+  color: string;
+  visitors: number;
+  sessions: number;
+  activeSum: number;
+  activeN: number;
+  pricing: number;
+  buys: number;
+};
+
+function rollEngagement(rows: SourceEngagementRow[]): EngBucket[] {
+  const map = new Map<ReportBucketKey, EngBucket>();
   for (const b of REPORT_BUCKETS) {
-    rolled.set(b.key, { label: b.label, visitors: 0, sessions: 0, activeSum: 0, activeN: 0, pricing: 0, buys: 0 });
+    map.set(b.key, {
+      key: b.key,
+      label: b.label,
+      color: b.color,
+      visitors: 0,
+      sessions: 0,
+      activeSum: 0,
+      activeN: 0,
+      pricing: 0,
+      buys: 0,
+    });
   }
   for (const r of rows) {
-    const bucket = rolled.get(bucketKeyForRef(r.ref))!;
+    const bucket = map.get(bucketKeyForRef(r.ref))!;
     bucket.visitors += r.visitors;
     bucket.sessions += r.sessions;
     bucket.activeSum += r.avg_active_ms * r.sessions;
@@ -169,31 +243,116 @@ function engagementBySourceHtml(rows: SourceEngagementRow[]): string {
     bucket.pricing += r.pricing_views;
     bucket.buys += r.buy_clicks;
   }
-  const body = REPORT_BUCKETS.map((b) => {
-    const r = rolled.get(b.key)!;
-    const avg = r.activeN ? Math.round(r.activeSum / r.activeN) : 0;
-    return `<tr>
-      <td style="padding:6px 10px;border-bottom:1px solid #eee">${escapeHtml(r.label)}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.visitors}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.sessions}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${fmtMs(avg)}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.pricing}</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${r.buys}</td>
+  return REPORT_BUCKETS.map((b) => map.get(b.key)!);
+}
+
+function engagementBarsHtml(rows: EngBucket[]): string {
+  const max = Math.max(...rows.map((r) => r.visitors), 1);
+  const body = rows
+    .map((r) => {
+      const avg = r.activeN ? Math.round(r.activeSum / r.activeN) : 0;
+      return `<tr>
+      <td width="28%" style="padding:8px 8px 2px 0;font-size:13px;color:${C.ink}">${escapeHtml(r.label)}</td>
+      <td style="padding:8px 0 2px">${barHtml(r.visitors, max, r.color, 10)}</td>
+      <td width="44" style="padding:8px 0 2px 10px;font-size:13px;color:${C.ink};text-align:right;font-weight:600">${r.visitors}</td>
+    </tr>
+    <tr>
+      <td colspan="3" style="padding:0 0 10px;font-size:11px;color:${C.muted}">
+        ${r.sessions} sessions · avg active ${fmtMs(avg)} · pricing ${r.pricing} · buys ${r.buys}
+      </td>
     </tr>`;
-  }).join("");
-  return `<table style="border-collapse:collapse;width:100%;max-width:640px;font-size:14px">
-    <thead>
-      <tr style="text-align:left;background:#f6f6f6">
-        <th style="padding:6px 10px">Source</th>
-        <th style="padding:6px 10px;text-align:right">Visitors</th>
-        <th style="padding:6px 10px;text-align:right">Sessions</th>
-        <th style="padding:6px 10px;text-align:right">Avg active</th>
-        <th style="padding:6px 10px;text-align:right">Pricing</th>
-        <th style="padding:6px 10px;text-align:right">Buy clicks</th>
-      </tr>
-    </thead>
-    <tbody>${body}</tbody>
-  </table>`;
+    })
+    .join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">${body}</table>`;
+}
+
+function scrollHtml(stats: LandingDayStats): string {
+  const base = Math.max(stats.sessions, 1);
+  const steps = [
+    { label: "25%", value: stats.scroll_25 },
+    { label: "50%", value: stats.scroll_50 },
+    { label: "75%", value: stats.scroll_75 },
+    { label: "90%", value: stats.scroll_90 },
+    { label: "100%", value: stats.scroll_100 },
+  ];
+  const cells = steps
+    .map((s) => {
+      const p = pctNum(s.value, base);
+      const color = p >= 50 ? C.good : p >= 25 ? C.warn : C.bad;
+      return `<td width="20%" valign="bottom" style="padding:0 3px;text-align:center">
+        <div style="font-size:12px;font-weight:700;color:${C.ink};margin-bottom:6px">${s.value}</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;height:72px">
+          <tr><td valign="bottom" style="background-color:${C.barTrack};height:72px;border-radius:6px">
+            <div style="background-color:${color};height:${Math.max(p > 0 ? 8 : 0, Math.round(0.72 * p))}px;border-radius:6px;font-size:0;line-height:0;">&nbsp;</div>
+          </td></tr>
+        </table>
+        <div style="font-size:11px;color:${C.muted};margin-top:6px">${escapeHtml(s.label)}</div>
+      </td>`;
+    })
+    .join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>${cells}</tr></table>
+    <div style="font-size:11px;color:${C.muted};margin-top:10px">Sessions reaching each scroll depth (of ${stats.sessions} sessions)</div>`;
+}
+
+function sectionsHtml(sections: SectionViewRow[]): string {
+  if (!sections.length) {
+    return `<div style="font-size:13px;color:${C.muted}">No section views yet.</div>`;
+  }
+  const top = sections.slice(0, 6);
+  const max = Math.max(...top.map((s) => s.viewers), 1);
+  const body = top
+    .map(
+      (s) => `<tr>
+      <td width="34%" style="padding:6px 8px 6px 0;font-size:13px;color:${C.ink}">${escapeHtml(s.section)}</td>
+      <td style="padding:6px 0">${barHtml(s.viewers, max, C.accent, 8)}</td>
+      <td width="40" style="padding:6px 0 6px 10px;font-size:13px;color:${C.ink};text-align:right">${s.viewers}</td>
+    </tr>`,
+    )
+    .join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${body}</table>`;
+}
+
+function leakPills(leaks: { pricing_no_buy: number; buy_no_checkout: number; checkout_no_paid: number }): string {
+  const items = [
+    { label: "Saw pricing, no buy", n: leaks.pricing_no_buy, color: C.warn },
+    { label: "Buy click, no checkout", n: leaks.buy_no_checkout, color: C.bad },
+    { label: "Checkout, no paid", n: leaks.checkout_no_paid, color: C.bad },
+  ];
+  return items
+    .map(
+      (it) => `<tr>
+      <td style="padding:6px 0;font-size:13px;color:${C.ink}">${escapeHtml(it.label)}</td>
+      <td style="padding:6px 0;text-align:right">
+        <span style="display:inline-block;min-width:28px;padding:4px 10px;border-radius:999px;background-color:${C.barTrack};color:${it.n ? it.color : C.muted};font-size:13px;font-weight:700">${it.n}</span>
+      </td>
+    </tr>`,
+    )
+    .join("");
+}
+
+function buildHeadline(opts: {
+  stats: LandingDayStats;
+  dayPaid: number;
+  dayVisits: number;
+  sourceRows: SourceEngagementRow[];
+  leaks: { pricing_no_buy: number; buy_no_checkout: number; checkout_no_paid: number };
+}): string {
+  const { stats, dayPaid, sourceRows, leaks } = opts;
+  if (stats.unique_visitors === 0 && stats.sessions === 0 && opts.dayVisits === 0) {
+    return "Quiet day — no landing traffic.";
+  }
+  if (dayPaid > 0) {
+    return `${dayPaid} paid · ${stats.unique_visitors} visitors · ${fmtMs(stats.avg_active_ms)} avg active`;
+  }
+  const top = [...sourceRows].sort((a, b) => b.visitors - a.visitors)[0];
+  const sourceBit = top?.visitors ? `${bucketLabel(top.ref)} led traffic` : "Mixed traffic";
+  if (leaks.pricing_no_buy > leaks.buy_no_checkout && leaks.pricing_no_buy > 0) {
+    return `${sourceBit} · ${leaks.pricing_no_buy} reached pricing without buying`;
+  }
+  if (leaks.checkout_no_paid > 0) {
+    return `${sourceBit} · ${leaks.checkout_no_paid} opened checkout without paying`;
+  }
+  return `${sourceBit} · ${stats.unique_visitors} visitors · ${stats.avg_scroll_pct}% avg scroll`;
 }
 
 function buildInsights(opts: {
@@ -206,62 +365,32 @@ function buildInsights(opts: {
 }): string[] {
   const { stats, dayPaid, sourceRows, sections, leaks } = opts;
   const lines: string[] = [];
-  const small = stats.unique_visitors > 0 && stats.unique_visitors < 20;
-
   if (stats.unique_visitors === 0 && stats.sessions === 0 && opts.dayVisits === 0) {
-    lines.push("No landing traffic yesterday.");
-    return lines;
+    return ["No landing traffic yesterday."];
   }
-
-  if (small) {
-    lines.push(`Small sample (${stats.unique_visitors} unique visitors) — treat rates as directional only.`);
+  if (stats.unique_visitors > 0 && stats.unique_visitors < 20) {
+    lines.push(`Small sample (${stats.unique_visitors} visitors).`);
   }
-
   if (sourceRows.length) {
     const top = [...sourceRows].sort((a, b) => b.visitors - a.visitors)[0];
-    if (top?.visitors) {
-      lines.push(`${bucketLabel(top.ref)} brought the most visitors (${top.visitors}).`);
-    }
-    const withSessions = sourceRows.filter((r) => r.sessions >= 3);
-    if (withSessions.length) {
-      const engaged = [...withSessions].sort((a, b) => b.avg_active_ms - a.avg_active_ms)[0];
-      if (engaged) {
-        lines.push(
-          `${bucketLabel(engaged.ref)} had the highest average active time (${fmtMs(engaged.avg_active_ms)}).`,
-        );
-      }
-    }
+    if (top?.visitors) lines.push(`${bucketLabel(top.ref)} brought the most visitors (${top.visitors}).`);
   }
-
-  if (stats.unique_visitors >= 5) {
-    const pricingRate = stats.pricing_views / stats.unique_visitors;
-    if (pricingRate < 0.35) {
-      lines.push(`Most visitors never reached pricing (${stats.pricing_views} of ${stats.unique_visitors}).`);
-    }
-    if (stats.pricing_views >= 3 && stats.buy_clicks === 0) {
-      lines.push("Visitors reached pricing but nobody clicked Buy.");
-    }
+  if (stats.unique_visitors >= 5 && stats.pricing_views / stats.unique_visitors < 0.35) {
+    lines.push(`Most people never reached pricing (${stats.pricing_views}/${stats.unique_visitors}).`);
   }
-
-  if (leaks.buy_no_checkout > 0) {
-    lines.push(`${leaks.buy_no_checkout} visitor(s) clicked Buy but checkout did not open.`);
-  }
+  if (leaks.buy_no_checkout > 0) lines.push(`${leaks.buy_no_checkout} clicked Buy but checkout never opened.`);
   if (leaks.checkout_no_paid > 0 && dayPaid === 0) {
-    lines.push(`${leaks.checkout_no_paid} visitor(s) opened checkout with no confirmed purchase.`);
+    lines.push(`${leaks.checkout_no_paid} opened checkout with no purchase.`);
   }
-  if (dayPaid > 0) {
-    lines.push(`${dayPaid} confirmed purchase(s) attributed yesterday.`);
-  }
-
+  if (dayPaid > 0) lines.push(`${dayPaid} confirmed purchase${dayPaid === 1 ? "" : "s"}.`);
   if (sections.length >= 2) {
-    const most = sections[0];
-    const least = sections[sections.length - 1];
-    if (most && least && most.section !== least.section) {
-      lines.push(`Most viewed section: ${most.section} (${most.viewers}). Least: ${least.section} (${least.viewers}).`);
+    const most = sections[0]!;
+    const least = sections[sections.length - 1]!;
+    if (most.section !== least.section) {
+      lines.push(`Hottest section: ${most.section}. Coldest: ${least.section}.`);
     }
   }
-
-  return lines;
+  return lines.slice(0, 4);
 }
 
 function bucketLabel(ref: string): string {
@@ -304,6 +433,7 @@ export async function runAttributionDailyReport(opts?: {
     const dayRows = rollupDay(dayRaw);
     const allRows = rollupAll(allRaw);
     const dayTot = sumDay(dayRows);
+    const eng = rollEngagement(sourceEng);
     const insights = buildInsights({
       stats,
       dayPaid: dayTot.paid,
@@ -312,92 +442,120 @@ export async function runAttributionDailyReport(opts?: {
       sections,
       leaks,
     });
+    const headline = buildHeadline({
+      stats,
+      dayPaid: dayTot.paid,
+      dayVisits: dayTot.visits,
+      sourceRows: sourceEng,
+      leaks,
+    });
 
-    const subject = `MercerLine — Daily Analytics ${label}`;
-    const links = [
-      "https://mercerline.com/yt",
-      "https://mercerline.com/ig",
-      "https://mercerline.com/twt",
-    ].join(" · ");
-
+    const subject = `MercerLine · ${label} · ${dayTot.paid} paid · ${stats.unique_visitors || dayTot.visits} visitors`;
     const funnelVisitors = Math.max(stats.unique_visitors, dayTot.visits);
-    const sectionLines = sections.length
-      ? sections
-          .slice(0, 8)
-          .map((s) => `${s.section}: ${s.viewers}`)
-          .join(" · ")
-      : "none yet";
+    const funnelSteps = [
+      { label: "Visitors", value: funnelVisitors, color: "#6ea8fe" },
+      { label: "Pricing viewed", value: stats.pricing_views, color: "#8bb4ff" },
+      { label: "Buy clicked", value: stats.buy_clicks, color: C.warn },
+      { label: "Checkout opened", value: stats.checkout_opens, color: "#e0a35a" },
+      { label: "Paid", value: dayTot.paid, color: C.good },
+    ];
+
+    const insightHtml = insights
+      .map(
+        (line, i) =>
+          `<tr><td style="padding:${i ? "8px" : "0"} 0 0;font-size:14px;color:${C.ink};line-height:1.4">• ${escapeHtml(line)}</td></tr>`,
+      )
+      .join("");
 
     const html = `<!DOCTYPE html>
-<html><body style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;color:#111;line-height:1.45;padding:20px">
-  <h1 style="font-size:18px;margin:0 0 4px">MercerLine — Daily Analytics Report</h1>
-  <p style="margin:0 0 16px;color:#555;font-size:13px">Day ${escapeHtml(label)} · ${escapeHtml(timeZone)} calendar day · short links → YouTube / Instagram / Twitter / Other</p>
+<html>
+<body style="margin:0;padding:0;background-color:${C.bg};color:${C.ink}">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background-color:${C.bg}">
+    <tr><td align="center" style="padding:24px 12px">
+      <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;max-width:640px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+        <tr><td style="padding:0 4px 18px">
+          <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:${C.muted}">MercerLine daily</div>
+          <div style="font-size:28px;font-weight:700;color:${C.ink};margin:8px 0 6px;line-height:1.15">${escapeHtml(label)}</div>
+          <div style="font-size:15px;color:${C.accent};line-height:1.35">${escapeHtml(headline)}</div>
+          <div style="font-size:12px;color:${C.muted};margin-top:8px">${escapeHtml(timeZone)} day</div>
+        </td></tr>
 
-  <h2 style="font-size:15px;margin:0 0 8px">1. Overview</h2>
-  <ul style="margin:0 0 16px;padding-left:18px;font-size:14px">
-    <li>Unique visitors: <strong>${stats.unique_visitors}</strong></li>
-    <li>Sessions: <strong>${stats.sessions}</strong> · Returning visitors: <strong>${stats.returning_visitors}</strong></li>
-    <li>Avg active time: <strong>${fmtMs(stats.avg_active_ms)}</strong> · Avg session: <strong>${fmtMs(stats.avg_duration_ms)}</strong></li>
-    <li>Avg max scroll: <strong>${stats.avg_scroll_pct}%</strong></li>
-    <li>Referral visits (legacy): <strong>${dayTot.visits}</strong> · Signups: <strong>${dayTot.signups}</strong> · Paid: <strong>${dayTot.paid}</strong></li>
-  </ul>
+        <tr><td>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
+            <tr>
+              ${kpiCard("Visitors", String(stats.unique_visitors || dayTot.visits), `${stats.returning_visitors} returning`)}
+              ${kpiCard("Sessions", String(stats.sessions), `${fmtMs(stats.avg_active_ms)} active`)}
+              ${kpiCard("Scroll", `${stats.avg_scroll_pct}%`, "avg max depth")}
+              ${kpiCard("Paid", String(dayTot.paid), `${dayTot.checkouts} checkouts`)}
+            </tr>
+          </table>
+        </td></tr>
 
-  <h2 style="font-size:15px;margin:0 0 8px">2. Traffic sources</h2>
-  <p style="margin:0 0 6px;font-size:13px;color:#555">Referral funnel (visit / signup / checkout / paid)</p>
-  ${sourceTableHtml(dayRows, true)}
-  <p style="margin:14px 0 6px;font-size:13px;color:#555">Session engagement by source</p>
-  ${engagementBySourceHtml(sourceEng)}
+        <tr><td>
+          ${sectionTitle("Conversion funnel")}
+          ${cardWrap(funnelHtml(funnelSteps))}
+        </td></tr>
 
-  <h2 style="font-size:15px;margin:20px 0 8px">3. Conversion funnel</h2>
-  <ol style="margin:0 0 8px;padding-left:18px;font-size:14px">
-    <li>Unique visitors: <strong>${funnelVisitors}</strong></li>
-    <li>Pricing viewed: <strong>${rate(stats.pricing_views, funnelVisitors)}</strong></li>
-    <li>Buy clicked: <strong>${rate(stats.buy_clicks, stats.pricing_views || funnelVisitors)}</strong></li>
-    <li>Checkout opened: <strong>${rate(stats.checkout_opens, stats.buy_clicks || stats.pricing_views || funnelVisitors)}</strong></li>
-    <li>Confirmed paid: <strong>${rate(dayTot.paid, stats.checkout_opens || funnelVisitors)}</strong></li>
-  </ol>
-  <p style="margin:0 0 16px;font-size:13px;color:#555">Leaks — pricing no buy: ${leaks.pricing_no_buy} · buy no checkout: ${leaks.buy_no_checkout} · checkout no paid: ${leaks.checkout_no_paid}</p>
+        <tr><td>
+          ${sectionTitle("Where traffic came from")}
+          ${cardWrap(`
+            <div style="font-size:12px;color:${C.muted};margin:0 0 10px">Referral visits yesterday</div>
+            ${sourceBarsHtml(dayRows, "visits")}
+            <div style="height:1px;background-color:${C.rule};margin:16px 0"></div>
+            <div style="font-size:12px;color:${C.muted};margin:0 0 10px">Sessions + engagement by source</div>
+            ${engagementBarsHtml(eng)}
+          `)}
+        </td></tr>
 
-  <h2 style="font-size:15px;margin:0 0 8px">4. Engagement</h2>
-  <ul style="margin:0 0 16px;padding-left:18px;font-size:14px">
-    <li>Scroll reach (sessions): 25% ${stats.scroll_25} · 50% ${stats.scroll_50} · 75% ${stats.scroll_75} · 90% ${stats.scroll_90} · 100% ${stats.scroll_100}</li>
-    <li>Sections: ${escapeHtml(sectionLines)}</li>
-  </ul>
+        <tr><td>
+          ${sectionTitle("Scroll depth")}
+          ${cardWrap(scrollHtml(stats))}
+        </td></tr>
 
-  <h2 style="font-size:15px;margin:0 0 8px">5. Insights</h2>
-  <ul style="margin:0 0 16px;padding-left:18px;font-size:14px">
-    ${insights.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
-  </ul>
+        <tr><td>
+          ${sectionTitle("Sections viewed")}
+          ${cardWrap(sectionsHtml(sections))}
+        </td></tr>
 
-  <h2 style="font-size:15px;margin:0 0 8px">All time (referral funnel)</h2>
-  ${sourceTableHtml(allRows, true)}
-  <p style="margin:20px 0 0;font-size:12px;color:#777">Tracked links: ${escapeHtml(links)} · purchases only count after verified Whop webhook · one email per ${escapeHtml(timeZone)} day</p>
-</body></html>`;
+        <tr><td>
+          ${sectionTitle("Leaks")}
+          ${cardWrap(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${leakPills(leaks)}</table>`)}
+        </td></tr>
+
+        <tr><td>
+          ${sectionTitle("Takeaways")}
+          ${cardWrap(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">${insightHtml}</table>`)}
+        </td></tr>
+
+        <tr><td>
+          ${sectionTitle("All-time paid by source")}
+          ${cardWrap(sourceBarsHtml(allRows, "paid"))}
+        </td></tr>
+
+        <tr><td style="padding:20px 4px 0;font-size:11px;color:${C.muted};line-height:1.5">
+          Paid counts only after verified Whop webhook · one email per ${escapeHtml(timeZone)} day<br>
+          /yt · /ig · /twt
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
 
     const text = [
-      `MercerLine — Daily Analytics Report — ${label} (${timeZone})`,
+      `MercerLine daily — ${label}`,
+      headline,
       "",
-      "1. OVERVIEW",
-      `Unique visitors: ${stats.unique_visitors}`,
-      `Sessions: ${stats.sessions} · Returning: ${stats.returning_visitors}`,
-      `Avg active: ${fmtMs(stats.avg_active_ms)} · Avg session: ${fmtMs(stats.avg_duration_ms)} · Avg scroll: ${stats.avg_scroll_pct}%`,
-      `Referral visits: ${dayTot.visits} · Signups: ${dayTot.signups} · Paid: ${dayTot.paid}`,
+      `Visitors ${stats.unique_visitors || dayTot.visits} · Sessions ${stats.sessions} · Scroll ${stats.avg_scroll_pct}% · Paid ${dayTot.paid}`,
       "",
-      "2. TRAFFIC SOURCES (referral)",
-      ...dayRows.map((r) => `${r.label}: visits ${r.visits}, signups ${r.signups}, checkouts ${r.checkouts}, paid ${r.paid}`),
+      "FUNNEL",
+      ...funnelSteps.map((s) => `${s.label}: ${s.value}`),
       "",
-      "3. FUNNEL",
-      `Visitors ${funnelVisitors} → pricing ${stats.pricing_views} → buy ${stats.buy_clicks} → checkout ${stats.checkout_opens} → paid ${dayTot.paid}`,
-      `Leaks: pricing_no_buy=${leaks.pricing_no_buy} buy_no_checkout=${leaks.buy_no_checkout} checkout_no_paid=${leaks.checkout_no_paid}`,
+      "SOURCES",
+      ...dayRows.map((r) => `${r.label}: ${r.visits} visits, ${r.paid} paid`),
       "",
-      "4. ENGAGEMENT",
-      `Scroll 25/50/75/90/100: ${stats.scroll_25}/${stats.scroll_50}/${stats.scroll_75}/${stats.scroll_90}/${stats.scroll_100}`,
-      `Sections: ${sectionLines}`,
-      "",
-      "5. INSIGHTS",
+      "TAKEAWAYS",
       ...insights.map((l) => `- ${l}`),
-      "",
-      `Tracked links: ${links}`,
     ].join("\n");
 
     const sent = await sendResendEmail({ to, subject, html, text });
