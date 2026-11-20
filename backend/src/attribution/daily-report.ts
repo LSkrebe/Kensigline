@@ -261,8 +261,8 @@ function engagementTableHtml(rows: EngBucket[]): string {
 function pageDepthTableHtml(sections: SectionViewRow[], visitors: number): string {
   const byId = new Map(sections.map((s) => [s.section, s.viewers]));
   const base = Math.max(visitors, 1);
-  const known = new Set(PAGE_SECTIONS.map((s) => s.id));
-  const rows = PAGE_SECTIONS.map((s) => ({
+  const known = new Set<string>(PAGE_SECTIONS.map((s) => s.id));
+  const rows: Array<{ label: string; viewers: number }> = PAGE_SECTIONS.map((s) => ({
     label: s.label,
     viewers: byId.get(s.id) ?? 0,
   }));
