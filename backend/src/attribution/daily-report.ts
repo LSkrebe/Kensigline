@@ -361,8 +361,8 @@ export async function runAttributionDailyReport(opts?: {
     ${sectionLabel("Sources yesterday")}
     <div style="margin-bottom:22px">${sourceTableHtml(dayRows)}</div>
 
-    ${sectionLabel("Sources all-time")}
-    <div>${sourceTableHtml(allRows)}</div>
+    ${sectionLabel("Total sources all-time")}
+    <div style="margin-bottom:8px">${sourceTableHtml(allRows)}</div>
 
     <div style="font-size:11px;color:${C.muted};margin-top:24px">${escapeHtml(timeZone)}</div>
   </div>
@@ -393,7 +393,7 @@ export async function runAttributionDailyReport(opts?: {
       "SOURCES YESTERDAY",
       ...dayRows.map((r) => `${r.label} visits ${r.visits} signups ${r.signups} checkouts ${r.checkouts} paid ${r.paid}`),
       "",
-      "SOURCES ALL-TIME",
+      "TOTAL SOURCES ALL-TIME",
       ...allRows.map((r) => `${r.label} visits ${r.visits} signups ${r.signups} checkouts ${r.checkouts} paid ${r.paid}`),
     ].join("\n");
 
