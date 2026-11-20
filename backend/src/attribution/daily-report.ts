@@ -2,14 +2,14 @@ import { sendResendEmail } from "../alerts/resend.js";
 import { previousVilniusDayWindow } from "./tz.js";
 import {
   attributionDaySummary,
+  attributionSummary,
   claimAttributionReportSend,
   landingDayStats,
-  landingFunnelLeaks,
-  landingSourceEngagement,
   markAttributionReportSent,
   releaseAttributionReportClaim,
   type AttributionDayRow,
-  type SourceEngagementRow,
+  type AttributionSummaryRow,
+  type LandingDayStats,
 } from "./store.js";
 
 /** Fixed email buckets — always four rows. */
@@ -28,7 +28,11 @@ const C = {
   track: "#eeeeee",
   good: "#2f9e6b",
   warn: "#b7791f",
+  bar: "#444444",
 };
+
+/** Soft ceiling for avg-active bar (3 minutes). */
+const ACTIVE_BAR_CAP_MS = 3 * 60 * 1000;
 
 export function attributionReportRecipient(): string {
   return String(process.env.ATTRIBUTION_REPORT_TO ?? "lukas.skrebe@gmail.com").trim() || "lukas.skrebe@gmail.com";
@@ -46,11 +50,6 @@ function bucketKeyForRef(ref: string): ReportBucketKey {
   return "other";
 }
 
-function bucketLabel(ref: string): string {
-  const key = bucketKeyForRef(ref);
-  return REPORT_BUCKETS.find((b) => b.key === key)?.label ?? ref;
-}
-
 type DayBucketRow = {
   key: ReportBucketKey;
   label: string;
@@ -59,15 +58,32 @@ type DayBucketRow = {
   paid: number;
 };
 
+function emptyBuckets(): DayBucketRow[] {
+  return REPORT_BUCKETS.map((b) => ({
+    key: b.key,
+    label: b.label,
+    color: b.color,
+    visits: 0,
+    paid: 0,
+  }));
+}
+
 function rollupDay(rows: AttributionDayRow[]): DayBucketRow[] {
-  const map = new Map<ReportBucketKey, DayBucketRow>();
-  for (const b of REPORT_BUCKETS) {
-    map.set(b.key, { key: b.key, label: b.label, color: b.color, visits: 0, paid: 0 });
-  }
+  const map = new Map(emptyBuckets().map((r) => [r.key, r]));
   for (const r of rows) {
     const row = map.get(bucketKeyForRef(r.ref))!;
     row.visits += r.visits;
     row.paid += r.paid ?? 0;
+  }
+  return REPORT_BUCKETS.map((b) => map.get(b.key)!);
+}
+
+function rollupAll(rows: AttributionSummaryRow[]): DayBucketRow[] {
+  const map = new Map(emptyBuckets().map((r) => [r.key, r]));
+  for (const r of rows) {
+    const row = map.get(bucketKeyForRef(r.ref))!;
+    row.visits += r.visits;
+    row.paid += r.paid;
   }
   return REPORT_BUCKETS.map((b) => map.get(b.key)!);
 }
@@ -100,40 +116,100 @@ function fmtMs(ms: number): string {
 }
 
 function pctLabel(num: number, den: number): string {
-  if (!den) return "—";
+  if (!den) return "-";
   const p = Math.max(0, Math.min(100, (100 * num) / den));
   return `${p.toFixed(den < 20 ? 0 : 1)}%`;
 }
 
-function barHtml(value: number, max: number, color: string): string {
+function barHtml(value: number, max: number, color: string, height = 8): string {
   const width = max > 0 ? Math.max(value > 0 ? 4 : 0, Math.round((100 * value) / max)) : 0;
   const rest = Math.max(0, 100 - width);
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">
     <tr>
-      ${width > 0 ? `<td width="${width}%" style="background-color:${color};height:8px;font-size:0;line-height:0;">&nbsp;</td>` : ""}
-      ${rest > 0 ? `<td width="${rest}%" style="background-color:${C.track};height:8px;font-size:0;line-height:0;">&nbsp;</td>` : ""}
+      ${width > 0 ? `<td width="${width}%" style="background-color:${color};height:${height}px;font-size:0;line-height:0;">&nbsp;</td>` : ""}
+      ${rest > 0 ? `<td width="${rest}%" style="background-color:${C.track};height:${height}px;font-size:0;line-height:0;">&nbsp;</td>` : ""}
     </tr>
   </table>`;
 }
 
-function oneTakeaway(opts: {
-  visitors: number;
-  paid: number;
-  pricing: number;
-  sourceRows: SourceEngagementRow[];
-  leaks: { pricing_no_buy: number; buy_no_checkout: number; checkout_no_paid: number };
-}): string {
-  const { visitors, paid, pricing, sourceRows, leaks } = opts;
-  if (!visitors) return "No landing traffic yesterday.";
-  if (paid > 0) return `${paid} paid.`;
-  if (leaks.buy_no_checkout > 0) return `${leaks.buy_no_checkout} clicked Buy but never opened checkout.`;
-  if (leaks.checkout_no_paid > 0) return `${leaks.checkout_no_paid} opened checkout with no purchase.`;
-  if (visitors >= 5 && pricing / visitors < 0.35) {
-    return `Most people never reached pricing (${pricing}/${visitors}).`;
-  }
-  const top = [...sourceRows].sort((a, b) => b.visitors - a.visitors)[0];
-  if (top?.visitors) return `${bucketLabel(top.ref)} brought the most visitors (${top.visitors}).`;
-  return `${visitors} visitors, no purchases.`;
+function sectionLabel(title: string): string {
+  return `<div style="font-size:12px;color:${C.muted};text-transform:uppercase;letter-spacing:0.06em;margin:0 0 8px">${escapeHtml(title)}</div>`;
+}
+
+function metricRow(label: string, value: string): string {
+  return `<tr>
+    <td style="padding:4px 0;font-size:14px;color:${C.muted}">${escapeHtml(label)}</td>
+    <td style="padding:4px 0;font-size:14px;color:${C.ink};text-align:right;font-weight:600">${escapeHtml(value)}</td>
+  </tr>`;
+}
+
+function funnelHtml(steps: Array<{ label: string; value: number; color: string }>): string {
+  const max = Math.max(...steps.map((s) => s.value), 1);
+  return steps
+    .map((s, i) => {
+      const prev = i === 0 ? s.value : steps[i - 1]!.value;
+      const rate = i === 0 ? "" : ` ${pctLabel(s.value, prev)}`;
+      return `<tr>
+        <td style="padding:6px 0 2px;font-size:14px;color:${C.ink}">${escapeHtml(s.label)}</td>
+        <td style="padding:6px 0 2px;font-size:14px;color:${C.ink};text-align:right;font-weight:600">${s.value}${escapeHtml(rate)}</td>
+      </tr>
+      <tr><td colspan="2" style="padding:0 0 8px">${barHtml(s.value, max, s.color)}</td></tr>`;
+    })
+    .join("");
+}
+
+function sourceBarsHtml(rows: DayBucketRow[], metric: "visits" | "paid"): string {
+  const max = Math.max(...rows.map((r) => r[metric]), 1);
+  return rows
+    .map(
+      (r) => `<tr>
+      <td width="26%" style="padding:6px 8px 2px 0;font-size:14px;color:${C.ink}">${escapeHtml(r.label)}</td>
+      <td style="padding:6px 0 2px">${barHtml(r[metric], max, r.color)}</td>
+      <td width="40" style="padding:6px 0 2px 10px;font-size:14px;color:${C.ink};text-align:right;font-weight:600">${r[metric]}</td>
+    </tr>`,
+    )
+    .join("");
+}
+
+function scrollDepthHtml(stats: LandingDayStats): string {
+  const base = Math.max(stats.sessions, 1);
+  const steps = [
+    { label: "25%", value: stats.scroll_25 },
+    { label: "50%", value: stats.scroll_50 },
+    { label: "75%", value: stats.scroll_75 },
+    { label: "90%", value: stats.scroll_90 },
+    { label: "100%", value: stats.scroll_100 },
+  ];
+  const cells = steps
+    .map((s) => {
+      const p = Math.max(0, Math.min(100, (100 * s.value) / base));
+      const h = Math.max(p > 0 ? 6 : 0, Math.round(0.64 * p));
+      const color = p >= 50 ? C.good : p >= 25 ? C.warn : C.bar;
+      return `<td width="20%" valign="bottom" style="padding:0 3px;text-align:center">
+        <div style="font-size:12px;font-weight:700;color:${C.ink};margin-bottom:4px">${Math.round(p)}%</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;height:64px">
+          <tr><td valign="bottom" style="background-color:${C.track};height:64px">
+            <div style="background-color:${color};height:${h}px;font-size:0;line-height:0;">&nbsp;</div>
+          </td></tr>
+        </table>
+        <div style="font-size:11px;color:${C.muted};margin-top:6px">${escapeHtml(s.label)}</div>
+        <div style="font-size:11px;color:${C.ink}">${s.value}</div>
+      </td>`;
+    })
+    .join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>${cells}</tr></table>`;
+}
+
+function activeTimeHtml(avgActiveMs: number): string {
+  const shown = Math.min(avgActiveMs, ACTIVE_BAR_CAP_MS);
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">
+    <tr>
+      <td style="padding:0 0 6px;font-size:14px;color:${C.ink}">Avg active</td>
+      <td style="padding:0 0 6px;font-size:14px;color:${C.ink};text-align:right;font-weight:600">${escapeHtml(fmtMs(avgActiveMs))}</td>
+    </tr>
+    <tr><td colspan="2">${barHtml(shown, ACTIVE_BAR_CAP_MS, C.bar, 10)}</td></tr>
+    <tr><td colspan="2" style="padding-top:4px;font-size:11px;color:${C.muted}">scale 0 to 3m</td></tr>
+  </table>`;
 }
 
 export type AttributionDailyReportResult =
@@ -160,22 +236,16 @@ export async function runAttributionDailyReport(opts?: {
   }
 
   try {
-    const [dayRaw, stats, sourceEng, leaks] = await Promise.all([
+    const [dayRaw, allRaw, stats] = await Promise.all([
       attributionDaySummary(start, end),
+      attributionSummary(),
       landingDayStats(start, end),
-      landingSourceEngagement(start, end),
-      landingFunnelLeaks(start, end),
     ]);
     const dayRows = rollupDay(dayRaw);
+    const allRows = rollupAll(allRaw);
     const dayTot = sumDay(dayRows);
+    const allTot = sumDay(allRows);
     const visitors = Math.max(stats.unique_visitors, dayTot.visits);
-    const takeaway = oneTakeaway({
-      visitors,
-      paid: dayTot.paid,
-      pricing: stats.pricing_views,
-      sourceRows: sourceEng,
-      leaks,
-    });
 
     const funnel = [
       { label: "Visitors", value: visitors, color: "#555555" },
@@ -184,62 +254,68 @@ export async function runAttributionDailyReport(opts?: {
       { label: "Checkout", value: stats.checkout_opens, color: C.warn },
       { label: "Paid", value: dayTot.paid, color: C.good },
     ];
-    const funnelMax = Math.max(...funnel.map((s) => s.value), 1);
-    const visitMax = Math.max(...dayRows.map((r) => r.visits), 1);
 
-    const funnelRows = funnel
-      .map((s, i) => {
-        const prev = i === 0 ? s.value : funnel[i - 1]!.value;
-        const rate = i === 0 ? "" : ` · ${pctLabel(s.value, prev)}`;
-        return `<tr>
-          <td style="padding:6px 0 2px;font-size:14px;color:${C.ink}">${escapeHtml(s.label)}</td>
-          <td style="padding:6px 0 2px;font-size:14px;color:${C.ink};text-align:right;font-weight:600">${s.value}${escapeHtml(rate)}</td>
-        </tr>
-        <tr><td colspan="2" style="padding:0 0 8px">${barHtml(s.value, funnelMax, s.color)}</td></tr>`;
-      })
-      .join("");
-
-    const sourceRowsHtml = dayRows
-      .map(
-        (r) => `<tr>
-        <td style="padding:6px 8px 2px 0;font-size:14px;color:${C.ink}">${escapeHtml(r.label)}</td>
-        <td style="padding:6px 0 2px">${barHtml(r.visits, visitMax, r.color)}</td>
-        <td style="padding:6px 0 2px 10px;font-size:14px;color:${C.ink};text-align:right;white-space:nowrap">${r.visits}${r.paid ? ` · ${r.paid} paid` : ""}</td>
-      </tr>`,
-      )
-      .join("");
-
-    const subject = `MercerLine · ${label} · ${dayTot.paid} paid · ${visitors} visitors`;
+    const subject = `MercerLine ${label}  ${dayTot.paid} paid  ${visitors} visitors`;
 
     const html = `<!DOCTYPE html>
 <html>
 <body style="margin:0;padding:24px 16px;background:#ffffff;color:${C.ink};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
   <div style="max-width:520px;margin:0 auto">
-    <div style="font-size:13px;color:${C.muted}">MercerLine · ${escapeHtml(label)}</div>
-    <div style="font-size:20px;font-weight:700;margin:6px 0 4px;color:${C.ink}">${escapeHtml(takeaway)}</div>
-    <div style="font-size:13px;color:${C.muted};margin-bottom:20px">${visitors} visitors · ${fmtMs(stats.avg_active_ms)} avg active · ${stats.avg_scroll_pct}% scroll</div>
+    <div style="font-size:13px;color:${C.muted};margin-bottom:14px">MercerLine  ${escapeHtml(label)}</div>
 
-    <div style="font-size:12px;color:${C.muted};text-transform:uppercase;letter-spacing:0.06em;margin:0 0 8px">Funnel</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-bottom:22px">${funnelRows}</table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-bottom:22px">
+      ${metricRow("Visitors", String(visitors))}
+      ${metricRow("Sessions", String(stats.sessions))}
+      ${metricRow("Returning", String(stats.returning_visitors))}
+      ${metricRow("Paid", String(dayTot.paid))}
+      ${metricRow("All-time paid", String(allTot.paid))}
+    </table>
 
-    <div style="font-size:12px;color:${C.muted};text-transform:uppercase;letter-spacing:0.06em;margin:0 0 8px">Sources</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">${sourceRowsHtml}</table>
+    ${sectionLabel("Funnel")}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-bottom:22px">${funnelHtml(funnel)}</table>
 
-    <div style="font-size:11px;color:${C.muted};margin-top:24px">${escapeHtml(timeZone)} day · paid after Whop webhook</div>
+    ${sectionLabel("Time on page")}
+    <div style="margin-bottom:22px">${activeTimeHtml(stats.avg_active_ms)}</div>
+
+    ${sectionLabel("Scroll depth")}
+    <div style="margin-bottom:22px">${scrollDepthHtml(stats)}</div>
+
+    ${sectionLabel("Sources yesterday")}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-bottom:22px">${sourceBarsHtml(dayRows, "visits")}</table>
+
+    ${sectionLabel("All-time paid")}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">${sourceBarsHtml(allRows, "paid")}</table>
+
+    <div style="font-size:11px;color:${C.muted};margin-top:24px">${escapeHtml(timeZone)}</div>
   </div>
 </body>
 </html>`;
 
     const text = [
-      `MercerLine · ${label}`,
-      takeaway,
-      `${visitors} visitors · ${fmtMs(stats.avg_active_ms)} avg active · ${stats.avg_scroll_pct}% scroll`,
+      `MercerLine ${label}`,
+      `Visitors ${visitors}`,
+      `Sessions ${stats.sessions}`,
+      `Returning ${stats.returning_visitors}`,
+      `Paid ${dayTot.paid}`,
+      `All-time paid ${allTot.paid}`,
+      `Avg active ${fmtMs(stats.avg_active_ms)}`,
+      `Scroll avg ${stats.avg_scroll_pct}%`,
       "",
       "FUNNEL",
-      ...funnel.map((s) => `${s.label}: ${s.value}`),
+      ...funnel.map((s) => `${s.label} ${s.value}`),
+      "",
+      "SCROLL",
+      `25% ${stats.scroll_25}`,
+      `50% ${stats.scroll_50}`,
+      `75% ${stats.scroll_75}`,
+      `90% ${stats.scroll_90}`,
+      `100% ${stats.scroll_100}`,
       "",
       "SOURCES",
-      ...dayRows.map((r) => `${r.label}: ${r.visits} visits${r.paid ? `, ${r.paid} paid` : ""}`),
+      ...dayRows.map((r) => `${r.label} ${r.visits}`),
+      "",
+      "ALL-TIME PAID",
+      ...allRows.map((r) => `${r.label} ${r.paid}`),
     ].join("\n");
 
     const sent = await sendResendEmail({ to, subject, html, text });
@@ -255,7 +331,7 @@ export async function runAttributionDailyReport(opts?: {
       to,
       id: sent.id,
       dayRows: dayRows.length,
-      allTimeRows: 0,
+      allTimeRows: allRows.length,
     };
   } catch (err) {
     await releaseAttributionReportClaim(dayKey).catch(() => {});
