@@ -31,7 +31,10 @@ async function main() {
 
   const result = await runAttributionDailyReport({ to, force });
   console.log("[attribution-report] done", result);
-  if (!result.ok) process.exitCode = 1;
+  // already_sent is success for cron idempotency; only hard-fail real errors.
+  if (!result.ok && result.reason !== "already_sent" && result.reason !== "disabled") {
+    process.exitCode = 1;
+  }
 }
 
 main().catch((err) => {
