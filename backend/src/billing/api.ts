@@ -143,7 +143,15 @@ export async function handleBillingCheckout(req: http.IncomingMessage, res: http
     return;
   }
 
-  let body: { plan?: string; ref?: string; r?: string };
+  let body: {
+    plan?: string;
+    ref?: string;
+    r?: string;
+    visitor_id?: string;
+    visitorId?: string;
+    session_id?: string;
+    sessionId?: string;
+  };
   try {
     body = (await json(req)) ?? {};
   } catch {
@@ -173,15 +181,19 @@ export async function handleBillingCheckout(req: http.IncomingMessage, res: http
   }
 
   const ref = String(body.ref ?? body.r ?? "").trim().slice(0, 32) || null;
+  const visitorId = String(body.visitor_id ?? body.visitorId ?? "").trim().slice(0, 64) || null;
+  const sessionId = String(body.session_id ?? body.sessionId ?? "").trim().slice(0, 64) || null;
   const origin = frontendOrigin();
   const purchaseToken = user ? null : randomUUID();
 
-  if (ref && user) {
-    try {
-      await logAttributionCheckout(user.sub, ref);
-    } catch (err) {
-      console.warn("[attribution] checkout log failed", err);
-    }
+  try {
+    await logAttributionCheckout(user?.sub ?? null, ref, {
+      visitorId,
+      sessionId,
+      plan,
+    });
+  } catch (err) {
+    console.warn("[attribution] checkout log failed", err);
   }
 
   try {
@@ -198,6 +210,8 @@ export async function handleBillingCheckout(req: http.IncomingMessage, res: http
         metadata: {
           ...(user?.sub ? { supabase_user_id: user.sub } : { purchase_token: purchaseToken ?? "" }),
           ...(ref ? { ref } : {}),
+          ...(visitorId ? { visitor_id: visitorId } : {}),
+          ...(sessionId ? { session_id: sessionId } : {}),
           pricing_tier: String(tier),
           ...(detected.country ? { billing_country: detected.country } : {}),
         },

@@ -4,14 +4,17 @@ Frontend: **Settings** side tab (`activeTab=settings`).
 
 Whop checkout (embedded), membership status, webhooks, and referral tracking (`?r=`). Auth identity lives in `core/supabase-auth.ts`.
 
-Attribution funnel (`?r=` / short links `/yt` `/twt` `/ig` → signups → checkouts → paid) lives in `../attribution/` and `billing_accounts.referral_ref`. Organic traffic is logged as `direct`. Daily owner email rolls up to YouTube / Instagram / Twitter / Other: `scripts/send-attribution-daily.ts` / `scripts/run-attribution-report.sh`.
+Attribution funnel (`?r=` / short links `/yt` `/twt` `/ig` → signups → checkouts → paid) lives in `../attribution/` and `billing_accounts.referral_ref`. Organic traffic is logged as `direct`. Landing engagement (sessions, scroll, sections, buy clicks) posts to `POST /api/attribution/track`. Daily owner email (Europe/Vilnius day) rolls up sources + funnel + engagement: `scripts/send-attribution-daily.ts` / `scripts/run-attribution-report.sh` (`--force` to resend).
 
 Apply DB migrations after `billing.sql`:
 
 ```bash
 psql "$DATABASE_URL" -f backend/db/billing-whop.sql
 psql "$DATABASE_URL" -f backend/db/attribution.sql
+psql "$DATABASE_URL" -f backend/db/attribution-analytics.sql
 ```
+
+Tables are also created at runtime by `attribution/store.ts` ensureDDL.
 
 Owner-only summary: `GET /api/attribution/summary` (Bearer token with `billing_exempt` / owner role).
 

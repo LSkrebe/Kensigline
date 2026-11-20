@@ -90,7 +90,7 @@ function OriginalIntroReviewsSection() {
   }, [items.length])
 
   return (
-    <section className="lpSection lpReviews lpSection--ruled" aria-labelledby="lp-reviews-title">
+    <section id="reviews" className="lpSection lpReviews lpSection--ruled" aria-labelledby="lp-reviews-title">
       <IntroReveal revealKey="reviews-head" className="lpSectionHead lpSectionHead--center">
         <p className="lpEyebrow">Reviews</p>
         <h2 id="lp-reviews-title" className="lpSectionTitle">

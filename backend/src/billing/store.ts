@@ -152,6 +152,14 @@ export async function syncFromWhopMembership(
   const manageUrl = membership.manage_url ?? null;
   const status = String(membership.status ?? "none").toLowerCase();
 
+  const priorMembership = await getBillingByWhopMembershipId(membershipId);
+  const priorUser = await getBillingByUserId(userId);
+  const paidStatuses = new Set(["active", "trialing", "completed"]);
+  const alreadyPaid =
+    paidStatuses.has(String(priorMembership?.status ?? "").toLowerCase()) ||
+    paidStatuses.has(String(priorUser?.status ?? "").toLowerCase());
+  const becamePaid = paidStatuses.has(status) && !alreadyPaid;
+
   await db.query(
     `
     INSERT INTO billing_accounts (
@@ -174,6 +182,19 @@ export async function syncFromWhopMembership(
     [userId, email, membershipId, whopUserId, referralRef, manageUrl, status, plan, planId, periodEnd],
   );
   invalidateBillingAccessCache(userId);
+
+  if (becamePaid) {
+    try {
+      const { logAttributionPaid } = await import("../attribution/api.js");
+      await logAttributionPaid({
+        ref: referralRef,
+        userId,
+        visitorId: metaString(meta, "visitor_id") ?? metaString(meta, "visitorId"),
+      });
+    } catch (err) {
+      console.warn("[billing] attribution paid log failed", err);
+    }
+  }
 
   // Filing brief on by default for every member.
   if (email) {

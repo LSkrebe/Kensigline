@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { WhopCheckoutEmbed } from '@whop/checkout/react'
 import { fetchJsonSafe, getBackendBase } from './api.js'
 import { activateCheckoutSession } from './checkoutActivate.js'
-import { peekReferralRef } from './referralRef.js'
+import { peekReferralRef, peekVisitorId } from './referralRef.js'
 import { SkeletonStatus } from './AppSkeleton.jsx'
 
 const WHOP_ENV = import.meta.env.VITE_WHOP_ENV === 'sandbox' ? 'sandbox' : 'production'
@@ -38,9 +38,21 @@ export function WhopCheckoutPanel({
     setBusy(true)
     setErr('')
     const ref = peekReferralRef()
+    const visitorId = peekVisitorId()
+    let sessionAnalyticsId = null
+    try {
+      sessionAnalyticsId = sessionStorage.getItem('ml.analytics.sid')
+    } catch {
+      /* ignore */
+    }
     const res = await fetchJsonSafe('/api/billing/checkout', {
       method: 'POST',
-      body: { plan: selectedPlan, ...(ref ? { r: ref } : {}) },
+      body: {
+        plan: selectedPlan,
+        ...(ref ? { r: ref } : {}),
+        ...(visitorId ? { visitor_id: visitorId } : {}),
+        ...(sessionAnalyticsId ? { session_id: sessionAnalyticsId } : {}),
+      },
       timeoutMs: 20000,
     })
     setBusy(false)

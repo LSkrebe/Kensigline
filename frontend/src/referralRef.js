@@ -2,6 +2,7 @@ import { fetchJsonSafe } from './api.js'
 
 const REF_KEY = 'ml.ref'
 const VISITOR_KEY = 'ml.ref.vid'
+const UTM_KEY = 'ml.utm'
 const VISIT_LOGGED_PREFIX = 'ml.ref.logged.'
 
 /** Organic / no campaign — used in attribution_events when no ?r= is present. */
@@ -33,17 +34,44 @@ function pathRef() {
   return SHORT_PATH_REFS[path] ?? null
 }
 
+function captureUtm(store) {
+  try {
+    if (store.getItem(UTM_KEY)) return
+    const params = new URLSearchParams(window.location.search)
+    const source = params.get('utm_source')?.trim().slice(0, 64)
+    const medium = params.get('utm_medium')?.trim().slice(0, 64)
+    const campaign = params.get('utm_campaign')?.trim().slice(0, 64)
+    const content = params.get('utm_content')?.trim().slice(0, 64)
+    const term = params.get('utm_term')?.trim().slice(0, 64)
+    if (!source && !medium && !campaign && !content && !term) return
+    store.setItem(
+      UTM_KEY,
+      JSON.stringify({
+        source: source || null,
+        medium: medium || null,
+        campaign: campaign || null,
+        content: content || null,
+        term: term || null,
+      }),
+    )
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Capture ?r= / short path (e.g. /yt) and persist until checkout; log organic as direct. */
 export function captureReferralRef() {
   const store = storage()
   if (!store) return null
   try {
+    captureUtm(store)
     const params = new URLSearchParams(window.location.search)
     const fromUrl = params.get('r')?.trim().slice(0, 32) || pathRef()
     if (fromUrl) {
-      store.setItem(REF_KEY, fromUrl)
-      void logAttributionVisit(fromUrl)
-      return fromUrl
+      // First-touch sticky: only set if empty.
+      if (!store.getItem(REF_KEY)) store.setItem(REF_KEY, fromUrl)
+      void logAttributionVisit(store.getItem(REF_KEY) || fromUrl)
+      return store.getItem(REF_KEY) || fromUrl
     }
     const existing = store.getItem(REF_KEY)
     if (existing) return existing
@@ -59,6 +87,29 @@ export function peekReferralRef() {
   if (!store) return null
   try {
     return store.getItem(REF_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function peekVisitorId() {
+  const store = storage()
+  if (!store) return null
+  try {
+    return visitorId(store)
+  } catch {
+    return null
+  }
+}
+
+export function peekUtm() {
+  const store = storage()
+  if (!store) return null
+  try {
+    const raw = store.getItem(UTM_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : null
   } catch {
     return null
   }
@@ -94,9 +145,13 @@ async function logAttributionVisit(ref) {
 export async function recordAttributionSignup(ref) {
   const normalized = String(ref ?? '').trim().slice(0, 32)
   if (!normalized) return
+  const store = storage()
   await fetchJsonSafe('/api/attribution/signup', {
     method: 'POST',
-    body: { ref: normalized },
+    body: {
+      ref: normalized,
+      visitor_id: store ? visitorId(store) : undefined,
+    },
     timeoutMs: 8000,
   })
 }

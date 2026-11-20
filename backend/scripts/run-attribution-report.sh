@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Daily attribution report — yesterday (UTC) + all-time funnel by source.
+# Daily attribution + landing analytics report — previous Europe/Vilnius day.
 #
 # Usage (on Hetzner):
 #   bash backend/scripts/run-attribution-report.sh
 #   bash backend/scripts/run-attribution-report.sh --to lukas.skrebe@gmail.com
+#   bash backend/scripts/run-attribution-report.sh --force
 #
-# Cron example (once daily ~07:05 UTC):
-#   5 7 * * * APP_DIR=/opt/kensigline bash /opt/kensigline/backend/scripts/run-attribution-report.sh
+# Cron example (09:00 Europe/Vilnius ≈ 07:00 UTC in winter / 06:00 UTC in summer):
+#   0 7 * * * APP_DIR=/opt/kensigline bash /opt/kensigline/backend/scripts/run-attribution-report.sh
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/opt/kensigline}"

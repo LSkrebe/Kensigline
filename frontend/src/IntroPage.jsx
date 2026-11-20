@@ -30,6 +30,7 @@ import { markAppReady } from './marketingShell.js'
 import { pageBackgroundStyle } from './pageBackgrounds.js'
 import { useBillingPricing } from './useBillingPricing.js'
 import { useIntroSnapCarousel } from './useIntroSnapCarousel.js'
+import { startLandingAnalytics, trackLandingEvent } from './landingAnalytics.js'
 import './IntroPage.marketing.css'
 import './IntroPage.motion.css'
 import './SubscribePage.css'
@@ -106,6 +107,7 @@ export function IntroPage() {
 
   const goToSignIn = useCallback((e) => {
     e?.preventDefault()
+    trackLandingEvent('login_clicked', { location: 'nav' })
     navigateMarketing('/sign-in')
   }, [])
 
@@ -125,9 +127,23 @@ export function IntroPage() {
   }, [])
 
   const scrollToPricing = useCallback(
-    (e) => scrollToSection(PRICING_SECTION_ID, e),
+    (e, location = 'nav') => {
+      trackLandingEvent('cta_clicked', { location, target: PRICING_SECTION_ID })
+      scrollToSection(PRICING_SECTION_ID, e)
+    },
     [scrollToSection],
   )
+
+  useEffect(() => {
+    let stop = () => {}
+    const id = requestAnimationFrame(() => {
+      stop = startLandingAnalytics({ scroller: pageRef.current }) || (() => {})
+    })
+    return () => {
+      cancelAnimationFrame(id)
+      stop()
+    }
+  }, [])
 
   const scrollToTop = useCallback((e) => {
     e?.preventDefault()
@@ -136,6 +152,7 @@ export function IntroPage() {
   }, [])
 
   const onCheckout = useCallback((planId) => {
+    trackLandingEvent('buy_clicked', { location: 'pricing', plan: planId })
     setCheckoutPlan(planId)
     setCheckoutAttempt((n) => n + 1)
     setCheckoutMsg('')
@@ -175,7 +192,9 @@ export function IntroPage() {
     returnToIntroAfterSignOut()
   }, [signOut])
 
-  const goPrimary = waitlist ? goToWaitlist : scrollToPricing
+  const goPrimary = waitlist
+    ? goToWaitlist
+    : (e) => scrollToPricing(e, 'hero')
   const secondarySection = waitlist ? 'product' : pricing.founders ? 'leaders' : 'product'
   const goBelowHero = useCallback((e) => scrollToSection(secondarySection, e), [scrollToSection, secondarySection])
   const primaryHref = waitlist ? '/waitlist' : `#${PRICING_SECTION_ID}`
@@ -487,7 +506,7 @@ export function IntroPage() {
             </IntroReveal>
           </section>
 
-          <IntroReveal as="section" revealKey="cta" className="lpCtaBand">
+          <IntroReveal as="section" revealKey="cta" id="cta" className="lpCtaBand">
             <h2 className="lpCtaTitle">{closing.title}</h2>
             <p className="lpCtaLead">
               {waitlist ? (
@@ -507,7 +526,7 @@ export function IntroPage() {
                 {closing.ctaPrimary}
               </a>
             ) : (
-              <button type="button" className={`lpBtn ${accentBtn}`} onClick={scrollToPricing}>
+              <button type="button" className={`lpBtn ${accentBtn}`} onClick={(e) => scrollToPricing(e, 'closing')}>
                 {closing.ctaPrimary}
               </button>
             )}

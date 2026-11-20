@@ -32,6 +32,7 @@ import { handleDigestSparklinePng } from "./alerts/sparkline-route.js";
 import {
   handleAttributionSignup,
   handleAttributionSummary,
+  handleAttributionTrack,
   handleAttributionVisit,
 } from "./attribution/api.js";
 import { getSecTickerTitleMap } from "./core/sec.js";
@@ -172,6 +173,11 @@ const server = http.createServer(async (req, res) => {
 
     if (route(req, url, "POST", "/api/attribution/visit")) {
       await handleAttributionVisit(req, res);
+      return;
+    }
+
+    if (route(req, url, "POST", "/api/attribution/track")) {
+      await handleAttributionTrack(req, res);
       return;
     }
 

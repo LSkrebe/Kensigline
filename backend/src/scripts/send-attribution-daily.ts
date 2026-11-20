@@ -21,13 +21,15 @@ function readArg(flag: string): string | null {
 
 async function main() {
   const to = readArg("--to") ?? attributionReportRecipient();
+  const force = process.argv.includes("--force");
 
   console.log("[attribution-report] start", {
     to,
+    force,
     at: new Date().toISOString(),
   });
 
-  const result = await runAttributionDailyReport({ to });
+  const result = await runAttributionDailyReport({ to, force });
   console.log("[attribution-report] done", result);
   if (!result.ok) process.exitCode = 1;
 }
