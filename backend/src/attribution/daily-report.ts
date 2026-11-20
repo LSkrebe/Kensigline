@@ -55,6 +55,8 @@ type DayBucketRow = {
   label: string;
   color: string;
   visits: number;
+  signups: number;
+  checkouts: number;
   paid: number;
 };
 
@@ -64,6 +66,8 @@ function emptyBuckets(): DayBucketRow[] {
     label: b.label,
     color: b.color,
     visits: 0,
+    signups: 0,
+    checkouts: 0,
     paid: 0,
   }));
 }
@@ -73,6 +77,8 @@ function rollupDay(rows: AttributionDayRow[]): DayBucketRow[] {
   for (const r of rows) {
     const row = map.get(bucketKeyForRef(r.ref))!;
     row.visits += r.visits;
+    row.signups += r.signups;
+    row.checkouts += r.checkouts;
     row.paid += r.paid ?? 0;
   }
   return REPORT_BUCKETS.map((b) => map.get(b.key)!);
@@ -83,6 +89,8 @@ function rollupAll(rows: AttributionSummaryRow[]): DayBucketRow[] {
   for (const r of rows) {
     const row = map.get(bucketKeyForRef(r.ref))!;
     row.visits += r.visits;
+    row.signups += r.signups;
+    row.checkouts += r.checkouts;
     row.paid += r.paid;
   }
   return REPORT_BUCKETS.map((b) => map.get(b.key)!);
@@ -92,10 +100,12 @@ function sumDay(rows: DayBucketRow[]) {
   return rows.reduce(
     (acc, r) => {
       acc.visits += r.visits;
+      acc.signups += r.signups;
+      acc.checkouts += r.checkouts;
       acc.paid += r.paid;
       return acc;
     },
-    { visits: 0, paid: 0 },
+    { visits: 0, signups: 0, checkouts: 0, paid: 0 },
   );
 }
 
@@ -158,17 +168,40 @@ function funnelHtml(steps: Array<{ label: string; value: number; color: string }
     .join("");
 }
 
-function sourceBarsHtml(rows: DayBucketRow[], metric: "visits" | "paid"): string {
-  const max = Math.max(...rows.map((r) => r[metric]), 1);
-  return rows
+function sourceTableHtml(rows: DayBucketRow[]): string {
+  const body = rows
     .map(
       (r) => `<tr>
-      <td width="26%" style="padding:6px 8px 2px 0;font-size:14px;color:${C.ink}">${escapeHtml(r.label)}</td>
-      <td style="padding:6px 0 2px">${barHtml(r[metric], max, r.color)}</td>
-      <td width="40" style="padding:6px 0 2px 10px;font-size:14px;color:${C.ink};text-align:right;font-weight:600">${r[metric]}</td>
-    </tr>`,
+        <td style="padding:6px 8px;border-bottom:1px solid #eee;font-size:13px;color:${C.ink}">${escapeHtml(r.label)}</td>
+        <td style="padding:6px 4px;border-bottom:1px solid #eee;font-size:13px;color:${C.ink};text-align:right">${r.visits}</td>
+        <td style="padding:6px 4px;border-bottom:1px solid #eee;font-size:13px;color:${C.ink};text-align:right">${r.signups}</td>
+        <td style="padding:6px 4px;border-bottom:1px solid #eee;font-size:13px;color:${C.ink};text-align:right">${r.checkouts}</td>
+        <td style="padding:6px 4px;border-bottom:1px solid #eee;font-size:13px;color:${C.ink};text-align:right;font-weight:600">${r.paid}</td>
+      </tr>`,
     )
     .join("");
+  const t = sumDay(rows);
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">
+    <thead>
+      <tr style="background:#f6f6f6">
+        <th style="padding:6px 8px;font-size:12px;color:${C.muted};text-align:left;font-weight:600">Source</th>
+        <th style="padding:6px 4px;font-size:12px;color:${C.muted};text-align:right;font-weight:600">Visits</th>
+        <th style="padding:6px 4px;font-size:12px;color:${C.muted};text-align:right;font-weight:600">Signups</th>
+        <th style="padding:6px 4px;font-size:12px;color:${C.muted};text-align:right;font-weight:600">Checkouts</th>
+        <th style="padding:6px 4px;font-size:12px;color:${C.muted};text-align:right;font-weight:600">Paid</th>
+      </tr>
+    </thead>
+    <tbody>${body}</tbody>
+    <tfoot>
+      <tr>
+        <td style="padding:8px 8px 0;font-size:13px;color:${C.ink};font-weight:700">Total</td>
+        <td style="padding:8px 4px 0;font-size:13px;color:${C.ink};text-align:right;font-weight:700">${t.visits}</td>
+        <td style="padding:8px 4px 0;font-size:13px;color:${C.ink};text-align:right;font-weight:700">${t.signups}</td>
+        <td style="padding:8px 4px 0;font-size:13px;color:${C.ink};text-align:right;font-weight:700">${t.checkouts}</td>
+        <td style="padding:8px 4px 0;font-size:13px;color:${C.ink};text-align:right;font-weight:700">${t.paid}</td>
+      </tr>
+    </tfoot>
+  </table>`;
 }
 
 function scrollDepthHtml(stats: LandingDayStats): string {
@@ -281,10 +314,10 @@ export async function runAttributionDailyReport(opts?: {
     <div style="margin-bottom:22px">${scrollDepthHtml(stats)}</div>
 
     ${sectionLabel("Sources yesterday")}
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin-bottom:22px">${sourceBarsHtml(dayRows, "visits")}</table>
+    <div style="margin-bottom:22px">${sourceTableHtml(dayRows)}</div>
 
-    ${sectionLabel("All-time paid")}
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%">${sourceBarsHtml(allRows, "paid")}</table>
+    ${sectionLabel("Sources all-time")}
+    <div>${sourceTableHtml(allRows)}</div>
 
     <div style="font-size:11px;color:${C.muted};margin-top:24px">${escapeHtml(timeZone)}</div>
   </div>
@@ -311,11 +344,11 @@ export async function runAttributionDailyReport(opts?: {
       `90% ${stats.scroll_90}`,
       `100% ${stats.scroll_100}`,
       "",
-      "SOURCES",
-      ...dayRows.map((r) => `${r.label} ${r.visits}`),
+      "SOURCES YESTERDAY",
+      ...dayRows.map((r) => `${r.label} visits ${r.visits} signups ${r.signups} checkouts ${r.checkouts} paid ${r.paid}`),
       "",
-      "ALL-TIME PAID",
-      ...allRows.map((r) => `${r.label} ${r.paid}`),
+      "SOURCES ALL-TIME",
+      ...allRows.map((r) => `${r.label} visits ${r.visits} signups ${r.signups} checkouts ${r.checkouts} paid ${r.paid}`),
     ].join("\n");
 
     const sent = await sendResendEmail({ to, subject, html, text });
